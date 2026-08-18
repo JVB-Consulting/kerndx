@@ -28,7 +28,7 @@
  *
  * @group Data Masking
  *
- * @date April 2026, June 2026
+ * @date April 2026, August 2026
  *
  * @example
  * ```apex
@@ -328,9 +328,17 @@ public inherited sharing class UTIL_FrameworkMasker
 	 * detect platform events and switch to `isCreateable()` for the writability check so
 	 * wildcard masking still covers event fields.
 	 *
+	 * Fields that identify the record — unique keys and external ids — are never expanded to, however
+	 * text-shaped they are. Masking rewrites the value it matches; on a key that destroys the key, and
+	 * on a unique index the next record whose key masks to the same constant fails to insert (a chain
+	 * correlation id carrying a long order number reads as a payment card to the shipped card rule and
+	 * `AsyncChainExecution__c.CorrelationId__c` is unique). A target that names such a field explicitly
+	 * is the administrator's deliberate choice and is honoured; the wildcard is not allowed to make it
+	 * by accident.
+	 *
 	 * @param sObjectType The SObjectType to enumerate
 	 *
-	 * @return The list of SObjectField tokens for writable Text/TextArea/LongTextArea/URL/Email/Phone/Encrypted fields
+	 * @return The list of SObjectField tokens for writable Text/TextArea/LongTextArea/URL/Email/Phone/Encrypted fields that are neither unique nor external ids
 	 */
 	@TestVisible
 	private static List<SObjectField> getUpdateableTextFields(SObjectType sObjectType)
@@ -358,6 +366,11 @@ public inherited sharing class UTIL_FrameworkMasker
 				continue;
 			}
 
+			if(isIdentifierField(describe))
+			{
+				continue;
+			}
+
 			DisplayType fieldType = describe.getType();
 
 			if
@@ -376,6 +389,52 @@ public inherited sharing class UTIL_FrameworkMasker
 
 		cachedUpdateableTextFields.put(sObjectType, fields);
 		return fields;
+	}
+
+	/**
+	 * @description Whether a field identifies its record — a unique key or an external id. The one
+	 * predicate behind every wildcard decision (the record-path expansion, the per-field wildcard
+	 * admission, and the advisor's coverage claims), so no surface can claim or apply wildcard
+	 * masking the record path refuses. Null-safe: an unresolvable field is not an identifier.
+	 *
+	 * @param field The field token to test; may be null.
+	 *
+	 * @return `true` when the field is unique or an external id.
+	 */
+	public static Boolean isIdentifierField(SObjectField field)
+	{
+		return field != null && isIdentifierField(UTIL_SObjectDescribe.getCachedFieldDescribe(field));
+	}
+
+	/**
+	 * @description The describe-level half of `isIdentifierField(SObjectField)`. Both facets are
+	 * excluded on purpose: rewriting a unique key fails the next record loudly (DUPLICATE_VALUE on
+	 * the index), while rewriting a non-unique external id fails silently — later upserts on the
+	 * true key miss or land on the wrong record, and integration joins sever.
+	 *
+	 * @param describe The field describe to test.
+	 *
+	 * @return `true` when the field is unique or an external id.
+	 */
+	@TestVisible
+	private static Boolean isIdentifierField(DescribeFieldResult describe)
+	{
+		return describe.isUnique() || describe.isExternalId();
+	}
+
+	/**
+	 * @description Whether the field a masking call supplies by qualified name identifies its record —
+	 * `selectApplicableTargets`' bridge from the `Object.Field` string it works in to the token
+	 * predicate above.
+	 *
+	 * @param sObjectType The SObjectType the qualified name belongs to.
+	 * @param qualifiedFieldName The `Object.Field` qualified name.
+	 *
+	 * @return `true` when the named field resolves and is unique or an external id.
+	 */
+	private static Boolean isIdentifierQualifiedField(SObjectType sObjectType, String qualifiedFieldName)
+	{
+		return isIdentifierField(UTIL_SObjectDescribe.getDescribe(sObjectType).getField(qualifiedFieldName.substringAfter(UTIL_String.DOT)));
 	}
 
 	/**
@@ -489,7 +548,10 @@ public inherited sharing class UTIL_FrameworkMasker
 	 * combination:
 	 *
 	 * - if a target exists with a specific `Field__c` equal to the current field, it wins
-	 * - otherwise if a target exists with blank `Field__c` (wildcard), it applies
+	 * - otherwise if a target exists with blank `Field__c` (wildcard), it applies — unless the field
+	 *   is a unique key or an external id, which wildcards never touch on any path (the same
+	 *   `isIdentifierField` rule the record-path expansion applies), so a preview or sample through
+	 *   this path can never claim a masking the record path refuses
 	 * - otherwise the rule does not fire on this field
 	 *
 	 * Targets whose caller scope does not match or whose rule has been invalidated this
@@ -503,6 +565,7 @@ public inherited sharing class UTIL_FrameworkMasker
 	 */
 	private static List<MaskingTarget__mdt> selectApplicableTargets(SObjectType sObjectType, String qualifiedFieldName, String callerClassName)
 	{
+		Boolean identifierField = isIdentifierQualifiedField(sObjectType, qualifiedFieldName);
 		List<MaskingTarget__mdt> inScopeTargets = new List<MaskingTarget__mdt>();
 		Map<MaskingTarget__mdt, String> resolvedFieldByTarget = new Map<MaskingTarget__mdt, String>();
 
@@ -520,7 +583,7 @@ public inherited sharing class UTIL_FrameworkMasker
 			String resolvedField = resolveQualifiedFieldName(target);
 			resolvedFieldByTarget.put(target, resolvedField);
 
-			if(String.isBlank(resolvedField) || resolvedField == qualifiedFieldName)
+			if((String.isBlank(resolvedField) && !identifierField) || resolvedField == qualifiedFieldName)
 			{
 				inScopeTargets.add(target);
 			}

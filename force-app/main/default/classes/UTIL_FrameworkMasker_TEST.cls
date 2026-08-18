@@ -8,7 +8,7 @@
  *
  * @group Data Masking
  *
- * @date April 2026, June 2026
+ * @date April 2026, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ExcessiveParameterList,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -1259,6 +1259,83 @@ private class UTIL_FrameworkMasker_TEST
 
 			Assert.isFalse(first.isEmpty(), 'Foobar__c should expose at least one updateable text-shaped field');
 			Assert.areEqual(first.size(), second.size(), 'Cached lookup should return the same list on repeated calls');
+		}
+	}
+
+	/**
+	 * @description Tests that a wildcard target never expands to a field that identifies the record —
+	 * a unique key or an external id. Masking rewrites the value it matches; on a key that means the
+	 * key is destroyed and, on a unique index, the NEXT record whose key masks to the same constant
+	 * fails to insert. A chain correlation id built from a long numeric order number is exactly the
+	 * shape a payment-card rule matches, and `AsyncChainExecution__c.CorrelationId__c` is unique.
+	 */
+	@IsTest
+	private static void shouldNotExpandWildcardToUniqueOrExternalIdFields()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Set<SObjectField> chainFields = new Set<SObjectField>(UTIL_FrameworkMasker.getUpdateableTextFields(AsyncChainExecution__c.SObjectType));
+			Set<SObjectField> foobarFields = new Set<SObjectField>(UTIL_FrameworkMasker.getUpdateableTextFields(Foobar__c.SObjectType));
+
+			Assert.isFalse(chainFields.contains(AsyncChainExecution__c.CorrelationId__c), 'A unique external-id key must never be a wildcard masking target');
+			Assert.isFalse(chainFields.contains(AsyncChainExecution__c.ActiveDeduplicationKey__c), 'The unique deduplication key must never be a wildcard masking target');
+			Assert.isTrue(chainFields.contains(AsyncChainExecution__c.ErrorMessage__c), 'Ordinary text fields on the same object still expand');
+			Assert.isFalse(foobarFields.contains(Foobar__c.ExternalId__c), 'An external id that is not unique is still an identifier and must not be masked by a wildcard');
+			Assert.isTrue(foobarFields.contains(Foobar__c.Text__c), 'Ordinary text fields on Foobar__c still expand');
+		}
+	}
+
+	/**
+	 * @description Tests that the identifier predicate — the one rule behind every wildcard decision —
+	 * reads the describe facets and tolerates an unresolved field.
+	 */
+	@IsTest
+	private static void shouldReportIdentifierFieldsFromTheirDescribeFacets()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Assert.isTrue(UTIL_FrameworkMasker.isIdentifierField(Foobar__c.ExternalId__c), 'An external id identifies its record');
+			Assert.isFalse(UTIL_FrameworkMasker.isIdentifierField(Foobar__c.Text__c), 'An ordinary text field does not');
+			Assert.isFalse(UTIL_FrameworkMasker.isIdentifierField((SObjectField)null), 'An unresolved field is not an identifier');
+		}
+	}
+
+	/**
+	 * @description Tests that a wildcard target never fires on an identifier field through `forField`
+	 * either — the preview/sample path the advisor uses. Without this the preview would show a masking
+	 * the record path (whose wildcard expansion skips identifier fields) never performs.
+	 */
+	@IsTest
+	private static void shouldNotFireWildcardTargetOnIdentifierFieldThroughForField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTarget(null, SEL_MaskingRule.MODE_REGEX, '\\d+', 'XXX', null, 'TestRule', 10, null);
+
+			UTIL_FrameworkMasker.MaskingResult identifierResult = UTIL_FrameworkMasker.forField(Foobar__c.ExternalId__c).mask('order 4111111111111111');
+			UTIL_FrameworkMasker.MaskingResult textResult = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('order 4111111111111111');
+
+			Assert.areEqual('order 4111111111111111', identifierResult.maskedValue, 'A wildcard must not rewrite an identifier field, even in preview');
+			Assert.areEqual(0, identifierResult.rulesMatched, 'No rule should report a match on the identifier field');
+			Assert.areEqual('order XXX', textResult.maskedValue, 'The same wildcard still fires on an ordinary text field');
+		}
+	}
+
+	/**
+	 * @description Tests that a target naming an identifier field explicitly is still honoured — the
+	 * administrator's deliberate choice; only the wildcard steps around identifier fields.
+	 */
+	@IsTest
+	private static void shouldHonourExplicitTargetOnIdentifierField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTarget(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.ExternalId__c), SEL_MaskingRule.MODE_REGEX, '\\d+', 'XXX', null, 'TestRule', 10, null);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.ExternalId__c).mask('order 12345');
+
+			Assert.areEqual('order XXX', result.maskedValue, 'An explicit target on an identifier field is the administrator\'s deliberate choice and fires');
+			Assert.areEqual(1, result.rulesMatched, 'The explicit rule should report its match');
 		}
 	}
 

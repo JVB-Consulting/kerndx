@@ -7,6 +7,10 @@ navOrder: 64
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Redacting sensitive values in logs, callouts, async jobs, and on records before they are stored
@@ -196,7 +200,7 @@ You get protection on day one with no configuration. The framework handles credi
 | `MaskSecretKeys`   | Values under secret-bearing JSON keys (`password`, `token`, `api_key`, `authorization`, `bearer`, `client_secret`, `access_token`, `refresh_token`, …) | the same four framework objects |
 
 These are wired through **8 masking targets**: one payment-card target and one secret target on each of the four framework objects. Each is an
-*object-wide wildcard* (no specific field named, so every text-shaped field on the object is covered). Concretely, this is what gets redacted before it is saved:
+*object-wide wildcard* (no specific field named, so every text-shaped field on the object is covered, except unique keys and external ids). Concretely, this is what gets redacted before it is saved:
 
 - **Logs:** `LogEntryEvent__e` messages and context (the logger path).
 - **Outbound API records:** `ApiCall__c` request content, including request bodies stored as attachments (the outbound path).
@@ -356,12 +360,17 @@ Now you point a rule at the exact place it should run. That connection is a `Mas
 |-------------------|---------------------------------------------------------------------------------------------------------------------------------|----------|
 | `Rule__c`         | The `MaskingRule__mdt` to apply (its developer name, e.g. `MaskSecretKeys`).                                                     | Yes      |
 | `SObjectType__c`  | The object API name (e.g. `kern__ApiCall__c`, or your own `Contact`).                                                            | Yes      |
-| `Field__c`        | A specific field. **Leave blank for an object-wide wildcard** (every text-shaped field on the object).                           | No       |
+| `Field__c`        | A specific field. **Leave blank for an object-wide wildcard** (every text-shaped field on the object, except unique keys and external ids, explained below). | No       |
 | `CallerClass__c`  | Restrict the target to calls from one Apex class (blank = any caller). See [Caller-Class Scoping](#caller-class-scoping).        | No       |
 | `IsActive__c`     | Turn the target on or off without deleting it. Defaults to true.                                                                  | No       |
 
 A **specific-field** target (one with `Field__c` set) takes precedence over a wildcard target for the same rule and caller. That lets you blanket an object and still carve out
 exceptions.
+
+A wildcard never touches a field that identifies the record (a unique field or an external id), however text-shaped it is. Masking rewrites the value it matches; on a key,
+that rewrite destroys the key. A correlation id or order number long enough to look like a card number would come out as `[CARD_REDACTED]`, and the next record whose key
+masks to the same constant would fail to save on a unique index. If you really do want a rule on such a field, name it explicitly in `Field__c`. An explicit target is
+honoured; only the wildcard steps around it.
 
 Here is a shipped wildcard target, the secret-key target on `ApiCall__c`, as a worked example of the XML shape:
 

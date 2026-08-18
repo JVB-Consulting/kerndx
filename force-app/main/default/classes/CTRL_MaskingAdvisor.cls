@@ -14,7 +14,7 @@
  *
  * @group Controllers
  *
- * @date May 2026, July 2026
+ * @date May 2026, August 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssTypeCount')
 public inherited sharing class CTRL_MaskingAdvisor
@@ -759,7 +759,9 @@ public inherited sharing class CTRL_MaskingAdvisor
 	 *
 	 * @param row The analyzed field row to project.
 	 * @param describe The cached object describe, for the field's length/type.
-	 * @param objectWideMasked Whether an active object-wide target covers every field on the object.
+	 * @param objectWideMasked Whether an active object-wide target covers the object's text fields. It does
+	 * NOT claim identifier fields (unique keys and external ids) — a wildcard never masks those, so the
+	 * inventory must not report them covered (the compliance export is exactly where an overclaim hurts).
 	 *
 	 * @return The inventory row.
 	 */
@@ -775,7 +777,7 @@ public inherited sharing class CTRL_MaskingAdvisor
 		inventoryRow.sensitivityLevel = row.sensitivityLevel;
 		inventoryRow.recommendedRuleDeveloperName = row.recommendedRuleDeveloperName;
 		inventoryRow.recommendedRuleLabel = row.recommendedRuleLabel;
-		inventoryRow.maskedToday = objectWideMasked || hasActiveRule(row.appliedRules);
+		inventoryRow.maskedToday = (objectWideMasked && !UTIL_FrameworkMasker.isIdentifierField(describe.getField(row.apiName))) || hasActiveRule(row.appliedRules);
 		inventoryRow.historyTrackingRecommended = SENSITIVITY_SENSITIVE == row.sensitivityLevel;
 		return inventoryRow;
 	}
