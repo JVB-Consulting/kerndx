@@ -29,7 +29,7 @@
  *
  * @group Security
  *
- * @date May 2026, July 2026
+ * @date May 2026, August 2026
  *
  * @since 1.0
  *
@@ -315,8 +315,13 @@ public inherited sharing class UTIL_BypassAudit
 	 * Records the resolved caller (the first non-framework stack frame, via `UTIL_System`) in both
 	 * `ClassMethod__c` and the `caller` context key, so the provenance column names the code that
 	 * performed the bypass rather than this helper. `ShortMessage__c` carries a concise
-	 * `action target` summary while `Message__c` keeps the fuller human-readable detail including
-	 * the caller.
+	 * `action target (surface)` summary while `Message__c` keeps the fuller human-readable detail
+	 * including the caller. The surface is part of the summary because it is part of the
+	 * fingerprint: the same action on the same target audited from two surfaces — a clear-all that
+	 * empties both trigger bypass lists, say — persists as two grouped problems, and without the
+	 * surface those two rows read identically and the grouping looks broken. The one surface whose
+	 * target IS the surface (the reason latch) skips the qualifier — `CLEAR reason-latch
+	 * (reason-latch)` would say the same thing twice.
 	 *
 	 * Audit entries are emitted through `LOG_Builder.LogEntry.emitAsAudit()` so they accumulate
 	 * in `LOG_Engine.auditLogBuffer` rather than the application log buffer — test assertions
@@ -348,7 +353,7 @@ public inherited sharing class UTIL_BypassAudit
 		String caller = UTIL_System.resolveExternalCaller(BYPASS_AUDIT_FRAMEWORK_CLASSES, DEFAULT_CALLER);
 		LOG_Builder.LogEntry entry = LOG_Builder.build()
 				.warn('Bypass audit: ' + surface + UTIL_String.SPACE + action + ' "' + target + '" by ' + caller)
-				.withSummary(action + UTIL_String.SPACE + target)
+				.withSummary(surface == target ? action + UTIL_String.SPACE + target : action + UTIL_String.SPACE + target + UTIL_String.SPACE + '(' + surface + ')')
 				.at(caller)
 				.withContext(CONTEXT_CATEGORY, LOG_CATEGORY)
 				.withContext(CONTEXT_SURFACE, surface)

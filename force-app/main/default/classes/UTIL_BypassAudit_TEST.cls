@@ -10,7 +10,7 @@
  *
  * @group Security
  *
- * @date May 2026, June 2026
+ * @date May 2026, August 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(SeeAllData=false IsParallel=true)
@@ -130,6 +130,8 @@ private class UTIL_BypassAudit_TEST
 		Assert.areEqual(UTIL_BypassAudit.SURFACE_REASON_LATCH, context.get(UTIL_BypassAudit.CONTEXT_SURFACE), 'Surface should be reason-latch');
 		Assert.areEqual(UTIL_BypassAudit.ACTION_CLEAR, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be CLEAR');
 		Assert.areEqual(REASON_TEXT, context.get('previousReason'), 'previousReason extra should capture the dropped value');
+		String latchSummary = UTIL_BypassAudit.ACTION_CLEAR + ' ' + UTIL_BypassAudit.SURFACE_REASON_LATCH;
+		Assert.areEqual(latchSummary, entry.ShortMessage__c, 'A target that IS the surface should not repeat itself as the qualifier');
 	}
 
 	/**
@@ -397,8 +399,8 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that `emit` writes a concise `action target` summary to `ShortMessage__c`
-	 * distinct from the fuller `Message__c`, which retains the surface, quoted target, and caller.
+	 * @description Tests that `emit` writes a concise `action target (surface)` summary to `ShortMessage__c`
+	 * distinct from the fuller `Message__c`, which retains the quoted target and caller.
 	 * Closes the prior `Message == ShortMessage` duplication.
 	 *
 	 * @see UTIL_BypassAudit.emit
@@ -414,10 +416,41 @@ private class UTIL_BypassAudit_TEST
 		Test.stopTest();
 
 		LogEntry__c entry = findFirstAuditEntry('short-message-target');
+		String expectedSummary = UTIL_BypassAudit.ACTION_BYPASS + ' short-message-target (' + SURFACE_QUERY + ')';
 		Assert.isNotNull(entry, 'emit should write a LogEntry__c row for the short-message target');
-		Assert.areEqual(UTIL_BypassAudit.ACTION_BYPASS + ' short-message-target', entry.ShortMessage__c, 'ShortMessage should be the concise action+target summary');
+		Assert.areEqual(expectedSummary, entry.ShortMessage__c, 'ShortMessage should be the concise surface-qualified summary');
 		Assert.areNotEqual(entry.ShortMessage__c, entry.Message__c, 'Message should carry fuller detail than ShortMessage');
 		Assert.isTrue(entry.Message__c.contains('short-message-target'), 'Message should include the target');
+	}
+
+	/**
+	 * @description Tests that two surfaces auditing the same action and target — the shape
+	 * `TRG_Base.clearAllBypasses()` produces, one entry for the object bypass list and one for the
+	 * action bypass list — carry summaries that tell them apart. Two grouped problems that read
+	 * identically make the grouping look broken when it is the summary that hides the difference.
+	 *
+	 * @see UTIL_BypassAudit.emit
+	 */
+	@IsTest
+	private static void shouldQualifySummaryBySurfaceSoSameActionOnTwoSurfacesReadsDistinct()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Test.startTest();
+		UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_TRIGGER_OBJECT, UTIL_BypassAudit.ACTION_CLEAR_ALL, UTIL_BypassAudit.TARGET_ALL, null);
+		UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_TRIGGER_ACTION, UTIL_BypassAudit.ACTION_CLEAR_ALL, UTIL_BypassAudit.TARGET_ALL, null);
+		Test.stopTest();
+
+		Set<String> summaries = new Set<String>();
+		for(LogEntry__c entry : findAuditEntries(UTIL_BypassAudit.TARGET_ALL))
+		{
+			summaries.add(entry.ShortMessage__c);
+		}
+		String clearAllOf = UTIL_BypassAudit.ACTION_CLEAR_ALL + ' ' + UTIL_BypassAudit.TARGET_ALL + ' (';
+		Assert.areEqual(2, summaries.size(), 'The object-list and action-list clear-all entries should carry distinct summaries');
+		Assert.isTrue(summaries.contains(clearAllOf + UTIL_BypassAudit.SURFACE_TRIGGER_OBJECT + ')'), 'The object-list summary should name its surface');
+		Assert.isTrue(summaries.contains(clearAllOf + UTIL_BypassAudit.SURFACE_TRIGGER_ACTION + ')'), 'The action-list summary should name its surface');
 	}
 
 	/**
@@ -963,8 +996,8 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Shared scan behind `findFirstAuditEntry` / `findFirstDetailAuditEntry` —
-	 * one loop, parameterised on whether rollup rows are admissible matches.
+	 * @description The first (newest) match from `findAuditEntries`, or `null` when nothing matches —
+	 * the one-row convenience over the shared scan.
 	 *
 	 * @param target The bypass audit `target` context value to find.
 	 * @param detailOnly When `true`, only detail rows match; when `false`, rollup rows match too.
@@ -973,8 +1006,38 @@ private class UTIL_BypassAudit_TEST
 	 */
 	private static LogEntry__c findFirstAuditEntry(String target, Boolean detailOnly)
 	{
+		List<LogEntry__c> matches = findAuditEntries(target, detailOnly);
+		return matches.isEmpty() ? null : matches[0];
+	}
+
+	/**
+	 * @description Every persisted detail audit row (detail:bypass:*) whose `target` context equals
+	 * the given target — one row per distinct fingerprint, so a target audited on two surfaces
+	 * yields two rows.
+	 *
+	 * @param target The bypass audit `target` context value to find.
+	 *
+	 * @return The matching detail rows, newest first; empty when none exist.
+	 */
+	private static List<LogEntry__c> findAuditEntries(String target)
+	{
+		return findAuditEntries(target, true);
+	}
+
+	/**
+	 * @description The one scan every audit-row lookup in this file routes through, parameterised on
+	 * whether rollup rows are admissible matches.
+	 *
+	 * @param target The bypass audit `target` context value to find.
+	 * @param detailOnly When `true`, only detail rows match; when `false`, rollup rows match too.
+	 *
+	 * @return The matching rows, newest first; empty when none exist.
+	 */
+	private static List<LogEntry__c> findAuditEntries(String target, Boolean detailOnly)
+	{
 		String detailPrefix = TRG_PersistLogEntry.PREFIX_DETAIL + LOG_Builder.RESERVED_FINGERPRINT_PREFIX;
 		String rollupPrefix = TRG_PersistLogEntry.PREFIX_ROLLUP + LOG_Builder.RESERVED_FINGERPRINT_PREFIX;
+		List<LogEntry__c> matches = new List<LogEntry__c>();
 		for(LogEntry__c entry : new SEL_LogEntry().findAllOrderedByCreatedDateDesc())
 		{
 			// Anchored on the canonical persisted audit shapes (detail:bypass:* / rollup:bypass:*).
@@ -990,9 +1053,9 @@ private class UTIL_BypassAudit_TEST
 			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
 			if(context != null && target.equals(context.get(UTIL_BypassAudit.CONTEXT_TARGET)))
 			{
-				return entry;
+				matches.add(entry);
 			}
 		}
-		return null;
+		return matches;
 	}
 }
