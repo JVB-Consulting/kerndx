@@ -7,14 +7,14 @@
 		<!-- Channel -->
 		<div class="slds-col slds-size_9-of-12">
 			<lightning-combobox data-testid="filter-channel" label={labels.channelLabel} onchange={handleChannelChange} options={channelOptions}
-			                    placeholder={labels.channelPlaceholder} value={channel} variant="label-inline"></lightning-combobox>
+								placeholder={labels.channelPlaceholder} value={channel} variant="label-inline"></lightning-combobox>
 		</div>
 		<div class="slds-col slds-size_3-of-12">&nbsp;</div>
 
 		<!-- Payload -->
 		<div class="slds-col slds-size_9-of-12">
 			<lightning-input label={labels.payloadLabel} onchange={handlePayloadChange} placeholder={labels.payloadPlaceholder} type="search" value={payload}
-			                 variant="label-inline"></lightning-input>
+							 variant="label-inline"></lightning-input>
 		</div>
 		<div class="slds-col slds-size_3-of-12 slds-p-bottom_small">
 			<lightning-input checked={isCaseSensitive} label={labels.matchCase} onchange={handleIsCaseSensitiveChange} type="checkbox"></lightning-input>
@@ -26,7 +26,7 @@
 		</div>
 		<div class="slds-size_9-of-12 slds-m-bottom_small">
 			<lightning-input disabled={afterTimeDisabled} label={labels.afterTimeLabel} onchange={handleAfterTimeChange} type="datetime" value={afterTime}
-			                 variant="label-hidden"></lightning-input>
+							 variant="label-hidden"></lightning-input>
 		</div>
 
 		<!-- Before time -->
@@ -35,7 +35,7 @@
 		</div>
 		<div class="slds-size_9-of-12">
 			<lightning-input disabled={beforeTimeDisabled} label={labels.beforeTimeLabel} onchange={handleBeforeTimeChange} type="datetime" value={beforeTime}
-			                 variant="label-hidden"></lightning-input>
+							 variant="label-hidden"></lightning-input>
 		</div>
 
 		<!-- Reset -->

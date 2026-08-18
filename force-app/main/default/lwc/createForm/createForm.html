@@ -14,31 +14,31 @@
 					<lightning-layout-item key={field.fieldName} padding="around-small" size='6'>
 						<template if:true={field.isText}>
 							<lightning-input class="input-field" data-id={field.fieldName} label={field.fieldLabel} onchange={handleFieldChange} required={field.isRequired}
-							                 type="text" value={field.fieldValue}></lightning-input>
+											 type="text" value={field.fieldValue}></lightning-input>
 						</template>
 						<template if:true={field.isTextArea}>
 							<lightning-textarea class="input-field" data-id={field.fieldName} label={field.fieldLabel} onchange={handleFieldChange} required={field.isRequired}
-							                    value={field.fieldValue}></lightning-textarea>
+												value={field.fieldValue}></lightning-textarea>
 						</template>
 						<template if:true={field.isEmail}>
 							<lightning-input class="input-field" data-id={field.fieldName} label={field.fieldLabel} message-when-pattern-mismatch={labels.emailPatternMismatch}
-							                 onchange={handleFieldChange} required={field.isRequired} type="email" value={field.fieldValue}></lightning-input>
+											 onchange={handleFieldChange} required={field.isRequired} type="email" value={field.fieldValue}></lightning-input>
 						</template>
 						<template if:true={field.isPhone}>
 							<lightning-input class="input-field" data-id={field.fieldName} field-level-help={labels.phoneFieldHelp} label={field.fieldLabel}
-							                 onchange={handleFieldChange} pattern="[0-9]{10}" required={field.isRequired} type="tel" value={field.fieldValue}></lightning-input>
+											 onchange={handleFieldChange} pattern="[0-9]{10}" required={field.isRequired} type="tel" value={field.fieldValue}></lightning-input>
 						</template>
 						<template if:true={field.isDateTime}>
 							<lightning-input class="input-field" data-id={field.fieldName} label={field.fieldLabel} onchange={handleFieldChange} required={field.isRequired}
-							                 type="datetime" value={field.fieldValue}></lightning-input>
+											 type="datetime" value={field.fieldValue}></lightning-input>
 						</template>
 						<template if:true={field.isPicklist}>
 							<lightning-combobox class="picklist-field" data-id={field.fieldName} label={field.fieldLabel} name={field.fieldName} onchange={handleFieldChange}
-							                    options={field.displayPicklistOptions} required={field.isRequired} value={field.displaySelectedPicklistValue}></lightning-combobox>
+												options={field.displayPicklistOptions} required={field.isRequired} value={field.displaySelectedPicklistValue}></lightning-combobox>
 						</template>
 						<template if:true={field.isLookup}>
 							<c-s-object-lookup default-record-id={field.fieldValue} element-name={field.fieldName} field-label-name={field.fieldLabel}
-							                   object-api-name={field.fieldLookupObjectApiName} onvalueselect={handleLookupValueSelect}></c-s-object-lookup>
+											   object-api-name={field.fieldLookupObjectApiName} onvalueselect={handleLookupValueSelect}></c-s-object-lookup>
 						</template>
 					</lightning-layout-item>
 				</template>

@@ -6,7 +6,7 @@
 	<lightning-card title={labels.registerSourceTitle}>
 		<div class="slds-var-p-horizontal_large">
 			<lightning-combobox class="slds-var-m-bottom_medium" label={labels.eventType} name="registrationEventType" onchange={handleValueChange} options={registrationEventTypes}
-			                    placeholder={labels.selectTypePlaceholder} value={registrationEventType}></lightning-combobox>
+								placeholder={labels.selectTypePlaceholder} value={registrationEventType}></lightning-combobox>
 
 			<template lwc:if={isPushTopicReg}>
 				<p class="slds-var-m-bottom_small">{labels.pushTopicIntro}</p>

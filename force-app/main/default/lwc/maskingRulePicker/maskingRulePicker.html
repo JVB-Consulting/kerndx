@@ -2,7 +2,7 @@
 <template>
 	<div class={pickerClass} onfocusout={handleFocusOut} onmouseleave={handleMouseLeave}>
 		<input aria-activedescendant={activeDescendantId} aria-autocomplete="list" aria-controls={listboxId} aria-expanded={ariaExpanded} aria-haspopup="listbox" aria-label={label}
-		       autocomplete="off" class="rulepick__input" disabled={disabled} onclick={handleOpen} onfocus={handleOpen} oninput={handleInput} onkeydown={handleKeyDown}/
+			   autocomplete="off" class="rulepick__input" disabled={disabled} onclick={handleOpen} onfocus={handleOpen} oninput={handleInput} onkeydown={handleKeyDown}/
  placeholder={placeholder} role="combobox" type="text" value={searchTerm}>
 		<svg aria-hidden="true" class="rulepick__chevron" fill="none" focusable="false" viewBox="0 0 14 14">
 			<path d="M3.5 5 L7 8.5 L10.5 5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/>
@@ -12,7 +12,7 @@
 			<ul class="rulepick__listbox" id={listboxId} role="listbox">
 				<template for:each={filteredOptions} for:item="option">
 					<li aria-selected={option.ariaSelected} class={option.optionClass} data-value={option.value} id={option.id} key={option.value}
-					    onmousedown={handleOptionMouseDown} role="option">
+						onmousedown={handleOptionMouseDown} role="option">
 						<span class="rulepick__opt-body">
 							<span class="rulepick__opt-label">{option.label}</span>
 							<template if:true={option.showCategory}>

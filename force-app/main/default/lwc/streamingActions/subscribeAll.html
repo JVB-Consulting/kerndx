@@ -7,7 +7,7 @@
 		<div class="slds-var-p-horizontal_large">
 			<p class="slds-var-m-vertical_small">{labels.subscribeAllNote}</p>
 			<lightning-combobox label={labels.filter} name="subAllFilter" onchange={handleValueChange} options={subscribeAllFilterOptions}
-			                    value={subAllFilter}></lightning-combobox>
+								value={subAllFilter}></lightning-combobox>
 			<lightning-combobox label={labels.replayOption} name="subAllReplay" onchange={handleValueChange} options={replayOptions} value={subAllReplay}></lightning-combobox>
 			<div class="slds-align_absolute-center slds-var-m-top_medium">
 				<lightning-button label={labels.subscribe} onclick={handleSubscribeAll} variant="brand"></lightning-button>

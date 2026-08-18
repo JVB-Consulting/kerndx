@@ -8,18 +8,18 @@
 		<div class="slds-grid slds-wrap slds-gutters">
 			<div class="slds-col slds-size_1-of-1 slds-large-size_5-of-12 config-column">
 				<lightning-radio-group data-testid="harness-direction" label={labels.direction} name="direction" onchange={handleDirectionChange} options={directionOptions}
-				                       type="button" value={direction}></lightning-radio-group>
+									   type="button" value={direction}></lightning-radio-group>
 
 				<div class="slds-var-m-top_medium">
 					<lightning-combobox data-testid="harness-service" label={labels.service} message-when-value-missing={labels.serviceValueMissing} name="service"
-					                    onchange={handleServiceChange} options={serviceOptions} placeholder={labels.servicePlaceholder} required
-					                    value={selectedService}></lightning-combobox>
+										onchange={handleServiceChange} options={serviceOptions} placeholder={labels.servicePlaceholder} required
+										value={selectedService}></lightning-combobox>
 				</div>
 
 				<template lwc:if={isOutbound}>
 					<div class="slds-var-m-top_medium">
 						<lightning-input data-id="recordId" label={labels.recordId} onchange={handleRecordIdChange} placeholder={labels.recordIdPlaceholder}
-						                 value={recordId}></lightning-input>
+										 value={recordId}></lightning-input>
 					</div>
 
 					<div class="slds-var-m-top_medium">
@@ -28,27 +28,27 @@
 							<div class="parameter-row slds-grid slds-gutters_x-small slds-var-m-bottom_x-small" key={row.id}>
 								<div class="slds-col slds-size_5-of-12">
 									<lightning-input data-row-id={row.id} data-testid="parameter-key" label={labels.key} onchange={handleParameterKeyChange}
-									                 placeholder={labels.key} value={row.key} variant="label-hidden"></lightning-input>
+													 placeholder={labels.key} value={row.key} variant="label-hidden"></lightning-input>
 								</div>
 								<div class="slds-col slds-size_6-of-12">
 									<lightning-input data-row-id={row.id} data-testid="parameter-value" label={labels.value} onchange={handleParameterValueChange}
-									                 placeholder={labels.value} value={row.value} variant="label-hidden"></lightning-input>
+													 placeholder={labels.value} value={row.value} variant="label-hidden"></lightning-input>
 								</div>
 								<div class="slds-col slds-size_1-of-12 slds-align-middle">
 									<lightning-button-icon alternative-text="Remove parameter" data-row-id={row.id} data-testid="remove-parameter" icon-name="utility:delete"
-									                       onclick={handleRemoveParameterRow} size="small" variant="bare"></lightning-button-icon>
+														   onclick={handleRemoveParameterRow} size="small" variant="bare"></lightning-button-icon>
 								</div>
 							</div>
 						</template>
 						<lightning-button class="slds-var-m-top_x-small" data-testid="add-parameter" icon-name="utility:add" label={labels.addParameter}
-						                  onclick={handleAddParameterRow}></lightning-button>
+										  onclick={handleAddParameterRow}></lightning-button>
 					</div>
 				</template>
 
 				<template lwc:if={isInbound}>
 					<div class="slds-var-m-top_medium">
 						<lightning-textarea data-id="jsonBody" data-testid="harness-body" label={labels.jsonBody} onchange={handleJsonBodyChange}
-						                    placeholder={labels.jsonBodyPlaceholder} value={jsonBody}></lightning-textarea>
+											placeholder={labels.jsonBodyPlaceholder} value={jsonBody}></lightning-textarea>
 					</div>
 				</template>
 
@@ -61,11 +61,11 @@
 					<div class="slds-grid slds-gutters_small">
 						<div class="slds-col">
 							<lightning-input checked={safeModeEnabled} data-id="safeMode" label={labels.safeMode} message-toggle-active={labels.safeModeToggleActive}
-							                 message-toggle-inactive={labels.safeModeToggleInactive} onchange={handleSafeModeChange} type="toggle"></lightning-input>
+											 message-toggle-inactive={labels.safeModeToggleInactive} onchange={handleSafeModeChange} type="toggle"></lightning-input>
 						</div>
 						<div class="slds-col">
 							<lightning-input checked={mockingEnabled} data-id="mocking" label={labels.mocking} message-toggle-active={labels.mockingToggleActive}
-							                 message-toggle-inactive={labels.mockingToggleInactive} onchange={handleMockingChange} type="toggle"></lightning-input>
+											 message-toggle-inactive={labels.mockingToggleInactive} onchange={handleMockingChange} type="toggle"></lightning-input>
 						</div>
 					</div>
 				</div>
@@ -73,7 +73,7 @@
 				<div class="slds-var-m-top_medium slds-grid slds-gutters_x-small">
 					<div class="slds-col slds-no-flex">
 						<lightning-button data-id="execute" data-testid="harness-execute" disabled={isExecuteDisabled} icon-name={executeIcon} label={executeLabel}
-						                  onclick={handleExecute} variant={executeVariant}></lightning-button>
+										  onclick={handleExecute} variant={executeVariant}></lightning-button>
 					</div>
 					<div class="slds-col slds-no-flex">
 						<lightning-button data-id="reset" data-testid="harness-reset" label={labels.reset} onclick={handleReset}></lightning-button>
@@ -95,7 +95,7 @@
 								</template>
 							</div>
 							<lightning-button-icon alternative-text="Copy summary" data-id="copySummary" icon-name={copyIcons.summary} onclick={handleCopySummary}
-							                       variant="bare"></lightning-button-icon>
+												   variant="bare"></lightning-button-icon>
 						</div>
 
 						<div class="slds-grid slds-wrap slds-gutters_small">
@@ -123,7 +123,7 @@
 								<p class="slds-text-title">{labels.apiCallId}</p>
 								<template lwc:if={hasApiCallLink}>
 									<lightning-button class="api-call-link" data-testid="api-call-link" label={result.apiCallId} onclick={handleOpenApiCall}
-									                  variant="base"></lightning-button>
+													  variant="base"></lightning-button>
 								</template>
 								<template lwc:else>
 									<p class="slds-text-body_regular">{apiCallIdDisplay}</p>
@@ -140,7 +140,7 @@
 												<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
 													<p class="slds-text-title">{labels.requestHeaders}</p>
 													<lightning-button-icon alternative-text="Copy request headers" data-id="copyRequestHeaders" icon-name={copyIcons.requestHeaders}
-													                       onclick={handleCopyRequestHeaders} variant="bare"></lightning-button-icon>
+																		   onclick={handleCopyRequestHeaders} variant="bare"></lightning-button-icon>
 												</div>
 												<table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout">
 													<thead>
@@ -174,7 +174,7 @@
 												<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
 													<p class="slds-text-title">{labels.requestBody}</p>
 													<lightning-button-icon alternative-text="Copy request body" data-id="copyRequestBody" icon-name={copyIcons.requestBody}
-													                       onclick={handleCopyRequestBody} variant="bare"></lightning-button-icon>
+																		   onclick={handleCopyRequestBody} variant="bare"></lightning-button-icon>
 												</div>
 												<c-json-viewer json-text={result.requestBody}></c-json-viewer>
 											</div>
@@ -189,8 +189,8 @@
 												<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
 													<p class="slds-text-title">{labels.responseHeaders}</p>
 													<lightning-button-icon alternative-text="Copy response headers" data-id="copyResponseHeaders"
-													                       icon-name={copyIcons.responseHeaders} onclick={handleCopyResponseHeaders}
-													                       variant="bare"></lightning-button-icon>
+																		   icon-name={copyIcons.responseHeaders} onclick={handleCopyResponseHeaders}
+																		   variant="bare"></lightning-button-icon>
 												</div>
 												<table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout">
 													<thead>
@@ -224,7 +224,7 @@
 												<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
 													<p class="slds-text-title">{labels.responseBody}</p>
 													<lightning-button-icon alternative-text="Copy response body" data-id="copyResponseBody" icon-name={copyIcons.responseBody}
-													                       onclick={handleCopyResponseBody} variant="bare"></lightning-button-icon>
+																		   onclick={handleCopyResponseBody} variant="bare"></lightning-button-icon>
 												</div>
 												<c-json-viewer json-text={result.responseBody}></c-json-viewer>
 											</div>
@@ -238,7 +238,7 @@
 											<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
 												<p class="slds-text-title">{labels.errorMessages}</p>
 												<lightning-button-icon alternative-text="Copy errors" data-id="copyErrors" icon-name={copyIcons.errors} onclick={handleCopyErrors}
-												                       variant="bare"></lightning-button-icon>
+																	   variant="bare"></lightning-button-icon>
 											</div>
 											<pre>{result.errorMessages}</pre>
 										</div>

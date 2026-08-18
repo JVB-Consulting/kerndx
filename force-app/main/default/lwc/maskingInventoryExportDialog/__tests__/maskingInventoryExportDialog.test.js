@@ -66,9 +66,10 @@ jest.mock('@salesforce/label/c.DataMaskingAdvisor_Sensitivity_Sensitive', () => 
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_Sensitivity_PossiblySensitive', () => ({default: 'Possibly Sensitive'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_Sensitivity_NotSensitive', () => ({default: 'Not Sensitive'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_InventoryExport_FormatNote', () => ({default: 'CSV uses readable labels; JSON keeps the raw API values.'}), {virtual: true});
-jest.mock('@salesforce/label/c.DataMaskingAdvisor_InventoryExport_MaskedScopeNote',
-		() => ({default: 'These objects are masked object-wide. Rather than a row per field, a field appears here only when it is independently flagged as '
-				+ 'regulated or carries its own field-level rule.'}), {virtual: true});
+jest.mock('@salesforce/label/c.DataMaskingAdvisor_InventoryExport_MaskedScopeNote', () => ({
+	default: 'These objects are masked object-wide. Rather than a row per field, a field appears here only when it is independently flagged as '
+			+ 'regulated or carries its own field-level rule.'
+}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_InventoryExport_SensitiveOnly', () => ({default: 'Sensitive fields only'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_InventoryExport_FilteredEmptyState',
 		() => ({default: 'No fields are classified Sensitive in this scope. Clear the filter to include the remaining fields.'}), {virtual: true});
@@ -700,8 +701,32 @@ describe('c-masking-inventory-export-dialog — download', () =>
 	{
 		getRegulatedFieldInventory.mockImplementation(() => Promise.resolve({
 			objectApiName: 'CustomerFeedback__c', objectLabel: 'Customer Feedback', rows: [
-				{fieldApiName: 'RoutingNote__c', fieldLabel: 'Routing Note', fieldType: 'STRING', isLongTextArea: false, securityClassification: null, complianceGroup: null, sensitivityLevel: 'NotSensitive', recommendedRuleDeveloperName: null, recommendedRuleLabel: null, maskedToday: true, historyTrackingRecommended: false},
-				{fieldApiName: 'CustomerEmail__c', fieldLabel: 'Customer Email', fieldType: 'EMAIL', isLongTextArea: false, securityClassification: 'Confidential', complianceGroup: 'PII', sensitivityLevel: 'Sensitive', recommendedRuleDeveloperName: 'Mask_Email', recommendedRuleLabel: 'Mask Email', maskedToday: true, historyTrackingRecommended: true}
+				{
+					fieldApiName: 'RoutingNote__c',
+					fieldLabel: 'Routing Note',
+					fieldType: 'STRING',
+					isLongTextArea: false,
+					securityClassification: null,
+					complianceGroup: null,
+					sensitivityLevel: 'NotSensitive',
+					recommendedRuleDeveloperName: null,
+					recommendedRuleLabel: null,
+					maskedToday: true,
+					historyTrackingRecommended: false
+				},
+				{
+					fieldApiName: 'CustomerEmail__c',
+					fieldLabel: 'Customer Email',
+					fieldType: 'EMAIL',
+					isLongTextArea: false,
+					securityClassification: 'Confidential',
+					complianceGroup: 'PII',
+					sensitivityLevel: 'Sensitive',
+					recommendedRuleDeveloperName: 'Mask_Email',
+					recommendedRuleLabel: 'Mask Email',
+					maskedToday: true,
+					historyTrackingRecommended: true
+				}
 			]
 		}));
 		const element = await createDialog({maskedApiNames: ['CustomerFeedback__c']});

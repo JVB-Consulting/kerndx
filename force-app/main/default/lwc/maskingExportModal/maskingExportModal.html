@@ -37,9 +37,13 @@
 		<div class="dma-export__deploy">
 			<p class="dma-export__deploy-intro" data-testid="deploy-a-intro">{labels.deployCliIntro}</p>
 			<lightning-input class="dma-export__alias" data-testid="alias-input" label={labels.orgAliasLabel} onchange={handleAliasChange} placeholder={labels.orgAliasPlaceholder}
-			                 type="text" value={aliasValue}></lightning-input>
-			<pre aria-label={labels.deployCommandAriaLabel} class="dma-export__cmd" data-testid="deploy-command" tabindex="0">{deployCommand}</pre>
-			<button class="dma-export__copy" data-testid="copy-command-button" onclick={handleCopyCommand} type="button">{copyButtonLabel}</button>
+							 type="text" value={aliasValue}></lightning-input>
+			<div class="dma-export__cmdwrap">
+				<pre aria-label={labels.deployCommandAriaLabel} class="dma-export__cmd" data-testid="deploy-command" tabindex="0">{deployCommand}</pre>
+				<lightning-button-icon alternative-text={labels.copy} class="dma-export__copy" data-testid="copy-command-button" icon-name={copyIconName}
+									   onclick={handleCopyCommand} size="x-small" title={labels.copy} variant="bare-inverse"></lightning-button-icon>
+			</div>
+			<p class="dma-export__copied" data-testid="copy-command-status" role="status">{copyStatusText}</p>
 			<p class="dma-export__deploy-note" data-testid="deploy-b-note">{labels.deployOtherToolsNote}</p>
 		</div>
 	</lightning-modal-body>

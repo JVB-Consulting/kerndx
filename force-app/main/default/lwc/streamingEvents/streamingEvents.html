@@ -30,7 +30,7 @@
 				<template lwc:if={hasData}>
 					<lightning-badge class="slds-var-m-right_small" label={eventCountLabel}></lightning-badge>
 					<c-streaming-events-header onclear={handleClearEvents} ondownload={handleDownloadEvents} onfiltertoggle={handleFiltersDisplayToggle}
-					                           onviewmodechange={handleViewModeChange}></c-streaming-events-header>
+											   onviewmodechange={handleViewModeChange}></c-streaming-events-header>
 				</template>
 			</template>
 		</div>
@@ -49,9 +49,9 @@
 			<!-- Begin view modes -->
 			<template lwc:if={hasVisibleData}>
 				<lightning-datatable columns={tableColumns} data={tableData} data-testid="event-row" hide-checkbox-column key-field="id" lwc:if={isTableViewMode}
-				                     onrowaction={handleEventTableRowAction}></lightning-datatable>
+									 onrowaction={handleEventTableRowAction}></lightning-datatable>
 				<c-streaming-timeline channels={channels} events={tableData} lwc:elseif={isTimelineViewMode} onselect={handleTimelineSelection} user-locale={userLocale}
-				                      user-timezone={userTimezone}></c-streaming-timeline>
+									  user-timezone={userTimezone}></c-streaming-timeline>
 			</template>
 			<!-- End view modes -->
 

@@ -13,10 +13,10 @@
 						{labels.granularityDaily}
 					</button>
 					<button aria-pressed={hourlyPressed} class="seg-btn" data-segment="Hourly" data-spec-id="usage-granularity-hourly" disabled={enhancedDisabled}
-					        onclick={handleSegmentClick}>{labels.granularityHourly}
+							onclick={handleSegmentClick}>{labels.granularityHourly}
 					</button>
 					<button aria-pressed={fifteenPressed} class="seg-btn" data-segment="FifteenMinutes" data-spec-id="usage-granularity-fifteen" disabled={enhancedDisabled}
-					        onclick={handleSegmentClick}>{labels.granularityFifteenMinutes}
+							onclick={handleSegmentClick}>{labels.granularityFifteenMinutes}
 					</button>
 				</div>
 			</div>
@@ -24,14 +24,14 @@
 			<!-- Date-range preset -->
 			<div class="slds-col slds-form-element">
 				<lightning-combobox data-spec-id="usage-range-preset" label={labels.dateRangeLabel} onchange={handlePresetChange} options={presetOptions}
-				                    value={preset}></lightning-combobox>
+									value={preset}></lightning-combobox>
 			</div>
 
 			<!-- Custom range -->
 			<template lwc:if={showCustomRange}>
 				<div class="slds-col slds-form-element">
 					<lightning-input data-spec-id="usage-range-from" label={labels.dateRangeFrom} onchange={handleCustomFromChange} type="datetime"
-					                 value={customFrom}></lightning-input>
+									 value={customFrom}></lightning-input>
 				</div>
 				<div class="slds-col slds-form-element">
 					<lightning-input data-spec-id="usage-range-to" label={labels.dateRangeTo} onchange={handleCustomToChange} type="datetime" value={customTo}></lightning-input>

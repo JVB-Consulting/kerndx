@@ -19,7 +19,7 @@
 				<div class="body">
 					<c-streaming-events class={monitorClasses} subscriptions={subscriptions}></c-streaming-events>
 					<c-streaming-actions action={view} channels={channels} lwc:if={isActionView} onpublish={handlePublish} onsubscribe={handleSubscribe}
-					                     onsubscribeall={handleSubscribeAll}></c-streaming-actions>
+										 onsubscribeall={handleSubscribeAll}></c-streaming-actions>
 					<c-org-limits lwc:elseif={isOrgLimitsView}></c-org-limits>
 					<c-streaming-usage-metrics lwc:elseif={isEventUsageMetricsView}></c-streaming-usage-metrics>
 				</div>

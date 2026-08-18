@@ -11,13 +11,13 @@
 			</span>
 			<span class="slds-col">
 				<lightning-button-icon alternative-text={labels.viewLabel} data-spec-id="usage-refresh" icon-name="utility:refresh" onclick={handleRefresh} title={labels.viewLabel}
-				                       variant="border-filled"></lightning-button-icon>
+									   variant="border-filled"></lightning-button-icon>
 			</span>
 		</div>
 
 		<div class="slds-var-p-horizontal_medium">
 			<c-streaming-usage-filters event-types={eventTypeDefinitions} is-enhanced-usage-metric-enabled={enhancedUsageEnabled} lwc:ref="filters"
-			                           ondisplayfilterchange={handleDisplayFilterChange} onsearchfilterchange={handleSearchFilterChange}></c-streaming-usage-filters>
+									   ondisplayfilterchange={handleDisplayFilterChange} onsearchfilterchange={handleSearchFilterChange}></c-streaming-usage-filters>
 
 			<div class="view-switch slds-form-element slds-m-vertical_small">
 				<label class="slds-form-element__label">{labels.viewLabel}</label>
@@ -54,7 +54,7 @@
 						</template>
 						<template for:each={bars} for:item="bar">
 							<rect class="bar" data-bucket={bar.bucketTimestamp} data-testid="usage-bar" fill={bar.color} height={bar.height} key={bar.key}
-							      onmouseenter={handleBarMouseEnter} onmouseleave={handleBarMouseLeave} rx={barCornerRadius} width={bar.width} x={bar.x} y={bar.y}></rect>
+								  onmouseenter={handleBarMouseEnter} onmouseleave={handleBarMouseLeave} rx={barCornerRadius} width={bar.width} x={bar.x} y={bar.y}></rect>
 						</template>
 					</svg>
 					<template lwc:if={tooltip.visible}>

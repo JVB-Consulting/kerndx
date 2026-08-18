@@ -16,7 +16,7 @@
 					</template>
 					<template for:each={circles} for:item="dot">
 						<circle class={dot.className} cx={dot.cx} cy={dot.cy} data-index={dot.index} data-testid="timeline-dot" key={dot.key} onclick={handleDotClick}
-						        onmouseenter={handleDotMouseEnter} onmouseleave={handleDotMouseLeave} r={dot.r}></circle>
+								onmouseenter={handleDotMouseEnter} onmouseleave={handleDotMouseLeave} r={dot.r}></circle>
 					</template>
 				</svg>
 			</template>

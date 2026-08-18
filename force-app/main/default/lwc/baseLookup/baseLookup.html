@@ -7,7 +7,7 @@
 				<div class="searchBoxWrapper slds-show pillSize">
 					<!--Lookup Input Field-->
 					<lightning-input disabled={disableElement} is-loading={isSearchLoading} label={fieldLabelName} onchange={handleKeyChange} onclick={showResults}
-					                 onkeydown={handleKeyDown} placeholder={placeholder} type="search" value={searchTerm} variant="label-hidden"></lightning-input>
+									 onkeydown={handleKeyDown} placeholder={placeholder} type="search" value={searchTerm} variant="label-hidden"></lightning-input>
 				</div>
 
 				<!--Lookup Selected record pill container start-->
@@ -33,7 +33,7 @@
 					<template for:each={displaySearchOptions} for:item="option">
 						<li class="slds-listbox__item search-options" key={option.resultIdentifier} role="presentation">
 							<div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" data-recid={option.resultIdentifier}
-							     onclick={handleSelectedRecord} role="option">
+								 onclick={handleSelectedRecord} role="option">
                                     <span class="slds-media__figure slds-listbox__option-icon no-pointer-events">
                                         <span class="slds-icon_container">
 											<span class="slds-media__figure slds-listbox__option-icon slds-m-top_none">

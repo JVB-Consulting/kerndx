@@ -2,7 +2,7 @@
 <template>
 	<lightning-card icon-name="utility:privately_shared" title={labels.cardTitle}>
 		<lightning-button-icon alternative-text={labels.refreshAltText} data-testid="refresh-button" icon-name="utility:refresh" onclick={handleRefresh} size="small" slot="actions"
-		                       variant="bare"></lightning-button-icon>
+							   variant="bare"></lightning-button-icon>
 
 		<div class="slds-p-horizontal_medium slds-p-bottom_small">
 			<template lwc:if={isLoading}>
@@ -74,7 +74,7 @@
 								<h3 class="dma-inventory__heading" id="dma-inventory-heading">{labels.inventoryHeading}</h3>
 								<template for:each={decoratedInventory} for:item="row">
 									<button class="dma-inv-row" data-api-name={row.objectApiName} data-testid="inventory-row" key={row.objectApiName}
-									        onclick={handleInventoryRowClick} type="button">
+											onclick={handleInventoryRowClick} type="button">
 										<span class="dma-inv-row__name">{row.objectLabel}<small>{row.objectApiName}</small></span>
 										<span class="dma-inv-row__rules">
 											<template for:each={row.ruleChips} for:item="chip">
@@ -158,7 +158,7 @@
 							<template lwc:if={scanHasFlagged}>
 								<template for:each={scanFlaggedRows} for:item="row">
 									<button class="dma-inv-row dma-scan__row" data-api-name={row.apiName} data-testid="coverage-flagged-row" key={row.apiName}
-									        onclick={handleScanRowClick} type="button">
+											onclick={handleScanRowClick} type="button">
 										<span class="dma-inv-row__name">{row.apiName}<small>{row.objectLabel}</small></span>
 										<span class="dma-inv-row__rules">
 											<template for:each={row.flaggedFields} for:item="field">
@@ -212,7 +212,7 @@
 								<span aria-hidden="true" class="dma-coverage__glyph dma-coverage__glyph_warn">⚠</span>
 								<span class="dma-coverage__title dma-coverage__title_warn" data-testid="health-banner-heading">{healthBannerHeading}</span>
 								<button aria-controls="dma-health-detail" aria-expanded={healthAriaExpanded} class="dma-coverage__toggle dma-coverage__toggle_warn"
-								        data-testid="health-banner-toggle" onclick={handleToggleHealth} type="button">{healthBannerToggleLabel}
+										data-testid="health-banner-toggle" onclick={handleToggleHealth} type="button">{healthBannerToggleLabel}
 								</button>
 							</div>
 							<div id="dma-health-detail">
@@ -238,7 +238,7 @@
 							<span aria-hidden="true" class="dma-coverage__glyph">🛈</span>
 							<span class="dma-coverage__title" data-testid="object-wide-banner-heading">{objectWideBannerHeading}</span>
 							<button aria-controls="dma-object-wide-detail" aria-expanded={bannerAriaExpanded} class="dma-coverage__toggle" data-testid="object-wide-banner-toggle"
-							        onclick={handleToggleBanner} type="button">{objectWideBannerToggleLabel}
+									onclick={handleToggleBanner} type="button">{objectWideBannerToggleLabel}
 							</button>
 						</div>
 						<div id="dma-object-wide-detail">
@@ -246,13 +246,13 @@
 								<div class="dma-coverage__rules slds-m-top_x-small">
 									<template for:each={objectWideBannerChips} for:item="chip">
 										<span class="dma-chip" data-desired={chip.desired} data-origin={chip.origin} data-rule={chip.ruleDeveloperName}
-										      data-testid="object-wide-chip" key={chip.key}>
+											  data-testid="object-wide-chip" key={chip.key}>
 											<input aria-label={chip.ariaLabel} checked={chip.desired} class="dma-chip__box" data-testid="object-wide-chip-toggle"
-											       data-toggle-key={chip.key} data-toggle-origin={chip.origin} onchange={handleChipToggle} type="checkbox"/>
+												   data-toggle-key={chip.key} data-toggle-origin={chip.origin} onchange={handleChipToggle} type="checkbox"/>
 											<span aria-hidden="true" class="dma-chip__glyph">{chip.glyph}</span>
 											<button class="dma-chip__label" data-detail-field={chip.field} data-detail-key={chip.key} data-detail-origin={chip.origin}
-											        data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-testid="chip-detail" onclick={handleChipDetail}
-											        title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
+													data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-testid="chip-detail" onclick={handleChipDetail}
+													title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
 											<template lwc:if={chip.flag}>
 												<span class="dma-chip__flag">{chip.flag}</span>
 											</template>
@@ -282,7 +282,7 @@
 							</template>
 						</div>
 						<lightning-button class="dma-summary-bar__cta" data-testid="export-package-button" disabled={exportButtonDisabled} label={labels.exportPackageLabel}
-						                  onclick={handleExport} variant="brand"></lightning-button>
+										  onclick={handleExport} variant="brand"></lightning-button>
 					</div>
 					<template lwc:if={hasDraftState}>
 						<div class="dma-summary-actions slds-m-top_xx-small">
@@ -323,14 +323,14 @@
 														<span aria-hidden="true" class="dma-marker__glyph">✎</span>
 														<span class="dma-marker__label">{row.markerLabel}</span>
 														<button aria-label={row.revertAriaLabel} class="dma-marker__revert" data-api-name={row.apiName} data-label={row.label}
-														        data-testid="revert-override" onclick={handleRevert} type="button">{labels.revertOverride}</button>
+																data-testid="revert-override" onclick={handleRevert} type="button">{labels.revertOverride}</button>
 													</span>
 												</template>
 											</td>
 											<td>
 												<span class="dma-sens">
 													<button class="dma-badge" data-api-name={row.apiName} data-interactive data-sensitivity={row.sensitivityLevel}
-													        data-testid="sensitivity-badge" onclick={handleReview} type="button">
+															data-testid="sensitivity-badge" onclick={handleReview} type="button">
 														<span>{row.sensitivityBadgeLabel}</span>
 														<span class="slds-assistive-text">{row.reviewBadgeAssistiveText}</span>
 														<span aria-hidden="true" class="dma-badge__caret">▾</span>
@@ -353,9 +353,9 @@
 															<span class="dma-rules-chips">
 																<template for:each={row.objectWideContextChips} for:item="chip">
 																	<button class="dma-rule-chip" data-detail-field={chip.field} data-detail-origin={chip.origin}
-																	        data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-state="inherited"
-																	        data-testid="object-wide-context-chip" key={chip.key} onclick={handleChipDetail}
-																	        title={chip.supersededByLabel} type="button">
+																			data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-state="inherited"
+																			data-testid="object-wide-context-chip" key={chip.key} onclick={handleChipDetail}
+																			title={chip.supersededByLabel} type="button">
 																		<span aria-hidden="true" class="dma-rule-chip__glyph">🌐</span>{chip.ruleLabel}</button>
 																</template>
 															</span>
@@ -366,13 +366,13 @@
 														<span class="dma-rules-chips">
 															<template for:each={row.fieldChips} for:item="chip">
 																<span class="dma-chip" data-desired={chip.desired} data-origin={chip.origin} data-rule={chip.ruleDeveloperName}
-																      data-testid="field-chip" key={chip.key}>
+																	  data-testid="field-chip" key={chip.key}>
 																	<input aria-label={chip.ariaLabel} checked={chip.desired} class="dma-chip__box" data-testid="field-chip-toggle"
-																	       data-toggle-key={chip.key} data-toggle-origin={chip.origin} onchange={handleChipToggle} type="checkbox"/>
+																		   data-toggle-key={chip.key} data-toggle-origin={chip.origin} onchange={handleChipToggle} type="checkbox"/>
 																	<span aria-hidden="true" class="dma-chip__glyph">{chip.glyph}</span>
 																	<button class="dma-chip__label" data-detail-field={chip.field} data-detail-key={chip.key}
-																	        data-detail-origin={chip.origin} data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName}
-																	        data-testid="chip-detail" onclick={handleChipDetail} title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
+																			data-detail-origin={chip.origin} data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName}
+																			data-testid="chip-detail" onclick={handleChipDetail} title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
 																	<template lwc:if={chip.flag}>
 																		<span class="dma-chip__flag">{chip.flag}</span>
 																	</template>
@@ -382,7 +382,7 @@
 																</span>
 															</template>
 															<button class="dma-add-rule" data-api-name={row.apiName} data-testid="add-rule" onclick={handleAddFieldRule}
-															        type="button">{labels.addRule}</button>
+																	type="button">{labels.addRule}</button>
 														</span>
 													</div>
 												</div>
@@ -399,7 +399,7 @@
 						<section class="dma-card slds-m-top_medium" data-testid="section-manual-review" id="dma-manual-review-region">
 							<div class="dma-card__bar">
 								<button aria-controls="dma-manual-review-region" aria-expanded={manualReviewAriaExpanded} class="dma-card__toggle"
-								        data-testid="section-manual-review-toggle" onclick={handleToggleManualReview} type="button">
+										data-testid="section-manual-review-toggle" onclick={handleToggleManualReview} type="button">
 									<lightning-icon class="dma-card__chev" icon-name="utility:chevrondown" size="xx-small"></lightning-icon>
 									<span class="dma-card__title slds-text-heading_small" data-testid="section-manual-review-heading">{manualReviewSectionHeading}</span>
 								</button>
@@ -431,14 +431,14 @@
 															<span aria-hidden="true" class="dma-marker__glyph">✎</span>
 															<span class="dma-marker__label">{row.markerLabel}</span>
 															<button aria-label={row.revertAriaLabel} class="dma-marker__revert" data-api-name={row.apiName} data-label={row.label}
-															        data-testid="revert-override" onclick={handleRevert} type="button">{labels.revertOverride}</button>
+																	data-testid="revert-override" onclick={handleRevert} type="button">{labels.revertOverride}</button>
 														</span>
 													</template>
 												</td>
 												<td>
 													<span class="dma-sens">
 														<button class="dma-badge" data-api-name={row.apiName} data-interactive data-sensitivity={row.sensitivityLevel}
-														        data-testid="sensitivity-badge" onclick={handleReview} type="button">
+																data-testid="sensitivity-badge" onclick={handleReview} type="button">
 															<span>{row.sensitivityBadgeLabel}</span>
 															<span class="slds-assistive-text">{row.reviewBadgeAssistiveText}</span>
 															<span aria-hidden="true" class="dma-badge__caret">▾</span>
@@ -461,9 +461,9 @@
 																<span class="dma-rules-chips">
 																	<template for:each={row.objectWideContextChips} for:item="chip">
 																		<button class="dma-rule-chip" data-detail-field={chip.field} data-detail-origin={chip.origin}
-																		        data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-state="inherited"
-																		        data-testid="object-wide-context-chip" key={chip.key} onclick={handleChipDetail}
-																		        title={chip.supersededByLabel} type="button">
+																				data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-state="inherited"
+																				data-testid="object-wide-context-chip" key={chip.key} onclick={handleChipDetail}
+																				title={chip.supersededByLabel} type="button">
 																			<span aria-hidden="true" class="dma-rule-chip__glyph">🌐</span>{chip.ruleLabel}</button>
 																	</template>
 																</span>
@@ -474,14 +474,14 @@
 															<span class="dma-rules-chips">
 																<template for:each={row.fieldChips} for:item="chip">
 																	<span class="dma-chip" data-desired={chip.desired} data-origin={chip.origin} data-rule={chip.ruleDeveloperName}
-																	      data-testid="field-chip" key={chip.key}>
+																		  data-testid="field-chip" key={chip.key}>
 																		<input aria-label={chip.ariaLabel} checked={chip.desired} class="dma-chip__box"
-																		       data-testid="field-chip-toggle" data-toggle-key={chip.key} data-toggle-origin={chip.origin}
-																		       onchange={handleChipToggle} type="checkbox"/>
+																			   data-testid="field-chip-toggle" data-toggle-key={chip.key} data-toggle-origin={chip.origin}
+																			   onchange={handleChipToggle} type="checkbox"/>
 																		<span aria-hidden="true" class="dma-chip__glyph">{chip.glyph}</span>
 																		<button class="dma-chip__label" data-detail-field={chip.field} data-detail-key={chip.key}
-																		        data-detail-origin={chip.origin} data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName}
-																		        data-testid="chip-detail" onclick={handleChipDetail} title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
+																				data-detail-origin={chip.origin} data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName}
+																				data-testid="chip-detail" onclick={handleChipDetail} title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
 																		<template lwc:if={chip.flag}>
 																			<span class="dma-chip__flag">{chip.flag}</span>
 																		</template>
@@ -491,7 +491,7 @@
 																	</span>
 																</template>
 																<button class="dma-add-rule" data-api-name={row.apiName} data-testid="add-rule" onclick={handleAddFieldRule}
-																        type="button">{labels.addRule}</button>
+																		type="button">{labels.addRule}</button>
 															</span>
 														</div>
 													</div>
@@ -509,7 +509,7 @@
 						<section class="dma-card slds-m-top_medium" data-testid="section-other" id="dma-other-region">
 							<div class="dma-card__bar">
 								<button aria-controls="dma-other-region" aria-expanded={otherAriaExpanded} class="dma-card__toggle" data-testid="section-other-toggle"
-								        onclick={handleToggleOther} type="button">
+										onclick={handleToggleOther} type="button">
 									<lightning-icon class="dma-card__chev" icon-name="utility:chevrondown" size="xx-small"></lightning-icon>
 									<span class="dma-card__title slds-text-heading_small" data-testid="section-other-heading">{otherSectionHeading}</span>
 								</button>
@@ -518,7 +518,7 @@
 							<template lwc:if={otherExpanded}>
 								<div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_x-small">
 									<lightning-input checked={otherMissesOnly} data-testid="other-misses-toggle" label={labels.otherMissesOnlyLabel}
-									                 onchange={handleOtherMissesToggle} type="checkbox"></lightning-input>
+													 onchange={handleOtherMissesToggle} type="checkbox"></lightning-input>
 								</div>
 								<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small" data-testid="section-other-summary">{labels.sectionOtherSummary}</p>
 								<template lwc:if={isOtherCapped}>
@@ -550,14 +550,14 @@
 															<span aria-hidden="true" class="dma-marker__glyph">✎</span>
 															<span class="dma-marker__label">{row.markerLabel}</span>
 															<button aria-label={row.revertAriaLabel} class="dma-marker__revert" data-api-name={row.apiName} data-label={row.label}
-															        data-testid="revert-override" onclick={handleRevert} type="button">{labels.revertOverride}</button>
+																	data-testid="revert-override" onclick={handleRevert} type="button">{labels.revertOverride}</button>
 														</span>
 													</template>
 												</td>
 												<td>
 													<span class="dma-sens">
 														<button class="dma-badge" data-api-name={row.apiName} data-interactive data-sensitivity={row.sensitivityLevel}
-														        data-testid="sensitivity-badge" onclick={handleReview} type="button">
+																data-testid="sensitivity-badge" onclick={handleReview} type="button">
 															<span>{row.sensitivityBadgeLabel}</span>
 															<span class="slds-assistive-text">{row.reviewBadgeAssistiveText}</span>
 															<span aria-hidden="true" class="dma-badge__caret">▾</span>
@@ -580,9 +580,9 @@
 																<span class="dma-rules-chips">
 																	<template for:each={row.objectWideContextChips} for:item="chip">
 																		<button class="dma-rule-chip" data-detail-field={chip.field} data-detail-origin={chip.origin}
-																		        data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-state="inherited"
-																		        data-testid="object-wide-context-chip" key={chip.key} onclick={handleChipDetail}
-																		        title={chip.supersededByLabel} type="button">
+																				data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName} data-state="inherited"
+																				data-testid="object-wide-context-chip" key={chip.key} onclick={handleChipDetail}
+																				title={chip.supersededByLabel} type="button">
 																			<span aria-hidden="true" class="dma-rule-chip__glyph">🌐</span>{chip.ruleLabel}</button>
 																	</template>
 																</span>
@@ -593,14 +593,14 @@
 															<span class="dma-rules-chips">
 																<template for:each={row.fieldChips} for:item="chip">
 																	<span class="dma-chip" data-desired={chip.desired} data-origin={chip.origin} data-rule={chip.ruleDeveloperName}
-																	      data-testid="field-chip" key={chip.key}>
+																		  data-testid="field-chip" key={chip.key}>
 																		<input aria-label={chip.ariaLabel} checked={chip.desired} class="dma-chip__box"
-																		       data-testid="field-chip-toggle" data-toggle-key={chip.key} data-toggle-origin={chip.origin}
-																		       onchange={handleChipToggle} type="checkbox"/>
+																			   data-testid="field-chip-toggle" data-toggle-key={chip.key} data-toggle-origin={chip.origin}
+																			   onchange={handleChipToggle} type="checkbox"/>
 																		<span aria-hidden="true" class="dma-chip__glyph">{chip.glyph}</span>
 																		<button class="dma-chip__label" data-detail-field={chip.field} data-detail-key={chip.key}
-																		        data-detail-origin={chip.origin} data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName}
-																		        data-testid="chip-detail" onclick={handleChipDetail} title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
+																				data-detail-origin={chip.origin} data-detail-scope={chip.scope} data-rule={chip.ruleDeveloperName}
+																				data-testid="chip-detail" onclick={handleChipDetail} title={chip.supersededByLabel} type="button">{chip.ruleLabel}</button>
 																		<template lwc:if={chip.flag}>
 																			<span class="dma-chip__flag">{chip.flag}</span>
 																		</template>
@@ -610,7 +610,7 @@
 																	</span>
 																</template>
 																<button class="dma-add-rule" data-api-name={row.apiName} data-testid="add-rule" onclick={handleAddFieldRule}
-																        type="button">{labels.addRule}</button>
+																		type="button">{labels.addRule}</button>
 															</span>
 														</div>
 													</div>

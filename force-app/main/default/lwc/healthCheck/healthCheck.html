@@ -11,7 +11,7 @@
 				</div>
 				<div class="slds-media__figure slds-media__figure_reverse">
 					<lightning-button-icon alternative-text={labels.refreshAltText} data-testid="health-check-refresh" icon-name="utility:refresh" onclick={handleRefresh}
-					                       size="small" variant="bare"></lightning-button-icon>
+										   size="small" variant="bare"></lightning-button-icon>
 				</div>
 			</div>
 		</div>
@@ -19,7 +19,7 @@
 
 	<lightning-card icon-name="utility:heart" lwc:elseif={hasResults} title={labels.cardTitle}>
 		<lightning-button-icon alternative-text={labels.refreshAltText} data-testid="health-check-refresh" icon-name="utility:refresh" onclick={handleRefresh} size="small"
-		                       slot="actions" variant="bare"></lightning-button-icon>
+							   slot="actions" variant="bare"></lightning-button-icon>
 
 		<div class="slds-p-horizontal_medium slds-p-bottom_small">
 			<template lwc:if={isLoading}>
@@ -31,16 +31,18 @@
 					<p class="slds-text-body_regular slds-p-bottom_small" data-testid="health-check-headline"><strong>{headlineLabel}</strong></p>
 
 					<template lwc:if={hasPassingItems}>
-						<div class="passing-row slds-grid slds-grid_vertical-center slds-wrap slds-p-bottom_x-small">
-							<span class="slds-text-body_small slds-text-color_weak slds-m-right_x-small">{labels.passingPrefix}</span>
-							<template for:each={passingItems} for:item="passingItem">
-								<div class="status-chip slds-grid slds-grid_vertical-center slds-m-right_medium slds-m-bottom_xx-small" data-testid="health-check-passing-chip"
-								     key={passingItem.name}>
-									<lightning-icon alternative-text="Passing" class="slds-m-right_xx-small" icon-name="utility:success" size="x-small"
-									                variant="success"></lightning-icon>
-									<span class="slds-text-body_small slds-text-color_weak">{passingItem.name}</span>
-								</div>
-							</template>
+						<div class="passing-row slds-grid slds-p-bottom_x-small">
+							<span class="passing-row__label slds-text-body_small slds-text-color_weak slds-m-right_x-small" id="passing-label">{labels.passingPrefix}</span>
+							<ul aria-labelledby="passing-label" class="passing-row__chips slds-grid slds-grid_vertical-center slds-wrap" data-testid="health-check-passing-list">
+								<template for:each={passingItems} for:item="passingItem">
+									<li class="status-chip slds-grid slds-grid_vertical-center slds-m-right_medium slds-m-bottom_xx-small" data-testid="health-check-passing-chip"
+										key={passingItem.name}>
+										<lightning-icon alternative-text="Passing" class="slds-m-right_xx-small" icon-name="utility:success" size="x-small"
+														variant="success"></lightning-icon>
+										<span class="slds-text-body_small slds-text-color_weak">{passingItem.name}</span>
+									</li>
+								</template>
+							</ul>
 						</div>
 					</template>
 
@@ -51,7 +53,7 @@
 								<template for:each={failItems} for:item="actionItem">
 									<li class="slds-item slds-p-around_small slds-grid slds-grid_vertical-center" data-testid="health-check-item" key={actionItem.name}>
 										<lightning-icon class="slds-m-right_small slds-align-top" icon-name={actionItem.iconName} size="small"
-										                variant={actionItem.iconVariant}></lightning-icon>
+														variant={actionItem.iconVariant}></lightning-icon>
 										<template lwc:if={actionItem.isDataRetention}>
 											<template lwc:if={isCustomizeMode}>
 												<div class="retention-customize-block slds-col slds-grow">
@@ -60,21 +62,21 @@
 															<strong>{customizingHeadline}</strong>
 														</span>
 														<lightning-button data-testid="back-to-apply-link" label={labels.backToApplyLink} onclick={handleBackToApply}
-														                  variant="base"></lightning-button>
+																		  variant="base"></lightning-button>
 													</div>
 													<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small" data-testid="customize-help">
 														{labels.customizingHelp} </p>
 													<ul class="retention-sublist" data-testid="retention-sublist">
 														<template for:each={retentionProposals} for:item="proposal">
 															<li class="retention-sub-row slds-grid slds-grid_vertical-align-center slds-p-around_x-small"
-															    data-testid="retention-sub-row" key={proposal.objectApiName}>
+																data-testid="retention-sub-row" key={proposal.objectApiName}>
 																<lightning-icon icon-name="utility:warning" size="x-small" variant="warning"></lightning-icon>
 																<span class="slds-p-left_small retention-sub-row__object">{proposal.objectLabel}</span>
 																<span class="slds-p-left_small slds-text-body_small slds-text-color_weak retention-sub-row__meta">
 																	{proposal.recordCountLabel} &middot; {proposal.retentionLabel}
 																</span>
 																<lightning-button data-object-api-name={proposal.objectApiName} data-testid="set-up-button"
-																                  label={labels.setUpButton} onclick={handleSetUp}></lightning-button>
+																				  label={labels.setUpButton} onclick={handleSetUp}></lightning-button>
 															</li>
 														</template>
 													</ul>
@@ -87,9 +89,9 @@
 												</div>
 												<div class="slds-shrink-none slds-m-left_small slds-grid slds-grid_vertical slds-grid_vertical-align-end">
 													<lightning-button data-testid="apply-retention-button" label={labels.applyButton}
-													                  onclick={handleApplyRetention}></lightning-button>
+																	  onclick={handleApplyRetention}></lightning-button>
 													<lightning-button class="slds-m-top_xx-small" data-testid="customize-retention-link" label={labels.customizeLink}
-													                  onclick={handleCustomizeRetention} variant="base"></lightning-button>
+																	  onclick={handleCustomizeRetention} variant="base"></lightning-button>
 												</div>
 											</template>
 										</template>
@@ -117,7 +119,7 @@
 								<template for:each={warnItems} for:item="actionItem">
 									<li class="slds-item slds-p-around_small slds-grid slds-grid_vertical-center" data-testid="health-check-item" key={actionItem.name}>
 										<lightning-icon class="slds-m-right_small slds-align-top" icon-name={actionItem.iconName} size="small"
-										                variant={actionItem.iconVariant}></lightning-icon>
+														variant={actionItem.iconVariant}></lightning-icon>
 										<template lwc:if={actionItem.isDataRetention}>
 											<template lwc:if={isCustomizeMode}>
 												<div class="retention-customize-block slds-col slds-grow">
@@ -126,21 +128,21 @@
 															<strong>{customizingHeadline}</strong>
 														</span>
 														<lightning-button data-testid="back-to-apply-link" label={labels.backToApplyLink} onclick={handleBackToApply}
-														                  variant="base"></lightning-button>
+																		  variant="base"></lightning-button>
 													</div>
 													<p class="slds-text-body_small slds-text-color_weak slds-m-bottom_x-small" data-testid="customize-help">
 														{labels.customizingHelp} </p>
 													<ul class="retention-sublist" data-testid="retention-sublist">
 														<template for:each={retentionProposals} for:item="proposal">
 															<li class="retention-sub-row slds-grid slds-grid_vertical-align-center slds-p-around_x-small"
-															    data-testid="retention-sub-row" key={proposal.objectApiName}>
+																data-testid="retention-sub-row" key={proposal.objectApiName}>
 																<lightning-icon icon-name="utility:warning" size="x-small" variant="warning"></lightning-icon>
 																<span class="slds-p-left_small retention-sub-row__object">{proposal.objectLabel}</span>
 																<span class="slds-p-left_small slds-text-body_small slds-text-color_weak retention-sub-row__meta">
 																	{proposal.recordCountLabel} &middot; {proposal.retentionLabel}
 																</span>
 																<lightning-button data-object-api-name={proposal.objectApiName} data-testid="set-up-button"
-																                  label={labels.setUpButton} onclick={handleSetUp}></lightning-button>
+																				  label={labels.setUpButton} onclick={handleSetUp}></lightning-button>
 															</li>
 														</template>
 													</ul>
@@ -153,9 +155,9 @@
 												</div>
 												<div class="slds-shrink-none slds-m-left_small slds-grid slds-grid_vertical slds-grid_vertical-align-end">
 													<lightning-button data-testid="apply-retention-button" label={labels.applyButton}
-													                  onclick={handleApplyRetention}></lightning-button>
+																	  onclick={handleApplyRetention}></lightning-button>
 													<lightning-button class="slds-m-top_xx-small" data-testid="customize-retention-link" label={labels.customizeLink}
-													                  onclick={handleCustomizeRetention} variant="base"></lightning-button>
+																	  onclick={handleCustomizeRetention} variant="base"></lightning-button>
 												</div>
 											</template>
 										</template>
@@ -168,9 +170,9 @@
 											</div>
 											<div class="slds-shrink-none slds-m-left_small slds-grid slds-grid_vertical slds-grid_vertical-align-end">
 												<lightning-button data-spec-id="watchdog-schedule-button" data-testid="schedule-watchdog-button"
-												                  label={labels.watchdogScheduleButton} onclick={handleScheduleWatchdog}></lightning-button>
+																  label={labels.watchdogScheduleButton} onclick={handleScheduleWatchdog}></lightning-button>
 												<lightning-button class="slds-m-top_xx-small" data-spec-id="watchdog-customize-link" data-testid="customize-watchdog-link"
-												                  label={labels.watchdogCustomizeLink} onclick={handleCustomizeWatchdog} variant="base"></lightning-button>
+																  label={labels.watchdogCustomizeLink} onclick={handleCustomizeWatchdog} variant="base"></lightning-button>
 											</div>
 										</template>
 										<template lwc:else>
