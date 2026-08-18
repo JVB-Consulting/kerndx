@@ -5,7 +5,7 @@ pageClass: reference
 description: "Factory class for instantiating and executing configured trigger actions. Manages the lifecycle of trigger actions and supports bypassing specific actions. Adapted from: Apex Trigger Actions Framework"
 author: "Jason Van Beukering"
 group: "Triggers"
-date: "February 2026, June 2026"
+date: "February 2026, August 2026"
 since: "1.0"
 category: apex
 ---

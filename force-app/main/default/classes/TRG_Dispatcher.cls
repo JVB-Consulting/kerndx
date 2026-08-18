@@ -26,7 +26,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, June 2026
+ * @date February 2026, August 2026
  *
  * @since 1.0
  *
@@ -237,15 +237,27 @@ global inherited sharing class TRG_Dispatcher
 			// transaction-scoped post-trigger action.
 			Boolean isFrameworkLoggingEvent = triggerNew != null && !triggerNew.isEmpty()
 					&& triggerNew[0].getSObjectType() == LogEntryEvent__e.SObjectType;
-			if(!isFrameworkLoggingEvent)
+			try
 			{
-				dispatchPostActionsAtOutermostUnwind(completedNormally);
+				if(!isFrameworkLoggingEvent)
+				{
+					dispatchPostActionsAtOutermostUnwind(completedNormally);
+				}
 			}
-			// Flush in-context logs via DML and exit event-trigger context AFTER the post-action
-			// hook, so any logs the hook emits are captured by the same direct-DML persist.
-			if(enteredEventTriggerContext)
+			finally
 			{
-				LOG_Engine.endEventTriggerContext();
+				// Flush in-context logs via DML and exit event-trigger context AFTER the post-action
+				// hook, so any logs the hook emits are captured by the same direct-DML persist. The
+				// inner try/finally guarantees the teardown even when the hook throws (a subscriber
+				// post-action failure, or the no-DML guard's PostActionDmlException) — otherwise the
+				// event-trigger context and suspended saving would stay set for the rest of the
+				// transaction and the buffered entries would never flush. The hook's exception is
+				// deliberately NOT swallowed: it must surface so a platform-event subscriber trigger
+				// still fails delivery and the platform's retry semantics apply.
+				if(enteredEventTriggerContext)
+				{
+					LOG_Engine.endEventTriggerContext();
+				}
 			}
 		}
 	}

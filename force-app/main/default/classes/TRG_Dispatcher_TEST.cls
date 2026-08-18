@@ -111,11 +111,25 @@ private class TRG_Dispatcher_TEST
 	 */
 	private static final String POST_ACTION = TRG_Dispatcher_TEST.class.getName() + '.TestPostAction';
 	/**
+	 * @description Apex class name of the post-trigger action mock that performs synchronous DML on
+	 * its first execution only, injected via `SEL_PostTriggerAction.overrideRows` to make the hook
+	 * throw `PostActionDmlException` at the outermost unwind of an event dispatch.
+	 */
+	private static final String TEST_DML_ONCE_POST_ACTION = TRG_Dispatcher_TEST.class.getName() + '.TestDmlOncePostAction';
+	/**
 	 * @description Count of `TestPostAction.execute` invocations in the current transaction.
 	 * Reset by `registerSinglePostAction`. The outermost-unwind hook must drive this to exactly
 	 * one per top-level dispatch that completes normally — and to zero when the dispatch aborts.
 	 */
 	private static Integer postActionInvocationCount = 0;
+	/**
+	 * @description Whether `TestDmlOncePostAction.execute` has already run in the current
+	 * transaction. The mock performs its guard-tripping DML only on the first execution, so the
+	 * nested `LogEntry__c` dispatch fired by the protected teardown's buffered-log persist runs the
+	 * hook clean instead of tripping the no-DML guard a second time (which would roll back the
+	 * persisted rows the teardown-protection test asserts on).
+	 */
+	private static Boolean dmlOncePostActionHasExecuted = false;
 	/**
 	 * @description The `touchedSObjectTypes` set most recently delivered to `TestPostAction.execute`,
 	 * captured so tests can assert which object types the dispatcher accumulated and that the set is
@@ -1648,6 +1662,89 @@ private class TRG_Dispatcher_TEST
 	}
 
 	/**
+	 * @description Teardown-protection guard: an exception escaping the post-trigger-action hook —
+	 * here the no-DML contract guard's `PostActionDmlException` — must NOT skip
+	 * `LOG_Engine.endEventTriggerContext()` in `run()`'s `finally`. Without the protection the
+	 * event-trigger context and suspended saving stay set for the rest of the transaction and the
+	 * buffered in-context logs never flush; on a platform-event subscriber trigger the escaping
+	 * exception also fails delivery, which the platform retries and can ultimately suspend.
+	 *
+	 * All post-conditions are observed through public logging behaviour: the hook's exception still
+	 * surfaces out of `run()` (never swallowed — platform-event retry semantics depend on it), the
+	 * buffer drains into a persisted `LogEntry__c` row, and once the context is torn down a
+	 * follow-up ERROR emit no longer persists via direct DML while a follow-up DEBUG emit is no
+	 * longer buffered.
+	 *
+	 * @see TRG_Dispatcher.run
+	 * @see LOG_Engine.endEventTriggerContext
+	 * @see UTIL_PostTriggerAction
+	 */
+	@IsTest
+	private static void shouldTearDownEventTriggerContextAndFlushBufferWhenPostActionThrows()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		wasLoggingActionCalled = false;
+		dmlOncePostActionHasExecuted = false;
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt>
+		{
+				(PostTriggerAction__mdt)TST_Builder.of(PostTriggerAction__mdt.SObjectType)
+						.withOverride(PostTriggerAction__mdt.DeveloperName, 'TestDispatcherDmlOncePostAction')
+						.withOverride(PostTriggerAction__mdt.ApexClassName__c, TEST_DML_ONCE_POST_ACTION)
+						.withOverride(PostTriggerAction__mdt.Order__c, 10)
+						.withOverride(PostTriggerAction__mdt.FailureAction__c, FAILURE_LOG_AND_CONTINUE)
+						.withoutInsertion()
+						.build()
+		};
+
+		TriggerAction__mdt loggingAction = TST_Factory.newTriggerActionForContext(
+				TEST_LOGGING_AFTER_INSERT, TRIGGER_SETTING, TriggerOperation.AFTER_INSERT);
+
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<SObject> {new AccountChangeEvent()};
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.AFTER_INSERT;
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.AFTER_INSERT => new List<TriggerAction__mdt> {loggingAction}
+		};
+
+		Test.startTest();
+		try
+		{
+			FACTORY_TRIGGER_ACTION.run();
+			Assert.fail('The post-action DML-guard exception must surface out of run() — the teardown protection must never swallow it');
+		}
+		catch(UTIL_Exceptions.PostActionDmlException expected)
+		{
+			Assert.isTrue(wasLoggingActionCalled, 'Precondition: the in-context log must have been emitted (and buffered) before the hook threw');
+		}
+		Test.stopTest();
+
+		Assert.areEqual(0, LOG_Engine.getBufferSize(),
+				'Buffered in-context logs must flush when the post-action hook throws — the protected teardown owns the flush');
+
+		String detailKey = TRG_PersistLogEntry.PREFIX_DETAIL + LOGGING_ACTION_FINGERPRINT;
+		Boolean detailFound = false;
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if(detailKey.equals(row.Fingerprint__c))
+			{
+				detailFound = true;
+			}
+		}
+		Assert.isTrue(detailFound, 'The buffered action log must persist via direct DML when the throwing hook unwinds — flushed, not dropped');
+
+		LOG_Builder.ignoreTestMode = false;
+		Integer rowCountBeforeErrorEmit = new SEL_LogEntry().getAll().size();
+		LOG_Builder.build().error('post-run emit probing event-trigger context teardown').emit();
+		Assert.areEqual(rowCountBeforeErrorEmit, new SEL_LogEntry().getAll().size(),
+				'Event-trigger context must be torn down after run() — an ERROR emitted afterwards must not persist via direct DML');
+
+		LOG_Builder.build().debug('post-run emit probing suspended-saving restore').emit();
+		Assert.areEqual(0, LOG_Engine.getBufferSize(),
+				'Suspended saving must be restored after run() — an emit after the dispatch must not be buffered');
+	}
+
+	/**
 	 * @description Registers a single post-trigger action row (pointing at `TestPostAction`) via
 	 * the selector override seam and resets the invocation tally + captured-types capture. Lets the
 	 * outermost-unwind tests assert firing behaviour without deploying real `PostTriggerAction__mdt`.
@@ -2021,6 +2118,43 @@ private class TRG_Dispatcher_TEST
 		{
 			TRG_Dispatcher_TEST.postActionInvocationCount++;
 			TRG_Dispatcher_TEST.capturedTouchedTypes = context.touchedSObjectTypes;
+		}
+	}
+
+	/**
+	 * @description Mock `IF_Trigger.PostAction` that performs synchronous DML on its FIRST
+	 * execution only, tripping the hook's no-DML contract guard exactly once. The teardown-protection
+	 * test needs the hook to throw at the outermost unwind of the change-event dispatch, yet run
+	 * clean during the nested `LogEntry__c` dispatch fired by the protected teardown's buffered-log
+	 * persist — a second guard trip there would roll back the persisted rows the test asserts on.
+	 */
+	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
+	public class TestDmlOncePostAction implements IF_Trigger.PostAction
+	{
+		public void execute(IF_Trigger.PostActionContext context)
+		{
+			if(TRG_Dispatcher_TEST.dmlOncePostActionHasExecuted)
+			{
+				return;
+			}
+			TRG_Dispatcher_TEST.dmlOncePostActionHasExecuted = true;
+			// Issue a DML statement through the framework DML layer for the no-DML guard to detect.
+			// allowPartial() makes the insert all-or-none = false, so a row-level failure — a subscriber
+			// validation rule, FLS, org storage — returns a failed result instead of throwing out of
+			// execute() before the guard's Limits.getDmlStatements() check runs. The statement still
+			// counts, so the guard surfaces PostActionDmlException as designed. A managed-package test
+			// cannot assume a subscriber org will accept a standard-object insert.
+			DML_Builder.newTransaction()
+					.doInsert
+							(
+									TST_Builder.of(Account.SObjectType)
+											.withOverride(Account.Name, 'PostActionDmlAccount')
+											.withoutInsertion()
+											.build()
+							)
+					.allowPartial()
+					.suppressLogging()
+					.execute();
 		}
 	}
 }
