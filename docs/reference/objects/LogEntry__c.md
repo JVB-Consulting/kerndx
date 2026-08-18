@@ -32,7 +32,7 @@ Persistent log entries captured by the Kern logging framework. Each record repre
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ContextData__c](#contextdata__c) | JSON map of key-value pairs providing structured context about the operation. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [CorrelationId__c](#correlationid__c) | Unique identifier linking related log entries across multiple transactions. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [DurationMs__c](#durationms__c) | Duration of the operation in milliseconds. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ExceptionType__c](#exceptiontype__c) | Fully qualified Apex exception class name (e.g., System.DmlException). |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ExceptionType__c](#exceptiontype__c) | The type of the failure this entry records: a fully qualified Apex exception class name (e.g., System.DmlException), or for entries logged from a Lightning web component, the JavaScript error name or the Apex type relayed from a failed server call. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ExecutionEvent__c](#executionevent__c) | Salesforce execution context (Quiddity) that produced this log entry. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Fingerprint__c](#fingerprint__c) | Grouping key for log flood control. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Limits__c](#limits__c) | JSON snapshot of Salesforce governor limits at the time the event was logged. |
@@ -120,7 +120,7 @@ Duration of the operation in milliseconds.
 global String ExceptionType__c
 ```
 
-Fully qualified Apex exception class name (e.g., System.DmlException).
+The type of the failure this entry records: a fully qualified Apex exception class name (e.g., System.DmlException), or for entries logged from a Lightning web component, the JavaScript error name or the Apex type relayed from a failed server call.
 
 **Field Attributes:**
 

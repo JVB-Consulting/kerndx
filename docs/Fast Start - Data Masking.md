@@ -16,6 +16,10 @@ navOrder: 64
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **What you'll build:** You will watch the framework redact a card number and a secret with zero setup, then
 configure masking on a field of **your own** object and verify the value is redacted before it is saved.
 
@@ -236,9 +240,13 @@ referenced as `kern__MaskSsn`:
 </CustomMetadata>
 ```
 
-A blank `kern__Field__c` is an **object-wide wildcard**: the SSN rule scans every text-shaped field on `Contact`,
-so the note's SSN is caught wherever it lands. To narrow it to a single field, let the Advisor build the field
-reference for you, because getting the namespaced field path right by hand is the fiddly part the export removes.
+A blank `kern__Field__c` is an **object-wide wildcard**: the SSN rule scans every text-shaped field on `Contact`
+your code can write to, except the ones that identify a record, so the note's SSN is caught wherever it lands in
+ordinary text. A unique field or an external id is never touched by a wildcard, because rewriting a key breaks it,
+and neither is a read-only or formula field, because there is nothing there to rewrite. If you do want a rule on
+a key field, name that field explicitly in `kern__Field__c`: an explicit target is treated as your deliberate choice
+and is honoured. To narrow the target to a single field, let the Advisor build the field reference for you, because
+getting the namespaced field path right by hand is the fiddly part the export removes.
 Deploy with:
 
 ```bash

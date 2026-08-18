@@ -18,6 +18,10 @@ navOrder: 38
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **What you'll build:** A pricing service that switches between legacy and new calculation logic based on a
 feature flag.
 
@@ -410,12 +414,17 @@ The framework reads them directly from Apex to control how it behaves across you
 | `UserModeQueries_Enabled`                                             | Controls the default `AccessLevel` on `QRY_Builder` / `SEL_Base.query`. `true` → USER_MODE (CRUD/FLS/sharing enforced); `false` → SYSTEM_MODE.                                                     | `true`  | Setup → CMDT → FeatureFlag → edit → set `IsEnabledByDefault__c = false`. |
 | `UserModeDml_Enabled`                                                 | Controls the default `AccessLevel` on `DML_Builder.newTransaction()` operations. Same true/false semantics as above.                                                                               | `true`  | Same metadata flip path.                                                 |
 | `MaskingFramework_Enabled`                                            | Kill-switch for the data-masking framework (`MaskingTarget__mdt` / `MaskingRule__mdt`). `true` → rules are applied before `LogEntryEvent__e` publishes; `false` → pipeline skips masking entirely. | `true`  | Same metadata flip path.                                                 |
-| `AsyncChain`                                                          | Kill-switch for `UTIL_AsyncChain` orchestration. `true` → chains execute; `false` → chains short-circuit immediately.                                                                              | `true`  | Same metadata flip path.                                                 |
+| `AsyncChain`                                                          | Kill-switch for `UTIL_AsyncChain` orchestration. `true` → chains run; `false` → running chains stop at their next step boundary and new chains stop at once. Resolved from the `AsyncChainRuntimeSwitch__c` hierarchy setting, not from the flag record. | `true`  | Setup → Custom Settings → Async Chain Runtime Switch → Manage → untick `ChainsEnabled__c`. |
 | `DisableAllInboundAPIs` / `DisableAllOutboundAPIs` / `DisableAllAPIs` | Runtime kill-switches for the web-service framework.                                                                                                                                               | `false` | Same metadata flip path.                                                 |
 | `MockAllAPIs` / `MockAllInboundAPIs`                                  | Test-mode toggles used by `API_MockFactory`.                                                                                                                                                       | `false` | Same metadata flip path.                                                 |
 
-> The package also ships a `TestFeatureFlag` record (`protected=true`) used by the framework's own test classes. It isn't meant for your org to use. The flags listed above are the
-> complete set visible to you.
+> On `AsyncChain` and `DisableAllAPIs` the answer comes from a shipped strategy record rather than from the flag itself, so editing `IsEnabledByDefault__c` on those two changes nothing.
+> Flip them through their hierarchy custom settings instead: `AsyncChainRuntimeSwitch__c.ChainsEnabled__c` and `ApiRuntimeSwitch__c.DisableAllApis__c`.
+> One field on the flag record still counts: with no hierarchy setting record the strategy finds no match, so the answer falls back to `ResultOnNoMatch__c`. On `AsyncChain` that means `ResultOnNoMatch__c = false` leaves chains off until someone creates the setting, with no obvious cause to point at.
+
+> The package also ships a `TestFeatureFlag` record (`protected=true`) used by the framework's own test classes. It isn't meant for your org to use. Your org also sees
+> `AsyncChainAbort_Enabled`, `AsyncChainRedrive_Enabled` and `AsyncChainKillSwitch_Enabled`, which gate the Chain Monitor's operator actions, and `BypassAudit_Enabled`, which controls
+> the record the framework keeps whenever a safety check is turned off. The [Feature Flags Guide](Feature%20Flags%20-%20Guide.md#framework-owned-flags) carries the full list.
 
 See [Security Guide, Safe by Default](Security%20-%20Guide.md#safe-by-default) for how
 `UserModeQueries_Enabled` and `UserModeDml_Enabled` interact with `.withSystemMode()`, `.withUserMode()`, and

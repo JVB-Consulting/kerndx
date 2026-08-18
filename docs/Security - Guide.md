@@ -7,7 +7,9 @@ navOrder: 16
 **Framework:** KernDX
 **Package Type:** Managed Package
 
-> **If you installed KernDX as a managed package:** prefix framework class references with your installed namespace (for example, `AcmeLib.QRY_Builder`).
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **Target Audience:**
 
@@ -231,7 +233,6 @@ The framework gives you three main security capabilities:
 
 > **What sits inside this framework:** in-memory encryption (`UTIL_SessionEncryption`), sharing control on both queries (`QRY_Builder`) and saves (`DML_Builder`), and CRUD/FLS enforcement through `QRY_Builder.withUserMode()` and `QRY_Builder.stripInaccessible()`.
 
-> **A note on namespaces:** the code examples here leave off the namespace prefix for readability. If you have installed KernDX as a managed package, prefix framework class references with your installed namespace (for example, `YourNamespace.QRY_Builder`).
 
 ### Key Concepts
 
@@ -360,13 +361,13 @@ The `systemModeRequired()` hook on `SEL_Base` is `global virtual`, so you can ov
 
 Go to Setup, then Custom Metadata Types, then FeatureFlag, edit `UserModeQueries_Enabled`, set `IsEnabledByDefault__c = false`, and save. The next transaction picks it up, and every query your code can reach reverts to `SYSTEM_MODE`. The same applies to `UserModeDml_Enabled`. This is a lever for incidents, not a routine setting.
 
-**Bypass audit trail (across the whole framework).** Whenever a safety check is turned off, KernDX records what was bypassed and why, so a later review can see it. This covers every bypass call: on triggers (`TRG_Base.bypass*`), on queries (`QRY_Builder.withSystemMode` / `bypassSharing` / `withoutSecurity`), on saves (`DML_Builder.withSystemMode` / `bypassSharing`), and on validations (`UTIL_ValidationRule.bypassObject` / `bypassGroup` / `bypassRule`). Each one writes a `LogEntryEvent__e` record with category `BypassEvent` through `UTIL_BypassAudit.emit`, capturing the user, the action, the surface, the target, and an optional reason you set with `UTIL_BypassAudit.setBypassReason(String)`. The `BypassAudit_Enabled` feature flag (`FeatureFlag__mdt`) is the master off-switch for this audit; it ships on, and you can disable it through a `FeatureFlagStrategy__mdt` override. To read the audit trail back, query with `SEL_LogEntry.query.condition(LogEntry__c.ContextData__c).contains('"category":"BypassEvent"')`.
+**Bypass audit trail (across the whole framework).** Whenever a safety check is turned off, KernDX records what was bypassed and why, so a later review can see it. This covers every bypass call: on triggers (`TRG_Base.bypass*`), on queries (`QRY_Builder.withSystemMode` / `bypassSharing` / `withoutSecurity`), on saves (`DML_Builder.withSystemMode` / `bypassSharing`), and on validations (`UTIL_ValidationRule.bypassObject` / `bypassGroup` / `bypassRule`). Each one writes a `LogEntryEvent__e` record with category `BypassEvent`, capturing the user, the action, the surface, the target, and an optional reason you set with `TRG_Base.setBypassReason(String)`, which applies to every bypass in the transaction. The `BypassAudit_Enabled` feature flag (`FeatureFlag__mdt`) is the master off-switch for this audit; it ships on, and you can disable it through a `FeatureFlagStrategy__mdt` override. To read the audit trail back, query with `SEL_LogEntry.query.condition(LogEntry__c.ContextData__c).contains('"category":"BypassEvent"')`.
 
 ---
 
 ## How to opt out
 
-Sometimes the secure default is not what you want, and you need to step outside it for a single call. Every protection here is opt-in per layer and controllable right where you call it: you choose the sharing behaviour, the access mode (`AccessLevel`), and whether object and field permissions are enforced, all on the same line. Nothing is hidden in framework internals. The framework's own classes default to `inherited sharing` (176 of 185 production classes), so the caller's sharing context always flows through unchanged.
+Sometimes the secure default is not what you want, and you need to step outside it for a single call. Every protection here is opt-in per layer and controllable right where you call it: you choose the sharing behaviour, the access mode (`AccessLevel`), and whether object and field permissions are enforced, all on the same line. Nothing is hidden in framework internals. The overwhelming majority of the framework's own classes default to `inherited sharing`, so the caller's sharing context flows through unchanged.
 
 | You need                                                         | Use                                                                                                                                              | See                                                                                                                  |
 |------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
@@ -888,11 +889,11 @@ You can control sharing at four points in the framework:
 +-----------------------------------------------------------------------------+
 |                          SHARING PROXY LAYER                                 |
 |  +---------------------------------+  +---------------------------------+   |
-|  |        QRY_Builder              |  |   DML_Builder                   |   |
+|  |        Query path               |  |   Save path                     |   |
 |  |  +----------------------------+ |  |  +----------------------------+ |   |
-|  |  | SharingProxy (inherited)   | |  |  | DatabaseUpdateProxy        | |   |
-|  |  | WithSharingProxy (with)    | |  |  | ...WithoutSharing (without)| |   |
-|  |  | NoSharingProxy (without)   | |  |  | ...WithSharing (with)      | |   |
+|  |  | inherited: runs inline     | |  |  | inherited sharing proxy    | |   |
+|  |  | with sharing executor      | |  |  | with sharing proxy         | |   |
+|  |  | without sharing executor   | |  |  | without sharing proxy      | |   |
 |  |  +----------------------------+ |  |  +----------------------------+ |   |
 |  +---------------------------------+  +---------------------------------+   |
 +-----------------------------------------------------------------------------+
@@ -948,12 +949,14 @@ global inherited sharing class DML_Builder
 
 `DML_Builder` gives you one sharing override in code: `.bypassSharing()`. If you do not call it, the transaction follows the caller's sharing context through the `inherited sharing` helper.
 
-| Builder Method     | Proxy Used                | Effect                                |
-|--------------------|---------------------------|---------------------------------------|
-| *(default)*        | `inherited sharing` proxy | DML inherits caller's sharing context |
-| `.bypassSharing()` | `without sharing` proxy   | DML ignores sharing rules             |
+| Builder Method     | Proxy Used                | Effect                                                                                                                                                   |
+|--------------------|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| *(default)*        | `inherited sharing` proxy | The proxy inherits the caller's sharing context, and under the shipped `UserModeDml_Enabled` default the save runs in user mode, where the platform enforces record sharing |
+| `.bypassSharing()` | `without sharing` proxy   | The proxy stops enforcing sharing rules                                                                                                                  |
 
 There is no `.withSharing()` method on `DML_Builder`. To enforce sharing on a save, call the transaction from a `with sharing` class (or from one whose `inherited sharing` caller is itself `with sharing`). To enforce object and field permissions as well, add `.withUserMode()` (see [Safe by Default](#safe-by-default)).
+
+One thing to know before you reach for `.bypassSharing()`: the sharing dial and the access mode are separate settings, and under the shipped defaults the save still runs in user mode, where the platform enforces record sharing on its own. A save that genuinely has to reach every record needs `.bypassSharing()` and `.withSystemMode()` together.
 
 #### How the Proxy Pattern Works
 
@@ -1009,13 +1012,13 @@ global inherited sharing class QRY_Builder
 
 #### How Query Sharing Works
 
-Just as with saves, [`QRY_Builder`](reference/apex/QRY_Builder.md) uses helper classes to control sharing on a query. The method you chain decides which helper runs the query:
+Just as with saves, [`QRY_Builder`](reference/apex/QRY_Builder.md) uses helper classes to control sharing on a query. The method you chain decides which helper runs it, and if you chain neither the query runs inline in whatever context called it:
 
-| Sharing Method     | Proxy Used         | Effect                                  |
-|--------------------|--------------------|-----------------------------------------|
-| *(default)*        | `SharingProxy`     | Query inherits caller's sharing context |
-| `.withSharing()`   | `WithSharingProxy` | Query enforces sharing rules            |
-| `.bypassSharing()` | `NoSharingProxy`   | Query bypasses sharing rules            |
+| Sharing Method     | Effect                                                                                  |
+|--------------------|-------------------------------------------------------------------------------------------|
+| *(default)*        | The query runs inline, so it inherits the calling class's sharing context                   |
+| `.withSharing()`   | The query is handed to a `with sharing` executor, so sharing rules are enforced             |
+| `.bypassSharing()` | The query is handed to a `without sharing` executor, so sharing rules are bypassed          |
 
 **Three choices:**
 
@@ -1243,40 +1246,38 @@ The framework creates the right Share records with `BYPASS` sharing mode, so the
 
 #### Without Sharing Classes
 
-A few framework classes are declared `without sharing`, which means their internal operations bypass sharing rules by default:
+Two framework classes are declared `without sharing`, which means their own internal operations bypass sharing rules. Only one of them is a class you call:
 
-| Class                                          | Purpose            | Rationale                                                     |
-|------------------------------------------------|--------------------|---------------------------------------------------------------|
-| [`TST_Builder`](reference/apex/TST_Builder.md) | Test data creation | Tests need to create data regardless of running user's access |
+| Class                                          | Purpose            | Rationale                                                                          |
+|------------------------------------------------|--------------------|--------------------------------------------------------------------------------------|
+| [`TST_Factory`](reference/apex/TST_Factory.md) | Test data creation | Tests have to seed records whatever the running user's record access happens to be |
 
-**TST_Builder:**
+**TST_Factory:**
 
 ```apex
-@SuppressWarnings('PMD.ApexCRUDViolation')
-global without sharing class TST_Builder
+global without sharing class TST_Factory
 ```
 
-- Creates test data, custom metadata, permission assignments
-- Must operate regardless of test user's permissions
+- Creates test records, permission set assignments, share records and framework settings
+- Has to work no matter how narrow the test user's access is
+
+The second one is internal plumbing rather than API: one background-job processor, the engine that runs your queued and batch work, carries the same declaration.
 
 > **Important:** Even though these classes are declared `without sharing`, any save you make through the framework's [`DML_Builder`](reference/apex/DML_Builder.md) methods still flows through the sharing helper. A `with sharing` helper can override a `without sharing` caller, so you can still enforce sharing from a `without sharing` class: call the builder from a dedicated `with sharing` wrapper, or add `.withUserMode()` to enforce object permissions, field security, and sharing at the database regardless of the caller's context.
 
 #### With Sharing Classes
 
-These classes always enforce sharing:
+None of the classes you call is declared `with sharing`. The three that carry the declaration are all internal: the controllers behind the Log Console and the Chain Monitor screens, and the small bridge a component uses to read a feature flag. Each enforces sharing in its own right, whatever context it is called from.
 
-| Class                                                                | Purpose                  | Rationale                                           |
-|----------------------------------------------------------------------|--------------------------|-----------------------------------------------------|
-| [`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md) | Session-based encryption | Security-sensitive operations should respect access |
+You get the same guarantee in your own code without needing one of those. Declare your class `with sharing` and the framework's `inherited sharing` classes follow you into it, or add `.withUserMode()` to a single query or save (see [Safe by Default](#safe-by-default)).
 
-**UTIL_SessionEncryption:**
+One correction worth stating plainly, because the class name suggests otherwise:
 
 ```apex
-global with sharing class UTIL_SessionEncryption
+global inherited sharing class UTIL_SessionEncryption
 ```
 
-- Manages session-based encryption and decryption
-- Enforces sharing to ensure only authorised users can access encrypted data
+[`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md) manages session-based encryption and decryption, and it follows the caller's sharing context like almost everything else in the framework. It does not impose sharing of its own.
 
 #### Inherited Sharing Classes
 
@@ -2235,9 +2236,10 @@ A lookup section for when you already know what you want and just need the exact
 | `QRY_Engine.WithSharingExecutor`                                     | `with sharing`      | Query with sharing enforced                    |
 | `QRY_Engine.WithoutSharingExecutor`                                  | `without sharing`   | Query with sharing bypassed                    |
 | [`DML_Transaction`](reference/apex/DML_Transaction.md)               | `inherited sharing` | Transaction management                         |
-| [`TST_Builder`](reference/apex/TST_Builder.md)                       | `without sharing`   | Test data factory                              |
+| [`TST_Builder`](reference/apex/TST_Builder.md)                       | `inherited sharing` | Test data builder                              |
+| [`TST_Factory`](reference/apex/TST_Factory.md)                       | `without sharing`   | Test data factory                              |
 | [`UTIL_Sharing`](reference/apex/UTIL_Sharing.md)                     | `inherited sharing` | Share record management                        |
-| [`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md) | `with sharing`      | Session encryption                             |
+| [`UTIL_SessionEncryption`](reference/apex/UTIL_SessionEncryption.md) | `inherited sharing` | Session encryption                             |
 
 ### Common Patterns
 

@@ -2,6 +2,10 @@
 
 This page is the map to everything you can read about KernDX. It is for anyone building on the framework, whether you are a brand-new Salesforce developer looking for a quick task guide or an architect comparing design choices. Skim the [Learning Paths](#learning-paths) if you are starting out, jump to a [Fast Start](#fast-starts) when you have a specific task, or open a full [Guide](#guides) when you want the complete picture.
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 > **Using an AI coding assistant?** Load [`docs/AI Agent Instructions.md`](AI%20Agent%20Instructions.md)
 > into it before generating KernDX code. That one file is the assistant's complete context for writing
 > selectors, triggers, callouts, LWC, and tests the KernDX way. It's already in this repo and release; see

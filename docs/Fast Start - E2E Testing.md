@@ -15,10 +15,9 @@ navOrder: 92
 - [ ] CLI authenticated (`sf org display -o YourOrgAlias` to verify)
 - [ ] Node.js 22+ installed (`node --version`), required for the Playwright tier only
 
-> **Subscriber orgs:** Use `kern.ClassName` when extending framework classes (e.g., `kern.TRG_Base`,
-> `kern.SEL_Base`). Your own classes don't need a namespace prefix: the framework's Type Resolver (how the
-> framework finds the Apex classes in your namespace, by you telling it where to look) handles resolution
-> automatically.
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **What you'll build:** A subscriber Apex service, its `_TEST` class with 100% coverage, and a working
 deployment and test run against your scratch org. The Tier 3 section shows how Playwright slots in on top.
@@ -309,8 +308,9 @@ The suite reads the target org alias from the `SF_SUBSCRIBER_ORG_ALIAS` environm
 point the suite at your org. The helpers call `sf -o $SF_SUBSCRIBER_ORG_ALIAS` directly, so this is the one
 place the alias ever needs to change.
 
-**What runs:** 9 spec files. They cover app navigation, record pages, log entry verification,
-API call visibility, LWC component rendering, async chains, chain monitor, and the masking advisor.
+**What runs:** 10 spec files. They cover app navigation, record pages, log entry verification,
+API call visibility, LWC component rendering, async chains, chain monitor, the masking advisor, and
+the Log Console.
 
 **To write your own spec**, add a file under `release-testing/e2e/specs/` following this pattern:
 
@@ -329,10 +329,14 @@ test.describe.serial('My Feature', () =>
 });
 ```
 
-**Why `test.describe.serial` and one worker?** All tests share a single `sid` session cookie saved by global
-setup (a one-time login step). If tests ran in parallel, they would reuse that same cookie and generate
-conflicting CSRF tokens (the anti-forgery tokens Salesforce checks on each request). Running the tests one
-at a time avoids that conflict entirely.
+**Why `test.describe.serial`?** Specs that touch the same org records have to run one at a time. Two files
+that both create and tidy up the same scheduled-job rows will otherwise race each other, and one spec's
+cleanup deletes the record the other is still waiting for. Marking those groups serial keeps them in single
+file.
+
+Specs that share no state are not held back like that: the suite runs them side by side on two workers. Every
+spec reuses one `sid` session cookie saved by global setup (a one-time login step), so you log in once however
+the work is spread.
 
 > **CI/CD:** Store `SFDX_AUTH_URL` as a repository secret, authenticate the CLI to your subscriber org
 > with the configured subscriber alias before invoking `npm run test:e2e`, and install Chromium with
@@ -355,13 +359,13 @@ at a time avoids that conflict entirely.
 
 ## What You Now Know
 
-| Concept                                   | What It Does                                                          |
-|-------------------------------------------|-----------------------------------------------------------------------|
-| **Subscriber `_TEST` class**              | Deploys alongside production code; proves coverage before release     |
-| **`--code-coverage --synchronous`**       | Forces coverage report inline in the same CLI run                     |
-| **`release-testing/subscriber/classes/`** | Pre-built demo classes you copy, deploy, and run                      |
-| **Playwright global setup**               | Authenticates once via frontdoor URL, reuses session across all specs |
-| **Serial execution**                      | One browser, one worker: reliable for Salesforce Lightning            |
+| Concept                                   | What It Does                                                                     |
+|-------------------------------------------|----------------------------------------------------------------------------------|
+| **Subscriber `_TEST` class**              | Deploys alongside production code; proves coverage before release                |
+| **`--code-coverage --synchronous`**       | Forces coverage report inline in the same CLI run                                |
+| **`release-testing/subscriber/classes/`** | Pre-built demo classes you copy, deploy, and run                                 |
+| **Playwright global setup**               | Authenticates once via frontdoor URL, reuses session across all specs            |
+| **Serial execution**                      | Specs that share org state run one at a time; independent specs run side by side |
 
 ---
 

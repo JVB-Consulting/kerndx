@@ -18,6 +18,10 @@ navOrder: 18
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **What you'll build:** A service class that logs every step of order processing (start, per-record
 progress, errors, and completion), with all entries correlated under a single ID.
 
@@ -574,7 +578,7 @@ from your Apex controller methods themselves, use `LOG_Builder`.
 ```javascript
 // In any ComponentBuilder LWC:
 this.consoleLog('User clicked save');
-this.consoleError('Save failed', error);
+this.consoleError(error, 'MyComponent.handleSave'); // the error object comes first
 ```
 
 See the [LWC Guide](LWC%20-%20Guide.md) for the full ComponentBuilder reference, or the

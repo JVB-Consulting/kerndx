@@ -16,10 +16,9 @@ navOrder: 10
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
-> **Subscriber orgs:** Use `kern.ClassName` when extending framework classes (e.g., `kern.TRG_Base`,
-> `kern.IF_Trigger.BeforeInsert`). Your own classes don't need a namespace prefix: the framework's
-> Type Resolver (how it finds the Apex classes in your namespace, once you tell it where to look) handles
-> this for you.
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **What you'll build:** A trigger action that stamps default field values on new records. You'll create the
 handler class, wire it up with metadata, and add a test class with 100% coverage.

@@ -25,9 +25,9 @@ no `WITH USER_MODE` clauses to remember.
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
-> **Subscriber orgs:** Use `kern.ClassName` when calling framework classes (e.g., `kern.QRY_Builder`,
-> `kern.DML_Builder`). Your own classes don't need a namespace prefix. The framework's Type Resolver (how the
-> framework finds the Apex classes in your namespace) handles resolution automatically.
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **What you'll build:** A service class that reads and writes records through the framework. It gets CRUD and
 FLS enforced against the running user by default, and it strips fields the user can't see out of untrusted
@@ -453,7 +453,7 @@ The full menu of query security methods:
 
 | Method              | Effect                                                                 | When to Use                                                 |
 |---------------------|------------------------------------------------------------------------|-------------------------------------------------------------|
-| *(none, the default)* | USER_MODE: CRUD and FLS enforced; caller's sharing context inherited | Every write your users reach                                |
+| *(none, the default)* | USER_MODE: object permissions, field-level security, and record sharing all enforced against the running user | Every write your users reach                                |
 | `.withUserMode()`   | Forces USER_MODE even if the org-wide kill switch has been flipped off | Belt-and-braces enforcement on a critical user-facing write |
 | `.withSystemMode()` | Forces SYSTEM_MODE: bypasses CRUD/FLS for this transaction only        | Framework-owned writes (logs, orchestration rows)           |
 | `.bypassSharing()`  | Routes through a `without sharing` proxy (sharing only; not CRUD/FLS)  | Isolated calculations that must ignore record-level sharing |

@@ -7,8 +7,9 @@ navOrder: 60
 **Framework:** KernDX
 **Package Type:** Managed Package
 
-> **Note for Client Implementations:** When using KernDX in a subscriber org, prefix framework class references with your organisation's namespace (e.g.,
-`AcmeLib.UTIL_ValidationRule`). See the [AI Agent Instructions](AI%20Agent%20Instructions.md) for details.
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **Target Audience:**
 
@@ -776,7 +777,7 @@ Boolean isBypassed = UTIL_ValidationRule.isBypassed('Account');
 
 Turning off a safety check should never be silent. So every time you call `bypassObject`, `bypassGroup`, `bypassRule`, `clearBypass`, or `clearAllBypasses`, the framework records what happened. The benefit: an audit later can show exactly when validation was switched off, on what, and why.
 
-Each call publishes a `LogEntryEvent__e` with category `BypassEvent` (through `UTIL_BypassAudit.emit`). The entry records `surface = 'validation'`, the action (`BYPASS`, `CLEAR`, or `CLEAR_ALL`), the target with a scope prefix (`object:`, `group:`, or `rule:`), and an optional reason you set with `UTIL_BypassAudit.setBypassReason(String)`. Trigger, query, and DML bypasses write to the same channel, so you query every bypass across the framework the same way.
+Each call publishes a `LogEntryEvent__e` with category `BypassEvent`. The entry records `surface = 'validation'`, the action (`BYPASS`, `CLEAR`, or `CLEAR_ALL`), the target with a scope prefix (`object:`, `group:`, or `rule:`), and an optional reason you set with `kern.TRG_Base.setBypassReason(String)`, which applies to every bypass in the transaction. Trigger, query, and DML bypasses write to the same channel, so you query every bypass across the framework the same way.
 
 ```apex
 List<LogEntry__c> validationBypasses = QRY_Builder.selectFrom(LogEntry__c.SObjectType)

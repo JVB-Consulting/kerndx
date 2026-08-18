@@ -6,11 +6,10 @@ navOrder: 66
 
 **Framework:** KernDX
 **Package Type:** Managed Package (namespace-agnostic)
-**Version:** 1.0
-**Last Updated:** April 2026
 
-> **Note for installed packages:** When you install KernDX as a managed package, prefix framework class references with your installed namespace (for example, `AcmeLib.DTO_JsonBase` for Acme
-> Inc.).
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 ---
 
@@ -61,7 +60,7 @@ Developers use DTOs when building APIs, sending structured data to the front end
     - [Implementing transform() Methods](#implementing-transform-methods)
 10. [What else can it do?](#what-else-can-it-do)
     - [JsonPath for Reflective Access](#jsonpath-for-reflective-access)
-    - [Sorting DTOs with FieldComparator](#sorting-dtos-with-fieldcomparator)
+    - [Sorting DTOs](#sorting-dtos)
     - [DTO Collections and Equality](#dto-collections-and-equality)
 11. [How do I connect it to my code?](#how-do-i-connect-it-to-my-code)
     - [DTOs in REST APIs](#dtos-in-rest-apis)
@@ -282,7 +281,7 @@ The framework sits between your business logic and the things that consume your 
 The key building blocks are:
 
 - **`DTO_Base`**: the abstract foundation. It provides `serialize()`, `deserialize()`, `populate()`, `transform()`, `equals()`, and `hashCode()`.
-- **`DTO_JsonBase`**: the JSON-specific class. It adds readable (pretty-printed) JSON output, JsonPath integration for reading fields by path, and `FieldComparator` sorting.
+- **`DTO_JsonBase`**: the JSON-specific class. It adds readable (pretty-printed) JSON output and JsonPath integration for reading fields by path.
 - **Built-in DTOs** ready to use: `DTO_NameValues` (key-value parameters), `DTO_BaseTable` (Lightning datatable), `DTO_PickList` (picklist metadata), and `DTO_ChangeEventHeader` (the change-event header from Change Data Capture).
 
 ### DTO Class Hierarchy
@@ -356,7 +355,7 @@ When your data needs to travel as JSON, which is almost always the case for APIs
 1. **Automatic JSON serialization**: readable (pretty-printed) output that leaves out null fields.
 2. **Type-safe deserialization**: parses JSON straight back into the right class.
 3. **JsonPath integration**: read a field by its path through [`UTIL_JsonPath`](reference/apex/UTIL_JsonPath.md) over the serialized DTO, without writing a getter for it.
-4. **Field comparator**: sort a list of DTOs by any field through [`DTO_JsonBase.FieldComparator`](reference/apex/DTO_JsonBase.md).
+4. **Sorting**: put a list of DTOs in order with a small `Comparator<T>` class of your own.
 
 **Example: Basic JSON DTO**
 
@@ -1379,45 +1378,39 @@ public static void demonstrateJsonPath()
 
 ---
 
-### Sorting DTOs with FieldComparator
+### Sorting DTOs
 
-When you need a list of DTOs in order (by amount, by name, by date), you do not have to write a custom sort each time. [`DTO_JsonBase.FieldComparator`](reference/apex/DTO_JsonBase.md) sorts a list by whichever field you name, ascending or descending.
+To put a list of DTOs in order, write a small class implementing Salesforce's built-in `Comparator<T>` interface for your DTO type, then call `List.sort(comparator)`. Because the field lives on your own class, you compare the property directly and the compiler checks it for you.
 
 ```apex
 /**
- * @description Sort DTOs by field values
+ * @description Orders a list of customer orders by total amount, smallest first.
  */
-public static void demonstrateSorting()
+public with sharing class OrderAmountComparator implements Comparator<DTO_CustomerOrder>
 {
-	List<DTO_CustomerOrder> orders = new List<DTO_CustomerOrder>();
-
-	// Create sample orders
-	for(Integer i = 0; i < 5; i++)
+	/**
+	 * @description Compares two orders by their total amount.
+	 *
+	 * @param first The first order to compare.
+	 * @param second The second order to compare.
+	 *
+	 * @return -1, 0 or 1 in the usual comparator sense.
+	 */
+	public Integer compare(DTO_CustomerOrder first, DTO_CustomerOrder second)
 	{
-		DTO_CustomerOrder order = new DTO_CustomerOrder();
-		order.orderId = 'ORD-' + i;
-		order.customerName = 'Customer ' + i;
-		order.totalAmount = Math.random() * 1000;
-		order.orderDate = Date.today().addDays(-i);
-		orders.add(order);
+		if(first.totalAmount == second.totalAmount)
+		{
+			return 0;
+		}
+		return first.totalAmount < second.totalAmount ? -1 : 1;
 	}
-
-	// Sort by total amount (ascending)
-	DTO_JsonBase.FieldComparator amountComparator =
-		new DTO_JsonBase.FieldComparator('totalAmount', true);
-	orders.sort(amountComparator);
-
-	// Sort by customer name (descending)
-	DTO_JsonBase.FieldComparator nameComparator =
-		new DTO_JsonBase.FieldComparator('customerName', false);
-	orders.sort(nameComparator);
-
-	// Sort by date
-	DTO_JsonBase.FieldComparator dateComparator =
-		new DTO_JsonBase.FieldComparator('orderDate', true);
-	orders.sort(dateComparator);
 }
+
+// Then sort with it
+orders.sort(new OrderAmountComparator());
 ```
+
+To sort by a different field, or in the other direction, write another comparator the same way and pass that instead.
 
 ---
 

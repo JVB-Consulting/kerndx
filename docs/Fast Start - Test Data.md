@@ -16,6 +16,10 @@ navOrder: 66
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **What you'll build:** A test class that uses `TST_Builder` for clean test data creation and `TST_Mock`
 for query testing without saving records (no DML), reaching 100% coverage on a simple utility class.
 

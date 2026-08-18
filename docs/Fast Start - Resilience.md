@@ -16,9 +16,9 @@ navOrder: 62
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
-> **Subscriber orgs:** Use `kern.ClassName` when calling framework classes (e.g., `kern.UTIL_Retry`,
-> `kern.UTIL_CircuitBreaker`). Your own classes don't need a namespace prefix: the framework finds the
-> Apex classes in your own namespace for you (its Type Resolver), so you don't tell it where to look.
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **What you'll build:** A service whose one callout retries transient failures with exponential backoff and
 guards the dependency with a circuit breaker. All of this is wired into the framework's HTTP client, with no

@@ -7,6 +7,10 @@ navOrder: 14
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** who write code that saves records and want every insert, update, and delete to be safe, bulk-ready, and easy to test
@@ -87,7 +91,7 @@ You are never locked in. The framework is opt-in, and for every common case the 
 | You need                                                              | Use                                                                                                                                                                                                                                                               | See                                                                                   |
 |-----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
 | **Partial-success DML** (`Database.insert(records, false)` semantics) | `DML_Builder.allowPartial()`. Failed rows surface as `Database.SaveResult` errors while the rest commit.                                                                                                                                                         | [Anti-Patterns](#anti-patterns), [Capability Matrix](#capability-matrix-for-analysts) |
-| **>10K rows in one logical transaction**                              | `DML_Builder.async()` streams operations through queueables/batches, and the chosen access mode propagates. The platform throws a catchable pre-flight exception that names `.async()` as the fix when a synchronous save would exceed `UTIL_Limits.dmlRows().maximum()`. | [Bulk Utilities → Batch Processing](#batch-processing)                                |
+| **>10K rows in one logical transaction**                              | `DML_Builder.async()` streams operations through queueables/batches. The access mode you chose travels with the job, and so does `.bypassSharing()`; without it the job enforces record sharing. The platform throws a catchable pre-flight exception that names `.async()` as the fix when a synchronous save would exceed `UTIL_Limits.dmlRows().maximum()`. | [Bulk Utilities → Batch Processing](#batch-processing)                                |
 | **Per-transaction `AccessLevel` override**                            | `.withUserMode()` for explicit USER_MODE, `.withSystemMode()` for SYSTEM_MODE. Either overrides the flag-driven default.                                                                                                                                                | [Access Mode (USER_MODE / SYSTEM_MODE)](#access-mode-user_mode--system_mode)          |
 | **Bypass sharing for one operation**                                  | `.bypassSharing()` routes through the `without sharing` proxy for that transaction only.                                                                                                                                                                          | [Bypass vs Enforce vs Inherited](#bypass-vs-enforce-vs-inherited)                     |
 | **Inspect platform `SaveResult` / `UpsertResult` errors directly**    | `TransactionResult.getErrors()` returns the underlying platform errors after `.execute()`.                                                                                                                                                                        | [Anti-Patterns](#anti-patterns)                                                       |
@@ -159,7 +163,6 @@ Use the framework for the 95% common case, and use one of these options (or raw 
         - [Mock ID Generation for Query Mocking](#mock-id-generation-for-query-mocking)
         - [Auto-Default Marker](#auto-default-marker)
         - [Custom Default Value Provider](#custom-default-value-provider)
-        - [Custom Factory Provider](#custom-factory-provider)
     - [Complete Example](#complete-example)
 15. [Bulk Utilities (UTIL_BulkUpdates & UTIL_PurgeRecords)](#bulk-utilities-util_bulkupdates--util_purgerecords)
     - [Bulk Field Updates](#bulk-field-updates)
@@ -1717,24 +1720,24 @@ Assert.isNotNull(account.Description, 'Auto-default marker triggers value genera
 
 #### Custom Default Value Provider
 
-When the built-in defaults don't suit your org, you can change how default values are generated by extending [`TST_Builder.DefaultValueProvider`](reference/apex/TST_Builder.DefaultValueProvider.md):
+When the built-in defaults don't suit your org, you can change how default values are generated by extending [`UTIL_SObjectBuilderDefaultProvider`](reference/apex/UTIL_SObjectBuilderDefaultProvider.md). Extend that class rather than the bare `TST_Builder.DefaultValueProvider` it is built on: it carries every default the builder normally supplies, so your subclass changes only what you override and inherits the rest.
 
 ```apex
-public inherited sharing class CustomDefaultProvider extends TST_Builder.DefaultValueProvider
+public inherited sharing class CustomDefaultProvider extends UTIL_SObjectBuilderDefaultProvider
 {
-	public override Map<String, TST_Builder.DefaultFieldValueProvider> getDefaultMapOfValues(
-		SObjectType sObjectType,
-		Map<String, Object> mapOfValuesOverride)
+	public override String getEmailDefaultValue(DescribeFieldResult fieldDescribe, Integer recordIndex)
 	{
-		Map<String, TST_Builder.DefaultFieldValueProvider> defaults = super.getDefaultMapOfValues(sObjectType, mapOfValuesOverride);
+		// Custom logic: always use a specific domain for email fields
+		return 'test' + recordIndex + '@mycustomdomain.com';
+	}
 
-		// Custom logic: Always use specific domain for email fields
+	public override Set<SObjectField> defineSObjectOptionalFields(SObjectType sObjectType)
+	{
 		if(sObjectType == Contact.SObjectType)
 		{
-			defaults.put('Email', new StaticValueProvider('test@mycustomdomain.com'));
+			return new Set<SObjectField>{ Contact.Department };
 		}
-
-		return defaults;
+		return super.defineSObjectOptionalFields(sObjectType);
 	}
 }
 
@@ -1742,23 +1745,11 @@ public inherited sharing class CustomDefaultProvider extends TST_Builder.Default
 TST_Builder.defaultValueProvider = new CustomDefaultProvider();
 ```
 
-#### Custom Factory Provider
-
-For full control over how records are created, supply your own factory provider. This is an advanced option most tests won't need:
-
-```apex
-public inherited sharing class CustomFactoryProvider implements TST_Builder.FactoryProvider
-{
-	public TST_Builder.Factory createFactory(SObjectType sObjectType)
-	{
-		// Return custom factory implementation
-		return new MyCustomFactory(sObjectType);
-	}
-}
-
-// In test setup
-TST_Builder.factoryProvider = new CustomFactoryProvider();
-```
+> **End a `defineSObjectOptionalFields` override with the `super` call**, as above, for every type you
+> are not handling yourself. The inherited behaviour marks each `UserPermissions` field on `User` as
+> optional, and that is what keeps the builder from tripping over the permission fields your org's
+> licences control when it creates a `User`. Replace the method outright and building a `User` starts
+> to fail.
 
 ---
 
@@ -1923,7 +1914,7 @@ Deactivate users who have been inactive, in batches, and on a schedule if you wa
 String cronExpression = '0 0 2 * * ?'; // Daily at 2 AM
 
 SCHED_DeactivateUsers job = new SCHED_DeactivateUsers();
-job.setAttributes(new DTO_NameValues(new Map<String, String>
+job.setParameterValues(new DTO_NameValues(new Map<String, String>
 {
 	'profileNames' => 'Standard User|Chatter Free User',
 	'minimumNumberOfDays' => '180',
@@ -2065,7 +2056,7 @@ What the data layer can control, and the exact method or record that controls it
 | USER_MODE / SYSTEM_MODE (per-op) | Access-mode override              | `.withUserMode()` / `.withSystemMode()`               | Explicit per-transaction override of the flag-driven default                        |
 | Access-mode kill-switch          | Metadata-only emergency rollback  | `FeatureFlag.UserModeDml_Enabled`                     | Flip `IsEnabledByDefault__c = false` to revert all DML to SYSTEM_MODE               |
 | Sharing enforcement (per-op)     | Proxy class routing               | `.bypassSharing()`                                    | Routes through `without sharing` proxy (only meaningful in SYSTEM_MODE)             |
-| Async DML preserves access mode  | Access-level propagation          | `.async().execute()`                                  | The chosen access mode propagates through queueable execution                       |
+| Async DML keeps your security choices | Access mode and sharing propagation | `.async().execute()`                             | The access mode and `.bypassSharing()` both travel with the job; without a bypass the job enforces record sharing |
 | Partial success                  | Error handling                    | `.allowPartial()`                                     | Continues on individual record failures                                             |
 | Object permission checking       | Flow invocable                    | `FLOW_CheckObjectPermissions`                         | Validates CRUD before DML in Flows                                                  |
 | Field-level security             | Query-level enforcement           | `QRY_Builder.withUserMode()` / `.stripInaccessible()` | FLS enforcement at the query level                                                  |

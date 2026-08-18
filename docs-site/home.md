@@ -8,6 +8,8 @@ sidebar: false
 
 <template #examples>
 
+The KernDX samples here use the managed package's `kern.` prefix. Samples in the guides sometimes leave it off: [how to read the code samples](/installation#how-to-read-the-code-samples).
+
 <CodeCompare title="Paginate past 2,000 rows, and know when the data shifts under you" link="/selectors-guide#pagination" linkText="Selectors Guide → Pagination" wrote="5 lines" caps="8">
 
 <template #before>

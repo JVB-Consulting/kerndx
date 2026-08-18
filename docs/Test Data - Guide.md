@@ -7,6 +7,10 @@ navOrder: 68
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Building test records, relationships, mock Ids, and bulk data for Apex unit tests
@@ -162,7 +166,7 @@ framework gets in the way.
 | **One field that the builder shouldn't default**                          | `withOptionalField(field)` to skip a required field, or build the record by hand.                  | [Marking Fields Optional](#marking-fields-optional)       |
 | **DML-free query interception (records flow through `kern.QRY_Builder`)** | `kern.TST_Mock` (same chained build calls as `TST_Builder`, auto-registers for query mocking).     | [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md) |
 | **Aggregate-query test data**                                             | Insert real records via `TST_Builder`. `AggregateResult` cannot be mocked (platform limitation).   | [Anti-Patterns](#anti-patterns)                           |
-| **Custom default values for a field type**                                | Extend `kern.TST_Builder.DefaultValueProvider` and assign `kern.TST_Builder.defaultValueProvider`. | [Extending the Defaults](#extending-the-defaults)         |
+| **Custom default values for a field type**                                | Extend `kern.UTIL_SObjectBuilderDefaultProvider` and assign `kern.TST_Builder.defaultValueProvider`. | [Extending the Defaults](#extending-the-defaults)         |
 
 The builder saves you time; it does not lock you in. Use it when its features earn their keep, and
 skip it when they don't.
@@ -820,26 +824,60 @@ kern.LOG_Builder.ignoreTestMode = true;
 
 The values the builder fills in come from a default value provider. If you need to change how those
 defaults are generated (say, to satisfy an unusual required-field setup), extend
-`kern.TST_Builder.DefaultValueProvider` and assign an instance to
+`kern.UTIL_SObjectBuilderDefaultProvider` and assign an instance to
 `kern.TST_Builder.defaultValueProvider`. It is a `global virtual` class rather than an interface, so
 the framework can add methods in future releases without breaking your subclass.
 
+Extend that class, not the bare `kern.TST_Builder.DefaultValueProvider` it is built on.
+`kern.UTIL_SObjectBuilderDefaultProvider` is the one carrying every default the builder normally
+supplies, so your subclass changes only what you override and inherits the rest. A subclass of the
+bare base starts from nothing.
+
+Override whichever of these hooks you need:
+
+| Hook                                                | What it changes                                                                              |
+|-----------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `defineSObjectRequiredFields(SObjectType)`          | Which fields the builder treats as required and fills in for you                             |
+| `defineSObjectOptionalFields(SObjectType)`          | Which fields the builder leaves alone                                                        |
+| `get<Type>DefaultValue(DescribeFieldResult, Integer)` | The value generated for one field type, for example `getEmailDefaultValue` or `getTextDefaultValue` |
+
 ```apex
-public class MyDefaultProvider extends kern.TST_Builder.DefaultValueProvider
+public class MyDefaultProvider extends kern.UTIL_SObjectBuilderDefaultProvider
 {
-	public override Map<String, kern.TST_Builder.DefaultFieldValueProvider> getDefaultMapOfValues(
-			SObjectType sObjectType,
-			Map<String, Object> overrides)
+	public override Set<SObjectField> defineSObjectRequiredFields(SObjectType sObjectType)
 	{
-		Map<String, kern.TST_Builder.DefaultFieldValueProvider> defaults =
-				super.getDefaultMapOfValues(sObjectType, overrides);
-		// add or replace field-level default providers here
-		return defaults;
+		if(sObjectType == Account.SObjectType)
+		{
+			return new Set<SObjectField>{ Account.Industry };
+		}
+		return super.defineSObjectRequiredFields(sObjectType);
+	}
+
+	public override String getEmailDefaultValue(DescribeFieldResult fieldDescribe, Integer recordIndex)
+	{
+		return 'qa+' + recordIndex + '@example.com';
 	}
 }
 
 // Apply it for the transaction
 kern.TST_Builder.defaultValueProvider = new MyDefaultProvider();
+```
+
+> **If you override `defineSObjectOptionalFields`, end it with the `super` call.** Return
+> `super.defineSObjectOptionalFields(sObjectType)` for every type you are not handling yourself. The
+> inherited behaviour marks each `UserPermissions` field on `User` as optional, and that is what keeps
+> the builder from tripping over the permission fields your org's licences control when it creates a
+> `User`. Replace the method outright and building a `User` starts to fail.
+
+```apex
+public override Set<SObjectField> defineSObjectOptionalFields(SObjectType sObjectType)
+{
+	if(sObjectType == Account.SObjectType)
+	{
+		return new Set<SObjectField>{ Account.Website };
+	}
+	return super.defineSObjectOptionalFields(sObjectType);
+}
 ```
 
 > A custom provider is set per transaction. Salesforce resets static state between test methods, so
@@ -880,7 +918,7 @@ row names a capability, the method that provides it, and anything worth knowing 
 | Record types                      | `withRecordType(developerName)`                | Falls back to master when the packaged type is unavailable         |
 | Common records (users, flags)     | `TST_Factory` methods                          | Centralises repeated setup                                         |
 | Framework metadata for tests      | Deploy `CustomMetadata` records via XML        | Sets up trigger and validation behaviour for your tests           |
-| Customise auto-populated defaults | Extend `DefaultValueProvider`                  | Per-transaction; reset between test methods                        |
+| Customise auto-populated defaults | Extend `UTIL_SObjectBuilderDefaultProvider`    | Per-transaction; reset between test methods                        |
 
 ---
 

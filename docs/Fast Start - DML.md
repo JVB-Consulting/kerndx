@@ -16,6 +16,10 @@ navOrder: 14
   (Gear Icon > Developer Console) for all Apex work
 - [ ] Working in a sandbox or scratch org (not production)
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **What you'll build:** A service class that creates an Account with related Contacts and an Opportunity
 in a single atomic (all-or-nothing) transaction, with the parent-child foreign keys filled in automatically.
 
@@ -513,6 +517,13 @@ kern.DML_Builder.newTransaction().doUpdate(records).async().withBatchSize(200).e
 // Suppress automatic error logging
 kern.DML_Builder.newTransaction().doInsert(records).allowPartial().suppressLogging().execute();
 ```
+
+Three of the choices above travel with a background job: the access mode (`.withUserMode()` /
+`.withSystemMode()`), partial success (`.allowPartial()`), and the sharing bypass
+(`.bypassSharing()`). If you do not call `.bypassSharing()`, the background job enforces record
+sharing. `.suppressExceptions()` and `.suppressLogging()` do not travel: they shape the result the
+synchronous call hands back, and a background job has no caller waiting for one, so its failures are
+always logged.
 
 ---
 
