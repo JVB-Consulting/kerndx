@@ -17,7 +17,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength')
 public inherited sharing class QRY_Engine
@@ -32,6 +32,44 @@ public inherited sharing class QRY_Engine
 	 * Used as a fallback cap when cursor-based pagination is not available (e.g., mock queries).
 	 */
 	public static final Integer MAX_QUERY_OFFSET = 2000;
+
+	/**
+	 * @description Message for a page that cannot be served because the transaction has spent its cursor
+	 * capacity. Raised deliberately: the platform would otherwise fail the same call with a governor
+	 * exception no catch block can intercept.
+	 */
+	private static final String CURSOR_CAPACITY_EXHAUSTED = 'This transaction has no cursor capacity left to read another page. '
+			+ 'Spread the paged reads across transactions, or narrow the query so fewer rows are matched.';
+
+	/**
+	 * @description Test override for the ceiling on pagination-cursor rows. Null in production, where the
+	 * ceiling always comes from Limits.getLimitApexPaginationCursorRows() (100,000 at the time of writing)
+	 * so the framework follows the governor instead of carrying a stale copy of it.
+	 *
+	 * A query matching more rows than the transaction has left fails at cursor CREATION with
+	 * `System.LimitException: Too many apex pagination cursor rows`. That is a governor exception, so no
+	 * catch block can intercept it and no degrade can absorb it; the whole transaction dies. The only
+	 * defence is to size the matching set BEFORE the cursor is opened and serve the page from a standard
+	 * cursor instead, which counts against a separate, far larger allowance.
+	 *
+	 * A test lowers this to drive the oversized branch through the real bounded count and the real standard
+	 * cursor, without seeding a hundred thousand rows.
+	 *
+	 * @date August 2026
+	 */
+	@TestVisible
+	private static Integer paginationCursorRowLimitOverride;
+
+	/**
+	 * @description Test override for the ceiling on standard cursors per transaction. Null in production,
+	 * where it comes from Limits.getLimitApexCursors() (50 at the time of writing). A test sets it to zero to
+	 * pretend the pool is spent, which is the only way to reach the tiers below the standard cursor without
+	 * opening fifty of them first.
+	 *
+	 * @date August 2026
+	 */
+	@TestVisible
+	private static Integer standardCursorLimitOverride;
 
 	/**
 	 * @description Cache status indicating how the query result was resolved.
@@ -98,6 +136,49 @@ public inherited sharing class QRY_Engine
 	private static Map<SObjectType, Exception> mockExceptionRegistry;
 
 	/**
+	 * @description Registry of exceptions to throw only when an AGGREGATE query (one carrying aggregate
+	 * selections or a GROUP BY) executes against a specific SObjectType. Lets a test fail an aggregate
+	 * scan while row queries against the same SObjectType still succeed — the seam for proving a caller
+	 * degrades one leg without killing every read of the object (an SObjectType-wide setMockException
+	 * cannot express that asymmetry). Populated via setMockAggregateException; cleared via
+	 * clearMockException, clearMockExceptions, or clearMocks. Honestly-lazy: stays `null` in production
+	 * so every query pays only a null-check.
+	 */
+	@TestVisible
+	private static Map<SObjectType, Exception> mockAggregateExceptionRegistry;
+
+	/**
+	 * @description Returns how many pagination-cursor rows THIS transaction can still claim. The governor is
+	 * per-transaction and shared across every pagination cursor opened in it, so a second paged read has
+	 * only what the first one left behind, not the full allowance.
+	 *
+	 * @return The remaining pagination-cursor row allowance; zero or less when it is spent.
+	 *
+	 * @date August 2026
+	 */
+	private static Integer getPaginationCursorRowHeadroom()
+	{
+		Integer ceiling = paginationCursorRowLimitOverride ?? Limits.getLimitApexPaginationCursorRows();
+		return ceiling - Limits.getApexPaginationCursorRows();
+	}
+
+	/**
+	 * @description Returns the row count a pagination guard query must be limited to: one more than the
+	 * headroom left in this transaction. That is the smallest bound that still distinguishes "exactly at the
+	 * ceiling" (a pagination cursor is legal) from "over it" (opening one would kill the transaction), and it
+	 * keeps the guard's cost flat — a bounded COUNT() stops scanning at its LIMIT, so it spends one query row
+	 * however many rows actually match.
+	 *
+	 * @return The LIMIT to place on a pagination guard query, never below 1.
+	 *
+	 * @date August 2026
+	 */
+	public static Integer getPaginationGuardRowLimit()
+	{
+		return Math.max(getPaginationCursorRowHeadroom(), 0) + 1;
+	}
+
+	/**
 	 * @description Lazy-initializer for `mockRegistry`. Allocates the backing map on first write.
 	 *
 	 * @return The initialized registry instance.
@@ -137,6 +218,20 @@ public inherited sharing class QRY_Engine
 			mockExceptionRegistry = new Map<SObjectType, Exception>();
 		}
 		return mockExceptionRegistry;
+	}
+
+	/**
+	 * @description Lazy-initializer for `mockAggregateExceptionRegistry`. Allocates the backing map on first write.
+	 *
+	 * @return The initialized registry instance.
+	 */
+	private static Map<SObjectType, Exception> ensureMockAggregateExceptionRegistry()
+	{
+		if(mockAggregateExceptionRegistry == null)
+		{
+			mockAggregateExceptionRegistry = new Map<SObjectType, Exception>();
+		}
+		return mockAggregateExceptionRegistry;
 	}
 
 	/**
@@ -187,6 +282,7 @@ public inherited sharing class QRY_Engine
 		mockRegistry?.clear();
 		mockContextRegistry?.clear();
 		mockExceptionRegistry?.clear();
+		mockAggregateExceptionRegistry?.clear();
 	}
 
 	/**
@@ -213,24 +309,51 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Removes any registered exception for the specified SObjectType. Honestly-lazy:
-	 * no-op when the registry has never been allocated.
+	 * @description Registers an Exception to be thrown only when an AGGREGATE query (aggregate selections
+	 * or a GROUP BY) executes against the specified SObjectType; row queries against the same SObjectType
+	 * still run for real. Used for negative-path testing of callers that fold an aggregate leg beside row
+	 * reads of the same object and degrade the two independently — the SObjectType-wide setMockException
+	 * kills both legs at once and cannot prove one leg survives the other's failure.
 	 *
-	 * @param objectType The SObjectType whose registered exception (if any) is cleared.
+	 * @param objectType The SObjectType whose aggregate queries should throw.
+	 * @param exceptionToThrow The exception instance to throw. May not be null.
+	 *
+	 * @throws IllegalArgumentException When objectType or exceptionToThrow is null.
+	 */
+	public static void setMockAggregateException(SObjectType objectType, Exception exceptionToThrow)
+	{
+		if(objectType == null)
+		{
+			throw new IllegalArgumentException('SObjectType cannot be null');
+		}
+		if(exceptionToThrow == null)
+		{
+			throw new IllegalArgumentException('Exception cannot be null');
+		}
+		ensureMockAggregateExceptionRegistry().put(objectType, exceptionToThrow);
+	}
+
+	/**
+	 * @description Removes any registered exception — SObjectType-wide and aggregate-scoped — for the
+	 * specified SObjectType. Honestly-lazy: no-op when a registry has never been allocated.
+	 *
+	 * @param objectType The SObjectType whose registered exceptions (if any) are cleared.
 	 */
 	public static void clearMockException(SObjectType objectType)
 	{
 		mockExceptionRegistry?.remove(objectType);
+		mockAggregateExceptionRegistry?.remove(objectType);
 	}
 
 	/**
-	 * @description Removes all registered mock exceptions across every SObjectType.
-	 * Used by TST_Mock.clear() to wipe the entire exception registry. Honestly-lazy: no-op when
-	 * the registry has never been allocated.
+	 * @description Removes all registered mock exceptions — SObjectType-wide and aggregate-scoped —
+	 * across every SObjectType. Used by TST_Mock.clear() to wipe the exception registries.
+	 * Honestly-lazy: no-op when a registry has never been allocated.
 	 */
 	public static void clearMockExceptions()
 	{
 		mockExceptionRegistry?.clear();
+		mockAggregateExceptionRegistry?.clear();
 	}
 
 	/**
@@ -244,6 +367,19 @@ public inherited sharing class QRY_Engine
 	public static Exception getMockException(SObjectType objectType)
 	{
 		return mockExceptionRegistry?.get(objectType);
+	}
+
+	/**
+	 * @description Returns the registered aggregate-scoped mock exception for the specified SObjectType,
+	 * or null when no exception is registered. Honestly-lazy: never triggers allocation.
+	 *
+	 * @param objectType The SObjectType to look up.
+	 *
+	 * @return The registered Exception, or null when none is registered.
+	 */
+	public static Exception getMockAggregateException(SObjectType objectType)
+	{
+		return mockAggregateExceptionRegistry?.get(objectType);
 	}
 
 	/**
@@ -270,6 +406,15 @@ public inherited sharing class QRY_Engine
 		if(registered != null)
 		{
 			throw registered;
+		}
+
+		if(parameters.aggregateQuery == true)
+		{
+			Exception aggregateRegistered = mockAggregateExceptionRegistry?.get(parameters.objectType);
+			if(aggregateRegistered != null)
+			{
+				throw aggregateRegistered;
+			}
 		}
 	}
 
@@ -774,58 +919,227 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Internal query execution logic.
+	 * @description Internal query execution logic. A PAGINATION read whose guard count comes back above the
+	 * platform ceiling is served from a standard cursor instead, since a pagination cursor cannot be opened
+	 * over a set that large.
 	 *
 	 * @param parameters The query parameters.
 	 * @param result The result to populate.
 	 * @param accessLevel The access level.
 	 * @param bindMap The bind variables.
+	 *
+	 * @date August 2026
 	 */
 	private static void doExecute(QueryParameters parameters, QueryResult result, AccessLevel accessLevel, Map<String, Object> bindMap)
 	{
 		if(parameters.cursorMode == CursorMode.STANDARD)
 		{
-			Database.Cursor cursor = Database.getCursorWithBinds(parameters.queryString, bindMap, accessLevel);
-			result.totalRecords = cursor.getNumRecords();
-
-			Integer offset = parameters.offset ?? 0;
-			Integer recordsToRetrieve = Math.min(result.totalRecords - offset, Math.max(parameters.pageSize ?? result.totalRecords, 1));
-
-			if(recordsToRetrieve > 0 && offset < result.totalRecords)
-			{
-				result.records = cursor.fetch(offset, recordsToRetrieve);
-			}
-			else
-			{
-				result.records = new List<SObject>();
-			}
+			fetchPageFromStandardCursor(parameters, result, accessLevel, bindMap);
 		}
 		else if(parameters.cursorMode == CursorMode.PAGINATION)
 		{
-			Database.PaginationCursor cursor = Database.getPaginationCursorWithBinds(parameters.queryString, bindMap, accessLevel);
-			result.totalRecords = cursor.getNumRecords();
-
-			Integer offset = parameters.offset ?? 0;
-			Integer recordsToRetrieve = Math.min(result.totalRecords - offset, Math.max(parameters.pageSize ?? result.totalRecords, 1));
-
-			if(recordsToRetrieve > 0 && offset < result.totalRecords)
+			if(!exceedsPaginationCursorRowLimit(parameters, accessLevel, bindMap))
 			{
-				Database.CursorFetchResult fetchResult = cursor.fetchPage(offset, recordsToRetrieve);
-				result.records = fetchResult.getRecords();
-				result.deletedRecords = fetchResult.getNumDeletedRecords();
+				fetchPageFromPaginationCursor(parameters, result, accessLevel, bindMap);
+			}
+			else if(hasStandardCursorHeadroom())
+			{
+				fetchPageFromStandardCursor(parameters, result, accessLevel, bindMap);
+			}
+			else if(canServePlainPage(parameters))
+			{
+				fetchPageFromPlainQuery(parameters, result, accessLevel, bindMap);
 			}
 			else
 			{
-				result.records = new List<SObject>();
+				throw new UTIL_Exceptions.IllegalStateException(CURSOR_CAPACITY_EXHAUSTED);
 			}
-
-			result.cursor = cursor;
 		}
 		else
 		{
-			result.records = Database.queryWithBinds(parameters.queryString, bindMap, accessLevel);
+			result.records = doQuery(parameters.queryString, accessLevel, bindMap);
 			result.totalRecords = result.records.size();
 		}
+	}
+
+	/**
+	 * @description Answers whether this transaction can still open a standard cursor and spend a fetch call on
+	 * it. Both allowances are per-transaction: 50 cursors and 100 fetch calls at the time of writing.
+	 *
+	 * @return True when a standard cursor can still serve a page.
+	 *
+	 * @date August 2026
+	 */
+	private static Boolean hasStandardCursorHeadroom()
+	{
+		Integer ceiling = standardCursorLimitOverride ?? Limits.getLimitApexCursors();
+		return Limits.getApexCursors() < ceiling && Limits.getFetchCallsOnApexCursor() < Limits.getLimitFetchCallsOnApexCursor();
+	}
+
+	/**
+	 * @description Answers whether the last resort is open: a plain LIMIT/OFFSET query, which needs no cursor
+	 * at all but cannot reach past SOQL's OFFSET cap of MAX_QUERY_OFFSET rows.
+	 *
+	 * @param parameters The query parameters, carrying the optional plain page and total-count queries.
+	 *
+	 * @return True when a plain query can serve this page.
+	 *
+	 * @date August 2026
+	 */
+	private static Boolean canServePlainPage(QueryParameters parameters)
+	{
+		// Aggregate pages are refused here even though a LIMIT/OFFSET aggregate is legal SOQL: the tier's
+		// totalRecords comes from a COUNT() of base rows, not groups, so it would serve a wrong total where
+		// every other tier throws. Better the typed capacity error than a page that lies about its size.
+		return parameters.plainPageQuery != null && parameters.totalRecordCountQuery != null && (parameters.offset ?? 0) <= MAX_QUERY_OFFSET && parameters.aggregateQuery != true;
+	}
+
+	/**
+	 * @description Answers whether this transaction can still open a pagination cursor for the page in hand.
+	 * Three things can rule it out: the transaction has no pagination cursor left to open, it has no row
+	 * allowance left, or the matching set is larger than the allowance that remains. The third is settled by
+	 * running the bounded count the caller supplied; the first two are cheaper to read from the governors, so
+	 * they short-circuit the count entirely.
+	 *
+	 * The count runs here rather than at the call site so it inherits the sharing context the executor
+	 * established — WithSharingExecutor and WithoutSharingExecutor both reach this through doExecute, so the
+	 * guard sizes exactly the population the page query will read.
+	 *
+	 * A guard is a pre-flight check, not a fallback: opening the cursor and catching the failure is
+	 * impossible, because the platform raises a governor LimitException that no catch block sees.
+	 *
+	 * @param parameters The query parameters, carrying the optional bounded count query.
+	 * @param accessLevel The access level.
+	 * @param bindMap The bind variables, shared with the page query.
+	 *
+	 * @return True when the page must come from a standard cursor instead.
+	 *
+	 * @date August 2026
+	 */
+	private static Boolean exceedsPaginationCursorRowLimit(QueryParameters parameters, AccessLevel accessLevel, Map<String, Object> bindMap)
+	{
+		if(parameters.paginationGuardQuery == null)
+		{
+			return false;
+		}
+
+		if(Limits.getApexPaginationCursors() >= Limits.getLimitApexPaginationCursors())
+		{
+			return true;
+		}
+
+		Integer headroom = getPaginationCursorRowHeadroom();
+
+		if(headroom <= 0)
+		{
+			return true;
+		}
+
+		return doCount(parameters.paginationGuardQuery, accessLevel, bindMap) > headroom;
+	}
+
+	/**
+	 * @description Second tier: fetches one page through a standard cursor, whose row allowance is orders of
+	 * magnitude larger than a pagination cursor's (50,000,000 against 100,000 at the time of writing), at the
+	 * cost of the deleted-record count and of any cursor the caller could reuse for a later page. Also the
+	 * STANDARD cursor mode's own path, so the two cannot drift apart.
+	 *
+	 * @param parameters The query parameters.
+	 * @param result The result to populate.
+	 * @param accessLevel The access level.
+	 * @param bindMap The bind variables.
+	 *
+	 * @date August 2026
+	 */
+	private static void fetchPageFromStandardCursor(QueryParameters parameters, QueryResult result, AccessLevel accessLevel, Map<String, Object> bindMap)
+	{
+		Database.Cursor cursor = Database.getCursorWithBinds(parameters.queryString, bindMap, accessLevel);
+		result.totalRecords = cursor.getNumRecords();
+
+		Integer offset = parameters.offset ?? 0;
+		Integer recordsToRetrieve = Math.min(result.totalRecords - offset, Math.max(parameters.pageSize ?? result.totalRecords, 1));
+
+		if(recordsToRetrieve > 0 && offset < result.totalRecords)
+		{
+			result.records = cursor.fetch(offset, recordsToRetrieve);
+		}
+		else
+		{
+			result.records = new List<SObject>();
+		}
+	}
+
+	/**
+	 * @description First tier: fetches one page through a pagination cursor, which additionally reports how
+	 * many records were deleted since the cursor was created and can be handed back for later pages. Bounded
+	 * by a per-transaction allowance of 100,000 rows and 50 cursors at the time of writing.
+	 *
+	 * Cursor failures the platform raises here — `System.FatalCursorException` and
+	 * `System.TransientCursorException` — are left to propagate rather than swallowed, because only the
+	 * caller can tell the two apart in context: a transient failure is worth retrying, a fatal one is not.
+	 *
+	 * @param parameters The query parameters.
+	 * @param result The result to populate.
+	 * @param accessLevel The access level.
+	 * @param bindMap The bind variables.
+	 *
+	 * @date August 2026
+	 */
+	private static void fetchPageFromPaginationCursor(QueryParameters parameters, QueryResult result, AccessLevel accessLevel, Map<String, Object> bindMap)
+	{
+		Database.PaginationCursor cursor = Database.getPaginationCursorWithBinds(parameters.queryString, bindMap, accessLevel);
+		result.totalRecords = cursor.getNumRecords();
+
+		Integer offset = parameters.offset ?? 0;
+		Integer recordsToRetrieve = Math.min(result.totalRecords - offset, Math.max(parameters.pageSize ?? result.totalRecords, 1));
+
+		if(recordsToRetrieve > 0 && offset < result.totalRecords)
+		{
+			Database.CursorFetchResult fetchResult = cursor.fetchPage(offset, recordsToRetrieve);
+			result.records = fetchResult.getRecords();
+			result.deletedRecords = fetchResult.getNumDeletedRecords();
+		}
+		else
+		{
+			result.records = new List<SObject>();
+		}
+
+		result.cursor = cursor;
+	}
+
+	/**
+	 * @description Third tier: fetches one page with a plain LIMIT/OFFSET query and a separate count for the
+	 * total. Needs no cursor at all, which is why it survives a transaction that has spent both cursor pools,
+	 * but SOQL's OFFSET cap of MAX_QUERY_OFFSET rows means it cannot reach a deep page.
+	 *
+	 * @param parameters The query parameters, carrying the plain page and total-count queries.
+	 * @param result The result to populate.
+	 * @param accessLevel The access level.
+	 * @param bindMap The bind variables.
+	 *
+	 * @date August 2026
+	 */
+	private static void fetchPageFromPlainQuery(QueryParameters parameters, QueryResult result, AccessLevel accessLevel, Map<String, Object> bindMap)
+	{
+		result.records = doQuery(parameters.plainPageQuery, accessLevel, bindMap);
+		result.totalRecords = doCount(parameters.totalRecordCountQuery, accessLevel, bindMap);
+	}
+
+	/**
+	 * @description Internal row-query execution, and the single place a row query reaches the database. Runs
+	 * in whichever sharing context its caller establishes.
+	 *
+	 * @param rowQuery The SOQL query to run.
+	 * @param accessLevel The access level.
+	 * @param bindMap The bind variables.
+	 *
+	 * @return The matching records.
+	 *
+	 * @date August 2026
+	 */
+	private static List<SObject> doQuery(String rowQuery, AccessLevel accessLevel, Map<String, Object> bindMap)
+	{
+		return Database.queryWithBinds(rowQuery, bindMap, accessLevel);
 	}
 
 	/**
@@ -842,16 +1156,52 @@ public inherited sharing class QRY_Engine
 		AccessLevel accessLevel = parameters.userMode ? AccessLevel.USER_MODE : AccessLevel.SYSTEM_MODE;
 		Map<String, Object> bindMap = parameters.bindMap ?? new Map<String, Object>();
 
-		Integer count = Database.countQueryWithBinds
-				(
-						parameters.queryString,
-						bindMap,
-						accessLevel
-				);
+		// Dispatched through the same sharing executors as a row query. Counting inline here would run
+		// under whatever sharing the caller happens to have, silently ignoring the builder's sharing dial —
+		// so a bypassed count could return a smaller number than the identical bypassed row query, which is
+		// the wrong direction for any caller sizing a query before issuing it.
+		Integer count;
+		if(parameters.enforceSharing == true)
+		{
+			count = new WithSharingExecutor().count(parameters, accessLevel, bindMap);
+		}
+		else if(parameters.enforceSharing == false)
+		{
+			count = new WithoutSharingExecutor().count(parameters, accessLevel, bindMap);
+		}
+		else
+		{
+			count = doCount(parameters.queryString, accessLevel, bindMap);
+		}
 
 		stopTimer(timer, parameters, CacheStatus.BYPASS, count);
 
 		return count;
+	}
+
+	/**
+	 * @description Internal count execution logic, and the single place a count query reaches the database.
+	 * Runs in whichever sharing context its caller establishes, so the executor that invokes it is what
+	 * decides the posture. Takes the query rather than the parameters because two different counts flow
+	 * through it: the caller's own count, and the bounded guard count that sizes a page before a pagination
+	 * cursor is opened.
+	 *
+	 * @param countQuery The COUNT() query to run.
+	 * @param accessLevel The access level.
+	 * @param bindMap The bind variables.
+	 *
+	 * @return The count of matching records.
+	 *
+	 * @date August 2026
+	 */
+	private static Integer doCount(String countQuery, AccessLevel accessLevel, Map<String, Object> bindMap)
+	{
+		return Database.countQueryWithBinds
+				(
+						countQuery,
+						bindMap,
+						accessLevel
+				);
 	}
 
 	/**
@@ -915,8 +1265,11 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Parameters for query execution.
+	 * @description Parameters for query execution. A deliberate parameter object: one field per knob the
+	 * builder can set, each read once by the engine, so the field count is the size of the query surface
+	 * rather than a class doing too much.
 	 */
+	@SuppressWarnings('PMD.TooManyFields')
 	public class QueryParameters
 	{
 		/**
@@ -948,6 +1301,28 @@ public inherited sharing class QRY_Engine
 		 * @description The cursor mode for query execution. Null = no cursor (standard query).
 		 */
 		public CursorMode cursorMode;
+
+		/**
+		 * @description The bounded `SELECT COUNT() ... LIMIT n` twin of `queryString` — same WHERE, same
+		 * binds, same population — used only in PAGINATION mode to decide whether the matching set is small
+		 * enough for a pagination cursor. Null means no guard: the pagination cursor is opened directly, as
+		 * it was before the guard existed.
+		 */
+		public String paginationGuardQuery;
+
+		/**
+		 * @description The plain LIMIT/OFFSET twin of `queryString` — same fields, same WHERE, same ORDER BY,
+		 * same binds — used only in PAGINATION mode, and only when neither cursor pool can serve the page.
+		 * Null means the plain tier is unavailable and an unservable page raises instead.
+		 */
+		public String plainPageQuery;
+
+		/**
+		 * @description The unbounded `SELECT COUNT()` twin of `queryString`, counting the same population.
+		 * Supplies the true total on the plain tier, where no cursor is there to report one and the guard
+		 * count is capped too low to stand in for it.
+		 */
+		public String totalRecordCountQuery;
 
 		/**
 		 * @description The page size for pagination.
@@ -983,6 +1358,13 @@ public inherited sharing class QRY_Engine
 		 * @description Whether random results are requested.
 		 */
 		public Boolean randomResults = false;
+
+		/**
+		 * @description Whether the query carries aggregate selections or a GROUP BY. Stamped by the
+		 * builder so the aggregate-scoped mock-exception seam can target aggregate scans without
+		 * touching row queries against the same SObjectType.
+		 */
+		public Boolean aggregateQuery = false;
 
 		/**
 		 * @description Whether to lock records FOR UPDATE.
@@ -1095,6 +1477,9 @@ public inherited sharing class QRY_Engine
 	/**
 	 * @description Executor with sharing rules enforced.
 	 */
+	// The body is identical to WithoutSharingExecutor's on purpose: the sharing keyword is a property of the
+	// class, so the only way to offer both postures is to declare the same delegation twice.
+	//noinspection DuplicatedCode
 	private with sharing class WithSharingExecutor
 	{
 		/**
@@ -1109,11 +1494,28 @@ public inherited sharing class QRY_Engine
 		{
 			doExecute(parameters, result, accessLevel, bindMap);
 		}
+
+		/**
+		 * @description Executes the count with sharing.
+		 *
+		 * @param parameters The query parameters.
+		 * @param accessLevel The access level.
+		 * @param bindMap The bind variables.
+		 *
+		 * @return The count of matching records.
+		 */
+		public Integer count(QueryParameters parameters, AccessLevel accessLevel, Map<String, Object> bindMap)
+		{
+			return doCount(parameters.queryString, accessLevel, bindMap);
+		}
 	}
 
 	/**
 	 * @description Executor without sharing rules.
 	 */
+	// The body is identical to WithSharingExecutor's on purpose: the sharing keyword is a property of the
+	// class, so the only way to offer both postures is to declare the same delegation twice.
+	//noinspection DuplicatedCode
 	private without sharing class WithoutSharingExecutor
 	{
 		/**
@@ -1127,6 +1529,21 @@ public inherited sharing class QRY_Engine
 		public void execute(QueryParameters parameters, QueryResult result, AccessLevel accessLevel, Map<String, Object> bindMap)
 		{
 			doExecute(parameters, result, accessLevel, bindMap);
+		}
+
+		/**
+		 * @description Executes the count without sharing, so a bypassed count sizes the same population a
+		 * bypassed row query would return.
+		 *
+		 * @param parameters The query parameters.
+		 * @param accessLevel The access level.
+		 * @param bindMap The bind variables.
+		 *
+		 * @return The count of matching records.
+		 */
+		public Integer count(QueryParameters parameters, AccessLevel accessLevel, Map<String, Object> bindMap)
+		{
+			return doCount(parameters.queryString, accessLevel, bindMap);
 		}
 	}
 }

@@ -7,6 +7,10 @@ navOrder: 12
 **Framework:** KernDX
 **Package Type:** Managed Package
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 **Target Audience:**
 
 - **Developers** - Building type-safe SOQL queries with sharing enforcement and reusable query logic
@@ -65,6 +69,7 @@ Think of a selector as a recipe card for one object. The card lists the fields y
     - [Layer 1: QRY_Builder (Recommended Default for Your Org)](#layer-1-qry_builder-recommended-default-for-your-org)
     - [Layer 2: SEL_Base](#layer-2-sel_base)
     - [Layer 3: QRY_Condition](#layer-3-qry_condition)
+        - [Searching for text a person typed](#searching-for-text-a-person-typed)
 10. [Basic Queries](#basic-queries)
     - [findById](#findbyid)
     - [findByField](#findbyfield)
@@ -686,7 +691,7 @@ List<Account> accounts = new SEL_Accounts().findByField(Account.Industry, 'Techn
 **Key Features:**
 
 - `FieldCondition` built from a field, a `QRY_Condition.Operator` value (`EQUALS`, `NOT_EQUALS`, `GREATER_THAN`, `LESS_THAN`, `LIKE_X` and friends), and a comparison value
-- `FieldCondition` built from just the field, completed with `contains()` for a text match anywhere in the field (the wildcards are handled for you)
+- `FieldCondition` built from just the field, completed with `contains()` for a text match anywhere in the field (the wildcards are handled for you), or with `containsLiteral()` when the text came from a search box and should match exactly as typed
 - Nestable conditions: `AndCondition`, `OrCondition`
 - `OrderBy` for sorting specifications
 
@@ -725,6 +730,21 @@ QRY_Condition.OrCondition textMatch = new QRY_Condition.OrCondition();
 textMatch.add(new QRY_Condition.FieldCondition(Account.Name).contains('Acme'));
 textMatch.add(new QRY_Condition.FieldCondition(Account.Website).contains('acme'));
 ```
+
+#### Searching for text a person typed
+
+`contains()` leaves three characters their special search meaning: `%` stands for any run of characters, `_` stands for any single character, and `\` marks the next character as ordinary. That is what you want when the pattern is yours. It is rarely what you want when the text came from a person, because someone searching for `100%` matches every record containing `100`, and someone searching for `UTIL_HttpClient` also matches `UTILxHttpClient`.
+
+`containsLiteral()` is the same match with those three characters taken at face value, so the search finds the text as typed:
+
+```apex
+// Finds the text "100%" itself, not every record containing "100"
+QRY_Condition.OrCondition userSearch = new QRY_Condition.OrCondition();
+userSearch.add(new QRY_Condition.FieldCondition(Account.Name).containsLiteral(searchBoxValue));
+userSearch.add(new QRY_Condition.FieldCondition(Account.Website).containsLiteral(searchBoxValue));
+```
+
+Use `contains()` when you wrote the pattern and want the wildcards. Use `containsLiteral()` for anything a person typed: a search box, a filter, a report parameter.
 
 ---
 
@@ -1514,7 +1534,7 @@ public static List<Account> findActiveTechAccounts()
 
 > **Note:** Without explicit grouping, conditions follow standard SQL precedence where AND binds tighter than OR. For example, `A AND B OR C` evaluates as `(A AND B) OR C`.
 
-Inside a hand-built group, a text match works the same way as in the builder: construct the `FieldCondition` with only the field, then complete it with `contains()`. See [Layer 3: QRY_Condition](#layer-3-qry_condition) for an example.
+Inside a hand-built group, a text match works the same way as in the builder: construct the `FieldCondition` with only the field, then complete it with `contains()`, or with `containsLiteral()` when the text came from a person and should match exactly as typed. See [Layer 3: QRY_Condition](#layer-3-qry_condition) for an example.
 
 ### Advanced Filtering
 
@@ -1641,6 +1661,12 @@ public static List<Account> searchAccountsByName(String searchText)
 		.toList();
 }
 ```
+
+This example owns its pattern, so the wildcards in `contains()` are wanted. When the text comes from
+a person instead, a search box, a filter or a report parameter, the `%` and `_` characters they type
+would otherwise act as wildcards. Build the condition with `QRY_Condition.FieldCondition` and finish
+it with `containsLiteral()`, then pass it in with `addCondition()`. See
+[Searching for text a person typed](#searching-for-text-a-person-typed).
 
 #### Multi-Picklist Field Filtering
 
@@ -2451,22 +2477,6 @@ public inherited sharing class AccountSelector extends QRY_Builder.Builder
 	}
 
 	/**
-	 * @description Base condition applied to all queries (e.g., exclude deleted)
-	 */
-	public override QRY_Condition.Evaluable getBaseCondition()
-	{
-		return new QRY_Condition.FieldCondition(Account.IsDeleted, QRY_Condition.Operator.NOT_EQUALS, true);
-	}
-
-	/**
-	 * @description Default ordering for all queries
-	 */
-	public override List<QRY_Generator.OrderBy> getDefaultOrderBy()
-	{
-		return new List<QRY_Generator.OrderBy>{new QRY_Generator.OrderBy('Name').ascending()};
-	}
-
-	/**
 	 * @description Finds active customer accounts by industry
 	 *
 	 * @param industry Industry to filter by
@@ -2499,6 +2509,19 @@ public inherited sharing class AccountSelector extends QRY_Builder.Builder
 AccountSelector selector = new AccountSelector();
 List<Account> techAccounts = selector.findActiveCustomersByIndustry('Technology');
 List<Account> highValueAccounts = selector.findHighValueAccounts(5000000);
+```
+
+`getDefaultFields()` is the hook your org overrides on a custom builder. The builder carries two more hooks, one for a condition applied to every query and one for a default sort order, but both are internal to the package today, so put that behaviour in your finder methods instead. A shared filter becomes an `.andCondition(...)` and a house sort order becomes an `.orderBy(...)`, written once per finder:
+
+```apex
+public List<Account> findActiveCustomersByIndustry(String industry)
+{
+	return (List<Account>)this.condition(Account.Industry).equals(industry)
+		.andCondition(Account.Type).equals('Customer')
+		.andCondition(Account.Active__c).equals('Yes')
+		.orderBy(Account.Name).ascending()
+		.toList();
+}
 ```
 
 ### Combining Multiple Patterns
@@ -3069,6 +3092,12 @@ Boolean hasMore = result.hasMorePages;
 Integer deletedSinceCursorCreated = result.deletedRecords;
 Database.PaginationCursor cursor = result.cursor;
 ```
+
+Ask for page 1 or later, and for a page size between 1 and 2,000. A page holds at most 2,000 records, which is all Salesforce hands back in one fetch. Anything outside that range fails straight away rather than quietly returning something you did not ask for.
+
+`cursor` comes back null whenever the page was served without a pagination cursor — usually because more records match than the paging allowance left in the transaction. That allowance is 100,000 records today, and it is shared across every paged read you make in one go, so a second read has only what the first one left. Those pages are fetched another way instead: your records, `totalRecords`, and the page flags are all still correct, and only `deletedRecords` is unavailable, so it reads 0. Check `cursor` for null before you pass it back for the next page.
+
+One genuinely unreachable corner exists: after roughly fifty of these oversized paged reads in a single transaction, a page past row 2,000 can no longer be served by any route, and `getPage()` throws a `kern.UTIL_Exceptions.IllegalStateException` that says so. Spread the paged reads across transactions, or narrow the query.
 
 ### **Use Subqueries for Efficiency**
 

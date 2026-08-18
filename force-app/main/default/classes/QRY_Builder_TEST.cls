@@ -9,7 +9,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  */
 @IsTest(SeeAllData=false IsParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -42,6 +42,49 @@ private class QRY_Builder_TEST
 						TEST_ADMIN_COMPANY,
 						SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME
 				);
+	}
+
+	/**
+	 * @description Tests that count() honours the sharing bypass it advertises, and not merely the sharing
+	 * context it happens to be called from. A count is the natural way to size a query before deciding
+	 * whether to issue it, and a bypassed count that silently enforced sharing would report FEWER rows than
+	 * the bypassed query it is sizing — the dangerous direction, because the caller then proceeds believing
+	 * the query is smaller than it is. Foobar__c is Private OWD, so rows owned by the test admin are
+	 * genuinely invisible to another user; system mode is applied to both counts so CRUD/FLS is waived and
+	 * record sharing is the only variable left.
+	 */
+	@IsTest
+	private static void countHonoursTheSharingBypassItAdvertises()
+	{
+		User restricted;
+		// Setup-object DML is isolated in its own runAs so it does not collide with the Foobar__c DML.
+		System.runAs(new User(Id = UserInfo.getUserId()))
+		{
+			restricted = TST_Factory.newUser(SEL_Profile.PROFILE_STANDARD_USER);
+		}
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, 'Sharing probe')
+					.withCount(3)
+					.buildList();
+		}
+
+		Integer enforcedCount;
+		Integer bypassedCount;
+
+		Test.startTest();
+		System.runAs(restricted)
+		{
+			enforcedCount = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().count();
+			bypassedCount = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().bypassSharing().count();
+		}
+		Test.stopTest();
+
+		Assert.areEqual(0, enforcedCount,
+				'With sharing enforced the other user sees none of the admin-owned private rows — system mode waives CRUD and FLS, never record sharing');
+		Assert.areEqual(3, bypassedCount,
+				'A bypassed count must reach every row, exactly as a bypassed row query does; 0 here would mean count() drops the sharing dial and undersizes what it measures');
 	}
 
 	/**
@@ -643,6 +686,380 @@ private class QRY_Builder_TEST
 	}
 
 	/**
+	 * @description Tests that getPage() still serves a correct page when the matching set is larger than the
+	 * platform's pagination-cursor ceiling. Opening a pagination cursor over such a set throws a governor
+	 * exception at cursor creation, which Apex cannot catch, so the read has to be diverted to a standard
+	 * cursor BEFORE the cursor is opened. The ceiling is lowered rather than the data grown so that the real
+	 * bounded count and the real standard cursor both run, on the real getPage() path.
+	 */
+	@IsTest
+	private static void getPageServesOversizedResultSetsFromAStandardCursor()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.insertFoobars(5);
+			QRY_Engine.paginationCursorRowLimitOverride = 3;
+
+			QRY_Builder.QueryPage firstPage = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.orderBy(Foobar__c.CreatedDate).ascending()
+					.getPage(1, 2);
+
+			QRY_Builder.QueryPage lastPage = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.orderBy(Foobar__c.CreatedDate).ascending()
+					.getPage(3, 2);
+
+			Assert.areEqual(2, firstPage.records.size(), 'First page should hold a full page of records');
+			Assert.areEqual(5, firstPage.totalRecords, 'Total should be the true match count, not the guard bound');
+			Assert.areEqual(3, firstPage.totalPages, 'Five records at two per page is three pages');
+			Assert.isTrue(firstPage.hasMorePages, 'Page one of three has more pages');
+			Assert.isFalse(firstPage.hasPriorPages, 'Page one has no prior pages');
+			Assert.isNull(firstPage.cursor, 'No pagination cursor exists once the read is diverted');
+			Assert.areEqual(0, firstPage.deletedRecords, 'A standard cursor cannot report deleted records');
+
+			Assert.areEqual(1, lastPage.records.size(), 'Last page should hold the one remaining record');
+			Assert.areEqual(5, lastPage.totalRecords, 'Every page should report the same true total');
+			Assert.isFalse(lastPage.hasMorePages, 'Page three of three has no more pages');
+			Assert.isTrue(lastPage.hasPriorPages, 'Page three has prior pages');
+			Assert.isNull(lastPage.cursor, 'No pagination cursor exists once the read is diverted');
+		}
+	}
+
+	/**
+	 * @description Tests that a matching set sitting exactly ON the ceiling still gets a pagination cursor.
+	 * The platform rejects the cursor only ABOVE the ceiling, so a guard that diverted at equality would
+	 * cost every caller its cursor and its deleted-record count one row too early.
+	 */
+	@IsTest
+	private static void getPageKeepsItsCursorWhenTheMatchCountEqualsTheCeiling()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.insertFoobars(3);
+			QRY_Engine.paginationCursorRowLimitOverride = 3;
+
+			QRY_Builder.QueryPage page = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.orderBy(Foobar__c.CreatedDate).ascending()
+					.getPage(1, 2);
+
+			Assert.areEqual(2, page.records.size(), 'Should hold a full page of records');
+			Assert.areEqual(3, page.totalRecords, 'Should report the true total');
+			Assert.isNotNull(page.cursor, 'A set exactly at the ceiling is still cursor-eligible');
+		}
+	}
+
+	/**
+	 * @description Tests that the guard counts the population the page query actually matches, not the whole
+	 * object. Five rows exist and the ceiling is three, so a guard that dropped the WHERE clause would divert
+	 * this read even though only two rows match — the page would silently lose its cursor.
+	 */
+	@IsTest
+	private static void getPageGuardCountsOnlyTheRowsTheQueryMatches()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.NumberInteger__c, 20)
+					.withCount(3)
+					.buildList();
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.NumberInteger__c, 10)
+					.withCount(2)
+					.buildList();
+			QRY_Engine.paginationCursorRowLimitOverride = 3;
+
+			QRY_Builder.QueryPage page = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.NumberInteger__c).equals(10)
+					.getPage(1, 5);
+
+			Assert.areEqual(2, page.records.size(), 'Should return only the rows the condition matches');
+			Assert.areEqual(2, page.totalRecords, 'Total should count only the rows the condition matches');
+			Assert.isNotNull(page.cursor, 'A guard ignoring the WHERE clause would see five rows and divert this read');
+		}
+	}
+
+	/**
+	 * @description Tests that the guard respects a visibility scope. Five rows exist and the ceiling is
+	 * three, but only two belong to the running user, so a guard that dropped USING SCOPE would count the
+	 * other three and divert a read that the platform would have served from a pagination cursor.
+	 */
+	@IsTest
+	private static void getPageGuardCountsOnlyTheRowsInScope()
+	{
+		User otherOwner;
+		// Setup-object DML is isolated in its own runAs so it does not collide with the Foobar__c DML.
+		System.runAs(new User(Id = UserInfo.getUserId()))
+		{
+			otherOwner = TST_Factory.newUser(SEL_Profile.PROFILE_STANDARD_USER);
+			insert otherOwner;
+		}
+
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.OwnerId, otherOwner.Id)
+					.withCount(3)
+					.buildList();
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withCount(2)
+					.buildList();
+			QRY_Engine.paginationCursorRowLimitOverride = 3;
+
+			QRY_Builder.QueryPage page = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.usingScope(QRY_Builder.Scope.MINE)
+					.getPage(1, 5);
+
+			Assert.areEqual(2, page.records.size(), 'Should return only the rows the running user owns');
+			Assert.areEqual(2, page.totalRecords, 'Total should count only the rows in scope');
+			Assert.isNotNull(page.cursor, 'A guard ignoring the scope would see four rows and divert this read');
+		}
+	}
+
+	/**
+	 * @description Tests that the guard counts deleted rows whenever the page asks for them. This is the one
+	 * direction that matters: a guard blind to ALL ROWS would undercount, wave the read through, and let the
+	 * platform kill the transaction on a set it cannot open a pagination cursor over. Two live rows and three
+	 * deleted ones sit either side of a ceiling of three, so the same object answers both ways.
+	 */
+	@IsTest
+	private static void getPageGuardCountsDeletedRowsWhenThePageAsksForThem()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> foobars = TST_Factory.insertFoobars(5);
+			delete new List<Foobar__c> {foobars[0], foobars[1], foobars[2]};
+			QRY_Engine.paginationCursorRowLimitOverride = 3;
+
+			// The ALL ROWS read runs first: it is diverted, so it claims no pagination rows and leaves the
+			// live-only read the same headroom it would have had on its own.
+			QRY_Builder.QueryPage withDeleted = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.allRows()
+					.getPage(1, 5);
+
+			QRY_Builder.QueryPage liveOnly = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.getPage(1, 5);
+
+			Assert.areEqual(2, liveOnly.totalRecords, 'Two rows survive the delete');
+			Assert.isNotNull(liveOnly.cursor, 'Two rows sit under the ceiling, so this page keeps its cursor');
+
+			Assert.areEqual(5, withDeleted.totalRecords, 'ALL ROWS should see the deleted rows too');
+			Assert.isNull(withDeleted.cursor, 'Counting the deleted rows takes this page over the ceiling');
+		}
+	}
+
+	/**
+	 * @description Tests that the row allowance is spent per TRANSACTION, not per read. Every pagination
+	 * cursor claims its whole result set out of one shared allowance, so a second paged read in the same
+	 * transaction has only what the first one left. Sizing each read against the full ceiling would let the
+	 * second one open a cursor the platform then refuses, which is the failure this guard exists to prevent.
+	 */
+	@IsTest
+	private static void getPageDivertsOnceTheTransactionHasSpentItsCursorRows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.insertFoobars(5);
+			QRY_Engine.paginationCursorRowLimitOverride = 5;
+
+			QRY_Builder.QueryPage firstRead = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.getPage(1, 2);
+
+			QRY_Builder.QueryPage secondRead = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.getPage(1, 2);
+
+			Assert.areEqual(5, firstRead.totalRecords, 'The first read should see every row');
+			Assert.isNotNull(firstRead.cursor, 'The first read fits the whole allowance');
+
+			Assert.areEqual(5, secondRead.totalRecords, 'The diverted read should still report the true total');
+			Assert.areEqual(2, secondRead.records.size(), 'The diverted read should still return a full page');
+			Assert.isNull(secondRead.cursor, 'The first cursor claimed the allowance, leaving the second read none');
+		}
+	}
+
+	/**
+	 * @description Tests the last tier: a plain LIMIT/OFFSET query, used when the transaction can open
+	 * neither kind of cursor. It needs no cursor at all, so it still answers where both pools are spent, and
+	 * the page it returns has to be indistinguishable from a cursor's apart from the missing cursor itself.
+	 */
+	@IsTest
+	private static void getPageFallsBackToAPlainQueryWhenNoCursorCanBeOpened()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.insertFoobars(5);
+			QRY_Engine.paginationCursorRowLimitOverride = 3;
+			QRY_Engine.standardCursorLimitOverride = 0;
+
+			QRY_Builder.QueryPage page = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.orderBy(Foobar__c.CreatedDate).ascending()
+					.getPage(2, 2);
+
+			Assert.areEqual(2, page.records.size(), 'The plain query should return a full page');
+			Assert.areEqual(5, page.totalRecords, 'The separate count should report the true total');
+			Assert.areEqual(3, page.totalPages, 'Five records at two per page is three pages');
+			Assert.isTrue(page.hasMorePages, 'Page two of three has more pages');
+			Assert.isTrue(page.hasPriorPages, 'Page two has prior pages');
+			Assert.isNull(page.cursor, 'No cursor was opened, so none can be handed back');
+			Assert.areEqual(0, page.deletedRecords, 'A plain query cannot report deleted records');
+		}
+	}
+
+	/**
+	 * @description Tests that a builder-level LIMIT keeps a query on its pagination cursor even when the
+	 * unlimited matching set would exceed the row allowance — the bounded guard count stops at the LIMIT, so
+	 * a query that can never claim more rows than it is allowed is never diverted, and the page's total is
+	 * the LIMIT, not the matching set.
+	 */
+	@IsTest
+	private static void getPageKeepsTheCursorWhenABuilderLimitStaysUnderTheAllowance()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.insertFoobars(5);
+			QRY_Engine.paginationCursorRowLimitOverride = 3;
+
+			QRY_Builder.QueryPage page = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.withLimit(2)
+					.orderBy(Foobar__c.CreatedDate).ascending()
+					.getPage(1, 2);
+
+			Assert.isNotNull(page.cursor, 'A LIMIT under the allowance should keep the pagination cursor');
+			Assert.areEqual(2, page.totalRecords, 'The total is the LIMIT, not the five matching rows');
+			Assert.areEqual(2, page.records.size(), 'The page holds the limited rows');
+		}
+	}
+
+	/**
+	 * @description Tests that a builder-level LIMIT withholds the plain tier: a cursor applies the LIMIT
+	 * across the whole result set and a per-page LIMIT cannot reproduce that, so with both cursor pools
+	 * spent the page is refused with the typed capacity error rather than answered differently.
+	 */
+	@IsTest
+	private static void getPageWithholdsThePlainTierForABuilderLimit()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.insertFoobars(5);
+			QRY_Engine.paginationCursorRowLimitOverride = 0;
+			QRY_Engine.standardCursorLimitOverride = 0;
+
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).withLimit(4).getPage(1, 2);
+				Assert.fail('With both cursor pools spent, a LIMITed page has no tier left and should be refused');
+			}
+			catch(UTIL_Exceptions.IllegalStateException expected)
+			{
+				Assert.isTrue(expected.getMessage().contains('no cursor capacity left'), 'The error should say the capacity is spent, got: ' + expected.getMessage());
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that an aggregate page never reaches the plain tier: a LIMIT/OFFSET aggregate is
+	 * legal SOQL, but its total would count base rows rather than groups — a served-but-wrong page — so with
+	 * both cursor pools spent the aggregate page is refused with the typed capacity error instead.
+	 */
+	@IsTest
+	private static void getPageWithholdsThePlainTierForAnAggregatePage()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.insertFoobars(5);
+			QRY_Engine.paginationCursorRowLimitOverride = 0;
+			QRY_Engine.standardCursorLimitOverride = 0;
+
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).groupBy(Foobar__c.Text__c).getPage(1, 2);
+				Assert.fail('An aggregate page with no cursor available should be refused, never served with a base-row total');
+			}
+			catch(UTIL_Exceptions.IllegalStateException expected)
+			{
+				Assert.isTrue(expected.getMessage().contains('no cursor capacity left'), 'The error should say the capacity is spent, got: ' + expected.getMessage());
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that a page too deep for the plain tier is refused with a clear, catchable error
+	 * rather than a governor exception the caller cannot intercept. SOQL OFFSET stops at 2,000 rows, so once
+	 * both cursor pools are spent there is genuinely nothing left that can reach page 1,002.
+	 */
+	@IsTest
+	private static void getPageFailsClearlyWhenThePageIsBeyondEveryTier()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.insertFoobars(5);
+			QRY_Engine.paginationCursorRowLimitOverride = 3;
+			QRY_Engine.standardCursorLimitOverride = 0;
+
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).getPage(1002, 2);
+				Assert.fail('A page past the OFFSET cap with no cursor available should be refused');
+			}
+			catch(UTIL_Exceptions.IllegalStateException expected)
+			{
+				Assert.isTrue(expected.getMessage().contains('no cursor capacity left'), 'The error should say the capacity is spent, got: ' + expected.getMessage());
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that getPage() rejects a page larger than any cursor will fetch. Catching it at the
+	 * API boundary names the cap; letting it through produces a platform error partway into the read that
+	 * says nothing about which argument was wrong.
+	 */
+	@IsTest
+	private static void getPageRejectsAPageLargerThanACursorWillFetch()
+	{
+		System.runAs(getTestAdmin())
+		{
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).getPage(1, 2001);
+				Assert.fail('A page size above the cursor fetch cap should be rejected');
+			}
+			catch(IllegalArgumentException expected)
+			{
+				Assert.areEqual('Page size must be between 1 and 2000 records.', expected.getMessage(), 'The error should name the cap');
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that getPage() rejects page coordinates it cannot turn into an offset. A page number
+	 * below one produces a negative offset, and a page size below one asks for no records at all.
+	 */
+	@IsTest
+	private static void getPageRejectsPageCoordinatesBelowOne()
+	{
+		System.runAs(getTestAdmin())
+		{
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).getPage(0, 25);
+				Assert.fail('A page number below one should be rejected');
+			}
+			catch(IllegalArgumentException expected)
+			{
+				Assert.areEqual('Page number must be 1 or greater.', expected.getMessage(), 'The error should name the page number');
+			}
+
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).getPage(1, 0);
+				Assert.fail('A page size below one should be rejected');
+			}
+			catch(IllegalArgumentException expected)
+			{
+				Assert.areEqual('Page size must be between 1 and 2000 records.', expected.getMessage(), 'The error should name the range');
+			}
+		}
+	}
+
+	/**
 	 * @description Tests that setMock() and clearMocks() work correctly.
 	 */
 	@IsTest
@@ -703,6 +1120,37 @@ private class QRY_Builder_TEST
 								'Pass-through should preserve the exception instance'
 						);
 			}
+			Test.stopTest();
+
+			QRY_Engine.clearMocks();
+		}
+	}
+
+	/**
+	 * @description Tests that an aggregate-scoped mock exception fires for a builder aggregate query but
+	 * leaves a row query against the same SObjectType running for real — proving the builder stamps the
+	 * aggregate flag onto its parameters and the engine scopes the throw to it.
+	 */
+	@IsTest
+	private static void shouldScopeMockAggregateExceptionToAggregateQueries()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Engine.setMockAggregateException(Foobar__c.SObjectType, new QueryException('Aggregate-only failure'));
+
+			Test.startTest();
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, 'total').groupBy(Foobar__c.Name).toAggregateList();
+				Assert.fail('Should throw the registered aggregate exception for a builder aggregate query');
+			}
+			catch(QueryException error)
+			{
+				Assert.areEqual('Aggregate-only failure', error.getMessage(), 'The aggregate query should rethrow the registered instance');
+			}
+
+			List<SObject> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType).toList();
+			Assert.areEqual(0, rows.size(), 'A row query against the same SObjectType should execute for real');
 			Test.stopTest();
 
 			QRY_Engine.clearMocks();

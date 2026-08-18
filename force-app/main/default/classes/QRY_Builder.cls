@@ -19,7 +19,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  *
  * @since 1.0
  *
@@ -54,6 +54,16 @@ global inherited sharing class QRY_Builder
 	 */
 	@TestVisible
 	private static final String FLAG_USER_MODE_QUERIES = 'UserModeQueries_Enabled';
+
+	/**
+	 * @description Largest page a cursor will hand back in one fetch. Both cursor kinds reject a bigger
+	 * request outright, and the platform publishes no governor accessor for the figure, so getPage() states
+	 * it here and turns an oversized page into a clear argument error at the API boundary rather than a
+	 * platform error partway through the read.
+	 *
+	 * @date August 2026
+	 */
+	private static final Integer MAXIMUM_CURSOR_FETCH_ROWS = 2000;
 
 	/**
 	 * @description Returns whether subscriber-reachable queries default to `AccessLevel.USER_MODE`
@@ -381,6 +391,13 @@ global inherited sharing class QRY_Builder
 		/**
 		 * @description The PaginationCursor state for LWC round-trips.
 		 * Can be passed back to the server for stable pagination across requests.
+		 *
+		 * Null whenever the page was served without a pagination cursor — because more records match than
+		 * the paging allowance left in the transaction (100,000 records today, drawn on by every paged read
+		 * in the same transaction, so a later read has only what the earlier ones left), or because the
+		 * transaction has no pagination-cursor instances left. Those pages are served another way:
+		 * `records`, `totalRecords` and every paging flag stay correct, and only `deletedRecords` is
+		 * unavailable, so it reads 0. Check for null before passing the cursor back.
 		 *
 		 * @since 1.0
 		 *
@@ -1473,7 +1490,16 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder contains(String value)
 		{
-			add(new QRY_Condition.FieldCondition(fieldName, QRY_Condition.Operator.LIKE_X, '%' + value + '%'));
+			add
+					(
+							new QRY_Condition.FieldCondition
+									(
+											fieldName,
+											QRY_Condition.Operator.LIKE_X,
+											QRY_Condition.LIKE_MULTIPLE_CHARACTER_WILDCARD + value + QRY_Condition.LIKE_MULTIPLE_CHARACTER_WILDCARD
+									)
+					);
+
 			return parentBuilder;
 		}
 
@@ -1495,7 +1521,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder startsWith(String value)
 		{
-			add(new QRY_Condition.FieldCondition(fieldName, QRY_Condition.Operator.LIKE_X, value + '%'));
+			add(new QRY_Condition.FieldCondition(fieldName, QRY_Condition.Operator.LIKE_X, value + QRY_Condition.LIKE_MULTIPLE_CHARACTER_WILDCARD));
 			return parentBuilder;
 		}
 
@@ -1517,7 +1543,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder endsWith(String value)
 		{
-			add(new QRY_Condition.FieldCondition(fieldName, QRY_Condition.Operator.LIKE_X, '%' + value));
+			add(new QRY_Condition.FieldCondition(fieldName, QRY_Condition.Operator.LIKE_X, QRY_Condition.LIKE_MULTIPLE_CHARACTER_WILDCARD + value));
 			return parentBuilder;
 		}
 
@@ -4845,6 +4871,7 @@ global inherited sharing class QRY_Builder
 			parameters.customPerformanceThresholdMs = performanceThresholdMs;
 			parameters.whereCondition = effectiveCondition;
 			parameters.orderByFields = this.orderByFields;
+			parameters.aggregateQuery = aggregateType != null || !aggregateSelections.isEmpty() || !groupByFields.isEmpty();
 			return parameters;
 		}
 
@@ -5169,12 +5196,108 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
+		 * @description Attaches everything the engine needs to serve this page WITHOUT a pagination cursor:
+		 * the bounded count that decides whether one can be opened at all, the unbounded count that supplies
+		 * the total when no cursor is there to report it, and a plain LIMIT/OFFSET rendering of the same page.
+		 * Above the platform's row allowance the cursor cannot be opened, and the failure is a governor
+		 * exception raised at creation — nothing can catch it — so all of this has to be in hand first.
+		 *
+		 * The counts mirror every clause that changes WHICH rows match: the same effective condition, the same
+		 * scope, and ALL ROWS. Mirroring the condition is what keeps a narrow query on its cursor; mirroring
+		 * ALL ROWS is what keeps the count honest, because a count lower than the rows the page query matches
+		 * would wave through exactly the read that fails. Clauses that only reshape or order the matched rows
+		 * are left out, and so is any WITH DATA CATEGORY filter: overcounting merely diverts a read that would
+		 * have succeeded, which costs the cursor and the deleted-record count but returns the same records.
+		 *
+		 * A builder-level LIMIT caps the bounded count as well, so a query that can never reach the ceiling is
+		 * never diverted by a count of rows it would not have read. It also withholds the plain rendering: a
+		 * cursor applies that LIMIT across the whole result set, and a per-page LIMIT cannot reproduce it, so
+		 * the plain tier stands aside rather than answer differently.
+		 *
+		 * Aggregate pages get no fallback tiers. The platform refuses to open EITHER cursor type over a query
+		 * carrying aggregate expressions or a GROUP BY, so the cursor tiers fail on their own; the plain tier
+		 * is withheld by the engine (`canServePlainPage`) because a LIMIT/OFFSET aggregate would execute — and
+		 * then report a total counted over base rows rather than groups, a served-but-wrong page.
+		 *
+		 * @param parameters The parameters to stamp with the fallback queries
+		 * @param registry The bind registry already carrying the page query's binds
+		 * @param pageOffset The row offset of the requested page
+		 * @param pageSize The number of records the requested page holds
+		 *
+		 * @date August 2026
+		 */
+		private void applyPaginationFallbacks(QRY_Engine.QueryParameters parameters, QRY_BindRegistry registry, Integer pageOffset, Integer pageSize)
+		{
+			QRY_Condition.Evaluable effectiveCondition = buildEffectiveCondition();
+
+			QRY_Generator counter = new QRY_Generator(objectType);
+			counter.selectCount();
+
+			if(effectiveCondition != null)
+			{
+				counter.whereCondition(effectiveCondition);
+			}
+			if(scope != null)
+			{
+				counter.usingScope(QRY_Generator.Scope.valueOf(scope.name()));
+			}
+			if(includeAllRows)
+			{
+				counter.allRows();
+			}
+
+			parameters.totalRecordCountQuery = renderFallbackQuery(counter, registry);
+
+			Integer guardRowLimit = QRY_Engine.getPaginationGuardRowLimit();
+			counter.limitTo(maxRecords == null ? guardRowLimit : Math.min(maxRecords, guardRowLimit));
+			parameters.paginationGuardQuery = renderFallbackQuery(counter, registry);
+
+			if(maxRecords == null)
+			{
+				QRY_Generator plainPage = buildGeneratorWithCondition(effectiveCondition);
+				plainPage.limitTo(pageSize);
+				plainPage.offset(pageOffset);
+				parameters.plainPageQuery = renderFallbackQuery(plainPage, registry);
+			}
+
+			if(!useLiterals)
+			{
+				// Each rendering above registered a fresh set of bind names for the same values, so the map
+				// handed to the engine is re-read to carry the page query's binds and every fallback's.
+				parameters.bindMap = registry.getMap();
+			}
+		}
+
+		/**
+		 * @description Renders one fallback query, using literals or shared bind names exactly as the page
+		 * query did.
+		 *
+		 * @param generator The configured generator to render
+		 * @param registry The bind registry shared with the page query
+		 *
+		 * @return The rendered SOQL
+		 *
+		 * @date August 2026
+		 */
+		private String renderFallbackQuery(QRY_Generator generator, QRY_BindRegistry registry)
+		{
+			return useLiterals ? generator.toSoql() : generator.toSoql(registry);
+		}
+
+		/**
 		 * @description Executes a paged query and returns results with pagination metadata.
 		 *
+		 * A page may hold at most 2,000 records, which is all a cursor will hand back in one fetch.
+		 *
 		 * @param requestedPageNumber The page number to retrieve (1-based)
-		 * @param requestedPageSize Number of records per page
+		 * @param requestedPageSize Number of records per page, from 1 to 2000
 		 *
 		 * @return Page containing records and pagination metadata
+		 *
+		 * @throws IllegalArgumentException When the page number is below 1, or the page size is outside 1 to 2000
+		 * @throws UTIL_Exceptions.IllegalStateException When the transaction has spent its cursor capacity —
+		 * roughly fifty diverted paged reads in one transaction — and the requested page also sits past the
+		 * 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query.
 		 *
 		 * @since 1.0
 		 *
@@ -5188,6 +5311,15 @@ global inherited sharing class QRY_Builder
 		 */
 		global QueryPage getPage(Integer requestedPageNumber, Integer requestedPageSize)
 		{
+			if(requestedPageNumber == null || requestedPageNumber < 1)
+			{
+				throw new IllegalArgumentException('Page number must be 1 or greater.');
+			}
+			if(requestedPageSize == null || requestedPageSize < 1 || requestedPageSize > MAXIMUM_CURSOR_FETCH_ROWS)
+			{
+				throw new IllegalArgumentException('Page size must be between 1 and ' + MAXIMUM_CURSOR_FETCH_ROWS + ' records.');
+			}
+
 			QRY_BindRegistry registry = new QRY_BindRegistry();
 			QRY_Engine.QueryParameters params = buildParameters(registry);
 			params.cursorMode = QRY_Engine.CursorMode.PAGINATION;
@@ -5195,6 +5327,7 @@ global inherited sharing class QRY_Builder
 			params.pageSize = requestedPageSize;
 			params.offset = (requestedPageNumber - 1) * requestedPageSize;
 			params.limitCount = null;
+			applyPaginationFallbacks(params, registry, params.offset, requestedPageSize);
 
 			QRY_Engine.QueryResult result = QRY_Engine.execute(params);
 

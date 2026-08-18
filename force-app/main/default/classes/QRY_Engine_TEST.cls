@@ -9,9 +9,9 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 @IsTest(SeeAllData=false IsParallel=true)
 private class QRY_Engine_TEST
 {
@@ -453,6 +453,100 @@ private class QRY_Engine_TEST
 	}
 
 	/**
+	 * @description Tests that an aggregate-scoped mock exception fires for a query whose parameters are
+	 * stamped as an aggregate, and rethrows the exact registered instance.
+	 */
+	@IsTest
+	private static void shouldThrowAggregateExceptionForAggregateQuery()
+	{
+		QRY_Engine.setMockAggregateException(Foobar__c.SObjectType, new QueryException('Aggregate-only failure'));
+
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT COUNT(Id) total FROM ' + OBJECT_NAME;
+		parameters.aggregateQuery = true;
+
+		try
+		{
+			QRY_Engine.execute(parameters);
+			Assert.fail('Should throw the registered aggregate exception for an aggregate query');
+		}
+		catch(QueryException error)
+		{
+			Assert.areEqual('Aggregate-only failure', error.getMessage(), 'Should rethrow the exact registered instance');
+		}
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests the seam's whole point: with an aggregate-scoped exception registered, a ROW query
+	 * against the same SObjectType still executes for real — the asymmetry the SObjectType-wide
+	 * setMockException cannot express.
+	 */
+	@IsTest
+	private static void shouldNotThrowAggregateExceptionForRowQuery()
+	{
+		QRY_Engine.setMockAggregateException(Foobar__c.SObjectType, new QueryException('Aggregate-only failure'));
+
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id FROM ' + OBJECT_NAME + ' WHERE Id = NULL';
+
+		QRY_Engine.QueryResult result = QRY_Engine.execute(parameters);
+
+		Assert.areEqual(0, result.records.size(), 'A row query against the same SObjectType should execute for real');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that every clear path — per-type clearMockException, clearMockExceptions, and
+	 * clearMocks — also removes an aggregate-scoped exception.
+	 */
+	@IsTest
+	private static void shouldClearAggregateExceptionThroughEveryClearPath()
+	{
+		QRY_Engine.setMockAggregateException(Foobar__c.SObjectType, new QueryException('Wipe per type'));
+		QRY_Engine.clearMockException(Foobar__c.SObjectType);
+		Assert.isNull(QRY_Engine.getMockAggregateException(Foobar__c.SObjectType), 'clearMockException should remove the aggregate exception for the type');
+
+		QRY_Engine.setMockAggregateException(Foobar__c.SObjectType, new QueryException('Wipe all'));
+		QRY_Engine.clearMockExceptions();
+		Assert.isNull(QRY_Engine.getMockAggregateException(Foobar__c.SObjectType), 'clearMockExceptions should remove every aggregate exception');
+
+		QRY_Engine.setMockAggregateException(Foobar__c.SObjectType, new QueryException('Wipe via clearMocks'));
+		QRY_Engine.clearMocks();
+		Assert.isNull(QRY_Engine.getMockAggregateException(Foobar__c.SObjectType), 'clearMocks should remove every aggregate exception');
+	}
+
+	/**
+	 * @description Tests that setMockAggregateException validates both arguments as non-null.
+	 */
+	@IsTest
+	private static void shouldThrowIllegalArgumentForNullArgumentsOnSetMockAggregateException()
+	{
+		try
+		{
+			QRY_Engine.setMockAggregateException(null, new QueryException('Some failure'));
+			Assert.fail('Should throw IllegalArgumentException for null SObjectType');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
+		}
+		try
+		{
+			QRY_Engine.setMockAggregateException(Foobar__c.SObjectType, null);
+			Assert.fail('Should throw IllegalArgumentException for null exception');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
+		}
+	}
+
+	/**
 	 * @description Tests exception for null parameters.
 	 */
 	@IsTest
@@ -644,6 +738,51 @@ private class QRY_Engine_TEST
 	}
 
 	/**
+	 * @description Tests that a count honours the sharing dial on every setting, exactly as a row query
+	 * does. A count that ignored enforceSharing would run under whatever sharing its caller happens to have,
+	 * so a bypassed count could return a smaller number than the identical bypassed row query — the wrong
+	 * direction for any caller that sizes a query before deciding whether to issue it.
+	 */
+	@IsTest
+	private static void shouldExecuteCountUnderEachSharingSetting()
+	{
+		TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Name, 'Test Account')
+				.withCount(3)
+				.buildList();
+
+		Test.startTest();
+		Integer enforcedCount = QRY_Engine.executeCount(countParametersFor(true));
+		Integer bypassedCount = QRY_Engine.executeCount(countParametersFor(false));
+		Integer inheritedCount = QRY_Engine.executeCount(countParametersFor(null));
+		Test.stopTest();
+
+		// This class is IsParallel=true, so it cannot create the second user a sharing DIVERGENCE needs.
+		// It covers all three dispatch arms and pins that the owner's own rows are reachable through each;
+		// the divergence itself is proven against a Private-OWD object in
+		// QRY_Builder_TEST.countHonoursTheSharingBypassItAdvertises.
+		Assert.areEqual(3, enforcedCount, 'The owner should reach every seeded row with sharing enforced');
+		Assert.areEqual(3, bypassedCount, 'The owner should reach every seeded row with sharing bypassed');
+		Assert.areEqual(3, inheritedCount, 'The owner should reach every seeded row under inherited sharing');
+	}
+
+	/**
+	 * @description Builds count parameters for the Foobar fixture under one sharing setting.
+	 *
+	 * @param enforceSharing True to enforce, false to bypass, null to inherit.
+	 *
+	 * @return The count parameters.
+	 */
+	private static QRY_Engine.QueryParameters countParametersFor(Boolean enforceSharing)
+	{
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT COUNT() FROM ' + OBJECT_NAME;
+		parameters.enforceSharing = enforceSharing;
+		return parameters;
+	}
+
+	/**
 	 * @description Tests cursor-based pagination.
 	 */
 	@IsTest
@@ -666,6 +805,145 @@ private class QRY_Engine_TEST
 		Assert.areEqual(3, result.records.size(), 'Should return page size records');
 		Assert.areEqual(10, result.totalRecords, 'Should have correct total');
 		Assert.isTrue(result.hasMorePages, 'Should have more pages');
+	}
+
+	/**
+	 * @description Tests that a pagination read whose guard count lands above the platform ceiling is served
+	 * by a standard cursor instead. The platform throws an uncatchable governor exception when a pagination
+	 * cursor is opened over too many rows, so the decision has to be made before the cursor exists.
+	 */
+	@IsTest
+	private static void shouldServePageFromStandardCursorWhenGuardCountExceedsCeiling()
+	{
+		TST_Builder.of(Foobar__c.SObjectType)
+				.withCount(5)
+				.buildList();
+		QRY_Engine.paginationCursorRowLimitOverride = 3;
+
+		QRY_Engine.QueryResult result = QRY_Engine.execute(buildPageParameters(true, 2, 0));
+
+		Assert.areEqual(2, result.records.size(), 'Should still return a full page');
+		Assert.areEqual(5, result.totalRecords, 'Standard cursor should report the true total');
+		Assert.isNull(result.cursor, 'No pagination cursor should be handed back once the read is diverted');
+		Assert.areEqual(0, result.deletedRecords, 'A standard cursor cannot report deleted records');
+	}
+
+	/**
+	 * @description Builds parameters for a paged read of every Foobar__c row.
+	 *
+	 * @param guarded Whether to attach the bounded guard count sized to the remaining allowance.
+	 * @param pageSize The page size.
+	 * @param offset The offset to read from.
+	 *
+	 * @return Parameters ready for QRY_Engine.execute.
+	 *
+	 * @date August 2026
+	 */
+	private static QRY_Engine.QueryParameters buildPageParameters(Boolean guarded, Integer pageSize, Integer offset)
+	{
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' ORDER BY ' + FIELD_NAME;
+		parameters.bindMap = new Map<String, Object>();
+		parameters.cursorMode = QRY_Engine.CursorMode.PAGINATION;
+		parameters.pageSize = pageSize;
+		parameters.offset = offset;
+
+		if(guarded)
+		{
+			parameters.paginationGuardQuery = 'SELECT COUNT() FROM ' + OBJECT_NAME + ' LIMIT ' + QRY_Engine.getPaginationGuardRowLimit();
+		}
+
+		return parameters;
+	}
+
+	/**
+	 * @description Tests that a guard count landing exactly ON the ceiling keeps the pagination cursor. The
+	 * platform rejects the cursor only above the ceiling, so equality must not divert the read.
+	 */
+	@IsTest
+	private static void shouldKeepPaginationCursorWhenGuardCountEqualsCeiling()
+	{
+		TST_Builder.of(Foobar__c.SObjectType)
+				.withCount(3)
+				.buildList();
+		QRY_Engine.paginationCursorRowLimitOverride = 3;
+
+		QRY_Engine.QueryResult result = QRY_Engine.execute(buildPageParameters(true, 2, 0));
+
+		Assert.areEqual(2, result.records.size(), 'Should return a full page');
+		Assert.areEqual(3, result.totalRecords, 'Should report the true total');
+		Assert.isNotNull(result.cursor, 'A set exactly at the ceiling is still cursor-eligible');
+	}
+
+	/**
+	 * @description Tests that a pagination read carrying no guard query behaves exactly as it did before the
+	 * guard existed: the pagination cursor is opened directly, whatever the ceiling says.
+	 */
+	@IsTest
+	private static void shouldOpenPaginationCursorWhenNoGuardQueryIsSet()
+	{
+		TST_Builder.of(Foobar__c.SObjectType)
+				.withCount(5)
+				.buildList();
+		QRY_Engine.paginationCursorRowLimitOverride = 3;
+
+		QRY_Engine.QueryResult result = QRY_Engine.execute(buildPageParameters(false, 2, 0));
+
+		Assert.areEqual(2, result.records.size(), 'Should return a full page');
+		Assert.areEqual(5, result.totalRecords, 'Should report the true total');
+		Assert.isNotNull(result.cursor, 'Without a guard query the pagination cursor is opened as before');
+	}
+
+	/**
+	 * @description Tests that a page is diverted once the transaction has no pagination cursor left to open.
+	 * The instance allowance is per-transaction and separate from the row allowance, so a transaction can be
+	 * well under the row ceiling and still be unable to open another cursor.
+	 */
+	@IsTest
+	private static void shouldServePageFromStandardCursorWhenPaginationCursorPoolIsExhausted()
+	{
+		TST_Builder.of(Foobar__c.SObjectType)
+				.withCount(5)
+				.buildList();
+
+		// Reading past the end of the result set claims a place in the pool without spending a fetch call.
+		while(Limits.getApexPaginationCursors() < Limits.getLimitApexPaginationCursors())
+		{
+			QRY_Engine.execute(buildPageParameters(false, 2, 1000));
+		}
+
+		QRY_Engine.QueryResult result = QRY_Engine.execute(buildPageParameters(true, 2, 0));
+
+		Assert.areEqual(2, result.records.size(), 'The page should still be served');
+		Assert.areEqual(5, result.totalRecords, 'The standard cursor should report the true total');
+		Assert.isNull(result.cursor, 'With no pagination cursor left to open, the page comes from a standard cursor');
+	}
+
+	/**
+	 * @description Tests that a page fails with a clear, catchable error when no tier can serve it: no
+	 * pagination cursor rows, no standard cursor, and no plain rendering to fall back on. Left to the
+	 * platform, the same call would raise a governor exception no caller can catch, in a transaction that has
+	 * already done work.
+	 */
+	@IsTest
+	private static void shouldFailClearlyWhenNoTierCanServeThePage()
+	{
+		TST_Builder.of(Foobar__c.SObjectType)
+				.withCount(5)
+				.buildList();
+		QRY_Engine.paginationCursorRowLimitOverride = 0;
+		QRY_Engine.standardCursorLimitOverride = 0;
+
+		try
+		{
+			QRY_Engine.execute(buildPageParameters(true, 2, 0));
+			Assert.fail('A page with no tier left to serve it should be refused');
+		}
+		catch(UTIL_Exceptions.IllegalStateException expected)
+		{
+			Assert.isTrue(expected.getMessage().contains('no cursor capacity left'), 'The error should say the capacity is spent, got: ' + expected.getMessage());
+		}
 	}
 
 	/**

@@ -39,6 +39,7 @@ QRY_Condition.FieldCondition condition = new QRY_Condition.FieldCondition(
 | Method | Description |
 |--------|-------------|
 | global virtual [QRY_Condition.FieldCondition](QRY_Condition.FieldCondition.md) [contains](#contains)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) compareValue) | Sets the condition to a LIKE comparison that matches the value anywhere in the field (a contains match). |
+| global virtual [QRY_Condition.FieldCondition](QRY_Condition.FieldCondition.md) [containsLiteral](#containsliteral)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) compareValue) | Sets the condition to a LIKE comparison that matches the value literally anywhere in the field. |
 
 ### contains
 
@@ -69,6 +70,43 @@ builder's contains().
 QRY_Condition.OrCondition textMatch = new QRY_Condition.OrCondition();
 textMatch.add(new QRY_Condition.FieldCondition(Account.Name).contains('Acme')); // Name LIKE '%Acme%'
 textMatch.add(new QRY_Condition.FieldCondition(Account.Website).contains('acme'));
+```
+
+</div>
+
+### containsLiteral
+
+<div class="apex-member">
+
+```apex
+global virtual QRY_Condition.FieldCondition containsLiteral(String compareValue)
+```
+
+Sets the condition to a LIKE comparison that matches the value literally
+anywhere in the field. The three characters that carry meaning inside a LIKE pattern are
+escaped first: % (any run of characters), _ (any single character), and \ (the escape
+character itself). Use this whenever the value came from a person, such as a search box, a
+filter or a report parameter, because contains() deliberately leaves those characters their
+wildcard meaning: a search for "100%" otherwise matches every value containing "100", and a
+search for "UTIL_HttpClient" also matches "UTILxHttpClient". Use contains() when the pattern
+is yours and the wildcards are wanted. The escape travels with the bound value, which is the
+form every QRY_Builder query executes; it is not preserved if you render the condition to a
+SOQL string with toSoql() and run that string yourself.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `compareValue` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The text to match anywhere in the field, character for character. |
+
+**Returns** [QRY_Condition.FieldCondition](QRY_Condition.FieldCondition.md) — The FieldCondition instance for method chaining.
+
+**Example**
+
+```apex
+QRY_Condition.OrCondition userSearch = new QRY_Condition.OrCondition();
+userSearch.add(new QRY_Condition.FieldCondition(Account.Name).containsLiteral(searchBoxValue));
+userSearch.add(new QRY_Condition.FieldCondition(Account.Website).containsLiteral(searchBoxValue));
 ```
 
 </div>

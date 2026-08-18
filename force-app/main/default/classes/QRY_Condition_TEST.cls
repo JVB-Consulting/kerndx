@@ -9,7 +9,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 @IsTest(SeeAllData=false IsParallel=false)
@@ -26,6 +26,52 @@ private class QRY_Condition_TEST
 	 * @description Test value for string comparison.
 	 */
 	private static final String TEST_VALUE = 'Test';
+
+	/**
+	 * @description Search term holding a trailing LIKE multiple-character wildcard.
+	 */
+	private static final String WILDCARD_SEARCH_TERM = '100%';
+
+	/**
+	 * @description The pattern containsLiteral must compose for WILDCARD_SEARCH_TERM: %100\%%
+	 */
+	private static final String ESCAPED_WILDCARD_PATTERN = '%100\\%%';
+
+	/**
+	 * @description Search term holding the LIKE escape character and a wildcard.
+	 */
+	private static final String BACKSLASH_SEARCH_TERM = 'a\\b%';
+
+	/**
+	 * @description The pattern containsLiteral must compose for BACKSLASH_SEARCH_TERM: %a\\b\%%
+	 */
+	private static final String ESCAPED_BACKSLASH_PATTERN = '%a\\\\b\\%%';
+
+	/**
+	 * @description Search term holding a LIKE single-character wildcard, as someone searching for a
+	 * class name would type it.
+	 */
+	private static final String UNDERSCORE_SEARCH_TERM = 'UTIL_HttpClient';
+
+	/**
+	 * @description Seeded value holding UNDERSCORE_SEARCH_TERM literally.
+	 */
+	private static final String UNDERSCORE_MATCH_VALUE = 'UTIL_HttpClient timeout';
+
+	/**
+	 * @description Seeded decoy differing from UNDERSCORE_MATCH_VALUE only at the underscore.
+	 */
+	private static final String UNDERSCORE_DECOY_VALUE = 'UTILxHttpClient timeout';
+
+	/**
+	 * @description Seeded value holding WILDCARD_SEARCH_TERM literally.
+	 */
+	private static final String WILDCARD_MATCH_VALUE = 'Load 100% complete';
+
+	/**
+	 * @description Seeded decoy differing from WILDCARD_MATCH_VALUE only at the percent sign.
+	 */
+	private static final String WILDCARD_DECOY_VALUE = 'Load 100X complete';
 
 	/**
 	 * @description Expected SOQL output for YESTERDAY.
@@ -195,6 +241,133 @@ private class QRY_Condition_TEST
 			Assert.isTrue(soql.contains('LIKE'), 'Should contain LIKE operator');
 			Assert.isTrue(soql.contains('%Test%'), 'Should wrap the value in wildcards');
 		}
+	}
+
+	/**
+	 * @description Tests that containsLiteral escapes the LIKE wildcards inside the value, so a term a
+	 * user typed matches the characters they typed. The assertion reads the bound value, which is what
+	 * the database evaluates.
+	 */
+	@IsTest
+	private static void shouldBindEscapedWildcardPatternForContainsLiteral()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_BindRegistry registry = new QRY_BindRegistry();
+			QRY_Condition.FieldCondition condition = new QRY_Condition.FieldCondition(TEST_FIELD);
+			condition.containsLiteral(WILDCARD_SEARCH_TERM);
+
+			String soql = condition.toSoql(registry);
+
+			Assert.isTrue(soql.contains('LIKE'), 'Should contain LIKE operator');
+			Assert.isTrue(soql.contains(':b'), 'Should bind the pattern rather than inline it');
+			Assert.areEqual(ESCAPED_WILDCARD_PATTERN, registry.getMap().values()[0], 'Should escape the percent sign inside the bound pattern');
+		}
+	}
+
+	/**
+	 * @description Tests that containsLiteral escapes the LIKE escape character itself before the
+	 * wildcards, so its own escapes are never escaped a second time.
+	 */
+	@IsTest
+	private static void shouldEscapeBackslashBeforeWildcardsInContainsLiteral()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_BindRegistry registry = new QRY_BindRegistry();
+			QRY_Condition.FieldCondition condition = new QRY_Condition.FieldCondition(TEST_FIELD);
+			condition.containsLiteral(BACKSLASH_SEARCH_TERM);
+
+			condition.toSoql(registry);
+
+			Assert.areEqual(ESCAPED_BACKSLASH_PATTERN, registry.getMap().values()[0], 'Should escape the backslash before the wildcard');
+		}
+	}
+
+	/**
+	 * @description Tests that containsLiteral composes the same pattern contains does for a null
+	 * value, so the escape never turns a null term into a runtime failure.
+	 */
+	@IsTest
+	private static void shouldComposeTheSamePatternAsContainsForNullValue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Condition.FieldCondition literalCondition = new QRY_Condition.FieldCondition(TEST_FIELD);
+			literalCondition.containsLiteral(null);
+			QRY_Condition.FieldCondition wildcardCondition = new QRY_Condition.FieldCondition(TEST_FIELD);
+			wildcardCondition.contains(null);
+
+			Assert.areEqual(wildcardCondition.toSoql(), literalCondition.toSoql(), 'Should match contains for a null value');
+		}
+	}
+
+	/**
+	 * @description Tests against real rows that containsLiteral matches an underscore literally where
+	 * contains keeps it as the single-character wildcard.
+	 */
+	@IsTest
+	private static void containsLiteralShouldMatchUnderscoreLiterally()
+	{
+		System.runAs(getTestAdmin())
+		{
+			seedFoobarNamed(UNDERSCORE_MATCH_VALUE);
+			seedFoobarNamed(UNDERSCORE_DECOY_VALUE);
+
+			List<SObject> literalMatches = findFoobarByName(new QRY_Condition.FieldCondition(Foobar__c.Name).containsLiteral(UNDERSCORE_SEARCH_TERM));
+			List<SObject> wildcardMatches = findFoobarByName(new QRY_Condition.FieldCondition(Foobar__c.Name).contains(UNDERSCORE_SEARCH_TERM));
+
+			Assert.areEqual(2, wildcardMatches.size(), 'contains should keep the underscore as a wildcard and match both rows');
+			Assert.areEqual(1, literalMatches.size(), 'containsLiteral should match only the row holding a literal underscore');
+			Assert.areEqual(UNDERSCORE_MATCH_VALUE, ((Foobar__c)literalMatches[0]).Name, 'containsLiteral should match the literal row, not the decoy');
+		}
+	}
+
+	/**
+	 * @description Tests against real rows that containsLiteral matches a percent sign literally where
+	 * contains keeps it as the multiple-character wildcard.
+	 */
+	@IsTest
+	private static void containsLiteralShouldMatchPercentSignLiterally()
+	{
+		System.runAs(getTestAdmin())
+		{
+			seedFoobarNamed(WILDCARD_MATCH_VALUE);
+			seedFoobarNamed(WILDCARD_DECOY_VALUE);
+
+			List<SObject> literalMatches = findFoobarByName(new QRY_Condition.FieldCondition(Foobar__c.Name).containsLiteral(WILDCARD_SEARCH_TERM));
+			List<SObject> wildcardMatches = findFoobarByName(new QRY_Condition.FieldCondition(Foobar__c.Name).contains(WILDCARD_SEARCH_TERM));
+
+			Assert.areEqual(2, wildcardMatches.size(), 'contains should keep the percent sign as a wildcard and match both rows');
+			Assert.areEqual(1, literalMatches.size(), 'containsLiteral should match only the row holding a literal percent sign');
+			Assert.areEqual(WILDCARD_MATCH_VALUE, ((Foobar__c)literalMatches[0]).Name, 'containsLiteral should match the literal row, not the decoy');
+		}
+	}
+
+	/**
+	 * @description Inserts one Foobar__c record carrying the supplied name, so the literal-match tests
+	 * run against real rows rather than a generated SOQL string. The searched field is Name rather
+	 * than Text__c because the Foobar__c before-insert trigger action overwrites Text__c with a fixed
+	 * value whenever a test is running, which would leave every seeded row identical.
+	 *
+	 * @param nameValue The value to store in Name.
+	 */
+	private static void seedFoobarNamed(String nameValue)
+	{
+		TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Name, nameValue).build();
+	}
+
+	/**
+	 * @description Runs a condition through the full query pipeline, selecting Name so the caller can
+	 * assert which row matched.
+	 *
+	 * @param condition The condition to apply.
+	 *
+	 * @return The matching records.
+	 */
+	private static List<SObject> findFoobarByName(QRY_Condition.Evaluable condition)
+	{
+		return QRY_Builder.selectFrom(Foobar__c.SObjectType).addField(Foobar__c.Name).addCondition(condition).toList();
 	}
 
 	/**

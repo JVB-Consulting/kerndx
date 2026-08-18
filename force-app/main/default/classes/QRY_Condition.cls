@@ -17,7 +17,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  *
  * @since 1.0
  *
@@ -51,6 +51,21 @@ global inherited sharing class QRY_Condition
 	private static final Operator NOT_IN = Operator.NOT_IN;
 	private static final Operator INCLUDES = Operator.INCLUDES;
 	private static final Operator EXCLUDES = Operator.EXCLUDES;
+
+	/**
+	 * @description The SOQL LIKE escape character, which makes the character after it literal.
+	 */
+	private static final String LIKE_ESCAPE_CHARACTER = '\\';
+
+	/**
+	 * @description The SOQL LIKE wildcard that matches any number of characters.
+	 */
+	public static final String LIKE_MULTIPLE_CHARACTER_WILDCARD = '%';
+
+	/**
+	 * @description The SOQL LIKE wildcard that matches exactly one character.
+	 */
+	private static final String LIKE_SINGLE_CHARACTER_WILDCARD = UTIL_String.UNDERSCORE;
 
 	/**
 	 * @description Maps each Operator enum value to its SOQL keyword or symbol.
@@ -264,6 +279,23 @@ global inherited sharing class QRY_Condition
 	public static String operatorToString(Operator operator)
 	{
 		return OPERATOR_SYNTAX.get(operator);
+	}
+
+	/**
+	 * @description Escapes the three characters that carry meaning inside a SOQL LIKE pattern so the
+	 * text matches literally. The escape character goes first: escaping it after the wildcards would
+	 * escape the escapes this method has just added.
+	 *
+	 * @param textValue The text to escape. Null is returned unchanged, so a null value composes the
+	 * same pattern the unescaped forms compose.
+	 *
+	 * @return The text with every backslash, percent sign and underscore escaped.
+	 */
+	private static String escapeLikeMetacharacters(String textValue)
+	{
+		String escaped = UTIL_String.replace(textValue, LIKE_ESCAPE_CHARACTER, LIKE_ESCAPE_CHARACTER + LIKE_ESCAPE_CHARACTER);
+		escaped = UTIL_String.replace(escaped, LIKE_MULTIPLE_CHARACTER_WILDCARD, LIKE_ESCAPE_CHARACTER + LIKE_MULTIPLE_CHARACTER_WILDCARD);
+		return UTIL_String.replace(escaped, LIKE_SINGLE_CHARACTER_WILDCARD, LIKE_ESCAPE_CHARACTER + LIKE_SINGLE_CHARACTER_WILDCARD);
 	}
 
 	/**
@@ -546,7 +578,37 @@ global inherited sharing class QRY_Condition
 		 */
 		global virtual FieldCondition contains(String compareValue)
 		{
-			return setOperation(LIKE_X, '%' + compareValue + '%');
+			return setOperation(LIKE_X, LIKE_MULTIPLE_CHARACTER_WILDCARD + compareValue + LIKE_MULTIPLE_CHARACTER_WILDCARD);
+		}
+
+		/**
+		 * @description Sets the condition to a LIKE comparison that matches the value literally
+		 * anywhere in the field. The three characters that carry meaning inside a LIKE pattern are
+		 * escaped first: % (any run of characters), _ (any single character), and \ (the escape
+		 * character itself). Use this whenever the value came from a person, such as a search box, a
+		 * filter or a report parameter, because contains() deliberately leaves those characters their
+		 * wildcard meaning: a search for "100%" otherwise matches every value containing "100", and a
+		 * search for "UTIL_HttpClient" also matches "UTILxHttpClient". Use contains() when the pattern
+		 * is yours and the wildcards are wanted. The escape travels with the bound value, which is the
+		 * form every QRY_Builder query executes; it is not preserved if you render the condition to a
+		 * SOQL string with toSoql() and run that string yourself.
+		 *
+		 * @param compareValue The text to match anywhere in the field, character for character.
+		 *
+		 * @return The FieldCondition instance for method chaining.
+		 *
+		 * @since 1.7
+		 *
+		 * @example
+		 * ```apex
+		 * QRY_Condition.OrCondition userSearch = new QRY_Condition.OrCondition();
+		 * userSearch.add(new QRY_Condition.FieldCondition(Account.Name).containsLiteral(searchBoxValue));
+		 * userSearch.add(new QRY_Condition.FieldCondition(Account.Website).containsLiteral(searchBoxValue));
+		 * ```
+		 */
+		global virtual FieldCondition containsLiteral(String compareValue)
+		{
+			return setOperation(LIKE_X, LIKE_MULTIPLE_CHARACTER_WILDCARD + escapeLikeMetacharacters(compareValue) + LIKE_MULTIPLE_CHARACTER_WILDCARD);
 		}
 
 		/**
