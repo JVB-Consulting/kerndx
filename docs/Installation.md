@@ -76,8 +76,8 @@ This is the fastest way to start. You install the ready-built package straight i
 
 **One-click install** (in the browser, no CLI needed; Salesforce prompts you to log in on the page):
 
-[![Install in Production](https://img.shields.io/badge/Install-Production-blue.svg?style=for-the-badge)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000ScTlAAK)
-[![Install in Sandbox](https://img.shields.io/badge/Install-Sandbox-orange.svg?style=for-the-badge)](https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000ScTlAAK)
+<a href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000ScTlAAK"><img src="https://img.shields.io/badge/Install-Production-blue.svg?style=for-the-badge" alt="Install in Production" width="187" height="28"></a>
+<a href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000ScTlAAK"><img src="https://img.shields.io/badge/Install-Sandbox-orange.svg?style=for-the-badge" alt="Install in Sandbox" width="163" height="28"></a>
 
 The same buttons appear on every entry of the [Releases page](https://github.com/JVB-Consulting/kerndx/releases), so you can pick the release that matches the version you want to install.
 
