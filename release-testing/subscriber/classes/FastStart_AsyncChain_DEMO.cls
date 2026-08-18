@@ -7,8 +7,9 @@
  * carries state from earlier steps in the chain.
  *
  * The class is global so the managed package's reflection-based step resolver can
- * instantiate it. A public no-arg constructor is required (Apex provides one when
- * no constructors are declared).
+ * instantiate it. Declare no constructor: the framework creates the step from its
+ * class name on every hop, and from inside the package it can only use the constructor
+ * Apex provides when none is declared (or a global constructor on a global class).
  *
  * @see FastStart_AsyncChain_DEMO_TEST
  *

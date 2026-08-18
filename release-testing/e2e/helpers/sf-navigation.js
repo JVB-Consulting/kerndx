@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 const {ensureAuthenticated, getInstanceUrl} = require('./sf-auth');
 
+// The packaged application's developer name is Console (label "Kern"), so the app URL path is
+// kern__Console. Navigating by an unknown path silently lands in the org-default app, which is
+// exactly the failure mode this map exists to prevent.
 const APP_PATHS = {
-	'Kern': 'kern__Kern'
+	'Kern': 'kern__Console'
 };
 
 let cachedInstanceUrl = null;
@@ -37,8 +40,27 @@ async function clickNavTab(page, tabName)
 {
 	await ensureAuthenticated(page);
 	const tab = page.locator(`one-app-nav-bar-item-root a[title="${tabName}"]`);
-	await tab.waitFor({state: 'visible', timeout: 15_000});
+	// The packaged tabs render in the Kern app's nav bar only. Pools that stopped defaulting the
+	// org into that app leave bare or cross-app contexts without the tab, so hop into the app first.
+	const visible = await tab.waitFor({state: 'visible', timeout: 5_000}).then(() => true, () => false);
+	if(!visible)
+	{
+		await navigateToApp(page, 'Kern');
+		await tab.waitFor({state: 'visible', timeout: 15_000});
+	}
 	await tab.click();
+	await waitForPageLoad(page);
+}
+
+async function clickOtherNavTab(page, excludeTitle)
+{
+	// An SPA step off the current page via whichever tab the CURRENT nav bar offers. Exists for
+	// state-sensitive journeys (V128) that must not reload: an app hop rebuilds the page, and a
+	// rebuilt component legitimately resets its once-per-link state.
+	await ensureAuthenticated(page);
+	const other = page.locator(`one-app-nav-bar-item-root a:not([title="${excludeTitle}"])`).first();
+	await other.waitFor({state: 'visible', timeout: 15_000});
+	await other.click();
 	await waitForPageLoad(page);
 }
 
@@ -90,5 +112,5 @@ async function getBaseUrl(page)
 }
 
 module.exports = {
-	navigateToApp, navigateToAppItem, clickNavTab, navigateToSetup, navigateToSetupPage, waitForLightningReady, waitForPageLoad, getBaseUrl
+	navigateToApp, navigateToAppItem, clickNavTab, clickOtherNavTab, navigateToSetup, navigateToSetupPage, waitForLightningReady, waitForPageLoad, getBaseUrl
 };

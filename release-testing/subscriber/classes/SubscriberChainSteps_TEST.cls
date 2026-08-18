@@ -9,7 +9,7 @@
  *
  * @group Async
  *
- * @date April 2026, May 2026, June 2026
+ * @date April 2026, August 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(SeeAllData=false)
@@ -92,6 +92,53 @@ private class SubscriberChainSteps_TEST
 		kern__AsyncChainExecution__c execution = queryExecution(executionId);
 		Assert.areEqual('Failed', execution.kern__Status__c, 'Chain should be Failed');
 		Assert.isTrue(execution.kern__ErrorMessage__c.contains('Deliberate subscriber failure'), 'Error message should match');
+	}
+
+	/**
+	 * @description Verifies that RecoveringStep fails its first run for a chain while seeding exactly one
+	 * recovery marker keyed to the execution, and that the step log records the idempotency declaration
+	 * the operator retry gate reads.
+	 */
+	@IsTest
+	private static void shouldSeedRecoveryMarkerAndFailFirstRun()
+	{
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.then(new SubscriberChainSteps.RecoveringStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		Assert.areEqual('Failed', execution.kern__Status__c, 'First run should fail');
+		Assert.isTrue(execution.kern__ErrorMessage__c.contains(SubscriberChainSteps.RECOVERY_FIRST_RUN_MESSAGE), 'Failure should report the seeded marker');
+		Assert.isTrue(execution.kern__StepLog__c.contains('"isIdempotent":true'), 'Step log should carry the idempotency declaration');
+
+		String markerName = SubscriberChainSteps.RECOVERY_MARKER_NAME_PREFIX + executionId;
+		Assert.areEqual(1, [SELECT COUNT() FROM kern__Foobar__c WHERE Name = :markerName], 'Exactly one recovery marker should be seeded');
+	}
+
+	/**
+	 * @description Verifies that RecoveringStep succeeds once its marker exists — the recovered run an
+	 * operator retry produces — without seeding a second marker. The first step continues on error so the
+	 * same execution reaches the step again.
+	 */
+	@IsTest
+	private static void shouldRecoverOnceMarkerIsSeeded()
+	{
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.then(new SubscriberChainSteps.RecoveringStep(), true)
+				.then(new SubscriberChainSteps.RecoveringStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		Assert.areEqual('Completed', execution.kern__Status__c, 'Second run should recover the chain');
+		Assert.areEqual(1, execution.kern__CompletedSteps__c, 'Only the recovered run should count as completed');
+		Assert.isTrue(execution.kern__ErrorMessage__c.contains(SubscriberChainSteps.RECOVERY_FIRST_RUN_MESSAGE), 'Non-fatal summary should carry the first-run failure');
+
+		String markerName = SubscriberChainSteps.RECOVERY_MARKER_NAME_PREFIX + executionId;
+		Assert.areEqual(1, [SELECT COUNT() FROM kern__Foobar__c WHERE Name = :markerName], 'Recovered run should not seed a second marker');
 	}
 
 	/**
@@ -756,7 +803,8 @@ private class SubscriberChainSteps_TEST
 						kern__ErrorMessage__c,
 						kern__ContextData__c,
 						kern__CorrelationId__c,
-						kern__DurationMs__c
+						kern__DurationMs__c,
+						kern__StepLog__c
 				FROM kern__AsyncChainExecution__c
 				WHERE Id = :executionId
 		];

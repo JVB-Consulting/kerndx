@@ -10,7 +10,7 @@
  *
  * @group Async
  *
- * @date April 2026, May 2026, June 2026
+ * @date April 2026, August 2026
  */
 public with sharing class SubscriberChainSteps
 {
@@ -70,6 +70,18 @@ public with sharing class SubscriberChainSteps
 	 * @description Fixed grain string CaptureIdempotencyKeyStep feeds to the String overload of idempotencyKey.
 	 */
 	public static final String IDEMPOTENCY_GRAIN = 'unit-00042';
+	/**
+	 * @description Name prefix of the marker records RecoveringStep keys to its chain execution.
+	 */
+	public static final String RECOVERY_MARKER_NAME_PREFIX = 'Subscriber Recovery Marker ';
+	/**
+	 * @description Failure message RecoveringStep returns on the first run that seeds its marker.
+	 */
+	public static final String RECOVERY_FIRST_RUN_MESSAGE = 'Deliberate first-run failure; recovery marker seeded';
+	/**
+	 * @description Success message RecoveringStep returns once its marker exists.
+	 */
+	public static final String RECOVERY_RECOVERED_MESSAGE = 'Recovery marker found; step recovered';
 
 	/**
 	 * @description Creates a Foobar__c record and stores the ID in context.
@@ -167,6 +179,44 @@ public with sharing class SubscriberChainSteps
 		public override kern.UTIL_AsyncChain.StepResult work(kern.UTIL_AsyncChain.ChainContext context)
 		{
 			return kern.UTIL_AsyncChain.failed('Deliberate subscriber failure');
+		}
+	}
+
+	/**
+	 * @description Fails on its first run for a given chain execution — seeding a marker record
+	 * keyed to the execution id — and succeeds on any later run that finds the marker, so an
+	 * operator retry recovers the chain end-to-end from subscriber context. Declares itself
+	 * idempotent: its only side effect is the marker insert, which the marker lookup guards
+	 * against repeating.
+	 */
+	public class RecoveringStep extends kern.UTIL_AsyncChain.ChainStep
+	{
+		/**
+		 * @description Declares the step idempotent so the operator retry gate offers it. An override,
+		 * never a constructor: the framework recreates the step by class name in each hop, and a
+		 * subscriber step that declares its own constructor cannot be recreated across the package
+		 * boundary.
+		 *
+		 * @return True.
+		 */
+		public override Boolean isIdempotent()
+		{
+			return true;
+		}
+
+		public override kern.UTIL_AsyncChain.StepResult work(kern.UTIL_AsyncChain.ChainContext context)
+		{
+			String markerName = RECOVERY_MARKER_NAME_PREFIX + context.getChainExecutionId();
+			kern__Foobar__c marker = (kern__Foobar__c)kern.QRY_Builder.selectFrom(kern__Foobar__c.SObjectType)
+					.fields(new List<SObjectField> {kern__Foobar__c.Name})
+					.condition(kern__Foobar__c.Name).equals(markerName)
+					.getFirst();
+			if(marker == null)
+			{
+				kern.DML_Builder.newTransaction().doInsert(new kern__Foobar__c(Name = markerName)).execute();
+				return kern.UTIL_AsyncChain.failed(RECOVERY_FIRST_RUN_MESSAGE);
+			}
+			return kern.UTIL_AsyncChain.succeeded(RECOVERY_RECOVERED_MESSAGE);
 		}
 	}
 
