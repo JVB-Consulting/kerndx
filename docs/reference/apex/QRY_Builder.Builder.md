@@ -147,7 +147,7 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.DataCategoryBuilder](QRY_Builder.DataCategoryBuilder.md) [withDataCategory](#withdatacategory)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) groupName) | Starts a WITH DATA CATEGORY filter for the specified data category group. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withLimit](#withlimit)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordLimit) | Sets the maximum number of records to return (LIMIT). |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withOffset](#withoffset)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) rowNumber) | Sets the record offset (OFFSET). |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withoutSecurity](#withoutsecurity)() | Disables all security enforcement. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withoutSecurity](#withoutsecurity)() | Forces SYSTEM_MODE and clears the strip-inaccessible and sharing selections, so the query runs with object and field permissions waived and sharing inherited from the caller. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withSharing](#withsharing)() | Enforces sharing rules using a with sharing proxy class. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withSystemMode](#withsystemmode)() | Forces SYSTEM_MODE execution regardless of the UserModeQueries_Enabled feature flag. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withUserMode](#withusermode)() | Runs the query in USER_MODE. |
@@ -3094,7 +3094,9 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder withoutSecurity()
 ```
 
-Disables all security enforcement.
+Forces SYSTEM_MODE and clears the strip-inaccessible and sharing selections, so the
+query runs with object and field permissions waived and sharing inherited from the caller. It does
+not bypass sharing; use `bypassSharing()` for that.
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
