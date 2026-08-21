@@ -8,7 +8,7 @@ navOrder: 34
 
 Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
-**Last verified:** 2026-08-17 (1.7.0 release reconciliation); counts recomputed from the source tree, including 73 Jest suites and 3,275 Jest test cases
+**Last verified:** 2026-08-17 (1.7.0 release reconciliation; package-version rows re-verified 2026-08-21 against `sfdx-project.json` after the 1.7.0-13 promotion); counts recomputed from the source tree, including 73 Jest suites and 3,275 Jest test cases
 **Source:** Counts derive from the `force-app/` source tree and from `git log` at the snapshot date. Update this file when the codebase changes.
 
 ---
@@ -51,7 +51,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Lines of code (LWC Jest tests)  |                 ~49K | counted from `force-app/main/default/lwc/**/*.test.js`                                                                                             |
 | Lines of code (total)           |                ~294K | the rows above are rounded; exact total 294,036                                                                                                    |
 | Source API version              |                 67.0 | visible in Setup → Installed Packages → Kern → API Version; also in `sfdx-project.json`                                                            |
-| Latest packaged version         | 1.7.0-8 (candidate) | `sfdx-project.json` `packageAliases`                                                                                                               |
+| Latest packaged version         |  1.7.0-13 (released) | `sfdx-project.json` `packageAliases`                                                                                                               |
 
 ## Org Apex Usage (Unmanaged)
 
@@ -216,8 +216,8 @@ These figures describe how well-supported and ready-to-install the package is, m
 
 | Metric                             |                Value | Source                                                                                  |
 |------------------------------------|---------------------:|-----------------------------------------------------------------------------------------|
-| Published managed-package versions |                  136 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000ScTlAAK` |
-| Latest packaged version            | 1.7.0-8 (candidate) | `sfdx-project.json` `packageAliases`                                                    |
+| Published managed-package versions |                  141 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000ScTlAAK` |
+| Latest packaged version            |  1.7.0-13 (released) | `sfdx-project.json` `packageAliases`                                                    |
 | Primary contributors               |                    1 | single-maintainer project                                                               |
 
 > KernDX is a single-maintainer project. Its readiness to install shows up in the 136 published managed-package versions, rather than in a long public commit history. So what this means for you: the package itself is well-exercised through repeated releases, even though it does not yet have the years-long open commit log of an older project.
