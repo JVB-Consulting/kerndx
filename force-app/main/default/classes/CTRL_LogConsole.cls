@@ -5,8 +5,11 @@
  * flat forensic view, a scope summary, and a single-entry detail with governor-limit bars). Every
  * request crosses the wire as one JSON string; the controller deserialises it with a blank guard,
  * resolves sort fields through an allow-list, and returns pre-computed display-ready DTOs so the LWC
- * never parses JSON. Reads route through SEL_LogEntry, which bypasses sharing and runs in SYSTEM_MODE
- * so an administrator reads every user's framework-owned log rows.
+ * never parses JSON. Reads route through SEL_LogEntry, which runs in SYSTEM_MODE selector-wide and
+ * bypasses sharing on every read this controller makes (the body-text leg through its own
+ * without-sharing runner), so an administrator reads every user's framework-owned log rows. The two
+ * are separate dials: SYSTEM_MODE waives object and field permissions only, and SEL_LogEntry selects
+ * the sharing bypass per method rather than selector-wide.
  *
  * @see SEL_LogEntry
  * @see CTRL_LogConsole_TEST

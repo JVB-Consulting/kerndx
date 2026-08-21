@@ -355,7 +355,7 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 
 ### Layer 3: Sharing Proxy
 
-**What it does:** Decides how strictly a write respects security. A write can run with the current user's read/write permissions and record sharing enforced (USER_MODE), or skip all of those checks for system work (SYSTEM_MODE). It also controls how [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm) apply.
+**What it does:** Decides how strictly a write respects security. A write can run with the current user's read/write permissions and record sharing enforced (USER_MODE), or skip the object and field permission checks for system work (SYSTEM_MODE, which leaves record sharing following the calling class). It also controls how [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm) apply.
 
 **When to use it:** When you want explicit control over that security level, or over sharing, for a particular operation.
 

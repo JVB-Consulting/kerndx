@@ -355,7 +355,7 @@ global inherited sharing class SEL_MyInternalCmdt extends SEL_Base
 }
 ```
 
-The `systemModeRequired()` hook on `SEL_Base` is `global virtual`, so you can override it in your own selectors. When it returns `true`, every `findById`, `findByField`, and `query`-getter call through that selector runs in `AccessLevel.SYSTEM_MODE` (all permission and sharing checks skipped), whatever the flag is set to.
+The `systemModeRequired()` hook on `SEL_Base` is `global virtual`, so you can override it in your own selectors. When it returns `true`, every `findById`, `findByField`, and `query`-getter call through that selector runs in `AccessLevel.SYSTEM_MODE` (object and field permission checks skipped), whatever the flag is set to. Record sharing is **not** affected by that hook and keeps following the sharing keyword of the class the query runs in; use `.bypassSharing()` where sharing must be set aside too.
 
 **Emergency off-switch (metadata only, no deployment needed):**
 
