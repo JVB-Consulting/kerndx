@@ -128,6 +128,13 @@ jobs:
         run: echo "$DOCS_CNAME" > docs-site/.vitepress/dist/CNAME
 
       - name: Upload Pages artifact
+        # Same gate as the deploy job below. The built site is 116-136 MB and GitHub bills an
+        # uploaded artifact against the account's Actions storage for roughly two weeks regardless
+        # of its one-day retention, so an upload that no deploy job will ever consume (a repo
+        # without ENABLE_DOCS_DEPLOY, or any pull request) is pure storage spend: on the private
+        # source repo it was ~40 uploads a month, the whole included quota. The build gates above
+        # still run everywhere; only the artifact is skipped where nothing deploys it.
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.ENABLE_DOCS_DEPLOY == 'true'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:
           path: docs-site/.vitepress/dist

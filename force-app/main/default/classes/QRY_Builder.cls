@@ -4280,7 +4280,9 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Disables all security enforcement.
+		 * @description Forces SYSTEM_MODE and clears the strip-inaccessible and sharing selections, so the
+		 * query runs with object and field permissions waived and sharing inherited from the caller. It does
+		 * not bypass sharing; use `bypassSharing()` for that.
 		 *
 		 * @return Builder for chaining
 		 *

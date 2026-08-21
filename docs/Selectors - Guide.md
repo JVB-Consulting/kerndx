@@ -535,7 +535,7 @@ List<Account> accounts = new SEL_Accounts().findByIndustryAndRevenue('Technology
 
 **Security & Performance:**
 
-Two terms matter here. A query in **USER_MODE** runs with the current user's read/write permissions and record sharing enforced, so it only returns what that user is allowed to see. A query in **SYSTEM_MODE** skips all of those checks. The two acronyms below appear throughout: FLS is field-level security (which fields a user may read or edit), and CRUD is object create/read/update/delete permissions.
+Two terms matter here. A query in **USER_MODE** runs with the current user's read/write permissions and record sharing enforced, so it only returns what that user is allowed to see. A query in **SYSTEM_MODE** skips the object and field permission checks only; record sharing still follows the sharing keyword of the calling class, and `.bypassSharing()` is the separate setting for that. The two acronyms below appear throughout: FLS is field-level security (which fields a user may read or edit), and CRUD is object create/read/update/delete permissions.
 
 - **Default access mode:** Your queries run in `AccessLevel.USER_MODE` by default (CRUD, FLS, and sharing enforced), controlled by the `UserModeQueries_Enabled` feature flag. The framework's own internal selectors opt into `AccessLevel.SYSTEM_MODE` by overriding the `systemModeRequired()` hook on `SEL_Base`.
   See [Security Guide: Safe by Default](Security%20-%20Guide.md#safe-by-default).
@@ -1058,11 +1058,16 @@ You often need to decide whether a query should respect the org's sharing rules 
 | Method                 | Effect                                                                                                                     | When to Use                                                                      |
 |------------------------|----------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
 | `.withUserMode()`      | Explicitly runs in USER_MODE (the shipped default)                                                                         | Your code that must enforce the running user's permissions                 |
-| `.withSystemMode()`    | Runs in SYSTEM_MODE, bypassing CRUD/FLS/sharing                                                                            | Framework-internal reads of configuration or audit data; rare in your own code |
+| `.withSystemMode()`    | Runs in SYSTEM_MODE, skipping the CRUD and FLS checks. **Sharing is not affected** (see the note below)                   | Framework-internal reads of configuration or audit data; rare in your own code |
 | `.stripInaccessible()` | Removes inaccessible fields from results post-query                                                                        | Complements USER_MODE when null values are problematic                           |
 | `.withSharing()`       | Uses `with sharing` proxy class (SYSTEM_MODE only)                                                                         | Enforce sharing while bypassing CRUD/FLS                                         |
 | `.bypassSharing()`     | Uses `without sharing` proxy class (SYSTEM_MODE only)                                                                      | Bypass sharing in SYSTEM_MODE (use with caution)                                 |
 | `.withoutSecurity()`   | Clears USER_MODE, strip, and sharing selections (forces SYSTEM_MODE with inherited sharing regardless of the flag default) | System-level queries                                                             |
+
+> **SYSTEM_MODE does not bypass sharing.** `withSystemMode()` sets aside object and field permission checks only. Record sharing keeps following
+> the sharing keyword of the class your query runs in, because `QRY_Builder` and `SEL_Base` both inherit sharing from their caller. To read past
+> sharing as well, add `.bypassSharing()`. A `with sharing` class that calls `.withSystemMode()` on its own gets **zero rows** for a record the
+> running user cannot see through sharing, and no exception either, so nothing downstream can tell that result from a legitimately empty one.
 
 ### Enforcing Sharing
 
@@ -2125,11 +2130,16 @@ QRY_Builder's security options can be combined freely. By default, queries run i
 | Method                | Effect                                                                                                                     | When to Use                                                                      |
 |-----------------------|----------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
 | `withUserMode()`      | Explicitly runs in USER_MODE (the shipped default)                                                                         | Your code that must enforce the running user's permissions                 |
-| `withSystemMode()`    | Runs in SYSTEM_MODE, bypassing CRUD/FLS/sharing                                                                            | Framework-internal reads of configuration or audit data; rare in your own code |
+| `withSystemMode()`    | Runs in SYSTEM_MODE, skipping the CRUD and FLS checks. **Sharing is not affected** (see the note below)                   | Framework-internal reads of configuration or audit data; rare in your own code |
 | `stripInaccessible()` | Removes inaccessible fields from results post-query                                                                        | Complements USER_MODE when null values are problematic                           |
 | `withSharing()`       | Uses `with sharing` proxy class (SYSTEM_MODE only)                                                                         | Enforce sharing while bypassing CRUD/FLS                                         |
 | `bypassSharing()`     | Uses `without sharing` proxy class (SYSTEM_MODE only)                                                                      | Bypass sharing in SYSTEM_MODE (use with caution)                                 |
 | `withoutSecurity()`   | Clears USER_MODE, strip, and sharing selections (forces SYSTEM_MODE with inherited sharing regardless of the flag default) | System-level queries                                                             |
+
+> **SYSTEM_MODE does not bypass sharing.** `withSystemMode()` sets aside object and field permission checks only. Record sharing keeps following
+> the sharing keyword of the class your query runs in, because `QRY_Builder` and `SEL_Base` both inherit sharing from their caller. To read past
+> sharing as well, add `.bypassSharing()`. A `with sharing` class that calls `.withSystemMode()` on its own gets **zero rows** for a record the
+> running user cannot see through sharing, and no exception either, so nothing downstream can tell that result from a legitimately empty one.
 
 **Important:** With `withUserMode()` (or the USER_MODE default), sharing is enforced at the database level no matter what `withSharing()` or `bypassSharing()` say. Those proxy methods only take effect in SYSTEM_MODE.
 

@@ -587,7 +587,7 @@ Any text the component renders should come from a Custom Label, not a hardcoded 
 
 KernDX uses feature flags on itself. A small set of `FeatureFlag__mdt` records ships with the package and controls framework-wide behaviour, which gives you the same instant off-switch over the framework that you have over your own features. You do not create these flags, since they arrive with the package, but you can toggle them in Setup.
 
-Two terms appear in the table below. A flag that runs in **USER_MODE** enforces the current user's read/write permissions and record sharing; **SYSTEM_MODE** skips all of those checks. A kill switch is the master off-switch described earlier: flip it in an incident with no deployment.
+Two terms appear in the table below. A flag that runs in **USER_MODE** enforces the current user's read/write permissions and record sharing; **SYSTEM_MODE** skips the object and field permission checks only, leaving record sharing to the calling class's sharing keyword. A kill switch is the master off-switch described earlier: flip it in an incident with no deployment.
 
 <details>
 <summary>The framework-owned flags and their defaults</summary>

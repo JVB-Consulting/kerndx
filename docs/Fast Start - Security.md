@@ -99,7 +99,7 @@ As a system administrator you see every field and every row, so this looks unrem
 up for a lower-permission user: if that user lacks read access on `AnnualRevenue`, the query throws a
 `System.QueryException` instead of silently leaking the value. That is USER_MODE doing its job. USER_MODE means
 the query runs with the current user's read and write permissions and record sharing enforced; SYSTEM_MODE
-skips all of those checks.
+skips the object and field permission checks only, and record sharing keeps following the calling class.
 
 > **Want to prove it?** USER_MODE and SYSTEM_MODE behave identically for an admin (you hold every
 > permission). The gap only appears when running as a lower-permission user, which is exactly what the
