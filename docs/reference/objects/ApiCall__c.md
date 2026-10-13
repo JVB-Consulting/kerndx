@@ -50,7 +50,7 @@ Tracks API calls (inbound and outbound) through their full lifecycle. Each recor
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Response__c](#response__c) | The serialized response payload (JSON or XML) received from the external web service. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Retries__c](#retries__c) | The number of scheduled retry attempts for this web service call. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ServiceName__c](#servicename__c) | The fully qualified name of the API service handler class that processes this call. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Status__c](#status__c) | Current processing status: Queued (awaiting), Processing (in progress), Completed (success), Failed (error), Retry/Retrying (auto-retry), Batched (batch processing), or Aborted (service validation chose not to proceed). |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Status__c](#status__c) | Current processing status: Queued (awaiting), Processing (in progress), Completed (success), Failed (error, no further retry), Retry (scheduled for an automatic retry at Next Retry), Retrying (the retry is running), Batched (batch processing), or Aborted (the call never left your org). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [StatusCode__c](#statuscode__c) | The HTTP response status code returned by the external service (e.g. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [TotalDurationMs__c](#totaldurationms__c) | Total processing time in milliseconds. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TraceId__c](#traceid__c) | W3C Trace Context trace ID (32 hex characters) for distributed tracing across API calls. |
@@ -419,7 +419,7 @@ The fully qualified name of the API service handler class that processes this ca
 global String Status__c
 ```
 
-Current processing status: Queued (awaiting), Processing (in progress), Completed (success), Failed (error), Retry/Retrying (auto-retry), Batched (batch processing), or Aborted (service validation chose not to proceed).
+Current processing status: Queued (awaiting), Processing (in progress), Completed (success), Failed (error, no further retry), Retry (scheduled for an automatic retry at Next Retry), Retrying (the retry is running), Batched (batch processing), or Aborted (the call never left your org).
 
 **Field Attributes:**
 

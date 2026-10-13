@@ -5,7 +5,7 @@ pageClass: reference
 description: "Selector for the User SObject. Provides default field configuration and query methods for User records, including retrieval by ID, role, profile, or other fields, as well as generating aliases and com"
 author: "Jason Van Beukering"
 group: "Selectors"
-date: "February 2026, June 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

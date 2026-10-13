@@ -5,7 +5,7 @@ pageClass: reference
 description: "Represents a single validation error or warning for Flow display. Contains details about the validation rule that failed, the error message, and metadata for field-level error presentation in Flow scr"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
-date: "January 2026, May 2026"
+date: "January 2026, August 2026"
 since: "1.0"
 category: apex
 ---
@@ -146,8 +146,7 @@ String value = instance.ruleName;
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
 The severity level of this validation result. Either 'Error' for blocking
-validation failures or 'Warning' for non-blocking informational messages. Corresponds
-to UTIL_ValidationRule.SEVERITY_ERROR and UTIL_ValidationRule.SEVERITY_WARNING constants.
+validation failures or 'Warning' for non-blocking informational messages.
 
 **Example**
 

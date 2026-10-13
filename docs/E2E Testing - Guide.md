@@ -224,7 +224,7 @@ That broader view is the point. For Salesforce apps, E2E tests catch problems un
 
 | Layer            | Purpose                                                                    |
 |------------------|----------------------------------------------------------------------------|
-| **Global setup** | Authenticates once, saves session cookies to `.auth/state.json`            |
+| **Global setup** | Authenticates once, saves session cookies to `.auth/<org alias>/state.json`            |
 | **Specs**        | Test files that run serially in a single browser worker                    |
 | **Helpers**      | Reusable functions for auth, CLI, navigation, waiting, and selectors       |
 | **Browser**      | Chromium renders Lightning pages, Playwright interacts with the DOM        |
@@ -285,7 +285,7 @@ e2e/node_modules/
 
 ### Dependencies
 
-```bash
+```shell
 cd e2e
 npm init -y
 npm install -D @playwright/test
@@ -301,6 +301,7 @@ Only `@playwright/test` is required. No additional Salesforce-specific packages.
 ```javascript
 const {defineConfig} = require('@playwright/test');
 const path = require('path');
+const {authPathsFor} = require('./helpers/auth-paths');
 
 module.exports = defineConfig({
 	testDir: path.join(__dirname, 'specs'),
@@ -314,7 +315,7 @@ module.exports = defineConfig({
 	use: {
 		browserName: 'chromium',
 		headless: true,
-		storageState: path.join(__dirname, '.auth', 'state.json'),
+		storageState: authPathsFor().statePath,
 		viewport: {width: 1920, height: 1080},
 		screenshot: 'on',
 		trace: 'retain-on-failure',
@@ -339,7 +340,7 @@ module.exports = defineConfig({
 | `workers`           | `1`                   | Single browser context, single authenticated session                                         |
 | `retries`           | `0`                   | Retries mask real issues; fix flakiness in helpers instead                                   |
 | `reporter`          | `'list'`              | Simple output; add `'html'` for detailed reports                                             |
-| `storageState`      | `.auth/state.json`    | Session cookies saved by global setup                                                        |
+| `storageState`      | `.auth/<org alias>/state.json`    | Session cookies saved by global setup                                                        |
 | `viewport`          | `1920x1080`           | Full desktop layout; Lightning responsive breakpoints matter                                 |
 | `screenshot`        | `'on'`                | Capture screenshot for every test (useful for visual verification)                           |
 | `trace`             | `'retain-on-failure'` | Full trace for debugging, only kept for failed tests                                         |
@@ -351,16 +352,29 @@ module.exports = defineConfig({
 
 ### Org Alias
 
-The Playwright suite always talks to one org, and you name that org with the `SF_SUBSCRIBER_ORG_ALIAS` environment variable. `release-testing/e2e/helpers/sf-auth.js` reads it once when it loads and holds it in `ORG_ALIAS`, so pointing the suite somewhere else is an export, never a code change.
+The Playwright suite always talks to one org, and you name that org with the `SF_SUBSCRIBER_ORG_ALIAS` environment variable. `release-testing/e2e/helpers/sf-auth.js` reads it once when it loads and holds it in `ORG_ALIAS`, so pointing the suite somewhere else is a setting, never a code change.
 
-Set the variable, then make the same alias your CLI default:
+Set the variable with the command for your computer:
 
-```bash
-export SF_SUBSCRIBER_ORG_ALIAS=YourExistingAlias
-sf config set target-org=$SF_SUBSCRIBER_ORG_ALIAS
+**Windows (Command Prompt)**
+
+```bat
+set SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias
 ```
 
-Keep the export in your shell profile, or in your pipeline's environment, and every helper in the suite follows it.
+**macOS or Linux**
+
+```bash
+export SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias
+```
+
+The variable lasts until you close that terminal. To keep it, put it in your shell profile on a Mac or Linux, your Windows user environment variables, or your pipeline's environment, and every helper in the suite follows it.
+
+Then make the same alias your CLI default:
+
+```shell
+sf config set target-org=YourOrgAlias
+```
 
 ---
 
@@ -373,19 +387,16 @@ Keep the export in your shell profile, or in your pipeline's environment, and ev
 2. Playwright opens this URL in a headless Chromium browser
 3. Salesforce validates the session ID and redirects to the authenticated org
 4. Playwright captures all cookies and local storage from the authenticated session
-5. Session state is saved to `.auth/state.json`
+5. Session state is saved to `.auth/<org alias>/state.json`
 6. Every test loads this state file, starting already authenticated
 
 ### Global Setup Flow
 
 ```javascript
 const {chromium} = require('@playwright/test');
-const path = require('path');
 const fs = require('fs');
 const {getFrontdoorUrl, getInstanceUrl} = require('./helpers/sf-auth');
-
-const AUTH_DIR = path.join(__dirname, '.auth');
-const AUTH_STATE_PATH = path.join(AUTH_DIR, 'state.json');
+const {authPathsFor} = require('./helpers/auth-paths');
 
 async function globalSetup()
 {
@@ -402,8 +413,9 @@ async function globalSetup()
 	await page.locator('one-app-nav-bar, one-appnav').first()
 	.waitFor({state: 'attached', timeout: 60_000});
 
-	fs.mkdirSync(AUTH_DIR, {recursive: true});
-	await context.storageState({path: AUTH_STATE_PATH});
+	const {directory, statePath} = authPathsFor();
+	fs.mkdirSync(directory, {recursive: true});
+	await context.storageState({path: statePath});
 	await browser.close();
 }
 
@@ -417,8 +429,8 @@ initialise, adding 30+ seconds.
 
 ### Session State Reuse
 
-Playwright's [`storageState`](https://playwright.dev/docs/test-fixtures) in the config tells every test context to load `.auth/state.json` before the test
-starts. This means:
+Playwright's [`storageState`](https://playwright.dev/docs/test-fixtures) in the config tells every test context to load `.auth/<org alias>/state.json` before the test
+starts. Each org alias gets its own folder under `.auth/`, so two runs from one checkout against different orgs never read each other's sign-in. This means:
 
 - No login form interaction needed in tests
 - Tests start directly on Lightning pages
@@ -449,8 +461,13 @@ transparently.
 
 If tests fail with authentication errors:
 
-1. Delete `.auth/state.json` (global setup regenerates it on the next run)
-2. Verify CLI authentication: `sf org display -o YourOrgAlias`
+1. Delete `.auth/<org alias>/state.json` (global setup regenerates it on the next run)
+2. Check the CLI is still logged in to the org:
+
+   ```shell
+   sf org display -o YourOrgAlias
+   ```
+
 3. Check org session timeout settings: Setup > Session Settings > Session Timeout
 
 For long-running test suites (>2 hours), consider lowering the test count per run or calling
@@ -458,14 +475,15 @@ For long-running test suites (>2 hours), consider lowering the test count per ru
 
 ### Package Upgrade in E2E Context
 
-A beta (unpromoted) package version cannot be upgraded over an existing install: Salesforce only supports in-place upgrades for promoted versions. So when you move to a new version, recreate the scratch org from scratch and clear the cached login files:
+A beta (unpromoted) package version cannot be upgraded over an existing install: Salesforce only supports in-place upgrades for promoted versions. So when you move to a new version, recreate the scratch org from scratch and clear the cached login files. Run these three commands from the top folder of your KernDX checkout. The create line passes `--no-namespace` so the new org carries no namespace even when your project declares one: an org that carries the package's namespace cannot install the package.
 
-```bash
-sf org delete scratch -o $SF_SUBSCRIBER_ORG_ALIAS --no-prompt
-cd /tmp/kern-subscriber && sf org create scratch -f <your-kern-checkout>/config/project-scratch-def.json -a ${SF_SUBSCRIBER_ORG_ALIAS} -v DevHub -y 30 --wait 10
-sf package install -o $SF_SUBSCRIBER_ORG_ALIAS --package <NewSubscriberPackageVersionId> --wait 15 --no-prompt
-rm -f release-testing/e2e/.auth/state.json release-testing/e2e/.auth/instance.json
+```shell
+sf org delete scratch -o YourOrgAlias --no-prompt
+sf org create scratch -f config/project-scratch-def.json -a YourOrgAlias -v DevHub -y 30 --wait 10 --no-namespace
+sf package install -o YourOrgAlias --package YourPackageVersionId --wait 30 --no-prompt
 ```
+
+Then delete the two cached login files, `.auth/<org alias>/state.json` and `.auth/<org alias>/instance.json`, from the `release-testing/e2e` folder.
 
 Deleting the `.auth/` files is a safety net. Playwright's `globalSetup` rewrites both of them the next time you run `npm run test:e2e`, so the test run itself is fine either way. The risk is a development workflow that calls the helpers directly with `node` before that next run: without the clear, it could pick up a stale instance URL or expired login cookies from the org you just deleted.
 
@@ -636,7 +654,7 @@ Authentication and session management.
 | Export                      | Type             | Description                                                                                                             |
 |-----------------------------|------------------|-------------------------------------------------------------------------------------------------------------------------|
 | `ORG_ALIAS`                 | `string`         | Resolved at load time from the `SF_SUBSCRIBER_ORG_ALIAS` environment variable; export it to point the suite at your org |
-| `getFrontdoorUrl()`         | `function`       | Returns one-time frontdoor URL from `sf org open`                                                                       |
+| `getFrontdoorUrl()`         | `function`       | Returns one-time frontdoor URL from `sf org open -o <alias> --url-only -r`                                              |
 | `getInstanceUrl()`          | `function`       | Returns org instance URL (e.g., `https://example.my.salesforce.com`)                                                    |
 | `reauthenticate(page)`      | `async function` | Re-authenticates via frontdoor URL in the current page                                                                  |
 | `ensureAuthenticated(page)` | `async function` | Checks if page is on Salesforce; re-authenticates if not                                                                |
@@ -710,7 +728,7 @@ const output = executeAnonymousApex(`
 `);
 ```
 
-- Writes Apex to a temp file in `/tmp/`, runs `sf apex run`, deletes temp file
+- Writes Apex to a temp file in a new folder under your computer's temp folder, runs `sf apex run -o <alias> -f <file>` on it, deletes that folder afterwards
 - Returns raw CLI output as string
 - Options: `{timeout: 60_000}` (default)
 
@@ -757,9 +775,9 @@ const {deployMetadata} = require('../helpers/sf-cli');
 deployMetadata('../force-app/main/default/customMetadata');
 ```
 
-- Runs `sf project deploy start` with `--ignore-conflicts --wait ${waitMinutes}` so the CLI returns a completed deploy payload rather than an async deploy id
+- Runs `sf project deploy start -o <alias> -d <sourcePath>` with `--ignore-conflicts --json`; the CLI's default wait holds it until the deploy finishes, so it returns a completed deploy payload rather than an async deploy id
 - Returns parsed JSON result
-- Options: `{timeout: 120_000, waitMinutes: 10}`
+- Options: `{timeout: 120_000}`
 - The path is relative to the `e2e/` working directory, so use `../force-app/...` to reach the outer SFDX project's source tree
 
 ### sf-navigation.js
@@ -1532,7 +1550,7 @@ executeAnonymousApex(`
 
 Watch the browser as tests execute:
 
-```bash
+```shell
 npx playwright test --headed
 ```
 
@@ -1542,7 +1560,7 @@ Useful for understanding what the test sees, especially when locators fail.
 
 Step through tests with the [Playwright Inspector](https://playwright.dev/docs/debug#playwright-inspector):
 
-```bash
+```shell
 npx playwright test --debug
 ```
 
@@ -1550,10 +1568,10 @@ The Inspector opens alongside the browser. Click "Step over" to execute one acti
 
 ### [Trace Viewer](https://playwright.dev/docs/trace-viewer)
 
-Open a trace file from a failed test:
+Playwright keeps the trace of a failed test in that test's own folder under `e2e/test-results`, in a file named `trace.zip`. Open it with the command below, replacing `YourTraceFile` with the file's path:
 
-```bash
-npx playwright show-trace e2e/test-results/*/trace.zip
+```shell
+npx playwright show-trace YourTraceFile
 ```
 
 The trace viewer shows:
@@ -1669,14 +1687,19 @@ For ephemeral test environments, create a scratch org per CI run:
 
 ### Session Management in CI
 
-A CI environment starts fresh on every run, so there is never a cached `.auth/state.json`. Global setup logs in for you each time, so authentication just works. A few things are worth setting up deliberately:
+A CI environment starts fresh on every run, so there is never a cached `.auth/<org alias>/state.json`. Global setup logs in for you each time, so authentication just works. A few things are worth setting up deliberately:
 
-- **Auth URL secret:** Generate with `sf org display -o YourOrg --verbose --json` and store the `sfdxAuthUrl`
-  field as a GitHub secret
+- **Auth URL secret:** Generate it with the command below, then store the `sfdxAuthUrl` field of its output as a GitHub
+  secret:
+
+  ```shell
+  sf org auth show-sfdx-auth-url -o YourOrgAlias --json
+  ```
+
 - **Timeout:** CI environments can be slower. Consider increasing `timeout` to `180_000`
 - **Headless:** Always `true` in CI (default)
 - **Ephemeral orgs:** If your pipeline spins up temporary orgs (scratch orgs, sandboxes), set `SF_SUBSCRIBER_ORG_ALIAS` to the alias that run uses, then log the org in
-  under the same name with `sf org login sfdx-url --alias "$SF_SUBSCRIBER_ORG_ALIAS" ...`. The helpers follow the alias rather than a URL, so each run targets whichever
+  with `sf org login sfdx-url` under that alias. The helpers follow the alias rather than a URL, so each run targets whichever
   org is registered under it and nothing in the suite has to be edited between runs.
 
 ### Artifact Collection
@@ -1743,18 +1766,18 @@ The way around it is to give each worker its own login. Authenticate several dis
 
 | Symptom                                      | Likely Cause                       | Solution                                                                                         |
 |----------------------------------------------|------------------------------------|--------------------------------------------------------------------------------------------------|
-| `Could not extract frontdoor URL`            | CLI not authenticated              | Run `sf org display -o YourOrgAlias` and re-authenticate if needed                               |
+| `Could not extract frontdoor URL`            | CLI not authenticated              | Check the CLI login as [Expired Sessions](#expired-sessions) shows, and log in again if needed   |
 | `Error: Timeout 30000ms exceeded` on nav bar | Lightning not fully loaded         | Increase timeout in `waitForLightningReady`, check network                                       |
 | `Error: strict mode violation`               | Multiple elements match locator    | Add `.first()` or use `.filter({hasText: ...})` to narrow                                        |
 | `Error: locator.click: Target closed`        | Page navigated during action       | Ensure page is fully loaded before interacting                                                   |
-| `ECONNREFUSED`                               | Chromium not installed             | Run `npx playwright install chromium`                                                            |
+| `ECONNREFUSED`                               | Chromium not installed             | Install Chromium with the [Dependencies](#dependencies) commands                                 |
 | Tests pass locally, fail in CI               | Different timing, missing deps     | Add `--with-deps` to Chromium install, increase timeouts                                         |
 | SOQL returns empty array                     | Missing namespace prefix           | Use `kern__ObjectName__c` and `kern__FieldName__c`                                               |
 | `JSON.parse` error on CLI output             | ANSI colour codes in output        | Helpers strip ANSI automatically; use `soqlQuery()` not raw `execSync`                           |
 | Record page shows "Loading..."               | Record not yet committed           | Use `await waitForRecordPage(page)` after navigation (Best Practices bans bare `waitForTimeout`) |
 | Toast assertion fails                        | Toast already dismissed            | Use `waitForToastMessage()` which waits for toast to appear                                      |
 | Session expired mid-test                     | Long-running test suite            | Call `reauthenticate(page)` in `test.beforeEach`                                                 |
-| `ERR_NAME_NOT_RESOLVED`                      | Instance URL changed (scratch org) | Delete `.auth/state.json` and re-run                                                             |
+| `ERR_NAME_NOT_RESOLVED`                      | Instance URL changed (scratch org) | Delete `.auth/<org alias>/state.json` and re-run                                                             |
 | Screenshots show login page                  | Session state not loaded           | Verify `storageState` path in config matches global setup output                                 |
 
 ---

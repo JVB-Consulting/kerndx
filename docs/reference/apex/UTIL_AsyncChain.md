@@ -2,10 +2,10 @@
 title: "UTIL_AsyncChain"
 type: class
 pageClass: reference
-description: "Lightweight async chain runner for sequencing jobs with shared state, error handling, and progress tracking. Delegates to existing async and logging infrastructure."
+description: "Lightweight async chain runner for sequencing jobs with shared state, error handling, and progress tracking. Delegates to existing async and logging infrastructure. Each step runs in a queueable job o"
 author: "Jason Van Beukering"
 group: "Async"
-date: "April 2026, August 2026"
+date: "April 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class UTIL_AsyncChain
 ```
 
-Lightweight async chain runner for sequencing jobs with shared state, error handling, and progress tracking. Delegates to existing async and logging infrastructure.
+Lightweight async chain runner for sequencing jobs with shared state, error handling, and progress tracking. Delegates to existing async and logging infrastructure. Each step runs in a queueable job of its own; the comments in this class call one such job a hop.
 
 **Example**
 
@@ -42,10 +42,10 @@ UTIL_AsyncChain.newChain('DataMigration')
 |--------|-------------|
 | global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [failed](#failed)([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) error) | Creates a failed step result from an exception, using the exception message. |
 | global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [failed](#failed)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message) | Creates a failed step result with a descriptive message. |
-| global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [failedPermanently](#failedpermanently)([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) error) | Creates a permanently failed step result from an exception, for a caught failure the step recognises as deterministic. |
-| global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [failedPermanently](#failedpermanently)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message) | Creates a permanently failed step result from a message: a failure the step knows is deterministic (a validation verdict, a rejected business rule, a client error that can never succeed on re-send), so the chain must not spend retry budget on it. |
-| global static [UTIL_AsyncChain.ChainStatus](UTIL_AsyncChain.ChainStatus.md) [getChainStatus](#getchainstatus)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) chainExecutionId) | Retrieves the current status of a chain execution as a typed ChainStatus value object — the structured alternative to the untyped getStatus(Id) map. |
-| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm), [UTIL_AsyncChain.ChainStatus](UTIL_AsyncChain.ChainStatus.md)> [getChainStatuses](#getchainstatuses)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> chainExecutionIds) | Bulk variant of getChainStatus — resolves a set of execution IDs to ChainStatus objects in a single query, so it is safe to call from within a loop budget. |
+| global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [failedPermanently](#failedpermanently)([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) error) | Creates a permanently failed step result from an exception, for a caught failure the step knows will always happen again. |
+| global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [failedPermanently](#failedpermanently)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message) | Creates a permanently failed step result from a message: a failure the step knows will happen again on every try (a failed validation, a rejected business rule, a client error that can never succeed when sent again), so the chain must not spend retry budget on it. |
+| global static [UTIL_AsyncChain.ChainStatus](UTIL_AsyncChain.ChainStatus.md) [getChainStatus](#getchainstatus)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) chainExecutionId) | Retrieves the current status of a chain execution as a typed ChainStatus value object. |
+| global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm), [UTIL_AsyncChain.ChainStatus](UTIL_AsyncChain.ChainStatus.md)> [getChainStatuses](#getchainstatuses)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> chainExecutionIds) | Bulk version of getChainStatus. |
 | global static [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [getStatus](#getstatus)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) chainExecutionId) | Retrieves the current status of a chain execution as a map of key-value pairs. |
 | global static [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [newChain](#newchain)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) chainName) | Creates a new chain builder for composing a sequence of async steps. |
 | global static [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [succeeded](#succeeded)() | Creates a successful step result with no message. |
@@ -112,15 +112,15 @@ global static UTIL_AsyncChain.StepResult failedPermanently(Exception error)
 ```
 
 Creates a permanently failed step result from an exception, for a caught
-failure the step recognises as deterministic. The exception rides the result exactly as
-with failed(exception); the permanent flag additionally refuses any retry, outranking
-both the attempt budget and every exception filter.
+failure the step knows will always happen again. The exception is kept on the result exactly
+as with failed(exception). The permanent flag also refuses any retry, and it wins over both
+the attempt budget and every exception filter.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `error` | [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | The exception that caused the deterministic failure. |
+| `error` | [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | The exception that caused the failure that will always happen again. |
 
 **Returns** [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) — A StepResult with success false, the exception message and reference, and the permanent flag set.
 
@@ -133,16 +133,16 @@ global static UTIL_AsyncChain.StepResult failedPermanently(String message)
 ```
 
 Creates a permanently failed step result from a message: a failure the step
-knows is deterministic (a validation verdict, a rejected business rule, a client error that
-can never succeed on re-send), so the chain must not spend retry budget on it. The retry
-strategy is never consulted, the chain fails on this attempt, and FailureCategory__c
+knows will happen again on every try (a failed validation, a rejected business rule, a client
+error that can never succeed when sent again), so the chain must not spend retry budget on it.
+The retry strategy is never asked, the chain fails on this attempt, and FailureCategory__c
 records StepException.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `message` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A human-readable description of the deterministic failure. |
+| `message` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A human-readable description of the failure that will always happen again. |
 
 **Returns** [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) — A StepResult with success false, the provided message, and the permanent flag set.
 
@@ -163,14 +163,14 @@ global static UTIL_AsyncChain.ChainStatus getChainStatus(Id chainExecutionId)
 ```
 
 Retrieves the current status of a chain execution as a typed ChainStatus value
-object — the structured alternative to the untyped getStatus(Id) map. ChainStatus exposes every
+object. It is the structured alternative to the untyped getStatus(Id) map. ChainStatus exposes every
 tracked field (chain name, status, current step, correlation ID, step counts, error message,
-timing) plus the convenience predicates isRunning(), isTerminal() and isFailed().
+timing) plus the helper checks isRunning(), isTerminal() and isFailed().
 
-Reads through the same sharing-respecting selector path as getStatus(Id): a caller only sees
-chains they have access to. For an org-wide observability view of every chain, use the Chain
-Monitor console instead. For per-step detail, parse the Chain Monitor's step DTOs — ChainStatus
-is a single-record summary and intentionally carries no step list.
+It reads through the same selector as getStatus(Id), which respects sharing: a caller only sees
+chains they have access to. To see every chain in the org, use the Chain Monitor console instead.
+For detail on each step, use the Chain Monitor. ChainStatus is a summary of one record and has no
+step list on purpose.
 
 **Parameters**
 
@@ -200,10 +200,10 @@ if(status != null && status.isFailed())
 global static Map<Id, UTIL_AsyncChain.ChainStatus> getChainStatuses(Set<Id> chainExecutionIds)
 ```
 
-Bulk variant of getChainStatus — resolves a set of execution IDs to ChainStatus
-objects in a single query, so it is safe to call from within a loop budget. IDs that do not
-resolve to a visible record are simply absent from the returned map. Uses the same
-sharing-respecting selector path as getChainStatus, so a caller only sees chains they can access.
+Bulk version of getChainStatus. It turns a set of execution IDs into ChainStatus
+objects with a single query, so it does not use up the query limit when many IDs are needed. IDs
+that do not match a visible record are simply left out of the returned map. It uses the same
+selector as getChainStatus, which respects sharing, so a caller only sees chains they can access.
 
 **Parameters**
 
@@ -325,7 +325,7 @@ global static UTIL_AsyncChain.StepResult succeeded(String message, Object data)
 ```
 
 Creates a successful step result with a message and data payload.
-The data is serialized into the chain context between transactions, so keep it small —
+The data is serialized into the chain context between transactions, so keep it small:
 use record IDs or primitive values, not full SObject graphs or large collections.
 
 **Parameters**

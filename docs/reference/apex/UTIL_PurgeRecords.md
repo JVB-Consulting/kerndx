@@ -5,7 +5,7 @@ pageClass: reference
 description: "Provides utility methods for purging records from Salesforce objects using adaptive async processing. Automatically selects between Queueable and Batch execution based on data volume and governor limi"
 author: "Jason Van Beukering"
 group: "Bulk DML"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class UTIL_PurgeRecords
 ```
 
-Provides utility methods for purging records from Salesforce objects using adaptive async processing. Automatically selects between Queueable and Batch execution based on data volume and governor limits. Supports deleting all records or records older than a specified number of days. All entry points inherit the flag-driven default AccessLevel resolved by DML_SharingProxy.defaultAccessLevel() — under the secure-by-default posture this is USER_MODE, so the invoking user must have delete CRUD on the target object for the purge to succeed. This is deliberate: UTIL_PurgeRecords is global, so any subscriber Apex caller can reach it, and silently elevating to SYSTEM_MODE would let a low-privilege user destructively delete records they have no native right to delete. Integrations that genuinely need admin-mandate semantics (for example, cleanup utilities behind a custom permission gate) should construct a PROC_ExecuteDML(operation, allOrNothing, AccessLevel.SYSTEM_MODE) explicitly and pair it with a caller-side permission check; the framework declines to make that elevation implicit.
+Provides utility methods for purging records from Salesforce objects using adaptive async processing. Automatically selects between Queueable and Batch execution based on data volume and governor limits. Supports deleting all records or records older than a specified number of days. All entry points inherit the flag-driven default AccessLevel resolved by DML_SharingProxy.defaultAccessLevel() — under the secure-by-default posture this is USER_MODE, so the invoking user must have delete CRUD on the target object for the purge to succeed. This is deliberate: UTIL_PurgeRecords is global, so any subscriber Apex caller can reach it, and silently elevating to SYSTEM_MODE would let a low-privilege user destructively delete records they have no native right to delete. Integrations that genuinely need admin-mandate semantics (for example, cleanup utilities behind a custom permission gate) should construct a PROC_ExecuteDML(operation, allOrNothing, AccessLevel.SYSTEM_MODE) explicitly and pair it with a caller-side permission check; the framework declines to make that elevation implicit. API calls and API issues can be deleted only by a user the BypassApiRecordDeleteGuard feature flag is on for. A built-in rule turns the flag on for every holder of the Delete API Records permission, which the Kern Administrator permission set grants, and your org can widen it to more users. A purge of either, run by anyone else, deletes nothing, starts no job and logs one warning that says so. Schedule such a purge as a user the flag is on for.
 
 **Example**
 
@@ -30,7 +30,7 @@ UTIL_PurgeRecords.deleteOlderThanNDays('LogEntry__c', 90);
 UTIL_PurgeRecords.deleteOlderThanNDays('Task', 'CreatedDate', 30, false, 200);
 ```
 
-**See Also:** [PROC_ExecuteDML](PROC_ExecuteDML.md)
+**See Also:** [PROC_ExecuteDML](PROC_ExecuteDML.md), [UTIL_FeatureFlag](UTIL_FeatureFlag.md)
 
 </div>
 

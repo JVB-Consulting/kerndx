@@ -50,7 +50,7 @@ Verify these prerequisites before starting any Fast Start guide:
 - [ ] **Salesforce org access**: a developer or sandbox org with admin permissions
 - [ ] **Salesforce DX**: the `sf` CLI installed and authenticated to your org
 - [ ] **KernDX deployed**: the KernDX managed package installed
-- [ ] **API version 67.0**: org and project metadata aligned to API 67.0
+- [ ] **API version 68.0**: org and project metadata aligned to API 68.0
 - [ ] **Custom Metadata access**: permission to create and edit Custom Metadata Type records
 
 ---
@@ -110,7 +110,8 @@ Have a specific task in mind? These short, focused guides walk you through one j
 
 | Name                                                         | Description                                                              | Key Reference                                                                                                                                      |
 |--------------------------------------------------------------|--------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| [Async Processing](Fast%20Start%20-%20Async%20Processing.md) | Adaptive async jobs, chain orchestration with shared context, scheduling | [IF_Async](reference/apex/IF_Async.md), [UTIL_AsyncChain](reference/apex/UTIL_AsyncChain.md), [IF_Schedulable](reference/apex/IF_Schedulable.md) |
+| [Async Processing](Fast%20Start%20-%20Async%20Processing.md) | Adaptive async jobs and chain orchestration with shared context          | [IF_Async](reference/apex/IF_Async.md), [UTIL_AsyncChain](reference/apex/UTIL_AsyncChain.md)                                                     |
+| [Scheduled Jobs](Fast%20Start%20-%20Scheduled%20Jobs.md)     | Schedule a class with a record, and run many jobs on the job runner      | [SCHED_Base](reference/apex/SCHED_Base.md), [IF_Schedulable](reference/apex/IF_Schedulable.md)                                                   |
 | [Logging](Fast%20Start%20-%20Logging.md)                     | Application logging and monitoring                                       | [LOG_Builder](reference/apex/LOG_Builder.md)                                                                                                     |
 | [Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)       | Metadata-driven feature toggles                                          | [UTIL_FeatureFlag](reference/apex/UTIL_FeatureFlag.md)                                                                                           |
 
@@ -249,6 +250,7 @@ Auto-generated API reference documentation for all Apex classes, custom objects,
 | Expose a REST endpoint                                 | [Fast Start - Inbound APIs](Fast%20Start%20-%20Inbound%20APIs.md)                           |
 | Create test data                                       | [Fast Start - Test Data](Fast%20Start%20-%20Test%20Data.md)                                 |
 | Process large data sets asynchronously                 | [Fast Start - Async Processing](Fast%20Start%20-%20Async%20Processing.md)                   |
+| Run a class on a schedule, or many jobs on the job runner | [Fast Start - Scheduled Jobs](Fast%20Start%20-%20Scheduled%20Jobs.md)                       |
 | Orchestrate multi-step async workflows                 | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) (Chain Orchestration section) |
 | Chain outbound API calls in sequence                   | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) (ApiStep section)             |
 | Add logging to my code                                 | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                                       |

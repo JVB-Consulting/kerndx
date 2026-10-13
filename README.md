@@ -4,7 +4,9 @@
 [![Release](https://img.shields.io/github/v/release/JVB-Consulting/kerndx?label=release)](https://github.com/JVB-Consulting/kerndx/releases/latest)
 [![Last release](https://img.shields.io/github/release-date/JVB-Consulting/kerndx?label=last%20release)](https://github.com/JVB-Consulting/kerndx/releases/latest)
 [![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-orange.svg)](./LICENSE)
-[![Salesforce API](https://img.shields.io/badge/Salesforce%20API-v67.0-00A1E0.svg)](./sfdx-project.json)
+[![Salesforce API](https://img.shields.io/badge/Salesforce%20API-v68.0-00A1E0.svg)](./sfdx-project.json)
+[![Tests passing locally](https://img.shields.io/badge/tests%20passing%20locally-5213%2F5213-brightgreen.svg)](./docs/Strategic%20Guide%20-%20Metrics.md#local-test-run)
+[![Security scan: Code Analyzer's AppExchange rule set, all findings documented](https://img.shields.io/badge/security%20scan-all%20findings%20documented-brightgreen.svg)](./SECURITY.md#what-a-code-scan-reports-and-why)
 [![Documentation](https://img.shields.io/badge/docs-online-blue.svg)](https://docs.jvb-consulting.io/)
 [![docs & tooling CI](https://img.shields.io/github/actions/workflow/status/JVB-Consulting/kerndx/ci.yml?branch=main&label=docs%20%26%20tooling%20CI)](https://github.com/JVB-Consulting/kerndx/actions/workflows/ci.yml)
 
@@ -14,7 +16,7 @@
 
 Spend your team on the features that move the business, not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, public source on GitHub.
 
-`106 global API classes` · `193 production classes` · `72 LWC components` · `4,341 tests` · `100% Apex / 95% LWC coverage`
+`108 global API classes` · `200 production classes` · `76 LWC components` · `5,213 tests` · `100% Apex / 95% LWC coverage`
 
 **Most Salesforce open-source ships a library and stops there. KernDX ships the library plus the onboarding, CI, and guardrails that keep it consistent.**
 
@@ -48,6 +50,7 @@ Each has a Fast Start you can finish in under 30 minutes. Jump to the one you ca
 - **Inbound REST.** A two-class routing pattern, DTO marshalling (a small class that converts itself to and from the JSON payload), and a body-hash 409 on replay (a duplicate request returns the first result, but a repeat that reuses the key with a different body is rejected). [Fast Start →](./docs/Fast%20Start%20-%20Inbound%20APIs.md)
 - **Logging.** Platform-event transport, with correlation IDs threaded across triggers, async, and HTTP (one tracking ID that follows a single user action through every step). [Fast Start →](./docs/Fast%20Start%20-%20Logging.md)
 - **Async orchestration.** Chained Queueables, shared state, finalizer recovery, and a Chain Monitor LWC. [Fast Start →](./docs/Fast%20Start%20-%20Async%20Processing.md)
+- **Scheduled jobs.** A record schedules your class, changed on a screen with no deployment, and a job runner runs many jobs from a few of the org's scheduled-job slots, as often as every five minutes. [Fast Start →](./docs/Fast%20Start%20-%20Scheduled%20Jobs.md)
 - **Test data factory.** A builder pattern, parent-child wiring, and DML-free selector mocks. [Fast Start →](./docs/Fast%20Start%20-%20Test%20Data.md)
 - **Feature flags.** Metadata-driven, evaluated per user and profile, callable from Apex, Flow, and LWC, with pluggable strategies. [Fast Start →](./docs/Fast%20Start%20-%20Feature%20Flags.md)
 - **Custom validations.** Metadata-driven, with a shadow mode (runs watch-only in production: logs what it would do but doesn't block yet), a 3-level bypass, and zero Apex. [Fast Start →](./docs/Fast%20Start%20-%20Custom%20Validations.md)
@@ -60,7 +63,7 @@ Each has a Fast Start you can finish in under 30 minutes. Jump to the one you ca
 
 KernDX is **one managed package that replaces a dozen separate libraries**: the SOQL query builder, DML wrapper, trigger framework, async orchestration, REST APIs (inbound + outbound), feature flags, validation, logging, data masking, test data factory, LWC components, and the CI tooling to keep it all clean. You focus on business logic, not infrastructure.
 
-This repository is the **public release repo** for KernDX. `main` is fast-forward-only and tracks subscriber package version `1.7.0-13` at this snapshot. Build provenance for this snapshot, including the subscriber package version id, is recorded in [`RELEASE-PROVENANCE.json`](./RELEASE-PROVENANCE.json).
+This repository is the **public release repo** for KernDX. `main` is fast-forward-only and tracks subscriber package version `1.8.0-11` at this snapshot. Build provenance for this snapshot, including the subscriber package version id, is recorded in [`RELEASE-PROVENANCE.json`](./RELEASE-PROVENANCE.json).
 
 ## Built for AI-assisted development
 
@@ -78,7 +81,7 @@ Your AI assistant gets the standards before it writes. KernDX ships its AI conte
 
 Design decisions worth reading even if you never adopt KernDX. Each links to the guide that explains the thinking:
 
-- **Why a "safe to retry" key isn't enough.** A retry carrying different data than the first try is rejected, not replayed, so a changed request can't silently overwrite the original. [Read the decision →](./docs/Fast%20Start%20-%20Inbound%20APIs.md#idempotency)
+- **Why a "safe to retry" key isn't enough.** A retry carrying different data than the first try is rejected, not replayed, so a changed request can't silently overwrite the original. [Read the decision →](./docs/Web%20Services%20-%20Guide.md#idempotency-inbound-apis)
 - **Why a logging tool must avoid logging about itself.** When the thing recording events is itself event-driven, naive logging loops forever. KernDX detects that case and writes the record directly. [Read the decision →](./docs/Logging%20-%20Guide.md#logging-inside-platform-event--change-event-triggers)
 - **Why an empty filter should match nothing, not everything.** An empty "only include these" list returns nothing; an empty "exclude these" list returns everything. That way a filter bug can't quietly scan your whole table. [Read the decision →](./docs/Selectors%20-%20Guide.md#handle-null-and-empty-collections)
 - **Why hiding card numbers takes more than pattern-matching.** KernDX matches the shape loosely, then runs the card-number checksum, so real cards get hidden while order numbers and dates are left alone. [Read the decision →](./docs/Data%20Masking%20-%20Guide.md#modes)
@@ -119,8 +122,8 @@ The constraints are deliberate, documented, and ship as enforceable gates, not g
 |   | **Path 1: Managed package** | **Path 2: Repackage under your namespace** | **Path 3: CI tooling only** |
 | --- | --- | --- | --- |
 | **Who it's for** | Salesforce admins / developers adding KernDX to an existing org. | Teams that want to embed KernDX inside their own managed package. | Teams that want the KernDX CI pipeline without the framework itself. |
-| **What gets installed** | The `kern` managed package at `1.7.0-13`. All code lives under the `kern` namespace. | Your own managed package built from KernDX source under *your* namespace. | ESLint plugin + 2 PMD rulesets + 10 GitHub Actions workflow templates. Zero framework code. |
-| **Install command** | `sf package install --package 04tfj000000ScTlAAK --target-org <alias>` (04t in [`RELEASE-PROVENANCE.json`](./RELEASE-PROVENANCE.json)). | `node bin/swap-namespace.js <your-namespace>` then build your own package. | Download `KernDX-1.7.0-13-pipeline.zip` → `unzip + (cd .kerndx-pipeline/pipeline && npm ci --omit=dev) + ./.kerndx-pipeline/bin/kerndx init`. |
+| **What gets installed** | The `kern` managed package at `1.8.0-11`. All code lives under the `kern` namespace. | Your own managed package built from KernDX source under *your* namespace. | ESLint plugin + 2 PMD rulesets + 10 GitHub Actions workflow templates. Zero framework code. |
+| **Install command** | `sf package install --package 04tfj000000cIDdAAM -o YourOrgAlias` (04t in [`RELEASE-PROVENANCE.json`](./RELEASE-PROVENANCE.json)). | `node bin/swap-namespace.js <your-namespace>` then build your own package. | Download `KernDX-1.8.0-11-pipeline.zip`, unpack it into `.kerndx-pipeline`, run `npm ci --omit=dev --prefix .kerndx-pipeline/pipeline`, then `node .kerndx-pipeline/bin/kerndx init` (the install guide has the unpack lines for Windows and for macOS or Linux). |
 | **When to choose** | You want the framework as a managed dependency you can swap in days, not weeks. | You're building a managed package and want KernDX inside it as *your* code. | You don't want the framework but you want the conventions enforced in your CI. |
 | **Full guide** | [Installation, Path 1](./docs/Installation.md#path-1-install-the-kerndx-managed-package) | [Installation, Path 2](./docs/Installation.md#path-2-repackage-under-your-own-namespace) | [Installation, Path 3](./docs/Installation.md#path-3-ci-tooling-only) · preview [9 workflow examples](./examples/workflows/) |
 
@@ -134,23 +137,54 @@ One click deploys `force-app/` source into a scratch or sandbox org you nominate
 
 > **Developer-focused.** This Quick Start is for contributors cloning the source tree to run tests or contribute. **Installing the framework into your org?** See [Installation, Path 1](./docs/Installation.md#path-1-install-the-kerndx-managed-package). You do not need to clone the repo.
 
-```bash
+```shell
 git clone https://github.com/JVB-Consulting/kerndx.git
 cd kerndx
+```
 
-# .nvmrc pins the exact Node version. Both commands read it, so they cannot disagree.
+`.nvmrc` names the Node version the tests need. Install it, then switch to it; nvm for Windows does not read the file, so its lines name the version.
+
+**Windows (Command Prompt)**
+
+```bat
+nvm install 22.22.3
+nvm use 22.22.3
+```
+
+**macOS or Linux**
+
+```bash
 nvm install
 nvm use
+```
 
+```shell
 npm ci
+```
 
-# Required for release tests against a subscriber org.
-export SF_SUBSCRIBER_ORG_ALIAS=<your-subscriber-scratch-org-alias>
+Release tests against a subscriber org read the org's alias from the environment.
 
-# Run the LWC Jest suite (scoped to force-app/).
+**Windows (Command Prompt)**
+
+```bat
+set SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias
+```
+
+**macOS or Linux**
+
+```bash
+export SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias
+```
+
+Run the LWC Jest suite (scoped to `force-app/`):
+
+```shell
 npm run test:unit
+```
 
-# Run the Apex tests against your subscriber org.
+Run the Apex tests against your subscriber org:
+
+```shell
 npm run release:phase2
 ```
 
@@ -169,17 +203,17 @@ npm run release:phase2
 | Variable | Required for | Notes |
 | --- | --- | --- |
 | `SF_SUBSCRIBER_ORG_ALIAS` | `release:phase2`, `test:release`, `test:e2e` | sf-cli alias for the subscriber scratch/sandbox org the release tests target. The runner fails fast with a clear message if unset. |
-| `KERN_DEV_ORG` | `build:package`, `setup:scratch-org`, `scan:flow-refs`, `evaluate:coverage`, `docs:build` | sf-cli alias for your dev scratch org. Only needed if you run the dev-tooling scripts under `scripts/`, not required for any of the test entry points above. |
+| `KERN_DEV_ORG` | `docs:build`, `scan:flow-references`, `coverage:gate`, and `scripts/build-package.js` and `scripts/setup-scratch-org.js` when you run them with `node` | sf-cli alias for your dev scratch org. Only needed if you run the dev-tooling scripts under `scripts/`, not required for any of the test entry points above. |
 | `ICAPEXDOC_HOME` | `docs:build` (optional) | Absolute path to your local IcApexDoc install (see [release page](https://github.com/SCWells72/IcApexDoc/releases)). Only needed to regenerate the Apex reference docs locally. |
 
 ## Where to go next
 
-- **Looking for docs that match a specific installed version?** This README and the docs under `docs/` always track the latest release (currently `1.7.0-13`). Every release is preserved as a git tag `vX.Y.Z-N`. Browse the [Tags page](https://github.com/JVB-Consulting/kerndx/tags) (or [Releases](https://github.com/JVB-Consulting/kerndx/releases) for richer per-release notes) and check out the matching tag (e.g. `git checkout v1.7.0-13`). Every file in this repository (README, install commands, API reference, Strategic Guides) is frozen at the state of that release.
+- **Looking for docs that match a specific installed version?** This README and the docs under `docs/` always track the latest release (currently `1.8.0-11`). Every release is preserved as a git tag `vX.Y.Z-N`. Browse the [Tags page](https://github.com/JVB-Consulting/kerndx/tags) (or [Releases](https://github.com/JVB-Consulting/kerndx/releases) for richer per-release notes) and check out the matching tag (e.g. `git checkout v1.8.0-11`). Every file in this repository (README, install commands, API reference, Strategic Guides) is frozen at the state of that release.
 - [**Release Notes: Kern 1.1**](./release-notes/Release%20Notes%20-%20Kern%201.1.md): what's new since v1.0, grouped by capability, with upgrade notes. **Read this first if you are evaluating an upgrade.**
 - [**Release Notes: Kern 1.0**](./release-notes/Release%20Notes%20-%20Kern%201.0.md): the comprehensive feature reference for the framework 1.1 builds on, grouped by capability. (The top-level [CHANGELOG.md](./CHANGELOG.md) is a sequential per-build log for diagnostic use; the release notes are the subscriber-facing summary.)
 - [Documentation hub](./docs/README.md): learning paths, Fast Starts, Strategic Guides, Apex reference.
 - [Installation guide](./docs/Installation.md): install + namespace-swap workflow.
-- [Fast Starts](./docs/): 16 task-oriented guides (Selectors, DML, Test Data, Security, Data Masking, Logging, Feature Flags, Outbound APIs, Resilience, Inbound APIs, Trigger Actions, Custom Validations, Async Processing, LWC, E2E Testing, Code Scanning).
+- [Fast Starts](./docs/): 17 task-oriented guides (Selectors, DML, Test Data, Security, Data Masking, Logging, Feature Flags, Outbound APIs, Resilience, Inbound APIs, Trigger Actions, Custom Validations, Async Processing, Scheduled Jobs, LWC, E2E Testing, Code Scanning).
 - [Module guides](./docs/): long-form reference per framework area (LWC, Security, Data Masking, Triggers, Web Services, Resilience, Async, Validation, DML, Selectors, Logging, Feature Flags, Utilities, Test Data, DTOs, Objects & Metadata, Code Scanning, E2E Testing).
 - [Apex reference](./docs/reference/): auto-generated ApexDoc + LWC reference.
 - [Strategic Guides](./docs/): adoption decisions, architecture rationale, operations, personas, glossary, metrics.
@@ -218,3 +252,7 @@ The full policy, including the one opt-in integration that talks to a third-part
 ## AI coding assistants
 
 If you're an AI coding assistant operating in this repository, read [`AGENTS.md`](./AGENTS.md) and [the code conventions](./docs/Code%20Conventions%20-%20Guide.md) before generating code. They define the framework rules + style that override generic defaults.
+
+## Acknowledgements
+
+The local test runs behind the "tests passing locally" badge use [aer](https://www.octoberswimmer.com/tools/aer/), a local Apex runtime made by October Swimmer. It is a commercial product with a free tier, and KernDX does not need it: it is one more way to run the tests. While we measured KernDX on it, we reported to its makers the places where aer behaved differently from Salesforce, and they fixed them quickly, usually within days. Any difference not yet fixed is listed, with the tests it affects, in the [Metrics guide](./docs/Strategic%20Guide%20-%20Metrics.md#local-test-run). CI runs the suite on aer only when an aer licence is stored in the repository's `AER_LICENSE` secret.

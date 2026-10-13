@@ -1,0 +1,9 @@
+{
+	"description": "Apex tests that fail on aer, the local Apex runtime, and pass in a Salesforce org. scripts/aer-run.js --gate fails on any other failure and on a test that reports no result. Categories: \"runtime gap\" (aer behaves differently from Salesforce, shown), \"profile\" (the copy has no profiles folder) and \"unclassified\" (the cause is not yet known).",
+	"measuredWith": {
+		"aerVersion": "1.4.27",
+		"commit": "f2b30763884f7614d9c51863794f29ff76897910",
+		"permissionSet": "Administrator"
+	},
+	"failures": []
+}

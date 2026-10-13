@@ -14,14 +14,20 @@
  * `PROC_ExecuteDML(operation, allOrNothing, AccessLevel.SYSTEM_MODE)` explicitly and pair it with a
  * caller-side permission check; the framework declines to make that elevation implicit.
  *
+ * API calls and API issues can be deleted only by a user the BypassApiRecordDeleteGuard feature flag is on for. A
+ * built-in rule turns the flag on for every holder of the Delete API Records permission, which the Kern Administrator
+ * permission set grants, and your org can widen it to more users. A purge of either, run by anyone else, deletes
+ * nothing, starts no job and logs one warning that says so. Schedule such a purge as a user the flag is on for.
+ *
  * @see PROC_ExecuteDML
+ * @see UTIL_FeatureFlag
  * @see UTIL_PurgeRecords_TEST
  *
  * @author Jason van Beukering
  *
  * @group Bulk DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -128,6 +134,11 @@ global inherited sharing class UTIL_PurgeRecords
 	 */
 	global static void deleteAllRecords(String objectApiName, Boolean isAtomic, Integer batchSize)
 	{
+		if(!canPurge(objectApiName, 'deleteAllRecords'))
+		{
+			return;
+		}
+
 		Boolean allOrNothing = isAtomic != null ? isAtomic : false;
 		Integer effectiveBatchSize = batchSize != null ? batchSize : UTIL_SObjectDescribe.MAXIMUM_BATCH_SIZE;
 
@@ -235,7 +246,7 @@ global inherited sharing class UTIL_PurgeRecords
 	 * System.debug('Deleted Opportunity records older than 180 days in batches of 100');
 	 * ```
 	 */
-	@SuppressWarnings('PMD.ExcessiveParameterList')
+	@SuppressWarnings('PMD.ExcessiveParameterList,PMD.GlobalMethodParameterCap')
 	global static void deleteOlderThanNDays
 			(
 					String objectApiName,
@@ -245,6 +256,11 @@ global inherited sharing class UTIL_PurgeRecords
 					Integer batchSize
 			)
 	{
+		if(!canPurge(objectApiName, 'deleteOlderThanNDays'))
+		{
+			return;
+		}
+
 		Boolean allOrNothing = isAtomic != null ? isAtomic : false;
 
 		QRY_Condition.Evaluable searchConditions = new QRY_Condition.FieldCondition(
@@ -258,6 +274,32 @@ global inherited sharing class UTIL_PurgeRecords
 						.withBatchSize(batchSize);
 
 		UTIL_AsynchronousJobLauncher.process(request, new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_DELETE, allOrNothing));
+	}
+
+	/**
+	 * @description Checks whether the running user may purge the given object. Only API calls and API issues need a check:
+	 * they can be deleted only by a user the BypassApiRecordDeleteGuard feature flag is on for, the same flag the delete
+	 * guard (TRG_GuardApiRecordDeletion) answers to. A built-in rule turns the flag on for holders of the Delete API
+	 * Records custom permission, which the Kern Administrator permission set grants. Without this check, a purge run by
+	 * anyone else would be refused one row at a time and log an error for every row. So for a user the flag is off for,
+	 * this logs one warning with the Delete API Records message, at the entry that was called, and the purge starts no
+	 * job.
+	 *
+	 * @param objectApiName The API name of the object to purge.
+	 * @param entryName The name of the purge entry that was called, logged as the location.
+	 *
+	 * @return True when the purge may go ahead, false when it is skipped.
+	 */
+	private static Boolean canPurge(String objectApiName, String entryName)
+	{
+		SObjectType objectType = UTIL_SObjectDescribe.getSObjectTypeByName(objectApiName);
+		Boolean isApiRecord = objectType == ApiCall__c.SObjectType || objectType == ApiIssue__c.SObjectType;
+		if(!isApiRecord || UTIL_FeatureFlag.isEnabled(API_Base.FLAG_BYPASS_API_RECORD_DELETE_GUARD))
+		{
+			return true;
+		}
+		LOG_Builder.build().warn(System.Label.DeleteApiRecords_PermissionRequired).emitAt(UTIL_PurgeRecords.class.getName() + '/' + entryName);
+		return false;
 	}
 
 	/**

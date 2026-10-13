@@ -5,7 +5,7 @@ pageClass: reference
 description: "Class that can filter list of SObject based on Formula Information provided adapted from:apex-trigger-actions-framework"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "April 2025, May 2026"
+date: "April 2025, October 2026"
 since: "1.0"
 category: apex
 ---

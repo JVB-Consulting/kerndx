@@ -40,10 +40,13 @@ Persistent log entries captured by the Kern logging framework. Each record repre
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [LogLevel__c](#loglevel__c) | Severity level of this log entry: DEBUG, INFO, WARN, or ERROR. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Message__c](#message__c) | Full log message content. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [OccurrenceCount__c](#occurrencecount__c) | Total occurrences counted in this rollup row's window, including the occurrence sampled by the fingerprint's detail row. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Origin__c](#origin__c) | Who wrote this entry: the framework's own code, your Apex, a Flow, or a Lightning web component. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ParentTransactionId__c](#parenttransactionid__c) | Transaction ID of the parent process that spawned this execution context. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RecordId__c](#recordid__c) | Salesforce record ID associated with this log entry, if applicable. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RecordLink__c](#recordlink__c) | Formula-generated hyperlink to the record associated with this log entry. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RootCorrelationId__c](#rootcorrelationid__c) | The tracking id of the action that started everything this entry belongs to. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ShortMessage__c](#shortmessage__c) | Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Source__c](#source__c) | The class, Flow or component that wrote this entry, without the namespace or the method name. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [StackTrace__c](#stacktrace__c) | Apex execution stack trace captured at the time the event was logged. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TransactionId__c](#transactionid__c) | Salesforce Request ID for the transaction that produced this log entry. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [UserId__c](#userid__c) | Salesforce User ID of the user whose execution context emitted this log entry. |
@@ -280,6 +283,30 @@ Total occurrences counted in this rollup row's window, including the occurrence 
 | Unique | false |
 | External ID | false |
 
+### Origin__c
+
+```apex
+global String Origin__c
+```
+
+Who wrote this entry: the framework's own code, your Apex, a Flow, or a Lightning web component.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Picklist |
+| Required | false |
+
+**Picklist Values:**
+
+| API Name | Label | Active |
+|----------|-------|--------|
+| `FRAMEWORK` | Framework | Yes |
+| `APEX` | Apex | Yes |
+| `FLOW` | Flow | Yes |
+| `COMPONENT` | Component | Yes |
+
 ### ParentTransactionId__c
 
 ```apex
@@ -332,6 +359,23 @@ Formula-generated hyperlink to the record associated with this log entry. Provid
 | External ID | false |
 | Formula | `HYPERLINK("/" + RecordId__c , "Open")` |
 
+### RootCorrelationId__c
+
+```apex
+global String RootCorrelationId__c
+```
+
+The tracking id of the action that started everything this entry belongs to. Equal to the correlation id until a background chain continues the action under a tracking id of its own; empty on entries written before the framework recorded roots.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(36) |
+| Required | false |
+| Unique | false |
+| External ID | true |
+
 ### ShortMessage__c
 
 ```apex
@@ -345,6 +389,23 @@ Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses.
 | Attribute | Value |
 |-----------|-------|
 | Data Type | Text(255) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+
+### Source__c
+
+```apex
+global String Source__c
+```
+
+The class, Flow or component that wrote this entry, without the namespace or the method name. The class-method field keeps the exact location.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(100) |
 | Required | false |
 | Unique | false |
 | External ID | false |

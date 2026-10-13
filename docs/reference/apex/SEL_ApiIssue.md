@@ -5,7 +5,7 @@ pageClass: reference
 description: "Selector for the ApiIssue__c SObject. Provides query methods for retrieving and filtering failed API calls, including deduplication via request parameter hash and status-based filtering."
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -42,7 +42,7 @@ ApiIssue__c issue = (ApiIssue__c)new SEL_ApiIssue().findById(issueId);
 
 | Method | Description |
 |--------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiIssue__c](../objects/ApiIssue__c.md)> [findByFailedApiCall](#findbyfailedapicall)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) hashParameter) | Finds failed API call records matching the triggering object, service name, and request hash. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiIssue__c](../objects/ApiIssue__c.md)> [findByFailedApiCall](#findbyfailedapicall)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) hashParameter) | Finds every user's open issues for one request: the same triggering record, service name and request parameters hash. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ApiIssue__c](../objects/ApiIssue__c.md)> [getAll](#getall)() | Retrieves all ApiIssue__c records. |
 | global override [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [getFields](#getfields)() | Returns the core fields for ApiIssue__c queries. |
 
@@ -54,7 +54,16 @@ ApiIssue__c issue = (ApiIssue__c)new SEL_ApiIssue().findById(issueId);
 global List<ApiIssue__c> findByFailedApiCall(Id recordId, String serviceName, String hashParameter)
 ```
 
-Finds failed API call records matching the triggering object, service name, and request hash.
+Finds every user's open issues for one request: the same triggering record, service name and request
+parameters hash. Use it to find out whether a request you know about has failed and is still open, for example to
+mark those issues resolved once the request succeeds.
+
+The method reads in system mode and ignores record sharing, so it returns the open issues of every user, not only
+the ones the running user owns or can see. That is safe because you must already hold the record Id, the service
+name and the request parameters hash to ask: you are asking about a request you know. The framework itself relies on
+this answer when a later call for the same request succeeds, and the user whose call succeeds is often not the user
+whose call failed. Your code decides what to show to whom: if you show the returned issues to a person, check that
+they may see them first.
 
 **Parameters**
 
@@ -64,7 +73,7 @@ Finds failed API call records matching the triggering object, service name, and 
 | `serviceName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the web service |
 | `hashParameter` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The request parameters hash to match |
 
-**Returns** [ApiIssue__c](../objects/ApiIssue__c.md) — List of matching failed ApiIssue__c records
+**Returns** [ApiIssue__c](../objects/ApiIssue__c.md) — The open issues for the request, whoever owns them
 
 </div>
 

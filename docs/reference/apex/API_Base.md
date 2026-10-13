@@ -5,7 +5,7 @@ pageClass: reference
 description: "Base class for all API web service calls (outbound and inbound). Provides common functionality for HTTP request handling, error management, and data persistence."
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, June 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

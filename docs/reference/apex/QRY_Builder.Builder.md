@@ -41,7 +41,7 @@ List<Account> accounts = query.toList();
 | Method | Description |
 |--------|-------------|
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [addCondition](#addcondition)([QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) condition) | Adds a pre-built condition to the query. |
-| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [addField](#addfield)([QRY_Function](QRY_Function.md) functionField, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Projects a SOQL date-function expression into SELECT under an explicit alias, for read-back via AggregateRow (e.g. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [addField](#addfield)([QRY_Function](QRY_Function.md) functionField, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Adds a SOQL date-function expression to SELECT under an explicit alias, so you can read it back through AggregateRow (e.g. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [addField](#addfield)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField) | Adds a single field without disabling default fields. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [addField](#addfield)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Adds a single field without disabling default fields. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [addFields](#addfields)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> objectFields) | Adds fields to the selection without disabling default fields. |
@@ -138,18 +138,20 @@ List<Account> accounts = query.toList();
 | global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [sum](#sum)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Applies a SUM aggregate under an explicit result alias. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [suppressPerformanceLogging](#suppressperformancelogging)() | Suppresses performance logging for this query. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[QRY_Builder.AggregateRow](QRY_Builder.AggregateRow.md)> [toAggregateList](#toaggregatelist)() | Executes an aggregate query and returns results as typed AggregateRow wrappers. |
-| global [Database.Cursor](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_Cursor.htm) [toCursor](#tocursor)() | Returns a Database.Cursor for large data set traversal. |
+| global [Database.Cursor](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_Cursor.htm) [toCursor](#tocursor)() | Returns a Database.Cursor for reading a large set of records in parts. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [toList](#tolist)() | Executes the query and returns a List of SObjects. |
 | global [Database.QueryLocator](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_batch.htm) [toQueryLocator](#toquerylocator)() | Returns a Database.QueryLocator for batch processing. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toSoql](#tosoql)() | Generates and returns the SOQL string without executing it. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [usingScope](#usingscope)([QRY_Builder.Scope](QRY_Builder.Scope.md) scopeValue) | Filters records by visibility scope using USING SCOPE clause. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withCache](#withcache)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) ttlSeconds) | Enables platform caching for this query. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withCache](#withcache)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) ttlSeconds) | Enables caching for this query. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [withCache](#withcache)([UTIL_Cache.Scope](UTIL_Cache.Scope.md) scope, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) ttlSeconds) | Caches this query's results in the given scope. |
 | global [QRY_Builder.DataCategoryBuilder](QRY_Builder.DataCategoryBuilder.md) [withDataCategory](#withdatacategory)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) groupName) | Starts a WITH DATA CATEGORY filter for the specified data category group. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withLimit](#withlimit)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordLimit) | Sets the maximum number of records to return (LIMIT). |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withOffset](#withoffset)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) rowNumber) | Sets the record offset (OFFSET). |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withoutSecurity](#withoutsecurity)() | Forces SYSTEM_MODE and clears the strip-inaccessible and sharing selections, so the query runs with object and field permissions waived and sharing inherited from the caller. |
+| global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [withoutCache](#withoutcache)() | Makes this query read from the database, whatever caching the selector or an earlier call asked for. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withoutSecurity](#withoutsecurity)() | Turns off every security check the builder controls, in one call. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withSharing](#withsharing)() | Enforces sharing rules using a with sharing proxy class. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withSystemMode](#withsystemmode)() | Forces SYSTEM_MODE execution regardless of the UserModeQueries_Enabled feature flag. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withSystemMode](#withsystemmode)() | Runs the query in SYSTEM_MODE, whatever the UserModeQueries_Enabled feature flag says. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [withUserMode](#withusermode)() | Runs the query in USER_MODE. |
 
 ### addCondition
@@ -193,11 +195,11 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global virtual QRY_Builder.Builder addField(QRY_Function functionField, String alias)
 ```
 
-Projects a SOQL date-function expression into SELECT under an explicit alias, for
-read-back via AggregateRow (e.g. CALENDAR_MONTH(CloseDate) closeMonth -> row.getInteger('closeMonth')).
-Pair with groupBy(QRY_Function) using the same factory so the SELECT and GROUP BY expressions match.
-The alias is validated as a bare identifier — the same rule as the aliased aggregate selections —
-so a caller-supplied alias can never carry SOQL syntax into the clause.
+Adds a SOQL date-function expression to SELECT under an explicit alias, so you can read it
+back through AggregateRow (e.g. CALENDAR_MONTH(CloseDate) closeMonth, then row.getInteger('closeMonth')).
+Use it with groupBy(QRY_Function) and the same factory, so the SELECT and GROUP BY expressions match.
+The alias must be a plain name, the same rule as for the aliased aggregate selections, so an alias a
+caller supplies can never add SOQL syntax to the clause.
 
 **Parameters**
 
@@ -963,7 +965,7 @@ global virtual QRY_Builder.Builder avg(SObjectField field, String alias)
 ```
 
 Applies an AVG aggregate under an explicit result alias. Aliased aggregates
-accumulate, so one query folds several aggregates and reads each back by its alias.
+add up, so one query can combine several aggregates and read each back by its alias.
 
 **Parameters**
 
@@ -1121,9 +1123,9 @@ Integer total = QRY_Builder.selectFrom(Account.SObjectType)
 global virtual QRY_Builder.Builder count(SObjectField field, String alias)
 ```
 
-Applies a COUNT aggregate under an explicit result alias. Aliased aggregates
-accumulate — unlike the single-aggregate overloads, each call adds one more selection — so one
-query folds several aggregates and reads each back by its alias on the AggregateRow.
+Applies a COUNT aggregate under an explicit result alias. Aliased aggregates add up: unlike
+the overloads without an alias, each call adds one more selection. So one query can combine several
+aggregates and read each back by its alias on the AggregateRow.
 
 **Parameters**
 
@@ -1215,7 +1217,7 @@ global virtual QRY_Builder.Builder countDistinct(SObjectField field, String alia
 ```
 
 Applies a COUNT_DISTINCT aggregate under an explicit result alias. Aliased
-aggregates accumulate, so one query folds several aggregates and reads each back by its alias.
+aggregates add up, so one query can combine several aggregates and read each back by its alias.
 
 **Parameters**
 
@@ -1631,7 +1633,7 @@ A page may hold at most 2,000 records, which is all a cursor will hand back in o
 | Exception | Description |
 |-----------|-------------|
 | [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When the page number is below 1, or the page size is outside 1 to 2000 |
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | When the transaction has spent its cursor capacity — roughly fifty diverted paged reads in one transaction — and the requested page also sits past the 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query. |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | When the transaction has used up its cursors (about fifty paged reads in one transaction that could not use a pagination cursor), and the requested page also starts past the 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query. |
 
 **Example**
 
@@ -1737,7 +1739,7 @@ global QRY_Builder.Builder groupBy(SObjectField groupField)
 ```
 
 Adds a field to the GROUP BY clause using an SObjectField token.
-Call multiple times for multi-field grouping (max 3 per SOQL spec).
+Call it more than once to group by several fields (SOQL allows at most 3).
 
 **Parameters**
 
@@ -2031,7 +2033,7 @@ Indicates whether the last execution retrieved results from cache.
 **Example**
 
 ```apex
-QRY_Builder.Builder query = QRY_Builder.selectFrom(Account.SObjectType).withCache(300);
+QRY_Builder.Builder query = QRY_Builder.selectFrom(Account.SObjectType).withSystemMode().withSharing().withCache(300);
 List<SObject> results = query.toList();
 Boolean fromCache = query.isCached();
 ```
@@ -2103,7 +2105,7 @@ global virtual QRY_Builder.Builder max(SObjectField field, String alias)
 ```
 
 Applies a MAX aggregate under an explicit result alias. Aliased aggregates
-accumulate, so one query folds several aggregates and reads each back by its alias.
+add up, so one query can combine several aggregates and read each back by its alias.
 
 **Parameters**
 
@@ -2164,7 +2166,7 @@ global virtual QRY_Builder.Builder min(SObjectField field, String alias)
 ```
 
 Applies a MIN aggregate under an explicit result alias. Aliased aggregates
-accumulate, so one query folds several aggregates and reads each back by its alias.
+add up, so one query can combine several aggregates and read each back by its alias.
 
 **Parameters**
 
@@ -2548,8 +2550,8 @@ global virtual QRY_Builder.Builder orderByCount(SObjectField field, Boolean sort
 ```
 
 Orders an aggregate query by COUNT of a field (e.g. ORDER BY COUNT(Id) DESC), the
-SOQL form for ranking grouped rows by how many records each group holds — a top-N-groups read
-combines this with withLimit. No NULLS clause is emitted: COUNT never yields null groups.
+SOQL form for ranking grouped rows by how many records each group holds. To read only the top groups,
+combine this with withLimit. No NULLS clause is added, because COUNT never returns null.
 
 **Parameters**
 
@@ -2772,7 +2774,7 @@ global virtual QRY_Builder.Builder sum(SObjectField field, String alias)
 ```
 
 Applies a SUM aggregate under an explicit result alias. Aliased aggregates
-accumulate, so one query folds several aggregates and reads each back by its alias.
+add up, so one query can combine several aggregates and read each back by its alias.
 
 **Parameters**
 
@@ -2855,7 +2857,11 @@ for(QRY_Builder.AggregateRow row : rows)
 global Database.Cursor toCursor()
 ```
 
-Returns a Database.Cursor for large data set traversal.
+Returns a Database.Cursor for reading a large set of records in parts. The cursor is opened
+with the sharing this builder was set up with, or with the caller's own sharing when none is set. So a cursor
+built with bypassSharing() fetches every row the query matches, whatever the record sharing, on every later
+fetch in this transaction or a later one. An exception registered through TST_Mock.throwsException() is
+thrown from this call exactly as it is from every other method that runs the query.
 
 **Returns** [Database.Cursor](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_Cursor.htm) — Database.Cursor
 
@@ -2971,13 +2977,17 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder withCache(Integer ttlSeconds)
 ```
 
-Enables platform caching for this query.
+Enables caching for this query. A non-null time-to-live means
+withCache(UTIL_Cache.Scope.AUTO, ttlSeconds); a null one requests no caching. A user-mode read is kept
+in memory for this transaction. A system-mode read that leaves the sharing setting to the
+calling class is not cached, because the cache cannot tell one calling class's sharing from another's;
+to cache a system-mode read, state the setting with withSharing() or bypassSharing().
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `ttlSeconds` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Time-to-live in seconds |
+| `ttlSeconds` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Time-to-live in seconds for Platform Cache; ignored in memory; null requests no caching |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
@@ -2986,8 +2996,42 @@ Enables platform caching for this query.
 ```apex
 Account account = (Account)QRY_Builder.selectFrom(Account.SObjectType)
     .condition(Account.Id).equals(accountId)
+    .withSystemMode()
+    .withSharing()
     .withCache(300)
     .getFirst();
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global virtual QRY_Builder.Builder withCache(UTIL_Cache.Scope scope, Integer ttlSeconds)
+```
+
+Caches this query's results in the given scope. AUTO is not a place: it asks for the most
+durable storage that is safe for this read when it runs, Platform Cache for a system-mode read where a
+partition keeps it, and memory for this transaction otherwise. A user-mode read is only ever kept in
+memory for this transaction. A system-mode read whose sharing is left to the calling class is not cached;
+state it with withSharing() or bypassSharing(). The last caching call on a builder wins.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `scope` | [UTIL_Cache.Scope](UTIL_Cache.Scope.md) | Where results may be kept; null means no caching |
+| `ttlSeconds` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Time-to-live in seconds for Platform Cache; ignored in memory; null uses the default |
+
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Example**
+
+```apex
+List<Account> parents = QRY_Builder.selectFrom(Account.SObjectType)
+    .condition(Account.Id).isIn(parentIds)
+    .withCache(UTIL_Cache.Scope.IN_TRANSACTION, null)
+    .toList();
 ```
 
 </div>
@@ -3086,6 +3130,27 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 </div>
 
+### withoutCache
+
+<div class="apex-member">
+
+```apex
+global virtual QRY_Builder.Builder withoutCache()
+```
+
+Makes this query read from the database, whatever caching the selector or an earlier call
+asked for. The last caching call on a builder wins.
+
+**Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Example**
+
+```apex
+List<Account> fresh = new SEL_Account().query.withoutCache().condition(Account.Id).isIn(ids).toList();
+```
+
+</div>
+
 ### withoutSecurity
 
 <div class="apex-member">
@@ -3094,9 +3159,12 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder withoutSecurity()
 ```
 
-Forces SYSTEM_MODE and clears the strip-inaccessible and sharing selections, so the
-query runs with object and field permissions waived and sharing inherited from the caller. It does
-not bypass sharing; use `bypassSharing()` for that.
+Turns off every security check the builder controls, in one call. The query runs in
+SYSTEM_MODE, so object and field permissions are not checked. The stripInaccessible() choice is cleared. And
+record sharing is ignored through the `without sharing` proxy, exactly as `withSystemMode()` followed by
+`bypassSharing()` would do. Both bypasses are recorded in the bypass audit. To skip object and field
+permissions but keep the record sharing of the calling class, use `withSystemMode()` instead. This method
+ignores the `UserModeQueries_Enabled` flag.
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
@@ -3140,10 +3208,10 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder withSystemMode()
 ```
 
-Forces SYSTEM_MODE execution regardless of the `UserModeQueries_Enabled`
-feature flag. Framework-internal queries that read CMDT, framework-owned sObjects, or
-system-schema tables must use this method so they continue working when the subscriber's
-running user lacks FLS/CRUD on those objects by design.
+Runs the query in SYSTEM_MODE, whatever the `UserModeQueries_Enabled` feature flag says.
+Use it for a query that must read custom metadata, system tables, or objects the running user is not
+meant to have object or field access (CRUD/FLS) to. Each call is recorded in the bypass audit when the
+query runs.
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 

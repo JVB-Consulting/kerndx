@@ -32,6 +32,7 @@ Tracks API integration issues for troubleshooting, manual resolution, and automa
 | global [ApiCall__c](../objects/ApiCall__c.md) [ApiCall__r](#apicall__r) | Lookup to the API Call record that produced this issue. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Direction__c](#direction__c) | Indicates whether this issue originated from an inbound or outbound API call. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ErrorMessages__c](#errormessages__c) | Error messages encountered during API call processing. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ExternalSystemMayHaveActed__c](#externalsystemmayhaveacted__c) | Checked when the external system may already have acted on the request this issue records: a request that is not safe to repeat (a POST or PATCH sent with no Idempotency-Key) got no response, or got a 500, 502 or 504 response; or the external system accepted the request before the call failed in your org. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [IdempotencyKey__c](#idempotencykey__c) | Preserves the idempotency key from the failed API call. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [OriginatingRecordId__c](#originatingrecordid__c) | The Salesforce record ID of the originating record associated with this API issue, when different from the triggering record. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RequestBody__c](#requestbody__c) | The inbound request body content. |
@@ -109,6 +110,22 @@ Error messages encountered during API call processing. May contain multiple mess
 | Attribute | Value |
 |-----------|-------|
 | Data Type | Long Text Area(131072) |
+
+### ExternalSystemMayHaveActed__c
+
+```apex
+global Boolean ExternalSystemMayHaveActed__c
+```
+
+Checked when the external system may already have acted on the request this issue records: a request that is not safe to repeat (a POST or PATCH sent with no Idempotency-Key) got no response, or got a 500, 502 or 504 response; or the external system accepted the request before the call failed in your org. Pressing Retry sends the request again.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Checkbox |
+| External ID | false |
+| Default Value | false |
 
 ### IdempotencyKey__c
 

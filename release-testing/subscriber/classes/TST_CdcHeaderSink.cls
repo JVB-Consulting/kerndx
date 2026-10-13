@@ -21,6 +21,7 @@
  *
  * @date June 2026
  */
+@SuppressWarnings('PMD.ApexCRUDViolation')
 global inherited sharing class TST_CdcHeaderSink
 {
 	/**
@@ -38,7 +39,7 @@ global inherited sharing class TST_CdcHeaderSink
 		/**
 		 * @description The change-event header the Flow received from the framework.
 		 */
-		@InvocableVariable(Label='Change Event Header' Description='The DTO_ChangeEventHeader the framework injected into the recorder Flow.' Required=true)
+		@InvocableVariable(label='Change Event Header' description='The DTO_ChangeEventHeader the framework injected into the recorder Flow.' required=true)
 		global kern.DTO_ChangeEventHeader header;
 	}
 
@@ -49,7 +50,7 @@ global inherited sharing class TST_CdcHeaderSink
 	 *
 	 * @param requests The change-event header requests the Flow received, one per dispatched change event.
 	 */
-	@InvocableMethod(Label='Persist CDC Header (Release Test)' Description='Records the change-event header scalars into a SubscriberCdcMarker__c for release-test verification.')
+	@InvocableMethod(label='Persist CDC Header (Release Test)' description='Records the change-event header scalars into a SubscriberCdcMarker__c for release-test verification.')
 	global static void persistCdcHeader(List<PersistRequest> requests)
 	{
 		List<SubscriberCdcMarker__c> markers = new List<SubscriberCdcMarker__c>();

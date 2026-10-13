@@ -126,6 +126,7 @@ Use the framework for the 95% common case, and use one of these options (or raw 
     - [Registering Relationships](#registering-relationships)
     - [Upsert with External ID](#upsert-with-external-id)
     - [Mixed Operations](#mixed-operations)
+    - [Retrying When Another Transaction Holds the Row](#retrying-when-another-transaction-holds-the-row)
 11. [Bulk DML Operations (DML_Builder)](#bulk-dml-operations-dml_builder)
     - [Insert Operations](#insert-operations)
     - [Update Operations](#update-operations)
@@ -590,6 +591,57 @@ catch(Exception error)
 }
 ```
 
+### Retrying When Another Transaction Holds the Row
+
+Salesforce refuses a write when another transaction holds the row, after waiting about ten seconds
+for it: the refusal reads `UNABLE_TO_LOCK_ROW`. A batch job updating rows that users are editing, or
+two jobs touching the same parent, meets it regularly. Ask the builder to try again:
+
+```apex
+DML_Builder.newTransaction()
+	.doUpdate(records)
+	.withRetryOnLock()
+	.execute();
+```
+
+A row refused because another transaction holds its lock is tried again, up to the number of times
+you asked for, before the refusal reaches you. `withRetryOnLock()` retries once; `withRetryOnLock(retries)`
+accepts 1 to 5, and any other count, null included, raises `IllegalArgumentException`. What "tried
+again" means follows the mode you chose. All-or-nothing: the platform refused the whole commit, so the
+whole commit re-runs. Partial (`.allowPartial()`): only the rows refused for a lock are re-issued,
+before the commit moves on, and the rows that saved stay saved. Any other refusal surfaces at once,
+untried a second time.
+
+**What it costs.** There is no pause between attempts: the platform already waits up to about ten
+seconds for the lock before refusing, so each attempt carries its own wait. A contended commit costs
+roughly ten seconds per attempt, twenty seconds at the default, sixty at the ceiling. In partial mode
+the wait applies to each statement the commit issues, so a commit that spans several contended
+statements can take several times that. An uncontended commit costs nothing extra. A synchronous
+request longer than five seconds counts toward your org's limit of ten concurrent long-running
+requests, and a contended commit already crosses that during the platform's first wait, so keep the
+default on interactive paths and put larger counts in background work, where the limit does not
+apply. The retries stop early when the remaining DML limits cannot cover another attempt; the log
+entry then says so.
+
+**What you see.** A commit that met a row lock writes one WARN entry once it is through, with the
+retries used, the rows recovered and still refused, and what stopped the retries if something did. A
+commit still refused after the last attempt fails exactly as it would without a retry, and its usual
+ERROR entry carries those same details instead. `.suppressLogging()` silences both, and the retry
+setting travels with `.async()`, where every batch retries its own refusals inside its own limits.
+
+**When not to use it.** Three cases:
+
+- A commit whose triggers publish events, send notifications or hand work to integrations. Rolling
+  back an attempt does not take those back, so a retried attempt repeats them and duplicates what went
+  downstream.
+- A trigger that keeps its own "already ran" flag for the transaction. Rolling back does not reset
+  it, so the retried attempt skips that trigger's work. Move the logic into a trigger action, whose
+  re-entrancy the framework tracks for you (see the [Triggers Guide](Triggers%20-%20Guide.md#recursion-prevention)),
+  or decide from the record's values rather than from a flag. If neither is possible, do not combine
+  that commit with a retry.
+- An interactive request that cannot afford the wait. Let the refusal surface and tell the user to try
+  again.
+
 ---
 
 ## Bulk DML Operations ([`DML_Builder`](reference/apex/DML_Builder.md))
@@ -614,6 +666,20 @@ DML_Builder.newTransaction()
 	.allowPartial()
 	.execute();
 ```
+
+**Logging a refusal you expect below ERROR.** Some refusals are part of the design: a unique field that backstops a rare race, say, where the second writer is meant to lose. A partial commit logs every failed row at ERROR, which makes such a refusal look like an incident every time. Declare it instead:
+
+```apex
+DML_Builder.newTransaction()
+	.doInsert(contacts)
+	.allowPartial()
+	.expectRefusal(StatusCode.DUPLICATE_VALUE)
+	.execute();
+```
+
+A row refused only for a declared reason is logged at WARN; every other failed row still logs at ERROR, and a row that also carries an undeclared error logs at ERROR too. Nothing else changes: the row still counts as a failure in the result, so your code still decides what to do with it. Call `.expectRefusal()` once per status code. It has no effect in all-or-nothing mode, where any refusal fails the whole transaction. The declaration travels with `.async()`, so a background job logs the same refusal at WARN. One thing to know: a WARN row obeys your log-level threshold like any other, so an org that keeps only ERROR entries will not see expected refusals at all.
+
+Failed DML is never silent unless you ask for silence with `.suppressLogging()`: a partial commit logs each failed row, an all-or-nothing failure writes one ERROR entry before it rolls back and rethrows, and a failure that partial mode swallows mid-commit writes one ERROR entry recording that the operations not yet performed never ran.
 
 ### Update Operations
 
@@ -1977,7 +2043,7 @@ To test code that writes data, you have two tools. `TST_Builder` creates the tes
 **Testing DML_Builder operations:**
 
 ```apex
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class MyService_TEST
 {
 	@IsTest
@@ -2058,6 +2124,8 @@ What the data layer can control, and the exact method or record that controls it
 | Sharing enforcement (per-op)     | Proxy class routing               | `.bypassSharing()`                                    | Routes through `without sharing` proxy (only meaningful in SYSTEM_MODE)             |
 | Async DML keeps your security choices | Access mode and sharing propagation | `.async().execute()`                             | The access mode and `.bypassSharing()` both travel with the job; without a bypass the job enforces record sharing |
 | Partial success                  | Error handling                    | `.allowPartial()`                                     | Continues on individual record failures                                             |
+| Expected refusals                | Error handling                    | `.expectRefusal(StatusCode)`                          | A declared refusal logs at WARN instead of ERROR in partial mode; the result is unchanged; the declaration travels with `.async()` |
+| Retry on row lock                | Error handling                    | `.withRetryOnLock()` / `.withRetryOnLock(retries)`    | A commit refused because another transaction holds a row is tried again, up to 5 more times; the whole commit in all-or-nothing mode, the refused rows in partial mode; travels with `.async()` |
 | Object permission checking       | Flow invocable                    | `FLOW_CheckObjectPermissions`                         | Validates CRUD before DML in Flows                                                  |
 | Field-level security             | Query-level enforcement           | `QRY_Builder.withUserMode()` / `.stripInaccessible()` | FLS enforcement at the query level                                                  |
 | Parent-child chaining            | Relationship linking              | `.doInsert(child, field, parent)`                     | Auto-sets lookup after parent insert                                                |
@@ -2078,7 +2146,8 @@ Common mistakes when writing data by hand, and what to do instead.
 | Raw `insert`/`update`/`delete` statements   | Bypasses sharing enforcement, error handling, and framework consistency        | Use `DML_Builder.newTransaction().doInsert(records).execute()`              |
 | Separate DML calls for related objects      | If the second DML fails, the first stays committed, with no way to roll it back | Use `DML_Transaction` (Unit of Work) to commit all changes atomically       |
 | DML inside a loop                           | Hits governor limits on bulk operations                                        | Collect records into a list, then perform a single bulk DML call            |
-| Ignoring `Database.SaveResult` errors       | Silent failures corrupt data and hide bugs                                     | Use `.allowPartial()` with `DML_Builder` and log failures via `LOG_Builder` |
+| Ignoring `Database.SaveResult` errors       | Silent failures corrupt data and hide bugs                                     | Use `.allowPartial()` with `DML_Builder` and log failures via `LOG_Builder`; declare the refusals you expect with `.expectRefusal()` so they log at WARN |
+| Hand-rolled retry loops around the builder  | The loop has to clear rolled-back Ids, restore what the commit consumed and watch the DML limits, and it hides the retry from the log | Use `.withRetryOnLock()`; it does all of that and writes one WARN entry per retried commit |
 | Performing DML in a selector or query class | Violates separation of concerns and makes the selector untestable in isolation | Keep DML in trigger actions, service classes, or controllers                |
 
 </details>

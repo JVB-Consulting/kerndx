@@ -42,6 +42,7 @@
  *
  * @date May 2026
  */
+@SuppressWarnings('PMD.ApexCRUDViolation')
 public with sharing class SCHED_SubscriberMaskerSoak implements Schedulable
 {
 	/**

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Base class for all inbound REST API web service calls. Provides foundational functionality for handling incoming HTTP requests, processing them, parsing request/response DTOs, and sending appropriate "
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -214,7 +214,9 @@ global override void onCommitWorkFinishing()
 global override virtual void onCommitWorkStarting()
 ```
 
-Performs actions before committing changes to the database.
+Performs actions before committing changes to the database. It runs once for each attempt of the
+commit: an attempt the platform refused for a row lock is tried again once, and this method runs again for the new
+attempt. So write what you add here so that it is safe to run more than once.
 
 **Example**
 
@@ -410,7 +412,8 @@ global RestRequest request
 **Type:** [RestRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restrequest.htm)
 
 Reference to the current inbound REST request. Provides access to the details of the incoming request,
-such as headers, parameters, and the request body.
+such as headers, parameters, and the request body. Header names carry no case, and many clients send them in lower case,
+so read a header through UTIL_Map.CaseInsensitiveMap, which finds it whatever case its name arrived in.
 
 **See Also:** [RestRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_restrequest.htm)
 

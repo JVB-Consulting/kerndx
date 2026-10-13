@@ -35,7 +35,7 @@ Selector class that provides hierarchy operations for a specific SObject type. C
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [findUltimateParent](#findultimateparent)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Finds the ultimate parent (root ancestor) for a record. |
 | global [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm), [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> [findUltimateParents](#findultimateparents)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> recordIds) | Finds ultimate parents for multiple records in a single bulkified operation. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [propagateToDescendants](#propagatetodescendants)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> changedRecordIds, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) ultimateParentField) | Updates all descendants of changed records with the new ultimate parent reference. |
-| global [SEL_Hierarchy.Selector](SEL_Hierarchy.Selector.md) [withMaxDepth](#withmaxdepth)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) depth) | Sets the maximum hierarchy depth for this selector. |
+| global [SEL_Hierarchy.Selector](SEL_Hierarchy.Selector.md) [withMaxDepth](#withmaxdepth)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) depth) | Sets the most levels a search on this selector goes through. |
 
 ### calculateUltimateParents
 
@@ -47,6 +47,11 @@ global Map<Id, Id> calculateUltimateParents(Set<Id> changedRecordIds, Boolean in
 
 Calculates ultimate parent values for records without performing DML.
 Returns a map that can be used for updates or analysis.
+
+**Depth limit:** the search goes at most as many levels as `withMaxDepth` allows (20 by default). When
+`includeDescendants` is true and a changed record's descendants go deeper than that, or records point at each other in
+a circle, the method throws an error and returns nothing, so no descendant is silently left out of the map. A
+hierarchy exactly as deep as the limit still succeeds. For a deeper hierarchy, raise the limit with `withMaxDepth`.
 
 **Parameters**
 
@@ -137,6 +142,10 @@ global Set<Id> findAllDescendants(Id parentId)
 
 Finds all descendants (children, grandchildren, etc.) of a record.
 
+**Depth limit:** the search goes at most as many levels as `withMaxDepth` allows (20 by default). If the descendants go
+deeper than that, the method throws an error instead of returning only part of them. A hierarchy exactly as deep as
+the limit still succeeds. For a deeper hierarchy, raise the limit with `withMaxDepth`.
+
 **Parameters**
 
 | Parameter | Type | Description |
@@ -161,6 +170,10 @@ global Set<Id> findAllDescendants(Set<Id> parentIds)
 ```
 
 Finds all descendants for multiple parent records.
+
+**Depth limit:** the search goes at most as many levels as `withMaxDepth` allows (20 by default). If the descendants go
+deeper than that, the method throws an error instead of returning only part of them. A hierarchy exactly as deep as
+the limit still succeeds. For a deeper hierarchy, raise the limit with `withMaxDepth`.
 
 **Parameters**
 
@@ -257,6 +270,11 @@ Typically used in trigger context when a record's parent changes.
 **Use Case:** When Account A's parent changes, all of A's children (and their children)
 need their UltimateParent__c field updated to point to A's new ultimate parent.
 
+**Depth limit:** the search goes at most as many levels as `withMaxDepth` allows (20 by default). If a changed record's
+descendants go deeper than that, or records point at each other in a circle, the method throws an error and returns
+nothing, so no descendant is silently left with an old value. A hierarchy exactly as deep as the limit still succeeds.
+For a deeper hierarchy, raise the limit with `withMaxDepth`.
+
 **Parameters**
 
 | Parameter | Type | Description |
@@ -285,22 +303,30 @@ update updates;
 global SEL_Hierarchy.Selector withMaxDepth(Integer depth)
 ```
 
-Sets the maximum hierarchy depth for this selector.
-Useful for limiting traversal in known shallow hierarchies or testing.
+Sets the most levels a search on this selector goes through. The default is 20.
+When a search reaches the limit with records still to resolve, it throws an error instead of returning part of the
+answer. Searches up the hierarchy load five levels at a time, so they can go up to four levels past the limit before
+they stop. When records point at each other in a circle, a search up the hierarchy never finds a record without a
+parent, so it also ends in the error; propagateToDescendants and calculateUltimateParents start with such a search, so
+they end the same way. findAllDescendants stops at a circle once it has found every record in it and returns them; it
+throws only when the circle holds more records than the limit.
+Call this method with a higher number when your hierarchy is deeper than 20 levels, or with a lower number to stop
+sooner in a hierarchy you know is shallow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `depth` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Maximum levels to traverse. |
+| `depth` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The most levels a search goes through. |
 
 **Returns** [SEL_Hierarchy.Selector](SEL_Hierarchy.Selector.md) — This selector for method chaining.
 
 **Example**
 
 ```apex
+// An account hierarchy that can be up to 40 levels deep
 SEL_Hierarchy.Selector hierarchy = SEL_Hierarchy.forField(Account.ParentId)
-    .withMaxDepth(10);
+    .withMaxDepth(40);
 ```
 
 </div>

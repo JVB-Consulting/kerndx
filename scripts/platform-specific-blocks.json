@@ -1,0 +1,19 @@
+{
+	"pairs": [
+		{"guide": "docs/Installation.md", "windows": "mkdir .kerndx-pipeline", "other": "unzip KernDX-YourVersion-pipeline.zip -d .kerndx-pipeline", "reason": "Windows ships tar and no unzip; macOS ships both but unzip is what its readers know"},
+		{"guide": "docs/Installation.md", "windows": "rmdir /s /q .kerndx-pipeline", "other": "rm -rf .kerndx-pipeline", "reason": "removing a folder tree has no one spelling that both terminals accept"},
+		{"guide": "docs/Set Up Your Computer.md", "windows": "ver", "other": "uname -sr", "reason": "the readiness check: ver exists only in Command Prompt, which is the point of it"},
+		{"guide": "docs/Set Up Your Computer.md", "windows": "nvm use 22.22.3", "other": "nvm use", "reason": "on a Mac a checkout's bare `nvm use` follows the `.nvmrc` pin when it moves; nvm for Windows does not read the file, so its half names the version; the LWC guides print one line because a generated project has no `.nvmrc`"},
+		{"guide": "docs/Fast Start - E2E Testing.md", "windows": "copy release-testing\\subscriber\\classes\\FastStart_E2E_DEMO.cls force-app\\main\\default\\classes\\", "other": "cp release-testing/subscriber/classes/FastStart_E2E_DEMO.cls force-app/main/default/classes/", "reason": "copying files has no one spelling in both terminals"},
+		{"guide": "docs/Fast Start - E2E Testing.md", "windows": "set SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias", "other": "export SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias", "reason": "the E2E runner reads the alias from the environment and no .env"},
+		{"guide": "bin/README.md", "windows": "set SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias", "other": "export SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias", "reason": "the E2E runner reads the alias from the environment and no .env"},
+		{"guide": "bin/README.md", "windows": "set ICAPEXDOC_HOME=C:\\path\\to\\IcApexDoc", "other": "ICAPEXDOC_HOME=/path/to/IcApexDoc npm run docs:build", "reason": "an environment variable for one command has no one spelling in both terminals"},
+		{"guide": "mirror-content/README.public.md", "windows": "nvm install 22.22.3", "other": "nvm install", "reason": "on a Mac a checkout's bare `nvm use` follows the `.nvmrc` pin when it moves; nvm for Windows does not read the file, so its half names the version; the LWC guides print one line because a generated project has no `.nvmrc`"},
+		{"guide": "mirror-content/README.public.md", "windows": "set SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias", "other": "export SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias", "reason": "the release-testing runner reads the alias from the environment and no .env"},
+		{"guide": "INSTALL-PIPELINE.md", "windows": "mkdir .kerndx-pipeline", "other": "unzip KernDX-1.0.0-117-pipeline.zip -d .kerndx-pipeline", "reason": "Windows ships tar and no unzip; macOS ships both but unzip is what its readers know"},
+		{"guide": "INSTALL-PIPELINE.md", "windows": "certutil -hashfile KernDX-1.0.0-117-pipeline.zip SHA256", "other": "shasum -a 256 -c KernDX-1.0.0-117-pipeline.zip.sha256", "reason": "the hash tool that reads and the hash tool that checks are not the same program in both terminals"},
+		{"guide": "INSTALL-PIPELINE.md", "windows": "rmdir /s /q .kerndx-pipeline", "other": "rm -rf .kerndx-pipeline", "reason": "removing a folder tree has no one spelling that both terminals accept"},
+		{"guide": "docs/Documentation Site - Guide.md", "windows": "nslookup -type=CNAME docs.example.com", "other": "dig +short docs.example.com CNAME", "reason": "Windows ships nslookup and no dig"},
+		{"guide": "docs/E2E Testing - Guide.md", "windows": "set SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias", "other": "export SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias", "reason": "the E2E runner reads the alias from the environment and no .env"}
+	]
+}

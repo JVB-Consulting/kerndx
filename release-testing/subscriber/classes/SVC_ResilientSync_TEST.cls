@@ -12,10 +12,10 @@
  *
  * @group Resilience
  *
- * @date February 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class SVC_ResilientSync_TEST
 {
 	/** @description A transient (503) failure is retried, then surfaces on the response + ApiCall log. */
@@ -23,8 +23,8 @@ private class SVC_ResilientSync_TEST
 	private static void shouldRetryThenSurfaceTransientFailure()
 	{
 		kern.LOG_Builder.ignoreTestMode = true;
-		kern.UTIL_CircuitBreaker.monitor(SVC_ResilientSync.CREDENTIAL).reset();
-		kern.API_MockFactory.forService(SVC_ResilientSync.CREDENTIAL)
+		kern.UTIL_CircuitBreaker.monitor(SVC_ResilientSync.SERVICE_NAME).reset();
+		kern.API_MockFactory.forService(SVC_ResilientSync.SERVICE_NAME)
 				.body('{"error":"service unavailable"}')
 				.statusCode(503)
 				.register();
@@ -51,8 +51,8 @@ private class SVC_ResilientSync_TEST
 	@IsTest
 	private static void shouldReturnBodyOnSuccess()
 	{
-		kern.UTIL_CircuitBreaker.monitor(SVC_ResilientSync.CREDENTIAL).reset();
-		kern.API_MockFactory.forService(SVC_ResilientSync.CREDENTIAL)
+		kern.UTIL_CircuitBreaker.monitor(SVC_ResilientSync.SERVICE_NAME).reset();
+		kern.API_MockFactory.forService(SVC_ResilientSync.SERVICE_NAME)
 				.body('{"id":1,"title":"ok"}')
 				.statusCode(200)
 				.register();

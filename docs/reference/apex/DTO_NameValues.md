@@ -5,7 +5,7 @@ pageClass: reference
 description: "Class for managing and transferring key-value pairs, represented as names and values, between classes. Provides functionalities to store, retrieve, and manipulate these name-value pairs."
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

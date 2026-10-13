@@ -202,7 +202,7 @@ Stores multiple values in cache with default TTL
 |-----------|------|-------------|
 | `valuesMap` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of Key -> Value to store |
 
-**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if operation was attempted
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the values were stored. False when they could not be stored, for example because the cache is not available or a value is too large to cache.
 
 </div>
 
@@ -221,7 +221,7 @@ Stores multiple values in cache with custom TTL
 | `valuesMap` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | Map of Key -> Value to store |
 | `ttlSeconds` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | TTL in seconds |
 
-**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if operation was attempted
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True if the values were stored. False when they could not be stored, for example because the cache is not available or a value is too large to cache.
 
 </div>
 

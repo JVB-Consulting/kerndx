@@ -5,7 +5,7 @@ pageClass: reference
 description: "Factory class for generating test data, permission set assignments, share records, metadata updates, and failure logs across Salesforce objects. Optimized for unit tests and integration processes, pro"
 author: "Jason Van Beukering"
 group: "Testing"
-date: "February 2026, August 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -25,8 +25,7 @@ Factory class for generating test data, permission set assignments, share record
 **Example**
 
 ```apex
-User testUser = TST_Factory.newUser('Standard User');
-insert testUser;
+User testUser = TST_Factory.insertUser('Standard User');
 ```
 
 </div>
@@ -39,6 +38,10 @@ insert testUser;
 |--------|-------------|
 | global static void [createPermissionSetAssignments](#createpermissionsetassignments)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm)> users, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) permissionSetOrGroupId) | Creates PermissionSetAssignment records for a list of users and a permission set Id. |
 | global static void [createPermissionSetAssignments](#createpermissionsetassignments)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm)> users, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) permissionSetOrGroupName) | Creates PermissionSetAssignment records for a list of users and a permission set. |
+| global static [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) [insertUser](#insertuser)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName) | Creates and saves a single User record with the specified profile, inside the factory's own guard, ready for System.runAs. |
+| global static [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) [insertUser](#insertuser)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) companyName) | Creates and saves a User record with a custom company name, inside the factory's own guard. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm)> [insertUsers](#insertusers)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm)> users) | Saves the given User records inside the factory's own guard, so a test can save ordinary records before or after this call in the same transaction without a System.runAs block of its own. |
+| global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm)> [insertUsers](#insertusers)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) numberOfUsers) | Creates and saves a list of User records with the specified profile, inside the factory's own guard. |
 | global static [ApiCall__c](../objects/ApiCall__c.md) [newApiCall](#newapicall)() | Creates an uncommitted ApiCall__c record for a web service call. |
 | global static [ApiCall__c](../objects/ApiCall__c.md) [newApiCall](#newapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Creates an uncommitted ApiCall__c record with a specified service name. |
 | global static [ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm) [newContentVersion](#newcontentversion)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) linkToObjectId, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fileName, [Blob](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_blob.htm) body) | Creates an uncommitted ContentVersion record from file data. |
@@ -65,7 +68,9 @@ insert testUser;
 global static void createPermissionSetAssignments(List<User> users, Id permissionSetOrGroupId)
 ```
 
-Creates PermissionSetAssignment records for a list of users and a permission set Id.
+Creates PermissionSetAssignment records for a list of users and a permission set Id. The assignments
+are saved in one statement, inside the factory's own guard while a test runs, so ordinary records a test saves before
+or after this call in the same transaction do not collide with them.
 
 **Parameters**
 
@@ -77,11 +82,9 @@ Creates PermissionSetAssignment records for a list of users and a permission set
 **Example**
 
 ```apex
-List<User> users = TST_Factory.newUsers('Standard User', 2);
-insert users;
-PermissionSet permissionSet = [SELECT Id FROM PermissionSet WHERE Name = 'CustomPermissionSet' LIMIT 1];
+List<User> users = TST_Factory.insertUsers('Standard User', 2);
+PermissionSet permissionSet = new SEL_PermissionSet().findByName('CustomPermissionSet');
 TST_Factory.createPermissionSetAssignments(users, permissionSet.Id);
-System.debug('Permission Set Assignments Created');
 ```
 
 </div>
@@ -92,7 +95,9 @@ System.debug('Permission Set Assignments Created');
 global static void createPermissionSetAssignments(List<User> users, String permissionSetOrGroupName)
 ```
 
-Creates PermissionSetAssignment records for a list of users and a permission set.
+Creates PermissionSetAssignment records for a list of users and a permission set. The assignments
+are saved in one statement, inside the factory's own guard while a test runs, so ordinary records a test saves before
+or after this call in the same transaction do not collide with them.
 
 **Parameters**
 
@@ -110,10 +115,154 @@ Creates PermissionSetAssignment records for a list of users and a permission set
 **Example**
 
 ```apex
-List<User> users = TST_Factory.newUsers('Standard User', 2);
-insert users;
+List<User> users = TST_Factory.insertUsers('Standard User', 2);
 TST_Factory.createPermissionSetAssignments(users, 'CustomPermissionSet');
-System.debug('Permission Set Assignments Created');
+```
+
+</div>
+
+### insertUser
+
+<div class="apex-member">
+
+```apex
+global static User insertUser(String profileName)
+```
+
+Creates and saves a single User record with the specified profile, inside the factory's own guard,
+ready for System.runAs.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `profileName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the profile to assign to the user. |
+
+**Returns** [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) — A saved User record.
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [DmlException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If the user cannot be saved, for example when no licence seat is free for its profile's licence. |
+
+**Example**
+
+```apex
+User testUser = TST_Factory.insertUser('Standard User');
+System.runAs(testUser)
+{
+    // test body
+}
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global static User insertUser(String profileName, String companyName)
+```
+
+Creates and saves a User record with a custom company name, inside the factory's own guard. The
+company name can be used as a unique identifier to later retrieve this specific user.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `profileName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The Profile name to assign to the user. |
+| `companyName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A unique company name for this user. |
+
+**Returns** [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) — A saved User record with the specified company name.
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [DmlException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If the user cannot be saved, for example when no licence seat is free for its profile's licence. |
+
+**Example**
+
+```apex
+@TestSetup
+private static void setupTestData()
+{
+    TST_Factory.insertUser('Standard User', 'my-test-user');
+}
+private static User getTestUser()
+{
+    return new SEL_User().findByCompanyName('my-test-user');
+}
+```
+
+</div>
+
+### insertUsers
+
+<div class="apex-member">
+
+```apex
+global static List<User> insertUsers(List<User> users)
+```
+
+Saves the given User records inside the factory's own guard, so a test can save ordinary records
+before or after this call in the same transaction without a System.runAs block of its own. Build the users with
+newUser or newUsers, set any field your org's User rules need (a role, a required custom field), then hand them
+here. Each user needs a free licence seat for its profile's licence; the platform's own error is thrown when there
+is none.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `users` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The unsaved User records to save. |
+
+**Returns** [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) — The same records, saved, with Ids.
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [DmlException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If a user cannot be saved, for example when no licence seat is free for its profile's licence. |
+
+**Example**
+
+```apex
+User manager = TST_Factory.newUser('Standard User');
+manager.Title = 'Regional Manager';
+TST_Factory.insertUsers(new List<User> {manager});
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global static List<User> insertUsers(String profileName, Integer numberOfUsers)
+```
+
+Creates and saves a list of User records with the specified profile, inside the factory's own guard.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `profileName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the profile to assign to the users. |
+| `numberOfUsers` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of users to create and save. |
+
+**Returns** [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) — A list of saved User records.
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [DmlException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | If a user cannot be saved, for example when no licence seat is free for its profile's licence. |
+
+**Example**
+
+```apex
+List<User> users = TST_Factory.insertUsers('Standard User', 3);
 ```
 
 </div>
@@ -189,9 +338,8 @@ Creates an uncommitted ContentVersion record from file data.
 **Example**
 
 ```apex
-Account acc = TST_Factory.newAccount();
-insert acc;
-ContentVersion version = TST_Factory.newContentVersion(acc.Id, 'test.pdf', Blob.valueOf('Test data'));
+Account account = (Account)TST_Builder.of(Account.SObjectType).build();
+ContentVersion version = TST_Factory.newContentVersion(account.Id, 'test.pdf', Blob.valueOf('Test data'));
 insert version;
 System.debug('ContentVersion Title: ' + version.Title);
 ```
@@ -387,9 +535,8 @@ Creates an uncommitted ApiCall__c record for an outbound web service call with a
 **Example**
 
 ```apex
-Account acc = TST_Factory.newAccount();
-insert acc;
-ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', acc.Id);
+Account account = (Account)TST_Builder.of(Account.SObjectType).build();
+ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id);
 insert apiCall;
 System.debug('API Call Id: ' + apiCall.Id);
 ```
@@ -417,13 +564,12 @@ Creates an uncommitted ApiCall__c record for an outbound web service call with p
 **Example**
 
 ```apex
-Account acc = TST_Factory.newAccount();
-insert acc;
+Account account = (Account)TST_Builder.of(Account.SObjectType).build();
 Map<String, String> params = new Map<String, String>
 {
     'key' => 'value'
 };
-ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', acc.Id, params);
+ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id, params);
 insert apiCall;
 System.debug('API Call Id: ' + apiCall.Id);
 ```
@@ -452,9 +598,8 @@ Creates an uncommitted ApiCall__c record for an outbound web service call with a
 **Example**
 
 ```apex
-Account acc = TST_Factory.newAccount();
-insert acc;
-ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', acc.Id, 'key', 'value');
+Account account = (Account)TST_Builder.of(Account.SObjectType).build();
+ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id, 'key', 'value');
 insert apiCall;
 System.debug('API Call Id: ' + apiCall.Id);
 ```
@@ -595,12 +740,13 @@ global static User newUserWithPermissionSet(String profileName, String companyNa
 ```
 
 Creates and inserts a User with the specified profile + company name, then assigns
-the named permission set (or permission set group). Composes newUser(profileName, companyName),
-insert, and createPermissionSetAssignments(List , String).
+the named permission set (or permission set group). Composes insertUser(profileName, companyName) and
+createPermissionSetAssignments(List , String), so both setup writes run inside the factory's own guard
+and the test can save ordinary records before or after this call in the same transaction.
 
 Intended for use in @TestSetup as a committed test admin that test methods reach via
 System.runAs. Because runAs re-evaluates permissions for the inner scope, the test admin
-receives a fresh permission cache — bypassing the stale-cache issue that affects mutation
+receives a fresh permission cache, bypassing the stale-cache issue that affects mutation
 of the currently-running user's permission set mid-transaction (the failure mode that made
 assignAdministratorPermissionSet() unreliable in the 2GP synthetic validation org).
 
@@ -630,7 +776,7 @@ private static void setupTestAdmin()
     TST_Factory.newUserWithPermissionSet(
             'System Administrator',
             TEST_ADMIN_COMPANY,
-            SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME
+            'Administrator'
     );
 }
 private static User getTestAdmin()

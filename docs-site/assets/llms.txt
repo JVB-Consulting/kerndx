@@ -4,7 +4,7 @@
 
 Iron rules for generated code. Read these even if you read nothing else:
 
-1. Read records through selector classes (`SEL_*` on `QRY_Builder`); field-level security is enforced by default.
+1. Read records through selector classes (`SEL_*` on `QRY_Builder`); they run with the current user's object, field and record-sharing permissions (`USER_MODE`) by default.
 2. Write records through `DML_Builder`; it runs with the current user's permissions and record sharing (`USER_MODE`) by default.
 3. Turning a safety check off is a deliberate, audited act. Never bypass silently.
 4. The complete code-generation rules live in one file: https://docs.jvb-consulting.io/ai-agent-instructions
@@ -28,6 +28,7 @@ This file covers the latest KernDX release. Earlier release lines keep frozen do
 - [Inbound APIs](https://docs.jvb-consulting.io/fast-start-inbound-apis): two-class REST routing with DTO marshalling and duplicate-request rejection
 - [Logging](https://docs.jvb-consulting.io/fast-start-logging): platform-event logging (`LOG_*`) with one correlation ID across triggers, async, and HTTP
 - [Async Processing](https://docs.jvb-consulting.io/fast-start-async-processing): chained Queueables with shared state and finalizer recovery
+- [Scheduled Jobs](https://docs.jvb-consulting.io/fast-start-scheduled-jobs): schedule a class with a `ScheduledJob__c` record and run many jobs on the job runner
 - [Test Data](https://docs.jvb-consulting.io/fast-start-test-data): builder-pattern factory (`TST_*`) with DML-free selector mocks
 - [Feature Flags](https://docs.jvb-consulting.io/fast-start-feature-flags): metadata-driven flags callable from Apex, Flow, and LWC
 - [Custom Validations](https://docs.jvb-consulting.io/fast-start-custom-validations): metadata validations with shadow mode and a levelled bypass

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Factory for Platform Cache instances with nested interface pattern. Provides intelligent cache management with automatic fallback from Session to Org cache, bulk operations, and user-scoped keys.  Key"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "December 2025, May 2026"
+date: "December 2025, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -26,7 +26,7 @@ bulk operations, and user-scoped keys.
 
 Key Features:
 
-    - **Framework Safe**: Defaults to UTIL_System.getPlatformCacheName() for internal package usage.
+    - **Framework Safe**: Defaults to UTIL_Cache.getPlatformCacheName() for internal package usage.
 
     - **Subscriber Ready**: Supports custom partitions via .withPartition().
 

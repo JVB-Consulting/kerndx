@@ -5,7 +5,7 @@ pageClass: reference
 description: "Generates random values across multiple data types for testing and development, including numbers, strings, UUIDs, and mock Salesforce IDs."
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

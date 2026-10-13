@@ -5,7 +5,7 @@ pageClass: reference
 description: "Fluent HTTP client facade over the API_Dispatcher pipeline. Provides zero-boilerplate callouts with automatic retry, circuit breaker, failure logging, performance timing, sensitive data masking, and A"
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, July 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class UTIL_HttpClient
 ```
 
-Fluent HTTP client facade over the API_Dispatcher pipeline. Provides zero-boilerplate callouts with automatic retry, circuit breaker, failure logging, performance timing, sensitive data masking, and ApiCall__c lifecycle management — all routed through API_Dispatcher.execute(). Supports two usage modes: Ad-hoc mode: Direct HTTP calls via get()/post()/put()/del()/patch() entry points Delegation mode: Subscriber handlers via useHandler() entry point
+Fluent HTTP client facade over the API_Dispatcher pipeline. Provides zero-boilerplate callouts with automatic retry, circuit breaker, failure logging, performance timing, sensitive data masking, and ApiCall__c lifecycle management, all routed through API_Dispatcher.execute(). Supports two usage modes: Ad-hoc mode: Direct HTTP calls via get()/post()/put()/del()/patch() entry points Delegation mode: Subscriber handlers via useHandler() entry point
 
 **Example**
 

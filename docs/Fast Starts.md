@@ -27,8 +27,9 @@ Reach for these as you build out UI, integrations, and background work.
 
 - [**LWC**](./Fast%20Start%20-%20LWC.md): build Lightning components on `ComponentBuilder` (a base class with the common wiring already built in) and shared patterns, instead of starting from raw `LightningElement`.
 - [**Outbound APIs**](./Fast%20Start%20-%20Outbound%20APIs.md): callouts that survive flaky external systems. They retry on failure; after repeated failures they stop calling the failing system for a cool-off, then resume (a circuit breaker); a repeated request returns the first result instead of running twice (an idempotency key); and messages that fail every retry are set aside for inspection rather than lost (a dead-letter queue).
-- [**Inbound APIs**](./Fast%20Start%20-%20Inbound%20APIs.md): a two-class pattern for receiving REST calls. A small class carries exactly the fields to move in or out and converts itself to and from JSON (a DTO), and a duplicate request is recognised and answered safely with a `409` instead of running again.
+- [**Inbound APIs**](./Fast%20Start%20-%20Inbound%20APIs.md): a two-class pattern for receiving REST calls. A small class carries exactly the fields to move in or out and converts itself to and from JSON (a DTO), and a repeated request is answered from the first result instead of running again.
 - [**Async Processing**](./Fast%20Start%20-%20Async%20Processing.md): chained queueables and batches, with one tracking ID (a correlation ID) threaded through the whole run so you can follow it end to end.
+- [**Scheduled Jobs**](./Fast%20Start%20-%20Scheduled%20Jobs.md): schedule a class with a record you edit on a screen, with no deployment to change it, then put it on the job runner, which runs many jobs from a few of the org's scheduled-job slots, as often as every five minutes.
 - [**Feature Flags**](./Fast%20Start%20-%20Feature%20Flags.md): switches that turn behaviour on or off per org or user from configuration, with no deployment needed to flip them.
 
 ## Harden

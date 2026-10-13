@@ -40,8 +40,8 @@ String executionId = UTIL_AsyncChain.newChain('OrderProcessing')
 | Method | Description |
 |--------|-------------|
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [allowRestart](#allowrestart)() | Declares this chain safe to restart from its first step. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [execute](#execute)() | Executes the chain, giving it the transaction's log correlation when one is active and a fresh one otherwise. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [execute](#execute)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) correlationId) | Executes the chain with a caller-supplied correlation ID for log tracing. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [execute](#execute)() | Executes the chain under a tracking id of its own, created by the framework. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [execute](#execute)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) correlationId) | Executes the chain under the supplied correlation id, which becomes the run's own tracking id. |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [onComplete](#oncomplete)([IF_Chain.Step](IF_Chain.Step.md) completionHandlerStep) | Registers a completion handler step that executes ONLY when every step in the chain completes successfully. |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [onError](#onerror)([IF_Chain.Step](IF_Chain.Step.md) errorHandlerStep) | Registers an error handler step that executes when any step fails (unless the failing step has continueOnError set to true). |
 | global [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) [then](#then)([IF_Chain.Step](IF_Chain.Step.md) step) | Appends a step to the end of the chain. |
@@ -63,11 +63,11 @@ global UTIL_AsyncChain.ChainBuilder allowRestart()
 
 Declares this chain safe to restart from its first step. A restart re-runs
 EVERY step, so declare it only when the whole chain can run twice without doubling its
-side effects. The declaration stamps the run record at start and captures the as-built
-initial context beside it; the Chain Monitor's restart action is offered only for declared
-runs and replays that snapshot, never the evolved context a partial run left behind. Off
-by default, so restart stays hidden until the author opts in — the declaration never
-changes how the chain runs.
+side effects. The declaration is written on the run record at start, together with a copy
+of the initial context as the chain was built. The Chain Monitor offers its restart action
+only for such runs. A restart uses that saved copy, never the changed context a partial run
+left behind. It is off by default, so restart stays hidden until the author turns it on.
+The declaration never changes how the chain runs.
 
 **Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This builder, for chaining.
 
@@ -90,15 +90,13 @@ String runId = UTIL_AsyncChain.newChain('NightlyAccountSync')
 global String execute()
 ```
 
-Executes the chain, giving it the transaction's log correlation when one is
-active and a fresh one otherwise. Persists the chain configuration and enqueues the first step.
-
-First-adopter rule: a correlation can be attached to exactly one chain run, so only the
-FIRST chain launched under an active correlation adopts it. Later launches in the same
-transaction — the shape a service that starts a correlation and then kicks off several
-chains produces — are recorded under a correlation of their own and announce it once, under
-the transaction's correlation, so the whole transaction still reads as one story. Before
-this rule the second launch failed on the unique index with an unattributed database error.
+Executes the chain under a tracking id of its own, created by the framework. The launching
+transaction may already have an active correlation ID. If it does, the run records that ID as the one it was
+launched under. It also keeps the transaction's root correlation ID (the ID of the action that started the
+work), and writes one entry in the launcher's log that names the new run. If there is no active correlation
+ID, the run starts its own action and is its own root. Saves the chain configuration and queues the first
+step. A step or a handler of another chain may call this too; see the overload for what a launch from inside
+a chain does.
 
 **Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The ID of the AsyncChainExecution__c record tracking this chain.
 
@@ -106,7 +104,7 @@ this rule the second launch failed on the unique index with an unattributed data
 
 | Exception | Description |
 |-----------|-------------|
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve — see the correlation-ID overload this method delegates to — or if the active correlation is already attached to a chain run started in an EARLIER transaction, which the first-adopter rule cannot see. |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve, or if a launch from inside a step or handler of another chain would nest too deep or find no room (see the correlation-ID overload this method delegates to). |
 
 **Example**
 
@@ -124,8 +122,21 @@ String executionId = UTIL_AsyncChain.newChain('MyChain')
 global String execute(String correlationId)
 ```
 
-Executes the chain with a caller-supplied correlation ID for log tracing.
-Persists the chain configuration and enqueues the first step.
+Executes the chain under the supplied correlation id, which becomes the run's own tracking id.
+The run records three things. First, the correlation ID active in this transaction, as the ID it was launched
+under (null when none is active). Second, the transaction's root correlation ID (the ID of the action that
+started the work) as its own root: the active correlation ID when no root exists yet, or the supplied ID when
+neither exists. Third, the transaction's full logging context, stored under the supplied ID, so every step
+logs with the run's ID and the action's root. A run launched while a correlation ID is active is announced
+once in the launcher's log. Saves the chain configuration and queues the first step.
+
+A run may be launched from inside a step, or from a completion or error handler, of another chain. Then it is
+recorded with that run's id as the id it was launched under. It sits one level below that run (chains may nest
+at most five levels deep). The launching run and step remember it, so a retry of that step gets the same run
+back instead of a second one. A job started from inside a running job takes over that job's maximum queueable
+stack depth and cannot set its own. So the first step of a chain launched this way runs under the launching
+chain's maximum. The framework's default maximum leaves room for that. A launch that would find no room, or
+would nest too deep, is refused before anything is written. One chain may be launched per step or handler.
 
 **Parameters**
 
@@ -139,7 +150,7 @@ Persists the chain configuration and enqueues the first step.
 
 | Exception | Description |
 |-----------|-------------|
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve — a chain that cannot persist its step list intact for its whole life must fail at definition time, never by silently truncating the persisted JSON — or if the supplied correlation ID is already attached to another chain run, since a run owns its correlation exclusively. |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve (a chain that cannot persist its step list intact for its whole life must fail at definition time, never by silently truncating the persisted JSON); or if the supplied correlation ID is already attached to another chain run, since a run owns its correlation exclusively; or if the launch runs inside a step or handler of another chain and would nest deeper than five levels, find no spare queueable stack level for its first step, follow another launch from the same step or handler in the same transaction, follow a queueable job that step or handler already added, or start a different chain from a step or handler that launched one before. |
 
 **Example**
 
@@ -289,10 +300,17 @@ UTIL_AsyncChain.newChain('MyChain')
 global UTIL_AsyncChain.ChainBuilder withAsyncOptions(AsyncOptions options)
 ```
 
-Sets the AsyncOptions controlling queueable stack depth. When provided,
-these options override the framework default (maximumQueueableStackDepth = steps.size() + 1).
-In tests, pass options with an explicit maximumQueueableStackDepth matching the expected
-chain depth to enable chained Queueable execution within Test.startTest/stopTest.
+Sets the AsyncOptions controlling queueable stack depth. When provided, these options override
+the framework's default maximum. The default is one level per step, one for the first hop, and five more for
+the chains those steps may launch. Inside a chain, it is counted from the launching job's depth.
+In tests, pass options with an explicit maximumQueueableStackDepth that matches the expected chain depth, so
+the queued jobs run one after another within Test.startTest/stopTest.
+Inside a step or a handler of another chain, the options apply from the chain's second hop on. The first hop
+uses the launching chain's maximum, because the platform does not let a running job change it. So a
+duplicateSignature set here is not applied to that hop. The platform keeps counting depth from the launching
+job's depth. So a maximum set here for a chain launched from a step must include that depth, as the
+framework's default does. A maximum sized for a launch outside any chain runs out at a later hop and stalls
+the run.
 
 **Parameters**
 
@@ -325,18 +343,19 @@ global UTIL_AsyncChain.ChainBuilder withDeduplicationKey(String deduplicationKey
 
 Guards against two overlapping runs of the same logical chain. While a run holds
 the key, a second execute() with the same key returns the active run's Id instead of starting
-a duplicate. Any terminal status releases the key in the same update, so a sequential re-run
-is deliberately allowed; a Stalled run still holds its key until it is recovered or resolved.
-The key is stored verbatim; the platform's unique text index is case-insensitive, so keys
-differing only in case collide. Zero-step chains complete immediately and never hold a key.
-Distinct from ChainContext.idempotencyKey(), which generates replay-safe keys for your own
-step side effects — this method prevents a second run from starting at all.
+a duplicate. Any terminal status releases the key in the same update, so running the chain
+again after it ends is allowed on purpose. A Stalled run still holds its key until it is
+recovered or resolved. The key is stored exactly as given. The platform's unique text field
+ignores case, so keys that differ only in case clash. Chains with no steps complete at once
+and never hold a key. This is not the same as ChainContext.idempotencyKey(), which makes
+replay-safe keys for your own step side effects. This method stops a second run from
+starting at all.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `deduplicationKey` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Non-blank key, at most 255 characters — e.g. a schedule name or a template like 'nightly-sync-' + recordId. |
+| `deduplicationKey` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Non-blank key, at most 255 characters: for example a schedule name or a template like 'nightly-sync-' + recordId. |
 
 **Returns** [UTIL_AsyncChain.ChainBuilder](UTIL_AsyncChain.ChainBuilder.md) — This builder, for chaining.
 
@@ -361,10 +380,10 @@ global UTIL_AsyncChain.ChainBuilder withDelayMinutes(Integer minutes)
 
 Defers the chain's first step by the given number of minutes. This is best-effort:
 the platform enqueues the first step with a Queueable delay, so the chain shows as Running with
-zero completed steps in the Chain Monitor until the delay elapses, and the delay degrades to
-immediate if the org has disabled Queueable delay. The value is clamped to the platform range
+zero completed steps in the Chain Monitor until the delay ends. If the org has turned off
+Queueable delay, the first step runs at once instead. The value is kept within the platform range
 of 0 to 10 minutes; a null or zero delay is a no-op. Only the first step is delayed; every later
-step runs as soon as its predecessor finishes.
+step runs as soon as the step before it finishes.
 
 **Parameters**
 
@@ -394,7 +413,7 @@ global UTIL_AsyncChain.ChainBuilder withInitialContext(String key, Object value)
 ```
 
 Seeds the chain context with an initial key-value pair before execution begins.
-This is additive — each call adds one key-value pair to the initial context map.
+Each call adds one more key-value pair to the initial context map.
 
 **Parameters**
 

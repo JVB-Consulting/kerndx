@@ -46,6 +46,7 @@ and it supplies valid values for the rest so the record saves.
 - you want records in memory (with or without an Id) so the test never touches the database
 - you need a parent and its children built and saved together as one all-or-nothing unit
 - the whole team should set up the same kind of record (a user on a profile, an active flag) the same way
+- you want a sandbox or scratch org filled with realistic records to click through, built the same way as your test data
 
 ## Don't use this when
 
@@ -96,12 +97,13 @@ and it supplies valid values for the rest so the record saves.
     - [Framework Metadata: Triggers and Validations](#framework-metadata-triggers-and-validations)
     - [Custom Metadata Records](#custom-metadata-records)
     - [Logger Configuration](#logger-configuration)
-11. [Extending the Defaults](#extending-the-defaults)
+11. [How do I seed a sandbox or scratch org?](#how-do-i-seed-a-sandbox-or-scratch-org)
+12. [Extending the Defaults](#extending-the-defaults)
     - [Custom Default Value Provider](#custom-default-value-provider)
     - [Auto-Default Marker](#auto-default-marker)
-12. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
-13. [Anti-Patterns](#anti-patterns)
-14. [Best Practices](#best-practices)
+13. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
+14. [Anti-Patterns](#anti-patterns)
+15. [Best Practices](#best-practices)
     - [Override Only What Matters](#override-only-what-matters)
     - [Prefer In-Memory Builds for Pure Logic](#prefer-in-memory-builds-for-pure-logic)
     - [Bulk With One DML](#bulk-with-one-dml)
@@ -111,7 +113,7 @@ and it supplies valid values for the rest so the record saves.
     - [Centralise Shared Setup in TST_Factory](#centralise-shared-setup-in-tst_factory)
     - [Assert on User-Facing Text Through Custom Labels](#assert-on-user-facing-text-through-custom-labels)
     - [Let Salesforce Reset Static State](#let-salesforce-reset-static-state)
-15. [Related Documentation](#related-documentation)
+16. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -119,15 +121,16 @@ and it supplies valid values for the rest so the record saves.
 
 ## Quick Navigation
 
-| I am a...     | I need to...                      | Go to...                                             |
-|---------------|-----------------------------------|------------------------------------------------------|
-| **Developer** | Build one record fast             | [Quick Start](#quick-start)                          |
-| **Developer** | Build records in bulk             | [Bulk Creation](#bulk-creation)                      |
-| **Developer** | Build records with no DML         | [Insertion Modes](#insertion-modes)                  |
-| **Developer** | Build parent-child graphs         | [Relationships](#relationships)                      |
-| **Architect** | Standardise team test data        | [The Factory Pattern](#the-factory-pattern)          |
-| **Architect** | Customise auto-populated defaults | [Extending the Defaults](#extending-the-defaults)    |
-| **Analyst**   | Understand guarantees and limits  | [Capability Matrix](#capability-matrix-for-analysts) |
+| I am a...     | I need to...                      | Go to...                                                                           |
+|---------------|-----------------------------------|------------------------------------------------------------------------------------|
+| **Developer** | Build one record fast             | [Quick Start](#quick-start)                                                        |
+| **Developer** | Build records in bulk             | [Bulk Creation](#bulk-creation)                                                    |
+| **Developer** | Build records with no DML         | [Insertion Modes](#insertion-modes)                                                |
+| **Developer** | Build parent-child graphs         | [Relationships](#relationships)                                                    |
+| **Developer** | Seed an org with realistic data   | [How do I seed a sandbox or scratch org?](#how-do-i-seed-a-sandbox-or-scratch-org) |
+| **Architect** | Standardise team test data        | [The Factory Pattern](#the-factory-pattern)                                        |
+| **Architect** | Customise auto-populated defaults | [Extending the Defaults](#extending-the-defaults)                                  |
+| **Analyst**   | Understand guarantees and limits  | [Capability Matrix](#capability-matrix-for-analysts)                               |
 
 ---
 
@@ -207,9 +210,11 @@ The layer has two classes that work together:
 
 > **Responsibilities:** This layer only builds records (and optionally saves them) for tests. It does
 > not run production business logic, and most of it is meant to be called from test code (`@IsTest`).
-> `TST_Builder` and the `TST_Factory` methods run from anonymous Apex and from a subscriber
-> `@IsTest` class. To set up framework configuration records (trigger settings, validation rules,
-> masking) for your tests, deploy the relevant `CustomMetadata` records via XML (see
+> `TST_Builder` and the `TST_Factory` methods run from anonymous Apex and from an `@IsTest` class
+> in your org, which is also how you fill a sandbox with records to click through (see
+> [How do I seed a sandbox or scratch org?](#how-do-i-seed-a-sandbox-or-scratch-org)). To set up
+> framework configuration records (trigger settings, validation rules, masking) for your tests,
+> deploy the relevant `CustomMetadata` records via XML (see
 > [Framework Metadata](#framework-metadata-triggers-and-validations)).
 
 ### Why choose this over hand-written records?
@@ -336,12 +341,14 @@ configuration (trigger settings, validation rules) for a test.
 
 **Methods you can call:**
 
+- `kern.TST_Factory.insertUser(profileName)` / `insertUser(profileName, companyName)`: a saved `User`, ready for `System.runAs`.
+- `kern.TST_Factory.insertUsers(profileName, count)` / `insertUsers(users)`: a saved batch, or users you shaped yourself, saved.
 - `kern.TST_Factory.newUser(profileName)` / `newUser(profileName, companyName)`: an unsaved `User` (you choose when to insert it).
 - `kern.TST_Factory.newUsers(profileName, count)`: a list of unsaved `User` records.
-- `kern.TST_Factory.newUserWithPermissionSet(profileName, companyName, permissionSetName)`: inserts a
+- `kern.TST_Factory.newUserWithPermissionSet(profileName, companyName, permissionSetName)`: saves a
   user and assigns a permission set (or permission set group).
 - `kern.TST_Factory.createPermissionSetAssignments(users, permissionSetOrGroupName)`: assign a
-  permission set to existing users.
+  permission set to saved users.
 - `kern.TST_Factory.newFeatureFlag(flagName)`: register an active feature flag for the transaction.
 
 To set up framework configuration (trigger settings, trigger actions, and validation rules) for a
@@ -667,16 +674,14 @@ these cases so the setup lives in one place instead of being copied across every
 
 ### Users and Permission Sets
 
-`newUser` returns an **unsaved** `User`, so you decide when to insert it. One platform rule to
-remember: Salesforce forbids inserting `User` records in parallel tests, so remove `IsParallel=true`
-from the test class header whenever the test inserts a `User`.
+Most tests need a second user to run as. `insertUser` gives you a saved one on the profile you name,
+ready for `System.runAs`:
 
 ```apex
 @IsTest
 private static void shouldRunAsStandardUser()
 {
-	User testUser = kern.TST_Factory.newUser('Standard User');
-	insert testUser;
+	User testUser = kern.TST_Factory.insertUser('Standard User');
 
 	System.runAs(testUser)
 	{
@@ -690,19 +695,48 @@ private static void shouldRunAsStandardUser()
 }
 ```
 
-Assign a permission set (or permission set group) to existing users with
-`createPermissionSetAssignments`. It throws an `AssertException` if the named permission set cannot
-be resolved.
+Two platform rules sit behind this, and the factory handles the first for you. Salesforce will not
+save "setup" records (users, permission set assignments) and ordinary records (accounts, your own
+objects) in the same stretch of a transaction. The factory saves its own setup records apart from
+everything else, so your test can create ordinary records before or after any factory call without a
+wrapper of its own. The second rule is yours to keep: Salesforce forbids saving `User` records in
+parallel tests, so remove `IsParallel=true` from the test class header whenever the test saves a user.
+
+A saved user needs a free seat for its profile's licence. If your org is at its limit for a licence,
+choose a profile whose licence has seats to spare; otherwise the platform reports the licence limit
+when the factory saves the user.
+
+`insertUser(profileName, companyName)` also sets the company name, a simple way to find the user again
+from another test method with `kern.SEL_User.findByCompanyName`. `insertUsers(profileName, count)`
+saves a batch. When your org's User rules need more than the factory sets, or the user needs a role,
+build the user with `newUser`, set the fields yourself, and let the factory save it:
 
 ```apex
-List<User> users = kern.TST_Factory.newUsers('Standard User', 2);
-insert users;
+UserRole managerRole = (UserRole)kern.QRY_Builder.selectFrom(UserRole.SObjectType)
+		.condition(UserRole.DeveloperName).equals('Manager')
+		.toList()
+		.iterator()
+		.next();
+User manager = kern.TST_Factory.newUser('Standard User');
+manager.UserRoleId = managerRole.Id;
+kern.TST_Factory.insertUsers(new List<User> {manager});
+```
+
+`newUser` and `newUsers` return **unsaved** users for the cases where you want to save them yourself.
+
+Assign a permission set (or permission set group) to saved users with
+`createPermissionSetAssignments`. It throws an `AssertException` if the named permission set cannot
+be resolved, and it keeps its writes apart from your ordinary records in the same way. It saves all
+of one call's assignments together, so if one assignment fails, none of them is saved.
+
+```apex
+List<User> users = kern.TST_Factory.insertUsers('Standard User', 2);
 kern.TST_Factory.createPermissionSetAssignments(users, 'My_Permission_Set');
 ```
 
 When you need a saved admin user that test methods reach through `System.runAs`,
-`newUserWithPermissionSet` builds the user, inserts it, and assigns the permission set in one call.
-That makes it a good fit inside `@TestSetup`.
+`newUserWithPermissionSet` builds the user, saves it, and assigns the permission set in one call.
+That makes it a good fit inside `@TestSetup`, where you can seed ordinary records right after it.
 
 ```apex
 @TestSetup
@@ -713,6 +747,16 @@ private static void setupAdmin()
 			'MyClass_TEST-admin',
 			'My_Admin_Permission_Set'
 	);
+}
+```
+
+Setup records the factory does not create, such as groups and group members, still need the
+platform's own guard. Wrap those inserts in a `System.runAs` block for the running user:
+
+```apex
+System.runAs(new User(Id = UserInfo.getUserId()))
+{
+	insert new Group(Name = 'Reviewers');
 }
 ```
 
@@ -815,6 +859,76 @@ kern.LOG_Builder.ignoreTestMode = true;
 
 > The flag is reset between test methods along with all other static state, so enabling it in one
 > test never leaks into another.
+
+---
+
+## How do I seed a sandbox or scratch org?
+
+The builder and the factory that set up a unit test can also fill a fresh sandbox or scratch org
+with records to click through, demo, or test by hand. There is nothing to install or switch on:
+both are ordinary production classes, so a script run from your command line saves records exactly
+as a test would, except that they stay.
+
+```apex
+// Three accounts, each with two contacts, saved together as one all-or-nothing unit
+List<Account> accounts = (List<Account>)kern.TST_Builder.of(Account.SObjectType)
+		.withCount(3)
+		.withCycle(Account.Name, new List<Object> {'Northwind Traders', 'Contoso', 'Fabrikam'})
+		.withOverride(Account.Industry, 'Technology')
+		.withChildren(Contact.SObjectType, 2, new Map<SObjectField, Object> {Contact.LastName => 'Seeded'})
+		.buildList();
+
+// A Standard User to try the org as (Setup, Users, Login); the company name is how you find the user again later
+User reviewer = kern.TST_Factory.insertUser('Standard User', 'seed-reviewer');
+```
+
+Save it as `seed.apex` and run it against the org:
+
+```shell
+sf apex run --file seed.apex -o YourOrgAlias
+```
+
+Afterwards the org holds three accounts named Northwind Traders, Contoso and Fabrikam, two contacts
+under each with the last name Seeded, and an active Standard User whose company name is
+`seed-reviewer`. Every field Salesforce requires carries a valid generated value; fields it does not
+require are left empty. The seeded user needs a free seat for its profile's licence, and a profile
+with that exact name; see [Users and Permission Sets](#users-and-permission-sets).
+
+**Before you run it, know how a seeding run differs from a test:**
+
+- **The data stays.** A test rolls back everything it saved; a script does not. Whatever the script
+  builds is in the org until you remove it.
+- **Each build is all or nothing.** One `build()` or `buildList()` call saves its whole graph as one
+  unit. If the platform refuses a row (a validation rule, a required field your org adds), the call
+  throws with the platform's message and nothing from that call is saved.
+- **The builder saves with full access.** It saves in system mode, which skips the object and field
+  permission checks that apply to the user running the script, so it can fill fields that user could
+  not edit on screen. Record sharing is unchanged. Check the result as the people who will use the
+  org, not as yourself.
+- **Defaults are random, and only required fields are filled.** Every required field you do not
+  override gets a valid random value: names, emails, dates, picklist entries. Fields Salesforce does
+  not require stay empty, so list the ones people will see on screen with `withDefaultedField` (see
+  [Defaulting Optional Fields](#defaulting-optional-fields)), and override the ones whose value
+  matters, as the script does with the account names, the industry and the contacts' last names.
+- **Running it twice creates a second set.** A second run inserts three more accounts and another
+  user, and a duplicate rule on your objects may refuse the second copy. Usernames never collide,
+  though: each run draws a fresh random base for the user's email and username.
+- **Users cannot be deleted.** Salesforce never deletes a user, so when you are done, deactivate the
+  seeded user instead. Find it by the company name you gave it:
+
+```apex
+User reviewer = new kern.SEL_User().findByCompanyName('seed-reviewer');
+kern.DML_Builder.newTransaction().doUpdate(new User(Id = reviewer.Id, IsActive = false)).execute();
+```
+
+Send only the field you change, as above: the update runs with your own field permissions, and a
+user record read back from the database carries fields nobody may edit, which the save would refuse.
+If no user has that company name the lookup returns nothing, so check the record is not null before
+you use its Id.
+
+The seeded accounts and contacts delete like any other records, but do the deleting in its own
+script. A run that updates a user and then deletes ordinary records is refused with a
+`MIXED_DML_OPERATION` error, and nothing the run did is kept.
 
 ---
 

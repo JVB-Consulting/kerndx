@@ -5,7 +5,7 @@ pageClass: reference
 description: "Utility class to streamline parsing nested JSON data structures. Provides methods to navigate and extract data from JSON using dot notation paths, with support for type-safe value retrieval and existe"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

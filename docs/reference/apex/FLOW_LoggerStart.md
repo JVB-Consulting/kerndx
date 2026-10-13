@@ -5,7 +5,7 @@ pageClass: reference
 description: "Starts a logging correlation for a Flow. Use this at the beginning of a Flow to generate a correlation ID that links all subsequent log entries."
 author: "Jason Van Beukering"
 group: "Logging"
-date: "December 2025, May 2026"
+date: "December 2025, September 2026"
 since: "1.0"
 category: apex
 ---

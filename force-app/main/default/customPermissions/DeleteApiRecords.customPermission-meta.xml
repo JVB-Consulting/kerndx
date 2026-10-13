@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Lets a user delete API calls and API issues. Only a user the Bypass API Record Delete Guard feature flag is on for may delete them; a built-in rule turns it on for holders of this permission, which only the Kern Administrator permission set grants.</description>
+    <isLicensed>false</isLicensed>
+    <label>Delete API Records</label>
+</CustomPermission>

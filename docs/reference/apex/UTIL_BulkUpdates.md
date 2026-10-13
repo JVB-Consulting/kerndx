@@ -5,7 +5,7 @@ pageClass: reference
 description: "Utility methods used to initialize adaptive async jobs to update fields on multiple objects. Provides methods for bulk updating Salesforce records, such as invalidating email fields, updating ownershi"
 author: "Jason Van Beukering"
 group: "Bulk DML"
-date: "February 2026, May 2026"
+date: "February 2026, September 2026"
 since: "1.0"
 category: apex
 ---

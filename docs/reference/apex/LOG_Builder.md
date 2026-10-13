@@ -5,7 +5,7 @@ pageClass: reference
 description: "Primary logging interface for application debugging, monitoring, and error tracking. Uses a fluent builder API for rich contextual logging.  ```apex // Full chain with context LOG_Builder.build()     "
 author: "Jason Van Beukering"
 group: "Logging"
-date: "October 2024, August 2026"
+date: "October 2024, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -53,20 +53,20 @@ LOG_Builder.build().error(caughtException).emitAt('PaymentService.charge');
 
     - Integration with platform events for asynchronous log processing
 
-**Querying log entries — filter by `UserId__c`, NOT `CreatedById`:**
-Log entries are persisted by `TRG_PersistLogEntry` running on the `LogEntryEvent__e` Platform
-Event subscriber. Salesforce executes Platform Event triggers as the Automated Process user, so
-EVERY persisted `LogEntry__c` row has `CreatedById` set to the Automated Process user — NOT
-the user that called `LOG_Builder.emit()`. The framework captures the emitting user's Id at
-publish time into `LogEntry__c.UserId__c`. To query logs by emitting user, use:
+**Querying log entries: filter by `UserId__c`, NOT `CreatedById`.**
+`TRG_PersistLogEntry` saves log entries. It is the trigger on the `LogEntryEvent__e` platform event.
+Salesforce runs platform event triggers as the Automated Process user. So EVERY saved `LogEntry__c` row
+has `CreatedById` set to the Automated Process user, NOT to the user that called `LOG_Builder.emit()`.
+When the event is published, the framework stores the Id of the user who logged the entry in
+`LogEntry__c.UserId__c`. To query logs by that user, use:
 
 ```apex
-// RIGHT — returns logs from the running user
+// RIGHT: returns logs from the running user
 QRY_Builder.selectFrom(LogEntry__c.SObjectType)
     .condition(LogEntry__c.UserId__c).equals(UserInfo.getUserId())
     .toList();
 
-// WRONG — silently returns ZERO rows (CreatedById is the Automated Process user)
+// WRONG: returns ZERO rows without any error (CreatedById is the Automated Process user)
 QRY_Builder.selectFrom(LogEntry__c.SObjectType)
     .condition(LogEntry__c.CreatedById).equals(UserInfo.getUserId())
     .toList();
@@ -74,7 +74,7 @@ QRY_Builder.selectFrom(LogEntry__c.SObjectType)
 ```
 
 The same applies to subscriber reports, dashboards, cleanup scripts, and audit queries. See
-the Logging Developer Guide → "Querying Log Entries" for worked subscriber examples.
+the section "Querying Log Entries" in the Logging Developer Guide for full examples.
 
 **Example**
 
@@ -102,7 +102,7 @@ LOG_Builder.build().info('Processing complete').emitAt('MyClass.myMethod');
 | global static void [resumeSaving](#resumesaving)() | Resumes log publishing and flushes buffer. |
 | global static [LOG_Builder.LogScope](LOG_Builder.LogScope.md) [scope](#scope)() | Creates a logging scope that suspends immediate log publishing. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [serializeContext](#serializecontext)() | Serializes logging context for async job transfer. |
-| global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [serializeContext](#serializecontext)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) correlationId) | Serializes a logging context carrying the SUPPLIED correlation id — for handing a different execution its own logging identity (for example, a restarted chain's fresh run) without reading or touching this transaction's live context. |
+| global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [serializeContext](#serializecontext)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) correlationId) | Serializes a logging context carrying the SUPPLIED correlation id: for handing a different execution its own logging identity (for example, a restarted chain's fresh run) without reading or touching this transaction's live context. |
 | global static void [setCorrelationId](#setcorrelationid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) correlationId) | Sets the correlation ID for child transactions. |
 | global static void [setGlobalContext](#setglobalcontext)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Sets a global context value included in ALL logs this transaction. |
 | global static void [setParentTransactionId](#setparenttransactionid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parentTransactionId) | Sets parent transaction ID for hierarchy tracking. |
@@ -330,11 +330,14 @@ System.enqueueJob(new MyQueueable(logContext));
 global static String serializeContext(String correlationId)
 ```
 
-Serializes a logging context carrying the SUPPLIED correlation id — for
+Serializes a logging context carrying the SUPPLIED correlation id: for
 handing a different execution its own logging identity (for example, a restarted chain's
 fresh run) without reading or touching this transaction's live context. The document is
 minimal on purpose: it carries no transaction lineage and no live context data, because it
-is written for another execution and outlives this request.
+is written for another execution and outlives this request. It starts a new action: a job that
+restores it names the supplied id as both its correlation id and its root, so a search for the
+launching action's root does not find that job's entries. A job meant to continue the current
+action should carry serializeContext() instead.
 
 **Parameters**
 
@@ -360,7 +363,8 @@ String cloneLogContext = LOG_Builder.serializeContext(cloneCorrelationId);
 global static void setCorrelationId(String correlationId)
 ```
 
-Sets the correlation ID for child transactions.
+Sets the correlation ID for child transactions. When the transaction has no root correlation id
+yet, this id becomes it; a later call moves the correlation id and keeps that root.
 
 **Parameters**
 
@@ -434,7 +438,9 @@ LOG_Builder.setParentTransactionId('value');
 global static String startCorrelation()
 ```
 
-Starts a new correlation context for multi-transaction tracing.
+Starts a new correlation context for multi-transaction tracing. The first correlation a transaction
+starts also becomes its root correlation id, the id the entries that follow name as their action; a later
+correlation started in the same transaction moves the correlation id and keeps that root.
 
 **Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — String The generated correlation ID to pass to child processes
 
@@ -456,7 +462,8 @@ global static void suspendSaving()
 ```
 
 Suspends log publishing. Use try/finally to ensure resumeSaving().
-ERROR logs bypass buffer and trigger immediate flush.
+ERROR logs bypass buffer and trigger immediate flush, except inside a trigger the framework runs on a
+platform event or change event, where an ERROR waits with the rest and is written when the trigger ends.
 
 **Example**
 
@@ -484,6 +491,7 @@ finally
 |----------|-------------|
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [correlationId](#correlationid) | The current correlation ID for log grouping across related operations. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ignoreTestMode](#ignoretestmode) | Controls whether logging events are published during test execution. |
+| global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [rootCorrelationId](#rootcorrelationid) | The root correlation id: the tracking id of the action that started everything the current transaction belongs to. |
 
 ### correlationId
 
@@ -506,6 +514,19 @@ global static Boolean ignoreTestMode
 Controls whether logging events are published during test execution.
 When set to true, enables logging in test mode for debugging test-specific issues.
 Defaults to false to avoid unnecessary logging overhead during unit tests.
+
+### rootCorrelationId
+
+```apex
+global static String rootCorrelationId
+```
+
+**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
+
+The root correlation id: the tracking id of the action that started everything the current
+transaction belongs to. It equals the correlation id until a background chain continues the action under a
+tracking id of its own; then the correlation id names that run and the root still names the action. Search the
+Log Console for it to see every entry the action produced.
 
 ## Inner Classes
 

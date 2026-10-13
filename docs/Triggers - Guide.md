@@ -126,6 +126,7 @@ For deeper coverage, continue reading the sections below.
         - [Entry Criteria Fields (Developer Controlled)](#entry-criteria-fields-developer-controlled)
         - [Description__c (Required)](#description__c-required)
 10. [Flow as a Trigger Action](#flow-as-a-trigger-action)
+    - [Which user's permissions does the flow run with?](#which-users-permissions-does-the-flow-run-with)
     - [TriggerAction__mdt fields used by flow actions](#triggeraction__mdt-fields-used-by-flow-actions)
     - [Variable contract on the registered flow](#variable-contract-on-the-registered-flow)
     - [LogSetting__c volume gate](#logsetting__c-volume-gate)
@@ -158,6 +159,7 @@ For deeper coverage, continue reading the sections below.
     - [IF_Trigger.AfterDelete](#if_triggerafterdelete)
     - [IF_Trigger.AfterUndelete](#if_triggerafterundelete)
 14. [Caching with Trigger Actions](#caching-with-trigger-actions)
+- [Let the selector share one query](#let-the-selector-share-one-query)
 - [Caching Pattern Overview](#caching-pattern-overview)
 - [Implementation Pattern](#implementation-pattern)
 - [Execution Flow](#execution-flow)
@@ -246,13 +248,13 @@ The goal is to keep trigger logic small, testable, and easy to change without re
 
 - **Control over the exact run order.** Set which action runs first, second, third in a configuration field.
 - **Composition instead of one big method.** Small actions chain together like function calls, so complex behaviour is built from simple parts.
-- **One query shared across actions.** An early action caches data that later actions read, so you don't repeat the same SOQL.
+- **One query shared across actions.** Each action reads through the same caching selector: the first read queries and the rest come from memory, so you don't repeat the same SOQL and each action stays independent.
 - **Per-record conditions without filtering code.** An entry-criteria formula decides which records reach the action.
 - **An off-switch with no deployment.** Disable an action at runtime during a load or an incident, then switch it back on.
 - **The same logic on more than one object.** Point a single action class at several objects through configuration.
 
-> **Trigger Framework Scope:** 7 `TRG_*` handler classes and 6 one-line trigger files that hand control to the framework (`TRG_ApiCall`, `TRG_ApiIssue`, `TRG_AsyncChainExecution`, `TRG_Foobar`, `TRG_LogEntryEvent`,
-`TRG_ScheduledJob`). All of it is driven by `TriggerSetting__mdt`
+> **Trigger Framework Scope:** 7 `TRG_*` handler classes and 7 one-line trigger files that hand control to the framework (`TRG_ApiCall`, `TRG_ApiIssue`,
+`TRG_AsyncChainExecution`, `TRG_BatchApexErrorEvent`, `TRG_Foobar`, `TRG_LogEntryEvent`, `TRG_ScheduledJob`). All of it is driven by `TriggerSetting__mdt`
 > and `TriggerAction__mdt` custom metadata. It supports object-level and action-level bypass, entry criteria formulas, ordered execution, and an audit trail on every
 > programmatic bypass call.
 
@@ -1125,6 +1127,26 @@ populated fields back onto the trigger record. You write no Apex to wire it up.
 walkthrough. The decision criteria, error strategies, audit gating, bypass / rollback options, and TAF migration
 recipe live in this guide below.
 
+### Which user's permissions does the flow run with?
+
+A trigger runs in system context, and a flow the framework launches from a trigger action inherits it: the flow can
+read and change records that the user who saved the record could not. That is the platform's rule for any flow
+started from Apex or another automation, not something the framework adds, and it holds even for a flow you have
+configured to run in user context, because that setting leaves the flow running in user or system context depending on
+how it is launched.
+
+Flow Builder has a stricter option for flows on API version 68.0 or later: User Context–Enforces User Permissions,
+available for screen flows and autolaunched flows. A flow saved with it always runs with the running user's access
+level, whatever launched it, a trigger action included. Choose it when the flow must never do more than the user
+could do on screen, for example when it touches records the user is not meant to reach through automation. Keep
+the default when the flow has to act beyond what the user can do directly, such as updating a related record the
+user cannot edit. To set it, open the flow in Flow Builder, click Save, click Show Advanced, and under How to Run
+the Flow choose User Context–Enforces User Permissions.
+
+The framework's part is the same either way: it still builds the interview, supplies the trigger record and copies
+the populated fields back, inside the trigger. The
+[Security guide](Security%20-%20Guide.md#flow-input-variable-hygiene) covers the portal side of the same question.
+
 ### TriggerAction__mdt fields used by flow actions
 
 | Field              | Type      | Required                          | Default          | Allowed values                          | Purpose                                                                                                                                                                                                                                                                                                                           |
@@ -1416,8 +1438,8 @@ to block. Two layers keep you from configuring it by accident:
 - **At runtime:** if such a row reaches dispatch anyway, the framework degrades it to `LogAndContinue` and emits a
   distinct warning audit entry so you can find the misconfiguration:
 
-> BlockDml is not supported on Change Event dispatch (cannot roll back a committed change) — degraded to LogAndContinue:
-> {flow name}
+> BlockDml is not supported on Change Event dispatch (cannot roll back a committed change). It is degraded to
+> LogAndContinue: {flow name}
 
 Always use `LogAndContinue` (the default) for Change Event actions. A failed Change Event action records the error and
 the dispatch continues; the underlying data is already committed regardless.
@@ -1898,11 +1920,47 @@ public inherited sharing class TRG_CreateRestoreReviewTask extends TRG_Base impl
 
 ## Caching with Trigger Actions
 
-When several actions on the same object need the same related data, querying it in each one wastes queries and risks hitting governor limits. Because actions run in a defined order, you can query once and share the result: **an early action queries and caches the data, and later actions read from that cache**. The result is fewer SOQL queries and faster triggers.
+When several actions on the same object need the same related data, querying it in each one wastes queries and risks hitting governor limits. There are two ways to query once and share the result. The simpler one: **every action reads through the same caching selector**, so the first read queries and the rest come from memory. The other: **an early action queries and caches the data by hand, and later actions read from that cache**. Either way, the result is fewer SOQL queries and faster triggers.
+
+### Let the selector share one query
+
+Opt the selector into caching once, by overriding `cacheScope()`, and let each action call it as if it were the only one:
+
+```apex
+public inherited sharing class SEL_Contacts extends SEL_Base
+{
+	public SEL_Contacts()
+	{
+		super(Contact.SObjectType);
+	}
+
+	public override List<SObjectField> getFields()
+	{
+		return new List<SObjectField>{ Contact.AccountId, Contact.FirstName, Contact.LastName, Contact.Email };
+	}
+
+	public override UTIL_Cache.Scope cacheScope()
+	{
+		return UTIL_Cache.Scope.IN_TRANSACTION;
+	}
+
+	public List<Contact> findByAccountIds(Set<Id> accountIds)
+	{
+		return (List<Contact>)query.condition(Contact.AccountId).isIn(new List<Id>(accountIds)).toList();
+	}
+}
+
+// In each action that needs the contacts, before or after update:
+List<Contact> contacts = new SEL_Contacts().findByAccountIds(new Map<Id, Account>(newAccounts).keySet());
+```
+
+The first action to call `findByAccountIds` runs the query; every later call in the same transaction with the same Ids gets its own copy of the rows from memory. (This selector reads in user mode, the default while the `UserModeQueries_Enabled` feature flag is on. With the flag switched off its reads run in system mode, and because `findByAccountIds` does not state its sharing, they are not cached. A selector that reads in system mode caches only in methods that state their sharing with `withSharing()` or `bypassSharing()`.) The actions stay independent: none of them needs to know which one runs first, an action can be switched off without breaking the others, and each can be tested on its own.
+
+A write through `DML_Builder` between two actions empties the cache, so the next read queries again and sees the write. The [Selectors Guide](Selectors%20-%20Guide.md#caching-queries) covers the scopes, what empties the cache and which reads are never kept.
 
 ### Caching Pattern Overview
 
-**Concept:** Trigger actions act like functions in a pipeline. An early action can cache data in a static variable, and later actions can access that cache.
+**Concept:** The hand-written option. Trigger actions act like functions in a pipeline. An early action can cache data in a static variable, and later actions can access that cache. Use it when later actions need the data shaped in a way the query alone does not give them (here, contacts grouped by account), and accept that the actions then depend on their order.
 
 **Two ways to hold the cache.** The pattern below keeps the cache in typed static variables on the caching action class, which gives later actions strongly typed getters and is the right choice for structured record data. For simple values where a holder class is overkill, the framework already ships a transaction-scoped store: [`UTIL_Cache.inTransaction()`](reference/apex/UTIL_Cache.md) returns a name-keyed store (`put`, `get`, `contains`, `remove`) whose contents live only for the current transaction and are shared by every caller in it.
 
@@ -2186,7 +2244,7 @@ TRG_Dispatcher.run()
  *
  * @date January 2025
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class TRG_ValidatePremiumAccountContacts_TEST
 {
 	/**
@@ -2774,14 +2832,12 @@ Custom Permissions are not referenced directly in these fields. To use permissio
 // Result: Action only runs for users with Premium_User_Profile
 ```
 
-**Logging:**
+**Is a skipped action logged?**
 
-When an action is skipped due to bypass or missing required condition, an INFO log is written:
-
-```text
-Trigger action "Account_ValidateRevenue" on Account SKIPPED. Action bypass: Disable_Account_Validation
-Trigger action "Account_SyncExternal" on Account SKIPPED. Setting required not met: Enable_External_Sync
-```
+No. When a bypass flag is on, or a required flag is off, the action is skipped and no log entry is written.
+The flag is your own setting, so the flag record already shows why the action did not run. To find out why an
+action is not running, check the feature flags named in `BypassFeatureFlag__c` and `RequiredFeatureFlag__c` on
+the action and on its trigger setting.
 
 ### Entry Criteria Formulas
 
@@ -3201,7 +3257,7 @@ Because each action is a small, self-contained class, you can test it on its own
  *
  * @date January 2025
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class TRG_ValidateAccount_TEST
 {
 	/**
@@ -3281,7 +3337,7 @@ private class TRG_ValidateAccount_TEST
 Every action receives its records as a plain `List<SObject>`, so you can unit-test one in isolation with no `insert`, no dispatcher, and no `TriggerAction__mdt` deployment. Build the trigger records in memory, and if the action reads related data through a selector, register those rows with [`TST_Mock`](reference/apex/TST_Mock.md) so the query returns them without a database round-trip.
 
 ```apex
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class TRG_FlagHighValueAccount_TEST
 {
 	@IsTest

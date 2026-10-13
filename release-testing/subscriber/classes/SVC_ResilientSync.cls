@@ -11,13 +11,13 @@
  *
  * @group Resilience
  *
- * @date February 2026
+ * @date February 2026, October 2026
  */
 public with sharing class SVC_ResilientSync
 {
 	/** @description Named Credential / API name the callout targets. */
 	@TestVisible
-	private static final String CREDENTIAL = 'kern__API_ExampleRestApi';
+	private static final String SERVICE_NAME = 'kern__API_ExampleRestApi';
 
 	/** @description Endpoint path appended to the Named Credential. */
 	@TestVisible
@@ -33,7 +33,7 @@ public with sharing class SVC_ResilientSync
 	 */
 	public HttpResponse fetchWithRetry()
 	{
-		return kern.UTIL_HttpClient.get(CREDENTIAL, ENDPOINT_PATH)
+		return kern.UTIL_HttpClient.get(SERVICE_NAME, ENDPOINT_PATH)
 				.withExponentialBackoff(3, 2)
 				.withCircuitBreaker()
 				.onFailure(kern.UTIL_HttpClient.FailureAction.RETRY_THEN_LOG)

@@ -8,9 +8,9 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class SEL_ApiIssue_TEST
 {
@@ -163,6 +163,9 @@ private class SEL_ApiIssue_TEST
 	 * `systemModeRequired() = true`, so its internal QRY_Builder must elevate to SYSTEM_MODE and
 	 * the query must return the seeded rows regardless of the running user's FLS.
 	 *
+	 * The low-privilege user saves the issue, so they own it. API issues are private records, and this test is about field
+	 * access, not about who may see another user's issue.
+	 *
 	 * Catches: a future refactor that demotes SEL_ApiIssue.systemModeRequired() to false, or
 	 * deletes the override entirely, would cause the low-privilege user's query to fail with "No
 	 * such column" under USER_MODE — this test fails at 2GP validated-build time rather than at
@@ -181,21 +184,57 @@ private class SEL_ApiIssue_TEST
 	{
 		final String serviceName = UTIL_Random.randomName();
 
-		System.runAs(getTestAdmin())
+		System.runAs(getLowPrivilegeUser())
 		{
 			TST_Builder.of(ApiIssue__c.SObjectType)
 					.withOverride(ApiIssue__c.ServiceName__c, serviceName)
 					.withOverride(ApiIssue__c.Status__c, SEL_ApiIssue.STATUS_OPEN)
 					.build();
-		}
 
-		System.runAs(getLowPrivilegeUser())
-		{
 			List<ApiIssue__c> results = new SEL_ApiIssue().findUnresolvedByService(serviceName);
 
 			Assert.areEqual(1, results.size(), 'Should find the seeded ApiIssue__c for low-privilege caller');
 			Assert.areEqual(serviceName, results[0].ServiceName__c, 'ServiceName should match the seeded value');
 		}
+	}
+
+	/**
+	 * @description findByFailedApiCall returns an open issue for the request even when another user owns it and the
+	 * reader cannot see it: whoever holds the record Id, the service name and the request parameters hash is asking about a
+	 * request they know. The test administrator owns the issue, and a Minimum Access user reads it from a class declared
+	 * with sharing, as the framework does when a later call for the same request succeeds. An issue for another request
+	 * is not returned.
+	 */
+	@IsTest
+	private static void shouldFindAnotherUsersOpenIssueForTheSameRequest()
+	{
+		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+		String serviceName = UTIL_Random.randomName();
+		String hashParameter = UTIL_Crypto.generateMD5Hash(serviceName);
+		ApiIssue__c seededIssue;
+		System.runAs(getTestAdmin())
+		{
+			List<ApiIssue__c> issues = TST_Builder.of(ApiIssue__c.SObjectType)
+					.withCount(2)
+					.withOverrides(new Map<SObjectField, Object>
+					{
+							ApiIssue__c.TriggeringRecordId__c => record.Id,
+							ApiIssue__c.ServiceName__c => serviceName,
+							ApiIssue__c.Status__c => SEL_ApiIssue.STATUS_OPEN
+					})
+					.withCycle(ApiIssue__c.RequestParametersHash__c, new List<Object> {hashParameter, UTIL_Random.randomName()})
+					.buildList();
+			seededIssue = issues[0];
+		}
+		List<ApiIssue__c> results;
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			results = new SharingEnforcedReader().findByFailedApiCall(record.Id, serviceName, hashParameter);
+		}
+
+		Assert.areEqual(1, results.size(), 'Expected only the open issue for the same request');
+		Assert.areEqual(seededIssue.Id, results[0].Id, 'Expected the issue another user owns');
 	}
 
 	/**
@@ -219,5 +258,27 @@ private class SEL_ApiIssue_TEST
 	private static User getLowPrivilegeUser()
 	{
 		return new SEL_User().findByCompanyName(LOW_PRIVILEGE_COMPANY);
+	}
+
+	/**
+	 * @description Reads issues from a class declared with sharing, so the running user's record sharing applies the way
+	 * it does when a Lightning action makes the call. This test class declares no sharing, so a read made straight from a
+	 * test method does not apply record sharing.
+	 */
+	private with sharing class SharingEnforcedReader
+	{
+		/**
+		 * @description Finds every user's open issues for one request through SEL_ApiIssue.findByFailedApiCall.
+		 *
+		 * @param recordId The Id of the triggering record
+		 * @param serviceName The name of the web service
+		 * @param hashParameter The request parameters hash to match
+		 *
+		 * @return The open issues for the request
+		 */
+		public List<ApiIssue__c> findByFailedApiCall(Id recordId, String serviceName, String hashParameter)
+		{
+			return new SEL_ApiIssue().findByFailedApiCall(recordId, serviceName, hashParameter);
+		}
 	}
 }

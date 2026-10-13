@@ -8,13 +8,6 @@ navOrder: 92
 
 **What this is:** A short, hands-on way to prove your code actually works in your own Salesforce org, end to end: you write an Apex class, deploy it, run its tests, and watch them pass. **Why it matters:** It closes the gap between "the code compiles" and "the code does the right thing in the live org," which is where most release surprises come from. **Who should follow it:** developers verifying their work, and tech leads setting up a repeatable test cycle. **When to use it:** any time you want a fast, trustworthy check before shipping. Browser-level testing with Playwright is an optional add-on at the end.
 
-**Before you start:**
-
-- [ ] KernDX package installed in your org
-- [ ] Org configured post-install: verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org display -o YourOrgAlias` to verify)
-- [ ] Node.js 22+ installed (`node --version`), required for the Playwright tier only
-
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
@@ -25,6 +18,14 @@ deployment and test run against your scratch org. The Tier 3 section shows how P
 **Success looks like:** `Outcome Passed, Tests Ran 3, Pass Rate 100%` from the Apex test runner and,
 optionally, a green Playwright run against the same org.
 
+## Before you start
+
+Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
+Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
+once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
+today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
+where your org's alias goes: the name you gave it when you logged in.
+
 ---
 
 ## Table of Contents
@@ -32,16 +33,22 @@ optionally, a green Playwright run against the same org.
 <details>
 <summary>Expand</summary>
 
-1. [How It Works](#how-it-works)
-2. [Tier 1: See It Work (~5 minutes)](#tier-1-see-it-work-5-minutes)
-3. [Tier 2: Build Your Own (~10 minutes)](#tier-2-build-your-own-10-minutes)
+1. [Before you start](#before-you-start)
+2. [How It Works](#how-it-works)
+3. [Tier 1: See It Work (~5 minutes)](#tier-1-see-it-work-5-minutes)
+4. [Tier 2: Build Your Own (~10 minutes)](#tier-2-build-your-own-10-minutes)
     - [Step 1: Create the Service Class](#step-1-create-the-service-class)
     - [Step 2: Create the Test Class](#step-2-create-the-test-class)
-    - [Step 3: Deploy and Run](#step-3-deploy-and-run)
-4. [Tier 3: Playwright Browser Tests (~5 minutes)](#tier-3-playwright-browser-tests-5-minutes)
-5. [Common Issues](#common-issues)
-6. [What You Now Know](#what-you-now-know)
-7. [Next Steps](#next-steps)
+5. [Tier 3: Playwright Browser Tests (~5 minutes)](#tier-3-playwright-browser-tests-5-minutes)
+    - [Clean up](#clean-up)
+6. [Common Issues](#common-issues)
+    - [Tier 1: the demo classes](#tier-1-the-demo-classes)
+    - [Step 1: Create the Service Class](#step-1-create-the-service-class-1)
+    - [Step 2: Create the Test Class](#step-2-create-the-test-class-1)
+    - [Tier 3: the browser tests](#tier-3-the-browser-tests)
+    - [Clean up](#clean-up-1)
+7. [What You Now Know](#what-you-now-know)
+8. [Next Steps](#next-steps)
 
 </details>
 
@@ -69,53 +76,69 @@ script, is the runbook at [`release-testing/RUNBOOK.md`](https://github.com/JVB-
 ## Tier 1: See It Work (~5 minutes)
 
 The fastest way to see the whole cycle work is to deploy a ready-made demo class and run its tests. The
-framework ships a paired demo (the class plus its test class) so you don't have to write anything yet. From
-your project root, copy them into your source folder:
+framework ships a paired demo (the class plus its test class) so you don't have to write anything yet. The
+demo's four files are in the framework's `release-testing/subscriber/classes` folder.
 
-```bash
-cp release-testing/subscriber/classes/FastStart_E2E_DEMO.cls \
-   force-app/main/default/classes/FastStart_E2E_DEMO.cls
-cp release-testing/subscriber/classes/FastStart_E2E_DEMO.cls-meta.xml \
-   force-app/main/default/classes/FastStart_E2E_DEMO.cls-meta.xml
-cp release-testing/subscriber/classes/FastStart_E2E_DEMO_TEST.cls \
-   force-app/main/default/classes/FastStart_E2E_DEMO_TEST.cls
-cp release-testing/subscriber/classes/FastStart_E2E_DEMO_TEST.cls-meta.xml \
-   force-app/main/default/classes/FastStart_E2E_DEMO_TEST.cls-meta.xml
+These commands run from your copy of the framework's repository (the public repository you cloned), whose top folder
+holds `release-testing/subscriber/classes` and the `test:e2e` script; that folder is "your project's top folder" in
+this guide.
+
+**1. In the terminal**, from your project's top folder, copy them into your source folder, with the commands for your
+computer.
+
+**Windows (Command Prompt)**
+
+```bat
+copy release-testing\subscriber\classes\FastStart_E2E_DEMO.cls force-app\main\default\classes\
+copy release-testing\subscriber\classes\FastStart_E2E_DEMO.cls-meta.xml force-app\main\default\classes\
+copy release-testing\subscriber\classes\FastStart_E2E_DEMO_TEST.cls force-app\main\default\classes\
+copy release-testing\subscriber\classes\FastStart_E2E_DEMO_TEST.cls-meta.xml force-app\main\default\classes\
 ```
 
-Deploy both classes:
+**macOS or Linux**
 
 ```bash
-sf project deploy start -o YourOrgAlias \
-  -m "ApexClass:FastStart_E2E_DEMO" \
-  -m "ApexClass:FastStart_E2E_DEMO_TEST"
+cp release-testing/subscriber/classes/FastStart_E2E_DEMO.cls force-app/main/default/classes/
+cp release-testing/subscriber/classes/FastStart_E2E_DEMO.cls-meta.xml force-app/main/default/classes/
+cp release-testing/subscriber/classes/FastStart_E2E_DEMO_TEST.cls force-app/main/default/classes/
+cp release-testing/subscriber/classes/FastStart_E2E_DEMO_TEST.cls-meta.xml force-app/main/default/classes/
 ```
 
-Run the tests:
+You should see the four files in `force-app/main/default/classes`. Command Prompt confirms each copy; on macOS or
+Linux, `cp` prints nothing when it works.
 
-```bash
-sf apex run test -o YourOrgAlias \
-  -t FastStart_E2E_DEMO_TEST \
-  --code-coverage --synchronous --result-format human
+**2. In the terminal**, send both classes to your org:
+
+```shell
+sf project deploy start -o YourOrgAlias -m "ApexClass:FastStart_E2E_DEMO" -m "ApexClass:FastStart_E2E_DEMO_TEST"
 ```
 
-**Expected output:**
+You should see `Status: Succeeded`, with `FastStart_E2E_DEMO` and `FastStart_E2E_DEMO_TEST` listed as created.
+
+**3. In the terminal**, run the tests:
+
+```shell
+sf apex run test -o YourOrgAlias -t FastStart_E2E_DEMO_TEST --code-coverage --synchronous --result-format human
+```
+
+You should see the three tests passing: each shows `Pass`, and the summary lines read:
 
 ```text
-Test Summary
-────────────────────────────────────────────────────────────────
 Outcome              Passed
 Tests Ran            3
 Pass Rate            100%
 ```
 
-> **Org-wide coverage won't be 100%, and that's expected.** With KernDX installed, the org-wide coverage
-> number is dominated by the framework's own classes, so `--result-format human` reports a lower figure.
-> Ignore that number here. What matters is the `Passed` outcome and 100% coverage on `FastStart_E2E_DEMO`
+> **Org-wide coverage won't be 100%, and that's expected.** The org-wide figure that
+> `--result-format human` reports covers every Apex class in your org, not only this one, so it will not
+> match the demo class's own 100% (on an unmanaged deploy of KernDX it includes the framework's classes
+> too). Ignore that number here. What matters is the `Passed` outcome and 100% coverage on `FastStart_E2E_DEMO`
 > itself.
 
 If you see `Pass Rate 100%`, you've just proven the full subscriber test cycle works, from source to a
 green run, without writing a line of code.
+
+Something went wrong? See [Common Issues](#tier-1-the-demo-classes).
 
 ---
 
@@ -127,7 +150,24 @@ path from source to a green run with your own code.
 
 ### Step 1: Create the Service Class
 
-Create `force-app/main/default/classes/ProcessingService.cls`:
+You create an empty class with one command, paste the code into it, then send it to your org.
+
+**1. In the terminal**, from your project's top folder, create the empty class:
+
+```shell
+sf apex generate class --name ProcessingService --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `ProcessingService.cls` and its companion of
+the same name ending in `.cls-meta.xml`.
+
+The second file tells Salesforce which API version the class uses. You do not need to edit it, but a deploy fails without it.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save:
+
+```text
+force-app/main/default/classes/ProcessingService.cls
+```
 
 ```apex
 /**
@@ -177,19 +217,35 @@ public with sharing class ProcessingService
 }
 ```
 
-Create `force-app/main/default/classes/ProcessingService.cls-meta.xml`:
+**3. In the terminal**, send the class to your org:
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>67.0</apiVersion>
-    <status>Active</status>
-</ApexClass>
+```shell
+sf project deploy start -o YourOrgAlias -m "ApexClass:ProcessingService"
 ```
+
+You should see `Status: Succeeded`, with `ProcessingService` listed as created.
+
+Something went wrong? See [Common Issues, Step 1](#step-1-create-the-service-class-1).
 
 ### Step 2: Create the Test Class
 
-Create `force-app/main/default/classes/ProcessingService_TEST.cls`:
+The test class checks the three cases: ordinary input, blank input, and input that is too long. You create the empty
+class with one command, paste the code into it, send it to your org, then run it.
+
+**1. In the terminal**, from your project's top folder, create the empty test class:
+
+```shell
+sf apex generate class --name ProcessingService_TEST --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `ProcessingService_TEST.cls` and its companion
+of the same name ending in `.cls-meta.xml`.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save:
+
+```text
+force-app/main/default/classes/ProcessingService_TEST.cls
+```
 
 ```apex
 /**
@@ -204,7 +260,7 @@ Create `force-app/main/default/classes/ProcessingService_TEST.cls`:
  * @date May 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(IsParallel=true)
+@IsTest(isParallel=true)
 private class ProcessingService_TEST
 {
 	/** @description Standard input for happy-path tests. */
@@ -259,29 +315,24 @@ private class ProcessingService_TEST
 }
 ```
 
-Create `force-app/main/default/classes/ProcessingService_TEST.cls-meta.xml`:
+**3. In the terminal**, send the test class to your org:
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>67.0</apiVersion>
-    <status>Active</status>
-</ApexClass>
+```shell
+sf project deploy start -o YourOrgAlias -m "ApexClass:ProcessingService_TEST"
 ```
 
-### Step 3: Deploy and Run
+You should see `Status: Succeeded`, with `ProcessingService_TEST` listed as created.
 
-```bash
-sf project deploy start -o YourOrgAlias \
-  -m "ApexClass:ProcessingService" \
-  -m "ApexClass:ProcessingService_TEST"
+**4. In the terminal**, run the test:
 
-sf apex run test -o YourOrgAlias \
-  -t ProcessingService_TEST \
-  --code-coverage --synchronous --result-format human
+```shell
+sf apex run test -o YourOrgAlias -t ProcessingService_TEST --code-coverage --synchronous --result-format human
 ```
 
-**Expected:** 3 tests passing, 100% coverage on `ProcessingService`.
+You should see 3 tests passing and 100% coverage on `ProcessingService`: all three tests show `Pass`, the summary line
+`Outcome` reads `Passed`, and the coverage table shows `ProcessingService` at `100%`.
+
+Something went wrong? See [Common Issues, Step 2](#step-2-create-the-test-class-1).
 
 ---
 
@@ -295,24 +346,64 @@ green, it logs into Lightning, navigates to a record, and checks that the UI loo
 > (Phase 3). The infrastructure under `release-testing/e2e/` is ready to use: helpers for auth, navigation,
 > CLI commands, wait strategies, and Lightning selectors are pre-written and documented there.
 
-To run the existing browser-test suite against your org, you need just four commands:
+To run the existing browser-test suite against your org, you need just four commands. The browser tests need Node.js
+22 or later; the Apex tiers above do not. Like Tier 1, these commands run from your copy of the framework's repository
+(the public repository you cloned): its top folder holds `release-testing/subscriber/classes` and the `test:e2e`
+script.
+
+**1. In the terminal**, install the suite's dependencies:
+
+```shell
+npm ci
+```
+
+You should see a line that starts `added` and counts the packages npm installed.
+
+**2. In the terminal**, install the browser the suite drives:
+
+```shell
+npx playwright install chromium
+```
+
+You should see Playwright download Chromium and finish without an error. It is a large download, so it takes a
+while the first time.
+
+**3. In the terminal**, tell the suite which org to use, with the command for your computer.
+
+**Windows (Command Prompt)**
+
+```bat
+set SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias
+```
+
+**macOS or Linux**
 
 ```bash
-npm ci
-npx playwright install chromium
-export SF_SUBSCRIBER_ORG_ALIAS=<your-org-alias>
+export SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias
+```
+
+You should see nothing printed. The setting lasts until you close that terminal, so run the next command in the same
+one.
+
+The suite reads the target org alias from the `SF_SUBSCRIBER_ORG_ALIAS` environment variable. Set it to
+point the suite at your org. The helpers pass that variable to `sf` as the org alias directly, so this is the one
+place the alias ever needs to change.
+
+**4. In the terminal**, run the suite:
+
+```shell
 npm run test:e2e
 ```
 
-The suite reads the target org alias from the `SF_SUBSCRIBER_ORG_ALIAS` environment variable. Export it to
-point the suite at your org. The helpers call `sf -o $SF_SUBSCRIBER_ORG_ALIAS` directly, so this is the one
-place the alias ever needs to change.
+You should see Playwright log in to your org once, then run each spec file and report how many tests passed.
 
-**What runs:** 10 spec files. They cover app navigation, record pages, log entry verification,
-API call visibility, LWC component rendering, async chains, chain monitor, the masking advisor, and
-the Log Console.
+**What runs:** 12 spec files. They cover app navigation, record pages, log entry verification,
+API call visibility, LWC component rendering, scheduled jobs, streaming, async chains, chain monitor,
+the masking advisor, the job runner, the Log Console, and the consoles at volume.
 
-**To write your own spec**, add a file under `release-testing/e2e/specs/` following this pattern:
+**To write your own spec**, follow this pattern.
+
+**In your editor**, add a file under `release-testing/e2e/specs/`:
 
 ```javascript
 const {test, expect} = require('@playwright/test');
@@ -342,20 +433,95 @@ the work is spread.
 > with the configured subscriber alias before invoking `npm run test:e2e`, and install Chromium with
 > `--with-deps` on Linux runners. Full GitHub Actions example in the runbook.
 
+Something went wrong? See [Common Issues](#tier-3-the-browser-tests).
+
+### Clean up
+
+If you deployed the classes only to try the cycle, run these two commands when you have finished the guide. Each
+deletes a test class before the class it tests, because the org will not delete a class that another class still
+uses. The browser-test specs create their own records and tidy them up themselves.
+
+**1. In the terminal**, delete the Tier 1 demo classes:
+
+```shell
+sf project delete source -o YourOrgAlias -m "ApexClass:FastStart_E2E_DEMO_TEST" -m "ApexClass:FastStart_E2E_DEMO" --no-prompt
+```
+
+You should see `Status: Succeeded`, then a `Deleted Source` table listing the two demo classes.
+
+**2. In the terminal**, delete the Tier 2 classes:
+
+```shell
+sf project delete source -o YourOrgAlias -m "ApexClass:ProcessingService_TEST" -m "ApexClass:ProcessingService" --no-prompt
+```
+
+You should see `Status: Succeeded`, then a `Deleted Source` table listing `ProcessingService` and
+`ProcessingService_TEST`.
+
+The commands delete the files from your project too.
+
+Something went wrong? See [Common Issues](#clean-up-1).
+
 ---
 
 ## Common Issues
 
-| Problem                               | Cause                                | Fix                                                                                                                                          |
-|---------------------------------------|--------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| `Type not visible` in subscriber test | Class is `public` in managed package | No change needed: your own classes are always resolved in your namespace                                                        |
-| `No such column 'kern__FieldName__c'` | Missing namespace prefix in SOQL     | Use `kern__FieldName__c` for KernDX custom fields                                                                                            |
-| `Could not extract frontdoor URL`     | CLI not authenticated or wrong alias | Run `sf org display -o YourOrgAlias` to verify                                                                                               |
-| Playwright timeout on nav bar         | Lightning didn't fully load          | Delete `release-testing/e2e/.auth/state.json` and `release-testing/e2e/.auth/instance.json`, then re-run to refresh the session              |
-| `ECONNREFUSED`                        | Chromium not installed               | Run `npx playwright install chromium`                                                                                                        |
-| Tests fail after working yesterday    | Frontdoor URL expired                | Delete both `release-testing/e2e/.auth/state.json` and `release-testing/e2e/.auth/instance.json`; global setup regenerates them on next run |
+Trouble with your computer rather than this guide (`sf` is not recognised, scripts are disabled, you are not logged
+in, the wrong folder)? Those are answered once, in
+[Set Up Your Computer](Set%20Up%20Your%20Computer.md#if-something-went-wrong).
 
----
+### Tier 1: the demo classes
+
+#### `Invalid api version:68.0`
+
+The deploy lists the two demo classes' `.cls-meta.xml` files with this problem. The demo files name a newer API version
+than your org runs, as the number in the message shows. In each of the two copied `.cls-meta.xml` files, change the
+number between `<apiVersion>` and `</apiVersion>` to a version your org accepts, such as your project's
+`sourceApiVersion` (in `sfdx-project.json`) when it is lower, save, and send both classes again.
+
+#### `This class name's value is invalid: FastStart_E2E_DEMO_TEST`
+
+The test run cannot find the test class in your org, because the deploy before it failed. Fix the deploy (see the
+entry above), then run the tests again.
+
+### Step 1: Create the Service Class
+
+#### The deploy says there is nothing to deploy
+
+The command ran inside another project's folder, so the CLI looked for the class there and found nothing. Open the
+terminal in your own project's top folder, the one that holds `sfdx-project.json`, and run the command again.
+
+### Step 2: Create the Test Class
+
+#### The test run cannot find `ProcessingService_TEST`
+
+The test class is not in your org yet. Send it with the deploy command in Step 2, then run the test again.
+
+### Tier 3: the browser tests
+
+#### The suite cannot open your org
+
+The CLI is not logged in to the org, or `SF_SUBSCRIBER_ORG_ALIAS` names the wrong alias. Check your login with the
+check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready), then set the variable again with
+the alias that check used.
+
+#### Playwright times out waiting for the navigation bar
+
+Lightning did not finish loading in time. Once your org's Lightning pages open normally in a browser, run the suite
+again: its one-time login step signs in afresh on every run.
+
+#### The run fails before a browser opens
+
+Chromium is not installed. Run the browser install command in Tier 3 again.
+
+### Clean up
+
+#### The delete fails
+
+The class you are deleting is used by another class in your org. Delete the test class first, as each clean-up
+command does, and delete any class of your own that calls `ProcessingService` before deleting it.
+
+Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?template=bug_report.md&title=%5Bdocs%5D%20E2E%20Testing) which step and what you saw.
 
 ## What You Now Know
 

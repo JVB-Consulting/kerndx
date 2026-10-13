@@ -54,6 +54,7 @@
  *
  * @date May 2026
  */
+@SuppressWarnings('PMD.ApexCRUDViolation')
 public with sharing class SCHED_SubscriberLoggerFlood implements Schedulable
 {
 	/**

@@ -8,14 +8,6 @@ navOrder: 12
 
 **What this is:** A way to keep every database query (SOQL) for an object in one reusable Apex class, so the same field lists and filters are used everywhere you read that object. **Why it exists:** When queries are scattered across the codebase, field lists drift, a renamed field breaks at runtime, and the same query gets rewritten over and over. Putting them in one place fixes all three: you get ready-made query methods you inherit for free, and the compiler catches a missing or renamed field before it ships. **Who should care:** Developers writing Apex queries, and tech leads who want consistent, testable data access. **When to use it:** Any time you query the same object from more than one place; for a true one-off, a quick inline query is fine.
 
-**Before you start:**
-
-- [ ] KernDX package installed in your org
-- [ ] Org configured post-install (verify with the **Kern** app's Health Check; see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
-  (Gear Icon > Developer Console) for all Apex work
-- [ ] Working in a sandbox or scratch org (not production)
-
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
@@ -30,6 +22,14 @@ and your test class has 100% coverage.
 **In one line:** `List<Account> accounts = new SEL_Accounts().findByField(Account.Industry, 'Technology');` (no
 SOQL, compile-time field safety, inherited from the base class).
 
+## Before you start
+
+Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
+Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
+once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
+today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
+where your org's alias goes: the name you gave it when you logged in.
+
 ---
 
 ## Table of Contents
@@ -37,15 +37,16 @@ SOQL, compile-time field safety, inherited from the base class).
 <details>
 <summary>Expand</summary>
 
-1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
+1. [Before you start](#before-you-start)
+2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
     - [Query Records](#query-records)
     - [Add Conditions](#add-conditions)
     - [Check If Records Exist](#check-if-records-exist)
-2. [Tier 2: Build Your Own (~15 minutes)](#tier-2-build-your-own-15-minutes)
+3. [Tier 2: Build Your Own (~15 minutes)](#tier-2-build-your-own-15-minutes)
     - [Step 1: Create the Selector](#step-1-create-the-selector)
     - [Step 2: Execute](#step-2-execute)
     - [Step 3: Write Tests](#step-3-write-tests)
-3. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
+4. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
     - [Parent Field Access](#parent-field-access)
     - [Ordering and Limits](#ordering-and-limits)
     - [Convenience Terminal Methods](#convenience-terminal-methods)
@@ -56,9 +57,15 @@ SOQL, compile-time field safety, inherited from the base class).
     - [Data Category Filtering (Knowledge)](#data-category-filtering-knowledge)
     - [Multi-Field GROUP BY and ROLLUP](#multi-field-group-by-and-rollup)
     - [SOQL Functions (Date, toLabel, FORMAT)](#soql-functions-date-tolabel-format)
-4. [Common Issues](#common-issues)
-5. [What You Now Know](#what-you-now-know)
-6. [Next Steps](#next-steps)
+    - [Clean up](#clean-up)
+5. [Common Issues](#common-issues)
+    - [Step 1: Create the Selector](#step-1-create-the-selector-1)
+    - [Step 2: Execute](#step-2-execute-1)
+    - [Step 3: Write Tests](#step-3-write-tests-1)
+    - [Parent Field Access](#parent-field-access-1)
+    - [Clean up](#clean-up-1)
+6. [What You Now Know](#what-you-now-know)
+7. [Next Steps](#next-steps)
 
 </details>
 
@@ -72,7 +79,8 @@ custom classes needed.
 
 ### Query Records
 
-Open **Developer Console > Debug > Open Execute Anonymous Window** and run:
+**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
+Anonymous Window, and run:
 
 ```apex
 List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
@@ -86,17 +94,19 @@ for(Account account : accounts)
 }
 ```
 
-**Expected output** (your data will vary):
+You should see one line in the log for each Account, up to five, with its name and its industry. This line is from a
+test org; yours lists your own Accounts:
 
 ```text
-Test Company — Technology
-Quick Test — null
+Sample Account for Entitlements — null
 ```
 
 > **No Account records?** Insert one first:
 > `insert new Account(Name = 'Quick Test', Industry = 'Technology', Phone = '555-0100', Website = 'https://example.com');`
 
 ### Add Conditions
+
+**In Salesforce**, in the same Execute Anonymous window, run:
 
 ```apex
 List<Account> techAccounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
@@ -109,6 +119,8 @@ System.debug('Found ' + techAccounts.size() + ' Technology accounts');
 ```
 
 ### Check If Records Exist
+
+**In Salesforce**, in the same Execute Anonymous window, run:
 
 ```apex
 Boolean hasAccounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
@@ -127,7 +139,7 @@ System.debug('Has Technology accounts: ' + hasAccounts);
 
 > **No local project?** You can create classes directly in the Developer Console (Gear Icon > Developer
 > Console > File > New > Apex Class) and run tests from there too (Test > New Run). Paste the code, save,
-> and skip the `sf project deploy start` and `sf apex run test` commands.
+> and skip the terminal commands.
 
 Now you'll put the queries for one object in their own class so the rest of your code can reuse them. You'll
 build a selector for the Account object: it inherits ready-made query methods and adds a custom
@@ -135,8 +147,26 @@ build a selector for the Account object: it inherits ready-made query methods an
 
 ### Step 1: Create the Selector
 
-Create a new file named `SEL_Accounts.cls`. Copy the following code exactly as is, and do not modify the class
-name or `kern.*` namespace references.
+The selector is one class that holds the queries for the Account object. You create an empty class with one command,
+paste the code into it, then send it to your org.
+
+**1. In the terminal**, from your project's top folder, create the empty class:
+
+```shell
+sf apex generate class --name SEL_Accounts --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `SEL_Accounts.cls` and its companion of the
+same name ending in `.cls-meta.xml`.
+
+The second file tells Salesforce which API version the class uses. You never edit it, but a deploy fails without it.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save. Paste it exactly as
+it is: keep the class name.
+
+```text
+force-app/main/default/classes/SEL_Accounts.cls
+```
 
 > **Why `public`?** Unlike triggers and APIs, selectors are instantiated directly by your code (`new
 > SEL_Accounts()`). The framework never has to look them up by name, so `public` is enough and `global` is
@@ -222,15 +252,22 @@ public with sharing class SEL_Accounts extends kern.SEL_Base
 }
 ```
 
-**Deploy:**
+**3. In the terminal**, send the class to your org:
 
-```bash
+```shell
 sf project deploy start -o YourOrgAlias -m "ApexClass:SEL_Accounts"
 ```
 
+You should see `Status: Succeeded`, with `SEL_Accounts` listed as created.
+
+Something went wrong? See [Common Issues, Step 1](#step-1-create-the-selector-1).
+
 ### Step 2: Execute
 
-Test from anonymous Apex. First, make sure you have at least one Account record:
+Try the selector from anonymous Apex. The code inserts an `Acme Corp` Account, then reads Accounts back four ways.
+
+**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
+Anonymous Window, and run:
 
 ```apex
 // Insert a test record if needed (DML_Builder, not inline `insert`)
@@ -263,14 +300,17 @@ for(kern.QRY_Builder.AggregateRow row : rows)
 > `Account.Industry` read the variable's field instead of the SObjectField token. Pick another name such as
 > `result` or `found`.
 
-**Expected output** (in a fresh org, the `findById` row and the counts reflect the single Account you just
-inserted. If your org already holds Technology Accounts, those lines will differ):
+You should see lines like these in the log. They are from a test org, so yours differ in two ways. The `findById` line
+names whichever Account the first query found, which may not be the one you just inserted. The counts include every
+Technology Account your org already holds, and the revenue lines every Account, with Accounts that have no industry
+adding an `Industry: null` line:
 
 ```text
-findById: Acme Corp — Technology
+findById: Sample Account for Entitlements — null
 findByField: 1 Technology accounts
 findByIndustry: 1 results
-Industry: Technology Revenue: 500000
+Industry: null Revenue: null
+Industry: Technology Revenue: 500000.0
 ```
 
 **Why it works (the key patterns):**
@@ -285,9 +325,28 @@ Industry: Technology Revenue: 500000
   Access results via `AggregateRow.getString('fieldName')` and `AggregateRow.getDecimal('sum_fieldName')`.
 - **Cast results**: `findById()` returns `SObject`, so cast to `Account`
 
+Something went wrong? See [Common Issues, Step 2](#step-2-execute-1).
+
 ### Step 3: Write Tests
 
-Create a new file named `SEL_Accounts_TEST.cls`. Copy the following code exactly as is:
+The test class has four tests: one that checks `findById` brings back your default fields, two for `findByIndustry`
+(a match and none) and one for `revenueByIndustry`. You create the empty class with one command, paste the code into
+it, send it to your org, then run it.
+
+**1. In the terminal**, from your project's top folder, create the empty test class:
+
+```shell
+sf apex generate class --name SEL_Accounts_TEST --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `SEL_Accounts_TEST.cls` and its companion of
+the same name ending in `.cls-meta.xml`.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in exactly as it is, and save:
+
+```text
+force-app/main/default/classes/SEL_Accounts_TEST.cls
+```
 
 ```apex
 /**
@@ -302,7 +361,7 @@ Create a new file named `SEL_Accounts_TEST.cls`. Copy the following code exactly
  * @date February 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(IsParallel=true)
+@IsTest(isParallel=true)
 private class SEL_Accounts_TEST
 {
 	/** @description Tests that findById returns the correct account. */
@@ -379,23 +438,33 @@ private class SEL_Accounts_TEST
 }
 ```
 
-**Deploy and run:**
+**3. In the terminal**, send the test class to your org:
 
-```bash
+```shell
 sf project deploy start -o YourOrgAlias -m "ApexClass:SEL_Accounts_TEST"
+```
+
+You should see `Status: Succeeded`, with `SEL_Accounts_TEST` listed as created.
+
+**4. In the terminal**, run the test:
+
+```shell
 sf apex run test -o YourOrgAlias -t SEL_Accounts_TEST --code-coverage --synchronous --result-format human
 ```
 
-**Expected:** 4 tests passing, 100% coverage on `SEL_Accounts`.
+You should see 4 tests passing and 100% coverage on `SEL_Accounts`: all four tests show `Pass`, the summary line
+`Outcome` reads `Passed`, and the coverage table shows `SEL_Accounts` at `100%`.
 
 You only need to test the custom methods you add. The inherited methods (`findById()`, `findByField()`, and the
 rest) are already tested by the framework, so don't re-test them.
 
-> **About the annotations:** `@IsTest(IsParallel=true)` enables parallel test execution (faster runs).
+> **About the annotations:** `@IsTest(isParallel=true)` enables parallel test execution (faster runs).
 > `SeeAllData` defaults to `false`, so we omit it. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
 > turns off a static analysis rule (a check that reads your code without running it) about `System.runAs()`.
 > That's fine for quick starts, but in production tests consider adding `System.runAs()` to verify profile and
 > permission set access.
+
+Something went wrong? See [Common Issues, Step 3](#step-3-write-tests-1).
 
 ---
 
@@ -406,7 +475,9 @@ These patterns build on the `SEL_Accounts` class you created in Tier 2.
 ### Parent Field Access
 
 Often you need a field from a parent record, such as the account owner's name or email. To pull those in for
-every query, override `getFieldPaths()` in `SEL_Accounts` and list the relationship fields you always want:
+every query, override `getFieldPaths()` in `SEL_Accounts` and list the relationship fields you always want.
+
+**In your editor**, in `SEL_Accounts.cls`:
 
 ```apex
 // Add this method to SEL_Accounts.cls (after getFields())
@@ -416,7 +487,9 @@ public override List<String> getFieldPaths()
 }
 ```
 
-For one-off relationship fields in a specific query method, add a new method to `SEL_Accounts`:
+For one-off relationship fields in a specific query method, add a new method to `SEL_Accounts`.
+
+**In your editor**, in `SEL_Accounts.cls`:
 
 ```apex
 // Add this method to SEL_Accounts.cls
@@ -429,7 +502,9 @@ public List<Account> findByTypeWithOwner(String accountType)
 }
 ```
 
-Redeploy, then verify from Execute Anonymous:
+Send the class to your org again with the deploy command from Step 1, then check the owner fields come back.
+
+**In Salesforce**, in an Execute Anonymous window, run:
 
 ```apex
 Account result = (Account)new SEL_Accounts().findById(
@@ -439,10 +514,14 @@ System.debug('Account: ' + result.Name);
 System.debug('Owner: ' + result.getSObject('Owner').get('Name'));
 ```
 
+Something went wrong? See [Common Issues, Parent Field Access](#parent-field-access-1).
+
 ### Ordering and Limits
 
 To sort results and cap how many come back (for example, the top few accounts in an industry), chain
-`.orderBy()` and `.withLimit()`. Add this method to `SEL_Accounts`:
+`.orderBy()` and `.withLimit()`. Add this method to `SEL_Accounts`.
+
+**In your editor**, in `SEL_Accounts.cls`:
 
 ```apex
 // Add this method to SEL_Accounts.cls
@@ -456,7 +535,9 @@ public List<Account> findTopByIndustry(String industry, Integer maxResults)
 }
 ```
 
-Verify from Execute Anonymous:
+Send the class to your org again, then try the method.
+
+**In Salesforce**, in an Execute Anonymous window, run:
 
 ```apex
 List<Account> topTech = new SEL_Accounts().findTopByIndustry('Technology', 3);
@@ -470,8 +551,10 @@ for(Account each : topTech)
 
 ### Convenience Terminal Methods
 
-The `query` property returns a `QRY_Builder.Builder` with many terminal methods beyond `toList()`. Try these
-from Execute Anonymous using the `SEL_Accounts` you deployed in Tier 2:
+The `query` property returns a `QRY_Builder.Builder` with many terminal methods beyond `toList()`. Try these with
+the `SEL_Accounts` you deployed in Tier 2.
+
+**In Salesforce**, in an Execute Anonymous window, run:
 
 ```apex
 SEL_Accounts selector = new SEL_Accounts();
@@ -518,7 +601,9 @@ Map<String, SObject> accountByName = kern.QRY_Builder.selectFrom(Account.SObject
 ### QRY_Builder for One-Off Queries
 
 Use `QRY_Builder.selectFrom()` directly when you don't need a full selector class: handy for one-off scripts,
-anonymous Apex, or querying an object you don't have a selector for:
+anonymous Apex, or querying an object you don't have a selector for.
+
+**In Salesforce**, in an Execute Anonymous window, run:
 
 ```apex
 // Find Contacts related to a set of Accounts
@@ -549,7 +634,7 @@ read/write permissions and record sharing (CRUD = object create/read/update/dele
 field-level security, plus sharing), unless a caller explicitly opts out. The default behaviour is set by the
 `UserModeQueries_Enabled` feature flag (`IsEnabledByDefault__c = true` at install time).
 
-Run these from Execute Anonymous to compare:
+**In Salesforce**, run these in an Execute Anonymous window to compare:
 
 ```apex
 // Default — USER_MODE enforced (CRUD, FLS, and sharing respected)
@@ -592,7 +677,9 @@ System.debug('Strip inaccessible: ' + stripped.size() + ' accounts');
 
 The chained `.condition()` / `.andCondition()` / `.orCondition()` methods handle most queries. When you need
 grouped logic, such as `WHERE Industry = 'Tech' AND (Status = 'Active' OR Status = 'Pending')`, use
-`OrCondition` / `AndCondition` with `.addCondition()`:
+`OrCondition` / `AndCondition` with `.addCondition()`.
+
+**In your editor**, in your own Apex:
 
 ```apex
 // Build an OR group
@@ -616,7 +703,9 @@ List<Account> results = kern.QRY_Builder.selectFrom(Account.SObjectType)
 ### Date Literals
 
 To filter on a moving date range (records from today, or the last several days) without hardcoding a date, use
-`DateLiteral` for relative date conditions (TODAY, LAST_N_DAYS, and so on):
+`DateLiteral` for relative date conditions (TODAY, LAST_N_DAYS, and so on).
+
+**In your editor**, in your own Apex:
 
 ```apex
 List<Account> recentAccounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
@@ -632,7 +721,9 @@ Other date literal methods: `.today()`, `.yesterday()`, `.tomorrow()`, `.last90D
 
 ### Data Category Filtering (Knowledge)
 
-Query Knowledge articles by data category using `.withDataCategory(groupName)` followed by an operator:
+Query Knowledge articles by data category using `.withDataCategory(groupName)` followed by an operator.
+
+**In your editor**, in your own Apex:
 
 ```apex
 List<SObject> articles = kern.QRY_Builder.selectFrom(KnowledgeArticleVersion.SObjectType)
@@ -651,7 +742,9 @@ See [Data Category Queries in the Selectors Guide](Selectors%20-%20Guide.md#data
 ### Multi-Field GROUP BY and ROLLUP
 
 Call `.groupBy()` multiple times for multi-dimensional aggregation. Add `.rollup()` for subtotals or `.cube()` for
-cross-tabulation:
+cross-tabulation.
+
+**In your editor**, in your own Apex:
 
 ```apex
 List<kern.QRY_Builder.AggregateRow> results = kern.QRY_Builder.selectFrom(Opportunity.SObjectType)
@@ -666,7 +759,9 @@ List<kern.QRY_Builder.AggregateRow> results = kern.QRY_Builder.selectFrom(Opport
 ### SOQL Functions (Date, toLabel, FORMAT)
 
 The 13 SOQL date functions have typed `QRY_Function` factories (`calendarYear`, `calendarMonth`, `fiscalQuarter`, …) for use with `addField` / `groupBy` / `orderBy`. The `toLabel()` and
-`FORMAT()` functions work through string overloads:
+`FORMAT()` functions work through string overloads.
+
+**In your editor**, in your own Apex:
 
 ```apex
 kern.QRY_Builder.selectFrom(Opportunity.SObjectType)
@@ -679,21 +774,96 @@ kern.QRY_Builder.selectFrom(Opportunity.SObjectType)
 See [SOQL Functions in the Selectors Guide](Selectors%20-%20Guide.md#soql-functions-in-queries) for all 13 date
 functions, toLabel, and FORMAT examples.
 
+### Clean up
+
+If you built this example only to try the framework, run this command when you have finished the guide. The
+`Acme Corp` Accounts that Step 2 inserted stay, and so does the `Quick Test` Account if you inserted it in Tier 1;
+delete them in the app, or leave them.
+
+**In the terminal**, delete the selector and its test class:
+
+```shell
+sf project delete source -o YourOrgAlias -m "ApexClass:SEL_Accounts_TEST" -m "ApexClass:SEL_Accounts" --no-prompt
+```
+
+You should see `Status: Succeeded`, then a `Deleted Source` table listing the two classes.
+
+The command deletes the files from your project too.
+
+Something went wrong? See [Common Issues](#clean-up-1).
+
 ---
 
 ## Common Issues
 
-| Problem                                                                   | Cause                                           | Fix                                                                                 |
-|---------------------------------------------------------------------------|-------------------------------------------------|-------------------------------------------------------------------------------------|
-| `SObject row was retrieved via SOQL without querying the requested field` | Field not in `getFields()`                      | Add the field to `getFields()` or use `.addField()` in the query method             |
-| Wrong results from custom query                                           | Used `QRY_Builder.selectFrom()` inside selector | Use the inherited `query` property: it includes your default fields                 |
-| `List has no rows for assignment`                                         | `findById()` returns `null` when not found      | Check for `null` before casting, or use `findByIdOrThrow()`                         |
-| Missing parent fields                                                     | Used `SObjectField` for relationship fields     | Use `getFieldPaths()` or `.addFields(List<String>)` for `Owner.Name` etc.           |
-| `Variable does not exist: query`                                          | Class doesn't extend `kern.SEL_Base`            | Add `extends kern.SEL_Base` and `super(SObjectType)` in constructor                 |
-| `findByField(String, String)` not found                                   | Variable named `account` shadows `Account` type | Rename the variable (e.g., `result`) so `Account.Industry` resolves as SObjectField |
-| Test coverage gaps                                                        | Custom query method not tested                  | Add a test that calls each custom method and asserts the results                    |
+Trouble with your computer rather than this guide (`sf` is not recognised, scripts are disabled, you are not logged
+in, the wrong folder)? Those are answered once, in
+[Set Up Your Computer](Set%20Up%20Your%20Computer.md#if-something-went-wrong).
 
----
+### Step 1: Create the Selector
+
+#### The deploy says there is nothing to deploy
+
+The deploy stops with `No source-backed components present in the package.` The command ran inside another project's
+folder, so the CLI looked for the class there and found nothing. Open the terminal in your own project's top folder,
+the one that holds `sfdx-project.json`, and run the command again.
+
+#### `@Override specified for non-overriding method`
+
+The deploy fails with this message, naming `getFields()`. The class does not extend `kern.SEL_Base`, so it has no
+`getFields()` to override and no inherited `query` property for your methods to use. Add `extends kern.SEL_Base` to
+the class line and keep `super(Account.SObjectType)` in the constructor, as in the code in Step 1.
+
+### Step 2: Execute
+
+#### `Method does not exist or incorrect signature: void findByField(String, String) from the type SEL_Accounts`
+
+The code stops before it runs. A variable named `account` shadows the `Account` type (Apex ignores case), so
+`Account.Industry` reads that variable's field instead of the field token. Rename the variable, for example to
+`result` or `found`, as the naming tip in Step 2 says.
+
+#### `System.NullPointerException: Attempt to de-reference a null object`
+
+Step 2's code always passes the Id of an Account that exists, so you meet this in your own code, when you call
+`findById()` with an Id that matches no record. `findById()` then returns `null`, and reading a field of `null`
+fails. Check for `null` before you use the result, or call `findByIdOrThrow()` instead: it stops with a message that
+starts `Account record not found:` and names the Id, which tells you straight away what was missing.
+
+### Step 3: Write Tests
+
+#### The deploy fails
+
+The test class's deploy fails for the same reasons as the selector's; see the entries under
+[Step 1](#step-1-create-the-selector-1).
+
+#### The coverage table shows `SEL_Accounts` below `100%`
+
+A method you added to the selector has no test. Add a test that calls each custom method and asserts the results.
+You only need tests for the methods you write: the framework already tests the inherited ones.
+
+### Parent Field Access
+
+#### `SObject row was retrieved via SOQL without querying the requested field`
+
+The code read a field that the query did not fetch, and the message ends with that field. `Account.Owner` means the
+check ran before you added `getFieldPaths()` to the selector and sent it to your org again. Any other field means it
+is missing from `getFields()`, or a method built its query with `QRY_Builder.selectFrom()`, which starts without your
+default fields (the message ends `Account.Industry` when that happens with the guide's selector).
+
+- Add the field to `getFields()`, or add it with `.addField()` in that one query method.
+- Name a parent's fields, such as `Owner.Name`, in `getFieldPaths()` or with `.addFields(List<String>)`: a field
+  token cannot reach a field on a parent record.
+- Inside a selector, start every query from the inherited `query` property, which includes your default fields.
+
+### Clean up
+
+#### `No ApexClass named: SEL_Accounts found`
+
+The command shows `Status: Failed` and a `Component Failures` table with this line, and the same for
+`SEL_Accounts_TEST`. The org no longer holds the classes: the clean-up already ran, or they were deleted another way.
+There is nothing left to delete.
+
+Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?template=bug_report.md&title=%5Bdocs%5D%20Selectors) which step and what you saw.
 
 ## What You Now Know
 

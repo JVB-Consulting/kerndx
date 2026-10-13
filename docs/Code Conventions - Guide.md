@@ -6,7 +6,7 @@ navOrder: 94
 
 Canonical, tool-agnostic code conventions for the KernDX framework. Applies to all contributors and any AI coding assistant working in this repository.
 
-**KernDX** — Salesforce managed package framework. Namespace: `kern`. API: 67.0. Omit namespace in source code.
+**KernDX** — Salesforce managed package framework. Namespace: `kern`. API: 68.0. Omit namespace in source code.
 
 ## Subscriber Context
 
@@ -37,14 +37,18 @@ Subscribers may have custom namespaces, additional class prefixes, and different
 - **NO `// Given/When/Then/Cleanup` comments**
 - **NO test cleanup code** — SF resets static state between tests
 - **NO hardcoded field API names** — Use `SObjectField.getDescribe().getName()`
-- **Name semantically-meaningful literals** — When a literal's meaning is not self-evident, or it repeats, lift it into a named `static final` constant whose name explains intent (a `CUSTOM_METADATA_SUFFIX` constant not a bare `'__mdt'`; reuse `SEL_MaskingRule.RULE_MASK_*` not re-typed rule names). Reuse an existing constant before adding one. Keep a new
+- **Name semantically-meaningful literals** — When a literal's meaning is not self-evident, or it repeats, lift it into a named `static final` constant whose name explains intent (a `CUSTOM_METADATA_SUFFIX` constant not a bare `'__mdt'`; reuse the rule-name constants the masking-rule selector already declares rather than re-typing rule names). Reuse an existing constant before adding one. Keep a new
   constant local to its owning class (`@TestVisible` so tests can read it) until a second consumer genuinely exists — don't pre-promote to a shared utility — and when it is shared,
   give it a domain-appropriate home (an SObject/metadata constant belongs with describe/selector utilities, never a generic string helper). *Judgment, not blanket:* a self-evident
   `0`/`1` or a genuinely one-off, locally-obvious string needs no constant — the test is whether a name would help a future reader grasp intent. *Rationale: a named constant turns
   an opaque literal into documentation at the point of use and gives grep/IDE a single definition to jump to and change.*
 - **Methods are verbs** — name a method for the action it performs (`buildReadme`, `renderTargetXml`, `resolveRuleDeployName`), not the value it returns (`readme`, `targetXml`,
   `ruleDeployName`). `get*`/`find*`/`resolve*`/`build*`/`render*`/`parse*`/`map*`/`to*` all read as actions; a bare noun-phrase does not. *Rationale: a verb says what a call does
-  at the call site without opening the body.*
+  at the call site without opening the body.* **A method returning `Boolean` starts with a verb too**: `is*`/`has*`/`can*`/`should*`/`contains*`/
+  `exceeds*` (`shouldUseCache`, `hasStandardCursorHeadroom`, `containsUserDependentKeyword`), never a statement or an attribute-shaped phrase
+  (`dependsOnRunningUser`, `resultsVaryByRunningUser`, `userSpecific`). Name what the method actually checks (a text search is `contains*`), in
+  plain words a reader already knows ("keyword", not "construct"). *Rationale: `!containsUserDependentKeyword(query)` reads as a question about
+  the query at the call site; a statement-shaped name reads as a fact and hides that it is a test.*
 - **Prefer safe-navigation + null-coalescing** — write `x?.member ?? fallback` over `x == null ? fallback : x.member`; `?.` short-circuits a member access on a possibly-null
   receiver, `??` supplies the fallback. Applies only when the else-branch is a member access on that same receiver — a branch that wraps the value (`new List{x}`) or calls a
   function of it (`f(x)`) stays a ternary. *Rationale: reads as "the member, or the fallback," and `?.` also guards a null member.*
@@ -89,6 +93,10 @@ Subscribers may have custom namespaces, additional class prefixes, and different
   subscriber code reads consistently with `kern.*` internals in the same diff.*
 - **180 char lines** — *Rationale: long-name-friendly (Salesforce identifiers — `kern__SubscriberPackageVersionId__c`, ApexDoc tag clusters — get unreadable when wrapped at 80)
   without going so wide that side-by-side diffs wrap.*
+- **Annotation attributes in camelCase, leading lower** — `@IsTest(seeAllData=false isParallel=true)`, `@AuraEnabled(cacheable=true)`,
+  `@InvocableVariable(label='Record Id' required=true)`, `@JsonAccess(serializable='always' deserializable='always')`. The annotation name itself stays in class case
+  (`@IsTest`, never `@isTest`). *Rationale: an annotation is used like a class and its attributes like that class's fields, so they follow the same case rules as the rest of the
+  code; Illuminated Cloud's formatter applies this case by default, so a reformat never produces a casing-only diff.*
 - **ApexDoc required** — *Rationale: ApexDoc is the only documentation surface the auto-generated `docs/reference/apex/` consumes. A missing ApexDoc block produces a missing API
   reference for subscribers; PR-gate enforces.*
 
@@ -113,12 +121,24 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 ## ApexDoc
 
 **Class:** `@description`, `@see`, `@author`, `@group`, `@date`, `@since`, `@example` (blank line between each tag)
-**Method (REQUIRED):** `@description`, `@param` (each), `@return` (if non-void), `@throws`, `@example` (never `@date`/`@since` — those are class-level tags)
+**Method (REQUIRED):** `@description`, `@param` (each), `@return` (if non-void), `@throws`, `@since` (on a `global` member), `@example` (never `@date` — that is a class-level tag)
 **Properties:** All require `@description`
+**Enums:** `@description` on the enum itself and on every value, one value per line (`global`, `public`, `private` and test enums alike). The value's description says what the value means: the state, kind or choice it stands for, in plain words. It does not name the methods that set or read the value (those are documented on the methods), and a description that restates the name ("The DML rows limit") does not count. *Rationale: an enum value is the smallest named decision in the code; a subscriber or an AI agent reading the source cold meets `AT_SEND` or `HALF_OPEN` with nothing else to go on, and a list of the values in the enum-level description is not read at the point of use.*
 **Bidirectional `@see`:** Main class ↔ test class
-**`@since` (class declarations ONLY — never on methods or properties):** REQUIRED on `global` classes, inner classes, and enums. Format: `@since 1.0`. Not required on `public`/`private`/`protected` classes.
+**`@since` (every `global` member: class, inner class, enum, interface, interface method, method, constructor, property, field, constant):** REQUIRED, naming the package version that introduced the member, written once and never refreshed. Format: `@since 1.0`; order: after `@throws` (or `@return`) and before `@example`. Optional on `public`/`private`/`protected` members. The tag is the source record of when a member arrived; the reference pages do not display it, the versioned documentation answers "does this exist in my version". `npm run docs:validate` fails on a `global` member without one.
 **`@date` (class declarations ONLY — never on methods or properties):** `Month Year` or `Month Year, Month Year` (created, modified — at most two values; refresh the second on edit)
 **`@example`:** Must use ```` ```apex ```` code fences with valid Apex
+
+**ApexDoc on a `global` member is subscriber-facing documentation — every framework member it names
+must itself be `global`.** The block is published verbatim to `docs/reference/apex/` and ships, so an
+`@description`, `@param` or `@example` that cites a `public` member hands a subscriber code that does
+not compile: in a managed package `public` does not cross the namespace boundary, which makes it as
+unreachable as a `private` or `@TestVisible` member, and the offline symbol table (global surface only)
+does not list it either. **The remedy is to spell the literal, never to widen the member to `global`** —
+a promotion to `global` is a permanent, unwithdrawable API commitment, and no example is worth one. So a
+shipped example writes `newUserWithPermissionSet('System Administrator', company, 'Administrator')` —
+never the `public` selector constant that holds that same string. Inside a `public`/`private` class the
+constant is the right call: the rule bites only where the ApexDoc ships.
 
 **`@description` quality — written for the cold reader.** The reader is a subscriber or new
 maintainer who cloned the repo and opened the file for the first time. Names carry the *what*;
@@ -135,6 +155,39 @@ the point of the comment. Concretely:
 - Claim only what the code proves. Test `@description`s state what the test proves and why it
   matters, not a restatement of the method name.
 
+**Plain language, never the plan's words.** The reader may not be fluent in English and has never
+seen the plan, the spec or the review that produced the code. Short sentences, everyday words, one
+idea per sentence, a term explained the first time it appears. The vocabulary of planning stays in
+the plan: never a plan code (`I3`, `D11`, `SAR-1`, `BUG-008`, `PLAN-182`), never "the spec" or a
+section number, never "cell", "pinned", "projection", "resting state", "witness" or "losing writer".
+The team's own slang stays out too, because a reader outside the team cannot look it up: never
+"zombie", "sidecar", "fixpoint", "brick", "latch", "knob", "egress", "plumbing", "posture",
+"clobber", "re-arm", "rule universe", "tier-A", "hand-off" or "unkeyed". An em-dash (`—`) in a
+comment, an assertion message or a test name is a fault: use a full stop, a comma or a colon
+instead. The same bar applies to a test method's `@description`, a Custom Label's text, a log
+message and a name: a name says what the thing is in the package's own words
+(`getUserWithApiIssueResolverPermissionSet`), never a nickname only the plan explains
+(`getResolver`, `witness`). Say the rule, not its label: "a Stalled run cannot have an end time",
+not "(I1)". `node scripts/check-apexdoc-plain-language.js` fails on the codes, the words and the
+em-dash. By default it reads only the lines you added or changed in each modified class, trigger
+and module (a new file that git does not track yet, or a file renamed since the reference, is read
+whole) and prints how many matches on older lines it left out (a match is a line that breaks one of
+these rules); `--all`
+reads every line of the whole tree. The prose itself is a review gate, and a description that
+needs a second read is an Important finding.
+
+```apex
+// Rejected: one paragraph of plan vocabulary.
+ * @description ... It only consumes the (from, to) projection of the transition table and the status field
+ * invariants, and refuses a write that breaks them (I1 to I5) ...
+
+// Accepted: the same contract, said to the reader.
+ * @description Refuses a change to a chain run that the engine would never make. Runs before every insert and
+ * every update of AsyncChainExecution__c. The engine (UTIL_AsyncChain.applyRunTransition) is the only code that
+ * decides how a run moves from one status to another; this action checks each saved row against the moves the
+ * engine allows and the shape a row must have in each status, and blocks the save when either fails.
+```
+
 ```apex
 /**
  * @description Handler for Foobar defaults.
@@ -149,6 +202,29 @@ the point of the comment. Concretely:
  *
  * @since 1.0
  */
+```
+
+An enum documents itself and each of its values:
+
+```apex
+/**
+ * @description How far a Foobar has come through its review.
+ */
+public enum ReviewState
+{
+	/**
+	 * @description Nobody has opened the record yet. Every new Foobar starts here.
+	 */
+	WAITING,
+	/**
+	 * @description A reviewer has the record open. Other reviewers are told it is taken.
+	 */
+	IN_REVIEW,
+	/**
+	 * @description The review is finished and the record can no longer be edited.
+	 */
+	CLOSED
+}
 ```
 
 ## Trigger Framework
@@ -176,7 +252,7 @@ naming: `ClassName_Event`.
 (fires the trigger) and assert with `SEL_*`/`QRY_Builder`. No selector? Use `kern.QRY_Builder.selectFrom(SObjectType).condition(field).equals(value).getFirst()`.
 
 ```apex
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class TRG_SetFoobarDefaults_TEST
 {
 	@IsTest
@@ -251,7 +327,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 `.notIn(Builder)` only for anti-join subqueries.
 **Pagination:** `.getPage(page, size)` → `QueryPage` (`.records`/`.totalRecords`/`.hasMorePages`/`.deletedRecords`/`.cursor`)
 
-**Security** (default USER_MODE via the `UserModeQueries_Enabled` flag, + inherited sharing): `.withUserMode()` (USER_MODE, enforces CRUD/FLS/sharing) | `.stripInaccessible()` (post-query) | `.withSharing()`/`.bypassSharing()` (picks the sharing proxy, independent of the access mode; under the USER_MODE default the platform enforces record sharing regardless, so an effective bypass is `bypassSharing()` + a system-mode dial) | `.withoutSecurity()` (reset)
+**Security** (default USER_MODE via the `UserModeQueries_Enabled` flag, + inherited sharing): `.withUserMode()` (USER_MODE, enforces CRUD/FLS/sharing) | `.stripInaccessible()` (post-query) | `.withSharing()`/`.bypassSharing()` (picks the sharing proxy, independent of the access mode; under the USER_MODE default the platform enforces record sharing regardless, so an effective bypass is `bypassSharing()` + a system-mode dial) | `.withoutSecurity()` (full waiver: SYSTEM_MODE + record sharing bypassed, in one call)
 
 **Data Category:** `.withDataCategory(groupName)` → `DataCategoryBuilder` with `.at()`/`.above()`/`.below()`/`.aboveOrBelow()` — each with `(String)` and `(List<String>)`
 overloads. Mutually exclusive with `WITH SECURITY_ENFORCED` — use `.withUserMode()` for security enforcement with data category queries. One filter per group.
@@ -266,9 +342,10 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 	.allowPartial().execute();
 ```
 
-**Methods:** `.doInsert()`/`.doUpdate()`/`.doDelete()`/`.doUpsert()`/`.doUndelete()`/`.allowPartial()`/`.bypassSharing()`/`.suppressLogging()`/`.suppressExceptions()`/`.execute()`
+**Methods:** `.doInsert()`/`.doUpdate()`/`.doDelete()`/`.doUpsert()`/`.doUndelete()`/`.allowPartial()`/`.expectRefusal()`/`.withRetryOnLock()`/`.bypassSharing()`/`.suppressLogging()`/`.suppressExceptions()`/`.execute()`
 **TransactionResult:** `isSuccess()`/`getInsertedIds()`/`getErrors()`/`getSuccessCount()`/`getFailureCount()`
-**Parent-child:** `.doInsert(child, relationshipField, parent)` auto-sets lookup. Parent must appear earlier.
+**Parent-child:** `.doInsert(child, relationshipField, parent)` auto-sets lookup. Register the parent with its own `.doInsert()`, before or after the child: the
+transaction orders the inserts from the registered relationships.
 **Async:** `.async()` is a type switch, not a config method — it returns `DML_AsyncBuilder`, whose only members are `withBatchSize(Integer)` and `execute()`, and whose `execute()`
 returns `void`, not a `TransactionResult`. Chain it last: `.doUpdate(records).async().withBatchSize(200).execute();`
 
@@ -280,10 +357,13 @@ returns `void`, not a `TransactionResult`. Chain it last: `.doUpdate(records).as
 @SuppressWarnings('PMD.AvoidGlobalModifier')
 global inherited sharing class FLOW_CreateAccount
 {
-	@InvocableMethod(Category='Account Management' Label='Create Account' Description='Creates an Account.')
+	@InvocableMethod(category='Account Management' label='Create Account' description='Creates an Account.')
 	global static List<DTO_Response> execute(List<DTO_Request> requests)
 	{
-		TRG_Base.validateSingleRequest(requests.size(), FLOW_CreateAccount.class.getName());
+		if(requests == null || requests.size() != 1)
+		{
+			throw new IllegalArgumentException('FLOW_CreateAccount expects a single request');
+		}
 		DTO_Request request = requests.iterator().next();
 		Account account = new Account(Name = request.accountName);
 		DML_Builder.TransactionResult result = DML_Builder.newTransaction().doInsert(account).execute();
@@ -295,23 +375,24 @@ global inherited sharing class FLOW_CreateAccount
 
 	global inherited sharing class DTO_Request
 	{
-		@InvocableVariable(Label='Account Name' Description='The name for the new Account' Required=true)
+		@InvocableVariable(label='Account Name' description='The name for the new Account' required=true)
 		global String accountName;
 	}
 
 	global inherited sharing class DTO_Response
 	{
-		@InvocableVariable(Label='Account ID' Description='The ID of the created Account')
+		@InvocableVariable(label='Account ID' description='The ID of the created Account')
 		global Id accountId;
-		@InvocableVariable(Label='Success' Description='Whether the operation succeeded')
+		@InvocableVariable(label='Success' description='Whether the operation succeeded')
 		global Boolean success;
 	}
 }
 ```
 
-**Rules:** `global inherited sharing` on class + DTOs | `@SuppressWarnings('PMD.AvoidGlobalModifier')` | `TRG_Base.validateSingleRequest()` | `@InvocableVariable` with
-Label/Description/Required | `@InvocableMethod` with Category/Label/Description (+ `Callout=true` for HTTP) | `DML_Builder` for DML | Method takes `List<DTO_Request>`, returns
-`void` or `List<DTO_Response>` | **Test:** Also test `shouldThrowWhenNoRequests()` with `Assert.fail`/`Assert.isInstanceOfType`
+**Rules:** `global inherited sharing` on class + DTOs | `@SuppressWarnings('PMD.AvoidGlobalModifier')` |
+guard `requests.size() == 1` with a platform-native `IllegalArgumentException` |
+`@InvocableVariable` with Label/Description/Required | `@InvocableMethod` with Category/Label/Description (+ `Callout=true` for HTTP) | `DML_Builder` for DML | Method takes
+`List<DTO_Request>`, returns `void` or `List<DTO_Response>` | **Test:** Also test `shouldThrowWhenNoRequests()` with `Assert.fail`/`Assert.isInstanceOfType`
 
 ## LOG_Builder
 
@@ -349,7 +430,7 @@ UTIL_HttpClient.post('EmailService', '/send').body(payload).timeout(30000)
 Two-class: `REST_*` (routing, `global inherited sharing`) + `API_*` (implementation, `public with sharing`, extends `API_Inbound`).
 
 ```apex
-@RestResource(UrlMapping='/v1/invoices/*')
+@RestResource(urlMapping='/v1/invoices/*')
 global inherited sharing class REST_Invoices
 {
 	@HttpPatch
@@ -364,12 +445,12 @@ global inherited sharing class REST_Invoices
 
 - **`onSuccess()`** — DML via inherited `doInsert()`/`doUpdate()`/`doDelete()` (NOT `DML_Builder`)
 - **`updateResponseDTO()`** — runs after commit, populate response DTO from `result.isSuccess`
-- Request DTOs: `@JsonAccess(Deserializable='always')`, `public` props
-- Response DTOs: `@JsonAccess(Serializable='always')`, `public` props
+- Request DTOs: `@JsonAccess(deserializable='always')`, `public` props
+- Response DTOs: `@JsonAccess(serializable='always')`, `public` props
 
 ## DTOs
 
-Extend `DTO_JsonBase` + `@JsonAccess(Serializable='always' Deserializable='always')`. Standalone: `@AuraEnabled public`. Nested (in API class): `private` + ApexDoc. 1-3 → nest;
+Extend `DTO_JsonBase` + `@JsonAccess(serializable='always' deserializable='always')`. Standalone: `@AuraEnabled public`. Nested (in API class): `private` + ApexDoc. 1-3 → nest;
 4+ → separate `DTO_*.cls` file. `populate(Id, DTO_NameValues)` uses `SEL_*`.
 
 ## Outbound Web Services
@@ -407,7 +488,7 @@ public with sharing class API_SendEmail extends API_Outbound
 		return errors;
 	}
 
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Request extends DTO_JsonBase
 	{
 		/** @description The email recipient address. */
@@ -424,7 +505,7 @@ public with sharing class API_SendEmail extends API_Outbound
 		}
 	}
 
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Response extends DTO_JsonBase
 	{
 		/** @description The message ID from the email gateway. */
@@ -440,9 +521,21 @@ public with sharing class API_SendEmail extends API_Outbound
 ## Testing
 
 **Structure:** Constants → `@IsTest` methods → helpers (no assertions) → inner classes
-**Header:** `@IsTest(SeeAllData=false IsParallel=true) private class MyClass_TEST`
+**Header:** `@IsTest(seeAllData=false isParallel=true) private class MyClass_TEST`
 **Rules:** Test class-specific behaviour only | `ClassName.class.getName()` not hardcoded strings | ApexDoc on all constants | Reference API param constants | Test abort/error
 conditions
+**User mode under `runAs`:** an inline query inside a low-privilege `System.runAs` block runs in user mode on API 67+, so read setup objects (Profile, PermissionSet,
+`User.Profile`) outside the block or through a `systemModeRequired` selector; `Database.query(soql, AccessLevel.SYSTEM_MODE)` is the escape.
+**Stored timestamps keep whole seconds:** a DateTime read back from a record is truncated to the second, so it can sit up to 999 ms before the `Datetime.now()`
+the test captured around the write. Compare a read-back stamp against a bound at least one second earlier than the capture, through a named tolerance constant
+(as `UTIL_AsyncChainRecovery_TEST` does), never against the raw capture: the raw comparison passes most runs and fails at random.
+**A hook a guide tells subscribers to override is tested by overriding it:** a framework hook the guides tell subscribers to override (`createRetryStrategy`,
+`prepareRequest`, `getRetryableStatusCodes`, and the rest) has at least one test that overrides it on a real subclass and asserts the documented effect through
+the real caller (`API_Dispatcher.execute`), never only through a hand-built context.
+**A retry test leaves retry budget:** a test that asserts a failed call is or is not retried runs with retry budget left (a setting with `MaxRetryCount__c` above
+zero and a positive backoff) and asserts `Status__c` and `NextRetry__c` together; a test with no budget passes whatever the code does. In the framework's
+own tests, use the `SEL_ApiCall` assertions `assertServiceRetrying` or `assertServiceFailed` plus the time. `assertServiceRetrying` is `public`, so code
+outside the package cannot call it: a test in your own org reads the call record and asserts the two fields itself.
 
 **Exception testing:** `Assert.fail` + `Assert.isInstanceOfType` — never `Boolean exceptionThrown`:
 
@@ -465,7 +558,8 @@ IDs)/`.build()`/`.buildList()`
 
 ### TST_Factory
 
-`newFeatureFlag(flagName)` | `newOutboundApiCall(service, recordId[, params])` | `newInboundApiCall(service)` | `newUser(profileName[, companyName])`
+`newFeatureFlag(flagName)` | `newOutboundApiCall(service, recordId[, params])` | `newInboundApiCall(service)` | `newUser(profileName[, companyName])` |
+`insertUser(profileName[, companyName])`
 
 - **Feature-flag tests:** `kern.TST_Factory.newFeatureFlag('FlagName')` seeds an active flag. For the off path, simply don't seed it — an unseeded flag is treated as off.
 - **Trigger-action tests:** invoke the handler directly — build the input record in memory with `kern.TST_Builder.of(SObjectType).withoutInsertion().build()`, call the handler
@@ -547,7 +641,7 @@ export default class MyComponent extends ComponentBuilder('notification', 'contr
 `.catch(error => this.showErrorToast(error))` produces a sensible toast; string args pass through unchanged) | `controller` (callControllerMethod, handleWireResponse) |
 `navigation` (redirectToRecordPage, generateRecordPageURL) | `lightning-message` (addMessageChannelSubscription, publishLightningMessage, clearSubscriptions) | `flow-navigation` (dispatchFlowNext/Back/FinishEvent) | `all`
 **Base (always):** `dispatchCustomEvent()`/`consoleLog()`/`consoleError()`/`isLoading`
-**HTML:** Lightning base components only — not raw HTML. **Meta:** apiVersion 67.0, isExposed true.
+**HTML:** Lightning base components only — not raw HTML. **Meta:** apiVersion 68.0, isExposed true.
 
 **Jest — DOM-based:**
 
@@ -594,7 +688,10 @@ const createMockContext = (overrides = {}) =>
 `autoWithTransactionFallback()` Session→Org→Transaction graceful degradation reporting `cacheTypeUsed = Scope.IN_TRANSACTION` on the fallback path — `inTransaction` /
 `IN_TRANSACTION` because `transaction` is on Apex's reserved-words list) | `UTIL_CircuitBreaker` | `UTIL_Retry` (linear/exponential) | `UTIL_FeatureFlag.isEnabled(flagName)` (Apex) / `c/featureFlag.isFlagEnabled(flagName)` (LWC bridge via `CTRL_FeatureFlag`) | `UTIL_BypassAudit.emit(surface, action, target, extras)` / `setBypassReason(reason)` (framework-wide bypass audit) | `UTIL_TypeResolver` (subscriber-first) | `UTIL_String`/`Date`/`Number`/`Set`/`List`/`Map`/`SObject`/`Email`/`Random`/`Security` |
 `UTIL_SObjectDescribe` (request-cached describe wrapper — `getDescribe(sobjectType)`, `.getField(name)` namespace-aware default, `.getFieldDescribe(name)` returns cached
-`DescribeFieldResult` with `isUpdateable`/`isCreateable`; static `getCachedFieldDescribe(SObjectField)` / `getCachedFieldName(SObjectField)` for token-keyed lookups)
+`DescribeFieldResult` with `isUpdateable`/`isCreateable`; static `getCachedFieldDescribe(SObjectField)` / `getCachedFieldName(SObjectField)` for token-keyed lookups) |
+`UTIL_Limits` (the only way to read a governor limit, in production and test code alike: `UTIL_Limits.dmlStatements().used()`, `.maximum()`, `.remaining()`,
+`.isExhausted()`; a raw `Limits.get*()` call belongs only in `UTIL_Limits_TEST`, where the platform is the oracle that proves the wrapper. One path for every reading
+gives a test a single seam through which it can later be fed different readings)
 
 ## Async Chain Orchestration
 

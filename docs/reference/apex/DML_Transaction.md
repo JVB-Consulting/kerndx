@@ -2,10 +2,10 @@
 title: "DML_Transaction"
 type: class
 pageClass: reference
-description: "Transaction engine for managing complex DML operations across multiple SObjects. Handles dependency ordering via topological sort, parent-child relationship resolution, and lifecycle hooks for extensi"
+description: "The engine that saves a set of DML operations across many SObjects as one transaction. This set is called a unit of work: the records registered to be saved together. By default, if one record fails, "
 author: "Jason Van Beukering"
 group: "DML"
-date: "February 2026, July 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -22,7 +22,7 @@ global virtual inherited sharing class DML_Transaction
 
 **Known Derived Types:** [API_Base](API_Base.md), [API_CallCurrentOrg](API_CallCurrentOrg.md), [API_Inbound](API_Inbound.md), [API_Outbound](API_Outbound.md)
 
-Transaction engine for managing complex DML operations across multiple SObjects. Handles dependency ordering via topological sort, parent-child relationship resolution, and lifecycle hooks for extensibility.
+The engine that saves a set of DML operations across many SObjects as one transaction. This set is called a unit of work: the records registered to be saved together. By default, if one record fails, the whole save is rolled back. In partial mode, the records that save stay saved. The engine saves parent object types before their children, by sorting the types so each parent comes first. It fills each child's lookup with its parent's new Id. It also offers hooks, methods a subclass can override to run its own code at fixed points of the save.
 
 **Example**
 
@@ -44,7 +44,7 @@ aTransaction.commitWork();
 | Method | Description |
 |--------|-------------|
 | global virtual void [commitWork](#commitwork)() | Commits all registered DML operations using inherited sharing. |
-| global virtual void [commitWork](#commitwork)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) enforceSharing) | Commits all registered DML operations with configurable sharing enforcement. |
+| global virtual void [commitWork](#commitwork)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) enforceSharing) | Saves all registered DML operations, with the record sharing you choose. |
 | global void [doDelete](#dodelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for deletion. |
 | global void [doDelete](#dodelete)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a record for deletion. |
 | global void [doInsert](#doinsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for insertion. |
@@ -66,9 +66,9 @@ aTransaction.commitWork();
 | global virtual void [onCommitWorkStarting](#oncommitworkstarting)() | Hook called before the commit process starts. |
 | global virtual void [onDMLFinished](#ondmlfinished)() | Hook called after DML operations complete. |
 | global virtual void [onDMLStarting](#ondmlstarting)() | Hook called before DML operations start. |
-| global void [setAccessLevel](#setaccesslevel)([AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) accessLevel) | Sets the AccessLevel that will be passed to every DML operation via the DML_SharingProxy three-arg methods. |
+| global void [setAccessLevel](#setaccesslevel)([AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) accessLevel) | Sets the AccessLevel passed to every DML operation through the DML_SharingProxy methods that take an access level. |
 | global void [setAllowPartial](#setallowpartial)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) allow) | Sets whether partial success is allowed for DML operations. |
-| global void [setSuppressLogging](#setsuppresslogging)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) suppress) | Sets whether to suppress LOG_Builder error logging for partial DML results. |
+| global void [setSuppressLogging](#setsuppresslogging)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) suppress) | Sets whether to turn off LOG_Builder error logging for DML failures. |
 
 ### commitWork
 
@@ -96,7 +96,14 @@ dmlTransaction.commitWork();
 global virtual void commitWork(Boolean enforceSharing)
 ```
 
-Commits all registered DML operations with configurable sharing enforcement.
+Saves all registered DML operations, with the record sharing you choose. A retry count can be set,
+usually through DML_Builder.withRetryOnLock. When it is set and the platform refuses a row lock, the save is
+rolled back and runs again. The hooks run once for each attempt. Static values a failed attempt set are not
+reset. A retry puts back the registered records as they were when commitWork was called. Records a hook
+registers during an attempt are not put back, and a record the hook registers again keeps the Id the
+rolled-back attempt gave it. Every attempt empties the transaction's in-memory query cache (the query results
+kept in memory for reuse) before its first statement and again when it ends, whatever the outcome. So a read
+after a save never gets rows from before the save, or from a save that was rolled back.
 
 **Parameters**
 
@@ -534,13 +541,19 @@ dmlTransaction.commitWork();
 global virtual void onCommitWorkFinished(Boolean wasSuccessful)
 ```
 
-Hook called after the commit process finalizes, indicating success or failure.
+Hook called after the commit process finalizes, indicating success or failure. It runs after the
+transaction's in-memory query cache has been emptied, so a read made here is cached like any other and sees the
+rows as they are after the attempt, whether it was saved or rolled back. It runs once for each attempt of the
+commit: when the commit is set to try again after a row lock (DML_Builder.withRetryOnLock does that, and an API
+handler's commit tries again once), it runs with false after the attempt that was refused and again after the next
+attempt. So write what you do here so that it is safe to run more than once, and do work that must happen once only
+when the value is true.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `wasSuccessful` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether the commit was successful. |
+| `wasSuccessful` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether the attempt that just ended was successful. |
 
 **Example**
 
@@ -587,7 +600,12 @@ global override void onCommitWorkFinishing()
 global virtual void onCommitWorkStarting()
 ```
 
-Hook called before the commit process starts.
+Hook called before the commit process starts. Work registered here is committed with the rest
+and, in an all-or-nothing commit, rolled back with it when a later statement fails. A read made here is cached
+like any other read and is from before this commit's write. It runs once for each attempt of the commit: when the
+commit is set to try again after a row lock (DML_Builder.withRetryOnLock does that, and an API handler's commit
+tries again once), it runs again for the new attempt. So write what you do here so that it is safe to run more than
+once.
 
 **Example**
 
@@ -631,7 +649,8 @@ global override void onDMLFinished()
 global virtual void onDMLStarting()
 ```
 
-Hook called before DML operations start.
+Hook called before DML operations start. A read made here is cached like any other read and is from
+before this commit's write.
 
 **Example**
 
@@ -653,15 +672,15 @@ global override void onDMLStarting()
 global void setAccessLevel(AccessLevel accessLevel)
 ```
 
-Sets the `AccessLevel` that will be passed to every DML operation via the
-`DML_SharingProxy` three-arg methods. When null, the proxy resolves to the flag-driven
-default (`UserModeDml_Enabled`).
+Sets the `AccessLevel` passed to every DML operation through the `DML_SharingProxy` methods
+that take an access level. When it is null, the proxy uses the default that the `UserModeDml_Enabled`
+flag sets.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `accessLevel` | [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) | The AccessLevel to apply; null to inherit the flag-driven default. |
+| `accessLevel` | [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) | The AccessLevel to apply; null to use the default that the flag sets. |
 
 **Example**
 
@@ -710,8 +729,10 @@ dmlTransaction.commitWork();
 global void setSuppressLogging(Boolean suppress)
 ```
 
-Sets whether to suppress LOG_Builder error logging for partial DML results.
-When enabled, partial failures are not logged.
+Sets whether to turn off LOG_Builder error logging for DML failures. When it is on, failed rows
+in a partial save are not logged, and neither is a failed save. That covers the ERROR entry an all-or-nothing
+save writes after it rolls back, just before it throws the exception again. It also covers the ERROR entry a
+partial save writes when it catches an exception thrown during the save and carries on.
 
 **Parameters**
 

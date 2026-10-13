@@ -5,7 +5,7 @@ pageClass: reference
 description: "Processor for generic DML operations using the adaptive async framework. Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution. Supports INSERT, UPDATE, D"
 author: "Jason Van Beukering"
 group: "Bulk DML"
-date: "February 2026, August 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -45,7 +45,7 @@ UTIL_AsynchronousJobLauncher.process(
 
 | Method | Description |
 |--------|-------------|
-| global void [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> items) | Executes the configured DML operation on the provided list of records. |
+| global void [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> items) | Runs the configured DML operation on the given records. |
 
 ### execute
 
@@ -55,12 +55,11 @@ UTIL_AsynchronousJobLauncher.process(
 global void execute(List<Object> items)
 ```
 
-Executes the configured DML operation on the provided list of records. The
-commit pins its record-sharing context explicitly — enforced unless `requestSharingBypass()`
-was called — and re-applies the configured access mode without a separate bypass-audit
-entry; this holds for a direct synchronous invocation exactly as it does inside an async
-job, so a synchronous caller that needs its own class sharing context or an audited opt-out
-should commit through `DML_Builder` instead.
+Runs the configured DML operation on the given records. The save always sets record sharing
+itself: sharing is enforced unless `requestSharingBypass()` was called. The save also applies the configured
+access mode again, without a new entry in the bypass audit. This is the same when you call this method
+directly in your own transaction as when it runs inside an async job. A caller that needs the sharing of its
+own class, or a recorded bypass, should save through `DML_Builder` instead.
 
 **Parameters**
 
@@ -145,11 +144,10 @@ PROC_ExecuteDML processor = new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DM
 global PROC_ExecuteDML(DML_Builder.DatabaseOperation operation, Boolean allOrNothing, AccessLevel accessLevel)
 ```
 
-Constructs a DML processor with an explicit `AccessLevel`. Use this overload when
-the async commit must pin a specific access mode regardless of the `UserModeDml_Enabled` flag —
-framework utilities that own their lifecycle pass `AccessLevel.SYSTEM_MODE`, and the
-`DML_Builder.async()` path passes the caller's chosen `AccessLevel` so subscriber `.withUserMode()`
-opt-ins survive the sync-to-async boundary.
+Constructs a DML processor with an explicit `AccessLevel`. Use this constructor when the
+async save must use one access mode, whatever the `UserModeDml_Enabled` flag says. Framework utilities that
+manage their own records pass `AccessLevel.SYSTEM_MODE`. `DML_Builder.async()` passes the access level the
+caller chose, so a subscriber's `.withUserMode()` still applies when the job runs later.
 
 **Parameters**
 

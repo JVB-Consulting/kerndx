@@ -1,0 +1,11 @@
+{
+  "aerVersion": "1.4.27",
+  "commit": "c6a6d743f4c146f2190cd7713107ebf9c6bc257f",
+  "release": "v1.8.0-11",
+  "measuredAt": "2026-10-13T00:49:54.703Z",
+  "permissionSet": "Administrator",
+  "total": 5213,
+  "passed": 5213,
+  "failures": [],
+  "durationSeconds": 79
+}

@@ -17,6 +17,9 @@ coverage/
 
 # Build + scratch outputs
 tmp/
+docs/reference.previous/
+.swap-staging/
+.swap-rollback/
 
 # Environment
 .env

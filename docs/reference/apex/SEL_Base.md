@@ -5,7 +5,7 @@ pageClass: reference
 description: "Abstract base class for all selectors. Provides lazy-loaded field management and IF_Queryable implementation. Subclasses define their SObjectType and core fields; the base class handles query builder "
 author: "Jason Van Beukering"
 group: "Selectors"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -60,6 +60,8 @@ global List<Account> findByIndustry(String industry)
 
 | Method | Description |
 |--------|-------------|
+| global virtual [UTIL_Cache.Scope](UTIL_Cache.Scope.md) [cacheScope](#cachescope)() | Where this selector's reads may be cached. |
+| global virtual [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [cacheTimeToLiveSeconds](#cachetimetoliveseconds)() | How long, in seconds, this selector's reads may be kept in Platform Cache. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [count](#count)() | Returns the count of all records matching the default query. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [exists](#exists)() | Returns true if any records match the default query. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [findByField](#findbyfield)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Finds records matching multiple values on a field. |
@@ -79,6 +81,59 @@ global List<Account> findByIndustry(String industry)
 | global virtual [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [systemModeRequired](#systemmoderequired)() | Declares whether this selector's queries must run in AccessLevel.SYSTEM_MODE regardless of the UserModeQueries_Enabled feature flag. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [toList](#tolist)() | Executes the default query and returns all matching records. |
 | global [Database.QueryLocator](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_batch.htm) [toQueryLocator](#toquerylocator)() | Returns a QueryLocator for the default query. |
+
+### cacheScope
+
+<div class="apex-member">
+
+```apex
+global virtual UTIL_Cache.Scope cacheScope()
+```
+
+Where this selector's reads may be cached. Override it to opt every read into caching;
+IN_TRANSACTION keeps results in memory for the current transaction only. The default caches nothing, unless
+cacheTimeToLiveSeconds() is overridden, in which case it is AUTO: the most durable storage that is safe for
+each read. User-mode reads are only ever kept for the current transaction. A system-mode selector caches only
+in methods that state their sharing with withSharing() or bypassSharing(). A method can change this for one
+query with query.withoutCache() or query.withCache(...). The scope and time-to-live are part of what this
+selector promises its callers about how old the rows may be.
+
+**Returns** [UTIL_Cache.Scope](UTIL_Cache.Scope.md) — The scope, or null for no caching
+
+**Example**
+
+```apex
+public override UTIL_Cache.Scope cacheScope()
+{
+    return UTIL_Cache.Scope.IN_TRANSACTION;
+}
+```
+
+</div>
+
+### cacheTimeToLiveSeconds
+
+<div class="apex-member">
+
+```apex
+global virtual Integer cacheTimeToLiveSeconds()
+```
+
+How long, in seconds, this selector's reads may be kept in Platform Cache. Ignored for reads
+kept in memory. Overriding only this method caches every read with the AUTO scope.
+
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — Seconds, or null for the default of 900 seconds when a scope is set
+
+**Example**
+
+```apex
+public override Integer cacheTimeToLiveSeconds()
+{
+    return 300;
+}
+```
+
+</div>
 
 ### count
 
@@ -640,8 +695,9 @@ Returns a new query builder pre-configured with this selector's SObjectType
 and all field sources. Each access creates a fresh builder instance to prevent state
 leaking between queries. When systemModeRequired() returns true, the builder has
 systemModeInternal() applied so framework-internal reads (CMDT, framework-owned
-sObjects) run in SYSTEM_MODE without polluting the BypassEvent audit trail —
+sObjects) run in SYSTEM_MODE without polluting the BypassEvent audit trail:
 a static systemModeRequired() design choice is not a runtime bypass. Selectors that
 leave systemModeRequired() at the default (false) inherit the UserModeQueries_Enabled
-flag-driven default.
+flag-driven default. When cacheScope() returns a scope, the builder also has
+withCache(cacheScope(), cacheTimeToLiveSeconds()) applied, so every read from this selector is cached.
 

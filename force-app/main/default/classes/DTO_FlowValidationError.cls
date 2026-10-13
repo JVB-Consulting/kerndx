@@ -14,7 +14,7 @@
  *
  * @group Data Transfer Objects
  *
- * @date January 2026, May 2026
+ * @date January 2026, August 2026
  *
  * @since 1.0
  *
@@ -41,7 +41,7 @@ global inherited sharing class DTO_FlowValidationError
 	 * String value = instance.ruleName;
 	 * ```
 	 */
-	@InvocableVariable(Label='Rule Name' Required=true)
+	@InvocableVariable(label='Rule Name' required=true)
 	global String ruleName;
 
 	/**
@@ -55,7 +55,7 @@ global inherited sharing class DTO_FlowValidationError
 	 * String value = instance.message;
 	 * ```
 	 */
-	@InvocableVariable(Label='Message' Required=true)
+	@InvocableVariable(label='Message' required=true)
 	global String message;
 
 	/**
@@ -70,13 +70,12 @@ global inherited sharing class DTO_FlowValidationError
 	 * String value = instance.fieldName;
 	 * ```
 	 */
-	@InvocableVariable(Label='Field Name')
+	@InvocableVariable(label='Field Name')
 	global String fieldName;
 
 	/**
 	 * @description The severity level of this validation result. Either 'Error' for blocking
-	 * validation failures or 'Warning' for non-blocking informational messages. Corresponds
-	 * to UTIL_ValidationRule.SEVERITY_ERROR and UTIL_ValidationRule.SEVERITY_WARNING constants.
+	 * validation failures or 'Warning' for non-blocking informational messages.
 	 *
 	 * @since 1.0
 	 *
@@ -85,7 +84,7 @@ global inherited sharing class DTO_FlowValidationError
 	 * String value = instance.severity;
 	 * ```
 	 */
-	@InvocableVariable(Label='Severity' Required=true)
+	@InvocableVariable(label='Severity' required=true)
 	global String severity;
 
 	/**
@@ -100,7 +99,7 @@ global inherited sharing class DTO_FlowValidationError
 	 * Integer value = instance.recordIndex;
 	 * ```
 	 */
-	@InvocableVariable(Label='Record Index')
+	@InvocableVariable(label='Record Index')
 	global Integer recordIndex;
 
 	/**
@@ -115,6 +114,6 @@ global inherited sharing class DTO_FlowValidationError
 	 * Boolean value = instance.isShadowMode;
 	 * ```
 	 */
-	@InvocableVariable(Label='Is Shadow Mode')
+	@InvocableVariable(label='Is Shadow Mode')
 	global Boolean isShadowMode;
 }

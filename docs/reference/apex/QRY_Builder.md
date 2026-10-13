@@ -5,7 +5,7 @@ pageClass: reference
 description: "Modern fluent query builder - the primary entry point for constructing and executing SOQL queries. Provides a clean, type-safe API for building queries with support for conditions, ordering, paginatio"
 author: "Jason Van Beukering"
 group: "Query Infrastructure"
-date: "February 2026, August 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class QRY_Builder
 ```
 
-Modern fluent query builder - the primary entry point for constructing and executing SOQL queries. Provides a clean, type-safe API for building queries with support for conditions, ordering, pagination, caching, and security enforcement. Design Principle: QRY_Builder is an adapter that delegates to the existing query infrastructure. This ensures backwards compatibility while providing a cleaner API surface for new development. 95% Use Case: Inline queries via QRY_Builder.selectFrom(...) 5% Use Case: Extend Builder for reusable custom selectors
+Modern fluent query builder - the primary entry point for constructing and executing SOQL queries. Provides a clean, type-safe API for building queries with support for conditions, ordering, pagination, caching, and security enforcement. Design Principle: QRY_Builder passes the work to the existing query classes (QRY_Generator and QRY_Engine). This keeps older code working while giving new code a cleaner set of methods. 95% Use Case: Inline queries via QRY_Builder.selectFrom(...) 5% Use Case: Extend Builder for reusable custom selectors
 
 **Example**
 
@@ -36,6 +36,8 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 // With caching
 Account account = (Account)QRY_Builder.selectFrom(Account.SObjectType)
     .condition(Account.Id).equals(accountId)
+    .withSystemMode()
+    .withSharing()
     .withCache(300)
     .getFirst();
 ```

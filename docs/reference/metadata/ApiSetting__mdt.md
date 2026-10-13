@@ -40,17 +40,17 @@ Configures outbound web service handlers with endpoint paths, retry behavior, ci
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ClassName__c](#classname__c) | The fully qualified name of the API handler class |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Direction__c](#direction__c) | Indicates whether this API setting applies to inbound requests or outbound calls. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [EndpointPath__c](#endpointpath__c) | Relative path for a service call; prefixed by the URL provided either by a Named Credential or the Endpoint URL field |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [IdempotencyEnabled__c](#idempotencyenabled__c) | Idempotency ensures that processing the same API request multiple times produces the same result as processing it once. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [IdempotencyEnabled__c](#idempotencyenabled__c) | Idempotency means that processing the same request twice has the same effect as processing it once. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [IsActive__c](#isactive__c) | Controls whether this API route is active. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [LogIssues__c](#logissues__c) | When enabled, failed API calls create an ApiIssue__c record for troubleshooting and triage. |
-| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [MaxRetryCount__c](#maxretrycount__c) | Maximum number of retry attempts for failed web service calls. |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [MaxRetryCount__c](#maxretrycount__c) | Maximum number of automatic retries for a failed call. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [MockingEnabled__c](#mockingenabled__c) | When enabled, the service returns mock responses from associated ApiMock__mdt records instead of executing real logic. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Priority__c](#priority__c) | Routing priority for this API setting. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [RequiredFeatureFlag__c](#requiredfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [RequiredFeatureFlag__r](#requiredfeatureflag__r) | Optional. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ResolveIssues__c](#resolveissues__c) | When enabled, allows manual resolution of API issues via the ApiIssue__c object. |
-| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [RetryBackoffSeconds__c](#retrybackoffseconds__c) | The number of seconds to wait between retry attempts when using linear backoff strategy. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [RetryIssues__c](#retryissues__c) | When enabled, allows automatic retry of API issues via batch processing. |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [RetryBackoffSeconds__c](#retrybackoffseconds__c) | The number of seconds to wait between retry attempts under the default linear backoff. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [RetryIssues__c](#retryissues__c) | Lets the Retry action on an API issue, and the bulk retry, run a failed call again. |
 
 ### ApiCredential__c
 
@@ -252,7 +252,7 @@ Relative path for a service call; prefixed by the URL provided either by a Named
 global Boolean IdempotencyEnabled__c
 ```
 
-Idempotency ensures that processing the same API request multiple times produces the same result as processing it once. When enabled: Inbound — the framework checks for a duplicate Idempotency-Key header and returns the cached response without re-execution. Outbound — a UUID key is auto-generated and sent as a header so the receiving system can detect retries.
+Idempotency means that processing the same request twice has the same effect as processing it once. Inbound: the framework checks for a duplicate Idempotency-Key header and returns the cached response without running the request again. Outbound: a key is built as a SHA-256 hash of the endpoint, the request parameters and the body, and sent as the Idempotency-Key header; a retry is safe only if the remote system honours that header, and two calls with identical endpoint, parameters and body share a key.
 
 **Field Attributes:**
 
@@ -297,7 +297,7 @@ When enabled, failed API calls create an ApiIssue__c record for troubleshooting 
 global Decimal MaxRetryCount__c
 ```
 
-Maximum number of retry attempts for failed web service calls. Set to 0 to disable retries. Works with Retry Backoff Seconds to control retry behavior.
+Maximum number of automatic retries for a failed call. Set to 0 to disable retries. A Retry Backoff of 0 also disables them, except while the circuit breaker is open: then the retry waits for the breaker's cool-off.
 
 **Field Attributes:**
 
@@ -394,7 +394,7 @@ When enabled, allows manual resolution of API issues via the ApiIssue__c object.
 global Decimal RetryBackoffSeconds__c
 ```
 
-The number of seconds to wait between retry attempts when using linear backoff strategy. Works with Max Retry Count to control retry timing.
+The number of seconds to wait between retry attempts under the default linear backoff. 0 means no automatic retry, except while the circuit breaker is open: then the retry waits for its cool-off. Works with Max Retry Count to control retry timing.
 
 **Field Attributes:**
 
@@ -411,7 +411,7 @@ The number of seconds to wait between retry attempts when using linear backoff s
 global Boolean RetryIssues__c
 ```
 
-When enabled, allows automatic retry of API issues via batch processing.
+Lets the Retry action on an API issue, and the bulk retry, run a failed call again. This is not the automatic retry: that is governed by Max Retry Count and Retry Backoff. A re-run sends the request again.
 
 **Field Attributes:**
 

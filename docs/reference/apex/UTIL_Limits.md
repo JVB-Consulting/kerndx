@@ -5,7 +5,7 @@ pageClass: reference
 description: "Fluent interface for inspecting Salesforce governor limits. Provides named factory methods per limit type for IDE discoverability and a LimitCheck builder for threshold and exhaustion checks."
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "April 2026, May 2026"
+date: "April 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -39,11 +39,16 @@ UTIL_Limits.cpuTime().remaining();
 | Method | Description |
 |--------|-------------|
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [aggregateQueries](#aggregatequeries)() | Returns a LimitCheck for aggregate queries. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [apexCursorRows](#apexcursorrows)() | Returns a LimitCheck for rows returned by Apex cursors. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [apexCursors](#apexcursors)() | Returns a LimitCheck for Apex cursors created. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [apexPaginationCursorRows](#apexpaginationcursorrows)() | Returns a LimitCheck for rows returned by Apex pagination cursors. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [apexPaginationCursors](#apexpaginationcursors)() | Returns a LimitCheck for Apex pagination cursors created. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [callouts](#callouts)() | Returns a LimitCheck for HTTP callouts. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [cpuTime](#cputime)() | Returns a LimitCheck for CPU time (milliseconds). |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [dmlRows](#dmlrows)() | Returns a LimitCheck for DML rows. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [dmlStatements](#dmlstatements)() | Returns a LimitCheck for DML statements. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [emailInvocations](#emailinvocations)() | Returns a LimitCheck for email invocations. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [fetchCallsOnApexCursor](#fetchcallsonapexcursor)() | Returns a LimitCheck for fetch calls made on Apex cursors. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [futureCalls](#futurecalls)() | Returns a LimitCheck for future calls. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [heapSize](#heapsize)() | Returns a LimitCheck for heap size (bytes). |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [mobilePushApexCalls](#mobilepushapexcalls)() | Returns a LimitCheck for mobile push Apex calls. |
@@ -67,6 +72,64 @@ global static UTIL_Limits.LimitCheck aggregateQueries()
 Returns a LimitCheck for aggregate queries.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to aggregate queries
+
+</div>
+
+### apexCursorRows
+
+<div class="apex-member">
+
+```apex
+global static UTIL_Limits.LimitCheck apexCursorRows()
+```
+
+Returns a LimitCheck for rows returned by Apex cursors.
+
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to Apex cursor rows
+
+</div>
+
+### apexCursors
+
+<div class="apex-member">
+
+```apex
+global static UTIL_Limits.LimitCheck apexCursors()
+```
+
+Returns a LimitCheck for Apex cursors created. The platform counts cursor creation
+over a trailing 24-hour period, unlike the transaction-scoped limits in this class.
+
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to Apex cursors
+
+</div>
+
+### apexPaginationCursorRows
+
+<div class="apex-member">
+
+```apex
+global static UTIL_Limits.LimitCheck apexPaginationCursorRows()
+```
+
+Returns a LimitCheck for rows returned by Apex pagination cursors.
+
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to Apex pagination cursor rows
+
+</div>
+
+### apexPaginationCursors
+
+<div class="apex-member">
+
+```apex
+global static UTIL_Limits.LimitCheck apexPaginationCursors()
+```
+
+Returns a LimitCheck for Apex pagination cursors created. The platform counts cursor
+creation over a trailing 24-hour period, unlike the transaction-scoped limits in this class.
+
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to Apex pagination cursors
 
 </div>
 
@@ -137,6 +200,20 @@ global static UTIL_Limits.LimitCheck emailInvocations()
 Returns a LimitCheck for email invocations.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to email invocations
+
+</div>
+
+### fetchCallsOnApexCursor
+
+<div class="apex-member">
+
+```apex
+global static UTIL_Limits.LimitCheck fetchCallsOnApexCursor()
+```
+
+Returns a LimitCheck for fetch calls made on Apex cursors.
+
+**Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to Apex cursor fetch calls
 
 </div>
 

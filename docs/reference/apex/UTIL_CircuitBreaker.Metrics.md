@@ -32,7 +32,7 @@ Public class containing circuit breaker metrics
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [failureCount](#failurecount) | Current failure count |
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [lastFailureTime](#lastfailuretime) | Time of last failure |
 | global [UTIL_CircuitBreaker.State](UTIL_CircuitBreaker.State.md) [state](#state) | Current state of the circuit |
-| global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [stateChangedTime](#statechangedtime) | Time when state last changed |
+| global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [stateChangedTime](#statechangedtime) | Time when the state last changed. |
 
 ### circuitId
 
@@ -122,7 +122,8 @@ global Datetime stateChangedTime
 
 **Type:** [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm)
 
-Time when state last changed
+Time when the state last changed. While the circuit is HALF_OPEN it is the time the current round of
+trial requests began.
 
 **Example**
 

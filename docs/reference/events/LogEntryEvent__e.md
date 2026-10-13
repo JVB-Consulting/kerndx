@@ -39,9 +39,12 @@ High-volume platform event that transports log data asynchronously. Persisted to
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [LineNumber__c](#linenumber__c) | Source code line number in the Apex class where the exception occurred. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [LogLevel__c](#loglevel__c) | Severity level of this log entry: DEBUG, INFO, WARN, or ERROR. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Message__c](#message__c) | Full log message content. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Origin__c](#origin__c) | Who wrote this entry: FRAMEWORK, APEX, FLOW or COMPONENT. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ParentTransactionId__c](#parenttransactionid__c) | Transaction ID of the parent process that spawned this execution context. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RecordId__c](#recordid__c) | Salesforce record ID associated with this log entry, if applicable. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RootCorrelationId__c](#rootcorrelationid__c) | The tracking id of the action that started everything this entry belongs to. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ShortMessage__c](#shortmessage__c) | Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Source__c](#source__c) | The class, Flow or component that wrote this entry, without the namespace or the method name. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [StackTrace__c](#stacktrace__c) | Apex execution stack trace captured at the time the event was logged. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TransactionId__c](#transactionid__c) | Salesforce Request ID for the transaction that produced this log entry. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [UserId__c](#userid__c) | Salesforce User ID of the user whose execution context produced this log entry. |
@@ -224,6 +227,23 @@ Full log message content. May contain exception details, stack traces, or diagno
 |-----------|-------|
 | Data Type | Long Text Area(131072) |
 
+### Origin__c
+
+```apex
+global String Origin__c
+```
+
+Who wrote this entry: FRAMEWORK, APEX, FLOW or COMPONENT. Copied to the log entry's Origin picklist.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(20) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+
 ### ParentTransactionId__c
 
 ```apex
@@ -258,6 +278,23 @@ Salesforce record ID associated with this log entry, if applicable.
 | Unique | false |
 | External ID | false |
 
+### RootCorrelationId__c
+
+```apex
+global String RootCorrelationId__c
+```
+
+The tracking id of the action that started everything this entry belongs to. Equal to the correlation id until a background chain continues the action under a tracking id of its own.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(36) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+
 ### ShortMessage__c
 
 ```apex
@@ -271,6 +308,23 @@ Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses.
 | Attribute | Value |
 |-----------|-------|
 | Data Type | Text(255) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+
+### Source__c
+
+```apex
+global String Source__c
+```
+
+The class, Flow or component that wrote this entry, without the namespace or the method name.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(100) |
 | Required | false |
 | Unique | false |
 | External ID | false |

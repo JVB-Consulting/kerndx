@@ -12,6 +12,7 @@
  *
  * @date June 2026
  */
+@SuppressWarnings('PMD.ApexCRUDViolation')
 global with sharing class TST_PostActionDml implements kern.IF_Trigger.PostAction
 {
 	/**

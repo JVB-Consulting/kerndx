@@ -5,7 +5,7 @@ pageClass: reference
 description: "SVC_Omnistudio is a factory class that implements the Callable interface and is designed to instantiate and execute operations on specific classes based on a provided class name. It is mainly used wit"
 author: "Jason Van Beukering"
 group: "Omnistudio"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Factory for retry strategies with nested interface definitions. Provides a clean API for creating and configuring retry strategies with exponential or linear backoff. This factory pattern reduces name"
 author: "Jason Van Beukering"
 group: "Resilience"
-date: "December 2025, May 2026"
+date: "December 2025, October 2026"
 since: "1.0"
 category: apex
 ---

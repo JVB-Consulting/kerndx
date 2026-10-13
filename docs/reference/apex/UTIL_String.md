@@ -5,7 +5,7 @@ pageClass: reference
 description: "Various string manipulation utilities"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, May 2026"
+date: "February 2026, August 2026"
 since: "1.0"
 category: apex
 ---
@@ -44,6 +44,7 @@ String replaced = UTIL_String.replace('Hello World', 'World', 'Apex');
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [abbreviate](#abbreviate)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) input, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Abbreviates a String to fit within the maximum length of the specified SObjectField. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [join](#join)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> objectArray, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separator) | Joins the elements of the provided array into a single String containing the provided list of elements. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [join](#join)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> stringSet, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separator) | Joins the elements of the provided array into a single String containing the provided list of elements. |
+| global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [joinSorted](#joinsorted)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> values, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) separator) | Joins the elements of the provided `Set` into a single String in ascending order, so a message or log line that lists the members of a set reads th... |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [maskString](#maskstring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sensitiveString) | Will mask the given string |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [maskString](#maskstring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sensitiveString, [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) percentageOfStringToBeMasked) | Will mask the given string |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [maskString](#maskstring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sensitiveString, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) maskCharacter, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) minimumStringLength, [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) percentageOfStringToBeMasked) | Masks a string |
@@ -180,7 +181,7 @@ Automatically derives the field length from the field's describe metadata.
 **Example**
 
 ```apex
-String shortened = UTIL_String.abbreviateToField(longMessage, LogEntry__c.Message__c);
+String shortened = UTIL_String.abbreviate(longMessage, LogEntry__c.Message__c);
 ```
 
 </div>
@@ -248,6 +249,43 @@ A `null` separator is the same as an empty String ("").
 ```apex
 String result = UTIL_String.join(new Set<String>{'a', 'b'}, ',');
 ```
+
+</div>
+
+### joinSorted
+
+<div class="apex-member">
+
+```apex
+global static String joinSorted(Set<String> values, String separator)
+```
+
+Joins the elements of the provided `Set` into a single String in
+ascending order, so a message or log line that lists the members of a set reads the same
+on every run.
+
+A Set has no documented iteration order, so `join(Set<String>, String)` renders
+whatever order the platform hands back; use this method wherever the rendering must be
+stable, for example a validation message that names every offending value. A `null`
+separator is the same as an empty String ("").
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `values` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | the Set of values to join together, may be null |
+| `separator` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | the separator character to use, null treated as "" |
+
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — the joined String in ascending order, `null` if null set input
+
+**Example**
+
+```apex
+UTIL_String.joinSorted(new Set<String> {'pear', 'apple', 'fig'}, ', ');   // returns 'apple, fig, pear'
+UTIL_String.joinSorted(null, ', ');                                       // returns null
+```
+
+**See Also** [UTIL_String.join](#join)
 
 </div>
 

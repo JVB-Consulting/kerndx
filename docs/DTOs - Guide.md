@@ -207,7 +207,7 @@ DML_Builder.newTransaction().doInsert(account).execute();
 Most of the time you want a JSON DTO for an API integration or a Lightning component response. Here is the shortest path from nothing to a working DTO:
 
 ```apex
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_OrderSummary extends DTO_JsonBase
 {
 	@AuraEnabled public String orderId;
@@ -224,7 +224,7 @@ String json = summary.serialize();
 DTO_OrderSummary parsed = (DTO_OrderSummary)new DTO_OrderSummary().deserialize(json);
 ```
 
-> **When KernDX is installed as a managed package:** Always include `@JsonAccess(Serializable='always' Deserializable='always')` on every DTO that extends a managed package base class. Without it, serialization fails at runtime. See [Type Resolution](#type-resolution-critical-requirement-in-your-org) for the other requirement.
+> **When KernDX is installed as a managed package:** Always include `@JsonAccess(serializable='always' deserializable='always')` on every DTO that extends a managed package base class. Without it, serialization fails at runtime. See [Type Resolution](#type-resolution-critical-requirement-in-your-org) for the other requirement.
 
 For deeper coverage, continue reading the sections below.
 
@@ -441,7 +441,7 @@ For `global` or `public` classes you can skip this override, because the framewo
 @SuppressWarnings('PMD.AvoidGlobalModifier')
 global inherited sharing class FLOW_SendEmailWithMergeFields
 {
-	@InvocableMethod(Category='Email' Label='Send Email with Merge Fields' Description='Sends an email using merge field values.')
+	@InvocableMethod(category='Email' label='Send Email with Merge Fields' description='Sends an email using merge field values.')
 	global static void execute(List<DTO_Request> requests)
 	{
 		if(requests == null || requests.size() != 1)
@@ -458,10 +458,10 @@ global inherited sharing class FLOW_SendEmailWithMergeFields
 
 	global inherited sharing class DTO_Request
 	{
-		@InvocableVariable(Label='Template Name' Description='The email template name' Required=true)
+		@InvocableVariable(label='Template Name' description='The email template name' required=true)
 		global String templateName;
 
-		@InvocableVariable(Label='Merge Fields' Description='Name-value pairs for merge fields')
+		@InvocableVariable(label='Merge Fields' description='Name-value pairs for merge fields')
 		global List<DTO_NameValue> mergeFields;
 	}
 }
@@ -673,7 +673,7 @@ public class DTO_AccountRow
 ```javascript
 // accountTable.js
 import { wire } from 'lwc';
-import { ComponentBuilder } from 'c/componentBuilder';
+import { ComponentBuilder } from 'kern/componentBuilder';
 import getAccountTable from '@salesforce/apex/AccountController.getAccountTable';
 
 export default class AccountTable extends ComponentBuilder('controller')
@@ -727,7 +727,7 @@ export default class AccountTable extends ComponentBuilder('controller')
 /**
  * @description Get picklist values for Flow
  */
-@InvocableMethod(Label='Get Picklist Values' Description='Returns picklist values for a field')
+@InvocableMethod(label='Get Picklist Values' description='Returns picklist values for a field')
 public static List<DTO_PickList> getPicklistValues(List<Request> requests)
 {
 	List<DTO_PickList> results = new List<DTO_PickList>();
@@ -766,10 +766,10 @@ public static List<DTO_PickList> getPicklistValues(List<Request> requests)
 
 public class Request
 {
-	@InvocableVariable(Required=true)
+	@InvocableVariable(required=true)
 	public String objectName;
 
-	@InvocableVariable(Required=true)
+	@InvocableVariable(required=true)
 	public String fieldName;
 }
 ```
@@ -816,7 +816,7 @@ You want your DTO to serialize and deserialize without failing at runtime. To ge
 
 ```apex
 // CORRECT: @JsonAccess annotation required for managed package DTOs
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_CustomerOrder extends DTO_JsonBase
 {
 	// ...
@@ -903,23 +903,7 @@ global with sharing class CustomDTOTypeResolver extends kern.UTIL_TypeResolver.B
 	 */
 	private static Type getTypeForClassName(String className)
 	{
-		Type classType;
-
-		if(String.isNotBlank(className))
-		{
-			String namespace = kern.UTIL_System.getNamespacePrefix(
-				kern.UTIL_System.getClassNamespace(className),
-				'.'
-			);
-
-			classType = Type.forName(namespace, className);
-			// Retry without namespace for nested classes (e.g., MyParentClass.MyChildClass)
-			classType = classType == null && String.isNotBlank(namespace)
-				? Type.forName('', className)
-				: classType;
-		}
-
-		return classType;
+		return String.isBlank(className) ? null : Type.forName(className);
 	}
 }
 ```
@@ -936,7 +920,7 @@ Create a [`ClassTypeResolver__mdt`](reference/metadata/ClassTypeResolver__mdt.md
 
 ```apex
 // WITH Type Resolver: No getObjectType() override needed!
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_CustomerOrder extends DTO_JsonBase
 {
 	@AuraEnabled
@@ -949,7 +933,7 @@ public class DTO_CustomerOrder extends DTO_JsonBase
 }
 
 // WITHOUT Type Resolver: Must override in every DTO
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_CustomerOrder extends DTO_JsonBase
 {
 	@AuraEnabled
@@ -984,7 +968,7 @@ public class DTO_CustomerOrder extends DTO_JsonBase
  *
  * IMPORTANT: @JsonAccess required because this extends managed package class DTO_JsonBase
  */
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_CustomerOrder extends DTO_JsonBase
 {
 	@AuraEnabled
@@ -1039,7 +1023,7 @@ public class DTO_CustomerOrder extends DTO_JsonBase
  *
  * NOTE: getObjectType() override optional if custom type resolver registered in ClassTypeResolver__mdt
  */
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_Address extends DTO_JsonBase
 {
 	@AuraEnabled
@@ -1067,7 +1051,7 @@ public class DTO_Address extends DTO_JsonBase
  *
  * NOTE: getObjectType() override optional if custom type resolver registered in ClassTypeResolver__mdt
  */
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_OrderItem extends DTO_JsonBase
 {
 	@AuraEnabled
@@ -1150,7 +1134,7 @@ Sometimes you have a record ID and want a DTO filled in from that record's data.
 /**
  * @description Account DTO with populate implementation
  */
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_Account extends DTO_JsonBase
 {
 	public String accountName;
@@ -1468,7 +1452,7 @@ When you build a REST endpoint, DTOs give you a clear contract for the request y
 /**
  * @description REST endpoint for order management
  */
-@RestResource(UrlMapping='/v1/orders/*')
+@RestResource(urlMapping='/v1/orders/*')
 global inherited sharing class REST_Orders
 {
 	@HttpPost
@@ -1528,7 +1512,7 @@ public with sharing class API_CreateOrder extends API_Inbound
 		}
 	}
 
-	@JsonAccess(Deserializable='always')
+	@JsonAccess(deserializable='always')
 	public class DTO_Request extends DTO_JsonBase
 	{
 		/**
@@ -1547,7 +1531,7 @@ public with sharing class API_CreateOrder extends API_Inbound
 		public Decimal totalAmount;
 	}
 
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	public class DTO_Response extends DTO_JsonBase
 	{
 		/**
@@ -1583,7 +1567,7 @@ public with sharing class CustomerDashboardController
 	/**
 	 * @description Get customer summary data
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static String getCustomerSummary(Id customerId)
 	{
 		Account customer = (Account)new SEL_Accounts().findById(customerId);
@@ -1601,7 +1585,7 @@ public with sharing class CustomerDashboardController
 /**
  * @description Customer summary DTO
  */
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_CustomerSummary extends DTO_JsonBase
 {
 	@AuraEnabled
@@ -1627,7 +1611,7 @@ public class DTO_CustomerSummary extends DTO_JsonBase
 
 ```javascript
 import { api, wire } from 'lwc';
-import { ComponentBuilder } from 'c/componentBuilder';
+import { ComponentBuilder } from 'kern/componentBuilder';
 import getCustomerSummary from '@salesforce/apex/CustomerDashboardController.getCustomerSummary';
 
 export default class CustomerDashboard extends ComponentBuilder('controller')
@@ -1686,7 +1670,7 @@ When an admin calls your Apex from a flow, DTOs let you accept and return struct
 @SuppressWarnings('PMD.AvoidGlobalModifier')
 global inherited sharing class FLOW_SendCustomEmail
 {
-	@InvocableMethod(Category='Email' Label='Send Custom Email' Description='Sends an email with dynamic merge fields.')
+	@InvocableMethod(category='Email' label='Send Custom Email' description='Sends an email with dynamic merge fields.')
 	global static List<DTO_Response> execute(List<DTO_Request> requests)
 	{
 		if(requests == null || requests.size() != 1)
@@ -1729,25 +1713,25 @@ global inherited sharing class FLOW_SendCustomEmail
 
 	global inherited sharing class DTO_Request
 	{
-		@InvocableVariable(Label='Recipient Email' Description='The email address to send to' Required=true)
+		@InvocableVariable(label='Recipient Email' description='The email address to send to' required=true)
 		global String recipientEmail;
 
-		@InvocableVariable(Label='Subject' Description='The email subject line' Required=true)
+		@InvocableVariable(label='Subject' description='The email subject line' required=true)
 		global String subject;
 
-		@InvocableVariable(Label='Template Body' Description='The email body template with merge field placeholders' Required=true)
+		@InvocableVariable(label='Template Body' description='The email body template with merge field placeholders' required=true)
 		global String templateBody;
 
-		@InvocableVariable(Label='Merge Fields' Description='Name-value pairs for template merge fields')
+		@InvocableVariable(label='Merge Fields' description='Name-value pairs for template merge fields')
 		global List<DTO_NameValue> mergeFields;
 	}
 
 	global inherited sharing class DTO_Response
 	{
-		@InvocableVariable(Label='Success' Description='Whether the email was sent successfully')
+		@InvocableVariable(label='Success' description='Whether the email was sent successfully')
 		global Boolean success;
 
-		@InvocableVariable(Label='Message' Description='Status or error message')
+		@InvocableVariable(label='Message' description='Status or error message')
 		global String message;
 	}
 }
@@ -1828,7 +1812,7 @@ These are the common mistakes that bite people when working with DTOs, what goes
 
 | Anti-Pattern                                                  | Why It's Wrong                                                                                                                     | Instead                                                                                                                                                   |
 |---------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Missing `@JsonAccess` on DTOs in subscriber orgs              | Serialization fails at runtime with a security error in managed package context                                                    | Always add `@JsonAccess(Serializable='always' Deserializable='always')` on every DTO extending a framework base class                                     |
+| Missing `@JsonAccess` on DTOs in subscriber orgs              | Serialization fails at runtime with a security error in managed package context                                                    | Always add `@JsonAccess(serializable='always' deserializable='always')` on every DTO extending a framework base class                                     |
 | Business logic inside `populate()`                            | Makes the DTO untestable in isolation and violates single responsibility                                                           | Keep `populate()` limited to data mapping; move logic to service classes or trigger actions                                                               |
 | Skipping type resolver registration in subscriber orgs        | Deserialization fails with `TypeException` because the managed package cannot resolve subscriber class names                       | Register a `ClassTypeResolver__mdt` record or implement a custom `UTIL_TypeResolver`                                                                      |
 | Using raw `Map<String, Object>` instead of typed DTOs         | No compile-time safety, hard to refactor, error-prone key access                                                                   | Create a DTO class extending `DTO_JsonBase` for structured data                                                                                           |
@@ -1996,7 +1980,7 @@ System.JSONException: Type cannot be deserialized as it is not globally visible 
 ```
 
 **Solution:**
-Add `@JsonAccess(Serializable='always' Deserializable='always')` to your DTO class. See the full WRONG/CORRECT example in
+Add `@JsonAccess(serializable='always' deserializable='always')` to your DTO class. See the full WRONG/CORRECT example in
 [Type Resolution: CRITICAL Requirement in Your Org](#type-resolution-critical-requirement-in-your-org).
 
 **Why this is required:**

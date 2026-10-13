@@ -5,7 +5,7 @@ pageClass: reference
 description: "An advanced factory for creating and inserting SObject records for Apex tests. This class provides a flexible way to generate test data, automatically handling required fields and complex object relat"
 author: "Jason Van Beukering"
 group: "Testing"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -22,7 +22,7 @@ global inherited sharing class TST_Builder
 
 **Known Derived Types:** [UTIL_SObjectBuilderDefaultProvider](UTIL_SObjectBuilderDefaultProvider.md)
 
-An advanced factory for creating and inserting SObject records for Apex tests. This class provides a flexible way to generate test data, automatically handling required fields and complex object relationships using a fluid builder pattern.
+An advanced factory for creating and inserting SObject records for Apex tests. This class provides a flexible way to generate test data, automatically handling required fields and complex object relationships. You set it up by chaining method calls (a fluent builder).
 
 **Example**
 
@@ -150,7 +150,7 @@ Fields added to this list will not be automatically populated with default value
 
 | Class | Description |
 |-------|-------------|
-| [Builder](TST_Builder.Builder.md) | A fluid builder for configuring and creating SObject records. |
+| [Builder](TST_Builder.Builder.md) | A fluent builder for configuring and creating SObject records: you set it up by chaining method calls. |
 | [DefaultFieldValueProvider](TST_Builder.DefaultFieldValueProvider.md) | Base class for field-level default value providers. |
 | [DefaultValueProvider](TST_Builder.DefaultValueProvider.md) | Base class for default value providers. |
 

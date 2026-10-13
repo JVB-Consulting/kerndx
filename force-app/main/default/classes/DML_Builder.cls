@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Fluent DML API for building and executing database operations. Uses a static factory
- * entry point to create a transaction context, fluent methods to register operations and configure
- * behaviour, and a terminal method to commit all operations via DML_Transaction.
+ * @description Fluent DML API for building and running database operations: you set it up by chaining
+ * method calls. A static method, newTransaction(), starts a transaction. Chained methods add operations and
+ * change how they run. A final method, execute(), saves all operations through DML_Transaction.
  *
  * @see DML_Builder_TEST
  * @see DML_Transaction
@@ -11,7 +11,7 @@
  *
  * @group DML
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -62,17 +62,30 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
-	 * @description Class and method name for logging.
+	 * @description Message of the IllegalArgumentException a null expectRefusal() argument raises.
 	 */
-	@TestVisible
-	private static final String CLASS_METHOD_EXECUTE = DML_Builder.class.getName() + '.execute';
+	private static final String ERROR_EXPECTED_REFUSAL_STATUS_CODE_REQUIRED = 'expectRefusal() requires a status code';
 
 	/**
-	 * @description Test-only override for the per-transaction DML row guard. When non-null,
-	 * `execute()` uses this value instead of `UTIL_Limits.dmlRows().maximum()` so a unit test
-	 * can drive the over-limit branch with a handful of records (10,001 real records is
-	 * prohibitively slow and would burn the synchronous CPU governor before the guard fires).
-	 * Production code paths leave this `null`.
+	 * @description The retries withRetryOnLock() applies when no count is given.
+	 */
+	private static final Integer DEFAULT_RETRIES_ON_LOCK = 1;
+
+	/**
+	 * @description The most retries withRetryOnLock(retries) accepts: each contended attempt can wait about ten seconds.
+	 */
+	private static final Integer MAXIMUM_RETRIES_ON_LOCK = 5;
+
+	/**
+	 * @description Message of the IllegalArgumentException withRetryOnLock raises for a count outside its range.
+	 */
+	private static final String ERROR_RETRIES_ON_LOCK_OUT_OF_RANGE = 'withRetryOnLock accepts 1 to ' + MAXIMUM_RETRIES_ON_LOCK + ' retries.';
+
+	/**
+	 * @description A test-only value for the check on how many DML rows one transaction may save. When it is not
+	 * null, `execute()` uses it instead of `UTIL_Limits.dmlRows().maximum()`. This lets a unit test reach the
+	 * over-the-limit case with a few records. Saving 10,001 real records would be far too slow, and would use up the
+	 * CPU time limit before the check runs. Production code leaves this `null`.
 	 */
 	@TestVisible
 	private static Integer maxDmlRowsForTest = null;
@@ -95,10 +108,10 @@ global inherited sharing class DML_Builder
 	private Boolean isBypassSharing = false;
 
 	/**
-	 * @description Framework-internal explicit sharing selection. Null for every synchronous
-	 * caller — `execute()` then derives INHERITED/BYPASS from `isBypassSharing` exactly as it
-	 * always has. `PROC_ExecuteDML` sets it on the async leg, where the job's `without sharing`
-	 * frame makes INHERITED unsafe to derive.
+	 * @description A record sharing choice that only the framework sets. It is null whenever the save runs in the
+	 * caller's own transaction, and `execute()` then picks inherited sharing or no sharing from `isBypassSharing`.
+	 * `PROC_ExecuteDML` sets it inside an async job. The job itself runs `without sharing`, so inherited sharing
+	 * would not be safe there.
 	 */
 	private Boolean sharingEnforcementOverride;
 
@@ -109,9 +122,15 @@ global inherited sharing class DML_Builder
 	private Boolean isSuppressLogging = false;
 
 	/**
-	 * @description Explicit access level for DML operations. Null means "use the flag-driven default"
-	 * (`UserModeDml_Enabled`). Subscriber-reachable transactions inherit the default; framework
-	 * internals opt out via `.withSystemMode()`.
+	 * @description Status codes the caller declared as expected refusals through expectRefusal().
+	 */
+	@TestVisible
+	private Set<StatusCode> expectedRefusalStatusCodes = new Set<StatusCode>();
+
+	/**
+	 * @description Explicit access level for DML operations. Null means "use the default that the
+	 * `UserModeDml_Enabled` flag sets". Transactions a subscriber can start use the default; framework code
+	 * chooses system mode with `.withSystemMode()`.
 	 */
 	@TestVisible
 	private AccessLevel accessLevel;
@@ -123,13 +142,17 @@ global inherited sharing class DML_Builder
 	private Boolean isSuppressExceptions = false;
 
 	/**
-	 * @description Setter-time bypass-audit queue keyed to the DML surface. Setter calls
-	 * (`bypassSharing` / `withSystemMode`) enqueue their target via `auditQueue.queue(...)`;
-	 * both terminals (`execute()` / `async()`) record the registered operations' footprints
-	 * via `recordOperationFootprints()` — the step that produces the object-qualified targets
-	 * — then call `auditQueue.flush()`, so a builder dropped before execution emits nothing.
-	 * Lazy-initialised so the secure-by-default execution path (no bypass setters called)
-	 * does not allocate the queue.
+	 * @description How many times a commit refused for a row lock is tried again; null means the commit runs once.
+	 */
+	private Integer retriesOnLock;
+
+	/**
+	 * @description The bypass audit entries this builder will write for DML. The bypass audit records each time
+	 * code skips the user's access checks. `bypassSharing` and `withSystemMode` add their entry to the queue with
+	 * `auditQueue.queue(...)` when they are called. The two final methods, `execute()` and `async()`, first call
+	 * `recordOperationFootprints()`, which adds the object and the operation of each registered save. They then
+	 * call `auditQueue.flush()`. So a builder that is dropped before it runs writes nothing. The queue is created
+	 * the first time it is used: when a bypass method is called, or when the builder runs.
 	 */
 	@TestVisible
 	private final UTIL_BypassAudit.AuditQueue auditQueue
@@ -513,19 +536,42 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
-	 * @description Framework-internal explicit sharing selection for the async leg. When set,
-	 * `execute()` passes this value to `DML_Transaction.commitWork` instead of deriving
-	 * INHERITED/BYPASS from the bypass flag. An async job's `inherited sharing` classes resolve
-	 * against the processor's `without sharing` frame, so the rebuilt builder must pin ENFORCE or
-	 * BYPASS explicitly — INHERITED must never cross the hand-off. Not audited: the subscriber's
-	 * opt-out, if any, was audited by `bypassSharing()` on the synchronous side. Synchronous
-	 * callers never set this; their INHERITED derivation is unchanged.
+	 * @description The framework's own version of `bypassSharing()`. It ignores record sharing for this save but adds no
+	 * `BypassEvent` entry to the bypass audit. It is the save-side twin of `QRY_Builder.Builder.bypassSharingInternal()`.
+	 * Only the framework's own saves that must reach every user's records use it, for example resolving the framework's
+	 * own record of a failed request (an `ApiIssue__c`) whoever made the request. No subscriber is skipping a check in
+	 * these saves, so they must not fill the audit trail. It is public, not global, so subscribers cannot call it.
+	 * Application code that really needs to ignore sharing must call `bypassSharing()`, so the choice is audited.
+	 *
+	 * @return This builder instance for fluent chaining.
+	 *
+	 * @example
+	 * ```apex
+	 * DML_Builder.newTransaction()
+	 *     .systemModeInternal()
+	 *     .bypassSharingInternal()
+	 *     .doUpdate(issues)
+	 *     .execute();
+	 * ```
+	 */
+	public DML_Builder bypassSharingInternal()
+	{
+		isBypassSharing = true;
+		return this;
+	}
+
+	/**
+	 * @description Sets record sharing explicitly for a save inside an async job. Only the framework calls this.
+	 * When it is set, `execute()` passes this value to `DML_Transaction.commitWork`, instead of choosing inherited
+	 * sharing or no sharing from the bypass flag. Inside an async job, a class with `inherited sharing` takes its
+	 * sharing from the job, which runs `without sharing`. So the builder made inside the job must set ENFORCE or
+	 * BYPASS itself, and must never use INHERITED there. This call writes no bypass audit entry. If the subscriber
+	 * chose to ignore sharing, `bypassSharing()` already recorded that before the job was queued. Code that saves
+	 * in its own transaction never calls this, so it still gets inherited sharing by default.
 	 *
 	 * @param enforceSharing True to enforce record sharing, false to bypass it.
 	 *
 	 * @return This builder instance for fluent chaining.
-	 *
-	 * @since 1.7
 	 */
 	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 	public DML_Builder withSharingEnforcement(Boolean enforceSharing)
@@ -536,8 +582,8 @@ global inherited sharing class DML_Builder
 
 	/**
 	 * @description Forces `AccessLevel.USER_MODE` on every DML operation in this transaction,
-	 * regardless of the `UserModeDml_Enabled` feature flag. Use when a subscriber-facing flow
-	 * must enforce CRUD/FLS even in orgs where the flag has been disabled as a kill-switch.
+	 * whatever the `UserModeDml_Enabled` feature flag says. Use it when a flow that serves your users must check
+	 * object and field access (CRUD/FLS), even in orgs where an admin has turned the flag off.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -559,8 +605,9 @@ global inherited sharing class DML_Builder
 
 	/**
 	 * @description Forces `AccessLevel.SYSTEM_MODE` on every DML operation in this transaction.
-	 * Use when the framework writes objects the running user has no FLS/CRUD on by design
-	 * (logs, orchestration records, framework-owned sObjects).
+	 * Use it when code must write objects that the running user is not meant to have object or field access
+	 * (CRUD/FLS) to, such as logs, records that track background work, or other objects the framework owns.
+	 * The choice is recorded in the bypass audit when the save runs.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -582,15 +629,14 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
-	 * @description Framework-internal sibling of `withSystemMode()` that sets `AccessLevel.SYSTEM_MODE`
-	 * without enqueuing a `BypassEvent` audit entry. Use from framework triggers and operational code
-	 * that persists the framework's own data (e.g., `TRG_PersistLogEntry` writing `LogEntry__c` rows
-	 * after `LogEntryEvent__e` delivery) where SYSTEM_MODE is structurally required and the write is
-	 * not a subscriber-facing bypass — auditing it would (a) pollute the forensic trail with framework
-	 * machinery noise, and (b) create an emit→deliver→persist→emit cascade that has no fixpoint
-	 * (every audit emission produces a new `LogEntryEvent__e` whose persistence emits another audit).
-	 * Public-but-not-global so subscribers cannot bind to it; subscriber DML that legitimately opts
-	 * out of USER_MODE must call `withSystemMode()` so the opt-out is audited.
+	 * @description The framework's own version of `withSystemMode()`. It sets `AccessLevel.SYSTEM_MODE` but adds
+	 * no `BypassEvent` entry to the bypass audit. Framework triggers and framework code use it to save the
+	 * framework's own data, where system mode is always needed and no subscriber is skipping a check. An example is
+	 * `TRG_PersistLogEntry`, which saves `LogEntry__c` rows after a `LogEntryEvent__e` arrives. Auditing these
+	 * saves would cause two problems. First, the audit trail would fill with the framework's own routine work.
+	 * Second, it would never stop: each audit entry publishes a new `LogEntryEvent__e`, and saving that event
+	 * would write another audit entry. The method is public, not global, so subscribers cannot call it. Subscriber
+	 * code that really needs system mode must call `withSystemMode()`, so the choice is audited.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -610,8 +656,8 @@ global inherited sharing class DML_Builder
 
 	/**
 	 * @description Returns the `AccessLevel` that will be applied when `execute()` runs. When
-	 * `.withUserMode()` / `.withSystemMode()` were called, returns their value; otherwise returns
-	 * the flag-driven default. Test-only accessor for observability.
+	 * `.withUserMode()` or `.withSystemMode()` was called, returns that value. Otherwise returns
+	 * the default that the `UserModeDml_Enabled` flag sets. Only tests call it, to check the choice.
 	 *
 	 * @return The effective `AccessLevel` for this transaction.
 	 */
@@ -622,7 +668,9 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
-	 * @description Suppresses LOG_Builder error logging for DML failures.
+	 * @description Turns off LOG_Builder error logging for DML failures. This covers the entry for each failed row
+	 * of a partial save. It also covers the single ERROR entry the transaction writes when a save fails completely,
+	 * or when partial mode catches an exception thrown during the save.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -644,8 +692,113 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
-	 * @description Suppresses DmlException re-throw in all-or-nothing mode. Errors are logged
-	 * via LOG_Builder instead of propagating to the caller.
+	 * @description Declares a refusal you expect and handle, so a row refused for that reason is logged at
+	 * WARN instead of ERROR when the transaction allows partial success. Every other failed row still
+	 * logs at ERROR, and the result is unchanged: the row still counts in `getFailureCount()` and
+	 * `getErrors()`, and `isSuccess()` is still false. Call it once per status code. It has no effect in
+	 * all-or-nothing mode, where any refusal fails the whole transaction. A row that also carries an error
+	 * you did not declare logs at ERROR. The setting also applies after `.async()`. In a background job the log is
+	 * the only place a refusal shows up, and the setting hides nothing there: the job logs the same refusal at WARN.
+	 *
+	 * @param statusCode The status code of the refusal you expect, such as `StatusCode.DUPLICATE_VALUE`
+	 * for a unique field that blocks a second copy when two processes save the same record at the same time, a
+	 * clash that does no harm.
+	 *
+	 * @return This builder instance for fluent chaining.
+	 *
+	 * @throws IllegalArgumentException When statusCode is null.
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * DML_Builder.newTransaction()
+	 *     .doInsert(contacts)
+	 *     .allowPartial()
+	 *     .expectRefusal(StatusCode.DUPLICATE_VALUE)
+	 *     .execute();
+	 * ```
+	 */
+	global DML_Builder expectRefusal(StatusCode statusCode)
+	{
+		if(statusCode == null)
+		{
+			throw new IllegalArgumentException(ERROR_EXPECTED_REFUSAL_STATUS_CODE_REQUIRED);
+		}
+		this.expectedRefusalStatusCodes.add(statusCode);
+		return this;
+	}
+
+	/**
+	 * @description Tries the save again, once, when the platform refuses it because another transaction holds a
+	 * record (UNABLE_TO_LOCK_ROW). This refusal is called a row lock. In all-or-nothing mode the whole save is rolled
+	 * back and runs again. In partial mode only the rows refused for a lock are saved again, before the save moves
+	 * on, and the rows that saved stay saved. Nothing else is retried: any other refusal is reported at once. There
+	 * is no pause between attempts. The platform already waits up to about ten seconds for the lock before it
+	 * refuses. So when another transaction holds the record, each attempt costs about ten seconds, and when none
+	 * does, the setting costs nothing extra. The retries stop early when the DML limits left cannot cover another
+	 * attempt. One WARN entry records a save that met a lock and then got through. A save still refused after its
+	 * last attempt carries the same details on its ERROR entry. suppressLogging() turns off both. The setting also
+	 * applies after .async(), where every batch applies it within its own limits. A retry cannot undo two things.
+	 * Platform events published immediately during a rolled-back attempt are published again. And static values a
+	 * failed attempt set, such as a trigger's own "already ran" flag, are not reset.
+	 *
+	 * @return This builder instance for fluent chaining.
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * DML_Builder.newTransaction()
+	 *     .doUpdate(records)
+	 *     .withRetryOnLock()
+	 *     .execute();
+	 * ```
+	 */
+	global DML_Builder withRetryOnLock()
+	{
+		return withRetryOnLock(DEFAULT_RETRIES_ON_LOCK);
+	}
+
+	/**
+	 * @description Tries the save again up to the given number of times when the platform refuses it because
+	 * another transaction holds a record (UNABLE_TO_LOCK_ROW). The count is the extra attempts after the first, from
+	 * 1 to 5. Each attempt can wait about ten seconds when the record is held. A request that runs longer than five
+	 * seconds in the user's own transaction counts toward the org's limit on long-running requests at the same
+	 * time. So code that a user waits on should keep the default, and larger counts belong in asynchronous work.
+	 * Everything else is as withRetryOnLock() describes.
+	 *
+	 * @param retries Extra attempts after the first, 1 to 5.
+	 *
+	 * @return This builder instance for fluent chaining.
+	 *
+	 * @throws IllegalArgumentException When retries is null or outside 1 to 5.
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * DML_Builder.newTransaction()
+	 *     .doUpdate(records)
+	 *     .withRetryOnLock(3)
+	 *     .async()
+	 *     .execute();
+	 * ```
+	 */
+	global DML_Builder withRetryOnLock(Integer retries)
+	{
+		if(retries == null || retries < 1 || retries > MAXIMUM_RETRIES_ON_LOCK)
+		{
+			throw new IllegalArgumentException(ERROR_RETRIES_ON_LOCK_OUT_OF_RANGE);
+		}
+		retriesOnLock = retries;
+		return this;
+	}
+
+	/**
+	 * @description Stops a DmlException from being thrown again in all-or-nothing mode. The failure shows on the
+	 * returned TransactionResult instead of reaching the caller as an exception. The save's single ERROR entry,
+	 * written in DML_Transaction.commitWork, still records it unless suppressLogging() is also set.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -666,18 +819,19 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
-	 * @description Switches to asynchronous execution mode. Returns a DML_AsyncBuilder that delegates to
-	 * PROC_ExecuteDML and UTIL_AsynchronousJobLauncher for adaptive async processing.
+	 * @description Switches to asynchronous mode. Returns a DML_AsyncBuilder that hands the work to
+	 * PROC_ExecuteDML and UTIL_AsynchronousJobLauncher, which pick a Queueable or Batch job to suit the volume.
 	 *
-	 * Three caller-set dials survive the hand-off: the access mode (`.withUserMode()` /
-	 * `.withSystemMode()`), partial success (`.allowPartial()`), and the record-sharing bypass
-	 * (`.bypassSharing()`). The async job runs in a `without sharing` processor frame, so the job
-	 * selects record sharing explicitly — enforced by default, bypassed only when
-	 * `.bypassSharing()` was called; a synchronous caller's own class sharing cannot carry across
-	 * the hand-off. `.suppressExceptions()` and `.suppressLogging()` are deliberately dropped:
-	 * they shape the synchronous return value and its error logging, and an async job has no
-	 * caller to hand a suppressed result to — the job's failures are always logged and surfaced
-	 * through the async framework's own error handling.
+	 * Five settings you made still apply in the job: the access mode (`.withUserMode()` or
+	 * `.withSystemMode()`), partial success (`.allowPartial()`), ignoring record sharing
+	 * (`.bypassSharing()`), the refusals you declared with `.expectRefusal()`, which the job logs
+	 * at WARN as a save in your own transaction would, and the row-lock retry count (`.withRetryOnLock()`),
+	 * which every batch applies within its own limits. The async job itself runs `without sharing`, so the job
+	 * sets record sharing explicitly: enforced by default, ignored only when `.bypassSharing()` was called. The
+	 * sharing of your own class does not carry into the job. `.suppressExceptions()` and `.suppressLogging()` are
+	 * dropped on purpose. They change the return value and error logging of a save in your own transaction, and an
+	 * async job has no caller to return a result to. The job's failures are always logged and reported through the
+	 * async framework's own error handling.
 	 *
 	 * @return A DML_AsyncBuilder for configuring and executing async DML.
 	 *
@@ -700,15 +854,13 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
-	 * @description Records each registered operation's object, verb, and submitted row count
-	 * into the audit queue so `flush()` emits one object-qualified `BYPASS` entry per touched
-	 * object. Runs at terminal time — mirroring the query surface — so every `do*` overload,
-	 * present and future, is covered without per-method plumbing. Exits immediately when the
-	 * queue holds no bypass target (the no-bypass hot path pays one method call, nothing more).
-	 * Concretely-typed record lists aggregate to a single `recordOperation` call; only genuinely
-	 * generic `List<SObject>` registrations fall back to per-record attribution so heterogeneous
-	 * rows still land on their own concrete types. Verbs derive from the `DatabaseOperation`
-	 * enum name (`DML_INSERT` → `insert`).
+	 * @description Adds each registered operation's object, operation name and row count to the audit queue, so
+	 * that `flush()` writes one `BYPASS` entry for each object touched. It runs in the final methods, as the query
+	 * builder does, so every `do*` method, now and in future, is covered without extra code in each one. It returns
+	 * at once when the queue holds no bypass, so a save without a bypass costs only this one call. A list typed to
+	 * one object counts as a single `recordOperation` call. Only a plain `List<SObject>` is counted record by
+	 * record, so that a list mixing objects still counts each row against its own object. The operation name comes
+	 * from the `DatabaseOperation` value (`DML_INSERT` becomes `insert`).
 	 */
 	private void recordOperationFootprints()
 	{
@@ -793,7 +945,9 @@ global inherited sharing class DML_Builder
 		DML_Transaction dmlTransaction = new DML_Transaction();
 		dmlTransaction.setAllowPartial(isPartial);
 		dmlTransaction.setSuppressLogging(isSuppressLogging);
+		dmlTransaction.setExpectedRefusalStatusCodes(expectedRefusalStatusCodes);
 		dmlTransaction.setAccessLevel(accessLevel);
+		dmlTransaction.setRetryOnLock(retriesOnLock);
 
 		for(DTO_Operation operation : operations)
 		{
@@ -809,10 +963,6 @@ global inherited sharing class DML_Builder
 		{
 			if(isSuppressExceptions)
 			{
-				if(!isSuppressLogging)
-				{
-					LOG_Builder.build().error(error).at(CLASS_METHOD_EXECUTE).emit();
-				}
 				return new TransactionResult(error);
 			}
 			throw error;
@@ -872,11 +1022,11 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
-	 * @description Async DML execution wrapper. Groups registered operations by type and delegates
-	 * to PROC_ExecuteDML with UTIL_AsynchronousJobLauncher for adaptive async processing. Carries
-	 * the parent builder's access mode, partial-success, and sharing-bypass dials across the
-	 * sync-to-async boundary; the job enforces record sharing unless the bypass dial was set,
-	 * because its `without sharing` processor frame makes inherited sharing unavailable.
+	 * @description Runs DML in an async job. It groups the registered operations by type and hands them to
+	 * PROC_ExecuteDML through UTIL_AsynchronousJobLauncher, which picks a Queueable or Batch job to suit the volume.
+	 * It carries these settings of the parent builder into the job: access mode, partial success, ignoring
+	 * sharing, expected refusals and the row-lock retry count. The job enforces record sharing unless
+	 * `.bypassSharing()` was called. The job itself runs `without sharing`, so inherited sharing cannot be used.
 	 *
 	 * @since 1.0
 	 */
@@ -893,18 +1043,30 @@ global inherited sharing class DML_Builder
 		private final Boolean isPartial;
 
 		/**
-		 * @description Caller-selected `AccessLevel` inherited from the parent `DML_Builder`. Propagated
-		 * to `PROC_ExecuteDML` so a subscriber's `.withUserMode()` / `.withSystemMode()` opt-in survives
-		 * the sync-to-async boundary. `null` inherits the flag-driven default.
+		 * @description The `AccessLevel` the caller chose on the parent `DML_Builder`. It is passed to
+		 * `PROC_ExecuteDML`, so a subscriber's `.withUserMode()` or `.withSystemMode()` still applies when the job
+		 * runs. `null` means the default that the `UserModeDml_Enabled` flag sets.
 		 */
 		private final AccessLevel accessLevel;
 
 		/**
-		 * @description Whether the parent builder's `.bypassSharing()` dial was set. Propagated to
-		 * `PROC_ExecuteDML` so the deliberate, already-audited sharing bypass survives the
-		 * sync-to-async boundary; without it the job enforces record sharing by default.
+		 * @description Whether `.bypassSharing()` was called on the parent builder. It is passed to
+		 * `PROC_ExecuteDML`, so the choice to ignore sharing, already recorded in the bypass audit, still applies
+		 * when the job runs. Without it the job enforces record sharing by default.
 		 */
 		private final Boolean isBypassSharing;
+
+		/**
+		 * @description The parent builder's expected refusals, handed to `PROC_ExecuteDML` so the job logs
+		 * them at WARN.
+		 */
+		private final Set<StatusCode> expectedRefusalStatusCodes;
+
+		/**
+		 * @description The parent builder's retry count for row-lock refusals, handed to `PROC_ExecuteDML` so every
+		 * batch of the job applies the same retries inside its own limits. Null means none.
+		 */
+		private final Integer retriesOnLock;
 
 		/**
 		 * @description Optional batch size override.
@@ -912,10 +1074,10 @@ global inherited sharing class DML_Builder
 		private Integer batchSize;
 
 		/**
-		 * @description Constructs a DML_AsyncBuilder carrying the parent builder's operations and
-		 * the dials that survive the hand-off.
+		 * @description Constructs a DML_AsyncBuilder that carries the parent builder's operations and
+		 * the settings that still apply in the async job.
 		 *
-		 * @param parent The DML_Builder whose registered operations and dials to carry.
+		 * @param parent The DML_Builder whose registered operations and settings to carry.
 		 */
 		private DML_AsyncBuilder(DML_Builder parent)
 		{
@@ -923,6 +1085,8 @@ global inherited sharing class DML_Builder
 			this.isPartial = parent.isPartial;
 			this.accessLevel = parent.accessLevel;
 			this.isBypassSharing = parent.isBypassSharing;
+			this.expectedRefusalStatusCodes = parent.expectedRefusalStatusCodes;
+			this.retriesOnLock = parent.retriesOnLock;
 		}
 
 		/**
@@ -992,6 +1156,16 @@ global inherited sharing class DML_Builder
 				if(isBypassSharing == true)
 				{
 					processor.requestSharingBypass();
+				}
+
+				if(!expectedRefusalStatusCodes.isEmpty())
+				{
+					processor.expectRefusals(expectedRefusalStatusCodes);
+				}
+
+				if(retriesOnLock != null)
+				{
+					processor.retryOnLock(retriesOnLock);
 				}
 
 				if(batchSize != null)

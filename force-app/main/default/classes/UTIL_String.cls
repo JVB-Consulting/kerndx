@@ -12,7 +12,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  *
  * @since 1.0
  *
@@ -279,7 +279,7 @@ global inherited sharing class UTIL_String
 	 *
 	 * @example
 	 * ```apex
-	 * String shortened = UTIL_String.abbreviateToField(longMessage, LogEntry__c.Message__c);
+	 * String shortened = UTIL_String.abbreviate(longMessage, LogEntry__c.Message__c);
 	 * ```
 	 */
 	global static String abbreviate(String input, SObjectField field)
@@ -455,6 +455,43 @@ global inherited sharing class UTIL_String
 	global static String join(Set<String> stringSet, String separator)
 	{
 		return stringSet == null ? null : join(new List<String>(stringSet), separator);
+	}
+
+	/**
+	 * @description <p>Joins the elements of the provided {@code Set} into a single String in
+	 * ascending order, so a message or log line that lists the members of a set reads the same
+	 * on every run.</p>
+	 * <p/>
+	 * <p>A Set has no documented iteration order, so {@code join(Set<String>, String)} renders
+	 * whatever order the platform hands back; use this method wherever the rendering must be
+	 * stable, for example a validation message that names every offending value. A {@code null}
+	 * separator is the same as an empty String ("").</p>
+	 * <p/>
+	 *
+	 * @param values the {@code Set} of values to join together, may be null
+	 * @param separator the separator character to use, null treated as ""
+	 *
+	 * @return the joined String in ascending order, {@code null} if null set input
+	 *
+	 * @see UTIL_String.join
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * UTIL_String.joinSorted(new Set<String> {'pear', 'apple', 'fig'}, ', ');   // returns 'apple, fig, pear'
+	 * UTIL_String.joinSorted(null, ', ');                                       // returns null
+	 * ```
+	 */
+	global static String joinSorted(Set<String> values, String separator)
+	{
+		if(values == null)
+		{
+			return null;
+		}
+		List<String> sortedValues = new List<String>(values);
+		sortedValues.sort();
+		return join(sortedValues, separator);
 	}
 
 	/**

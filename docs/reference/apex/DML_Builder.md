@@ -2,10 +2,10 @@
 title: "DML_Builder"
 type: class
 pageClass: reference
-description: "Fluent DML API for building and executing database operations. Uses a static factory entry point to create a transaction context, fluent methods to register operations and configure behaviour, and a t"
+description: "Fluent DML API for building and running database operations: you set it up by chaining method calls. A static method, newTransaction(), starts a transaction. Chained methods add operations and change "
 author: "Jason Van Beukering"
 group: "DML"
-date: "February 2026, August 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class DML_Builder
 ```
 
-Fluent DML API for building and executing database operations. Uses a static factory entry point to create a transaction context, fluent methods to register operations and configure behaviour, and a terminal method to commit all operations via DML_Transaction.
+Fluent DML API for building and running database operations: you set it up by chaining method calls. A static method, newTransaction(), starts a transaction. Chained methods add operations and change how they run. A final method, execute(), saves all operations through DML_Transaction.
 
 **Example**
 
@@ -44,7 +44,7 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 | Method | Description |
 |--------|-------------|
 | global [DML_Builder](DML_Builder.md) [allowPartial](#allowpartial)() | Enables partial success mode. |
-| global [DML_Builder.DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) [async](#async)() | Switches to asynchronous execution mode. |
+| global [DML_Builder.DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) [async](#async)() | Switches to asynchronous mode. |
 | global [DML_Builder](DML_Builder.md) [bypassSharing](#bypasssharing)() | Bypasses sharing rules for DML operations. |
 | global [DML_Builder](DML_Builder.md) [doDelete](#dodelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for deletion. |
 | global [DML_Builder](DML_Builder.md) [doDelete](#dodelete)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a single record for deletion. |
@@ -60,11 +60,14 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 | global [DML_Builder](DML_Builder.md) [doUpsert](#doupsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a single record for upsert. |
 | global [DML_Builder](DML_Builder.md) [doUpsert](#doupsert)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) externalIdField) | Registers a single record for upsert with a specific external ID field. |
 | global [DML_Builder.TransactionResult](DML_Builder.TransactionResult.md) [execute](#execute)() | Commits all registered DML operations via DML_Transaction and returns the result. |
+| global [DML_Builder](DML_Builder.md) [expectRefusal](#expectrefusal)([System.StatusCode](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/langCon_apex_enums.htm) statusCode) | Declares a refusal you expect and handle, so a row refused for that reason is logged at WARN instead of ERROR when the transaction allows partial success. |
 | global static [DML_Builder](DML_Builder.md) [newTransaction](#newtransaction)() | Creates a new DML_Builder instance representing a DML transaction. |
-| global [DML_Builder](DML_Builder.md) [suppressExceptions](#suppressexceptions)() | Suppresses DmlException re-throw in all-or-nothing mode. |
-| global [DML_Builder](DML_Builder.md) [suppressLogging](#suppresslogging)() | Suppresses LOG_Builder error logging for DML failures. |
+| global [DML_Builder](DML_Builder.md) [suppressExceptions](#suppressexceptions)() | Stops a DmlException from being thrown again in all-or-nothing mode. |
+| global [DML_Builder](DML_Builder.md) [suppressLogging](#suppresslogging)() | Turns off LOG_Builder error logging for DML failures. |
+| global [DML_Builder](DML_Builder.md) [withRetryOnLock](#withretryonlock)() | Tries the save again, once, when the platform refuses it because another transaction holds a record (UNABLE_TO_LOCK_ROW). |
+| global [DML_Builder](DML_Builder.md) [withRetryOnLock](#withretryonlock)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) retries) | Tries the save again up to the given number of times when the platform refuses it because another transaction holds a record (UNABLE_TO_LOCK_ROW). |
 | global [DML_Builder](DML_Builder.md) [withSystemMode](#withsystemmode)() | Forces AccessLevel.SYSTEM_MODE on every DML operation in this transaction. |
-| global [DML_Builder](DML_Builder.md) [withUserMode](#withusermode)() | Forces AccessLevel.USER_MODE on every DML operation in this transaction, regardless of the UserModeDml_Enabled feature flag. |
+| global [DML_Builder](DML_Builder.md) [withUserMode](#withusermode)() | Forces AccessLevel.USER_MODE on every DML operation in this transaction, whatever the UserModeDml_Enabled feature flag says. |
 
 ### allowPartial
 
@@ -97,18 +100,19 @@ DML_Builder.newTransaction()
 global DML_Builder.DML_AsyncBuilder async()
 ```
 
-Switches to asynchronous execution mode. Returns a DML_AsyncBuilder that delegates to
-PROC_ExecuteDML and UTIL_AsynchronousJobLauncher for adaptive async processing.
+Switches to asynchronous mode. Returns a DML_AsyncBuilder that hands the work to
+PROC_ExecuteDML and UTIL_AsynchronousJobLauncher, which pick a Queueable or Batch job to suit the volume.
 
-Three caller-set dials survive the hand-off: the access mode (`.withUserMode()` /
-`.withSystemMode()`), partial success (`.allowPartial()`), and the record-sharing bypass
-(`.bypassSharing()`). The async job runs in a `without sharing` processor frame, so the job
-selects record sharing explicitly — enforced by default, bypassed only when
-`.bypassSharing()` was called; a synchronous caller's own class sharing cannot carry across
-the hand-off. `.suppressExceptions()` and `.suppressLogging()` are deliberately dropped:
-they shape the synchronous return value and its error logging, and an async job has no
-caller to hand a suppressed result to — the job's failures are always logged and surfaced
-through the async framework's own error handling.
+Five settings you made still apply in the job: the access mode (`.withUserMode()` or
+`.withSystemMode()`), partial success (`.allowPartial()`), ignoring record sharing
+(`.bypassSharing()`), the refusals you declared with `.expectRefusal()`, which the job logs
+at WARN as a save in your own transaction would, and the row-lock retry count (`.withRetryOnLock()`),
+which every batch applies within its own limits. The async job itself runs `without sharing`, so the job
+sets record sharing explicitly: enforced by default, ignored only when `.bypassSharing()` was called. The
+sharing of your own class does not carry into the job. `.suppressExceptions()` and `.suppressLogging()` are
+dropped on purpose. They change the return value and error logging of a save in your own transaction, and an
+async job has no caller to return a result to. The job's failures are always logged and reported through the
+async framework's own error handling.
 
 **Returns** [DML_Builder.DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) — A DML_AsyncBuilder for configuring and executing async DML.
 
@@ -523,6 +527,48 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 
 </div>
 
+### expectRefusal
+
+<div class="apex-member">
+
+```apex
+global DML_Builder expectRefusal(System.StatusCode statusCode)
+```
+
+Declares a refusal you expect and handle, so a row refused for that reason is logged at
+WARN instead of ERROR when the transaction allows partial success. Every other failed row still
+logs at ERROR, and the result is unchanged: the row still counts in `getFailureCount()` and
+`getErrors()`, and `isSuccess()` is still false. Call it once per status code. It has no effect in
+all-or-nothing mode, where any refusal fails the whole transaction. A row that also carries an error
+you did not declare logs at ERROR. The setting also applies after `.async()`. In a background job the log is
+the only place a refusal shows up, and the setting hides nothing there: the job logs the same refusal at WARN.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `statusCode` | [System.StatusCode](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/langCon_apex_enums.htm) | The status code of the refusal you expect, such as StatusCode.DUPLICATE_VALUE for a unique field that blocks a second copy when two processes save the same record at the same time, a clash that does no harm. |
+
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When statusCode is null. |
+
+**Example**
+
+```apex
+DML_Builder.newTransaction()
+    .doInsert(contacts)
+    .allowPartial()
+    .expectRefusal(StatusCode.DUPLICATE_VALUE)
+    .execute();
+```
+
+</div>
+
 ### newTransaction
 
 <div class="apex-member">
@@ -553,8 +599,9 @@ DML_Builder.newTransaction()
 global DML_Builder suppressExceptions()
 ```
 
-Suppresses DmlException re-throw in all-or-nothing mode. Errors are logged
-via LOG_Builder instead of propagating to the caller.
+Stops a DmlException from being thrown again in all-or-nothing mode. The failure shows on the
+returned TransactionResult instead of reaching the caller as an exception. The save's single ERROR entry,
+written in DML_Transaction.commitWork, still records it unless suppressLogging() is also set.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
@@ -577,7 +624,9 @@ DML_Builder.newTransaction()
 global DML_Builder suppressLogging()
 ```
 
-Suppresses LOG_Builder error logging for DML failures.
+Turns off LOG_Builder error logging for DML failures. This covers the entry for each failed row
+of a partial save. It also covers the single ERROR entry the transaction writes when a save fails completely,
+or when partial mode catches an exception thrown during the save.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
@@ -593,6 +642,79 @@ DML_Builder.newTransaction()
 
 </div>
 
+### withRetryOnLock
+
+<div class="apex-member">
+
+```apex
+global DML_Builder withRetryOnLock()
+```
+
+Tries the save again, once, when the platform refuses it because another transaction holds a
+record (UNABLE_TO_LOCK_ROW). This refusal is called a row lock. In all-or-nothing mode the whole save is rolled
+back and runs again. In partial mode only the rows refused for a lock are saved again, before the save moves
+on, and the rows that saved stay saved. Nothing else is retried: any other refusal is reported at once. There
+is no pause between attempts. The platform already waits up to about ten seconds for the lock before it
+refuses. So when another transaction holds the record, each attempt costs about ten seconds, and when none
+does, the setting costs nothing extra. The retries stop early when the DML limits left cannot cover another
+attempt. One WARN entry records a save that met a lock and then got through. A save still refused after its
+last attempt carries the same details on its ERROR entry. suppressLogging() turns off both. The setting also
+applies after .async(), where every batch applies it within its own limits. A retry cannot undo two things.
+Platform events published immediately during a rolled-back attempt are published again. And static values a
+failed attempt set, such as a trigger's own "already ran" flag, are not reset.
+
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
+
+**Example**
+
+```apex
+DML_Builder.newTransaction()
+    .doUpdate(records)
+    .withRetryOnLock()
+    .execute();
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global DML_Builder withRetryOnLock(Integer retries)
+```
+
+Tries the save again up to the given number of times when the platform refuses it because
+another transaction holds a record (UNABLE_TO_LOCK_ROW). The count is the extra attempts after the first, from
+1 to 5. Each attempt can wait about ten seconds when the record is held. A request that runs longer than five
+seconds in the user's own transaction counts toward the org's limit on long-running requests at the same
+time. So code that a user waits on should keep the default, and larger counts belong in asynchronous work.
+Everything else is as withRetryOnLock() describes.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `retries` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Extra attempts after the first, 1 to 5. |
+
+**Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When retries is null or outside 1 to 5. |
+
+**Example**
+
+```apex
+DML_Builder.newTransaction()
+    .doUpdate(records)
+    .withRetryOnLock(3)
+    .async()
+    .execute();
+```
+
+</div>
+
 ### withSystemMode
 
 <div class="apex-member">
@@ -602,8 +724,9 @@ global DML_Builder withSystemMode()
 ```
 
 Forces `AccessLevel.SYSTEM_MODE` on every DML operation in this transaction.
-Use when the framework writes objects the running user has no FLS/CRUD on by design
-(logs, orchestration records, framework-owned sObjects).
+Use it when code must write objects that the running user is not meant to have object or field access
+(CRUD/FLS) to, such as logs, records that track background work, or other objects the framework owns.
+The choice is recorded in the bypass audit when the save runs.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
@@ -627,8 +750,8 @@ global DML_Builder withUserMode()
 ```
 
 Forces `AccessLevel.USER_MODE` on every DML operation in this transaction,
-regardless of the `UserModeDml_Enabled` feature flag. Use when a subscriber-facing flow
-must enforce CRUD/FLS even in orgs where the flag has been disabled as a kill-switch.
+whatever the `UserModeDml_Enabled` feature flag says. Use it when a flow that serves your users must check
+object and field access (CRUD/FLS), even in orgs where an admin has turned the flag off.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
@@ -648,7 +771,7 @@ DML_Builder.newTransaction()
 | Class | Description |
 |-------|-------------|
 | [DatabaseOperation](DML_Builder.DatabaseOperation.md) | Enum to specify the type of DML operation for external use. |
-| [DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) | Async DML execution wrapper. |
+| [DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) | Runs DML in an async job. |
 | [TransactionResult](DML_Builder.TransactionResult.md) | Result object returned by execute() containing the outcome of all DML operations in the transaction. |
 
 ---

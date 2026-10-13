@@ -2,7 +2,7 @@
 title: "TST_Builder.Builder"
 type: class
 pageClass: reference
-description: "A fluid builder for configuring and creating SObject records. Obtain an instance via TST_Builder.of(SObjectType)."
+description: "A fluent builder for configuring and creating SObject records: you set it up by chaining method calls. Obtain an instance via TST_Builder.of(SObjectType)."
 since: "1.0"
 category: apex
 ---
@@ -17,7 +17,7 @@ category: apex
 global inherited sharing class TST_Builder.Builder
 ```
 
-A fluid builder for configuring and creating SObject records. Obtain an instance via TST_Builder.of(SObjectType).
+A fluent builder for configuring and creating SObject records: you set it up by chaining method calls. Obtain an instance via TST_Builder.of(SObjectType).
 
 </div>
 

@@ -30,10 +30,10 @@ Data Transfer Object (DTO) representing the input parameters for a single email 
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm)> [fileIds](#fileids) | A list of ContentVersion IDs to attach to the email. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_NameValue](DTO_NameValue.md)> [mergeFields](#mergefields) | A list of custom key-value pairs to replace placeholders in the email body (e.g., [InvoiceNumber]). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [orgWideEmailAddress](#orgwideemailaddress) | The email address defined in Organization-Wide Email Addresses to be used as the sender. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [saveAsActivity](#saveasactivity) | Determines if a Task should be created. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [saveAsActivity](#saveasactivity) | Whether the email is logged as an activity. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [templateUniqueName](#templateuniquename) | The DeveloperName of the Email Template. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toAddress](#toaddress) | The recipient. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [useStandardLogActivity](#usestandardlogactivity) | Controls the mechanism used for Activity Logging. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [useStandardLogActivity](#usestandardlogactivity) | Controls the mechanism used for Activity Logging when saveAsActivity is true; without an activity wanted it has no effect, and the email is sent to the recipient's address. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [whatId](#whatid) | The ID of the record that the email is related to (e.g., Opportunity, Case). |
 
 ### fileIds
@@ -69,13 +69,15 @@ The email address defined in Organization-Wide Email Addresses to be used as the
 ### saveAsActivity
 
 ```apex
-@InvocableVariable(description='Indicates if an activity (Task) should be logged against the Related To Id (WhatId). Ignored if Related To Id is null.' label='Save as Activity' placeholderText='false' defaultValue='false') global Boolean saveAsActivity
+@InvocableVariable(description='Log the email as an activity. Custom logging needs a Related To Id; standard logging needs a Contact or Lead recipient.' label='Save as Activity' placeholderText='false' defaultValue='false') global Boolean saveAsActivity
 ```
 
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
-Determines if a Task should be created.
-Note: This is ignored if whatId is null or if useStandardLogActivity is enabled (which handles logging natively).
+Whether the email is logged as an activity. With custom logging (useStandardLogActivity
+false) the framework inserts a Task against whatId, so a null whatId logs nothing. With standard logging
+Salesforce logs the email itself for a Contact or Lead recipient, and the recipient Id reaches the flow only
+when this is true; a User recipient is refused, because Salesforce does not log an email sent to a User.
 
 ### templateUniqueName
 
@@ -100,12 +102,15 @@ The recipient. Can be a standard Email Address or the Salesforce ID of a Contact
 ### useStandardLogActivity
 
 ```apex
-@InvocableVariable(description='If True, standard activity logging is used. If False, custom activity logging is performed via the internal Flow.' label='Use Standard Activity Logging' placeholderText='false' defaultValue='false') global Boolean useStandardLogActivity
+@InvocableVariable(description='True: Salesforce logs the email (Contact or Lead recipients only). False: the framework logs a Task itself. Applies only with Save as Activity.' label='Use Standard Activity Logging' placeholderText='false' defaultValue='false') global Boolean useStandardLogActivity
 ```
 
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
-Controls the mechanism used for Activity Logging.
+Controls the mechanism used for Activity Logging when saveAsActivity is true; without an
+activity wanted it has no effect, and the email is sent to the recipient's address. Standard logging needs a
+Contact or Lead recipient: Salesforce does not log an email sent to a User, so that request is refused. With
+custom logging a User recipient's Task is related to whatId only, because a Task cannot name a User as its WhoId.
 
     true: Uses standard Messaging.SingleEmailMessage activity logging (counts towards limits).
     false: Uses a custom Task insertion approach (via Workflow Engine/Flow).

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Provides a simplified, static entry point for running complex asynchronous jobs using the UTIL_AdaptiveAsynchronousProcessor engine."
 author: "Jason Van Beukering"
 group: "Async Processing"
-date: "September 2025, May 2026"
+date: "September 2025, October 2026"
 since: "1.0"
 category: apex
 ---

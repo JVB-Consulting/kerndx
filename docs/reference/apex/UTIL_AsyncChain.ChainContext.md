@@ -44,8 +44,8 @@ Boolean hasKey = context.has('accountId');
 | global [UTIL_AsyncChain.StepResult](UTIL_AsyncChain.StepResult.md) [getPreviousStepResult](#getpreviousstepresult)() | Returns the result of the most recently completed step. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [has](#has)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key) | Checks whether the context contains a value for the given key. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [idempotencyKey](#idempotencykey)() | Returns the step-level idempotency key for the currently executing step: the chain execution id joined to the step index. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [idempotencyKey](#idempotencykey)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Returns the record-grain idempotency key for a step that fans out over many records: the step-level key joined to the given record id. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [idempotencyKey](#idempotencykey)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) grain) | Returns a custom-grain idempotency key for a step that fans out over a unit that is not a record id (for example a line number or an external key): the step-level key joined to the given grain. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [idempotencyKey](#idempotencykey)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Returns the per-record idempotency key for a step that works through many records: the step-level key joined to the given record id. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [idempotencyKey](#idempotencykey)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) grain) | Returns a custom idempotency key for a step that works through units that are not records (for example line numbers or external keys): the step-level key joined to the given grain, the value that names one unit. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isFinalAttempt](#isfinalattempt)() | True when no further retry remains for the currently executing step, judged by the strategy's attempt budget alone. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isFinalAttempt](#isfinalattempt)([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) error) | True when failing the current attempt with the given exception would be final. |
 | global void [put](#put)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Stores a value in the context under the given key. |
@@ -246,8 +246,8 @@ global String idempotencyKey()
 Returns the step-level idempotency key for the currently executing step: the
 chain execution id joined to the step index. The key stays identical when the same step
 replays, so a step that does one logical unit of work can store this key on an external-id
-field and upsert (a replay updates the same record instead of creating a duplicate), or stamp
-it on a marker for a side effect that cannot be upserted (a callout, an email) and skip when
+field and upsert (a replay updates the same record instead of creating a duplicate), or write
+it to a marker for a side effect that cannot be upserted (a callout, an email) and skip when
 the marker is already present. Treat the result as an opaque token: compare it or store it
 whole, and do not split it to read back the run or step (use getChainExecutionId() and
 getCurrentStepIndex() for those). Call it from within a step's work(context), where the step
@@ -269,7 +269,7 @@ String key = context.idempotencyKey();
 global String idempotencyKey(Id recordId)
 ```
 
-Returns the record-grain idempotency key for a step that fans out over many
+Returns the per-record idempotency key for a step that works through many
 records: the step-level key joined to the given record id. Use it so a replay after a
 partial failure only reprocesses the rows that did not complete the first time, instead of
 re-running or skipping the whole step. A null recordId falls back to the bare step-level key.
@@ -282,7 +282,7 @@ this overload and the String overload.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `recordId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The record being processed, used as the per-record grain. |
+| `recordId` | [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) | The record being processed, which makes the key unique per record. |
 
 **Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The step-level key + "-" + recordId, or the bare step-level key when recordId is null.
 
@@ -300,22 +300,22 @@ String rowKey = context.idempotencyKey(record.Id);
 global String idempotencyKey(String grain)
 ```
 
-Returns a custom-grain idempotency key for a step that fans out over a unit that
-is not a record id (for example a line number or an external key): the step-level key joined
-to the given grain. A null or blank grain falls back to the bare step-level key. The grain
-passes through verbatim, so the helper never hashes or truncates it. The composed key is
-typically stored on a Text external-id field capped at 255 characters; an over-long key fails
-loudly at upsert with a STRING_TOO_LONG DmlException (not silent truncation), so it surfaces
-in your own test. If you need a long composite grain, shorten it yourself (a one-line hash of
-just the grain) before passing it. Treat the result as an opaque token. Pass a literal null as
-a typed variable or a cast ((String) null), because a bare idempotencyKey(null) is ambiguous
-between this overload and the Id overload.
+Returns a custom idempotency key for a step that works through units that are
+not records (for example line numbers or external keys): the step-level key joined to the
+given grain, the value that names one unit. A null or blank grain falls back to the bare
+step-level key. The grain passes through verbatim, so the helper never hashes or truncates it.
+The composed key is typically stored on a Text external-id field capped at 255 characters; an
+over-long key fails loudly at upsert with a STRING_TOO_LONG DmlException (not silent
+truncation), so it surfaces in your own test. If you need a long composite grain, shorten it
+yourself (a one-line hash of just the grain) before passing it. Treat the result as an opaque
+token. Pass a literal null as a typed variable or a cast ((String) null), because a bare
+idempotencyKey(null) is ambiguous between this overload and the Id overload.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `grain` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The stable fan-out token, kept short, that does not change between attempts. |
+| `grain` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A short value that names one unit of the step's work and does not change between attempts. |
 
 **Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The step-level key + "-" + grain, or the bare step-level key when grain is blank.
 
@@ -336,12 +336,12 @@ global Boolean isFinalAttempt()
 ```
 
 True when no further retry remains for the currently executing step, judged
-by the strategy's attempt budget alone. The stamp is written before work() runs, so it
-cannot know which exception the attempt will fail with, and a strategy wrapped in an
-exception filter can still refuse the retry afterwards; when that happens the framework
-corrects the stamp before dispatching the failure, so an onError handler always reads
-true for a failure that was final. To ask "would failing with THIS exception be final?"
-from inside work(), use isFinalAttempt(error).
+by the strategy's attempt budget alone. The value is set before work() runs, so it cannot
+know which exception the attempt will fail with. A strategy wrapped in an exception filter
+can still refuse the retry afterwards. When that happens, the framework corrects the value
+before it passes the failure on, so an onError handler always reads true for a failure
+that was final. To ask "would failing with THIS exception be final?" from inside work(),
+use isFinalAttempt(error).
 
 **Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — True when a failure of the current attempt is final; false when a retry remains.
 
@@ -355,12 +355,12 @@ global Boolean isFinalAttempt(Exception error)
 
 True when failing the current attempt with the given exception would be
 final. Unlike isFinalAttempt(), which reads the attempt budget alone and cannot know
-that an exception filter would refuse the retry, this overload consults the current
+that an exception filter would refuse the retry, this overload asks the current
 step's full strategy, filters included, with the exception you are about to fail with.
 Call it from inside work(), before returning or throwing, when a last-chance side
 effect (release a lock, write a marker, alert someone) must run exactly when no retry
-will follow. Outside work() — in an onError handler — no strategy is in scope and the
-probe reads true, which is correct there: a dispatched failure is final.
+will follow. Outside work(), for example in an onError handler, there is no strategy and
+the method returns true. That is correct there: a failure passed to the handler is final.
 
 **Parameters**
 

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Utility class for validating and sending emails within the Salesforce platform. Includes a unicode-aware email validation pattern and a two-step deliverability detection mechanism."
 author: "Jason Van Beukering"
 group: "Email"
-date: "February 2026, May 2026"
+date: "February 2026, September 2026"
 since: "1.0"
 category: apex
 ---

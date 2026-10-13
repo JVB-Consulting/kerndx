@@ -8,14 +8,6 @@ navOrder: 14
 
 **What this is:** A safer way to write records to Salesforce in Apex. Instead of plain `insert`, `update`, and `delete`, you build up the changes you want and run them as one transaction. **Why it matters:** That single path gives you automatic error logging, parent-to-child relationships wired up for you, partial-success handling, and control over security and sharing, all without repeating boilerplate. **Who should follow it:** any developer who writes Apex that saves data. **When to use it:** any time your code creates, changes, or removes records. A bare `insert` of a single record with no related children is fine on its own; the benefit of the builder shows once you have parent-child links, partial-success handling, or want consistent error logging across your codebase.
 
-**Before you start:**
-
-- [ ] KernDX package installed in your org
-- [ ] Org configured post-install (verify with the **Kern** app's Health Check, see the [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
-  (Gear Icon > Developer Console) for all Apex work
-- [ ] Working in a sandbox or scratch org (not production)
-
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
@@ -29,6 +21,14 @@ relationships, and your test class has 100% coverage.
 **In one line:** `kern.DML_Builder.newTransaction().doInsert(newAccount).doInsert(newContact, Contact.AccountId, newAccount).execute();`
 (parent-child foreign keys are resolved automatically).
 
+## Before you start
+
+Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
+Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
+once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
+today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
+where your org's alias goes: the name you gave it when you logged in.
+
 ---
 
 ## Table of Contents
@@ -36,22 +36,31 @@ relationships, and your test class has 100% coverage.
 <details>
 <summary>Expand</summary>
 
-1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
+1. [Before you start](#before-you-start)
+2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
     - [Insert a Record](#insert-a-record)
     - [Update a Record](#update-a-record)
     - [Parent-Child Insert](#parent-child-insert)
-2. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
+3. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
     - [Step 1: Create the Service Class](#step-1-create-the-service-class)
     - [Step 2: Execute](#step-2-execute)
     - [Step 3: Write Tests](#step-3-write-tests)
-3. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
+4. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
     - [All DML Operations](#all-dml-operations)
     - [TransactionResult](#transactionresult)
     - [Partial Success](#partial-success)
     - [Security, Sharing, Suppression, and Async](#security-sharing-suppression-and-async)
-4. [Common Issues](#common-issues)
-5. [What You Now Know](#what-you-now-know)
-6. [Next Steps](#next-steps)
+    - [Clean up](#clean-up)
+5. [Common Issues](#common-issues)
+    - [Parent-Child Insert](#parent-child-insert-1)
+    - [Step 1: Create the Service Class](#step-1-create-the-service-class-1)
+    - [Step 2: Execute](#step-2-execute-1)
+    - [Step 3: Write Tests](#step-3-write-tests-1)
+    - [All DML Operations](#all-dml-operations-1)
+    - [Partial Success](#partial-success-1)
+    - [Clean up](#clean-up-1)
+6. [What You Now Know](#what-you-now-know)
+7. [Next Steps](#next-steps)
 
 </details>
 
@@ -63,7 +72,8 @@ See the builder work straight away. You can call [`DML_Builder`](reference/apex/
 
 ### Insert a Record
 
-Open **Developer Console > Debug > Open Execute Anonymous Window** and run:
+**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
+Anonymous Window, and run:
 
 ```apex
 Account account = new Account(Name = 'Quick Test', Phone = '555-0100');
@@ -77,7 +87,7 @@ System.debug('Account Id: ' + account.Id);
 System.debug('Inserted IDs: ' + result.getInsertedIds());
 ```
 
-**Expected output** (ID will vary):
+You should see these lines in the log, with your record's Id in place of `001...`:
 
 ```text
 Success: true
@@ -86,6 +96,8 @@ Inserted IDs: (001...)
 ```
 
 ### Update a Record
+
+**In Salesforce**, in the same Execute Anonymous window, run:
 
 ```apex
 Account found = (Account)kern.QRY_Builder.selectFrom(Account.SObjectType)
@@ -102,9 +114,17 @@ kern.DML_Builder.newTransaction()
 System.debug('Updated Industry: ' + found.Industry);
 ```
 
+You should see this line in the log:
+
+```text
+Updated Industry: Technology
+```
+
 ### Parent-Child Insert
 
-Insert an Account and a Contact in one transaction. The framework fills in the Contact's `AccountId` for you:
+Insert an Account and a Contact in one transaction. The framework fills in the Contact's `AccountId` for you.
+
+**In Salesforce**, in the same Execute Anonymous window, run:
 
 ```apex
 Account newAccount = new Account(Name = 'Parent Co', Phone = '555-0100');
@@ -120,7 +140,7 @@ System.debug('Account Id: ' + newAccount.Id);
 System.debug('Contact AccountId: ' + newContact.AccountId);
 ```
 
-**Expected output:**
+You should see these lines in the log, with the same Id on both:
 
 ```text
 Account Id: 001...
@@ -133,6 +153,8 @@ The Contact's `AccountId` matches the Account's `Id`, set automatically by the f
 > The variable shadows the SObject type, so `Contact.AccountId` resolves as a field value (Id) instead of
 > a field token (SObjectField). Use `newContact`, `result`, or another name. The same applies to `account` and `Account`.
 
+Something went wrong? See [Common Issues, Parent-Child Insert](#parent-child-insert-1).
+
 > **When to move to Tier 2:** When you need to encapsulate DML operations in a reusable service class
 > with proper test coverage.
 
@@ -142,15 +164,33 @@ The Contact's `AccountId` matches the Account's `Id`, set automatically by the f
 
 > **No local project?** You can create classes directly in the Developer Console (Gear Icon > Developer
 > Console > File > New > Apex Class) and run tests from there too (Test > New Run). Paste the code, save,
-> and skip the `sf project deploy start` and `sf apex run test` commands.
+> and skip the terminal commands.
 
 Build an Account onboarding service that creates an Account with related Contacts and an Opportunity
 in a single atomic transaction.
 
 ### Step 1: Create the Service Class
 
-Create a new file named `SVC_AccountOnboarding.cls`. Copy the following code exactly as is. Do not
-modify the class name or the `kern.*` namespace references.
+The service is one class with one method that saves the Account and its related records together. You create an
+empty class with one command, paste the code into it, then send it to your org.
+
+**1. In the terminal**, from your project's top folder, create the empty class:
+
+```shell
+sf apex generate class --name SVC_AccountOnboarding --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `SVC_AccountOnboarding.cls` and its companion
+of the same name ending in `.cls-meta.xml`.
+
+The second file tells Salesforce which API version the class uses. You never edit it, but a deploy fails without it.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save. Paste it exactly as
+it is: keep the class name.
+
+```text
+force-app/main/default/classes/SVC_AccountOnboarding.cls
+```
 
 > **Why `public`?** Unlike triggers and APIs, service classes are called directly by your own code, so
 > the framework never has to look them up by name. That means `public` is enough; `global` is not required.
@@ -215,15 +255,23 @@ public with sharing class SVC_AccountOnboarding
 > case-insensitive, so the variable shadows the SObject type and the field reference resolves as a value
 > instead of a token. Use `newAccount`, `newContact`, and so on.
 
-**Deploy:**
+**3. In the terminal**, send the class to your org:
 
-```bash
+```shell
 sf project deploy start -o YourOrgAlias -m "ApexClass:SVC_AccountOnboarding"
 ```
 
+You should see `Status: Succeeded`, with `SVC_AccountOnboarding` listed as created.
+
+Something went wrong? See [Common Issues, Step 1](#step-1-create-the-service-class-1).
+
 ### Step 2: Execute
 
-Test from anonymous Apex. Paste both snippets in one Execute Anonymous window, because the second depends on `result` from the first:
+Try the service from anonymous Apex. Paste both snippets in one Execute Anonymous window, because the second depends
+on `result` from the first.
+
+**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
+Anonymous Window, and paste the first snippet:
 
 ```apex
 List<String> contactLastNames = new List<String>{ 'Smith', 'Jones' };
@@ -236,15 +284,8 @@ System.debug('Inserted IDs: ' + result.getInsertedIds());
 System.debug('Success count: ' + result.getSuccessCount());
 ```
 
-**Expected output:**
-
-```text
-Success: true
-Inserted IDs: (001..., 006..., 003..., 003...)
-Success count: 4
-```
-
-Verify the relationships in the org:
+**In Salesforce**, in the same window and below the first snippet, paste the second, which checks the relationships
+in the org, then run both:
 
 ```apex
 Id accountId = result.getInsertedIds()[0];
@@ -263,7 +304,16 @@ System.debug('Contacts: ' + childContacts.size());
 System.debug('Opportunities: ' + opportunities.size());
 ```
 
-**Expected output:**
+You should see these lines in the log, with your own record Ids in the second line (the Account's first, then the
+Opportunity's, then the two Contacts'):
+
+```text
+Success: true
+Inserted IDs: (001..., 006..., 003..., 003...)
+Success count: 4
+```
+
+followed by the counts of related records:
 
 ```text
 Contacts: 2
@@ -274,16 +324,35 @@ Opportunities: 1
 
 - **`DML_Builder.newTransaction()`**: creates a new transaction builder.
 - **`.doInsert(record)`**: registers a record for insertion.
-- **`.doInsert(child, field, parent)`**: registers a child with a parent relationship. The parent must
-  be registered first. After `execute()`, the child's lookup field is auto-populated with the parent's ID.
-- **`.execute()`**: commits all operations atomically, in registration order. After each parent inserts,
+- **`.doInsert(child, field, parent)`**: registers a child with a parent relationship. Register the parent
+  with its own `.doInsert()` too, before or after the child: the framework inserts parents before their children
+  whatever order you register them in. After `execute()`, the child's lookup field is auto-populated with the parent's ID.
+- **`.execute()`**: commits all operations atomically, parent records before their children. After each parent inserts,
   the framework populates its children's lookup fields. If any operation fails, all are rolled back.
 - **`TransactionResult`**: contains `isSuccess()`, `getInsertedIds()`, `getErrors()`, `getSuccessCount()`,
   `getFailureCount()`.
 
+Something went wrong? See [Common Issues, Step 2](#step-2-execute-1).
+
 ### Step 3: Write Tests
 
-Create a new file named `SVC_AccountOnboarding_TEST.cls`. Copy the following code exactly as is:
+The test class checks the service three ways: with two Contacts, with one, and with none. You create the empty class
+with one command, paste the code into it, send it to your org, then run it.
+
+**1. In the terminal**, from your project's top folder, create the empty test class:
+
+```shell
+sf apex generate class --name SVC_AccountOnboarding_TEST --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `SVC_AccountOnboarding_TEST.cls` and its
+companion of the same name ending in `.cls-meta.xml`.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in exactly as it is, and save:
+
+```text
+force-app/main/default/classes/SVC_AccountOnboarding_TEST.cls
+```
 
 ```apex
 /**
@@ -298,7 +367,7 @@ Create a new file named `SVC_AccountOnboarding_TEST.cls`. Copy the following cod
  * @date February 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(IsParallel=true)
+@IsTest(isParallel=true)
 private class SVC_AccountOnboarding_TEST
 {
 	/** @description Tests that an Account is created with Contacts and an Opportunity. */
@@ -360,19 +429,29 @@ private class SVC_AccountOnboarding_TEST
 }
 ```
 
-**Deploy and run:**
+**3. In the terminal**, send the test class to your org:
 
-```bash
+```shell
 sf project deploy start -o YourOrgAlias -m "ApexClass:SVC_AccountOnboarding_TEST"
+```
+
+You should see `Status: Succeeded`, with `SVC_AccountOnboarding_TEST` listed as created.
+
+**4. In the terminal**, run the test:
+
+```shell
 sf apex run test -o YourOrgAlias -t SVC_AccountOnboarding_TEST --code-coverage --synchronous --result-format human
 ```
 
-**Expected:** 3 tests passing, 100% coverage on `SVC_AccountOnboarding`.
+You should see 3 tests passing and 100% coverage on `SVC_AccountOnboarding`: all three tests show `Pass`, the
+summary line `Outcome` reads `Passed`, and the coverage table shows `SVC_AccountOnboarding` at `100%`.
 
-> **About the annotations:** `@IsTest(IsParallel=true)` enables parallel test execution (faster runs).
+> **About the annotations:** `@IsTest(isParallel=true)` enables parallel test execution (faster runs).
 > `SeeAllData` defaults to `false`, so we omit it. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
 > turns off a code-quality warning about `System.runAs()`, which is fine for quick starts. In production tests,
 > consider adding `System.runAs()` to verify profile and permission set access.
+
+Something went wrong? See [Common Issues, Step 3](#step-3-write-tests-1).
 
 ---
 
@@ -383,7 +462,7 @@ sf apex run test -o YourOrgAlias -t SVC_AccountOnboarding_TEST --code-coverage -
 `DML_Builder` supports every DML operation. See the [DML Guide](DML%20-%20Guide.md) for the full API
 reference including upsert by external ID, undelete, and bulk patterns.
 
-Run this from Execute Anonymous to see insert, update, and delete in a single transaction:
+**In Salesforce**, run this in an Execute Anonymous window to see insert, update, and delete in a single transaction:
 
 ```apex
 Account newAccount = new Account(Name = 'DML Demo Corp', Phone = '555-0100');
@@ -410,7 +489,7 @@ kern.DML_Builder.TransactionResult deleteResult = kern.DML_Builder.newTransactio
 System.debug('Delete success: ' + deleteResult.isSuccess());
 ```
 
-**Expected output:**
+You should see these lines in the log, with your record's Id in place of `001...`:
 
 ```text
 Insert success: true
@@ -419,9 +498,13 @@ Update success: true
 Delete success: true
 ```
 
+Something went wrong? See [Common Issues, All DML Operations](#all-dml-operations-1).
+
 ### TransactionResult
 
-Inspect the result after `execute()`:
+Inspect the result after `execute()`.
+
+**In Salesforce**, in an Execute Anonymous window, run:
 
 ```apex
 Account validAccount = new Account(Name = 'Valid Corp', Phone = '555-0100');
@@ -444,7 +527,7 @@ for(Database.Error error : result.getErrors())
 }
 ```
 
-**Expected output:**
+You should see these lines in the log, with your record's Id in place of `001...`:
 
 ```text
 Overall success: false
@@ -457,7 +540,9 @@ Error: Required fields are missing: [Name]
 ### Partial Success
 
 By default, DML is all-or-nothing: if one record fails, all are rolled back. Chain `.allowPartial()`
-to save the valid records and log the failures instead:
+to save the valid records and log the failures instead.
+
+**In Salesforce**, in an Execute Anonymous window, run:
 
 ```apex
 List<Account> mixedAccounts = new List<Account>
@@ -477,7 +562,7 @@ System.debug('Failed: ' + result.getFailureCount());
 System.debug('Inserted IDs: ' + result.getInsertedIds());
 ```
 
-**Expected output:**
+You should see these lines in the log, with your records' Ids in place of `001...`:
 
 ```text
 Succeeded: 2
@@ -486,6 +571,8 @@ Inserted IDs: (001..., 001...)
 ```
 
 Failed records are automatically logged via `LOG_Builder`. To see them, open **App Launcher > Kern > Log Entries**.
+
+Something went wrong? See [Common Issues, Partial Success](#partial-success-1).
 
 ### Security, Sharing, Suppression, and Async
 
@@ -497,6 +584,8 @@ are both checked against the running user, and sharing rules are honoured. This 
 You can override it on a single call with `.withSystemMode()` (which skips the CRUD and FLS checks), or be explicit and pass `.withUserMode()` even when the flag is on.
 `.bypassSharing()` affects sharing only: it does NOT turn off the CRUD and FLS enforcement that USER_MODE provides.
 See [Security Guide: Safe by Default](Security%20-%20Guide.md#safe-by-default).
+
+**In your editor**, in your own Apex, where `records` is the list of records you are saving:
 
 ```apex
 // Explicit USER_MODE (redundant when the flag is on, belt-and-braces otherwise)
@@ -518,28 +607,113 @@ kern.DML_Builder.newTransaction().doUpdate(records).async().withBatchSize(200).e
 kern.DML_Builder.newTransaction().doInsert(records).allowPartial().suppressLogging().execute();
 ```
 
-Three of the choices above travel with a background job: the access mode (`.withUserMode()` /
-`.withSystemMode()`), partial success (`.allowPartial()`), and the sharing bypass
-(`.bypassSharing()`). If you do not call `.bypassSharing()`, the background job enforces record
-sharing. `.suppressExceptions()` and `.suppressLogging()` do not travel: they shape the result the
-synchronous call hands back, and a background job has no caller waiting for one, so its failures are
-always logged.
+To keep the log but soften a refusal you expect, declare it: in partial-success mode the declared
+refusal is logged at WARN and everything else at ERROR.
+
+**In your editor**, in your own Apex:
+
+```apex
+// A duplicate here is expected, so it lands in the log at WARN
+kern.DML_Builder.newTransaction().doInsert(records).allowPartial().expectRefusal(StatusCode.DUPLICATE_VALUE).execute();
+```
+
+Four of the choices above travel with a background job: the access mode (`.withUserMode()` /
+`.withSystemMode()`), partial success (`.allowPartial()`), the sharing bypass (`.bypassSharing()`),
+and the expected refusals you declared (`.expectRefusal()`). If you do not call `.bypassSharing()`,
+the background job enforces record sharing. `.suppressExceptions()` and `.suppressLogging()` do not
+travel: they shape the result the synchronous call hands back, and a background job has no caller
+waiting for one, so its failures are always logged.
+
+### Clean up
+
+If you built this example only to try the framework, run this command when you have finished the guide. The records
+the Apex above inserted stay: the `Quick Test`, `Parent Co`, `Acme Corp`, `Valid Corp`, `Good Account 1` and
+`Good Account 2` Accounts, with the Contacts and the Opportunity linked to them; delete them in the app, or leave them.
+
+**In the terminal**, delete the service and its test class:
+
+```shell
+sf project delete source -o YourOrgAlias -m "ApexClass:SVC_AccountOnboarding_TEST" -m "ApexClass:SVC_AccountOnboarding" --no-prompt
+```
+
+You should see `Status: Succeeded`, then a `Deleted Source` table listing the two classes.
+
+The command deletes the files from your project too.
+
+Something went wrong? See [Common Issues](#clean-up-1).
 
 ---
 
 ## Common Issues
 
-| Problem                                                        | Cause                                                              | Fix                                                                                                  |
-|----------------------------------------------------------------|--------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
-| Child lookup field is `null` after execute                     | Child registered without relationship                              | Use `.doInsert(child, Contact.AccountId, parent)` instead of `.doInsert(child)`                      |
-| `DmlException` thrown                                          | All-or-nothing mode (default) and a record failed                  | Use `.allowPartial()` for partial success, or `.suppressExceptions()` to log instead of throw        |
-| Second `.execute()` does nothing                               | Transaction is consumed after first execute                        | Register all operations, execute once                                                                |
-| Using direct `insert`/`update`                                 | Bypasses framework error logging                                   | Use `kern.DML_Builder.newTransaction().doInsert(record).execute()`                                   |
-| Child lookup is `null` and parent appears after child in chain | `.doInsert(child, field, parent)` requires parent registered first | Move the parent's `.doInsert()` call above the child's, because the framework does not re-order operations |
-| `System.NullPointerException` on result                        | Accessing result fields incorrectly                                | Use `result.isSuccess()`, `result.getInsertedIds()`, `result.getErrors()`                            |
-| `Method does not exist: doInsert(Contact, Id, Account)`        | Variable named `contact` shadows `Contact` type                    | Rename the variable (e.g., `newContact`) so `Contact.AccountId` resolves as SObjectField             |
+Trouble with your computer rather than this guide (`sf` is not recognised, scripts are disabled, you are not logged
+in, the wrong folder)? Those are answered once, in
+[Set Up Your Computer](Set%20Up%20Your%20Computer.md#if-something-went-wrong).
 
----
+### Parent-Child Insert
+
+#### `Contact AccountId: null`
+
+The Contact was registered with `.doInsert(newContact)` alone, so the framework was never told which field links it
+to which parent. Register it with the lookup field and the parent: `.doInsert(child, Contact.AccountId, parent)`.
+
+#### `Method does not exist or incorrect signature: void doInsert(Contact, Id, Account) from the type kern.DML_Builder`
+
+The code stops before it runs. A variable named `contact` shadows the `Contact` type (Apex ignores case), so
+`Contact.AccountId` reads that variable's field value, an Id, instead of the field token. Rename the variable, for
+example to `newContact`, as the naming tip above says.
+
+### Step 1: Create the Service Class
+
+#### The deploy says there is nothing to deploy
+
+The deploy stops with `No source-backed components present in the package.` The command ran inside another project's
+folder, so the CLI looked for the class there and found nothing. Open the terminal in your own project's top folder,
+the one that holds `sfdx-project.json`, and run the command again.
+
+### Step 2: Execute
+
+#### `Variable does not exist: result`
+
+The code stops before it runs. The second snippet ran on its own, and it uses `result` from the first. Paste both
+snippets into one Execute Anonymous window and run them together.
+
+### Step 3: Write Tests
+
+#### The deploy fails
+
+The test class's deploy fails for the same reasons as the service's; see the entries under
+[Step 1](#step-1-create-the-service-class-1).
+
+### All DML Operations
+
+#### `cannot specify Id in an insert call`
+
+The code called `execute()` a second time on the same transaction. That runs the registered operations again, and the
+records it inserted the first time now have Ids, so the insert is refused with a message that starts
+`System.DmlException: Insert failed.` Register all the operations, then execute once; for more work afterwards, start
+a new transaction with `kern.DML_Builder.newTransaction()`, as the code above does.
+
+### Partial Success
+
+#### `System.DmlException: Insert failed.`
+
+The message goes on to name the failing row and the reason, for example `Required fields are missing: [Name]`. A
+transaction is all-or-nothing by default: one record failed, so nothing was saved and the error
+stopped your code. Chain `.allowPartial()` to save the valid records and read the failures from the result, or
+`.suppressExceptions()` to log the failure instead of throwing it.
+
+If the reason is `cannot specify Id in an insert call`, see [All DML Operations](#all-dml-operations-1).
+
+### Clean up
+
+#### `No ApexClass named: SVC_AccountOnboarding found`
+
+The command shows `Status: Failed` and a `Component Failures` table with this line, and the same for
+`SVC_AccountOnboarding_TEST`. The org no longer holds the classes: the clean-up already ran, or they were deleted
+another way. There is nothing left to delete.
+
+Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?template=bug_report.md&title=%5Bdocs%5D%20DML) which step and what you saw.
 
 ## What You Now Know
 
@@ -555,7 +729,8 @@ After completing this guide, you understand the **DML builder pattern** in KernD
 **Key patterns:**
 
 - **Always use `DML_Builder`**, not direct DML: the framework provides automatic error logging.
-- **Register the parent before the child**: use the 3-argument `.doInsert(child, field, parent)` overload.
+- **Link each child to its parent**: use the 3-argument `.doInsert(child, field, parent)` overload, and register the
+  parent with `.doInsert()` too; the framework inserts the parent first.
 - **One `execute()` per transaction**: register all operations first, then execute once.
 - **`public` visibility**: service classes using DML_Builder don't need `global`.
 - **`TransactionResult`**: always check `isSuccess()` when using `.allowPartial()` or `.suppressExceptions()`.

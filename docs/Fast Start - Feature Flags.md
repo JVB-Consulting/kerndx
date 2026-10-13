@@ -10,14 +10,6 @@ navOrder: 38
 
 **When the built-in option is enough:** if you only need to gate behaviour on a single Custom Permission or a Custom Setting, plain Apex (`FeatureManagement.checkPermissionUsingId`, or reading the setting directly) does that without a framework. Use feature flags when you want one named switch you can re-target across permission, profile, group, and setting strategies, toggle without a deploy, and check the same way from Apex, Flow, and LWC.
 
-**Before you start:**
-
-- [ ] KernDX package installed in your org
-- [ ] Org configured post-install (verify with the **Kern** app's Health Check, see the [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
-  (Gear Icon > Developer Console) for all Apex work
-- [ ] Working in a sandbox or scratch org (not production)
-
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
@@ -31,6 +23,14 @@ no deployment needed.
 **In one line:** `if(kern.UTIL_FeatureFlag.isEnabled('NewPricing'))`, where one metadata record controls the
 behaviour and is toggled without deployment.
 
+## Before you start
+
+Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
+Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
+once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
+today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
+where your org's alias goes: the name you gave it when you logged in.
+
 ---
 
 ## Table of Contents
@@ -38,34 +38,36 @@ behaviour and is toggled without deployment.
 <details>
 <summary>Expand</summary>
 
-1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
+1. [Before you start](#before-you-start)
+2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
     - [Check a feature flag](#check-a-feature-flag)
     - [Use a flag in conditional logic](#use-a-flag-in-conditional-logic)
-    - [Create the flag and try again](#create-the-flag-and-try-again)
-    - [Clean up](#clean-up)
-2. [Tier 2: Build Your Own (~15-20 minutes)](#tier-2-build-your-own-15-20-minutes)
-    - [Step 1: Create the service class](#step-1-create-the-service-class)
-    - [Step 2: Deploy and execute](#step-2-deploy-and-execute)
-    - [Step 3: Write the test class](#step-3-write-the-test-class)
-    - [Step 4: Deploy and run tests](#step-4-deploy-and-run-tests)
-        - [Key Patterns](#key-patterns)
-3. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
+    - [Step 1: Create the flag and try again](#step-1-create-the-flag-and-try-again)
+3. [Tier 2: Build Your Own (~15-20 minutes)](#tier-2-build-your-own-15-20-minutes)
+    - [Step 2: Create the service class](#step-2-create-the-service-class)
+    - [Step 3: Try the service](#step-3-try-the-service)
+    - [Step 4: Write and run the test](#step-4-write-and-run-the-test)
+4. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
     - [Framework-shipped flags you inherit automatically](#framework-shipped-flags-you-inherit-automatically)
     - [Strategy-based targeting](#strategy-based-targeting)
-        - [Deploy a Custom Permission strategy](#deploy-a-custom-permission-strategy)
-        - [Verify the strategy](#verify-the-strategy)
+    - [Step 5: Add a custom permission strategy](#step-5-add-a-custom-permission-strategy)
     - [Evaluation logic](#evaluation-logic)
     - [Check flags for specific users](#check-flags-for-specific-users)
     - [Use in Flows](#use-in-flows)
     - [Use in LWC](#use-in-lwc)
-    - [Custom strategy handler](#custom-strategy-handler)
-        - [Deploy the handler](#deploy-the-handler)
-        - [Wire it to a flag via strategy metadata](#wire-it-to-a-flag-via-strategy-metadata)
-        - [Verify](#verify)
     - [Package-bundled API control flags](#package-bundled-api-control-flags)
-4. [Common Issues](#common-issues)
-5. [What You Now Know](#what-you-now-know)
-6. [Next Steps](#next-steps)
+    - [Custom strategy handler](#custom-strategy-handler)
+    - [Step 6: Add a custom strategy handler](#step-6-add-a-custom-strategy-handler)
+    - [Clean up](#clean-up)
+5. [Common Issues](#common-issues)
+    - [Step 1: Create the flag and try again](#step-1-create-the-flag-and-try-again-1)
+    - [Step 2: Create the service class](#step-2-create-the-service-class-1)
+    - [Step 4: Write and run the test](#step-4-write-and-run-the-test-1)
+    - [Step 5: Add a custom permission strategy](#step-5-add-a-custom-permission-strategy-1)
+    - [Step 6: Add a custom strategy handler](#step-6-add-a-custom-strategy-handler-1)
+    - [Clean up](#clean-up-1)
+6. [What You Now Know](#what-you-now-know)
+7. [Next Steps](#next-steps)
 
 </details>
 
@@ -73,16 +75,19 @@ behaviour and is toggled without deployment.
 
 ## Tier 1: See It Work (~2 minutes)
 
-Run these blocks in **Execute Anonymous** (Developer Console or VS Code) to see feature flags in action.
+You run two short blocks of Apex to see how a flag answers, then create the flag and watch the answer change.
 
 ### Check a feature flag
+
+**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
+Anonymous Window, and run:
 
 ```apex
 Boolean isEnabled = kern.UTIL_FeatureFlag.isEnabled('NewPricingEngine');
 System.debug('NewPricingEngine enabled: ' + isEnabled);
 ```
 
-**Expected output:**
+You should see this line in the log:
 
 ```text
 NewPricingEngine enabled: false
@@ -93,6 +98,8 @@ yet.
 
 ### Use a flag in conditional logic
 
+**In Salesforce**, in the same Execute Anonymous window, run:
+
 ```apex
 String result;
 
@@ -108,74 +115,36 @@ else
 System.debug(result);
 ```
 
-**Expected output:**
+You should see this line in the log:
 
 ```text
 Using LEGACY pricing engine
 ```
 
-### Create the flag and try again
+### Step 1: Create the flag and try again
 
-<details open>
-<summary><strong>Windows (PowerShell)</strong></summary>
+A flag is one configuration record. You create it in Setup, pull it into your project so it is under source control
+with your code, then run the same block again.
 
-```powershell
-New-Item -ItemType Directory -Force -Path force-app/main/default/customMetadata | Out-Null
-@'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>New Pricing Engine</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__IsActive__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__IsEnabledByDefault__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-</CustomMetadata>
-'@ | Set-Content -Path "force-app/main/default/customMetadata/kern__FeatureFlag.NewPricingEngine.md-meta.xml" -Encoding UTF8
-sf project deploy start -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlag.NewPricingEngine" --ignore-conflicts
+**1. In Salesforce**, open Setup, then Custom Metadata Types, then **Feature Flag**, then **Manage Feature Flags**, then
+**New**, and save a record with these values:
+
+| Field                 | API name                      | Value                |
+|-----------------------|-------------------------------|----------------------|
+| Label                 | `MasterLabel`                 | `New Pricing Engine` |
+| Feature Flag Name     | `DeveloperName`               | `NewPricingEngine`   |
+| Is Active             | `kern__IsActive__c`           | checked              |
+| Is Enabled By Default | `kern__IsEnabledByDefault__c` | checked              |
+
+**2. In the terminal**, pull the record into your project:
+
+```shell
+sf project retrieve start -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlag.NewPricingEngine"
 ```
 
-</details>
+You should see one file created under `force-app/main/default/customMetadata`, named after the record.
 
-<details>
-<summary><strong>macOS/Linux (bash)</strong></summary>
-
-```bash
-mkdir -p force-app/main/default/customMetadata
-cat > force-app/main/default/customMetadata/kern__FeatureFlag.NewPricingEngine.md-meta.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>New Pricing Engine</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__IsActive__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__IsEnabledByDefault__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-</CustomMetadata>
-EOF
-sf project deploy start -o YourOrgAlias \
-  -m "CustomMetadata:kern__FeatureFlag.NewPricingEngine" --ignore-conflicts
-```
-
-</details>
-
-> **Prefer the UI?** Create this record in **Setup > Custom Metadata Types > Feature Flag > Manage Records > New**:
-> Label = `New Pricing Engine`, Feature Flag Name = `NewPricingEngine`, Is Active = checked,
-> Is Enabled By Default = checked.
-
-Now re-run the conditional logic block:
+**3. In Salesforce**, run the conditional logic block again:
 
 ```apex
 String result;
@@ -192,7 +161,7 @@ else
 System.debug(result);
 ```
 
-**Expected output:**
+You should see this line in the log:
 
 ```text
 Using NEW pricing engine
@@ -200,18 +169,26 @@ Using NEW pricing engine
 
 You just toggled behaviour without deploying code.
 
-### Clean up
+Something went wrong? See [Common Issues, Step 1](#step-1-create-the-flag-and-try-again-1).
 
-```bash
-sf project delete source -o YourOrgAlias \
-  -m "CustomMetadata:kern__FeatureFlag.NewPricingEngine" --no-prompt
+#### If you stop after Tier 1
+
+Going on to Tier 2 and Tier 3? Keep the flag: Step 5 changes it, and the clean-up at the end of Tier 3 removes it. If
+you are stopping here, delete it now.
+
+**In the terminal**, delete the flag:
+
+```shell
+sf project delete source -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlag.NewPricingEngine" --no-prompt
 ```
 
-> **Prefer the UI?** Go to **Setup > Custom Metadata Types > Feature Flag > Manage Records**, click **Del** next
-> to `NewPricingEngine`, and confirm.
+You should see `Status: Succeeded`, then a `Deleted Source` table listing the flag. The command deletes the file from
+your project too.
 
-Re-run the same code and you're back to `Using LEGACY pricing engine`. This confirms the safe default: a missing
-flag always returns `false`.
+Run the conditional logic block again and you're back to `Using LEGACY pricing engine`. This confirms the safe default:
+a missing flag always returns `false`.
+
+Something went wrong? See [Common Issues, Step 1](#step-1-create-the-flag-and-try-again-1).
 
 > **When to move to Tier 2:** When you want to build a real service that branches on a flag, with tests covering
 > both paths.
@@ -222,13 +199,28 @@ flag always returns `false`.
 
 > **No local project?** You can create classes directly in the Developer Console (Gear Icon > Developer Console >
 > File > New > Apex Class) and run tests from there too (Test > New Run). Paste the code, save, and skip the
-> `sf project deploy start` and `sf apex run test` commands.
+> terminal commands.
 
-### Step 1: Create the service class
+### Step 2: Create the service class
 
 Here is the goal: a pricing service that charges a 5% surcharge today, and a lower 3% surcharge once you turn the new pricing on. A feature flag decides which rate applies, so you can switch behaviour without redeploying the class.
 
-Copy this code exactly as is into `force-app/main/default/classes/FastStart_FeatureFlag_DEMO.cls`:
+You create an empty class with one command, paste the code into it, then send it to your org.
+
+**1. In the terminal**, from your project's top folder, create the empty class:
+
+```shell
+sf apex generate class --name FastStart_FeatureFlag_DEMO --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `FastStart_FeatureFlag_DEMO.cls` and its
+companion of the same name ending in `.cls-meta.xml`.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save:
+
+```text
+force-app/main/default/classes/FastStart_FeatureFlag_DEMO.cls
+```
 
 ```apex
 /**
@@ -282,13 +274,19 @@ public with sharing class FastStart_FeatureFlag_DEMO
 - When disabled (or missing), the legacy 5% surcharge applies
 - The flag name is stored as a `@TestVisible` constant so the test class can reference it directly
 
-### Step 2: Deploy and execute
+**3. In the terminal**, send the class to your org:
 
-```bash
-sf project deploy start -o YourOrgAlias -m "ApexClass:FastStart_FeatureFlag_DEMO" --ignore-conflicts
+```shell
+sf project deploy start -o YourOrgAlias -m "ApexClass:FastStart_FeatureFlag_DEMO"
 ```
 
-Test it from Execute Anonymous:
+You should see `Status: Succeeded`, with `FastStart_FeatureFlag_DEMO` listed as created.
+
+Something went wrong? See [Common Issues, Step 2](#step-2-create-the-service-class-1).
+
+### Step 3: Try the service
+
+**In Salesforce**, in the Execute Anonymous window, run:
 
 ```apex
 FastStart_FeatureFlag_DEMO demo = new FastStart_FeatureFlag_DEMO();
@@ -296,20 +294,36 @@ Decimal amount = demo.processWithNewPricing(100.00);
 System.debug('Amount: ' + amount);
 ```
 
-**Expected output** (with the flag not created or inactive; Apex `Decimal` preserves scale, so the value
-carries four decimal places):
+You should see this line in the log (with the flag not created or inactive; Apex `Decimal` preserves scale, so the
+value carries four decimal places):
 
 ```text
 Amount: 105.0000
 ```
 
-> **See it in the org:** Create the `FastStart_NewPricing` flag in Setup (as in Tier 1) with Is Active = checked
+> **See it in the org:** Create the `FastStart_NewPricing` flag in Setup (as in Step 1) with Is Active = checked
 > and Is Enabled By Default = checked, then re-run. You'll get `103.0000`. Deactivate or delete the flag and you're
-> back to `105.0`.
+> back to `105.0000`.
 
-### Step 3: Write the test class
+### Step 4: Write and run the test
 
-Copy this code exactly as is into `force-app/main/default/classes/FastStart_FeatureFlag_DEMO_TEST.cls`:
+The test class checks both rates: the legacy 5% when the flag is off, and the new 3% when it is on. You create the empty
+class with one command, paste the code into it, send it to your org, then run it.
+
+**1. In the terminal**, from your project's top folder, create the empty test class:
+
+```shell
+sf apex generate class --name FastStart_FeatureFlag_DEMO_TEST --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `FastStart_FeatureFlag_DEMO_TEST.cls` and its
+companion of the same name ending in `.cls-meta.xml`.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save:
+
+```text
+force-app/main/default/classes/FastStart_FeatureFlag_DEMO_TEST.cls
+```
 
 ```apex
 /**
@@ -325,7 +339,7 @@ Copy this code exactly as is into `force-app/main/default/classes/FastStart_Feat
  * @date May 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(IsParallel=true)
+@IsTest(isParallel=true)
 private class FastStart_FeatureFlag_DEMO_TEST
 {
 	/** @description Base amount used across all pricing tests. */
@@ -362,7 +376,7 @@ private class FastStart_FeatureFlag_DEMO_TEST
 }
 ```
 
-> **About the annotations:** `@IsTest(IsParallel=true)` allows tests to run concurrently for faster feedback.
+> **About the annotations:** `@IsTest(isParallel=true)` allows tests to run concurrently for faster feedback.
 > `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` suppresses a code analysis rule (the scanner that checks code without running it). In production
 > tests, wrap your test logic in `System.runAs(testUser)`.
 
@@ -374,22 +388,24 @@ private class FastStart_FeatureFlag_DEMO_TEST
 > in memory, so no Custom Metadata record is created in the org. To test the disabled path, simply don't seed the flag: an
 > unseeded flag is treated as off.
 
-### Step 4: Deploy and run tests
+**3. In the terminal**, send the test class to your org:
 
-```bash
-sf project deploy start -o YourOrgAlias -m "ApexClass:FastStart_FeatureFlag_DEMO_TEST" --ignore-conflicts
+```shell
+sf project deploy start -o YourOrgAlias -m "ApexClass:FastStart_FeatureFlag_DEMO_TEST"
+```
+
+You should see `Status: Succeeded`, with `FastStart_FeatureFlag_DEMO_TEST` listed as created.
+
+**4. In the terminal**, run the test:
+
+```shell
 sf apex run test -o YourOrgAlias -t FastStart_FeatureFlag_DEMO_TEST --code-coverage --synchronous --result-format human
 ```
 
-**Expected output:**
+You should see 2 tests passing and full coverage on `FastStart_FeatureFlag_DEMO`: both tests show `Pass`, the summary
+line `Outcome` reads `Passed`, and the coverage table shows `FastStart_FeatureFlag_DEMO` at `100%`.
 
-```text
-=== Test Results
-Test Run Id      [ID]
-Tests Ran        2
-Passing          2
-Failing          0
-```
+Something went wrong? See [Common Issues, Step 4](#step-4-write-and-run-the-test-1).
 
 #### Key Patterns
 
@@ -433,7 +449,7 @@ the `systemModeRequired()` hook on `SEL_Base`.
 ### Strategy-based targeting
 
 Most rollouts start with a small audience, not the whole org. A **strategy** lets you turn a flag on only for the users you choose, by permission, profile, group, or setting, instead of for everyone at once. This example adds a
-Custom Permission strategy to the `NewPricingEngine` flag you created in Tier 2.
+Custom Permission strategy to the `NewPricingEngine` flag you created in Step 1.
 
 | Strategy Type               | Target Example                   | Use Case                         |
 |-----------------------------|----------------------------------|----------------------------------|
@@ -452,199 +468,106 @@ Despite its name, the `Permission Set Group` strategy matches a permission set *
 > Setting, see [Feature Flags - Guide, Performance and SOQL Cost](Feature%20Flags%20-%20Guide.md#performance-and-soql-cost) for the per-strategy
 > cost table, the pattern for reading a flag once and reusing the result, and a `getInstance()`-based custom handler that avoids the query for Custom Setting strategies.
 
-#### Deploy a Custom Permission strategy
+### Step 5: Add a custom permission strategy
 
-First, re-deploy the `NewPricingEngine` flag from Tier 1 with `IsEnabledByDefault = false`. With the default off, the strategy
-decides who gets access:
+You turn the flag's default off, then make three records in Setup (a custom permission, a permission set that holds
+it, and a strategy that targets it), pulling each into your project, and finally give yourself the permission set.
 
-<details open>
-<summary><strong>Windows (PowerShell)</strong></summary>
+#### Step 5.1: Turn the flag's default off
 
-```powershell
-New-Item -ItemType Directory -Force -Path force-app/main/default/customMetadata | Out-Null
-@'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>New Pricing Engine</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__IsActive__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__IsEnabledByDefault__c</field>
-        <value xsi:type="xsd:boolean">false</value>
-    </values>
-</CustomMetadata>
-'@ | Set-Content -Path "force-app/main/default/customMetadata/kern__FeatureFlag.NewPricingEngine.md-meta.xml" -Encoding UTF8
-sf project deploy start -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlag.NewPricingEngine" --ignore-conflicts
+With the default off, the strategy decides who gets access.
+
+**1. In Salesforce**, open Setup, then Custom Metadata Types, then **Feature Flag**, then **Manage Feature Flags**, open
+**New Pricing Engine**, click **Edit**, change this value, and save:
+
+| Field                 | API name                      | Value     |
+|-----------------------|-------------------------------|-----------|
+| Is Enabled By Default | `kern__IsEnabledByDefault__c` | unchecked |
+
+If you deleted the flag after Tier 1, create it again as in Step 1, with Is Enabled By Default unchecked.
+
+**2. In the terminal**, pull the record again:
+
+```shell
+sf project retrieve start -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlag.NewPricingEngine"
 ```
 
-</details>
+You should see the file under `force-app/main/default/customMetadata` named after the record, listed as `Changed`
+(or `Created` if you made the flag again).
 
-<details>
-<summary><strong>macOS/Linux (bash)</strong></summary>
+Something went wrong? See [Common Issues, Step 5](#step-5-add-a-custom-permission-strategy-1).
 
-```bash
-mkdir -p force-app/main/default/customMetadata
-cat > force-app/main/default/customMetadata/kern__FeatureFlag.NewPricingEngine.md-meta.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>New Pricing Engine</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__IsActive__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__IsEnabledByDefault__c</field>
-        <value xsi:type="xsd:boolean">false</value>
-    </values>
-</CustomMetadata>
-EOF
-sf project deploy start -o YourOrgAlias \
-  -m "CustomMetadata:kern__FeatureFlag.NewPricingEngine" --ignore-conflicts
+#### Step 5.2: Create the custom permission
+
+**1. In Salesforce**, open Setup, then Custom Permissions, then **New**, and save one with these values:
+
+| Field | API name        | Value                       |
+|-------|-----------------|-----------------------------|
+| Label | `MasterLabel`   | `New Pricing Engine Access` |
+| Name  | `DeveloperName` | `NewPricingEngineAccess`    |
+
+**2. In the terminal**, pull it into your project:
+
+```shell
+sf project retrieve start -o YourOrgAlias -m "CustomPermission:NewPricingEngineAccess"
 ```
 
-</details>
+You should see one file created under `force-app/main/default/customPermissions`, named after the custom permission.
 
-Now create the Custom Permission, a Permission Set to hold it, and a strategy that targets it:
+Something went wrong? See [Common Issues, Step 5](#step-5-add-a-custom-permission-strategy-1).
 
-<details open>
-<summary><strong>Windows (PowerShell)</strong></summary>
+#### Step 5.3: Create the permission set
 
-```powershell
-New-Item -ItemType Directory -Force -Path force-app/main/default/customPermissions | Out-Null
-@'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>New Pricing Engine Access</label>
-    <isLicensed>false</isLicensed>
-</CustomPermission>
-'@ | Set-Content -Path "force-app/main/default/customPermissions/NewPricingEngineAccess.customPermission-meta.xml" -Encoding UTF8
-New-Item -ItemType Directory -Force -Path force-app/main/default/permissionsets | Out-Null
-@'
-<?xml version="1.0" encoding="UTF-8"?>
-<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>New Pricing Engine</label>
-    <hasActivationRequired>false</hasActivationRequired>
-    <customPermissions>
-        <enabled>true</enabled>
-        <name>NewPricingEngineAccess</name>
-    </customPermissions>
-</PermissionSet>
-'@ | Set-Content -Path "force-app/main/default/permissionsets/NewPricingEngine.permissionset-meta.xml" -Encoding UTF8
-@'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>NewPricingEngine - Custom Permission</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__FeatureFlag__c</field>
-        <value xsi:type="xsd:string">NewPricingEngine</value>
-    </values>
-    <values>
-        <field>kern__IsActive__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__Order__c</field>
-        <value xsi:type="xsd:double">1.0</value>
-    </values>
-    <values>
-        <field>kern__Target__c</field>
-        <value xsi:type="xsd:string">NewPricingEngineAccess</value>
-    </values>
-    <values>
-        <field>kern__Type__c</field>
-        <value xsi:type="xsd:string">Custom Permission</value>
-    </values>
-</CustomMetadata>
-'@ | Set-Content -Path "force-app/main/default/customMetadata/kern__FeatureFlagStrategy.NewPricingEngine_CustomPermission.md-meta.xml" -Encoding UTF8
-sf project deploy start -o YourOrgAlias `
-  -m "CustomPermission:NewPricingEngineAccess" `
-  -m "PermissionSet:NewPricingEngine" `
-  -m "CustomMetadata:kern__FeatureFlagStrategy.NewPricingEngine_CustomPermission" `
-  --ignore-conflicts
+**1. In Salesforce**, open Setup, then Permission Sets, then **New**, and save one with these values:
+
+| Field    | API name | Value                |
+|----------|----------|----------------------|
+| Label    | `Label`  | `New Pricing Engine` |
+| API Name | `Name`   | `NewPricingEngine`   |
+
+Then, on the new permission set, open **Custom Permissions**, click **Edit**, add **New Pricing Engine Access** to the
+enabled list, and save.
+
+**2. In the terminal**, pull it into your project:
+
+```shell
+sf project retrieve start -o YourOrgAlias -m "PermissionSet:NewPricingEngine"
 ```
 
-</details>
+You should see one file created under `force-app/main/default/permissionsets`, named after the permission set.
 
-<details>
-<summary><strong>macOS/Linux (bash)</strong></summary>
+Something went wrong? See [Common Issues, Step 5](#step-5-add-a-custom-permission-strategy-1).
 
-```bash
-mkdir -p force-app/main/default/customPermissions
-cat > force-app/main/default/customPermissions/NewPricingEngineAccess.customPermission-meta.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>New Pricing Engine Access</label>
-    <isLicensed>false</isLicensed>
-</CustomPermission>
-EOF
-mkdir -p force-app/main/default/permissionsets
-cat > force-app/main/default/permissionsets/NewPricingEngine.permissionset-meta.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>New Pricing Engine</label>
-    <hasActivationRequired>false</hasActivationRequired>
-    <customPermissions>
-        <enabled>true</enabled>
-        <name>NewPricingEngineAccess</name>
-    </customPermissions>
-</PermissionSet>
-EOF
-cat > force-app/main/default/customMetadata/kern__FeatureFlagStrategy.NewPricingEngine_CustomPermission.md-meta.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>NewPricingEngine - Custom Permission</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__FeatureFlag__c</field>
-        <value xsi:type="xsd:string">NewPricingEngine</value>
-    </values>
-    <values>
-        <field>kern__IsActive__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__Order__c</field>
-        <value xsi:type="xsd:double">1.0</value>
-    </values>
-    <values>
-        <field>kern__Target__c</field>
-        <value xsi:type="xsd:string">NewPricingEngineAccess</value>
-    </values>
-    <values>
-        <field>kern__Type__c</field>
-        <value xsi:type="xsd:string">Custom Permission</value>
-    </values>
-</CustomMetadata>
-EOF
-sf project deploy start -o YourOrgAlias \
-  -m "CustomPermission:NewPricingEngineAccess" \
-  -m "PermissionSet:NewPricingEngine" \
-  -m "CustomMetadata:kern__FeatureFlagStrategy.NewPricingEngine_CustomPermission" \
-  --ignore-conflicts
+#### Step 5.4: Create the strategy record
+
+**1. In Salesforce**, open Setup, then Custom Metadata Types, then **Feature Flag Strategy**, then **Manage Feature Flag
+Strategies**, then **New**, and save a record with these values:
+
+| Field                      | API name               | Value                                  |
+|----------------------------|------------------------|----------------------------------------|
+| Label                      | `MasterLabel`          | `NewPricingEngine - Custom Permission` |
+| Feature Flag Strategy Name | `DeveloperName`        | `NewPricingEngine_CustomPermission`    |
+| Feature Flag               | `kern__FeatureFlag__c` | `NewPricingEngine`                     |
+| Is Active                  | `kern__IsActive__c`    | checked                                |
+| Order                      | `kern__Order__c`       | `1`                                    |
+| Target                     | `kern__Target__c`      | `NewPricingEngineAccess`               |
+| Type                       | `kern__Type__c`        | `Custom Permission`                    |
+
+**2. In the terminal**, pull it into your project:
+
+```shell
+sf project retrieve start -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlagStrategy.NewPricingEngine_CustomPermission"
 ```
 
-</details>
+You should see one file created under `force-app/main/default/customMetadata`, named after the record.
 
-> **Prefer the UI?** Create the Custom Permission in **Setup > Custom Permissions > New** (Label = `New Pricing
-> Engine Access`). Create the Permission Set in **Setup > Permission Sets > New** (Label = `New Pricing Engine`),
-> then add the custom permission to it. Create the strategy in **Setup > Custom Metadata Types > Feature Flag
-> Strategy > Manage Records > New**: Feature Flag = `NewPricingEngine`, Type = `Custom Permission`,
-> Target = `NewPricingEngineAccess`, Is Active = checked, Order = `1`.
+Something went wrong? See [Common Issues, Step 5](#step-5-add-a-custom-permission-strategy-1).
 
-#### Verify the strategy
+#### Step 5.5: Give yourself the permission set
+
+First check the flag while you do not have the permission set, then assign it to yourself.
+
+**1. In Salesforce**, in the Execute Anonymous window, run:
 
 ```apex
 // Without the permission set — flag is disabled (IsEnabledByDefault = false, no strategy match)
@@ -652,14 +575,25 @@ Boolean before = kern.UTIL_FeatureFlag.isEnabled('NewPricingEngine');
 System.debug('Before assignment: ' + before);
 ```
 
-**Expected output:**
+You should see this line in the log:
 
 ```text
 Before assignment: false
 ```
 
-Assign the permission set to yourself: **Setup > Permission Sets > New Pricing Engine > Manage Assignments >
-Add Assignment > (select your user)**. Then re-run:
+**2. In the terminal**, assign the permission set to yourself:
+
+```shell
+sf org assign permset -n NewPricingEngine -o YourOrgAlias
+```
+
+You should see a `Permsets Assigned` table with one row: your username and `NewPricingEngine`.
+
+Something went wrong? See [Common Issues, Step 5](#step-5-add-a-custom-permission-strategy-1).
+
+#### Verify the strategy
+
+**In Salesforce**, in the Execute Anonymous window, run:
 
 ```apex
 // With the permission set — strategy matches, flag is enabled for you
@@ -667,32 +601,37 @@ Boolean after = kern.UTIL_FeatureFlag.isEnabled('NewPricingEngine');
 System.debug('After assignment: ' + after);
 ```
 
-**Expected output:**
+You should see this line in the log:
 
 ```text
 After assignment: true
 ```
+
+Something went wrong? See [Common Issues, Step 5](#step-5-add-a-custom-permission-strategy-1).
 
 The flag is now enabled only for users who have the `NewPricingEngine` permission set. Everyone else still gets
 `false`.
 
 ### Evaluation logic
 
-When you ask whether a flag is on, the framework checks a fixed sequence of conditions and stops at the first one that decides the answer. Knowing this order helps you predict what a flag will return. Run this to watch the fallback path in action:
+When you ask whether a flag is on, the framework checks a fixed sequence of conditions and stops at the first one that decides the answer. Knowing this order helps you predict what a flag will return.
+
+**In Salesforce**, run this in the Execute Anonymous window to watch the fallback path in action:
 
 ```apex
 // Path 1: Flag doesn't exist → returns false (safe default)
 System.debug('Non-existent flag: ' + kern.UTIL_FeatureFlag.isEnabled('NoSuchFlag'));
 
-// Path 2: Flag exists, IsActive = true, no strategies → returns IsEnabledByDefault
+// Path 2: Flag exists, IsActive = true, with a strategy → the strategy decides
 System.debug('NewPricingEngine (with strategy): ' + kern.UTIL_FeatureFlag.isEnabled('NewPricingEngine'));
 ```
 
-**Expected output:**
+With the `NewPricingEngine` permission set assigned to you, as in Step 5, you should see these lines in the log (the
+second line reads `false` if you do not hold the permission set):
 
 ```text
 Non-existent flag: false
-NewPricingEngine (with strategy): true (if permission assigned) / false (if not)
+NewPricingEngine (with strategy): true
 ```
 
 The full evaluation flow:
@@ -708,7 +647,9 @@ The full evaluation flow:
 
 ### Check flags for specific users
 
-Sometimes the user you care about isn't the one running the code: a batch job, a platform event, or a security policy may act on behalf of someone else. For those cases, pass a specific user (by Id or username) so the flag is evaluated against that person, not the running user:
+Sometimes the user you care about isn't the one running the code: a batch job, a platform event, or a security policy may act on behalf of someone else. For those cases, pass a specific user (by Id or username) so the flag is evaluated against that person, not the running user.
+
+**In Salesforce**, in the Execute Anonymous window, run:
 
 ```apex
 // Check for a specific user by ID
@@ -721,7 +662,7 @@ Boolean enabledByUsername = kern.UTIL_FeatureFlag.isEnabled('NewPricingEngine', 
 System.debug('Enabled for ' + UserInfo.getUserName() + ': ' + enabledByUsername);
 ```
 
-**Expected output** (varies based on permission set assignment):
+You should see lines like these in the log (they vary with your name, username and permission set assignment):
 
 ```text
 Enabled for Admin User: true
@@ -749,13 +690,20 @@ Use the **Is Feature Flag Enabled** invocable action to check flags in Flows:
 > **Note:** The invocable action name in the API is `FLOW_CheckFeatureFlag`. The label shown in the Flow
 > Builder UI is **Is Feature Flag Enabled**.
 
+A user who is not a System Administrator and runs a screen flow with this action needs access to the Apex class behind it: assign the **Kern Component Access**
+permission set, or add Apex class access for `kern.FLOW_CheckFeatureFlag` to a permission set they already have.
+
 ### Use in LWC
 
-You can check the same flags from a Lightning component, so the screen shows or hides parts of the page to match what your Apex code does. Import `c/featureFlag` and call `isFlagEnabled(flagName)` to read the same result your Apex code sees:
+You can check the same flags from a Lightning component, so the screen shows or hides parts of the page to match what your Apex code does. Import `kern/featureFlag`
+and call `isFlagEnabled(flagName)` to read the same result your Apex code sees. The module ships inside the managed package, so you import it from `kern/`, not `c/`;
+the same rule applies to every KernDX module (see [The namespace gotcha](Fast%20Start%20-%20LWC.md#the-namespace-gotcha) in the LWC Fast Start).
+
+**In your editor**, in your component's JavaScript file:
 
 ```javascript
-import {ComponentBuilder} from 'c/componentBuilder';
-import {isFlagEnabled} from 'c/featureFlag';
+import {ComponentBuilder} from 'kern/componentBuilder';
+import {isFlagEnabled} from 'kern/featureFlag';
 
 export default class MyComponent extends ComponentBuilder('notification')
 {
@@ -768,234 +716,16 @@ export default class MyComponent extends ComponentBuilder('notification')
 }
 ```
 
+The user who opens a page that uses this module needs access to the Apex class behind it. Without it, the page fails with "You do not have access to the Apex class
+named 'CTRL_FeatureFlag'". Users with the System Administrator profile or the **Kern Administrator** permission set already have that access. For everyone else,
+assign the **Kern Component Access** permission set, which grants the classes behind the package's components and modules (this one included) and nothing more, or
+add Apex class access for `kern.CTRL_FeatureFlag` (the name Setup shows under Apex Class Access) to a permission set they already have.
+
 Behind the scenes this calls `CTRL_FeatureFlag.isEnabled` (`@AuraEnabled(cacheable=true)`), so a component sees the same per-user
 result your Apex sees. One caution: because the result is cached on the client, it can be briefly out of date after you assign or
 remove a permission set that changes a flag for the running user. The cache refreshes on a page reload, but not when
 a `@wire` simply re-fires. So use this to shape the user experience (showing or hiding a panel or section), not to decide whether someone is
 allowed to do something. Treat real authorisation in Apex. See [LWC Guide, Feature Flag Bridge](LWC%20-%20Guide.md) for the full caveats.
-
-### Custom strategy handler
-
-The built-in strategy types (permission, profile, group, and so on) cover most rollouts. When your "who gets this flag" rule is more involved, for example matching on a user's locale or a value from another record, you write a small Apex class that decides, and point a strategy at it.
-
-> **Naming convention:** The strategy interface is `kern.UTIL_FeatureFlag.INT_FeatureFlagStrategy`. Note the
-> `INT_*` prefix, not `IF_*`. Top-level framework interfaces use the `IF_*` prefix, while inner interfaces nested inside
-> `UTIL_*` classes use the `INT_*` prefix. This is a deliberate codebase convention, so don't rename it.
-
-> **Why `global`?** Declaring the class `global` lets the framework find and create it at runtime with no extra setup.
-> If you prefer `public with sharing`, you'll need a Type Resolver class, which is how the framework finds the Apex classes in your namespace: you tell it where to look. The Kern home page health check
-> provides that code, or see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
-
-#### Deploy the handler
-
-> **No local project?** You can create classes directly in the Developer Console (Gear Icon > Developer Console >
-> File > New > Apex Class) and run tests from there too (Test > New Run). Paste the code, save, and skip the
-> `sf project deploy start` and `sf apex run test` commands.
-
-<details open>
-<summary><strong>Windows (PowerShell)</strong></summary>
-
-```powershell
-New-Item -ItemType Directory -Force -Path force-app/main/default/classes | Out-Null
-@'
-/**
- * @description Custom strategy handler that enables a flag based on the user's locale.
- *
- * @author your.name@company.com
- *
- * @group Feature Flags
- *
- * @date May 2026
- */
-global with sharing class MY_RegionStrategy implements kern.UTIL_FeatureFlag.INT_FeatureFlagStrategy
-{
-	/**
-	 * @description Evaluates whether the current user matches the target locale prefix.
-	 *
-	 * @param flag The feature flag being evaluated.
-	 * @param strategy The strategy record containing targeting configuration.
-	 *
-	 * @return True if the user's locale starts with the strategy's Target value.
-	 */
-	public Boolean isEnabled(kern__FeatureFlag__mdt flag, kern__FeatureFlagStrategy__mdt strategy)
-	{
-		return UserInfo.getLocale().startsWith(strategy.kern__Target__c);
-	}
-}
-'@ | Set-Content -Path "force-app/main/default/classes/MY_RegionStrategy.cls" -Encoding UTF8
-@'
-<?xml version="1.0" encoding="UTF-8"?>
-<ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>67.0</apiVersion>
-    <status>Active</status>
-</ApexClass>
-'@ | Set-Content -Path "force-app/main/default/classes/MY_RegionStrategy.cls-meta.xml" -Encoding UTF8
-sf project deploy start -o YourOrgAlias -m "ApexClass:MY_RegionStrategy" --ignore-conflicts
-```
-
-</details>
-
-<details>
-<summary><strong>macOS/Linux (bash)</strong></summary>
-
-```bash
-mkdir -p force-app/main/default/classes
-cat > force-app/main/default/classes/MY_RegionStrategy.cls << 'CLSEOF'
-/**
- * @description Custom strategy handler that enables a flag based on the user's locale.
- *
- * @author your.name@company.com
- *
- * @group Feature Flags
- *
- * @date May 2026
- */
-global with sharing class MY_RegionStrategy implements kern.UTIL_FeatureFlag.INT_FeatureFlagStrategy
-{
-	/**
-	 * @description Evaluates whether the current user matches the target locale prefix.
-	 *
-	 * @param flag The feature flag being evaluated.
-	 * @param strategy The strategy record containing targeting configuration.
-	 *
-	 * @return True if the user's locale starts with the strategy's Target value.
-	 */
-	public Boolean isEnabled(kern__FeatureFlag__mdt flag, kern__FeatureFlagStrategy__mdt strategy)
-	{
-		return UserInfo.getLocale().startsWith(strategy.kern__Target__c);
-	}
-}
-CLSEOF
-cat > force-app/main/default/classes/MY_RegionStrategy.cls-meta.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>67.0</apiVersion>
-    <status>Active</status>
-</ApexClass>
-EOF
-sf project deploy start -o YourOrgAlias \
-  -m "ApexClass:MY_RegionStrategy" --ignore-conflicts
-```
-
-</details>
-
-#### Wire it to a flag via strategy metadata
-
-Create a strategy that points at your custom handler. Set the **Custom Handler** field to the class name, and set
-**Target** to the locale prefix you want to match (for example, `de_DE` for the German locale):
-
-<details open>
-<summary><strong>Windows (PowerShell)</strong></summary>
-
-```powershell
-@'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>NewPricingEngine - Region</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__CustomHandler__c</field>
-        <value xsi:type="xsd:string">MY_RegionStrategy</value>
-    </values>
-    <values>
-        <field>kern__FeatureFlag__c</field>
-        <value xsi:type="xsd:string">NewPricingEngine</value>
-    </values>
-    <values>
-        <field>kern__IsActive__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__Order__c</field>
-        <value xsi:type="xsd:double">2.0</value>
-    </values>
-    <values>
-        <field>kern__Target__c</field>
-        <value xsi:type="xsd:string">de_DE</value>
-    </values>
-    <values>
-        <field>kern__Type__c</field>
-        <value xsi:type="xsd:string">Custom Permission</value>
-    </values>
-</CustomMetadata>
-'@ | Set-Content -Path "force-app/main/default/customMetadata/kern__FeatureFlagStrategy.NewPricingEngine_Region.md-meta.xml" -Encoding UTF8
-sf project deploy start -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlagStrategy.NewPricingEngine_Region" --ignore-conflicts
-```
-
-</details>
-
-<details>
-<summary><strong>macOS/Linux (bash)</strong></summary>
-
-```bash
-cat > force-app/main/default/customMetadata/kern__FeatureFlagStrategy.NewPricingEngine_Region.md-meta.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>NewPricingEngine - Region</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__CustomHandler__c</field>
-        <value xsi:type="xsd:string">MY_RegionStrategy</value>
-    </values>
-    <values>
-        <field>kern__FeatureFlag__c</field>
-        <value xsi:type="xsd:string">NewPricingEngine</value>
-    </values>
-    <values>
-        <field>kern__IsActive__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__Order__c</field>
-        <value xsi:type="xsd:double">2.0</value>
-    </values>
-    <values>
-        <field>kern__Target__c</field>
-        <value xsi:type="xsd:string">de_DE</value>
-    </values>
-    <values>
-        <field>kern__Type__c</field>
-        <value xsi:type="xsd:string">Custom Permission</value>
-    </values>
-</CustomMetadata>
-EOF
-sf project deploy start -o YourOrgAlias \
-  -m "CustomMetadata:kern__FeatureFlagStrategy.NewPricingEngine_Region" --ignore-conflicts
-```
-
-</details>
-
-> **Prefer the UI?** Create this record in **Setup > Custom Metadata Types > Feature Flag Strategy > Manage
-> Records > New**: Feature Flag = `NewPricingEngine`, Type = `Custom Permission`,
-> Custom Handler = `MY_RegionStrategy`, Target = `de_DE`, Is Active = checked, Order = `2`.
->
-> The `Type` value doesn't matter when `Custom Handler` is populated: the framework runs your custom
-> handler class regardless of the selected type.
-
-#### Verify
-
-```apex
-System.debug('User locale: ' + UserInfo.getLocale());
-System.debug('NewPricingEngine enabled: ' + kern.UTIL_FeatureFlag.isEnabled('NewPricingEngine'));
-```
-
-**Expected output** (for an en_US user **with the `NewPricingEngine` permission unassigned**):
-
-```text
-User locale: en_US
-NewPricingEngine enabled: false
-```
-
-The region strategy targets `de_DE` (the German locale), so it won't match an `en_US` user. **One catch:** if
-you still have the `NewPricingEngine` Custom Permission assigned from the earlier *Verify the strategy*
-step, the Order-1 Custom Permission strategy matches first and the flag returns `true`. Remove that
-assignment (**Setup > Permission Sets > New Pricing Engine > Manage Assignments > Del**) to let the region
-strategy decide. If you then change your locale to German (Setup > Personal Information > Locale), the flag
-returns `true`.
 
 ### Package-bundled API control flags
 
@@ -1010,7 +740,9 @@ earlier, and they specifically control the web services framework:
 | `MockAllAPIs`            | Return mock responses for all APIs     |
 | `MockAllInboundAPIs`     | Return mock responses for inbound APIs |
 
-These work with the web services framework automatically, with no code needed. Verify from Execute Anonymous:
+These work with the web services framework automatically, with no code needed.
+
+**In Salesforce**, check their state from the Execute Anonymous window:
 
 ```apex
 // These are pre-packaged flags — check their current state
@@ -1018,14 +750,14 @@ System.debug('DisableAllAPIs: ' + kern.UTIL_FeatureFlag.isEnabled('DisableAllAPI
 System.debug('MockAllAPIs: ' + kern.UTIL_FeatureFlag.isEnabled('MockAllAPIs'));
 ```
 
-**Expected output:**
+You should see these lines in the log:
 
 ```text
 DisableAllAPIs: false
 MockAllAPIs: false
 ```
 
-To use these in tests, activate them with `TST_Factory`:
+**In your editor**, to use these in tests, activate them with `TST_Factory` in a test method:
 
 ```apex
 // In a @IsTest method:
@@ -1033,21 +765,232 @@ kern.TST_Factory.newFeatureFlag('DisableAllAPIs');
 // All API calls in this test will be disabled
 ```
 
+### Custom strategy handler
+
+The built-in strategy types (permission, profile, group, and so on) cover most rollouts. When your "who gets this flag" rule is more involved, for example matching on a user's locale or a value from another record, you write a small Apex class that decides, and point a strategy at it.
+
+> **Naming convention:** The strategy interface is `kern.UTIL_FeatureFlag.INT_FeatureFlagStrategy`. Note the
+> `INT_*` prefix, not `IF_*`. Top-level framework interfaces use the `IF_*` prefix, while inner interfaces nested inside
+> `UTIL_*` classes use the `INT_*` prefix. This is a deliberate codebase convention, so don't rename it.
+
+> **Why `global`?** Declaring the class `global` lets the framework find and create it at runtime with no extra setup.
+> If you prefer `public with sharing`, you'll need a Type Resolver class, which is how the framework finds the Apex classes in your namespace: you tell it where to look. The Kern home page health check
+> provides that code, or see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
+
+### Step 6: Add a custom strategy handler
+
+You write the handler class, point a second strategy at it, then check which strategy decides.
+
+#### Step 6.1: Create the handler class
+
+You create an empty class with one command, paste the code into it, then send it to your org.
+
+**1. In the terminal**, from your project's top folder, create the empty class:
+
+```shell
+sf apex generate class --name MY_RegionStrategy --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`, both named `MY_RegionStrategy`: the class, ending
+in `.cls`, and its companion, ending in `.cls-meta.xml`.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save:
+
+```text
+force-app/main/default/classes/MY_RegionStrategy.cls
+```
+
+```apex
+/**
+ * @description Custom strategy handler that enables a flag based on the user's locale.
+ *
+ * @author your.name@company.com
+ *
+ * @group Feature Flags
+ *
+ * @date May 2026
+ */
+global with sharing class MY_RegionStrategy implements kern.UTIL_FeatureFlag.INT_FeatureFlagStrategy
+{
+	/**
+	 * @description Evaluates whether the current user matches the target locale prefix.
+	 *
+	 * @param flag The feature flag being evaluated.
+	 * @param strategy The strategy record containing targeting configuration.
+	 *
+	 * @return True if the user's locale starts with the strategy's Target value.
+	 */
+	public Boolean isEnabled(kern__FeatureFlag__mdt flag, kern__FeatureFlagStrategy__mdt strategy)
+	{
+		return UserInfo.getLocale().startsWith(strategy.kern__Target__c);
+	}
+}
+```
+
+**3. In the terminal**, send the class to your org:
+
+```shell
+sf project deploy start -o YourOrgAlias -m "ApexClass:MY_RegionStrategy"
+```
+
+You should see `Status: Succeeded`, with `MY_RegionStrategy` listed as created.
+
+Something went wrong? See [Common Issues, Step 6](#step-6-add-a-custom-strategy-handler-1).
+
+#### Step 6.2: Point a strategy at the handler
+
+A second strategy on the same flag names your class in **Custom Handler Class**, and sets **Target** to the locale
+prefix you want to match (for example, `de_DE` for the German locale).
+
+**1. In Salesforce**, open Setup, then Custom Metadata Types, then **Feature Flag Strategy**, then **Manage Feature Flag
+Strategies**, then **New**, and save a record with these values:
+
+| Field                      | API name                 | Value                       |
+|----------------------------|--------------------------|-----------------------------|
+| Label                      | `MasterLabel`            | `NewPricingEngine - Region` |
+| Feature Flag Strategy Name | `DeveloperName`          | `NewPricingEngine_Region`   |
+| Custom Handler Class       | `kern__CustomHandler__c` | `MY_RegionStrategy`         |
+| Feature Flag               | `kern__FeatureFlag__c`   | `NewPricingEngine`          |
+| Is Active                  | `kern__IsActive__c`      | checked                     |
+| Order                      | `kern__Order__c`         | `2`                         |
+| Target                     | `kern__Target__c`        | `de_DE`                     |
+| Type                       | `kern__Type__c`          | `Custom Permission`         |
+
+The `Type` value doesn't matter when `Custom Handler Class` is filled in: the framework runs your custom handler class
+regardless of the selected type.
+
+**2. In the terminal**, pull it into your project:
+
+```shell
+sf project retrieve start -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlagStrategy.NewPricingEngine_Region"
+```
+
+You should see one file created under `force-app/main/default/customMetadata`, named after the record.
+
+Something went wrong? See [Common Issues, Step 6](#step-6-add-a-custom-strategy-handler-1).
+
+#### Verify
+
+**In Salesforce**, in the Execute Anonymous window, run:
+
+```apex
+System.debug('User locale: ' + UserInfo.getLocale());
+System.debug('NewPricingEngine enabled: ' + kern.UTIL_FeatureFlag.isEnabled('NewPricingEngine'));
+```
+
+You should see these lines in the log (for an en_US user **with the `NewPricingEngine` permission set unassigned**):
+
+```text
+User locale: en_US
+NewPricingEngine enabled: false
+```
+
+The region strategy targets `de_DE` (the German locale), so it won't match an `en_US` user. **One catch:** if
+you still have the `NewPricingEngine` permission set assigned from Step 5.5, the Order-1 Custom Permission strategy
+matches first and the flag returns `true`. To let the region strategy decide, open Setup, then Permission Sets, then
+**New Pricing Engine**, then **Manage Assignments**, and remove your assignment. If you then change your locale to
+German (Setup, then Personal Information, then Locale), the flag returns `true`.
+
+Something went wrong? See [Common Issues, Step 6](#step-6-add-a-custom-strategy-handler-1).
+
+### Clean up
+
+When you have finished the guide, remove what it made from your org. The org refuses to delete a permission set that
+is still assigned, or a flag a strategy still points at, so work in this order.
+
+**1. In Salesforce**, if you have not already removed your assignment in the Verify step above, open Setup, then
+Permission Sets, then **New Pricing Engine**, then **Manage Assignments**, and remove it.
+
+**2. In the terminal**, delete the two strategy records, the permission set and the three classes:
+
+```shell
+sf project delete source -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlagStrategy.NewPricingEngine_CustomPermission" -m "CustomMetadata:kern__FeatureFlagStrategy.NewPricingEngine_Region" -m "PermissionSet:NewPricingEngine" -m "ApexClass:MY_RegionStrategy" -m "ApexClass:FastStart_FeatureFlag_DEMO_TEST" -m "ApexClass:FastStart_FeatureFlag_DEMO" --no-prompt
+```
+
+You should see `Status: Succeeded`, then a `Deleted Source` table listing the three classes, the two strategy records
+and the permission set.
+
+**3. In the terminal**, delete the flag and the custom permission:
+
+```shell
+sf project delete source -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlag.NewPricingEngine" -m "CustomPermission:NewPricingEngineAccess" --no-prompt
+```
+
+You should see `Status: Succeeded`, then a `Deleted Source` table listing the flag and the custom permission.
+
+The commands delete the files from your project too. Two things the commands do not touch: if you created a
+`FastStart_NewPricing` flag in Setup for Step 3, delete it there (open Setup, then Custom Metadata Types, then **Feature
+Flag**, then **Manage Feature Flags**, then **Del** beside it); and if you changed your locale to German, change it back.
+
+Something went wrong? See [Common Issues](#clean-up-1).
+
 ---
 
 ## Common Issues
 
-| Problem                                         | Cause                                                      | Fix                                                                                                                                                                                                                   |
-|-------------------------------------------------|------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `isEnabled()` always returns `false`            | Flag doesn't exist or `IsActive` unchecked                 | Create the `FeatureFlag__mdt` record and check **Is Active**                                                                                                                                                          |
-| Flag enabled globally but not for specific user | Strategy `IsActive` not checked                            | Check **Is Active** on each `FeatureFlagStrategy__mdt` record                                                                                                                                                         |
-| "Disabled" test fails, flag returns `true`      | `FeatureFlag__mdt` record exists in the org                | Delete or deactivate the flag from Setup. Custom Metadata is visible in all tests. Use `kern.TST_Factory.newFeatureFlag()` for the enabled path only                                                                  |
-| `TST_Factory.newFeatureFlag()` not found        | Missing namespace prefix                                   | Use `kern.TST_Factory.newFeatureFlag('FlagName')`                                                                                                                                                                     |
-| Custom permission strategy not matching         | Permission not assigned to test user                       | Verify Custom Permission → Permission Set → User assignment chain                                                                                                                                                     |
-| Custom handler class not found                  | Wrong class name, missing namespace, or class not `global` | Declare the class `global`, not `public`. The framework creates it via `Type.newInstance()`, which only reaches a `global` class in your org. Use the fully qualified name if your code lives in a namespace (e.g., `mypkg.MY_RegionStrategy`) |
-| "Type is not visible" on custom strategy        | Class declared `public` instead of `global`                | Change the class declaration to `global with sharing`                                                                                                                                                                 |
+Trouble with your computer rather than this guide (`sf` is not recognised, scripts are disabled, you are not logged
+in, the wrong folder)? Those are answered once, in
+[Set Up Your Computer](Set%20Up%20Your%20Computer.md#if-something-went-wrong).
 
----
+### Step 1: Create the flag and try again
+
+#### The block still prints `Using LEGACY pricing engine`
+
+The flag record is missing, or it is switched off, so `isEnabled()` returns `false`. Open Setup, then Custom Metadata
+Types, then **Feature Flag**, then **Manage Feature Flags**, and open the record. Check that its Feature Flag Name
+(`DeveloperName`) is `NewPricingEngine`, then check **Is Active** (`kern__IsActive__c`) and **Is Enabled By Default**
+(`kern__IsEnabledByDefault__c`) and save. If there is no record, create it as Step 1 shows.
+
+### Step 2: Create the service class
+
+#### The deploy says there is nothing to deploy
+
+The deploy stops with `No source-backed components present in the package.` The command ran inside another project's
+folder, so the CLI looked for the class there and found nothing. Open the terminal in your own project's top folder,
+the one that holds `sfdx-project.json`, and run the command again.
+
+### Step 4: Write and run the test
+
+#### `shouldApplyLegacySurchargeWhenFlagDisabled` fails
+
+The test expects the flag to be off, but a `FastStart_NewPricing` flag record exists in your org (for example, from the
+"See it in the org" note in Step 3), so the flag reads `true`. Custom Metadata records are visible in every test.
+Delete or deactivate the flag in Setup, and use `kern.TST_Factory.newFeatureFlag()` only for the enabled path.
+
+### Step 5: Add a custom permission strategy
+
+#### The check after assignment still reads `false`
+
+One link in the chain from the custom permission to you is missing, or the strategy is switched off. Make sure the
+permission set's Custom Permissions list includes **New Pricing Engine Access**, and that the `Permsets Assigned` table
+in Step 5.5 named your username. Then open the strategy record, check **Is Active** (`kern__IsActive__c`), make sure
+**Target** (`kern__Target__c`) reads `NewPricingEngineAccess`, and save.
+
+### Step 6: Add a custom strategy handler
+
+#### The flag stays `false` for a user your handler should match
+
+Nothing fails on screen: the framework records the error in its log and skips the strategy, because it cannot create
+your handler class. The class is `public`, or its name in **Custom Handler Class** is wrong. The framework
+creates the handler by name at runtime, which reaches a `global` class in your org, or a `public with sharing` class
+once a Type Resolver class is added (as the note above the step says). Declare the class `global`, or add a Type
+Resolver class. Check the name is spelled exactly
+`MY_RegionStrategy`, or use the fully qualified name if your code lives in a namespace (for example,
+`mypkg.MY_RegionStrategy`).
+
+### Clean up
+
+#### `This permission set is assigned to one or more users.`
+
+The first clean-up command stops with this message against `NewPricingEngine`, and deletes nothing. You still have
+the permission set assigned. Remove your assignment as the clean-up's first part shows, then run the command again.
+
+#### `Your attempt to delete New Pricing Engine could not be completed`
+
+The flag was deleted before the strategy records that point at it, and the org refuses that. Delete in the clean-up's
+order: first the strategy records, the permission set and the classes, then the flag and the custom permission.
+
+Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?template=bug_report.md&title=%5Bdocs%5D%20Feature%20Flags) which step and what you saw.
 
 ## What You Now Know
 
@@ -1059,7 +1002,7 @@ kern.TST_Factory.newFeatureFlag('DisableAllAPIs');
 | `FeatureFlagStrategy__mdt`                          | Child record defining targeting rules (permission, profile, group) |
 | `kern.TST_Factory.newFeatureFlag(flagName)`         | Registers an active in-memory flag in test context                 |
 | `FLOW_CheckFeatureFlag`                             | Invocable action for checking flags in Flows                       |
-| `isFlagEnabled(flagName)` from `c/featureFlag`      | LWC bridge that reads the same evaluation result as Apex           |
+| `isFlagEnabled(flagName)` from `kern/featureFlag`   | LWC bridge that reads the same evaluation result as Apex           |
 | `kern.UTIL_FeatureFlag.INT_FeatureFlagStrategy`     | Interface to implement for custom strategy handlers                |
 
 **Key patterns:**

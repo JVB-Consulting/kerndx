@@ -5,7 +5,7 @@ pageClass: reference
 description: "Condition infrastructure for building complex SOQL WHERE clauses. Use these classes with QRY_Builder.addCondition() for compound conditions that cannot be expressed with the fluent API alone (e.g., gr"
 author: "Jason Van Beukering"
 group: "Query Infrastructure"
-date: "February 2026, August 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

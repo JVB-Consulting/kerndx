@@ -7,7 +7,7 @@
      a Copy button). Positioning: KernDX is a LIBRARY OF FRAMEWORKS for Apex & LWC, not a single
      framework. The credibility strip below shows the verified counts (global API classes,
      production classes, LWC components, Apex test count, plus the 100%/95% coverage policy).
-     The strip numbers and the version badge are data-driven: scripts/prepare.mjs reads them
+     The strip numbers, the version badge and the API version are data-driven: scripts/prepare.mjs reads them
      from THIS tree's docs/Strategic Guide - Metrics.md and emits them as
      .vitepress/landing.generated.mjs, so the latest landing shows the live figures and a
      frozen version line shows the numbers it shipped with. scripts/validate-landing-metrics.js
@@ -35,7 +35,7 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 				<div class="kl-badges">
 					<span class="kl-badge brand" data-spec-id="badge-version">{{ landing.version }}</span>
 					<span class="kl-badge" data-spec-id="badge-license">BSL 1.1 → Apache 2.0</span>
-					<span class="kl-badge" data-spec-id="badge-api">API 67.0</span>
+					<span class="kl-badge" data-spec-id="badge-api">API {{ landing.apiVersion }}</span>
 				</div>
 				<h1 data-spec-id="hero-headline">Every Salesforce framework your team keeps rebuilding, in one Apex &amp; LWC library.</h1>
 				<p class="kl-sub" data-spec-id="hero-subline">Spend your team on the features that move the business, not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, with public source on GitHub.</p>
@@ -102,7 +102,8 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 						<a :href="resolve('/fast-start-selectors#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-selectors">Selectors &amp; queries</a>
 						<a :href="resolve('/fast-start-dml#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-dml">Secure DML &amp; transactions</a>
 						<a :href="resolve('/fast-start-logging#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-logging">Rollback-safe logging</a>
-						<a :href="resolve('/fast-start-async-processing#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-async">Async orchestration</a>
+						<a :href="resolve('/fast-start-async-processing#tier-1-see-it-work')" data-spec-id="day-one-async">Async orchestration</a>
+						<a :href="resolve('/fast-start-scheduled-jobs#tier-1-see-it-work-10-minutes')" data-spec-id="day-one-scheduling">Scheduled jobs &amp; job runner</a>
 						<a :href="resolve('/fast-start-inbound-apis#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-inbound">Inbound REST</a>
 						<a :href="resolve('/fast-start-outbound-apis#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-outbound">Outbound HTTP client</a>
 						<a :href="resolve('/fast-start-feature-flags#tier-1-see-it-work-2-minutes')" data-spec-id="day-one-flags">Feature flags</a>
@@ -136,7 +137,7 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 				<p class="kl-headline">Your AI assistant gets the standards before it writes.</p>
 				<p class="kl-lead">KernDX ships its AI context as plain files in the public repo, with nothing to install, so Claude, Cursor, Copilot, or Gemini generate Apex and LWC that follow the framework (the naming, the secure defaults, the audited-bypass rule) instead of inventing their own.</p>
 				<div class="kl-agentic">
-					<p class="kl-def" data-spec-id="agentic-definition">KernDX is a library of Salesforce frameworks for Apex and LWC, with public source. It is one managed package (namespace <code>kern</code>, API 67.0). It covers trigger handling, secure queries and saves, structured logging, background-job orchestration, inbound and outbound REST, no-code feature flags and validation, and write-time data masking, plus the CI tooling (PMD rulesets, an ESLint plugin, secret scanning, and coverage gates).</p>
+					<p class="kl-def" data-spec-id="agentic-definition">KernDX is a library of Salesforce frameworks for Apex and LWC, with public source. It is one managed package (namespace <code>kern</code>, API {{ landing.apiVersion }}). It covers trigger handling, secure queries and saves, structured logging, background-job orchestration, scheduled jobs on a shared job runner, inbound and outbound REST, no-code feature flags and validation, and write-time data masking, plus the CI tooling (PMD rulesets, an ESLint plugin, secret scanning, and coverage gates).</p>
 					<div class="kl-usage" data-spec-id="agentic-usage">
 						<p class="kl-usage-title">What ships, and how to wire it up</p>
 						<ol>
@@ -174,7 +175,7 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="how-it-flows">How a request flows</h2>
 				<p class="kl-headline">Many ways in. One secure core. Optional layers.</p>
-				<p class="kl-lead">An LWC call, a DML save, a trigger, a REST endpoint, a batch job: any of them starts the same way. The core transaction is always there; the rest snap in only when your code uses them, and one correlation id (the KERN-ID) ties whichever layers ran into a single trace.</p>
+				<p class="kl-lead">An LWC call, a DML save, a trigger, a REST endpoint, a batch job: any of them starts the same way. The core transaction is always there; the rest snap in only when your code uses them, and one tracking ID (the correlation ID) ties whichever layers ran into a single trace.</p>
 				<div class="kl-flow" data-spec-id="flow-diagram">
 					<div class="kl-flow-row" data-spec-id="flow-entries">
 						<span class="kl-flow-label">Any entry point</span>
@@ -186,7 +187,7 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 							<span class="kl-chip">Batch / Scheduled</span>
 						</div>
 					</div>
-					<div class="kl-flow-down"><span class="kl-kernid" data-spec-id="flow-kernid">KERN-2F3A·9C</span> threads everything below</div>
+					<div class="kl-flow-down"><span class="kl-kernid" data-spec-id="flow-kernid">8f14e45f-…</span> follows everything below</div>
 					<div class="kl-core" data-spec-id="flow-core">
 						<span class="kl-core-tag">Always runs</span>
 						<span class="kl-core-name">The KernDX core transaction</span>
@@ -195,7 +196,7 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 							<span>Query · QRY_Builder / SEL_Base</span>
 							<span>DML · DML_Builder</span>
 							<span>📦 Atomic save</span>
-							<span>🧵 Correlation · KERN-ID</span>
+							<span>🧵 Correlation ID</span>
 						</div>
 					</div>
 					<div class="kl-flow-down muted">only the layers your code actually uses</div>
@@ -208,7 +209,7 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 						</div>
 					</div>
 				</div>
-				<p class="kl-flow-foot">Adopt one layer today (just the query library, say) and snap in the trigger framework or the async chain the day you need it. The KERN-ID makes whatever ran traceable as one request.</p>
+				<p class="kl-flow-foot">Adopt one layer today (just the query library, say) and snap in the trigger framework or the async chain the day you need it. The correlation ID makes whatever ran traceable as one request, and every chain it launches keeps a link back to it.</p>
 			</div>
 		</section>
 

@@ -17,14 +17,6 @@ In plain terms: object create/read/update/delete permissions (CRUD) and field-le
 enforced for you on every query and every write, with no manual `Security.stripInaccessible()` plumbing and
 no `WITH USER_MODE` clauses to remember.
 
-**Before you start:**
-
-- [ ] KernDX package installed in your org
-- [ ] Org configured post-install. Verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
-  (Gear Icon > Developer Console) for all Apex work
-- [ ] Working in a sandbox or scratch org (not production)
-
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
@@ -40,6 +32,14 @@ lower-permission user can't read or write fields they lack access to, and your t
 `AccessLevel.USER_MODE` by default, so CRUD, field-level security, and sharing are enforced against the running
 user with no extra code.
 
+## Before you start
+
+Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
+Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
+once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
+today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
+where your org's alias goes: the name you gave it when you logged in.
+
 ---
 
 ## Table of Contents
@@ -47,23 +47,33 @@ user with no extra code.
 <details>
 <summary>Expand</summary>
 
-1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
+1. [Before you start](#before-you-start)
+2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
     - [Secure Query by Default](#secure-query-by-default)
     - [Secure DML by Default](#secure-dml-by-default)
     - [Strip Inaccessible Fields](#strip-inaccessible-fields)
-2. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
+3. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
     - [Step 1: Create the Service Class](#step-1-create-the-service-class)
     - [Step 2: Execute](#step-2-execute)
     - [Step 3: Write Tests](#step-3-write-tests)
-3. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
+4. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
     - [Query Security Methods](#query-security-methods)
     - [DML Security Methods](#dml-security-methods)
     - [When to Opt Out of USER_MODE](#when-to-opt-out-of-user_mode)
     - [The Org-Wide Kill Switch](#the-org-wide-kill-switch)
     - [Field Encryption](#field-encryption)
-4. [Common Issues](#common-issues)
-5. [What You Now Know](#what-you-now-know)
-6. [Next Steps](#next-steps)
+    - [Clean up](#clean-up)
+5. [Common Issues](#common-issues)
+    - [Secure Query by Default](#secure-query-by-default-1)
+    - [Secure DML by Default](#secure-dml-by-default-1)
+    - [Step 1: Create the Service Class](#step-1-create-the-service-class-1)
+    - [Step 3: Write Tests](#step-3-write-tests-1)
+    - [Query Security Methods](#query-security-methods-1)
+    - [DML Security Methods](#dml-security-methods-1)
+    - [The Org-Wide Kill Switch](#the-org-wide-kill-switch-1)
+    - [Clean up](#clean-up-1)
+6. [What You Now Know](#what-you-now-know)
+7. [Next Steps](#next-steps)
 
 </details>
 
@@ -76,7 +86,8 @@ KernDX queries and DML are secure by default. You don't add a security call: you
 
 ### Secure Query by Default
 
-Open **Developer Console > Debug > Open Execute Anonymous Window** and run:
+**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
+Anonymous Window, and run:
 
 ```apex
 // No security method chained — this still runs in USER_MODE.
@@ -89,7 +100,7 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 System.debug('Rows returned: ' + accounts.size());
 ```
 
-**Expected output** (your data will vary):
+You should see this line in the log; the number is how many Accounts came back, up to five, so yours may be lower:
 
 ```text
 Rows returned: 5
@@ -105,9 +116,13 @@ skips the object and field permission checks only, and record sharing keeps foll
 > permission). The gap only appears when running as a lower-permission user, which is exactly what the
 > `System.runAs()` test in [Tier 2](#step-3-write-tests) demonstrates.
 
+Something went wrong? See [Common Issues, Secure Query by Default](#secure-query-by-default-1).
+
 ### Secure DML by Default
 
-Writes are secured the same way. A plain `kern.DML_Builder` transaction runs in USER_MODE:
+Writes are secured the same way. A plain `kern.DML_Builder` transaction runs in USER_MODE.
+
+**In Salesforce**, in the same Execute Anonymous window, run:
 
 ```apex
 Account account = new Account(Name = 'Secure Test', Phone = '555-0100');
@@ -122,7 +137,7 @@ System.debug('Insert success: ' + result.isSuccess());
 System.debug('Account Id: ' + account.Id);
 ```
 
-**Expected output** (ID will vary):
+You should see these lines in the log, with your record's Id in place of `001...`:
 
 ```text
 Insert success: true
@@ -132,11 +147,15 @@ Account Id: 001...
 If the running user lacked create access on `Account`, or write access on a field you set, the insert would
 fail with a security error rather than writing data the user was never allowed to touch.
 
+Something went wrong? See [Common Issues, Secure DML by Default](#secure-dml-by-default-1).
+
 ### Strip Inaccessible Fields
 
 USER_MODE throws when a query touches a field the user can't read. Sometimes you'd rather **drop** the
 unreadable fields and keep going, for example when you query a generous field list but only need whatever the
-user is actually allowed to see. Chain `.stripInaccessible()`:
+user is actually allowed to see. Chain `.stripInaccessible()`.
+
+**In Salesforce**, in the same Execute Anonymous window, run:
 
 ```apex
 // Returns rows with inaccessible fields removed (set to null) instead of throwing.
@@ -147,6 +166,12 @@ List<Account> stripped = kern.QRY_Builder.selectFrom(Account.SObjectType)
 		.toList();
 
 System.debug('Rows returned: ' + stripped.size());
+```
+
+You should see this line in the log; the number is how many Accounts came back, up to five, so yours may be lower:
+
+```text
+Rows returned: 5
 ```
 
 Under the hood the framework runs `Security.stripInaccessible(AccessType.READABLE, records)` on the result set
@@ -161,7 +186,7 @@ after the query returns, so any field the running user can't read is removed fro
 
 > **No local project?** You can create classes directly in the Developer Console (Gear Icon > Developer
 > Console > File > New > Apex Class) and run tests from there too (Test > New Run). Paste the code, save,
-> and skip the `sf project deploy start` and `sf apex run test` commands.
+> and skip the terminal commands.
 
 Build a small contact-directory service that reads Contacts through the framework and creates new ones. Both
 the read and the write inherit USER_MODE, so the service automatically respects whatever the calling user is
@@ -169,8 +194,26 @@ allowed to see and do.
 
 ### Step 1: Create the Service Class
 
-Create a new file named `SVC_ContactDirectory.cls`. Copy the following code exactly as is: do not modify the
-class name or `kern.*` namespace references.
+The service is one class with a method that reads Contacts and a method that creates one. You create an empty class
+with one command, paste the code into it, then send it to your org.
+
+**1. In the terminal**, from your project's top folder, create the empty class:
+
+```shell
+sf apex generate class --name SVC_ContactDirectory --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `SVC_ContactDirectory.cls` and its companion of
+the same name ending in `.cls-meta.xml`.
+
+The second file tells Salesforce which API version the class uses. You never edit it, but a deploy fails without it.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save. Paste it exactly as
+it is: keep the class name.
+
+```text
+force-app/main/default/classes/SVC_ContactDirectory.cls
+```
 
 > **Why `public`?** Unlike triggers and APIs, service classes are called directly by your code. The
 > framework doesn't need to resolve them by name, so `global` is not required.
@@ -231,16 +274,23 @@ public with sharing class SVC_ContactDirectory
 }
 ```
 
-**Deploy:**
+**3. In the terminal**, send the class to your org:
 
-```bash
+```shell
 sf project deploy start -o YourOrgAlias -m "ApexClass:SVC_ContactDirectory"
 ```
 
+You should see `Status: Succeeded`, with `SVC_ContactDirectory` listed as created.
+
+Something went wrong? See [Common Issues, Step 1](#step-1-create-the-service-class-1).
+
 ### Step 2: Execute
 
-Test from anonymous Apex (paste both snippets in one Execute Anonymous window, since the second depends on the
-first):
+Try the service from anonymous Apex. The code creates a Contact through the service, then reads it back; run it as
+one piece, since the read depends on the create.
+
+**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
+Anonymous Window, and run:
 
 ```apex
 kern.DML_Builder.TransactionResult result =
@@ -257,7 +307,8 @@ for(Contact each : found)
 }
 ```
 
-**Expected output:**
+You should see these lines in the log. `Found` counts every Contact with the last name Directory that you can see, so it may be
+higher than 1:
 
 ```text
 Create success: true
@@ -278,9 +329,24 @@ Jane Directory
 
 ### Step 3: Write Tests
 
-Create a new file named `SVC_ContactDirectory_TEST.cls`. Copy the following code exactly as is. The third test
-uses `System.runAs()` with a minimum-access user to prove the enforcement is real, and not just the admin's
-all-permissions view.
+The test class checks the create and the read, and its third test uses `System.runAs()` with a minimum-access user to
+prove the enforcement is real, and not just the admin's all-permissions view. You create the empty class with one
+command, paste the code into it, send it to your org, then run it.
+
+**1. In the terminal**, from your project's top folder, create the empty test class:
+
+```shell
+sf apex generate class --name SVC_ContactDirectory_TEST --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `SVC_ContactDirectory_TEST.cls` and its
+companion of the same name ending in `.cls-meta.xml`.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in exactly as it is, and save:
+
+```text
+force-app/main/default/classes/SVC_ContactDirectory_TEST.cls
+```
 
 ```apex
 /**
@@ -294,7 +360,7 @@ all-permissions view.
  *
  * @date February 2026
  */
-@IsTest(IsParallel=false)
+@IsTest(isParallel=false)
 private class SVC_ContactDirectory_TEST
 {
 	/** @description Tests that createContact inserts a Contact in USER_MODE. */
@@ -383,22 +449,32 @@ private class SVC_ContactDirectory_TEST
 }
 ```
 
-**Deploy and run:**
+**3. In the terminal**, send the test class to your org:
 
-```bash
+```shell
 sf project deploy start -o YourOrgAlias -m "ApexClass:SVC_ContactDirectory_TEST"
+```
+
+You should see `Status: Succeeded`, with `SVC_ContactDirectory_TEST` listed as created.
+
+**4. In the terminal**, run the test:
+
+```shell
 sf apex run test -o YourOrgAlias -t SVC_ContactDirectory_TEST --code-coverage --synchronous --result-format human
 ```
 
-**Expected:** 3 tests passing, 100% coverage on `SVC_ContactDirectory`.
+You should see 3 tests passing and 100% coverage on `SVC_ContactDirectory`: all three tests show `Pass`, the summary
+line `Outcome` reads `Passed`, and the coverage table shows `SVC_ContactDirectory` at `100%`.
 
-> **About the annotations:** This class uses `@IsTest(IsParallel=false)` because `buildMinimumAccessUser()`
+> **About the annotations:** This class uses `@IsTest(isParallel=false)` because `buildMinimumAccessUser()`
 > inserts a `User`, and Salesforce blocks DML on setup objects like `User` inside *parallel* test runs. Most
-> test classes should prefer `@IsTest(IsParallel=true)` for faster runs. Use `IsParallel=false` only
+> test classes should prefer `@IsTest(isParallel=true)` for faster runs. Use `IsParallel=false` only
 > when a test does setup-object DML, as this one does. `SeeAllData` defaults to `false`, so we omit it. The
 > `System.runAs()` block in the third test is the right habit for security code: it verifies the framework
 > enforces the *running user's* permissions, which is the entire point of USER_MODE. (The
 > `Minimum Access - Salesforce` profile must exist in your org; it ships with every org by default.)
+
+Something went wrong? See [Common Issues, Step 3](#step-3-write-tests-1).
 
 ---
 
@@ -406,8 +482,9 @@ sf apex run test -o YourOrgAlias -t SVC_ContactDirectory_TEST --code-coverage --
 
 ### Query Security Methods
 
-`kern.QRY_Builder` gives you independent security options you can combine. Run these from Execute Anonymous to
-compare:
+`kern.QRY_Builder` gives you independent security options you can combine.
+
+**In Salesforce**, run these in an Execute Anonymous window; each runs without an error:
 
 ```apex
 // Default — USER_MODE (CRUD + FLS + sharing enforced against the running user)
@@ -434,18 +511,20 @@ List<Account> stripped = kern.QRY_Builder.selectFrom(Account.SObjectType)
 
 The full menu of query security methods:
 
-| Method                 | Effect                                                                           | When to Use                                                      |
-|------------------------|----------------------------------------------------------------------------------|------------------------------------------------------------------|
-| *(none, the default)*  | USER_MODE: CRUD, FLS, and sharing enforced against the running user              | Every query your users reach                                     |
-| `.withUserMode()`      | Forces USER_MODE even if the org-wide kill switch has been flipped off           | Belt-and-braces enforcement on a critical user-facing read       |
-| `.stripInaccessible()` | Removes fields the user can't read from results (post-query) instead of throwing | When you'd rather drop unreadable fields than fail the query     |
-| `.withSystemMode()`    | Forces SYSTEM_MODE: bypasses CRUD/FLS for this query only                        | Framework-internal reads (configuration, framework-owned tables) |
-| `.withSharing()`       | Uses a `with sharing` proxy (only has effect in SYSTEM_MODE)                     | Enforce sharing on a SYSTEM_MODE query                           |
-| `.bypassSharing()`     | Uses a `without sharing` proxy (only has effect in SYSTEM_MODE)                  | Bypass sharing on a SYSTEM_MODE query (use with caution)         |
-| `.withoutSecurity()`   | Clears all security selections: SYSTEM_MODE plus inherited sharing               | System-level queries that must opt out of the secure default     |
+| Method                 | Effect                                                                                              | When to Use                                                      |
+|------------------------|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
+| *(none, the default)*  | USER_MODE: CRUD, FLS, and sharing enforced against the running user                                 | Every query your users reach                                     |
+| `.withUserMode()`      | Forces USER_MODE even if the org-wide kill switch has been flipped off                              | Belt-and-braces enforcement on a critical user-facing read       |
+| `.stripInaccessible()` | Removes fields the user can't read from results (post-query) instead of throwing                    | When you'd rather drop unreadable fields than fail the query     |
+| `.withSystemMode()`    | Forces SYSTEM_MODE: bypasses CRUD/FLS for this query only                                           | Framework-internal reads (configuration, framework-owned tables) |
+| `.withSharing()`       | Uses a `with sharing` proxy (only has effect in SYSTEM_MODE)                                        | Enforce sharing on a SYSTEM_MODE query                           |
+| `.bypassSharing()`     | Uses a `without sharing` proxy (only has effect in SYSTEM_MODE)                                     | Bypass sharing on a SYSTEM_MODE query (use with caution)         |
+| `.withoutSecurity()`   | Waives object and field checks and record sharing in one call (SYSTEM_MODE plus the sharing bypass) | System-level reads that must span every record                   |
 
 > **`withUserMode()` wins over the sharing proxy.** Under USER_MODE, sharing is enforced at the database level
 > regardless of `.withSharing()` or `.bypassSharing()`. Those two proxy methods only take effect in SYSTEM_MODE.
+
+Something went wrong? See [Common Issues, Query Security Methods](#query-security-methods-1).
 
 ### DML Security Methods
 
@@ -457,6 +536,8 @@ The full menu of query security methods:
 | `.withUserMode()`   | Forces USER_MODE even if the org-wide kill switch has been flipped off | Belt-and-braces enforcement on a critical user-facing write |
 | `.withSystemMode()` | Forces SYSTEM_MODE: bypasses CRUD/FLS for this transaction only        | Framework-owned writes (logs, orchestration rows)           |
 | `.bypassSharing()`  | Routes through a `without sharing` proxy (sharing only; not CRUD/FLS)  | Isolated calculations that must ignore record-level sharing |
+
+**In your editor**, in your own Apex, where `accountFromUi` and `orchestrationRecord` are the records you are saving:
 
 ```apex
 // User-facing write: enforce CRUD + FLS (USER_MODE is already the default;
@@ -478,6 +559,8 @@ kern.DML_Builder.newTransaction()
 > It rejects writes to fields the running user can't update, which is the correct behaviour for a write.
 > `.bypassSharing()` affects sharing only; it does **not** turn off USER_MODE's CRUD/FLS enforcement.
 
+Something went wrong? See [Common Issues, DML Security Methods](#dml-security-methods-1).
+
 ### When to Opt Out of USER_MODE
 
 SYSTEM_MODE is for framework-internal reads and writes: configuration that the running user has no permission
@@ -488,6 +571,8 @@ almost never need it. When you do, prefer keeping the opt-out local:
 - **A whole selector that always reads framework-internal data:** subclass `kern.SEL_Base` and override
   `systemModeRequired()` to return `true`. Every query through that selector then runs in SYSTEM_MODE, keeping
   the opt-out in one place instead of scattered across call sites.
+
+**In your editor**, in a new class:
 
 ```apex
 public with sharing class SEL_MyInternalSetting extends kern.SEL_Base
@@ -522,6 +607,8 @@ picks it up, and no deploy is required. Do not flip these as a routine configura
 security posture of every query or write your users reach. A call that chained `.withUserMode()` keeps
 enforcing USER_MODE even with the flag off, which is why critical user-facing paths should opt in explicitly.
 
+Something went wrong? See [Common Issues, The Org-Wide Kill Switch](#the-org-wide-kill-switch-1).
+
 ### Field Encryption
 
 Sometimes you need to encrypt a short-lived, session-scoped value, such as a temporary token or wizard state,
@@ -529,20 +616,99 @@ without managing keys yourself. For that case, with automatic key management, se
 [Security Guide: Data Encryption](Security%20-%20Guide.md#data-encryption--decryption-util_sessionencryption).
 For long-term encrypted storage, use Salesforce Shield Platform Encryption.
 
+### Clean up
+
+If you built this example only to try the framework, run this command when you have finished the guide. The
+`Secure Test` Account from Tier 1 and the `Jane Directory` Contact from Step 2 stay; delete them in the app, or leave
+them.
+
+**In the terminal**, delete the service and its test class:
+
+```shell
+sf project delete source -o YourOrgAlias -m "ApexClass:SVC_ContactDirectory_TEST" -m "ApexClass:SVC_ContactDirectory" --no-prompt
+```
+
+You should see `Status: Succeeded`, then a `Deleted Source` table listing the two classes.
+
+The command deletes the files from your project too.
+
+Something went wrong? See [Common Issues](#clean-up-1).
+
 ---
 
 ## Common Issues
 
-| Problem                                                              | Cause                                                              | Fix                                                                                                       |
-|----------------------------------------------------------------------|--------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
-| `System.QueryException` on a field the user can't read               | USER_MODE (default) enforces FLS and throws on an unreadable field | Chain `.stripInaccessible()` to drop the field instead of throwing, or grant the user FLS                 |
-| Insert/update fails for a lower-permission user                      | USER_MODE (default) enforces CRUD/FLS on the write                 | Grant the user the needed object/field permission, or use `.withSystemMode()` for a framework-owned write |
-| Admin test passes but real users see errors                          | Admin holds every permission, masking the enforcement              | Add a `System.runAs()` test with a `Minimum Access - Salesforce` user                                     |
-| `.withSharing()` / `.bypassSharing()` seems to do nothing on a query | Those proxy methods only take effect in SYSTEM_MODE                | Chain `.withSystemMode()` first, or rely on USER_MODE which already enforces sharing                      |
-| Looking for `.stripInaccessible()` on `DML_Builder`                  | Strip-inaccessible is a read-side concept                          | For untrusted writes, use the USER_MODE default (or `.withUserMode()`), which rejects unwritable fields   |
-| Every query suddenly runs in SYSTEM_MODE                             | `UserModeQueries_Enabled` flag was flipped off                     | Set `IsEnabledByDefault__c = true` on the flag, or chain `.withUserMode()` on critical calls              |
+Trouble with your computer rather than this guide (`sf` is not recognised, scripts are disabled, you are not logged
+in, the wrong folder)? Those are answered once, in
+[Set Up Your Computer](Set%20Up%20Your%20Computer.md#if-something-went-wrong).
 
----
+### Secure Query by Default
+
+#### A lower-permission user's query fails on a field they cannot read
+
+This is USER_MODE, the default, doing its job: it enforces field-level security (FLS) and stops the query rather than
+return a field the user may not read. Chain `.stripInaccessible()` to drop the field instead of failing, or grant the
+user read access to the field.
+
+### Secure DML by Default
+
+#### An insert or update fails for a lower-permission user
+
+USER_MODE, the default, checks the write against the user's object permissions (CRUD) and field-level security (FLS).
+Grant the user the object or field permission they need. Use `.withSystemMode()` only for a framework-owned write,
+never to get a user's own write through.
+
+### Step 1: Create the Service Class
+
+#### The deploy says there is nothing to deploy
+
+The deploy stops with `No source-backed components present in the package.` The command ran inside another project's
+folder, so the CLI looked for the class there and found nothing. Open the terminal in your own project's top folder,
+the one that holds `sfdx-project.json`, and run the command again.
+
+### Step 3: Write Tests
+
+#### The deploy fails
+
+The test class's deploy fails for the same reasons as the service's; see the entries under
+[Step 1](#step-1-create-the-service-class-1).
+
+#### Your tests pass, but your users see errors
+
+The tests ran as you, and an admin holds every permission, which hides the enforcement. Add a `System.runAs()` test
+with a `Minimum Access - Salesforce` user, as the third test in Step 3 does.
+
+### Query Security Methods
+
+#### `.withSharing()` or `.bypassSharing()` seems to do nothing on a query
+
+Those two proxy methods only take effect in SYSTEM_MODE. Chain `.withSystemMode()` first, or rely on USER_MODE, which
+already enforces sharing.
+
+### DML Security Methods
+
+#### `DML_Builder` has no `.stripInaccessible()`
+
+Stripping inaccessible fields is a read-side idea, so `kern.DML_Builder` does not offer it. For untrusted writes, use
+the USER_MODE default (or `.withUserMode()`), which rejects fields the user cannot write.
+
+### The Org-Wide Kill Switch
+
+#### Every query suddenly runs in SYSTEM_MODE
+
+Someone switched off the `UserModeQueries_Enabled` flag. Set `IsEnabledByDefault__c = true` on the flag, or chain
+`.withUserMode()` on critical calls so they keep enforcing USER_MODE either way.
+
+### Clean up
+
+#### `No ApexClass named: SVC_ContactDirectory found`
+
+The command shows `Status: Failed` and a `Component Failures` table with this line, and the same for
+`SVC_ContactDirectory_TEST`. The org no longer holds the classes: the clean-up already ran, or they were deleted
+another way. There is nothing left to delete.
+
+Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?template=bug_report.md&title=%5Bdocs%5D%20Security) which step and what you saw.
+
 
 ## What You Now Know
 

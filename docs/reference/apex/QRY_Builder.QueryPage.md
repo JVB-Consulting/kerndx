@@ -65,7 +65,7 @@ Total number of pages available.
 
 | Field | Description |
 |-------|-------------|
-| global [Database.PaginationCursor](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_PaginationCursor.htm) [cursor](#cursor) | The PaginationCursor state for LWC round-trips. |
+| global [Database.PaginationCursor](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_PaginationCursor.htm) [cursor](#cursor) | The PaginationCursor, which a Lightning web component can send back to the server to read the next page. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [deletedRecords](#deletedrecords) | Number of records deleted since the cursor was created. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [pageNumber](#pagenumber) | The current page number (1-based). |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [pageSize](#pagesize) | Number of records per page. |
@@ -80,15 +80,15 @@ global Database.PaginationCursor cursor
 
 **Type:** [Database.PaginationCursor](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_PaginationCursor.htm)
 
-The PaginationCursor state for LWC round-trips.
-Can be passed back to the server for stable pagination across requests.
+The PaginationCursor, which a Lightning web component can send back to the server to read
+the next page. Passing it back keeps the pages stable across requests.
 
-Null whenever the page was served without a pagination cursor — because more records match than
-the paging allowance left in the transaction (100,000 records today, drawn on by every paged read
-in the same transaction, so a later read has only what the earlier ones left), or because the
-transaction has no pagination-cursor instances left. Those pages are served another way:
-records, totalRecords and every paging flag stay correct, and only deletedRecords is
-unavailable, so it reads 0. Check for null before passing the cursor back.
+It is null whenever the page was read without a pagination cursor. That happens when more records match
+than the paging allowance left in the transaction, or when the transaction has no pagination cursors left.
+The allowance is 100,000 records today, and every paged read in the same transaction uses it, so a later
+read has only what the earlier ones left. Such pages are read another way: records, totalRecords and
+every paging flag stay correct. Only deletedRecords is not available, so it reads 0. Check for null before
+passing the cursor back.
 
 **Example**
 
