@@ -6,7 +6,7 @@ Export modal generates on a subscriber org** (`CTRL_MaskingAdvisor.generateConfi
 (`kern__MaskingTarget`), namespaced field names, `xsi:nil` for the blank caller-class and
 field (object-wide scope), namespace-qualified rule developer names in the `kern__Rule__c`
 MetadataRelationship value (e.g. `kern__MaskCreditCard` — a bare name resolves to no such
-record on a managed subscriber deploy), and a `package.xml` pinned to API 67.0.
+record on a managed subscriber deploy), and a `package.xml` pinned to API 68.0.
 
 Section 76 (`run-phase2.js` → `runSection76()`) deploys these with the same
 project-free Metadata API push the Export modal's deploy command prescribes,

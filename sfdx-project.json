@@ -7,8 +7,8 @@
   ],
   "name": "KernDX",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "67.0",
+  "sourceApiVersion": "68.0",
   "packageAliases": {
-    "Kern@1.7.0-13": "04tfj000000ScTlAAK"
+    "Kern@1.8.0-11": "04tfj000000cIDdAAM"
   }
 }

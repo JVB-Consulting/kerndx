@@ -6,5 +6,5 @@
         <members>kern__MaskingRule.kern__MaskPhoneUS</members>
         <name>CustomMetadata</name>
     </types>
-    <version>67.0</version>
+    <version>68.0</version>
 </Package>

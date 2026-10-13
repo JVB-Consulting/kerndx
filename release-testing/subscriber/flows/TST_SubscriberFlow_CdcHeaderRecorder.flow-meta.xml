@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>67.0</apiVersion>
+    <apiVersion>68.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
     <actionCalls>
         <description>Hands the change-event header to the subscriber Apex sink, which records a SubscriberCdcMarker__c capturing the header scalars for release-test verification. The whole injected DTO_ChangeEventHeader is mapped to the request wrapper's single header field.</description>

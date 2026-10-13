@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>67.0</apiVersion>
+    <apiVersion>68.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
     <description>Subscriber-namespace release-test flow bound to a BlockDml kern__TriggerAction row for the SubscriberCdcProbe__ChangeEvent dispatch. Declares the change-event record and typed header inputs (so createInterview succeeds), then creates a Contact without LastName so the platform raises REQUIRED_FIELD_MISSING. The unhandled fault propagates to Flow.Interview.start() as a runtime exception; on a change-event dispatch the framework degrades the configured BlockDml policy to LogAndContinue (a committed change cannot be rolled back) and emits a warning tagged errorKind=cdc-block-dml-degraded. Exercises that degrade path end-to-end across the subscriber namespace boundary.</description>
     <interviewLabel>TST_SubscriberFlow_CdcAlwaysFail {!$Flow.CurrentDateTime}</interviewLabel>

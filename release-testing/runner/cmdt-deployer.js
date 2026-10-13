@@ -10,7 +10,7 @@ const FIXTURES_DIR = path.join(__dirname, '..', 'e2e', 'fixtures', 'cmdt-states'
 const STAGING_DIR = path.join(os.homedir(), '.kern-cmdt-staging');
 const CMDT_DEPLOY_DIR = path.join(STAGING_DIR, 'force-app', 'main', 'default', 'customMetadata');
 const STAGING_PROJECT = path.join(STAGING_DIR, 'sfdx-project.json');
-const STAGING_PROJECT_CONTENT = '{"packageDirectories":[{"path":"force-app","default":true}],"name":"CmdtStaging","sourceApiVersion":"67.0"}\n';
+const STAGING_PROJECT_CONTENT = '{"packageDirectories":[{"path":"force-app","default":true}],"name":"CmdtStaging","sourceApiVersion":"68.0"}\n';
 
 // Dedicated subclass so callers can `instanceof` test this failure mode
 // without parsing error messages. Raised when the configured ORG_ALIAS is not
@@ -20,9 +20,11 @@ class NamedOrgNotFoundError extends Error
 {
 	constructor(orgAlias, originalMessage)
 	{
-		super(`Salesforce CLI does not recognise org alias "${orgAlias}". Configure it via:\n` + `  • \`sf org login web --alias ${orgAlias}\` (web auth), or\n`
+		super(`Salesforce CLI does not recognise org alias "${orgAlias}". Configure it via:\n`
+			+ `  • \`sf org login web --alias ${orgAlias}\` (web auth), or\n`
 				+ `  • \`sf alias set ${orgAlias}=<existing-username>\` (map to an authenticated user), or\n`
-				+ `  • update SF_SUBSCRIBER_ORG_ALIAS in your environment to point at an org you have authenticated.\n` + `Underlying error: ${originalMessage}`);
+				+ `  • update SF_SUBSCRIBER_ORG_ALIAS in your environment to point at an org you have authenticated.\n`
+				+ `Underlying error: ${originalMessage}`);
 		this.name = 'NamedOrgNotFoundError';
 		this.orgAlias = orgAlias;
 	}
@@ -152,7 +154,8 @@ function deleteCmdtRecords(recordIdentifiers)
 // run project-free from the unzipped bundle root. Section 76 uses this to round-trip
 // advisor-format bundles, so the deploy path itself is part of what gets validated —
 // do not reroute through the source-format staging project deployCmdtState() uses.
-function deployMetadataDir(bundleDir)
+// The org is the one given, or the one SF_SUBSCRIBER_ORG_ALIAS names when none is given.
+function deployMetadataDir(bundleDir, orgAlias = ORG_ALIAS)
 {
 	const metadataDir = path.join(bundleDir, 'metadata');
 	if(!fs.existsSync(metadataDir))
@@ -160,7 +163,7 @@ function deployMetadataDir(bundleDir)
 		throw new Error(`Bundle metadata directory not found: ${metadataDir}`);
 	}
 
-	return executeDeployCommand(`sf project deploy start --metadata-dir metadata -o ${ORG_ALIAS} --json`, bundleDir, `Bundle deploy failed for ${bundleDir}`);
+	return executeDeployCommand(`sf project deploy start --metadata-dir metadata -o ${orgAlias} --json`, bundleDir, `Bundle deploy failed for ${bundleDir}`);
 }
 
 // Parses `sf ... --json` stdout robustly. The CLI should emit pure JSON, but under a forced-color
@@ -171,6 +174,7 @@ function deployMetadataDir(bundleDir)
 // which every `sf project deploy start --json` response is; a top-level array would need a different slice.
 function parseSfJson(rawOutput)
 {
+	// eslint-disable-next-line no-control-regex
 	const withoutAnsi = rawOutput.replace(/\u001B\[[0-9;]*[A-Za-z]/g, '');
 	const firstBrace = withoutAnsi.indexOf('{');
 	const lastBrace = withoutAnsi.lastIndexOf('}');

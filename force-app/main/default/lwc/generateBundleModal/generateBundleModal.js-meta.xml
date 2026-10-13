@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>67.0</apiVersion>
+    <apiVersion>68.0</apiVersion>
     <description>Confirmation dialogue for the Data Masking Advisor's Generate bundle flow: warns that generating the bundle activates dormant masking rules.</description>
     <isExposed>false</isExposed>
 </LightningComponentBundle>
