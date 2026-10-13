@@ -8,23 +8,47 @@
  *
  * @group Controllers
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class CTRL_FieldSet_TEST
 {
+	/**
+	 * @description The field set names the tests ask for on the Foobar object: two that exist and one random name
+	 * that does not, so the tests also prove that an unknown field set is skipped instead of causing an error.
+	 */
 	private static final List<String> FOOBAR_FIELD_SETS = new List<String>
 	{
 			SEL_Foobar.FIELDSET_AUDIT,
 			SEL_Foobar.FIELDSET_PERSON,
-			UTIL_Random.randomName() //This invalid fieldset names is added to check that it's ignored
+			UTIL_Random.randomName() //This invalid field set name is added to check that it is ignored
 	};
 
+	/**
+	 * @description Company name given to the admin user created in the test setup. It is unique to this class, so
+	 * getTestAdmin can find that one user again by company name.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'CTRL_FieldSet_TEST-admin';
+	/**
+	 * @description Failure message shown when the controller returns an object or field API name that differs from
+	 * the one the test expects.
+	 */
 	private static final String ERROR_API_NAMES_MISMATCH = 'Api Names do not match';
+	/**
+	 * @description Failure message shown when one value on a returned field set member (label, type, value,
+	 * required marker and so on) differs from what the field set describe says.
+	 */
 	private static final String ERROR_MEMBER_INCORRECT = 'Dto member information is incorrect';
+	/**
+	 * @description Failure message shown when the controller returns nothing for a field set that is known to have
+	 * fields.
+	 */
 	private static final String ERROR_NO_FIELDS_FOUND_AS_EXPECTED = 'No field was found in the Foobar fieldSet.';
+	/**
+	 * @description Failure message shown when the field set group record the controller returns is not the mocked
+	 * custom metadata record the test registered.
+	 */
 	private static final String ERROR_NO_RECORDS_FOUND_AS_EXPECTED = 'Custom Metadata record not found as expected';
 
 	/**
@@ -43,6 +67,14 @@ private class CTRL_FieldSet_TEST
 				);
 	}
 
+	/**
+	 * @description The controller returns the API names of the field set group object and of its default active
+	 * sections field, the pair a component needs to refer to that field. The test looks both names up through the
+	 * describe wrapper and checks that they resolve to the FieldSetGroup__mdt type and to its DefaultActiveSections__c
+	 * field, so a name that is wrong, or that names a field the object does not have, fails here.
+	 *
+	 * @see CTRL_FieldSet.getDefaultActiveSectionsField
+	 */
 	@IsTest
 	private static void getDefaultActiveSectionsField()
 	{
@@ -50,11 +82,18 @@ private class CTRL_FieldSet_TEST
 		{
 			CTRL_FieldSet.DTO_FieldSetGroupApiNames dtoImport = CTRL_FieldSet.getDefaultActiveSectionsField();
 
-			Assert.areEqual(SEL_FieldSetGroup.OBJECT_NAME, dtoImport.objectApiName, ERROR_API_NAMES_MISMATCH);
-			Assert.areEqual(SEL_FieldSetGroup.FIELD_DEFAULT_ACTIVE_SECTIONS, dtoImport.fieldApiName, ERROR_API_NAMES_MISMATCH);
+			assertNamesResolveTo(FieldSetGroup__mdt.DefaultActiveSections__c, dtoImport);
 		}
 	}
 
+	/**
+	 * @description The controller returns the API names of the field set group object and of its field set API names
+	 * field, the pair a component needs to refer to that field. The test looks both names up through the describe
+	 * wrapper and checks that they resolve to the FieldSetGroup__mdt type and to its FieldSetApiNames__c field, so a
+	 * name that is wrong, or that names a field the object does not have, fails here.
+	 *
+	 * @see CTRL_FieldSet.getFieldSetApiNamesField
+	 */
 	@IsTest
 	private static void getFieldSetApiNamesField()
 	{
@@ -62,9 +101,27 @@ private class CTRL_FieldSet_TEST
 		{
 			CTRL_FieldSet.DTO_FieldSetGroupApiNames dtoImport = CTRL_FieldSet.getFieldSetApiNamesField();
 
-			Assert.areEqual(SEL_FieldSetGroup.OBJECT_NAME, dtoImport.objectApiName, ERROR_API_NAMES_MISMATCH);
-			Assert.areEqual(SEL_FieldSetGroup.FIELD_FIELDSET_API_NAMES, dtoImport.fieldApiName, ERROR_API_NAMES_MISMATCH);
+			assertNamesResolveTo(FieldSetGroup__mdt.FieldSetApiNames__c, dtoImport);
 		}
+	}
+
+	/**
+	 * @description Checks that the object and field API names the controller returned resolve, through the describe
+	 * wrapper, to the FieldSetGroup__mdt type and to the expected field on it. The field name is looked up exactly as
+	 * returned, with no namespace added, so the name a component receives is one the object really has.
+	 *
+	 * @param expectedField The FieldSetGroup__mdt field the returned names must point at.
+	 * @param dtoImport The object and field API names the controller returned.
+	 */
+	private static void assertNamesResolveTo(SObjectField expectedField, CTRL_FieldSet.DTO_FieldSetGroupApiNames dtoImport)
+	{
+		SObjectType returnedType = UTIL_SObjectDescribe.getSObjectTypeByName(dtoImport.objectApiName);
+		Assert.areEqual(FieldSetGroup__mdt.SObjectType, returnedType, ERROR_API_NAMES_MISMATCH + ': expected the object name to resolve to FieldSetGroup__mdt, got '
+				+ dtoImport.objectApiName);
+
+		SObjectField returnedField = UTIL_SObjectDescribe.getDescribe(FieldSetGroup__mdt.SObjectType).getField(dtoImport.fieldApiName, false);
+		Assert.areEqual(expectedField, returnedField, ERROR_API_NAMES_MISMATCH + ': expected the field name to resolve to ' + expectedField + ', got '
+				+ dtoImport.fieldApiName);
 	}
 
 	/**
@@ -152,7 +209,7 @@ private class CTRL_FieldSet_TEST
 	{
 		Assert.isFalse(fieldSetsByRecordId.isEmpty(), ERROR_NO_FIELDS_FOUND_AS_EXPECTED);
 
-		//Since once of the field set names is invalid, one of the requests won't have results returned but results set includes fields for LogEntry record
+		//Since one of the field set names is invalid, one of the requests won't have results returned but results set includes fields for LogEntry record
 		Assert.areEqual(foundFoobars.size() - 1, fieldSetsByRecordId.size() - 1, 'Incorrect number of records returned');
 
 		for(Integer i = 0; i < fieldSetsByRecordId.size(); i++)

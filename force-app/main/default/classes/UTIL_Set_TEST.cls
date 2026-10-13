@@ -12,14 +12,26 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class UTIL_Set_TEST
 {
+	/**
+	 * @description The lower-case letters a to c. It is only the starting text that A_TO_D is built from.
+	 */
 	private static final String A_TO_C = 'abc';
+
+	/**
+	 * @description The lower-case text 'abcd', the value the lower-case test expects to find in the set after conversion.
+	 */
 	private static final String A_TO_D = A_TO_C + 'd';
+
+	/**
+	 * @description The same text in upper case, 'ABCD'. The lower-case test puts it in the set it converts, as an entry
+	 * longer than one letter.
+	 */
 	private static final String A_TO_D_UPPER = A_TO_D.toUpperCase();
 
 	/**
@@ -50,19 +62,26 @@ private class UTIL_Set_TEST
 		assertExtractIds(new Set<Object> {foo1.Id, foo2.Id}, new Set<Id> {foo1.Id, foo2.Id});
 	}
 
+	/**
+	 * @description Calls UTIL_Set.extractIds and checks the result against the IDs the test expects. A null input must
+	 * give a null result. An input that is not null must give a result that is not null, holding exactly the expected
+	 * IDs, in any order. It first checks its own inputs: the input set and the expected set must both be null or both be
+	 * set.
+	 *
+	 * @param objectSet The set of values handed to extractIds, or null.
+	 * @param expected The IDs extractIds should return, or null when the input is null.
+	 */
 	private static void assertExtractIds(Set<Object> objectSet, Set<Id> expected)
 	{
-		Assert.isTrue(!((objectSet == null && expected != null) || (objectSet != null && expected == null)),
-				'Invalid test input: both parameters should be null.');
+		Assert.areEqual(objectSet == null, expected == null, 'Invalid test input: expected the input set and the expected set to be both null or both set');
 		Set<Id> actual = UTIL_Set.extractIds(objectSet);
-		Assert.isTrue(!(objectSet == null && expected == null && actual != null),
-				'UTIL_Set.extractIds(null) returned ' + String.valueOf(actual) + '; expected null');
-		if(expected != null && actual != null)
+		if(objectSet == null)
 		{
-			Assert.isTrue(actual.containsAll(expected) && expected.containsAll(actual),
-					'UTIL_Set.extractIds(' + String.valueOf(objectSet) + ') returned ' + String.valueOf(actual) + '; expected '
-					+ String.valueOf(expected));
+			Assert.isNull(actual, 'Expected UTIL_Set.extractIds(null) to return null, got ' + String.valueOf(actual));
+			return;
 		}
+		Assert.isNotNull(actual, 'Expected UTIL_Set.extractIds(' + String.valueOf(objectSet) + ') to return a set, got null');
+		Assert.areEqual(expected, actual, 'Expected UTIL_Set.extractIds(' + objectSet + ') to return ' + expected + ', got ' + actual);
 	}
 
 	/**

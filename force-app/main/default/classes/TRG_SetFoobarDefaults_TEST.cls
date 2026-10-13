@@ -8,14 +8,30 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class TRG_SetFoobarDefaults_TEST
 {
+	/**
+	 * @description Company name of the admin user created in the test setup. Each test finds that user by this name and
+	 * runs as them.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'TRG_SetFoobarDefaults_TEST-admin';
+
+	/**
+	 * @description Name of the class that gives an entry criteria formula its "newRecord" and "oldRecord" values for
+	 * Foobar__c. One test names it on the trigger action; another leaves the name blank to check that the framework picks a
+	 * class for Foobar__c by itself.
+	 */
 	private static final String FOOBAR_CONTEXT_CLASS = UTIL_FormulaContext.FoobarContext.class.getName();
+
+	/**
+	 * @description How many records the entry criteria tests run through the trigger action. Half of them have their
+	 * checkbox ticked, so the formula admits ten and holds ten back.
+	 */
+	private static final Integer FILTERED_RECORD_COUNT = 20;
 
 	/**
 	 * @description Creates a dedicated test admin user so System.runAs in each test starts a fresh
@@ -53,18 +69,6 @@ private class TRG_SetFoobarDefaults_TEST
 
 			Assert.areEqual(1, afterInsertFoobars.size(), 'Incorrect number of Foobars inserted');
 			Assert.areNotEqual(beforeInsertFoobar.Text__c, afterInsertFoobars.iterator().next().Text__c, 'Action did not update object as expected');
-		}
-	}
-
-	/**
-	 * @description Checks that action executed as per expected
-	 */
-	@IsTest
-	private static void successfulExecutionWithEntryCriteria()
-	{
-		System.runAs(getTestAdmin())
-		{
-			assertEntryCriteriaFiltering(FOOBAR_CONTEXT_CLASS);
 		}
 	}
 
@@ -130,9 +134,23 @@ private class TRG_SetFoobarDefaults_TEST
 		}
 	}
 
+	/**
+	 * @description Runs the trigger action over twenty new Foobar__c records, every other one with its checkbox ticked, with
+	 * an entry criteria formula that admits only the records whose checkbox is ticked. It then checks each record on its
+	 * own: every ticked record carries the text the action writes, and every record left unticked keeps the text it was
+	 * built with. A filter that let the wrong records through, or that changed only some of the admitted ones, fails here.
+	 *
+	 * @param contextClassName Name of the class the formula reads its record from, or null to let the framework choose it
+	 * from the object.
+	 */
 	private static void assertEntryCriteriaFiltering(String contextClassName)
 	{
-		List<Foobar__c> originalFoobars = TST_Factory.newFoobars(20);
+		List<Foobar__c> originalFoobars = TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Text__c, UTIL_Random.randomUUID())
+				.withCycle(Foobar__c.Checkbox__c, new List<Object> {true, false})
+				.withCount(FILTERED_RECORD_COUNT)
+				.withoutInsertion()
+				.buildList();
 		List<Foobar__c> actionFoobars = originalFoobars.deepClone(true);
 
 		TriggerSetting__mdt triggerSetting = TST_Factory.newTriggerSetting(SEL_Foobar.OBJECT_NAME);
@@ -152,18 +170,19 @@ private class TRG_SetFoobarDefaults_TEST
 
 		Test.stopTest();
 
-		Integer itemsAltered = 0;
+		Assert.areEqual(FILTERED_RECORD_COUNT, actionFoobars.size(),
+				'Fixture guard, so the loop below cannot pass on an empty list: expected ' + FILTERED_RECORD_COUNT + ' records, got ' + actionFoobars.size());
 
-		for(Foobar__c afterInsertFoobar : actionFoobars)
+		for(Integer index = 0; index < actionFoobars.size(); index++)
 		{
-			if(afterInsertFoobar.Text__c == TRG_SetFoobarDefaults.DUMMY_TEXT_VALUE)
-			{
-				itemsAltered++;
-			}
-		}
+			Foobar__c originalFoobar = originalFoobars[index];
+			Assert.areNotEqual(TRG_SetFoobarDefaults.DUMMY_TEXT_VALUE, originalFoobar.Text__c,
+					'Expected record ' + index + ' to start without the text the action writes, got ' + originalFoobar.Text__c);
 
-		Assert.areNotEqual(0, itemsAltered, 'A few records should have been processed');
-		Assert.areNotEqual(originalFoobars.size(), itemsAltered, 'Some records should not have been processed due to configured entry criteria');
+			String expectedText = originalFoobar.Checkbox__c ? TRG_SetFoobarDefaults.DUMMY_TEXT_VALUE : originalFoobar.Text__c;
+			Assert.areEqual(expectedText, actionFoobars[index].Text__c,
+					'Expected record ' + index + ' (checkbox ' + originalFoobar.Checkbox__c + ') to have text ' + expectedText + ', got ' + actionFoobars[index].Text__c);
+		}
 	}
 
 	/**

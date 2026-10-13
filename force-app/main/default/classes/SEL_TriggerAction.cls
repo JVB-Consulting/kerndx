@@ -10,7 +10,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_TriggerAction
 {
@@ -50,37 +50,16 @@ public inherited sharing class SEL_TriggerAction
 	public static final String EVENT_AFTER_UNDELETE = 'After Undelete';
 
 	/**
-	 * @description FailureAction__c picklist value — emit a structured log entry and let DML proceed.
+	 * @description FailureAction__c picklist value: emit a structured log entry and let DML proceed.
 	 * Default policy applied when the CMDT row leaves `FailureAction__c` blank.
 	 */
 	public static final String FAILURE_ACTION_LOG_AND_CONTINUE = 'LogAndContinue';
 
 	/**
-	 * @description FailureAction__c picklist value — call `record.addError(...)` (or rethrow for
+	 * @description FailureAction__c picklist value: call `record.addError(...)` (or rethrow for
 	 * Apex actions) so the originating DML rolls back and the error surfaces to the user.
 	 */
 	public static final String FAILURE_ACTION_BLOCK_DML = 'BlockDml';
-
-	/**
-	 * @description Stable fingerprint key prefix for routine flag-gated trigger-action skip logs.
-	 * Combined with the object and action names into `trigger-action-skip:<object>:<action>` so that
-	 * identical skips — which fire once per dispatch and flood under change-event redelivery —
-	 * collapse via `LOG_Builder` flood control into one detail row plus a daily rollup counter
-	 * instead of one persisted row per skip.
-	 */
-	@TestVisible
-	private static final String FINGERPRINT_SKIP_PREFIX = 'trigger-action-skip';
-
-	/**
-	 * @description Class+method location passed to `logSkipped`'s `LOG_Builder.at(...)` call.
-	 * Computed via `class.getName()` so the emitted `ClassMethod__c` is namespace-aware
-	 * (`SEL_TriggerAction.shouldExecute` in unmanaged dev orgs / `kern.SEL_TriggerAction.shouldExecute`
-	 * in managed subscriber installs) — matching the `.at(...)` convention used across the framework
-	 * (e.g. `TRG_Dispatcher.AT_LOCATION_DISPATCH_ACTION`). Attributed to `shouldExecute`, the
-	 * semantically meaningful method that decides the skip, not the private `logSkipped` helper.
-	 */
-	@TestVisible
-	private static final String AT_LOCATION_SHOULD_EXECUTE = SEL_TriggerAction.class.getName() + '.shouldExecute';
 
 	/**
 	 * @description Maps Event__c picklist values to TriggerOperation enum values.
@@ -118,10 +97,26 @@ public inherited sharing class SEL_TriggerAction
 	private static final String PATH_SOBJECT_TYPE_QUALIFIED_API_NAME =
 			UTIL_System.getManagedPackageNamespacePrefix() + 'SObjectType__r.QualifiedApiName';
 
-	private static final String FIELD_TA_BYPASS_EXECUTION = TriggerAction__mdt.BypassExecution__c.getDescribe().name;
-	private static final String FIELD_TS_BYPASS_EXECUTION = TriggerSetting__mdt.BypassExecution__c.getDescribe().name;
-	private static final String FIELD_TA_APEX_CLASS_NAME = TriggerAction__mdt.ApexClassName__c.getDescribe().name;
-	private static final String FIELD_TA_FLOW_NAME = TriggerAction__mdt.FlowName__c.getDescribe().name;
+	/**
+	 * @description API name of the trigger action field that switches one action off. The query that builds the trigger action map
+	 * keeps only actions where it is false. Read from the field itself so the name carries the package namespace when there is one.
+	 */
+	private static final String FIELD_TA_BYPASS_EXECUTION = UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.BypassExecution__c);
+	/**
+	 * @description API name of the trigger setting field that switches off every action of one object. The query that builds the
+	 * trigger action map keeps only settings where it is false.
+	 */
+	private static final String FIELD_TS_BYPASS_EXECUTION = UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.BypassExecution__c);
+	/**
+	 * @description API name of the trigger action field that names the Apex class to run. Selected by queryAllActionRegistrations,
+	 * which reads every action to tell whether a class is registered as a trigger action.
+	 */
+	private static final String FIELD_TA_APEX_CLASS_NAME = UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.ApexClassName__c);
+	/**
+	 * @description API name of the trigger action field that names the flow to run. Selected by queryAllActionRegistrations, because
+	 * an action that names a flow counts as a registration of the flow-running action class.
+	 */
+	private static final String FIELD_TA_FLOW_NAME = UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.FlowName__c);
 
 	/**
 	 * @description Cache lifetime for the unfiltered trigger-action registration query behind
@@ -131,6 +126,11 @@ public inherited sharing class SEL_TriggerAction
 	 */
 	private static final Integer REGISTRATION_CACHE_TTL_SECONDS = 300;
 
+	/**
+	 * @description The object name of the trigger action custom metadata type, as UTIL_SObjectDescribe.getObjectNameFromType returns
+	 * it (with the package namespace when there is one). Nothing in this class reads it; it is visible to tests so they can name
+	 * the type without working the name out again.
+	 */
 	@TestVisible
 	private static final String OBJECT_NAME_TRIGGER_ACTION = UTIL_SObjectDescribe.getObjectNameFromType(TriggerAction__mdt.SObjectType);
 
@@ -152,32 +152,32 @@ public inherited sharing class SEL_TriggerAction
 	/**
 	 * @description API name for the trigger setting bypass feature flag field.
 	 */
-	public static final String FIELD_TS_BYPASS_FEATURE_FLAG = TriggerSetting__mdt.BypassFeatureFlag__c.getDescribe().name;
+	public static final String FIELD_TS_BYPASS_FEATURE_FLAG = UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.BypassFeatureFlag__c);
 	/**
 	 * @description API name for the trigger setting required feature flag field.
 	 */
-	public static final String FIELD_TS_REQUIRED_FEATURE_FLAG = TriggerSetting__mdt.RequiredFeatureFlag__c.getDescribe().name;
+	public static final String FIELD_TS_REQUIRED_FEATURE_FLAG = UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.RequiredFeatureFlag__c);
 
 	/**
 	 * @description Relationship path for TriggerAction BypassFeatureFlag__r.DeveloperName (namespace-safe).
 	 */
 	private static final String PATH_TA_BYPASS_FEATURE_FLAG_DEVELOPER_NAME =
-			TriggerAction__mdt.BypassFeatureFlag__c.getDescribe().getRelationshipName() + '.DeveloperName';
+			UTIL_SObjectDescribe.getCachedFieldDescribe(TriggerAction__mdt.BypassFeatureFlag__c).getRelationshipName() + '.DeveloperName';
 	/**
 	 * @description Relationship path for TriggerAction RequiredFeatureFlag__r.DeveloperName (namespace-safe).
 	 */
 	private static final String PATH_TA_REQUIRED_FEATURE_FLAG_DEVELOPER_NAME =
-			TriggerAction__mdt.RequiredFeatureFlag__c.getDescribe().getRelationshipName() + '.DeveloperName';
+			UTIL_SObjectDescribe.getCachedFieldDescribe(TriggerAction__mdt.RequiredFeatureFlag__c).getRelationshipName() + '.DeveloperName';
 	/**
 	 * @description Relationship path for TriggerSetting BypassFeatureFlag__r.DeveloperName (namespace-safe).
 	 */
 	private static final String PATH_TS_BYPASS_FEATURE_FLAG_DEVELOPER_NAME =
-			TriggerSetting__mdt.BypassFeatureFlag__c.getDescribe().getRelationshipName() + '.DeveloperName';
+			UTIL_SObjectDescribe.getCachedFieldDescribe(TriggerSetting__mdt.BypassFeatureFlag__c).getRelationshipName() + '.DeveloperName';
 	/**
 	 * @description Relationship path for TriggerSetting RequiredFeatureFlag__r.DeveloperName (namespace-safe).
 	 */
 	private static final String PATH_TS_REQUIRED_FEATURE_FLAG_DEVELOPER_NAME =
-			TriggerSetting__mdt.RequiredFeatureFlag__c.getDescribe().getRelationshipName() + '.DeveloperName';
+			UTIL_SObjectDescribe.getCachedFieldDescribe(TriggerSetting__mdt.RequiredFeatureFlag__c).getRelationshipName() + '.DeveloperName';
 
 	/**
 	 * @description Method use to get the commonly queried fields
@@ -191,25 +191,25 @@ public inherited sharing class SEL_TriggerAction
 		return new Set<String>
 		{
 				FIELD_TA_BYPASS_EXECUTION,
-				TriggerAction__mdt.AllowNonSelfInitiated__c.getDescribe().name,
-				TriggerAction__mdt.AllowRecursion__c.getDescribe().name,
-				TriggerAction__mdt.ApexClassName__c.getDescribe().name,
-				TriggerAction__mdt.BypassFeatureFlag__c.getDescribe().name,
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.AllowNonSelfInitiated__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.AllowRecursion__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.ApexClassName__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.BypassFeatureFlag__c),
 				PATH_TA_BYPASS_FEATURE_FLAG_DEVELOPER_NAME,
-				TriggerAction__mdt.Description__c.getDescribe().name,
-				TriggerAction__mdt.DeveloperName.getDescribe().name,
-				TriggerAction__mdt.EntryCriteriaContextClassName__c.getDescribe().name,
-				TriggerAction__mdt.EntryCriteriaFormula__c.getDescribe().name,
-				TriggerAction__mdt.Event__c.getDescribe().name,
-				TriggerAction__mdt.FailureAction__c.getDescribe().name,
-				TriggerAction__mdt.FlowName__c.getDescribe().name,
-				TriggerAction__mdt.ForcePerformanceLogging__c.getDescribe().name,
-				TriggerAction__mdt.NamespacePrefix.getDescribe().name,
-				TriggerAction__mdt.Order__c.getDescribe().name,
-				TriggerAction__mdt.PerformanceThresholdMs__c.getDescribe().name,
-				TriggerAction__mdt.RequiredFeatureFlag__c.getDescribe().name,
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.Description__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.DeveloperName),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.EntryCriteriaContextClassName__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.EntryCriteriaFormula__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.Event__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.FailureAction__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.FlowName__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.ForcePerformanceLogging__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.NamespacePrefix),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.Order__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.PerformanceThresholdMs__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.RequiredFeatureFlag__c),
 				PATH_TA_REQUIRED_FEATURE_FLAG_DEVELOPER_NAME,
-				TriggerAction__mdt.SuppressPerformanceLogging__c.getDescribe().name
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.SuppressPerformanceLogging__c)
 		};
 	}
 
@@ -229,11 +229,11 @@ public inherited sharing class SEL_TriggerAction
 				PATH_TS_BYPASS_FEATURE_FLAG_DEVELOPER_NAME,
 				FIELD_TS_REQUIRED_FEATURE_FLAG,
 				PATH_TS_REQUIRED_FEATURE_FLAG_DEVELOPER_NAME,
-				TriggerSetting__mdt.ApplyMasking__c.getDescribe().name,
-				TriggerSetting__mdt.EnablePerformanceLogging__c.getDescribe().name,
-				TriggerSetting__mdt.PerformanceThresholdMs__c.getDescribe().name,
-				TriggerSetting__mdt.SObjectType__c.getDescribe().name,
-				TriggerSetting__mdt.ObjectApiNameOverride__c.getDescribe().name,
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.ApplyMasking__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.EnablePerformanceLogging__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.PerformanceThresholdMs__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.SObjectType__c),
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.ObjectApiNameOverride__c),
 				PATH_SOBJECT_TYPE_QUALIFIED_API_NAME
 		};
 	}
@@ -280,7 +280,7 @@ public inherited sharing class SEL_TriggerAction
 
 	/**
 	 * @description Checks whether a class name matches at least one registered `TriggerAction__mdt`
-	 * row's resolved action class — the row's `ApexClassName__c`, or the flow-runner class
+	 * row's resolved action class: the row's `ApexClassName__c`, or the flow-runner class
 	 * (`TRG_InvokeFlow`) when any flow-action row exists, since every flow row dispatches through
 	 * that one class. Comparison is case-insensitive, mirroring Apex class-name semantics, and
 	 * deliberately ignores `BypassExecution__c`: a row that is currently CMDT-bypassed is still a
@@ -318,6 +318,9 @@ public inherited sharing class SEL_TriggerAction
 	 * the engine's per-transaction fallback). Deliberately unfiltered (`BypassExecution__c`
 	 * included): a row that is currently CMDT-bypassed is still a registered target, and
 	 * custom-metadata SOQL does not count against query limits.
+	 * The sharing setting is stated explicitly because a cached read must carry one: custom metadata
+	 * has no record sharing, so the bypassed setting returns the same rows while letting every caller
+	 * share one org-wide cache entry.
 	 *
 	 * @return Every trigger-action row with its class and flow name fields.
 	 */
@@ -325,6 +328,7 @@ public inherited sharing class SEL_TriggerAction
 	{
 		return QRY_Builder.selectFrom(TriggerAction__mdt.SObjectType)
 				.systemModeInternal()
+				.bypassSharingInternal()
 				.fields(new List<String> {FIELD_TA_APEX_CLASS_NAME, FIELD_TA_FLOW_NAME})
 				.withCache(REGISTRATION_CACHE_TTL_SECONDS)
 				.toList();
@@ -416,7 +420,10 @@ public inherited sharing class SEL_TriggerAction
 	}
 
 	/**
-	 * @description Determines (based on feature flags) if the provided action should be allowed to execute.
+	 * @description Decides from the feature flags whether the action may run. An action is skipped when its own
+	 * bypass flag or its setting's bypass flag is on, or when a required flag on the setting or on the action is off.
+	 * A skipped action writes no log entry: the flag is the subscriber's own setting, and the flag record already
+	 * shows why the action did not run.
 	 *
 	 * @param triggerSetting The Trigger setting associated with the provided triggerAction
 	 * @param triggerAction The action whose permissions/feature flags should be checked
@@ -426,55 +433,25 @@ public inherited sharing class SEL_TriggerAction
 	@TestVisible
 	private static Boolean shouldExecute(TriggerSetting__mdt triggerSetting, TriggerAction__mdt triggerAction)
 	{
-		String actionName = triggerAction.DeveloperName;
-		String objectName = resolveObjectName(triggerSetting);
-
 		Boolean actionBypassed = UTIL_FeatureFlag.isEnabled(triggerAction.BypassFeatureFlag__r?.DeveloperName);
 		Boolean settingBypassed = UTIL_FeatureFlag.isEnabled(triggerSetting.BypassFeatureFlag__r?.DeveloperName);
 
 		if(actionBypassed || settingBypassed)
 		{
-			String reason = actionBypassed ?
-					'Action bypass: ' + triggerAction.BypassFeatureFlag__r?.DeveloperName : 'Setting bypass: ' + triggerSetting.BypassFeatureFlag__r?.DeveloperName;
-			logSkipped(actionName, objectName, reason);
 			return false;
 		}
 
 		if(triggerSetting.RequiredFeatureFlag__c != null && !UTIL_FeatureFlag.isEnabled(triggerSetting.RequiredFeatureFlag__r?.DeveloperName))
 		{
-			logSkipped(actionName, objectName, 'Setting required not met: ' + triggerSetting.RequiredFeatureFlag__r?.DeveloperName);
 			return false;
 		}
 
 		if(triggerAction.RequiredFeatureFlag__c != null && !UTIL_FeatureFlag.isEnabled(triggerAction.RequiredFeatureFlag__r?.DeveloperName))
 		{
-			logSkipped(actionName, objectName, 'Action required not met: ' + triggerAction.RequiredFeatureFlag__r?.DeveloperName);
 			return false;
 		}
 
 		return true;
-	}
-
-	/**
-	 * @description Logs when a trigger action is skipped due to permission/feature flag conditions.
-	 * Emitted at DEBUG, not INFO: a flag-gated skip is routine, expected behaviour, not news worth
-	 * surfacing at the default threshold once a subscriber narrows it. Carries a stable
-	 * `trigger-action-skip:<object>:<action>` fingerprint so identical skips — which fire once per
-	 * dispatch and can be amplified into thousands by change-event redelivery — collapse via
-	 * `LOG_Builder` flood control into one detail row plus a daily rollup counter rather than one
-	 * persisted row per skip.
-	 *
-	 * @param actionName The trigger action DeveloperName
-	 * @param objectName The object API name
-	 * @param reason The reason for skipping
-	 */
-	private static void logSkipped(String actionName, String objectName, String reason)
-	{
-		LOG_Builder.build()
-				.debug('Trigger action "' + actionName + '" on ' + objectName + ' SKIPPED. ' + reason)
-				.withFingerprintInternal(FINGERPRINT_SKIP_PREFIX + UTIL_String.COLON + objectName + UTIL_String.COLON + actionName)
-				.at(AT_LOCATION_SHOULD_EXECUTE)
-				.emit();
 	}
 
 	/**
@@ -503,7 +480,7 @@ public inherited sharing class SEL_TriggerAction
 
 	/**
 	 * @description Resolves the SObject API name from a TriggerSetting__mdt record. When the
-	 * ObjectApiNameOverride__c text field is populated, it takes precedence — used to register
+	 * ObjectApiNameOverride__c text field is populated, it takes precedence. It is used to register
 	 * entity types the SObjectType__c relationship cannot reference (primary case: Change Data
 	 * Capture entities, which the platform excludes from the relationship's restricted-picklist
 	 * filter). The override text is normalised to the platform-canonical API-name casing so it

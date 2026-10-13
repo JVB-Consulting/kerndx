@@ -10,20 +10,45 @@
  *
  * @group Triggers
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class SEL_TriggerAction_TEST
 {
+	/**
+	 * @description A fixed federation identifier stamped on the user created in the test setup. The tests use it to
+	 * find that one user again, because no other user in the org carries this value.
+	 */
 	private static final String TEST_FEDERATION_ID = 'e09587c0-1f50-4f21-90cf-a8bbafc24492';
 
+	/**
+	 * @description Developer name of the one trigger action the package registers for Foobar__c. It runs before insert,
+	 * and the selection tests check that the selector returns it with every field it selects.
+	 */
+	private static final String SET_FOOBAR_DEFAULTS_ACTION = 'SetFoobarDefaults_BeforeInsert';
+
+	/**
+	 * @description The Order__c value the package gives the Foobar__c before insert action.
+	 */
+	private static final Decimal SET_FOOBAR_DEFAULTS_ORDER = 1000;
+
+	/**
+	 * @description The Description__c value the package gives the Foobar__c before insert action.
+	 */
+	private static final String SET_FOOBAR_DEFAULTS_DESCRIPTION = 'Sample Trigger Action for Test class and coverage';
+
+	/**
+	 * @description Creates one standard user marked with TEST_FEDERATION_ID. The tests that check which trigger
+	 * actions a user gets run as this user, so the result does not depend on the permissions of whoever runs the
+	 * test.
+	 */
 	@TestSetup
 	private static void setup()
 	{
 		User newUser = TST_Factory.newUser(SEL_Profile.PROFILE_STANDARD_USER);
 		newUser.FederationIdentifier = TEST_FEDERATION_ID;
-		insert newUser;
+		TST_Factory.insertUsers(new List<User> {newUser});
 	}
 
 	/**
@@ -62,19 +87,39 @@ private class SEL_TriggerAction_TEST
 	}
 
 	/**
-	 * @description Verifies that trigger actions are returned when user has admin permission set
+	 * @description A standard user with no permission set gets the Foobar__c before insert action the package registers,
+	 * with every field the selector selects. The result does not depend on the permissions of the user who asks.
 	 *
 	 * @see SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation
 	 */
 	@IsTest
-	private static void actionBypassedWhenFeatureFlagEnabled()
+	private static void shouldGiveAStandardUserTheConfiguredActionWithSelectedFields()
 	{
+		SEL_FeatureFlag.allDeveloperNames = null;
 		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
-		TST_Factory.createPermissionSetAssignments(new List<User> {runAsUser}, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
 
 		List<TriggerAction__mdt> actions = findActionsAsUser(runAsUser);
 
-		Assert.isNotNull(actions, 'Should return a list of actions');
+		assertSetFoobarDefaultsSelected(actions);
+	}
+
+	/**
+	 * @description Before insert returns the Foobar__c action registered for that event, and after update, for which
+	 * Foobar__c registers no action, returns an empty list.
+	 *
+	 * @see SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation
+	 */
+	@IsTest
+	private static void actionsFilteredByOperationType()
+	{
+		Test.startTest();
+		List<TriggerAction__mdt> beforeInsertActions = SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation(SEL_Foobar.OBJECT_NAME, TriggerOperation.BEFORE_INSERT);
+		List<TriggerAction__mdt> afterUpdateActions = SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation(SEL_Foobar.OBJECT_NAME, TriggerOperation.AFTER_UPDATE);
+		Test.stopTest();
+
+		Assert.areEqual(1, beforeInsertActions.size(), 'Expected one before insert action for Foobar__c, got ' + beforeInsertActions.size());
+		Assert.areEqual(SET_FOOBAR_DEFAULTS_ACTION, beforeInsertActions[0].DeveloperName, 'Expected the before insert action, got ' + beforeInsertActions[0].DeveloperName);
+		Assert.areEqual(0, afterUpdateActions.size(), 'Expected no after update action for Foobar__c, got ' + afterUpdateActions.size());
 	}
 
 	/**
@@ -110,36 +155,21 @@ private class SEL_TriggerAction_TEST
 	}
 
 	/**
-	 * @description Verifies that condition evaluation completes successfully with real feature flag data
+	 * @description A user given the Kern administrator permission set gets the same Foobar__c before insert action, with
+	 * every field the selector selects, as a standard user does: holding the permission set neither adds nor removes an
+	 * action.
 	 *
 	 * @see SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation
 	 */
 	@IsTest
-	private static void conditionsEvaluatedSuccessfully()
+	private static void shouldGiveAUserWithTheAdministratorPermissionSetTheConfiguredActionWithSelectedFields()
 	{
-		SEL_FeatureFlag.allDeveloperNames = null;
 		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		TST_Factory.createPermissionSetAssignments(new List<User> {runAsUser}, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
 
 		List<TriggerAction__mdt> actions = findActionsAsUser(runAsUser);
 
-		Assert.isNotNull(actions, 'Query should complete successfully');
-	}
-
-	/**
-	 * @description Verifies that actions are correctly filtered by trigger operation type
-	 *
-	 * @see SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation
-	 */
-	@IsTest
-	private static void actionsFilteredByOperationType()
-	{
-		Test.startTest();
-		List<TriggerAction__mdt> beforeInsertActions = SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation(SEL_Foobar.OBJECT_NAME, TriggerOperation.BEFORE_INSERT);
-		List<TriggerAction__mdt> afterUpdateActions = SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation(SEL_Foobar.OBJECT_NAME, TriggerOperation.AFTER_UPDATE);
-		Test.stopTest();
-
-		Assert.isNotNull(beforeInsertActions, 'Before Insert query should succeed');
-		Assert.isNotNull(afterUpdateActions, 'After Update query should succeed');
+		assertSetFoobarDefaultsSelected(actions);
 	}
 
 	/**
@@ -195,6 +225,46 @@ private class SEL_TriggerAction_TEST
 			Test.stopTest();
 		}
 		return actions;
+	}
+
+	/**
+	 * @description Checks that the selector returned exactly the Foobar__c before insert action the package registers,
+	 * and reads every custom field the selector selects for it, comparing each with the value the package ships. A custom
+	 * field the selector stops selecting fails here, because reading a field a query did not select throws. The class name
+	 * is compared with the package namespace taken off both sides: a package build writes the name on the record with the
+	 * namespace in front, an unmanaged deployment leaves it bare, and either spelling names the same class. The two
+	 * feature flag names are read through lookups that are empty on this record, and NamespacePrefix is not read, so
+	 * this check does not prove that dropping one of those from the selection fails.
+	 *
+	 * @param actions The trigger actions the selector returned for Foobar__c before insert.
+	 */
+	private static void assertSetFoobarDefaultsSelected(List<TriggerAction__mdt> actions)
+	{
+		Assert.areEqual(1, actions.size(), 'Expected exactly one Foobar__c before insert action, got ' + actions.size());
+		TriggerAction__mdt action = actions[0];
+
+		Assert.areEqual(SET_FOOBAR_DEFAULTS_ACTION, action.DeveloperName, 'Expected the Foobar__c before insert action, got ' + action.DeveloperName);
+		String namespacePrefix = UTIL_System.getManagedPackageNamespacePrefix(UTIL_String.DOT);
+		String expectedClassName = TRG_SetFoobarDefaults.class.getName().removeStart(namespacePrefix);
+		String actualClassName = action.ApexClassName__c?.removeStart(namespacePrefix);
+		Assert.areEqual(expectedClassName, actualClassName, 'Expected the action class ' + expectedClassName + ', got ' + action.ApexClassName__c);
+		Assert.areEqual(SEL_TriggerAction.EVENT_BEFORE_INSERT, action.Event__c, 'Expected the before insert event, got ' + action.Event__c);
+		Assert.areEqual(SET_FOOBAR_DEFAULTS_ORDER, action.Order__c, 'Expected order ' + SET_FOOBAR_DEFAULTS_ORDER + ', got ' + action.Order__c);
+		Assert.isFalse(action.BypassExecution__c, 'Expected the action not to be switched off');
+		Assert.isTrue(action.AllowNonSelfInitiated__c, 'Expected the action to allow records it did not start from');
+		Assert.isFalse(action.AllowRecursion__c, 'Expected the action not to allow recursion');
+		Assert.isFalse(action.ForcePerformanceLogging__c, 'Expected performance logging not to be forced');
+		Assert.isFalse(action.SuppressPerformanceLogging__c, 'Expected performance logging not to be suppressed');
+		Assert.areEqual(SET_FOOBAR_DEFAULTS_DESCRIPTION, action.Description__c, 'Expected the shipped action description, got ' + action.Description__c);
+		Assert.isNull(action.BypassFeatureFlag__c, 'Expected no bypass feature flag, got ' + action.BypassFeatureFlag__c);
+		Assert.isNull(action.BypassFeatureFlag__r?.DeveloperName, 'Expected no bypass feature flag name');
+		Assert.isNull(action.RequiredFeatureFlag__c, 'Expected no required feature flag, got ' + action.RequiredFeatureFlag__c);
+		Assert.isNull(action.RequiredFeatureFlag__r?.DeveloperName, 'Expected no required feature flag name');
+		Assert.isNull(action.EntryCriteriaContextClassName__c, 'Expected no entry criteria context class, got ' + action.EntryCriteriaContextClassName__c);
+		Assert.isNull(action.EntryCriteriaFormula__c, 'Expected no entry criteria formula, got ' + action.EntryCriteriaFormula__c);
+		Assert.isNull(action.FailureAction__c, 'Expected no failure action, got ' + action.FailureAction__c);
+		Assert.isNull(action.FlowName__c, 'Expected no flow name, got ' + action.FlowName__c);
+		Assert.isNull(action.PerformanceThresholdMs__c, 'Expected no performance threshold, got ' + action.PerformanceThresholdMs__c);
 	}
 
 	/**
@@ -323,62 +393,36 @@ private class SEL_TriggerAction_TEST
 	}
 
 	/**
-	 * @description Confirms the trigger-action skip log is flood-controlled. Two identical
-	 * feature-flag-gated skips collapse to ONE detail row carrying a stable
-	 * `trigger-action-skip:<object>:<action>` fingerprint plus a rollup counting both, and the entry
-	 * persists at DEBUG (a routine skip is not INFO-worthy). Regression guard for the skip-log flood
-	 * that defeated flood control on the high-frequency trigger-dispatch path: before this guard each
-	 * skip persisted a separate un-fingerprinted INFO row, so change-event redelivery turned a handful
-	 * of inserts into thousands of persisted rows.
+	 * @description A feature flag that turns an action off is the subscriber's own setting, and the flag record
+	 * already shows it. So the framework skips the action and writes no log entry about it. The test turns one
+	 * action off with an enabled bypass flag and another with a disabled required flag, checks both are skipped,
+	 * and checks that no log entry was saved.
 	 *
-	 * @see SEL_TriggerAction.logSkipped
+	 * @see SEL_TriggerAction.shouldExecute
 	 */
 	@IsTest
-	private static void skipLoggingCollapsesToFloodControlledDebugEntry()
+	private static void shouldSkipAnActionTurnedOffByAFlagWithoutLogging()
 	{
 		LOG_Builder.ignoreTestMode = true;
 		TST_Factory.setupLoggerForTest();
 
+		final String bypassFlag = 'TestBypassFlag';
 		final String requiredFlag = 'TestActionRequiredFlag';
-		setupDisabledFeatureFlag(requiredFlag);
+		setupEnabledFeatureFlag(bypassFlag);
+		SEL_FeatureFlag.allDeveloperNames.add(requiredFlag);
 
 		TriggerSetting__mdt triggerSetting = TST_Factory.newTriggerSetting('Account');
-		TriggerAction__mdt triggerAction = TST_Factory.newTriggerAction('TestAction', triggerSetting, null, requiredFlag);
+		TriggerAction__mdt bypassedAction = TST_Factory.newTriggerAction('BypassedAction', triggerSetting, bypassFlag, null);
+		TriggerAction__mdt requiredFlagAction = TST_Factory.newTriggerAction('RequiredFlagAction', triggerSetting, null, requiredFlag);
 
 		Test.startTest();
-		SEL_TriggerAction.shouldExecute(triggerSetting, triggerAction);
-		SEL_TriggerAction.shouldExecute(triggerSetting, triggerAction);
+		Boolean bypassedResult = SEL_TriggerAction.shouldExecute(triggerSetting, bypassedAction);
+		Boolean requiredFlagResult = SEL_TriggerAction.shouldExecute(triggerSetting, requiredFlagAction);
 		Test.stopTest();
 
-		String key = SEL_TriggerAction.FINGERPRINT_SKIP_PREFIX + UTIL_String.COLON + 'Account' + UTIL_String.COLON + 'TestAction';
-		String detailKey = TRG_PersistLogEntry.PREFIX_DETAIL + key;
-		String rollupPrefix = TRG_PersistLogEntry.PREFIX_ROLLUP + key;
-		Integer persistedSkipRows = 0;
-		Integer detailRows = 0;
-		Integer rollupTotal = 0;
-		String detailLevel = null;
-		for(LogEntry__c row : new SEL_LogEntry().getAll())
-		{
-			if(SEL_TriggerAction.AT_LOCATION_SHOULD_EXECUTE.equals(row.ClassMethod__c))
-			{
-				persistedSkipRows++;
-			}
-			if(row.Fingerprint__c == detailKey)
-			{
-				detailRows++;
-				detailLevel = row.LogLevel__c;
-			}
-			else if(row.Fingerprint__c != null && row.Fingerprint__c.startsWith(rollupPrefix))
-			{
-				rollupTotal += row.OccurrenceCount__c?.intValue() ?? 0;
-			}
-		}
-
-		String evidence = ' (persistedSkipRows=' + persistedSkipRows + ', detailRows=' + detailRows
-				+ ', rollupTotal=' + rollupTotal + ', detailLevel=' + detailLevel + ')';
-		Assert.areEqual(1, detailRows, 'Identical trigger-action skips must collapse to one detail row' + evidence);
-		Assert.areEqual(2, rollupTotal, 'Both skips must be counted in the rollup' + evidence);
-		Assert.areEqual('DEBUG', detailLevel, 'A routine flag-gated skip must persist at DEBUG, not INFO' + evidence);
+		Assert.isFalse(bypassedResult, 'Expected the action with an enabled bypass flag to be skipped');
+		Assert.isFalse(requiredFlagResult, 'Expected the action whose required flag is off to be skipped');
+		Assert.isTrue(new SEL_LogEntry().getAll().isEmpty(), 'Expected no log entry, because skipping an action turned off by a flag is silent');
 	}
 
 	/**
@@ -526,7 +570,7 @@ private class SEL_TriggerAction_TEST
 
 	/**
 	 * @description Verifies that resolveObjectName falls back to SObjectType__c when the override
-	 * field is blank — preserves the existing behavior for standard objects, custom objects, and
+	 * field is blank. This preserves the existing behavior for standard objects, custom objects, and
 	 * platform events (which the relationship already supports). Uses Account (a standard object)
 	 * so the assertion is namespace-immune.
 	 *
@@ -572,7 +616,7 @@ private class SEL_TriggerAction_TEST
 	/**
 	 * @description Verifies that a populated ObjectApiNameOverride__c is normalised to the
 	 * platform-canonical API-name casing so the registered map key matches the dispatch-time
-	 * lookup key (which is always canonical) — and that an override the running context cannot
+	 * lookup key (which is always canonical), and that an override the running context cannot
 	 * describe is returned unchanged rather than dropped. Uses a standard object
 	 * ('account' → 'Account') so the assertion is namespace-immune and always describable.
 	 *
@@ -625,7 +669,7 @@ private class SEL_TriggerAction_TEST
 
 	/**
 	 * @description Tests that the flow-runner class name counts as registered when any flow-action
-	 * row exists — every flow row dispatches through the one runner class, so its name is the
+	 * row exists: every flow row dispatches through the one runner class, so its name is the
 	 * action-level bypass key for all flow actions.
 	 *
 	 * @see SEL_TriggerAction.isRegisteredActionClassName
