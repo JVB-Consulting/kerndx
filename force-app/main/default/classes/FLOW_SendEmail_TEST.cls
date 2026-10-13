@@ -9,10 +9,10 @@
  *
  * @group Email
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class FLOW_SendEmail_TEST
 {
 	/**
@@ -21,26 +21,34 @@ private class FLOW_SendEmail_TEST
 	private static final String MERGE_FIELD_VALUE = 'This is the replacement text expected';
 
 	/**
-	 * @description Inserts the shared base fixture (Contact with Email, Foobar, ContentVersion) in a
-	 * single DML transaction. Called at the start of each test method that needs the fixture.
+	 * @description The length of the random key stored in the query result memory cache.
+	 */
+	private static final Integer MEMORY_CACHE_KEY_LENGTH = 20;
+
+	/**
+	 * @description Inserts the shared base fixture (a Foobar record and a file) in a single DML transaction.
+	 * Called at the start of each test method that needs the fixture.
 	 */
 	private static void buildBaseFixture()
 	{
 		DML_Builder.newTransaction()
 				.withSystemMode()
-				.doInsert
-						(
-								new List<SObject>
-								{
-										TST_Builder.of(Contact.SObjectType)
-												.withDefaultedField(Contact.Email)
-												.withoutInsertion()
-												.build(),
-										TST_Factory.newFoobar(),
-										TST_Factory.newContentVersion()
-								}
-						)
+				.doInsert(new List<SObject> {TST_Factory.newFoobar(), TST_Factory.newContentVersion()})
 				.execute();
+	}
+
+	/**
+	 * @description Inserts a Contact with an email address, for the tests that send to a record Id. Only a Contact,
+	 * Lead or User can receive an email by Id, and a Task cannot name a User as the person it is about.
+	 *
+	 * @return The saved Contact.
+	 */
+	@SuppressWarnings('PMD.KernNoStandardObjectInPackageTests')
+	private static Contact insertContactWithEmail()
+	{
+		Contact newContact = (Contact)TST_Builder.of(Contact.SObjectType).withDefaultedField(Contact.Email).withoutInsertion().build();
+		DML_Builder.newTransaction().withSystemMode().doInsert(newContact).execute();
+		return newContact;
 	}
 
 	/**
@@ -55,11 +63,29 @@ private class FLOW_SendEmail_TEST
 	 */
 	private static List<FLOW_SendEmail.DTO_Response> runTest(String toAddress, Id whatId, String templateName, Boolean useStandardActivityLogging)
 	{
+		return runTest(toAddress, whatId, templateName, useStandardActivityLogging, true);
+	}
+
+	/**
+	 * @description Executes the email sending test with specified parameters, constructing a DTO_Request with merge fields and attachments.
+	 * The full overload: every logging dial is explicit.
+	 *
+	 * @param toAddress The recipient’s email address or Contact/Lead/User Id.
+	 * @param whatId The Id of the related record (e.g., Foobar__c) for merge fields.
+	 * @param templateName The unique name of the email template to use.
+	 * @param useStandardActivityLogging If true, sets the useStandardLogActivity flag on the DTO.
+	 * @param saveAsActivity Whether an activity is wanted at all (the saveAsActivity flag on the DTO).
+	 *
+	 * @return A list of DTO_Response objects indicating the success or failure of the email send.
+	 */
+	@SuppressWarnings('PMD.ExcessiveParameterList')
+	private static List<FLOW_SendEmail.DTO_Response> runTest(String toAddress, Id whatId, String templateName, Boolean useStandardActivityLogging, Boolean saveAsActivity)
+	{
 		FLOW_SendEmail.DTO_Request dtoEmail = new FLOW_SendEmail.DTO_Request();
 
 		dtoEmail.fileIds = new List<Id> {new SEL_ContentVersion().getAll().iterator().next().Id};
 		dtoEmail.orgWideEmailAddress = ((OrgWideEmailAddress)new SEL_OrgWideEmailAddress().getRandomItem())?.Address;
-		dtoEmail.saveAsActivity = true;
+		dtoEmail.saveAsActivity = saveAsActivity;
 		dtoEmail.templateUniqueName = templateName;
 		dtoEmail.toAddress = toAddress;
 		dtoEmail.whatId = whatId;
@@ -103,7 +129,7 @@ private class FLOW_SendEmail_TEST
 	{
 		buildBaseFixture();
 
-		Contact newContact = (Contact)QRY_Builder.selectFrom(Contact.SObjectType).getFirst();
+		Contact newContact = insertContactWithEmail();
 		Foobar__c newFoobar = new SEL_Foobar().getAll().iterator().next();
 
 		assertSendSuccessful(runTest(newContact.Id, newFoobar.Id, SEL_EmailTemplate.CUSTOM_TEST_EMAIL_TEMPLATE));
@@ -211,7 +237,7 @@ private class FLOW_SendEmail_TEST
 	{
 		buildBaseFixture();
 
-		Contact newContact = (Contact)QRY_Builder.selectFrom(Contact.SObjectType).getFirst();
+		Contact newContact = insertContactWithEmail();
 		Foobar__c newFoobar = new SEL_Foobar().getAll().iterator().next();
 
 		List<FLOW_SendEmail.DTO_Response> dtoResponses = runTest(newContact.Id, newFoobar.Id, SEL_EmailTemplate.CUSTOM_TEST_EMAIL_TEMPLATE, true);
@@ -222,6 +248,30 @@ private class FLOW_SendEmail_TEST
 		{
 			Assert.isTrue(QRY_Builder.selectFrom(Task.SObjectType).toList().size() == 1, 'Task should have been created for standard logging');
 		}
+	}
+
+	/**
+	 * @description Tests that logging the activity with custom logging empties the query result memory cache, because
+	 * the Task insert is a write outside DML_Transaction. Where the org cannot send external email, no activity is logged and the test returns.
+	 */
+	@IsTest
+	private static void activityLoggingEmptiesTheMemoryCache()
+	{
+		if(UTIL_Email.getEmailDeliverabilityAccessLevel() != UTIL_Email.DeliverabilityAccessLevel.ALL_EMAIL)
+		{
+			return;
+		}
+		buildBaseFixture();
+		Contact newContact = insertContactWithEmail();
+		Foobar__c newFoobar = new SEL_Foobar().getAll().iterator().next();
+		String key = UTIL_Random.randomAlphanumeric(MEMORY_CACHE_KEY_LENGTH);
+		QRY_Engine.storeCopyInMemoryCache(key, new List<Foobar__c> {TST_Factory.newFoobar()}, QRY_Engine.CacheStatus.MEMORY_STORED);
+		Assert.isNotNull(QRY_Engine.getCopyFromMemoryCache(key), 'The key should be stored before the send');
+
+		List<FLOW_SendEmail.DTO_Response> dtoResponses = runTest(newContact.Id, newFoobar.Id, SEL_EmailTemplate.CUSTOM_TEST_EMAIL_TEMPLATE);
+
+		Assert.isTrue(dtoResponses.iterator().next().success, JSON.serializePretty(dtoResponses));
+		Assert.isNull(QRY_Engine.getCopyFromMemoryCache(key), 'Logging the activity should empty the memory cache');
 	}
 
 	/**
@@ -337,6 +387,125 @@ private class FLOW_SendEmail_TEST
 	}
 
 	/**
+	 * @description Checks the recipient rule behind the reported fault by calling it directly. The platform checks
+	 * the recipient only when the email is delivered, and a test never delivers an email. So a test cannot see the
+	 * by-Id action refuse the send with "0 recipients" through the Flow; that refusal was reproduced in a real org.
+	 * The record Id reaches the Flow only when standard logging AND an activity are both wanted. Every other case
+	 * sends by address, and when no address is found the original value is passed on.
+	 */
+	@IsTest
+	private static void resolvesFlowRecipientByAddressUnlessStandardLoggingLogsAnActivity()
+	{
+		String userId = UserInfo.getUserId();
+		String userEmail = UserInfo.getUserEmail();
+		Map<Id, String> emailById = new Map<Id, String> {(Id)userId => userEmail};
+
+		FLOW_SendEmail.DTO_Request request = new FLOW_SendEmail.DTO_Request();
+		request.toAddress = userId;
+
+		request.useStandardLogActivity = true;
+		request.saveAsActivity = false;
+		Assert.areEqual(userEmail, FLOW_SendEmailInternal.resolveFlowRecipient(request, userId, emailById), 'Standard logging without an activity sends by address.');
+
+		request.useStandardLogActivity = true;
+		request.saveAsActivity = true;
+		Assert.areEqual(userId, FLOW_SendEmailInternal.resolveFlowRecipient(request, userId, emailById), 'Standard logging with an activity hands the Id to the Flow.');
+
+		request.useStandardLogActivity = false;
+		request.saveAsActivity = true;
+		Assert.areEqual(userEmail, FLOW_SendEmailInternal.resolveFlowRecipient(request, userId, emailById), 'Custom logging sends by address.');
+
+		Assert.areEqual(userId, FLOW_SendEmailInternal.resolveFlowRecipient(request, userId, new Map<Id, String>()), 'Without an address the original value passes through.');
+	}
+
+	/**
+	 * @description Standard logging chosen but no activity wanted, User target: the send goes by address instead of
+	 * handing the User Id to the platform action, which ignores an Id unless it is logging ("0 recipients").
+	 * A subscriber reported this combination as an unhandled flow fault. See the recipient rule test above for why
+	 * this test alone cannot show the fault.
+	 */
+	@IsTest
+	private static void successfulStandardLoggingWithoutActivityUsingUserId()
+	{
+		buildBaseFixture();
+
+		Foobar__c newFoobar = new SEL_Foobar().getAll().iterator().next();
+
+		List<FLOW_SendEmail.DTO_Response> dtoResponses = runTest(UserInfo.getUserId(), newFoobar.Id, SEL_EmailTemplate.TEST_EMAIL_TEMPLATE, true, false);
+
+		assertSendSuccessful(dtoResponses);
+		Assert.isTrue(QRY_Builder.selectFrom(Task.SObjectType).toList().isEmpty(), 'No activity was wanted, so no Task may be logged.');
+	}
+
+	/**
+	 * @description Standard logging chosen but no activity wanted, Contact target: the same by-address routing
+	 * applies whatever the recipient's type, because the platform action's "0 recipients" refusal is about the
+	 * missing activity, not the recipient.
+	 */
+	@IsTest
+	private static void successfulStandardLoggingWithoutActivityUsingContactId()
+	{
+		buildBaseFixture();
+
+		Contact newContact = insertContactWithEmail();
+		Foobar__c newFoobar = new SEL_Foobar().getAll().iterator().next();
+
+		List<FLOW_SendEmail.DTO_Response> dtoResponses = runTest(newContact.Id, newFoobar.Id, SEL_EmailTemplate.CUSTOM_TEST_EMAIL_TEMPLATE, true, false);
+
+		assertSendSuccessful(dtoResponses);
+		Assert.isTrue(QRY_Builder.selectFrom(Task.SObjectType).toList().isEmpty(), 'No activity was wanted, so no Task may be logged.');
+	}
+
+	/**
+	 * @description Standard logging with an activity wanted for a User target is refused before anything is sent,
+	 * because the platform does not log an email sent to a User. The flow-failure simulation proves the flow was
+	 * never reached: had it been, the response would carry the flow's failure text instead of the refusal.
+	 */
+	@IsTest
+	private static void failedStandardLoggingActivityUsingUserId()
+	{
+		buildBaseFixture();
+
+		Foobar__c newFoobar = new SEL_Foobar().getAll().iterator().next();
+
+		FLOW_SendEmailInternal.simulateFailedFlowExecution = true;
+
+		List<FLOW_SendEmail.DTO_Response> dtoResponses = runTest(UserInfo.getUserId(), newFoobar.Id, SEL_EmailTemplate.TEST_EMAIL_TEMPLATE, true, true);
+
+		FLOW_SendEmail.DTO_Response response = dtoResponses.iterator().next();
+		Assert.isFalse(response.success, 'Standard activity logging cannot target a User, so the request must be refused.');
+		Assert.isTrue(response.errors.contains('cannot target a User'), 'The refusal must name the rule. Actual: ' + response.errors);
+		Assert.isFalse(response.errors.contains('Flow Invocation Failed'), 'The refusal must happen before the flow is invoked. Actual: ' + response.errors);
+	}
+
+	/**
+	 * @description Custom logging with an activity wanted for a User target: the email is sent by address and the
+	 * Task is logged against the related record with no WhoId, because a Task cannot name a User as its WhoId.
+	 * Before the fix the send succeeded and the Task insert then failed, so the response reported a failure for
+	 * an email that was delivered.
+	 */
+	@IsTest
+	private static void successfulCustomLoggingActivityUsingUserId()
+	{
+		buildBaseFixture();
+
+		Foobar__c newFoobar = new SEL_Foobar().getAll().iterator().next();
+
+		List<FLOW_SendEmail.DTO_Response> dtoResponses = runTest(UserInfo.getUserId(), newFoobar.Id, SEL_EmailTemplate.TEST_EMAIL_TEMPLATE, false, true);
+
+		assertSendSuccessful(dtoResponses);
+
+		// The Task is only logged after a successful send, which restricted deliverability prevents (see assertSendSuccessful).
+		if(dtoResponses.iterator().next().success)
+		{
+			List<Task> loggedTasks = QRY_Builder.selectFrom(Task.SObjectType).fields(new List<SObjectField> {Task.WhoId, Task.WhatId}).toList();
+			Assert.areEqual(1, loggedTasks.size(), 'One Task must be logged for the send.');
+			Assert.areEqual(newFoobar.Id, loggedTasks.iterator().next().WhatId, 'The Task must be related to the whatId record.');
+			Assert.isNull(loggedTasks.iterator().next().WhoId, 'A User cannot be a Task WhoId, so the Task must carry none.');
+		}
+	}
+
+	/**
 	 * @description Tests the edge case where a deleted record ID is used as toAddress with an email address,
 	 * forcing the Flow to fail during execution.
 	 */
@@ -370,7 +539,8 @@ private class FLOW_SendEmail_TEST
 		Assert.isTrue(response.success || !externalEmailsAllowed || isDomainNotVerified, JSON.serializePretty(dtoResponses));
 		if(response.success)
 		{
-			List<EmailMessage> foundMessages = QRY_Builder.selectFrom(EmailMessage.SObjectType).fields(new List<SObjectField> {EmailMessage.TextBody, EmailMessage.HtmlBody}).toList();
+			List<SObjectField> bodyFields = new List<SObjectField> {EmailMessage.TextBody, EmailMessage.HtmlBody};
+			List<EmailMessage> foundMessages = QRY_Builder.selectFrom(EmailMessage.SObjectType).fields(bodyFields).toList();
 			if(!foundMessages.isEmpty())
 			{
 				EmailMessage foundMessage = foundMessages.iterator().next();

@@ -7,6 +7,7 @@ const path = require('path');
 
 const RULESET = path.resolve(__dirname, '..', 'kerndx-pmd-ruleset.xml');
 const FIXTURES = path.resolve(__dirname, 'pmd-fixtures');
+const {TIERS, generateTier} = require('../generate-ruleset-tiers');
 
 function pmdAvailable()
 {
@@ -23,7 +24,7 @@ function runPmd(fixture)
 	}
 	try
 	{
-		const output = execSync(`pmd check -d "${target}" -R "${RULESET}" -f csv --no-cache`, {
+		return execSync(`pmd check -d "${target}" -R "${RULESET}" -f csv --no-cache`, {
 			encoding: 'utf-8',
 			stdio: [
 				'pipe',
@@ -31,7 +32,6 @@ function runPmd(fixture)
 				'pipe'
 			]
 		});
-		return output;
 	}
 	catch(error)
 	{
@@ -147,6 +147,54 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 		});
 	});
 
+	describe('KernTriggerMustDelegate', () =>
+	{
+		it('fires once per top-level statement other than the delegating call, including a branch that wraps it', () =>
+		{
+			const output = runPmd('KernTriggerMustDelegate-positive.trigger');
+			expect(countRuleHits(output, 'KernTriggerMustDelegate')).toBe(3);
+		});
+
+		it('is silent on a trigger body that only calls new TRG_Dispatcher().run()', () =>
+		{
+			const output = runPmd('KernTriggerMustDelegate-negative.trigger');
+			expect(countRuleHits(output, 'KernTriggerMustDelegate')).toBe(0);
+		});
+
+		it('is silent on the namespaced form new kern.TRG_Dispatcher().run()', () =>
+		{
+			const output = runPmd('KernTriggerMustDelegate-negative-namespaced.trigger');
+			expect(countRuleHits(output, 'KernTriggerMustDelegate')).toBe(0);
+		});
+
+		it('fires once, at the trigger itself, on a body with no statements at all', () =>
+		{
+			const output = runPmd('KernTriggerMustDelegate-positive-empty.trigger');
+			expect(countRuleHits(output, 'KernTriggerMustDelegate')).toBe(1);
+		});
+
+		it('fires at the trigger itself on top of each statement when nothing delegates', () =>
+		{
+			const output = runPmd('KernTriggerMustDelegate-positive-no-delegation.trigger');
+			expect(countRuleHits(output, 'KernTriggerMustDelegate')).toBe(3);
+		});
+	});
+
+	describe('KernRestResourceNaming', () =>
+	{
+		it('fires on an @RestResource class outside the REST_ prefix', () =>
+		{
+			const output = runPmd('KernRestResourceNaming-positive.cls');
+			expect(countRuleHits(output, 'KernRestResourceNaming')).toBe(1);
+		});
+
+		it('is silent on a REST_-prefixed @RestResource class', () =>
+		{
+			const output = runPmd('KernRestResourceNaming-negative.cls');
+			expect(countRuleHits(output, 'KernRestResourceNaming')).toBe(0);
+		});
+	});
+
 	describe('KernInvocableClassNeedsNoArgConstructor', () =>
 	{
 		it('fires on invocable-variable classes without a visible no-arg constructor', () =>
@@ -162,17 +210,51 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 		});
 	});
 
-	describe('kerndx-hygiene-ruleset', () =>
+	describe('KernLimitsThroughWrapper', () =>
 	{
-		const {HYGIENE_RULES} = require('../generate-hygiene-ruleset');
-		const HYGIENE = path.resolve(__dirname, '..', 'kerndx-hygiene-ruleset.xml');
-
-		it('fires every framework-agnostic rule and none of the framework-coupled ones', () =>
+		it('fires once per Limits call, qualified or not, including inside an inner class that borrows the wrapper name', () =>
 		{
+			const output = runPmd('KernLimitsThroughWrapper-positive.cls');
+			expect(countRuleHits(output, 'KernLimitsThroughWrapper')).toBe(5);
+		});
+
+		it('fires in a test class other than UTIL_Limits_TEST', () =>
+		{
+			const output = runPmd('KernLimitsThroughWrapper-positive-test.cls');
+			expect(countRuleHits(output, 'KernLimitsThroughWrapper')).toBe(1);
+		});
+
+		it('is silent when every limit is read through UTIL_Limits, namespaced or not', () =>
+		{
+			const output = runPmd('KernLimitsThroughWrapper-negative.cls');
+			expect(countRuleHits(output, 'KernLimitsThroughWrapper')).toBe(0);
+		});
+
+		it('is silent inside the UTIL_Limits wrapper class, inner classes included', () =>
+		{
+			const output = runPmd('KernLimitsThroughWrapper-allowlisted-wrapper.cls');
+			expect(countRuleHits(output, 'KernLimitsThroughWrapper')).toBe(0);
+		});
+
+		it('is silent inside the wrapper test class UTIL_Limits_TEST', () =>
+		{
+			const output = runPmd('KernLimitsThroughWrapper-allowlisted-wrapper-test.cls');
+			expect(countRuleHits(output, 'KernLimitsThroughWrapper')).toBe(0);
+		});
+	});
+
+	describe('subset tiers', () =>
+	{
+		const allRules = [...fs.readFileSync(RULESET, 'utf8').matchAll(/<rule name="(Kern[^"]+)"/g)].map((m) => m[1]);
+
+		it.each(Object.keys(TIERS))('%s tier fires every rule it carries and none of the others', (tierName) =>
+		{
+			const tier = TIERS[tierName];
+			const tierFile = path.resolve(__dirname, '..', tier.outputFile);
 			let output;
 			try
 			{
-				output = execSync(`pmd check -d "${FIXTURES}" -R "${HYGIENE}" -f csv --no-cache`, {
+				output = execSync(`pmd check -d "${FIXTURES}" -R "${tierFile}" -f csv --no-cache`, {
 					encoding: 'utf-8',
 					stdio: [
 						'pipe',
@@ -185,14 +267,13 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 			{
 				output = (error.stdout || '') + (error.stderr || '');
 			}
-			for(const rule of HYGIENE_RULES)
+			for(const rule of tier.rules)
 			{
 				expect(countRuleHits(output, rule)).toBeGreaterThanOrEqual(1);
 			}
-			const allRules = [...fs.readFileSync(RULESET, 'utf8').matchAll(/<rule name="(Kern[^"]+)"/g)].map((m) => m[1]);
-			const coupledRules = allRules.filter((rule) => !HYGIENE_RULES.includes(rule));
-			expect(coupledRules.length).toBe(allRules.length - HYGIENE_RULES.length);
-			for(const rule of coupledRules)
+			const otherRules = allRules.filter((rule) => !tier.rules.includes(rule));
+			expect(otherRules.length).toBe(allRules.length - tier.rules.length);
+			for(const rule of otherRules)
 			{
 				expect(countRuleHits(output, rule)).toBe(0);
 			}
@@ -204,25 +285,42 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 // These invariants never execute pmd, so they live OUTSIDE describeIfPmd and
 // run everywhere — including CI runners without a pmd install. They are the
 // enforcement the generator header and CLAUDE.md cite; skipping them would
-// let hygiene-ruleset drift or a standard-category ref land silently.
+// let a generated tier drift, a file-path reference, or a standard-category
+// ref land silently.
 describe('ruleset invariants (no pmd required)', () =>
 {
-	const {generateHygieneRuleset} = require('../generate-hygiene-ruleset');
-	const HYGIENE = path.resolve(__dirname, '..', 'kerndx-hygiene-ruleset.xml');
-
-	it('kerndx-hygiene-ruleset.xml is byte-identical to a fresh extraction from the full ruleset', () =>
+	it.each(Object.keys(TIERS))('%s tier output is byte-identical to a fresh extraction from the full ruleset', (tierName) =>
 	{
-		const committed = fs.readFileSync(HYGIENE, 'utf8');
-		const regenerated = generateHygieneRuleset(fs.readFileSync(RULESET, 'utf8'));
-		expect(committed).toBe(regenerated);
+		const tier = TIERS[tierName];
+		const committed = fs.readFileSync(path.resolve(__dirname, '..', tier.outputFile), 'utf8');
+		expect(committed).toBe(generateTier(fs.readFileSync(RULESET, 'utf8'), tier));
+	});
+
+	// PMD resolves a relative `<rule ref="some-file.xml/Rule">` against the
+	// JVM's working directory, never against the referencing file. Salesforce
+	// Code Analyzer 5.16.0 pins that directory to the engine's own install
+	// folder, so a file-path reference cannot resolve there, and one
+	// unresolvable reference fails the WHOLE ruleset load (exit 0, zero files
+	// scanned). Guard: the tiered rulesets carry full definitions only.
+	// combined-pmd-ruleset.xml is the IDE single-file and keeps its references
+	// by design (it pulls in the per-subscriber naming ruleset, which cannot be
+	// pre-inlined), so it is not listed here.
+	it.each([
+		'kerndx-pmd-ruleset.xml',
+		'kerndx-hygiene-ruleset.xml',
+		'kerndx-framework-ruleset.xml'
+	])('%s contains no file-path rule references', (file) =>
+	{
+		const xml = fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8');
+		expect(xml).not.toMatch(/<rule\b[^>]*\bref=["'][^"']*\.xml/i);
 	});
 
 	// The rulesets must stay loadable on the PMD apex module the Salesforce
-	// Code Analyzer bundles (7.25.0 as of engine 0.43.0). A reference into a
-	// standard category can name a rule that only exists in a newer PMD, and
-	// one unresolvable reference fails the WHOLE ruleset load. Guard: no
-	// standard-category references anywhere — every rule is a KernDX XPath
-	// definition or a reference to one.
+	// Code Analyzer bundles (7.26.0 as of pmd-engine 0.46.0, plugin 5.16.0). A
+	// reference into a standard category can name a rule that only exists in a
+	// newer PMD, and one unresolvable reference fails the WHOLE ruleset load.
+	// Guard: no standard-category references anywhere — every rule is a KernDX
+	// XPath definition or a reference to one.
 	it.each([
 		'kerndx-pmd-ruleset.xml',
 		'kerndx-framework-ruleset.xml',

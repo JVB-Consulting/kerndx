@@ -8,23 +8,25 @@ navOrder: 90
 
 **What this is:** A set of ready-made code checks that flag risky patterns (inline SOQL, direct DML, leftover `System.debug()`, and others) right in your editor, before the code reaches a teammate's review. **Why it matters:** Catching these the moment you type them is faster and cheaper than catching them in review or production, and it keeps a whole team writing code the same way. **Who should follow this:** developers setting up their IDE, and tech leads or DevOps owners wiring the same checks into the build pipeline. **When to use it:** as soon as you start writing or maintaining code in a KernDX project. The generic PMD and ESLint rules SF Code Analyzer ships are still worth running; these KernDX rules add on top of them, enforcing the framework's own patterns that the generic rules can't know about.
 
-**Before you start:**
-
-- [ ] KernDX package installed in your org
-- [ ] Org configured post-install (verify with the **Kern** app's Health Check, see the [Installation guide](Installation.md#post-install-configuration))
-- [ ] VS Code with the [Apex PMD extension](https://marketplace.visualstudio.com/items?itemName=chuckjonas.apex-pmd) installed (or IntelliJ with Illuminated Cloud)
-- [ ] SF Code Analyzer v5 installed (`sf plugins install @salesforce/plugin-code-analyzer`)
-- [ ] Working in a sandbox or scratch org (not production)
-
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** a fully configured scanning setup that catches inline SOQL, direct DML, `System.debug()`, and 23 other framework violations, both inline in your IDE and in CI/CD.
+**What you'll build:** a fully configured scanning setup that catches inline SOQL, direct DML, `System.debug()`, and 24 other framework violations, both inline in your IDE and in CI/CD.
 
 **Success looks like:** You write a class with `System.debug()` and `[SELECT Id FROM Account]`, and your IDE underlines both lines before you even save.
 
 **In one line:** Drop `scanner/kerndx-pmd-ruleset.xml` into your Apex PMD settings and every risky pattern the framework guards against lights up in your editor.
+
+## Before you start
+
+Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
+Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
+once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
+today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
+where your org's alias goes: the name you gave it when you logged in.
+
+Nothing in this guide talks to your org: the scanner and the linter read the files in your project.
 
 ---
 
@@ -33,15 +35,16 @@ navOrder: 90
 <details>
 <summary>Expand</summary>
 
-1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
+1. [Before you start](#before-you-start)
+2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
     - [The sample violation class](#the-sample-violation-class)
     - [Run the scanner](#run-the-scanner)
-2. [Tier 2: Set Up Your Project (~15 minutes)](#tier-2-set-up-your-project-15-minutes)
+3. [Tier 2: Set Up Your Project (~15 minutes)](#tier-2-set-up-your-project-15-minutes)
     - [Step 1: IDE Setup (VS Code)](#step-1-ide-setup-vs-code)
     - [Step 2: SF Code Analyzer v5](#step-2-sf-code-analyzer-v5)
     - [Step 3: IntelliJ / Illuminated Cloud](#step-3-intellij--illuminated-cloud)
     - [Step 4: ESLint for LWC](#step-4-eslint-for-lwc)
-3. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
+4. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
     - [Priority tiers](#priority-tiers)
     - [PMD rule reference](#pmd-rule-reference)
     - [ESLint rule reference](#eslint-rule-reference)
@@ -49,9 +52,15 @@ navOrder: 90
     - [CI/CD integration](#cicd-integration)
     - [GitHub Actions example](#github-actions-example)
     - [Org-specific naming rules](#org-specific-naming-rules)
-4. [Common Issues](#common-issues)
-5. [What You Now Know](#what-you-now-know)
-6. [Next Steps](#next-steps)
+    - [Clean up](#clean-up)
+5. [Common Issues](#common-issues)
+    - [Run the scanner](#run-the-scanner-1)
+    - [Step 1: IDE Setup (VS Code)](#step-1-ide-setup-vs-code-1)
+    - [Step 2: SF Code Analyzer v5](#step-2-sf-code-analyzer-v5-1)
+    - [Step 3: IntelliJ / Illuminated Cloud](#step-3-intellij--illuminated-cloud-1)
+    - [Step 4: ESLint for LWC](#step-4-eslint-for-lwc-1)
+6. [What You Now Know](#what-you-now-know)
+7. [Next Steps](#next-steps)
 
 </details>
 
@@ -61,7 +70,14 @@ navOrder: 90
 
 ### The sample violation class
 
-The quickest way to prove the scanner works is to give it something to catch. Create a small class that breaks the rules on purpose at `force-app/main/default/classes/ScannerDemo.cls`. This is a throwaway: delete it once you've seen the scanner flag it.
+The quickest way to prove the scanner works is to give it something to catch: a small class that breaks the rules on
+purpose. This is a throwaway that never goes to your org: delete it once you've seen the scanner flag it.
+
+**In your editor**, create this file:
+
+```text
+force-app/main/default/classes/ScannerDemo.cls
+```
 
 ```apex
 public with sharing class ScannerDemo
@@ -84,7 +100,28 @@ It has two violations baked in:
 
 ### Run the scanner
 
-The scanner needs to know which rules to apply. SF Code Analyzer v5 reads custom rule sets from a config file, so create `code-analyzer.yml` in your project root and point it at the rule set that shipped in your KernDX pipeline bundle:
+The scanner is SF Code Analyzer v5, a plugin for the Salesforce CLI.
+
+**1. In the terminal**, install the plugin once (skip this if you installed it before):
+
+```shell
+sf plugins install @salesforce/plugin-code-analyzer
+```
+
+You should see a line that starts `@salesforce/cli: Installing plugin code-analyzer` and ends `installed` followed by
+the plugin's version.
+
+The scanner needs to know which rules to apply. SF Code Analyzer v5 reads custom rule sets from a config file, which
+points at the rule set that shipped in your KernDX pipeline bundle. The bundle unpacks it into the `scanner` folder
+inside `.kerndx-pipeline`; copy `kerndx-pmd-ruleset.xml` from there into a new `scanner` folder in your project's top
+folder, which is where the file below looks for it. If you ran the bundle's `kerndx init`, it already wrote a
+`code-analyzer.yml` that points at the bundle's copy, so keep that file and skip the next part.
+
+**2. In your editor**, create this file in your project's top folder:
+
+```text
+code-analyzer.yml
+```
 
 ```yaml
 engines:
@@ -93,22 +130,36 @@ engines:
       - scanner/kerndx-pmd-ruleset.xml
 ```
 
-Run SF Code Analyzer against the demo class using the KernDX ruleset:
+**3. In the terminal**, run SF Code Analyzer against the demo class using the KernDX ruleset:
 
-```bash
-sf code-analyzer run --rule-selector pmd:KernDXFrameworkCompliance --target force-app/main/default/classes/ScannerDemo.cls --config-file code-analyzer.yml --view detail
+```shell
+sf code-analyzer run --config-file code-analyzer.yml --rule-selector pmd:KernDXFrameworkCompliance --target force-app/main/default/classes/ScannerDemo.cls --view detail
 ```
 
-**Expected output** (violations including at minimum):
+You should see the two violations, each with its rule, severity and message (a `location:` line with the file and
+line follows each; it is left out here because its path form differs by computer):
 
 ```text
-KernNoInlineSOQL     High       Inline SOQL is not allowed. Use a selector (SEL_*) or QRY_Builder.
-KernNoSystemDebug    Moderate   System.debug() is not allowed. Use LOG_Builder for structured, async logging.
+=== 1. KernNoInlineSOQL
+    severity: 2 (High)
+    engine:   pmd
+    message:  Inline SOQL is not allowed. Use a selector (SEL_*) or QRY_Builder.
+
+=== 2. KernNoSystemDebug
+    severity: 3 (Moderate)
+    engine:   pmd
+    message:  System.debug() is not allowed. Use LOG_Builder for structured, async logging.
 ```
 
-The scanner found both violations and told you what to use instead: the inline `[SELECT ...]` should go through a selector class or [`QRY_Builder`](reference/apex/QRY_Builder.md), and `System.debug()` should go through [`LOG_Builder`](reference/apex/LOG_Builder.md). The severity word next to each violation comes straight from the rule's PMD priority number: Priority 1 shows as High, Priority 3 as Moderate, Priority 5 as Low.
+A `=== Summary` section follows, starting `Found 2 violation(s) across 1 file(s):`. If your project has an ESLint
+configuration file, the scanner may first print a note that it found the file but did not apply it; this scan checks
+Apex only, so you can ignore that note here.
+
+The scanner found both violations and told you what to use instead: the inline `[SELECT ...]` should go through a selector class or [`QRY_Builder`](reference/apex/QRY_Builder.md), and `System.debug()` should go through [`LOG_Builder`](reference/apex/LOG_Builder.md). The severity word next to each violation comes straight from the rule's PMD priority number: Priority 1 shows as High (the number after `severity:` is Code Analyzer's own scale), Priority 3 as Moderate, Priority 5 as Low.
 
 > **When to move to Tier 2:** When you want violations to appear inline in your IDE as you type, without running the CLI manually.
+
+Something went wrong? See [Common Issues](#run-the-scanner-1).
 
 ---
 
@@ -118,7 +169,16 @@ Running the scanner by hand proves it works, but you want the checks to be autom
 
 ### Step 1: IDE Setup (VS Code)
 
-Tell VS Code where the rules live by adding the KernDX rule set to your `.vscode/settings.json`:
+This step is for VS Code with the
+[Apex PMD extension](https://marketplace.visualstudio.com/items?itemName=chuckjonas.apex-pmd) installed. Both editors
+in this tier are optional: on IntelliJ with Illuminated Cloud, skip to Step 3, and Step 2's command-line scan works
+without either. Tell VS Code where the rules live by adding the KernDX rule set to your project's VS Code settings.
+
+**In your editor**, create this file (or add the setting to it, if it already exists):
+
+```text
+.vscode/settings.json
+```
 
 ```json
 {
@@ -138,9 +198,17 @@ Save the file. Now open any Apex class that contains `System.debug()` or `[SELEC
 > ]
 > ```
 
+Something went wrong? See [Common Issues, Step 1](#step-1-ide-setup-vs-code-1).
+
 ### Step 2: SF Code Analyzer v5
 
-Inline editor checks catch problems while you write, but you also want a command-line version for your build pipeline, pre-commit hooks, or a one-off scan of the whole project. Configure `code-analyzer.yml` in your project root:
+Inline editor checks catch problems while you write, but you also want a command-line version for your build pipeline, pre-commit hooks, or a one-off scan of the whole project.
+
+**1. In your editor**, create this file in your project's top folder, if you did not already make it in Tier 1:
+
+```text
+code-analyzer.yml
+```
 
 ```yaml
 engines:
@@ -149,17 +217,25 @@ engines:
       - scanner/kerndx-pmd-ruleset.xml
 ```
 
-Run the scanner:
+**2. In the terminal**, run the scanner:
 
-```bash
-sf code-analyzer run --target force-app/ --view detail
+```shell
+sf code-analyzer run --config-file code-analyzer.yml --target force-app/ --view detail
 ```
 
 This scans every Apex class and trigger in `force-app/` and lists the violations grouped by file. For a more compact view, add `--view table`. To capture the results for a CI report, add `--output-file results.csv`.
 
+You should see one `===` entry for each violation, then a `=== Summary` section that starts `Found` and counts the
+violations and files. With no `--rule-selector`, the scan runs Code Analyzer's recommended rules as well as the KernDX
+ones, so on the Tier 1 demo class it finds more than the two violations Tier 1 showed.
+
+Something went wrong? See [Common Issues, Step 2](#step-2-sf-code-analyzer-v5-1).
+
 ### Step 3: IntelliJ / Illuminated Cloud
 
-If your team uses IntelliJ with Illuminated Cloud instead of VS Code, the setup is similar with one twist: Illuminated Cloud accepts only a single PMD rule set path, not a list. Point it at the combined rule set, which pulls in all the KernDX rules for you:
+If your team uses IntelliJ with Illuminated Cloud instead of VS Code, the setup is similar with one twist: Illuminated Cloud accepts only a single PMD rule set path, not a list. Point it at the combined rule set, which pulls in all the KernDX rules for you.
+
+**In your editor** (IntelliJ):
 
 1. Open **Settings > Illuminated Cloud > PMD**
 2. Set **Custom Ruleset Path** to `scanner/combined-pmd-ruleset.xml`
@@ -167,13 +243,26 @@ If your team uses IntelliJ with Illuminated Cloud instead of VS Code, the setup 
 
 Violations now appear inline in the IntelliJ editor. The combined file simply references the other rule sets (PMD `<rule ref="..."/>`), so no rule is duplicated.
 
+Something went wrong? See [Common Issues, Step 3](#step-3-intellij--illuminated-cloud-1).
+
 ### Step 4: ESLint for LWC
 
-The same idea applies to your Lightning Web Components (LWC), checked by an ESLint plugin configured in `force-app/main/default/lwc/eslint.config.mjs`.
+The same idea applies to your Lightning Web Components (LWC), checked by the ESLint plugin `eslint-plugin-kerndx`,
+which your KernDX pipeline bundle unpacks into `.kerndx-pipeline/scanner/eslint-plugin-kerndx`.
 
-Four of these rules are **active by default**, because they catch problems in any project: `kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text` (which ships at the `warn` level, so it flags without failing the run), `kerndx/no-jest-theatre`, and `kerndx/no-mutating-shared-fixture`.
+Four of these rules catch problems in any project, so turn them on first in your project's ESLint configuration file:
+`kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text` (at the `warn` level, so it flags without
+failing the run), `kerndx/no-jest-theatre`, and `kerndx/no-mutating-shared-fixture`. In a clone of the KernDX source
+repository they are **active by default**.
 
-Three more rules push you toward the KernDX component model and ship **commented out**, so they don't start flagging code before you've adopted that model: `kerndx/use-component-builder`, `kerndx/no-console-log`, and `kerndx/enforce-component-naming`. When you're ready for them, uncomment their block in `eslint.config.mjs`:
+Three more rules push you toward the KernDX component model: `kerndx/use-component-builder`, `kerndx/no-console-log`,
+and `kerndx/enforce-component-naming`. Turn them on when you're ready for that model, so they don't start flagging
+code before you've adopted it. (In a clone of the KernDX source repository they sit in
+`force-app/main/default/lwc/eslint.config.mjs` and ship **commented out**; uncomment their block there instead.)
+
+**1. In your editor**, open the ESLint configuration file in your project's top folder (a project made by
+`sf project generate` has one), register the plugin from `.kerndx-pipeline/scanner/eslint-plugin-kerndx` as the
+ESLint step of the bundle's setup guide shows, and turn on these three rules:
 
 ```text
 'kerndx/use-component-builder': 'error',
@@ -181,13 +270,13 @@ Three more rules push you toward the KernDX component model and ship **commented
 'kerndx/enforce-component-naming': 'error'
 ```
 
-Run the linter with:
+**Verify it works:** with the `use-component-builder` rule enabled (above), create a test component that uses `extends LightningElement` instead of `extends ComponentBuilder(...)`.
 
-```bash
-npm run lint
+**2. In your editor**, create this file:
+
+```text
+force-app/main/default/lwc/testViolation/testViolation.js
 ```
-
-**Verify it works:** with the `use-component-builder` rule enabled (above), create a test component that uses `extends LightningElement` instead of `extends ComponentBuilder(...)`:
 
 ```javascript
 import {LightningElement} from 'lwc';
@@ -195,11 +284,17 @@ import {LightningElement} from 'lwc';
 export default class TestViolation extends LightningElement {}
 ```
 
-Run `npm run lint` and you'll see:
+**3. In the terminal**, run the linter:
 
-```text
-error  LWC components must extend ComponentBuilder(...) instead of LightningElement. Import {ComponentBuilder} from c/componentBuilder  kerndx/use-component-builder
+```shell
+npm run lint
 ```
+
+You should see an `error` on line 3 of the test component, naming the rule `kerndx/use-component-builder` and telling
+you to extend `ComponentBuilder(...)` instead of `LightningElement`, then the count line
+`✖ 1 problem (1 error, 0 warnings)`.
+
+Something went wrong? See [Common Issues, Step 4](#step-4-eslint-for-lwc-1).
 
 ---
 
@@ -209,23 +304,23 @@ Turning on every rule at once in an existing codebase floods you with violations
 
 ### Priority tiers
 
-The rules are not all equally urgent, so the 26 KernDX-authored PMD rules are grouped into three priority levels. Fix the most important first and add the rest over time:
+The rules are not all equally urgent, so the 27 KernDX-authored PMD rules that fire on your own code are grouped into three priority levels. Fix the most important first and add the rest over time:
 
 | Tier          | Priority | Count | Approach                                                             |
 |---------------|----------|-------|----------------------------------------------------------------------|
 | Blockers      | 1        | 4     | Fix immediately: these bypass core framework patterns                |
 | Should Fix    | 3        | 12    | Fix in the current sprint: leaving them makes code harder to maintain |
-| Informational | 5        | 10    | Fix opportunistically: good practice, no immediate action required   |
+| Informational | 5        | 11    | Fix opportunistically: good practice, no immediate action required   |
 
 **Recommended adoption path:** Start with Priority 1 (triggers and SOQL). Once clean, enable Priority 3. Add Priority 5 when the team is comfortable with the framework.
 
 ### PMD rule reference
 
-All 26 KernDX-authored PMD rules:
+The 27 KernDX-authored PMD rules, every one of which can fire on your own code:
 
 | Rule                               | What It Blocks                                                                         | Use Instead                                                                                     | Priority |
 |------------------------------------|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|----------|
-| `KernTriggerMustDelegate`          | Logic in trigger body                                                                  | `new TRG_Dispatcher().run()`                                                                    | 1        |
+| `KernTriggerMustDelegate`          | Logic in trigger body, or no dispatcher call at all                                    | `new TRG_Dispatcher().run()`                                                                    | 1        |
 | `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()`                                                     | Selector or [`QRY_Builder`](reference/apex/QRY_Builder.md)                                      | 1        |
 | `KernNoCoverageTheatre`            | Test methods with no assertions                                                        | Real `Assert.*` calls that exercise the behaviour                                               | 1        |
 | `KernCoverageExemptRequiresReason` | `@CoverageExempt` without a justification comment                                      | Add an inline `// Coverage-exempt because …` explanation                                        | 1        |
@@ -248,6 +343,7 @@ All 26 KernDX-authored PMD rules:
 | `KernNoRawTypeForName`             | `Type.forName()`                                                                       | `UTIL_System.getTypeForClassName()`                                                             | 5        |
 | `KernNoRawEnqueueJob`              | `System.enqueueJob()`                                                                  | `UTIL_AsynchronousJobLauncher`                                                                  | 5        |
 | `KernNoRawCrypto`                  | `Crypto.*`                                                                             | `UTIL_Crypto`                                                                                   | 5        |
+| `KernLimitsThroughWrapper`         | `Limits.get*()` outside `UTIL_Limits` and its test class                               | `UTIL_Limits`, for example `UTIL_Limits.soqlQueries().used()`                                   | 5        |
 | `KernNoRawFeatureManagement`       | `FeatureManagement.checkPermission()`                                                  | `UTIL_FeatureFlag.isEnabled()`                                                                  | 5        |
 | `KernNoBooleanExceptionThrown`     | `Boolean exceptionThrown = false; try { ... } catch (...) { exceptionThrown = true; }` | `Assert.fail(...)` + `Assert.isInstanceOfType(...)`                                             | 5        |
 | `KernSecurityBypassCallSite`       | Unacknowledged framework security-bypass call sites                                    | Confirm it's intentional + acknowledge with `@SuppressWarnings('PMD.KernSecurityBypassCallSite')` or `// NOPMD` + reason | 5        |
@@ -270,6 +366,8 @@ When a rule produces a false positive or you have a justified exception, suppres
 
 **Apex (PMD):**
 
+**In your editor**, on the class:
+
 ```apex
 @SuppressWarnings('PMD.KernNoDirectDML')
 public inherited sharing class DML_SharingProxy
@@ -278,13 +376,15 @@ public inherited sharing class DML_SharingProxy
 }
 ```
 
-Multiple rules on one class:
+**In your editor**, for multiple rules on one class:
 
 ```apex
 @SuppressWarnings('PMD.KernNoDirectDML, PMD.KernNoRawHttp')
 ```
 
 **JavaScript (ESLint):**
+
+**In your editor**, on the line above the code the rule would flag:
 
 ```javascript
 // eslint-disable-next-line kerndx/use-component-builder -- template-only component with no controller interaction
@@ -304,6 +404,12 @@ Inline checks help one developer; running the same rules in your pipeline protec
 
 ### GitHub Actions example
 
+**In your editor**, create a workflow file in your repository's GitHub Actions workflows folder, for example:
+
+```text
+.github/workflows/code-scan.yml
+```
+
 ```yaml
 name: Code Scan
 on: [pull_request]
@@ -321,8 +427,12 @@ jobs:
       - name: Install Code Analyzer
         run: sf plugins install @salesforce/plugin-code-analyzer
       - name: Run KernDX Scanner
-        run: sf code-analyzer run --target force-app/ --view detail
+        run: sf code-analyzer run --config-file code-analyzer.yml --target force-app/ --view detail
 ```
+
+This run only reports: the scanner finishes successfully even when it finds violations, so the job passes.
+To make violations fail the job, add `--severity-threshold` with a level; violations at or above that level then fail
+the run.
 
 ### Org-specific naming rules
 
@@ -337,26 +447,77 @@ To create your own naming rule set, follow the same pattern:
 
 See the [Code Scanning - Guide](Code%20Scanning%20-%20Guide.md) for detailed instructions on creating custom rules.
 
+### Clean up
+
+When you have finished the guide, delete the two throwaway items in your editor: the Tier 1 `ScannerDemo` class and
+the Step 4 `testViolation` folder. Neither went to your org, so there is nothing to delete there. Keep the
+configuration files (`code-analyzer.yml`, `.vscode/settings.json` and, if you changed it, the `lint` script in
+`package.json`): they are your scanning setup.
+
 ---
 
 ## Common Issues
 
-| Problem                                                    | Cause                                                                          | Fix                                                                                                                                                          |
-|------------------------------------------------------------|--------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| "Rule not found" or "Class not found" error                | PMD Apex module older than 7.19.0, or a PMD 6 engine (different rule class) | Upgrade your scanner so its PMD Apex module is 7.19.0 or newer (for Salesforce Code Analyzer, update the `code-analyzer` plugin); PMD 6 is not supported |
-| Too many violations on first scan                          | Existing codebase predates framework adoption                                  | Adopt the rules in stages: start with the Priority 1 blockers only, then expand to Priority 3 and Priority 5 over time                                       |
-| False positive in framework infrastructure class           | Rule correctly flags the pattern, but the class intentionally uses the raw API | Suppress with `@SuppressWarnings('PMD.RuleName')` and add a comment explaining why                                                                           |
-| Apex PMD extension not showing violations                  | Ruleset path not set or extension not installed                                | Verify `.vscode/settings.json` has `apexPMD.rulesets` pointing to `scanner/kerndx-pmd-ruleset.xml`                                                           |
-| ESLint `kerndx/*` rules not found                          | Plugin not loaded in ESLint config                                             | Verify `eslint.config.mjs` imports and registers `eslint-plugin-kerndx`                                                                                      |
-| `combined-pmd-ruleset.xml` fails with relative path errors | Running from wrong directory                                                   | Ensure the working directory contains the `scanner/` folder, or use absolute paths in the `<rule ref="..."/>` elements                                       |
+Trouble with your computer rather than this guide (`sf` is not recognised, scripts are disabled, you are not logged
+in, the wrong folder)? Those are answered once, in
+[Set Up Your Computer](Set%20Up%20Your%20Computer.md#if-something-went-wrong).
 
----
+### Run the scanner
+
+#### The scanner says a rule or a rule class cannot be found
+
+Your scanner's PMD Apex module is older than 7.19.0, or it runs a PMD 6 engine, which uses a different rule class.
+Upgrade your scanner so its PMD Apex module is 7.19.0 or newer (for Salesforce Code Analyzer, update the
+`code-analyzer` plugin); PMD 6 is not supported.
+
+### Step 1: IDE Setup (VS Code)
+
+#### The Apex PMD extension shows no violations
+
+The rule set path is not set, or the extension is not installed. Check that `.vscode/settings.json` has
+`apexPMD.rulesets` pointing to `scanner/kerndx-pmd-ruleset.xml`, and that the Apex PMD extension is installed.
+
+### Step 2: SF Code Analyzer v5
+
+#### Too many violations on the first scan
+
+Your existing code was written before you adopted the framework. Adopt the rules in stages: start with the Priority 1
+blockers only, then expand to Priority 3 and Priority 5 over time (see [Priority tiers](#priority-tiers)).
+
+#### A violation in a class that uses the raw API on purpose
+
+The rule correctly flags the pattern, but the class needs it. Suppress it with `@SuppressWarnings('PMD.RuleName')` and
+add a comment explaining why (see [Suppressing rules](#suppressing-rules)).
+
+### Step 3: IntelliJ / Illuminated Cloud
+
+#### The combined rule set fails with relative path errors
+
+`combined-pmd-ruleset.xml` refers to the other rule sets by relative path, and the scan ran from a folder that does not
+hold them. Make sure the working folder contains the `scanner/` folder, or use absolute paths in the
+`<rule ref="..."/>` elements.
+
+### Step 4: ESLint for LWC
+
+#### `No files matching the pattern "**/aura/**/*.js" were found.`
+
+The lint command stops with this message in a project that has no Aura components: the `lint` script in a project
+made by `sf project generate` checks both `aura` and `lwc` folders, and ESLint refuses a pattern that matches nothing.
+In `package.json`, change the `lint` script to `eslint **/lwc/**/*.js`, then run the Step 4 lint command again.
+
+#### ESLint says it cannot find the `kerndx/*` rules
+
+The plugin is not loaded in your ESLint configuration. Check that your project's ESLint configuration file imports and
+registers `eslint-plugin-kerndx` from `.kerndx-pipeline/scanner/eslint-plugin-kerndx`, as the ESLint step of the
+bundle's setup guide shows (in a clone of the KernDX source repository, check `eslint.config.mjs` instead).
+
+Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?template=bug_report.md&title=%5Bdocs%5D%20Code%20Scanning) which step and what you saw.
 
 ## What You Now Know
 
 | Concept                    | What It Does                                                                                                                                                                        |
 |----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kerndx-pmd-ruleset.xml`   | 26 KernDX-authored PMD rules enforcing framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.)                                                                 |
+| `kerndx-pmd-ruleset.xml`   | 27 KernDX-authored PMD rules enforcing framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.)                                                                 |
 | `kerndx-hygiene-ruleset.xml` | Framework-agnostic tier: the six rules that need no KernDX framework (test quality, security-bypass review, Flow-invocable constructors), for repos that do not use the KernDX framework     |
 | `eslint-plugin-kerndx`     | 7 ESLint rules enforcing LWC and test conventions: extend the shared component base class, no `console.log`, consistent naming, a reason on every coverage exemption, no assertion-less tests, no mutating a fixture shared across tests, and no hardcoded user-facing text |
 | `combined-pmd-ruleset.xml` | Single-file reference for tools that only accept one ruleset (IntelliJ)                                                                                                             |

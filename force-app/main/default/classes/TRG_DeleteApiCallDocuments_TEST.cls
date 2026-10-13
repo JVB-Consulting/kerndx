@@ -8,12 +8,16 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.KernNoStandardObjectInPackageTests')
+@IsTest(seeAllData=false isParallel=false)
 private class TRG_DeleteApiCallDocuments_TEST
 {
+	/**
+	 * @description Company name of the admin user created in the test setup. Each test finds that user by this name and
+	 * runs as them.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'TRG_DeleteApiCallDocuments_TEST-admin';
 
 	/**

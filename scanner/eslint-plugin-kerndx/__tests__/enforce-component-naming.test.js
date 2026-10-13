@@ -121,6 +121,13 @@ test('enforce-component-naming with domains+brands options', () =>
 				errors: [{messageId: 'badName'}]
 			},
 			{
+				code: 'export default class ReturnWizard {}',
+				filename: 'C:\\project\\force-app\\main\\default\\lwc\\returnWizard\\returnWizard.js',
+				options: BRAND_OPTIONS,
+				name: 'a Windows path names the component too',
+				errors: [{messageId: 'badName'}]
+			},
+			{
 				code: 'export default class OrderReturnWizard {}',
 				filename: '/project/force-app/main/default/lwc/orderReturnWizard/orderReturnWizard.js',
 				options: BRAND_OPTIONS,

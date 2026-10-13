@@ -51,16 +51,11 @@ Think of the scanner as a spell-checker for your code, but one that knows your h
 
 ## Quick start
 
-If you just want a first scan running, start with the short walkthrough in **Fast Start - Code Scanning.md**. The three commands below run each checker once over `force-app`:
+If you just want a first scan running, start with the short walkthrough in **Fast Start - Code Scanning.md**. The three commands below run each checker once over `force-app`: the first checks your Apex (PMD, through Salesforce Code Analyzer v5), the second your LWC JavaScript (ESLint), and the third your Flow and Custom Object names (a Node script).
 
-```bash
-# Apex (PMD via Salesforce Code Analyzer v5)
-sf code-analyzer run --target force-app/ --view detail --config-file code-analyzer.yml
-
-# LWC JavaScript (ESLint)
+```shell
+sf code-analyzer run --config-file code-analyzer.yml --target force-app/ --view detail
 npm run lint
-
-# Flow & Custom Object naming (Node script)
 node scanner/validate-naming.js force-app
 ```
 
@@ -105,6 +100,7 @@ This guide is the full reference behind those commands: every rule, every way to
         - [KernNoRawTypeForName](#kernnorawtypeforname)
         - [KernNoRawEnqueueJob](#kernnorawenqueuejob)
         - [KernNoRawCrypto](#kernnorawcrypto)
+        - [KernLimitsThroughWrapper](#kernlimitsthroughwrapper)
         - [KernNoRawFeatureManagement](#kernnorawfeaturemanagement)
         - [KernNoBooleanExceptionThrown](#kernnobooleanexceptionthrown)
         - [KernSecurityBypassCallSite](#kernsecuritybypasscallsite)
@@ -198,7 +194,7 @@ Each of the three checkers reads a different kind of file, using the tool best s
 |  (Apex classes & triggers)       |     |  (LWC JavaScript)                |     |  (Flows & Custom Objects)        |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
 |  kerndx-pmd-ruleset.xml         |     |  eslint-plugin-kerndx/           |     |  validate-naming.js              |
-|  26 rules, PMD >= 7.19.0         |     |  7 ESLint rules                  |     |  Node.js script, org-specific    |
+|  27 rules, PMD >= 7.19.0         |     |  7 ESLint rules                  |     |  Node.js script, org-specific    |
 |  Framework anti-patterns         |     |  ComponentBuilder, console,      |     |  Flow & Custom Object naming     |
 |  Priority 1/3/5 tiers            |     |  component naming                |     |  Configurable domains/brands     |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
@@ -211,11 +207,20 @@ Each of the three checkers reads a different kind of file, using the tool best s
 
 **How the layers fit together:** The three checkers run independently and do not overlap. PMD handles Apex, ESLint handles JavaScript, and the naming validator handles the XML and directory-based metadata neither of the others can read. Because none of them duplicates another's coverage, you run all three to check the whole project.
 
+**A fourth checker you may already have: ApexGuru.** Salesforce's ApexGuru scans the Apex in a production or Full Copy Sandbox org for performance
+anti-patterns and, from Winter '27, for duplicated code. It comes at no extra cost with Unlimited Edition, Signature Success Plan and Scale Test, and it is not
+available in Government Cloud. It does not overlap with the three checkers above: ApexGuru judges how your code behaves in the org, the KernDX rules judge whether
+it follows the framework's conventions before it gets there, so run both when you have both. Salesforce Code Analyzer can run ApexGuru as an engine, but only as
+an opt-in: it is in neither the engine list `kerndx scan` runs by default nor Code Analyzer's own Recommended selection, and unless the org it points at is a
+production or Full Copy Sandbox with ApexGuru enabled it falls back to a static mode that reads only literal SOQL and DML, which the framework's query and DML
+builders do not produce. If you have an ApexGuru-enabled org, add `apex-guru` to `scanner.rule_selector` and set `engines.apexguru.target_org` to that org in
+your `code-analyzer.yml`; leave it off everywhere else.
+
 ### The scanner files
 
 | File                                | Scope                             | Purpose                                                                                                                                                                        |
 |-------------------------------------|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kerndx-pmd-ruleset.xml`            | Any KernDX org                    | 26 KernDX-authored XPath rules enforcing framework anti-patterns (inline SOQL, direct DML, System.debug, coverage theatre, inline DML in tests, etc.)                                          |
+| `kerndx-pmd-ruleset.xml`            | Any KernDX org                    | 27 KernDX-authored XPath rules enforcing framework anti-patterns (inline SOQL, direct DML, System.debug, coverage theatre, inline DML in tests, etc.)                                          |
 | `kerndx-hygiene-ruleset.xml`        | Any Salesforce org (no framework needed) | Framework-agnostic tier: the six rules (test quality, security-bypass review, Flow-invocable constructors) that do not require the KernDX framework. `kerndx init` scaffolds this one when the repo does not use the framework. |
 | `subscriber-naming-pmd-ruleset.xml` | Your org (example)                | Apex class naming (`Domain_[Brand_]Layer_Name`), trigger naming (`TRG_ObjectName`), 40-char limit                                                                              |
 | `combined-pmd-ruleset.xml`          | Both (single-file reference)      | Includes both PMD rulesets via `<rule ref="..."/>`, for tools that accept only one ruleset file                                                                              |
@@ -226,7 +231,7 @@ Each of the three checkers reads a different kind of file, using the tool best s
 
 ## PMD Rule Reference
 
-This section is the lookup table for every Apex rule: what it flags, why, and what to write instead. All 26 PMD rules live in `scanner/kerndx-pmd-ruleset.xml`, and every one is KernDX-authored: under the hood each one is an XPath expression that scans the parsed form of your Apex (the abstract syntax tree, or AST) for a common risky mistake, targeting the PMD 7 engine. The rules are sorted into three priority tiers so you know which ones to fix first.
+This section is the lookup table for every Apex rule: what it flags, why, and what to write instead. All 27 PMD rules live in `scanner/kerndx-pmd-ruleset.xml`, and every one is KernDX-authored: under the hood each one is an XPath expression that scans the parsed form of your Apex (the abstract syntax tree, or AST) for a common risky mistake, targeting the PMD 7 engine. The rules are sorted into three priority tiers so you know which ones to fix first.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
 
@@ -244,8 +249,10 @@ A violation at this top priority means the code has stepped around the core of t
 
 **The goal:** keep your trigger files as thin as possible so all real logic lives in handler classes the framework can control. This rule enforces that: a trigger body must contain only `new TRG_Dispatcher().run()`. Put any other logic directly in the trigger file and it runs outside the framework, losing the configuration-driven run order, the master off-switches admins rely on, performance monitoring, and the ability to test the logic on its own. See the [trigger framework guide](Triggers%20-%20Guide.md) for the full picture.
 
-**What the rule detects:** Any statement inside a trigger's `BlockStatement` that is not a method call to `run()`. This includes variable declarations, SOQL, DML, loops,
-conditionals, and calls to any method other than `TRG_Dispatcher.run()`.
+**What the rule detects:** Every statement you write directly in the trigger body other than the call to `run()`. That includes variable declarations, SOQL, DML, loops,
+conditionals, and calls to any other method. A loop or an `if` that wraps the `run()` call counts too: the wrapper itself is extra logic in the trigger.
+A trigger that never calls `run()` at all is reported as well, once, at the trigger itself. The usual case is a freshly generated trigger whose body is
+still empty: it runs none of the trigger actions configured for its object, and the deploy succeeds without a word.
 
 ```apex
 // VIOLATION -- logic in trigger body
@@ -508,7 +515,7 @@ API_MockFactory.registerErrorMock(API_SendEmail.class.getName());
 
 ```apex
 // VIOLATION
-@RestResource(UrlMapping='/v1/invoices/*')
+@RestResource(urlMapping='/v1/invoices/*')
 global inherited sharing class REST_Invoices
 {
    @HttpGet
@@ -520,7 +527,7 @@ global inherited sharing class REST_Invoices
 }
 
 // CORRECT -- REST_* delegates, API_* handles logic via inherited properties
-@RestResource(UrlMapping='/v1/invoices/*')
+@RestResource(urlMapping='/v1/invoices/*')
 global inherited sharing class REST_Invoices
 {
    @HttpGet
@@ -559,14 +566,14 @@ UTIL_Email.sendEmail(
 
 ```apex
 // VIOLATION
-@RestResource(UrlMapping='/v1/accounts/*')
+@RestResource(urlMapping='/v1/accounts/*')
 global inherited sharing class AccountService
 {
    // ...
 }
 
 // CORRECT
-@RestResource(UrlMapping='/v1/accounts/*')
+@RestResource(urlMapping='/v1/accounts/*')
 global inherited sharing class REST_Accounts
 {
    @HttpPost
@@ -733,6 +740,22 @@ Blob key = UTIL_Crypto.generateEncryptionKey();
 
 **Who this swap is for.** `UTIL_Crypto` is an in-namespace helper, so the rewrite above applies to code that compiles alongside the framework source: contributions to the framework itself, and orgs running the renamed source from [Path 2](Installation.md#path-2-repackage-under-your-own-namespace). If you installed the managed package instead, `UTIL_Crypto` belongs to the package, so the move for your own code is to funnel every `Crypto.*` call through a single reviewed crypto utility of your own rather than scattering them. Either way the rule is pointing at the same thing: one audited place where cryptography happens.
 
+#### KernLimitsThroughWrapper
+
+**You want to:** check how much of a governor limit your code has used, or how much is left, before doing more work. The built-in `Limits` class hands you raw numbers that you then have to compare yourself. `UTIL_Limits` gives you one object per limit with `used()`, `maximum()`, `remaining()`, `percentUsed()`, `isExhausted()` and `isNearLimit(threshold)`, and because every reading goes through that one class, it gives you one place to read and review every limit check.
+
+```apex
+// VIOLATION
+Integer queriesUsed = Limits.getQueries();
+Boolean queueFull = Limits.getQueueableJobs() >= Limits.getLimitQueueableJobs();
+
+// CORRECT
+Integer queriesUsed = UTIL_Limits.soqlQueries().used();
+Boolean queueFull = UTIL_Limits.queueableJobs().isExhausted();
+```
+
+`UTIL_Limits` is available to your own code, so if you installed the managed package you write it as `kern.UTIL_Limits`. The rule stays quiet inside `UTIL_Limits` itself and its own test class, `UTIL_Limits_TEST`.
+
 #### KernNoRawFeatureManagement
 
 **You want to:** turn a feature on or off through configuration rather than code. The raw `FeatureManagement` API does not give you that. `UTIL_FeatureFlag.isEnabled()` reads feature flags from `FeatureFlag__mdt` records, caches them, and keeps flag names consistent, so admins can flip a feature without a deployment.
@@ -789,11 +812,11 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 ### PMD Rule Summary Table
 
 <details>
-<summary>All 26 PMD rules at a glance: what each detects, what to use instead, and its priority</summary>
+<summary>All 27 PMD rules that can fire on your code, at a glance: what each detects, what to use instead, and its priority</summary>
 
 | Rule                               | Detects                                                                                         | Use Instead                                                     | Priority |
 |------------------------------------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|----------|
-| `KernTriggerMustDelegate`          | Logic in trigger body                                                                           | `new TRG_Dispatcher().run()`                                    | 1        |
+| `KernTriggerMustDelegate`          | Logic in trigger body, or no dispatcher call at all                                             | `new TRG_Dispatcher().run()`                                    | 1        |
 | `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()`                                                              | Selector or [QRY_Builder](reference/apex/QRY_Builder.md)        | 1        |
 | `KernNoCoverageTheatre`            | Assertion-less tests, empty catches, `Boolean exceptionThrown`, tautological `Assert.isNotNull` | Assert on observable behaviour                                  | 1        |
 | `KernCoverageExemptRequiresReason` | Empty, short, or hand-wavy `// kern-coverage-exempt:` reasons                                   | Cite a specific platform limitation                             | 1        |
@@ -816,6 +839,7 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 | `KernNoRawTypeForName`             | `Type.forName()`                                                                                | `UTIL_System.getTypeForClassName()`                             | 5        |
 | `KernNoRawEnqueueJob`              | `System.enqueueJob()`                                                                           | `UTIL_AsynchronousJobLauncher`                                  | 5        |
 | `KernNoRawCrypto`                  | `Crypto.*`                                                                                      | `UTIL_Crypto` in-namespace, or one reviewed crypto utility of your own | 5        |
+| `KernLimitsThroughWrapper`         | `Limits.get*()` outside `UTIL_Limits` and its test class                                        | `UTIL_Limits`, for example `UTIL_Limits.soqlQueries().used()`   | 5        |
 | `KernNoRawFeatureManagement`       | `FeatureManagement.checkPermission()`                                                           | `UTIL_FeatureFlag.isEnabled()`                                  | 5        |
 | `KernNoBooleanExceptionThrown`     | `Boolean exceptionThrown` try/catch pattern                                                     | `Assert.fail` + `Assert.isInstanceOfType`                       | 5        |
 | `KernSecurityBypassCallSite`       | Security-bypass call sites (`withSystemMode`, `bypassSharing`, `bypassAction`, …)               | Acknowledge with `@SuppressWarnings`/`// NOPMD` + reason        | 5        |
@@ -853,7 +877,7 @@ export default class MyComponent extends Base
 }
 
 // CORRECT
-import {ComponentBuilder} from 'c/componentBuilder';
+import {ComponentBuilder} from 'kern/componentBuilder';
 export default class MyComponent extends ComponentBuilder('notification', 'controller')
 {
    async handleSave()
@@ -1086,7 +1110,7 @@ describe('c-my-component', () =>
 
 The ESLint configuration ships ready to go in `force-app/main/default/lwc/eslint.config.mjs`, so there is nothing to set up. Run the linter with:
 
-```bash
+```shell
 npm run lint
 ```
 
@@ -1121,14 +1145,11 @@ Examples: `ORD_ReturnRequest__c`, `SVC_ACM_WarrantyClaim__c`
 
 ### Running the Validator
 
-```bash
-# Default -- scans ./force-app
+With no argument the script scans `./force-app`; give it a path to scan somewhere else. Either way, it works out for itself whether the folder uses the standard SFDX layout (`force-app/main/default/`) or a flat one.
+
+```shell
 node scanner/validate-naming.js
-
-# Explicit path
 node scanner/validate-naming.js path/to/force-app
-
-# The script auto-detects SFDX standard layout (force-app/main/default/) vs flat layout
 ```
 
 The script reports:
@@ -1190,7 +1211,7 @@ PMD, ESLint, and the naming validator each look at source files on their own. Th
 
 **What it guards:** that every query and DML call states, out loud, whose permissions it runs under, so nothing silently runs with all security checks skipped by accident. `scripts/scan-access-modes.js` enforces this. Builders chained off `QRY_Builder.selectFrom()`, `DML_Builder.newTransaction()`, and `new DML_Transaction()` must call `.withUserMode()`, `.withSystemMode()`, or `.setAccessLevel()`. Raw `Database.query()`, `Database.queryWithBinds()`, `Database.getQueryLocator()`, `Database.countQuery()`, `Search.query()`, and `Search.find()` must pass an explicit `AccessLevel` argument.
 
-```bash
+```shell
 npm run scan:access-modes
 ```
 
@@ -1208,7 +1229,7 @@ The script exits 0 on a clean run and 1 on any violation. The classes that actua
 
 For the existence check the scanner reads the `FlowDefinitionView` standard SObject; for the variable check it reads the Tooling API's `Flow.Metadata`. It batches both queries into a single round-trip each per scan, to keep the scan fast.
 
-```bash
+```shell
 npm run scan:flow-references
 npm run scan:flow-references -- --org SubscriberOrg
 ```
@@ -1217,8 +1238,8 @@ By default the scanner targets the org named in the `KERN_DEV_ORG` environment v
 
 **Permission requirement.** The user running the scan in CI needs the `Manage Flow` permission to read `FlowDefinitionView`. Without it, the org returns zero rows and says nothing, which looks like "no flows" rather than "no access". The bundled `Kern Administrator` permission set already includes `Manage Flow`, so the simplest fix is to assign that permission set to the CI user:
 
-```bash
-sf org assign permset -n kern__Administrator -o <integration-user>
+```shell
+sf org assign permset -n kern__Administrator -o YourIntegrationUser
 ```
 
 If the CI user must stay below admin level, create a custom permission set in your org that grants only the `Manage Flow` user permission, and assign that instead. Runners that use a system-administrator profile (the default in pipelines that create a fresh scratch org per build) already have `Manage Flow` through `Modify All Data`.
@@ -1244,7 +1265,7 @@ That turns the most common misconfiguration, where zero rows come back silently,
 
 If you would rather run one command than two, the `scan` script runs the access-mode and flow-reference scanners back to back. Use it as the single CI command, or as a quick check before you deploy locally:
 
-```bash
+```shell
 npm run scan
 ```
 
@@ -1389,16 +1410,11 @@ engines:
       - scanner/kerndx-pmd-ruleset.xml
 ```
 
-**Run commands:**
+**Run commands:** the first runs a full scan with every configured rule, the second runs only the KernDX framework rules (chosen by ruleset name), and the third scans one file or folder. Each names the configuration file with `--config-file`, because Code Analyzer otherwise looks for it only in the folder you run it from, and without it the KernDX rules do not load.
 
-```bash
-# Full scan with all configured rules
-sf code-analyzer run --target force-app/ --view detail
-
-# KernDX framework rules only (by ruleset name)
+```shell
+sf code-analyzer run --config-file code-analyzer.yml --target force-app/ --view detail
 sf code-analyzer run --config-file code-analyzer.yml --rule-selector pmd:KernDXFrameworkCompliance --target force-app/ --view detail
-
-# Scan specific file or directory
 sf code-analyzer run --config-file code-analyzer.yml --target force-app/main/default/classes/MyService.cls --view detail
 ```
 
@@ -1423,7 +1439,7 @@ jobs:
         run: npm install -g @salesforce/cli
 
       - name: Run Code Analyzer (Apex)
-        run: sf code-analyzer run --target force-app/ --view detail --config-file code-analyzer.yml
+        run: sf code-analyzer run --config-file code-analyzer.yml --target force-app/ --view detail
 
       - name: Run ESLint (LWC)
         run: npm ci && npm run lint
@@ -1471,13 +1487,13 @@ AutoRABIT runs PMD as part of its static analysis pipeline. You upload custom ru
 
 ### Legacy SF Scanner (v4)
 
-If your team is still on the older, now-deprecated `sfdx-scanner` (v4), run:
+If your team is still on the older, now-deprecated `sfdx-scanner` (v4), run the KernDX rules through v5 instead. If v5 is not on your computer yet, install it first with the command in [the Fast Start's "Run the scanner" step](Fast%20Start%20-%20Code%20Scanning.md#run-the-scanner), then run:
 
-```bash
-sfdx scanner:run --pmdconfig scanner/kerndx-pmd-ruleset.xml --target force-app/ --format table
+```shell
+sf code-analyzer run --config-file code-analyzer.yml --rule-selector pmd:KernDXFrameworkCompliance --target force-app/ --view detail
 ```
 
-> **Note:** SF Code Analyzer v5 (`sf code-analyzer`) replaces `sfdx-scanner`. Move to v5 when you can: it ships PMD 7, which the KernDX ruleset needs for its XPath rule class.
+> **Note:** SF Code Analyzer v5 (`sf code-analyzer`) replaces `sfdx-scanner`. The KernDX rules run only under v5: every v4 release bundles a PMD 7 whose Apex module is older than the 7.19.0 the KernDX rules need (see [PMD Version Compatibility](#pmd-version-compatibility)).
 
 ---
 
@@ -1485,11 +1501,11 @@ sfdx scanner:run --pmdconfig scanner/kerndx-pmd-ruleset.xml --target force-app/ 
 
 The framework rules are fixed, but your org's naming convention is your own, so the scanner lets you add naming rules of your own. The shipped `subscriber-naming-pmd-ruleset.xml` is a worked example you copy and adapt. Here is the process.
 
-**Step 1: Copy the template**
+**1. Copy the template**
 
 Copy `scanner/subscriber-naming-pmd-ruleset.xml` to a new file (for example, `scanner/myorg-naming-pmd-ruleset.xml`).
 
-**Step 2: Modify the naming patterns**
+**2. Modify the naming patterns**
 
 Edit the XPath regular expressions to match your own convention. For example, to require `FIN_`, `HR_`, or `OPS_` domain prefixes:
 
@@ -1518,7 +1534,7 @@ Edit the XPath regular expressions to match your own convention. For example, to
 </rule>
 ```
 
-**Step 3: Update the combined ruleset**
+**3. Update the combined ruleset**
 
 Create or update a combined ruleset that references both the framework rules and your new org-specific ones:
 
@@ -1533,11 +1549,11 @@ Create or update a combined ruleset that references both the framework rules and
 </ruleset>
 ```
 
-**Step 4: Customise the naming validator**
+**4. Customise the naming validator**
 
 Add a `naming` block to `.kerndx/config.yml` with your domains, brands and flow types, as shown in [How do I adapt it to my org?](#how-do-i-adapt-it-to-my-org).
 
-**Step 5: Customise LWC naming**
+**5. Customise LWC naming**
 
 Pass your domains and brands as options to `kerndx/enforce-component-naming` in your ESLint config, as shown in [kerndx/enforce-component-naming](#kerndxenforce-component-naming). The ESLint rule matches LWC folder names, so it wants lowercase domains and PascalCase brands: `SLS` in the YAML is `sls` here.
 
@@ -1588,7 +1604,7 @@ Once the blockers are clear, add the Priority 3 rules and start moving raw platf
 
 ### Phase 3: Best Practices
 
-Finally, add the Priority 5 rules and pick up the framework utilities for caching, describe calls, type resolution, launching async jobs, cryptography, and feature flags.
+Finally, add the Priority 5 rules and pick up the framework utilities for caching, describe calls, type resolution, launching async jobs, cryptography, feature flags, and governor limits.
 
 **Expected effort:** Low. These are small improvements your team can fold in whenever they next touch the code.
 
@@ -1596,8 +1612,8 @@ Finally, add the Priority 5 rules and pick up the framework utilities for cachin
 
 To see how the rollout is going, run the scanner and count violations by priority over time:
 
-```bash
-sf code-analyzer run --target force-app/ --view detail --config-file code-analyzer.yml
+```shell
+sf code-analyzer run --config-file code-analyzer.yml --target force-app/ --view detail
 ```
 
 Record the violation count per priority tier in a spreadsheet or dashboard. A reasonable target: zero P1 violations right away, zero P3 within a quarter, and a steady drop in P5 from there.
@@ -1614,7 +1630,7 @@ The KernDX-authored rules use PMD 7's XPath rule class:
 net.sourceforge.pmd.lang.rule.xpath.XPathRule
 ```
 
-**PMD 6 is not supported.** The rules are written for the PMD 7 XPath rule class, and swapping each `<rule>` element's `class` attribute to the PMD 6 form (`net.sourceforge.pmd.lang.apex.rule.ApexXPathRule`) is not enough on its own, because the XPath the rules use targets the PMD 7 Apex node model. If your CI/CD tool pins PMD 6 (for example, legacy `sfdx-scanner` v4), upgrade to a tool that ships a current PMD 7, such as Salesforce Code Analyzer v5.
+**PMD 6 is not supported.** The rules are written for the PMD 7 XPath rule class, and swapping each `<rule>` element's `class` attribute to the PMD 6 form (`net.sourceforge.pmd.lang.apex.rule.ApexXPathRule`) is not enough on its own, because the XPath the rules use targets the PMD 7 Apex node model. If your CI/CD tool pins PMD 6, or a PMD 7 whose Apex module is older than 7.19.0 (for example, legacy `sfdx-scanner` v4), upgrade to a tool that ships a current PMD 7, such as Salesforce Code Analyzer v5.
 
 <details>
 <summary>PMD version per CI/CD tool, and whether the ruleset works as-is</summary>
@@ -1628,7 +1644,7 @@ net.sourceforge.pmd.lang.rule.xpath.XPathRule
 | Copado                                   | Varies      | Check the version; requires PMD Apex module 7.19.0 or newer |
 | AutoRABIT                                | Varies      | Check the version; requires PMD Apex module 7.19.0 or newer |
 | CodeScan                                 | PMD 7       | Yes, when its PMD Apex module is 7.19.0 or newer            |
-| Legacy `sfdx-scanner` (v4)               | PMD 6       | No: upgrade to Salesforce Code Analyzer v5                  |
+| Legacy `sfdx-scanner` (v4)               | PMD 7       | No: upgrade to Salesforce Code Analyzer v5                  |
 
 </details>
 

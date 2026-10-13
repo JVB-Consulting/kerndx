@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @fileoverview The PLAN-111 i18n gate: report every hardcoded subscriber-visible
+ * @fileoverview The i18n gate: report every hardcoded subscriber-visible
  *               string across LWC `.js`, `.html`, and `.js-meta.xml`.
  *
  * Three legs, one report:
@@ -18,7 +18,7 @@
  *
  * Severity STAGING (scanner/i18n-swept-areas.json): a violation is an ERROR (fails
  * the gate) only when its bundle's sweep is complete; otherwise it is a WARN
- * (reported, non-failing). `alternative-text` stays WARN everywhere until PLAN-113.
+ * (reported, non-failing). `alternative-text` stays WARN everywhere, swept or not.
  *
  * Escape hatch: put `<!-- i18n-allow -->` on or directly above a line in a
  * template/meta file to suppress a justified literal (API code sample, format
@@ -260,6 +260,29 @@ function scanMeta(source, filePath)
 // JS leg — the ESLint rule, filtered to just our rule's messages
 // ---------------------------------------------------------------------------
 
+/**
+ * @description Finds ESLint's own command-line script, a JavaScript file this Node runs directly. Starting `npx` or
+ *              `eslint` by name needs a shell on Windows, where both are `.cmd` files, so the scanner starts neither.
+ *
+ * @return {string} The absolute path of ESLint's command-line script.
+ */
+function eslintEntry()
+{
+	const manifestPath = require.resolve('eslint/package.json');
+	const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+	const entry = typeof manifest.bin === 'string' ? manifest.bin : manifest.bin.eslint;
+
+	return path.join(path.dirname(manifestPath), entry);
+}
+
+/**
+ * @description Runs the i18n ESLint rule over the LWC JavaScript files and keeps only that rule's messages and parse
+ *              failures. ESLint runs under this Node, so no shell and no tool on PATH is needed.
+ *
+ * @param {string[]} jsFiles The JavaScript files to scan.
+ *
+ * @return {Array<object>} The violations found.
+ */
 function scanJavaScript(jsFiles)
 {
 	// Only lint files the isolated config actually covers; passing an unmatched
@@ -275,8 +298,8 @@ function scanJavaScript(jsFiles)
 
 	try
 	{
-		raw = execFileSync('npx', [
-			'eslint',
+		raw = execFileSync(process.execPath, [
+			eslintEntry(),
 			'--config',
 			ESLINT_CONFIG,
 			'--format',
@@ -394,7 +417,7 @@ function loadSweptAreas()
 
 function severityOf(violation, swept)
 {
-	// alternative-text is owned by PLAN-113 — enforced but held at WARN for now.
+	// alternative-text is reported in every bundle but never fails the gate, even in a swept one.
 	if(violation.kind === 'html-attr-alternative-text')
 	{
 		return 'warn';

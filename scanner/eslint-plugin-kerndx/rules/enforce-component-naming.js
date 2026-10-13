@@ -8,7 +8,7 @@
  *              derived from the file path.
  *
  *              Configure in eslint.config.mjs:
- *                'kerndx/enforce-component-naming': ['warn', {
+ *                'kerndx/enforce-component-naming': ['error', {
  *                  domains: ['sls', 'svc', 'cmn'],   // required, lowercase
  *                  brands:  ['Acme', 'Beta'],        // optional, PascalCase
  *                  maxLength: 40                     // optional, default 40
@@ -20,8 +20,6 @@
  */
 
 'use strict';
-
-const path = require('path');
 
 const DEFAULT_MAX_LENGTH = 40;
 
@@ -68,10 +66,15 @@ module.exports = {
 
 		let reported = false;
 
+		/**
+		 * @description Names the component from the folder under `lwc`. The path is split on both separators because
+		 *              ESLint can report either one on Windows.
+		 * @return {?string} The component folder name, or null when the file is not under an `lwc` folder.
+		 */
 		function getComponentName()
 		{
 			const filePath = context.getFilename();
-			const parts = filePath.split(path.sep);
+			const parts = filePath.split(/[\\/]/);
 			const lwcIndex = parts.lastIndexOf('lwc');
 
 			if(lwcIndex === -1 || lwcIndex >= parts.length - 1)

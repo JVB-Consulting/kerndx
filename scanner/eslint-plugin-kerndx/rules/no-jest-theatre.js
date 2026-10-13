@@ -20,8 +20,6 @@
 
 'use strict';
 
-const path = require('path');
-
 const TEST_FUNCTIONS = new Set([
 	'it',
 	'test'
@@ -95,7 +93,8 @@ module.exports = {
 };
 
 /**
- * @description Whether the file path targets a Jest test file.
+ * @description Whether the file path targets a Jest test file. The path is split on both separators because ESLint
+ *              can report either one on Windows.
  * @param {string} filename Absolute path reported by ESLint.
  * @return {boolean}
  */
@@ -111,7 +110,7 @@ function isTestFile(filename)
 		return true;
 	}
 
-	const parts = filename.split(path.sep);
+	const parts = filename.split(/[\\/]/);
 	return parts.includes('__tests__');
 }
 

@@ -234,6 +234,22 @@ test('no-mutating-shared-fixture', () =>
 						});
 					});
 				`, filename: TEST_FILENAME, name: 'test() alias with mutation is flagged', errors: [{messageId: 'sharedFixture'}]
+			},
+			{
+				code: `
+					describe('under __tests__ on a Windows path', () => {
+						let element;
+						beforeAll(() => {
+							element = createElement('c-x', {is: X});
+						});
+						it('dispatches', () => {
+							element.dispatchEvent(new CustomEvent('save'));
+						});
+					});
+				`,
+				filename: 'C:\\project\\force-app\\main\\default\\lwc\\ordReturnWizard\\__tests__\\helper.spec.js',
+				name: '__tests__ directory files on a Windows path are scanned',
+				errors: [{messageId: 'sharedFixture'}]
 			}
 		]
 	});

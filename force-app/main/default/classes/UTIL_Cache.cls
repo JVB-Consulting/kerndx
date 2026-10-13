@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
+
 /**
  * @description Factory for Platform Cache instances with nested interface pattern.
  * Provides intelligent cache management with automatic fallback from Session to Org cache,
  * bulk operations, and user-scoped keys.
  *
  * Key Features:
- * - **Framework Safe**: Defaults to UTIL_System.getPlatformCacheName() for internal package usage.
+ * - **Framework Safe**: Defaults to UTIL_Cache.getPlatformCacheName() for internal package usage.
  * - **Subscriber Ready**: Supports custom partitions via .withPartition().
  * - **Governor Friendly**: Uses putAll and getAll to minimize cache commits/reads.
  * - **Bulk Optimized**: getAll() uses native Platform Cache bulk retrieval for optimal performance.
@@ -37,7 +38,7 @@
  *
  * @group Utilities
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  *
  * @since 1.0
  *
@@ -48,24 +49,73 @@
  * Object cached = cache.get('configKey');
  * ```
  */
-@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters,PMD.NcssTypeCount')
+@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters,PMD.NcssTypeCount,PMD.NcssCount')
 global inherited sharing class UTIL_Cache
 {
-	private static final Integer COMPRESSION_THRESHOLD = 4096; // Threshold in bytes for automatic compression (4KB). JSON compresses 80-90%, cache space is more scarce than CPU
+	/**
+	 * @description The size, in characters of JSON, above which a value is zipped before it is stored. Smaller values are stored
+	 * as plain JSON, and a zipped form is kept only when it is smaller than the JSON.
+	 */
+	private static final Integer COMPRESSION_THRESHOLD = 4096; // Characters of serialised JSON (about 4KB). JSON compresses 80-90%, cache space is more scarce than CPU
+	/**
+	 * @description How long, in seconds, a value stays in the org cache when the caller gives no lifetime (24 hours).
+	 */
 	private static final Integer DEFAULT_ORG_TTL_SECONDS = 86400; // 24 hours
+	/**
+	 * @description How long, in seconds, a value stays in the session cache when the caller gives no lifetime (4 hours).
+	 */
 	private static final Integer DEFAULT_SESSION_TTL_SECONDS = 14400; // 4 hours
+	/**
+	 * @description The largest wrapped entry, in characters of JSON, that a put to the platform cache accepts. A larger entry is
+	 * not stored and the put reports a write failure.
+	 */
 	@TestVisible
 	private static final Integer MAXIMUM_ENTRY_SIZE = 1024 * 100; // Maximum serialized size in characters for a single cache entry (~100KB)
+	/**
+	 * @description How many entries KEY_HASH_CACHE may hold. When it holds more, it is emptied before the next hashed key is
+	 * added, so the map cannot keep growing through a long transaction.
+	 */
 	@TestVisible
 	private static final Integer MAXIMUM_HASH_KEY_CACHE_SIZE = 2000; //Only allow so many entries for local key to reduce memory usage
+	/**
+	 * @description The longest key that is used as it is. A key that is longer, or that holds anything other than letters and
+	 * digits, is replaced by its MD5 hash before it reaches the platform cache.
+	 */
 	private static final Integer MAXIMUM_KEY_LENGTH = 50; //The maximum length of a cache key
+	/**
+	 * @description The longest lifetime, in seconds, the org cache is asked to keep a value (48 hours). A longer request is cut
+	 * down to this.
+	 */
 	private static final Integer ORG_MAXIMUM_TTL_SECONDS = 172800; // 48 hours
+	/**
+	 * @description The shortest lifetime, in seconds, the org cache is asked to keep a value (5 minutes). A shorter request is
+	 * raised to this for the platform cache; the entry itself still stops being valid after the lifetime the caller asked for.
+	 */
 	private static final Integer ORG_MINIMUM_TTL_SECONDS = 300; // 5 minutes (platform constraint)
+	/**
+	 * @description The longest lifetime, in seconds, the session cache is asked to keep a value (8 hours). A longer request is cut
+	 * down to this.
+	 */
 	private static final Integer SESSION_MAXIMUM_TTL_SECONDS = 28800; // 8 hours
+	/**
+	 * @description The shortest lifetime, in seconds, the session cache is asked to keep a value (5 minutes). A shorter request is
+	 * raised to this for the platform cache; the entry itself still stops being valid after the lifetime the caller asked for.
+	 */
 	private static final Integer SESSION_MINIMUM_TTL_SECONDS = 300; // 5 minutes (platform constraint)
+	/**
+	 * @description The hashed form of each key that had to be hashed in this transaction, by original key, so the same key is
+	 * hashed only once.
+	 */
 	private static final Map<String, String> KEY_HASH_CACHE = new Map<String, String>(); // Cache of original keys to hashed keys to avoid repeated hashing
+	/**
+	 * @description The name of the platform cache partition the framework stores its values in, without the namespace part.
+	 */
 	@TestVisible
 	private static final String CACHE_PARTITION_NAME = 'Library';
+	/**
+	 * @description The name of the single file inside the zip archive that holds a compressed value. The same name is used to
+	 * write the file and to read it back.
+	 */
 	private static final String ZIP_ENTRY_NAME = 'data.json'; //Name of the zip entry used during compression and de-compression
 
 	/**
@@ -117,6 +167,25 @@ global inherited sharing class UTIL_Cache
 	 */
 	@TestVisible
 	private static Boolean simulateCompressionFailure = false;
+
+	/**
+	 * @description The share of the org's live heap limit at or above which transaction memory caches evict their
+	 * oldest values before storing: storing stops at 40% of the limit. Records count for a little more once the query
+	 * that read them has returned, so stopping at 40% leaves the transaction's own code about half of the heap or more.
+	 */
+	@TestVisible
+	private static final Decimal MEMORY_CACHE_EVICTION_HEAP_SHARE = 0.4;
+
+	/**
+	 * @description Every entry stored in any TransactionMemoryCache during this transaction, oldest first: the order
+	 * eviction takes them in, whichever cache holds them.
+	 */
+	private static final List<MemoryCacheEntry> EVICTION_ORDER = new List<MemoryCacheEntry>();
+
+	/**
+	 * @description The position in EVICTION_ORDER of the oldest entry not yet evicted.
+	 */
+	private static Integer nextEvictionIndex = 0;
 
 	/**
 	 * @description Cache type enumeration
@@ -494,6 +563,8 @@ global inherited sharing class UTIL_Cache
 		 * @param cacheType The cache type to prefer (SESSION, ORG, AUTO)
 		 *
 		 * @return This instance
+		 *
+		 * @since 1.0
 		 */
 		Store withScope(Scope cacheType);
 
@@ -503,6 +574,8 @@ global inherited sharing class UTIL_Cache
 		 * @param partitionName The fully qualified partition name (e.g., 'local.MyPartition')
 		 *
 		 * @return This instance
+		 *
+		 * @since 1.0
 		 */
 		Store withPartition(String partitionName);
 
@@ -512,6 +585,8 @@ global inherited sharing class UTIL_Cache
 		 * @param userScoped Whether to scope keys by current user
 		 *
 		 * @return This instance
+		 *
+		 * @since 1.0
 		 */
 		Store withUserScope(Boolean userScoped);
 
@@ -528,6 +603,8 @@ global inherited sharing class UTIL_Cache
 		 * @param value The value to cache
 		 *
 		 * @return True if stored successfully
+		 *
+		 * @since 1.0
 		 */
 		Boolean put(String key, Object value);
 
@@ -543,6 +620,8 @@ global inherited sharing class UTIL_Cache
 		 * @param ttlSeconds TTL in seconds (null uses default)
 		 *
 		 * @return True if stored successfully
+		 *
+		 * @since 1.0
 		 */
 		Boolean put(String key, Object value, Integer ttlSeconds);
 
@@ -557,6 +636,8 @@ global inherited sharing class UTIL_Cache
 		 * @param key The cache key
 		 *
 		 * @return The cached value or null if not found
+		 *
+		 * @since 1.0
 		 */
 		Object get(String key);
 
@@ -566,6 +647,8 @@ global inherited sharing class UTIL_Cache
 		 * @param key The cache key
 		 *
 		 * @return True if key exists in cache
+		 *
+		 * @since 1.0
 		 */
 		Boolean contains(String key);
 
@@ -575,6 +658,8 @@ global inherited sharing class UTIL_Cache
 		 * @param key The cache key
 		 *
 		 * @return True if removed successfully
+		 *
+		 * @since 1.0
 		 */
 		Boolean remove(String key);
 
@@ -583,7 +668,10 @@ global inherited sharing class UTIL_Cache
 		 *
 		 * @param valuesMap Map of Key -> Value to store
 		 *
-		 * @return True if operation was attempted
+		 * @return True if the values were stored. False when they could not be stored, for example because the cache is not
+		 * available or a value is too large to cache.
+		 *
+		 * @since 1.0
 		 */
 		Boolean putAll(Map<String, Object> valuesMap);
 
@@ -593,7 +681,10 @@ global inherited sharing class UTIL_Cache
 		 * @param valuesMap Map of Key -> Value to store
 		 * @param ttlSeconds TTL in seconds
 		 *
-		 * @return True if operation was attempted
+		 * @return True if the values were stored. False when they could not be stored, for example because the cache is not
+		 * available or a value is too large to cache.
+		 *
+		 * @since 1.0
 		 */
 		Boolean putAll(Map<String, Object> valuesMap, Integer ttlSeconds);
 
@@ -603,6 +694,8 @@ global inherited sharing class UTIL_Cache
 		 * @param keys Set of keys to retrieve
 		 *
 		 * @return Map of Key -> Value (found items only)
+		 *
+		 * @since 1.0
 		 */
 		Map<String, Object> getAll(Set<String> keys);
 
@@ -612,6 +705,8 @@ global inherited sharing class UTIL_Cache
 		 * @param keys Set of keys to remove
 		 *
 		 * @return True if operation completed
+		 *
+		 * @since 1.0
 		 */
 		Boolean removeAll(Set<String> keys);
 
@@ -619,6 +714,8 @@ global inherited sharing class UTIL_Cache
 		 * @description Gets the result of the last cache operation for diagnostics
 		 *
 		 * @return Last operation result with detailed status information
+		 *
+		 * @since 1.0
 		 */
 		OperationResult getLastOperationResult();
 
@@ -626,6 +723,8 @@ global inherited sharing class UTIL_Cache
 		 * @description Checks if Platform Cache is available for the configured partition
 		 *
 		 * @return True if cache is available
+		 *
+		 * @since 1.0
 		 */
 		Boolean isCacheAvailable();
 	}
@@ -1026,7 +1125,7 @@ global inherited sharing class UTIL_Cache
 				throw new Cache.InvalidParamException('Invalid Key, Key cannot be null or empty');
 			}
 
-			// Return raw key if it's already safe (alphanumeric/hyphen/underscore) and reasonably short
+			// Return raw key if it's already safe (letters and digits only) and reasonably short
 			// This keeps the Cache Diagnostics page readable for most common use cases
 			if(key.length() <= MAXIMUM_KEY_LENGTH && key.isAlphanumeric())
 			{
@@ -1266,11 +1365,12 @@ global inherited sharing class UTIL_Cache
 		}
 
 		/**
-		 * @description Stores multiple values in cache with default TTL
+		 * @description Stores multiple values in cache with default TTL. When any value is too large to cache, the call saves
+		 * none of them and returns false (see putToCache).
 		 *
 		 * @param valuesMap Map of Key -> Value to store
 		 *
-		 * @return True if operation was attempted
+		 * @return True if the values were saved in at least one cache scope
 		 *
 		 * @example
 		 * Store multiple values efficiently:
@@ -1291,12 +1391,13 @@ global inherited sharing class UTIL_Cache
 		}
 
 		/**
-		 * @description Stores multiple values in cache with custom TTL
+		 * @description Stores multiple values in cache with custom TTL. When any value is too large to cache, the call saves none
+		 * of them and returns false (see putToCache).
 		 *
 		 * @param valuesMap Map of Key -> Value to store
 		 * @param ttlSeconds TTL in seconds
 		 *
-		 * @return True if operation was attempted
+		 * @return True if the values were saved in at least one cache scope
 		 *
 		 * @example
 		 * Store multiple values with custom TTL (2 hours):
@@ -1611,7 +1712,10 @@ global inherited sharing class UTIL_Cache
 		}
 
 		/**
-		 * @description Stores values in the specified cache type
+		 * @description Stores values in the specified cache type. It wraps and size-checks every value before it saves the first
+		 * one: when any value is larger than MAXIMUM_ENTRY_SIZE once serialized, it saves none of them and records a
+		 * WRITE_FAILURE naming that key. A save that fails part-way through for another reason, such as the platform refusing a
+		 * put, can still leave the earlier values saved.
 		 *
 		 * @param cacheType The cache type to use (SESSION or ORG)
 		 * @param values Map of scoped keys to values
@@ -1648,24 +1752,28 @@ global inherited sharing class UTIL_Cache
 					// Determine actual validity period for the wrapper (may be shorter than Platform Cache TTL)
 					Integer actualValiditySeconds = ttlSeconds != null ? ttlSeconds : defaultTTL;
 
+					// Build and size-check every entry before the first save, so a call with one entry too large saves nothing
+					List<String> sanitizedKeys = new List<String>();
+					List<CacheEntry> wrappers = new List<CacheEntry>();
 					for(String key : values.keySet())
 					{
-						String sanitizedKey = sanitizeKey(key);
-						Object value = values.get(key);
-
 						// Wrap value in CacheEntryWrapper with validity tracking and compression
-						CacheEntry wrapper = new CacheEntry(value, actualValiditySeconds);
+						CacheEntry wrapper = new CacheEntry(values.get(key), actualValiditySeconds);
 
-						String serialized = JSON.serialize(wrapper);
-
-						if(serialized.length() > MAXIMUM_ENTRY_SIZE)
+						if(JSON.serialize(wrapper).length() > MAXIMUM_ENTRY_SIZE)
 						{
 							lastOperationResult = new OperationResult(false, Status.WRITE_FAILURE, cacheType,
 									'Cache entry exceeds maximum size (' + MAXIMUM_ENTRY_SIZE + ' chars): ' + key);
 							return false;
 						}
 
-						partition.put(sanitizedKey, wrapper, platformCacheTTL);
+						sanitizedKeys.add(sanitizeKey(key));
+						wrappers.add(wrapper);
+					}
+
+					for(Integer index = 0; index < sanitizedKeys.size(); index++)
+					{
+						partition.put(sanitizedKeys[index], wrappers[index], platformCacheTTL);
 					}
 
 					lastOperationResult = new OperationResult(true, Status.WRITE_SUCCESS, cacheType);
@@ -1849,12 +1957,213 @@ global inherited sharing class UTIL_Cache
 	}
 
 	/**
+	 * @description An in-memory cache for the current transaction that its owner creates and clears. It is not a
+	 * Store: for storage every caller shares, use inTransaction(). Each TransactionMemoryCache has its own entries,
+	 * so one owner's clear() never touches another's. When heap use reaches 40% of the org's live limit, storing
+	 * first evicts the oldest values in the whole transaction, whichever cache holds them, and refuses the value if
+	 * heap stays over with nothing left to evict; a caller that itself holds most of the heap will see every store
+	 * refused. Any entry may therefore be gone at the next read, as in any cache. It keeps the objects it is given;
+	 * an owner that hands values to callers who may change them copies them on the way in and out.
+	 *
+	 * New framework code that keeps values in memory for the rest of a transaction uses its own TransactionMemoryCache,
+	 * not a hand-written static map, or says in its ApexDoc why it cannot (SEL_FeatureFlag is one such case). Because
+	 * entries may be evicted at any read, oldest first across every owner, an owner treats a miss as normal: a small
+	 * cache filled early in a large load is the first to be evicted and costs its owner one repeated query. An owner
+	 * holds its cache in a static variable: a cache created per instance stays referenced by the shared eviction order
+	 * (EVICTION_ORDER) until its values are evicted. Where every caller must share one map and no eviction is wanted,
+	 * inTransaction() remains the choice.
+	 */
+	public class TransactionMemoryCache
+	{
+		/**
+		 * @description The entry this cache currently holds for each key; an older entry for the same key can stay in
+		 * EVICTION_ORDER, outdated.
+		 */
+		private final Map<String, MemoryCacheEntry> entryByKey = new Map<String, MemoryCacheEntry>();
+
+		/**
+		 * @description Returns the value stored under the key, or null when it is absent or was stored as null.
+		 *
+		 * @param key The key
+		 *
+		 * @return The stored value, or null
+		 */
+		public Object get(String key)
+		{
+			return entryByKey.get(key)?.value;
+		}
+
+		/**
+		 * @description Whether a value, possibly null, is stored under the key.
+		 *
+		 * @param key The key
+		 *
+		 * @return True when the key is present
+		 */
+		public Boolean containsKey(String key)
+		{
+			return entryByKey.containsKey(key);
+		}
+
+		/**
+		 * @description Stores the value, first evicting the oldest values in any cache while heap use is at or over
+		 * the guard. A value already stored under the key is replaced and released.
+		 *
+		 * @param key The key
+		 * @param value The value to keep; may be null
+		 *
+		 * @return True when stored; false when heap stays over the guard with nothing left to evict
+		 */
+		public Boolean putIfHeapAllows(String key, Object value)
+		{
+			if(isHeapOverGuardAfterEvictingOldestEntries())
+			{
+				return false;
+			}
+			releaseValue(entryByKey.get(key));
+			MemoryCacheEntry entry = new MemoryCacheEntry(this, key, value);
+			entryByKey.put(key, entry);
+			EVICTION_ORDER.add(entry);
+			return true;
+		}
+
+		/**
+		 * @description Empties this cache and releases its values at once; other caches keep their entries.
+		 */
+		public void clear()
+		{
+			for(MemoryCacheEntry entry : entryByKey.values())
+			{
+				releaseValue(entry);
+			}
+			entryByKey.clear();
+		}
+
+		/**
+		 * @description Removes the entry's key only when this cache still holds that very entry, so an entry already
+		 * replaced or cleared never removes a value stored again later.
+		 *
+		 * @param entry The oldest entry eviction reached.
+		 */
+		private void evictIfStillCurrent(MemoryCacheEntry entry)
+		{
+			if(entryByKey.get(entry.key) === entry)
+			{
+				entryByKey.remove(entry.key);
+			}
+			releaseValue(entry);
+		}
+	}
+
+	/**
+	 * @description One value stored in a TransactionMemoryCache: the cache that holds it, its key, and the value,
+	 * which is released when the entry is evicted, replaced or cleared, so an outdated entry holds no heap.
+	 */
+	private class MemoryCacheEntry
+	{
+		/**
+		 * @description The cache that holds the value.
+		 */
+		private final TransactionMemoryCache owner;
+
+		/**
+		 * @description The key the value is stored under.
+		 */
+		private final String key;
+
+		/**
+		 * @description The stored value; null once released.
+		 */
+		private Object value;
+
+		/**
+		 * @description Creates one entry.
+		 *
+		 * @param owner The cache that holds the value
+		 * @param key The key the value is stored under
+		 * @param value The stored value
+		 */
+		private MemoryCacheEntry(TransactionMemoryCache owner, String key, Object value)
+		{
+			this.owner = owner;
+			this.key = key;
+			this.value = value;
+		}
+	}
+
+	/**
+	 * @description Drops the entry's hold on its value so the heap can be reclaimed.
+	 *
+	 * @param entry The entry, or null
+	 */
+	private static void releaseValue(MemoryCacheEntry entry)
+	{
+		if(entry != null)
+		{
+			entry.value = null;
+		}
+	}
+
+	/**
+	 * @description Evicts the oldest entry not yet evicted, whichever cache holds it.
+	 */
+	@TestVisible
+	private static void evictOldestEntry()
+	{
+		MemoryCacheEntry oldest = EVICTION_ORDER[nextEvictionIndex];
+		EVICTION_ORDER[nextEvictionIndex] = null;
+		nextEvictionIndex++;
+		oldest.owner.evictIfStillCurrent(oldest);
+	}
+
+	/**
+	 * @description Evicts the oldest entries across every TransactionMemoryCache while heap use is at or over the
+	 * guard. It reads heap once before the first eviction, then again only after an eviction that released a value.
+	 * An entry already cleared or replaced holds no value, so evicting it frees nothing and costs no heap reading;
+	 * each reading walks every live object, so skipping them keeps a store cheap after many clears. Once every entry
+	 * has been evicted, it empties EVICTION_ORDER so its slots do not pile up.
+	 *
+	 * @return True when the last heap reading was still at or over the guard, so nothing should be stored
+	 */
+	private static Boolean isHeapOverGuardAfterEvictingOldestEntries()
+	{
+		Boolean isOverGuard = isHeapOverEvictionGuard();
+		while(isOverGuard && nextEvictionIndex < EVICTION_ORDER.size())
+		{
+			Boolean isHoldingValue = EVICTION_ORDER[nextEvictionIndex].value != null;
+			evictOldestEntry();
+			if(isHoldingValue)
+			{
+				isOverGuard = isHeapOverEvictionGuard();
+			}
+		}
+		if(nextEvictionIndex > 0 && nextEvictionIndex == EVICTION_ORDER.size())
+		{
+			EVICTION_ORDER.clear();
+			nextEvictionIndex = 0;
+		}
+		return isOverGuard;
+	}
+
+	/**
+	 * @description Whether heap use is at or over the eviction guard, read against the org's live limit.
+	 *
+	 * @return True when at or over the guard
+	 */
+	private static Boolean isHeapOverEvictionGuard()
+	{
+		return UTIL_Limits.heapSize().isNearLimit(MEMORY_CACHE_EVICTION_HEAP_SHARE);
+	}
+
+	/**
 	 * @description Store implementation backed by a per-transaction in-memory Map. Statics reset
 	 * between Apex transactions (platform contract), which is what gives this scope its name.
 	 *
 	 * Multiple TransactionStore instances within the same transaction share the same STORAGE
 	 * map but each has its own lastOperationResult so independent callers do not see each
 	 * other's diagnostic state.
+	 *
+	 * For an owner-private, heap-guarded cache, use TransactionMemoryCache.
 	 */
 	@TestVisible
 	private class TransactionStore implements Store

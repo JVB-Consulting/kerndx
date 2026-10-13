@@ -15,7 +15,7 @@ module.exports = {
 		type: 'suggestion', docs: {
 			description: 'Enforce ComponentBuilder usage instead of LightningElement', recommended: true
 		}, messages: {
-			useCB: 'LWC components must extend ComponentBuilder(...) instead of LightningElement. Import {ComponentBuilder} from \'c/componentBuilder\'.'
+			useCB: 'LWC components must extend ComponentBuilder(...) instead of LightningElement. Import {ComponentBuilder} from \'kern/componentBuilder\' (the package namespace), or from \'c/componentBuilder\' when the framework is deployed from source.'
 		}, schema: []
 	},
 

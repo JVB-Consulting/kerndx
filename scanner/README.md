@@ -8,21 +8,29 @@ KernDX's PMD rulesets and ESLint plugin enforce framework conventions, universal
 | File                                | Scope                                   | What It Enforces                                                                                                                                                                                                                                                                                                                           |
 |-------------------------------------|-----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `kerndx-pmd-ruleset.xml`            | Repos that build on KernDX (full ruleset) | Every KernDX rule — use this when your org runs the framework. Includes the "use the framework API instead of the platform primitive" rules (`KernNoDirectDML`, `KernNoRawHttp`, `KernUseSchedulerBase`, `KernNoInlineDmlInTests`, etc.) which only make sense when the framework is present.                                              |
-| `kerndx-hygiene-ruleset.xml`        | Any Salesforce repo (no framework needed) | Framework-agnostic tier: `KernNoLegacyAssert`, `KernNoCoverageTheatre`, `KernCoverageExemptRequiresReason`, `KernNoBooleanExceptionThrown`, `KernSecurityBypassCallSite`, `KernInvocableClassNeedsNoArgConstructor`. Self-contained and generated verbatim from the full ruleset (`generate-hygiene-ruleset.js`); `kerndx init` scaffolds it when a repo does not use the framework. |
-| `kerndx-framework-ruleset.xml`      | Kern framework package itself           | Subset that excludes the "use the framework API" rules. The framework IMPLEMENTS those APIs on top of the platform primitives, so enforcing them on the package would be architecturally wrong. Keeps the universal rules: trigger delegation, REST resource naming, Flow-invocable constructors, and the test-quality set.                |
+| `kerndx-hygiene-ruleset.xml`        | Any Salesforce repo (no framework needed) | Framework-agnostic tier: `KernNoLegacyAssert`, `KernNoCoverageTheatre`, `KernCoverageExemptRequiresReason`, `KernNoBooleanExceptionThrown`, `KernSecurityBypassCallSite`, `KernInvocableClassNeedsNoArgConstructor`. Self-contained and generated verbatim from the full ruleset (`generate-ruleset-tiers.js`); `kerndx init` scaffolds it when a repo does not use the framework. |
+| `kerndx-framework-ruleset.xml`      | Kern framework package itself           | Subset that excludes the "use the framework API" rules. The framework IMPLEMENTS those APIs on top of the platform primitives, so enforcing them on the package would be architecturally wrong. Keeps the universal rules: trigger delegation, REST resource naming, Flow-invocable constructors, and the test-quality set. Self-contained and generated verbatim from the full ruleset (`generate-ruleset-tiers.js`), like the hygiene tier.                |
 | `subscriber-naming-pmd-ruleset.xml` | Subscriber (configurable)               | Apex class naming (`Domain_[Brand_]Layer_Name`), trigger naming (`TRG_ObjectName`), 40-char limit                                                                                                                                                                                                                                          |
 | `combined-pmd-ruleset.xml`          | Subscriber orgs (single-file reference) | Full subscriber ruleset + subscriber naming — use when your tool only accepts one file (IntelliJ/Illuminated Cloud)                                                                                                                                                                                                                        |
 | `eslint-plugin-kerndx/`             | Framework + subscriber naming           | `ComponentBuilder` usage, `console.log` blocking, LWC component naming (`domain[Brand]Feature`), Jest test-quality rules                                                                                                                                                                                                                   |
 | `validate-naming.js`                | Subscriber (standalone)                 | Flow and Custom Object naming (artefacts PMD/ESLint cannot parse)                                                                                                                                                                                                                                                                          |
 
-The framework ruleset references rule definitions in `kerndx-pmd-ruleset.xml` via `<rule ref="…">`,
-so rule text lives in exactly one place; the hygiene ruleset carries verbatim copies of its six
-rules instead (PMD resolves relative references against the working directory, so a reference-based
-file breaks when copied elsewhere) and a generator plus test keep those copies identical to the
-source. `code-analyzer.yml` in this repo points at `kerndx-framework-ruleset.xml` — that is what
-the framework's own CI runs against. Point your tooling at `kerndx-pmd-ruleset.xml` if your org
-runs the framework, `kerndx-hygiene-ruleset.xml` if it does not, or `combined-pmd-ruleset.xml` if
-you also need the naming rules in a single file.
+The hygiene and framework rulesets are generated files. `generate-ruleset-tiers.js` in this folder
+copies each of their rule definitions word for word out of `kerndx-pmd-ruleset.xml`, so the text
+of every rule is still written in exactly one place, and a test fails whenever a generated file
+differs from a fresh copy.
+
+They carry full definitions rather than `<rule ref="…">` pointers for a practical reason: PMD
+resolves a relative pointer against the folder it is running in, not against the file that holds
+the pointer. A pointer-based file breaks as soon as it is copied somewhere else, and Salesforce Code
+Analyzer 5.16 and later always run PMD from the analyzer's own install folder, so a pointer never
+resolves there.
+
+`code-analyzer.yml` in this repo lists both `kerndx-framework-ruleset.xml` (package-side scans of
+`force-app/`) and `kerndx-pmd-ruleset.xml` (scans of code that builds on the framework). Point
+your tooling at `kerndx-pmd-ruleset.xml` if your org runs the framework,
+`kerndx-hygiene-ruleset.xml` if it does not, or `combined-pmd-ruleset.xml` if you also need the
+naming rules in a single file.
 
 ## Rules
 
@@ -30,7 +38,7 @@ Priority tiers: **1** = blocker (must fix), **3** = should fix, **5** = informat
 
 | Rule                               | What It Blocks                                                                                                                                            | Use Instead                                                                                | Priority |
 |------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|----------|
-| `KernTriggerMustDelegate`          | Logic in trigger body                                                                                                                                     | `new TRG_Dispatcher().run()`                                                               | 1        |
+| `KernTriggerMustDelegate`          | Logic in trigger body, or no dispatcher call at all                                                                                                       | `new TRG_Dispatcher().run()`                                                               | 1        |
 | `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()` outside `SEL_*`/`QRY_*`                                                                                                | Selector or `QRY_Builder`                                                                  | 1        |
 | `KernNoCoverageTheatre`            | Zero-assertion tests, empty `catch(Exception e) {}`, `Boolean exceptionThrown = true`, `Assert.isNotNull(record)` immediately after `TST_Builder.build()` | Real assertions on observed behaviour (`Assert.areEqual`, `Assert.isInstanceOfType`, etc.) | 1        |
 | `KernCoverageExemptRequiresReason` | `// kern-coverage-exempt:` with empty, short, or blocklisted reason                                                                                       | Document a concrete, testable reason ≥15 chars                                             | 1        |
@@ -55,6 +63,7 @@ Priority tiers: **1** = blocker (must fix), **3** = should fix, **5** = informat
 | `KernNoRawEnqueueJob`              | `System.enqueueJob()`                                                                                                                                     | `UTIL_AsynchronousJobLauncher`                                                             | 5        |
 | `KernNoRawCrypto`                  | `Crypto.*`                                                                                                                                                | `UTIL_Crypto`                                                                              | 5        |
 | `KernNoRawFeatureManagement`       | `FeatureManagement.checkPermission()`                                                                                                                     | `UTIL_FeatureFlag.isEnabled()`                                                             | 5        |
+| `KernLimitsThroughWrapper`         | `Limits.*()`, `System.Limits.*()` outside `UTIL_Limits` and `UTIL_Limits_TEST`                                                                            | `UTIL_Limits`, for example `UTIL_Limits.soqlQueries().used()`                              | 5        |
 
 The four PMD test-quality rules above — `KernNoCoverageTheatre`, `KernCoverageExemptRequiresReason`,
 `KernNoInlineDmlInTests`, `KernNoBooleanExceptionThrown` — catch the canonical coverage-theatre anti-patterns

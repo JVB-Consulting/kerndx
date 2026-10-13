@@ -25,53 +25,189 @@
  *
  * @group Triggers
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class TRG_Dispatcher_TEST
 {
+	/**
+	 * @description A class name that does not exist. The tests configure it as a trigger action to prove the
+	 * dispatcher refuses an action whose class it cannot find.
+	 */
 	private static final String BOGUS_CLASS_NAME = 'Bogus';
+	/**
+	 * @description The Name given to DEFAULT_RECORD, the record most tests hand to the dispatcher.
+	 */
 	private static final String DEFAULT_RECORD_NAME = 'My Record';
+	/**
+	 * @description Failure message shown when a dispatcher run that must throw finishes without an exception.
+	 */
 	private static final String MSG_EXCEPTION_EXPECTED = 'Expected an exception to be thrown';
+	/**
+	 * @description Full name of the inner class TestAfterDelete, set as the action class when a test needs an
+	 * action that answers the after delete step.
+	 */
 	private static final String TEST_AFTER_DELETE = TRG_Dispatcher_TEST.class.getName() + '.TestAfterDelete';
+	/**
+	 * @description Full name of the inner class TestAfterInsert, set as the action class when a test needs an
+	 * action that answers the after insert step. It is also configured for the before insert step, which it does not
+	 * answer, to prove the dispatcher refuses an action set up for the wrong step.
+	 */
 	private static final String TEST_AFTER_INSERT = TRG_Dispatcher_TEST.class.getName() + '.TestAfterInsert';
+	/**
+	 * @description Full name of the inner class TestAfterUndelete, set as the action class when a test needs an
+	 * action that answers the after undelete step.
+	 */
 	private static final String TEST_AFTER_UNDELETE = TRG_Dispatcher_TEST.class.getName() + '.TestAfterUndelete';
+	/**
+	 * @description Full name of the inner class TestAfterUpdate, set as the action class when a test needs an
+	 * action that answers the after update step.
+	 */
 	private static final String TEST_AFTER_UPDATE = TRG_Dispatcher_TEST.class.getName() + '.TestAfterUpdate';
+	/**
+	 * @description Full name of the inner class TestBeforeDelete, set as the action class when a test needs an
+	 * action that answers the before delete step.
+	 */
 	private static final String TEST_BEFORE_DELETE = TRG_Dispatcher_TEST.class.getName() + '.TestBeforeDelete';
+	/**
+	 * @description Full name of the inner class TestBeforeInsert, set as the action class when a test needs an
+	 * action that answers the before insert step. Most tests in the class use this one. It is also configured for
+	 * the other steps, which it does not answer, to prove the dispatcher refuses an action set up for the wrong step.
+	 */
 	private static final String TEST_BEFORE_INSERT = TRG_Dispatcher_TEST.class.getName() + '.TestBeforeInsert';
+	/**
+	 * @description Full name of the inner class TestBeforeUpdate, set as the action class when a test needs an
+	 * action that answers the before update step.
+	 */
 	private static final String TEST_BEFORE_UPDATE = TRG_Dispatcher_TEST.class.getName() + '.TestBeforeUpdate';
+	/**
+	 * @description Full name of the inner class TestConfigurable, the action that also receives its own
+	 * configuration row. Tests set it as the action class to check which row the dispatcher hands over.
+	 */
 	private static final String TEST_CONFIGURABLE = TRG_Dispatcher_TEST.class.getName() + '.TestConfigurable';
+	/**
+	 * @description Full name of the inner class LoggingAfterInsert, the action that writes a log entry while it
+	 * runs. Tests set it as the action class to check what happens to a log written during an event dispatch.
+	 */
 	private static final String TEST_LOGGING_AFTER_INSERT = TRG_Dispatcher_TEST.class.getName() + '.LoggingAfterInsert';
+	/**
+	 * @description The fingerprint (a fixed label that identifies one log entry) that LoggingAfterInsert puts on
+	 * its log. isLoggingActionEntryPersisted looks for it to tell whether that entry was saved.
+	 */
 	private static final String LOGGING_ACTION_FINGERPRINT = 'trg-dispatcher-test-logging-action';
+	/**
+	 * @description Full name of the inner class TestMixedApexBeforeInsert, the Apex half of the tests that run an
+	 * Apex action and a flow action for the same trigger step.
+	 */
 	private static final String MIXED_APEX_ACTION = TRG_Dispatcher_TEST.class.getName() + '.TestMixedApexBeforeInsert';
+	/**
+	 * @description Name of TRG_InvokeFlow, the framework action that runs a flow. It is the flow half of the tests
+	 * that run an Apex action and a flow action for the same trigger step.
+	 */
 	private static final String MIXED_FLOW_ACTION = TRG_InvokeFlow.class.getName();
+	/**
+	 * @description The flow name written on the flow action's configuration row and registered with
+	 * TST_InvokeFlowMock, so the tests can script the flow's result and count its runs without a real flow.
+	 */
 	private static final String MIXED_FLOW_NAME = 'TRG_Dispatcher_TEST_MixedStackFlow';
+	/**
+	 * @description The value TestMixedApexBeforeInsert writes into each record's Name. Finding it after the run
+	 * proves the Apex action's change to the record was kept.
+	 */
 	private static final String MIXED_APEX_NAME_VALUE = 'mixed-apex-mutated';
+	/**
+	 * @description The value the mocked flow returns for the record's TextArea__c field. Finding it on the record
+	 * after the run proves the flow's output was written back.
+	 */
 	private static final String MIXED_FLOW_TEXTAREA_VALUE = 'mixed-flow-mutated';
+	/**
+	 * @description Full name of the inner class TestThrowingBeforeInsert, the action that always throws. Tests set
+	 * it as the action class to check what the dispatcher does when an action fails.
+	 */
 	private static final String THROWING_ACTION = TRG_Dispatcher_TEST.class.getName() + '.TestThrowingBeforeInsert';
+	/**
+	 * @description The message on the exception TestThrowingBeforeInsert throws. Tests compare it with the message
+	 * they catch, to prove the original exception reaches them unchanged.
+	 */
 	private static final String THROWING_ACTION_MESSAGE = 'Test action threw on purpose';
+	/**
+	 * @description The failure action value that tells the dispatcher to log an action's failure and let the
+	 * save carry on.
+	 */
 	private static final String FAILURE_LOG_AND_CONTINUE = 'LogAndContinue';
+	/**
+	 * @description The failure action value that tells the dispatcher to log an action's failure and then throw
+	 * the original exception again, so the save is stopped.
+	 */
 	private static final String FAILURE_BLOCK_DML = 'BlockDml';
 
+	/**
+	 * @description The one Foobar__c record most tests give the dispatcher as the trigger's new or old records.
+	 * It is built in memory with a random Id and is never saved, so the tests run without touching the database.
+	 */
 	private static final Foobar__c DEFAULT_RECORD = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
 			.withOverride(Foobar__c.Name, DEFAULT_RECORD_NAME)
 			.withOverride(Foobar__c.Id, UTIL_Random.randomId(Foobar__c.SObjectType))
 			.withoutInsertion()
 			.build();
 
+	/**
+	 * @description The dispatcher under test. Each test sets its records, its trigger step and its list of
+	 * actions directly and then calls run, which stands in for a real trigger firing.
+	 */
 	private static final TRG_Dispatcher FACTORY_TRIGGER_ACTION = new TRG_Dispatcher();
 
+	/**
+	 * @description An in-memory trigger setting row for the Foobar object. Every action row the tests build is
+	 * attached to it, so the tests do not depend on the trigger settings that exist in the org.
+	 */
 	private static final TriggerSetting__mdt TRIGGER_SETTING = TST_Factory.newTriggerSetting(SEL_Foobar.OBJECT_NAME);
 
+	/**
+	 * @description Set to true by TestAfterDelete when the dispatcher calls it; a test reads it to prove the after
+	 * delete action ran.
+	 */
 	private static Boolean wasAfterDeleteCalled = false;
+	/**
+	 * @description Set to true by TestAfterInsert when the dispatcher calls it; a test reads it to prove the after
+	 * insert action ran.
+	 */
 	private static Boolean wasAfterInsertCalled = false;
+	/**
+	 * @description Set to true by TestAfterUndelete when the dispatcher calls it; a test reads it to prove the
+	 * after undelete action ran.
+	 */
 	private static Boolean wasAfterUndeleteCalled = false;
+	/**
+	 * @description Set to true by TestAfterUpdate when the dispatcher calls it; a test reads it to prove the after
+	 * update action ran.
+	 */
 	private static Boolean wasAfterUpdateCalled = false;
+	/**
+	 * @description Set to true by TestBeforeDelete when the dispatcher calls it; a test reads it to prove the
+	 * before delete action ran.
+	 */
 	private static Boolean wasBeforeDeleteCalled = false;
+	/**
+	 * @description Set to true by TestBeforeInsert when the dispatcher calls it. Tests read it to prove the before
+	 * insert action ran, or that it did not run when it was bypassed or filtered out.
+	 */
 	private static Boolean wasBeforeInsertCalled = false;
+	/**
+	 * @description Set to true by TestBeforeUpdate when the dispatcher calls it; a test reads it to prove the
+	 * before update action ran.
+	 */
 	private static Boolean wasBeforeUpdateCalled = false;
+	/**
+	 * @description Set to true by TestThrowingBeforeInsert just before it throws. Tests read it to prove the
+	 * failing action was really called, so the failure they check came from the action.
+	 */
 	private static Boolean wasThrowingActionCalled = false;
+	/**
+	 * @description Set to true by LoggingAfterInsert just before it writes its log. Tests read it to prove the
+	 * action ran, and so a log entry was produced for the dispatcher to handle.
+	 */
 	private static Boolean wasLoggingActionCalled = false;
 
 	/**
@@ -99,7 +235,7 @@ private class TRG_Dispatcher_TEST
 	private static Boolean configurableShouldReenter = false;
 
 	/**
-	 * @description Tally for mixed-action-stack tests — flipped to true by `TestMixedApexBeforeInsert`
+	 * @description Tally for mixed-action-stack tests, flipped to true by `TestMixedApexBeforeInsert`
 	 * so tests can assert the Apex side of a mixed Apex+Flow stack actually executed.
 	 */
 	private static Boolean wasMixedApexBeforeInsertCalled = false;
@@ -119,7 +255,7 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Count of `TestPostAction.execute` invocations in the current transaction.
 	 * Reset by `registerSinglePostAction`. The outermost-unwind hook must drive this to exactly
-	 * one per top-level dispatch that completes normally — and to zero when the dispatch aborts.
+	 * one per top-level dispatch that completes normally, and to zero when the dispatch aborts.
 	 */
 	private static Integer postActionInvocationCount = 0;
 	/**
@@ -604,7 +740,7 @@ private class TRG_Dispatcher_TEST
 	private static void shouldLogWhenForcePerformanceLoggingEnabled()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500);
+		TST_Factory.setupLoggerForTest();
 
 		FACTORY_TRIGGER_ACTION.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
 
@@ -640,7 +776,7 @@ private class TRG_Dispatcher_TEST
 	private static void shouldNotLogWhenSuppressPerformanceLoggingEnabled()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, true, 0);
+		TST_Factory.newLoggerSettings().withTriggerLogging(0).apply();
 
 		FACTORY_TRIGGER_ACTION.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
 
@@ -676,7 +812,7 @@ private class TRG_Dispatcher_TEST
 	private static void shouldLogWhenCustomThresholdExceeded()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, true, 999999);
+		TST_Factory.newLoggerSettings().withTriggerLogging(999999).apply();
 
 		FACTORY_TRIGGER_ACTION.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
 
@@ -712,7 +848,7 @@ private class TRG_Dispatcher_TEST
 	private static void shouldIncludeRecordCountInPerformanceLog()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, true, 0);
+		TST_Factory.newLoggerSettings().withTriggerLogging(0).apply();
 
 		FACTORY_TRIGGER_ACTION.triggerNew = TST_Builder.of(Foobar__c.SObjectType).withCount(5).withoutInsertion(true).buildList();
 
@@ -873,11 +1009,34 @@ private class TRG_Dispatcher_TEST
 	}
 
 	/**
+	 * @description Whether the logging action's fingerprinted entry reached LogEntry__c, read through the selector so
+	 * the check sees exactly what direct DML persisted.
+	 *
+	 * @return True when at least one persisted row carries the action's fingerprint detail key.
+	 */
+	private static Boolean isLoggingActionEntryPersisted()
+	{
+		String detailKey = TRG_PersistLogEntry.PREFIX_DETAIL + LOGGING_ACTION_FINGERPRINT;
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if(detailKey.equals(row.Fingerprint__c))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * @description Mock implementation for before insert trigger action
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
 	public class TestBeforeInsert implements IF_Trigger.BeforeInsert
 	{
+		/**
+		 * @description Sets wasBeforeInsertCalled so the test can prove the dispatcher reached the before-insert callback.
+		 *
+		 * @param triggerNew The records about to be inserted; unused.
+		 */
 		public void beforeInsert(List<SObject> triggerNew)
 		{
 			TRG_Dispatcher_TEST.wasBeforeInsertCalled = true;
@@ -887,9 +1046,14 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Mock implementation for after insert trigger action
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
+	@SuppressWarnings('ApexUnusedDeclaration')
 	public class TestAfterInsert implements IF_Trigger.AfterInsert
 	{
+		/**
+		 * @description Sets wasAfterInsertCalled so the test can prove the dispatcher reached the after-insert callback.
+		 *
+		 * @param triggerNew The inserted records; unused.
+		 */
 		public void afterInsert(List<SObject> triggerNew)
 		{
 			TRG_Dispatcher_TEST.wasAfterInsertCalled = true;
@@ -897,17 +1061,22 @@ private class TRG_Dispatcher_TEST
 	}
 
 	/**
-	 * @description Mock after-insert action that emits a fingerprinted DEBUG log — the real
-	 * skip-log shape that floods under change-event redelivery — simulating an action that logs
+	 * @description Mock after-insert action that emits a fingerprinted DEBUG log (the real
+	 * skip-log shape that floods under change-event redelivery), simulating an action that logs
 	 * while the dispatcher is processing a change-event / platform-event. DEBUG exercises the
 	 * buffered branch end-to-end (begin suspends saving, the emit buffers, the dispatch-boundary
 	 * flush persists via DML). Used by `changeEventDispatchPersistsActionLogsViaDmlWithoutPublishing`
 	 * to prove the dispatcher enters event-trigger context so the log persists via DML rather than
 	 * republishing and looping.
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
 	public class LoggingAfterInsert implements IF_Trigger.AfterInsert
 	{
+		/**
+		 * @description Sets wasLoggingActionCalled, then emits a fingerprinted DEBUG log so the test can observe how the dispatcher
+		 * persists an action's log during change-event dispatch.
+		 *
+		 * @param triggerNew The inserted records; unused.
+		 */
 		public void afterInsert(List<SObject> triggerNew)
 		{
 			TRG_Dispatcher_TEST.wasLoggingActionCalled = true;
@@ -922,9 +1091,15 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Mock implementation for before update trigger action
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
+	@SuppressWarnings('ApexUnusedDeclaration')
 	public class TestBeforeUpdate implements IF_Trigger.BeforeUpdate
 	{
+		/**
+		 * @description Sets wasBeforeUpdateCalled so the test can prove the dispatcher reached the before-update callback.
+		 *
+		 * @param triggerNew The records about to be updated; unused.
+		 * @param triggerOld Their prior versions; unused.
+		 */
 		public void beforeUpdate(List<SObject> triggerNew, List<SObject> triggerOld)
 		{
 			TRG_Dispatcher_TEST.wasBeforeUpdateCalled = true;
@@ -934,9 +1109,15 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Mock implementation for after update trigger action
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
+	@SuppressWarnings('ApexUnusedDeclaration')
 	public class TestAfterUpdate implements IF_Trigger.AfterUpdate
 	{
+		/**
+		 * @description Sets wasAfterUpdateCalled so the test can prove the dispatcher reached the after-update callback.
+		 *
+		 * @param triggerNew The updated records; unused.
+		 * @param triggerOld Their prior versions; unused.
+		 */
 		public void afterUpdate(List<SObject> triggerNew, List<SObject> triggerOld)
 		{
 			TRG_Dispatcher_TEST.wasAfterUpdateCalled = true;
@@ -947,16 +1128,14 @@ private class TRG_Dispatcher_TEST
 	 * @description Tests that `applyMaskingIfConfigured` invokes a `UTIL_MaskerPerformanceTimer`
 	 * when all three gates pass: BEFORE_INSERT context, masking framework enabled, and the
 	 * object's TriggerSetting permits masking. Asserts that the timer's per-transaction counter
-	 * increments when logging is configured to emit — proving the timer is actually driven by
+	 * increments when logging is configured to emit, proving the timer is actually driven by
 	 * the dispatcher, not just instantiated.
 	 */
 	@IsTest
 	private static void shouldDriveMaskerPerformanceTimerWhenMaskingConfigured()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500);
-		LOG_Engine.logSettingOverride.EnableMaskerPerformanceLogging__c = true;
-		LOG_Engine.logSettingOverride.MaskerPerformanceThresholdMs__c = 0;
+		TST_Factory.newLoggerSettings().withMaskerLogging(0).apply();
 
 		SEL_TriggerAction.applyMaskingByObjectNameMap = new Map<String, Boolean> {SEL_Foobar.OBJECT_NAME => true};
 		UTIL_MaskerPerformanceTimer.logCountThisTransaction = 0;
@@ -976,16 +1155,14 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Tests that `applyMaskingIfConfigured` short-circuits before constructing a
 	 * `UTIL_MaskerPerformanceTimer` when the masking framework kill-switch feature flag is
-	 * off. Asserts the timer's per-transaction counter stays at zero — proving the dispatcher
+	 * off. Asserts the timer's per-transaction counter stays at zero, proving the dispatcher
 	 * skips masking (and its timer) when subscribers have disabled the framework.
 	 */
 	@IsTest
 	private static void shouldSkipMaskerTimerWhenMaskingFrameworkDisabled()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500);
-		LOG_Engine.logSettingOverride.EnableMaskerPerformanceLogging__c = true;
-		LOG_Engine.logSettingOverride.MaskerPerformanceThresholdMs__c = 0;
+		TST_Factory.newLoggerSettings().withMaskerLogging(0).apply();
 
 		SEL_FeatureFlag.activeFlags.remove(UTIL_FrameworkMasker.FLAG_MASKING_FRAMEWORK_ENABLED);
 		SEL_TriggerAction.applyMaskingByObjectNameMap = new Map<String, Boolean> {SEL_Foobar.OBJECT_NAME => true};
@@ -1006,7 +1183,7 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Loop-fix integration guard: when the dispatcher runs on a change-event (here
 	 * `AccountChangeEvent`), a log emitted by one of its actions must be persisted to `LogEntry__c`
-	 * via direct DML — NOT published as a `LogEntryEvent__e`. Publishing a platform event from inside
+	 * via direct DML, NOT published as a `LogEntryEvent__e`. Publishing a platform event from inside
 	 * a change-event/platform-event trigger makes the platform redeliver the source event, re-running
 	 * the dispatcher unbounded. `getPublishImmediateDML` staying flat across `run()` proves no publish
 	 * occurred; the persisted flood-control detail row proves the action's log was not lost. This
@@ -1033,25 +1210,16 @@ private class TRG_Dispatcher_TEST
 		};
 
 		Test.startTest();
-		Integer publishBefore = Limits.getPublishImmediateDML();
+		Integer publishBefore = UTIL_Limits.publishImmediateDml().used();
 		FACTORY_TRIGGER_ACTION.run();
-		Integer publishAfter = Limits.getPublishImmediateDML();
+		Integer publishAfter = UTIL_Limits.publishImmediateDml().used();
 		Test.stopTest();
 
 		Assert.isTrue(wasLoggingActionCalled, 'The logging action should have executed during the change-event dispatch');
 		Assert.areEqual(publishBefore, publishAfter,
 				'A log emitted during a change-event dispatch must persist via DML, never publish (no redelivery loop)');
 
-		String detailKey = TRG_PersistLogEntry.PREFIX_DETAIL + LOGGING_ACTION_FINGERPRINT;
-		Boolean detailFound = false;
-		for(LogEntry__c row : new SEL_LogEntry().getAll())
-		{
-			if(detailKey.equals(row.Fingerprint__c))
-			{
-				detailFound = true;
-			}
-		}
-		Assert.isTrue(detailFound, 'The action log must persist via direct DML during change-event dispatch');
+		Assert.isTrue(isLoggingActionEntryPersisted(), 'The action log must persist via direct DML during change-event dispatch');
 	}
 
 	/**
@@ -1060,7 +1228,7 @@ private class TRG_Dispatcher_TEST
 	 * `TriggerAction__mdt` row injected via `actionMetadataOverride`. Guards the
 	 * Configurable hook contract: ordering (`setConfig` before `beforeInsert`), one-shot
 	 * semantics (one `setConfig` per CMDT row), and identity (the same record reference
-	 * reaches the action — not a copy or transformation).
+	 * reaches the action, not a copy or transformation).
 	 *
 	 * @see IF_Trigger.Configurable
 	 * @see TRG_Dispatcher
@@ -1216,7 +1384,7 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Verifies that non-`Configurable` actions traverse the
 	 * `inRecursion(actionType, null)` code path. Closes the `(null, null)` branch in
-	 * `fingerprintsMatch` by exercising the legacy frame shape — non-Configurable
+	 * `fingerprintsMatch` by exercising the legacy frame shape: non-Configurable
 	 * actions push frames with a null fingerprint, and recurring frames must still match
 	 * by `actionType` alone.
 	 *
@@ -1266,8 +1434,8 @@ private class TRG_Dispatcher_TEST
 	}
 
 	/**
-	 * @description Verifies a mixed Apex+Flow action stack — Apex action ordered first, Flow
-	 * action ordered second — runs both, with the flow's output write-back applied to the
+	 * @description Verifies a mixed Apex+Flow action stack (Apex action ordered first, Flow
+	 * action ordered second) runs both, with the flow's output write-back applied to the
 	 * trigger record alongside the Apex action's mutation. The dispatch order is determined
 	 * by the `List<TriggerAction__mdt>` order in `actionMetadataOverride`.
 	 *
@@ -1357,7 +1525,7 @@ private class TRG_Dispatcher_TEST
 
 	/**
 	 * @description Verifies a `BlockDml` flow failure raises `record.addError` and that the
-	 * dispatcher continues to subsequent actions in the same trigger context — the dispatch
+	 * dispatcher continues to subsequent actions in the same trigger context: the dispatch
 	 * loop does not short-circuit on `addError`. The eventual DML aborts because of the
 	 * marker, but in-memory dispatch completes both actions.
 	 *
@@ -1440,7 +1608,7 @@ private class TRG_Dispatcher_TEST
 	 * when a self-initiated DML stacks a second dispatch frame. A `Configurable` action with
 	 * `AllowRecursion__c = true` re-enters the dispatcher from `beforeInsert`; the inner dispatch
 	 * unwinds while the outer action frame is still on `ACTION_STACK`, so the inner unwind is NOT
-	 * the outermost and must not fire. Only the outer unwind — when `ACTION_STACK` is empty —
+	 * the outermost and must not fire. Only the outer unwind, when `ACTION_STACK` is empty,
 	 * fires. Guards the "use the stack, not a depth counter" outermost-detection contract.
 	 *
 	 * @see TRG_Dispatcher
@@ -1478,10 +1646,10 @@ private class TRG_Dispatcher_TEST
 	 * @description Verifies clean-completion-only firing and exception-safe state cleanup. A
 	 * trigger action rethrows out of `run()`; the aborted dispatch must NOT fire post-actions.
 	 * A subsequent clean dispatch on a different object then fires once and delivers ONLY its own
-	 * object type — proving the aborted dispatch cleared `touchedSObjectTypes` (no stale-state
+	 * object type, proving the aborted dispatch cleared `touchedSObjectTypes` (no stale-state
 	 * leak across top-level DML when an Apex caller catches the failure and continues).
 	 *
-	 * The abort is driven through the fatal-governor simulation seam so the rethrow happens before
+	 * The abort is driven through the test override that simulates a fatal governor error, so the rethrow happens before
 	 * any failure-action logging: a logging failure path persists a log entry, which itself fires a
 	 * trigger dispatch that would drive the globally-registered post-action mock and confound the
 	 * count. The governor path keeps this test scoped to exactly the dispatch under test.
@@ -1537,7 +1705,7 @@ private class TRG_Dispatcher_TEST
 
 		Assert.areEqual(1, postActionInvocationCount, 'The subsequent clean dispatch must fire post-actions exactly once');
 		Assert.areEqual(new Set<SObjectType> {Account.SObjectType}, capturedTouchedTypes,
-				'The aborted dispatch must have cleared touched types — the clean dispatch delivers only its own object, not the prior Foobar');
+				'The aborted dispatch must have cleared touched types; the clean dispatch delivers only its own object, not the prior Foobar');
 	}
 
 	/**
@@ -1623,7 +1791,7 @@ private class TRG_Dispatcher_TEST
 		Test.stopTest();
 
 		Assert.areEqual(1, postActionInvocationCount,
-				'An unresolvable object name must not break dispatch — the post-action still fires');
+				'An unresolvable object name must not break dispatch; the post-action still fires');
 		Assert.isTrue(capturedTouchedTypes.isEmpty(),
 				'An unresolvable object name must be dropped fail-soft, leaving the delivered touched-type set empty');
 	}
@@ -1631,8 +1799,8 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Verifies the post-trigger-action hook is suppressed when the dispatch is the
 	 * framework's own `LogEntryEvent__e` delivery. Persisting a log entry is itself a dispatch, so
-	 * firing the hook on each delivered log event would re-enter the dispatcher and — should the
-	 * hook path emit any further log event — self-feed a logging cascade (one log write fanning out
+	 * firing the hook on each delivered log event would re-enter the dispatcher and, should the
+	 * hook path emit any further log event, self-feed a logging cascade (one log write fanning out
 	 * into ~120). The companion `shouldDeliverTouchedSObjectTypesToPostActionContext` proves the
 	 * hook DOES fire for a normal object, so this isolates the `LogEntryEvent__e` suppression.
 	 *
@@ -1662,15 +1830,15 @@ private class TRG_Dispatcher_TEST
 	}
 
 	/**
-	 * @description Teardown-protection guard: an exception escaping the post-trigger-action hook —
-	 * here the no-DML contract guard's `PostActionDmlException` — must NOT skip
+	 * @description Teardown-protection guard: an exception escaping the post-trigger-action hook
+	 * (here the no-DML contract guard's `PostActionDmlException`) must NOT skip
 	 * `LOG_Engine.endEventTriggerContext()` in `run()`'s `finally`. Without the protection the
 	 * event-trigger context and suspended saving stay set for the rest of the transaction and the
 	 * buffered in-context logs never flush; on a platform-event subscriber trigger the escaping
 	 * exception also fails delivery, which the platform retries and can ultimately suspend.
 	 *
 	 * All post-conditions are observed through public logging behaviour: the hook's exception still
-	 * surfaces out of `run()` (never swallowed — platform-event retry semantics depend on it), the
+	 * surfaces out of `run()` (never swallowed: platform-event retry semantics depend on it), the
 	 * buffer drains into a persisted `LogEntry__c` row, and once the context is torn down a
 	 * follow-up ERROR emit no longer persists via direct DML while a follow-up DEBUG emit is no
 	 * longer buffered.
@@ -1711,7 +1879,7 @@ private class TRG_Dispatcher_TEST
 		try
 		{
 			FACTORY_TRIGGER_ACTION.run();
-			Assert.fail('The post-action DML-guard exception must surface out of run() — the teardown protection must never swallow it');
+			Assert.fail('The post-action DML-guard exception must surface out of run(); the teardown protection must never swallow it');
 		}
 		catch(UTIL_Exceptions.PostActionDmlException expected)
 		{
@@ -1720,33 +1888,24 @@ private class TRG_Dispatcher_TEST
 		Test.stopTest();
 
 		Assert.areEqual(0, LOG_Engine.getBufferSize(),
-				'Buffered in-context logs must flush when the post-action hook throws — the protected teardown owns the flush');
+				'Buffered in-context logs must flush when the post-action hook throws; the protected teardown owns the flush');
 
-		String detailKey = TRG_PersistLogEntry.PREFIX_DETAIL + LOGGING_ACTION_FINGERPRINT;
-		Boolean detailFound = false;
-		for(LogEntry__c row : new SEL_LogEntry().getAll())
-		{
-			if(detailKey.equals(row.Fingerprint__c))
-			{
-				detailFound = true;
-			}
-		}
-		Assert.isTrue(detailFound, 'The buffered action log must persist via direct DML when the throwing hook unwinds — flushed, not dropped');
+		Assert.isTrue(isLoggingActionEntryPersisted(), 'The buffered action log must persist via direct DML when the throwing hook unwinds: flushed, not dropped');
 
 		LOG_Builder.ignoreTestMode = false;
 		Integer rowCountBeforeErrorEmit = new SEL_LogEntry().getAll().size();
 		LOG_Builder.build().error('post-run emit probing event-trigger context teardown').emit();
 		Assert.areEqual(rowCountBeforeErrorEmit, new SEL_LogEntry().getAll().size(),
-				'Event-trigger context must be torn down after run() — an ERROR emitted afterwards must not persist via direct DML');
+				'Event-trigger context must be torn down after run(); an ERROR emitted afterwards must not persist via direct DML');
 
 		LOG_Builder.build().debug('post-run emit probing suspended-saving restore').emit();
 		Assert.areEqual(0, LOG_Engine.getBufferSize(),
-				'Suspended saving must be restored after run() — an emit after the dispatch must not be buffered');
+				'Suspended saving must be restored after run(); an emit after the dispatch must not be buffered');
 	}
 
 	/**
 	 * @description Registers a single post-trigger action row (pointing at `TestPostAction`) via
-	 * the selector override seam and resets the invocation tally + captured-types capture. Lets the
+	 * the selector's test override and resets the invocation tally + captured-types capture. Lets the
 	 * outermost-unwind tests assert firing behaviour without deploying real `PostTriggerAction__mdt`.
 	 */
 	private static void registerSinglePostAction()
@@ -1768,9 +1927,14 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Mock implementation for before delete trigger action
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
+	@SuppressWarnings('ApexUnusedDeclaration')
 	public class TestBeforeDelete implements IF_Trigger.BeforeDelete
 	{
+		/**
+		 * @description Sets wasBeforeDeleteCalled so the test can prove the dispatcher reached the before-delete callback.
+		 *
+		 * @param triggerOld The records about to be deleted; unused.
+		 */
 		public void beforeDelete(List<SObject> triggerOld)
 		{
 			TRG_Dispatcher_TEST.wasBeforeDeleteCalled = true;
@@ -1780,9 +1944,14 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Mock implementation for after delete trigger action
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
+	@SuppressWarnings('ApexUnusedDeclaration')
 	public class TestAfterDelete implements IF_Trigger.AfterDelete
 	{
+		/**
+		 * @description Sets wasAfterDeleteCalled so the test can prove the dispatcher reached the after-delete callback.
+		 *
+		 * @param triggerOld The deleted records; unused.
+		 */
 		public void afterDelete(List<SObject> triggerOld)
 		{
 			TRG_Dispatcher_TEST.wasAfterDeleteCalled = true;
@@ -1792,9 +1961,14 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Mock implementation for after undelete trigger action
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
+	@SuppressWarnings('ApexUnusedDeclaration')
 	public class TestAfterUndelete implements IF_Trigger.AfterUndelete
 	{
+		/**
+		 * @description Sets wasAfterUndeleteCalled so the test can prove the dispatcher reached the after-undelete callback.
+		 *
+		 * @param triggerNew The restored records; unused.
+		 */
 		public void afterUndelete(List<SObject> triggerNew)
 		{
 			TRG_Dispatcher_TEST.wasAfterUndeleteCalled = true;
@@ -1806,9 +1980,14 @@ private class TRG_Dispatcher_TEST
 	 * literal so tests can prove (a) the Apex side of a mixed dispatch ran, and (b) Apex
 	 * mutations and flow output write-back co-exist on the same trigger record after dispatch.
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
 	public class TestMixedApexBeforeInsert implements IF_Trigger.BeforeInsert
 	{
+		/**
+		 * @description Sets wasMixedApexBeforeInsertCalled and writes MIXED_APEX_NAME_VALUE into every record's Name, leaving a
+		 * visible Apex mutation beside the flow's write-back.
+		 *
+		 * @param triggerNew The records about to be inserted.
+		 */
 		public void beforeInsert(List<SObject> triggerNew)
 		{
 			TRG_Dispatcher_TEST.wasMixedApexBeforeInsertCalled = true;
@@ -1822,7 +2001,7 @@ private class TRG_Dispatcher_TEST
 	/**
 	 * @description Verifies the dispatcher resolves a flow action to the framework's built-in
 	 * flow runner when a TriggerAction row leaves Apex Class Name blank and populates Flow Name.
-	 * Subscribers configuring flow actions never see the implementation class name — the
+	 * Subscribers configuring flow actions never see the implementation class name; the
 	 * dispatcher routes through it transparently.
 	 */
 	@IsTest
@@ -1934,8 +2113,8 @@ private class TRG_Dispatcher_TEST
 
 	/**
 	 * @description Verifies governor-class exceptions always rethrow regardless of
-	 * `FailureAction__c` — exhaustion is never swallowed. Drives the rethrow branch
-	 * through the `simulateFatalGovernorErrorForTest` seam so the test does not
+	 * `FailureAction__c`: exhaustion is never swallowed. Drives the rethrow branch
+	 * through the `simulateFatalGovernorErrorForTest` test override so the test does not
 	 * depend on consuming a real governor limit.
 	 */
 	@IsTest
@@ -2058,13 +2237,20 @@ private class TRG_Dispatcher_TEST
 
 	/**
 	 * @description Mock implementation that always throws an `IllegalArgumentException` with a
-	 * known message. Drives the dispatcher's `handleActionFailure` policy branches —
+	 * known message. Drives the dispatcher's `handleActionFailure` policy branches:
 	 * tests assert the captured exception class and message match the expected propagation
 	 * shape (Block DML rethrows; Log and Continue swallows; governor blow always rethrows).
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
+	@SuppressWarnings('ApexUnusedDeclaration')
 	public class TestThrowingBeforeInsert implements IF_Trigger.BeforeInsert
 	{
+		/**
+		 * @description Sets wasThrowingActionCalled, then throws an IllegalArgumentException carrying THROWING_ACTION_MESSAGE.
+		 *
+		 * @param triggerNew The records about to be inserted; unused.
+		 *
+		 * @throws IllegalArgumentException On every call.
+		 */
 		public void beforeInsert(List<SObject> triggerNew)
 		{
 			TRG_Dispatcher_TEST.wasThrowingActionCalled = true;
@@ -2079,11 +2265,20 @@ private class TRG_Dispatcher_TEST
 	 * behaviour, and optionally re-enters the dispatcher from `beforeInsert` to drive
 	 * the recursion-shield path.
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
 	public class TestConfigurable implements IF_Trigger.Configurable, IF_Trigger.BeforeInsert
 	{
+		/**
+		 * @description The configuration row the dispatcher passed to setConfig. beforeInsert reads its
+		 * DeveloperName so each call is counted under the row it ran for.
+		 */
 		private TriggerAction__mdt receivedConfig;
 
+		/**
+		 * @description Stores the configuration row, publishes it through configurableLastConfig and tallies the call under its
+		 * DeveloperName in CONFIGURABLE_SET_CONFIG_CALLS.
+		 *
+		 * @param config The TriggerAction__mdt row the dispatcher resolved for this action.
+		 */
 		public void setConfig(TriggerAction__mdt config)
 		{
 			this.receivedConfig = config;
@@ -2092,6 +2287,13 @@ private class TRG_Dispatcher_TEST
 			TRG_Dispatcher_TEST.CONFIGURABLE_SET_CONFIG_CALLS.put(config.DeveloperName, existingCalls + 1);
 		}
 
+		/**
+		 * @description Tallies the call under the stored configuration's DeveloperName in CONFIGURABLE_BEFORE_INSERT_CALLS, then
+		 * re-enters the dispatcher once when configurableShouldReenter is set, so the recursion shield has a nested
+		 * dispatch to refuse.
+		 *
+		 * @param triggerNew The records about to be inserted; unused.
+		 */
 		public void beforeInsert(List<SObject> triggerNew)
 		{
 			String developerName = (this.receivedConfig != null) ? this.receivedConfig.DeveloperName : null;
@@ -2111,9 +2313,15 @@ private class TRG_Dispatcher_TEST
 	 * so the dispatcher's outermost-unwind hook drives it. Records each invocation and captures the
 	 * delivered `touchedSObjectTypes` so tests can assert firing count and accumulated object types.
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
+	@SuppressWarnings('ApexUnusedDeclaration')
 	public class TestPostAction implements IF_Trigger.PostAction
 	{
+		/**
+		 * @description Counts the invocation in postActionInvocationCount and captures the delivered touched SObject types in
+		 * capturedTouchedTypes.
+		 *
+		 * @param context The post-action context carrying the touched SObject types.
+		 */
 		public void execute(IF_Trigger.PostActionContext context)
 		{
 			TRG_Dispatcher_TEST.postActionInvocationCount++;
@@ -2126,11 +2334,16 @@ private class TRG_Dispatcher_TEST
 	 * execution only, tripping the hook's no-DML contract guard exactly once. The teardown-protection
 	 * test needs the hook to throw at the outermost unwind of the change-event dispatch, yet run
 	 * clean during the nested `LogEntry__c` dispatch fired by the protected teardown's buffered-log
-	 * persist — a second guard trip there would roll back the persisted rows the test asserts on.
+	 * persist: a second guard trip there would roll back the persisted rows the test asserts on.
 	 */
-	@SuppressWarnings('PMD.ApexDoc, ApexUnusedDeclaration')
 	public class TestDmlOncePostAction implements IF_Trigger.PostAction
 	{
+		/**
+		 * @description Issues one insert through the framework DML layer on the first invocation and returns without acting on every
+		 * later one, so the no-DML guard trips exactly once.
+		 *
+		 * @param context The post-action context; unused.
+		 */
 		public void execute(IF_Trigger.PostActionContext context)
 		{
 			if(TRG_Dispatcher_TEST.dmlOncePostActionHasExecuted)
@@ -2139,19 +2352,13 @@ private class TRG_Dispatcher_TEST
 			}
 			TRG_Dispatcher_TEST.dmlOncePostActionHasExecuted = true;
 			// Issue a DML statement through the framework DML layer for the no-DML guard to detect.
-			// allowPartial() makes the insert all-or-none = false, so a row-level failure — a subscriber
-			// validation rule, FLS, org storage — returns a failed result instead of throwing out of
+			// allowPartial() makes the insert all-or-none = false, so a row-level failure (a subscriber
+			// validation rule, FLS, org storage) returns a failed result instead of throwing out of
 			// execute() before the guard's Limits.getDmlStatements() check runs. The statement still
-			// counts, so the guard surfaces PostActionDmlException as designed. A managed-package test
-			// cannot assume a subscriber org will accept a standard-object insert.
+			// counts, so the guard surfaces PostActionDmlException as designed. The record is the package's
+			// own Foobar__c, because a subscriber org's rules can refuse a standard object such as Account.
 			DML_Builder.newTransaction()
-					.doInsert
-							(
-									TST_Builder.of(Account.SObjectType)
-											.withOverride(Account.Name, 'PostActionDmlAccount')
-											.withoutInsertion()
-											.build()
-							)
+					.doInsert(TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build())
 					.allowPartial()
 					.suppressLogging()
 					.execute();

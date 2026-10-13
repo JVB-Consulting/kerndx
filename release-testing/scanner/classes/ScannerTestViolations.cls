@@ -18,6 +18,7 @@
  * - KernNoRawHttpMock (x1: implements HttpCalloutMock)
  * - KernNoRawRestContext (x2: RestContext.request + RestContext.response)
  * - KernNoRawCrypto (x1: Crypto.generateAesKey)
+ * - KernLimitsThroughWrapper (x1: Limits.getQueries)
  * - KernNoRawEmail (x1: Messaging.sendEmail)
  * - KernNoRawFeatureManagement (x1: FeatureManagement.checkPermission)
  */
@@ -208,6 +209,14 @@ public with sharing class ScannerTestViolations
 	public void violateRawCrypto()
 	{
 		Blob key = Crypto.generateAesKey(256);
+	}
+
+	/**
+	 * @description Violates KernLimitsThroughWrapper: Limits.getQueries().
+	 */
+	public void violateLimitsThroughWrapper()
+	{
+		Integer queriesUsed = Limits.getQueries();
 	}
 
 	/**

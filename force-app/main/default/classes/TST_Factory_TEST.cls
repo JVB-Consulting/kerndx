@@ -8,12 +8,62 @@
  *
  * @group Testing
  *
- * @date September 2025, August 2026
+ * @date September 2025, October 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.KernNoStandardObjectInPackageTests')
+@IsTest(seeAllData=false isParallel=false)
 private class TST_Factory_TEST
 {
+	/**
+	 * @description The email address used to verify that newFoobarWithEmail carries the given value through.
+	 */
+	private static final String EMAIL = 'given-address@example.com';
+
+	/**
+	 * @description The name of the feature flag that tells every inbound web service to answer with a mock.
+	 */
+	private static final String MOCK_ALL_INBOUND_APIS_FLAG = 'MockAllInboundAPIs';
+
+	/**
+	 * @description A field the factory never sets, used to prove a caller-shaped user is saved as shaped.
+	 */
+	private static final String SHAPED_USER_TITLE = 'Regional Manager';
+
+	/**
+	 * @description The batch size for the saved-batch test; two is the smallest batch that can prove distinct usernames.
+	 */
+	private static final Integer NUMBER_OF_SAVED_USERS = 2;
+
+	/**
+	 * @description The length of the random key stored in the query result memory cache.
+	 */
+	private static final Integer MEMORY_CACHE_KEY_LENGTH = 20;
+
+	/**
+	 * @description The query threshold for the logger settings tests; each log gets a distinct value so a swapped field shows.
+	 */
+	private static final Integer QUERY_THRESHOLD_MILLISECONDS = 10;
+
+	/**
+	 * @description The web service threshold for the logger settings tests.
+	 */
+	private static final Integer WEBSERVICE_THRESHOLD_MILLISECONDS = 20;
+
+	/**
+	 * @description The trigger threshold for the logger settings tests.
+	 */
+	private static final Integer TRIGGER_THRESHOLD_MILLISECONDS = 30;
+
+	/**
+	 * @description The validation threshold for the logger settings tests.
+	 */
+	private static final Integer VALIDATION_THRESHOLD_MILLISECONDS = 40;
+
+	/**
+	 * @description The masking threshold for the logger settings tests.
+	 */
+	private static final Integer MASKER_THRESHOLD_MILLISECONDS = 50;
+
 	/**
 	 * @description Checks that permissionset assignments work as expected, to test the scenario where the permissionset name provided
 	 * is actually for a permission set group and a test running that we ensure permissionset group calculations are performed
@@ -258,6 +308,210 @@ private class TST_Factory_TEST
 	}
 
 	/**
+	 * @description Tests that a test can save an ordinary record right after newUserWithPermissionSet in the same
+	 * transaction: the factory owns the runAs guard around its user and permission-set writes, so the platform never
+	 * sees them in the same stretch of the transaction as the Foobar__c insert. Deliberately not wrapped in
+	 * Test.startTest and Test.stopTest, so the only thing segmenting the transaction is the factory's guard.
+	 *
+	 * @see TST_Factory.newUserWithPermissionSet
+	 */
+	@IsTest
+	private static void newUserWithPermissionSetShouldNotCollideWithFollowingRecordDml()
+	{
+		String companyName = 'unit-test-guard-after-' + System.currentTimeMillis();
+
+		User admin = TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_STANDARD_USER, companyName, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
+		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+
+		Assert.isNotNull(admin.Id, 'The user should be saved');
+		Assert.isNotNull(record.Id, 'An ordinary record saved after the factory setup writes should not collide with them');
+	}
+
+	/**
+	 * @description Tests that a permission-set assignment can follow an ordinary record insert in the same
+	 * transaction: the factory's guard isolates the assignment write from the Foobar__c insert before it. Not wrapped
+	 * in Test.startTest and Test.stopTest, for the same reason as the sibling guard test.
+	 *
+	 * @see TST_Factory.createPermissionSetAssignments
+	 */
+	@IsTest
+	private static void createPermissionSetAssignmentsShouldNotCollideWithPrecedingRecordDml()
+	{
+		User testUser = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		TST_Builder.of(Foobar__c.SObjectType).build();
+
+		TST_Factory.createPermissionSetAssignments(new List<User> {testUser}, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
+
+		Assert.isTrue
+				(
+						new SEL_PermissionSetAssignment().isAssigned(SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME, testUser.Id),
+						'The assignment saved after an ordinary record should exist'
+				);
+	}
+
+	/**
+	 * @description Tests that insertUser saves a user on the named profile that System.runAs accepts.
+	 *
+	 * @see TST_Factory.insertUser
+	 */
+	@IsTest
+	private static void insertUserShouldSaveUserOnProfile()
+	{
+		Id standardProfileId = new SEL_Profile().findByName(SEL_Profile.PROFILE_STANDARD_USER).Id;
+
+		Test.startTest();
+		User testUser = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		Test.stopTest();
+
+		Assert.isNotNull(testUser.Id, 'The user should be saved');
+		Assert.areEqual(standardProfileId, testUser.ProfileId, 'The user should be on the named profile');
+		System.runAs(testUser)
+		{
+			Assert.areEqual(testUser.Id, UserInfo.getUserId(), 'The saved user should be usable with System.runAs');
+			Assert.areEqual(standardProfileId, UserInfo.getProfileId(), 'The persisted user should be on the named profile');
+		}
+	}
+
+	/**
+	 * @description Tests that insertUser with a company name saves the user with that company name, so a later test
+	 * method can find it again through SEL_User.findByCompanyName.
+	 *
+	 * @see TST_Factory.insertUser
+	 */
+	@IsTest
+	private static void insertUserWithCompanyNameShouldSaveWithCompanyName()
+	{
+		String companyName = 'unit-test-saved-company-' + System.currentTimeMillis();
+
+		Test.startTest();
+		User testUser = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER, companyName);
+		Test.stopTest();
+
+		Assert.isNotNull(testUser.Id, 'The user should be saved');
+		Assert.areEqual(companyName, testUser.CompanyName, 'The company name should be set');
+		Assert.areEqual(testUser.Id, new SEL_User().findByCompanyName(companyName).Id, 'The saved user should be retrievable by company name');
+	}
+
+	/**
+	 * @description Tests that insertUsers by count saves the requested number of users with distinct usernames.
+	 *
+	 * @see TST_Factory.insertUsers
+	 */
+	@IsTest
+	private static void insertUsersByCountShouldSaveDistinctUsers()
+	{
+		Test.startTest();
+		List<User> users = TST_Factory.insertUsers(SEL_Profile.PROFILE_STANDARD_USER, NUMBER_OF_SAVED_USERS);
+		Test.stopTest();
+
+		Set<String> usernames = new Set<String>();
+		for(User savedUser : users)
+		{
+			Assert.isNotNull(savedUser.Id, 'Every user should be saved');
+			usernames.add(savedUser.Username);
+		}
+		Assert.areEqual(NUMBER_OF_SAVED_USERS, users.size(), 'The requested number of users should be saved');
+		Assert.areEqual(NUMBER_OF_SAVED_USERS, usernames.size(), 'Usernames should be distinct');
+	}
+
+	/**
+	 * @description Tests that insertUsers saves users the caller shaped, keeping a field the factory never sets, so an
+	 * org whose User rules need more than the factory provides can build the user, set its fields and hand it over.
+	 *
+	 * @see TST_Factory.insertUsers
+	 */
+	@IsTest
+	private static void insertUsersShouldSaveCallerShapedUsers()
+	{
+		String companyName = 'unit-test-shaped-' + System.currentTimeMillis();
+		User shaped = TST_Factory.newUser(SEL_Profile.PROFILE_STANDARD_USER, companyName);
+		shaped.Title = SHAPED_USER_TITLE;
+
+		Test.startTest();
+		List<User> saved = TST_Factory.insertUsers(new List<User> {shaped});
+		Test.stopTest();
+
+		Assert.isNotNull(saved.iterator().next().Id, 'The shaped user should be saved');
+		Assert.areEqual(SHAPED_USER_TITLE, new SEL_User().findByCompanyName(companyName).Title, 'The caller-set field should survive the save');
+	}
+
+	/**
+	 * @description Tests that the logger settings builder turns on exactly the chosen performance logs at their
+	 * thresholds and registers the settings with the logger.
+	 *
+	 * @see TST_Factory.newLoggerSettings
+	 */
+	@IsTest
+	private static void newLoggerSettingsShouldApplyEachChosenLog()
+	{
+		Test.startTest();
+		TST_Factory.newLoggerSettings()
+				.withQueryLogging(QUERY_THRESHOLD_MILLISECONDS)
+				.withWebserviceLogging(WEBSERVICE_THRESHOLD_MILLISECONDS)
+				.withTriggerLogging(TRIGGER_THRESHOLD_MILLISECONDS)
+				.withValidationLogging(VALIDATION_THRESHOLD_MILLISECONDS)
+				.withMaskerLogging(MASKER_THRESHOLD_MILLISECONDS)
+				.apply();
+		Test.stopTest();
+
+		LogSetting__c setting = LOG_Engine.logSettingOverride;
+		Assert.isTrue(setting.IsEnabled__c, 'The settings should enable the logger');
+		Assert.areEqual(LoggingLevel.DEBUG.name(), setting.LogLevelThreshold__c, 'The level threshold should admit every entry');
+		Assert.isTrue(setting.EnableQueryPerformanceLogging__c, 'Query logging should be on');
+		Assert.areEqual(QUERY_THRESHOLD_MILLISECONDS, setting.QueryPerformanceThresholdMs__c.intValue(), 'The query threshold should be set');
+		Assert.isTrue(setting.EnablePerformanceLogging__c, 'Webservice logging should be on');
+		Assert.areEqual(WEBSERVICE_THRESHOLD_MILLISECONDS, setting.PerformanceThresholdMs__c.intValue(), 'The webservice threshold should be set');
+		Assert.isTrue(setting.EnableTriggerPerformanceLogging__c, 'Trigger logging should be on');
+		Assert.areEqual(TRIGGER_THRESHOLD_MILLISECONDS, setting.TriggerPerformanceThresholdMs__c.intValue(), 'The trigger threshold should be set');
+		Assert.isTrue(setting.EnableValidationPerformanceLogging__c, 'Validation logging should be on');
+		Assert.areEqual(VALIDATION_THRESHOLD_MILLISECONDS, setting.ValidationPerformanceThresholdMs__c.intValue(), 'The validation threshold should be set');
+		Assert.isTrue(setting.EnableMaskerPerformanceLogging__c, 'Masker logging should be on');
+		Assert.areEqual(MASKER_THRESHOLD_MILLISECONDS, setting.MaskerPerformanceThresholdMs__c.intValue(), 'The masker threshold should be set');
+	}
+
+	/**
+	 * @description Tests that a performance log the test did not choose stays off.
+	 *
+	 * @see TST_Factory.newLoggerSettings
+	 */
+	@IsTest
+	private static void newLoggerSettingsShouldLeaveUnchosenLogsOff()
+	{
+		Test.startTest();
+		TST_Factory.newLoggerSettings().withTriggerLogging(TRIGGER_THRESHOLD_MILLISECONDS).apply();
+		Test.stopTest();
+
+		LogSetting__c setting = LOG_Engine.logSettingOverride;
+		Assert.isTrue(setting.EnableTriggerPerformanceLogging__c, 'Trigger logging should be on');
+		Assert.isFalse(setting.EnableQueryPerformanceLogging__c, 'Query logging should stay off');
+		Assert.isFalse(setting.EnablePerformanceLogging__c, 'Webservice logging should stay off');
+		Assert.isFalse(setting.EnableValidationPerformanceLogging__c, 'Validation logging should stay off');
+		Assert.isFalse(setting.EnableMaskerPerformanceLogging__c, 'Masker logging should stay off');
+	}
+
+	/**
+	 * @description Tests that the flag-and-threshold overloads route through the builder: an enabled log carries its
+	 * threshold, a disabled one stays off, and the default overload turns every performance log off.
+	 *
+	 * @see TST_Factory.setupLoggerForTest
+	 */
+	@IsTest
+	private static void setupLoggerForTestShouldRouteThroughTheBuilder()
+	{
+		TST_Factory.setupLoggerForTest(true, QUERY_THRESHOLD_MILLISECONDS, false, WEBSERVICE_THRESHOLD_MILLISECONDS);
+
+		LogSetting__c setting = LOG_Engine.logSettingOverride;
+		Assert.isTrue(setting.EnableQueryPerformanceLogging__c, 'Query logging should be on');
+		Assert.areEqual(QUERY_THRESHOLD_MILLISECONDS, setting.QueryPerformanceThresholdMs__c.intValue(), 'The query threshold should be set');
+		Assert.isFalse(setting.EnablePerformanceLogging__c, 'Webservice logging should stay off when not enabled');
+
+		TST_Factory.setupLoggerForTest();
+
+		Assert.isFalse(LOG_Engine.logSettingOverride.EnableQueryPerformanceLogging__c, 'The default settings turn every performance log off');
+		Assert.isTrue(LOG_Engine.logSettingOverride.IsEnabled__c, 'The default settings still enable the logger');
+	}
+
+	/**
 	 * @description Tests that newSObjectShare sets OpportunityAccessLevel for AccountShare.
 	 *
 	 * @see TST_Factory.newSObjectShare
@@ -460,6 +714,22 @@ private class TST_Factory_TEST
 	}
 
 	/**
+	 * @description The flag that tells every inbound web service to answer with a mock is off until a test calls
+	 * mockAllInboundApis, and on after it.
+	 *
+	 * @see TST_Factory.mockAllInboundApis
+	 */
+	@IsTest
+	private static void shouldTurnOnTheMockAllInboundApisFlagWhenMockingAllInboundApis()
+	{
+		Assert.isFalse(UTIL_FeatureFlag.isEnabled(MOCK_ALL_INBOUND_APIS_FLAG), 'Expected the flag to be off before the call');
+
+		TST_Factory.mockAllInboundApis();
+
+		Assert.isTrue(UTIL_FeatureFlag.isEnabled(MOCK_ALL_INBOUND_APIS_FLAG), 'Expected the flag to be on after the call');
+	}
+
+	/**
 	 * @description Tests that assignAdministratorPermissionSet assigns the permission set when not already assigned.
 	 *
 	 * @see TST_Factory.assignAdministratorPermissionSet
@@ -569,6 +839,21 @@ private class TST_Factory_TEST
 	}
 
 	/**
+	 * @description Verifies that newFoobarWithEmail builds an uncommitted record carrying the given email, so a
+	 * test can ask for a value the platform refuses without repeating the builder chain.
+	 *
+	 * @see TST_Factory.newFoobarWithEmail
+	 */
+	@IsTest
+	private static void shouldCreateFoobarWithEmail()
+	{
+		Foobar__c foobar = TST_Factory.newFoobarWithEmail(EMAIL);
+
+		Assert.isNull(foobar.Id, 'The record should not be inserted');
+		Assert.areEqual(EMAIL, foobar.Email__c, 'The email should be the one given');
+	}
+
+	/**
 	 * @description Verifies that using TST_Factory keeps a default value provider that was registered
 	 * before the factory class loaded — the factory must never replace a registered provider. The
 	 * factory call is the test method's first TST_Factory reference, so its static initializer runs
@@ -584,6 +869,24 @@ private class TST_Factory_TEST
 		TST_Factory.newFoobar();
 
 		Assert.isTrue(TST_Builder.defaultValueProvider instanceof RegisteredDefaultValueProvider, 'Using TST_Factory must not replace the registered default value provider.');
+	}
+
+	/**
+	 * @description Verifies that saving setup records through the factory empties the query result memory cache, since
+	 * the factory saves them with a raw insert that does not commit through DML_Transaction.
+	 *
+	 * @see TST_Factory.insertUser
+	 */
+	@IsTest
+	private static void factoryInsertEmptiesTheMemoryCache()
+	{
+		String key = UTIL_Random.randomAlphanumeric(MEMORY_CACHE_KEY_LENGTH);
+		QRY_Engine.storeCopyInMemoryCache(key, new List<Foobar__c> {TST_Factory.newFoobar()}, QRY_Engine.CacheStatus.MEMORY_STORED);
+		Assert.isNotNull(QRY_Engine.getCopyFromMemoryCache(key), 'The key should be stored before the insert');
+
+		TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+
+		Assert.isNull(QRY_Engine.getCopyFromMemoryCache(key), 'Saving a user through the factory should empty the memory cache');
 	}
 
 	/**

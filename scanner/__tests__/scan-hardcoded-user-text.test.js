@@ -3,11 +3,92 @@
 
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+const {spawnSync} = require('node:child_process');
 const scanner = require('../scan-hardcoded-user-text');
 
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const LWC_DIR = path.resolve(__dirname, '..', '..', 'force-app', 'main', 'default', 'lwc');
 const fileIn = (bundle) => path.join(LWC_DIR, bundle, `${bundle}.html`);
+
+// The files the scanner needs beside it, copied into a scratch tree so the test never writes into this repository.
+const SCANNER_FILES = [
+	'scan-hardcoded-user-text.js',
+	'i18n-eslint.config.mjs',
+	'i18n-swept-areas.json'
+];
+const TOAST_BUNDLE = 'hardcodedToastProbe';
+const TOAST_TITLE = 'Record saved';
+const TOAST_LINE = 8;
+const TOAST_SOURCE = [
+	'import {LightningElement} from \'lwc\';',
+	'import {ShowToastEvent} from \'lightning/platformShowToastEvent\';',
+	'',
+	'export default class HardcodedToastProbe extends LightningElement',
+	'{',
+	'\thandleSave()',
+	'\t{',
+	`\t\tthis.dispatchEvent(new ShowToastEvent({title: '${TOAST_TITLE}', variant: 'success'}));`,
+	'\t}',
+	'}',
+	''
+].join('\n');
+
+/**
+ * @description Copies this process's environment with PATH pointing only at the given directory, whatever case the
+ *              variable is spelled in (Windows spells it Path).
+ *
+ * @param {string} directory The only directory the child may search for tools.
+ *
+ * @return {Object<string, string>} The environment for the child process.
+ */
+function environmentWithPathOnly(directory)
+{
+	const environment = {};
+
+	for(const [name, value] of Object.entries(process.env))
+	{
+		if(name.toUpperCase() !== 'PATH')
+		{
+			environment[name] = value;
+		}
+	}
+
+	environment.PATH = directory;
+
+	return environment;
+}
+
+/**
+ * @description Builds a scratch tree holding a copy of the scanner, links to this repository's packages and ESLint
+ *              plugin, and one LWC bundle whose JavaScript raises a toast with a hard-coded title.
+ *
+ * @param {string} root The empty scratch directory to fill.
+ *
+ * @return {string} The path of the scanner copy inside the scratch tree.
+ */
+function scratchTreeWithHardcodedToast(root)
+{
+	const scannerDirectory = path.join(root, 'scanner');
+	const bundleDirectory = path.join(root, 'force-app', 'main', 'default', 'lwc', TOAST_BUNDLE);
+
+	fs.mkdirSync(scannerDirectory, {recursive: true});
+	fs.mkdirSync(bundleDirectory, {recursive: true});
+
+	for(const file of SCANNER_FILES)
+	{
+		fs.copyFileSync(path.join(REPO_ROOT, 'scanner', file), path.join(scannerDirectory, file));
+	}
+
+	// A junction needs no elevated rights on Windows; other systems ignore the type and make a symbolic link.
+	fs.symlinkSync(path.join(REPO_ROOT, 'node_modules'), path.join(root, 'node_modules'), 'junction');
+	fs.symlinkSync(path.join(REPO_ROOT, 'scanner', 'eslint-plugin-kerndx'), path.join(scannerDirectory, 'eslint-plugin-kerndx'), 'junction');
+	fs.writeFileSync(path.join(bundleDirectory, `${TOAST_BUNDLE}.js`), TOAST_SOURCE);
+
+	return path.join(scannerDirectory, 'scan-hardcoded-user-text.js');
+}
 
 test('isBinding recognises a whole-value binding only', () =>
 {
@@ -168,4 +249,36 @@ test('severityOf stages by swept area, holding alternative-text at warn', () =>
 	assert.equal(scanner.severityOf(sweptText, swept), 'error');
 	assert.equal(scanner.severityOf(unsweptText, swept), 'warn');
 	assert.equal(scanner.severityOf(sweptAlt, swept), 'warn');
+});
+
+// On Windows `npx` and `eslint` are `.cmd` files, which only a shell can start, so a shell-free start of either fails
+// there. A PATH holding no tools makes the same start fail on every system; the scanner must reach ESLint without it.
+test('the JavaScript leg reaches ESLint without finding any tool on PATH', () =>
+{
+	const emptyDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-scan-no-tools-'));
+	const scratchRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'i18n-scan-toast-'));
+
+	try
+	{
+		const scannerCopy = scratchTreeWithHardcodedToast(scratchRoot);
+		const result = spawnSync(process.execPath, [
+			scannerCopy,
+			'--json'
+		], {cwd: scratchRoot, encoding: 'utf8', env: environmentWithPathOnly(emptyDirectory)});
+
+		assert.equal(result.status, 0, `an unswept bundle only warns, so the scanner exits 0; stderr: ${result.stderr}`);
+
+		const {errors, warnings} = JSON.parse(result.stdout);
+		const toast = warnings.find((violation) => violation.kind === 'js-sink');
+
+		assert.deepEqual(errors, [], 'the probe bundle is not swept, so nothing is an error');
+		assert.ok(toast, `ESLint ran and reported the hard-coded toast; warnings: ${JSON.stringify(warnings)}`);
+		assert.equal(path.basename(toast.filePath), `${TOAST_BUNDLE}.js`);
+		assert.equal(toast.line, TOAST_LINE, 'the warning points at the line holding the hard-coded title');
+	}
+	finally
+	{
+		fs.rmSync(emptyDirectory, {recursive: true, force: true});
+		fs.rmSync(scratchRoot, {recursive: true, force: true});
+	}
 });

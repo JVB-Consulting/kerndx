@@ -21,15 +21,35 @@
  *
  * @group Testing
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.AvoidBooleanMethodParameters')
 private class TST_Builder_TEST
 {
+	/**
+	 * @description Company name given to the admin user created in test setup. It is unique to this class, so getTestAdmin
+	 * can find that one user again by company name.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'TST_Builder_TEST-admin';
+
+	/**
+	 * @description How many records the tests ask the builder for when they build a list. It is more than one, so the
+	 * count check proves the builder made a list of the size asked for.
+	 */
 	private static final Integer SMALL_NUMBER_OF_RECORDS = 3;
+
+	/**
+	 * @description A random email address the tests pass as the override for the email field. The tests then check the
+	 * built record carries this address, which proves the override was applied.
+	 */
 	private static final String TEST_EMAIL = UTIL_Random.randomEmail();
+
+	/**
+	 * @description A fixed text value the tests pass as the override for text and name fields, on the record itself and
+	 * on its parent records, and then look for on what was built. Two tests also use it as a name that does not exist
+	 * (an object name and a field name) to prove the builder refuses it.
+	 */
 	private static final String TEST_STRING = 'test';
 
 	/**
@@ -1615,8 +1635,13 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description A parent built with three children is saved together with them: each child carries the name given in
+	 * the child overrides and points back to the parent through its lookup field. This proves withChildren creates real,
+	 * linked records and not only a parent. The test uses Foobar__c for both the parent and the children.
+	 */
 	@IsTest
-	private static void buildAccountWithContactChildrenAndVerifyRelationship()
+	private static void buildFoobarWithChildrenAndVerifyRelationship()
 	{
 		System.runAs(getTestAdmin())
 		{
@@ -1647,6 +1672,11 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description An account built with two contact children and without insertion is never saved, yet the contacts can
+	 * still be read from the account's Contacts list, with the overridden last name and no record ID. This matters
+	 * because a test can then work with a parent and its children in memory without writing to the database.
+	 */
 	@IsTest
 	private static void buildAccountWithMockedContactChildrenWithoutDML()
 	{
@@ -1680,8 +1710,13 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description A parent built with five children of its own object type gets all five saved under it, each with the
+	 * overridden name. This proves the builder handles an object that looks up to itself. The test uses Foobar__c for
+	 * both the parent and the children, and builds one type of child.
+	 */
 	@IsTest
-	private static void buildAccountWithMultipleChildTypesContactsAndCases()
+	private static void buildFoobarWithSelfReferencingChildren()
 	{
 		System.runAs(getTestAdmin())
 		{
@@ -1708,25 +1743,20 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description A parent built with two children described by a child builder gets both saved under it, each with the
+	 * name the child builder overrides. The parent finds the relationship from the child builder's object type, so the
+	 * test names no relationship. The test uses Foobar__c for both the parent and the children.
+	 */
 	@IsTest
-	private static void buildAccountWithChildrenUsingBuilderVariant()
+	private static void buildFoobarWithChildrenUsingBuilderVariant()
 	{
 		System.runAs(getTestAdmin())
 		{
-			// Test using Builder variant for complex configuration
-			// Using SObjectType variant instead of string name for self-relationship
 			Test.startTest();
 			Foobar__c parent = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
 					.withOverride(Foobar__c.Name, 'Complex Parent')
-					.withChildren
-							(
-									Foobar__c.SObjectType,
-									2,
-									new Map<SObjectField, Object>
-									{
-											Foobar__c.Name => 'Builder Child'
-									}
-							)
+					.withChildren(TST_Builder.of(Foobar__c.SObjectType).withCount(2).withOverride(Foobar__c.Name, 'Builder Child'))
 					.build();
 			Test.stopTest();
 
@@ -1736,6 +1766,11 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description Asking for children without saying which object type they are is refused straight away with an
+	 * IllegalArgumentException whose message says the child type cannot be null. The mistake is reported where it is
+	 * made, before anything is built.
+	 */
 	@IsTest
 	private static void buildWithChildrenThrowsExceptionForNullChildType()
 	{
@@ -1759,6 +1794,10 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description Asking for zero children is refused straight away with an IllegalArgumentException whose message says
+	 * the count must be at least 1, so a wrong count cannot quietly produce a parent with no children.
+	 */
 	@IsTest
 	private static void buildWithChildrenThrowsExceptionForInvalidCount()
 	{
@@ -1782,6 +1821,10 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description Passing a child builder together with an empty relationship name is refused straight away with an
+	 * IllegalArgumentException, because the builder cannot tell which relationship the children belong to.
+	 */
 	@IsTest
 	private static void buildWithChildrenThrowsExceptionForBlankRelationshipName()
 	{
@@ -1804,6 +1847,10 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description Naming a child relationship but passing no child builder is refused straight away with an
+	 * IllegalArgumentException, because there is nothing to build the children from.
+	 */
 	@IsTest
 	private static void buildWithChildrenThrowsExceptionForNullBuilder()
 	{
@@ -1826,6 +1873,10 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description Building three parents that each ask for two children saves all three parents and gives every parent
+	 * its own two children. This proves the children are created per parent when a list is built, not once for the list.
+	 */
 	@IsTest
 	private static void buildMultipleParentsWithChildren()
 	{
@@ -1860,6 +1911,10 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description Building a list of two records with no children asked for saves both records. This proves a list build
+	 * works as normal when the child feature is not used.
+	 */
 	@IsTest
 	private static void buildMultipleParentsWithoutChildren()
 	{
@@ -1878,6 +1933,11 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description The shortest form of withChildren, which takes only the child object type and a count, saves the
+	 * parent with two children that point back to it. No field overrides are needed for the children to be created and
+	 * linked.
+	 */
 	@IsTest
 	private static void buildWithChildrenSimpleVariantWithoutOverrides()
 	{
@@ -1900,6 +1960,11 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description When withChildren is given only a child builder, with no relationship name, the parent builder works
+	 * out the relationship between the two object types itself. The parent is saved with the three children the child
+	 * builder describes, each with its overridden name and each pointing back to the parent.
+	 */
 	@IsTest
 	private static void buildWithChildrenBuilderVariantAutoDetect()
 	{
@@ -1928,12 +1993,17 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description The form of withChildren that takes overrides keyed by field name also refuses a missing child object
+	 * type, with an IllegalArgumentException whose message says the value cannot be null. This form has its own check,
+	 * separate from the form that takes overrides keyed by field.
+	 */
 	@IsTest
 	private static void buildWithChildrenThrowsExceptionForNullChildTypeWithStringOverrides()
 	{
 		System.runAs(getTestAdmin())
 		{
-			// Test null childType with String overrides variant (line 665)
+			// Test null childType with String overrides variant
 
 			Test.startTest();
 			try
@@ -1951,25 +2021,27 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description Asking for children of a type that is not a child of the parent is refused straight away, in the
+	 * withChildren call, before anything is built. A Foobar__c record cannot have API call records as children, so the
+	 * call fails with an IllegalArgumentException whose message says no child relationship was found.
+	 */
 	@IsTest
 	private static void buildWithChildrenThrowsExceptionForInvalidParentChildRelationship()
 	{
 		System.runAs(getTestAdmin())
 		{
-			// Test invalid parent-child relationship (line 937)
-			// Contact cannot have Account as a child
-
 			Test.startTest();
 			try
 			{
-				TST_Builder.of(Contact.SObjectType)
+				TST_Builder.of(Foobar__c.SObjectType)
 						.withChildren
 								(
-										Account.SObjectType,
+										ApiCall__c.SObjectType,
 										1,
 										new Map<SObjectField, Object>
 										{
-												Account.Name => 'Test'
+												ApiCall__c.ServiceName__c => 'Test'
 										}
 								)
 						.build();
@@ -1984,12 +2056,17 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description Passing a child builder with a relationship name the parent object does not have is refused when the
+	 * record is built, with an IllegalArgumentException whose message says no relationship was found. A mistyped
+	 * relationship name is reported instead of producing a parent with no children.
+	 */
 	@IsTest
 	private static void buildWithChildrenThrowsExceptionForInvalidRelationshipName()
 	{
 		System.runAs(getTestAdmin())
 		{
-			// Test invalid relationship name in Builder variant (line 962)
+			// Test invalid relationship name in Builder variant
 
 			Test.startTest();
 			try
@@ -2013,12 +2090,16 @@ private class TST_Builder_TEST
 		}
 	}
 
+	/**
+	 * @description The form of withChildren that takes only a child builder refuses a null builder straight away, with an
+	 * IllegalArgumentException whose message says the child builder cannot be null.
+	 */
 	@IsTest
 	private static void buildWithChildrenBuilderVariantThrowsExceptionForNullBuilder()
 	{
 		System.runAs(getTestAdmin())
 		{
-			// Test null builder in auto-detect Builder variant (line 738)
+			// Test null builder in auto-detect Builder variant
 
 			Test.startTest();
 			try
@@ -2185,9 +2266,57 @@ private class TST_Builder_TEST
 			{
 				Assert.isNotNull(aContact.Id, 'Each child should have a mock ID');
 				Assert.areEqual(Contact.SObjectType, aContact.Id.getSobjectType(), 'Child mock ID should be for Contact');
+				Assert.areEqual(result.Id, aContact.AccountId, 'Expected the child lookup to hold the parent mock ID, got ' + aContact.AccountId);
 				childMockIds.add(aContact.Id);
 			}
 			Assert.areEqual(3, childMockIds.size(), 'All child mock IDs should be unique');
+		}
+	}
+
+	/**
+	 * @description Children asked for by object type and count alone, with no field overrides, also point back to the
+	 * parent's mock ID when the graph is built with mock IDs. The overload without overrides reaches the same in-memory
+	 * linking as the one with them.
+	 */
+	@IsTest
+	private static void withoutInsertionTrueShouldLinkChildrenWithoutOverridesToParentMockId()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Account result = (Account)TST_Builder.of(Account.SObjectType)
+					.withChildren(Contact.SObjectType, SMALL_NUMBER_OF_RECORDS)
+					.withoutInsertion(true)
+					.build();
+
+			Assert.isNotNull(result.Id, 'Expected the parent to have a mock ID, got null');
+			Assert.areEqual(SMALL_NUMBER_OF_RECORDS, result.Contacts.size(), 'Expected ' + SMALL_NUMBER_OF_RECORDS + ' children, got ' + result.Contacts.size());
+			for(Contact aContact : result.Contacts)
+			{
+				Assert.areEqual(result.Id, aContact.AccountId, 'Expected the child lookup to hold the parent mock ID, got ' + aContact.AccountId);
+			}
+		}
+	}
+
+	/**
+	 * @description A graph built without insertion and without mock IDs has no parent ID to point to, so the children's
+	 * lookup to the parent stays empty while the children are still reachable from the parent.
+	 */
+	@IsTest
+	private static void withoutInsertionWithoutMockIdsShouldLeaveChildLookupEmpty()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Account result = (Account)TST_Builder.of(Account.SObjectType)
+					.withChildren(Contact.SObjectType, SMALL_NUMBER_OF_RECORDS)
+					.withoutInsertion()
+					.build();
+
+			Assert.isNull(result.Id, 'Expected the parent to have no ID, got ' + result.Id);
+			Assert.areEqual(SMALL_NUMBER_OF_RECORDS, result.Contacts.size(), 'Expected ' + SMALL_NUMBER_OF_RECORDS + ' children, got ' + result.Contacts.size());
+			for(Contact aContact : result.Contacts)
+			{
+				Assert.isNull(aContact.AccountId, 'Expected the child lookup to be empty, got ' + aContact.AccountId);
+			}
 		}
 	}
 
@@ -2855,6 +2984,14 @@ private class TST_Builder_TEST
 	 */
 	private class LegacyFactoryProvider implements TST_Builder.FactoryProvider
 	{
+		/**
+		 * @description Hands the builder a LegacyFactory, a factory that cannot build children, so a test can prove the
+		 * builder refuses withChildren when the factory in use does not support it.
+		 *
+		 * @param objectType The object type the factory will create records of.
+		 *
+		 * @return A LegacyFactory for that object type.
+		 */
 		public TST_Builder.Factory createFactory(SObjectType objectType)
 		{
 			return new LegacyFactory(objectType);
@@ -2866,23 +3003,56 @@ private class TST_Builder_TEST
 	 */
 	private class LegacyFactory implements TST_Builder.Factory
 	{
+		/**
+		 * @description The object type this factory creates empty records of.
+		 */
 		private final SObjectType sObjectType;
 
+		/**
+		 * @description Creates a factory for one object type.
+		 *
+		 * @param sObjectType The object type the factory creates records of.
+		 */
 		public LegacyFactory(SObjectType sObjectType)
 		{
 			this.sObjectType = sObjectType;
 		}
 
+		/**
+		 * @description Returns no manager. The test that uses this factory expects the builder to refuse the request, and
+		 * this factory never supplies a manager.
+		 *
+		 * @return Always null.
+		 */
 		public TST_Builder.Manager getSObjectManager()
 		{
 			return null;
 		}
 
+		/**
+		 * @description Creates one empty record of the factory's object type. It ignores both parameters: no field is
+		 * filled and nothing is saved.
+		 *
+		 * @param mapOfValuesOverride Field overrides the builder passes in. Not used.
+		 * @param doInsert Whether the builder asked for the record to be saved. Not used.
+		 *
+		 * @return A new, empty, unsaved record.
+		 */
 		public SObject getSObjectInstance(Map<String, Object> mapOfValuesOverride, Boolean doInsert)
 		{
 			return sObjectType.newSObject();
 		}
 
+		/**
+		 * @description Creates the number of empty records asked for, of the factory's object type. It ignores the
+		 * overrides and the insert choice: no field is filled and nothing is saved.
+		 *
+		 * @param mapOfValuesOverride Field overrides the builder passes in. Not used.
+		 * @param doInsert Whether the builder asked for the records to be saved. Not used.
+		 * @param numberOfSObjects How many records to create.
+		 *
+		 * @return A list of new, empty, unsaved records.
+		 */
 		public List<SObject> getListSObjectInstance(Map<String, Object> mapOfValuesOverride, Boolean doInsert, Integer numberOfSObjects)
 		{
 			List<SObject> results = new List<SObject>();

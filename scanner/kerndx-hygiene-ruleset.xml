@@ -7,10 +7,9 @@
    Point any PMD 7 (apex module 7.19.0 or newer) or the Salesforce Code
    Analyzer at this file to get the test-quality, security-review and
    Flow-invocable constructor checks on their own. `kerndx init` scaffolds
-   this ruleset when a repo does not
-   build on the KernDX framework; repos that do should use
-   kerndx-pmd-ruleset.xml instead, which contains every rule below plus the
-   framework-integration rules.
+   this ruleset when a repo does not build on the KernDX framework; repos
+   that do should use kerndx-pmd-ruleset.xml instead, which contains every
+   rule below plus the framework-integration rules.
 
    Two rules mention KernDX by name without requiring it:
    KernNoCoverageTheatre's fourth pattern fires only when the KernDX test
@@ -20,8 +19,8 @@
    same-named method is flagged for the same review-and-acknowledge reason.
 
    GENERATED FILE - do not edit by hand. Each rule definition is extracted
-   verbatim from kerndx-pmd-ruleset.xml by scanner/generate-hygiene-ruleset.js
-   (regenerate with: node scanner/generate-hygiene-ruleset.js). A test keeps
+   verbatim from kerndx-pmd-ruleset.xml by scanner/generate-ruleset-tiers.js
+   (regenerate with: node scanner/generate-ruleset-tiers.js). A test keeps
    this file byte-identical to a fresh extraction, so the definitions cannot
    drift from the source ruleset.
 -->

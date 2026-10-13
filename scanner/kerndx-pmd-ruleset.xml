@@ -6,7 +6,8 @@
    Enforces KernDX framework patterns: trigger delegation, selector queries,
    DML_Builder, LOG_Builder, UTIL_HttpClient, SCHED_Base, UTIL_Cache,
    UTIL_SObjectDescribe, UTIL_System, UTIL_AsynchronousJobLauncher,
-   UTIL_Email, UTIL_FeatureFlag, REST_* naming, and modern Assert class.
+   UTIL_Email, UTIL_FeatureFlag, UTIL_Limits, REST_* naming, and modern
+   Assert class.
    PMD 7 rule class: net.sourceforge.pmd.lang.rule.xpath.XPathRule
    PMD 6 rule class: net.sourceforge.pmd.lang.apex.rule.ApexXPathRule
    (Change the class attribute on each rule element if using PMD 6.)
@@ -32,14 +33,17 @@
       conventions: trigger delegation, selector-based queries, DML_Builder,
       LOG_Builder, UTIL_HttpClient, SCHED_Base, UTIL_Cache, UTIL_SObjectDescribe,
       UTIL_System, UTIL_AsynchronousJobLauncher, UTIL_Email,
-      UTIL_FeatureFlag, REST_* naming, and modern Assert methods.
+      UTIL_FeatureFlag, UTIL_Limits, REST_* naming, and modern Assert methods.
    </description>
 
    <!-- ================================================================
         KERN-TRIG: KernTriggerMustDelegate (Priority 1 — Blocker)
         Trigger body must only contain new TRG_Dispatcher().run().
-        Detects any method call inside a trigger that is NOT run() on
-        TRG_Dispatcher (namespaced or not).
+        Reports every top-level statement in a trigger body other than
+        that delegating run() call (namespaced or not), including a loop
+        or branch that wraps it, and reports the trigger itself when no
+        run() call exists anywhere in its body (empty, comment-only, or
+        logic with no dispatcher call).
         ================================================================ -->
    <rule name="KernTriggerMustDelegate"
          language="apex"
@@ -47,21 +51,33 @@
          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
       <description>
          Trigger files must contain only `new TRG_Dispatcher().run()` (or
-         `new kern.TRG_Dispatcher().run()`). Any additional logic — SOQL,
+         `new kern.TRG_Dispatcher().run()`); the rule accepts any `run()`
+         call as that delegation. Any additional logic — SOQL,
          DML, method calls, variable declarations — violates the framework's
-         trigger delegation pattern.
+         trigger delegation pattern. Every statement at the top level of the
+         trigger body other than that call is reported, including a loop or
+         branch that wraps it; PMD places a trigger's statements directly
+         under its synthetic invoke method, so the rule matches there. A
+         trigger whose body never calls `run()` at all (empty, comment-only,
+         or logic with no dispatcher call) is also reported once, at the
+         trigger itself: it runs none of its configured trigger actions.
       </description>
       <priority>1</priority>
       <properties>
          <property name="xpath">
             <value>
 <![CDATA[
-//UserTrigger//BlockStatement/*[
-   not(
+//UserTrigger/Method/*[
+   not(self::ModifierNode)
+   and not(
       self::ExpressionStatement/MethodCallExpression[
          @MethodName = 'run'
       ]
    )
+]
+|
+//UserTrigger/Method[
+   not(.//MethodCallExpression[@MethodName = 'run'])
 ]
 ]]>
             </value>
@@ -686,6 +702,54 @@
 <![CDATA[
 //MethodCallExpression[
    starts-with(lower-case(@FullMethodName), 'crypto.')
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-LIMITS: KernLimitsThroughWrapper (Priority 5, Informational)
+        No direct Limits.* (or System.Limits.*) calls: read governor
+        limits through UTIL_Limits. The wrapper class UTIL_Limits and its
+        own test class UTIL_Limits_TEST are exempt, matched by the name of
+        the file's top-level class.
+        ================================================================ -->
+   <rule name="KernLimitsThroughWrapper"
+         language="apex"
+         message="Direct Limits class calls are not allowed. Read the limit through UTIL_Limits instead, for example UTIL_Limits.soqlQueries().used()."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         Read every governor limit through UTIL_Limits rather than the
+         Limits class. UTIL_Limits gives each limit one object with used(),
+         maximum(), remaining(), percentUsed(), isExhausted() and
+         isNearLimit(), and because every reading passes through that one
+         class, every limit is read the same way and the threshold logic
+         behind isNearLimit() lives in one place.
+
+         Example: UTIL_Limits.soqlQueries().used() instead of
+         Limits.getQueries(); UTIL_Limits.queueableJobs().isExhausted()
+         instead of comparing Limits.getQueueableJobs() with
+         Limits.getLimitQueueableJobs().
+
+         Only UTIL_Limits itself and its test class UTIL_Limits_TEST may
+         call the Limits class directly.
+      </description>
+      <priority>5</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+//MethodCallExpression[
+   (
+      (starts-with(lower-case(@FullMethodName), 'limits.get') and @InputParametersSize = 0)
+      or (starts-with(lower-case(@FullMethodName), 'system.limits.get') and @InputParametersSize = 0)
+   )
+   and not(ancestor::UserClass[not(ancestor::UserClass)][
+      lower-case(@SimpleName) = 'util_limits'
+      or lower-case(@SimpleName) = 'util_limits_test'
+   ])
 ]
 ]]>
             </value>

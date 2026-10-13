@@ -197,6 +197,14 @@ test('no-jest-theatre', () =>
 			},
 			{
 				code: `
+					it('under __tests__ on a Windows path', () => {});
+				`,
+				filename: 'C:\\project\\force-app\\main\\default\\lwc\\ordReturnWizard\\__tests__\\helper.spec.js',
+				name: '__tests__ directory files on a Windows path are scanned',
+				errors: [{messageId: 'noAssertions'}]
+			},
+			{
+				code: `
 					it(undefined, () => {});
 				`, filename: TEST_FILENAME, name: 'it() with identifier-undefined name falls through to <dynamic>', errors: [{messageId: 'noAssertions', data: {name: '<dynamic>'}}]
 			}

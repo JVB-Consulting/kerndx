@@ -8,10 +8,10 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
+@IsTest(seeAllData=false isParallel=true)
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.KernNoStandardObjectInPackageTests')
 private class SEL_ContentVersion_TEST
 {
 	/**

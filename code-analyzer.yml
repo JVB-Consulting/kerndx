@@ -1,6 +1,6 @@
 engines:
   pmd:
-    # Both Kern PMD rulesets are loaded so the right scope is available via
+    # The Kern PMD rulesets are loaded so the right scope is available via
     # `--rule-selector`:
     #
     # - `pmd:KernDXFrameworkPackageSide` — framework-scoped subset. Use for
@@ -17,7 +17,7 @@ engines:
 
 rules:
   flow:
-    SameRecordFieldUpdates:
+    SameRecordUpdate:
       severity: Info
   regex:
     # `regex:NoMixedIndentation` (added to the `Recommended` set in a recent

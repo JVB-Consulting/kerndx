@@ -34,7 +34,7 @@ export default [
 			'kerndx/no-coverage-exempt-without-reason': 'error',
 			// Configure naming for your subscriber's domain/brand vocabulary.
 			// Omit this rule entirely (or pass no options) for no enforcement.
-			'kerndx/enforce-component-naming': ['warn', {
+			'kerndx/enforce-component-naming': ['error', {
 				domains: ['sls', 'svc', 'cmn'],      // required, lowercase
 				brands: ['Acme', 'Beta'],            // optional, PascalCase
 				maxLength: 40                        // optional, default 40
