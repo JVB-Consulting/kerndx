@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
-const {waitForSpinnerGone, pollUntil} = require('../helpers/wait-helpers');
+const {waitForSpinnerGone} = require('../helpers/wait-helpers');
+const {SPINNER} = require('../helpers/sf-selectors');
 const {getInstanceUrl} = require('../helpers/sf-auth');
 const {namespacePrefix} = require('../helpers/sf-namespace');
+const {readColumnLabels} = require('../lib/datatable-headers');
+const {ELEMENT_WAIT_MILLISECONDS} = require('../helpers/wait-times');
+
+// The status filter's values, in the order the list offers them.
+const STATUS_VALUES = ['Running', 'Completed', 'Failed', 'Aborted', 'Stalled'];
+const CHECKBOX_SETTLE_MILLISECONDS = 5000;
+const CHECKBOX_POLL_MILLISECONDS = 100;
+const FILTER_RELOAD_MILLISECONDS = 500;
 
 class ChainMonitorPage
 {
@@ -16,6 +25,50 @@ class ChainMonitorPage
 		await this.page.goto(`${instanceUrl}/lightning/n/${namespacePrefix()}ChainMonitor`, {waitUntil: 'domcontentloaded'});
 		await this.page.waitForTimeout(5000);
 		await waitForSpinnerGone(this.page);
+	}
+
+	/**
+	 * @description Navigates to the Chain Monitor tab and returns as soon as its list has rendered, with no
+	 *              fixed wait: the open a timer measures. The caller settles afterwards.
+	 */
+	async navigateUntilRendered()
+	{
+		await this.page.goto(`${getInstanceUrl()}/lightning/n/${namespacePrefix()}ChainMonitor`, {waitUntil: 'domcontentloaded'});
+		await this.waitForListRendered();
+	}
+
+	/**
+	 * @description Waits until the list shows a row or its empty state and no spinner is on screen, without
+	 *              the fixed settle: what a timed open measures to.
+	 */
+	async waitForListRendered()
+	{
+		await this.getListPanel().waitFor({state: 'visible', timeout: 60_000});
+		await this.getDatatable().locator('tbody tr').first().or(this.getListEmptyState()).waitFor({state: 'visible', timeout: 60_000});
+		await this.page.locator(SPINNER).first().waitFor({state: 'hidden', timeout: ELEMENT_WAIT_MILLISECONDS});
+	}
+
+	// The monitor opened on one run through its own deep link (chainMonitor.js reads c__correlationId and selects
+	// the run), so a script can act on a row without searching the list for it.
+	async navigateToRun(correlationId)
+	{
+		const instanceUrl = getInstanceUrl();
+		await this.page.goto(`${instanceUrl}/lightning/n/${namespacePrefix()}ChainMonitor?c__correlationId=${encodeURIComponent(correlationId)}`, {waitUntil: 'domcontentloaded'});
+		await this.page.waitForTimeout(5000);
+		await waitForSpinnerGone(this.page);
+	}
+
+	/**
+	 * @description The run's deep link opened until the list and the run's detail have rendered, with no fixed
+	 *              wait: the open a timer measures. The caller settles afterwards.
+	 * @param {string} correlationId The run's correlation id.
+	 */
+	async navigateToRunUntilRendered(correlationId)
+	{
+		const url = `${getInstanceUrl()}/lightning/n/${namespacePrefix()}ChainMonitor?c__correlationId=${encodeURIComponent(correlationId)}`;
+		await this.page.goto(url, {waitUntil: 'domcontentloaded'});
+		await this.waitForListRendered();
+		await this.getDetailPanel().waitFor({state: 'visible', timeout: 60_000});
 	}
 
 	getListPanel()
@@ -50,6 +103,37 @@ class ChainMonitorPage
 		const headers = this.getDatatable().locator('thead th');
 		const texts = await headers.allInnerTexts();
 		return texts.map(t => t.trim()).filter(t => t.length > 0);
+	}
+
+	/**
+	 * The data columns' labels, in order: the row-select header is dropped and a sortable header's sort words are
+	 * stripped, so a test can compare the column set exactly. getColumnHeaders keeps the raw header texts, which stay
+	 * index-aligned with a row's cells for getColumnValues.
+	 *
+	 * The rule the labels are read by lives in lib/datatable-headers.js, shared with the Log Console's page object,
+	 * whose list drops columns at narrow widths the same way this one does.
+	 */
+	async getColumnLabels()
+	{
+		return readColumnLabels(this.getDatatable());
+	}
+
+	/**
+	 * The two halves of the monitor's split row — the list column and the detail column — as bounding boxes in DOM order.
+	 * Measured on the grid columns rather than on the panels inside them, because a detail pane with nothing selected
+	 * renders no box of its own and a stacking check would then have nothing to compare. Side by side from the tablet
+	 * width up (equal top, different left), stacked below it (same left, one under the other).
+	 */
+	async getSplitPanelBoxes()
+	{
+		const columns = this.page.locator('[data-testid="split-row"] > .slds-col');
+		const count = await columns.count();
+		const boxes = [];
+		for(let index = 0; index < count; index++)
+		{
+			boxes.push(await columns.nth(index).boundingBox());
+		}
+		return boxes;
 	}
 
 	async getColumnValues(columnName)
@@ -168,6 +252,16 @@ class ChainMonitorPage
 		return items.count();
 	}
 
+	/**
+	 * @description The timeline's step rows by their own test id: one per step, unlike getStepCount's selector,
+	 *              which also counts every nested list item inside a step.
+	 * @returns {Promise<number>} The step count.
+	 */
+	async getStepRowCount()
+	{
+		return this.getDetailPanel().locator('[data-testid="step-row"]').count();
+	}
+
 	async getStepNames()
 	{
 		const timeline = this.getDetailPanel().locator('c-chain-step-timeline, kern-chain-step-timeline').first();
@@ -175,10 +269,41 @@ class ChainMonitorPage
 		return names.allTextContents();
 	}
 
+	/**
+	 * @description The step timeline's state words, one per step, in the order the chain runs them: Completed, Failed,
+	 *              Running, No result recorded, Did not run and the rest. Each word is read from the step's details
+	 *              box (class, then status), which holds it even when the row itself shows the step's duration.
+	 *
+	 * @returns {Promise<string[]>} The state words, first step first.
+	 */
+	async getStepStateWords()
+	{
+		const statusValues = this.getDetailPanel().locator('[data-testid="step-row"] .step-popover .popover-grid dd:nth-of-type(2)');
+		const words = await statusValues.allTextContents();
+		return words.map((word) => word.trim());
+	}
+
+	/** The step timeline's "Retried manually" lines, one above each step an operator retried. */
+	getManualRetryMarkers()
+	{
+		return this.getDetailPanel().locator('[data-testid="manual-retry-marker"]');
+	}
+
 	async getTimingLabels()
 	{
 		const dtElements = this.getDetailPanel().locator('dt');
 		return dtElements.allTextContents();
+	}
+
+	/**
+	 * The tooltip and the spoken name of the correlation id's copy button. Both are read from the inner button,
+	 * because the Lightning host carries neither.
+	 */
+	async getCopyCorrelationName()
+	{
+		const button = this.getDetailPanel().locator('[data-testid="copy-correlation"] button').first();
+		const spoken = await button.locator('.slds-assistive-text').first().innerText();
+		return {title: await button.getAttribute('title'), spoken: spoken.trim()};
 	}
 
 	async expandErrorAccordion()
@@ -231,6 +356,87 @@ class ChainMonitorPage
 		return this.getListPanel().locator('lightning-checkbox-group').isVisible({timeout: 2000}).catch(() => false);
 	}
 
+	statusLegend()
+	{
+		return this.getListPanel().locator('lightning-checkbox-group legend, lightning-checkbox-group .slds-form-element__legend').first();
+	}
+
+	// The rendered inner button is what carries the disabled state; the lightning-button host never does.
+	statusAction(label)
+	{
+		return this.getListPanel().locator(`lightning-button[data-testid="status-${label.toLowerCase().replace(' ', '-')}"] button`).first();
+	}
+
+	/**
+	 * @description One status's checkbox in the filter tray, by the value the list filters on.
+	 * @param {string} status The status value.
+	 * @returns {Object} The input's locator.
+	 */
+	statusCheckbox(status)
+	{
+		return this.getListPanel().locator(`lightning-checkbox-group input[type="checkbox"][value="${status}"]`).first();
+	}
+
+	/**
+	 * @description The label beside that checkbox: the input itself is hidden under the faux box, so the label
+	 *              takes the click.
+	 * @param {string} status The status value.
+	 * @returns {Object} The label's locator.
+	 */
+	statusCheckboxLabel(status)
+	{
+		return this.getListPanel().locator(`lightning-checkbox-group .slds-checkbox:has(input[value="${status}"]) label`).first();
+	}
+
+	/**
+	 * @description Leaves exactly the given statuses on, opening the filter tray when it is shut and letting the
+	 *              list reload after each box that changes.
+	 * @param {Array<string>} statuses The status values to leave on.
+	 */
+	async setStatusFilter(statuses)
+	{
+		if(!await this.hasFiltersVisible())
+		{
+			await this.toggleFilters();
+		}
+		for(const status of STATUS_VALUES)
+		{
+			const checkbox = this.statusCheckbox(status);
+			const wanted = statuses.includes(status);
+			if(await checkbox.isChecked() !== wanted)
+			{
+				await this.statusCheckboxLabel(status).click();
+				await this.waitForCheckbox(checkbox, wanted);
+				await this.page.waitForTimeout(FILTER_RELOAD_MILLISECONDS);
+				await waitForSpinnerGone(this.page);
+			}
+		}
+	}
+
+	/**
+	 * @description Waits until a checkbox reads the wanted state, through the locator (a document query from the
+	 *              page cannot see into the component's shadow tree).
+	 * @param {Object} checkbox The checkbox locator.
+	 * @param {boolean} wanted The state to wait for.
+	 */
+	async waitForCheckbox(checkbox, wanted)
+	{
+		const deadline = Date.now() + CHECKBOX_SETTLE_MILLISECONDS;
+		while(await checkbox.isChecked() !== wanted)
+		{
+			if(Date.now() > deadline)
+			{
+				throw new Error(`The ${await checkbox.getAttribute('value')} checkbox did not become ${wanted ? 'checked' : 'unchecked'}`);
+			}
+			await this.page.waitForTimeout(CHECKBOX_POLL_MILLISECONDS);
+		}
+	}
+
+	listEmptyState()
+	{
+		return this.getListPanel().locator('[data-testid="list-empty-state"]');
+	}
+
 	async getPageLabel()
 	{
 		const label = this.getListPanel().locator('.slds-align-middle').first();
@@ -251,6 +457,16 @@ class ChainMonitorPage
 	getListPaginator()
 	{
 		return this.getListPanel().locator('[data-testid="list-paginator"]').first();
+	}
+
+	/**
+	 * @description The paginator's Next: the last of its two buttons, whose rendered inner button carries the
+	 *              disabled state.
+	 * @returns {Object} The button's locator.
+	 */
+	getNextPageButton()
+	{
+		return this.getListPaginator().locator('lightning-button').last().locator('button');
 	}
 
 	async setNameSearch(term)
@@ -355,6 +571,17 @@ class ChainMonitorPage
 		return actionLocator.locator('button').getAttribute('title');
 	}
 
+	/**
+	 * @description Whether an operator action is disabled, read from the rendered inner button: the
+	 *              lightning-button host never carries the state, so a read on it always says enabled.
+	 * @param {Object} actionLocator The action's host locator (getRetryButton, getRestartButton).
+	 * @returns {Promise<boolean>} True when the rendered button is disabled.
+	 */
+	async isActionDisabled(actionLocator)
+	{
+		return actionLocator.locator('button').isDisabled();
+	}
+
 	// --- Confirm modal (shared by every operator action; abort keeps its own body testid) ---
 
 	getModalBody()
@@ -436,9 +663,55 @@ class ChainMonitorPage
 		return this.page.locator('[data-testid="log-stream-disconnected"]');
 	}
 
-	getLineageLink()
+	// --- The action scope (a deep link from the Log Console) ---
+
+	getActionPill()
 	{
-		return this.page.locator('[data-testid="restart-lineage-link"]');
+		return this.getListPanel().locator('[data-testid="action-pill"]').first();
+	}
+
+	getShowActionLogsButton()
+	{
+		return this.getListPanel().locator('[data-testid="show-action-logs"]').first();
+	}
+
+	getDetailShowActionLogsButton()
+	{
+		return this.getDetailPanel().locator('[data-testid="show-action-logs"]').first();
+	}
+
+	// The Launched-under cells, in row order: link text or plain words.
+	async getLaunchedUnderValues()
+	{
+		return this.getColumnValues('Launched under');
+	}
+
+	getLaunchedUnderRow()
+	{
+		return this.getDetailPanel().locator('[data-testid="launched-under-row"]').first();
+	}
+
+	getLaunchedUnderLink()
+	{
+		return this.getDetailPanel().locator('[data-testid="launched-under-link"]').first();
+	}
+
+	/**
+	 * @description The correlation id the detail pane shows for the run it is on, empty when the pane shows none.
+	 * @returns {Promise<string>} The correlation id.
+	 */
+	async getDetailCorrelationId()
+	{
+		return (await this.getDetailPanel().locator('[data-testid="correlation-id"]').first().innerText().catch(() => '')).trim();
+	}
+
+	/**
+	 * @description The detail pane's Launched under row as one line of text, empty when the pane shows none.
+	 * @returns {Promise<string>} The row's text.
+	 */
+	async getDetailLaunchedUnderText()
+	{
+		return (await this.getLaunchedUnderRow().innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
 	}
 
 	// The datatable keys its rows on executionId, so the checked row's key IS the selected record id.

@@ -2,14 +2,14 @@
 /**
  * @description Live activity stream for one chain execution: seeds the recent persisted log
  * entries for the chain, then appends matching LogEntryEvent__e deliveries live. Entries render
- * newest first — the live tail on top, seeded history beneath — capped to a rolling window.
+ * newest first (the live tail on top, seeded history beneath), capped to a rolling window.
  * Only errors are guaranteed to stream; other levels depend on the org's log settings, and the
  * caveat line says so. A broken event feed flips the visible disconnected notice in place of the
- * caveat; entries still persist server-side. The component reads only — it performs no writes.
+ * caveat; entries still persist server-side. The component reads only; it performs no writes.
  *
  * @author Jason van Beukering
  *
- * @date August 2026
+ * @date August 2026, October 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
@@ -31,6 +31,12 @@ const LOG_LEVEL_FIELD_NAME = 'LogLevel__c';
 const MAXIMUM_RENDERED_ENTRIES = 100;
 const ERROR_LOG_LEVEL = 'ERROR';
 const FAILED_CHAIN_STATUS = 'Failed';
+
+// The acknowledgement the platform requires when a subscription is dropped: empApi hands its second
+// argument on as the callback, and called with one argument it raises "Invalid or missing callback"
+// while the page is being torn down. Nothing is left to do once the subscription is gone, so the
+// platform's answer is taken and dropped.
+const acknowledgeUnsubscribe = () => null;
 
 // An instant as epoch milliseconds for `lightning-relative-date-time`, which does not parse the
 // ISO-8601 string an Apex Datetime (and a platform-event CreatedDate) arrives as; null stays null.
@@ -64,7 +70,7 @@ export default class ChainLogStream extends ComponentBuilder('controller', 'noti
 	@api chainStatus;
 
 	/**
-	 * @description The chain's correlation ID — the stream's second matching key, so entries
+	 * @description The chain's correlation ID: the stream's second matching key, so entries
 	 * logged by the chain's steps stream even when they carry no record reference.
 	 *
 	 * @type {string}
@@ -158,7 +164,7 @@ export default class ChainLogStream extends ComponentBuilder('controller', 'noti
 		try
 		{
 			// The channel and payload keys carry the package namespace only in a managed install
-			// ('kern__'), not in an unmanaged (no-namespace) deploy — resolved inside the try so
+			// ('kern__'), not in an unmanaged (no-namespace) deploy. It is resolved inside the try so
 			// a failure degrades to the seeded-history view without surfacing a toast.
 			this.namespacePrefix = await getNamespacePrefix() ?? '';
 			// A disconnect, or a disconnect/reconnect cycle, can happen while either await in
@@ -174,7 +180,7 @@ export default class ChainLogStream extends ComponentBuilder('controller', 'noti
 			});
 			if(generation !== this.connectionGeneration)
 			{
-				unsubscribe(subscription);
+				unsubscribe(subscription, acknowledgeUnsubscribe);
 				return;
 			}
 			this.subscription = subscription;
@@ -190,7 +196,7 @@ export default class ChainLogStream extends ComponentBuilder('controller', 'noti
 	{
 		if(this.subscription)
 		{
-			unsubscribe(this.subscription);
+			unsubscribe(this.subscription, acknowledgeUnsubscribe);
 			this.subscription = null;
 		}
 	}
@@ -232,8 +238,8 @@ export default class ChainLogStream extends ComponentBuilder('controller', 'noti
 			return;
 		}
 		const liveKeys = new Set(this.liveEntries.map((entry) => entry.deduplicationKey));
-		// The seed endpoint returns its rows OLDEST-first (getChainLogEntries reads the ascending
-		// correlated-trace projection); the stream renders newest-first, so the seed reverses.
+		// The seed endpoint returns its rows OLDEST-first (getChainLogEntries reads the correlated
+		// trace in ascending order); the stream renders newest-first, so the seed reverses.
 		this.seedEntries = [...rows]
 		.reverse()
 		.map((row, index) => this.buildEntry(row.timestamp, row.logLevel, row.message, `seed-${requestedExecutionId}-${index}`))

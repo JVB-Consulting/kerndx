@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, August 2026
+ * @date April 2026, October 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
@@ -19,7 +19,8 @@ import retryChainFromFailedStep from '@salesforce/apex/CTRL_ChainMonitor.retryCh
 import restartChainFromStart from '@salesforce/apex/CTRL_ChainMonitor.restartChainFromStart';
 import viewLogsAction from '@salesforce/label/c.ChainMonitor_ViewLogsAction';
 import actionsGroupLabel from '@salesforce/label/c.ChainMonitor_ActionsGroup';
-import copyLabel from '@salesforce/label/c.ChainMonitor_Copy';
+import copyActionLabel from '@salesforce/label/c.ChainMonitor_CopyAction';
+import copyCorrelationLabel from '@salesforce/label/c.ChainMonitor_CopyCorrelation';
 import copyFailed from '@salesforce/label/c.ChainMonitor_CopyFailed';
 import progressStepsTemplate from '@salesforce/label/c.ChainMonitor_ProgressSteps';
 import progressStepsStoppedTemplate from '@salesforce/label/c.ChainMonitor_ProgressStepsStopped';
@@ -53,7 +54,12 @@ import restartModalTitle from '@salesforce/label/c.ChainMonitor_RestartModalTitl
 import restartModalBody from '@salesforce/label/c.ChainMonitor_RestartModalBody';
 import restartConfirmButton from '@salesforce/label/c.ChainMonitor_RestartConfirmButton';
 import restartSuccessToast from '@salesforce/label/c.ChainMonitor_RestartSuccessToast';
-import restartedFromLabel from '@salesforce/label/c.ChainMonitor_RestartedFrom';
+import launchedUnderLabel from '@salesforce/label/c.ChainMonitor_LaunchedUnder';
+import launchedByThisAction from '@salesforce/label/c.ChainMonitor_LaunchedByThisAction';
+import startedThisAction from '@salesforce/label/c.ChainMonitor_StartedThisAction';
+import restartOfTemplate from '@salesforce/label/c.ChainMonitor_RestartOf';
+import launchedByStepNote from '@salesforce/label/c.ChainMonitor_LaunchedByStepNote';
+import showActionLogsAction from '@salesforce/label/c.ChainMonitor_ShowActionLogsAction';
 import actionCancelButton from '@salesforce/label/c.ChainMonitor_ActionCancelButton';
 import retryUnavailableStepNotIdempotent from '@salesforce/label/c.ChainMonitor_RetryUnavailableStepNotIdempotent';
 import retryUnavailablePermanent from '@salesforce/label/c.ChainMonitor_RetryUnavailablePermanent';
@@ -95,8 +101,9 @@ const STATUS_PILL_CLASSES = {
 // The headline renders one dot per step only while the count keeps them readable (M0 P28);
 // beyond it the progress phrase and the bar carry the signal alone.
 const STEP_DOT_MAXIMUM_STEPS = 10;
+// A step that failed and let the chain carry on reads "warning", as the step timeline shows it, never pending.
 const STEP_DOT_CLASSES = {
-	success: 'step-dot step-dot_done', failed: 'step-dot step-dot_failed', running: 'step-dot step-dot_running'
+	success: 'step-dot step-dot_done', failed: 'step-dot step-dot_failed', running: 'step-dot step-dot_running', warning: 'step-dot step-dot_warning'
 };
 const STEP_DOT_DEFAULT_CLASS = 'step-dot step-dot_pending';
 
@@ -147,6 +154,12 @@ const RESTART_UNAVAILABLE_MESSAGES = {
 	PermissionMissing: redriveUnavailableMissingPermission
 };
 
+// How a run entered its action, the controller's vocabulary.
+const LAUNCH_KIND_CHAIN = 'CHAIN';
+const LAUNCH_KIND_ACTION = 'ACTION';
+const LAUNCH_KIND_RESTART = 'RESTART';
+const LAUNCH_KIND_ORIGIN = 'ORIGIN';
+
 export default class ChainMonitorDetail extends ComponentBuilder('controller', 'notification', 'navigation')
 {
 	detail = null;
@@ -156,11 +169,13 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 	label = {
 		viewLogs: viewLogsAction,
 		actionsGroup: actionsGroupLabel,
-		copy: copyLabel,
+		copyAction: copyActionLabel,
+		copyCorrelation: copyCorrelationLabel,
 		abortAction,
 		retryAction,
 		restartAction,
-		restartedFrom: restartedFromLabel,
+		launchedUnder: launchedUnderLabel,
+		showActionLogs: showActionLogsAction,
 		copyFailed,
 		stepsSection,
 		timingSection,
@@ -172,6 +187,9 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 		emptyStateHeading,
 		emptyStateBody
 	};
+
+	// Counts the detail requests; an answer is taken only while its request is the newest (see loadDetail).
+	loadSequence = 0;
 
 	@api get executionId()
 	{
@@ -185,6 +203,9 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 			return;
 		}
 		this.currentExecutionId = value;
+		// The previous run's pane leaves with its selection: kept on screen through the round trip, or after a
+		// failed load, its enabled actions would act on the run selected now.
+		this.detail = null;
 		if(value)
 		{
 			// noinspection JSIgnoredPromiseFromCall
@@ -192,7 +213,10 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 		}
 		else
 		{
-			this.detail = null;
+			// A load still on its way for the cleared run is ignored when it lands (see loadDetail), so the
+			// loading state ends here or the pane would stay loading with nothing to show.
+			this.loadSequence++;
+			this.isLoading = false;
 		}
 	}
 
@@ -338,6 +362,96 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 		return !!this.detail?.correlationId;
 	}
 
+	get hasLaunchCorrelationId()
+	{
+		return !!this.detail?.launchCorrelationId;
+	}
+
+	/**
+	 * @description How the run entered its action, as the controller classified it; a detail with no
+	 * kind reads as the run that started the action.
+	 *
+	 * @returns {string}
+	 */
+	get launchedUnderKind()
+	{
+		return this.detail?.launchKind ?? LAUNCH_KIND_ORIGIN;
+	}
+
+	/**
+	 * @description Whether the Launched under row names a run the reader can open: the launching
+	 * chain, or the run a restart was made from.
+	 *
+	 * @returns {boolean}
+	 */
+	get launchedUnderIsLink()
+	{
+		return (this.launchedUnderKind === LAUNCH_KIND_CHAIN || this.launchedUnderKind === LAUNCH_KIND_RESTART) && !!this.detail?.launchedUnderExecutionId;
+	}
+
+	/**
+	 * @description The words of the Launched under row by the four cases: the launching run's name
+	 * and number, "this action", "restart of {source}", or "started this action".
+	 *
+	 * @returns {string}
+	 */
+	get launchedUnderText()
+	{
+		const kind = this.launchedUnderKind;
+		if(kind === LAUNCH_KIND_CHAIN)
+		{
+			return this.detail.launchedUnderName ?? '';
+		}
+		if(kind === LAUNCH_KIND_RESTART)
+		{
+			return formatTemplateString(restartOfTemplate, [this.detail.launchedUnderName ?? '']);
+		}
+		return kind === LAUNCH_KIND_ORIGIN ? startedThisAction : launchedByThisAction;
+	}
+
+	/**
+	 * @description The note under a launching chain, saying that one of its steps started this run.
+	 * The other three readings need no note.
+	 *
+	 * @returns {string|null}
+	 */
+	get launchedUnderNote()
+	{
+		return this.launchedUnderKind === LAUNCH_KIND_CHAIN ? launchedByStepNote : null;
+	}
+
+	/**
+	 * @description The raw launch id with copy is shown beside "this action": the action's own id,
+	 * the one a reader may want to paste.
+	 *
+	 * @returns {boolean}
+	 */
+	get showLaunchIdCopy()
+	{
+		return this.launchedUnderKind === LAUNCH_KIND_ACTION && this.hasLaunchCorrelationId;
+	}
+
+	/**
+	 * @description Whether this run belongs to an action whose logs can be opened as a whole.
+	 *
+	 * @returns {boolean}
+	 */
+	get hasRootCorrelationId()
+	{
+		return !!this.detail?.rootCorrelationId;
+	}
+
+	/**
+	 * @description Whether the toolbar's navigation slot has anything to hold: the per-run logs, the
+	 * whole action's logs, or both.
+	 *
+	 * @returns {boolean}
+	 */
+	get hasNavigationActions()
+	{
+		return this.hasCorrelationId || this.hasRootCorrelationId;
+	}
+
 	get structuralSections()
 	{
 		return [
@@ -402,23 +516,23 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 	}
 
 	/**
-	 * @description Whether the toolbar row has anything to hold: the operator actions, the View
-	 * logs hand-off, or both. A chain with neither renders no row and costs no header height.
+	 * @description Whether the toolbar row has anything to hold: the operator actions, the log
+	 * hand-offs, or both. A chain with neither renders no row and costs no header height.
 	 * @returns {boolean}
 	 */
 	get hasHeaderActions()
 	{
-		return this.hasActionGroup || this.hasCorrelationId;
+		return this.hasActionGroup || this.hasNavigationActions;
 	}
 
 	/**
-	 * @description The rule between the operator actions and the navigation action, drawn only
+	 * @description The rule between the operator actions and the navigation actions, drawn only
 	 * when there is something on each side of it.
 	 * @returns {boolean}
 	 */
 	get showActionDivider()
 	{
-		return this.hasActionGroup && this.hasCorrelationId;
+		return this.hasActionGroup && this.hasNavigationActions;
 	}
 
 	/**
@@ -451,20 +565,38 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 		return !!this.detail?.activeDurationLabel;
 	}
 
-	get showLineageLink()
-	{
-		return this.detail?.sourceExecutionId != null;
-	}
-
 	async loadDetail()
 	{
+		const requestedExecutionId = this.currentExecutionId;
+		this.loadSequence++;
+		const requestSequence = this.loadSequence;
 		this.isLoading = true;
-		const data = await this.callControllerMethod(getChainDetail, {executionId: this.currentExecutionId});
+		const data = await this.callControllerMethod(getChainDetail, {executionId: requestedExecutionId});
 
+		// Whatever is selected NOW wins, and only its newest request. Two loads are in flight when the list
+		// auto-selects its first row while a deep link resolves another run, or when two events about the selected
+		// run refresh it in a burst, and the earlier request can answer last; written as it lands, it would
+		// describe one run while the actions act on the selected one, or an older state of the right run.
+		if(requestSequence !== this.loadSequence || requestedExecutionId !== this.currentExecutionId)
+		{
+			return;
+		}
 		if(data)
 		{
 			this.detail = data;
 		}
+		this.isLoading = false;
+	}
+
+	/**
+	 * @description Takes an operator action's answer as the pane's detail: the newest word on the run, so a load
+	 * still on its way is out of date and dropped when it lands, and any loading it started ends here.
+	 * @param {Object} data The detail the action answered with.
+	 */
+	acceptActionDetail(data)
+	{
+		this.loadSequence++;
+		this.detail = data;
 		this.isLoading = false;
 	}
 
@@ -480,6 +612,27 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 			try
 			{
 				await copyToClipBoard(this.detail.correlationId);
+				this.showSuccessToast(correlationCopied);
+			}
+			catch
+			{
+				// copyToClipBoard already logged the failure; tell the user the copy did not happen.
+				this.showErrorToast(this.label.copyFailed);
+			}
+		}
+	}
+
+	/**
+	 * @description Copies the id the run was launched under to the clipboard, with the same confirmation and failure
+	 * toasts as the correlation id copy.
+	 */
+	async handleCopyLaunchCorrelation()
+	{
+		if(this.detail?.launchCorrelationId)
+		{
+			try
+			{
+				await copyToClipBoard(this.detail.launchCorrelationId);
 				this.showSuccessToast(correlationCopied);
 			}
 			catch
@@ -561,16 +714,21 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 			return;
 		}
 
+		// The run acted on: a row clicked during the round trip wins the pane, and the event names this run.
+		const actedExecutionId = this.currentExecutionId;
 		this.isProcessing = true;
 		try
 		{
-			const data = await this.callControllerMethod(abortChain, {executionId: this.currentExecutionId});
+			const data = await this.callControllerMethod(abortChain, {executionId: actedExecutionId});
 
 			if(data)
 			{
-				this.detail = data;
+				if(actedExecutionId === this.currentExecutionId)
+				{
+					this.acceptActionDetail(data);
+				}
 				this.showSuccessToast(abortSuccessToast);
-				this.dispatchEvent(new CustomEvent('chainabort', {detail: {executionId: this.currentExecutionId}}));
+				this.dispatchEvent(new CustomEvent('chainabort', {detail: {executionId: actedExecutionId}}));
 			}
 		}
 		finally
@@ -584,7 +742,8 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 	 * action button held disabled until the controller promise settles — a rapid second click
 	 * during server transit is impossible client-side, while the server's fresh re-read remains
 	 * the enforcement point. A refused action resolves undefined (callControllerMethod has
-	 * already toasted the labelled refusal), so onSuccess never runs.
+	 * already toasted the labelled refusal), so onSuccess never runs. onSuccess receives the answer and the
+	 * id of the run acted on, since a row clicked during the round trip may have moved the selection.
 	 */
 	async runConfirmedOperatorAction(modalConfiguration, controllerMethod, onSuccess)
 	{
@@ -595,14 +754,15 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 			return;
 		}
 
+		const actedExecutionId = this.currentExecutionId;
 		this.isProcessing = true;
 		try
 		{
-			const data = await this.callControllerMethod(controllerMethod, {executionId: this.currentExecutionId});
+			const data = await this.callControllerMethod(controllerMethod, {executionId: actedExecutionId});
 
 			if(data)
 			{
-				onSuccess(data);
+				onSuccess(data, actedExecutionId);
 			}
 		}
 		finally
@@ -625,13 +785,16 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 			confirmLabel: retryConfirmButton,
 			cancelLabel: actionCancelButton,
 			confirmVariant: 'brand'
-		}, retryChainFromFailedStep, (data) =>
+		}, retryChainFromFailedStep, (data, actedExecutionId) =>
 		{
-			this.detail = data;
+			if(actedExecutionId === this.currentExecutionId)
+			{
+				this.acceptActionDetail(data);
+			}
 			// The toast names the chain: several rows can share a truncated name in the list, so an
 			// unnamed "Retry started" leaves the operator unable to tell which record moved.
 			this.showSuccessToast(formatTemplateString(retrySuccessToast, [data.chainName]));
-			this.dispatchEvent(new CustomEvent('chainretry', {detail: {executionId: this.currentExecutionId}}));
+			this.dispatchEvent(new CustomEvent('chainretry', {detail: {executionId: actedExecutionId}}));
 		});
 	}
 
@@ -652,21 +815,32 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 			confirmVariant: 'brand'
 		}, restartChainFromStart, (data) =>
 		{
-			this.detail = data;
+			// The clone is selected whatever was clicked meanwhile: the container follows this event to it.
 			this.currentExecutionId = data.executionId;
+			this.acceptActionDetail(data);
 			this.showSuccessToast(formatTemplateString(restartSuccessToast, [data.chainName]));
 			this.dispatchEvent(new CustomEvent('chainrestart', {detail: {executionId: data.executionId}}));
 		});
 	}
 
 	/**
-	 * @description The restart lineage link: asks the container to select the source run this
-	 * clone was restarted from. The template gates the link behind `showLineageLink`, so the
-	 * source id is always present when invoked.
+	 * @description The Launched under row's link: asks the container to select the launching run, or
+	 * the restart's source.
 	 */
-	handleLineageNavigate()
+	handleLaunchedUnderNavigate()
 	{
-		this.dispatchEvent(new CustomEvent('chainlineagenavigate', {detail: {executionId: this.detail.sourceExecutionId}}));
+		this.dispatchEvent(new CustomEvent('chainlineagenavigate', {detail: {executionId: this.detail.launchedUnderExecutionId}}));
+	}
+
+	/**
+	 * @description Opens the Log Console on this run's whole action: the action and a click stamp, no
+	 * window keys. View logs keeps its per-run meaning and its window.
+	 */
+	handleShowActionLogs()
+	{
+		this.navigate({
+			type: 'standard__navItemPage', attributes: {apiName: 'LogConsole'}, state: {c__rootCorrelationId: this.detail.rootCorrelationId, c__viewLogsAt: String(Date.now())}
+		});
 	}
 
 	@api async refresh()

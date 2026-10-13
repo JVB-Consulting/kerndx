@@ -1,0 +1,24 @@
+/* SPDX-License-Identifier: BUSL-1.1 */
+/*
+ * The origin pill, drawn to whisper, exactly as the provenance pill on the problem name is. The list has one
+ * colour axis and it is the log level, so a filled or coloured mark next to an ERROR badge would pull the eye
+ * away from the only thing on the row that carries severity.
+ *
+ * Sentence case is left to the label rather than forced in CSS: the text is a translated Custom Label, and
+ * uppercasing is locale-dependent, so a rule that reads fine in English mangles other languages.
+ *
+ * The border width and the text colour come from the platform's styling hooks, each with the literal it
+ * replaces as its fallback so the pill looks the same in an org that does not define the hook. The other
+ * values stay literal: the platform offers no hook that carries them, and the nearest ones carry a
+ * different value, which would change how the pill looks rather than only where its value comes from.
+ */
+.origin-pill
+{
+	border        : var(--slds-g-sizing-border-1, 1px) solid #DDDBDA;
+	border-radius : 0.75rem;
+	color         : var(--slds-g-color-neutral-base-50, #747474);
+	font-size     : 0.68rem;
+	margin-left   : 0.4rem;
+	padding       : 0.02rem 0.4rem;
+	white-space   : nowrap;
+}

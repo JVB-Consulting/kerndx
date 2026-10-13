@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 //
-// Log Console e2e teardown - deletes every row seeded by seed-log-console.apex AND seed-log-console-bulk.apex.
+// Log Console e2e teardown - deletes every row seeded by seed-log-console.apex, seed-log-console-actions.apex AND
+// seed-log-console-bulk.apex.
 // Covers fingerprinted rows ('e2e-' Fingerprint__c) AND the null-fingerprint forensic rows that carry an
 // 'e2e-' CorrelationId__c or TransactionId__c (chain hops, correlated requests, derived-fold input, calendar
 // rows), plus the seeded AsyncChainExecution__c chain record. Namespace-robust (LogEntry__c in a
@@ -19,13 +20,15 @@ for(String key : Schema.getGlobalDescribe().keySet())
 String fp = ns + 'Fingerprint__c';
 String corr = ns + 'CorrelationId__c';
 String txn = ns + 'TransactionId__c';
-List<SObject> seeded = Database.query('SELECT Id FROM ' + ns + 'LogEntry__c WHERE ' + fp + ' LIKE \'%e2e-%\' OR ' + corr + ' LIKE \'e2e-%\' OR ' + txn + ' LIKE \'e2e-%\'');
+List<SObject> seeded = Database.query('SELECT Id FROM ' + ns + 'LogEntry__c WHERE ' + fp + ' LIKE \'%e2e-%\' OR ' + corr + ' LIKE \'e2e-%\' OR ' + txn + ' LIKE \'e2e-%\''
+		+ ' OR ' + corr + ' LIKE \'e2ee2ee2%\' OR ' + ns + 'RootCorrelationId__c LIKE \'e2ee2ee2%\'');
 if(!seeded.isEmpty())
 {
 	delete seeded;
 }
 
-List<SObject> chains = Database.query('SELECT Id FROM ' + ns + 'AsyncChainExecution__c WHERE ' + ns + 'CorrelationId__c LIKE \'e2e-%\'');
+List<SObject> chains = Database.query('SELECT Id FROM ' + ns + 'AsyncChainExecution__c WHERE ' + ns + 'CorrelationId__c LIKE \'e2e-%\''
+		+ ' OR ' + ns + 'CorrelationId__c LIKE \'e2ee2ee2%\'');
 if(!chains.isEmpty())
 {
 	delete chains;

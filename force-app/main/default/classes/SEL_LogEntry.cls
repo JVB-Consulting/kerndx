@@ -2,7 +2,9 @@
 /**
  * @description Selector for the LogEntry__c SObject. Provides query methods for
  * retrieving log records by class method, logging level, and other criteria,
- * supporting traceability and error analysis.
+ * supporting traceability and error analysis. Every browse read can be scoped to
+ * one action, the entries the action wrote itself and the entries of every chain
+ * run launched under it.
  *
  * @see SEL_Base
  * @see SEL_LogEntry_TEST
@@ -11,7 +13,7 @@
  *
  * @group Logging
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.ExcessivePublicCount,PMD.CognitiveComplexity,PMD.ExcessiveClassLength')
 public inherited sharing class SEL_LogEntry extends SEL_Base
@@ -23,7 +25,7 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	private static final String FIELD_SET_TEST = UTIL_System.getManagedPackageNamespacePrefix() + 'Test';
 
 	/**
-	 * @description The default HAVING floor when the caller passes a non-positive minOccurrences — keeps
+	 * @description The default HAVING floor when the caller passes a non-positive minOccurrences. It keeps
 	 * one-off errors out of the derived problems view.
 	 */
 	private static final Integer DEFAULT_MINIMUM_OCCURRENCES = 2;
@@ -35,15 +37,15 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 
 	/**
 	 * @description Ceiling on the rows one batched representative read may return. A problems page holds at
-	 * most its page-size derived signatures and each pinned newest instant usually holds one row, so this
-	 * only bites when many rows share one newest second. The rows order newest instant first, so an
-	 * overflow crowds out the signatures whose newest instants are oldest — their problems keep the fold's
-	 * own label, never an error.
+	 * most its page-size derived signatures. The read asks for each signature's newest instant, which usually
+	 * holds one row, so this limit only matters when many rows share one newest second. The rows come newest
+	 * instant first, so an overflow pushes out the signatures whose newest instants are oldest. Their problems
+	 * keep the fold's own label, never an error.
 	 */
 	private static final Integer DERIVED_REPRESENTATIVE_ROW_CEILING = 500;
 
 	/**
-	 * @description Ceiling on the signatures one batched representative read pins. Every signature
+	 * @description Ceiling on the signatures one batched representative read asks for. Every signature
 	 * contributes one OR branch to the query, so an unbounded list could grow the statement itself past
 	 * the platform's query-length limit; a signature beyond the ceiling is simply not resolved and its
 	 * problem keeps the fold's own label. Far above any page the console requests (its pages hold 50
@@ -53,62 +55,96 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 
 	/**
 	 * @description The default LIMIT on the per-source aggregate when the caller passes a non-positive
-	 * sourceCap — bounds how many class-method groups are ranked into the all-entries top sources. The
+	 * sourceCap. It limits how many class-method groups are ranked into the all-entries top sources. The
 	 * per-level total is a separate, unbounded aggregate, so this cap never affects the total or per-level counts.
 	 */
 	private static final Integer DEFAULT_SOURCE_CAP = 200;
 
 	/**
+	 * @description The characters SOSL reads as syntax inside a FIND term rather than as text to match.
+	 * Each one is given a leading backslash so the body search finds the term the reader actually typed,
+	 * the way the message search beside it does.
+	 */
+	private static final Set<String> SOSL_RESERVED_CHARACTERS = new Set<String>
+	{'\\', '?', '&', '|', '!', '{', '}', '[', ']', '(', ')', '^', '~', '*', ':', '"', '\'', '+', '-'};
+
+	/**
 	 * @description The maximum number of forensic rows a single correlated trace returns. The trace is
 	 * bounded so a pathological correlation cannot return an unbounded result set; the query fetches one row
-	 * beyond this cap so the controller can tell an exactly-filled trace from an overflowed one. Paired with
-	 * the lean CORRELATION_TRACE_FIELDS projection (no long-text bodies), the bounded read stays heap-safe
+	 * beyond this cap so the controller can tell an exactly-filled trace from an overflowed one. Because the
+	 * read selects only the short CORRELATION_TRACE_FIELDS list (no long-text bodies), the bounded read stays heap-safe
 	 * even at the cap, which comfortably exceeds a realistic correlation.
 	 */
 	public static final Integer CORRELATION_TRACE_ROW_CAP = 300;
 
 	/**
-	 * @description The lean field projection for the correlated trace — the fields the trace mapper reads
-	 * (identity, level, short message, source, execution context, timestamp, and the transaction-tree
-	 * linkage) plus the OccurrenceCount__c filter discriminator (forensic vs rollup: counter). It
-	 * deliberately omits the long-text bodies (Message__c, StackTrace__c, ContextData__c, Limits__c) the
-	 * timeline never shows, so a capped trace of up to a few hundred rows stays well within the heap; the
-	 * full bodies are loaded per hop, on demand, when a single entry is focused.
+	 * @description The short list of fields selected for the correlated trace: the fields the trace mapper reads
+	 * (identity, level, short message, the class method and the writer's stored name, execution context,
+	 * timestamp, and the transaction-tree linkage) plus the OccurrenceCount__c filter discriminator (forensic
+	 * vs rollup: counter). It deliberately omits the long-text bodies (Message__c, StackTrace__c, ContextData__c,
+	 * Limits__c) the timeline never shows, so a capped trace of up to a few hundred rows stays well within the
+	 * heap; the full bodies are loaded per hop, on demand, when a single entry is focused.
 	 */
 	private static final List<SObjectField> CORRELATION_TRACE_FIELDS = new List<SObjectField>
 	{
-			LogEntry__c.Name,
-			LogEntry__c.LogLevel__c,
-			LogEntry__c.ShortMessage__c,
 			LogEntry__c.ClassMethod__c,
-			LogEntry__c.LineNumber__c,
-			LogEntry__c.ExecutionEvent__c,
 			LogEntry__c.CreatedDate,
+			LogEntry__c.DurationMs__c,
+			LogEntry__c.ExecutionEvent__c,
+			LogEntry__c.LineNumber__c,
+			LogEntry__c.LogLevel__c,
+			LogEntry__c.Name,
 			LogEntry__c.OccurrenceCount__c,
-			LogEntry__c.TransactionId__c,
 			LogEntry__c.ParentTransactionId__c,
-			LogEntry__c.DurationMs__c
+			LogEntry__c.ShortMessage__c,
+			LogEntry__c.Source__c,
+			LogEntry__c.TransactionId__c
 	};
 
 	/**
-	 * @description AggregateResult alias for COUNT(Id) — sig-prefixed to avoid any SOQL keyword collision.
+	 * @description AggregateResult alias for COUNT(Id). The sig prefix (for signature) avoids any SOQL keyword collision.
 	 */
 	private static final String ALIAS_OCCURRENCE_COUNT = 'sigCount';
 
 	/**
-	 * @description AggregateResult alias for MIN(CreatedDate) — the signature's first-seen timestamp.
+	 * @description AggregateResult alias for MIN(CreatedDate): the signature's first-seen timestamp.
 	 */
 	private static final String ALIAS_FIRST_SEEN = 'sigFirstSeen';
 
 	/**
-	 * @description AggregateResult alias for MAX(CreatedDate) — the signature's last-seen timestamp.
+	 * @description AggregateResult alias for MAX(CreatedDate): the signature's last-seen timestamp.
 	 */
 	private static final String ALIAS_LAST_SEEN = 'sigLastSeen';
 
 	/**
-	 * @description AggregateResult alias for MAX(ShortMessage__c) — the signature's display label.
+	 * @description AggregateResult alias for MAX(ShortMessage__c): the signature's display label.
 	 */
 	private static final String ALIAS_LABEL = 'sigLabel';
+
+	/**
+	 * @description AggregateResult alias for MAX(Source__c): the signature's stored source, one value per
+	 * class-method on every row the logger wrote, because there the source is computed from it. A row seeded or
+	 * published outside the logger can carry any source for the same class-method, and the fold then takes the
+	 * greater of the values.
+	 */
+	private static final String ALIAS_SOURCE = 'sigSource';
+
+	/**
+	 * @description AggregateResult alias for MAX(Origin__c): the signature's origin when it has exactly one.
+	 */
+	private static final String ALIAS_ORIGIN = 'sigOrigin';
+
+	/**
+	 * @description AggregateResult alias for COUNT_DISTINCT(Origin__c): more than one means the signature spans
+	 * origins and says Mixed.
+	 */
+	private static final String ALIAS_ORIGIN_COUNT = 'sigOriginCount';
+
+	/**
+	 * @description The origin a signature carries when its rows were written under more than one origin. A
+	 * display value the console labels; never a picklist value.
+	 */
+	public static final String ORIGIN_MIXED = 'MIXED';
 
 	/**
 	 * @description Constructs a Log Entry selector.
@@ -150,10 +186,13 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 				LogEntry__c.Message__c,
 				LogEntry__c.Name,
 				LogEntry__c.OccurrenceCount__c,
+				LogEntry__c.Origin__c,
 				LogEntry__c.ParentTransactionId__c,
 				LogEntry__c.RecordId__c,
 				LogEntry__c.RecordLink__c,
+				LogEntry__c.RootCorrelationId__c,
 				LogEntry__c.ShortMessage__c,
+				LogEntry__c.Source__c,
 				LogEntry__c.StackTrace__c,
 				LogEntry__c.TransactionId__c,
 				LogEntry__c.UserId__c,
@@ -162,12 +201,12 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
-	 * @description Framework-owned sObject selector — always runs in `AccessLevel.SYSTEM_MODE`
+	 * @description Framework-owned sObject selector. It always runs in `AccessLevel.SYSTEM_MODE`
 	 * regardless of the `UserModeQueries_Enabled` feature flag. Running users typically have no
 	 * CRUD on framework-owned log records (the framework owns their lifecycle), so USER_MODE
 	 * reads would return empty and log observability would silently break.
 	 *
-	 * @return `true` — this selector requires SYSTEM_MODE.
+	 * @return `true`, because this selector requires SYSTEM_MODE.
 	 */
 	public override Boolean systemModeRequired()
 	{
@@ -194,7 +233,7 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * @description Retrieves all LogEntry__c records ordered by CreatedDate descending. Only executes
 	 * in test context to prevent full-table scans in production. Tests that scan for "most-recent"
 	 * audit entries (bypass audit, performance logs) iterate this list and `return` on the first
-	 * match — explicit DESC ordering makes that semantically correct.
+	 * match. The explicit DESC ordering is what makes that correct.
 	 *
 	 * @return List of all LogEntry__c records ordered most-recent-first in test context, empty list in production
 	 *
@@ -333,8 +372,8 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 
 	/**
 	 * @description Returns log entries whose `Fingerprint__c` exactly matches one of the supplied
-	 * keys (`detail:` and/or `rollup:` prefixed). Equality IN on the unique external-ID index —
-	 * selective by construction, safe on the production hot path (used at log persist time for
+	 * keys (`detail:` and/or `rollup:` prefixed). Equality IN on the unique external-ID index, so it is
+	 * always selective and safe on the production hot path (used at log persist time for
 	 * fingerprint presence checks and rollup-count reads).
 	 *
 	 * @param fingerprints The exact fingerprint key values to find.
@@ -387,7 +426,8 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * ('detail:<base>'). Window-free by design: the distinct list is scoped by in-window rollup
 	 * activity, then the samples are fetched by key, so a long-lived problem still firing in the
 	 * window is never hidden by its frozen first-seen CreatedDate. Exact-equality IN on the unique
-	 * Fingerprint__c index — selective and fast.
+	 * Fingerprint__c index, so it is selective and fast. The read ignores record sharing (bypassSharingInternal()): log
+	 * entries are private to the user who wrote them, and the Log Console shows an administrator every user's entries.
 	 *
 	 * @param detailKeys The full 'detail:<base>' keys to fetch.
 	 *
@@ -417,7 +457,9 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * per signature. CreatedDate and LastModifiedDate are selected for the first-seen / last-seen fold.
 	 * The read is bounded at maximumRows plus one probe row (mirroring the correlated-trace cap probe), so
 	 * a caller can tell an exactly-filled candidate set from an overflowed one by the one extra row and
-	 * flag its folded totals best-effort instead of silently under-reporting.
+	 * flag its folded totals best-effort instead of silently under-reporting. The read ignores record sharing
+	 * (bypassSharingInternal()): log entries are private to the user who wrote them, and the Log Console shows an
+	 * administrator every user's entries.
 	 *
 	 * @param criteria The browse filters.
 	 * @param maximumRows The maximum number of candidate rows to fold; one extra probe row is fetched.
@@ -469,8 +511,8 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * ordered by CreatedDate ascending so the rows are returned in the order they occurred. The rollup:
 	 * counter rows are excluded by the OccurrenceCount__c is-null condition. Sharing is bypassed and the
 	 * selector runs in SYSTEM_MODE so the read spans every user's framework-owned log rows regardless of
-	 * the caller's sharing; a lean projection (CORRELATION_TRACE_FIELDS — no long-text bodies) is selected so
-	 * a capped trace stays heap-safe. The result is bounded at CORRELATION_TRACE_ROW_CAP plus one row, so a
+	 * the caller's sharing. Only the short CORRELATION_TRACE_FIELDS list is selected (no long-text bodies),
+	 * so a capped trace stays heap-safe. The result is bounded at CORRELATION_TRACE_ROW_CAP plus one row, so a
 	 * pathological correlation cannot return an unbounded result set and the caller can detect the overflow
 	 * by the one extra row.
 	 *
@@ -501,17 +543,116 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
-	 * @description The NEWEST forensic rows referencing a chain execution — by its correlation id,
+	 * @description The earliest entry of an action: the first row, by creation time, whose root or whose correlation is the
+	 * action's id. Deliberately reads with no date window: the banner it feeds says when the action started, and the list's
+	 * own range must not clip that. Like every Log Console read, it ignores record sharing and runs in SYSTEM_MODE; both
+	 * ids are indexed, so the read is one indexed lookup ordered by creation time.
+	 *
+	 * @param rootCorrelationId The action's tracking id; blank reads nothing.
+	 *
+	 * @return The action's earliest forensic entry (the selector's default fields, which carry the root and the correlation,
+	 * with CreatedDate added), or null when the action has no entries.
+	 *
+	 * @example
+	 * ```apex
+	 * LogEntry__c first = new SEL_LogEntry().findFirstInScope(rootCorrelationId);
+	 * ```
+	 */
+	public LogEntry__c findFirstInScope(String rootCorrelationId)
+	{
+		return findEdgeInScope(rootCorrelationId, false);
+	}
+
+	/**
+	 * @description The latest entry of an action: the last row, by creation time, whose root or whose correlation is the
+	 * action's id, read with no date window for the reason findFirstInScope gives.
+	 *
+	 * @param rootCorrelationId The action's tracking id; blank reads nothing.
+	 *
+	 * @return The action's latest forensic entry (the selector's default fields, which carry the root and the correlation,
+	 * with CreatedDate added), or null when the action has no entries.
+	 *
+	 * @example
+	 * ```apex
+	 * LogEntry__c last = new SEL_LogEntry().findLastInScope(rootCorrelationId);
+	 * ```
+	 */
+	public LogEntry__c findLastInScope(String rootCorrelationId)
+	{
+		return findEdgeInScope(rootCorrelationId, true);
+	}
+
+	/**
+	 * @description One edge of an action's entries: the earliest or the latest forensic row in the action scope, so the
+	 * two public edge reads share one query shape. The read ignores record sharing (bypassSharingInternal()): log entries
+	 * are private to the user who wrote them, and the Log Console's banner describes the whole action, whoever wrote its
+	 * entries.
+	 *
+	 * @param rootCorrelationId The action's tracking id; blank reads nothing.
+	 * @param latest True for the latest row, false for the earliest.
+	 *
+	 * @return The edge row with CreatedDate selected, or null.
+	 *
+	 * @example
+	 * ```apex
+	 * LogEntry__c first = findEdgeInScope(rootCorrelationId, false);
+	 * ```
+	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+	private LogEntry__c findEdgeInScope(String rootCorrelationId, Boolean latest)
+	{
+		if(String.isBlank(rootCorrelationId))
+		{
+			return null;
+		}
+		return (LogEntry__c)query.bypassSharingInternal()
+				.addField(LogEntry__c.CreatedDate)
+				.condition(LogEntry__c.OccurrenceCount__c).isNull()
+				.addCondition(actionScopeCondition(rootCorrelationId))
+				.orderBy(LogEntry__c.CreatedDate, latest, latest)
+				.getFirst();
+	}
+
+	/**
+	 * @description One entry that carries a tracking id as its root or as its correlation, projecting only those two
+	 * fields, so the search box can tell what an id names before it searches: an action (the row's root is the id), an
+	 * action recorded before roots were written (the row's correlation is the id and it has no root), or a chain run's id
+	 * (the row's correlation is the id beside another root). Like every Log Console read, it ignores record sharing.
+	 *
+	 * @param trackingId The id to look up; blank reads nothing.
+	 *
+	 * @return One forensic entry carrying the id, with CorrelationId__c and RootCorrelationId__c selected, or null.
+	 *
+	 * @example
+	 * ```apex
+	 * LogEntry__c match = new SEL_LogEntry().findOneByRootOrCorrelation(term);
+	 * ```
+	 */
+	public LogEntry__c findOneByRootOrCorrelation(String trackingId)
+	{
+		if(String.isBlank(trackingId))
+		{
+			return null;
+		}
+		return (LogEntry__c)query.onlyFields(new List<SObjectField> {LogEntry__c.CorrelationId__c, LogEntry__c.RootCorrelationId__c})
+				.bypassSharingInternal()
+				.condition(LogEntry__c.OccurrenceCount__c).isNull()
+				.addCondition(actionScopeCondition(trackingId))
+				.getFirst();
+	}
+
+	/**
+	 * @description The NEWEST forensic rows referencing a chain execution: by its correlation id,
 	 * by a direct record reference, or both. This is the stream seed's read: a chain launched from
 	 * a transaction with no active log correlation still logs with its record id stamped, so the
 	 * record leg keeps those runs' entries seedable while the correlation leg spans the full trace.
 	 * The OR is not expressible as one grouped fluent query, so this follows the selector's two-leg
 	 * pattern (findIdsBySearch): each leg collects its newest candidate ids, and one bounded fetch
-	 * orders the union newest-first — ties broken by Id, a deterministic tiebreak that makes
-	 * "newest" witnessable for same-timestamp rows. Same posture as the correlated-trace read:
-	 * system mode with sharing bypassed (the Log Console pairing — the trace must span every
-	 * user's framework-owned rows, and through the record leg that includes subscriber-authored
-	 * entries that reference the chain execution), the lean trace projection, forensic rows only.
+	 * orders the union newest-first. Ties are broken by Id, a fixed order that makes "newest" testable for
+	 * rows with the same timestamp. The read runs the same way as the correlated-trace read: system mode with
+	 * sharing bypassed, as in the Log Console, because the trace must span every user's framework-owned rows
+	 * (and, through the record leg, subscriber-written entries that reference the chain execution); only the
+	 * short trace field list; forensic rows only.
 	 *
 	 * @param correlationId The chain's correlation id; blank skips the correlation leg.
 	 * @param recordId The chain execution record id; null skips the record leg.
@@ -554,9 +695,12 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	/**
 	 * @description One leg of findNewestByCorrelationIdOrRecordId's two-leg union read: the Ids of
 	 * the NEWEST forensic rows (OccurrenceCount__c null) whose reference field equals the given
-	 * value. The projection is Id-only because the caller re-fetches the union with the trace
-	 * projection; ordering (CreatedDate descending, Id tiebreak) and the row cap match the caller's
-	 * final fetch so each leg contributes exactly its own newest rows.
+	 * value. Only Id is selected, because the caller re-fetches the union with the trace
+	 * fields; ordering (CreatedDate descending, Id tiebreak) and the row cap match the caller's
+	 * final fetch so each leg contributes exactly its own newest rows. The read ignores record sharing and object access
+	 * (bypassSharingInternal() and systemModeInternal()): log entries are private to the user who wrote them, and the
+	 * Chain Monitor's log stream and the Scheduled Jobs page show every entry written for a chain run or a job, whoever
+	 * ran it.
 	 *
 	 * @param referenceField The LogEntry__c field tying an entry to the chain (CorrelationId__c or RecordId__c).
 	 * @param referenceValue The value the reference field must equal.
@@ -588,13 +732,16 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
-	 * @description SOQL search leg — the Ids of forensic rows (OccurrenceCount__c null) whose
-	 * ShortMessage__c OR CorrelationId__c contains the free-text term, within the given window and
-	 * filters. Both fields are matched with SOQL, so a just-written short message or correlation id is
+	 * @description SOQL search leg: the Ids of forensic rows (OccurrenceCount__c null) whose
+	 * ShortMessage__c, CorrelationId__c or RootCorrelationId__c contains the free-text term, within the given window and
+	 * filters. The three fields are matched with SOQL, so a just-written short message or tracking id is
 	 * matched immediately with no search-index lag. The term came from a person, so it is matched
 	 * character for character (QRY_Condition.FieldCondition.containsLiteral): a term holding % or _ finds
 	 * that text rather than standing in for any run of characters or any single one. Runs as two filtered
-	 * queries combined by Id; the field fetch stays in findSortedPageByIds so the legs only ever return Ids.
+	 * queries combined by Id, the short-message leg and the tracking-id leg, the latter matching either id in one
+	 * condition because an entry written outside a chain carries the same value in both; the field fetch stays in
+	 * findSortedPageByIds so the legs only ever return Ids. Both legs ignore record sharing (bypassSharingInternal()): log
+	 * entries are private to the user who wrote them, and the Log Console searches every user's entries.
 	 *
 	 * @param term The free-text search term; blank returns an empty set.
 	 * @param criteria The browse filters (level, context, user, correlation, window); its own searchTerm is
@@ -602,9 +749,9 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * Chain-Monitor deep-link keeps its scope when a search term is added.
 	 * @param maximumRows The per-leg row cap.
 	 *
-	 * @return The matching forensic-row Ids (short-message ∪ correlation-id matches).
+	 * @return The matching forensic-row Ids (short-message matches and tracking-id matches, by either id).
 	 *
-	 * @date June 2026, July 2026
+	 * @date June 2026, September 2026
 	 *
 	 * @example
 	 * ```apex
@@ -625,9 +772,12 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 		{
 			ids.add(row.Id);
 		}
-		List<LogEntry__c> correlationRows = applyCriteria(query.bypassSharingInternal().condition(LogEntry__c.OccurrenceCount__c).isNull(), scope)
-				.addCondition(new QRY_Condition.FieldCondition(LogEntry__c.CorrelationId__c).containsLiteral(term)).withLimit(maximumRows).toList();
-		for(LogEntry__c row : correlationRows)
+		List<LogEntry__c> trackingIdRows = applyCriteria(query.bypassSharingInternal().condition(LogEntry__c.OccurrenceCount__c).isNull(), scope)
+				.addCondition(new QRY_Condition.OrCondition()
+						.add(new QRY_Condition.FieldCondition(LogEntry__c.CorrelationId__c).containsLiteral(term))
+						.add(new QRY_Condition.FieldCondition(LogEntry__c.RootCorrelationId__c).containsLiteral(term)))
+				.withLimit(maximumRows).toList();
+		for(LogEntry__c row : trackingIdRows)
 		{
 			ids.add(row.Id);
 		}
@@ -635,24 +785,28 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
-	 * @description SOSL search leg — the Ids of forensic rows (OccurrenceCount__c null) whose body
+	 * @description SOSL search leg: the Ids of forensic rows (OccurrenceCount__c null) whose body
 	 * (Message__c, StackTrace__c, any text field) matches the term via a full-text IN ALL FIELDS search.
-	 * Complements findIdsBySearch: SOQL LIKE on the long-text Message__c/StackTrace__c is not
-	 * indexed, so the body search goes through the search index here. The filters are conditional, so the
-	 * SOSL is assembled dynamically (the free-text term binds as `:term`, so it is injection-safe without
-	 * manual escaping) and run with `Search.query` in `AccessLevel.SYSTEM_MODE` from a `without sharing`
-	 * runner. `AccessLevel.SYSTEM_MODE` governs field-level security but leaves record sharing to the
-	 * executing class, so the dedicated `without sharing` runner is what makes the body leg span every user's
-	 * rows, matching the SOQL search legs (which bypass sharing via QRY_Builder) — consistent with this
-	 * selector's system-mode contract. Namespace-robust: object and field API names come from the describe cache.
+	 * Complements findIdsBySearch: SOQL LIKE on the long-text Message__c/StackTrace__c is not indexed, so
+	 * the body search goes through the search index here. The filters are conditional, so the SOSL is
+	 * assembled dynamically, with every value bound rather than written into the statement, and run with
+	 * `Search.query` in `AccessLevel.SYSTEM_MODE` from a `without sharing` runner. The term itself searches
+	 * literally: it is escaped and quoted before it is bound, so a star, a question mark or the word OR
+	 * reaches the search index as text, matching the message search leg beside it. `AccessLevel.SYSTEM_MODE`
+	 * governs field-level security but leaves record sharing to the executing class, so the dedicated
+	 * `without sharing` runner is what makes the body leg span every user's rows, matching the SOQL search
+	 * legs (which bypass sharing via QRY_Builder), consistent with this selector's system-mode contract.
+	 * Namespace-robust: object and field API names come from the describe cache. A term of only brackets or quotes
+	 * cannot be searched by SOSL once its punctuation is escaped, so the search refuses it and this leg returns no
+	 * matches; the literal message match beside it still applies, so the reader still finds the entries holding it.
 	 *
 	 * @param term The free-text term; blank or under two characters returns an empty set (SOSL minimum).
+	 * The length is measured on the term as typed, before any escaping, so the minimum a reader meets is
+	 * the one they can see.
 	 * @param criteria The browse filters applied inside the RETURNING clause.
 	 * @param maximumRows The RETURNING row cap.
 	 *
 	 * @return The matching forensic-row Ids from the body search.
-	 *
-	 * @date June 2026, July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -666,38 +820,115 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 		{
 			return new Set<Id>();
 		}
-		return new BodySearchRunner().findMatchingIds(term, criteria, maximumRows);
+		try
+		{
+			return new BodySearchRunner().findMatchingIds(term, criteria, maximumRows);
+		}
+		// kern-coverage-exempt: the catch line itself; a test's search never parses the term, so SearchException never reaches it
+		catch(SearchException unsearchable)
+		{
+			// kern-coverage-exempt: a test's search never parses the term, so the platform raises this only in a live org
+			return new Set<Id>();
+		}
 	}
 
 	/**
 	 * @description Runs the raw dynamic body-search SOSL without sharing, so the body leg spans every user's
 	 * framework-owned log rows exactly as the SOQL search legs do. `AccessLevel.SYSTEM_MODE` on `Search.query`
 	 * governs field-level security only and leaves record sharing to the executing class, so this dedicated
-	 * `without sharing` runner is what bypasses sharing for the body search — without it, an org-wide default
+	 * `without sharing` runner is what bypasses sharing for the body search. Without it, an org-wide default
 	 * more restrictive than Public would silently return a smaller Id set from the body leg than from the
 	 * SOQL legs for the same term.
 	 *
-	 * @date July 2026
+	 * @date July 2026, September 2026
 	 */
 	private without sharing class BodySearchRunner
 	{
 		/**
-		 * @description Executes the body-search SOSL and returns the matching forensic-row Ids. The term is
-		 * bound as `:term` (injection-safe); the caller has already applied the blank/length guard.
+		 * @description Executes the body-search SOSL and returns the matching forensic-row Ids. Nothing a
+		 * reader supplies is written into the statement: the term is escaped, quoted and bound as
+		 * `:findTerm`, and every filter value is bound too. The caller has already applied the blank and
+		 * length guard.
 		 *
-		 * @param term The free-text term, bound as `:term`.
+		 * The WHERE clause is assembled here rather than in a helper because a dynamic SOSL bind resolves
+		 * against the local scope of the method that calls `Search.query`, and `Search` offers no bind-map
+		 * call of the kind `Database` has. Every bound value therefore has to be a local of this method,
+		 * and keeping the clause beside those locals is what makes a bind name and the local it reads sit
+		 * in view of each other: renaming one without the other breaks the query at runtime. The two window
+		 * bounds are the exception, and are formatted straight in: they are typed Datetimes, never text.
+		 *
+		 * The clauses themselves are the forensic-row guard (OccurrenceCount__c = null) plus whichever of the
+		 * level, context, user, correlation, class-method, origin, source and window filters are present, with
+		 * namespace-robust field names. The correlation clause keeps a body search scoped to a Chain-Monitor
+		 * deep-link, matching the SOQL search leg. The class-method, origin and source clauses keep a body
+		 * search under an active writer pill to that writer's entries, matching both SOQL legs (applyCriteria
+		 * and the browse query). The clause list also carries the action scope, as the same two-field OR the
+		 * SOQL legs apply.
+		 *
+		 * @param term The free-text term, escaped and quoted before it is bound.
 		 * @param criteria The browse filters applied inside the RETURNING WHERE clause.
 		 * @param maximumRows The RETURNING row cap.
 		 *
 		 * @return The matching forensic-row Ids from the body search.
-		 *
-		 * @date July 2026
 		 */
 		private Set<Id> findMatchingIds(String term, BrowseCriteria criteria, Integer maximumRows)
 		{
+			String findTerm = toLiteralSearchTerm(term);
+			List<String> soslLevels = criteria?.levels;
+			List<String> soslExecutionEvents = criteria?.executionEvents;
+			List<String> soslOrigins = criteria?.origins;
+			String soslUserId = criteria?.userId;
+			String soslCorrelationId = criteria?.correlationId;
+			String soslRootCorrelationId = criteria?.rootCorrelationId;
+			String soslClassMethod = criteria?.classMethod;
+			String soslSource = criteria?.source;
+
+			List<String> clauses = new List<String> {fieldName(LogEntry__c.OccurrenceCount__c) + ' = null'};
+			if(soslLevels?.isEmpty() == false)
+			{
+				clauses.add(fieldName(LogEntry__c.LogLevel__c) + ' IN :soslLevels');
+			}
+			if(soslExecutionEvents?.isEmpty() == false)
+			{
+				clauses.add(fieldName(LogEntry__c.ExecutionEvent__c) + ' IN :soslExecutionEvents');
+			}
+			if(String.isNotBlank(soslUserId))
+			{
+				clauses.add(fieldName(LogEntry__c.UserId__c) + ' = :soslUserId');
+			}
+			if(String.isNotBlank(soslCorrelationId))
+			{
+				clauses.add(fieldName(LogEntry__c.CorrelationId__c) + ' = :soslCorrelationId');
+			}
+			if(String.isNotBlank(soslRootCorrelationId))
+			{
+				clauses.add('(' + fieldName(LogEntry__c.RootCorrelationId__c) + ' = :soslRootCorrelationId OR '
+						+ fieldName(LogEntry__c.CorrelationId__c) + ' = :soslRootCorrelationId)');
+			}
+			if(String.isNotBlank(soslClassMethod))
+			{
+				clauses.add(fieldName(LogEntry__c.ClassMethod__c) + ' = :soslClassMethod');
+			}
+			if(soslOrigins?.isEmpty() == false)
+			{
+				clauses.add(fieldName(LogEntry__c.Origin__c) + ' IN :soslOrigins');
+			}
+			if(String.isNotBlank(soslSource))
+			{
+				clauses.add(fieldName(LogEntry__c.Source__c) + ' = :soslSource');
+			}
+			if(criteria?.windowStart != null)
+			{
+				clauses.add(fieldName(LogEntry__c.CreatedDate) + ' >= ' + criteria.windowStart.formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\''));
+			}
+			if(criteria?.windowEnd != null)
+			{
+				clauses.add(fieldName(LogEntry__c.CreatedDate) + ' <= ' + criteria.windowEnd.formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\''));
+			}
+
 			Set<Id> ids = new Set<Id>();
-			String sosl = 'FIND :term IN ALL FIELDS RETURNING ' + String.valueOf(LogEntry__c.SObjectType)
-					+ '(' + fieldName(LogEntry__c.Id) + ' WHERE ' + buildSoslWhere(criteria)
+			String sosl = 'FIND :findTerm IN ALL FIELDS RETURNING ' + String.valueOf(LogEntry__c.SObjectType)
+					+ '(' + fieldName(LogEntry__c.Id) + ' WHERE ' + String.join(clauses, ' AND ')
 					+ ' ORDER BY ' + fieldName(LogEntry__c.CreatedDate) + ' DESC LIMIT ' + maximumRows + ')';
 			List<List<SObject>> results = Search.query(sosl, AccessLevel.SYSTEM_MODE);
 			if(!results.isEmpty())
@@ -713,7 +944,7 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 
 	/**
 	 * @description Returns one sorted, server-side-paged QRY_Builder.QueryPage of the rows matching an
-	 * exact set of Ids, with CreatedDate selected. Keeps the heavy field projection in one place so callers
+	 * exact set of Ids, with CreatedDate selected. Keeps the long field list in one place so callers
 	 * that resolved a candidate id set elsewhere only fetch the requested page. Sharing is bypassed so the
 	 * read spans rows regardless of owner. An empty or null id set yields an empty page, never an unbounded
 	 * query.
@@ -751,21 +982,19 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * logs never collapse into one unattributed mega-group. The throw-site line number is not part of the key
 	 * (Number fields are not groupable in SOQL, and line numbers shift across deploys), so same-signature rows
 	 * at different lines fold together while the COUNT stays exact server-side at any volume. The fold is one
-	 * builder query — aliased aggregates (COUNT + MIN/MAX CreatedDate + a ShortMessage label) ranked by
-	 * orderByCount — running under bypassSharingInternal(), the single OWD-independent posture every console
-	 * read shares, so a console admin still reads every user's framework-owned rows regardless of the
-	 * org-wide default.
+	 * builder query: aliased aggregates (COUNT + MIN/MAX CreatedDate + a ShortMessage label + the writer's
+	 * source and origin, with a distinct count of the origin so a signature spanning more than one says Mixed)
+	 * ranked by orderByCount. The query ignores record sharing (bypassSharingInternal()), as every console read does, so a
+	 * console administrator reads every user's framework-owned rows whatever the org-wide default is.
 	 *
 	 * @param criteria The browse filters; the CreatedDate window and the shared execution-context, user,
-	 * correlation and source scopes are applied (the level scope is the dedicated levels parameter, and a
-	 * free-text search suppresses this leg upstream).
+	 * correlation, action, class-method, origin and source scopes are applied (the level scope is the dedicated
+	 * levels parameter, and a free-text search suppresses this leg upstream).
 	 * @param groupCap The maximum number of signatures to return (LIMIT); a non-positive value falls back to the default cap.
 	 * @param minOccurrences The HAVING floor; a signature with fewer occurrences is excluded. A non-positive value falls back to the default floor.
 	 * @param levels The log levels to fold; null or empty applies no level scope.
 	 *
 	 * @return The folded signatures ordered by occurrence count descending, capped at groupCap.
-	 *
-	 * @date June 2026, August 2026
 	 *
 	 * @example
 	 * ```apex
@@ -781,7 +1010,10 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 				.count(LogEntry__c.Id, ALIAS_OCCURRENCE_COUNT)
 				.min(LogEntry__c.CreatedDate, ALIAS_FIRST_SEEN)
 				.max(LogEntry__c.CreatedDate, ALIAS_LAST_SEEN)
-				.max(LogEntry__c.ShortMessage__c, ALIAS_LABEL), criteria, levels);
+				.max(LogEntry__c.ShortMessage__c, ALIAS_LABEL)
+				.max(LogEntry__c.Source__c, ALIAS_SOURCE)
+				.max(LogEntry__c.Origin__c, ALIAS_ORIGIN)
+				.countDistinct(LogEntry__c.Origin__c, ALIAS_ORIGIN_COUNT), criteria, levels);
 
 		List<DerivedSignature> signatures = new List<DerivedSignature>();
 		for(QRY_Builder.AggregateRow row : builder
@@ -802,10 +1034,11 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * @description Counts the rows a derived fold over the same window would have to scan, so a caller can
 	 * decline the fold before issuing it rather than discovering the cost by failing. A GROUP BY consumes
 	 * query rows equal to the rows SCANNED, not the groups returned, and exhausting that governor raises a
-	 * limit exception — which Apex cannot catch, so the fold's own degrade path cannot absorb it. This count
+	 * limit exception. Apex cannot catch that exception, so the fold's own fallback cannot handle it. This count
 	 * is a COUNT() query and so costs a constant handful of query rows however wide the window is. Its
 	 * predicate is the fold's own, applied through the same helper, so the number can never describe a
-	 * different population than the fold would scan.
+	 * different population than the fold would scan. It ignores record sharing (bypassSharingInternal()) because the fold
+	 * does: the count must cover the same rows of every user.
 	 *
 	 * @param criteria The browse filters; the CreatedDate window and the shared execution-context, user,
 	 * correlation and source scopes are applied. Null applies no window or scope.
@@ -830,7 +1063,7 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * (OccurrenceCount__c and Fingerprint__c null), the attribution guard that keeps structureless rows out
 	 * of the fold, the level scope, the CreatedDate window, and the shared execution-context, user,
 	 * correlation and source scopes. Single-sourced so the fold and the pre-flight count that guards it cannot drift
-	 * apart — a count taken over a different population than the fold scans would be worse than no guard,
+	 * apart. A count taken over a different set of rows than the fold scans would be worse than no guard,
 	 * because it would read as a safety check while sizing the wrong query.
 	 *
 	 * @param builder The builder to extend; the caller applies any aggregate selection first.
@@ -874,7 +1107,7 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * occurrence (CreatedDate descending, newest row Id breaking a same-second tie) matching the
 	 * signature's exception type, class method and log level (a null identity field matches IS NULL),
 	 * within the criteria's window and its shared execution-context, user, correlation and source
-	 * scopes — the same scope the fold that built the problem covered, so the opened row is always one
+	 * scopes. That is the same scope the fold that built the problem covered, so the opened row is always one
 	 * the subscriber's filtered view actually counted. Returns null when every occurrence has been purged
 	 * between the fold and the click, so the caller can fall back to the signature's label text. Like the
 	 * fold and every other console read, the lookup bypasses sharing so it spans every user's
@@ -921,17 +1154,18 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	/**
 	 * @description Fetches the newest-instant forensic rows for a whole page of derived signatures in one
 	 * query, so the problems list can label every derived row with the message of the same member the drawer
-	 * resolves — the newest occurrence — instead of the fold's alphabetical MAX(ShortMessage__c). Each
-	 * signature contributes one OR branch pinning its three identity fields (a null identity matches only
-	 * null) AND its folded MAX(CreatedDate) instant, so the read returns roughly one row per signature
-	 * however wide the window is. Rows tied on an instant order newest Id first — the tie-break
-	 * findDerivedRepresentative applies — so a caller keeping the first row matching each signature lands
+	 * resolves (the newest occurrence) instead of the fold's alphabetical MAX(ShortMessage__c). Each
+	 * signature adds one OR branch that matches its three identity fields exactly (a null identity matches
+	 * only null) AND its folded MAX(CreatedDate) instant, so the read returns roughly one row per signature
+	 * however wide the window is. Rows tied on an instant order newest Id first, the same tie-break
+	 * findDerivedRepresentative applies, so a caller keeping the first row matching each signature lands
 	 * on the same member the drawer opens. The window bounds are deliberately not re-applied: a signature's
 	 * lastSeen lies inside the fold's window by construction and every same-instant row shares it, so the
-	 * pin is already the tighter bound. The shared execution-context, user, correlation and source scopes
+	 * exact instant is already the tighter bound. The shared execution-context, user, correlation and source scopes
 	 * are applied through the same helper the fold uses, and the read runs under bypassSharingInternal(),
-	 * the single OWD-independent posture every console read shares. The read bounds itself on both axes:
-	 * at most DERIVED_REPRESENTATIVE_SIGNATURE_CEILING signatures are pinned (the branch list is what
+	 * the one sharing setting every console read uses, so the result does not depend on the org-wide default.
+	 * The read bounds itself on both axes:
+	 * at most DERIVED_REPRESENTATIVE_SIGNATURE_CEILING signatures are asked for (the branch list is what
 	 * sizes the query statement) and at most DERIVED_REPRESENTATIVE_ROW_CEILING rows return; past either
 	 * ceiling a problem keeps the fold's own label rather than erroring.
 	 *
@@ -978,12 +1212,12 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
-	 * @description Applies the browse scopes the derived-problem reads share — the execution-context,
-	 * user, correlation and source filters — so the fold that builds a derived problem and the
+	 * @description Applies the browse scopes the derived-problem reads share, the execution-context,
+	 * user, correlation, action and source filters, so the fold that builds a derived problem and the
 	 * representative lookup that opens it always cover the same rows, and a problems view under an active
 	 * source pill folds only that source rather than rendering a filter chip its own list ignores. The
-	 * free-text search is deliberately absent (it suppresses the derived leg upstream — a long-text body
-	 * cannot traverse a GROUP BY), and the level scope travels separately (the fold takes a levels list;
+	 * free-text search is deliberately absent (it suppresses the derived leg upstream, because a long-text
+	 * body cannot traverse a GROUP BY), and the level scope travels separately (the fold takes a levels list;
 	 * the representative matches the signature's own level).
 	 *
 	 * @param builder The derived-read builder under construction.
@@ -1006,9 +1240,21 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 		{
 			scoped = scoped.andCondition(LogEntry__c.CorrelationId__c).equals(criteria.correlationId);
 		}
+		if(String.isNotBlank(criteria?.rootCorrelationId))
+		{
+			scoped = scoped.addCondition(actionScopeCondition(criteria.rootCorrelationId));
+		}
 		if(String.isNotBlank(criteria?.classMethod))
 		{
 			scoped = scoped.andCondition(LogEntry__c.ClassMethod__c).equals(criteria.classMethod);
+		}
+		if(criteria?.origins?.isEmpty() == false)
+		{
+			scoped = scoped.andCondition(LogEntry__c.Origin__c).isIn(criteria.origins);
+		}
+		if(String.isNotBlank(criteria?.source))
+		{
+			scoped = scoped.andCondition(LogEntry__c.Source__c).equals(criteria.source);
 		}
 		return scoped;
 	}
@@ -1016,12 +1262,12 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	/**
 	 * @description Folds the forensic rows (OccurrenceCount__c null) in the window into the all-entries ribbon
 	 * aggregate: the per-level row counts and the per-source row counts. Two builder aggregate queries run
-	 * under bypassSharingInternal() — the single OWD-independent posture every console read shares — so the
-	 * counts span every user's rows regardless of the org-wide default and the non-search ribbon can never
-	 * undercount against the sharing-bypassed entries table beneath it. The per-level leg is unbounded (a
+	 * under bypassSharingInternal(). Every console read uses this same setting, so the result does not depend
+	 * on the org-wide default (OWD). The counts therefore span every user's rows, and the non-search ribbon
+	 * can never undercount against the sharing-bypassed entries table beneath it. The per-level leg is unbounded (a
 	 * handful of levels) so the total is exact; the per-source leg is ranked by orderByCount descending and
 	 * capped at sourceCap so the caller reads the top sources. The free-text search is matched against
-	 * ShortMessage__c or CorrelationId__c (the immediate, index-lag-free SOQL leg); body-only matches surfaced
+	 * ShortMessage__c, CorrelationId__c or RootCorrelationId__c (the immediate, index-lag-free SOQL leg); body-only matches surfaced
 	 * by the entries SOSL leg are not reflected in this aggregate.
 	 *
 	 * @param criteria The browse filters (level, context, user, correlation, search, date window).
@@ -1080,8 +1326,8 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * decline the two-legged summary before issuing it rather than discovering the cost by failing. A GROUP BY
 	 * consumes query rows equal to the rows SCANNED, not the groups returned, the ribbon folds two of them over
 	 * the same scope, and exhausting the row governor raises a limit exception Apex cannot catch. This count is
-	 * a COUNT() query and so costs a constant handful of query rows however wide the window is — and its answer
-	 * doubles as the scope's exact total row count, so a declined ribbon can still state how many rows the range
+	 * a COUNT() query and so costs a constant handful of query rows however wide the window is. Its answer
+	 * also serves as the scope's exact total row count, so a declined ribbon can still state how many rows the range
 	 * holds. Its predicate is the ribbon's own windowed scope, applied through the same builder helper, so the
 	 * number can never describe a different population than the aggregates would scan.
 	 *
@@ -1103,8 +1349,8 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 
 	/**
 	 * @description Starts the windowed ribbon-aggregate scope: the forensic-row guard plus every browse
-	 * filter, with the free-text term applied as the two-field OR (ShortMessage__c or CorrelationId__c)
-	 * that the entries table's SOQL search leg matches — applyCriteria's single-field text match would
+	 * filter, with the free-text term applied as the three-field OR (ShortMessage__c, CorrelationId__c or RootCorrelationId__c)
+	 * that the entries table's SOQL search leg matches. applyCriteria's single-field text match would
 	 * silently drop correlation matches from the ribbon. The term is matched character for character, the
 	 * same way findIdsBySearch matches it, so the ribbon and the table can never disagree over a term
 	 * holding % or _. Runs under bypassSharingInternal() so the counts span every user's rows exactly as
@@ -1128,7 +1374,8 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 		{
 			builder = builder.addCondition(new QRY_Condition.OrCondition()
 					.add(new QRY_Condition.FieldCondition(LogEntry__c.ShortMessage__c).containsLiteral(criteria.searchTerm))
-					.add(new QRY_Condition.FieldCondition(LogEntry__c.CorrelationId__c).containsLiteral(criteria.searchTerm)));
+					.add(new QRY_Condition.FieldCondition(LogEntry__c.CorrelationId__c).containsLiteral(criteria.searchTerm))
+					.add(new QRY_Condition.FieldCondition(LogEntry__c.RootCorrelationId__c).containsLiteral(criteria.searchTerm)));
 		}
 		return builder;
 	}
@@ -1155,7 +1402,7 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
-	 * @description Folds the per-level forensic row counts over a scoped builder — the shared per-level leg
+	 * @description Folds the per-level forensic row counts over a scoped builder. This is the shared per-level leg
 	 * of the windowed and by-id ribbon aggregates, single-sourced so the two legs can never drift apart.
 	 * Unbounded: a handful of levels keeps the leg small and the total exact.
 	 *
@@ -1178,16 +1425,16 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
-	 * @description Folds the per-source forensic row counts over a scoped builder — the shared per-source
+	 * @description Folds the per-source forensic row counts over a scoped builder. This is the shared per-source
 	 * leg of the windowed and by-id ribbon aggregates, ranked largest-first via orderByCount and capped so
-	 * the caller reads the top sources.
+	 * the caller reads the top sources. The fold keys on the writer the row stored, its source name and the
+	 * origin it was written under, so entries recorded before attribution existed gather in one unattributed
+	 * group instead of scattering across class methods.
 	 *
 	 * @param scope The scoped builder (window or id scope).
 	 * @param cap The LIMIT on the ranked sources.
 	 *
 	 * @return The per-source aggregate rows, largest first.
-	 *
-	 * @date July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1197,14 +1444,15 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	private static List<QRY_Builder.AggregateRow> foldSourceCounts(QRY_Builder.Builder scope, Integer cap)
 	{
 		return scope.count(LogEntry__c.Id, ALIAS_OCCURRENCE_COUNT)
-				.groupBy(LogEntry__c.ClassMethod__c)
+				.groupBy(LogEntry__c.Source__c)
+				.groupBy(LogEntry__c.Origin__c)
 				.orderByCount(LogEntry__c.Id, true)
 				.withLimit(cap)
 				.toAggregateList();
 	}
 
 	/**
-	 * @description Decodes the two ribbon aggregate result sets into a populated EntryAggregate — the shared
+	 * @description Decodes the two ribbon aggregate result sets into a populated EntryAggregate. This is the shared
 	 * decode of the windowed and by-id legs, single-sourced so an alias or field rename can never diverge
 	 * the two ribbons' decode paths.
 	 *
@@ -1212,8 +1460,6 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * @param sourceRows The per-source aggregate rows.
 	 *
 	 * @return The populated per-level and per-source row counts.
-	 *
-	 * @date July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1235,7 +1481,8 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 		for(QRY_Builder.AggregateRow row : sourceRows)
 		{
 			SourceRowCount sourceCount = new SourceRowCount();
-			sourceCount.classMethod = row.getString(fieldName(LogEntry__c.ClassMethod__c));
+			sourceCount.source = row.getString(fieldName(LogEntry__c.Source__c));
+			sourceCount.origin = row.getString(fieldName(LogEntry__c.Origin__c));
 			sourceCount.rowCount = row.getInteger(ALIAS_OCCURRENCE_COUNT);
 			aggregate.sourceCounts.add(sourceCount);
 		}
@@ -1244,17 +1491,17 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 
 	/**
 	 * @description Clones the browse criteria for a search leg, carrying the level/context/user/correlation/
-	 * source/window filters but dropping searchTerm — the free-text term itself defines the text scope, so
-	 * the leg adds its own field condition instead. The correlation id and the source (classMethod) are
-	 * scope filters, not text, so they are kept: a Chain-Monitor deep-link and a problem's own source must
-	 * survive an active search term (otherwise the leg silently spans every correlation and every source
-	 * once a term is typed).
+	 * class-method/origin/source/window filters but dropping searchTerm: the free-text term itself defines
+	 * the text scope, so the leg adds its own field condition instead. The correlation id, the class method
+	 * and the writer scopes (the origins list and the exact source) are scope filters, not text, so they are
+	 * kept: a Chain-Monitor deep-link, a problem's own class method and an active writer pill must survive an
+	 * active search term (otherwise the leg silently spans every correlation and every writer once a term is
+	 * typed). The action scope is kept for the same reason the correlation is: a term typed while the console is
+	 * filtered to one action searches inside that action.
 	 *
 	 * @param criteria The source criteria; null yields an empty criteria.
 	 *
 	 * @return A criteria with the free-text term removed but the correlation scope kept.
-	 *
-	 * @date June 2026, July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1270,7 +1517,10 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 			scope.executionEvents = criteria.executionEvents;
 			scope.userId = criteria.userId;
 			scope.correlationId = criteria.correlationId;
+			scope.rootCorrelationId = criteria.rootCorrelationId;
 			scope.classMethod = criteria.classMethod;
+			scope.origins = criteria.origins;
+			scope.source = criteria.source;
 			scope.windowStart = criteria.windowStart;
 			scope.windowEnd = criteria.windowEnd;
 		}
@@ -1278,53 +1528,36 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
-	 * @description Assembles the SOSL RETURNING WHERE clause for the body search: the forensic-row guard
-	 * (OccurrenceCount__c = null) plus the present level/context/user/correlation/window filters, all with
-	 * namespace-robust field names and escaped values. The correlation clause keeps a body search scoped to a
-	 * Chain-Monitor deep-link, matching the SOQL search leg.
+	 * @description Turns a term the reader typed into a FIND term that searches for exactly that text, so
+	 * the body leg of the search box finds what the message leg beside it finds. Two things happen, both
+	 * measured against a live search index. Every character SOSL reads as syntax gains a leading backslash,
+	 * in a single pass, so a term that already holds a backslash is escaped once rather than twice (escaping
+	 * twice leaves a wildcard live again and the search finds nothing). The result is then wrapped in double
+	 * quotes, which is the only thing that stops AND, OR and AND NOT being read as operators, in any case,
+	 * and which gives a term of several words the same adjacency the message leg's LIKE predicate has.
 	 *
-	 * @param criteria The browse filters; null yields the forensic-row guard only.
+	 * @param term The term as the reader typed it, never null: the only caller returns early for a blank term.
 	 *
-	 * @return The AND-joined WHERE clause.
-	 *
-	 * @date June 2026, July 2026
+	 * @return The quoted, escaped FIND term, ready to bind.
 	 *
 	 * @example
 	 * ```apex
-	 * String where = buildSoslWhere(criteria);
+	 * String findTerm = SEL_LogEntry.toLiteralSearchTerm('Order*Id');
 	 * ```
 	 */
-	private static String buildSoslWhere(BrowseCriteria criteria)
+	public static String toLiteralSearchTerm(String term)
 	{
-		List<String> clauses = new List<String> {fieldName(LogEntry__c.OccurrenceCount__c) + ' = null'};
-		if(criteria != null)
+		List<String> characters = new List<String>();
+		for(Integer position = 0; position < term.length(); position++)
 		{
-			if(criteria.levels?.isEmpty() == false)
+			String character = term.substring(position, position + 1);
+			if(SOSL_RESERVED_CHARACTERS.contains(character))
 			{
-				clauses.add(fieldName(LogEntry__c.LogLevel__c) + ' IN (' + quoteAll(criteria.levels) + ')');
+				characters.add('\\');
 			}
-			if(criteria.executionEvents?.isEmpty() == false)
-			{
-				clauses.add(fieldName(LogEntry__c.ExecutionEvent__c) + ' IN (' + quoteAll(criteria.executionEvents) + ')');
-			}
-			if(String.isNotBlank(criteria.userId))
-			{
-				clauses.add(fieldName(LogEntry__c.UserId__c) + ' = \'' + String.escapeSingleQuotes(criteria.userId) + '\'');
-			}
-			if(String.isNotBlank(criteria.correlationId))
-			{
-				clauses.add(fieldName(LogEntry__c.CorrelationId__c) + ' = \'' + String.escapeSingleQuotes(criteria.correlationId) + '\'');
-			}
-			if(criteria.windowStart != null)
-			{
-				clauses.add(fieldName(LogEntry__c.CreatedDate) + ' >= ' + criteria.windowStart.formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\''));
-			}
-			if(criteria.windowEnd != null)
-			{
-				clauses.add(fieldName(LogEntry__c.CreatedDate) + ' <= ' + criteria.windowEnd.formatGmt('yyyy-MM-dd\'T\'HH:mm:ss\'Z\''));
-			}
+			characters.add(character);
 		}
-		return String.join(clauses, ' AND ');
+		return '"' + String.join(characters, '') + '"';
 	}
 
 	/**
@@ -1333,8 +1566,6 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	 * @param field The field token.
 	 *
 	 * @return The API name (namespaced in a managed context).
-	 *
-	 * @date June 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1347,38 +1578,12 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
-	 * @description Single-quotes and escapes each value for a dynamic SOSL IN (...) list.
-	 *
-	 * @param values The raw values.
-	 *
-	 * @return The comma-joined quoted-and-escaped list.
-	 *
-	 * @date June 2026
-	 *
-	 * @example
-	 * ```apex
-	 * String inList = quoteAll(new List<String> {'ERROR', 'WARN'});
-	 * ```
-	 */
-	private static String quoteAll(List<String> values)
-	{
-		List<String> quoted = new List<String>();
-		for(String value : values)
-		{
-			quoted.add('\'' + String.escapeSingleQuotes(value) + '\'');
-		}
-		return String.join(quoted, ', ');
-	}
-
-	/**
 	 * @description Decodes one aggregate row from the derived fold into a typed DerivedSignature, reading the
 	 * GROUP BY fields by their namespace-robust API name and the aggregates by their stable alias.
 	 *
 	 * @param row The aggregate row from foldDerivedSignaturesInWindow.
 	 *
 	 * @return The typed signature.
-	 *
-	 * @date June 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1396,6 +1601,9 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 		signature.firstSeen = (Datetime)row.get(ALIAS_FIRST_SEEN);
 		signature.lastSeen = (Datetime)row.get(ALIAS_LAST_SEEN);
 		signature.label = row.getString(ALIAS_LABEL);
+		signature.source = row.getString(ALIAS_SOURCE);
+		Integer originCount = row.getInteger(ALIAS_ORIGIN_COUNT) ?? 0;
+		signature.origin = originCount > 1 ? ORIGIN_MIXED : row.getString(ALIAS_ORIGIN);
 		return signature;
 	}
 
@@ -1424,20 +1632,40 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
+	 * @description The one condition that scopes a read to an action: rows whose root is the action's id, or whose
+	 * correlation is the action's id. Both fields are indexed. Shared by every scoped read (the browse and search legs, the
+	 * derived fold, the banner's edge reads, the search resolver) so the list, the ribbon and the fold can never disagree
+	 * about which rows belong to the action.
+	 *
+	 * @param rootCorrelationId The action's tracking id.
+	 *
+	 * @return The OR condition to add to a builder.
+	 *
+	 * @example
+	 * ```apex
+	 * builder = builder.addCondition(actionScopeCondition(criteria.rootCorrelationId));
+	 * ```
+	 */
+	private static QRY_Condition.Evaluable actionScopeCondition(String rootCorrelationId)
+	{
+		return new QRY_Condition.OrCondition()
+				.add(new QRY_Condition.FieldCondition(LogEntry__c.RootCorrelationId__c).equals(rootCorrelationId))
+				.add(new QRY_Condition.FieldCondition(LogEntry__c.CorrelationId__c).equals(rootCorrelationId));
+	}
+
+	/**
 	 * @description Applies the shared browse filters (level, execution context, user, search, correlation,
-	 * source, date window) to a builder that already carries at least one condition, so every filter is added
+	 * action, class method, origin, source, date window) to a builder that already carries at least one condition, so every filter is added
 	 * with andCondition, and selects CreatedDate so it is readable and sortable (it is absent from getFields()).
 	 * The search term is matched character for character against ShortMessage__c, so a term holding % or _
 	 * finds that text instead of behaving as a wildcard. Callers reading the rollup: counter rows must clear
-	 * searchTerm, correlationId and classMethod first: a counter row carries none of those three values, so
-	 * filtering on them there would return nothing at all.
+	 * searchTerm, correlationId, rootCorrelationId and classMethod first: a counter row carries none of those
+	 * four values, so filtering on them there would return nothing at all.
 	 *
 	 * @param builder The query builder, already started with a base condition.
 	 * @param criteria The filter criteria; null applies no filters.
 	 *
 	 * @return The builder with the criteria conditions and CreatedDate applied.
-	 *
-	 * @date June 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1471,9 +1699,21 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 		{
 			filteredQuery = filteredQuery.andCondition(LogEntry__c.CorrelationId__c).equals(criteria.correlationId);
 		}
+		if(String.isNotBlank(criteria.rootCorrelationId))
+		{
+			filteredQuery = filteredQuery.addCondition(actionScopeCondition(criteria.rootCorrelationId));
+		}
 		if(String.isNotBlank(criteria.classMethod))
 		{
 			filteredQuery = filteredQuery.andCondition(LogEntry__c.ClassMethod__c).equals(criteria.classMethod);
+		}
+		if(criteria.origins?.isEmpty() == false)
+		{
+			filteredQuery = filteredQuery.andCondition(LogEntry__c.Origin__c).isIn(criteria.origins);
+		}
+		if(String.isNotBlank(criteria.source))
+		{
+			filteredQuery = filteredQuery.andCondition(LogEntry__c.Source__c).equals(criteria.source);
 		}
 		if(criteria.windowStart != null)
 		{
@@ -1489,9 +1729,9 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	/**
 	 * @description The all-entries ribbon aggregate: the per-level and per-source forensic row counts folded
 	 * over the window. The controller sums the level counts for the total (so total always equals the sum of
-	 * the per-level breakdown) and folds the source counts by class name for the ranked top sources.
+	 * the per-level breakdown) and reads the source counts for the ranked top writers.
 	 *
-	 * @date July 2026
+	 * @date July 2026, September 2026
 	 */
 	public class EntryAggregate
 	{
@@ -1501,7 +1741,8 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 		public List<LevelRowCount> levelCounts;
 
 		/**
-		 * @description The forensic row count per Class.method source, ordered by count descending and capped.
+		 * @description The forensic row count per writer (its stored source and origin), ordered by count
+		 * descending and capped.
 		 */
 		public List<SourceRowCount> sourceCounts;
 	}
@@ -1525,32 +1766,39 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
-	 * @description One Class.method source and its forensic row count within the window.
+	 * @description One writer (its stored source and origin) and its forensic row count within the window.
 	 *
-	 * @date July 2026
+	 * @date July 2026, September 2026
 	 */
 	public class SourceRowCount
 	{
 		/**
-		 * @description The Class.method the forensic rows were recorded in.
+		 * @description The writer's plain name, as `Source__c` stores it.
 		 */
-		public String classMethod;
+		public String source;
 
 		/**
-		 * @description The number of forensic rows recorded in this Class.method.
+		 * @description Who the writer is (FRAMEWORK, APEX, FLOW, COMPONENT), as `Origin__c` stores it; null on rows
+		 * written before attribution existed or published outside the logger.
+		 */
+		public String origin;
+
+		/**
+		 * @description The number of forensic rows this writer produced.
 		 */
 		public Integer rowCount;
 	}
 
 	/**
-	 * @description A derived problem signature folded from plain forensic rows — the GROUP BY key
+	 * @description A derived problem signature folded from plain forensic rows: the GROUP BY key
 	 * (exception type, class method, log level) plus the folded aggregates (occurrence count, first-seen,
-	 * last-seen and a ShortMessage label). Also serves as the identity key passed to
+	 * last-seen, a ShortMessage label, and the writer's source with the origin its rows were written under,
+	 * or Mixed when they span more than one). Also serves as the identity key passed to
 	 * findDerivedRepresentative when a subscriber opens the problem. The throw-site line number is not part
 	 * of the key (Number fields are not groupable in SOQL, and line numbers shift across deploys); the
 	 * representative row carries the actual line when the problem is opened.
 	 *
-	 * @date June 2026
+	 * @date June 2026, September 2026
 	 */
 	public class DerivedSignature
 	{
@@ -1590,6 +1838,16 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 		public String label;
 
 		/**
+		 * @description The writer's plain name (MAX Source__c). Null on a bare identity key or when no row was attributed.
+		 */
+		public String source;
+
+		/**
+		 * @description The origin when the rows agree, `MIXED` when they span more than one, null when none was attributed.
+		 */
+		public String origin;
+
+		/**
 		 * @description Constructs a bare identity key (the three groupable signature fields) for a
 		 * representative lookup; the decode path sets the aggregate fields after construction.
 		 *
@@ -1611,10 +1869,10 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	}
 
 	/**
-	 * @description Filter criteria for the browse and aggregate reads — a plain holder so the caller passes
+	 * @description Filter criteria for the browse and aggregate reads. A plain holder, so the caller passes
 	 * one object instead of a long parameter list.
 	 *
-	 * @date June 2026
+	 * @date June 2026, September 2026
 	 */
 	public class BrowseCriteria
 	{
@@ -1645,11 +1903,28 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 		public String correlationId;
 
 		/**
-		 * @description Exact ClassMethod__c to filter on — the source a problem was grouped under, so the
+		 * @description The tracking id of an action. Set, it keeps a read to the action's own entries and to the entries of
+		 * every chain run launched under it: rows whose RootCorrelationId__c is the id, or whose CorrelationId__c is the id
+		 * (the second half finds an action recorded before roots were written). Blank applies no scope.
+		 */
+		public String rootCorrelationId;
+
+		/**
+		 * @description Exact ClassMethod__c to filter on: the source a problem was grouped under, so the
 		 * entries behind that problem can be listed without searching for its class name as free text.
 		 * Blank applies no filter.
 		 */
 		public String classMethod;
+
+		/**
+		 * @description Origins to include (FRAMEWORK, APEX, FLOW, COMPONENT). Null or empty includes every origin.
+		 */
+		public List<String> origins;
+
+		/**
+		 * @description Exact Source__c to filter on: the writer a ranked top source names. Blank applies no filter.
+		 */
+		public String source;
 
 		/**
 		 * @description Inclusive lower bound on CreatedDate. Null applies no lower bound.

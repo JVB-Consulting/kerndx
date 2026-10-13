@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, August 2026
+ * @date April 2026, September 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
@@ -31,6 +31,14 @@ import durationElapsedTemplate from '@salesforce/label/c.ChainMonitor_DurationEl
 import listEmptyHeading from '@salesforce/label/c.ChainMonitor_ListEmptyHeading';
 import listEmptyBody from '@salesforce/label/c.ChainMonitor_ListEmptyBody';
 import listNoStatusBody from '@salesforce/label/c.ChainMonitor_ListNoStatusBody';
+import actionPillTemplate from '@salesforce/label/c.ChainMonitor_ActionPill';
+import launchedUnderLabel from '@salesforce/label/c.ChainMonitor_LaunchedUnder';
+import launchedByThisAction from '@salesforce/label/c.ChainMonitor_LaunchedByThisAction';
+import startedThisAction from '@salesforce/label/c.ChainMonitor_StartedThisAction';
+import restartOfTemplate from '@salesforce/label/c.ChainMonitor_RestartOf';
+import showActionLogsAction from '@salesforce/label/c.ChainMonitor_ShowActionLogsAction';
+import loadingAlt from '@salesforce/label/c.ChainMonitor_LoadingAlt';
+import filtersToggleAlt from '@salesforce/label/c.ChainMonitor_FiltersToggleAlt';
 
 const STATUS_OPTIONS = [
 	{label: statusRunning, value: 'Running'},
@@ -61,29 +69,100 @@ const STATUS_COLUMN_WIDTH = 110;
 const PROGRESS_COLUMN_WIDTH = 110;
 const DURATION_COLUMN_WIDTH = 130;
 
+const CHAIN_COLUMN = {
+	label: chainNameLabel, fieldName: 'recordUrl', type: 'url', sortable: true, typeAttributes: {label: {fieldName: 'chainName'}}
+};
+const STATUS_COLUMN = {
+	label: statusLabel, fieldName: 'status', type: 'text', sortable: true, initialWidth: STATUS_COLUMN_WIDTH, hideDefaultActions: true
+};
+const PROGRESS_COLUMN = {
+	label: columnProgress, fieldName: 'progressLabel', type: 'text', sortable: false, initialWidth: PROGRESS_COLUMN_WIDTH, hideDefaultActions: true
+};
+const STARTED_COLUMN = {
+	label: startedLabel, fieldName: 'startedAt', type: 'date', sortable: true, typeAttributes: {year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'}
+};
+const DURATION_COLUMN = {
+	label: durationLabel, fieldName: 'durationDisplay', type: 'text', sortable: true, initialWidth: DURATION_COLUMN_WIDTH, hideDefaultActions: true
+};
 const COLUMNS = [
-	{
-		label: chainNameLabel, fieldName: 'recordUrl', type: 'url', sortable: true, typeAttributes: {label: {fieldName: 'chainName'}}
-	},
-	{
-		label: statusLabel, fieldName: 'status', type: 'text', sortable: true, initialWidth: STATUS_COLUMN_WIDTH, hideDefaultActions: true
-	},
-	{
-		label: columnProgress, fieldName: 'progressLabel', type: 'text', sortable: false, initialWidth: PROGRESS_COLUMN_WIDTH, hideDefaultActions: true
-	},
-	{
-		label: startedLabel,
-		fieldName: 'startedAt',
-		type: 'date',
-		sortable: true,
-		typeAttributes: {year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'}
-	},
-	{
-		label: durationLabel, fieldName: 'durationDisplay', type: 'text', sortable: true, initialWidth: DURATION_COLUMN_WIDTH, hideDefaultActions: true
-	}
+	CHAIN_COLUMN,
+	STATUS_COLUMN,
+	PROGRESS_COLUMN,
+	STARTED_COLUMN,
+	DURATION_COLUMN
+];
+// At 1280 and below the list has half the screen beside the detail panel, or a phone's width under it, and six columns
+// crush: the run's name, how it stands and when it began stay, Progress and Duration live on in the detail's Timing card.
+// The same query the Log Console's list follows. The string is a CSS media query the browser parses, never text on
+// screen, so there is nothing here for a translator.
+// eslint-disable-next-line kerndx/no-hardcoded-user-text
+const COMPACT_WIDTH_QUERY = '(max-width: 1280px)';
+const COMPACT_COLUMNS = [
+	CHAIN_COLUMN,
+	STATUS_COLUMN,
+	STARTED_COLUMN
 ];
 
 const PAGE_SIZE = 20;
+
+// The row action of the Launched-under column's link: pressing a launcher selects that run.
+const LAUNCHER_ACTION_NAME = 'selectLauncher';
+// How a run entered its action, the controller's vocabulary.
+const LAUNCH_KIND_CHAIN = 'CHAIN';
+const LAUNCH_KIND_RESTART = 'RESTART';
+const LAUNCH_KIND_ORIGIN = 'ORIGIN';
+const LAUNCH_KIND_ACTION = 'ACTION';
+// The Launched-under column, shown while the list is scoped to an action: a base-variant button column so the launching
+// run is a link that selects it, disabled (and so reading as plain words) for the two cases that name no run.
+const LAUNCHED_UNDER_COLUMN = {
+	label: launchedUnderLabel, fieldName: 'launchedUnderText', type: 'button', sortable: false, hideDefaultActions: true, typeAttributes: {
+		label: {fieldName: 'launchedUnderText'}, name: LAUNCHER_ACTION_NAME, variant: 'base', disabled: {fieldName: 'launchedUnderIsText'}, title: {fieldName: 'launchedUnderText'}
+	}
+};
+// A pill shows the first eight and the last four characters of an id.
+const ID_HEAD_LENGTH = 8;
+const ID_TAIL_LENGTH = 4;
+const ID_ELLIPSIS = '…';
+
+/**
+ * @description Shortens an id for the pill, keeping its head and its tail. An id too short to be
+ * worth shortening is left whole. Only the pill calls this, and the pill renders only while an
+ * action is pinned, so the id is always there to shorten.
+ *
+ * @param {string} id The id to shorten.
+ *
+ * @returns {string} The shortened id, or the id itself.
+ */
+function abbreviateId(id)
+{
+	return id.length > ID_HEAD_LENGTH + ID_TAIL_LENGTH ? `${id.slice(0, ID_HEAD_LENGTH)}${ID_ELLIPSIS}${id.slice(-ID_TAIL_LENGTH)}` : id;
+}
+
+/**
+ * @description The words of the Launched-under cell by the kind the controller classified: the launching run's label,
+ * "restart of {source}", "started this action", or "this action". A row carrying no kind the component knows reads as
+ * empty words rather than a guess.
+ *
+ * @param {object} record The chain summary returned by the controller.
+ *
+ * @returns {string} The cell text.
+ */
+function resolveLaunchedUnderText(record)
+{
+	if(record.launchKind === LAUNCH_KIND_CHAIN)
+	{
+		return record.launchedUnderLabel ?? '';
+	}
+	if(record.launchKind === LAUNCH_KIND_RESTART)
+	{
+		return formatTemplateString(restartOfTemplate, [record.launchedUnderLabel ?? '']);
+	}
+	if(record.launchKind === LAUNCH_KIND_ORIGIN)
+	{
+		return startedThisAction;
+	}
+	return record.launchKind === LAUNCH_KIND_ACTION ? launchedByThisAction : '';
+}
 
 /**
  * @description What the Duration cell shows for one row: the recorded total for a run that has
@@ -105,9 +184,8 @@ function resolveDurationDisplay(record)
 	return UNFINISHED_STATUS_VALUES.has(record.status) ? formatTemplateString(durationElapsedTemplate, [record.durationLabel]) : record.durationLabel;
 }
 
-export default class ChainMonitorList extends ComponentBuilder('controller', 'notification')
+export default class ChainMonitorList extends ComponentBuilder('controller', 'notification', 'navigation')
 {
-	columns = COLUMNS;
 	statusOptions = STATUS_OPTIONS;
 	statusFilters = [...ALL_STATUS_VALUES];
 	nameFilter = '';
@@ -120,10 +198,96 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 	records = [];
 	showFilters = false;
 	selectedExecutionId = null;
+	// The action the list is scoped to (its root correlation id), or null. Set by the container from
+	// a deep link, cleared by the pill; a change reloads from page one once the list has loaded at all.
+	scopedRoot = null;
+	hasLoadedOnce = false;
+	// Whether the viewport is at the compact width (1280 and below). Read from matchMedia when the browser has it; jsdom
+	// does not, and the list then keeps the full column set.
+	isCompactWidth = false;
+	compactMediaQuery = null;
 
 	label = {
-		nameFilter: chainNameLabel, nameFilterPlaceholder, statusFilter: statusLabel, previous: previousLabel, next: nextLabel, emptyStateHeading: listEmptyHeading
+		nameFilter: chainNameLabel,
+		nameFilterPlaceholder,
+		statusFilter: statusLabel,
+		previous: previousLabel,
+		next: nextLabel,
+		emptyStateHeading: listEmptyHeading,
+		showActionLogs: showActionLogsAction,
+		loadingAlt,
+		filtersToggleAlt,
+		selectAll,
+		clearAll
 	};
+
+	/**
+	 * @description The action the list is kept to, as the container sees it.
+	 *
+	 * @returns {string|null} The action's root correlation id, or null while the list shows every run.
+	 */
+	@api get actionRootCorrelationId()
+	{
+		return this.scopedRoot;
+	}
+
+	/**
+	 * @description Pins the list to one action, or releases it. A change re-reads from page one,
+	 * but only once the list has loaded at all, so the first load is not run twice.
+	 *
+	 * @param {string|null} value The action's root correlation id, or null to show every run.
+	 */
+	set actionRootCorrelationId(value)
+	{
+		const next = value || null;
+		if(next === this.scopedRoot)
+		{
+			return;
+		}
+		this.scopedRoot = next;
+		if(this.hasLoadedOnce)
+		{
+			this.pageNumber = 1;
+			// noinspection JSIgnoredPromiseFromCall
+			this.reloadAndResetSelection();
+		}
+	}
+
+	/**
+	 * @description The table's columns. At 1280 and below the list keeps Chain, Status and Started;
+	 * the Launched-under column joins either set only while the list is kept to one action, where
+	 * saying what launched each run is the whole point of the reading.
+	 *
+	 * @returns {Array<object>} The column definitions.
+	 */
+	get columns()
+	{
+		const base = this.isCompactWidth ? COMPACT_COLUMNS : COLUMNS;
+		return this.scopedRoot ? [
+			...base,
+			LAUNCHED_UNDER_COLUMN
+		] : base;
+	}
+
+	/**
+	 * @description Whether the list is kept to one action, which is what puts the pill on screen.
+	 *
+	 * @returns {boolean}
+	 */
+	get isScoped()
+	{
+		return !!this.scopedRoot;
+	}
+
+	/**
+	 * @description The pill's words: the action, named by a shortened form of its id.
+	 *
+	 * @returns {string}
+	 */
+	get actionPillLabel()
+	{
+		return formatTemplateString(actionPillTemplate, [abbreviateId(this.scopedRoot)]);
+	}
 
 	get isAllStatusesSelected()
 	{
@@ -151,9 +315,9 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 		return this.hasStatusSelection ? listEmptyBody : listNoStatusBody;
 	}
 
-	get toggleAllLabel()
+	get hasNoStatusSelection()
 	{
-		return this.isAllStatusesSelected ? clearAll : selectAll;
+		return !this.hasStatusSelection;
 	}
 
 	get noPrevious()
@@ -192,13 +356,42 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 		return reverseMap[this.sortField] || 'startedAt';
 	}
 
+	/**
+	 * @description Follows the viewport across the compact width, so the column set changes with it. A field rather than
+	 * a method, so the listener removed on disconnect is the same function that was added.
+	 *
+	 * @param {Object} event The media query's own change event, carrying whether the query matches now.
+	 */
+	handleCompactWidthChange = (event) =>
+	{
+		this.isCompactWidth = event.matches;
+	};
+
 	async connectedCallback()
 	{
+		// The compact column set follows the viewport; a browser without matchMedia keeps the full set.
+		this.compactMediaQuery = typeof window.matchMedia === 'function' ? window.matchMedia(COMPACT_WIDTH_QUERY) : null;
+		if(this.compactMediaQuery)
+		{
+			this.isCompactWidth = this.compactMediaQuery.matches === true;
+			this.compactMediaQuery.addEventListener('change', this.handleCompactWidthChange);
+		}
 		await this.loadData();
+	}
+
+	/**
+	 * @description Stops following the viewport when the list leaves the page, so the listener added on connect does
+	 * not outlive it.
+	 */
+	// noinspection JSUnusedGlobalSymbols - LWC framework lifecycle hook
+	disconnectedCallback()
+	{
+		this.compactMediaQuery?.removeEventListener('change', this.handleCompactWidthChange);
 	}
 
 	async loadData()
 	{
+		this.hasLoadedOnce = true;
 		// Nothing can match an empty set of statuses, so the list says so rather than sending the empty
 		// set as "no status filter", which returns every chain and looks exactly like every status
 		// ticked, leaving nothing on screen to tell the two apart.
@@ -217,6 +410,7 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 		const request = {
 			statusFilters: this.isAllStatusesSelected ? [] : [...this.statusFilters],
 			nameFilter: this.nameFilter || null,
+			rootCorrelationId: this.scopedRoot,
 			sortField: this.sortField,
 			sortAscending: this.sortAscending,
 			pageSize: PAGE_SIZE,
@@ -233,6 +427,8 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 					...record,
 					progressLabel: `${record.completedSteps}/${record.totalSteps} (${percent}%)`,
 					durationDisplay: resolveDurationDisplay(record),
+					launchedUnderText: this.scopedRoot ? resolveLaunchedUnderText(record) : null,
+					launchedUnderIsText: !record.launchedUnderExecutionId,
 					recordUrl: `/lightning/r/${record.executionId}/view`
 				};
 			});
@@ -287,9 +483,16 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 		await this.reloadAndResetSelection();
 	}
 
-	async handleToggleAllStatuses()
+	async handleSelectAllStatuses()
 	{
-		this.statusFilters = this.isAllStatusesSelected ? [] : [...ALL_STATUS_VALUES];
+		this.statusFilters = [...ALL_STATUS_VALUES];
+		this.pageNumber = 1;
+		await this.reloadAndResetSelection();
+	}
+
+	async handleClearAllStatuses()
+	{
+		this.statusFilters = [];
 		this.pageNumber = 1;
 		await this.reloadAndResetSelection();
 	}
@@ -366,5 +569,42 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 		{
 			this.selectExecution(executionId);
 		}
+	}
+
+	/**
+	 * @description The Launched-under column's link: pressing a launcher selects that run, in the
+	 * list when it is on the page and in the detail pane either way. The words for the other cases
+	 * carry no run and do nothing.
+	 *
+	 * @param {CustomEvent} event The datatable's row action.
+	 */
+	handleRowAction(event)
+	{
+		const row = event.detail.row;
+		if(event.detail.action?.name === LAUNCHER_ACTION_NAME && row?.launchedUnderExecutionId)
+		{
+			this.selectExecution(row.launchedUnderExecutionId, true);
+		}
+	}
+
+	/**
+	 * @description Drops the action pill: the list reloads unscoped from page one and tells the
+	 * container, so a later deep link with a new stamp can pin an action again.
+	 */
+	async handleRemoveAction()
+	{
+		this.scopedRoot = null;
+		this.pageNumber = 1;
+		this.dispatchEvent(new CustomEvent('actionclear'));
+		await this.reloadAndResetSelection();
+	}
+
+	/**
+	 * @description Opens the Log Console on the pinned action: the action and a click stamp, no
+	 * window keys (the console sets its range from the action's lifetime).
+	 */
+	handleShowActionLogs()
+	{
+		this.navigate({type: 'standard__navItemPage', attributes: {apiName: 'LogConsole'}, state: {c__rootCorrelationId: this.scopedRoot, c__viewLogsAt: String(Date.now())}});
 	}
 }

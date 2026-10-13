@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for chainMonitorDetail LWC component
  * @author Jason van Beukering
- * @date April 2026, August 2026
+ * @date April 2026, October 2026
  */
 
 // The rendered c-chain-log-stream child imports these two apex modules; explicit virtual mocks
@@ -30,7 +30,8 @@ jest.mock('c/utilitySystem', () => ({
 }));
 
 jest.mock('@salesforce/label/c.ChainMonitor_ViewLogsAction', () => ({default: 'View logs'}), {virtual: true});
-jest.mock('@salesforce/label/c.ChainMonitor_Copy', () => ({default: 'Copy'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_CopyAction', () => ({default: 'Copy action ID'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_CopyCorrelation', () => ({default: 'Copy correlation ID'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_CopyFailed', () => ({default: 'Couldn\'t copy to the clipboard. Try again or copy the value manually.'}), {virtual: true});
 // The progress phrase carries {0}/{1} placeholders; the real template value keeps the
 // 'Step 3 of 3' assertion an end-to-end check of formatTemplateString. The rest mirror their
@@ -66,16 +67,16 @@ jest.mock('@salesforce/label/c.ChainMonitor_AbortUnavailableMissingPermission',
 		() => ({default: 'You do not have permission to abort chains. Ask an administrator for the Kern Async Chain Abort permission set.'}), {virtual: true});
 // The five shipped status labels mirror their in-org values (the raw status equals the label text),
 // so the DOM-text assertions verify the badge is wired through Labels, not that a raw value happens
-// to match. The two conflict labels carry the neutral D20 badge + tooltip copy verbatim.
+// to match. The two conflict labels carry the exact text of the neutral conflict badge and its tooltip.
 jest.mock('@salesforce/label/c.ChainMonitor_StatusRunning', () => ({default: 'Running'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_StatusCompleted', () => ({default: 'Completed'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_StatusFailed', () => ({default: 'Failed'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_StatusAborted', () => ({default: 'Aborted'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_StatusStalled', () => ({default: 'Stalled'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_StatusConflict', () => ({default: 'Ended — status conflict'}), {virtual: true});
-jest.mock('@salesforce/label/c.ChainMonitor_StatusConflictDetail',
-		() => ({default: 'This chain recorded a completion and was then marked Stalled by recovery. It has ended and will not run again; the recorded status conflict is diagnostic only.'}),
-		{virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusConflictDetail', () => ({
+	default: 'This chain recorded a completion and was then marked Stalled by recovery. It has ended and will not run again; the recorded status conflict is diagnostic only.'
+}), {virtual: true});
 // Operator-action labels mirror their in-org values byte-for-byte (the M0 frozen copy), so the
 // modal-payload, tooltip, and toast assertions verify byte-faithful wiring end to end.
 jest.mock('@salesforce/label/c.ChainMonitor_RetryAction', () => ({default: 'Retry from failed step'}), {virtual: true});
@@ -90,7 +91,6 @@ jest.mock('@salesforce/label/c.ChainMonitor_RestartModalBody', () => ({default: 
 jest.mock('@salesforce/label/c.ChainMonitor_RestartConfirmButton', () => ({default: 'Restart chain'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_RestartSuccessToast', () => ({default: 'Restart started. {0} is running again from step 1, and its new run is selected.'}),
 		{virtual: true});
-jest.mock('@salesforce/label/c.ChainMonitor_RestartedFrom', () => ({default: 'Restarted from'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_ActionCancelButton', () => ({default: 'Cancel'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_RetryUnavailableStepNotIdempotent',
 		() => ({default: 'The failed step does not declare itself safe to re-run, so retry is not available.'}), {virtual: true});
@@ -108,6 +108,12 @@ jest.mock('@salesforce/label/c.ChainMonitor_ActionsGroup', () => ({default: 'Cha
 jest.mock('@salesforce/label/c.ChainMonitor_ActiveDuration', () => ({default: 'Active run time'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_EndedLabel', () => ({default: 'Ended'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_ProgressStepsStopped', () => ({default: 'Stopped after {0} of {1} steps'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_LaunchedUnder', () => ({default: 'Launched under'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_LaunchedByThisAction', () => ({default: 'this action'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StartedThisAction', () => ({default: 'started this action'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_RestartOf', () => ({default: 'restart of {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_LaunchedByStepNote', () => ({default: 'a step of that chain launched this one'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_ShowActionLogsAction', () => ({default: 'Show the action\'s logs'}), {virtual: true});
 
 /*
  * Note on `global.__lwcJestMock_getChainDetail`:
@@ -120,7 +126,7 @@ jest.mock('@salesforce/label/c.ChainMonitor_ProgressStepsStopped', () => ({defau
  * loads the component in an isolated module registry before any other code has
  * referenced the module, so the catch block's `||` expression evaluates the RHS
  * function fallback. All later tests use `require('c/chainMonitorDetail').default`
- * directly — the module is then cached so the catch block is not re-entered.
+ * directly. The module is then cached, so the catch block is not re-entered.
  */
 
 const MOCK_DETAIL = {
@@ -200,6 +206,15 @@ describe('c-chain-monitor-detail', () =>
 		await Promise.resolve();
 		await Promise.resolve();
 		return element;
+	}
+
+	// A macrotask flush lets an answer that has just resolved reach the pane, then two microtask flushes let the
+	// re-render land in the DOM.
+	async function settle()
+	{
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		await Promise.resolve();
+		await Promise.resolve();
 	}
 
 	/*
@@ -317,8 +332,8 @@ describe('c-chain-monitor-detail', () =>
 		const element = await createComponent('a00000000000001AAA');
 
 		// The timing cards are as narrow as 10rem while a correlation id is 36 characters, so the value has to
-		// be a shrinkable block that ellipsises and the copy affordance has to hold its place on the same row —
-		// an inline span never truncates, and the affordance then wraps underneath the clipped id.
+		// be a shrinkable block that ellipsises and the copy affordance has to hold its place on the same row.
+		// An inline span never truncates, and the affordance then wraps underneath the clipped id.
 		const value = element.shadowRoot.querySelector('[data-testid="correlation-id"]');
 		const row = value.parentElement;
 		expect(row.tagName).toBe('DD');
@@ -335,9 +350,10 @@ describe('c-chain-monitor-detail', () =>
 		expect(children[1].tagName.toLowerCase()).toBe('lightning-button-icon');
 		expect(children[1].dataset.testid).toBe('copy-correlation');
 		expect(children[1].classList.contains('timing-value-action')).toBe(true);
-		// The icon's name and tooltip come from a label, never a hardcoded string.
-		expect(children[1].alternativeText).toBe('Copy');
-		expect(children[1].title).toBe('Copy');
+		// The icon's name and tooltip come from a label, never a hardcoded string, and say what the button copies:
+		// the panel has a second copy button, and an assistive user has only the name to tell the two apart.
+		expect(children[1].alternativeText).toBe('Copy correlation ID');
+		expect(children[1].title).toBe('Copy correlation ID');
 	});
 
 	it('should copy correlation id to clipboard when button clicked', async() =>
@@ -354,6 +370,157 @@ describe('c-chain-monitor-detail', () =>
 
 		expect(mockCopyToClipBoard).toHaveBeenCalledWith('test-correlation-id');
 		expect(mockShowSuccessToast).toHaveBeenCalledWith('Correlation ID copied');
+	});
+
+	it('shows the id the run was launched under with its own copy affordance when the run has one', async() =>
+	{
+		const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, launchCorrelationId: 'test-launch-correlation-id', launchKind: 'ACTION'});
+
+		const value = element.shadowRoot.querySelector('[data-testid="launch-correlation-id"]');
+		expect(value).toBeTruthy();
+		expect(value.classList.contains('slds-truncate')).toBe(true);
+		expect(value.title).toBe('test-launch-correlation-id');
+		expect(value.textContent).toBe('test-launch-correlation-id');
+		const copy = element.shadowRoot.querySelector('[data-testid="copy-launch-correlation"]');
+		expect(copy).toBeTruthy();
+		// This button only shows beside an action's own id, so its name says that, not the correlation id's name.
+		expect(copy.alternativeText).toBe('Copy action ID');
+		expect(copy.title).toBe('Copy action ID');
+	});
+
+	it('hides the launched-under line when the run started its own action', async() =>
+	{
+		const element = await createComponent('a00000000000001AAA');
+
+		expect(element.shadowRoot.querySelector('[data-testid="launch-correlation-id"]')).toBeNull();
+		expect(element.shadowRoot.querySelector('[data-testid="copy-launch-correlation"]')).toBeNull();
+	});
+
+	it('copies the id the run was launched under when its button is clicked', async() =>
+	{
+		const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, launchCorrelationId: 'test-launch-correlation-id', launchKind: 'ACTION'});
+
+		const copyButton = element.shadowRoot.querySelector('[data-testid="copy-launch-correlation"]');
+		copyButton.dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(mockCopyToClipBoard).toHaveBeenCalledWith('test-launch-correlation-id');
+		expect(mockShowSuccessToast).toHaveBeenCalledWith('Correlation ID copied');
+	});
+
+	describe('what launched the run', () =>
+	{
+		const ACTION_ID = 'a7d2f4c1-1111-4111-8111-00000000f13a';
+		const query = (element, testId) => element.shadowRoot.querySelector(`[data-testid="${testId}"]`);
+
+		it('names the launching chain as a link with the step note', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', {
+				...MOCK_DETAIL,
+				rootCorrelationId: ACTION_ID,
+				launchCorrelationId: 'run-job',
+				launchKind: 'CHAIN',
+				launchedUnderName: 'NightlyJob · CHAIN-00100',
+				launchedUnderExecutionId: 'a00000000000002AAA'
+			});
+			const handler = jest.fn();
+			element.addEventListener('chainlineagenavigate', handler);
+
+			expect(query(element, 'launched-under-link').textContent.trim()).toBe('NightlyJob · CHAIN-00100');
+			expect(query(element, 'launched-under-note').textContent).toBe('a step of that chain launched this one');
+			expect(query(element, 'launch-correlation-id')).toBeNull();
+			query(element, 'launched-under-link').click();
+			expect(handler.mock.calls[0][0].detail).toEqual({executionId: 'a00000000000002AAA'});
+		});
+
+		it('says "this action" beside the action id with copy for the action\'s own launch', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', {
+				...MOCK_DETAIL, rootCorrelationId: ACTION_ID, launchCorrelationId: ACTION_ID, launchKind: 'ACTION', launchedUnderName: null, launchedUnderExecutionId: null
+			});
+
+			expect(query(element, 'launched-under-text').textContent).toBe('this action');
+			expect(query(element, 'launch-correlation-id').textContent).toBe(ACTION_ID);
+			expect(query(element, 'copy-launch-correlation')).toBeTruthy();
+			expect(query(element, 'launched-under-link')).toBeNull();
+		});
+
+		it('names the restart source as a link, and says "started this action" for the origin', async() =>
+		{
+			const restart = await createComponent('a00000000000001AAA', {
+				...MOCK_DETAIL,
+				rootCorrelationId: ACTION_ID,
+				launchCorrelationId: null,
+				launchKind: 'RESTART',
+				launchedUnderName: 'NightlyJob · CHAIN-00100',
+				launchedUnderExecutionId: 'a00000000000002AAA'
+			});
+			expect(query(restart, 'launched-under-link').textContent.trim()).toBe('restart of NightlyJob · CHAIN-00100');
+			expect(query(restart, 'launched-under-note')).toBeNull();
+
+			const origin = await createComponent('a00000000000001AAA', {
+				...MOCK_DETAIL, rootCorrelationId: ACTION_ID, launchCorrelationId: null, launchKind: 'ORIGIN', launchedUnderName: null, launchedUnderExecutionId: null
+			});
+			expect(query(origin, 'launched-under-text').textContent).toBe('started this action');
+			expect(query(origin, 'launch-correlation-id')).toBeNull();
+		});
+
+		it('guards the empty launcher name in the two link readings, leaving the words unnamed', async() =>
+		{
+			const chain = await createComponent('a00000000000001AAA', {
+				...MOCK_DETAIL, rootCorrelationId: ACTION_ID, launchKind: 'CHAIN', launchedUnderName: null, launchedUnderExecutionId: 'a00000000000002AAA'
+			});
+			expect(query(chain, 'launched-under-link').textContent.trim()).toBe('');
+
+			const restart = await createComponent('a00000000000001AAA', {
+				...MOCK_DETAIL, rootCorrelationId: ACTION_ID, launchKind: 'RESTART', launchedUnderName: null, launchedUnderExecutionId: 'a00000000000002AAA'
+			});
+			expect(query(restart, 'launched-under-link').textContent.trim()).toBe('restart of');
+		});
+
+		it('offers Show the action\'s logs with the action and a stamp only, beside an unchanged View logs', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, rootCorrelationId: ACTION_ID, launchKind: 'ORIGIN'});
+
+			query(element, 'show-action-logs').click();
+			let reference = mockNavigate.mock.calls[0][0];
+			expect(reference.attributes.apiName).toBe('LogConsole');
+			expect(Object.keys(reference.state).sort()).toEqual([
+				'c__rootCorrelationId',
+				'c__viewLogsAt'
+			]);
+			expect(reference.state.c__rootCorrelationId).toBe(ACTION_ID);
+
+			query(element, 'view-logs').click();
+			reference = mockNavigate.mock.calls[1][0];
+			expect(reference.state.c__correlationId).toBe('test-correlation-id');
+			expect(reference.state.c__windowStart).toEqual(expect.any(String));
+			expect(reference.state.c__rootCorrelationId).toBeUndefined();
+		});
+
+		it('offers no action link on a run with no root', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, rootCorrelationId: null, launchKind: 'ORIGIN'});
+			expect(query(element, 'show-action-logs')).toBeNull();
+			expect(query(element, 'view-logs')).toBeTruthy();
+		});
+	});
+
+	it('shows an error toast when copying the id the run was launched under fails', async() =>
+	{
+		mockCopyToClipBoard.mockRejectedValueOnce(new Error('copy denied'));
+
+		const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, launchCorrelationId: 'test-launch-correlation-id', launchKind: 'ACTION'});
+		const copyButton = element.shadowRoot.querySelector('[data-testid="copy-launch-correlation"]');
+		copyButton.dispatchEvent(new CustomEvent('click'));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(mockShowSuccessToast).not.toHaveBeenCalled();
+		expect(mockShowErrorToast).toHaveBeenCalledWith('Couldn\'t copy to the clipboard. Try again or copy the value manually.');
 	});
 
 	it('shows an error toast instead of an unhandled rejection when the clipboard copy fails', async() =>
@@ -412,6 +579,116 @@ describe('c-chain-monitor-detail', () =>
 
 		const progressText = element.shadowRoot.querySelector('[data-testid="progress-label"]');
 		expect(progressText.textContent).toContain('Step 3 of 3');
+	});
+
+	it('shows the run selected last when an earlier selection\'s detail answers after it', async() =>
+	{
+		// Two details can be in flight at once: the list auto-selects its first row while a deep link resolves
+		// another run. The earlier request may answer last; the pane must show the run selected NOW, never the
+		// earlier one, because its actions act on the selected id.
+		const earlier = {...MOCK_DETAIL, executionId: 'a00000000000001AAA', chainName: 'EarlierRun'};
+		const later = {...MOCK_DETAIL, executionId: 'a00000000000002AAA', chainName: 'LaterRun'};
+		let answerEarlier;
+		const earlierAnswer = new Promise((resolve) =>
+		{
+			answerEarlier = resolve;
+		});
+		mockCallControllerMethod.mockImplementation((apexFunction, parameters) =>
+		{
+			if(apexFunction === getChainLogEntries)
+			{
+				return Promise.resolve([]);
+			}
+			return parameters.executionId === earlier.executionId ? earlierAnswer : Promise.resolve(later);
+		});
+		const element = createElement('c-chain-monitor-detail', {is: require('c/chainMonitorDetail').default});
+		document.body.appendChild(element);
+		element.executionId = earlier.executionId;
+		element.executionId = later.executionId;
+		await settle();
+		expect(element.shadowRoot.querySelector('.slds-text-heading_small').textContent).toBe('LaterRun');
+
+		answerEarlier(earlier);
+		await settle();
+
+		expect(element.shadowRoot.querySelector('.slds-text-heading_small').textContent).toBe('LaterRun');
+	});
+
+	it('keeps the pane cleared when a selection is cleared while its detail is still loading', async() =>
+	{
+		// A filter change can drop the selected row while its detail is on its way; the late answer must
+		// neither re-open the pane nor leave it loading.
+		let answerLate;
+		const lateAnswer = new Promise((resolve) =>
+		{
+			answerLate = resolve;
+		});
+		mockCallControllerMethod.mockImplementation((apexFunction) => (apexFunction === getChainLogEntries ? Promise.resolve([]) : lateAnswer));
+		const element = createElement('c-chain-monitor-detail', {is: require('c/chainMonitorDetail').default});
+		document.body.appendChild(element);
+		element.executionId = 'a00000000000001AAA';
+		element.executionId = null;
+		answerLate(MOCK_DETAIL);
+		await settle();
+
+		expect(element.shadowRoot.querySelector('.slds-text-heading_small')).toBeNull();
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
+		expect(element.shadowRoot.querySelector('.slds-text-color_weak')).toBeTruthy();
+	});
+
+	it('shows only the loading state while a newly selected run loads, and the empty state when that load fails', async() =>
+	{
+		// The previous run's pane, its action buttons enabled, must not stay on screen for the new selection's
+		// round trip: a press there would act on the newly selected run. A failed load ends in the empty state,
+		// not in the previous run.
+		const element = await createComponent('a00000000000001AAA');
+		let answerLate;
+		const lateAnswer = new Promise((resolve) =>
+		{
+			answerLate = resolve;
+		});
+		mockCallControllerMethod.mockReturnValueOnce(lateAnswer);
+		element.executionId = 'a00000000000002AAA';
+		await settle();
+		expect(element.shadowRoot.querySelector('.slds-text-heading_small')).toBeNull();
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeTruthy();
+
+		// callControllerMethod resolves undefined on failure; it has already toasted the error.
+		answerLate(undefined);
+		await settle();
+
+		expect(element.shadowRoot.querySelector('.slds-text-heading_small')).toBeNull();
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
+		expect(element.shadowRoot.querySelector('.slds-text-color_weak')).toBeTruthy();
+	});
+
+	it('shows the newest answer when two loads for the same run answer out of order', async() =>
+	{
+		// The container refreshes the pane on every event about the selected run; in a burst two refreshes are in
+		// flight and the older one can answer last. The pane must keep the newer answer.
+		const element = await createComponent('a00000000000001AAA');
+		let answerOlder;
+		let answerNewer;
+		const olderAnswer = new Promise((resolve) =>
+		{
+			answerOlder = resolve;
+		});
+		const newerAnswer = new Promise((resolve) =>
+		{
+			answerNewer = resolve;
+		});
+		mockCallControllerMethod.mockReturnValueOnce(olderAnswer).mockReturnValueOnce(newerAnswer);
+		element.refresh();
+		element.refresh();
+		answerNewer({...MOCK_DETAIL, chainName: 'NewerAnswer'});
+		await settle();
+		expect(element.shadowRoot.querySelector('.slds-text-heading_small').textContent).toBe('NewerAnswer');
+
+		answerOlder({...MOCK_DETAIL, chainName: 'OlderAnswer'});
+		await settle();
+
+		expect(element.shadowRoot.querySelector('.slds-text-heading_small').textContent).toBe('NewerAnswer');
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
 	});
 
 	it('should return executionId from getter', async() =>
@@ -554,7 +831,7 @@ describe('c-chain-monitor-detail', () =>
 		});
 	});
 
-	describe('abort action (D23)', () =>
+	describe('abort action', () =>
 	{
 		const MOCK_RUNNING_DETAIL = {
 			...MOCK_DETAIL, status: 'Running', completedAt: null, completedSteps: 2, totalSteps: 5, abortAvailability: 'Available'
@@ -661,7 +938,7 @@ describe('c-chain-monitor-detail', () =>
 			const abortHandler = jest.fn();
 			element.addEventListener('chainabort', abortHandler);
 			mockChainAbortModalOpen.mockResolvedValueOnce({action: 'confirm'});
-			// callControllerMethod resolves undefined on failure — it has already toasted the error.
+			// callControllerMethod resolves undefined on failure; it has already shown the error in a toast.
 			mockCallControllerMethod.mockResolvedValueOnce(undefined);
 
 			element.shadowRoot.querySelector('[data-testid="abort-button"]').dispatchEvent(new CustomEvent('click'));
@@ -675,7 +952,7 @@ describe('c-chain-monitor-detail', () =>
 		});
 	});
 
-	describe('operator actions: retry and restart (D12/D13 client leg)', () =>
+	describe('operator actions in the browser: retry and restart', () =>
 	{
 		const MOCK_OPERATOR_DETAIL = {
 			...MOCK_FAILED_DETAIL, retryAvailability: 'Available', restartAvailability: 'Available', abortAvailability: 'ChainNotAbortable'
@@ -750,6 +1027,62 @@ describe('c-chain-monitor-detail', () =>
 			expect(actionButton(element, 'retry-action')).toBeTruthy();
 		});
 
+		it('keeps the newly selected run on screen when an earlier run\'s retry answers after the selection moved', async() =>
+		{
+			// A row clicked during a retry's round trip wins the pane; the retry's fresh detail belongs to the run it
+			// acted on, which the event still names.
+			const element = await createComponent('a00000000000001AAA', MOCK_OPERATOR_DETAIL);
+			const retryHandler = jest.fn();
+			element.addEventListener('chainretry', retryHandler);
+			mockChainActionConfirmModalOpen.mockResolvedValueOnce({action: 'confirm'});
+			let answerRetry;
+			const retryAnswer = new Promise((resolve) =>
+			{
+				answerRetry = resolve;
+			});
+			mockCallControllerMethod.mockReturnValueOnce(retryAnswer);
+			actionButton(element, 'retry-action').dispatchEvent(new CustomEvent('click'));
+			await flushActionHandler();
+
+			mockCallControllerMethod.mockResolvedValueOnce({...MOCK_OPERATOR_DETAIL, executionId: 'a00000000000003AAA', chainName: 'LaterRun'});
+			element.executionId = 'a00000000000003AAA';
+			await settle();
+			expect(element.shadowRoot.querySelector('.slds-text-heading_small').textContent).toBe('LaterRun');
+
+			answerRetry({...MOCK_OPERATOR_DETAIL, status: 'Running', chainName: 'RetriedRun', retryAvailability: 'ChainNotRetryable'});
+			await flushActionHandler();
+
+			expect(element.shadowRoot.querySelector('.slds-text-heading_small').textContent).toBe('LaterRun');
+			expect(retryHandler).toHaveBeenCalledTimes(1);
+			expect(retryHandler.mock.calls[0][0].detail.executionId).toBe('a00000000000001AAA');
+		});
+
+		it('ends the loading state when a restart lands while a refresh for the source is still on its way', async() =>
+		{
+			// The source's own restart entry can refresh the pane while the restart is in transit; the refresh's
+			// answer is for a run no longer selected and is dropped, so the restart's answer must also end the
+			// loading it started, or a spinner sits over the clone's detail until the clone's next event.
+			const element = await createComponent('a00000000000001AAA', MOCK_OPERATOR_DETAIL);
+			let answerRefresh;
+			const refreshAnswer = new Promise((resolve) =>
+			{
+				answerRefresh = resolve;
+			});
+			mockCallControllerMethod.mockReturnValueOnce(refreshAnswer);
+			element.refresh();
+			mockChainActionConfirmModalOpen.mockResolvedValueOnce({action: 'confirm'});
+			mockCallControllerMethod.mockResolvedValueOnce({...MOCK_OPERATOR_DETAIL, executionId: CLONE_ID, chainName: 'CloneRun', status: 'Running'});
+			actionButton(element, 'restart-action').dispatchEvent(new CustomEvent('click'));
+			await flushActionHandler();
+			expect(element.shadowRoot.querySelector('.slds-text-heading_small').textContent).toBe('CloneRun');
+
+			answerRefresh({...MOCK_OPERATOR_DETAIL, chainName: 'SourceRun'});
+			await settle();
+
+			expect(element.shadowRoot.querySelector('.slds-text-heading_small').textContent).toBe('CloneRun');
+			expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
+		});
+
 		it('replaces the detail, emits chainretry, and toasts on a confirmed retry', async() =>
 		{
 			const element = await createComponent('a00000000000001AAA', MOCK_OPERATOR_DETAIL);
@@ -810,12 +1143,6 @@ describe('c-chain-monitor-detail', () =>
 			expect(restartHandler).toHaveBeenCalledTimes(1);
 			expect(restartHandler.mock.calls[0][0].detail).toEqual({executionId: CLONE_ID});
 			expect(mockShowSuccessToast).toHaveBeenCalledWith('Restart started. TestChain is running again from step 1, and its new run is selected.');
-			const lineageLink = element.shadowRoot.querySelector('[data-testid="restart-lineage-link"]');
-			expect(lineageLink).toBeTruthy();
-			// U41: the whole source id, ellipsised by CSS when the card is narrow — never cut to a
-			// prefix that no longer identifies a record. The full value stays on the title.
-			expect(lineageLink.textContent.trim()).toBe('a00000000000001AAA');
-			expect(lineageLink.title).toBe('a00000000000001AAA');
 		});
 
 		it('does not call the controller when the confirm modal is cancelled', async() =>
@@ -836,7 +1163,7 @@ describe('c-chain-monitor-detail', () =>
 			const retryHandler = jest.fn();
 			element.addEventListener('chainretry', retryHandler);
 			mockChainActionConfirmModalOpen.mockResolvedValueOnce({action: 'confirm'});
-			// callControllerMethod resolves undefined on failure — it has already toasted the error.
+			// callControllerMethod resolves undefined on failure; it has already shown the error in a toast.
 			mockCallControllerMethod.mockResolvedValueOnce(undefined);
 
 			actionButton(element, 'retry-action').dispatchEvent(new CustomEvent('click'));
@@ -896,34 +1223,23 @@ describe('c-chain-monitor-detail', () =>
 			expect(actionButton(element, 'abort-button').disabled).toBe(false);
 		});
 
-		it('asks the container to select the source run when the lineage link is clicked', async() =>
-		{
-			const element = await createComponent(CLONE_ID, {...MOCK_DETAIL, executionId: CLONE_ID, sourceExecutionId: 'a00000000000001AAA'});
-			const lineageHandler = jest.fn();
-			element.addEventListener('chainlineagenavigate', lineageHandler);
-
-			element.shadowRoot.querySelector('[data-testid="restart-lineage-link"]').dispatchEvent(new CustomEvent('click'));
-			await Promise.resolve();
-
-			expect(lineageHandler).toHaveBeenCalledTimes(1);
-			expect(lineageHandler.mock.calls[0][0].detail).toEqual({executionId: 'a00000000000001AAA'});
-		});
-
 		it('renders one status dot per step with per-status classes and the pending default', async() =>
 		{
 			const element = await createComponent('a00000000000001AAA', {
 				...MOCK_FAILED_DETAIL, steps: [
 					{name: 'Step 1', stepStatus: 'success', durationLabel: '0.8s', errorMessage: null},
 					{name: 'Step 2', stepStatus: 'failed', durationLabel: '0.1s', errorMessage: 'boom'},
-					{name: 'Step 3', stepStatus: 'queued', durationLabel: null, errorMessage: null}
+					{name: 'Step 3', stepStatus: 'queued', durationLabel: null, errorMessage: null},
+					{name: 'Step 4', stepStatus: 'warning', durationLabel: '0.2s', errorMessage: 'carried on'}
 				]
 			});
 
 			const dots = element.shadowRoot.querySelectorAll('.step-dot');
-			expect(dots.length).toBe(3);
+			expect(dots.length).toBe(4);
 			expect(dots[0].className).toContain('step-dot_done');
 			expect(dots[1].className).toContain('step-dot_failed');
 			expect(dots[2].className).toContain('step-dot_pending');
+			expect(dots[3].className).toContain('step-dot_warning');
 		});
 
 		it('renders no step dots beyond the ten-step ceiling', async() =>
@@ -932,21 +1248,13 @@ describe('c-chain-monitor-detail', () =>
 
 			expect(element.shadowRoot.querySelectorAll('.step-dot').length).toBe(0);
 		});
-
-		it('renders no lineage entry when the chain is not a restart clone', async() =>
-		{
-			const element = await createComponent('a00000000000001AAA');
-
-			expect(element.shadowRoot.querySelector('[data-testid="restart-lineage-link"]')).toBeFalsy();
-			const labels = Array.from(element.shadowRoot.querySelectorAll('dt')).map(dtElement => dtElement.textContent);
-			expect(labels).not.toContain('Restarted from');
-		});
 	});
 
-	describe('status label and conflict badge (D20)', () =>
+	describe('status label and conflict badge', () =>
 	{
 		const CONFLICT_LABEL = 'Ended — status conflict';
-		const CONFLICT_TOOLTIP = 'This chain recorded a completion and was then marked Stalled by recovery. It has ended and will not run again; the recorded status conflict is diagnostic only.';
+		const CONFLICT_TOOLTIP = 'This chain recorded a completion and was then marked Stalled by recovery. It has ended and will not run again; '
+				+ 'the recorded status conflict is diagnostic only.';
 
 		function statusBadge(element)
 		{
@@ -1283,7 +1591,7 @@ describe('c-chain-monitor-detail', () =>
 		it('stays neutral about the instant on a contradictory terminal row', async() =>
 		{
 			// Recovery overwrote the status that ended this run, so the instant belongs to a
-			// predecessor status nothing can recover — naming it "Stalled" would claim the run
+			// predecessor status nothing can recover. Naming it "Stalled" would claim the run
 			// stalled at that moment, which is exactly what the badge refuses to say.
 			const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, status: 'Stalled', completedSteps: 3});
 
@@ -1337,17 +1645,6 @@ describe('c-chain-monitor-detail', () =>
 
 			expect(element.shadowRoot.querySelector('[data-testid="active-duration"]')).toBeFalsy();
 			expect(timingLabels(element)).not.toContain('Active run time');
-		});
-
-		it('lays the restart lineage out as a truncating value carrying the whole source id', async() =>
-		{
-			const element = await createComponent('a00000000000001AAA', {...MOCK_DETAIL, sourceExecutionId: 'a00000000000002AAA'});
-
-			const link = element.shadowRoot.querySelector('[data-testid="restart-lineage-link"]');
-			expect(link.textContent.trim()).toBe('a00000000000002AAA');
-			expect(link.title).toBe('a00000000000002AAA');
-			expect(link.classList.contains('slds-truncate')).toBe(true);
-			expect(link.classList.contains('timing-value')).toBe(true);
 		});
 	});
 

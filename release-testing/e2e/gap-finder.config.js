@@ -14,6 +14,7 @@
 // from the previous session's module cache.
 const {defineConfig} = require('@playwright/test');
 const path = require('path');
+const {authPathsFor} = require('./helpers/auth-paths');
 
 module.exports = defineConfig({
 	// The gap-finders live in specs/ because jest.config.js ignores that directory: a `.spec.js` at
@@ -36,7 +37,7 @@ module.exports = defineConfig({
 	use: {
 		browserName: 'chromium',
 		headless: true,
-		storageState: path.join(__dirname, '.auth', 'state.json'),
+		storageState: authPathsFor().statePath,
 		// The console derives its date presets from the browser clock; pin it to the scratch-org
 		// user's timezone exactly as the release battery does.
 		timezoneId: 'America/Los_Angeles',

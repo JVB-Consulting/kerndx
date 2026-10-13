@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>LastManualRetryAt__c</fullName>
+    <description>When someone last used Retry on this run after it failed. Blank if nobody has.</description>
+    <inlineHelpText>When someone last used Retry on this run. Blank if nobody has.</inlineHelpText>
+    <label>Last Manual Retry At</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>

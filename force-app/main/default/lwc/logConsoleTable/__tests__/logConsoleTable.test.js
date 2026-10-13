@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for logConsoleTable LWC component
  * @author Jason van Beukering
- * @date June 2026, August 2026
+ * @date June 2026, September 2026
  */
 import {createElement} from 'lwc';
 import LogConsoleTable from 'c/logConsoleTable';
@@ -120,6 +120,23 @@ describe('c-log-console-table', () =>
 		});
 	});
 
+	describe('writerSource custom cell type', () =>
+	{
+		it('registers the type that names the writer behind a row', () =>
+		{
+			expect(LogConsoleTable.customTypes.writerSource).toBeDefined();
+			expect(LogConsoleTable.customTypes.writerSource.template).toBeDefined();
+			expect(LogConsoleTable.customTypes.writerSource.standardCellLayout).toBe(true);
+		});
+
+		it('takes the origin label, which is the one part of the cell the value itself cannot carry', () =>
+		{
+			// The cell value is the writer's location, one string. Who wrote it is a second fact about the same
+			// row, and a cell template reads nothing but its value and its type attributes, so it travels as one.
+			expect(LogConsoleTable.customTypes.writerSource.typeAttributes).toContain('originLabel');
+		});
+	});
+
 	describe('custom type isolation', () =>
 	{
 		it('keeps every registration on this subclass, so none leaks to other datatables', () =>
@@ -129,7 +146,8 @@ describe('c-log-console-table', () =>
 			expect(Object.keys(LogConsoleTable.customTypes).sort()).toEqual([
 				'logLevel',
 				'logNumber',
-				'problemName'
+				'problemName',
+				'writerSource'
 			]);
 		});
 	});

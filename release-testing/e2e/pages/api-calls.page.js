@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 const {clickNavTab} = require('../helpers/sf-navigation');
 const {waitForListView, waitForRecordPage} = require('../helpers/wait-helpers');
+const {getInstanceUrl} = require('../helpers/sf-auth');
+const {namespacePrefix} = require('../helpers/sf-namespace');
+const {ELEMENT_WAIT_MILLISECONDS} = require('../helpers/wait-times');
 
 class ApiCallsPage
 {
@@ -48,6 +51,26 @@ class ApiCallsPage
 		const views = await options.allTextContents();
 		await this.page.keyboard.press('Escape');
 		return views;
+	}
+
+	/**
+	 * @description Opens the API Calls list's list-view picker and reports whether it offers a list view by that name,
+	 *              then closes the picker. Opens the list itself first, so it works from any page.
+	 *
+	 * @param {string} viewName The list view's label, as the picker shows it.
+	 *
+	 * @returns {Promise<boolean>} True when the picker lists the view.
+	 */
+	async isListViewOffered(viewName)
+	{
+		await this.page.goto(`${getInstanceUrl()}/lightning/o/${namespacePrefix()}ApiCall__c/list`, {waitUntil: 'domcontentloaded'});
+		await waitForListView(this.page);
+		const picker = this.page.locator('button[title^="Select a List View"], button[title^="Select List View"], .triggerLinkTextAndIconWrapper').first();
+		await picker.click();
+		const option = this.page.getByRole('option', {name: viewName}).first();
+		const offered = await option.waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS}).then(() => true).catch(() => false);
+		await this.page.keyboard.press('Escape');
+		return offered;
 	}
 
 	async hasRecords()

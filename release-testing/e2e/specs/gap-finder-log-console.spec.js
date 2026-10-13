@@ -29,16 +29,34 @@ const fs = require('fs');
 const path = require('path');
 const {test, expect} = require('@playwright/test');
 const LogConsolePage = require('../pages/log-console.page');
-const {executeAnonymousApex} = require('../helpers/sf-cli');
+const {executeAnonymousApex, runApexScript} = require('../helpers/sf-cli');
+const {runShapedSeed} = require('../helpers/log-console-seed');
 const {namespacePrefix} = require('../helpers/sf-namespace');
 const {getInstanceUrl} = require('../helpers/sf-auth');
 const {readShippedLabelValues} = require('../lib/shipped-labels');
+const {logConsoleIds, partitionDrift} = require('../lib/whole-action-spec-ids');
 
 const SPEC_ROOT = path.join(__dirname, '..', '..', '..');
 const PROTOTYPE_PATHS = {
 	console: process.env.GAP_FINDER_CONSOLE_PROTOTYPE || path.join(SPEC_ROOT, 'plans', 'superpowers', 'specs', '2026-06-30-log-console-redesign-prototype.html'),
-	timeline: process.env.GAP_FINDER_TIMELINE_PROTOTYPE || path.join(SPEC_ROOT, 'plans', 'superpowers', 'specs', '2026-07-01-log-console-timeline-prototype.html')
+	timeline: process.env.GAP_FINDER_TIMELINE_PROTOTYPE || path.join(SPEC_ROOT, 'plans', 'superpowers', 'specs', '2026-07-01-log-console-timeline-prototype.html'),
+	wholeAction: process.env.GAP_FINDER_WHOLE_ACTION_PROTOTYPE || path.join(SPEC_ROOT, 'plans', 'superpowers', 'specs', '2026-09-07-log-console-whole-action-prototype.html'),
+	writerIconsCopyNames: process.env.GAP_FINDER_WRITER_ICONS_COPY_NAMES_PROTOTYPE
+			|| path.join(SPEC_ROOT, 'plans', 'superpowers', 'specs', '2026-09-19-log-console-writer-icons-copy-names-prototype.html')
 };
+
+// The whole-action states are served by the Log Console's own shaped seed (the checkout click, its
+// three runs and the legacy action), run here beside this spec's own phases and torn down with them.
+const SHAPED_TEARDOWN_SCRIPT = path.join(__dirname, '..', '..', 'scripts', 'teardown-log-console.apex');
+const ACTION_CHECKOUT = 'e2ee2ee2-0000-4000-8000-000000000a01';
+const ACTION_OWN_MESSAGE = 'Checkout launched three chains';
+// The many-chains action: six runs under one root, so the banner has to fold the tail into its
+// "and N more chains" line. Its own rows are this spec's, not the shaped seed's.
+const MANY_CHAINS_ROOT = 'e2ee2ee2-0000-4000-8000-00000000ffa1';
+// CorrelationId__c holds exactly 36 characters, so each run's id is the root's own stem with its
+// own two-digit tail rather than the root with a suffix bolted on.
+const MANY_CHAINS_RUN_STEM = 'e2ee2ee2-0000-4000-8000-00000000ff';
+const MANY_CHAINS_RUN_COUNT = 6;
 
 // Seed markers. Every seeded row carries one of these prefixes so teardown is exact.
 const MARKER = 'gapfinder-';
@@ -48,6 +66,11 @@ const RECURRING_MESSAGE = 'Spec parity recurring warning';
 const RECURRING_OCCURRENCES = 3;
 const TRACE_TERMINAL_MESSAGE = 'Spec parity trace capture';
 const CAP_HOP_MESSAGE = 'Spec parity cap hop 01';
+// The problem the console folds at read time, from plain rows carrying no fingerprint of their own.
+// It is the only shape offered the tagging snippet, which exists to turn exactly this into a tagged
+// problem, so it is the only shape that can prove that snippet's copy button.
+const DERIVED_MESSAGE = 'Spec parity derived failure';
+const DERIVED_OCCURRENCES = 3;
 // The drawer marks a hop with a "gap before this hop" note at 30 seconds; the seed opens a real
 // window rather than back-dating CreatedDate, which this org does not permit on insert.
 const GAP_WINDOW_MS = 35_000;
@@ -61,8 +84,9 @@ const REPORT_ID_COLUMN_WIDTH = 32;
 
 // Decorative glyphs a prototype uses to stand in for an SLDS icon; they are not copy. Punctuation
 // (including em dashes) is deliberately NOT in this set — a dash is wording, and stripping it would
-// hide real copy drift.
-const DECORATION = /[↳→←⟳⌕▤⋯×⧉⚠⏱▸]/g;
+// hide real copy drift. `▶` and `⏳` are in the set too: the older prototypes still draw them where
+// the shipped drawer now draws an icon.
+const DECORATION = /[↳→←⟳⌕▤⋯×⧉⚠⏱▸▶⏳]/g;
 
 function normaliseCopy(value)
 {
@@ -71,8 +95,11 @@ function normaliseCopy(value)
 
 /**
  * @description The frozen spec ids, and the ids explicitly deferred out of this phase, read from
- *              both prototypes. Deferred ids are returned separately so the report can name them
- *              rather than silently dropping them.
+ *              the three prototypes. Deferred ids are returned separately so the report can name
+ *              them rather than silently dropping them. The whole-action prototype draws both
+ *              consoles on one page, so only its Log Console half is claimed here; the other half
+ *              is the Chain Monitor gap-finder's, and the partition guard proves the split covers
+ *              the inventory.
  */
 function readFrozenSpecIds()
 {
@@ -81,9 +108,16 @@ function readFrozenSpecIds()
 	for(const [surface, prototypePath] of Object.entries(PROTOTYPE_PATHS))
 	{
 		const markup = fs.readFileSync(prototypePath, 'utf8');
-		for(const match of markup.matchAll(/data-spec-id="([^"]+)"/g))
+		if(surface === 'wholeAction')
 		{
-			ids.add(match[1]);
+			logConsoleIds(prototypePath).forEach((specId) => ids.add(specId));
+		}
+		else
+		{
+			for(const match of markup.matchAll(/data-spec-id="([^"]+)"/g))
+			{
+				ids.add(match[1]);
+			}
 		}
 		for(const match of markup.matchAll(/data-spec-deferred="([^"]+)"/g))
 		{
@@ -194,7 +228,46 @@ const EXPECTATIONS = {
 	'timeline-focus-card': {state: 'traceTimeline', mode: 'nonempty'},
 	// ---- drawer opened on the capped trace ----
 	'timeline-cap-row': {state: 'capTimeline', mode: 'contains', text: 'Showing the first'},
-	'cap-open-chain': {state: 'capTimeline', mode: 'contains', label: 'LogConsole_ActionOpenChain'}
+	'cap-open-chain': {state: 'capTimeline', mode: 'contains', label: 'LogConsole_ActionOpenChain'},
+	// ---- the whole action (2026-09-07 prototype) ----
+	'detail-panel': {state: 'actionDrawer', mode: 'presence'},
+	'details-action': {state: 'actionDrawer', mode: 'contains', text: ACTION_CHECKOUT},
+	'detail-action-show-whole-action': {state: 'actionDrawer', mode: 'exact', label: 'LogConsole_ActionShowWholeAction'},
+	'timeline-action-note': {state: 'actionTimeline', mode: 'contains', label: 'LogConsole_TimelineActionOwn'},
+	'action-pill': {state: 'action', mode: 'contains', text: 'Action:'},
+	'action-range-note': {state: 'action', mode: 'exact', label: 'LogConsole_ActionRangeNote'},
+	'action-banner': {state: 'action', mode: 'presence'},
+	'action-banner-sentence': {state: 'action', mode: 'contains', label: 'LogConsole_ActionBannerStarted'},
+	'action-chain-chip': {state: 'action', mode: 'nonempty', count: 3},
+	'action-more-chains': {state: 'actionMany', mode: 'contains', text: 'more chains'},
+	'action-open-chains': {state: 'action', mode: 'exact', label: 'LogConsole_ActionOpenChains'},
+	'col-chain': {state: 'action', mode: 'column', label: 'LogConsole_ColChain'},
+	'entries-pager': {state: 'action', mode: 'presence'},
+	'entries-position': {state: 'action', mode: 'contains', text: 'Rows 1 to'},
+	'chain-pill': {state: 'actionChain', mode: 'contains', text: 'Chain:'},
+	// ---- the writer in the list, the drawer's icons and its named copy buttons (2026-09-19 prototype) ----
+	// A copy button is a lightning-button-icon host with no text of its own, and the warn pin and the
+	// chevron hold only an icon, so each of those is judged by presence: any text mode would record
+	// "rendered empty text". None of them carries a `label` either, which would enter the id into the
+	// copy-drift comparison, where a pill's or an icon's text can never equal a label's value.
+	'entries-source-cell': {state: 'traceOverview', mode: 'nonempty'},
+	'entries-source-origin': {state: 'traceOverview', mode: 'nonempty'},
+	'source-filter-pill': {state: 'occurrencesDrill', mode: 'nonempty'},
+	'occurrences-reconciliation': {state: 'occurrencesDrill', mode: 'nonempty'},
+	'copy-message': {state: 'traceOverview', mode: 'presence'},
+	'copy-correlation': {state: 'traceOverview', mode: 'presence'},
+	'copy-action': {state: 'actionDrawer', mode: 'presence'},
+	// The tagging snippet is offered only to a problem that is not tagged yet, which is what it is for:
+	// the recurring problem of `problemDrawer` is already a tagged one, so only a derived problem can
+	// prove this button.
+	'copy-snippet': {state: 'derivedProblemDrawer', mode: 'presence'},
+	'copy-stack': {state: 'traceStack', mode: 'presence'},
+	'copy-context': {state: 'traceContext', mode: 'presence'},
+	// The pin marks a run that logged a warning or an error, so it can only be judged where there is a
+	// minimap to hang it on: the recurring problem is a standalone entry whose timeline says so and
+	// draws no minimap at all, while the correlated trace runs a WARN hop and an ERROR hop.
+	'minimap-warn-pin': {state: 'traceTimeline', mode: 'presence'},
+	'transaction-chevron': {state: 'traceTimeline', mode: 'presence'}
 };
 
 const results = new Map();
@@ -226,9 +299,37 @@ function prefixed(apiName)
 
 // ---- fixtures ---------------------------------------------------------------------------------
 
+// The two bridged writer forms a class-method can take, and the origin each one stands for. Anything
+// else was written by Apex itself.
+const ORIGIN_BY_BRIDGE_FORM = {'Flow/': 'FLOW', 'LWC/': 'COMPONENT'};
+
+/**
+ * @description The writer's own name and origin for a row, derived from its class-method exactly as
+ *              the shaped seed derives them: an Apex class-method is written by APEX under its class,
+ *              a `Flow/` form by FLOW under the Flow's whole name, an `LWC/` form by COMPONENT under
+ *              the component's name. Null for a row that names no class-method, which has no writer
+ *              to be consistent with.
+ * @param {string|undefined} classMethodLiteral The Apex literal the row puts in ClassMethod__c.
+ * @return {Object|null} The two fields to stamp, as Apex literals, or null.
+ */
+function writerFieldsFor(classMethodLiteral)
+{
+	const quoted = /^'(.*)'$/.exec(classMethodLiteral ?? '');
+	const classMethod = quoted?.[1] ?? '';
+	const bridge = Object.keys(ORIGIN_BY_BRIDGE_FORM).find((form) => classMethod.startsWith(form)) ?? '';
+	const written = classMethod.slice(bridge.length);
+	const name = bridge === 'Flow/' ? written : written.split('.')[0];
+	return classMethod ? {Origin__c: `'${ORIGIN_BY_BRIDGE_FORM[bridge] ?? 'APEX'}'`, Source__c: `'${name}'`} : null;
+}
+
 function buildEntry(fields)
 {
-	const assignments = Object.entries(fields)
+	// A row inserted straight into the object never passes the logging engine, and the engine is what
+	// stamps the writer's name and origin at emit, so the builder stamps them here. Without it the
+	// Source cells of every seeded row fall back to the class and method and no origin pill can render,
+	// which is a property of the seed rather than of the console. An explicit value always wins.
+	const stamped = {...writerFieldsFor(fields.ClassMethod__c), ...fields};
+	const assignments = Object.entries(stamped)
 	.map(([field, value]) => `row.put('${prefixed(field)}', ${value});`)
 	.join('\n\t\t');
 	return `\n\t\trow = leType.newSObject();\n\t\t${assignments}\n\t\trows.add(row);\n`;
@@ -273,6 +374,24 @@ function seedPhaseOneApex()
 		OccurrenceCount__c: String(RECURRING_OCCURRENCES),
 		TransactionId__c: `'${MARKER}recurring-rollup'`
 	});
+	// The problem the console folds at read time: plain forensic rows sharing one class-method, one
+	// level and one message, with NO fingerprint of their own, which is what the fold groups on. It is
+	// the only problem shape offered the tagging snippet, and its transaction ids carry the marker so
+	// teardown takes them with everything else.
+	for(let occurrence = 0; occurrence < DERIVED_OCCURRENCES; occurrence++)
+	{
+		apex += buildEntry({
+			LogLevel__c: '\'ERROR\'',
+			ShortMessage__c: `'${DERIVED_MESSAGE}'`,
+			Message__c: `'${DERIVED_MESSAGE} (occurrence ${occurrence + 1})'`,
+			ExceptionType__c: '\'System.NullPointerException\'',
+			ClassMethod__c: '\'SpecParityProbe.derive\'',
+			LineNumber__c: '77',
+			ExecutionEvent__c: '\'QUEUEABLE\'',
+			TransactionId__c: `'${MARKER}derived-${occurrence}'`,
+			UserId__c: 'me'
+		});
+	}
 	// The first trace hop names a parent that is NOT part of the loaded trace, so the drawer must
 	// still render the generic out-of-trace breadcrumb.
 	apex += buildEntry({
@@ -301,6 +420,19 @@ function seedPhaseOneApex()
 			UserId__c: 'me'
 		});
 	}
+	// The many-chains action: one entry of its own plus six runs under the same root, which is more
+	// chains than the banner shows as chips, so the "and N more chains" line has something to fold.
+	apex += buildEntry({
+		LogLevel__c: '\'INFO\'',
+		ShortMessage__c: '\'Spec parity action started six chains\'',
+		ClassMethod__c: '\'SpecParityProbe.manyChains\'',
+		LineNumber__c: '7',
+		ExecutionEvent__c: '\'AURA\'',
+		CorrelationId__c: `'${MANY_CHAINS_ROOT}'`,
+		RootCorrelationId__c: `'${MANY_CHAINS_ROOT}'`,
+		TransactionId__c: `'${MARKER}many-0'`,
+		UserId__c: 'me'
+	});
 	return `${apex}
 		insert rows;
 		SObjectType chainType = Schema.getGlobalDescribe().get('${prefixed('AsyncChainExecution__c')}');
@@ -314,6 +446,20 @@ function seedPhaseOneApex()
 			chain.put('${prefixed('TotalSteps__c')}', 3);
 			chain.put('${prefixed('CompletedSteps__c')}', 1);
 			chain.put('${prefixed('StartedAt__c')}', Datetime.now());
+			chains.add(chain);
+		}
+		for(Integer run = 1; run <= ${MANY_CHAINS_RUN_COUNT}; run++)
+		{
+			SObject chain = chainType.newSObject();
+			chain.put('${prefixed('ChainName__c')}', '${MARKER}Many Chains Run ' + run);
+			chain.put('${prefixed('Status__c')}', 'Completed');
+			chain.put('${prefixed('CorrelationId__c')}', '${MANY_CHAINS_RUN_STEM}0' + run);
+			chain.put('${prefixed('RootCorrelationId__c')}', '${MANY_CHAINS_ROOT}');
+			chain.put('${prefixed('LaunchCorrelationId__c')}', '${MANY_CHAINS_ROOT}');
+			chain.put('${prefixed('TotalSteps__c')}', 1);
+			chain.put('${prefixed('CompletedSteps__c')}', 1);
+			chain.put('${prefixed('StartedAt__c')}', Datetime.now().addMinutes(-10 + run));
+			chain.put('${prefixed('CompletedAt__c')}', Datetime.now().addMinutes(-9 + run));
 			chains.add(chain);
 		}
 		insert chains;
@@ -369,13 +515,14 @@ function teardownApex()
 	return `
 		List<SObject> seeded = Database.query('SELECT Id FROM ${prefixed('LogEntry__c')}'
 				+ ' WHERE ${prefixed('CorrelationId__c')} LIKE \\'${MARKER}%\\' OR ${prefixed('TransactionId__c')} LIKE \\'${MARKER}%\\''
-				+ ' OR ${prefixed('Fingerprint__c')} LIKE \\'%${MARKER}%\\'');
+				+ ' OR ${prefixed('Fingerprint__c')} LIKE \\'%${MARKER}%\\''
+				+ ' OR ${prefixed('RootCorrelationId__c')} LIKE \\'${MANY_CHAINS_ROOT}%\\'');
 		if(!seeded.isEmpty())
 		{
 			delete seeded;
 		}
 		List<SObject> seededChains = Database.query('SELECT Id FROM ${prefixed('AsyncChainExecution__c')}'
-				+ ' WHERE ${prefixed('CorrelationId__c')} LIKE \\'${MARKER}%\\'');
+				+ ' WHERE ${prefixed('CorrelationId__c')} LIKE \\'${MARKER}%\\' OR ${prefixed('ChainName__c')} LIKE \\'${MARKER}%\\'');
 		if(!seededChains.isEmpty())
 		{
 			delete seededChains;
@@ -399,6 +546,11 @@ test('every expectation names a shipped Custom Label', () =>
 	expect(unknown, 'expectations whose label name is not in the shipped label file').toEqual([]);
 });
 
+test('the whole-action prototype partition names only ids the prototype carries', () =>
+{
+	expect(partitionDrift(PROTOTYPE_PATHS.wholeAction), 'monitor ids the partition names that the prototype no longer carries').toEqual([]);
+});
+
 test.describe.serial('Log Console prototype gap-finder', () =>
 {
 	const frozen = readFrozenSpecIds();
@@ -407,6 +559,13 @@ test.describe.serial('Log Console prototype gap-finder', () =>
 
 	test.beforeAll(async() =>
 	{
+		// The shaped seed goes FIRST, and not last: its own idempotent clear deletes every row whose
+		// correlation or root starts with the whole-action marker, and this spec's many-chains fixture
+		// is deliberately in that family (the console's search resolver only accepts an id of that
+		// shape). Seeded the other way round, the shaped seed wipes the six runs this spec had just
+		// laid down and the "and N more chains" line has nothing to fold.
+		const shaped = runShapedSeed();
+		expect(shaped.raw, 'The shaped seed should report SEED_LOG_CONSOLE').toContain('SEED_LOG_CONSOLE');
 		executeAnonymousApex(teardownApex(), {timeout: 120_000});
 		const phaseOne = executeAnonymousApex(seedPhaseOneApex(), {timeout: 120_000});
 		expect(phaseOne, 'Phase-one seed should report GAPFINDER_SEED_PHASE_ONE').toContain('GAPFINDER_SEED_PHASE_ONE');
@@ -424,6 +583,7 @@ test.describe.serial('Log Console prototype gap-finder', () =>
 		if(process.env.GAPFINDER_KEEP_FIXTURES !== '1')
 		{
 			executeAnonymousApex(teardownApex(), {timeout: 120_000});
+			runApexScript(SHAPED_TEARDOWN_SCRIPT, {timeout: 300_000});
 		}
 	});
 
@@ -528,6 +688,24 @@ test.describe.serial('Log Console prototype gap-finder', () =>
 			}
 		}
 
+		// One column of the annotated table, for an id the datatable renders as a header rather than
+		// as an element of its own: the round-trip is that the shipped column label is on screen in
+		// the table the list state names.
+		async function checkColumnPresent(specId, tableSpecId, header)
+		{
+			try
+			{
+				await spec(tableSpecId).first().waitFor({state: 'visible', timeout: 15_000});
+				const headerText = await spec(tableSpecId).first().locator('thead').first().innerText();
+				record(specId, headerText.includes(header) ? 'FOUND' : 'MISSING',
+						headerText.includes(header) ? `column header "${header}" verified` : `no "${header}" column header`);
+			}
+			catch
+			{
+				record(specId, 'MISSING', 'the annotated list table never rendered');
+			}
+		}
+
 		// The Details grid is a key/value grid; the round-trip is that every shipped key label the
 		// prototype froze is rendered inside the annotated grid.
 		async function checkMetagrid(specId)
@@ -570,6 +748,10 @@ test.describe.serial('Log Console prototype gap-finder', () =>
 				else if(expectation.mode === 'metagrid')
 				{
 					await checkMetagrid(specId);
+				}
+				else if(expectation.mode === 'column')
+				{
+					await checkColumnPresent(specId, 'entry-list', labelValues[expectation.label]);
 				}
 				else if(expectation.mode === 'columns')
 				{
@@ -624,6 +806,24 @@ test.describe.serial('Log Console prototype gap-finder', () =>
 		await logConsole.openDrawerTab(labelValues.LogConsole_TabTimeline);
 		await checkState('problemTimeline');
 
+		// ---- state 3a: the drawer on a problem the console folded at read time ------------------
+		// Found by its text in the unfiltered problem summary rather than through a search: a search
+		// turns problem grouping off ("Problem grouping cannot apply your search, so these are your
+		// tagged problems only"), and a derived problem is exactly the one that is not tagged.
+		await logConsole.navigate();
+		const derivedIndex = await logConsole.findRowIndexByText(DERIVED_MESSAGE);
+		expect(derivedIndex, 'the derived-problem fixture should be listed in the problem summary').toBeGreaterThanOrEqual(0);
+		await logConsole.selectRow(derivedIndex);
+		await logConsole.detailPanel().waitFor({state: 'visible', timeout: 30_000});
+		await checkState('derivedProblemDrawer');
+
+		// ---- state 3b: the occurrences drill, the one state that renders the source pill and its reconciliation note ----
+		await openFirstRowFor(RECURRING_MESSAGE, 'problems');
+		await logConsole.detailPanel().locator('[data-testid="action-view-occurrences"]').first().click();
+		await logConsole.waitForListSettled();
+		await checkState('occurrencesDrill');
+		await logConsole.removeSourceFilter();
+
 		// ---- state 4: the drawer on the correlated, chain-registered trace ---------------------
 		await openFirstRowFor(TRACE_TERMINAL_MESSAGE, 'entries');
 		await checkState('traceOverview');
@@ -646,6 +846,30 @@ test.describe.serial('Log Console prototype gap-finder', () =>
 		await openFirstRowFor(CAP_HOP_MESSAGE, 'entries');
 		await logConsole.openDrawerTab(labelValues.LogConsole_TabTimeline);
 		await checkState('capTimeline');
+
+		// ---- state 6: the whole action --------------------------------------------------------
+		// Opened by hand rather than through openFirstRowFor: the action's own entry is INFO, and the
+		// console opens on ERROR and WARN, so the levels have to be on before the search runs.
+		await logConsole.navigate();
+		await logConsole.switchView('entries');
+		await logConsole.enableAllLevels();
+		await logConsole.search(ACTION_OWN_MESSAGE);
+		expect(await logConsole.getRowCount(), 'the whole-action fixture should list the action\'s own entry').toBeGreaterThan(0);
+		await logConsole.selectRow(0);
+		await logConsole.detailPanel().waitFor({state: 'visible', timeout: 30_000});
+		await checkState('actionDrawer');
+		await logConsole.openDrawerTab(labelValues.LogConsole_TabTimeline);
+		await checkState('actionTimeline');
+		await logConsole.showWholeActionButton().click();
+		await logConsole.waitForListSettled();
+		await checkState('action');
+		await logConsole.actionChips().first().click();
+		await logConsole.waitForListSettled();
+		await checkState('actionChain');
+		await logConsole.removeCorrelation();
+		await logConsole.removeAction();
+		await logConsole.search(MANY_CHAINS_ROOT);
+		await checkState('actionMany');
 
 		// ---- copy drift: the prototype's own frozen copy against the shipped label -------------
 		for(const [specId, expectation] of Object.entries(EXPECTATIONS))

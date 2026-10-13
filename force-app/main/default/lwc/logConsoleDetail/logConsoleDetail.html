@@ -57,10 +57,14 @@
 					</template>
 				</p>
 
-				<div class="slds-grid slds-grid_vertical-align-center slds-m-top_x-small detail-actions">
+				<div class="slds-grid slds-grid_vertical-align-center slds-wrap slds-m-top_x-small detail-actions">
+					<template lwc:if={showWholeActionButton}>
+						<lightning-button data-spec-id="detail-action-show-whole-action" data-testid="action-show-whole-action" label={label.actionShowWholeAction}
+										  onclick={handleShowWholeAction} variant="neutral"></lightning-button>
+					</template>
 					<template lwc:if={showChainButton}>
-						<lightning-button class="slds-m-right_xx-small" data-spec-id="detail-action-open-chain" data-testid="action-open-chain" label={label.actionOpenChain}
-										  onclick={handleOpenChain} variant="neutral"></lightning-button>
+						<lightning-button data-spec-id="detail-action-open-chain" data-testid="action-open-chain" label={label.actionOpenChain} onclick={handleOpenChain}
+										  variant="neutral"></lightning-button>
 					</template>
 					<template lwc:if={showOpenRecordButton}>
 						<lightning-button data-spec-id="detail-action-open-record" data-testid="action-open-record" label={label.actionOpenRecord} onclick={handleOpenRecord}
@@ -73,8 +77,8 @@
 										  label={label.actionOpenLatestOccurrence} onclick={handleOpenRecord} variant="neutral"></lightning-button>
 					</template>
 					<template lwc:if={showOccurrencesButton}>
-						<lightning-button class="slds-m-left_xx-small" data-spec-id="detail-action-view-occurrences" data-testid="action-view-occurrences"
-										  label={label.viewOccurrences} onclick={handleViewOccurrences} variant="neutral"></lightning-button>
+						<lightning-button data-spec-id="detail-action-view-occurrences" data-testid="action-view-occurrences" label={label.viewOccurrences}
+										  onclick={handleViewOccurrences} variant="neutral"></lightning-button>
 					</template>
 				</div>
 
@@ -93,8 +97,9 @@
 					<template lwc:if={hasMessage}>
 						<div class="msgcard slds-m-bottom_small" data-level={detail.level} data-spec-id="message-card" data-testid="message-card">
 							<div class="mtype" data-spec-id="message-caption" data-testid="message-caption">{messageCaption}</div>
-							<lightning-button-icon alternative-text={label.copy} class="copybtn" data-testid="copy-message" icon-name="utility:copy_to_clipboard"
-												   onclick={handleCopyMessage} size="x-small" title={label.copy} variant="bare"></lightning-button-icon>
+							<lightning-button-icon alternative-text={label.copyMessage} class="copybtn" data-spec-id="copy-message" data-testid="copy-message"
+												   icon-name="utility:copy_to_clipboard" onclick={handleCopyMessage} size="x-small" title={label.copyMessage}
+												   variant="bare"></lightning-button-icon>
 							<div class="mtext" data-spec-id="message-text" data-testid="message-code">{detail.message}</div>
 						</div>
 					</template>
@@ -124,17 +129,40 @@
 							<template lwc:if={contextDisplayName}>{contextDisplayName}</template>
 							<template lwc:else><span class="muted">&mdash;</span></template>
 						</span>
+						<span class="k">{label.metaOrigin}</span>
+						<span class="v" data-spec-id="details-origin" data-testid="meta-origin">
+							<template lwc:if={originDisplayName}>{originDisplayName}</template>
+							<template lwc:else><span class="muted">&mdash;</span></template>
+						</span>
 						<span class="k">{label.metaUser}</span>
 						<span class="v" data-spec-id="details-user" data-testid="meta-user">
 							<template lwc:if={hasUserLink}><a data-testid="meta-user-link" href={userRecordUrl}>{userLabel}</a></template>
 							<template lwc:else>{userLabel}</template>
 						</span>
+						<!-- The action the entry belongs to, with why: the action wrote it itself, or it predates roots. -->
+						<span class="k">{label.metaAction}</span>
+						<span class="v" data-spec-id="details-action" data-testid="meta-action">
+							<template lwc:if={hasActionId}>
+								{actionCorrelationId}
+								<lightning-button-icon alternative-text={label.copyAction} class="copyicon" data-spec-id="copy-action" data-testid="copy-action"
+													   icon-name="utility:copy_to_clipboard" onclick={handleCopyAction} size="x-small" title={label.copyAction}
+													   variant="bare"></lightning-button-icon>
+								<template lwc:if={actionNote}>
+									<span class="muted meta-note" data-testid="action-note">{actionNote}</span>
+								</template>
+							</template>
+							<template lwc:else><span class="muted">&mdash;</span></template>
+						</span>
 						<span class="k">{label.metaCorrelation}</span>
 						<span class="v" data-spec-id="details-correlation" data-testid="meta-correlation">
 							<template lwc:if={hasCorrelation}>
 								{detail.correlationId}
-								<lightning-button-icon alternative-text={label.copy} class="copyicon" data-testid="copy-correlation" icon-name="utility:copy_to_clipboard"
-													   onclick={handleCopyCorrelation} size="x-small" title={label.copy} variant="bare"></lightning-button-icon>
+								<lightning-button-icon alternative-text={label.copyCorrelation} class="copyicon" data-spec-id="copy-correlation" data-testid="copy-correlation"
+													   icon-name="utility:copy_to_clipboard" onclick={handleCopyCorrelation} size="x-small" title={label.copyCorrelation}
+													   variant="bare"></lightning-button-icon>
+								<template lwc:if={correlationChainLabel}>
+									<span class="muted meta-note" data-testid="meta-correlation-chain">{correlationChainLabel}</span>
+								</template>
 							</template>
 							<template lwc:else><span class="muted">&mdash;</span></template>
 						</span>
@@ -187,8 +215,9 @@
 							<span class="explainer__title">{label.trackProblem}</span>
 							<p class="explainer__body">{label.trackProblemHint}</p>
 							<div class="codewrap">
-								<lightning-button-icon alternative-text={label.copy} class="copybtn" data-testid="copy-snippet" icon-name="utility:copy_to_clipboard"
-													   onclick={handleCopySnippet} size="x-small" title={label.copy} variant="bare-inverse"></lightning-button-icon>
+								<lightning-button-icon alternative-text={label.copyCode} class="copybtn" data-spec-id="copy-snippet" data-testid="copy-snippet"
+													   icon-name="utility:copy_to_clipboard" onclick={handleCopySnippet} size="x-small" title={label.copyCode}
+													   variant="bare-inverse"></lightning-button-icon>
 								<pre class="code" data-spec-id="track-snippet" data-testid="track-snippet">{apexSnippet}</pre>
 							</div>
 							<template lwc:if={snippetPassesException}>
@@ -208,8 +237,9 @@
 							<span class="explainer__title">{label.nameSource}</span>
 							<p class="explainer__body">{label.nameSourceHint}</p>
 							<div class="codewrap">
-								<lightning-button-icon alternative-text={label.copy} class="copybtn" data-testid="copy-snippet" icon-name="utility:copy_to_clipboard"
-													   onclick={handleCopySnippet} size="x-small" title={label.copy} variant="bare-inverse"></lightning-button-icon>
+								<lightning-button-icon alternative-text={label.copyCode} class="copybtn" data-spec-id="copy-snippet" data-testid="copy-snippet"
+													   icon-name="utility:copy_to_clipboard" onclick={handleCopySnippet} size="x-small" title={label.copyCode}
+													   variant="bare-inverse"></lightning-button-icon>
 								<pre class="code" data-spec-id="name-source-snippet" data-testid="name-source-snippet">{apexSnippet}</pre>
 							</div>
 							<template lwc:if={snippetPassesException}>
@@ -225,8 +255,9 @@
 				<lightning-tab data-spec-id="detail-tab-stack" label={label.tabStackTrace} onactive={handleTabActive} value="stack">
 					<template lwc:if={hasStackTrace}>
 						<div class="codewrap">
-							<lightning-button-icon alternative-text={label.copy} class="copybtn" data-testid="copy-stack" icon-name="utility:copy_to_clipboard"
-												   onclick={handleCopyStack} size="x-small" title={label.copy} variant="bare-inverse"></lightning-button-icon>
+							<lightning-button-icon alternative-text={label.copyStackTrace} class="copybtn" data-spec-id="copy-stack" data-testid="copy-stack"
+												   icon-name="utility:copy_to_clipboard" onclick={handleCopyStack} size="x-small" title={label.copyStackTrace}
+												   variant="bare-inverse"></lightning-button-icon>
 							<pre class="code" data-spec-id="stack-code" data-testid="stack-code">{detail.stackTrace}</pre>
 						</div>
 					</template>
@@ -251,8 +282,9 @@
 				<lightning-tab data-spec-id="detail-tab-context" label={label.tabContext} onactive={handleTabActive} value="context">
 					<template lwc:if={hasContext}>
 						<div class="codewrap codewrap_gutter">
-							<lightning-button-icon alternative-text={label.copy} class="copybtn" data-testid="copy-context" icon-name="utility:copy_to_clipboard"
-												   onclick={handleCopyContext} size="x-small" title={label.copy} variant="bare"></lightning-button-icon>
+							<lightning-button-icon alternative-text={label.copyContext} class="copybtn" data-spec-id="copy-context" data-testid="copy-context"
+												   icon-name="utility:copy_to_clipboard" onclick={handleCopyContext} size="x-small" title={label.copyContext}
+												   variant="bare"></lightning-button-icon>
 							<c-json-viewer data-spec-id="context-code" json-text={detail.contextJson}></c-json-viewer>
 						</div>
 					</template>
@@ -274,14 +306,38 @@
 						</template>
 					</div>
 
-					<template lwc:if={timelineNote}>
+					<template lwc:if={showTimelineActionNote}>
+						<div class="note plain" data-spec-id="timeline-action-note" data-testid="timeline-action-note">{timelineNote}
+							<template lwc:if={showWholeActionButton}>
+								<button class="chain-viewfull" data-testid="timeline-show-whole-action" onclick={handleShowWholeAction} type="button">
+									{label.actionShowWholeAction} &rarr;
+								</button>
+							</template>
+						</div>
+					</template>
+					<template lwc:elseif={timelineNote}>
 						<div class="note plain" data-spec-id="timeline-note" data-testid="timeline-note">{timelineNote}</div>
 					</template>
 
 					<template lwc:if={hasMultipleEntries}>
 						<div class="ovhead">
 							<span class="lab" data-spec-id="timeline-overview-label">{label.timelineOverview}</span>
-							<span class="stat" data-spec-id="timeline-overview-stat" data-testid="overview-stat">{overviewStat}</span>
+							<!-- Every part of the line is its own element and the spacing is the wrapper's gap, so no part
+								 carries a separator or a space of its own and a line break here cannot change what is drawn. -->
+							<span class="stat" data-spec-id="timeline-overview-stat" data-testid="overview-stat">
+								<span class="stat__counts">{overviewCounts}</span>
+								<span class="stat__separator">&middot;</span>
+								<lightning-icon alternative-text={label.timelineDuration} class="stat__icon" icon-name="utility:clock" size="x-small"></lightning-icon>
+								<span class="stat__duration">{overviewDuration}</span>
+								<template lwc:if={overviewError}>
+									<!-- The separator and the clause it introduces are one element so they move to a new
+										 row of the line together, never leaving the dot stranded at the end of the row above. -->
+									<span class="stat__errorclause">
+										<span class="stat__separator">&middot;</span>
+										<span class="stat__error">{overviewError}</span>
+									</span>
+								</template>
+							</span>
 						</div>
 						<!-- The timeline is scoped to the correlation and never applies the console's level filter,
 							 so its entry count can exceed the list's for the same correlation. Said out loud, that is
@@ -298,7 +354,9 @@
 										<span class="mq">{segment.segmentLabel}</span>
 										<span class="mc">{segment.countLabel}</span>
 										<template lwc:if={segment.showWarnPin}>
-											<span class="warnpin">&#9888;</span>
+											<span class="warnpin" data-spec-id="minimap-warn-pin"><lightning-icon alternative-text={label.timelineWarning}
+																												  icon-name="utility:warning"
+																												  size="x-small"></lightning-icon></span>
 										</template>
 									</button>
 								</span>
@@ -315,20 +373,25 @@
 						<template for:each={transactionGroups} for:item="group">
 							<div class="txn-wrap" key={group.key}>
 								<template lwc:if={group.showGap}>
-									<div class="gapnote" data-spec-id="timeline-gap-note" data-testid="gap-note">&#9203; {group.gapLabel}</div>
+									<div class="gapnote" data-spec-id="timeline-gap-note" data-testid="gap-note">
+										<lightning-icon class="gapnote__icon" icon-name="utility:hourglass" size="x-small"></lightning-icon>
+										{group.gapLabel}
+									</div>
 								</template>
 								<div class="txn">
 									<!-- aria-expanded binds a valid true/false string at run time; the inspector cannot prove that for a bound value -->
 									<!--suppress HtmlWrongAttributeValue -->
 									<button aria-expanded={group.expandedAttr} class={group.headClass} data-spec-id="transaction-head" data-testid="txn-head"
 											data-transaction-id={group.transactionId} onclick={handleToggleTransaction} type="button">
-										<span class={group.chevronClass}>&#9654;</span>
+										<span class={group.chevronClass} data-spec-id="transaction-chevron"><lightning-icon icon-name="utility:chevronright"
+																															size="x-small"></lightning-icon></span>
 										<span class="tq">{group.quiddityLabel}</span>
 										<span class="toff">{group.offsetLabel}</span>
 										<span class="tdur">&middot; {group.durationLabel}</span>
 										<span class={group.badgeClass}>{group.level}</span>
 										<template lwc:if={group.crumb}>
-											<span class="crumb" data-spec-id="transaction-crumb">&#8627; {group.crumb}</span>
+											<span class="crumb" data-spec-id="transaction-crumb"><lightning-icon class="crumb__icon" icon-name="utility:level_down"
+																												 size="x-small"></lightning-icon>{group.crumb}</span>
 										</template>
 										<span class="tcount">{group.countLabel}</span>
 									</button>

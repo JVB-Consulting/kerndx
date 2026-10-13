@@ -19,15 +19,29 @@ const fs = require('fs');
 const path = require('path');
 const {chromium} = require('@playwright/test');
 const ChainMonitorPage = require('./pages/chain-monitor.page');
-const {executeAnonymousApex, soqlQuery} = require('./helpers/sf-cli');
+const {executeAnonymousApex, runApexScript, soqlQuery} = require('./helpers/sf-cli');
 const {namespacePrefix} = require('./helpers/sf-namespace');
+const {waitForSpinnerGone} = require('./helpers/wait-helpers');
 const {getInstanceUrl} = require('./helpers/sf-auth');
+const {authPathsFor} = require('./helpers/auth-paths');
+const {runShapedSeed} = require('./helpers/log-console-seed');
 const {readShippedLabelValues} = require('./lib/shipped-labels');
+const {chainMonitorIds} = require('./lib/whole-action-spec-ids');
 
 // The validated operator-actions mockup is an internal design artifact that does not ship with the
 // public repository; a checkout without it passes its own copy via GAP_FINDER_MOCKUP.
 const MOCKUP_PATH = process.env.GAP_FINDER_MOCKUP || path.join(__dirname, '..', '..', 'plans', 'completed', 'PLAN-138-mockups', 'chain-monitor-operator-actions.html');
-const AUTH_STATE_PATH = path.join(__dirname, '.auth', 'state.json');
+// The whole-action prototype draws both consoles on one page; this gap-finder owns its monitor half,
+// the Log Console gap-finder the rest, and lib/whole-action-spec-ids.js holds the split.
+const WHOLE_ACTION_PROTOTYPE_PATH = process.env.GAP_FINDER_WHOLE_ACTION_PROTOTYPE
+		|| path.join(__dirname, '..', '..', 'plans', 'superpowers', 'specs', '2026-09-07-log-console-whole-action-prototype.html');
+const AUTH_STATE_PATH = authPathsFor().statePath;
+
+// The action-scope state reads the whole-action runs the Log Console's shaped seed lays down: the
+// checkout click, its three runs (one nested) and the nightly job's restart clone.
+const SHAPED_TEARDOWN_SCRIPT = path.join(__dirname, '..', 'scripts', 'teardown-log-console.apex');
+const ACTION_CHECKOUT = 'e2ee2ee2-0000-4000-8000-000000000a01';
+const NESTED_RUN_NAME = 'E2E Checkout Ledger';
 
 // Copy-only ids: the shipped label value must equal the mockup's frozen copy byte-for-byte.
 // action-toast covers the five action-outcome toasts (the mockup's P9 note); the disconnected
@@ -43,7 +57,8 @@ const ACTION_TOAST_LABELS = {
 function readFrozenSpecIds()
 {
 	const mockup = fs.readFileSync(MOCKUP_PATH, 'utf8');
-	return [...new Set([...mockup.matchAll(/data-spec-id="([^"]+)"/g)].map((match) => match[1]))].sort();
+	const mockupIds = [...mockup.matchAll(/data-spec-id="([^"]+)"/g)].map((match) => match[1]);
+	return [...new Set([...mockupIds, ...chainMonitorIds(WHOLE_ACTION_PROTOTYPE_PATH)])].sort();
 }
 
 // The mockup's COPY map holds the frozen action copy; single-quoted values with escaped quotes.
@@ -70,7 +85,10 @@ async function seedStalledChain()
 {
 	const executionObject = prefixed('AsyncChainExecution__c');
 	const namespaceClause = namespacePrefix() ? 'NamespacePrefix = \'kern\'' : 'NamespacePrefix = NULL';
-	const output = executeAnonymousApex(`
+	// The permission sets go in first, in their OWN transaction: PermissionSetAssignment is a setup object, so
+	// assigning one and inserting a chain in the same transaction fails with MIXED_DML_OPERATION on any org where
+	// the runner is not already assigned (a fresh scratch org is exactly that case).
+	executeAnonymousApex(`
 		List<PermissionSet> operatorSets = [SELECT Id FROM PermissionSet WHERE Name IN ('AsyncChainAbort', 'AsyncChainRedrive', 'AsyncChainKillSwitch') AND ${namespaceClause}];
 		for(PermissionSet operatorSet : operatorSets)
 		{
@@ -79,6 +97,8 @@ async function seedStalledChain()
 				insert new PermissionSetAssignment(AssigneeId = UserInfo.getUserId(), PermissionSetId = operatorSet.Id);
 			}
 		}
+	`);
+	const output = executeAnonymousApex(`
 		${executionObject} stalled = new ${executionObject}(
 				${prefixed('ChainName__c')} = 'GapFinder_StalledSeed',
 				${prefixed('Status__c')} = 'Stalled',
@@ -111,7 +131,9 @@ async function main()
 	report('log-stream-disconnected', disconnectedMatches ? 'COPY-VERIFIED' : 'MISSING',
 			disconnectedMatches ? 'label byte-equal to the mockup copy' : 'label/mockup drift: ChainMonitor_LogStreamDisconnected');
 
-	const stalledChainId = await seedStalledChain();
+	await seedStalledChain();
+	// Throws, naming the script, when either part of the seed does not report its rows: the action-scope state would have no fixtures.
+	runShapedSeed();
 	const failedRows = soqlQuery(`SELECT Id FROM ${prefixed('AsyncChainExecution__c')} WHERE ${prefixed('ChainName__c')} = 'E2E_RestartLineage'`
 			+ ` AND ${prefixed('SourceExecution__c')} = NULL ORDER BY CreatedDate DESC LIMIT 1`);
 	const cloneRows = soqlQuery(`SELECT Id FROM ${prefixed('AsyncChainExecution__c')} WHERE ${prefixed('SourceExecution__c')} != NULL ORDER BY CreatedDate DESC LIMIT 1`);
@@ -191,18 +213,28 @@ async function main()
 	await checkDom('log-stream-entry', monitor.getStreamEntries());
 	await checkDom('stream-last-event', page.locator('[data-testid="stream-last-event"]'));
 
-	// State 2: the restart clone — lineage link.
+	// State 2: the restart clone, read through the Launched under link, which is what carries the
+	// restart lineage on a clone. A clone and the run it was restarted from share a chain name, and the
+	// unscoped list has no Launched under column to tell them apart, so the clone is picked by its
+	// own row key (the datatable keys rows on the execution id) and confirmed by the link's restart
+	// wording, the way V136 confirms the nightly clone.
 	if(cloneRows.length > 0)
 	{
 		await monitor.navigate();
-		await monitor.selectRow(0);
-		let lineageSeen = await page.locator('[data-testid="restart-lineage-link"]').isVisible().catch(() => false);
-		if(!lineageSeen)
+		const rowKeys = await monitor.getRowKeys();
+		const cloneIndex = rowKeys.indexOf(cloneRows[0].Id);
+		let lineageSeen = false;
+		if(cloneIndex >= 0)
 		{
-			await monitor.selectRowByChainName('E2E_RestartLineage');
-			lineageSeen = await page.locator('[data-testid="restart-lineage-link"]').first().isVisible().catch(() => false);
+			await monitor.selectRow(cloneIndex);
+			const lineage = page.locator('[data-testid="launched-under-link"]').first();
+			lineageSeen = (await lineage.isVisible().catch(() => false))
+					&& /^restart of /.test(((await lineage.innerText().catch(() => '')) || '').trim());
 		}
-		report('restart-lineage-link', lineageSeen ? 'FOUND' : 'MISSING', lineageSeen ? '' : 'clone row did not render the lineage entry');
+		const lineageDetail = cloneIndex < 0 ? 'the restart clone is not on the first page of the list'
+				: 'the clone row did not read its restart lineage';
+		report('restart-lineage-link', lineageSeen ? 'FOUND' : 'MISSING',
+				lineageSeen ? 'the Launched under link reads the restart' : lineageDetail);
 	}
 	else
 	{
@@ -215,12 +247,31 @@ async function main()
 	await checkDom('abort-action', monitor.getAbortButton(), labelValues.ChainMonitor_AbortAction);
 	await checkDom('log-stream-empty', monitor.getStreamEmpty(), labelValues.ChainMonitor_LogStreamEmpty);
 
+	// State 4: the action scope, reached by the deep link the Log Console sends.
+	const scopedUrl = `${getInstanceUrl()}/lightning/n/${prefixed('ChainMonitor')}`
+			+ `?c__rootCorrelationId=${ACTION_CHECKOUT}&c__viewLogsAt=${Date.now()}`;
+	await page.goto(scopedUrl, {waitUntil: 'domcontentloaded'});
+	await page.waitForTimeout(5000);
+	await waitForSpinnerGone(page);
+	await checkDom('monitor-action-pill', monitor.getActionPill(), null);
+	await checkDom('monitor-show-action-logs', monitor.getShowActionLogsButton(), labelValues.ChainMonitor_ShowActionLogsAction);
+	const headers = await monitor.getColumnHeaders();
+	report('monitor-col-launched-under', headers.includes(labelValues.ChainMonitor_LaunchedUnder) ? 'FOUND' : 'MISSING',
+			headers.includes(labelValues.ChainMonitor_LaunchedUnder) ? 'column header verified' : 'no Launched under header while scoped');
+	await monitor.selectRowByChainName(NESTED_RUN_NAME);
+	await checkDom('detail-toolbar-row', monitor.getToolbarRow());
+	await checkDom('timing-grid', page.locator('[data-spec-id="timing-grid"]'));
+	await checkDom('launched-under-row', monitor.getLaunchedUnderRow(), null);
+	await checkDom('monitor-detail-show-action-logs', monitor.getDetailShowActionLogsButton(), labelValues.ChainMonitor_ShowActionLogsAction);
+
 	await browser.close();
 
-	// Cleanup: the seeded stalled row must not linger for the next clear-stalled run.
+	// Cleanup: the seeded stalled row must not linger for the next clear-stalled run, and the shaped
+	// whole-action fixtures leave with the script that laid them down.
 	executeAnonymousApex(`
 		delete [SELECT Id FROM ${prefixed('AsyncChainExecution__c')} WHERE ${prefixed('ChainName__c')} = 'GapFinder_StalledSeed'];
 	`);
+	runApexScript(SHAPED_TEARDOWN_SCRIPT, {timeout: 300_000});
 
 	let missingCount = 0;
 	console.log('\nChain Monitor gap-finder — frozen data-spec-id round-trip');

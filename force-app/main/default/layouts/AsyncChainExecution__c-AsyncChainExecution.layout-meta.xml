@@ -24,6 +24,14 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Readonly</behavior>
+                <field>ElapsedMs__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>LastManualRetryAt__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
                 <field>AllowRestart__c</field>
             </layoutItems>
         </layoutColumns>
@@ -103,6 +111,14 @@
             <layoutItems>
                 <behavior>Readonly</behavior>
                 <field>CorrelationId__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>LaunchCorrelationId__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
+                <field>RootCorrelationId__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Readonly</behavior>

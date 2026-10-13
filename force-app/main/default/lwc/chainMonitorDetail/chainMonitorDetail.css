@@ -107,9 +107,9 @@
 	white-space : nowrap;
 }
 
-/* Every action wraps individually. The operator group keeps its DOM identity but lays its buttons
-   out as direct toolbar items (display: contents), so it has no box of its own — layout assertions
-   target the buttons, never the wrapper. */
+/* Every action wraps individually. The operator group and the navigation slot each keep their DOM
+   identity but lay their children out as direct toolbar items (display: contents), so neither has a
+   box of its own: layout assertions target the buttons, never the wrapper. */
 .detail-toolbar-row
 {
 	align-items : center;
@@ -126,19 +126,17 @@
 
 .navigation-slot
 {
-	align-items : center;
-	display     : inline-flex;
-	gap         : 0.5rem;
+	display : contents;
 }
 
 /* Spacing lives inside the rule: this scoped selector outweighs the template's SLDS margin utility,
    so a utility class on the list would be inert. Same pattern as the container's notes list. */
 .action-unavailable-notes
 {
-	list-style    : none;
-	margin        : 0;
-	padding-block : 0 0.5rem;
-	padding-inline: 0;
+	list-style     : none;
+	margin         : 0;
+	padding-block  : 0 0.5rem;
+	padding-inline : 0;
 }
 
 .lineage-link
@@ -203,6 +201,12 @@
 	background : var(--slds-g-color-brand-base-50, #0176D3);
 }
 
+/* A step that failed and let the chain carry on: the warning colour the step timeline uses for the same step. */
+.step-dot_warning
+{
+	background : var(--slds-g-color-warning-base-50, #DD7A01);
+}
+
 /* Rule between the operator action group and the View logs navigation action. A border rather than
    a background, so it survives forced-colors mode; a logical inline start, so it mirrors in RTL. */
 .action-divider
@@ -211,4 +215,17 @@
 	block-size          : 1.375rem;
 	border-inline-start : 1px solid var(--slds-g-color-border-base-1, #D8DDE6);
 	inline-size         : 0;
+}
+
+/* The launched-under words that are not a link: italic and weak, as the prototype set them, so "this action" is not
+   mistaken for a chain name. */
+.timing-value_words
+{
+	color      : var(--slds-g-color-neutral-base-50, #706E6B);
+	font-style : italic;
+}
+
+.timing-note
+{
+	margin-top : 0.15rem;
 }

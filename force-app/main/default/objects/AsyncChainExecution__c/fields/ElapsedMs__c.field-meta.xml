@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ElapsedMs__c</fullName>
+    <description>How long the run took, or how long it has been going if it has not finished. A Completed, Failed or Aborted run that stored no duration shows the time between its start and its end.</description>
+    <externalId>false</externalId>
+    <formula>IF
+(
+	NOT(ISBLANK(DurationMs__c)),
+	DurationMs__c,
+	IF
+	(
+		AND
+		(
+			NOT(ISBLANK(StartedAt__c)),
+			ISBLANK(CompletedAt__c),
+			OR
+			(
+				ISPICKVAL(Status__c, &quot;Running&quot;),
+				ISPICKVAL(Status__c, &quot;Stalled&quot;)
+			)
+		),
+		ROUND((NOW() - StartedAt__c) * 86400000, 0),
+		IF
+		(
+			AND
+			(
+				NOT(ISBLANK(StartedAt__c)),
+				NOT(ISBLANK(CompletedAt__c)),
+				OR
+				(
+					ISPICKVAL(Status__c, &quot;Completed&quot;),
+					ISPICKVAL(Status__c, &quot;Failed&quot;),
+					ISPICKVAL(Status__c, &quot;Aborted&quot;)
+				)
+			),
+			ROUND((CompletedAt__c - StartedAt__c) * 86400000, 0),
+			null
+		)
+	)
+)</formula>
+    <formulaTreatBlanksAs>BlankAsBlank</formulaTreatBlanksAs>
+    <inlineHelpText>How long the run took in milliseconds, or how long it has been going so far. A Completed, Failed or Aborted run that stored no duration shows the time between its start and its end.</inlineHelpText>
+    <label>Elapsed (ms)</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,22 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!--
+* @description Custom datatable cell template for the Log Console `writerSource` column: the writer the
+* entry recorded for itself, followed by a small pill naming where that writer ran, when the row has one.
+*
+* The pill sits inside the cell rather than beside it, because the two are one answer to one question: who
+* wrote this row. The writer's own text keeps its own hook so a reader, and a test, can take the name apart
+* from the origin that follows it. A row that stored no writer shows the class and method it always showed,
+* and shows no pill at all: there is nothing to say about an origin nobody recorded.
+*
+* @author Jason van Beukering
+*
+* @date September 2026
+* -->
+<template>
+	<span data-spec-id="entries-source-cell">
+		<span class="writer-name">{value}</span>
+		<template lwc:if={typeAttributes.originLabel}>
+			<span class="origin-pill" data-spec-id="entries-source-origin">{typeAttributes.originLabel}</span>
+		</template>
+	</span>
+</template>

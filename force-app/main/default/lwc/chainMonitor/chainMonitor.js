@@ -6,7 +6,7 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, August 2026
+ * @date April 2026, September 2026
  */
 import {wire} from 'lwc';
 import {CurrentPageReference} from 'lightning/navigation';
@@ -58,11 +58,21 @@ const KILL_SWITCH_UNAVAILABLE_MESSAGES = {
 	CapabilityDisabled: killSwitchUnavailableDisabled, PermissionMissing: killSwitchUnavailableMissingPermission
 };
 
+// The acknowledgement the platform requires when a subscription is dropped: empApi hands its second
+// argument on as the callback, and called with one argument it raises "Invalid or missing callback"
+// while the page is being torn down. Nothing is left to do once the subscription is gone, so the
+// platform's answer is taken and dropped.
+const acknowledgeUnsubscribe = () => null;
+
 export default class ChainMonitor extends ComponentBuilder('controller', 'notification')
 {
 	selectedExecutionId = null;
 	subscription = null;
 	consumedCorrelationId = null;
+	// The action a deep link pinned (its root correlation id), handed to the list; null when unscoped. The consumed key
+	// pairs the action with the click stamp, so a re-delivered page reference does not re-pin what the reader cleared.
+	actionRootCorrelationId = null;
+	consumedActionKey = null;
 	userHasSelected = false;
 	recordIdPayloadKey = null;
 	connectionGeneration = 0;
@@ -157,7 +167,17 @@ export default class ChainMonitor extends ComponentBuilder('controller', 'notifi
 
 	@wire(CurrentPageReference) async captureDeepLink(pageReference)
 	{
-		const correlationId = pageReference?.state?.c__correlationId;
+		const state = pageReference?.state ?? {};
+		// An action deep link (the Log Console's Open the chains) scopes the list to the action's
+		// runs. Applied once per stamp: the wire re-delivers the page reference on every return to
+		// the tab, and a cleared pill must stay cleared.
+		const actionKey = state.c__rootCorrelationId ? `${state.c__rootCorrelationId}|${state.c__viewLogsAt ?? ''}` : null;
+		if(actionKey && actionKey !== this.consumedActionKey)
+		{
+			this.consumedActionKey = actionKey;
+			this.actionRootCorrelationId = state.c__rootCorrelationId;
+		}
+		const correlationId = state.c__correlationId;
 		// A correlation deep link (the Log Console drawer's "Open in Chain Monitor") resolves to
 		// the registered chain and selects it, instead of landing on the default first-row
 		// selection. An unresolvable correlation (e.g. the chain was purged) falls through to the
@@ -218,7 +238,7 @@ export default class ChainMonitor extends ComponentBuilder('controller', 'notifi
 			});
 			if(generation !== this.connectionGeneration)
 			{
-				unsubscribe(subscription);
+				unsubscribe(subscription, acknowledgeUnsubscribe);
 				return;
 			}
 			this.subscription = subscription;
@@ -236,7 +256,7 @@ export default class ChainMonitor extends ComponentBuilder('controller', 'notifi
 	{
 		if(this.subscription)
 		{
-			unsubscribe(this.subscription);
+			unsubscribe(this.subscription, acknowledgeUnsubscribe);
 			this.subscription = null;
 		}
 	}
@@ -314,8 +334,9 @@ export default class ChainMonitor extends ComponentBuilder('controller', 'notifi
 	}
 
 	/**
-	 * @description The detail pane's restart lineage link: selects the source run the current
-	 * clone was restarted from, in both the list and the detail pane.
+	 * @description The detail pane's Launched under link: selects the run named there, which is the
+	 * launching run, or the source run a restart clone was made from, in both the list and the
+	 * detail pane.
 	 */
 	handleLineageNavigate(event)
 	{
@@ -323,6 +344,15 @@ export default class ChainMonitor extends ComponentBuilder('controller', 'notifi
 		this.selectedExecutionId = sourceExecutionId;
 		this.userHasSelected = true;
 		this.listComponent?.selectById(sourceExecutionId);
+	}
+
+	/**
+	 * @description The list dropped its action pill: the container forgets the action so a later
+	 * deep link with a new stamp can pin one again.
+	 */
+	handleActionClear()
+	{
+		this.actionRootCorrelationId = null;
 	}
 
 	async loadOperationsState()

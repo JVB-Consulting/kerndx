@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Selector for the AsyncChainExecution__c object. Provides query methods for
- * chain execution monitoring, status tracking, and correlation lookup.
+ * @description Selector for the AsyncChainExecution__c object. Each record is one run of a chain. The class reads runs
+ * for the Chain Monitor, for status checks and by correlation id (the id that ties a run to its log entries). The
+ * Chain Monitor's list read takes its filters in one object. The Log Console shows a banner for one user action; that
+ * banner reads the runs launched under the action. The Chain Monitor's Launched-under column reads the runs behind a
+ * page of ids.
  *
  * @see SEL_Base
  * @see SEL_AsyncChainExecution_TEST
@@ -10,7 +13,7 @@
  *
  * @group Async
  *
- * @date April 2026, August 2026
+ * @date April 2026, October 2026
  *
  * @since 1.0
  *
@@ -21,7 +24,7 @@
  * List<AsyncChainExecution__c> executions = new SEL_AsyncChainExecution().findByChainName('MyChain');
  * ```
  */
-@SuppressWarnings('PMD.ExcessiveParameterList,PMD.AvoidBooleanMethodParameters')
+@SuppressWarnings('PMD.ExcessiveParameterList,PMD.AvoidBooleanMethodParameters,PMD.ExcessivePublicCount')
 public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 {
 	/**
@@ -45,7 +48,8 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	public static final String STATUS_ABORTED = 'Aborted';
 
 	/**
-	 * @description Status indicating the chain execution stopped progressing and was flagged as stalled by the watchdog.
+	 * @description Status indicating the chain execution stopped making progress. The watchdog (the scheduled job that
+	 * looks for chains that stopped moving) marked it as stalled.
 	 */
 	public static final String STATUS_STALLED = 'Stalled';
 
@@ -60,7 +64,7 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	public static final String FAILURE_CATEGORY_KILL_SWITCH = 'KillSwitch';
 
 	/**
-	 * @description Failure category indicating the recovery machinery acted on a chain that lost its background job.
+	 * @description Failure category indicating the framework's recovery code acted on a chain that lost its background job.
 	 */
 	public static final String FAILURE_CATEGORY_STALLED = 'Stalled';
 
@@ -75,19 +79,32 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	public static final String FAILURE_CATEGORY_OPERATOR_ABORT = 'OperatorAbort';
 
 	/**
-	 * @description The exact fields the Chain Monitor list view reads (`CTRL_ChainMonitor.toChainSummary`).
-	 * The default projection also carries three long-text payload fields (ContextData__c, StepLog__c —
-	 * 131KB each — and ErrorMessage__c) that list rows never display; hauling them per row is a heap
-	 * risk at list page sizes, so `findFiltered` projects this summary list instead. CompletedAt__c is
-	 * a timestamp, not a payload: the list row needs it to tell a run still going from one that has
-	 * ended, which is what decides whether its duration cell counts on from the start.
+	 * @description The exact fields that two screens read: the Chain Monitor list and the Log Console's banner for one
+	 * user action (`CTRL_ChainMonitor.toChainSummary`, `CTRL_LogConsole.getActionSummary`). The default field list also
+	 * holds three long-text fields that no list row shows: ContextData__c and StepLog__c (131KB each) and
+	 * ErrorMessage__c. Loading them for every row of a list page could use too much heap (the memory limit of one
+	 * request). So the list reads ask for this shorter list instead.
+	 * Nothing on this path reads CompletedAt__c or DurationMs__c, because the list reads ElapsedMs__c. The two fields
+	 * stay in this list until it is next trimmed.
+	 * What each field is for:
+	 * Name is the chain number that the consoles show beside the chain name.
+	 * CorrelationId__c is the id a page matches against to find the run that launched each run.
+	 * LaunchCorrelationId__c, RootCorrelationId__c and SourceExecution__c decide what the Launched-under column shows.
+	 * ElapsedMs__c is the duration the list shows and sorts by. It is the stored duration, or the time since the start
+	 * for a run that has not finished.
 	 */
 	private static final List<SObjectField> SUMMARY_FIELDS = new List<SObjectField>
 	{
 			AsyncChainExecution__c.ChainName__c,
 			AsyncChainExecution__c.CompletedAt__c,
 			AsyncChainExecution__c.CompletedSteps__c,
+			AsyncChainExecution__c.CorrelationId__c,
 			AsyncChainExecution__c.DurationMs__c,
+			AsyncChainExecution__c.ElapsedMs__c,
+			AsyncChainExecution__c.LaunchCorrelationId__c,
+			AsyncChainExecution__c.Name,
+			AsyncChainExecution__c.RootCorrelationId__c,
+			AsyncChainExecution__c.SourceExecution__c,
 			AsyncChainExecution__c.StartedAt__c,
 			AsyncChainExecution__c.Status__c,
 			AsyncChainExecution__c.TotalSteps__c
@@ -109,10 +126,11 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
-	 * @description Returns the default fields for AsyncChainExecution__c queries. Deliberately
-	 * excludes InitialContextData__c: a third 131KB long-text would otherwise ride every executor
-	 * hop and Chain Monitor detail read for restart-declared chains (the SUMMARY_FIELDS heap-guard
-	 * precedent), so a restart-time read must project the snapshot explicitly.
+	 * @description Returns the default fields for AsyncChainExecution__c queries. The list leaves out
+	 * InitialContextData__c on purpose. That field is a copy of the chain's starting data, kept for chains that allow a
+	 * restart. It is a third 131KB long-text field. In the default list it would load on every step of such a chain and
+	 * on every Chain Monitor detail read, which uses heap for nothing (SUMMARY_FIELDS leaves out long text for the same
+	 * reason). So a read made for a restart must ask for that field by name.
 	 *
 	 * @return List of SObjectField tokens to include in queries.
 	 *
@@ -138,9 +156,13 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 				AsyncChainExecution__c.CurrentStepName__c,
 				AsyncChainExecution__c.DeclaredDeduplicationKey__c,
 				AsyncChainExecution__c.DurationMs__c,
+				AsyncChainExecution__c.ElapsedMs__c,
 				AsyncChainExecution__c.ErrorMessage__c,
 				AsyncChainExecution__c.FailureCategory__c,
+				AsyncChainExecution__c.LastManualRetryAt__c,
 				AsyncChainExecution__c.LastModifiedDate,
+				AsyncChainExecution__c.LaunchCorrelationId__c,
+				AsyncChainExecution__c.RootCorrelationId__c,
 				AsyncChainExecution__c.RunKey__c,
 				AsyncChainExecution__c.SourceExecution__c,
 				AsyncChainExecution__c.StartedAt__c,
@@ -151,12 +173,12 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
-	 * @description Framework-owned sObject selector — always runs in `AccessLevel.SYSTEM_MODE`
-	 * regardless of the `UserModeQueries_Enabled` feature flag. Running users typically have no
-	 * CRUD on framework-owned records (the framework owns their lifecycle), so USER_MODE reads
-	 * would return empty and chain orchestration would silently break.
+	 * @description This selector reads a framework-owned object, so it always runs in `AccessLevel.SYSTEM_MODE`, whatever
+	 * the `UserModeQueries_Enabled` feature flag says. The running user usually has no object access (create, read,
+	 * update, delete) on framework-owned records, because the framework manages them. Reads in USER_MODE would then come
+	 * back empty, and chains would stop working with no error.
 	 *
-	 * @return `true` — this selector requires SYSTEM_MODE.
+	 * @return `true`: this selector needs SYSTEM_MODE.
 	 */
 	public override Boolean systemModeRequired()
 	{
@@ -165,12 +187,11 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 
 	/**
 	 * @description Retrieves a single AsyncChainExecution__c record by ID for the Chain Monitor
-	 * console. Bypasses sharing rules: the console is an org-wide observability surface gated by
-	 * the framework permission sets (tab + object access), and the rows are Private-OWD records
-	 * owned by whichever user enqueued each chain — a `with sharing` controller would otherwise
-	 * silently hide other users' chains. Orchestration and subscriber-facing status reads
-	 * (`UTIL_AsyncChain.getStatus`) deliberately do NOT use this method, so they keep respecting
-	 * the caller's sharing access.
+	 * console. It ignores sharing rules, for these reasons. The console shows chains from the whole org. The framework
+	 * permission sets decide who may open it (tab and object access). Each run record is private (the org-wide default
+	 * is Private) and is owned by the user who started the chain. A read that kept sharing would hide other users'
+	 * chains with no warning. The engine's own reads and the status read for subscribers (`UTIL_AsyncChain.getStatus`)
+	 * do NOT use this method on purpose, so they keep the caller's sharing access.
 	 *
 	 * @param executionId The ID of the AsyncChainExecution__c record.
 	 *
@@ -190,14 +211,37 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
+	 * @description Reads one AsyncChainExecution__c record, with the default field list, for
+	 * `UTIL_AsyncChain.applyRunTransition`, the engine method that moves a chain run from one status to another. Only that
+	 * method calls this read. It ignores sharing rules, for two reasons. Every save that follows this read runs in system
+	 * mode. And the watchdog must be able to mark as Stalled a run that its own user does not own. The method is `public`
+	 * so the package's own classes can call it, and it may change without notice.
+	 *
+	 * @param executionId The ID of the AsyncChainExecution__c record.
+	 *
+	 * @return The matching AsyncChainExecution__c record, or null if not found.
+	 *
+	 * @example
+	 * ```apex
+	 * AsyncChainExecution__c execution = new SEL_AsyncChainExecution().findByIdForTransition(executionId);
+	 * ```
+	 */
+	public AsyncChainExecution__c findByIdForTransition(Id executionId)
+	{
+		return (AsyncChainExecution__c)query
+				.bypassSharingInternal()
+				.condition(AsyncChainExecution__c.Id).equals(executionId)
+				.getFirst();
+	}
+
+	/**
 	 * @description Retrieves a single AsyncChainExecution__c record for the Chain Monitor's
-	 * restart action, projecting the InitialContextData__c snapshot on top of the default field
-	 * list. This is the ONLY query that ever pulls the snapshot: a third 131KB long-text on the
-	 * default projection would ride every executor hop and monitor detail read for
-	 * restart-declared chains, so the snapshot loads exactly once, at the moment a restart
-	 * actually needs it. Bypasses sharing for the same reason as findByIdForMonitoring — the
-	 * monitor is an org-wide observability surface over Private-OWD rows, and who may restart at
-	 * all is decided by the feature-flag and permission gates in CTRL_ChainMonitor.
+	 * restart action. It reads the default field list and also InitialContextData__c, the copy of the chain's starting
+	 * data. This is the ONLY query that reads that copy. The field is a third 131KB long-text field. In the default list
+	 * it would load on every step of a chain that allows a restart and on every monitor detail read. So the copy loads
+	 * once, at the moment a restart needs it. It ignores sharing for the same reason as findByIdForMonitoring: the
+	 * monitor shows private runs from the whole org. CTRL_ChainMonitor decides who may restart at all, from a feature
+	 * flag and a permission check.
 	 *
 	 * @param executionId The ID of the AsyncChainExecution__c record.
 	 *
@@ -220,16 +264,15 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
-	 * @description Retrieves ONLY the correlation id of a chain execution, for the Chain Monitor's
-	 * live-stream seed: the seed needs one field to key its correlated-trace read, and the default
-	 * projection would haul two 131KB long-text payloads into the request's heap right after the
-	 * detail read already paid for them. Bypasses sharing for the same reason as
-	 * findByIdForMonitoring — the monitor is an org-wide observability surface over Private-OWD
-	 * rows, gated by the framework permission sets.
+	 * @description Retrieves ONLY the correlation id of a chain execution. The Chain Monitor's live log stream needs it
+	 * for its first load: it reads the log entries that carry this id. The default field list would load two 131KB
+	 * long-text fields into the request's heap again, right after the detail read already loaded them. It ignores
+	 * sharing for the same reason as findByIdForMonitoring: the monitor shows private runs from the whole org, and the
+	 * framework permission sets decide who may open it.
 	 *
 	 * @param executionId The ID of the AsyncChainExecution__c record.
 	 *
-	 * @return The matching row projecting CorrelationId__c only, or null if not found.
+	 * @return The matching row with CorrelationId__c only, or null if not found.
 	 *
 	 * @since 1.7
 	 *
@@ -267,24 +310,29 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
-	 * @description Retrieves stale-candidate chain executions for the watchdog sweep: Running or
-	 * Stalled chains whose last modification is older than the threshold, oldest first, capped at
-	 * the batch size. Bypasses sharing rules: the watchdog is an org-wide framework recovery job,
-	 * and the chains are Private-OWD records owned by whichever user enqueued each chain — a
-	 * sharing-respecting read would silently skip recovery for every chain its automated user does
-	 * not own. Rows are candidates only: a stale Status__c alone is not proof of a dead chain. The
-	 * current sweep marks every candidate this method returns, so advise a generous threshold; a
-	 * liveness check joins the decision in a later stage of the watchdog.
+	 * @description Retrieves the chain runs the watchdog should look at. The watchdog is the scheduled job that looks for
+	 * chains that stopped moving. A run qualifies when it is Running or Stalled and was last changed before the
+	 * threshold. The oldest come first, and the list stops at the batch size.
 	 *
-	 * Rows carrying a completion timestamp are excluded outright: a Stalled row with a non-null
-	 * CompletedAt__c is a clobbered terminal row (a legitimate stall has never completed), and
-	 * re-driving it would resurrect a finished chain with its deduplication key already released.
-	 * The filter can only ever exclude a candidate, never re-include one.
+	 * It ignores sharing rules. The watchdog is a recovery job for the whole org. Each run record is private and is
+	 * owned by the user who started the chain. A read that kept sharing would skip, with no warning, every chain that
+	 * the watchdog's own user does not own.
 	 *
-	 * @param thresholdMinutes Minutes since the last modification before a chain becomes a candidate.
+	 * A returned run is only a candidate: an old Status__c alone does not prove the chain is dead. The watchdog
+	 * then checks the run's background job (its AsyncApexJob row). It leaves a live job alone, starts a dead chain
+	 * again, and only marks Stalled a run whose job it cannot check. The threshold still matters: set it generously,
+	 * longer than the longest normal step.
+	 *
+	 * A run with an end time (CompletedAt__c) is never returned. A real stall has never finished, so a Stalled run with
+	 * an end time is a finished run whose status was overwritten by mistake. Starting it again would bring back a
+	 * finished chain whose deduplication key was already released. This filter can only remove a candidate, never add
+	 * one. The package blocks saving a Stalled run that has an end time, so this filter is a second check. It stays
+	 * because rows overwritten before that block existed are still in subscriber orgs.
+	 *
+	 * @param thresholdMinutes Minutes since the last change before a chain becomes a candidate.
 	 * @param batchSize Maximum number of candidates to return.
 	 *
-	 * @return Stale-candidate AsyncChainExecution__c records, oldest first; empty when either
+	 * @return The candidate AsyncChainExecution__c records, oldest first; empty when either
 	 * argument is null or the batch size is not positive.
 	 *
 	 * @example
@@ -311,27 +359,31 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
-	 * @description Retrieves the candidates for the Chain Monitor's operator clear-stalled sweep:
-	 * Stalled chains with no completion timestamp, oldest first, capped at the batch size. Two
-	 * deliberate differences from findStaleRunning, the scheduled sweep's finder: no staleness
-	 * threshold (the operator asked for a sweep NOW, and the shared per-candidate liveness probe —
-	 * not row age — is what separates a dead chain from a slow one), and no Running rows (only the
-	 * scheduled watchdog decides when a Running chain has aged into a stall candidate). Rows
-	 * carrying a completion timestamp are excluded outright — a Stalled row with a non-null
-	 * CompletedAt__c is a clobbered terminal row, and re-driving it would resurrect a finished
-	 * chain whose deduplication key was already released. Bypasses sharing for the same reason as
-	 * findStaleRunning: recovery is an org-wide framework concern over Private-OWD rows.
+	 * @description Retrieves the runs for the Chain Monitor's Clear Stalled action, which an operator starts by hand. A
+	 * run qualifies when it is Stalled and has no end time. The oldest come first, and the list stops at the batch size.
 	 *
-	 * The projection is the default field list MINUS the two long-text payloads no sweep decision
-	 * leg reads off a candidate row — ContextData__c (131KB) and ErrorMessage__c (32KB); the
-	 * acting legs take their own fresh full re-reads before consulting or writing either. A full
-	 * batch of default-projection rows would haul both into the operator's 6MB synchronous heap —
-	 * the same heap risk SUMMARY_FIELDS documents for list page sizes. StepLog__c stays: the
-	 * detect-mark leg resolves the notification handler from the candidate row itself.
+	 * It differs from findStaleRunning, the scheduled watchdog's read, in two ways, on purpose:
+	 * 1. There is no age threshold. The operator asked for the sweep now. A check made on each candidate, whether
+	 *    its chain is still alive, tells a dead chain from a slow one; the age of the row does not.
+	 * 2. Running runs are not read. Only the scheduled watchdog decides when a Running chain is old enough to be
+	 *    a stall candidate.
+	 *
+	 * A run with an end time (CompletedAt__c) is never returned. A Stalled run with an end time is a finished run whose
+	 * status was overwritten by mistake. Starting it again would bring back a finished chain whose deduplication key was
+	 * already released. It ignores sharing for the same reason as findStaleRunning: recovery covers private runs from
+	 * the whole org. The package blocks saving a Stalled run that has an end time, so the end-time filter is a second
+	 * check. It stays because rows overwritten before that block existed are still in subscriber orgs.
+	 *
+	 * The query reads the default field list WITHOUT two long-text fields: ContextData__c (131KB) and ErrorMessage__c
+	 * (32KB). No step of the sweep that only decides reads them from a candidate row. Each step that acts reads the
+	 * whole row again, fresh, before it reads or writes either field. A full batch of rows with the default field list
+	 * would load both fields into the operator's 10MB synchronous heap (Winter '27 and later). SUMMARY_FIELDS
+	 * describes the same heap risk for list pages. StepLog__c stays: the step that finds and marks a stalled run reads
+	 * the notification handler from the candidate row itself.
 	 *
 	 * @param batchSize Maximum number of candidates to return.
 	 *
-	 * @return Stalled-candidate AsyncChainExecution__c records, oldest first; empty when the batch
+	 * @return The Stalled candidate AsyncChainExecution__c records, oldest first; empty when the batch
 	 * size is null or not positive.
 	 *
 	 * @since 1.7
@@ -348,12 +400,12 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 			return new List<AsyncChainExecution__c>();
 		}
 
-		List<SObjectField> candidateProjection = new List<SObjectField>(getFields());
-		candidateProjection.remove(candidateProjection.indexOf(AsyncChainExecution__c.ContextData__c));
-		candidateProjection.remove(candidateProjection.indexOf(AsyncChainExecution__c.ErrorMessage__c));
+		List<SObjectField> candidateFields = new List<SObjectField>(getFields());
+		candidateFields.remove(candidateFields.indexOf(AsyncChainExecution__c.ContextData__c));
+		candidateFields.remove(candidateFields.indexOf(AsyncChainExecution__c.ErrorMessage__c));
 
 		return query.bypassSharingInternal()
-				.onlyFields(candidateProjection)
+				.onlyFields(candidateFields)
 				.condition(AsyncChainExecution__c.Status__c).equals(STATUS_STALLED)
 				.andCondition(AsyncChainExecution__c.CompletedAt__c).isNull()
 				.orderBy(AsyncChainExecution__c.LastModifiedDate).ascending()
@@ -362,14 +414,14 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
-	 * @description Counts the chains waiting for the Chain Monitor's operator clear-stalled sweep,
-	 * over exactly the population findStalledForOperatorSweep takes: Stalled rows with no
-	 * completion timestamp. The clear-stalled dialog names this number before the operator commits,
-	 * so it has to describe the same rows the sweep will act on. Deliberately unbounded, unlike the
-	 * candidate read: the count answers how many chains are waiting, not how many one invocation
-	 * inspects, so the dialog's wording says the sweep works through them oldest first rather than
-	 * promising it clears them all. Bypasses sharing for the same reason as
-	 * findStalledForOperatorSweep: recovery is an org-wide framework concern over Private-OWD rows.
+	 * @description Counts the chains waiting for the Chain Monitor's Clear Stalled action. It counts exactly the runs
+	 * findStalledForOperatorSweep reads: Stalled runs with no end time. The Clear Stalled dialog shows this number
+	 * before the operator confirms, so it must count the same runs the sweep will act on. Unlike the candidate read,
+	 * the count has no limit, on purpose. It says how many chains are waiting, not how many one sweep looks at. So the
+	 * dialog says the sweep works through them oldest first; it does not promise to clear them all. It ignores sharing
+	 * for the same reason as findStalledForOperatorSweep: recovery covers private runs from the whole org. The package
+	 * blocks saving a Stalled run that has an end time, so the end-time filter is a second check. It stays because rows
+	 * overwritten before that block existed are still in subscriber orgs.
 	 *
 	 * @return How many stalled chain executions are waiting for the sweep; zero when none are.
 	 *
@@ -387,18 +439,18 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
-	 * @description Retrieves ONLY the statuses of the given chain executions, for the operator
-	 * sweep's outcome tally: the tally classifies each inspected candidate by its post-sweep
-	 * status and reads nothing else, so hauling the default projection's long-text payloads a
-	 * second time — beside the still-referenced candidate list — would double the sweep's heap
-	 * peak for no reader (the SUMMARY_FIELDS rationale). Deliberately respects sharing: every
-	 * acting sweep leg re-reads its candidate through the same sharing-respecting default read,
-	 * so a row this tally cannot see is by construction a row no leg touched — it counts as
-	 * still awaiting recovery under either read posture, and the smaller bypass surface wins.
+	 * @description Retrieves ONLY the statuses of the given chain executions. The Clear Stalled action uses them to count
+	 * its results: it sorts each candidate it looked at by its status after the sweep, and reads nothing else. Loading
+	 * the default field list's long-text fields again, beside the candidate list still in memory, would double the
+	 * sweep's peak heap for nothing (SUMMARY_FIELDS gives the same reason).
+	 * This read keeps sharing, on purpose. Every step of the sweep that acts reads its candidate again through the same
+	 * default read, which also keeps sharing. So a run this count cannot see is always a run no step changed. That run
+	 * counts as still waiting for recovery whether the read keeps sharing or not. Both choices give the same count, so
+	 * the read takes the safer one and keeps sharing.
 	 *
-	 * @param executionIds The IDs of the chain executions to classify.
+	 * @param executionIds The IDs of the chain executions to sort by status.
 	 *
-	 * @return The matching rows projecting Status__c only; empty when the id set is null or empty.
+	 * @return The matching rows with Status__c only; empty when the id set is null or empty.
 	 *
 	 * @since 1.7
 	 *
@@ -440,10 +492,10 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
-	 * @description Finds the run currently holding the given active-run deduplication key. Key
-	 * presence is the activeness signal — terminal transitions clear the key in the same update, so
-	 * no status predicate belongs here. Bypasses sharing because the deduplication guard must see the active run
-	 * regardless of the caller's record visibility; only the matched run is returned.
+	 * @description Finds the run that now holds the given deduplication key (the key that stops two copies of the same
+	 * chain running at once). A run holds the key only while it is active. When a run ends, the same update clears the
+	 * key. So the query does not filter on status. It ignores sharing, because the duplicate check must see the active
+	 * run whatever records the caller can see. Only the matching run is returned.
 	 *
 	 * @param deduplicationKey The subscriber-supplied deduplication key to resolve.
 	 *
@@ -464,39 +516,40 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
-	 * @description Returns whether any registered async chain execution shares the given correlation id.
-	 * Sharing is bypassed so the check is consistent with how the console reads its log rows and how the
-	 * Chain Monitor lists chains org-wide: the console offers Open in Chain Monitor whenever there is a chain
-	 * to open, not only when the viewer happens to share the chain record. A blank correlation returns false
-	 * without querying.
+	 * @description Finds the run declared under the given deduplication key, running or finished, newest first. A step
+	 * or a handler can launch another chain (a child). The framework gives that child a key made of the launching run's
+	 * id and the launch position. Before it launches, it asks here. So when the step runs again (a retry, or a
+	 * re-drive, which starts the same run again from that step), it gets the child it already launched, not a second
+	 * one. It ignores sharing for the same reason as the active-key lookup: the step may run again as a user who cannot
+	 * see the child. Only the matching run is returned.
 	 *
-	 * @param correlationId The CorrelationId__c to probe for a registered chain.
+	 * @param deduplicationKey The declared deduplication key to resolve.
 	 *
-	 * @return True when a chain execution carries the correlation id; false for a blank id or no match.
+	 * @return The newest run declared under the key, or null when none was.
+	 *
+	 * @since 1.8
 	 *
 	 * @example
 	 * ```apex
-	 * Boolean hasChain = new SEL_AsyncChainExecution().existsByCorrelationId('8f2c-ord-4471');
+	 * AsyncChainExecution__c child = new SEL_AsyncChainExecution().findByDeclaredDeduplicationKey(parentRunId + ':0');
 	 * ```
 	 */
-	public Boolean existsByCorrelationId(String correlationId)
+	public AsyncChainExecution__c findByDeclaredDeduplicationKey(String deduplicationKey)
 	{
-		return String.isNotBlank(correlationId)
-				&& query.bypassSharingInternal()
-				.condition(AsyncChainExecution__c.CorrelationId__c).equals(correlationId)
-				.getFirst() != null;
+		return (AsyncChainExecution__c)query.bypassSharingInternal()
+				.condition(AsyncChainExecution__c.DeclaredDeduplicationKey__c).equals(deduplicationKey)
+				.orderBy(AsyncChainExecution__c.CreatedDate).descending()
+				.getFirst();
 	}
 
 	/**
 	 * @description Retrieves the chain execution carrying a correlation id for the Chain Monitor
-	 * console. Sharing is bypassed for the same reason as findByIdForMonitoring and
-	 * existsByCorrelationId: the console lists and opens chains org-wide, and the Open in Chain
-	 * Monitor deep link is offered whenever a chain exists, so resolving that link must see the
-	 * same records the console itself shows. Orchestration and subscriber-facing status reads keep
-	 * using findByCorrelationId, which respects the caller's sharing access. A blank correlation
-	 * returns null without querying.
+	 * console. It ignores sharing for the same reason as findByIdForMonitoring: the console lists and opens chains from
+	 * the whole org. The Open in Chain Monitor link is shown whenever a chain exists. So following that link must find
+	 * the same records the console shows. The engine's own reads and the status read for subscribers keep using
+	 * findByCorrelationId, which keeps the caller's sharing access. A blank correlation id returns null without a query.
 	 *
-	 * @param correlationId The CorrelationId__c carried by the deep link.
+	 * @param correlationId The CorrelationId__c carried by the Open in Chain Monitor link.
 	 *
 	 * @return The matching AsyncChainExecution__c record, or null for a blank id or no match.
 	 *
@@ -539,54 +592,204 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	}
 
 	/**
-	 * @description Retrieves a paginated, filtered, and sorted page of AsyncChainExecution__c records.
-	 * Used by the Chain Monitor controller for list view queries. Projects only the summary fields
-	 * the list view reads (`SUMMARY_FIELDS`) — never the long-text payload fields; use
-	 * `findByIdForMonitoring` for full detail. Bypasses sharing rules: the
-	 * console is an org-wide observability surface gated by the framework permission sets, and a
-	 * `with sharing` controller would otherwise silently hide other users' Private-OWD chains.
+	 * @description Retrieves one filtered, sorted page of AsyncChainExecution__c records for the Chain Monitor's list
+	 * view. The filters come in one object: the statuses to keep, a chain name search, the action the runs were launched
+	 * under, the sort and the page. So a new filter later is a new field on that object, never a new method signature.
+	 * It reads only the fields the list shows (`SUMMARY_FIELDS`), never the long-text fields; use
+	 * `findByIdForMonitoring` for full detail. It ignores sharing rules. The console shows chains from the whole org, and
+	 * the framework permission sets decide who may open it. A read that kept sharing would hide other users' chains with
+	 * no warning.
 	 *
-	 * @param statusFilters List of status values to filter on. Null or empty returns all statuses.
-	 * @param nameFilter Chain name search string (LIKE filter). Null or blank returns all names.
-	 * @param sortField The SObjectField to sort by.
-	 * @param sortDescending True for descending sort, false for ascending.
-	 * @param page The 1-based page number.
-	 * @param pageSize The number of records per page.
+	 * @param criteria The list filters, sort and page.
 	 *
 	 * @return A QRY_Builder.QueryPage with records, totalRecords, hasMorePages, etc.
 	 *
-	 * @since 1.0
-	 *
 	 * @example
 	 * ```apex
-	 * QRY_Builder.QueryPage page = new SEL_AsyncChainExecution().findFiltered(
-	 *     new List<String>{'Running', 'Failed'}, null,
-	 *     AsyncChainExecution__c.CreatedDate, true, 1, 20
-	 * );
+	 * SEL_AsyncChainExecution.ListCriteria criteria = new SEL_AsyncChainExecution.ListCriteria();
+	 * criteria.statuses = new List<String> {'Running', 'Failed'};
+	 * criteria.sortField = AsyncChainExecution__c.CreatedDate;
+	 * criteria.sortDescending = true;
+	 * criteria.page = 1;
+	 * criteria.pageSize = 20;
+	 * QRY_Builder.QueryPage page = new SEL_AsyncChainExecution().findFiltered(criteria);
 	 * ```
 	 */
-	public QRY_Builder.QueryPage findFiltered
-			(
-					List<String> statusFilters,
-					String nameFilter,
-					SObjectField sortField,
-					Boolean sortDescending,
-					Integer page,
-					Integer pageSize
-			)
+	public QRY_Builder.QueryPage findFiltered(ListCriteria criteria)
 	{
 		QRY_Builder.Builder filteredQuery = query.bypassSharingInternal().onlyFields(SUMMARY_FIELDS);
 
-		if(statusFilters?.isEmpty() == false)
+		if(criteria.statuses?.isEmpty() == false)
 		{
-			filteredQuery = filteredQuery.condition(AsyncChainExecution__c.Status__c).isIn(statusFilters);
+			filteredQuery = filteredQuery.condition(AsyncChainExecution__c.Status__c).isIn(criteria.statuses);
 		}
 
-		if(String.isNotBlank(nameFilter))
+		if(String.isNotBlank(criteria.name))
 		{
-			filteredQuery = filteredQuery.andCondition(AsyncChainExecution__c.ChainName__c).contains(nameFilter);
+			filteredQuery = filteredQuery.andCondition(AsyncChainExecution__c.ChainName__c).contains(criteria.name);
 		}
 
-		return filteredQuery.orderBy(sortField, sortDescending, sortDescending).getPage(page, pageSize);
+		if(String.isNotBlank(criteria.rootCorrelationId))
+		{
+			filteredQuery = filteredQuery.andCondition(AsyncChainExecution__c.RootCorrelationId__c).equals(criteria.rootCorrelationId);
+		}
+
+		return filteredQuery.orderBy(criteria.sortField, criteria.sortDescending, criteria.sortDescending).getPage(criteria.page, criteria.pageSize);
+	}
+
+	/**
+	 * @description The first page of the runs launched under one action, ordered by start time and then by chain number.
+	 * The Log Console's banner for that action reads it. The page's totalRecords is an exact count from the database. So
+	 * the banner's chain count and failed count are exact, for three runs or for fifty thousand. The rows on the page
+	 * become the small run labels in the banner. It ignores sharing, like every read for the consoles. A blank action
+	 * id gives an empty page without a query.
+	 *
+	 * @param rootCorrelationId The action's tracking id.
+	 * @param statuses The statuses to keep; null or empty keeps every status.
+	 * @param pageSize The rows on the page.
+	 *
+	 * @return Page one of the action's runs with the summary fields (SUMMARY_FIELDS) and an exact total.
+	 *
+	 * @example
+	 * ```apex
+	 * QRY_Builder.QueryPage failedRuns = new SEL_AsyncChainExecution().findByRootPage(rootCorrelationId, new List<String> {'Failed'}, 5);
+	 * ```
+	 */
+	public QRY_Builder.QueryPage findByRootPage(String rootCorrelationId, List<String> statuses, Integer pageSize)
+	{
+		if(String.isBlank(rootCorrelationId))
+		{
+			QRY_Builder.QueryPage empty = new QRY_Builder.QueryPage();
+			empty.pageSize = pageSize;
+			return empty;
+		}
+		QRY_Builder.Builder scoped = query.bypassSharingInternal().onlyFields(SUMMARY_FIELDS)
+				.condition(AsyncChainExecution__c.RootCorrelationId__c).equals(rootCorrelationId);
+		if(statuses?.isEmpty() == false)
+		{
+			scoped = scoped.andCondition(AsyncChainExecution__c.Status__c).isIn(statuses);
+		}
+		return scoped.orderBy(AsyncChainExecution__c.StartedAt__c, false, false).orderBy(AsyncChainExecution__c.Name, false, false).getPage(1, pageSize);
+	}
+
+	/**
+	 * @description Checks whether any run launched under an action is in one of the given statuses. It is one small
+	 * query that stops at the first match. The Log Console's banner uses it to say "still running". It ignores sharing,
+	 * like every read for the consoles. A blank action id or an empty status list answers false without a query.
+	 *
+	 * @param rootCorrelationId The action's tracking id.
+	 * @param statuses The statuses that count.
+	 *
+	 * @return True when at least one such run exists.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean stillRunning = new SEL_AsyncChainExecution().existsByRootAndStatuses(rootCorrelationId, new List<String> {'Running', 'Stalled'});
+	 * ```
+	 */
+	public Boolean existsByRootAndStatuses(String rootCorrelationId, List<String> statuses)
+	{
+		return String.isNotBlank(rootCorrelationId) && statuses?.isEmpty() == false
+				&& query.bypassSharingInternal()
+				.condition(AsyncChainExecution__c.RootCorrelationId__c).equals(rootCorrelationId)
+				.andCondition(AsyncChainExecution__c.Status__c).isIn(statuses)
+				.exists();
+	}
+
+	/**
+	 * @description The runs holding any of the given correlation ids, with the summary fields. It is one read for a
+	 * whole page of log entries, where the Chain column names the run behind each row. It is also one read for a page
+	 * of runs, where the run that launched each run is the one holding its launch id. It ignores sharing, like every
+	 * read for the consoles. An empty or null set reads nothing.
+	 *
+	 * @param correlationIds The correlation ids to look up.
+	 *
+	 * @return The matching runs with the summary fields; empty for no ids.
+	 *
+	 * @example
+	 * ```apex
+	 * List<AsyncChainExecution__c> runs = new SEL_AsyncChainExecution().findByCorrelationIds(correlationIds);
+	 * ```
+	 */
+	public List<AsyncChainExecution__c> findByCorrelationIds(Set<String> correlationIds)
+	{
+		if(correlationIds == null || correlationIds.isEmpty())
+		{
+			return new List<AsyncChainExecution__c>();
+		}
+		return query.bypassSharingInternal().onlyFields(SUMMARY_FIELDS)
+				.condition(AsyncChainExecution__c.CorrelationId__c).isIn(new List<String>(correlationIds))
+				.toList();
+	}
+
+	/**
+	 * @description The runs with the given ids, with the summary fields. A restart creates a new run, a copy of the old
+	 * one. For a page of such copies, this is one read for the runs they were restarted from, so the Launched-under
+	 * column can name each source. It ignores sharing, like every read for the consoles. An empty or null set reads
+	 * nothing.
+	 *
+	 * @param executionIds The run ids to look up.
+	 *
+	 * @return The matching runs with the summary fields; empty for no ids.
+	 *
+	 * @example
+	 * ```apex
+	 * List<AsyncChainExecution__c> sources = new SEL_AsyncChainExecution().findByIdsForSummary(sourceIds);
+	 * ```
+	 */
+	public List<AsyncChainExecution__c> findByIdsForSummary(Set<Id> executionIds)
+	{
+		if(executionIds == null || executionIds.isEmpty())
+		{
+			return new List<AsyncChainExecution__c>();
+		}
+		return query.bypassSharingInternal().onlyFields(SUMMARY_FIELDS)
+				.condition(AsyncChainExecution__c.Id).isIn(new List<Id>(executionIds))
+				.toList();
+	}
+
+	/**
+	 * @description The filters of the Chain Monitor's list read, held as one object in place of a parameter per filter.
+	 * So a new filter later is a new field, never a new method signature. It follows the same pattern as
+	 * SEL_LogEntry.BrowseCriteria.
+	 *
+	 * @date September 2026
+	 */
+	public class ListCriteria
+	{
+		/**
+		 * @description Status values to keep. Null or empty keeps every status.
+		 */
+		public List<String> statuses;
+
+		/**
+		 * @description Chain name search text, matched anywhere in the name. Blank keeps every name.
+		 */
+		public String name;
+
+		/**
+		 * @description The tracking id of an action. Set, it keeps the runs launched under that action. Blank keeps every run.
+		 */
+		public String rootCorrelationId;
+
+		/**
+		 * @description The field to order by.
+		 */
+		public SObjectField sortField;
+
+		/**
+		 * @description True to order descending.
+		 */
+		public Boolean sortDescending;
+
+		/**
+		 * @description The 1-based page number.
+		 */
+		public Integer page;
+
+		/**
+		 * @description The number of rows per page.
+		 */
+		public Integer pageSize;
 	}
 }

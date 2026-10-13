@@ -472,11 +472,48 @@ pre.code
 	text-transform : uppercase;
 }
 
+/* The line wraps between its parts and never inside one of them. Each part is an element of its own
+   now, and a part with nowhere to go breaks its own words instead, which is what turned the counts into
+   "4 transactions · 4" above "entries". The gap is already the row gap the transaction head uses. */
 .ovhead .stat
 {
+	align-items          : center;
 	color                : #3B3B3B;
+	display              : inline-flex;
+	flex-wrap            : wrap;
 	font-size            : 0.72rem;
 	font-variant-numeric : tabular-nums;
+	gap                  : 0.25rem;
+}
+
+.ovhead .stat__counts,
+.ovhead .stat__duration,
+.ovhead .stat__separator
+{
+	white-space : nowrap;
+}
+
+/* The separator before the error belongs to the clause it introduces, so the two are one part and
+   travel to the next row together instead of the dot being stranded at the end of the row above. The
+   error is the one part of this line that may wrap as ordinary text, and the dot keeps to the first
+   line of it rather than drifting down the middle of a wrapped clause. */
+.ovhead .stat__errorclause
+{
+	align-items : baseline;
+	display     : inline-flex;
+	gap         : 0.25rem;
+}
+
+/* Every mark on the timeline is an SLDS icon now, and each one takes its colour from the text it sits in so
+   the mark and its words read as one thing, the idiom the purged note's clock already uses. The chevron and
+   the warning pin are reached through their wrappers, which carry the rotate and the corner placement. */
+.crumb__icon,
+.gapnote__icon,
+.stat__icon,
+.chev lightning-icon,
+.mseg .warnpin lightning-icon
+{
+	--slds-c-icon-color-foreground-default : currentColor;
 }
 
 .lvlnote
@@ -551,13 +588,15 @@ pre.code
 	box-shadow : inset 0 -3px 0 #2E844A;
 }
 
+/* The pin hangs on the chip's top-right corner. The icon is wider and taller than the glyph it replaces and
+   takes no notice of a font size, so the offsets move to keep the pin's centre where the glyph's centre sat. */
 .mseg .warnpin
 {
-	color     : #BA0517;
-	font-size : 0.7rem;
-	position  : absolute;
-	right     : -0.3rem;
-	top       : -0.4rem;
+	color       : #BA0517;
+	line-height : 0;
+	position    : absolute;
+	right       : -0.39rem;
+	top         : -0.42rem;
 }
 
 /* A real box, not `display: contents`. Dissolving the group made the connector and its chip two independent
@@ -651,6 +690,10 @@ pre.code
 	overflow      : hidden;
 }
 
+/* The head wraps as a whole and never inside one of its pieces. A narrow drawer used to break the
+   offset from the dot that follows it and split the crumb a word to a line; now the row runs out of
+   room and the crumb drops onto a second row of the same head, with the count still at that row's end.
+   The row gap is the shorter of the two: a wrapped head is one thing, not two stacked rows. */
 .txnhead
 {
 	align-items : center;
@@ -659,7 +702,8 @@ pre.code
 	border-left : 3px solid #DDDBDA;
 	cursor      : pointer;
 	display     : flex;
-	gap         : 0.5rem;
+	flex-wrap   : wrap;
+	gap         : 0.25rem 0.5rem;
 	padding     : 0.4rem 0.6rem;
 	text-align  : left;
 	width       : 100%;
@@ -685,11 +729,15 @@ pre.code
 	border-left-color : #2E844A;
 }
 
+/* The box is the icon's own rendered box, because the wrapper is a flex box with no size of its own and
+   takes the size of the one thing in it. No size is written down here on purpose: any number written
+   here is one more thing that can drift from what the icon really renders at. */
 .chev
 {
-	color      : #747474;
-	transition : transform 0.12s;
-	width      : 0.8rem;
+	align-items : center;
+	color       : #747474;
+	display     : flex;
+	transition  : transform 0.12s;
 }
 
 .chev.open
@@ -697,11 +745,17 @@ pre.code
 	transform : rotate(90deg);
 }
 
+/* The head wraps before anything shrinks, so the context name gives way only as a last resort, when it
+   alone is wider than the head; then it truncates rather than pushing the head wider. A flex item will
+   not shrink below the width of its own text without the zero minimum. */
 .txnhead .tq
 {
-	color       : #16325C;
-	font-weight : 700;
-	white-space : nowrap;
+	color         : #16325C;
+	font-weight   : 700;
+	min-width     : 0;
+	overflow      : hidden;
+	text-overflow : ellipsis;
+	white-space   : nowrap;
 }
 
 .txnhead .toff
@@ -712,10 +766,12 @@ pre.code
 	white-space          : nowrap;
 }
 
+/* The dot belongs to the duration it introduces, so the two never land on different lines. */
 .txnhead .tdur
 {
-	color     : #747474;
-	font-size : 0.7rem;
+	color       : #747474;
+	font-size   : 0.7rem;
+	white-space : nowrap;
 }
 
 .txnhead .tcount
@@ -726,11 +782,17 @@ pre.code
 	white-space : nowrap;
 }
 
+/* The crumb is a sentence about where the work came from and reads as nothing broken up, so it moves
+   to the next row of the head whole. */
 .txnhead .crumb
 {
-	color      : #747474;
-	font-size  : 0.66rem;
-	font-style : italic;
+	align-items : center;
+	color       : #747474;
+	display     : inline-flex;
+	font-size   : 0.66rem;
+	font-style  : italic;
+	gap         : 0.25rem;
+	white-space : nowrap;
 }
 
 .sbadge
@@ -759,12 +821,17 @@ pre.code
 	color      : #2E844A;
 }
 
+/* A full-width striped band, so `flex` and never `inline-flex`: an inline box would shrink the band to its
+   own text. The left padding loses the room the glyph needed, because the icon is a flex item of its own. */
 .gapnote
 {
-	background : repeating-linear-gradient(90deg, #FFFFFF, #FFFFFF 6px, #FDF6EA 6px, #FDF6EA 12px);
-	color      : #8C4B02;
-	font-size  : 0.66rem;
-	padding    : 0.15rem 0.6rem 0.15rem 1.4rem;
+	align-items : center;
+	background  : repeating-linear-gradient(90deg, #FFFFFF, #FFFFFF 6px, #FDF6EA 6px, #FDF6EA 12px);
+	color       : #8C4B02;
+	display     : flex;
+	font-size   : 0.66rem;
+	gap         : 0.25rem;
+	padding     : 0.15rem 0.6rem;
 }
 
 .tentries
@@ -985,4 +1052,25 @@ pre.code
 	font-size   : 0.72rem;
 	gap         : 0.4rem;
 	padding     : 0.4rem 0.6rem;
+}
+
+/* A note under a value in the Details grid: the action's-own mark, the chain behind a correlation. Its own line so the
+   id beside it stays selectable as one token. */
+.meta-note
+{
+	display    : block;
+	font-size  : 0.72rem;
+	margin-top : 0.15rem;
+}
+
+/* The action row under the header holds up to four buttons. The row wraps and each button keeps its natural width,
+   so a label never breaks onto two lines; one gap serves both axes. */
+.detail-actions
+{
+	gap : 0.25rem;
+}
+
+.detail-actions lightning-button
+{
+	flex : 0 0 auto;
 }

@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for the logConsoleDetail timeline drawer.
  * @author Jason van Beukering
- * @date July 2026, August 2026
+ * @date July 2026, September 2026
  */
 import {createElement} from 'lwc';
 import LogConsoleDetail from 'c/logConsoleDetail';
@@ -23,6 +23,8 @@ jest.mock('c/logConsoleContext', () => ({
 		SCHEDULED: 'Scheduled',
 		ANONYMOUS: 'Anonymous Apex',
 		FUTURE: 'Future'
+	}, ORIGIN_LABEL_BY_VALUE: {
+		FRAMEWORK: 'Framework', APEX: 'Apex', FLOW: 'Flow', COMPONENT: 'Component', MIXED: 'Mixed'
 	}
 }));
 
@@ -82,20 +84,32 @@ jest.mock('@salesforce/label/c.LogConsole_TaggedCountExplainedHint', () => ({
 			+ 'Nothing was deleted — the count is what your code has reported, and the entry below it is the one kept for detail.'
 }), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_NoStackTrace', () => ({default: 'No stack trace recorded for this entry.'}), {virtual: true});
-jest.mock('@salesforce/label/c.LogConsole_NoStackTraceHint', () => ({default: 'Stack traces are captured for exceptions; this entry was logged without one.'}), {virtual: true});
-jest.mock('@salesforce/label/c.LogConsole_NoStackTraceSourceHint',
-		() => ({default: 'Only an error logged with an exception carries a stack trace. This entry was logged at {0}, which is where to look in your code.'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_NoStackTraceHint', () => ({
+	default: 'A stack trace shows the code that led to this entry. None was recorded here, '
+			+ 'which happens when the entry was written by the framework itself, by a Flow, or by a component that reported no error.'
+}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_NoStackTraceSourceHint', () => ({
+	default: 'A stack trace shows the code that led to this entry. None was recorded here, but the entry was logged at {0}, which is where to look.'
+}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_TimelineAllLevels', () => ({default: 'This timeline shows every entry in this correlation, including any levels your filter hides.'}),
 		{virtual: true});
-jest.mock('@salesforce/label/c.LogConsole_Copy', () => ({default: 'Copy'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_Copied', () => ({default: 'Copied'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_CopyFailed', () => ({default: 'Couldn\'t copy to the clipboard. Try again or copy the text manually.'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_CopyMessage', () => ({default: 'Copy message'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_CopyAction', () => ({default: 'Copy action ID'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_CopyCorrelation', () => ({default: 'Copy correlation ID'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_CopyCode', () => ({default: 'Copy code'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_CopyStackTrace', () => ({default: 'Copy stack trace'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_CopyContext', () => ({default: 'Copy context'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_TimelineDuration', () => ({default: 'Duration'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_TimelineWarning', () => ({default: 'Logged a warning or an error'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_Close', () => ({default: 'Close'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_ActionOpenChain', () => ({default: 'Open in Chain Monitor'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_ActionOpenRecord', () => ({default: 'Open record'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_MetaLogNumber', () => ({default: 'Log Number'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_MetaSource', () => ({default: 'Source'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_MetaContext', () => ({default: 'Context'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_MetaOrigin', () => ({default: 'Origin'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_MetaUser', () => ({default: 'User'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_MetaCorrelation', () => ({default: 'Correlation'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_MetaTransaction', () => ({default: 'Transaction'}), {virtual: true});
@@ -111,8 +125,17 @@ jest.mock('@salesforce/label/c.LogConsole_NoContextHint',
 jest.mock('@salesforce/label/c.LogConsole_ViewOccurrences', () => ({default: 'View occurrences'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_TrackProblemExceptionNote', () => ({default: 'Replace caughtException with the exception variable your catch block declares.'}),
 		{virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_MetaAction', () => ({default: 'Action'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionSelfNote', () => ({default: 'this entry was written by the action itself'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionNotRecorded', () => ({default: 'recorded before chains were tracked by action'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionStartedByChainNote', () => ({default: 'this chain started the action'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionShowWholeAction', () => ({default: 'Show the whole action'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_TimelineActionOwn',
+		() => ({default: 'This entry was written by the action itself, outside any chain. Show the whole action to see the chains it launched.'}), {virtual: true});
 
 const OPENED_ID = '001000000000003';
+// An action id on the opened entry, which is what the Action row and its copy button are gated on.
+const OPENED_ACTION_ID = 'a7d2f4c1-0000-4000-8000-00000000f13a';
 const T0 = Date.parse('2026-06-30T19:30:00.000Z');
 const at = (seconds) => new Date(T0 + seconds * 1000).toISOString();
 
@@ -128,6 +151,8 @@ const MOCK_DETAIL = {
 	className: 'PaymentGateway',
 	methodLine: 'capture:64',
 	classMethod: 'PaymentGateway.capture',
+	origin: 'COMPONENT',
+	source: 'orderPanel',
 	executionEvent: 'TRANSACTION_FINALIZER_QUEUEABLE',
 	userId: '005000000000001',
 	userName: 'Ada Lopez',
@@ -234,19 +259,22 @@ function createComponent(props = {})
 const flush = () => Promise.resolve();
 const testid = (element, id) => element.shadowRoot.querySelector(`[data-testid="${id}"]`);
 const testids = (element, id) => [...element.shadowRoot.querySelectorAll(`[data-testid="${id}"]`)];
-// Every copy affordance in the drawer is the same small icon: clipboard glyph, x-small, named Copy for the tooltip and
-// assistive tech alike, bare on the light surfaces and bare-inverse on the dark code blocks (a plain bare icon is
-// invisible on them).
-const expectCopyIcon = (affordance, variant) =>
+// Every copy affordance in the drawer is the same small icon: clipboard glyph, x-small, bare on the light surfaces and
+// bare-inverse on the dark code blocks (a plain bare icon is invisible on them). What each one is called is its own:
+// the tooltip a mouse finds and the name assistive tech reads both say what that button copies.
+const expectCopyIcon = (affordance, variant, name) =>
 {
 	expect(affordance).not.toBeNull();
 	expect(affordance.tagName.toLowerCase()).toBe('lightning-button-icon');
 	expect(affordance.iconName).toBe('utility:copy_to_clipboard');
 	expect(affordance.size).toBe('x-small');
-	expect(affordance.alternativeText).toBe('Copy');
-	expect(affordance.title).toBe('Copy');
+	expect(affordance.alternativeText).toBe(name);
+	expect(affordance.title).toBe(name);
 	expect(affordance.variant).toBe(variant);
 };
+// The icons inside one mark of the timeline, read off the rendered components rather than off the markup.
+const iconNamesIn = (holder) => [...holder.querySelectorAll('lightning-icon')].map((icon) => icon.iconName);
+const iconAlternativeTextsIn = (holder) => [...holder.querySelectorAll('lightning-icon')].map((icon) => icon.alternativeText);
 
 describe('c-log-console-detail', () =>
 {
@@ -471,7 +499,7 @@ describe('c-log-console-detail', () =>
 		expect(mockShowErrorToast).toHaveBeenCalledWith('Couldn\'t copy to the clipboard. Try again or copy the text manually.');
 	});
 
-	it('dispatches viewoccurrences carrying the entry source from the problems drawer', async() =>
+	it('dispatches viewoccurrences carrying the problem\'s message as the term the drill can search for', async() =>
 	{
 		const element = createComponent();
 		await flush();
@@ -479,7 +507,9 @@ describe('c-log-console-detail', () =>
 		element.addEventListener('viewoccurrences', viewOccurrences);
 		testid(element, 'action-view-occurrences').click();
 		expect(viewOccurrences).toHaveBeenCalledTimes(1);
-		expect(viewOccurrences.mock.calls[0][0].detail).toEqual({source: 'PaymentGateway'});
+		// The drill offers the one thing the container can use when the problem recorded no source: a term to
+		// search for. This problem has a class-method, so the container pins that instead and ignores the term.
+		expect(viewOccurrences.mock.calls[0][0].detail).toEqual({searchTerm: 'Read timed out'});
 	});
 
 	it('hides the view-occurrences action in the entries view', async() =>
@@ -516,6 +546,21 @@ describe('c-log-console-detail', () =>
 		expect(testid(element, 'meta-context').textContent.trim()).toBe('Queueable finalizer');
 	});
 
+	it('names who wrote the entry in the Details grid, and dashes when the entry predates attribution', () =>
+	{
+		const element = createComponent();
+		expect(testid(element, 'meta-origin').textContent.trim()).toBe('Component');
+
+		const older = createComponent({detail: {...MOCK_DETAIL, origin: null, source: null}});
+		expect(testid(older, 'meta-origin').textContent.trim()).toBe('—');
+	});
+
+	it('falls back to the raw origin value when it does not match a known display name', () =>
+	{
+		const element = createComponent({detail: {...MOCK_DETAIL, origin: 'LEGACY'}});
+		expect(testid(element, 'meta-origin').textContent.trim()).toBe('LEGACY');
+	});
+
 	it('dashes the details cells an entry never recorded rather than leaving them blank', async() =>
 	{
 		const element = createComponent({detail: {...MOCK_DETAIL, executionEvent: null, logNumber: null, transactionId: null, parentTransactionId: null}});
@@ -534,8 +579,8 @@ describe('c-log-console-detail', () =>
 		const element = createComponent({detail: {...MOCK_DETAIL, limitBars: [], stackTrace: ''}});
 		await flush();
 		expect(testid(element, 'no-limits')).not.toBeNull();
-		// Only an entry logged with an exception carries frames, so a DEBUG, INFO or WARN entry can never show a
-		// stack. It does know where it was written, though, and naming that turns a dead end into a place to look.
+		// An entry with no frames (one the framework wrote from inside its own work, say) still knows where it was
+		// written, and naming that turns a dead end into a place to look.
 		const noStack = testid(element, 'no-stack');
 		expect(noStack.textContent).toContain('No stack trace recorded for this entry.');
 		expect(noStack.querySelector('.hint').textContent).toContain('PaymentGateway.capture:64');
@@ -547,21 +592,57 @@ describe('c-log-console-detail', () =>
 		await flush();
 
 		// Nothing to point at, so the drawer says only what it can stand behind.
-		expect(testid(element, 'no-stack').querySelector('.hint').textContent).toBe('Stack traces are captured for exceptions; this entry was logged without one.');
+		expect(testid(element, 'no-stack').querySelector('.hint').textContent).toBe('A stack trace shows the code that led to this entry. None was recorded here, '
+				+ 'which happens when the entry was written by the framework itself, by a Flow, or by a component that reported no error.');
 	});
 
 	it('renders the timeline overview stat, minimap collapse and legend', async() =>
 	{
 		const element = createComponent();
 		await flush();
-		expect(testid(element, 'overview-stat').textContent).toContain('4 transactions');
-		expect(testid(element, 'overview-stat').textContent).toContain('4 entries');
-		expect(testid(element, 'overview-stat').textContent).toContain('error in Queueable finalizer');
+		// The stat is parts, not one string: the counts, the span and the errored context each render on their
+		// own, and the middle dots between them are the separator elements. Pinned part by part, because a
+		// concatenated line could gain or lose a space with a template line break and no test would notice.
+		const stat = testid(element, 'overview-stat');
+		expect(stat.querySelector('.stat__counts').textContent).toBe('4 transactions · 4 entries');
+		expect(stat.querySelector('.stat__duration').textContent).toBe('4m');
+		expect(stat.querySelector('.stat__error').textContent).toBe('error in Queueable finalizer');
+		// The span is marked by a clock icon that says what it marks, not by a stopwatch character.
+		expect(iconNamesIn(stat)).toEqual(['utility:clock']);
+		expect(iconAlternativeTextsIn(stat)).toEqual(['Duration']);
+		expect(stat.textContent).not.toContain('⏱');
+		// Two separators for three parts, and neither the span nor the errored context carries one of its own.
+		expect(stat.querySelectorAll('.stat__separator')).toHaveLength(2);
+		expect(stat.querySelector('.stat__duration').textContent).not.toContain('·');
+		expect(stat.querySelector('.stat__error').textContent).not.toContain('·');
 		// Aura, Queueable x2, Finalizer -> three segments.
 		const segments = testids(element, 'minimap-segment');
 		expect(segments).toHaveLength(3);
 		expect(segments[1].textContent).toContain('Queueable ×2');
 		expect(element.shadowRoot.querySelectorAll('.legend .lg')).toHaveLength(5);
+
+		// The minimap pins the runs that logged a warning or an error, and the pin says so rather than showing
+		// a warning sign character that a screen reader reads as nothing at all.
+		const warnPins = [...element.shadowRoot.querySelectorAll('[data-spec-id="minimap-warn-pin"]')];
+		expect(warnPins).toHaveLength(2);
+		warnPins.forEach((pin) =>
+		{
+			expect(iconNamesIn(pin)).toEqual(['utility:warning']);
+			expect(iconAlternativeTextsIn(pin)).toEqual(['Logged a warning or an error']);
+			expect(pin.textContent).not.toContain('⚠');
+		});
+	});
+
+	it('leaves the errored part of the overview stat undrawn when no transaction errored', async() =>
+	{
+		const element = createComponent({trace: MOCK_TRACE.slice(0, 2), detail: {...MOCK_DETAIL, id: 'a00'}});
+		await flush();
+
+		const stat = testid(element, 'overview-stat');
+		expect(stat.querySelector('.stat__error')).toBeNull();
+		// One separator, not two: an absent part takes its separator with it rather than leaving a dangling dot.
+		expect(stat.querySelectorAll('.stat__separator')).toHaveLength(1);
+		expect(stat.querySelector('.stat__counts').textContent).toBe('2 transactions · 2 entries');
 	});
 
 	it('cases the legend levels the way every other level affordance does', async() =>
@@ -602,8 +683,17 @@ describe('c-log-console-detail', () =>
 		await flush();
 		expect(testids(element, 'txn-head')).toHaveLength(4);
 		// txn-2 starts 96s after txn-1 ends, txn-3 240s after txn-2 -> two gap markers.
-		expect(testids(element, 'gap-note')).toHaveLength(2);
+		const gaps = testids(element, 'gap-note');
+		expect(gaps).toHaveLength(2);
 		expect(element.shadowRoot.querySelectorAll('.crumb')).toHaveLength(3);
+		// A paused run is marked by an hourglass icon. It is decoration: the note beside it already says how long
+		// the pause was, so the icon carries no name of its own and a screen reader hears the sentence once.
+		gaps.forEach((gap) =>
+		{
+			expect(iconNamesIn(gap)).toEqual(['utility:hourglass']);
+			expect(iconAlternativeTextsIn(gap)).toEqual([undefined]);
+			expect(gap.textContent).not.toContain('⏳');
+		});
 	});
 
 	it('names each parent by its position in the time-ordered transaction list, not by its kind', async() =>
@@ -612,12 +702,19 @@ describe('c-log-console-detail', () =>
 		await flush();
 		// txn-0, txn-1 and txn-2 are the 1st, 2nd and 3rd transactions; two of them are Queueables,
 		// so a kind-keyed breadcrumb would read "from Queueable" twice and name no transaction at all.
-		const crumbs = [...element.shadowRoot.querySelectorAll('.crumb')].map((crumb) => crumb.textContent.trim());
-		expect(crumbs).toEqual([
-			'↳ from transaction 1',
-			'↳ from transaction 2',
-			'↳ from transaction 3'
+		const crumbs = [...element.shadowRoot.querySelectorAll('.crumb')];
+		expect(crumbs.map((crumb) => crumb.textContent.trim())).toEqual([
+			'from transaction 1',
+			'from transaction 2',
+			'from transaction 3'
 		]);
+		// The hand-off mark is an icon now, and a decorative one: the crumb's own words name the parent.
+		crumbs.forEach((crumb) =>
+		{
+			expect(iconNamesIn(crumb)).toEqual(['utility:level_down']);
+			expect(iconAlternativeTextsIn(crumb)).toEqual([undefined]);
+			expect(crumb.textContent).not.toContain('↳');
+		});
 	});
 
 	it('names the parent generically when it falls outside the loaded trace', async() =>
@@ -625,7 +722,9 @@ describe('c-log-console-detail', () =>
 		const element = createComponent({trace: [{...MOCK_TRACE[3], parentTransactionId: 'txn-not-loaded'}]});
 		await flush();
 		expect(testids(element, 'txn-head')).toHaveLength(1);
-		expect(element.shadowRoot.querySelector('.crumb').textContent.trim()).toBe('↳ from an earlier transaction');
+		const crumb = element.shadowRoot.querySelector('.crumb');
+		expect(crumb.textContent.trim()).toBe('from an earlier transaction');
+		expect(iconNamesIn(crumb)).toEqual(['utility:level_down']);
 	});
 
 	it('colours the entry node by severity and shows the level tag and opened marker', async() =>
@@ -810,10 +909,19 @@ describe('c-log-console-detail', () =>
 		await flush();
 		testids(element, 'txn-head')[0].click();
 		await flush();
-		expect(testids(element, 'txn-head')[0].querySelector('.chev').className).not.toContain('open');
+		const collapsed = testids(element, 'txn-head')[0].querySelector('.chev');
+		expect(collapsed.className).toBe('chev');
+		// The chevron turns by a CSS rotate on its wrapper, so the wrapper keeps the class the rotate is keyed
+		// on and the icon inside it is the same chevron in both states.
+		expect(iconNamesIn(collapsed)).toEqual(['utility:chevronright']);
+		expect(iconAlternativeTextsIn(collapsed)).toEqual([undefined]);
+		expect(collapsed.textContent).not.toContain('▶');
 		testids(element, 'txn-head')[0].click();
 		await flush();
-		expect(testids(element, 'txn-head')[0].querySelector('.chev').className).toContain('open');
+		const expanded = testids(element, 'txn-head')[0].querySelector('.chev');
+		expect(expanded.className).toBe('chev open');
+		expect(iconNamesIn(expanded)).toEqual(['utility:chevronright']);
+		expect(expanded.dataset.specId).toBe('transaction-chevron');
 	});
 
 	it('jumps from a minimap segment to a transaction and scrolls it into view', async() =>
@@ -837,11 +945,55 @@ describe('c-log-console-detail', () =>
 		// One copy affordance across the whole product: the labelled button used to float over the message and
 		// the code panels and hide the text beneath it, so each one is the same small icon the correlation id
 		// already uses, and its name reaches assistive tech through alternative-text rather than visible text.
-		expectCopyIcon(testid(element, 'copy-message'), 'bare');
-		expectCopyIcon(testid(element, 'copy-stack'), 'bare-inverse');
-		expectCopyIcon(testid(element, 'copy-context'), 'bare');
-		expectCopyIcon(testid(element, 'copy-correlation'), 'bare');
+		expectCopyIcon(testid(element, 'copy-message'), 'bare', 'Copy message');
+		expectCopyIcon(testid(element, 'copy-stack'), 'bare-inverse', 'Copy stack trace');
+		expectCopyIcon(testid(element, 'copy-context'), 'bare', 'Copy context');
+		expectCopyIcon(testid(element, 'copy-correlation'), 'bare', 'Copy correlation ID');
 		expect(element.shadowRoot.querySelector('lightning-button.copybtn')).toBeNull();
+	});
+
+	it('names every copy button for what it copies and never as the bare word', async() =>
+	{
+		// Seven buttons over six names: a list of identical "Copy" buttons tells a screen-reader user only that
+		// there is something to copy seven times over, and a mouse hovering one learns nothing either. Each one
+		// now says what it copies, and the two snippet blocks are two forms of the same offer, so they share a name.
+		const element = createComponent({detail: {...MOCK_DETAIL, actionCorrelationId: OPENED_ACTION_ID}});
+		await flush();
+		expectCopyIcon(testid(element, 'copy-message'), 'bare', 'Copy message');
+		expectCopyIcon(testid(element, 'copy-action'), 'bare', 'Copy action ID');
+		expectCopyIcon(testid(element, 'copy-correlation'), 'bare', 'Copy correlation ID');
+		expectCopyIcon(testid(element, 'copy-stack'), 'bare-inverse', 'Copy stack trace');
+		expectCopyIcon(testid(element, 'copy-context'), 'bare', 'Copy context');
+
+		// The tagged form of the snippet, offered for a grouped problem that recorded a source.
+		const tagged = createComponent({provenance: 'derived'});
+		await flush();
+		expectCopyIcon(testid(tagged, 'copy-snippet'), 'bare-inverse', 'Copy code');
+
+		// And the zero-config form, offered for one that recorded none.
+		const unattributed = createComponent({provenance: 'derived', detail: {...MOCK_DETAIL, className: null, methodLine: null, classMethod: null}});
+		await flush();
+		expectCopyIcon(testid(unattributed, 'copy-snippet'), 'bare-inverse', 'Copy code');
+
+		// Seven sites over six names: five on an ordinary entry, and one snippet button in each of the two
+		// snippet blocks, which are two forms of the same offer.
+		expect(element.shadowRoot.querySelectorAll('[data-testid^="copy-"]')).toHaveLength(5);
+		expect(testids(tagged, 'copy-snippet')).toHaveLength(1);
+		expect(testids(unattributed, 'copy-snippet')).toHaveLength(1);
+		const everyName = [
+			element,
+			tagged,
+			unattributed
+		].flatMap((mounted) => [...mounted.shadowRoot.querySelectorAll('[data-testid^="copy-"]')].map((button) => button.title));
+		expect([...new Set(everyName)].sort()).toEqual([
+			'Copy action ID',
+			'Copy code',
+			'Copy context',
+			'Copy correlation ID',
+			'Copy message',
+			'Copy stack trace'
+		]);
+		expect(everyName).not.toContain('Copy');
 	});
 
 	it('copies the message and the stack trace to the clipboard', async() =>
@@ -929,7 +1081,7 @@ describe('c-log-console-detail', () =>
 		];
 		const element = createComponent({trace: longTrace});
 		await flush();
-		expect(testid(element, 'overview-stat').textContent).toContain('1h');
+		expect(testid(element, 'overview-stat').querySelector('.stat__duration').textContent).toContain('1h');
 	});
 
 	it('renders no timeline groups for an empty trace and exposes the reactive getters', async() =>
@@ -1252,7 +1404,7 @@ describe('c-log-console-detail', () =>
 
 			// Exactly one snippet copy affordance renders for this provenance (the template carries one per snippet form).
 			expect(testids(element, 'copy-snippet').length).toBe(1);
-			expectCopyIcon(testid(element, 'copy-snippet'), 'bare-inverse');
+			expectCopyIcon(testid(element, 'copy-snippet'), 'bare-inverse', 'Copy code');
 		});
 
 		it('copies the snippet, which is the point of showing it', async() =>
@@ -1337,7 +1489,9 @@ describe('c-log-console-detail', () =>
 			byClass.addEventListener('viewoccurrences', drilled);
 			await flush();
 			testid(byClass, 'action-view-occurrences').click();
-			expect(drilled.mock.calls[0][0].detail).toEqual({source: 'AcctHandler'});
+			// A problem with a class-method still offers the drill and still fires it; the container pins the
+			// class-method and never reads the term, so the event carries the one thing it could ever use.
+			expect(drilled.mock.calls[0][0].detail).toEqual({searchTerm: LIVE_GROUP.shortMessage});
 
 			// No source recorded: everything throwing this error is one problem here, and its message is the handle
 			// the entries view can search for. Never the class, which is undefined, and never an unfiltered drill.
@@ -1346,7 +1500,7 @@ describe('c-log-console-detail', () =>
 			byMessage.addEventListener('viewoccurrences', drilledByMessage);
 			await flush();
 			testid(byMessage, 'action-view-occurrences').click();
-			expect(drilledByMessage.mock.calls[0][0].detail).toEqual({source: LIVE_GROUP.shortMessage});
+			expect(drilledByMessage.mock.calls[0][0].detail).toEqual({searchTerm: LIVE_GROUP.shortMessage});
 
 			const nothingToDrillOn = createComponent({provenance: 'derived', detail: {...UNATTRIBUTED_GROUP, shortMessage: null}});
 			await flush();
@@ -1365,5 +1519,173 @@ describe('c-log-console-detail', () =>
 			expect(testid(element, 'action-open-latest')).toBeNull();
 			expect(testid(element, 'action-open-record')).not.toBeNull();
 		});
+	});
+});
+
+describe('c-log-console-detail whole action', () =>
+{
+	const ACTION_ID = 'a7d2f4c1-0000-4000-8000-00000000f13a';
+	const RUN_ID = 'b1c2d3e4-0000-4000-8000-000000000b02';
+	// A run's entry: correlated to the run, rooted in the action, a chain holds the correlation.
+	const RUN_ENTRY = {
+		...MOCK_DETAIL,
+		correlationId: RUN_ID,
+		rootCorrelationId: ACTION_ID,
+		actionCorrelationId: ACTION_ID,
+		isActionOwn: false,
+		chainExists: true,
+		chainName: 'OrderSync',
+		chainNumber: 'CHAIN-00214'
+	};
+	// The action's own entry: correlation and root are the action, no chain holds the correlation.
+	const OWN_ENTRY = {
+		...MOCK_DETAIL,
+		correlationId: ACTION_ID,
+		rootCorrelationId: ACTION_ID,
+		actionCorrelationId: ACTION_ID,
+		isActionOwn: true,
+		chainExists: false,
+		chainName: null,
+		chainNumber: null
+	};
+	// An entry persisted before roots: a correlation, no root, no chain.
+	const LEGACY_ENTRY = {
+		...MOCK_DETAIL, correlationId: ACTION_ID, rootCorrelationId: null, actionCorrelationId: ACTION_ID, isActionOwn: true, chainExists: false, chainName: null, chainNumber: null
+	};
+	// An entry with no ids at all.
+	const BARE_ENTRY = {
+		...MOCK_DETAIL, correlationId: null, rootCorrelationId: null, actionCorrelationId: null, isActionOwn: false, chainExists: false, chainName: null, chainNumber: null
+	};
+	// The entry of a run that started its action: the run's correlation is the action's id, and a chain holds it.
+	const ORIGIN_ENTRY = {
+		...MOCK_DETAIL,
+		correlationId: RUN_ID,
+		rootCorrelationId: RUN_ID,
+		actionCorrelationId: RUN_ID,
+		isActionOwn: false,
+		chainExists: true,
+		chainName: 'NightlySync',
+		chainNumber: 'CHAIN-00300'
+	};
+
+	afterEach(() =>
+	{
+		while(document.body.firstChild)
+		{
+			document.body.removeChild(document.body.firstChild);
+		}
+		jest.clearAllMocks();
+	});
+
+	async function mountDetail(detail, apiOverrides = {})
+	{
+		const element = createElement('c-log-console-detail', {is: LogConsoleDetail});
+		element.view = 'entries';
+		element.detail = detail;
+		element.trace = [];
+		Object.assign(element, apiOverrides);
+		document.body.appendChild(element);
+		await Promise.resolve();
+		return element;
+	}
+
+	const query = (element, testId) => element.shadowRoot.querySelector(`[data-testid="${testId}"]`);
+
+	it('shows the action id with a copy affordance on a run\'s entry and names the chain beside the correlation', async() =>
+	{
+		const element = await mountDetail(RUN_ENTRY);
+
+		expect(query(element, 'meta-action').textContent).toContain(ACTION_ID);
+		expect(query(element, 'copy-action')).toBeTruthy();
+		expect(query(element, 'action-note')).toBeNull();
+		expect(query(element, 'meta-correlation-chain').textContent).toBe('OrderSync · CHAIN-00214');
+	});
+
+	it('marks the action\'s own entry and says a legacy entry was recorded before roots', async() =>
+	{
+		const own = await mountDetail(OWN_ENTRY);
+		expect(query(own, 'action-note').textContent).toBe('this entry was written by the action itself');
+		expect(query(own, 'meta-correlation-chain')).toBeNull();
+
+		const legacy = await mountDetail(LEGACY_ENTRY);
+		expect(query(legacy, 'action-note').textContent).toBe('recorded before chains were tracked by action');
+	});
+
+	it('says the chain started the action for an entry whose run is the action itself, and stays silent for a run inside one', async() =>
+	{
+		const origin = await mountDetail(ORIGIN_ENTRY);
+		expect(query(origin, 'action-note').textContent).toBe('this chain started the action');
+		expect(query(origin, 'meta-action').textContent).toContain(RUN_ID);
+
+		const inside = await mountDetail(RUN_ENTRY);
+		expect(query(inside, 'action-note')).toBeNull();
+	});
+
+	it('dashes the Action row and offers no whole-action button on an entry with no ids', async() =>
+	{
+		const element = await mountDetail(BARE_ENTRY);
+
+		expect(query(element, 'meta-action').textContent).toContain('—');
+		expect(query(element, 'action-show-whole-action')).toBeNull();
+	});
+
+	it('offers Show the whole action first among the actions and hides it while that action is already pinned', async() =>
+	{
+		const element = await mountDetail(RUN_ENTRY);
+		const actions = element.shadowRoot.querySelectorAll('.detail-actions lightning-button');
+		expect(actions[0].dataset.testid).toBe('action-show-whole-action');
+		expect(actions[0].label).toBe('Show the whole action');
+		expect(query(element, 'action-open-chain')).toBeTruthy();
+
+		const pinned = await mountDetail(RUN_ENTRY, {pinnedActionRootCorrelationId: ACTION_ID});
+		expect(query(pinned, 'action-show-whole-action')).toBeNull();
+		expect(query(pinned, 'action-open-chain')).toBeTruthy();
+	});
+
+	it('asks the container to open the whole action with the entry\'s action id', async() =>
+	{
+		const element = await mountDetail(OWN_ENTRY);
+		const handler = jest.fn();
+		element.addEventListener('showwholeaction', handler);
+
+		query(element, 'action-show-whole-action').click();
+
+		expect(handler).toHaveBeenCalledTimes(1);
+		expect(handler.mock.calls[0][0].detail).toEqual({rootCorrelationId: ACTION_ID});
+	});
+
+	it('keeps Open in Chain Monitor per run: absent on the action\'s own entry, present with the run\'s correlation on a run\'s entry', async() =>
+	{
+		const own = await mountDetail(OWN_ENTRY);
+		expect(query(own, 'action-open-chain')).toBeNull();
+
+		const run = await mountDetail(RUN_ENTRY);
+		const handler = jest.fn();
+		run.addEventListener('navigatechain', handler);
+		query(run, 'action-open-chain').click();
+		expect(handler.mock.calls[0][0].detail).toEqual({correlationId: RUN_ID});
+	});
+
+	it('copies the action id and confirms', async() =>
+	{
+		const element = await mountDetail(RUN_ENTRY);
+
+		query(element, 'copy-action').click();
+		await Promise.resolve();
+
+		expect(copyToClipBoard).toHaveBeenCalledWith(ACTION_ID);
+		expect(mockShowSuccessToast).toHaveBeenCalledWith('Copied');
+	});
+
+	it('explains an action\'s own entry on the Timeline tab with the whole-action button, and keeps the shipped notes otherwise', async() =>
+	{
+		const own = await mountDetail(OWN_ENTRY);
+		expect(query(own, 'timeline-action-note').textContent).toContain('This entry was written by the action itself, outside any chain.');
+		expect(query(own, 'timeline-show-whole-action')).toBeTruthy();
+		expect(query(own, 'timeline-note')).toBeNull();
+
+		const unregistered = await mountDetail({...RUN_ENTRY, chainExists: false, chainName: null, chainNumber: null, isActionOwn: false});
+		expect(query(unregistered, 'timeline-action-note')).toBeNull();
+		expect(query(unregistered, 'timeline-note').textContent).toContain('Not a registered chain');
 	});
 });

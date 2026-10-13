@@ -39,11 +39,15 @@ Tracks async chain executions including state, step definitions, shared context,
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [CurrentStepName__c](#currentstepname__c) | Name of the currently executing or last executed step. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [DeclaredDeduplicationKey__c](#declareddeduplicationkey__c) | The deduplication key this chain was built with, kept after the run ends so a re-drive can re-claim it. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [DurationMs__c](#durationms__c) | Wall-clock duration in milliseconds from chain start to terminal state. |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [ElapsedMs__c](#elapsedms__c) | How long the run took, or how long it has been going if it has not finished. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ErrorMessage__c](#errormessage__c) | Error details if chain failed. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FailureCategory__c](#failurecategory__c) | Why the chain left the happy path. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [InitialContextData__c](#initialcontextdata__c) | The chain's initial context as built, captured only for chains that declare allowRestart(). |
+| global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [LastManualRetryAt__c](#lastmanualretryat__c) | When someone last used Retry on this run after it failed. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [LaunchCorrelationId__c](#launchcorrelationid__c) | The tracking id that was live when this chain was launched: the parent run's id when a step launched it, otherwise the launching action's id. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[AsyncChainExecution__c](../objects/AsyncChainExecution__c.md)> [RestartedExecutions__r](#restartedexecutions__r) | Reciprocal relationship for AsyncChainExecution__c.SourceExecution__c. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RunKey__c](#runkey__c) | Internal run-key fence token. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RootCorrelationId__c](#rootcorrelationid__c) | The tracking id of the action that started everything this run belongs to. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RunKey__c](#runkey__c) | Identifies the current run of this chain. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [SourceExecution__c](#sourceexecution__c) | The run this chain was restarted from. |
 | global [AsyncChainExecution__c](../objects/AsyncChainExecution__c.md) [SourceExecution__r](#sourceexecution__r) | The run this chain was restarted from. |
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [StartedAt__c](#startedat__c) | When chain execution began. |
@@ -231,6 +235,24 @@ Wall-clock duration in milliseconds from chain start to terminal state. Includes
 | Unique | false |
 | External ID | false |
 
+### ElapsedMs__c
+
+```apex
+global Decimal ElapsedMs__c
+```
+
+How long the run took, or how long it has been going if it has not finished. A Completed, Failed or Aborted run that stored no duration shows the time between its start and its end.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Number(18,0) |
+| Required | false |
+| Unique | false |
+| External ID | false |
+| Formula | `IF ( NOT(ISBLANK(DurationMs__c)), DurationMs__c, IF ( AND ( NOT(ISBLANK(StartedAt__c)), ISBLANK(CompletedAt__c), OR ( ISPICKVAL(Status__c, "Running"), ISPICKVAL(Status__c, "Stalled") ) ), ROUND((NOW() - StartedAt__c) * 86400000, 0), IF ( AND ( NOT(ISBLANK(StartedAt__c)), NOT(ISBLANK(CompletedAt__c)), OR ( ISPICKVAL(Status__c, "Completed"), ISPICKVAL(Status__c, "Failed"), ISPICKVAL(Status__c, "Aborted") ) ), ROUND((CompletedAt__c - StartedAt__c) * 86400000, 0), null ) ) )` |
+
 ### ErrorMessage__c
 
 ```apex
@@ -284,6 +306,38 @@ The chain's initial context as built, captured only for chains that declare allo
 |-----------|-------|
 | Data Type | Long Text Area(131072) |
 
+### LastManualRetryAt__c
+
+```apex
+global Datetime LastManualRetryAt__c
+```
+
+When someone last used Retry on this run after it failed. Blank if nobody has.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Date Time |
+| Required | false |
+
+### LaunchCorrelationId__c
+
+```apex
+global String LaunchCorrelationId__c
+```
+
+The tracking id that was live when this chain was launched: the parent run's id when a step launched it, otherwise the launching action's id. Empty for a chain launched with no tracking id, and for a restart.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(36), case-insensitive |
+| Required | false |
+| Unique | false |
+| External ID | true |
+
 ### RestartedExecutions__r
 
 ```apex
@@ -292,13 +346,30 @@ global List<AsyncChainExecution__c> RestartedExecutions__r
 
 Reciprocal relationship for **`AsyncChainExecution__c.SourceExecution__c`** .
 
+### RootCorrelationId__c
+
+```apex
+global String RootCorrelationId__c
+```
+
+The tracking id of the action that started everything this run belongs to. Equal to the run's own correlation id when the chain started the action itself.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(36), case-insensitive |
+| Required | false |
+| Unique | false |
+| External ID | true |
+
 ### RunKey__c
 
 ```apex
 global String RunKey__c
 ```
 
-Internal run-key fence token. Rotated on initial start and on every watchdog re-drive; the executor re-checks it before each persist so a stale-key zombie cannot corrupt a resumed run. Shown read-only on the record page for diagnostics.
+Identifies the current run of this chain. The framework sets a new value when the chain starts, when the watchdog starts a stuck run again or ends it, and when an operator retries it. Each job checks the value before it saves, so a job left over from an earlier run cannot change a run that was started again. Shown read-only on the record page for diagnostics.
 
 **Field Attributes:**
 

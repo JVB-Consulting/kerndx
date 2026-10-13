@@ -1,23 +1,51 @@
 // SPDX-License-Identifier: BUSL-1.1
 const {chromium} = require('@playwright/test');
 const {execSync} = require('child_process');
-const path = require('path');
 const fs = require('fs');
 const {ORG_ALIAS, getFrontdoorUrl} = require('./helpers/sf-auth');
+const {assertOrgIsUsable} = require('./helpers/org-health');
+const {namespacePrefix} = require('./helpers/sf-namespace');
+const {authPathsFor} = require('./helpers/auth-paths');
 
-const AUTH_DIR = path.join(__dirname, '.auth');
-const AUTH_STATE_PATH = path.join(AUTH_DIR, 'state.json');
-const INSTANCE_CACHE_PATH = path.join(AUTH_DIR, 'instance.json');
+// One folder per org alias, so a run against another org from the same checkout never overwrites this run's session.
+// The run-target file is read by the results reporter at the end of the run: which kind of org this run signed in to.
+const {directory: AUTH_DIR, statePath: AUTH_STATE_PATH, instancePath: INSTANCE_CACHE_PATH, runTargetPath: RUN_TARGET_PATH} = authPathsFor(ORG_ALIAS);
 
 function stripAnsi(str)
 {
+	// eslint-disable-next-line no-control-regex
 	return str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
 }
 
+// The command line exits non-zero for an alias it does not know, and still prints its answer as JSON.
+function readOrgDisplay()
+{
+	let output;
+	try
+	{
+		output = execSync(`sf org display -o ${ORG_ALIAS} --json`, {encoding: 'utf8', timeout: 30_000, env: {...process.env, FORCE_COLOR: '0', NO_COLOR: '1'}});
+	}
+	catch(error)
+	{
+		output = String(error.stdout || '');
+	}
+	try
+	{
+		return JSON.parse(stripAnsi(output));
+	}
+	catch
+	{
+		return null;
+	}
+}
+
+// Stops here, with the org and the variable named, when the org cannot be opened: a deleted scratch org
+// answers the command line without complaint and would otherwise fail later, inside the browser sign-in.
 function resolveCurrentInstanceUrl()
 {
-	const output = execSync(`sf org display -o ${ORG_ALIAS} --json`, {encoding: 'utf8', timeout: 30_000, env: {...process.env, FORCE_COLOR: '0', NO_COLOR: '1'}});
-	return JSON.parse(stripAnsi(output)).result.instanceUrl;
+	const display = readOrgDisplay();
+	assertOrgIsUsable(ORG_ALIAS, display);
+	return display.result.instanceUrl;
 }
 
 function invalidateStaleAuthCache(currentInstanceUrl)
@@ -46,6 +74,8 @@ function invalidateStaleAuthCache(currentInstanceUrl)
 async function globalSetup()
 {
 	fs.mkdirSync(AUTH_DIR, {recursive: true});
+	// The last run's note must not outlive it: a run that fails before it signs in counts as a development run.
+	fs.rmSync(RUN_TARGET_PATH, {force: true});
 
 	const instanceUrl = resolveCurrentInstanceUrl();
 	invalidateStaleAuthCache(instanceUrl);
@@ -64,6 +94,7 @@ async function globalSetup()
 
 	await context.storageState({path: AUTH_STATE_PATH});
 	fs.writeFileSync(INSTANCE_CACHE_PATH, JSON.stringify({instanceUrl}));
+	fs.writeFileSync(RUN_TARGET_PATH, JSON.stringify({namespacePrefix: namespacePrefix()}));
 	await browser.close();
 }
 

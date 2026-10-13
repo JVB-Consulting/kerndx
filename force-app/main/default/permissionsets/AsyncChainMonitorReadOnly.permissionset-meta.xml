@@ -57,6 +57,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>AsyncChainExecution__c.ElapsedMs__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>AsyncChainExecution__c.ErrorMessage__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -68,6 +73,21 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>AsyncChainExecution__c.InitialContextData__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>AsyncChainExecution__c.LastManualRetryAt__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>AsyncChainExecution__c.LaunchCorrelationId__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>AsyncChainExecution__c.RootCorrelationId__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

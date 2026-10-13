@@ -11,3 +11,23 @@
 	padding-block  : 0 0.5rem;
 	padding-inline : 0.75rem;
 }
+
+/* Above the tablet breakpoint the two panels sit side by side and the list carries the divider on
+   its right. Below it they stack, the list first, and the divider moves under the list so it still
+   reads as the line between the two panels rather than a stray rule down one edge. */
+@media (min-width : 48em)
+{
+	.list-panel
+	{
+		border-right : 1px solid var(--slds-g-color-border-base-1, #D8DDE6);
+	}
+}
+
+@media (max-width : 47.9375em)
+{
+	.list-panel
+	{
+		border-bottom : 1px solid var(--slds-g-color-border-base-1, #D8DDE6);
+		margin-bottom : 0.75rem;
+	}
+}

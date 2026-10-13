@@ -4,9 +4,56 @@ const KernHomePage = require('../pages/kern-home.page');
 const LogEntriesPage = require('../pages/log-entries.page');
 const ScheduledJobsPage = require('../pages/scheduled-jobs.page');
 const ApiTestHarnessPage = require('../pages/api-test-harness.page');
+const ApiCallsPage = require('../pages/api-calls.page');
 const {navigateToApp, waitForPageLoad} = require('../helpers/sf-navigation');
 const {getInstanceUrl} = require('../helpers/sf-auth');
 const {soqlQuery, executeAnonymousApex} = require('../helpers/sf-cli');
+const {namespacePrefix} = require('../helpers/sf-namespace');
+
+const BATCH_DRAIN_ATTEMPTS = 36;
+const BATCH_DRAIN_INTERVAL_MS = 5000;
+const SEED_POLL_ATTEMPTS = 12;
+const SEED_POLL_INTERVAL_MS = 2500;
+
+/**
+ * Waits out any running kern batch (the suite's own fire-and-forget purge included) so a row seeded
+ * afterwards cannot be deleted from under a test. Bounded: after about three minutes the caller proceeds
+ * regardless, so a leftover long-runner cannot deadlock the suite.
+ */
+async function waitForKernBatchesToDrain()
+{
+	for(let attempt = 0; attempt < BATCH_DRAIN_ATTEMPTS; attempt++)
+	{
+		const running = soqlQuery(
+				'SELECT Id FROM AsyncApexJob WHERE JobType = \'BatchApex\' '
+				+ 'AND Status IN (\'Holding\', \'Queued\', \'Preparing\', \'Processing\') '
+				+ 'AND ApexClass.NamespacePrefix = \'kern\'');
+		if(running.length === 0)
+		{
+			return;
+		}
+		await new Promise((resolve) => setTimeout(resolve, BATCH_DRAIN_INTERVAL_MS));
+	}
+}
+
+/**
+ * Polls for the log entry a test just seeded, by its unique short message, and returns its Id.
+ * @param {string} seedMarker the unique short message the seed carried
+ * @return {Promise<string|null>} the row's Id, or null when it never appeared
+ */
+async function pollForSeededLogEntry(seedMarker)
+{
+	for(let attempt = 0; attempt < SEED_POLL_ATTEMPTS; attempt++)
+	{
+		const rows = soqlQuery(`SELECT Id FROM kern__LogEntry__c WHERE kern__ShortMessage__c = '${seedMarker}' LIMIT 1`);
+		if(rows.length > 0)
+		{
+			return rows[0].Id;
+		}
+		await new Promise((resolve) => setTimeout(resolve, SEED_POLL_INTERVAL_MS));
+	}
+	return null;
+}
 
 const EXPECTED_TABS = [
 	'Kern Home',
@@ -34,6 +81,8 @@ const WATCHDOG_CLASS_NAME = 'kern.SCHED_ChainWatchdog';
 const WATCHDOG_DEFAULT_CRON = '0 0 * * * ?';
 const WATCHDOG_DEFAULT_STALE_THRESHOLD_MINUTES = '30';
 const WATCHDOG_DEFAULT_BATCH_SIZE = '50';
+// V5: the label of the list view the package ships for calls whose status is Aborted (objects/ApiCall__c/listViews/Aborted).
+const ABORTED_LIST_VIEW = 'Aborted';
 
 test.describe.serial('Part 1: App Home & Core Pages', () =>
 {
@@ -129,9 +178,15 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 	test('V1b: Health Check Data Retention adapts when purge jobs are configured', async({page}) =>
 	{
 		const insertPurgeJob = (objectName, schedulerName) => executeAnonymousApex(
-				'kern.DTO_NameValues p = new kern.DTO_NameValues();' + `p.add('objectName', '${objectName}');` + 'p.add(\'minimumNumberOfDays\', \'90\');'
-				+ 'insert new kern__ScheduledJob__c(' + `kern__SchedulerName__c = '${schedulerName}',` + 'kern__ClassName__c = \'kern.SCHED_PurgeRecords\','
-				+ 'kern__CronExpression__c = \'0 0 2 * * ?\',' + 'kern__IsActive__c = true,' + 'kern__Parameters__c = p.serialize());');
+				'kern.DTO_NameValues p = new kern.DTO_NameValues();'
+					+ `p.add('objectName', '${objectName}');`
+					+ 'p.add(\'minimumNumberOfDays\', \'90\');'
+				+ 'insert new kern__ScheduledJob__c('
+				+ `kern__SchedulerName__c = '${schedulerName}',`
+				+ 'kern__ClassName__c = \'kern.SCHED_PurgeRecords\','
+				+ 'kern__CronExpression__c = \'0 0 2 * * ?\','
+				+ 'kern__IsActive__c = true,'
+				+ 'kern__Parameters__c = p.serialize());');
 
 		insertPurgeJob('kern__LogEntry__c', 'Purge Log Entries');
 
@@ -339,13 +394,13 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 
 		const apexTypeErrors = consoleMessages.filter(m => /unable to access apex type/i.test(m.text));
 		expect(apexTypeErrors,
-				`Customize flow must not emit "Unable to access Apex type" errors — schedulerClassName is now forwarded from Apex, so any such error indicates a namespace-resolution regression (found: ${JSON.stringify(
-						apexTypeErrors)})`).toEqual([]);
+				'Customize flow must not emit "Unable to access Apex type" errors: schedulerClassName is now forwarded from Apex, '
+				+ `so any such error indicates a namespace-resolution regression (found: ${JSON.stringify(apexTypeErrors)})`).toEqual([]);
 
 		const iconWarnings = consoleMessages.filter(m => /invalid icon name/i.test(m.text));
 		expect(iconWarnings,
-				`Customize flow must emit no "<lightning-icon> Invalid icon name" warnings — commit 62b2147 eliminated the disabled-combobox source; any such warning is a regression (found: ${JSON.stringify(
-						iconWarnings)})`).toEqual([]);
+				'Customize flow must emit no "<lightning-icon> Invalid icon name" warnings: commit 62b2147 eliminated the disabled-combobox source, '
+				+ `so any such warning is a regression (found: ${JSON.stringify(iconWarnings)})`).toEqual([]);
 	});
 
 	test('V1j: Schedule Chain Watchdog one-click creates the recommended hourly job', async({page}) =>
@@ -447,14 +502,22 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 
 	test('V2: Log Entry List and Record', async({page}) =>
 	{
-		const records = soqlQuery('SELECT Id, kern__LogLevel__c FROM kern__LogEntry__c ORDER BY CreatedDate DESC LIMIT 20');
-		expect(records.length, 'LogEntry__c records should exist').toBeGreaterThan(0);
-
-		const levels = new Set(records.map(r => r.kern__LogLevel__c).filter(Boolean));
-		test.info().annotations.push({type: 'notes', description: `${records.length} log entries, levels: ${[...levels].join(', ')}`});
+		// The suite's beforeAll fires a fire-and-forget purge of kern__LogEntry__c. On a cold org that batch can
+		// still be deleting while this test runs, and a row taken from "the newest entries" then vanishes
+		// mid-render (the record opened without its tabs on the 1.7 upgrade leg). So: wait out any running
+		// kern batch, seed one entry of our own, and open that one.
+		await waitForKernBatchesToDrain();
+		const seedMarker = `e2e-part1-v2-${Date.now()}`;
+		executeAnonymousApex(
+				'insert new kern__LogEntry__c(kern__LogLevel__c = \'INFO\', kern__ShortMessage__c = \'' + seedMarker + '\', '
+				+ 'kern__Message__c = \'Part 1 V2 seed row\', kern__ClassMethod__c = \'PartOneAppCore.v2\', kern__LineNumber__c = 1, '
+				+ 'kern__ExecutionEvent__c = \'SYNCHRONOUS\', kern__UserId__c = UserInfo.getUserId());');
+		const seededId = await pollForSeededLogEntry(seedMarker);
+		expect(seededId, 'the seeded LogEntry__c row should be queryable').toBeTruthy();
+		test.info().annotations.push({type: 'notes', description: `opened the seeded log entry ${seededId}`});
 
 		const instanceUrl = getInstanceUrl();
-		await page.goto(`${instanceUrl}/lightning/r/kern__LogEntry__c/${records[0].Id}/view`, {waitUntil: 'domcontentloaded'});
+		await page.goto(`${instanceUrl}/lightning/r/kern__LogEntry__c/${seededId}/view`, {waitUntil: 'domcontentloaded'});
 		await waitForPageLoad(page);
 
 		const logEntries = new LogEntriesPage(page);
@@ -473,6 +536,10 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		{
 			await logEntries.clickRecordTab(tab);
 		}
+
+		// The seeded row is written directly, so it carries no origin or source, and it cannot be stamped here: a run
+		// against an older installed version has neither field. Remove it, so every entry left in the org names its writer.
+		executeAnonymousApex('delete [SELECT Id FROM kern__LogEntry__c WHERE kern__ShortMessage__c = \'' + seedMarker + '\'];');
 	});
 
 	test('V3: Scheduled Job Lifecycle + Timezone', async({page}) =>
@@ -547,7 +614,19 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		expect(await harness.isEmptyResponseVisible(), 'Reset should restore the empty-response placeholder').toBeTruthy();
 
 		await harness.selectDirection('Outbound');
+		await harness.selectService('Query Pwnd Passwords (REST)');
+		await expect.poll(() => harness.requiredParameterKeys(), {timeout: 10_000, message: 'The declared required input should be seeded as a locked row'}).toEqual(['password']);
+		expect(await harness.isExecuteEnabled(), 'Execute must wait for the required value').toBe(false);
+		expect((await harness.recordIdLabel()).trim(), 'A service that needs no record shows the field as optional').toContain('(optional)');
+		await harness.setParameter(0, null, 'Password123');
+		expect(await harness.isExecuteEnabled(), 'A filled required value enables Execute').toBe(true);
+		await harness.reset();
+
+		await harness.selectDirection('Outbound');
 		await harness.selectService('Echo Subscriber Service');
+		await expect.poll(() => harness.isExecuteEnabled(),
+				{timeout: 10_000, message: 'Echo declares no required input, so Execute enables once the service description has landed'}).toBe(true);
+		expect((await harness.recordIdLabel()).trim(), 'Echo declares no triggering record, so its Record ID reads optional too').toContain('(optional)');
 		await harness.setParameter(0, 'key', 'value');
 		await harness.addParameterRow();
 		await harness.setParameter(1, 'note', 'e2e harness row');
@@ -578,5 +657,11 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 
 		await expect(page.getByText('Service Name')).toBeVisible({timeout: 15_000});
 		await expect(page.getByText('Status', {exact: true})).toBeVisible();
+
+		// The package ships an Aborted list view on API Calls: the record first, then what the picker offers.
+		const abortedViews = soqlQuery(`SELECT Id FROM ListView WHERE SobjectType = '${namespacePrefix()}ApiCall__c' AND DeveloperName = 'Aborted'`);
+		expect(abortedViews.length, 'Expected the Aborted list view on API Calls').toBe(1);
+		const apiCalls = new ApiCallsPage(page);
+		expect(await apiCalls.isListViewOffered(ABORTED_LIST_VIEW), 'Expected the API Calls list-view picker to offer Aborted').toBe(true);
 	});
 });

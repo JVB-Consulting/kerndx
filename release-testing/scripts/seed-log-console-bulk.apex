@@ -5,6 +5,7 @@
 // Layers high-volume data on top of (or independently of) the shaped seed-log-console.apex so the
 // console can be exercised for PAGING and PERFORMANCE, and adds the Phase-3-specific scenarios:
 //   - SOSL body-only matches (a token present ONLY in Message__c / StackTrace__c, never ShortMessage__c)
+//   - a literal body-search row (a star and the word AND, as plain text, ONLY in Message__c)
 //   - correlation-searchable rows (a distinctive CorrelationId__c token)
 //   - NEW (first-seen < 180m) and RISING (last-seen < 12m AND count >= 200) recency-badge candidates
 //   - a suppressable non-ERROR class and an ERROR class whose suppression must be rejected
@@ -53,31 +54,37 @@ List<Map<String, Object>> specs = new List<Map<String, Object>>();
 // ---- Targeted Phase-3 scenarios (distinctive fingerprints for precise test assertions) ----
 
 // SOSL body-only match: the token APRICOTSWIFT lives only in Message__c + StackTrace__c, never ShortMessage__c.
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-sosl-body', 'LogLevel__c' => 'ERROR', 'ShortMessage__c' => 'Unhandled exception in handler', 'Message__c' => 'System.DmlException: APRICOTSWIFT constraint violated during upsert', 'StackTrace__c' => 'Class.OrderService.commitWork: line 77\nAPRICOTSWIFT_TRACE_MARKER', 'ExceptionType__c' => 'System.DmlException', 'ClassMethod__c' => 'OrderService.commitWork', 'LineNumber__c' => 77, 'ExecutionEvent__c' => 'SYNCHRONOUS', 'UserId__c' => me, '_cd' => t.addMinutes(-12)});
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:e2e-bulk-sosl-body:' + t.addMinutes(-12).formatGmt('yyyyMMdd'), 'LogLevel__c' => 'ERROR', 'OccurrenceCount__c' => 3, '_cd' => t.addMinutes(-12), '_lmd' => t.addMinutes(-6)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-sosl-body', 'LogLevel__c' => 'ERROR', 'ShortMessage__c' => 'Unhandled exception in handler', 'Message__c' => 'System.DmlException: APRICOTSWIFT constraint violated during upsert', 'StackTrace__c' => 'Class.OrderService.commitWork: line 77\nAPRICOTSWIFT_TRACE_MARKER', 'ExceptionType__c' => 'System.DmlException', 'ClassMethod__c' => 'OrderService.commitWork', 'Origin__c' => 'APEX', 'Source__c' => 'OrderService', 'LineNumber__c' => 77, 'ExecutionEvent__c' => 'SYNCHRONOUS', 'UserId__c' => me, '_cd' => t.addMinutes(-12)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:e2e-bulk-sosl-body:' + t.addMinutes(-12).formatGmt('yyyyMMdd'), 'LogLevel__c' => 'ERROR', 'Origin__c' => 'APEX', 'Source__c' => 'OrderService', 'OccurrenceCount__c' => 3, '_cd' => t.addMinutes(-12), '_lmd' => t.addMinutes(-6)});
+
+// Literal body search: the message holds a star and the word AND as plain text, and only the message holds them, so
+// a search for 'PEARLFINCH*3' or for 'reached AND PEARLFINCH' finds this entry through the body search alone.
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'e2e-bulk-literal-body', 'LogLevel__c' => 'INFO', 'ShortMessage__c' => 'Literal search sample',
+		'Message__c' => 'Quota PEARLFINCH*3 reached AND PEARLFINCH paused', 'ClassMethod__c' => 'QuotaGuard.check', 'Origin__c' => 'APEX',
+		'Source__c' => 'QuotaGuard', 'LineNumber__c' => 12, 'ExecutionEvent__c' => 'SYNCHRONOUS', 'UserId__c' => me, '_cd' => t.addMinutes(-14)});
 
 // Correlation-searchable: a distinctive correlation token to test free-text correlation search.
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'e2e-bulk-corrsearch', 'LogLevel__c' => 'INFO', 'ShortMessage__c' => 'Checkout step recorded', 'ClassMethod__c' => 'CartController.checkout', 'LineNumber__c' => 21, 'ExecutionEvent__c' => 'AURA', 'CorrelationId__c' => 'e2e-bulk-corr-MANGOLARK', 'TransactionId__c' => 'e2e-bulk-txn-cs', 'UserId__c' => me, '_cd' => t.addMinutes(-9)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'e2e-bulk-corrsearch', 'LogLevel__c' => 'INFO', 'ShortMessage__c' => 'Checkout step recorded', 'ClassMethod__c' => 'CartController.checkout', 'Origin__c' => 'APEX', 'Source__c' => 'CartController', 'LineNumber__c' => 21, 'ExecutionEvent__c' => 'AURA', 'CorrelationId__c' => 'e2e-bulk-corr-MANGOLARK', 'TransactionId__c' => 'e2e-bulk-txn-cs', 'UserId__c' => me, '_cd' => t.addMinutes(-9)});
 
 // NEW signature: first-seen 30m ago (< 180m) -> NEW badge; modest count.
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-new', 'LogLevel__c' => 'WARN', 'ShortMessage__c' => 'Newly appearing rate-limit warning', 'Message__c' => 'Throttled by downstream API (HTTP 429)', 'ClassMethod__c' => 'IntegrationService.push', 'LineNumber__c' => 144, 'ExecutionEvent__c' => 'FUTURE', 'UserId__c' => me, '_cd' => t.addMinutes(-30)});
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:e2e-bulk-new:' + t.addMinutes(-30).formatGmt('yyyyMMdd'), 'LogLevel__c' => 'WARN', 'OccurrenceCount__c' => 12, '_cd' => t.addMinutes(-30), '_lmd' => t.addMinutes(-10)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-new', 'LogLevel__c' => 'WARN', 'ShortMessage__c' => 'Newly appearing rate-limit warning', 'Message__c' => 'Throttled by downstream API (HTTP 429)', 'ClassMethod__c' => 'IntegrationService.push', 'Origin__c' => 'APEX', 'Source__c' => 'IntegrationService', 'LineNumber__c' => 144, 'ExecutionEvent__c' => 'FUTURE', 'UserId__c' => me, '_cd' => t.addMinutes(-30)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:e2e-bulk-new:' + t.addMinutes(-30).formatGmt('yyyyMMdd'), 'LogLevel__c' => 'WARN', 'Origin__c' => 'APEX', 'Source__c' => 'IntegrationService', 'OccurrenceCount__c' => 12, '_cd' => t.addMinutes(-30), '_lmd' => t.addMinutes(-10)});
 
 // RISING signature: last-seen 5m ago AND count >= 200 -> RISING badge.
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-rising', 'LogLevel__c' => 'ERROR', 'ShortMessage__c' => 'Spiking lock contention', 'Message__c' => 'UNABLE_TO_LOCK_ROW: rising contention on Account rollups', 'ExceptionType__c' => 'System.DmlException', 'ClassMethod__c' => 'LedgerJob.post', 'LineNumber__c' => 301, 'ExecutionEvent__c' => 'BATCH_APEX', 'UserId__c' => me, '_cd' => t.addHours(-2)});
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:e2e-bulk-rising:' + t.formatGmt('yyyyMMdd'), 'LogLevel__c' => 'ERROR', 'OccurrenceCount__c' => 260, '_cd' => t.addHours(-2), '_lmd' => t.addMinutes(-5)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-rising', 'LogLevel__c' => 'ERROR', 'ShortMessage__c' => 'Spiking lock contention', 'Message__c' => 'UNABLE_TO_LOCK_ROW: rising contention on Account rollups', 'ExceptionType__c' => 'System.DmlException', 'ClassMethod__c' => 'LedgerJob.post', 'Origin__c' => 'APEX', 'Source__c' => 'LedgerJob', 'LineNumber__c' => 301, 'ExecutionEvent__c' => 'BATCH_APEX', 'UserId__c' => me, '_cd' => t.addHours(-2)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:e2e-bulk-rising:' + t.formatGmt('yyyyMMdd'), 'LogLevel__c' => 'ERROR', 'Origin__c' => 'APEX', 'Source__c' => 'LedgerJob', 'OccurrenceCount__c' => 260, '_cd' => t.addHours(-2), '_lmd' => t.addMinutes(-5)});
 
 // Suppressable non-ERROR class (NoisyBatchJob) -> suppressClass('NoisyBatchJob','WARN') allowed.
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-suppressable', 'LogLevel__c' => 'WARN', 'ShortMessage__c' => 'Noisy batch chatter', 'Message__c' => 'Processed chunk 17 of 200', 'ClassMethod__c' => 'NoisyBatchJob.execute', 'LineNumber__c' => 52, 'ExecutionEvent__c' => 'BATCH_APEX', 'UserId__c' => me, '_cd' => t.addMinutes(-25)});
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:e2e-bulk-suppressable:' + t.addMinutes(-25).formatGmt('yyyyMMdd'), 'LogLevel__c' => 'WARN', 'OccurrenceCount__c' => 95, '_cd' => t.addMinutes(-25), '_lmd' => t.addMinutes(-3)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-suppressable', 'LogLevel__c' => 'WARN', 'ShortMessage__c' => 'Noisy batch chatter', 'Message__c' => 'Processed chunk 17 of 200', 'ClassMethod__c' => 'NoisyBatchJob.execute', 'Origin__c' => 'APEX', 'Source__c' => 'NoisyBatchJob', 'LineNumber__c' => 52, 'ExecutionEvent__c' => 'BATCH_APEX', 'UserId__c' => me, '_cd' => t.addMinutes(-25)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:e2e-bulk-suppressable:' + t.addMinutes(-25).formatGmt('yyyyMMdd'), 'LogLevel__c' => 'WARN', 'Origin__c' => 'APEX', 'Source__c' => 'NoisyBatchJob', 'OccurrenceCount__c' => 95, '_cd' => t.addMinutes(-25), '_lmd' => t.addMinutes(-3)});
 
 // ERROR class whose suppression must be rejected by the server guard.
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-errorclass', 'LogLevel__c' => 'ERROR', 'ShortMessage__c' => 'Critical failure (never suppressible)', 'Message__c' => 'System.CalloutException: gateway down', 'ExceptionType__c' => 'System.CalloutException', 'ClassMethod__c' => 'CriticalHandler.run', 'LineNumber__c' => 9, 'ExecutionEvent__c' => 'SYNCHRONOUS', 'UserId__c' => me, '_cd' => t.addMinutes(-15)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-errorclass', 'LogLevel__c' => 'ERROR', 'ShortMessage__c' => 'Critical failure (never suppressible)', 'Message__c' => 'System.CalloutException: gateway down', 'ExceptionType__c' => 'System.CalloutException', 'ClassMethod__c' => 'CriticalHandler.run', 'Origin__c' => 'APEX', 'Source__c' => 'CriticalHandler', 'LineNumber__c' => 9, 'ExecutionEvent__c' => 'SYNCHRONOUS', 'UserId__c' => me, '_cd' => t.addMinutes(-15)});
 
 // Custom-range-only rows: older than the 7d preset (surface only via a custom date range).
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-cr-15d', 'LogLevel__c' => 'INFO', 'ShortMessage__c' => 'Archived run 15 days ago', 'ClassMethod__c' => 'SyncScheduler.run', 'LineNumber__c' => 4, 'ExecutionEvent__c' => 'SCHEDULED', 'UserId__c' => me, '_cd' => t.addDays(-15)});
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:e2e-bulk-cr-15d:' + t.addDays(-15).formatGmt('yyyyMMdd'), 'LogLevel__c' => 'INFO', 'OccurrenceCount__c' => 30, '_cd' => t.addDays(-15), '_lmd' => t.addDays(-15)});
-specs.add(new Map<String, Object>{'Fingerprint__c' => 'e2e-bulk-cr-40d', 'LogLevel__c' => 'DEBUG', 'ShortMessage__c' => 'Very old plain entry (40d)', 'ClassMethod__c' => 'SyncScheduler.run', 'LineNumber__c' => 5, 'ExecutionEvent__c' => 'SCHEDULED', 'UserId__c' => me, '_cd' => t.addDays(-40)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:e2e-bulk-cr-15d', 'LogLevel__c' => 'INFO', 'ShortMessage__c' => 'Archived run 15 days ago', 'ClassMethod__c' => 'SyncScheduler.run', 'Origin__c' => 'APEX', 'Source__c' => 'SyncScheduler', 'LineNumber__c' => 4, 'ExecutionEvent__c' => 'SCHEDULED', 'UserId__c' => me, '_cd' => t.addDays(-15)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:e2e-bulk-cr-15d:' + t.addDays(-15).formatGmt('yyyyMMdd'), 'LogLevel__c' => 'INFO', 'Origin__c' => 'APEX', 'Source__c' => 'SyncScheduler', 'OccurrenceCount__c' => 30, '_cd' => t.addDays(-15), '_lmd' => t.addDays(-15)});
+specs.add(new Map<String, Object>{'Fingerprint__c' => 'e2e-bulk-cr-40d', 'LogLevel__c' => 'DEBUG', 'ShortMessage__c' => 'Very old plain entry (40d)', 'ClassMethod__c' => 'SyncScheduler.run', 'Origin__c' => 'APEX', 'Source__c' => 'SyncScheduler', 'LineNumber__c' => 5, 'ExecutionEvent__c' => 'SCHEDULED', 'UserId__c' => me, '_cd' => t.addDays(-40)});
 
 // ---- Bulk distinct signatures: 260 signatures (detail sample + one rollup each) ----
 for(Integer i = 0; i < 260; i++)
@@ -89,8 +96,8 @@ for(Integer i = 0; i < 260; i++)
 	Integer off = minuteOffsets[Math.mod(i, minuteOffsets.size())];
 	Datetime cd = t.addMinutes(-off);
 	Integer count = 5 + Math.mod(i * 7, 180);
-	specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:' + base, 'LogLevel__c' => lvl, 'ShortMessage__c' => 'Bulk signature ' + i + ' (' + cls + ')', 'Message__c' => 'Bulk signature ' + i + ' detail payload for ' + cls, 'ClassMethod__c' => cls + '.method' + Math.mod(i, 12), 'LineNumber__c' => 20 + Math.mod(i, 400), 'ExecutionEvent__c' => ctx, 'UserId__c' => me, 'DurationMs__c' => 50 + Math.mod(i * 13, 5000), '_cd' => cd});
-	specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:' + base + ':' + cd.formatGmt('yyyyMMdd'), 'LogLevel__c' => lvl, 'OccurrenceCount__c' => count, '_cd' => cd, '_lmd' => cd});
+	specs.add(new Map<String, Object>{'Fingerprint__c' => 'detail:' + base, 'LogLevel__c' => lvl, 'ShortMessage__c' => 'Bulk signature ' + i + ' (' + cls + ')', 'Message__c' => 'Bulk signature ' + i + ' detail payload for ' + cls, 'ClassMethod__c' => cls + '.method' + Math.mod(i, 12), 'Origin__c' => 'APEX', 'Source__c' => cls, 'LineNumber__c' => 20 + Math.mod(i, 400), 'ExecutionEvent__c' => ctx, 'UserId__c' => me, 'DurationMs__c' => 50 + Math.mod(i * 13, 5000), '_cd' => cd});
+	specs.add(new Map<String, Object>{'Fingerprint__c' => 'rollup:' + base + ':' + cd.formatGmt('yyyyMMdd'), 'LogLevel__c' => lvl, 'Origin__c' => 'APEX', 'Source__c' => cls, 'OccurrenceCount__c' => count, '_cd' => cd, '_lmd' => cd});
 }
 
 // ---- Bulk correlation chains: 15 chains x 4 hops (distinct CreatedDate, linked transactions) ----
@@ -100,7 +107,7 @@ for(Integer c = 0; c < 15; c++)
 	Datetime base = t.addHours(-Math.mod(c, 20) - 1);
 	for(Integer h = 0; h < 4; h++)
 	{
-		specs.add(new Map<String, Object>{'Fingerprint__c' => 'e2e-bulk-chainhop-' + c + '-' + h, 'LogLevel__c' => levels[Math.mod(h, levels.size())], 'ShortMessage__c' => 'Chain ' + c + ' hop ' + h, 'ClassMethod__c' => classes[Math.mod(c, classes.size())] + '.hop' + h, 'LineNumber__c' => 100 + h, 'ExecutionEvent__c' => contexts[Math.mod(h, contexts.size())], 'CorrelationId__c' => corr, 'TransactionId__c' => corr + '-txn-' + h, 'ParentTransactionId__c' => h == 0 ? null : corr + '-txn-' + (h - 1), 'UserId__c' => me, 'DurationMs__c' => 40 * (h + 1), '_cd' => base.addSeconds(h * 30)});
+		specs.add(new Map<String, Object>{'Fingerprint__c' => 'e2e-bulk-chainhop-' + c + '-' + h, 'LogLevel__c' => levels[Math.mod(h, levels.size())], 'ShortMessage__c' => 'Chain ' + c + ' hop ' + h, 'ClassMethod__c' => classes[Math.mod(c, classes.size())] + '.hop' + h, 'Origin__c' => 'APEX', 'Source__c' => classes[Math.mod(c, classes.size())], 'LineNumber__c' => 100 + h, 'ExecutionEvent__c' => contexts[Math.mod(h, contexts.size())], 'CorrelationId__c' => corr, 'TransactionId__c' => corr + '-txn-' + h, 'ParentTransactionId__c' => h == 0 ? null : corr + '-txn-' + (h - 1), 'UserId__c' => me, 'DurationMs__c' => 40 * (h + 1), '_cd' => base.addSeconds(h * 30)});
 	}
 }
 
@@ -114,7 +121,7 @@ for(Integer i = 0; i < 2600; i++)
 	String cls = classes[Math.mod(i * 3, classes.size())];
 	String ctx = contexts[Math.mod(i * 2, contexts.size())];
 	Integer off = minuteOffsets[Math.mod(i, minuteOffsets.size())] + Math.mod(i, 59);
-	specs.add(new Map<String, Object>{'TransactionId__c' => 'e2e-bulk-plain-' + i, 'LogLevel__c' => lvl, 'ShortMessage__c' => 'Bulk plain entry ' + i, 'ClassMethod__c' => cls + '.run', 'LineNumber__c' => 1 + Math.mod(i, 900), 'ExecutionEvent__c' => ctx, 'UserId__c' => me, '_cd' => t.addMinutes(-off)});
+	specs.add(new Map<String, Object>{'TransactionId__c' => 'e2e-bulk-plain-' + i, 'LogLevel__c' => lvl, 'ShortMessage__c' => 'Bulk plain entry ' + i, 'ClassMethod__c' => cls + '.run', 'Origin__c' => 'APEX', 'Source__c' => cls, 'LineNumber__c' => 1 + Math.mod(i, 900), 'ExecutionEvent__c' => ctx, 'UserId__c' => me, '_cd' => t.addMinutes(-off)});
 }
 
 // Build + insert in batches of 1000 to keep heap bounded.

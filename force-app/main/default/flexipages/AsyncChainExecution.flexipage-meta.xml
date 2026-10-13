@@ -103,6 +103,26 @@
             <fieldInstance>
                 <fieldInstanceProperties>
                     <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.ElapsedMs__c</fieldItem>
+                <identifier>RecordElapsedMs_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.LastManualRetryAt__c</fieldItem>
+                <identifier>RecordLastManualRetryAt_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
                     <value>readonly</value>
                 </fieldInstanceProperties>
                 <fieldItem>Record.AllowRestart__c</fieldItem>
@@ -331,6 +351,26 @@
                 </fieldInstanceProperties>
                 <fieldItem>Record.CorrelationId__c</fieldItem>
                 <identifier>RecordCorrelationId_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.LaunchCorrelationId__c</fieldItem>
+                <identifier>RecordLaunchCorrelationId_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.RootCorrelationId__c</fieldItem>
+                <identifier>RecordRootCorrelationId_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <itemInstances>

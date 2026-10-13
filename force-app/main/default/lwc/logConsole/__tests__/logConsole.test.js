@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for logConsole LWC container
  * @author Jason van Beukering
- * @date June 2026, August 2026
+ * @date June 2026, September 2026
  */
 import {createElement} from 'lwc';
 import LogConsole from 'c/logConsole';
@@ -18,6 +18,8 @@ import getDerivedProblemDetail from '@salesforce/apex/CTRL_LogConsole.getDerived
 import getApexNamespacePrefix from '@salesforce/apex/CTRL_LogConsole.getApexNamespacePrefix';
 import getLogSettingsSetupUrl from '@salesforce/apex/CTRL_LogConsole.getLogSettingsSetupUrl';
 import getCorrelatedTrace from '@salesforce/apex/CTRL_LogConsole.getCorrelatedTrace';
+import getActionSummary from '@salesforce/apex/CTRL_LogConsole.getActionSummary';
+import resolveSearchId from '@salesforce/apex/CTRL_LogConsole.resolveSearchId';
 
 // The namespace prefix and the Log Settings URL are the console's two @wires onto Apex, so each needs a real
 // test wire adapter (emit / error) rather than the resolved-promise stand-in the transformer gives an
@@ -41,6 +43,14 @@ jest.mock('@salesforce/label/c.LogConsole_ClearAll', () => ({default: 'Clear all
 jest.mock('@salesforce/label/c.LogConsole_SearchPlaceholder', () => ({default: 'Search'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_AllContexts', () => ({default: 'All contexts'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_ContextFilter', () => ({default: 'Execution context'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginGroupLabel', () => ({default: 'Origin'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginFilter', () => ({default: 'Origin'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_AllOrigins', () => ({default: 'All origins'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginFramework', () => ({default: 'Framework'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginApex', () => ({default: 'Apex'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginFlow', () => ({default: 'Flow'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginComponent', () => ({default: 'Component'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginMixed', () => ({default: 'Mixed'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_TotalOccurrences', () => ({default: 'Total occurrences'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_TotalsApproximate', () => ({default: 'Totals approximate'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_TotalsApproximateHelp',
@@ -106,6 +116,13 @@ jest.mock('@salesforce/label/c.LogConsole_ColCount', () => ({default: 'Count'}),
 jest.mock('@salesforce/label/c.LogConsole_ColLastSeen', () => ({default: 'Last seen'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_ColTime', () => ({default: 'Time'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_ColCorrelation', () => ({default: 'Correlation'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ColChain', () => ({default: 'Chain'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ChainThisAction', () => ({default: 'this action'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_EntriesPosition', () => ({default: 'Rows {0} to {1} of {2}'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_PerPage', () => ({default: '{0} per page'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_BackToList', () => ({default: 'Back to the list'}), {virtual: true});
+jest.mock('@salesforce/label/c.PaginatedTable_Previous', () => ({default: 'Previous'}), {virtual: true});
+jest.mock('@salesforce/label/c.PaginatedTable_Next', () => ({default: 'Next'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_LevelGroupLabel', () => ({default: 'Log levels'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_ViewGroupLabel', () => ({default: 'View'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_LevelsGroupLabel', () => ({default: 'Levels'}), {virtual: true});
@@ -136,6 +153,28 @@ jest.mock('@salesforce/label/c.LogConsole_ContextAura', () => ({default: 'Aura /
 jest.mock('@salesforce/label/c.LogConsole_ContextRest', () => ({default: 'REST API'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_ContextSynchronous', () => ({default: 'Synchronous'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_ContextAnonymous', () => ({default: 'Anonymous Apex'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionPill', () => ({default: 'Action: {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ChainPill', () => ({default: 'Chain: {0} · {1}'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionRangeNote', () => ({default: 'Date range set to this action\'s lifetime.'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionBannerEyebrow', () => ({default: 'Everything this action did'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionBannerStarted', () => ({default: 'This action started on'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionBannerRanFor', () => ({default: 'and ran for {0}.'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionBannerStillRunning', () => ({default: 'and is still running after {0}.'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionBannerChains', () => ({default: 'It ran {0} chains, {1} of them failed.'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionBannerNoChains', () => ({default: 'No chains ran under it.'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionBannerLegacy', () => ({default: 'This action was recorded before chains were tracked by action.'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionChipLaunchedBy', () => ({default: 'launched by {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionMoreChains', () => ({default: 'and {0} more chains'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ActionOpenChains', () => ({default: 'Open the chains in the Chain Monitor'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_CappedBannerAction',
+		() => ({default: 'Counted the first {0} matches, and there may be more. Narrow to one chain or a shorter range to see the rest.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusRunning', () => ({default: 'Running'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusCompleted', () => ({default: 'Completed'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusFailed', () => ({default: 'Failed'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusAborted', () => ({default: 'Aborted'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StatusStalled', () => ({default: 'Stalled'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_RestartOf', () => ({default: 'restart of {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StartedThisAction', () => ({default: 'started this action'}), {virtual: true});
 
 const DEFAULT_WINDOW_MINUTES = 1440;
 const SEVEN_DAY_WINDOW_MINUTES = 10080;
@@ -210,8 +249,8 @@ const MOCK_SUMMARY = {
 		{level: 'ERROR', occurrences: 1284, distinctCount: 1},
 		{level: 'WARN', occurrences: 96, distinctCount: 1}
 	], topSources: [
-		{name: 'AcctHandler', count: 1284, percent: 93},
-		{name: 'Breaker', count: 96, percent: 7}
+		{name: 'AcctHandler', origin: 'APEX', count: 1284, percent: 93},
+		{name: 'Breaker', origin: 'FRAMEWORK', count: 96, percent: 7}
 	]
 };
 const MOCK_ENTRY_SUMMARY = {
@@ -219,8 +258,8 @@ const MOCK_ENTRY_SUMMARY = {
 		{level: 'ERROR', rowCount: 30},
 		{level: 'WARN', rowCount: 12}
 	], topSources: [
-		{name: 'Chain', count: 30, percent: 71},
-		{name: 'Breaker', count: 12, percent: 29}
+		{name: 'Chain', origin: 'FRAMEWORK', count: 30, percent: 71},
+		{name: 'Breaker', origin: 'FRAMEWORK', count: 12, percent: 29}
 	]
 };
 const MOCK_DETAIL = {
@@ -270,6 +309,35 @@ const MOCK_TRACE = [
 	}
 ];
 
+const ACTION_ID = 'a7d2f4c1-1111-4111-8111-00000000f13a';
+const ACTION_START = '2026-09-01T10:00:00.000Z';
+const ACTION_END = '2026-09-01T10:03:00.000Z';
+const CHIP_A = {executionId: 'a00A', chainName: 'OrderSync', chainNumber: 'CHAIN-00214', correlationId: 'run-a', status: 'Failed', launchKind: 'ACTION', launcherName: null};
+const CHIP_B = {
+	executionId: 'a00B', chainName: 'Ledger', chainNumber: 'CHAIN-00215', correlationId: 'run-b', status: 'Completed', launchKind: 'CHAIN', launcherName: 'OrderSync · CHAIN-00214'
+};
+const MOCK_ACTION_SUMMARY = {
+	rootCorrelationId: ACTION_ID,
+	startedAt: ACTION_START,
+	endedAt: ACTION_END,
+	stillRunning: false,
+	recordedBeforeRoots: false,
+	chainCount: 7,
+	failedCount: 1,
+	durationLabel: '3m',
+	chains: [
+		CHIP_A,
+		CHIP_B
+	],
+	moreChainCount: 5
+};
+const RUNNING_ACTION_SUMMARY = {...MOCK_ACTION_SUMMARY, endedAt: null, stillRunning: true, durationLabel: '8s', chainCount: 0, failedCount: 0, chains: [], moreChainCount: 0};
+const LEGACY_ACTION_SUMMARY = {
+	...MOCK_ACTION_SUMMARY, recordedBeforeRoots: true, chainCount: 1, failedCount: 0, chains: [{...CHIP_B, launchKind: 'ORIGIN', launcherName: null}], moreChainCount: 0
+};
+// One minute either side of the action's span, in milliseconds.
+const ACTION_RANGE_MARGIN_MILLISECONDS = 60000;
+
 function wireMockResponses(overrides = {})
 {
 	const responseByMethod = new Map([
@@ -300,14 +368,23 @@ function wireMockResponses(overrides = {})
 		[
 			getCorrelatedTrace,
 			overrides.trace ?? {entries: MOCK_TRACE, truncated: false}
+		],
+		[
+			getActionSummary,
+			overrides.actionSummary ?? MOCK_ACTION_SUMMARY
+		],
+		[
+			resolveSearchId,
+			overrides.resolvedSearchId ?? {kind: 'NONE'}
 		]
 	]);
 	mockCallControllerMethod.mockImplementation((apexFn) => Promise.resolve(responseByMethod.has(apexFn) ? responseByMethod.get(apexFn) : null));
 }
 
 // Answers both list methods with a page that echoes the page the request asked for, so a test can
-// walk endless scroll as deep as it needs in either view. Each page carries one row, so appended
-// rows are countable. The two ribbons answer with the usual aggregates.
+// walk the pager as deep as it needs in either view. Each page carries one row, so the rows on
+// screen are countable and a page turn is visible as a replacement. The two ribbons answer with the
+// usual aggregates.
 function wirePagedResponses(totalPages)
 {
 	mockCallControllerMethod.mockImplementation((apexFn, params) =>
@@ -409,6 +486,13 @@ function columnFieldNames(element)
 async function selectRow(element, id)
 {
 	table(element).dispatchEvent(new CustomEvent('rowselection', {detail: {selectedRows: [{id, rowKey: id}]}}));
+	await flushAll();
+}
+
+// Turns the list to the next page the way a reader does: the pager's own Next button.
+async function turnToNextPage(element)
+{
+	element.shadowRoot.querySelector('[data-testid="pager-next"]').click();
 	await flushAll();
 }
 
@@ -518,16 +602,13 @@ describe('c-log-console', () =>
 			wirePagedResponses(3);
 			const element = await createComponent();
 
-			// The console only reaches page three through its public surface — two rounds of endless
-			// scroll. Setting pageNumber on the host would not reach component state (the container
-			// declares no @api members), so the reset would appear to work even if it were deleted.
-			table(element).dispatchEvent(new CustomEvent('loadmore'));
-			await flushAll();
+			// The console only reaches page three through its public surface: two turns of the pager.
+			// Setting pageNumber on the host would not reach component state (the container declares
+			// no @api members), so the reset would appear to work even if it were deleted.
+			await turnToNextPage(element);
 			expect(lastRequestFor(getLogProblems).pageNumber).toBe(2);
-			table(element).dispatchEvent(new CustomEvent('loadmore'));
-			await flushAll();
+			await turnToNextPage(element);
 			expect(lastRequestFor(getLogProblems).pageNumber).toBe(3);
-			expect(table(element).data.length).toBe(3);
 			mockCallControllerMethod.mockClear();
 
 			levelButton(element, 'INFO').dispatchEvent(new CustomEvent('click'));
@@ -536,8 +617,8 @@ describe('c-log-console', () =>
 			const request = lastRequestFor(getLogProblems);
 			expect(request.pageNumber).toBe(1);
 			expect(request.levels).toContain('INFO');
-			// Page one replaces the three scrolled-through rows rather than appending to them.
-			expect(table(element).data.length).toBe(1);
+			// Page one is what the list shows again; each page of this fixture carries a single row.
+			expect(table(element).data.map((row) => row.logNumber)).toEqual(['L-101']);
 		});
 
 		it('drops a level from the query when an already-active level is toggled off', async() =>
@@ -911,7 +992,9 @@ describe('c-log-console', () =>
 			await flushAll();
 			element.shadowRoot.querySelector('[data-testid="source-row"]').click();
 			await flushAll();
-			expect(lastRequestFor(getLogProblems).searchTerm).toBe('AcctHandler');
+			expect(lastRequestFor(getLogProblems).searchTerm).toBeNull();
+			expect(lastRequestFor(getLogProblems).source).toBe('AcctHandler');
+			expect(lastRequestFor(getLogProblems).origins).toEqual(['APEX']);
 			mockCallControllerMethod.mockClear();
 
 			CurrentPageReference.emit({state: {c__correlationId: 'deep-stale'}});
@@ -922,6 +1005,8 @@ describe('c-log-console', () =>
 			const request = lastRequestFor(getLogEntries);
 			expect(request.searchTerm).toBeNull();
 			expect(request.executionEvents).toEqual([]);
+			expect(request.origins).toEqual([]);
+			expect(request.source).toBeNull();
 			expect(element.shadowRoot.querySelector('.filter-search').value).toBe('');
 			expect(element.shadowRoot.querySelector('.filter-combobox').value).toBe('');
 		});
@@ -962,6 +1047,104 @@ describe('c-log-console', () =>
 			expect(customRangeInstant(element, 'toDate', 'toTime')).toBe(new Date(request.customEnd).setMilliseconds(0));
 		});
 
+		describe('refreshing a range a deep link set', () =>
+		{
+			const LINK_START = '2026-06-01T09:00:00.000Z';
+			const LINK_END = '2026-06-01T09:04:00.000Z';
+			const FIRST_LOOK = new Date('2026-06-01T09:05:00.000Z');
+			const SECOND_LOOK = new Date('2026-06-01T09:12:30.000Z');
+			const READER_WINDOW_MINUTES = 60;
+
+			beforeEach(() =>
+			{
+				jest.useFakeTimers();
+				jest.setSystemTime(FIRST_LOOK);
+			});
+
+			afterEach(() => jest.useRealTimers());
+
+			async function followLink(state)
+			{
+				const element = await createComponent();
+				CurrentPageReference.emit({state});
+				await flushAll();
+				return element;
+			}
+
+			async function refreshLater(element)
+			{
+				mockCallControllerMethod.mockClear();
+				jest.setSystemTime(SECOND_LOOK);
+				buttonByLabel(element, 'Refresh').click();
+				await flushAll();
+				await flushAll();
+				return lastRequestFor(getLogEntries);
+			}
+
+			it('moves the end of an open-ended deep link to now on every refresh while the run is still going', async() =>
+			{
+				const element = await followLink({c__correlationId: 'deep-open-ended', c__windowStart: LINK_START});
+				expect(lastRequestFor(getLogEntries).customEnd).toBe(FIRST_LOOK.toISOString());
+
+				const request = await refreshLater(element);
+
+				expect(request.customStart).toBe(LINK_START);
+				expect(request.customEnd).toBe(SECOND_LOOK.toISOString());
+				expect(customRangeInstant(element, 'toDate', 'toTime')).toBe(SECOND_LOOK.getTime());
+			});
+
+			it('leaves a preset the reader chose after following an open-ended link in place', async() =>
+			{
+				const element = await followLink({c__correlationId: 'deep-open-ended', c__windowStart: LINK_START});
+				dateRangeCombobox(element).dispatchEvent(new CustomEvent('change', {detail: {value: String(READER_WINDOW_MINUTES)}}));
+				await flushAll();
+
+				const request = await refreshLater(element);
+
+				expect(request.windowMinutes).toBe(READER_WINDOW_MINUTES);
+				expect(request.customStart).toBeNull();
+				expect(request.customEnd).toBeNull();
+			});
+
+			it('leaves a custom end the reader typed after following an open-ended link where they put it', async() =>
+			{
+				const element = await followLink({c__correlationId: 'deep-edited', c__windowStart: LINK_START});
+				// The reader types the To time they want: one minute after the instant the link filled in.
+				const readerEnd = new Date(FIRST_LOOK.getTime() + 60000);
+				const twoDigits = (value) => String(value).padStart(2, '0');
+				setCustomField(element, 'toTime', `${twoDigits(readerEnd.getHours())}:${twoDigits(readerEnd.getMinutes())}:00`);
+				await flushAll();
+
+				const request = await refreshLater(element);
+
+				expect(request.customEnd).toBe(readerEnd.toISOString());
+				expect(customRangeInstant(element, 'toDate', 'toTime')).toBe(readerEnd.getTime());
+			});
+
+			it('stops moving the end once the reader removes the run the open-ended link pinned', async() =>
+			{
+				const element = await followLink({c__correlationId: 'deep-open-ended', c__windowStart: LINK_START});
+				element.shadowRoot.querySelector('[data-testid="correlation-pill"]').dispatchEvent(new CustomEvent('remove'));
+				await flushAll();
+
+				const request = await refreshLater(element);
+
+				expect(request.correlationId).toBeNull();
+				expect(request.customEnd).toBe(FIRST_LOOK.toISOString());
+			});
+
+			it('leaves the end a deep link carried exactly as the link gave it', async() =>
+			{
+				const element = await followLink({c__correlationId: 'deep-bounded', c__windowStart: LINK_START, c__windowEnd: LINK_END});
+
+				const request = await refreshLater(element);
+
+				expect(request.customStart).toBe(LINK_START);
+				expect(request.customEnd).toBe(LINK_END);
+				expect(customRangeInstant(element, 'toDate', 'toTime')).toBe(new Date(LINK_END).getTime());
+			});
+		});
+
 		it('lands a correlation deep link that arrives before the console mounts', async() =>
 		{
 			const element = createElement('c-log-console', {is: LogConsole});
@@ -971,6 +1154,9 @@ describe('c-log-console', () =>
 			// problems view must never be queried, or the operator sees the wrong list flash by first.
 			CurrentPageReference.emit({state: {c__correlationId: 'deep-premount'}});
 			document.body.appendChild(element);
+			// Twice: the pill's chain is named through the resolver alongside the first load rather than before it, so
+			// the naming read and the list's answers land a tick apart.
+			await flushAll();
 			await flushAll();
 
 			const request = lastRequestFor(getLogEntries);
@@ -983,7 +1169,7 @@ describe('c-log-console', () =>
 			// second, identical pair of queries whose results the request-sequence guard only throws away.
 			expect(callCountFor(getLogEntries)).toBe(1);
 			expect(callCountFor(getEntrySummary)).toBe(1);
-			expect(columnFieldNames(element)).toContain('correlationId');
+			expect(columnFieldNames(element)).toContain('chainDisplay');
 			expect(element.shadowRoot.querySelector('[data-testid="correlation-pill"]').label).toContain('deep-premount');
 		});
 
@@ -1001,23 +1187,30 @@ describe('c-log-console', () =>
 			expect(element.shadowRoot.querySelector('[data-testid="correlation-pill"]')).toBeNull();
 		});
 
-		it('consumes a deep link once, so a re-delivered page reference cannot re-pin a cleared correlation', async() =>
+		it('pins the run again when the address a consumed hand-off was rewritten to comes back, window and all', async() =>
 		{
 			const element = await createComponent();
-			CurrentPageReference.emit({state: {c__correlationId: 'deep-1', c__windowStart: DEEP_LINK_START, c__windowEnd: DEEP_LINK_END}});
+			CurrentPageReference.emit({state: {c__correlationId: 'deep-1', c__windowStart: DEEP_LINK_START, c__windowEnd: DEEP_LINK_END, c__viewLogsAt: '1000'}});
 			await flushAll();
-			element.shadowRoot.querySelector('[data-testid="correlation-pill"]').dispatchEvent(new CustomEvent('remove'));
 			await flushAll();
+			buttonByLabel(element, 'Clear all').dispatchEvent(new CustomEvent('click'));
+			await flushAll();
+			expect(element.shadowRoot.querySelector('[data-testid="correlation-pill"]')).toBeNull();
+			expect(dateRangeCombobox(element).value).toBe('1440');
 			mockCallControllerMethod.mockClear();
 
-			// The temporary tab the hand-off opened keeps the handoff URL, so every return to the console
-			// re-delivers the SAME page reference. A link is consumed once per console: what the reader
-			// cleared stays cleared.
+			// The plain address the hand-off was rewritten to arrives again, the keys without the stamp: a link someone
+			// shared, or Forward onto a later entry carrying it. That address IS the pinned state, so the run comes
+			// back with the window it travelled with, however the reader had cleared it since.
 			CurrentPageReference.emit({state: {c__correlationId: 'deep-1', c__windowStart: DEEP_LINK_START, c__windowEnd: DEEP_LINK_END}});
 			await flushAll();
+			await flushAll();
 
-			expect(mockCallControllerMethod).not.toHaveBeenCalled();
-			expect(element.shadowRoot.querySelector('[data-testid="correlation-pill"]')).toBeNull();
+			expect(element.shadowRoot.querySelector('[data-testid="correlation-pill"]').label).toContain('deep-1');
+			const request = lastRequestFor(getLogEntries);
+			expect(request.correlationId).toBe('deep-1');
+			expect(request.customStart).toBe(DEEP_LINK_START);
+			expect(request.customEnd).toBe(DEEP_LINK_END);
 		});
 
 		it('applies the same chain again when View logs is clicked afresh, because each click carries its own stamp', async() =>
@@ -1141,16 +1334,37 @@ describe('c-log-console', () =>
 			const element = await createComponent();
 			CurrentPageReference.emit({type: 'standard__navItemPage', attributes: {apiName: 'LogConsole'}, state: {c__correlationId: 'deep-1'}});
 			await flushAll();
-			// The platform later reports a reference with neither attributes nor state; the replace target is
-			// rebuilt from exactly what the platform said, empty bags and all.
+			await flushAll();
+			expect(element.shadowRoot.querySelector('[data-testid="correlation-pill"]')).toBeTruthy();
+
+			// The platform later reports a reference with neither attributes nor state: an address with no console key
+			// pins nothing, so the run is unpinned, and the next address the console writes is rebuilt from exactly what
+			// the platform said, empty bags and all.
 			CurrentPageReference.emit({type: 'standard__webPage'});
 			await flushAll();
+			expect(element.shadowRoot.querySelector('[data-testid="correlation-pill"]')).toBeNull();
+			wireMockResponses({resolvedSearchId: {kind: 'ACTION', id: ACTION_ID}});
 			mockNavigate.mockClear();
 
-			element.shadowRoot.querySelector('[data-testid="correlation-pill"]').dispatchEvent(new CustomEvent('remove'));
-			await flushAll();
+			// A pasted action id is the in-place pin available here: the banner's chips belong to an action, and there
+			// is none pinned any more.
+			jest.useFakeTimers();
+			try
+			{
+				const search = element.shadowRoot.querySelector('.filter-search');
+				search.value = ACTION_ID;
+				search.dispatchEvent(new CustomEvent('change'));
+				jest.advanceTimersByTime(300);
+				await flushAll();
+				await flushAll();
+			}
+			finally
+			{
+				jest.useRealTimers();
+			}
 
-			expect(mockNavigate.mock.calls[0][0]).toEqual({type: 'standard__webPage', attributes: {}, state: {}});
+			expect(mockNavigate.mock.calls[0][0]).toEqual({type: 'standard__webPage', attributes: {}, state: {c__rootCorrelationId: ACTION_ID}});
+			expect(mockNavigate.mock.calls[0][1]).toBe(false);
 		});
 
 		it('leaves the URL alone when the console was never deep-linked', async() =>
@@ -1193,6 +1407,13 @@ describe('c-log-console', () =>
 		{
 			const element = await createComponent();
 
+			// Both views show the writer in the Source column, so both draw it with the cell type that can put
+			// the origin beside the name; both still sort on it.
+			const problemSource = table(element).columns.find((column) => column.fieldName === 'sourceDisplay');
+			expect(problemSource.type).toBe('writerSource');
+			expect(problemSource.sortable).toBe(true);
+			expect(problemSource.typeAttributes.originLabel.fieldName).toBe('writerOriginLabel');
+
 			expect(columnFieldNames(element)).toEqual([
 				'logNumberDisplay',
 				'level',
@@ -1215,13 +1436,18 @@ describe('c-log-console', () =>
 				'shortMessage',
 				'sourceDisplay',
 				'contextDisplay',
-				'correlationId'
+				'chainDisplay'
 			]);
 			expect(entryCols).not.toContain('userId');
 			expect(entryCols).not.toContain('occurrenceCount');
-			// context and correlation resolve to server-side sort keys (executionEvent / correlationId), so both advertise sortability
+			// Context resolves to a server-side sort key (executionEvent), so it advertises sortability; Chain is a name
+			// and a number the client composed, and sorting on what lies under it would order chains by their UUIDs.
 			expect(entryColumns.find((column) => column.fieldName === 'contextDisplay').sortable).toBe(true);
-			expect(entryColumns.find((column) => column.fieldName === 'correlationId').sortable).toBe(true);
+			expect(entryColumns.find((column) => column.fieldName === 'chainDisplay').sortable).toBe(false);
+			const entrySource = entryColumns.find((column) => column.fieldName === 'sourceDisplay');
+			expect(entrySource.type).toBe('writerSource');
+			expect(entrySource.sortable).toBe(true);
+			expect(entrySource.typeAttributes.originLabel.fieldName).toBe('writerOriginLabel');
 		});
 
 		it('renders the log-number column as a record link', async() =>
@@ -1254,12 +1480,51 @@ describe('c-log-console', () =>
 
 		it('humanises the execution context and builds the source and record link per row', async() =>
 		{
+			// A Flow writes under a bridge class, so its stored location is text the class and method could
+			// never compose: it is the row that tells the two apart. The same for the Mixed row, whose stored
+			// location names a different class from the one the wire recorded.
+			const stored = {...PROBLEM_ROWS[0], writerName: 'Order Intake', writerOrigin: 'FLOW', writerLocation: 'Order Intake.Decide:12'};
+			const mixed = {...PROBLEM_ROWS[1], writerName: 'Breaker', writerOrigin: 'MIXED', writerLocation: 'CircuitBreaker.guard:9'};
+			const unmappedOrigin = {...PROBLEM_ROWS[1], id: '001p4', writerName: 'Agent', writerOrigin: 'AGENT', writerLocation: 'Agent.reply:7'};
+			const withoutWriter = {...PROBLEM_ROWS[1], id: '001p3'};
+			// The logger stamps an origin on every entry and a writer's name only when it knew the class and
+			// method behind it, so this row has an origin and nobody to show it beside.
+			const originOnly = {...PROBLEM_ROWS[1], id: '001p5', writerOrigin: 'APEX'};
+			wireMockResponses({
+				problems: {
+					...MOCK_PROBLEM_PAGE, records: [
+						stored,
+						mixed,
+						unmappedOrigin,
+						withoutWriter,
+						originOnly
+					]
+				}
+			});
 			const element = await createComponent();
 
-			const firstRow = table(element).data[0];
-			expect(firstRow.contextDisplay).toBe('Batch Apex');
-			expect(firstRow.sourceDisplay).toBe('AcctHandler.run:42');
-			expect(firstRow.recordUrl).toBe('/lightning/r/001p1/view');
+			const rows = table(element).data;
+			// The Source cell shows the location the entry stored for its writer, and names who that writer was
+			// beside it. The origin travels as its readable label, so the cell never shows a raw enum value.
+			expect(rows[0].contextDisplay).toBe('Batch Apex');
+			expect(rows[0].sourceDisplay).toBe('Order Intake.Decide:12');
+			expect(rows[0].writerOriginLabel).toBe('Flow');
+			expect(rows[0].recordUrl).toBe('/lightning/r/001p1/view');
+			// A problem folded from rows written under more than one origin reads Mixed, the same word the
+			// Top sources card uses for it, and still shows the location it stored rather than its class text.
+			expect(rows[1].sourceDisplay).toBe('CircuitBreaker.guard:9');
+			expect(rows[1].writerOriginLabel).toBe('Mixed');
+			// An origin the console has no name for still has to reach the cell, exactly as an unmapped
+			// execution context does: a row that says nothing about who wrote it reads as data gone missing.
+			expect(rows[2].sourceDisplay).toBe('Agent.reply:7');
+			expect(rows[2].writerOriginLabel).toBe('AGENT');
+			// A row that stored no writer reads exactly as it did before, and has nothing to put in a pill.
+			expect(rows[3].sourceDisplay).toBe('Breaker.guard:9');
+			expect(rows[3].writerOriginLabel).toBeNull();
+			// A row that stored an origin but no writer's name reads the same way: the pill says who wrote the
+			// name beside it, so with no name shown there is nothing for it to describe.
+			expect(rows[4].sourceDisplay).toBe('Breaker.guard:9');
+			expect(rows[4].writerOriginLabel).toBeNull();
 		});
 
 		it('keeps the wire provenance intact beside the class and method string', async() =>
@@ -1308,7 +1573,9 @@ describe('c-log-console', () =>
 			mockCallControllerMethod.mockClear();
 			table(element).dispatchEvent(new CustomEvent('sort', {detail: {fieldName: 'sourceDisplay', sortDirection: 'asc'}}));
 			await flushAll();
-			expect(lastRequestFor(getLogProblems).sortField).toBe('className');
+			// The column shows the writer the entry stored, so that is what the server orders on; sorting on the
+			// class name would order the list by something the cell no longer shows.
+			expect(lastRequestFor(getLogProblems).sortField).toBe('writerName');
 			// the sort-arrow indicator stays on the Source column, not the wire key
 			expect(table(element).sortedBy).toBe('sourceDisplay');
 
@@ -1351,22 +1618,21 @@ describe('c-log-console', () =>
 
 	describe('sort persistence and continuity', () =>
 	{
-		// Puts the console on a non-default sort (Last seen, ascending — the defaults are occurrence
+		// Puts the console on a non-default sort (Last seen, ascending; the defaults are occurrence
 		// count, descending) AND past page one, so the assertions each test then makes about the sort
 		// surviving and the page resetting to one cannot pass by accident.
-		async function sortByLastSeenThenLoadPageTwo(element)
+		async function sortByLastSeenThenTurnToPageTwo(element)
 		{
 			table(element).dispatchEvent(new CustomEvent('sort', {detail: {fieldName: 'lastSeen', sortDirection: 'asc'}}));
 			await flushAll();
-			table(element).dispatchEvent(new CustomEvent('loadmore'));
-			await flushAll();
+			await turnToNextPage(element);
 		}
 
 		it('keeps the chosen sort when a level filter is toggled', async() =>
 		{
 			wirePagedResponses(3);
 			const element = await createComponent();
-			await sortByLastSeenThenLoadPageTwo(element);
+			await sortByLastSeenThenTurnToPageTwo(element);
 			expect(lastRequestFor(getLogProblems).pageNumber).toBe(2);
 			mockCallControllerMethod.mockClear();
 
@@ -1386,7 +1652,7 @@ describe('c-log-console', () =>
 		{
 			wirePagedResponses(3);
 			const element = await createComponent();
-			await sortByLastSeenThenLoadPageTwo(element);
+			await sortByLastSeenThenTurnToPageTwo(element);
 			expect(lastRequestFor(getLogProblems).pageNumber).toBe(2);
 			mockCallControllerMethod.mockClear();
 
@@ -1407,7 +1673,7 @@ describe('c-log-console', () =>
 			{
 				wirePagedResponses(3);
 				const element = await createComponent();
-				await sortByLastSeenThenLoadPageTwo(element);
+				await sortByLastSeenThenTurnToPageTwo(element);
 				expect(lastRequestFor(getLogProblems).pageNumber).toBe(2);
 				mockCallControllerMethod.mockClear();
 
@@ -1433,7 +1699,7 @@ describe('c-log-console', () =>
 		{
 			wirePagedResponses(3);
 			const element = await createComponent();
-			await sortByLastSeenThenLoadPageTwo(element);
+			await sortByLastSeenThenTurnToPageTwo(element);
 			expect(lastRequestFor(getLogProblems).pageNumber).toBe(2);
 			mockCallControllerMethod.mockClear();
 
@@ -1453,10 +1719,9 @@ describe('c-log-console', () =>
 			const element = await createComponent();
 			buttonByLabel(element, 'Individual entries').dispatchEvent(new CustomEvent('click'));
 			await flushAll();
-			table(element).dispatchEvent(new CustomEvent('sort', {detail: {fieldName: 'correlationId', sortDirection: 'asc'}}));
+			table(element).dispatchEvent(new CustomEvent('sort', {detail: {fieldName: 'shortMessage', sortDirection: 'asc'}}));
 			await flushAll();
-			table(element).dispatchEvent(new CustomEvent('loadmore'));
-			await flushAll();
+			await turnToNextPage(element);
 			expect(lastRequestFor(getLogEntries).pageNumber).toBe(2);
 			mockCallControllerMethod.mockClear();
 
@@ -1464,7 +1729,7 @@ describe('c-log-console', () =>
 			await flushAll();
 
 			const request = lastRequestFor(getLogEntries);
-			expect(request.sortField).toBe('correlationId');
+			expect(request.sortField).toBe('shortMessage');
 			expect(request.sortAscending).toBe(true);
 			expect(request.pageNumber).toBe(1);
 			expect(request.levels).toContain('INFO');
@@ -1488,7 +1753,7 @@ describe('c-log-console', () =>
 			expect(lastRequestFor(getLogProblems).sortAscending).toBe(false);
 		});
 
-		it('re-sends the chosen sort with the next page when endless scroll asks for more', async() =>
+		it('re-sends the chosen sort with the next page the pager asks for', async() =>
 		{
 			wirePagedResponses(3);
 			const element = await createComponent();
@@ -1497,29 +1762,29 @@ describe('c-log-console', () =>
 			expect(lastRequestFor(getLogProblems).pageNumber).toBe(1);
 			mockCallControllerMethod.mockClear();
 
-			table(element).dispatchEvent(new CustomEvent('loadmore'));
-			await flushAll();
+			await turnToNextPage(element);
 
-			// Scrolling on must continue the same ordering, or the appended rows interleave with the
-			// rows already on screen and the list stops being a single sorted sequence.
+			// The next page must continue the same ordering, or page two is a slice of a different
+			// sequence and the list stops being one sorted list read a page at a time.
 			const request = lastRequestFor(getLogProblems);
-			expect(request.sortField).toBe('className');
+			expect(request.sortField).toBe('writerName');
 			expect(request.sortAscending).toBe(true);
 			expect(request.pageNumber).toBe(2);
-			expect(table(element).data.length).toBe(2);
+			// The page replaces the rows rather than adding to them: page two's row, and only it.
+			expect(table(element).data.map((row) => row.logNumber)).toEqual(['L-102']);
 		});
 
-		it('sends the server sort key for the entries-view Correlation and Context columns', async() =>
+		it('sends the server sort key for the entries-view Source and Context columns', async() =>
 		{
 			const element = await createComponent();
 			buttonByLabel(element, 'Individual entries').dispatchEvent(new CustomEvent('click'));
 			await flushAll();
 
 			mockCallControllerMethod.mockClear();
-			table(element).dispatchEvent(new CustomEvent('sort', {detail: {fieldName: 'correlationId', sortDirection: 'asc'}}));
+			table(element).dispatchEvent(new CustomEvent('sort', {detail: {fieldName: 'sourceDisplay', sortDirection: 'asc'}}));
 			await flushAll();
-			expect(lastRequestFor(getLogEntries).sortField).toBe('correlationId');
-			expect(table(element).sortedBy).toBe('correlationId');
+			expect(lastRequestFor(getLogEntries).sortField).toBe('writerName');
+			expect(table(element).sortedBy).toBe('sourceDisplay');
 
 			mockCallControllerMethod.mockClear();
 			table(element).dispatchEvent(new CustomEvent('sort', {detail: {fieldName: 'contextDisplay', sortDirection: 'desc'}}));
@@ -1606,7 +1871,7 @@ describe('c-log-console', () =>
 			expect(element.shadowRoot.querySelector('[data-testid="totals-approximate"]')).toBeNull();
 		});
 
-		it('renders the ranked top sources as click-to-drill rows', async() =>
+		it('renders the ranked top sources as click-to-drill rows that name their origin', async() =>
 		{
 			const element = await createComponent();
 
@@ -1614,6 +1879,23 @@ describe('c-log-console', () =>
 			expect(sourceRows.length).toBe(MOCK_SUMMARY.topSources.length);
 			expect(sourceRows[0].textContent).toContain('AcctHandler');
 			expect(sourceRows[0].textContent).toContain('93%');
+			expect(sourceRows[0].dataset.origin).toBe('APEX');
+			expect(sourceRows[0].querySelector('.origin').textContent).toBe('Apex');
+			expect(sourceRows[1].querySelector('.origin').textContent).toBe('Framework');
+		});
+
+		it('offers every origin the console knows, in order, on the Origin filter', async() =>
+		{
+			const element = await createComponent();
+
+			const labels = element.shadowRoot.querySelector('[data-spec-id="origin-filter"]').options.map((option) => option.label);
+			expect(labels).toEqual([
+				'All origins',
+				'Framework',
+				'Apex',
+				'Flow',
+				'Component'
+			]);
 		});
 
 		it('drills into a source when a top-source row is clicked', async() =>
@@ -1624,7 +1906,109 @@ describe('c-log-console', () =>
 			element.shadowRoot.querySelector('[data-testid="source-row"]').click();
 			await flushAll();
 
-			expect(lastRequestFor(getLogProblems).searchTerm).toBe('AcctHandler');
+			expect(lastRequestFor(getLogProblems).searchTerm).toBeNull();
+			expect(lastRequestFor(getLogProblems).source).toBe('AcctHandler');
+			expect(lastRequestFor(getLogProblems).origins).toEqual(['APEX']);
+		});
+
+		it('ignores a source-row click that carries no source name', async() =>
+		{
+			const element = await createComponent();
+			mockCallControllerMethod.mockClear();
+
+			const row = element.shadowRoot.querySelector('[data-testid="source-row"]');
+			row.removeAttribute('data-source');
+			row.click();
+			await flushAll();
+
+			expect(mockCallControllerMethod).not.toHaveBeenCalled();
+		});
+
+		it('pins a drilled source as a removable pill and clears the pin when the pill is removed', async() =>
+		{
+			const element = await createComponent();
+			element.shadowRoot.querySelector('[data-testid="source-row"]').click();
+			await flushAll();
+
+			const pill = element.shadowRoot.querySelector('[data-testid="source-filter-pill"]');
+			expect(pill.label).toContain('AcctHandler');
+			mockCallControllerMethod.mockClear();
+			pill.dispatchEvent(new CustomEvent('remove'));
+			await flushAll();
+
+			expect(lastRequestFor(getLogProblems).source).toBeNull();
+			expect(lastRequestFor(getLogProblems).origins).toEqual(['APEX']);
+			expect(element.shadowRoot.querySelector('[data-spec-id="origin-filter"]').value).toBe('APEX');
+		});
+
+		it('keeps the pinned writer and its origin on the request when a search term is typed after the drill', async() =>
+		{
+			jest.useFakeTimers();
+			try
+			{
+				const element = await createComponent();
+				element.shadowRoot.querySelector('[data-testid="source-row"]').click();
+				await flushAll();
+				mockCallControllerMethod.mockClear();
+
+				const search = element.shadowRoot.querySelector('lightning-input');
+				search.value = 'timeout';
+				search.dispatchEvent(new CustomEvent('change'));
+				jest.advanceTimersByTime(300);
+				await flushAll();
+
+				const request = lastRequestFor(getLogProblems);
+				expect(request.searchTerm).toBe('timeout');
+				expect(request.source).toBe('AcctHandler');
+				expect(request.origins).toEqual(['APEX']);
+			}
+			finally
+			{
+				jest.useRealTimers();
+			}
+		});
+
+		it('returns the Origin filter and the pinned writer to their defaults on Clear all', async() =>
+		{
+			const element = await createComponent();
+			element.shadowRoot.querySelector('[data-testid="source-row"]').click();
+			await flushAll();
+			mockCallControllerMethod.mockClear();
+
+			buttonByLabel(element, 'Clear all').dispatchEvent(new CustomEvent('click'));
+			await flushAll();
+
+			const request = lastRequestFor(getLogProblems);
+			expect(request.origins).toEqual([]);
+			expect(request.source).toBeNull();
+			expect(element.shadowRoot.querySelector('[data-spec-id="origin-filter"]').value).toBe('');
+		});
+
+		it('drills a Mixed source by name alone, leaving the Origin filter on every origin', async() =>
+		{
+			wireMockResponses({summary: {...MOCK_SUMMARY, topSources: [{name: 'AcctHandler', origin: 'MIXED', count: 1284, percent: 93}]}});
+			const element = await createComponent();
+			element.shadowRoot.querySelector('[data-testid="source-row"]').click();
+			await flushAll();
+
+			expect(lastRequestFor(getLogProblems).source).toBe('AcctHandler');
+			expect(lastRequestFor(getLogProblems).origins).toEqual([]);
+			expect(element.shadowRoot.querySelector('[data-testid="source-row"] .origin').textContent).toBe('Mixed');
+		});
+
+		it('narrows the list to one origin from the Origin filter and clears it on a deep link', async() =>
+		{
+			const element = await createComponent();
+			mockCallControllerMethod.mockClear();
+			element.shadowRoot.querySelector('[data-spec-id="origin-filter"]').dispatchEvent(new CustomEvent('change', {detail: {value: 'FLOW'}}));
+			await flushAll();
+
+			expect(lastRequestFor(getLogProblems).origins).toEqual(['FLOW']);
+
+			CurrentPageReference.emit({state: {c__correlationId: 'deep-origin'}});
+			await flushAll();
+			expect(lastRequestFor(getLogEntries).origins).toEqual([]);
+			expect(element.shadowRoot.querySelector('[data-spec-id="origin-filter"]').value).toBe('');
 		});
 
 		it('filters to a single level when a per-level card is clicked', async() =>
@@ -2240,7 +2624,7 @@ describe('c-log-console', () =>
 			expect(element.shadowRoot.querySelector('[data-testid="grouping-scope-caption"]')).toBeNull();
 		});
 
-		it('does not let an appended page relabel the rows already on screen', async() =>
+		it('lets the page now on screen carry its own grouping status', async() =>
 		{
 			wireMockResponses({
 				problems: {
@@ -2252,8 +2636,12 @@ describe('c-log-console', () =>
 			});
 			const element = await createComponent();
 
+			expect(element.shadowRoot.querySelector('[data-testid="grouping-status-bar"]')).toBeNull();
+			expect(element.shadowRoot.querySelector('[data-testid="grouping-scope-caption"]')).not.toBeNull();
+
 			// The fold re-runs per page against a rolling window, so page two can decline a scan page one
-			// completed. Page one's rows were grouped; a bar saying the range is too large would be false.
+			// completed. A page turn replaces the rows, so the status belongs to the page now on screen:
+			// these rows were not grouped, and the bar saying so is the truth about them.
 			wireMockResponses({
 				problems: {
 					...MOCK_PROBLEM_PAGE, pageNumber: 2, hasMorePages: false, derivedStatus: 'SKIPPED_NON_SELECTIVE', derivedLevelScope: [
@@ -2262,11 +2650,10 @@ describe('c-log-console', () =>
 					]
 				}
 			});
-			table(element).dispatchEvent(new CustomEvent('loadmore'));
-			await flushAll();
+			await turnToNextPage(element);
 
-			expect(element.shadowRoot.querySelector('[data-testid="grouping-status-bar"]')).toBeNull();
-			expect(element.shadowRoot.querySelector('[data-testid="grouping-scope-caption"]')).not.toBeNull();
+			expect(element.shadowRoot.querySelector('[data-testid="grouping-status-bar"]')).not.toBeNull();
+			expect(element.shadowRoot.querySelector('[data-testid="grouping-scope-caption"]')).toBeNull();
 		});
 
 		it('says the read failed when the page never arrived, instead of blaming the filters', async() =>
@@ -2411,7 +2798,7 @@ describe('c-log-console', () =>
 		});
 	});
 
-	describe('infinite scroll and refresh', () =>
+	describe('paging and refresh', () =>
 	{
 		const PAGE_ONE = {records: PROBLEM_ROWS, totalCount: 4, pageNumber: 1, totalPages: 2, hasMorePages: true, resultsTruncated: false};
 		const PAGE_TWO_ROWS = [
@@ -2432,47 +2819,56 @@ describe('c-log-console', () =>
 			});
 		}
 
-		it('appends the next page of rows when the datatable requests more', async() =>
+		it('shows the next page in place of the one before it when the pager turns', async() =>
 		{
 			wirePagedProblems();
 			const element = await createComponent();
-			expect(table(element).data.length).toBe(2);
+			expect(table(element).data.map((row) => row.logNumber)).toEqual([
+				'L-001',
+				'L-002'
+			]);
 			mockCallControllerMethod.mockClear();
 
-			table(element).dispatchEvent(new CustomEvent('loadmore'));
-			await flushAll();
+			await turnToNextPage(element);
 
 			expect(lastRequestFor(getLogProblems).pageNumber).toBe(2);
-			expect(table(element).data.length).toBe(4);
-			// The window-scoped ribbon is not re-fetched on load-more.
+			// The page replaces the rows: page one's two rows are gone, not scrolled past.
+			expect(table(element).data.map((row) => row.logNumber)).toEqual([
+				'L-003',
+				'L-004'
+			]);
+			// The window-scoped ribbon is not re-fetched on a page turn: it counts the window, and the window has not moved.
 			expect(mockCallControllerMethod.mock.calls.some((call) => call[0] === getLogSummary)).toBe(false);
 		});
 
-		it('does not request more rows once the last page has loaded', async() =>
+		it('does not ask for another page once the last page is on screen', async() =>
 		{
 			const element = await createComponent();
 			mockCallControllerMethod.mockClear();
 
-			table(element).dispatchEvent(new CustomEvent('loadmore'));
-			await flushAll();
+			// Next is disabled on the last page; a click that reaches the handler anyway must not walk
+			// past the end and ask the server for a page that does not exist.
+			await turnToNextPage(element);
 
 			expect(mockCallControllerMethod.mock.calls.some((call) => call[0] === getLogProblems)).toBe(false);
 		});
 
-		it('replaces the rows and resets to the first page when a filter changes after loading more', async() =>
+		it('returns to the first page when a filter changes on a later page', async() =>
 		{
 			wirePagedProblems();
 			const element = await createComponent();
-			table(element).dispatchEvent(new CustomEvent('loadmore'));
-			await flushAll();
-			expect(table(element).data.length).toBe(4);
+			await turnToNextPage(element);
+			expect(lastRequestFor(getLogProblems).pageNumber).toBe(2);
 			mockCallControllerMethod.mockClear();
 
 			levelButton(element, 'INFO').dispatchEvent(new CustomEvent('click'));
 			await flushAll();
 
 			expect(lastRequestFor(getLogProblems).pageNumber).toBe(1);
-			expect(table(element).data.length).toBe(2);
+			expect(table(element).data.map((row) => row.logNumber)).toEqual([
+				'L-001',
+				'L-002'
+			]);
 		});
 
 		it('re-requests when Refresh is clicked', async() =>
@@ -2486,20 +2882,19 @@ describe('c-log-console', () =>
 			expect(mockCallControllerMethod.mock.calls.some((call) => call[0] === getLogProblems)).toBe(true);
 		});
 
-		it('refreshes from the first page after more pages have been loaded', async() =>
+		it('refreshes from the first page after the reader has turned to another one', async() =>
 		{
 			wirePagedProblems();
 			const element = await createComponent();
-			table(element).dispatchEvent(new CustomEvent('loadmore'));
-			await flushAll();
-			expect(table(element).data.length).toBe(4);
+			await turnToNextPage(element);
+			expect(lastRequestFor(getLogProblems).pageNumber).toBe(2);
 			mockCallControllerMethod.mockClear();
 
 			buttonByLabel(element, 'Refresh').dispatchEvent(new CustomEvent('click'));
 			await flushAll();
 
-			// Refreshing at the current page would replace the whole list with page N's rows alone,
-			// silently discarding everything the operator had scrolled through.
+			// Refresh is a fresh look at the list, so it starts where the list starts: page one, the same
+			// model a filter change follows.
 			expect(lastRequestFor(getLogProblems).pageNumber).toBe(1);
 			expect(table(element).data.map((row) => row.logNumber)).toEqual([
 				'L-001',
@@ -2708,7 +3103,7 @@ describe('c-log-console', () =>
 			await selectRow(element, '001p1');
 			mockCallControllerMethod.mockClear();
 
-			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {source: 'AcctHandler'}}));
+			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {searchTerm: 'AcctHandler'}}));
 			await flushAll();
 
 			// Searching for the class name also matches every entry that merely mentions it in a message or
@@ -2722,8 +3117,70 @@ describe('c-log-console', () =>
 			expect(request.sortAscending).toBe(false);
 			expect(request.pageNumber).toBe(1);
 			// The entries columns prove the view actually switched, and the pin is visible and removable.
-			expect(columnFieldNames(element)).toContain('correlationId');
+			expect(columnFieldNames(element)).toContain('chainDisplay');
+			// A problem that stored no writer has only its class and method to name the pin by, which is exactly
+			// what its Source cells still read.
 			expect(element.shadowRoot.querySelector('[data-testid="source-filter-pill"]').label).toBe('Source: AcctHandler.run');
+		});
+
+		it('names the pinned writer the way the Source cells name it, without changing what it asks the server for', async() =>
+		{
+			// The class-method the wire sends for a packaged writer carries its namespace prefix; the location the
+			// entry stored does not, so the pill and the Source cells below it would otherwise read differently and
+			// the drill would look like it had listed somebody else's rows.
+			const namespacePrefix = 'example';
+			const drilled = {
+				...PROBLEM_ROWS[0],
+				classMethod: `${namespacePrefix}.UTIL_AsyncChain.run`,
+				writerName: 'UTIL_AsyncChain',
+				writerOrigin: 'FRAMEWORK',
+				writerLocation: 'UTIL_AsyncChain.run:214'
+			};
+			// The rows behind that problem: two lines inside the one method, so the pill's text has to sit
+			// inside what the Source cells read rather than match one of them.
+			const occurrences = {
+				...MOCK_ENTRY_PAGE, records: [
+					{...MOCK_ENTRY_PAGE.records[0], writerName: 'UTIL_AsyncChain', writerOrigin: 'FRAMEWORK', writerLocation: 'UTIL_AsyncChain.run:214'},
+					{...MOCK_ENTRY_PAGE.records[0], id: '001e2', writerName: 'UTIL_AsyncChain', writerOrigin: 'FRAMEWORK', writerLocation: 'UTIL_AsyncChain.run:230'}
+				]
+			};
+			wireMockResponses({problems: {...MOCK_PROBLEM_PAGE, records: [drilled]}, entries: occurrences});
+			const element = await createComponent();
+			await selectRow(element, '001p1');
+			mockCallControllerMethod.mockClear();
+
+			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {searchTerm: 'UTIL_AsyncChain'}}));
+			await flushAll();
+			const request = lastRequestFor(getLogEntries);
+
+			// The line number goes: a pin is the writer and its method, not one line inside it. Every row the
+			// drill listed carries that text in its own Source cell, which is what makes the pill read as the
+			// heading of the list beneath it rather than as a filter on something else.
+			const pill = element.shadowRoot.querySelector('[data-spec-id="source-filter-pill"]');
+			expect(pill.label).toBe('Source: UTIL_AsyncChain.run');
+			const pinned = pill.label.replace('Source: ', '');
+			expect(table(element).data.map((row) => row.sourceDisplay)).toEqual([
+				'UTIL_AsyncChain.run:214',
+				'UTIL_AsyncChain.run:230'
+			]);
+			table(element).data.forEach((row) => expect(row.sourceDisplay).toContain(pinned));
+
+			// Only the wording follows the column. The same problem with no stored writer at all asks the server
+			// for exactly the same thing, which is the whole request compared, not a chosen field or two.
+			const withoutWriter = {...PROBLEM_ROWS[0], classMethod: `${namespacePrefix}.UTIL_AsyncChain.run`};
+			wireMockResponses({problems: {...MOCK_PROBLEM_PAGE, records: [withoutWriter]}, entries: occurrences});
+			const bare = await createComponent();
+			await selectRow(bare, '001p1');
+			mockCallControllerMethod.mockClear();
+
+			bare.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {searchTerm: 'UTIL_AsyncChain'}}));
+			await flushAll();
+
+			expect(request).toEqual(lastRequestFor(getLogEntries));
+			expect(request.classMethod).toBe(`${namespacePrefix}.UTIL_AsyncChain.run`);
+			expect(request).not.toHaveProperty('label');
+			// And the pill of the problem that stored nothing falls back to the class and method.
+			expect(bare.shadowRoot.querySelector('[data-spec-id="source-filter-pill"]').label).toBe(`Source: ${namespacePrefix}.UTIL_AsyncChain.run`);
 		});
 
 		it('reconciles the problem\'s occurrence count with the entries still on file', async() =>
@@ -2731,7 +3188,7 @@ describe('c-log-console', () =>
 			const element = await createComponent();
 			await selectRow(element, '001p1');
 
-			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {source: 'AcctHandler'}}));
+			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {searchTerm: 'AcctHandler'}}));
 			await flushAll();
 
 			// A count outlives the rows it counted, so the two numbers on screen genuinely differ. Left
@@ -2745,7 +3202,7 @@ describe('c-log-console', () =>
 		{
 			const element = await createComponent();
 			await selectRow(element, '001p1');
-			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {source: 'AcctHandler'}}));
+			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {searchTerm: 'AcctHandler'}}));
 			await flushAll();
 			mockCallControllerMethod.mockClear();
 
@@ -2767,7 +3224,7 @@ describe('c-log-console', () =>
 			await selectRow(element, '001p1');
 			mockCallControllerMethod.mockClear();
 
-			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {source: 'AcctHandler'}}));
+			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {searchTerm: 'AcctHandler'}}));
 			await flushAll();
 
 			const request = lastRequestFor(getLogEntries);
@@ -2791,7 +3248,7 @@ describe('c-log-console', () =>
 			await selectRow(element, '001p1');
 			mockCallControllerMethod.mockClear();
 
-			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {source: 'NPE'}}));
+			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {searchTerm: 'NPE'}}));
 			await flushAll();
 
 			expect(lastRequestFor(getLogEntries).classMethod).toBeNull();
@@ -2810,7 +3267,8 @@ describe('c-log-console', () =>
 			expect(eyebrows).toEqual([
 				'View',
 				'Levels',
-				'Context'
+				'Context',
+				'Origin'
 			]);
 		});
 
@@ -3277,4 +3735,1684 @@ describe('c-log-console', () =>
 		});
 	});
 
+});
+
+describe('c-log-console whole action', () =>
+{
+	beforeEach(() => wireMockResponses());
+
+	afterEach(() =>
+	{
+		while(document.body.firstChild)
+		{
+			document.body.removeChild(document.body.firstChild);
+		}
+		jest.clearAllMocks();
+	});
+
+	const query = (element, testId) => element.shadowRoot.querySelector(`[data-testid="${testId}"]`);
+	const queryAll = (element, testId) => Array.from(element.shadowRoot.querySelectorAll(`[data-testid="${testId}"]`));
+
+	async function openActionByDeepLink(element, state = {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '1000'})
+	{
+		CurrentPageReference.emit({state});
+		await flushAll();
+		await flushAll();
+	}
+
+	it('opens an action from the deep link: entries view, ERROR WARN INFO on, oldest first, page 1, the action on every request', async() =>
+	{
+		const element = await createComponent();
+		mockCallControllerMethod.mockClear();
+
+		await openActionByDeepLink(element);
+
+		expect(lastRequestFor(getActionSummary).rootCorrelationId).toBe(ACTION_ID);
+		const request = lastRequestFor(getLogEntries);
+		expect(request.rootCorrelationId).toBe(ACTION_ID);
+		expect(request.levels).toEqual([
+			'ERROR',
+			'WARN',
+			'INFO'
+		]);
+		expect(request.sortField).toBe('createdDate');
+		expect(request.sortAscending).toBe(true);
+		expect(request.pageNumber).toBe(1);
+		expect(request.correlationId).toBeNull();
+		expect(request.searchTerm).toBeNull();
+		expect(lastRequestFor(getEntrySummary).rootCorrelationId).toBe(ACTION_ID);
+		expect(query(element, 'action-pill').label).toBe('Action: a7d2f4c1…f13a');
+	});
+
+	it('keeps DEBUG on when it was on, and sets the range to the action\'s lifetime with the note', async() =>
+	{
+		const element = await createComponent();
+		levelButton(element, 'DEBUG').click();
+		await flushAll();
+
+		await openActionByDeepLink(element);
+
+		expect(lastRequestFor(getLogEntries).levels).toEqual([
+			'ERROR',
+			'WARN',
+			'INFO',
+			'DEBUG'
+		]);
+		expect(dateRangeCombobox(element).value).toBe('custom');
+		const request = lastRequestFor(getLogEntries);
+		expect(new Date(request.customStart).getTime()).toBe(new Date(ACTION_START).getTime() - ACTION_RANGE_MARGIN_MILLISECONDS);
+		expect(new Date(request.customEnd).getTime()).toBe(new Date(ACTION_END).getTime() + ACTION_RANGE_MARGIN_MILLISECONDS);
+		expect(query(element, 'action-range-note').textContent).toBe('Date range set to this action\'s lifetime.');
+	});
+
+	it('ends the range now while the action is still running, and falls back to the widest preset when the summary fails', async() =>
+	{
+		wireMockResponses({actionSummary: RUNNING_ACTION_SUMMARY});
+		const element = await createComponent();
+		const before = Date.now();
+		await openActionByDeepLink(element);
+		expect(new Date(lastRequestFor(getLogEntries).customEnd).getTime()).toBeGreaterThanOrEqual(before);
+
+		mockCallControllerMethod.mockImplementation((apexFn) => Promise.resolve(apexFn === getActionSummary ? undefined : MOCK_ENTRY_PAGE));
+		const failed = await createComponent();
+		await openActionByDeepLink(failed);
+		expect(lastRequestFor(getLogEntries).windowMinutes).toBe(43200);
+		expect(query(failed, 'action-banner')).toBeNull();
+		expect(query(failed, 'action-range-note')).toBeNull();
+		expect(query(failed, 'action-pill')).toBeTruthy();
+	});
+
+	it('applies the same action once per stamp, a new stamp again, and an action followed by a run as two hand-offs', async() =>
+	{
+		const element = await createComponent();
+		mockCallControllerMethod.mockClear();
+
+		await openActionByDeepLink(element, {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '1000'});
+		await openActionByDeepLink(element, {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '1000'});
+		expect(callCountFor(getActionSummary)).toBe(1);
+
+		await openActionByDeepLink(element, {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '2000'});
+		expect(callCountFor(getActionSummary)).toBe(2);
+
+		await openActionByDeepLink(element, {c__correlationId: 'run-a', c__viewLogsAt: '3000'});
+		const request = lastRequestFor(getLogEntries);
+		expect(request.correlationId).toBe('run-a');
+		expect(request.rootCorrelationId).toBeNull();
+		// The run link brings its own window, so the note that said the range was an action's lifetime goes with it.
+		expect(query(element, 'action-range-note')).toBeNull();
+	});
+
+	it('opening an action clears the execution context, the source pin and the pinned run', async() =>
+	{
+		const element = await createComponent();
+		// The run link is followed first, because it resets these filters itself; what is set after it is what the
+		// action has to clear.
+		await openActionByDeepLink(element, {c__correlationId: 'run-a', c__viewLogsAt: '1000'});
+		buttonByLabel(element, 'Problem summary').dispatchEvent(new CustomEvent('click'));
+		await flushAll();
+		element.shadowRoot.querySelector('.filter-combobox').dispatchEvent(new CustomEvent('change', {detail: {value: 'QUEUEABLE'}}));
+		await flushAll();
+		await selectRow(element, '001p1');
+		element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {searchTerm: 'AcctHandler'}}));
+		await flushAll();
+		expect(element.shadowRoot.querySelector('[data-testid="source-filter-pill"]')).toBeTruthy();
+		mockCallControllerMethod.mockClear();
+
+		await openActionByDeepLink(element, {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '2000'});
+
+		let request = lastRequestFor(getLogEntries);
+		expect(request.rootCorrelationId).toBe(ACTION_ID);
+		expect(request.executionEvents).toEqual([]);
+		expect(request.classMethod).toBeNull();
+		expect(request.correlationId).toBeNull();
+		expect(element.shadowRoot.querySelector('.filter-combobox').value).toBe('');
+		expect(query(element, 'source-filter-pill')).toBeNull();
+		expect(query(element, 'correlation-pill')).toBeNull();
+
+		// A chain pinned under the action is the action's own filter, and opening the next action drops that too.
+		queryAll(element, 'action-chain-chip')[1].click();
+		await flushAll();
+		expect(query(element, 'correlation-pill')).toBeTruthy();
+
+		await openActionByDeepLink(element, {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '3000'});
+
+		request = lastRequestFor(getLogEntries);
+		expect(request.correlationId).toBeNull();
+		expect(query(element, 'correlation-pill')).toBeNull();
+	});
+
+	it('composes the banner sentence from fragments around a formatted date, with chips failed first and the rest as a number', async() =>
+	{
+		const element = await createComponent();
+		await openActionByDeepLink(element);
+
+		const sentence = query(element, 'action-banner-sentence');
+		expect(sentence.textContent).toContain('This action started on');
+		expect(sentence.querySelector('lightning-formatted-date-time').value).toBe(ACTION_START);
+		expect(sentence.textContent).toContain('and ran for 3m.');
+		expect(sentence.textContent).toContain('It ran 7 chains, 1 of them failed.');
+		const chips = queryAll(element, 'action-chain-chip');
+		expect(chips.map((chip) => chip.dataset.correlationId)).toEqual([
+			'run-a',
+			'run-b'
+		]);
+		expect(chips[0].textContent).toContain('Failed');
+		expect(chips[0].textContent).toContain('OrderSync · CHAIN-00214');
+		expect(chips[1].textContent).toContain('launched by OrderSync · CHAIN-00214');
+		expect(query(element, 'action-more-chains').textContent).toBe('and 5 more chains');
+		expect(query(element, 'action-open-chains')).toBeTruthy();
+	});
+
+	it('reads still running with no chains, and the legacy sentence with the adopting chain and no monitor button', async() =>
+	{
+		wireMockResponses({actionSummary: RUNNING_ACTION_SUMMARY});
+		const running = await createComponent();
+		await openActionByDeepLink(running);
+		expect(query(running, 'action-banner-sentence').textContent).toContain('and is still running after 8s.');
+		expect(query(running, 'action-banner-sentence').textContent).toContain('No chains ran under it.');
+		expect(query(running, 'action-open-chains')).toBeNull();
+
+		wireMockResponses({actionSummary: LEGACY_ACTION_SUMMARY});
+		const legacy = await createComponent();
+		await openActionByDeepLink(legacy);
+		expect(query(legacy, 'action-banner-sentence').textContent).toBe('This action was recorded before chains were tracked by action.');
+		expect(queryAll(legacy, 'action-chain-chip')).toHaveLength(1);
+		expect(query(legacy, 'action-open-chains')).toBeNull();
+	});
+
+	it('narrows to one chain from a chip, worded as the chain pill, and removing the chain pill returns to the whole action', async() =>
+	{
+		const element = await createComponent();
+		await openActionByDeepLink(element);
+		mockCallControllerMethod.mockClear();
+
+		queryAll(element, 'action-chain-chip')[1].click();
+		await flushAll();
+
+		let request = lastRequestFor(getLogEntries);
+		expect(request.correlationId).toBe('run-b');
+		expect(request.rootCorrelationId).toBe(ACTION_ID);
+		expect(request.pageNumber).toBe(1);
+		expect(query(element, 'correlation-pill').label).toBe('Chain: Ledger · CHAIN-00215');
+
+		query(element, 'correlation-pill').dispatchEvent(new CustomEvent('remove'));
+		await flushAll();
+		request = lastRequestFor(getLogEntries);
+		expect(request.correlationId).toBeNull();
+		expect(request.rootCorrelationId).toBe(ACTION_ID);
+	});
+
+	it('opens the chains in the Chain Monitor with the action and a stamp only', async() =>
+	{
+		const element = await createComponent();
+		await openActionByDeepLink(element);
+		// The hand-off's arrival has already rewritten the console's own address once; this test is about the
+		// cross-link the button raises.
+		mockNavigate.mockClear();
+
+		query(element, 'action-open-chains').click();
+
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+		const reference = mockNavigate.mock.calls[0][0];
+		expect(reference.attributes.apiName).toBe('ChainMonitor');
+		expect(reference.state.c__rootCorrelationId).toBe(ACTION_ID);
+		expect(reference.state.c__viewLogsAt).toEqual(expect.any(String));
+		expect(Object.keys(reference.state).sort()).toEqual([
+			'c__rootCorrelationId',
+			'c__viewLogsAt'
+		]);
+	});
+
+	it('opens the whole action when the drawer asks, and hands the drawer the pinned action', async() =>
+	{
+		const element = await createComponent();
+		await selectRow(element, '001p1');
+		mockCallControllerMethod.mockClear();
+
+		element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('showwholeaction', {detail: {rootCorrelationId: ACTION_ID}}));
+		await flushAll();
+		await flushAll();
+
+		expect(lastRequestFor(getActionSummary).rootCorrelationId).toBe(ACTION_ID);
+		expect(lastRequestFor(getLogEntries).rootCorrelationId).toBe(ACTION_ID);
+		await selectRow(element, '001e1');
+		expect(element.shadowRoot.querySelector('c-log-console-detail').pinnedActionRootCorrelationId).toBe(ACTION_ID);
+	});
+
+	it('removing the pill restores the levels and the sort, keeps the range and the note; Clear all drops everything', async() =>
+	{
+		const element = await createComponent();
+		await openActionByDeepLink(element);
+		mockCallControllerMethod.mockClear();
+
+		query(element, 'action-pill').dispatchEvent(new CustomEvent('remove'));
+		await flushAll();
+
+		let request = lastRequestFor(getLogEntries);
+		expect(request.rootCorrelationId).toBeNull();
+		expect(request.levels).toEqual([
+			'ERROR',
+			'WARN'
+		]);
+		expect(request.sortAscending).toBe(false);
+		expect(request.customStart).not.toBeNull();
+		expect(query(element, 'action-range-note')).toBeTruthy();
+		expect(query(element, 'action-banner')).toBeNull();
+
+		buttonByLabel(element, 'Clear all').click();
+		await flushAll();
+		// Still the entries view: Clear all empties the filters, and the view is the reader's own choice, so the
+		// list it reloads is the entries list the action was opened on.
+		request = lastRequestFor(getLogEntries);
+		expect(request.customStart).toBeNull();
+		expect(request.windowMinutes).toBe(DEFAULT_WINDOW_MINUTES);
+		expect(query(element, 'action-range-note')).toBeNull();
+	});
+
+	it('Clear all while a chain is pinned under an action returns every filter to its default', async() =>
+	{
+		const element = await createComponent();
+		await openActionByDeepLink(element);
+		queryAll(element, 'action-chain-chip')[1].click();
+		await flushAll();
+		mockCallControllerMethod.mockClear();
+
+		buttonByLabel(element, 'Clear all').click();
+		await flushAll();
+
+		const request = lastRequestFor(getLogEntries);
+		expect(request.rootCorrelationId).toBeNull();
+		expect(request.correlationId).toBeNull();
+		expect(request.levels).toEqual([
+			'ERROR',
+			'WARN'
+		]);
+		expect(request.customStart).toBeNull();
+		expect(request.windowMinutes).toBe(DEFAULT_WINDOW_MINUTES);
+		// The oldest-first sort belongs to the opened action, so it goes back with everything else.
+		expect(request.sortAscending).toBe(false);
+		expect(query(element, 'action-pill')).toBeNull();
+		expect(query(element, 'correlation-pill')).toBeNull();
+		expect(query(element, 'action-banner')).toBeNull();
+		expect(query(element, 'action-range-note')).toBeNull();
+	});
+
+	it('drops a page turn that answers while an action\'s summary is being read', async() =>
+	{
+		const FIRST_PAGE = {records: [{...MOCK_ENTRY_PAGE.records[0], logNumber: 'L-010'}], totalCount: 4, pageNumber: 1, totalPages: 4, hasMorePages: true};
+		const STALE_PAGE = {records: [{...MOCK_ENTRY_PAGE.records[0], id: '001e9', logNumber: 'L-099'}], totalCount: 4, pageNumber: 4, totalPages: 4, hasMorePages: false};
+		const ACTION_PAGE = {records: [{...MOCK_ENTRY_PAGE.records[0], logNumber: 'L-010'}], totalCount: 1, pageNumber: 1, totalPages: 1, hasMorePages: false};
+		let releaseTurn = null;
+		let releaseSummary = null;
+		let entriesCallCount = 0;
+		mockCallControllerMethod.mockImplementation((apexFn) =>
+		{
+			if(apexFn === getLogEntries)
+			{
+				entriesCallCount++;
+				if(entriesCallCount === 2)
+				{
+					return new Promise((resolve) =>
+					{
+						releaseTurn = () => resolve(STALE_PAGE);
+					});
+				}
+				return Promise.resolve(entriesCallCount === 1 ? FIRST_PAGE : ACTION_PAGE);
+			}
+			if(apexFn === getActionSummary)
+			{
+				return new Promise((resolve) =>
+				{
+					releaseSummary = () => resolve(MOCK_ACTION_SUMMARY);
+				});
+			}
+			if(apexFn === getLogProblems)
+			{
+				return Promise.resolve(MOCK_PROBLEM_PAGE);
+			}
+			if(apexFn === getLogSummary)
+			{
+				return Promise.resolve(MOCK_SUMMARY);
+			}
+			return Promise.resolve(apexFn === getEntrySummary ? MOCK_ENTRY_SUMMARY : null);
+		});
+		const element = await createComponent();
+		buttonByLabel(element, 'Individual entries').dispatchEvent(new CustomEvent('click'));
+		await flushAll();
+		// The turn is left in flight: its answer is still owed when the action arrives.
+		await turnToNextPage(element);
+
+		CurrentPageReference.emit({state: {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '2000'}});
+		await Promise.resolve();
+		releaseTurn();
+		await flushAll();
+		releaseSummary();
+		await flushAll();
+		await flushAll();
+
+		const request = lastRequestFor(getLogEntries);
+		expect(request.rootCorrelationId).toBe(ACTION_ID);
+		expect(request.pageNumber).toBe(1);
+		expect(table(element).data.map((row) => row.logNumber)).toEqual(['L-010']);
+	});
+
+	it('clears the range note once the reader changes the range', async() =>
+	{
+		const element = await createComponent();
+		await openActionByDeepLink(element);
+		expect(query(element, 'action-range-note')).toBeTruthy();
+
+		dateRangeCombobox(element).dispatchEvent(new CustomEvent('change', {detail: {value: '60'}}));
+		await flushAll();
+
+		expect(query(element, 'action-range-note')).toBeNull();
+		expect(lastRequestFor(getLogEntries).rootCorrelationId).toBe(ACTION_ID);
+	});
+
+	it('words a restarted chain as a restart of the run it repeats, and says nothing about more chains when there are none', async() =>
+	{
+		const restartChip = {...CHIP_A, launchKind: 'RESTART', launcherName: 'OrderSync · CHAIN-00213'};
+		wireMockResponses({actionSummary: {...MOCK_ACTION_SUMMARY, chains: [restartChip], moreChainCount: 0}});
+		const element = await createComponent();
+
+		await openActionByDeepLink(element);
+
+		expect(queryAll(element, 'action-chain-chip')[0].textContent).toContain('restart of OrderSync · CHAIN-00213');
+		expect(query(element, 'action-more-chains')).toBeNull();
+	});
+
+	it('drops a summary whose action was replaced before it landed, so the newer action is the one on screen', async() =>
+	{
+		const SECOND_ACTION_ID = 'b8e3a5d2-2222-4222-8222-00000000f14b';
+		const element = await createComponent();
+		mockCallControllerMethod.mockClear();
+
+		// Two hand-offs in one turn: the first action's summary resolves after the second has already been pinned,
+		// and applying it would set the range and the banner of an action the reader has left behind.
+		CurrentPageReference.emit({state: {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '1000'}});
+		CurrentPageReference.emit({state: {c__rootCorrelationId: SECOND_ACTION_ID, c__viewLogsAt: '2000'}});
+		await flushAll();
+		await flushAll();
+
+		expect(query(element, 'action-pill').label).toBe('Action: b8e3a5d2…f14b');
+		expect(lastRequestFor(getLogEntries).rootCorrelationId).toBe(SECOND_ACTION_ID);
+		// One list load, not two: the abandoned action never reaches the list at all.
+		expect(callCountFor(getLogEntries)).toBe(1);
+	});
+
+	it('refreshes the banner as well as the list while an action is pinned, and leaves the range the reader chose alone', async() =>
+	{
+		const READER_WINDOW_MINUTES = 60;
+		const element = await createComponent();
+		await openActionByDeepLink(element);
+		// The reader picks their own range after opening the action, which clears the note that explained the lifetime one.
+		dateRangeCombobox(element).dispatchEvent(new CustomEvent('change', {detail: {value: String(READER_WINDOW_MINUTES)}}));
+		await flushAll();
+		mockCallControllerMethod.mockClear();
+
+		buttonByLabel(element, 'Refresh').click();
+		await flushAll();
+		await flushAll();
+
+		expect(callCountFor(getActionSummary)).toBe(1);
+		expect(query(element, 'action-banner')).toBeTruthy();
+		const request = lastRequestFor(getLogEntries);
+		expect(request.rootCorrelationId).toBe(ACTION_ID);
+		// Refresh re-reads the banner and nothing else: pulling the reader back to the action's lifetime, and putting the
+		// note back up over a range they had chosen themselves, is what this guards against.
+		expect(request.windowMinutes).toBe(READER_WINDOW_MINUTES);
+		expect(request.customStart).toBeNull();
+		expect(query(element, 'action-range-note')).toBeNull();
+	});
+
+	it('moves the end of a running action\'s range on every refresh, to its real end once it has one, and then stops', async() =>
+	{
+		const OPENED_AT = new Date('2026-09-01T10:01:00.000Z');
+		const FIRST_REFRESH_AT = new Date('2026-09-01T10:02:00.000Z');
+		const SECOND_REFRESH_AT = new Date('2026-09-01T10:05:00.000Z');
+		const THIRD_REFRESH_AT = new Date('2026-09-01T10:09:00.000Z');
+		const ENDED_RANGE_END = new Date(new Date(ACTION_END).getTime() + ACTION_RANGE_MARGIN_MILLISECONDS).toISOString();
+		const refreshAt = async(element, instant) =>
+		{
+			jest.setSystemTime(instant);
+			buttonByLabel(element, 'Refresh').click();
+			await flushAll();
+			await flushAll();
+			return lastRequestFor(getLogEntries);
+		};
+		jest.useFakeTimers();
+		try
+		{
+			jest.setSystemTime(OPENED_AT);
+			wireMockResponses({actionSummary: RUNNING_ACTION_SUMMARY});
+			const element = await createComponent();
+			await openActionByDeepLink(element);
+			expect(lastRequestFor(getLogEntries).customEnd).toBe(OPENED_AT.toISOString());
+
+			const stillRunning = await refreshAt(element, FIRST_REFRESH_AT);
+			expect(stillRunning.customEnd).toBe(FIRST_REFRESH_AT.toISOString());
+			expect(customRangeInstant(element, 'toDate', 'toTime')).toBe(FIRST_REFRESH_AT.getTime());
+			expect(query(element, 'action-range-note').textContent).toBe('Date range set to this action\'s lifetime.');
+
+			wireMockResponses({actionSummary: MOCK_ACTION_SUMMARY});
+			const ended = await refreshAt(element, SECOND_REFRESH_AT);
+			expect(ended.customEnd).toBe(ENDED_RANGE_END);
+			expect(query(element, 'action-range-note').textContent).toBe('Date range set to this action\'s lifetime.');
+
+			const afterEnd = await refreshAt(element, THIRD_REFRESH_AT);
+			expect(afterEnd.customEnd).toBe(ENDED_RANGE_END);
+		}
+		finally
+		{
+			jest.useRealTimers();
+		}
+	});
+
+	it('keeps a running action\'s range, its note and its following when a refresh cannot read the summary', async() =>
+	{
+		const OPENED_AT = new Date('2026-09-01T10:01:00.000Z');
+		const FAILED_REFRESH_AT = new Date('2026-09-01T10:02:00.000Z');
+		const RECOVERED_REFRESH_AT = new Date('2026-09-01T10:03:00.000Z');
+		const refreshAt = async(element, instant) =>
+		{
+			jest.setSystemTime(instant);
+			mockCallControllerMethod.mockClear();
+			buttonByLabel(element, 'Refresh').click();
+			await flushAll();
+			await flushAll();
+		};
+		jest.useFakeTimers();
+		try
+		{
+			jest.setSystemTime(OPENED_AT);
+			wireMockResponses({actionSummary: RUNNING_ACTION_SUMMARY});
+			const element = await createComponent();
+			await openActionByDeepLink(element);
+
+			mockCallControllerMethod.mockImplementation((apexFn) => Promise.resolve(apexFn === getActionSummary ? undefined : MOCK_ENTRY_PAGE));
+			await refreshAt(element, FAILED_REFRESH_AT);
+
+			expect(callCountFor(getLogEntries)).toBe(1);
+			expect(dateRangeCombobox(element).value).toBe('custom');
+			expect(lastRequestFor(getLogEntries).customEnd).toBe(OPENED_AT.toISOString());
+			expect(query(element, 'action-range-note').textContent).toBe('Date range set to this action\'s lifetime.');
+
+			// Still following: the next refresh that reads the summary moves the end again.
+			wireMockResponses({actionSummary: RUNNING_ACTION_SUMMARY});
+			await refreshAt(element, RECOVERED_REFRESH_AT);
+
+			expect(lastRequestFor(getLogEntries).customEnd).toBe(RECOVERED_REFRESH_AT.toISOString());
+		}
+		finally
+		{
+			jest.useRealTimers();
+		}
+	});
+
+	it('keeps the range the reader picks while a refresh is still reading a running action\'s summary', async() =>
+	{
+		const OPENED_AT = new Date('2026-09-01T10:01:00.000Z');
+		const REFRESHED_AT = new Date('2026-09-01T10:02:00.000Z');
+		const READER_WINDOW_MINUTES = 60;
+		jest.useFakeTimers();
+		try
+		{
+			jest.setSystemTime(OPENED_AT);
+			wireMockResponses({actionSummary: RUNNING_ACTION_SUMMARY});
+			const element = await createComponent();
+			await openActionByDeepLink(element);
+			let answerSummary;
+			const pendingSummary = new Promise((resolve) =>
+			{
+				answerSummary = resolve;
+			});
+			mockCallControllerMethod.mockImplementation((apexFn) => (apexFn === getActionSummary ? pendingSummary : Promise.resolve(MOCK_ENTRY_PAGE)));
+
+			jest.setSystemTime(REFRESHED_AT);
+			buttonByLabel(element, 'Refresh').click();
+			await flushAll();
+			// The reader picks their own range while the summary is still on its way.
+			dateRangeCombobox(element).dispatchEvent(new CustomEvent('change', {detail: {value: String(READER_WINDOW_MINUTES)}}));
+			await flushAll();
+			answerSummary(RUNNING_ACTION_SUMMARY);
+			await flushAll();
+			await flushAll();
+
+			expect(dateRangeCombobox(element).value).toBe(String(READER_WINDOW_MINUTES));
+			const request = lastRequestFor(getLogEntries);
+			expect(request.windowMinutes).toBe(READER_WINDOW_MINUTES);
+			expect(request.customEnd).toBeNull();
+			expect(query(element, 'action-range-note')).toBeNull();
+		}
+		finally
+		{
+			jest.useRealTimers();
+		}
+	});
+
+	it('keeps following a running action after the reader narrows it to one chain and widens it back', async() =>
+	{
+		const OPENED_AT = new Date('2026-09-01T10:01:00.000Z');
+		const REFRESHED_AT = new Date('2026-09-01T10:02:00.000Z');
+		jest.useFakeTimers();
+		try
+		{
+			jest.setSystemTime(OPENED_AT);
+			wireMockResponses({actionSummary: {...RUNNING_ACTION_SUMMARY, chainCount: 1, chains: [CHIP_A]}});
+			const element = await createComponent();
+			await openActionByDeepLink(element);
+			queryAll(element, 'action-chain-chip')[0].click();
+			await flushAll();
+			element.shadowRoot.querySelector('[data-testid="correlation-pill"]').dispatchEvent(new CustomEvent('remove'));
+			await flushAll();
+
+			jest.setSystemTime(REFRESHED_AT);
+			buttonByLabel(element, 'Refresh').click();
+			await flushAll();
+			await flushAll();
+
+			// The chain pill came and went inside the action, so the range still follows the action, which is still running.
+			const request = lastRequestFor(getLogEntries);
+			expect(request.correlationId).toBeNull();
+			expect(request.rootCorrelationId).toBe(ACTION_ID);
+			expect(request.customEnd).toBe(REFRESHED_AT.toISOString());
+		}
+		finally
+		{
+			jest.useRealTimers();
+		}
+	});
+
+	it('returns the problems view to its own sort when the pill is removed there', async() =>
+	{
+		const element = await createComponent();
+		await openActionByDeepLink(element);
+		buttonByLabel(element, 'Problem summary').click();
+		await flushAll();
+		mockCallControllerMethod.mockClear();
+
+		query(element, 'action-pill').dispatchEvent(new CustomEvent('remove'));
+		await flushAll();
+
+		// The pill spans both views, so removing it on the problems view must not send the entries list's sort key to
+		// the problems query, where it means nothing.
+		const request = lastRequestFor(getLogProblems);
+		expect(request.sortField).toBe('level');
+		expect(request.rootCorrelationId).toBeNull();
+	});
+
+	it('shows a tracking id too short to abbreviate whole in the pill', async() =>
+	{
+		const SHORT_ACTION_ID = 'run-42';
+		const element = await createComponent();
+		await selectRow(element, '001p1');
+
+		element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('showwholeaction', {detail: {rootCorrelationId: SHORT_ACTION_ID}}));
+		await flushAll();
+		await flushAll();
+
+		expect(query(element, 'action-pill').label).toBe('Action: run-42');
+	});
+
+	it('offers the chips and a shorter range as the way to narrow a capped list under an action', async() =>
+	{
+		const CAPPED_TOTAL = 500;
+		wireMockResponses({entries: {...MOCK_ENTRY_PAGE, totalCount: CAPPED_TOTAL, resultsTruncated: true}});
+		const element = await createComponent();
+
+		await openActionByDeepLink(element);
+
+		// Under an action "narrow the filters" is no help: the chips and the range are what there is to narrow.
+		expect(query(element, 'capped-banner').textContent).toContain('Narrow to one chain or a shorter range to see the rest.');
+	});
+
+	it('reads a summary that carries only what it has: no counts, no chains, no duration', async() =>
+	{
+		// The server leaves a value out rather than sending null, so every count and list on the banner has to
+		// read as its own empty rather than as "undefined".
+		wireMockResponses({actionSummary: {rootCorrelationId: ACTION_ID, startedAt: ACTION_START, endedAt: ACTION_END, stillRunning: false, recordedBeforeRoots: false}});
+		const element = await createComponent();
+
+		await openActionByDeepLink(element);
+
+		const sentence = query(element, 'action-banner-sentence');
+		expect(sentence.textContent).toContain('and ran for .');
+		expect(sentence.textContent).toContain('No chains ran under it.');
+		expect(queryAll(element, 'action-chain-chip')).toHaveLength(0);
+		expect(query(element, 'action-more-chains')).toBeNull();
+		expect(query(element, 'action-open-chains')).toBeNull();
+	});
+
+	it('shows a status it has no wording for as the server sent it, and a launcher the server did not name as nothing', async() =>
+	{
+		const UNKNOWN_STATUS = 'Superseded';
+		wireMockResponses({
+			actionSummary: {
+				rootCorrelationId: ACTION_ID,
+				startedAt: ACTION_START,
+				endedAt: ACTION_END,
+				stillRunning: false,
+				recordedBeforeRoots: false,
+				chainCount: 2,
+				durationLabel: '9s',
+				chains: [
+					{executionId: 'a00C', chainName: 'Ledger', chainNumber: 'CHAIN-00216', correlationId: 'run-c', status: UNKNOWN_STATUS, launchKind: 'CHAIN'},
+					{executionId: 'a00D', chainName: 'Ledger', chainNumber: 'CHAIN-00217', correlationId: 'run-d', status: 'Running', launchKind: 'RESTART'}
+				]
+			}
+		});
+		const element = await createComponent();
+
+		await openActionByDeepLink(element);
+
+		// A failed count the server left out is none failed, not an unreadable sentence.
+		expect(query(element, 'action-banner-sentence').textContent).toContain('It ran 2 chains, 0 of them failed.');
+		const chips = queryAll(element, 'action-chain-chip');
+		expect(chips[0].textContent).toContain(UNKNOWN_STATUS);
+		expect(chips[0].textContent).toContain('launched by');
+		expect(chips[1].textContent).toContain('restart of');
+	});
+
+	describe('the search resolver', () =>
+	{
+		const searchInput = (element) => element.shadowRoot.querySelector('.filter-search');
+
+		// The shipped debounce idiom (the "filters by search term after the debounce settles" test above): set the input's
+		// value, dispatch change, advance past the 300 ms debounce under fake timers, then flush the resolver's promise chain.
+		async function typeAndSettle(element, term)
+		{
+			jest.useFakeTimers();
+			try
+			{
+				const search = searchInput(element);
+				search.value = term;
+				search.dispatchEvent(new CustomEvent('change'));
+				jest.advanceTimersByTime(300);
+				await flushAll();
+				await flushAll();
+			}
+			finally
+			{
+				jest.useRealTimers();
+			}
+		}
+
+		it('opens the action a pasted action id names and clears the box', async() =>
+		{
+			wireMockResponses({resolvedSearchId: {kind: 'ACTION', id: ACTION_ID}});
+			const element = await createComponent();
+			mockCallControllerMethod.mockClear();
+
+			await typeAndSettle(element, ACTION_ID);
+
+			expect(mockCallControllerMethod.mock.calls.find((call) => call[0] === resolveSearchId)[1]).toEqual({term: ACTION_ID});
+			expect(lastRequestFor(getLogEntries).rootCorrelationId).toBe(ACTION_ID);
+			expect(lastRequestFor(getLogEntries).searchTerm).toBeNull();
+			expect(searchInput(element).value).toBe('');
+		});
+
+		it('pins a pasted chain id as the chain pill, never as an action, and pushes it into the address', async() =>
+		{
+			const SECOND_CHAIN_ID = 'run-c';
+			wireMockResponses({resolvedSearchId: {kind: 'CHAIN', id: 'run-b', chainName: 'Ledger', chainNumber: 'CHAIN-00215'}});
+			const element = await createComponent();
+			mockNavigate.mockClear();
+
+			await typeAndSettle(element, ACTION_ID);
+
+			const request = lastRequestFor(getLogEntries);
+			expect(request.correlationId).toBe('run-b');
+			expect(request.rootCorrelationId).toBeNull();
+			expect(query(element, 'correlation-pill').label).toBe('Chain: Ledger · CHAIN-00215');
+			expect(callCountFor(getActionSummary)).toBe(0);
+			// The resolver has already said what this run is called, so the pill is worded from that answer rather
+			// than from a second read of the same id.
+			expect(callCountFor(resolveSearchId)).toBe(1);
+			// The pin is a drill-in the reader made in place, so it goes into the address as a new history entry Back
+			// can pop, exactly once.
+			expect(mockNavigate).toHaveBeenCalledTimes(1);
+			expect(mockNavigate.mock.calls[0][0].state).toEqual({c__correlationId: 'run-b'});
+			expect(mockNavigate.mock.calls[0][1]).toBe(false);
+
+			// The same paste under a pinned action pins the run alone: a run pasted from elsewhere need not belong to
+			// the action on screen, so the action's pill and banner go rather than claim a narrowing that is not one.
+			await openActionByDeepLink(element);
+			wireMockResponses({resolvedSearchId: {kind: 'CHAIN', id: SECOND_CHAIN_ID, chainName: 'Ledger', chainNumber: 'CHAIN-00216'}});
+			mockNavigate.mockClear();
+
+			await typeAndSettle(element, ACTION_ID);
+
+			expect(query(element, 'action-pill')).toBeNull();
+			expect(query(element, 'action-banner')).toBeNull();
+			expect(query(element, 'correlation-pill').label).toBe('Chain: Ledger · CHAIN-00216');
+			const pastedRequest = lastRequestFor(getLogEntries);
+			expect(pastedRequest.correlationId).toBe(SECOND_CHAIN_ID);
+			expect(pastedRequest.rootCorrelationId).toBeNull();
+			expect(mockNavigate).toHaveBeenCalledTimes(1);
+			expect(mockNavigate.mock.calls[0][0].state).toEqual({c__correlationId: SECOND_CHAIN_ID});
+			expect(mockNavigate.mock.calls[0][1]).toBe(false);
+
+			// Back lands on the address the paste left behind, the action key alone, and re-pins the action whole: one
+			// Back out of the drill-in, which is what makes the paste's history entry worth having.
+			CurrentPageReference.emit({state: {c__rootCorrelationId: ACTION_ID}});
+			await flushAll();
+			await flushAll();
+			await flushAll();
+
+			expect(query(element, 'action-pill')).toBeTruthy();
+			expect(query(element, 'correlation-pill')).toBeNull();
+			expect(lastRequestFor(getLogEntries).rootCorrelationId).toBe(ACTION_ID);
+		});
+
+		it('ignores an answer about an id the reader has already cleared, and reads a box reporting no value as no search', async() =>
+		{
+			wireMockResponses({resolvedSearchId: {kind: 'ACTION', id: ACTION_ID}});
+			const element = await createComponent();
+			jest.useFakeTimers();
+			try
+			{
+				const search = searchInput(element);
+				search.value = ACTION_ID;
+				search.dispatchEvent(new CustomEvent('change'));
+				jest.advanceTimersByTime(300);
+
+				// The reader empties the box while the server is still being asked about the pasted id — and a
+				// cleared input reports no value at all. Opening that action now would pin a filter nobody asked
+				// for any more.
+				search.value = null;
+				search.dispatchEvent(new CustomEvent('change'));
+				await flushAll();
+				await flushAll();
+
+				expect(query(element, 'action-pill')).toBeNull();
+
+				jest.advanceTimersByTime(300);
+				await flushAll();
+				expect(lastRequestFor(getLogProblems).searchTerm).toBeNull();
+			}
+			finally
+			{
+				jest.useRealTimers();
+			}
+		});
+
+		it('searches an unrecognised id as text, and never asks about a term that is not shaped like an id', async() =>
+		{
+			const element = await createComponent();
+			mockCallControllerMethod.mockClear();
+
+			await typeAndSettle(element, ACTION_ID);
+			expect(callCountFor(resolveSearchId)).toBe(1);
+			expect(lastRequestFor(getLogProblems).searchTerm).toBe(ACTION_ID);
+
+			await typeAndSettle(element, 'timeout');
+			expect(callCountFor(resolveSearchId)).toBe(1);
+			expect(lastRequestFor(getLogProblems).searchTerm).toBe('timeout');
+		});
+	});
+});
+
+describe('c-log-console list', () =>
+{
+	// More pages than the pager will ever offer as numbers, and enough of them that numbering would be a fiction.
+	const MANY_PAGES = 3529;
+	// A list one row longer than a page of twenty-five, so the position line can be read against real arithmetic: a full
+	// page and then a page holding the last row.
+	const CONSISTENT_TOTAL = 26;
+	const SMALLEST_PAGE_SIZE = 25;
+
+	let compactMedia;
+
+	beforeEach(() =>
+	{
+		wireMockResponses();
+		// jsdom has no matchMedia; the console reads it defensively, and this stub lets a test flip the width.
+		compactMedia = {
+			matches: false,
+			listeners: new Set(),
+			addEventListener: jest.fn((type, listener) => compactMedia.listeners.add(listener)),
+			removeEventListener: jest.fn((type, listener) => compactMedia.listeners.delete(listener))
+		};
+		window.matchMedia = jest.fn(() => compactMedia);
+	});
+
+	afterEach(() =>
+	{
+		while(document.body.firstChild)
+		{
+			document.body.removeChild(document.body.firstChild);
+		}
+		delete window.matchMedia;
+		jest.clearAllMocks();
+	});
+
+	const query = (element, testId) => element.shadowRoot.querySelector(`[data-testid="${testId}"]`);
+	const queryAll = (element, testId) => Array.from(element.shadowRoot.querySelectorAll(`[data-testid="${testId}"]`));
+
+	async function entriesView(element)
+	{
+		element.shadowRoot.querySelector('lightning-button[data-view="entries"]').click();
+		await flushAll();
+	}
+
+	// A server that fills its pages the way a real one does: pages of exactly the size the request asked for, the last
+	// one holding what is left, and a page count derived from the same two numbers. That is what makes the position
+	// line's arithmetic assertable rather than a fixture's fiction.
+	function wireConsistentPages()
+	{
+		mockCallControllerMethod.mockImplementation((apexFn, params) =>
+		{
+			if(apexFn === getLogEntries)
+			{
+				const request = JSON.parse(params.requestJson);
+				const rowsBefore = (request.pageNumber - 1) * request.pageSize;
+				const rowsOnPage = Math.max(Math.min(request.pageSize, CONSISTENT_TOTAL - rowsBefore), 0);
+				return Promise.resolve({
+					records: Array.from({length: rowsOnPage}, (unused, index) => ({
+						...MOCK_ENTRY_PAGE.records[0], id: `row-${rowsBefore + index}`, logNumber: `L-${rowsBefore + index}`
+					})),
+					totalCount: CONSISTENT_TOTAL,
+					pageNumber: request.pageNumber,
+					totalPages: Math.ceil(CONSISTENT_TOTAL / request.pageSize),
+					hasMorePages: rowsBefore + rowsOnPage < CONSISTENT_TOTAL,
+					resultsTruncated: false
+				});
+			}
+			return Promise.resolve(apexFn === getEntrySummary ? MOCK_ENTRY_SUMMARY : null);
+		});
+	}
+
+	it('names the chain behind each row, says "this action" for the action\'s own entry, and dashes a row with no correlation', async() =>
+	{
+		wireMockResponses({
+			entries: {
+				...MOCK_ENTRY_PAGE, records: [
+					{...MOCK_ENTRY_PAGE.records[0], id: 'r1', correlationId: 'run-a', chainName: 'OrderSync', chainNumber: 'CHAIN-00214', isActionOwn: false},
+					{...MOCK_ENTRY_PAGE.records[0], id: 'r2', correlationId: 'act', chainName: null, chainNumber: null, isActionOwn: true},
+					{...MOCK_ENTRY_PAGE.records[0], id: 'r3', correlationId: null, chainName: null, chainNumber: null, isActionOwn: false}
+				], totalCount: 3
+			}
+		});
+		const element = await createComponent();
+		await entriesView(element);
+
+		expect(columnFieldNames(element)).toEqual([
+			'logNumberDisplay',
+			'createdDate',
+			'level',
+			'shortMessage',
+			'sourceDisplay',
+			'contextDisplay',
+			'chainDisplay'
+		]);
+		const chainColumn = table(element).columns.find((column) => column.fieldName === 'chainDisplay');
+		expect(chainColumn.label).toBe('Chain');
+		expect(chainColumn.sortable).toBe(false);
+		expect(table(element).data.map((row) => row.chainDisplay)).toEqual([
+			'OrderSync · CHAIN-00214',
+			'this action',
+			'—'
+		]);
+	});
+
+	it('pages instead of appending: the position line, the page sizes, Previous and Next, and page numbers while there are few enough', async() =>
+	{
+		wireConsistentPages();
+		const element = await createComponent();
+		await entriesView(element);
+
+		expect(table(element).enableInfiniteLoading).toBeFalsy();
+		// Twenty-six rows fit one page of fifty, so the position line covers the lot and there is nowhere to go.
+		expect(query(element, 'entries-position').textContent).toBe('Rows 1 to 26 of 26');
+		expect(query(element, 'pager-size').options.map((option) => option.label)).toEqual([
+			'25 per page',
+			'50 per page',
+			'100 per page'
+		]);
+
+		query(element, 'pager-size').dispatchEvent(new CustomEvent('change', {detail: {value: String(SMALLEST_PAGE_SIZE)}}));
+		await flushAll();
+		expect(query(element, 'entries-position').textContent).toBe('Rows 1 to 25 of 26');
+		expect(queryAll(element, 'pager-page').map((button) => button.label)).toEqual([
+			'1',
+			'2'
+		]);
+		expect(query(element, 'pager-previous').disabled).toBe(true);
+
+		// The guard behind the disabled button: a click that reaches it anyway must not walk off the front.
+		query(element, 'pager-previous').click();
+		await flushAll();
+		expect(lastRequestFor(getLogEntries).pageNumber).toBe(1);
+
+		query(element, 'pager-next').click();
+		await flushAll();
+		expect(lastRequestFor(getLogEntries).pageNumber).toBe(2);
+		// The last page holds the twenty-sixth row alone, and it replaces the twenty-five before it.
+		expect(table(element).data).toHaveLength(1);
+		expect(query(element, 'entries-position').textContent).toBe('Rows 26 to 26 of 26');
+		expect(query(element, 'pager-previous').disabled).toBe(false);
+		expect(query(element, 'pager-next').disabled).toBe(true);
+
+		// The same guard at the other end of the list.
+		query(element, 'pager-next').click();
+		await flushAll();
+		expect(lastRequestFor(getLogEntries).pageNumber).toBe(2);
+	});
+
+	it('walks back with Previous and forward by number, and ignores a click on the page already on screen', async() =>
+	{
+		wireConsistentPages();
+		const element = await createComponent();
+		await entriesView(element);
+		query(element, 'pager-size').dispatchEvent(new CustomEvent('change', {detail: {value: String(SMALLEST_PAGE_SIZE)}}));
+		await flushAll();
+		query(element, 'pager-next').click();
+		await flushAll();
+		expect(lastRequestFor(getLogEntries).pageNumber).toBe(2);
+
+		// The page already on screen is where the reader is; clicking its own number costs nothing.
+		const readsAtPageTwo = callCountFor(getLogEntries);
+		queryAll(element, 'pager-page')[1].click();
+		await flushAll();
+		expect(callCountFor(getLogEntries)).toBe(readsAtPageTwo);
+
+		query(element, 'pager-previous').click();
+		await flushAll();
+		expect(lastRequestFor(getLogEntries).pageNumber).toBe(1);
+		expect(query(element, 'entries-position').textContent).toBe('Rows 1 to 25 of 26');
+
+		queryAll(element, 'pager-page')[1].click();
+		await flushAll();
+		expect(lastRequestFor(getLogEntries).pageNumber).toBe(2);
+		expect(query(element, 'entries-position').textContent).toBe('Rows 26 to 26 of 26');
+	});
+
+	it('turns the page without re-reading the ribbon, and keeps the rows and the pager on screen while the next page is in flight', async() =>
+	{
+		wireConsistentPages();
+		const element = await createComponent();
+		await entriesView(element);
+		query(element, 'pager-size').dispatchEvent(new CustomEvent('change', {detail: {value: String(SMALLEST_PAGE_SIZE)}}));
+		await flushAll();
+		const ribbonReads = callCountFor(getEntrySummary);
+
+		let releasePage = null;
+		mockCallControllerMethod.mockImplementation((apexFn) =>
+		{
+			if(apexFn === getLogEntries)
+			{
+				return new Promise((resolve) =>
+				{
+					releasePage = resolve;
+				});
+			}
+			return Promise.resolve(apexFn === getEntrySummary ? MOCK_ENTRY_SUMMARY : null);
+		});
+
+		query(element, 'pager-next').click();
+		await flushAll();
+
+		// In flight: the rows the reader was reading are still there under the datatable's own spinner, and so is the
+		// pager, still saying where they are. A whole reload would have taken all three away.
+		expect(table(element).isLoading).toBe(true);
+		expect(table(element).data).toHaveLength(SMALLEST_PAGE_SIZE);
+		expect(query(element, 'entries-pager')).not.toBeNull();
+		expect(query(element, 'entries-position').textContent).toBe('Rows 1 to 25 of 26');
+
+		releasePage({
+			records: [{...MOCK_ENTRY_PAGE.records[0], id: 'row-25', logNumber: 'L-25'}],
+			totalCount: CONSISTENT_TOTAL,
+			pageNumber: 2,
+			totalPages: 2,
+			hasMorePages: false,
+			resultsTruncated: false
+		});
+		await flushAll();
+
+		expect(table(element).isLoading).toBe(false);
+		expect(query(element, 'entries-position').textContent).toBe('Rows 26 to 26 of 26');
+		// The ribbon counts the window, not the page, so a turn never asks for it again.
+		expect(callCountFor(getEntrySummary)).toBe(ribbonReads);
+	});
+
+	it('shows no page numbers past seven pages, keeps Previous and Next, and a page-size change returns to page one', async() =>
+	{
+		wirePagedResponses(MANY_PAGES);
+		const element = await createComponent();
+		await entriesView(element);
+
+		expect(queryAll(element, 'pager-page')).toHaveLength(0);
+		expect(query(element, 'pager-next')).toBeTruthy();
+		query(element, 'pager-next').click();
+		await flushAll();
+		expect(lastRequestFor(getLogEntries).pageNumber).toBe(2);
+
+		query(element, 'pager-size').dispatchEvent(new CustomEvent('change', {detail: {value: '100'}}));
+		await flushAll();
+		const request = lastRequestFor(getLogEntries);
+		expect(request.pageSize).toBe(100);
+		expect(request.pageNumber).toBe(1);
+	});
+
+	it('hides the pager over an empty list and pages the problems view the same way', async() =>
+	{
+		wireMockResponses({problems: {...MOCK_PROBLEM_PAGE, records: [], totalCount: 0, totalPages: 0}});
+		const empty = await createComponent();
+		expect(query(empty, 'entries-pager')).toBeNull();
+
+		wirePagedResponses(2);
+		const problems = await createComponent();
+		expect(query(problems, 'entries-position').textContent).toBe('Rows 1 to 1 of 2');
+		query(problems, 'pager-next').click();
+		await flushAll();
+		expect(lastRequestFor(getLogProblems).pageNumber).toBe(2);
+	});
+
+	it('keeps four columns with the drawer open at a compact width, restores them when the drawer closes or the width grows, and keeps the sort', async() =>
+	{
+		compactMedia.matches = true;
+		const element = await createComponent();
+		await entriesView(element);
+		expect(columnFieldNames(element)).toHaveLength(7);
+
+		table(element).dispatchEvent(new CustomEvent('sort', {detail: {fieldName: 'createdDate', sortDirection: 'asc'}}));
+		await flushAll();
+		await selectRow(element, '001e1');
+		expect(columnFieldNames(element)).toEqual([
+			'createdDate',
+			'level',
+			'shortMessage',
+			'chainDisplay'
+		]);
+		expect(table(element).sortedBy).toBe('createdDate');
+		expect(table(element).sortedDirection).toBe('asc');
+
+		element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('close'));
+		await flushAll();
+		expect(columnFieldNames(element)).toHaveLength(7);
+
+		await selectRow(element, '001e1');
+		compactMedia.listeners.forEach((listener) => listener({matches: false}));
+		await flushAll();
+		expect(columnFieldNames(element)).toHaveLength(7);
+	});
+
+	it('keeps Level, Problem, Count and Last seen in Problems with the drawer open at a compact width, and all seven otherwise', async() =>
+	{
+		compactMedia.matches = true;
+		const element = await createComponent();
+		const labelsOf = () => table(element).columns.map((column) => column.label);
+		expect(labelsOf()).toHaveLength(7);
+
+		await selectRow(element, '001p1');
+		expect(labelsOf()).toEqual([
+			'Level',
+			'Problem',
+			'Count',
+			'Last seen'
+		]);
+
+		compactMedia.listeners.forEach((listener) => listener({matches: false}));
+		await flushAll();
+		expect(labelsOf()).toHaveLength(7);
+	});
+
+	it('offers Back to the list on the drawer and closes it, and works without matchMedia', async() =>
+	{
+		const element = await createComponent();
+		await entriesView(element);
+		await selectRow(element, '001e1');
+
+		expect(query(element, 'back-to-list').label).toBe('Back to the list');
+		query(element, 'back-to-list').click();
+		await flushAll();
+		expect(query(element, 'detail-panel')).toBeNull();
+
+		delete window.matchMedia;
+		const bare = await createComponent();
+		await entriesView(bare);
+		await selectRow(bare, '001e1');
+		expect(columnFieldNames(bare)).toHaveLength(7);
+	});
+});
+
+describe('c-log-console address', () =>
+{
+	const HOST_PAGE = {type: 'standard__navItemPage', attributes: {apiName: 'My_Operations_Workspace'}};
+	const LATER_WINDOW_START = '2026-06-01T09:01:00.000Z';
+
+	beforeEach(() => wireMockResponses());
+
+	afterEach(() =>
+	{
+		while(document.body.firstChild)
+		{
+			document.body.removeChild(document.body.firstChild);
+		}
+		jest.clearAllMocks();
+	});
+
+	const query = (element, testId) => element.shadowRoot.querySelector(`[data-testid="${testId}"]`);
+	const queryAll = (element, testId) => Array.from(element.shadowRoot.querySelectorAll(`[data-testid="${testId}"]`));
+
+	// The wire delivering an address to a live console: the page it is hosted on, carrying the state given. Three
+	// flushes, because mirroring an address can cost a summary read, a chain-naming read and then the list.
+	async function deliver(state, reference = HOST_PAGE)
+	{
+		CurrentPageReference.emit({...reference, state});
+		await flushAll();
+		await flushAll();
+		await flushAll();
+	}
+
+	// The drawer raises showwholeaction, so the drawer has to be open for the event to come from where it comes from.
+	async function showWholeActionFromDrawer(element, rowId)
+	{
+		await selectRow(element, rowId);
+		element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('showwholeaction', {detail: {rootCorrelationId: ACTION_ID}}));
+		await flushAll();
+		await flushAll();
+	}
+
+	const lastNavigation = () => mockNavigate.mock.calls[mockNavigate.mock.calls.length - 1];
+
+	it('pins the action a plain address names, and a second delivery of the same address changes nothing', async() =>
+	{
+		const element = await createComponent();
+		mockCallControllerMethod.mockClear();
+
+		await deliver({c__rootCorrelationId: ACTION_ID});
+		expect(query(element, 'action-pill').label).toBe('Action: a7d2f4c1…f13a');
+		expect(lastRequestFor(getLogEntries).rootCorrelationId).toBe(ACTION_ID);
+		expect(mockNavigate).not.toHaveBeenCalled();
+
+		mockCallControllerMethod.mockClear();
+		await deliver({c__rootCorrelationId: ACTION_ID});
+		expect(mockCallControllerMethod).not.toHaveBeenCalled();
+	});
+
+	it('unpins the action when every key leaves the address, putting the levels and the sort back', async() =>
+	{
+		const element = await createComponent();
+		await deliver({c__rootCorrelationId: ACTION_ID});
+		expect(query(element, 'action-pill')).toBeTruthy();
+
+		await deliver({});
+
+		expect(query(element, 'action-pill')).toBeNull();
+		expect(query(element, 'action-banner')).toBeNull();
+		const request = lastRequestFor(getLogEntries);
+		expect(request.rootCorrelationId).toBeNull();
+		expect(request.levels).toEqual([
+			'ERROR',
+			'WARN'
+		]);
+		expect(request.sortAscending).toBe(false);
+		// Mirroring an address writes nothing back: the address is already what it says, and a write here would
+		// rewrite a history entry the reader is standing on.
+		expect(mockNavigate).not.toHaveBeenCalled();
+	});
+
+	it('narrows the pinned action to the chain beside it, named from the chips, and widens when the chain key leaves', async() =>
+	{
+		const element = await createComponent();
+
+		await deliver({c__rootCorrelationId: ACTION_ID, c__correlationId: 'run-a'});
+		expect(query(element, 'action-pill')).toBeTruthy();
+		expect(query(element, 'correlation-pill').label).toBe('Chain: OrderSync · CHAIN-00214');
+		expect(lastRequestFor(getLogEntries).correlationId).toBe('run-a');
+		expect(callCountFor(resolveSearchId)).toBe(0);
+
+		await deliver({c__rootCorrelationId: ACTION_ID});
+		expect(query(element, 'correlation-pill')).toBeNull();
+		expect(query(element, 'action-pill')).toBeTruthy();
+		expect(lastRequestFor(getLogEntries).correlationId).toBeNull();
+		expect(lastRequestFor(getLogEntries).rootCorrelationId).toBe(ACTION_ID);
+
+		// Forward onto a chip's address again: the action is the one already pinned, so only the chain changes, and it
+		// is named from the chips the console is still holding.
+		await deliver({c__rootCorrelationId: ACTION_ID, c__correlationId: 'run-b'});
+		expect(query(element, 'correlation-pill').label).toBe('Chain: Ledger · CHAIN-00215');
+		expect(lastRequestFor(getLogEntries).correlationId).toBe('run-b');
+		expect(lastRequestFor(getLogEntries).rootCorrelationId).toBe(ACTION_ID);
+		expect(callCountFor(resolveSearchId)).toBe(0);
+		// Narrowing and widening to follow an address writes no address of its own: Back and Forward would otherwise
+		// rewrite the very entries they landed on.
+		expect(mockNavigate).not.toHaveBeenCalled();
+	});
+
+	it('lets a later address win while the chain beside an action is still being read', async() =>
+	{
+		const element = await createComponent();
+		let releaseSummary = null;
+		// The first controller call the delivery makes is the action's summary, so a single one-shot implementation
+		// holds exactly that read; nothing else can reach the list until it answers.
+		mockCallControllerMethod.mockImplementationOnce(() => new Promise((resolve) =>
+		{
+			releaseSummary = () => resolve(MOCK_ACTION_SUMMARY);
+		}));
+
+		CurrentPageReference.emit({...HOST_PAGE, state: {c__rootCorrelationId: ACTION_ID, c__correlationId: 'run-a'}});
+		await flushAll();
+		// The reader widens back to the whole action before the summary answers. The address says the whole action, so
+		// the summary landing afterwards must not narrow the console to the chain the address has left behind.
+		await deliver({c__rootCorrelationId: ACTION_ID});
+		releaseSummary();
+		await flushAll();
+		await flushAll();
+		await flushAll();
+
+		expect(query(element, 'correlation-pill')).toBeNull();
+		expect(query(element, 'action-pill')).toBeTruthy();
+		expect(lastRequestFor(getLogEntries).correlationId).toBeNull();
+		expect(lastRequestFor(getLogEntries).rootCorrelationId).toBe(ACTION_ID);
+	});
+
+	it('names a chain the chips do not list through the resolver, and keeps the raw id when the resolver knows no run', async() =>
+	{
+		wireMockResponses({resolvedSearchId: {kind: 'CHAIN', id: 'run-z', chainName: 'Ledger', chainNumber: 'CHAIN-00215'}});
+		const element = await createComponent();
+
+		await deliver({c__rootCorrelationId: ACTION_ID, c__correlationId: 'run-z'});
+		expect(mockCallControllerMethod.mock.calls.find((call) => call[0] === resolveSearchId)[1]).toEqual({term: 'run-z'});
+		expect(query(element, 'correlation-pill').label).toBe('Chain: Ledger · CHAIN-00215');
+
+		wireMockResponses({resolvedSearchId: {kind: 'NONE'}});
+		await deliver({c__correlationId: 'run-unknown'});
+		expect(query(element, 'correlation-pill').label).toContain('run-unknown');
+		expect(query(element, 'action-pill')).toBeNull();
+	});
+
+	it('names the pill after the run now pinned, never after a slower answer for the run before it', async() =>
+	{
+		const SLOW_RUN = 'run-slow';
+		const FAST_RUN = 'run-fast';
+		const element = await createComponent();
+		let releaseFirstName = null;
+		const answerFor = mockCallControllerMethod.getMockImplementation();
+		mockCallControllerMethod.mockImplementation((apexFunction, parameters) =>
+		{
+			if(apexFunction === resolveSearchId)
+			{
+				return parameters.term === SLOW_RUN ? new Promise((resolve) =>
+				{
+					releaseFirstName = () => resolve({kind: 'CHAIN', id: SLOW_RUN, chainName: 'OrderSync', chainNumber: 'CHAIN-00214'});
+				}) : Promise.resolve({kind: 'CHAIN', id: FAST_RUN, chainName: 'Ledger', chainNumber: 'CHAIN-00215'});
+			}
+			return answerFor(apexFunction, parameters);
+		});
+
+		CurrentPageReference.emit({...HOST_PAGE, state: {c__correlationId: SLOW_RUN}});
+		await flushAll();
+		await deliver({c__correlationId: FAST_RUN});
+		expect(query(element, 'correlation-pill').label).toBe('Chain: Ledger · CHAIN-00215');
+
+		// The first run's name arrives after the second run is the one pinned; wording the pill after it would name
+		// one chain over another chain's rows.
+		releaseFirstName();
+		await flushAll();
+		await flushAll();
+
+		expect(query(element, 'correlation-pill').label).toBe('Chain: Ledger · CHAIN-00215');
+		expect(lastRequestFor(getLogEntries).correlationId).toBe(FAST_RUN);
+	});
+
+	it('asks for the rows while the pill is still being named, so the wait shows the spinner and not an empty list', async() =>
+	{
+		let releaseName = null;
+		let releaseRows = null;
+		const answerFor = mockCallControllerMethod.getMockImplementation();
+		mockCallControllerMethod.mockImplementation((apexFunction, parameters) =>
+		{
+			if(apexFunction === resolveSearchId)
+			{
+				return new Promise((resolve) =>
+				{
+					releaseName = () => resolve({kind: 'CHAIN', id: 'deep-1', chainName: 'OrderSync', chainNumber: 'CHAIN-00214'});
+				});
+			}
+			// The first page of rows is held too, so the wait itself can be read: with both reads in flight the
+			// console has to be showing the spinner.
+			if(apexFunction === getLogEntries && !releaseRows)
+			{
+				return new Promise((resolve) =>
+				{
+					releaseRows = () => resolve(answerFor(apexFunction, parameters));
+				});
+			}
+			return answerFor(apexFunction, parameters);
+		});
+		const element = createElement('c-log-console', {is: LogConsole});
+
+		// The hand-off's address reaches the wire before the console mounts, which is how a View logs click arrives.
+		CurrentPageReference.emit({...HOST_PAGE, state: {c__correlationId: 'deep-1', c__viewLogsAt: '1000'}});
+		document.body.appendChild(element);
+		await flushAll();
+		await flushAll();
+
+		// The resolver has still not answered, and the rows have been asked for anyway: the reader waits on the
+		// spinner rather than on "no logs match these filters", which is the worst thing to say about a list that
+		// was never read.
+		expect(releaseName).not.toBeNull();
+		expect(lastRequestFor(getLogEntries).correlationId).toBe('deep-1');
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeTruthy();
+		expect(query(element, 'empty-state')).toBeNull();
+
+		releaseRows();
+		releaseName();
+		await flushAll();
+		await flushAll();
+
+		expect(query(element, 'correlation-pill').label).toBe('Chain: OrderSync · CHAIN-00214');
+		expect(query(element, 'empty-state')).toBeNull();
+	});
+
+	it('drops a stale chain name under a pinned action as well, and the reload that came with it', async() =>
+	{
+		const SLOW_RUN = 'run-slow';
+		const FAST_RUN = 'run-fast';
+		const element = await createComponent();
+		await deliver({c__rootCorrelationId: ACTION_ID});
+		let releaseFirstName = null;
+		const answerFor = mockCallControllerMethod.getMockImplementation();
+		mockCallControllerMethod.mockImplementation((apexFunction, parameters) =>
+		{
+			if(apexFunction === resolveSearchId)
+			{
+				return parameters.term === SLOW_RUN ? new Promise((resolve) =>
+				{
+					releaseFirstName = () => resolve({kind: 'CHAIN', id: SLOW_RUN, chainName: 'OrderSync', chainNumber: 'CHAIN-00214'});
+				}) : Promise.resolve({kind: 'CHAIN', id: FAST_RUN, chainName: 'Ledger', chainNumber: 'CHAIN-00215'});
+			}
+			return answerFor(apexFunction, parameters);
+		});
+
+		CurrentPageReference.emit({...HOST_PAGE, state: {c__rootCorrelationId: ACTION_ID, c__correlationId: SLOW_RUN}});
+		await flushAll();
+		await deliver({c__rootCorrelationId: ACTION_ID, c__correlationId: FAST_RUN});
+		mockCallControllerMethod.mockClear();
+
+		releaseFirstName();
+		await flushAll();
+		await flushAll();
+
+		expect(query(element, 'correlation-pill').label).toBe('Chain: Ledger · CHAIN-00215');
+		// The narrowing that lost the race reloads nothing either: the list already answers the address.
+		expect(mockCallControllerMethod).not.toHaveBeenCalled();
+	});
+
+	it('drops a stale chain name while the action is being opened, keeping the name of the chain now narrowed to', async() =>
+	{
+		const UNLISTED_RUN = 'run-unlisted';
+		const element = await createComponent();
+		let releaseFirstName = null;
+		const answerFor = mockCallControllerMethod.getMockImplementation();
+		mockCallControllerMethod.mockImplementation((apexFunction, parameters) =>
+		{
+			if(apexFunction === resolveSearchId && parameters.term === UNLISTED_RUN)
+			{
+				return new Promise((resolve) =>
+				{
+					releaseFirstName = () => resolve({kind: 'CHAIN', id: UNLISTED_RUN, chainName: 'Ledger', chainNumber: 'CHAIN-00215'});
+				});
+			}
+			return answerFor(apexFunction, parameters);
+		});
+
+		// Nothing is pinned yet, so opening the action owns the naming; the chain beside it is not one the banner's
+		// chips list, so its name has to be read through the resolver.
+		CurrentPageReference.emit({...HOST_PAGE, state: {c__rootCorrelationId: ACTION_ID, c__correlationId: UNLISTED_RUN}});
+		await flushAll();
+		await deliver({c__rootCorrelationId: ACTION_ID, c__correlationId: 'run-a'});
+		expect(query(element, 'correlation-pill').label).toBe('Chain: OrderSync · CHAIN-00214');
+
+		// The first chain's name arrives once the address has moved to another chain of the same action: wording the
+		// pill after it would name one chain over another chain's rows.
+		releaseFirstName();
+		await flushAll();
+		await flushAll();
+
+		expect(query(element, 'correlation-pill').label).toBe('Chain: OrderSync · CHAIN-00214');
+		expect(lastRequestFor(getLogEntries).correlationId).toBe('run-a');
+	});
+
+	it('pins a run with the window beside it from a plain address, dropping a pinned action, and unpins when every key leaves', async() =>
+	{
+		const element = await createComponent();
+		await deliver({c__rootCorrelationId: ACTION_ID});
+
+		await deliver({c__correlationId: 'deep-1', c__windowStart: DEEP_LINK_START, c__windowEnd: DEEP_LINK_END});
+		expect(query(element, 'action-pill')).toBeNull();
+		expect(query(element, 'correlation-pill')).toBeTruthy();
+		const request = lastRequestFor(getLogEntries);
+		expect(request.correlationId).toBe('deep-1');
+		expect(request.rootCorrelationId).toBeNull();
+		expect(request.customStart).toBe(DEEP_LINK_START);
+		expect(request.customEnd).toBe(DEEP_LINK_END);
+
+		await deliver({});
+		expect(query(element, 'correlation-pill')).toBeNull();
+		expect(lastRequestFor(getLogEntries).correlationId).toBeNull();
+	});
+
+	it('re-applies the window when the same chain key arrives with a different one, and does nothing on an identical address', async() =>
+	{
+		const element = await createComponent();
+		await deliver({c__correlationId: 'deep-1', c__windowStart: DEEP_LINK_START, c__windowEnd: DEEP_LINK_END});
+		expect(lastRequestFor(getLogEntries).customStart).toBe(DEEP_LINK_START);
+
+		// Back and Forward between two normalised hand-offs of the same run: same chain key, a different window. The
+		// window is part of what the address records, so it is re-applied.
+		await deliver({c__correlationId: 'deep-1', c__windowStart: LATER_WINDOW_START, c__windowEnd: DEEP_LINK_END});
+		expect(lastRequestFor(getLogEntries).customStart).toBe(LATER_WINDOW_START);
+		expect(query(element, 'correlation-pill')).toBeTruthy();
+
+		mockCallControllerMethod.mockClear();
+		await deliver({c__correlationId: 'deep-1', c__windowStart: LATER_WINDOW_START, c__windowEnd: DEEP_LINK_END});
+		expect(mockCallControllerMethod).not.toHaveBeenCalled();
+	});
+
+	// A pasted id pushes the same way: the bare-reference test in the filtering describe proves that one, because a
+	// console with no action pinned has no chips to click.
+	it('pushes the address on Show the whole action and on a chip, on the host page, never with replace', async() =>
+	{
+		const element = await createComponent();
+		await deliver({c__hostTab: 'monitoring'});
+		mockNavigate.mockClear();
+
+		await showWholeActionFromDrawer(element, '001p1');
+		expect(query(element, 'action-pill')).toBeTruthy();
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+		expect(lastNavigation()[0]).toEqual({...HOST_PAGE, state: {c__hostTab: 'monitoring', c__rootCorrelationId: ACTION_ID}});
+		expect(lastNavigation()[1]).toBe(false);
+
+		mockNavigate.mockClear();
+		queryAll(element, 'action-chain-chip')[0].click();
+		await flushAll();
+		await flushAll();
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+		expect(lastNavigation()[0].state).toEqual({c__hostTab: 'monitoring', c__rootCorrelationId: ACTION_ID, c__correlationId: 'run-a'});
+		expect(lastNavigation()[1]).toBe(false);
+	});
+
+	it('writes nothing when a pin repeats what the address already records', async() =>
+	{
+		const element = await createComponent();
+		await deliver({c__rootCorrelationId: ACTION_ID});
+		mockNavigate.mockClear();
+
+		queryAll(element, 'action-chain-chip')[0].click();
+		await flushAll();
+		await flushAll();
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+
+		// The platform hands the pushed address back, and the reader clicks the same chip again: the address already
+		// records that narrowing, so a second entry would only buy them a Back that appears to do nothing.
+		await deliver(lastNavigation()[0].state);
+		mockNavigate.mockClear();
+		queryAll(element, 'action-chain-chip')[0].click();
+		await flushAll();
+		await flushAll();
+
+		expect(mockNavigate).not.toHaveBeenCalled();
+		expect(query(element, 'correlation-pill').label).toBe('Chain: OrderSync · CHAIN-00214');
+		expect(query(element, 'action-pill')).toBeTruthy();
+	});
+
+	it('pushes again when the pin that follows the echoed address is a different chain', async() =>
+	{
+		const element = await createComponent();
+		await deliver({c__rootCorrelationId: ACTION_ID});
+		queryAll(element, 'action-chain-chip')[0].click();
+		await flushAll();
+		await flushAll();
+		await deliver(lastNavigation()[0].state);
+		mockNavigate.mockClear();
+
+		queryAll(element, 'action-chain-chip')[1].click();
+		await flushAll();
+		await flushAll();
+
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+		expect(lastNavigation()[0].state).toEqual({c__rootCorrelationId: ACTION_ID, c__correlationId: 'run-b'});
+		expect(lastNavigation()[1]).toBe(false);
+	});
+
+	it('drops the key it pushed when the pill closes, even though the pushed address was never delivered back', async() =>
+	{
+		const element = await createComponent();
+		// The only address the console has been handed carries no key of its own; the pin below is made in place, and
+		// the wire never delivers that push back. The close control has to drop the key all the same, or the action
+		// stays in the URL and the next refresh re-pins what the reader just cleared.
+		await deliver({c__hostTab: 'monitoring'});
+		await showWholeActionFromDrawer(element, '001p1');
+		expect(query(element, 'action-pill')).toBeTruthy();
+		mockNavigate.mockClear();
+
+		query(element, 'action-pill').dispatchEvent(new CustomEvent('remove'));
+		await flushAll();
+
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+		expect(lastNavigation()[0]).toEqual({...HOST_PAGE, state: {c__hostTab: 'monitoring'}});
+		expect(lastNavigation()[1]).toBe(true);
+		expect(query(element, 'action-pill')).toBeNull();
+	});
+
+	it('rewrites the address in place on the close controls and Clear all, keeping the action key when only the chain pill goes', async() =>
+	{
+		const element = await createComponent();
+		await deliver({c__rootCorrelationId: ACTION_ID, c__correlationId: 'run-a'});
+		mockNavigate.mockClear();
+
+		query(element, 'correlation-pill').dispatchEvent(new CustomEvent('remove'));
+		await flushAll();
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+		expect(lastNavigation()[0]).toEqual({...HOST_PAGE, state: {c__rootCorrelationId: ACTION_ID}});
+		expect(lastNavigation()[1]).toBe(true);
+		expect(query(element, 'action-pill')).toBeTruthy();
+
+		mockNavigate.mockClear();
+		query(element, 'action-pill').dispatchEvent(new CustomEvent('remove'));
+		await flushAll();
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+		expect(lastNavigation()[0]).toEqual({...HOST_PAGE, state: {}});
+		expect(lastNavigation()[1]).toBe(true);
+		expect(query(element, 'correlation-pill')).toBeNull();
+
+		mockNavigate.mockClear();
+		buttonByLabel(element, 'Clear all').click();
+		await flushAll();
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+		expect(lastNavigation()[0]).toEqual({...HOST_PAGE, state: {}});
+		expect(lastNavigation()[1]).toBe(true);
+	});
+
+	it('applies a stamped action hand-off once, rewrites the address without the stamp, and lets a new stamp apply again', async() =>
+	{
+		const element = await createComponent();
+		mockNavigate.mockClear();
+
+		await deliver({c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '1000'});
+		expect(query(element, 'action-pill')).toBeTruthy();
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+		expect(lastNavigation()[0]).toEqual({...HOST_PAGE, state: {c__rootCorrelationId: ACTION_ID}});
+		expect(lastNavigation()[1]).toBe(true);
+		expect(callCountFor(getActionSummary)).toBe(1);
+
+		await deliver({c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '1000'});
+		expect(callCountFor(getActionSummary)).toBe(1);
+
+		await deliver({c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '2000'});
+		expect(callCountFor(getActionSummary)).toBe(2);
+		expect(mockNavigate).toHaveBeenCalledTimes(2);
+	});
+
+	it('applies a stamped run hand-off once and keeps its window in the rewritten address', async() =>
+	{
+		const element = await createComponent();
+		mockNavigate.mockClear();
+
+		await deliver({c__correlationId: 'deep-1', c__windowStart: DEEP_LINK_START, c__windowEnd: DEEP_LINK_END, c__viewLogsAt: '1000'});
+		expect(query(element, 'correlation-pill')).toBeTruthy();
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+		expect(lastNavigation()[0]).toEqual({...HOST_PAGE, state: {c__correlationId: 'deep-1', c__windowStart: DEEP_LINK_START, c__windowEnd: DEEP_LINK_END}});
+		expect(lastNavigation()[1]).toBe(true);
+	});
+
+	it('writes a run hand-off that ran to now with its start alone, so the address says what the link said', async() =>
+	{
+		const element = await createComponent();
+		mockNavigate.mockClear();
+
+		await deliver({c__correlationId: 'deep-open-ended', c__windowStart: DEEP_LINK_START, c__viewLogsAt: '1000'});
+		expect(query(element, 'correlation-pill')).toBeTruthy();
+		expect(mockNavigate).toHaveBeenCalledTimes(1);
+		expect(lastNavigation()[0]).toEqual({...HOST_PAGE, state: {c__correlationId: 'deep-open-ended', c__windowStart: DEEP_LINK_START}});
+		expect(lastNavigation()[1]).toBe(true);
+	});
+
+	it('sets the pin before the rewrite, so the plain address the rewrite delivers changes nothing', async() =>
+	{
+		const element = await createComponent();
+		let stateDeliveredBack = null;
+		// Once, not for the rest of the file: a stamped hand-off issues exactly one navigation, and clearAllMocks
+		// between tests resets the calls but not the implementation.
+		mockNavigate.mockImplementationOnce((reference) =>
+		{
+			stateDeliveredBack = reference.state;
+		});
+
+		await deliver({c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '1000'});
+		mockCallControllerMethod.mockClear();
+		await deliver(stateDeliveredBack);
+		expect(mockCallControllerMethod).not.toHaveBeenCalled();
+		expect(query(element, 'action-pill')).toBeTruthy();
+	});
+
+	it('forgets the consumed hand-off on an in-place pin, so Back onto the hand-off applies it again', async() =>
+	{
+		const element = await createComponent();
+		await deliver({c__correlationId: 'deep-1', c__windowStart: DEEP_LINK_START, c__windowEnd: DEEP_LINK_END, c__viewLogsAt: '1000'});
+		await showWholeActionFromDrawer(element, '001e1');
+		expect(query(element, 'action-pill')).toBeTruthy();
+		mockCallControllerMethod.mockClear();
+
+		await deliver({c__correlationId: 'deep-1', c__windowStart: DEEP_LINK_START, c__windowEnd: DEEP_LINK_END, c__viewLogsAt: '1000'});
+		expect(query(element, 'action-pill')).toBeNull();
+		expect(lastRequestFor(getLogEntries).correlationId).toBe('deep-1');
+	});
+
+	it('ignores an empty delivery and keeps its host page', async() =>
+	{
+		const element = await createComponent();
+		await deliver({c__rootCorrelationId: ACTION_ID});
+		CurrentPageReference.emit(undefined);
+		await flushAll();
+		expect(query(element, 'action-pill')).toBeTruthy();
+		mockNavigate.mockClear();
+
+		query(element, 'action-pill').dispatchEvent(new CustomEvent('remove'));
+		await flushAll();
+		expect(lastNavigation()[0]).toEqual({...HOST_PAGE, state: {}});
+	});
 });

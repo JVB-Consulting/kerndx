@@ -3,6 +3,12 @@ const {getInstanceUrl, ensureAuthenticated} = require('../helpers/sf-auth');
 const {soqlQuery} = require('../helpers/sf-cli');
 const {clickNavTab, waitForPageLoad} = require('../helpers/sf-navigation');
 const {waitForSpinnerGone} = require('../helpers/wait-helpers');
+const {SPINNER} = require('../helpers/sf-selectors');
+const {readColumnLabels} = require('../lib/datatable-headers');
+const {ELEMENT_WAIT_MILLISECONDS} = require('../helpers/wait-times');
+
+// How long a drawer may take to appear after its row is selected before the selection counts as failed.
+const DETAIL_OPEN_TIMEOUT_MILLISECONDS = 30_000;
 
 // Resolved once per process: 'kern__' on a subscriber org, '' on the no-namespace unmanaged org.
 // The Log Console is not a nav tab in the Kern app, so it is reached by tab URL
@@ -57,6 +63,28 @@ class LogConsolePage
 		await waitForPageLoad(this.page);
 		await this.root().waitFor({state: 'visible', timeout: 60_000});
 		await this.waitForListSettled();
+	}
+
+	/**
+	 * @description Navigates to the Log Console tab and returns as soon as its list has rendered, with no
+	 *              fixed wait: the open a timer measures. The caller settles afterwards.
+	 */
+	async navigateUntilRendered()
+	{
+		await ensureAuthenticated(this.page);
+		await this.page.goto(`${getInstanceUrl()}/lightning/n/${this.tabApiName()}`, {waitUntil: 'domcontentloaded'});
+		await this.waitForListRendered();
+	}
+
+	/**
+	 * @description Waits until the list shows a row or its empty state and no spinner is on screen, without
+	 *              the fixed settle: what a timed open measures to.
+	 */
+	async waitForListRendered()
+	{
+		await this.root().waitFor({state: 'visible', timeout: 60_000});
+		await this.rows().first().or(this.emptyState()).waitFor({state: 'visible', timeout: 60_000});
+		await this.page.locator(SPINNER).first().waitFor({state: 'hidden', timeout: ELEMENT_WAIT_MILLISECONDS});
 	}
 
 	root()
@@ -141,9 +169,38 @@ class LogConsolePage
 		return this.root().locator('[data-testid="source-row"]');
 	}
 
+	originFilter()
+	{
+		return this.root().locator('[data-spec-id="origin-filter"]');
+	}
+
+	async originFilterValue()
+	{
+		return this.originFilter().evaluate((combobox) => combobox.value ?? '');
+	}
+
+	async selectOrigin(value)
+	{
+		await this.originFilter().evaluate((combobox, chosen) =>
+		{
+			combobox.value = chosen;
+			combobox.dispatchEvent(new CustomEvent('change', {detail: {value: chosen}}));
+		}, value);
+	}
+
 	approximateBadge()
 	{
 		return this.root().locator('[data-testid="totals-approximate"]').first();
+	}
+
+	/**
+	 * @description The number on the ribbon's total card, with the thousands separators stripped, so a
+	 *              test can compare it against a ranked source row's own count.
+	 */
+	async totalCardValue()
+	{
+		const text = await this.root().locator('[data-spec-id="summary-total-card"] .val').first().innerText();
+		return Number(text.replace(/\D/g, ''));
 	}
 
 	// ── date range ────────────────────────────────────────────────────────
@@ -249,6 +306,109 @@ class LogConsolePage
 	}
 
 	/**
+	 * @description Removes the pinned source the occurrences drill left behind, the same way
+	 *              `removeCorrelation` drops a deep-linked filter.
+	 */
+	async removeSourceFilter()
+	{
+		await this.sourceFilterPill().locator('button.slds-pill__remove, button[title="Remove"], button').first().click();
+		await this.waitForListSettled();
+	}
+
+	// ── the whole action ─────────────────────────────────────────────────
+
+	actionPill()
+	{
+		return this.root().locator('[data-testid="action-pill"]').first();
+	}
+
+	async removeAction()
+	{
+		await this.actionPill().locator('button.slds-pill__remove, button[title="Remove"], button').first().click();
+		await this.waitForListSettled();
+	}
+
+	rangeNote()
+	{
+		return this.root().locator('[data-testid="action-range-note"]').first();
+	}
+
+	actionBannerSentence()
+	{
+		return this.root().locator('[data-testid="action-banner-sentence"]').first();
+	}
+
+	actionChips()
+	{
+		return this.root().locator('[data-testid="action-chain-chip"]');
+	}
+
+	actionMoreChains()
+	{
+		return this.root().locator('[data-testid="action-more-chains"]').first();
+	}
+
+	openChainsButton()
+	{
+		return this.root().locator('[data-testid="action-open-chains"]').first();
+	}
+
+	// ── pages ────────────────────────────────────────────────────────────
+
+	positionLine()
+	{
+		return this.root().locator('[data-testid="entries-position"]').first();
+	}
+
+	pageNumberButtons()
+	{
+		return this.root().locator('[data-testid="pager-page"]');
+	}
+
+	/**
+	 * @description The pager's Next, whose rendered inner button carries the disabled state.
+	 * @returns {Object} The button's locator.
+	 */
+	getNextPageButton()
+	{
+		return this.root().locator('[data-testid="pager-next"]').first().locator('button');
+	}
+
+	/**
+	 * @description Every row's key (the entry's record id for a plain row), in the order the list shows them.
+	 * @returns {Promise<Array<string>>} The keys.
+	 */
+	async getRowKeys()
+	{
+		return this.rows().evaluateAll((rows) => rows.map((row) => row.getAttribute('data-row-key-value')));
+	}
+
+	async clickNextPage()
+	{
+		await this.root().locator('[data-testid="pager-next"]').first().click();
+		await this.waitForListSettled();
+	}
+
+	/**
+	 * @description Picks a page size from the pager's combobox. The option's visible text is the
+	 *              shipped `LogConsole_PerPage` label filled with the size, so a size of 25 reads
+	 *              `25 per page`.
+	 */
+	async selectPageSize(size)
+	{
+		const combobox = this.root().locator('[data-testid="pager-size"]').first();
+		await combobox.locator('input, button').first().click();
+		await this.page.waitForTimeout(500);
+		await this.page.getByRole('option', {name: `${size} per page`, exact: true}).first().click();
+		await this.waitForListSettled();
+	}
+
+	backToListButton()
+	{
+		return this.root().locator('[data-testid="back-to-list"]').first();
+	}
+
+	/**
 	 * @description Reads the date-range combobox's displayed value — the preset's own label, e.g.
 	 *              `Last 24 hours` or `Custom range…`, which is what the reader sees. lightning-combobox
 	 *              renders its trigger as a button in some releases and an input in others, so the value is
@@ -337,6 +497,18 @@ class LogConsolePage
 	 */
 	async selectRow(index)
 	{
+		await this.clickRow(index);
+		await this.page.waitForTimeout(2000);
+		await waitForSpinnerGone(this.page);
+	}
+
+	/**
+	 * @description Clicks a row's selector (its radio when the table shows one, the row itself otherwise) and
+	 *              returns at once, with no settle.
+	 * @param {number} index The row's index on the page.
+	 */
+	async clickRow(index)
+	{
 		const row = this.rows().nth(index);
 		const radio = row.locator('lightning-primitive-cell-checkbox, input[type="radio"]').first();
 		if(await radio.isVisible().catch(() => false))
@@ -347,8 +519,18 @@ class LogConsolePage
 		{
 			await row.click();
 		}
-		await this.page.waitForTimeout(2000);
-		await waitForSpinnerGone(this.page);
+	}
+
+	/**
+	 * @description Selects a row and returns as soon as the drawer is on screen, with no fixed wait: the read a
+	 *              walk times (selectRow sleeps two seconds and then waits up to two more for a spinner to appear,
+	 *              which a timer around it would count). The caller settles afterwards, untimed.
+	 * @param {number} index The row's index on the page.
+	 */
+	async selectRowUntilDetail(index)
+	{
+		await this.clickRow(index);
+		await this.detailPanel().waitFor({state: 'visible', timeout: DETAIL_OPEN_TIMEOUT_MILLISECONDS});
 	}
 
 	async clickColumnHeader(columnName)
@@ -365,18 +547,15 @@ class LogConsolePage
 	}
 
 	/**
-	 * @description Drives the datatable's endless scroll by scrolling its internal scroll container
-	 *              to the bottom, which fires the loadmore event that appends the next page.
+	 * @description The list's data-column labels, in order, so a width check can compare the whole
+	 *              column set exactly rather than searching the header text for one word. Read by the
+	 *              shared datatable-header reader, which the Chain Monitor page object uses too.
+	 *
+	 * @return {Promise<string[]>} The column labels, in the order the list shows them.
 	 */
-	async scrollTableToBottom()
+	async getColumnLabels()
 	{
-		const scroller = this.table().locator('.slds-scrollable_y').first();
-		await scroller.evaluate((element) =>
-		{
-			element.scrollTop = element.scrollHeight;
-		});
-		await this.page.waitForTimeout(2500);
-		await waitForSpinnerGone(this.page);
+		return readColumnLabels(this.table());
 	}
 
 	emptyState()
@@ -384,11 +563,47 @@ class LogConsolePage
 		return this.root().locator('[data-testid="empty-state"]').first();
 	}
 
+	/**
+	 * @description Every Source cell in the list, whole: the writer's text with its origin pill's text
+	 *              after it, which is what a reader sees in the column.
+	 */
+	sourceCells()
+	{
+		return this.root().locator('[data-spec-id="entries-source-cell"]');
+	}
+
+	/**
+	 * @description The writer's own mark out of every Source cell that carries an origin pill, read
+	 *              without the pill's text beside it. A pill is only drawn where the entry stored a
+	 *              writer, so these are the cells that really name one: an entry written before entries
+	 *              stored a writer fills the same mark with its class and method and carries no pill,
+	 *              and is left out here.
+	 */
+	sourceCellNames()
+	{
+		return this.sourceCells().filter({has: this.page.locator('[data-spec-id="entries-source-origin"]')}).locator('.writer-name');
+	}
+
+	sourceOriginPills()
+	{
+		return this.root().locator('[data-spec-id="entries-source-origin"]');
+	}
+
 	// ── detail drawer ─────────────────────────────────────────────────────
 
 	detailPanel()
 	{
 		return this.root().locator('[data-testid="detail-panel"]').first();
+	}
+
+	/**
+	 * @description Closes the drawer with its own close control and waits until it is gone. The click goes to
+	 *              the native button inside the Lightning host, where the click handler listens.
+	 */
+	async closeDetail()
+	{
+		await this.detailPanel().locator('[data-testid="close-button"] button').first().click();
+		await this.detailPanel().waitFor({state: 'hidden'});
 	}
 
 	levelBadge()
@@ -414,6 +629,26 @@ class LogConsolePage
 	chainButton()
 	{
 		return this.detailPanel().locator('[data-testid="action-open-chain"]').first();
+	}
+
+	showWholeActionButton()
+	{
+		return this.detailPanel().locator('[data-testid="action-show-whole-action"]').first();
+	}
+
+	metaAction()
+	{
+		return this.detailPanel().locator('[data-testid="meta-action"]').first();
+	}
+
+	metaCorrelationChain()
+	{
+		return this.detailPanel().locator('[data-testid="meta-correlation-chain"]').first();
+	}
+
+	timelineActionNote()
+	{
+		return this.detailPanel().locator('[data-testid="timeline-action-note"]').first();
 	}
 
 	async openDrawerTab(label)
@@ -450,6 +685,149 @@ class LogConsolePage
 	timelineEntries()
 	{
 		return this.detailPanel().locator('[data-testid="timeline-entry"]');
+	}
+
+	/**
+	 * @description One of the drawer's copy affordances, by its own test id, so a check can read the
+	 *              name that button carries rather than a name shared by all of them.
+	 *
+	 * @param {string} testId The copy button's test id, e.g. `copy-message`.
+	 * @return {import('@playwright/test').Locator} The copy button's Lightning host.
+	 */
+	copyButton(testId)
+	{
+		return this.detailPanel().locator(`[data-testid="${testId}"]`).first();
+	}
+
+	overviewStat()
+	{
+		return this.detailPanel().locator('[data-spec-id="timeline-overview-stat"]').first();
+	}
+
+	gapNotes()
+	{
+		return this.detailPanel().locator('[data-spec-id="timeline-gap-note"]');
+	}
+
+	transactionCrumbs()
+	{
+		return this.detailPanel().locator('[data-spec-id="transaction-crumb"]');
+	}
+
+	transactionChevrons()
+	{
+		return this.detailPanel().locator('[data-spec-id="transaction-chevron"]');
+	}
+
+	minimapWarnPins()
+	{
+		return this.detailPanel().locator('[data-spec-id="minimap-warn-pin"]');
+	}
+
+	overviewStatCounts()
+	{
+		return this.overviewStat().locator('.stat__counts').first();
+	}
+
+	overviewStatDuration()
+	{
+		return this.overviewStat().locator('.stat__duration').first();
+	}
+
+	overviewStatClock()
+	{
+		return this.overviewStat().locator('.stat__icon').first();
+	}
+
+	overviewStatError()
+	{
+		return this.overviewStat().locator('.stat__error');
+	}
+
+	/**
+	 * @description The separator and the error text of the overview line read as one part, where the
+	 *              console groups them into an element of their own. Empty on a console that has not
+	 *              taken that grouping yet, which is what lets a check fall back to the error text.
+	 *
+	 * @return {import('@playwright/test').Locator} The error clause, or nothing.
+	 */
+	overviewStatErrorClause()
+	{
+		return this.overviewStat().locator('.stat__errorclause');
+	}
+
+	timelineMinimap()
+	{
+		return this.detailPanel().locator('[data-spec-id="timeline-minimap"]').first();
+	}
+
+	minimapSegments()
+	{
+		return this.detailPanel().locator('[data-spec-id="minimap-segment"]');
+	}
+
+	transactionHeads()
+	{
+		return this.detailPanel().locator('[data-spec-id="transaction-head"]');
+	}
+
+	/**
+	 * @description The warning pin hanging on one minimap segment, so a check can read a pin against
+	 *              the segment it belongs to rather than against the minimap as a whole.
+	 *
+	 * @param {import('@playwright/test').Locator} segment One minimap segment.
+	 * @return {import('@playwright/test').Locator} That segment's warning pin, empty when it carries none.
+	 */
+	segmentWarnPin(segment)
+	{
+		return segment.locator('[data-spec-id="minimap-warn-pin"]');
+	}
+
+	/**
+	 * @description How far into the run one transaction began, as its head shows it.
+	 *
+	 * @param {import('@playwright/test').Locator} head One transaction head.
+	 * @return {import('@playwright/test').Locator} That head's offset text.
+	 */
+	transactionOffset(head)
+	{
+		return head.locator('.toff').first();
+	}
+
+	/**
+	 * @description How long one transaction took, as its head shows it beside the offset.
+	 *
+	 * @param {import('@playwright/test').Locator} head One transaction head.
+	 * @return {import('@playwright/test').Locator} That head's duration text.
+	 */
+	transactionDuration(head)
+	{
+		return head.locator('.tdur').first();
+	}
+
+	/**
+	 * @description The hand-off crumb of one transaction head, which says which transaction handed this
+	 *              one its work.
+	 *
+	 * @param {import('@playwright/test').Locator} head One transaction head.
+	 * @return {import('@playwright/test').Locator} That head's crumb, empty when the head carries none.
+	 */
+	transactionCrumb(head)
+	{
+		return head.locator('[data-spec-id="transaction-crumb"]');
+	}
+
+	/**
+	 * @description The drawn icon inside one chevron wrapper. The wrapper reserves the width; the icon
+	 *              is the shape that has to fit inside it, and only the rendered graphic carries a box
+	 *              a browser will measure.
+	 *
+	 * @param {import('@playwright/test').Locator} chevron One chevron wrapper.
+	 * @return {import('@playwright/test').Locator} The icon drawn inside it.
+	 */
+	chevronIcon(chevron)
+	{
+		return chevron.locator('svg').first();
 	}
 }
 

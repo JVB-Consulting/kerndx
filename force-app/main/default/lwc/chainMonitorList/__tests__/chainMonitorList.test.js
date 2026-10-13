@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for chainMonitorList LWC component
  * @author Jason van Beukering
- * @date April 2026, August 2026
+ * @date April 2026, September 2026
  */
 
 // The page-position label carries {0}/{1} placeholders; mocking it to the real template value
@@ -18,10 +18,19 @@ jest.mock('@salesforce/label/c.ChainMonitor_ListEmptyBody', () => ({default: 'No
 		{virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_ListNoStatusBody', () => ({default: 'No statuses are selected, so no chain run can match. Select at least one status.'}),
 		{virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_ActionPill', () => ({default: 'Action: {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_LaunchedUnder', () => ({default: 'Launched under'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_LaunchedByThisAction', () => ({default: 'this action'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_StartedThisAction', () => ({default: 'started this action'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_RestartOf', () => ({default: 'restart of {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_ShowActionLogsAction', () => ({default: 'Show the action\'s logs'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_LoadingAlt', () => ({default: 'Loading chain runs'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_FiltersToggleAlt', () => ({default: 'Show or hide the status filters'}), {virtual: true});
 
 import {createElement} from 'lwc';
 import ChainMonitorList from 'c/chainMonitorList';
-import {mockCallControllerMethod} from 'c/componentBuilder';
+// noinspection JSUnresolvedReference - mock helpers are provided by the c/componentBuilder jest mock at run time
+import {mockCallControllerMethod, mockNavigate} from 'c/componentBuilder';
 import CLEAR_ALL from '@salesforce/label/c.ChainMonitor_ClearAll';
 import SELECT_ALL from '@salesforce/label/c.ChainMonitor_SelectAll';
 import NEXT_LABEL from '@salesforce/label/c.ChainMonitor_NextLabel';
@@ -150,37 +159,7 @@ describe('c-chain-monitor-list', () =>
 		expect(request.pageNumber).toBe(1);
 	});
 
-	it('should show Select All / Clear All toggle in filters', async() =>
-	{
-		const element = await createComponent();
-
-		element.shadowRoot.querySelector('lightning-button-icon').dispatchEvent(new CustomEvent('click'));
-		await Promise.resolve();
-
-		const buttons = element.shadowRoot.querySelectorAll('lightning-button');
-		const toggleButton = Array.from(buttons).find(b => b.label === CLEAR_ALL);
-		expect(toggleButton).toBeTruthy();
-	});
-
-	it('should clear all filters when Clear All clicked', async() =>
-	{
-		const element = await createComponent();
-
-		element.shadowRoot.querySelector('lightning-button-icon').dispatchEvent(new CustomEvent('click'));
-		await Promise.resolve();
-
-		mockCallControllerMethod.mockClear();
-		const buttons = element.shadowRoot.querySelectorAll('lightning-button');
-		const toggleButton = Array.from(buttons).find(b => b.label === CLEAR_ALL);
-		toggleButton.dispatchEvent(new CustomEvent('click'));
-		await Promise.resolve();
-		await Promise.resolve();
-
-		const checkboxGroup = element.shadowRoot.querySelector('lightning-checkbox-group');
-		expect(checkboxGroup.value).toEqual([]);
-	});
-
-	it('should select all filters when Select All clicked', async() =>
+	it('should show a visible Status legend with Select all and Clear all as two actions', async() =>
 	{
 		const element = await createComponent();
 
@@ -188,18 +167,40 @@ describe('c-chain-monitor-list', () =>
 		await Promise.resolve();
 
 		const checkboxGroup = element.shadowRoot.querySelector('lightning-checkbox-group');
-		checkboxGroup.dispatchEvent(new CustomEvent('change', {detail: {value: []}}));
-		await Promise.resolve();
-		await Promise.resolve();
+		expect(checkboxGroup.variant).toBeFalsy();
+		expect(checkboxGroup.label).toBe(COLUMN_STATUS);
+		expect(element.shadowRoot.querySelector('[data-testid="status-select-all"]').label).toBe(SELECT_ALL);
+		expect(element.shadowRoot.querySelector('[data-testid="status-clear-all"]').label).toBe(CLEAR_ALL);
+	});
 
-		mockCallControllerMethod.mockClear();
-		const buttons = element.shadowRoot.querySelectorAll('lightning-button');
-		const toggleButton = Array.from(buttons).find(b => b.label === SELECT_ALL);
-		toggleButton.dispatchEvent(new CustomEvent('click'));
+	it('should disable whichever action would do nothing', async() =>
+	{
+		const element = await createComponent();
+		element.shadowRoot.querySelector('lightning-button-icon').dispatchEvent(new CustomEvent('click'));
 		await Promise.resolve();
-		await Promise.resolve();
+		const selectAll = () => element.shadowRoot.querySelector('[data-testid="status-select-all"]');
+		const clearAll = () => element.shadowRoot.querySelector('[data-testid="status-clear-all"]');
 
-		expect(checkboxGroup.value).toEqual([
+		expect(selectAll().disabled).toBe(true);
+		expect(clearAll().disabled).toBe(false);
+
+		clearAll().dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(element.shadowRoot.querySelector('lightning-checkbox-group').value).toEqual([]);
+		expect(selectAll().disabled).toBe(false);
+		expect(clearAll().disabled).toBe(true);
+
+		element.shadowRoot.querySelector('lightning-checkbox-group').dispatchEvent(new CustomEvent('change', {detail: {value: ['Completed']}}));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(selectAll().disabled).toBe(false);
+		expect(clearAll().disabled).toBe(false);
+
+		selectAll().dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(element.shadowRoot.querySelector('lightning-checkbox-group').value).toEqual([
 			'Running',
 			'Completed',
 			'Failed',
@@ -263,7 +264,7 @@ describe('c-chain-monitor-list', () =>
 		const handler = jest.fn();
 		element.addEventListener('select', handler);
 
-		const toggleButton = Array.from(element.shadowRoot.querySelectorAll('lightning-button')).find(button => button.label === SELECT_ALL);
+		const toggleButton = element.shadowRoot.querySelector('[data-testid="status-select-all"]');
 		toggleButton.dispatchEvent(new CustomEvent('click'));
 		await Promise.resolve();
 		await Promise.resolve();
@@ -655,5 +656,363 @@ describe('c-chain-monitor-list', () =>
 		await Promise.resolve();
 
 		expect(handler).not.toHaveBeenCalled();
+	});
+});
+
+describe('c-chain-monitor-list whole action', () =>
+{
+	const ACTION_ID = 'a7d2f4c1-1111-4111-8111-00000000f13a';
+	const SCOPED_PAGE = {
+		records: [
+			{
+				executionId: 'job',
+				chainName: 'NightlyJob',
+				status: 'Failed',
+				completedSteps: 1,
+				totalSteps: 3,
+				launchKind: 'ORIGIN',
+				launchedUnderLabel: null,
+				launchedUnderExecutionId: null
+			},
+			{
+				executionId: 'child',
+				chainName: 'NightlyChild',
+				status: 'Completed',
+				completedSteps: 1,
+				totalSteps: 1,
+				launchKind: 'CHAIN',
+				launchedUnderLabel: 'NightlyJob · CHAIN-00100',
+				launchedUnderExecutionId: 'job'
+			},
+			{
+				executionId: 'clone',
+				chainName: 'NightlyJob',
+				status: 'Completed',
+				completedSteps: 3,
+				totalSteps: 3,
+				launchKind: 'RESTART',
+				launchedUnderLabel: 'NightlyJob · CHAIN-00100',
+				launchedUnderExecutionId: 'job'
+			},
+			{
+				executionId: 'clicked',
+				chainName: 'CheckoutReserve',
+				status: 'Completed',
+				completedSteps: 1,
+				totalSteps: 1,
+				launchKind: 'ACTION',
+				launchedUnderLabel: null,
+				launchedUnderExecutionId: null
+			}
+		], totalCount: 4, pageNumber: 1, totalPages: 1, hasMorePages: false
+	};
+
+	afterEach(() =>
+	{
+		while(document.body.firstChild)
+		{
+			document.body.removeChild(document.body.firstChild);
+		}
+		jest.clearAllMocks();
+	});
+
+	async function createScopedList()
+	{
+		mockCallControllerMethod.mockResolvedValue(SCOPED_PAGE);
+		const element = createElement('c-chain-monitor-list', {is: ChainMonitorList});
+		element.actionRootCorrelationId = ACTION_ID;
+		document.body.appendChild(element);
+		await Promise.resolve();
+		await Promise.resolve();
+		return element;
+	}
+
+	const query = (element, testId) => element.shadowRoot.querySelector(`[data-testid="${testId}"]`);
+
+	it('sends the action on the request, shows the pill, and adds the Launched-under column with the four readings', async() =>
+	{
+		const element = await createScopedList();
+
+		expect(getLastRequestJson().rootCorrelationId).toBe(ACTION_ID);
+		expect(query(element, 'action-pill').label).toBe('Action: a7d2f4c1…f13a');
+		const datatable = element.shadowRoot.querySelector('lightning-datatable');
+		const column = datatable.columns.find((candidate) => candidate.fieldName === 'launchedUnderText');
+		expect(column.label).toBe('Launched under');
+		expect(column.type).toBe('button');
+		expect(datatable.data.map((row) => row.launchedUnderText))
+		.toEqual([
+			'started this action',
+			'NightlyJob · CHAIN-00100',
+			'restart of NightlyJob · CHAIN-00100',
+			'this action'
+		]);
+		expect(datatable.data.map((row) => row.launchedUnderIsText)).toEqual([
+			true,
+			false,
+			false,
+			true
+		]);
+	});
+
+	it('selects the launcher when its link is pressed, and ignores the words', async() =>
+	{
+		const element = await createScopedList();
+		const handler = jest.fn();
+		element.addEventListener('select', handler);
+		const datatable = element.shadowRoot.querySelector('lightning-datatable');
+
+		datatable.dispatchEvent(new CustomEvent('rowaction', {detail: {action: {name: 'selectLauncher'}, row: datatable.data[1]}}));
+		await Promise.resolve();
+		expect(handler.mock.calls[handler.mock.calls.length - 1][0].detail).toEqual({executionId: 'job', isUserSelection: true});
+
+		handler.mockClear();
+		datatable.dispatchEvent(new CustomEvent('rowaction', {detail: {action: {name: 'selectLauncher'}, row: datatable.data[0]}}));
+		await Promise.resolve();
+		expect(handler).not.toHaveBeenCalled();
+	});
+
+	it('removing the pill reloads unscoped without the column and tells the container', async() =>
+	{
+		const element = await createScopedList();
+		const handler = jest.fn();
+		element.addEventListener('actionclear', handler);
+		mockCallControllerMethod.mockResolvedValue(MOCK_PAGE);
+
+		query(element, 'action-pill').dispatchEvent(new CustomEvent('remove'));
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(handler).toHaveBeenCalledTimes(1);
+		expect(getLastRequestJson().rootCorrelationId).toBeNull();
+		expect(getLastRequestJson().pageNumber).toBe(1);
+		expect(element.shadowRoot.querySelector('lightning-datatable').columns.some((column) => column.fieldName === 'launchedUnderText')).toBe(false);
+		expect(query(element, 'action-pill')).toBeNull();
+	});
+
+	it('opens the action\'s logs with the action and a stamp only', async() =>
+	{
+		const element = await createScopedList();
+
+		query(element, 'show-action-logs').click();
+
+		const reference = mockNavigate.mock.calls[0][0];
+		expect(reference.attributes.apiName).toBe('LogConsole');
+		expect(Object.keys(reference.state).sort()).toEqual([
+			'c__rootCorrelationId',
+			'c__viewLogsAt'
+		]);
+		expect(reference.state.c__rootCorrelationId).toBe(ACTION_ID);
+	});
+
+	it('re-reads from page one when the action arrives after the list has loaded', async() =>
+	{
+		mockCallControllerMethod.mockResolvedValueOnce(MOCK_PAGE_1);
+		const element = createElement('c-chain-monitor-list', {is: ChainMonitorList});
+		document.body.appendChild(element);
+		await Promise.resolve();
+		await Promise.resolve();
+
+		mockCallControllerMethod.mockResolvedValueOnce(MOCK_PAGE_2);
+		const nextButton = Array.from(element.shadowRoot.querySelectorAll('lightning-button')).find((button) => button.label === NEXT_LABEL);
+		nextButton.dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(getLastRequestJson().pageNumber).toBe(2);
+
+		mockCallControllerMethod.mockResolvedValue(SCOPED_PAGE);
+		element.actionRootCorrelationId = ACTION_ID;
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const request = getLastRequestJson();
+		expect(request.rootCorrelationId).toBe(ACTION_ID);
+		expect(request.pageNumber).toBe(1);
+		expect(element.shadowRoot.querySelector('lightning-datatable').columns.some((column) => column.fieldName === 'launchedUnderText')).toBe(true);
+	});
+
+	it('leaves the Launched-under words empty for a kind it does not know, rather than guessing one', async() =>
+	{
+		const UNKNOWN_KIND_PAGE = {
+			records: [
+				{
+					executionId: 'later',
+					chainName: 'NightlyLater',
+					status: 'Completed',
+					completedSteps: 1,
+					totalSteps: 1,
+					launchKind: 'SOMETHING_LATER',
+					launchedUnderLabel: 'NightlyJob · CHAIN-00100',
+					launchedUnderExecutionId: 'job'
+				}
+			], totalCount: 1, pageNumber: 1, totalPages: 1, hasMorePages: false
+		};
+		mockCallControllerMethod.mockResolvedValue(UNKNOWN_KIND_PAGE);
+		const element = createElement('c-chain-monitor-list', {is: ChainMonitorList});
+		element.actionRootCorrelationId = ACTION_ID;
+		document.body.appendChild(element);
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(element.shadowRoot.querySelector('lightning-datatable').data.map((row) => row.launchedUnderText)).toEqual(['']);
+	});
+
+	it('guards the empty launcher name in the two link readings, and leaves a short action id whole', async() =>
+	{
+		const SHORT_ACTION_ID = 'act-9';
+		const UNNAMED_PAGE = {
+			records: [
+				{
+					executionId: 'child',
+					chainName: 'NightlyChild',
+					status: 'Completed',
+					completedSteps: 1,
+					totalSteps: 1,
+					launchKind: 'CHAIN',
+					launchedUnderLabel: null,
+					launchedUnderExecutionId: 'job'
+				},
+				{
+					executionId: 'clone',
+					chainName: 'NightlyJob',
+					status: 'Completed',
+					completedSteps: 1,
+					totalSteps: 1,
+					launchKind: 'RESTART',
+					launchedUnderLabel: null,
+					launchedUnderExecutionId: 'job'
+				}
+			], totalCount: 2, pageNumber: 1, totalPages: 1, hasMorePages: false
+		};
+		mockCallControllerMethod.mockResolvedValue(UNNAMED_PAGE);
+		const element = createElement('c-chain-monitor-list', {is: ChainMonitorList});
+		element.actionRootCorrelationId = SHORT_ACTION_ID;
+		document.body.appendChild(element);
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(query(element, 'action-pill').label).toBe('Action: act-9');
+		expect(element.shadowRoot.querySelector('lightning-datatable').data.map((row) => row.launchedUnderText)).toEqual([
+			'',
+			'restart of '
+		]);
+	});
+
+	it('shows no pill and no column when unscoped', async() =>
+	{
+		mockCallControllerMethod.mockResolvedValue(MOCK_PAGE);
+		const element = createElement('c-chain-monitor-list', {is: ChainMonitorList});
+		document.body.appendChild(element);
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(query(element, 'action-pill')).toBeNull();
+		expect(getLastRequestJson().rootCorrelationId).toBeNull();
+		const datatable = element.shadowRoot.querySelector('lightning-datatable');
+		expect(datatable.columns).toHaveLength(5);
+		// No column asks for the words while the list shows every run, so no row carries any.
+		expect(datatable.data.map((row) => row.launchedUnderText)).toEqual([
+			null,
+			null
+		]);
+	});
+});
+
+describe('c-chain-monitor-list at a compact width', () =>
+{
+	const ACTION_ID = 'a7d2f4c1-1111-4111-8111-00000000f13a';
+	let compactMedia;
+
+	beforeEach(() =>
+	{
+		mockCallControllerMethod.mockResolvedValue(MOCK_PAGE);
+		// jsdom has no matchMedia; the list reads it defensively, and this stub lets a test flip the width.
+		compactMedia = {
+			matches: false,
+			listeners: new Set(),
+			addEventListener: jest.fn((type, listener) => compactMedia.listeners.add(listener)),
+			removeEventListener: jest.fn((type, listener) => compactMedia.listeners.delete(listener))
+		};
+		window.matchMedia = jest.fn(() => compactMedia);
+	});
+
+	afterEach(() =>
+	{
+		while(document.body.firstChild)
+		{
+			document.body.removeChild(document.body.firstChild);
+		}
+		delete window.matchMedia;
+		jest.clearAllMocks();
+	});
+
+	async function createList(scoped = false)
+	{
+		const element = createElement('c-chain-monitor-list', {is: ChainMonitorList});
+		if(scoped)
+		{
+			element.actionRootCorrelationId = ACTION_ID;
+		}
+		document.body.appendChild(element);
+		await Promise.resolve();
+		await Promise.resolve();
+		return element;
+	}
+
+	const headers = (element) => element.shadowRoot.querySelector('lightning-datatable').columns.map((column) => column.label);
+
+	it('keeps Chain, Status and Started at the compact width, the six above it, and Launched under only while scoped', async() =>
+	{
+		compactMedia.matches = true;
+		const unscoped = await createList();
+		expect(headers(unscoped)).toEqual([
+			COLUMN_CHAIN_NAME,
+			COLUMN_STATUS,
+			COLUMN_STARTED
+		]);
+
+		const scoped = await createList(true);
+		expect(headers(scoped)).toEqual([
+			COLUMN_CHAIN_NAME,
+			COLUMN_STATUS,
+			COLUMN_STARTED,
+			'Launched under'
+		]);
+
+		compactMedia.matches = false;
+		compactMedia.listeners.forEach((listener) => listener({matches: false}));
+		await Promise.resolve();
+		expect(headers(scoped)).toHaveLength(6);
+		expect(headers(unscoped)).toHaveLength(5);
+	});
+
+	it('follows the width while connected and stops listening when disconnected', async() =>
+	{
+		const element = await createList();
+		expect(window.matchMedia).toHaveBeenCalledWith('(max-width: 1280px)');
+		expect(headers(element)).toHaveLength(5);
+
+		compactMedia.listeners.forEach((listener) => listener({matches: true}));
+		await Promise.resolve();
+		expect(headers(element)).toHaveLength(3);
+
+		document.body.removeChild(element);
+		expect(compactMedia.removeEventListener).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps the full set in a browser without matchMedia', async() =>
+	{
+		delete window.matchMedia;
+		const element = await createList();
+		expect(headers(element)).toHaveLength(5);
+	});
+
+	it('reads the spinner and the filter toggle from labels', async() =>
+	{
+		mockCallControllerMethod.mockReturnValue(new Promise(() =>
+		{
+		}));
+		const element = await createList();
+		expect(element.shadowRoot.querySelector('lightning-spinner').alternativeText).toBe('Loading chain runs');
+		expect(element.shadowRoot.querySelector('lightning-button-icon').alternativeText).toBe('Show or hide the status filters');
 	});
 });

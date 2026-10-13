@@ -2,7 +2,21 @@
 <template>
 	<div class="slds-var-p-around_small slds-is-relative" data-testid="chain-monitor-list-root">
 		<template if:true={isLoading}>
-			<lightning-spinner alternative-text="Loading chain executions" size="small"></lightning-spinner>
+			<lightning-spinner alternative-text={label.loadingAlt} size="small"></lightning-spinner>
+		</template>
+
+		<!-- The action this list is kept to, while it is kept to one: the pill drops the scope, the button hands the
+			 whole action back to the Log Console. -->
+		<template if:true={isScoped}>
+			<div class="slds-grid slds-grid_vertical-align-center slds-var-m-bottom_x-small slds-gutters_x-small" data-testid="action-scope-row">
+				<div class="slds-col slds-grow">
+					<lightning-pill data-spec-id="monitor-action-pill" data-testid="action-pill" label={actionPillLabel} onremove={handleRemoveAction}></lightning-pill>
+				</div>
+				<div class="slds-col slds-shrink-none">
+					<lightning-button data-spec-id="monitor-show-action-logs" data-testid="show-action-logs" icon-name="utility:rows" label={label.showActionLogs}
+									  onclick={handleShowActionLogs} variant="neutral"></lightning-button>
+				</div>
+			</div>
 		</template>
 
 		<!-- Search + Filter Toggle -->
@@ -12,26 +26,30 @@
 								 variant="label-hidden"></lightning-input>
 			</div>
 			<div class="slds-col slds-shrink-none">
-				<lightning-button-icon alternative-text="Toggle status filters" icon-name="utility:filterList" onclick={handleToggleFilters} size="medium"
+				<lightning-button-icon alternative-text={label.filtersToggleAlt} icon-name="utility:filterList" onclick={handleToggleFilters} size="medium"
 									   variant="border-filled"></lightning-button-icon>
 			</div>
 		</div>
 
-		<!-- Collapsible Status Filters -->
+		<!-- Collapsible Status Filters: the group names itself, and the two actions below it say what they do;
+			 an action that would change nothing is disabled, so the panel always reads its own state. -->
 		<template if:true={showFilters}>
 			<div class="filter-tray slds-var-m-bottom_x-small">
-				<div class="filter-row">
-					<lightning-checkbox-group label={label.statusFilter} onchange={handleStatusChange} options={statusOptions} value={statusFilters}
-											  variant="label-hidden"></lightning-checkbox-group>
-					<lightning-button class="slds-shrink-none" label={toggleAllLabel} onclick={handleToggleAllStatuses} variant="base"></lightning-button>
+				<lightning-checkbox-group label={label.statusFilter} name="statusFilters" onchange={handleStatusChange} options={statusOptions}
+										  value={statusFilters}></lightning-checkbox-group>
+				<div class="filter-actions">
+					<lightning-button data-testid="status-select-all" disabled={isAllStatusesSelected} label={label.selectAll} onclick={handleSelectAllStatuses}
+									  variant="base"></lightning-button>
+					<lightning-button data-testid="status-clear-all" disabled={hasNoStatusSelection} label={label.clearAll} onclick={handleClearAllStatuses}
+									  variant="base"></lightning-button>
 				</div>
 			</div>
 		</template>
 
 		<!-- Table -->
 		<template if:true={hasRecords}>
-			<lightning-datatable columns={columns} data={records} key-field="executionId" max-row-selection="1" onrowselection={handleRowSelection} onsort={handleSort}
-								 selected-rows={selectedRows} sorted-by={sortedBy} sorted-direction={sortDirection}></lightning-datatable>
+			<lightning-datatable columns={columns} data={records} key-field="executionId" max-row-selection="1" onrowaction={handleRowAction} onrowselection={handleRowSelection}
+								 onsort={handleSort} selected-rows={selectedRows} sorted-by={sortedBy} sorted-direction={sortDirection}></lightning-datatable>
 
 			<!-- Pagination: only where there is something to page through. An empty result has no page to
 				 name, and a paginator over bare column headers reads as "Page 1 of 0". -->

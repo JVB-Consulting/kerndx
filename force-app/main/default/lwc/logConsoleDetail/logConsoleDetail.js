@@ -7,18 +7,19 @@
  * for a non-opened hop it asks the container to load that hop's full detail (`entryfocus`) and renders the
  * returned `focusedDetail` inline, so the full message, stack trace and context are one click away without
  * leaving the timeline. All row actions (close, open record, open in Chain Monitor) dispatch up to the
- * container, which owns the data.
+ * container, which owns the data. The Action row names the action the entry belongs to and offers to pin
+ * it whole.
  *
  * @author Jason van Beukering
  *
- * @date July 2026, August 2026
+ * @date July 2026, September 2026
  */
 import {api} from 'lwc';
 import LOCALE from '@salesforce/i18n/locale';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {formatCount} from 'c/utilityStreaming';
 import {copyToClipBoard} from 'c/utilitySystem';
-import {CONTEXT_LABEL_BY_VALUE} from 'c/logConsoleContext';
+import {CONTEXT_LABEL_BY_VALUE, ORIGIN_LABEL_BY_VALUE} from 'c/logConsoleContext';
 
 import tabOverview from '@salesforce/label/c.LogConsole_TabOverview';
 import tabStackTrace from '@salesforce/label/c.LogConsole_TabStackTrace';
@@ -30,6 +31,8 @@ import timelineStandalone from '@salesforce/label/c.LogConsole_TimelineStandalon
 import timelineNotRegistered from '@salesforce/label/c.LogConsole_TimelineNotRegistered';
 import timelineOverview from '@salesforce/label/c.LogConsole_TimelineOverview';
 import timelineAllLevels from '@salesforce/label/c.LogConsole_TimelineAllLevels';
+import timelineDuration from '@salesforce/label/c.LogConsole_TimelineDuration';
+import timelineWarning from '@salesforce/label/c.LogConsole_TimelineWarning';
 import timelineTransaction from '@salesforce/label/c.LogConsole_TimelineTransaction';
 import timelineTransactions from '@salesforce/label/c.LogConsole_TimelineTransactions';
 import timelineEntry from '@salesforce/label/c.LogConsole_TimelineEntry';
@@ -66,19 +69,31 @@ import noLimits from '@salesforce/label/c.LogConsole_NoLimits';
 import noStackTrace from '@salesforce/label/c.LogConsole_NoStackTrace';
 import noStackTraceHint from '@salesforce/label/c.LogConsole_NoStackTraceHint';
 import noStackTraceSourceHint from '@salesforce/label/c.LogConsole_NoStackTraceSourceHint';
-import copy from '@salesforce/label/c.LogConsole_Copy';
 import copied from '@salesforce/label/c.LogConsole_Copied';
 import copyFailed from '@salesforce/label/c.LogConsole_CopyFailed';
+import copyMessage from '@salesforce/label/c.LogConsole_CopyMessage';
+import copyAction from '@salesforce/label/c.LogConsole_CopyAction';
+import copyCorrelation from '@salesforce/label/c.LogConsole_CopyCorrelation';
+import copyCode from '@salesforce/label/c.LogConsole_CopyCode';
+import copyStackTrace from '@salesforce/label/c.LogConsole_CopyStackTrace';
+import copyContext from '@salesforce/label/c.LogConsole_CopyContext';
 import close from '@salesforce/label/c.LogConsole_Close';
 import actionOpenChain from '@salesforce/label/c.LogConsole_ActionOpenChain';
 import actionOpenRecord from '@salesforce/label/c.LogConsole_ActionOpenRecord';
 import metaLogNumber from '@salesforce/label/c.LogConsole_MetaLogNumber';
 import metaSource from '@salesforce/label/c.LogConsole_MetaSource';
 import metaContext from '@salesforce/label/c.LogConsole_MetaContext';
+import metaOrigin from '@salesforce/label/c.LogConsole_MetaOrigin';
 import metaUser from '@salesforce/label/c.LogConsole_MetaUser';
 import metaCorrelation from '@salesforce/label/c.LogConsole_MetaCorrelation';
 import metaTransaction from '@salesforce/label/c.LogConsole_MetaTransaction';
 import metaParentTransaction from '@salesforce/label/c.LogConsole_MetaParentTransaction';
+import metaAction from '@salesforce/label/c.LogConsole_MetaAction';
+import actionSelfNote from '@salesforce/label/c.LogConsole_ActionSelfNote';
+import actionNotRecorded from '@salesforce/label/c.LogConsole_ActionNotRecorded';
+import actionShowWholeAction from '@salesforce/label/c.LogConsole_ActionShowWholeAction';
+import actionStartedByChainNote from '@salesforce/label/c.LogConsole_ActionStartedByChainNote';
+import timelineActionOwn from '@salesforce/label/c.LogConsole_TimelineActionOwn';
 import firstSeen from '@salesforce/label/c.LogConsole_FirstSeen';
 import lastSeen from '@salesforce/label/c.LogConsole_LastSeen';
 import logged from '@salesforce/label/c.LogConsole_Logged';
@@ -117,6 +132,9 @@ const CAUGHT_EXCEPTION_VARIABLE = 'caughtException';
 // the rest do not, so a snippet at any other level hands the message string across even when the problem
 // carries an exception type.
 const LEVEL_ERROR = 'error';
+// The separator between a chain's name and its number, the same the controllers use for a launcher's label. Punctuation,
+// identical in every language, so not a label.
+const CHAIN_LABEL_SEPARATOR = ' · ';
 // What Apex accepts inside a single-quoted literal, and how each hazard is written back. The backslash goes
 // first: escaping it after the others would double the escapes just written. A raw line break cannot appear
 // in an Apex literal at all, so it becomes the escape sequence rather than being dropped. A raw tab is legal
@@ -239,6 +257,13 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 	 */
 	@api namespacePrefix = '';
 
+	/**
+	 * @description The action the container has pinned, if any. Show the whole action is hidden while the entry's own action
+	 * is already the one pinned: the button would open what is already open.
+	 * @type {string|null}
+	 */
+	@api pinnedActionRootCorrelationId = null;
+
 	currentDetail = null;
 	currentTrace = [];
 	currentFocusedDetail = null;
@@ -256,24 +281,34 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 		tabTimeline,
 		timelineOverview,
 		timelineAllLevels,
+		timelineDuration,
+		timelineWarning,
 		detailsHeading,
 		limitsHeading,
 		limitsOnlyUsed,
 		noLimits,
 		noStackTrace,
-		copy,
 		copied,
 		copyFailed,
+		copyMessage,
+		copyAction,
+		copyCorrelation,
+		copyCode,
+		copyStackTrace,
+		copyContext,
 		close,
 		actionOpenChain,
 		actionOpenRecord,
 		metaLogNumber,
 		metaSource,
 		metaContext,
+		metaOrigin,
 		metaUser,
 		metaCorrelation,
 		metaTransaction,
 		metaParentTransaction,
+		metaAction,
+		actionShowWholeAction,
 		firstSeen,
 		lastSeen,
 		logged,
@@ -544,10 +579,11 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 	}
 
 	/**
-	 * @description The line under the stack-trace empty state. Only an entry logged with an exception carries
-	 * frames, so a DEBUG, INFO or WARN entry can never show a stack however the console is configured — which
-	 * makes "no stack trace" a dead end unless it also says where the entry WAS written. When the entry recorded
-	 * a source, the hint names that location so the reader has somewhere to look; with no source recorded there
+	 * @description The line under the stack-trace empty state. Every entry keeps the frames of the code that
+	 * logged it, so an empty stack means the entry came from inside the framework (whose frames the platform
+	 * hides in a subscriber org), from a Flow, or from a component that reported no error — which makes "no
+	 * stack trace" a dead end unless it also says where the entry WAS written. When the entry recorded a
+	 * source, the hint names that location so the reader has somewhere to look; with no source recorded there
 	 * is nothing to point at, and the general explanation is all the drawer can stand behind.
 	 * @returns {string}
 	 */
@@ -566,6 +602,17 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 	get contextDisplayName()
 	{
 		return contextLabel(this.currentDetail.executionEvent) || null;
+	}
+
+	/**
+	 * @description Who wrote the entry, under the badge's display name. Null when the entry was written before
+	 * attribution existed, which the grid dashes.
+	 * @returns {string|null}
+	 */
+	get originDisplayName()
+	{
+		const origin = this.currentDetail.origin;
+		return origin ? ORIGIN_LABEL_BY_VALUE[origin] ?? origin : null;
 	}
 
 	/**
@@ -601,6 +648,86 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 	}
 
 	/**
+	 * @description The action the opened entry belongs to: its root, or its correlation when it carries no root. Answered by
+	 * the server with one definition for every surface. Gated behind `hasDetail`.
+	 * @returns {string|null}
+	 */
+	get actionCorrelationId()
+	{
+		return this.currentDetail.actionCorrelationId || null;
+	}
+
+	/**
+	 * @description Whether the opened entry names an action at all, which is what the template gates the action row on.
+	 * @returns {boolean} Whether there is an action id to show.
+	 */
+	get hasActionId()
+	{
+		return !!this.actionCorrelationId;
+	}
+
+	/**
+	 * @description Whether the action wrote this entry itself, rather than a run launched under it.
+	 * @returns {boolean} Whether the entry is the action's own.
+	 */
+	get isActionOwn()
+	{
+		return this.currentDetail.isActionOwn === true;
+	}
+
+	/**
+	 * @description The note beside the action id, in the order the getter reads the entry. The entry was persisted
+	 * before chains were tracked by action, and it has an action only because its correlation stands in for one. Or the
+	 * action wrote the entry itself. Or the entry belongs to a chain run: a run inside a larger action carries no note,
+	 * while a run that started the action does. When a chain holds the run's correlation and that correlation is also
+	 * the action's id, the run started the action, and the note says so, so the two buttons read as the run's timing and
+	 * the action's logs. Read only behind the template's `hasActionId` gate, so there is always an action to be the note
+	 * about.
+	 * @returns {string|null}
+	 */
+	get actionNote()
+	{
+		if(!this.currentDetail.rootCorrelationId)
+		{
+			return actionNotRecorded;
+		}
+		if(this.isActionOwn)
+		{
+			return actionSelfNote;
+		}
+		return this.currentDetail.chainExists === true && this.actionCorrelationId === this.currentDetail.correlationId ? actionStartedByChainNote : null;
+	}
+
+	/**
+	 * @description Whether to offer Show the whole action: the entry belongs to an action, and that action is not the one
+	 * the container already has pinned.
+	 * @returns {boolean}
+	 */
+	get showWholeActionButton()
+	{
+		return this.hasActionId && this.actionCorrelationId !== this.pinnedActionRootCorrelationId;
+	}
+
+	/**
+	 * @description The chain behind the opened entry, named beside the correlation id when a chain run holds it.
+	 * @returns {string|null}
+	 */
+	get correlationChainLabel()
+	{
+		return this.currentDetail.chainName ? `${this.currentDetail.chainName}${CHAIN_LABEL_SEPARATOR}${this.currentDetail.chainNumber}` : null;
+	}
+
+	/**
+	 * @description Whether the Timeline tab's note is the action's-own note with its button, rather than one of the shipped
+	 * notes.
+	 * @returns {boolean}
+	 */
+	get showTimelineActionNote()
+	{
+		return this.hasCorrelation && this.isActionOwn;
+	}
+
+	/**
 	 * @description The record-page URL for the originating user, in the same relative form the console's
 	 * list column uses for a log entry. Read only when `hasUserLink` gates the link on.
 	 * @returns {string}
@@ -631,26 +758,28 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 	}
 
 	/**
-	 * @description The term the "View occurrences" drill searches the entries view for: the class the problem
-	 * was logged from, or — for a problem logged with no source, where everything throwing the same error is
-	 * one problem — its message. Null when the problem offers neither, in which case there is no drill.
+	 * @description The search term for a problem that recorded no class-method: its message, which is what
+	 * everything throwing the same error is grouped on when there is no source to group on. Null when the
+	 * problem has no message either. A problem that did record a class-method is drilled on that instead, so
+	 * the container ignores this term there.
 	 * @returns {string|null}
 	 */
 	get occurrencesDrillTerm()
 	{
-		return this.currentDetail.className || this.currentDetail.shortMessage || null;
+		return this.currentDetail.shortMessage || null;
 	}
 
 	/**
 	 * @description Whether to offer the drill from this problem to the individual entries behind it: only in
-	 * the grouped problems view, only once the container has supplied the occurrence count, and only when
-	 * there is a term to drill on — a drill with nothing to search for would open the entries view unfiltered
-	 * under a button that promised this problem's occurrences.
+	 * the grouped problems view, only once the container has supplied the occurrence count, and only when the
+	 * problem offers a handle to drill on: the class-method the container pins, or the message it searches
+	 * for. A drill with neither would open the entries view unfiltered under a button that promised this
+	 * problem's occurrences.
 	 * @returns {boolean}
 	 */
 	get showOccurrencesButton()
 	{
-		return this.isProblemsView && this.occurrenceCount > 0 && !!this.occurrencesDrillTerm;
+		return this.isProblemsView && this.occurrenceCount > 0 && !!(this.currentDetail.classMethod || this.occurrencesDrillTerm);
 	}
 
 	/**
@@ -728,7 +857,8 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 
 	/**
 	 * @description The explanatory note under the timeline header: none when a registered chain exists, a
-	 * "stands alone" note when uncorrelated, and a "correlated but not a registered chain" note otherwise.
+	 * "stands alone" note when uncorrelated, a "correlated but not a registered chain" note otherwise, and
+	 * an action's-own note (with the whole-action button) when the action wrote the entry itself.
 	 * @returns {string|null}
 	 */
 	get timelineNote()
@@ -736,6 +866,10 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 		if(!this.hasCorrelation)
 		{
 			return timelineStandalone;
+		}
+		if(this.isActionOwn)
+		{
+			return timelineActionOwn;
 		}
 		if(!this.showChainButton)
 		{
@@ -745,23 +879,49 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 	}
 
 	/**
-	 * @description The overview stat line: transaction count, entry count, total span, and the errored
-	 * transaction's quiddity when one errored.
-	 * @returns {string}
+	 * @description The transactions the overview stat describes and the span they cover, in one place so the
+	 * three parts of the line are built from the same reading and can never disagree about what they are
+	 * counting.
+	 * @returns {{transactions: Array<Object>, span: number}}
 	 */
-	get overviewStat()
+	get overviewTotals()
 	{
 		const transactions = this.transactionModel.transactions;
+		return {transactions, span: transactions.length ? Math.max(...transactions.map((transaction) => transaction.endSeconds)) : 0};
+	}
+
+	/**
+	 * @description The counts part of the overview stat: how many transactions the correlation ran, and how many
+	 * entries they logged between them.
+	 * @returns {string}
+	 */
+	get overviewCounts()
+	{
+		const transactions = this.overviewTotals.transactions;
 		const transactionWord = transactions.length === 1 ? timelineTransaction : timelineTransactions;
 		const entryWord = this.currentTrace.length === 1 ? timelineEntry : timelineEntries;
-		const span = transactions.length ? Math.max(...transactions.map((transaction) => transaction.endSeconds)) : 0;
-		let stat = `${transactions.length} ${transactionWord} · ${this.currentTrace.length} ${entryWord} · ⏱ ${this.durationLabel(span)}`;
-		const errored = transactions.find((transaction) => transaction.level === 'ERROR');
-		if(errored)
-		{
-			stat += ` · ${timelineErrorIn.replace('{0}', contextLabel(errored.executionEvent))}`;
-		}
-		return stat;
+		return `${transactions.length} ${transactionWord} · ${this.currentTrace.length} ${entryWord}`;
+	}
+
+	/**
+	 * @description The span part of the overview stat: how long the whole correlation took, read beside the
+	 * clock icon that says what it is.
+	 * @returns {string}
+	 */
+	get overviewDuration()
+	{
+		return this.durationLabel(this.overviewTotals.span);
+	}
+
+	/**
+	 * @description The errored part of the overview stat, naming the kind of transaction that errored, or null
+	 * when none did, in which case neither the part nor the separator before it is drawn.
+	 * @returns {string|null}
+	 */
+	get overviewError()
+	{
+		const errored = this.overviewTotals.transactions.find((transaction) => transaction.level === 'ERROR');
+		return errored ? timelineErrorIn.replace('{0}', contextLabel(errored.executionEvent)) : null;
 	}
 
 	/**
@@ -1179,6 +1339,15 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 		this.dispatchEvent(new CustomEvent('navigatechain', {detail: {correlationId: this.currentDetail.correlationId}}));
 	}
 
+	/**
+	 * @description Asks the container to pin the opened entry's whole action: the action's own entries beside the entries of
+	 * every chain run launched under it.
+	 */
+	handleShowWholeAction()
+	{
+		this.dispatchEvent(new CustomEvent('showwholeaction', {detail: {rootCorrelationId: this.actionCorrelationId}}));
+	}
+
 	handleTabActive(event)
 	{
 		this.activeTab = event.target.value;
@@ -1244,12 +1413,13 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 		this.dispatchEvent(new CustomEvent('entryfocus', {detail: {entryId}}));
 	}
 
+	/** @description Asks the container to open the individual entries behind this problem. */
 	handleViewOccurrences()
 	{
-		// The drill from a problem to the individual entries behind it, keyed on the class the problem was
-		// logged from — the same handle the console's ranked-source drill searches on — or on its message when
-		// it was logged with no source. Never dispatched without a term: the button is not offered then.
-		this.dispatchEvent(new CustomEvent('viewoccurrences', {detail: {source: this.occurrencesDrillTerm}}));
+		// The drill from a problem to the individual entries behind it. The container pins the problem's own
+		// class-method when it recorded one and never reads this term; the term is what is left to search for
+		// when it recorded none.
+		this.dispatchEvent(new CustomEvent('viewoccurrences', {detail: {searchTerm: this.occurrencesDrillTerm}}));
 	}
 
 	/** @description Copies the opened entry's full message to the clipboard. */
@@ -1274,6 +1444,12 @@ export default class LogConsoleDetail extends ComponentBuilder('notification')
 	handleCopyCorrelation()
 	{
 		return this.copyWithFeedback(this.currentDetail.correlationId);
+	}
+
+	/** @description Copies the opened entry's action id to the clipboard. */
+	handleCopyAction()
+	{
+		return this.copyWithFeedback(this.actionCorrelationId);
 	}
 
 	/** @description Copies the generated Apex snippet, which is the point of showing it. */

@@ -5,7 +5,7 @@
  *              rolling cap, the disconnected notice, and the Failed-chain default collapse.
  *
  * @author Jason van Beukering
- * @date August 2026
+ * @date August 2026, October 2026
  */
 
 // The prefix wrapper defaults to the managed-install value so the channel and payload-key tests
@@ -28,7 +28,7 @@ import getNamespacePrefix from '@salesforce/apex/CTRL_ChainMonitor.getNamespaceP
 
 const EXECUTION_ID = 'a00000000000001AAA';
 const CORRELATION_ID = 'stream-correlation-0001';
-// The seed endpoint's contract order: OLDEST first (the ascending correlated-trace projection).
+// The seed endpoint's contract order: OLDEST first (the correlated trace, read in ascending order).
 const SEED_ROWS = [
 	{timestamp: '2026-08-09T10:00:01.000Z', logLevel: 'INFO', message: 'Seeded info entry'},
 	{timestamp: '2026-08-09T10:00:05.000Z', logLevel: 'ERROR', message: 'Seeded failure entry'}
@@ -91,14 +91,20 @@ describe('c-chain-log-stream', () =>
 		expect(subscribe).toHaveBeenCalledWith('/event/kern__LogEntryEvent__e', -1, expect.any(Function));
 	});
 
-	it('unsubscribes on disconnected callback', async() =>
+	it('unsubscribes on disconnected callback, with the acknowledgement the platform requires', async() =>
 	{
 		const element = await createComponent();
 
 		document.body.removeChild(element);
 		await Promise.resolve();
 
-		expect(unsubscribe).toHaveBeenCalled();
+		// empApi hands its second argument on as the callback: called with one argument, it raises
+		// "Invalid or missing callback" in the middle of the page being torn down.
+		expect(unsubscribe.mock.calls[0]).toEqual([
+			expect.anything(),
+			expect.any(Function)
+		]);
+		expect(unsubscribe.mock.calls[0][1]({successful: true})).toBeNull();
 	});
 
 	it('seeds the persisted history newest-first from the endpoint\'s oldest-first contract order', async() =>
@@ -153,7 +159,7 @@ describe('c-chain-log-stream', () =>
 		deliverEvent({kern__RecordId__c: EXECUTION_ID, kern__LogLevel__c: 'ERROR', kern__ShortMessage__c: 'Undated live entry'});
 		await Promise.resolve();
 
-		// new Date(null).getTime() is 0 — "56 years ago"; the entry hands the component null instead.
+		// new Date(null).getTime() is 0, which shows as "56 years ago"; the entry hands the component null instead.
 		const entry = streamEntries(element)[0];
 		expect(entry.textContent).toContain('Undated live entry');
 		expect(entry.querySelector('lightning-relative-date-time').value).toBeNull();
@@ -181,8 +187,8 @@ describe('c-chain-log-stream', () =>
 		const entries = streamEntries(element);
 		expect(entries.length).toBe(3);
 		expect(entries[0].textContent).toContain('Live error entry');
-		// The live row and the header caption both convert the event's CreatedDate to epoch milliseconds —
-		// the live path shares the seed path's entry builder, and this pins that it stays so.
+		// The live row and the header caption both convert the event's CreatedDate to epoch milliseconds.
+		// The live path shares the seed path's entry builder, and this check keeps it that way.
 		expect(entries[0].querySelector('lightning-relative-date-time').value).toBe(Date.parse('2026-08-09T10:01:00.000Z'));
 		const lastEvent = element.shadowRoot.querySelector('[data-testid="stream-last-event"]');
 		expect(lastEvent.textContent).toContain('Last event');
@@ -429,7 +435,7 @@ describe('c-chain-log-stream', () =>
 		await Promise.resolve();
 		await Promise.resolve();
 
-		expect(unsubscribe).toHaveBeenCalledWith(lateSubscription);
+		expect(unsubscribe).toHaveBeenCalledWith(lateSubscription, expect.any(Function));
 	});
 
 	it('builds the unprefixed channel and payload keys on a no-namespace deploy', async() =>

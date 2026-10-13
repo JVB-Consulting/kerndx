@@ -2,7 +2,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const RESULTS_PATH = path.join(__dirname, '..', '..', 'results', 'current-run.json');
+// Which of the two results files a run belongs in is one rule, shared with the runner scripts that write the same record.
+const {RESULTS_DIRECTORY, resolveResultsPath} = require('../../runner/release-target');
+const {authPathsFor} = require('./auth-paths');
+
+// Written by global-setup once it has signed in, in the run's own org folder: the namespace prefix the org gives the
+// package, empty when it has none.
+const RUN_TARGET_PATH = authPathsFor().runTargetPath;
 
 class KernReporter
 {
@@ -11,13 +17,10 @@ class KernReporter
 		this.results = {};
 	}
 
-	onBegin(config, suite)
+	// Nothing is read here: which file this run belongs in is only known once global-setup has signed in.
+	onBegin()
 	{
-		this.results = this._loadExisting();
-		if(!this.results.phase3)
-		{
-			this.results.phase3 = {};
-		}
+		this.results = {phase3: {}};
 	}
 
 	onTestEnd(test, result)
@@ -50,17 +53,45 @@ class KernReporter
 		};
 	}
 
-	onEnd(result)
+	onEnd()
 	{
-		this.results.phase3Automated = true;
-		this._save();
+		const resultsPath = this._resolveResultsPath();
+		const merged = this._loadExisting(resultsPath);
+		merged.phase3 = merged.phase3 || {};
+		for(const [partKey, checks] of Object.entries(this.results.phase3))
+		{
+			merged.phase3[partKey] = {...merged.phase3[partKey], ...checks};
+		}
+		merged.phase3Automated = true;
+		this.results = merged;
+		this._save(resultsPath);
 	}
 
-	_loadExisting()
+	// A run counts as a release-testing run only when global-setup wrote down a namespace prefix for the org.
+	// Anything else, a missing note and an unreadable one included, is a development run: the record is the
+	// file that must never be written by mistake.
+	_resolveResultsPath()
+	{
+		return resolveResultsPath(this._readNamespacePrefix());
+	}
+
+	_readNamespacePrefix()
 	{
 		try
 		{
-			return JSON.parse(fs.readFileSync(RESULTS_PATH, 'utf8'));
+			return JSON.parse(fs.readFileSync(RUN_TARGET_PATH, 'utf8')).namespacePrefix;
+		}
+		catch
+		{
+			return undefined;
+		}
+	}
+
+	_loadExisting(resultsPath)
+	{
+		try
+		{
+			return JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
 		}
 		catch
 		{
@@ -70,10 +101,12 @@ class KernReporter
 		}
 	}
 
-	_save()
+	_save(resultsPath)
 	{
-		fs.mkdirSync(path.dirname(RESULTS_PATH), {recursive: true});
-		fs.writeFileSync(RESULTS_PATH, JSON.stringify(this.results, null, 2) + '\n', 'utf8');
+		fs.mkdirSync(RESULTS_DIRECTORY, {recursive: true});
+		fs.writeFileSync(resultsPath, JSON.stringify(this.results, null, 2) + '\n', 'utf8');
+		// Said out loud, because a release-testing run that lands in the development file has recorded nothing for the cycle.
+		console.log(`[results] journey results recorded in release-testing/results/${path.basename(resultsPath)}`);
 	}
 }
 

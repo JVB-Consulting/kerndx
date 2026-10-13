@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: BUSL-1.1 -->
 <template>
 	<template if:true={isLoading}>
-		<lightning-spinner alternative-text="Loading steps" size="small"></lightning-spinner>
+		<lightning-spinner alternative-text={labels.loadingSteps} size="small"></lightning-spinner>
 	</template>
 	<template if:false={isLoading}>
 		<lightning-card icon-name="standard:flow" title={labels.stepTimelineTitle}>
@@ -10,6 +10,11 @@
 					<ul class="slds-timeline">
 						<template for:each={displaySteps} for:item="step">
 							<li key={step.key}>
+								<template if:true={step.hasManualRetryMarker}>
+									<div class="slds-text-body_small slds-text-color_weak slds-var-p-left_x-large slds-var-p-bottom_xx-small" data-testid="manual-retry-marker">
+										{step.manualRetryMarkerText}
+									</div>
+								</template>
 								<div class={step.itemClass}>
 									<div class="slds-media step-row" data-testid="step-row">
 										<div class="slds-media__figure slds-timeline__icon">

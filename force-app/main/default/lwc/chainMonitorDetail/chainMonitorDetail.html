@@ -38,7 +38,8 @@
 				<!-- Toolbar row: every action wraps on its own, so nothing overlaps the name or clips off the
 					 pane edge at any width. One labelled group for the whole row — never a nested one (U1). -->
 				<template if:true={hasHeaderActions}>
-					<div aria-label={label.actionsGroup} class="detail-toolbar-row slds-var-m-bottom_x-small" data-testid="detail-toolbar-row" role="group">
+					<div aria-label={label.actionsGroup} class="detail-toolbar-row slds-var-m-bottom_x-small" data-spec-id="detail-toolbar-row" data-testid="detail-toolbar-row"
+						 role="group">
 						<template if:true={hasActionGroup}>
 							<span class="detail-action-group" data-testid="detail-action-group">
 								<template if:true={showRetryButton}>
@@ -59,13 +60,19 @@
 								</template>
 							</span>
 						</template>
-						<template if:true={hasCorrelationId}>
+						<template if:true={hasNavigationActions}>
 							<span class="navigation-slot">
 								<template if:true={showActionDivider}>
 									<span aria-hidden="true" class="action-divider" data-testid="action-divider"></span>
 								</template>
-								<lightning-button data-testid="view-logs" icon-name="utility:rows" label={label.viewLogs} onclick={handleViewLogs}
-												  variant="neutral"></lightning-button>
+								<template if:true={hasCorrelationId}>
+									<lightning-button data-testid="view-logs" icon-name="utility:rows" label={label.viewLogs} onclick={handleViewLogs}
+													  variant="neutral"></lightning-button>
+								</template>
+								<template if:true={hasRootCorrelationId}>
+									<lightning-button data-spec-id="monitor-detail-show-action-logs" data-testid="show-action-logs" icon-name="utility:rows"
+													  label={label.showActionLogs} onclick={handleShowActionLogs} variant="neutral"></lightning-button>
+								</template>
 							</span>
 						</template>
 					</div>
@@ -95,12 +102,12 @@
 			<!-- Steps -->
 			<lightning-accordion active-section-name={structuralSections} allow-multiple-sections-open>
 				<lightning-accordion-section label={label.stepsSection} name="steps">
-					<c-chain-step-timeline chain-status={detail.status} data-testid="step-timeline" steps={detail.steps}></c-chain-step-timeline>
+					<c-chain-step-timeline data-testid="step-timeline" steps={detail.steps}></c-chain-step-timeline>
 				</lightning-accordion-section>
 
 				<!-- Timing -->
 				<lightning-accordion-section label={label.timingSection} name="timing">
-					<dl class="timing-grid" data-testid="timing-grid">
+					<dl class="timing-grid" data-spec-id="timing-grid" data-testid="timing-grid">
 						<div>
 							<dt>{label.started}</dt>
 							<dd data-testid="started-at">
@@ -134,23 +141,36 @@
 							<dt>{label.correlationId}</dt>
 							<dd class="timing-value-row">
 								<span class="slds-truncate timing-value" data-testid="correlation-id" title={detail.correlationId}>{detail.correlationId}</span>
-								<lightning-button-icon alternative-text={label.copy} class="timing-value-action" data-testid="copy-correlation"
-													   icon-name="utility:copy_to_clipboard" onclick={handleCopyCorrelation} size="x-small" title={label.copy}
+								<lightning-button-icon alternative-text={label.copyCorrelation} class="timing-value-action" data-testid="copy-correlation"
+													   icon-name="utility:copy_to_clipboard" onclick={handleCopyCorrelation} size="x-small" title={label.copyCorrelation}
 													   variant="bare"></lightning-button-icon>
 							</dd>
 						</div>
-						<template if:true={showLineageLink}>
-							<div>
-								<dt>{label.restartedFrom}</dt>
-								<!-- The whole source id, ellipsised by the card the way the correlation id is —
-									 a hard cut to eight characters names no record at all (U41). -->
-								<dd class="timing-value-row">
-									<button class="slds-button slds-button_reset lineage-link slds-truncate timing-value" data-testid="restart-lineage-link"
-											onclick={handleLineageNavigate} title={detail.sourceExecutionId} type="button">{detail.sourceExecutionId}
+						<!-- One of four readings, in order: the launching run as a link, the action itself beside its id, a
+							 restart of a named run as a link, or the run that started the action. -->
+						<div>
+							<dt>{label.launchedUnder}</dt>
+							<dd class="timing-value-row" data-spec-id="launched-under-row" data-testid="launched-under-row">
+								<template if:true={launchedUnderIsLink}>
+									<button class="slds-button slds-button_reset lineage-link slds-truncate timing-value" data-testid="launched-under-link"
+											onclick={handleLaunchedUnderNavigate} title={launchedUnderText} type="button">{launchedUnderText}
 									</button>
-								</dd>
-							</div>
-						</template>
+								</template>
+								<template if:false={launchedUnderIsLink}>
+									<span class="timing-value timing-value_words" data-testid="launched-under-text">{launchedUnderText}</span>
+								</template>
+								<template if:true={showLaunchIdCopy}>
+									<span class="slds-truncate timing-value" data-testid="launch-correlation-id"
+										  title={detail.launchCorrelationId}>{detail.launchCorrelationId}</span>
+									<lightning-button-icon alternative-text={label.copyAction} class="timing-value-action" data-testid="copy-launch-correlation"
+														   icon-name="utility:copy_to_clipboard" onclick={handleCopyLaunchCorrelation} size="x-small" title={label.copyAction}
+														   variant="bare"></lightning-button-icon>
+								</template>
+							</dd>
+							<template if:true={launchedUnderNote}>
+								<dd class="timing-note slds-text-body_small slds-text-color_weak" data-testid="launched-under-note">{launchedUnderNote}</dd>
+							</template>
+						</div>
 					</dl>
 				</lightning-accordion-section>
 			</lightning-accordion>

@@ -37,6 +37,10 @@
 			</div>
 		</template>
 
+		<template lwc:if={rangeNote}>
+			<div class="range-note" data-spec-id="action-range-note" data-testid="action-range-note" role="status">{rangeNote}</div>
+		</template>
+
 		<div class="filterrow slds-grid slds-grid_vertical-align-end slds-wrap slds-gutters_xx-small slds-p-horizontal_x-small slds-p-bottom_x-small">
 			<div class="filter-group">
 				<span class="eyebrow" data-spec-id="view-eyebrow">{label.viewGroupLabel}</span>
@@ -70,13 +74,24 @@
 									placeholder={label.allContexts} value={executionEvent} variant="label-hidden"></lightning-combobox>
 			</div>
 
+			<div class="filter-group slds-m-left_x-small">
+				<span class="eyebrow" data-spec-id="origin-eyebrow">{label.originGroupLabel}</span>
+				<lightning-combobox class="filter-combobox" data-spec-id="origin-filter" label={label.originFilterLabel} onchange={handleOriginChange} options={originOptions}
+									placeholder={label.allOrigins} value={origin} variant="label-hidden"></lightning-combobox>
+			</div>
+
+			<template lwc:if={actionRootCorrelationId}>
+				<lightning-pill class="slds-m-left_x-small action-pill" data-spec-id="action-pill" data-testid="action-pill" label={actionPillLabel}
+								onremove={handleRemoveAction}></lightning-pill>
+			</template>
+
 			<template lwc:if={correlationId}>
-				<lightning-pill class="slds-m-left_x-small correlation-pill" data-testid="correlation-pill" label={correlationPillLabel}
+				<lightning-pill class="slds-m-left_x-small correlation-pill" data-spec-id="chain-pill" data-testid="correlation-pill" label={correlationPillLabel}
 								onremove={handleRemoveCorrelation}></lightning-pill>
 			</template>
 
 			<template lwc:if={sourceFilter}>
-				<lightning-pill class="slds-m-left_x-small source-pill" data-testid="source-filter-pill" label={sourceFilterPillLabel}
+				<lightning-pill class="slds-m-left_x-small source-pill" data-spec-id="source-filter-pill" data-testid="source-filter-pill" label={sourceFilterPillLabel}
 								onremove={handleRemoveSourceFilter}></lightning-pill>
 			</template>
 
@@ -93,10 +108,11 @@
 						<div class="lab">{card.label}</div>
 						<template lwc:if={card.hasSources}>
 							<template for:each={card.sources} for:item="source">
-								<button class="source-row" data-source={source.name} data-spec-id="top-source-row" data-testid="source-row" key={source.key}
-										onclick={handleSourceDrill} type="button">
+								<button class="source-row" data-origin={source.origin} data-source={source.name} data-spec-id="top-source-row" data-testid="source-row"
+										key={source.key} onclick={handleSourceDrill} type="button">
 									<span class="rank">{source.rank}</span>
 									<span class="sname">{source.name}</span>
+									<span class="origin">{source.originLabel}</span>
 									<span class="metric">{source.metric}</span>
 								</button>
 							</template>
@@ -149,6 +165,43 @@
 			</template>
 		</div>
 
+		<template lwc:if={showActionBanner}>
+			<!-- One sentence and at most five chips: the action's whole story as words and a number, never a tree. The
+				 date is a formatted-date component between two label fragments, so the viewer's zone applies. -->
+			<div aria-label={label.actionBannerEyebrow} class="action-banner" data-spec-id="action-banner" data-testid="action-banner" role="region">
+				<div class="action-banner__eyebrow">{label.actionBannerEyebrow}</div>
+				<p class="action-banner__sentence" data-spec-id="action-banner-sentence" data-testid="action-banner-sentence">
+					<template lwc:if={actionBannerIsLegacy}>{actionBannerLegacyText}</template>
+					<template lwc:else>
+						<span>{label.actionBannerStarted}&nbsp;<lightning-formatted-date-time day="numeric" hour="2-digit" minute="2-digit" month="short" second="2-digit"
+																							  value={actionBannerStartedAt}
+																							  year="numeric"></lightning-formatted-date-time>&nbsp;</span>
+						<span>{actionBannerDurationText}&nbsp;</span>
+						<span>{actionBannerChainsText}</span>
+					</template>
+				</p>
+				<div class="action-chips">
+					<template for:each={actionChips} for:item="chip">
+						<button class={chip.chipClass} data-correlation-id={chip.correlationId} data-spec-id="action-chain-chip" data-testid="action-chain-chip" key={chip.key}
+								onclick={handleChainChipSelect} type="button">
+							<span class="action-chip__status">{chip.statusLabel}</span>
+							<span class="action-chip__label">{chip.label}</span>
+							<template lwc:if={chip.launchText}>
+								<span class="action-chip__by">{chip.launchText}</span>
+							</template>
+						</button>
+					</template>
+					<template lwc:if={actionMoreChainsText}>
+						<span class="action-more" data-spec-id="action-more-chains" data-testid="action-more-chains">{actionMoreChainsText}</span>
+					</template>
+				</div>
+				<template lwc:if={showOpenChainsButton}>
+					<lightning-button class="action-banner__open" data-spec-id="action-open-chains" data-testid="action-open-chains" label={label.actionOpenChains}
+									  onclick={handleOpenChains} variant="neutral"></lightning-button>
+				</template>
+			</div>
+		</template>
+
 		<template lwc:if={occurrencesReconciliation}>
 			<div class="drill-note" data-spec-id="occurrences-reconciliation" data-testid="occurrences-reconciliation" role="status">{occurrencesReconciliation}</div>
 		</template>
@@ -195,9 +248,28 @@
 						</div>
 					</template>
 					<template lwc:else>
-						<c-log-console-table class="list-table" columns={columns} data={records} data-spec-id="entry-list" enable-infinite-loading is-loading={isLoadingMore}
-											 key-field="rowKey" max-row-selection="1" onloadmore={handleLoadMore} onrowselection={handleRowSelection} onsort={handleSort}
-											 selected-rows={selectedRows} sorted-by={sortedBy} sorted-direction={sortDirection}></c-log-console-table>
+						<!-- A page turn keeps the rows, the pager and the ribbon on screen and shows the datatable's own
+							 spinner over the rows being replaced; the console's spinner above is for a whole reload. -->
+						<c-log-console-table class="list-table" columns={columns} data={records} data-spec-id="entry-list" is-loading={isTurningPage} key-field="rowKey"
+											 max-row-selection="1" onrowselection={handleRowSelection} onsort={handleSort} selected-rows={selectedRows} sorted-by={sortedBy}
+											 sorted-direction={sortDirection}></c-log-console-table>
+						<template lwc:if={showPager}>
+							<div class="pager" data-spec-id="entries-pager" data-testid="entries-pager">
+								<span class="pager__position" data-spec-id="entries-position" data-testid="entries-position">{positionText}</span>
+								<lightning-button-group>
+									<lightning-button data-testid="pager-previous" disabled={noPrevious} icon-name="utility:chevronleft" label={label.pagerPrevious}
+													  onclick={handlePreviousPage}></lightning-button>
+									<template for:each={pageNumbers} for:item="pageOption">
+										<lightning-button aria-current={pageOption.current} data-page={pageOption.number} data-testid="pager-page" key={pageOption.number}
+														  label={pageOption.label} onclick={handlePageNumber} variant={pageOption.variant}></lightning-button>
+									</template>
+									<lightning-button data-testid="pager-next" disabled={noNext} icon-name="utility:chevronright" icon-position="right" label={label.pagerNext}
+													  onclick={handleNextPage}></lightning-button>
+								</lightning-button-group>
+								<lightning-combobox class="pager__size" data-testid="pager-size" dropdown-alignment="right" label={label.perPage} onchange={handlePageSizeChange}
+													options={pageSizeOptions} value={pageSizeValue} variant="label-hidden"></lightning-combobox>
+							</div>
+						</template>
 					</template>
 				</div>
 			</div>
@@ -207,10 +279,14 @@
 					 drawer's own controls come next in the tab order instead of after every row's link. Named
 					 with the drawer's own Details heading, so the move announces what just opened, and outlined
 					 on focus so the move is visible as well as announced. -->
-				<div aria-label={label.detailsHeading} class="panel" data-testid="detail-panel" role="region" tabindex="-1">
+				<div aria-label={label.detailsHeading} class="panel" data-spec-id="detail-panel" data-testid="detail-panel" role="region" tabindex="-1">
+					<!-- At the overlay width the drawer covers the list; this is the way back, tied to that breakpoint by CSS. -->
+					<lightning-button class="panel__back" data-testid="back-to-list" icon-name="utility:back" label={label.backToList} onclick={handleDetailClose}
+									  variant="base"></lightning-button>
 					<c-log-console-detail detail={selectedDetail} focused-detail={selectedFocusedDetail} namespace-prefix={apexNamespacePrefix}
 										  occurrence-count={selectedOccurrenceCount} onclose={handleDetailClose} onentryfocus={handleEntryFocus}
-										  onnavigatechain={handleNavigateChain} onopenrecord={handleOpenRecord} onviewoccurrences={handleViewOccurrences}
+										  onnavigatechain={handleNavigateChain} onopenrecord={handleOpenRecord} onshowwholeaction={handleShowWholeAction}
+										  onviewoccurrences={handleViewOccurrences} pinned-action-root-correlation-id={actionRootCorrelationId}
 										  problem-first-seen={selectedFirstSeen} problem-last-seen={selectedLastSeen} provenance={selectedProvenance} trace={selectedTrace}
 										  trace-truncated={selectedTraceTruncated} view={view}></c-log-console-detail>
 				</div>

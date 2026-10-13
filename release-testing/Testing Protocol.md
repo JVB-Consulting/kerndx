@@ -29,7 +29,7 @@ sf org delete scratch -o $SF_SUBSCRIBER_ORG_ALIAS --no-prompt
 # CRITICAL: Must run from /tmp/kern-subscriber/ — NOT dev project (has "namespace":"kern")
 mkdir -p /tmp/kern-subscriber/force-app
 cat > /tmp/kern-subscriber/sfdx-project.json << 'TMPEOF'
-{"packageDirectories":[{"path":"force-app","default":true}],"name":"KernSubscriber","sourceApiVersion":"67.0"}
+{"packageDirectories":[{"path":"force-app","default":true}],"name":"KernSubscriber","sourceApiVersion":"68.0"}
 TMPEOF
 cd /tmp/kern-subscriber && sf org create scratch -f <repo-root>/config/project-scratch-def.json -a $SF_SUBSCRIBER_ORG_ALIAS -v DevHub -y 30 --wait 10
 
@@ -49,10 +49,11 @@ sf org delete scratch -o $SF_SUBSCRIBER_ORG_ALIAS --no-prompt
 cd /tmp/kern-subscriber && sf org create scratch -f <repo-root>/config/project-scratch-def.json -a $SF_SUBSCRIBER_ORG_ALIAS -v DevHub -y 30 --wait 10
 sf package install -o $SF_SUBSCRIBER_ORG_ALIAS --package <NewSubscriberPackageVersionId> --wait 15 --no-prompt
 cd <repo-root>
-rm -f release-testing/e2e/.auth/state.json release-testing/e2e/.auth/instance.json
+rm -f release-testing/e2e/.auth/$SF_SUBSCRIBER_ORG_ALIAS/state.json release-testing/e2e/.auth/$SF_SUBSCRIBER_ORG_ALIAS/instance.json
 ```
 
-The `.auth/` file clear is defence-in-depth: Playwright's `globalSetup` refreshes both files on the next `npm run test:e2e` run, but dev workflows that hand-invoke helpers via
+The session files live in one folder per org alias (`.auth/<alias>/`), so runs against different orgs never share them.
+The file clear is defence-in-depth: Playwright's `globalSetup` refreshes both files on the next `npm run test:e2e` run, but dev workflows that hand-invoke helpers via
 `node` before the next runner invocation would otherwise see a stale instance URL or expired session cookies from the old org.
 
 ## Load Test Isolation Guarantee
@@ -89,7 +90,7 @@ Only the specified section's entry in the baseline JSON is updated. All other se
 node release-testing/runner/perf-history.js --reset --section=44
 ```
 
-This clears the stored baseline for section 44 so the next run establishes a new baseline from scratch. The baseline JSON file (`release-testing/runner/perf-history.json`) is
+This clears the stored baseline for section 44 so the next run establishes a new baseline from scratch. The baseline JSON file (`release-testing/results/perf-history.json`) is
 committed to source control — after resetting and re-running, commit the updated JSON alongside the code change that caused the intentional perf shift.
 
 ## PERF_ROW Emission Convention

@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for chainMonitor container LWC component
  * @author Jason van Beukering
- * @date April 2026, August 2026
+ * @date April 2026, October 2026
  */
 
 // The prefix wrapper defaults to the managed-install value so the existing channel and
@@ -97,6 +97,23 @@ describe('c-chain-monitor', () =>
 		expect(detail).toBeTruthy();
 	});
 
+	it('should stack the list and detail panels on a narrow screen', async() =>
+	{
+		const element = await createComponent();
+
+		// jsdom evaluates no media query, so the classes themselves are the proof: the row wraps and
+		// each panel takes the full width until the tablet breakpoint, where it takes half.
+		const row = element.shadowRoot.querySelector('[data-testid="split-row"]');
+		const columns = row.querySelectorAll(':scope > .slds-col');
+		expect(row.classList).toContain('slds-wrap');
+		expect(columns.length).toBe(2);
+		columns.forEach((column) =>
+		{
+			expect(column.classList).toContain('slds-size_1-of-1');
+			expect(column.classList).toContain('slds-medium-size_1-of-2');
+		});
+	});
+
 	it('should title the card from the custom label', async() =>
 	{
 		const element = await createComponent();
@@ -112,7 +129,7 @@ describe('c-chain-monitor', () =>
 		expect(subscribe).toHaveBeenCalledWith('/event/kern__LogEntryEvent__e', -1, expect.any(Function));
 	});
 
-	it('should unsubscribe from empApi on disconnected callback', async() =>
+	it('should unsubscribe from empApi on disconnected callback, with the acknowledgement the platform requires', async() =>
 	{
 		const element = await createComponent();
 
@@ -120,6 +137,13 @@ describe('c-chain-monitor', () =>
 		await Promise.resolve();
 
 		expect(unsubscribe).toHaveBeenCalled();
+		// empApi hands its second argument on as the callback: called with one argument, it raises
+		// "Invalid or missing callback" in the middle of the page being torn down.
+		const [subscription, acknowledge] = unsubscribe.mock.calls[0];
+		expect(unsubscribe.mock.calls[0].length).toBe(2);
+		expect(subscription).toBeTruthy();
+		expect(typeof acknowledge).toBe('function');
+		expect(acknowledge({successful: true})).toBeNull();
 	});
 
 	it('should pass selected execution id to detail panel', async() =>
@@ -317,7 +341,7 @@ describe('c-chain-monitor', () =>
 		await Promise.resolve();
 		await Promise.resolve();
 
-		expect(unsubscribe).toHaveBeenCalledWith(lateSubscription);
+		expect(unsubscribe).toHaveBeenCalledWith(lateSubscription, expect.any(Function));
 	});
 
 	it('should not start a second subscription when the component reconnects during prefix resolution', async() =>
@@ -345,7 +369,7 @@ describe('c-chain-monitor', () =>
 		expect(subscribe).toHaveBeenCalledTimes(1);
 
 		document.body.removeChild(element);
-		expect(unsubscribe).toHaveBeenCalledWith({id: 'live-subscription'});
+		expect(unsubscribe).toHaveBeenCalledWith({id: 'live-subscription'}, expect.any(Function));
 	});
 
 	it('should release a stale subscription that resolves after the component reconnects', async() =>
@@ -372,11 +396,11 @@ describe('c-chain-monitor', () =>
 		await Promise.resolve();
 		await Promise.resolve();
 
-		expect(unsubscribe).toHaveBeenCalledWith(staleSubscription);
+		expect(unsubscribe).toHaveBeenCalledWith(staleSubscription, expect.any(Function));
 
 		unsubscribe.mockClear();
 		document.body.removeChild(element);
-		expect(unsubscribe).toHaveBeenCalledWith({id: 'second-subscription'});
+		expect(unsubscribe).toHaveBeenCalledWith({id: 'second-subscription'}, expect.any(Function));
 	});
 
 	it('should log the failure through consoleError when the subscription cannot be established', async() =>
@@ -415,7 +439,7 @@ describe('c-chain-monitor', () =>
 	});
 
 	// The container hosts the real chainMonitorList child, whose loadData also calls the
-	// controller mock — deep-link assertions therefore filter to calls carrying correlationId.
+	// controller mock, so deep-link assertions filter to calls carrying correlationId.
 	function getResolveCalls()
 	{
 		return mockCallControllerMethod.mock.calls.filter((call) => call[1] && 'correlationId' in call[1]);
@@ -563,7 +587,7 @@ describe('c-chain-monitor', () =>
 		expect(selectById).not.toHaveBeenCalled();
 	});
 
-	describe('operations control (D8/D13 client leg)', () =>
+	describe('operations control in the browser', () =>
 	{
 		const WAITING_STALLED_COUNT = 4;
 		const MOCK_ENABLED_STATE = {
@@ -696,8 +720,8 @@ describe('c-chain-monitor', () =>
 
 		it('toasts the labelled failure when a confirmed sweep answers nothing at all', async() =>
 		{
-			// callControllerMethod resolves undefined on failure — it has already toasted the raw
-			// error; the labelled toast tells the operator what to do about it.
+			// callControllerMethod resolves undefined on failure; it has already shown the raw
+			// error in a toast. The labelled toast tells the operator what to do about it.
 			stubOperationsState(MOCK_ENABLED_STATE, undefined);
 			const element = await createComponent();
 			mockChainActionConfirmModalOpen.mockResolvedValueOnce({action: 'confirm'});
@@ -881,7 +905,7 @@ describe('c-chain-monitor', () =>
 			expect(selectById).toHaveBeenCalledWith('clone-chain-id');
 		});
 
-		it('selects the source run when the detail asks to navigate the restart lineage', async() =>
+		it('selects the run the detail\'s Launched under link names when it asks to navigate', async() =>
 		{
 			const element = await createComponent();
 			const list = element.shadowRoot.querySelector('c-chain-monitor-list');
@@ -895,5 +919,69 @@ describe('c-chain-monitor', () =>
 			expect(detail.executionId).toBe('source-chain-id');
 			expect(selectById).toHaveBeenCalledWith('source-chain-id');
 		});
+	});
+});
+
+describe('c-chain-monitor whole action', () =>
+{
+	const ACTION_ID = 'a7d2f4c1-1111-4111-8111-00000000f13a';
+
+	afterEach(() =>
+	{
+		while(document.body.firstChild)
+		{
+			document.body.removeChild(document.body.firstChild);
+		}
+		jest.clearAllMocks();
+	});
+
+	async function createComponent()
+	{
+		const element = createElement('c-chain-monitor', {is: ChainMonitor});
+		document.body.appendChild(element);
+		await Promise.resolve();
+		await Promise.resolve();
+		return element;
+	}
+
+	it('hands the action of a deep link to the list, once per stamp, and again for a new stamp', async() =>
+	{
+		const element = await createComponent();
+		const list = element.shadowRoot.querySelector('c-chain-monitor-list');
+
+		CurrentPageReference.emit({state: {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '1000'}});
+		await Promise.resolve();
+		expect(list.actionRootCorrelationId).toBe(ACTION_ID);
+
+		list.dispatchEvent(new CustomEvent('actionclear'));
+		await Promise.resolve();
+		expect(list.actionRootCorrelationId).toBeNull();
+
+		CurrentPageReference.emit({state: {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '1000'}});
+		await Promise.resolve();
+		expect(list.actionRootCorrelationId).toBeNull();
+
+		CurrentPageReference.emit({state: {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '2000'}});
+		await Promise.resolve();
+		expect(list.actionRootCorrelationId).toBe(ACTION_ID);
+
+		// A hand-off that carries no stamp is still a hand-off: the action alone makes the key.
+		const STAMPLESS_ACTION_ID = 'b8e3a5d2-2222-4222-8222-00000000f14b';
+		CurrentPageReference.emit({state: {c__rootCorrelationId: STAMPLESS_ACTION_ID}});
+		await Promise.resolve();
+		expect(list.actionRootCorrelationId).toBe(STAMPLESS_ACTION_ID);
+	});
+
+	it('still resolves a run deep link beside an action', async() =>
+	{
+		mockCallControllerMethod.mockResolvedValue('resolved-run-id');
+		const element = await createComponent();
+
+		CurrentPageReference.emit({state: {c__correlationId: 'run-a', c__viewLogsAt: '1000'}});
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(element.shadowRoot.querySelector('c-chain-monitor-detail').executionId).toBe('resolved-run-id');
+		expect(element.shadowRoot.querySelector('c-chain-monitor-list').actionRootCorrelationId).toBeNull();
 	});
 });
