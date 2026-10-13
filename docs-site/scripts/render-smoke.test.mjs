@@ -260,6 +260,56 @@ try
 		assert(sres.status() === 200, `tour still resolves 200: ${src}`);
 	}
 
+	// 12. The older-version banner on a frozen tree, at phone and desktop widths. Two defects this
+	//     guards: on desktop the fixed nav covered the banner (the theme offsets the nav and content
+	//     by --vp-layout-top-height, which nothing set), and on a phone its link opened a 404 (the
+	//     router resolved '/' inside the frozen app). The link must land on the SAME page in the
+	//     latest tree. The banner is pinned only from 960px, where the theme pins the nav; on a phone
+	//     it scrolls away with the page. Frozen trees exist only after build:versions; the check is
+	//     skipped, not passed, when the repository has none, and fails when it has some that the
+	//     build did not assemble.
+	const frozenSources = (await readdir(new URL('../../docs-versions/', import.meta.url)).catch(() => []))
+	.filter(name => /^\d+\.\d+$/.test(name));
+	const frozenBuilt = (await readdir(distDir).catch(() => [])).filter(name => /^\d+\.\d+$/.test(name));
+	if(frozenSources.length === 0)
+	{
+		console.log('skip: no docs-versions/ lines, so no older-version banner to check');
+	}
+	else
+	{
+		assert(frozenBuilt.length === frozenSources.length, `every frozen line is assembled into dist (${frozenBuilt.join(', ')}); run build:versions first`);
+		const frozenLine = frozenBuilt.sort((a, b) => a.localeCompare(b, undefined, {numeric: true})).at(-1);
+		for(const width of [390, 1280])
+		{
+			await page.setViewportSize({width, height: 800});
+			await page.goto(`${BASE}/${frozenLine}/selectors-guide`, {waitUntil: 'networkidle'});
+			const banner = page.locator('.version-banner');
+			assert(await banner.isVisible(), `older-version banner shows on /${frozenLine}/ at ${width}px`);
+			const covered = await page.evaluate(() =>
+			{
+				const box = document.querySelector('.version-banner').getBoundingClientRect();
+				const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+				return !hit?.closest('.version-banner');
+			});
+			assert(!covered, `nothing covers the older-version banner at ${width}px`);
+			// Pinned on desktop, where the nav is pinned too; on a phone it scrolls away with the page.
+			const position = await banner.evaluate(el => getComputedStyle(el).position);
+			assert((position === 'fixed') === (width >= 960), `older-version banner is ${width >= 960 ? 'pinned' : 'in the page flow'} at ${width}px (position ${position})`);
+			// Not being covered is not enough on desktop: the banner sits above the nav, so the nav must also start below it.
+			const layout = await page.evaluate(() => ({
+				bannerBottom: document.querySelector('.version-banner').getBoundingClientRect().bottom,
+				navTop: document.querySelector('.VPNav').getBoundingClientRect().top,
+				published: document.documentElement.style.getPropertyValue('--vp-layout-top-height')
+			}));
+			assert(layout.navTop >= layout.bannerBottom - 1, `the nav starts below the banner at ${width}px (nav ${layout.navTop}px, banner ends ${layout.bannerBottom}px)`);
+			assert((layout.published !== '') === (width >= 960), `the banner height is published to the theme only when pinned, at ${width}px ('${layout.published}')`);
+			await Promise.all([page.waitForURL(`${BASE}/selectors-guide`), banner.locator('a').click()]);
+			await page.waitForLoadState('networkidle');
+			assert(await page.locator('.NotFound').count() === 0, `banner link opens a real page, not a 404, at ${width}px`);
+			assert(await page.locator('.version-banner').count() === 0, `banner link lands on the latest tree at ${width}px`);
+		}
+	}
+
 	console.log('render smoke-test PASSED');
 }
 finally

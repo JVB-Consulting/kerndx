@@ -1,8 +1,8 @@
 {
   "apex_class_count": 200,
-  "artifact_tree_sha256": "8879c78b0e494fa26a72556bc88d1f3bdaf66d9277e205695031cb3ba5319a99",
+  "artifact_tree_sha256": "c318b43ca9ba22199bfec7d3f37356add48b1c3aa99543e4367f5551dbb777a8",
   "build_node_version": "22.22.3",
-  "build_timestamp": "2026-10-13T02:38:29.636Z",
+  "build_timestamp": "2026-10-13T10:02:07.440Z",
   "file_count": 5553,
   "manifest_sha": "3910d8de19d39800411a5ab101cc36bc2332e5e7995729e2183e2679cf553bb4",
   "package_version": "1.8.0-11",
@@ -11,7 +11,7 @@
     "supported_major": 1
   },
   "schema_version": 1,
-  "source_commit": "6211604bc8e826edaad5235492e1d817b7b3eb21",
+  "source_commit": "81f00b3b5b9bc9e7beb1a3a72fb85bda7b4fa936",
   "subscriber_package_version_id": "04tfj000000cIDdAAM",
-  "total_bytes": 74348897
+  "total_bytes": 74354754
 }
