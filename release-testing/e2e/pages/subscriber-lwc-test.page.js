@@ -2,6 +2,7 @@
 const {waitForLightningReady} = require('../helpers/sf-navigation');
 const {ensureAuthenticated, getInstanceUrl} = require('../helpers/sf-auth');
 const {waitForSpinnerGone} = require('../helpers/wait-helpers');
+const {ELEMENT_WAIT_MILLISECONDS} = require('../helpers/wait-times');
 
 const EXPECTED_COMPONENTS = [
 	'subscriberBaseOnly',
@@ -52,7 +53,7 @@ class SubscriberLwcTestPage
 		await waitForLightningReady(this.page);
 		await waitForSpinnerGone(this.page);
 		const firstComponent = this.getComponentLocator(EXPECTED_COMPONENTS[0]);
-		await firstComponent.waitFor({state: 'visible', timeout: 15_000}).catch(() =>
+		await firstComponent.waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS}).catch(() =>
 		{
 		});
 	}
@@ -95,7 +96,7 @@ class SubscriberLwcTestPage
 		const section = this.getComponentLocator(componentName);
 		const button = section.getByRole('button', {name: 'Run Tests'});
 		await button.click();
-		await section.locator('li').first().waitFor({state: 'visible', timeout: 15_000}).catch(() =>
+		await section.locator('li').first().waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS}).catch(() =>
 		{
 		});
 	}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>68.0</apiVersion>
+	<description>The Class Name field of the scheduled job editors: suggests the org's schedulable classes as you type and also takes a name the list does not show.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Scheduled Job Class Picker</masterLabel>
+</LightningComponentBundle>

@@ -21,13 +21,14 @@ on:
 jobs:
   notify:
     name: Ready-to-merge ping
-    runs-on: ubuntu-latest    permissions:
+    runs-on: ubuntu-latest
+    permissions:
       pull-requests: read
       contents: read
     steps:
       - name: Resolve PR context + fetch reviewer config
         id: context
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

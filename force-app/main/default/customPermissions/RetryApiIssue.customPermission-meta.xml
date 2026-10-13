@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Lets a user run failed API calls again from API issues: the Retry action and the resolve action on an issue, and Retry Selected on the API Issues list. The Kern API Issue Resolver and Kern Administrator permission sets grant it.</description>
+    <isLicensed>false</isLicensed>
+    <label>Retry API Issue</label>
+</CustomPermission>

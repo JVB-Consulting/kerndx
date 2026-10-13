@@ -7,7 +7,7 @@
  *
  * @group Subscriber Integration Tests
  *
- * @date March 2026, May 2026
+ * @date March 2026, October 2026
  */
 public with sharing class CTRL_SubscriberLwcTest
 {
@@ -16,6 +16,11 @@ public with sharing class CTRL_SubscriberLwcTest
 	 */
 	@TestVisible
 	private static final String ERROR_ON_PURPOSE = 'Intentional error for testing';
+	/**
+	 * @description The most Accounts getRecentAccounts returns.
+	 */
+	@TestVisible
+	private static final Integer RECENT_ACCOUNT_LIMIT = 5;
 
 	/**
 	 * @description Echoes back the provided input with a prefix.
@@ -42,21 +47,18 @@ public with sharing class CTRL_SubscriberLwcTest
 	}
 
 	/**
-	 * @description Returns recently created Accounts.
+	 * @description Returns the most recently created Accounts the running user can see, newest first, with their Id, Name
+	 * and CreatedDate.
 	 *
-	 * @return List of up to 5 recent Accounts ordered by CreatedDate descending
+	 * @return Up to RECENT_ACCOUNT_LIMIT Accounts ordered by CreatedDate, newest first; an empty list when there are none.
 	 */
 	@AuraEnabled
 	public static List<Account> getRecentAccounts()
 	{
-		return
-		[
-				SELECT Id,
-						Name,
-						CreatedDate
-				FROM Account
-				ORDER BY CreatedDate DESC
-				LIMIT 5
-		];
+		return kern.QRY_Builder.selectFrom(Account.SObjectType)
+				.fields(new List<SObjectField> {Account.Id, Account.Name, Account.CreatedDate})
+				.orderBy(Account.CreatedDate).descending()
+				.withLimit(RECENT_ACCOUNT_LIMIT)
+				.toList();
 	}
 }

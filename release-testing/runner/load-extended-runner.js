@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 const {execSync} = require('child_process');
-const path = require('path');
 const {getSubscriberOrgAlias} = require('./subscriber-config');
 
 const ORG_ALIAS = getSubscriberOrgAlias();

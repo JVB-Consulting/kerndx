@@ -79,39 +79,3 @@ jobs:
               echo "decision=${decision:-null}" >> "$GITHUB_OUTPUT"
               ;;
           esac
-
-      - name: Post Slack alert
-        # [E2E] title prefix suppresses Slack per harness convention.
-        if: steps.inspect.outputs.alert == 'true' && !startsWith(github.event.pull_request.title, '[E2E]')
-        uses: slackapi/slack-github-action@v2
-        with:
-          webhook: ${{ secrets.undefined }}
-          webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "Release Gate bypassed on ${{ github.event.pull_request.base.ref }}",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": { "type": "plain_text", "text": "Release Gate bypass detected" }
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    { "type": "mrkdwn", "text": "*Base branch:*\n`${{ github.event.pull_request.base.ref }}`" },
-                    { "type": "mrkdwn", "text": "*Merged by:*\n`${{ github.event.pull_request.merged_by.login }}`" },
-                    { "type": "mrkdwn", "text": "*PR author:*\n`${{ github.event.pull_request.user.login }}`" },
-                    { "type": "mrkdwn", "text": "*PR:*\n<${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }}>" },
-                    { "type": "mrkdwn", "text": "*Review decision at merge:*\n`${{ steps.inspect.outputs.decision }}`" },
-                    { "type": "mrkdwn", "text": "*Head commit:*\n`${{ github.event.pull_request.head.sha }}`" }
-                  ]
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "A PR was merged to a Release-Gate branch without an APPROVED review decision. The Release Gate's review requirements (code-owner review + last-push approval + 1 approving review + thread resolution) were bypassed — either via admin privilege or sf-super-admins team membership.\n\nAudit trail: <${{ github.event.pull_request.html_url }}/commits|PR commit history> · <${{ github.event.pull_request.html_url }}|PR conversation>\n\nVerify the bypass was intentional and leave a justification on the PR."
-                  }
-                }
-              ]
-            }

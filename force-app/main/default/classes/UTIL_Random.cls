@@ -12,7 +12,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -261,7 +261,7 @@ global inherited sharing class UTIL_Random
 	 *
 	 * @return A random string matching the requested composition, or an empty string when length is non-positive.
 	 */
-	@SuppressWarnings('PMD.ExcessiveParameterList')
+	@SuppressWarnings('PMD.ExcessiveParameterList,PMD.PrivateMethodParameterCap')
 	private static String random
 			(
 					Integer length,
@@ -780,25 +780,75 @@ global inherited sharing class UTIL_Random
 	}
 
 	/**
-	 * @description Enum cataloguing the structural patterns available for random email address composition.
+	 * @description The shapes the part before the `@` of a generated email address can take. One shape is picked at
+	 * random for each address. Where a format joins several parts, the separator is picked at random from nothing, `.`, `-` and `_`; the letter
+	 * case and the email provider are random too. The examples below use `.` and lower case, and their names, words and
+	 * provider are illustrative.
 	 */
 	@TestVisible
 	private enum EmailFormat
 	{
+		/**
+		 * @description Two to five random letters, the separator, then one to three random digits, for example `kqzt.47@gmail.com`.
+		 */
 		ALPHA_NUMERIC,
+		/**
+		 * @description Two words from the built-in list of invented nickname words, joined by the separator, for example `storm.hawk@gmail.com`.
+		 */
 		CREATIVE,
+		/**
+		 * @description A nickname word, the separator, then a last name, for example `storm.smith@gmail.com`.
+		 */
 		CREATIVE_LASTNAME,
+		/**
+		 * @description A first name on its own, for example `john@gmail.com`.
+		 */
 		FIRSTNAME,
+		/**
+		 * @description A first name, the separator, then a nickname word, for example `john.storm@gmail.com`.
+		 */
 		FIRSTNAME_CREATIVE,
+		/**
+		 * @description A first name, the separator, then a short department word such as `sales` or `hr`, for example `john.sales@gmail.com`.
+		 */
 		FIRSTNAME_DEPARTMENT,
+		/**
+		 * @description A first name, the first letter of a middle name, then a last name, each joined by the separator, for
+		 * example `john.a.smith@gmail.com`.
+		 */
 		FIRSTNAME_INITIAL_LAST,
+		/**
+		 * @description A first name, the separator, then a last name, for example `john.smith@gmail.com`.
+		 */
 		FIRSTNAME_LAST,
+		/**
+		 * @description A first name followed directly by the first letter of a last name, with no separator, for example `johns@gmail.com`.
+		 */
 		FIRSTNAME_LAST_INITIAL,
+		/**
+		 * @description A first name followed directly by a last name, never with a separator, for example `johnsmith@gmail.com`.
+		 */
 		FIRSTNAME_LAST_NO_DELIMITER,
+		/**
+		 * @description A first name, a full middle name, then a last name, each joined by the separator, for example `john.alan.smith@gmail.com`.
+		 */
 		FIRSTNAME_MIDDLE_LAST,
+		/**
+		 * @description A last name, a first name, then the first letter of a middle name, each joined by the separator, for
+		 * example `smith.john.a@gmail.com`.
+		 */
 		LASTNAME_FIRSTNAME_INITIAL,
+		/**
+		 * @description A last name, the separator, then the first letters of a first and a middle name, for example `smith.ja@gmail.com`.
+		 */
 		LASTNAME_INITIALS,
+		/**
+		 * @description A last name followed directly by one to four random digits, for example `smith482@gmail.com`.
+		 */
 		LAST_NAME_NUMERIC,
+		/**
+		 * @description Four to eight random letters and digits with no name in them, for example `x7k2m9qa@gmail.com`.
+		 */
 		RANDOM_ALPHANUMERIC
 	}
 

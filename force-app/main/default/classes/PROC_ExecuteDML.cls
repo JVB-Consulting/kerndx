@@ -12,7 +12,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -28,12 +28,6 @@
 global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 {
 	/**
-	 * @description Constant for logging the class and method name during execution.
-	 */
-	@TestVisible
-	private static final String CLASS_METHOD_EXECUTE = PROC_ExecuteDML.class.getName() + '/execute';
-
-	/**
 	 * @description The DML operation to perform on the records.
 	 */
 	private final DML_Builder.DatabaseOperation operation;
@@ -44,21 +38,35 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 	private final Boolean allOrNothing;
 
 	/**
-	 * @description Caller-selected `AccessLevel` for the DML commit. `null` inherits the flag-driven
-	 * default resolved by `DML_SharingProxy.defaultAccessLevel()` (the secure-by-default posture: USER_MODE when
-	 * `UserModeDml_Enabled` is on). Explicit `SYSTEM_MODE` preserves the framework-internal elevation
-	 * required by utilities such as `UTIL_PurgeRecords` and `UTIL_BulkUpdates`. Explicit `USER_MODE`
-	 * honours a subscriber's secure-by-default opt-in through `DML_Builder.async().execute()`.
+	 * @description The `AccessLevel` the caller chose for saving the records. Null means the default from
+	 * `DML_SharingProxy.defaultAccessLevel()`: USER_MODE when the `UserModeDml_Enabled` flag is on, which is the
+	 * safer choice. An explicit `SYSTEM_MODE` keeps the full access that framework utilities such as
+	 * `UTIL_PurgeRecords` and `UTIL_BulkUpdates` need. An explicit `USER_MODE` keeps a subscriber's choice of the
+	 * safer mode made through `DML_Builder.async().execute()`.
 	 */
 	private final AccessLevel accessLevel;
 
 	/**
-	 * @description Whether the caller requested a record-sharing bypass for the commit. Crosses the
-	 * async serialization boundary as part of the processor's state. Defaults to false — the
-	 * secure enforce-default — including for payloads queued before this field existed, which
-	 * deserialize it as null.
+	 * @description Whether the caller asked to ignore record sharing for the save. The value is saved with the job
+	 * and read back when the job runs. It is false by default, so sharing is enforced. A job queued before this
+	 * field existed reads it back as null, which also means sharing is enforced.
 	 */
 	private Boolean isBypassSharingRequested = false;
+
+	/**
+	 * @description The status codes the caller declared as expected refusals through `DML_Builder.expectRefusal()`.
+	 * The value is saved with the job and read back when the job runs. A job queued before this field existed reads
+	 * it back as null, which means none.
+	 */
+	private Set<StatusCode> expectedRefusalStatusCodes = new Set<StatusCode>();
+
+	/**
+	 * @description How many times the caller asked to retry after a row lock, set through
+	 * `DML_Builder.withRetryOnLock()`. A row lock is the platform refusing a save because another process holds the
+	 * record. The value is saved with the job and read back when the job runs. Null means each batch runs once.
+	 * Null is also what a job queued before this field existed reads back.
+	 */
+	private Integer retriesOnLock;
 
 	/**
 	 * @description Constructs a DML processor with the specified operation and default all-or-nothing behavior.
@@ -98,11 +106,10 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 	}
 
 	/**
-	 * @description Constructs a DML processor with an explicit `AccessLevel`. Use this overload when
-	 * the async commit must pin a specific access mode regardless of the `UserModeDml_Enabled` flag —
-	 * framework utilities that own their lifecycle pass `AccessLevel.SYSTEM_MODE`, and the
-	 * `DML_Builder.async()` path passes the caller's chosen `AccessLevel` so subscriber `.withUserMode()`
-	 * opt-ins survive the sync-to-async boundary.
+	 * @description Constructs a DML processor with an explicit `AccessLevel`. Use this constructor when the
+	 * async save must use one access mode, whatever the `UserModeDml_Enabled` flag says. Framework utilities that
+	 * manage their own records pass `AccessLevel.SYSTEM_MODE`. `DML_Builder.async()` passes the access level the
+	 * caller chose, so a subscriber's `.withUserMode()` still applies when the job runs later.
 	 *
 	 * @param operation The DML operation to perform (DML_INSERT, DML_UPDATE, DML_DELETE, DML_UPSERT, DML_UNDELETE).
 	 * @param allOrNothing If true, the entire transaction rolls back on any failure; if false, allows partial success.
@@ -123,13 +130,10 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 	}
 
 	/**
-	 * @description Marks the commit as a deliberate record-sharing bypass. Namespace-internal:
-	 * `DML_Builder.DML_AsyncBuilder` calls this while threading a subscriber's `.bypassSharing()`
-	 * dial across the async hand-off — the audited opt-out already happened on the synchronous
-	 * side. A subscriber constructing `PROC_ExecuteDML` directly cannot reach this method and gets
-	 * the secure enforce-default.
-	 *
-	 * @since 1.7
+	 * @description Marks the save as one that ignores record sharing on purpose. Only the package itself calls
+	 * this. `DML_Builder.DML_AsyncBuilder` calls it to carry a subscriber's `.bypassSharing()` choice into the
+	 * async job. The choice was already recorded in the bypass audit before the job was queued. A subscriber who
+	 * builds `PROC_ExecuteDML` directly cannot reach this method, so sharing is enforced, the safer default.
 	 */
 	public void requestSharingBypass()
 	{
@@ -137,12 +141,35 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 	}
 
 	/**
-	 * @description Executes the configured DML operation on the provided list of records. The
-	 * commit pins its record-sharing context explicitly — enforced unless `requestSharingBypass()`
-	 * was called — and re-applies the configured access mode without a separate bypass-audit
-	 * entry; this holds for a direct synchronous invocation exactly as it does inside an async
-	 * job, so a synchronous caller that needs its own class sharing context or an audited opt-out
-	 * should commit through `DML_Builder` instead.
+	 * @description Carries a caller's expected refusals into the async job. Only the package itself calls this.
+	 * `DML_Builder.DML_AsyncBuilder` calls it so that a partial save inside the job logs those refusals at WARN
+	 * instead of ERROR, exactly as a save in the same transaction would.
+	 *
+	 * @param statusCodes The expected status codes; null means none.
+	 */
+	public void expectRefusals(Set<StatusCode> statusCodes)
+	{
+		this.expectedRefusalStatusCodes = statusCodes ?? new Set<StatusCode>();
+	}
+
+	/**
+	 * @description Carries a caller's row-lock retry count into the async job. Only the package itself calls this.
+	 * `DML_Builder.DML_AsyncBuilder` calls it so that every batch of the job retries its own row-lock refusals,
+	 * exactly as a save in the same transaction would.
+	 *
+	 * @param retries Extra attempts after the first; null means none.
+	 */
+	public void retryOnLock(Integer retries)
+	{
+		retriesOnLock = retries;
+	}
+
+	/**
+	 * @description Runs the configured DML operation on the given records. The save always sets record sharing
+	 * itself: sharing is enforced unless `requestSharingBypass()` was called. The save also applies the configured
+	 * access mode again, without a new entry in the bypass audit. This is the same when you call this method
+	 * directly in your own transaction as when it runs inside an async job. A caller that needs the sharing of its
+	 * own class, or a recorded bypass, should save through `DML_Builder` instead.
 	 *
 	 * @param items The list of SObject records to process.
 	 *
@@ -164,10 +191,10 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 		}
 
 		DML_Builder builder = DML_Builder.newTransaction();
-		// Tri-state: SYSTEM_MODE and USER_MODE override explicitly; null inherits the flag-driven default.
-		// The comparator, not raw ==, because a deserialized AccessLevel identity-matches neither singleton.
-		// systemModeInternal: this re-applies a selection audited on the synchronous side of the hand-off
-		// (or made by a framework utility), so it must not enqueue a second bypass-audit entry.
+		// Three cases: SYSTEM_MODE and USER_MODE are set explicitly; null keeps the flag's default.
+		// matchesAccessLevel, not ==, because an AccessLevel rebuilt for an async job is a new object.
+		// systemModeInternal: this applies again a choice that was audited before the job was queued
+		// (or made by a framework utility), so it must not add a second entry to the bypass audit.
 		if(DML_SharingProxy.matchesAccessLevel(accessLevel, System.AccessLevel.SYSTEM_MODE))
 		{
 			builder.systemModeInternal();
@@ -177,8 +204,8 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 			builder.withUserMode();
 		}
 
-		// The job's own frame is `without sharing`, so INHERITED must never cross the hand-off: the
-		// rebuilt builder selects sharing explicitly — enforce unless the caller requested a bypass.
+		// The job itself runs `without sharing`, so inherited sharing must never be used here. The
+		// builder sets sharing explicitly: enforced unless the caller asked to ignore sharing.
 		builder.withSharingEnforcement(!(isBypassSharingRequested ?? false));
 
 		switch on operation
@@ -210,14 +237,16 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 			builder.allowPartial();
 		}
 
-		try
+		for(StatusCode statusCode : expectedRefusalStatusCodes ?? new Set<StatusCode>())
 		{
-			builder.execute();
+			builder.expectRefusal(statusCode);
 		}
-		catch(DmlException error)
+
+		if(retriesOnLock != null)
 		{
-			LOG_Builder.build().error(error).at(CLASS_METHOD_EXECUTE).emit();
-			throw error;
+			builder.withRetryOnLock(retriesOnLock);
 		}
+
+		builder.execute();
 	}
 }

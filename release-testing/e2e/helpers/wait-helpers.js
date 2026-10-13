@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 const {SPINNER, TOAST, TOAST_MESSAGE} = require('./sf-selectors');
+const {ELEMENT_WAIT_MILLISECONDS} = require('./wait-times');
 
-async function waitForSpinnerGone(page, timeout = 15_000)
+async function waitForSpinnerGone(page, timeout = ELEMENT_WAIT_MILLISECONDS)
 {
 	try
 	{
@@ -14,12 +15,12 @@ async function waitForSpinnerGone(page, timeout = 15_000)
 	}
 }
 
-async function waitForToast(page, timeout = 15_000)
+async function waitForToast(page, timeout = ELEMENT_WAIT_MILLISECONDS)
 {
 	await page.locator(TOAST).first().waitFor({state: 'visible', timeout});
 }
 
-async function waitForToastMessage(page, expectedText, timeout = 15_000)
+async function waitForToastMessage(page, expectedText, timeout = ELEMENT_WAIT_MILLISECONDS)
 {
 	const toast = page.locator(TOAST_MESSAGE).first();
 	await toast.waitFor({state: 'visible', timeout});
@@ -58,7 +59,7 @@ async function waitForListView(page, timeout = 30_000)
 	await waitForSpinnerGone(page);
 }
 
-async function waitForModal(page, timeout = 15_000)
+async function waitForModal(page, timeout = ELEMENT_WAIT_MILLISECONDS)
 {
 	await page.locator('section.slds-modal, div.slds-modal, lightning-modal')
 	.first()

@@ -1,0 +1,40 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<div class={formElementClass} onfocusout={handleFocusOut}>
+		<label class="slds-form-element__label" for="class-picker-input">
+			<template lwc:if={required}>
+				<abbr aria-hidden="true" class="slds-required">*</abbr>
+			</template>
+			{label}
+		</label>
+		<div class="slds-form-element__control">
+			<div class="slds-combobox_container">
+				<div class={comboboxClass}>
+					<div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+						<!--suppress HtmlWrongAttributeValue -->
+						<input aria-activedescendant={activeDescendantId} aria-autocomplete="list" aria-controls="class-picker-listbox" aria-describedby="class-picker-error"
+							   aria-expanded={ariaExpanded} aria-haspopup="listbox" aria-invalid={ariaInvalid} aria-required={ariaRequired} autocomplete="off"
+							   class="slds-input slds-combobox__input" data-spec-id="class-field-input" id="class-picker-input" onclick={handleOpen} oninput={handleInput}
+							   onkeydown={handleKeyDown} placeholder={placeholder} role="combobox" type="text" value={typedName}/>
+						<lightning-icon class="slds-input__icon slds-input__icon_right" icon-name="utility:search" size="x-small"></lightning-icon>
+					</div>
+					<div class="slds-dropdown slds-dropdown_length-7 slds-dropdown_fluid" data-spec-id="class-field-suggestions" id="class-picker-listbox"
+						 onmousedown={handleListMouseDown} role="listbox">
+						<ul class="slds-listbox slds-listbox_vertical" role="presentation">
+							<template for:each={suggestions} for:item="suggestion">
+								<li class="slds-listbox__item" key={suggestion.value} role="presentation">
+									<!--suppress HtmlWrongAttributeValue -->
+									<div aria-selected={suggestion.ariaSelected} class={suggestion.optionClass} data-value={suggestion.value} id={suggestion.id}
+										 onmousedown={handleSuggestionMouseDown} role="option">
+										<span class="slds-media__body"><span class="slds-truncate">{suggestion.value}</span></span>
+									</div>
+								</li>
+							</template>
+						</ul>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="slds-form-element__help" data-spec-id="class-field-error" data-testid="class-name-error" id="class-picker-error">{errorMessage}</div>
+	</div>
+</template>

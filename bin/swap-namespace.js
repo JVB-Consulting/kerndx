@@ -109,6 +109,12 @@ function buildInventory(workingCopyRoot)
 				// no over-match risk because the trailing dash makes the
 				// pattern specific to that idiom.
 				{from: 'kern-', to: `${targets.camel}-`},
+				// Obfuscated stack frame a subscriber org renders for every run
+				// of managed-package code, e.g. `(kern)`. Tests and ApexDoc pair
+				// it with the quoted namespace literal, which the 'kern' rule
+				// rewrites; without this rule the frame stays under the old
+				// namespace and those tests fail in the subscriber's build.
+				{from: '(kern)', to: `(${targets.camel})`},
 				// Sample path used in subscriber-facing docs. Same reason:
 				// literal substring match, no regex.
 				{from: '/tmp/kern-', to: `/tmp/${targets.camel}-`}
@@ -202,6 +208,239 @@ KernDX is BSL 1.1 source-available (four-year clock to Apache 2.0). See [\`LICEN
 `;
 }
 
+const VERIFIED_EXTENSIONS = new Set(['.cls', '.trigger', '.xml', '.js', '.html']);
+const STARTING_TREE = ['force-app', 'sfdx-project.template.json'];
+
+/**
+ * @description Writes a path the way git and the audit files want it, whatever system produced it.
+ * @param {string} filePath - A path that may use backslashes.
+ * @returns {string} The same path with forward slashes.
+ */
+function toForwardSlashes(filePath)
+{
+	return filePath.replace(/\\/g, '/');
+}
+
+/**
+ * @description Names what a folder lacks to be the top folder of a KernDX clone.
+ * @param {string} workingCopyRoot - The folder the command was run from.
+ * @returns {string[]} The missing names; empty when the folder is a clone.
+ */
+function checkStartingTree(workingCopyRoot)
+{
+	return STARTING_TREE.filter(name => !fs.existsSync(path.join(workingCopyRoot, name)));
+}
+
+/**
+ * @description Builds the pattern that finds a leftover reference to a namespace. Built from the marker's own
+ *              recorded namespace rather than a literal, so the swap rewriting this script's own source cannot
+ *              corrupt the pattern. No escaping is needed: namespaces are validated alphanumeric elsewhere, so
+ *              they carry no regex metacharacters.
+ * @param {string} originalNamespace - The namespace the tree was swapped from.
+ * @returns {RegExp} A pattern matching any of the four leftover forms for that namespace.
+ */
+function leftoverReferencePattern(originalNamespace)
+{
+	return new RegExp(`${originalNamespace}\\.|${originalNamespace}__|'${originalNamespace}/|"${originalNamespace}/`);
+}
+
+/**
+ * @description Reports whether a swap happened and whether any reference to the original namespace is left in
+ *              force-app. Reads only; writes nothing.
+ * @param {string} workingCopyRoot - The top folder of the clone.
+ * @returns {{swapped: boolean, marker: Object|null, leftovers: Array<{path: string, line: number, text: string}>}} The report.
+ * @throws {Error} When the marker names no original namespace.
+ */
+function verifySwap(workingCopyRoot)
+{
+	const markerPath = path.join(workingCopyRoot, '.namespace-origin.json');
+	if(!fs.existsSync(markerPath))
+	{
+		return {swapped: false, marker: null, leftovers: []};
+	}
+	const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
+	if(typeof marker.original_namespace !== 'string' || marker.original_namespace.length === 0)
+	{
+		throw new Error('The marker .namespace-origin.json names no original namespace, so the tree cannot be verified. Run the swap again from a fresh clone.');
+	}
+	const leftoverReference = leftoverReferencePattern(marker.original_namespace);
+	const leftovers = [];
+	function walk(directory)
+	{
+		if(!fs.existsSync(directory))
+		{
+			return;
+		}
+		for(const entry of fs.readdirSync(directory, {withFileTypes: true}))
+		{
+			const full = path.join(directory, entry.name);
+			if(entry.isDirectory())
+			{
+				walk(full);
+			}
+			else if(VERIFIED_EXTENSIONS.has(path.extname(entry.name).toLowerCase()))
+			{
+				fs.readFileSync(full, 'utf8').split('\n').forEach((text, index) =>
+				{
+					if(leftoverReference.test(text))
+					{
+						leftovers.push({path: toForwardSlashes(path.relative(workingCopyRoot, full)), line: index + 1, text: text.trim()});
+					}
+				});
+			}
+		}
+	}
+	walk(path.join(workingCopyRoot, 'force-app'));
+	return {swapped: true, marker, leftovers};
+}
+
+/**
+ * @description The next steps printed after a swap: one command per line, pasteable into any terminal.
+ * @param {string} target - The namespace the tree was swapped to.
+ * @returns {string} The text to print.
+ */
+function nextStepsText(target)
+{
+	return [
+		'',
+		'Next steps. Run each line on its own, from this folder:',
+		'  git add -A',
+		`  git commit -m "rebrand to ${target}"`,
+		'  sf package create --name "YourPackageName" --package-type "Managed" --path "force-app" --target-dev-hub YourDevHubAlias',
+		'  node scripts/build-package.js --package "YourPackageName" --dev-org YourDevHubAlias --no-resync',
+		'',
+		'Replace YourPackageName and YourDevHubAlias with your own. The build needs --dev-org: without it, it looks for a Dev Hub called DevHub.',
+		'See docs/Installation.md "Path 2: Repackage Under Your Own Namespace" for the full walkthrough.',
+		'Do NOT run `sf package version create` directly: it skips the step that adds your namespace prefix.'
+	].join('\n');
+}
+
+/**
+ * @description The codes an operating system reports when another program is holding a file the swap needs, whether
+ *              it is reading that file, replacing it or moving it.
+ */
+const FILE_IN_USE_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
+
+/**
+ * @description Builds the message a failed swap shows. A failure caused by another program holding a file open gains
+ *              a sentence naming that file and saying what to close; any other failure keeps its own message.
+ * @param {Error} failure - What the swap threw, carrying the operating system's code and path when it has them.
+ * @returns {string} The message to show the reader.
+ */
+function buildFailureMessage(failure)
+{
+	if(!FILE_IN_USE_CODES.has(failure.code))
+	{
+		return failure.message;
+	}
+	const heldPath = failure.path ?? failure.dest;
+	const namesTheFile = heldPath ? ` Something has this open: ${heldPath}.` : '';
+	// A reader whose original files are sitting in the rollback folder must put those back first: running the command
+	// again while they are there is the one instruction that would make things worse.
+	const whatToDoNext = failure.originalsLeftBehind
+		? ' Close editors and terminals that are open inside the project, then move your original files back.'
+		: ' Close editors and terminals that are open inside the project, then run the command again.';
+	return `${failure.message}${namesTheFile}${whatToDoNext}`;
+}
+
+/**
+ * @description Reports whether the rollback folder still holds files belonging to the reader. Read from the disk
+ *              rather than from anything the run remembers, because a run that could not put a file back, and a run
+ *              started after one of those, both see the same folder.
+ * @param {string} workingCopyRoot - The top folder of the clone.
+ * @returns {boolean} True when the rollback folder holds anything at all.
+ */
+function rollbackHoldsOriginals(workingCopyRoot)
+{
+	const backupDirectory = path.join(workingCopyRoot, '.swap-rollback', 'working-tree-backup');
+	try
+	{
+		return fs.readdirSync(backupDirectory).length > 0;
+	}
+	catch
+	{
+		// No folder to read means nothing of the reader's is in it. Anything else the swap cannot see into, it treats
+		// as holding files: a folder it cannot list is a folder it must not delete.
+		return fs.existsSync(backupDirectory);
+	}
+}
+
+/**
+ * @description Removes a folder the swap itself made, and says what the reader needs to hear when it will not go.
+ * @param {string} folder - The folder to remove.
+ * @returns {string} Empty when the folder is gone, otherwise a sentence naming it.
+ */
+function removeSwapFolder(folder)
+{
+	try
+	{
+		fs.rmSync(folder, {recursive: true, force: true});
+		return '';
+	}
+	catch
+	{
+		return ` The folder ${folder} could not be removed: delete it by hand.`;
+	}
+}
+
+/**
+ * @description Moves a set of entries back where they came from, one by one, and reports whether every one arrived.
+ *              An entry that will not move is left where it is: the caller tells the reader about it.
+ * @param {string[]} entries - The names to move, in the order to move them.
+ * @param {string} fromDirectory - The folder holding them now.
+ * @param {string} toDirectory - The folder they belong in.
+ * @returns {boolean} True when every entry was moved back.
+ */
+function moveEntriesBack(entries, fromDirectory, toDirectory)
+{
+	let allMoved = true;
+	for(const entry of entries)
+	{
+		try
+		{
+			fs.renameSync(path.join(fromDirectory, entry), path.join(toDirectory, entry));
+		}
+		catch
+		{
+			allMoved = false;
+		}
+	}
+	return allMoved;
+}
+
+/**
+ * @description Builds the failure thrown when one of the swap's two move passes could not finish. It says either that
+ *              the original tree is back in place or where the original files were left, and it carries the operating
+ *              system's code and path so the message can name what is holding the file.
+ * @param {string} passName - The name of the move pass that failed, as the reader sees it.
+ * @param {Error} cause - What the move pass threw.
+ * @param {{originalsReturned: boolean, everythingReturned: boolean}} unwind - What the unwind managed to put back:
+ *              whether every original file reached the project again, and whether that also cleared out everything
+ *              the swap had written into it.
+ * @param {string} rollbackDirectory - Where the swap keeps the original files while it runs.
+ * @returns {Error} The failure to throw.
+ */
+function buildMoveFailure(passName, cause, unwind, rollbackDirectory)
+{
+	let message;
+	if(unwind.everythingReturned)
+	{
+		message = `${passName} failed and was rolled back. Original tree restored. Cause: ${cause.message}`;
+	}
+	else if(unwind.originalsReturned)
+	{
+		message = `${passName} failed and your original files are back in place, but the swap`
+			+ ` could not take back everything it had written. Compare this folder with your clone`
+			+ ` before running the command again. Cause: ${cause.message}`;
+	}
+	else
+	{
+		message = `${passName} failed and the tree could not be put back.`
+			+ ` Your original files are in ${rollbackDirectory}: move them back yourself. Cause: ${cause.message}`;
+	}
+	return Object.assign(new Error(message), {code: cause.code, path: cause.path, originalsLeftBehind: !unwind.originalsReturned});
+}
+
 function executeSwap(workingCopyRoot, targetNamespace, opts)
 {
 	opts = opts || {};
@@ -210,16 +449,38 @@ function executeSwap(workingCopyRoot, targetNamespace, opts)
 		throw new Error('Tree already swapped — re-extract from the original zip to swap to a different namespace.');
 	}
 
+	// The lock speaks before the rollback folder: while another run is going, the files in that folder are that run's
+	// doing and the reader must leave them where they are.
 	const lockPath = path.join(workingCopyRoot, '.namespace-swap.lock');
 	if(fs.existsSync(lockPath))
 	{
 		const pid = fs.readFileSync(lockPath, 'utf8').trim();
 		throw new Error(`Another swap is in progress (PID ${pid}). If no longer running, remove ${lockPath} and retry.`);
 	}
-	fs.writeFileSync(lockPath, String(process.pid));
+
+	if(rollbackHoldsOriginals(workingCopyRoot))
+	{
+		const backupDirectory = path.join(workingCopyRoot, '.swap-rollback', 'working-tree-backup');
+		throw new Error(`A previous swap left your original files in ${backupDirectory}: move them back first, then run the command again.`);
+	}
+
+	// Last of the four, because a swapped tree, a tree another run is working on and a tree whose files are in the
+	// rollback folder all look like a folder that was never a clone, and each of those has its own answer.
+	const missing = checkStartingTree(workingCopyRoot);
+	if(missing.length > 0)
+	{
+		throw new Error(`This folder has no ${missing.join(' and no ')}. Run the command from the top folder of your clone of the KernDX `
+			+ `repository, the one that holds bin, force-app and sfdx-project.template.json.`);
+	}
+
+	// A run only ever removes the lock file it wrote itself, so a run that could not write one leaves another run's
+	// lock alone.
+	let lockWritten = false;
 
 	try
 	{
+		fs.writeFileSync(lockPath, String(process.pid));
+		lockWritten = true;
 		const targets = validateNamespace(targetNamespace);
 		const inventory = buildInventory(workingCopyRoot);
 		const rules = inventory.deriveRules(targets);
@@ -255,7 +516,7 @@ function executeSwap(workingCopyRoot, targetNamespace, opts)
 			{
 				fs.mkdirSync(path.dirname(dst), {recursive: true});
 				fs.copyFileSync(src, dst);
-				auditSkipped.push({path: srcRel, reason: 'binary'});
+				auditSkipped.push({path: toForwardSlashes(srcRel), reason: 'binary'});
 				return;
 			}
 			const buf = fs.readFileSync(src);
@@ -263,13 +524,13 @@ function executeSwap(workingCopyRoot, targetNamespace, opts)
 			{
 				fs.mkdirSync(path.dirname(dst), {recursive: true});
 				fs.copyFileSync(src, dst);
-				auditSkipped.push({path: srcRel, reason: 'non-utf8'});
+				auditSkipped.push({path: toForwardSlashes(srcRel), reason: 'non-utf8'});
 				return;
 			}
 			const result = applyContentSubstitutions(buf.toString('utf8'), rules);
 			fs.mkdirSync(path.dirname(dst), {recursive: true});
 			fs.writeFileSync(dst, result.text);
-			if(result.replacements > 0) auditFiles.push({path: srcRel, replacements: result.replacements});
+			if(result.replacements > 0) auditFiles.push({path: toForwardSlashes(srcRel), replacements: result.replacements});
 			for(const [rule, n] of Object.entries(result.perRule || {}))
 			{
 				auditPerRule[rule] = (auditPerRule[rule] || 0) + n;
@@ -300,13 +561,15 @@ function executeSwap(workingCopyRoot, targetNamespace, opts)
 						// these records deploy under the swapped namespace.
 						if(rule.from === 'kern__') newName = newName.split(rule.from).join(rule.to);
 						else if(/^[A-Z]/.test(rule.from)) newName = newName.split(rule.from).join(rule.to);
-						else if(/^[a-z]/.test(rule.from) && !rule.from.includes('.') && !rule.from.includes('_') && !rule.from.includes('/') && !rule.from.includes("'") && !rule.from.includes('"')) newName = newName.split(rule.from).join(rule.to);
+						else if(/^[a-z]/.test(rule.from) && !rule.from.includes('.') && !rule.from.includes('_')
+							&& !rule.from.includes('/') && !rule.from.includes("'") && !rule.from.includes('"'))
+							newName = newName.split(rule.from).join(rule.to);
 					}
 					if(newName !== entry.name)
 					{
 						const newFull = path.join(dir, newName);
 						fs.renameSync(full, newFull);
-						auditRenames.push({from: path.relative(stagingDir, full), to: path.relative(stagingDir, newFull)});
+						auditRenames.push({from: toForwardSlashes(path.relative(stagingDir, full)), to: toForwardSlashes(path.relative(stagingDir, newFull))});
 					}
 				}
 			}
@@ -367,44 +630,42 @@ function executeSwap(workingCopyRoot, targetNamespace, opts)
 				{
 					fs.mkdirSync(rollbackDir, {recursive: true});
 					fs.renameSync(src, dst);
-					fs.appendFileSync(journalPath, `renameA ${entry}\n`);
+					// Counted the moment it moves, before the journal is written: an entry the unwind does not know
+					// about is an original file nothing would bring home.
 					completedRenameA.push(entry);
+					fs.appendFileSync(journalPath, `renameA ${entry}\n`);
 				}
-			}
-			const completedRenameB = [];
-			try
-			{
-				for(const entry of stagingEntries)
-				{
-					fs.renameSync(path.join(stagingDir, entry), path.join(workingCopyRoot, entry));
-					fs.appendFileSync(journalPath, `renameB ${entry}\n`);
-					completedRenameB.push(entry);
-				}
-			}
-			catch(errB)
-			{
-				for(const entry of completedRenameB.reverse())
-				{
-					try { fs.renameSync(path.join(workingCopyRoot, entry), path.join(stagingDir, entry)); } catch(e) {}
-				}
-				for(const entry of completedRenameA.reverse())
-				{
-					try { fs.renameSync(path.join(rollbackDir, entry), path.join(workingCopyRoot, entry)); } catch(e) {}
-				}
-				throw new Error(`Rename-B failed and was rolled back. Original tree restored. Cause: ${errB.message}`);
 			}
 		}
-		catch(errA)
+		catch(errorA)
 		{
-			for(const entry of completedRenameA.reverse())
-			{
-				try { fs.renameSync(path.join(rollbackDir, entry), path.join(workingCopyRoot, entry)); } catch(e) {}
-			}
-			throw new Error(`Rename-A failed and was rolled back. Original tree restored. Cause: ${errA.message}`);
+			const originalsReturned = moveEntriesBack([...completedRenameA].reverse(), rollbackDir, workingCopyRoot);
+			throw buildMoveFailure('Rename-A', errorA, {originalsReturned, everythingReturned: originalsReturned}, rollbackDir);
 		}
 
-		fs.rmSync(path.join(workingCopyRoot, '.swap-staging'), {recursive: true, force: true});
-		fs.rmSync(path.join(workingCopyRoot, '.swap-rollback'), {recursive: true, force: true});
+		const completedRenameB = [];
+		try
+		{
+			for(const entry of stagingEntries)
+			{
+				fs.renameSync(path.join(stagingDir, entry), path.join(workingCopyRoot, entry));
+				completedRenameB.push(entry);
+				fs.appendFileSync(journalPath, `renameB ${entry}\n`);
+			}
+		}
+		catch(errorB)
+		{
+			// The swapped entries go back to staging first, so the originals have somewhere to land. One that will
+			// not go back stays in the project, which is why it counts towards what the reader is told.
+			const stagingReturned = moveEntriesBack([...completedRenameB].reverse(), workingCopyRoot, stagingDir);
+			const originalsReturned = moveEntriesBack([...completedRenameA].reverse(), rollbackDir, workingCopyRoot);
+			throw buildMoveFailure('Rename-B', errorB, {originalsReturned, everythingReturned: originalsReturned && stagingReturned}, rollbackDir);
+		}
+
+		// The tree is swapped from here on. A folder the swap made and cannot take away is worth a sentence, and
+		// nothing more: throwing here would undo a finished swap in the reader's mind.
+		let couldNotRemove = removeSwapFolder(path.join(workingCopyRoot, '.swap-staging'));
+		couldNotRemove += removeSwapFolder(path.join(workingCopyRoot, '.swap-rollback'));
 
 		const readmePath = path.join(workingCopyRoot, 'README.md');
 		const readmeReplaced = !opts.keepReadme && fs.existsSync(readmePath);
@@ -425,45 +686,101 @@ function executeSwap(workingCopyRoot, targetNamespace, opts)
 			: '\nPer-rule replacement counts: (no rules fired)\n';
 
 		fs.writeFileSync(path.join(workingCopyRoot, '.namespace-swap.log'),
-			`Swap to '${targets.camel}' complete.\nFiles touched: ${auditFiles.length}\nRenames: ${auditRenames.length}\nSkipped binaries: ${auditSkipped.length}\nREADME stub: ${readmeReplaced ? 'replaced' : 'kept'}\n${perRuleBlock}`);
+			`Swap to '${targets.camel}' complete.\nFiles touched: ${auditFiles.length}\nRenames: ${auditRenames.length}\n`
+				+ `Skipped binaries: ${auditSkipped.length}\nREADME stub: ${readmeReplaced ? 'replaced' : 'kept'}\n${perRuleBlock}`);
 		fs.writeFileSync(path.join(workingCopyRoot, '.namespace-swap.json'),
-			JSON.stringify({swap_target: targets.camel, files: auditFiles, renames: auditRenames, skipped: auditSkipped, per_rule_replacements: auditPerRule, readme_replaced: readmeReplaced}, null, 2) + '\n');
+			JSON.stringify(
+				{
+					swap_target: targets.camel,
+					files: auditFiles,
+					renames: auditRenames,
+					skipped: auditSkipped,
+					per_rule_replacements: auditPerRule,
+					readme_replaced: readmeReplaced
+				}, null, 2) + '\n');
 
-		return {audit: {files: auditFiles, renames: auditRenames, skipped: auditSkipped, perRule: auditPerRule, readmeReplaced}};
+		return {audit: {files: auditFiles, renames: auditRenames, skipped: auditSkipped, perRule: auditPerRule, readmeReplaced}, couldNotRemove};
+	}
+	catch(failure)
+	{
+		// The staging copy is derived from the tree and always goes. The rollback folder goes only when the disk says
+		// it holds nothing of the reader's, whether this run put files there or an earlier one did.
+		let couldNotRemove = removeSwapFolder(path.join(workingCopyRoot, '.swap-staging'));
+		if(!rollbackHoldsOriginals(workingCopyRoot))
+		{
+			couldNotRemove += removeSwapFolder(path.join(workingCopyRoot, '.swap-rollback'));
+		}
+		failure.message = buildFailureMessage(failure) + couldNotRemove;
+		throw failure;
 	}
 	finally
 	{
-		if(fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
+		if(lockWritten && fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
 	}
 }
 
-module.exports = {validateNamespace, detectAlreadySwapped, buildInventory, applyContentSubstitutions, executeSwap, buildReadmeStub};
+module.exports = {
+	validateNamespace,
+	detectAlreadySwapped,
+	buildInventory,
+	applyContentSubstitutions,
+	executeSwap,
+	buildReadmeStub,
+	toForwardSlashes,
+	checkStartingTree,
+	verifySwap,
+	nextStepsText
+};
 
 if(require.main === module)
 {
 	const args = process.argv.slice(2);
+	if(args.includes('--verify'))
+	{
+		try
+		{
+			const report = verifySwap(process.cwd());
+			if(!report.swapped)
+			{
+				console.error('This tree has not been swapped yet: there is no .namespace-origin.json here.');
+				process.exit(2);
+			}
+			console.log(`Swapped: ${JSON.stringify(report.marker)}`);
+			if(report.leftovers.length === 0)
+			{
+				console.log('No reference to the original namespace is left in force-app.');
+				process.exit(0);
+			}
+			console.error(`${report.leftovers.length} reference(s) to the original namespace are left. The first ${Math.min(10, report.leftovers.length)}:`);
+			report.leftovers.slice(0, 10).forEach(leftover => console.error(`  ${leftover.path}:${leftover.line}  ${leftover.text}`));
+			console.error('The swap aims to handle every case, so please report these: they point to a gap in the script.');
+			process.exit(1);
+		}
+		catch(err)
+		{
+			console.error(err.message);
+			process.exit(2);
+		}
+	}
 	const target = args.find(a => !a.startsWith('--'));
 	const dryRun = args.includes('--dry-run');
 	const keepReadme = args.includes('--keep-readme');
-	if(!target) { console.error('Usage: node bin/swap-namespace.js <namespace> [--dry-run] [--keep-readme]'); process.exit(1); }
+	if(!target) { console.error('Usage: node bin/swap-namespace.js YourNamespace [--dry-run] [--keep-readme]   or   node bin/swap-namespace.js --verify'); process.exit(1); }
 	try
 	{
 		const result = executeSwap(process.cwd(), target, {dryRun, keepReadme});
 		console.log(`Swap to '${target}' complete.`);
+		if(result && result.couldNotRemove)
+		{
+			console.log(result.couldNotRemove.trim());
+		}
 		if(result && result.audit && result.audit.readmeReplaced)
 		{
 			console.log(`README.md replaced with subscriber stub. Pass --keep-readme to preserve your own README on a future swap.`);
 		}
 		if(!dryRun)
 		{
-			console.log('');
-			console.log('Next steps:');
-			console.log('  1. git init && git add -A && git commit -m "rebrand to ' + target + '"');
-			console.log('  2. sf package create --name "<YourPackageName>" --package-type "Managed" --path "force-app" --target-dev-hub <DevHub>');
-			console.log('  3. node scripts/build-package.js --package "<YourPackageName>" --no-resync');
-			console.log('');
-			console.log('See docs/Installation.md "Path 2: Repackage Under Your Own Namespace" for full walkthrough.');
-			console.log('Do NOT run `sf package version create` directly — it skips the namespace-prefix injection step.');
+			console.log(nextStepsText(target));
 		}
 	}
 	catch(err) { console.error(err.message); process.exit(1); }

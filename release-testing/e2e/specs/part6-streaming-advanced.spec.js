@@ -473,6 +473,7 @@ test.describe.serial('Part 6: Event Usage Metrics', () =>
 				{
 					if(attempt === 1)
 					{
+						// eslint-disable-next-line no-unsafe-finally
 						throw new Error('CRITICAL: could not restore the disabled Enhanced Usage Metrics baseline — '
 								+ `the org is left enhanced and V99 will mis-report until it is restored: ${restoreError.message}`);
 					}

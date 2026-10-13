@@ -9,7 +9,7 @@
  *
  * @group Utilities
  *
- * @date April 2026, May 2026
+ * @date April 2026, October 2026
  *
  * @since 1.0
  *
@@ -24,25 +24,101 @@
 global inherited sharing class UTIL_Limits
 {
 	/**
-	 * @description Internal enumeration of all supported Salesforce governor limit types.
+	 * @description The Salesforce governor limits this class can report on. Each value stands for one limit: an amount used so far
+	 * and the maximum the platform allows. Apart from the cursor values, which state their own scope, a value counts within the
+	 * current transaction, and going over its maximum ends the transaction with an error that cannot be caught.
 	 */
 	private enum LimitType
 	{
+		/**
+		 * @description Child subqueries run inside SOQL queries in the transaction (the platform calls these "aggregate queries");
+		 * each parent-to-child subquery counts once, against a limit separate from the SOQL query limit. Not a count of COUNT or
+		 * GROUP BY queries.
+		 */
 		AGGREGATE_QUERIES,
+		/**
+		 * @description HTTP requests and web service calls sent to other systems in the transaction.
+		 */
 		CALLOUTS,
+		/**
+		 * @description Processor time the transaction has spent running code on the Salesforce servers, in milliseconds; time spent
+		 * waiting for the database or a callout is not counted.
+		 */
 		CPU_TIME,
+		/**
+		 * @description Records written by insert, update, upsert, delete and undelete statements in the transaction, added up across
+		 * all statements.
+		 */
 		DML_ROWS,
+		/**
+		 * @description Database write statements issued in the transaction; one statement saving 200 records counts once.
+		 */
 		DML_STATEMENTS,
+		/**
+		 * @description Calls that send email from Apex in the transaction; one call sending several messages counts once.
+		 */
 		EMAIL_INVOCATIONS,
+		/**
+		 * @description Future methods (code marked to run later, in the background) that the transaction has asked the platform to run.
+		 */
 		FUTURE_CALLS,
+		/**
+		 * @description Memory held by the transaction's variables and objects, in bytes.
+		 */
 		HEAP_SIZE,
+		/**
+		 * @description Apex calls that send mobile push notifications in the transaction; one call reaching many devices counts once.
+		 */
 		MOBILE_PUSH_APEX_CALLS,
+		/**
+		 * @description Publish calls in the transaction for platform events set to publish immediately, which the platform counts
+		 * apart from the DML statement limit.
+		 */
 		PUBLISH_IMMEDIATE_DML,
+		/**
+		 * @description SOQL queries issued in the transaction; a query counts once however many records it returns.
+		 */
 		SOQL_QUERIES,
+		/**
+		 * @description Records returned by SOQL queries in the transaction, added up across all queries.
+		 */
 		SOQL_QUERY_ROWS,
+		/**
+		 * @description Records returned through query locators in the transaction, the query form that batch jobs and paged lists
+		 * use to read large sets of records.
+		 */
 		SOQL_QUERY_LOCATOR_ROWS,
+		/**
+		 * @description Queueable jobs (background jobs) the transaction has added to the queue.
+		 */
 		QUEUEABLE_JOBS,
-		SOSL_QUERIES
+		/**
+		 * @description SOSL searches (text searches across several objects at once) issued in the transaction.
+		 */
+		SOSL_QUERIES,
+		/**
+		 * @description Apex cursors created. Unlike the other values, the platform counts these over the last 24 hours rather than
+		 * per transaction.
+		 */
+		APEX_CURSORS,
+		/**
+		 * @description Rows read through Apex cursors, as the platform reports them.
+		 */
+		APEX_CURSOR_ROWS,
+		/**
+		 * @description Apex pagination cursors created, the cursor kind built for paging a list on screen. Counted over the last
+		 * 24 hours rather than per transaction.
+		 */
+		APEX_PAGINATION_CURSORS,
+		/**
+		 * @description Rows read through Apex pagination cursors, as the platform reports them.
+		 */
+		APEX_PAGINATION_CURSOR_ROWS,
+		/**
+		 * @description Fetch calls made on Apex cursors in the transaction; each call that reads a block of rows from a cursor
+		 * counts once.
+		 */
+		FETCH_CALLS_ON_APEX_CURSOR
 	}
 
 	/**
@@ -64,7 +140,12 @@ global inherited sharing class UTIL_Limits
 			LimitType.SOQL_QUERY_ROWS => 'Query Rows',
 			LimitType.SOQL_QUERY_LOCATOR_ROWS => 'QueryLocator Rows',
 			LimitType.QUEUEABLE_JOBS => 'Queueable Jobs',
-			LimitType.SOSL_QUERIES => 'Sosl Queries'
+			LimitType.SOSL_QUERIES => 'Sosl Queries',
+			LimitType.APEX_CURSORS => 'Apex Cursors',
+			LimitType.APEX_CURSOR_ROWS => 'Apex Cursor Rows',
+			LimitType.APEX_PAGINATION_CURSORS => 'Apex Pagination Cursors',
+			LimitType.APEX_PAGINATION_CURSOR_ROWS => 'Apex Pagination Cursor Rows',
+			LimitType.FETCH_CALLS_ON_APEX_CURSOR => 'Apex Cursor Fetch Calls'
 	};
 
 	/**
@@ -248,6 +329,68 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
+	 * @description Returns a LimitCheck for Apex cursors created. The platform counts cursor creation
+	 * over a trailing 24-hour period, unlike the transaction-scoped limits in this class.
+	 *
+	 * @return LimitCheck scoped to Apex cursors
+	 *
+	 * @since 1.8
+	 */
+	global static LimitCheck apexCursors()
+	{
+		return new LimitCheck(LimitType.APEX_CURSORS);
+	}
+
+	/**
+	 * @description Returns a LimitCheck for rows returned by Apex cursors.
+	 *
+	 * @return LimitCheck scoped to Apex cursor rows
+	 *
+	 * @since 1.8
+	 */
+	global static LimitCheck apexCursorRows()
+	{
+		return new LimitCheck(LimitType.APEX_CURSOR_ROWS);
+	}
+
+	/**
+	 * @description Returns a LimitCheck for Apex pagination cursors created. The platform counts cursor
+	 * creation over a trailing 24-hour period, unlike the transaction-scoped limits in this class.
+	 *
+	 * @return LimitCheck scoped to Apex pagination cursors
+	 *
+	 * @since 1.8
+	 */
+	global static LimitCheck apexPaginationCursors()
+	{
+		return new LimitCheck(LimitType.APEX_PAGINATION_CURSORS);
+	}
+
+	/**
+	 * @description Returns a LimitCheck for rows returned by Apex pagination cursors.
+	 *
+	 * @return LimitCheck scoped to Apex pagination cursor rows
+	 *
+	 * @since 1.8
+	 */
+	global static LimitCheck apexPaginationCursorRows()
+	{
+		return new LimitCheck(LimitType.APEX_PAGINATION_CURSOR_ROWS);
+	}
+
+	/**
+	 * @description Returns a LimitCheck for fetch calls made on Apex cursors.
+	 *
+	 * @return LimitCheck scoped to Apex cursor fetch calls
+	 *
+	 * @since 1.8
+	 */
+	global static LimitCheck fetchCallsOnApexCursor()
+	{
+		return new LimitCheck(LimitType.FETCH_CALLS_ON_APEX_CURSOR);
+	}
+
+	/**
 	 * @description Returns a LimitCheck for every governor limit type.
 	 *
 	 * @return List of LimitCheck instances, one per limit type
@@ -310,6 +453,8 @@ global inherited sharing class UTIL_Limits
 
 		/**
 		 * @description The human-readable label for this limit type (e.g. "Callouts", "Queries").
+		 *
+		 * @since 1.0
 		 */
 		global final String label;
 
@@ -487,6 +632,26 @@ global inherited sharing class UTIL_Limits
 			{
 				result = Limits.getSoslQueries();
 			}
+			when APEX_CURSORS
+			{
+				result = Limits.getApexCursors();
+			}
+			when APEX_CURSOR_ROWS
+			{
+				result = Limits.getApexCursorRows();
+			}
+			when APEX_PAGINATION_CURSORS
+			{
+				result = Limits.getApexPaginationCursors();
+			}
+			when APEX_PAGINATION_CURSOR_ROWS
+			{
+				result = Limits.getApexPaginationCursorRows();
+			}
+			when FETCH_CALLS_ON_APEX_CURSOR
+			{
+				result = Limits.getFetchCallsOnApexCursor();
+			}
 		}
 
 		return result;
@@ -565,6 +730,26 @@ global inherited sharing class UTIL_Limits
 			when SOSL_QUERIES
 			{
 				result = Limits.getLimitSoslQueries();
+			}
+			when APEX_CURSORS
+			{
+				result = Limits.getLimitApexCursors();
+			}
+			when APEX_CURSOR_ROWS
+			{
+				result = Limits.getLimitApexCursorRows();
+			}
+			when APEX_PAGINATION_CURSORS
+			{
+				result = Limits.getLimitApexPaginationCursors();
+			}
+			when APEX_PAGINATION_CURSOR_ROWS
+			{
+				result = Limits.getLimitApexPaginationCursorRows();
+			}
+			when FETCH_CALLS_ON_APEX_CURSOR
+			{
+				result = Limits.getLimitFetchCallsOnApexCursor();
 			}
 		}
 

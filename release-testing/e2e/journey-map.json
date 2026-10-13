@@ -1,0 +1,92 @@
+{
+	"core": [
+		"force-app/main/default/lwc/componentBuilder/",
+		"force-app/main/default/classes/QRY_Builder.cls",
+		"force-app/main/default/classes/QRY_Engine.cls",
+		"force-app/main/default/classes/LOG_Engine.cls",
+		"release-testing/e2e/helpers/",
+		"release-testing/e2e/global-setup.js",
+		"release-testing/e2e/playwright.config.js",
+		"release-testing/e2e/lib/",
+		"release-testing/runner/cmdt-deployer.js"
+	],
+	"parts": {
+		"part8-chain-monitor": {
+			"spec": "release-testing/e2e/specs/part8-chain-monitor.spec.js",
+			"pages": ["chain-monitor.page.js"],
+			"paths": [
+				"force-app/main/default/lwc/chainMonitor/",
+				"force-app/main/default/lwc/chainMonitorList/",
+				"force-app/main/default/lwc/chainMonitorDetail/",
+				"force-app/main/default/lwc/chainLogStream/",
+				"force-app/main/default/classes/CTRL_ChainMonitor.cls",
+				"force-app/main/default/classes/CTRL_ChainMonitorTypes.cls",
+				"force-app/main/default/classes/SEL_AsyncChainExecution.cls",
+				"force-app/main/default/classes/UTIL_AsyncChain.cls",
+				"force-app/main/default/classes/SCHED_ChainWatchdog.cls",
+				"force-app/main/default/objects/AsyncChainExecution__c/",
+				"release-testing/e2e/fixtures/chain-steps/",
+				"release-testing/subscriber/classes/SubscriberChainSteps.cls"
+			]
+		},
+		"part9-masking-advisor": {
+			"spec": "release-testing/e2e/specs/part9-masking-advisor.spec.js",
+			"pages": ["masking-advisor.page.js", "kern-home.page.js"],
+			"paths": [
+				"force-app/main/default/classes/CTRL_MaskingAdvisor.cls",
+				"release-testing/e2e/fixtures/masking-advisor-bundles/",
+				"force-app/main/default/lwc/dataMaskingAdvisor/",
+				"force-app/main/default/lwc/maskingAddObjectDialog/",
+				"force-app/main/default/lwc/maskingAddRuleMenu/",
+				"force-app/main/default/lwc/maskingExportModal/",
+				"force-app/main/default/lwc/maskingFieldTypeLabels/",
+				"force-app/main/default/lwc/maskingInventoryExportDialog/",
+				"force-app/main/default/lwc/maskingReviewDialog/",
+				"force-app/main/default/lwc/maskingRuleDetail/",
+				"force-app/main/default/lwc/maskingRulePicker/"
+			]
+		},
+		"part10-log-console": {
+			"spec": "release-testing/e2e/specs/part10-log-console.spec.js",
+			"pages": ["log-console.page.js", "kern-home.page.js", "chain-monitor.page.js"],
+			"paths": [
+				"force-app/main/default/lwc/logConsole/",
+				"force-app/main/default/lwc/logConsoleDetail/",
+				"force-app/main/default/lwc/logConsoleContext/",
+				"force-app/main/default/lwc/logConsoleTable/",
+				"force-app/main/default/classes/CTRL_LogConsole.cls",
+				"force-app/main/default/classes/SEL_LogEntry.cls",
+				"force-app/main/default/objects/LogEntry__c/",
+				"release-testing/scripts/seed-log-console.apex",
+				"release-testing/scripts/seed-log-console-bulk.apex",
+				"release-testing/scripts/teardown-log-console.apex"
+			]
+		},
+		"part12-consoles-at-volume": {
+			"spec": "release-testing/e2e/specs/part12-consoles-at-volume.spec.js",
+			"pages": ["chain-monitor.page.js", "log-console.page.js"],
+			"paths": [
+				"force-app/main/default/lwc/chainMonitor/",
+				"force-app/main/default/lwc/chainMonitorList/",
+				"force-app/main/default/lwc/chainMonitorDetail/",
+				"force-app/main/default/lwc/logConsole/",
+				"force-app/main/default/lwc/logConsoleDetail/",
+				"force-app/main/default/lwc/logConsoleContext/",
+				"force-app/main/default/lwc/logConsoleTable/",
+				"force-app/main/default/classes/CTRL_ChainMonitor.cls",
+				"force-app/main/default/classes/CTRL_LogConsole.cls",
+				"force-app/main/default/classes/SEL_AsyncChainExecution.cls",
+				"force-app/main/default/classes/SEL_LogEntry.cls",
+				"force-app/main/default/classes/UTIL_AsyncChain.cls",
+				"force-app/main/default/classes/SCHED_ChainWatchdog.cls",
+				"force-app/main/default/objects/AsyncChainExecution__c/",
+				"force-app/main/default/objects/LogEntry__c/",
+				"release-testing/subscriber/classes/SubscriberChainSteps.cls",
+				"release-testing/e2e/fixtures/chain-steps/",
+				"release-testing/scripts/consoles-at-volume.js",
+				"release-testing/scripts/consoles-at-volume/",
+				"release-testing/e2e/explore/"
+			]
+		}
+	}
+}

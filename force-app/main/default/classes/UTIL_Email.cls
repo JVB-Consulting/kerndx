@@ -13,7 +13,7 @@
  *
  * @group Email
  *
- * @date February 2026, May 2026
+ * @date February 2026, September 2026
  *
  * @since 1.0
  *
@@ -150,7 +150,7 @@ global inherited sharing class UTIL_Email
 	 *
 	 * @since 1.0
 	 */
-	@SuppressWarnings('PMD.ExcessiveParameterList,PMD.ValidateCrudFlsEmailMessageWhoIdWhatId')
+	@SuppressWarnings('PMD.ExcessiveParameterList,PMD.ValidateCrudFlsEmailMessageWhoIdWhatId,PMD.GlobalMethodParameterCap')
 	global static void sendEmail(List<String> toAddresses, String subject, String body, Boolean isHtml, List<Messaging.EmailFileAttachment> fileAttachments)
 	{
 		if(toAddresses == null || toAddresses.isEmpty())

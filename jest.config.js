@@ -4,6 +4,12 @@ const { jestConfig } = require('@salesforce/sfdx-lwc-jest/config');
 
 module.exports = {
     ...jestConfig,
+    // This configuration is the component suite: an unscoped `npm run test:unit` must see force-app and
+    // nothing else. Without the root it swept the research clones, the pipeline package, the scanner plugin,
+    // the harness and the script suites (2026-09-03: 299 suites, 118 failed to run, none under force-app).
+    // The scripts that run other directories under this configuration (`test:scanner`, `test:release`,
+    // `test:agent-eval`) name their own root; scripts/__tests__/jest-default-config-scope.test.js guards this.
+    roots: ['<rootDir>/force-app'],
     moduleNameMapper: {
         ...jestConfig.moduleNameMapper,
         '^lightning/flowSupport$': '<rootDir>/force-app/test/jest-mocks/lightning/flowSupport.js',

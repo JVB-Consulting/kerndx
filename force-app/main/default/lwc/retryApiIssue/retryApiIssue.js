@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Headless quick action to retry a failed API call from an ApiIssue__c record.
- *              Invokes the Apex retry controller and displays a toast with the result.
+ * @description Headless quick action that runs a failed API call again from its API issue record. For a call your org
+ *              made, it sends the request again; for a call your org received, it replays the request and keeps its changes.
+ *              It shows a toast with the result, refreshes the record when the call worked, and closes the action.
  *
- * @date March 2026, May 2026
+ * @date May 2026, October 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {reduceErrors} from 'c/utilitySystem';
 import {CloseActionScreenEvent} from 'lightning/actions';
 import {notifyRecordUpdateAvailable} from 'lightning/uiRecordApi';
-import retry from '@salesforce/apex/CTRL_RetryApiIssue.retry';
+import resolveFailure from '@salesforce/apex/CTRL_RetryApiIssue.resolveFailure';
 
 import RETRY_SUCCESSFUL from '@salesforce/label/c.RetryApiIssue_RetrySuccessful';
 import RETRY_FAILED from '@salesforce/label/c.RetryApiIssue_RetryFailed';
@@ -24,7 +25,7 @@ export default class RetryApiIssue extends ComponentBuilder('notification')
 	{
 		try
 		{
-			let result = await retry({recordId: this.recordId});
+			let result = await resolveFailure({failureId: this.recordId});
 
 			if(result.callSuccessful)
 			{

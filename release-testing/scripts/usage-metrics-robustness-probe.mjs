@@ -136,14 +136,14 @@ function getInstanceUrl()
 /**
  * Records a finding and echoes it to the console.
  *
- * @param {string} scenario - The scenario that produced the finding.
+ * @param {string} scenarioName - The scenario that produced the finding.
  * @param {string} severity - HIGH, MED, or LOW.
  * @param {string} detail - Human-readable description of the anomaly.
  */
-function record(scenario, severity, detail)
+function record(scenarioName, severity, detail)
 {
-	findings.push({scenario, severity, detail});
-	console.log(`  !! ${severity} [${scenario}] ${detail}`);
+	findings.push({scenario: scenarioName, severity, detail});
+	console.log(`  !! ${severity} [${scenarioName}] ${detail}`);
 }
 
 /**
@@ -175,17 +175,17 @@ async function openUsageMetrics(page)
  * spinner, and the count badge stays inside its text contract.
  *
  * @param {Object} page - The Playwright page.
- * @param {string} scenario - The scenario name for findings.
+ * @param {string} scenarioName - The scenario name for findings.
  * @param {{expectError?: boolean}} [options] - Whether the error state is expected to be visible.
  * @returns {Promise<boolean>} Whether the screen passed the health check.
  */
-async function assertScreenHealthy(page, scenario, {expectError = false} = {})
+async function assertScreenHealthy(page, scenarioName, {expectError = false} = {})
 {
 	const errorVisible = await page.locator('[data-spec-id="usage-error-state"]').isVisible().catch(() => false);
 	if(errorVisible !== expectError)
 	{
-		record(scenario, 'HIGH', `error-state visible=${errorVisible}, expected=${expectError}`);
-		await page.screenshot({path: path.join(SCREENSHOT_DIR, `${scenario}.png`)}).catch(() =>
+		record(scenarioName, 'HIGH', `error-state visible=${errorVisible}, expected=${expectError}`);
+		await page.screenshot({path: path.join(SCREENSHOT_DIR, `${scenarioName}.png`)}).catch(() =>
 		{
 		});
 		return false;
@@ -196,14 +196,14 @@ async function assertScreenHealthy(page, scenario, {expectError = false} = {})
 		await settle(page, 5000);
 		if(await page.locator('lightning-spinner').first().isVisible().catch(() => false))
 		{
-			record(scenario, 'HIGH', 'spinner still visible 5s after interactions stopped');
+			record(scenarioName, 'HIGH', 'spinner still visible 5s after interactions stopped');
 			return false;
 		}
 	}
 	const badgeText = ((await page.locator('[data-spec-id="usage-count-badge"]').textContent().catch(() => '')) || '').trim();
 	if(!/^(No data to display|Showing [\d,]+( of [\d,]+)? data points)$/.test(badgeText))
 	{
-		record(scenario, 'MED', `badge text outside contract: "${badgeText}"`);
+		record(scenarioName, 'MED', `badge text outside contract: "${badgeText}"`);
 	}
 	return true;
 }

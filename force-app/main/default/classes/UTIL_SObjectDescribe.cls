@@ -2654,7 +2654,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * @param cachedRelationshipNameLower The relationship name (lowercase) - shared with relationshipFieldMap.
 		 * @param cachedRelationshipNameOriginal The relationship name (original case) - shared with referenceFieldMap.
 		 */
-		@SuppressWarnings('PMD.ExcessiveParameterList')
+		@SuppressWarnings('PMD.ExcessiveParameterList,PMD.PrivateMethodParameterCap')
 		private FieldMetadata
 				(
 						UTIL_SObjectDescribe parent,

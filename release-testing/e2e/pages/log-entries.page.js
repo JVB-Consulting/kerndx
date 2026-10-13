@@ -2,6 +2,7 @@
 const {expect} = require('@playwright/test');
 const {clickNavTab} = require('../helpers/sf-navigation');
 const {waitForListView, waitForRecordPage} = require('../helpers/wait-helpers');
+const {ELEMENT_WAIT_MILLISECONDS} = require('../helpers/wait-times');
 
 class LogEntriesPage
 {
@@ -71,7 +72,7 @@ class LogEntriesPage
 	async getRecordTabs()
 	{
 		const tabs = this.page.locator('lightning-tab-bar li a, article lightning-tab-bar a');
-		await tabs.first().waitFor({state: 'visible', timeout: 15_000}).catch((error) =>
+		await tabs.first().waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS}).catch((error) =>
 		{
 			console.warn(`log-entries: tab bar did not become visible within 15s: ${error.message}`);
 		});

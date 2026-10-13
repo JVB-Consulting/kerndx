@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 const {clickNavTab} = require('../helpers/sf-navigation');
 const {waitForSpinnerGone, pollUntil} = require('../helpers/wait-helpers');
+const {ELEMENT_WAIT_MILLISECONDS} = require('../helpers/wait-times');
 
 class StreamingMonitorPage
 {
@@ -27,7 +28,7 @@ class StreamingMonitorPage
 		// attribute so we target the correct card — there are three "Open" buttons
 		// on the page (one per tool card), so a .first() match would be ambiguous.
 		const launchButton = this.page.locator('[data-testid="kern-home-root"] lightning-button[data-key="streamingMonitor"]').first();
-		await launchButton.waitFor({state: 'visible', timeout: 15_000});
+		await launchButton.waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS});
 		await launchButton.click();
 		await this.page.waitForTimeout(3000);
 		await waitForSpinnerGone(this.page);
@@ -151,7 +152,7 @@ class StreamingMonitorPage
 		return events.count();
 	}
 
-	async waitForEvent({channel, type, timeout = 15_000} = {})
+	async waitForEvent({channel, type, timeout = ELEMENT_WAIT_MILLISECONDS} = {})
 	{
 		return pollUntil(this.page, async() =>
 		{

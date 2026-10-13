@@ -86,19 +86,19 @@ function looksLikeJson(buffer)
 
 /**
  * @description Parses JSON, returning an object or throwing a CLI_OUTPUT_NOT_JSON
- * error that includes the first 200 bytes of the offending payload.
+ * error that includes the first 200 characters of the offending payload.
  *
  * @param {string} buffer - Raw text to parse.
  * @param {string} source - Human-readable source (e.g. "sf apex run test stdout").
  * @return {Object} Parsed object.
- * @throws {Error} With `code = 'CLI_OUTPUT_NOT_JSON'` on first-byte failure.
+ * @throws {Error} With `code = 'CLI_OUTPUT_NOT_JSON'` on a first-character failure.
  */
 function safeParseJson(buffer, source)
 {
 	if(!looksLikeJson(buffer))
 	{
-		const preview = typeof buffer === 'string' ? buffer.slice(0, 200) : String(buffer);
-		const error = new Error(`[${source}] output did not start with JSON. First 200 bytes: ${preview}`);
+		const preview = String(buffer).slice(0, 200);
+		const error = new Error(`[${source}] output did not start with JSON. First 200 characters: ${preview}`);
 		error.code = 'CLI_OUTPUT_NOT_JSON';
 		throw error;
 	}
@@ -509,32 +509,17 @@ function validateExemptReason(reason)
  * @param {Object} args.baseline - Committed baseline snapshot.
  * @param {Array<string>} args.apexTargets - Class names the caller explicitly asked about.
  * @param {Array<string>} args.lwcTargets - Component folder names the caller explicitly asked about.
- * @return {{pass: boolean, violations: Array<Object>, measurements: Array<Object>}}
+ * @return {{pass: boolean, violations: Array<Object>, measurements: Array<Object>, notes: Array<Object>}} `notes` names every
+ *     target the baseline does not hold: its regression check was skipped and only the floor applied, which the caller must say.
  */
 function evaluateThresholds(args)
 {
 	const {apexResult, lwcResult, baseline, apexTargets, lwcTargets} = args;
-	const violations = [];
-	const measurements = [];
+	const outcome = {violations: [], measurements: [], notes: []};
 
 	for(const className of apexTargets || [])
 	{
-		const current = apexResult && apexResult.classes && apexResult.classes[className];
-		if(!current)
-		{
-			violations.push({kind: 'apex_missing', target: className, detail: 'no coverage data returned'});
-			continue;
-		}
-		const priorPct = pickBaselinePercentage(baseline, 'apex', className);
-		measurements.push({kind: 'apex', target: className, current: current.percentage, baseline: priorPct});
-		if(current.percentage < APEX_FLOOR)
-		{
-			violations.push({kind: 'apex_below_floor', target: className, current: current.percentage, floor: APEX_FLOOR});
-		}
-		if(priorPct !== null && current.percentage < priorPct)
-		{
-			violations.push({kind: 'apex_regression', target: className, current: current.percentage, baseline: priorPct});
-		}
+		evaluateApexClass(className, apexResult, baseline, outcome);
 	}
 
 	for(const component of lwcTargets || [])
@@ -542,39 +527,94 @@ function evaluateThresholds(args)
 		const matches = findLwcFilesForComponent(lwcResult, component);
 		if(matches.length === 0)
 		{
-			violations.push({kind: 'lwc_missing', target: component, detail: 'no coverage data returned for component path'});
+			outcome.violations.push({kind: 'lwc_missing', target: component, detail: 'no coverage data returned for component path'});
 			continue;
 		}
 		for(const {filePath, coverage} of matches)
 		{
-			const priorStatements = pickBaselineLwcMetric(baseline, filePath, 'statements');
-			const priorBranches = pickBaselineLwcMetric(baseline, filePath, 'branches');
-			measurements.push({
-				kind: 'lwc',
-				target: filePath,
-				current: {statements: coverage.statements, branches: coverage.branches},
-				baseline: {statements: priorStatements, branches: priorBranches}
-			});
-			if(coverage.statements < LWC_STATEMENTS_FLOOR)
-			{
-				violations.push({kind: 'lwc_statements_below_floor', target: filePath, current: coverage.statements, floor: LWC_STATEMENTS_FLOOR});
-			}
-			if(coverage.branches < LWC_BRANCHES_FLOOR)
-			{
-				violations.push({kind: 'lwc_branches_below_floor', target: filePath, current: coverage.branches, floor: LWC_BRANCHES_FLOOR});
-			}
-			if(priorStatements !== null && coverage.statements < priorStatements)
-			{
-				violations.push({kind: 'lwc_statements_regression', target: filePath, current: coverage.statements, baseline: priorStatements});
-			}
-			if(priorBranches !== null && coverage.branches < priorBranches)
-			{
-				violations.push({kind: 'lwc_branches_regression', target: filePath, current: coverage.branches, baseline: priorBranches});
-			}
+			evaluateLwcFile(filePath, coverage, baseline, outcome);
 		}
 	}
 
-	return {pass: violations.length === 0, violations, measurements};
+	return {pass: outcome.violations.length === 0, ...outcome};
+}
+
+/**
+ * @description Evaluates one apex class against the floor and, when the
+ * baseline holds it, against its baseline; a class the baseline does not hold
+ * is noted instead.
+ *
+ * @param {string} className
+ * @param {Object} apexResult - Normalised apex coverage.
+ * @param {Object} baseline - Committed baseline snapshot.
+ * @param {{violations: Array<Object>, measurements: Array<Object>, notes: Array<Object>}} outcome - Collects the findings.
+ * @return {void}
+ */
+function evaluateApexClass(className, apexResult, baseline, outcome)
+{
+	const current = apexResult && apexResult.classes && apexResult.classes[className];
+	if(!current)
+	{
+		outcome.violations.push({kind: 'apex_missing', target: className, detail: 'no coverage data returned'});
+		return;
+	}
+	const priorPct = pickBaselinePercentage(baseline, 'apex', className);
+	outcome.measurements.push({kind: 'apex', target: className, current: current.percentage, baseline: priorPct});
+	if(current.percentage < APEX_FLOOR)
+	{
+		outcome.violations.push({kind: 'apex_below_floor', target: className, current: current.percentage, floor: APEX_FLOOR});
+	}
+	if(priorPct === null)
+	{
+		outcome.notes.push({kind: 'apex_unbaselined', target: className});
+	}
+	else if(current.percentage < priorPct)
+	{
+		outcome.violations.push({kind: 'apex_regression', target: className, current: current.percentage, baseline: priorPct});
+	}
+}
+
+/**
+ * @description Evaluates one LWC source file against both floors and, when the
+ * baseline holds it, against its baseline metrics; a file the baseline does not
+ * hold is noted instead.
+ *
+ * @param {string} filePath - Repo-relative path of the component source file.
+ * @param {{statements: number, branches: number}} coverage - The file's measured coverage.
+ * @param {Object} baseline - Committed baseline snapshot.
+ * @param {{violations: Array<Object>, measurements: Array<Object>, notes: Array<Object>}} outcome - Collects the findings.
+ * @return {void}
+ */
+function evaluateLwcFile(filePath, coverage, baseline, outcome)
+{
+	const priorStatements = pickBaselineLwcMetric(baseline, filePath, 'statements');
+	const priorBranches = pickBaselineLwcMetric(baseline, filePath, 'branches');
+	outcome.measurements.push({
+		kind: 'lwc',
+		target: filePath,
+		current: {statements: coverage.statements, branches: coverage.branches},
+		baseline: {statements: priorStatements, branches: priorBranches}
+	});
+	if(coverage.statements < LWC_STATEMENTS_FLOOR)
+	{
+		outcome.violations.push({kind: 'lwc_statements_below_floor', target: filePath, current: coverage.statements, floor: LWC_STATEMENTS_FLOOR});
+	}
+	if(coverage.branches < LWC_BRANCHES_FLOOR)
+	{
+		outcome.violations.push({kind: 'lwc_branches_below_floor', target: filePath, current: coverage.branches, floor: LWC_BRANCHES_FLOOR});
+	}
+	if(priorStatements === null && priorBranches === null)
+	{
+		outcome.notes.push({kind: 'lwc_unbaselined', target: filePath});
+	}
+	if(priorStatements !== null && coverage.statements < priorStatements)
+	{
+		outcome.violations.push({kind: 'lwc_statements_regression', target: filePath, current: coverage.statements, baseline: priorStatements});
+	}
+	if(priorBranches !== null && coverage.branches < priorBranches)
+	{
+		outcome.violations.push({kind: 'lwc_branches_regression', target: filePath, current: coverage.branches, baseline: priorBranches});
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -649,6 +689,38 @@ function formatViolationsReport(violations)
 	}).join('\n');
 }
 
+/**
+ * @description Produces one line per note: a target the committed baseline does
+ * not hold, whose regression check was therefore skipped with only the floor
+ * applied. Each line names the class or component and what adds it to the
+ * baseline, so a gate that passed on the floor alone never reads as a full pass.
+ *
+ * @param {Array<Object>} notes - Output of `evaluateThresholds().notes`.
+ * @return {string} Multi-line report or empty string if no notes.
+ */
+function formatNotesReport(notes)
+{
+	if(!notes || notes.length === 0)
+	{
+		return '';
+	}
+	return notes.map(describeNote).join('\n');
+}
+
+/**
+ * @description Renders one note as the sentence the text and annotation
+ * emitters print. An LWC note names the file, as the violations report does,
+ * so two source files of one component never read as the same line.
+ *
+ * @param {Object} note - One entry of `evaluateThresholds().notes`.
+ * @return {string}
+ */
+function describeNote(note)
+{
+	const label = note.kind === 'lwc_unbaselined' ? `lwc ${note.target}` : `apex ${note.target}`;
+	return `${label}: not in the baseline, so only the floor was checked (a --fix-baseline capture adds it)`;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Machine-readable emitters (PMD XML, GitHub Actions annotations)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -710,6 +782,23 @@ function formatGithubAnnotations(violations)
 		const message = escapeAnnotationMessage(describeViolation(violation));
 		return `::${severity} file=${filePath},line=1::${message}`;
 	});
+	return `${lines.join('\n')}\n`;
+}
+
+/**
+ * @description Emits one GitHub Actions `::notice` line per note, so a target
+ * the baseline does not hold is visible on the run without failing it.
+ *
+ * @param {Array<Object>} notes - Output of `evaluateThresholds().notes`.
+ * @return {string} Newline-terminated string; empty when no notes.
+ */
+function formatGithubNotices(notes)
+{
+	if(!notes || notes.length === 0)
+	{
+		return '';
+	}
+	const lines = notes.map(note => `::notice file=${violationFilePath(note)},line=1::${escapeAnnotationMessage(describeNote(note))}`);
 	return `${lines.join('\n')}\n`;
 }
 
@@ -1182,8 +1271,11 @@ module.exports = {
 	evaluateThresholds,
 	formatSummaryLine,
 	formatViolationsReport,
+	formatNotesReport,
+	describeNote,
 	formatPmdXml,
 	formatGithubAnnotations,
+	formatGithubNotices,
 	describeViolation,
 	violationFilePath,
 	violationPriority,

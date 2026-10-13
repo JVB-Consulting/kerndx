@@ -41,7 +41,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const {execFileSync} = require('child_process');
+const {startTool} = require('./lib/start-tool');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const CMDT_DIR = path.join(PROJECT_ROOT, 'force-app/main/default/customMetadata');
@@ -185,25 +185,20 @@ function runSoql(query, options)
 	{
 		args.push('--use-tooling-api');
 	}
-	let stdout;
-	try
+	const run = startTool('sf', args, {
+		encoding: 'utf8', stdio: [
+			'ignore',
+			'pipe',
+			'pipe'
+		]
+	});
+	if(run.status !== 0)
 	{
-		stdout = execFileSync('sf', args, {
-			encoding: 'utf8', stdio: [
-				'ignore',
-				'pipe',
-				'pipe'
-			]
-		});
-	}
-	catch(spawnError)
-	{
-		const stderrText = (spawnError.stderr && spawnError.stderr.toString()) || '';
-		const stdoutText = (spawnError.stdout && spawnError.stdout.toString()) || '';
-		const detail = (stderrText || stdoutText || spawnError.message || '').trim();
+		const detail = (run.stderr || run.stdout || run.error?.message || `sf exited ${run.status}`).trim();
 		throw new Error(
 				`Failed to run 'sf data query' against org '${options.org}'. Verify 'sf' is on PATH, the org alias resolves, and the user is authenticated. Underlying error: ${detail}`);
 	}
+	const stdout = run.stdout;
 	let parsed;
 	try
 	{

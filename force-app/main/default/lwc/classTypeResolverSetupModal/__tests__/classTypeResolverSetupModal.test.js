@@ -3,7 +3,7 @@
  * @description Jest unit tests for classTypeResolverSetupModal LWC component.
  *
  * @author Jason van Beukering
- * @date April 2026, July 2026
+ * @date April 2026, October 2026
  */
 jest.mock('lightning/modal', () =>
 {
@@ -106,6 +106,26 @@ describe('c-class-type-resolver-setup-modal', () =>
 			const context = createMockContext();
 			const code = getGetter('resolverClassCode').call(context);
 			expect(code).toContain('class ACME_ClassTypeResolver extends');
+		});
+
+		it('finds the class with one lookup of the whole name, guarded against a blank name', () =>
+		{
+			const code = getGetter('resolverClassCode').call(createMockContext());
+			const lookupMethod = '\tprivate static Type getTypeForClassName(String className)\n\t{\n'
+					+ '\t\treturn String.isBlank(className) ? null : Type.forName(className);\n\t}\n';
+			expect(code).toContain(lookupMethod);
+			expect(code).not.toContain('getClassNamespace');
+		});
+
+		it('generates exactly the resolver the Administration Tools guide prints', () =>
+		{
+			const fs = require('fs');
+			const path = require('path');
+			const guidePath = path.resolve(__dirname, '../../../../../../docs/Administration Tools - Guide.md');
+			const guide = fs.readFileSync(guidePath, 'utf8').replace(/\r\n/g, '\n');
+			const printed = guide.split('This is the resolver it generates:')[1].split('```apex\n')[1].split('\n```')[0];
+			const code = getGetter('resolverClassCode').call(createMockContext());
+			expect(code).toBe(printed);
 		});
 	});
 

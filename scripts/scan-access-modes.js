@@ -10,7 +10,7 @@
  *    - DML_Builder.newTransaction(
  *    - new DML_Transaction(
  *    …must be followed (within 500 chars) by .withUserMode() / .withSystemMode()
- *    / .setAccessLevel(. Selector classes that extend SEL_Base and return their
+ *    / .setAccessLevel( / .systemModeInternal(. Selector classes that extend SEL_Base and return their
  *    fluent `query` getter are protected by the systemModeRequired() hook, so
  *    calls through `new SEL_X().query` / `this.query` don't hit this rule.
  *
@@ -49,7 +49,9 @@ const ALLOWLIST = new Set([
 	'DML_Transaction.cls',
 	'DML_SharingProxy.cls',
 	'TST_Factory.cls',
-	'TST_BuilderInternal.cls'
+	'TST_BuilderInternal.cls',
+	'PROC_ExecuteDML.cls',    // when the caller passes no access level, it deliberately leaves the builder on the flag-driven default
+	'UTIL_PurgeRecords.cls'    // the purge query inherits the flag-driven default by design, the contract its test class states
 ]);
 
 const WINDOW_CHARS = 500;
@@ -63,7 +65,8 @@ const BUILDER_PATTERNS = [
 const DECLARATION_PATTERNS = [
 	/\.withUserMode\s*\(/,
 	/\.withSystemMode\s*\(/,
-	/\.setAccessLevel\s*\(/
+	/\.setAccessLevel\s*\(/,
+	/\.systemModeInternal\s*\(/
 ];
 
 const RAW_QUERY_PATTERNS = [
@@ -112,15 +115,27 @@ function findMatchingCloseParen(text, openIndex)
 	return -1;
 }
 
-function listApexClassFiles()
+/**
+ * @description The production Apex classes to scan: every `.cls` file in the folder that is neither a test class nor
+ *              on the allow-list.
+ * @param {string} [directory] - The classes folder; this repository's by default.
+ * @returns {string[]} The class file paths.
+ */
+function listApexClassFiles(directory = CLASSES_DIR)
 {
-	return fs.readdirSync(CLASSES_DIR)
+	return fs.readdirSync(directory)
 	.filter((name) => name.endsWith('.cls'))
 	.filter((name) => !name.endsWith('_TEST.cls'))
 	.filter((name) => !ALLOWLIST.has(name))
-	.map((name) => path.join(CLASSES_DIR, name));
+	.map((name) => path.join(directory, name));
 }
 
+/**
+ * @description Scans one Apex class for builder chains with no access-mode declaration within the window, and raw
+ *              SOQL or SOSL calls with no AccessLevel argument. Comments and string contents are ignored.
+ * @param {string} filePath - The class file.
+ * @returns {Array<{file: string, line: number, kind: string, snippet: string, remedy: string}>} The violations found.
+ */
 function scanFile(filePath)
 {
 	const source = fs.readFileSync(filePath, 'utf8');
@@ -210,4 +225,9 @@ function main()
 	process.exit(1);
 }
 
-main();
+module.exports = {listApexClassFiles, scanFile};
+
+if(require.main === module)
+{
+	main();
+}

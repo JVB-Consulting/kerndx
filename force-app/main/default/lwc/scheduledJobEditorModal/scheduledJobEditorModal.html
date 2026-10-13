@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: BUSL-1.1 -->
 <template>
-	<lightning-modal-header label={modalTitle}></lightning-modal-header>
+	<lightning-modal-header label={formTitle}></lightning-modal-header>
 	<lightning-modal-body>
 		<div class="slds-var-p-around_medium" data-testid="scheduled-job-editor-root">
 			<template lwc:if={hasErrorMessage}>
@@ -15,15 +15,16 @@
 			</template>
 			<div class="slds-grid slds-wrap">
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-p-horizontal_x-small">
-					<lightning-input label={labels.schedulerName} onchange={handleSchedulerNameChange} required value={schedulerName}></lightning-input>
+					<lightning-input data-testid="scheduler-name" label={labels.schedulerName} onchange={handleSchedulerNameChange} required
+									 value={schedulerName}></lightning-input>
 				</div>
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-p-horizontal_x-small">
 					<template lwc:if={isClassNameLocked}>
 						<lightning-input data-testid="class-name" label={labels.className} read-only required value={className}></lightning-input>
 					</template>
 					<template lwc:else>
-						<lightning-combobox data-testid="class-name" label={labels.className} name="className" onchange={handleClassNameChange} options={classOptions}
-											placeholder={labels.classPlaceholder} required value={className}></lightning-combobox>
+						<c-scheduled-job-class-picker data-testid="class-name" error-message={classNameError} label={labels.className} onclasschange={handleClassNameChange}
+													  options={classOptions} placeholder={labels.classPlaceholder} required value={className}></c-scheduled-job-class-picker>
 					</template>
 				</div>
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-p-horizontal_x-small">

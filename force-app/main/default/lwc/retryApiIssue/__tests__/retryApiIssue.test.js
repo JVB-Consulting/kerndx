@@ -3,7 +3,7 @@
  * @description Jest unit tests for retryApiIssue headless LWC quick action component.
  *
  * @author Jason van Beukering
- * @date February 2026, May 2026
+ * @date May 2026, October 2026
  */
 
 jest.mock('lightning/uiRecordApi', () => ({
@@ -30,15 +30,21 @@ jest.mock('@salesforce/label/c.RetryApiIssue_RetrySuccessful', () => ({default: 
 jest.mock('@salesforce/label/c.RetryApiIssue_RetryFailed', () => ({default: 'Retry failed'}), {virtual: true});
 jest.mock('@salesforce/label/c.RetryApiIssue_UnexpectedError', () => ({default: 'An unexpected error occurred'}), {virtual: true});
 
+/** @description The id of the API issue record the quick action runs on. */
+const RECORD_ID = 'a00000000000001';
+
+/** @description The id of a second API issue record, used for an issue about a call your org received. */
+const INBOUND_RECORD_ID = 'a00000000000002';
+
 /*
- * Note on `global.__lwcJestMock_retry`:
+ * Note on `global.__lwcJestMock_resolveFailure`:
  *
- * The @lwc/jest-transformer rewrites `import retry from '@salesforce/apex/...'`
+ * The @lwc/jest-transformer rewrites `import resolveFailure from '@salesforce/apex/...'`
  * into a try/catch that stashes a fallback `jest.fn()` on the global under
  * `__lwcJestMock_<name>` if the require throws. By pre-setting that global
  * BEFORE the component module is required, we cover the truthy-LHS branch of
  * the generated `global.X || function X() {...}` expression AND keep full
- * control over the retry function's return value. The module is loaded inside
+ * control over the resolveFailure function's return value. The module is loaded inside
  * `jest.isolateModules` so each test sees a fresh catch-block execution.
  *
  * This is a Jest coverage concern only — in production the try-path succeeds
@@ -46,22 +52,22 @@ jest.mock('@salesforce/label/c.RetryApiIssue_UnexpectedError', () => ({default: 
  */
 describe('c-retry-api-issue', () =>
 {
-	let retry;
+	let resolveFailure;
 
 	beforeAll(() =>
 	{
-		retry = jest.fn();
-		global.__lwcJestMock_retry = retry;
+		resolveFailure = jest.fn();
+		global.__lwcJestMock_resolveFailure = resolveFailure;
 	});
 
 	afterAll(() =>
 	{
-		delete global.__lwcJestMock_retry;
+		delete global.__lwcJestMock_resolveFailure;
 	});
 
 	beforeEach(() =>
 	{
-		retry.mockReset();
+		resolveFailure.mockReset();
 	});
 
 	afterEach(() =>
@@ -97,7 +103,7 @@ describe('c-retry-api-issue', () =>
 	function createMockContext(overrides = {})
 	{
 		return {
-			recordId: 'a00000000000001', showSuccessToast: jest.fn(), showErrorToast: jest.fn(), consoleError: jest.fn(), dispatchEvent: jest.fn(), ...overrides
+			recordId: RECORD_ID, showSuccessToast: jest.fn(), showErrorToast: jest.fn(), consoleError: jest.fn(), dispatchEvent: jest.fn(), ...overrides
 		};
 	}
 
@@ -115,10 +121,10 @@ describe('c-retry-api-issue', () =>
 			const {createElement} = require('lwc');
 			const RetryApiIssue = require('c/retryApiIssue').default;
 			const element = createElement('c-retry-api-issue', {is: RetryApiIssue});
-			element.recordId = 'a00000000000001';
+			element.recordId = RECORD_ID;
 			document.body.appendChild(element);
 			await Promise.resolve();
-			expect(element.recordId).toBe('a00000000000001');
+			expect(element.recordId).toBe(RECORD_ID);
 		});
 	});
 
@@ -140,27 +146,44 @@ describe('c-retry-api-issue', () =>
 
 	describe('invoke behavior', () =>
 	{
-		it('shows success toast and notifies record update on successful retry', async() =>
+		it('shows success toast and notifies record update when the issue is resolved', async() =>
 		{
 			const RetryApiIssue = loadComponent();
-			retry.mockResolvedValue({callSuccessful: true});
+			resolveFailure.mockResolvedValue({callSuccessful: true});
 			const {notifyRecordUpdateAvailable} = require('lightning/uiRecordApi');
 			notifyRecordUpdateAvailable.mockResolvedValue();
 			const context = createMockContext();
 
 			await RetryApiIssue.prototype.invoke.call(context);
 
-			expect(retry).toHaveBeenCalledWith({recordId: 'a00000000000001'});
-			expect(notifyRecordUpdateAvailable).toHaveBeenCalledWith([{recordId: 'a00000000000001'}]);
+			expect(resolveFailure).toHaveBeenCalledWith({failureId: RECORD_ID});
+			expect(notifyRecordUpdateAvailable).toHaveBeenCalledWith([{recordId: RECORD_ID}]);
 			expect(context.showSuccessToast).toHaveBeenCalledWith('Retry successful');
 			expect(context.showErrorToast).not.toHaveBeenCalled();
+			expect(context.dispatchEvent).toHaveBeenCalledTimes(1);
+		});
+
+		it('sends an issue about a call your org received to the same resolve method', async() =>
+		{
+			const RetryApiIssue = loadComponent();
+			resolveFailure.mockResolvedValue({callSuccessful: true});
+			const {notifyRecordUpdateAvailable} = require('lightning/uiRecordApi');
+			notifyRecordUpdateAvailable.mockResolvedValue();
+			const context = createMockContext({recordId: INBOUND_RECORD_ID});
+
+			await RetryApiIssue.prototype.invoke.call(context);
+
+			expect(resolveFailure).toHaveBeenCalledTimes(1);
+			expect(resolveFailure).toHaveBeenCalledWith({failureId: INBOUND_RECORD_ID});
+			expect(notifyRecordUpdateAvailable).toHaveBeenCalledWith([{recordId: INBOUND_RECORD_ID}]);
+			expect(context.showSuccessToast).toHaveBeenCalledWith('Retry successful');
 			expect(context.dispatchEvent).toHaveBeenCalledTimes(1);
 		});
 
 		it('shows error toast with message on business failure', async() =>
 		{
 			const RetryApiIssue = loadComponent();
-			retry.mockResolvedValue({callSuccessful: false, errorMessage: 'Retry not enabled'});
+			resolveFailure.mockResolvedValue({callSuccessful: false, errorMessage: 'Retry not enabled'});
 			const {notifyRecordUpdateAvailable} = require('lightning/uiRecordApi');
 			const context = createMockContext();
 
@@ -174,7 +197,7 @@ describe('c-retry-api-issue', () =>
 		it('shows fallback error toast when errorMessage is null', async() =>
 		{
 			const RetryApiIssue = loadComponent();
-			retry.mockResolvedValue({callSuccessful: false, errorMessage: null});
+			resolveFailure.mockResolvedValue({callSuccessful: false, errorMessage: null});
 			const context = createMockContext();
 
 			await RetryApiIssue.prototype.invoke.call(context);
@@ -186,7 +209,7 @@ describe('c-retry-api-issue', () =>
 		it('shows fallback error toast when errorMessage is empty string', async() =>
 		{
 			const RetryApiIssue = loadComponent();
-			retry.mockResolvedValue({callSuccessful: false, errorMessage: ''});
+			resolveFailure.mockResolvedValue({callSuccessful: false, errorMessage: ''});
 			const context = createMockContext();
 
 			await RetryApiIssue.prototype.invoke.call(context);
@@ -198,7 +221,7 @@ describe('c-retry-api-issue', () =>
 		{
 			const RetryApiIssue = loadComponent();
 			const error = {body: {message: 'Server error'}};
-			retry.mockRejectedValue(error);
+			resolveFailure.mockRejectedValue(error);
 			const context = createMockContext();
 
 			await RetryApiIssue.prototype.invoke.call(context);
@@ -213,7 +236,7 @@ describe('c-retry-api-issue', () =>
 			const RetryApiIssue = loadComponent();
 			const {reduceErrors} = require('c/utilitySystem');
 			reduceErrors.mockReturnValueOnce('');
-			retry.mockRejectedValue({});
+			resolveFailure.mockRejectedValue({});
 			const context = createMockContext();
 
 			await RetryApiIssue.prototype.invoke.call(context);
@@ -226,7 +249,7 @@ describe('c-retry-api-issue', () =>
 		it('always dispatches CloseActionScreenEvent on error', async() =>
 		{
 			const RetryApiIssue = loadComponent();
-			retry.mockRejectedValue(new Error('Network failure'));
+			resolveFailure.mockRejectedValue(new Error('Network failure'));
 			const context = createMockContext();
 
 			await RetryApiIssue.prototype.invoke.call(context);
@@ -236,13 +259,13 @@ describe('c-retry-api-issue', () =>
 
 		it('exercises the transformer fallback stub when global slot is empty', async() =>
 		{
-			delete global.__lwcJestMock_retry;
+			delete global.__lwcJestMock_resolveFailure;
 			let RetryApiIssueFresh;
 			jest.isolateModules(() =>
 			{
 				RetryApiIssueFresh = require('c/retryApiIssue').default;
 			});
-			global.__lwcJestMock_retry = retry;
+			global.__lwcJestMock_resolveFailure = resolveFailure;
 
 			const context = createMockContext();
 

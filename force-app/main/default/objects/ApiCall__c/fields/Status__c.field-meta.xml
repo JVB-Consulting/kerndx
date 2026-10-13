@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Status__c</fullName>
-    <description>Current processing status: Queued (awaiting), Processing (in progress), Completed (success), Failed (error), Retry/Retrying (auto-retry), Batched (batch processing), or Aborted (service validation chose not to proceed).</description>
-    <inlineHelpText>Queued = awaiting processing. Completed = success. Failed = error occurred. Retry/Retrying = scheduled for automatic retry. Aborted = skipped by service validation.</inlineHelpText>
+    <description>Current processing status: Queued (awaiting), Processing (in progress), Completed (success), Failed (error, no further retry), Retry (scheduled for an automatic retry at Next Retry), Retrying (the retry is running), Batched (batch processing), or Aborted (the call never left your org).</description>
+    <inlineHelpText>Queued = awaiting processing. Completed = success. Failed = error, no further retry. Retry = scheduled for an automatic retry at Next Retry. Retrying = the retry is running. Aborted = the call never left your org.</inlineHelpText>
     <label>Status</label>
     <required>false</required>
     <trackFeedHistory>true</trackFeedHistory>

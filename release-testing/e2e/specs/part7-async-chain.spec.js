@@ -51,6 +51,7 @@ test.describe.serial('Part 7: Async Chain Orchestration', () =>
 {
 	let chainExecutionId;
 
+	// eslint-disable-next-line no-unused-vars
 	test('V10: Execute async chain and verify execution record created', async({page}, testInfo) =>
 	{
 		chainExecutionId = launchChain(`
@@ -69,6 +70,7 @@ test.describe.serial('Part 7: Async Chain Orchestration', () =>
 		expect(status, 'Chain should complete successfully').toBe('Completed');
 	});
 
+	// eslint-disable-next-line no-unused-vars
 	test('V12: Verify all execution record fields', async({page}, testInfo) =>
 	{
 		const records = soqlQuery(`SELECT Name,

@@ -2,6 +2,7 @@
 const {expect} = require('@playwright/test');
 const {clickNavTab} = require('../helpers/sf-navigation');
 const {waitForSpinnerGone} = require('../helpers/wait-helpers');
+const {ELEMENT_WAIT_MILLISECONDS} = require('../helpers/wait-times');
 
 class ApiTestHarnessPage
 {
@@ -18,7 +19,7 @@ class ApiTestHarnessPage
 
 	async waitForReady()
 	{
-		await this.form().waitFor({state: 'visible', timeout: 15_000});
+		await this.form().waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS});
 		await waitForSpinnerGone(this.page);
 	}
 
@@ -58,6 +59,15 @@ class ApiTestHarnessPage
 		await this.form().locator('[data-id="recordId"] input').fill(recordId);
 	}
 
+	/**
+	 * The visible Record ID label — "Record ID" when the selected service declares
+	 * it needs a triggering record, "Record ID (optional)" when it does not.
+	 */
+	async recordIdLabel()
+	{
+		return this.form().locator('[data-id="recordId"] label').first().innerText();
+	}
+
 	async setBody(body)
 	{
 		await this.form().locator('[data-id="jsonBody"] textarea').fill(body);
@@ -73,10 +83,34 @@ class ApiTestHarnessPage
 		return this.form().locator('.parameter-row').count();
 	}
 
+	/**
+	 * Keys of the rows the harness seeded from the service's declared required inputs.
+	 * A seeded row carries the "Required" marker in its tail column instead of the
+	 * remove button, so filter on that marker rather than walking back up from it.
+	 */
+	async requiredParameterKeys()
+	{
+		const rows = this.form().locator('.parameter-row').filter({has: this.page.locator('[data-testid="required-marker"]')});
+		const count = await rows.count();
+		const keys = [];
+		for(let index = 0; index < count; index++)
+		{
+			keys.push(await rows.nth(index).locator('[data-testid="parameter-key"] input').inputValue());
+		}
+		return keys;
+	}
+
+	/**
+	 * Pass key as null to leave the key untouched — a seeded required row renders its
+	 * key input read-only, so filling it would fail the actionability check.
+	 */
 	async setParameter(index, key, value)
 	{
 		const row = this.parameterRow(index);
-		await row.locator('[data-testid="parameter-key"] input').fill(key);
+		if(key !== null)
+		{
+			await row.locator('[data-testid="parameter-key"] input').fill(key);
+		}
 		await row.locator('[data-testid="parameter-value"] input').fill(value);
 	}
 
@@ -127,6 +161,16 @@ class ApiTestHarnessPage
 	async getModeBadgeLabel()
 	{
 		return this.form().locator('[data-testid="mode-badge"]').textContent();
+	}
+
+	/**
+	 * Reads the disabled state off the native button inside lightning-button's shadow
+	 * root: the disabled flag lands there, not on the custom element Playwright's
+	 * isEnabled() would otherwise inspect (it reports any custom element as enabled).
+	 */
+	async isExecuteEnabled()
+	{
+		return this.form().locator('[data-testid="harness-execute"] button').isEnabled();
 	}
 
 	async execute()

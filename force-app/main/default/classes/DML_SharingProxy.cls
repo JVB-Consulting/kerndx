@@ -10,25 +10,34 @@
  *
  * @group DML
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.AvoidBooleanMethodParameters')
 public inherited sharing class DML_SharingProxy
 {
 	/**
-	 * @description Developer name of the feature flag that drives the subscriber-reachable
-	 * DML default access mode.
+	 * @description Developer name of the feature flag that sets the default access mode for DML. A subscriber can
+	 * turn this flag on or off.
 	 */
 	@TestVisible
 	private static final String FLAG_USER_MODE_DML = 'UserModeDml_Enabled';
 
 	/**
-	 * @description The two access-permission tokens the fallback comparison recognises. A token
-	 * outside this set — including a degenerate marker both operands could share after a platform
-	 * rendering-format change — never matches, so the comparator can only degrade toward the
-	 * flag-driven default, never elevate.
+	 * @description The two mode names that the fallback comparison in matchesAccessLevel accepts. Any other text
+	 * never counts as a match. This holds even when both access levels show the same unknown text, which could
+	 * happen if the platform changes how it prints an access level. So a failed comparison can only make the caller
+	 * fall back to the flag's default mode. It can never give the caller more access.
 	 */
 	private static final Set<String> KNOWN_ACCESS_PERMISSIONS = new Set<String> {'SYSTEM_MODE', 'USER_MODE'};
+
+	/**
+	 * @description A proxy that a test installs in place of the real ones. While it is set, getSharingProxy returns
+	 * it for every sharing type. A test uses it to act like the platform and refuse a save, for example with a row
+	 * lock, without any test switch inside the code being tested. It is null in production and by default. The test
+	 * that sets it also clears it.
+	 */
+	@TestVisible
+	private static DatabaseProxy sharingProxyForTest;
 
 	/**
 	 * @description Returns the flag-driven default `AccessLevel` for DML operations.
@@ -41,25 +50,22 @@ public inherited sharing class DML_SharingProxy
 	}
 
 	/**
-	 * @description Serialization-safe access-mode comparator. `System.AccessLevel` survives a
-	 * queueable or batch hand-off by value but not by identity — the deserialized instance matches
-	 * neither singleton under `==` — so every access-mode comparison on the async path must go
-	 * through this method instead of raw `==`. Identity is compared first; for deserialized
-	 * instances the comparison falls back to each operand's own rendered
-	 * `currentAccessPermissions` token, which both live and deserialized renderings place last and
-	 * which must be one of the two known mode names. When either token cannot be extracted or is
-	 * not a known mode name (a platform rendering-format change), the comparator reports no match,
-	 * degrading the caller to the flag-driven default — never a silent elevation. A
-	 * permission-set-scoped USER_MODE variant carries the same `USER_MODE` token as the plain
-	 * singleton and resolves as USER_MODE — the permission-set scoping is dropped, which is the
-	 * stricter direction.
+	 * @description Checks whether two access levels mean the same access mode, and stays correct after the value
+	 * has been passed to a queueable or batch job. When the platform passes a `System.AccessLevel` to an async job,
+	 * it saves the value and rebuilds it later. The rebuilt value is a new object, so `==` no longer matches
+	 * `AccessLevel.SYSTEM_MODE` or `AccessLevel.USER_MODE`. Every comparison of access modes on the async path must
+	 * therefore use this method, never `==`. The method first checks whether both are the same object. If they are
+	 * not, it reads the mode name from the text that `String.valueOf` prints for each value. That text ends with the
+	 * value's own `currentAccessPermissions` name, and the name must be one of the two known modes. If a name cannot
+	 * be read, or is not a known mode, the method reports no match. This can happen if the platform changes how it
+	 * prints an access level. The caller then falls back to the flag's default mode, so it never gains access by
+	 * mistake. A USER_MODE value limited to a permission set prints the same `USER_MODE` name as the plain value, so
+	 * it matches USER_MODE. The permission-set limit is lost, which leaves the stricter mode.
 	 *
 	 * @param candidate The access level under test, possibly deserialized from an async payload.
 	 * @param reference The access level to compare against, normally the `AccessLevel.SYSTEM_MODE` or `AccessLevel.USER_MODE` singleton.
 	 *
 	 * @return True when both operands denote the same access mode; false when they differ, when either is null, or when the rendering cannot be parsed.
-	 *
-	 * @since 1.7
 	 */
 	public static Boolean matchesAccessLevel(AccessLevel candidate, AccessLevel reference)
 	{
@@ -76,10 +82,10 @@ public inherited sharing class DML_SharingProxy
 	}
 
 	/**
-	 * @description Extracts an `AccessLevel` instance's own `currentAccessPermissions` token from
-	 * its undocumented `String.valueOf` rendering. The instance's own token renders LAST — the
-	 * nested renderings of the twin singletons embed both mode names earlier, so only the final
-	 * occurrence identifies the operand; a `contains` check would match both modes.
+	 * @description Reads an `AccessLevel` value's own `currentAccessPermissions` name from the text that
+	 * `String.valueOf` prints for it. The platform does not document this text. The value's own name comes LAST.
+	 * The text also prints both mode names earlier, inside nested values, so only the last one names this value.
+	 * A `contains` check would find both modes.
 	 *
 	 * @param accessLevel The access level whose rendered state to parse.
 	 *
@@ -120,6 +126,11 @@ public inherited sharing class DML_SharingProxy
 	 */
 	public static DatabaseProxy getSharingProxy(SharingType shareType)
 	{
+		if(sharingProxyForTest != null)
+		{
+			return sharingProxyForTest;
+		}
+
 		DatabaseProxy proxy;
 
 		switch on shareType
@@ -142,7 +153,8 @@ public inherited sharing class DML_SharingProxy
 	}
 
 	/**
-	 * @description Default DML proxy using inherited sharing and SYSTEM_MODE access.
+	 * @description The default DML proxy. It runs with inherited sharing. It uses the access level the caller passes, or,
+	 * when that is null, the default that the `UserModeDml_Enabled` flag sets.
 	 */
 	@SuppressWarnings('PMD.ApexSharingViolations')
 	public inherited sharing virtual class DatabaseProxy
@@ -240,11 +252,11 @@ public inherited sharing class DML_SharingProxy
 	}
 
 	/**
-	 * @description DML proxy that bypasses sharing rules. Every method on `DatabaseProxy` is
-	 * overridden here (delegating to `super`) so the `without sharing` annotation on this class
-	 * governs the call frame that reaches `Database.*` — Apex resolves sharing by the class of
-	 * the executing method, not by the dispatched-to target. The twin `DatabaseProxyWithSharing`
-	 * class below is intentionally structurally identical; both must exist.
+	 * @description DML proxy that ignores sharing rules. This class overrides every method of `DatabaseProxy` and
+	 * calls `super` in each one. That way the method that calls `Database.*` belongs to this class, so its
+	 * `without sharing` keyword applies. Apex takes the sharing rule from the class whose method is running, not
+	 * from the class the call was sent to. The matching class `DatabaseProxyWithSharing` below has the same shape
+	 * on purpose, and both must exist.
 	 */
 	@SuppressWarnings('PMD.ExcessivePublicCount, DuplicatedCode')
 	private without sharing class DatabaseProxyWithoutSharing extends DatabaseProxy
@@ -336,11 +348,11 @@ public inherited sharing class DML_SharingProxy
 	}
 
 	/**
-	 * @description DML proxy that enforces sharing rules. Every method on `DatabaseProxy` is
-	 * overridden here (delegating to `super`) so the `with sharing` annotation on this class
-	 * governs the call frame that reaches `Database.*` — Apex resolves sharing by the class of
-	 * the executing method, not by the dispatched-to target. The twin `DatabaseProxyWithoutSharing`
-	 * class above is intentionally structurally identical; both must exist.
+	 * @description DML proxy that enforces sharing rules. This class overrides every method of `DatabaseProxy` and
+	 * calls `super` in each one. That way the method that calls `Database.*` belongs to this class, so its
+	 * `with sharing` keyword applies. Apex takes the sharing rule from the class whose method is running, not from
+	 * the class the call was sent to. The matching class `DatabaseProxyWithoutSharing` above has the same shape on
+	 * purpose, and both must exist.
 	 */
 	@SuppressWarnings('PMD.ExcessivePublicCount, DuplicatedCode')
 	private with sharing class DatabaseProxyWithSharing extends DatabaseProxy

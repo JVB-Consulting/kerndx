@@ -34,7 +34,7 @@
  *
  * @group Triggers
  *
- * @date May 2026, August 2026
+ * @date May 2026, September 2026
  *
  * @since 1.1
  */
@@ -242,11 +242,11 @@ public inherited sharing class UTIL_PostTriggerAction
 		timer.start();
 		try
 		{
-			Integer dmlStatementsBefore = Limits.getDmlStatements();
+			Integer dmlStatementsBefore = UTIL_Limits.dmlStatements().used();
 			Integer frameworkLogDmlStatementsBefore = LOG_Engine.getFrameworkLogPersistenceDmlStatements();
 			action.execute(context);
 			Integer frameworkLogDmlStatementsDuringAction = LOG_Engine.getFrameworkLogPersistenceDmlStatements() - frameworkLogDmlStatementsBefore;
-			if(Limits.getDmlStatements() - frameworkLogDmlStatementsDuringAction > dmlStatementsBefore)
+			if(UTIL_Limits.dmlStatements().used() - frameworkLogDmlStatementsDuringAction > dmlStatementsBefore)
 			{
 				throw new UTIL_Exceptions.PostActionDmlException(String.format(DML_VIOLATION_MESSAGE, new List<String> {row.ApexClassName__c}));
 			}

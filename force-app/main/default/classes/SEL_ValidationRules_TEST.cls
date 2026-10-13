@@ -8,7 +8,7 @@
  *
  * @group Validation
  *
- * @date January 2026, May 2026
+ * @date January 2026, September 2026
  */
 @IsTest
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -234,11 +234,13 @@ private class SEL_ValidationRules_TEST
 		ValidationRuleGroup__mdt ruleGroup = TST_Factory.newValidationRuleGroup
 				(
 						triggerSetting,
-						'Before',
-						'Update',
 						new List<ValidationRule__mdt> {rule},
-						'TestFeatureFlag',
-						'TestBypassPermission'
+						new Map<SObjectField, Object>
+						{
+								ValidationRuleGroup__mdt.TriggerOperations__c => 'Update',
+								ValidationRuleGroup__mdt.RequiredFeatureFlag__c => TST_Factory.newFeatureFlag('TestFeatureFlag', false),
+								ValidationRuleGroup__mdt.BypassFeatureFlag__c => TST_Factory.newFeatureFlag('TestBypassPermission', false)
+						}
 				);
 		SEL_ValidationRules.ValidationRuleWithGroup wrapper = new SEL_ValidationRules.ValidationRuleWithGroup(rule, ruleGroup);
 

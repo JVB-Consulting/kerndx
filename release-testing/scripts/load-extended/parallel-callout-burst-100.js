@@ -179,6 +179,7 @@ function deleteByIds(ids)
 		}
 		catch
 		{
+			// The scratch file may already be gone; cleanup is best effort.
 		}
 	}
 }
@@ -277,8 +278,10 @@ async function main()
 	}
 
 	console.log('Phase 2: Server-side ApiCall__c row inspection (scoped by ServiceName + CreatedDate)');
-	const callRowsResult = querySoql(`SELECT Id, kern__ServiceName__c, kern__Direction__c, kern__Status__c, ` + `kern__StatusCode__c, kern__Retries__c FROM kern__ApiCall__c `
-			+ `WHERE kern__ServiceName__c IN ('${INBOUND_SERVICE}', '${OUTBOUND_SERVICE}') ` + `AND CreatedDate >= ${runStartIso} ORDER BY CreatedDate ASC`);
+	const callRowsResult = querySoql(`SELECT Id, kern__ServiceName__c, kern__Direction__c, kern__Status__c, `
+			+ `kern__StatusCode__c, kern__Retries__c FROM kern__ApiCall__c `
+			+ `WHERE kern__ServiceName__c IN ('${INBOUND_SERVICE}', '${OUTBOUND_SERVICE}') `
+			+ `AND CreatedDate >= ${runStartIso} ORDER BY CreatedDate ASC`);
 	const allRows = callRowsResult.records || [];
 	const inboundRows = allRows.filter(r => r.kern__ServiceName__c === INBOUND_SERVICE);
 	const outboundRows = allRows.filter(r => r.kern__ServiceName__c === OUTBOUND_SERVICE);
@@ -386,7 +389,6 @@ async function main()
 	}
 
 	console.log(`Phase 5: Post-reset mini-burst (${POST_RESET_BURST} inbound to confirm next-batch-succeeds)`);
-	const postResetStartIso = new Date().toISOString();
 	const postResetBody = {failRate: 0, circuitId: CIRCUIT_ID};
 	const postResetPromises = Array.from({length: POST_RESET_BURST}, () => sendProbe(instanceUrl, accessToken, postResetBody));
 	const postResetResults = await Promise.allSettled(postResetPromises);
@@ -418,7 +420,8 @@ async function main()
 
 	console.log('Phase 6: Cleanup — delete burst rows by Id (main burst + post-reset mini-burst)');
 	const cleanupRowsResult = querySoql(`SELECT Id
-                                         FROM kern__ApiCall__c ` + `WHERE kern__ServiceName__c IN ('${INBOUND_SERVICE}', '${OUTBOUND_SERVICE}') `
+                                         FROM kern__ApiCall__c `
+			+ `WHERE kern__ServiceName__c IN ('${INBOUND_SERVICE}', '${OUTBOUND_SERVICE}') `
 			+ `AND CreatedDate >= ${runStartIso}`);
 	const idsToDelete = (cleanupRowsResult.records || []).map(r => r.Id);
 	try

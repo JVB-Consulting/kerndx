@@ -14,7 +14,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class CTRL_EventMonitor
@@ -530,48 +530,149 @@ public inherited sharing class CTRL_EventMonitor
 	}
 
 	/**
-	 * @description Enum of event names available for Event Monitoring.
+	 * @description The Salesforce Real-Time Event Monitoring events the Streaming Monitor offers under the "Monitoring event" type.
+	 * Each value carries the platform event's API name, because the name is used as the channel to subscribe to (`/event/` plus
+	 * the name) and, split into words, as its label in the channel picker. The list is fixed in this class, so a new platform
+	 * event appears only once a value is added here; an org receives an event only when streaming is switched on for it in Event
+	 * Manager, which for most of these events needs the Salesforce Shield or Event Monitoring add-on.
 	 */
 	@SuppressWarnings('PMD.FieldNamingConventions,ApexUnusedDeclaration')
 	private enum MonitoringEvent
 	{
+		/**
+		 * @description Raised when Salesforce detects an unusual pattern in how a user makes API calls, for example far more records read than normal.
+		 */
 		ApiAnomalyEvent,
+		/**
+		 * @description Raised for each API query a user runs (SOAP, REST or Bulk), carrying the query and the number of rows it read.
+		 */
 		ApiEventStream,
+		/**
+		 * @description Raised when a user downloads the results of a Bulk API job.
+		 */
 		BulkApiResultEvent,
+		/**
+		 * @description Raised when a request is refused because the org already has its maximum number of long-running Apex requests in flight.
+		 */
 		ConcurLongRunApexErrEvent,
+		/**
+		 * @description Raised when a consent record changes, for example a contact opting in to or out of email.
+		 */
 		ConsentEvent,
+		/**
+		 * @description Raised when a user logs in successfully during an attack that tries stolen username and password pairs against the org.
+		 */
 		CredentialStuffingEvent,
+		/**
+		 * @description Raised when a user works with a file, for example previews, downloads or uploads it.
+		 */
 		FileEvent,
+		/**
+		 * @description Raised when a user creates, opens, updates or deletes a record in Lightning Experience.
+		 */
 		LightningUriEventStream,
-		ListviewEventStream,
+		/**
+		 * @description Raised when a user opens or works with a list view, carrying the records the list showed.
+		 */
+		ListViewEventStream,
+		/**
+		 * @description Raised when an administrator logs in as another user.
+		 */
 		LoginAsEventStream,
+		/**
+		 * @description Raised for each login attempt, carrying who logged in, from where and with which client.
+		 */
 		LoginEventStream,
+		/**
+		 * @description Raised when a user logs out by choosing Log Out.
+		 */
 		LogoutEventStream,
+		/**
+		 * @description Raised when a user sends an email from a mobile app protected by Enhanced Mobile Security.
+		 */
 		MobileEmailEvent,
+		/**
+		 * @description Raised when a mobile security policy is enforced on a user's device, for example a blocked operating system version.
+		 */
 		MobileEnforcedPolicyEvent,
+		/**
+		 * @description Raised when a user takes a screenshot in a mobile app protected by Enhanced Mobile Security.
+		 */
 		MobileScreenshotEvent,
+		/**
+		 * @description Raised when a user makes a phone call or sends a text message from a mobile app protected by Enhanced Mobile Security.
+		 */
 		MobileTelephonyEvent,
+		/**
+		 * @description Raised when a permission is added to or removed from a permission set or permission set group, and when one
+		 * that grants a critical permission is assigned to or removed from a user.
+		 */
 		PermissionSetEvent,
+		/**
+		 * @description Raised when Salesforce detects an unusual pattern in how a user runs or exports reports.
+		 */
 		ReportAnomalyEvent,
+		/**
+		 * @description Raised when a user runs or exports a report, carrying the report and the records it returned.
+		 */
 		ReportEventStream,
+		/**
+		 * @description Raised when Salesforce detects that a user's session is being used from a second, unexpected browser, which suggests a stolen session.
+		 */
 		SessionHijackingEvent,
+		/**
+		 * @description Raised when a user creates, opens, updates or deletes a record in Salesforce Classic.
+		 */
 		UriEventStream
 	}
 
 	/**
-	 * @description Constants representing different streaming event types used by the controller to categorize channels and actions.
+	 * @description The kinds of streaming event the Streaming Monitor can list, subscribe to and publish. A value's name is the
+	 * text exchanged with the browser to say which kind is meant, so each is spelt exactly as the component expects it.
 	 */
 	@SuppressWarnings('PMD.FieldNamingConventions')
 	@TestVisible
 	private enum StreamingEventTypes
 	{
+		/**
+		 * @description Change Data Capture events, raised when a record of a tracked object is created, updated, deleted or undeleted.
+		 * The channel list holds every change event in the org, standard and custom.
+		 */
 		ChangeDataCaptureEvent,
+		/**
+		 * @description A custom channel that groups several change events into one stream. No channels are listed for this kind:
+		 * the user types the channel name (after `/data/`) to subscribe, and such channels are created by a metadata deployment,
+		 * not from the component.
+		 */
 		CustomChannelCDC,
+		/**
+		 * @description A custom channel that groups several platform events into one stream. No channels are listed for this kind:
+		 * the user types the channel name (after `/event/`) to subscribe, and such channels are created by a metadata deployment,
+		 * not from the component.
+		 */
 		CustomChannelPE,
+		/**
+		 * @description Generic streaming events, free-text messages sent on a streaming channel whose name starts with `/u/`.
+		 * One of the two kinds that can be published from the component; the other is custom platform events.
+		 */
 		GenericEvent,
+		/**
+		 * @description Real-Time Event Monitoring events, the security and usage events Salesforce raises as users log in, read data and
+		 * change permissions.
+		 */
 		MonitoringEvent,
+		/**
+		 * @description Custom platform events, the events defined in the org with an API name ending in `__e`.
+		 * One of the two kinds that can be published from the component; the other is generic streaming events.
+		 */
 		PlatformEvent,
+		/**
+		 * @description PushTopic events, raised when a record matches the query of a PushTopic defined in the org.
+		 */
 		PushTopicEvent,
+		/**
+		 * @description Standard platform events, the events Salesforce itself defines and publishes; they can be watched but not published from here.
+		 */
 		StandardPlatformEvent
 	}
 }

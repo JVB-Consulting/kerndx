@@ -51,7 +51,7 @@ describe('sf-selectors', () =>
 
 	it('should have all selectors as non-empty strings', () =>
 	{
-		for(const [key, value] of Object.entries(selectors))
+		for(const value of Object.values(selectors))
 		{
 			expect(typeof value).toBe('string');
 			expect(value.length).toBeGreaterThan(0);

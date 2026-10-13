@@ -22,28 +22,49 @@ These files are not authoritative. They are renders of the Eta templates that sh
 
 - Ingress branch: `main`
 - Package directory: `force-app/main/default`
-- Node version: `22`
+- Node version: `22` in the steps that install and run the pipeline (`sfca-quality-gate`, `naming-validation`, `secret-scan`, `scanner-parity`); `validate-reviewers-json` is rendered here with Node `22` too, while a `kerndx init` run writes Node `20` into that one workflow
 - CI adapter: `none`
 - Slack: disabled (no webhook env var referenced)
 - SFCA rule selector: `pmd,flow,eslint`
 
-If you `kerndx init` with different answers (different branch names, multiple package directories, a CI adapter like Gearset or Copado, Slack enabled), the rendered workflows will differ. To regenerate with your own config:
+If you `kerndx init` with different answers (different branch names, multiple package directories, a CI adapter like Gearset or Copado, Slack enabled), the rendered workflows will differ. To regenerate with your own config, run `init`, which asks you questions:
 
-```bash
-./.kerndx-pipeline/bin/kerndx init        # interactive
-./.kerndx-pipeline/bin/kerndx upgrade     # if already installed
+```shell
+node .kerndx-pipeline/bin/kerndx init
+```
+
+If the pipeline is already installed, run `upgrade` instead:
+
+```shell
+node .kerndx-pipeline/bin/kerndx upgrade
 ```
 
 The pipeline then writes the workflows directly to your `.github/workflows/` directory.
 
 ## Adopting
 
-Don't copy these files manually into your repo. Install the pipeline:
+Don't copy these files manually into your repo. Install the pipeline: put `KernDX-YourVersion-pipeline.zip` in your project's top folder, the one that holds
+`sfdx-project.json`, and replace `YourVersion` in the commands below with the version in the file name you downloaded. On Windows, in Command Prompt:
+
+```bat
+mkdir .kerndx-pipeline
+tar -xf KernDX-YourVersion-pipeline.zip -C .kerndx-pipeline
+```
+
+On macOS or Linux:
 
 ```bash
-unzip KernDX-<version>-pipeline.zip -d .kerndx-pipeline
-(cd .kerndx-pipeline/pipeline && npm ci --omit=dev)
-./.kerndx-pipeline/bin/kerndx init
+unzip KernDX-YourVersion-pipeline.zip -d .kerndx-pipeline
+```
+
+Then install the tooling's own dependencies and set it up:
+
+```shell
+npm ci --omit=dev --prefix .kerndx-pipeline/pipeline
+```
+
+```shell
+node .kerndx-pipeline/bin/kerndx init
 ```
 
 The `init` command renders the templates with answers you supply, writes them to `.github/workflows/`, and records a manifest at `.kerndx/manifest.json` so subsequent `upgrade` commands know what to refresh.

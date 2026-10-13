@@ -14,7 +14,7 @@
  *
  * @group Email
  *
- * @date November 2025, June 2026
+ * @date November 2025, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class FLOW_SendEmailInternal
@@ -39,6 +39,13 @@ public inherited sharing class FLOW_SendEmailInternal
 	private static Boolean simulateRestrictedDeliverability = false;
 
 	/**
+	 * @description The SObject API name of a User recipient, the one person object the platform will not log
+	 * an email against. Declared before the sets that read it: a static initialiser cannot reference a static
+	 * declared below it.
+	 */
+	private static final String USER_OBJECT_NAME = 'User';
+
+	/**
 	 * @description Set of SObject API Names that qualify as "Who" objects (Human recipients).
 	 * Used to correctly assign `TargetObjectId` vs `WhatId`.
 	 */
@@ -47,7 +54,17 @@ public inherited sharing class FLOW_SendEmailInternal
 	{
 			'Contact',
 			'Lead',
-			'User'
+			USER_OBJECT_NAME
+	};
+
+	/**
+	 * @description The SObject API names a Task accepts as its `WhoId`. A User is a valid email recipient but
+	 * never a Task `WhoId`, so an activity logged for an email to a User carries the related record only.
+	 */
+	private static final Set<String> TASK_WHO_OBJECT_NAMES = new Set<String>
+	{
+			'Contact',
+			'Lead'
 	};
 
 	/**
@@ -159,19 +176,7 @@ public inherited sharing class FLOW_SendEmailInternal
 				continue;
 			}
 
-			// Determine the actual address to pass to the Flow
-			String flowToAddress = dtoRequest.toAddress;
-
-			// If NOT using standard logging, we must pass an Email Address, not an ID.
-			// The Flow Action ignores Ids if logActivity=false (the "0 recipients" error).
-			if(!UTIL_Boolean.isTrue(dtoRequest.useStandardLogActivity))
-			{
-				flowToAddress = recipientEmailMap.get(recipientId);
-
-				// Fallback: If we couldn't find an email (e.g. Contact has no email set), pass the original ID.
-				// This allows the Flow or system to throw the natural error rather than sending null.
-				flowToAddress = flowToAddress ?? dtoRequest.toAddress;
-			}
+			String flowToAddress = resolveFlowRecipient(dtoRequest, recipientId, recipientEmailMap);
 
 			String flowErrorMessage = invokeFlow
 					(
@@ -196,7 +201,7 @@ public inherited sharing class FLOW_SendEmailInternal
 						.withOverride(Task.Status, closedTaskStatus)
 						.withOverride(Task.Subject, 'Email Sent: ' + dtoRequest.templateUniqueName)
 						.withOverride(Task.WhatId, simulateFailedActivityLogging ? UserInfo.getUserId() : dtoRequest.whatId)
-						.withOverride(Task.WhoId, PERSON_OBJECT_NAMES.contains(recipientObjectName) ? dtoRequest.toAddress : null)
+						.withOverride(Task.WhoId, TASK_WHO_OBJECT_NAMES.contains(recipientObjectName) ? dtoRequest.toAddress : null)
 						.withoutInsertion()
 						.build();
 
@@ -210,6 +215,33 @@ public inherited sharing class FLOW_SendEmailInternal
 		handleActivityLogging(requestIndexToFlowTask, dtoResponses);
 
 		return dtoResponses;
+	}
+
+	/**
+	 * @description Resolves what the Flow receives as the recipient. The Flow's by-Id action only works when it
+	 * logs the email as an activity: it ignores an Id otherwise (the "0 recipients" error). So the Id reaches the
+	 * Flow only when standard logging AND an activity are both wanted; every other case sends by address, falling
+	 * back to the original value when no address could be found (e.g. a Contact without an email), so the Flow or
+	 * the platform raises the natural error rather than receiving null.
+	 *
+	 * Marked `@TestVisible` so `FLOW_SendEmail_TEST` can call it. The platform checks the recipient only when the email is delivered, and a
+	 * test never delivers an email. So, short of a real send, calling this method is the only way to test the rule.
+	 *
+	 * @param request The email request DTO.
+	 * @param recipientId The resolved recipient ID, or null if the toAddress is an email string.
+	 * @param recipientEmailByIdMap Email addresses by recipient Id, for the by-address route.
+	 *
+	 * @return The recipient the Flow receives: the record Id, or an email address.
+	 */
+	@TestVisible
+	private static String resolveFlowRecipient(FLOW_SendEmail.DTO_Request request, Id recipientId, Map<Id, String> recipientEmailByIdMap)
+	{
+		if(usesStandardActivityLogging(request))
+		{
+			return request.toAddress;
+		}
+
+		return recipientEmailByIdMap.get(recipientId) ?? request.toAddress;
 	}
 
 	/**
@@ -264,7 +296,8 @@ public inherited sharing class FLOW_SendEmailInternal
 
 	/**
 	 * @description Handles the bulk insertion of Task records for successful emails.
-	 * Updates the corresponding `DTO_Response` if the Task insertion fails.
+	 * Updates the corresponding `DTO_Response` if the Task insertion fails. Empties the transaction's in-memory query
+	 * cache before the insert.
 	 *
 	 * @param requestIndexToFlowTask Map of Request Index to the Task object to insert.
 	 * @param dtoResponses The list of response objects to update in case of DML errors.
@@ -274,6 +307,8 @@ public inherited sharing class FLOW_SendEmailInternal
 		List<Task> tasksToInsert = requestIndexToFlowTask.values();
 		if(!tasksToInsert.isEmpty())
 		{
+			// The Task insert is a write outside DML_Transaction, so a cached read of Task must not outlive it.
+			QRY_Engine.clearQueryResultMemoryCache();
 			List<Database.SaveResult> dmlResults = Database.insert(tasksToInsert, false, AccessLevel.SYSTEM_MODE);
 
 			Integer taskIndex = 0;
@@ -336,7 +371,26 @@ public inherited sharing class FLOW_SendEmailInternal
 			messages.add('Invalid To Address ID (' + recipientObjectName + '). Must be a Contact, Lead, User Id or a valid Email Address.');
 		}
 
+		if(recipientObjectName == USER_OBJECT_NAME && usesStandardActivityLogging(request))
+		{
+			messages.add('Standard activity logging cannot target a User: Salesforce does not log an email sent to a User. '
+					+ 'Send to the email address, turn off Save as Activity, or use custom activity logging.');
+		}
+
 		return UTIL_String.join(messages, UTIL_String.COMMA);
+	}
+
+	/**
+	 * @description Whether the request logs the email through the platform's own activity logging: standard
+	 * logging chosen AND an activity wanted. Only then does the Flow's by-Id action have a purpose.
+	 *
+	 * @param request The email request DTO.
+	 *
+	 * @return `true` when the platform is to log the email as an activity.
+	 */
+	private static Boolean usesStandardActivityLogging(FLOW_SendEmail.DTO_Request request)
+	{
+		return UTIL_Boolean.isTrue(request.useStandardLogActivity) && UTIL_Boolean.isTrue(request.saveAsActivity);
 	}
 
 	/**
@@ -366,7 +420,7 @@ public inherited sharing class FLOW_SendEmailInternal
 		flowVariables.put('varHtmlBody', mergedEmail.getHtmlBody() ?? UTIL_String.EMPTY);
 		flowVariables.put('varOrgWideEmailAddress', orgWideEmailMap.containsKey(request.orgWideEmailAddress) ? request.orgWideEmailAddress : UserInfo.getUserEmail());
 		flowVariables.put('varRelatedId', request.whatId);
-		flowVariables.put('varSaveAsActivity', UTIL_Boolean.isTrue(request.useStandardLogActivity) ? UTIL_Boolean.isTrue(request.saveAsActivity) : false);
+		flowVariables.put('varSaveAsActivity', usesStandardActivityLogging(request));
 		flowVariables.put('varSubject', mergedEmail.getSubject());
 		flowVariables.put('varTextBody', mergedEmail.getPlainTextBody() ?? UTIL_String.EMPTY);
 		flowVariables.put('varToAddress', targetAddress ?? UTIL_String.EMPTY);
@@ -397,7 +451,13 @@ public inherited sharing class FLOW_SendEmailInternal
 	 * @return A fully constructed and merged email message object.
 	 */
 	@SuppressWarnings('PMD.ValidateCrudFlsEmailMessageWhoIdWhatId')
-	private static Messaging.SingleEmailMessage constructEmail(FLOW_SendEmail.DTO_Request emailRequest, Map<String, SObject> templateMap, Id recipientId, String recipientObjectName)
+	private static Messaging.SingleEmailMessage constructEmail
+			(
+					FLOW_SendEmail.DTO_Request emailRequest,
+					Map<String, SObject> templateMap,
+					Id recipientId,
+					String recipientObjectName
+			)
 	{
 		Id targetObjectId = PERSON_OBJECT_NAMES.contains(recipientObjectName) ? recipientId : null;
 

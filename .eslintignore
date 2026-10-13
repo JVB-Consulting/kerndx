@@ -16,3 +16,4 @@
 .sfdx
 evidence/
 _repos/
+**/*.workflow.mjs

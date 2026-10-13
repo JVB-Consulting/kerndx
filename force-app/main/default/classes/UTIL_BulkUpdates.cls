@@ -21,7 +21,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, September 2026
  *
  * @since 1.0
  *
@@ -226,7 +226,7 @@ global inherited sharing class UTIL_BulkUpdates
 	 * UTIL_BulkUpdates.updateOwner('Account', 'Support Rep', 'jane.smith@example.com', 200, true);
 	 * ```
 	 */
-	@SuppressWarnings('PMD.ExcessiveParameterList')
+	@SuppressWarnings('PMD.ExcessiveParameterList,PMD.GlobalMethodParameterCap')
 	global static void updateOwner
 			(
 					String sObjectName,
@@ -271,7 +271,7 @@ global inherited sharing class UTIL_BulkUpdates
 	 * UTIL_BulkUpdates.updateField('Opportunity', 'OwnerId', '005D0000001ABCD', condition, 100, false);
 	 * ```
 	 */
-	@SuppressWarnings('PMD.ExcessiveParameterList')
+	@SuppressWarnings('PMD.ExcessiveParameterList,PMD.GlobalMethodParameterCap')
 	global static void updateField(
 			String sObjectName,
 			String fieldApiName,

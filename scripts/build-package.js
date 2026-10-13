@@ -16,11 +16,12 @@
  * @author Kern Framework
  */
 
-const {execSync, spawn} = require('child_process');
+const {execSync} = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const preparePackageBuild = require('./prepare-package-build');
 const {getDevOrgAlias} = require('./dev-org-config');
+const {startToolStreaming} = require('./lib/start-tool');
 
 // ============================================================================
 // Configuration
@@ -284,12 +285,12 @@ function runCommand(command, args)
 	return new Promise((resolve) =>
 	{
 		let output = '';
-		const proc = spawn(command, args, {
+		const proc = startToolStreaming(command, args, {
 			stdio: [
 				'inherit',
 				'pipe',
 				'pipe'
-			], shell: true
+			]
 		});
 
 		proc.stdout.on('data', (data) =>

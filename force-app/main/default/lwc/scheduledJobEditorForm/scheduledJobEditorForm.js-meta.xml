@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+	<apiVersion>68.0</apiVersion>
+	<description>The form the ScheduledJob__c record-page editor and the Health Check modal editor share: its fields, labels, loaders, change handlers and save path.</description>
+	<isExposed>false</isExposed>
+	<masterLabel>Scheduled Job Editor Form</masterLabel>
+</LightningComponentBundle>

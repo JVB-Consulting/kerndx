@@ -120,7 +120,7 @@ test.describe.serial('Part 9: Masking Advisor', () =>
 		await advisor.navigate();
 		await advisor.selectObject(TARGET_OBJECT);
 
-		const trigger = await advisor.openRuleDetailFromField(MULTI_MASK_FIELD);
+		await advisor.openRuleDetailFromField(MULTI_MASK_FIELD);
 		await expect(advisor.ruleDetailModal(), 'Clicking a chip should open the rule-detail modal').toBeVisible();
 		await expect(advisor.ruleDetailMaskedAfterDeploy(), 'A dormant candidate rule should offer the masked-after-deploy toggle').toBeVisible();
 

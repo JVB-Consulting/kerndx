@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>RetryIssues__c</fullName>
     <defaultValue>false</defaultValue>
-    <description>When enabled, allows automatic retry of API issues via batch processing.</description>
+    <description>Lets the Retry action on an API issue, and the bulk retry, run a failed call again. This is not the automatic retry: that is governed by Max Retry Count and Retry Backoff. A re-run sends the request again.</description>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <inlineHelpText>Enable automatic retry of API issues via batch job. Requires Log Issues.</inlineHelpText>
+    <inlineHelpText>Lets the Retry action on an API issue, and the bulk retry (Retry Selected on the API Issues list), send a failed outbound call again. Automatic retries are governed by Max Retry Count and Retry Backoff instead. Requires Log Issues.</inlineHelpText>
     <label>Retry Issues</label>
     <type>Checkbox</type>
 </CustomField>

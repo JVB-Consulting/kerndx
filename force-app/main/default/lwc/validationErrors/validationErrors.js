@@ -250,9 +250,7 @@ export default class ValidationErrors extends LightningElement
 			return;
 		}
 
-		this.dispatchEvent(new CustomEvent('fieldclick', {
-			detail: {fieldName}, bubbles: true, composed: true
-		}));
+		this.dispatchEvent(new CustomEvent('fieldclick', {detail: {fieldName}}));
 
 		this.focusField(fieldName);
 	}

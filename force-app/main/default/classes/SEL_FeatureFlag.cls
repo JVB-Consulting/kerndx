@@ -3,6 +3,11 @@
  * @description Selector for the FeatureFlag__mdt custom metadata type. Provides access to feature flag
  * definitions and their associated active strategies sorted by evaluation order.
  *
+ * The read that builds the active-flags index (getAllActiveWithStrategies) must never use the query builder, because it
+ * would recurse (see that method). Tests also assign its flag indexes (activeFlags and allDeveloperNames) directly. For
+ * these two reasons the class keeps those per-transaction indexes in its own static properties instead of a
+ * UTIL_Cache.TransactionMemoryCache.
+ *
  * @see SEL_Base
  * @see SEL_FeatureFlag_TEST
  *
@@ -10,7 +15,7 @@
  *
  * @group Feature Flags
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_FeatureFlag extends SEL_Base
 {
