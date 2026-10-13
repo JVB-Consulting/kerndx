@@ -72,11 +72,11 @@ describe('result-compiler', () =>
 		compile('1.0.0-53');
 
 		const output = fs.writeFileSync.mock.calls[0][1];
-		const section1Pos = output.indexOf('section-1');
-		const section2Pos = output.indexOf('section-2');
-		const section10Pos = output.indexOf('section-10');
-		expect(section1Pos).toBeLessThan(section2Pos);
-		expect(section2Pos).toBeLessThan(section10Pos);
+		const firstSectionPosition = output.indexOf('section-1');
+		const secondSectionPosition = output.indexOf('section-2');
+		const tenthSectionPosition = output.indexOf('section-10');
+		expect(firstSectionPosition).toBeLessThan(secondSectionPosition);
+		expect(secondSectionPosition).toBeLessThan(tenthSectionPosition);
 	});
 
 	it('should include test class results', () =>
@@ -228,11 +228,11 @@ describe('result-compiler', () =>
 		compile('1.0.0-53');
 
 		const output = fs.writeFileSync.mock.calls[0][1];
-		const v1Pos = output.indexOf('| V1 |');
-		const v3Pos = output.indexOf('| V3 |');
-		const v5Pos = output.indexOf('| V5 |');
-		expect(v1Pos).toBeLessThan(v3Pos);
-		expect(v3Pos).toBeLessThan(v5Pos);
+		const firstCheckPosition = output.indexOf('| V1 |');
+		const thirdCheckPosition = output.indexOf('| V3 |');
+		const fifthCheckPosition = output.indexOf('| V5 |');
+		expect(firstCheckPosition).toBeLessThan(thirdCheckPosition);
+		expect(thirdCheckPosition).toBeLessThan(fifthCheckPosition);
 	});
 
 	it('should report ALL PASS when everything passes', () =>
@@ -295,6 +295,29 @@ describe('result-compiler', () =>
 		expect(output).toContain('**Overall:** FAIL');
 	});
 
+	it('should render a phase 3 section whose key is not a part, so a failure recorded there is seen as well as judged', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			phase2: {
+				scripts: {'section-1': {result: 'PASS'}}, testClasses: {result: 'PASS'}
+			}, phase3: {
+				part1: {V1: {result: 'PASS'}}, exploration: {V200: {result: 'FAIL', notes: 'the drawer lagged'}}
+			}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.0.0-53');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('### exploration');
+		expect(output).toContain('| V200 | FAIL | the drawer lagged |');
+		expect(output.indexOf('### Part 1')).toBeLessThan(output.indexOf('### exploration'));
+		expect(output).toContain('**Overall:** FAIL');
+	});
+
 	it('should include automation note when phase3Automated is set', () =>
 	{
 		fs.existsSync.mockReturnValue(true);
@@ -309,6 +332,104 @@ describe('result-compiler', () =>
 
 		const output = fs.writeFileSync.mock.calls[0][1];
 		expect(output).toContain('Playwright automation');
+	});
+
+	it('should name an unlisted part Additional Checks', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			phase3: {part9: {V50: {result: 'PASS'}}}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.7.0-13');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('### Part 9: Additional Checks');
+	});
+
+	it('should skip a phase 3 part the recorded run left blank', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			phase3: {part1: '', part2: {V1: {result: 'PASS'}}}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.7.0-13');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).not.toContain('### Part 1:');
+		expect(output).toContain('### Part 2: API Results, Config & Login');
+	});
+
+	it('should write the page, and call the run failed, when a phase 3 part was recorded as null', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			phase3: {part1: null}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.7.0-13');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('**Overall:** FAIL');
+	});
+
+	it('should fall back to today and N/A when the run recorded neither a date nor a package version id', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.7.0-13');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toMatch(/\*\*Test Date:\*\* \d{4}-\d{2}-\d{2}\n/);
+		expect(output).toContain('**Package Version ID:** N/A');
+	});
+
+	it('should leave the score and the notes blank when a row carries neither', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			phase2: {scripts: {'section-1': {result: 'PASS'}}}, phase3: {part1: {V1: {result: 'PASS'}}}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.7.0-13');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('| section-1 | PASS |  |  |\n');
+		expect(output).toContain('| V1 | PASS |  |\n');
+	});
+
+	it('should render the extended-load section without notes when the run recorded none', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			extendedLoad: {status: 'PASS'}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.7.0-13');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('**Status:** PASS');
+		expect(output).not.toContain('**Notes:**');
 	});
 
 	it('should write output to versioned file', () =>

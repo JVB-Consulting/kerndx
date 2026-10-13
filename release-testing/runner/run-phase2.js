@@ -4,6 +4,8 @@ const path = require('path');
 const fs = require('fs');
 const {getSubscriberOrgAlias} = require('./subscriber-config');
 const {isNamedOrgNotFoundError, NamedOrgNotFoundError} = require('./cmdt-deployer');
+const {RECORDED_RESULTS_PATH, ReleaseTargetError, assertReleaseTarget} = require('./release-target');
+const {namespacePrefix} = require('../e2e/helpers/sf-namespace');
 
 const ORG_ALIAS = getSubscriberOrgAlias();
 
@@ -35,8 +37,15 @@ function preflightOrgAvailable()
 	}
 }
 
+// Every script of this phase is written against the installed package, its first act is a deploy into the org, and
+// its last is a write into the record of the release-testing cycle. An org without the package is turned away
+// here, before anything is run in it, deployed to it or written down about it.
+function preflightPackageInstalled()
+{
+	assertReleaseTarget(ORG_ALIAS, namespacePrefix);
+}
+
 const SCRIPTS_DIR = path.join(__dirname, '..', 'scripts');
-const RESULTS_PATH = path.join(__dirname, '..', 'results', 'current-run.json');
 
 // Section 79's stale-probe seed writes a back-dated CreatedDate, which an org accepts only
 // after the RUNBOOK Phase 1.4 audit-fields enablement; without it the seed fails compile
@@ -48,15 +57,38 @@ async function preflightAuditBackdating()
 	if(result.fail > 0 || result.pass === 0)
 	{
 		const probeLines = (result.raw || '').split('\n').filter(l => l.includes('USER_DEBUG')).join('\n');
-		throw new Error('Audit-field back-dating is not enabled on this org — Section 79 (and Phase-3 part10) will fail.\n' +
-			'  Remediation (RUNBOOK Phase 1.4 — two separate deploys IN THIS ORDER, then the permission set):\n' +
-			'    sf project deploy start --metadata-dir release-testing/e2e/fixtures/audit-fields/step1-security-settings/metadata -o <org>\n' +
-			'    sf project deploy start --metadata-dir release-testing/e2e/fixtures/audit-fields/step2-audit-permset/metadata -o <org>\n' +
-			'    sf org assign permset -o <org> -n KernE2EAuditFieldAccess\n' +
-			`  Probe output:\n${probeLines || '  (no USER_DEBUG output — likely a compile or auth failure; see raw runner output)'}`);
+		const probeOutput = probeLines || '  (no USER_DEBUG output — likely a compile or auth failure; see raw runner output)';
+		throw new Error('Audit-field back-dating is not enabled on this org: Sections 79 and 79c (and Phase-3 part10) will fail.\n'
+				+ '  Remediation (RUNBOOK Phase 1.4 — two separate deploys IN THIS ORDER, then the permission set):\n'
+				+ '    sf project deploy start --metadata-dir release-testing/e2e/fixtures/audit-fields/step1-security-settings/metadata -o <org>\n'
+				+ '    sf project deploy start --metadata-dir release-testing/e2e/fixtures/audit-fields/step2-audit-permset/metadata -o <org>\n'
+				+ '    sf org assign permset -o <org> -n KernE2EAuditFieldAccess\n'
+				+ `  Probe output:\n${probeOutput}`);
 	}
 }
+
 const MAX_CONCURRENT = 5;
+
+// How long a launch + verify section waits for the work the platform does on its own once the launch script has
+// returned: queueable hops, platform-event delivery and change-event delivery all land inside this window.
+const BACKGROUND_WORK_WAIT_MILLISECONDS = 30_000;
+
+// Section 79 schedules its sweep on the next minute boundary through the real scheduler, so the wait has to cover
+// the boundary and the sweep that follows it.
+const SCHEDULED_SWEEP_WAIT_MILLISECONDS = 100_000;
+
+// Section 75c starts two batch jobs over 290 rows; both jobs and the log events they publish have to finish before
+// 75d reads them, which takes longer than the 30 seconds a queueable needs.
+const BATCH_JOBS_WAIT_MILLISECONDS = 60_000;
+
+// How much of a scanner failure is kept in the recorded note — enough to recognise the failure, short enough to read.
+const SCANNER_NOTE_MAXIMUM_LENGTH = 120;
+
+// Waits for work that happens outside this process. Sections stub this wait in their unit tests so it fires at once.
+function pause(milliseconds)
+{
+	return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
 
 const INDEPENDENT_SCRIPTS = [
 	{section: 1, file: 'section-1-trigger-lifecycle.apex', expected: 6},
@@ -84,7 +116,6 @@ const INDEPENDENT_SCRIPTS = [
 	{section: 28, file: 'section-28-util-cache.apex', expected: 7},
 	{section: 29, file: 'section-29-log-scope.apex', expected: 5},
 	{section: 30, file: 'section-30-resilience-strategies.apex', expected: 11},
-	{section: 31, file: 'section-31-failure-handling.apex', expected: 8},
 	{section: 36, file: 'section-36-masking-applicable-field-types.apex', expected: 4},
 	{section: 37, file: 'section-37-masking-min-input-length.apex', expected: 3},
 	{section: 38, file: 'section-38-masking-transactionid-preservation.apex', expected: 3},
@@ -94,15 +125,13 @@ const INDEPENDENT_SCRIPTS = [
 	{section: 52, file: 'section-52-edge-dml-builder.apex', expected: 8},
 	{section: 53, file: 'section-53-edge-qry-builder.apex', expected: 10},
 	{section: 54, file: 'section-54-edge-inbound-api.apex', expected: 4},
-	{section: 55, file: 'section-55-edge-outbound-failure.apex', expected: 9},
 	{section: 57, file: 'section-57-edge-cache-ttl.apex', expected: 5},
 	{section: 58, file: 'section-58-edge-logger.apex', expected: 7},
 	{section: 59, file: 'section-59-edge-scheduler.apex', expected: 4},
-	{section: 60, file: 'section-60-edge-mock-regex.apex', expected: 5},
 	{section: 61, file: 'section-61-edge-masking-rollback.apex', expected: 5},
 	{section: 62, file: 'section-62-edge-type-resolver.apex', expected: 4},
-	{section: 63, file: 'section-63-edge-resilience-comp.apex', expected: 6},
-	{section: 64, file: 'section-64-edge-asyncjob-launcher.apex', expected: 6}
+	{section: 64, file: 'section-64-edge-asyncjob-launcher.apex', expected: 6},
+	{section: 85, file: 'section-85-sharing-defaults.apex', expected: 1}
 ];
 
 // Active only while runOrchestratedSection drives a section function: every runScript
@@ -317,21 +346,119 @@ async function runSection11()
 
 	console.log('  Section 11: deploying fail-fast state...');
 	await deployCmdtState('section11-fail-fast');
-	let result = await runScript(scriptPath);
-	totalPass += result.pass;
-	console.log(`  Section 11 (Fail Fast): ${result.pass} assertions passed`);
+	const failFastResult = await runScript(scriptPath);
+	totalPass += failFastResult.pass;
+	console.log(`  Section 11 (Fail Fast): ${failFastResult.pass} assertions passed`);
 
 	console.log('  Section 11: deploying accumulate state...');
 	await deployCmdtState('section11-accumulate');
-	result = await runScript(scriptPath);
-	totalPass += result.pass;
-	console.log(`  Section 11 (Accumulate): ${result.pass} assertions passed`);
+	const accumulateResult = await runScript(scriptPath);
+	totalPass += accumulateResult.pass;
+	console.log(`  Section 11 (Accumulate): ${accumulateResult.pass} assertions passed`);
 
 	return {
 		'section-11': {
 			result: totalPass === expected ? 'PASS' : 'FAIL', score: `${totalPass}/${expected}`, notes: 'Fail Fast and Accumulate verified'
 		}
 	};
+}
+
+// Sections 31, 55, 60 and 63 send their calls through API_EchoSubscriber with an answer registered through
+// API_MockFactory. Outside a unit test a registered answer stands in for the callout only while the MockAllAPIs
+// feature flag is on, so each runs inside a mock-all-apis-enabled window, restored to mock-all-apis-disabled
+// before anything else runs. The log entries a section writes land after its transaction ends, so its cleanup
+// script runs once the background wait has passed; it deletes them and proves by query that nothing is left.
+const FAILURE_HANDLING_SECTION = 31;
+const OUTBOUND_FAILURE_SECTION = 55;
+const RESILIENCE_COMPOSITION_SECTION = 63;
+const MOCK_REGEX_SECTION = 60;
+const MOCKED_OUTBOUND_SECTIONS = {
+	[FAILURE_HANDLING_SECTION]: {
+		file: 'section-31-failure-handling', expected: 9, notes: 'Failure handling through registered answers (MockAllAPIs window), then the log cleanup'
+	},
+	[OUTBOUND_FAILURE_SECTION]: {
+		file: 'section-55-edge-outbound-failure', expected: 10,
+		notes: 'Outbound failure composition through registered answers (MockAllAPIs window), then the log cleanup'
+	},
+	[MOCK_REGEX_SECTION]: {
+		file: 'section-60-edge-mock-regex', expected: 5,
+		notes: 'Mock regex edge cases through registered and metadata answers (MockAllAPIs window), then the issue cleanup'
+	},
+	[RESILIENCE_COMPOSITION_SECTION]: {
+		file: 'section-63-edge-resilience-comp', expected: 7,
+		notes: 'Breaker + retry composition, 63d through a registered answer (MockAllAPIs window), then the log cleanup'
+	}
+};
+
+// Turns MockAllAPIs back off after a section. Left on, it answers every outbound call in the org with a canned
+// response, so a failed restore says which fixture to deploy by hand before it fails the section.
+async function restoreMockAllApisOff(section, deployCmdtState)
+{
+	console.log(`  Section ${section}: restoring mock-all-apis-disabled...`);
+	try
+	{
+		await deployCmdtState('mock-all-apis-disabled');
+	}
+	catch(restoreFailure)
+	{
+		console.error(`  Section ${section}: MockAllAPIs could not be turned off (${restoreFailure.message}); deploy the `
+				+ 'cmdt-states/mock-all-apis-disabled fixture by hand before anything else runs on this org.');
+		throw restoreFailure;
+	}
+}
+
+async function runMockedOutboundSection(section)
+{
+	const {deployCmdtState} = require('./cmdt-deployer');
+	const {file, expected, notes} = MOCKED_OUTBOUND_SECTIONS[section];
+	const cleanupExpected = 1;
+
+	console.log(`  Section ${section}: deploying mock-all-apis-enabled...`);
+	await deployCmdtState('mock-all-apis-enabled');
+	let result;
+	try
+	{
+		result = await runScript(path.join(SCRIPTS_DIR, `${file}.apex`));
+	}
+	finally
+	{
+		await restoreMockAllApisOff(section, deployCmdtState);
+	}
+	console.log(`  Section ${section}: ${result.pass} pass, ${result.fail} fail; waiting 30s for its log entries...`);
+	await pause(BACKGROUND_WORK_WAIT_MILLISECONDS);
+
+	const cleanupResult = await runScript(path.join(SCRIPTS_DIR, `${file}-cleanup.apex`));
+	console.log(`  Section ${section} (cleanup): ${cleanupResult.pass} pass, ${cleanupResult.fail} fail`);
+
+	const totalPass = result.pass + cleanupResult.pass;
+	const totalExpected = expected + cleanupExpected;
+	return {
+		[`section-${section}`]: {
+			result: totalPass === totalExpected && result.fail === 0 && cleanupResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${totalExpected}`,
+			notes
+		}
+	};
+}
+
+function runSection31()
+{
+	return runMockedOutboundSection(FAILURE_HANDLING_SECTION);
+}
+
+function runSection55()
+{
+	return runMockedOutboundSection(OUTBOUND_FAILURE_SECTION);
+}
+
+function runSection63()
+{
+	return runMockedOutboundSection(RESILIENCE_COMPOSITION_SECTION);
+}
+
+function runSection60()
+{
+	return runMockedOutboundSection(MOCK_REGEX_SECTION);
 }
 
 async function runSection27()
@@ -391,15 +518,25 @@ async function runTestClasses()
 		const output = execSync(`sf apex run test -o ${ORG_ALIAS} --test-level RunLocalTests --result-format json --code-coverage --json --wait 15`,
 				{encoding: 'utf8', timeout: 600_000});
 		const result = JSON.parse(output);
-		const summary = result.result?.summary || {};
+		const {outcome, testsRan, failing, testRunCoverage} = result.result?.summary || {};
 		return {
-			result: summary.outcome === 'Passed' ? 'PASS' : 'FAIL', passed: summary.testsRan || 0, failed: summary.failing || 0, coverage: summary.testRunCoverage || '0%'
+			result: outcome === 'Passed' ? 'PASS' : 'FAIL', passed: testsRan || 0, failed: failing || 0, coverage: testRunCoverage || '0%'
 		};
 	}
 	catch(error)
 	{
 		return {result: 'FAIL', error: error.message};
 	}
+}
+
+// Code Analyzer writes a violationCounts summary; output without one carries the violations themselves.
+function countScannerViolations(pmdData)
+{
+	if(pmdData.violationCounts)
+	{
+		return pmdData.violationCounts.total || 0;
+	}
+	return pmdData.violations?.length ?? 0;
 }
 
 async function runScanner()
@@ -418,14 +555,14 @@ async function runScanner()
 		// API instead of the platform primitive" rules that the framework-scoped
 		// code-analyzer.yml deliberately excludes. Fixtures in release-testing/scanner/
 		// classes/ contain deliberate violations of those framework-API rules.
-		execSync(
-				`sf code-analyzer run --target release-testing/scanner/classes/ --rule-selector pmd:KernDXFrameworkCompliance --config-file release-testing/scanner/code-analyzer-fixtures.yml --output-file "${scannerOutputPath}" 2>&1`,
-				{encoding: 'utf8', timeout: 120_000});
+		execSync('sf code-analyzer run --target release-testing/scanner/classes/ --rule-selector pmd:KernDXFrameworkCompliance'
+				+ ' --config-file release-testing/scanner/code-analyzer-fixtures.yml'
+				+ ` --output-file "${scannerOutputPath}" 2>&1`, {encoding: 'utf8', timeout: 120_000});
 
 		if(fs.existsSync(scannerOutputPath))
 		{
-			const pmdData = JSON.parse(fs.readFileSync(scannerOutputPath, 'utf8'));
-			pmdResult.violations = pmdData.violationCounts ? pmdData.violationCounts.total || 0 : (pmdData.violations ? pmdData.violations.length : 0);
+			const pmdData = JSON.parse(fs.readFileSync(scannerOutputPath, {encoding: 'utf8'}));
+			pmdResult.violations = countScannerViolations(pmdData);
 		}
 		else
 		{
@@ -434,7 +571,7 @@ async function runScanner()
 	}
 	catch(error)
 	{
-		pmdResult.notes = 'Scanner failed: ' + (error.message || '').slice(0, 120);
+		pmdResult.notes = 'Scanner failed: ' + (error.message || '').slice(0, SCANNER_NOTE_MAXIMUM_LENGTH);
 	}
 
 	return {scanner: pmdResult, eslint: eslintResult};
@@ -485,7 +622,7 @@ async function runSection34()
 	console.log(`  Section 34 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
 
 	console.log('  Section 34: waiting 30s for queueables to complete (includes handler isolation hops)...');
-	await new Promise(resolve => setTimeout(resolve, 30_000));
+	await pause(BACKGROUND_WORK_WAIT_MILLISECONDS);
 
 	console.log('  Section 34: verifying chain results...');
 	const verifyResult = await runScript(verifyScript);
@@ -515,7 +652,7 @@ async function runSection66()
 	console.log(`  Section 66 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
 
 	console.log('  Section 66: waiting 30s for LogEntryEvent__e delivery + TRG_PersistLogEntry persistence...');
-	await new Promise(resolve => setTimeout(resolve, 30_000));
+	await pause(BACKGROUND_WORK_WAIT_MILLISECONDS);
 
 	console.log('  Section 66: verifying detail/rollup flood-control shape...');
 	const verifyResult = await runScript(verifyScript);
@@ -528,7 +665,8 @@ async function runSection66()
 		'section-66': {
 			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
 			score: `${totalPass}/${totalExpected}`,
-			notes: `Launch: ${launchResult.pass}/${expectedLaunch}, Verify: ${verifyResult.pass}/${expectedVerify} — subscriber withFingerprint -> detail/rollup grouping + OccurrenceCount`
+			notes: `Launch: ${launchResult.pass}/${expectedLaunch}, Verify: ${verifyResult.pass}/${expectedVerify}`
+					+ ' — subscriber withFingerprint -> detail/rollup grouping + OccurrenceCount'
 		}
 	};
 }
@@ -545,7 +683,7 @@ async function runSection65()
 	console.log(`  Section 65 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
 
 	console.log('  Section 65: waiting 30s for LogEntryEvent__e delivery + TRG_PersistLogEntry persistence...');
-	await new Promise(resolve => setTimeout(resolve, 30_000));
+	await pause(BACKGROUND_WORK_WAIT_MILLISECONDS);
 
 	console.log('  Section 65: verifying object-qualified bypass-audit targets + flood-control shape...');
 	const verifyResult = await runScript(verifyScript);
@@ -558,7 +696,8 @@ async function runSection65()
 		'section-65': {
 			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
 			score: `${totalPass}/${totalExpected}`,
-			notes: `Launch: ${launchResult.pass}/${expectedLaunch}, Verify: ${verifyResult.pass}/${expectedVerify} — four bypass surfaces -> object-qualified query/DML audit targets + flood-control shape`
+			notes: `Launch: ${launchResult.pass}/${expectedLaunch}, Verify: ${verifyResult.pass}/${expectedVerify}`
+					+ ' — four bypass surfaces -> object-qualified query/DML audit targets + flood-control shape'
 		}
 	};
 }
@@ -617,7 +756,7 @@ async function runSection56()
 	console.log(`  Section 56 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
 
 	console.log('  Section 56: waiting 30s for queueables to complete...');
-	await new Promise(resolve => setTimeout(resolve, 30_000));
+	await pause(BACKGROUND_WORK_WAIT_MILLISECONDS);
 
 	console.log('  Section 56: verifying edge chain results...');
 	const verifyResult = await runScript(verifyScript);
@@ -804,7 +943,7 @@ async function runSection71()
 	console.log(`  Section 71 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
 
 	console.log('  Section 71: waiting 30s for change-event delivery...');
-	await new Promise(resolve => setTimeout(resolve, 30_000));
+	await pause(BACKGROUND_WORK_WAIT_MILLISECONDS);
 
 	console.log('  Section 71: verifying delivered markers...');
 	const verifyResult = await runScript(verifyScript);
@@ -838,7 +977,7 @@ async function runSection72()
 	console.log(`  Section 72 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
 
 	console.log('  Section 72: waiting 30s for change-event delivery...');
-	await new Promise(resolve => setTimeout(resolve, 30_000));
+	await pause(BACKGROUND_WORK_WAIT_MILLISECONDS);
 
 	console.log('  Section 72: verifying degrade...');
 	const verifyResult = await runScript(verifyScript);
@@ -862,14 +1001,15 @@ async function runSection75()
 	const launchScript = path.join(SCRIPTS_DIR, 'section-75-queueable-unhandled-exception.apex');
 	const verifyScript = path.join(SCRIPTS_DIR, 'section-75b-queueable-unhandled-exception-verify.apex');
 	const expectedLaunch = 1;
-	const expectedVerify = 2;
+	// The job is Failed, it keeps the exception's message, and the framework's finalizer wrote one ERROR log entry.
+	const expectedVerify = 3;
 
 	console.log('  Section 75: launching throwing async step...');
 	const launchResult = await runScript(launchScript);
 	console.log(`  Section 75 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
 
 	console.log('  Section 75: waiting 30s for the queueable to run and fail...');
-	await new Promise(resolve => setTimeout(resolve, 30_000));
+	await pause(BACKGROUND_WORK_WAIT_MILLISECONDS);
 
 	console.log('  Section 75: verifying the surfaced Failed AsyncApexJob...');
 	const verifyResult = await runScript(verifyScript);
@@ -883,6 +1023,39 @@ async function runSection75()
 			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
 			score: `${totalPass}/${totalExpected}`,
 			notes: 'Queueable unhandled-exception surfacing: a throwing framework-launched step surfaces as a Failed AsyncApexJob with the exception identity in ExtendedStatus'
+					+ ' and one ERROR log entry from the framework\'s finalizer'
+		}
+	};
+}
+
+// Launch and verify, no fixture: 75c starts a batch job that throws in one chunk and a job the launcher sizes from its
+// setting; 75d, a minute later, reads both jobs, the ERROR entries the batch failure listener filed and the size warning.
+async function runSection75c()
+{
+	const launchScript = path.join(SCRIPTS_DIR, 'section-75c-batch-failure-listener.apex');
+	const verifyScript = path.join(SCRIPTS_DIR, 'section-75d-batch-failure-listener-verify.apex');
+	const expectedLaunch = 2;
+	const expectedVerify = 4;
+
+	console.log('  Section 75c: starting the throwing batch and the launcher-sized batch...');
+	const launchResult = await runScript(launchScript);
+	console.log(`  Section 75c (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
+
+	console.log('  Section 75c: waiting 60s for both batch jobs and their log entries...');
+	await pause(BATCH_JOBS_WAIT_MILLISECONDS);
+
+	const verifyResult = await runScript(verifyScript);
+	console.log(`  Section 75c (verify, 75d): ${verifyResult.pass} pass, ${verifyResult.fail} fail`);
+
+	const totalPass = launchResult.pass + verifyResult.pass;
+	const totalExpected = expectedLaunch + expectedVerify;
+
+	return {
+		'section-75c': {
+			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${totalExpected}`,
+			notes: 'Batch failure listener: a batch chunk that throws is filed as ERROR entries, and the launcher reads the batch size from the job setting (75c)'
+					+ ' then the two jobs, the entries and the size warning are checked (75d)'
 		}
 	};
 }
@@ -915,14 +1088,18 @@ async function runSection77()
 		}
 		catch(deleteFailure)
 		{
-			console.error('  Section 77: clone delete FAILED — the org STILL carries the colliding org-local record (framework DML degraded, or bricked on builds without the engine fallback).');
-			console.error('  Manual cleanup: cd ~/.kern-cmdt-staging && sf project delete source -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__MaskingRule.MaskPaymentCard" --no-prompt');
+			console.error('  Section 77: clone delete FAILED — the org STILL carries the colliding org-local record'
+					+ ' (framework DML degraded, or bricked on builds without the engine fallback).');
+			console.error('  Manual cleanup: cd ~/.kern-cmdt-staging && sf project delete source -o $SF_SUBSCRIBER_ORG_ALIAS'
+					+ ' -m "CustomMetadata:kern__MaskingRule.MaskPaymentCard" --no-prompt');
+			// noinspection ThrowInsideFinallyBlockJS
+			// eslint-disable-next-line no-unsafe-finally
 			throw deleteFailure;
 		}
 	}
 
 	console.log('  Section 77: waiting 30s for the seeded invocation\'s WARN log event to persist...');
-	await new Promise(resolve => setTimeout(resolve, 30_000));
+	await pause(BACKGROUND_WORK_WAIT_MILLISECONDS);
 
 	const recoveredResult = await runScript(scriptPath);
 	console.log(`  Section 77 (recovered): ${recoveredResult.pass} pass, ${recoveredResult.fail} fail`);
@@ -934,7 +1111,8 @@ async function runSection77()
 		'section-77': {
 			result: totalPass === totalExpected && seededResult.fail === 0 && recoveredResult.fail === 0 ? 'PASS' : 'FAIL',
 			score: `${totalPass}/${totalExpected}`,
-			notes: 'Masking CMDT name-collision tolerance: collision seeded → inserts survive on the engine fallback (the pre-fix brick) → clone deleted → fast path recovered + collision WARN persisted'
+			notes: 'Masking CMDT name-collision tolerance: collision seeded → inserts survive on the engine fallback (the pre-fix brick)'
+					+ ' → clone deleted → fast path recovered + collision WARN persisted'
 		}
 	};
 }
@@ -965,7 +1143,8 @@ async function runSection78()
 		'section-78': {
 			result: totalPass === totalExpected && strategyResult.fail === 0 && grantedResult.fail === 0 ? 'PASS' : 'FAIL',
 			score: `${totalPass}/${totalExpected}`,
-			notes: 'Abort gate custom-permission strategy: flag verdict matches the runner\'s real permission state + set granted (78) → granted user resolves core.AbortAsyncChain in a fresh transaction + contradictory-row isTerminal probe through the released API (78b)'
+			notes: 'Abort gate custom-permission strategy: flag verdict matches the runner\'s real permission state + set granted (78)'
+					+ ' → granted user resolves core.AbortAsyncChain in a fresh transaction + contradictory-row isTerminal probe through the released API (78b)'
 		}
 	};
 }
@@ -987,7 +1166,7 @@ async function runSection79()
 	console.log(`  Section 79 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
 
 	console.log('  Section 79: waiting 100s for the scheduled sweep to fire...');
-	await new Promise(resolve => setTimeout(resolve, 100_000));
+	await pause(SCHEDULED_SWEEP_WAIT_MILLISECONDS);
 
 	const verifyResult = await runScript(verifyScript);
 	console.log(`  Section 79 (verify): ${verifyResult.pass} pass, ${verifyResult.fail} fail`);
@@ -999,7 +1178,41 @@ async function runSection79()
 		'section-79': {
 			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
 			score: `${totalPass}/${totalExpected}`,
-			notes: 'Chain Watchdog sweep: audit-back-dated stuck Running probe seeded + one-off watchdog scheduled via the real scheduler (79) → probe marked Stalled after the fire, then cleanup (79b)'
+			notes: 'Chain Watchdog sweep: audit-back-dated stuck Running probe seeded + one-off watchdog scheduled via the real scheduler (79)'
+					+ ' → probe marked Stalled after the fire, then cleanup (79b)'
+		}
+	};
+}
+
+// Launch and verify, no fixture, the same shape and wait as section 79: 79c seeds a stuck chain whose current step has
+// started and cannot safely run twice, and schedules a one-off watchdog; 79d checks the watchdog ended it Failed with
+// an end time and the refusal message, then cleans up. 79d prints a FAIL line while the watchdog has not fired yet.
+async function runSection79c()
+{
+	const launchScript = path.join(SCRIPTS_DIR, 'section-79c-watchdog-started-step.apex');
+	const verifyScript = path.join(SCRIPTS_DIR, 'section-79d-watchdog-started-step-verify.apex');
+	const expectedLaunch = 2;
+	const expectedVerify = 1;
+
+	console.log('  Section 79c: seeding the chain stuck at a started step + scheduling the one-off watchdog...');
+	const launchResult = await runScript(launchScript);
+	console.log(`  Section 79c (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
+
+	console.log('  Section 79c: waiting 100s for the scheduled watchdog to fire...');
+	await pause(SCHEDULED_SWEEP_WAIT_MILLISECONDS);
+
+	const verifyResult = await runScript(verifyScript);
+	console.log(`  Section 79c (verify, 79d): ${verifyResult.pass} pass, ${verifyResult.fail} fail`);
+
+	const totalPass = launchResult.pass + verifyResult.pass;
+	const totalExpected = expectedLaunch + expectedVerify;
+
+	return {
+		'section-79c': {
+			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${totalPass}/${totalExpected}`,
+			notes: 'Chain Watchdog at a started step: a stuck chain whose current step started and is not safe to repeat is seeded (79c)'
+					+ ' → the watchdog ends it Failed with an end time and the refusal message, then cleanup (79d)'
 		}
 	};
 }
@@ -1013,6 +1226,10 @@ const ORCHESTRATED_SECTIONS = [
 	{section: 11, header: 'Step 3: Section 11 (execution strategies)...', run: runSection11},
 	{section: 22, header: 'Step 4: Section 22 (advanced strategies)...', run: runSection22},
 	{section: 27, header: 'Step 5: Section 27 (mock selection)...', run: runSection27},
+	{section: 31, header: 'Step 5a: Section 31 (failure handling — MockAllAPIs window + log cleanup)...', run: runSection31},
+	{section: 55, header: 'Step 5b: Section 55 (outbound failure composition — MockAllAPIs window + log cleanup)...', run: runSection55},
+	{section: 63, header: 'Step 5c: Section 63 (breaker + retry composition — MockAllAPIs window + log cleanup)...', run: runSection63},
+	{section: 60, header: 'Step 5d: Section 60 (mock regex edge cases — MockAllAPIs window + issue cleanup)...', run: runSection60},
 	{section: 34, header: 'Step 6: Section 34 (async chain)...', run: runSection34},
 	{section: 35, header: 'Step 6b: Section 35 (secure-by-default + kill-switch)...', run: runSection35},
 	{section: 42, header: 'Step 6c: Section 42 (BlockDml strategy — CMDT cycle)...', run: runSection42},
@@ -1026,11 +1243,13 @@ const ORCHESTRATED_SECTIONS = [
 	{section: 71, header: 'Step 6k: Section 71 (CDC change-event header recorder — launch + verify)...', run: runSection71},
 	{section: 72, header: 'Step 6l: Section 72 (CDC BlockDml degrade — launch + verify)...', run: runSection72},
 	{section: 75, header: 'Step 6m: Section 75 (queueable unhandled-exception surfacing — launch + verify)...', run: runSection75},
+	{section: '75c', header: 'Step 6m2: Section 75c (batch failure listener and launcher batch size: launch, 60s wait, verify 75d)...', run: runSection75c},
 	{section: 66, header: 'Step 6n: Section 66 (log-fingerprint flood control — subscriber API — launch + verify)...', run: runSection66},
 	{section: 65, header: 'Step 6o: Section 65 (framework-wide bypass audit — launch + verify)...', run: runSection65},
 	{section: 77, header: 'Step 6p: Section 77 (masking CMDT name-collision tolerance — seeded + recovery)...', run: runSection77},
 	{section: 78, header: 'Step 6q: Section 78 (abort gate — core.-prefixed custom-permission strategy — strategy resolution + granted)...', run: runSection78},
-	{section: 79, header: 'Step 6r: Section 79 (chain watchdog sweep — scheduled detection of a stuck chain — launch + verify)...', run: runSection79}
+	{section: 79, header: 'Step 6r: Section 79 (chain watchdog sweep — scheduled detection of a stuck chain — launch + verify)...', run: runSection79},
+	{section: '79c', header: 'Step 6s: Section 79c (chain watchdog at a started step: launch, 100s wait, verify 79d)...', run: runSection79c}
 ];
 
 async function main()
@@ -1042,7 +1261,8 @@ async function main()
 	// NamedOrgNotFoundError bubbles up with a one-line remediation.
 	console.log(`Step 0a: Verifying Salesforce CLI alias "${ORG_ALIAS}"...`);
 	preflightOrgAvailable();
-	console.log('  CLI alias resolved.\n');
+	preflightPackageInstalled();
+	console.log('  CLI alias resolved, and the org has the package installed.\n');
 
 	console.log('Step 0b: Verifying audit-field back-dating enablement (Section 79 prerequisite)...');
 	await preflightAuditBackdating();
@@ -1072,51 +1292,57 @@ async function main()
 	const allScripts = {...scriptResults, ...orchestratedResults};
 	const allPassing = Object.values(allScripts).every(r => r.result === 'PASS');
 
-	let results = {};
+	let results;
 	try
 	{
-		results = JSON.parse(fs.readFileSync(RESULTS_PATH, 'utf8'));
+		results = JSON.parse(fs.readFileSync(RECORDED_RESULTS_PATH, {encoding: 'utf8'}));
 	}
 	catch
 	{
+		results = {};
 	}
 
 	results.phase2 = {
 		scripts: allScripts, testClasses: testClassResults, ...scannerResults
 	};
 
-	fs.mkdirSync(path.dirname(RESULTS_PATH), {recursive: true});
-	fs.writeFileSync(RESULTS_PATH, JSON.stringify(results, null, 2) + '\n', 'utf8');
+	fs.mkdirSync(path.dirname(RECORDED_RESULTS_PATH), {recursive: true});
+	fs.writeFileSync(RECORDED_RESULTS_PATH, JSON.stringify(results, null, 2) + '\n', 'utf8');
 
 	const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 	console.log(`\n=== Phase 2 complete in ${elapsed}s ===`);
 	console.log(`Scripts: ${allPassing ? '\x1b[32mALL PASS\x1b[0m' : '\x1b[31mSOME FAILED\x1b[0m'}`);
 	console.log(`Test classes: ${testClassResults.result}`);
-	console.log(`Results written to ${RESULTS_PATH}`);
+	console.log(`Results written to ${RECORDED_RESULTS_PATH}`);
 
 	process.exit(allPassing && testClassResults.result === 'PASS' ? 0 : 1);
 }
 
+// Surface the two pre-flight refusals with the remediation message
+// front-and-center (the error's `.message` already encodes the fix).
+function reportFailure(error)
+{
+	if(error instanceof NamedOrgNotFoundError || error instanceof ReleaseTargetError)
+	{
+		console.error('\nPhase 2 aborted at pre-flight:\n');
+		console.error(error.message);
+	}
+	else
+	{
+		console.error('Phase 2 failed:', error);
+	}
+	process.exit(1);
+}
+
 if(require.main === module)
 {
-	main().catch(error =>
-	{
-		// Surface NamedOrgNotFoundError with the remediation message
-		// front-and-center (the error's `.message` already encodes the fix).
-		if(error instanceof NamedOrgNotFoundError)
-		{
-			console.error('\nPhase 2 aborted at pre-flight:\n');
-			console.error(error.message);
-			process.exit(1);
-		}
-		console.error('Phase 2 failed:', error);
-		process.exit(1);
-	});
+	main().catch(reportFailure);
 }
 
 module.exports = {
 	INDEPENDENT_SCRIPTS,
 	MAX_CONCURRENT,
+	BACKGROUND_WORK_WAIT_MILLISECONDS,
 	ORCHESTRATED_SECTIONS,
 	runScript,
 	runBatch,
@@ -1125,6 +1351,10 @@ module.exports = {
 	runSection11,
 	runSection22,
 	runSection27,
+	runSection31,
+	runSection55,
+	runSection60,
+	runSection63,
 	runSection35,
 	runSection76,
 	runSection67,
@@ -1134,13 +1364,17 @@ module.exports = {
 	runSection71,
 	runSection72,
 	runSection75,
+	runSection75c,
 	runSection66,
 	runSection65,
 	runSection77,
 	runSection78,
 	runSection79,
+	runSection79c,
 	runTestClasses,
 	runScanner,
 	preflightAuditBackdating,
+	preflightPackageInstalled,
+	reportFailure,
 	main
 };

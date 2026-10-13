@@ -8,7 +8,7 @@
  * - KernNoDirectDML (x1: insert in test)
  * - KernNoInlineSOQL (x1: inline SOQL in test)
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class ScannerTestViolations_TEST
 {
 	/**

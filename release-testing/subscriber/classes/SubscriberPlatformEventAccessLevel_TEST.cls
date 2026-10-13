@@ -37,7 +37,7 @@
  * @date June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(IsParallel=false)
+@IsTest(isParallel=false)
 private class SubscriberPlatformEventAccessLevel_TEST
 {
 	/**

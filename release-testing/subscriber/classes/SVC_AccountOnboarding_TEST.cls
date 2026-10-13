@@ -11,7 +11,7 @@
  * @date February 2026, May 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(IsParallel=true)
+@IsTest(isParallel=true)
 private class SVC_AccountOnboarding_TEST
 {
 	/**

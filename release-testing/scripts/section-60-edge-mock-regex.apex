@@ -133,12 +133,14 @@
  *     EchoSubscriber_Regex    (Priority 50, IsRegex=true, pattern 'order-[0-9]+', status 201)
  *     EchoSubscriber_Priority (Priority 10, IsRegex=false, pattern 'priority-test', status 200)
  *     EchoSubscriber_Default  (Priority 100, no pattern, status 202)
- *   - MockAllAPIs feature flag does NOT need to be enabled — UTIL_HttpClient.useHandler()
- *     auto-enables mocking via API_MockFactory.enableMocking() when the handler's
- *     configure() sets defaultMockBody (non-null) and no Named Credential is supplied.
+ *   - Runs inside a MockAllAPIs window (npm run release:phase2 deploys mock-all-apis-enabled before it and
+ *     mock-all-apis-disabled after): since 1.8 a handler's canned answer and a registered answer stand in for the
+ *     callout outside a unit test only while that flag is on. By hand: deploy the fixture, run, deploy the disabled
+ *     fixture, then run the cleanup script.
  *
- * Run (in isolation):
+ * Run (in isolation, with the flag on):
  *   sf apex run --file release-testing/scripts/section-60-edge-mock-regex.apex -o $SF_SUBSCRIBER_ORG_ALIAS
+ *   sf apex run --file release-testing/scripts/section-60-edge-mock-regex-cleanup.apex -o $SF_SUBSCRIBER_ORG_ALIAS
  *
  * Expected wall-clock: <4 seconds (two CMDT invocations + two memory-mock invocations
  * + SOQL queries + PE emit + ApiCall cleanup).

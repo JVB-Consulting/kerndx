@@ -20,19 +20,25 @@
  * the single-argument `QRY_Condition.FieldCondition` constructors paired with `contains()`,
  * and the call-site alias validation on aliased selections.
  *
+ * Two tests run as a Standard User who has no permission set and cannot see a private API call record the administrator
+ * saved: a cursor opened with bypassSharing() fetches that record, and the query cache keeps a system-mode read only when
+ * the read states its sharing (a user-mode read is kept for the rest of the transaction).
+ *
  * @see kern.QRY_Builder
  * @see kern.QRY_Condition
  * @see kern.QRY_Function
  * @see kern.UTIL_FeatureFlag
+ * @see kern.UTIL_Limits
+ * @see kern.TST_Factory
  *
  * @author Jason van Beukering
  *
  * @group Selectors
  *
- * @date May 2026, June 2026, July 2026
+ * @date May 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class Subscriber_QryEdges_TEST
 {
 	/**
@@ -45,6 +51,36 @@ private class Subscriber_QryEdges_TEST
 	 * packaged custom object from subscriber Apex.
 	 */
 	private static final String NAMESPACE_PREFIX = 'kern__';
+
+	/**
+	 * @description The service name on the private API call record the administrator saves for the sharing tests.
+	 */
+	private static final String PRIVATE_CALL_SERVICE_NAME = 'QryEdgesPrivateCall';
+
+	/**
+	 * @description The direction of the private API call record.
+	 */
+	private static final String DIRECTION_OUTBOUND = 'Outbound';
+
+	/**
+	 * @description The account name the user-mode cached read looks for; no account needs to carry it.
+	 */
+	private static final String CACHED_ACCOUNT_NAME = 'QryEdges cached read';
+
+	/**
+	 * @description How long, in seconds, the user-mode cached read may be kept.
+	 */
+	private static final Integer CACHE_SECONDS = 300;
+
+	/**
+	 * @description Two identical reads that are not cached each run a query.
+	 */
+	private static final Integer QUERIES_FOR_TWO_UNCACHED_READS = 2;
+
+	/**
+	 * @description Two identical cached reads run one query: the second read is answered from the cache.
+	 */
+	private static final Integer QUERIES_FOR_TWO_CACHED_READS = 1;
 
 	/**
 	 * @description A Standard User running a `.withSystemMode().stripInaccessible()` chain
@@ -92,7 +128,8 @@ private class Subscriber_QryEdges_TEST
 
 		Test.stopTest();
 
-		Assert.isTrue(queriedCleanly, '.stripInaccessible() should swallow FLS restrictions and return an empty list for a Standard User without kern__Foobar__c read. Got exception: ' + thrownTypeName);
+		Assert.isTrue(queriedCleanly, '.stripInaccessible() should swallow FLS restrictions and return an empty list for a Standard User without kern__Foobar__c read. '
+				+ 'Got exception: ' + thrownTypeName);
 		Assert.isNotNull(results, 'Result list should be a non-null collection (empty is the expected shape when every field is stripped)');
 		Assert.isTrue(results.isEmpty(), 'Standard User without kern__Foobar__c FLS should observe zero rows after the strip layer scrubs every readable field');
 	}
@@ -286,7 +323,8 @@ private class Subscriber_QryEdges_TEST
 		Test.stopTest();
 
 		Assert.areEqual(2, rows.size(), 'One grouped row per seeded industry should be returned');
-		Assert.areEqual('Technology', rows[0].getString('Industry'), 'orderByCount descending should rank the three-record group first (alphabetical order would put Agriculture first)');
+		Assert.areEqual('Technology', rows[0].getString('Industry'),
+				'orderByCount descending should rank the three-record group first (alphabetical order would put Agriculture first)');
 		Assert.areEqual(3, rows[0].getInteger('groupSize'), 'The leading group should carry its COUNT under the chosen alias');
 		Assert.areEqual('Agriculture', rows[1].getString('Industry'), 'The single-record group should rank last');
 		Assert.areEqual(1, rows[1].getInteger('groupSize'), 'The trailing group should carry its COUNT under the chosen alias');
@@ -371,6 +409,90 @@ private class Subscriber_QryEdges_TEST
 	}
 
 	/**
+	 * @description A cursor keeps the sharing the builder asked for. The administrator saves a private API call record
+	 * that a Standard User with no permission set cannot see. As that user, a system-mode cursor with withSharing() finds
+	 * nothing, and the same cursor with bypassSharing() counts the record and fetches it. System mode is needed on both,
+	 * because a user-mode query always applies the user's sharing and this user has no access to the object at all.
+	 *
+	 * @date October 2026
+	 */
+	@IsTest
+	private static void shouldFetchAnotherUsersPrivateRecordThroughACursorThatBypassesSharing()
+	{
+		User standardUser = kern.TST_Factory.insertUser(STANDARD_PROFILE);
+		kern__ApiCall__c privateCall = insertPrivateCall();
+		Integer recordsWithSharing;
+		Integer recordsBypassingSharing;
+		List<SObject> fetched;
+
+		Test.startTest();
+
+		System.runAs(standardUser)
+		{
+			recordsWithSharing = selectPrivateCall(privateCall.Id).withSharing().toCursor().getNumRecords();
+			Database.Cursor bypassingCursor = selectPrivateCall(privateCall.Id).bypassSharing().toCursor();
+			recordsBypassingSharing = bypassingCursor.getNumRecords();
+			fetched = recordsBypassingSharing > 0 ? bypassingCursor.fetch(0, recordsBypassingSharing) : new List<SObject>();
+		}
+
+		Test.stopTest();
+
+		Assert.areEqual(0, recordsWithSharing, 'Expected the cursor that keeps sharing to find none of the administrator\'s private records');
+		Assert.areEqual(1, recordsBypassingSharing, 'Expected the cursor that bypasses sharing to count the administrator\'s private record');
+		Assert.areEqual(privateCall.Id, fetched[0].Id, 'Expected the cursor that bypasses sharing to fetch the administrator\'s private record');
+	}
+
+	/**
+	 * @description The query cache keeps a read only when it can tell whose rows the read returns. As a Standard User, two
+	 * identical system-mode reads that leave their sharing to the calling class are not cached, so they run two queries.
+	 * The same two reads with withSharing() run one query, because the second is answered from the cache. Two identical
+	 * user-mode reads also run one query, because a user-mode read is kept for the rest of the transaction. The two
+	 * system-mode pairs ask to be cached for this transaction only, so a kept read is held in memory and never in Platform
+	 * Cache, which the platform may empty at any time. The rule that refuses to cache a read with no sharing stated does
+	 * not depend on where the read would be kept. A first read that is not cached runs before the counting starts, so a
+	 * setting the framework reads once per transaction is not counted.
+	 *
+	 * @date October 2026
+	 */
+	@IsTest
+	private static void shouldCacheASystemModeReadOnlyWhenItStatesItsSharing()
+	{
+		User standardUser = kern.TST_Factory.insertUser(STANDARD_PROFILE);
+		kern__ApiCall__c privateCall = insertPrivateCall();
+		Integer queriesWithoutSharingStated;
+		Integer queriesWithSharingStated;
+		Integer queriesInUserMode;
+
+		Test.startTest();
+
+		System.runAs(standardUser)
+		{
+			selectPrivateCall(privateCall.Id).toList();
+
+			Integer queriesBefore = kern.UTIL_Limits.soqlQueries().used();
+			selectPrivateCall(privateCall.Id).withCache(kern.UTIL_Cache.Scope.IN_TRANSACTION, null).toList();
+			selectPrivateCall(privateCall.Id).withCache(kern.UTIL_Cache.Scope.IN_TRANSACTION, null).toList();
+			queriesWithoutSharingStated = kern.UTIL_Limits.soqlQueries().used() - queriesBefore;
+
+			queriesBefore = kern.UTIL_Limits.soqlQueries().used();
+			selectPrivateCall(privateCall.Id).withSharing().withCache(kern.UTIL_Cache.Scope.IN_TRANSACTION, null).toList();
+			selectPrivateCall(privateCall.Id).withSharing().withCache(kern.UTIL_Cache.Scope.IN_TRANSACTION, null).toList();
+			queriesWithSharingStated = kern.UTIL_Limits.soqlQueries().used() - queriesBefore;
+
+			queriesBefore = kern.UTIL_Limits.soqlQueries().used();
+			selectAccountsInUserMode().withCache(CACHE_SECONDS).toList();
+			selectAccountsInUserMode().withCache(CACHE_SECONDS).toList();
+			queriesInUserMode = kern.UTIL_Limits.soqlQueries().used() - queriesBefore;
+		}
+
+		Test.stopTest();
+
+		Assert.areEqual(QUERIES_FOR_TWO_UNCACHED_READS, queriesWithoutSharingStated, 'Expected a system-mode read that leaves its sharing to the caller not to be cached');
+		Assert.areEqual(QUERIES_FOR_TWO_CACHED_READS, queriesWithSharingStated, 'Expected a system-mode read that states withSharing() to be cached');
+		Assert.areEqual(QUERIES_FOR_TWO_CACHED_READS, queriesInUserMode, 'Expected a user-mode read to be cached for the rest of the transaction');
+	}
+
+	/**
 	 * @description Seeds one Account through the packaged test-data builder with the fields the
 	 * aggregate and contains scenarios read back.
 	 *
@@ -409,6 +531,55 @@ private class Subscriber_QryEdges_TEST
 		}
 		Assert.fail('No grouped row returned for industry ' + industry);
 		return null;
+	}
+
+	/**
+	 * @description Saves, as the running administrator, the private API call record the sharing tests read. The object's
+	 * sharing is Private, so only its owner and users with access to every record can see it.
+	 *
+	 * @return The saved record.
+	 *
+	 * @date October 2026
+	 */
+	private static kern__ApiCall__c insertPrivateCall()
+	{
+		return (kern__ApiCall__c)kern.TST_Builder.of(kern__ApiCall__c.SObjectType)
+				.withOverride(kern__ApiCall__c.kern__ServiceName__c, PRIVATE_CALL_SERVICE_NAME)
+				.withOverride(kern__ApiCall__c.kern__Direction__c, DIRECTION_OUTBOUND)
+				.build();
+	}
+
+	/**
+	 * @description Starts a system-mode read of the one private API call record. System mode skips the object and field
+	 * checks, which this user would fail; the caller decides the record sharing.
+	 *
+	 * @param callId The Id of the private API call record.
+	 *
+	 * @return The builder, ready for a sharing choice, a cache choice and a terminal call.
+	 *
+	 * @date October 2026
+	 */
+	private static kern.QRY_Builder.Builder selectPrivateCall(Id callId)
+	{
+		return kern.QRY_Builder.selectFrom(kern__ApiCall__c.SObjectType)
+				.fields(new List<SObjectField> {kern__ApiCall__c.kern__ServiceName__c})
+				.condition(kern__ApiCall__c.Id).equals(callId)
+				.withSystemMode();
+	}
+
+	/**
+	 * @description Starts a user-mode read of accounts by name, an object a Standard User may read.
+	 *
+	 * @return The builder, ready for a cache choice and a terminal call.
+	 *
+	 * @date October 2026
+	 */
+	private static kern.QRY_Builder.Builder selectAccountsInUserMode()
+	{
+		return kern.QRY_Builder.selectFrom(Account.SObjectType)
+				.fields(new List<SObjectField> {Account.Name})
+				.condition(Account.Name).equals(CACHED_ACCOUNT_NAME)
+				.withUserMode();
 	}
 
 	/**

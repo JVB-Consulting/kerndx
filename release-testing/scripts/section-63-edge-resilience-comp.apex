@@ -10,11 +10,15 @@
  *        HALF_OPEN reached via forceOpen() + timeout=1 + 2s spin-wait (anon Apex; Test.isRunningTest()
  *        is false so timeout=0 millisecond shortcut does not apply).
  *
- *   63b. shouldRetry with non-retryable exception type — SPEC DEVIATION.
- *        UTIL_Retry.Strategy has NO dontRetryOn(Set<Type>) or exception-type filter API.
- *        shouldRetry only checks retryCount < maxRetries; exception type is caller's responsibility.
- *        OBSERVABLE: shouldRetry returns true/false purely on count vs maxRetries boundary.
- *        FRAMEWORK FOLLOW-UP: add .dontRetryOn(Set<Type>) to Strategy interface.
+ *   63b. shouldRetry with a non-retryable exception type.
+ *        The filter exists: kern.UTIL_Retry.dontRetryOnException(base, types) and
+ *        retryOnlyOnException(base, types) wrap a strategy and read the exception passed through
+ *        Context.withCustomData, matched by its exact type name.
+ *        OBSERVABLE: a dontRetryOnException(exponential().withMaxRetries(2), {System.CalloutException})
+ *        strategy answers false for a CalloutException, true for an IllegalArgumentException and
+ *        true when no exception is passed. The through-the-handler proof (a handler whose
+ *        createRetryStrategy() denylists the exception, on the real call path) is
+ *        SubscriberOutboundRetry_TEST.shouldNotScheduleARetryForAFailureTheHandlerDenylists.
  *
  *   63c. Retry exhaustion + onFailure(BLOCK) — SPEC DEVIATION.
  *        FailureAction.BLOCK does not exist (only LOG_FAILURE and RETRY_THEN_LOG).
@@ -39,17 +43,22 @@
  *        withJitter(true) produces values in expected [base, base+25%] range.
  *
  * Deferrals:
- *   §6.12 #2: dontRetryOn API absent — SPEC DEVIATION. Follow-up: add to Strategy.
+ *   §6.12 #2: closed. The exception filter is UTIL_Retry.dontRetryOnException / retryOnlyOnException (63b).
  *   §6.12 #3: FailureAction.BLOCK absent — SPEC DEVIATION. Follow-up: add BLOCK/RETHROW.
  *   §6.12 #4: FailureAction.LOG_AND_CONTINUE absent — SPEC DEVIATION. Follow-up: alias LOG_FAILURE.
  *   §6.12 #5: no native breaker+retry coupling — caller-side composition required.
  *
  * Run-isolation: circuit breaker state in Platform Cache (timestamp-prefixed IDs). Cleanup resets
- * all breakers. Scenario 63d creates ApiCall/ApiIssue rows; cleanup deletes them.
+ * all breakers. Scenario 63d creates ApiCall/ApiIssue rows; cleanup deletes them and proves by query
+ * that none is left. The log entries this run writes land after it ends, so
+ * section-63-edge-resilience-comp-cleanup.apex, run 30 seconds later, deletes them and proves it.
  *
  * Prerequisites:
  *   - ${SF_SUBSCRIBER_ORG_ALIAS} org, kern managed package installed.
- *   - API_EchoSubscriber deployed. kern__ApiSetting.EchoSubscriber (LogIssues=true, MockingEnabled=true).
+ *   - API_EchoSubscriber deployed. kern__ApiSetting.EchoSubscriber (LogIssues=true).
+ *   - The MockAllAPIs feature flag on (fixture cmdt-states/mock-all-apis-enabled; phase 2 deploys it around this
+ *     section and restores mock-all-apis-disabled after): scenario 63d registers its answer through
+ *     kern.API_MockFactory, which stands in for the callout outside a unit test only while MockAllAPIs is on.
  *   - Platform Cache partition allocated (kern__Library).
  *
  * Run:
@@ -151,49 +160,37 @@ catch(Exception scenarioError)
 	fail++;
 }
 
-// Scenario 63b — shouldRetry with non-retryable exception type — SPEC DEVIATION documented.
-// UTIL_Retry.Strategy has NO exception-type filter. shouldRetry only checks retryCount < maxRetries.
-// SPEC DEVIATION: §6.12 #2 assumed dontRetryOn(Set<Type>) API that does not exist.
+// Scenario 63b — shouldRetry with a non-retryable exception type.
+// UTIL_Retry.dontRetryOnException wraps a strategy with a denylist of exception types, read from the
+// exception passed through Context.withCustomData and matched by exact type name. A denylisted
+// exception is refused, any other exception is decided by the wrapped strategy, and a context with no
+// exception reaches the wrapped strategy untouched. The through-the-handler proof, on the real call
+// path, is SubscriberOutboundRetry_TEST.shouldNotScheduleARetryForAFailureTheHandlerDenylists.
 try
 {
-	kern.UTIL_Retry.Strategy strategy63b = kern.UTIL_Retry.exponential()
-			.withMaxRetries(2)
-			.withBaseBackoff(5)
-			.withJitter(false);
+	kern.UTIL_Retry.Strategy strategy63b = kern.UTIL_Retry.dontRetryOnException(
+			kern.UTIL_Retry.exponential().withMaxRetries(2),
+			new Set<Type> {System.CalloutException.class}
+	);
+
+	Assert.isFalse(
+			strategy63b.shouldRetry(kern.UTIL_Retry.newContext(0).withCustomData(new System.CalloutException('63b'))),
+			'63b: a denylisted CalloutException must not be retried, with budget left'
+	);
+
+	Assert.isTrue(
+			strategy63b.shouldRetry(kern.UTIL_Retry.newContext(0).withCustomData(new IllegalArgumentException('63b'))),
+			'63b: an IllegalArgumentException is not denylisted, so the wrapped strategy retries it'
+	);
 
 	Assert.isTrue(
 			strategy63b.shouldRetry(kern.UTIL_Retry.newContext(0)),
-			'63b: shouldRetry at count=0 (maxRetries=2) must return true — exception type irrelevant'
-	);
-
-	Assert.isTrue(
-			strategy63b.shouldRetry(kern.UTIL_Retry.newContext(1)),
-			'63b: shouldRetry at count=1 (maxRetries=2) must return true — one slot remains'
-	);
-
-	Assert.isFalse(
-			strategy63b.shouldRetry(kern.UTIL_Retry.newContext(2)),
-			'63b: shouldRetry at count=2 (maxRetries=2) must return false — budget exhausted'
-	);
-
-	Assert.isFalse(
-			strategy63b.shouldRetry(null),
-			'63b: shouldRetry(null) must return false — DefaultStrategy: context != null gate'
-	);
-
-	Assert.areEqual(10, strategy63b.calculateBackoff(kern.UTIL_Retry.newContext(1)),
-			'63b: exponential(base=5, mult=2) at count=1 must be 10'
-	);
-	Assert.areEqual(20, strategy63b.calculateBackoff(kern.UTIL_Retry.newContext(2)),
-			'63b: exponential(base=5, mult=2) at count=2 must be 20'
+			'63b: a context with no exception reaches the wrapped strategy, which retries it'
 	);
 
 	System.debug(LoggingLevel.INFO,
-			'63b PASS (exception-type filter absent — SPEC DEVIATION §6.12 #2): '
-			+ 'shouldRetry: 0→true, 1→true, 2→false, null→false. '
-			+ 'calculateBackoff: 1→10, 2→20. '
-			+ 'SPEC DEVIATION: dontRetryOn(Set<Type>) does not exist. '
-			+ 'FRAMEWORK FOLLOW-UP: add .dontRetryOn(Set<Type>) to Strategy interface.'
+			'63b PASS: dontRetryOnException({CalloutException}) refused a CalloutException, '
+			+ 'retried an IllegalArgumentException and retried a context with no exception.'
 	);
 	pass++;
 }
@@ -290,7 +287,13 @@ try
 			.body('{"error":"log-and-continue"}')
 			.statusCode(500)
 			.register();
-	Datetime startedAt63d = Datetime.now();
+	// A row's CreatedDate has whole seconds, so an earlier scenario's rows can share this second. The rows already there
+	// are left out by id, so only the rows this scenario creates are read and counted.
+	Datetime startedAt63d = Datetime.now().addSeconds(-1);
+	Set<Id> earlierCallIds63d = new Map<Id, kern__ApiCall__c>(
+			[SELECT Id FROM kern__ApiCall__c WHERE kern__ServiceName__c = :SERVICE_NAME AND CreatedDate >= :startedAt63d]).keySet();
+	Set<Id> earlierIssueIds63d = new Map<Id, kern__ApiIssue__c>(
+			[SELECT Id FROM kern__ApiIssue__c WHERE kern__ServiceName__c = :SERVICE_NAME AND CreatedDate >= :startedAt63d]).keySet();
 
 	kern.UTIL_HttpClient.useHandler(API_EchoSubscriber.class)
 			.onFailure(kern.UTIL_HttpClient.FailureAction.LOG_FAILURE)
@@ -307,13 +310,14 @@ try
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
 			AND CreatedDate >= :startedAt63d
+			AND Id NOT IN :earlierCallIds63d
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
 
 	Assert.areEqual(1, apiCalls63d.size(),
 			'63d: ApiCall row must be persisted for LOG_FAILURE + 500. '
-			+ 'Confirm API_EchoSubscriber and kern__ApiSetting.EchoSubscriber (MockingEnabled=true).'
+			+ 'Confirm API_EchoSubscriber, kern__ApiSetting.EchoSubscriber and the MockAllAPIs feature flag (on).'
 	);
 
 	Assert.areEqual('500', apiCalls63d[0].kern__StatusCode__c,
@@ -331,6 +335,7 @@ try
 			FROM kern__ApiIssue__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
 			AND CreatedDate >= :startedAt63d
+			AND Id NOT IN :earlierIssueIds63d
 	];
 
 	Assert.isTrue(apiIssueCount63d >= 1,
@@ -589,6 +594,33 @@ delete
 		AND CreatedById = :UserInfo.getUserId()
 		LIMIT 500
 ];
+// Log entries are written from a platform event after this transaction ends, so the ones this run
+// emits are deleted by section-63-edge-resilience-comp-cleanup.apex, run 30 seconds later; the ones
+// already written (an earlier run's) are deleted here: the handler's, and the breakers' (S63_ ids). The Automated Process
+// user writes them, so they are not filtered by creator.
+final String LOG_PATTERN = '%' + SERVICE_NAME + '%';
+final String CIRCUIT_LOG_PATTERN = '%S63_%';
+delete
+[
+		SELECT Id
+		FROM kern__LogEntry__c
+		WHERE (kern__ClassMethod__c LIKE :LOG_PATTERN OR kern__ShortMessage__c LIKE :CIRCUIT_LOG_PATTERN)
+		AND CreatedDate = TODAY
+		LIMIT 500
+];
+Integer callsLeft = [SELECT COUNT() FROM kern__ApiCall__c WHERE kern__ServiceName__c = :SERVICE_NAME AND CreatedDate = TODAY AND CreatedById = :UserInfo.getUserId()];
+Integer issuesLeft = [SELECT COUNT() FROM kern__ApiIssue__c WHERE kern__ServiceName__c = :SERVICE_NAME AND CreatedDate = TODAY AND CreatedById = :UserInfo.getUserId()];
+if(callsLeft + issuesLeft == 0)
+{
+	System.debug(LoggingLevel.INFO, '63-cleanup PASS: no API_EchoSubscriber call or issue of today is left; '
+			+ 'run section-63-edge-resilience-comp-cleanup.apex in 30 seconds for the log entries');
+}
+else
+{
+	System.debug(LoggingLevel.ERROR, '63-cleanup FAIL: left behind: ' + callsLeft + ' calls, ' + issuesLeft + ' issues');
+	failures.add('63-cleanup: left behind ' + callsLeft + ' calls, ' + issuesLeft + ' issues');
+	fail++;
+}
 
 kern.API_MockFactory.clearMocks();
 kern.TRG_Base.clearAllBypasses();

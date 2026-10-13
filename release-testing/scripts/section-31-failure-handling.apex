@@ -6,12 +6,20 @@
 //   - kern managed package installed
 //   - Subscriber test code deployed (API_EchoSubscriber, ApiSetting.EchoSubscriber CMDT)
 //   - Platform Cache partition allocated (kern__Library)
+//   - The MockAllAPIs feature flag on (fixture cmdt-states/mock-all-apis-enabled; phase 2 deploys it
+//     around this section and restores mock-all-apis-disabled after)
 //
 // Exercises the full API framework pipeline with mocked failures via
 // UTIL_HttpClient delegation mode through API_EchoSubscriber. Tests failure
 // persistence, retry config propagation, failure rate injection, and ApiIssue
-// logging. Uses delegation mode (not ad-hoc) because in-memory mocks only
-// intercept real callouts in test context.
+// logging. Each scenario registers its answer through kern.API_MockFactory.
+// Outside a unit test a registered answer stands in for the callout only while
+// MockAllAPIs is on; with it off the handler makes its real call.
+//
+// Cleanup: the finally block deletes the calls and issues the section created and
+// proves by query that none is left. The log entries the section writes land after
+// its transaction ends, so section-31-failure-handling-cleanup.apex, run 30 seconds
+// later, deletes them and proves it.
 //
 // Run:
 //   sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-31-failure-handling.apex
@@ -321,5 +329,17 @@ finally
 	if(!testIssues.isEmpty())
 	{
 		delete testIssues;
+	}
+
+	Integer callsLeft = [SELECT COUNT() FROM kern__ApiCall__c WHERE Id NOT IN :baselineCallIds];
+	Integer issuesLeft = [SELECT COUNT() FROM kern__ApiIssue__c WHERE Id NOT IN :baselineIssueIds];
+	if(callsLeft + issuesLeft == 0)
+	{
+		System.debug('31-cleanup PASS: no call or issue the section created is left; '
+				+ 'run section-31-failure-handling-cleanup.apex in 30 seconds for the log entries');
+	}
+	else
+	{
+		System.debug('31-cleanup FAIL: left behind: ' + callsLeft + ' calls, ' + issuesLeft + ' issues');
 	}
 }

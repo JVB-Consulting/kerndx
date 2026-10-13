@@ -4,7 +4,6 @@ jest.mock('child_process', () => ({
 }));
 
 const fs = require('fs');
-const path = require('path');
 const os = require('os');
 const {execSync} = require('child_process');
 const {getSubscriberOrgAlias} = require('../runner/subscriber-config');
@@ -156,6 +155,17 @@ describe('deployMetadataDir', () =>
 	{
 		fs.existsSync.mockReturnValue(false);
 		expect(() => deployMetadataDir('/bundles/create')).toThrow('Bundle metadata directory not found');
+	});
+
+	it('should deploy to the org it is given in place of the environment variable\'s org', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		execSync.mockReturnValue(JSON.stringify({status: 0}));
+
+		deployMetadataDir('/bundles/create', 'MyDevelopmentOrg');
+
+		expect(execSync)
+		.toHaveBeenCalledWith('sf project deploy start --metadata-dir metadata -o MyDevelopmentOrg --json', expect.objectContaining({cwd: '/bundles/create'}));
 	});
 
 	it('should run the Export-modal deploy command from the bundle root', () =>

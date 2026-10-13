@@ -10,7 +10,7 @@
  *
  * @date February 2026, May 2026
  */
-@RestResource(UrlMapping='/v1/contact-form/*')
+@RestResource(urlMapping='/v1/contact-form/*')
 global inherited sharing class REST_ContactForm
 {
 	/**

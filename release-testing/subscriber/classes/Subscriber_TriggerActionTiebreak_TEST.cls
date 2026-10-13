@@ -24,7 +24,7 @@
  * @date June 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class Subscriber_TriggerActionTiebreak_TEST
 {
 	/**

@@ -8,39 +8,116 @@ const HISTORY_PATH = path.resolve(__dirname, '../results/perf-history.json');
 const MAX_HISTORY = 5;
 const WARN_RATIO = 1.3;
 const LOUD_RATIO = 1.5;
+const VERDICT_WIDTH = 5;
+const STANDARD_INPUT = 0;
+const UNKNOWN_VERSION = 'unknown';
 
-function parseArgs()
+// The options that take a value, either as the next word or after an equals sign.
+const VALUE_ARGUMENTS = new Map([
+	[
+		'--section',
+		(settings, value) =>
+		{
+			settings.section = parseInt(value, 10);
+		}
+	],
+	[
+		'--logfile',
+		(settings, value) =>
+		{
+			settings.logfile = value;
+		}
+	],
+	[
+		'--package-version',
+		(settings, value) =>
+		{
+			settings.packageVersion = value;
+		}
+	]
+]);
+
+// The options that are a switch on their own.
+const FLAG_ARGUMENTS = new Map([
+	[
+		'--report',
+		(settings) =>
+		{
+			settings.report = true;
+		}
+	],
+	[
+		'--reset',
+		(settings) =>
+		{
+			settings.reset = true;
+		}
+	],
+	[
+		'--development-org',
+		(settings) =>
+		{
+			settings.packageVersion = developmentVersion();
+		}
+	]
+]);
+
+/**
+ * @description The version a development-org run is filed under: the source's version number with -dev, because no
+ * package is installed on that org. The subscriber-org run records the real build with --package-version instead.
+ * @return {string} the version, for example 1.8.0.NEXT-dev
+ */
+function developmentVersion()
+{
+	const project = require('../../sfdx-project.json');
+	return `${project.packageDirectories.find((directory) => directory.default).versionNumber}-dev`;
+}
+
+/**
+ * @description Applies one command-line word and says how many words it used up: two for `--name value`,
+ * one for `--name=value`, for a switch and for anything the tool does not know.
+ * @param {object} settings the options gathered so far
+ * @param {string} argument the word
+ * @param {string|undefined} nextArgument the word after it
+ * @return {number} the number of words used up
+ */
+function applyArgument(settings, argument, nextArgument)
+{
+	const [name, inlineValue] = argument.split('=');
+	const setValue = VALUE_ARGUMENTS.get(name);
+	if(setValue && inlineValue !== undefined)
+	{
+		setValue(settings, inlineValue);
+		return 1;
+	}
+	if(setValue && nextArgument)
+	{
+		setValue(settings, nextArgument);
+		return 2;
+	}
+	const setFlag = FLAG_ARGUMENTS.get(argument);
+	if(setFlag)
+	{
+		setFlag(settings);
+	}
+	return 1;
+}
+
+/**
+ * @description Reads the command line.
+ * @return {object} the section to keep to, the log file to read, whether to report or to reset, and the package
+ * version the measurements were taken on (null when the command line named none)
+ */
+function parseArguments()
 {
 	const args = process.argv.slice(2);
-	const out = {section: null, logfile: null, report: false, reset: false};
-	for(let i = 0; i < args.length; i++)
+	const settings = {section: null, logfile: null, report: false, reset: false, packageVersion: null};
+	let index = 0;
+	while(index < args.length)
 	{
-		if(args[i] === '--section' && args[i + 1])
-		{
-			out.section = parseInt(args[++i], 10);
-		}
-		else if(args[i].startsWith('--section='))
-		{
-			out.section = parseInt(args[i].split('=')[1], 10);
-		}
-		else if(args[i] === '--logfile' && args[i + 1])
-		{
-			out.logfile = args[++i];
-		}
-		else if(args[i].startsWith('--logfile='))
-		{
-			out.logfile = args[i].split('=')[1];
-		}
-		else if(args[i] === '--report')
-		{
-			out.report = true;
-		}
-		else if(args[i] === '--reset')
-		{
-			out.reset = true;
-		}
+		index += applyArgument(settings, args[index], args[index + 1]);
 	}
-	return out;
+	return settings;
 }
 
 function loadHistory()
@@ -49,7 +126,7 @@ function loadHistory()
 	{
 		return {};
 	}
-	return JSON.parse(fs.readFileSync(HISTORY_PATH, 'utf8'));
+	return JSON.parse(fs.readFileSync(HISTORY_PATH, {encoding: 'utf8'}));
 }
 
 function saveHistory(history)
@@ -77,15 +154,16 @@ function stdDev(values, mean)
 function harvestRows(input)
 {
 	const rows = [];
-	const re = /PERF_ROW:\s*(\{[^}]+\})/g;
+	// Fresh for every call: a global pattern remembers where it stopped.
+	const rowPattern = /PERF_ROW:\s*(\{[^}]+})/g;
 	let match;
-	while((match = re.exec(input)) !== null)
+	while((match = rowPattern.exec(input)) !== null)
 	{
 		try
 		{
 			rows.push(JSON.parse(match[1]));
 		}
-		catch(e)
+		catch
 		{
 			console.error('Failed to parse PERF_ROW:', match[1]);
 		}
@@ -115,38 +193,139 @@ function classify(value, currentMedian)
 	return 'OK';
 }
 
+/**
+ * @description The key the history holds a section's metrics under, whatever name the section was recorded with.
+ * @param {object} history the whole history
+ * @param {number} section the section number
+ * @return {string|undefined} the key, or undefined when the history holds none for that section
+ */
+function findSectionKey(history, section)
+{
+	return Object.keys(history).find((key) => key.startsWith(`section-${section}-`));
+}
+
+/**
+ * @description Empties the history, or drops the one section the command line named, and saves it.
+ * @param {object} history the whole history
+ * @param {number|null} section the section to drop, or null for all of them
+ */
+function resetHistory(history, section)
+{
+	const sectionKey = section ? findSectionKey(history, section) : null;
+	const remaining = section ? history : {};
+	if(sectionKey)
+	{
+		delete remaining[sectionKey];
+	}
+	saveHistory(remaining);
+	console.log('History reset.');
+}
+
+/**
+ * @description The measurements to read: the named log file, or whatever was piped in.
+ * @param {string|null} logfile the log file the command line named, or null
+ * @return {string} the text to harvest the measurements from
+ */
+function readInput(logfile)
+{
+	return logfile ? fs.readFileSync(logfile, {encoding: 'utf8'}) : fs.readFileSync(STANDARD_INPUT, {encoding: 'utf8'});
+}
+
+/**
+ * @description Adds one measurement to the history, grades it against the baseline it had before, and
+ * recomputes that baseline. With a package version the measurement goes under that version's own key, so a new
+ * release starts its own baseline; without one it goes under whatever key the section already has.
+ * @param {object} history the whole history
+ * @param {object} row the measurement: its section, its metric and its value
+ * @param {string|null} packageVersion the package version the measurement was taken on, or null when unknown
+ * @return {{verdict: string, message: string}} the grade and the line to print for it
+ */
+function recordRow(history, row, packageVersion)
+{
+	const sectionKey = packageVersion ? `section-${row.section}-${packageVersion}` : findSectionKey(history, row.section) || `section-${row.section}-${UNKNOWN_VERSION}`;
+	if(!history[sectionKey])
+	{
+		history[sectionKey] = {};
+	}
+	if(!history[sectionKey][row.metric])
+	{
+		history[sectionKey][row.metric] = {history: [], median: null, stdDev: 0};
+	}
+
+	const entry = history[sectionKey][row.metric];
+	const currentMedian = entry.median;
+	const verdict = classify(row.value, currentMedian);
+
+	entry.history.push(row.value);
+	if(entry.history.length > MAX_HISTORY)
+	{
+		entry.history.shift();
+	}
+	entry.median = median(entry.history);
+	entry.stdDev = stdDev(entry.history, entry.median);
+
+	const message = `${verdict.padEnd(VERDICT_WIDTH)} section-${row.section}`
+		+ ` ${row.metric}=${row.value} (median was ${currentMedian || '—'})`;
+	return {verdict, message};
+}
+
+/**
+ * @description Repeats the graded rows that were slower than their baseline, under their own heading.
+ * @param {string[]} warnings the lines already printed for those rows
+ */
+function reportWarnings(warnings)
+{
+	if(warnings.length === 0)
+	{
+		return;
+	}
+	console.log('\n=== Performance regressions ===');
+	warnings.forEach((warning) => console.log(warning));
+}
+
+/**
+ * @description Records every measurement, prints a line for each, saves the history and gathers the
+ * regressions under their own heading.
+ * @param {object} history the whole history
+ * @param {object[]} rows the measurements
+ * @param {number|null} section the only section to take, or null for all of them
+ * @param {string|null} packageVersion the package version the measurements were taken on, or null when unknown
+ */
+function recordRows(history, rows, section, packageVersion)
+{
+	const warnings = [];
+	for(const row of rows.filter((candidate) => !section || candidate.section === section))
+	{
+		const {verdict, message} = recordRow(history, row, packageVersion);
+		console.log(message);
+		if(verdict === 'WARN' || verdict === 'WARN!')
+		{
+			warnings.push(message);
+		}
+	}
+
+	saveHistory(history);
+	reportWarnings(warnings);
+}
+
 function main()
 {
-	const args = parseArgs();
-	let history = loadHistory();
+	const settings = parseArguments();
+	const history = loadHistory();
 
-	if(args.report)
+	if(settings.report)
 	{
 		console.log(JSON.stringify(history, null, 2));
 		return;
 	}
 
-	if(args.reset)
+	if(settings.reset)
 	{
-		if(args.section)
-		{
-			const key = Object.keys(history).find(k => k.startsWith(`section-${args.section}-`));
-			if(key)
-			{
-				delete history[key];
-			}
-		}
-		else
-		{
-			history = {};
-		}
-		saveHistory(history);
-		console.log('History reset.');
+		resetHistory(history, settings.section);
 		return;
 	}
 
-	const input = args.logfile ? fs.readFileSync(args.logfile, 'utf8') : fs.readFileSync(0, 'utf8');
-	const rows = harvestRows(input);
+	const rows = harvestRows(readInput(settings.logfile));
 
 	if(rows.length === 0)
 	{
@@ -154,53 +333,14 @@ function main()
 		return;
 	}
 
-	const warnings = [];
-	for(const row of rows)
-	{
-		if(args.section && row.section !== args.section)
-		{
-			continue;
-		}
-
-		const sectionKey = Object.keys(history).find(k => k.startsWith(`section-${row.section}-`)) || `section-${row.section}-unknown`;
-		if(!history[sectionKey])
-		{
-			history[sectionKey] = {};
-		}
-		if(!history[sectionKey][row.metric])
-		{
-			history[sectionKey][row.metric] = {history: [], median: null, stdDev: 0};
-		}
-
-		const entry = history[sectionKey][row.metric];
-		const currentMedian = entry.median;
-		const verdict = classify(row.value, currentMedian);
-
-		entry.history.push(row.value);
-		if(entry.history.length > MAX_HISTORY)
-		{
-			entry.history.shift();
-		}
-		entry.median = median(entry.history);
-		entry.stdDev = stdDev(entry.history, entry.median);
-
-		const msg = `${verdict.padEnd(5)} section-${row.section} ${row.metric}=${row.value} (median was ${currentMedian || '—'})`;
-		console.log(msg);
-		if(verdict === 'WARN' || verdict === 'WARN!')
-		{
-			warnings.push(msg);
-		}
-	}
-
-	saveHistory(history);
-
-	if(warnings.length > 0)
-	{
-		console.log('\n=== Performance regressions ===');
-		warnings.forEach(w => console.log(w));
-	}
+	recordRows(history, rows, settings.section, settings.packageVersion);
 
 	process.exit(0);
 }
 
-main();
+if(require.main === module)
+{
+	main();
+}
+
+module.exports = {parseArguments, median, stdDev, harvestRows, classify, main};

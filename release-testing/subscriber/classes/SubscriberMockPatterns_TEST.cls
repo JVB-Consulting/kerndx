@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
+/**
+ * @description Shows, from code outside the package, the framework's ways of standing in for data and callouts in a
+ * test: mock records with kern.TST_Mock, test data with kern.TST_Builder, prepared HTTP answers with
+ * kern.API_MockFactory, the outbound and inbound service test helpers, the query builder's mock methods, calls sent
+ * through an outbound handler with the HTTP client, and the framework's exceptions. Each test is a pattern to copy.
+ */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class SubscriberMockPatterns_TEST
 {
 	/**
@@ -18,6 +24,11 @@ private class SubscriberMockPatterns_TEST
 	 */
 	private static final String INBOUND_SERVICE = API_SubscriberCreateAccount.class.getName();
 
+	/**
+	 * @description How many random letters and digits make up the message of an exception a test raises.
+	 */
+	private static final Integer MESSAGE_LENGTH = 16;
+
 	// =========================================================================
 	// TST_Mock — Query Interception
 	// =========================================================================
@@ -33,10 +44,10 @@ private class SubscriberMockPatterns_TEST
 				.withOverride(Account.Industry, 'Technology')
 				.build();
 
-		System.assertNotEquals(null, mock, 'Mock should not be null');
-		System.assertNotEquals(null, mock.Id, 'Mock should have a generated Id');
-		System.assertEquals('Mock Account', mock.Name, 'Name should match override');
-		System.assertEquals('Technology', mock.Industry, 'Industry should match override');
+		Assert.isNotNull(mock, 'Mock should not be null');
+		Assert.isNotNull(mock.Id, 'Mock should have a generated Id');
+		Assert.areEqual('Mock Account', mock.Name, 'Name should match override');
+		Assert.areEqual('Technology', mock.Industry, 'Industry should match override');
 	}
 
 	/**
@@ -49,10 +60,10 @@ private class SubscriberMockPatterns_TEST
 				.withCount(5)
 				.buildList();
 
-		System.assertEquals(5, mocks.size(), 'Should create 5 mocks');
+		Assert.areEqual(5, mocks.size(), 'Should create 5 mocks');
 		for(SObject mock : mocks)
 		{
-			System.assertNotEquals(null, mock.Id, 'Each mock should have an Id');
+			Assert.isNotNull(mock.Id, 'Each mock should have an Id');
 		}
 	}
 
@@ -67,11 +78,11 @@ private class SubscriberMockPatterns_TEST
 				.withCycle(Account.Industry, new List<Object> {'Tech', 'Finance'})
 				.buildList();
 
-		System.assertEquals(4, mocks.size(), 'Should create 4 mocks');
-		System.assertEquals('Tech', ((Account)mocks[0]).Industry, 'First should be Tech');
-		System.assertEquals('Finance', ((Account)mocks[1]).Industry, 'Second should be Finance');
-		System.assertEquals('Tech', ((Account)mocks[2]).Industry, 'Third should be Tech (cycle)');
-		System.assertEquals('Finance', ((Account)mocks[3]).Industry, 'Fourth should be Finance (cycle)');
+		Assert.areEqual(4, mocks.size(), 'Should create 4 mocks');
+		Assert.areEqual('Tech', ((Account)mocks[0]).Industry, 'First should be Tech');
+		Assert.areEqual('Finance', ((Account)mocks[1]).Industry, 'Second should be Finance');
+		Assert.areEqual('Tech', ((Account)mocks[2]).Industry, 'Third should be Tech (cycle)');
+		Assert.areEqual('Finance', ((Account)mocks[3]).Industry, 'Fourth should be Finance (cycle)');
 	}
 
 	/**
@@ -84,12 +95,12 @@ private class SubscriberMockPatterns_TEST
 		kern.TST_Mock.register(Account.SObjectType, mock);
 
 		List<SObject> mocks = kern.TST_Mock.get(Account.SObjectType);
-		System.assert(!mocks.isEmpty(), 'Should have registered mocks');
+		Assert.isFalse(mocks.isEmpty(), 'Should have registered mocks');
 
 		kern.TST_Mock.clear(Account.SObjectType);
 
 		List<SObject> afterClear = kern.TST_Mock.get(Account.SObjectType);
-		System.assert(afterClear.isEmpty(), 'Mocks should be cleared');
+		Assert.isTrue(afterClear.isEmpty(), 'Mocks should be cleared');
 	}
 
 	/**
@@ -103,8 +114,8 @@ private class SubscriberMockPatterns_TEST
 
 		kern.TST_Mock.clear();
 
-		System.assert(kern.TST_Mock.get(Account.SObjectType).isEmpty(), 'Account mocks should be cleared');
-		System.assert(kern.TST_Mock.get(Contact.SObjectType).isEmpty(), 'Contact mocks should be cleared');
+		Assert.isTrue(kern.TST_Mock.get(Account.SObjectType).isEmpty(), 'Account mocks should be cleared');
+		Assert.isTrue(kern.TST_Mock.get(Contact.SObjectType).isEmpty(), 'Contact mocks should be cleared');
 	}
 
 	// =========================================================================
@@ -119,17 +130,17 @@ private class SubscriberMockPatterns_TEST
 	{
 		kern.TRG_Base.bypass(Schema.Account.SObjectType);
 
-		Account account = (Account)kern.TST_Builder.of(Account.SObjectType).build();
+		Account record = (Account)kern.TST_Builder.of(Account.SObjectType).build();
 
-		System.assertNotEquals(null, Account.Id, 'Record should be inserted with an Id');
+		Assert.isNotNull(record.Id, 'Record should be inserted with an Id');
 
 		Account queried =
 		[
 				SELECT Name
 				FROM Account
-				WHERE Id = :Account.Id
+				WHERE Id = :record.Id
 		];
-		System.assertNotEquals(null, queried.Name, 'Name should have a default value');
+		Assert.isNotNull(queried.Name, 'Name should have a default value');
 	}
 
 	/**
@@ -138,11 +149,11 @@ private class SubscriberMockPatterns_TEST
 	@IsTest
 	private static void shouldBuildWithoutInsertion()
 	{
-		Account account = (Account)kern.TST_Builder.of(Account.SObjectType)
+		Account record = (Account)kern.TST_Builder.of(Account.SObjectType)
 				.withoutInsertion()
 				.build();
 
-		System.assertEquals(null, Account.Id, 'In-memory record should not have an Id');
+		Assert.isNull(record.Id, 'In-memory record should not have an Id');
 	}
 
 	/**
@@ -153,7 +164,7 @@ private class SubscriberMockPatterns_TEST
 	{
 		kern.TRG_Base.bypass(Schema.Account.SObjectType);
 
-		Account account = (Account)kern.TST_Builder.of(Account.SObjectType)
+		Account record = (Account)kern.TST_Builder.of(Account.SObjectType)
 				.withOverrides(new Map<SObjectField, Object>
 				{
 						Account.Name => 'Custom Name',
@@ -166,10 +177,10 @@ private class SubscriberMockPatterns_TEST
 				SELECT Name,
 						Industry
 				FROM Account
-				WHERE Id = :Account.Id
+				WHERE Id = :record.Id
 		];
-		System.assertEquals('Custom Name', queried.Name, 'Name should match override');
-		System.assertEquals('Healthcare', queried.Industry, 'Industry should match override');
+		Assert.areEqual('Custom Name', queried.Name, 'Name should match override');
+		Assert.areEqual('Healthcare', queried.Industry, 'Industry should match override');
 	}
 
 	/**
@@ -184,10 +195,10 @@ private class SubscriberMockPatterns_TEST
 				.withCount(3)
 				.buildList();
 
-		System.assertEquals(3, accounts.size(), 'Should create 3 records');
-		for(SObject account : accounts)
+		Assert.areEqual(3, accounts.size(), 'Should create 3 records');
+		for(SObject record : accounts)
 		{
-			System.assertNotEquals(null, Account.Id, 'Each record should be inserted');
+			Assert.isNotNull(record.Id, 'Each record should be inserted');
 		}
 	}
 
@@ -268,13 +279,13 @@ private class SubscriberMockPatterns_TEST
 	@IsTest
 	private static void shouldTestInboundApiSuccess()
 	{
-		API_SubscriberCreateAccount.DTO_Request request = new API_SubscriberCreateAccount.DTO_Request();
-		Request.accountName = 'Inbound Test Account';
-		Request.industry = 'Technology';
-		Request.phone = '555-0001';
-		Request.description = 'Inbound test';
+		API_SubscriberCreateAccount.DTO_Request accountRequest = new API_SubscriberCreateAccount.DTO_Request();
+		accountRequest.accountName = 'Inbound Test Account';
+		accountRequest.industry = 'Technology';
+		accountRequest.phone = '555-0001';
+		accountRequest.description = 'Inbound test';
 
-		kern.API_InboundTestHelper.setupRestContext(Request);
+		kern.API_InboundTestHelper.setupRestContext(accountRequest);
 
 		Test.startTest();
 		REST_SubscriberApi.createAccount();
@@ -289,8 +300,8 @@ private class SubscriberMockPatterns_TEST
 				LIMIT 1
 		];
 
-		System.assert(!apiCalls.isEmpty(), 'ApiCall record should exist');
-		System.assertEquals('Completed', apiCalls[0].kern__Status__c, 'Status should be Completed');
+		Assert.isFalse(apiCalls.isEmpty(), 'ApiCall record should exist');
+		Assert.areEqual('Completed', apiCalls[0].kern__Status__c, 'Status should be Completed');
 	}
 
 	/**
@@ -299,10 +310,10 @@ private class SubscriberMockPatterns_TEST
 	@IsTest
 	private static void shouldTestInboundApiAbort()
 	{
-		API_SubscriberCreateAccount.DTO_Request request = new API_SubscriberCreateAccount.DTO_Request();
+		API_SubscriberCreateAccount.DTO_Request accountRequest = new API_SubscriberCreateAccount.DTO_Request();
 		// No accountName or industry — should trigger validation errors
 
-		kern.API_InboundTestHelper.setupRestContext(Request);
+		kern.API_InboundTestHelper.setupRestContext(accountRequest);
 
 		Test.startTest();
 		REST_SubscriberApi.createAccount();
@@ -317,8 +328,8 @@ private class SubscriberMockPatterns_TEST
 				LIMIT 1
 		];
 
-		System.assert(!apiCalls.isEmpty(), 'ApiCall record should exist for aborted call');
-		System.assertEquals('Aborted', apiCalls[0].kern__Status__c, 'Status should be Aborted');
+		Assert.isFalse(apiCalls.isEmpty(), 'ApiCall record should exist for aborted call');
+		Assert.areEqual('Aborted', apiCalls[0].kern__Status__c, 'Status should be Aborted');
 	}
 
 	/**
@@ -327,11 +338,11 @@ private class SubscriberMockPatterns_TEST
 	@IsTest
 	private static void shouldTestInboundApiWithHeaders()
 	{
-		API_SubscriberCreateAccount.DTO_Request request = new API_SubscriberCreateAccount.DTO_Request();
-		Request.accountName = 'Header Test Account';
-		Request.industry = 'Finance';
-		Request.phone = '555-0002';
-		Request.description = 'Header test';
+		API_SubscriberCreateAccount.DTO_Request accountRequest = new API_SubscriberCreateAccount.DTO_Request();
+		accountRequest.accountName = 'Header Test Account';
+		accountRequest.industry = 'Finance';
+		accountRequest.phone = '555-0002';
+		accountRequest.description = 'Header test';
 
 		Map<String, String> headers = new Map<String, String>
 		{
@@ -339,7 +350,7 @@ private class SubscriberMockPatterns_TEST
 				'Content-Type' => 'application/json'
 		};
 
-		kern.API_InboundTestHelper.setupRestContext(Request, headers);
+		kern.API_InboundTestHelper.setupRestContext(accountRequest, headers);
 
 		Test.startTest();
 		REST_SubscriberApi.createAccount();
@@ -354,8 +365,8 @@ private class SubscriberMockPatterns_TEST
 				LIMIT 1
 		];
 
-		System.assert(!apiCalls.isEmpty(), 'ApiCall should exist');
-		System.assertEquals('Completed', apiCalls[0].kern__Status__c, 'Should complete with custom headers');
+		Assert.isFalse(apiCalls.isEmpty(), 'ApiCall should exist');
+		Assert.areEqual('Completed', apiCalls[0].kern__Status__c, 'Should complete with custom headers');
 	}
 
 	// =========================================================================
@@ -384,7 +395,7 @@ private class SubscriberMockPatterns_TEST
 				.fields(new List<SObjectField> {Account.Name})
 				.toList();
 
-		System.assert(!results.isEmpty(), 'Query should return mock data');
+		Assert.isFalse(results.isEmpty(), 'Query should return mock data');
 
 		kern.QRY_Builder.clearMocks();
 	}
@@ -566,42 +577,52 @@ private class SubscriberMockPatterns_TEST
 	}
 
 	/**
-	 * @description Tests subscriber can throw and catch NotFoundException.
+	 * @description Code outside the package can raise the framework's NotFoundException with its own message and catch
+	 * it by type, with the message intact.
 	 */
 	@IsTest
 	private static void shouldCatchNotFoundException()
 	{
-		Boolean caught = false;
+		String message = kern.UTIL_Random.randomAlphanumeric(MESSAGE_LENGTH);
 		try
 		{
-			throw new kern.UTIL_Exceptions.NotFoundException('Record not found');
+			raise(new kern.UTIL_Exceptions.NotFoundException(message));
+			Assert.fail('Expected a NotFoundException');
 		}
-		catch(kern.UTIL_Exceptions.NotFoundException error)
+		catch(Exception error)
 		{
-			caught = true;
-			System.assertEquals('Record not found', error.getMessage(), 'Message should match');
+			Assert.isInstanceOfType(error, kern.UTIL_Exceptions.NotFoundException.class, 'Incorrect Exception Type');
+			Assert.areEqual(message, error.getMessage(), 'Expected the message the exception was raised with');
 		}
-
-		System.assert(caught, 'Should catch NotFoundException');
 	}
 
 	/**
-	 * @description Tests subscriber can throw and catch ConfigurationException.
+	 * @description Code outside the package can raise the framework's ConfigurationException with its own message and
+	 * catch it by type, with the message intact.
 	 */
 	@IsTest
 	private static void shouldCatchConfigurationException()
 	{
-		Boolean caught = false;
+		String message = kern.UTIL_Random.randomAlphanumeric(MESSAGE_LENGTH);
 		try
 		{
-			throw new kern.UTIL_Exceptions.ConfigurationException('Missing config');
+			raise(new kern.UTIL_Exceptions.ConfigurationException(message));
+			Assert.fail('Expected a ConfigurationException');
 		}
-		catch(kern.UTIL_Exceptions.ConfigurationException error)
+		catch(Exception error)
 		{
-			caught = true;
-			System.assertEquals('Missing config', error.getMessage(), 'Message should match');
+			Assert.isInstanceOfType(error, kern.UTIL_Exceptions.ConfigurationException.class, 'Incorrect Exception Type');
+			Assert.areEqual(message, error.getMessage(), 'Expected the message the exception was raised with');
 		}
+	}
 
-		System.assert(caught, 'Should catch ConfigurationException');
+	/**
+	 * @description Throws the exception it is given, so a test can call code that raises rather than raise inline.
+	 *
+	 * @param error The exception to throw.
+	 */
+	private static void raise(Exception error)
+	{
+		throw error;
 	}
 }

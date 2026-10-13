@@ -90,6 +90,15 @@
  *   CreatedById = current user, which uniquely picks THIS run's 100 rows even with
  *   concurrent runs from other users or other days.
  *
+ * The emitter leg (who wrote each entry, worked out at volume):
+ *   After the 100 entries above, the subscriber class SubscriberLogVolumeEmitter writes 50 more with emit() and no
+ *   at() or emitAt(). For an entry with no location the engine reads the writer from the top frame of the call stack
+ *   (LOG_Engine.Logger.getEvents) and stamps two fields once, when the entry is written: Origin__c, which is APEX for
+ *   code outside the package, and Source__c, the writer's class name. In a subscriber org the package's own frames
+ *   show as "(kern)" and are dropped, so the top frame is the emitter's. The 100 + 50 entries make 150 single
+ *   publishes, the platform's limit for one transaction. The launch records the CPU time of the 50 emits; section 50b
+ *   checks every emitter entry and reports the CPU time per entry (PERF_ROW cpuMsPerEntry).
+ *
  * BEHAVIOUR ASSERTIONS (HARD GATE — split across launch + verify):
  *   In section-50 (this launch script):
  *     - kern.LOG_Builder.startCorrelation() returns a non-blank correlationId
@@ -127,6 +136,7 @@
  *
  * Prerequisites:
  *   - subscriber scratch org with kern managed package installed
+ *   - the subscriber class SubscriberLogVolumeEmitter deployed
  *   - kern__LogSetting__c.IsEnabled__c = true with no ClassFilter__c (verified on org —
  *     ClassFilter__c is null in org-defaults so all classes pass isLoggable allowlist)
  *   - kern__LogSetting__c.LogLevelThreshold__c = DEBUG or INFO (we emit INFO; verified
@@ -157,6 +167,8 @@ final String RUN_STAMP_50 = String.valueOf(System.currentTimeMillis());
 final String HANDOFF_NAME = 'Section50Load_' + RUN_STAMP_50;
 final String CLASS_METHOD_MARKER = 'LOG_TestSection50_' + RUN_STAMP_50 + '.peQuotaFlood';
 final Integer EMIT_COUNT = 100;
+// With the 100 entries above, 150 entries are published one at a time in this transaction: the platform's limit.
+final Integer EMITTER_COUNT = 50;
 
 try
 {
@@ -183,6 +195,18 @@ try
 			+ emitWallMs + 'ms (no PublishImmediate governor breach; cap=150/tx). '
 			+ 'CorrelationId=' + correlationId + ', TransactionId=' + launchTransactionId);
 
+	// The second leg: a subscriber class writes its entries with no location, so the engine reads the writer from the
+	// call stack for every entry. The CPU time of this loop is what section 50b reports per entry.
+	Integer emitterCpuStartMs = Limits.getCpuTime();
+	Long emitterStartWallMs = System.currentTimeMillis();
+	SubscriberLogVolumeEmitter.emit(EMITTER_COUNT);
+	Integer emitterCpuMs = Limits.getCpuTime() - emitterCpuStartMs;
+	Long emitterWallMs = System.currentTimeMillis() - emitterStartWallMs;
+
+	System.debug(LoggingLevel.INFO,
+			'50-launch (emitter) PASS: SubscriberLogVolumeEmitter wrote ' + EMITTER_COUNT + ' entries with no location in '
+			+ emitterWallMs + 'ms and ' + emitterCpuMs + 'ms of CPU time');
+
 	Map<String, Object> handoff = new Map<String, Object>
 	{
 			'runStamp' => RUN_STAMP_50,
@@ -191,6 +215,9 @@ try
 			'classMethodMarker' => CLASS_METHOD_MARKER,
 			'emitCount' => EMIT_COUNT,
 			'emitWallMs' => emitWallMs,
+			'emitterCount' => EMITTER_COUNT,
+			'emitterCpuMs' => emitterCpuMs,
+			'emitterWallMs' => emitterWallMs,
 			'launchCompletedAtMs' => System.currentTimeMillis()
 	};
 
@@ -229,5 +256,6 @@ if(fail > 0)
 }
 else
 {
-	System.debug(LoggingLevel.INFO, '=== Section 50 (Launch) COMPLETE: 100 PEs published. Run section-50b after PE delivery (~10-60 s) to verify persistence + emit PERF_ROW. ===');
+	System.debug(LoggingLevel.INFO, '=== Section 50 (Launch) COMPLETE: 150 PEs published (100 marked entries and 50 from SubscriberLogVolumeEmitter). '
+			+ 'Run section-50b after PE delivery (~10-60 s) to verify persistence + emit PERF_ROW. ===');
 }

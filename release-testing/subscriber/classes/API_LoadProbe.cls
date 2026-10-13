@@ -107,7 +107,7 @@ public with sharing class API_LoadProbe extends kern.API_Inbound
 	/**
 	 * @description Incoming load probe request payload.
 	 */
-	@JsonAccess(Deserializable='always')
+	@JsonAccess(deserializable='always')
 	public class DTO_Request extends kern.DTO_JsonBase
 	{
 		/**
@@ -124,7 +124,7 @@ public with sharing class API_LoadProbe extends kern.API_Inbound
 	/**
 	 * @description Load probe response payload returned to the caller.
 	 */
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	public class DTO_Response extends kern.DTO_JsonBase
 	{
 		/**

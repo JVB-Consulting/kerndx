@@ -9,7 +9,7 @@ jest.mock('child_process', () => ({
 // so the fake class is defined inline.
 jest.mock('../../release-testing/runner/cmdt-deployer', () =>
 {
-	class _FakeNamedOrgNotFoundError extends Error
+	class FakeNamedOrgNotFoundError extends Error
 	{
 		constructor(orgAlias, originalMessage)
 		{
@@ -20,22 +20,129 @@ jest.mock('../../release-testing/runner/cmdt-deployer', () =>
 	}
 
 	return {
-		deployCmdtState: jest.fn(), deployMetadataDir: jest.fn(), deleteCmdtRecords: jest.fn(), isNamedOrgNotFoundError: jest.fn(() => false), NamedOrgNotFoundError: _FakeNamedOrgNotFoundError
+		deployCmdtState: jest.fn(),
+		deployMetadataDir: jest.fn(),
+		deleteCmdtRecords: jest.fn(),
+		isNamedOrgNotFoundError: jest.fn(() => false),
+		NamedOrgNotFoundError: FakeNamedOrgNotFoundError
 	};
 });
 
-const {exec} = require('child_process');
-const {deployMetadataDir, deployCmdtState, deleteCmdtRecords} = require('../runner/cmdt-deployer');
+// The one query run-phase2 makes through the journeys' helper: which namespace the org gives the package.
+jest.mock('../e2e/helpers/sf-namespace', () => ({namespacePrefix: jest.fn()}));
+
+const fs = require('fs');
+const {exec, execSync} = require('child_process');
+const {deployMetadataDir, deployCmdtState, deleteCmdtRecords, NamedOrgNotFoundError} = require('../runner/cmdt-deployer');
+const {namespacePrefix} = require('../e2e/helpers/sf-namespace');
+const {getSubscriberOrgAlias} = require('../runner/subscriber-config');
+const {ReleaseTargetError} = require('../runner/release-target');
 
 const {
-	INDEPENDENT_SCRIPTS, MAX_CONCURRENT, runScript, runBatch, runSection76, runSection67, runSection68, runSection69, runSection70, runSection71, runSection72, runSection75, runSection66, runSection65, runSection77, runOrchestratedSection, ORCHESTRATED_SECTIONS, preflightAuditBackdating
+	INDEPENDENT_SCRIPTS,
+	MAX_CONCURRENT,
+	BACKGROUND_WORK_WAIT_MILLISECONDS,
+	runScript,
+	runBatch,
+	runSection31,
+	runSection55,
+	runSection60,
+	runSection63,
+	runSection76,
+	runSection67,
+	runSection68,
+	runSection69,
+	runSection70,
+	runSection71,
+	runSection72,
+	runSection75,
+	runSection75c,
+	runSection79c,
+	runSection66,
+	runSection65,
+	runSection77,
+	runOrchestratedSection,
+	ORCHESTRATED_SECTIONS,
+	preflightAuditBackdating,
+	preflightPackageInstalled,
+	reportFailure,
+	main
 } = require('../runner/run-phase2');
+
+// The two-script batch several runBatch tests drive: one section each, one assertion each.
+const TWO_PASSING_SCRIPTS = [
+	{section: 1, file: 'test-1.apex', expected: 1},
+	{section: 2, file: 'test-2.apex', expected: 1}
+];
+
+// Answers each `sf apex run` call in turn with `count` PASS lines, so a section's aggregate score and its fixture
+// deploy sequence can be asserted. `marker` only has to make one section's debug lines recognisable in a failure.
+function mockPassCounts(passCounts, marker)
+{
+	const outputs = passCounts.map((count, scriptIndex) => Array.from({length: count}, (_, i) => `USER_DEBUG [5]|DEBUG|${marker}${scriptIndex}${i} PASS: scenario`).join('\n'));
+	exec.mockImplementation((cmd, opts, callback) =>
+	{
+		callback(null, outputs.shift() || '');
+	});
+}
+
+// Answers each `sf apex run` call in turn with the next raw output given, and with nothing once they run out.
+function mockSequentialOutputs(outputs)
+{
+	const queue = [...outputs];
+	exec.mockImplementation((cmd, opts, callback) =>
+	{
+		callback(null, queue.shift() || '');
+	});
+}
+
+// Answers per script FILE rather than per call, so a section can be made to fail on its first attempt and pass on
+// the serial retry. Each file keeps its own attempt counter, and the last output given stands for every later attempt.
+function mockPerScriptAttempts(attemptOutputsByFile)
+{
+	const attemptCounts = {};
+	exec.mockImplementation((cmd, opts, callback) =>
+	{
+		const file = Object.keys(attemptOutputsByFile).find(f => cmd.includes(f));
+		const attempt = attemptCounts[file] || 0;
+		attemptCounts[file] = attempt + 1;
+		const outputs = attemptOutputsByFile[file];
+		callback(null, outputs[Math.min(attempt, outputs.length - 1)]);
+	});
+}
+
+// Builds the raw output of one script: `count` PASS lines, each carrying the marker that says which attempt of a
+// section produced them, so a first attempt and its retry are told apart in what a test asserts.
+function passLines(count, marker)
+{
+	return Array.from({length: count}, (_, i) => `USER_DEBUG [5]|DEBUG|o${i} PASS: ${marker}`).join('\n');
+}
+
+// Every section that waits for the platform shares this setup: the wait fires at once so the unit test stays fast,
+// and the real timer is put back afterwards. Called from inside a describe, it registers that block's hooks.
+function fireEveryWaitImmediately()
+{
+	beforeEach(() =>
+	{
+		jest.clearAllMocks();
+		jest.spyOn(global, 'setTimeout').mockImplementation((fn) =>
+		{
+			fn();
+			return 0;
+		});
+	});
+
+	afterEach(() =>
+	{
+		global.setTimeout.mockRestore();
+	});
+}
 
 describe('INDEPENDENT_SCRIPTS', () =>
 {
-	it('should contain 44 scripts', () =>
+	it('should contain 41 scripts', () =>
 	{
-		expect(INDEPENDENT_SCRIPTS).toHaveLength(44);
+		expect(INDEPENDENT_SCRIPTS).toHaveLength(41);
 	});
 
 	it('should have unique section numbers', () =>
@@ -52,22 +159,38 @@ describe('INDEPENDENT_SCRIPTS', () =>
 		expect(sections).not.toContain(18);
 		expect(sections).not.toContain(22);
 		expect(sections).not.toContain(27);
+		// 31, 55, 60 and 63 run inside a MockAllAPIs window (runMockedOutboundSection): outside a unit test a registered
+		// answer stands in for a callout only while the flag is on, and the flag must not be on for the parallel pool.
+		expect(sections).not.toContain(31);
+		expect(sections).not.toContain(55);
+		expect(sections).not.toContain(60);
+		expect(sections).not.toContain(63);
 		// 65 moved to the orchestrated launch + verify split (runSection65) — the
 		// audit trail persists asynchronously, so the single-transaction parallel
 		// slot raced platform-event delivery and flaked inside the suite.
 		expect(sections).not.toContain(65);
 	});
 
-	it('should have expected assertion counts for each section', () =>
+	it.each([
+		[
+			1,
+			6
+		],
+		[
+			9,
+			7
+		],
+		[
+			15,
+			13
+		],
+		[
+			85,
+			1
+		]
+	])('should expect section %i to prove %i assertions', (section, expected) =>
 	{
-		const section1 = INDEPENDENT_SCRIPTS.find(s => s.section === 1);
-		expect(section1.expected).toBe(6);
-
-		const section9 = INDEPENDENT_SCRIPTS.find(s => s.section === 9);
-		expect(section9.expected).toBe(7);
-
-		const section15 = INDEPENDENT_SCRIPTS.find(s => s.section === 15);
-		expect(section15.expected).toBe(13);
+		expect(INDEPENDENT_SCRIPTS.find(s => s.section === section).expected).toBe(expected);
 	});
 
 	it('should have valid file names matching section numbers', () =>
@@ -118,6 +241,105 @@ describe('preflightAuditBackdating', () =>
 		});
 
 		await expect(preflightAuditBackdating()).rejects.toThrow(/back-dating/);
+	});
+});
+
+describe('preflightPackageInstalled', () =>
+{
+	let writeSpy;
+
+	beforeEach(() =>
+	{
+		jest.clearAllMocks();
+		writeSpy = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => undefined);
+		jest.spyOn(console, 'log').mockImplementation(() => undefined);
+	});
+
+	afterEach(() =>
+	{
+		writeSpy.mockRestore();
+		console.log.mockRestore();
+	});
+
+	it('lets phase 2 go on against an org that has the package installed', () =>
+	{
+		namespacePrefix.mockReturnValue('kern__');
+
+		expect(() => preflightPackageInstalled()).not.toThrow();
+	});
+
+	it('stops phase 2 against an org without the package, naming the org it was pointed at', () =>
+	{
+		namespacePrefix.mockReturnValue('');
+
+		expect(() => preflightPackageInstalled()).toThrow(ReleaseTargetError);
+		expect(() => preflightPackageInstalled()).toThrow(`"${getSubscriberOrgAlias()}"`);
+	});
+
+	it('stops phase 2 with a message, not a stack trace, when the org cannot be asked at all', () =>
+	{
+		namespacePrefix.mockImplementation(() =>
+		{
+			throw Object.assign(new Error('Command failed: sf data query'), {status: 1, stdout: ''});
+		});
+
+		expect(() => preflightPackageInstalled()).toThrow(ReleaseTargetError);
+	});
+
+	it('stops the whole run before anything is run in the org, deployed to it, or written to the recorded results', async() =>
+	{
+		execSync.mockReturnValue('{}');
+		namespacePrefix.mockReturnValue('');
+
+		await expect(main()).rejects.toThrow(ReleaseTargetError);
+
+		expect(exec).not.toHaveBeenCalled();
+		expect(deployCmdtState).not.toHaveBeenCalled();
+		expect(writeSpy).not.toHaveBeenCalled();
+	});
+});
+
+describe('reportFailure', () =>
+{
+	beforeEach(() =>
+	{
+		jest.clearAllMocks();
+		jest.spyOn(console, 'error').mockImplementation(() => undefined);
+		jest.spyOn(process, 'exit').mockImplementation(() => undefined);
+	});
+
+	afterEach(() =>
+	{
+		console.error.mockRestore();
+		process.exit.mockRestore();
+	});
+
+	it.each([
+		[
+			'an org without the package',
+			new ReleaseTargetError('which org, why, and what to change')
+		],
+		[
+			'an alias the command line does not know',
+			new NamedOrgNotFoundError('MyMistypedOrg', 'which org, why, and what to change')
+		]
+	])('prints the refusal of %s as its message alone, with no stack trace, and ends the run as failed', (description, refusal) =>
+	{
+		reportFailure(refusal);
+
+		expect(console.error).toHaveBeenCalledWith(refusal.message);
+		expect(console.error).not.toHaveBeenCalledWith('Phase 2 failed:', expect.anything());
+		expect(process.exit).toHaveBeenCalledWith(1);
+	});
+
+	it('prints any other failure whole, so its stack trace is kept, and ends the run as failed', () =>
+	{
+		const failure = new Error('something nobody planned for');
+
+		reportFailure(failure);
+
+		expect(console.error).toHaveBeenCalledWith('Phase 2 failed:', failure);
+		expect(process.exit).toHaveBeenCalledWith(1);
 	});
 });
 
@@ -182,15 +404,6 @@ describe('runScript', () =>
 
 describe('runSection76', () =>
 {
-	function mockScriptOutputs(passCounts)
-	{
-		const outputs = passCounts.map((count, scriptIndex) => Array.from({length: count}, (_, i) => `USER_DEBUG [5]|DEBUG|76${scriptIndex}${i} PASS: scenario`).join('\n'));
-		exec.mockImplementation((cmd, opts, callback) =>
-		{
-			callback(null, outputs.shift() || '');
-		});
-	}
-
 	beforeEach(() =>
 	{
 		jest.clearAllMocks();
@@ -198,13 +411,13 @@ describe('runSection76', () =>
 
 	it('should deploy the advisor bundles in round-trip order and aggregate 14 passes', async() =>
 	{
-		mockScriptOutputs([
+		mockPassCounts([
 			3,
 			3,
 			3,
 			2,
 			3
-		]);
+		], '76');
 
 		const results = await runSection76();
 
@@ -220,13 +433,13 @@ describe('runSection76', () =>
 
 	it('should mark FAIL when a verify script under-passes', async() =>
 	{
-		mockScriptOutputs([
+		mockPassCounts([
 			3,
 			2,
 			3,
 			2,
 			3
-		]);
+		], '76');
 
 		const results = await runSection76();
 
@@ -264,15 +477,6 @@ describe('post-trigger action sections (67-70)', () =>
 	// Each handler is a serial CMDT-state-fixture section: deploy a fixture, run the
 	// script(s), restore postaction-disabled. The mock returns N PASS lines per script
 	// call (in order) so the aggregate score and the fixture deploy sequence can be asserted.
-	function mockPassCounts(passCounts)
-	{
-		const outputs = passCounts.map((count, scriptIndex) => Array.from({length: count}, (_, i) => `USER_DEBUG [5]|DEBUG|p${scriptIndex}${i} PASS: scenario`).join('\n'));
-		exec.mockImplementation((cmd, opts, callback) =>
-		{
-			callback(null, outputs.shift() || '');
-		});
-	}
-
 	beforeEach(() =>
 	{
 		jest.clearAllMocks();
@@ -280,7 +484,7 @@ describe('post-trigger action sections (67-70)', () =>
 
 	it('section 67 deploys postaction-enabled, restores disabled, and aggregates 6 passes', async() =>
 	{
-		mockPassCounts([6]);
+		mockPassCounts([6], 'p');
 
 		const results = await runSection67();
 
@@ -293,7 +497,7 @@ describe('post-trigger action sections (67-70)', () =>
 
 	it('section 67 marks FAIL when the script under-passes', async() =>
 	{
-		mockPassCounts([5]);
+		mockPassCounts([5], 'p');
 
 		const results = await runSection67();
 
@@ -306,7 +510,7 @@ describe('post-trigger action sections (67-70)', () =>
 		mockPassCounts([
 			1,
 			1
-		]);
+		], 'p');
 
 		const results = await runSection68();
 
@@ -320,7 +524,7 @@ describe('post-trigger action sections (67-70)', () =>
 
 	it('section 69 deploys dml-active, restores disabled, and aggregates 2 passes', async() =>
 	{
-		mockPassCounts([2]);
+		mockPassCounts([2], 'p');
 
 		const results = await runSection69();
 
@@ -336,7 +540,7 @@ describe('post-trigger action sections (67-70)', () =>
 		mockPassCounts([
 			2,
 			2
-		]);
+		], 'p');
 
 		const results = await runSection70();
 
@@ -369,6 +573,80 @@ describe('post-trigger action sections (67-70)', () =>
 	});
 });
 
+describe('MockAllAPIs-window sections (31, 55, 60, 63)', () =>
+{
+	// Each section deploys mock-all-apis-enabled, runs its script, restores mock-all-apis-disabled, waits for the log
+	// entries to land and runs its cleanup script. The wait is stubbed to fire at once; the mock returns N PASS lines per
+	// script call (section then cleanup), so the score and the fixture deploy sequence can be asserted.
+	fireEveryWaitImmediately();
+
+	it.each([
+		[31, runSection31, 9],
+		[55, runSection55, 10],
+		[60, runSection60, 5],
+		[63, runSection63, 7]
+	])('section %i turns MockAllAPIs on, restores it off, runs its cleanup and passes', async(section, run, expected) =>
+	{
+		mockPassCounts([expected, 1], 'm');
+
+		const results = await run();
+
+		expect(results[`section-${section}`].result).toBe('PASS');
+		expect(results[`section-${section}`].score).toBe(`${expected + 1}/${expected + 1}`);
+		expect(deployCmdtState).toHaveBeenCalledTimes(2);
+		expect(deployCmdtState).toHaveBeenNthCalledWith(1, 'mock-all-apis-enabled');
+		expect(deployCmdtState).toHaveBeenNthCalledWith(2, 'mock-all-apis-disabled');
+		expect(exec.mock.calls[1][0]).toContain('-cleanup.apex');
+	});
+
+	it('marks FAIL when the cleanup finds rows left behind', async() =>
+	{
+		mockPassCounts([9, 0], 'm');
+
+		const results = await runSection31();
+
+		expect(results['section-31'].result).toBe('FAIL');
+		expect(results['section-31'].score).toBe('9/10');
+	});
+
+	it('fails a section that otherwise scores full when its cleanup prints a FAIL line', async() =>
+	{
+		const sectionOutput = Array.from({length: 7}, (_, index) => `USER_DEBUG [5]|DEBUG|63${index} PASS: scenario`).join('\n');
+		const cleanupOutput = 'USER_DEBUG [26]|DEBUG|63-cleanup PASS: deleted the rows\n'
+				+ 'USER_DEBUG [33]|DEBUG|63-cleanup FAIL: left behind: 2 log entries, 0 issues, 0 calls';
+		mockSequentialOutputs([sectionOutput, cleanupOutput]);
+
+		const results = await runSection63();
+
+		expect(results['section-63'].score).toBe('8/8');
+		expect(results['section-63'].result).toBe('FAIL');
+	});
+
+	it('restores mock-all-apis-disabled even when the section script throws', async() =>
+	{
+		exec.mockImplementation(() =>
+		{
+			throw new Error('sf apex run failed');
+		});
+
+		await expect(runSection55()).rejects.toThrow('sf apex run failed');
+		expect(deployCmdtState).toHaveBeenLastCalledWith('mock-all-apis-disabled');
+	});
+
+	it('names the fixture to deploy by hand when MockAllAPIs cannot be turned off', async() =>
+	{
+		mockPassCounts([7, 1], 'm');
+		deployCmdtState.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('deploy refused'));
+		const errorOutput = jest.spyOn(console, 'error').mockImplementation(() =>
+		{
+		});
+
+		await expect(runSection63()).rejects.toThrow('deploy refused');
+		expect(errorOutput).toHaveBeenCalledWith(expect.stringContaining('cmdt-states/mock-all-apis-disabled'));
+		errorOutput.mockRestore();
+	});
+});
+
 describe('CDC change-event sections (71-72)', () =>
 {
 	// Each handler is a launch + verify section gated behind a CMDT fixture: deploy the fixture,
@@ -376,36 +654,14 @@ describe('CDC change-event sections (71-72)', () =>
 	// then restore the dormant fixture. The 30s delivery wait is stubbed to fire immediately so
 	// the unit test stays fast. The mock returns N PASS lines per script call (launch then verify),
 	// so the aggregate score and the fixture deploy sequence can be asserted.
-	function mockPassCounts(passCounts)
-	{
-		const outputs = passCounts.map((count, scriptIndex) => Array.from({length: count}, (_, i) => `USER_DEBUG [5]|DEBUG|c${scriptIndex}${i} PASS: scenario`).join('\n'));
-		exec.mockImplementation((cmd, opts, callback) =>
-		{
-			callback(null, outputs.shift() || '');
-		});
-	}
-
-	beforeEach(() =>
-	{
-		jest.clearAllMocks();
-		jest.spyOn(global, 'setTimeout').mockImplementation((fn) =>
-		{
-			fn();
-			return 0;
-		});
-	});
-
-	afterEach(() =>
-	{
-		global.setTimeout.mockRestore();
-	});
+	fireEveryWaitImmediately();
 
 	it('section 71 deploys cdc-header-enabled, restores disabled, and aggregates 3 passes', async() =>
 	{
 		mockPassCounts([
 			1,
 			2
-		]);
+		], 'c');
 
 		const results = await runSection71();
 
@@ -421,7 +677,7 @@ describe('CDC change-event sections (71-72)', () =>
 		mockPassCounts([
 			1,
 			1
-		]);
+		], 'c');
 
 		const results = await runSection71();
 
@@ -434,7 +690,7 @@ describe('CDC change-event sections (71-72)', () =>
 		mockPassCounts([
 			1,
 			3
-		]);
+		], 'c');
 
 		const results = await runSection72();
 
@@ -474,41 +730,21 @@ describe('queueable unhandled-exception section (75)', () =>
 	// wait is stubbed to fire immediately so the unit test stays fast. The mock returns N PASS lines per
 	// script call (launch then verify), so the aggregate score can be asserted and the absence of any
 	// fixture deploy confirmed.
-	function mockPassCounts(passCounts)
-	{
-		const outputs = passCounts.map((count, scriptIndex) => Array.from({length: count}, (_, i) => `USER_DEBUG [5]|DEBUG|q${scriptIndex}${i} PASS: scenario`).join('\n'));
-		exec.mockImplementation((cmd, opts, callback) =>
-		{
-			callback(null, outputs.shift() || '');
-		});
-	}
+	fireEveryWaitImmediately();
 
-	beforeEach(() =>
+	it('section 75 aggregates 4 passes from launch + verify and deploys no fixture', async() =>
 	{
-		jest.clearAllMocks();
-		jest.spyOn(global, 'setTimeout').mockImplementation((fn) =>
-		{
-			fn();
-			return 0;
-		});
-	});
-
-	afterEach(() =>
-	{
-		global.setTimeout.mockRestore();
-	});
-
-	it('section 75 aggregates 3 passes from launch + verify and deploys no fixture', async() =>
-	{
+		// The verify proves three things: the job is Failed, it keeps the exception's message, and the framework's
+		// finalizer wrote one ERROR log entry for it.
 		mockPassCounts([
 			1,
-			2
-		]);
+			3
+		], 'q');
 
 		const results = await runSection75();
 
 		expect(results['section-75'].result).toBe('PASS');
-		expect(results['section-75'].score).toBe('3/3');
+		expect(results['section-75'].score).toBe('4/4');
 		expect(deployCmdtState).not.toHaveBeenCalled();
 	});
 
@@ -516,13 +752,13 @@ describe('queueable unhandled-exception section (75)', () =>
 	{
 		mockPassCounts([
 			1,
-			1
-		]);
+			2
+		], 'q');
 
 		const results = await runSection75();
 
 		expect(results['section-75'].result).toBe('FAIL');
-		expect(results['section-75'].score).toBe('2/3');
+		expect(results['section-75'].score).toBe('3/4');
 	});
 
 	it('section 75 marks FAIL when a script reports a failure even at full pass count', async() =>
@@ -545,6 +781,91 @@ describe('queueable unhandled-exception section (75)', () =>
 	});
 });
 
+describe('batch failure listener section (75c)', () =>
+{
+	// A launch and a verify with no fixture: 75c starts two batch jobs (one that throws, one the job launcher sizes
+	// from its setting), and 75d reads their results a minute later, after both jobs and the log events have landed.
+	fireEveryWaitImmediately();
+
+	it('runs 75c, waits 60 seconds, runs 75d, and aggregates 6 passes', async() =>
+	{
+		mockPassCounts([
+			2,
+			4
+		], 'b');
+
+		const results = await runSection75c();
+
+		expect(results['section-75c'].result).toBe('PASS');
+		expect(results['section-75c'].score).toBe('6/6');
+		expect(exec.mock.calls[0][0]).toContain('section-75c-batch-failure-listener.apex');
+		expect(exec.mock.calls[1][0]).toContain('section-75d-batch-failure-listener-verify.apex');
+		expect(global.setTimeout).toHaveBeenCalledWith(expect.any(Function), 60_000);
+		expect(deployCmdtState).not.toHaveBeenCalled();
+	});
+
+	it('marks FAIL when the verify under-passes', async() =>
+	{
+		mockPassCounts([
+			2,
+			3
+		], 'b');
+
+		const results = await runSection75c();
+
+		expect(results['section-75c'].result).toBe('FAIL');
+		expect(results['section-75c'].score).toBe('5/6');
+	});
+
+	it('marks FAIL when a script prints a FAIL line even at the full pass count', async() =>
+	{
+		mockSequentialOutputs([
+			passLines(2, 'launch'),
+			passLines(4, 'verify') + '\nUSER_DEBUG [9]|DEBUG|75d-size-job FAIL: broken'
+		]);
+
+		const results = await runSection75c();
+
+		expect(results['section-75c'].result).toBe('FAIL');
+	});
+});
+
+describe('watchdog started-step section (79c)', () =>
+{
+	// A launch and a verify with no fixture: 79c seeds a stuck chain whose current step has started and schedules a
+	// one-off watchdog on the next minute; 79d runs after the same 100-second wait as section 79.
+	fireEveryWaitImmediately();
+
+	it('runs 79c, waits 100 seconds, runs 79d, and aggregates 3 passes', async() =>
+	{
+		mockPassCounts([
+			2,
+			1
+		], 'w');
+
+		const results = await runSection79c();
+
+		expect(results['section-79c'].result).toBe('PASS');
+		expect(results['section-79c'].score).toBe('3/3');
+		expect(exec.mock.calls[0][0]).toContain('section-79c-watchdog-started-step.apex');
+		expect(exec.mock.calls[1][0]).toContain('section-79d-watchdog-started-step-verify.apex');
+		expect(global.setTimeout).toHaveBeenCalledWith(expect.any(Function), 100_000);
+	});
+
+	it('marks FAIL when the watchdog has not fired yet and the verify prints its FAIL line', async() =>
+	{
+		mockSequentialOutputs([
+			passLines(2, 'launch'),
+			'USER_DEBUG [25]|DEBUG|79d FAIL: the one-off watchdog has not fired yet'
+		]);
+
+		const results = await runSection79c();
+
+		expect(results['section-79c'].result).toBe('FAIL');
+		expect(results['section-79c'].score).toBe('2/3');
+	});
+});
+
 describe('log-fingerprint flood-control section (66)', () =>
 {
 	// Launch + verify section with NO CMDT fixture: publish fingerprinted entries via the global
@@ -552,36 +873,14 @@ describe('log-fingerprint flood-control section (66)', () =>
 	// detail/rollup shape. The 30s wait is stubbed to fire immediately so the unit test stays fast.
 	// The mock returns N PASS lines per script call (launch 2 + verify 8 = 10), so the aggregate
 	// score can be asserted and the absence of any fixture deploy confirmed.
-	function mockPassCounts(passCounts)
-	{
-		const outputs = passCounts.map((count, scriptIndex) => Array.from({length: count}, (_, i) => `USER_DEBUG [5]|DEBUG|q${scriptIndex}${i} PASS: scenario`).join('\n'));
-		exec.mockImplementation((cmd, opts, callback) =>
-		{
-			callback(null, outputs.shift() || '');
-		});
-	}
-
-	beforeEach(() =>
-	{
-		jest.clearAllMocks();
-		jest.spyOn(global, 'setTimeout').mockImplementation((fn) =>
-		{
-			fn();
-			return 0;
-		});
-	});
-
-	afterEach(() =>
-	{
-		global.setTimeout.mockRestore();
-	});
+	fireEveryWaitImmediately();
 
 	it('section 66 aggregates 10 passes from launch + verify and deploys no fixture', async() =>
 	{
 		mockPassCounts([
 			2,
 			8
-		]);
+		], 'q');
 
 		const results = await runSection66();
 
@@ -595,7 +894,7 @@ describe('log-fingerprint flood-control section (66)', () =>
 		mockPassCounts([
 			2,
 			7
-		]);
+		], 'q');
 
 		const results = await runSection66();
 
@@ -631,36 +930,14 @@ describe('framework-wide bypass audit section (65)', () =>
 	// persists a Foobar__c handoff (2 PASS incl. the 65f flag check); the verify half
 	// polls for the object-qualified audit targets + flood-control shape (6 PASS).
 	// The 30s persistence wait is stubbed to fire immediately.
-	function mockPassCounts(passCounts)
-	{
-		const outputs = passCounts.map((count, scriptIndex) => Array.from({length: count}, (_, i) => `USER_DEBUG [5]|DEBUG|q${scriptIndex}${i} PASS: scenario`).join('\n'));
-		exec.mockImplementation((cmd, opts, callback) =>
-		{
-			callback(null, outputs.shift() || '');
-		});
-	}
-
-	beforeEach(() =>
-	{
-		jest.clearAllMocks();
-		jest.spyOn(global, 'setTimeout').mockImplementation((fn) =>
-		{
-			fn();
-			return 0;
-		});
-	});
-
-	afterEach(() =>
-	{
-		global.setTimeout.mockRestore();
-	});
+	fireEveryWaitImmediately();
 
 	it('section 65 aggregates 8 passes from launch + verify and deploys no fixture', async() =>
 	{
 		mockPassCounts([
 			2,
 			6
-		]);
+		], 'q');
 
 		const results = await runSection65();
 
@@ -674,7 +951,7 @@ describe('framework-wide bypass audit section (65)', () =>
 		mockPassCounts([
 			2,
 			5
-		]);
+		], 'q');
 
 		const results = await runSection65();
 
@@ -710,36 +987,14 @@ describe('masking CMDT collision section (77)', () =>
 	// MaskingRule sharing the packaged MaskPaymentCard DeveloperName), proves framework inserts
 	// survive on the engine fallback, deletes the clone, and proves fast-path recovery plus the
 	// persisted collision WARN. The 15s log-persistence wait is stubbed to fire immediately.
-	function mockPassCounts(passCounts)
-	{
-		const outputs = passCounts.map((count, scriptIndex) => Array.from({length: count}, (_, i) => `USER_DEBUG [5]|DEBUG|q${scriptIndex}${i} PASS: scenario`).join('\n'));
-		exec.mockImplementation((cmd, opts, callback) =>
-		{
-			callback(null, outputs.shift() || '');
-		});
-	}
-
-	beforeEach(() =>
-	{
-		jest.clearAllMocks();
-		jest.spyOn(global, 'setTimeout').mockImplementation((fn) =>
-		{
-			fn();
-			return 0;
-		});
-	});
-
-	afterEach(() =>
-	{
-		global.setTimeout.mockRestore();
-	});
+	fireEveryWaitImmediately();
 
 	it('section 77 deploys the collision clone, deletes it, and aggregates 5 passes', async() =>
 	{
 		mockPassCounts([
 			2,
 			3
-		]);
+		], 'q');
 
 		const results = await runSection77();
 
@@ -754,7 +1009,7 @@ describe('masking CMDT collision section (77)', () =>
 		mockPassCounts([
 			2,
 			3
-		]);
+		], 'q');
 
 		await runSection77();
 
@@ -764,7 +1019,7 @@ describe('masking CMDT collision section (77)', () =>
 		expect(deployOrder).toBeLessThan(scriptOrders[0]);
 		expect(scriptOrders[0]).toBeLessThan(deleteOrder);
 		expect(deleteOrder).toBeLessThan(scriptOrders[1]);
-		expect(global.setTimeout).toHaveBeenCalledWith(expect.any(Function), 30_000);
+		expect(global.setTimeout).toHaveBeenCalledWith(expect.any(Function), BACKGROUND_WORK_WAIT_MILLISECONDS);
 	});
 
 	it('section 77 deletes the clone and surfaces the failure when the delete itself throws', async() =>
@@ -772,7 +1027,7 @@ describe('masking CMDT collision section (77)', () =>
 		mockPassCounts([
 			2,
 			3
-		]);
+		], 'q');
 		deleteCmdtRecords.mockImplementationOnce(() =>
 		{
 			throw new Error('CMDT delete failed for kern__MaskingRule.MaskPaymentCard');
@@ -787,7 +1042,7 @@ describe('masking CMDT collision section (77)', () =>
 		mockPassCounts([
 			0,
 			3
-		]);
+		], 'q');
 
 		const results = await runSection77();
 
@@ -829,12 +1084,7 @@ describe('runBatch', () =>
 			callback(null, 'USER_DEBUG [5]|DEBUG|1a PASS: test');
 		});
 
-		const scripts = [
-			{section: 1, file: 'test-1.apex', expected: 1},
-			{section: 2, file: 'test-2.apex', expected: 1}
-		];
-
-		const results = await runBatch(scripts, 2);
+		const results = await runBatch(TWO_PASSING_SCRIPTS, 2);
 
 		expect(results['section-1'].result).toBe('PASS');
 		expect(results['section-1'].score).toBe('1/1');
@@ -904,7 +1154,6 @@ describe('runBatch serial retry of concurrent-batch failures', () =>
 	// failed section ONCE, serially, and captures the raw sf output of every failed
 	// attempt under release-testing/test-results/phase2-failures/ for diagnosis —
 	// the pre-retry runner discarded the raw output, leaving 0/N scores unexplainable.
-	const fs = require('fs');
 	let writeSpy;
 	let mkdirSpy;
 
@@ -921,35 +1170,16 @@ describe('runBatch serial retry of concurrent-batch failures', () =>
 		mkdirSpy.mockRestore();
 	});
 
-	function mockPerScriptAttempts(attemptOutputsByFile)
-	{
-		const attemptCounts = {};
-		exec.mockImplementation((cmd, opts, callback) =>
-		{
-			const file = Object.keys(attemptOutputsByFile).find(f => cmd.includes(f));
-			const attempt = attemptCounts[file] || 0;
-			attemptCounts[file] = attempt + 1;
-			const outputs = attemptOutputsByFile[file];
-			callback(null, outputs[Math.min(attempt, outputs.length - 1)]);
-		});
-	}
-
 	it('retries a failed section serially and records the recovered PASS with a retried flag', async() =>
 	{
 		mockPerScriptAttempts({
 			'test-1.apex': [
 				'',
 				'USER_DEBUG [5]|DEBUG|1a PASS: recovered'
-			],
-			'test-2.apex': ['USER_DEBUG [5]|DEBUG|2a PASS: test']
+			], 'test-2.apex': ['USER_DEBUG [5]|DEBUG|2a PASS: test']
 		});
 
-		const scripts = [
-			{section: 1, file: 'test-1.apex', expected: 1},
-			{section: 2, file: 'test-2.apex', expected: 1}
-		];
-
-		const results = await runBatch(scripts, 2);
+		const results = await runBatch(TWO_PASSING_SCRIPTS, 2);
 
 		expect(results['section-1'].result).toBe('PASS');
 		expect(results['section-1'].score).toBe('1/1');
@@ -979,16 +1209,10 @@ describe('runBatch serial retry of concurrent-batch failures', () =>
 	it('does not retry sections that passed on the first attempt', async() =>
 	{
 		mockPerScriptAttempts({
-			'test-1.apex': ['USER_DEBUG [5]|DEBUG|1a PASS: test'],
-			'test-2.apex': ['USER_DEBUG [5]|DEBUG|2a PASS: test']
+			'test-1.apex': ['USER_DEBUG [5]|DEBUG|1a PASS: test'], 'test-2.apex': ['USER_DEBUG [5]|DEBUG|2a PASS: test']
 		});
 
-		const scripts = [
-			{section: 1, file: 'test-1.apex', expected: 1},
-			{section: 2, file: 'test-2.apex', expected: 1}
-		];
-
-		await runBatch(scripts, 2);
+		await runBatch(TWO_PASSING_SCRIPTS, 2);
 
 		expect(exec).toHaveBeenCalledTimes(2);
 	});
@@ -1023,24 +1247,9 @@ describe('runOrchestratedSection serial retry + raw-capture', () =>
 	// on failure, re-run the full section ONCE serially (fixture deploys included — the
 	// proven manual remedy, automated), and print an uppercase PASS/FAIL summary line the
 	// battery monitor can grep (the sections' own lines are lowercase "n pass, n fail").
-	const fs = require('fs');
 	let writeSpy;
 	let mkdirSpy;
 	let logSpy;
-
-	function mockSequentialOutputs(outputs)
-	{
-		const queue = [...outputs];
-		exec.mockImplementation((cmd, opts, callback) =>
-		{
-			callback(null, queue.shift() || '');
-		});
-	}
-
-	function passLines(count, marker)
-	{
-		return Array.from({length: count}, (_, i) => `USER_DEBUG [5]|DEBUG|o${i} PASS: ${marker}`).join('\n');
-	}
 
 	beforeEach(() =>
 	{
@@ -1147,6 +1356,10 @@ describe('ORCHESTRATED_SECTIONS', () =>
 			11,
 			22,
 			27,
+			31,
+			55,
+			63,
+			60,
 			34,
 			35,
 			42,
@@ -1160,11 +1373,13 @@ describe('ORCHESTRATED_SECTIONS', () =>
 			71,
 			72,
 			75,
+			'75c',
 			66,
 			65,
 			77,
 			78,
-			79
+			79,
+			'79c'
 		]);
 	});
 

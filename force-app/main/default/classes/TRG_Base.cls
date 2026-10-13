@@ -442,16 +442,20 @@ global inherited sharing virtual class TRG_Base
 	}
 
 	/**
-	 * @description Bypasses a specific trigger action class by name.
+	 * @description Bypasses a specific trigger action class by name. The name is the class name as the trigger action
+	 * record carries it: for one of your own actions, the bare class name; for an action the package ships, the name
+	 * with the package prefix, such as 'kern.TRG_AsyncChainRunTransition'. A bare name for a packaged action matches
+	 * nothing, and the action keeps running.
 	 *
-	 * @param actionClassName The class name of the trigger action to bypass.
+	 * @param actionClassName The class name of the trigger action to bypass, with the package prefix for a packaged action.
 	 *
 	 * @since 1.0
 	 *
 	 * @example
 	 * ```apex
-	 * TRG_Base.bypassAction('TRG_SetFoobarDefaults');
-	 * Boolean isBypassed = TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // true
+	 * kern.TRG_Base.bypassAction('TRG_SetFoobarDefaults'); // one of your own actions
+	 * kern.TRG_Base.bypassAction('kern.TRG_AsyncChainRunTransition'); // an action the package ships
+	 * Boolean isBypassed = kern.TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // true
 	 * ```
 	 */
 	global static void bypassAction(String actionClassName)

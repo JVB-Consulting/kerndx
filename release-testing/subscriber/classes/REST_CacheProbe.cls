@@ -12,7 +12,7 @@
  *
  * @date May 2026
  */
-@RestResource(UrlMapping='/v1/cache-probe')
+@RestResource(urlMapping='/v1/cache-probe')
 global inherited sharing class REST_CacheProbe
 {
 	/**

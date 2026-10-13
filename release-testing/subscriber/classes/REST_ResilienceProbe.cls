@@ -14,7 +14,7 @@
  * @date March 2026, May 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity')
-@RestResource(UrlMapping='/v1/resilience-probe/*')
+@RestResource(urlMapping='/v1/resilience-probe/*')
 global inherited sharing class REST_ResilienceProbe
 {
 	/**

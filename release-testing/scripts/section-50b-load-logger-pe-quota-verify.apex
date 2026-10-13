@@ -94,6 +94,15 @@
  *   A37 (severity 🟡 — important; subscribers writing reporting / cleanup queries WILL trip
  *   on this if they reach for CreatedById by reflex).
  *
+ * The emitter leg (its own PASS line, 50b-emitter):
+ *   Section 50 also has the subscriber class SubscriberLogVolumeEmitter write 50 entries with no location. This
+ *   script finds them by their message and the launch's transaction id, waits up to 30 s for all of them, and checks
+ *   that every one reads Origin__c APEX, Source__c SubscriberLogVolumeEmitter and ClassMethod__c
+ *   SubscriberLogVolumeEmitter.emit. The engine reads these from the top frame of the call stack when the entry is
+ *   written, once per entry (LOG_Engine.Logger.getEvents; resolveOrigin gives APEX to a class outside the package
+ *   namespace, resolveSource keeps the text before the first dot). It then reports the launch's CPU time per emitter
+ *   entry as PERF_ROW cpuMsPerEntry. The cleanup deletes the emitter's entries too. Expected: 2 passed, 0 failed.
+ *
  * Cleanup happens at the end of THIS script (not section-50) because the verify queries
  * depend on the handoff row + persisted LogEntry__c rows still being intact. Cleanup
  * deletes the handoff Foobar__c row (Name LIKE 'Section50Load_%' from TODAY by current
@@ -358,6 +367,67 @@ catch(Exception scenarioError)
 	fail++;
 }
 
+// The emitter leg: every entry SubscriberLogVolumeEmitter wrote with no location carries the origin and the source the
+// engine read from the call stack when the entry was written.
+final String EMITTER_SOURCE = SubscriberLogVolumeEmitter.class.getName();
+final String EMITTER_CLASS_METHOD = EMITTER_SOURCE + '.emit';
+final String EMITTER_MESSAGE_PATTERN = SubscriberLogVolumeEmitter.MESSAGE_PREFIX + '%';
+final String ORIGIN_APEX = 'APEX';
+final Integer EMITTER_POLL_BUDGET_MS = 30000;
+try
+{
+	List<kern__Foobar__c> emitterHandoffRows = [SELECT kern__TextAreaLong__c FROM kern__Foobar__c WHERE Name LIKE 'Section50Load_%' ORDER BY CreatedDate DESC LIMIT 1];
+	Assert.areEqual(1, emitterHandoffRows.size(), '50b-emitter: expected the handoff row of section 50, found ' + emitterHandoffRows.size());
+	Map<String, Object> emitterHandoff = (Map<String, Object>)JSON.deserializeUntyped(emitterHandoffRows[0].kern__TextAreaLong__c);
+	Assert.isNotNull(emitterHandoff.get('emitterCount'), '50b-emitter: expected the handoff to record the emitter leg; run the current section 50 first');
+	String launchTransactionId = (String)emitterHandoff.get('transactionId');
+	Integer emitterCount = Integer.valueOf(String.valueOf(emitterHandoff.get('emitterCount')));
+	Decimal emitterCpuMs = Decimal.valueOf(String.valueOf(emitterHandoff.get('emitterCpuMs')));
+
+	List<kern__LogEntry__c> emitterRows = new List<kern__LogEntry__c>();
+	Long emitterPollStartMs = System.currentTimeMillis();
+	while(true)
+	{
+		emitterRows = [SELECT Id, kern__ClassMethod__c, kern__Origin__c, kern__Source__c FROM kern__LogEntry__c
+				WHERE kern__ShortMessage__c LIKE :EMITTER_MESSAGE_PATTERN AND kern__TransactionId__c = :launchTransactionId
+				AND kern__UserId__c = :UserInfo.getUserId()];
+		if(emitterRows.size() >= emitterCount || System.currentTimeMillis() - emitterPollStartMs > EMITTER_POLL_BUDGET_MS || Limits.getCpuTime() >= 8000)
+		{
+			break;
+		}
+		Long spinUntilMs = System.currentTimeMillis() + POLL_INTERVAL_MS;
+		while(System.currentTimeMillis() < spinUntilMs && Limits.getCpuTime() < 8000)
+		{
+			Math.sqrt(2.0);
+		}
+	}
+	Assert.areEqual(emitterCount, emitterRows.size(), '50b-emitter: expected every entry of the emitter to be saved, got ' + emitterRows.size()
+			+ '; if the count is still rising, wait and run section 50b again');
+
+	List<String> wrongRows = new List<String>();
+	for(kern__LogEntry__c row : emitterRows)
+	{
+		if(row.kern__Origin__c != ORIGIN_APEX || row.kern__Source__c != EMITTER_SOURCE || row.kern__ClassMethod__c != EMITTER_CLASS_METHOD)
+		{
+			wrongRows.add(row.Id + ' (origin ' + row.kern__Origin__c + ', source ' + row.kern__Source__c + ', location ' + row.kern__ClassMethod__c + ')');
+		}
+	}
+	Assert.isTrue(wrongRows.isEmpty(), '50b-emitter: expected every entry to read origin ' + ORIGIN_APEX + ', source ' + EMITTER_SOURCE
+			+ ' and location ' + EMITTER_CLASS_METHOD + '; ' + wrongRows.size() + ' did not: ' + String.join(wrongRows, ', ').left(2000));
+
+	Decimal cpuMsPerEntry = (emitterCpuMs / Math.max(emitterCount, 1)).setScale(2);
+	System.debug(LoggingLevel.INFO, 'PERF_ROW: ' + JSON.serialize(new Map<String, Object> {'section' => 50, 'metric' => 'cpuMsPerEntry', 'value' => cpuMsPerEntry}));
+	System.debug(LoggingLevel.INFO, '50b-emitter PASS: all ' + emitterRows.size() + ' entries the emitter wrote with no location read origin ' + ORIGIN_APEX
+			+ ', source ' + EMITTER_SOURCE + ' and location ' + EMITTER_CLASS_METHOD + '; ' + cpuMsPerEntry + 'ms of CPU time per entry');
+	pass++;
+}
+catch(Exception scenarioError)
+{
+	System.debug(LoggingLevel.ERROR, '50b-emitter FAIL: ' + scenarioError.getMessage() + '\n' + scenarioError.getStackTraceString());
+	failures.add('50b-emitter: ' + scenarioError.getMessage());
+	fail++;
+}
+
 try
 {
 	List<kern__Foobar__c> residualHandoff =
@@ -390,6 +460,22 @@ try
 		delete residualLogEntries;
 		System.debug(LoggingLevel.INFO,
 				'Cleanup: deleted ' + residualLogEntries.size() + ' LOG_TestSection50_% kern__LogEntry__c row(s)');
+	}
+
+	List<kern__LogEntry__c> residualEmitterEntries =
+	[
+			SELECT Id
+			FROM kern__LogEntry__c
+			WHERE kern__ShortMessage__c LIKE :EMITTER_MESSAGE_PATTERN
+			AND CreatedDate = TODAY
+			AND kern__UserId__c = :UserInfo.getUserId()
+			LIMIT 9000
+	];
+	if(!residualEmitterEntries.isEmpty())
+	{
+		delete residualEmitterEntries;
+		System.debug(LoggingLevel.INFO,
+				'Cleanup: deleted ' + residualEmitterEntries.size() + ' SubscriberLogVolumeEmitter kern__LogEntry__c row(s)');
 	}
 }
 catch(Exception cleanupError)

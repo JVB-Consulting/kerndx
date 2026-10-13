@@ -15,7 +15,7 @@
  * @date August 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 private class Recipe_ApprovalHandOff_DEMO_TEST
 {
 	/**

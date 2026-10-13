@@ -21,7 +21,7 @@
  * @date April 2026, May 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(IsParallel=false)
+@IsTest(isParallel=false)
 private class SubscriberSecureByDefault_TEST
 {
 	/**

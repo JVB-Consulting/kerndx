@@ -8,16 +8,47 @@
  *
  * @group Web Services
  *
- * @date March 2026, May 2026
+ * @date March 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class SubscriberHttpClient_TEST
 {
 	/**
 	 * @description Test credential name used as the mock service key.
 	 */
 	private static final String TEST_CREDENTIAL = 'SubscriberTestCredential';
+
+	/**
+	 * @description The credential header the caller sets by hand.
+	 */
+	private static final String HEADER_AUTHORIZATION = 'Authorization';
+
+	/**
+	 * @description The scheme word in front of the token in the Authorization header.
+	 */
+	private static final String BEARER_PREFIX = 'Bearer ';
+
+	/**
+	 * @description The text the framework stores in place of a credential header's value.
+	 */
+	private static final String REDACTED_MARKER = '[REDACTED]';
+
+	/**
+	 * @description A retry budget beyond the ad-hoc client's limit of three attempts in one transaction, so budget is left
+	 * for a scheduled retry.
+	 */
+	private static final Integer RETRY_BUDGET_BEYOND_SYNCHRONOUS = 5;
+
+	/**
+	 * @description The retry wait, in seconds.
+	 */
+	private static final Integer RETRY_BACKOFF_SECONDS = 30;
+
+	/**
+	 * @description The status of an ApiCall record that ended in failure.
+	 */
+	private static final String STATUS_FAILED = 'Failed';
 
 	/**
 	 * @description Registers a mock response for the test credential and returns the body.
@@ -104,7 +135,7 @@ private class SubscriberHttpClient_TEST
 	}
 
 	/**
-	 * @description Tests builder chaining — headers, timeout, and asMap() deserialization.
+	 * @description Tests builder chaining: headers, timeout, and asMap() deserialization.
 	 */
 	@IsTest
 	private static void shouldChainBuilderMethodsAndDeserialize()
@@ -156,5 +187,37 @@ private class SubscriberHttpClient_TEST
 
 		Assert.isNotNull(body, 'String body should not be null');
 		Assert.isTrue(body.contains('"message":"hello"'), 'Body should contain expected content');
+	}
+
+	/**
+	 * @description A POST with an idempotency key that gets no answer is safe to repeat, so it would wait for a scheduled
+	 * retry. When the caller set the Authorization header by hand, the stored call keeps the redaction marker in place of
+	 * the token. A retry could not send the token, so the call is held back for a person: it ends Failed with no retry
+	 * time, and its error text names the header in the labelled words.
+	 */
+	@IsTest
+	private static void shouldStoreAHandSetCredentialHeaderRedactedAndHoldTheCallBackFromRetry()
+	{
+		String token = kern.UTIL_Random.randomName();
+		String idempotencyKey = kern.UTIL_Random.randomName();
+		kern.API_MockFactory.forService(TEST_CREDENTIAL).withTransportFailure().register();
+
+		Test.startTest();
+		kern.UTIL_HttpClient.post(TEST_CREDENTIAL, '/items')
+				.header(HEADER_AUTHORIZATION, BEARER_PREFIX + token)
+				.withIdempotencyKey(idempotencyKey)
+				.withRetry(RETRY_BUDGET_BEYOND_SYNCHRONOUS, RETRY_BACKOFF_SECONDS)
+				.send();
+		Test.stopTest();
+
+		List<kern__ApiCall__c> rows = (List<kern__ApiCall__c>)new kern.SEL_ApiCall().findByField(kern__ApiCall__c.kern__IdempotencyKey__c, idempotencyKey);
+		Assert.areEqual(1, rows.size(), 'Expected one stored call with the key, got ' + rows.size());
+		kern__ApiCall__c storedCall = rows[0];
+		String expectedLine = String.format(System.Label.kern.RetryApiIssue_CredentialHeaderNotStored, new List<Object> {HEADER_AUTHORIZATION});
+		Assert.isFalse(storedCall.kern__RequestParameters__c.contains(token), 'Expected the stored call not to carry the token');
+		Assert.isTrue(storedCall.kern__RequestParameters__c.contains(REDACTED_MARKER), 'Expected the stored call to carry the redaction marker');
+		Assert.areEqual(STATUS_FAILED, storedCall.kern__Status__c, 'Expected the call to be held back as Failed, got ' + storedCall.kern__Status__c);
+		Assert.isNull(storedCall.kern__NextRetry__c, 'Expected no retry time on a call whose credential was not stored');
+		Assert.isTrue(storedCall.kern__ErrorMessages__c.contains(expectedLine), 'Expected the error text to name the header, got ' + storedCall.kern__ErrorMessages__c);
 	}
 }

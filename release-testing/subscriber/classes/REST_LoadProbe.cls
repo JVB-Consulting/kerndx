@@ -14,7 +14,7 @@
  *
  * @date May 2026
  */
-@RestResource(UrlMapping='/v1/load-probe')
+@RestResource(urlMapping='/v1/load-probe')
 global inherited sharing class REST_LoadProbe
 {
 	/**

@@ -81,7 +81,13 @@ function getOrgInfo()
 {
 	const raw = execSync(`sf org display -o ${ORG_ALIAS} --json`, {encoding: 'utf8'});
 	const result = JSON.parse(raw).result;
-	return {instanceUrl: result.instanceUrl, accessToken: result.accessToken};
+	let accessToken = result.accessToken;
+	// Newer Salesforce CLI redacts the access token in `org display` output; the redacted form fails REST with 401.
+	if(!accessToken || accessToken.includes('REDACTED'))
+	{
+		accessToken = JSON.parse(execSync(`sf org auth show-access-token -o ${ORG_ALIAS} --json`, {encoding: 'utf8'})).result.accessToken;
+	}
+	return {instanceUrl: result.instanceUrl, accessToken};
 }
 
 async function sendProbe(instanceUrl, accessToken, body)
@@ -154,6 +160,7 @@ function deleteByIds(ids)
 		}
 		catch
 		{
+			// The scratch file may already be gone; cleanup is best effort.
 		}
 	}
 }
@@ -252,8 +259,10 @@ async function main()
 	}
 
 	console.log('Phase 2: Server-side ApiCall__c row inspection (scoped by ServiceName + CreatedDate)');
-	const callRowsResult = querySoql(`SELECT Id, kern__ServiceName__c, kern__Direction__c, kern__Status__c, ` + `kern__StatusCode__c, kern__Retries__c FROM kern__ApiCall__c `
-			+ `WHERE kern__ServiceName__c IN ('${INBOUND_SERVICE}', '${OUTBOUND_SERVICE}') ` + `AND CreatedDate >= ${runStartIso} ORDER BY CreatedDate ASC`);
+	const callRowsResult = querySoql(`SELECT Id, kern__ServiceName__c, kern__Direction__c, kern__Status__c, `
+			+ `kern__StatusCode__c, kern__Retries__c FROM kern__ApiCall__c `
+			+ `WHERE kern__ServiceName__c IN ('${INBOUND_SERVICE}', '${OUTBOUND_SERVICE}') `
+			+ `AND CreatedDate >= ${runStartIso} ORDER BY CreatedDate ASC`);
 	const allRows = callRowsResult.records || [];
 	const inboundRows = allRows.filter(r => r.kern__ServiceName__c === INBOUND_SERVICE);
 	const outboundRows = allRows.filter(r => r.kern__ServiceName__c === OUTBOUND_SERVICE);

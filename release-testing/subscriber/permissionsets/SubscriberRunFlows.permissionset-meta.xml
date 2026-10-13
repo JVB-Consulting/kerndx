@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Lets a user run flows. A managed package cannot give this permission through its own permission sets, so a subscriber grants it with a set of their own. A user who holds Kern API Issue Resolver needs it to see Retry Selected on the API Issues list.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Subscriber Run Flows</label>
+    <userPermissions>
+        <enabled>true</enabled>
+        <name>RunFlow</name>
+    </userPermissions>
+</PermissionSet>

@@ -5,29 +5,19 @@
  * (which already exercises basic 500/200 mocks, retry config propagation,
  * failure-rate injection, and ApiIssue logging on a single delegation call).
  * Covers the failure-classification matrix (4xx 400/404/422 + 5xx 500/502/503),
- * retry queueing on 5xx with explicit backoff, graceful handling of malformed
+ * the server error on a POST without an idempotency key that is not sent again,
+ * retry queueing on 503 with explicit backoff, graceful handling of malformed
  * status codes, statistical validation of failureRate over a 20-call sample,
  * and the RETRY_THEN_LOG composition path — all through delegation mode via
- * API_EchoSubscriber.
+ * API_EchoSubscriber, whose calls are POSTs without an idempotency key.
  *
  * Deferrals to managed @IsTest harness or framework follow-up:
- *   - Real timeout (spec scenario 3): API_MockFactory.MockBuilder has no public
- *     delay setter; the only delay path is ApiMock__mdt.DelayMs__c, which is
- *     stored on the MockResponse but never enforced (no Apex sleep mechanism).
- *     Mock callouts also bypass HttpRequest.setTimeout() entirely. Belongs in
- *     a Node integration test that fires a real HTTP request to a deliberately
- *     slow endpoint, OR in a managed @IsTest with a custom HttpCalloutMock that
- *     throws System.CalloutException to simulate timeout.
- *   - Malformed response body / parse error (spec scenario 5): the framework's
- *     default DTO_Base.deserialize() is a no-op (returns this), and EchoSubscriber
- *     does not override responsePayload, so a malformed JSON body silently passes
- *     through parseResponse() without raising JSONException. Without a subscriber
- *     handler that defines a real responsePayload subclass + JsonAccess attributes,
- *     parse failure cannot be observed. Move to Subscriber_OutboundEdges_TEST.cls
- *     with a custom subscriber API class whose DTO_Response triggers parse
- *     failure on the registerParseFailMock body. FRAMEWORK FOLLOW-UP: consider
- *     surfacing a result.parseError flag so subscribers can branch on parse vs
- *     transport failure without subclassing parseResponse.
+ *   - Real timeout (spec scenario 3): covered by SubscriberOutboundRetry_TEST
+ *     (shouldRetryATransportFailureOnAGet, shouldFailAnUnkeyedPostAtOnceWhenItGotNoAnswer)
+ *     and by section 84's live step.
+ *   - Malformed response body / parse error (spec scenario 5): covered by
+ *     SubscriberOutboundRetry_TEST (shouldFailAtOnceWhenTheHandlerRefusesTheRetry)
+ *     and by section 84's live step.
  *   - Retry waits backoff timing (spec scenario 7): UTIL_HttpClient's synchronous
  *     retry loop in DefaultOutboundHandler.sendRequest() iterates without any
  *     sleep/wait between attempts (Apex has no sleep primitive). Backoff is
@@ -48,25 +38,30 @@
  *
  * Run-isolation: self-contained — does not depend on prior section state.
  * Cleanup deletes ApiCall__c + ApiIssue__c rows created today by the running
- * user keyed to the API_EchoSubscriber service.
+ * user keyed to the API_EchoSubscriber service and proves by query that none is
+ * left. The log entries this run writes land after it ends, so
+ * section-55-edge-outbound-failure-cleanup.apex, run 30 seconds later, deletes
+ * them and proves it.
  *
  * Implementation notes:
  *   - Each scenario re-registers the mock immediately before invocation;
  *     API_MockFactory keeps mocks in a per-transaction MEMORY_REGISTRY that
  *     persists across calls until clearMocks() is invoked.
- *   - 4xx and 5xx are differentiated only by HTTP status code in the delegation
- *     path: API_Outbound.retry() does NOT filter by status code (it only
- *     checks Retries__c < MaxRetries__c), so withRetry(N) on a 4xx call will
- *     still schedule a NextRetry__c. The DEFAULT_RETRYABLE_CODES filter
- *     ({500,502,503,504}) only applies to the DefaultOutboundHandler's
- *     synchronous retry loop in ad-hoc mode, not to delegation mode.
+ *   - The scheduled retry reads the status code in delegation mode as in ad-hoc
+ *     mode: only a status in the handler's getRetryableStatusCodes() (by default
+ *     408, 425, 429, 500, 502, 503, 504) is scheduled, so withRetry(N) on a 4xx
+ *     call schedules nothing. A 500, 502 or 504 to a POST or PATCH sent without
+ *     an idempotency key is not sent again either: the external system may have
+ *     processed it, so the call ends Failed with the ServerErrorNotRepeated line
+ *     and its issue is marked External System May Have Acted. 408, 425, 429 and
+ *     503 say the request was not processed, so they are scheduled for any method.
  *   - For delegation mode, the subscriber handler inherits API_Outbound's
  *     single-shot sendRequest(), not the looping DefaultOutboundHandler version.
  *     When MaxRetries > 0 and the call fails, SEL_ApiCall.updateNextRetryInfo
  *     pre-increments Retries__c by 1 (it represents "scheduled" not "executed")
  *     and sets Status__c=Retry. With MaxRetries=0, Retries stays 0 and Status=
  *     Failed. NextRetry__c is only populated when backoffSeconds > 0, so
- *     scenario 55e/55f use the (maxRetries, backoffSeconds) overload.
+ *     scenarios 55e, 55f and 55i use the (maxRetries, backoffSeconds) overload.
  *   - Statistical scenario 55h uses 20 calls capped by the 150-statement DML
  *     governor (mocks bypass the 100-callout governor, so callouts aren't the
  *     bottleneck). Larger sample sizes belong in a managed @IsTest where each
@@ -76,7 +71,12 @@
  *   - subscriber scratch org with the kern managed package installed
  *   - API_EchoSubscriber subscriber class deployed
  *   - kern__ApiSetting.EchoSubscriber CMDT record deployed (LogIssues=true,
- *     MockingEnabled=true, MaxRetryCount=null by default)
+ *     MaxRetryCount=null by default)
+ *   - The MockAllAPIs feature flag on (fixture cmdt-states/mock-all-apis-enabled;
+ *     phase 2 deploys it around this section and restores mock-all-apis-disabled
+ *     after). Each scenario registers its answer through kern.API_MockFactory;
+ *     outside a unit test a registered answer stands in for the callout only while
+ *     MockAllAPIs is on, otherwise the handler makes its real call.
  *
  * Run (in isolation):
  *   sf apex run --file release-testing/scripts/section-55-edge-outbound-failure.apex -o $SF_SUBSCRIBER_ORG_ALIAS
@@ -287,16 +287,16 @@ catch(Exception scenarioError)
 	fail++;
 }
 
-// Scenario 55e — 5xx (502 Bad Gateway) WITH withRetry(2, 5): MaxRetries__c stamped to 2,
-// NextRetry__c scheduled ~5 seconds out (async retry queued for the dispatcher to pick up),
-// Status flips to Retry, Retries__c bumped to 1 (SEL_ApiCall.updateNextRetryInfo pre-
-// increments the counter when scheduling a retry — it represents "scheduled" not "executed").
-// Uses the (maxRetries, backoffSeconds) overload — a non-zero backoff is required for
-// NextRetry__c to be populated (the framework only writes NextRetry when backoffSeconds > 0).
+// Scenario 55e — 5xx (502 Bad Gateway) WITH withRetry(2, 5) on a POST sent without an
+// idempotency key: the external system may have processed the request, so it is not sent again
+// although budget and a wait were given. MaxRetries__c is stamped to 2, but the call ends Failed
+// with no NextRetry__c, no retry counted, the ServerErrorNotRepeated line in its errors, and an
+// issue marked External System May Have Acted.
 try
 {
 	kern.API_MockFactory.forService(SERVICE_NAME).body('{"error":"bad gateway"}').statusCode(502).register();
 	Datetime startedAt55e = Datetime.now();
+	Set<Id> issueIdsBefore55e = new Map<Id, kern__ApiIssue__c>([SELECT Id FROM kern__ApiIssue__c WHERE kern__ServiceName__c = :SERVICE_NAME]).keySet();
 	kern.UTIL_HttpClient.useHandler(API_EchoSubscriber.class)
 			.withRetry(2, 5)
 			.withParameter('message', 'fivexx-502-retry-' + SCENARIO_RUN_STAMP)
@@ -310,20 +310,39 @@ try
 					kern__Status__c,
 					kern__Retries__c,
 					kern__MaxRetries__c,
-					kern__NextRetry__c
+					kern__NextRetry__c,
+					kern__ErrorMessages__c
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
 			AND CreatedDate >= :startedAt55e
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
+	// The issue is told apart by Id, not by CreatedDate: a created date keeps whole seconds, so an
+	// earlier scenario's issue saved in the same second would match a time filter too.
+	List<kern__ApiIssue__c> apiIssues55e =
+	[
+			SELECT kern__ExternalSystemMayHaveActed__c
+			FROM kern__ApiIssue__c
+			WHERE kern__ServiceName__c = :SERVICE_NAME
+			AND Id NOT IN :issueIdsBefore55e
+	];
+	String notRepeatedLine55e = String.format(System.Label.kern.OutboundCall_ServerErrorNotRepeated, new List<Object> {SERVICE_NAME, 502});
 	Assert.areEqual(1, apiCalls55e.size(), '55e: an ApiCall row should be persisted for the 502 response');
 	Assert.areEqual('502', apiCalls55e[0].kern__StatusCode__c, '55e: ApiCall.StatusCode__c should record HTTP 502');
-	Assert.areEqual('Retry', apiCalls55e[0].kern__Status__c, '55e: ApiCall.Status__c should be Retry when MaxRetries > 0 and the call failed');
-	Assert.areEqual(1, (apiCalls55e[0].kern__Retries__c ?? 0).intValue(), '55e: Retries__c should be 1 (SEL_ApiCall.updateNextRetryInfo pre-increments when scheduling a retry)');
+	Assert.areEqual(STATUS_FAILED, apiCalls55e[0].kern__Status__c, '55e: a 502 to a POST without an idempotency key should end Failed, not Retry');
+	Assert.areEqual(0, (apiCalls55e[0].kern__Retries__c ?? 0).intValue(), '55e: Retries__c should be 0 (the request is not sent again)');
 	Assert.areEqual(2, (apiCalls55e[0].kern__MaxRetries__c ?? 0).intValue(), '55e: MaxRetries__c should be 2 (from withRetry(2, 5))');
-	Assert.isNotNull(apiCalls55e[0].kern__NextRetry__c, '55e: NextRetry__c should be scheduled when MaxRetries > Retries and backoffSeconds > 0 (async retry queued)');
-	System.debug(LoggingLevel.INFO, '55e PASS: 502 with withRetry(2, 5) → MaxRetries=2, Status=Retry, NextRetry__c scheduled (async retry queued)');
+	Assert.isNull(apiCalls55e[0].kern__NextRetry__c, '55e: NextRetry__c should stay empty (nothing is scheduled)');
+	Assert.isTrue(apiCalls55e[0].kern__ErrorMessages__c?.contains(notRepeatedLine55e) == true,
+			'55e: the errors should carry the ServerErrorNotRepeated line, got ' + apiCalls55e[0].kern__ErrorMessages__c);
+	Assert.isFalse(apiIssues55e.isEmpty(), '55e: an ApiIssue row should be created (LogIssues=true)');
+	for(kern__ApiIssue__c issue55e : apiIssues55e)
+	{
+		Assert.isTrue(issue55e.kern__ExternalSystemMayHaveActed__c, '55e: the issue should be marked External System May Have Acted');
+	}
+	System.debug(LoggingLevel.INFO,
+			'55e PASS: 502 with withRetry(2, 5) on a POST without a key → Status=Failed, no NextRetry__c, Retries=0, ServerErrorNotRepeated line, issue marked');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -492,22 +511,25 @@ catch(Exception scenarioError)
 	fail++;
 }
 
-// Scenario 55i — onFailure(RETRY_THEN_LOG) composes with withRetry(2, 5) and 500 mock: the
+// Scenario 55i — onFailure(RETRY_THEN_LOG) composes with withRetry(2, 5) and a 503 mock: the
 // FailureAction propagates KEY_LOG_FAILURES=true to the in-memory ApiSetting (logging-on),
 // while retry is still queued (NextRetry__c set, Status=Retry). Confirms the composition path
-// where the caller explicitly opts in to "retry to exhaustion, then log issue".
+// where the caller explicitly opts in to "retry to exhaustion, then log issue". The mock answers
+// 503, which says the request was not processed, so the POST without a key may be scheduled; a
+// 500 would end it Failed (see 55e).
 //
-// Note on LOG_FAILURE in delegation mode: the FailureAction enum has two values, LOG_FAILURE
-// and RETRY_THEN_LOG. LOG_FAILURE additionally sets KEY_SKIP_RETRY=true to short-circuit the
-// sync retry loop in DefaultOutboundHandler.sendRequest() — but that loop only runs in ad-hoc
-// mode, NOT in delegation mode where the subscriber handler inherits the single-shot
-// API_Outbound.sendRequest(). So LOG_FAILURE and RETRY_THEN_LOG are observationally identical
-// in delegation mode (both set LogIssues=true; the retry-skip is a no-op). This scenario
-// asserts the composition that IS testable end-to-end through delegation.
+// In delegation mode LOG_FAILURE behaves as RETRY_THEN_LOG (its retry skip acts only on the ad-hoc
+// retry loop), so this scenario asserts the composition delegation can show.
 try
 {
-	kern.API_MockFactory.forService(SERVICE_NAME).body('{"error":"retry-then-log"}').statusCode(500).register();
-	Datetime startedAt55i = Datetime.now();
+	kern.API_MockFactory.forService(SERVICE_NAME).body('{"error":"retry-then-log"}').statusCode(503).register();
+	// A row's CreatedDate has whole seconds, so an earlier scenario's rows can share this second. The rows already there
+	// are left out by id, so only the rows this scenario creates are read and counted.
+	Datetime startedAt55i = Datetime.now().addSeconds(-1);
+	Set<Id> earlierCallIds55i = new Map<Id, kern__ApiCall__c>(
+			[SELECT Id FROM kern__ApiCall__c WHERE kern__ServiceName__c = :SERVICE_NAME AND CreatedDate >= :startedAt55i]).keySet();
+	Set<Id> earlierIssueIds55i = new Map<Id, kern__ApiIssue__c>(
+			[SELECT Id FROM kern__ApiIssue__c WHERE kern__ServiceName__c = :SERVICE_NAME AND CreatedDate >= :startedAt55i]).keySet();
 	kern.UTIL_HttpClient.useHandler(API_EchoSubscriber.class)
 			.withRetry(2, 5)
 			.onFailure(kern.UTIL_HttpClient.FailureAction.RETRY_THEN_LOG)
@@ -525,11 +547,12 @@ try
 			FROM kern__ApiCall__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
 			AND CreatedDate >= :startedAt55i
+			AND Id NOT IN :earlierCallIds55i
 			ORDER BY CreatedDate DESC
 			LIMIT 1
 	];
 	Assert.areEqual(1, apiCalls55i.size(), '55i: an ApiCall row should be persisted');
-	Assert.areEqual('500', apiCalls55i[0].kern__StatusCode__c, '55i: ApiCall.StatusCode__c should record HTTP 500');
+	Assert.areEqual('503', apiCalls55i[0].kern__StatusCode__c, '55i: ApiCall.StatusCode__c should record HTTP 503');
 	Assert.areEqual('Retry', apiCalls55i[0].kern__Status__c, '55i: ApiCall.Status__c should be Retry (RETRY_THEN_LOG keeps retry queueing on)');
 	Assert.areEqual(2, (apiCalls55i[0].kern__MaxRetries__c ?? 0).intValue(), '55i: MaxRetries__c should be 2');
 	Assert.isNotNull(apiCalls55i[0].kern__NextRetry__c, '55i: NextRetry__c should be scheduled (RETRY_THEN_LOG keeps retry on)');
@@ -540,9 +563,11 @@ try
 			FROM kern__ApiIssue__c
 			WHERE kern__ServiceName__c = :SERVICE_NAME
 			AND CreatedDate >= :startedAt55i
+			AND Id NOT IN :earlierIssueIds55i
 	];
 	Assert.isTrue(apiIssueCount55i >= 1, '55i: at least one ApiIssue row should be created (RETRY_THEN_LOG enables logging), got ' + apiIssueCount55i);
-	System.debug(LoggingLevel.INFO, '55i PASS: onFailure(RETRY_THEN_LOG) with withRetry(2, 5) → Status=Retry, NextRetry__c scheduled, ' + apiIssueCount55i + ' ApiIssue(s) created');
+	System.debug(LoggingLevel.INFO,
+			'55i PASS: onFailure(RETRY_THEN_LOG) with withRetry(2, 5) → Status=Retry, NextRetry__c scheduled, ' + apiIssueCount55i + ' ApiIssue(s) created');
 	pass++;
 }
 catch(Exception scenarioError)
@@ -575,6 +600,32 @@ delete
 		AND CreatedById = :UserInfo.getUserId()
 		LIMIT 9000
 ];
+// Log entries are written from a platform event after this transaction ends, so the ones this run
+// emits are deleted by section-55-edge-outbound-failure-cleanup.apex, run 30 seconds later; the
+// ones already written (an earlier run's) are deleted here. The Automated Process user writes them, so they are not
+// filtered by creator.
+final String LOG_PATTERN = '%' + SERVICE_NAME + '%';
+delete
+[
+		SELECT Id
+		FROM kern__LogEntry__c
+		WHERE kern__ClassMethod__c LIKE :LOG_PATTERN
+		AND CreatedDate = TODAY
+		LIMIT 9000
+];
+Integer callsLeft = [SELECT COUNT() FROM kern__ApiCall__c WHERE kern__ServiceName__c = :SERVICE_NAME AND CreatedDate = TODAY AND CreatedById = :UserInfo.getUserId()];
+Integer issuesLeft = [SELECT COUNT() FROM kern__ApiIssue__c WHERE kern__ServiceName__c = :SERVICE_NAME AND CreatedDate = TODAY AND CreatedById = :UserInfo.getUserId()];
+if(callsLeft + issuesLeft == 0)
+{
+	System.debug(LoggingLevel.INFO, '55-cleanup PASS: no API_EchoSubscriber call or issue of today is left; '
+			+ 'run section-55-edge-outbound-failure-cleanup.apex in 30 seconds for the log entries');
+}
+else
+{
+	System.debug(LoggingLevel.ERROR, '55-cleanup FAIL: left behind: ' + callsLeft + ' calls, ' + issuesLeft + ' issues');
+	failures.add('55-cleanup: left behind ' + callsLeft + ' calls, ' + issuesLeft + ' issues');
+	fail++;
+}
 kern.API_MockFactory.clearMocks();
 kern.TRG_Base.clearAllBypasses();
 

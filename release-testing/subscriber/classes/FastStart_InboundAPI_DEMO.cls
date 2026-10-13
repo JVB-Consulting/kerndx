@@ -85,7 +85,7 @@ public with sharing class FastStart_InboundAPI_DEMO extends kern.API_Inbound
 	/**
 	 * @description Incoming request payload from the external system.
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Request extends kern.DTO_JsonBase
 	{
 		/**
@@ -107,7 +107,7 @@ public with sharing class FastStart_InboundAPI_DEMO extends kern.API_Inbound
 	/**
 	 * @description Response returned to the caller after processing.
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Response extends kern.DTO_JsonBase
 	{
 		/**

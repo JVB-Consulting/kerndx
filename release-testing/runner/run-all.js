@@ -3,10 +3,15 @@ const {execSync} = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const {getSubscriberOrgAlias} = require('./subscriber-config');
+const {RECORDED_RESULTS_PATH, ReleaseTargetError, assertReleaseTarget} = require('./release-target');
+const {namespacePrefix} = require('../e2e/helpers/sf-namespace');
 
 const ROOT = path.join(__dirname, '..', '..');
-const RESULTS_PATH = path.join(__dirname, '..', 'results', 'current-run.json');
 const ORG_ALIAS = getSubscriberOrgAlias();
+
+// Stamped into the record when neither the command line nor the org can say which version was tested, so a reader of
+// the results file can see at a glance that the version was never established rather than reading a plausible number.
+const FALLBACK_VERSION = '1.0.0-XX';
 
 function detectInstalledVersion()
 {
@@ -29,34 +34,41 @@ function detectInstalledVersion()
 	return null;
 }
 
+// Which version this cycle is testing, in the order the pipeline trusts: the one named on the command line, then the
+// one the org reports for the installed package, then the placeholder.
+function resolveVersion(explicitVersion)
+{
+	if(explicitVersion)
+	{
+		return {version: explicitVersion, subscriberPackageVersionId: undefined};
+	}
+
+	console.log('Detecting installed package version...');
+	const detected = detectInstalledVersion();
+	if(detected)
+	{
+		console.log(`  Detected: ${detected.version} (${detected.subscriberPackageVersionId})\n`);
+		return detected;
+	}
+
+	console.log(`  Using fallback version: ${FALLBACK_VERSION}\n`);
+	return {version: FALLBACK_VERSION, subscriberPackageVersionId: undefined};
+}
+
 async function main()
 {
+	// What this pipeline produces is the record of a release-testing cycle, and its first act is to write into it, so
+	// an org without the package installed is turned away here, before anything is written or run.
+	assertReleaseTarget(ORG_ALIAS, namespacePrefix);
+
 	const startTime = Date.now();
 	const args = process.argv.slice(2);
 	const explicitVersion = args.find(a => !a.startsWith('--'));
-	const skipPhase2 = args.includes('--skip-phase2');
-	const skipPhase3 = args.includes('--skip-phase3');
+	const skipAutomatedTests = args.includes('--skip-phase2');
+	const skipVisualTests = args.includes('--skip-phase3');
 	const headed = args.includes('--headed');
 
-	let version = explicitVersion;
-	let subscriberPackageVersionId;
-
-	if(!version)
-	{
-		console.log('Detecting installed package version...');
-		const detected = detectInstalledVersion();
-		if(detected)
-		{
-			version = detected.version;
-			subscriberPackageVersionId = detected.subscriberPackageVersionId;
-			console.log(`  Detected: ${version} (${subscriberPackageVersionId})\n`);
-		}
-		else
-		{
-			version = '1.0.0-XX';
-			console.log('  Using fallback version: 1.0.0-XX\n');
-		}
-	}
+	const {version, subscriberPackageVersionId} = resolveVersion(explicitVersion);
 
 	console.log('=== KernDX Release Testing — Full Pipeline ===');
 	console.log(`Version: ${version}`);
@@ -65,7 +77,7 @@ async function main()
 	let results;
 	try
 	{
-		results = JSON.parse(fs.readFileSync(RESULTS_PATH, 'utf8'));
+		results = JSON.parse(fs.readFileSync(RECORDED_RESULTS_PATH, {encoding: 'utf8'}));
 	}
 	catch
 	{
@@ -77,13 +89,13 @@ async function main()
 		results.subscriberPackageVersionId = subscriberPackageVersionId;
 	}
 	results.testDate = new Date().toISOString().split('T')[0];
-	fs.mkdirSync(path.dirname(RESULTS_PATH), {recursive: true});
-	fs.writeFileSync(RESULTS_PATH, JSON.stringify(results, null, 2) + '\n', 'utf8');
+	fs.mkdirSync(path.dirname(RECORDED_RESULTS_PATH), {recursive: true});
+	fs.writeFileSync(RECORDED_RESULTS_PATH, JSON.stringify(results, null, 2) + '\n', 'utf8');
 
-	let phase2Success = true;
-	let phase3Success = true;
+	let automatedTestsPassed = true;
+	let visualTestsPassed = true;
 
-	if(!skipPhase2)
+	if(!skipAutomatedTests)
 	{
 		console.log('--- Phase 2: Automated Tests ---\n');
 		try
@@ -94,12 +106,12 @@ async function main()
 		}
 		catch
 		{
-			phase2Success = false;
+			automatedTestsPassed = false;
 			console.error('\nPhase 2 had failures. Continuing to Phase 3...\n');
 		}
 	}
 
-	if(!skipPhase3)
+	if(!skipVisualTests)
 	{
 		console.log('\n--- Phase 3: Visual Tests (Playwright) ---\n');
 		const playwrightArgs = [
@@ -122,7 +134,7 @@ async function main()
 		}
 		catch
 		{
-			phase3Success = false;
+			visualTestsPassed = false;
 			console.error('\nPhase 3 had failures.\n');
 		}
 	}
@@ -139,18 +151,34 @@ async function main()
 	}
 
 	const elapsed = ((Date.now() - startTime) / 1000 / 60).toFixed(1);
-	const overall = phase2Success && phase3Success;
+	const overall = automatedTestsPassed && visualTestsPassed;
 
 	console.log(`\n=== Pipeline complete in ${elapsed} minutes ===`);
-	console.log(`Phase 2: ${phase2Success ? '\x1b[32mPASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m'}`);
-	console.log(`Phase 3: ${phase3Success ? '\x1b[32mPASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m'}`);
+	console.log(`Phase 2: ${automatedTestsPassed ? '\x1b[32mPASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m'}`);
+	console.log(`Phase 3: ${visualTestsPassed ? '\x1b[32mPASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m'}`);
 	console.log(`Overall: ${overall ? '\x1b[32mALL PASS\x1b[0m' : '\x1b[31mFAIL\x1b[0m'}`);
 
 	process.exit(overall ? 0 : 1);
 }
 
-main().catch(error =>
+// A refusal already says which org, why, and what to change, so it is printed alone; a stack trace adds nothing to it.
+function reportFailure(error)
 {
-	console.error('Pipeline failed:', error);
+	if(error instanceof ReleaseTargetError)
+	{
+		console.error('\nPipeline stopped before it started:\n');
+		console.error(error.message);
+	}
+	else
+	{
+		console.error('Pipeline failed:', error);
+	}
 	process.exit(1);
-});
+}
+
+if(require.main === module)
+{
+	main().catch(reportFailure);
+}
+
+module.exports = {main, reportFailure, resolveVersion};

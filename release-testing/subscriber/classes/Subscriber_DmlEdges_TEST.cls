@@ -15,23 +15,49 @@
  * profile is granted no kern managed-package permission sets, so the user has no
  * `kern__Foobar__c` CRUD.
  *
+ * A third test proves a failed save is logged once: an all-or-nothing insert that the Account validation rules refuse
+ * writes one ERROR entry at the commit and none at the builder.
+ *
  * @see kern.DML_Builder
  * @see kern.UTIL_FeatureFlag
+ * @see kern.LOG_Builder
+ * @see kern.QRY_Builder
  *
  * @author Jason van Beukering
  *
  * @group DML
  *
- * @date May 2026
+ * @date May 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class Subscriber_DmlEdges_TEST
 {
 	/**
 	 * @description Profile name for the Standard User fixture used by `System.runAs`.
 	 */
 	private static final String STANDARD_PROFILE = 'Standard User';
+
+	/**
+	 * @description The name of the Account the validation rules refuse. The Account has no phone, no website and no
+	 * industry, which the subscriber's Account validation rules require.
+	 */
+	private static final String REFUSED_ACCOUNT_NAME = 'DmlEdges refused account';
+
+	/**
+	 * @description The log level of the entry a failed save writes.
+	 */
+	private static final String LOG_LEVEL_ERROR = 'ERROR';
+
+	/**
+	 * @description The end of the location the commit writes its failure entry at.
+	 */
+	private static final String COMMIT_LOCATION_SUFFIX = 'DML_Transaction.commitWork';
+
+	/**
+	 * @description The end of the location the builder would write a second failure entry at; it must write none.
+	 */
+	private static final String BUILDER_LOCATION_SUFFIX = 'DML_Builder.execute';
 
 	/**
 	 * @description A Standard User without `kern__Foobar__c` CRUD should still be able to
@@ -132,6 +158,74 @@ private class Subscriber_DmlEdges_TEST
 				'Expected no throw, got ' + thrownTypeName + ': ' + thrownMessage);
 		Assert.areEqual(0, successCount, 'Expected zero successes when the Standard User lacks kern__Foobar__c CRUD');
 		Assert.areEqual(1, failureCount, 'Expected exactly one failure for the rejected update');
+	}
+
+	/**
+	 * @description An all-or-nothing insert that a validation rule refuses throws a DmlException and is logged once, by
+	 * the commit that refused it: one ERROR entry whose location ends with DML_Transaction.commitWork, and no entry whose
+	 * location ends with DML_Builder.execute. The location may carry the package namespace in front, so the test reads
+	 * its end.
+	 *
+	 * @date October 2026
+	 */
+	@IsTest
+	private static void shouldLogARefusedAllOrNothingInsertOnceAtTheCommit()
+	{
+		kern.LOG_Builder.ignoreTestMode = true;
+		Account refusedAccount = (Account)kern.TST_Builder.of(Account.SObjectType)
+				.withOverride(Account.Name, REFUSED_ACCOUNT_NAME)
+				.withOverride(Account.Phone, null)
+				.withOverride(Account.Website, null)
+				.withOverride(Account.Industry, null)
+				.withoutInsertion()
+				.build();
+
+		Test.startTest();
+
+		try
+		{
+			kern.DML_Builder.newTransaction().doInsert(refusedAccount).execute();
+			Assert.fail('Expected the Account validation rules to refuse the insert');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, DmlException.class, 'Expected the refused all-or-nothing insert to throw a DmlException');
+		}
+		Test.getEventBus().deliver();
+
+		Test.stopTest();
+
+		Integer commitErrorEntries = 0;
+		Integer builderEntries = 0;
+		for(kern__LogEntry__c entry : findCurrentUsersLogEntries())
+		{
+			String location = entry.kern__ClassMethod__c ?? '';
+			if(location.endsWith(COMMIT_LOCATION_SUFFIX) && entry.kern__LogLevel__c == LOG_LEVEL_ERROR)
+			{
+				commitErrorEntries++;
+			}
+			if(location.endsWith(BUILDER_LOCATION_SUFFIX))
+			{
+				builderEntries++;
+			}
+		}
+		Assert.areEqual(1, commitErrorEntries, 'Expected one ERROR entry from the commit that refused the insert');
+		Assert.areEqual(0, builderEntries, 'Expected no second entry from the builder for the same failure');
+	}
+
+	/**
+	 * @description Reads the log entries the running user wrote in this test, with their location and level.
+	 *
+	 * @return The running user's log entries.
+	 *
+	 * @date October 2026
+	 */
+	private static List<kern__LogEntry__c> findCurrentUsersLogEntries()
+	{
+		return (List<kern__LogEntry__c>)kern.QRY_Builder.selectFrom(kern__LogEntry__c.SObjectType)
+				.fields(new List<SObjectField> {kern__LogEntry__c.kern__ClassMethod__c, kern__LogEntry__c.kern__LogLevel__c})
+				.condition(kern__LogEntry__c.kern__UserId__c).equals(UserInfo.getUserId())
+				.toList();
 	}
 
 	/**

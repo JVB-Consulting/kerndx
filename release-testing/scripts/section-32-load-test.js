@@ -29,7 +29,13 @@ function getOrgInfo()
 {
 	const raw = execSync(`sf org display -o ${ORG_ALIAS} --json`, {encoding: 'utf8'});
 	const result = JSON.parse(raw).result;
-	return {instanceUrl: result.instanceUrl, accessToken: result.accessToken};
+	let accessToken = result.accessToken;
+	// Newer Salesforce CLI redacts the access token in `org display` output; the redacted form fails REST with 401.
+	if(!accessToken || accessToken.includes('REDACTED'))
+	{
+		accessToken = JSON.parse(execSync(`sf org auth show-access-token -o ${ORG_ALIAS} --json`, {encoding: 'utf8'})).result.accessToken;
+	}
+	return {instanceUrl: result.instanceUrl, accessToken};
 }
 
 async function sendProbe(instanceUrl, accessToken, body)

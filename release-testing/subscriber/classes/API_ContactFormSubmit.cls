@@ -89,7 +89,7 @@ public with sharing class API_ContactFormSubmit extends kern.API_Inbound
 	/**
 	 * @description Incoming form submission data.
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Request extends kern.DTO_JsonBase
 	{
 		/**
@@ -116,7 +116,7 @@ public with sharing class API_ContactFormSubmit extends kern.API_Inbound
 	/**
 	 * @description Response returned to the caller.
 	 */
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	public class DTO_Response extends kern.DTO_JsonBase
 	{
 		/**

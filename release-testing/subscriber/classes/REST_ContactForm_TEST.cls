@@ -11,7 +11,7 @@
  * @date March 2026, May 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class REST_ContactForm_TEST
 {
 	/**

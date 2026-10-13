@@ -10,7 +10,7 @@
  *
  * @date February 2026
  */
-@IsTest(IsParallel=false)
+@IsTest(isParallel=false)
 private class SVC_ContactDirectory_TEST
 {
 	/** @description Tests that createContact inserts a Contact in USER_MODE. */

@@ -13,11 +13,12 @@
  * queueable's unhandled exception in test context surfaces as a test failure, not the real
  * Finalizer/AsyncApexJob path).
  *
- * NOTE on the framework error LOG: the framework Finalizer's logUnhandledException additionally emits a
- * kern__LogEntry__c via a PublishImmediately LogEntryEvent__e. On the validated build that
- * finalizer-context log did NOT persist in real async execution (plain anon emits and synchronous
- * trigger-error logs DO persist), so this section asserts the reliable AsyncApexJob signal instead —
- * see RUNBOOK "Section 75 notes" for the finalizer-log observation.
+ * The framework's error log: the queueable's finalizer (the code the platform runs after the job, even
+ * when it failed) calls logUnhandledException, which writes one ERROR kern__LogEntry__c linked to the
+ * failed job. Section 75b checks both signals: the Failed AsyncApexJob with the exception in
+ * ExtendedStatus, and that ERROR entry (check 75b-error-log). An earlier build recorded that the entry
+ * did not persist in a subscriber org; a FAIL on 75b-error-log is a framework defect to raise before
+ * the release is promoted.
  *
  * Launch + verify split (mirrors section 34 / 56 / 71): the queueable runs AFTER the launching
  * transaction commits, so a single execute-anonymous transaction cannot both enqueue the job and

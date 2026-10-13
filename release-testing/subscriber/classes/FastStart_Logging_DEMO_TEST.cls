@@ -19,7 +19,7 @@
  * @date May 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class FastStart_Logging_DEMO_TEST
 {
 	/**

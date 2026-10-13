@@ -105,7 +105,7 @@ public with sharing class FastStart_OutboundAPI_DEMO extends kern.API_Outbound
 	 * <p>{@code @JsonAccess} is required in managed package context: the framework serialises and
 	 * deserialises DTOs from the {@code kern} namespace and needs explicit access grants.
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Request extends kern.DTO_JsonBase
 	{
 	}
@@ -113,7 +113,7 @@ public with sharing class FastStart_OutboundAPI_DEMO extends kern.API_Outbound
 	/**
 	 * @description Response DTO matching the JSONPlaceholder post schema.
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Response extends kern.DTO_JsonBase
 	{
 		/**

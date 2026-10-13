@@ -48,7 +48,7 @@ public with sharing class Recipe_CaseDelivery_SERVICE extends kern.API_Outbound
 	/**
 	 * @description Request DTO; the delivery body stays minimal for the pattern.
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Request extends kern.DTO_JsonBase
 	{
 	}
@@ -56,7 +56,7 @@ public with sharing class Recipe_CaseDelivery_SERVICE extends kern.API_Outbound
 	/**
 	 * @description Response DTO matching the downstream acknowledgement.
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Response extends kern.DTO_JsonBase
 	{
 		/**

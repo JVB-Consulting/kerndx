@@ -6,7 +6,7 @@
  * Expected violations:
  * - KernRestResourceNaming (x1: @RestResource on non-REST_* class)
  */
-@RestResource(UrlMapping='/test/scanner/*')
+@RestResource(urlMapping='/test/scanner/*')
 public with sharing class ScannerTestRestViolation
 {
 	/**

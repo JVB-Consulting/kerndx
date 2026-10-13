@@ -13,7 +13,7 @@
  * @date August 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 private class Recipe_CaseDelivery_SERVICE_TEST
 {
 	/**

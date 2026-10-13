@@ -11,7 +11,7 @@
  *
  * @date May 2026
  */
-@RestResource(UrlMapping='/v1/contacts/*')
+@RestResource(urlMapping='/v1/contacts/*')
 global with sharing class FastStart_InboundAPI_REST
 {
 	/**

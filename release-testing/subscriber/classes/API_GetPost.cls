@@ -83,7 +83,7 @@ public with sharing class API_GetPost extends kern.API_Outbound
 	/**
 	 * @description Request DTO (empty for GET requests -- parameters go in the URL).
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Request extends kern.DTO_JsonBase
 	{
 	}
@@ -91,7 +91,7 @@ public with sharing class API_GetPost extends kern.API_Outbound
 	/**
 	 * @description Response DTO matching the JSONPlaceholder post schema.
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Response extends kern.DTO_JsonBase
 	{
 		/**

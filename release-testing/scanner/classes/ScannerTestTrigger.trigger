@@ -4,7 +4,8 @@
  * Contains inline logic instead of delegating to TRG_Dispatcher.
  *
  * Expected violations:
- * - KernTriggerMustDelegate (x1: business logic in trigger body)
+ * - KernTriggerMustDelegate (x2: the rule checks the whole trigger body, so the loop and the
+ *   assignment inside it are each reported)
  */
 trigger ScannerTestTrigger on Account (before insert)
 {
