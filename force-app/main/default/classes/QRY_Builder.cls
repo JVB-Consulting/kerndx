@@ -4,8 +4,8 @@
  * Provides a clean, type-safe API for building queries with support for conditions, ordering, pagination, caching,
  * and security enforcement.
  *
- * **Design Principle:** QRY_Builder is an adapter that delegates to the existing query infrastructure.
- * This ensures backwards compatibility while providing a cleaner API surface for new development.
+ * **Design Principle:** QRY_Builder passes the work to the existing query classes (QRY_Generator and QRY_Engine).
+ * This keeps older code working while giving new code a cleaner set of methods.
  *
  * **95% Use Case**: Inline queries via `QRY_Builder.selectFrom(...)`
  * **5% Use Case**: Extend `Builder` for reusable custom selectors
@@ -19,7 +19,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -35,6 +35,8 @@
  * // With caching
  * Account account = (Account)QRY_Builder.selectFrom(Account.SObjectType)
  *     .condition(Account.Id).equals(accountId)
+ *     .withSystemMode()
+ *     .withSharing()
  *     .withCache(300)
  *     .getFirst();
  * ```
@@ -49,8 +51,8 @@
 global inherited sharing class QRY_Builder
 {
 	/**
-	 * @description Developer name of the feature flag that drives the subscriber-reachable
-	 * query default access mode.
+	 * @description Developer name of the feature flag that sets the default access mode for queries. A subscriber
+	 * can turn this flag on or off.
 	 */
 	@TestVisible
 	private static final String FLAG_USER_MODE_QUERIES = 'UserModeQueries_Enabled';
@@ -66,10 +68,9 @@ global inherited sharing class QRY_Builder
 	private static final Integer MAXIMUM_CURSOR_FETCH_ROWS = 2000;
 
 	/**
-	 * @description Returns whether subscriber-reachable queries default to `AccessLevel.USER_MODE`
-	 * — i.e., the resolved value of the `UserModeQueries_Enabled` feature flag. Used as the
-	 * initial value of every new `Builder.userModeEnabled` field. Caching is delegated to
-	 * `UTIL_FeatureFlag` / `SEL_FeatureFlag.activeFlags`.
+	 * @description Returns whether queries a subscriber can reach run in `AccessLevel.USER_MODE` by default, which
+	 * is the value of the `UserModeQueries_Enabled` feature flag. Every new `Builder.userModeEnabled` field starts
+	 * with this value. `UTIL_FeatureFlag` and `SEL_FeatureFlag.activeFlags` cache the flag.
 	 *
 	 * @return True when `UserModeQueries_Enabled` is on; false otherwise.
 	 */
@@ -389,15 +390,15 @@ global inherited sharing class QRY_Builder
 		global Integer deletedRecords;
 
 		/**
-		 * @description The PaginationCursor state for LWC round-trips.
-		 * Can be passed back to the server for stable pagination across requests.
+		 * @description The PaginationCursor, which a Lightning web component can send back to the server to read
+		 * the next page. Passing it back keeps the pages stable across requests.
 		 *
-		 * Null whenever the page was served without a pagination cursor — because more records match than
-		 * the paging allowance left in the transaction (100,000 records today, drawn on by every paged read
-		 * in the same transaction, so a later read has only what the earlier ones left), or because the
-		 * transaction has no pagination-cursor instances left. Those pages are served another way:
-		 * `records`, `totalRecords` and every paging flag stay correct, and only `deletedRecords` is
-		 * unavailable, so it reads 0. Check for null before passing the cursor back.
+		 * It is null whenever the page was read without a pagination cursor. That happens when more records match
+		 * than the paging allowance left in the transaction, or when the transaction has no pagination cursors left.
+		 * The allowance is 100,000 records today, and every paged read in the same transaction uses it, so a later
+		 * read has only what the earlier ones left. Such pages are read another way: `records`, `totalRecords` and
+		 * every paging flag stay correct. Only `deletedRecords` is not available, so it reads 0. Check for null before
+		 * passing the cursor back.
 		 *
 		 * @since 1.0
 		 *
@@ -2090,13 +2091,12 @@ global inherited sharing class QRY_Builder
 		private Boolean sharingEnforced;
 
 		/**
-		 * @description Setter-time bypass-audit queue keyed to the query surface. Setter calls
-		 * (`withoutSecurity` / `withSystemMode` / `bypassSharing`) enqueue their target via
-		 * `auditQueue.queue(...)`; the first executing terminal records the builder's
-		 * SObjectType via `auditQueue.recordOperation(...)` — the step that produces the
-		 * object-qualified targets — then calls `auditQueue.flush()`, so a builder dropped
-		 * before execution emits nothing. Lazy-initialised so the secure-by-default execution
-		 * path (no bypass setters called) does not allocate the queue.
+		 * @description The bypass audit entries this builder will write for queries. The bypass audit records each
+		 * time code skips the user's access checks. `withoutSecurity`, `withSystemMode` and `bypassSharing` add their
+		 * entry to the queue with `auditQueue.queue(...)` when they are called. The first method that runs the query
+		 * then records the builder's SObjectType with `auditQueue.recordOperation(...)`, which adds the object to each
+		 * entry, and calls `auditQueue.flush()`. So a builder that is dropped before it runs writes nothing. The queue
+		 * is created the first time it is used: when a bypass method is called, or when the builder runs.
 		 */
 		@TestVisible
 		private final UTIL_BypassAudit.AuditQueue auditQueue
@@ -2129,6 +2129,12 @@ global inherited sharing class QRY_Builder
 		 */
 		@TestVisible
 		private Integer cacheTTL;
+
+		/**
+		 * @description Where cached results may be kept. Null = no caching. Set by withCache and withoutCache.
+		 */
+		@TestVisible
+		private UTIL_Cache.Scope cacheScope;
 
 		/**
 		 * @description Whether to lock records FOR UPDATE.
@@ -2225,8 +2231,8 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Explicitly aliased aggregate selections, applied to the generator in call order at
-		 * build time. Unlike the single aggregate above, selections accumulate, so one query folds several
-		 * aggregates (e.g. COUNT plus MIN and MAX) and reads each back by its alias. Lazy-loaded on first
+		 * build time. Unlike the single aggregate above, these selections add up, so one query can combine several
+		 * aggregates (e.g. COUNT plus MIN and MAX) and read each back by its alias. Lazy-loaded on first
 		 * access.
 		 *
 		 * @date July 2026
@@ -2625,12 +2631,11 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Replaces the SELECT field list with the given fields (subqueries and aggregate
-		 * selections, if any, are untouched). Unlike `fields()`,
-		 * which appends to whatever is already seeded on the builder (a selector's `query` getter
-		 * seeds the selector's default field list), this discards the seeded selection first — the
-		 * only way to project narrower than a selector's defaults, e.g. a list view that must not
-		 * haul long-text payload fields. Public-but-not-global so subscribers cannot bind to it;
-		 * promoting it to `global` later is purely additive if application code needs it.
+		 * selections, if any, are untouched). `fields()` adds to the fields already on the builder (a selector's
+		 * `query` getter starts with the selector's default field list). This method removes those fields first. It
+		 * is the only way to select fewer fields than a selector's defaults, for example in a list view that must not
+		 * load large long-text fields. It is public, not global, so subscribers cannot call it. Making it `global`
+		 * later only adds to the API, if application code needs it.
 		 *
 		 * @param objectFields List of SObjectField tokens forming the complete selection
 		 *
@@ -2758,11 +2763,11 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Projects a SOQL date-function expression into SELECT under an explicit alias, for
-		 * read-back via AggregateRow (e.g. CALENDAR_MONTH(CloseDate) closeMonth -> row.getInteger('closeMonth')).
-		 * Pair with groupBy(QRY_Function) using the same factory so the SELECT and GROUP BY expressions match.
-		 * The alias is validated as a bare identifier — the same rule as the aliased aggregate selections —
-		 * so a caller-supplied alias can never carry SOQL syntax into the clause.
+		 * @description Adds a SOQL date-function expression to SELECT under an explicit alias, so you can read it
+		 * back through AggregateRow (e.g. CALENDAR_MONTH(CloseDate) closeMonth, then row.getInteger('closeMonth')).
+		 * Use it with groupBy(QRY_Function) and the same factory, so the SELECT and GROUP BY expressions match.
+		 * The alias must be a plain name, the same rule as for the aliased aggregate selections, so an alias a
+		 * caller supplies can never add SOQL syntax to the clause.
 		 *
 		 * @param functionField The date-function expression, from a QRY_Function factory
 		 * @param alias The read-back alias for the projected expression; must be a bare identifier
@@ -3012,7 +3017,7 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Adds a field to the GROUP BY clause using an SObjectField token.
-		 * Call multiple times for multi-field grouping (max 3 per SOQL spec).
+		 * Call it more than once to group by several fields (SOQL allows at most 3).
 		 *
 		 * @param groupField The field to group by
 		 *
@@ -3321,9 +3326,9 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Applies a COUNT aggregate under an explicit result alias. Aliased aggregates
-		 * accumulate — unlike the single-aggregate overloads, each call adds one more selection — so one
-		 * query folds several aggregates and reads each back by its alias on the AggregateRow.
+		 * @description Applies a COUNT aggregate under an explicit result alias. Aliased aggregates add up: unlike
+		 * the overloads without an alias, each call adds one more selection. So one query can combine several
+		 * aggregates and read each back by its alias on the AggregateRow.
 		 *
 		 * @param field The field to count
 		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
@@ -3352,7 +3357,7 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Applies a COUNT_DISTINCT aggregate under an explicit result alias. Aliased
-		 * aggregates accumulate, so one query folds several aggregates and reads each back by its alias.
+		 * aggregates add up, so one query can combine several aggregates and read each back by its alias.
 		 *
 		 * @param field The field to count distinct values of
 		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
@@ -3377,7 +3382,7 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Applies a SUM aggregate under an explicit result alias. Aliased aggregates
-		 * accumulate, so one query folds several aggregates and reads each back by its alias.
+		 * add up, so one query can combine several aggregates and read each back by its alias.
 		 *
 		 * @param field The field to sum
 		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
@@ -3402,7 +3407,7 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Applies an AVG aggregate under an explicit result alias. Aliased aggregates
-		 * accumulate, so one query folds several aggregates and reads each back by its alias.
+		 * add up, so one query can combine several aggregates and read each back by its alias.
 		 *
 		 * @param field The field to average
 		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
@@ -3427,7 +3432,7 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Applies a MIN aggregate under an explicit result alias. Aliased aggregates
-		 * accumulate, so one query folds several aggregates and reads each back by its alias.
+		 * add up, so one query can combine several aggregates and read each back by its alias.
 		 *
 		 * @param field The field to take the minimum of
 		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
@@ -3452,7 +3457,7 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Applies a MAX aggregate under an explicit result alias. Aliased aggregates
-		 * accumulate, so one query folds several aggregates and reads each back by its alias.
+		 * add up, so one query can combine several aggregates and read each back by its alias.
 		 *
 		 * @param field The field to take the maximum of
 		 * @param alias The result alias; must be a bare identifier, unique across the aliased selections
@@ -3478,8 +3483,8 @@ global inherited sharing class QRY_Builder
 		/**
 		 * @description Records one aliased aggregate selection, validating the alias immediately so a bad
 		 * alias fails at the call site rather than at query build time. A duplicate alias across the
-		 * selections is rejected when the query builds; a collision with the legacy auto-alias (e.g.
-		 * count_Id) or an echoed GROUP BY field name surfaces as a QueryException at query time.
+		 * selections is rejected when the query builds. An alias that clashes with the older automatic alias (e.g.
+		 * count_Id), or with a GROUP BY field name, shows up as a QueryException when the query runs.
 		 *
 		 * @param aggregate The aggregate function to apply.
 		 * @param field The field token to aggregate.
@@ -4075,8 +4080,8 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Orders an aggregate query by COUNT of a field (e.g. ORDER BY COUNT(Id) DESC), the
-		 * SOQL form for ranking grouped rows by how many records each group holds — a top-N-groups read
-		 * combines this with withLimit. No NULLS clause is emitted: COUNT never yields null groups.
+		 * SOQL form for ranking grouped rows by how many records each group holds. To read only the top groups,
+		 * combine this with withLimit. No NULLS clause is added, because COUNT never returns null.
 		 *
 		 * @param field The field whose COUNT orders the grouped rows
 		 * @param sortDescending When true, sorts DESCENDING (largest groups first); otherwise ASCENDING
@@ -4280,9 +4285,12 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Forces SYSTEM_MODE and clears the strip-inaccessible and sharing selections, so the
-		 * query runs with object and field permissions waived and sharing inherited from the caller. It does
-		 * not bypass sharing; use `bypassSharing()` for that.
+		 * @description Turns off every security check the builder controls, in one call. The query runs in
+		 * SYSTEM_MODE, so object and field permissions are not checked. The stripInaccessible() choice is cleared. And
+		 * record sharing is ignored through the `without sharing` proxy, exactly as `withSystemMode()` followed by
+		 * `bypassSharing()` would do. Both bypasses are recorded in the bypass audit. To skip object and field
+		 * permissions but keep the record sharing of the calling class, use `withSystemMode()` instead. This method
+		 * ignores the `UserModeQueries_Enabled` flag.
 		 *
 		 * @return Builder for chaining
 		 *
@@ -4299,8 +4307,9 @@ global inherited sharing class QRY_Builder
 		{
 			userModeEnabled = false;
 			stripInaccessibleEnabled = false;
-			sharingEnforced = null;
+			sharingEnforced = false;
 			auditQueue.queueSecurityMode();
+			auditQueue.queueSharing();
 			return this;
 		}
 
@@ -4325,10 +4334,10 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Forces SYSTEM_MODE execution regardless of the `UserModeQueries_Enabled`
-		 * feature flag. Framework-internal queries that read CMDT, framework-owned sObjects, or
-		 * system-schema tables must use this method so they continue working when the subscriber's
-		 * running user lacks FLS/CRUD on those objects by design.
+		 * @description Runs the query in SYSTEM_MODE, whatever the `UserModeQueries_Enabled` feature flag says.
+		 * Use it for a query that must read custom metadata, system tables, or objects the running user is not
+		 * meant to have object or field access (CRUD/FLS) to. Each call is recorded in the bypass audit when the
+		 * query runs.
 		 *
 		 * @return Builder for chaining
 		 *
@@ -4350,15 +4359,13 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Framework-internal sibling of `withSystemMode()` that flips the
-		 * USER_MODE flag without enqueuing a `BypassEvent` audit entry. Use from framework
-		 * selectors (`SEL_Base.query` when `systemModeRequired() == true`) and framework-internal
-		 * CMDT or custom-setting lookups (e.g., `UTIL_FeatureFlag.getCustomMetadataOrSettingValue`)
-		 * where USER_MODE is structurally required because the framework is reading its own
-		 * configuration. Such reads are not subscriber-facing bypasses and must not pollute the
-		 * `BypassEvent` forensic trail. Public-but-not-global so subscribers cannot bind to it;
-		 * application code that legitimately opts out of USER_MODE must call `withSystemMode()`
-		 * so the opt-out is audited.
+		 * @description The framework's own version of `withSystemMode()`. It turns USER_MODE off but adds no
+		 * `BypassEvent` entry to the bypass audit. Framework selectors use it (`SEL_Base.query` when
+		 * `systemModeRequired() == true`), and so do the framework's own lookups of custom metadata or custom settings
+		 * (e.g., `UTIL_FeatureFlag.getCustomMetadataOrSettingValue`), because the framework is reading its own
+		 * configuration. No subscriber is skipping a check in these reads, so they must not fill the `BypassEvent`
+		 * audit trail. It is public, not global, so subscribers cannot call it. Application code that really needs to
+		 * leave USER_MODE must call `withSystemMode()`, so the choice is audited.
 		 *
 		 * @return Builder for chaining
 		 *
@@ -4439,19 +4446,18 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Framework-internal sibling of `bypassSharing()` that disables the sharing
-		 * proxy without enqueuing a `BypassEvent` audit entry. Use from framework-internal reads
-		 * that structurally require org-wide visibility (e.g. the health check's trusted-site
-		 * configuration probe, the community-nickname uniqueness scan) — these are not
-		 * subscriber-facing bypasses and must not pollute the `BypassEvent` forensic trail.
-		 * Public-but-not-global so subscribers cannot bind to it; application code that
-		 * legitimately opts out of sharing must call `bypassSharing()` so the opt-out is audited.
+		 * @description The framework's own version of `bypassSharing()`. It ignores record sharing but adds no
+		 * `BypassEvent` entry to the bypass audit. Framework reads that must always see every record in the org use
+		 * it, for example the health check's look at who may abort jobs, which reads setup entities, or the check that
+		 * a community nickname is unique. No subscriber is skipping a check in these reads, so they must not fill the
+		 * `BypassEvent` audit trail. It is public, not global, so subscribers cannot call it. Application code that
+		 * really needs to ignore sharing must call `bypassSharing()`, so the choice is audited.
 		 *
 		 * @return Builder for chaining
 		 *
 		 * @example
 		 * ```apex
-		 * List<CspTrustedSite> trustedSites = QRY_Builder.selectFrom(CspTrustedSite.SObjectType)
+		 * List<SetupEntityAccess> grants = QRY_Builder.selectFrom(SetupEntityAccess.SObjectType)
 		 *     .bypassSharingInternal()
 		 *     .toList();
 		 * ```
@@ -4463,9 +4469,13 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Enables platform caching for this query.
+		 * @description Enables caching for this query. A non-null time-to-live means
+		 * withCache(UTIL_Cache.Scope.AUTO, ttlSeconds); a null one requests no caching. A user-mode read is kept
+		 * in memory for this transaction. A system-mode read that leaves the sharing setting to the
+		 * calling class is not cached, because the cache cannot tell one calling class's sharing from another's;
+		 * to cache a system-mode read, state the setting with withSharing() or bypassSharing().
 		 *
-		 * @param ttlSeconds Time-to-live in seconds
+		 * @param ttlSeconds Time-to-live in seconds for Platform Cache; ignored in memory; null requests no caching
 		 *
 		 * @return Builder for chaining
 		 *
@@ -4475,6 +4485,8 @@ global inherited sharing class QRY_Builder
 		 * ```apex
 		 * Account account = (Account)QRY_Builder.selectFrom(Account.SObjectType)
 		 *     .condition(Account.Id).equals(accountId)
+		 *     .withSystemMode()
+		 *     .withSharing()
 		 *     .withCache(300)
 		 *     .getFirst();
 		 * ```
@@ -4482,6 +4494,56 @@ global inherited sharing class QRY_Builder
 		global Builder withCache(Integer ttlSeconds)
 		{
 			cacheTTL = ttlSeconds;
+			cacheScope = ttlSeconds == null ? null : UTIL_Cache.Scope.AUTO;
+			return this;
+		}
+
+		/**
+		 * @description Caches this query's results in the given scope. AUTO is not a place: it asks for the most
+		 * durable storage that is safe for this read when it runs, Platform Cache for a system-mode read where a
+		 * partition keeps it, and memory for this transaction otherwise. A user-mode read is only ever kept in
+		 * memory for this transaction. A system-mode read whose sharing is left to the calling class is not cached;
+		 * state it with withSharing() or bypassSharing(). The last caching call on a builder wins.
+		 *
+		 * @param scope Where results may be kept; null means no caching
+		 * @param ttlSeconds Time-to-live in seconds for Platform Cache; ignored in memory; null uses the default
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @since 1.8
+		 *
+		 * @example
+		 * ```apex
+		 * List<Account> parents = QRY_Builder.selectFrom(Account.SObjectType)
+		 *     .condition(Account.Id).isIn(parentIds)
+		 *     .withCache(UTIL_Cache.Scope.IN_TRANSACTION, null)
+		 *     .toList();
+		 * ```
+		 */
+		global virtual Builder withCache(UTIL_Cache.Scope scope, Integer ttlSeconds)
+		{
+			cacheScope = scope;
+			cacheTTL = scope == null ? null : ttlSeconds;
+			return this;
+		}
+
+		/**
+		 * @description Makes this query read from the database, whatever caching the selector or an earlier call
+		 * asked for. The last caching call on a builder wins.
+		 *
+		 * @return Builder for chaining
+		 *
+		 * @since 1.8
+		 *
+		 * @example
+		 * ```apex
+		 * List<Account> fresh = new SEL_Account().query.withoutCache().condition(Account.Id).isIn(ids).toList();
+		 * ```
+		 */
+		global virtual Builder withoutCache()
+		{
+			cacheScope = null;
+			cacheTTL = null;
 			return this;
 		}
 
@@ -4864,6 +4926,7 @@ global inherited sharing class QRY_Builder
 			parameters.enforceSharing = sharingEnforced;
 			parameters.limitCount = maxRecords;
 			parameters.cacheTTL = cacheTTL;
+			parameters.cacheScope = cacheScope;
 			parameters.lockForUpdate = lockForUpdate;
 			parameters.lockForReference = lockForReference;
 			parameters.lockForView = lockForView;
@@ -4948,7 +5011,11 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Returns a Database.Cursor for large data set traversal.
+		 * @description Returns a Database.Cursor for reading a large set of records in parts. The cursor is opened
+		 * with the sharing this builder was set up with, or with the caller's own sharing when none is set. So a cursor
+		 * built with bypassSharing() fetches every row the query matches, whatever the record sharing, on every later
+		 * fetch in this transaction or a later one. An exception registered through TST_Mock.throwsException() is
+		 * thrown from this call exactly as it is from every other method that runs the query.
 		 *
 		 * @return Database.Cursor
 		 *
@@ -4965,8 +5032,7 @@ global inherited sharing class QRY_Builder
 		{
 			QRY_BindRegistry registry = new QRY_BindRegistry();
 			QRY_Engine.QueryParameters params = buildParameters(registry);
-			AccessLevel accessLevel = params.userMode ? AccessLevel.USER_MODE : AccessLevel.SYSTEM_MODE;
-			return Database.getCursorWithBinds(params.queryString, params.bindMap ?? new Map<String, Object>(), accessLevel);
+			return QRY_Engine.getCursor(params);
 		}
 
 		/**
@@ -5198,28 +5264,29 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Attaches everything the engine needs to serve this page WITHOUT a pagination cursor:
-		 * the bounded count that decides whether one can be opened at all, the unbounded count that supplies
-		 * the total when no cursor is there to report it, and a plain LIMIT/OFFSET rendering of the same page.
-		 * Above the platform's row allowance the cursor cannot be opened, and the failure is a governor
-		 * exception raised at creation — nothing can catch it — so all of this has to be in hand first.
+		 * @description Adds everything the engine needs to read this page WITHOUT a pagination cursor. That is three
+		 * queries: a limited count that decides whether a pagination cursor can be opened at all, a count with no limit
+		 * that gives the total when no cursor can report it, and a plain LIMIT/OFFSET query for the same page. Above
+		 * the platform's row allowance the cursor cannot be opened. The failure is then a governor limit exception
+		 * thrown when the cursor is created, and nothing can catch it, so all three must be ready beforehand.
 		 *
-		 * The counts mirror every clause that changes WHICH rows match: the same effective condition, the same
-		 * scope, and ALL ROWS. Mirroring the condition is what keeps a narrow query on its cursor; mirroring
-		 * ALL ROWS is what keeps the count honest, because a count lower than the rows the page query matches
-		 * would wave through exactly the read that fails. Clauses that only reshape or order the matched rows
-		 * are left out, and so is any WITH DATA CATEGORY filter: overcounting merely diverts a read that would
-		 * have succeeded, which costs the cursor and the deleted-record count but returns the same records.
+		 * The counts copy every clause that changes WHICH rows match: the same full condition, the same scope, and
+		 * ALL ROWS. Copying the condition keeps a query that matches few rows on its cursor. Copying ALL ROWS keeps the
+		 * count correct, because a count lower than the rows the page query matches would allow exactly the read that
+		 * fails. Clauses that only change the shape or order of the matched rows are left out, and so is any WITH DATA
+		 * CATEGORY filter. Counting too many only sends a read that would have worked to another way of reading the
+		 * page. That costs the cursor and the deleted-record count, but returns the same records.
 		 *
-		 * A builder-level LIMIT caps the bounded count as well, so a query that can never reach the ceiling is
-		 * never diverted by a count of rows it would not have read. It also withholds the plain rendering: a
-		 * cursor applies that LIMIT across the whole result set, and a per-page LIMIT cannot reproduce it, so
-		 * the plain tier stands aside rather than answer differently.
+		 * A LIMIT set on the builder also limits the count that checks the row allowance (the guard count), so a query
+		 * that can never reach the platform limit is never sent another way because of rows it would not have read.
+		 * Such a LIMIT also stops the plain query from being built: a cursor applies that LIMIT across the whole
+		 * result, and a LIMIT on one page cannot do the same. So the plain query is not built, because it would give a
+		 * different answer.
 		 *
-		 * Aggregate pages get no fallback tiers. The platform refuses to open EITHER cursor type over a query
-		 * carrying aggregate expressions or a GROUP BY, so the cursor tiers fail on their own; the plain tier
-		 * is withheld by the engine (`canServePlainPage`) because a LIMIT/OFFSET aggregate would execute — and
-		 * then report a total counted over base rows rather than groups, a served-but-wrong page.
+		 * Aggregate pages get no other way of being read. The platform refuses to open EITHER kind of cursor over a
+		 * query with aggregate expressions or a GROUP BY, so neither kind of cursor can be opened. The engine does not
+		 * offer the plain way either (`canServePlainPage`). A LIMIT/OFFSET aggregate would run, but it would report a
+		 * total counted over rows instead of groups, so the page would be read but wrong.
 		 *
 		 * @param parameters The parameters to stamp with the fallback queries
 		 * @param registry The bind registry already carrying the page query's binds
@@ -5297,9 +5364,9 @@ global inherited sharing class QRY_Builder
 		 * @return Page containing records and pagination metadata
 		 *
 		 * @throws IllegalArgumentException When the page number is below 1, or the page size is outside 1 to 2000
-		 * @throws UTIL_Exceptions.IllegalStateException When the transaction has spent its cursor capacity —
-		 * roughly fifty diverted paged reads in one transaction — and the requested page also sits past the
-		 * 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query.
+		 * @throws UTIL_Exceptions.IllegalStateException When the transaction has used up its cursors (about fifty
+		 * paged reads in one transaction that could not use a pagination cursor), and the requested page also starts
+		 * past the 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query.
 		 *
 		 * @since 1.0
 		 *
@@ -5378,7 +5445,7 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * QRY_Builder.Builder query = QRY_Builder.selectFrom(Account.SObjectType).withCache(300);
+		 * QRY_Builder.Builder query = QRY_Builder.selectFrom(Account.SObjectType).withSystemMode().withSharing().withCache(300);
 		 * List<SObject> results = query.toList();
 		 * Boolean fromCache = query.isCached();
 		 * ```
@@ -5812,7 +5879,7 @@ global inherited sharing class QRY_Builder
 	}
 
 	/**
-	 * @description Internal class to hold a data category filter specification.
+	 * @description Internal class that holds one data category filter: the group, the operator and the categories.
 	 */
 	@TestVisible
 	private class DataCategoryEntry

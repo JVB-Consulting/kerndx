@@ -17,9 +17,9 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
-@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength')
+@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.ExcessivePublicCount,PMD.NcssTypeCount')
 public inherited sharing class QRY_Engine
 {
 	/**
@@ -34,39 +34,117 @@ public inherited sharing class QRY_Engine
 	public static final Integer MAX_QUERY_OFFSET = 2000;
 
 	/**
-	 * @description Message for a page that cannot be served because the transaction has spent its cursor
-	 * capacity. Raised deliberately: the platform would otherwise fail the same call with a governor
-	 * exception no catch block can intercept.
+	 * @description The most rows the in-memory query cache keeps for one read: the 200 records of one trigger batch.
+	 * The framework chose this number; it does not come from the data. What limits memory is the memory cache's heap
+	 * guard, the check that stops the cache from using too much heap.
+	 */
+	@TestVisible
+	private static final Integer MEMORY_CACHE_ROW_LIMIT = 200;
+
+	/**
+	 * @description The transaction's in-memory query cache. Emptied at the start and the end of every DML_Transaction commit attempt.
+	 */
+	@TestVisible
+	private static final UTIL_Cache.TransactionMemoryCache QUERY_RESULT_MEMORY_CACHE = new UTIL_Cache.TransactionMemoryCache();
+
+	/**
+	 * @description Cache-key segment for a result produced with sharing enforced through the with-sharing proxy.
+	 */
+	private static final String CACHE_KEY_SHARING_ENFORCED = 'ENFORCED';
+
+	/**
+	 * @description Cache-key segment for a result produced with sharing bypassed; org-wide, so shared by every caller.
+	 */
+	private static final String CACHE_KEY_SHARING_BYPASSED = 'BYPASSED';
+
+	/**
+	 * @description In-memory cache-key segment for a result read in user mode, with the running user's object, field
+	 * and sharing access applied.
+	 */
+	private static final String CACHE_KEY_ACCESS_USER = 'USER';
+
+	/**
+	 * @description In-memory cache-key segment for a result read in system mode, with object and field access waived.
+	 */
+	private static final String CACHE_KEY_ACCESS_SYSTEM = 'SYSTEM';
+
+	/**
+	 * @description The Platform Cache stores this transaction has already built, one per scope, so the check for which
+	 * partition is available runs once per scope per transaction.
+	 */
+	@TestVisible
+	private static final Map<UTIL_Cache.Scope, UTIL_Cache.Store> DURABLE_STORE_BY_SCOPE = new Map<UTIL_Cache.Scope, UTIL_Cache.Store>();
+
+	/**
+	 * @description Functions whose values the platform renders for the running user: the translated label, the
+	 * locale's formatting, the user's currency and the user's time zone. Matched on the upper-cased, space-normalised
+	 * query, so a space before the parenthesis still counts.
+	 */
+	private static final Pattern USER_DEPENDENT_FUNCTION = Pattern.compile('\\b(TOLABEL|FORMAT|CONVERTCURRENCY|CONVERTTIMEZONE) ?\\(');
+
+	/**
+	 * @description A USING SCOPE other than EVERYTHING, which picks rows relative to the running user: theirs, their
+	 * team's, their territory's or their delegated records.
+	 */
+	private static final Pattern USER_DEPENDENT_SCOPE = Pattern.compile(' USING SCOPE (?!EVERYTHING\\b)\\w+');
+
+	/**
+	 * @description Relative date literals, which the platform reads in the running user's time zone and week start.
+	 * Fiscal literals are listed too: the fiscal calendar is the org's, but the current fiscal period still starts at
+	 * midnight in the running user's time zone.
+	 */
+	private static final Pattern USER_DEPENDENT_DATE_LITERAL = Pattern.compile('\\b(TODAY|YESTERDAY|TOMORROW|(THIS|LAST|NEXT)_(WEEK|MONTH)|'
+			+ '(THIS|LAST|NEXT)_(FISCAL_)?(QUARTER|YEAR)|(LAST|NEXT)_N_(DAYS|WEEKS|MONTHS)|(LAST|NEXT)_N_(FISCAL_)?(QUARTERS|YEARS)|'
+			+ 'N_(DAYS|WEEKS|MONTHS)_AGO|N_(FISCAL_)?(QUARTERS|YEARS)_AGO|(LAST|NEXT)_90_DAYS)\\b');
+
+	/**
+	 * @description Finds a child subquery in an upper-cased, space-normalised query: an opening parenthesis followed by
+	 * SELECT that is not a semi-join (IN or NOT IN followed by a subquery).
+	 */
+	private static final Pattern CHILD_SUBQUERY = Pattern.compile('(?<!\\bIN ?)\\( ?SELECT\\b');
+
+	/**
+	 * @description A single-quoted string literal, escaped quotes inside it included. Blanked out before looking for a
+	 * child subquery, so text inside a literal is never taken for one.
+	 */
+	private static final Pattern QUOTED_LITERAL = Pattern.compile('\'(?:\\\\.|[^\'\\\\])*\'');
+
+	/**
+	 * @description Message for a page that cannot be read because the transaction has used up its cursors. A cursor
+	 * is a platform handle that reads a large result in parts. The engine throws this on purpose, because otherwise
+	 * the platform would fail the same call with a governor limit exception that no catch block can catch.
 	 */
 	private static final String CURSOR_CAPACITY_EXHAUSTED = 'This transaction has no cursor capacity left to read another page. '
 			+ 'Spread the paged reads across transactions, or narrow the query so fewer rows are matched.';
 
 	/**
-	 * @description Test override for the ceiling on pagination-cursor rows. Null in production, where the
-	 * ceiling always comes from Limits.getLimitApexPaginationCursorRows() (100,000 at the time of writing)
-	 * so the framework follows the governor instead of carrying a stale copy of it.
+	 * @description Message thrown when a null answer is queued; it points the caller at the empty list, which
+	 * means the next query finds nothing.
+	 */
+	private static final String QUEUED_ANSWER_NULL_MESSAGE = 'A queued mock answer cannot be null; queue an empty list for a query that finds nothing';
+
+	/**
+	 * @description A value a test sets for the most rows pagination cursors may read. It is null in production, where
+	 * the limit always comes from UTIL_Limits.apexPaginationCursorRows().maximum() (100,000 at the time of writing).
+	 * That way the framework follows the governor limit instead of keeping its own copy, which could go out of date.
 	 *
-	 * A query matching more rows than the transaction has left fails at cursor CREATION with
-	 * `System.LimitException: Too many apex pagination cursor rows`. That is a governor exception, so no
-	 * catch block can intercept it and no degrade can absorb it; the whole transaction dies. The only
-	 * defence is to size the matching set BEFORE the cursor is opened and serve the page from a standard
-	 * cursor instead, which counts against a separate, far larger allowance.
+	 * A query that matches more rows than the transaction has left fails when the cursor is CREATED, with
+	 * `System.LimitException: Too many apex pagination cursor rows`. That is a governor limit exception, so no
+	 * catch block can catch it and nothing can recover from it; the whole transaction fails. The only protection is
+	 * to count the matching rows BEFORE the cursor is opened, and to read the page from a standard cursor instead.
+	 * A standard cursor counts against a separate, far larger allowance.
 	 *
-	 * A test lowers this to drive the oversized branch through the real bounded count and the real standard
-	 * cursor, without seeding a hundred thousand rows.
-	 *
-	 * @date August 2026
+	 * A test lowers this value to reach the too-many-rows case through the real limited count and the real standard
+	 * cursor, without creating a hundred thousand rows.
 	 */
 	@TestVisible
 	private static Integer paginationCursorRowLimitOverride;
 
 	/**
-	 * @description Test override for the ceiling on standard cursors per transaction. Null in production,
-	 * where it comes from Limits.getLimitApexCursors() (50 at the time of writing). A test sets it to zero to
-	 * pretend the pool is spent, which is the only way to reach the tiers below the standard cursor without
-	 * opening fifty of them first.
-	 *
-	 * @date August 2026
+	 * @description A value a test sets for the most standard cursors one transaction may open. It is null in
+	 * production, where it comes from UTIL_Limits.apexCursors().maximum() (50 at the time of writing). A test sets it
+	 * to zero to act as if every cursor is used. That is the only way to reach the ways of reading a page that come
+	 * after the standard cursor, without opening fifty cursors first.
 	 */
 	@TestVisible
 	private static Integer standardCursorLimitOverride;
@@ -89,7 +167,63 @@ public inherited sharing class QRY_Engine
 		/**
 		 * @description Cache was not used for this query.
 		 */
-		BYPASS
+		BYPASS,
+
+		/**
+		 * @description Result was served from the transaction's in-memory query cache.
+		 */
+		MEMORY_HIT,
+
+		/**
+		 * @description Result was fetched from the database and stored in the transaction's in-memory query cache only,
+		 * because the request asked for the transaction scope.
+		 */
+		MEMORY_STORED,
+
+		/**
+		 * @description Result of a user-mode read was fetched from the database and stored in the transaction's
+		 * in-memory query cache only, because user-mode results never go to Platform Cache.
+		 */
+		MEMORY_STORED_USER_MODE,
+
+		/**
+		 * @description Result was fetched from the database and stored in the transaction's in-memory query cache only,
+		 * because no Platform Cache partition kept it.
+		 */
+		MEMORY_STORED_NO_PARTITION,
+
+		/**
+		 * @description Result was fetched from the database and stored in no cache, because a system-mode read with
+		 * inherited sharing depends on the caller's sharing context.
+		 */
+		DECLINED_INHERITED_SHARING,
+
+		/**
+		 * @description Not cached: the result has more rows than the in-memory query cache keeps for one read. Reported
+		 * only for a read that memory alone could keep (a user-mode read, a transaction-scope read, or a read no Platform
+		 * Cache partition kept), so neither store holds it.
+		 */
+		DECLINED_ROW_CAP,
+
+		/**
+		 * @description Not cached: heap use stayed at or over the in-memory cache's guard after evicting every older
+		 * entry. Reported only for a read that memory alone could keep (a user-mode read, a transaction-scope read, or a
+		 * read no Platform Cache partition kept), so neither store holds it.
+		 */
+		DECLINED_HEAP_GUARD,
+
+		/**
+		 * @description Not cached: an aggregate query is never kept in memory. Reported only for a read that memory alone
+		 * could keep (a user-mode read, a transaction-scope read, or a read no Platform Cache partition kept), so neither
+		 * store holds it. Platform Cache, where a partition keeps it, still keeps a system-mode aggregate read.
+		 */
+		DECLINED_AGGREGATE,
+
+		/**
+		 * @description Not cached: a query with a child subquery is never kept in memory, because copying its rows would share the child records between
+		 * callers. Platform Cache, which serializes, still keeps it.
+		 */
+		DECLINED_CHILD_SUBQUERY
 	}
 
 	/**
@@ -110,68 +244,74 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Mock registry for test isolation. Maps SObjectType to mock records.
-	 * Honestly-lazy: stays `null` until a test writes to it via `setMock`. Production code paths
-	 * (where mocks are never registered) never allocate. Read-only checks (`hasMock`, `getMock`,
-	 * `clearMocks`) guard against the null-state instead of triggering initialization.
+	 * @description The mock records a test registered, by SObjectType, so that tests do not depend on real data.
+	 * It stays `null` until a test writes to it through `setMock`, so production code, where no mocks are
+	 * registered, never creates it. The checks that only read it (`hasMock`, `getMock`, `clearMocks`) handle the
+	 * null value instead of creating the map.
 	 */
 	@TestVisible
 	private static Map<SObjectType, List<SObject>> mockRegistry;
 
 	/**
-	 * @description Registry for mock context class names. Maps SObjectType to FormulaEval context class names
-	 * for use in smart mock filtering. Honestly-lazy: only allocated when a context is registered.
+	 * @description The FormulaEval context class name for each SObjectType, used to filter mock records by the
+	 * query's conditions. The map is created only when a context class is registered.
 	 */
 	@TestVisible
 	private static Map<SObjectType, String> mockContextRegistry;
 
 	/**
-	 * @description Registry of exceptions to throw when querying a specific SObjectType. Used for
-	 * negative-path test coverage so subscribers can exercise their catch blocks without needing
-	 * to mock at a different layer. Populated via setMockException; cleared via clearMockException,
-	 * clearMockExceptions, or clearMocks. Honestly-lazy: stays `null` in production so every query
-	 * through `validateAndApplyMockException` pays only a single null-check, not a Map allocation.
+	 * @description The exceptions to throw when a specific SObjectType is queried. Tests use it to reach the error
+	 * paths, so subscribers can test their catch blocks without mocking anything else. Filled by setMockException;
+	 * emptied by clearMockException, clearMockExceptions or clearMocks. It stays `null` in production, so each
+	 * query through `validateAndApplyMockException` costs only one null check, and no map is created.
 	 */
 	@TestVisible
 	private static Map<SObjectType, Exception> mockExceptionRegistry;
 
 	/**
-	 * @description Registry of exceptions to throw only when an AGGREGATE query (one carrying aggregate
-	 * selections or a GROUP BY) executes against a specific SObjectType. Lets a test fail an aggregate
-	 * scan while row queries against the same SObjectType still succeed — the seam for proving a caller
-	 * degrades one leg without killing every read of the object (an SObjectType-wide setMockException
-	 * cannot express that asymmetry). Populated via setMockAggregateException; cleared via
-	 * clearMockException, clearMockExceptions, or clearMocks. Honestly-lazy: stays `null` in production
-	 * so every query pays only a null-check.
+	 * @description The exceptions to throw only when an AGGREGATE query (one with aggregate functions or a GROUP BY)
+	 * runs against a specific SObjectType. A test can then make an aggregate query fail while row queries against
+	 * the same SObjectType still succeed. This is how a test proves that a caller handles a failed aggregate query
+	 * on its own, without losing every read of the object. setMockException, which covers the whole SObjectType,
+	 * cannot fail one kind of query and not the other. Filled by setMockAggregateException; emptied by
+	 * clearMockException, clearMockExceptions or clearMocks. It stays `null` in production, so each query costs only
+	 * one null check.
 	 */
 	@TestVisible
 	private static Map<SObjectType, Exception> mockAggregateExceptionRegistry;
 
 	/**
-	 * @description Returns how many pagination-cursor rows THIS transaction can still claim. The governor is
-	 * per-transaction and shared across every pagination cursor opened in it, so a second paged read has
-	 * only what the first one left behind, not the full allowance.
+	 * @description A queue of answers for each SObjectType. Each answer is returned to exactly one row query or count
+	 * against its type, in the order the answers were added, and is then removed. The queue is checked before
+	 * `mockRegistry`. So inside one transaction a test can make the first read find nothing and the second read find
+	 * the row. Once the queue is empty, the type behaves as if nothing had been queued. Filled by queueMock; emptied
+	 * by clearMockQueue, clearMockQueues or clearMocks. It is never created in production and stays `null` there, so
+	 * each query costs only one null check.
+	 */
+	private static Map<SObjectType, List<List<SObject>>> mockQueueRegistry;
+
+	/**
+	 * @description Returns how many pagination-cursor rows THIS transaction can still use. The governor limit
+	 * applies to the whole transaction and is shared by every pagination cursor opened in it. So a second paged read
+	 * has only what the first one left, not the full allowance.
 	 *
 	 * @return The remaining pagination-cursor row allowance; zero or less when it is spent.
-	 *
-	 * @date August 2026
 	 */
 	private static Integer getPaginationCursorRowHeadroom()
 	{
-		Integer ceiling = paginationCursorRowLimitOverride ?? Limits.getLimitApexPaginationCursorRows();
-		return ceiling - Limits.getApexPaginationCursorRows();
+		UTIL_Limits.LimitCheck paginationCursorRows = UTIL_Limits.apexPaginationCursorRows();
+		Integer ceiling = paginationCursorRowLimitOverride ?? paginationCursorRows.maximum();
+		return ceiling - paginationCursorRows.used();
 	}
 
 	/**
-	 * @description Returns the row count a pagination guard query must be limited to: one more than the
-	 * headroom left in this transaction. That is the smallest bound that still distinguishes "exactly at the
-	 * ceiling" (a pagination cursor is legal) from "over it" (opening one would kill the transaction), and it
-	 * keeps the guard's cost flat — a bounded COUNT() stops scanning at its LIMIT, so it spends one query row
-	 * however many rows actually match.
+	 * @description Returns the LIMIT for a pagination guard query, the count that runs before a pagination cursor is
+	 * opened. The LIMIT is one more than the rows this transaction has left. That is the smallest number that still
+	 * tells "exactly at the limit" (a pagination cursor may be opened) apart from "over it" (opening one would fail
+	 * the transaction). It also keeps the guard's cost the same every time: a COUNT() with a LIMIT stops counting at
+	 * the LIMIT, so it uses one query row however many rows match.
 	 *
 	 * @return The LIMIT to place on a pagination guard query, never below 1.
-	 *
-	 * @date August 2026
 	 */
 	public static Integer getPaginationGuardRowLimit()
 	{
@@ -235,6 +375,20 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
+	 * @description Lazy-initializer for `mockQueueRegistry`. Allocates the backing map on first write.
+	 *
+	 * @return The initialized registry instance.
+	 */
+	private static Map<SObjectType, List<List<SObject>>> ensureMockQueueRegistry()
+	{
+		if(mockQueueRegistry == null)
+		{
+			mockQueueRegistry = new Map<SObjectType, List<List<SObject>>>();
+		}
+		return mockQueueRegistry;
+	}
+
+	/**
 	 * @description Sets mock records for a specific SObjectType.
 	 *
 	 * @param objectType The SObjectType to mock.
@@ -273,9 +427,8 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Clears all registered mocks, mock context classes, and mock exceptions.
-	 * Honestly-lazy: skips registries that were never allocated so production callers pay only
-	 * three null-checks, not three map-clears.
+	 * @description Clears all registered mocks, mock context classes, mock exceptions and queued answers.
+	 * It skips the maps that were never created, so production callers pay only five null checks.
 	 */
 	public static void clearMocks()
 	{
@@ -283,12 +436,13 @@ public inherited sharing class QRY_Engine
 		mockContextRegistry?.clear();
 		mockExceptionRegistry?.clear();
 		mockAggregateExceptionRegistry?.clear();
+		mockQueueRegistry?.clear();
 	}
 
 	/**
 	 * @description Registers an Exception to be thrown the next time a query is executed
-	 * against the specified SObjectType. Used for negative-path testing so subscribers can
-	 * exercise their catch blocks around a SOQL call without mocking at a different layer.
+	 * against the specified SObjectType. Tests use it to reach error paths, so subscribers can
+	 * test their catch blocks around a SOQL call without mocking anything else.
 	 *
 	 * @param objectType The SObjectType for which queries should throw.
 	 * @param exceptionToThrow The exception instance to throw. May not be null.
@@ -309,11 +463,11 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Registers an Exception to be thrown only when an AGGREGATE query (aggregate selections
-	 * or a GROUP BY) executes against the specified SObjectType; row queries against the same SObjectType
-	 * still run for real. Used for negative-path testing of callers that fold an aggregate leg beside row
-	 * reads of the same object and degrade the two independently — the SObjectType-wide setMockException
-	 * kills both legs at once and cannot prove one leg survives the other's failure.
+	 * @description Registers an Exception to be thrown only when an AGGREGATE query (aggregate functions
+	 * or a GROUP BY) runs against the specified SObjectType; row queries against the same SObjectType
+	 * still run for real. Tests use it for callers that run an aggregate query next to row queries of the
+	 * same object and handle a failure of each one on its own. setMockException, which covers the whole
+	 * SObjectType, fails both kinds at once, so it cannot prove that one keeps working when the other fails.
 	 *
 	 * @param objectType The SObjectType whose aggregate queries should throw.
 	 * @param exceptionToThrow The exception instance to throw. May not be null.
@@ -334,8 +488,8 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Removes any registered exception — SObjectType-wide and aggregate-scoped — for the
-	 * specified SObjectType. Honestly-lazy: no-op when a registry has never been allocated.
+	 * @description Removes any registered exception, for all queries and for aggregate queries only, for the
+	 * specified SObjectType. Does nothing when a map was never created.
 	 *
 	 * @param objectType The SObjectType whose registered exceptions (if any) are cleared.
 	 */
@@ -346,9 +500,9 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Removes all registered mock exceptions — SObjectType-wide and aggregate-scoped —
-	 * across every SObjectType. Used by TST_Mock.clear() to wipe the exception registries.
-	 * Honestly-lazy: no-op when a registry has never been allocated.
+	 * @description Removes all registered mock exceptions, for all queries and for aggregate queries only,
+	 * across every SObjectType. TST_Mock.clear() uses it to empty the exception maps.
+	 * Does nothing when a map was never created.
 	 */
 	public static void clearMockExceptions()
 	{
@@ -357,8 +511,77 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
+	 * @description Adds one answer to the queue for the specified SObjectType: the next row query or count against
+	 * the type returns exactly these records and removes the answer from the queue. Answers are used in the order
+	 * they were added. They are checked after any registered exception and before the records registered with
+	 * setMock, so once the queue is empty the type behaves as if nothing had been queued. An empty list means the
+	 * next query finds nothing.
+	 *
+	 * @param objectType The SObjectType to set the next answer for.
+	 * @param mocks The records the next query returns. May be empty; may not be null.
+	 *
+	 * @throws IllegalArgumentException When objectType is null, when mocks is null, or when a record is of another type.
+	 */
+	public static void queueMock(SObjectType objectType, List<SObject> mocks)
+	{
+		if(objectType == null)
+		{
+			throw new IllegalArgumentException('SObjectType cannot be null');
+		}
+		if(mocks == null)
+		{
+			throw new IllegalArgumentException(QUEUED_ANSWER_NULL_MESSAGE);
+		}
+		validateMockRecords(objectType, mocks);
+		Map<SObjectType, List<List<SObject>>> registry = ensureMockQueueRegistry();
+		if(!registry.containsKey(objectType))
+		{
+			registry.put(objectType, new List<List<SObject>>());
+		}
+		registry.get(objectType).add(mocks);
+	}
+
+	/**
+	 * @description Removes and returns the next queued answer for the specified SObjectType, or null when nothing
+	 * is queued. It never creates the map.
+	 *
+	 * @param objectType The SObjectType whose next answer is taken.
+	 *
+	 * @return The next queued answer, or null when the queue is empty.
+	 */
+	private static List<SObject> takeQueuedMock(SObjectType objectType)
+	{
+		List<List<SObject>> queue = mockQueueRegistry?.get(objectType);
+		if(queue == null || queue.isEmpty())
+		{
+			return null;
+		}
+		return queue.remove(0);
+	}
+
+	/**
+	 * @description Drops every queued answer for the specified SObjectType. Does nothing when the
+	 * map was never created.
+	 *
+	 * @param objectType The SObjectType whose queued answers (if any) are dropped.
+	 */
+	public static void clearMockQueue(SObjectType objectType)
+	{
+		mockQueueRegistry?.remove(objectType);
+	}
+
+	/**
+	 * @description Drops every queued answer across every SObjectType. TST_Mock.clear() uses it, together with
+	 * the methods that empty the exception maps. Does nothing when the map was never created.
+	 */
+	public static void clearMockQueues()
+	{
+		mockQueueRegistry?.clear();
+	}
+
+	/**
 	 * @description Returns the registered mock exception for the specified SObjectType,
-	 * or null when no exception is registered. Honestly-lazy: never triggers allocation.
+	 * or null when no exception is registered. It never creates the map.
 	 *
 	 * @param objectType The SObjectType to look up.
 	 *
@@ -370,8 +593,8 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Returns the registered aggregate-scoped mock exception for the specified SObjectType,
-	 * or null when no exception is registered. Honestly-lazy: never triggers allocation.
+	 * @description Returns the mock exception registered for aggregate queries only on the specified SObjectType,
+	 * or null when no exception is registered. It never creates the map.
 	 *
 	 * @param objectType The SObjectType to look up.
 	 *
@@ -384,12 +607,11 @@ public inherited sharing class QRY_Engine
 
 	/**
 	 * @description Validates query parameters and rethrows any registered mock exception
-	 * for the target SObjectType. Shared early-guard for execute(), executeCount(), and
-	 * getQueryLocator() so the null check and the exception-check ordering live in one place.
+	 * for the target SObjectType. execute(), executeCount() and getQueryLocator() all call it first, so the null
+	 * check and the order of the exception checks are written in one place.
 	 *
-	 * Honestly-lazy: in production the exception registry is `null`, so the only cost on the
-	 * hot path is the parameters null-check and a single reference null-check — no map lookup,
-	 * no allocation.
+	 * In production the exception map is `null`, so on this path, which every query takes, the only cost is the
+	 * null check of the parameters and one more null check: no map lookup and no new object.
 	 *
 	 * @param parameters The query parameters to validate.
 	 *
@@ -473,9 +695,14 @@ public inherited sharing class QRY_Engine
 	{
 		validateAndApplyMockException(parameters);
 
+		List<SObject> queuedAnswer = takeQueuedMock(parameters.objectType);
+		if(queuedAnswer != null)
+		{
+			return executeMock(parameters, queuedAnswer);
+		}
 		if(hasMock(parameters.objectType))
 		{
-			return executeMock(parameters);
+			return executeMock(parameters, getMock(parameters.objectType));
 		}
 
 		return executeQuery(parameters);
@@ -492,6 +719,11 @@ public inherited sharing class QRY_Engine
 	{
 		validateAndApplyMockException(parameters);
 
+		List<SObject> queuedAnswer = takeQueuedMock(parameters.objectType);
+		if(queuedAnswer != null)
+		{
+			return queuedAnswer.size();
+		}
 		if(hasMock(parameters.objectType))
 		{
 			List<SObject> mocks = getMock(parameters.objectType);
@@ -515,12 +747,24 @@ public inherited sharing class QRY_Engine
 		UTIL_QueryPerformanceTimer timer = createPerformanceTimer(parameters, 'QueryLocator');
 
 		AccessLevel accessLevel = parameters.userMode ? AccessLevel.USER_MODE : AccessLevel.SYSTEM_MODE;
-		Database.QueryLocator locator = Database.getQueryLocatorWithBinds
-				(
-						parameters.queryString,
-						parameters.bindMap ?? new Map<String, Object>(),
-						accessLevel
-				);
+		Map<String, Object> bindMap = parameters.bindMap ?? new Map<String, Object>();
+
+		// Sent through the same sharing executors as a row query and a count. A locator built directly here
+		// would use whatever sharing the caller happens to have, and quietly ignore the builder's sharing setting
+		// for a whole batch job, which is where a caller most needs both the sharing and the access setting.
+		Database.QueryLocator locator;
+		if(parameters.enforceSharing == true)
+		{
+			locator = new WithSharingExecutor().locator(parameters, accessLevel, bindMap);
+		}
+		else if(parameters.enforceSharing == false)
+		{
+			locator = new WithoutSharingExecutor().locator(parameters, accessLevel, bindMap);
+		}
+		else
+		{
+			locator = doLocator(parameters.queryString, accessLevel, bindMap);
+		}
 
 		stopTimer(timer, parameters, CacheStatus.BYPASS, null);
 
@@ -528,17 +772,56 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
+	 * @description Opens a Database.Cursor for deferred traversal of a large result set.
+	 *
+	 * @param parameters The query parameters.
+	 *
+	 * @return A cursor whose later fetches read the rows that the sharing setting allows.
+	 */
+	public static Database.Cursor getCursor(QueryParameters parameters)
+	{
+		validateAndApplyMockException(parameters);
+
+		UTIL_QueryPerformanceTimer timer = createPerformanceTimer(parameters, 'Cursor');
+
+		AccessLevel accessLevel = parameters.userMode ? AccessLevel.USER_MODE : AccessLevel.SYSTEM_MODE;
+		Map<String, Object> bindMap = parameters.bindMap ?? new Map<String, Object>();
+
+		// Sent through the same sharing executors as a row query, a count and a locator. A cursor fixes its
+		// set of rows when it is created, so building it directly here would lock the caller's own sharing
+		// into every later fetch (in this transaction or a later one), while the bypass audit still
+		// records the bypass the builder asked for.
+		Database.Cursor cursor;
+		if(parameters.enforceSharing == true)
+		{
+			cursor = new WithSharingExecutor().cursor(parameters, accessLevel, bindMap);
+		}
+		else if(parameters.enforceSharing == false)
+		{
+			cursor = new WithoutSharingExecutor().cursor(parameters, accessLevel, bindMap);
+		}
+		else
+		{
+			cursor = doCursor(parameters.queryString, accessLevel, bindMap);
+		}
+
+		stopTimer(timer, parameters, CacheStatus.BYPASS, null);
+
+		return cursor;
+	}
+
+	/**
 	 * @description Executes a query using mocks. When a FormulaEval context class is available
 	 * and conditions are present, filters mock records in memory using UTIL_FormulaFilter.
 	 *
 	 * @param parameters The query parameters.
+	 * @param mocks The records to return: the standing registration, or one queued answer.
 	 *
 	 * @return Query result with mock data.
 	 */
 	@SuppressWarnings('PMD.CognitiveComplexity')
-	private static QueryResult executeMock(QueryParameters parameters)
+	private static QueryResult executeMock(QueryParameters parameters, List<SObject> mocks)
 	{
-		List<SObject> mocks = getMock(parameters.objectType);
 		QueryResult result = new QueryResult();
 
 		if(mocks == null || mocks.isEmpty())
@@ -728,7 +1011,16 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Executes the actual database query with optional caching.
+	 * @description Executes the actual database query, reading from and storing in a cache when the request asks for
+	 * one. The steps, in order:
+	 * - Decide whether caching is declined (see resolveDeclinedStatus): a read shape that is never cached, or a system-mode
+	 * read whose sharing is left to the calling class.
+	 * - Pick the stores. A user-mode read and a transaction-scope read use memory only; any other read uses the
+	 * Platform Cache store for its scope, with memory as the fall-back.
+	 * - Unless the request skips cached reads, look in memory first, then in Platform Cache, and return a copy of
+	 * what is found.
+	 * - Otherwise run the query under the requested access mode and sharing.
+	 * - Store the rows (see storeResult) and report where they went, or why they went nowhere.
 	 *
 	 * @param parameters The query parameters.
 	 *
@@ -738,17 +1030,25 @@ public inherited sharing class QRY_Engine
 	{
 		UTIL_QueryPerformanceTimer timer = createPerformanceTimer(parameters, 'Query');
 
-		Boolean useCache = shouldUseCache(parameters);
-		String cacheKey = useCache ? generateCacheKey(parameters) : null;
-		Boolean userScoped = parameters.userScopedCache == true;
+		CacheStatus declined = resolveDeclinedStatus(parameters);
+		Boolean useCache = parameters.cacheScope != null && declined == null;
+		Boolean memoryOnly = useCache && (parameters.userMode || parameters.cacheScope == UTIL_Cache.Scope.IN_TRANSACTION);
+		String durableKey = useCache && !memoryOnly ? generateCacheKey(parameters) : null;
+		String memoryKey = useCache ? generateTransactionCacheKey(parameters) : null;
 
 		if(useCache && !parameters.bypassCache)
 		{
-			QueryResult cachedResult = getFromCache(cacheKey, userScoped);
+			QueryResult cachedResult = getCopyFromMemoryCache(memoryKey);
+			CacheStatus hitStatus = CacheStatus.MEMORY_HIT;
+			if(cachedResult == null && durableKey != null)
+			{
+				cachedResult = getFromCache(parameters.cacheScope, durableKey);
+				hitStatus = CacheStatus.HIT;
+			}
 			if(cachedResult != null)
 			{
-				cachedResult.cacheStatus = CacheStatus.HIT;
-				cachedResult.queryDurationMs = stopTimer(timer, parameters, CacheStatus.HIT, cachedResult.records.size());
+				cachedResult.cacheStatus = hitStatus;
+				cachedResult.queryDurationMs = stopTimer(timer, parameters, hitStatus, cachedResult.records.size());
 				return cachedResult;
 			}
 		}
@@ -770,85 +1070,209 @@ public inherited sharing class QRY_Engine
 			executeInherited(parameters, result, accessLevel, bindMap);
 		}
 
-		if(useCache)
-		{
-			storeInCache(cacheKey, result, parameters.cacheTTL, userScoped);
-			result.cacheStatus = CacheStatus.STORED;
-		}
-		else
-		{
-			result.cacheStatus = CacheStatus.BYPASS;
-		}
-
+		result.cacheStatus = useCache ? storeResult(parameters, durableKey, memoryKey, result) : (declined ?? CacheStatus.BYPASS);
 		result.queryDurationMs = stopTimer(timer, parameters, result.cacheStatus, result.records.size());
-
 		return result;
 	}
 
 	/**
-	 * @description Determines whether caching should be used for the query.
-	 * Caching is disabled when:
-	 * - cacheTTL is null (caching not requested)
-	 * - userMode is enabled (security-sensitive data shouldn't be cached)
-	 * - Random results are requested (would cache non-random results)
-	 * - Row locking is enabled (FOR UPDATE/REFERENCE/VIEW)
-	 * - ALL ROWS is enabled (may include deleted records)
+	 * @description Says why a caching request is declined, or returns null when it is not declined or nothing was
+	 * requested. A request is declined when:
+	 * - the read shape is never cached: random results, a row lock (FOR UPDATE, REFERENCE or VIEW), ALL ROWS, which
+	 * may include deleted rows, or a cursor-backed read (getPage or random sampling), because a hit restores only the
+	 * record list, never the total or the cursor;
+	 * - a system-mode read leaves its sharing to the calling class, which the engine cannot see when it builds the key:
+	 * the same user's read from a without-sharing class and from a with-sharing class would share one key while
+	 * returning different rows. A user-mode read is not declined, because the platform applies the user's sharing.
+	 * An aggregate query or a query with a child subquery is not declined here: storeResult refuses to keep it in
+	 * memory, whichever way the read reached memory.
 	 *
 	 * @param parameters The query parameters.
 	 *
-	 * @return True if caching should be used.
+	 * @return BYPASS or DECLINED_INHERITED_SHARING, or null.
 	 */
-	private static Boolean shouldUseCache(QueryParameters parameters)
+	private static CacheStatus resolveDeclinedStatus(QueryParameters parameters)
 	{
-		if(parameters.cacheTTL == null)
+		if(parameters.cacheScope == null)
 		{
-			return false;
+			return null;
 		}
-		if(parameters.userMode)
+		if(parameters.randomResults || parameters.lockForUpdate || parameters.lockForReference || parameters.lockForView
+				|| parameters.includeAllRows || parameters.cursorMode != null)
 		{
-			return false;
+			return CacheStatus.BYPASS;
 		}
-		if(parameters.randomResults)
+		if(parameters.enforceSharing == null && !parameters.userMode)
 		{
-			return false;
+			return CacheStatus.DECLINED_INHERITED_SHARING;
 		}
-		if(parameters.lockForUpdate || parameters.lockForReference || parameters.lockForView)
-		{
-			return false;
-		}
-		if(parameters.includeAllRows)
-		{
-			return false;
-		}
-		return true;
+		return null;
 	}
 
 	/**
-	 * @description Generates a cache key from the query string and bind map.
+	 * @description Stores the rows in Platform Cache where the scope keeps them, otherwise in memory. A read reaches
+	 * memory either because memory is the only store it may use (a user-mode read or a transaction-scope read) or
+	 * because no Platform Cache partition kept it. Either way, an aggregate query or a query with a child subquery is
+	 * never kept in memory: it is reported as DECLINED_AGGREGATE or DECLINED_CHILD_SUBQUERY instead.
+	 *
+	 * @param parameters The query parameters.
+	 * @param durableKey The Platform Cache key, or null when the read may use memory only.
+	 * @param memoryKey The in-memory key.
+	 * @param result The result the caller receives.
+	 *
+	 * @return STORED, MEMORY_STORED, MEMORY_STORED_USER_MODE or MEMORY_STORED_NO_PARTITION when the rows were kept,
+	 * otherwise the reason they were not.
+	 */
+	@SuppressWarnings('PMD.ExcessiveParameterList')
+	private static CacheStatus storeResult(QueryParameters parameters, String durableKey, String memoryKey, QueryResult result)
+	{
+		if(durableKey != null && storeInCache(parameters.cacheScope, durableKey, result, parameters.cacheTTL))
+		{
+			return CacheStatus.STORED;
+		}
+		if(parameters.aggregateQuery)
+		{
+			return CacheStatus.DECLINED_AGGREGATE;
+		}
+		if(containsChildSubquery(normalizeQuery(parameters.queryString)))
+		{
+			return CacheStatus.DECLINED_CHILD_SUBQUERY;
+		}
+		CacheStatus storedStatus = parameters.userMode ? CacheStatus.MEMORY_STORED_USER_MODE
+				: (durableKey != null ? CacheStatus.MEMORY_STORED_NO_PARTITION : CacheStatus.MEMORY_STORED);
+		return storeCopyInMemoryCache(memoryKey, result.records, storedStatus);
+	}
+
+	/**
+	 * @description Upper-cases and space-normalises a query, the form every cache key and every query-text check reads.
+	 *
+	 * @param queryString The query, as built.
+	 *
+	 * @return The normalised query, or null when there is no query.
+	 */
+	@TestVisible
+	private static String normalizeQuery(String queryString)
+	{
+		return queryString?.toUpperCase()?.normalizeSpace();
+	}
+
+	/**
+	 * @description Builds the part every cache key starts with: the normalised query and the bind map.
+	 *
+	 * @param parameters The query parameters.
+	 *
+	 * @return The shared start of a cache key.
+	 */
+	private static String buildBaseCacheKey(QueryParameters parameters)
+	{
+		String bindMapString = parameters.bindMap != null ? JSON.serialize(parameters.bindMap) : '';
+		return 'QRY:' + normalizeQuery(parameters.queryString) + ':' + bindMapString;
+	}
+
+	/**
+	 * @description Generates the Platform Cache key from the query string, the bind map, the sharing setting and,
+	 * wherever the result depends on who ran it, the running user. The sharing setting is always explicit by the time
+	 * this key is built, because resolveDeclinedStatus refuses a system-mode read with inherited sharing, and a
+	 * user-mode read never reaches Platform Cache. A result read with sharing enforced depends on who ran it, so its
+	 * key includes the user. A result read without sharing is shared by every caller in the org only when its rows
+	 * and values are the same for everyone. A read without sharing that the platform works out for the running user
+	 * also includes the user in its key. Without these parts of the key, one user's result could be shown to another
+	 * user, who might not be allowed to see it.
 	 *
 	 * @param parameters The query parameters.
 	 *
 	 * @return A cache key string.
 	 */
+	@TestVisible
 	private static String generateCacheKey(QueryParameters parameters)
 	{
-		String normalizedQuery = parameters.queryString?.toUpperCase()?.normalizeSpace();
-		String bindMapString = parameters.bindMap != null ? JSON.serialize(parameters.bindMap) : '';
-		return 'QRY:' + normalizedQuery + ':' + bindMapString;
+		String sharingSegment = parameters.enforceSharing ? CACHE_KEY_SHARING_ENFORCED : CACHE_KEY_SHARING_BYPASSED;
+		Boolean sharedByEveryUser = parameters.enforceSharing == false && !containsUserDependentKeyword(normalizeQuery(parameters.queryString));
+		String userSegment = sharedByEveryUser ? '' : ':USER=' + UserInfo.getUserId();
+		return buildBaseCacheKey(parameters) + ':SHARING=' + sharingSegment + userSegment;
 	}
 
 	/**
-	 * @description Attempts to retrieve a cached query result.
+	 * @description Generates the in-memory key: the Platform Cache key's parts plus the access mode and, always, the
+	 * running user, so a result is never served to another user or to a read in another access mode. Inherited sharing
+	 * reaches here only for user-mode reads, where the platform applies the user's sharing, so its key says enforced.
 	 *
+	 * @param parameters The query parameters.
+	 *
+	 * @return The in-memory cache key.
+	 */
+	private static String generateTransactionCacheKey(QueryParameters parameters)
+	{
+		Boolean sharingEnforced = parameters.enforceSharing ?? true;
+		String sharingSegment = sharingEnforced ? CACHE_KEY_SHARING_ENFORCED : CACHE_KEY_SHARING_BYPASSED;
+		String accessSegment = parameters.userMode ? CACHE_KEY_ACCESS_USER : CACHE_KEY_ACCESS_SYSTEM;
+		return buildBaseCacheKey(parameters) + ':SHARING=' + sharingSegment + ':ACCESS=' + accessSegment + ':USER=' + UserInfo.getUserId();
+	}
+
+	/**
+	 * @description Returns this transaction's Platform Cache store for a scope, building it on first use: the session
+	 * store for SESSION, the org store for ORG, and the automatic store, session then org, for any other scope.
+	 *
+	 * @param scope The requested cache scope.
+	 *
+	 * @return The store for the scope.
+	 */
+	private static UTIL_Cache.Store getDurableStore(UTIL_Cache.Scope scope)
+	{
+		UTIL_Cache.Store store = DURABLE_STORE_BY_SCOPE.get(scope);
+		if(store == null)
+		{
+			store = scope == UTIL_Cache.Scope.SESSION ? UTIL_Cache.session() : scope == UTIL_Cache.Scope.ORG ? UTIL_Cache.org() : UTIL_Cache.auto();
+			DURABLE_STORE_BY_SCOPE.put(scope, store);
+		}
+		return store;
+	}
+
+	/**
+	 * @description Tells whether a query contains a SOQL keyword the platform evaluates for the running user, so its
+	 * rows or values can differ by user even with sharing bypassed: a scope relative to the user, a function that
+	 * translates, formats or converts a value for the user, or a date literal read in the user's time zone. Read from
+	 * the whole query, so subqueries, filters, grouping and ordering all count, as do
+	 * raw strings added to any of them. A string literal that holds one of these keywords counts too; that costs a
+	 * per-user entry, never a wrong hit.
+	 *
+	 * @param normalizedQuery The query, upper-cased and space-normalised.
+	 *
+	 * @return True when the query must be cached per user.
+	 */
+	private static Boolean containsUserDependentKeyword(String normalizedQuery)
+	{
+		return normalizedQuery != null
+				&& (USER_DEPENDENT_FUNCTION.matcher(normalizedQuery).find()
+				|| USER_DEPENDENT_SCOPE.matcher(normalizedQuery).find()
+				|| USER_DEPENDENT_DATE_LITERAL.matcher(normalizedQuery).find());
+	}
+
+	/**
+	 * @description Says whether the query has a child subquery, wherever it came from: a builder subselect or a raw string
+	 * added as a field. A semi-join in a WHERE clause is not a child subquery, and neither is text inside a quoted literal.
+	 *
+	 * @param normalizedQuery The query, upper-cased and space-normalised.
+	 *
+	 * @return True when the query has a child subquery
+	 */
+	@TestVisible
+	private static Boolean containsChildSubquery(String normalizedQuery)
+	{
+		return normalizedQuery != null && CHILD_SUBQUERY.matcher(QUOTED_LITERAL.matcher(normalizedQuery).replaceAll('\'\'')).find();
+	}
+
+	/**
+	 * @description Attempts to retrieve a cached query result from the Platform Cache store for the scope.
+	 *
+	 * @param scope The requested cache scope.
 	 * @param cacheKey The cache key.
-	 * @param userScoped Whether to use user-scoped cache.
 	 *
 	 * @return Cached QueryResult or null if not found/expired.
 	 */
-	private static QueryResult getFromCache(String cacheKey, Boolean userScoped)
+	private static QueryResult getFromCache(UTIL_Cache.Scope scope, String cacheKey)
 	{
-		UTIL_Cache.Store cache = UTIL_Cache.auto().withUserScope(userScoped);
-		Object cached = cache.get(cacheKey);
+		Object cached = getDurableStore(scope).get(cacheKey);
 
 		if(cached instanceof List<SObject>)
 		{
@@ -863,18 +1287,81 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Stores query results in the cache.
+	 * @description Stores query results in the Platform Cache store for the scope.
 	 *
+	 * @param scope The requested cache scope.
 	 * @param cacheKey The cache key.
 	 * @param result The query result to cache.
-	 * @param ttlSeconds The time-to-live in seconds.
-	 * @param userScoped Whether to use user-scoped cache.
+	 * @param ttlSeconds The time-to-live in seconds; null or zero uses DEFAULT_CACHE_TTL.
+	 *
+	 * @return True when a partition kept the rows, false when the scope keeps nothing.
 	 */
-	private static void storeInCache(String cacheKey, QueryResult result, Integer ttlSeconds, Boolean userScoped)
+	@SuppressWarnings('PMD.ExcessiveParameterList')
+	private static Boolean storeInCache(UTIL_Cache.Scope scope, String cacheKey, QueryResult result, Integer ttlSeconds)
 	{
-		UTIL_Cache.Store cache = UTIL_Cache.auto().withUserScope(userScoped);
-		Integer effectiveTTL = ttlSeconds == 0 ? DEFAULT_CACHE_TTL : ttlSeconds;
-		cache.put(cacheKey, result.records, effectiveTTL);
+		Integer effectiveTimeToLive = (ttlSeconds == null || ttlSeconds == 0) ? DEFAULT_CACHE_TTL : ttlSeconds;
+		return getDurableStore(scope).put(cacheKey, result.records, effectiveTimeToLive);
+	}
+
+	/**
+	 * @description Empties the in-memory query cache, so no read after a write gets rows from before it. It is called at
+	 * the start and at the end of every DML_Transaction commit attempt, after API_Base's safe-mode rollback, and before
+	 * the raw inserts of FLOW_SendEmailInternal.handleActivityLogging and of the test data factory (TST_Factory).
+	 *
+	 * Any code path that writes to the database on the framework's behalf must either commit through DML_Transaction
+	 * (every commit reaches the step that empties the cache) or call this method before its write and say why in its
+	 * own ApexDoc. FLOW_SendEmailInternal and TST_Factory are the two direct callers outside the commit path. The one
+	 * recorded exception is TRG_PersistLogEntry: its flood-control rows are written with raw Database DML and do not
+	 * empty the cache, because a log can be saved in the middle of a transaction, so clearing there would empty every
+	 * cache on each flush, and the framework caches no LogEntry__c read.
+	 */
+	public static void clearQueryResultMemoryCache()
+	{
+		QUERY_RESULT_MEMORY_CACHE.clear();
+	}
+
+	/**
+	 * @description Returns a copy of the rows kept in memory under the key, marked cached, or null.
+	 *
+	 * @param key The in-memory cache key
+	 *
+	 * @return A result holding a fresh copy of the stored rows, or null
+	 */
+	@TestVisible
+	private static QueryResult getCopyFromMemoryCache(String key)
+	{
+		List<SObject> stored = (List<SObject>)QUERY_RESULT_MEMORY_CACHE.get(key);
+		if(stored == null)
+		{
+			return null;
+		}
+		QueryResult result = new QueryResult();
+		result.records = stored.deepClone(true, true, true);
+		result.totalRecords = result.records.size();
+		result.isCached = true;
+		return result;
+	}
+
+	/**
+	 * @description Keeps a copy of the rows in memory, unless they are over the row cap or the memory cache's heap
+	 * guard refuses them. Storing evicts the oldest values while heap use is at or over the guard, with the copy
+	 * already counted, so under heap pressure the oldest values go first.
+	 *
+	 * @param key The in-memory cache key
+	 * @param records The rows the caller received
+	 * @param storedStatus The status to report when the rows are kept
+	 *
+	 * @return storedStatus, DECLINED_ROW_CAP or DECLINED_HEAP_GUARD
+	 */
+	@TestVisible
+	private static CacheStatus storeCopyInMemoryCache(String key, List<SObject> records, CacheStatus storedStatus)
+	{
+		if(records.size() > MEMORY_CACHE_ROW_LIMIT)
+		{
+			return CacheStatus.DECLINED_ROW_CAP;
+		}
+		Boolean stored = QUERY_RESULT_MEMORY_CACHE.putIfHeapAllows(key, records.deepClone(true, true, true));
+		return stored ? storedStatus : CacheStatus.DECLINED_HEAP_GUARD;
 	}
 
 	/**
@@ -927,8 +1414,6 @@ public inherited sharing class QRY_Engine
 	 * @param result The result to populate.
 	 * @param accessLevel The access level.
 	 * @param bindMap The bind variables.
-	 *
-	 * @date August 2026
 	 */
 	private static void doExecute(QueryParameters parameters, QueryResult result, AccessLevel accessLevel, Map<String, Object> bindMap)
 	{
@@ -963,58 +1448,54 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Answers whether this transaction can still open a standard cursor and spend a fetch call on
-	 * it. Both allowances are per-transaction: 50 cursors and 100 fetch calls at the time of writing.
+	 * @description Answers whether this transaction can still open a standard cursor and make a fetch call on
+	 * it. Both limits apply to the whole transaction: 50 cursors and 100 fetch calls at the time of writing.
 	 *
 	 * @return True when a standard cursor can still serve a page.
-	 *
-	 * @date August 2026
 	 */
 	private static Boolean hasStandardCursorHeadroom()
 	{
-		Integer ceiling = standardCursorLimitOverride ?? Limits.getLimitApexCursors();
-		return Limits.getApexCursors() < ceiling && Limits.getFetchCallsOnApexCursor() < Limits.getLimitFetchCallsOnApexCursor();
+		UTIL_Limits.LimitCheck standardCursors = UTIL_Limits.apexCursors();
+		Integer ceiling = standardCursorLimitOverride ?? standardCursors.maximum();
+		return standardCursors.used() < ceiling && !UTIL_Limits.fetchCallsOnApexCursor().isExhausted();
 	}
 
 	/**
-	 * @description Answers whether the last resort is open: a plain LIMIT/OFFSET query, which needs no cursor
-	 * at all but cannot reach past SOQL's OFFSET cap of MAX_QUERY_OFFSET rows.
+	 * @description Answers whether the last way to read a page can be used: a plain LIMIT/OFFSET query. It needs no
+	 * cursor at all, but it cannot read past SOQL's OFFSET limit of MAX_QUERY_OFFSET rows.
 	 *
 	 * @param parameters The query parameters, carrying the optional plain page and total-count queries.
 	 *
 	 * @return True when a plain query can serve this page.
-	 *
-	 * @date August 2026
 	 */
 	private static Boolean canServePlainPage(QueryParameters parameters)
 	{
-		// Aggregate pages are refused here even though a LIMIT/OFFSET aggregate is legal SOQL: the tier's
-		// totalRecords comes from a COUNT() of base rows, not groups, so it would serve a wrong total where
-		// every other tier throws. Better the typed capacity error than a page that lies about its size.
+		// Aggregate pages are refused here even though a LIMIT/OFFSET aggregate is valid SOQL: this way's
+		// totalRecords comes from a COUNT() of rows, not of groups, so it would return a wrong total where
+		// every other way throws. A clear capacity error is better than a page that gives a wrong size.
 		return parameters.plainPageQuery != null && parameters.totalRecordCountQuery != null && (parameters.offset ?? 0) <= MAX_QUERY_OFFSET && parameters.aggregateQuery != true;
 	}
 
 	/**
-	 * @description Answers whether this transaction can still open a pagination cursor for the page in hand.
-	 * Three things can rule it out: the transaction has no pagination cursor left to open, it has no row
-	 * allowance left, or the matching set is larger than the allowance that remains. The third is settled by
-	 * running the bounded count the caller supplied; the first two are cheaper to read from the governors, so
-	 * they short-circuit the count entirely.
+	 * @description Answers whether this transaction can NOT open a pagination cursor for the current page. Three
+	 * things can prevent it: the transaction has no pagination cursor left to open, it has no rows left to read, or
+	 * more rows match than the rows left. The third is checked by running the limited count the caller supplied. The
+	 * first two are cheaper to read from the governor limits, so when either one applies the count is not run.
 	 *
-	 * The count runs here rather than at the call site so it inherits the sharing context the executor
-	 * established — WithSharingExecutor and WithoutSharingExecutor both reach this through doExecute, so the
-	 * guard sizes exactly the population the page query will read.
+	 * The count runs here, not where the method is called, so it uses the sharing that the executor set up.
+	 * WithSharingExecutor and WithoutSharingExecutor both reach this through doExecute, so the guard counts exactly
+	 * the rows the page query will read.
 	 *
-	 * A guard is a pre-flight check, not a fallback: opening the cursor and catching the failure is
-	 * impossible, because the platform raises a governor LimitException that no catch block sees.
+	 * The guard is a check made before opening the cursor, not a fallback after it fails. Opening the cursor and
+	 * catching the failure is impossible, because the platform throws a governor LimitException that no catch block
+	 * can catch.
 	 *
-	 * @param parameters The query parameters, carrying the optional bounded count query.
+	 * @param parameters The query parameters, carrying the optional limited count query.
 	 * @param accessLevel The access level.
 	 * @param bindMap The bind variables, shared with the page query.
 	 *
-	 * @return True when the page must come from a standard cursor instead.
-	 *
-	 * @date August 2026
+	 * @return True when the page must come another way: from a standard cursor, or from the plain query when no
+	 * standard cursor is left.
 	 */
 	private static Boolean exceedsPaginationCursorRowLimit(QueryParameters parameters, AccessLevel accessLevel, Map<String, Object> bindMap)
 	{
@@ -1023,7 +1504,7 @@ public inherited sharing class QRY_Engine
 			return false;
 		}
 
-		if(Limits.getApexPaginationCursors() >= Limits.getLimitApexPaginationCursors())
+		if(UTIL_Limits.apexPaginationCursors().isExhausted())
 		{
 			return true;
 		}
@@ -1039,21 +1520,19 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Second tier: fetches one page through a standard cursor, whose row allowance is orders of
-	 * magnitude larger than a pagination cursor's (50,000,000 against 100,000 at the time of writing), at the
-	 * cost of the deleted-record count and of any cursor the caller could reuse for a later page. Also the
-	 * STANDARD cursor mode's own path, so the two cannot drift apart.
+	 * @description The second way to read a page: fetches one page through a standard cursor. A standard cursor may
+	 * read far more rows than a pagination cursor (50,000,000 against 100,000 at the time of writing). The cost is
+	 * that it gives no count of deleted records, and no cursor the caller could reuse for a later page. The STANDARD
+	 * cursor mode uses this same method, so the two always behave the same.
 	 *
 	 * @param parameters The query parameters.
 	 * @param result The result to populate.
 	 * @param accessLevel The access level.
 	 * @param bindMap The bind variables.
-	 *
-	 * @date August 2026
 	 */
 	private static void fetchPageFromStandardCursor(QueryParameters parameters, QueryResult result, AccessLevel accessLevel, Map<String, Object> bindMap)
 	{
-		Database.Cursor cursor = Database.getCursorWithBinds(parameters.queryString, bindMap, accessLevel);
+		Database.Cursor cursor = doCursor(parameters.queryString, accessLevel, bindMap);
 		result.totalRecords = cursor.getNumRecords();
 
 		Integer offset = parameters.offset ?? 0;
@@ -1070,20 +1549,18 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description First tier: fetches one page through a pagination cursor, which additionally reports how
-	 * many records were deleted since the cursor was created and can be handed back for later pages. Bounded
-	 * by a per-transaction allowance of 100,000 rows and 50 cursors at the time of writing.
+	 * @description The first way to read a page: fetches one page through a pagination cursor. This cursor also
+	 * reports how many records were deleted since it was created, and it can be returned to the caller for later
+	 * pages. Each transaction may read 100,000 rows and open 50 cursors this way, at the time of writing.
 	 *
-	 * Cursor failures the platform raises here — `System.FatalCursorException` and
-	 * `System.TransientCursorException` — are left to propagate rather than swallowed, because only the
-	 * caller can tell the two apart in context: a transient failure is worth retrying, a fatal one is not.
+	 * Cursor failures the platform throws here (`System.FatalCursorException` and
+	 * `System.TransientCursorException`) are passed on to the caller, not caught. Only the caller knows enough to
+	 * tell them apart: a temporary failure is worth retrying, a fatal one is not.
 	 *
 	 * @param parameters The query parameters.
 	 * @param result The result to populate.
 	 * @param accessLevel The access level.
 	 * @param bindMap The bind variables.
-	 *
-	 * @date August 2026
 	 */
 	private static void fetchPageFromPaginationCursor(QueryParameters parameters, QueryResult result, AccessLevel accessLevel, Map<String, Object> bindMap)
 	{
@@ -1108,16 +1585,14 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Third tier: fetches one page with a plain LIMIT/OFFSET query and a separate count for the
-	 * total. Needs no cursor at all, which is why it survives a transaction that has spent both cursor pools,
-	 * but SOQL's OFFSET cap of MAX_QUERY_OFFSET rows means it cannot reach a deep page.
+	 * @description The third way to read a page: fetches one page with a plain LIMIT/OFFSET query, and a separate
+	 * count for the total. It needs no cursor at all, so it still works in a transaction that has used up both kinds
+	 * of cursor. But SOQL's OFFSET limit of MAX_QUERY_OFFSET rows means it cannot read a page far into the results.
 	 *
 	 * @param parameters The query parameters, carrying the plain page and total-count queries.
 	 * @param result The result to populate.
 	 * @param accessLevel The access level.
 	 * @param bindMap The bind variables.
-	 *
-	 * @date August 2026
 	 */
 	private static void fetchPageFromPlainQuery(QueryParameters parameters, QueryResult result, AccessLevel accessLevel, Map<String, Object> bindMap)
 	{
@@ -1134,8 +1609,6 @@ public inherited sharing class QRY_Engine
 	 * @param bindMap The bind variables.
 	 *
 	 * @return The matching records.
-	 *
-	 * @date August 2026
 	 */
 	private static List<SObject> doQuery(String rowQuery, AccessLevel accessLevel, Map<String, Object> bindMap)
 	{
@@ -1156,10 +1629,10 @@ public inherited sharing class QRY_Engine
 		AccessLevel accessLevel = parameters.userMode ? AccessLevel.USER_MODE : AccessLevel.SYSTEM_MODE;
 		Map<String, Object> bindMap = parameters.bindMap ?? new Map<String, Object>();
 
-		// Dispatched through the same sharing executors as a row query. Counting inline here would run
-		// under whatever sharing the caller happens to have, silently ignoring the builder's sharing dial —
-		// so a bypassed count could return a smaller number than the identical bypassed row query, which is
-		// the wrong direction for any caller sizing a query before issuing it.
+		// Sent through the same sharing executors as a row query. Counting directly here would use
+		// whatever sharing the caller happens to have, and quietly ignore the builder's sharing setting.
+		// A count without sharing could then return fewer rows than the same row query without sharing,
+		// which misleads any caller that counts the rows before it runs the query.
 		Integer count;
 		if(parameters.enforceSharing == true)
 		{
@@ -1181,18 +1654,15 @@ public inherited sharing class QRY_Engine
 
 	/**
 	 * @description Internal count execution logic, and the single place a count query reaches the database.
-	 * Runs in whichever sharing context its caller establishes, so the executor that invokes it is what
-	 * decides the posture. Takes the query rather than the parameters because two different counts flow
-	 * through it: the caller's own count, and the bounded guard count that sizes a page before a pagination
-	 * cursor is opened.
+	 * It runs with whatever sharing its caller sets up, so the executor that calls it decides the sharing. It
+	 * takes the query, not the parameters, because two different counts go through it: the caller's own count, and
+	 * the limited guard count that checks the size of a page before a pagination cursor is opened.
 	 *
 	 * @param countQuery The COUNT() query to run.
 	 * @param accessLevel The access level.
 	 * @param bindMap The bind variables.
 	 *
 	 * @return The count of matching records.
-	 *
-	 * @date August 2026
 	 */
 	private static Integer doCount(String countQuery, AccessLevel accessLevel, Map<String, Object> bindMap)
 	{
@@ -1205,11 +1675,43 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
+	 * @description Builds a query locator, and is the single place a query locator is opened. It runs with
+	 * whatever sharing its caller sets up, so the executor that calls it decides the sharing used to read the
+	 * locator's rows.
+	 *
+	 * @param locatorQuery The SOQL the locator will run.
+	 * @param accessLevel The access level.
+	 * @param bindMap The bind variables.
+	 *
+	 * @return The locator.
+	 */
+	private static Database.QueryLocator doLocator(String locatorQuery, AccessLevel accessLevel, Map<String, Object> bindMap)
+	{
+		return Database.getQueryLocatorWithBinds(locatorQuery, bindMap, accessLevel);
+	}
+
+	/**
+	 * @description Builds a standard cursor, and is the single place a standard cursor is opened. A cursor fixes
+	 * its set of rows when it is created, so the executor that calls this decides the sharing of every later
+	 * fetch, in this transaction or a later one.
+	 *
+	 * @param cursorQuery The SOQL the cursor will run.
+	 * @param accessLevel The access level.
+	 * @param bindMap The bind variables.
+	 *
+	 * @return The cursor.
+	 */
+	private static Database.Cursor doCursor(String cursorQuery, AccessLevel accessLevel, Map<String, Object> bindMap)
+	{
+		return Database.getCursorWithBinds(cursorQuery, bindMap, accessLevel);
+	}
+
+	/**
 	 * @description Creates, configures, and starts a performance timer based on query parameters.
 	 * Sets object name and logging behaviour (suppress/force/threshold) before starting.
 	 *
 	 * @param parameters The QueryParameters containing logging control settings.
-	 * @param operationSuffix The suffix for the operation name (e.g., 'Query', 'Count', 'QueryLocator').
+	 * @param operationSuffix The suffix for the operation name (e.g., 'Query', 'Count', 'QueryLocator', 'Cursor').
 	 *
 	 * @return A started UTIL_QueryPerformanceTimer instance.
 	 */
@@ -1247,13 +1749,13 @@ public inherited sharing class QRY_Engine
 	 * @param timer The running timer to stop.
 	 * @param parameters The query parameters (provides queryString and bindMap).
 	 * @param status Cache status indicating how the result was resolved.
-	 * @param rowCount Number of rows returned (null for QueryLocator).
+	 * @param rowCount Number of rows returned (null for QueryLocator and Cursor).
 	 *
 	 * @return The elapsed time in milliseconds.
 	 */
 	private static Long stopTimer(UTIL_QueryPerformanceTimer timer, QueryParameters parameters, CacheStatus status, Integer rowCount)
 	{
-		timer.withQueryContext(parameters.queryString, parameters.bindMap, status == CacheStatus.HIT, status.name());
+		timer.withQueryContext(parameters.queryString, parameters.bindMap, status == CacheStatus.HIT || status == CacheStatus.MEMORY_HIT, status.name());
 
 		if(rowCount != null)
 		{
@@ -1265,9 +1767,9 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Parameters for query execution. A deliberate parameter object: one field per knob the
-	 * builder can set, each read once by the engine, so the field count is the size of the query surface
-	 * rather than a class doing too much.
+	 * @description Parameters for query execution. This class holds one field for each setting the builder can
+	 * make, and the engine reads each field once. So the many fields reflect the many query settings; they do not
+	 * mean the class does too much.
 	 */
 	@SuppressWarnings('PMD.TooManyFields')
 	public class QueryParameters
@@ -1303,24 +1805,23 @@ public inherited sharing class QRY_Engine
 		public CursorMode cursorMode;
 
 		/**
-		 * @description The bounded `SELECT COUNT() ... LIMIT n` twin of `queryString` — same WHERE, same
-		 * binds, same population — used only in PAGINATION mode to decide whether the matching set is small
-		 * enough for a pagination cursor. Null means no guard: the pagination cursor is opened directly, as
-		 * it was before the guard existed.
+		 * @description A copy of `queryString` as a limited `SELECT COUNT() ... LIMIT n` query, with the same WHERE,
+		 * the same binds and so the same matching rows. It is used only in PAGINATION mode, to decide whether few
+		 * enough rows match for a pagination cursor. Null means no guard: the pagination cursor is opened directly.
 		 */
 		public String paginationGuardQuery;
 
 		/**
-		 * @description The plain LIMIT/OFFSET twin of `queryString` — same fields, same WHERE, same ORDER BY,
-		 * same binds — used only in PAGINATION mode, and only when neither cursor pool can serve the page.
-		 * Null means the plain tier is unavailable and an unservable page raises instead.
+		 * @description A copy of `queryString` as a plain LIMIT/OFFSET query, with the same fields, WHERE, ORDER BY
+		 * and binds. It is used only in PAGINATION mode, and only when neither kind of cursor can read the page.
+		 * Null means this plain way of reading a page cannot be used, and a page that cannot be read throws instead.
 		 */
 		public String plainPageQuery;
 
 		/**
-		 * @description The unbounded `SELECT COUNT()` twin of `queryString`, counting the same population.
-		 * Supplies the true total on the plain tier, where no cursor is there to report one and the guard
-		 * count is capped too low to stand in for it.
+		 * @description A copy of `queryString` as a `SELECT COUNT()` query with no LIMIT, counting the same rows.
+		 * It gives the true total when a page is read with the plain query. There, no cursor reports a total,
+		 * and the guard count stops too early to be used as one.
 		 */
 		public String totalRecordCountQuery;
 
@@ -1350,6 +1851,11 @@ public inherited sharing class QRY_Engine
 		public Integer cacheTTL;
 
 		/**
+		 * @description Where cached results may be kept. Null = no caching requested.
+		 */
+		public UTIL_Cache.Scope cacheScope;
+
+		/**
 		 * @description Whether to bypass cache.
 		 */
 		public Boolean bypassCache = false;
@@ -1360,8 +1866,8 @@ public inherited sharing class QRY_Engine
 		public Boolean randomResults = false;
 
 		/**
-		 * @description Whether the query carries aggregate selections or a GROUP BY. Stamped by the
-		 * builder so the aggregate-scoped mock-exception seam can target aggregate scans without
+		 * @description Whether the query has aggregate functions or a GROUP BY. The builder sets it, so that a
+		 * mock exception registered with setMockAggregateException can fail aggregate queries without
 		 * touching row queries against the same SObjectType.
 		 */
 		public Boolean aggregateQuery = false;
@@ -1385,11 +1891,6 @@ public inherited sharing class QRY_Engine
 		 * @description Whether to include ALL ROWS (deleted/archived).
 		 */
 		public Boolean includeAllRows = false;
-
-		/**
-		 * @description Whether to use user-scoped caching.
-		 */
-		public Boolean userScopedCache = false;
 
 		/**
 		 * @description Whether to suppress performance logging for this query.
@@ -1475,11 +1976,9 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Executor with sharing rules enforced.
+	 * @description Runs the query with sharing rules enforced.
 	 */
-	// The body is identical to WithoutSharingExecutor's on purpose: the sharing keyword is a property of the
-	// class, so the only way to offer both postures is to declare the same delegation twice.
-	//noinspection DuplicatedCode
+	@SuppressWarnings('DuplicatedCode')
 	private with sharing class WithSharingExecutor
 	{
 		/**
@@ -1508,14 +2007,40 @@ public inherited sharing class QRY_Engine
 		{
 			return doCount(parameters.queryString, accessLevel, bindMap);
 		}
+
+		/**
+		 * @description Opens the locator with sharing.
+		 *
+		 * @param parameters The query parameters.
+		 * @param accessLevel The access level.
+		 * @param bindMap The bind variables.
+		 *
+		 * @return The locator.
+		 */
+		public Database.QueryLocator locator(QueryParameters parameters, AccessLevel accessLevel, Map<String, Object> bindMap)
+		{
+			return doLocator(parameters.queryString, accessLevel, bindMap);
+		}
+
+		/**
+		 * @description Opens the cursor with sharing.
+		 *
+		 * @param parameters The query parameters.
+		 * @param accessLevel The access level.
+		 * @param bindMap The bind variables.
+		 *
+		 * @return The cursor.
+		 */
+		public Database.Cursor cursor(QueryParameters parameters, AccessLevel accessLevel, Map<String, Object> bindMap)
+		{
+			return doCursor(parameters.queryString, accessLevel, bindMap);
+		}
 	}
 
 	/**
-	 * @description Executor without sharing rules.
+	 * @description Runs the query without sharing rules.
 	 */
-	// The body is identical to WithSharingExecutor's on purpose: the sharing keyword is a property of the
-	// class, so the only way to offer both postures is to declare the same delegation twice.
-	//noinspection DuplicatedCode
+	@SuppressWarnings('DuplicatedCode')
 	private without sharing class WithoutSharingExecutor
 	{
 		/**
@@ -1532,8 +2057,8 @@ public inherited sharing class QRY_Engine
 		}
 
 		/**
-		 * @description Executes the count without sharing, so a bypassed count sizes the same population a
-		 * bypassed row query would return.
+		 * @description Executes the count without sharing, so a count without sharing counts the same rows that
+		 * a row query without sharing would return.
 		 *
 		 * @param parameters The query parameters.
 		 * @param accessLevel The access level.
@@ -1544,6 +2069,36 @@ public inherited sharing class QRY_Engine
 		public Integer count(QueryParameters parameters, AccessLevel accessLevel, Map<String, Object> bindMap)
 		{
 			return doCount(parameters.queryString, accessLevel, bindMap);
+		}
+
+		/**
+		 * @description Opens the locator without sharing, so a batch without sharing reads the same rows that
+		 * a row query without sharing would return.
+		 *
+		 * @param parameters The query parameters.
+		 * @param accessLevel The access level.
+		 * @param bindMap The bind variables.
+		 *
+		 * @return The locator.
+		 */
+		public Database.QueryLocator locator(QueryParameters parameters, AccessLevel accessLevel, Map<String, Object> bindMap)
+		{
+			return doLocator(parameters.queryString, accessLevel, bindMap);
+		}
+
+		/**
+		 * @description Opens the cursor without sharing, so a cursor without sharing fetches the same rows that
+		 * a row query without sharing would return, in this transaction or a later one.
+		 *
+		 * @param parameters The query parameters.
+		 * @param accessLevel The access level.
+		 * @param bindMap The bind variables.
+		 *
+		 * @return The cursor.
+		 */
+		public Database.Cursor cursor(QueryParameters parameters, AccessLevel accessLevel, Map<String, Object> bindMap)
+		{
+			return doCursor(parameters.queryString, accessLevel, bindMap);
 		}
 	}
 }
