@@ -1,41 +1,42 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
  * @description Selector for the MaskingTarget__mdt custom metadata type. Loads every masking target
- * together with every masking rule in a single transaction, grouped by SObject type token for O(1)
- * lookup by callers.
+ * together with every masking rule once per transaction, grouped by SObject type token so callers can
+ * look them up in constant time.
  *
- * **Two lazy per-transaction caches.** {@see cachedTargetsByType} holds every target (active and
- * inactive) grouped by `SObjectType`; {@see cachedRulesById} holds every rule (active and inactive)
- * keyed by Id. Both build lazily on first read from in-memory `getAll()` — the targets cache adds a
- * single `EntityDefinition WHERE DurableId IN (...)` SOQL to resolve each target's `SObjectType__c`
- * MetadataRelationship DurableId back to its object type. This avoids the platform's
- * MetadataRelationship-joined CMDT query shape (observed at ~900 ms cold per transaction), and avoids
- * the JSON round-trip pattern that silently drops namespaced fields from a nested `Rule__r` child
- * SObject in managed-package runtime.
+ * **Two caches, built on first use, that last for one transaction.** {@see cachedTargetsByType} holds
+ * every target (active and inactive) grouped by `SObjectType`; {@see cachedRulesById} holds every rule
+ * (active and inactive) keyed by Id. Both are built on first read from the in-memory `getAll()`. The
+ * targets cache adds one `EntityDefinition WHERE DurableId IN (...)` SOQL query, to turn each target's
+ * `SObjectType__c` MetadataRelationship DurableId back into its object type. This avoids the slow
+ * CMDT query that joins MetadataRelationship fields (about 900 ms per transaction on a cold cache). It
+ * also avoids reading the rule through JSON, which in a managed package quietly drops namespaced fields
+ * from a nested `Rule__r` child SObject.
  *
- * **Active is derived, not separately cached.** `findActiveForSObjectType` — the only target accessor
- * the masking engine (`UTIL_FrameworkMasker`) uses — filters the all-targets cache to the targets that
- * are themselves active *and* bound to an active rule, so the engine never applies a disabled target.
- * `findAllForSObjectType` returns the unfiltered set so the Data Masking Advisor can surface inactive
- * targets a subscriber may re-enable.
+ * **Active targets are filtered, not cached separately.** `findActiveForSObjectType` is the only target
+ * method the masking engine (`UTIL_FrameworkMasker`) uses. It filters the all-targets cache to the
+ * targets that are active themselves *and* linked to an active rule, so the engine never applies a
+ * disabled target. `findAllForSObjectType` returns every target, so the Data Masking Advisor can show
+ * inactive targets a subscriber may switch back on.
  *
- * **Sidecar rule resolution.** Rules are never accessed through `target.Rule__r`. Instead callers
- * (notably `UTIL_FrameworkMasker.ruleFor`) resolve the parent rule via `getRuleById(target.Rule__c)`,
+ * **Rules are looked up separately.** Rules are never read through `target.Rule__r`. Instead callers
+ * (notably `UTIL_FrameworkMasker.ruleFor`) find the parent rule with `getRuleById(target.Rule__c)`,
  * which reads {@see cachedRulesById}. Top-level `MaskingRule__mdt` SObjects returned by `getAll()` have
- * every custom field populated in every runtime (unmanaged, managed, and subscriber), so the
- * managed-runtime nested-child field-token drop cannot recur. Mock targets registered via `TST_Mock`
- * prime their own `Rule__r` into the cache so `getRuleById` resolves the mock rule.
+ * every custom field filled in every runtime (unmanaged, managed, and subscriber), so fields can no
+ * longer go missing from a nested child record in a managed package. Mock targets registered with
+ * `TST_Mock` add their own `Rule__r` to the cache, so `getRuleById` finds the mock rule.
  *
- * **Rule-order sorting** is handled downstream in `UTIL_FrameworkMasker.sortByRuleOrder`.
+ * **Sorting by rule order** happens later, in `UTIL_FrameworkMasker.sortByRuleOrder`.
  *
- * **Collision resilience.** `getAll()` itself throws `System.ListException` when an org-local record
- * shares a packaged record's DeveloperName (e.g. a subscriber clones a shipped rule in Setup, whose
- * clone UI pre-fills the name). Every platform read behind the caches and `getAllTargets` degrades to
- * a flat selector query re-materialised to the getAll() record shape (any field readable, relationship
- * fields null, LongTextArea values truncated to the getAll() budget so supersession fingerprints stay
- * identical on both paths), emits one flood-controlled WARN per CMDT type per transaction, and keeps
- * masking running — the unhandled collision used to brick every framework-object DML. Precedent:
- * `SEL_FeatureFlag.allDeveloperNames`.
+ * **Duplicate names do not stop masking.** `getAll()` itself throws `System.ListException` when an
+ * org-local record has the same DeveloperName as a packaged record (e.g. a subscriber clones a shipped
+ * rule in Setup, and the clone page fills in the same name). When that happens, every platform read
+ * behind the caches and `getAllTargets` falls back to a flat selector query. The results are copied
+ * into the getAll() record shape (every field readable, relationship fields null, LongTextArea values
+ * cut to the getAll() length so supersession fingerprints are the same on both paths). The selector
+ * writes one flood-controlled WARN per CMDT type per transaction and masking keeps running. Before
+ * this fallback, the unhandled error made every DML on a framework object fail. The same approach is
+ * used in `SEL_FeatureFlag.allDeveloperNames`.
  *
  * @see SEL_Base
  * @see SEL_MaskingTarget_TEST
@@ -47,7 +48,7 @@
  *
  * @group Data Masking
  *
- * @date April 2026, June 2026
+ * @date April 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class SEL_MaskingTarget extends SEL_Base
@@ -57,23 +58,23 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	 * `SObjectType__c` is a MetadataRelationship to `EntityDefinition`, which does not expose a
 	 * relationship name via `getDescribe().getRelationshipName()`, so the path is assembled
 	 * manually with the package namespace prefix to keep queries valid in subscriber orgs.
-	 * Retained for `getFieldPaths()` — ad-hoc consumers that build target queries through
-	 * `SEL_Base.query` still get the entity-resolved name without re-deriving it.
+	 * Kept for `getFieldPaths()`: callers that build their own target queries through
+	 * `SEL_Base.query` still get the object's API name without working out the path again.
 	 */
 	@TestVisible
 	private static final String PATH_SOBJECT_TYPE_QUALIFIED_API_NAME = UTIL_System.getManagedPackageNamespacePrefix() + 'SObjectType__r.QualifiedApiName';
 
 	/**
 	 * @description Namespace-aware relationship path for `Field__r.QualifiedApiName`. `Field__c`
-	 * is a MetadataRelationship to `FieldDefinition` — same constraint as `SObjectType__c`.
+	 * is a MetadataRelationship to `FieldDefinition`, with the same limit as `SObjectType__c`.
 	 */
 	@TestVisible
 	private static final String PATH_FIELD_QUALIFIED_API_NAME = UTIL_System.getManagedPackageNamespacePrefix() + 'Field__r.QualifiedApiName';
 
 	/**
-	 * @description Fully-qualified API name of the MaskingTarget__mdt object — namespaced
-	 * (`kern__MaskingTarget__mdt`) in a subscriber org, un-namespaced (`MaskingTarget__mdt`) in the
-	 * framework's dev preview. Used by callers that emit metadata XML referencing the type.
+	 * @description Fully-qualified API name of the MaskingTarget__mdt object: namespaced
+	 * (`kern__MaskingTarget__mdt`) in a subscriber org, without a namespace (`MaskingTarget__mdt`) in
+	 * the framework's development org. Used by callers that write metadata XML that refers to the type.
 	 */
 	public static final String OBJECT_NAME = UTIL_SObjectDescribe.getObjectNameFromType(MaskingTarget__mdt.SObjectType);
 
@@ -103,12 +104,12 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	public static final String FIELD_SOBJECT_TYPE = UTIL_SObjectDescribe.getCachedFieldName(MaskingTarget__mdt.SObjectType__c);
 
 	/**
-	 * @description Per-transaction cache of **every** masking target (active and inactive, regardless of
-	 * parent-rule state) grouped by `SObjectType`. Keyed by the type token rather than an API-name string
-	 * so lookups skip the describe-to-name conversion they would otherwise pay per call. Lazily built on
-	 * first read from `MaskingTarget__mdt.getAll()` (or the `allTargetsOverrideForTest` seam) plus one
-	 * `EntityDefinition` SOQL via {@see groupTargetsByType}. `findActiveForSObjectType` filters this to the
-	 * active subset; `findAllForSObjectType` returns it unfiltered.
+	 * @description Cache, for one transaction, of **every** masking target (active and inactive, whatever
+	 * the state of the parent rule), grouped by `SObjectType`. Keyed by the type token and not by an API
+	 * name, so a lookup does not have to turn a describe into a name on every call. Built on first read
+	 * from `MaskingTarget__mdt.getAll()` (or the test override `allTargetsOverrideForTest`), plus one
+	 * `EntityDefinition` SOQL query through {@see groupTargetsByType}. `findActiveForSObjectType` filters
+	 * this to the active targets; `findAllForSObjectType` returns it unfiltered.
 	 */
 	@TestVisible
 	private static Map<SObjectType, List<MaskingTarget__mdt>> cachedTargetsByType
@@ -126,11 +127,12 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Per-transaction cache of **every** masking rule (active and inactive) keyed by Id.
-	 * Lazily built on first read from `MaskingRule__mdt.getAll()` (or the `allRulesOverrideForTest` seam),
-	 * issuing no SOQL. Callers read via `getRuleById(target.Rule__c)` instead of `target.Rule__r.X`
-	 * because managed-package CMDT can't populate nested `Rule__r` custom fields through SObject JSON
-	 * deserialization. Mock targets prime their own `Rule__r` into this cache through `findMockedFor`.
+	 * @description Cache, for one transaction, of **every** masking rule (active and inactive), keyed by
+	 * Id. Built on first read from `MaskingRule__mdt.getAll()` (or the test override
+	 * `allRulesOverrideForTest`), with no SOQL. Callers read through `getRuleById(target.Rule__c)` and
+	 * not `target.Rule__r.X`, because a managed-package CMDT cannot fill nested `Rule__r` custom fields
+	 * through SObject JSON deserialization. Mock targets add their own `Rule__r` to this cache through
+	 * `findMockedFor`.
 	 */
 	@TestVisible
 	private static Map<Id, MaskingRule__mdt> cachedRulesById
@@ -148,35 +150,35 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Test seam for the `MaskingRule__mdt.getAll()` read behind `cachedRulesById`. When
-	 * non-null, the cache uses this map instead of the platform call so tests can exercise edge cases
-	 * (inactive rule with active target, rule-less targets) that shipped CMDT doesn't naturally contain.
+	 * @description Test override for the `MaskingRule__mdt.getAll()` read behind `cachedRulesById`. When
+	 * it is not null, the cache uses this map instead of the platform call, so tests can cover cases
+	 * (an inactive rule with an active target, targets without a rule) that the shipped CMDT does not have.
 	 */
 	@TestVisible
 	private static Map<String, MaskingRule__mdt> allRulesOverrideForTest;
 
 	/**
-	 * @description Test seam for the `MaskingTarget__mdt.getAll()` read behind `cachedTargetsByType` and
-	 * `getAllTargets`. When non-null, those reads use this map instead of the platform call so tests can
-	 * exercise unresolvable DurableIds and API names not present in `Schema.getGlobalDescribe`.
+	 * @description Test override for the `MaskingTarget__mdt.getAll()` read behind `cachedTargetsByType`
+	 * and `getAllTargets`. When it is not null, those reads use this map instead of the platform call, so
+	 * tests can cover DurableIds that resolve to nothing and API names not in `Schema.getGlobalDescribe`.
 	 */
 	@TestVisible
 	private static Map<String, MaskingTarget__mdt> allTargetsOverrideForTest;
 
 	/**
-	 * @description Test seam forcing the `getAll()` reads behind both caches and `getAllTargets` to
-	 * throw the platform's duplicate-DeveloperName `System.ListException`, driving the selector
-	 * fallback without deploying a colliding org-local record.
+	 * @description Test flag that makes the `getAll()` reads behind both caches and `getAllTargets`
+	 * throw the platform's duplicate-DeveloperName `System.ListException`. Tests use it to run the
+	 * selector fallback without deploying an org-local record with a duplicate name.
 	 */
 	@TestVisible
 	private static Boolean simulateGetAllCollisionForTest = false;
 
 	/**
-	 * @description Collision warnings registered inside the fallback catch, keyed by CMDT type and
-	 * drained only AFTER the corresponding cache assignment: the WARN emission is itself masked
-	 * through these caches (`LOG_Engine` masks every `LogEntryEvent__e`), so emitting before the
-	 * assignment would re-enter the still-cold getter and recurse until the stack overflows.
-	 * Lazily initialised on first access, like the caches above.
+	 * @description Duplicate-name warnings recorded inside the fallback catch block, keyed by CMDT type.
+	 * They are written only AFTER the matching cache is assigned. Writing the WARN log entry itself
+	 * goes through masking, and so through these caches (`LOG_Engine` masks every `LogEntryEvent__e`).
+	 * Writing it before the assignment would call the empty getter again, which would call itself until
+	 * the stack overflows. Created on first use, like the caches above.
 	 */
 	private static Map<SObjectType, String> pendingCollisionWarnings
 	{
@@ -192,10 +194,10 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description CMDT types already warned about in this transaction — one WARN per type per
-	 * transaction however often the fallback runs (`getAllTargets` is uncached, and the caches can
-	 * be rebuilt mid-transaction), with `LOG_Builder` fingerprint flood control deduplicating
-	 * across transactions. Lazily initialised on first access.
+	 * @description CMDT types already warned about in this transaction: one WARN per type per
+	 * transaction, however often the fallback runs (`getAllTargets` is not cached, and the caches can
+	 * be rebuilt during a transaction). Across transactions, `LOG_Builder` fingerprint flood control
+	 * removes the repeats. Created on first use.
 	 */
 	private static final Set<SObjectType> warnedCollisionTypes
 	{
@@ -219,13 +221,12 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Returns the core fields for MaskingTarget__mdt queries. Used by ad-hoc
-	 * consumers that build target queries through `SEL_Base.query`; the in-memory `getAll()`
-	 * load path populates these fields directly without an explicit field list. This list also
-	 * defines the collision-fallback contract: after a getAll() collision the caches rebuild from
-	 * a flat query over exactly these fields, so every field any cache consumer reads must be
-	 * listed here (NamespacePrefix keys packaged and org-local targets apart for namespace-aware
-	 * consumers).
+	 * @description Returns the core fields for MaskingTarget__mdt queries. Used by callers that build
+	 * their own target queries through `SEL_Base.query`; the in-memory `getAll()` load fills these
+	 * fields directly, without a field list. The fallback read uses the same list: when getAll() fails on
+	 * a duplicate name, the caches are rebuilt from a flat query over exactly these fields. So every field
+	 * that any reader of the cache uses must be listed here (NamespacePrefix keeps packaged and org-local
+	 * targets apart for code that reads the namespace).
 	 *
 	 * @return List of MaskingTarget__mdt SObjectField tokens
 	 */
@@ -244,10 +245,10 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Returns relationship traversal field paths for MaskingTarget__mdt queries.
-	 * Exposes the SObjectType + Field qualified-API-name paths so ad-hoc callers that build
-	 * target queries through `SEL_Base.query` still get the entity-resolved names without
-	 * having to re-derive the namespace-prefixed path.
+	 * @description Returns the relationship field paths for MaskingTarget__mdt queries: the
+	 * qualified API name paths of SObjectType and Field. Callers that build their own target queries
+	 * through `SEL_Base.query` then get the object and field API names without working out the
+	 * namespace-prefixed path themselves.
 	 *
 	 * @return List of field path strings
 	 */
@@ -261,12 +262,12 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Framework-internal CMDT selector — always runs in `AccessLevel.SYSTEM_MODE`
-	 * regardless of the `UserModeQueries_Enabled` feature flag. Subscribers typically grant
-	 * running users no CRUD on `kern__*__mdt` records by design, so USER_MODE reads would
-	 * return empty and framework behaviour would silently break.
+	 * @description Framework-internal CMDT selector: always runs in `AccessLevel.SYSTEM_MODE`,
+	 * whatever the `UserModeQueries_Enabled` feature flag says. Subscribers usually give running
+	 * users no access to `kern__*__mdt` records on purpose, so USER_MODE reads would return nothing
+	 * and framework behaviour would quietly break.
 	 *
-	 * @return `true` — this selector requires SYSTEM_MODE.
+	 * @return `true`: this selector requires SYSTEM_MODE.
 	 */
 	public override Boolean systemModeRequired()
 	{
@@ -274,11 +275,11 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Finds the **active** masking targets for a specific SObjectType — the targets that are
-	 * themselves active and bound to an active rule. This is the only target accessor the masking engine
-	 * (`UTIL_FrameworkMasker`) uses, so a disabled target or a target bound to an inactive rule is never
-	 * applied. Mock targets registered via `TST_Mock` shortcut the load path; otherwise the active subset
-	 * is filtered from the transaction-scoped all-targets cache.
+	 * @description Finds the **active** masking targets for an SObjectType: the targets that are active
+	 * themselves and linked to an active rule. This is the only target method the masking engine
+	 * (`UTIL_FrameworkMasker`) uses, so a disabled target, or a target linked to an inactive rule, is
+	 * never applied. Mock targets registered with `TST_Mock` are returned without loading anything;
+	 * otherwise the active targets are filtered from the all-targets cache for the transaction.
 	 *
 	 * @param sObjectType The object whose active targets to find.
 	 *
@@ -291,11 +292,11 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Finds **all** masking targets for a specific SObjectType — active **and** inactive,
-	 * regardless of parent-rule state. Sibling to {@see findActiveForSObjectType}: the engine only ever
-	 * needs the active targets, but the Data Masking Advisor needs the inactive ones too so it can render
-	 * existing coverage and offer a disable / re-enable diff. Mock targets registered via `TST_Mock`
-	 * shortcut the load path (the mock filter does not drop inactive records here).
+	 * @description Finds **all** masking targets for an SObjectType, active **and** inactive, whatever
+	 * the state of the parent rule. Works with {@see findActiveForSObjectType}: the engine only needs
+	 * the active targets, but the Data Masking Advisor also needs the inactive ones, so it can show the
+	 * existing coverage and offer to switch targets off or back on. Mock targets registered with
+	 * `TST_Mock` are returned without loading anything (here the mock filter keeps inactive records).
 	 *
 	 * @param sObjectType The object whose targets to find.
 	 *
@@ -308,8 +309,8 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Returns the all-targets cache entry for a type, or an empty list when the type carries
-	 * no targets. Triggers the lazy build of `cachedTargetsByType` on first read.
+	 * @description Returns the all-targets cache entry for a type, or an empty list when the type has
+	 * no targets. The first read builds `cachedTargetsByType`.
 	 *
 	 * @param sObjectType The object whose cached targets to read.
 	 *
@@ -321,9 +322,9 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Filters a target list to the engine-applicable subset: targets that are themselves
-	 * active and bound to an active rule. A target bound to an inactive or missing rule masks nothing, so
-	 * it is excluded here exactly as a disabled target is.
+	 * @description Filters a target list to the targets the engine can apply: targets that are active
+	 * themselves and linked to an active rule. A target linked to an inactive or missing rule masks
+	 * nothing, so it is left out here, just like a disabled target.
 	 *
 	 * @param targets The targets to filter (active and inactive).
 	 *
@@ -344,15 +345,16 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Resolves a target's parent `MaskingRule__mdt` via the per-transaction rule cache.
-	 * Callers that hold a `MaskingTarget__mdt` (e.g. `UTIL_FrameworkMasker`) read rule fields via this
-	 * method instead of `target.Rule__r.X` — the platform can't populate `target.Rule__r` with the full
-	 * rule on a managed-package CMDT in a way that survives JSON serialization, so the rule is kept in a
-	 * sidecar map and looked up by `Rule__c` Id. Returns null for a null Id or an Id no rule matches.
+	 * @description Finds a target's parent `MaskingRule__mdt` in the rule cache for the transaction.
+	 * Callers that hold a `MaskingTarget__mdt` (e.g. `UTIL_FrameworkMasker`) read rule fields through
+	 * this method and not through `target.Rule__r.X`. In a managed package, the platform cannot fill
+	 * `target.Rule__r` with the full rule in a way that survives JSON serialization, so the rules are
+	 * kept in a separate map and looked up by the `Rule__c` Id. Returns null for a null Id or an Id that
+	 * matches no rule.
 	 *
 	 * @param ruleId The `MaskingTarget__mdt.Rule__c` Id to resolve.
 	 *
-	 * @return The fully-populated rule, or `null` if no such rule is loaded.
+	 * @return The rule with every field filled, or `null` if no such rule is loaded.
 	 */
 	public static MaskingRule__mdt getRuleById(Id ruleId)
 	{
@@ -360,12 +362,12 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Returns every masking target (active and inactive, regardless of parent-rule state) as
-	 * a flat list. Unlike {@see findActiveForSObjectType}, which drops targets whose rule is inactive, this
-	 * raw accessor preserves them so callers such as the dead-configuration check can detect active targets
-	 * bound to an inactive or missing rule — including targets whose `SObjectType__c` DurableId no longer
-	 * resolves, which `cachedTargetsByType` omits. Reads the in-memory `MaskingTarget__mdt.getAll()` map
-	 * (or the `allTargetsOverrideForTest` seam) — issues no SOQL.
+	 * @description Returns every masking target (active and inactive, whatever the state of the parent
+	 * rule) as a flat list. {@see findActiveForSObjectType} drops targets whose rule is inactive; this
+	 * method keeps them, so callers such as the dead-configuration check can find active targets linked
+	 * to an inactive or missing rule. That includes targets whose `SObjectType__c` DurableId no longer
+	 * resolves, which `cachedTargetsByType` leaves out. Reads the in-memory `MaskingTarget__mdt.getAll()`
+	 * map (or the test override `allTargetsOverrideForTest`) and runs no SOQL.
 	 *
 	 * @return Every masking target in the org.
 	 */
@@ -378,9 +380,9 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Returns every masking rule (active and inactive) keyed by record Id, so callers can tell
-	 * an inactive-rule reference apart from a missing-rule reference. A snapshot of the transaction's rule
-	 * cache — issues no SOQL.
+	 * @description Returns every masking rule (active and inactive) keyed by record Id, so callers can
+	 * tell a target whose rule is inactive apart from a target whose rule is missing. A copy of the
+	 * transaction's rule cache; runs no SOQL.
 	 *
 	 * @return Every masking rule keyed by record Id.
 	 */
@@ -391,10 +393,10 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Groups masking targets by their `SObjectType` by resolving each target's `SObjectType__c`
-	 * MetadataRelationship DurableId back to its SObject type with a single `EntityDefinition` SOQL. A
-	 * target whose DurableId no EntityDefinition row resolves (a since-deleted object) is dropped rather
-	 * than cached against a null type.
+	 * @description Groups masking targets by their `SObjectType`. One `EntityDefinition` SOQL query turns
+	 * each target's `SObjectType__c` MetadataRelationship DurableId back into its SObject type. A target
+	 * whose DurableId matches no EntityDefinition row (an object that has since been deleted) is dropped,
+	 * not cached against a null type.
 	 *
 	 * @param targets The targets to group.
 	 *
@@ -437,10 +439,10 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Test-seam: when `TST_Mock.get(MaskingTarget__mdt.SObjectType)` has records registered,
-	 * return those matching the requested SObjectType (by `SObjectType__c` API-name string, and by
-	 * `IsActive__c` when `activeOnly`) and prime `cachedRulesById` from the mocks' own `Rule__r`
-	 * relationships so `getRuleById` resolves to the mock rule. `findActiveForSObjectType` passes
+	 * @description Test support: when `TST_Mock.get(MaskingTarget__mdt.SObjectType)` has records registered,
+	 * returns those that match the requested SObjectType (by the `SObjectType__c` API name, and by
+	 * `IsActive__c` when `activeOnly` is set), and adds the mocks' own `Rule__r` records to
+	 * `cachedRulesById` so `getRuleById` finds the mock rule. `findActiveForSObjectType` passes
 	 * `activeOnly = true` (the engine never applies inactive targets); `findAllForSObjectType` passes
 	 * `false` so the advisor sees inactive targets too.
 	 *
@@ -481,14 +483,14 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Reads every masking rule from `getAll()`, degrading to a flat selector query
-	 * re-materialised to the getAll() record shape when the platform call throws on a
-	 * cross-namespace DeveloperName collision. Without the fallback, an org-local record cloning a
-	 * packaged rule's DeveloperName bricks every framework-object DML. Same hazard and remedy as
-	 * `SEL_FeatureFlag.allDeveloperNames`; the flat CMDT query is backed by the same metadata
-	 * cache as `getAll()`, so the degraded path stays cheap.
+	 * @description Reads every masking rule from `getAll()`. When the platform call throws because an
+	 * org-local record and a packaged record share a DeveloperName, falls back to a flat selector query
+	 * copied into the getAll() record shape. Without the fallback, an org-local copy of a packaged
+	 * rule's DeveloperName makes every DML on a framework object fail. `SEL_FeatureFlag.allDeveloperNames`
+	 * has the same problem and the same fix. The flat CMDT query uses the same metadata cache as
+	 * `getAll()`, so the fallback stays cheap.
 	 *
-	 * @return The getAll() map values, or the shaped fallback records after a collision.
+	 * @return The getAll() map values, or the reshaped fallback records after a duplicate-name error.
 	 */
 	private static List<MaskingRule__mdt> readAllRules()
 	{
@@ -514,13 +516,13 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Reads every masking target from `getAll()`, degrading to a flat selector query
-	 * re-materialised to the getAll() record shape on a DeveloperName collision. Targets carry no
-	 * LongTextArea fields, so the normalisation is pure re-materialisation: any field readable,
-	 * relationship fields null, exactly the shape `resolveQualifiedFieldName` and the surface-key
-	 * builders already handle on the fast path.
+	 * @description Reads every masking target from `getAll()`. On a duplicate DeveloperName it falls
+	 * back to a flat selector query copied into the getAll() record shape. Targets have no LongTextArea
+	 * fields, so the copy only reshapes the records: every field readable and relationship fields null,
+	 * which is exactly the shape `resolveQualifiedFieldName` and the surface-key builders already handle
+	 * on the normal path.
 	 *
-	 * @return The getAll() map values, or the shaped fallback records after a collision.
+	 * @return The getAll() map values, or the reshaped fallback records after a duplicate-name error.
 	 */
 	private static List<MaskingTarget__mdt> readAllTargets()
 	{
@@ -544,13 +546,13 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Flat collision-fallback query over `getFields()` only — deliberately NOT the
-	 * selector's default `query`, whose `getFieldPaths()` relationship joins are the
-	 * MetadataRelationship-joined CMDT shape this class exists to avoid (~900 ms cold) and would
-	 * populate relationship fields the getAll() shape keeps null. Runs `systemModeInternal` for
-	 * the same reason as {@see systemModeRequired}.
+	 * @description Flat fallback query over `getFields()` only. It deliberately does not use the
+	 * selector's default `query`: its `getFieldPaths()` relationship joins are the slow CMDT query
+	 * this class exists to avoid (about 900 ms on a cold cache), and they would fill relationship
+	 * fields that the getAll() shape keeps null. Runs `systemModeInternal` for the same reason as
+	 * {@see systemModeRequired}.
 	 *
-	 * @return Every masking target, flat-queried.
+	 * @return Every masking target, from a flat query.
 	 */
 	private List<MaskingTarget__mdt> fetchAllFlat()
 	{
@@ -561,15 +563,15 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Re-materialises SOQL-sourced targets into the getAll() record shape: fresh
-	 * in-memory copies of the `getFields()` field set, so any field is readable (a raw SOQL row
-	 * throws `SObjectException` on un-queried field reads — `ruleFor` and
-	 * `resolveQualifiedFieldName` probe `Rule__r`/`Field__r`/`SObjectType__r`) and relationship
-	 * fields stay null exactly as `getAll()` leaves them.
+	 * @description Copies targets read by SOQL into the getAll() record shape: new in-memory copies
+	 * of the `getFields()` field set, so every field can be read, and relationship fields stay null just
+	 * as `getAll()` leaves them. (A raw SOQL row throws `SObjectException` when code reads a field that
+	 * was not queried, and `ruleFor` and `resolveQualifiedFieldName` read `Rule__r`, `Field__r` and
+	 * `SObjectType__r`.)
 	 *
-	 * @param targets SOQL-sourced targets carrying the `getFields()` field set.
+	 * @param targets Targets read by SOQL, carrying the `getFields()` field set.
 	 *
-	 * @return getAll()-shaped in-memory copies, in input order.
+	 * @return In-memory copies shaped as getAll() returns them, in input order.
 	 */
 	private static List<MaskingTarget__mdt> normaliseToGetAllShape(List<MaskingTarget__mdt> targets)
 	{
@@ -590,9 +592,9 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Throws a constructed duplicate-DeveloperName `System.ListException` when the
-	 * `simulateGetAllCollisionForTest` seam is set, so tests can drive the fallback path without
-	 * deploying a colliding org-local CMDT record.
+	 * @description Throws a duplicate-DeveloperName `System.ListException`, built here, when the test
+	 * flag `simulateGetAllCollisionForTest` is set, so tests can run the fallback path without
+	 * deploying an org-local CMDT record with a duplicate name.
 	 */
 	private static void throwIfSimulatedCollision()
 	{
@@ -602,14 +604,14 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 		}
 
 		System.ListException simulated = new System.ListException();
-		simulated.setMessage('Row with duplicate DeveloperName at index: 0 (simulated by SEL_MaskingTarget test seam)');
+		simulated.setMessage('Row with duplicate DeveloperName at index: 0 (simulated by the SEL_MaskingTarget test flag)');
 		throw simulated;
 	}
 
 	/**
-	 * @description Bare DeveloperNames appearing more than once in the fallback records — the
-	 * colliding names a getAll() collision implies (packaged and org-local records sharing one
-	 * name across namespaces).
+	 * @description DeveloperNames, without namespace, that appear more than once in the fallback
+	 * records. These are the names that made getAll() fail (a packaged record and an org-local record
+	 * with the same name in different namespaces).
 	 *
 	 * @param records The fallback-loaded CMDT records to scan.
 	 *
@@ -633,14 +635,14 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Queues the collision warning for a CMDT type. Log-only text (never reaches a
-	 * subscriber UI), so no Custom Label. Emission is deferred to
-	 * {@see emitPendingCollisionWarnings} after the cache assignment — see
-	 * {@see pendingCollisionWarnings} for why emitting here would recurse.
+	 * @description Queues the duplicate-name warning for a CMDT type. The text only goes to the log
+	 * (it never reaches a subscriber screen), so it needs no Custom Label. The warning is written later,
+	 * by {@see emitPendingCollisionWarnings}, after the cache is assigned; see
+	 * {@see pendingCollisionWarnings} for why writing it here would make the code call itself.
 	 *
-	 * Types already warned this transaction skip the message build entirely — repeated uncached
-	 * fallback reads (`getAllTargets`) would otherwise rebuild a message the drain guard then
-	 * discards.
+	 * A type already warned about in this transaction skips building the message: repeated fallback
+	 * reads that are not cached (`getAllTargets`) would otherwise build a message that would then be
+	 * thrown away.
 	 *
 	 * @param cmdtType The colliding CMDT type.
 	 * @param duplicateNames DeveloperNames found more than once in the fallback records.
@@ -664,11 +666,11 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Emits the queued collision warnings — one flood-controlled WARN per CMDT type
-	 * per transaction. The pending queue is reset and the per-type guard marked BEFORE each
-	 * emission because the emission itself is masked through these selector caches; the queue
-	 * reset plus {@see registerCollision}'s already-warned short-circuit are what terminate that
-	 * re-entrance.
+	 * @description Writes the queued duplicate-name warnings: one flood-controlled WARN per CMDT type
+	 * per transaction. The queue is cleared, and the type is marked as warned, BEFORE each warning is
+	 * written, because writing it goes through masking and so through these selector caches. Clearing
+	 * the queue, and {@see registerCollision} skipping types already warned about, are what stop the
+	 * code from calling itself again.
 	 */
 	private static void emitPendingCollisionWarnings()
 	{

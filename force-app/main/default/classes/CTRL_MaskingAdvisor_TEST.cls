@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Unit tests for CTRL_MaskingAdvisor — the dead-configuration check, the object and field
- * coverage analysis (native classification with heuristic fallback), the typed and real-record masking
- * previews, the rule blast radius, and the deployment-neutral configuration generation. Pure logic is
- * exercised with in-memory CMDT records and describe data; the @AuraEnabled org-wide entry points are
- * exercised through the SEL_MaskingTarget *OverrideForTest seams and TST_Mock so no shipped configuration
- * is required.
+ * @description Unit tests for CTRL_MaskingAdvisor: the dead-configuration check, the object and field
+ * coverage analysis (native classification, with name-based guessing when there is none), the masking
+ * previews for a typed value and for a real record, the list of everything a rule affects, and the
+ * generated configuration that deploys to any org. Plain logic is tested with in-memory CMDT records and
+ * describe data. The @AuraEnabled methods that read the whole org are tested through the
+ * SEL_MaskingTarget *OverrideForTest test overrides and TST_Mock, so no shipped configuration is needed.
  *
  * @see CTRL_MaskingAdvisor
  *
@@ -13,10 +13,10 @@
  *
  * @group Controllers
  *
- * @date May 2026, July 2026
+ * @date May 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ExcessiveParameterList,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.CognitiveComplexity')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class CTRL_MaskingAdvisor_TEST
 {
 	/**
@@ -115,7 +115,7 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies that the org-wide entry point surfaces dead configuration seeded through the selector override seams.
+	 * @description Verifies that the org-wide entry point surfaces dead configuration set up through the selector's test overrides.
 	 */
 	@IsTest
 	private static void getDeadConfigurationsReadsOrgConfigurationViaSelectorSeams()
@@ -191,7 +191,8 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies the org-wide posture entry point reads configuration through the selector override seams.
+	 * @description Verifies that getOrgPostureSummary, the summary of the masking setup of the whole org, reads its
+	 * configuration through the selector's test overrides.
 	 */
 	@IsTest
 	private static void getOrgPostureSummaryReadsOrgConfigurationViaSelectorSeams()
@@ -289,15 +290,16 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies the org-wide inventory entry point reads targets through the selector override
-	 * seams and resolves an object durable Id to its API name and label via the EntityDefinition selector.
+	 * @description Verifies the org-wide inventory entry point reads targets through the selector's test
+	 * overrides, and turns an object durable Id into its API name and label through the EntityDefinition
+	 * selector.
 	 */
 	@IsTest
 	private static void getOrgPostureInventoryResolvesObjectIdentityViaSelectorSeams()
 	{
 		// A standard object's EntityDefinition DurableId is its API name (only custom objects carry a
 		// 01I-style durable Id), so seeding the target with 'Account' resolves through the real
-		// findByDurableIds selector path — exercising durable-Id-to-identity resolution without an inline
+		// findByDurableIds selector path. This tests turning a durable Id into the object without an inline
 		// EntityDefinition query.
 		final String accountDurableId = 'Account';
 		MaskingRule__mdt activeRule = labeledRule('MaskEmail', 'Mask Email', true);
@@ -382,7 +384,7 @@ private class CTRL_MaskingAdvisor_TEST
 	/**
 	 * @description Verifies that the object picker carries each object's namespace prefix, so the coverage
 	 * scan can default to the subscriber's own (un-namespaced) custom objects and treat managed-package
-	 * objects — which can number in the hundreds in orgs with large AppExchange footprints — as an
+	 * objects (there can be hundreds of them in orgs with many AppExchange packages) as an
 	 * explicit opt-in.
 	 */
 	@IsTest
@@ -413,9 +415,9 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that strong sensitive-identifier names and matching contact types are rated high confidence.
-	 * Covers each new domain added to HIGH_CONFIDENCE_NAME_PATTERNS — locale (BSN/Aadhaar), healthcare
-	 * (MRN/NPI), PCI sensitive authentication data (CVV), banking ISO (SWIFT), telecom (IMEI) — to
-	 * regression-guard the expanded baseline.
+	 * Covers each area added to HIGH_CONFIDENCE_NAME_PATTERNS: local identifiers (BSN/Aadhaar), healthcare
+	 * (MRN/NPI), PCI sensitive authentication data (CVV), banking ISO (SWIFT) and telecom (IMEI), so none of
+	 * them is lost later.
 	 */
 	@IsTest
 	private static void heuristicFlagsStrongIdentifierNamesAsHigh()
@@ -496,7 +498,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that weak, false-positive-prone substrings are rated low confidence, and
-	 * confirms that the generic `card` substring is intentionally NOT flagged on its own — that
+	 * confirms that the generic `card` substring is intentionally NOT flagged on its own. That
 	 * pattern was removed from LOW because the HIGH-tier compound patterns (creditcard, cardnumber,
 	 * cvv, cardlast4, maskedpan, etc.) cover the actually-sensitive cases, and standalone `card`
 	 * false-positives on common non-sensitive field names like BusinessCardTheme__c.
@@ -511,13 +513,13 @@ private class CTRL_MaskingAdvisor_TEST
 						CTRL_MaskingAdvisor.evaluateHeuristic('PaymentGatewayApiKey__c', DisplayType.STRING),
 						'api key credential is low'
 				);
-		Assert.areEqual(CTRL_MaskingAdvisor.HeuristicConfidence.LOW, CTRL_MaskingAdvisor.evaluateHeuristic('UserPasswordHash__c', DisplayType.STRING), 'password credential is low');
+		Assert.areEqual(CTRL_MaskingAdvisor.HeuristicConfidence.LOW, CTRL_MaskingAdvisor.evaluateHeuristic('UserPasswordHash__c', DisplayType.STRING), 'password hash is low');
 		Assert.areEqual(CTRL_MaskingAdvisor.HeuristicConfidence.LOW, CTRL_MaskingAdvisor.evaluateHeuristic('MothersMaidenName__c', DisplayType.STRING), 'KBA maiden name is low');
 		Assert.areEqual(CTRL_MaskingAdvisor.HeuristicConfidence.LOW, CTRL_MaskingAdvisor.evaluateHeuristic('CardLast4__c', DisplayType.STRING), 'PCI truncated PAN is low');
 		Assert.isNull
 				(
 						CTRL_MaskingAdvisor.evaluateHeuristic('BusinessCardTheme__c', DisplayType.STRING),
-						'generic card substring no longer fires standalone — covered by HIGH compound patterns'
+						'the generic card substring no longer matches on its own: the HIGH compound patterns cover it'
 				);
 	}
 
@@ -664,7 +666,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies coverage assessment flags an object whose only uncovered likely-sensitive fields
-	 * are PossiblySensitive (no Sensitive field) as requiring attention — the broadened bar that matches the
+	 * are PossiblySensitive (no Sensitive field) as requiring attention. This wider rule matches the
 	 * on-demand scan, so the Health Check card and the scan name the same objects. A LogEntry's Fingerprint
 	 * field rates PossiblySensitive (a biometric-name heuristic) and is its only flagged field.
 	 */
@@ -680,13 +682,13 @@ private class CTRL_MaskingAdvisor_TEST
 		Assert.isTrue(assessment.requiresAttention, 'an object whose only uncovered likely-sensitive fields are possibly sensitive requires attention, matching the scan bar');
 		for(CTRL_MaskingAdvisor.DTO_FlaggedField flagged : assessment.flaggedFields)
 		{
-			Assert.areEqual('PossiblySensitive', flagged.sensitivityLevel, 'no flagged field is Sensitive — so requiring attention proves the broadened possibly-sensitive bar');
+			Assert.areEqual('PossiblySensitive', flagged.sensitivityLevel, 'no flagged field is Sensitive, so requiring attention proves the wider possibly-sensitive rule');
 		}
 	}
 
 	/**
-	 * @description Verifies that the coverage scan marks flagged Long Text Area fields — the high-risk
-	 * unmasked free-text blind spot — so the console can call them out among the scan results.
+	 * @description Verifies that the coverage scan marks flagged Long Text Area fields (free text that is
+	 * often not masked, and so a high risk), so the console can call them out among the scan results.
 	 */
 	@IsTest
 	private static void assessObjectCoverageMarksLongTextAreaFlaggedFields()
@@ -735,7 +737,7 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies that an inactive target is not coverage — sensitive fields behind a dormant
+	 * @description Verifies that an inactive target is not coverage: sensitive fields behind an unused
 	 * target still require attention.
 	 */
 	@IsTest
@@ -837,9 +839,9 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies that unresolvable candidates never consume assessment slots — a real offender
-	 * stays inside the assessed window even when unresolvable rows sort ahead of it, so a stale
-	 * EntityDefinition row can never hide a genuine gap behind the bound.
+	 * @description Verifies that candidates that cannot be resolved never use up assessment slots. A real
+	 * problem object stays inside the assessed set even when rows that cannot be resolved sort ahead of it,
+	 * so an out-of-date EntityDefinition row can never hide a real gap behind the limit.
 	 */
 	@IsTest
 	private static void summarizeCustomObjectCoverageDoesNotSpendSlotsOnUnresolvableObjects()
@@ -864,7 +866,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that standard objects and managed-package objects are never candidates for
-	 * the health-check sweep — the console's on-demand scan handles those on explicit request.
+	 * the health check's coverage check: the console's on-demand scan handles those on explicit request.
 	 */
 	@IsTest
 	private static void summarizeCustomObjectCoverageIgnoresStandardAndManagedPackageObjects()
@@ -884,7 +886,7 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies that the regulated-field inventory projects a natively classified field into a
+	 * @description Verifies that the regulated-field inventory turns a natively classified field into a
 	 * row carrying its type, classification, compliance group, and sensitivity rating.
 	 */
 	@IsTest
@@ -898,8 +900,8 @@ private class CTRL_MaskingAdvisor_TEST
 
 		CTRL_MaskingAdvisor.DTO_FieldInventoryRow row = inventoryRowFor(inventory, Account.Description);
 		Assert.isNotNull(row, 'a natively classified field appears in the inventory');
-		Assert.areEqual(SECURITY_CLASSIFICATION_CONFIDENTIAL, row.securityClassification, 'the native classification is projected');
-		Assert.areEqual('PII', row.complianceGroup, 'the native compliance group is projected');
+		Assert.areEqual(SECURITY_CLASSIFICATION_CONFIDENTIAL, row.securityClassification, 'the native classification is copied to the row');
+		Assert.areEqual('PII', row.complianceGroup, 'the native compliance group is copied to the row');
 		Assert.areEqual(CTRL_MaskingAdvisor.SENSITIVITY_SENSITIVE, row.sensitivityLevel, 'a classified field is rated sensitive');
 		Assert.isNotNull(row.fieldType, 'the field display type travels with the row');
 	}
@@ -937,8 +939,8 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that a field carrying its own active field-level target appears in the
-	 * inventory even when the sensitivity heuristic does not flag it — a deliberately masked field is
-	 * inventory-worthy by definition, and its row reads masked today.
+	 * inventory even when the sensitivity heuristic does not flag it: a deliberately masked field belongs in the
+	 * inventory by definition, and its row reads masked today.
 	 */
 	@IsTest
 	private static void getRegulatedFieldInventoryIncludesFieldLevelMaskedFieldRegardlessOfSensitivity()
@@ -961,8 +963,8 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that the inventory lists a regulated field even when an active object-wide target
-	 * covers it, marking it masked today — unlike the coverage assessment, the inventory never short-circuits
-	 * on existing masking because its purpose is a full regulated-field census including covered fields.
+	 * covers it, and marks it masked today. Unlike the coverage assessment, the inventory never stops early
+	 * when masking already exists, because its purpose is a full list of regulated fields, covered ones too.
 	 */
 	@IsTest
 	private static void getRegulatedFieldInventoryListsFieldsRegardlessOfActiveMasking()
@@ -1029,7 +1031,7 @@ private class CTRL_MaskingAdvisor_TEST
 	/**
 	 * @description Verifies the heuristic no longer fires on an accidental cross-word substring: `ClassName__c`
 	 * tokenises to `class`/`name`, neither a sensitive-identifier token, so the `ssn` pattern hidden inside
-	 * `claSSNAme` must not rate it sensitive. Regression guard for the token-aware matcher — the export
+	 * `claSSNAme` must not rate it sensitive. Guards the matcher that works on name parts (tokens): the export
 	 * previously rated an Apex class-name field Sensitive and recommended SSN masking for it.
 	 */
 	@IsTest
@@ -1041,7 +1043,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the token-aware heuristic still flags a sensitive identifier glued into a single
-	 * un-separated token — `ssnvalue__c`, `customerssn__c`, `medicarenumber__c` carry no camelCase or
+	 * token with no separators: `ssnvalue__c`, `customerssn__c`, `medicarenumber__c` carry no camelCase or
 	 * underscore boundary, so the pattern lives inside one token and must still rate HIGH. Guards against a
 	 * false-negative regression where token-boundary matching would silently drop a regulated field that the
 	 * org named without separators.
@@ -1091,7 +1093,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies a PHONE-typed field's primary recommendation is deterministic regardless of the
-	 * candidate order — both phone rules concept-match a phone field, so the resolver must always surface the
+	 * candidate order. Both phone rules match a phone field by meaning, so the resolver must always surface the
 	 * same primary (the international rule) rather than echoing whichever candidate happened to sort first. The
 	 * export previously recommended US masking on one phone field and international on another in the same org.
 	 */
@@ -1110,7 +1112,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies a mobile-named phone field (no `phone` token, resolved through the field-name
-	 * synonym fallback) recommends the international phone rule — consistent with `phone`-named fields —
+	 * synonym fallback) recommends the international phone rule, like `phone`-named fields do,
 	 * rather than the US rule. The export previously recommended US masking on a `ContactMobile` field while
 	 * every `phone`-named field got international.
 	 */
@@ -1135,7 +1137,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies, through the real inventory path, that a package object whose only text fields are
-	 * an Apex class name and a scheduler name yields no regulated-field row for the class-name field — the
+	 * an Apex class name and a scheduler name yields no regulated-field row for the class-name field: the
 	 * token-aware heuristic no longer mis-rates `ClassName__c` as Sensitive nor recommends SSN masking for it.
 	 */
 	@IsTest
@@ -1241,7 +1243,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that `previewWithRule` redacts a value using a named dormant rule even when
-	 * no active MaskingTarget wires that rule to the field — the preview a reviewer relies on before
+	 * no active MaskingTarget links that rule to the field. A reviewer relies on this preview before
 	 * activating a rule. Mirrors the live stock-config case (`MaskPhoneUS` on `Contact.HomePhone`).
 	 */
 	@IsTest
@@ -1262,7 +1264,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies `previewWithRule` returns null when the field cannot be resolved or the
-	 * named rule does not exist — the two guard paths before the engine seam is touched.
+	 * named rule does not exist: the two checks that run before the masking engine is called.
 	 */
 	@IsTest
 	private static void previewWithRuleReturnsNullForUnresolvableFieldOrRule()
@@ -1299,7 +1301,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 		Assert.isNotNull(preview, 'a resolvable field and JsonKey rule yield a preview');
 		Assert.isTrue(preview.expectsJsonInput, 'a JsonKey-mode rule expects JSON input, so a scalar no-op is expected');
-		Assert.areEqual('a plain scalar value', preview.maskedValue, 'the JsonKey rule no-ops on a non-JSON scalar — the result the expectsJsonInput hint explains');
+		Assert.areEqual('a plain scalar value', preview.maskedValue, 'the JsonKey rule leaves a plain value that is not JSON unchanged, as the expectsJsonInput hint explains');
 	}
 
 	/**
@@ -1559,12 +1561,12 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that when the rule being referenced is package-owned (a non-blank
-	 * `NamespacePrefix`), the generated bundle qualifies that rule everywhere it is named — the target's
-	 * `Rule__c` value, the activation file name, and the manifest member — so the bundle deploys against a
+	 * `NamespacePrefix`), the generated bundle qualifies that rule everywhere it is named (the target's
+	 * `Rule__c` value, the activation file name, and the manifest member), so the bundle deploys to a
 	 * managed subscriber org, where a bare developer name resolves to no such packaged record. The dev org
 	 * cannot reproduce the managed-deploy failure directly (it has no namespace), so the rule is injected
-	 * through the selector seam carrying a fictional namespace — deliberately not the running package's, which
-	 * is blank here — so the test proves the generator qualifies by the rule's *own* `NamespacePrefix` rather
+	 * through the selector's test override with a made-up namespace. It is deliberately not the running
+	 * package's namespace, which is blank here, so the test proves the generator qualifies by the rule's *own* `NamespacePrefix` rather
 	 * than any ambient or hardcoded namespace.
 	 */
 	@IsTest
@@ -1593,8 +1595,8 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that when a foreign package or subscriber authors a rule sharing a packaged rule's
-	 * developer name, the generator binds and activates the package-owned record — never the foreign same-named
-	 * one. The package-owned rule is modelled with the running package namespace and the foreign rule with a
+	 * developer name, the generator binds and activates the package-owned record, never the other record with the same name.
+	 * The package-owned rule is modelled with the running package namespace and the foreign rule with a
 	 * guaranteed-distinct one, so the package-owned record wins deterministically regardless of selector
 	 * iteration order in every packaging context (managed, unmanaged, or rebuilt under a new namespace). The
 	 * winning activation is identified by its label so the assertion never bakes in a namespace.
@@ -1621,7 +1623,7 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies that the recommendation resolver returns `null` for a blank field API name —
+	 * @description Verifies that the recommendation resolver returns `null` for a blank field API name:
 	 * there is no signal to match against, so the row carries no recommendation.
 	 */
 	@IsTest
@@ -1636,7 +1638,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that the recommendation resolver returns `null` when the candidate list is
-	 * empty — no rules to match against, no recommendation.
+	 * empty: no rules to match against, no recommendation.
 	 */
 	@IsTest
 	private static void resolveRecommendedRuleReturnsNullForEmptyCandidates()
@@ -1658,7 +1660,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that the recommendation resolver picks an active rule over a dormant rule
-	 * with the same stem — the admin should see a healthy recommendation before being told to activate
+	 * with the same stem: the admin should see a healthy recommendation before being told to activate
 	 * something.
 	 */
 	@IsTest
@@ -1678,7 +1680,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that the recommendation resolver prefers a longer stem match over a shorter
-	 * stem match — more specific is more useful.
+	 * stem match, because a more specific match is more useful.
 	 */
 	@IsTest
 	private static void resolveRecommendedRulePrefersLongerStemMatch()
@@ -1696,7 +1698,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that the recommendation resolver returns the only dormant match when no
-	 * active candidate matches — the row will display "will be activated" so the admin sees the
+	 * active candidate matches. The row will display "will be activated" so the admin sees the
 	 * trade-off before committing.
 	 */
 	@IsTest
@@ -1712,7 +1714,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that the resolver matches rules without a `Mask` prefix by their full
-	 * lowercased developer name — extension authors are not forced into the framework's naming
+	 * lower-case developer name, so extension authors are not forced into the framework's naming
 	 * convention to participate.
 	 */
 	@IsTest
@@ -1728,7 +1730,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the resolver does NOT recommend a rule on a non-text-shaped field type (a
-	 * Boolean) even when its name substring-matches a rule stem — the over-match guard. `MaskEmail`
+	 * Boolean) even when its name contains a rule stem. This guards against matching too much. `MaskEmail`
 	 * previously landed on `HasOptedOutOfEmail` (a checkbox), which a compliance reviewer would distrust.
 	 */
 	@IsTest
@@ -1744,8 +1746,8 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies the resolver does NOT recommend a rule on a DateTime field — the
-	 * `EmailBouncedDate` over-match the resolver previously produced.
+	 * @description Verifies the resolver does NOT recommend a rule on a DateTime field, such as the
+	 * `EmailBouncedDate` field the resolver used to match by mistake.
 	 */
 	@IsTest
 	private static void resolveRecommendedRuleSkipsDateTimeFieldType()
@@ -1761,7 +1763,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the resolver still recommends a rule on a matching text-shaped field type
-	 * (an Email field) — the type gate admits the types the framework can actually mask.
+	 * (an Email field): the type check lets through the types the framework can really mask.
 	 */
 	@IsTest
 	private static void resolveRecommendedRuleRecommendsOnTextShapedFieldType()
@@ -1791,7 +1793,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the stem alias lets the shipped `MaskPhoneUS` rule (stem `phoneus`, which no
-	 * phone field name contains) recommend on a standard phone field — the under-match fix. The shipped
+	 * phone field name contains) recommend on a standard phone field. This fixes rules that matched too little. The shipped
 	 * developer name is exercised directly; older tests only used the synthetic `MaskPhone`.
 	 */
 	@IsTest
@@ -1827,7 +1829,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the stem alias lets the shipped `MaskPaymentCard` rule (stem `paymentcard`,
-	 * which a card field's tokens never contain as a run) recommend on a `CreditCard__c`-named field —
+	 * which a card field's tokens never contain as a run) recommend on a `CreditCard__c`-named field:
 	 * the successor must reach every field the rule it replaces reached.
 	 */
 	@IsTest
@@ -1843,7 +1845,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the payment-card rule also reaches an underscore-tokenised `Card_Number__c`
-	 * field via the card stem alias — recommendation parity with the credit-card rule it replaces.
+	 * field through the card stem alias, so it is recommended wherever the credit-card rule it replaces was.
 	 */
 	@IsTest
 	private static void resolveRecommendedRuleRecommendsPaymentCardRuleOnCardNumberField()
@@ -1870,7 +1872,7 @@ private class CTRL_MaskingAdvisor_TEST
 	/**
 	 * @description Verifies the maskability gate makes the over-match impossible end-to-end: the
 	 * text-shaped Email field still gets its recommendation, while the Boolean `HasOptedOutOfEmail`
-	 * field — which name-substring-matches the email rule stem — is absent from the analysis entirely,
+	 * field (whose name contains the email rule stem) is absent from the analysis entirely,
 	 * so it can never be recommended a masking rule.
 	 */
 	@IsTest
@@ -1891,7 +1893,7 @@ private class CTRL_MaskingAdvisor_TEST
 	/**
 	 * @description Verifies the maskability gate restricts `describeFields` output to fields the framework
 	 * can actually mask: every returned row is a text-shaped type, and Id / audit-stamp / Boolean / Date /
-	 * Reference fields are absent — while representative text fields remain. Keeps the "Other" bucket free
+	 * Reference fields are absent, while typical text fields remain. Keeps the "Other" bucket free
 	 * of un-maskable noise.
 	 */
 	@IsTest
@@ -1920,7 +1922,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the maskability gate also excludes text-typed fields Salesforce controls under
-	 * the hood — the read-only `CaseNumber` auto-number passes the text-type gate but the engine can never
+	 * the hood: the read-only `CaseNumber` auto-number passes the text-type gate but the engine can never
 	 * write it, so it is absent from the analysis, while the writable `Subject` text field remains. Stops
 	 * the advisor recommending masking on a field the engine would silently skip.
 	 */
@@ -1935,7 +1937,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies `describeFields` recommends the shipped `MaskPhoneUS` rule on a standard
-	 * phone field via the stem alias — the under-match fix, end-to-end.
+	 * phone field through the stem alias: the fix for matching too little, from end to end.
 	 */
 	@IsTest
 	private static void describeFieldsRecommendsMaskPhoneUsOnPhoneFieldViaAlias()
@@ -1958,7 +1960,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the multi-mask pre-selection: a phone field concept-matches BOTH shipped phone
-	 * rules — the US rule (stem `phoneus`) and the international rule (stem `phoneinternational`) — each via
+	 * rules (the US rule, stem `phoneus`, and the international rule, stem `phoneinternational`), each through
 	 * the `phone` stem alias, so both are surfaced as pre-ticked Field-level candidates rather than just one.
 	 */
 	@IsTest
@@ -1987,7 +1989,7 @@ private class CTRL_MaskingAdvisor_TEST
 	/**
 	 * @description Verifies multi-mask pre-selection stays NARROW: a single-concept field (an email field)
 	 * pre-selects only its own concept rule, never the unscoped phone rules that are merely type-applicable to
-	 * it — guarding against over-selecting every type-applicable rule onto a field.
+	 * it. This guards against pre-selecting every rule that fits the field type.
 	 */
 	@IsTest
 	private static void describeFieldsDoesNotOverSelectUnrelatedRulesOnSingleConceptField()
@@ -2010,13 +2012,13 @@ private class CTRL_MaskingAdvisor_TEST
 		Assert.areEqual(1, recommended.size(), 'a single-concept email field pre-selects exactly one rule');
 		Assert.isTrue(
 				recommended.contains(SEL_MaskingRule.RULE_MASK_EMAIL),
-				'only the email rule is pre-selected on an email field — the unscoped phone rules are not over-selected'
+				'only the email rule is pre-selected on an email field: the phone rules, which apply to any field type, are not pre-selected'
 		);
 	}
 
 	/**
 	 * @description Verifies that the stem helper strips a leading `Mask` prefix and lowercases the
-	 * remainder. Pure logic — no dependencies.
+	 * remainder. Plain logic with no dependencies.
 	 */
 	@IsTest
 	private static void ruleStemStripsLeadingMaskPrefixAndLowercases()
@@ -2026,7 +2028,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that the stem helper returns the lowercased full developer name when there
-	 * is no `Mask` prefix — the rule participates in matching under its full name.
+	 * is no `Mask` prefix: the rule takes part in matching under its full name.
 	 */
 	@IsTest
 	private static void ruleStemReturnsLowercasedFullNameWithoutMaskPrefix()
@@ -2083,7 +2085,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that a row with no matching candidate carries `null` for every
-	 * recommendation field — the LWC shows the "review manually" copy and disables Add-to-bundle.
+	 * recommendation field: the LWC shows the "review manually" copy and disables Add-to-bundle.
 	 */
 	@IsTest
 	private static void describeFieldsLeavesRecommendationNullWhenNoCandidateMatches()
@@ -2099,8 +2101,8 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the field-name synonym map resolves address-shaped field names (street,
-	 * postal code) to `MaskAddress` even though none of them contains the rule's `address` stem — the
-	 * widened-matching path that closes the under-match for fields the substring-stem match misses.
+	 * postal code) to `MaskAddress` even though none of them contains the rule's `address` stem. This wider
+	 * matching covers fields that the stem match alone misses.
 	 */
 	@IsTest
 	private static void resolveRecommendedRuleMatchesAddressSynonyms()
@@ -2117,9 +2119,9 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies a `Fax` phone field resolves the international phone rule via the `fax` synonym —
-	 * the field name carries no `phone` stem, so only the synonym map reaches the rule, and the fax/mobile/cell
-	 * synonyms resolve to the same international primary as `phone`-named fields for cross-field consistency.
+	 * @description Verifies a `Fax` phone field resolves the international phone rule through the `fax` synonym.
+	 * The field name has no `phone` stem, so only the synonym map reaches the rule. Every phone synonym, such as `fax` and `mobile`,
+	 * resolves to the same international rule as `phone`-named fields, so all phone fields agree.
 	 */
 	@IsTest
 	private static void resolveRecommendedRuleMatchesFaxToPhoneRuleViaSynonym()
@@ -2133,9 +2135,9 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the synonym lookup resolves to the framework's own rule, never a
-	 * subscriber-authored rule that shares the developer name. With two `MaskAddress` rules in play — the
-	 * package's own (no namespace, matching the running dev-org context) and a subscriber's (`acme`
-	 * namespace) — `MailingStreet` resolves to the package-owned rule via the namespace-aware lookup.
+	 * subscriber-authored rule that shares the developer name. With two `MaskAddress` rules present (the
+	 * package's own, with no namespace, matching the running development org, and a subscriber's, in the
+	 * `acme` namespace), `MailingStreet` resolves to the package-owned rule through the namespace-aware lookup.
 	 */
 	@IsTest
 	private static void synonymResolvesPackageOwnedRuleNotSubscriberSameName()
@@ -2159,7 +2161,7 @@ private class CTRL_MaskingAdvisor_TEST
 	 * @description Verifies the namespace-ownership gate deterministically, independent of candidate
 	 * iteration order: with the subscriber's same-named (`acme`) `MaskAddress` placed FIRST in the
 	 * candidate list, the synonym still resolves the package-owned rule. Asserts the gate (not luck of
-	 * map order) is what selects the framework's own rule — removing `isPackageOwnedRule` would let the
+	 * map order) is what selects the framework's own rule: removing `isPackageOwnedRule` would let the
 	 * first-listed subscriber rule win and fail this assertion every run.
 	 */
 	@IsTest
@@ -2179,8 +2181,8 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the namespace-ownership comparison in both the unmanaged (blank package
-	 * namespace) and managed (non-blank package namespace) contexts — the managed branch a no-namespace
-	 * dev org never reaches at runtime — so a subscriber's differently-namespaced same-named rule is never
+	 * namespace) and managed (non-blank package namespace) contexts. A development org without a namespace
+	 * never reaches the managed branch at runtime. So a subscriber's differently-namespaced same-named rule is never
 	 * treated as package-owned in either context.
 	 */
 	@IsTest
@@ -2194,7 +2196,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies a candidate rule with a blank developer name (and therefore no stem) is
-	 * skipped by the resolver rather than matching every field — the real rule still resolves. Guards the
+	 * skipped by the resolver rather than matching every field, and the real rule still resolves. Guards the
 	 * defensive blank-stem branch in the candidate loop.
 	 */
 	@IsTest
@@ -2208,12 +2210,12 @@ private class CTRL_MaskingAdvisor_TEST
 
 		MaskingRule__mdt resolved = CTRL_MaskingAdvisor.resolveRecommendedRule('Email', DisplayType.EMAIL, candidates);
 
-		Assert.areEqual(SEL_MaskingRule.RULE_MASK_EMAIL, resolved.DeveloperName, 'a candidate with a blank developer name has no stem and is skipped; the real rule still resolves');
+		Assert.areEqual(SEL_MaskingRule.RULE_MASK_EMAIL, resolved.DeveloperName, 'a blank-named candidate has no stem and is skipped; the real rule still resolves');
 	}
 
 	/**
-	 * @description Verifies a synonym never fires on a non-recommendable type — a Boolean field whose
-	 * name contains the `fax` synonym is type-gated before any synonym lookup runs.
+	 * @description Verifies a synonym never matches a field type that cannot be recommended: a Boolean field
+	 * whose name contains the `fax` synonym is stopped by the type check before any synonym lookup runs.
 	 */
 	@IsTest
 	private static void resolveRecommendedRuleSkipsSynonymOnNonRecommendableType()
@@ -2225,7 +2227,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies `describeFields` recommends `MaskAddress` on a standard `MailingStreet`
-	 * field via the synonym map — the under-match fix end-to-end through the analysis surface.
+	 * field through the synonym map: the fix for matching too little, from end to end through the analysis.
 	 */
 	@IsTest
 	private static void describeFieldsRecommendsMaskAddressOnMailingStreetViaSynonym()
@@ -2242,8 +2244,8 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies `describeFields` surfaces, per field, the developer names of every rule whose
-	 * type scope admits the field's `DisplayType` — an unscoped rule applies to any text-shaped field,
-	 * while a STRING/TEXTAREA-scoped rule applies to a TEXTAREA field but not an EMAIL field — and that
+	 * type scope allows the field's `DisplayType` (a rule with no type scope applies to any text field,
+	 * while a STRING/TEXTAREA-scoped rule applies to a TEXTAREA field but not an EMAIL field), and that
 	 * the analysis carries a rule catalogue (label + category from rule metadata) for the picker.
 	 */
 	@IsTest
@@ -2290,7 +2292,7 @@ private class CTRL_MaskingAdvisor_TEST
 	/**
 	 * @description Verifies `describeFields` drops a superseded rule from the catalogue and the
 	 * recommendation candidates: when an untuned active successor names an untuned predecessor (the
-	 * supersession verdict passes), the predecessor would only duplicate the successor in the picker,
+	 * supersession check passes), the predecessor would only duplicate the successor in the picker,
 	 * so the catalogue carries the successor alone.
 	 */
 	@IsTest
@@ -2317,7 +2319,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies a named-but-not-superseded predecessor stays in the catalogue and carries the
-	 * supersession annotation: when either generation is tuned the verdict fails (the predecessor still
+	 * supersession annotation: when either generation is tuned the supersession check fails (the predecessor still
 	 * masks, so hiding it would misstate the configuration), but the successor still NAMES it via
 	 * `Replaces__c`, so the admin is steered to the successor by label. The successor itself is never
 	 * annotated.
@@ -2340,14 +2342,14 @@ private class CTRL_MaskingAdvisor_TEST
 		Map<String, CTRL_MaskingAdvisor.DTO_RuleOption> optionByName = optionsByName(analysis);
 		Assert.isTrue(optionByName.containsKey(SEL_MaskingRule.RULE_MASK_CREDIT_CARD), 'a tuned predecessor is annotated, never hidden');
 		Assert.isNotNull(optionByName.get(SEL_MaskingRule.RULE_MASK_CREDIT_CARD).supersededByLabel, 'the predecessor option carries the supersession annotation');
-		Assert.isTrue(optionByName.get(SEL_MaskingRule.RULE_MASK_CREDIT_CARD).supersededByLabel.contains('Mask Payment Card Numbers'), 'the annotation names the successor by label');
+		Assert.isTrue(optionByName.get(SEL_MaskingRule.RULE_MASK_CREDIT_CARD).supersededByLabel.contains('Mask Payment Card Numbers'), 'the annotation names the successor label');
 		Assert.isNull(optionByName.get(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD).supersededByLabel, 'the successor option is never annotated');
 	}
 
 	/**
 	 * @description Verifies the annotation tolerates a case-mismatched `Replaces__c`: platform developer
-	 * names are case-insensitive (the verdict engine pairs them with ==), so the annotation map hop must
-	 * not silently miss when an org-local successor types the predecessor's name in a different case —
+	 * names are case-insensitive (the supersession check pairs them with ==), so the annotation's map lookup
+	 * must not quietly miss when an org-local successor types the predecessor's name in a different case,
 	 * in the tuned-predecessor state, the exact state the annotation exists for.
 	 */
 	@IsTest
@@ -2369,16 +2371,16 @@ private class CTRL_MaskingAdvisor_TEST
 		Assert.isNotNull
 				(
 						optionsByName(analysis).get(SEL_MaskingRule.RULE_MASK_CREDIT_CARD).supersededByLabel,
-						'a case-mismatched Replaces__c still annotates the predecessor — names are case-insensitive on platform'
+						'a Replaces__c in a different case still annotates the predecessor: names are case-insensitive on the platform'
 				);
 	}
 
 	/**
-	 * @description Verifies the catalogue filter keys the verdict set with namespace-QUALIFIED names in
-	 * every org context. Blank-prefix fixtures cannot pin this (qualified and bare keying coincide in
-	 * the unmanaged dev org), so a fully foreign-prefixed qualifying pair is used: the verdict set then
-	 * carries `acme.`-qualified names and a bare-DeveloperName filter keying would fail this test in
-	 * every context — the resume-doc trap for this task.
+	 * @description Verifies the catalogue filter keys the set of superseded rules with namespace-QUALIFIED
+	 * names in every org context. Test data with a blank prefix cannot check this (qualified and bare names
+	 * are the same in the unmanaged development org), so a qualifying pair entirely in another namespace is
+	 * used. The set then holds `acme.`-qualified names, and a filter keyed on the bare DeveloperName would
+	 * fail this test in every context.
 	 */
 	@IsTest
 	private static void describeFieldsExcludesSupersededRuleUnderForeignNamespacePrefix()
@@ -2396,7 +2398,7 @@ private class CTRL_MaskingAdvisor_TEST
 		CTRL_MaskingAdvisor.DTO_FieldAnalysis analysis = CTRL_MaskingAdvisor.describeFields('Contact');
 
 		Map<String, CTRL_MaskingAdvisor.DTO_RuleOption> optionByName = optionsByName(analysis);
-		Assert.isFalse(optionByName.containsKey(SEL_MaskingRule.RULE_MASK_CREDIT_CARD), 'the foreign-prefixed superseded predecessor is dropped — the filter keys qualified names');
+		Assert.isFalse(optionByName.containsKey(SEL_MaskingRule.RULE_MASK_CREDIT_CARD), 'the superseded rule in another namespace is dropped: the filter keys qualified names');
 		Assert.isTrue(optionByName.containsKey(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD), 'the foreign-prefixed successor stays in the catalogue');
 	}
 
@@ -2437,7 +2439,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the annotation is namespace-scoped: a foreign-namespace successor naming the
-	 * packaged rule's DeveloperName via `Replaces__c` never annotates the packaged rule — cross-namespace
+	 * packaged rule's DeveloperName via `Replaces__c` never annotates the packaged rule: cross-namespace
 	 * supersession is never legal, so the named rule is keyed under the namer's own prefix.
 	 */
 	@IsTest
@@ -2468,8 +2470,8 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies a rule naming itself via `Replaces__c` is never annotated — mirroring the
-	 * verdict engine's self-supersession guard, so a misconfigured record cannot label itself superseded.
+	 * @description Verifies a rule naming itself in `Replaces__c` is never annotated. This matches the check
+	 * in supersession that ignores a rule naming itself, so a misconfigured record cannot label itself superseded.
 	 */
 	@IsTest
 	private static void describeFieldsDoesNotAnnotateSelfReplacingRule()
@@ -2488,7 +2490,7 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies `describeFields` computes the match-strength band per the pinned decision
+	 * @description Verifies `describeFields` computes the match-strength band from this decision
 	 * table: a direct or alias stem match on a reinforcing type (EMAIL/PHONE) is Strong, a stem match on
 	 * a generic STRING type is Moderate, a synonym match is Moderate, and a field with no rule match is
 	 * Weak. Also confirms an email-typed email-named field is PII.
@@ -2563,7 +2565,7 @@ private class CTRL_MaskingAdvisor_TEST
 	/**
 	 * @description Verifies the type→synthetic-example map returns a representative input only for the
 	 * well-defined-shape recommendable types (EMAIL/PHONE/URL) and null for the undefined-shape text
-	 * types (STRING/TEXTAREA/ENCRYPTEDSTRING) and any non-recommendable type — so the advisor only
+	 * types (STRING/TEXTAREA/ENCRYPTEDSTRING) and any type that cannot be recommended, so the advisor only
 	 * auto-shows an inline example where a single synthetic value is self-evidently correct.
 	 */
 	@IsTest
@@ -2601,7 +2603,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the precomputed example for a recommended PHONE field is the engine's
-	 * redaction of the synthetic US phone number — the high-value transforming demo the console shows
+	 * redaction of the synthetic US phone number: the before-and-after example the console shows
 	 * inline without a round-trip.
 	 */
 	@IsTest
@@ -2621,7 +2623,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies the precomputed example for a recommended URL field is the engine's redaction
-	 * of the synthetic basic-auth URL — confirming the type→sample→engine path works for URL-shaped fields.
+	 * of the synthetic basic-auth URL. This confirms that going from field type to sample value to engine works for URL fields.
 	 */
 	@IsTest
 	private static void describeFieldsPrecomputesRedactionExampleForRecommendedUrlField()
@@ -2640,7 +2642,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies `describeFields` leaves both example fields null for an undefined-shape
-	 * recommendable type — no single synthetic value represents free text, so a STRING/TEXTAREA row routes
+	 * recommendable type: no single made-up value represents free text, so a STRING/TEXTAREA row routes
 	 * to Try a value instead of a fabricated example, even when a rule is recommended on it.
 	 */
 	@IsTest
@@ -2664,7 +2666,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies a recommendable well-defined-shape field with no recommended rule carries the
-	 * synthetic example input but a null example output — there is a representative value to show, but no
+	 * synthetic example input but a null example output: there is a typical value to show, but no
 	 * rule to transform it, so the console renders Try a value rather than a before→after.
 	 */
 	@IsTest
@@ -2680,11 +2682,11 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies `describeFields` surfaces, per field, every masking target wired to that field —
-	 * active **and** inactive — as `appliedRules`, so the console can render existing coverage and offer a
+	 * @description Verifies `describeFields` returns, per field, every masking target linked to that field,
+	 * active **and** inactive, as `appliedRules`, so the console can render existing coverage and offer a
 	 * disable / re-enable diff. The active and inactive field targets on `Account.Phone` both surface with
 	 * their target developer name, the target's own active state, the resolved rule label, and the preserved
-	 * caller-class. Rule metadata resolves through `getAllRulesById` (the override seam here).
+	 * caller-class. Rule metadata resolves through `getAllRulesById` (set through the test override here).
 	 */
 	@IsTest
 	private static void describeFieldsReturnsAppliedRulesIncludingInactiveFieldTargets()
@@ -2719,12 +2721,12 @@ private class CTRL_MaskingAdvisor_TEST
 		Assert.areEqual(true, activeApplied.ruleIsActive, 'the bound rule own active state travels with the applied row');
 		Assert.isFalse(inactiveApplied.isActive, 'the inactive target is surfaced as inactive so the advisor can offer re-enable');
 		Assert.areEqual('Mask Secret Keys', inactiveApplied.ruleLabel, 'the inactive applied rule label is resolved');
-		Assert.areEqual(true, inactiveApplied.ruleIsActive, 'ruleIsActive is the rule own IsActive__c, not the target state — the console must not style an active rule inactive');
+		Assert.areEqual(true, inactiveApplied.ruleIsActive, 'ruleIsActive is the rule own IsActive__c, not the target state: the console must not show an active rule as inactive');
 	}
 
 	/**
-	 * @description Verifies applied-rule metadata resolves through `getRuleById` — the selector's
-	 * transaction rule cache, primed from the mock target's `Rule__r` — and that a target whose rule cannot
+	 * @description Verifies applied-rule metadata is found through `getRuleById` (the selector's rule cache
+	 * for the transaction, filled from the mock target's `Rule__r`), and that a target whose rule cannot
 	 * be resolved still surfaces, carrying the target developer name and active state, with null rule
 	 * metadata so the configuration-health surfacing can flag it without the chip renderer throwing. The
 	 * orphan (null-rule) target is registered **first** deliberately: `getRuleById` short-circuits on a null
@@ -2755,9 +2757,9 @@ private class CTRL_MaskingAdvisor_TEST
 	/**
 	 * @description Verifies `describeFields` surfaces the object's object-wide masking targets (Field__c
 	 * blank), active and inactive, as `objectWideRules` on the analysis, and resolves an absolute
-	 * `newRuleSetupUrl` — rooted at the org domain (the Health Check pattern) with the dynamically-resolved
-	 * `MaskingRule__mdt` key prefix (never a hardcoded prefix) and namespace-aware object name — pointing at
-	 * the New-Masking-Rule Setup page.
+	 * `newRuleSetupUrl` that points at the New-Masking-Rule Setup page. The URL starts at the org domain (the
+	 * Health Check pattern) and uses the `MaskingRule__mdt` key prefix found at runtime (never a hardcoded
+	 * prefix) and the namespace-aware object name.
 	 */
 	@IsTest
 	private static void describeFieldsExposesObjectWideRulesAndNewRuleSetupUrl()
@@ -2799,7 +2801,7 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies the rule catalogue carries each rule's applicable field types — a scoped rule
+	 * @description Verifies the rule catalogue carries each rule's applicable field types: a scoped rule
 	 * lists its `ApplicableFieldTypes__c` split, trimmed, and upper-cased, while an unscoped (blank) rule
 	 * lists an empty collection meaning it applies to any text-shaped field.
 	 */
@@ -2870,7 +2872,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies a target decision flagged inactive emits a disabled `MaskingTarget__mdt`
-	 * (`IsActive__c = false`) — the disable half of the diff package an admin deploys to turn masking off
+	 * (`IsActive__c = false`): the switch-off half of the change package an admin deploys to turn masking off
 	 * for a field without deleting the target.
 	 */
 	@IsTest
@@ -2887,7 +2889,7 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Verifies a target decision with a null `isActive` defaults to an active target — the
+	 * @description Verifies a target decision with a null `isActive` defaults to an active target: the
 	 * create / re-enable case stays active, so only an explicit `false` disables. Guards that the diff
 	 * default is active, not a compatibility accident.
 	 */
@@ -2907,7 +2909,7 @@ private class CTRL_MaskingAdvisor_TEST
 	 * exercise the substring-matching contract without seeding shipped configuration. The fixture is
 	 * stamped with the running package namespace so the package-ownership gate
 	 * (`namespaceMatchesRunningPackage`) treats it as a framework-owned rule in both the unmanaged dev
-	 * org (blank namespace) and the managed subscriber context (`kern`) — mirroring the `NamespacePrefix`
+	 * org (blank namespace) and the managed subscriber context (`kern`), like the `NamespacePrefix`
 	 * real packaged rules carry once installed. Without it the gate filters the fixture out under a
 	 * managed namespace and the synonym path resolves to null.
 	 *
@@ -2930,7 +2932,7 @@ private class CTRL_MaskingAdvisor_TEST
 	 * @description Builds the in-memory active successor of the given predecessor: names it via
 	 * `Replaces__c` in the package's own namespace and carries both qualifying fingerprints (the
 	 * predecessor's live fingerprint as `ReplacesFingerprint__c`, its own as `ShippedFingerprint__c`),
-	 * so the supersession verdict passes. A test needing a non-qualifying pair overwrites a
+	 * so the supersession check passes. A test needing a non-qualifying pair overwrites a
 	 * fingerprint after building.
 	 *
 	 * @param developerName The successor rule developer name.
@@ -2948,8 +2950,8 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Builds an in-memory active rule under an explicit foreign namespace prefix — the
-	 * shape the qualified-keying pins need, because blank-prefix fixtures cannot distinguish qualified
+	 * @description Builds an in-memory active rule in an explicit other namespace. The tests of
+	 * namespace-qualified keys need this, because test data with a blank prefix cannot tell qualified
 	 * from bare keying. Built through `TST_Builder` (the scenario sets `NamespacePrefix`) and left
 	 * uninserted since custom metadata cannot be DML-inserted.
 	 *
@@ -2976,7 +2978,7 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Builds the subscriber-owned, `acme`-namespaced counterpart of the package's `MaskAddress`
-	 * rule used by the namespace-ownership tests — the same developer name as the framework's own rule but a
+	 * rule used by the namespace-ownership tests: the same developer name as the framework's own rule but a
 	 * different `NamespacePrefix`, so the package-ownership gate must tell them apart. Built through
 	 * `TST_Builder` rather than `TST_Factory` because the scenario sets `NamespacePrefix`, and left uninserted
 	 * since custom metadata cannot be DML-inserted.
@@ -3191,7 +3193,7 @@ private class CTRL_MaskingAdvisor_TEST
 	/**
 	 * @description Builds the namespace-aware bundle path of a generated `MaskingTarget__mdt` record, so
 	 * generation assertions hold whether the package is unmanaged (`MaskingTarget`) or managed
-	 * (`kern__MaskingTarget`) — the controller builds the same stem from `SEL_MaskingTarget.OBJECT_NAME`.
+	 * (`kern__MaskingTarget`): the controller builds the same stem from `SEL_MaskingTarget.OBJECT_NAME`.
 	 *
 	 * @param developerName The target developer name.
 	 *
@@ -3270,7 +3272,7 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
-	 * @description Builds an in-memory EntityDefinition row for the selectable-objects seam.
+	 * @description Builds an in-memory EntityDefinition row for the mocked list of selectable objects.
 	 *
 	 * @param qualifiedApiName The object API name.
 	 * @param label The object label.

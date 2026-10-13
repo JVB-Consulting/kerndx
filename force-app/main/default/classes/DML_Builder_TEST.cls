@@ -8,19 +8,60 @@
  *
  * @group DML
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssCount')
-@IsTest(SeeAllData=false IsParallel=false)
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssCount,PMD.NcssTypeCount')
+@IsTest(seeAllData=false isParallel=false)
 private class DML_Builder_TEST
 {
+	/**
+	 * @description Company name given to the admin user created in test setup. It is unique to this class, so getTestAdmin
+	 * can find that one user again by company name.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'DML_Builder_TEST-admin';
+
+	/**
+	 * @description Company name given to the user created in test setup on the Minimum Access profile, the user a test
+	 * runs as to act with very few permissions. It is unique to this class, so getLowPrivilegeUser can find that one user
+	 * again by company name.
+	 */
 	private static final String LOW_PRIVILEGE_COMPANY = 'DML_Builder_TEST-low-privilege';
+
+	/**
+	 * @description An email value the platform refuses with INVALID_EMAIL_ADDRESS.
+	 */
+	private static final String INVALID_EMAIL = 'not-a-valid-email';
+
+	/**
+	 * @description An external Id longer than the field's 50 characters, which the platform refuses with STRING_TOO_LONG.
+	 */
+	private static final String OVERLONG_EXTERNAL_ID = 'x'.repeat(60);
+
+	/**
+	 * @description The class-method the transaction logs its commit rows under.
+	 */
+	private static final String COMMIT_CLASS_METHOD = DML_Transaction.class.getName() + '.commitWork';
+
+	/**
+	 * @description The class-method the builder used to log its own entry under, before the engine
+	 * became the single place a failed commit is recorded.
+	 */
+	private static final String EXECUTE_CLASS_METHOD = DML_Builder.class.getName() + '.execute';
 
 	/**
 	 * @description Assertion message for value equality checks.
 	 */
 	private static final String MSG_VALUE_EQUALITY = 'Value should match expected';
+
+	/**
+	 * @description The retry counts outside the accepted range, each of which the builder must refuse.
+	 */
+	private static final List<Integer> RETRIES_OUT_OF_RANGE = new List<Integer> {0, 6, null};
+
+	/**
+	 * @description The fragment of the refusal message that names the accepted range.
+	 */
+	private static final String RETRIES_RANGE_FRAGMENT = '1 to 5';
 
 	/**
 	 * @description Creates a dedicated test admin user so System.runAs in each test starts a fresh
@@ -345,6 +386,277 @@ private class DML_Builder_TEST
 			Test.stopTest();
 
 			Assert.isNotNull(record.Id, 'Record should have been inserted');
+		}
+	}
+
+	/**
+	 * @description Verifies an all-or-nothing failure still throws and now leaves exactly one ERROR
+	 * entry at the transaction's commit, where partial-mode failures already log.
+	 */
+	@IsTest
+	private static void shouldLogAllOrNothingFailureOnce()
+	{
+		System.runAs(getTestAdmin())
+		{
+			captureLogEntries();
+			Foobar__c refusedRecord = TST_Factory.newFoobarWithEmail(INVALID_EMAIL);
+
+			Test.startTest();
+
+			try
+			{
+				DML_Builder.newTransaction()
+						.withSystemMode()
+						.doInsert(refusedRecord)
+						.execute();
+
+				Assert.fail('Expected DmlException');
+			}
+			catch(DmlException error)
+			{
+				Assert.isTrue(error.getMessage().contains(String.valueOf(StatusCode.INVALID_EMAIL_ADDRESS)), 'Unexpected failure: ' + error.getMessage());
+			}
+
+			Test.stopTest();
+
+			Assert.areEqual(1, countCommitRowsAt(LOG_Engine.LEVEL_ERROR), 'The all-or-nothing failure should log exactly once at ERROR at the commit');
+			Assert.isNull(new SEL_LogEntry().findByMethod(EXECUTE_CLASS_METHOD), 'Nothing should log at the builder');
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(new SEL_LogEntry().findByMethod(COMMIT_CLASS_METHOD));
+			Assert.isTrue(context == null || !context.containsKey(DML_Transaction.CONTEXT_KEY_RETRIES_USED), 'A commit that never asked for a retry should carry no retry context');
+		}
+	}
+
+	/**
+	 * @description Verifies suppressLogging() silences the all-or-nothing commit-failure entry while
+	 * the exception still propagates.
+	 */
+	@IsTest
+	private static void shouldSuppressAllOrNothingFailureLogging()
+	{
+		System.runAs(getTestAdmin())
+		{
+			captureLogEntries();
+			Foobar__c refusedRecord = TST_Factory.newFoobarWithEmail(INVALID_EMAIL);
+
+			Test.startTest();
+
+			try
+			{
+				DML_Builder.newTransaction()
+						.withSystemMode()
+						.doInsert(refusedRecord)
+						.suppressLogging()
+						.execute();
+
+				Assert.fail('Expected DmlException');
+			}
+			catch(DmlException error)
+			{
+				Assert.isTrue(error.getMessage().contains(String.valueOf(StatusCode.INVALID_EMAIL_ADDRESS)), 'Unexpected failure: ' + error.getMessage());
+			}
+
+			Test.stopTest();
+
+			Assert.areEqual(0, countCommitRowsAt(LOG_Engine.LEVEL_ERROR), 'suppressLogging() should silence the commit-failure entry');
+		}
+	}
+
+	/**
+	 * @description Verifies a suppressed-exception failure produces exactly one ERROR entry, at the
+	 * transaction's commit: the builder no longer writes a second entry of its own.
+	 */
+	@IsTest
+	private static void shouldLogSuppressedExceptionFailureOnceAtCommit()
+	{
+		System.runAs(getTestAdmin())
+		{
+			captureLogEntries();
+			Foobar__c refusedRecord = TST_Factory.newFoobarWithEmail(INVALID_EMAIL);
+
+			Test.startTest();
+
+			DML_Builder.newTransaction()
+					.withSystemMode()
+					.doInsert(refusedRecord)
+					.suppressExceptions()
+					.execute();
+
+			Test.stopTest();
+
+			Assert.isNull(refusedRecord.Id, 'The failed insert should leave no Id');
+			Assert.areEqual(1, countCommitRowsAt(LOG_Engine.LEVEL_ERROR), 'The failure should log exactly once, at the commit');
+			Assert.isNull(new SEL_LogEntry().findByMethod(EXECUTE_CLASS_METHOD), 'The builder should no longer write its own entry');
+		}
+	}
+
+	/**
+	 * @description Verifies the fluent declaration: a refusal declared with expectRefusal() is logged at
+	 * WARN by a partial commit, nothing at ERROR, and the result still counts the row as a failure.
+	 */
+	@IsTest
+	private static void shouldLogExpectedRefusalAtWarn()
+	{
+		System.runAs(getTestAdmin())
+		{
+			captureLogEntries();
+			Foobar__c savedRecord = TST_Factory.newFoobar();
+			Foobar__c refusedRecord = TST_Factory.newFoobarWithEmail(INVALID_EMAIL);
+
+			Test.startTest();
+
+			DML_Builder.TransactionResult result = DML_Builder.newTransaction()
+					.withSystemMode()
+					.doInsert(new List<SObject> {savedRecord, refusedRecord})
+					.allowPartial()
+					.expectRefusal(StatusCode.INVALID_EMAIL_ADDRESS)
+					.execute();
+
+			Test.stopTest();
+
+			Assert.isFalse(result.isSuccess(), 'The refused row should still make the result unsuccessful');
+			Assert.areEqual(1, result.getSuccessCount(), 'The valid row should count as a success');
+			Assert.areEqual(1, result.getInsertedIds().size(), 'The valid row should be returned as inserted');
+			Assert.areEqual(1, result.getFailureCount(), 'The refused row should still count as a failure');
+			Assert.areEqual(1, result.getErrors().size(), 'The refusal should still be returned as an error');
+			Assert.areEqual(1, countCommitRowsAt(LOG_Engine.LEVEL_WARN), 'The expected refusal should be logged once at WARN');
+			Assert.areEqual(0, countCommitRowsAt(LOG_Engine.LEVEL_ERROR), 'Nothing should be logged at ERROR');
+		}
+	}
+
+	/**
+	 * @description Verifies that repeated declarations accumulate: a code declared on the first call is
+	 * still honoured after a second call.
+	 */
+	@IsTest
+	private static void shouldAccumulateExpectedRefusals()
+	{
+		System.runAs(getTestAdmin())
+		{
+			captureLogEntries();
+
+			Test.startTest();
+
+			DML_Builder.newTransaction()
+					.withSystemMode()
+					.doInsert(TST_Factory.newFoobarWithEmail(INVALID_EMAIL))
+					.allowPartial()
+					.expectRefusal(StatusCode.INVALID_EMAIL_ADDRESS)
+					.expectRefusal(StatusCode.DUPLICATE_VALUE)
+					.execute();
+
+			Test.stopTest();
+
+			Assert.areEqual(1, countCommitRowsAt(LOG_Engine.LEVEL_WARN), 'A code declared before another should still be honoured');
+		}
+	}
+
+	/**
+	 * @description Verifies that a null status code is rejected before it can silently declare nothing.
+	 */
+	@IsTest
+	private static void shouldRejectNullExpectedRefusal()
+	{
+		System.runAs(getTestAdmin())
+		{
+			DML_Builder builder = DML_Builder.newTransaction();
+
+			try
+			{
+				builder.expectRefusal(null);
+				Assert.fail('A null status code should be rejected');
+			}
+			catch(Exception caughtException)
+			{
+				Assert.isInstanceOfType(caughtException, IllegalArgumentException.class, 'A null status code should raise IllegalArgumentException');
+			}
+
+			Assert.isTrue(builder.expectedRefusalStatusCodes.isEmpty(), 'A rejected declaration should leave the builder unchanged');
+		}
+	}
+
+	/**
+	 * @description Verifies the two members return the builder and that a count outside 1 to 5, or null, raises
+	 * IllegalArgumentException, like expectRefusal does on null.
+	 */
+	@IsTest
+	private static void withRetryOnLockShouldReturnTheBuilderAndRefuseCountsOutOfRange()
+	{
+		DML_Builder builder = DML_Builder.newTransaction();
+
+		Assert.areEqual(builder, builder.withRetryOnLock(), 'The no-argument member should return the builder');
+		Assert.areEqual(builder, builder.withRetryOnLock(5), 'The ceiling should be accepted');
+
+		for(Integer retries : RETRIES_OUT_OF_RANGE)
+		{
+			try
+			{
+				builder.withRetryOnLock(retries);
+				Assert.fail('A count of ' + retries + ' should raise IllegalArgumentException');
+			}
+			catch(IllegalArgumentException error)
+			{
+				Assert.isTrue(error.getMessage().contains(RETRIES_RANGE_FRAGMENT), 'The refusal should name the accepted range');
+			}
+		}
+	}
+
+	/**
+	 * @description Verifies the dial end to end through the builder with the count it was given: a commit refused
+	 * twice for a row lock saves on its third attempt, which the default of one retry could not do, and the result
+	 * reports success.
+	 */
+	@IsTest
+	private static void withRetryOnLockShouldRecoverASynchronousCommit()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Foobar__c record = TST_Factory.newFoobar();
+			DML_SharingProxy.sharingProxyForTest = new DML_ThrowingLockProxy_TEST(2);
+			DML_Builder.TransactionResult result;
+
+			try
+			{
+				Test.startTest();
+				result = DML_Builder.newTransaction().withSystemMode().doInsert(record).withRetryOnLock(2).execute();
+				Test.stopTest();
+			}
+			finally
+			{
+				DML_SharingProxy.sharingProxyForTest = null;
+			}
+
+			Assert.isTrue(result.isSuccess(), 'The commit should succeed on its third attempt');
+			Assert.areEqual(1, result.getInsertedIds().size(), 'The row should be inserted once');
+			Assert.isNotNull(new SEL_Foobar().findById(record.Id), 'The row should exist');
+		}
+	}
+
+	/**
+	 * @description Verifies the no-argument member retries exactly once: a commit refused twice is not recovered,
+	 * and with exceptions suppressed the builder reports the failure.
+	 */
+	@IsTest
+	private static void withRetryOnLockShouldRetryOnceByDefault()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Foobar__c record = TST_Factory.newFoobar();
+			DML_SharingProxy.sharingProxyForTest = new DML_ThrowingLockProxy_TEST(2);
+			DML_Builder.TransactionResult result;
+
+			try
+			{
+				Test.startTest();
+				result = DML_Builder.newTransaction().withSystemMode().doInsert(record).withRetryOnLock().suppressExceptions().execute();
+				Test.stopTest();
+			}
+			finally
+			{
+				DML_SharingProxy.sharingProxyForTest = null;
+			}
+
+			Assert.isFalse(result.isSuccess(), 'One retry should not recover a commit refused twice');
+			Assert.isNull(record.Id, 'The row should not be saved');
 		}
 	}
 
@@ -876,6 +1188,71 @@ private class DML_Builder_TEST
 	}
 
 	/**
+	 * @description Proves a refusal declared before the switch to a background job still logs at WARN when
+	 * the job commits it, while an undeclared refusal in the same job still logs at ERROR, so a caller who
+	 * declared one refusal on the synchronous side is not handed an ERROR row it already accounted for and
+	 * loses no visibility of the refusals it did not declare.
+	 */
+	@IsTest
+	private static void shouldApplyExpectedRefusalOnTheAsyncLeg()
+	{
+		System.runAs(getTestAdmin())
+		{
+			captureLogEntries();
+			Foobar__c savedRecord = TST_Factory.newFoobar();
+			Foobar__c refusedRecord = TST_Factory.newFoobarWithEmail(INVALID_EMAIL);
+			Foobar__c refusedByLength = TST_Factory.newFoobar();
+			refusedByLength.ExternalId__c = OVERLONG_EXTERNAL_ID;
+
+			Test.startTest();
+
+			DML_Builder.newTransaction()
+					.withSystemMode()
+					.doInsert(new List<SObject> {savedRecord, refusedRecord, refusedByLength})
+					.allowPartial()
+					.expectRefusal(StatusCode.INVALID_EMAIL_ADDRESS)
+					.async()
+					.execute();
+
+			Test.stopTest();
+
+			Assert.areEqual(1, new SEL_Foobar().getAll().size(), 'The valid row should be saved by the job');
+			Assert.areEqual(1, countCommitRowsAt(LOG_Engine.LEVEL_WARN), 'The job should log the expected refusal at WARN');
+			Assert.areEqual(1, countCommitRowsAt(LOG_Engine.LEVEL_ERROR), 'The job should log the undeclared refusal at ERROR');
+		}
+	}
+
+	/**
+	 * @description Verifies the dial crosses the async hand-off with its count: the job's batch is refused twice for a
+	 * row lock and recovers on its third attempt, so the row exists after the job runs.
+	 */
+	@IsTest
+	private static void withRetryOnLockShouldCrossTheAsyncHandOff()
+	{
+		System.runAs(getTestAdmin())
+		{
+			captureLogEntries();
+			Foobar__c record = TST_Factory.newFoobar();
+			DML_SharingProxy.sharingProxyForTest = new DML_ThrowingLockProxy_TEST(2);
+
+			try
+			{
+				Test.startTest();
+				DML_Builder.newTransaction().withSystemMode().doInsert(record).withRetryOnLock(2).async().execute();
+				Test.stopTest();
+			}
+			finally
+			{
+				DML_SharingProxy.sharingProxyForTest = null;
+			}
+
+			Assert.areEqual(1, new SEL_Foobar().getAll().size(), 'The job should save the row on its third attempt');
+			Assert.areEqual(1, countCommitRowsAt(LOG_Engine.LEVEL_WARN), 'The job should log the retry once at WARN');
+			Assert.areEqual(0, countCommitRowsAt(LOG_Engine.LEVEL_ERROR), 'Nothing should be logged at ERROR');
+		}
+	}
+
+	/**
 	 * @description Tests async DML with batch size override.
 	 */
 	@IsTest
@@ -1367,10 +1744,10 @@ private class DML_Builder_TEST
 	 * the queueable's DML must evaluate FLS against the running user, and the update must be
 	 * rejected (the seeded value is preserved).
 	 *
-	 * The `UserModeDml_Enabled` flag is pinned OFF so the rejection can only come from the
+	 * The `UserModeDml_Enabled` flag is forced OFF so the rejection can only come from the
 	 * explicitly threaded USER_MODE dial: with the flag OFF the flag-driven default is
 	 * SYSTEM_MODE, so a framework that drops the dial across the async hand-off writes the
-	 * record and fails this test. (Before the pin, the test passed for the wrong reason — the
+	 * record and fails this test. (Before the flag was forced, the test passed for the wrong reason: the
 	 * dropped dial coincided with the flag-ON default.)
 	 *
 	 * Catches: a regression that re-hard-codes .withSystemMode() inside PROC_ExecuteDML.execute()
@@ -1428,7 +1805,7 @@ private class DML_Builder_TEST
 	 * Foobar__c (Private OWD) runs `.withSystemMode().bypassSharing().doUpdate(...).async()`:
 	 * SYSTEM_MODE must reach the queueable's DML (waiving CRUD/FLS for the low-privilege user)
 	 * and the bypass must select the without-sharing proxy, so the unshared write lands. The
-	 * `UserModeDml_Enabled` flag is pinned ON — the over-enforcement direction — so a framework
+	 * `UserModeDml_Enabled` flag is forced ON (the direction that enforces too much), so a framework
 	 * that drops the dials falls back to USER_MODE, CRUD-rejects the write, and fails this test.
 	 *
 	 * @see DML_Builder.bypassSharing
@@ -1479,9 +1856,9 @@ private class DML_Builder_TEST
 	/**
 	 * @description Proves a SYSTEM_MODE async write WITHOUT `.bypassSharing()` is rejected by
 	 * record sharing. Under SYSTEM_MODE the Database API waives CRUD/FLS entirely, so sharing is
-	 * the only control that can reject the write — and the bypass sibling test landing under the
+	 * the only control that can reject the write. The bypass sibling test landing under the
 	 * identical configuration proves the record is otherwise writable. The `UserModeDml_Enabled`
-	 * flag is pinned OFF — the disclosure direction — so a framework that drops the dials resolves
+	 * flag is forced OFF (the direction that discloses too much), so a framework that drops the dials resolves
 	 * the flag-driven SYSTEM_MODE default inside a without-sharing frame, silently writes the
 	 * unshared record, and fails this test.
 	 *
@@ -1534,7 +1911,7 @@ private class DML_Builder_TEST
 	 * platform raises an uncatchable `System.LimitException` mid-commit; the framework
 	 * converts that into a `UTIL_Exceptions.IllegalStateException` thrown BEFORE any DML
 	 * runs so subscribers can catch it and split the work. Uses the `maxDmlRowsForTest`
-	 * `@TestVisible` seam to drive the guard with 6 records instead of 10,001, keeping
+	 * `@TestVisible` test setting to drive the guard with 6 records instead of 10,001, keeping
 	 * the test body well under the synchronous-CPU governor budget.
 	 */
 	@IsTest
@@ -1566,9 +1943,9 @@ private class DML_Builder_TEST
 	/**
 	 * @description Verifies the pre-execute row-count guard does NOT fire at the boundary
 	 * (exactly the configured limit). Catches off-by-one regressions in the comparison
-	 * operator (`>` vs `>=`). Uses the `maxDmlRowsForTest` seam to keep the test fast.
+	 * operator (`>` vs `>=`). Uses the `maxDmlRowsForTest` test setting to keep the test fast.
 	 * Any post-guard exception (e.g. unrelated platform error during the actual insert)
-	 * is allowed to propagate — the test only verifies the framework guard let the work
+	 * is allowed to propagate. The test only verifies the framework guard let the work
 	 * through.
 	 */
 	@IsTest
@@ -1599,6 +1976,42 @@ private class DML_Builder_TEST
 	private static User getTestAdmin()
 	{
 		return new SEL_User().findByCompanyName(TEST_ADMIN_COMPANY);
+	}
+
+	/**
+	 * @description Makes log rows observable: platform events are delivered at Test.stopTest() and a
+	 * DEBUG threshold keeps every level, so a WARN row is never filtered by an org-level setting.
+	 */
+	private static void captureLogEntries()
+	{
+		LogSetting__c setting = new LogSetting__c();
+		setting.IsEnabled__c = true;
+		setting.LogLevelThreshold__c = LOG_Engine.LEVEL_DEBUG;
+		LOG_Engine.logSettingOverride = setting;
+		LOG_Builder.ignoreTestMode = true;
+	}
+
+	/**
+	 * @description Counts the rows the transaction's commit logged at the given level, leaving aside the bypass
+	 * audit rows that withSystemMode() writes under the test method's own name.
+	 *
+	 * @param loggingLevel The level to count
+	 *
+	 * @return The number of commit rows logged at that level
+	 */
+	private static Integer countCommitRowsAt(String loggingLevel)
+	{
+		Integer rowCount = 0;
+
+		for(LogEntry__c entry : new SEL_LogEntry().findAllByMethod(COMMIT_CLASS_METHOD))
+		{
+			if(entry.LogLevel__c == loggingLevel)
+			{
+				rowCount++;
+			}
+		}
+
+		return rowCount;
 	}
 
 	/**
@@ -1664,6 +2077,62 @@ private class DML_Builder_TEST
 
 		Assert.isNull(findBypassAuditContext('system-mode:' + String.valueOf(Foobar__c.SObjectType)),
 				'systemModeInternal must not emit a bypass audit entry');
+	}
+
+	/**
+	 * @description bypassSharingInternal() lets the framework save a record the running user cannot see. Foobar__c is
+	 * Private and the test administrator owns the record. A Minimum Access user saves a change to it from a class declared
+	 * with sharing, in system mode. Without the bypass the save is refused, which proves the user cannot see the record.
+	 * With the bypass the same save goes through.
+	 */
+	@IsTest
+	private static void shouldSaveARecordTheUserCannotSeeWithTheInternalSharingBypass()
+	{
+		final String originalEmail = 'seeded-internal-bypass@kerndx.test.invalid';
+		final String changedEmail = 'saved-through-internal-bypass@kerndx.test.invalid';
+		Foobar__c seededRecord;
+		System.runAs(getTestAdmin())
+		{
+			seededRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Email__c, originalEmail).build();
+		}
+		seededRecord.Email__c = changedEmail;
+		DML_Builder.TransactionResult refused;
+		DML_Builder.TransactionResult saved;
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			Test.startTest();
+			refused = new SharingEnforcedSaver().save(seededRecord, false);
+			saved = new SharingEnforcedSaver().save(seededRecord, true);
+			Test.stopTest();
+		}
+
+		Assert.isFalse(refused.isSuccess(), 'Expected the save without the bypass to be refused, because the user cannot see the record');
+		Assert.isTrue(saved.isSuccess(), 'Expected the save with the internal sharing bypass to go through');
+		System.runAs(getTestAdmin())
+		{
+			Foobar__c found = (Foobar__c)new SEL_Foobar().findById(seededRecord.Id);
+			Assert.areEqual(changedEmail, found.Email__c, 'Expected the change saved through the internal sharing bypass');
+		}
+	}
+
+	/**
+	 * @description bypassSharingInternal() adds no entry to the bypass audit: only the framework calls it, for its own
+	 * saves, so it must not fill the audit trail the way the audited bypassSharing() does.
+	 */
+	@IsTest
+	private static void shouldNotEmitBypassAuditOnDmlBypassSharingInternal()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
+
+		Test.startTest();
+		DML_Builder.newTransaction().doInsert(record).bypassSharingInternal().execute();
+		Test.stopTest();
+
+		Assert.isNull(findBypassAuditContext('sharing:' + String.valueOf(Foobar__c.SObjectType)),
+				'Expected bypassSharingInternal to add no bypass audit entry');
 	}
 
 	/**
@@ -1734,7 +2203,7 @@ private class DML_Builder_TEST
 	 * typed list (each registrable through the public `do*` surface and reachable at terminal
 	 * time, before any DML validation occurs) must neither throw nor contaminate the footprints,
 	 * while a real record in the same transaction still gets its object-qualified audit entry
-	 * with an uninflated row count. The all-null typed list also pins that the typed-list fast
+	 * with an uninflated row count. The all-null typed list also checks that the typed-list fast
 	 * path mints no zero-row phantom entry for its object. Uses the `async()` terminal so the
 	 * audit path runs without attempting actual DML against the null entries.
 	 *
@@ -1820,5 +2289,32 @@ private class DML_Builder_TEST
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * @description Saves a record from a class declared with sharing, so the running user's record sharing applies the
+	 * way it does in a Lightning controller. This test class declares no sharing, so a save made straight from a test
+	 * method does not apply record sharing.
+	 */
+	private with sharing class SharingEnforcedSaver
+	{
+		/**
+		 * @description Saves a change to one record in system mode, with or without the framework's internal sharing bypass.
+		 *
+		 * @param record The record to save
+		 * @param bypassSharing True to save through bypassSharingInternal(), false to apply the user's record sharing
+		 *
+		 * @return The result of the save; a refused save is reported in the result, not thrown
+		 */
+		@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+		public DML_Builder.TransactionResult save(SObject record, Boolean bypassSharing)
+		{
+			DML_Builder builder = DML_Builder.newTransaction().systemModeInternal().doUpdate(record).allowPartial();
+			if(bypassSharing)
+			{
+				builder.bypassSharingInternal();
+			}
+			return builder.execute();
+		}
 	}
 }

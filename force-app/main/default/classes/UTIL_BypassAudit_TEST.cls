@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Unit tests for `UTIL_BypassAudit` — verifies the framework-wide bypass audit
- * emission helper writes structured `LogEntry__c` rows with the expected context shape, honours
- * the transaction-scoped reason latch, and tolerates null / extras inputs without losing data.
+ * @description Unit tests for `UTIL_BypassAudit`. They check that the bypass audit helper writes
+ * `LogEntry__c` rows with the expected context shape, includes the reason set for the transaction,
+ * and handles null and extra context inputs without losing data.
  *
  * @see UTIL_BypassAudit
  *
@@ -10,10 +10,10 @@
  *
  * @group Security
  *
- * @date May 2026, August 2026
+ * @date May 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class UTIL_BypassAudit_TEST
 {
 	/**
@@ -27,7 +27,7 @@ private class UTIL_BypassAudit_TEST
 	private static final String SURFACE_TRIGGER_OBJECT = UTIL_BypassAudit.SURFACE_TRIGGER_OBJECT;
 
 	/**
-	 * @description Reason string used when verifying the latch is included in audit context.
+	 * @description Reason string used when checking that the transaction's reason is included in audit context.
 	 */
 	private static final String REASON_TEXT = 'Customer data migration';
 
@@ -43,41 +43,41 @@ private class UTIL_BypassAudit_TEST
 	private static final String EMIT_AT = UTIL_BypassAudit.class.getName() + '.emit';
 
 	/**
-	 * @description Pins each `CONTEXT_*` and `LOG_CATEGORY` constant to the exact wire-contract
-	 * literal that subscribers reading `kern__LogEntry__c.ContextData__c` rely on. Tests across
-	 * the bypass surfaces navigate the parsed context via `context.get(UTIL_BypassAudit.CONTEXT_X)`,
-	 * which validates the keys are CONSISTENT — this test pins the keys to their LITERAL values
-	 * so a rename here breaks one test rather than silently leaving subscriber code stranded.
+	 * @description Checks that each `CONTEXT_*` and `LOG_CATEGORY` constant keeps the exact text that
+	 * subscribers rely on when they read `kern__LogEntry__c.ContextData__c`. Tests across the bypass
+	 * surfaces read the parsed context with `context.get(UTIL_BypassAudit.CONTEXT_X)`, which only
+	 * proves the keys are used consistently. This test checks the literal value of each key, so a
+	 * renamed key fails one test instead of quietly breaking subscriber code.
 	 *
 	 * @see UTIL_BypassAudit
 	 */
 	@IsTest
 	private static void shouldPinAuditWireContractKeysAndCategoryToLiterals()
 	{
-		Assert.areEqual('category', UTIL_BypassAudit.CONTEXT_CATEGORY, 'CONTEXT_CATEGORY pins the wire-contract key');
-		Assert.areEqual('surface', UTIL_BypassAudit.CONTEXT_SURFACE, 'CONTEXT_SURFACE pins the wire-contract key');
-		Assert.areEqual('action', UTIL_BypassAudit.CONTEXT_ACTION, 'CONTEXT_ACTION pins the wire-contract key');
-		Assert.areEqual('target', UTIL_BypassAudit.CONTEXT_TARGET, 'CONTEXT_TARGET pins the wire-contract key');
-		Assert.areEqual('reason', UTIL_BypassAudit.CONTEXT_REASON, 'CONTEXT_REASON pins the wire-contract key');
-		Assert.areEqual('object', UTIL_BypassAudit.CONTEXT_OBJECT, 'CONTEXT_OBJECT pins the wire-contract key');
-		Assert.areEqual('operation', UTIL_BypassAudit.CONTEXT_OPERATION, 'CONTEXT_OPERATION pins the wire-contract key');
-		Assert.areEqual('rowCount', UTIL_BypassAudit.CONTEXT_ROW_COUNT, 'CONTEXT_ROW_COUNT pins the wire-contract key');
-		Assert.areEqual('BypassEvent', UTIL_BypassAudit.LOG_CATEGORY, 'LOG_CATEGORY pins the wire-contract category value');
+		Assert.areEqual('category', UTIL_BypassAudit.CONTEXT_CATEGORY, 'CONTEXT_CATEGORY must keep the key subscribers read');
+		Assert.areEqual('surface', UTIL_BypassAudit.CONTEXT_SURFACE, 'CONTEXT_SURFACE must keep the key subscribers read');
+		Assert.areEqual('action', UTIL_BypassAudit.CONTEXT_ACTION, 'CONTEXT_ACTION must keep the key subscribers read');
+		Assert.areEqual('target', UTIL_BypassAudit.CONTEXT_TARGET, 'CONTEXT_TARGET must keep the key subscribers read');
+		Assert.areEqual('reason', UTIL_BypassAudit.CONTEXT_REASON, 'CONTEXT_REASON must keep the key subscribers read');
+		Assert.areEqual('object', UTIL_BypassAudit.CONTEXT_OBJECT, 'CONTEXT_OBJECT must keep the key subscribers read');
+		Assert.areEqual('operation', UTIL_BypassAudit.CONTEXT_OPERATION, 'CONTEXT_OPERATION must keep the key subscribers read');
+		Assert.areEqual('rowCount', UTIL_BypassAudit.CONTEXT_ROW_COUNT, 'CONTEXT_ROW_COUNT must keep the key subscribers read');
+		Assert.areEqual('BypassEvent', UTIL_BypassAudit.LOG_CATEGORY, 'LOG_CATEGORY must keep the category value subscribers read');
 	}
 
 	/**
-	 * @description Tests that `getBypassReason` returns `null` when no reason has been latched.
+	 * @description Tests that `getBypassReason` returns `null` when no reason has been set.
 	 *
 	 * @see UTIL_BypassAudit.getBypassReason
 	 */
 	@IsTest
 	private static void shouldReturnNullWhenNoReasonLatched()
 	{
-		Assert.isNull(UTIL_BypassAudit.getBypassReason(), 'Reason latch should default to null');
+		Assert.isNull(UTIL_BypassAudit.getBypassReason(), 'The bypass reason should default to null');
 	}
 
 	/**
-	 * @description Tests that `setBypassReason` latches a reason returned by `getBypassReason`.
+	 * @description Tests that `setBypassReason` stores a reason that is returned by `getBypassReason`.
 	 *
 	 * @see UTIL_BypassAudit.setBypassReason
 	 * @see UTIL_BypassAudit.getBypassReason
@@ -87,11 +87,11 @@ private class UTIL_BypassAudit_TEST
 	{
 		UTIL_BypassAudit.setBypassReason(REASON_TEXT);
 
-		Assert.areEqual(REASON_TEXT, UTIL_BypassAudit.getBypassReason(), 'Latch should hold the reason');
+		Assert.areEqual(REASON_TEXT, UTIL_BypassAudit.getBypassReason(), 'The stored reason should be returned');
 	}
 
 	/**
-	 * @description Tests that passing `null` to `setBypassReason` clears a previously latched reason.
+	 * @description Tests that passing `null` to `setBypassReason` clears a reason that was set before.
 	 *
 	 * @see UTIL_BypassAudit.setBypassReason
 	 */
@@ -101,14 +101,15 @@ private class UTIL_BypassAudit_TEST
 		UTIL_BypassAudit.setBypassReason(REASON_TEXT);
 		UTIL_BypassAudit.setBypassReason(null);
 
-		Assert.isNull(UTIL_BypassAudit.getBypassReason(), 'Null reason should clear the latch');
+		Assert.isNull(UTIL_BypassAudit.getBypassReason(), 'Null reason should clear the stored reason');
 	}
 
 	/**
-	 * @description Tests that clearing a previously-latched reason via `setBypassReason(null)` emits
-	 * a `reason-latch` `CLEAR` audit entry whose `previousReason` extra captures the dropped value.
-	 * Closes the asymmetry where bypass-set / clear surfaces emit but reason-latch clear does not,
-	 * which would otherwise leave a forensic gap in "who dropped the migration reason?".
+	 * @description Tests that clearing a reason that was set, with `setBypassReason(null)`, emits
+	 * a `CLEAR` audit entry on the `SURFACE_REASON_LATCH` surface whose `previousReason` extra
+	 * holds the removed value. Setting and clearing a bypass are both audited, so clearing the
+	 * reason is audited too. Otherwise the audit trail could not answer "who removed the migration
+	 * reason?".
 	 *
 	 * @see UTIL_BypassAudit.setBypassReason
 	 */
@@ -125,19 +126,19 @@ private class UTIL_BypassAudit_TEST
 		Test.stopTest();
 
 		LogEntry__c entry = findFirstAuditEntry(UTIL_BypassAudit.SURFACE_REASON_LATCH);
-		Assert.isNotNull(entry, 'Clearing a latched reason should emit a reason-latch CLEAR audit entry');
+		Assert.isNotNull(entry, 'Expected clearing a stored reason to emit a CLEAR audit entry for the bypass reason');
 		Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
-		Assert.areEqual(UTIL_BypassAudit.SURFACE_REASON_LATCH, context.get(UTIL_BypassAudit.CONTEXT_SURFACE), 'Surface should be reason-latch');
-		Assert.areEqual(UTIL_BypassAudit.ACTION_CLEAR, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be CLEAR');
-		Assert.areEqual(REASON_TEXT, context.get('previousReason'), 'previousReason extra should capture the dropped value');
+		Assert.areEqual(UTIL_BypassAudit.SURFACE_REASON_LATCH, context.get(UTIL_BypassAudit.CONTEXT_SURFACE), 'Expected the surface of the bypass reason');
+		Assert.areEqual(UTIL_BypassAudit.ACTION_CLEAR, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Expected the action to be CLEAR');
+		Assert.areEqual(REASON_TEXT, context.get('previousReason'), 'Expected the previousReason extra to hold the removed reason');
 		String latchSummary = UTIL_BypassAudit.ACTION_CLEAR + ' ' + UTIL_BypassAudit.SURFACE_REASON_LATCH;
 		Assert.areEqual(latchSummary, entry.ShortMessage__c, 'A target that IS the surface should not repeat itself as the qualifier');
 	}
 
 	/**
-	 * @description Tests that calling `setBypassReason(null)` when no reason was previously latched
-	 * does not emit a CLEAR audit entry — emitting on a no-op clear would pollute forensic queries
-	 * with empty CLEARs that have no preceding BYPASS to match.
+	 * @description Tests that calling `setBypassReason(null)` when no reason was set before
+	 * does not emit a CLEAR audit entry. A CLEAR entry for a clear that changed nothing would fill
+	 * audit queries with CLEAR entries that have no earlier BYPASS to match.
 	 *
 	 * @see UTIL_BypassAudit.setBypassReason
 	 */
@@ -152,13 +153,13 @@ private class UTIL_BypassAudit_TEST
 		Test.stopTest();
 
 		Assert.isNull(findFirstAuditEntry(UTIL_BypassAudit.SURFACE_REASON_LATCH),
-				'Clearing an already-empty latch should not emit an audit entry');
+				'Clearing an already-empty reason should not emit an audit entry');
 	}
 
 	/**
 	 * @description Tests that `emit` writes a `LogEntry__c` row with the canonical context keys
 	 * (`category`, `surface`, `action`, `target`) at WARN level. With caller capture on (default),
-	 * `ClassMethod__c` records the real caller — here the test method — rather than the audit helper.
+	 * `ClassMethod__c` records the real caller (here, the test method) rather than the audit helper.
 	 *
 	 * @see UTIL_BypassAudit.emit
 	 */
@@ -184,16 +185,15 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that `emit` routes audit log events through the dedicated
-	 * `LOG_Engine.auditLogBuffer` rather than the application log buffer (`LOG_Engine.logBuffer`)
-	 * — the contract that `LOG_Builder.LogEntry.emitAsAudit()` is built to enforce. Without this
-	 * contract, every framework-internal `withSystemMode()` call emitted during a suspended-saving
-	 * batch would inflate the application buffer count, breaking subscriber and framework tests
+	 * @description Tests that `emit` sends audit log events to the separate
+	 * `LOG_Engine.auditLogBuffer` and not to the application log buffer (`LOG_Engine.logBuffer`).
+	 * `LOG_Builder.LogEntry.emitAsAudit()` exists to keep them apart. Without it, every
+	 * framework-internal `withSystemMode()` call made while log saving is suspended for a batch
+	 * would raise the application buffer count, and break subscriber and framework tests
 	 * that count `LOG_Engine.getBufferSize()` (e.g. `LOG_Builder_TEST.bufferAutoFlushesWhenMaxSizeExceeded`).
 	 *
-	 * Pins the regression so a future refactor that re-routes audit emission through
-	 * `LOG_Engine.publishEvents` (the application path) fails this test rather than silently
-	 * regressing every log-counting test in the suite.
+	 * If a later change sends audit entries through `LOG_Engine.publishEvents` (the application
+	 * path), this test fails, instead of every test that counts log entries quietly breaking.
 	 *
 	 * @see UTIL_BypassAudit.emit
 	 * @see LOG_Engine.publishAuditEvents
@@ -218,7 +218,7 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that `emit` includes the latched reason in the audit context when set.
+	 * @description Tests that `emit` includes the transaction's reason in the audit context when set.
 	 *
 	 * @see UTIL_BypassAudit.emit
 	 * @see UTIL_BypassAudit.setBypassReason
@@ -238,13 +238,13 @@ private class UTIL_BypassAudit_TEST
 		LogEntry__c entry = findFirstAuditEntry('Account');
 		Assert.isNotNull(entry, 'emit should write a LogEntry__c row for the trigger-object surface');
 		Map<String, Object> context = parseContextData(entry.ContextData__c);
-		Assert.areEqual(REASON_TEXT, context.get(UTIL_BypassAudit.CONTEXT_REASON), 'Latched reason should appear in context');
+		Assert.areEqual(REASON_TEXT, context.get(UTIL_BypassAudit.CONTEXT_REASON), 'The stored reason should appear in context');
 	}
 
 	/**
-	 * @description Tests that `emit` omits the reason context key when the latch is blank.
-	 * Distinguishes between explicit empty-string clears and never-set reasons — both must
-	 * suppress the reason key in the audit context.
+	 * @description Tests that `emit` leaves out the reason context key when the stored reason is
+	 * blank. Covers both an explicit empty-string clear and a reason that was never set: both must
+	 * leave the reason key out of the audit context.
 	 *
 	 * @see UTIL_BypassAudit.emit
 	 */
@@ -297,11 +297,11 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that `emit` no-ops without writing a `LogEntry__c` row when the
-	 * `BypassAudit_Enabled` `FeatureFlag__mdt` resolves to `false`. Subscribers disable the
-	 * audit channel in noisy environments via a `FeatureFlagStrategy__mdt` override; the
-	 * test simulates this by removing the flag from the `SEL_FeatureFlag.activeFlags` cache
-	 * so the no-match path resolves to `false` (flag is null → returns false).
+	 * @description Tests that `emit` does nothing, and writes no `LogEntry__c` row, when the
+	 * `BypassAudit_Enabled` `FeatureFlag__mdt` resolves to `false`. Subscribers switch off audit
+	 * entries in noisy environments with a `FeatureFlagStrategy__mdt` override. The test does the
+	 * same by removing the flag from the `SEL_FeatureFlag.activeFlags` cache, so the lookup finds
+	 * no flag and returns `false`.
 	 *
 	 * @see UTIL_BypassAudit.emit
 	 */
@@ -320,14 +320,14 @@ private class UTIL_BypassAudit_TEST
 		UTIL_BypassAudit.emit(SURFACE_QUERY, UTIL_BypassAudit.ACTION_BYPASS, 'killswitch-target', null);
 		Test.stopTest();
 
-		Assert.isNull(findFirstAuditEntry('killswitch-target'), 'emit should no-op when kill-switch is disabled');
+		Assert.isNull(findFirstAuditEntry('killswitch-target'), 'emit should do nothing when the audit flag is switched off');
 	}
 
 	/**
-	 * @description Tests that `emit` records the real caller — the first non-framework stack frame —
-	 * in `ClassMethod__c` and the `caller` context. Here the direct caller is the test method, so
-	 * both must name `UTIL_BypassAudit_TEST` rather than the audit helper, closing the
-	 * hardcoded-origin gap.
+	 * @description Tests that `emit` records the real caller (the first stack frame outside the
+	 * framework) in `ClassMethod__c` and the `caller` context. Here the direct caller is the test
+	 * method, so both must name `UTIL_BypassAudit_TEST` and not the audit helper, which is the
+	 * fixed value the audit used to record.
 	 *
 	 * @see UTIL_BypassAudit.emit
 	 */
@@ -349,11 +349,11 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that a bypass emitted THROUGH a framework surface (here `UTIL_ValidationRule`)
-	 * resolves the caller past the surface to the subscriber that invoked it — the realistic path,
-	 * which (unlike a direct `emit` call) has an intervening framework frame. In an unmanaged org
-	 * the surface frame is not namespace-skipped, so the surface class must be in the audit
-	 * framework-class skip set for this to hold.
+	 * @description Tests that a bypass emitted through a framework surface (here `UTIL_ValidationRule`)
+	 * records, as its caller, the subscriber code that called the surface, not the surface. This is
+	 * the real-world path: unlike a direct `emit` call, it has a framework frame in between. In an
+	 * unmanaged org the namespace check does not skip the surface frame, so the surface class must
+	 * be in the audit's list of framework classes to skip for this to hold.
 	 *
 	 * @see UTIL_BypassAudit.emit
 	 * @see UTIL_ValidationRule.bypassObject
@@ -375,10 +375,10 @@ private class UTIL_BypassAudit_TEST
 
 	/**
 	 * @description Tests that a bypass emitted through the query builder's `AuditQueue` (an explicit
-	 * `withSystemMode()` query) resolves the caller past the builder/queue plumbing to the subscriber
-	 * that ran the query — the longest framework chain (`emit` ← `AuditQueue.flush` ← `QRY_Builder`).
-	 * Pins that `QRY_Builder` (and the `UTIL_BypassAudit.AuditQueue` inner class) are skipped in an
-	 * unmanaged org.
+	 * `withSystemMode()` query) records, as its caller, the subscriber code that ran the query, past
+	 * the builder and the queue. This is the longest chain of framework frames (`emit` called by
+	 * `AuditQueue.flush`, called by `QRY_Builder`). Checks that `QRY_Builder` and the
+	 * `UTIL_BypassAudit.AuditQueue` inner class are skipped in an unmanaged org.
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue.flush
 	 * @see QRY_Builder
@@ -399,9 +399,9 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that `emit` writes a concise `action target (surface)` summary to `ShortMessage__c`
-	 * distinct from the fuller `Message__c`, which retains the quoted target and caller.
-	 * Closes the prior `Message == ShortMessage` duplication.
+	 * @description Tests that `emit` writes a short `action target (surface)` summary to `ShortMessage__c`,
+	 * different from the longer `Message__c`, which keeps the quoted target and the caller. The two
+	 * fields once held the same text.
 	 *
 	 * @see UTIL_BypassAudit.emit
 	 */
@@ -424,10 +424,10 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that two surfaces auditing the same action and target — the shape
-	 * `TRG_Base.clearAllBypasses()` produces, one entry for the object bypass list and one for the
-	 * action bypass list — carry summaries that tell them apart. Two grouped problems that read
-	 * identically make the grouping look broken when it is the summary that hides the difference.
+	 * @description Tests that two surfaces auditing the same action and target carry summaries that
+	 * tell them apart. `TRG_Base.clearAllBypasses()` produces this shape: one entry for the object
+	 * bypass list and one for the action bypass list. If two grouped problems read the same, the
+	 * grouping looks broken, when it is really the summary that hides the difference.
 	 *
 	 * @see UTIL_BypassAudit.emit
 	 */
@@ -454,9 +454,10 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that `AuditQueue.queueSharing` records the canonical `TARGET_SHARING`
-	 * value in the queue's de-duped target set. Asserts via the `@TestVisible` `targets` set
-	 * so the contract (target shape, not just emission) is pinned at the queue boundary.
+	 * @description Tests that `AuditQueue.queueSharing` records the standard `TARGET_SHARING`
+	 * value in the queue's target set, where each target is stored once. Asserts on the
+	 * `@TestVisible` `targets` set, so the test checks the target's shape and not only that
+	 * something was emitted.
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue.queueSharing
 	 */
@@ -472,7 +473,7 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that `AuditQueue.queueSystemMode` records the canonical
+	 * @description Tests that `AuditQueue.queueSystemMode` records the standard
 	 * `TARGET_SYSTEM_MODE` value in the queue's target set.
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue.queueSystemMode
@@ -489,7 +490,7 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that `AuditQueue.queueSecurityMode` records the canonical
+	 * @description Tests that `AuditQueue.queueSecurityMode` records the standard
 	 * `TARGET_SECURITY_MODE` value in the queue's target set.
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue.queueSecurityMode
@@ -506,7 +507,7 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that repeated calls to the same `queue*` method de-dupe via the underlying
+	 * @description Tests that repeated calls to the same `queue*` method are stored once by the underlying
 	 * `Set<String>`. A builder that chains `bypassSharing().bypassSharing()` should emit a single
 	 * audit entry per surface, not one per setter invocation.
 	 *
@@ -521,16 +522,16 @@ private class UTIL_BypassAudit_TEST
 		queue.queueSharing();
 		queue.queueSharing();
 
-		Assert.areEqual(1, queue.targets.size(), 'Repeated queueSharing calls should de-dupe to one target');
+		Assert.areEqual(1, queue.targets.size(), 'Repeated queueSharing calls should store one target');
 	}
 
 	/**
-	 * @description Pins the LEGACY no-footprint fallback of `AuditQueue.flush`: a queue flushed
-	 * without any recorded operation footprint (here, hand-built outside a builder terminal)
-	 * emits one bare-target `BYPASS` entry per distinct queued target — the pre-operation-context
-	 * shape. The general builder-terminal contract is per-(target × object) emission with
-	 * object-qualified targets, exercised by `shouldQualifyQueryBypassTargetWithObjectName`
-	 * and its siblings.
+	 * @description Tests the older fallback of `AuditQueue.flush`, used when no operation was
+	 * recorded: a queue flushed without any recorded operation (here, built by hand outside a builder
+	 * terminal method) emits one bare-target `BYPASS` entry per distinct queued target. This is the
+	 * shape audit entries had before they recorded operations. When a builder runs, the normal rule
+	 * is one entry per pair of target and object, with object-qualified targets; that rule is tested
+	 * by `shouldQualifyQueryBypassTargetWithObjectName` and the tests next to it.
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue.flush
 	 */
@@ -556,8 +557,8 @@ private class UTIL_BypassAudit_TEST
 
 	/**
 	 * @description Tests that `AuditQueue.flush` emits audit entries on the surface passed to
-	 * the constructor — `SURFACE_DML` queues emit DML-surface audits, `SURFACE_QUERY` queues
-	 * emit query-surface audits. Pins the constructor-surface contract.
+	 * the constructor: `SURFACE_DML` queues emit DML-surface audits, and `SURFACE_QUERY` queues
+	 * emit query-surface audits.
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue
 	 */
@@ -581,9 +582,9 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that a second `flush` call on the same `AuditQueue` instance is a no-op.
-	 * A query builder that runs `count()` followed by `toList()` flushes twice; without idempotence
-	 * the audit trail would double-count every bypass.
+	 * @description Tests that a second `flush` call on the same `AuditQueue` instance does nothing.
+	 * A query builder that runs `count()` and then `toList()` flushes twice. If the second flush
+	 * wrote again, the audit trail would count every bypass twice.
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue.flush
 	 */
@@ -621,12 +622,12 @@ private class UTIL_BypassAudit_TEST
 				rollupTotal += entry.OccurrenceCount__c?.intValue() ?? 0;
 			}
 		}
-		Assert.areEqual(1, detailRows, 'Idempotent flush should produce exactly one detail audit row');
-		Assert.areEqual(1, rollupTotal, 'Idempotent flush counts exactly one occurrence — the second flush is a no-op');
+		Assert.areEqual(1, detailRows, 'A repeated flush should produce exactly one detail audit row');
+		Assert.areEqual(1, rollupTotal, 'A repeated flush counts exactly one occurrence: the second flush does nothing');
 	}
 
 	/**
-	 * @description Tests that `flush` on an empty queue latches the idempotent flag without
+	 * @description Tests that `flush` on an empty queue still marks the queue as flushed, without
 	 * writing any `LogEntry__c` rows. A builder created and dropped without ever calling a
 	 * bypass setter must produce no audit entries.
 	 *
@@ -644,18 +645,18 @@ private class UTIL_BypassAudit_TEST
 		queue.flush();
 		Test.stopTest();
 
-		Assert.isTrue(queue.flushed, 'Empty queue flush should still latch the idempotent flag');
+		Assert.isTrue(queue.flushed, 'Empty queue flush should still mark the queue as flushed');
 		Assert.isNull(findFirstAuditEntry('sharing'), 'Empty queue flush should emit nothing');
 	}
 
 	/**
-	 * @description Tests that an `AuditQueue` whose `flush` is never called leaves the
-	 * idempotent-flush latch clear and retains its queued targets. Pins the design contract
-	 * that emission happens at terminal time, not setter time, so a builder dropped before
-	 * execution produces no `UTIL_BypassAudit.emit` calls from this queue. Asserts via the
-	 * `@TestVisible` `flushed` / `targets` state rather than SOQL because framework-internal
-	 * `withSystemMode` calls during test setup can independently emit audits, which would
-	 * fail a global "no LogEntry__c rows" assertion without proving anything about THIS queue.
+	 * @description Tests that an `AuditQueue` whose `flush` is never called is not marked as flushed
+	 * and keeps its queued targets. By design, entries are emitted when the builder runs, not when a
+	 * bypass setter is called, so a builder dropped before it runs makes no `UTIL_BypassAudit.emit`
+	 * calls from this queue. Asserts on the `@TestVisible` `flushed` and `targets` state and not on a
+	 * query, because framework-internal `withSystemMode` calls during test setup can emit audits of
+	 * their own. Those would fail a "no LogEntry__c rows" check without proving anything about this
+	 * queue.
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue
 	 */
@@ -668,14 +669,15 @@ private class UTIL_BypassAudit_TEST
 		queue.queueSystemMode();
 		queue.queueSecurityMode();
 
-		Assert.isFalse(queue.flushed, 'Never-flushed queue should leave the latch clear');
+		Assert.isFalse(queue.flushed, 'A queue that was never flushed should not be marked as flushed');
 		Assert.areEqual(3, queue.targets.size(), 'Queued targets should remain pending until flush is called');
 	}
 
 	/**
-	 * @description Tests that emit stamps a bypass-namespaced fingerprint, so the first emission of
-	 * a novel bypass identity (caller|surface|action|target|userId) persists as a bypass detail row
-	 * — the identity that gives "novel = loud, known = counted" semantics at the persist layer.
+	 * @description Tests that emit stamps a fingerprint that starts with the bypass prefix, so the
+	 * first emission of a new bypass identity (caller|surface|action|target|userId) is saved as a
+	 * bypass detail row. That identity is what makes a new bypass show as its own row, while a known
+	 * one only raises a count, when log entries are saved.
 	 */
 	@IsTest
 	private static void shouldStampBypassFingerprintOnAuditEntries()
@@ -706,9 +708,10 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests flood-control end-to-end on the audit surface: two identical bypass
-	 * emissions (same caller/surface/action/target/user) produce ONE detail row and a rollup
-	 * counting both — the subscriber hot-loop scenario the feature exists for.
+	 * @description Tests flood control end to end on the audit surface: two identical bypass
+	 * emissions (same caller, surface, action, target and user) produce one detail row and a rollup
+	 * that counts both. This is the case the feature exists for: subscriber code that bypasses in a
+	 * tight loop.
 	 */
 	@IsTest
 	private static void shouldCollapseRepeatedIdenticalBypassEmissions()
@@ -752,8 +755,8 @@ private class UTIL_BypassAudit_TEST
 	/**
 	 * @description Tests that a sharing-bypassed query emits its audit entry with an
 	 * object-qualified target (`sharing:<Object>`) and carries the operation context
-	 * (`object` + `operation='query'`) — the forensic unit that lets an admin tell WHICH
-	 * read ran under the bypass rather than only that "a query somewhere" did.
+	 * (`object` and `operation='query'`). With these, an admin can tell which query ran under the
+	 * bypass, not only that "a query somewhere" did.
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue.flush
 	 * @see QRY_Builder
@@ -777,11 +780,11 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Tests that two sharing-bypassed queries from the same caller against DIFFERENT
-	 * objects persist with distinct detail fingerprints, so a novel object surfaces as a fresh
-	 * detail row instead of silently bumping another object's rollup count. Both queries run in
-	 * the same test method, so the caller component of the identity tuple is held constant and
-	 * the target is the only differentiator under test.
+	 * @description Tests that two sharing-bypassed queries from the same caller against different
+	 * objects are saved with different detail fingerprints, so a new object shows as a new detail
+	 * row instead of quietly raising another object's rollup count. Both queries run in the same
+	 * test method, so the caller part of the identity stays the same and the target is the only
+	 * difference under test.
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue.flush
 	 */
@@ -806,9 +809,9 @@ private class UTIL_BypassAudit_TEST
 
 	/**
 	 * @description Tests that a system-mode DML transaction records the verb, object, and row
-	 * count in the audit context, under the object-qualified `system-mode:<Object>` target —
-	 * so 50 occurrences of a bypass entry are attributable to a concrete write rather than
-	 * being 50 indistinguishable "some DML somewhere" rows.
+	 * count in the audit context, under the object-qualified `system-mode:<Object>` target. So 50
+	 * occurrences of a bypass entry can be traced to a real write, instead of being 50 rows that
+	 * all say "some DML somewhere".
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue.flush
 	 * @see DML_Builder
@@ -835,9 +838,8 @@ private class UTIL_BypassAudit_TEST
 
 	/**
 	 * @description Tests that one DML transaction touching two objects under a single
-	 * `bypassSharing()` call emits one BYPASS entry per distinct object — each scoped to its
-	 * own operation footprint — rather than a single conflated entry that hides which objects
-	 * the bypass actually touched.
+	 * `bypassSharing()` call emits one BYPASS entry per distinct object, each with only its own
+	 * operations, instead of one combined entry that hides which objects the bypass touched.
 	 *
 	 * @see UTIL_BypassAudit.AuditQueue.flush
 	 * @see DML_Builder
@@ -849,8 +851,8 @@ private class UTIL_BypassAudit_TEST
 		TST_Factory.setupLoggerForTest();
 		// Two distinct FRAMEWORK objects so the per-object audit assertion holds in every install context.
 		// A subscriber org (in any namespace) may enforce framework validation rules on a standard object
-		// like Account — the release-testing harness deploys an active AccountValidation group (e.g.
-		// PhoneOrWebsiteRequired) — which would block a bare-Account insert under RunAllTestsInOrg, a failure
+		// like Account. The release-testing harness deploys an active AccountValidation group (e.g.
+		// PhoneOrWebsiteRequired), which would block a bare-Account insert under RunAllTestsInOrg, a failure
 		// the vanilla packaging-build validation org cannot surface. The framework's own objects carry no
 		// subscriber validation rules, so this test stays portable across the package, subscriber, and
 		// upgraded-org contexts.
@@ -871,15 +873,16 @@ private class UTIL_BypassAudit_TEST
 		Assert.isNotNull(foobarEntry, 'The transaction should emit a sharing BYPASS entry for the Foobar object');
 		Assert.isNotNull(apiCallEntry, 'The transaction should emit a sharing BYPASS entry for the ApiCall object');
 		Map<String, Object> apiCallContext = parseContextData(apiCallEntry.ContextData__c);
-		Assert.areEqual('1', String.valueOf(apiCallContext.get(UTIL_BypassAudit.CONTEXT_ROW_COUNT)), 'Each object footprint should count only its own rows');
+		Assert.areEqual('1', String.valueOf(apiCallContext.get(UTIL_BypassAudit.CONTEXT_ROW_COUNT)), 'Each object entry should count only its own rows');
 	}
 
 	/**
-	 * @description Pins that the validation and trigger surfaces are untouched by the query/DML
-	 * target widening: their targets keep the original unqualified shape and their persisted
-	 * detail fingerprints remain the SHA-256 of the unchanged `caller|surface|action|target|userId`
-	 * tuple. A regression that rewrote these targets (or widened the tuple) would churn every
-	 * subscriber's existing detail/rollup rows for surfaces that were already per-target.
+	 * @description Tests that the change which added the object to query and DML targets left the
+	 * validation and trigger surfaces alone: their targets keep the original shape, without an
+	 * object, and their saved detail fingerprints are still the SHA-256 of the same
+	 * `caller|surface|action|target|userId` values. A change that rewrote these targets (or added
+	 * values to the fingerprint) would replace every subscriber's existing detail and rollup rows
+	 * for surfaces that already had one row per target.
 	 *
 	 * @see UTIL_BypassAudit.emit
 	 */
@@ -904,11 +907,11 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Asserts caller provenance branched on namespace context. In an unmanaged org the
-	 * test frame is the first external frame, so the resolved caller names this test class. In a
-	 * namespaced org (e.g. the packaging-build test run, where even test frames carry the package
-	 * namespace) every frame is namespace-skipped, so the documented fallback (`EMIT_AT`) is the
-	 * correct resolution — asserting it still proves the namespace skip works.
+	 * @description Checks the recorded caller in a way that depends on the namespace. In an
+	 * unmanaged org the test frame is the first external frame, so the resolved caller names this
+	 * test class. In a namespaced org (e.g. the packaging-build test run, where even test frames
+	 * carry the package namespace) every frame is skipped by the namespace check, so the documented
+	 * fallback (`EMIT_AT`) is the right answer. Asserting it still proves the namespace check works.
 	 *
 	 * @param actualCaller The `ClassMethod__c` / `caller` context value recorded on the audit entry.
 	 * @param assertionMessage The failure message describing the expected unmanaged-org caller.
@@ -927,9 +930,9 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Parses the persisted `ContextData__c` JSON envelope and returns the inner
-	 * `contextData` map. Delegates to `SEL_LogEntry.parseContextDataForTest` so the wrapper format
-	 * can evolve in one place without breaking assertions in 5+ test classes.
+	 * @description Parses the saved `ContextData__c` JSON wrapper and returns the inner
+	 * `contextData` map. Calls `SEL_LogEntry.parseContextDataForTest`, so the wrapper format
+	 * can change in one place without breaking assertions in five or more test classes.
 	 *
 	 * @param contextDataJson The raw `ContextData__c` value from the persisted log entry.
 	 *
@@ -942,11 +945,11 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Returns the most-recent persisted bypass audit DETAIL row whose context `target`
-	 * matches the supplied value, excluding rollup rows. Fingerprint assertions must compare detail
-	 * rows specifically — a detail/rollup pair for the same emission carries different persisted
-	 * fingerprint prefixes, so an entry-shape-agnostic lookup would let two logically-equal
-	 * fingerprints read as distinct (or mask a real distinctness regression).
+	 * @description Returns the newest saved bypass audit detail row whose context `target`
+	 * matches the given value, leaving out rollup rows. Fingerprint assertions must compare detail
+	 * rows only: a detail row and a rollup row for the same emission carry different fingerprint
+	 * prefixes. A lookup that accepted either could make two equal fingerprints look different (or
+	 * hide a real difference that should be caught).
 	 *
 	 * @param target The bypass audit `target` context value to find.
 	 *
@@ -958,10 +961,10 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Asserts the persisted detail fingerprint equals the audit identity tuple hash
-	 * (`caller|surface|action|target|userId`), reading the caller from the entry's own context so
-	 * the assertion holds in managed and unmanaged namespace contexts alike. Pins the fingerprint
-	 * schema: a change to the tuple composition (component order, added components) fails here.
+	 * @description Asserts that the saved detail fingerprint equals the hash of the audit identity
+	 * (`caller|surface|action|target|userId`). Reads the caller from the entry's own context, so the
+	 * assertion holds in managed and unmanaged namespace contexts alike. A change to what goes into
+	 * the fingerprint (the order of the values, or an added value) fails here.
 	 *
 	 * @param entry The persisted detail audit entry to verify.
 	 * @param surface The expected audit surface component.
@@ -978,13 +981,12 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Returns the most-recent persisted bypass audit `LogEntry__c` whose context `target`
-	 * matches the supplied value. Filtering by target keeps assertions stable when `setupLoggerForTest`
-	 * or other framework-internal `withSystemMode()` calls also emit audit entries during the test
-	 * setup phase, and the reserved-fingerprint filter excludes org-local flood-controlled rows
-	 * (e.g. a subscriber harness's trigger-action skip logs) that inherit the transaction's global
-	 * context but are not bypass audit emissions. Iterates entries in CreatedDate-descending order so
-	 * the first match is the latest emission.
+	 * @description Returns the newest saved bypass audit `LogEntry__c` whose context `target`
+	 * matches the given value. Filtering by target keeps assertions stable when `setupLoggerForTest`
+	 * or other framework-internal `withSystemMode()` calls also emit audit entries during test
+	 * setup. The filter on the reserved fingerprint prefix leaves out flood-controlled rows the org
+	 * itself writes, which share the transaction's global context but are not bypass audit entries.
+	 * Reads entries newest first by CreatedDate, so the first match is the latest emission.
 	 *
 	 * @param target The bypass audit `target` context value to find.
 	 *
@@ -996,8 +998,8 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description The first (newest) match from `findAuditEntries`, or `null` when nothing matches —
-	 * the one-row convenience over the shared scan.
+	 * @description Returns the first (newest) match from `findAuditEntries`, or `null` when nothing
+	 * matches. A one-row shortcut over the shared search.
 	 *
 	 * @param target The bypass audit `target` context value to find.
 	 * @param detailOnly When `true`, only detail rows match; when `false`, rollup rows match too.
@@ -1011,9 +1013,9 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description Every persisted detail audit row (detail:bypass:*) whose `target` context equals
-	 * the given target — one row per distinct fingerprint, so a target audited on two surfaces
-	 * yields two rows.
+	 * @description Returns every saved detail audit row (detail:bypass:*) whose `target` context
+	 * equals the given target. There is one row per distinct fingerprint, so a target audited on two
+	 * surfaces gives two rows.
 	 *
 	 * @param target The bypass audit `target` context value to find.
 	 *
@@ -1025,8 +1027,8 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
-	 * @description The one scan every audit-row lookup in this file routes through, parameterised on
-	 * whether rollup rows are admissible matches.
+	 * @description The one search that every audit-row lookup in this file uses. The parameter
+	 * decides whether rollup rows count as matches.
 	 *
 	 * @param target The bypass audit `target` context value to find.
 	 * @param detailOnly When `true`, only detail rows match; when `false`, rollup rows match too.
@@ -1042,7 +1044,7 @@ private class UTIL_BypassAudit_TEST
 		{
 			// Anchored on the canonical persisted audit shapes (detail:bypass:* / rollup:bypass:*).
 			// A subscriber key can never START with the reserved prefix (normalizeFingerprintKey
-			// hashes it), but it may legally CONTAIN 'bypass:' mid-string — contains() would match
+			// hashes it), but it may legally CONTAIN 'bypass:' in the middle: contains() would match
 			// such a row, an anchored startsWith cannot.
 			if(entry.Fingerprint__c == null
 					|| !(entry.Fingerprint__c.startsWith(detailPrefix)

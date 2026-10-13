@@ -8,12 +8,16 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class PROC_UpdateFields_TEST
 {
+	/**
+	 * @description Company name given to the admin user created in the test setup. It is unique to this class, so
+	 * getTestAdmin can find that one user again by company name.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'PROC_UpdateFields_TEST-admin';
 
 	/**
@@ -395,7 +399,7 @@ private class PROC_UpdateFields_TEST
 	}
 
 	/**
-	 * @description Explicit SYSTEM_MODE on DTO_Parameters pins the commit to SYSTEM_MODE
+	 * @description Explicit SYSTEM_MODE on DTO_Parameters forces the commit to SYSTEM_MODE
 	 * regardless of the UserModeDml_Enabled flag. Preserves the admin-mandate behaviour that
 	 * UTIL_BulkUpdates relies on.
 	 */

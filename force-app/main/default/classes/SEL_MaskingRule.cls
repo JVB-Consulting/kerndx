@@ -2,14 +2,14 @@
 /**
  * @description Selector for the MaskingRule__mdt custom metadata type.
  *
- * Rules normally load through `SEL_MaskingTarget`'s getAll()-backed sidecar cache, never through
- * `Rule__r` joins — and a rule without a target still has no effect, because the engine applies
- * rules only through targets. This selector is the single source of truth for (1) the rule field
- * list, which doubles as the collision-fallback query contract, (2) the Mode__c and
- * FailureAction__c picklist-value constants Apex callers dispatch on, and (3) the supersession
- * fingerprint recipe and verdict helpers. Its one standalone query path is `fetchAllFlat` — the
- * degraded read `SEL_MaskingTarget` falls back to when a DeveloperName collision breaks
- * `getAll()`.
+ * Rules normally load through a separate cache in `SEL_MaskingTarget`, filled from getAll(), and never
+ * through `Rule__r` joins. A rule without a target still has no effect, because the engine applies rules
+ * only through targets. This selector is the one place that defines (1) the rule field list, which is also
+ * the field list of the fallback query used when getAll() fails, (2) the Mode__c and FailureAction__c
+ * picklist-value constants that Apex callers branch on, and (3) how a rule's fingerprint is built and the
+ * helpers that decide supersession (a newer rule replacing an older one that it names in Replaces__c).
+ * Its one query of its own is `fetchAllFlat`: the slower read that `SEL_MaskingTarget` falls back to when
+ * two records with the same DeveloperName make `getAll()` fail.
  *
  * @see SEL_Base
  * @see SEL_MaskingRule_TEST
@@ -20,7 +20,7 @@
  *
  * @group Data Masking
  *
- * @date April 2026, June 2026
+ * @date April 2026, October 2026
  */
 public inherited sharing class SEL_MaskingRule extends SEL_Base
 {
@@ -64,8 +64,8 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	public static final String FAILURE_BLOCK_DML = 'BlockDml';
 
 	/**
-	 * @description DeveloperName of the shipped MaskAddress rule. Single source of truth so
-	 * callers and tests reference the rule by constant rather than re-typing the literal.
+	 * @description DeveloperName of the shipped MaskAddress rule. Defined once here, so
+	 * callers and tests use the constant instead of typing the name again.
 	 */
 	public static final String RULE_MASK_ADDRESS = 'MaskAddress';
 
@@ -164,10 +164,10 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	public static final String RULE_MASK_URL_BASIC_AUTH = 'MaskUrlBasicAuth';
 
 	/**
-	 * @description Fully-qualified API name of the MaskingRule__mdt object — namespaced
-	 * (`kern__MaskingRule__mdt`) in a subscriber org, without a namespace prefix
-	 * (`MaskingRule__mdt`) in the framework's dev preview. Used by callers that emit metadata XML
-	 * referencing the type.
+	 * @description Fully-qualified API name of the MaskingRule__mdt object: namespaced
+	 * (`kern__MaskingRule__mdt`) in a subscriber org, and without a namespace prefix
+	 * (`MaskingRule__mdt`) in the framework's development org. Used by callers that write metadata
+	 * XML that refers to the type.
 	 */
 	public static final String OBJECT_NAME = UTIL_SObjectDescribe.getObjectNameFromType(MaskingRule__mdt.SObjectType);
 
@@ -177,19 +177,20 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	public static final String FIELD_IS_ACTIVE = MaskingRule__mdt.IsActive__c.getDescribe().name;
 
 	/**
-	 * @description The character count `getAll()` truncates LongTextArea values to. The fallback
-	 * read path mirrors this so a fallback-shaped record fingerprints identically to the
-	 * getAll()-shaped records the baked supersession constants were generated from.
+	 * @description The number of characters `getAll()` cuts LongTextArea values down to. The fallback
+	 * read does the same, so a record read by the fallback gets the same fingerprint as the getAll()
+	 * records that the stored supersession fingerprints were generated from.
 	 */
 	private static final Integer GET_ALL_LONG_TEXT_LIMIT = 255;
 
 	/**
-	 * @description The behaviour-bearing fingerprint tuple, serialised via JSON so values
-	 * containing delimiters can never blur field boundaries. Strings are pre-normalised
-	 * (null → empty; Boolean → true/false; MinInputLength → integer string) so platform
-	 * serialisation variance cannot flip verdicts. The serialised field order is
-	 * platform-determined and stable; the baked-digest recipe pins in SEL_MaskingRule_TEST
-	 * surface any platform serialisation change as a test failure.
+	 * @description The rule values that change how a rule masks, serialised to JSON for the fingerprint,
+	 * so a value that contains a delimiter can never run into the next field. Each value is normalised
+	 * first (null becomes empty, a Boolean becomes true or false, MinInputLength becomes a whole-number
+	 * string), so differences in how the platform serialises values cannot change a supersession
+	 * decision. The platform decides the order of the serialised fields, and that order is stable. The
+	 * tests in SEL_MaskingRule_TEST that compare against stored fingerprints fail if the platform ever
+	 * changes how it serialises them.
 	 */
 	private class FingerprintInput
 	{
@@ -230,20 +231,21 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	}
 
 	/**
-	 * @description Canonical fingerprint of a rule's behaviour-bearing values. The ONLY producer
-	 * of supersession fingerprints — baked record constants are generated by executing this
-	 * helper (never hand-derived), and the recipe is pinned by SEL_MaskingRule_TEST. Excludes
-	 * Category/Description/Order/IsActive (cosmetic, sequencing, handled separately).
+	 * @description The standard fingerprint of the rule values that change how a rule masks. This is
+	 * the only code that builds supersession fingerprints: the fingerprints stored on shipped records
+	 * are generated by running this helper (never worked out by hand), and SEL_MaskingRule_TEST checks
+	 * how they are built. Leaves out Category, Description, Order and IsActive (they are labels, run
+	 * order, or handled separately).
 	 *
-	 * Inputs must be getAll()-shaped records — the engine's source. getAll() truncates
-	 * LongTextArea values (Pattern__c) to 255 characters while SOQL returns them in full, so a
-	 * SOQL-sourced record can fingerprint differently once a pattern crosses that length; baked
-	 * constants are therefore generated from getAll()-sourced records only. MinInputLength__c
-	 * ships scale 0, so the intValue() normalisation assumes whole numbers.
+	 * Inputs must be records shaped as getAll() returns them, because that is what the engine reads.
+	 * getAll() cuts LongTextArea values (Pattern__c) to 255 characters, while SOQL returns them in full,
+	 * so a record read by SOQL can get a different fingerprint once a pattern is longer than that. Stored
+	 * fingerprints are therefore generated only from records read by getAll(). MinInputLength__c ships
+	 * with scale 0, so the intValue() step assumes whole numbers.
 	 *
 	 * @param rule The rule whose live values to fingerprint
 	 *
-	 * @return Lowercase SHA-256 hex of the canonical JSON tuple
+	 * @return Lowercase SHA-256 hex of the standard JSON of those values
 	 */
 	public static String computeFingerprint(MaskingRule__mdt rule)
 	{
@@ -260,22 +262,22 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	}
 
 	/**
-	 * @description Maps each qualifying successor to the predecessors it supersedes (spec:
-	 * masking-rule supersession). A pair qualifies only when EVERY condition holds: the successor
-	 * is active and names the predecessor via Replaces__c with a matching NamespacePrefix; the
-	 * predecessor's live fingerprint equals the successor's ReplacesFingerprint__c (predecessor
-	 * untuned); and the successor's live fingerprint equals its own ShippedFingerprint__c
-	 * (successor untuned — a tuned successor must never evict its predecessor, or narrowed
-	 * coverage would silently unmask fields). A rule naming itself is ignored — self-supersession
-	 * would suppress the rule's own targets. Links are pairwise and independent — no chain
-	 * traversal, and a verdict consumer must never let one link's surfaces suppress another
-	 * link's predecessor. All keys and values are namespace-qualified via
-	 * resolveQualifiedDeveloperName so an org-local clone sharing a packaged rule's
-	 * DeveloperName can never be keyed by the packaged verdict.
+	 * @description Maps each qualifying successor to the predecessors it supersedes. A successor is a
+	 * newer rule that names an older rule, its predecessor, in Replaces__c. A pair qualifies only when every
+	 * condition holds: the successor is active and names the predecessor in Replaces__c with a matching
+	 * NamespacePrefix; the predecessor's current fingerprint equals the successor's
+	 * ReplacesFingerprint__c (the predecessor was not tuned); and the successor's current fingerprint
+	 * equals its own ShippedFingerprint__c (the successor was not tuned). A tuned successor must never
+	 * replace its predecessor, or fields it no longer covers would quietly stop being masked. A rule
+	 * that names itself is ignored: replacing itself would switch off the rule's own targets. Each pair
+	 * stands on its own: the method does not follow chains, and code that reads the result must never
+	 * let the fields one pair covers switch off another pair's predecessor. Every key and value is
+	 * namespace-qualified through resolveQualifiedDeveloperName, so an org-local copy that shares a
+	 * packaged rule's DeveloperName is never mistaken for the packaged rule.
 	 *
-	 * @param rules The rule universe to evaluate (typically SEL_MaskingTarget.getAllRulesById().values())
+	 * @param rules Every rule to check (typically SEL_MaskingTarget.getAllRulesById().values())
 	 *
-	 * @return Qualified successor name → qualified names of the predecessors that successor supersedes
+	 * @return Qualified successor name, mapped to the qualified names of the predecessors that successor supersedes
 	 */
 	public static Map<String, Set<String>> findSupersessionLinks(List<MaskingRule__mdt> rules)
 	{
@@ -308,11 +310,11 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	}
 
 	/**
-	 * @description Qualified names of every rule superseded by any qualifying successor — the
-	 * rule-level verdict consumed where per-surface pairing does not matter (advisor candidate
-	 * filtering, posture surfaces). Per-surface consumers must use findSupersessionLinks instead.
+	 * @description Qualified names of every rule superseded by any qualifying successor. Used where
+	 * it does not matter which fields each pair covers (filtering advisor candidates, health check
+	 * results). Code that needs to know the fields each pair covers must use findSupersessionLinks.
 	 *
-	 * @param rules The rule universe to evaluate (typically SEL_MaskingTarget.getAllRulesById().values())
+	 * @param rules Every rule to check (typically SEL_MaskingTarget.getAllRulesById().values())
 	 *
 	 * @return Qualified developer names of superseded predecessor rules
 	 */
@@ -329,12 +331,12 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	}
 
 	/**
-	 * @description Qualified names of the rules in the universe that an untuned active successor
-	 * actually supersedes: same DeveloperName as its Replaces__c, same NamespacePrefix, and a
-	 * live fingerprint equal to the successor's ReplacesFingerprint__c.
+	 * @description Qualified names of the rules that an active, untuned successor really supersedes:
+	 * the same DeveloperName as its Replaces__c, the same NamespacePrefix, and a current fingerprint
+	 * equal to the successor's ReplacesFingerprint__c.
 	 *
 	 * @param successor The active, untuned successor rule
-	 * @param rules The rule universe to scan
+	 * @param rules Every rule to search
 	 *
 	 * @return Qualified developer names of the matching predecessors
 	 */
@@ -356,10 +358,10 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	}
 
 	/**
-	 * @description Namespace-qualified identity key for a rule record. Packaged and org-local
-	 * records can legally share a DeveloperName; every supersession verdict consumer must key
-	 * rules through this helper so the two never collide. Blank-prefix records key on the bare
-	 * DeveloperName, matching the in-memory and unmanaged-org shapes.
+	 * @description Namespace-qualified key that identifies a rule record. A packaged record and an
+	 * org-local record can legally share a DeveloperName, so all supersession code must key rules
+	 * through this helper to keep the two apart. A record with a blank prefix is keyed on the bare
+	 * DeveloperName, which matches in-memory records and unmanaged orgs.
 	 *
 	 * @param rule The rule to key
 	 *
@@ -371,11 +373,11 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	}
 
 	/**
-	 * @description Namespace-qualified identity key from a prefix + developer-name pair, for a caller
-	 * keying a rule another record merely NAMES (a successor's Replaces__c) rather than a record in
-	 * hand. The named rule is keyed under the namer's own prefix — cross-namespace supersession is
-	 * never legal, so a foreign-namespace record naming a packaged DeveloperName must key apart from
-	 * the packaged rule.
+	 * @description Namespace-qualified key built from a prefix and a developer name. For a caller
+	 * that keys a rule another record only names (a successor's Replaces__c), when it does not hold
+	 * the rule record itself. The named rule is keyed under the naming record's own prefix: a rule
+	 * can never supersede a rule in another namespace, so a record in another namespace that names a
+	 * packaged DeveloperName must be keyed apart from the packaged rule.
 	 *
 	 * @param namespacePrefix The owning namespace prefix, blank for an org-local record
 	 * @param developerName The rule developer name
@@ -396,12 +398,12 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	}
 
 	/**
-	 * @description Returns the core fields for MaskingRule__mdt queries. This list doubles as the
-	 * collision-fallback contract: when `MaskingRule__mdt.getAll()` fails on a duplicate
-	 * DeveloperName, `SEL_MaskingTarget` rebuilds the rule cache from a flat selector query over
-	 * exactly these fields — every field any cache consumer reads must be listed here, or the
-	 * fallback silently nulls it (MasterLabel and Category__c are cache-consumer reads from the
-	 * Data Masking Advisor, not query-builder needs).
+	 * @description Returns the core fields for MaskingRule__mdt queries. The fallback read uses the
+	 * same list: when `MaskingRule__mdt.getAll()` fails on a duplicate DeveloperName, `SEL_MaskingTarget`
+	 * rebuilds the rule cache from a flat selector query over exactly these fields. Every field that
+	 * any reader of the cache uses must be listed here, or the fallback quietly leaves it null
+	 * (MasterLabel and Category__c are read from the cache by the Data Masking Advisor, not needed by
+	 * the query builder).
 	 *
 	 * @return List of MaskingRule__mdt SObjectField tokens
 	 */
@@ -430,12 +432,12 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	}
 
 	/**
-	 * @description Framework-internal CMDT selector — always runs in `AccessLevel.SYSTEM_MODE`
-	 * regardless of the `UserModeQueries_Enabled` feature flag. Subscribers typically grant
-	 * running users no CRUD on `kern__*__mdt` records by design, so a USER_MODE fallback read
-	 * after a getAll() collision would silently return no rules and disable masking org-wide.
+	 * @description Framework-internal CMDT selector: always runs in `AccessLevel.SYSTEM_MODE`,
+	 * whatever the `UserModeQueries_Enabled` feature flag says. Subscribers usually give running
+	 * users no access to `kern__*__mdt` records on purpose, so a USER_MODE fallback read after
+	 * getAll() fails would quietly return no rules and switch off masking for the whole org.
 	 *
-	 * @return `true` — this selector requires SYSTEM_MODE.
+	 * @return `true`: this selector requires SYSTEM_MODE.
 	 */
 	public override Boolean systemModeRequired()
 	{
@@ -443,13 +445,14 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	}
 
 	/**
-	 * @description Flat collision-fallback query over `getFields()` only — deliberately NOT the
-	 * selector's default `query`, so a future `getFieldPaths()` addition can never pull the
-	 * MetadataRelationship-joined CMDT query shape (~900 ms cold) into the collision fallback,
-	 * which runs inside framework-object triggers. Mirrors `SEL_MaskingTarget.fetchAllFlat`;
-	 * `systemModeInternal` for the same reason as {@see systemModeRequired}.
+	 * @description Flat fallback query over `getFields()` only. It deliberately does not use the
+	 * selector's default `query`, so a field path added to `getFieldPaths()` later can never bring the
+	 * slow CMDT query that joins MetadataRelationship fields (about 900 ms on a cold cache) into the
+	 * fallback, which runs inside triggers on framework objects. Works like
+	 * `SEL_MaskingTarget.fetchAllFlat`. Uses `systemModeInternal` for the same reason as
+	 * {@see systemModeRequired}.
 	 *
-	 * @return Every masking rule, flat-queried.
+	 * @return Every masking rule, from a flat query.
 	 */
 	public List<MaskingRule__mdt> fetchAllFlat()
 	{
@@ -460,16 +463,16 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	}
 
 	/**
-	 * @description Re-materialises SOQL-sourced rules into the `getAll()` record shape the engine
-	 * and the fingerprint recipe are contracted to: fresh in-memory records (any field readable —
-	 * a raw SOQL row throws `SObjectException` on un-queried field reads — and relationship fields
-	 * null) with LongTextArea values truncated to the getAll() budget (`Pattern__c` is the only
-	 * LongTextArea field). Without the truncation, a pattern crossing 255 characters would
-	 * fingerprint differently per load path and silently flip supersession verdicts.
+	 * @description Copies rules read by SOQL into the `getAll()` record shape that the engine and the
+	 * fingerprint code expect. The copies are new in-memory records, so every field can be read (a raw
+	 * SOQL row throws `SObjectException` when code reads a field that was not queried), and their
+	 * relationship fields are null. LongTextArea values are cut to the getAll() length (`Pattern__c` is
+	 * the only LongTextArea field). Without that cut, a pattern longer than 255 characters would get a
+	 * different fingerprint on each read path, and supersession decisions would quietly change.
 	 *
-	 * @param rules SOQL-sourced rules carrying at least the `getFields()` field set
+	 * @param rules Rules read by SOQL, carrying at least the `getFields()` field set
 	 *
-	 * @return getAll()-shaped in-memory copies, in input order
+	 * @return In-memory copies shaped as getAll() returns them, in input order
 	 */
 	public static List<MaskingRule__mdt> normaliseToGetAllShape(List<MaskingRule__mdt> rules)
 	{

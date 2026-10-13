@@ -8,19 +8,19 @@
  *
  * @group Selectors
  *
- * @date April 2026, June 2026
+ * @date April 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class SEL_MaskingRule_TEST
 {
 	/**
-	 * @description DeveloperName of the predecessor rule in the verdict-matrix fixtures.
+	 * @description DeveloperName of the predecessor rule in the supersession test data.
 	 */
 	private static final String PREDECESSOR_NAME = 'OldRule';
 
 	/**
-	 * @description DeveloperName of the successor rule in the verdict-matrix fixtures.
+	 * @description DeveloperName of the successor rule in the supersession test data.
 	 */
 	private static final String SUCCESSOR_NAME = 'SuccessorRule';
 
@@ -36,16 +36,16 @@ private class SEL_MaskingRule_TEST
 		Assert.isTrue(fields.contains(MaskingRule__mdt.Mode__c), 'Default fields should include Mode__c');
 		Assert.isTrue(fields.contains(MaskingRule__mdt.Pattern__c), 'Default fields should include Pattern__c');
 		Assert.isTrue(fields.contains(MaskingRule__mdt.FailureAction__c), 'Default fields should include FailureAction__c');
-		Assert.isTrue(fields.contains(MaskingRule__mdt.NamespacePrefix), 'Default fields should include NamespacePrefix — verdict consumers key rules namespace-aware');
-		Assert.isTrue(fields.contains(MaskingRule__mdt.MasterLabel), 'Default fields should include MasterLabel — advisor surfaces label rules from cached records');
-		Assert.isTrue(fields.contains(MaskingRule__mdt.Category__c), 'Default fields should include Category__c — the advisor rule picker groups on it');
+		Assert.isTrue(fields.contains(MaskingRule__mdt.NamespacePrefix), 'Default fields should include NamespacePrefix: supersession code keys rules by namespace');
+		Assert.isTrue(fields.contains(MaskingRule__mdt.MasterLabel), 'Default fields should include MasterLabel: the advisor pages show each rule\'s label from cached records');
+		Assert.isTrue(fields.contains(MaskingRule__mdt.Category__c), 'Default fields should include Category__c: the advisor rule picker groups on it');
 	}
 
 	/**
-	 * @description Tests that `systemModeRequired` is true — the selector must always run in
-	 * SYSTEM_MODE because subscribers typically don't grant CRUD on `kern__*__mdt` to running
-	 * users; a USER_MODE fallback read after a getAll() collision would silently return no rules
-	 * and disable masking org-wide.
+	 * @description Tests that `systemModeRequired` is true. The selector must always run in
+	 * SYSTEM_MODE because subscribers usually do not give running users access to `kern__*__mdt`
+	 * records; a USER_MODE fallback read after getAll() fails on a duplicate name would quietly
+	 * return no rules and switch off masking for the whole org.
 	 */
 	@IsTest
 	private static void shouldRequireSystemMode()
@@ -54,29 +54,29 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests that `normaliseToGetAllShape` mirrors the platform's getAll() LongTextArea
-	 * truncation (255 characters, Pattern__c is the only LongTextArea field) so a fallback-shaped
-	 * record fingerprints identically to the getAll()-shaped record the baked supersession
-	 * constants were generated from. Values inside the budget — and nulls — pass through untouched.
+	 * @description Tests that `normaliseToGetAllShape` cuts LongTextArea values the way the platform's
+	 * getAll() does (255 characters; Pattern__c is the only LongTextArea field), so a record read by
+	 * the fallback gets the same fingerprint as the getAll() record that the stored supersession
+	 * fingerprints were generated from. Shorter values, and nulls, are kept as they are.
 	 */
 	@IsTest
 	private static void shouldTruncateLongTextToGetAllShapeInFallback()
 	{
-		MaskingRule__mdt oversized = buildVerdictRule('OversizedPattern', '4'.repeat(300), true);
-		MaskingRule__mdt withinLimit = buildVerdictRule('ShortPattern', 'short-pattern', true);
-		MaskingRule__mdt absent = buildVerdictRule('NullPattern', null, true);
+		MaskingRule__mdt oversized = buildInMemoryRule('OversizedPattern', '4'.repeat(300), true);
+		MaskingRule__mdt withinLimit = buildInMemoryRule('ShortPattern', 'short-pattern', true);
+		MaskingRule__mdt absent = buildInMemoryRule('NullPattern', null, true);
 
 		List<MaskingRule__mdt> shaped = SEL_MaskingRule.normaliseToGetAllShape(new List<MaskingRule__mdt> {oversized, withinLimit, absent});
 
-		Assert.areEqual('4'.repeat(255), shaped[0].Pattern__c, 'getAll() truncates LongTextArea values to 255 characters — the fallback must mirror it');
-		Assert.areEqual('short-pattern', shaped[1].Pattern__c, 'values inside the getAll() budget pass through untouched');
+		Assert.areEqual('4'.repeat(255), shaped[0].Pattern__c, 'getAll() cuts LongTextArea values to 255 characters, and the fallback must do the same');
+		Assert.areEqual('short-pattern', shaped[1].Pattern__c, 'values within the getAll() length are kept as they are');
 		Assert.isNull(shaped[2].Pattern__c, 'null patterns stay null through normalisation');
 		Assert.areEqual('OversizedPattern', shaped[0].DeveloperName, 'non-truncated fields carry over unchanged');
 	}
 
 	/**
 	 * @description Tests that the mode and failure-action constants match the MaskingRule__mdt picklist values.
-	 * Protects against accidental renames of the picklist values without matching constant updates.
+	 * Catches a picklist value that is renamed by mistake without the matching constant being updated.
 	 */
 	@IsTest
 	private static void modeConstantsShouldMatchPicklistValues()
@@ -112,10 +112,10 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests that the MODE_CREDIT_CARD constant matches the picklist value string
-	 * exactly. The framework masker dispatches on this constant when routing to
-	 * `UTIL_String.maskWithLuhnValidatedRegex`; any drift between the Apex constant and the
-	 * `MaskingRule__mdt.Mode__c` restricted picklist entry would cause silent no-ops.
+	 * @description Tests that the MODE_CREDIT_CARD constant matches the picklist value exactly.
+	 * The framework masker uses this constant to choose `UTIL_String.maskWithLuhnValidatedRegex`.
+	 * If the Apex constant and the `MaskingRule__mdt.Mode__c` restricted picklist entry ever differed,
+	 * the rule would quietly do nothing.
 	 */
 	@IsTest
 	private static void shouldExposeCreditCardModeConstant()
@@ -124,9 +124,9 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Pins the fingerprint recipe against the 1.0.0-121 shipped MaskCreditCard
-	 * values. If this fails after a platform or recipe change, every baked fingerprint constant
-	 * must be regenerated in the same version (spec §3 recipe evolution policy).
+	 * @description Checks how the fingerprint is built, against the MaskCreditCard values shipped in
+	 * 1.0.0-121. If this fails after a platform change or a change to how fingerprints are built, every
+	 * stored fingerprint must be generated again in the same version.
 	 */
 	@IsTest
 	private static void shouldComputeStableFingerprintForOriginalCreditCardValues()
@@ -149,15 +149,16 @@ private class SEL_MaskingRule_TEST
 		Assert.areEqual(64, fingerprint.length(), 'Fingerprint must be a SHA-256 hex digest');
 		Assert.areEqual(fingerprint.toLowerCase(), fingerprint, 'Fingerprint must be lowercase hex');
 		Assert.areEqual('4a7d0e90c279226127cf2431ed41c6f0cafc98efa6b60704370d258a1e67ad99', fingerprint,
-				'The recipe must reproduce the baked ReplacesFingerprint__c of Mask Payment Card Numbers — a platform or recipe'
-				+ ' change here means EVERY baked fingerprint constant must be regenerated in the same version');
+				'The fingerprint code must give the stored ReplacesFingerprint__c of Mask Payment Card Numbers. A platform change, or a change to the fingerprint code,'
+				+ ' here means EVERY stored fingerprint must be generated again in the same version');
 	}
 
 	/**
-	 * @description Pins the fingerprint recipe against the shipped Mask Payment Card Numbers
-	 * values, independently reproducing the baked ShippedFingerprint__c. A mis-baked or
-	 * carelessly edited successor record would otherwise ship with supersession silently dead
-	 * (fingerprint mismatch reads as "tuned" — fail-open, but the upgrade fix never engages).
+	 * @description Checks how the fingerprint is built, against the shipped Mask Payment Card Numbers
+	 * values, by working out the stored ShippedFingerprint__c again on its own. Otherwise a successor
+	 * record with a wrong or carelessly edited fingerprint could ship with supersession quietly broken
+	 * (a fingerprint that does not match reads as "tuned": masking stays on, but the upgrade fix never
+	 * takes effect).
 	 */
 	@IsTest
 	private static void shouldComputeStableFingerprintForShippedPaymentCardValues()
@@ -174,12 +175,12 @@ private class SEL_MaskingRule_TEST
 				);
 
 		Assert.areEqual('0593ef03f0725e64e777c5bda0622dea9385658e9da7b492a60cee7d564c3a56', SEL_MaskingRule.computeFingerprint(shipped),
-				'The recipe must reproduce the baked ShippedFingerprint__c of Mask Payment Card Numbers from its shipped values');
+				'The fingerprint code must give the stored ShippedFingerprint__c of Mask Payment Card Numbers from its shipped values');
 	}
 
 	/**
-	 * @description Nulls normalise to empty strings and Decimals to integer strings, so
-	 * serialisation variance can never flip a tuning verdict.
+	 * @description Tests that nulls become empty strings and Decimals become whole-number strings, so
+	 * differences in how values are serialised can never change whether a rule counts as tuned.
 	 */
 	@IsTest
 	private static void shouldNormaliseNullsAndDecimalsInFingerprint()
@@ -194,8 +195,8 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description A pattern containing newlines or JSON delimiters cannot collide with adjacent
-	 * tuple fields — JSON escaping keeps the canonical string unambiguous.
+	 * @description Tests that a pattern containing newlines or JSON delimiters cannot run into the
+	 * fields next to it: JSON escaping keeps the standard string clear.
 	 */
 	@IsTest
 	private static void shouldKeepFingerprintUnambiguousForDelimiterBearingPatterns()
@@ -210,12 +211,13 @@ private class SEL_MaskingRule_TEST
 
 	/**
 	 * @description Tests that an untuned predecessor named by an active, untuned successor is
-	 * marked superseded — the positive control for the verdict matrix.
+	 * marked superseded. This is the case that must succeed, against which the other supersession
+	 * tests compare.
 	 */
 	@IsTest
 	private static void shouldMarkUntunedPredecessorSuperseded()
 	{
-		MaskingRule__mdt predecessor = buildVerdictRule(PREDECESSOR_NAME, 'old-pattern', true);
+		MaskingRule__mdt predecessor = buildInMemoryRule(PREDECESSOR_NAME, 'old-pattern', true);
 		MaskingRule__mdt successor = buildSuccessor(predecessor, true);
 
 		Set<String> superseded = SEL_MaskingRule.findSupersededRuleNames(new List<MaskingRule__mdt> {predecessor, successor});
@@ -224,13 +226,13 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests that a predecessor whose live values differ from the successor's
-	 * ReplacesFingerprint__c (subscriber tuning) is never superseded.
+	 * @description Tests that a predecessor whose current values differ from the successor's
+	 * ReplacesFingerprint__c (the subscriber tuned it) is never superseded.
 	 */
 	@IsTest
 	private static void shouldNotSupersedeWhenPredecessorTuned()
 	{
-		MaskingRule__mdt predecessor = buildVerdictRule(PREDECESSOR_NAME, 'old-pattern', true);
+		MaskingRule__mdt predecessor = buildInMemoryRule(PREDECESSOR_NAME, 'old-pattern', true);
 		MaskingRule__mdt successor = buildSuccessor(predecessor, true);
 		predecessor.Pattern__c = 'subscriber-tuned-pattern';
 
@@ -239,14 +241,14 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests that a successor whose live values differ from its own
-	 * ShippedFingerprint__c (subscriber tuning) suppresses nothing — a tuned successor could
-	 * carry narrowed coverage, so suppression must end and both rules run.
+	 * @description Tests that a successor whose current values differ from its own
+	 * ShippedFingerprint__c (the subscriber tuned it) replaces nothing. A tuned successor could
+	 * cover fewer fields, so the predecessor must keep running and both rules run.
 	 */
 	@IsTest
 	private static void shouldNotSupersedeWhenSuccessorTuned()
 	{
-		MaskingRule__mdt predecessor = buildVerdictRule(PREDECESSOR_NAME, 'old-pattern', true);
+		MaskingRule__mdt predecessor = buildInMemoryRule(PREDECESSOR_NAME, 'old-pattern', true);
 		MaskingRule__mdt successor = buildSuccessor(predecessor, true);
 		successor.ApplicableFieldTypes__c = 'TEXTAREA';
 
@@ -255,13 +257,13 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests that an inactive successor suppresses nothing — deactivating the
-	 * successor is the subscriber escape hatch that resumes the predecessor.
+	 * @description Tests that an inactive successor replaces nothing. Switching off the successor
+	 * is how a subscriber brings the predecessor back.
 	 */
 	@IsTest
 	private static void shouldNotSupersedeWhenSuccessorInactive()
 	{
-		MaskingRule__mdt predecessor = buildVerdictRule(PREDECESSOR_NAME, 'old-pattern', true);
+		MaskingRule__mdt predecessor = buildInMemoryRule(PREDECESSOR_NAME, 'old-pattern', true);
 		MaskingRule__mdt successor = buildSuccessor(predecessor, false);
 
 		Assert.isFalse(SEL_MaskingRule.findSupersededRuleNames(new List<MaskingRule__mdt> {predecessor, successor}).contains(PREDECESSOR_NAME),
@@ -269,12 +271,12 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests that a Replaces__c value naming no rule in the universe is a no-op.
+	 * @description Tests that a Replaces__c value that names no existing rule changes nothing.
 	 */
 	@IsTest
 	private static void shouldIgnoreDanglingReplaces()
 	{
-		MaskingRule__mdt successor = buildVerdictRule(SUCCESSOR_NAME, 'new-pattern', true);
+		MaskingRule__mdt successor = buildInMemoryRule(SUCCESSOR_NAME, 'new-pattern', true);
 		successor.Replaces__c = 'NoSuchRule';
 		successor.ShippedFingerprint__c = SEL_MaskingRule.computeFingerprint(successor);
 
@@ -283,16 +285,16 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests that among same-named, same-prefix records the verdict keys on the
-	 * fingerprint of the MATCHING record only — a record with drifted values (here a different
-	 * pattern) must not poison the verdict for the record whose values match the successor's
+	 * @description Tests that, among records with the same name and prefix, the supersession check
+	 * uses the fingerprint of the MATCHING record only. A record with changed values (here a different
+	 * pattern) must not spoil the result for the record whose values match the successor's
 	 * ReplacesFingerprint__c.
 	 */
 	@IsTest
-	private static void shouldKeyVerdictOnFingerprintAmongSameNamedRecords()
+	private static void shouldKeySupersessionOnFingerprintAmongSameNamedRecords()
 	{
-		MaskingRule__mdt predecessor = buildVerdictRule(PREDECESSOR_NAME, 'old-pattern', true);
-		MaskingRule__mdt drifted = buildVerdictRule(PREDECESSOR_NAME, 'drifted-pattern', true);
+		MaskingRule__mdt predecessor = buildInMemoryRule(PREDECESSOR_NAME, 'old-pattern', true);
+		MaskingRule__mdt drifted = buildInMemoryRule(PREDECESSOR_NAME, 'drifted-pattern', true);
 		MaskingRule__mdt successor = buildSuccessor(predecessor, true);
 
 		Set<String> superseded = SEL_MaskingRule.findSupersededRuleNames(new List<MaskingRule__mdt> {predecessor, drifted, successor});
@@ -301,20 +303,20 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests namespace-aware predecessor resolution with real prefixes: a packaged
-	 * predecessor (running package namespace) and an org-local clone carrying ANOTHER namespace
-	 * but IDENTICAL functional values. Only the matching-prefix record may be superseded —
-	 * prefix, not fingerprint, is the discriminator, because the clone's fingerprint also
-	 * matches the successor's ReplacesFingerprint__c. The fixture derives the running namespace
-	 * so the test holds unmanaged, managed, and rebuilt under any namespace.
+	 * @description Tests that predecessors are matched by namespace, with real prefixes: a packaged
+	 * predecessor (in the running package's namespace) and an org-local copy in ANOTHER namespace with
+	 * the SAME values. Only the record with the matching prefix may be superseded. The prefix, not the
+	 * fingerprint, tells them apart, because the copy's fingerprint also matches the successor's
+	 * ReplacesFingerprint__c. The test data uses the running namespace, so the test holds in an
+	 * unmanaged org, in a managed package, and when rebuilt under any namespace.
 	 */
 	@IsTest
 	private static void shouldNotSupersedeIdenticalCloneFromAnotherNamespace()
 	{
 		String runningNamespace = UTIL_System.getManagedPackageNamespace();
 		String foreignNamespace = (runningNamespace ?? UTIL_String.EMPTY) + 'subscriber';
-		MaskingRule__mdt predecessor = buildNamespacedVerdictRule(PREDECESSOR_NAME, 'old-pattern', runningNamespace);
-		MaskingRule__mdt clone = buildNamespacedVerdictRule(PREDECESSOR_NAME, 'old-pattern', foreignNamespace);
+		MaskingRule__mdt predecessor = buildNamespacedInMemoryRule(PREDECESSOR_NAME, 'old-pattern', runningNamespace);
+		MaskingRule__mdt clone = buildNamespacedInMemoryRule(PREDECESSOR_NAME, 'old-pattern', foreignNamespace);
 		MaskingRule__mdt successor = buildNamespacedSuccessor(predecessor, runningNamespace);
 
 		Set<String> superseded = SEL_MaskingRule.findSupersededRuleNames(new List<MaskingRule__mdt> {predecessor, clone, successor});
@@ -326,14 +328,14 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests that a rule naming itself via Replaces__c never supersedes anything —
-	 * self-supersession would drop the rule's own targets and unmask its surfaces while the rule
-	 * still shows active.
+	 * @description Tests that a rule naming itself in Replaces__c never supersedes anything.
+	 * Replacing itself would drop the rule's own targets and stop masking its fields while the rule
+	 * still shows as active.
 	 */
 	@IsTest
 	private static void shouldIgnoreSelfReplacingRule()
 	{
-		MaskingRule__mdt selfReplacing = buildVerdictRule(PREDECESSOR_NAME, 'old-pattern', true);
+		MaskingRule__mdt selfReplacing = buildInMemoryRule(PREDECESSOR_NAME, 'old-pattern', true);
 		selfReplacing.Replaces__c = selfReplacing.DeveloperName;
 		selfReplacing.ReplacesFingerprint__c = SEL_MaskingRule.computeFingerprint(selfReplacing);
 		selfReplacing.ShippedFingerprint__c = selfReplacing.ReplacesFingerprint__c;
@@ -343,16 +345,16 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests that supersession links stay pairwise: with two independent
-	 * predecessor/successor pairs in the universe, each successor links exactly its own
-	 * predecessor — never the sibling pair's.
+	 * @description Tests that each supersession link stays within its own pair: with two separate
+	 * predecessor and successor pairs, each successor links only its own predecessor, never the
+	 * other pair's.
 	 */
 	@IsTest
 	private static void shouldKeepSupersessionLinksPairwiseIndependent()
 	{
-		MaskingRule__mdt firstPredecessor = buildVerdictRule('OldRuleOne', 'old-one', true);
+		MaskingRule__mdt firstPredecessor = buildInMemoryRule('OldRuleOne', 'old-one', true);
 		MaskingRule__mdt firstSuccessor = buildSuccessorNamed('NewRuleOne', firstPredecessor, true);
-		MaskingRule__mdt secondPredecessor = buildVerdictRule('OldRuleTwo', 'old-two', true);
+		MaskingRule__mdt secondPredecessor = buildInMemoryRule('OldRuleTwo', 'old-two', true);
 		MaskingRule__mdt secondSuccessor = buildSuccessorNamed('NewRuleTwo', secondPredecessor, true);
 
 		Map<String, Set<String>> links = SEL_MaskingRule.findSupersessionLinks(
@@ -364,10 +366,10 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests that every one of the seven behaviour-bearing tuple fields acts as a
-	 * tuning detector: with an untuned pair as positive control, tuning exactly one field on the
-	 * predecessor must flip its verdict off. If computeFingerprint silently stopped reading any
-	 * tuple field, that field's row fails.
+	 * @description Tests that a change to any one of the seven fingerprint fields (the values that
+	 * change how a rule masks) is seen as tuning. An untuned pair is superseded first, as the case that
+	 * must succeed; then changing exactly one field on the predecessor must stop the supersession. If
+	 * computeFingerprint quietly stopped reading a field, the check for that field fails.
 	 */
 	@IsTest
 	private static void shouldDetectTuningOnEveryFingerprintTupleField()
@@ -382,16 +384,16 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Asserts one tuple field participates in tuning detection: the untuned pair
-	 * supersedes (positive control), then tuning exactly the given predecessor field flips the
-	 * verdict off.
+	 * @description Asserts that a change to one fingerprint field is seen as tuning: the untuned pair
+	 * is superseded first (the case that must succeed), then changing exactly the given predecessor
+	 * field stops the supersession.
 	 *
-	 * @param field The tuple field to tune
+	 * @param field The fingerprint field to change
 	 * @param tunedValue A value different from the fixture's shipped value for that field
 	 */
 	private static void assertPredecessorTuningDetected(SObjectField field, Object tunedValue)
 	{
-		MaskingRule__mdt predecessor = buildVerdictRule(PREDECESSOR_NAME, 'old-pattern', true);
+		MaskingRule__mdt predecessor = buildInMemoryRule(PREDECESSOR_NAME, 'old-pattern', true);
 		MaskingRule__mdt successor = buildSuccessor(predecessor, true);
 
 		Assert.isTrue(SEL_MaskingRule.findSupersededRuleNames(new List<MaskingRule__mdt> {predecessor, successor}).contains(PREDECESSOR_NAME),
@@ -400,20 +402,20 @@ private class SEL_MaskingRule_TEST
 		predecessor.put(field, tunedValue);
 
 		Assert.isFalse(SEL_MaskingRule.findSupersededRuleNames(new List<MaskingRule__mdt> {predecessor, successor}).contains(PREDECESSOR_NAME),
-				'Tuning ' + field + ' must flip the verdict off');
+				'Tuning ' + field + ' must stop the supersession');
 	}
 
 	/**
-	 * @description Builds an in-memory rule for verdict-matrix tests. No DML, no mocks — the
-	 * verdict is pure logic over a passed-in list.
+	 * @description Builds an in-memory rule for the supersession tests. No DML and no mocks: the
+	 * supersession check is plain logic over a list that is passed in.
 	 *
 	 * @param developerName The rule DeveloperName
-	 * @param pattern The Pattern__c value (the per-test tuning lever)
+	 * @param pattern The Pattern__c value (each test changes it to simulate tuning)
 	 * @param isActive The IsActive__c value
 	 *
 	 * @return The in-memory rule
 	 */
-	private static MaskingRule__mdt buildVerdictRule(String developerName, String pattern, Boolean isActive)
+	private static MaskingRule__mdt buildInMemoryRule(String developerName, String pattern, Boolean isActive)
 	{
 		return new MaskingRule__mdt
 				(
@@ -455,7 +457,7 @@ private class SEL_MaskingRule_TEST
 	 */
 	private static MaskingRule__mdt buildSuccessorNamed(String developerName, MaskingRule__mdt predecessor, Boolean isActive)
 	{
-		MaskingRule__mdt successor = buildVerdictRule(developerName, 'new-pattern', isActive);
+		MaskingRule__mdt successor = buildInMemoryRule(developerName, 'new-pattern', isActive);
 		successor.Replaces__c = predecessor.DeveloperName;
 		successor.ReplacesFingerprint__c = SEL_MaskingRule.computeFingerprint(predecessor);
 		successor.ShippedFingerprint__c = SEL_MaskingRule.computeFingerprint(successor);
@@ -463,17 +465,17 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Builds an in-memory verdict rule stamped with an explicit NamespacePrefix via
-	 * TST_Builder (the read-only field cannot be set through the constructor). Functional values
-	 * match buildVerdictRule exactly so cross-namespace fixtures share one fingerprint.
+	 * @description Builds an in-memory rule with an explicit NamespacePrefix, set through TST_Builder
+	 * (the read-only field cannot be set through the constructor). Its other values match
+	 * buildInMemoryRule exactly, so test data in different namespaces shares one fingerprint.
 	 *
 	 * @param developerName The rule DeveloperName
 	 * @param pattern The Pattern__c value
-	 * @param namespacePrefix The NamespacePrefix to stamp (blank models the unmanaged shape)
+	 * @param namespacePrefix The NamespacePrefix to stamp (blank stands for an unmanaged org)
 	 *
-	 * @return The in-memory, namespace-stamped rule
+	 * @return The in-memory rule with that namespace
 	 */
-	private static MaskingRule__mdt buildNamespacedVerdictRule(String developerName, String pattern, String namespacePrefix)
+	private static MaskingRule__mdt buildNamespacedInMemoryRule(String developerName, String pattern, String namespacePrefix)
 	{
 		return (MaskingRule__mdt)TST_Builder.of(MaskingRule__mdt.SObjectType)
 				.withOverride(MaskingRule__mdt.DeveloperName, developerName)
@@ -491,7 +493,7 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Builds an in-memory, namespace-stamped successor for a predecessor: names it
+	 * @description Builds an in-memory successor with a given namespace for a predecessor: names it
 	 * via Replaces__c and carries both fingerprints exactly as the shipped metadata would.
 	 *
 	 * @param predecessor The rule the successor supersedes
@@ -501,7 +503,7 @@ private class SEL_MaskingRule_TEST
 	 */
 	private static MaskingRule__mdt buildNamespacedSuccessor(MaskingRule__mdt predecessor, String namespacePrefix)
 	{
-		MaskingRule__mdt successor = buildNamespacedVerdictRule(SUCCESSOR_NAME, 'new-pattern', namespacePrefix);
+		MaskingRule__mdt successor = buildNamespacedInMemoryRule(SUCCESSOR_NAME, 'new-pattern', namespacePrefix);
 		successor.Replaces__c = predecessor.DeveloperName;
 		successor.ReplacesFingerprint__c = SEL_MaskingRule.computeFingerprint(predecessor);
 		successor.ShippedFingerprint__c = SEL_MaskingRule.computeFingerprint(successor);

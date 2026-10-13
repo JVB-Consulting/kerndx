@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Orchestrates data masking. Queries `MaskingRule__mdt` and `MaskingTarget__mdt`
- * for applicable wiring's, delegates the actual string transformation to `UTIL_String` masking
- * helpers, and honours the `MaskingFramework_Enabled` kill switch.
+ * @description Runs data masking. Reads `MaskingRule__mdt` and `MaskingTarget__mdt` to find which rules
+ * apply to which fields, hands the string changes to the `UTIL_String` masking helpers, and respects the
+ * `MaskingFramework_Enabled` kill switch (the feature flag that turns masking off).
  *
- * Package-internal — the log engine, web service framework, async chain framework, and trigger
- * dispatcher call this class to mask records before persistence. Subscribers running their own
- * masking frameworks use their own kill switch and invoke the `UTIL_String` helpers directly.
+ * Package-internal: the log engine, the web service framework, the async chain framework and the trigger
+ * dispatcher call this class to mask records before they are saved. Subscribers that run their own
+ * masking use their own kill switch and call the `UTIL_String` helpers directly.
  *
- * **Probing enablement from subscriber Apex.** This class is intentionally `public` (not `global`),
- * so subscribers cannot reference `UTIL_FrameworkMasker.isMaskingEnabled` directly across the
- * namespace boundary. The supported probe is `kern.UTIL_FeatureFlag.isEnabled('MaskingFramework_Enabled')`
- * — the underlying feature flag that the masker itself reads. `UTIL_FeatureFlag` is `global`, so
- * the call works from subscriber Apex, anonymous Apex, and `@IsTest` classes. Use this when a
- * subscriber test or load script wants to skip masking-dependent assertions if the framework is
- * disabled, or when a health-check page wants to surface "masking is currently enabled" status.
+ * **Checking from subscriber Apex whether masking is on.** This class is `public` (not `global`) on
+ * purpose, so subscribers cannot reach `UTIL_FrameworkMasker.isMaskingEnabled` across the namespace
+ * boundary. The supported check is `kern.UTIL_FeatureFlag.isEnabled('MaskingFramework_Enabled')`,
+ * which reads the same feature flag the masker reads. `UTIL_FeatureFlag` is `global`, so the call works
+ * from subscriber Apex, anonymous Apex, and `@IsTest` classes. Use it when a subscriber test or load
+ * script should skip assertions that depend on masking while masking is off, or when a health check
+ * page should show whether masking is on.
  *
  * @see UTIL_String
  * @see UTIL_FeatureFlag
@@ -28,14 +28,14 @@
  *
  * @group Data Masking
  *
- * @date April 2026, August 2026
+ * @date April 2026, October 2026
  *
  * @example
  * ```apex
- * // From subscriber Apex / anon Apex — probe whether masking is currently enabled
+ * // From subscriber Apex or anonymous Apex: check whether masking is currently on
  * if(kern.UTIL_FeatureFlag.isEnabled('MaskingFramework_Enabled'))
  * {
- *     // Masking is on — assertions about redacted output are valid
+ *     // Masking is on, so assertions about masked output are valid
  * }
  * ```
  */
@@ -43,43 +43,55 @@
 public inherited sharing class UTIL_FrameworkMasker
 {
 	/**
-	 * @description DeveloperName of the kill-switch feature flag. Matches the
-	 * `API_Inbound.FLAG_DISABLE_ALL_INBOUND_APIS` pattern — constant is internal, callers
-	 * gate via `isMaskingEnabled`.
+	 * @description DeveloperName of the kill-switch feature flag. Follows the same pattern as
+	 * `API_Inbound.FLAG_DISABLE_ALL_INBOUND_APIS`: the constant is internal, and callers check
+	 * `isMaskingEnabled`.
 	 */
 	@TestVisible
 	private static final String FLAG_MASKING_FRAMEWORK_ENABLED = 'MaskingFramework_Enabled';
 
 	/**
-	 * @description Sentinel value written to a field when its masking rule throws and the
-	 * rule's `FailureAction__c = WriteFailureMarker`. Short enough to fit on typical text
-	 * fields while still being obviously non-real-data to any admin eyeballing the record.
+	 * @description Fixed value written to a field when its masking rule throws and the rule's
+	 * `FailureAction__c = WriteFailureMarker`. Short enough to fit in most text fields, and clearly
+	 * not real data to any admin who looks at the record.
 	 */
 	public static final String FAILURE_MARKER = '[MASKING_FAILURE]';
 
 	/**
-	 * @description Namespace-safe API name for `LogEntry__c`. Used to suppress LOG_Builder
-	 * warnings when a masking target on LogEntry fails, which would otherwise queue a new
-	 * LogEntryEvent → new LogEntry__c → trigger-guard → masker → fail → warn cross-transaction
-	 * loop.
+	 * @description Namespace-safe API name for `LogEntry__c`. Used to stop LOG_Builder warnings when
+	 * a masking target on LogEntry fails. Otherwise each warning would publish a new LogEntryEvent,
+	 * which saves a new LogEntry__c, which runs the trigger and the masker, which fails and warns
+	 * again, in an endless loop across transactions.
 	 */
 	@TestVisible
 	private static final String LOG_ENTRY_OBJECT_NAME = UTIL_SObjectDescribe.getObjectNameFromType(LogEntry__c.SObjectType);
 
 	/**
-	 * @description Namespace-safe API name for `LogEntryEvent__e`. Partnered with
-	 * `LOG_ENTRY_OBJECT_NAME` in the warn-suppression check so the masker can mask events
-	 * without recursively publishing more events.
+	 * @description Namespace-safe API name for `LogEntryEvent__e`. Used with `LOG_ENTRY_OBJECT_NAME`
+	 * in the check that stops warnings, so the masker can mask events without publishing more events
+	 * in a loop.
 	 */
 	@TestVisible
 	private static final String LOG_ENTRY_EVENT_OBJECT_NAME = UTIL_SObjectDescribe.getObjectNameFromType(LogEntryEvent__e.SObjectType);
 
 	/**
-	 * @description Per-transaction set of rule DeveloperNames that have thrown at least once.
-	 * Invalidated rules are filtered out of subsequent `FieldMasker.mask` calls in the same
-	 * transaction — one broken rule fails once, then is skipped for the remaining records in
-	 * a bulk trigger batch. Statics reset between transactions so admins get another chance
-	 * after fixing the rule.
+	 * @description Fields the framework compares for equality to keep its own data correct. A wildcard target (one
+	 * with a blank field) never covers them. The chain engine's run key is a token that every process running a
+	 * chain run holds a copy of. If masking rewrote the stored copy (the key is random, and about once in several
+	 * thousand keys its digit groups look like a payment card), every process of that run would stop without an
+	 * error. The run's current job id is what the watchdog reads to tell a live process from a dead one, and a
+	 * rewritten id looks dead. Nothing in these fields needs to be hidden. A target that names one of them
+	 * explicitly is the administrator's deliberate choice and is applied, as for an identifier field.
+	 */
+	private static final Set<SObjectField> FRAMEWORK_INTEGRITY_FIELDS = new Set<SObjectField> {AsyncChainExecution__c.RunKey__c, AsyncChainExecution__c.CurrentJobId__c};
+
+	/**
+	 * @description DeveloperNames of the rules that have thrown at least once in this transaction and
+	 * are not set to block DML. These rules are left out of later `FieldMasker.mask` calls in the same
+	 * transaction: a broken rule in warning mode fails once, then is skipped for the other records in
+	 * a bulk trigger batch. A rule set to BlockDml never joins this set, because skipping it would let a
+	 * later masking call save the value without masking it. Statics reset between transactions, so the
+	 * rule runs again after an admin fixes it.
 	 */
 	@TestVisible
 	private static final Set<String> invalidatedRuleDeveloperNames
@@ -96,10 +108,10 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Reports whether the masking framework's kill switch is engaged. Package
-	 * adapters (LOG_Engine, API_Base, UTIL_AsyncChain, trigger dispatcher) gate their masking
-	 * invocations on this property. Lazy-initialised per transaction, so transactions that
-	 * never read it pay no feature-flag lookup cost.
+	 * @description Reports whether masking is switched on by its kill switch. The package's own callers
+	 * (LOG_Engine, API_Base, UTIL_AsyncChain, the trigger dispatcher) mask only when this is true. Read
+	 * once per transaction, on first use, so a transaction that never reads it pays no feature-flag
+	 * lookup.
 	 *
 	 * @example
 	 * ```apex
@@ -123,8 +135,8 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Per-transaction cache of active MaskingTarget records keyed by SObjectType.
-	 * Lazy-initialised on first read so transactions that never invoke the masker pay no cost.
+	 * @description Cache, for one transaction, of active MaskingTarget records keyed by SObjectType.
+	 * Filled on first read, so a transaction that never calls the masker pays nothing.
 	 */
 	private static final Map<SObjectType, List<MaskingTarget__mdt>> cachedTargets
 	{
@@ -140,11 +152,11 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Per-transaction cache of the updateable text-shaped fields on each
-	 * SObjectType, used to expand wildcard MaskingTarget records (blank Field__c) to the
-	 * concrete set of fields to mask. Filters to field types that can hold text (Text / Text
-	 * Area / Long Text Area / URL / Email / Phone / Encrypted) and that Apex can write to
-	 * (excludes formulas, read-only and system fields).
+	 * @description Cache, for one transaction, of the text fields that Apex can write on each
+	 * SObjectType. Used to turn a wildcard MaskingTarget record (blank Field__c) into the real list
+	 * of fields to mask. Keeps only field types that can hold text (Text / Text Area / Long Text
+	 * Area / URL / Email / Phone / Encrypted) and that Apex can write to (no formulas, read-only or
+	 * system fields).
 	 */
 	private static final Map<SObjectType, List<SObjectField>> cachedUpdateableTextFields
 	{
@@ -160,11 +172,10 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Per-transaction cache of pre-computed batch plans keyed by
-	 * `sObjectType|callerClassName`. A batch plan resolves the list of qualified fields to
-	 * mask and pre-splits each field's applicable targets into JsonKey vs other, so bulk
-	 * masking of N records against the same SObjectType and caller pays the target-resolution
-	 * and field-discovery cost exactly once per transaction instead of once per record.
+	 * @description Cache, for one transaction, of batch plans keyed by `sObjectType|callerClassName`.
+	 * A batch plan holds the list of qualified fields to mask, with each field's targets already split
+	 * into JsonKey and other modes. So bulk masking of many records of the same SObjectType, for the
+	 * same caller, works out the targets and fields once per transaction instead of once per record.
 	 */
 	@TestVisible
 	private static final Map<String, BatchPlan> cachedBatchPlans
@@ -181,19 +192,19 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Lazily-built transaction cache mapping text-shaped DisplayType names
-	 * (STRING, TEXTAREA, URL, EMAIL, PHONE, ENCRYPTEDSTRING) to their `System.DisplayType`
-	 * enum values. Derived from the enum itself via `.name()` — a platform rename surfaces
-	 * as a compile error instead of silent string-literal drift. JIT so transactions that
-	 * never touch masking do not pay the construction cost or flood class-load debug logs
-	 * with six `VARIABLE_ASSIGNMENT` entries.
+	 * @description Cache, built on first use and kept for the transaction, that maps the names of the
+	 * text DisplayTypes (STRING, TEXTAREA, URL, EMAIL, PHONE, ENCRYPTEDSTRING) to their
+	 * `System.DisplayType` enum values. Built from the enum itself with `.name()`, so a platform rename
+	 * shows as a compile error instead of a string that quietly stops matching. Built only when needed,
+	 * so a transaction that never masks does not pay to build it, and the debug log does not fill with
+	 * six `VARIABLE_ASSIGNMENT` entries when the class loads.
 	 */
 	@TestVisible
 	private static Map<String, DisplayType> textShapedDisplayTypesByName;
 
 	/**
-	 * @description Returns the cached list of active masking targets for an SObjectType,
-	 * lazy-loading from SEL_MaskingTarget on the first request.
+	 * @description Returns the cached list of active masking targets for an SObjectType, loading it
+	 * from SEL_MaskingTarget on the first request.
 	 *
 	 * @param sObjectType The object whose targets to retrieve
 	 *
@@ -210,9 +221,10 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Per-transaction cache of the supersession links (qualified successor name →
-	 * qualified predecessor names, every pair having passed the full two-sided verdict). Built
-	 * once per request — fingerprint hashing happens here, not per target-cache build.
+	 * @description Cache, for one transaction, of the supersession links: each qualified successor name
+	 * (a newer rule that replaces an older one) mapped to the qualified names of its predecessors. Every
+	 * pair has passed every supersession check. Built once per request, so fingerprints are hashed here
+	 * and not each time the target cache is built.
 	 */
 	private static final Map<String, Set<String>> cachedSupersessionLinks
 	{
@@ -228,18 +240,17 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Drops a predecessor-rule target when one of ITS OWN verdict-passing
-	 * successors has an active target on the SAME field|caller surface. Pair-scoped by design
-	 * (spec: per-link independence): a surface covered only by an unrelated link's successor —
-	 * or by a tuned successor that failed its own verdict — never suppresses this predecessor,
-	 * and a subscriber target on a surface the successor does not mirror is never dropped.
-	 * Operating on the findActiveForSObjectType result means "active" is always target-active
-	 * AND rule-active. Admin-facing visibility of suppression state lives on the advisor
-	 * surfaces, which render the same verdict.
+	 * @description Drops a target of a predecessor rule when one of that rule's own qualifying successors
+	 * has an active target on the same field and caller. Each predecessor and successor pair is judged on
+	 * its own, by design. A field covered only by the successor of another pair, or by a tuned successor
+	 * that failed its own checks, never drops this predecessor. A subscriber target on a field the
+	 * successor does not also cover is never dropped. Works on the result of findActiveForSObjectType, so
+	 * "active" always means the target is active AND its rule is active. Admins see which targets are
+	 * dropped on the advisor pages, which use the same checks.
 	 *
-	 * @param targets The deduped active targets for one SObjectType
+	 * @param targets The active targets for one SObjectType, without duplicates
 	 *
-	 * @return The targets minus suppressed predecessor bindings
+	 * @return The targets, without the dropped predecessor targets
 	 */
 	private static List<MaskingTarget__mdt> suppressSupersededTargets(List<MaskingTarget__mdt> targets)
 	{
@@ -285,14 +296,14 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Composite field|caller surface key for supersession matching. A successor
-	 * target suppresses a predecessor target only when both bind exactly the same surface.
-	 * Targets are already scoped to one SObjectType when keyed, so wildcard (blank-field)
-	 * targets of different objects can never collide.
+	 * @description Combined field|caller key used to match successors to predecessors. A successor
+	 * target drops a predecessor target only when both cover exactly the same field and caller.
+	 * Targets are already limited to one SObjectType when they are keyed, so wildcard (blank-field)
+	 * targets of different objects can never clash.
 	 *
 	 * @param target The target to key
 	 *
-	 * @return The field|caller composite key
+	 * @return The combined field|caller key
 	 */
 	private static String buildSurfaceKey(MaskingTarget__mdt target)
 	{
@@ -300,17 +311,16 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Resolves a target's parent `MaskingRule__mdt`. Production and TST_Mock paths
-	 * populate `SEL_MaskingTarget.getRuleById`, which is checked first. Falls back to the
-	 * target's own `Rule__r` child only when the sidecar cache doesn't have an entry — that
-	 * fallback exists so unit tests that construct a `MaskingTarget__mdt` in-memory and set
-	 * `target.Rule__r = rule` directly (without going through TST_Mock) keep working. In
-	 * production the production SOQL populates the sidecar cache by Id, and `target.Rule__r`
-	 * is never relied on — avoiding the managed-package custom-field drop on nested children.
+	 * @description Finds a target's parent `MaskingRule__mdt`. The production and TST_Mock paths fill
+	 * `SEL_MaskingTarget.getRuleById`, which is checked first. Falls back to the target's own `Rule__r`
+	 * child only when that rule cache has no entry. The fallback exists so unit tests that build a
+	 * `MaskingTarget__mdt` in memory and set `target.Rule__r = rule` directly (without TST_Mock) keep
+	 * working. In production the rule cache is filled by Id, and `target.Rule__r` is never used, which
+	 * avoids the managed-package problem of custom fields missing from nested child records.
 	 *
 	 * @param target The target whose parent rule to resolve.
 	 *
-	 * @return The fully-populated rule, or `null` if neither source has it.
+	 * @return The rule with every field filled, or `null` if neither source has it.
 	 */
 	private static MaskingRule__mdt ruleFor(MaskingTarget__mdt target)
 	{
@@ -318,23 +328,24 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Returns the list of writable, text-shaped fields on an SObjectType that
-	 * wildcard MaskingTarget records (blank Field__c) should expand to. Filters out formula,
-	 * calculated, and read-only fields so `record.put()` never throws at masking time. Cached
-	 * per SObjectType so describe calls happen once per transaction.
+	 * @description Returns the writable text fields on an SObjectType that a wildcard MaskingTarget
+	 * record (blank Field__c) covers. Leaves out formula, calculated and read-only fields, so
+	 * `record.put()` never throws while masking. Cached per SObjectType, so describe calls happen once
+	 * per transaction.
 	 *
-	 * Platform events (`__e` objects) report every field as `isUpdateable() == false` because
-	 * they are insert-only — but their fields ARE writable at construction time via `put`. We
-	 * detect platform events and switch to `isCreateable()` for the writability check so
-	 * wildcard masking still covers event fields.
+	 * Platform events (`__e` objects) report every field as `isUpdateable() == false`, because events
+	 * can only be inserted. But their fields CAN be written with `put` while the event is built. So for
+	 * a platform event the check uses `isCreateable()` instead, and wildcard masking still covers event
+	 * fields.
 	 *
-	 * Fields that identify the record — unique keys and external ids — are never expanded to, however
-	 * text-shaped they are. Masking rewrites the value it matches; on a key that destroys the key, and
-	 * on a unique index the next record whose key masks to the same constant fails to insert (a chain
-	 * correlation id carrying a long order number reads as a payment card to the shipped card rule and
-	 * `AsyncChainExecution__c.CorrelationId__c` is unique). A target that names such a field explicitly
-	 * is the administrator's deliberate choice and is honoured; the wildcard is not allowed to make it
-	 * by accident.
+	 * Fields that identify the record (unique keys and external ids) are never covered by a wildcard,
+	 * even when they hold text. Masking rewrites the value it matches. On a key, that destroys the key.
+	 * On a unique index, the next record whose key masks to the same fixed value fails to insert (a
+	 * chain correlation id that carries a long order number looks like a payment card to the shipped
+	 * card rule, and `AsyncChainExecution__c.CorrelationId__c` is unique). A target that names such a
+	 * field explicitly is the administrator's deliberate choice and is applied; a wildcard must not do
+	 * it by accident. The fields the framework needs to keep its own data correct are skipped the same
+	 * way (`isExcludedFromWildcard`).
 	 *
 	 * @param sObjectType The SObjectType to enumerate
 	 *
@@ -366,7 +377,7 @@ public inherited sharing class UTIL_FrameworkMasker
 				continue;
 			}
 
-			if(isIdentifierField(describe))
+			if(isExcludedFromWildcard(field))
 			{
 				continue;
 			}
@@ -392,10 +403,24 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Whether a field identifies its record — a unique key or an external id. The one
-	 * predicate behind every wildcard decision (the record-path expansion, the per-field wildcard
-	 * admission, and the advisor's coverage claims), so no surface can claim or apply wildcard
-	 * masking the record path refuses. Null-safe: an unresolvable field is not an identifier.
+	 * @description Whether a wildcard target must skip the field: an identifier (a unique key or an external
+	 * id, `isIdentifierField`) or one of the fields the framework needs to keep its own data correct. Every
+	 * wildcard decision uses this one check (expanding the fields of a record, allowing a wildcard on one
+	 * field, and the coverage the advisor reports), so no page can show or apply wildcard masking that
+	 * record masking refuses. Safe with null: a field that cannot be found is not skipped.
+	 *
+	 * @param field The field token to test; may be null.
+	 *
+	 * @return `true` when a wildcard must not touch the field.
+	 */
+	public static Boolean isExcludedFromWildcard(SObjectField field)
+	{
+		return field != null && (FRAMEWORK_INTEGRITY_FIELDS.contains(field) || isIdentifierField(field));
+	}
+
+	/**
+	 * @description Whether a field identifies its record: a unique key or an external id. One of the two
+	 * parts of `isExcludedFromWildcard`. Safe with null: a field that cannot be found is not an identifier.
 	 *
 	 * @param field The field token to test; may be null.
 	 *
@@ -407,10 +432,11 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description The describe-level half of `isIdentifierField(SObjectField)`. Both facets are
-	 * excluded on purpose: rewriting a unique key fails the next record loudly (DUPLICATE_VALUE on
-	 * the index), while rewriting a non-unique external id fails silently — later upserts on the
-	 * true key miss or land on the wrong record, and integration joins sever.
+	 * @description The describe-level half of `isIdentifierField(SObjectField)`. Both kinds of field
+	 * are left out on purpose. Rewriting a unique key makes the next record fail with a clear error
+	 * (DUPLICATE_VALUE on the index). Rewriting an external id that is not unique fails without any
+	 * error: later upserts on the real key miss, or update the wrong record, and integrations lose the
+	 * link between records.
 	 *
 	 * @param describe The field describe to test.
 	 *
@@ -423,26 +449,26 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Whether the field a masking call supplies by qualified name identifies its record —
-	 * `selectApplicableTargets`' bridge from the `Object.Field` string it works in to the token
-	 * predicate above.
+	 * @description Whether the field that a masking call names by qualified name is one a wildcard must
+	 * skip. `selectApplicableTargets` works with the `Object.Field` text; this method turns that text
+	 * into a field token and runs the check above.
 	 *
 	 * @param sObjectType The SObjectType the qualified name belongs to.
 	 * @param qualifiedFieldName The `Object.Field` qualified name.
 	 *
-	 * @return `true` when the named field resolves and is unique or an external id.
+	 * @return `true` when the named field resolves and is excluded from wildcard masking.
 	 */
-	private static Boolean isIdentifierQualifiedField(SObjectType sObjectType, String qualifiedFieldName)
+	private static Boolean isExcludedQualifiedField(SObjectType sObjectType, String qualifiedFieldName)
 	{
-		return isIdentifierField(UTIL_SObjectDescribe.getDescribe(sObjectType).getField(qualifiedFieldName.substringAfter(UTIL_String.DOT)));
+		return isExcludedFromWildcard(UTIL_SObjectDescribe.getDescribe(sObjectType).getField(qualifiedFieldName.substringAfter(UTIL_String.DOT)));
 	}
 
 	/**
-	 * @description Sorts masking targets by parent rule `Order__c` ascending so execution is
-	 * deterministic. In-Apex sort rather than SOQL ORDER BY because CMDT MetadataRelationship
-	 * parent fields aren't supported in SOQL ORDER BY clauses.
+	 * @description Sorts masking targets by the parent rule's `Order__c`, lowest first, so they always
+	 * run in the same order. Sorted in Apex and not with SOQL ORDER BY, because SOQL ORDER BY does not
+	 * support parent fields through a CMDT MetadataRelationship.
 	 *
-	 * @param targets The deduped target list
+	 * @param targets The target list, without duplicates
 	 *
 	 * @return The same targets sorted by Rule__r.Order__c ASC
 	 */
@@ -477,15 +503,14 @@ public inherited sharing class UTIL_FrameworkMasker
 
 	/**
 	 * @description Removes duplicate MaskingTarget records that share the same
-	 * `QualifiedRuleDeveloperName | Field | CallerClass` composite key. If an admin (or
-	 * subscriber) configures two functionally identical targets, only the first occurrence is
-	 * kept — preventing confusing audit output where the same rule appears to match twice. The
-	 * rule name is namespace-qualified so a packaged rule and an org-local clone sharing a
-	 * DeveloperName are distinct bindings, never deduped against each other.
+	 * `QualifiedRuleDeveloperName | Field | CallerClass` key. If an admin (or subscriber) sets up two
+	 * targets that do the same thing, only the first is kept, so the audit output never shows the same
+	 * rule matching twice. The rule name is namespace-qualified, so a packaged rule and an org-local
+	 * copy that share a DeveloperName are different targets and never removed as duplicates.
 	 *
 	 * @param targets The raw list from the selector
 	 *
-	 * @return A list with duplicates removed; first-wins by iteration order
+	 * @return A list with duplicates removed; the first one in list order is kept
 	 */
 	private static List<MaskingTarget__mdt> removeDuplicateTargets(List<MaskingTarget__mdt> targets)
 	{
@@ -507,12 +532,11 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Resolves a MaskingTarget's Field__c to its fully qualified
-	 * `ObjectName.FieldName` form. Real deployed CMDT records return the
-	 * EntityDefinition/FieldDefinition durable Id through `Field__c`, so the qualified name
-	 * has to be assembled from the related SObjectType__r and Field__r QualifiedApiName
-	 * fields. Mocked records (TST_Builder) put the already-qualified string directly in
-	 * `Field__c`, so the relationship fallback handles both shapes without test plumbing.
+	 * @description Turns a MaskingTarget's Field__c into its fully qualified `ObjectName.FieldName`
+	 * form. Real deployed CMDT records return the EntityDefinition/FieldDefinition durable Id in
+	 * `Field__c`, so the qualified name has to be built from the related SObjectType__r and Field__r
+	 * QualifiedApiName fields. Mocked records (TST_Builder) put the qualified text straight into
+	 * `Field__c`, so the fallback to the relationship fields handles both shapes without extra test code.
 	 *
 	 * @param target The target whose field path to resolve
 	 *
@@ -543,29 +567,29 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Picks the masking targets that apply to a single field on an SObjectType,
-	 * honoring the specific-beats-wildcard precedence rule. For each (rule, caller-class)
-	 * combination:
+	 * @description Picks the masking targets that apply to one field on an SObjectType. A target
+	 * that names the field wins over a wildcard target. For each (rule, caller class) pair:
 	 *
-	 * - if a target exists with a specific `Field__c` equal to the current field, it wins
-	 * - otherwise if a target exists with blank `Field__c` (wildcard), it applies — unless the field
-	 *   is a unique key or an external id, which wildcards never touch on any path (the same
-	 *   `isIdentifierField` rule the record-path expansion applies), so a preview or sample through
-	 *   this path can never claim a masking the record path refuses
-	 * - otherwise the rule does not fire on this field
+	 * - if a target names the current field in `Field__c`, it wins
+	 * - otherwise, if a target has a blank `Field__c` (a wildcard), it applies, unless the field
+	 *   is a unique key, an external id, or a field the framework needs to keep its own data correct.
+	 *   Wildcards never touch those on any path (the same `isExcludedFromWildcard` rule used when
+	 *   masking a whole record), so a preview or sample through this path can never show masking that
+	 *   record masking refuses
+	 * - otherwise the rule does not run on this field
 	 *
-	 * Targets whose caller scope does not match or whose rule has been invalidated this
-	 * transaction are skipped first.
+	 * Targets whose caller does not match, or whose rule has failed and been turned off in this
+	 * transaction, are skipped first.
 	 *
 	 * @param sObjectType The target SObjectType
 	 * @param qualifiedFieldName The `Object.Field` qualified name for the field being masked
 	 * @param callerClassName Optional caller-class scope passed by the invoker, may be blank
 	 *
-	 * @return The subset of active targets that should fire on this field, preserving rule-order from the source list
+	 * @return The active targets that should run on this field, in the rule order of the source list
 	 */
 	private static List<MaskingTarget__mdt> selectApplicableTargets(SObjectType sObjectType, String qualifiedFieldName, String callerClassName)
 	{
-		Boolean identifierField = isIdentifierQualifiedField(sObjectType, qualifiedFieldName);
+		Boolean excludedField = isExcludedQualifiedField(sObjectType, qualifiedFieldName);
 		List<MaskingTarget__mdt> inScopeTargets = new List<MaskingTarget__mdt>();
 		Map<MaskingTarget__mdt, String> resolvedFieldByTarget = new Map<MaskingTarget__mdt, String>();
 
@@ -583,7 +607,7 @@ public inherited sharing class UTIL_FrameworkMasker
 			String resolvedField = resolveQualifiedFieldName(target);
 			resolvedFieldByTarget.put(target, resolvedField);
 
-			if((String.isBlank(resolvedField) && !identifierField) || resolvedField == qualifiedFieldName)
+			if((String.isBlank(resolvedField) && !excludedField) || resolvedField == qualifiedFieldName)
 			{
 				inScopeTargets.add(target);
 			}
@@ -614,12 +638,12 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Composite key of `ruleDeveloperName|callerClass` used to determine when a
-	 * specific-field target should shadow a wildcard target.
+	 * @description Combined `ruleDeveloperName|callerClass` key, used to decide when a target that
+	 * names a field takes precedence over a wildcard target.
 	 *
 	 * @param target The target to key
 	 *
-	 * @return The composite key string
+	 * @return The combined key
 	 */
 	private static String ruleAndCallerKey(MaskingTarget__mdt target)
 	{
@@ -630,8 +654,8 @@ public inherited sharing class UTIL_FrameworkMasker
 
 	/**
 	 * @description Checks whether a MaskingTarget's CallerClass scope matches the caller-class
-	 * hint supplied by the invoker. Blank scope matches any caller; a set scope matches only
-	 * when the invoker supplied that exact class name.
+	 * name given by the caller. Blank scope matches any caller; a set scope matches only
+	 * when the caller gave that exact class name.
 	 *
 	 * @param target The target whose CallerClass__c to check
 	 * @param callerClass The caller class name supplied by the invoker, or null for unscoped calls
@@ -648,10 +672,10 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Reports whether a rule's `ApplicableFieldTypes__c` filter admits a given Apex
-	 * DisplayType. Rules with a blank CSV apply to every text-shaped field (original behaviour).
-	 * Rules with a populated CSV apply only to fields whose `DisplayType.name()` appears in the
-	 * semicolon-delimited list (case-insensitive, whitespace-trimmed).
+	 * @description Reports whether a rule's `ApplicableFieldTypes__c` filter allows a given Apex
+	 * DisplayType. A rule with a blank list applies to every text field (the original behaviour). A
+	 * rule with a list applies only to fields whose `DisplayType.name()` is in the semicolon-separated
+	 * list (case does not matter, and spaces around each value are ignored).
 	 *
 	 * @param target The target whose rule's filter to consult
 	 * @param fieldType The Apex DisplayType of the candidate field
@@ -665,11 +689,10 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Returns the six text-shaped DisplayTypes keyed by their uppercase name.
-	 * Built on first call, cached for the rest of the transaction. Used by
-	 * `parseApplicableFieldTypes` to convert incoming CSV tokens to `DisplayType` enum
-	 * values so the runtime comparison in `ruleAppliesToFieldType` can use enum equality
-	 * rather than string equality.
+	 * @description Returns the six text DisplayTypes keyed by their upper-case name. Built on the first
+	 * call and cached for the rest of the transaction. Used by `parseApplicableFieldTypes` to turn each
+	 * value in the list into a `DisplayType` enum value, so `ruleAppliesToFieldType` can compare enums
+	 * instead of strings.
 	 *
 	 * @return Map from `DisplayType.name()` to the `DisplayType` enum value
 	 */
@@ -691,12 +714,11 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Per-transaction cache of parsed `ApplicableFieldTypes__c` sets keyed by
-	 * raw CSV string. Ensures split + trim + uppercase + enum resolution runs exactly once
-	 * per distinct CSV value per transaction. Bulk triggers on wildcard targets fan the same
-	 * CSV across every text-shaped field on every record — without this cache the same CSV
-	 * is parsed N-fields × M-records times per DML. Identical CSVs across different rules
-	 * share the cached Set.
+	 * @description Cache, for one transaction, of parsed `ApplicableFieldTypes__c` sets, keyed by the
+	 * raw text of the list. Splitting, trimming, upper-casing and turning values into enums then runs
+	 * once per distinct list per transaction. A bulk trigger with wildcard targets checks the same list
+	 * for every text field on every record; without this cache the list would be parsed once per field
+	 * per record on every DML. Rules with the same list share one cached Set.
 	 */
 	@TestVisible
 	private static final Map<String, Set<DisplayType>> cachedAllowedTypesByCsv
@@ -713,10 +735,9 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Developer names of rules whose `ApplicableFieldTypes__c` contained
-	 * unknown DisplayType values. Used to emit the warn log exactly once per rule per
-	 * transaction — bulk triggers iterating the same rule N-records times would otherwise
-	 * flood the log pipeline.
+	 * @description Developer names of rules whose `ApplicableFieldTypes__c` had unknown DisplayType
+	 * values. Used to write the warning log only once per rule per transaction; otherwise a bulk
+	 * trigger that runs the same rule for every record would flood the log.
 	 */
 	@TestVisible
 	private static final Set<String> warnedInvalidApplicableFieldTypeRules
@@ -733,11 +754,11 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Composite keys (`ruleName|qualifiedField`) for specific-field targets dropped
-	 * by the rule-level `ApplicableFieldTypes__c` filter. The target explicitly wired the rule
-	 * to this field but the rule's type filter excludes the field's DisplayType — silent
-	 * skip without this warning. Used to emit the admin-facing misconfiguration warning
-	 * exactly once per rule-field pair per transaction.
+	 * @description Combined keys (`ruleName|qualifiedField`) for targets that name a field but were
+	 * dropped by the rule's `ApplicableFieldTypes__c` filter. The target explicitly links the rule to
+	 * this field, but the rule's type filter does not allow the field's DisplayType; without a warning
+	 * the target would be skipped without notice. Used to write that warning for admins once per rule
+	 * and field pair per transaction.
 	 */
 	@TestVisible
 	private static final Set<String> warnedSpecificFieldTypeMismatches
@@ -754,20 +775,22 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Parses a target's `ApplicableFieldTypes__c` CSV into a Set of
-	 * `DisplayType` enum values. Cached per transaction by raw CSV string — split + trim +
-	 * uppercase + enum resolution runs at most once per distinct CSV value regardless of
-	 * how many targets or fields invoke it.
+	 * @description Parses a target's `ApplicableFieldTypes__c` list into a Set of `DisplayType` enum
+	 * values. Cached per transaction by the raw text of the list: splitting, trimming, upper-casing and
+	 * turning values into enums runs at most once per distinct list, however many targets or fields use
+	 * it.
 	 *
-	 * Unknown tokens (subscriber typos) are dropped from the returned Set and a one-time
-	 * warn log per rule records the issue. If every token is unknown the method returns
-	 * an empty Set — `ruleAppliesToFieldType` treats empty as "apply to every text-shaped
-	 * field", a deliberate secure-by-default fallback so a fully-typed value cannot
-	 * silently disable a rule that is protecting sensitive data.
+	 * Unknown values (subscriber typos) are left out of the returned Set, and one warning log per rule
+	 * records the problem. A target on a log entry or the log event writes no warning: a warning written
+	 * while a log entry is being built would take that entry's fingerprint, stack trace and exception
+	 * type with it. For those targets the masking console's check and test show the mistake instead.
+	 * If every value is unknown, the method returns an empty Set. `ruleAppliesToFieldType` reads an empty
+	 * Set as "apply to every text field". This is a deliberate safe default: a mistyped value can never
+	 * quietly switch off a rule that protects sensitive data.
 	 *
 	 * @param target The target whose rule's CSV to parse
 	 *
-	 * @return A Set of `DisplayType` enum values; empty Set means "apply to every text-shaped field"
+	 * @return A Set of `DisplayType` enum values; an empty Set means "apply to every text field"
 	 */
 	@TestVisible
 	private static Set<DisplayType> parseApplicableFieldTypes(MaskingTarget__mdt target)
@@ -804,7 +827,7 @@ public inherited sharing class UTIL_FrameworkMasker
 			}
 		}
 
-		if(!unknownTokens.isEmpty())
+		if(!unknownTokens.isEmpty() && !isLogEntryTarget(target))
 		{
 			String ruleName = ruleFor(target).DeveloperName;
 			if(!warnedInvalidApplicableFieldTypeRules.contains(ruleName))
@@ -824,15 +847,15 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Filters a list of applicable targets by each target rule's
-	 * `ApplicableFieldTypes__c`, keeping only targets whose rule admits the candidate field's
-	 * DisplayType. Runs once per field per batch-plan build — zero per-record cost. Targets
-	 * whose rule leaves `ApplicableFieldTypes__c` blank pass through unchanged.
+	 * @description Filters a list of applicable targets by each target rule's `ApplicableFieldTypes__c`,
+	 * keeping only the targets whose rule allows the candidate field's DisplayType. Runs once per field
+	 * when a batch plan is built, so it costs nothing per record. Targets whose rule leaves
+	 * `ApplicableFieldTypes__c` blank are kept as they are.
 	 *
 	 * @param targets The applicable targets returned by `selectApplicableTargets`
 	 * @param field The candidate SObjectField whose type the rules are filtered against
 	 *
-	 * @return The subset of targets whose rule admits this field's DisplayType
+	 * @return The targets whose rule allows this field's DisplayType
 	 */
 	private static List<MaskingTarget__mdt> filterTargetsByFieldType(List<MaskingTarget__mdt> targets, SObjectField field)
 	{
@@ -854,11 +877,13 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Emits a one-time warning when the rule-level `ApplicableFieldTypes__c` filter
-	 * drops a target that explicitly wires itself to a specific field (`Field__c` non-blank).
-	 * The admin's explicit wiring would otherwise be silently overridden by the rule-level
-	 * type filter, making misconfiguration invisible. Wildcard targets (`Field__c` blank) are
-	 * expected to be filtered across many field types and do not warn.
+	 * @description Writes a warning once when the rule's `ApplicableFieldTypes__c` filter drops a target
+	 * that explicitly names a field (`Field__c` not blank). Otherwise the rule's type filter would
+	 * quietly override the admin's explicit choice, and the mistake would stay hidden. Wildcard targets
+	 * (`Field__c` blank) are expected to be filtered across many field types and do not warn. A target
+	 * on a log entry or the log event does not warn either: a warning written while a log entry is being
+	 * built would take that entry's fingerprint, stack trace and exception type with it. For those
+	 * targets the masking console's check and test show the mistake instead.
 	 *
 	 * @param target The target being dropped from the applicable set.
 	 * @param fieldDescribe The candidate field's describe result (for the qualified name in the message).
@@ -866,7 +891,7 @@ public inherited sharing class UTIL_FrameworkMasker
 	 */
 	private static void warnSpecificFieldMismatchOnce(MaskingTarget__mdt target, DescribeFieldResult fieldDescribe, DisplayType fieldType)
 	{
-		if(String.isBlank(target.Field__c))
+		if(String.isBlank(target.Field__c) || isLogEntryTarget(target))
 		{
 			return;
 		}
@@ -884,23 +909,28 @@ public inherited sharing class UTIL_FrameworkMasker
 				.warn
 						('MaskingTarget wires rule ' + ruleName + ' to field ' + target.Field__c +
 								' but the rule\'s ApplicableFieldTypes__c = \'' + rule.ApplicableFieldTypes__c +
-								'\' excludes ' + fieldType + ' fields. The rule will not fire on this field — ' +
+								'\' excludes ' + fieldType + ' fields. The rule will not run on this field: ' +
 								'either widen ApplicableFieldTypes__c to include ' + fieldType + ' or remove the target.'
 						)
 				.emitAt(UTIL_FrameworkMasker.class.getName() + '.filterTargetsByFieldType');
 	}
 
 	/**
-	 * @description Records that a rule has thrown and dispatches on its `FailureAction__c`.
-	 * Always invalidates the rule for the rest of the transaction, records the failure on
-	 * the MaskingResult, and emits a warn log unless the target is a LogEntry type (which
-	 * would risk a cross-transaction logging loop). Then acts on the configured action:
-	 * LogAndContinue leaves the value alone, WriteFailureMarker substitutes
-	 * `FAILURE_MARKER`, and BlockDml throws `MaskingBlockedException` so the surrounding
-	 * adapter (usually a trigger guard) aborts the DML.
+	 * @description Records that a rule has thrown, then acts on its `FailureAction__c`. Records the
+	 * failure on the MaskingResult and writes a warning log, unless the target is a LogEntry type (which
+	 * could start a logging loop across transactions). Then applies the configured action:
+	 * LogAndContinue leaves the value alone, WriteFailureMarker writes `FAILURE_MARKER` instead, and
+	 * BlockDml throws `MaskingBlockedException` so the caller around it (usually a trigger guard) stops
+	 * the DML.
+	 *
+	 * Turning a rule off only applies to rules in warning mode. A rule that does not block is turned off
+	 * for the rest of the transaction, so it cannot write the same warning again and again after it has
+	 * failed. A rule set to BlockDml keeps blocking for the whole transaction: every later call that
+	 * meets it throws again, because a rule that stopped working after its first failure would let the
+	 * next masking call save the value without masking it.
 	 *
 	 * @param target The target whose rule threw
-	 * @param result The in-progress MaskingResult (mutated with error metadata)
+	 * @param result The MaskingResult being built (the error details are added to it)
 	 *
 	 * @throws UTIL_Exceptions.MaskingBlockedException when the rule's FailureAction is BlockDml
 	 */
@@ -908,13 +938,17 @@ public inherited sharing class UTIL_FrameworkMasker
 	{
 		MaskingRule__mdt rule = ruleFor(target);
 		String ruleName = rule.DeveloperName;
-		invalidatedRuleDeveloperNames.add(ruleName);
+		String failureAction = rule.FailureAction__c;
+
+		if(failureAction != SEL_MaskingRule.FAILURE_BLOCK_DML)
+		{
+			invalidatedRuleDeveloperNames.add(ruleName);
+		}
+
 		result.hadErrors = true;
 		result.failedRuleDeveloperNames.add(ruleName);
 
 		logRuleFailureWarning(target, ruleName);
-
-		String failureAction = rule.FailureAction__c;
 
 		if(failureAction == SEL_MaskingRule.FAILURE_BLOCK_DML)
 		{
@@ -928,10 +962,10 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Emits a warn log about a failed masking rule unless the target object is
-	 * `LogEntry__c` or `LogEntryEvent__e`. Masking-on-log targets skip the warn because the
-	 * log entry LOG_Builder would publish creates a new LogEntry/Event, which re-enters
-	 * the masker in a later transaction — easy path to an infinite cross-transaction loop.
+	 * @description Writes a warning log about a failed masking rule, unless the target object is
+	 * `LogEntry__c` or `LogEntryEvent__e`. Targets on log objects skip the warning because the log
+	 * entry LOG_Builder would publish creates a new LogEntry or event, which runs the masker again in a
+	 * later transaction. That can easily become an endless loop across transactions.
 	 *
 	 * @param target The target whose rule threw
 	 * @param ruleName The rule's DeveloperName
@@ -943,13 +977,15 @@ public inherited sharing class UTIL_FrameworkMasker
 			return;
 		}
 		LOG_Builder.build()
-				.warn('Masking rule ' + ruleName + ' failed; remaining records this transaction will skip this rule')
+				.warn('Masking rule ' + ruleName + ' failed; a blocking rule keeps blocking and a warn-mode rule is skipped for the rest of the transaction')
 				.emitAt(UTIL_FrameworkMasker.class.getName() + '.handleRuleFailure');
 	}
 
 	/**
-	 * @description Reports whether the target points at a LogEntry-family object. Exposed for
-	 * tests so the log-recursion guard can be asserted without a live LOG_Builder fixture.
+	 * @description Reports whether the target points at a log object (`LogEntry__c` or
+	 * `LogEntryEvent__e`). Every warning this class writes checks this first, because none of them may
+	 * be written while a log entry is being masked. Visible to tests, so the check that stops the
+	 * logging loop can be asserted without setting up LOG_Builder.
 	 *
 	 * @param target The target to inspect
 	 *
@@ -962,8 +998,8 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Applies a single MaskingTarget's rule to a value, dispatching to the
-	 * appropriate UTIL_String helper based on the rule's Mode.
+	 * @description Applies one MaskingTarget's rule to a value, calling the UTIL_String helper that
+	 * matches the rule's Mode.
 	 *
 	 * @param target The target whose rule to apply
 	 * @param value The current value of the field being masked
@@ -1002,30 +1038,28 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Pre-computed plan for masking one SObjectType under one caller scope.
-	 * Holds the resolved fields to mask and each field's rules pre-split into JsonKey vs
-	 * other. Built once per `(sObjectType, callerClassName)` per transaction, then reused
-	 * across every record in a bulk batch.
+	 * @description Plan, worked out in advance, for masking one SObjectType for one caller. Holds the
+	 * fields to mask and each field's rules, already split into JsonKey and other modes. Built once per
+	 * `(sObjectType, callerClassName)` per transaction, then reused for every record in a bulk batch.
 	 */
 	private class BatchPlan
 	{
 		/**
-		 * @description The per-field execution plan entries, one per field that has at
-		 * least one applicable rule.
+		 * @description The plan entries, one for each field that has at least one applicable rule.
 		 */
 		private final List<FieldPlan> fieldPlans = new List<FieldPlan>();
 	}
 
 	/**
-	 * @description Per-field plan: the field token, its API name, and the two
-	 * rule-mode-sorted target buckets. Pre-splitting means `RecordMasker.apply` does
-	 * zero per-record target resolution.
+	 * @description Plan for one field: the field token, its API name, and its targets in two
+	 * lists by rule mode. Because they are split in advance, `RecordMasker.apply` does not look up
+	 * targets for each record.
 	 */
 	private class FieldPlan
 	{
 		/**
-		 * @description The SObjectField token for the field being masked. Used for length
-		 * lookup and as the API-name source when writing the masked value back on the record.
+		 * @description The SObjectField token for the field being masked. Used to look up the field length
+		 * and to get the API name when the masked value is written back to the record.
 		 */
 		private SObjectField field;
 
@@ -1037,14 +1071,14 @@ public inherited sharing class UTIL_FrameworkMasker
 		private String fieldApiName;
 
 		/**
-		 * @description Pre-filtered list of applicable targets whose rule Mode is JsonKey.
-		 * Applied in a single deserialize/serialize pair by `applyJsonKeyBatchStatic`.
+		 * @description Applicable targets whose rule Mode is JsonKey, filtered in advance. Applied with one
+		 * parse and one serialize by `applyJsonKeyBatchStatic`.
 		 */
 		private final List<MaskingTarget__mdt> jsonKeyTargets = new List<MaskingTarget__mdt>();
 
 		/**
-		 * @description Pre-filtered list of applicable targets whose rule Mode is Regex or
-		 * ExactMatch. Applied sequentially by `applySingleTargetStatic`.
+		 * @description Applicable targets, filtered in advance, whose rule Mode is Regex or
+		 * ExactMatch. Applied one after another by `applySingleTargetStatic`.
 		 */
 		private final List<MaskingTarget__mdt> otherTargets = new List<MaskingTarget__mdt>();
 	}
@@ -1073,15 +1107,15 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Builds the BatchPlan for an SObjectType + caller-scope pair. Resolves
-	 * the distinct qualified field set (expanding wildcards via `getUpdateableTextFields`),
-	 * then for each field pre-splits the applicable targets into JsonKey vs other buckets.
-	 * Fields with no applicable targets are dropped from the plan.
+	 * @description Builds the BatchPlan for an SObjectType and caller. Finds the distinct qualified
+	 * fields (turning wildcards into fields through `getUpdateableTextFields`), then for each field
+	 * splits the applicable targets into JsonKey and other lists. Fields with no applicable targets are
+	 * left out of the plan.
 	 *
 	 * @param sObjectType The SObjectType to plan for
 	 * @param callerClassName Optional caller-class scope
 	 *
-	 * @return The freshly-built BatchPlan; may be empty if no targets are configured
+	 * @return The new BatchPlan; may be empty if no targets are configured
 	 */
 	private static BatchPlan buildBatchPlan(SObjectType sObjectType, String callerClassName)
 	{
@@ -1169,16 +1203,16 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Masks one field value using a pre-built FieldPlan. Applies JsonKey rules
-	 * in a single deserialize/serialize pair, then applies remaining rules sequentially.
-	 * Truncates to the field's max length when anything changed. Callers
-	 * (`FieldMasker.mask` and `RecordMasker.applyFieldPlanToRecord`) already skip null/empty
-	 * values before invoking this method.
+	 * @description Masks one field value with a FieldPlan built in advance. Applies the JsonKey rules
+	 * with one parse and one serialize, then applies the other rules one after another. Cuts the value
+	 * to the field's maximum length when anything changed. The callers (`FieldMasker.mask` and
+	 * `RecordMasker.applyFieldPlanToRecord`) already skip null and empty values before they call this
+	 * method.
 	 *
-	 * @param fieldPlan The pre-built field plan
+	 * @param fieldPlan The field plan, built in advance
 	 * @param rawValue The current field value
 	 *
-	 * @return The MaskingResult after all rules fire; `maskedValue` equals input when nothing matched
+	 * @return The MaskingResult after all rules run; `maskedValue` equals input when nothing matched
 	 */
 	private static MaskingResult maskValueWithPlan(FieldPlan fieldPlan, String rawValue)
 	{
@@ -1207,25 +1241,26 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Masks a single value with one specific rule, bypassing the active-target cache so a
-	 * rule with no active MaskingTarget for the field (a dormant rule, or one configured elsewhere) can
-	 * still be previewed. Synthesizes an in-memory MaskingTarget carrying the rule on its `Rule__r`
-	 * child — the fallback `ruleFor` honours when the by-Id cache misses — then runs the rule through
-	 * the standard field-plan execution path, so Mode dispatch, MinInputLength short-circuiting, JsonKey
-	 * batching, and length truncation all behave exactly as they would at masking time. Reads no
-	 * configured targets and performs no DML.
+	 * @description Masks one value with one specific rule, without using the active-target cache, so a
+	 * rule with no active MaskingTarget for the field (an unused rule, or one set up elsewhere) can still
+	 * be previewed. Builds an in-memory MaskingTarget that carries the rule on its `Rule__r` child (the
+	 * fallback `ruleFor` uses when the rule cache has no entry for the Id). It then runs the rule through
+	 * the normal field-plan path, so Mode handling, the MinInputLength check, JsonKey batching and length
+	 * cutting all behave exactly as they would when masking for real. Reads no configured targets and
+	 * performs no DML.
 	 *
 	 * The `rule` must be a top-level record read in the same transaction (for example from
-	 * `SEL_MaskingTarget.getAllRulesById()`): its fields are read from `Rule__r` in-memory with no JSON
-	 * serialization boundary, so the managed-runtime nested-child field-drop does not apply here. Do not
-	 * introduce a serialize/deserialize step on the synthetic target or the rule passed in.
+	 * `SEL_MaskingTarget.getAllRulesById()`). Its fields are read from `Rule__r` in memory, with no JSON
+	 * serialization in between, so the managed-package problem of fields missing from nested child records
+	 * does not apply here. Do not add a serialize or deserialize step on the built target or on the rule
+	 * passed in.
 	 *
 	 * @param field The field whose value is previewed; supplies the length limit for truncation.
-	 * @param rule The fully-populated rule (Mode/Pattern/Replacement/MinInputLength) to apply.
+	 * @param rule The rule with every field filled (Mode/Pattern/Replacement/MinInputLength) to apply.
 	 * @param value The raw value to mask.
 	 *
 	 * @return The MaskingResult; `maskedValue` equals the input when the rule did not match (for example
-	 *         a JsonKey rule against a non-JSON scalar), with `rulesMatched` distinguishing a real no-op.
+	 *         a JsonKey rule against a non-JSON scalar), and `rulesMatched` shows whether the rule really changed nothing.
 	 */
 	public static MaskingResult maskValueAgainstRule(SObjectField field, MaskingRule__mdt rule, String value)
 	{
@@ -1253,14 +1288,13 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Applies every JsonKey rule to the value in a single parse/serialize pair.
-	 * Uses the `mutated` flag and `replacementCount` on `UTIL_String.JsonKeyMaskResult` to detect
-	 * changes instead of serializing before and after each rule — the single most expensive
-	 * per-record operation prior to this optimisation. The final serialize runs only when at
-	 * least one rule mutated the tree.
+	 * @description Applies every JsonKey rule to the value with one parse and one serialize. Uses the
+	 * `mutated` flag and `replacementCount` on `UTIL_String.JsonKeyMaskResult` to see changes, instead of
+	 * serializing before and after each rule (before this change, that was the most expensive step for
+	 * each record). The final serialize runs only when at least one rule changed the parsed JSON.
 	 *
-	 * @param jsonKeyTargets Targets in rule-order whose mode is JsonKey
-	 * @param result The in-progress MaskingResult (mutated as rules fire)
+	 * @param jsonKeyTargets Targets in rule order whose mode is JsonKey
+	 * @param result The MaskingResult being built (changed as rules run)
 	 */
 	private static void applyJsonKeyBatchStatic(List<MaskingTarget__mdt> jsonKeyTargets, MaskingResult result)
 	{
@@ -1325,11 +1359,11 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Applies a single non-JsonKey target (Regex or ExactMatch) to the in-progress
-	 * result. Catches rule exceptions into `hadErrors` / `failedRuleDeveloperNames`.
+	 * @description Applies one target that is not JsonKey (Regex or ExactMatch) to the result being
+	 * built. Catches rule exceptions and records them in `hadErrors` and `failedRuleDeveloperNames`.
 	 *
 	 * @param target The target to apply
-	 * @param result The in-progress MaskingResult (mutated as rules fire)
+	 * @param result The MaskingResult being built (changed as rules run)
 	 */
 	private static void applySingleTargetStatic(MaskingTarget__mdt target, MaskingResult result)
 	{
@@ -1441,7 +1475,7 @@ public inherited sharing class UTIL_FrameworkMasker
 		private String callerClassName;
 
 		/**
-		 * @description Constructs a FieldMasker; do not call directly — use `UTIL_FrameworkMasker.forField()`.
+		 * @description Constructs a FieldMasker. Do not call it directly: use `UTIL_FrameworkMasker.forField()`.
 		 *
 		 * @param targetField The SObjectField being masked
 		 */
@@ -1452,7 +1486,7 @@ public inherited sharing class UTIL_FrameworkMasker
 
 		/**
 		 * @description Scopes the masking to a specific caller class. Rules whose CallerClass
-		 * matches this value or is blank will fire; rules scoped to a different class will not.
+		 * matches this value or is blank will run; rules limited to a different class will not.
 		 *
 		 * @param apexClassName The Apex class name of the caller (e.g. `API_SendEmail`)
 		 *
@@ -1465,10 +1499,9 @@ public inherited sharing class UTIL_FrameworkMasker
 		}
 
 		/**
-		 * @description Terminal: masks the value using every applicable MaskingTarget rule.
-		 * Iterates targets for the field, filters by CallerClass scope, dispatches each rule
-		 * to the appropriate UTIL_String helper, aggregates counts, and truncates the result
-		 * to fit the field's length limit if necessary.
+		 * @description Final call: masks the value with every applicable MaskingTarget rule. Goes through
+		 * the targets for the field, filters them by CallerClass, passes each rule to the matching UTIL_String
+		 * helper, adds up the counts, and cuts the result to the field's length limit when needed.
 		 *
 		 * @param rawValue The raw (unmasked) value
 		 *
@@ -1527,7 +1560,7 @@ public inherited sharing class UTIL_FrameworkMasker
 		private String callerClassName;
 
 		/**
-		 * @description Constructs a RecordMasker; do not call directly — use `UTIL_FrameworkMasker.forRecord()`.
+		 * @description Constructs a RecordMasker. Do not call it directly: use `UTIL_FrameworkMasker.forRecord()`.
 		 *
 		 * @param recordToMask The SObject to mask
 		 */
@@ -1550,11 +1583,10 @@ public inherited sharing class UTIL_FrameworkMasker
 		}
 
 		/**
-		 * @description Terminal: masks every configured text field on the record in place.
-		 * Resolves the distinct set of fields configured via `MaskingTarget__mdt` records for
-		 * the SObjectType, reads the current value of each populated field, delegates to a
-		 * `FieldMasker`, and writes the masked value back on the record. Aggregates match and
-		 * failure counts across every masked field.
+		 * @description Final call: masks every configured text field on the record in place. Finds the
+		 * distinct fields set up through `MaskingTarget__mdt` records for the SObjectType, reads the current
+		 * value of each filled field, passes it to a `FieldMasker`, and writes the masked value back to the
+		 * record. Adds up the match and failure counts across every masked field.
 		 *
 		 * @return A MaskingResult aggregating the effect across all masked fields on the record
 		 *
@@ -1586,11 +1618,10 @@ public inherited sharing class UTIL_FrameworkMasker
 		}
 
 		/**
-		 * @description Reads, masks, and writes back a single configured field on the record
-		 * using a pre-built FieldPlan. Skips null and empty values so unused fields do not
-		 * incur regex or JSON work.
+		 * @description Reads, masks, and writes back one configured field on the record, using a FieldPlan
+		 * built in advance. Skips null and empty values, so unused fields cost no regex or JSON work.
 		 *
-		 * @param fieldPlan The pre-built per-field plan
+		 * @param fieldPlan The plan for this field, built in advance
 		 * @param aggregate The record-level MaskingResult being built up as fields are processed
 		 */
 		private void applyFieldPlanToRecord(FieldPlan fieldPlan, MaskingResult aggregate)
@@ -1648,7 +1679,7 @@ public inherited sharing class UTIL_FrameworkMasker
 		private String callerClassName;
 
 		/**
-		 * @description Constructs a BulkRecordMasker; do not call directly — use `UTIL_FrameworkMasker.forRecords()`.
+		 * @description Constructs a BulkRecordMasker. Do not call it directly: use `UTIL_FrameworkMasker.forRecords()`.
 		 *
 		 * @param recordsToMask The SObjects to mask
 		 */
@@ -1671,9 +1702,9 @@ public inherited sharing class UTIL_FrameworkMasker
 		}
 
 		/**
-		 * @description Terminal: masks every configured text field on every record in place.
-		 * Delegates per-record to `RecordMasker.apply`, so `MaskingBlockedException` from any
-		 * record halts the batch immediately (fast exit).
+		 * @description Final call: masks every configured text field on every record in place. Calls
+		 * `RecordMasker.apply` for each record, so a `MaskingBlockedException` from any record stops the
+		 * batch at once.
 		 *
 		 * @return One MaskingResult per input record, in order; empty list if the input was null
 		 *
@@ -1700,8 +1731,8 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Diagnostic result returned by every masking terminal. Holds the masked
-	 * value plus audit metadata aggregated across all rules that fired on the value/record.
+	 * @description Result returned by every final masking call. Holds the masked value plus audit
+	 * details added up across all rules that ran on the value or record.
 	 */
 	public class MaskingResult
 	{

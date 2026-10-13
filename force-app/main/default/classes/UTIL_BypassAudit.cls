@@ -1,23 +1,25 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Framework-wide bypass audit emission helper. Centralises the structured
- * `LogEntryEvent__e` write that records every state-changing bypass call across the
- * trigger, query, DML, and validation surfaces into a single shape so admins can
- * forensically answer "who bypassed which framework mechanism, when, and why?" by
- * querying `SEL_LogEntry` for entries with context `category = 'BypassEvent'`.
+ * @description Writes an audit entry each time code turns a framework bypass on or off. A bypass switches off one
+ * framework check: a trigger, query sharing or security, a DML security mode, or a validation rule. A trigger or
+ * validation-rule bypass lasts until it is cleared. A query or DML bypass (sharing or a security mode) applies only
+ * to the one builder that sets it. The parts of the framework that offer a bypass are called surfaces: trigger, query, DML and
+ * validation. Every audit entry is a `LogEntryEvent__e` with the same shape, so an admin can answer "who bypassed
+ * which framework check, when, and why?" by querying `SEL_LogEntry` for entries whose context has
+ * `category = 'BypassEvent'`.
  *
  * Audit entries record:
- * - `category` — always `BypassEvent`
- * - `surface` — `query` / `dml` / `validation` / `trigger-object` / `trigger-action`
- * - `action` — `BYPASS` / `CLEAR` / `CLEAR_ALL`
- * - `target` — object API name, identifier, or `ALL`; query/DML entries qualify the bypassed
- *   mode with the touched object (`sharing:Account`) and add `object`/`operation`/`rowCount`
- *   context describing what ran under the bypass
- * - `reason` — optional transaction-scoped string set via `setBypassReason`
+ * - `category`: always `BypassEvent`
+ * - `surface`: `query` / `dml` / `validation` / `trigger-object` / `trigger-action`
+ * - `action`: `BYPASS` / `CLEAR` / `CLEAR_ALL`
+ * - `target`: object API name, identifier, or `ALL`. Query and DML entries add the touched object to the bypassed
+ *   mode (`sharing:Account`), and add `object`, `operation` and `rowCount` context that describes what ran under
+ *   the bypass
+ * - `reason`: an optional text for the whole transaction, set with `setBypassReason`
  *
- * Emission is gated on the `BypassAudit_Enabled` `FeatureFlag__mdt` record, which is
- * default-on. Subscribers can disable via a `FeatureFlagStrategy__mdt` override when
- * the audit volume is too noisy for an environment.
+ * Entries are written only while the `BypassAudit_Enabled` `FeatureFlag__mdt` record is on. It is on by default.
+ * A subscriber can switch it off with a `FeatureFlagStrategy__mdt` override when an environment writes too many
+ * audit entries.
  *
  * @see TRG_Base
  * @see QRY_Builder
@@ -29,7 +31,7 @@
  *
  * @group Security
  *
- * @date May 2026, August 2026
+ * @date May 2026, October 2026
  *
  * @since 1.0
  *
@@ -66,21 +68,21 @@ public inherited sharing class UTIL_BypassAudit
 	private static final String CONTEXT_TARGET = 'target';
 
 	/**
-	 * @description Context key recording the optional reason latched via `setBypassReason`.
+	 * @description Context key recording the optional reason set with `setBypassReason`.
 	 */
 	@TestVisible
 	private static final String CONTEXT_REASON = 'reason';
 
 	/**
-	 * @description Context key recording the audit category for forensic filtering.
+	 * @description Context key recording the audit category, so audit entries can be filtered.
 	 */
 	@TestVisible
 	private static final String CONTEXT_CATEGORY = 'category';
 
 	/**
 	 * @description Context key recording the resolved caller (`Class.method`) that performed the
-	 * bypass. Mirrors the value written to `ClassMethod__c` so forensic queries that parse
-	 * `ContextData__c` can read the caller without a separate field projection.
+	 * bypass. It holds the same value as `ClassMethod__c`, so a query that reads `ContextData__c`
+	 * can find the caller without also reading that field.
 	 */
 	@TestVisible
 	private static final String CONTEXT_CALLER = 'caller';
@@ -94,37 +96,37 @@ public inherited sharing class UTIL_BypassAudit
 
 	/**
 	 * @description Context key recording the operation verbs (`query`, `insert`, `update`,
-	 * `upsert`, `delete`, `undelete` — comma-joined when one builder ran several) performed
+	 * `upsert`, `delete`, `undelete`; joined with commas when one builder ran several) performed
 	 * under the bypass for the entry's object.
 	 */
 	@TestVisible
 	private static final String CONTEXT_OPERATION = 'operation';
 
 	/**
-	 * @description Context key recording how many rows were submitted for the entry's object
-	 * under the bypass — counted at terminal time, before the DML runs, so a failed or partially
-	 * failed transaction still audits its submitted count. Always `0` on the query surface —
-	 * result-set sizes are deliberately not threaded into the audit. Context-only: per-occurrence
-	 * data such as row counts never joins the fingerprint identity tuple, or flood control would
-	 * stop collapsing repeats.
+	 * @description Context key recording how many rows were submitted for the entry's object under the bypass. The
+	 * count is taken when the builder runs, before the DML itself, so a transaction that fails in whole or in part
+	 * still audits the rows it submitted. The query surface always records `0`: the audit does not record how many
+	 * rows a query returned. The count is context only. It is never part of the fingerprint (the values that
+	 * decide whether two log entries are the same problem), because a value that changes on every call would stop
+	 * flood control from grouping repeats.
 	 */
 	@TestVisible
 	private static final String CONTEXT_ROW_COUNT = 'rowCount';
 
 	/**
-	 * @description Context key flagging a trigger-action bypass audit entry whose target matched
-	 * no registered `TriggerAction__mdt` row at call time — the call compiles and audits, but the
-	 * bypass never takes effect (typo or wrong namespace form). Emission never throws or blocks:
-	 * bypassing a not-yet-deployed or unresolvable action is a legitimate incident-mitigation
-	 * path; the flag restores audit-trail honesty instead of pretending the action was disabled.
-	 * Public (not `@TestVisible`) because `TRG_Base.logBypassEvent` attaches it cross-class.
+	 * @description Context key flagging a trigger-action bypass audit entry whose target matched no registered
+	 * `TriggerAction__mdt` row when the bypass was called. The call still compiles and is audited, but the bypass
+	 * never takes effect (a typo, or the wrong namespace form). Writing the entry never throws and never blocks:
+	 * bypassing an action that is not deployed yet, or cannot be found, is a legitimate way to stop an incident.
+	 * The flag keeps the audit trail honest instead of claiming the action was switched off. Public (not
+	 * `@TestVisible`) because `TRG_Base.logBypassEvent`, in another class, attaches it.
 	 */
 	public static final String CONTEXT_UNMATCHED_TARGET = 'unmatchedTarget';
 
 	/**
-	 * @description Operation verb recorded by the query surface when a terminal flushes its
-	 * audit queue. The DML surface derives its verbs (`insert`, `update`, …) from its
-	 * `DatabaseOperation` enum instead of constants here.
+	 * @description Operation verb recorded by the query surface when a query runs and writes its
+	 * queued audit entries. The DML surface takes its verbs (`insert`, `update`, and so on) from
+	 * its `DatabaseOperation` enum instead of constants here.
 	 */
 	public static final String OPERATION_QUERY = 'query';
 
@@ -169,36 +171,38 @@ public inherited sharing class UTIL_BypassAudit
 	public static final String SURFACE_VALIDATION = 'validation';
 
 	/**
-	 * @description Surface identifier used when a transaction-scoped bypass reason latch is cleared.
-	 * Emitted from `setBypassReason(null)` so the forensic trail records who dropped a latched
-	 * reason and when, mirroring the CLEAR audit shape used by the other surfaces.
+	 * @description Surface identifier used when the bypass reason set for the transaction is cleared.
+	 * Written by `setBypassReason(null)`, so the audit trail records who removed the reason and when,
+	 * in the same `CLEAR` shape the other surfaces use.
 	 */
 	public static final String SURFACE_REASON_LATCH = 'reason-latch';
 
 	/**
-	 * @description Sentinel target recorded for `CLEAR_ALL` actions.
+	 * @description Fixed target value recorded for `CLEAR_ALL` actions.
 	 */
 	public static final String TARGET_ALL = 'ALL';
 
 	/**
-	 * @description Mode component of the audit target recorded when a builder switches between
-	 * sharing-enforced and sharing-bypassed execution. Builder terminals qualify it with the
-	 * touched object (`sharing:Account`); it is the full target only in the legacy no-footprint
-	 * fallback.
+	 * @description Mode part of the audit target recorded when a builder switches between
+	 * sharing-enforced and sharing-bypassed execution. When the builder runs, the touched object is
+	 * added to it (`sharing:Account`). It stands alone only in the older fallback shape, used when
+	 * the builder recorded no operation.
 	 */
 	private static final String TARGET_SHARING = 'sharing';
 
 	/**
-	 * @description Mode component of the audit target recorded when a builder opts out of
-	 * `USER_MODE` enforcement. Qualified with the touched object at builder terminals
-	 * (`system-mode:Account`); bare only in the legacy no-footprint fallback.
+	 * @description Mode part of the audit target recorded when a builder opts out of
+	 * `USER_MODE` enforcement. When the builder runs, the touched object is added to it
+	 * (`system-mode:Account`). It stands alone only in the older fallback shape, used when the
+	 * builder recorded no operation.
 	 */
 	private static final String TARGET_SYSTEM_MODE = 'system-mode';
 
 	/**
-	 * @description Mode component of the audit target recorded when a builder resets every
-	 * security mode flag. Qualified with the touched object at builder terminals
-	 * (`security-mode:Account`); bare only in the legacy no-footprint fallback.
+	 * @description Mode part of the audit target recorded when a builder resets every
+	 * security mode flag. When the builder runs, the touched object is added to it
+	 * (`security-mode:Account`). It stands alone only in the older fallback shape, used when the
+	 * builder recorded no operation.
 	 */
 	private static final String TARGET_SECURITY_MODE = 'security-mode';
 
@@ -224,26 +228,26 @@ public inherited sharing class UTIL_BypassAudit
 	public static final String TARGET_PREFIX_RULE = 'rule:';
 
 	/**
-	 * @description Developer name of the framework feature flag that gates bypass audit
-	 * emission. Default-on so audit entries flow without configuration; subscribers can
-	 * disable in noisy environments via a `FeatureFlagStrategy__mdt` override on the
+	 * @description Developer name of the framework feature flag that switches bypass audit entries
+	 * on or off. It is on by default, so audit entries are written without any setup. A subscriber
+	 * can switch it off in a noisy environment with a `FeatureFlagStrategy__mdt` override on the
 	 * `BypassAudit_Enabled` `FeatureFlag__mdt` record.
 	 */
 	private static final String FLAG_BYPASS_AUDIT_ENABLED = 'BypassAudit_Enabled';
 
 	/**
-	 * @description Caller recorded when no non-framework stack frame can be identified for an audit
-	 * entry. Mirrors the audit helper's own emit method, preserving the pre-enrichment
-	 * `ClassMethod__c` value as a fallback.
+	 * @description Caller recorded when no stack frame outside the framework can be found for an
+	 * audit entry. It names this class's own emit method, which is what `ClassMethod__c` held
+	 * before the real caller was looked up, and stays as the fallback.
 	 */
 	private static final String DEFAULT_CALLER = UTIL_BypassAudit.class.getName() + '.emit';
 
 	/**
-	 * @description Names of the bypass-audit plumbing and the framework surfaces that call `emit` —
-	 * skipped by `UTIL_System` when resolving the external caller so the resolved caller is the
-	 * subscriber that invoked a surface, not the framework surface itself. This matters in an
-	 * unmanaged org (where frames are not namespace-qualified); in a managed install the namespace
-	 * skip covers these frames already. Derived from `class.getName()` so renames stay correct.
+	 * @description Names of the bypass audit classes and of the framework surfaces that call `emit`.
+	 * `UTIL_System` skips these when it looks for the external caller, so the recorded caller is the
+	 * subscriber code that used a surface, not the framework surface itself. This matters in an
+	 * unmanaged org, where frames do not carry a namespace. In a managed install the namespace check
+	 * already skips these frames. Built from `class.getName()`, so a renamed class stays correct.
 	 * Direct-`emit` callers (`UTIL_ValidationRule`, `TRG_Base`) and the builders whose `AuditQueue`
 	 * flush emits (`DML_Builder`, `QRY_Builder`) are listed; framework code that itself calls those
 	 * builders (e.g. `UTIL_Sharing`) resolves to that intermediary in an unmanaged org, and to the
@@ -266,10 +270,10 @@ public inherited sharing class UTIL_BypassAudit
 	private static String bypassReason;
 
 	/**
-	 * @description Returns the latched transaction-scoped bypass reason, or `null` when
-	 * no reason has been set.
+	 * @description Returns the bypass reason set for this transaction, or `null` when no reason
+	 * has been set.
 	 *
-	 * @return The latched reason, or `null`.
+	 * @return The reason, or `null`.
 	 */
 	public static String getBypassReason()
 	{
@@ -277,11 +281,11 @@ public inherited sharing class UTIL_BypassAudit
 	}
 
 	/**
-	 * @description Latches a transaction-scoped reason that is attached to every subsequent
-	 * bypass audit log entry. Pass `null` or empty to clear. When clearing a previously-latched
-	 * reason, emits a `reason-latch` `CLEAR` audit entry so the forensic trail records who
-	 * dropped the latch and when. Setting a new reason is unaudited because the reason flows
-	 * into every downstream bypass audit emission already.
+	 * @description Sets a reason for the rest of the transaction. The reason is attached to every
+	 * bypass audit entry written after it. Pass `null` or empty to clear it. Clearing a reason that
+	 * was set writes a `CLEAR` audit entry on the `SURFACE_REASON_LATCH` surface, so the audit
+	 * trail records who removed it and when. Setting a new reason is not audited, because the
+	 * reason already appears on every later bypass audit entry.
 	 *
 	 * @param reason The reason string to record, or `null` to clear.
 	 *
@@ -305,28 +309,30 @@ public inherited sharing class UTIL_BypassAudit
 
 	/**
 	 * @description Emits a structured `LogEntryEvent__e` for a bypass state change. Every
-	 * mutating bypass call across the framework should invoke this helper so admins can
-	 * filter `SEL_LogEntry` by context `category = 'BypassEvent'` for forensic review.
+	 * bypass call that changes state, anywhere in the framework, should call this helper, so admins
+	 * can filter `SEL_LogEntry` by context `category = 'BypassEvent'` to review what happened.
 	 *
-	 * Returns silently without emitting when the `BypassAudit_Enabled` `FeatureFlag__mdt` record
-	 * resolves to `false`. Subscribers can disable runtime emission in noisy environments via
-	 * `FeatureFlagStrategy__mdt` without redeploying source.
+	 * Returns without writing anything when the `BypassAudit_Enabled` `FeatureFlag__mdt` record
+	 * is off. A subscriber can switch it off in a noisy environment with a `FeatureFlagStrategy__mdt`
+	 * override, without deploying code.
 	 *
-	 * Records the resolved caller (the first non-framework stack frame, via `UTIL_System`) in both
-	 * `ClassMethod__c` and the `caller` context key, so the provenance column names the code that
-	 * performed the bypass rather than this helper. `ShortMessage__c` carries a concise
-	 * `action target (surface)` summary while `Message__c` keeps the fuller human-readable detail
-	 * including the caller. The surface is part of the summary because it is part of the
-	 * fingerprint: the same action on the same target audited from two surfaces — a clear-all that
-	 * empties both trigger bypass lists, say — persists as two grouped problems, and without the
-	 * surface those two rows read identically and the grouping looks broken. The one surface whose
-	 * target IS the surface (the reason latch) skips the qualifier — `CLEAR reason-latch
-	 * (reason-latch)` would say the same thing twice.
+	 * Records the resolved caller (the first stack frame outside the framework, found by `UTIL_System`)
+	 * in both `ClassMethod__c` and the `caller` context key, so that column names the code that
+	 * performed the bypass and not this helper. `ShortMessage__c` holds a short
+	 * `action target (surface)` summary, and `Message__c` keeps the longer readable detail,
+	 * including the caller. The surface is in the summary because it is part of the fingerprint
+	 * (the values that decide whether two entries are the same problem). The same action on the
+	 * same target, audited from two surfaces, is saved as two grouped problems: for example, a
+	 * clear-all that empties both trigger bypass lists. Without the surface those two rows would
+	 * read the same, and the grouping would look broken. The one surface whose target is the surface
+	 * itself (the bypass reason, `SURFACE_REASON_LATCH`) leaves the surface out of the summary,
+	 * because the summary would then name the same surface twice.
 	 *
-	 * Audit entries are emitted through `LOG_Builder.LogEntry.emitAsAudit()` so they accumulate
-	 * in `LOG_Engine.auditLogBuffer` rather than the application log buffer — test assertions
-	 * that count `LOG_Engine.getBufferSize()` or `LogEntry__c` rows are not contaminated by
-	 * audit emissions and the `emit→deliver→persist→emit` cascade has no fixpoint to land in.
+	 * Audit entries are emitted through `LOG_Builder.LogEntry.emitAsAudit()`, so they collect in
+	 * `LOG_Engine.auditLogBuffer` and not in the application log buffer. Tests that count
+	 * `LOG_Engine.getBufferSize()` or `LogEntry__c` rows therefore do not see audit entries. It also
+	 * stops a loop: delivering and saving a log entry can never emit another audit entry that would
+	 * then be delivered and saved in turn.
 	 *
 	 * @param surface The surface that was bypassed (use the `SURFACE_*` constants where possible).
 	 * @param action The bypass action (`ACTION_BYPASS` / `ACTION_CLEAR` / `ACTION_CLEAR_ALL`).
@@ -377,28 +383,27 @@ public inherited sharing class UTIL_BypassAudit
 	}
 
 	/**
-	 * @description Setter-time queue + terminal-time flush helper for the query and DML
-	 * bypass surfaces. Each builder instance holds one queue keyed to its surface constant;
-	 * setter calls (`bypassSharing` / `withSystemMode` / `withoutSecurity`) enqueue their
-	 * target string here, terminals call `recordOperation` with the object/verb/row-count
-	 * footprint of the operations submitted under the builder's bypasses, and the first
-	 * executing terminal calls `flush()`.
+	 * @description Collects the bypass audit entries of the query and DML surfaces and writes them
+	 * when the builder runs. Each builder holds one queue for its surface constant. A bypass setter
+	 * (`bypassSharing` / `withSystemMode` / `withoutSecurity`) adds its target string here. A
+	 * terminal method (the builder call that runs the query or the DML) calls `recordOperation` with
+	 * the object, verb and row count of each operation submitted under the builder's bypasses. The
+	 * first terminal method that runs calls `flush()`.
 	 *
-	 * `flush()` emits one `BYPASS` audit entry per queued target **per touched object**, with
-	 * the object-qualified target (`sharing:Account`) mirroring the validation surface's
-	 * `object:` prefix pattern — so distinct objects on the same bypass call site carry
-	 * distinct fingerprints and a novel object surfaces as a fresh detail row instead of a
-	 * silent count bump. Each entry's context records the object, the operation verbs, and
-	 * (for DML) the submitted row count. When no operation footprint was recorded by flush
-	 * time — a queue flushed outside a builder terminal, or a terminal with no concrete
-	 * records registered — the entry keeps the legacy bare-target shape.
+	 * `flush()` emits one `BYPASS` audit entry per queued target **per touched object**. The target
+	 * names the object (`sharing:Account`), like the `object:` prefix of the validation surface. So
+	 * different objects on the same bypass call site get different fingerprints, and a new object
+	 * shows as a new detail row instead of only raising a count. Each entry's context records the
+	 * object, the operation verbs, and (for DML) the submitted row count. When no operation was
+	 * recorded by the time of the flush (a queue flushed outside a terminal method, or a terminal
+	 * method with no records registered), the entry keeps the older bare-target shape.
 	 *
-	 * Idempotent — subsequent flushes on the same instance are no-ops, so a builder that runs
-	 * `count()` followed by `toList()` produces a single audit entry per target rather than
-	 * two. A builder that is created and dropped without ever executing emits nothing because
-	 * `flush()` is the only emission path.
+	 * Safe to call more than once: later flushes on the same instance do nothing. A builder that runs
+	 * `count()` and then `toList()` produces one audit entry per target, not two. A builder that is
+	 * created and dropped without ever running writes nothing, because `flush()` is the only path
+	 * that writes.
 	 *
-	 * Framework-internal — `public` (not `global`) so subscribers cannot bind to the type.
+	 * Framework-internal: `public` (not `global`) so subscribers cannot bind to the type.
 	 *
 	 * @see QRY_Builder
 	 * @see DML_Builder
@@ -412,8 +417,8 @@ public inherited sharing class UTIL_BypassAudit
 		private final String surface;
 
 		/**
-		 * @description Lazily-allocated set of audit target strings queued for emission. The
-		 * `Set<String>` shape de-dupes repeated bypass calls within a single builder lifecycle.
+		 * @description Set of audit target strings queued for emission, created on first use. Because
+		 * it is a `Set<String>`, a bypass called twice in one builder's life is queued once.
 		 */
 		@TestVisible
 		private final Set<String> targets
@@ -430,9 +435,10 @@ public inherited sharing class UTIL_BypassAudit
 		}
 
 		/**
-		 * @description Lazily-allocated per-object operation footprints, keyed by SObject API
-		 * name. Terminals feed this via `recordOperation`; `flush()` fans each queued target
-		 * out across these keys to form the object-qualified targets and operation context.
+		 * @description Operation footprints (object, verbs, row count) for each object, keyed by SObject
+		 * API name and created on first use. Terminal methods fill it through `recordOperation`.
+		 * `flush()` combines each queued target with each of these keys to build the object-qualified
+		 * targets and the operation context.
 		 */
 		private final Map<String, OperationFootprint> footprintsByObject
 		{
@@ -448,8 +454,8 @@ public inherited sharing class UTIL_BypassAudit
 		}
 
 		/**
-		 * @description Idempotent-flush latch. Set to `true` on the first `flush()` call so
-		 * subsequent flushes from terminals running on the same builder skip emission.
+		 * @description Set to `true` on the first `flush()` call, so later flushes from terminal methods
+		 * on the same builder write nothing.
 		 */
 		@TestVisible
 		private Boolean flushed = false;
@@ -467,11 +473,10 @@ public inherited sharing class UTIL_BypassAudit
 		}
 
 		/**
-		 * @description Records the intent to emit `BYPASS` audit entries whose targets are
-		 * qualified from `TARGET_SHARING` (a `withSharing()`/`bypassSharing()` mutation) when
-		 * `flush()` next runs — `sharing:Account` per touched object, or bare `sharing` in the
-		 * legacy no-footprint fallback. Duplicate calls within the same queue are silently
-		 * de-duped.
+		 * @description Records that `BYPASS` audit entries must be written, with targets built from
+		 * `TARGET_SHARING` (a `withSharing()` or `bypassSharing()` change), when `flush()` next runs:
+		 * `sharing:Account` for each touched object, or a bare `sharing` in the older fallback shape used
+		 * when no operation was recorded. A second call on the same queue is ignored.
 		 */
 		public void queueSharing()
 		{
@@ -479,11 +484,11 @@ public inherited sharing class UTIL_BypassAudit
 		}
 
 		/**
-		 * @description Records the intent to emit `BYPASS` audit entries whose targets are
-		 * qualified from `TARGET_SYSTEM_MODE` (a `withSystemMode()` opt-out from `USER_MODE`
-		 * enforcement) when `flush()` next runs — `system-mode:Account` per touched object, or
-		 * bare in the legacy no-footprint fallback. Duplicate calls within the same queue are
-		 * silently de-duped.
+		 * @description Records that `BYPASS` audit entries must be written, with targets built from
+		 * `TARGET_SYSTEM_MODE` (a `withSystemMode()` opt-out from `USER_MODE` enforcement), when
+		 * `flush()` next runs: `system-mode:Account` for each touched object, or a bare target in the
+		 * older fallback shape used when no operation was recorded. A second call on the same queue is
+		 * ignored.
 		 */
 		public void queueSystemMode()
 		{
@@ -491,11 +496,11 @@ public inherited sharing class UTIL_BypassAudit
 		}
 
 		/**
-		 * @description Records the intent to emit `BYPASS` audit entries whose targets are
-		 * qualified from `TARGET_SECURITY_MODE` (a `withoutSecurity()` reset of every security
-		 * mode flag) when `flush()` next runs — `security-mode:Account` per touched object, or
-		 * bare in the legacy no-footprint fallback. Duplicate calls within the same queue are
-		 * silently de-duped.
+		 * @description Records that `BYPASS` audit entries must be written, with targets built from
+		 * `TARGET_SECURITY_MODE` (a `withoutSecurity()` reset of every security mode flag), when
+		 * `flush()` next runs: `security-mode:Account` for each touched object, or a bare target in the
+		 * older fallback shape used when no operation was recorded. A second call on the same queue is
+		 * ignored.
 		 */
 		public void queueSecurityMode()
 		{
@@ -503,16 +508,16 @@ public inherited sharing class UTIL_BypassAudit
 		}
 
 		/**
-		 * @description Records the object/verb/row-count footprint of an operation that ran (or
-		 * is about to run) under this builder's bypasses. Terminals call this immediately before
-		 * `flush()`; repeated verbs for the same object de-dupe, row counts accumulate. No-ops
-		 * when nothing can ever emit — no bypass target queued, or the flush latch already fired
-		 * — so the no-bypass hot path pays no accumulation cost.
+		 * @description Records the object, verb and row count of an operation that ran (or is about to
+		 * run) under this builder's bypasses. Terminal methods call this just before `flush()`. A verb
+		 * repeated for the same object is stored once; row counts add up. Does nothing when nothing can
+		 * ever be written (no bypass target is queued, or the queue was already flushed), so code that
+		 * uses no bypass pays no extra cost.
 		 *
 		 * @param objectApiName The SObject API name the operation touched.
 		 * @param operation The operation verb (`OPERATION_QUERY`, or a DML verb such as `insert`).
-		 * @param rows The number of rows submitted, or `null` on the query surface (counts as 0 —
-		 *             result-set sizes are deliberately not threaded into the audit).
+		 * @param rows The number of rows submitted, or `null` on the query surface (counted as 0,
+		 *             because the audit does not record how many rows a query returned).
 		 */
 		public void recordOperation(String objectApiName, String operation, Integer rows)
 		{
@@ -531,10 +536,9 @@ public inherited sharing class UTIL_BypassAudit
 		}
 
 		/**
-		 * @description Whether a `flush()` on this queue can still emit: at least one bypass
-		 * target is queued and the idempotent-flush latch has not fired. Builder terminals
-		 * consult this before walking their registered operations so the no-bypass hot path
-		 * skips footprint accumulation entirely.
+		 * @description Whether a `flush()` on this queue can still write anything: at least one bypass
+		 * target is queued and the queue has not been flushed yet. Terminal methods check this before
+		 * they walk their registered operations, so code that uses no bypass skips that work.
 		 *
 		 * @return `true` when an unflushed queue holds at least one target.
 		 */
@@ -544,12 +548,11 @@ public inherited sharing class UTIL_BypassAudit
 		}
 
 		/**
-		 * @description Emits the queued `BYPASS` audit entries via `UTIL_BypassAudit.emit`, then
-		 * latches the idempotent-flush flag so subsequent calls on this instance are no-ops.
-		 * With recorded operation footprints, emits one entry per (target × object) with the
-		 * object-qualified target and the operation context; without any, falls back to one
-		 * legacy bare-target entry per queued target. Empty queues land on the latch without
-		 * emitting.
+		 * @description Writes the queued `BYPASS` audit entries through `UTIL_BypassAudit.emit`, then
+		 * marks the queue as flushed so later calls on this instance do nothing. When operations were
+		 * recorded, writes one entry for each pair of target and object, with the object-qualified target
+		 * and the operation context. When none were recorded, falls back to one bare-target entry per
+		 * queued target. An empty queue is marked as flushed without writing anything.
 		 */
 		public void flush()
 		{
@@ -580,8 +583,8 @@ public inherited sharing class UTIL_BypassAudit
 	}
 
 	/**
-	 * @description Per-object operation footprint accumulated by `AuditQueue.recordOperation`:
-	 * the de-duped operation verbs and the total row count a builder submitted against one
+	 * @description Operation footprint for one object, built by `AuditQueue.recordOperation`:
+	 * the distinct operation verbs and the total row count a builder submitted against one
 	 * object under its bypasses (counted at terminal time, before the DML outcome is known).
 	 * A sibling of `AuditQueue` (not nested) because Apex permits only one level of inner-class
 	 * nesting.
@@ -589,7 +592,7 @@ public inherited sharing class UTIL_BypassAudit
 	private class OperationFootprint
 	{
 		/**
-		 * @description De-duped operation verbs recorded against the object (`query`, `insert`, …).
+		 * @description The distinct operation verbs recorded against the object (`query`, `insert`, and so on).
 		 */
 		private final Set<String> operations = new Set<String>();
 

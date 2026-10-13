@@ -350,7 +350,7 @@ Your goal here is to make sure the object even knows masking applies to it. The 
 So the first step for a business object is to give it a `kern__TriggerSetting__mdt` record with `kern__ApplyMasking__c = true`. If the object already runs
 through the KernDX trigger framework (it has a trigger setting because you use trigger actions on it), masking is already enabled there; just confirm the checkbox is on.
 
-> The Data Masking Advisor's export bundle includes this trigger setting for you when the object needs one. That is another reason to prefer the Advisor over hand-authoring.
+> The Data Masking Advisor's export bundle does not include this trigger setting. Create it yourself as described above, whether you deploy your targets from the Advisor's bundle or by hand.
 
 ### Step 2 - Declare a Masking Target
 
@@ -428,18 +428,19 @@ Set these limits with your stakeholders up front so no one expects a control mas
 
 Your masking rules and targets are custom metadata, so they take effect once you deploy them. You have two ways to do that:
 
-- **Recommended: the Advisor export.** The [Data Masking Advisor](#the-data-masking-advisor) generates a deployable bundle (the rules, the targets, and any trigger
-  setting the object needs) and shows you the exact CLI line to run from the unzipped folder. The line it produces is:
+- **Recommended: the Advisor export.** The [Data Masking Advisor](#the-data-masking-advisor) generates a deployable bundle (the targets, plus an
+  activation file for each dormant rule you choose to switch on; the trigger setting is not included) and shows you the exact CLI line to run from the unzipped folder,
+  with the org alias you type filled in:
 
-  ```bash
-  sf project deploy start --metadata-dir metadata -o <your-org-alias>
+  ```shell
+  sf project deploy start --metadata-dir metadata -o YourOrgAlias
   ```
 
 - **By hand.** Write the `MaskingTarget__mdt` XML (and, if needed, `MaskingRule__mdt` and `TriggerSetting__mdt`) under your project's `customMetadata/` directory and
   deploy with the standard targeted command:
 
-  ```bash
-  sf project deploy start -m "CustomMetadata:MaskingTarget.<RecordName>" -o <your-org-alias>
+  ```shell
+  sf project deploy start -o YourOrgAlias -m "CustomMetadata:MaskingTarget.YourRecordName"
   ```
 
 Because the Advisor produces drift-free, correctly-namespaced metadata, prefer it for anything beyond a one-line tweak.
@@ -464,7 +465,8 @@ To go from "I think this object has sensitive fields" to deployable masking conf
 2. **Review its fields.** The Advisor classifies each field, using Salesforce's native data classification where it is present and a name-and-type heuristic where it is not, then
    groups them into **Ready to mask**, **Needs review**, and **Other**. Each field shows whether a target already covers it.
 3. **Assign rules.** Pick a masking rule per field from a searchable dropdown. The masking cell shows the assignment as a chip.
-4. **Export.** Click **Export** to download a deployable bundle (the rules, the targets, and any trigger setting the object needs) plus the CLI line to deploy it.
+4. **Export.** Click **Export** to download a deployable bundle (the targets, plus an activation file for each dormant rule you chose to switch on) plus the CLI line to deploy it. The bundle
+   does not include the object's trigger setting: create that separately, as the step that enables masking on the object describes.
 
 ### Scanning Custom Objects
 

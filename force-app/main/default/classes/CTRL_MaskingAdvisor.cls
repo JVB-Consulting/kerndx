@@ -5,6 +5,11 @@
  * The first diagnostic flags dead configuration — active `MaskingTarget__mdt` records whose rule is
  * inactive or missing, which silently mask nothing despite appearing configured.
  *
+ * A masking rule that fails here propagates deliberately: this is the surface where an administrator
+ * sees a broken rule. None of the masker call sites below catch the failure, because a preview
+ * that quietly answered as though nothing went wrong would hide the very problem the console exists to
+ * expose.
+ *
  * @see CTRL_MaskingAdvisor_TEST
  * @see SEL_MaskingTarget
  * @see MaskingRule__mdt
@@ -14,7 +19,7 @@
  *
  * @group Controllers
  *
- * @date May 2026, August 2026
+ * @date May 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssTypeCount')
 public inherited sharing class CTRL_MaskingAdvisor
@@ -777,7 +782,7 @@ public inherited sharing class CTRL_MaskingAdvisor
 		inventoryRow.sensitivityLevel = row.sensitivityLevel;
 		inventoryRow.recommendedRuleDeveloperName = row.recommendedRuleDeveloperName;
 		inventoryRow.recommendedRuleLabel = row.recommendedRuleLabel;
-		inventoryRow.maskedToday = (objectWideMasked && !UTIL_FrameworkMasker.isIdentifierField(describe.getField(row.apiName))) || hasActiveRule(row.appliedRules);
+		inventoryRow.maskedToday = (objectWideMasked && !UTIL_FrameworkMasker.isExcludedFromWildcard(describe.getField(row.apiName))) || hasActiveRule(row.appliedRules);
 		inventoryRow.historyTrackingRecommended = SENSITIVITY_SENSITIVE == row.sensitivityLevel;
 		return inventoryRow;
 	}
@@ -984,6 +989,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 	 * @description Builds one field row, overlaying native classification when present and otherwise
 	 * applying the name/type heuristic, and attaching the field's existing applied targets. A recommended
 	 * rule is set when any candidate's stem substring-matches the field's API name.
+	 *
+	 * A broken masking rule must surface here, so its failure is not caught and reaches the caller.
 	 *
 	 * @param fieldApiName The field API name.
 	 * @param fieldInformation The shared display metadata (label, type) for the field.
@@ -1510,15 +1517,30 @@ public inherited sharing class CTRL_MaskingAdvisor
 	}
 
 	/**
-	 * @description How a rule matched a field — the source of the match-strength band. `DIRECT_STEM` and
-	 * `ALIAS` are name-stem matches (the latter via `RULE_STEM_ALIASES`); `SYNONYM` is a synonym-map
-	 * match; `NONE` means no rule matched.
+	 * @description How a rule came to match a field, which decides how strong the recommendation is rated (Weak, Moderate or Strong).
 	 */
 	private enum MatchProvenance
 	{
+		/**
+		 * @description The field's API name contains the rule's own name stem, for example a field named `Email__c` and the rule
+		 * `MaskEmail`. Rated `Strong` when the field is an Email, Phone, URL or Encrypted Text field, otherwise `Moderate`.
+		 */
 		DIRECT_STEM,
+		/**
+		 * @description The field's API name contains a shorter word that stands in for the rule's own name stem, for example a
+		 * `Phone` field reaching the rule `MaskPhoneUS` through `phone`. Rated `Strong` when the field is an Email, Phone, URL
+		 * or Encrypted Text field, otherwise `Moderate`.
+		 */
 		ALIAS,
+		/**
+		 * @description No name stem matched, but the field's API name contains a word known to mean the same as a rule, for example
+		 * `MailingStreet` reaching the address rule. Always rated `Moderate`.
+		 */
 		SYNONYM,
+		/**
+		 * @description No rule matched the field's name, or the field's type cannot be masked, so no rule is recommended and the
+		 * match strength is `Weak`.
+		 */
 		NONE
 	}
 
@@ -1861,8 +1883,10 @@ public inherited sharing class CTRL_MaskingAdvisor
 
 	/**
 	 * @description Masks a single typed value to preview how a field's masking rules transform it, with no
-	 * data access at all — the administrator supplies a representative string. Mirrors the runtime engine via
+	 * data access at all: the administrator supplies a representative string. Mirrors the runtime engine via
 	 * `UTIL_FrameworkMasker`, so a matched-rule result confirms the rule fires on the framework path.
+	 *
+	 * A broken masking rule must surface here, so its failure is not caught and reaches the caller.
 	 *
 	 * @param objectApiName The SObject API name (for example `Account`)
 	 * @param fieldApiName The field API name (for example `Phone`)
@@ -1890,6 +1914,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 	 * the active configuration), this resolves the rule by developer name and applies it directly, so a
 	 * reviewer can see a dormant rule's effect before activating it. Returns `null` when the object/field
 	 * or the rule cannot be resolved.
+	 *
+	 * A broken masking rule must surface here, so its failure is not caught and reaches the caller.
 	 *
 	 * @param objectApiName The SObject API name (for example `Contact`).
 	 * @param fieldApiName The field API name (for example `HomePhone`).
@@ -1975,6 +2001,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 	 * fields the running user cannot read are never sampled, and the sample is capped. The source value is
 	 * returned alongside the masked value; the console shows the masked value by default and reveals the
 	 * source only on explicit, per-row request by an authorised user.
+	 *
+	 * A broken masking rule must surface here, so its failure is not caught and reaches the caller.
 	 *
 	 * @param objectApiName The SObject API name (for example `Account`)
 	 * @param fieldApiName The field API name (for example `Phone`)
@@ -2132,7 +2160,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 		for(DTO_TargetDecision decision : request.targets ?? new List<DTO_TargetDecision>())
 		{
 			String deployName = resolveRuleDeployName(rulesByName.get(decision.ruleDeveloperName), decision.ruleDeveloperName);
-			bundle.files.put('metadata/customMetadata/' + TYPE_STEM_MASKING_TARGET + UTIL_String.DOT + decision.developerName + '.md-meta.xml', renderTargetXml(decision, deployName));
+			bundle.files.put('metadata/customMetadata/' + TYPE_STEM_MASKING_TARGET + UTIL_String.DOT + decision.developerName + '.md-meta.xml',
+					renderTargetXml(decision, deployName));
 			members.add(TYPE_STEM_MASKING_TARGET + UTIL_String.DOT + decision.developerName);
 		}
 
@@ -2343,7 +2372,7 @@ public inherited sharing class CTRL_MaskingAdvisor
 	}
 
 	/**
-	 * @description Builds the `package.xml` listing every CustomMetadata member, pinned to the package
+	 * @description Builds the `package.xml` listing every CustomMetadata member, set to the package
 	 * API version.
 	 *
 	 * @param members Fully-qualified `MaskingTarget.<name>` / `MaskingRule.<name>` members.

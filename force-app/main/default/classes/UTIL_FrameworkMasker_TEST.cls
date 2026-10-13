@@ -8,13 +8,20 @@
  *
  * @group Data Masking
  *
- * @date April 2026, August 2026
+ * @date April 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ExcessiveParameterList,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 private class UTIL_FrameworkMasker_TEST
 {
+	/**
+	 * @description The company name that marks the administrator user these tests run as.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'UTIL_FrameworkMasker_TEST-admin';
+
+	/**
+	 * @description The company name that marks the low-privilege user the sharing and permission tests run as.
+	 */
 	private static final String LOW_PRIVILEGE_COMPANY = 'UTIL_FrameworkMasker_TEST-low-privilege';
 
 	/**
@@ -38,8 +45,25 @@ private class UTIL_FrameworkMasker_TEST
 	private static final String SUCCESSOR_RULE_NAME = 'NewCardRule';
 
 	/**
-	 * @description Token only the predecessor rule matches — its survival in an output value
-	 * proves the predecessor's target was dropped; its replacement proves the predecessor ran.
+	 * @description A run key in the shape the chain engine creates (a version-4 UUID) whose last two groups look like a
+	 * sixteen-digit payment card number to a card rule. A test run at high volume met this case once in several
+	 * thousand chain starts.
+	 */
+	private static final String CARD_SHAPED_RUN_KEY = 'fb1f69f6-6768-4768-8833-380884223126';
+
+	/**
+	 * @description The shipped card rule's pattern: thirteen to nineteen digits, spaces or hyphens between them.
+	 */
+	private static final String CARD_PATTERN = '\\b\\d(?:[ -]?\\d){12,18}\\b';
+
+	/**
+	 * @description The token the shipped card rule writes in place of a matched card number.
+	 */
+	private static final String CARD_REPLACEMENT = '[CARD_REDACTED]';
+
+	/**
+	 * @description Token that only the predecessor rule matches. If it is still in an output value,
+	 * the predecessor's target was dropped; if it was replaced, the predecessor ran.
 	 */
 	private static final String PREDECESSOR_TOKEN = 'PRED-TOKEN';
 
@@ -50,28 +74,68 @@ private class UTIL_FrameworkMasker_TEST
 	private static final String SUCCESSOR_TOKEN = 'SUCC-TOKEN';
 
 	/**
-	 * @description Replacement the predecessor rule writes — its presence proves the predecessor ran.
+	 * @description Replacement the predecessor rule writes. If it appears, the predecessor ran.
 	 */
 	private static final String PREDECESSOR_REPLACEMENT = '[P]';
 
 	/**
-	 * @description Replacement the successor rule writes — its presence proves the successor ran.
+	 * @description Replacement the successor rule writes. If it appears, the successor ran.
 	 */
 	private static final String SUCCESSOR_REPLACEMENT = '[S]';
 
 	/**
-	 * @description Replacement a tuned predecessor writes — its presence proves the tuned rule kept running.
+	 * @description Replacement a tuned predecessor writes. If it appears, the tuned rule kept running.
 	 */
 	private static final String TUNED_REPLACEMENT = '[P-TUNED]';
 
 	/**
-	 * @description Creates a dedicated test admin user so System.runAs in each test starts a fresh
-	 * permission-evaluation context, bypassing the synthetic-org permission-cache staleness issue
-	 * that affected mutating the running user's permissionSet mid-transaction. Also commits a
-	 * low-privilege user (Minimum Access - Salesforce profile) so the tier-A regression test
-	 * (shouldMaskRecordForLowPrivilegeUser) can use System.runAs without triggering
-	 * MIXED_DML_OPERATION — User is a Setup object, User DML cannot mix with standard/custom-object
-	 * DML in the same transaction; pre-provisioning here satisfies that boundary.
+	 * @description The fingerprint the entry masked by a misconfigured log rule is written with.
+	 */
+	private static final String MASKED_ENTRY_FINGERPRINT = 'masked-entry-fingerprint';
+
+	/**
+	 * @description The class and method that entry is written at.
+	 */
+	private static final String MASKED_ENTRY_CLASS_METHOD = 'OrderService.submitOrder';
+
+	/**
+	 * @description DeveloperName of the rule whose applicable field types name a type that does not exist.
+	 */
+	private static final String UNKNOWN_TYPE_RULE_NAME = 'LogEventUnknownFieldTypeRule';
+
+	/**
+	 * @description DeveloperName of the rule wired to a field whose type it excludes.
+	 */
+	private static final String MISMATCHED_TYPE_RULE_NAME = 'LogEventMismatchedFieldTypeRule';
+
+	/**
+	 * @description A field type no Apex type name matches, as an admin's typo leaves it.
+	 */
+	private static final String UNKNOWN_FIELD_TYPE = 'TEXTFIELD';
+
+	/**
+	 * @description A value no message of the test entry holds, so the misconfigured rules change nothing.
+	 */
+	private static final String UNMATCHED_TOKEN = 'never-in-a-message';
+
+	/**
+	 * @description Where the masker would say that a rule names a field type that does not exist.
+	 */
+	private static final String UNKNOWN_TYPE_WARNING_LOCATION = UTIL_FrameworkMasker.class.getName() + UTIL_String.DOT + 'parseApplicableFieldTypes';
+
+	/**
+	 * @description Where the masker would say that a target is wired to a field type its rule excludes.
+	 */
+	private static final String MISMATCHED_TYPE_WARNING_LOCATION = UTIL_FrameworkMasker.class.getName() + UTIL_String.DOT + 'filterTargetsByFieldType';
+
+	/**
+	 * @description Creates a separate test admin user, so System.runAs in each test starts with fresh
+	 * permission checks. This avoids a problem in test orgs where cached permissions went stale when
+	 * the running user's permission sets changed during a transaction. Also commits a low-privilege
+	 * user (Minimum Access - Salesforce profile), so the low-privilege test
+	 * (shouldMaskRecordForLowPrivilegeUser) can use System.runAs without causing
+	 * MIXED_DML_OPERATION. User is a Setup object, and DML on users cannot be mixed with DML on
+	 * standard or custom objects in the same transaction; creating the user here avoids that.
 	 */
 	@TestSetup
 	private static void setupTestUsers()
@@ -313,7 +377,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that RecordMasker skips fields that are null/unpopulated on the
-	 * record — no attempt to mask, no error.
+	 * record: no attempt to mask, no error.
 	 */
 	@IsTest
 	private static void shouldSkipUnpopulatedFieldsOnRecord()
@@ -391,7 +455,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that a BlockDml failure on the first record halts the bulk masker
-	 * immediately — later records should not be touched.
+	 * at once: later records should not be touched.
 	 */
 	@IsTest
 	private static void shouldFastExitBulkMaskerOnBlockDmlFailure()
@@ -465,7 +529,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that a MaskingTarget pointing at a field that does not exist on the
-	 * SObjectType is silently skipped — defensive guard against stale admin config.
+	 * SObjectType is skipped without notice. This protects against admin setup that is out of date.
 	 */
 	@IsTest
 	private static void shouldSkipTargetReferencingMissingField()
@@ -524,8 +588,8 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that RecordMasker honours calledFrom scope when iterating fields —
-	 * caller-scoped rules only fire when the scope matches.
+	 * @description Tests that RecordMasker respects the calledFrom caller when it goes through fields:
+	 * rules limited to a caller only run when the caller matches.
 	 */
 	@IsTest
 	private static void shouldHonourCallerScopeOnRecord()
@@ -796,8 +860,8 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that a rule that has already failed is skipped on subsequent calls
-	 * in the same transaction — prevents per-record waste in bulk triggers and per-record
-	 * re-entry into the log recursion path.
+	 * in the same transaction. This avoids wasted work for each record in bulk triggers, and stops
+	 * each record from entering the logging loop again.
 	 */
 	@IsTest
 	private static void shouldSkipInvalidatedRuleOnSubsequentCalls()
@@ -818,7 +882,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that a masking rule failing on a LogEntry__c target does not emit a
-	 * warn log — closing the cross-transaction recursion loop end-to-end.
+	 * warning log, which closes the logging loop across transactions from end to end.
 	 */
 	@IsTest
 	private static void shouldSkipWarnLoggingWhenLogEntryTargetRuleFails()
@@ -854,8 +918,8 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that isLogEntryTarget returns true for the LogEntry__c object and
-	 * false for non-log objects — the check that suppresses warn logging on masking
-	 * failures against LogEntry targets, breaking the cross-transaction logging loop.
+	 * false for other objects. This is the check that stops warning logs on masking failures against
+	 * LogEntry targets, which breaks the logging loop across transactions.
 	 */
 	@IsTest
 	private static void shouldIdentifyLogEntryTargetByObjectName()
@@ -881,6 +945,73 @@ private class UTIL_FrameworkMasker_TEST
 			Assert.isTrue(UTIL_FrameworkMasker.isLogEntryTarget(logEntryEventTarget), 'LogEntryEvent__e target should be identified');
 			Assert.isFalse(UTIL_FrameworkMasker.isLogEntryTarget(foobarTarget), 'Non-log target should not be identified');
 		}
+	}
+
+	/**
+	 * @description A masking rule misconfigured on the log event must not cost the entry being masked its
+	 * fingerprint. The masker's warnings run inside the loop that builds an entry's events, while that entry's
+	 * fingerprint is still open on the engine, and the warning's own emit closes it, so every message after the
+	 * first would lose the fingerprint it was written with. The warnings are skipped on the log objects instead.
+	 */
+	@IsTest
+	private static void shouldKeepTheFingerprintOfAnEntryAMisconfiguredLogRuleIsMasking()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.newFeatureFlag(UTIL_FrameworkMasker.FLAG_MASKING_FRAMEWORK_ENABLED);
+			TST_Factory.setupLoggerForTest();
+			LOG_Engine.ignoreTestMode = true;
+			registerMisconfiguredRulesOnLogEntryEvents();
+
+			Test.startTest();
+			LOG_Builder.build()
+					.warn(new List<String> {UTIL_Random.randomName(), UTIL_Random.randomName()})
+					.withFingerprint(MASKED_ENTRY_FINGERPRINT)
+					.emitAt(MASKED_ENTRY_CLASS_METHOD);
+			Test.stopTest();
+
+			List<LogEntry__c> rows = new SEL_LogEntry().findAllByMethod(MASKED_ENTRY_CLASS_METHOD);
+			Assert.isFalse(rows.isEmpty(), 'The entry should be on file');
+			for(LogEntry__c row : rows)
+			{
+				Assert.isTrue(row.Fingerprint__c?.contains(MASKED_ENTRY_FINGERPRINT) == true,
+						'Every message of the entry keeps the fingerprint it was written with, and this one carries ' + row.Fingerprint__c);
+			}
+			Assert.isTrue(new SEL_LogEntry().findAllByMethod(UNKNOWN_TYPE_WARNING_LOCATION).isEmpty(), 'The masker says nothing about an unknown field type on a log entry');
+			Assert.isTrue(new SEL_LogEntry().findAllByMethod(MISMATCHED_TYPE_WARNING_LOCATION).isEmpty(), 'The masker says nothing about a field-type mismatch on a log entry');
+		}
+	}
+
+	/**
+	 * @description Registers two misconfigured masking targets on the log event: one wildcard target whose rule
+	 * names a field type that does not exist, and one wired to a field whose type its rule excludes. Each is a
+	 * warning site the masker would otherwise reach from inside the event loop.
+	 */
+	private static void registerMisconfiguredRulesOnLogEntryEvents()
+	{
+		String logEntryEventName = UTIL_SObjectDescribe.getObjectNameFromType(LogEntryEvent__e.SObjectType);
+
+		MaskingRule__mdt unknownTypeRule = (MaskingRule__mdt)mockRuleBuilder(UNKNOWN_TYPE_RULE_NAME, SEL_MaskingRule.MODE_EXACT_MATCH, UNMATCHED_TOKEN, 'X', 10)
+				.withOverride(MaskingRule__mdt.ApplicableFieldTypes__c, UNKNOWN_FIELD_TYPE)
+				.withoutInsertion(true)
+				.build();
+		TST_Mock.of(MaskingTarget__mdt.SObjectType)
+				.withOverride(MaskingTarget__mdt.IsActive__c, true)
+				.withOverride(MaskingTarget__mdt.SObjectType__c, logEntryEventName)
+				.withOverride(MaskingTarget__mdt.Field__c, null)
+				.withOverride(MaskingTarget__mdt.Rule__c, unknownTypeRule)
+				.build();
+
+		MaskingRule__mdt mismatchedTypeRule = (MaskingRule__mdt)mockRuleBuilder(MISMATCHED_TYPE_RULE_NAME, SEL_MaskingRule.MODE_EXACT_MATCH, UNMATCHED_TOKEN, 'X', 20)
+				.withOverride(MaskingRule__mdt.ApplicableFieldTypes__c, String.valueOf(DisplayType.EMAIL))
+				.withoutInsertion(true)
+				.build();
+		TST_Mock.of(MaskingTarget__mdt.SObjectType)
+				.withOverride(MaskingTarget__mdt.IsActive__c, true)
+				.withOverride(MaskingTarget__mdt.SObjectType__c, logEntryEventName)
+				.withOverride(MaskingTarget__mdt.Field__c, logEntryEventName + UTIL_String.DOT + UTIL_SObjectDescribe.getCachedFieldName(LogEntryEvent__e.Message__c))
+				.withOverride(MaskingTarget__mdt.Rule__c, mismatchedTypeRule)
+				.build();
 	}
 
 	/**
@@ -995,9 +1126,9 @@ private class UTIL_FrameworkMasker_TEST
 			Foobar__c record = new Foobar__c(Text__c = payload);
 
 			Test.startTest();
-			Integer cpuBefore = Limits.getCpuTime();
+			Integer cpuBefore = UTIL_Limits.cpuTime().used();
 			UTIL_FrameworkMasker.forRecord(record).apply();
-			Integer cpuAfter = Limits.getCpuTime();
+			Integer cpuAfter = UTIL_Limits.cpuTime().used();
 			Test.stopTest();
 
 			Assert.areEqual(payload, record.Text__c, 'Non-matching tree must pass through unchanged');
@@ -1039,7 +1170,7 @@ private class UTIL_FrameworkMasker_TEST
 			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('secret value');
 
 			Assert.areEqual('X value', result.maskedValue, 'Rule should still fire');
-			Assert.areEqual(1, result.rulesMatched, 'Duplicate target should be deduped — only one match recorded');
+			Assert.areEqual(1, result.rulesMatched, 'Duplicate target should be removed: only one match recorded');
 		}
 	}
 
@@ -1059,14 +1190,14 @@ private class UTIL_FrameworkMasker_TEST
 			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('foo here');
 
 			Assert.areEqual('EarlierRule', result.matchedRuleDeveloperNames.get(0), 'Rule with Order__c = 10 should execute first');
-			Assert.areEqual(1, result.rulesMatched, 'Only the earlier rule should have matched — later rule saw already-replaced text');
+			Assert.areEqual(1, result.rulesMatched, 'Only the earlier rule should have matched: the later rule saw text that was already replaced');
 			Assert.areEqual('FIRST here', result.maskedValue, 'Earlier rule wins; later rule cannot match because foo is already gone');
 		}
 	}
 
 	/**
 	 * @description Tests that a JsonKey rule with an invalid regex throws and is captured as a
-	 * rule failure inside the batched JsonKey path — complements the Regex-mode failure test.
+	 * rule failure inside the batched JsonKey path. Works with the Regex-mode failure test.
 	 */
 	@IsTest
 	private static void shouldCaptureJsonKeyRuleFailure()
@@ -1085,8 +1216,8 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests UTIL_String.applyJsonKeyRuleToTree with a null input — covers the
-	 * null-guard branch that UTIL_FrameworkMasker relies on.
+	 * @description Tests UTIL_String.applyJsonKeyRuleToTree with a null input. Covers the null check
+	 * that UTIL_FrameworkMasker relies on.
 	 */
 	@IsTest
 	private static void applyJsonKeyRuleToTreeShouldHandleNull()
@@ -1103,7 +1234,7 @@ private class UTIL_FrameworkMasker_TEST
 	 * @description Tests that `resolveQualifiedFieldName` assembles the qualified field path from
 	 * the `SObjectType__r.QualifiedApiName` + `Field__r.QualifiedApiName` relationship fields
 	 * when both are populated. This is the shape real deployed CMDT records expose via the
-	 * selector — mocks normally put the already-qualified string in `Field__c`, so this test
+	 * selector. Mocks normally put the already-qualified string in `Field__c`, so this test
 	 * covers the metadata-relationship branch explicitly.
 	 */
 	@IsTest
@@ -1134,10 +1265,10 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that a wildcard (blank Field__c) target is shadowed by a specific-field
-	 * target sharing the same rule and caller scope — the specific-beats-wildcard precedence
-	 * rule in `selectApplicableTargets`. The wildcard target should be filtered out of the
-	 * applicable set so only the specific target fires.
+	 * @description Tests that a target naming a field wins over a wildcard (blank Field__c) target
+	 * with the same rule and caller. This is the rule in `selectApplicableTargets` that a named field
+	 * beats a wildcard. The wildcard target should be left out of the applicable targets, so only the
+	 * target naming the field runs.
 	 */
 	@IsTest
 	private static void shouldShadowWildcardTargetWithSpecificTarget()
@@ -1153,14 +1284,14 @@ private class UTIL_FrameworkMasker_TEST
 			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('foo here');
 
 			Assert.areEqual('BAR here', result.maskedValue, 'Specific-field target should apply');
-			Assert.areEqual(1, result.rulesMatched, 'Wildcard target should be shadowed so the rule fires only once');
+			Assert.areEqual(1, result.rulesMatched, 'The target naming the field should win over the wildcard, so the rule runs only once');
 		}
 	}
 
 	/**
 	 * @description Tests that a JsonKey rule invalidated by a failure on an earlier record is
 	 * skipped for later records in the same bulk operation. Exercises the invalidation filter
-	 * inside `applyJsonKeyBatchStatic` — the filter short-circuits per-rule work on records
+	 * inside `applyJsonKeyBatchStatic`. The filter skips the rule's work on records
 	 * processed against a cached BatchPlan that still references the now-invalid target.
 	 */
 	@IsTest
@@ -1190,7 +1321,7 @@ private class UTIL_FrameworkMasker_TEST
 	/**
 	 * @description Tests that a Regex/ExactMatch rule invalidated by a failure on an earlier
 	 * record is skipped for later records in the same bulk operation. Exercises the
-	 * invalidation filter inside `applySingleTargetStatic` — the filter short-circuits per-rule
+	 * invalidation filter inside `applySingleTargetStatic`. The filter skips the rule's
 	 * work on records processed against a cached BatchPlan that still references the now-invalid
 	 * target.
 	 */
@@ -1245,9 +1376,9 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that `getUpdateableTextFields` returns a non-empty list for Foobar__c
-	 * — exercises the writable-text-field describe-and-filter logic directly so the cache and
-	 * the field-type filter both have direct coverage, independent of the RecordMasker path.
+	 * @description Tests that `getUpdateableTextFields` returns a non-empty list for Foobar__c. Runs
+	 * the code that finds and filters writable text fields directly, so the cache and the field-type
+	 * filter are both covered on their own, apart from the RecordMasker path.
 	 */
 	@IsTest
 	private static void shouldEnumerateUpdateableTextFields()
@@ -1263,7 +1394,7 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that a wildcard target never expands to a field that identifies the record —
+	 * @description Tests that a wildcard target never expands to a field that identifies the record:
 	 * a unique key or an external id. Masking rewrites the value it matches; on a key that means the
 	 * key is destroyed and, on a unique index, the NEXT record whose key masks to the same constant
 	 * fails to insert. A chain correlation id built from a long numeric order number is exactly the
@@ -1286,8 +1417,8 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that the identifier predicate — the one rule behind every wildcard decision —
-	 * reads the describe facets and tolerates an unresolved field.
+	 * @description Tests the check for identifier fields, which every wildcard decision uses. It
+	 * reads the field's describe settings and handles a field that cannot be found.
 	 */
 	@IsTest
 	private static void shouldReportIdentifierFieldsFromTheirDescribeFacets()
@@ -1302,7 +1433,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that a wildcard target never fires on an identifier field through `forField`
-	 * either — the preview/sample path the advisor uses. Without this the preview would show a masking
+	 * either, which is the preview and sample path the advisor uses. Without this the preview would show a masking
 	 * the record path (whose wildcard expansion skips identifier fields) never performs.
 	 */
 	@IsTest
@@ -1322,8 +1453,8 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that a target naming an identifier field explicitly is still honoured — the
-	 * administrator's deliberate choice; only the wildcard steps around identifier fields.
+	 * @description Tests that a target naming an identifier field explicitly is still applied: it is
+	 * the administrator's deliberate choice. Only the wildcard skips identifier fields.
 	 */
 	@IsTest
 	private static void shouldHonourExplicitTargetOnIdentifierField()
@@ -1335,6 +1466,86 @@ private class UTIL_FrameworkMasker_TEST
 			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.ExternalId__c).mask('order 12345');
 
 			Assert.areEqual('order XXX', result.maskedValue, 'An explicit target on an identifier field is the administrator\'s deliberate choice and fires');
+			Assert.areEqual(1, result.rulesMatched, 'The explicit rule should report its match');
+		}
+	}
+
+	/**
+	 * @description Tests that a wildcard target never covers the chain engine's run key. Every process running a
+	 * chain run holds a copy of the key and compares it with the stored one. The key is random, and about once in
+	 * several thousand keys its digit groups look like a payment card. Masking would then rewrite only the stored
+	 * copy, and every process of that run would stop as out of date, leaving the run Running with no error
+	 * anywhere.
+	 */
+	@IsTest
+	private static void shouldNotExpandWildcardToTheChainRunKey()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Set<SObjectField> chainFields = new Set<SObjectField>(UTIL_FrameworkMasker.getUpdateableTextFields(AsyncChainExecution__c.SObjectType));
+
+			Assert.isFalse(chainFields.contains(AsyncChainExecution__c.RunKey__c), 'The run key is a fence token the engine compares for equality; no wildcard may rewrite it');
+			Assert.isFalse(chainFields.contains(AsyncChainExecution__c.CurrentJobId__c), 'The job id is what the watchdog reads for liveness; no wildcard may rewrite it');
+			Assert.isTrue(chainFields.contains(AsyncChainExecution__c.ErrorMessage__c), 'Ordinary text fields on the chain object still expand');
+		}
+	}
+
+	/**
+	 * @description Tests the record path end to end: a wildcard card rule applied to a chain run whose run key reads
+	 * as a card number leaves the key exactly as minted while redacting the same digits in an ordinary text field of
+	 * the same record.
+	 */
+	@IsTest
+	private static void shouldLeaveTheChainRunKeyAsMintedUnderAWildcardCardRule()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerMockTargetOn(AsyncChainExecution__c.SObjectType, mockCardRule(), null, null);
+			AsyncChainExecution__c run = (AsyncChainExecution__c)TST_Builder.of(AsyncChainExecution__c.SObjectType)
+					.withOverride(AsyncChainExecution__c.RunKey__c, CARD_SHAPED_RUN_KEY)
+					.withOverride(AsyncChainExecution__c.ErrorMessage__c, 'card ' + CARD_SHAPED_RUN_KEY.substringAfterLast('4768-'))
+					.withoutInsertion(true)
+					.build();
+
+			UTIL_FrameworkMasker.forRecord(run).apply();
+
+			Assert.areEqual(CARD_SHAPED_RUN_KEY, run.RunKey__c, 'The run key must leave the masker exactly as minted');
+			Assert.areEqual('card ' + CARD_REPLACEMENT, run.ErrorMessage__c, 'The same digits in an ordinary text field are redacted');
+		}
+	}
+
+	/**
+	 * @description Tests the preview path: a wildcard never fires on the run key through `forField` either, so the
+	 * advisor's preview never claims a masking the record path refuses.
+	 */
+	@IsTest
+	private static void shouldNotFireWildcardTargetOnTheChainRunKeyThroughForField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerMockTargetOn(AsyncChainExecution__c.SObjectType, mockCardRule(), null, null);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(AsyncChainExecution__c.RunKey__c).mask(CARD_SHAPED_RUN_KEY);
+
+			Assert.areEqual(CARD_SHAPED_RUN_KEY, result.maskedValue, 'A wildcard must not rewrite the run key, even in preview');
+			Assert.areEqual(0, result.rulesMatched, 'No rule should report a match on the run key');
+		}
+	}
+
+	/**
+	 * @description Tests that a target naming the run key explicitly is still honoured, as for an identifier field:
+	 * the administrator's deliberate choice; only the wildcard steps around the fence token.
+	 */
+	@IsTest
+	private static void shouldHonourExplicitTargetOnTheChainRunKey()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerMockTargetOn(AsyncChainExecution__c.SObjectType, mockCardRule(), UTIL_SObjectDescribe.getCachedFieldName(AsyncChainExecution__c.RunKey__c), null);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(AsyncChainExecution__c.RunKey__c).mask(CARD_SHAPED_RUN_KEY);
+
+			Assert.areEqual('fb1f69f6-6768-4768-' + CARD_REPLACEMENT, result.maskedValue, 'An explicit target on the run key is the administrator\'s deliberate choice and fires');
 			Assert.areEqual(1, result.rulesMatched, 'The explicit rule should report its match');
 		}
 	}
@@ -1357,7 +1568,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that `RecordMasker.apply` skips fields whose value is an empty string
-	 * (not null) — the populated-but-empty guard inside `applyFieldPlanToRecord`.
+	 * (not null): the check for a filled but empty value inside `applyFieldPlanToRecord`.
 	 */
 	@IsTest
 	private static void shouldSkipEmptyStringFieldValueOnRecord()
@@ -1381,10 +1592,10 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that a rule with `ApplicableFieldTypes__c` populated is filtered out
-	 * of the batch plan for fields whose Apex `DisplayType` is excluded — zero per-record cost,
-	 * no regex evaluation, no value mutation. Card-masking rules gain the ability to scope
-	 * themselves to `STRING;TEXTAREA;ENCRYPTEDSTRING`, cutting URL/Email/Phone fields from the
-	 * per-record loop entirely.
+	 * of the batch plan for fields whose Apex `DisplayType` is excluded: no cost for each record,
+	 * no regex run, no changed value. Card-masking rules can then limit themselves to
+	 * `STRING;TEXTAREA;ENCRYPTEDSTRING`, which removes URL, Email and Phone fields from the loop over
+	 * records entirely.
 	 */
 	@IsTest
 	private static void shouldSkipRuleOnUrlFieldWhenExcludedByApplicableFieldTypes()
@@ -1418,7 +1629,7 @@ private class UTIL_FrameworkMasker_TEST
 	 * `Field__c` whose DisplayType is excluded by the rule's `ApplicableFieldTypes__c`, the
 	 * framework emits a one-time warning log to surface the misconfiguration. Without this
 	 * signal, the admin's explicit wiring would be silently overridden by the rule-level
-	 * filter — the rule would not fire, but nothing in the log stream would explain why.
+	 * filter: the rule would not run, but nothing in the log stream would explain why.
 	 */
 	@IsTest
 	private static void shouldWarnOnceWhenSpecificFieldTargetDroppedByTypeFilter()
@@ -1440,7 +1651,7 @@ private class UTIL_FrameworkMasker_TEST
 
 			UTIL_FrameworkMasker.forRecord(record).apply();
 
-			Assert.isTrue(record.URL__c.contains('4111111111111111'), 'Specific-field wiring must not override the rule-level type filter — rule should not fire');
+			Assert.isTrue(record.URL__c.contains('4111111111111111'), 'A target naming the field must not override the rule-level type filter: the rule should not run');
 			Assert.areEqual(1, UTIL_FrameworkMasker.warnedSpecificFieldTypeMismatches.size(), 'Framework must warn once when explicit wiring is dropped by the type filter');
 			String expectedWarnKey = 'TestSpecificFieldMismatch|' + UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.URL__c);
 			Assert.isTrue
@@ -1453,7 +1664,7 @@ private class UTIL_FrameworkMasker_TEST
 			UTIL_FrameworkMasker.forRecord(record).apply();
 
 			Assert.areEqual(1, UTIL_FrameworkMasker.warnedSpecificFieldTypeMismatches.size(),
-					'Warning must emit exactly once per rule-field pair per transaction — '
+					'Warning must be written exactly once per rule and field pair per transaction: '
 					+ 'clearing cachedBatchPlans forces the second apply to rebuild and re-enter '
 					+ 'filterTargetsByFieldType, the contains-guard must suppress the duplicate warning');
 		}
@@ -1461,7 +1672,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that a rule with a blank `ApplicableFieldTypes__c` CSV applies to every
-	 * text-shaped field — the original pre-Phase-7 behaviour. Guards against a regression where
+	 * text field, which is the original behaviour before field-type filters existed. Guards against a regression where
 	 * an overly aggressive filter treats an unpopulated CSV as "no field types" instead of "all".
 	 */
 	@IsTest
@@ -1489,7 +1700,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that the `ApplicableFieldTypes__c` CSV matches case-insensitively and
-	 * trims whitespace around entries — admins configuring CMDT through the UI may type
+	 * trims spaces around entries: admins who set up CMDT through the UI may type
 	 * ` string ; textarea ` and expect it to work the same as `STRING;TEXTAREA`.
 	 */
 	@IsTest
@@ -1544,14 +1755,15 @@ private class UTIL_FrameworkMasker_TEST
 
 			UTIL_FrameworkMasker.forRecord(record).apply();
 
-			Assert.areEqual('the X one', record.Text__c, 'Fully-typoed ApplicableFieldTypes must fall back to apply-to-all (secure default) so protection is not silently disabled');
+			Assert.areEqual('the X one', record.Text__c,
+					'Fully-typoed ApplicableFieldTypes must fall back to apply-to-all (secure default) so protection is not silently disabled');
 		}
 	}
 
 	/**
 	 * @description Tests that `parseApplicableFieldTypes` tolerates blank tokens produced by
 	 * consecutive semicolons or whitespace-only entries in the CSV. Admins typing
-	 * `STRING;;TEXTAREA` or `STRING; ;TEXTAREA` must get the same behaviour as `STRING;TEXTAREA` —
+	 * `STRING;;TEXTAREA` or `STRING; ;TEXTAREA` must get the same behaviour as `STRING;TEXTAREA`:
 	 * the blank slot is skipped, not treated as an unknown token (which would trigger the
 	 * "all unknown → apply everywhere" fallback).
 	 */
@@ -1573,10 +1785,10 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that `parseApplicableFieldTypes` caches by raw CSV string —
-	 * subsequent calls with the same CSV must return the same Set reference without
-	 * re-splitting. Bulk triggers fan the same rule across hundreds of field/record pairs;
-	 * this cache is what keeps that O(1) instead of O(N).
+	 * @description Tests that `parseApplicableFieldTypes` caches by the raw list text: later calls
+	 * with the same list must return the same Set without splitting it again. Bulk triggers check the
+	 * same rule for hundreds of field and record pairs; this cache keeps that cost constant instead of
+	 * growing with the number of pairs.
 	 */
 	@IsTest
 	private static void shouldCacheParsedApplicableFieldTypesByCsv()
@@ -1612,7 +1824,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Registers a MaskingTarget pointing at Foobar__c.Text__c with an explicit
-	 * `FailureAction__c` value — for failure-handling tests (LogAndContinue / WriteFailureMarker / BlockDml).
+	 * `FailureAction__c` value, for failure-handling tests (LogAndContinue / WriteFailureMarker / BlockDml).
 	 *
 	 * @param mode Rule mode
 	 * @param rulePattern Rule pattern (typically malformed so the rule throws)
@@ -1629,7 +1841,7 @@ private class UTIL_FrameworkMasker_TEST
 	 * @description Registers a wildcard MaskingTarget (blank `Field__c`) on Foobar__c with an
 	 * explicit `ApplicableFieldTypes__c` semicolon-delimited CSV so field-type-filter tests can
 	 * verify that fields whose `DisplayType` is excluded from the rule are dropped at
-	 * batch-plan construction time — zero per-record cost.
+	 * the time the batch plan is built, at no cost for each record.
 	 *
 	 * @param mode Rule mode
 	 * @param rulePattern Rule pattern
@@ -1655,7 +1867,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Registers a MaskingTarget pointing at Foobar__c.Text__c with an explicit
-	 * `MinInputLength__c` — for short-circuit tests that prove rules are skipped when the value
+	 * `MinInputLength__c`, for tests that prove rules are skipped when the value
 	 * is shorter than the configured threshold.
 	 *
 	 * @param mode Rule mode
@@ -1682,7 +1894,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Registers a MaskingTarget pointing at Foobar__c.Text__c with a custom rule
-	 * developer name and Order__c — for dedup and ordering tests.
+	 * developer name and Order__c, for duplicate and ordering tests.
 	 *
 	 * @param mode Rule mode
 	 * @param rulePattern Rule pattern
@@ -1712,7 +1924,7 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Registers a MaskingTarget pointing at Foobar__c.TextArea__c with a custom rule
-	 * developer name and Order__c — for batching and ordering tests.
+	 * developer name and Order__c, for batching and ordering tests.
 	 *
 	 * @param mode Rule mode
 	 * @param rulePattern Rule pattern
@@ -1793,12 +2005,26 @@ private class UTIL_FrameworkMasker_TEST
 	 */
 	private static void registerMockTarget(MaskingRule__mdt rule, String fieldApiName, String callerClassScope)
 	{
-		String foobarName = UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType);
-		String fieldValue = String.isBlank(fieldApiName) ? null : foobarName + UTIL_String.DOT + fieldApiName;
+		registerMockTargetOn(Foobar__c.SObjectType, rule, fieldApiName, callerClassScope);
+	}
+
+	/**
+	 * @description Registers a single active `MaskingTarget__mdt` record for the given rule on any SObjectType.
+	 * Pass a blank `fieldApiName` to register a wildcard target (`Field__c = null`).
+	 *
+	 * @param sObjectType The SObjectType the target names
+	 * @param rule The pre-built rule the target should point at
+	 * @param fieldApiName The field API name (without object prefix); blank for a wildcard target
+	 * @param callerClassScope Optional CallerClass__c scope; null means unscoped
+	 */
+	private static void registerMockTargetOn(SObjectType sObjectType, MaskingRule__mdt rule, String fieldApiName, String callerClassScope)
+	{
+		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(sObjectType);
+		String fieldValue = String.isBlank(fieldApiName) ? null : objectName + UTIL_String.DOT + fieldApiName;
 
 		TST_Mock.of(MaskingTarget__mdt.SObjectType)
 				.withOverride(MaskingTarget__mdt.IsActive__c, true)
-				.withOverride(MaskingTarget__mdt.SObjectType__c, foobarName)
+				.withOverride(MaskingTarget__mdt.SObjectType__c, objectName)
 				.withOverride(MaskingTarget__mdt.Field__c, fieldValue)
 				.withOverride(MaskingTarget__mdt.CallerClass__c, callerClassScope)
 				.withOverride(MaskingTarget__mdt.Rule__c, rule)
@@ -1806,9 +2032,20 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
+	 * @description A mock with the shipped card rule's pattern and redaction token in regex mode (the shipped rules run
+	 *              in credit-card mode with a Luhn check; the card-shaped run key these tests use passes it either way).
+	 *
+	 * @return An uninserted MaskingRule__mdt.
+	 */
+	private static MaskingRule__mdt mockCardRule()
+	{
+		return (MaskingRule__mdt)mockRuleBuilder('CardRule', SEL_MaskingRule.MODE_REGEX, CARD_PATTERN, CARD_REPLACEMENT, 10).withoutInsertion(true).build();
+	}
+
+	/**
 	 * @description Builds an uninserted Foobar__c with Text__c and TextArea__c pre-populated.
 	 * Several wildcard-target tests exercise the framework against a record carrying values on
-	 * both field types — this helper captures that common shape.
+	 * both field types; this helper builds that common record.
 	 *
 	 * @param textValue Value for `Foobar__c.Text__c`
 	 * @param textAreaValue Value for `Foobar__c.TextArea__c`
@@ -1825,16 +2062,16 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tier-A — proves UTIL_FrameworkMasker applies configured
-	 * masking rules to a record in place when invoked by a subscriber user on the Minimum Access
-	 * - Salesforce profile. The running user has no FLS on kern__ MaskingTarget CMDT objects or
-	 * kern__Foobar__c, yet the framework's masking pipeline must still read the applicable
-	 * targets (framework-internal selectors elevate via systemModeRequired), match the configured
-	 * rule, and mutate the record's field value regardless of the caller's FLS.
+	 * @description Proves that UTIL_FrameworkMasker applies configured masking rules to a record in
+	 * place when a subscriber user on the Minimum Access - Salesforce profile calls it. The running
+	 * user has no FLS on the kern__ MaskingTarget CMDT objects or on kern__Foobar__c, yet masking must
+	 * still read the applicable targets (framework-internal selectors run in system mode through
+	 * systemModeRequired), match the configured rule, and change the record's field value whatever
+	 * the caller's FLS.
 	 *
-	 * Catches: a future refactor that demotes SEL_MaskingTarget (or any other masking-pipeline
-	 * selector) to USER_MODE would cause the low-privilege user's apply call to silently no-op —
-	 * this test fails at 2GP validated-build time rather than at subscriber scratch-org time.
+	 * Catches: if a later change moved SEL_MaskingTarget (or any other selector used by masking) to
+	 * USER_MODE, the low-privilege user's apply call would quietly do nothing. This test then fails
+	 * when the 2GP build is validated, not later in a subscriber scratch org.
 	 *
 	 * @see UTIL_FrameworkMasker.forRecord
 	 */
@@ -1861,10 +2098,10 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Verifies the preview seam masks a value with a single rule even when no active
-	 * MaskingTarget exists for the field — the core of dormant-rule preview. A dormant Regex phone
-	 * rule (no target configured) redacts a phone-shaped value, proving the active-target cache is
-	 * bypassed.
+	 * @description Verifies the preview method masks a value with a single rule even when no active
+	 * MaskingTarget exists for the field, which is the core of previewing an unused rule. An unused
+	 * Regex phone rule (no target configured) redacts a phone-shaped value, proving the active-target
+	 * cache is not used.
 	 */
 	@IsTest
 	private static void maskValueAgainstRuleRedactsDormantRegexRuleWithNoActiveTarget()
@@ -1884,7 +2121,7 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Verifies the preview seam applies a JsonKey rule to a JSON payload, redacting the
+	 * @description Verifies the preview method applies a JsonKey rule to a JSON payload, redacting the
 	 * value of the matched key while leaving the rest of the document intact.
 	 */
 	@IsTest
@@ -1906,9 +2143,9 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Verifies the preview seam leaves a non-JSON scalar unchanged when handed a JsonKey
-	 * rule — a correct no-op, not a failure. The console must not misread this as a broken rule, so the
-	 * seam records zero matches rather than mutating the value.
+	 * @description Verifies the preview method leaves a plain value that is not JSON unchanged when
+	 * handed a JsonKey rule. That is correct, not a failure. The console must not read this as a broken
+	 * rule, so the method records zero matches and does not change the value.
 	 */
 	@IsTest
 	private static void maskValueAgainstRuleNoOpsJsonKeyRuleOnNonJsonScalar()
@@ -1928,8 +2165,8 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Verifies the preview seam returns the value unchanged when handed a blank value,
-	 * short-circuiting before any rule runs.
+	 * @description Verifies the preview method returns the value unchanged when handed a blank value,
+	 * stopping before any rule runs.
 	 */
 	@IsTest
 	private static void maskValueAgainstRuleReturnsUnmaskedForBlankValue()
@@ -1948,9 +2185,9 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Round-trips the shipped `MaskAddress` rule exactly as it deploys — a Regex catch-all
-	 * that replaces the whole value with a static token — proving the new dormant rule redacts a postal
-	 * address through the framework masker, independent of the advisor surface.
+	 * @description Runs the shipped `MaskAddress` rule exactly as it deploys (a Regex rule that
+	 * matches anything and replaces the whole value with a fixed token), proving the new unused rule
+	 * masks a postal address through the framework masker, without the advisor pages.
 	 */
 	@IsTest
 	private static void shippedMaskAddressRuleRedactsAddressValue()
@@ -1966,8 +2203,8 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Round-trips the shipped `MaskFreeText` rule — proving the dormant catch-all redacts a
-	 * free-text value to its static token through the framework masker.
+	 * @description Runs the shipped `MaskFreeText` rule, proving the unused rule that matches anything
+	 * masks a free-text value to its fixed token through the framework masker.
 	 */
 	@IsTest
 	private static void shippedMaskFreeTextRuleRedactsTextValue()
@@ -1988,8 +2225,8 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Round-trips the shipped `MaskPhoneInternational` rule — proving the dormant catch-all
-	 * redacts an international-format phone value (with a leading country code) to its static token.
+	 * @description Runs the shipped `MaskPhoneInternational` rule, proving the unused rule that matches
+	 * anything masks an international-format phone value (with a leading country code) to its fixed token.
 	 */
 	@IsTest
 	private static void shippedMaskPhoneInternationalRuleRedactsValue()
@@ -2007,14 +2244,14 @@ private class UTIL_FrameworkMasker_TEST
 	/**
 	 * @description Returns the shipped `MaskingRule__mdt` record with the given developer name, read
 	 * through the framework's `SEL_MaskingTarget` selector (not a raw `getAll()`), so a round-trip test
-	 * exercises the rule exactly as it ships (pattern, replacement, mode) via the same seam production
+	 * exercises the rule exactly as it ships (pattern, replacement, mode) through the same selector production
 	 * uses, rather than a hand-built mock. Fails the test with a clear message when the rule is not
 	 * deployed, so an un-deployed or renamed record surfaces as "rule not deployed" rather than an opaque
 	 * downstream token-mismatch assertion.
 	 *
 	 * @param developerName The rule developer name to find (for example `MaskAddress`).
 	 *
-	 * @return The deployed rule (never `null` — a missing rule fails the test).
+	 * @return The deployed rule (never `null`: a missing rule fails the test).
 	 */
 	private static MaskingRule__mdt shippedRule(String developerName)
 	{
@@ -2044,8 +2281,8 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Retrieves the committed low-privilege user (Minimum Access - Salesforce profile)
-	 * set up in @TestSetup. Used by the tier-A test to exercise UTIL_FrameworkMasker and prove the
-	 * subscribers-without-internal-FLS contract holds for the data-masking primitive.
+	 * set up in @TestSetup. Used by the low-privilege test to run UTIL_FrameworkMasker and prove that
+	 * masking still works for subscriber users who have no FLS on the framework's own objects.
 	 *
 	 * @return The low-privilege User record.
 	 */
@@ -2081,10 +2318,10 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that a predecessor target keeps masking a surface the successor does not
-	 * mirror (the subscriber-custom-object shape). The rule-level verdict positively holds — only
-	 * the missing successor surface keeps the predecessor binding alive, so the case cannot pass
-	 * vacuously.
+	 * @description Tests that a predecessor target keeps masking a field the successor does not also
+	 * cover (the shape of a subscriber's custom object). The rule-level supersession check does pass,
+	 * so only the missing successor target keeps the predecessor target running, and the test cannot
+	 * pass for the wrong reason.
 	 */
 	@IsTest
 	private static void shouldNotSuppressWhenSuccessorTargetMissingOnSurface()
@@ -2095,7 +2332,7 @@ private class UTIL_FrameworkMasker_TEST
 			Foobar__c record = buildSupersessionRecord();
 
 			Assert.isTrue(SEL_MaskingRule.findSupersededRuleNames(new SEL_MaskingTarget().getAllRulesById().values()).contains(PREDECESSOR_RULE_NAME),
-					'Positive control: the rule-level verdict must hold so only the missing successor surface keeps the predecessor running');
+					'Control check: the rule-level supersession must pass, so only the missing successor target keeps the predecessor running');
 
 			UTIL_FrameworkMasker.forRecord(record).apply();
 
@@ -2104,9 +2341,9 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that a tuned predecessor (live fingerprint no longer matching the
-	 * successor's ReplacesFingerprint__c) is never suppressed — both rules run and the tuned
-	 * replacement lands, proving the subscriber's customisation stayed in force.
+	 * @description Tests that a tuned predecessor (its current fingerprint no longer matches the
+	 * successor's ReplacesFingerprint__c) is never dropped: both rules run and the tuned replacement
+	 * is written, proving the subscriber's change stayed in force.
 	 */
 	@IsTest
 	private static void shouldNotSuppressTunedPredecessor()
@@ -2123,10 +2360,10 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that a tuned successor (live fingerprint no longer matching its own
-	 * ShippedFingerprint__c) suppresses nothing — the predecessor keeps masking. The successor's
-	 * tuning here (MinInputLength above the input length) also keeps its own token untouched,
-	 * mirroring the narrowed-coverage hole that motivated the two-sided predicate.
+	 * @description Tests that a tuned successor (its current fingerprint no longer matches its own
+	 * ShippedFingerprint__c) drops nothing: the predecessor keeps masking. The successor's change here
+	 * (MinInputLength above the input length) also leaves its own token alone. This is the gap in
+	 * coverage that made supersession check both the predecessor and the successor.
 	 */
 	@IsTest
 	private static void shouldNotSuppressWhenSuccessorTuned()
@@ -2142,7 +2379,7 @@ private class UTIL_FrameworkMasker_TEST
 					(
 							PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_TOKEN,
 							record.Name,
-							'A tuned successor must not evict its predecessor — the predecessor still masks the surface'
+							'A tuned successor must not replace its predecessor: the predecessor still masks the field'
 					);
 		}
 	}
@@ -2165,15 +2402,15 @@ private class UTIL_FrameworkMasker_TEST
 			UTIL_FrameworkMasker.forRecord(record).apply();
 
 			Assert.areEqual(PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_REPLACEMENT, record.Name,
-					'A wildcard predecessor target and a field-specific successor target bind different surfaces — neither may be dropped');
+					'A wildcard predecessor target and a field-specific successor target have different field keys: neither may be dropped');
 		}
 	}
 
 	/**
-	 * @description Tests that suppression links stay independent across coexisting pairs: with
-	 * pair one fully mirrored on the surface and pair two's successor target absent, pair one's
-	 * predecessor is suppressed while pair two's predecessor keeps masking — pair one's surface
-	 * coverage must never count for pair two's verdict.
+	 * @description Tests that supersession pairs that exist side by side stay independent: pair one's
+	 * successor covers the field and pair two's successor has no target there. Pair one's predecessor
+	 * is dropped, while pair two's predecessor keeps masking. Pair one's coverage must never count
+	 * for pair two.
 	 */
 	@IsTest
 	private static void shouldSuppressEachSupersessionLinkIndependently()
@@ -2183,7 +2420,7 @@ private class UTIL_FrameworkMasker_TEST
 			List<MaskingRule__mdt> firstPair = buildSupersessionRulePairNamed(PREDECESSOR_RULE_NAME, PREDECESSOR_TOKEN, PREDECESSOR_REPLACEMENT,
 					SUCCESSOR_RULE_NAME, SUCCESSOR_TOKEN, SUCCESSOR_REPLACEMENT);
 			List<MaskingRule__mdt> secondPair = buildSupersessionRulePairNamed('OldTextRule', 'PRED2-TOKEN', '[P2]', 'NewTextRule', 'SUCC2-TOKEN', '[S2]');
-			primeRuleUniverse(new List<MaskingRule__mdt> {firstPair[0], firstPair[1], secondPair[0], secondPair[1]});
+			overrideAllRules(new List<MaskingRule__mdt> {firstPair[0], firstPair[1], secondPair[0], secondPair[1]});
 			registerMockTarget(firstPair[0], null, null);
 			registerMockTarget(firstPair[1], null, null);
 			registerMockTarget(secondPair[0], null, null);
@@ -2195,15 +2432,15 @@ private class UTIL_FrameworkMasker_TEST
 			UTIL_FrameworkMasker.forRecord(record).apply();
 
 			Assert.areEqual(PREDECESSOR_TOKEN + ' ' + SUCCESSOR_REPLACEMENT + ' [P2]', record.Name,
-					'Pair-one suppression must not evict pair-two\'s predecessor — its own successor has no target on this surface');
+					'Dropping pair one\'s predecessor must not drop pair two\'s predecessor: its own successor has no target on this field');
 		}
 	}
 
 	/**
-	 * @description Tests that a TUNED sibling successor cannot piggyback on another successor's
-	 * verdict for the same predecessor: the genuine successor mirrors only one specific field, so
-	 * the predecessor keeps its wildcard surface even though the tuned sibling's wildcard target
-	 * sits on it — a tuned successor's targets must never key suppression surfaces.
+	 * @description Tests that a TUNED successor cannot use another successor's result for the same
+	 * predecessor. The real successor covers only one named field, so the predecessor keeps its
+	 * wildcard target even though the tuned successor's wildcard target is on the same field. The
+	 * targets of a tuned successor must never decide which predecessor targets are dropped.
 	 */
 	@IsTest
 	private static void shouldNotLetTunedSiblingSuccessorPiggybackOnAnotherLinksVerdict()
@@ -2219,7 +2456,7 @@ private class UTIL_FrameworkMasker_TEST
 			tunedSibling.ReplacesFingerprint__c = SEL_MaskingRule.computeFingerprint(pair[0]);
 			tunedSibling.ShippedFingerprint__c = SEL_MaskingRule.computeFingerprint(tunedSibling);
 			tunedSibling.MinInputLength__c = 99;
-			primeRuleUniverse(new List<MaskingRule__mdt> {pair[0], pair[1], tunedSibling});
+			overrideAllRules(new List<MaskingRule__mdt> {pair[0], pair[1], tunedSibling});
 			registerMockTarget(pair[0], null, null);
 			registerMockTarget(pair[1], UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Name), null);
 			registerMockTarget(tunedSibling, null, null);
@@ -2231,7 +2468,7 @@ private class UTIL_FrameworkMasker_TEST
 			UTIL_FrameworkMasker.forRecord(record).apply();
 
 			Assert.areEqual(PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_REPLACEMENT + ' SIBLING-TOKEN', record.Name,
-					'A tuned successor must not piggyback on its sibling\'s verdict — the predecessor keeps surfaces its genuine successor does not mirror');
+					'A tuned successor must not use another successor\'s result: the predecessor keeps the fields its real successor does not cover');
 		}
 	}
 
@@ -2247,7 +2484,7 @@ private class UTIL_FrameworkMasker_TEST
 		{
 			List<MaskingRule__mdt> pair = buildSupersessionRulePairNamed(PREDECESSOR_RULE_NAME, PREDECESSOR_TOKEN, PREDECESSOR_REPLACEMENT,
 					SUCCESSOR_RULE_NAME, SUCCESSOR_TOKEN, SUCCESSOR_REPLACEMENT);
-			primeRuleUniverse(pair);
+			overrideAllRules(pair);
 			registerMockTarget(pair[0], null, SAMPLE_CALLER);
 			registerMockTarget(pair[1], null, null);
 			Foobar__c record = buildSupersessionRecord();
@@ -2255,16 +2492,17 @@ private class UTIL_FrameworkMasker_TEST
 			UTIL_FrameworkMasker.forRecord(record).calledFrom(SAMPLE_CALLER).apply();
 
 			Assert.areEqual(PREDECESSOR_REPLACEMENT + ' ' + SUCCESSOR_REPLACEMENT, record.Name,
-					'A caller-scoped predecessor surface differs from the unscoped successor surface — no suppression, both rules run');
+					'A predecessor target limited to one caller does not match the successor target for every caller: nothing is dropped, both rules run');
 		}
 	}
 
 	/**
-	 * @description Tests that an org-local clone sharing the packaged predecessor's DeveloperName
-	 * AND functional values keeps masking when the packaged predecessor is suppressed — rule
-	 * identity is namespace-qualified end-to-end (dedupe, verdict, suppression), so the packaged
-	 * verdict can never evict the clone's binding. Namespaces are derived so the proof holds
-	 * unmanaged, managed, and rebuilt under any namespace.
+	 * @description Tests that an org-local copy that shares the packaged predecessor's DeveloperName
+	 * AND its values keeps masking when the packaged predecessor is dropped. A rule is identified by
+	 * its namespace-qualified name everywhere (removing duplicates, checking supersession, dropping
+	 * targets), so the packaged rule's result can never drop the copy's target. The namespaces are
+	 * worked out at run time, so the test holds in an unmanaged org, in a managed package, and when
+	 * rebuilt under any namespace.
 	 */
 	@IsTest
 	private static void shouldNotSuppressIdenticalCloneFromAnotherNamespace()
@@ -2273,7 +2511,8 @@ private class UTIL_FrameworkMasker_TEST
 		{
 			String runningNamespace = UTIL_System.getManagedPackageNamespace();
 			String foreignNamespace = (runningNamespace ?? UTIL_String.EMPTY) + 'subscriber';
-			MaskingRule__mdt predecessor = (MaskingRule__mdt)mockRuleBuilder(PREDECESSOR_RULE_NAME, SEL_MaskingRule.MODE_EXACT_MATCH, PREDECESSOR_TOKEN, PREDECESSOR_REPLACEMENT, 200)
+			MaskingRule__mdt predecessor = (MaskingRule__mdt)mockRuleBuilder(PREDECESSOR_RULE_NAME, SEL_MaskingRule.MODE_EXACT_MATCH, PREDECESSOR_TOKEN,
+					PREDECESSOR_REPLACEMENT, 200)
 					.withOverride(MaskingRule__mdt.NamespacePrefix, runningNamespace)
 					.withoutInsertion(true)
 					.build();
@@ -2288,7 +2527,7 @@ private class UTIL_FrameworkMasker_TEST
 					.withOverride(MaskingRule__mdt.NamespacePrefix, foreignNamespace)
 					.withoutInsertion(true)
 					.build();
-			primeRuleUniverse(new List<MaskingRule__mdt> {predecessor, successor, clone});
+			overrideAllRules(new List<MaskingRule__mdt> {predecessor, successor, clone});
 			registerMockTarget(predecessor, null, null);
 			registerMockTarget(successor, null, null);
 			registerMockTarget(clone, null, null);
@@ -2302,15 +2541,15 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Builds the standard supersession rule pair (predecessor + successor naming it
-	 * via Replaces__c, both fingerprints set exactly as the shipped metadata would carry them),
-	 * applies the requested tuning AFTER fingerprint capture, and primes the rule universe seam
-	 * so the successor rule is visible to verdicts even when no target references it.
+	 * @description Builds the standard supersession rule pair (a predecessor, and a successor naming
+	 * it in Replaces__c, with both fingerprints set exactly as the shipped metadata would carry them).
+	 * Applies the requested tuning AFTER the fingerprints are taken, and sets the selector's list of
+	 * all rules, so supersession sees the successor rule even when no target refers to it.
 	 *
 	 * @param predecessorTuned Tune the predecessor's Replacement__c (fingerprint drifts; rule still matches its token)
 	 * @param successorTuned Tune the successor's MinInputLength__c (fingerprint drifts; rule stops matching the short input)
 	 *
-	 * @return The pair — index 0 predecessor, index 1 successor
+	 * @return The pair: index 0 is the predecessor, index 1 the successor
 	 */
 	private static List<MaskingRule__mdt> buildSupersessionRulePair(Boolean predecessorTuned, Boolean successorTuned)
 	{
@@ -2327,16 +2566,16 @@ private class UTIL_FrameworkMasker_TEST
 			pair[1].MinInputLength__c = 99;
 		}
 
-		primeRuleUniverse(pair);
+		overrideAllRules(pair);
 
 		return pair;
 	}
 
 	/**
-	 * @description Builds a supersession rule pair with explicit names, tokens, and replacements
-	 * so fixtures can hold several independent pairs. Both fingerprints are captured exactly as
-	 * the shipped metadata would carry them. Does NOT prime the rule universe seam — callers
-	 * composing multiple pairs prime it once via primeRuleUniverse.
+	 * @description Builds a supersession rule pair with explicit names, tokens, and replacements,
+	 * so a test can hold several separate pairs. Both fingerprints are taken exactly as the shipped
+	 * metadata would carry them. Does NOT set the selector's list of all rules: callers that build
+	 * several pairs set it once with overrideAllRules.
 	 *
 	 * @param predecessorName The predecessor rule DeveloperName
 	 * @param predecessorToken The token only the predecessor matches
@@ -2345,7 +2584,7 @@ private class UTIL_FrameworkMasker_TEST
 	 * @param successorToken The token only the successor matches
 	 * @param successorReplacement The replacement the successor writes
 	 *
-	 * @return The pair — index 0 predecessor, index 1 successor
+	 * @return The pair: index 0 is the predecessor, index 1 the successor
 	 */
 	private static List<MaskingRule__mdt> buildSupersessionRulePairNamed
 			(
@@ -2371,13 +2610,13 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Primes the rule-universe seam with the given rules so verdicts see exactly
-	 * this universe. Keys are positional — clones legitimately share a DeveloperName, and the
-	 * universe consumers read values only.
+	 * @description Replaces every masking rule the selector sees with the given rules, so the
+	 * supersession checks see exactly these rules. The map keys are positions in the list, because
+	 * copies may share a DeveloperName, and the code that reads the map reads only its values.
 	 *
-	 * @param rules The complete rule universe for the test
+	 * @param rules Every masking rule the test needs
 	 */
-	private static void primeRuleUniverse(List<MaskingRule__mdt> rules)
+	private static void overrideAllRules(List<MaskingRule__mdt> rules)
 	{
 		Map<String, MaskingRule__mdt> rulesByKey = new Map<String, MaskingRule__mdt>();
 

@@ -9,24 +9,172 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 private class QRY_Builder_TEST
 {
+	/**
+	 * @description Company name given to the admin user created in the test setup. It is unique to this class, so
+	 * getTestAdmin can find that one user again by company name.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'QRY_Builder_TEST-admin';
+	/**
+	 * @description Name stamped on the Foobar__c rows seeded for the tests that read through the query cache, so
+	 * a cached read can be limited to those rows by name.
+	 */
+	private static final String CACHE_PROBE_NAME = 'Cache probe';
+	/**
+	 * @description Number of Foobar__c rows each owner gets in the cached-read tests. A read that may see the rows
+	 * must return this many; a read that may not must return fewer.
+	 */
+	private static final Integer CACHE_PROBE_ROWS = 3;
+	/**
+	 * @description How long, in seconds, the cached-read tests ask the query cache to keep a result: five minutes,
+	 * far longer than a test runs, so a stored result cannot expire between two reads in one test. Whether the
+	 * second read may be served that result is what each test checks.
+	 */
+	private static final Integer CACHE_PROBE_TTL_SECONDS = 300;
+	/**
+	 * @description A longer time-to-live, an hour, for the tests that ask for durable Platform Cache storage.
+	 */
+	private static final Integer DURABLE_PROBE_TTL_SECONDS = 3600;
+	/**
+	 * @description Name stamped on the Foobar__c rows seeded for the cursor sharing probe.
+	 */
+	private static final String CURSOR_PROBE_NAME = 'Cursor probe';
+	/**
+	 * @description Number of admin-owned Foobar__c rows the cursor sharing probe seeds.
+	 */
+	private static final Integer CURSOR_PROBE_ROWS = 3;
+	/**
+	 * @description API name of the Foobar__c date field. The tests use it to check the query text the builder
+	 * produces when a date function is used for grouping or ordering.
+	 */
 	private static final String FIELD_DATE = SEL_Foobar.FIELD_DATE;
+	/**
+	 * @description API name of the Foobar__c email field. The tests use it to check that the field appears in,
+	 * or is left out of, the query text the builder produces.
+	 */
 	private static final String FIELD_EMAIL = SEL_Foobar.FIELD_EMAIL;
+	/**
+	 * @description The name of the record Id field, for the tests that pass a field to the builder as text, for
+	 * example to count rows or to filter on the result of an inner query.
+	 */
 	private static final String FIELD_ID = 'Id';
+	/**
+	 * @description API name of the Foobar__c lookup field. The tests use it where a field holding a record Id is
+	 * needed, such as building a map of rows keyed by that Id.
+	 */
 	private static final String FIELD_LOOKUP = SEL_Foobar.FIELD_LOOKUP;
+	/**
+	 * @description API name of the Foobar__c name field. The tests use it to select and filter by name and to
+	 * check that the name appears in the query text the builder produces.
+	 */
 	private static final String FIELD_NAME = SEL_Foobar.FIELD_NAME;
+	/**
+	 * @description API name of the Foobar__c decimal number field. The tests use it to check the ordering part of
+	 * the query text the builder produces.
+	 */
 	private static final String FIELD_NUMBER_DECIMAL = SEL_Foobar.FIELD_DECIMAL;
+	/**
+	 * @description API name of the Foobar__c whole number field. The tests use it to check the greater than and
+	 * less than comparisons in the query text the builder produces.
+	 */
 	private static final String FIELD_NUMBER_INTEGER = SEL_Foobar.FIELD_INTEGER;
+	/**
+	 * @description API name of the Foobar__c picklist field. The tests use it where a field with a small set of
+	 * values is needed, such as matching against a list of values or counting distinct values.
+	 */
 	private static final String FIELD_PICKLIST = SEL_Foobar.FIELD_PICKLIST;
+	/**
+	 * @description API name of the Foobar__c text field. The tests use it to check the text comparisons (equals,
+	 * starts with, ends with, in a list) in the query text the builder produces.
+	 */
 	private static final String FIELD_TEXT = SEL_Foobar.FIELD_TEXT;
+	/**
+	 * @description API name of the Foobar__c text area field. The tests use it to check the not equals and the
+	 * is empty comparisons in the query text the builder produces.
+	 */
 	private static final String FIELD_TEXTAREA = SEL_Foobar.FIELD_TEXT_AREA;
+	/**
+	 * @description Number of rows the probe batch receives in one chunk. It is larger than the number of rows
+	 * seeded, so the batch sees every row in a single chunk.
+	 */
+	private static final Integer LOCATOR_PROBE_BATCH_SIZE = 200;
+	/**
+	 * @description Name stamped on the Foobar__c rows seeded for the tests that read through a query locator.
+	 */
+	private static final String LOCATOR_PROBE_NAME = 'Locator probe';
+	/**
+	 * @description Number of Foobar__c rows the query locator tests seed. A locator that may see the rows must
+	 * deliver exactly this many.
+	 */
+	private static final Integer LOCATOR_PROBE_ROWS = 3;
+	/**
+	 * @description API name of the Foobar__c object, used to check that the query text the builder produces reads
+	 * from the right object.
+	 */
 	private static final String OBJECT_NAME = SEL_Foobar.OBJECT_NAME;
+	/**
+	 * @description Page size for the cached paging test. It is smaller than PAGING_PROBE_ROWS, so the rows spread
+	 * over more than one page and a page size can never be mistaken for the total.
+	 */
+	private static final Integer PAGING_PROBE_PAGE_SIZE = 2;
+	/**
+	 * @description Number of rows the cached paging test seeds. Every page must report this as the total number of
+	 * records, however many rows the page itself holds.
+	 */
+	private static final Integer PAGING_PROBE_ROWS = 5;
+	/**
+	 * @description The permission set that gives a Standard User read access to Foobar__c, so a user-mode read by
+	 * that user runs instead of failing on object access.
+	 */
+	private static final String READ_ONLY_PERMISSION_SET = 'ReadOnly';
+	/**
+	 * @description Company name of the restricted user the user-mode sharing test creates, so the test can tell that
+	 * user apart from the test admin.
+	 */
+	private static final String RESTRICTED_USER_COMPANY = 'QRY_Builder_TEST-restricted';
+	/**
+	 * @description Name stamped on the Foobar__c rows seeded for the row-query sharing probe.
+	 */
+	private static final String ROW_SHARING_PROBE_NAME = 'Row sharing probe';
+	/**
+	 * @description Number of admin-owned Foobar__c rows the row-query sharing probe seeds.
+	 */
+	private static final Integer ROW_SHARING_PROBE_ROWS = 3;
+	/**
+	 * @description Start of the name under which the audit record for a query that skips the permission checks is
+	 * looked up. The tests add the object name to it to find that record.
+	 */
+	private static final String SECURITY_MODE_AUDIT_PREFIX = 'security-mode:';
+	/**
+	 * @description Start of the name under which the audit record for a query that skips record sharing is looked
+	 * up. The tests add the object name to it to find that record.
+	 */
+	private static final String SHARING_AUDIT_PREFIX = 'sharing:';
+	/**
+	 * @description Name stamped on the Foobar__c rows seeded for the test that checks withoutSecurity.
+	 */
+	private static final String WAIVER_PROBE_NAME = 'Waiver probe';
+	/**
+	 * @description Page size the withoutSecurity test asks for. It is larger than WAIVER_PROBE_ROWS, so one page
+	 * can hold every seeded row.
+	 */
+	private static final Integer WAIVER_PROBE_PAGE_SIZE = 10;
+	/**
+	 * @description Number of Foobar__c rows the withoutSecurity test seeds as the admin. A user who does not own
+	 * them must still get this many back from every way of running the query.
+	 */
+	private static final Integer WAIVER_PROBE_ROWS = 3;
+
+	/**
+	 * @description Rows the cross-transaction queueable fetch saw through its cursor; static so the in-test
+	 * synchronous queueable run can report back to the asserting method.
+	 */
+	private static Integer cursorRowsSeenInQueueable = -1;
 
 	/**
 	 * @description Creates a dedicated test admin user so System.runAs in each test starts a fresh
@@ -56,12 +204,7 @@ private class QRY_Builder_TEST
 	@IsTest
 	private static void countHonoursTheSharingBypassItAdvertises()
 	{
-		User restricted;
-		// Setup-object DML is isolated in its own runAs so it does not collide with the Foobar__c DML.
-		System.runAs(new User(Id = UserInfo.getUserId()))
-		{
-			restricted = TST_Factory.newUser(SEL_Profile.PROFILE_STANDARD_USER);
-		}
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
 		System.runAs(getTestAdmin())
 		{
 			TST_Builder.of(Foobar__c.SObjectType)
@@ -85,6 +228,311 @@ private class QRY_Builder_TEST
 				'With sharing enforced the other user sees none of the admin-owned private rows — system mode waives CRUD and FLS, never record sharing');
 		Assert.areEqual(3, bypassedCount,
 				'A bypassed count must reach every row, exactly as a bypassed row query does; 0 here would mean count() drops the sharing dial and undersizes what it measures');
+	}
+
+	/**
+	 * @description Tests that withSystemMode() alone does not span record sharing on the row-query path, the
+	 * path subscribers reach through toList(), getFirst() and SEL_Base.findById. System mode waives object and
+	 * field permissions only; record sharing is a separate dial, so a system-mode read of another user's rows
+	 * returns nothing rather than failing loudly, which is the quiet failure and the reason this needs its own test.
+	 * Foobar__c is Private OWD, so rows owned by the test admin are genuinely invisible to another user. The
+	 * bypassed read is the positive control: it proves the empty result is record sharing rather than a seed
+	 * that never landed. The class declares no sharing keyword, which is the common subscriber shape, so the
+	 * unbroken inherited sharing chain resolves to with sharing and enforcement is observed by default.
+	 */
+	@IsTest
+	private static void systemModeAloneDoesNotSpanSharingOnRowQuery()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, ROW_SHARING_PROBE_NAME)
+					.withCount(ROW_SHARING_PROBE_ROWS)
+					.buildList();
+		}
+
+		List<SObject> enforcedRows;
+		List<SObject> bypassedRows;
+
+		Test.startTest();
+		System.runAs(restricted)
+		{
+			enforcedRows = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().toList();
+			bypassedRows = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().bypassSharing().toList();
+		}
+		Test.stopTest();
+
+		Assert.areEqual(0, enforcedRows.size(),
+				'System mode alone waives CRUD and FLS but never record sharing, so the other user reads none of the admin-owned private rows');
+		Assert.areEqual(ROW_SHARING_PROBE_ROWS, bypassedRows.size(),
+				'The bypassed read is the positive control: it must return every seeded row, proving the empty result above is sharing and not a missing seed');
+	}
+
+	/**
+	 * @description Tests that toQueryLocator() honours the sharing bypass it advertises when the locator is
+	 * iterated in the same transaction. Foobar__c is Private OWD, so rows owned by the test admin are genuinely
+	 * invisible to another user; system mode is applied to both locators so object and field permissions are
+	 * waived and record sharing is the only variable left. The explicit withSharing() dial is set too, so
+	 * the with-sharing arm can never be routed through the without-sharing proxy unnoticed.
+	 */
+	@IsTest
+	private static void queryLocatorHonoursTheSharingBypassItAdvertises()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, LOCATOR_PROBE_NAME)
+					.withCount(LOCATOR_PROBE_ROWS)
+					.buildList();
+		}
+
+		Integer enforcedRows;
+		Integer bypassedRows;
+		Integer withSharingRows;
+
+		Test.startTest();
+		System.runAs(restricted)
+		{
+			enforcedRows = countLocatorRows(QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().toQueryLocator());
+			bypassedRows = countLocatorRows(QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().bypassSharing().toQueryLocator());
+			withSharingRows = countLocatorRows(QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().withSharing().toQueryLocator());
+		}
+		Test.stopTest();
+
+		Assert.areEqual(0, enforcedRows, 'With sharing enforced the other user iterates none of the admin-owned private rows');
+		Assert.areEqual(LOCATOR_PROBE_ROWS, bypassedRows,
+				'A bypassed locator must reach every row, exactly as a bypassed row query does; 0 here means toQueryLocator() drops the sharing dial');
+		Assert.areEqual(0, withSharingRows,
+				'With sharing explicitly enforced the other user iterates none of the admin-owned private rows; more than 0 means the '
+				+ 'withSharing() arm of toQueryLocator() is not dispatching through WithSharingExecutor');
+	}
+
+	/**
+	 * @description Tests that a bypassed locator still spans sharing when a real batch job retrieves its rows.
+	 * The batch class is declared with sharing and runs as the restricted user, so the only thing that can let
+	 * it see the admin-owned rows is the sharing dial the locator was built with.
+	 */
+	@IsTest
+	private static void queryLocatorBypassSurvivesBatchRetrieval()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, LOCATOR_PROBE_NAME)
+					.withCount(LOCATOR_PROBE_ROWS)
+					.buildList();
+		}
+
+		QRY_LocatorProbeBatch_TEST.rowsSeen = 0;
+		System.runAs(restricted)
+		{
+			Test.startTest();
+			Database.executeBatch(new QRY_LocatorProbeBatch_TEST(true), LOCATOR_PROBE_BATCH_SIZE);
+			Test.stopTest();
+		}
+
+		Assert.areEqual(LOCATOR_PROBE_ROWS, QRY_LocatorProbeBatch_TEST.rowsSeen,
+				'A with-sharing batch run by the restricted user must still receive every row through a bypassed locator');
+	}
+
+	/**
+	 * @description The inverse of queryLocatorBypassSurvivesBatchRetrieval, proving the batch measurement can
+	 * fail: without the bypass the same batch sees nothing.
+	 */
+	@IsTest
+	private static void queryLocatorWithoutBypassSeesNothingInBatch()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, LOCATOR_PROBE_NAME)
+					.withCount(LOCATOR_PROBE_ROWS)
+					.buildList();
+		}
+
+		QRY_LocatorProbeBatch_TEST.rowsSeen = 0;
+		System.runAs(restricted)
+		{
+			Test.startTest();
+			Database.executeBatch(new QRY_LocatorProbeBatch_TEST(false), LOCATOR_PROBE_BATCH_SIZE);
+			Test.stopTest();
+		}
+
+		Assert.areEqual(0, QRY_LocatorProbeBatch_TEST.rowsSeen,
+				'Without the bypass a with-sharing batch run by the restricted user sees none of the admin-owned private rows');
+	}
+
+	/**
+	 * @description The positive control for the batch measurement: the owner runs the batch with no bypass and
+	 * the counter must see every row, proving the instrument observes batch-delivered rows before the bypass
+	 * tests are read as evidence of anything.
+	 */
+	@IsTest
+	private static void queryLocatorBatchCounterObservesOwnerRows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, LOCATOR_PROBE_NAME)
+					.withCount(LOCATOR_PROBE_ROWS)
+					.buildList();
+
+			QRY_LocatorProbeBatch_TEST.rowsSeen = 0;
+			Test.startTest();
+			Database.executeBatch(new QRY_LocatorProbeBatch_TEST(false), LOCATOR_PROBE_BATCH_SIZE);
+			Test.stopTest();
+		}
+
+		Assert.areEqual(LOCATOR_PROBE_ROWS, QRY_LocatorProbeBatch_TEST.rowsSeen,
+				'The owner must see every seeded row through the batch; 0 here means the counter is not observing batch execution and the bypass measurements cannot be trusted');
+	}
+
+	/**
+	 * @description Tests that toCursor() honours the sharing dial it advertises when the cursor is drained in
+	 * the same transaction. Foobar__c is Private OWD, so rows owned by the test admin are genuinely invisible
+	 * to another user; system mode is applied to every cursor so object and field permissions are waived and
+	 * record sharing is the only variable left. The explicit withSharing() dial is set too, so the
+	 * with-sharing arm can never be routed through the without-sharing proxy unnoticed.
+	 */
+	@IsTest
+	private static void cursorHonoursTheSharingBypassItAdvertises()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, CURSOR_PROBE_NAME)
+					.withCount(CURSOR_PROBE_ROWS)
+					.buildList();
+		}
+
+		Integer enforcedRows;
+		Integer bypassedRows;
+		Integer withSharingRows;
+
+		Test.startTest();
+		System.runAs(restricted)
+		{
+			enforcedRows = countCursorRows(QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().toCursor());
+			bypassedRows = countCursorRows(QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().bypassSharing().toCursor());
+			withSharingRows = countCursorRows(QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().withSharing().toCursor());
+		}
+		Test.stopTest();
+
+		Assert.areEqual(0, enforcedRows, 'With sharing enforced the other user fetches none of the admin-owned private rows');
+		Assert.areEqual(CURSOR_PROBE_ROWS, bypassedRows,
+				'A bypassed cursor must reach every row, exactly as a bypassed row query does; 0 here means toCursor() drops the sharing dial');
+		Assert.areEqual(0, withSharingRows,
+				'With sharing explicitly enforced the other user fetches none of the admin-owned private rows; more than 0 means the '
+				+ 'withSharing() arm of toCursor() is not dispatching through WithSharingExecutor');
+	}
+
+	/**
+	 * @description Tests that a bypassed cursor still spans sharing when a later transaction drains it. The
+	 * queueable is declared with sharing and runs as the restricted user, so the only thing that can let it
+	 * fetch the admin-owned rows is the sharing dial the cursor was created under.
+	 */
+	@IsTest
+	private static void cursorBypassSurvivesCrossTransactionFetch()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, CURSOR_PROBE_NAME)
+					.withCount(CURSOR_PROBE_ROWS)
+					.buildList();
+		}
+
+		cursorRowsSeenInQueueable = -1;
+		System.runAs(restricted)
+		{
+			Database.Cursor probeCursor = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().bypassSharing().toCursor();
+			Test.startTest();
+			System.enqueueJob(new CursorProbeFetchJob(probeCursor));
+			Test.stopTest();
+		}
+
+		Assert.areEqual(CURSOR_PROBE_ROWS, cursorRowsSeenInQueueable,
+				'A with-sharing queueable run by the restricted user must still fetch every row through a bypassed cursor');
+	}
+
+	/**
+	 * @description The inverse of cursorBypassSurvivesCrossTransactionFetch, proving the queueable measurement
+	 * can fail: without the bypass the same queueable fetches nothing.
+	 */
+	@IsTest
+	private static void cursorWithoutBypassSeesNothingInQueueable()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, CURSOR_PROBE_NAME)
+					.withCount(CURSOR_PROBE_ROWS)
+					.buildList();
+		}
+
+		cursorRowsSeenInQueueable = -1;
+		System.runAs(restricted)
+		{
+			Database.Cursor probeCursor = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().toCursor();
+			Test.startTest();
+			System.enqueueJob(new CursorProbeFetchJob(probeCursor));
+			Test.stopTest();
+		}
+
+		Assert.areEqual(0, cursorRowsSeenInQueueable,
+				'Without the bypass a with-sharing queueable run by the restricted user fetches none of the admin-owned private rows');
+	}
+
+	/**
+	 * @description The positive control for the queueable measurement: the owner drains their own cursor with
+	 * no bypass and the counter must see every row, proving the instrument observes queueable-fetched rows
+	 * before the bypass tests are read as evidence of anything.
+	 */
+	@IsTest
+	private static void cursorQueueableFetchPositiveControlOwnerSeesRows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, CURSOR_PROBE_NAME)
+					.withCount(CURSOR_PROBE_ROWS)
+					.buildList();
+
+			cursorRowsSeenInQueueable = -1;
+			Database.Cursor probeCursor = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().toCursor();
+			Test.startTest();
+			System.enqueueJob(new CursorProbeFetchJob(probeCursor));
+			Test.stopTest();
+
+			Assert.areEqual(CURSOR_PROBE_ROWS, cursorRowsSeenInQueueable,
+					'The owner must see every row through the queueable fetch, or the instrument observes nothing and the bypass tests prove nothing');
+		}
+	}
+
+	/**
+	 * @description Iterates a locator in the current transaction and counts the rows it yields.
+	 *
+	 * @param locator The locator under test.
+	 *
+	 * @return The number of rows iterated.
+	 */
+	private static Integer countLocatorRows(Database.QueryLocator locator)
+	{
+		Integer rows = 0;
+		Database.QueryLocatorIterator locatorIterator = locator.iterator();
+		while(locatorIterator.hasNext())
+		{
+			locatorIterator.next();
+			rows++;
+		}
+		return rows;
 	}
 
 	/**
@@ -785,13 +1233,7 @@ private class QRY_Builder_TEST
 	@IsTest
 	private static void getPageGuardCountsOnlyTheRowsInScope()
 	{
-		User otherOwner;
-		// Setup-object DML is isolated in its own runAs so it does not collide with the Foobar__c DML.
-		System.runAs(new User(Id = UserInfo.getUserId()))
-		{
-			otherOwner = TST_Factory.newUser(SEL_Profile.PROFILE_STANDARD_USER);
-			insert otherOwner;
-		}
+		User otherOwner = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
 
 		System.runAs(getTestAdmin())
 		{
@@ -1818,6 +2260,59 @@ private class QRY_Builder_TEST
 	}
 
 	/**
+	 * @description A time-to-live on the one-argument form asks for the most durable safe storage.
+	 */
+	@IsTest
+	private static void withCacheTimeToLiveRequestsAutomaticScope()
+	{
+		QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType).withCache(CACHE_PROBE_TTL_SECONDS);
+
+		Assert.areEqual(UTIL_Cache.Scope.AUTO, query.cacheScope, 'A time-to-live should request the AUTO scope');
+		Assert.areEqual(CACHE_PROBE_TTL_SECONDS, query.cacheTTL, 'The time-to-live should be kept');
+	}
+
+	/**
+	 * @description A null time-to-live on the one-argument form still requests nothing, as before 1.8.
+	 */
+	@IsTest
+	private static void withCacheNullRequestsNothing()
+	{
+		QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType).withCache(null);
+
+		Assert.isNull(query.cacheScope, 'A null time-to-live should request no caching');
+		Assert.isNull(query.cacheTTL, 'A null time-to-live should stay null');
+	}
+
+	/**
+	 * @description The transaction scope is a request even without a time-to-live, and reaches the engine.
+	 */
+	@IsTest
+	private static void withCacheTransactionScopeReachesParameters()
+	{
+		QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType).withCache(UTIL_Cache.Scope.IN_TRANSACTION, null);
+
+		QRY_Engine.QueryParameters parameters = query.buildParameters(new QRY_BindRegistry());
+
+		Assert.areEqual(UTIL_Cache.Scope.IN_TRANSACTION, parameters.cacheScope, 'The scope should reach the engine');
+		Assert.isNull(parameters.cacheTTL, 'No time-to-live was given');
+	}
+
+	/**
+	 * @description The last caching call wins, in either order.
+	 */
+	@IsTest
+	private static void lastCachingCallWins()
+	{
+		QRY_Builder.Builder switchedOff = QRY_Builder.selectFrom(Foobar__c.SObjectType).withCache(UTIL_Cache.Scope.ORG, DURABLE_PROBE_TTL_SECONDS).withoutCache();
+		QRY_Builder.Builder switchedOn = QRY_Builder.selectFrom(Foobar__c.SObjectType).withoutCache().withCache(UTIL_Cache.Scope.ORG, DURABLE_PROBE_TTL_SECONDS);
+
+		Assert.isNull(switchedOff.cacheScope, 'withoutCache() after withCache should clear the scope');
+		Assert.isNull(switchedOff.cacheTTL, 'withoutCache() should clear the time-to-live');
+		Assert.areEqual(UTIL_Cache.Scope.ORG, switchedOn.cacheScope, 'withCache after withoutCache() should set the scope');
+		Assert.areEqual(DURABLE_PROBE_TTL_SECONDS, switchedOn.cacheTTL, 'withCache after withoutCache() should set the time-to-live');
+	}
+
+	/**
 	 * @description Tests that withCache() enables caching.
 	 */
 	@IsTest
@@ -2055,7 +2550,7 @@ private class QRY_Builder_TEST
 	}
 
 	/**
-	 * @description Tests that the QRY_Function projection alias is validated by the same bare-identifier
+	 * @description Tests that the alias of a selected QRY_Function is validated by the same bare-identifier
 	 * rule as the aliased aggregates, so no explicit-alias entry point concatenates raw caller text into
 	 * the SELECT clause.
 	 */
@@ -2067,7 +2562,7 @@ private class QRY_Builder_TEST
 			try
 			{
 				QRY_Builder.selectFrom(Foobar__c.SObjectType).addField(QRY_Function.calendarMonth(Foobar__c.CreatedDate), 'closeMonth, Name');
-				Assert.fail('A malformed projection alias should throw at the call site');
+				Assert.fail('Expected a malformed alias on a selected function to throw at the call site');
 			}
 			catch(Exception error)
 			{
@@ -2177,8 +2672,8 @@ private class QRY_Builder_TEST
 
 	/**
 	 * @description Tests that surrounding whitespace on an explicit alias is trimmed rather than
-	 * rejected — SOQL ignores padding around an alias, so a padded alias that worked before validation
-	 * existed keeps working, for both the aggregate and the function-projection entry points.
+	 * rejected. SOQL ignores padding around an alias, so a padded alias that worked before validation
+	 * existed keeps working, for both the aggregate and the selected-function entry points.
 	 */
 	@IsTest
 	private static void aliasPaddingIsTrimmedNotRejected()
@@ -2196,7 +2691,7 @@ private class QRY_Builder_TEST
 					.toSoql();
 
 			Assert.isTrue(aggregateSoql.contains('COUNT(Id) rowTotal'), 'The aggregate alias should render trimmed');
-			Assert.isTrue(projectionSoql.contains('CALENDAR_MONTH(CreatedDate) closeMonth'), 'The projection alias should render trimmed');
+			Assert.isTrue(projectionSoql.contains('CALENDAR_MONTH(CreatedDate) closeMonth'), 'Expected the alias of the selected function to render trimmed');
 		}
 	}
 
@@ -5229,7 +5724,7 @@ private class QRY_Builder_TEST
 		QRY_Builder.selectFrom(Foobar__c.SObjectType).bypassSharing().toList();
 		Test.stopTest();
 
-		Map<String, Object> context = findBypassAuditContext('sharing:' + String.valueOf(Foobar__c.SObjectType));
+		Map<String, Object> context = findBypassAuditContext(SHARING_AUDIT_PREFIX + String.valueOf(Foobar__c.SObjectType));
 		Assert.isNotNull(context, 'bypassSharing should emit an object-qualified bypass audit entry');
 		Assert.areEqual(UTIL_BypassAudit.SURFACE_QUERY, context.get(UTIL_BypassAudit.CONTEXT_SURFACE), 'Surface should be query');
 		Assert.areEqual(UTIL_BypassAudit.ACTION_BYPASS, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be BYPASS');
@@ -5257,13 +5752,14 @@ private class QRY_Builder_TEST
 		Test.stopTest();
 
 		Assert.isFalse(builder.sharingEnforced, 'bypassSharingInternal should flip sharingEnforced to false');
-		Assert.isNull(findBypassAuditContext('sharing:' + String.valueOf(Foobar__c.SObjectType)),
+		Assert.isNull(findBypassAuditContext(SHARING_AUDIT_PREFIX + String.valueOf(Foobar__c.SObjectType)),
 				'bypassSharingInternal must not emit a bypass audit entry');
 	}
 
 	/**
 	 * @description Tests that `withoutSecurity` emits a `query` bypass audit entry recording
-	 * the security-mode target.
+	 * the security-mode target; the sharing note the same call now queues is proved by
+	 * withoutSecurityEmitsBothBypassAuditNotes.
 	 *
 	 * @see QRY_Builder.Builder.withoutSecurity
 	 * @see UTIL_BypassAudit.emit
@@ -5278,10 +5774,79 @@ private class QRY_Builder_TEST
 		QRY_Builder.selectFrom(Foobar__c.SObjectType).withoutSecurity().toList();
 		Test.stopTest();
 
-		Map<String, Object> context = findBypassAuditContext('security-mode:' + String.valueOf(Foobar__c.SObjectType));
+		Map<String, Object> context = findBypassAuditContext(SECURITY_MODE_AUDIT_PREFIX + String.valueOf(Foobar__c.SObjectType));
 		Assert.isNotNull(context, 'withoutSecurity should emit an object-qualified bypass audit entry');
 		Assert.areEqual(UTIL_BypassAudit.SURFACE_QUERY, context.get(UTIL_BypassAudit.CONTEXT_SURFACE), 'Surface should be query');
 		Assert.areEqual(UTIL_BypassAudit.ACTION_BYPASS, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be BYPASS');
+	}
+
+	/**
+	 * @description Tests that withoutSecurity() is the full waiver its name and its documentation promise: on
+	 * the row, count and locator terminals it reaches rows the running user cannot see through sharing, while
+	 * withSystemMode() alone still reaches none of them (the object-and-field-only call, the alternative that
+	 * keeps sharing).
+	 */
+	@IsTest
+	private static void withoutSecurityWaivesSharingOnEveryTerminal()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, WAIVER_PROBE_NAME)
+					.withCount(WAIVER_PROBE_ROWS)
+					.buildList();
+		}
+
+		Integer waivedRows;
+		Integer waivedCount;
+		Integer waivedLocatorRows;
+		Integer waivedPageRows;
+		SObject waivedFirst;
+		Integer systemModeRows;
+		SObject systemModeFirst;
+
+		Test.startTest();
+		System.runAs(restricted)
+		{
+			waivedRows = QRY_Builder.selectFrom(Foobar__c.SObjectType).withoutSecurity().toList().size();
+			waivedCount = QRY_Builder.selectFrom(Foobar__c.SObjectType).withoutSecurity().count();
+			waivedLocatorRows = countLocatorRows(QRY_Builder.selectFrom(Foobar__c.SObjectType).withoutSecurity().toQueryLocator());
+			waivedPageRows = QRY_Builder.selectFrom(Foobar__c.SObjectType).withoutSecurity().getPage(1, WAIVER_PROBE_PAGE_SIZE).records.size();
+			waivedFirst = QRY_Builder.selectFrom(Foobar__c.SObjectType).withoutSecurity().getFirst();
+			systemModeRows = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().toList().size();
+			systemModeFirst = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().getFirst();
+		}
+		Test.stopTest();
+
+		Assert.areEqual(WAIVER_PROBE_ROWS, waivedRows, 'withoutSecurity() must reach every row on toList(); '
+				+ 'fewer means sharing is still applied under a name that promises no security');
+		Assert.areEqual(WAIVER_PROBE_ROWS, waivedCount, 'withoutSecurity() must reach every row on count()');
+		Assert.areEqual(WAIVER_PROBE_ROWS, waivedLocatorRows, 'withoutSecurity() must reach every row on toQueryLocator()');
+		Assert.areEqual(WAIVER_PROBE_ROWS, waivedPageRows, 'withoutSecurity() must reach every row on getPage()');
+		Assert.isNotNull(waivedFirst, 'withoutSecurity() must reach a row on getFirst()');
+		Assert.areEqual(0, systemModeRows, 'withSystemMode() alone keeps record sharing: the row query returns nothing the user cannot see, and no exception either');
+		Assert.isNull(systemModeFirst, 'withSystemMode() alone keeps record sharing on getFirst() too');
+	}
+
+	/**
+	 * @description Tests that one withoutSecurity() call leaves both audit notes, so the forensic trail records
+	 * that the mode AND the sharing dial were set by a single call.
+	 */
+	@IsTest
+	private static void withoutSecurityEmitsBothBypassAuditNotes()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Test.startTest();
+		QRY_Builder.selectFrom(Foobar__c.SObjectType).withoutSecurity().toList();
+		Test.stopTest();
+
+		Map<String, Object> securityModeContext = findBypassAuditContext(SECURITY_MODE_AUDIT_PREFIX + String.valueOf(Foobar__c.SObjectType));
+		Map<String, Object> sharingContext = findBypassAuditContext(SHARING_AUDIT_PREFIX + String.valueOf(Foobar__c.SObjectType));
+		Assert.isNotNull(securityModeContext, 'withoutSecurity() should emit the object-qualified security-mode audit entry');
+		Assert.isNotNull(sharingContext, 'withoutSecurity() should also emit the object-qualified sharing-bypass audit entry');
 	}
 
 	/**
@@ -5335,8 +5900,8 @@ private class QRY_Builder_TEST
 
 	/**
 	 * @description Verifies groupBy(QRY_Function) renders the date-function expression into GROUP BY,
-	 * and that a grouped-but-not-aliased-projected function is still echoed into SELECT (the de-dup
-	 * leaves the plain echo untouched).
+	 * and that a grouped function with no aliased entry in SELECT is still echoed into SELECT (a grouped
+	 * expression is only skipped when an aliased copy is already selected).
 	 */
 	@IsTest
 	private static void groupByFunctionRendersIntoGroupByClause()
@@ -5349,14 +5914,14 @@ private class QRY_Builder_TEST
 					.toSoql();
 
 			Assert.isTrue(soql.contains('GROUP BY CALENDAR_MONTH(' + FIELD_DATE + ')'), 'groupBy(QRY_Function) should render the expression into GROUP BY');
-			Assert.isTrue(soql.contains('count_Id, CALENDAR_MONTH(' + FIELD_DATE + ')'), 'An unprojected grouped function should still be echoed into SELECT');
+			Assert.isTrue(soql.contains('count_Id, CALENDAR_MONTH(' + FIELD_DATE + ')'), 'A grouped function with no aliased entry should still be echoed into SELECT');
 		}
 	}
 
 	/**
 	 * @description Verifies the canonical bucket-and-aggregate query renders the function exactly once
-	 * in SELECT — under its explicit alias — proving addField(QRY_Function, alias) projects the
-	 * expression and the aggregate de-dup suppresses the redundant GROUP BY echo.
+	 * in SELECT, under its explicit alias. This proves addField(QRY_Function, alias) selects the
+	 * expression, and the aggregate clause skips the GROUP BY echo that would repeat it.
 	 */
 	@IsTest
 	private static void addFieldAndGroupByFunctionEmitItOnce()
@@ -5371,14 +5936,14 @@ private class QRY_Builder_TEST
 
 			String selectClause = soql.substringBetween('SELECT ', ' FROM');
 			String expectedSelect = 'COUNT(Id) count_Id, CALENDAR_MONTH(' + FIELD_DATE + ') dateBucket';
-			Assert.areEqual(expectedSelect, selectClause, 'Grouped-and-projected function must appear once in SELECT, under its alias');
+			Assert.areEqual(expectedSelect, selectClause, 'Expected a function that is both grouped and selected to appear once in SELECT, under its alias');
 			Assert.isTrue(soql.contains('GROUP BY CALENDAR_MONTH(' + FIELD_DATE + ')'), 'GROUP BY should retain the bare function expression');
 		}
 	}
 
 	/**
-	 * @description Regression guard: a plain grouped field with no separate aliased projection is still
-	 * echoed into SELECT after the date-function de-dup change.
+	 * @description Regression guard: a plain grouped field with no separate aliased entry in the field list is still
+	 * echoed into SELECT: it is not treated as a duplicate.
 	 */
 	@IsTest
 	private static void plainFieldGroupingStillEchoesIntoSelect()
@@ -5397,10 +5962,10 @@ private class QRY_Builder_TEST
 
 	/**
 	 * @description Regression guard: a GROUPING() expression is still emitted alongside the echoed
-	 * grouped field after the date-function de-dup change.
+	 * grouped field: neither is treated as a duplicate.
 	 */
 	@IsTest
-	private static void groupingExpressionStillEmittedAlongsideFunctionDedup()
+	private static void shouldStillEmitGroupingExpressionAlongsideItsGroupedField()
 	{
 		System.runAs(getTestAdmin())
 		{
@@ -5563,7 +6128,7 @@ private class QRY_Builder_TEST
 			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, Date.newInstance(2026, 6, 5)).build();
 
 			List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
-					// empty fields() disables the default Id projection so a GROUP BY with no aggregate is valid SOQL
+					// empty fields() drops the default Id from the selected fields so a GROUP BY with no aggregate is valid SOQL
 					.fields(new List<SObjectField>())
 					.addField(QRY_Function.calendarMonth(Foobar__c.Date__c), 'bucket')
 					.groupBy(QRY_Function.calendarMonth(Foobar__c.Date__c))
@@ -5671,6 +6236,446 @@ private class QRY_Builder_TEST
 					.toList();
 
 			Assert.areEqual(0, nearby.size(), 'The bind-rendered DISTANCE query must execute as valid SOQL and return no rows in the data-free test context');
+		}
+	}
+
+	/**
+	 * @description Tests that a bypassed SYSTEM_MODE result stored in the cache is never served to a later call
+	 * that asked for sharing to be enforced. Same SOQL, same binds, inside the TTL: the only difference is the
+	 * sharing dial, which is the shape of a shared selector one caller bypasses for an administrator console and
+	 * another calls with sharing enforced from a user-facing path.
+	 */
+	@IsTest
+	private static void cachedBypassedResultIsNeverServedToASharingEnforcedCaller()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, CACHE_PROBE_NAME)
+					.withCount(CACHE_PROBE_ROWS)
+					.buildList();
+		}
+
+		Integer bypassedRows;
+		Integer enforcedRows;
+
+		Test.startTest();
+		System.runAs(getTestAdmin())
+		{
+			bypassedRows = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().bypassSharing().withCache(CACHE_PROBE_TTL_SECONDS).toList().size();
+		}
+		System.runAs(restricted)
+		{
+			enforcedRows = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().withSharing().withCache(CACHE_PROBE_TTL_SECONDS).toList().size();
+		}
+		Test.stopTest();
+
+		Assert.areEqual(CACHE_PROBE_ROWS, bypassedRows, 'The bypassed read stores every row');
+		Assert.areEqual(0, enforcedRows, 'The sharing-enforced read must not be served the bypassed rows from the cache; 3 here is a disclosure through the cache key');
+	}
+
+	/**
+	 * @description Tests that a cached result produced with sharing explicitly enforced is keyed per user: the
+	 * owner stores every row, and another user running the identical sharing-enforced query inside the TTL is
+	 * served that user's own population instead of the owner's cached rows.
+	 */
+	@IsTest
+	private static void cachedSharingAppliedResultIsKeyedPerUser()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, CACHE_PROBE_NAME)
+					.withCount(CACHE_PROBE_ROWS)
+					.buildList();
+		}
+
+		Integer ownerRows;
+		Integer otherUserRows;
+
+		Test.startTest();
+		System.runAs(getTestAdmin())
+		{
+			ownerRows = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().withSharing().withCache(CACHE_PROBE_TTL_SECONDS).toList().size();
+		}
+		System.runAs(restricted)
+		{
+			otherUserRows = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().withSharing().withCache(CACHE_PROBE_TTL_SECONDS).toList().size();
+		}
+		Test.stopTest();
+
+		Assert.areEqual(CACHE_PROBE_ROWS, ownerRows, 'The owner reaches every row with sharing enforced');
+		Assert.areEqual(0, otherUserRows, 'Another user running the identical sharing-enforced query must see none of the owner\'s rows; 3 here means the cache served the '
+				+ 'owner\'s sharing-enforced result, so the key lost its user segment');
+	}
+
+	/**
+	 * @description Tests that the same user's read with sharing explicitly enforced is never served rows a
+	 * without-sharing caller read under inherited sharing: the inherited-dial read is not cached at all, so the
+	 * enforced lookup finds nothing, which also covers two inherited-dial callers with different class sharing.
+	 */
+	@IsTest
+	private static void cachedInheritedSharingResultIsNeverServedToTheSameUserEnforcingSharing()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, CACHE_PROBE_NAME)
+					.withCount(CACHE_PROBE_ROWS)
+					.buildList();
+		}
+
+		Integer inheritedRows;
+		Integer enforcedRows;
+
+		Test.startTest();
+		System.runAs(restricted)
+		{
+			inheritedRows = new WithoutSharingCachedReader().countRows();
+			enforcedRows = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().withSharing().withCache(CACHE_PROBE_TTL_SECONDS).toList().size();
+		}
+		Test.stopTest();
+
+		Assert.areEqual(CACHE_PROBE_ROWS, inheritedRows, 'Under inherited sharing from a without-sharing caller the user reaches every row');
+		Assert.areEqual(0, enforcedRows, 'The same user asking for sharing to be enforced must not be served the unshared rows from the cache; 3 here means an inherited-dial '
+				+ 'read was cached or the key does not carry the sharing dial');
+	}
+
+	/**
+	 * @description Tests that an inherited-dial cached read is never served across caller sharing postures:
+	 * the same user runs the identical query with caching from a without-sharing class and then from a
+	 * with-sharing class, both leaving the sharing setting to the calling class, and each must receive its
+	 * own class's population. Serving the second read from the first read's cache entry would hand a
+	 * sharing-enforced caller every row a without-sharing caller saw, which is why a read whose sharing the
+	 * engine cannot see is not cached at all.
+	 */
+	@IsTest
+	private static void inheritedDialCachedReadIsNeverServedAcrossCallerSharingPostures()
+	{
+		User restricted = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, CACHE_PROBE_NAME)
+					.withCount(CACHE_PROBE_ROWS)
+					.buildList();
+		}
+
+		Integer withoutSharingRows;
+		Integer withSharingRows;
+
+		Test.startTest();
+		System.runAs(restricted)
+		{
+			withoutSharingRows = new WithoutSharingCachedReader().countRows();
+			withSharingRows = new WithSharingCachedReader().countRows();
+		}
+		Test.stopTest();
+
+		Assert.areEqual(CACHE_PROBE_ROWS, withoutSharingRows, 'From a without-sharing caller the user reaches every row under inherited sharing');
+		Assert.areEqual(0, withSharingRows,
+				'From a with-sharing caller the same user must see none of the unshared rows; ' + CACHE_PROBE_ROWS + ' here means an inherited-dial '
+				+ 'read was cached and served across caller sharing postures');
+	}
+
+	/**
+	 * @description Tests that a user-mode cached read with sharing left inherited applies the running user's sharing,
+	 * even from a without-sharing class, and that the memory hit returns the same rows as the miss. Foobar__c is
+	 * Private, so the restricted user reaches only the rows it owns; the admin's rows must appear in neither read,
+	 * and the hit must run no query. The admin runs the identical read first in the same transaction, so the
+	 * restricted user's first read must miss: the in-memory key carries the running user, and a key without it would
+	 * serve the admin's six rows.
+	 */
+	@IsTest
+	private static void userModeInheritedSharingAppliesRunningUsersSharing()
+	{
+		User restricted = TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_STANDARD_USER, RESTRICTED_USER_COMPANY, READ_ONLY_PERMISSION_SET);
+		Set<Id> restrictedRowIds = seedRestrictedAndAdminRows(restricted, new Set<Id>());
+		WithoutSharingUserModeCachedReader reader = new WithoutSharingUserModeCachedReader();
+
+		Set<Id> missRowIds;
+		Set<Id> hitRowIds;
+		Integer hitQueries;
+
+		Test.startTest();
+		System.runAs(getTestAdmin())
+		{
+			reader.readRows();
+		}
+		System.runAs(restricted)
+		{
+			missRowIds = new Map<Id, SObject>(reader.readRows()).keySet();
+			Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+			hitRowIds = new Map<Id, SObject>(reader.readRows()).keySet();
+			hitQueries = UTIL_Limits.soqlQueries().used() - queriesBefore;
+		}
+		Test.stopTest();
+
+		Assert.areEqual(restrictedRowIds, missRowIds, 'The miss should return exactly the rows the restricted user owns');
+		Assert.areEqual(restrictedRowIds, hitRowIds, 'The memory hit should return exactly the rows the restricted user owns');
+		Assert.areEqual(0, hitQueries, 'The repeat should be served from memory');
+	}
+
+	/**
+	 * @description Tests that a system-mode transaction-scope read with sharing bypassed is never served to the same
+	 * user's identical read with sharing enforced. Foobar__c is Private: the bypassed read reaches all six rows, and
+	 * the enforced read must run its own query and return only the three rows the restricted user owns. Only the
+	 * sharing segment of the in-memory key tells the two reads apart.
+	 */
+	@IsTest
+	private static void inMemoryKeySeparatesSharingSettings()
+	{
+		User restricted = TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_STANDARD_USER, RESTRICTED_USER_COMPANY, READ_ONLY_PERMISSION_SET);
+		Set<Id> allRowIds = new Set<Id>();
+		Set<Id> restrictedRowIds = seedRestrictedAndAdminRows(restricted, allRowIds);
+
+		Set<Id> bypassedRowIds;
+		Set<Id> enforcedRowIds;
+		Integer enforcedQueries;
+
+		Test.startTest();
+		System.runAs(restricted)
+		{
+			WithoutSharingSystemModeTransactionReader reader = new WithoutSharingSystemModeTransactionReader();
+			bypassedRowIds = new Map<Id, SObject>(reader.readBypassingSharing()).keySet();
+			Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+			enforcedRowIds = new Map<Id, SObject>(reader.readWithSharing()).keySet();
+			enforcedQueries = UTIL_Limits.soqlQueries().used() - queriesBefore;
+		}
+		Test.stopTest();
+
+		Assert.areEqual(CACHE_PROBE_ROWS * 2, allRowIds.size(), 'Both owners\' rows should be seeded');
+		Assert.areEqual(allRowIds, bypassedRowIds, 'The bypassed read should return exactly every seeded row');
+		Assert.areEqual(restrictedRowIds, enforcedRowIds, 'The enforced read should return exactly the rows the restricted user owns');
+		Assert.areEqual(1, enforcedQueries, 'The enforced read should run its own query, never take the bypassed result');
+	}
+
+	/**
+	 * @description Seeds, as the test admin, cache-probe rows owned by the restricted user and as many owned by the
+	 * admin.
+	 *
+	 * @param restricted The user who owns the first set of rows.
+	 * @param allRowIds Receives the ids of every seeded row, both owners'.
+	 *
+	 * @return The ids of the rows the restricted user owns.
+	 */
+	private static Set<Id> seedRestrictedAndAdminRows(User restricted, Set<Id> allRowIds)
+	{
+		Set<Id> restrictedRowIds;
+		System.runAs(getTestAdmin())
+		{
+			restrictedRowIds = new Map<Id, SObject>(TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, CACHE_PROBE_NAME)
+					.withOverride(Foobar__c.OwnerId, restricted.Id)
+					.withCount(CACHE_PROBE_ROWS)
+					.buildList()).keySet();
+			allRowIds.addAll(restrictedRowIds);
+			allRowIds.addAll(new Map<Id, SObject>(TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, CACHE_PROBE_NAME)
+					.withCount(CACHE_PROBE_ROWS)
+					.buildList()).keySet());
+		}
+		return restrictedRowIds;
+	}
+
+	/**
+	 * @description Tests that a paged read with caching requested returns each page's own rows and the true
+	 * total, including when the same page is re-fetched inside the TTL. A cache hit can only restore the record
+	 * list, never the total or the cursor, so a re-fetched page would come back with the page size as its total;
+	 * the engine therefore leaves cursor-backed reads out of the cache altogether.
+	 */
+	@IsTest
+	private static void pagedReadWithCacheReturnsEachPageAndTheTrueTotal()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, CACHE_PROBE_NAME)
+					.withCount(PAGING_PROBE_ROWS)
+					.buildList();
+
+			Test.startTest();
+			QRY_Builder.QueryPage firstFetch = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.withSystemMode()
+					.withSharing()
+					.orderBy(Foobar__c.Id)
+					.withCache(CACHE_PROBE_TTL_SECONDS)
+					.getPage(1, PAGING_PROBE_PAGE_SIZE);
+			QRY_Builder.QueryPage refetchedFirstPage = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.withSystemMode()
+					.withSharing()
+					.orderBy(Foobar__c.Id)
+					.withCache(CACHE_PROBE_TTL_SECONDS)
+					.getPage(1, PAGING_PROBE_PAGE_SIZE);
+			QRY_Builder.QueryPage secondPage = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.withSystemMode()
+					.withSharing()
+					.orderBy(Foobar__c.Id)
+					.withCache(CACHE_PROBE_TTL_SECONDS)
+					.getPage(2, PAGING_PROBE_PAGE_SIZE);
+			Test.stopTest();
+
+			Set<Id> firstPageIds = new Map<Id, SObject>(firstFetch.records).keySet();
+			Set<Id> secondPageIds = new Map<Id, SObject>(secondPage.records).keySet();
+
+			Assert.areEqual(PAGING_PROBE_PAGE_SIZE, firstFetch.records.size(), 'Page one carries a full page');
+			Assert.areEqual(PAGING_PROBE_ROWS, firstFetch.totalRecords, 'Page one reports the true total, not the page size');
+			Assert.areEqual(PAGING_PROBE_ROWS, refetchedFirstPage.totalRecords, 'Re-fetching page one inside the TTL must still report the true total; the page size here '
+					+ 'means a cursor read was served a cached entry that cannot carry the total');
+			Assert.areEqual(PAGING_PROBE_PAGE_SIZE, secondPage.records.size(), 'Page two carries a full page');
+			Assert.isFalse(firstPageIds.containsAll(secondPageIds) && secondPageIds.containsAll(firstPageIds), 'Page two must be a different slice from page one');
+			Assert.areEqual(PAGING_PROBE_ROWS, secondPage.totalRecords, 'Page two reports the true total, not the page size');
+		}
+	}
+
+	/**
+	 * @description Drains a cursor in the current transaction and counts the rows it yields.
+	 *
+	 * @param probeCursor The cursor to drain.
+	 *
+	 * @return The fetched row count.
+	 */
+	private static Integer countCursorRows(Database.Cursor probeCursor)
+	{
+		Integer total = probeCursor.getNumRecords();
+		return total == 0 ? 0 : probeCursor.fetch(0, total).size();
+	}
+
+	/**
+	 * @description With-sharing queueable that drains a cursor in its own transaction and reports the row
+	 * count through the static counter, following the QRY_LocatorProbeBatch_TEST instrument precedent. A
+	 * queueable may be an inner class (only Database.Batchable demands a top-level one), and a queueable is
+	 * the platform's documented cross-transaction consumer for Apex cursors. A test probe this small needs
+	 * no Finalizer.
+	 */
+	@SuppressWarnings('PMD.QueueableWithoutFinalizer')
+	private with sharing class CursorProbeFetchJob implements Queueable
+	{
+		/**
+		 * @description The cursor the test opened. The job reads all of its rows in its own transaction, to show
+		 * what a cursor delivers after it is handed to another transaction.
+		 */
+		private final Database.Cursor probeCursor;
+
+		/**
+		 * @description Captures the cursor the asserting test created.
+		 *
+		 * @param probeCursor The cursor to drain in the queueable's transaction.
+		 */
+		public CursorProbeFetchJob(Database.Cursor probeCursor)
+		{
+			this.probeCursor = probeCursor;
+		}
+
+		/**
+		 * @description Drains the cursor and records how many rows the fetch returned.
+		 *
+		 * @param context The queueable context.
+		 */
+		public void execute(QueueableContext context)
+		{
+			Integer total = probeCursor.getNumRecords();
+			cursorRowsSeenInQueueable = total == 0 ? 0 : probeCursor.fetch(0, total).size();
+		}
+	}
+
+	/**
+	 * @description A without-sharing caller for the cache-key tests: a query run through it under inherited
+	 * sharing reaches every row, which is the population a sharing-enforced read by the same user must never be
+	 * served from the cache.
+	 */
+	private without sharing class WithoutSharingCachedReader
+	{
+		/**
+		 * @description Runs the cache-probe query under this class's sharing with caching on.
+		 *
+		 * @return The number of rows returned.
+		 */
+		public Integer countRows()
+		{
+			return QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().withCache(CACHE_PROBE_TTL_SECONDS).toList().size();
+		}
+	}
+
+	/**
+	 * @description The with-sharing counterpart of WithoutSharingCachedReader: the identical inherited-dial
+	 * cached read issued from a with-sharing class, which must never be served the without-sharing
+	 * population the same user just cached.
+	 */
+	private with sharing class WithSharingCachedReader
+	{
+		/**
+		 * @description Runs the cache-probe query under this class's sharing with caching on.
+		 *
+		 * @return The number of rows returned.
+		 */
+		public Integer countRows()
+		{
+			return QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().withCache(CACHE_PROBE_TTL_SECONDS).toList().size();
+		}
+	}
+
+	/**
+	 * @description A without-sharing caller of a user-mode cached read with sharing left inherited: the class would
+	 * reach every row, but user mode applies the running user's sharing, so the read returns only that user's rows.
+	 */
+	private without sharing class WithoutSharingUserModeCachedReader
+	{
+		/**
+		 * @description Runs the cache-probe query in user mode, with sharing left inherited and caching on.
+		 *
+		 * @return The rows returned.
+		 */
+		public List<SObject> readRows()
+		{
+			return QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.withUserMode()
+					.condition(Foobar__c.Name).equals(CACHE_PROBE_NAME)
+					.withCache(CACHE_PROBE_TTL_SECONDS)
+					.toList();
+		}
+	}
+
+	/**
+	 * @description A without-sharing caller of two system-mode transaction-scope reads of the cache-probe rows that
+	 * differ only in their sharing setting, so the in-memory key's sharing segment is the only thing between them.
+	 */
+	private without sharing class WithoutSharingSystemModeTransactionReader
+	{
+		/**
+		 * @description Runs the cache-probe query in system mode with sharing bypassed, kept in memory for the transaction.
+		 *
+		 * @return The rows returned.
+		 */
+		public List<SObject> readBypassingSharing()
+		{
+			return buildProbeRead().bypassSharing().toList();
+		}
+
+		/**
+		 * @description Runs the cache-probe query in system mode with sharing enforced, kept in memory for the transaction.
+		 *
+		 * @return The rows returned.
+		 */
+		public List<SObject> readWithSharing()
+		{
+			return buildProbeRead().withSharing().toList();
+		}
+
+		/**
+		 * @description Builds the system-mode, transaction-scope cache-probe read both methods share.
+		 *
+		 * @return The builder.
+		 */
+		private QRY_Builder.Builder buildProbeRead()
+		{
+			return QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.withSystemMode()
+					.condition(Foobar__c.Name).equals(CACHE_PROBE_NAME)
+					.withCache(UTIL_Cache.Scope.IN_TRANSACTION, null);
 		}
 	}
 }

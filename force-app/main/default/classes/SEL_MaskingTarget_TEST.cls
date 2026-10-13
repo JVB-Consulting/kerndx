@@ -8,9 +8,9 @@
  *
  * @group Selectors
  *
- * @date April 2026, June 2026
+ * @date April 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class SEL_MaskingTarget_TEST
 {
@@ -20,9 +20,9 @@ private class SEL_MaskingTarget_TEST
 	private static final String OBJECT_FOOBAR = UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType);
 
 	/**
-	 * @description Tests that `findActiveForSObjectType` returns the test-seam's registered mocks
-	 * when `TST_Mock` has MaskingTarget records, preserving the mocking contract used by
-	 * `UTIL_FrameworkMasker_TEST`.
+	 * @description Tests that `findActiveForSObjectType` returns the registered mocks when `TST_Mock`
+	 * has MaskingTarget records, so the mocking that `UTIL_FrameworkMasker_TEST` relies on keeps
+	 * working.
 	 */
 	@IsTest
 	private static void shouldReturnMockedTargetsWhenTstMockRegistered()
@@ -39,8 +39,8 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests that `findActiveForSObjectType` filters mocked records by `IsActive__c` —
-	 * inactive mocks are excluded so the engine never applies them.
+	 * @description Tests that `findActiveForSObjectType` filters mocked records by `IsActive__c`:
+	 * inactive mocks are left out, so the engine never applies them.
 	 */
 	@IsTest
 	private static void shouldExcludeInactiveMockedTargets()
@@ -57,7 +57,7 @@ private class SEL_MaskingTarget_TEST
 
 	/**
 	 * @description Tests that `findActiveForSObjectType` filters mocked records by
-	 * `SObjectType__c` — only mocks for the requested type are returned.
+	 * `SObjectType__c`: only mocks for the requested type are returned.
 	 */
 	@IsTest
 	private static void shouldFilterMockedTargetsBySObjectType()
@@ -87,15 +87,14 @@ private class SEL_MaskingTarget_TEST
 		Assert.isTrue
 				(
 						fields.contains(MaskingTarget__mdt.NamespacePrefix),
-						'Default fields should include NamespacePrefix — namespace-aware consumers key packaged and org-local targets apart'
+						'Default fields should include NamespacePrefix: code that reads the namespace keeps packaged and org-local targets apart'
 				);
 	}
 
 	/**
-	 * @description Tests that `getFieldPaths` includes the manually-assembled EntityDefinition
-	 * and FieldDefinition qualified-API-name paths so ad-hoc consumers that build target
-	 * queries through `SEL_Base.query` still resolve the entity names without re-deriving
-	 * the namespace prefix.
+	 * @description Tests that `getFieldPaths` includes the EntityDefinition and FieldDefinition
+	 * qualified API name paths, built by hand, so callers that build their own target queries through
+	 * `SEL_Base.query` still get the object and field names without working out the namespace prefix.
 	 */
 	@IsTest
 	private static void shouldReturnRelationshipFieldPaths()
@@ -108,9 +107,9 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests that `systemModeRequired` is true — the selector must always run in
-	 * SYSTEM_MODE because subscribers typically don't grant CRUD on `kern__*__mdt` to running
-	 * users, so a USER_MODE read would silently return no records.
+	 * @description Tests that `systemModeRequired` is true. The selector must always run in
+	 * SYSTEM_MODE because subscribers usually do not give running users access to `kern__*__mdt`
+	 * records, so a USER_MODE read would quietly return no records.
 	 */
 	@IsTest
 	private static void shouldRequireSystemMode()
@@ -119,10 +118,10 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests the production derive-active path — clears the caches and the `TST_Mock` registry
-	 * so reading lazily builds `cachedTargetsByType` (one EntityDefinition SOQL) and `cachedRulesById`, then
-	 * filters the type's targets to the active subset. `ApiCall__c` carries shipped active targets, so the
-	 * active list and both caches populate.
+	 * @description Tests how production finds the active targets. Clears the caches and the `TST_Mock`
+	 * registry, so the read builds `cachedTargetsByType` (one EntityDefinition SOQL) and `cachedRulesById`
+	 * on first use, then filters the type's targets to the active ones. `ApiCall__c` has shipped active
+	 * targets, so the active list and both caches are filled.
 	 */
 	@IsTest
 	private static void findActiveForSObjectTypeDerivesActiveFromShippedConfiguration()
@@ -133,13 +132,13 @@ private class SEL_MaskingTarget_TEST
 
 		List<MaskingTarget__mdt> results = new SEL_MaskingTarget().findActiveForSObjectType(ApiCall__c.SObjectType);
 
-		Assert.isFalse(results.isEmpty(), 'Shipped active ApiCall__c targets should be derived');
+		Assert.isFalse(results.isEmpty(), 'Shipped active ApiCall__c targets should be found');
 		for(MaskingTarget__mdt target : results)
 		{
-			Assert.isTrue(target.IsActive__c, 'Every derived target is active');
+			Assert.isTrue(target.IsActive__c, 'Every target found is active');
 		}
 		Assert.isNotNull(SEL_MaskingTarget.cachedTargetsByType, 'All-targets cache must populate after a non-mock lookup');
-		Assert.isNotNull(SEL_MaskingTarget.cachedRulesById, 'Rule cache must populate when deriving the active subset');
+		Assert.isNotNull(SEL_MaskingTarget.cachedRulesById, 'Rule cache must be filled when the active targets are found');
 		Assert.isFalse(SEL_MaskingTarget.cachedRulesById.isEmpty(), 'Shipped rules should populate the rule cache');
 	}
 
@@ -161,10 +160,11 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests the engine-safety invariant: a target that is itself active but bound to an
-	 * **inactive** rule is surfaced by `findAllForSObjectType` (so the advisor can offer re-enable) yet
-	 * excluded by `findActiveForSObjectType` (so the engine never applies masking the rule has turned off).
-	 * The targets cache is preset so the active filter, not DurableId resolution, is what this exercises.
+	 * @description Tests a rule that keeps the engine safe: a target that is active itself but linked to
+	 * an **inactive** rule is returned by `findAllForSObjectType` (so the advisor can offer to switch it
+	 * back on) but left out by `findActiveForSObjectType` (so the engine never applies masking the rule
+	 * has turned off). The targets cache is set up in advance, so the test covers the active filter and
+	 * not the DurableId lookup.
 	 */
 	@IsTest
 	private static void findActiveForSObjectTypeExcludesTargetBoundToInactiveRule()
@@ -181,14 +181,14 @@ private class SEL_MaskingTarget_TEST
 		};
 		SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt> {'InactiveRule' => inactiveRule};
 
-		Assert.areEqual(1, new SEL_MaskingTarget().findAllForSObjectType(Foobar__c.SObjectType).size(), 'findAll surfaces the target so the advisor can offer re-enable');
+		Assert.areEqual(1, new SEL_MaskingTarget().findAllForSObjectType(Foobar__c.SObjectType).size(), 'findAll returns the target so the advisor can offer to switch it back on');
 		Assert.isTrue(new SEL_MaskingTarget().findActiveForSObjectType(Foobar__c.SObjectType).isEmpty(), 'findActive excludes a target bound to an inactive rule');
 	}
 
 	/**
-	 * @description Tests that an active target bound to a **missing** rule (an Id no rule matches) is
-	 * likewise surfaced by `findAllForSObjectType` but excluded by `findActiveForSObjectType` — the engine
-	 * never applies a target whose rule cannot be resolved.
+	 * @description Tests that an active target linked to a **missing** rule (an Id no rule matches) is
+	 * also returned by `findAllForSObjectType` but left out by `findActiveForSObjectType`: the engine
+	 * never applies a target whose rule cannot be found.
 	 */
 	@IsTest
 	private static void findActiveForSObjectTypeExcludesTargetBoundToMissingRule()
@@ -204,15 +204,15 @@ private class SEL_MaskingTarget_TEST
 		};
 		SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt>();
 
-		Assert.areEqual(1, new SEL_MaskingTarget().findAllForSObjectType(Foobar__c.SObjectType).size(), 'findAll surfaces the target with the dead rule reference');
+		Assert.areEqual(1, new SEL_MaskingTarget().findAllForSObjectType(Foobar__c.SObjectType).size(), 'findAll returns the target that points at a missing rule');
 		Assert.isTrue(new SEL_MaskingTarget().findActiveForSObjectType(Foobar__c.SObjectType).isEmpty(), 'findActive excludes a target whose rule cannot be resolved');
 	}
 
 	/**
-	 * @description Tests that `getRuleById` resolves a shipped rule to a fully-populated `MaskingRule__mdt`
-	 * — `Mode__c` and `Pattern__c` (the fields the masker reads, and the exact fields the old JSON-rehydrate
-	 * path lost in managed runtime) are non-null. Also exercises the rule cache's lazy build and cache-hit
-	 * branches across the two lookups.
+	 * @description Tests that `getRuleById` returns a shipped rule as a `MaskingRule__mdt` with every field
+	 * filled: `Mode__c` and `Pattern__c` (the fields the masker reads, and exactly the fields the old
+	 * path, which rebuilt rules from JSON, lost in a managed package) are not null. The two lookups also
+	 * cover both the first build of the rule cache and a later read from the filled cache.
 	 */
 	@IsTest
 	private static void getRuleByIdResolvesFullyPopulatedShippedRule()
@@ -228,13 +228,13 @@ private class SEL_MaskingTarget_TEST
 
 		Assert.isNotNull(first, 'getRuleById must resolve a loaded rule');
 		Assert.areEqual(first, second, 'a second lookup resolves from the populated cache');
-		Assert.isNotNull(first.Mode__c, 'Mode__c must be populated — this is the field the rehydrate path used to drop');
+		Assert.isNotNull(first.Mode__c, 'Mode__c must be filled: this is the field the old JSON path used to drop');
 		Assert.isNotNull(first.Pattern__c, 'Pattern__c must be populated');
 	}
 
 	/**
-	 * @description Tests that `getRuleById` returns `null` for a null Id without touching the cache — a
-	 * dead or orphaned `Rule__c` reference resolves to null rather than throwing.
+	 * @description Tests that `getRuleById` returns `null` for a null Id without touching the cache: a
+	 * missing or broken `Rule__c` reference gives null and does not throw.
 	 */
 	@IsTest
 	private static void getRuleByIdReturnsNullForNullId()
@@ -243,8 +243,8 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests that `getRuleById` returns `null` for a rule Id that isn't loaded — a defensive
-	 * path for orphaned `MaskingTarget__mdt.Rule__c` values.
+	 * @description Tests that `getRuleById` returns `null` for a rule Id that is not loaded. This
+	 * protects against `MaskingTarget__mdt.Rule__c` values that point at no rule.
 	 */
 	@IsTest
 	private static void getRuleByIdReturnsNullForUnknownId()
@@ -257,9 +257,9 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests that `getAllTargets` returns inactive targets too — the one behaviour that differs
-	 * from `findActiveForSObjectType`. The dead-configuration check needs the inactive ones, so a single
-	 * inactive record proves the point.
+	 * @description Tests that `getAllTargets` returns inactive targets too, which is the one way it
+	 * differs from `findActiveForSObjectType`. The dead-configuration check needs the inactive ones, so
+	 * one inactive record is enough to show it.
 	 */
 	@IsTest
 	private static void getAllTargetsIncludesInactiveTargets()
@@ -274,7 +274,7 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests that `getAllTargets` reads the shipped CMDT via `getAll()` when no override seam is
+	 * @description Tests that `getAllTargets` reads the shipped CMDT via `getAll()` when no test override is
 	 * set, returning a list rather than null.
 	 */
 	@IsTest
@@ -286,9 +286,9 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests that `getAllRulesById` keys both active and inactive rules by Id via the
-	 * `allRulesOverrideForTest` seam, so callers can distinguish an inactive-rule reference from a
-	 * missing-rule reference.
+	 * @description Tests that `getAllRulesById` keys both active and inactive rules by Id, through the
+	 * `allRulesOverrideForTest` test override, so callers can tell a target whose rule is inactive
+	 * apart from a target whose rule is missing.
 	 */
 	@IsTest
 	private static void getAllRulesByIdRetainsInactiveRules()
@@ -299,11 +299,11 @@ private class SEL_MaskingTarget_TEST
 
 		Map<Id, MaskingRule__mdt> rulesById = new SEL_MaskingTarget().getAllRulesById();
 
-		Assert.isTrue(rulesById.containsKey(inactiveRule.Id), 'inactive rules are retained, unlike an active-only sidecar');
+		Assert.isTrue(rulesById.containsKey(inactiveRule.Id), 'inactive rules are kept, unlike in a cache of active rules only');
 	}
 
 	/**
-	 * @description Tests that `getAllRulesById` reads the shipped CMDT via `getAll()` when no override seam
+	 * @description Tests that `getAllRulesById` reads the shipped CMDT via `getAll()` when no test override
 	 * is set, returning a map rather than null.
 	 */
 	@IsTest
@@ -317,9 +317,10 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests the mock-path branch in `findMockedFor` where a registered mock target carries both
-	 * a `Rule__c` Id and a populated `Rule__r` child — the parent rule is primed into the rule cache so
-	 * `getRuleById` resolves it. Self-covers this selector without relying on `UTIL_FrameworkMasker_TEST`.
+	 * @description Tests the mock branch in `findMockedFor` where a registered mock target has both a
+	 * `Rule__c` Id and a filled `Rule__r` child: the parent rule is added to the rule cache, so
+	 * `getRuleById` finds it. Covers this selector on its own, without relying on
+	 * `UTIL_FrameworkMasker_TEST`.
 	 */
 	@IsTest
 	private static void shouldPrimeRuleCacheFromMockTargetRuleRelationship()
@@ -334,13 +335,13 @@ private class SEL_MaskingTarget_TEST
 
 		new SEL_MaskingTarget().findActiveForSObjectType(Foobar__c.SObjectType);
 
-		Assert.areEqual(rule, SEL_MaskingTarget.getRuleById(rule.Id), 'mock target Rule__r must prime the rule cache');
+		Assert.areEqual(rule, SEL_MaskingTarget.getRuleById(rule.Id), 'mock target Rule__r must be added to the rule cache');
 	}
 
 	/**
 	 * @description Tests that `findAllForSObjectType` returns active **and** inactive mocked targets for a
-	 * type, where `findActiveForSObjectType` returns only the active one — the diff needs the inactive
-	 * targets so the advisor can offer re-enable.
+	 * type, while `findActiveForSObjectType` returns only the active one. The advisor's list of changes
+	 * needs the inactive targets, so it can offer to switch them back on.
 	 */
 	@IsTest
 	private static void findAllForSObjectTypeReturnsActiveAndInactiveMockedTargets()
@@ -362,8 +363,8 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests that `findAllForSObjectType` returns the transaction-scoped targets cache when it
-	 * is pre-populated, returning the cached list without rebuilding (the lazy property's cache-hit branch).
+	 * @description Tests that `findAllForSObjectType` returns the targets cache for the transaction when
+	 * it is already filled, without building it again (the branch where the cache already has a value).
 	 */
 	@IsTest
 	private static void findAllForSObjectTypeReturnsCachedTargetsWhenCachePopulated()
@@ -398,10 +399,10 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests the all-targets production load path — clears the cache and the `TST_Mock` registry
-	 * so reading lazily triggers `groupTargetsByType`, which groups every shipped target by SObjectType
-	 * through the EntityDefinition DurableId resolution. `ApiCall__c` carries shipped targets, so the type
-	 * resolves and the cache populates.
+	 * @description Tests how production loads all targets. Clears the cache and the `TST_Mock` registry,
+	 * so the read calls `groupTargetsByType` on first use. That method groups every shipped target by
+	 * SObjectType through the EntityDefinition DurableId lookup. `ApiCall__c` has shipped targets, so
+	 * the type is found and the cache is filled.
 	 */
 	@IsTest
 	private static void findAllForSObjectTypeLoadsShippedConfigurationViaProductionPath()
@@ -411,15 +412,16 @@ private class SEL_MaskingTarget_TEST
 
 		List<MaskingTarget__mdt> results = new SEL_MaskingTarget().findAllForSObjectType(ApiCall__c.SObjectType);
 
-		Assert.isNotNull(SEL_MaskingTarget.cachedTargetsByType, 'all-targets cache must populate after a non-mock lookup');
+		Assert.isNotNull(SEL_MaskingTarget.cachedTargetsByType, 'all-targets cache must be filled after a lookup without mocks');
 		Assert.isFalse(SEL_MaskingTarget.cachedTargetsByType.isEmpty(), 'shipped targets should be discovered and grouped by type');
 		Assert.isFalse(results.isEmpty(), 'shipped ApiCall__c targets are returned');
 	}
 
 	/**
-	 * @description Covers the "unresolvable EntityDefinition DurableId" branch in `groupTargetsByType`. A
-	 * target whose `SObjectType__c` contains a DurableId that no EntityDefinition row matches is dropped
-	 * silently rather than cached against a null type, so the type's cache entry is empty.
+	 * @description Covers the branch in `groupTargetsByType` for an EntityDefinition DurableId that
+	 * matches nothing. A target whose `SObjectType__c` holds a DurableId that no EntityDefinition row
+	 * matches is dropped without notice, not cached against a null type, so the type's cache entry is
+	 * empty.
 	 */
 	@IsTest
 	private static void findAllForSObjectTypeDropsTargetWithUnresolvableDurableId()
@@ -437,16 +439,17 @@ private class SEL_MaskingTarget_TEST
 		List<MaskingTarget__mdt> results = new SEL_MaskingTarget().findAllForSObjectType(Foobar__c.SObjectType);
 
 		Assert.isTrue(results.isEmpty(), 'a target with an unresolvable DurableId is dropped');
-		Assert.isTrue(SEL_MaskingTarget.cachedTargetsByType.isEmpty(), 'the unresolvable target must not populate the by-type cache');
+		Assert.isTrue(SEL_MaskingTarget.cachedTargetsByType.isEmpty(), 'the target that matches no object must not be added to the by-type cache');
 	}
 
 	/**
-	 * @description Tests that the rule cache degrades to the flat selector read when
-	 * `MaskingRule__mdt.getAll()` throws `System.ListException` (an org-local record sharing a packaged
-	 * record's DeveloperName bricks the platform call), and that every fallback-loaded rule fingerprints
-	 * identically to its getAll()-shaped fast-path counterpart — the supersession shape-parity contract
-	 * the baked `ShippedFingerprint__c`/`ReplacesFingerprint__c` constants depend on. MasterLabel and
-	 * Category__c parity pins the advisor's read surface, NamespacePrefix the verdict keying.
+	 * @description Tests that the rule cache falls back to the flat selector read when
+	 * `MaskingRule__mdt.getAll()` throws `System.ListException` (an org-local record with the same
+	 * DeveloperName as a packaged record makes the platform call fail). Also tests that every rule loaded
+	 * by the fallback gets the same fingerprint as the same rule loaded by getAll() on the normal path.
+	 * The stored `ShippedFingerprint__c` and `ReplacesFingerprint__c` values depend on both paths giving
+	 * the same shape. MasterLabel and Category__c must match because the advisor reads them;
+	 * NamespacePrefix must match because supersession keys rules by it.
 	 */
 	@IsTest
 	private static void shouldFallBackToSelectorReadWhenRuleGetAllCollides()
@@ -470,21 +473,22 @@ private class SEL_MaskingTarget_TEST
 			Assert.areEqual(SEL_MaskingRule.computeFingerprint(fastPath), SEL_MaskingRule.computeFingerprint(fallback),
 					'a fallback-shaped record must fingerprint identically to the getAll()-shaped record: ' + fastPath.DeveloperName);
 			Assert.areEqual(fastPath.MasterLabel, fallback.MasterLabel,
-					'the fallback must carry MasterLabel — advisor surfaces label rules from cached records: ' + fastPath.DeveloperName);
+					'the fallback must carry MasterLabel: the advisor pages show each rule\'s label from cached records: ' + fastPath.DeveloperName);
 			Assert.areEqual(fastPath.Category__c, fallback.Category__c,
-					'the fallback must carry Category__c — the advisor rule picker groups on it: ' + fastPath.DeveloperName);
+					'the fallback must carry Category__c: the advisor rule picker groups on it: ' + fastPath.DeveloperName);
 			Assert.areEqual(fastPath.NamespacePrefix, fallback.NamespacePrefix,
-					'the fallback must carry NamespacePrefix — supersession verdicts key on it: ' + fastPath.DeveloperName);
+					'the fallback must carry NamespacePrefix: supersession keys rules by it: ' + fastPath.DeveloperName);
 		}
 	}
 
 	/**
-	 * @description Tests that the targets cache degrades to the flat selector read when
-	 * `MaskingTarget__mdt.getAll()` collides, and that fallback records keep the getAll() record shape:
-	 * any field is readable (a raw SOQL row throws `SObjectException` on un-queried field reads) and
-	 * relationship fields stay null, so `resolveQualifiedFieldName` keeps resolving surface keys from
-	 * `Field__c` DurableIds exactly as on the fast path. Active derivation crossing both fallback
-	 * caches proves the rule sidecar still resolves.
+	 * @description Tests that the targets cache falls back to the flat selector read when
+	 * `MaskingTarget__mdt.getAll()` fails on a duplicate name, and that the fallback records keep the
+	 * getAll() record shape: every field can be read (a raw SOQL row throws `SObjectException` when code
+	 * reads a field that was not queried) and relationship fields stay null. So
+	 * `resolveQualifiedFieldName` keeps building field keys from `Field__c` DurableIds exactly as on the
+	 * normal path. Finding the active targets through both fallback caches proves that the separate
+	 * rule cache still finds each rule.
 	 */
 	@IsTest
 	private static void shouldFallBackToSelectorReadWhenTargetGetAllCollides()
@@ -499,19 +503,20 @@ private class SEL_MaskingTarget_TEST
 		List<MaskingTarget__mdt> activeTargets = new SEL_MaskingTarget().findActiveForSObjectType(ApiCall__c.SObjectType);
 
 		Assert.isFalse(allTargets.isEmpty(), 'the fallback read must still load the shipped ApiCall targets');
-		Assert.isFalse(activeTargets.isEmpty(), 'active derivation must still work across the two fallback caches');
+		Assert.isFalse(activeTargets.isEmpty(), 'finding the active targets must still work across the two fallback caches');
 		for(MaskingTarget__mdt target : allTargets)
 		{
-			Assert.isNull(target.SObjectType__r, 'fallback targets must keep the getAll() shape — null relationships, readable fields: ' + target.DeveloperName);
-			Assert.isNull(target.Field__r, 'fallback targets must keep the getAll() shape — null relationships, readable fields: ' + target.DeveloperName);
-			Assert.isNull(target.Rule__r, 'fallback targets must resolve rules through the sidecar cache, never Rule__r: ' + target.DeveloperName);
+			Assert.isNull(target.SObjectType__r, 'fallback targets must keep the getAll() shape (null relationships, readable fields): ' + target.DeveloperName);
+			Assert.isNull(target.Field__r, 'fallback targets must keep the getAll() shape (null relationships, readable fields): ' + target.DeveloperName);
+			Assert.isNull(target.Rule__r, 'fallback targets must find rules through the separate rule cache, never Rule__r: ' + target.DeveloperName);
 		}
 	}
 
 	/**
-	 * @description Tests that `getAllTargets` — the advisor's raw accessor, the third direct platform
-	 * read alongside the two caches — survives a getAll() collision through the same shaped fallback,
-	 * so advisor pages keep rendering while the org carries a colliding record.
+	 * @description Tests that `getAllTargets` survives a getAll() failure on a duplicate name through the
+	 * same reshaped fallback. It is the advisor's method that returns every target, and the third direct
+	 * platform read next to the two caches. So advisor pages keep working while the org has a record
+	 * with a duplicate name.
 	 */
 	@IsTest
 	private static void getAllTargetsFallsBackToSelectorReadWhenGetAllCollides()
@@ -524,11 +529,12 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Tests that the collision fallback announces itself: one flood-controlled WARN per
-	 * CMDT type per transaction, fingerprinted under the masking collision key and naming the type —
-	 * rebuilding the cache in the same transaction must not emit twice. The emission itself is masked
-	 * through these same selector caches (LOG_Engine masks every LogEntryEvent__e), so a green run also
-	 * proves the fallback emission is re-entrancy-safe.
+	 * @description Tests that the duplicate-name fallback reports itself: one flood-controlled WARN per
+	 * CMDT type per transaction, with the masking duplicate-name fingerprint key, naming the type.
+	 * Building the cache again in the same transaction must not write the warning twice. Writing the
+	 * warning itself goes through masking and so through these same selector caches (LOG_Engine masks
+	 * every LogEntryEvent__e), so a passing run also proves the warning does not make the code call
+	 * itself again.
 	 */
 	@IsTest
 	private static void shouldEmitFloodControlledWarningOnCollisionFallback()
@@ -555,14 +561,14 @@ private class SEL_MaskingTarget_TEST
 				Assert.isTrue(row.Message__c.contains(SEL_MaskingRule.OBJECT_NAME), 'the warning must name the colliding CMDT type');
 			}
 		}
-		Assert.areEqual(1, warningCount, 'exactly one detail WARN per CMDT type per transaction — flood-controlled and re-entrancy-guarded');
+		Assert.areEqual(1, warningCount, 'exactly one detail WARN per CMDT type per transaction, with flood control and no repeated call');
 	}
 
 	/**
-	 * @description Tests that the collision warning names the colliding DeveloperNames when the
-	 * fallback records actually contain a cross-namespace duplicate — the admin-facing breadcrumb
-	 * for WHICH org-local clone to rename or remove. The fallback query is mocked with two rules
-	 * sharing one DeveloperName, the real shape of the production collision.
+	 * @description Tests that the duplicate-name warning names the duplicated DeveloperNames when the
+	 * fallback records really contain a duplicate across namespaces. This tells the admin WHICH org-local
+	 * copy to rename or remove. The fallback query is mocked with two rules that share one DeveloperName,
+	 * which is what the real problem looks like in production.
 	 */
 	@IsTest
 	private static void shouldNameDuplicateDeveloperNamesInCollisionWarning()
@@ -591,12 +597,12 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
-	 * @description Pins the LongTextArea truncation AT the fallback boundary, not just in the
-	 * `normaliseToGetAllShape` helper in isolation: a fallback-loaded rule whose Pattern__c exceeds
-	 * the getAll() budget must come out of the rule cache truncated to 255 characters, or
-	 * supersession fingerprints would differ per load path. Every SHIPPED pattern is under 255
-	 * characters (longest 245), so only a mocked oversized rule keeps this contract pinned — without
-	 * this test, removing the normalisation call from the fallback would sail through the suite.
+	 * @description Tests that LongTextArea values are cut ON the fallback path, not only in the
+	 * `normaliseToGetAllShape` helper on its own: a rule loaded by the fallback whose Pattern__c is longer
+	 * than the getAll() length must come out of the rule cache cut to 255 characters, or supersession
+	 * fingerprints would differ between the two read paths. Every SHIPPED pattern is shorter than 255
+	 * characters (the longest is 245), so only a mocked long rule can check this. Without this test,
+	 * removing the cut from the fallback would pass the whole test suite.
 	 */
 	@IsTest
 	private static void shouldTruncateOversizedPatternThroughFallbackBoundary()
@@ -609,23 +615,25 @@ private class SEL_MaskingTarget_TEST
 		Map<Id, MaskingRule__mdt> rules = new SEL_MaskingTarget().getAllRulesById();
 
 		Assert.areEqual('4'.repeat(255), rules.get(oversized.Id).Pattern__c,
-				'the fallback boundary must mirror the getAll() LongTextArea truncation — fingerprint shape parity depends on it');
+				'the fallback path must cut LongTextArea values like getAll() does, or the fingerprints would differ');
 	}
 
 	/**
-	 * @description Guards the critical no-brick regression: inserting a framework record through its
-	 * trigger (TRG_Dispatcher → UTIL_FrameworkMasker) under a simulated getAll() collision must SUCCEED
-	 * and the record must persist. The defect this guards bricked every framework-object insert with the
-	 * platform ListException when an org-local CMDT clone collided with a shipped DeveloperName.
+	 * @description Guards against a serious earlier defect coming back: inserting a framework record
+	 * through its trigger (TRG_Dispatcher, then UTIL_FrameworkMasker) while getAll() is made to fail on a
+	 * duplicate name must SUCCEED, and the record must be saved. The defect made every framework-object
+	 * insert fail with the platform ListException when an org-local CMDT copy had the same DeveloperName
+	 * as a shipped record.
 	 *
-	 * Asserts SURVIVAL only, not the masked value. The masked value under the collision fallback depends
-	 * on CMDT MetadataRelationship resolution (SObjectType__c / Rule__c DurableIds) that differs across org
-	 * contexts: it resolves consistently in subscriber (foreign-namespace) and no-namespace dev orgs — where
-	 * the card IS redacted — but the package's own-namespace validation runtime resolves the flat-SOQL
-	 * fallback differently and leaves the value unmasked, so a masked-value assertion is fragile there (a
-	 * validation-context artifact, not a subscriber-facing defect). The masked-value-under-collision contract
-	 * is proven where it is reliably testable: the mocked UTIL_FrameworkMasker_TEST redaction tests (TST_Mock
-	 * seam) and subscriber-side release-test section 77 (the real engine against a deployed clone).
+	 * Asserts only that the insert SUCCEEDS, not the masked value. The masked value on the fallback path
+	 * depends on how CMDT MetadataRelationship fields (SObjectType__c / Rule__c DurableIds) resolve, and
+	 * that differs between orgs. It resolves the same way in subscriber orgs (another namespace) and in
+	 * development orgs without a namespace, where the card IS masked. But the package's own validation
+	 * runtime, in its own namespace, resolves the flat SOQL fallback differently and leaves the value
+	 * unmasked, so an assertion on the masked value would be fragile there (a quirk of that validation
+	 * run, not a defect subscribers see). The masked value on the fallback path is tested where it can be
+	 * tested reliably: the mocked UTIL_FrameworkMasker_TEST masking tests (through TST_Mock) and the
+	 * subscriber release test that runs the real engine against a deployed copy.
 	 */
 	@IsTest
 	private static void shouldSurviveFrameworkRecordInsertWhenGetAllCollides()
@@ -640,14 +648,14 @@ private class SEL_MaskingTarget_TEST
 		// Insert through the framework DML in system mode: managed package-validation runs as a user
 		// without FLS on the framework's own objects, so a USER_MODE insert of kern__ApiCall__c fails
 		// field-accessibility. The collision-fallback path under test still fires in the before-insert
-		// trigger regardless of access level — system mode only removes the unrelated FLS variable.
+		// trigger whatever the access level; system mode only takes the unrelated FLS question out of the test.
 		DML_Builder.newTransaction().doInsert(apiCall).withSystemMode().execute();
 
 		Assert.isNotNull(apiCall.Id,
-				'the before-insert trigger must not brick on the getAll() collision — the insert must commit');
+				'the before-insert trigger must not fail when getAll() fails on a duplicate name: the insert must commit');
 		ApiCall__c stored = (ApiCall__c)new SEL_ApiCall().findById(apiCall.Id);
 		Assert.isNotNull(stored,
-				'the framework record must persist after a collision-fallback insert (no ListException brick)');
+				'the framework record must be saved after an insert on the duplicate-name fallback (no ListException)');
 	}
 
 }

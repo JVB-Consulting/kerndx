@@ -9,16 +9,21 @@
  * bypasses sharing on every read this controller makes (the body-text leg through its own
  * without-sharing runner), so an administrator reads every user's framework-owned log rows. The two
  * are separate dials: SYSTEM_MODE waives object and field permissions only, and SEL_LogEntry selects
- * the sharing bypass per method rather than selector-wide.
+ * the sharing bypass per method rather than selector-wide. A reader can also narrow the console to one whole
+ * action. The console then lists the action's own entries beside the entries of every chain run launched under it,
+ * names the chain behind each row, and describes the action in one banner.
  *
  * @see SEL_LogEntry
+ * @see SEL_AsyncChainExecution
+ * @see CTRL_ChainMonitor
+ * @see CTRL_ChainMonitorTypes
  * @see CTRL_LogConsole_TEST
  *
  * @author Jason van Beukering
  *
  * @group Logging
  *
- * @date June 2026, August 2026
+ * @date June 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssTypeCount')
 public with sharing class CTRL_LogConsole
@@ -80,8 +85,6 @@ public with sharing class CTRL_LogConsole
 	 * scope share no level, so there is nothing the leg is permitted to group. Its own status rather than an
 	 * empty COMPLETE, because the two say different things to a subscriber: COMPLETE means the fold ran and
 	 * found nothing recurring, this means the fold was never allowed to look at the level being viewed.
-	 *
-	 * @date August 2026
 	 */
 	private static final String DERIVED_STATUS_SKIPPED_LEVEL_SCOPE = 'SKIPPED_LEVEL_SCOPE';
 
@@ -106,8 +109,6 @@ public with sharing class CTRL_LogConsole
 	 * Above the cap the fold is best-effort (the oldest in-window counters drop) and the summary and
 	 * problems shapes flag totalsApproximate. Mutable and @TestVisible so a test can lower it to drive
 	 * the overflow branch without seeding thousands of rows.
-	 *
-	 * @date July 2026
 	 */
 	@TestVisible
 	@SuppressWarnings('PMD.FieldNamingConventions')
@@ -131,8 +132,6 @@ public with sharing class CTRL_LogConsole
 	 * same window fold for the list and decline for the ribbon, breaking the invariant that the two agree.
 	 * Mutable and @TestVisible so a test can lower it to drive the declined branch without seeding tens of
 	 * thousands of rows.
-	 *
-	 * @date August 2026
 	 */
 	@TestVisible
 	@SuppressWarnings('PMD.FieldNamingConventions')
@@ -153,8 +152,6 @@ public with sharing class CTRL_LogConsole
 	 * the window. A deliberate constant, the fold ceiling's sibling (see DERIVED_SCAN_ROW_CEILING for why a
 	 * constant beats a live budget). Mutable and @TestVisible so a test can lower it to drive the declined
 	 * branch without seeding tens of thousands of rows.
-	 *
-	 * @date August 2026
 	 */
 	@TestVisible
 	@SuppressWarnings('PMD.FieldNamingConventions')
@@ -165,8 +162,6 @@ public with sharing class CTRL_LogConsole
 	 * own multi-value convention use a semicolon, but the two sibling multi-value settings on this object
 	 * (ClassFilter__c and SuppressClassMethod__c) are documented as comma-separated, so a subscriber carrying
 	 * that habit across configures a working scope rather than one that silently matches nothing.
-	 *
-	 * @date August 2026
 	 */
 	private static final String DERIVED_LEVEL_SEPARATOR = '[;,]';
 
@@ -175,8 +170,6 @@ public with sharing class CTRL_LogConsole
 	 * framework recognises — the shipped default, and what a Text field added to an existing custom-setting
 	 * record reads as on upgrade, since custom-setting data cannot ship in a package. Recurring problems worth
 	 * grouping live at ERROR and WARN, and confining the scan to them is what keeps it cheap on a busy org.
-	 *
-	 * @date August 2026
 	 */
 	private static final List<String> DEFAULT_DERIVED_LEVELS = new List<String> {LoggingLevel.ERROR.name(), LoggingLevel.WARN.name()};
 
@@ -187,8 +180,6 @@ public with sharing class CTRL_LogConsole
 	 * actually carries. Single-sourced so the two views' text coverage is reconciled in one reviewable
 	 * place — a SOSL IN ALL FIELDS search can never be reproduced exactly by a fixed in-memory list, so the
 	 * lists are aligned by intent, not byte-identical.
-	 *
-	 * @date July 2026
 	 */
 	private static final List<SObjectField> SAMPLE_SEARCH_FIELDS = new List<SObjectField>
 	{
@@ -228,20 +219,54 @@ public with sharing class CTRL_LogConsole
 	private static final Integer ENTRY_SOURCE_CANDIDATE_CAP = 200;
 
 	/**
+	 * @description How many chains the whole-action banner names as chips. Failed runs fill the slots first, the rest by start
+	 * time; anything beyond is "and {0} more chains".
+	 */
+	private static final Integer ACTION_CHIP_LIMIT = 5;
+
+	/**
+	 * @description The statuses the banner counts as failed: Failed alone. Aborted is an operator's decision and Stalled a
+	 * recoverable pause, so neither is a failure the sentence should count.
+	 */
+	private static final List<String> ACTION_FAILED_STATUSES = new List<String> {SEL_AsyncChainExecution.STATUS_FAILED};
+
+	/**
+	 * @description The statuses of a run that has not finished, for the banner's "still running": the same pair the Chain
+	 * Monitor treats as unfinished.
+	 */
+	private static final List<String> ACTION_UNFINISHED_STATUSES = new List<String> {SEL_AsyncChainExecution.STATUS_RUNNING, SEL_AsyncChainExecution.STATUS_STALLED};
+
+	/**
+	 * @description The shape of a tracking id the search box resolves before searching: the UUID the framework mints, 36
+	 * characters with hyphens. Anything else is searched as text.
+	 */
+	private static final Pattern TRACKING_ID_SHAPE = Pattern.compile('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
+
+	/**
+	 * @description The separators that can follow the writer's name in a location: a dot before a method, the slash the Flow and API bridges
+	 * write, and the colon before a bare line number.
+	 */
+	private static final Set<String> WRITER_LOCATION_SEPARATORS = new Set<String>
+	{
+			UTIL_String.DOT,
+			LOG_Engine.SOURCE_PREFIX_DELIMITER,
+			UTIL_String.COLON
+	};
+
+	/**
 	 * @description Allow-list mapping the flat-entries sort keys the LWC sends (the DTO_LogEntrySummary
 	 * field names, and the executionEvent alias the context column resolves to) to real, sortable scalar
 	 * fields. The logNumber key resolves to Name, the zero-padded auto-number the Log Number column renders
-	 * as its record link. Long-text bodies are never sortable, so they are deliberately absent; an
-	 * unrecognised key falls back to CreatedDate.
-	 *
-	 * @date July 2026
+	 * as its record link, and the writerName key to the writer each entry stored, which is what the Source
+	 * column shows. Long-text bodies are never sortable, so they are deliberately absent; an unrecognised
+	 * key falls back to CreatedDate.
 	 */
 	private static final Map<String, SObjectField> ENTRY_SORT_FIELDS = new Map<String, SObjectField>
 	{
 			'createdDate' => LogEntry__c.CreatedDate,
 			'logNumber' => LogEntry__c.Name,
 			'level' => LogEntry__c.LogLevel__c,
-			'className' => LogEntry__c.ClassMethod__c,
+			'writerName' => LogEntry__c.Source__c,
 			'durationMs' => LogEntry__c.DurationMs__c,
 			'shortMessage' => LogEntry__c.ShortMessage__c,
 			'executionEvent' => LogEntry__c.ExecutionEvent__c,
@@ -258,24 +283,47 @@ public with sharing class CTRL_LogConsole
 			'lastSeen' => ProblemSortField.LAST_SEEN,
 			'level' => ProblemSortField.LEVEL,
 			'logNumber' => ProblemSortField.LOG_NUMBER,
-			'className' => ProblemSortField.CLASS_NAME,
+			'writerName' => ProblemSortField.WRITER_NAME,
 			'shortMessage' => ProblemSortField.SHORT_MESSAGE,
 			'executionEvent' => ProblemSortField.EXECUTION_EVENT
 	};
 
 	/**
-	 * @description The sortable columns of the distinct-problems view. The wire request carries the
-	 * matching DTO_LogProblem field name (resolved through PROBLEM_SORT_FIELDS); the default is
-	 * OCCURRENCE_COUNT.
+	 * @description The columns the problems list can be sorted by. The browser sends the column's name; an unknown or missing name
+	 * sorts by occurrence count.
 	 */
 	private enum ProblemSortField
 	{
+		/**
+		 * @description Orders problems by how many times each occurred in the selected time window. Used when the request names no
+		 * column, or one that is not recognised.
+		 */
 		OCCURRENCE_COUNT,
+		/**
+		 * @description Orders problems by the date and time each last occurred in the selected time window.
+		 */
 		LAST_SEEN,
+		/**
+		 * @description Orders problems by severity (DEBUG, INFO, WARN, ERROR) and, within one severity, by how often each occurred,
+		 * so that a frequent informational message never outranks an error.
+		 */
 		LEVEL,
+		/**
+		 * @description Orders problems alphabetically by the Log Number of the sample entry shown for each problem.
+		 */
 		LOG_NUMBER,
-		CLASS_NAME,
+		/**
+		 * @description Orders problems alphabetically by the name of the class, Flow or component that wrote the entry.
+		 */
+		WRITER_NAME,
+		/**
+		 * @description Orders problems alphabetically by the short message text.
+		 */
 		SHORT_MESSAGE,
+		/**
+		 * @description Orders problems alphabetically by the execution context the entry was captured in, for example a trigger,
+		 * a queueable job or a REST request.
+		 */
 		EXECUTION_EVENT
 	}
 
@@ -295,8 +343,6 @@ public with sharing class CTRL_LogConsole
 	 * @param requestJson The serialised DTO_Request; blank yields a default request.
 	 *
 	 * @return A DTO_LogProblemPage of folded problems with pagination metadata.
-	 *
-	 * @date June 2026, August 2026
 	 *
 	 * @example
 	 * ```apex
@@ -471,8 +517,6 @@ public with sharing class CTRL_LogConsole
 	 *
 	 * @return The levels the fold may group; empty when the two scopes share none.
 	 *
-	 * @date August 2026
-	 *
 	 * @example
 	 * ```apex
 	 * List<String> levels = resolveDerivedLevelScope(leg.configuredLevels, request.levels);
@@ -515,8 +559,6 @@ public with sharing class CTRL_LogConsole
 	 *
 	 * @return The recognised levels, or the shipped default when none are.
 	 *
-	 * @date August 2026
-	 *
 	 * @example
 	 * ```apex
 	 * List<String> configured = parseDerivedLevelScope('ERROR;WARN');
@@ -539,16 +581,14 @@ public with sharing class CTRL_LogConsole
 	/**
 	 * @description Maps a derived signature to a display-ready problem: no record id (opened through its
 	 * JSON-encoded signature), the fold's occurrence count and first/last-seen, and the source split into
-	 * class name and method (no line — the line is not part of the key). The label set here is the fold's
-	 * own MAX(ShortMessage__c) projection — an aggregate cannot project the newest member's text — and is
-	 * provisional: relabelDerivedProblems replaces it on the returned page with the newest occurrence's
-	 * message, and it stands only for a problem whose rows vanished before that read.
+	 * class name and method (no line, because the line is not part of the key). The label set here is the
+	 * MAX(ShortMessage__c) value the fold selects, because an aggregate query cannot select the newest member's
+	 * text. The label is provisional: relabelDerivedProblems replaces it on the returned page with the newest
+	 * occurrence's message, and it stands only for a problem whose rows vanished before that read.
 	 *
 	 * @param signature The folded derived signature.
 	 *
 	 * @return The derived DTO_LogProblem.
-	 *
-	 * @date June 2026, August 2026
 	 *
 	 * @example
 	 * ```apex
@@ -563,8 +603,11 @@ public with sharing class CTRL_LogConsole
 		problem.level = signature.logLevel;
 		problem.shortMessage = signature.label;
 		problem.exceptionType = signature.exceptionType;
-		problem.className = LOG_Engine.extractClassName(signature.classMethod);
+		problem.className = resolveClassName(signature.source, signature.classMethod);
 		problem.methodLine = buildDerivedMethodLine(signature.classMethod);
+		problem.writerName = signature.source;
+		problem.writerOrigin = originOfNamedWriter(signature.source, signature.origin);
+		problem.writerLocation = buildWriterLocation(signature.source, problem.methodLine);
 		problem.classMethod = signature.classMethod;
 		problem.occurrenceCount = signature.occurrenceCount;
 		problem.firstSeen = signature.firstSeen;
@@ -573,22 +616,21 @@ public with sharing class CTRL_LogConsole
 	}
 
 	/**
-	 * @description Rewrites each derived problem on the returned page with its newest occurrence's message —
-	 * the member the drawer heading resolves — replacing the fold's MAX(ShortMessage__c) projection, which
-	 * names the alphabetically-last message in the group and so can label a row with a member neither newest
-	 * nor commonest. One batched selector read pins every page signature's newest instant; each problem takes
-	 * the first returned row matching its identity (rows arrive newest first, so a same-second tie resolves
-	 * to the same row the drawer opens), and its signature JSON is re-serialised with the final label so the
-	 * drawer's purge fallback shows the text that was clicked. A problem whose rows vanished between the fold
-	 * and this read is simply not matched and keeps the fold's label. Page-scoped on purpose: the fold can
-	 * return up to PROBLEM_CANDIDATE_CAP signatures, far too many to pin into one query, so the sort ran on
-	 * the fold's own projection and only the rows a reader actually sees are resolved to their newest text.
+	 * @description Rewrites each derived problem on the returned page with its newest occurrence's message. That
+	 * is the same member the drawer heading shows. It replaces the MAX(ShortMessage__c) value the fold selected,
+	 * which names the alphabetically-last message in the group and so can label a row with a member that is
+	 * neither the newest nor the most common. One batched selector read finds the newest time for every
+	 * signature on the page. Each problem takes the first returned row matching its identity (rows arrive newest
+	 * first, so a same-second tie resolves to the same row the drawer opens), and its signature JSON is
+	 * re-serialised with the final label so the drawer's purge fallback shows the text that was clicked. A
+	 * problem whose rows vanished between the fold and this read is simply not matched and keeps the fold's
+	 * label. This works on one page on purpose: the fold can return up to PROBLEM_CANDIDATE_CAP signatures, far
+	 * too many to name in one query. So the sort ran on the value the fold selected, and only the rows a reader
+	 * actually sees are resolved to their newest text.
 	 *
 	 * @param selector The shared selector.
 	 * @param pageRecords The page's problems; only derived rows are touched.
 	 * @param criteria The browse criteria scoping the read to the same rows the fold covered.
-	 *
-	 * @date August 2026
 	 *
 	 * @example
 	 * ```apex
@@ -606,6 +648,7 @@ public with sharing class CTRL_LogConsole
 				derivedProblems.add(problem);
 				SEL_LogEntry.DerivedSignature signature = new SEL_LogEntry.DerivedSignature(problem.exceptionType, problem.classMethod, problem.level);
 				signature.lastSeen = problem.lastSeen;
+				signature.source = problem.writerName;
 				signatures.add(signature);
 			}
 		}
@@ -631,16 +674,14 @@ public with sharing class CTRL_LogConsole
 
 	/**
 	 * @description Serialises the signature a derived problem is opened through — its three identity fields
-	 * plus the display label the drawer falls back to when every occurrence has been purged. Single-sourced
-	 * by toDerivedProblem and relabelDerivedProblems so the JSON the drawer decodes always carries the label
-	 * the list actually showed.
+	 * plus the display label and the stored source the drawer falls back to when every occurrence has been
+	 * purged. Single-sourced by toDerivedProblem and relabelDerivedProblems so the JSON the drawer decodes
+	 * always carries the label the list actually showed and names the class the way the list named it.
 	 *
 	 * @param signature The derived signature whose identity fields key the group.
 	 * @param label The display label to carry for the purge fallback.
 	 *
 	 * @return The JSON-encoded signature.
-	 *
-	 * @date August 2026
 	 *
 	 * @example
 	 * ```apex
@@ -654,7 +695,8 @@ public with sharing class CTRL_LogConsole
 				'exceptionType' => signature.exceptionType,
 				'classMethod' => signature.classMethod,
 				'logLevel' => signature.logLevel,
-				'label' => label
+				'label' => label,
+				'source' => signature.source
 		});
 	}
 
@@ -662,13 +704,13 @@ public with sharing class CTRL_LogConsole
 	 * @description Returns a page of flat forensic log entries (detail: samples and plain rows),
 	 * excluding the rollup: counter rows. Mirrors the canonical paginated-list shape: blank-guard
 	 * deserialise, resolve the sort field through the allow-list (CreatedDate fallback), default the
-	 * page size and number, then map the selector page to display-ready DTOs.
+	 * page size and number, then map the selector page to display-ready DTOs. Every row then names the
+	 * chain behind it in one query on the run records for the whole page (the Chain column), or says the
+	 * action wrote it itself.
 	 *
 	 * @param requestJson The serialised DTO_Request; blank yields a default request.
 	 *
 	 * @return A DTO_LogEntryPage of forensic rows with pagination metadata.
-	 *
-	 * @date June 2026, July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -699,10 +741,17 @@ public with sharing class CTRL_LogConsole
 		}
 
 		List<DTO_LogEntrySummary> records = new List<DTO_LogEntrySummary>();
+		Set<String> correlationIds = new Set<String>();
 		for(SObject record : page.records)
 		{
-			records.add(toEntrySummary((LogEntry__c)record));
+			LogEntry__c row = (LogEntry__c)record;
+			records.add(toEntrySummary(row));
+			if(String.isNotBlank(row.CorrelationId__c))
+			{
+				correlationIds.add(row.CorrelationId__c);
+			}
 		}
+		nameChains(records, new SEL_AsyncChainExecution().findByCorrelationIds(correlationIds));
 
 		DTO_LogEntryPage result = new DTO_LogEntryPage();
 		result.records = records;
@@ -727,8 +776,6 @@ public with sharing class CTRL_LogConsole
 	 * @param requestJson The serialised DTO_Request; blank yields a default request.
 	 *
 	 * @return A DTO_LogSummary over the requested scope.
-	 *
-	 * @date June 2026, July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -766,7 +813,7 @@ public with sharing class CTRL_LogConsole
 				summary.totalOccurrences += occurrences;
 				summary.distinctCount++;
 				accumulateLevel(tallies.byLevel, sample.LogLevel__c, occurrences);
-				addToCount(tallies.bySource, LOG_Engine.extractClassName(sample.ClassMethod__c), occurrences);
+				addToSourceCount(tallies.bySource, sample.Origin__c, sample.Source__c, occurrences);
 			}
 		}
 		catch(QueryException degrade)
@@ -814,7 +861,7 @@ public with sharing class CTRL_LogConsole
 			summary.totalOccurrences += occurrences;
 			summary.distinctCount++;
 			accumulateLevel(tallies.byLevel, signature.logLevel, occurrences);
-			addToCount(tallies.bySource, LOG_Engine.extractClassName(signature.classMethod), occurrences);
+			addToSourceCount(tallies.bySource, signature.origin, signature.source, occurrences);
 		}
 	}
 
@@ -838,7 +885,7 @@ public with sharing class CTRL_LogConsole
 	 * String prefix = CTRL_LogConsole.getApexNamespacePrefix();
 	 * ```
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static String getApexNamespacePrefix()
 	{
 		return UTIL_System.getManagedPackageNamespacePrefix('.');
@@ -861,7 +908,7 @@ public with sharing class CTRL_LogConsole
 	 * String settingsUrl = CTRL_LogConsole.getLogSettingsSetupUrl();
 	 * ```
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static String getLogSettingsSetupUrl()
 	{
 		String dataPageAddress = String.format(LIST_CUSTOM_SETTINGS_DATA_ADDRESS_TEMPLATE,
@@ -886,8 +933,6 @@ public with sharing class CTRL_LogConsole
 	 *
 	 * @return A DTO_EntrySummary over the requested scope; over a too-large window, the declined summary
 	 * carrying the exact total alone.
-	 *
-	 * @date July 2026, August 2026
 	 *
 	 * @example
 	 * ```apex
@@ -934,10 +979,10 @@ public with sharing class CTRL_LogConsole
 			totalRows += entryLevel.rowCount;
 		}
 
-		Map<String, Integer> rowsBySource = new Map<String, Integer>();
+		Map<String, DTO_SourceCount> rowsBySource = new Map<String, DTO_SourceCount>();
 		for(SEL_LogEntry.SourceRowCount sourceCount : aggregate.sourceCounts)
 		{
-			addToCount(rowsBySource, LOG_Engine.extractClassName(sourceCount.classMethod), sourceCount.rowCount ?? 0);
+			addToSourceCount(rowsBySource, sourceCount.origin, sourceCount.source, sourceCount.rowCount);
 		}
 
 		DTO_EntrySummary summary = new DTO_EntrySummary();
@@ -955,8 +1000,6 @@ public with sharing class CTRL_LogConsole
 	 * @param totalRows The exact forensic row count the pre-flight count measured.
 	 *
 	 * @return The declined DTO_EntrySummary.
-	 *
-	 * @date August 2026
 	 *
 	 * @example
 	 * ```apex
@@ -982,8 +1025,6 @@ public with sharing class CTRL_LogConsole
 	 * @param entryId The LogEntry__c Id to load.
 	 *
 	 * @return A DTO_LogEntryDetail, or null when the Id is null or the row is not found.
-	 *
-	 * @date June 2026, July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1027,16 +1068,26 @@ public with sharing class CTRL_LogConsole
 		detail.message = row.Message__c;
 		detail.stackTrace = row.StackTrace__c;
 		detail.contextJson = unwrapContext(row.ContextData__c);
-		detail.className = LOG_Engine.extractClassName(row.ClassMethod__c);
+		detail.className = resolveClassName(row.Source__c, row.ClassMethod__c);
 		detail.methodLine = buildMethodLine(row);
 		detail.classMethod = row.ClassMethod__c;
 		detail.executionEvent = row.ExecutionEvent__c;
+		detail.origin = row.Origin__c;
+		detail.source = row.Source__c;
 		detail.userId = row.UserId__c;
 		detail.userName = resolveUserName(row.UserId__c);
 		detail.correlationId = row.CorrelationId__c;
+		detail.rootCorrelationId = row.RootCorrelationId__c;
 		detail.transactionId = row.TransactionId__c;
 		detail.parentTransactionId = row.ParentTransactionId__c;
-		detail.chainExists = new SEL_AsyncChainExecution().existsByCorrelationId(row.CorrelationId__c);
+		List<AsyncChainExecution__c> holders = String.isBlank(row.CorrelationId__c)
+				? new List<AsyncChainExecution__c>()
+				: new SEL_AsyncChainExecution().findByCorrelationIds(new Set<String> {row.CorrelationId__c});
+		detail.chainExists = !holders.isEmpty();
+		detail.chainName = holders.isEmpty() ? null : holders[0].ChainName__c;
+		detail.chainNumber = holders.isEmpty() ? null : holders[0].Name;
+		detail.actionCorrelationId = actionIdOf(row);
+		detail.isActionOwn = isActionOwn(row.CorrelationId__c, row.RootCorrelationId__c, detail.chainExists);
 		detail.recordId = row.RecordId__c;
 		detail.firstSeen = row.CreatedDate;
 		detail.lastSeen = row.LastModifiedDate;
@@ -1143,7 +1194,7 @@ public with sharing class CTRL_LogConsole
 	 * the fold and the click: the drawer still renders the signature's label, level, exception type and
 	 * source, just without the forensic body of a live row.
 	 *
-	 * @param decoded The decoded signature map (exceptionType, classMethod, logLevel, label).
+	 * @param decoded The decoded signature map (exceptionType, classMethod, logLevel, label, source).
 	 *
 	 * @return The fallback detail.
 	 *
@@ -1163,7 +1214,7 @@ public with sharing class CTRL_LogConsole
 		detail.level = readSignatureText(decoded, 'logLevel');
 		detail.shortMessage = readSignatureText(decoded, 'label');
 		detail.exceptionType = readSignatureText(decoded, 'exceptionType');
-		detail.className = LOG_Engine.extractClassName(classMethod);
+		detail.className = resolveClassName(readSignatureText(decoded, 'source'), classMethod);
 		detail.methodLine = buildDerivedMethodLine(classMethod);
 		detail.classMethod = classMethod;
 		return detail;
@@ -1184,7 +1235,32 @@ public with sharing class CTRL_LogConsole
 	 */
 	private static String buildDerivedMethodLine(String classMethod)
 	{
-		return String.isNotBlank(classMethod) && classMethod.contains('.') ? classMethod.substringAfter('.') : null;
+		return hasMethodSegment(classMethod) ? classMethod.substringAfter('.') : null;
+	}
+
+	/**
+	 * @description Whether a stored class and method carries a method the list can show after the writer's name. The text
+	 * before the first dot is the class, so anything after that dot is the method, with one exception: the Flow bridges
+	 * record a Flow's own name after the Flow marker and never a method after it, and a Flow name may contain a dot of
+	 * its own. For those rows the dot is part of the name, so there is no method to show and the name is left whole. The
+	 * managed namespace comes first when there is one, exactly as the engine reads the same value.
+	 *
+	 * @param classMethod The stored class and method, or null.
+	 *
+	 * @return True when the text after the first dot is a method the list can show.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean hasMethod = hasMethodSegment('OrderService.submit');
+	 * ```
+	 */
+	private static Boolean hasMethodSegment(String classMethod)
+	{
+		if(String.isBlank(classMethod) || !classMethod.contains('.'))
+		{
+			return false;
+		}
+		return !classMethod.removeStart(getApexNamespacePrefix()).startsWith(LOG_Engine.FLOW_SOURCE_PREFIX);
 	}
 
 	/**
@@ -1198,8 +1274,6 @@ public with sharing class CTRL_LogConsole
 	 *
 	 * @return A trace page: the ordered trace nodes (a single-self node when uncorrelated, empty when the
 	 * Id is null or resolves to no row) and whether the trace was truncated at the row cap.
-	 *
-	 * @date July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1234,6 +1308,213 @@ public with sharing class CTRL_LogConsole
 			page.entries.add(toTraceEntry(hops[index], entryId));
 		}
 		return page;
+	}
+
+	/**
+	 * @description Describes a whole action for the console's banner: when it started and ended, whether it is still running,
+	 * how many chains ran under it and how many failed, at most five of those chains as chips (failed first, then by start
+	 * time), and how many more there are. Six reads in a fixed order, every number exact: the first and last entry of the
+	 * action (one row each, outside the list's date range), the first page of failed runs whose total is the failed count,
+	 * the first page of all runs whose total is the chain count and whose rows fill the chip slots the failed runs left,
+	 * one existence read for unfinished runs, and the launchers of the chips. An action recorded before roots were written
+	 * (its first entry carries no root and no run carries its root) is described by the legacy flag and by the one run that
+	 * adopted its id; the correlation id is a unique index on the run, so the list holds at most one row.
+	 *
+	 * @param requestJson The serialised DTO_Request carrying rootCorrelationId; blank, or an action with no entries, yields null.
+	 *
+	 * @return The action's summary, or null.
+	 *
+	 * @example
+	 * ```apex
+	 * CTRL_LogConsole.DTO_ActionSummary summary = CTRL_LogConsole.getActionSummary(JSON.serialize(request));
+	 * ```
+	 */
+	@AuraEnabled
+	public static DTO_ActionSummary getActionSummary(String requestJson)
+	{
+		String rootCorrelationId = parseRequest(requestJson).rootCorrelationId;
+		if(String.isBlank(rootCorrelationId))
+		{
+			return null;
+		}
+		SEL_LogEntry entries = new SEL_LogEntry();
+		SEL_AsyncChainExecution chains = new SEL_AsyncChainExecution();
+		LogEntry__c first = entries.findFirstInScope(rootCorrelationId);
+		if(first == null)
+		{
+			return null;
+		}
+		LogEntry__c last = entries.findLastInScope(rootCorrelationId);
+		QRY_Builder.QueryPage failedRuns = chains.findByRootPage(rootCorrelationId, ACTION_FAILED_STATUSES, ACTION_CHIP_LIMIT);
+		QRY_Builder.QueryPage allRuns = chains.findByRootPage(rootCorrelationId, null, ACTION_CHIP_LIMIT);
+
+		DTO_ActionSummary summary = new DTO_ActionSummary();
+		summary.rootCorrelationId = rootCorrelationId;
+		summary.startedAt = first.CreatedDate;
+		summary.recordedBeforeRoots = String.isBlank(first.RootCorrelationId__c) && allRuns.totalRecords == 0;
+		List<AsyncChainExecution__c> chipRuns;
+		if(summary.recordedBeforeRoots)
+		{
+			chipRuns = chains.findByCorrelationIds(new Set<String> {rootCorrelationId});
+			summary.chainCount = chipRuns.size();
+			summary.failedCount = countWithStatus(chipRuns, ACTION_FAILED_STATUSES);
+			summary.stillRunning = countWithStatus(chipRuns, ACTION_UNFINISHED_STATUSES) > 0;
+		}
+		else
+		{
+			chipRuns = fillChips(failedRuns, allRuns);
+			summary.chainCount = allRuns.totalRecords;
+			summary.failedCount = failedRuns.totalRecords;
+			summary.stillRunning = chains.existsByRootAndStatuses(rootCorrelationId, ACTION_UNFINISHED_STATUSES);
+		}
+		Datetime spanEnd = summary.stillRunning ? Datetime.now() : last.CreatedDate;
+		summary.endedAt = summary.stillRunning ? null : last.CreatedDate;
+		summary.durationLabel = UTIL_Date.formatDuration(spanEnd.getTime() - first.CreatedDate.getTime());
+		summary.moreChainCount = Math.max(0, summary.chainCount - chipRuns.size());
+		summary.chains = toActionChains(chipRuns);
+		return summary;
+	}
+
+	/**
+	 * @description The chips of a banner: every run on the failed page, then the runs on the all-runs page that are not
+	 * already shown, by start time, until the slots are full.
+	 *
+	 * @param failedRuns The first page of the action's failed runs.
+	 * @param allRuns The first page of all the action's runs.
+	 *
+	 * @return At most ACTION_CHIP_LIMIT runs, failed first.
+	 *
+	 * @example
+	 * ```apex
+	 * List<AsyncChainExecution__c> chipRuns = fillChips(failedRuns, allRuns);
+	 * ```
+	 */
+	private static List<AsyncChainExecution__c> fillChips(QRY_Builder.QueryPage failedRuns, QRY_Builder.QueryPage allRuns)
+	{
+		List<AsyncChainExecution__c> chips = new List<AsyncChainExecution__c>();
+		Set<Id> shown = new Set<Id>();
+		for(SObject failed : failedRuns.records)
+		{
+			chips.add((AsyncChainExecution__c)failed);
+			shown.add(failed.Id);
+		}
+		for(SObject candidate : allRuns.records)
+		{
+			if(chips.size() >= ACTION_CHIP_LIMIT)
+			{
+				break;
+			}
+			if(!shown.contains(candidate.Id))
+			{
+				chips.add((AsyncChainExecution__c)candidate);
+				shown.add(candidate.Id);
+			}
+		}
+		return chips;
+	}
+
+	/**
+	 * @description How many of the given runs are in one of the given statuses, for the legacy banner whose only chain is
+	 * read as a row rather than counted by a page total.
+	 *
+	 * @param runs The runs.
+	 * @param statuses The statuses that count.
+	 *
+	 * @return The count.
+	 *
+	 * @example
+	 * ```apex
+	 * summary.failedCount = countWithStatus(chipRuns, ACTION_FAILED_STATUSES);
+	 * ```
+	 */
+	private static Integer countWithStatus(List<AsyncChainExecution__c> runs, List<String> statuses)
+	{
+		Integer count = 0;
+		for(AsyncChainExecution__c run : runs)
+		{
+			if(statuses.contains(run.Status__c))
+			{
+				count++;
+			}
+		}
+		return count;
+	}
+
+	/**
+	 * @description Maps the chip runs to the wire, each saying how it entered the action through the monitor's one
+	 * classification (a chain launched it, the action launched it, a restart, the run that started the action).
+	 *
+	 * @param runs The chip runs.
+	 *
+	 * @return The chips.
+	 *
+	 * @example
+	 * ```apex
+	 * summary.chains = toActionChains(chipRuns);
+	 * ```
+	 */
+	private static List<DTO_ActionChain> toActionChains(List<AsyncChainExecution__c> runs)
+	{
+		Map<Id, CTRL_ChainMonitorTypes.DTO_LaunchOrigin> origins = CTRL_ChainMonitor.resolveLaunchOrigins(runs);
+		List<DTO_ActionChain> chips = new List<DTO_ActionChain>();
+		for(AsyncChainExecution__c run : runs)
+		{
+			DTO_ActionChain chip = new DTO_ActionChain();
+			chip.executionId = run.Id;
+			chip.chainName = run.ChainName__c;
+			chip.chainNumber = run.Name;
+			chip.correlationId = run.CorrelationId__c;
+			chip.status = run.Status__c;
+			chip.launchKind = origins.get(run.Id).launchKind.name();
+			chip.launcherName = origins.get(run.Id).launchedUnderLabel;
+			chips.add(chip);
+		}
+		return chips;
+	}
+
+	/**
+	 * @description Tells what a search term names before the console searches for it, so a pasted tracking id opens the right
+	 * thing: an action (an entry carries the term as its root), an action recorded before roots were written (an entry
+	 * carries it as its correlation with no root), a chain run (a run holds it as its correlation, named so the console can
+	 * word its pill), or nothing, in which case the term is searched as text. A term that is not shaped like a tracking id is
+	 * never looked up. A chain run's id is never answered as an action: it is on every step entry, and pinning it as an
+	 * action would show that chain alone under a banner that finds no chains.
+	 *
+	 * @param term The search term as typed.
+	 *
+	 * @return What the term names, with the id and, for a chain, its name and number.
+	 *
+	 * @example
+	 * ```apex
+	 * CTRL_LogConsole.DTO_ResolvedSearchId resolved = CTRL_LogConsole.resolveSearchId(term);
+	 * ```
+	 */
+	@AuraEnabled
+	public static DTO_ResolvedSearchId resolveSearchId(String term)
+	{
+		DTO_ResolvedSearchId resolved = new DTO_ResolvedSearchId();
+		resolved.kind = SearchIdKind.NONE.name();
+		String trackingId = term?.trim();
+		if(String.isBlank(trackingId) || !TRACKING_ID_SHAPE.matcher(trackingId).matches())
+		{
+			return resolved;
+		}
+		LogEntry__c match = new SEL_LogEntry().findOneByRootOrCorrelation(trackingId);
+		if(match != null && actionIdOf(match) == trackingId)
+		{
+			resolved.kind = String.isBlank(match.RootCorrelationId__c) ? SearchIdKind.LEGACY_ACTION.name() : SearchIdKind.ACTION.name();
+			resolved.id = trackingId;
+			return resolved;
+		}
+		List<AsyncChainExecution__c> holders = new SEL_AsyncChainExecution().findByCorrelationIds(new Set<String> {trackingId});
+		if(!holders.isEmpty())
+		{
+			resolved.kind = SearchIdKind.CHAIN.name();
+			resolved.id = trackingId;
+			resolved.chainName = holders[0].ChainName__c;
+			resolved.chainNumber = holders[0].Name;
+		}
+		return resolved;
 	}
 
 	/**
@@ -1276,7 +1557,10 @@ public with sharing class CTRL_LogConsole
 		criteria.userId = request.userId;
 		criteria.searchTerm = request.searchTerm;
 		criteria.correlationId = request.correlationId;
+		criteria.rootCorrelationId = request.rootCorrelationId;
 		criteria.classMethod = request.classMethod;
+		criteria.origins = request.origins;
+		criteria.source = request.source;
 		if(String.isNotBlank(request.customStart) && String.isNotBlank(request.customEnd))
 		{
 			criteria.windowStart = UTIL_Date.dateTimeFromIso8601(request.customStart);
@@ -1293,18 +1577,17 @@ public with sharing class CTRL_LogConsole
 
 	/**
 	 * @description Whether a distinct-view detail sample satisfies the request's free-text search, its
-	 * correlation deep-link and its source filter. The rollup: counters carry none of those three values,
-	 * so the distinct view applies all of them here against the sample's own fields. A blank term, a blank
-	 * correlation id and a blank source each impose no constraint. The term is matched case-insensitively
+	 * correlation deep-link, its action scope and its source filter. The rollup: counters carry none of
+	 * those values, so the distinct view applies all of them here against the sample's own fields. A blank
+	 * term, a blank correlation id, a blank action and a blank source each impose no constraint. The term
+	 * is matched case-insensitively
 	 * across the single-sourced SAMPLE_SEARCH_FIELDS list, which reconciles this in-memory matcher's
 	 * coverage with the All-entries search legs.
 	 *
 	 * @param sample The detail sample row.
-	 * @param request The wire request carrying searchTerm, correlationId and classMethod.
+	 * @param request The wire request carrying searchTerm, correlationId, rootCorrelationId and classMethod.
 	 *
-	 * @return True when the sample is in scope for the current search, deep-link and source filter.
-	 *
-	 * @date June 2026, July 2026
+	 * @return True when the sample is in scope for the current search, deep-link, action scope and source filter.
 	 *
 	 * @example
 	 * ```apex
@@ -1314,6 +1597,10 @@ public with sharing class CTRL_LogConsole
 	private static Boolean sampleInScope(LogEntry__c sample, DTO_Request request)
 	{
 		if(String.isNotBlank(request.correlationId) && sample.CorrelationId__c != request.correlationId)
+		{
+			return false;
+		}
+		if(String.isNotBlank(request.rootCorrelationId) && sample.RootCorrelationId__c != request.rootCorrelationId && sample.CorrelationId__c != request.rootCorrelationId)
 		{
 			return false;
 		}
@@ -1340,10 +1627,11 @@ public with sharing class CTRL_LogConsole
 	/**
 	 * @description Resolves the in-window rollup fold for a request — the shared opening move of
 	 * getLogProblems and getLogSummary, single-sourced so the scoping rule and the overflow signal can
-	 * never drift between the two endpoints. The rollup: counters carry no message text, correlation id or
-	 * source, so the free-text search, the correlation deep-link and the source filter must NOT filter the
-	 * rollup fold (that would zero out every signature); all three are applied later, in-memory, against
-	 * the detail samples where the text, correlation and source live. The selector fetches one probe row
+	 * never drift between the two endpoints. The rollup: counters carry no message text, correlation id,
+	 * action scope or source, so the free-text search, the correlation deep-link, the action scope and the
+	 * source filter must NOT filter the rollup fold (that would zero out every signature); all four are
+	 * applied later, in-memory, against the detail samples where the text, correlation, action and source
+	 * live. The selector fetches one probe row
 	 * beyond ROLLUP_CANDIDATE_CAP: when it arrives, the window overflowed the cap, the probe row is
 	 * discarded (only cap rows fold) and the result flags totalsApproximate so no shape built on the fold
 	 * reports best-effort totals as exact.
@@ -1352,8 +1640,6 @@ public with sharing class CTRL_LogConsole
 	 * @param request The wire request whose window and filters scope the fold.
 	 *
 	 * @return The per-base fold and the best-effort flag.
-	 *
-	 * @date July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1365,6 +1651,7 @@ public with sharing class CTRL_LogConsole
 		SEL_LogEntry.BrowseCriteria rollupCriteria = toCriteria(request);
 		rollupCriteria.searchTerm = null;
 		rollupCriteria.correlationId = null;
+		rollupCriteria.rootCorrelationId = null;
 		rollupCriteria.classMethod = null;
 
 		List<LogEntry__c> rollupRows = selector.findRollupRowsInWindow(rollupCriteria, ROLLUP_CANDIDATE_CAP);
@@ -1389,8 +1676,6 @@ public with sharing class CTRL_LogConsole
 	 * @param bases The base fingerprints whose detail samples to fetch.
 	 *
 	 * @return The detail sample per base fingerprint.
-	 *
-	 * @date July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1425,8 +1710,6 @@ public with sharing class CTRL_LogConsole
 	 *
 	 * @return The matched forensic-row Ids (SOQL ∪ SOSL legs).
 	 *
-	 * @date July 2026
-	 *
 	 * @example
 	 * ```apex
 	 * Set<Id> matchedIds = resolveSearchMatchedIds(selector, request, criteria);
@@ -1440,27 +1723,38 @@ public with sharing class CTRL_LogConsole
 	}
 
 	/**
-	 * @description Adds a delta into a per-key count map, null-safe on the existing value and skipping
-	 * blank keys — the shared accumulation idiom of the two ribbon source folds.
+	 * @description Adds a metric to a writer's running count, creating that count on first sight. A row with no
+	 * origin (written before attribution existed) or no source (written with no class-method at all) is not
+	 * counted here: the card ranks named writers, and a nameless row would rank as a blank the drill could not
+	 * filter on. Both kinds still count in the totals the caller keeps.
 	 *
-	 * @param counts The count map to accumulate into.
-	 * @param key The count key; a blank key is skipped.
-	 * @param delta The amount to add.
-	 *
-	 * @date July 2026
+	 * @param tallies The running tallies keyed by origin and source.
+	 * @param origin The writer's origin, or null.
+	 * @param source The writer's stored source, or null.
+	 * @param metric The occurrences or rows to add.
 	 *
 	 * @example
 	 * ```apex
-	 * addToCount(occurrencesBySource, source, occurrences);
+	 * addToSourceCount(tallies.bySource, sample.Origin__c, sample.Source__c, occurrences);
 	 * ```
 	 */
-	private static void addToCount(Map<String, Integer> counts, String key, Integer delta)
+	private static void addToSourceCount(Map<String, DTO_SourceCount> tallies, String origin, String source, Integer metric)
 	{
-		if(String.isBlank(key))
+		if(String.isBlank(origin) || String.isBlank(source))
 		{
 			return;
 		}
-		counts.put(key, (counts.get(key) ?? 0) + delta);
+		String key = origin + UTIL_String.PIPE + source;
+		DTO_SourceCount tally = tallies.get(key);
+		if(tally == null)
+		{
+			tally = new DTO_SourceCount();
+			tally.name = source;
+			tally.origin = origin;
+			tally.count = 0;
+			tallies.put(key, tally);
+		}
+		tally.count += metric ?? 0;
 	}
 
 	/**
@@ -1502,8 +1796,6 @@ public with sharing class CTRL_LogConsole
 	 *
 	 * @return A map of base fingerprint to its folded aggregate.
 	 *
-	 * @date June 2026, July 2026
-	 *
 	 * @example
 	 * ```apex
 	 * Map<String, RollupFold> foldByBase = foldRollups(rollupRows);
@@ -1543,8 +1835,6 @@ public with sharing class CTRL_LogConsole
 	 *
 	 * @return The display-ready DTO_LogProblem.
 	 *
-	 * @date June 2026, July 2026
-	 *
 	 * @example
 	 * ```apex
 	 * DTO_LogProblem problem = toProblem(sample, fold);
@@ -1559,8 +1849,11 @@ public with sharing class CTRL_LogConsole
 		problem.level = sample.LogLevel__c;
 		problem.shortMessage = sample.ShortMessage__c;
 		problem.exceptionType = sample.ExceptionType__c;
-		problem.className = LOG_Engine.extractClassName(sample.ClassMethod__c);
+		problem.className = resolveClassName(sample.Source__c, sample.ClassMethod__c);
 		problem.methodLine = buildMethodLine(sample);
+		problem.writerName = sample.Source__c;
+		problem.writerOrigin = originOfNamedWriter(sample.Source__c, sample.Origin__c);
+		problem.writerLocation = buildWriterLocation(sample.Source__c, problem.methodLine);
 		problem.classMethod = sample.ClassMethod__c;
 		problem.executionEvent = sample.ExecutionEvent__c;
 		problem.correlationId = sample.CorrelationId__c;
@@ -1578,8 +1871,6 @@ public with sharing class CTRL_LogConsole
 	 *
 	 * @return The display-ready DTO_LogEntrySummary.
 	 *
-	 * @date June 2026, July 2026
-	 *
 	 * @example
 	 * ```apex
 	 * DTO_LogEntrySummary summary = toEntrySummary(row);
@@ -1593,12 +1884,85 @@ public with sharing class CTRL_LogConsole
 		summary.level = row.LogLevel__c;
 		summary.shortMessage = row.ShortMessage__c;
 		summary.exceptionType = row.ExceptionType__c;
-		summary.className = LOG_Engine.extractClassName(row.ClassMethod__c);
+		summary.className = resolveClassName(row.Source__c, row.ClassMethod__c);
 		summary.methodLine = buildMethodLine(row);
+		summary.writerName = row.Source__c;
+		summary.writerOrigin = originOfNamedWriter(row.Source__c, row.Origin__c);
+		summary.writerLocation = buildWriterLocation(row.Source__c, summary.methodLine);
 		summary.executionEvent = row.ExecutionEvent__c;
 		summary.correlationId = row.CorrelationId__c;
+		summary.rootCorrelationId = row.RootCorrelationId__c;
 		summary.createdDate = row.CreatedDate;
 		return summary;
+	}
+
+	/**
+	 * @description Names the chain behind each row of a page from the runs holding the page's correlation ids, read once for
+	 * the page, and marks the rows the action wrote itself. A row whose correlation no run holds names no chain.
+	 *
+	 * @param records The page's rows.
+	 * @param runs The runs holding any of the page's correlation ids.
+	 *
+	 * @example
+	 * ```apex
+	 * nameChains(records, new SEL_AsyncChainExecution().findByCorrelationIds(correlationIds));
+	 * ```
+	 */
+	private static void nameChains(List<DTO_LogEntrySummary> records, List<AsyncChainExecution__c> runs)
+	{
+		Map<String, AsyncChainExecution__c> runsByCorrelation = new Map<String, AsyncChainExecution__c>();
+		for(AsyncChainExecution__c run : runs)
+		{
+			runsByCorrelation.put(run.CorrelationId__c, run);
+		}
+		for(DTO_LogEntrySummary summary : records)
+		{
+			AsyncChainExecution__c run = runsByCorrelation.get(summary.correlationId);
+			summary.chainName = run?.ChainName__c;
+			summary.chainNumber = run?.Name;
+			summary.chainExecutionId = run?.Id;
+			summary.isActionOwn = isActionOwn(summary.correlationId, summary.rootCorrelationId, run != null);
+		}
+	}
+
+	/**
+	 * @description The action an entry belongs to: its root, or its correlation when it carries no root (an entry persisted
+	 * before roots were written). One definition, used by toDetail for the drawer and by resolveSearchId.
+	 *
+	 * @param row The entry.
+	 *
+	 * @return The action's tracking id, or null for an entry with neither id.
+	 *
+	 * @example
+	 * ```apex
+	 * detail.actionCorrelationId = actionIdOf(row);
+	 * ```
+	 */
+	private static String actionIdOf(LogEntry__c row)
+	{
+		return String.isNotBlank(row.RootCorrelationId__c) ? row.RootCorrelationId__c : row.CorrelationId__c;
+	}
+
+	/**
+	 * @description Whether an entry was written by the action itself, outside any chain: it carries a correlation id, no chain
+	 * run holds that id, and its root is the same id or missing. One definition, used by the Action row's note, the Chain
+	 * column's "this action" and the Timeline note.
+	 *
+	 * @param correlationId The entry's correlation id.
+	 * @param rootCorrelationId The entry's root, or null.
+	 * @param runHoldsCorrelation Whether a chain run holds the entry's correlation id.
+	 *
+	 * @return True for an entry the action wrote itself.
+	 *
+	 * @example
+	 * ```apex
+	 * summary.isActionOwn = isActionOwn(summary.correlationId, summary.rootCorrelationId, run != null);
+	 * ```
+	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+	private static Boolean isActionOwn(String correlationId, String rootCorrelationId, Boolean runHoldsCorrelation)
+	{
+		return String.isNotBlank(correlationId) && !runHoldsCorrelation && (String.isBlank(rootCorrelationId) || rootCorrelationId == correlationId);
 	}
 
 	/**
@@ -1610,8 +1974,6 @@ public with sharing class CTRL_LogConsole
 	 * @param selfEntryId The Id of the opened entry, so the matching node is marked isSelf.
 	 *
 	 * @return The display-ready DTO_TraceEntry.
-	 *
-	 * @date June 2026, July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1625,7 +1987,7 @@ public with sharing class CTRL_LogConsole
 		entry.logNumber = row.Name;
 		entry.level = row.LogLevel__c;
 		entry.shortMessage = row.ShortMessage__c;
-		entry.className = LOG_Engine.extractClassName(row.ClassMethod__c);
+		entry.className = resolveClassName(row.Source__c, row.ClassMethod__c);
 		entry.methodLine = buildMethodLine(row);
 		entry.executionEvent = row.ExecutionEvent__c;
 		entry.createdDate = row.CreatedDate;
@@ -1634,6 +1996,27 @@ public with sharing class CTRL_LogConsole
 		entry.parentTransactionId = row.ParentTransactionId__c;
 		entry.durationMs = row.DurationMs__c;
 		return entry;
+	}
+
+	/**
+	 * @description The class name the console shows for an entry or a problem: the writer's name the entry stored, so a
+	 * Flow reads as the Flow's name and a class logged under another namespace reads as the class itself. An entry written
+	 * before entries stored their writer carries none, and falls back to the class name read from the class method, the
+	 * way the console named it before.
+	 *
+	 * @param source The writer's stored name, or null.
+	 * @param classMethod The class method the entry recorded, or null.
+	 *
+	 * @return The stored writer's name when present, else the class name read from the class method.
+	 *
+	 * @example
+	 * ```apex
+	 * summary.className = resolveClassName(row.Source__c, row.ClassMethod__c);
+	 * ```
+	 */
+	private static String resolveClassName(String source, String classMethod)
+	{
+		return String.isNotBlank(source) ? source : LOG_Engine.extractClassName(classMethod);
 	}
 
 	/**
@@ -1749,8 +2132,6 @@ public with sharing class CTRL_LogConsole
 	 *
 	 * @return The 'method:line' string, the method alone, the line alone, or null when neither is present.
 	 *
-	 * @date June 2026, July 2026
-	 *
 	 * @example
 	 * ```apex
 	 * String methodLine = buildMethodLine(row);
@@ -1759,7 +2140,7 @@ public with sharing class CTRL_LogConsole
 	private static String buildMethodLine(LogEntry__c row)
 	{
 		String classMethod = row.ClassMethod__c;
-		String method = String.isNotBlank(classMethod) && classMethod.contains('.') ? classMethod.substringAfter('.') : null;
+		String method = hasMethodSegment(classMethod) ? classMethod.substringAfter('.') : null;
 		String line = row.LineNumber__c != null ? String.valueOf(row.LineNumber__c.intValue()) : null;
 		if(method == null && line == null)
 		{
@@ -1773,6 +2154,49 @@ public with sharing class CTRL_LogConsole
 	}
 
 	/**
+	 * @description Builds the text of the Source column from the writer an entry stored and the method-and-line text the console already shows. A managed
+	 * install records its namespace first, so that text repeats the writer's name: when it already begins with the name and a separator, it is
+	 * the whole location and is shown as it stands. Otherwise the name is put in front, joined by a colon for a bare line number and by a dot
+	 * for a method.
+	 *
+	 * @param writerName The stored writer's name, or null.
+	 * @param methodLine The method and line as buildMethodLine or buildDerivedMethodLine returns them, or null.
+	 *
+	 * @return The Source column text, or null when the entry stored no writer.
+	 */
+	private static String buildWriterLocation(String writerName, String methodLine)
+	{
+		if(String.isBlank(writerName))
+		{
+			return null;
+		}
+		if(String.isBlank(methodLine) || methodLine == writerName)
+		{
+			return writerName;
+		}
+		if(methodLine.startsWith(writerName) && WRITER_LOCATION_SEPARATORS.contains(methodLine.substring(writerName.length(), writerName.length() + 1)))
+		{
+			return methodLine;
+		}
+		return writerName + (methodLine.isNumeric() ? UTIL_String.COLON : UTIL_String.DOT) + methodLine;
+	}
+
+	/**
+	 * @description Returns who the writer is, but only for an entry that named one. The logger records an origin for every entry and a name
+	 * only when it knew the class and method behind it, so an entry can store an origin with no name to put it beside. The list says who wrote
+	 * an entry only beside that writer's name, so an entry with no name carries no origin either.
+	 *
+	 * @param writerName The stored writer's name, or null.
+	 * @param origin The stored origin, or null.
+	 *
+	 * @return The origin when a writer was named, and null when none was.
+	 */
+	private static String originOfNamedWriter(String writerName, String origin)
+	{
+		return String.isBlank(writerName) ? null : origin;
+	}
+
+	/**
 	 * @description Resolves the display name of the user who produced a log entry. `UserId__c` is a
 	 * plain text field, so the value is validated via `UTIL_SObject.validateId`; an invalid or
 	 * unresolvable Id yields null and the drawer falls back to showing the raw value.
@@ -1780,8 +2204,6 @@ public with sharing class CTRL_LogConsole
 	 * @param userId The originating user Id text captured on the entry.
 	 *
 	 * @return The user's name, or null when the value is blank, malformed, or matches no user.
-	 *
-	 * @date July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1803,12 +2225,13 @@ public with sharing class CTRL_LogConsole
 	}
 
 	/**
-	 * @description Ranks a source-class metric map into the top-N sources for a summary ribbon, ordered by
-	 * metric descending (ties broken by source name ascending for a stable order), each carrying its raw
+	 * @description Ranks a per-writer tally into the top-N sources for a summary ribbon, ordered by
+	 * metric descending (ties broken by writer name ascending, then by origin ascending, for a stable
+	 * order when one writer name appears under two origins), each carrying its raw
 	 * count and its whole-number share of the scope total. Shared by the grouped-problems ribbon (folded
 	 * occurrences) and the all-entries ribbon (forensic row counts).
 	 *
-	 * @param countBySource The source class name to its metric (occurrences or row count).
+	 * @param countBySource The running tally per writer, keyed by origin and source.
 	 * @param total The scope total the share percentage is computed against.
 	 * @param topN The number of sources to return.
 	 *
@@ -1819,14 +2242,11 @@ public with sharing class CTRL_LogConsole
 	 * List<DTO_SourceCount> topSources = rankTopSources(occurrencesBySource, totalOccurrences, TOP_SOURCE_LIMIT);
 	 * ```
 	 */
-	private static List<DTO_SourceCount> rankTopSources(Map<String, Integer> countBySource, Integer total, Integer topN)
+	private static List<DTO_SourceCount> rankTopSources(Map<String, DTO_SourceCount> countBySource, Integer total, Integer topN)
 	{
 		List<DTO_SourceCount> ranked = new List<DTO_SourceCount>();
-		for(String source : countBySource.keySet())
+		for(DTO_SourceCount sourceCount : countBySource.values())
 		{
-			DTO_SourceCount sourceCount = new DTO_SourceCount();
-			sourceCount.name = source;
-			sourceCount.count = countBySource.get(source);
 			sourceCount.percent = total != null && total > 0 ? (Integer)((Decimal)sourceCount.count / total * 100).round() : 0;
 			ranked.add(sourceCount);
 		}
@@ -2005,9 +2425,9 @@ public with sharing class CTRL_LogConsole
 		private final Map<String, DTO_LevelSummary> byLevel = new Map<String, DTO_LevelSummary>();
 
 		/**
-		 * @description Occurrences per originating class, keyed by class name.
+		 * @description Occurrences per writer, keyed by origin and source, each value a running DTO_SourceCount.
 		 */
-		private final Map<String, Integer> bySource = new Map<String, Integer>();
+		private final Map<String, DTO_SourceCount> bySource = new Map<String, DTO_SourceCount>();
 	}
 
 	/**
@@ -2034,7 +2454,7 @@ public with sharing class CTRL_LogConsole
 	 * @description Sorts distinct problems by one of the ProblemSortField columns, defaulting to the
 	 * occurrence count, in the requested direction.
 	 *
-	 * @date June 2026
+	 * @date June 2026, September 2026
 	 */
 	private class ProblemComparator implements System.Comparator<DTO_LogProblem>
 	{
@@ -2103,9 +2523,9 @@ public with sharing class CTRL_LogConsole
 				{
 					comparison = compareStrings(first.logNumber, second.logNumber);
 				}
-				when CLASS_NAME
+				when WRITER_NAME
 				{
-					comparison = compareStrings(first.className, second.className);
+					comparison = compareStrings(first.writerName, second.writerName);
 				}
 				when SHORT_MESSAGE
 				{
@@ -2125,15 +2545,17 @@ public with sharing class CTRL_LogConsole
 	}
 
 	/**
-	 * @description Ranks summary sources by their metric descending, breaking ties by source name ascending so
-	 * equal-metric sources have a stable, deterministic order.
+	 * @description Ranks summary sources by their metric descending, breaking ties by writer name ascending and
+	 * then by origin ascending, so equal-metric sources have a stable, deterministic order.
 	 *
-	 * @date July 2026
+	 * @date July 2026, September 2026
 	 */
 	private class SourceCountComparator implements System.Comparator<DTO_SourceCount>
 	{
 		/**
-		 * @description Compares two ranked sources: higher count first, then source name ascending on a tie.
+		 * @description Compares two ranked sources: higher count first, then writer name ascending on a tie, then
+		 * origin ascending. The third key matters because the tallies are keyed by origin and source together, so
+		 * one writer name can appear under two origins and would otherwise tie completely.
 		 *
 		 * @param first The first source.
 		 * @param second The second source.
@@ -2143,7 +2565,12 @@ public with sharing class CTRL_LogConsole
 		public Integer compare(DTO_SourceCount first, DTO_SourceCount second)
 		{
 			Integer byCount = compareIntegers(second.count, first.count);
-			return byCount != 0 ? byCount : compareStrings(first.name, second.name);
+			if(byCount != 0)
+			{
+				return byCount;
+			}
+			Integer byName = compareStrings(first.name, second.name);
+			return byName != 0 ? byName : compareStrings(first.origin, second.origin);
 		}
 	}
 
@@ -2151,8 +2578,9 @@ public with sharing class CTRL_LogConsole
 	 * @description The wire request for every Log Console read. Crosses as one JSON string under the
 	 * single requestJson parameter.
 	 *
-	 * @date June 2026
+	 * @date June 2026, September 2026
 	 */
+	@SuppressWarnings('PMD.TooManyFields')
 	public class DTO_Request
 	{
 		/**
@@ -2230,6 +2658,13 @@ public with sharing class CTRL_LogConsole
 		public String correlationId;
 
 		/**
+		 * @description The tracking id of an action. Set, every read is kept to the action's own entries and the entries of
+		 * every chain run launched under it (the action pill). Blank applies no scope.
+		 */
+		@AuraEnabled
+		public String rootCorrelationId;
+
+		/**
 		 * @description Exact ClassMethod__c to filter on — the source of the problem whose occurrences are
 		 * being listed. Set by the console's "View occurrences" drill so the entries behind a problem are
 		 * the entries that problem was grouped from, rather than every row mentioning its class name
@@ -2237,6 +2672,18 @@ public with sharing class CTRL_LogConsole
 		 */
 		@AuraEnabled
 		public String classMethod;
+
+		/**
+		 * @description Origins to include (FRAMEWORK, APEX, FLOW, COMPONENT). Null or empty includes every origin.
+		 */
+		@AuraEnabled
+		public List<String> origins;
+
+		/**
+		 * @description Exact Source__c to filter on: the writer a ranked top source names, set when the reader drills into the card. Blank applies no filter.
+		 */
+		@AuraEnabled
+		public String source;
 
 		/**
 		 * @description Resolves the requested page number to a safe 1-based value: null or a non-positive
@@ -2302,8 +2749,6 @@ public with sharing class CTRL_LogConsole
 		 * occurrence count is best-effort and low-recency problems may be missing, or when the rollup scan degraded
 		 * on a non-selective query and its contribution is absent — distinct from resultsTruncated, which flags
 		 * the distinct list itself capped.
-		 *
-		 * @date July 2026
 		 */
 		@AuraEnabled
 		public Boolean totalsApproximate;
@@ -2400,8 +2845,9 @@ public with sharing class CTRL_LogConsole
 	 * @description One distinct, flood-collapsed problem: the sample's display fields plus the folded
 	 * occurrence count and first/last-seen times.
 	 *
-	 * @date June 2026
+	 * @date June 2026, September 2026
 	 */
+	@SuppressWarnings('PMD.TooManyFields')
 	public class DTO_LogProblem
 	{
 		/**
@@ -2445,6 +2891,27 @@ public with sharing class CTRL_LogConsole
 		 */
 		@AuraEnabled
 		public String methodLine;
+
+		/**
+		 * @description The name of the class, Flow or component that wrote the entry, as the entry stored it. Null on an entry written before
+		 * entries recorded who wrote them, or published outside the logger.
+		 */
+		@AuraEnabled
+		public String writerName;
+
+		/**
+		 * @description Who the writer is: FRAMEWORK, APEX, FLOW or COMPONENT, or MIXED for a problem grouped at read time whose entries were
+		 * written under more than one. A tagged problem takes the origin of the sample entry it kept. Null whenever the writer's name is.
+		 */
+		@AuraEnabled
+		public String writerOrigin;
+
+		/**
+		 * @description The text of the list's Source column: the writer's name, then the method when one was recorded, then the line number.
+		 * Null when the entry stored no writer, in which case the list shows the class name and method as it always has.
+		 */
+		@AuraEnabled
+		public String writerLocation;
 
 		/**
 		 * @description The whole ClassMethod__c value this problem was grouped under — the exact handle the
@@ -2549,8 +3016,9 @@ public with sharing class CTRL_LogConsole
 	/**
 	 * @description One flat forensic entry in the All-entries view.
 	 *
-	 * @date June 2026
+	 * @date June 2026, September 2026
 	 */
+	@SuppressWarnings('PMD.TooManyFields')
 	public class DTO_LogEntrySummary
 	{
 		/**
@@ -2596,6 +3064,26 @@ public with sharing class CTRL_LogConsole
 		public String methodLine;
 
 		/**
+		 * @description The name of the class, Flow or component that wrote the entry, as the entry stored it. Null on an entry written before
+		 * entries recorded who wrote them, or published outside the logger.
+		 */
+		@AuraEnabled
+		public String writerName;
+
+		/**
+		 * @description Who the writer is: FRAMEWORK, APEX, FLOW or COMPONENT. Null whenever the writer's name is.
+		 */
+		@AuraEnabled
+		public String writerOrigin;
+
+		/**
+		 * @description The text of the list's Source column: the writer's name, then the method when one was recorded, then the line number.
+		 * Null when the entry stored no writer, in which case the list shows the class name and method as it always has.
+		 */
+		@AuraEnabled
+		public String writerLocation;
+
+		/**
 		 * @description The execution context (quiddity) the entry was captured in.
 		 */
 		@AuraEnabled
@@ -2606,6 +3094,38 @@ public with sharing class CTRL_LogConsole
 		 */
 		@AuraEnabled
 		public String correlationId;
+
+		/**
+		 * @description The root correlation id: the action the entry belongs to. Empty on an entry persisted before roots were
+		 * recorded.
+		 */
+		@AuraEnabled
+		public String rootCorrelationId;
+
+		/**
+		 * @description The chain name of the run holding the entry's correlation id, for the Chain column; null when no run holds it.
+		 */
+		@AuraEnabled
+		public String chainName;
+
+		/**
+		 * @description The chain number of that run; null when no run holds the correlation.
+		 */
+		@AuraEnabled
+		public String chainNumber;
+
+		/**
+		 * @description The record id of that run; null when no run holds the correlation.
+		 */
+		@AuraEnabled
+		public Id chainExecutionId;
+
+		/**
+		 * @description True when the action wrote the entry itself, outside any chain: it has a correlation no run holds and its
+		 * root is that correlation or missing.
+		 */
+		@AuraEnabled
+		public Boolean isActionOwn;
 
 		/**
 		 * @description The raw creation timestamp, for locale-aware rendering in the LWC.
@@ -2746,8 +3266,6 @@ public with sharing class CTRL_LogConsole
 		 * query, the derived fold hitting its group cap, or the derived leg reporting SKIPPED_NON_SELECTIVE (declined
 		 * in advance, or failed as non-selective). The flag says only that the number is low; totalsApproximateCause
 		 * says which kind of gap produced it.
-		 *
-		 * @date July 2026
 		 */
 		@AuraEnabled
 		public Boolean totalsApproximate;
@@ -2779,19 +3297,25 @@ public with sharing class CTRL_LogConsole
 	}
 
 	/**
-	 * @description One ranked source class in a summary's top-sources list: the source name, its raw metric
-	 * (folded occurrences for the grouped-problems ribbon, or forensic row count for the all-entries ribbon),
-	 * and its whole-number share of the scope total.
+	 * @description One ranked writer in a summary's top-sources list: the writer's name and origin, its raw
+	 * metric (folded occurrences for the grouped-problems ribbon, or forensic row count for the all-entries
+	 * ribbon), and its whole-number share of the scope total.
 	 *
-	 * @date July 2026
+	 * @date July 2026, September 2026
 	 */
 	public class DTO_SourceCount
 	{
 		/**
-		 * @description The source class name (first dotted segment of ClassMethod__c).
+		 * @description The writer's plain name, as `Source__c` stores it.
 		 */
 		@AuraEnabled
 		public String name;
+
+		/**
+		 * @description Who the writer is (FRAMEWORK, APEX, FLOW, COMPONENT), or MIXED for a problem written under more than one.
+		 */
+		@AuraEnabled
+		public String origin;
 
 		/**
 		 * @description The raw metric for this source — folded occurrences (grouped view) or forensic row count (all-entries view).
@@ -2852,8 +3376,6 @@ public with sharing class CTRL_LogConsole
 		 * @description True when the window held more rows than the ribbon may scan
 		 * (ENTRY_SUMMARY_SCAN_ROW_CEILING), so the breakdown was declined before the aggregates ran: totalRows
 		 * still carries the exact count and both lists are empty. False when the aggregates ran.
-		 *
-		 * @date August 2026
 		 */
 		@AuraEnabled
 		public Boolean declined = false;
@@ -2895,8 +3417,9 @@ public with sharing class CTRL_LogConsole
 	/**
 	 * @description The heavy forensic detail for a single log entry.
 	 *
-	 * @date June 2026, August 2026
+	 * @date June 2026, September 2026
 	 */
+	@SuppressWarnings('PMD.TooManyFields,PMD.ExcessivePublicCount')
 	public class DTO_LogEntryDetail
 	{
 		/**
@@ -2976,6 +3499,19 @@ public with sharing class CTRL_LogConsole
 		public String executionEvent;
 
 		/**
+		 * @description Who wrote the entry (FRAMEWORK, APEX, FLOW, COMPONENT), or null on an entry written before
+		 * attribution existed or published outside the logger.
+		 */
+		@AuraEnabled
+		public String origin;
+
+		/**
+		 * @description The writer's plain name, as `Source__c` stores it.
+		 */
+		@AuraEnabled
+		public String source;
+
+		/**
 		 * @description The originating user Id.
 		 */
 		@AuraEnabled
@@ -2992,6 +3528,40 @@ public with sharing class CTRL_LogConsole
 		 */
 		@AuraEnabled
 		public String correlationId;
+
+		/**
+		 * @description The root correlation id: the tracking id of the action that started everything this entry belongs
+		 * to. Equal to the correlation id for an entry the action wrote itself; empty on entries written before roots
+		 * were recorded.
+		 */
+		@AuraEnabled
+		public String rootCorrelationId;
+
+		/**
+		 * @description The action the entry belongs to: its root, or its correlation when it carries no root. The drawer's Show
+		 * the whole action opens it.
+		 */
+		@AuraEnabled
+		public String actionCorrelationId;
+
+		/**
+		 * @description True when the action wrote the entry itself, outside any chain.
+		 */
+		@AuraEnabled
+		public Boolean isActionOwn;
+
+		/**
+		 * @description The chain name of the run holding the entry's correlation id, so the Correlation row can name it; null
+		 * when no run holds it.
+		 */
+		@AuraEnabled
+		public String chainName;
+
+		/**
+		 * @description The chain number of that run; null when no run holds the correlation.
+		 */
+		@AuraEnabled
+		public String chainNumber;
 
 		/**
 		 * @description The transaction Id of the entry's execution context.
@@ -3080,5 +3650,187 @@ public with sharing class CTRL_LogConsole
 		 */
 		@AuraEnabled
 		public String level;
+	}
+
+	/**
+	 * @description What a whole action did, for the console's banner: its span, whether it is still running, how many chains
+	 * ran under it and how many failed, at most five of them as chips, and how many more there are.
+	 *
+	 * @date September 2026
+	 */
+	public class DTO_ActionSummary
+	{
+		/**
+		 * @description The action's tracking id.
+		 */
+		@AuraEnabled
+		public String rootCorrelationId;
+
+		/**
+		 * @description When the action's first entry was written.
+		 */
+		@AuraEnabled
+		public Datetime startedAt;
+
+		/**
+		 * @description When the action's last entry was written; null while the action is still running.
+		 */
+		@AuraEnabled
+		public Datetime endedAt;
+
+		/**
+		 * @description True while a run launched under the action is Running or Stalled.
+		 */
+		@AuraEnabled
+		public Boolean stillRunning;
+
+		/**
+		 * @description True for an action recorded before roots were written: its entries carry no root and no run carries its
+		 * root. The banner then shows the legacy sentence and the run that adopted the action's id, when one exists.
+		 */
+		@AuraEnabled
+		public Boolean recordedBeforeRoots;
+
+		/**
+		 * @description How many chains ran under the action, exact.
+		 */
+		@AuraEnabled
+		public Integer chainCount;
+
+		/**
+		 * @description How many of those chains failed, exact. Stalled and Aborted are not counted.
+		 */
+		@AuraEnabled
+		public Integer failedCount;
+
+		/**
+		 * @description How long the action ran, or has been running: the same format the Chain Monitor uses for a run's duration.
+		 */
+		@AuraEnabled
+		public String durationLabel;
+
+		/**
+		 * @description At most five chains: the failed ones first, then the rest by start time.
+		 */
+		@AuraEnabled
+		public List<DTO_ActionChain> chains;
+
+		/**
+		 * @description How many chains are not among the chips.
+		 */
+		@AuraEnabled
+		public Integer moreChainCount;
+	}
+
+	/**
+	 * @description One chain of a whole action, as a chip on the banner: the run's name, number, record id, its own
+	 * correlation id (a chip narrows the list to that run), its status, how it entered the action and the name of what
+	 * launched it.
+	 *
+	 * @date September 2026
+	 */
+	public class DTO_ActionChain
+	{
+		/**
+		 * @description The run's record id.
+		 */
+		@AuraEnabled
+		public Id executionId;
+
+		/**
+		 * @description The chain name.
+		 */
+		@AuraEnabled
+		public String chainName;
+
+		/**
+		 * @description The chain number.
+		 */
+		@AuraEnabled
+		public String chainNumber;
+
+		/**
+		 * @description The run's own correlation id.
+		 */
+		@AuraEnabled
+		public String correlationId;
+
+		/**
+		 * @description The run's status.
+		 */
+		@AuraEnabled
+		public String status;
+
+		/**
+		 * @description How the run entered the action: the name of the monitor's `CTRL_ChainMonitorTypes.LaunchKind` as
+		 * text, because the component transport does not serialise an enum-typed field.
+		 */
+		@AuraEnabled
+		public String launchKind;
+
+		/**
+		 * @description The launching chain's name and number for a chain launch, the source run's for a restart; null otherwise.
+		 */
+		@AuraEnabled
+		public String launcherName;
+	}
+
+	/**
+	 * @description What a pasted search term names, in the four cases the search box resolves. The value travels to the
+	 * components as its name, as a String on the wire.
+	 *
+	 * @date September 2026
+	 */
+	public enum SearchIdKind
+	{
+		/**
+		 * @description An entry carries the id as its root, so the id names an action.
+		 */
+		ACTION,
+		/**
+		 * @description An entry carries it as its correlation with no root, an action recorded before roots were written.
+		 */
+		LEGACY_ACTION,
+		/**
+		 * @description A chain run holds it as its correlation.
+		 */
+		CHAIN,
+		/**
+		 * @description Nothing carries it, so the term searches as text.
+		 */
+		NONE
+	}
+
+	/**
+	 * @description What a pasted search term names: an action, a legacy action, a chain run, or nothing.
+	 *
+	 * @date September 2026
+	 */
+	public class DTO_ResolvedSearchId
+	{
+		/**
+		 * @description The `SearchIdKind`'s name as text, because the component transport does not serialise an
+		 * enum-typed field.
+		 */
+		@AuraEnabled
+		public String kind;
+
+		/**
+		 * @description The tracking id, when the term named something.
+		 */
+		@AuraEnabled
+		public String id;
+
+		/**
+		 * @description The chain's name, when the term named a chain run.
+		 */
+		@AuraEnabled
+		public String chainName;
+
+		/**
+		 * @description The chain's number, when the term named a chain run.
+		 */
+		@AuraEnabled
+		public String chainNumber;
 	}
 }

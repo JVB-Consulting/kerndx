@@ -24,7 +24,7 @@
  *
  * @group Testing
  *
- * @date November 2025, August 2026
+ * @date November 2025, October 2026
  *
  * @since 1.0
  *
@@ -63,10 +63,31 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	 */
 	private static final String USER_PERMISSION_FIELD_PREFIX = 'UserPermissions';
 
+	/**
+	 * @description The field-name prefix shared by the User preference checkboxes the base provider
+	 * marks as optional for every User build. Each is a non-nillable Boolean the describe reports as
+	 * creatable-required, so without this guard every one of them would take a random default, and
+	 * any org-side validation or derived preference attached to one would fire on roughly half of
+	 * the builds, naming a field the framework never sends (the org derives it during the insert).
+	 */
+	private static final String USER_PREFERENCE_FIELD_PREFIX = 'UserPreferences';
+
+	/**
+	 * @description When a test sets this to true, the two Person Account checks below answer from the mock values and do not ask
+	 * the org. This lets a test cover both the Person Account path and the plain path in any org.
+	 */
 	@TestVisible
 	private static Boolean isMockActive = false;
+	/**
+	 * @description The answer isPersonAccountEnabled gives while isMockActive is true: whether the test wants Person Accounts to
+	 * count as switched on.
+	 */
 	@TestVisible
 	private static Boolean mockPersonAccountsAreEnabled = false;
+	/**
+	 * @description The record type Ids getPersonAccountRecordTypes returns while isMockActive is true: the record types the test
+	 * wants treated as Person Account record types.
+	 */
 	@TestVisible
 	private static Set<Id> mockPersonAccountRecordTypeIds;
 
@@ -112,9 +133,13 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 
 	/**
 	 * @description Defines a set of optional fields for a given SObject. Can be overridden in a subclass.
-	 * For the User SObjectType the base implementation marks every UserPermissions* field as optional,
-	 * preventing license-based field integrity exceptions during User test data generation. Subclasses
-	 * overriding this method should call 'super.defineSObjectOptionalFields' to preserve that behaviour.
+	 * For the User SObjectType the base implementation marks every UserPermissions* and UserPreferences*
+	 * field as optional: the permission family prevents licence-based field integrity exceptions, and the
+	 * preference family keeps around a hundred coin-flipped checkboxes off every built User, where any one
+	 * of them can trip org-side validation or a derived preference the org's describe does not expose.
+	 * Both scans are describe-driven, so an org without a given field simply matches fewer, and a caller
+	 * who wants a specific preference set still wins through 'withOverride'. Subclasses overriding this
+	 * method should call 'super.defineSObjectOptionalFields' to preserve that behaviour.
 	 *
 	 * @param sObjectType The SObjectType for which the optional fields will be defined.
 	 *
@@ -139,7 +164,7 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 
 		for(String fieldName : userFieldTokensByName.keySet())
 		{
-			if(fieldName.startsWithIgnoreCase(USER_PERMISSION_FIELD_PREFIX))
+			if(fieldName.startsWithIgnoreCase(USER_PERMISSION_FIELD_PREFIX) || fieldName.startsWithIgnoreCase(USER_PREFERENCE_FIELD_PREFIX))
 			{
 				optionalFields.add(userFieldTokensByName.get(fieldName));
 			}
@@ -1238,7 +1263,7 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 			)
 	{
 		// Skip polymorphic fields (e.g., OwnerId can reference User or Queue)
-		// These cannot be auto-defaulted without explicit type specification
+		// These cannot be auto-defaulted unless the caller names the target type
 		if(metadata.referenceToObjectNames.size() > 1)
 		{
 			LOG_Builder.build()

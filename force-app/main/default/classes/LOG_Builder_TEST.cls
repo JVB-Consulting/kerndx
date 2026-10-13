@@ -24,34 +24,109 @@
  */
 
 /**
- * @description Tests the LOG_Builder class for fluent builder API, buffering, scoping, and context features.
+ * @description Tests the LOG_Builder class for fluent builder API, buffering and scoping features. The correlation
+ * and context tests live in LOG_BuilderContext_TEST.
  *
  * @see LOG_Builder
+ * @see LOG_BuilderContext_TEST
  *
  * @author Jason van Beukering
  *
  * @group Logging
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.UnusedLocalVariable,ApexUnusedDeclaration,PMD.CyclomaticComplexity,PMD.CognitiveComplexity')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class LOG_Builder_TEST
 {
+	/**
+	 * @description A made-up Foobar__c record Id; no record is inserted for it. Tests attach it to an entry with forRecord
+	 * and check that RecordId__c holds the same value.
+	 */
 	private static final Id RECORD_ID = UTIL_Random.randomId(Foobar__c.SObjectType);
+
+	/**
+	 * @description The text the platform puts in front of every Apex class frame in a stack trace. The stack trace test
+	 * builds from it the frame it expects for this test class and the logging framework's frame it must not find.
+	 */
+	private static final String CLASS_FRAME_PREFIX = 'Class.';
+	/**
+	 * @description The class and method name most tests log under, through at, errorDMLOperationResults or a performance
+	 * timer. Tests that check the stored entries read them back by this name.
+	 */
 	private static final String CLASS_METHOD = 'foo/method';
+	/**
+	 * @description Assertion message used when a failed insert passed to errorDMLOperationResults leaves no log entry.
+	 */
 	private static final String ERROR_DML_EXCEPTION = 'DML exception was not logged as expected';
+	/**
+	 * @description Assertion message used when a stored stack trace still contains a frame from LOG_Builder itself.
+	 */
+	private static final String ERROR_FRAMEWORK_FRAMES_KEPT = 'The logging framework\'s own frames should be left out of the trace';
+	/**
+	 * @description Assertion message used when logging a list of messages does not write one entry per message.
+	 */
 	private static final String ERROR_INCORRECT_LOG_COUNT = 'Incorrect number of logs written';
+	/**
+	 * @description Assertion message used when the stored Message__c differs from the message that was logged.
+	 */
 	private static final String ERROR_INCORRECT_MESSAGE = 'Message__c does not match the logged message';
+	/**
+	 * @description Assertion message used when the top stack frame does not name the inner class method that logged the
+	 * entry. The test adds the stored trace to the end, so a failure shows what was kept.
+	 */
+	private static final String ERROR_INNER_FRAME_DROPPED = 'The top frame should name the inner class method that logged the entry; trace: ';
+	/**
+	 * @description Assertion message used when the stored ExceptionType__c is not the type of the exception that was
+	 * caught. Each test that uses it forces a MathException by dividing by zero.
+	 */
 	private static final String ERROR_INVALID_EXCEPTION_TYPE = 'ExceptionType__c does not match MathException';
+	/**
+	 * @description Assertion message used when the stored LogLevel__c differs from the level the entry was logged at.
+	 */
 	private static final String ERROR_INVALID_LOG_LEVEL = 'LogLevel__c does not match expected level';
+	/**
+	 * @description Assertion message used when the stored RecordId__c differs from RECORD_ID.
+	 */
 	private static final String ERROR_INVALID_RECORD_ID = 'RecordId__c does not match the provided record ID';
+	/**
+	 * @description Assertion message used when the stored ShortMessage__c differs from the summary set with withSummary.
+	 */
 	private static final String ERROR_INVALID_SHORT_MESSAGE = 'ShortMessage__c does not match the short message';
+	/**
+	 * @description Assertion message used when the stored UserId__c is not the Id of the user running the test.
+	 */
 	private static final String ERROR_INVALID_USER_ID = 'UserId__c does not match the current user ID';
+	/**
+	 * @description Assertion message used in an org where the platform hides every package frame behind the package
+	 * name: there the entry must keep no stack trace at all.
+	 */
+	private static final String ERROR_MASKED_FRAMES_PERSISTED = 'With every frame masked to the package name, no stack should be persisted';
+	/**
+	 * @description Assertion message used when no log entry is found for the class and method a test logged under.
+	 */
 	private static final String ERROR_NO_LOG_FOUND = 'No Log Entry found';
+	/**
+	 * @description The end of the stack frame written by NestedEmitter.emitInfo, up to the line number. Joined to
+	 * CLASS_FRAME_PREFIX and this class's name, it gives the frame the stack trace must start with.
+	 */
+	private static final String INNER_CLASS_FRAME = '.NestedEmitter.emitInfo: line ';
+	/**
+	 * @description The DEBUG log level as LOG_Engine writes it to LogLevel__c, so the tests compare with the stored value.
+	 */
 	private static final String LEVEL_DEBUG = LOG_Engine.LEVEL_DEBUG;
+	/**
+	 * @description The ERROR log level as LOG_Engine writes it to LogLevel__c, so the tests compare with the stored value.
+	 */
 	private static final String LEVEL_ERROR = LOG_Engine.LEVEL_ERROR;
+	/**
+	 * @description The INFO log level as LOG_Engine writes it to LogLevel__c, so the tests compare with the stored value.
+	 */
 	private static final String LEVEL_INFO = LOG_Engine.LEVEL_INFO;
+	/**
+	 * @description The WARN log level as LOG_Engine writes it to LogLevel__c, so the tests compare with the stored value.
+	 */
 	private static final String LEVEL_WARN = LOG_Engine.LEVEL_WARN;
 
 	/**
@@ -411,255 +486,6 @@ private class LOG_Builder_TEST
 		Assert.areEqual(logMessage, logEntry.Message__c, ERROR_INCORRECT_MESSAGE);
 		Assert.areEqual(RECORD_ID, logEntry.RecordId__c, ERROR_INVALID_RECORD_ID);
 		Assert.areEqual(UserInfo.getUserId(), logEntry.UserId__c, ERROR_INVALID_USER_ID);
-	}
-
-	/**
-	 * @description Tests that startCorrelation generates a unique correlation ID.
-	 *
-	 * @see LOG_Builder.startCorrelation
-	 */
-	@IsTest
-	private static void startCorrelationGeneratesUniqueId()
-	{
-		Test.startTest();
-
-		String correlationId1 = LOG_Builder.startCorrelation();
-		String correlationId2 = LOG_Builder.startCorrelation();
-
-		Test.stopTest();
-
-		Assert.isNotNull(correlationId1, 'First correlation ID should not be null');
-		Assert.isNotNull(correlationId2, 'Second correlation ID should not be null');
-		Assert.areNotEqual(correlationId1, correlationId2, 'Correlation IDs should be unique');
-	}
-
-	/**
-	 * @description Tests setting and getting correlation ID.
-	 *
-	 * @see LOG_Builder.setCorrelationId
-	 * @see LOG_Builder.correlationId
-	 */
-	@IsTest
-	private static void setAndGetCorrelationId()
-	{
-		String expectedCorrelationId = 'test-correlation-123';
-
-		Test.startTest();
-
-		LOG_Builder.setCorrelationId(expectedCorrelationId);
-		String actualCorrelationId = LOG_Builder.correlationId;
-
-		Test.stopTest();
-
-		Assert.areEqual(expectedCorrelationId, actualCorrelationId, 'Correlation ID should match');
-	}
-
-	/**
-	 * @description Tests setting parent transaction ID.
-	 *
-	 * @see LOG_Builder.setParentTransactionId
-	 */
-	@IsTest
-	private static void setParentTransactionId()
-	{
-		String parentTransactionId = 'parent-txn-456';
-
-		Test.startTest();
-
-		LOG_Builder.setParentTransactionId(parentTransactionId);
-
-		Test.stopTest();
-
-		Assert.areEqual(parentTransactionId, LOG_Engine.currentParentTransactionId, 'Parent transaction ID should be set');
-	}
-
-	/**
-	 * @description Tests serializing and hydrating context for async jobs.
-	 *
-	 * @see LOG_Builder.serializeContext
-	 * @see LOG_Builder.hydrateContext
-	 */
-	@IsTest
-	private static void serializeAndHydrateContext()
-	{
-		String correlationId = 'async-correlation-789';
-		LOG_Builder.setCorrelationId(correlationId);
-		LOG_Builder.setGlobalContext('testKey', 'testValue');
-
-		Test.startTest();
-
-		String serialized = LOG_Builder.serializeContext();
-
-		// Clear state to simulate new transaction
-		LOG_Engine.currentCorrelationId = null;
-		LOG_Engine.globalContextData.clear();
-
-		LOG_Builder.hydrateContext(serialized);
-
-		Test.stopTest();
-
-		Assert.areEqual(correlationId, LOG_Builder.correlationId, 'Correlation ID should be restored');
-		Assert.isTrue(LOG_Engine.globalContextData.containsKey('testKey'), 'Global context should be restored');
-	}
-
-	/**
-	 * @description Tests that serializeContext excludes contextData field when no context is set.
-	 * This prevents wasteful empty objects in the serialized JSON.
-	 *
-	 * @see LOG_Builder.serializeContext
-	 */
-	@IsTest
-	private static void serializeContextExcludesEmptyContextData()
-	{
-		LOG_Builder.setCorrelationId(null);
-		LOG_Engine.globalContextData.clear();
-
-		String correlationId = LOG_Builder.startCorrelation();
-
-		Test.startTest();
-
-		String serialized = LOG_Builder.serializeContext();
-
-		Test.stopTest();
-
-		Assert.isTrue(serialized.contains('correlationId'), 'Should contain correlationId');
-		Assert.isTrue(serialized.contains('parentTransactionId'), 'Should contain parentTransactionId');
-		Assert.isFalse(serialized.contains('contextData'), 'Should NOT contain contextData when empty');
-	}
-
-	/**
-	 * @description Tests that serializeContext(correlationId) produces a context document FOR the
-	 * supplied correlation id without reading or touching the live transaction context: the live
-	 * correlation stays exactly what it was (handing another execution its identity must never
-	 * re-tag the logs this transaction emits afterwards), the document is minimal (no transaction
-	 * lineage, no live context data), and hydrating it adopts the supplied id.
-	 *
-	 * @see LOG_Builder.serializeContext
-	 * @see LOG_Builder.hydrateContext
-	 */
-	@IsTest
-	private static void serializeContextForSuppliedCorrelationLeavesLiveContextUntouched()
-	{
-		String liveCorrelationId = 'live-correlation-123';
-		String suppliedCorrelationId = 'supplied-correlation-456';
-		LOG_Builder.setCorrelationId(liveCorrelationId);
-		LOG_Builder.setGlobalContext('liveKey', 'liveValue');
-
-		Test.startTest();
-
-		String serialized = LOG_Builder.serializeContext(suppliedCorrelationId);
-
-		Assert.areEqual(liveCorrelationId, LOG_Engine.currentCorrelationId, 'Serializing for a supplied id must not re-tag the live transaction correlation');
-		Map<String, Object> document = (Map<String, Object>)JSON.deserializeUntyped(serialized);
-		Assert.areEqual(suppliedCorrelationId, document.get('correlationId'), 'The document must carry the supplied correlation id');
-		Assert.isFalse(serialized.contains('parentTransactionId'), 'The document is minimal: no transaction lineage rides it, not even as a null field');
-		Assert.isFalse(serialized.contains('contextData'), 'The document is minimal: no live context data rides it, not even as a null field');
-
-		LOG_Engine.currentCorrelationId = null;
-		LOG_Engine.globalContextData.clear();
-		LOG_Builder.hydrateContext(serialized);
-
-		Test.stopTest();
-
-		Assert.areEqual(suppliedCorrelationId, LOG_Engine.currentCorrelationId, 'Hydrating the document must adopt the supplied correlation id');
-		Assert.isTrue(LOG_Engine.globalContextData.isEmpty(), 'A minimal document must hydrate no context data');
-	}
-
-	/**
-	 * @description Tests that hydrateContext handles null/blank input gracefully.
-	 *
-	 * @see LOG_Builder.hydrateContext
-	 */
-	@IsTest
-	private static void hydrateContextHandlesBlankInput()
-	{
-		Test.startTest();
-
-		LOG_Builder.hydrateContext(null);
-		LOG_Builder.hydrateContext('');
-		LOG_Builder.hydrateContext('   ');
-
-		Test.stopTest();
-
-		Assert.isNull(LOG_Builder.correlationId, 'Correlation ID should remain null');
-	}
-
-	/**
-	 * @description Tests that hydrateContext handles invalid JSON gracefully.
-	 *
-	 * @see LOG_Builder.hydrateContext
-	 */
-	@IsTest
-	private static void hydrateContextHandlesInvalidJson()
-	{
-		Test.startTest();
-
-		LOG_Builder.hydrateContext('not valid json {{{');
-
-		Test.stopTest();
-
-		Assert.isNull(LOG_Builder.correlationId, 'Correlation ID should remain null after invalid JSON');
-	}
-
-	/**
-	 * @description Tests setting and clearing global context.
-	 *
-	 * @see LOG_Builder.setGlobalContext
-	 * @see LOG_Builder.clearGlobalContext
-	 */
-	@IsTest
-	private static void setAndClearGlobalContext()
-	{
-		Test.startTest();
-
-		LOG_Builder.setGlobalContext('orderId', 'ORD-123');
-		Assert.isTrue(LOG_Engine.globalContextData.containsKey('orderId'), 'Context should contain orderId');
-
-		LOG_Builder.clearGlobalContext('orderId');
-
-		Test.stopTest();
-
-		Assert.isFalse(LOG_Engine.globalContextData.containsKey('orderId'), 'Context should not contain orderId after clear');
-	}
-
-	/**
-	 * @description Tests clearing all global context.
-	 *
-	 * @see LOG_Builder.clearAllGlobalContext
-	 */
-	@IsTest
-	private static void clearAllGlobalContext()
-	{
-		LOG_Builder.setGlobalContext('key1', 'value1');
-		LOG_Builder.setGlobalContext('key2', 'value2');
-
-		Test.startTest();
-
-		LOG_Builder.clearAllGlobalContext();
-
-		Test.stopTest();
-
-		Assert.isTrue(LOG_Engine.globalContextData.isEmpty(), 'All global context should be cleared');
-	}
-
-	/**
-	 * @description Tests that complex objects are serialized as JSON in context.
-	 *
-	 * @see LOG_Builder.setGlobalContext
-	 */
-	@IsTest
-	private static void setGlobalContextSerializesComplexObjects()
-	{
-		Map<String, String> complexObject = new Map<String, String> {'nested' => 'value'};
-
-		Test.startTest();
-
-		LOG_Builder.setGlobalContext('complexKey', complexObject);
-
-		Test.stopTest();
-
-		String storedValue = LOG_Engine.globalContextData.get('complexKey');
-		Assert.isTrue(storedValue.contains('nested'), 'Complex object should be JSON serialized');
 	}
 
 	/**
@@ -1026,6 +852,46 @@ private class LOG_Builder_TEST
 	}
 
 	/**
+	 * @description Tests that a summary set on an entry that carries an exception is written, beside
+	 * the exception's type and the record.
+	 *
+	 * @see LOG_Builder.build
+	 * @see LOG_Builder.LogEntry.emit
+	 */
+	@IsTest
+	private static void builderEmitsErrorWithExceptionAndSummary()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		String builderMethod = 'BuilderTest/errorWithSummary_' + System.currentTimeMillis();
+		String expectedSummary = UTIL_Random.randomName();
+
+		Test.startTest();
+
+		try
+		{
+			Double invalidNumber = 1 / 0;
+		}
+		catch(Exception error)
+		{
+			LOG_Builder.build()
+					.error(error)
+					.withSummary(expectedSummary)
+					.at(builderMethod)
+					.forRecord(RECORD_ID)
+					.emit();
+		}
+
+		Test.stopTest();
+
+		LogEntry__c logEntry = new SEL_LogEntry().findByMethod(builderMethod);
+
+		Assert.areEqual(LEVEL_ERROR, logEntry.LogLevel__c, ERROR_INVALID_LOG_LEVEL);
+		Assert.areEqual(RECORD_ID, logEntry.RecordId__c, ERROR_INVALID_RECORD_ID);
+		Assert.areEqual(System.MathException.class.getName(), logEntry.ExceptionType__c, ERROR_INVALID_EXCEPTION_TYPE);
+		Assert.areEqual(expectedSummary, logEntry.ShortMessage__c, ERROR_INVALID_SHORT_MESSAGE);
+	}
+
+	/**
 	 * @description Tests that the fluent builder emits an info log with summary and message.
 	 *
 	 * @see LOG_Builder.build
@@ -1304,7 +1170,7 @@ private class LOG_Builder_TEST
 	}
 
 	/**
-	 * @description Tests that the fingerprint channel is cleared after emit — a subsequent
+	 * @description Tests that the fingerprint channel is cleared after emit: a subsequent
 	 * un-fingerprinted entry must persist as a plain row, not inherit the previous key.
 	 */
 	@IsTest
@@ -1350,7 +1216,7 @@ private class LOG_Builder_TEST
 
 	/**
 	 * @description Tests that withFingerprintInternal stamps a reserved-prefix key verbatim
-	 * (no normalization/hashing) — the framework path that lets bypass-audit keep readable
+	 * (no normalization/hashing). This is the framework path that lets bypass-audit keep readable
 	 * `bypass:` keys, in contrast to the subscriber-facing withFingerprint which would hash them.
 	 */
 	@IsTest
@@ -1379,7 +1245,7 @@ private class LOG_Builder_TEST
 	 * SHA-256 hashing it (the same 200-char budget the subscriber path enforces), so a future
 	 * framework caller cannot overflow the 216-char Fingerprint__c field and sink the persist batch.
 	 *
-	 * The key is supplied padded, which also pins the setter's trim — and pins it in the one place
+	 * The key is supplied padded, which also checks the setter's trim, and checks it in the one place
 	 * nothing downstream can cover for: the hash is taken inside the setter, so a setter that skipped
 	 * the trim would hash the padded string and store that hash instead. The persist boundary
 	 * normalizes too, but by then the key is a 64-character hash well inside the budget, so it would
@@ -1412,7 +1278,7 @@ private class LOG_Builder_TEST
 	/**
 	 * @description Tests the storable-shape rule both fingerprint setters and the persist boundary
 	 * share. Edge whitespace is trimmed because Salesforce strips it on save, so a key stored as sent
-	 * would live under a value no lookup of the key as sent could match — and every persist of it
+	 * would live under a value no lookup of the key as sent could match, and every persist of it
 	 * would be refused. A key past the raw budget is hashed rather than truncated, so the prefixed
 	 * `detail:`/`rollup:` key still fits the field and keys differing only past the cut stay apart.
 	 * A reserved-prefix key is left readable here: only the subscriber-facing normalizer hashes those.
@@ -1429,7 +1295,7 @@ private class LOG_Builder_TEST
 		Assert.areEqual(UTIL_Crypto.generateSHA256Hash(oversized), LOG_Builder.normalizeStoredFingerprintKey(oversized),
 				'A key past the raw budget must be hashed so its prefixed form still fits the field');
 		Assert.areEqual(reserved, LOG_Builder.normalizeStoredFingerprintKey(reserved),
-				'A reserved-prefix key stays readable — only the subscriber normalizer hashes it');
+				'Expected a reserved-prefix key to stay readable, because only the subscriber normalizer hashes it');
 		Assert.isNull(LOG_Builder.normalizeStoredFingerprintKey(UTIL_String.SPACE), 'A key that is only whitespace must normalize to null');
 	}
 
@@ -1465,7 +1331,7 @@ private class LOG_Builder_TEST
 	}
 
 	/**
-	 * @description Tests that a verbatim (short, non-reserved) fingerprint adds no breadcrumb — the
+	 * @description Tests that a verbatim (short, non-reserved) fingerprint adds no breadcrumb: the
 	 * stored fingerprint already shows the key, so no context noise is added.
 	 */
 	@IsTest
@@ -1483,7 +1349,7 @@ private class LOG_Builder_TEST
 			{
 				Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(row);
 				Boolean hasBreadcrumb = context != null && context.containsKey(LOG_Engine.CONTEXT_FINGERPRINT_SOURCE);
-				Assert.isFalse(hasBreadcrumb, 'Verbatim keys need no breadcrumb — the fingerprint already shows the key');
+				Assert.isFalse(hasBreadcrumb, 'Expected no breadcrumb on a verbatim key, because the fingerprint already shows the key, got ' + context);
 				return;
 			}
 		}
@@ -1492,7 +1358,7 @@ private class LOG_Builder_TEST
 
 	/**
 	 * @description Tests that a real exception's own stack trace wins over a caller-supplied
-	 * stack-trace override — the override applies only to non-exception entries. Asserts the
+	 * stack-trace override; the override applies only to non-exception entries. Asserts the
 	 * persisted stack equals the caught exception's own trace text, which holds both where frames
 	 * are visible and in a subscriber org, where the platform masks managed-code frames to
 	 * '(kern)' and a frame-name assertion can never match.
@@ -1528,7 +1394,7 @@ private class LOG_Builder_TEST
 
 	/**
 	 * @description Tests that a real exception's own type wins over a caller-supplied exception-type
-	 * override — the override names the failure only on entries that carry no exception of their own, so
+	 * override; the override names the failure only on entries that carry no exception of their own, so
 	 * a genuine Apex failure is never relabelled with a type relayed from elsewhere.
 	 *
 	 * @see LOG_Builder.LogEntry.withExceptionTypeInternal
@@ -1558,5 +1424,61 @@ private class LOG_Builder_TEST
 
 		Assert.areNotEqual(relayedExceptionType, logEntry.ExceptionType__c, 'A real exception type must win over the caller-supplied override');
 		Assert.areEqual(thrownExceptionType, logEntry.ExceptionType__c, 'The exception type should persist verbatim');
+	}
+
+	/**
+	 * @description Logs from inside an inner class, so the entry's top frame carries the inner class's
+	 * name (`Class.<namespace>.LOG_Builder_TEST.NestedEmitter.emitInfo`), four dotted segments in a
+	 * namespaced org.
+	 */
+	private class NestedEmitter
+	{
+		/**
+		 * @description Logs one INFO entry from inside this inner class under the suite's class-method marker.
+		 *
+		 * @param message The message to log.
+		 */
+		public void emitInfo(String message)
+		{
+			LOG_Builder.build().info(message).at(CLASS_METHOD).emit();
+		}
+	}
+
+	/**
+	 * @description Tests that an entry logged without an exception keeps the frames of the code that
+	 * logged it, the inner class's own frame first, and none of the logging framework's. Where the
+	 * platform shows this class's frames (the packaging org and any namespaced org included) the top
+	 * frame names the inner class's method; in a subscriber org the platform masks every managed frame
+	 * to '(kern)', the engine drops those, and the entry keeps no stack at all.
+	 *
+	 * @see LOG_Engine.DTO_LogMessages.getStackTrace
+	 */
+	@IsTest
+	private static void nonExceptionEntryKeepsInnerClassFrame()
+	{
+		String message = UTIL_Random.randomName();
+		Boolean managedFramesVisible = new DmlException().getStackTraceString().contains(LOG_Builder_TEST.class.getName() + UTIL_String.DOT);
+		LOG_Builder.ignoreTestMode = true;
+
+		Test.startTest();
+
+		new NestedEmitter().emitInfo(message);
+
+		Test.stopTest();
+
+		LogEntry__c logEntry = new SEL_LogEntry().findByMethod(CLASS_METHOD);
+
+		Assert.areEqual(message, logEntry.Message__c, ERROR_INCORRECT_MESSAGE);
+
+		if(!managedFramesVisible)
+		{
+			Assert.isNull(logEntry.StackTrace__c, ERROR_MASKED_FRAMES_PERSISTED);
+			return;
+		}
+
+		String innerClassFrame = CLASS_FRAME_PREFIX + LOG_Builder_TEST.class.getName() + INNER_CLASS_FRAME;
+
+		Assert.isTrue(logEntry.StackTrace__c.startsWith(innerClassFrame), ERROR_INNER_FRAME_DROPPED + logEntry.StackTrace__c);
+		Assert.isFalse(logEntry.StackTrace__c.contains(CLASS_FRAME_PREFIX + LOG_Builder.class.getName() + UTIL_String.DOT), ERROR_FRAMEWORK_FRAMES_KEPT);
 	}
 }

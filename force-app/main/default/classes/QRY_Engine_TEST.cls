@@ -9,10 +9,10 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class QRY_Engine_TEST
 {
 	/**
@@ -29,6 +29,69 @@ private class QRY_Engine_TEST
 	 * @description Field API name for NumberInteger__c.
 	 */
 	private static final String FIELD_INTEGER = SEL_Foobar.FIELD_INTEGER;
+
+	/**
+	 * @description Name on the Foobar__c row stored for real by the queued-answer tests, so the read that reaches
+	 * the database is told apart from the scripted answers by name as well as by Id.
+	 */
+	private static final String STORED_ROW_NAME = 'Stored for real';
+
+	/**
+	 * @description Name on the scripted Foobar__c record the queued-answer tests serve.
+	 */
+	private static final String SCRIPTED_ROW_NAME = 'Scripted answer';
+
+	/**
+	 * @description Text every refusal of a null queued answer must carry, pointing the caller at the empty list.
+	 */
+	private static final String EMPTY_LIST_HINT = 'empty list';
+
+	/**
+	 * @description Text the refusal of a null SObjectType must carry.
+	 */
+	private static final String NULL_TYPE_HINT = 'SObjectType';
+
+	/**
+	 * @description Text the refusal of a record of another type must carry.
+	 */
+	private static final String TYPE_MISMATCH_HINT = 'type mismatch';
+
+	/**
+	 * @description The relationship name of an account's contacts, used to subselect child rows.
+	 */
+	private static final String CONTACTS_RELATIONSHIP = 'Contacts';
+
+	/**
+	 * @description Time-to-live, in seconds, the cached-read tests ask for.
+	 */
+	private static final Integer CACHE_TIME_TO_LIVE_SECONDS = 300;
+
+	/**
+	 * @description Heap, in bytes, a memory hit may use beyond the same uncached read: the QueryResult wrapper a hit
+	 * allocates.
+	 */
+	private static final Integer HIT_HEAP_MARGIN_BYTES = 2048;
+
+	/**
+	 * @description The length of the random key stored in the query result memory cache.
+	 */
+	private static final Integer MEMORY_CACHE_KEY_LENGTH = 20;
+
+	/**
+	 * @description The length of the random Name the memory cache tests give a row, or write over a stored row's Name.
+	 */
+	private static final Integer MEMORY_CACHE_VALUE_LENGTH = 10;
+
+	/**
+	 * @description The length of each string the heap guard test holds to reach the guard: large enough to get there in
+	 * few steps.
+	 */
+	private static final Integer LARGE_VALUE_LENGTH = 100000;
+
+	/**
+	 * @description Alias of the count the aggregate cached-read test selects.
+	 */
+	private static final String TOTAL_ALIAS = 'total';
 
 	/**
 	 * @description Tests basic query execution.
@@ -314,6 +377,32 @@ private class QRY_Engine_TEST
 	}
 
 	/**
+	 * @description Tests that a registered mock exception is thrown from getCursor, exactly as it is from
+	 * every other terminal, so a subscriber test can fail a cursor read without data tricks.
+	 */
+	@IsTest
+	private static void shouldThrowRegisteredExceptionFromGetCursor()
+	{
+		QRY_Engine.setMockException(Foobar__c.SObjectType, new QueryException('Cursor failure'));
+
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id FROM ' + OBJECT_NAME;
+
+		try
+		{
+			QRY_Engine.getCursor(parameters);
+			Assert.fail('Should throw the registered exception for getCursor');
+		}
+		catch(QueryException error)
+		{
+			Assert.areEqual('Cursor failure', error.getMessage(), 'Should rethrow the exact registered instance for cursor');
+		}
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
 	 * @description Tests that the registered exception fires even when mock records are also registered
 	 * for the same SObjectType (throw-precedes-records semantics).
 	 */
@@ -480,9 +569,9 @@ private class QRY_Engine_TEST
 	}
 
 	/**
-	 * @description Tests the seam's whole point: with an aggregate-scoped exception registered, a ROW query
-	 * against the same SObjectType still executes for real — the asymmetry the SObjectType-wide
-	 * setMockException cannot express.
+	 * @description Tests why the aggregate-only mock exists: with an aggregate-scoped exception registered, a ROW query
+	 * against the same SObjectType still executes for real. A mock set with setMockException for the whole
+	 * SObjectType cannot do that.
 	 */
 	@IsTest
 	private static void shouldNotThrowAggregateExceptionForRowQuery()
@@ -758,7 +847,7 @@ private class QRY_Engine_TEST
 		Test.stopTest();
 
 		// This class is IsParallel=true, so it cannot create the second user a sharing DIVERGENCE needs.
-		// It covers all three dispatch arms and pins that the owner's own rows are reachable through each;
+		// It covers all three dispatch arms and checks that the owner's own rows are reachable through each;
 		// the divergence itself is proven against a Private-OWD object in
 		// QRY_Builder_TEST.countHonoursTheSharingBypassItAdvertises.
 		Assert.areEqual(3, enforcedCount, 'The owner should reach every seeded row with sharing enforced');
@@ -780,6 +869,120 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT COUNT() FROM ' + OBJECT_NAME;
 		parameters.enforceSharing = enforceSharing;
 		return parameters;
+	}
+
+	/**
+	 * @description Tests that a locator is opened under every sharing setting and yields the owner's rows through
+	 * each. This class is IsParallel=true, so it cannot create the second user a sharing divergence needs; the
+	 * divergence itself is proven against a Private-OWD object in
+	 * QRY_Builder_TEST.queryLocatorHonoursTheSharingBypassItAdvertises and queryLocatorBypassSurvivesBatchRetrieval.
+	 */
+	@IsTest
+	private static void shouldOpenQueryLocatorUnderEachSharingSetting()
+	{
+		TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Name, 'Test Account')
+				.withCount(3)
+				.buildList();
+
+		Test.startTest();
+		Integer enforcedRows = countLocatorRows(QRY_Engine.getQueryLocator(locatorParametersFor(true)));
+		Integer bypassedRows = countLocatorRows(QRY_Engine.getQueryLocator(locatorParametersFor(false)));
+		Integer inheritedRows = countLocatorRows(QRY_Engine.getQueryLocator(locatorParametersFor(null)));
+		Test.stopTest();
+
+		Assert.areEqual(3, enforcedRows, 'The owner should iterate every seeded row with sharing enforced');
+		Assert.areEqual(3, bypassedRows, 'The owner should iterate every seeded row with sharing bypassed');
+		Assert.areEqual(3, inheritedRows, 'The owner should iterate every seeded row under inherited sharing');
+	}
+
+	/**
+	 * @description Builds locator parameters for the Foobar fixture under one sharing setting.
+	 *
+	 * @param enforceSharing True to enforce, false to bypass, null to inherit.
+	 *
+	 * @return The locator parameters.
+	 */
+	private static QRY_Engine.QueryParameters locatorParametersFor(Boolean enforceSharing)
+	{
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id FROM ' + OBJECT_NAME;
+		parameters.enforceSharing = enforceSharing;
+		return parameters;
+	}
+
+	/**
+	 * @description Iterates a locator in the current transaction and counts the rows it yields.
+	 *
+	 * @param locator The locator under test.
+	 *
+	 * @return The number of rows iterated.
+	 */
+	private static Integer countLocatorRows(Database.QueryLocator locator)
+	{
+		Integer rows = 0;
+		Database.QueryLocatorIterator locatorIterator = locator.iterator();
+		while(locatorIterator.hasNext())
+		{
+			locatorIterator.next();
+			rows++;
+		}
+		return rows;
+	}
+
+	/**
+	 * @description Tests that a cursor is opened under every sharing setting and yields the owner's rows
+	 * through each. This class is IsParallel=true, so it cannot create the second user a sharing divergence
+	 * needs; the divergence itself is proven against a Private-OWD object in
+	 * QRY_Builder_TEST.cursorHonoursTheSharingBypassItAdvertises and cursorBypassSurvivesCrossTransactionFetch.
+	 */
+	@IsTest
+	private static void shouldOpenCursorUnderEachSharingSetting()
+	{
+		TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Name, 'Test Account')
+				.withCount(3)
+				.buildList();
+
+		Test.startTest();
+		Integer enforcedRows = countCursorRows(QRY_Engine.getCursor(cursorParametersFor(true)));
+		Integer bypassedRows = countCursorRows(QRY_Engine.getCursor(cursorParametersFor(false)));
+		Integer inheritedRows = countCursorRows(QRY_Engine.getCursor(cursorParametersFor(null)));
+		Test.stopTest();
+
+		Assert.areEqual(3, enforcedRows, 'The owner should fetch every seeded row with sharing enforced');
+		Assert.areEqual(3, bypassedRows, 'The owner should fetch every seeded row with sharing bypassed');
+		Assert.areEqual(3, inheritedRows, 'The owner should fetch every seeded row under inherited sharing');
+	}
+
+	/**
+	 * @description Builds cursor parameters for the Foobar fixture under one sharing setting.
+	 *
+	 * @param enforceSharing True to enforce, false to bypass, null to inherit.
+	 *
+	 * @return The cursor parameters.
+	 */
+	private static QRY_Engine.QueryParameters cursorParametersFor(Boolean enforceSharing)
+	{
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id FROM ' + OBJECT_NAME;
+		parameters.enforceSharing = enforceSharing;
+		return parameters;
+	}
+
+	/**
+	 * @description Drains a cursor in the current transaction and counts the rows it yields.
+	 *
+	 * @param probeCursor The cursor under test.
+	 *
+	 * @return The fetched row count.
+	 */
+	private static Integer countCursorRows(Database.Cursor probeCursor)
+	{
+		Integer total = probeCursor.getNumRecords();
+		return total == 0 ? 0 : probeCursor.fetch(0, total).size();
 	}
 
 	/**
@@ -908,7 +1111,7 @@ private class QRY_Engine_TEST
 				.buildList();
 
 		// Reading past the end of the result set claims a place in the pool without spending a fetch call.
-		while(Limits.getApexPaginationCursors() < Limits.getLimitApexPaginationCursors())
+		while(!UTIL_Limits.apexPaginationCursors().isExhausted())
 		{
 			QRY_Engine.execute(buildPageParameters(false, 2, 1000));
 		}
@@ -1279,6 +1482,7 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = null;
+		parameters.enforceSharing = false;
 
 		QRY_Engine.QueryResult result1 = QRY_Engine.execute(parameters);
 		QRY_Engine.QueryResult result2 = QRY_Engine.execute(parameters);
@@ -1302,6 +1506,8 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
 		parameters.bypassCache = false;
 
 		QRY_Engine.QueryResult result1 = QRY_Engine.execute(parameters);
@@ -1326,6 +1532,8 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
 		parameters.bypassCache = true;
 
 		QRY_Engine.QueryResult result1 = QRY_Engine.execute(parameters);
@@ -1336,11 +1544,11 @@ private class QRY_Engine_TEST
 	}
 
 	/**
-	 * @description Tests that caching is disabled when userMode is enabled.
-	 * Security-sensitive queries should not be cached across contexts.
+	 * @description Tests that a user-mode cached read is kept in memory for the transaction only: the repeat is a
+	 * memory hit, because a user-mode result never goes to Platform Cache.
 	 */
 	@IsTest
-	private static void shouldNotCacheWhenUserModeEnabled()
+	private static void shouldKeepUserModeReadInMemoryOnly()
 	{
 		Foobar__c testRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
 				.withOverride(Foobar__c.Name, 'UserMode Cache Test')
@@ -1351,14 +1559,17 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
 		parameters.bypassCache = false;
 		parameters.userMode = true;
 
 		QRY_Engine.QueryResult result1 = QRY_Engine.execute(parameters);
 		QRY_Engine.QueryResult result2 = QRY_Engine.execute(parameters);
 
-		Assert.isFalse(result1.isCached, 'UserMode queries should not be cached');
-		Assert.isFalse(result2.isCached, 'UserMode queries should not be cached on repeat');
+		Assert.isFalse(result1.isCached, 'The first user-mode read should be a miss');
+		Assert.isTrue(result2.isCached, 'A repeat of a user-mode read should be served from memory');
+		Assert.areEqual(QRY_Engine.CacheStatus.MEMORY_HIT, result2.cacheStatus, 'A user-mode result should be kept in memory, never in Platform Cache');
 	}
 
 	/**
@@ -1377,6 +1588,8 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1 FOR UPDATE';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
 		parameters.bypassCache = false;
 		parameters.lockForUpdate = true;
 
@@ -1402,6 +1615,8 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1 FOR REFERENCE';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
 		parameters.bypassCache = false;
 		parameters.lockForReference = true;
 
@@ -1427,6 +1642,8 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1 FOR VIEW';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
 		parameters.bypassCache = false;
 		parameters.lockForView = true;
 
@@ -1453,6 +1670,8 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1 ALL ROWS';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
 		parameters.bypassCache = false;
 		parameters.includeAllRows = true;
 
@@ -1479,6 +1698,8 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
 		parameters.bypassCache = false;
 		parameters.randomResults = true;
 
@@ -1504,6 +1725,8 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
 		parameters.bypassCache = false;
 
 		QRY_Engine.execute(parameters);
@@ -1511,6 +1734,34 @@ private class QRY_Engine_TEST
 
 		Assert.isTrue(cachedResult.isCached, 'isCached should be true on cache hit');
 		Assert.areEqual(1, cachedResult.records.size(), 'Should return correct number of records');
+	}
+
+	/**
+	 * @description Tests that a read whose sharing dial is left inherited is never cached: the engine cannot
+	 * see the calling class's sharing at key time, so the identical inherited-dial read twice inside the TTL
+	 * must miss both times rather than serve a hit it cannot key correctly.
+	 */
+	@IsTest
+	private static void shouldNotCacheWhenSharingDialIsInherited()
+	{
+		Foobar__c testRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Name, 'Cache Test Inherited Dial')
+				.build();
+
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
+		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
+		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.bypassCache = false;
+
+		QRY_Engine.QueryResult result1 = QRY_Engine.execute(parameters);
+		QRY_Engine.QueryResult result2 = QRY_Engine.execute(parameters);
+
+		Assert.isFalse(result1.isCached, 'An inherited-dial read must not be cached');
+		Assert.areEqual(QRY_Engine.CacheStatus.DECLINED_INHERITED_SHARING, result1.cacheStatus, 'An inherited-dial read must not be stored');
+		Assert.isFalse(result2.isCached, 'An inherited-dial read must not be served from cache on repeat');
 	}
 
 	/**
@@ -1559,11 +1810,14 @@ private class QRY_Engine_TEST
 	}
 
 	/**
-	 * @description Tests that cacheStatus is STORED on first execution with cache enabled.
+	 * @description Tests that cacheStatus is STORED on first execution with cache enabled. In an org with no Platform
+	 * Cache space set aside, the rows are kept in memory for the transaction instead, and the status is
+	 * MEMORY_STORED_NO_PARTITION.
 	 */
 	@IsTest
 	private static void shouldTrackCacheStatusOnMiss()
 	{
+		QRY_Engine.CacheStatus expectedStatus = UTIL_Cache.isAllocated() ? QRY_Engine.CacheStatus.STORED : QRY_Engine.CacheStatus.MEMORY_STORED_NO_PARTITION;
 		Foobar__c testRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
 				.withOverride(Foobar__c.Name, 'CacheStatus STORED')
 				.build();
@@ -1573,18 +1827,22 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
 
 		QRY_Engine.QueryResult result = QRY_Engine.execute(parameters);
 
-		Assert.areEqual(QRY_Engine.CacheStatus.STORED, result.cacheStatus, 'cacheStatus should be STORED on first call');
+		Assert.areEqual(expectedStatus, result.cacheStatus, 'Expected cacheStatus ' + expectedStatus + ' on the first call, got ' + result.cacheStatus);
 	}
 
 	/**
-	 * @description Tests that cacheStatus is HIT on cache hit.
+	 * @description Tests that cacheStatus is HIT on cache hit. In an org with no Platform Cache space set aside, the second
+	 * call is served from the copy kept in memory for the transaction, and the status is MEMORY_HIT.
 	 */
 	@IsTest
 	private static void shouldTrackCacheStatusOnHit()
 	{
+		QRY_Engine.CacheStatus expectedStatus = UTIL_Cache.isAllocated() ? QRY_Engine.CacheStatus.HIT : QRY_Engine.CacheStatus.MEMORY_HIT;
 		Foobar__c testRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
 				.withOverride(Foobar__c.Name, 'CacheStatus HIT')
 				.build();
@@ -1594,11 +1852,133 @@ private class QRY_Engine_TEST
 		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
 		parameters.bindMap = new Map<String, Object> {'b1' => testRecord.Id};
 		parameters.cacheTTL = 600;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
 
 		QRY_Engine.execute(parameters);
 		QRY_Engine.QueryResult result = QRY_Engine.execute(parameters);
 
-		Assert.areEqual(QRY_Engine.CacheStatus.HIT, result.cacheStatus, 'cacheStatus should be HIT on second call');
+		Assert.areEqual(expectedStatus, result.cacheStatus, 'Expected cacheStatus ' + expectedStatus + ' on the second call, got ' + result.cacheStatus);
+	}
+
+	/**
+	 * @description Tests that a bypassed cached read whose rows or values depend on the running user is kept per
+	 * user: a second user running the identical read is never served the first user's stored result. Each query
+	 * carries one SOQL keyword the platform evaluates for the running user: a scope other than everything, a translated
+	 * or formatted value, a time zone, or a date literal read in the user's time zone. The currency conversion is
+	 * proved through a string literal, because it needs an org with several currencies to run as a function; a
+	 * literal that holds such a keyword is the one false positive the key accepts, and it costs a per-user entry, never
+	 * a wrong hit. In an org with no Platform Cache space set aside, the rows are kept in memory for the transaction, and
+	 * the memory key always holds the user: the first user gets MEMORY_HIT and the second user still gets a fresh read,
+	 * MEMORY_STORED_NO_PARTITION.
+	 */
+	@IsTest
+	private static void shouldKeepABypassedCachedReadThatDependsOnTheUserPerUser()
+	{
+		Boolean hasCacheSpace = UTIL_Cache.isAllocated();
+		QRY_Engine.CacheStatus expectedHit = hasCacheSpace ? QRY_Engine.CacheStatus.HIT : QRY_Engine.CacheStatus.MEMORY_HIT;
+		QRY_Engine.CacheStatus expectedFreshRead = hasCacheSpace ? QRY_Engine.CacheStatus.STORED : QRY_Engine.CacheStatus.MEMORY_STORED_NO_PARTITION;
+		String picklist = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Picklist__c);
+		String currencyAmount = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Currency__c);
+		String dateOnly = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Date__c);
+		String dateTimeValue = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Datetime__c);
+		List<String> userDependentQueries = new List<String>
+		{
+				'SELECT Id FROM ' + OBJECT_NAME + ' USING SCOPE MINE',
+				'SELECT Id, toLabel(' + picklist + ') FROM ' + OBJECT_NAME,
+				'SELECT Id, TOLABEL (' + picklist + ') FROM ' + OBJECT_NAME,
+				'SELECT Id, FORMAT(' + currencyAmount + ') FROM ' + OBJECT_NAME,
+				'SELECT Id FROM ' + OBJECT_NAME + ' WHERE Name = \'convertCurrency(\'',
+				'SELECT Id FROM ' + OBJECT_NAME + ' WHERE HOUR_IN_DAY(convertTimezone(' + dateTimeValue + ')) > 0',
+				'SELECT Id FROM ' + OBJECT_NAME + ' WHERE ' + dateOnly + ' = TODAY',
+				'SELECT Id FROM ' + OBJECT_NAME + ' WHERE ' + dateOnly + ' = THIS_WEEK',
+				'SELECT Id FROM ' + OBJECT_NAME + ' WHERE ' + dateTimeValue + ' = LAST_N_DAYS:7',
+				'SELECT Id FROM ' + OBJECT_NAME + ' WHERE ' + dateOnly + ' = N_DAYS_AGO:3',
+				'SELECT Id FROM ' + OBJECT_NAME + ' WHERE ' + dateOnly + ' = NEXT_90_DAYS',
+				'SELECT Id FROM ' + OBJECT_NAME + ' WHERE ' + dateOnly + ' = THIS_FISCAL_QUARTER',
+				'SELECT Id FROM ' + OBJECT_NAME + ' WHERE ' + dateOnly + ' = LAST_N_FISCAL_YEARS:2'
+		};
+		User firstUser = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		User secondUser = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+
+		Test.startTest();
+		System.runAs(firstUser)
+		{
+			for(String query : userDependentQueries)
+			{
+				QRY_Engine.execute(buildBypassedCachedRead(query));
+				Assert.areEqual(expectedHit, QRY_Engine.execute(buildBypassedCachedRead(query)).cacheStatus,
+						'Expected the first user to be served their own stored result, so the entry exists, for ' + query);
+			}
+		}
+		System.runAs(secondUser)
+		{
+			for(String query : userDependentQueries)
+			{
+				Assert.areEqual(expectedFreshRead, QRY_Engine.execute(buildBypassedCachedRead(query)).cacheStatus,
+						'Expected a second user never to be served the first user\'s result for ' + query);
+			}
+		}
+		Test.stopTest();
+	}
+
+	/**
+	 * @description Tests that a bypassed cached read whose rows are the same for everyone keeps its single org-wide
+	 * entry: a second user running the identical read is served the first user's stored result. The everything scope and
+	 * a fixed date are read the same for every user, so both stay shared too. In an org with no Platform Cache space set
+	 * aside, there is no org-wide entry to share: the rows are kept in memory, the memory key always holds the user, and
+	 * the second user gets a fresh read, MEMORY_STORED_NO_PARTITION.
+	 */
+	@IsTest
+	private static void shouldShareABypassedCachedReadThatIsTheSameForEveryUser()
+	{
+		QRY_Engine.CacheStatus expectedStatus = UTIL_Cache.isAllocated() ? QRY_Engine.CacheStatus.HIT : QRY_Engine.CacheStatus.MEMORY_STORED_NO_PARTITION;
+		String dateOnly = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Date__c);
+		List<String> sharedQueries = new List<String>
+		{
+				'SELECT Id, Name FROM ' + OBJECT_NAME,
+				'SELECT Id FROM ' + OBJECT_NAME + ' USING SCOPE EVERYTHING',
+				'SELECT Id FROM ' + OBJECT_NAME + ' WHERE ' + dateOnly + ' = 2026-01-01'
+		};
+		User firstUser = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		User secondUser = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+
+		Test.startTest();
+		System.runAs(firstUser)
+		{
+			for(String query : sharedQueries)
+			{
+				QRY_Engine.execute(buildBypassedCachedRead(query));
+			}
+		}
+		System.runAs(secondUser)
+		{
+			for(String query : sharedQueries)
+			{
+				Assert.areEqual(expectedStatus, QRY_Engine.execute(buildBypassedCachedRead(query)).cacheStatus,
+						'Expected a read that is the same for every user to give ' + expectedStatus + ' for ' + query);
+			}
+		}
+		Test.stopTest();
+	}
+
+	/**
+	 * @description Builds a cached, system-mode read with sharing bypassed: the only kind of read whose key leaves the
+	 * running user out unless the query depends on that user.
+	 *
+	 * @param query The SOQL to run.
+	 *
+	 * @return The query parameters.
+	 */
+	private static QRY_Engine.QueryParameters buildBypassedCachedRead(String query)
+	{
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = query;
+		parameters.cacheTTL = QRY_Engine.DEFAULT_CACHE_TTL;
+		parameters.cacheScope = UTIL_Cache.Scope.AUTO;
+		parameters.enforceSharing = false;
+		return parameters;
 	}
 
 	/**
@@ -2243,5 +2623,853 @@ private class QRY_Engine_TEST
 					.build());
 		}
 		return mocks;
+	}
+
+	/**
+	 * @description Tests that a queued answer serves exactly one query, after which the standing registration
+	 * answers again: the shape a test stages when one read must miss and the next must find the row.
+	 */
+	@IsTest
+	private static void shouldServeAQueuedAnswerOnceThenTheStandingMocks()
+	{
+		List<SObject> standing = TST_Builder.of(Foobar__c.SObjectType).withCount(2).withoutInsertion(true).buildList();
+		QRY_Engine.setMock(Foobar__c.SObjectType, standing);
+		QRY_Engine.queueMock(Foobar__c.SObjectType, new List<SObject>());
+
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME;
+
+		QRY_Engine.QueryResult first = QRY_Engine.execute(parameters);
+		QRY_Engine.QueryResult second = QRY_Engine.execute(parameters);
+
+		Assert.isTrue(first.isMocked, 'A queued answer is served as a mock result');
+		Assert.areEqual(0, first.records.size(), 'The queued empty answer serves the first query');
+		Assert.areEqual(2, second.records.size(), 'The second query falls back to the standing registration');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that queued answers serve in registration order and that, with nothing registered
+	 * behind them, the query after the last answer reads the database: a row stored for real is found.
+	 */
+	@IsTest
+	private static void shouldServeQueuedAnswersInOrderThenReadTheDatabase()
+	{
+		Foobar__c stored = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Name, STORED_ROW_NAME).build();
+		Foobar__c scripted = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Name, SCRIPTED_ROW_NAME).withoutInsertion(true).build();
+		QRY_Engine.queueMock(Foobar__c.SObjectType, new List<SObject>());
+		QRY_Engine.queueMock(Foobar__c.SObjectType, new List<SObject> {scripted});
+
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME;
+
+		QRY_Engine.QueryResult first = QRY_Engine.execute(parameters);
+		QRY_Engine.QueryResult second = QRY_Engine.execute(parameters);
+		QRY_Engine.QueryResult third = QRY_Engine.execute(parameters);
+
+		Assert.areEqual(0, first.records.size(), 'The first queued answer is the empty one');
+		Assert.areEqual(scripted.Id, second.records[0].Id, 'The second queued answer is the scripted record');
+		Assert.isFalse(third.isMocked, 'With the queue used up and nothing registered, the third query is real');
+		Assert.areEqual(stored.Id, third.records[0].Id, 'The third query reads the row stored in the database');
+	}
+
+	/**
+	 * @description Tests that a count query consumes a queued answer and returns its size, and that the next
+	 * count reads the database.
+	 */
+	@IsTest
+	private static void shouldServeAQueuedAnswerToACount()
+	{
+		QRY_Engine.queueMock(Foobar__c.SObjectType, TST_Builder.of(Foobar__c.SObjectType).withCount(3).withoutInsertion(true).buildList());
+
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT COUNT() FROM ' + OBJECT_NAME;
+
+		Assert.areEqual(3, QRY_Engine.executeCount(parameters), 'A count consumes the queued answer and returns its size');
+		Assert.areEqual(0, QRY_Engine.executeCount(parameters), 'The next count reads the database, which holds no rows');
+	}
+
+	/**
+	 * @description Tests that a queued answer is limited like a standing registration.
+	 */
+	@IsTest
+	private static void shouldLimitAQueuedAnswerLikeAStandingMock()
+	{
+		QRY_Engine.queueMock(Foobar__c.SObjectType, TST_Builder.of(Foobar__c.SObjectType).withCount(3).withoutInsertion(true).buildList());
+
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME + ' LIMIT 2';
+		parameters.limitCount = 2;
+
+		QRY_Engine.QueryResult result = QRY_Engine.execute(parameters);
+
+		Assert.areEqual(2, result.records.size(), 'The limit applies to the queued answer');
+		Assert.areEqual(3, result.totalRecords, 'The total reports the whole queued answer');
+	}
+
+	/**
+	 * @description Tests that a queued answer is paged like a standing registration: a page beyond its size is empty.
+	 */
+	@IsTest
+	private static void shouldPageAQueuedAnswerLikeAStandingMock()
+	{
+		QRY_Engine.queueMock(Foobar__c.SObjectType, TST_Builder.of(Foobar__c.SObjectType).withCount(3).withoutInsertion(true).buildList());
+
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME;
+		parameters.pageSize = 2;
+		parameters.pageNumber = 5;
+
+		QRY_Engine.QueryResult result = QRY_Engine.execute(parameters);
+
+		Assert.isTrue(result.isMocked, 'The page is served from the queued answer');
+		Assert.isTrue(result.records.isEmpty(), 'A page beyond the queued answer is empty');
+	}
+
+	/**
+	 * @description Tests that clearMocks drops queued answers beside the other registries, so the next query is real.
+	 */
+	@IsTest
+	private static void shouldDropQueuedAnswersOnClearMocks()
+	{
+		QRY_Engine.queueMock(Foobar__c.SObjectType, TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).buildList());
+
+		QRY_Engine.clearMocks();
+
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id FROM ' + OBJECT_NAME;
+
+		Assert.isFalse(QRY_Engine.execute(parameters).isMocked, 'clearMocks drops the queued answer, so the query is real');
+	}
+
+	/**
+	 * @description Tests that clearMockQueue drops only the named type's queue.
+	 */
+	@IsTest
+	private static void shouldDropOnlyThatTypesQueueOnClearMockQueue()
+	{
+		QRY_Engine.queueMock(Foobar__c.SObjectType, TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).buildList());
+		QRY_Engine.queueMock(Account.SObjectType, TST_Builder.of(Account.SObjectType).withoutInsertion(true).buildList());
+
+		QRY_Engine.clearMockQueue(Foobar__c.SObjectType);
+
+		QRY_Engine.QueryParameters foobarParameters = new QRY_Engine.QueryParameters();
+		foobarParameters.objectType = Foobar__c.SObjectType;
+		foobarParameters.queryString = 'SELECT Id FROM ' + OBJECT_NAME;
+		QRY_Engine.QueryParameters accountParameters = new QRY_Engine.QueryParameters();
+		accountParameters.objectType = Account.SObjectType;
+		accountParameters.queryString = 'SELECT Id FROM Account';
+
+		Assert.isFalse(QRY_Engine.execute(foobarParameters).isMocked, 'The cleared type queries the database');
+		Assert.isTrue(QRY_Engine.execute(accountParameters).isMocked, 'The other type keeps its queued answer');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that a null queued answer is refused with a message that points at the empty list.
+	 */
+	@IsTest
+	private static void shouldRefuseANullQueuedAnswer()
+	{
+		try
+		{
+			QRY_Engine.queueMock(Foobar__c.SObjectType, null);
+			Assert.fail('A null queued answer should be refused');
+		}
+		catch(IllegalArgumentException error)
+		{
+			Assert.isTrue(error.getMessage().contains(EMPTY_LIST_HINT), 'The refusal points at the empty list: ' + error.getMessage());
+		}
+	}
+
+	/**
+	 * @description Tests that a null SObjectType is refused when queueing an answer.
+	 */
+	@IsTest
+	private static void shouldRefuseANullTypeForAQueuedAnswer()
+	{
+		try
+		{
+			QRY_Engine.queueMock(null, new List<SObject>());
+			Assert.fail('A null SObjectType should be refused');
+		}
+		catch(IllegalArgumentException error)
+		{
+			Assert.isTrue(error.getMessage().contains(NULL_TYPE_HINT), 'The refusal names the SObjectType: ' + error.getMessage());
+		}
+	}
+
+	/**
+	 * @description Tests that a queued record of another type is refused by the existing mock validation.
+	 */
+	@IsTest
+	private static void shouldRefuseAQueuedRecordOfAnotherType()
+	{
+		List<SObject> accounts = TST_Builder.of(Account.SObjectType).withoutInsertion(true).buildList();
+		try
+		{
+			QRY_Engine.queueMock(Foobar__c.SObjectType, accounts);
+			Assert.fail('A record of another type should be refused');
+		}
+		catch(IllegalArgumentException error)
+		{
+			Assert.isTrue(error.getMessage().contains(TYPE_MISMATCH_HINT), 'The refusal names the mismatch: ' + error.getMessage());
+		}
+	}
+
+	/**
+	 * @description A miss stores a copy and a hit returns a fresh copy, so no caller's edits reach another.
+	 */
+	@IsTest
+	private static void memoryCacheIsolatesEveryCaller()
+	{
+		List<Foobar__c> firstCallerRows = TST_Factory.insertFoobars(2);
+		String key = UTIL_Random.randomAlphanumeric(MEMORY_CACHE_KEY_LENGTH);
+
+		QRY_Engine.storeCopyInMemoryCache(key, firstCallerRows, QRY_Engine.CacheStatus.MEMORY_STORED);
+		String original = firstCallerRows[0].Name;
+		firstCallerRows[0].Name = UTIL_Random.randomAlphanumeric(MEMORY_CACHE_VALUE_LENGTH);
+		List<SObject> firstHit = QRY_Engine.getCopyFromMemoryCache(key).records;
+		firstHit[0].put(FIELD_NAME, UTIL_Random.randomAlphanumeric(MEMORY_CACHE_VALUE_LENGTH));
+		List<SObject> secondHit = QRY_Engine.getCopyFromMemoryCache(key).records;
+
+		Assert.areEqual(original, secondHit[0].get(FIELD_NAME), 'Neither the first caller nor the first hit may change what is stored');
+		Assert.isTrue(firstHit !== secondHit, 'Each hit should be a distinct list object');
+		Assert.isTrue(QRY_Engine.getCopyFromMemoryCache(key).isCached, 'A memory hit should be marked cached');
+	}
+
+	/**
+	 * @description A child subquery is found wherever it came from: the text a builder subselect generates, a raw
+	 * subquery string with or without inner spaces, a nested grandchild subquery, and a child subquery whose own
+	 * filter holds a semi-join. Such a query is never kept in memory, because copying its rows shares the child records.
+	 */
+	@IsTest
+	private static void containsChildSubqueryFindsChildSubqueries()
+	{
+		String builderSubselect = QRY_Builder.selectFrom(Account.SObjectType)
+				.fields(new List<SObjectField> {Account.Name})
+				.subselect(QRY_Builder.selectFrom(Contact.SObjectType).fields(new List<SObjectField> {Contact.LastName}), CONTACTS_RELATIONSHIP)
+				.toSoql();
+
+		Assert.isTrue(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery(builderSubselect)), 'A builder subselect should be found');
+		Assert.isTrue(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery('SELECT Id, (SELECT Id FROM Contacts) FROM Account')),
+				'A raw child subquery should be found');
+		Assert.isTrue(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery('SELECT Id, ( SELECT Id FROM Contacts ) FROM Account')),
+				'A raw child subquery with inner spaces should be found');
+		Assert.isTrue(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery('SELECT Id, (SELECT Id, (SELECT Id FROM Cases) FROM Contacts) FROM Account')),
+				'A nested grandchild subquery should be found');
+		Assert.isTrue(QRY_Engine.containsChildSubquery(
+				QRY_Engine.normalizeQuery('SELECT Id, (SELECT Id FROM Contacts WHERE Id IN (SELECT ContactId FROM Cases)) FROM Account')),
+				'A child subquery whose filter holds a semi-join should be found');
+		Assert.isTrue(QRY_Engine.containsChildSubquery(
+				QRY_Engine.normalizeQuery('SELECT Id, (SELECT Id FROM Contacts WHERE LastName = \'O\\\'Brien\') FROM Account')),
+				'A child subquery whose filter holds a quoted literal should be found');
+	}
+
+	/**
+	 * @description Parentheses that do not open a child subquery are not mistaken for one: semi-joins in a filter
+	 * (with or without a space after IN), a TYPEOF field, function calls, a field whose name starts with SELECT, a
+	 * quoted literal that holds one, with or without an escaped quote in it, and no query at all. Such reads stay eligible for the memory cache.
+	 */
+	@IsTest
+	private static void containsChildSubqueryIgnoresOtherParentheses()
+	{
+		Assert.isFalse(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery('SELECT Id FROM Account WHERE Id IN (SELECT AccountId FROM Contact)')),
+				'A semi-join should not count');
+		Assert.isFalse(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery('SELECT Id FROM Account WHERE Id NOT IN (SELECT AccountId FROM Contact)')),
+				'An anti-join should not count');
+		Assert.isFalse(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery('SELECT Id FROM Account WHERE Id IN(SELECT AccountId FROM Contact)')),
+				'A semi-join with no space after IN should not count');
+		Assert.isFalse(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery('SELECT TYPEOF What WHEN Account THEN Name END FROM Event')),
+				'A TYPEOF field should not count');
+		Assert.isFalse(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery('SELECT TOLABEL(Picklist__c), FORMAT(Selected__c) FROM Foobar__c')),
+				'Function calls, one on a field whose name starts with SELECT, should not count');
+		Assert.isFalse(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery('SELECT Selected__c FROM Foobar__c')),
+				'A field whose name starts with SELECT should not count');
+		Assert.isFalse(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery('SELECT Id FROM Account WHERE Name = \'(SELECT X\'')),
+				'A quoted literal holding (SELECT should not count');
+		Assert.isFalse(QRY_Engine.containsChildSubquery(QRY_Engine.normalizeQuery('SELECT Id FROM Account WHERE Name = \'It\\\'s (SELECT X\'')),
+				'A quoted literal with an escaped quote before (SELECT should not count');
+		Assert.isFalse(QRY_Engine.containsChildSubquery(null), 'No query should not count');
+	}
+
+	/**
+	 * @description A memory hit carries only the fields the query selected: reading a field the query did not select
+	 * throws on the hit exactly as it does on the queried row, so a cached read never hides a missing field.
+	 */
+	@IsTest
+	private static void memoryCacheHitKeepsTheQueriedFields()
+	{
+		Foobar__c inserted = TST_Factory.insertFoobars(1)[0];
+		List<Foobar__c> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+				.fields(new List<SObjectField> {Foobar__c.Name})
+				.condition(Foobar__c.Id).equals(inserted.Id)
+				.withoutSecurity()
+				.toList();
+		String key = UTIL_Random.randomAlphanumeric(MEMORY_CACHE_KEY_LENGTH);
+
+		QRY_Engine.storeCopyInMemoryCache(key, rows, QRY_Engine.CacheStatus.MEMORY_STORED);
+		SObject hitRow = QRY_Engine.getCopyFromMemoryCache(key).records[0];
+
+		Assert.areEqual(rows[0].Name, hitRow.get(FIELD_NAME), 'The hit should carry the selected field');
+		try
+		{
+			rows[0].get(Foobar__c.NumberInteger__c);
+			Assert.fail('Reading a field the query did not select should throw on the queried row');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, SObjectException.class, 'Incorrect Exception Type');
+		}
+		try
+		{
+			hitRow.get(Foobar__c.NumberInteger__c);
+			Assert.fail('Reading a field the query did not select should throw on the memory hit');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, SObjectException.class, 'Incorrect Exception Type');
+		}
+	}
+
+	/**
+	 * @description A result over the row cap is declined and not stored.
+	 */
+	@IsTest
+	private static void memoryCacheDeclinesOverRowCap()
+	{
+		List<SObject> rows = TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Name, UTIL_Random.randomAlphanumeric(MEMORY_CACHE_VALUE_LENGTH))
+				.withCount(QRY_Engine.MEMORY_CACHE_ROW_LIMIT + 1)
+				.withoutInsertion()
+				.buildList();
+		String key = UTIL_Random.randomAlphanumeric(MEMORY_CACHE_KEY_LENGTH);
+
+		QRY_Engine.CacheStatus status = QRY_Engine.storeCopyInMemoryCache(key, rows, QRY_Engine.CacheStatus.MEMORY_STORED);
+
+		Assert.areEqual(QRY_Engine.CacheStatus.DECLINED_ROW_CAP, status, 'A result over the cap should be declined');
+		Assert.isNull(QRY_Engine.getCopyFromMemoryCache(key), 'A declined result should not be stored');
+	}
+
+	/**
+	 * @description A store the heap guard refuses is reported as declined. The test fills the heap with
+	 * 100,000-character strings until the guard is reached, so it calibrates itself against the live limit.
+	 */
+	@IsTest
+	private static void memoryCacheReportsHeapGuardDecline()
+	{
+		SObject row = TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Name, UTIL_Random.randomAlphanumeric(MEMORY_CACHE_VALUE_LENGTH)).withoutInsertion().build();
+		List<String> ballast = new List<String>();
+		while(!UTIL_Limits.heapSize().isNearLimit(UTIL_Cache.MEMORY_CACHE_EVICTION_HEAP_SHARE))
+		{
+			ballast.add('x'.repeat(LARGE_VALUE_LENGTH));
+		}
+		String key = UTIL_Random.randomAlphanumeric(MEMORY_CACHE_KEY_LENGTH);
+
+		QRY_Engine.CacheStatus status = QRY_Engine.storeCopyInMemoryCache(key, new List<SObject> {row}, QRY_Engine.CacheStatus.MEMORY_STORED);
+
+		Assert.areEqual(QRY_Engine.CacheStatus.DECLINED_HEAP_GUARD, status, 'A refused store should report the heap guard');
+		Assert.isNotNull(ballast, 'Keep the ballast alive until after the store');
+	}
+
+	/**
+	 * @description clearQueryResultMemoryCache empties the engine's cache.
+	 */
+	@IsTest
+	private static void clearQueryResultMemoryCacheEmptiesTheCache()
+	{
+		String key = UTIL_Random.randomAlphanumeric(MEMORY_CACHE_KEY_LENGTH);
+		List<SObject> rows = TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Name, UTIL_Random.randomAlphanumeric(MEMORY_CACHE_VALUE_LENGTH))
+				.withoutInsertion()
+				.buildList();
+		QRY_Engine.storeCopyInMemoryCache(key, rows, QRY_Engine.CacheStatus.MEMORY_STORED);
+
+		QRY_Engine.clearQueryResultMemoryCache();
+
+		Assert.isNull(QRY_Engine.getCopyFromMemoryCache(key), 'The cache should be empty after a clear');
+	}
+
+	/**
+	 * @description A user-mode cached read is kept in memory for the transaction: the first read is stored as a
+	 * user-mode result, and a repeat runs no query, reports itself cached and is served from memory.
+	 */
+	@IsTest
+	private static void userModeReadIsCachedInMemory()
+	{
+		Foobar__c row = TST_Factory.insertFoobar();
+		QRY_Builder.Builder query = buildFoobarRead(row.Name).withUserMode().withCache(CACHE_TIME_TO_LIVE_SECONDS);
+
+		QRY_Engine.QueryResult miss = executeThroughEngine(query);
+		Integer hitQueries = countQueriesOf(query);
+		Boolean hitReportedCached = query.isCached();
+		QRY_Engine.QueryResult hit = executeThroughEngine(query);
+
+		Assert.areEqual(QRY_Engine.CacheStatus.MEMORY_STORED_USER_MODE, miss.cacheStatus, 'The first read should be stored in memory as a user-mode result');
+		Assert.areEqual(0, hitQueries, 'A repeat of a user-mode cached read should run no query');
+		Assert.isTrue(hitReportedCached, 'The builder should report the repeat as cached');
+		Assert.areEqual(QRY_Engine.CacheStatus.MEMORY_HIT, hit.cacheStatus, 'A repeat should be served from memory');
+		Assert.areEqual(row.Id, hit.records[0].Id, 'The hit should carry the stored row');
+	}
+
+	/**
+	 * @description A user-mode read never reaches Platform Cache, even when it names the org scope: nothing is stored
+	 * under the key a system-mode read of the same query would use, with sharing enforced or bypassed.
+	 */
+	@IsTest
+	private static void userModeReadNeverReachesPlatformCache()
+	{
+		Foobar__c row = TST_Factory.insertFoobar();
+		QRY_Builder.Builder query = buildFoobarRead(row.Name).withUserMode().withCache(UTIL_Cache.Scope.ORG, CACHE_TIME_TO_LIVE_SECONDS);
+
+		QRY_Engine.QueryResult result = executeThroughEngine(query);
+		QRY_Engine.QueryParameters parameters = query.buildParameters(new QRY_BindRegistry());
+		parameters.enforceSharing = true;
+		String enforcedKey = QRY_Engine.generateCacheKey(parameters);
+		parameters.enforceSharing = false;
+		String bypassedKey = QRY_Engine.generateCacheKey(parameters);
+
+		Assert.areEqual(QRY_Engine.CacheStatus.MEMORY_STORED_USER_MODE, result.cacheStatus, 'A user-mode read should be kept in memory only');
+		Assert.isNull(UTIL_Cache.org().get(enforcedKey), 'A user-mode result must never be stored in Platform Cache');
+		Assert.isNull(UTIL_Cache.org().get(bypassedKey), 'A user-mode result must never be stored in Platform Cache under a bypassed key');
+	}
+
+	/**
+	 * @description A system-mode read that leaves its sharing to the calling class is never cached, even in memory:
+	 * the engine cannot see that sharing when it builds the key. Stating the sharing makes the same read cacheable.
+	 */
+	@IsTest
+	private static void systemModeInheritedSharingIsDeclined()
+	{
+		Foobar__c row = TST_Factory.insertFoobar();
+		QRY_Builder.Builder inherited = buildFoobarRead(row.Name).withSystemMode().withCache(UTIL_Cache.Scope.IN_TRANSACTION, null);
+		QRY_Builder.Builder bypassed = buildFoobarRead(row.Name).withSystemMode().bypassSharing().withCache(UTIL_Cache.Scope.IN_TRANSACTION, null);
+
+		QRY_Engine.QueryResult firstInherited = executeThroughEngine(inherited);
+		Integer secondInheritedQueries = countQueriesOf(inherited);
+		executeThroughEngine(bypassed);
+		Integer secondBypassedQueries = countQueriesOf(bypassed);
+
+		Assert.areEqual(QRY_Engine.CacheStatus.DECLINED_INHERITED_SHARING, firstInherited.cacheStatus, 'An inherited-sharing system-mode read should be declined');
+		Assert.areEqual(1, secondInheritedQueries, 'A repeat of an inherited-sharing system-mode read should run its query again');
+		Assert.areEqual(0, secondBypassedQueries, 'A repeat of the same read with sharing bypassed should be served from memory');
+	}
+
+	/**
+	 * @description A result read in system mode is never served to a user-mode read of the same query by the same
+	 * user. Both reads key as sharing enforced, so only the access mode in the in-memory key tells them apart.
+	 */
+	@IsTest
+	private static void inMemoryKeySeparatesAccessModes()
+	{
+		Foobar__c row = TST_Factory.insertFoobar();
+		QRY_Builder.Builder systemModeRead = buildFoobarRead(row.Name).withSystemMode().withSharing().withCache(UTIL_Cache.Scope.IN_TRANSACTION, null);
+		QRY_Builder.Builder userModeRead = buildFoobarRead(row.Name).withUserMode().withCache(UTIL_Cache.Scope.IN_TRANSACTION, null);
+
+		systemModeRead.toList();
+		Integer userModeQueries = countQueriesOf(userModeRead);
+
+		Assert.areEqual(1, userModeQueries, 'A user-mode read must run its own query, never take the system-mode result');
+	}
+
+	/**
+	 * @description A system-mode read that asks for the session scope, in a transaction with no session partition,
+	 * is kept in memory and reported as such, and nothing reaches the org partition. Where the precondition does not
+	 * hold (a session partition exists, or no org partition exists to prove the negative against), the test returns.
+	 */
+	@IsTest
+	private static void explicitSessionWithoutSessionPartitionGoesToMemory()
+	{
+		if(UTIL_Cache.isSessionAllocated() || !UTIL_Cache.isOrgAllocated())
+		{
+			return;
+		}
+		Foobar__c row = TST_Factory.insertFoobar();
+		QRY_Builder.Builder query = buildFoobarRead(row.Name).withSystemMode().bypassSharing().withCache(UTIL_Cache.Scope.SESSION, CACHE_TIME_TO_LIVE_SECONDS);
+
+		QRY_Engine.QueryResult result = executeThroughEngine(query);
+		String durableKey = QRY_Engine.generateCacheKey(query.buildParameters(new QRY_BindRegistry()));
+
+		Assert.areEqual(QRY_Engine.CacheStatus.MEMORY_STORED_NO_PARTITION, result.cacheStatus, 'With no session partition the read should be kept in memory');
+		Assert.isNull(UTIL_Cache.org().get(durableKey), 'A session-scope read must not be stored in the org partition');
+	}
+
+	/**
+	 * @description A system-mode read with sharing bypassed whose Platform Cache store is refused steps down to
+	 * memory: it is reported as kept in memory for want of a partition, and the same read again runs no query and is
+	 * served from memory.
+	 */
+	@IsTest
+	private static void systemModeReadStepsDownToMemoryWhenPlatformCacheRefuses()
+	{
+		Foobar__c row = TST_Factory.insertFoobar();
+		QRY_Builder.Builder query = buildFoobarRead(row.Name).withSystemMode().bypassSharing().withCache(CACHE_TIME_TO_LIVE_SECONDS);
+
+		QRY_Engine.QueryResult miss;
+		Integer hitQueries;
+		QRY_Engine.QueryResult hit;
+		UTIL_Cache.simulatePutException = true;
+		try
+		{
+			miss = executeThroughEngine(query);
+			hitQueries = countQueriesOf(query);
+			hit = executeThroughEngine(query);
+		}
+		finally
+		{
+			UTIL_Cache.simulatePutException = false;
+		}
+
+		Assert.areEqual(QRY_Engine.CacheStatus.MEMORY_STORED_NO_PARTITION, miss.cacheStatus, 'A refused Platform Cache store should step down to memory');
+		Assert.areEqual(0, hitQueries, 'The same read again should run no query');
+		Assert.areEqual(QRY_Engine.CacheStatus.MEMORY_HIT, hit.cacheStatus, 'The same read again should be served from memory');
+		Assert.areEqual(row.Id, hit.records[0].Id, 'The hit should carry the stored row');
+	}
+
+	/**
+	 * @description An aggregate query is never kept in memory: a user-mode cached aggregate read runs its query every
+	 * time and says why it was not cached.
+	 */
+	@IsTest
+	private static void aggregateQueryIsNotStoredInMemory()
+	{
+		QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+				.count(Foobar__c.Id, TOTAL_ALIAS)
+				.withUserMode()
+				.withCache(CACHE_TIME_TO_LIVE_SECONDS);
+
+		QRY_Engine.QueryResult first = executeThroughEngine(query);
+		Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+		query.toAggregateList();
+		Integer secondReadQueries = UTIL_Limits.soqlQueries().used() - queriesBefore;
+
+		Assert.areEqual(QRY_Engine.CacheStatus.DECLINED_AGGREGATE, first.cacheStatus, 'An aggregate read should be declined in memory');
+		Assert.areEqual(1, secondReadQueries, 'A repeat of an aggregate read should run its query again');
+	}
+
+	/**
+	 * @description A query with a child subquery is never kept in memory, because copying its rows would share the
+	 * child records between callers: a user-mode cached read with a builder subselect runs its query every time.
+	 */
+	@IsTest
+	private static void childSubqueryIsNotStoredInMemory()
+	{
+		QRY_Builder.Builder query = buildAccountRead()
+				.subselect(QRY_Builder.selectFrom(Contact.SObjectType).fields(new List<SObjectField> {Contact.LastName}), CONTACTS_RELATIONSHIP)
+				.withUserMode()
+				.withCache(CACHE_TIME_TO_LIVE_SECONDS);
+
+		QRY_Engine.QueryResult first = executeThroughEngine(query);
+		Integer secondReadQueries = countQueriesOf(query);
+
+		Assert.areEqual(QRY_Engine.CacheStatus.DECLINED_CHILD_SUBQUERY, first.cacheStatus, 'A read with a child subquery should be declined in memory');
+		Assert.areEqual(1, secondReadQueries, 'A repeat of a read with a child subquery should run its query again');
+	}
+
+	/**
+	 * @description A child subquery added as a raw field string is found in the query text and declined like a
+	 * builder subselect, so a check of the builder's own subselects alone would not be enough.
+	 */
+	@IsTest
+	private static void rawStringChildSubqueryIsNotStoredInMemory()
+	{
+		QRY_Builder.Builder query = buildAccountRead()
+				.addField('(SELECT LastName FROM ' + CONTACTS_RELATIONSHIP + ')')
+				.withUserMode()
+				.withCache(CACHE_TIME_TO_LIVE_SECONDS);
+
+		QRY_Engine.QueryResult first = executeThroughEngine(query);
+		Integer secondReadQueries = countQueriesOf(query);
+
+		Assert.areEqual(QRY_Engine.CacheStatus.DECLINED_CHILD_SUBQUERY, first.cacheStatus, 'A raw-string child subquery should be declined in memory');
+		Assert.areEqual(1, secondReadQueries, 'A repeat of a read with a raw-string child subquery should run its query again');
+	}
+
+	/**
+	 * @description A semi-join is a filter, not a child subquery, so a user-mode cached read filtered by one is kept
+	 * in memory: its repeat runs no query.
+	 */
+	@IsTest
+	private static void semiJoinReadIsStoredInMemory()
+	{
+		QRY_Builder.Builder query = buildAccountRead()
+				.condition(Account.Id).isIn(QRY_Builder.selectFrom(Contact.SObjectType).fields(new List<SObjectField> {Contact.AccountId}))
+				.withUserMode()
+				.withCache(CACHE_TIME_TO_LIVE_SECONDS);
+
+		query.toList();
+		Integer secondReadQueries = countQueriesOf(query);
+
+		Assert.areEqual(0, secondReadQueries, 'A repeat of a semi-join read should be served from memory');
+	}
+
+	/**
+	 * @description The memory-only decline of child subqueries leaves Platform Cache alone: a system-mode read with
+	 * sharing bypassed and a subselect is still stored in the org partition. Where no org partition exists the test
+	 * returns.
+	 */
+	@IsTest
+	private static void durableChildSubqueryReadIsStillStored()
+	{
+		if(!UTIL_Cache.isOrgAllocated())
+		{
+			return;
+		}
+		QRY_Builder.Builder query = buildAccountRead()
+				.subselect(QRY_Builder.selectFrom(Contact.SObjectType).fields(new List<SObjectField> {Contact.LastName}), CONTACTS_RELATIONSHIP)
+				.withSystemMode()
+				.bypassSharing()
+				.withCache(UTIL_Cache.Scope.ORG, CACHE_TIME_TO_LIVE_SECONDS);
+
+		QRY_Engine.QueryResult result = executeThroughEngine(query);
+
+		Assert.areEqual(QRY_Engine.CacheStatus.STORED, result.cacheStatus, 'A system-mode read with a child subquery should still be kept in Platform Cache');
+	}
+
+	/**
+	 * @description Checks that every Platform Cache hit is a fresh copy. The Platform Cache store serializes a value
+	 * when it keeps it and rebuilds it on every read, so no caller sees another's unsaved edits, child records
+	 * included: an edit to the rows a miss returned reaches no hit, two hits share no list, record or child record,
+	 * and an edit to one hit's row or child leaves the other's alone. The test fails if a change to the store stops
+	 * copying. The rows are Foobar__c records, a parent and a child linked by its lookup to another Foobar__c, because
+	 * a package test never saves a standard object: an org's own rules on a standard object could refuse the save.
+	 * Where no org partition exists the test returns.
+	 */
+	@IsTest
+	private static void durableHitIsolatesEveryCaller()
+	{
+		if(!UTIL_Cache.isOrgAllocated())
+		{
+			return;
+		}
+		Foobar__c parent = TST_Factory.insertFoobar();
+		Foobar__c child = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Name, UTIL_Random.randomName())
+				.withOverride(Foobar__c.Lookup__c, parent.Id)
+				.build();
+		QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+				.fields(new List<SObjectField> {Foobar__c.Name})
+				.subselect(QRY_Builder.selectFrom(Foobar__c.SObjectType).fields(new List<SObjectField> {Foobar__c.Name}), SEL_Foobar.RELATIONSHIP_FOOBARS)
+				.condition(Foobar__c.Id).equals(parent.Id)
+				.withSystemMode()
+				.bypassSharing()
+				.withCache(UTIL_Cache.Scope.ORG, CACHE_TIME_TO_LIVE_SECONDS);
+
+		QRY_Engine.QueryResult miss = executeThroughEngine(query);
+		miss.records[0].put(Foobar__c.Name, UTIL_Random.randomName());
+		miss.records[0].getSObjects(SEL_Foobar.RELATIONSHIP_FOOBARS)[0].put(Foobar__c.Name, UTIL_Random.randomName());
+		QRY_Engine.QueryResult firstHit = executeThroughEngine(query);
+		QRY_Engine.QueryResult secondHit = executeThroughEngine(query);
+		SObject firstHitChild = firstHit.records[0].getSObjects(SEL_Foobar.RELATIONSHIP_FOOBARS)[0];
+		SObject secondHitChild = secondHit.records[0].getSObjects(SEL_Foobar.RELATIONSHIP_FOOBARS)[0];
+		Object firstHitName = firstHit.records[0].get(Foobar__c.Name);
+		Object firstHitChildName = firstHitChild.get(Foobar__c.Name);
+		firstHit.records[0].put(Foobar__c.Name, UTIL_Random.randomName());
+		firstHitChild.put(Foobar__c.Name, UTIL_Random.randomName());
+
+		Assert.areEqual(QRY_Engine.CacheStatus.STORED, miss.cacheStatus, 'The first read should be kept in Platform Cache');
+		Assert.areEqual(QRY_Engine.CacheStatus.HIT, firstHit.cacheStatus, 'The second read should be a Platform Cache hit');
+		Assert.areEqual(QRY_Engine.CacheStatus.HIT, secondHit.cacheStatus, 'The third read should be a Platform Cache hit');
+		Assert.areEqual(parent.Name, firstHitName, 'A hit should carry the stored name, not the unsaved edit made to the rows the miss returned');
+		Assert.areEqual(child.Name, firstHitChildName, 'A hit\'s child should carry the stored name, not the unsaved edit made to the miss');
+		Assert.areEqual(parent.Name, secondHit.records[0].get(Foobar__c.Name), 'A hit should carry the stored name, not another caller\'s unsaved edit');
+		Assert.areEqual(child.Name, secondHitChild.get(Foobar__c.Name), 'A hit\'s child should carry the stored name, not another caller\'s edit');
+		Assert.isTrue(firstHit.records !== secondHit.records, 'Two hits should not share a list');
+		Assert.isTrue(firstHit.records[0] !== secondHit.records[0], 'Two hits should not share a record');
+		Assert.isTrue(firstHitChild !== secondHitChild, 'Two hits should not share a child record');
+	}
+
+	/**
+	 * @description The Platform Cache store for a scope is built once per transaction and reused: after two cached
+	 * reads with different filters, the engine holds exactly one store, for the automatic scope.
+	 */
+	@IsTest
+	private static void durableStoreProbesOncePerTransaction()
+	{
+		List<Foobar__c> rows = TST_Factory.insertFoobars(2);
+
+		buildFoobarRead(rows[0].Name).withSystemMode().bypassSharing().withCache(CACHE_TIME_TO_LIVE_SECONDS).toList();
+		buildFoobarRead(rows[1].Name).withSystemMode().bypassSharing().withCache(CACHE_TIME_TO_LIVE_SECONDS).toList();
+
+		Assert.areEqual(1, QRY_Engine.DURABLE_STORE_BY_SCOPE.size(), 'One store should serve every read of a scope');
+		Assert.isTrue(QRY_Engine.DURABLE_STORE_BY_SCOPE.containsKey(UTIL_Cache.Scope.AUTO), 'The store should be held for the automatic scope');
+	}
+
+	/**
+	 * @description The Platform Cache key is byte-for-byte what it was before the in-memory cache existed, so entries
+	 * already stored keep being found: a plain bypassed read is shared by every user, and a bypassed read with a
+	 * date literal read in the user's time zone is kept per user.
+	 */
+	@IsTest
+	private static void generateCacheKeyIsUnchanged()
+	{
+		QRY_Engine.QueryParameters plainRead = new QRY_Engine.QueryParameters();
+		plainRead.queryString = 'SELECT Id FROM Account WHERE Name = :b1';
+		plainRead.bindMap = new Map<String, Object> {'b1' => 'Cache key probe'};
+		plainRead.enforceSharing = false;
+		QRY_Engine.QueryParameters todayRead = new QRY_Engine.QueryParameters();
+		todayRead.queryString = 'SELECT Id FROM Account WHERE LastActivityDate = TODAY';
+		todayRead.enforceSharing = false;
+
+		Assert.areEqual('QRY:SELECT ID FROM ACCOUNT WHERE NAME = :B1:{"b1":"Cache key probe"}:SHARING=BYPASSED', QRY_Engine.generateCacheKey(plainRead),
+				'A plain bypassed read should keep its shared key');
+		Assert.areEqual('QRY:SELECT ID FROM ACCOUNT WHERE LASTACTIVITYDATE = TODAY::SHARING=BYPASSED:USER=' + UserInfo.getUserId(),
+				QRY_Engine.generateCacheKey(todayRead), 'A bypassed read that depends on the user should keep its per-user key');
+	}
+
+	/**
+	 * @description A memory hit costs no more heap than running the query: serving 200 rows from memory grows the
+	 * heap by no more than the same read without caching, plus a small margin for the result wrapper a hit allocates.
+	 */
+	@IsTest
+	private static void hitUsesNoMoreHeapThanTheQuery()
+	{
+		String sharedName = UTIL_Random.randomAlphanumeric(MEMORY_CACHE_VALUE_LENGTH);
+		TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Name, sharedName).withCount(QRY_Engine.MEMORY_CACHE_ROW_LIMIT).buildList();
+		QRY_Builder.Builder uncachedRead = buildFoobarRead(sharedName).withUserMode().withoutCache();
+		QRY_Builder.Builder cachedRead = buildFoobarRead(sharedName).withUserMode().withCache(CACHE_TIME_TO_LIVE_SECONDS);
+		cachedRead.toList();
+
+		Integer heapBefore = UTIL_Limits.heapSize().used();
+		List<SObject> queriedRows = uncachedRead.toList();
+		Integer queryGrowth = UTIL_Limits.heapSize().used() - heapBefore;
+		heapBefore = UTIL_Limits.heapSize().used();
+		List<SObject> hitRows = cachedRead.toList();
+		Integer hitGrowth = UTIL_Limits.heapSize().used() - heapBefore;
+
+		Assert.isTrue(cachedRead.isCached(), 'The measured cached read should be a memory hit');
+		Assert.areEqual(queriedRows.size(), hitRows.size(), 'Both reads should return every row');
+		Assert.isTrue(hitGrowth <= queryGrowth + HIT_HEAP_MARGIN_BYTES,
+				'A memory hit grew the heap by ' + hitGrowth + ' bytes against ' + queryGrowth + ' for the query');
+	}
+
+	/**
+	 * @description Read shapes that are never cached stay uncached when the transaction scope is requested: a row
+	 * lock, ALL ROWS and random sampling each run their query again on a repeat.
+	 */
+	@IsTest
+	private static void neverCachedShapesStayUncached()
+	{
+		Foobar__c row = TST_Factory.insertFoobar();
+		QRY_Builder.Builder lockedRead = buildFoobarRead(row.Name).withUserMode().withCache(UTIL_Cache.Scope.IN_TRANSACTION, null).forUpdate();
+		QRY_Builder.Builder allRowsRead = buildFoobarRead(row.Name).withUserMode().withCache(UTIL_Cache.Scope.IN_TRANSACTION, null).allRows();
+		QRY_Builder.Builder randomRead = buildFoobarRead(row.Name).withUserMode().withCache(UTIL_Cache.Scope.IN_TRANSACTION, null);
+
+		lockedRead.toList();
+		Integer lockedRepeatQueries = countQueriesOf(lockedRead);
+		allRowsRead.toList();
+		Integer allRowsRepeatQueries = countQueriesOf(allRowsRead);
+		Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+		randomRead.getRandomItem();
+		Integer randomFirstQueries = UTIL_Limits.soqlQueries().used() - queriesBefore;
+		queriesBefore = UTIL_Limits.soqlQueries().used();
+		randomRead.getRandomItem();
+		Integer randomRepeatQueries = UTIL_Limits.soqlQueries().used() - queriesBefore;
+
+		Assert.areEqual(1, lockedRepeatQueries, 'A repeat of a FOR UPDATE read should run its query again');
+		Assert.areEqual(1, allRowsRepeatQueries, 'A repeat of an ALL ROWS read should run its query again');
+		Assert.isTrue(randomFirstQueries > 0, 'A random read should run a query');
+		Assert.areEqual(randomFirstQueries, randomRepeatQueries, 'A repeat of a random read should run its queries again');
+	}
+
+	/**
+	 * @description A write to any object empties the memory cache, because a write can change a cached read through
+	 * roll-ups, formulas or triggers: after a builder inserts a log entry record, a repeat of a cached read of
+	 * Foobar__c rows runs its query again. The written object is one the package owns, because a package test never
+	 * saves a standard object: an org's own rules on a standard object could refuse the save.
+	 */
+	@IsTest
+	private static void builderWriteToAnotherObjectEmptiesTheMemoryCache()
+	{
+		Foobar__c row = TST_Factory.insertFoobar();
+		QRY_Builder.Builder query = buildFoobarRead(row.Name).withUserMode().withCache(CACHE_TIME_TO_LIVE_SECONDS);
+		query.toList();
+		Integer queriesBeforeTheWrite = countQueriesOf(query);
+
+		DML_Builder.newTransaction().withSystemMode().doInsert(TST_Builder.of(LogEntry__c.SObjectType).withoutInsertion().build()).execute();
+		Integer queriesAfterTheWrite = countQueriesOf(query);
+
+		Assert.areEqual(0, queriesBeforeTheWrite, 'Before the write the repeat should be served from memory');
+		Assert.areEqual(1, queriesAfterTheWrite, 'After a write to another object the repeat should run its query again');
+	}
+
+	/**
+	 * @description A read after a builder update sees the new value: the cached read made before the update is not
+	 * served after it.
+	 */
+	@IsTest
+	private static void readAfterBuilderUpdateSeesNewValue()
+	{
+		Foobar__c row = TST_Factory.insertFoobar();
+		QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+				.fields(new List<SObjectField> {Foobar__c.Name})
+				.condition(Foobar__c.Id).equals(row.Id)
+				.withUserMode()
+				.withCache(CACHE_TIME_TO_LIVE_SECONDS);
+		query.toList();
+		row.Name = UTIL_Random.randomName();
+
+		DML_Builder.newTransaction().withSystemMode().doUpdate(row).execute();
+		List<SObject> rowsAfterTheUpdate = query.toList();
+
+		Assert.areEqual(1, rowsAfterTheUpdate.size(), 'The read after the update should return the one row');
+		Assert.areEqual(row.Name, rowsAfterTheUpdate[0].get(FIELD_NAME), 'A read after the update should see the new value');
+	}
+
+	/**
+	 * @description Builds a read of Foobar__c rows by name, selecting the name.
+	 *
+	 * @param name The name to filter on
+	 *
+	 * @return The builder
+	 */
+	private static QRY_Builder.Builder buildFoobarRead(String name)
+	{
+		return QRY_Builder.selectFrom(Foobar__c.SObjectType).fields(new List<SObjectField> {Foobar__c.Name}).condition(Foobar__c.Name).equals(name);
+	}
+
+	/**
+	 * @description Builds a read of accounts selecting the name, for the child subquery and semi-join tests.
+	 *
+	 * @return The builder
+	 */
+	private static QRY_Builder.Builder buildAccountRead()
+	{
+		return QRY_Builder.selectFrom(Account.SObjectType).fields(new List<SObjectField> {Account.Name});
+	}
+
+	/**
+	 * @description Runs a builder's query through the engine with the parameters the builder itself builds, so the
+	 * caller can read the cache status the engine reports.
+	 *
+	 * @param query The builder
+	 *
+	 * @return The engine's result
+	 */
+	private static QRY_Engine.QueryResult executeThroughEngine(QRY_Builder.Builder query)
+	{
+		return QRY_Engine.execute(query.buildParameters(new QRY_BindRegistry()));
+	}
+
+	/**
+	 * @description Runs a builder's query and counts the SOQL queries it used.
+	 *
+	 * @param query The builder
+	 *
+	 * @return The number of queries the read used
+	 */
+	private static Integer countQueriesOf(QRY_Builder.Builder query)
+	{
+		Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+		query.toList();
+		return UTIL_Limits.soqlQueries().used() - queriesBefore;
 	}
 }

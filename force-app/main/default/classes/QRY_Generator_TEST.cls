@@ -9,16 +9,20 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class QRY_Generator_TEST
 {
 	/**
 	 * @description Test object name.
 	 */
 	private static final String TEST_OBJECT = 'Account';
+
+	/**
+	 * @description The field most tests select, sort by or count. The tests check the generated query text for it.
+	 */
 	private static final String FIELD_NAME = 'Name';
 
 	/**
@@ -1586,11 +1590,11 @@ private class QRY_Generator_TEST
 	}
 
 	/**
-	 * @description Verifies the aggregate clause emits a grouped-and-aliased-projected expression once:
-	 * the GROUP BY echo is suppressed because the aliased projection already covers it.
+	 * @description Verifies that an expression that is both grouped and selected under an alias appears only once
+	 * in the aggregate clause: the GROUP BY echo is skipped because the aliased entry in the field list already covers it.
 	 */
 	@IsTest
-	private static void aggregateGroupedAndAliasProjectedExpressionEmittedOnce()
+	private static void aggregateGroupedAndAliasSelectedExpressionAppearsOnce()
 	{
 		String monthExpression = 'CALENDAR_MONTH(CreatedDate)';
 
@@ -1601,11 +1605,11 @@ private class QRY_Generator_TEST
 
 		String selectClause = generator.toSoql().substringBetween('SELECT ', ' FROM');
 
-		Assert.areEqual('COUNT(Id) count_Id, ' + monthExpression + ' createdMonth', selectClause, 'Grouped-and-aliased-projected expression must appear once in SELECT');
+		Assert.areEqual('COUNT(Id) count_Id, ' + monthExpression + ' createdMonth', selectClause, 'Expected a grouped expression with its own alias to appear once in SELECT');
 	}
 
 	/**
-	 * @description Regression guard: a plain grouped field with no aliased projection is still echoed
+	 * @description Regression guard: a plain grouped field with no aliased entry in the field list is still echoed
 	 * into the aggregate SELECT clause.
 	 */
 	@IsTest
@@ -1621,11 +1625,11 @@ private class QRY_Generator_TEST
 	}
 
 	/**
-	 * @description Regression guard: a GROUPING() projection and its grouped field are both preserved
-	 * in the aggregate SELECT clause after the de-dup change.
+	 * @description Regression guard: a selected GROUPING() function and its grouped field are both preserved
+	 * in the aggregate SELECT clause: neither is treated as a duplicate.
 	 */
 	@IsTest
-	private static void aggregateGroupingExpressionPreservedWithDedup()
+	private static void shouldKeepGroupingExpressionAndItsGroupedFieldInAggregateSelect()
 	{
 		QRY_Generator generator = new QRY_Generator(Account.SObjectType)
 				.selectCount('Id')

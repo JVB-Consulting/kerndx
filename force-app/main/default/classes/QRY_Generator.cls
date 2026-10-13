@@ -18,7 +18,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessivePublicCount,PMD.ExcessiveClassLength')
 public inherited sharing class QRY_Generator
@@ -161,11 +161,19 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Static constants for inner enum values — required because Apex prohibits
+	 * @description Static constants for inner enum values, required because Apex prohibits
 	 * referencing inner enum static fields from outer-class instance methods.
 	 */
 	private static final LockMode LOCK_FOR_UPDATE = LockMode.FOR_UPDATE;
+	/**
+	 * @description Short name for LockMode.FOR_REFERENCE, which forReference stores so the generated query ends with FOR REFERENCE.
+	 * The short name exists for the same reason as LOCK_FOR_UPDATE.
+	 */
 	private static final LockMode LOCK_FOR_REFERENCE = LockMode.FOR_REFERENCE;
+	/**
+	 * @description Short name for LockMode.FOR_VIEW, which forView stores so the generated query ends with FOR VIEW. The short name
+	 * exists for the same reason as LOCK_FOR_UPDATE.
+	 */
 	private static final LockMode LOCK_FOR_VIEW = LockMode.FOR_VIEW;
 
 	/**
@@ -188,8 +196,6 @@ public inherited sharing class QRY_Generator
 	 * order after the legacy single aggregate (when one is set). Multiple selections let one query fold
 	 * several aggregates (e.g. COUNT + MIN + MAX) without falling back to hand-written SOQL. Lazy-loaded
 	 * on first access.
-	 *
-	 * @date July 2026
 	 */
 	private final List<String> aggregateSelections
 	{
@@ -208,8 +214,6 @@ public inherited sharing class QRY_Generator
 	 * @description Lowercased aliases already claimed by aggregate selections, so a duplicate alias is
 	 * rejected when it is registered instead of surfacing as a QueryException at query time. Lowercased
 	 * because SOQL treats aliases case-insensitively. Lazy-loaded on first access.
-	 *
-	 * @date July 2026
 	 */
 	private final Set<String> usedSelectAliases
 	{
@@ -547,7 +551,7 @@ public inherited sharing class QRY_Generator
 	/**
 	 * @description Adds an ORDER BY clause.
 	 *
-	 * @param orderBy The order by specification.
+	 * @param orderBy The ORDER BY entry to add.
 	 *
 	 * @return The current generator for method chaining.
 	 */
@@ -669,7 +673,7 @@ public inherited sharing class QRY_Generator
 	/**
 	 * @description Adds a WITH DATA CATEGORY filter.
 	 *
-	 * @param filter The data category filter specification.
+	 * @param filter The data category filter to add.
 	 *
 	 * @return The current generator for method chaining.
 	 */
@@ -842,8 +846,6 @@ public inherited sharing class QRY_Generator
 	 * @throws IllegalArgumentException if fieldName is blank, the alias is not a bare identifier, or the
 	 * alias duplicates an earlier aggregate selection.
 	 *
-	 * @date July 2026
-	 *
 	 * @example
 	 * ```apex
 	 * generator.selectAggregate(QRY_Generator.Aggregate.COUNT, 'Id', 'rowTotal');
@@ -868,7 +870,7 @@ public inherited sharing class QRY_Generator
 	 * @description Validates a SELECT result alias as a bare identifier (a letter followed by letters,
 	 * digits or underscores), so a caller-supplied alias can never carry SOQL syntax into a generated
 	 * clause. Guards every explicit-alias entry point: the aliased aggregate selections and the
-	 * QRY_Function projection alias. Surrounding whitespace is trimmed rather than rejected — SOQL
+	 * alias of a selected QRY_Function. Surrounding whitespace is trimmed rather than rejected: SOQL
 	 * itself ignores padding around an alias, so padding must not break a caller that worked before
 	 * validation existed.
 	 *
@@ -877,8 +879,6 @@ public inherited sharing class QRY_Generator
 	 * @return The validated alias, trimmed of surrounding whitespace.
 	 *
 	 * @throws IllegalArgumentException if the alias is blank or not a bare identifier.
-	 *
-	 * @date July 2026
 	 *
 	 * @example
 	 * ```apex
@@ -1106,10 +1106,7 @@ public inherited sharing class QRY_Generator
 			distinctFieldsMap.put(fieldStr?.toLowerCase(), fieldStr);
 		}
 
-		List<String> distinctFields = distinctFieldsMap.values();
-		distinctFields.sort();
-
-		return String.join(distinctFields, FIELD_SEPARATOR);
+		return UTIL_String.joinSorted(new Set<String>(distinctFieldsMap.values()), FIELD_SEPARATOR);
 	}
 
 	/**
@@ -1142,9 +1139,9 @@ public inherited sharing class QRY_Generator
 	 * @description Builds the aggregate clause. Emits the legacy single aggregate function (with its
 	 * auto-alias) when one is set, then every explicitly aliased aggregate selection in call order,
 	 * echoes the GROUP BY expressions into SELECT, and appends any parenthesised SELECT expressions
-	 * (e.g. GROUPING(...) or a date-function projection). A GROUP BY expression that is also projected
-	 * under an explicit alias is echoed only once — the aliased projection wins — so a date function
-	 * grouped and projected together is not emitted twice. A field-less COUNT() is rejected here when
+	 * (e.g. GROUPING(...) or a selected date function). A GROUP BY expression that is also selected
+	 * under an explicit alias is echoed only once (the aliased field wins), so a date function
+	 * grouped and selected together is not emitted twice. A field-less COUNT() is rejected here when
 	 * aliased selections are present: SOQL allows COUNT() only as the sole SELECT entry, so the
 	 * combination would otherwise fail at query time with an opaque parser error.
 	 *
@@ -1197,10 +1194,10 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Determines whether a GROUP BY expression is already projected in SELECT under an
+	 * @description Determines whether a GROUP BY expression is already in SELECT under an
 	 * explicit alias (i.e. a SELECT field of the form "<expression> <alias>"). When it is, echoing the
-	 * bare GROUP BY expression into SELECT would duplicate it, because the parenthesised-projection pass
-	 * re-adds the aliased form. A plain grouped field with no separate aliased projection returns false,
+	 * bare GROUP BY expression into SELECT would duplicate it, because the pass that adds parenthesised fields
+	 * re-adds the aliased form. A plain grouped field with no separate aliased entry in the field list returns false,
 	 * so its GROUP BY echo is preserved unchanged.
 	 *
 	 * @param groupExpression The GROUP BY expression under test (e.g. CALENDAR_MONTH(CloseDate)).
@@ -1383,7 +1380,7 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Represents an ORDER BY specification.
+	 * @description Represents one ORDER BY entry.
 	 */
 	public class OrderBy
 	{

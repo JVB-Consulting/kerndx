@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Unit tests for the pre-built `MaskingRule__mdt` records shipped with the
- * package. Each test loads a rule by DeveloperName, applies its pattern/replacement/mode to
- * a canonical sample input, and asserts the output matches the expected redaction. Catches
- * drift if a shipped rule's Pattern or Replacement is edited without updating the contract
- * these rules are documented to fulfil.
+ * @description Unit tests for the ready-made `MaskingRule__mdt` records shipped with the
+ * package. Each test loads a rule by DeveloperName, applies its pattern, replacement and mode to
+ * a standard sample input, and asserts that the output is masked as expected. Fails if a shipped
+ * rule's Pattern or Replacement is edited and the rule no longer does what its documentation says.
  *
  * @see UTIL_FrameworkMasker
  * @see UTIL_String
@@ -13,17 +12,17 @@
  *
  * @group Data Masking
  *
- * @date April 2026, June 2026
+ * @date April 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 private class MaskingRules_TEST
 {
 	/**
-	 * @description Current-generation card pattern (the Luhn-gated digit run) shipped on the
-	 * Mask Payment Card Numbers successor rule. Mirrors the shipped record so guarded pins can
-	 * assert the engine guarantee even in orgs whose installed records are tuned or predate the
-	 * supersession split.
+	 * @description The current card pattern (a run of digits checked with the Luhn checksum) shipped on
+	 * the Mask Payment Card Numbers successor rule. A copy of the shipped value, so the card tests can
+	 * still check what the engine guarantees in orgs whose installed records were tuned, or were
+	 * installed before the newer rule replaced the older one.
 	 */
 	private static final String CREDIT_CARD_CURRENT_PATTERN = '\\b\\d(?:[ -]?\\d){12,18}\\b';
 
@@ -70,15 +69,15 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that a hyphen-separated 16-digit card number redacts — strict against
-	 * the live superseded MaskCreditCard record while it carries its shipped 1.0 values, and
-	 * against the current-generation pattern directly in tuned orgs (subscriber tuning is
-	 * permitted and must not fail the package's own tests).
+	 * @description Tests that a hyphen-separated 16-digit card number is masked. The test is strict
+	 * against the installed MaskCreditCard record (now replaced by a successor) while it keeps its
+	 * shipped 1.0 values. In tuned orgs it checks the current pattern directly instead (subscribers may
+	 * tune rules, and that must not fail the package's own tests).
 	 */
 	@IsTest
 	private static void shouldMaskCreditCard()
 	{
-		if(predecessorMatchesShippedValues())
+		if(isPredecessorUntuned())
 		{
 			assertRuleMasks(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, 'card 4111-1111-1111-1111 saved', 'card [CARD_REDACTED] saved');
 			return;
@@ -88,8 +87,8 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that MaskCreditCard ships with FailureAction = BlockDml so a broken
-	 * config aborts the DML rather than silently leaking cardholder data.
+	 * @description Tests that MaskCreditCard ships with FailureAction = BlockDml, so a broken setup
+	 * stops the DML instead of quietly leaking cardholder data.
 	 */
 	@IsTest
 	private static void shouldShipCreditCardWithBlockDmlFailureAction()
@@ -200,8 +199,8 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that MaskMedicareBeneficiaryId redacts an 11-character MBI per the
-	 * CMS positional format.
+	 * @description Tests that MaskMedicareBeneficiaryId redacts an 11-character MBI that follows the
+	 * CMS format, where each position allows certain characters.
 	 */
 	@IsTest
 	private static void shouldMaskMedicareBeneficiaryId()
@@ -281,8 +280,8 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that MaskIpv4Private ships inactive — opt-in for subscribers whose
-	 * compliance scope treats internal IPs as sensitive identifiers.
+	 * @description Tests that MaskIpv4Private ships inactive. Subscribers switch it on when their
+	 * compliance rules treat internal IP addresses as sensitive.
 	 */
 	@IsTest
 	private static void shouldShipIpv4PrivateInactive()
@@ -310,8 +309,8 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that MaskSwiftBic is case-sensitive — lowercase strings matching the
-	 * BIC shape should NOT be redacted (protects against matching normal lowercase prose).
+	 * @description Tests that MaskSwiftBic is case-sensitive: lower-case text with the BIC shape
+	 * must NOT be redacted (so the rule does not match normal lower-case words).
 	 */
 	@IsTest
 	private static void shouldNotMaskLowercaseSwiftBic()
@@ -320,7 +319,7 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that MaskAwsAccessKey is case-sensitive — lowercase akia strings
+	 * @description Tests that MaskAwsAccessKey is case-sensitive: lower-case akia text
 	 * should NOT be redacted.
 	 */
 	@IsTest
@@ -433,14 +432,14 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that the 15-digit Amex card length redacts — strict against the live
-	 * superseded MaskCreditCard record while it carries its shipped 1.0 values, and against the
-	 * current-generation pattern directly in tuned orgs.
+	 * @description Tests that a 15-digit Amex card is masked. The test is strict against the installed
+	 * MaskCreditCard record (now replaced by a successor) while it keeps its shipped 1.0 values, and
+	 * checks the current pattern directly in tuned orgs.
 	 */
 	@IsTest
 	private static void shouldMaskCreditCard15DigitAmex()
 	{
-		if(predecessorMatchesShippedValues())
+		if(isPredecessorUntuned())
 		{
 			assertRuleMasks(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, 'amex 378282246310005 saved', 'amex [CARD_REDACTED] saved');
 			return;
@@ -451,15 +450,15 @@ private class MaskingRules_TEST
 
 	/**
 	 * @description Tests that Mask Payment Card Numbers does NOT redact a 13-digit millisecond
-	 * timestamp. The digit-run pattern matches the 13-digit value, but it fails the Luhn
-	 * (mod-10) checksum, so the Luhn gate leaves it untouched — guarding the false positive a
-	 * subscriber test (SubscriberChainSteps_TEST) hit when its correlation ID
-	 * `correlation-1776297919466` was partially redacted.
+	 * timestamp. The digit-run pattern matches the 13-digit value, but the value fails the Luhn
+	 * (mod-10) checksum, so the Luhn check leaves it alone. This guards against a false match that a
+	 * subscriber test (SubscriberChainSteps_TEST) hit when part of its correlation ID
+	 * `correlation-1776297919466` was redacted.
 	 */
 	@IsTest
 	private static void shouldNotMaskTimestampDigits()
 	{
-		if(successorMatchesShippedValues())
+		if(isSuccessorUntuned())
 		{
 			assertRuleMasks(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD, 'correlation-1776297919466 saved', 'correlation-1776297919466 saved');
 			return;
@@ -469,14 +468,14 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that 16 digits separated by spaces redact — strict against the live
-	 * superseded MaskCreditCard record while it carries its shipped 1.0 values, and against the
-	 * current-generation pattern directly in tuned orgs.
+	 * @description Tests that 16 digits separated by spaces are masked. The test is strict against the
+	 * installed MaskCreditCard record (now replaced by a successor) while it keeps its shipped 1.0
+	 * values, and checks the current pattern directly in tuned orgs.
 	 */
 	@IsTest
 	private static void shouldMaskCreditCardWithSpaces()
 	{
-		if(predecessorMatchesShippedValues())
+		if(isPredecessorUntuned())
 		{
 			assertRuleMasks(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, 'card 4111 1111 1111 1111 saved', 'card [CARD_REDACTED] saved');
 			return;
@@ -486,18 +485,17 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Regression guard for the 2-series Mastercard fix. Standard 16-digit
-	 * Mastercard 2-series cards (BIN range 2221-2720, issued since 2017) must redact. The
-	 * superseded MaskCreditCard issuer-union pattern never matched them; the successor's
-	 * Luhn-gated digit-run pattern does. Strict only while the installed successor matches its
-	 * shipped fingerprint — subscriber tuning is permitted and must not fail the package's own
-	 * tests; the engine guarantee is then pinned against the current-generation pattern
-	 * directly.
+	 * @description Guards the 2-series Mastercard fix. Standard 16-digit Mastercard 2-series cards
+	 * (BIN range 2221-2720, issued since 2017) must be masked. The older MaskCreditCard pattern, built
+	 * from a list of issuers, never matched them; the successor's Luhn-checked digit-run pattern does.
+	 * The test is strict only while the installed successor matches its shipped fingerprint.
+	 * Subscribers may tune rules, and that must not fail the package's own tests, so in that case the
+	 * test checks what the engine guarantees against the current pattern directly.
 	 */
 	@IsTest
 	private static void shouldMaskTwoSeriesMastercard()
 	{
-		if(successorMatchesShippedValues())
+		if(isSuccessorUntuned())
 		{
 			assertRuleMasks(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD, 'card 2223000048400011 saved', 'card [CARD_REDACTED] saved');
 			return;
@@ -508,13 +506,13 @@ private class MaskingRules_TEST
 
 	/**
 	 * @description Tests that Mask Payment Card Numbers redacts a 19-digit card (the longest
-	 * supported length) — here a UnionPay number. The successor's Luhn-gated digit-run pattern
-	 * accepts the full 13-19 digit range.
+	 * supported length), here a UnionPay number. The successor's Luhn-checked digit-run pattern
+	 * accepts every length from 13 to 19 digits.
 	 */
 	@IsTest
 	private static void shouldMaskNineteenDigitCard()
 	{
-		if(successorMatchesShippedValues())
+		if(isSuccessorUntuned())
 		{
 			assertRuleMasks(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD, 'card 6205500000000000004 saved', 'card [CARD_REDACTED] saved');
 			return;
@@ -524,12 +522,11 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that Mask Payment Card Numbers ships with MinInputLength 13 so the
-	 * shortest supported card length (a 13-digit Visa) is not suppressed by the length floor
-	 * before the Luhn-gated pattern runs. Strict only while the installed record matches its
-	 * shipped fingerprint — subscriber tuning of the successor (including blanking the floor)
-	 * is permitted and must not fail the package's own tests; tuned orgs assert the shipped
-	 * 13-digit pattern coverage directly instead.
+	 * @description Tests that Mask Payment Card Numbers ships with MinInputLength 13, so the shortest
+	 * supported card length (a 13-digit Visa) is not skipped by the minimum length before the
+	 * Luhn-checked pattern runs. The test is strict only while the installed record matches its
+	 * shipped fingerprint. Subscribers may tune the successor (even clear the minimum length), and that
+	 * must not fail the package's own tests, so tuned orgs check the shipped 13-digit pattern directly.
 	 */
 	@IsTest
 	private static void shouldShipPaymentCardWithThirteenDigitMinInputLength()
@@ -547,12 +544,12 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description The superseded MaskCreditCard record intentionally ships its 1.0 values — the
-	 * successor (Mask Payment Card Numbers) carries the current behaviour. DO NOT "modernise" the
-	 * predecessor record: identical shipped values are what make fresh installs and upgraded orgs
-	 * behave the same, and the supersession fingerprint depends on them. In orgs where the record
-	 * was customised (or installed from a pre-release 1.1 build) it legitimately differs — there
-	 * the rule must simply remain un-suppressed.
+	 * @description Tests that the MaskCreditCard record, now replaced by a successor, still ships its
+	 * 1.0 values on purpose. The successor (Mask Payment Card Numbers) carries the current behaviour.
+	 * DO NOT "modernise" the older record: the same shipped values are what make new installs and
+	 * upgraded orgs behave the same, and the supersession fingerprint depends on them. In orgs where
+	 * the record was customised (or installed from a 1.1 build before release) it may differ, and
+	 * there the rule must not be superseded: it keeps masking.
 	 */
 	@IsTest
 	private static void shouldKeepSupersededCreditCardRuleAtItsShippedValues()
@@ -573,16 +570,16 @@ private class MaskingRules_TEST
 				&& SEL_MaskingRule.computeFingerprint(successor) == successor.ShippedFingerprint__c;
 
 		Assert.areEqual(15, predecessor.MinInputLength__c.intValue(),
-				'Superseded MaskCreditCard intentionally ships its original 1.0 values — the successor carries current behaviour; never modernise this record');
+				'Superseded MaskCreditCard intentionally ships its original 1.0 values: the successor carries current behaviour; never modernise this record');
 		Assert.areEqual(successorSupersedes, SEL_MaskingRule.findSupersededRuleNames(universe).contains(predecessorKey),
 				'The untuned predecessor must be superseded exactly while the successor is active and untuned');
 	}
 
 	/**
-	 * @description Every shipped target bound to a superseded predecessor must have a successor
-	 * target with the same object|field|caller surface — a forgotten surface would mean silent
-	 * partial coverage. Holds for every Replaces__c relationship in the org, packaged or
-	 * org-local, resolved namespace-aware.
+	 * @description Tests that every shipped target linked to a replaced (predecessor) rule has a
+	 * successor target for the same object, field and caller. A missing one would mean some fields
+	 * quietly stop being masked. Holds for every Replaces__c link in the org, packaged or org-local,
+	 * matched by namespace.
 	 */
 	@IsTest
 	private static void shouldMirrorEveryPredecessorTargetWithASuccessorTarget()
@@ -614,12 +611,12 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Regression guard for the user-reported masking-rehydrate bug. Drives the shipped
-	 * `MaskCreditCard` rule (broad digit-run regex gated by the Luhn mod-10 checksum, plus
-	 * MinInputLength and ApplicableFieldTypes) through the full `UTIL_FrameworkMasker` pipeline
-	 * against a `LogEntryEvent__e` carrying a 16-digit transaction ID. The regex matches the
-	 * digit run, but the value fails the Luhn checksum, so the engine preserves it. If a future
-	 * change drops the Luhn gate this test fails.
+	 * @description Guards against a masking bug a user reported coming back. Runs the shipped
+	 * `MaskCreditCard` rule (a broad digit-run regex checked with the Luhn mod-10 checksum, plus
+	 * MinInputLength and ApplicableFieldTypes) through the full `UTIL_FrameworkMasker` path against a
+	 * `LogEntryEvent__e` that carries a 16-digit transaction ID. The regex matches the digit run, but
+	 * the value fails the Luhn checksum, so the engine keeps it. If a later change drops the Luhn check,
+	 * this test fails.
 	 */
 	@IsTest
 	private static void shouldPreserveParentTransactionIdOnLogEntryEvent()
@@ -633,11 +630,11 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Regression guard asserting a Salesforce Request ID shape survives
-	 * `MaskCreditCard`. Request IDs interleave uppercase letters with digits, so no run of 13+
-	 * consecutive digits (the digit-run pattern's minimum) exists — the regex never matches and
-	 * the Luhn gate is never reached. Guards against a future rule edit that relaxes the regex
-	 * into matching letter-digit mixtures.
+	 * @description Guards that a value shaped like a Salesforce Request ID is not changed by
+	 * `MaskCreditCard`. Request IDs mix upper-case letters with digits, so there is never a run of 13
+	 * or more digits in a row (the least the digit-run pattern needs): the regex never matches and the
+	 * Luhn check is never reached. Guards against a later rule edit that loosens the regex so it
+	 * matches mixes of letters and digits.
 	 */
 	@IsTest
 	private static void shouldPreserveSalesforceRequestIdShapedTransactionIdOnLogEntryEvent()
@@ -651,10 +648,10 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Regression guard for a UUID-shaped correlation ID. UUIDs are hex + hyphens —
-	 * the hex letters `a-f` break all digit runs to at most 8 chars (the first segment of the
-	 * UUID shape `8-4-4-4-12`). No segment meets the 13-digit minimum, so the digit-run regex
-	 * cannot match anywhere in the UUID. Preserves the format intact.
+	 * @description Guards a correlation ID shaped like a UUID. UUIDs are hex digits and hyphens: the
+	 * hex letters `a-f` break every digit run into at most 8 characters (the first part of the UUID
+	 * shape `8-4-4-4-12`). No part reaches the 13-digit minimum, so the digit-run regex cannot match
+	 * anywhere in the UUID, and the value is kept as it is.
 	 */
 	@IsTest
 	private static void shouldPreserveUuidShapedCorrelationIdOnLogEntryEvent()
@@ -668,11 +665,11 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Regression guard for the exact scenario the user reported — a JSON payload
-	 * inside `ApiCall__c.Request__c` with a `parentTransactionId` field whose value is
-	 * `TID:` + 16 digits. Pre-fix this redacted to `TID:[CARD_REDACTED]`. Post-fix the digit-run
-	 * regex matches the 16-digit run but it fails the Luhn checksum, so the value survives. If
-	 * this test ever fails the user-visible bug has returned.
+	 * @description Guards the exact case a user reported: a JSON payload inside `ApiCall__c.Request__c`
+	 * with a `parentTransactionId` field whose value is `TID:` + 16 digits. Before the fix this was
+	 * masked to `TID:[CARD_REDACTED]`. Since the fix, the digit-run regex matches the 16-digit run but
+	 * the value fails the Luhn checksum, so it is kept. If this test ever fails, the bug users saw has
+	 * come back.
 	 */
 	@IsTest
 	private static void shouldPreserveParentTransactionIdInsideApiCallRequestJsonPayload()
@@ -706,8 +703,8 @@ private class MaskingRules_TEST
 
 	/**
 	 * @description Tests that MaskHealthKeywords redacts every shipped keyword (diagnosis,
-	 * mrn, rx_number, prescription, icd10, ndc, patient_id). Catches regex drift if one key
-	 * is removed from the alternation by accident.
+	 * mrn, rx_number, prescription, icd10, ndc, patient_id). Fails if one keyword is removed from
+	 * the regex's list of choices by accident.
 	 */
 	@IsTest
 	private static void shouldMaskEveryHealthKeyword()
@@ -755,9 +752,9 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that MaskSecretKeys catches every shipped alternation keyword —
-	 * password, passwd, secret, token, api_key, authorization, bearer, client_secret,
-	 * private_key, access_token, refresh_token.
+	 * @description Tests that MaskSecretKeys catches every shipped keyword in its regex: password,
+	 * passwd, secret, token, api_key, authorization, bearer, client_secret, private_key, access_token,
+	 * refresh_token.
 	 */
 	@IsTest
 	private static void shouldMaskEverySecretKeyVariant()
@@ -824,7 +821,7 @@ private class MaskingRules_TEST
 
 	/**
 	 * @description Tests that MaskIpv4Private does NOT match 172.15.x.x (outside the private
-	 * range — 172.0.0.0-172.15.255.255 is public).
+	 * range: 172.0.0.0-172.15.255.255 is public).
 	 */
 	@IsTest
 	private static void shouldNotMaskIpv4Address172BelowPrivateRange()
@@ -834,7 +831,7 @@ private class MaskingRules_TEST
 
 	/**
 	 * @description Tests that MaskIpv4Private does NOT match 172.32.x.x (outside the private
-	 * range — 172.32.0.0+ is public).
+	 * range: 172.32.0.0 and above is public).
 	 */
 	@IsTest
 	private static void shouldNotMaskIpv4Address172AbovePrivateRange()
@@ -873,13 +870,13 @@ private class MaskingRules_TEST
 
 	/**
 	 * @description True while the installed MaskCreditCard record still carries its original
-	 * shipped values (live fingerprint equals the successor's ReplacesFingerprint__c). False in
-	 * orgs where the subscriber tuned the record or the install path predates the supersession
-	 * split — strict 1.0-value pins must then fall back to the cross-generation guarantee.
+	 * shipped values (its current fingerprint equals the successor's ReplacesFingerprint__c). False in
+	 * orgs where the subscriber tuned the record, or where it was installed before the newer rule
+	 * replaced it. Tests that check the exact 1.0 values must then check the current pattern instead.
 	 *
-	 * @return True when strict predecessor pins may assert
+	 * @return True when tests may check the exact shipped values of the older rule
 	 */
-	private static Boolean predecessorMatchesShippedValues()
+	private static Boolean isPredecessorUntuned()
 	{
 		return SEL_MaskingRule.computeFingerprint(findShippedRule(SEL_MaskingRule.RULE_MASK_CREDIT_CARD))
 				== findShippedRule(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD).ReplacesFingerprint__c;
@@ -887,22 +884,22 @@ private class MaskingRules_TEST
 
 	/**
 	 * @description True while the installed Mask Payment Card Numbers record still carries its
-	 * shipped values (live fingerprint equals its own ShippedFingerprint__c). False where the
-	 * subscriber tuned the successor — strict successor pins must then fall back to the
-	 * cross-generation guarantee.
+	 * shipped values (its current fingerprint equals its own ShippedFingerprint__c). False where the
+	 * subscriber tuned the successor. Tests that check the successor's exact values must then check
+	 * the current pattern instead.
 	 *
-	 * @return True when strict successor pins may assert
+	 * @return True when tests may check the exact shipped values of the successor rule
 	 */
-	private static Boolean successorMatchesShippedValues()
+	private static Boolean isSuccessorUntuned()
 	{
 		MaskingRule__mdt successor = findShippedRule(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD);
 		return SEL_MaskingRule.computeFingerprint(successor) == successor.ShippedFingerprint__c;
 	}
 
 	/**
-	 * @description Asserts the current-generation card behaviour directly against the Luhn-gated
-	 * digit-run pattern — the engine guarantee that holds whatever values the org's installed
-	 * records carry. The tuned-org fallback for every guarded card pin.
+	 * @description Asserts the current card behaviour directly against the Luhn-checked digit-run
+	 * pattern. This is what the engine guarantees, whatever values the org's installed records carry.
+	 * Every card test uses it when the org's card rules were tuned.
 	 *
 	 * @param input The input to mask
 	 * @param expected The expected output
@@ -914,16 +911,16 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Loads the PACKAGE'S OWN shipped MaskingRule__mdt through the framework's
-	 * getAll()-backed selector path — the engine's own source, and the only valid input shape
-	 * for SEL_MaskingRule.computeFingerprint (getAll() truncates LongTextArea values where SOQL
-	 * does not). Namespace-aware: an org-local clone sharing a packaged DeveloperName is never
-	 * picked, in any packaging context. Fails the test with a clear message when the rule is
-	 * not deployed.
+	 * @description Loads the PACKAGE'S OWN shipped MaskingRule__mdt through the framework's selector,
+	 * which reads getAll(). That is what the engine reads, and the only input shape
+	 * SEL_MaskingRule.computeFingerprint accepts (getAll() cuts LongTextArea values, and SOQL does
+	 * not). Matches by namespace: an org-local copy that shares a packaged DeveloperName is never
+	 * picked, in any packaging context. Fails the test with a clear message when the rule is not
+	 * deployed.
 	 *
 	 * @param developerName The rule's DeveloperName
 	 *
-	 * @return The deployed packaged rule (never null — a missing rule fails the test)
+	 * @return The deployed packaged rule (never null: a missing rule fails the test)
 	 */
 	private static MaskingRule__mdt findShippedRule(String developerName)
 	{
@@ -944,16 +941,15 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description The object|field|caller surfaces of every SHIPPED target bound to the given
-	 * rule, matched namespace-aware so packaged and org-local rules sharing a DeveloperName
-	 * never blend. Subscriber-authored targets binding a packaged rule are deliberately
-	 * excluded — the mirror obligation covers shipped targets only; a subscriber's
-	 * custom-object binding legitimately has no successor mirror.
+	 * @description The object|field|caller keys of every SHIPPED target linked to the given rule,
+	 * matched by namespace so packaged and org-local rules that share a DeveloperName never mix.
+	 * Targets a subscriber wrote for a packaged rule are left out on purpose: only shipped targets need
+	 * a matching successor target, and a subscriber's target on a custom object rightly has none.
 	 *
-	 * @param rule The rule whose shipped target surfaces to collect
-	 * @param rulesById The rule universe keyed by Id
+	 * @param rule The rule whose shipped target keys to collect
+	 * @param rulesById Every rule, keyed by Id
 	 *
-	 * @return The composite surface keys of the rule's shipped targets
+	 * @return The combined keys of the rule's shipped targets
 	 */
 	private static Set<String> findTargetSurfaces(MaskingRule__mdt rule, Map<Id, MaskingRule__mdt> rulesById)
 	{

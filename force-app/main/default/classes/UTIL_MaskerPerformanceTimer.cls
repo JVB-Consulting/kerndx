@@ -1,27 +1,26 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description A stopwatch for timing data-masking runs with automatic threshold-gated
- * performance logging. Mirrors `UTIL_TriggerPerformanceTimer` / `UTIL_QueryPerformanceTimer`
- * / `UTIL_PerformanceTimer` — extends `UTIL_StopWatch`, captures governor-limit deltas at
- * start, and on `stop()` emits a single aggregate log entry when every gate passes.
+ * @description A stopwatch that times data-masking runs and writes a performance log entry when a run is slow.
+ * It works like `UTIL_TriggerPerformanceTimer`, `UTIL_QueryPerformanceTimer` and `UTIL_PerformanceTimer`: it
+ * extends `UTIL_StopWatch`, records the governor-limit values at start, and on `stop()` writes one summary log
+ * entry when every check below passes.
  *
- * **Gate chain (in order of execution in `emitIfApplicable`):**
- * 1. Recursion guard — internal `isLogging` flag prevents synchronous re-entry into the
- *    logging pipeline within the same call stack (belt-and-braces mirror of
- *    `UTIL_TriggerPerformanceTimer.isLogging`).
- * 2. Per-transaction cap — once `MAX_LOGS_PER_TRANSACTION` entries have been emitted this
- *    transaction, subsequent invocations skip emission. Caps volume on runaway trigger
- *    handler loops even if aggregation-per-invocation is somehow bypassed.
- * 3. Re-entrance — emission is skipped when the object being masked is `LogEntryEvent__e`,
- *    otherwise emitting a log would publish a new event that re-enters the masker and loops.
- * 4. Settings enable flag — `LogSetting__c.EnableMaskerPerformanceLogging__c` must be true
- *    (hierarchical Org / Profile / User setting).
- * 5. Threshold — elapsed must meet or exceed `LogSetting__c.MaskerPerformanceThresholdMs__c`.
+ * **Checks, in the order `emitIfApplicable` runs them:**
+ * 1. Recursion guard: an internal `isLogging` flag stops the logging code from being entered again in the same
+ *    call stack (an extra safety check that copies `UTIL_TriggerPerformanceTimer.isLogging`).
+ * 2. Limit per transaction: once `MAX_LOGS_PER_TRANSACTION` entries have been written in this transaction,
+ *    later calls write nothing. This limits the volume when a trigger handler loops out of control, even if
+ *    one summary per call is somehow not enforced.
+ * 3. Masking a log event: nothing is written when the object being masked is `LogEntryEvent__e`. Otherwise
+ *    writing a log would publish a new event, which would run the masker again, in an endless loop.
+ * 4. Setting: `LogSetting__c.EnableMaskerPerformanceLogging__c` must be true (a hierarchy setting at the Org,
+ *    Profile or User level).
+ * 5. Threshold: the elapsed time must be at least `LogSetting__c.MaskerPerformanceThresholdMs__c`.
  *
- * The aggregate emission carries structured context (sObjectName, recordCount, totalMs,
- * avgMsPerRecord, thresholdMs) so investigators can correlate a slow commit to the masker
- * without per-object fields on every masked SObject. Any exception raised while publishing
- * the log is swallowed — telemetry must never break the masking pipeline the timer wraps.
+ * The summary entry carries structured context (sObjectName, recordCount, totalMs, avgMsPerRecord,
+ * thresholdMs), so someone looking into a slow save can link it to the masker without adding fields to every
+ * masked SObject. Any exception thrown while publishing the log is caught and ignored: timing data must never
+ * break the masking the timer measures.
  *
  * @see UTIL_StopWatch
  * @see UTIL_TriggerPerformanceTimer
@@ -33,59 +32,58 @@
  *
  * @group Utilities
  *
- * @date April 2026, May 2026
+ * @date April 2026, October 2026
  *
  * @example
  * ```apex
  * UTIL_MaskerPerformanceTimer timer = new UTIL_MaskerPerformanceTimer('Foobar__c', records.size());
  * timer.start();
  * UTIL_FrameworkMasker.forRecords(records).apply();
- * timer.stop(); // auto-emits if configured + threshold met
+ * timer.stop(); // writes a log entry when it is switched on and the threshold is met
  * ```
  */
 public inherited sharing class UTIL_MaskerPerformanceTimer extends UTIL_StopWatch
 {
 	/**
-	 * @description Ceiling on the number of masker performance log entries emitted per
-	 * transaction. Caps runaway emission from a trigger-handler loop — once hit, subsequent
-	 * `stop()` calls skip emission regardless of threshold.
+	 * @description The most masker performance log entries written in one transaction. This limits
+	 * the volume when a trigger handler loops out of control: once it is reached, later `stop()` calls
+	 * write nothing, whatever the threshold.
 	 */
 	@TestVisible
 	private static final Integer MAX_LOGS_PER_TRANSACTION = 10;
 
 	/**
-	 * @description Per-transaction counter tracking how many log entries this timer class
-	 * has emitted. Paired with `MAX_LOGS_PER_TRANSACTION` to cap volume. Resets between
-	 * transactions per Apex static semantics.
+	 * @description Counts how many log entries this timer class has written in the current
+	 * transaction. Used with `MAX_LOGS_PER_TRANSACTION` to limit the volume. Like every Apex static,
+	 * it starts again at zero in each transaction.
 	 */
 	@TestVisible
 	private static Integer logCountThisTransaction = 0;
 
 	/**
-	 * @description Belt-and-braces mirror of `UTIL_TriggerPerformanceTimer.isLogging`. Defends
-	 * against synchronous re-entry of the logging pipeline within the same call stack — not a
-	 * cross-transaction guard (statics reset between transactions) and not a defence against
-	 * async re-entry from the `LogEntryEvent__e` platform event trigger (the re-entrance gate
+	 * @description An extra safety flag that copies `UTIL_TriggerPerformanceTimer.isLogging`. It stops
+	 * the logging code from being entered again within the same call stack. It does not guard across
+	 * transactions (statics reset between transactions), and it does not stop the `LogEntryEvent__e`
+	 * platform event trigger from running the masker again later, in its own transaction (the check
 	 * on `sObjectName` covers that).
 	 */
 	@TestVisible
 	private static Boolean isLogging = false;
 
 	/**
-	 * @description Test seam to force an exception during emission for exercising the defensive
-	 * catch block. The emit pipeline (`LOG_Engine.logPerformance`) has its own internal error
-	 * handling and does not surface exceptions on the hot path, so no realistic production
-	 * scenario reaches the telemetry-swallow catch. The catch exists as a guard against
-	 * unexpected platform-level failures (governor limits, event bus saturation) and must be
-	 * tested via this seam.
+	 * @description Set by a test to force an exception while the log entry is written, so the test can
+	 * reach the catch block that protects masking. The logging code (`LOG_Engine.logPerformance`)
+	 * handles its own errors and does not throw on the normal path, so no realistic production case
+	 * reaches that catch. The catch guards against unexpected platform failures (governor limits, a
+	 * full event bus), and this flag is the only way to test it.
 	 */
 	@TestVisible
 	private static Boolean forceEmitFailureForTest = false;
 
 	/**
-	 * @description The SObject API name the masker operated on. Used for the re-entrance
-	 * guard (skip emission when masking `LogEntryEvent__e`) and included in the emitted log
-	 * context so investigators can group slow masks by target SObject.
+	 * @description The SObject API name the masker worked on. Used to skip logging when masking
+	 * `LogEntryEvent__e`, and included in the log context so slow masking runs can be grouped by
+	 * SObject.
 	 */
 	public final String sObjectName
 	{
@@ -104,22 +102,22 @@ public inherited sharing class UTIL_MaskerPerformanceTimer extends UTIL_StopWatc
 	}
 
 	/**
-	 * @description Starting CPU time for delta calculation in the emitted log detail line.
+	 * @description CPU time at start, used to work out how much CPU the run used, for the log detail line.
 	 */
 	private Integer startCpuTime;
 
 	/**
-	 * @description Starting heap size for delta calculation.
+	 * @description Heap size at start, used to work out how much heap the run used.
 	 */
 	private Integer startHeapSize;
 
 	/**
-	 * @description Starting SOQL query count for delta calculation.
+	 * @description SOQL query count at start, used to work out how many queries the run made.
 	 */
 	private Integer startSoqlQueries;
 
 	/**
-	 * @description Starting DML statement count for delta calculation.
+	 * @description DML statement count at start, used to work out how many DML statements the run made.
 	 */
 	private Integer startDmlStatements;
 
@@ -148,9 +146,9 @@ public inherited sharing class UTIL_MaskerPerformanceTimer extends UTIL_StopWatc
 	}
 
 	/**
-	 * @description Stops the timer and automatically emits a performance log entry if every
-	 * gate passes: emission cap not reached, not re-entering on `LogEntryEvent__e`, settings
-	 * enable masker logging, elapsed meets or exceeds the configured threshold.
+	 * @description Stops the timer and writes a performance log entry when every check passes: the
+	 * limit per transaction is not reached, the object being masked is not `LogEntryEvent__e`, the
+	 * setting switches masker logging on, and the elapsed time is at least the configured threshold.
 	 *
 	 * @throws UTIL_Exceptions.IllegalStateException if the stopwatch is not running
 	 */
@@ -161,7 +159,7 @@ public inherited sharing class UTIL_MaskerPerformanceTimer extends UTIL_StopWatc
 	}
 
 	/**
-	 * @description Captures governor-limit baseline values so `stop()` can emit deltas.
+	 * @description Records the governor-limit values at start, so `stop()` can log how much the run used.
 	 */
 	private void captureStartMetrics()
 	{
@@ -172,8 +170,8 @@ public inherited sharing class UTIL_MaskerPerformanceTimer extends UTIL_StopWatc
 	}
 
 	/**
-	 * @description Runs the full gate chain and emits a single aggregate log entry when all
-	 * gates pass. Called from `stop()`.
+	 * @description Runs every check in order and writes one summary log entry when all of them
+	 * pass. Called from `stop()`.
 	 */
 	@SuppressWarnings('PMD.EmptyCatchBlock')
 	private void emitIfApplicable()
@@ -214,7 +212,7 @@ public inherited sharing class UTIL_MaskerPerformanceTimer extends UTIL_StopWatc
 		}
 		catch(Exception telemetryError)
 		{
-			// Telemetry must never break the masking pipeline — swallow any emit failure.
+			// Timing data must never break masking: ignore any failure to write the log entry.
 		}
 		finally
 		{
@@ -223,9 +221,9 @@ public inherited sharing class UTIL_MaskerPerformanceTimer extends UTIL_StopWatc
 	}
 
 	/**
-	 * @description Builds and emits the aggregate performance log entry. Structured context
-	 * plus governor-limit deltas, so investigators can correlate a slow commit to both the
-	 * target SObject and the resource envelope the masker consumed.
+	 * @description Builds and writes the summary performance log entry: structured context plus how
+	 * much of each governor limit the run used. Someone looking into a slow save can then link it to
+	 * both the SObject and the resources the masker used.
 	 *
 	 * @param elapsedMs Wall-clock milliseconds the masker spent on this trigger invocation
 	 * @param thresholdMs The threshold the elapsed duration exceeded
@@ -238,7 +236,7 @@ public inherited sharing class UTIL_MaskerPerformanceTimer extends UTIL_StopWatc
 		}
 
 		Long avgMsPerRecord = recordCount > 0 ? elapsedMs / recordCount : elapsedMs;
-		String message = 'Masking on ' + sObjectName + ' (' + recordCount + ' records) exceeded threshold of ' + thresholdMs + 'ms — elapsed ' + elapsedMs + 'ms';
+		String message = 'Masking on ' + sObjectName + ' (' + recordCount + ' records) exceeded threshold of ' + thresholdMs + 'ms; elapsed ' + elapsedMs + 'ms';
 		String details = buildPerformanceDetails(elapsedMs, avgMsPerRecord, thresholdMs);
 
 		String classMethod = UTIL_MaskerPerformanceTimer.class.getName() + '/' + sObjectName;
@@ -246,14 +244,14 @@ public inherited sharing class UTIL_MaskerPerformanceTimer extends UTIL_StopWatc
 	}
 
 	/**
-	 * @description Formats the governor-limit deltas + aggregate stats into the log detail
-	 * line. Uses `Math.max(0, ...)` to gracefully handle `Test.startTest()` limit resets.
+	 * @description Formats the governor-limit usage and the summary timings into the log detail
+	 * line. Uses `Math.max(0, ...)` so a limit reset by `Test.startTest()` never shows as a negative value.
 	 *
 	 * @param elapsedMs Wall-clock milliseconds the masker spent
 	 * @param avgMsPerRecord Average wall-clock ms per record in the batch
 	 * @param thresholdMs The threshold the elapsed exceeded
 	 *
-	 * @return Formatted detail string with CPU, heap, SOQL, DML deltas + aggregate ms values
+	 * @return Formatted detail text with the CPU, heap, SOQL and DML used, and the timings in milliseconds
 	 */
 	private String buildPerformanceDetails(Long elapsedMs, Long avgMsPerRecord, Long thresholdMs)
 	{

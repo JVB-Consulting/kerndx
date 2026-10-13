@@ -15,6 +15,9 @@ let cachedNamespacePrefix;
 // scoped to the page, not to the advisor card.
 const MODAL_ROOT = 'lightning-modal, [role="dialog"]';
 
+// Enabled/disabled assertions must target the native `button` inside a `lightning-button` (`.locator('button')`):
+// the host custom element never carries the disabled flag, so `isEnabled()` / `toBeEnabled()` on it is always true.
+
 class MaskingAdvisorPage
 {
 	constructor(page)
@@ -586,12 +589,15 @@ class MaskingAdvisorPage
 
 	/**
 	 * @description Whether the export button is enabled (i.e. the draft has at least one queued change).
+	 *              Reads the state off the native button inside `lightning-button`'s shadow root: the
+	 *              disabled flag lands there, never on the custom-element host, which Playwright always
+	 *              reports as enabled.
 	 *
 	 * @return {Promise<boolean>} True when the export button is interactable.
 	 */
 	async isExportEnabled()
 	{
-		return this.exportButton().isEnabled();
+		return this.exportButton().locator('button').first().isEnabled();
 	}
 
 	/**
@@ -658,13 +664,15 @@ class MaskingAdvisorPage
 	}
 
 	/**
-	 * @description Locator for the export modal's Download button (fires the package zip).
+	 * @description Locator for the export modal's Download button (fires the package zip). Resolves to the
+	 *              native button inside `lightning-button`'s shadow root so enabled/disabled assertions read
+	 *              a real state rather than the always-enabled custom-element host.
 	 *
-	 * @return {import('@playwright/test').Locator} The download-button locator.
+	 * @return {import('@playwright/test').Locator} The download-button inner native button locator.
 	 */
 	downloadButton()
 	{
-		return this.page.locator('[data-testid="download-button"]').first();
+		return this.page.locator('[data-testid="download-button"]').first().locator('button').first();
 	}
 
 	/**
