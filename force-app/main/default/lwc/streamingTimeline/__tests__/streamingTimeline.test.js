@@ -7,9 +7,9 @@
  * @description Jest unit tests for the streamingTimeline LWC component (native template SVG).
  * DOM-first: geometry is asserted on rendered circle/text attributes computed by the real
  * c/utilityStreaming band layout, interactions through real MouseEvents, and the `select`
- * contract through a real circle click. No D3, no loadScript, no chainable mocks.
+ * contract through a real circle click. No D3.js, no loadScript, no chainable mocks.
  * @author Jason van Beukering
- * @date December 2025, May 2026, July 2026
+ * @date December 2025, October 2026
  */
 import {createElement} from 'lwc';
 import LwcEventTimeline from 'c/streamingTimeline';

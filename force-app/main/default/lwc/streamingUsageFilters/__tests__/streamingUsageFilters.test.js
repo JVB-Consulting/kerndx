@@ -4,13 +4,13 @@
 // Modifications copyright (c) 2026 JVB Consulting
 
 /**
- * @description Jest unit tests for the streamingUsageFilters LWC component — the Event Usage Metrics
+ * @description Jest unit tests for the streamingUsageFilters LWC component, the Event Usage Metrics
  * filter controls: a granularity segmented control, date-range presets with a custom From/To range,
  * legend chips, and the enhanced-usage notice. Under sfdx-lwc-jest custom labels resolve to their id
- * strings, so assertions target `data-spec-id` hooks and dispatched events rather than display text.
+ * strings, so assertions find elements by their test hook attribute and check dispatched events rather than display text.
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, October 2026
  */
 import {createElement} from 'lwc';
 import StreamingUsageFilters from 'c/streamingUsageFilters';
@@ -52,23 +52,23 @@ describe('streamingUsageFilters', () =>
 	}
 
 	/**
-	 * @description Finds the first descendant carrying the given data-spec-id.
+	 * @description Finds the first descendant whose test hook attribute has the given value.
 	 * @param {Element} element - The host component.
-	 * @param {string} id - The data-spec-id value.
+	 * @param {string} id - The test hook value.
 	 * @returns {Element|null}
 	 */
-	function spec(element, id)
+	function findByTestHook(element, id)
 	{
 		return element.shadowRoot.querySelector(`[data-spec-id="${id}"]`);
 	}
 
 	/**
-	 * @description Finds every descendant carrying the given data-spec-id.
+	 * @description Finds every descendant whose test hook attribute has the given value.
 	 * @param {Element} element - The host component.
-	 * @param {string} id - The data-spec-id value.
+	 * @param {string} id - The test hook value.
 	 * @returns {NodeList}
 	 */
-	function specAll(element, id)
+	function findAllByTestHook(element, id)
 	{
 		return element.shadowRoot.querySelectorAll(`[data-spec-id="${id}"]`);
 	}
@@ -99,17 +99,17 @@ describe('streamingUsageFilters', () =>
 		const element = createFilters();
 		await Promise.resolve();
 
-		expect(spec(element, 'usage-granularity-daily').getAttribute('aria-pressed')).toBe('true');
-		expect(spec(element, 'usage-granularity-hourly').getAttribute('aria-pressed')).toBe('false');
-		expect(spec(element, 'usage-granularity-fifteen').getAttribute('aria-pressed')).toBe('false');
+		expect(findByTestHook(element, 'usage-granularity-daily').getAttribute('aria-pressed')).toBe('true');
+		expect(findByTestHook(element, 'usage-granularity-hourly').getAttribute('aria-pressed')).toBe('false');
+		expect(findByTestHook(element, 'usage-granularity-fifteen').getAttribute('aria-pressed')).toBe('false');
 
-		expect(spec(element, 'usage-range-preset').value).toBe('P30D');
+		expect(findByTestHook(element, 'usage-range-preset').value).toBe('P30D');
 
-		expect(spec(element, 'usage-range-from')).toBeNull();
-		expect(spec(element, 'usage-range-to')).toBeNull();
-		expect(spec(element, 'usage-enhanced-notice')).toBeNull();
+		expect(findByTestHook(element, 'usage-range-from')).toBeNull();
+		expect(findByTestHook(element, 'usage-range-to')).toBeNull();
+		expect(findByTestHook(element, 'usage-enhanced-notice')).toBeNull();
 
-		const chips = specAll(element, 'usage-legend-chip');
+		const chips = findAllByTestHook(element, 'usage-legend-chip');
 		expect(chips.length).toBe(EVENT_TYPES.length);
 		chips.forEach((chip) => expect(chip.getAttribute('aria-pressed')).toBe('true'));
 	});
@@ -121,7 +121,7 @@ describe('streamingUsageFilters', () =>
 		element.addEventListener('searchfilterchange', searchHandler);
 		await Promise.resolve();
 
-		spec(element, 'usage-granularity-hourly').click();
+		findByTestHook(element, 'usage-granularity-hourly').click();
 		await Promise.resolve();
 
 		expect(searchHandler).toHaveBeenCalledTimes(1);
@@ -129,7 +129,7 @@ describe('streamingUsageFilters', () =>
 		expect(detail.timeSegment).toBe('Hourly');
 		const spanMs = new Date(detail.endDate).getTime() - new Date(detail.startDate).getTime();
 		expect(spanMs).toBe(24 * MILLISECONDS_PER_HOUR);
-		expect(spec(element, 'usage-range-preset').value).toBe('P1D');
+		expect(findByTestHook(element, 'usage-range-preset').value).toBe('P1D');
 	});
 
 	it('dispatches searchfilterchange with a 1-hour range and the LastHour preset when 15 minutes is selected', async() =>
@@ -139,7 +139,7 @@ describe('streamingUsageFilters', () =>
 		element.addEventListener('searchfilterchange', searchHandler);
 		await Promise.resolve();
 
-		spec(element, 'usage-granularity-fifteen').click();
+		findByTestHook(element, 'usage-granularity-fifteen').click();
 		await Promise.resolve();
 
 		expect(searchHandler).toHaveBeenCalledTimes(1);
@@ -147,7 +147,7 @@ describe('streamingUsageFilters', () =>
 		expect(detail.timeSegment).toBe('FifteenMinutes');
 		const spanMs = new Date(detail.endDate).getTime() - new Date(detail.startDate).getTime();
 		expect(spanMs).toBe(MILLISECONDS_PER_HOUR);
-		expect(spec(element, 'usage-range-preset').value).toBe('PT1H');
+		expect(findByTestHook(element, 'usage-range-preset').value).toBe('PT1H');
 	});
 
 	it('disables Hourly and 15-minute, shows the enhanced notice, and still emits for Daily when enhanced metrics are off', async() =>
@@ -157,11 +157,11 @@ describe('streamingUsageFilters', () =>
 		element.addEventListener('searchfilterchange', searchHandler);
 		await Promise.resolve();
 
-		expect(spec(element, 'usage-granularity-hourly').disabled).toBe(true);
-		expect(spec(element, 'usage-granularity-fifteen').disabled).toBe(true);
-		expect(spec(element, 'usage-enhanced-notice')).not.toBeNull();
+		expect(findByTestHook(element, 'usage-granularity-hourly').disabled).toBe(true);
+		expect(findByTestHook(element, 'usage-granularity-fifteen').disabled).toBe(true);
+		expect(findByTestHook(element, 'usage-enhanced-notice')).not.toBeNull();
 
-		spec(element, 'usage-granularity-daily').click();
+		findByTestHook(element, 'usage-granularity-daily').click();
 		await Promise.resolve();
 
 		expect(searchHandler).toHaveBeenCalledTimes(1);
@@ -178,7 +178,7 @@ describe('streamingUsageFilters', () =>
 		element.addEventListener('searchfilterchange', searchHandler);
 		await Promise.resolve();
 
-		changeValue(spec(element, 'usage-range-preset'), 'P7D');
+		changeValue(findByTestHook(element, 'usage-range-preset'), 'P7D');
 		await Promise.resolve();
 
 		expect(searchHandler).toHaveBeenCalledTimes(1);
@@ -195,19 +195,19 @@ describe('streamingUsageFilters', () =>
 		element.addEventListener('searchfilterchange', searchHandler);
 		await Promise.resolve();
 
-		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		changeValue(findByTestHook(element, 'usage-range-preset'), 'CUSTOM');
 		await Promise.resolve();
 
-		expect(spec(element, 'usage-range-from')).not.toBeNull();
-		expect(spec(element, 'usage-range-to')).not.toBeNull();
+		expect(findByTestHook(element, 'usage-range-from')).not.toBeNull();
+		expect(findByTestHook(element, 'usage-range-to')).not.toBeNull();
 		searchHandler.mockClear();
 
 		// Seeded To is "now"; a From in the far future is never before it.
-		changeValue(spec(element, 'usage-range-from'), '2099-01-01T00:00:00.000Z');
+		changeValue(findByTestHook(element, 'usage-range-from'), '2099-01-01T00:00:00.000Z');
 		await Promise.resolve();
 
 		// Assert the specific From-before-To message so the test cannot pass via the wrong branch.
-		expect(spec(element, 'usage-range-error').textContent).toBe(VALIDATION_FROM_BEFORE_TO);
+		expect(findByTestHook(element, 'usage-range-error').textContent).toBe(VALIDATION_FROM_BEFORE_TO);
 		expect(searchHandler).not.toHaveBeenCalled();
 	});
 
@@ -218,15 +218,15 @@ describe('streamingUsageFilters', () =>
 		element.addEventListener('searchfilterchange', searchHandler);
 		await Promise.resolve();
 
-		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		changeValue(findByTestHook(element, 'usage-range-preset'), 'CUSTOM');
 		await Promise.resolve();
 
 		// Spans four-plus days: above the Daily one-bucket minimum, below the 30-day maximum.
 		const fromIso = '2026-06-01T10:00:00.000Z';
 		const toIso = '2026-06-05T12:00:00.000Z';
-		changeValue(spec(element, 'usage-range-from'), fromIso);
+		changeValue(findByTestHook(element, 'usage-range-from'), fromIso);
 		await Promise.resolve();
-		changeValue(spec(element, 'usage-range-to'), toIso);
+		changeValue(findByTestHook(element, 'usage-range-to'), toIso);
 		await Promise.resolve();
 
 		// The final (To) change must be the emit we assert on: endDate === toIso only holds if the
@@ -236,7 +236,7 @@ describe('streamingUsageFilters', () =>
 		expect(detail.timeSegment).toBe('Daily');
 		expect(detail.startDate).toBe(fromIso);
 		expect(detail.endDate).toBe(toIso);
-		expect(spec(element, 'usage-range-error')).toBeNull();
+		expect(findByTestHook(element, 'usage-range-error')).toBeNull();
 	});
 
 	it('shows the range-too-wide error and does not emit when the custom span exceeds the 15-minute window', async() =>
@@ -246,22 +246,22 @@ describe('streamingUsageFilters', () =>
 		element.addEventListener('searchfilterchange', searchHandler);
 		await Promise.resolve();
 
-		spec(element, 'usage-granularity-fifteen').click();
+		findByTestHook(element, 'usage-granularity-fifteen').click();
 		await Promise.resolve();
-		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		changeValue(findByTestHook(element, 'usage-range-preset'), 'CUSTOM');
 		await Promise.resolve();
 		searchHandler.mockClear();
 
 		// Two-hour span (valid order, but exceeds the 1-hour FifteenMinutes maximum).
-		changeValue(spec(element, 'usage-range-to'), '2026-06-05T12:00:00.000Z');
+		changeValue(findByTestHook(element, 'usage-range-to'), '2026-06-05T12:00:00.000Z');
 		await Promise.resolve();
-		changeValue(spec(element, 'usage-range-from'), '2026-06-05T10:00:00.000Z');
+		changeValue(findByTestHook(element, 'usage-range-from'), '2026-06-05T10:00:00.000Z');
 		await Promise.resolve();
 
 		// Assert the range-too-wide message specifically (the From-before-To label resolves to a
 		// distinct id under sfdx-lwc-jest), so a regression in the span check cannot hide behind the
 		// order check.
-		const errorText = spec(element, 'usage-range-error').textContent;
+		const errorText = findByTestHook(element, 'usage-range-error').textContent;
 		expect(errorText).toBe(VALIDATION_RANGE_TOO_WIDE);
 		expect(errorText).not.toBe(VALIDATION_FROM_BEFORE_TO);
 		expect(searchHandler).not.toHaveBeenCalled();
@@ -274,23 +274,23 @@ describe('streamingUsageFilters', () =>
 		element.addEventListener('searchfilterchange', searchHandler);
 		await Promise.resolve();
 
-		spec(element, 'usage-granularity-hourly').click();
+		findByTestHook(element, 'usage-granularity-hourly').click();
 		await Promise.resolve();
-		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		changeValue(findByTestHook(element, 'usage-range-preset'), 'CUSTOM');
 		await Promise.resolve();
 		searchHandler.mockClear();
 
-		// 51-minute span — valid order, inside the 24-hour maximum, but shorter than one hourly
-		// bucket. The platform rejects such queries (live-verified TimeSegmentValueTooLargeException),
+		// 51-minute span: valid order, inside the 24-hour maximum, but shorter than one hourly
+		// bucket. The platform rejects such queries (TimeSegmentValueTooLargeException, seen in a live org),
 		// so the client must catch it inline instead of surfacing a generic server error.
-		changeValue(spec(element, 'usage-range-to'), '2026-06-05T14:15:00.000Z');
+		changeValue(findByTestHook(element, 'usage-range-to'), '2026-06-05T14:15:00.000Z');
 		await Promise.resolve();
-		changeValue(spec(element, 'usage-range-from'), '2026-06-05T13:24:00.000Z');
+		changeValue(findByTestHook(element, 'usage-range-from'), '2026-06-05T13:24:00.000Z');
 		await Promise.resolve();
 
 		// Assert the range-too-narrow message specifically so a regression in the minimum check
 		// cannot hide behind the order or maximum checks.
-		const errorText = spec(element, 'usage-range-error').textContent;
+		const errorText = findByTestHook(element, 'usage-range-error').textContent;
 		expect(errorText).toBe(VALIDATION_RANGE_TOO_NARROW);
 		expect(errorText).not.toBe(VALIDATION_FROM_BEFORE_TO);
 		expect(errorText).not.toBe(VALIDATION_RANGE_TOO_WIDE);
@@ -304,20 +304,20 @@ describe('streamingUsageFilters', () =>
 		element.addEventListener('searchfilterchange', searchHandler);
 		await Promise.resolve();
 
-		spec(element, 'usage-granularity-hourly').click();
+		findByTestHook(element, 'usage-granularity-hourly').click();
 		await Promise.resolve();
-		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		changeValue(findByTestHook(element, 'usage-range-preset'), 'CUSTOM');
 		await Promise.resolve();
 		searchHandler.mockClear();
 
-		// Exactly 60 minutes — the platform accepts a span equal to one bucket (live-verified), so
+		// Exactly 60 minutes. The platform accepts a span equal to one bucket (checked in a live org), so
 		// the inclusive boundary must pass validation and emit.
-		changeValue(spec(element, 'usage-range-to'), '2026-06-05T14:24:00.000Z');
+		changeValue(findByTestHook(element, 'usage-range-to'), '2026-06-05T14:24:00.000Z');
 		await Promise.resolve();
-		changeValue(spec(element, 'usage-range-from'), '2026-06-05T13:24:00.000Z');
+		changeValue(findByTestHook(element, 'usage-range-from'), '2026-06-05T13:24:00.000Z');
 		await Promise.resolve();
 
-		expect(spec(element, 'usage-range-error')).toBeNull();
+		expect(findByTestHook(element, 'usage-range-error')).toBeNull();
 		expect(searchHandler).toHaveBeenCalled();
 		const detail = lastDetail(searchHandler);
 		expect(detail.startDate).toBe('2026-06-05T13:24:00.000Z');
@@ -331,7 +331,7 @@ describe('streamingUsageFilters', () =>
 		element.addEventListener('displayfilterchange', displayHandler);
 		await Promise.resolve();
 
-		specAll(element, 'usage-legend-chip')[0].click();
+		findAllByTestHook(element, 'usage-legend-chip')[0].click();
 		await Promise.resolve();
 
 		expect(displayHandler).toHaveBeenCalledTimes(1);
@@ -340,7 +340,7 @@ describe('streamingUsageFilters', () =>
 			true
 		]);
 
-		specAll(element, 'usage-legend-chip')[0].click();
+		findAllByTestHook(element, 'usage-legend-chip')[0].click();
 		await Promise.resolve();
 
 		expect(displayHandler).toHaveBeenCalledTimes(2);
@@ -357,17 +357,17 @@ describe('streamingUsageFilters', () =>
 		element.addEventListener('searchfilterchange', searchHandler);
 		await Promise.resolve();
 
-		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		changeValue(findByTestHook(element, 'usage-range-preset'), 'CUSTOM');
 		await Promise.resolve();
-		expect(spec(element, 'usage-range-from')).not.toBeNull();
+		expect(findByTestHook(element, 'usage-range-from')).not.toBeNull();
 		searchHandler.mockClear();
 
-		spec(element, 'usage-granularity-hourly').click();
+		findByTestHook(element, 'usage-granularity-hourly').click();
 		await Promise.resolve();
 
-		expect(spec(element, 'usage-range-from')).toBeNull();
-		expect(spec(element, 'usage-range-to')).toBeNull();
-		expect(spec(element, 'usage-range-preset').value).toBe('P1D');
+		expect(findByTestHook(element, 'usage-range-from')).toBeNull();
+		expect(findByTestHook(element, 'usage-range-to')).toBeNull();
+		expect(findByTestHook(element, 'usage-range-preset').value).toBe('P1D');
 
 		expect(searchHandler).toHaveBeenCalledTimes(1);
 		const detail = lastDetail(searchHandler);
@@ -381,7 +381,7 @@ describe('streamingUsageFilters', () =>
 		const element = createFilters();
 		await Promise.resolve();
 
-		const valuesOf = () => spec(element, 'usage-range-preset').options.map((option) => option.value);
+		const valuesOf = () => findByTestHook(element, 'usage-range-preset').options.map((option) => option.value);
 
 		// Last Hour is excluded under Daily: a one-hour span is below the one-day platform minimum,
 		// so offering it would hand the user a preset that is guaranteed to fail validation.
@@ -392,7 +392,7 @@ describe('streamingUsageFilters', () =>
 			'CUSTOM'
 		]);
 
-		spec(element, 'usage-granularity-hourly').click();
+		findByTestHook(element, 'usage-granularity-hourly').click();
 		await Promise.resolve();
 		expect(valuesOf()).toEqual([
 			'PT1H',
@@ -400,7 +400,7 @@ describe('streamingUsageFilters', () =>
 			'CUSTOM'
 		]);
 
-		spec(element, 'usage-granularity-fifteen').click();
+		findByTestHook(element, 'usage-granularity-fifteen').click();
 		await Promise.resolve();
 		expect(valuesOf()).toEqual([
 			'PT1H',
@@ -413,7 +413,7 @@ describe('streamingUsageFilters', () =>
 		const element = createFilters();
 		await Promise.resolve();
 
-		specAll(element, 'usage-legend-chip').forEach((chip) =>
+		findAllByTestHook(element, 'usage-legend-chip').forEach((chip) =>
 		{
 			expect(chip.tagName).toBe('BUTTON');
 			expect(chip.getAttribute('aria-pressed')).not.toBeNull();
@@ -425,7 +425,7 @@ describe('streamingUsageFilters', () =>
 			'usage-granularity-fifteen'
 		].forEach((id) =>
 		{
-			expect(spec(element, id).getAttribute('aria-pressed')).not.toBeNull();
+			expect(findByTestHook(element, id).getAttribute('aria-pressed')).not.toBeNull();
 		});
 	});
 
@@ -434,17 +434,17 @@ describe('streamingUsageFilters', () =>
 		const element = createFilters();
 		await Promise.resolve();
 
-		// Hide the first series, then re-supply event types (a refetch) — the setter must keep the
+		// Hide the first series, then re-supply event types (a refetch). The setter must keep the
 		// hidden chip hidden instead of silently snapping every series back to visible.
-		specAll(element, 'usage-legend-chip')[0].click();
+		findAllByTestHook(element, 'usage-legend-chip')[0].click();
 		await Promise.resolve();
-		expect(specAll(element, 'usage-legend-chip')[0].getAttribute('aria-pressed')).toBe('false');
+		expect(findAllByTestHook(element, 'usage-legend-chip')[0].getAttribute('aria-pressed')).toBe('false');
 
 		element.eventTypes = [...EVENT_TYPES];
 		await Promise.resolve();
 
 		expect(element.eventTypes).toEqual(EVENT_TYPES);
-		expect([...specAll(element, 'usage-legend-chip')].map((chip) => chip.getAttribute('aria-pressed'))).toEqual([
+		expect([...findAllByTestHook(element, 'usage-legend-chip')].map((chip) => chip.getAttribute('aria-pressed'))).toEqual([
 			'false',
 			'true'
 		]);
@@ -455,7 +455,7 @@ describe('streamingUsageFilters', () =>
 		const element = createFilters();
 		await Promise.resolve();
 
-		specAll(element, 'usage-legend-chip')[0].click();
+		findAllByTestHook(element, 'usage-legend-chip')[0].click();
 		await Promise.resolve();
 
 		element.eventTypes = [
@@ -465,7 +465,7 @@ describe('streamingUsageFilters', () =>
 		];
 		await Promise.resolve();
 
-		expect([...specAll(element, 'usage-legend-chip')].map((chip) => chip.getAttribute('aria-pressed'))).toEqual([
+		expect([...findAllByTestHook(element, 'usage-legend-chip')].map((chip) => chip.getAttribute('aria-pressed'))).toEqual([
 			'false',
 			'true',
 			'true'
@@ -477,17 +477,17 @@ describe('streamingUsageFilters', () =>
 		const element = createFilters();
 		await Promise.resolve();
 
-		specAll(element, 'usage-legend-chip')[1].click();
+		findAllByTestHook(element, 'usage-legend-chip')[1].click();
 		await Promise.resolve();
 
 		element.eventTypes = [EVENT_TYPES[0]];
 		await Promise.resolve();
-		expect(specAll(element, 'usage-legend-chip').length).toBe(1);
+		expect(findAllByTestHook(element, 'usage-legend-chip').length).toBe(1);
 
 		element.eventTypes = [...EVENT_TYPES];
 		await Promise.resolve();
 
-		expect([...specAll(element, 'usage-legend-chip')].map((chip) => chip.getAttribute('aria-pressed'))).toEqual([
+		expect([...findAllByTestHook(element, 'usage-legend-chip')].map((chip) => chip.getAttribute('aria-pressed'))).toEqual([
 			'true',
 			'true'
 		]);
@@ -500,8 +500,8 @@ describe('streamingUsageFilters', () =>
 		document.body.appendChild(element);
 		await Promise.resolve();
 
-		expect(specAll(element, 'usage-legend-chip').length).toBe(0);
-		expect(spec(element, 'usage-granularity-daily')).not.toBeNull();
+		expect(findAllByTestHook(element, 'usage-legend-chip').length).toBe(0);
+		expect(findByTestHook(element, 'usage-granularity-daily')).not.toBeNull();
 	});
 
 	it('reset() restores the Daily default, clears the custom range, re-shows every chip, and does not emit', async() =>
@@ -514,24 +514,24 @@ describe('streamingUsageFilters', () =>
 		await Promise.resolve();
 
 		// Drive the controls off their defaults: switch to Hourly, then enter a custom range and hide a chip.
-		spec(element, 'usage-granularity-hourly').click();
+		findByTestHook(element, 'usage-granularity-hourly').click();
 		await Promise.resolve();
-		changeValue(spec(element, 'usage-range-preset'), 'CUSTOM');
+		changeValue(findByTestHook(element, 'usage-range-preset'), 'CUSTOM');
 		await Promise.resolve();
-		specAll(element, 'usage-legend-chip')[0].click();
+		findAllByTestHook(element, 'usage-legend-chip')[0].click();
 		await Promise.resolve();
-		expect(spec(element, 'usage-range-from')).not.toBeNull();
-		expect(specAll(element, 'usage-legend-chip')[0].getAttribute('aria-pressed')).toBe('false');
+		expect(findByTestHook(element, 'usage-range-from')).not.toBeNull();
+		expect(findAllByTestHook(element, 'usage-legend-chip')[0].getAttribute('aria-pressed')).toBe('false');
 		searchHandler.mockClear();
 		displayHandler.mockClear();
 
 		element.reset();
 		await Promise.resolve();
 
-		expect(spec(element, 'usage-granularity-daily').getAttribute('aria-pressed')).toBe('true');
-		expect(spec(element, 'usage-range-preset').value).toBe('P30D');
-		expect(spec(element, 'usage-range-from')).toBeNull();
-		specAll(element, 'usage-legend-chip').forEach((chip) => expect(chip.getAttribute('aria-pressed')).toBe('true'));
+		expect(findByTestHook(element, 'usage-granularity-daily').getAttribute('aria-pressed')).toBe('true');
+		expect(findByTestHook(element, 'usage-range-preset').value).toBe('P30D');
+		expect(findByTestHook(element, 'usage-range-from')).toBeNull();
+		findAllByTestHook(element, 'usage-legend-chip').forEach((chip) => expect(chip.getAttribute('aria-pressed')).toBe('true'));
 		expect(searchHandler).not.toHaveBeenCalled();
 		expect(displayHandler).not.toHaveBeenCalled();
 	});

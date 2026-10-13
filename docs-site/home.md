@@ -67,7 +67,7 @@ page.deletedRecords; // rows the cursor saw deleted
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="performance">Performance</p>
-<a class="kl-ledger-chip" href="/selectors-guide#platform-cache-integration"><span class="kl-chip-t">Cache the read inline</span><span class="kl-chip-d">withCache(ttlSeconds) parks the result in platform cache for the chosen lifetime, so repeat reads skip the query.</span></a>
+<a class="kl-ledger-chip" href="/selectors-guide#where-are-cached-rows-kept"><span class="kl-chip-t">Cache the read inline</span><span class="kl-chip-d">withCache(ttlSeconds) keeps this read in memory for the rest of the transaction, so a repeat costs no query. A system-mode read that states its sharing can be kept in Platform Cache for the chosen lifetime.</span></a>
 </div>
 
 <div class="kl-cat">
@@ -151,7 +151,7 @@ Each foreign key is set from the new parent's Id the moment that parent inserts,
 
 </CodeCompare>
 
-<CodeCompare title="A resilient callout and its test, in one chain" link="/fast-start-resilience#step-1-make-a-resilient-callout" linkText="Resilience Fast Start → Resilient Callout" wrote="9 lines" caps="9">
+<CodeCompare title="A resilient callout and its test, in one chain" link="/fast-start-resilience#step-1-make-a-resilient-callout" linkText="Resilience Fast Start → Resilient Callout" wrote="10 lines" caps="10">
 
 <template #before>
 
@@ -183,6 +183,7 @@ while(retryable.contains(response.getStatusCode()) && attempts < 4);
 HttpResponse charge = kern.UTIL_HttpClient
 	.post('PaymentGateway', '/charges')
 	.body(chargeRequest)
+	.withIdempotencyKey(chargeRequest.orderNumber) // the same key on every attempt: any value unique to this charge, such as its order number
 	.withRetry(5, 10)
 	.withCircuitBreaker()
 	.onFailure(kern.UTIL_HttpClient.FailureAction.RETRY_THEN_LOG)
@@ -199,7 +200,7 @@ kern.API_MockFactory.forService('PaymentGateway')
 
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="reliability">Reliability</p>
-<a class="kl-ledger-chip hero" href="/fast-start-resilience#retry-built-into-a-callout"><span class="kl-chip-t">Two-layer retry</span><span class="kl-chip-d">Retries transient 5xx responses {500, 502, 503, 504} immediately. You never typed the loop or the codes.</span></a>
+<a class="kl-ledger-chip hero" href="/fast-start-resilience#retry-built-into-a-callout"><span class="kl-chip-t">Retry that knows what is safe</span><span class="kl-chip-d">Re-sends a 408 or 503 at once, and a 500, 502 or 504 too, because the call carries an idempotency key (one ID sent with every attempt, so the other system can spot a repeat). You never typed the loop or the codes.</span></a>
 <a class="kl-ledger-chip" href="/web-services-guide#automatic-retries"><span class="kl-chip-t">Async re-drive</span><span class="kl-chip-d">Still failing? The call is persisted and a scheduled Flow re-drives it at a backoff date.</span></a>
 <a class="kl-ledger-chip" href="/resilience-guide#platform-cache-and-cross-transaction-state"><span class="kl-chip-t">Cross-transaction breaker</span><span class="kl-chip-d">Circuit-breaker state lives in Platform Cache, keyed by the credential, shared across transactions.</span></a>
 </div>
@@ -214,6 +215,7 @@ kern.API_MockFactory.forService('PaymentGateway')
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="observability">Observability</p>
 <a class="kl-ledger-chip" href="/web-services-guide#where-things-are-logged"><span class="kl-chip-t">Failure records on exhaustion</span><span class="kl-chip-d">On retry exhaustion it persists an ApiIssue__c record (when failure logging is enabled).</span></a>
+<a class="kl-ledger-chip" href="/web-services-guide#failures-and-retries"><span class="kl-chip-t">Says when it may have landed</span><span class="kl-chip-d">When a request that is not safe to repeat fails after it may have reached the other system, its API issue is marked External System May Have Acted, so nobody sends it again without checking first.</span></a>
 </div>
 
 <div class="kl-cat">
@@ -226,7 +228,7 @@ kern.API_MockFactory.forService('PaymentGateway')
 
 <template #why>
 
-The non-obvious part: a transient 5xx comes back *on* the response rather than thrown, and once in-transaction retries are spent the call is persisted so a scheduled Flow can re-drive it at a backoff date. The resilience outlives the original transaction. After repeated failures the framework stops calling a failing dependency for a cool-off, then resumes (a circuit breaker), and that state lives in Platform Cache keyed by the credential, so a dependency that's down stays shorted across transactions, not just within one.
+The non-obvious part: a transient 5xx comes back *on* the response rather than thrown, and because the call carries an idempotency key, the framework knows a repeat is safe. Once in-transaction retries are spent, the call is saved so a scheduled Flow can send it again at a backoff date. Without a key, a POST that got a 500, 502 or 504 is not sent again, because the other system may already have charged the card. The resilience outlives the original transaction. After repeated failures the framework stops calling a failing dependency for a cool-off, then resumes (a circuit breaker), and that state lives in Platform Cache keyed by the credential, so a dependency that's down stays shorted across transactions, not just within one.
 
 </template>
 
@@ -286,7 +288,7 @@ catch(Exception error)
 <a class="kl-ledger-chip" href="/logging-guide#performance-logging"><span class="kl-chip-t">Governor-limit snapshot</span><span class="kl-chip-d">Snapshots every limit (SOQL, DML, CPU, heap, callouts, each as used of maximum) onto the row.</span></a>
 <a class="kl-ledger-chip" href="/logging-guide#correlation-tracking"><span class="kl-chip-t">Correlation id</span><span class="kl-chip-d">One startCorrelation() stamps a shared id on every log, so you query the whole flow by that one id.</span></a>
 <a class="kl-ledger-chip" href="/logging-guide#async-context-propagation"><span class="kl-chip-t">Correlation survives the async hop</span><span class="kl-chip-d">serializeContext() / hydrateContext() carry the correlation id across a Queueable, Batch, or Future, so one flow stays joinable.</span></a>
-<a class="kl-ledger-chip" href="/logging-guide#operation-context-stack"><span class="kl-chip-t">Full execution context</span><span class="kl-chip-d">Captures class + method, the context (trigger/REST/batch…), and the user who emitted the log.</span></a>
+<a class="kl-ledger-chip" href="/logging-guide#who-wrote-an-entry"><span class="kl-chip-t">Who wrote it</span><span class="kl-chip-d">Records who wrote the entry (Framework, Apex, Flow or Component) and which class, Flow or component, plus the context (trigger, REST, batch…) and the running user.</span></a>
 <a class="kl-ledger-chip" href="/fast-start-logging#log-an-exception-with-full-stack-trace"><span class="kl-chip-t">Exception detail</span><span class="kl-chip-d">Records the exception type, the full stack trace, and the failing line number.</span></a>
 </div>
 
@@ -390,6 +392,7 @@ global inherited sharing class API_Charge extends kern.API_Inbound
 <a class="kl-ledger-chip" href="/web-services-guide#idempotency-inbound-apis"><span class="kl-chip-t">One-checkbox SHA-256</span><span class="kl-chip-d">The dedupe is a SHA-256 hash of the body, turned on by one config checkbox.</span></a>
 <a class="kl-ledger-chip" href="/web-services-guide#idempotency-inbound-apis"><span class="kl-chip-t">Completed-only match</span><span class="kl-chip-d">Replay matches the indexed Idempotency-Key, only against requests that completed successfully.</span></a>
 <a class="kl-ledger-chip" href="/web-services-guide#idempotency-inbound-apis"><span class="kl-chip-t">Inbound, not outbound</span><span class="kl-chip-d">This is INBOUND body-hash idempotency. Outbound uses an explicit idempotency key you set, not a body hash.</span></a>
+<a class="kl-ledger-chip" href="/web-services-guide#failures-and-retries"><span class="kl-chip-t">Replay a failed request on purpose</span><span class="kl-chip-d">A failed inbound request is saved on an API issue (the error record KernDX keeps) with its path, method and body. Press Retry on the issue, or Retry Selected on the API Issues list for many at once, to run it through your handler again as a new call. Unlike Cached replay, this does re-run your handler.</span></a>
 </div>
 
 <div class="kl-cat">
@@ -463,7 +466,7 @@ kern.UTIL_AsyncChain.newChain('OrderSync')
 <p class="kl-cat-h" data-cat="observability">Observability</p>
 <a class="kl-ledger-chip" href="/async-processing-guide#what-problem-does-this-solve"><span class="kl-chip-t">Real-time Chain Monitor</span><span class="kl-chip-d">A live UI surfaces running and failed chains without writing a query.</span></a>
 <a class="kl-ledger-chip" href="/async-processing-guide#monitoring"><span class="kl-chip-t">Queryable status</span><span class="kl-chip-d">Status persists to an AsyncChainExecution__c row at every transition (Running → Completed/Failed/Aborted).</span></a>
-<a class="kl-ledger-chip" href="/async-processing-guide#log-correlation"><span class="kl-chip-t">Shared correlation id</span><span class="kl-chip-d">Logs inside a step share the chain's id, so one filter traces the whole multi-transaction run.</span></a>
+<a class="kl-ledger-chip" href="/logging-guide#the-whole-action"><span class="kl-chip-t">The whole action in one search</span><span class="kl-chip-d">Every chain run has its own tracking ID, and every entry also carries the ID of the action that started it, so one search brings back the action and every chain it launched.</span></a>
 <a class="kl-ledger-chip" href="/async-processing-guide#monitoring"><span class="kl-chip-t">Field-history audit</span><span class="kl-chip-d">Status__c, CompletedSteps__c, CurrentStepName__c, and CompletedAt__c carry field-history, giving a step-by-step trail.</span></a>
 <a class="kl-ledger-chip" href="/async-processing-guide#monitoring-async-chain-failures"><span class="kl-chip-t">Durable crash log</span><span class="kl-chip-d">On crash the Finalizer wrote a durable Error log stamped with the failed chain-execution id.</span></a>
 <a class="kl-ledger-chip" href="/async-processing-guide#logging-strategy"><span class="kl-chip-t">Quiet when clean</span><span class="kl-chip-d">Logs are reserved for actionable events, so a clean, fast, successful run emits no noise.</span></a>
@@ -630,7 +633,7 @@ List<LogEntry__c> shadowViolations = kern.QRY_Builder.selectFrom(LogEntry__c.SOb
 <div class="kl-cat">
 <p class="kl-cat-h" data-cat="governance">Governance</p>
 <a class="kl-ledger-chip" href="/validation-guide#shadow-mode"><span class="kl-chip-t">Three documented outcomes</span><span class="kl-chip-d">Severity Error blocks the save, Warning logs it, Shadow logs it regardless of severity.</span></a>
-<a class="kl-ledger-chip" href="/selectors-guide#user-mode-security"><span class="kl-chip-t">USER_MODE log read</span><span class="kl-chip-d">The log read runs in USER_MODE by default, honouring the running user's LogEntry__c permissions.</span></a>
+<a class="kl-ledger-chip" href="/security-guide#who-can-see-the-framework-s-own-records"><span class="kl-chip-t">USER_MODE log read</span><span class="kl-chip-d">The log read runs in USER_MODE by default. Log entries are private on a new install, so run it as someone who can see every entry, such as a holder of the Kern Administrator permission set.</span></a>
 </div>
 
 </template>

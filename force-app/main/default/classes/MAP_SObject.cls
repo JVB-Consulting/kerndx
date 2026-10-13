@@ -55,7 +55,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -106,7 +106,8 @@ global inherited sharing class MAP_SObject
 	private final Boolean isSimpleField;
 
 	/**
-	 * @description Hybrid storage: values are either List<SObject> (leaf) or MAP_SObject (branch).
+	 * @description The stored entries, by key. On the last level a value is a List<SObject> of records. On every
+	 * other level a value is a MAP_SObject that indexes the next field.
 	 */
 	private final Map<String, Object> data;
 
@@ -337,9 +338,9 @@ global inherited sharing class MAP_SObject
 	}
 
 	/**
-	 * @description Retrieves a single SObject matching the specification SObject on all indexed fields.
+	 * @description Retrieves a single SObject whose indexed fields all match those of the example record you pass.
 	 *
-	 * @param specification An SObject with values for all indexed fields.
+	 * @param exampleRecord An example record with a value set on every indexed field.
 	 *
 	 * @return A matching SObject, or null if no match is found (returns the first match if multiple exist).
 	 *
@@ -351,9 +352,9 @@ global inherited sharing class MAP_SObject
 	 * Contact c = (Contact)index.get(new Contact(AccountId = accId, LastName = 'Smith'));
 	 * ```
 	 */
-	global SObject get(SObject specification)
+	global SObject get(SObject exampleRecord)
 	{
-		List<SObject> results = getAll(specification);
+		List<SObject> results = getAll(exampleRecord);
 		return results.isEmpty() ? null : results[0];
 	}
 
@@ -391,9 +392,9 @@ global inherited sharing class MAP_SObject
 	}
 
 	/**
-	 * @description Retrieves all SObjects matching the specification SObject on all indexed fields.
+	 * @description Retrieves all SObjects whose indexed fields all match those of the example record you pass.
 	 *
-	 * @param specification An SObject with values for all indexed fields.
+	 * @param exampleRecord An example record with a value set on every indexed field.
 	 *
 	 * @return A list of matching SObjects, or an empty list if no matches are found.
 	 *
@@ -405,9 +406,9 @@ global inherited sharing class MAP_SObject
 	 * List<Contact> results = index.getAll(new Contact(AccountId = accId, LastName = 'Smith'));
 	 * ```
 	 */
-	global List<SObject> getAll(SObject specification)
+	global List<SObject> getAll(SObject exampleRecord)
 	{
-		String key = getKeyFrom(specification);
+		String key = getKeyFrom(exampleRecord);
 		Object child = data.get(key);
 
 		if(child == null)
@@ -420,7 +421,7 @@ global inherited sharing class MAP_SObject
 			return (List<SObject>)child;
 		}
 
-		return ((MAP_SObject)child).getAll(specification);
+		return ((MAP_SObject)child).getAll(exampleRecord);
 	}
 
 	/**
@@ -435,8 +436,8 @@ global inherited sharing class MAP_SObject
 	 * @example
 	 * ```apex
 	 * MAP_SObject index = MAP_SObject.of(contacts, new List<String>{'AccountId', 'LastName'});
-	 * Map<String, Object> spec = new Map<String, Object>{ 'LastName' => 'Smith' };
-	 * List<Contact> results = index.getAll(spec);
+	 * Map<String, Object> valuesToMatch = new Map<String, Object>{ 'LastName' => 'Smith' };
+	 * List<Contact> results = index.getAll(valuesToMatch);
 	 * ```
 	 */
 	global List<SObject> getAll(Map<String, Object> fieldValueMap)
@@ -496,9 +497,9 @@ global inherited sharing class MAP_SObject
 	}
 
 	/**
-	 * @description Removes SObjects matching the specification SObject from the index.
+	 * @description Removes from the index the SObjects whose indexed fields match those of the example record you pass.
 	 *
-	 * @param specification An SObject with values for all indexed fields.
+	 * @param exampleRecord An example record with a value set on every indexed field.
 	 *
 	 * @return A list of removed SObjects, or an empty list if no matches are found.
 	 *
@@ -510,10 +511,10 @@ global inherited sharing class MAP_SObject
 	 * List<SObject> removed = index.remove(new Contact(AccountId = accId));
 	 * ```
 	 */
-	global List<SObject> remove(SObject specification)
+	global List<SObject> remove(SObject exampleRecord)
 	{
-		String key = getKeyFrom(specification);
-		return removeByKey(key, specification);
+		String key = getKeyFrom(exampleRecord);
+		return removeByKey(key, exampleRecord);
 	}
 
 	/**
@@ -528,8 +529,8 @@ global inherited sharing class MAP_SObject
 	 * @example
 	 * ```apex
 	 * MAP_SObject index = MAP_SObject.of(contacts, new List<String>{'AccountId', 'LastName'});
-	 * Map<String, Object> spec = new Map<String, Object>{ 'LastName' => 'Smith' };
-	 * List<SObject> removed = index.remove(spec);
+	 * Map<String, Object> valuesToMatch = new Map<String, Object>{ 'LastName' => 'Smith' };
+	 * List<SObject> removed = index.remove(valuesToMatch);
 	 * ```
 	 */
 	global List<SObject> remove(Map<String, Object> fieldValueMap)
@@ -554,15 +555,15 @@ global inherited sharing class MAP_SObject
 	}
 
 	/**
-	 * @description Removes data at the given key, delegating to child index if needed.
-	 * Removes keys entirely to prevent memory leaks and ensure isEmpty() is accurate.
+	 * @description Removes the records stored at the given key, and asks the child index to remove them when the
+	 * key leads to one. An empty key is removed completely, so no memory is wasted and isEmpty() stays accurate.
 	 *
-	 * @param key The serialized key.
-	 * @param removalSpec The specification (SObject or Map) to pass to child index.
+	 * @param key The key, already turned into text.
+	 * @param valuesToMatch The example record or field-value map to pass to the child index.
 	 *
 	 * @return List of removed records.
 	 */
-	private List<SObject> removeByKey(String key, Object removalSpec)
+	private List<SObject> removeByKey(String key, Object valuesToMatch)
 	{
 		Object child = data.get(key);
 
@@ -580,13 +581,13 @@ global inherited sharing class MAP_SObject
 		MAP_SObject childIndex = (MAP_SObject)child;
 		List<SObject> removed;
 
-		if(removalSpec instanceof SObject)
+		if(valuesToMatch instanceof SObject)
 		{
-			removed = childIndex.remove((SObject)removalSpec);
+			removed = childIndex.remove((SObject)valuesToMatch);
 		}
 		else
 		{
-			removed = childIndex.remove((Map<String, Object>)removalSpec);
+			removed = childIndex.remove((Map<String, Object>)valuesToMatch);
 		}
 
 		if(childIndex.isEmpty())
@@ -650,7 +651,7 @@ global inherited sharing class MAP_SObject
 	 * @example
 	 * ```apex
 	 * MAP_SObject index = MAP_SObject.of(contacts, 'AccountId');
-	 * System.debug('Indexed ' + index.size() + ' contacts');
+	 * LOG_Builder.build().info('Indexed ' + index.size() + ' contacts').emitAt('MyClass.indexContacts');
 	 * ```
 	 */
 	global Integer size()
@@ -697,7 +698,7 @@ global inherited sharing class MAP_SObject
 	 * @example
 	 * ```apex
 	 * MAP_SObject index = MAP_SObject.of(contacts, new List<String>{'AccountId', 'LastName'});
-	 * System.debug(index); // Outputs: MAP_SObject[field=AccountId, depth=0, keys={001...}]
+	 * String description = index.toString(); // MAP_SObject[field=AccountId, depth=0, keys={001...}]
 	 * ```
 	 */
 	global override String toString()

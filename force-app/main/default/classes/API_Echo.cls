@@ -8,14 +8,26 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class API_Echo extends API_Inbound
 {
+	/**
+	 * @description When a test sets this to true, updateResponseDTO throws after the base class has built the response, so the test can
+	 * check what the framework does when a handler fails at that late step. It stays false outside tests.
+	 */
 	@TestVisible
 	private static Boolean simulatePostCommitProcessing = false;
+	/**
+	 * @description The validation error returned when the request arrives with an empty body. There is nothing to echo back, so the
+	 * call is rejected before it runs.
+	 */
 	@TestVisible
 	private static final String ERROR_NO_BODY_RECEIVED = 'No request body received';
+	/**
+	 * @description The message of the exception thrown by updateResponseDTO when simulatePostCommitProcessing is true. Tests compare
+	 * against it to prove the failure they see is the simulated one.
+	 */
 	@TestVisible
 	private static final String ERROR_POST_COMMIT = 'Simulate Post Commit Error Processing';
 
@@ -48,11 +60,9 @@ public inherited sharing class API_Echo extends API_Inbound
 	}
 
 	/**
-	 * @description This method can be overridden by inheriting classes to update the response DTO
-	 * with any relevant information before the response is sent. It is intended to allow
-	 * customization of the response body data based on the request or processed results.
+	 * @description Keeps the response the base class builds, then throws when a test has set simulatePostCommitProcessing, so the
+	 * test can see how the framework handles a handler that fails after the call has run.
 	 */
-	@SuppressWarnings('PMD.EmptyStatementBlock')
 	public override void updateResponseDTO()
 	{
 		super.updateResponseDTO();

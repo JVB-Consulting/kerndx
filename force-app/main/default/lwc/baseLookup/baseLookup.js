@@ -7,7 +7,7 @@
  *
  * @author Jason van Beukering
  *
- * @date September 2022, July 2026
+ * @date September 2022, October 2026
  */
 import NO_RECORDS_FOUND from '@salesforce/label/c.BaseLookup_NoRecordsFound';
 import REMOVE_SELECTED_OPTION from '@salesforce/label/c.BaseLookup_RemoveSelectedOption';
@@ -190,9 +190,9 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 
 	/**
 	 * @description Options to pre-populate the results list with. Assigning this reactively
-	 * (re)seeds the displayed results, so a consumer that supplies the list asynchronously —
-	 * for example after an awaited Apex call in its own connectedCallback, by which point this
-	 * component has already mounted — still gets a populated, searchable dropdown. The one-shot
+	 * (re)seeds the displayed results, so a consumer that supplies the list asynchronously
+	 * (for example after an awaited Apex call in its own connectedCallback, by which point this
+	 * component has already mounted) still gets a populated, searchable dropdown. The one-shot
 	 * seed in connectedCallback covers the case where the list is already present at mount.
 	 * @type {[]}
 	 */
@@ -298,7 +298,7 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	}
 
 	/**
-	 * @description Pure render-path projection of the filtered results, decorated with
+	 * @description The filtered results as the template renders them, each decorated with
 	 * the generated display label and result identifier. Performs no state mutation and
 	 * no DOM work; the dropdown-open and focus-reset side effects live in the input
 	 * handlers and the `searchResults` setter.

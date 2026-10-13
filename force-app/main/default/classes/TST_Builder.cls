@@ -15,7 +15,7 @@
 /**
  * @description An advanced factory for creating and inserting SObject records for Apex tests.
  * This class provides a flexible way to generate test data, automatically handling required fields
- * and complex object relationships using a fluid builder pattern.
+ * and complex object relationships. You set it up by chaining method calls (a fluent builder).
  *
  * @see TST_BuilderInternal
  * @see TST_Builder_TEST
@@ -25,7 +25,7 @@
  *
  * @group Testing
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -221,7 +221,7 @@ global inherited sharing class TST_Builder
 	}
 
 	/**
-	 * @description A fluid builder for configuring and creating SObject records.
+	 * @description A fluent builder for configuring and creating SObject records: you set it up by chaining method calls.
 	 * Obtain an instance via `TST_Builder.of(SObjectType)`.
 	 *
 	 * @since 1.0
@@ -230,7 +230,7 @@ global inherited sharing class TST_Builder
 	global inherited sharing class Builder
 	{
 		/**
-		 * @description Indicates if we should insert or not, defaults to true
+		 * @description Whether to insert the records. Defaults to true.
 		 */
 		private Boolean doInsert = true;
 		/**
@@ -246,7 +246,7 @@ global inherited sharing class TST_Builder
 		 */
 		private final List<Object> fieldsToDefault = new List<Object>();
 		/**
-		 * @description Tne fields to treat as optional, overriding the default provider's required field logic.
+		 * @description The fields to treat as optional, even when the default provider would fill them as required.
 		 */
 		private final List<Object> optionalFields = new List<Object>();
 		/**
@@ -269,8 +269,8 @@ global inherited sharing class TST_Builder
 		private final Map<String, List<SObject>> childRelationships = new Map<String, List<SObject>>();
 
 		/**
-		 * @description Map of child relationship names to deferred child builders.
-		 * Children are built in buildList() after global mock ID flag is set.
+		 * @description Child builders by child relationship name, kept to be built later.
+		 * buildList() builds these children only after it sets the shared mock ID flag, so the children get mock IDs too.
 		 */
 		private final Map<String, Builder> deferredChildBuilders = new Map<String, Builder>();
 
@@ -1069,7 +1069,7 @@ global inherited sharing class TST_Builder
 					childRelationships.put(relationshipName, children);
 				}
 
-				// Delegate to Internal for child relationship handling (single UOW transaction)
+				// TST_BuilderInternal handles the children, saving parents and children together in one transaction
 				// Mock IDs are applied via MockIdProvider in prepareOverrides() when generateMockIds is true
 				if(!childRelationships.isEmpty())
 				{
@@ -1110,14 +1110,9 @@ global inherited sharing class TST_Builder
 		}
 
 		/**
-		 * @description Inserts child relationships with proper parent ID assignment (for with insertion).
-		 * Parents must already be inserted at this point.
-		 *
-		 * @param parents List of parent SObjects (already inserted with IDs)
-		 */
-		/**
 		 * @description Determines the child relationship name from parent/child types.
-		 * Detects multiple relationships and provides clear error message guiding to explicit variant.
+		 * When more than one relationship links the two types, the error message tells the caller to name the
+		 * relationship explicitly with withChildren(String, Builder).
 		 *
 		 * @param parentType The parent SObjectType
 		 * @param childType The child SObjectType
@@ -1135,8 +1130,8 @@ global inherited sharing class TST_Builder
 	}
 
 	/**
-	 * @description Creates a list of SObjects with specified field values and controls insertion.
-	 * (Core implementation method, now private)
+	 * @description Creates a list of SObjects with the given field values, and inserts them when asked.
+	 * This is the main private method that does the work.
 	 *
 	 * @param objectType The `SObjectType` of the SObject to create.
 	 * @param mapOfValuesOverride A map of field names to their override values.
@@ -1151,8 +1146,9 @@ global inherited sharing class TST_Builder
 	}
 
 	/**
-	 * @description Creates a list of SObjects with child relationships using a single UOW transaction.
-	 * Delegates to TST_BuilderInternal for complex logic.
+	 * @description Creates a list of SObjects with their child records, saved together in one unit of work. A unit of
+	 * work is the set of records saved together in one transaction, so either all are saved or none are.
+	 * TST_BuilderInternal does the detailed work.
 	 *
 	 * @param objectType The `SObjectType` of the SObject to create.
 	 * @param mapOfValuesOverride A map of field names to their override values.
@@ -1281,8 +1277,8 @@ global inherited sharing class TST_Builder
 
 	/**
 	 * @description Extended interface for SObject factories that support child relationships.
-	 * This interface is implemented by the internal factory to enable parent-child record
-	 * creation within a single Unit of Work transaction.
+	 * The internal factory implements this interface so that it can create parent and child records
+	 * in one unit of work: the set of records saved together in one transaction.
 	 *
 	 * @warning FOR INTERNAL FRAMEWORK USE ONLY.
 	 * Do not implement this interface in a subscriber org.
@@ -1291,7 +1287,7 @@ global inherited sharing class TST_Builder
 	public interface FactoryWithChildren extends Factory
 	{
 		/**
-		 * @description Creates parent SObjects with associated child records in a single UOW transaction.
+		 * @description Creates parent SObjects with their child records, saved together in one unit of work.
 		 *
 		 * @param mapOfValuesOverride Map of field values to override for parent records.
 		 * @param doInsert If true, inserts parent and child records atomically.

@@ -10,12 +10,20 @@
  *
  * @group Triggers
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class TRG_SetFoobarDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
 {
+	/**
+	 * @description When a test sets this to true, beforeInsert inserts one more Foobar record for every record it handles. Tests use
+	 * it to prove that an insert made from inside the action does not run the action a second time.
+	 */
 	@TestVisible
 	private static Boolean insertNewFoo = false;
+	/**
+	 * @description The fixed text written to Text__c on every Foobar inserted while a test is running, so a test can tell that the
+	 * action ran by reading the field back.
+	 */
 	@TestVisible
 	private static final String DUMMY_TEXT_VALUE = '827432bc-9ccf-4ff3-af35-14a968ac0450';
 

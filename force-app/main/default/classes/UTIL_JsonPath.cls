@@ -35,7 +35,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -50,7 +50,15 @@
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier')
 global inherited sharing class UTIL_JsonPath
 {
+	/**
+	 * @description Recognises a path part that is an array position, written as a number in square brackets such as `[0]`, and
+	 * captures the number. A part that does not match is treated as the name of a key in a JSON object.
+	 */
 	private static final Pattern ARRAY_NOTATION = Pattern.compile('\\[(\\d+)]');
+	/**
+	 * @description The regular expression used to split a path into its parts: a literal dot. The dot is escaped because an
+	 * unescaped dot would match every character.
+	 */
 	private static final String SEPARATOR = '\\.';
 
 	/**

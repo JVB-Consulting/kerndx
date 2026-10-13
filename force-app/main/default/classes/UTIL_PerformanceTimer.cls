@@ -17,7 +17,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class UTIL_PerformanceTimer extends UTIL_StopWatch
 {
@@ -39,10 +39,30 @@ public inherited sharing class UTIL_PerformanceTimer extends UTIL_StopWatch
 		private set;
 	}
 
+	/**
+	 * @description The CPU time, in milliseconds, the transaction had used when the timer started. The log entry reports the CPU
+	 * time used since then.
+	 */
 	private Integer cpuTimeAtStart;
+	/**
+	 * @description The heap size, in bytes, the transaction was using when the timer started. The log entry reports how much it
+	 * has grown since then.
+	 */
 	private Integer heapSizeAtStart;
+	/**
+	 * @description The number of SOQL queries the transaction had run when the timer started. The log entry reports the queries
+	 * run since then.
+	 */
 	private Integer soqlCountAtStart;
+	/**
+	 * @description The number of DML statements the transaction had run when the timer started. The log entry reports the
+	 * statements run since then.
+	 */
 	private Integer dmlCountAtStart;
+	/**
+	 * @description The number of rows the transaction had written with DML when the timer started. The log entry reports the rows
+	 * written since then.
+	 */
 	private Integer dmlRowCountAtStart;
 
 	/**

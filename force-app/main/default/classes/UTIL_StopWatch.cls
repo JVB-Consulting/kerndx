@@ -29,7 +29,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @example
  * ```apex
@@ -42,10 +42,22 @@
  */
 public virtual inherited sharing class UTIL_StopWatch
 {
+	/**
+	 * @description The stage a timer is at: not started, running, or stopped. A stopped timer has to be cleared before it can run again.
+	 */
 	private enum RunState
 	{
+		/**
+		 * @description Not started: a new timer, or one that has been cleared. No time has been measured.
+		 */
 		IDLE,
+		/**
+		 * @description Running: time is being measured and the elapsed time is still growing.
+		 */
 		ACTIVE,
+		/**
+		 * @description Stopped: the measured time is final and no longer changes.
+		 */
 		FINISHED
 	}
 
@@ -80,13 +92,13 @@ public virtual inherited sharing class UTIL_StopWatch
 	 */
 	public Long getTime()
 	{
-		if(this.state == RunState.FINISHED)
+		if(state == RunState.FINISHED)
 		{
-			return this.endedAt - this.startedAt;
+			return endedAt - startedAt;
 		}
-		if(this.state == RunState.ACTIVE)
+		if(state == RunState.ACTIVE)
 		{
-			return System.currentTimeMillis() - this.startedAt;
+			return System.currentTimeMillis() - startedAt;
 		}
 		return 0;
 	}
@@ -104,17 +116,17 @@ public virtual inherited sharing class UTIL_StopWatch
 	 */
 	public virtual void start()
 	{
-		if(this.state == RunState.FINISHED)
+		if(state == RunState.FINISHED)
 		{
 			throw new UTIL_Exceptions.IllegalStateException('Stopwatch must be reset before being restarted.');
 		}
-		if(this.state != RunState.IDLE)
+		if(state != RunState.IDLE)
 		{
 			throw new UTIL_Exceptions.IllegalStateException('Stopwatch already started.');
 		}
-		this.endedAt = 0;
-		this.startedAt = System.currentTimeMillis();
-		this.state = RunState.ACTIVE;
+		endedAt = 0;
+		startedAt = System.currentTimeMillis();
+		state = RunState.ACTIVE;
 	}
 
 	/**
@@ -132,12 +144,12 @@ public virtual inherited sharing class UTIL_StopWatch
 	 */
 	public virtual void stop()
 	{
-		if(this.state != RunState.ACTIVE)
+		if(state != RunState.ACTIVE)
 		{
 			throw new UTIL_Exceptions.IllegalStateException('Stopwatch is not running.');
 		}
-		this.endedAt = System.currentTimeMillis();
-		this.state = RunState.FINISHED;
+		endedAt = System.currentTimeMillis();
+		state = RunState.FINISHED;
 	}
 
 	/**
@@ -153,8 +165,8 @@ public virtual inherited sharing class UTIL_StopWatch
 	 */
 	public void reset()
 	{
-		this.state = RunState.IDLE;
-		this.startedAt = 0;
-		this.endedAt = 0;
+		state = RunState.IDLE;
+		startedAt = 0;
+		endedAt = 0;
 	}
 }

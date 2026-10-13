@@ -15,7 +15,7 @@
 	padding       : 0.7rem 0.8rem;
 }
 
-/* Left accent draws the eye to the cards that need attention (colour is reinforcement only — the
+/* Left accent draws the eye to the cards that need attention (colour only reinforces it; the
    visible percentage and used-of-max text always carry the value, per WCAG 1.4.1). */
 .limit-card__surface[data-level="amber"]
 {

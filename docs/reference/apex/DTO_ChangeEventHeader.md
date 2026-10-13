@@ -5,7 +5,7 @@ pageClass: reference
 description: "A Data Transfer Object (DTO) exposing the supported subset of EventBus.ChangeEventHeader to Flow as a strongly-typed input variable. The platform header type is not Flow-addressable directly; this DTO"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
-date: "May 2026"
+date: "May 2026, September 2026"
 since: "1.1"
 category: apex
 ---

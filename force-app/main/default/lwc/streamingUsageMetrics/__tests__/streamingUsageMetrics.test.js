@@ -5,11 +5,11 @@
 
 /**
  * @description Jest unit tests for the streamingUsageMetrics LWC component. Exercises the
- * native-SVG (no-D3) redesign: imperative loads, zero-padded bucket axis, log-scaled bars,
+ * native SVG chart (no D3.js): imperative loads, zero-padded bucket axis, log-scaled bars,
  * the searchfilterchange refetch / displayfilterchange client-side split, chart/table view
  * switch, and the empty/error states.
  * @author Jason van Beukering
- * @date December 2025, June 2026
+ * @date December 2025, October 2026
  */
 import {createElement} from 'lwc';
 import LOCALE from '@salesforce/i18n/locale';
@@ -351,7 +351,7 @@ describe('c-streaming-usage-metrics', () =>
 		expect(getEventUsageMetrics.mock.calls[2][0].timeSegment).toBe('Hourly');
 	});
 
-	it('exposes the card title through a labelled, spec-tagged slot', async() =>
+	it('exposes the card title through a labelled slot with a test hook', async() =>
 	{
 		const element = await createComponent();
 		const title = element.shadowRoot.querySelector('[data-spec-id="usage-card-title"]');
@@ -453,7 +453,7 @@ describe('c-streaming-usage-metrics', () =>
 		const freshBarCount = bars(element).length;
 		expect(freshBarCount).toBe(2);
 
-		// The stale window covers 24h with two series — 50 bars if (wrongly) applied — so a regression
+		// The stale window covers 24h with two series (50 bars if wrongly applied), so a regression
 		// that dropped the latest-wins guard would visibly change the count.
 		resolveStale([
 			{Name: 'PLATFORM_EVENTS_PUBLISHED', StartDate: staleStart.toISOString(), Value: 99},
@@ -558,7 +558,7 @@ describe('c-streaming-usage-metrics', () =>
 		await flushPromises();
 
 		// Chart view renders the axis ticks; hovering renders the tooltip; the table view renders
-		// the period column — every one of those labels must be in the user's timezone and locale,
+		// the period column. Every one of those labels must be in the user's timezone and locale,
 		// not the browser default.
 		const bar = element.shadowRoot.querySelector('[data-testid="usage-bar"]');
 		bar.dispatchEvent(new MouseEvent('mouseenter', {clientX: 100, clientY: 100, bubbles: true}));
@@ -577,7 +577,7 @@ describe('c-streaming-usage-metrics', () =>
 	it('keeps a hidden series hidden across a Refresh refetch, in both the badge and the legend chips', async() =>
 	{
 		const element = await createComponent();
-		// Hide the second chip through the real path — clicking the child's legend chip — so the
+		// Hide the second chip through the real path (clicking the child's legend chip), so the
 		// child's own visibility state toggles too, exactly as a user interaction would.
 		// Sorted series order is [CDC_EVENTS_PUBLISHED, PLATFORM_EVENTS_PUBLISHED].
 		const filtersChild = element.shadowRoot.querySelector('c-streaming-usage-filters');
@@ -643,7 +643,7 @@ describe('c-streaming-usage-metrics', () =>
 		await flushPromises();
 		expect(badgeLabel(element)).toBe(COUNT_SHOWING_ALL);
 
-		// The vanished series returns — its stale hidden entry must not have been remembered.
+		// The vanished series returns; its stale hidden entry must not have been remembered.
 		getEventUsageMetrics.mockResolvedValue(SINGLE_SERIES_DAILY);
 		element.shadowRoot.querySelector('[data-spec-id="usage-refresh"]').click();
 		await flushPromises();
@@ -688,7 +688,7 @@ describe('c-streaming-usage-metrics', () =>
 		document.body.removeChild(element);
 		toTitleCase.mockClear();
 
-		// Resolving after disconnect must be dropped — applyMetrics (whose series derivation calls
+		// Resolving after disconnect must be dropped: applyMetrics (whose series derivation calls
 		// toTitleCase) must never run against the dead component.
 		resolveInFlight([{Name: 'PLATFORM_EVENTS_PUBLISHED', StartDate: start.toISOString(), Value: 9}]);
 		await flushPromises();

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Selector for `PostTriggerAction__mdt` rows. Provides ordered retrieval
- * for the dispatcher's outermost-unwind hook and a `@TestVisible` override seam for
- * unit-test injection.
+ * @description Selector for `PostTriggerAction__mdt` rows. Provides the rows, in order,
+ * to the hook the dispatcher runs when the outermost trigger finishes. Unit tests can also supply their own rows
+ * through a `@TestVisible` override.
  *
  * @see UTIL_PostTriggerAction
  * @see PostTriggerAction__mdt
@@ -12,16 +12,16 @@
  *
  * @group Triggers
  *
- * @date May 2026, June 2026
+ * @date May 2026, October 2026
  *
  * @since 1.1
  */
 public inherited sharing class SEL_PostTriggerAction
 {
 	/**
-	 * @description Relationship path for `TriggerSetting__r.SObjectType__c` — used by the
-	 * handler's optional-lookup smart-semantics filter to gate execution on whether the
-	 * parent setting's SObject participated in the transaction.
+	 * @description Relationship path for `TriggerSetting__r.SObjectType__c`. When a row links a
+	 * trigger setting, the handler uses this path to run the row only if the setting's SObject
+	 * took part in the transaction.
 	 */
 	private static final String PATH_TRIGGER_SETTING_SOBJECT_TYPE =
 			UTIL_SObjectDescribe.getCachedFieldDescribe(PostTriggerAction__mdt.TriggerSetting__c).getRelationshipName() + '.SObjectType__c';
@@ -39,7 +39,7 @@ public inherited sharing class SEL_PostTriggerAction
 			UTIL_SObjectDescribe.getCachedFieldDescribe(PostTriggerAction__mdt.BypassFeatureFlag__c).getRelationshipName() + '.DeveloperName';
 
 	/**
-	 * @description `@TestVisible` override seam for injecting in-memory rows in unit tests.
+	 * @description `@TestVisible` override that lets unit tests supply in-memory rows.
 	 * When non-null, `findActiveOrdered()` returns this list (after `sortByOrder`) without
 	 * running the SOQL fall-through. Frees subscribers from needing to deploy real CMDT
 	 * records to exercise the post-action pipeline from their own tests.
@@ -50,13 +50,13 @@ public inherited sharing class SEL_PostTriggerAction
 	/**
 	 * @description Transaction-scoped, lazily-loaded cache of the SOQL-fetched active rows. The
 	 * post-action hook runs at the outermost unwind of EVERY dispatch, so an uncached query would
-	 * re-run once per dispatch — and once per delivered `LogEntryEvent__e` — exhausting the SOQL
+	 * re-run once per dispatch (and once per delivered `LogEntryEvent__e`), using up the SOQL
 	 * governor in log-heavy transactions. The getter populates the cache on first access and reuses
-	 * it for the rest of the transaction; `findActiveOrdered()` consults the `overrideRows` test
-	 * seam ahead of this cache so injected rows are always honoured.
+	 * it for the rest of the transaction; `findActiveOrdered()` checks the `overrideRows` test
+	 * override before this cache, so rows a test supplies are always used.
 	 *
 	 * `systemModeInternal()` (not `withSystemMode()`) because this is a framework-internal CMDT
-	 * config read, not an application sharing/FLS opt-out — it must NOT emit a bypass-audit
+	 * config read, not an application sharing/FLS opt-out. It must NOT emit a bypass-audit
 	 * `LogEntryEvent__e`. The hook runs on the outermost unwind of EVERY dispatch incl. the
 	 * `LogEntryEvent__e` handler itself, so an audited read here re-enters the dispatcher and
 	 * self-feeds a logging cascade.
@@ -93,7 +93,7 @@ public inherited sharing class SEL_PostTriggerAction
 	 * scope), failure-action policy, and per-row performance knobs. Two relationship
 	 * traversals: `TriggerSetting__r.SObjectType__c` (for the optional scope filter)
 	 * and the two feature-flag `DeveloperName`s. See `queriedFieldNames()` for the
-	 * authoritative projection.
+	 * full list of selected fields.
 	 *
 	 * @return A list of active `PostTriggerAction__mdt` rows sorted by `Order__c` ascending, with
 	 * equal-Order rows broken deterministically by `DeveloperName` ascending.
@@ -104,12 +104,12 @@ public inherited sharing class SEL_PostTriggerAction
 	}
 
 	/**
-	 * @description The SOQL field projection for the post-action query, exposed via
+	 * @description The fields the post-action query selects, exposed via
 	 * `@TestVisible` so a test can assert it covers every field the handler reads off the
-	 * SOQL-returned row. A Custom Metadata Type field that is omitted from the projection
-	 * is not auto-populated — accessing it throws `System.SObjectException`. The override
-	 * seam returns fully-populated in-memory rows, so it cannot surface such an omission;
-	 * pinning this list in a test is the only guard against that class of regression.
+	 * SOQL-returned row. A Custom Metadata Type field that the query does not select
+	 * is not filled in automatically, and reading it throws `System.SObjectException`. The test
+	 * override returns fully-populated in-memory rows, so it cannot reveal such a missing field.
+	 * A test that checks this list is the only guard against that kind of mistake.
 	 *
 	 * @return The field and relationship-path names selected by `findActiveOrdered()`.
 	 */

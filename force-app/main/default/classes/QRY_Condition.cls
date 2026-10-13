@@ -17,7 +17,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -40,16 +40,61 @@ global inherited sharing class QRY_Condition
 	public static final SoqlOptions DEFAULT_OPTIONS = new SoqlOptions();
 
 	// Private operator shortcuts (workaround for Apex limitation: enum values cannot be referenced from instance methods of inner classes)
+	/**
+	 * @description Short name for the operator that matches a field equal to one value (SOQL `=`). The inner condition classes use
+	 * these short names because Apex does not let their instance methods name an Operator value directly. It is also the operator
+	 * a field condition gets when it is built from a field and a value alone.
+	 */
 	private static final Operator EQUALS = Operator.EQUALS;
+	/**
+	 * @description Short name for the operator that matches a field different from one value (SOQL `!=`), for use inside the inner
+	 * condition classes.
+	 */
 	private static final Operator NOT_EQUALS = Operator.NOT_EQUALS;
+	/**
+	 * @description Short name for the operator that matches a field smaller than one value (SOQL `<`), for use inside the inner
+	 * condition classes.
+	 */
 	private static final Operator LESS_THAN = Operator.LESS_THAN;
+	/**
+	 * @description Short name for the operator that matches a field smaller than or equal to one value (SOQL `<=`), for use inside
+	 * the inner condition classes.
+	 */
 	private static final Operator LESS_THAN_OR_EQUAL_TO = Operator.LESS_THAN_OR_EQUAL_TO;
+	/**
+	 * @description Short name for the operator that matches a field larger than one value (SOQL `>`), for use inside the inner
+	 * condition classes.
+	 */
 	private static final Operator GREATER_THAN = Operator.GREATER_THAN;
+	/**
+	 * @description Short name for the operator that matches a field larger than or equal to one value (SOQL `>=`), for use inside
+	 * the inner condition classes.
+	 */
 	private static final Operator GREATER_THAN_OR_EQUAL_TO = Operator.GREATER_THAN_OR_EQUAL_TO;
+	/**
+	 * @description Short name for the operator that matches a text field against a pattern (SOQL `LIKE`), for use inside the inner
+	 * condition classes. The pattern may hold the wildcards LIKE_MULTIPLE_CHARACTER_WILDCARD and LIKE_SINGLE_CHARACTER_WILDCARD.
+	 */
 	private static final Operator LIKE_X = Operator.LIKE_X;
+	/**
+	 * @description Short name for the operator that matches a field whose value is one of a set of values, or one of the rows a
+	 * subquery returns (SOQL `IN`), for use inside the inner condition classes.
+	 */
 	private static final Operator IN_X = Operator.IN_X;
+	/**
+	 * @description Short name for the operator that matches a field whose value is none of a set of values, or none of the rows a
+	 * subquery returns (SOQL `NOT IN`), for use inside the inner condition classes.
+	 */
 	private static final Operator NOT_IN = Operator.NOT_IN;
+	/**
+	 * @description Short name for the operator that matches a multi-select picklist field holding any of the given values (SOQL
+	 * `INCLUDES`), for use inside the inner condition classes.
+	 */
 	private static final Operator INCLUDES = Operator.INCLUDES;
+	/**
+	 * @description Short name for the operator that matches a multi-select picklist field holding none of the given values (SOQL
+	 * `EXCLUDES`), for use inside the inner condition classes.
+	 */
 	private static final Operator EXCLUDES = Operator.EXCLUDES;
 
 	/**
@@ -211,6 +256,8 @@ global inherited sharing class QRY_Condition
 		 * @description Converts the condition to a SOQL query string.
 		 *
 		 * @return A valid SOQL query string.
+		 *
+		 * @since 1.0
 		 */
 		String toSoql();
 
@@ -220,6 +267,8 @@ global inherited sharing class QRY_Condition
 		 * @param options The SOQL options for customization.
 		 *
 		 * @return A valid SOQL query string.
+		 *
+		 * @since 1.0
 		 */
 		String toSoql(SoqlOptions options);
 	}

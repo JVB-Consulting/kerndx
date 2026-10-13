@@ -43,7 +43,7 @@
  *
  * @group Selectors
  *
- * @date January 2026, June 2026
+ * @date January 2026, October 2026
  */
 public inherited sharing class SEL_CustomPermission
 {
@@ -153,7 +153,7 @@ public inherited sharing class SEL_CustomPermission
 	 * Boolean hasAccess = SEL_CustomPermission.hasLocalPermission(someUserId, 'Edit_Confidential_Records');
 	 * if(hasAccess)
 	 * {
-	 *     System.debug('User has the local custom permission');
+	 *     LOG_Builder.build().info('User has the local custom permission').emitAt('MyClass.checkAccess');
 	 * }
 	 * ```
 	 */
@@ -179,7 +179,7 @@ public inherited sharing class SEL_CustomPermission
 	 * Boolean hasAccess = SEL_CustomPermission.hasPackagePermission(someUserId, 'Unlock_Framework');
 	 * if(hasAccess)
 	 * {
-	 *     System.debug('User has the package custom permission');
+	 *     LOG_Builder.build().info('User has the package custom permission').emitAt('MyClass.checkAccess');
 	 * }
 	 * ```
 	 */
@@ -202,7 +202,7 @@ public inherited sharing class SEL_CustomPermission
 	/**
 	 * @description Checks if a user has a custom permission in the specified namespace.
 	 *
-	 * This is the most flexible method, allowing explicit namespace specification.
+	 * This is the most flexible method, because you name the namespace yourself.
 	 * Use null or empty string for subscriber (local) permissions.
 	 *
 	 * @param userId The user to check

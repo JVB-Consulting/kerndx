@@ -10,7 +10,7 @@
  *
  * **Shared Pattern:** This class shares common patterns with its sibling timer classes:
  * governor limit tracking, fluent API (log/suppressLogging/logIfSlowerThan), threshold-based
- * logging with hierarchy (suppress > force > custom > global), and recursion guards.
+ * logging where the last of log(), suppressLogging() and logIfSlowerThan() wins, and recursion guards.
  * See {@link UTIL_StopWatch} class documentation for design rationale.
  *
  * @see UTIL_StopWatch
@@ -22,7 +22,7 @@
  *
  * @group Utilities
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  *
  * @example
  * ```apex
@@ -46,12 +46,40 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 	 * @description Static recursion guard to prevent infinite loops when logging triggers queries.
 	 */
 	private static Boolean isLogging = false;
+	/**
+	 * @description True when the caller asked for this query to be logged however fast it ran and whatever the log setting says.
+	 * Asking for it clears suppressLog; the request made last is the one that counts.
+	 */
 	private Boolean forceLog = false;
+	/**
+	 * @description True when the caller asked for this query never to be logged. Asking for it clears forceLog; the request made
+	 * last is the one that counts.
+	 */
 	private Boolean suppressLog = false;
+	/**
+	 * @description The duration in milliseconds from which this query is logged, used in place of the threshold in the log
+	 * setting. Null when the caller set none. It applies only while query performance logging is switched on in the log setting.
+	 */
 	private Integer customThresholdMs;
+	/**
+	 * @description How many rows the query returned, as told by the caller. It is added to the log entry when set and left out
+	 * when null.
+	 */
 	private Integer rowCount;
+	/**
+	 * @description The CPU time, in milliseconds, the transaction had used when the timer started. The log entry reports the CPU
+	 * time used since then.
+	 */
 	private Integer startCpuTime;
+	/**
+	 * @description The heap size, in bytes, the transaction was using when the timer started. The log entry reports how much it
+	 * has grown since then.
+	 */
 	private Integer startHeapSize;
+	/**
+	 * @description The number of SOQL queries the transaction had run when the timer started. The log entry reports the queries
+	 * run since then.
+	 */
 	private Integer startSoqlQueries;
 
 	/**
@@ -116,8 +144,8 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 	}
 
 	/**
-	 * @description Forces logging regardless of threshold settings.
-	 * Takes precedence over suppressLogging() if both are called.
+	 * @description Forces logging regardless of threshold settings, even when query performance logging is switched off.
+	 * Clears an earlier suppressLogging(); a later suppressLogging() or logIfSlowerThan() clears this request in turn.
 	 *
 	 * @return This timer instance for method chaining
 	 *
@@ -128,14 +156,15 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 	 */
 	public UTIL_QueryPerformanceTimer log()
 	{
-		this.forceLog = true;
-		this.suppressLog = false;
+		forceLog = true;
+		suppressLog = false;
 		return this;
 	}
 
 	/**
 	 * @description Sets a custom threshold that overrides the global setting.
-	 * The query will be logged only if duration exceeds this threshold.
+	 * The query will be logged only if duration reaches this threshold and query performance logging is switched on.
+	 * Clears an earlier log() or suppressLogging().
 	 *
 	 * @param thresholdMs Custom threshold in milliseconds
 	 *
@@ -143,14 +172,14 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 	 *
 	 * @example
 	 * ```apex
-	 * timer.logIfSlowerThan(500).stop(); // Log only if > 500ms
+	 * timer.logIfSlowerThan(500).stop(); // Log only if the query took 500 ms or more
 	 * ```
 	 */
 	public UTIL_QueryPerformanceTimer logIfSlowerThan(Integer thresholdMs)
 	{
-		this.customThresholdMs = thresholdMs;
-		this.forceLog = false;
-		this.suppressLog = false;
+		customThresholdMs = thresholdMs;
+		forceLog = false;
+		suppressLog = false;
 		return this;
 	}
 
@@ -169,7 +198,7 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 	 */
 	public UTIL_QueryPerformanceTimer setRowCount(Integer count)
 	{
-		this.rowCount = count;
+		rowCount = count;
 		return this;
 	}
 
@@ -191,13 +220,13 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 	 */
 	public UTIL_QueryPerformanceTimer withQueryContext(String aQueryString, Map<String, Object> bindMap, Boolean isQueryCached, String queryCacheStatus)
 	{
-		this.queryString = aQueryString;
-		this.isCached = isQueryCached;
-		this.cacheStatus = queryCacheStatus;
+		queryString = aQueryString;
+		isCached = isQueryCached;
+		cacheStatus = queryCacheStatus;
 
 		if(bindMap?.isEmpty() == false)
 		{
-			this.bindVariablesJson = JSON.serialize(bindMap);
+			bindVariablesJson = JSON.serialize(bindMap);
 		}
 
 		return this;
@@ -235,7 +264,9 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 
 	/**
 	 * @description Stops the timer and automatically logs performance if conditions are met.
-	 * Logging respects the hierarchy: suppressLogging > forceLog > customThreshold > globalThreshold.
+	 * Of log(), suppressLogging() and logIfSlowerThan(), the one called last decides: a suppressed timer never logs, a forced
+	 * timer always logs, and otherwise the query is logged only when query performance logging is switched on and the time
+	 * reaches the custom threshold, or the log setting threshold when no custom threshold is set.
 	 *
 	 * @throws UTIL_Exceptions.IllegalStateException if the stopwatch is not running
 	 */
@@ -261,7 +292,8 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 
 	/**
 	 * @description Suppresses all logging for this timer instance.
-	 * Takes precedence over threshold settings but not over forceLog().
+	 * Takes precedence over threshold settings. Clears an earlier log(); a later log() or logIfSlowerThan() clears this request
+	 * in turn.
 	 *
 	 * @return This timer instance for method chaining
 	 *
@@ -272,8 +304,8 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 	 */
 	public UTIL_QueryPerformanceTimer suppressLogging()
 	{
-		this.suppressLog = true;
-		this.forceLog = false;
+		suppressLog = true;
+		forceLog = false;
 		return this;
 	}
 
@@ -316,14 +348,16 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 	 */
 	private void captureStartMetrics()
 	{
-		this.startCpuTime = UTIL_Limits.cpuTime().used();
-		this.startHeapSize = UTIL_Limits.heapSize().used();
-		this.startSoqlQueries = UTIL_Limits.soqlQueries().used();
+		startCpuTime = UTIL_Limits.cpuTime().used();
+		startHeapSize = UTIL_Limits.heapSize().used();
+		startSoqlQueries = UTIL_Limits.soqlQueries().used();
 	}
 
 	/**
 	 * @description Logs performance metrics based on the configured logging hierarchy.
-	 * Hierarchy: suppressLogging > forceLog > customThreshold > globalThreshold
+	 * Of log(), suppressLogging() and logIfSlowerThan(), the one called last decides, because each clears the requests of the
+	 * others: suppressed never logs, forced always logs, and otherwise the custom or log setting threshold applies while query
+	 * performance logging is switched on.
 	 */
 	private void logPerformanceIfNeeded()
 	{
@@ -333,7 +367,6 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 			return;
 		}
 
-		// Suppress takes highest precedence (unless force was called after)
 		if(suppressLog)
 		{
 			return;

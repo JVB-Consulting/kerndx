@@ -27,7 +27,7 @@
  *
  * @group Utilities
  *
- * @date April 2025, May 2026
+ * @date April 2025, October 2026
  *
  * @since 1.0
  *
@@ -42,9 +42,25 @@
 @SuppressWarnings('PMD.AvoidGlobalModifier')
 global inherited sharing class UTIL_FormulaFilter
 {
+	/**
+	 * @description The name of the class that gives the formula its variables: for each pair of records it is handed the old and
+	 * the new record before the formula is evaluated. When it is blank, the filter keeps every record.
+	 */
 	private final String contextClassName;
+	/**
+	 * @description The true-or-false formula evaluated for each pair of records; a pair is kept only when it evaluates to true.
+	 * When it is blank, the filter keeps every record.
+	 */
 	private final String formula;
+	/**
+	 * @description The name of the process that uses the filter. It is only placed in the error message when the formula cannot
+	 * be built, so the log says which process was affected.
+	 */
 	private final String processName;
+	/**
+	 * @description The message set on the exception raised when a formula cannot be built. The placeholders take, in order, the
+	 * process name, the context class name, the formula text and the original error message.
+	 */
 	private static final String ERROR_ENTRY_CRITERIA_CONFIGURATION = 'Building a Formula Instance for process "{0}", Context Class "{1}" and Formula "{2}" ' +
 			'failed with the following error\n\n{3}';
 

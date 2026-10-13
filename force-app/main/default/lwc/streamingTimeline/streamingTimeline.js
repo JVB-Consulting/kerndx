@@ -4,26 +4,26 @@
 // Modifications copyright (c) 2026 JVB Consulting
 
 /**
- * @description LWC component that renders an interactive event timeline as native template SVG —
- * no D3, no static-resource load, no `lwc:dom="manual"`. Events are plotted based on:
+ * @description LWC component that renders an interactive event timeline as native template SVG:
+ * no D3.js, no static-resource load, no `lwc:dom="manual"`. Events are plotted based on:
  * - Timestamp (X-axis, continuous timescale with a 10% domain margin)
  * - Channel (Y-axis, band layout)
  *
  * The component exposes four public API properties:
- *  - `events`       — Array of event objects to plot. Each event must contain:
+ *  - `events`       : Array of event objects to plot. Each event must contain:
  *        - timestamp  (epoch ms)
  *        - channel    (string)
  *        - timeLabel  (formatted label for tooltip)
- *  - `channels`     — Array of channel names used to build the Y-axis categories.
- *  - `userTimezone` — IANA timezone applied to axis ticks and the crosshair time label.
- *  - `userLocale`   — Salesforce locale (e.g. `en_US`) controlling the 12/24-hour clock.
+ *  - `channels`     : Array of channel names used to build the Y-axis categories.
+ *  - `userTimezone` : IANA timezone applied to axis ticks and the crosshair time label.
+ *  - `userLocale`   : Salesforce locale (e.g. `en_US`) controlling the 12/24-hour clock.
  *
  * Rendering is a pure getter pipeline: geometry getters derive render-model arrays that the
  * template iterates into SVG, so any `@api` change re-renders declaratively. A ResizeObserver
  * tracks the host width into the `viewBox`. The component displays a crosshair time tooltip, a
  * per-dot detail tooltip, and emits a `select` event with the raw datum when a dot is clicked.
  *
- * @date March 2026, May 2026, July 2026
+ * @date March 2026, October 2026
  */
 import {LightningElement, api} from 'lwc';
 import {computeBandLayout, getTimeLabel, roundCoordinate} from 'c/utilityStreaming';

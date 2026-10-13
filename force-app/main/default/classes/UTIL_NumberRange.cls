@@ -14,7 +14,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class UTIL_NumberRange
 {
@@ -37,10 +37,30 @@ public inherited sharing class UTIL_NumberRange
 	 */
 	private interface RangeContract
 	{
+		/**
+		 * @description Gives the lower boundary of the interval. Each range type returns it in its own number type.
+		 *
+		 * @return The lower boundary value.
+		 */
 		Object min();
 
+		/**
+		 * @description Gives the upper boundary of the interval. Each range type returns it in its own number type.
+		 *
+		 * @return The upper boundary value.
+		 */
 		Object max();
 
+		/**
+		 * @description Says which of two values comes first. The range uses the answer to put its two boundaries in order and to
+		 * test whether a value or another range lies inside it.
+		 *
+		 * @param first The first value to compare.
+		 * @param second The second value to compare.
+		 *
+		 * @return A negative number when `first` comes before `second`, zero when they are equal, a positive number when `first`
+		 * comes after `second`.
+		 */
 		Integer compare(Object first, Object second);
 	}
 
@@ -51,7 +71,15 @@ public inherited sharing class UTIL_NumberRange
 	 */
 	public abstract class NumberRange implements RangeContract
 	{
+		/**
+		 * @description The smaller of the two boundary values, whichever order they were given in. A value equal to it is inside
+		 * the range.
+		 */
 		private final Object lowerBound;
+		/**
+		 * @description The larger of the two boundary values, whichever order they were given in. A value equal to it is inside
+		 * the range.
+		 */
 		private final Object upperBound;
 
 		/**

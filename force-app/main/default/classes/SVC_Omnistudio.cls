@@ -12,7 +12,7 @@
  *
  * @group Omnistudio
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -32,10 +32,21 @@
 @SuppressWarnings('PMD.AvoidGlobalModifier')
 global virtual inherited sharing class SVC_Omnistudio implements Callable
 {
+	/**
+	 * @description The key under which Omnistudio passes the map of input values in the parameter map given to call. Visible to
+	 * tests so they can build a parameter map of the same shape.
+	 */
 	@TestVisible
 	private static final String INPUT_MAP_KEY = 'input';
+	/**
+	 * @description The key under which Omnistudio passes the map of options in the parameter map given to call.
+	 */
 	@TestVisible
 	private static final String OPTION_MAP_KEY = 'options';
+	/**
+	 * @description The key under which the parameter map given to call holds the output map, the map an action writes its results
+	 * to so that Omnistudio can read them.
+	 */
 	@TestVisible
 	private static final String OUTPUT_MAP_KEY = 'output';
 
@@ -95,6 +106,8 @@ global virtual inherited sharing class SVC_Omnistudio implements Callable
 		 * @description Will execute an operation based on the parameters provided
 		 *
 		 * @param parameters The Omnistudio input, output and options parameters
+		 *
+		 * @since 1.0
 		 */
 		void call(Parameters parameters);
 	}
@@ -108,6 +121,10 @@ global virtual inherited sharing class SVC_Omnistudio implements Callable
 	 */
 	global inherited sharing class Parameters
 	{
+		/**
+		 * @description The parameter map exactly as Omnistudio supplied it. The input, option and output maps are read from it
+		 * each time they are asked for, so a value written to the output map is written to the map Omnistudio holds.
+		 */
 		private final Map<String, Object> parameters;
 
 		/**

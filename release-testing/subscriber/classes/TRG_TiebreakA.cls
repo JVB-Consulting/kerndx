@@ -12,10 +12,16 @@
  *
  * @group Triggers
  *
- * @date June 2026
+ * @date June 2026, October 2026
  */
 public inherited sharing class TRG_TiebreakA extends kern.TRG_Base implements kern.IF_Trigger.BeforeInsert
 {
+	/**
+	 * @description Adds the marker "B" to SubscriberTiebreakRecorder.order when recording is on, so the test can read the
+	 * order in which the tied actions ran. Does nothing otherwise, so other Account inserts are not affected.
+	 *
+	 * @param newRecords The Accounts being inserted; unused.
+	 */
 	public void beforeInsert(List<SObject> newRecords)
 	{
 		if(SubscriberTiebreakRecorder.recording)

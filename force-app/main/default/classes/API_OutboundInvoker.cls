@@ -10,17 +10,16 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 public inherited sharing class API_OutboundInvoker
 {
 	/**
-	 * @description Test seam to force an exception during invocation for exercising defensive error handling.
-	 * Architectural constraint: API_Dispatcher.execute() catches handler-level exceptions internally,
-	 * so no realistic failure scenario can propagate an exception to this invoker's catch block.
-	 * The catch block exists as a defensive guard for unexpected platform-level failures (governor limits,
-	 * runtime errors in orchestration) and must be tested via this seam.
+	 * @description When a test sets this to true, the invoker throws an exception during the call. This is the only
+	 * way a test can reach the invoker's error handling. API_Dispatcher.execute() catches the errors of a handler
+	 * itself, so no normal failure reaches this invoker's catch block. The catch block is a safety net for
+	 * unexpected platform failures, such as a governor limit or a runtime error while the call is made.
 	 */
 	@TestVisible
 	private static Boolean forceException = false;

@@ -15,7 +15,7 @@ Generated code must pass the two rulesets that ship in this repo under `scanner/
 Run them locally before opening a PR:
 
 ```bash
-# PMD via Salesforce Code Analyzer (uses scanner/code-analyzer.yml config)
+# PMD via Salesforce Code Analyzer (uses the code-analyzer.yml at the repository root)
 sf code-analyzer run --config-file code-analyzer.yml --target force-app/
 
 # ESLint via the bundled plugin (extend it from your repo's flat config)
@@ -40,7 +40,7 @@ If either fails, fix the violation in source — do not suppress the rule withou
 - **No `System.debug`.** Use `LOG_Builder` — see [`docs/Logging - Guide.md`](./docs/Logging%20-%20Guide.md).
 - **No `LightningElement` directly.** Use `ComponentBuilder` — see [`docs/LWC - Guide.md`](./docs/LWC%20-%20Guide.md).
 - **Declare sharing.** Every Apex class declares one of `with sharing` / `inherited sharing` / `without sharing`. Default to `with sharing`; use `inherited sharing` for selectors + stateless utilities.
-- **100% test coverage** on Apex + LWC. Tests must assert behaviour — empty `try { ... } catch { }` blocks and unconditional `Assert.isNotNull(record)` after `TST_Builder.build()` are coverage theatre and rejected by the scanner.
+- **Coverage is gated.** 100% per file on Apex; 95% of statements and 95% of branches on LWC. Tests must assert behaviour: empty `try { ... } catch { }` blocks and unconditional `Assert.isNotNull(record)` after `TST_Builder.build()` are coverage theatre, and the scanner rejects them.
 - **No hardcoded namespaces.** Use `SObjectClass.class.getName()` in Apex, `@salesforce/schema/*` and `standard__objectPage` in LWC. Never embed `kern.` as a literal in production code.
 - **Use `Assert.*`** in tests, not `System.Assert.*`. Prefer `Foobar__c` over standard objects unless the test specifically validates a standard-object integration.
 

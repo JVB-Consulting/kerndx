@@ -10,7 +10,7 @@
  *
  * Data flows imperatively: the org-capability probe runs once on connect, and the metrics query runs
  * on connect, on the child's `searchfilterchange` (a new granularity / preset / valid custom range),
- * and on Retry/Refresh/Reset. The chart is hand-rolled SVG — no D3, no static-resource load, no
+ * and on Retry/Refresh/Reset. The chart is hand-written SVG: no D3.js, no static-resource load, no
  * `lwc:dom="manual"`.
  *
  * The server omits zero-activity rows, so the pipeline rebuilds the full bucket axis for the segment
@@ -20,7 +20,7 @@
  * browser default.
  *
  * @author Jason van Beukering
- * @date March 2026, June 2026
+ * @date March 2026, October 2026
  */
 import {LightningElement} from 'lwc';
 import LOCALE from '@salesforce/i18n/locale';
@@ -52,7 +52,7 @@ const MILLISECONDS_PER_DAY = 24 * MILLISECONDS_PER_HOUR;
 const TIME_SEGMENT_DAILY = 'Daily';
 const DAILY_DEFAULT_WINDOW_MS = 30 * MILLISECONDS_PER_DAY;
 
-// Per-segment bucket width in milliseconds — must mirror the platform's TimeSegment step so the
+// Per-segment bucket width in milliseconds. It must match the platform's TimeSegment step so the
 // rebuilt axis aligns with the StartDate values the server returns.
 const STEP_MS_BY_SEGMENT = {
 	[TIME_SEGMENT_DAILY]: MILLISECONDS_PER_DAY, Hourly: MILLISECONDS_PER_HOUR, FifteenMinutes: 15 * 60 * 1000
@@ -147,7 +147,7 @@ function generateBucketAxis(segment, startMs, endMs)
  * @description Joins the bucket axis to the normalized rows, filling each missing series/bucket pair
  * with zero (the server omits zero-activity rows). Each row's timestamp is floored to the segment
  * step before keying, because the platform can anchor an org's metric grid off the UTC step boundary
- * (live evidence: daily rows starting at 09:00:00Z on a fresh scratch org) — an exact-equality join
+ * (seen in a live org: daily rows starting at 09:00:00Z on a fresh scratch org). An exact-equality join
  * would silently drop such rows from the chart while the legend totals still counted them. Two rows
  * flooring to the same bucket are summed.
  * @param {Array<number>} bucketTimestamps - The aligned bucket-start timestamps.
@@ -578,7 +578,7 @@ export default class StreamingUsageMetrics extends LightningElement
 	/**
 	 * @description Resets the filters child, restores every series to visible, and re-queries the
 	 * Daily 30-day default. The explicit visibility restore matters: the child's reset re-shows every
-	 * chip, and applyMetrics preserves visibility by name — without clearing the hidden flags here, an
+	 * chip, and applyMetrics preserves visibility by name. Without clearing the hidden flags here, an
 	 * all-hidden state would survive the reset and the chart would stay empty.
 	 */
 	handleReset()
@@ -670,7 +670,7 @@ export default class StreamingUsageMetrics extends LightningElement
 
 	/**
 	 * @description Normalizes the rows, derives the series and their totals, and zero-pads the axis.
-	 * Series visibility is preserved by series name across the rebuild — a Refresh must not silently
+	 * Series visibility is preserved by series name across the rebuild, because a Refresh must not silently
 	 * snap a hidden series back to visible. Names not seen before default to visible; vanished names
 	 * drop their remembered state.
 	 * @param {Array<Object>} rows - Raw Apex rows.

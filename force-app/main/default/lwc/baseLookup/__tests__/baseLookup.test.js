@@ -7,10 +7,10 @@
  *              module structure, exports, and static analysis rather than DOM rendering.
  *
  * @author Jason van Beukering
- * @date December 2025, July 2026
+ * @date December 2025, October 2026
  */
 
-// Custom Label mocks — values byte-equal the real CustomLabels entries so any
+// Custom Label mocks: values byte-equal the real CustomLabels entries so any
 // value assertion exercises the shipped text.
 jest.mock('@salesforce/label/c.BaseLookup_NoRecordsFound', () => ({default: 'No Records Found....'}), {virtual: true});
 jest.mock('@salesforce/label/c.BaseLookup_RemoveSelectedOption', () => ({default: 'Remove selected option'}), {virtual: true});

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
-// Original KernDX component — not derived from any third-party source. The idea of surfacing org
+// Original KernDX component, not derived from any third-party source. The idea of surfacing org
 // limits alongside the streaming view appears in Philippe Ozil's streaming-monitor (CC0-1.0), but
-// this is a clean-room rebuild that shares no code with it: that component draws a D3 bar chart into
+// this is a clean-room rebuild that shares no code with it: that component draws a D3.js bar chart into
 // a manual-DOM div, whereas this is a native SLDS card grid (worst-first ordering, client-side sort
-// and search, per-limit usage bars, no D3). The getOrgLimits() Apex it calls lives in — and is
-// credited in — CTRL_EventMonitor.
+// and search, per-limit usage bars, no D3.js). The getOrgLimits() Apex it calls lives in, and is
+// credited in, CTRL_EventMonitor.
 
 /**
  * @description LWC component that renders Salesforce org limits as a prioritised SLDS card grid.
@@ -15,7 +15,7 @@
  * other metadata is fabricated.
  *
  * @author Jason van Beukering
- * @date July 2026
+ * @date July 2026, October 2026
  */
 import {LightningElement} from 'lwc';
 import getOrgLimits from '@salesforce/apex/CTRL_EventMonitor.getOrgLimits';
@@ -68,8 +68,8 @@ function formatLabel(template, ...values)
 /**
  * @description Cosmetically prettifies a raw org-limit API name for display: splits camelCase and
  * digit boundaries, Title-cases each token, preserves known acronyms, and rejoins `V<digit>` tokens
- * (so `DailyBulkV2QueryJobs` reads `Daily Bulk V2 Query Jobs`). Purely presentational — no semantic
- * inference. The raw name remains the source of truth for search and the bar's aria-label.
+ * (so `DailyBulkV2QueryJobs` reads `Daily Bulk V2 Query Jobs`). It only changes how the name looks and
+ * guesses nothing about its meaning. The raw name remains the source of truth for search and the bar's aria-label.
  * @param {string} name - The raw org-limit API name.
  * @returns {string} The display name.
  */
