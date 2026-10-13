@@ -11,7 +11,7 @@
  *
  * @group Logging
  *
- * @date September 2025, July 2026
+ * @date September 2025, September 2026
  *
  * @since 1.0
  *
@@ -51,9 +51,9 @@ global inherited sharing class FLOW_WriteLog
 	 */
 	@InvocableMethod
 	(
-			Category='Logging'
-			Label='Write Detailed Log Messages'
-			Description='Writes provided messages to the Application Log, allows setting of LogLevel and other details'
+			category='Logging'
+			label='Write Detailed Log Messages'
+			description='Writes provided messages to the Application Log, allows setting of LogLevel and other details'
 	)
 	global static void writeLog(List<DTO_Request> dtoRequests)
 	{
@@ -64,13 +64,21 @@ global inherited sharing class FLOW_WriteLog
 				LOG_Builder.setCorrelationId(dtoRequest.correlationId);
 			}
 
-			String classMethod = String.isBlank(dtoRequest.classMethod) ? FLOW_WriteLog.class.getName() + '/writeLog' : dtoRequest.classMethod;
+			String classMethod = String.isBlank(dtoRequest.classMethod) ? FLOW_WriteLog.class.getName() + LOG_Engine.SOURCE_PREFIX_DELIMITER + 'writeLog' : dtoRequest.classMethod;
 
-			LOG_Builder.build(dtoRequest.logLevel, dtoRequest.message)
-					.at(classMethod)
-					.forRecord(UTIL_SObject.validateId(dtoRequest.recordId))
-					.withSummary(dtoRequest.shortMessage)
-					.emit();
+			LOG_Engine.pushOperationContext(LOG_Engine.OperationType.FLOW, new Map<String, String> {LOG_Engine.CONTEXT_SOURCE => LOG_Engine.FLOW_SOURCE_MARKER});
+			try
+			{
+				LOG_Builder.build(dtoRequest.logLevel, '[Flow] ' + dtoRequest.message)
+						.at(classMethod)
+						.forRecord(UTIL_SObject.validateId(dtoRequest.recordId))
+						.withSummary(dtoRequest.shortMessage)
+						.emit();
+			}
+			finally
+			{
+				LOG_Engine.popOperationContext();
+			}
 		}
 	}
 
@@ -88,10 +96,10 @@ global inherited sharing class FLOW_WriteLog
 		 */
 		@InvocableVariable
 		(
-				Label='Log Level'
-				Description='Pick Debug, Info, Warning, or Error for this log entry. Stored values are DEBUG, INFO, WARN, and ERROR; the field shows the stored value.'
-				DefaultValue='INFO'
-				PlaceholderText='INFO'
+				label='Log Level'
+				description='Pick Debug, Info, Warning, or Error for this log entry. Stored values are DEBUG, INFO, WARN, and ERROR; the field shows the stored value.'
+				defaultValue='INFO'
+				placeholderText='INFO'
 		)
 		global String logLevel;
 
@@ -105,7 +113,7 @@ global inherited sharing class FLOW_WriteLog
 		 * String value = instance.message;
 		 * ```
 		 */
-		@InvocableVariable(Label='Message' Description='The detailed message to be logged' Required=true)
+		@InvocableVariable(label='Message' description='The detailed message to be logged' required=true)
 		global String message;
 
 		/**
@@ -118,7 +126,7 @@ global inherited sharing class FLOW_WriteLog
 		 * String value = instance.shortMessage;
 		 * ```
 		 */
-		@InvocableVariable(Label='Short Summary' Description='A brief summary of the message' Required=false)
+		@InvocableVariable(label='Short Summary' description='A brief summary of the message' required=false)
 		global String shortMessage;
 
 		/**
@@ -131,7 +139,7 @@ global inherited sharing class FLOW_WriteLog
 		 * String value = instance.recordId;
 		 * ```
 		 */
-		@InvocableVariable(Label='Record Id' Description='The Id of the record related to this log' Required=false)
+		@InvocableVariable(label='Record Id' description='The Id of the record related to this log' required=false)
 		global String recordId;
 
 		/**
@@ -141,10 +149,10 @@ global inherited sharing class FLOW_WriteLog
 		 */
 		@InvocableVariable
 		(
-				Label='Class.Method'
-				Description='The class and method name for logging context (defaults to FLOW_WriteLog.writeLog)'
-				Required=false
-				PlaceholderText='MyFlow.ErrorHandler'
+				label='Class.Method'
+				description='The class and method name for logging context (defaults to FLOW_WriteLog.writeLog)'
+				required=false
+				placeholderText='MyFlow.ErrorHandler'
 		)
 		global String classMethod;
 
@@ -155,9 +163,9 @@ global inherited sharing class FLOW_WriteLog
 		 */
 		@InvocableVariable
 		(
-				Label='Correlation Id'
-				Description='Links this log to related logs across transactions'
-				Required=false
+				label='Correlation Id'
+				description='Links this log to related logs across transactions'
+				required=false
 		)
 		global String correlationId;
 	}
