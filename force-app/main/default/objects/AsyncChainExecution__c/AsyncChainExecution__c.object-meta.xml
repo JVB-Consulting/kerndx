@@ -170,7 +170,7 @@
         <customTabListAdditionalFields>Status__c</customTabListAdditionalFields>
         <customTabListAdditionalFields>StartedAt__c</customTabListAdditionalFields>
         <customTabListAdditionalFields>CompletedAt__c</customTabListAdditionalFields>
-        <customTabListAdditionalFields>DurationMs__c</customTabListAdditionalFields>
+        <customTabListAdditionalFields>ElapsedMs__c</customTabListAdditionalFields>
         <customTabListAdditionalFields>CREATEDBY_USER</customTabListAdditionalFields>
         <excludedStandardButtons>OpenListInQuip</excludedStandardButtons>
         <excludedStandardButtons>MassChangeOwner</excludedStandardButtons>
@@ -192,7 +192,7 @@
         <searchResultsAdditionalFields>Status__c</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>StartedAt__c</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>CompletedAt__c</searchResultsAdditionalFields>
-        <searchResultsAdditionalFields>DurationMs__c</searchResultsAdditionalFields>
+        <searchResultsAdditionalFields>ElapsedMs__c</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>CREATEDBY_USER</searchResultsAdditionalFields>
     </searchLayouts>
     <sharingModel>Private</sharingModel>

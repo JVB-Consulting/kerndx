@@ -13,7 +13,8 @@ kern__AsyncChainExecution__c probe = new kern__AsyncChainExecution__c(
 		kern__CorrelationId__c = EncodingUtil.convertToHex(Crypto.generateAesKey(128)),
 		kern__TotalSteps__c = 1,
 		kern__CompletedSteps__c = 1,
-		kern__StartedAt__c = System.now().addMinutes(-45)
+		kern__StartedAt__c = System.now().addMinutes(-45),
+		kern__CompletedAt__c = System.now().addMinutes(-44)
 );
 try
 {

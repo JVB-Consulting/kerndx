@@ -11,14 +11,13 @@
  *
  * @group Testing
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
  * @example
  * ```apex
- * User testUser = TST_Factory.newUser('Standard User');
- * insert testUser;
+ * User testUser = TST_Factory.insertUser('Standard User');
  * ```
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessivePublicCount,PMD.ExcessiveClassLength,PMD.AvoidGlobalModifier')
@@ -46,6 +45,12 @@ global without sharing class TST_Factory
 	 * Delegates to the canonical map in SEL_TriggerAction.
 	 */
 	private static final Map<TriggerOperation, String> OPERATION_TO_EVENT = SEL_TriggerAction.OPERATION_TO_EVENT;
+
+	/**
+	 * @description The record name of the trigger action that blocks a new chain-run record whose fields do not match its
+	 * status. Tests that must save such a record read the class name from this record, see getRunTransitionActionClassName.
+	 */
+	private static final String RUN_TRANSITION_ACTION_RECORD = 'AsyncChainRunTransition_BeforeInsert';
 
 	/**
 	 * @description Disables all inbound APIs by activating the DisableAllInboundAPIs feature flag.
@@ -115,28 +120,6 @@ global without sharing class TST_Factory
 	private static void mockAllInboundApis()
 	{
 		newFeatureFlag('MockAllInboundAPIs');
-	}
-
-	/**
-	 * @description Creates and inserts a list of User records with the specified profile.
-	 *
-	 * @param profileName The name of the profile to assign to the users.
-	 * @param numberOfUsers The number of users to create and insert.
-	 *
-	 * @return A list of committed User records.
-	 *
-	 * @example
-	 * ```apex
-	 * List<User> users = TST_Factory.insertUsers('Standard User', 3);
-	 * System.debug('Created ' + users.size() + ' users');
-	 * ```
-	 */
-	@TestVisible
-	private static List<User> insertUsers(String profileName, Integer numberOfUsers)
-	{
-		return getUserBuilder(profileName)
-				.withCount(numberOfUsers)
-				.buildList();
 	}
 
 	/**
@@ -222,13 +205,121 @@ global without sharing class TST_Factory
 	}
 
 	/**
+	 * @description Saves the given User records inside the factory's own guard, so a test can save ordinary records
+	 * before or after this call in the same transaction without a System.runAs block of its own. Build the users with
+	 * newUser or newUsers, set any field your org's User rules need (a role, a required custom field), then hand them
+	 * here. Each user needs a free licence seat for its profile's licence; the platform's own error is thrown when there
+	 * is none.
+	 *
+	 * @param users The unsaved User records to save.
+	 *
+	 * @return The same records, saved, with Ids.
+	 *
+	 * @throws DmlException If a user cannot be saved, for example when no licence seat is free for its profile's licence.
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * User manager = TST_Factory.newUser('Standard User');
+	 * manager.Title = 'Regional Manager';
+	 * TST_Factory.insertUsers(new List<User> {manager});
+	 * ```
+	 */
+	global static List<User> insertUsers(List<User> users)
+	{
+		insertSetupRecords(users);
+		return users;
+	}
+
+	/**
+	 * @description Creates and saves a list of User records with the specified profile, inside the factory's own guard.
+	 *
+	 * @param profileName The name of the profile to assign to the users.
+	 * @param numberOfUsers The number of users to create and save.
+	 *
+	 * @return A list of saved User records.
+	 *
+	 * @throws DmlException If a user cannot be saved, for example when no licence seat is free for its profile's licence.
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * List<User> users = TST_Factory.insertUsers('Standard User', 3);
+	 * ```
+	 */
+	global static List<User> insertUsers(String profileName, Integer numberOfUsers)
+	{
+		return insertUsers(newUsers(profileName, numberOfUsers));
+	}
+
+	/**
+	 * @description Creates and saves a single User record with the specified profile, inside the factory's own guard,
+	 * ready for System.runAs.
+	 *
+	 * @param profileName The name of the profile to assign to the user.
+	 *
+	 * @return A saved User record.
+	 *
+	 * @throws DmlException If the user cannot be saved, for example when no licence seat is free for its profile's licence.
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * User testUser = TST_Factory.insertUser('Standard User');
+	 * System.runAs(testUser)
+	 * {
+	 *     // test body
+	 * }
+	 * ```
+	 */
+	global static User insertUser(String profileName)
+	{
+		return insertUsers(profileName, 1).iterator().next();
+	}
+
+	/**
+	 * @description Creates and saves a User record with a custom company name, inside the factory's own guard. The
+	 * company name can be used as a unique identifier to later retrieve this specific user.
+	 *
+	 * @param profileName The Profile name to assign to the user.
+	 * @param companyName A unique company name for this user.
+	 *
+	 * @return A saved User record with the specified company name.
+	 *
+	 * @throws DmlException If the user cannot be saved, for example when no licence seat is free for its profile's licence.
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * @TestSetup
+	 * private static void setupTestData()
+	 * {
+	 *     TST_Factory.insertUser('Standard User', 'my-test-user');
+	 * }
+	 * private static User getTestUser()
+	 * {
+	 *     return new SEL_User().findByCompanyName('my-test-user');
+	 * }
+	 * ```
+	 */
+	global static User insertUser(String profileName, String companyName)
+	{
+		return insertUsers(new List<User> {newUser(profileName, companyName)}).iterator().next();
+	}
+
+	/**
 	 * @description Creates and inserts a User with the specified profile + company name, then assigns
-	 * the named permission set (or permission set group). Composes newUser(profileName, companyName),
-	 * insert, and createPermissionSetAssignments(List<User>, String).
+	 * the named permission set (or permission set group). Composes insertUser(profileName, companyName) and
+	 * createPermissionSetAssignments(List<User>, String), so both setup writes run inside the factory's own guard
+	 * and the test can save ordinary records before or after this call in the same transaction.
 	 *
 	 * Intended for use in @TestSetup as a committed test admin that test methods reach via
 	 * System.runAs. Because runAs re-evaluates permissions for the inner scope, the test admin
-	 * receives a fresh permission cache — bypassing the stale-cache issue that affects mutation
+	 * receives a fresh permission cache, bypassing the stale-cache issue that affects mutation
 	 * of the currently-running user's permission set mid-transaction (the failure mode that made
 	 * assignAdministratorPermissionSet() unreliable in the 2GP synthetic validation org).
 	 *
@@ -252,7 +343,7 @@ global without sharing class TST_Factory
 	 *     TST_Factory.newUserWithPermissionSet(
 	 *             'System Administrator',
 	 *             TEST_ADMIN_COMPANY,
-	 *             SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME
+	 *             'Administrator'
 	 *     );
 	 * }
 	 * private static User getTestAdmin()
@@ -269,13 +360,11 @@ global without sharing class TST_Factory
 	 * }
 	 * ```
 	 */
-	@SuppressWarnings('PMD.ApexCRUDViolation')
 	global static User newUserWithPermissionSet(String profileName, String companyName, String permissionSetName)
 	{
 		Profile profile = new SEL_Profile().findByName(profileName);
 		Assert.isNotNull(profile, 'Profile not found: ' + profileName);
-		User user = newUser(profileName, companyName);
-		Database.insert(new List<User> {user}, true, AccessLevel.SYSTEM_MODE);
+		User user = insertUser(profileName, companyName);
 		createPermissionSetAssignments(new List<User> {user}, permissionSetName);
 		return user;
 	}
@@ -307,8 +396,7 @@ global without sharing class TST_Factory
 	 * @TestSetup
 	 * private static void setupUsers()
 	 * {
-	 *     User lowPrivilegeUser = TST_Factory.newMinimumAccessUser(LOW_PRIVILEGE_COMPANY);
-	 *     insert lowPrivilegeUser;
+	 *     TST_Factory.insertUsers(new List<User> {TST_Factory.newMinimumAccessUser(LOW_PRIVILEGE_COMPANY)});
 	 * }
 	 * @IsTest
 	 * private static void shouldWorkForLowPrivilegeUser()
@@ -342,9 +430,8 @@ global without sharing class TST_Factory
 	 *
 	 * @example
 	 * ```apex
-	 * Account acc = TST_Factory.newAccount();
-	 * insert acc;
-	 * ContentVersion version = TST_Factory.newContentVersion(acc.Id, 'test.pdf', Blob.valueOf('Test data'));
+	 * Account account = (Account)TST_Builder.of(Account.SObjectType).build();
+	 * ContentVersion version = TST_Factory.newContentVersion(account.Id, 'test.pdf', Blob.valueOf('Test data'));
 	 * insert version;
 	 * System.debug('ContentVersion Title: ' + version.Title);
 	 * ```
@@ -518,7 +605,7 @@ global without sharing class TST_Factory
 	{
 		Map<SObjectField, Object> inboundOverrides = new Map<SObjectField, Object>
 		{
-				ApiCall__c.Request__c => System.RestContext.request?.requestBody?.toString() ?? UTIL_String.EMPTY,
+				ApiCall__c.Request__c => RestContext.request?.requestBody?.toString() ?? UTIL_String.EMPTY,
 				ApiCall__c.ServiceName__c => serviceName,
 				ApiCall__c.Status__c => SEL_ApiCall.STATUS_COMPLETED,
 				ApiCall__c.Direction__c => SEL_ApiCall.TYPE_INBOUND
@@ -572,9 +659,8 @@ global without sharing class TST_Factory
 	 *
 	 * @example
 	 * ```apex
-	 * Account acc = TST_Factory.newAccount();
-	 * insert acc;
-	 * ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', acc.Id);
+	 * Account account = (Account)TST_Builder.of(Account.SObjectType).build();
+	 * ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id);
 	 * insert apiCall;
 	 * System.debug('API Call Id: ' + apiCall.Id);
 	 * ```
@@ -607,13 +693,12 @@ global without sharing class TST_Factory
 	 *
 	 * @example
 	 * ```apex
-	 * Account acc = TST_Factory.newAccount();
-	 * insert acc;
+	 * Account account = (Account)TST_Builder.of(Account.SObjectType).build();
 	 * Map<String, String> params = new Map<String, String>
 	 * {
 	 *     'key' => 'value'
 	 * };
-	 * ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', acc.Id, params);
+	 * ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id, params);
 	 * insert apiCall;
 	 * System.debug('API Call Id: ' + apiCall.Id);
 	 * ```
@@ -651,9 +736,8 @@ global without sharing class TST_Factory
 	 *
 	 * @example
 	 * ```apex
-	 * Account acc = TST_Factory.newAccount();
-	 * insert acc;
-	 * ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', acc.Id, 'key', 'value');
+	 * Account account = (Account)TST_Builder.of(Account.SObjectType).build();
+	 * ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id, 'key', 'value');
 	 * insert apiCall;
 	 * System.debug('API Call Id: ' + apiCall.Id);
 	 * ```
@@ -1071,6 +1155,27 @@ global without sharing class TST_Factory
 	}
 
 	/**
+	 * @description Creates an uncommitted Foobar__c record with a specific email address. Pass a value the
+	 * platform refuses to build a record whose insert fails with INVALID_EMAIL_ADDRESS.
+	 *
+	 * @param email The email address to assign to the Foobar record.
+	 *
+	 * @return An uncommitted Foobar__c record with the specified email address.
+	 *
+	 * @example
+	 * ```apex
+	 * Foobar__c refused = TST_Factory.newFoobarWithEmail('not-a-valid-email');
+	 * ```
+	 */
+	public static Foobar__c newFoobarWithEmail(String email)
+	{
+		return (Foobar__c)getFoobarBuilder()
+				.withOverride(Foobar__c.Email__c, email)
+				.withoutInsertion()
+				.build();
+	}
+
+	/**
 	 * @description Creates an uncommitted ContentVersion record with random data.
 	 *
 	 * @return An uncommitted ContentVersion record.
@@ -1139,12 +1244,11 @@ global without sharing class TST_Factory
 	 *
 	 * @example
 	 * ```apex
-	 * Account acc = TST_Factory.newAccount();
-	 * insert acc;
+	 * Account account = (Account)TST_Builder.of(Account.SObjectType).build();
 	 * User user = TST_Factory.newUser('Standard User');
 	 * insert user;
-	 * SEL_ObjectShare.DTO_ObjectShareDescribe shareDescribe = SEL_ObjectShare.getShareDescribe(acc.Id);
-	 * SObject share = TST_Factory.newSObjectShare(shareDescribe, acc.Id, 'Edit', user.Id);
+	 * SEL_ObjectShare.DTO_ObjectShareDescribe shareDescribe = SEL_ObjectShare.getShareDescribe(account.Id);
+	 * SObject share = TST_Factory.newSObjectShare(shareDescribe, account.Id, 'Edit', user.Id);
 	 * insert share;
 	 * System.debug('Share Record Created');
 	 * ```
@@ -1176,11 +1280,10 @@ global without sharing class TST_Factory
 	 *
 	 * @example
 	 * ```apex
-	 * Account acc = TST_Factory.newAccount();
-	 * insert acc;
+	 * Account account = (Account)TST_Builder.of(Account.SObjectType).build();
 	 * User user = TST_Factory.newUser('Standard User');
 	 * insert user;
-	 * SObject share = TST_Factory.newSObjectShare(acc.Id, 'Edit', user.Id);
+	 * SObject share = TST_Factory.newSObjectShare(account.Id, 'Edit', user.Id);
 	 * insert share;
 	 * System.debug('Share Record Created');
 	 * ```
@@ -1191,7 +1294,9 @@ global without sharing class TST_Factory
 	}
 
 	/**
-	 * @description Creates PermissionSetAssignment records for a list of users and a permission set.
+	 * @description Creates PermissionSetAssignment records for a list of users and a permission set. The assignments
+	 * are saved in one statement, inside the factory's own guard while a test runs, so ordinary records a test saves before
+	 * or after this call in the same transaction do not collide with them.
 	 *
 	 * @param users The list of users to assign the permission set to.
 	 * @param permissionSetOrGroupName The name of the permission set.
@@ -1202,10 +1307,8 @@ global without sharing class TST_Factory
 	 *
 	 * @example
 	 * ```apex
-	 * List<User> users = TST_Factory.newUsers('Standard User', 2);
-	 * insert users;
+	 * List<User> users = TST_Factory.insertUsers('Standard User', 2);
 	 * TST_Factory.createPermissionSetAssignments(users, 'CustomPermissionSet');
-	 * System.debug('Permission Set Assignments Created');
 	 * ```
 	 */
 	global static void createPermissionSetAssignments(List<User> users, String permissionSetOrGroupName)
@@ -1224,7 +1327,9 @@ global without sharing class TST_Factory
 	}
 
 	/**
-	 * @description Creates PermissionSetAssignment records for a list of users and a permission set Id.
+	 * @description Creates PermissionSetAssignment records for a list of users and a permission set Id. The assignments
+	 * are saved in one statement, inside the factory's own guard while a test runs, so ordinary records a test saves before
+	 * or after this call in the same transaction do not collide with them.
 	 *
 	 * @param users The list of users to assign the permission set to.
 	 * @param permissionSetOrGroupId The Id of the permission set.
@@ -1233,16 +1338,15 @@ global without sharing class TST_Factory
 	 *
 	 * @example
 	 * ```apex
-	 * List<User> users = TST_Factory.newUsers('Standard User', 2);
-	 * insert users;
-	 * PermissionSet permissionSet = [SELECT Id FROM PermissionSet WHERE Name = 'CustomPermissionSet' LIMIT 1];
+	 * List<User> users = TST_Factory.insertUsers('Standard User', 2);
+	 * PermissionSet permissionSet = new SEL_PermissionSet().findByName('CustomPermissionSet');
 	 * TST_Factory.createPermissionSetAssignments(users, permissionSet.Id);
-	 * System.debug('Permission Set Assignments Created');
 	 * ```
 	 */
 	global static void createPermissionSetAssignments(List<User> users, Id permissionSetOrGroupId)
 	{
 		SObjectType assignmentObjectType = UTIL_SObjectDescribe.getSObjectTypeById(permissionSetOrGroupId);
+		List<PermissionSetAssignment> assignments = new List<PermissionSetAssignment>();
 
 		for(User userRecord : users)
 		{
@@ -1260,10 +1364,43 @@ global without sharing class TST_Factory
 				overrides.put(PermissionSetAssignment.PermissionSetGroupId, permissionSetOrGroupId);
 			}
 
-			getPermissionSetAssignmentBuilder()
+			assignments.add((PermissionSetAssignment)getPermissionSetAssignmentBuilder()
 					.withOverrides(overrides)
-					.build();
+					.withoutInsertion()
+					.build());
 		}
+
+		insertSetupRecords(assignments);
+	}
+
+	/**
+	 * @description Saves setup records (users, permission set assignments) inside the factory's own guard: while a test
+	 * runs, the insert happens inside System.runAs of the current user, so the platform never sees it in the same
+	 * stretch of the transaction as the ordinary records the test saves before or after it. Outside a test the platform
+	 * refuses System.runAs, so the records are saved by the same system-mode insert without the guard.
+	 *
+	 * @param records The unsaved setup records to save.
+	 *
+	 * @example
+	 * ```apex
+	 * insertSetupRecords(new List<User> {newUser('Standard User')});
+	 * ```
+	 */
+	@SuppressWarnings('PMD.ApexCRUDViolation')
+	private static void insertSetupRecords(List<SObject> records)
+	{
+		// A write can change any cached read, and this raw insert does not commit through DML_Transaction.
+		QRY_Engine.clearQueryResultMemoryCache();
+		if(Test.isRunningTest())
+		{
+			System.runAs(new User(Id = UserInfo.getUserId()))
+			{
+				Database.insert(records, true, AccessLevel.SYSTEM_MODE);
+			}
+			return;
+		}
+		// kern-coverage-exempt: the platform refuses System.runAs outside a test method, so this line runs only in production and no test can execute it
+		Database.insert(records, true, AccessLevel.SYSTEM_MODE);
 	}
 
 	/**
@@ -1363,6 +1500,8 @@ global without sharing class TST_Factory
 	@SuppressWarnings('PMD.ApexCRUDViolation')
 	private static List<LoginFrequency__c> createLoginFrequencyRecords(Integer numberOfRecords, Set<String> concatenatedStrings)
 	{
+		// A write can change any cached read, and this raw insert does not commit through DML_Transaction.
+		QRY_Engine.clearQueryResultMemoryCache();
 		List<LoginFrequency__c> newLoginFrequencyRecords = new List<LoginFrequency__c>();
 		Iterator<String> concatenatedString = concatenatedStrings.iterator();
 		for(Integer i = 0; i < numberOfRecords; i++)
@@ -1941,8 +2080,9 @@ global without sharing class TST_Factory
 	 *
 	 * @param status The execution status value.
 	 * @param chainName The chain name.
-	 * @param fieldOverrides Field values applied on top of the defaults; an entry for a defaulted field
-	 * (TotalSteps__c, CompletedSteps__c, CorrelationId__c) replaces the default value.
+	 * @param fieldOverrides Field values applied on top of the defaults. An entry for a defaulted field replaces the
+	 * default value. The defaulted fields are TotalSteps__c, CompletedSteps__c and CorrelationId__c, and, depending on
+	 * the status, CompletedAt__c and FailureCategory__c.
 	 *
 	 * @return The inserted AsyncChainExecution__c record.
 	 *
@@ -1994,7 +2134,11 @@ global without sharing class TST_Factory
 	/**
 	 * @description Creates a pre-configured SObjectBuilder for AsyncChainExecution__c carrying the
 	 * defaults shared by every chain-execution factory: chain name, status, one total step, and zero
-	 * completed steps. Callers chain their own correlation strategy, extra overrides, and terminal call.
+	 * completed steps. The defaults also match the status, so a new row is one the chain engine could
+	 * have written itself. A Completed, Failed or Aborted row gets an end time (CompletedAt__c) of now.
+	 * A Failed row also gets the StepException failure category, and an Aborted row the OperatorAbort
+	 * category. A Running or Stalled row gets neither. An explicit override from the caller replaces
+	 * any of these defaults. Callers chain their own correlation strategy, extra overrides, and terminal call.
 	 *
 	 * @param status The execution status value.
 	 * @param chainName The chain name.
@@ -2003,11 +2147,68 @@ global without sharing class TST_Factory
 	 */
 	private static TST_Builder.Builder getChainExecutionBuilder(String status, String chainName)
 	{
-		return TST_Builder.of(AsyncChainExecution__c.SObjectType)
+		TST_Builder.Builder builder = TST_Builder.of(AsyncChainExecution__c.SObjectType)
 				.withOverride(AsyncChainExecution__c.ChainName__c, chainName)
 				.withOverride(AsyncChainExecution__c.Status__c, status)
 				.withOverride(AsyncChainExecution__c.TotalSteps__c, 1)
 				.withOverride(AsyncChainExecution__c.CompletedSteps__c, 0);
+
+		if(status == SEL_AsyncChainExecution.STATUS_COMPLETED || status == SEL_AsyncChainExecution.STATUS_FAILED
+				|| status == SEL_AsyncChainExecution.STATUS_ABORTED)
+		{
+			builder.withOverride(AsyncChainExecution__c.CompletedAt__c, Datetime.now());
+		}
+
+		if(status == SEL_AsyncChainExecution.STATUS_FAILED)
+		{
+			builder.withOverride(AsyncChainExecution__c.FailureCategory__c, SEL_AsyncChainExecution.FAILURE_CATEGORY_STEP_EXCEPTION);
+		}
+		else if(status == SEL_AsyncChainExecution.STATUS_ABORTED)
+		{
+			builder.withOverride(AsyncChainExecution__c.FailureCategory__c, SEL_AsyncChainExecution.FAILURE_CATEGORY_OPERATOR_ABORT);
+		}
+
+		return builder;
+	}
+
+	/**
+	 * @description Reads the class name the chain-run check (TRG_AsyncChainRunTransition) is registered under, spelled
+	 * exactly as its trigger action record carries it. A package build writes that name with the package namespace in
+	 * front, and the trigger dispatcher turns an action off only when the bypass spells the class the same way. So a test
+	 * that must save a chain run in an old, broken shape (a Stalled run with an end time, which real orgs still hold)
+	 * hands this name to TRG_Base.bypassAction and TRG_Base.clearActionBypass instead of writing the class name out. The
+	 * record is package metadata every org installs: it is read in system mode, so the read does not depend on the field
+	 * permissions of the user running the test, and the read keeps only the record in this package's namespace, so a
+	 * record of the same name from another package or from the org itself is never picked.
+	 *
+	 * @return The class name the AsyncChainRunTransition_BeforeInsert record carries.
+	 *
+	 * @example
+	 * ```apex
+	 * String actionClassName = TST_Factory.getRunTransitionActionClassName();
+	 * TRG_Base.bypassAction(actionClassName);
+	 * try
+	 * {
+	 *     TST_Factory.newChainExecution('Stalled', 'MyChain', new Map<SObjectField, Object> {AsyncChainExecution__c.CompletedAt__c => Datetime.now()});
+	 * }
+	 * finally
+	 * {
+	 *     TRG_Base.clearActionBypass(actionClassName);
+	 * }
+	 * ```
+	 */
+	public static String getRunTransitionActionClassName()
+	{
+		String packageNamespace = UTIL_System.getManagedPackageNamespace();
+		QRY_Builder.Builder query = QRY_Builder.selectFrom(TriggerAction__mdt.SObjectType)
+				.fields(new List<SObjectField> {TriggerAction__mdt.ApexClassName__c})
+				.condition(TriggerAction__mdt.DeveloperName).equals(RUN_TRANSITION_ACTION_RECORD)
+				.withSystemMode();
+		query = String.isBlank(packageNamespace)
+				? query.andCondition(TriggerAction__mdt.NamespacePrefix).isNull()
+				: query.andCondition(TriggerAction__mdt.NamespacePrefix).equals(packageNamespace);
+		TriggerAction__mdt action = (TriggerAction__mdt)query.getFirst();
+		return action.ApexClassName__c;
 	}
 
 	/**
@@ -2023,7 +2224,7 @@ global without sharing class TST_Factory
 	 */
 	public static void setupLoggerForTest()
 	{
-		setupLoggerForTest(false, 0, false, 0, false, 500);
+		newLoggerSettings().apply();
 	}
 
 	/**
@@ -2068,83 +2269,175 @@ global without sharing class TST_Factory
 					Integer webserviceThresholdMs
 			)
 	{
-		setupLoggerForTest(enableQueryLogging, queryThresholdMs, enableWebserviceLogging, webserviceThresholdMs, false, 500);
+		LoggerSettingsBuilder settings = newLoggerSettings();
+		if(enableQueryLogging == true)
+		{
+			settings.withQueryLogging(queryThresholdMs);
+		}
+		if(enableWebserviceLogging == true)
+		{
+			settings.withWebserviceLogging(webserviceThresholdMs);
+		}
+		settings.apply();
 	}
 
 	/**
-	 * @description Configures the logger for testing with query, webservice, and trigger settings.
+	 * @description Starts the logger settings a test applies with one call: every performance log is off until a
+	 * with...Logging call turns it on at the given threshold, and apply() hands the finished settings to the logger.
 	 *
-	 * @param enableQueryLogging Whether query performance logging is enabled
-	 * @param queryThresholdMs The query threshold in milliseconds
-	 * @param enableWebserviceLogging Whether webservice performance logging is enabled
-	 * @param webserviceThresholdMs The webservice threshold in milliseconds
-	 * @param enableTriggerLogging Whether trigger performance logging is enabled
-	 * @param triggerThresholdMs The trigger threshold in milliseconds
+	 * @return A builder for the logger settings.
 	 *
 	 * @example
 	 * ```apex
 	 * LOG_Builder.ignoreTestMode = true;
-	 * TST_Factory.setupLoggerForTest(true, 0, true, 100, true, 50);
+	 * TST_Factory.newLoggerSettings().withTriggerLogging(50).apply();
 	 * ```
 	 */
-	@SuppressWarnings('PMD.ExcessiveParameterList,PMD.AvoidBooleanMethodParameters')
-	public static void setupLoggerForTest
-			(
-					Boolean enableQueryLogging,
-					Integer queryThresholdMs,
-					Boolean enableWebserviceLogging,
-					Integer webserviceThresholdMs,
-					Boolean enableTriggerLogging,
-					Integer triggerThresholdMs
-			)
+	public static LoggerSettingsBuilder newLoggerSettings()
 	{
-		setupLoggerForTest(enableQueryLogging, queryThresholdMs, enableWebserviceLogging, webserviceThresholdMs, enableTriggerLogging, triggerThresholdMs, false, 0);
+		return new LoggerSettingsBuilder();
 	}
 
 	/**
-	 * @description Configures the logger for testing with full control over all performance settings.
-	 * Includes query, webservice, trigger, and validation performance logging settings.
+	 * @description Builds the LogSetting__c record a test runs under: the logger enabled at the DEBUG threshold, every
+	 * performance log off until its with...Logging call turns it on at a threshold, and apply() registers the settings
+	 * with the logger for the rest of the transaction.
 	 *
-	 * @param enableQueryLogging Whether query performance logging is enabled
-	 * @param queryThresholdMs The query threshold in milliseconds
-	 * @param enableWebserviceLogging Whether webservice performance logging is enabled
-	 * @param webserviceThresholdMs The webservice threshold in milliseconds
-	 * @param enableTriggerLogging Whether trigger performance logging is enabled
-	 * @param triggerThresholdMs The trigger threshold in milliseconds
-	 * @param enableValidationLogging Whether validation performance logging is enabled
-	 * @param validationThresholdMs The validation threshold in milliseconds
+	 * @date September 2026
 	 *
 	 * @example
 	 * ```apex
-	 * LOG_Builder.ignoreTestMode = true;
-	 * TST_Factory.setupLoggerForTest(true, 0, true, 100, true, 50, true, 100);
+	 * TST_Factory.newLoggerSettings().withQueryLogging(0).withTriggerLogging(10000).apply();
 	 * ```
 	 */
-	@SuppressWarnings('PMD.ExcessiveParameterList,PMD.AvoidBooleanMethodParameters')
-	public static void setupLoggerForTest
-			(
-					Boolean enableQueryLogging,
-					Integer queryThresholdMs,
-					Boolean enableWebserviceLogging,
-					Integer webserviceThresholdMs,
-					Boolean enableTriggerLogging,
-					Integer triggerThresholdMs,
-					Boolean enableValidationLogging,
-					Integer validationThresholdMs
-			)
+	public inherited sharing class LoggerSettingsBuilder
 	{
-		LogSetting__c setting = new LogSetting__c();
-		setting.IsEnabled__c = true;
-		setting.LogLevelThreshold__c = 'DEBUG';
-		setting.EnablePerformanceLogging__c = enableWebserviceLogging;
-		setting.PerformanceThresholdMs__c = webserviceThresholdMs;
-		setting.EnableQueryPerformanceLogging__c = enableQueryLogging;
-		setting.QueryPerformanceThresholdMs__c = queryThresholdMs;
-		setting.EnableTriggerPerformanceLogging__c = enableTriggerLogging;
-		setting.TriggerPerformanceThresholdMs__c = triggerThresholdMs;
-		setting.EnableValidationPerformanceLogging__c = enableValidationLogging;
-		setting.ValidationPerformanceThresholdMs__c = validationThresholdMs;
-		LOG_Engine.logSettingOverride = setting;
+		/**
+		 * @description The settings under construction: logger on at the DEBUG threshold, every performance log off.
+		 */
+		private final LogSetting__c setting = new LogSetting__c
+				(
+						IsEnabled__c = true,
+						LogLevelThreshold__c = LoggingLevel.DEBUG.name(),
+						EnableQueryPerformanceLogging__c = false,
+						QueryPerformanceThresholdMs__c = 0,
+						EnablePerformanceLogging__c = false,
+						PerformanceThresholdMs__c = 0,
+						EnableTriggerPerformanceLogging__c = false,
+						TriggerPerformanceThresholdMs__c = 0,
+						EnableValidationPerformanceLogging__c = false,
+						ValidationPerformanceThresholdMs__c = 0,
+						EnableMaskerPerformanceLogging__c = false,
+						MaskerPerformanceThresholdMs__c = 0
+				);
+
+		/**
+		 * @description Turns query performance logging on.
+		 *
+		 * @param thresholdMilliseconds The duration from which a query is logged.
+		 *
+		 * @return This builder.
+		 *
+		 * @example
+		 * ```apex
+		 * TST_Factory.newLoggerSettings().withQueryLogging(0).apply();
+		 * ```
+		 */
+		public LoggerSettingsBuilder withQueryLogging(Integer thresholdMilliseconds)
+		{
+			setting.EnableQueryPerformanceLogging__c = true;
+			setting.QueryPerformanceThresholdMs__c = thresholdMilliseconds;
+			return this;
+		}
+
+		/**
+		 * @description Turns web service performance logging on.
+		 *
+		 * @param thresholdMilliseconds The duration from which a web service call is logged.
+		 *
+		 * @return This builder.
+		 *
+		 * @example
+		 * ```apex
+		 * TST_Factory.newLoggerSettings().withWebserviceLogging(100).apply();
+		 * ```
+		 */
+		public LoggerSettingsBuilder withWebserviceLogging(Integer thresholdMilliseconds)
+		{
+			setting.EnablePerformanceLogging__c = true;
+			setting.PerformanceThresholdMs__c = thresholdMilliseconds;
+			return this;
+		}
+
+		/**
+		 * @description Turns trigger performance logging on.
+		 *
+		 * @param thresholdMilliseconds The duration from which a trigger action is logged.
+		 *
+		 * @return This builder.
+		 *
+		 * @example
+		 * ```apex
+		 * TST_Factory.newLoggerSettings().withTriggerLogging(50).apply();
+		 * ```
+		 */
+		public LoggerSettingsBuilder withTriggerLogging(Integer thresholdMilliseconds)
+		{
+			setting.EnableTriggerPerformanceLogging__c = true;
+			setting.TriggerPerformanceThresholdMs__c = thresholdMilliseconds;
+			return this;
+		}
+
+		/**
+		 * @description Turns validation performance logging on.
+		 *
+		 * @param thresholdMilliseconds The duration from which a validation run is logged.
+		 *
+		 * @return This builder.
+		 *
+		 * @example
+		 * ```apex
+		 * TST_Factory.newLoggerSettings().withValidationLogging(0).apply();
+		 * ```
+		 */
+		public LoggerSettingsBuilder withValidationLogging(Integer thresholdMilliseconds)
+		{
+			setting.EnableValidationPerformanceLogging__c = true;
+			setting.ValidationPerformanceThresholdMs__c = thresholdMilliseconds;
+			return this;
+		}
+
+		/**
+		 * @description Turns masking performance logging on.
+		 *
+		 * @param thresholdMilliseconds The duration from which a masking pass is logged.
+		 *
+		 * @return This builder.
+		 *
+		 * @example
+		 * ```apex
+		 * TST_Factory.newLoggerSettings().withMaskerLogging(0).apply();
+		 * ```
+		 */
+		public LoggerSettingsBuilder withMaskerLogging(Integer thresholdMilliseconds)
+		{
+			setting.EnableMaskerPerformanceLogging__c = true;
+			setting.MaskerPerformanceThresholdMs__c = thresholdMilliseconds;
+			return this;
+		}
+
+		/**
+		 * @description Registers the settings with the logger for the rest of the transaction.
+		 *
+		 * @example
+		 * ```apex
+		 * TST_Factory.newLoggerSettings().apply();
+		 * ```
+		 */
+		public void apply()
+		{
+			LOG_Engine.logSettingOverride = setting;
+		}
 	}
 
 	/**
@@ -2175,6 +2468,11 @@ global without sharing class TST_Factory
 	 * @param childRules List of ValidationRule__mdt records to include as children
 	 *
 	 * @return An uncommitted ValidationRuleGroup__mdt record with child rules
+	 *
+	 * @example
+	 * ```apex
+	 * ValidationRuleGroup__mdt ruleGroup = TST_Factory.newValidationRuleGroup(setting, new List<ValidationRule__mdt> {rule});
+	 * ```
 	 */
 	@TestVisible
 	private static ValidationRuleGroup__mdt newValidationRuleGroup
@@ -2195,6 +2493,11 @@ global without sharing class TST_Factory
 	 * @param childRules List of ValidationRule__mdt records to include as children
 	 *
 	 * @return An uncommitted ValidationRuleGroup__mdt record with child rules
+	 *
+	 * @example
+	 * ```apex
+	 * ValidationRuleGroup__mdt ruleGroup = TST_Factory.newValidationRuleGroup(setting, 'After', 'Update', new List<ValidationRule__mdt> {rule});
+	 * ```
 	 */
 	@TestVisible
 	private static ValidationRuleGroup__mdt newValidationRuleGroup
@@ -2205,47 +2508,11 @@ global without sharing class TST_Factory
 					List<ValidationRule__mdt> childRules
 			)
 	{
-		return newValidationRuleGroup(triggerSetting, triggerTiming, triggerOperations, childRules, null, null);
-	}
-
-	/**
-	 * @description Creates an uncommitted ValidationRuleGroup__mdt record with feature flags.
-	 *
-	 * @param triggerSetting The TriggerSetting__mdt record to associate with this group
-	 * @param triggerTiming The trigger timing
-	 * @param triggerOperations The trigger operations
-	 * @param childRules List of ValidationRule__mdt records
-	 * @param requiredFeatureFlag Optional feature flag name required for this group
-	 * @param bypassPermission Optional bypass permission name
-	 *
-	 * @return An uncommitted ValidationRuleGroup__mdt record
-	 */
-	@TestVisible
-	@SuppressWarnings('PMD.ExcessiveParameterList')
-	private static ValidationRuleGroup__mdt newValidationRuleGroup
-			(
-					TriggerSetting__mdt triggerSetting,
-					String triggerTiming,
-					String triggerOperations,
-					List<ValidationRule__mdt> childRules,
-					String requiredFeatureFlag,
-					String bypassPermission
-			)
-	{
 		TST_Builder.Builder builder = TST_Builder.of(ValidationRuleGroup__mdt.SObjectType)
 				.withoutInsertion()
 				.withOverride(SEL_ValidationRules.RELATIONSHIP_TRIGGER_SETTING, triggerSetting)
 				.withOverride(ValidationRuleGroup__mdt.TriggerTiming__c, triggerTiming)
 				.withOverride(ValidationRuleGroup__mdt.TriggerOperations__c, triggerOperations);
-
-		if(String.isNotBlank(requiredFeatureFlag))
-		{
-			builder = builder.withOverride(ValidationRuleGroup__mdt.RequiredFeatureFlag__c, newFeatureFlag(requiredFeatureFlag, false));
-		}
-		if(String.isNotBlank(bypassPermission))
-		{
-			builder = builder.withOverride(ValidationRuleGroup__mdt.BypassFeatureFlag__c, newFeatureFlag(bypassPermission, false));
-		}
 
 		if(childRules != null && !childRules.isEmpty())
 		{
@@ -2304,12 +2571,49 @@ global without sharing class TST_Factory
 	@TestVisible
 	private static ValidationRuleGroup__mdt newValidationRuleGroup(TriggerSetting__mdt triggerSetting, Map<SObjectField, Object> fieldOverrides)
 	{
+		return newValidationRuleGroup(triggerSetting, new List<ValidationRule__mdt>(), fieldOverrides);
+	}
+
+	/**
+	 * @description Creates an uncommitted ValidationRuleGroup__mdt record with child rules and field overrides.
+	 * Defaults: Before Insert, auto-generated name; the overrides win over the defaults, so a caller can set the
+	 * timing, the operations or a feature-flag relationship alongside its rules.
+	 *
+	 * @param triggerSetting The TriggerSetting__mdt record to associate with this group
+	 * @param childRules List of ValidationRule__mdt records
+	 * @param fieldOverrides Field values that win over the defaults
+	 *
+	 * @return An uncommitted ValidationRuleGroup__mdt record
+	 *
+	 * @example
+	 * ```apex
+	 * ValidationRuleGroup__mdt ruleGroup = TST_Factory.newValidationRuleGroup
+	 *         (
+	 *                 setting,
+	 *                 new List<ValidationRule__mdt> {rule},
+	 *                 new Map<SObjectField, Object> {ValidationRuleGroup__mdt.TriggerOperations__c => 'Update'}
+	 *         );
+	 * ```
+	 */
+	@TestVisible
+	private static ValidationRuleGroup__mdt newValidationRuleGroup
+			(
+					TriggerSetting__mdt triggerSetting,
+					List<ValidationRule__mdt> childRules,
+					Map<SObjectField, Object> fieldOverrides
+			)
+	{
 		TST_Builder.Builder builder = TST_Builder.of(ValidationRuleGroup__mdt.SObjectType)
 				.withoutInsertion()
 				.withOverride(SEL_ValidationRules.RELATIONSHIP_TRIGGER_SETTING, triggerSetting)
 				.withOverride(ValidationRuleGroup__mdt.TriggerTiming__c, 'Before')
 				.withOverride(ValidationRuleGroup__mdt.TriggerOperations__c, 'Insert')
 				.withOverrides(fieldOverrides);
+
+		if(childRules != null && !childRules.isEmpty())
+		{
+			builder = builder.withOverride(SEL_ValidationRules.RELATIONSHIP_VALIDATION_RULES, childRules);
+		}
 
 		return (ValidationRuleGroup__mdt)builder.build();
 	}

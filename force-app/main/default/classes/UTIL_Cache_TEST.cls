@@ -9,12 +9,29 @@
  *
  * @group Utilities
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.ApexUnitTestClassShouldHaveRunAs,PMD.NcssTypeCount')
 private class UTIL_Cache_TEST
 {
+	/**
+	 * @description The length of each large value the heap pressure tests store: large enough to reach the eviction
+	 * guard in few stores.
+	 */
+	private static final Integer LARGE_VALUE_LENGTH = 100000;
+
+	/**
+	 * @description The length of the random prefix a test puts on its cache keys, so tests running in parallel never share a
+	 * key in the org's Platform Cache.
+	 */
+	private static final Integer RANDOM_KEY_PREFIX_LENGTH = 10;
+
+	/**
+	 * @description The length of a value far below the largest entry the cache accepts.
+	 */
+	private static final Integer SMALL_VALUE_LENGTH = 20;
+
 	/**
 	 * @description Tests basic put and get operations (Single)
 	 */
@@ -942,11 +959,7 @@ private class UTIL_Cache_TEST
 		UTIL_Cache.Store cache = UTIL_Cache.auto();
 
 		// Create large payload to trigger compression
-		List<String> largeList = new List<String>();
-		for(Integer i = 0; i < 5000; i++)
-		{
-			largeList.add('This is item number ' + i + ' with some extra text to increase size');
-		}
+		List<String> largeList = buildNumberedLines(5000, 'This is item number ', ' with some extra text to increase size');
 
 		// Store in cache
 		Boolean putResult = cache.put('largePayload', largeList);
@@ -1017,11 +1030,7 @@ private class UTIL_Cache_TEST
 		bulkData.put('small1', new Map<String, String> {'key' => 'value'});
 
 		// Large payload (will be compressed)
-		List<String> largePayload = new List<String>();
-		for(Integer i = 0; i < 3000; i++)
-		{
-			largePayload.add('Item ' + i + ' with additional content to increase size');
-		}
+		List<String> largePayload = buildNumberedLines(3000, 'Item ', ' with additional content to increase size');
 		bulkData.put('large1', largePayload);
 
 		// Store all
@@ -1161,6 +1170,44 @@ private class UTIL_Cache_TEST
 			Assert.areEqual(UTIL_Cache.Status.WRITE_FAILURE, operationResult.status, 'Status should be WRITE_FAILURE');
 			Assert.isTrue(operationResult.errorMessage.contains('exceeds maximum size'), 'Error message should mention exceeds maximum size');
 		}
+	}
+
+	/**
+	 * @description Proves that putAll saves all or nothing: with a small entry, an entry too large to cache and another small
+	 * entry, in that order, the call fails exactly as a put of the large entry alone fails, and leaves none of the three keys
+	 * in the cache. Without this a caller told the save failed would still find the entries placed before the large one, and
+	 * could read them as current. Comparing with the single put keeps the test free of an allocation branch: where Platform
+	 * Cache has capacity both calls fail with the size error (see shouldFailWhenEntryExceedsMaximumSize), and where it has none
+	 * both fail the same other way; in both cases nothing may be saved.
+	 */
+	@IsTest
+	private static void shouldSaveNothingFromPutAllWhenOneEntryIsTooLarge()
+	{
+		UTIL_Cache.simulateCompressionFailure = true;
+		UTIL_Cache.Store cache = UTIL_Cache.auto();
+		String keyPrefix = UTIL_Random.randomAlphanumeric(RANDOM_KEY_PREFIX_LENGTH);
+		String firstKey = keyPrefix + 'First';
+		String oversizedKey = keyPrefix + 'Oversized';
+		String lastKey = keyPrefix + 'Last';
+		String oversizedValue = 'x'.repeat(UTIL_Cache.MAXIMUM_ENTRY_SIZE + 1);
+		Map<String, Object> entries = new Map<String, Object>
+		{
+				firstKey => UTIL_Random.randomAlphanumeric(SMALL_VALUE_LENGTH),
+				oversizedKey => oversizedValue,
+				lastKey => UTIL_Random.randomAlphanumeric(SMALL_VALUE_LENGTH)
+		};
+		cache.put(oversizedKey, oversizedValue);
+		UTIL_Cache.OperationResult singlePutResult = cache.getLastOperationResult();
+
+		Boolean result = cache.putAll(entries);
+
+		UTIL_Cache.OperationResult operationResult = cache.getLastOperationResult();
+		Set<String> keysInCache = cache.getAll(entries.keySet()).keySet();
+		Assert.isFalse(result, 'Expected putAll to report failure, got ' + result);
+		Assert.isFalse(operationResult.success, 'Expected the last operation to report failure, got ' + operationResult.success);
+		Assert.areEqual(singlePutResult.status, operationResult.status, 'Expected the status of the single oversized put, got ' + operationResult.status);
+		Assert.areEqual(singlePutResult.errorMessage, operationResult.errorMessage, 'Expected the message of the single oversized put, got ' + operationResult.errorMessage);
+		Assert.isTrue(keysInCache.isEmpty(), 'Expected none of the keys in the cache, got ' + keysInCache);
 	}
 
 	/**
@@ -1526,20 +1573,28 @@ private class UTIL_Cache_TEST
 	}
 
 	/**
-	 * @description Tests primary-success path — value goes to Platform Cache when allocated.
+	 * @description A value put through the store with a fallback goes to Platform Cache when the org has cache space set
+	 * aside, and the result reports SESSION or ORG. In an org with no cache space, Platform Cache refuses the value and
+	 * the store keeps it for this transaction only, so the result reports IN_TRANSACTION. The put succeeds either way.
 	 */
 	@IsTest
 	private static void shouldUsePrimaryWhenPlatformCacheAllocated()
 	{
+		Boolean hasCacheSpace = UTIL_Cache.isAllocated();
 		UTIL_Cache.Store composite = UTIL_Cache.autoWithTransactionFallback();
 
 		Boolean putResult = composite.put('primaryKey', 'primaryValue');
+		UTIL_Cache.Scope scopeUsed = composite.getLastOperationResult().cacheTypeUsed;
 
-		if(putResult)
+		Assert.isTrue(putResult, 'Expected the put to succeed in Platform Cache or in the transaction fallback, got a failure');
+		if(hasCacheSpace)
 		{
-			UTIL_Cache.OperationResult result = composite.getLastOperationResult();
-			Assert.isTrue(result.cacheTypeUsed == UTIL_Cache.Scope.SESSION || result.cacheTypeUsed == UTIL_Cache.Scope.ORG,
-					'Primary success should report SESSION or ORG, not IN_TRANSACTION');
+			Assert.isTrue(scopeUsed == UTIL_Cache.Scope.SESSION || scopeUsed == UTIL_Cache.Scope.ORG,
+					'Expected Platform Cache to keep the value (SESSION or ORG) when the org has cache space, got ' + scopeUsed);
+		}
+		else
+		{
+			Assert.areEqual(UTIL_Cache.Scope.IN_TRANSACTION, scopeUsed, 'Expected the transaction fallback to keep the value when the org has no cache space, got ' + scopeUsed);
 		}
 	}
 
@@ -1886,4 +1941,207 @@ private class UTIL_Cache_TEST
 		}
 	}
 
+	/**
+	 * @description A memory cache keeps what is put and returns it until cleared.
+	 */
+	@IsTest
+	private static void transactionMemoryCacheKeepsValuesUntilCleared()
+	{
+		UTIL_Cache.TransactionMemoryCache cache = new UTIL_Cache.TransactionMemoryCache();
+		String key = UTIL_Random.randomAlphanumeric(20);
+		String value = UTIL_Random.randomAlphanumeric(10);
+
+		Boolean stored = cache.putIfHeapAllows(key, value);
+		Object found = cache.get(key);
+		cache.clear();
+
+		Assert.isTrue(stored, 'The value should be stored');
+		Assert.areEqual(value, found, 'The stored value should come back');
+		Assert.isNull(cache.get(key), 'Nothing should come back after a clear');
+		Assert.isFalse(cache.containsKey(key), 'The key should be gone after a clear');
+	}
+
+	/**
+	 * @description A stored null is told apart from a key never stored, so an owner can cache "not found".
+	 */
+	@IsTest
+	private static void transactionMemoryCacheTellsStoredNullFromMissingKey()
+	{
+		UTIL_Cache.TransactionMemoryCache cache = new UTIL_Cache.TransactionMemoryCache();
+		String storedAsNull = UTIL_Random.randomAlphanumeric(20);
+
+		cache.putIfHeapAllows(storedAsNull, null);
+
+		Assert.isTrue(cache.containsKey(storedAsNull), 'A key stored with a null value should be present');
+		Assert.isNull(cache.get(storedAsNull), 'Its value should be null');
+		Assert.isFalse(cache.containsKey(UTIL_Random.randomAlphanumeric(20)), 'A key never stored should be absent');
+	}
+
+	/**
+	 * @description Clearing one owner's cache never touches another owner's entries.
+	 */
+	@IsTest
+	private static void transactionMemoryCachesClearIndependently()
+	{
+		UTIL_Cache.TransactionMemoryCache first = new UTIL_Cache.TransactionMemoryCache();
+		UTIL_Cache.TransactionMemoryCache second = new UTIL_Cache.TransactionMemoryCache();
+		String key = UTIL_Random.randomAlphanumeric(20);
+		first.putIfHeapAllows(key, UTIL_Random.randomAlphanumeric(10));
+		second.putIfHeapAllows(key, UTIL_Random.randomAlphanumeric(10));
+
+		first.clear();
+
+		Assert.isFalse(first.containsKey(key), 'The cleared cache should be empty');
+		Assert.isTrue(second.containsKey(key), 'Clearing one cache should not touch another');
+	}
+
+	/**
+	 * @description While heap use is under the guard, storing evicts nothing. Under heap pressure the oldest entries in the
+	 * whole transaction go first, whichever cache holds them; with nothing left to evict, nothing is stored. The test fills
+	 * the heap with 100,000-character strings until the guard is reached, so it calibrates itself against the live limit
+	 * and stops at the guard's share of it.
+	 */
+	@IsTest
+	private static void transactionMemoryCachesEvictOldestAcrossOwnersUnderHeapPressure()
+	{
+		UTIL_Cache.TransactionMemoryCache firstOwner = new UTIL_Cache.TransactionMemoryCache();
+		UTIL_Cache.TransactionMemoryCache secondOwner = new UTIL_Cache.TransactionMemoryCache();
+		String oldestKey = UTIL_Random.randomAlphanumeric(20);
+		String newerKey = UTIL_Random.randomAlphanumeric(20);
+		firstOwner.putIfHeapAllows(oldestKey, UTIL_Random.randomAlphanumeric(10));
+		secondOwner.putIfHeapAllows(newerKey, UTIL_Random.randomAlphanumeric(10));
+		Assert.isTrue(firstOwner.containsKey(oldestKey), 'Under the guard, storing should evict nothing');
+
+		List<String> ballast = fillHeapToEvictionGuard();
+
+		Boolean stored = secondOwner.putIfHeapAllows(UTIL_Random.randomAlphanumeric(20), UTIL_Random.randomAlphanumeric(10));
+
+		Assert.isFalse(firstOwner.containsKey(oldestKey), 'The oldest entry should go first, even though another cache holds it');
+		Assert.isFalse(secondOwner.containsKey(newerKey), 'Every older entry should go while heap stays over the guard');
+		Assert.isFalse(stored, 'With every cache empty and heap still over, nothing should be stored');
+		Assert.isNotNull(ballast, 'Keep the ballast alive until after the store');
+	}
+
+	/**
+	 * @description An outdated entry, cleared before the same key was stored again, never evicts the value stored
+	 * again; the current entry does. It evicts one entry at a time, because under real heap pressure every entry is
+	 * evicted and the order cannot be observed. It assumes EVICTION_ORDER is empty when the test starts, which holds
+	 * while nothing else stores in a memory cache on the test's path.
+	 */
+	@IsTest
+	private static void transactionMemoryCacheIgnoresOutdatedEntries()
+	{
+		UTIL_Cache.TransactionMemoryCache cache = new UTIL_Cache.TransactionMemoryCache();
+		String reusedKey = UTIL_Random.randomAlphanumeric(20);
+		String current = UTIL_Random.randomAlphanumeric(10);
+		cache.putIfHeapAllows(reusedKey, UTIL_Random.randomAlphanumeric(10));
+		cache.clear();
+		cache.putIfHeapAllows(reusedKey, current);
+
+		UTIL_Cache.evictOldestEntry();
+		Object afterOutdatedEntry = cache.get(reusedKey);
+		UTIL_Cache.evictOldestEntry();
+
+		Assert.areEqual(current, afterOutdatedEntry, 'The outdated entry should not evict the value stored again');
+		Assert.isFalse(cache.containsKey(reusedKey), 'The current entry should evict it');
+	}
+
+	/**
+	 * @description Evicting the oldest entries really frees heap. The heap is filled to the guard and two large values
+	 * dropped, so heap use sits under it; the rest, held only by the cache, is stored as its oldest entry. A value
+	 * twice as large, held by the test, pushes heap over the guard, and a further small value is still accepted,
+	 * because storing it evicts the oldest entry first. Were evicted values still counted against heap, the small
+	 * value would be refused.
+	 */
+	@IsTest
+	private static void transactionMemoryCacheEvictionMakesRoomForANewEntry()
+	{
+		UTIL_Cache.TransactionMemoryCache cache = new UTIL_Cache.TransactionMemoryCache();
+		String oldestKey = UTIL_Random.randomAlphanumeric(20);
+		List<String> ballast = fillHeapToEvictionGuard();
+		ballast.remove(ballast.size() - 1);
+		ballast.remove(ballast.size() - 1);
+		Assert.isTrue(cache.putIfHeapAllows(oldestKey, ballast), 'Under the guard, the ballast should be stored');
+		ballast = null;
+		String pressure = 'x'.repeat(LARGE_VALUE_LENGTH * 2);
+		String newKey = UTIL_Random.randomAlphanumeric(20);
+
+		Boolean stored = cache.putIfHeapAllows(newKey, UTIL_Random.randomAlphanumeric(10));
+
+		Assert.isTrue(stored, 'Evicting the oldest entry should bring heap use back under the guard');
+		Assert.isTrue(cache.containsKey(newKey), 'The new value should be stored');
+		Assert.isFalse(cache.containsKey(oldestKey), 'The oldest entry should be evicted to make room');
+		Assert.isNotNull(pressure, 'Keep the pressure alive until after the store');
+	}
+
+	/**
+	 * @description Entries left behind by a clear or a replacement do not stop eviction from making room. A key is
+	 * stored, cleared, stored again and replaced, then cleared, so the oldest entries in EVICTION_ORDER are outdated
+	 * and hold no value. The heap is then filled to the guard and dropped just under it, the rest is stored as the one
+	 * live entry, and a value held by the test pushes heap over. Storing a small value must walk past the outdated
+	 * entries, which free nothing, evict the live one and store.
+	 */
+	@IsTest
+	private static void transactionMemoryCacheEvictionSkipsPastClearedEntries()
+	{
+		UTIL_Cache.TransactionMemoryCache cache = new UTIL_Cache.TransactionMemoryCache();
+		String clearedKey = UTIL_Random.randomAlphanumeric(20);
+		cache.putIfHeapAllows(clearedKey, UTIL_Random.randomAlphanumeric(10));
+		cache.clear();
+		cache.putIfHeapAllows(clearedKey, UTIL_Random.randomAlphanumeric(10));
+		cache.putIfHeapAllows(clearedKey, UTIL_Random.randomAlphanumeric(10));
+		cache.clear();
+		String liveKey = UTIL_Random.randomAlphanumeric(20);
+		List<String> ballast = fillHeapToEvictionGuard();
+		ballast.remove(ballast.size() - 1);
+		ballast.remove(ballast.size() - 1);
+		Assert.isTrue(cache.putIfHeapAllows(liveKey, ballast), 'Under the guard, the ballast should be stored');
+		ballast = null;
+		String pressure = 'x'.repeat(LARGE_VALUE_LENGTH * 2);
+		String newKey = UTIL_Random.randomAlphanumeric(20);
+
+		Boolean stored = cache.putIfHeapAllows(newKey, UTIL_Random.randomAlphanumeric(10));
+
+		Assert.isTrue(stored, 'Evicting the live entry behind the cleared ones should bring heap use back under the guard');
+		Assert.isTrue(cache.containsKey(newKey), 'The new value should be stored');
+		Assert.isFalse(cache.containsKey(liveKey), 'The live entry should be evicted to make room');
+		Assert.isFalse(cache.containsKey(clearedKey), 'The cleared key should stay absent');
+		Assert.isNotNull(pressure, 'Keep the pressure alive until after the store');
+	}
+
+	/**
+	 * @description Builds a large payload of numbered lines, each the prefix, the line's index and the suffix, so a
+	 * test can push a value past the compression threshold.
+	 *
+	 * @param count How many lines to build
+	 * @param prefix The text before each line's index
+	 * @param suffix The text after each line's index
+	 *
+	 * @return The lines, in index order from zero
+	 */
+	private static List<String> buildNumberedLines(Integer count, String prefix, String suffix)
+	{
+		List<String> lines = new List<String>();
+		for(Integer index = 0; index < count; index++)
+		{
+			lines.add(prefix + index + suffix);
+		}
+		return lines;
+	}
+
+	/**
+	 * @description Fills the heap with 100,000-character strings until heap use reaches the memory cache's eviction
+	 * guard. It reads the live limit, so it calibrates itself and stops at the guard's share of the limit.
+	 *
+	 * @return The ballast, which the caller keeps referenced until after the store it tests
+	 */
+	private static List<String> fillHeapToEvictionGuard()
+	{
+		List<String> ballast = new List<String>();
+		while(!UTIL_Limits.heapSize().isNearLimit(UTIL_Cache.MEMORY_CACHE_EVICTION_HEAP_SHARE))
+		{
+			ballast.add('x'.repeat(LARGE_VALUE_LENGTH));
+		}
+		return ballast;
+	}
 }

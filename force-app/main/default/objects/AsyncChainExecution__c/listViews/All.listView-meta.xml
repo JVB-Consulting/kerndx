@@ -6,7 +6,7 @@
     <columns>Status__c</columns>
     <columns>StartedAt__c</columns>
     <columns>CompletedAt__c</columns>
-    <columns>DurationMs__c</columns>
+    <columns>ElapsedMs__c</columns>
     <columns>CREATEDBY_USER</columns>
     <filterScope>Everything</filterScope>
     <label>All</label>

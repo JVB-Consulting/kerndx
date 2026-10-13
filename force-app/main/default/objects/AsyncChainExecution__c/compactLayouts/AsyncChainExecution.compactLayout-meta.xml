@@ -7,6 +7,6 @@
     <fields>CompletedSteps__c</fields>
     <fields>TotalSteps__c</fields>
     <fields>StartedAt__c</fields>
-    <fields>DurationMs__c</fields>
+    <fields>ElapsedMs__c</fields>
     <label>Async Chain Execution</label>
 </CompactLayout>

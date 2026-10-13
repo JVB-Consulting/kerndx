@@ -8,13 +8,41 @@
  *
  * @group Async Processing
  *
- * @date September 2025, May 2026
+ * @date September 2025, October 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
+@IsTest(seeAllData=false isParallel=false)
 private class UTIL_AsynchronousJobLauncher_TEST
 {
+	/**
+	 * @description Company name given to the admin user created in test setup. It is unique to this class, so getTestAdmin
+	 * can find that one user again by company name.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'UTIL_AsynchronousJobLauncher_TEST-admin';
+
+	/**
+	 * @description First of two plain-text items a job is given in place of records. The test expects the failure log to
+	 * show this text, which proves the logger can report items that are not records.
+	 */
+	private static final String FIRST_TEXT_ITEM = 'first text item';
+
+	/**
+	 * @description Second of the two plain-text items, so the test can check that the failure log lists both items
+	 * separated by a comma.
+	 */
+	private static final String SECOND_TEXT_ITEM = 'second text item';
+
+	/**
+	 * @description Batch size carried by the metadata record staged in the batch-size tests, chosen to differ from
+	 * the platform default so a size resolved from that record cannot be confused with the fallback.
+	 */
+	private static final Integer CONFIGURED_BATCH_SIZE = 7;
+
+	/**
+	 * @description The end of the location the delayed-dispatch handler writes its crash log entry from. The test adds
+	 * it to the handler's class name to find that entry.
+	 */
+	private static final String HANDLER_CRASH_LOG_METHOD = '/logUnhandledException';
 
 	/**
 	 * @description Flag to confirm the execute method of a mock processor was called.
@@ -225,6 +253,27 @@ private class UTIL_AsynchronousJobLauncher_TEST
 	}
 
 	/**
+	 * @description Verifies that the queueable unhandled-exception log renders items that are not records as their
+	 * text. The scope used to be rendered through a ternary whose branches Apex unified to Id, so a plain-text item
+	 * turned every job-level failure into an "Invalid id" exception inside the log itself, burying the failure being
+	 * reported.
+	 */
+	@IsTest
+	private static void queueableExceptionWithTextItemsIsLogged()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Object> items = new List<Object> {FIRST_TEXT_ITEM, SECOND_TEXT_ITEM};
+
+			UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request = new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(items)
+					.withBatchSize(items.size())
+					.withQueueableJobSize(items.size());
+
+			assertExceptionFiresEvents(request, false, FIRST_TEXT_ITEM + UTIL_String.COMMA + SECOND_TEXT_ITEM);
+		}
+	}
+
+	/**
 	 * @description Verifies that an exception in the processor logic is caught and surfaces error events.
 	 *
 	 * @param runBatchJob Indicates if the Job should be run as batch else it will run as queueable
@@ -239,6 +288,19 @@ private class UTIL_AsynchronousJobLauncher_TEST
 				.withBatchSize(numberOfRecords)
 				.withQueueableJobSize(numberOfRecords);
 
+		assertExceptionFiresEvents(request, runBatchJob, String.valueOf(foobars[0].Id));
+	}
+
+	/**
+	 * @description Verifies that an exception in the processor logic is caught and surfaces error events, and that
+	 * the queueable path's durable log names the failed job's scope.
+	 *
+	 * @param request The job request carrying the items to process
+	 * @param runBatchJob Indicates if the Job should be run as batch else it will run as queueable
+	 * @param expectedJobScope The scope text the unhandled-exception log should carry (queueable path only)
+	 */
+	private static void assertExceptionFiresEvents(UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request, Boolean runBatchJob, String expectedJobScope)
+	{
 		IF_Async.AsynchronousExecutionStrategy strategy =
 				runBatchJob ? IF_Async.AsynchronousExecutionStrategy.BATCH : IF_Async.AsynchronousExecutionStrategy.AUTO;
 
@@ -275,7 +337,7 @@ private class UTIL_AsynchronousJobLauncher_TEST
 				Assert.isNotNull(logContext, 'The unhandled-exception log should carry context data.');
 				Assert.areEqual
 						(
-								String.valueOf(foobars[0].Id),
+								expectedJobScope,
 								String.valueOf(logContext.get(LOG_Engine.CONTEXT_JOB_SCOPE)),
 								'The unhandled-exception log should capture the failed job scope.'
 						);
@@ -409,14 +471,17 @@ private class UTIL_AsynchronousJobLauncher_TEST
 	}
 
 	/**
-	 * @description Verifies that Queueable jobs are explicitly enqueued using the CHAINABLE_SINGLE_PARENT strategy.
+	 * @description Verifies that the process initializer's run() enqueues the Queueable jobs itself. Two records at a
+	 * job size of one, under AUTO with a full queueable budget, resolve PARALLEL_QUEUEABLES: both jobs are enqueued at
+	 * once and each record is processed by its own Queueable, so a stack depth of one is enough because nothing chains.
 	 */
 	@IsTest
-	private static void queueableSingleParentIsTriggeredByRun()
+	private static void queueableParallelIsTriggeredByRun()
 	{
 		System.runAs(getTestAdmin())
 		{
 			Integer numberOfRecords = 2;
+			Integer expectedJobCount = 2;
 
 			List<Foobar__c> foobars = TST_Factory.newFoobars(numberOfRecords);
 
@@ -436,12 +501,50 @@ private class UTIL_AsynchronousJobLauncher_TEST
 			Test.startTest();
 
 			Id jobId = processInitializer.run();
+			Assert.areEqual(expectedJobCount, UTIL_Limits.queueableJobs().used(), 'Expected ' + expectedJobCount + ' parallel Queueable jobs to be enqueued.');
 
 			Test.stopTest();
 
-			Assert.isNotNull(jobId, 'Job Id should not be null for forced CHAINABLE_SINGLE_PARENT strategy.');
-			Assert.isTrue(executeWasCalled, 'Execute should have been called inside queueable.');
+			Assert.isNotNull(jobId, 'Job Id should not be null for the PARALLEL_QUEUEABLES strategy.');
 			Assert.isTrue(executionWasQueueable, 'Execution should have been identified as Queueable.');
+			Assert.areEqual(expectedJobCount, executeCallCounter, 'Execute should have been called once per record, one Queueable each.');
+		}
+	}
+
+	/**
+	 * @description Verifies the finalizer's chained hop enqueues and executes when the settings carry
+	 * no AsyncOptions, so the re-enqueue and the first enqueue treat a null the same way. The queueable
+	 * budget is simulated to one so the strategy resolves CHAINABLE and the chained path actually runs.
+	 */
+	@IsTest
+	private static void chainsNextHopWhenNoAsyncOptionsConfigured()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Integer numberOfRecords = 2;
+			Integer expectedJobCount = 2;
+
+			UTIL_AdaptiveAsynchronousProcessor.simulateQueueableLimits = true;
+
+			List<Foobar__c> foobars = TST_Factory.newFoobars(numberOfRecords);
+
+			UTIL_AdaptiveAsynchronousProcessor processor = new UTIL_AdaptiveAsynchronousProcessor(new MockProcessorWithFinish());
+
+			UTIL_AdaptiveAsynchronousProcessor.DTO_ProcessSettings settings = new UTIL_AdaptiveAsynchronousProcessor.DTO_ProcessSettings();
+			settings.executionStrategy = IF_Async.AsynchronousExecutionStrategy.AUTO;
+			settings.queueableJobSize = 1;
+			processor.configure(settings);
+
+			UTIL_AdaptiveAsynchronousProcessor.INT_Process processInitializer = processor.initialise(foobars);
+
+			Test.startTest();
+
+			Id jobId = processInitializer.run();
+
+			Test.stopTest();
+
+			Assert.isNotNull(jobId, 'Job Id should not be null when no AsyncOptions are configured.');
+			Assert.areEqual(expectedJobCount, executeCallCounter, 'The chained hop should have executed with no AsyncOptions configured.');
 		}
 	}
 
@@ -758,6 +861,141 @@ private class UTIL_AsynchronousJobLauncher_TEST
 	}
 
 	/**
+	 * @description Verifies that a crash inside the delayed-dispatch handler still leaves a log entry. The job is
+	 * launched with a delay, so the launcher first queues the delayed-dispatch handler. When the delay ends, the
+	 * handler starts the job. The job options carry a stack depth of -1, which the platform refuses, so that start
+	 * throws inside the handler. A Finalizer (code the platform runs after a Queueable ends, even when it crashes)
+	 * must then write an error entry for the handler's job, and the processor must never run. The entry also lists
+	 * the items the job was given (its job scope), as the log of a crashed processing job does.
+	 */
+	@IsTest
+	private static void shouldLogACrashOfTheDelayedDispatchHandler()
+	{
+		System.runAs(getTestAdmin())
+		{
+			final Integer delayMinutes = 1;
+			final Integer invalidStackDepth = -1;
+
+			LOG_Builder.ignoreTestMode = true;
+			executeWasCalled = false;
+
+			AsyncOptions invalidOptions = new AsyncOptions();
+			invalidOptions.maximumQueueableStackDepth = invalidStackDepth;
+
+			List<Foobar__c> foobars = TST_Factory.insertFoobars(1);
+
+			UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request =
+					new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(foobars)
+							.withDelayMinutes(delayMinutes)
+							.withAsyncOptions(invalidOptions)
+							.withExecutionStrategy(IF_Async.AsynchronousExecutionStrategy.CHAINABLE);
+
+			Test.startTest();
+
+			Id jobId = UTIL_AsynchronousJobLauncher.process(request, new MockProcessorWithFinish());
+
+			try
+			{
+				Test.stopTest();
+				Assert.fail('Expected the delayed-dispatch handler to crash when it starts the job with a stack depth of -1.');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, InvalidParameterValueException.class, 'Expected the stack depth of -1 to make the handler crash.');
+			}
+
+			String handlerLogLocation = UTIL_System.getRuntimeTypeName(new UTIL_AsynchronousJobLauncher.DelayedDispatchHandler(request, null, 0))
+					+ HANDLER_CRASH_LOG_METHOD;
+
+			List<LogEntry__c> handlerCrashLogs = new SEL_LogEntry().findAllByMethod(handlerLogLocation);
+			Assert.areEqual(1, handlerCrashLogs.size(), 'Expected the Finalizer to write one log entry for the crashed delayed-dispatch handler job.');
+
+			LogEntry__c handlerCrashLog = handlerCrashLogs[0];
+			Assert.areEqual(LoggingLevel.ERROR.name(), handlerCrashLog.LogLevel__c, 'Expected the crash to be logged as an error.');
+			Assert.areEqual
+					(
+							InvalidParameterValueException.class.getName(),
+							handlerCrashLog.ExceptionType__c,
+							'Expected the log entry to name the exception that crashed the handler.'
+					);
+			// The job id the platform returns can be the 15-character form, so the ids are compared as ids, not as text.
+			Assert.areEqual(jobId, Id.valueOf(handlerCrashLog.RecordId__c), 'Expected the log entry to name the crashed handler job.');
+			Assert.isFalse(executeWasCalled, 'Expected the processor never to run, because the handler crashed before the job started.');
+
+			Map<String, Object> logContext = SEL_LogEntry.parseContextDataForTest(handlerCrashLog);
+			Assert.isNotNull(logContext, 'Expected the crash log entry to carry context data.');
+			Assert.areEqual
+					(
+							String.valueOf(foobars[0].Id),
+							String.valueOf(logContext.get(LOG_Engine.CONTEXT_JOB_SCOPE)),
+							'Expected the crash log entry to list the record the delayed job was given.'
+					);
+		}
+	}
+
+	/**
+	 * @description Proves the batch size a job runs at is read from the `AsynchronousJobSetting__mdt` record named
+	 * for the Processable class doing the work, which is the class a subscriber names their record after. The
+	 * launcher writes the resolved size back onto the request, so the request is where the resolved value is read.
+	 */
+	@IsTest
+	private static void batchSizeComesFromRecordNamedForProcessableClass()
+	{
+		System.runAs(getTestAdmin())
+		{
+			final Integer numberOfRecords = 1;
+
+			IF_Async.Processable processorLogic = new MockProcessorWithFinish();
+
+			SEL_AsynchronousJobSetting.mockedSetting = (AsynchronousJobSetting__mdt)TST_Builder.of(AsynchronousJobSetting__mdt.SObjectType)
+					.withOverride(AsynchronousJobSetting__mdt.DeveloperName, toSettingName(UTIL_System.getRuntimeTypeName(processorLogic)))
+					.withOverride(AsynchronousJobSetting__mdt.BatchSize__c, CONFIGURED_BATCH_SIZE)
+					.withoutInsertion()
+					.build();
+
+			UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request =
+					new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(TST_Factory.newFoobars(numberOfRecords));
+
+			assertJobRan(request, processorLogic, IF_Async.AsynchronousExecutionStrategy.BATCH, false);
+
+			Assert.areEqual(CONFIGURED_BATCH_SIZE, request.batchJobSize, 'Batch size should come from the record named for the Processable class');
+		}
+	}
+
+	/**
+	 * @description Proves a job with no matching metadata record and no size supplied in code still runs at the
+	 * platform default, pinning the behaviour of every job that has no record of its own.
+	 */
+	@IsTest
+	private static void batchSizeFallsBackToDefaultWhenNoRecordIsNamedForTheProcessableClass()
+	{
+		System.runAs(getTestAdmin())
+		{
+			final Integer numberOfRecords = 1;
+
+			UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request =
+					new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(TST_Factory.newFoobars(numberOfRecords));
+
+			assertJobRan(request, new MockProcessorWithFinish(), IF_Async.AsynchronousExecutionStrategy.BATCH, false);
+
+			Assert.areEqual(UTIL_SObjectDescribe.DEFAULT_BATCH_SIZE, request.batchJobSize, 'Batch size should fall back to the platform default');
+		}
+	}
+
+	/**
+	 * @description Renders an Apex class name the way a metadata record is named for it, putting an underscore where
+	 * an inner class carries a dot, which a metadata DeveloperName cannot contain.
+	 *
+	 * @param className The Apex class name to render.
+	 *
+	 * @return The DeveloperName form of the supplied class name.
+	 */
+	private static String toSettingName(String className)
+	{
+		return UTIL_String.replace(className, UTIL_String.DOT, UTIL_String.UNDERSCORE);
+	}
+
+	/**
 	 * @description Mock implementation of both interfaces to test the full lifecycle, including the finish step.
 	 */
 	private virtual class MockProcessorWithFinish implements IF_Async.Processable, IF_Async.Finishable
@@ -831,5 +1069,172 @@ private class UTIL_AsynchronousJobLauncher_TEST
 	private static User getTestAdmin()
 	{
 		return new SEL_User().findByCompanyName(TEST_ADMIN_COMPANY);
+	}
+
+	/**
+	 * @description Verifies the platform's retrieve chunk for a query-backed batch: 100 up to a scope size of 100,
+	 * 400 up to 400, and 2,000 above that.
+	 */
+	@IsTest
+	private static void retrieveChunkFollowsTheScopeSize()
+	{
+		Assert.areEqual(100, UTIL_AdaptiveAsynchronousProcessor.computeRetrieveChunk(1), 'a scope size of 1 reads a chunk of 100');
+		Assert.areEqual(100, UTIL_AdaptiveAsynchronousProcessor.computeRetrieveChunk(100), 'a scope size of 100 reads a chunk of 100');
+		Assert.areEqual(400, UTIL_AdaptiveAsynchronousProcessor.computeRetrieveChunk(101), 'a scope size of 101 reads a chunk of 400');
+		Assert.areEqual(400, UTIL_AdaptiveAsynchronousProcessor.computeRetrieveChunk(400), 'a scope size of 400 reads a chunk of 400');
+		Assert.areEqual(2000, UTIL_AdaptiveAsynchronousProcessor.computeRetrieveChunk(401), 'a scope size of 401 reads a chunk of 2,000');
+		Assert.areEqual(2000, UTIL_AdaptiveAsynchronousProcessor.computeRetrieveChunk(2000), 'a scope size of 2,000 reads a chunk of 2,000');
+		Assert.areEqual(2000, UTIL_AdaptiveAsynchronousProcessor.computeRetrieveChunk(2001), 'a scope size above 2,000 still reads a chunk of 2,000');
+	}
+
+	/**
+	 * @description Verifies the scope sizes nearest to a given one that divide their retrieve chunk exactly, in
+	 * ascending order and never including the given size itself.
+	 */
+	@IsTest
+	private static void fittingScopeSizesAreTheNearestDivisorsOfTheChunk()
+	{
+		Assert.areEqual(new List<Integer> {50, 100}, UTIL_AdaptiveAsynchronousProcessor.findFittingScopeSizesAround(75),
+				'the nearest fitting sizes around 75 are 50 and 100');
+		Assert.areEqual(new List<Integer> {100, 200}, UTIL_AdaptiveAsynchronousProcessor.findFittingScopeSizesAround(150),
+				'the nearest fitting sizes around 150 are 100 and 200');
+		Assert.areEqual(new List<Integer> {2, 4}, UTIL_AdaptiveAsynchronousProcessor.findFittingScopeSizesAround(3),
+				'the nearest fitting sizes around 3 are 2 and 4');
+		Assert.areEqual(new List<Integer> {50, 200}, UTIL_AdaptiveAsynchronousProcessor.findFittingScopeSizesAround(100),
+				'the nearest fitting sizes around 100 exclude 100 itself');
+		Assert.areEqual(new List<Integer> {1000}, UTIL_AdaptiveAsynchronousProcessor.findFittingScopeSizesAround(2000),
+				'the only fitting size near 2,000 is 1,000 below it, since none fit above it');
+		Assert.areEqual(new List<Integer> {2}, UTIL_AdaptiveAsynchronousProcessor.findFittingScopeSizesAround(1),
+				'the only fitting size near 1 is 2 above it, since none fit below it');
+	}
+
+	/**
+	 * @description Verifies a query-backed batch launched with a scope size that does not divide its retrieve chunk
+	 * writes exactly one WARN entry naming the scope size, the chunk, the short run every chunk leaves and the
+	 * nearest sizes that fit, fingerprinted with the processable's name and the scope size so repeated launches
+	 * fold into one problem.
+	 */
+	@IsTest
+	private static void aQueryBackedBatchWithAScopeThatDoesNotFitWarnsOnce()
+	{
+		final Integer scopeSizeThatDoesNotFit = 75;
+		final Integer expectedRetrieveChunk = 100;
+		final Integer expectedShortRun = 25;
+		final String expectedFittingSizesText = '50, 100';
+		MockProcessorWithFinish processorLogic = new MockProcessorWithFinish();
+		String expectedProcessableName = UTIL_System.getRuntimeTypeName(processorLogic);
+
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.insertFoobars(1);
+			LOG_Builder.ignoreTestMode = true;
+
+			IF_Queryable query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.fields(new SEL_Foobar().fields);
+
+			UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request =
+					new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(query)
+							.withBatchSize(scopeSizeThatDoesNotFit)
+							.withExecutionStrategy(IF_Async.AsynchronousExecutionStrategy.BATCH);
+
+			Test.startTest();
+			UTIL_AsynchronousJobLauncher.process(request, processorLogic);
+			Test.stopTest();
+		}
+
+		Test.getEventBus().deliver();
+
+		List<LogEntry__c> warnEntries = findRunWarnEntries();
+		Assert.areEqual(1, warnEntries.size(), 'a scope size that does not divide its retrieve chunk must write exactly one WARN entry');
+
+		LogEntry__c entry = warnEntries[0];
+		Assert.isTrue(entry.Message__c.contains('Batch size ' + scopeSizeThatDoesNotFit + ' '), 'the message names the launched scope size');
+		Assert.isTrue(entry.Message__c.contains('chunk of ' + expectedRetrieveChunk + ' records'), 'the message names the chunk the size falls into');
+		Assert.isTrue(entry.Message__c.contains('short run of ' + expectedShortRun + ' records'), 'the message names the short run every chunk leaves');
+		Assert.isTrue(entry.Message__c.contains('Sizes that fit: ' + expectedFittingSizesText), 'the message names the nearest scope sizes that fit');
+		Assert.isTrue(entry.Fingerprint__c.contains(expectedProcessableName), 'the fingerprint carries the processable class name');
+		Assert.isTrue(entry.Fingerprint__c.contains(String.valueOf(scopeSizeThatDoesNotFit)), 'the fingerprint carries the launched scope size');
+	}
+
+	/**
+	 * @description Verifies a query-backed batch launched with a scope size that divides its retrieve chunk exactly
+	 * writes no scope-size WARN entry.
+	 */
+	@IsTest
+	private static void aQueryBackedBatchWithAFittingScopeWritesNoWarning()
+	{
+		final Integer fittingScopeSize = 50;
+
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.insertFoobars(1);
+			LOG_Builder.ignoreTestMode = true;
+
+			IF_Queryable query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.fields(new SEL_Foobar().fields);
+
+			UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request =
+					new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(query)
+							.withBatchSize(fittingScopeSize)
+							.withExecutionStrategy(IF_Async.AsynchronousExecutionStrategy.BATCH);
+
+			Test.startTest();
+			UTIL_AsynchronousJobLauncher.process(request, new MockProcessorWithFinish());
+			Test.stopTest();
+		}
+
+		Test.getEventBus().deliver();
+
+		Assert.areEqual(0, findRunWarnEntries().size(), 'a scope size that divides its retrieve chunk exactly must write no WARN entry');
+	}
+
+	/**
+	 * @description Verifies an in-memory (list-backed) batch launched with a scope size that would not divide a
+	 * query-backed batch's retrieve chunk writes no scope-size WARN entry, since an in-memory batch never reads a
+	 * retrieve chunk from the platform.
+	 */
+	@IsTest
+	private static void anInMemoryBatchWithAScopeThatDoesNotFitWritesNoWarning()
+	{
+		final Integer scopeSizeThatDoesNotFit = 75;
+
+		System.runAs(getTestAdmin())
+		{
+			LOG_Builder.ignoreTestMode = true;
+
+			UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request =
+					new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(TST_Factory.newFoobars(1))
+							.withBatchSize(scopeSizeThatDoesNotFit)
+							.withExecutionStrategy(IF_Async.AsynchronousExecutionStrategy.BATCH);
+
+			Test.startTest();
+			UTIL_AsynchronousJobLauncher.process(request, new MockProcessorWithFinish());
+			Test.stopTest();
+		}
+
+		Test.getEventBus().deliver();
+
+		Assert.areEqual(0, findRunWarnEntries().size(), 'an in-memory batch must write no scope-size WARN entry');
+	}
+
+	/**
+	 * @description Scans persisted log rows for the detail row of a WARN entry whose class-method ends in `/run`, the
+	 * location the processor's scope-size warning emits from. A fingerprinted entry also persists a daily rollup row,
+	 * which is not the entry itself, so only detail rows count.
+	 *
+	 * @return The matching LogEntry__c detail rows.
+	 */
+	private static List<LogEntry__c> findRunWarnEntries()
+	{
+		List<LogEntry__c> matches = new List<LogEntry__c>();
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			Boolean isDetailRow = row.Fingerprint__c != null && row.Fingerprint__c.startsWith(TRG_PersistLogEntry.PREFIX_DETAIL);
+			if(isDetailRow && LoggingLevel.WARN.name().equals(row.LogLevel__c) && row.ClassMethod__c != null && row.ClassMethod__c.endsWith('/run'))
+			{
+				matches.add(row);
+			}
+		}
+		return matches;
 	}
 }

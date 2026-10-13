@@ -11,12 +11,17 @@
  *
  * @group Schedulables
  *
- * @date February 2026, May 2026
+ * @date February 2026, August 2026
  */
 public inherited sharing class SEL_AsynchronousJobSetting
 {
 	/**
-	 * @description Test-only override for the metadata record returned by getBatchSize.
+	 * @description Test-only override for the metadata record returned by getBatchSize, set only by `_TEST` classes.
+	 * The override stands in for the metadata record when its `DeveloperName` is blank, or when that `DeveloperName`
+	 * matches the requested class name exactly, as the metadata lookup does, once dots have been replaced with
+	 * underscores. While it is set the org's own metadata is never read, so a request for any other class name
+	 * returns the default rather than whatever a subscriber happens to have configured, which lets a test prove the
+	 * key a caller looked the setting up under without depending on the org it runs in.
 	 */
 	@TestVisible
 	private static AsynchronousJobSetting__mdt mockedSetting;
@@ -67,9 +72,11 @@ public inherited sharing class SEL_AsynchronousJobSetting
 	 */
 	public static Integer getBatchSize(String batchApexClassName, Integer defaultSize)
 	{
+		String settingDeveloperName = UTIL_String.replace(batchApexClassName, UTIL_String.DOT, UTIL_String.UNDERSCORE);
+
 		AsynchronousJobSetting__mdt asynchronousJobSetting = mockedSetting != null
-				? mockedSetting
-				: AsynchronousJobSetting__mdt.getInstance(UTIL_String.replace(batchApexClassName, UTIL_String.DOT, UTIL_String.UNDERSCORE));
+				? resolveMockedSetting(settingDeveloperName)
+				: AsynchronousJobSetting__mdt.getInstance(settingDeveloperName);
 
 		Integer configuredBatchSize = defaultSize;
 
@@ -79,5 +86,22 @@ public inherited sharing class SEL_AsynchronousJobSetting
 		}
 
 		return configuredBatchSize;
+	}
+
+	/**
+	 * @description Resolves the test-only mocked setting for the metadata record name a caller asked for. Called
+	 * only when `mockedSetting` has been staged. The mock stands in when no `DeveloperName` was staged on it, or
+	 * when the staged `DeveloperName` matches the requested name exactly, as the metadata lookup does, so a test
+	 * that stages one class name proves callers ask for that name and no other.
+	 *
+	 * @param settingDeveloperName The `AsynchronousJobSetting__mdt` DeveloperName being requested, already normalised.
+	 *
+	 * @return The mocked setting when it stands in for the requested name, otherwise null.
+	 */
+	private static AsynchronousJobSetting__mdt resolveMockedSetting(String settingDeveloperName)
+	{
+		Boolean standsInForAnyName = String.isBlank(mockedSetting.DeveloperName);
+
+		return standsInForAnyName || mockedSetting.DeveloperName.equals(settingDeveloperName) ? mockedSetting : null;
 	}
 }

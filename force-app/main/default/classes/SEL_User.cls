@@ -12,7 +12,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -570,7 +570,9 @@ global virtual inherited sharing class SEL_User extends SEL_Base
 	}
 
 	/**
-	 * @description Queries existing community nicknames similar to the provided nickname.
+	 * @description Queries existing community nicknames similar to the provided nickname. It bypasses sharing because a
+	 * nickname must be unique across every user in the org, including users the running user cannot see. It reads only
+	 * the nickname field.
 	 *
 	 * @param communityNickname The nickname to check for similarity.
 	 *

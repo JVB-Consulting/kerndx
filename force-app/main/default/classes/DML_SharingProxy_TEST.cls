@@ -8,45 +8,48 @@
  *
  * @group DML
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class DML_SharingProxy_TEST
 {
 	/**
-	 * @description Whether the round-tripped `AccessLevel` still identity-matched the
-	 * `SYSTEM_MODE` singleton inside the async execution context.
+	 * @description Whether the `AccessLevel` passed to the async job was still the same object as
+	 * `AccessLevel.SYSTEM_MODE` when the job ran, compared with `==`.
 	 */
 	private static Boolean roundTrippedMatchesSystemModeByIdentity;
 
 	/**
-	 * @description Whether the comparator resolved the round-tripped `AccessLevel` as SYSTEM_MODE.
+	 * @description Whether DML_SharingProxy.matchesAccessLevel saw the `AccessLevel` passed to the async job as
+	 * SYSTEM_MODE.
 	 */
 	private static Boolean comparatorResolvesSystemMode;
 
 	/**
-	 * @description Whether the comparator wrongly resolved the round-tripped `AccessLevel` as USER_MODE.
+	 * @description Whether DML_SharingProxy.matchesAccessLevel wrongly saw the `AccessLevel` passed to the async
+	 * job as USER_MODE.
 	 */
 	private static Boolean comparatorResolvesUserMode;
 
 	/**
-	 * @description Probe payload for the serialization round-trip fence. Carries the `SYSTEM_MODE`
-	 * singleton through the platform's own async serializer — the only mechanism that round-trips
-	 * an `AccessLevel`, since `JSON.serialize`/`JSON.deserialize` both reject the type — and
-	 * records, from inside the deserialized execution context, how raw identity comparison and the
-	 * comparator each resolve it.
+	 * @description An async job that carries `AccessLevel.SYSTEM_MODE` from the code that queues it to the code
+	 * that runs it. When a job is queued, the platform saves its data and rebuilds it when the job runs. This is the
+	 * only way to save and rebuild an `AccessLevel`, because `JSON.serialize` and `JSON.deserialize` both reject
+	 * the type. When the job runs, it records how `==` and DML_SharingProxy.matchesAccessLevel each see the
+	 * rebuilt value.
 	 */
 	public class AccessLevelRoundTripProbe implements IF_Async.Processable
 	{
 		/**
-		 * @description The access level carried through the platform async serializer; seeded with
-		 * the live `SYSTEM_MODE` singleton so the deserialized instance can be compared against it.
+		 * @description The access level the platform saves and rebuilds with the job. It starts as
+		 * `AccessLevel.SYSTEM_MODE` so that the rebuilt value can be compared with it.
 		 */
 		public AccessLevel carriedAccessLevel = System.AccessLevel.SYSTEM_MODE;
 
 		/**
-		 * @description Captures the identity and comparator observations into test statics.
+		 * @description Records how `==` and the comparison method see the rebuilt value, in static fields the
+		 * test reads.
 		 *
 		 * @param items The list of objects to process; the probe ignores their content.
 		 */
@@ -59,11 +62,12 @@ private class DML_SharingProxy_TEST
 	}
 
 	/**
-	 * @description Round-trip fence for the serialization-safe access-mode comparator. Drives the
-	 * probe through the real async machinery so the platform serializer round-trips the carried
-	 * `AccessLevel`, then asserts raw `==` fails (pinning the identity-loss trap) while the
-	 * comparator resolves the mode correctly. A platform serialization or rendering-format change
-	 * fails this test loudly instead of silently degrading production mode selection.
+	 * @description Tests that DML_SharingProxy.matchesAccessLevel still finds the right mode after an
+	 * `AccessLevel` has passed through an async job. The test runs the job through the real async code, so the
+	 * platform saves and rebuilds the value. It then checks that `==` no longer matches, which is the trap the
+	 * method exists for, and that the method still finds SYSTEM_MODE. If the platform changes how it saves or
+	 * prints an access level, this test fails clearly. Without it, production code could quietly pick the
+	 * wrong mode.
 	 *
 	 * @see DML_SharingProxy.matchesAccessLevel
 	 */
@@ -77,7 +81,7 @@ private class DML_SharingProxy_TEST
 		Test.stopTest();
 
 		Assert.isFalse(roundTrippedMatchesSystemModeByIdentity,
-				'Round-tripped AccessLevel must fail raw identity comparison — if it holds, the platform now preserves identity and the comparator fallback is unexercised');
+				'The rebuilt AccessLevel should not match with ==. If it does, the platform now keeps the same object and the fallback comparison is not tested');
 		Assert.isTrue(comparatorResolvesSystemMode, 'Comparator must resolve the round-tripped AccessLevel as SYSTEM_MODE');
 		Assert.isFalse(comparatorResolvesUserMode, 'Comparator must not resolve the round-tripped SYSTEM_MODE as USER_MODE');
 	}
@@ -254,6 +258,41 @@ private class DML_SharingProxy_TEST
 			Boolean isValidError = (error instanceof SecurityException) || (error instanceof DmlException);
 			Assert.isTrue(isValidError, 'Expected SecurityException or DmlException, but caught: ' + error.getTypeName());
 		}
+	}
+
+	/**
+	 * @description A stand-in proxy that a test installs through DML_SharingProxy.sharingProxyForTest. The test only
+	 * checks which proxy getSharingProxy returns, so none of the inherited DML methods is ever called here.
+	 */
+	private class StandInProxy extends DML_SharingProxy.DatabaseProxy
+	{
+	}
+
+	/**
+	 * @description Tests that getSharingProxy returns the installed stand-in for every sharing type while
+	 * sharingProxyForTest is set. Once it is cleared, getSharingProxy returns the proxy for the sharing type again.
+	 * This is how a test can act like the platform and refuse a save.
+	 *
+	 * @see DML_SharingProxy.getSharingProxy
+	 */
+	@IsTest
+	private static void getSharingProxyShouldReturnTheInstalledStandIn()
+	{
+		DML_SharingProxy.DatabaseProxy standIn = new StandInProxy();
+		DML_SharingProxy.sharingProxyForTest = standIn;
+
+		try
+		{
+			Assert.areEqual(standIn, DML_SharingProxy.getSharingProxy(DML_SharingProxy.SharingType.BYPASS), 'The stand-in should replace the bypass proxy');
+			Assert.areEqual(standIn, DML_SharingProxy.getSharingProxy(DML_SharingProxy.SharingType.ENFORCE), 'The stand-in should replace the enforce proxy');
+			Assert.areEqual(standIn, DML_SharingProxy.getSharingProxy(DML_SharingProxy.SharingType.INHERITED), 'The stand-in should replace the inherited proxy');
+		}
+		finally
+		{
+			DML_SharingProxy.sharingProxyForTest = null;
+		}
+
+		Assert.isFalse(DML_SharingProxy.getSharingProxy(DML_SharingProxy.SharingType.BYPASS) instanceof StandInProxy, 'Clearing the stand-in should restore the normal proxy');
 	}
 
 	/**

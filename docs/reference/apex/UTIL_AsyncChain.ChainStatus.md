@@ -2,7 +2,7 @@
 title: "UTIL_AsyncChain.ChainStatus"
 type: class
 pageClass: reference
-description: "Typed, read-only snapshot of a chain execution returned by getChainStatus. A structured alternative to the getStatus(Id) map: each tracked field is a named property and the lifecycle is queryable thro"
+description: "Typed, read-only snapshot of a chain execution returned by getChainStatus. A structured alternative to the getStatus(Id) map: each tracked field is a named property and the lifecycle can be checked th"
 since: "1.2"
 category: apex
 ---
@@ -17,7 +17,7 @@ category: apex
 global inherited sharing class UTIL_AsyncChain.ChainStatus
 ```
 
-Typed, read-only snapshot of a chain execution returned by getChainStatus. A structured alternative to the getStatus(Id) map: each tracked field is a named property and the lifecycle is queryable through isRunning(), isTerminal() and isFailed(). Holds no step list and performs no queries — it is a plain value object built from a single AsyncChainExecution__c row.
+Typed, read-only snapshot of a chain execution returned by getChainStatus. A structured alternative to the getStatus(Id) map: each tracked field is a named property and the lifecycle can be checked through isRunning(), isTerminal() and isFailed(). It holds no step list and runs no queries: it is a plain value object built from a single AsyncChainExecution__c row.
 
 **Example**
 
@@ -37,7 +37,7 @@ Integer done = status.completedSteps;
 |--------|-------------|
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isFailed](#isfailed)() | Whether the chain failed. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isRunning](#isrunning)() | Whether the chain is currently running. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isTerminal](#isterminal)() | Whether the chain has reached a terminal state from which it will not advance — Completed, Failed or Aborted, or any row carrying a completion timestamp. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isTerminal](#isterminal)() | Whether the chain has reached a terminal state, from which it will not move on: Completed, Failed or Aborted, or any row with a completion timestamp. |
 
 ### isFailed
 
@@ -91,10 +91,10 @@ if(status.isRunning()) { return; }
 global Boolean isTerminal()
 ```
 
-Whether the chain has reached a terminal state from which it will not advance —
-Completed, Failed or Aborted, or any row carrying a completion timestamp. The timestamp
-conjunct covers a rare recovery overwrite that can leave a finished chain reading Stalled:
-the completion timestamp survives that overwrite, so it is the reliable end-of-life signal.
+Whether the chain has reached a terminal state, from which it will not move on:
+Completed, Failed or Aborted, or any row with a completion timestamp. The timestamp check covers
+a rare recovery write that can leave a finished chain showing Stalled. The completion timestamp
+is kept through that write, so it is the reliable sign that the chain has ended.
 
 **Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — true when the status is Completed, Failed or Aborted, or completedAt is set.
 
@@ -111,12 +111,12 @@ if(status.isTerminal()) { notifyDone(status); }
 | Field | Description |
 |-------|-------------|
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [chainName](#chainname) | The descriptive chain name supplied to newChain(...). |
-| global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [completedAt](#completedat) | When the chain reached a terminal state; null while still in flight. |
+| global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [completedAt](#completedat) | When the chain reached a terminal state; null while it is still running. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [completedSteps](#completedsteps) | The number of steps completed so far. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [correlationId](#correlationid) | The correlation ID that ties this chain's log entries together. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [currentStepName](#currentstepname) | The name of the step currently executing (or last executed), if recorded. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [durationLabel](#durationlabel) | A compact, human-readable form of durationMs (for example "1m 30s"); null when no duration is available. |
-| global [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm) [durationMs](#durationms) | Elapsed run time in milliseconds. |
+| global [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm) [durationMs](#durationms) | Elapsed run time in milliseconds, the same value the Chain Monitor console shows. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [errorMessage](#errormessage) | The failure message, when the chain has failed; otherwise null. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [executionId](#executionid) | The AsyncChainExecution__c record ID. |
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [startedAt](#startedat) | When the chain started executing. |
@@ -141,7 +141,7 @@ global Datetime completedAt
 
 **Type:** [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm)
 
-When the chain reached a terminal state; null while still in flight.
+When the chain reached a terminal state; null while it is still running.
 
 ### completedSteps
 
@@ -192,8 +192,11 @@ global Long durationMs
 
 **Type:** [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm)
 
-Elapsed run time in milliseconds. For a still-Running chain with no persisted
-duration, this is computed live from startedAt, matching the Chain Monitor console.
+Elapsed run time in milliseconds, the same value the Chain Monitor console shows. A
+finished chain reports the duration it stored. A chain that is still Running, or has Stalled, reports
+how long it has been going since startedAt. A Completed, Failed or Aborted chain that stored no
+duration reports the time between startedAt and completedAt. Null when no duration can be worked
+out, for example for a chain that recorded no start.
 
 ### errorMessage
 
@@ -239,9 +242,9 @@ chain's next piece of work: the chain waits for recovery instead of failing. The
 SCHED_ChainWatchdog scheduled job also writes Stalled when its sweep finds a chain
 silently stuck with no recent activity.
 (The picklist also defines Delayed, which the framework does not currently write.)
-Prefer the isRunning()/isTerminal()/isFailed() predicates over comparing this String.
-A Stalled value beside a populated completedAt means a recovery overwrite landed on a
-finished chain; isTerminal() reports that row terminal.
+Prefer the isRunning()/isTerminal()/isFailed() checks over comparing this String.
+If the status is Stalled but completedAt is set, a recovery write changed a chain that had
+already finished. isTerminal() reports such a row as terminal.
 
 ### totalSteps
 

@@ -66,6 +66,7 @@ delete issue;
 kern__AsyncChainExecution__c chain = new kern__AsyncChainExecution__c();
 chain.kern__ChainName__c = 'MaskSanityChain';
 chain.kern__Status__c = 'Completed';
+chain.kern__CompletedAt__c = System.now();
 chain.kern__ContextData__c = body;
 chain.kern__ErrorMessage__c = 'boom: hunter2 leaked';
 insert chain;

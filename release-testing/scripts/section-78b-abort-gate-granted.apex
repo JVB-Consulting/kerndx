@@ -25,12 +25,18 @@ System.debug(granted
 		? '78b PASS: core.AbortAsyncChain resolves for a grantee'
 		: '78b FAIL: core.AbortAsyncChain did not resolve for a grantee');
 
+// The package refuses to write a Stalled row with an end time, but orgs still hold rows written that way before the
+// refusal existed. The seed bypasses only that refusal (the run-transition trigger action) for its one insert. In a
+// subscriber org the bypass takes the class name as the trigger action record carries it, with the package prefix:
+// the bare name matches nothing and the insert is refused.
 try
 {
 	kern__AsyncChainExecution__c stalledSeed = new kern__AsyncChainExecution__c(
 			kern__ChainName__c = 'Section78b', kern__Status__c = 'Stalled',
 			kern__TotalSteps__c = 1, kern__CompletedSteps__c = 0, kern__CompletedAt__c = Datetime.now());
+	kern.TRG_Base.bypassAction('kern.TRG_AsyncChainRunTransition');
 	insert stalledSeed;
+	kern.TRG_Base.clearActionBypass('kern.TRG_AsyncChainRunTransition');
 	kern.UTIL_AsyncChain.ChainStatus terminalProbe = kern.UTIL_AsyncChain.getChainStatus(stalledSeed.Id);
 	System.debug(terminalProbe != null && terminalProbe.isTerminal()
 			? '78c PASS: contradictory row reads terminal through the released predicate'

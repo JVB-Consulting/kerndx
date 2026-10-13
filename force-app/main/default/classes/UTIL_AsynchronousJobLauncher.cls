@@ -10,7 +10,7 @@
  *
  * @group Async Processing
  *
- * @date September 2025, May 2026
+ * @date September 2025, October 2026
  *
  * @since 1.0
  *
@@ -470,9 +470,10 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 	/**
 	 * @description Internal queueable that manages delayed dispatch with automatic chaining.
 	 * Chains itself for delays greater than 10 minutes until the delay expires, then dispatches processing.
+	 * It is also its own Finalizer (code the platform runs after a Queueable ends, even when it crashes),
+	 * so a crash in this handler always leaves an error log entry, as it does for the framework's other Queueables.
 	 */
-	@SuppressWarnings('PMD.QueueableWithoutFinalizer')
-	public class DelayedDispatchHandler implements Queueable
+	public inherited sharing class DelayedDispatchHandler implements Queueable, Finalizer
 	{
 		/**
 		 * @description The original request containing items and configuration.
@@ -509,13 +510,15 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 		}
 
 		/**
-		 * @description Executes the queueable job.
+		 * @description Executes the queueable job. It first attaches itself as the job's Finalizer.
 		 * If remaining minutes greater than 0, chains with delay. Otherwise dispatches processing.
 		 *
 		 * @param context The QueueableContext provided by the platform.
 		 */
 		public void execute(QueueableContext context)
 		{
+			System.attachFinalizer(this);
+
 			if(remainingMinutes > 0)
 			{
 				chainWithDelay();
@@ -547,6 +550,62 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 		{
 			// Clear the dispatch delay and process immediately
 			processImmediately(request, processor);
+		}
+
+		/**
+		 * @description Finalizer method. The platform runs it after the job ends. When the job crashed, it logs the error.
+		 *
+		 * @param context The FinalizerContext provided by the platform.
+		 */
+		public void execute(FinalizerContext context)
+		{
+			if(ParentJobResult.UNHANDLED_EXCEPTION.equals(context.getResult()))
+			{
+				logUnhandledException(context);
+			}
+		}
+
+		/**
+		 * @description Logs the exception that crashed this job, with the job's id as the record, so the crash
+		 * leaves a lasting error log entry. When the request was given a list of items, the entry also lists them
+		 * (the job scope): a record by its Id, any other item as its text. A request built from a query has no list
+		 * yet, so its entry has no job scope.
+		 *
+		 * @param context The FinalizerContext containing the exception and the job's id.
+		 */
+		private void logUnhandledException(FinalizerContext context)
+		{
+			LOG_Builder.LogEntry entry = LOG_Builder.build()
+					.error(context.getException())
+					.at(UTIL_System.getRuntimeTypeName(this) + '/logUnhandledException')
+					.forRecord(context.getAsyncApexJobId());
+
+			if(request.itemsToProcess != null)
+			{
+				entry.withContext(LOG_Engine.CONTEXT_JOB_SCOPE, buildJobScope(request.itemsToProcess));
+			}
+
+			entry.emit();
+		}
+
+		/**
+		 * @description Builds the job scope text of a crash log entry: the items joined with commas, a record by its
+		 * Id and any other item as its text.
+		 *
+		 * @param items The items the request was given.
+		 *
+		 * @return The items as one line of text.
+		 */
+		private String buildJobScope(List<Object> items)
+		{
+			List<String> itemsInScope = new List<String>();
+
+			for(Object item : items)
+			{
+				itemsInScope.add(item instanceof SObject ? String.valueOf(((SObject)item).Id) : String.valueOf(item));
+			}
+
+			return String.join(itemsInScope, UTIL_String.COMMA);
 		}
 	}
 }

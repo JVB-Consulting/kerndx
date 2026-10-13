@@ -15,9 +15,9 @@
  *
  * @group Async Processing
  *
- * @date September 2025, May 2026
+ * @date September 2025, September 2026
  */
-@SuppressWarnings('PMD.CognitiveComplexity')
+@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 				Database.AllowsCallouts,
 				Database.Batchable<Object>,
@@ -37,6 +37,47 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	 */
 	@TestVisible
 	private static Boolean simulateQueueableLimits = false;
+
+	/**
+	 * @description The scope sizes at which the platform's retrieve chunk changes: a scope up to the first value reads
+	 * chunks of that size, up to the second reads chunks of the second, and anything above reads chunks of the last.
+	 */
+	private static final List<Integer> RETRIEVE_CHUNK_SIZES = new List<Integer> {100, 400, 2000};
+
+	/**
+	 * @description Every scope size that divides its retrieve chunk exactly, in ascending order: the divisors of 100 for
+	 * a chunk of 100, then the sizes above 100 that divide a chunk of 400 or 2,000.
+	 */
+	private static final List<Integer> FITTING_SCOPE_SIZES = new List<Integer> {1, 2, 4, 5, 10, 20, 25, 50, 100, 200, 400, 500, 1000, 2000};
+
+	/**
+	 * @description Context key naming the retrieve chunk a batch reads at its scope size.
+	 */
+	private static final String CONTEXT_RETRIEVE_CHUNK = 'retrieveChunk';
+
+	/**
+	 * @description Context key naming the scope size a batch was launched with.
+	 */
+	private static final String CONTEXT_SCOPE_SIZE = 'scopeSize';
+
+	/**
+	 * @description Context key listing the scope sizes nearest to the launched one that fit their chunk.
+	 */
+	private static final String CONTEXT_FITTING_SCOPE_SIZES = 'fittingScopeSizes';
+
+	/**
+	 * @description Fingerprint prefix of the scope-size warning, so a job launched many times with the same size folds
+	 * into one problem in the Log Console instead of one row per launch.
+	 */
+	private static final String FINGERPRINT_SCOPE_SIZE = 'batch-scope-size-does-not-fit:';
+
+	/**
+	 * @description Text of the scope-size warning: the size, the chunk of records the platform reads, the short run each
+	 * chunk leaves, and the sizes that fit.
+	 */
+	private static final String MESSAGE_SCOPE_SIZE_FORMAT =
+			'Batch size {0} does not divide the chunk of {1} records the platform reads: every chunk ends with a short run of {2} records, ' +
+			'so the job makes more execute() calls than it needs. Sizes that fit: {3}.';
 
 	/**
 	 * @description Stores the user's processing logic
@@ -103,6 +144,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	{
 		this();
 		this.processorLogic = processorLogic;
+		processSettings.processableClassName = resolveProcessableClassName();
 	}
 
 	/**
@@ -120,9 +162,9 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	 */
 	private void innerExecute(List<Object> items)
 	{
-		if(this.processorLogic != null)
+		if(processorLogic != null)
 		{
-			this.processorLogic.execute(items);
+			processorLogic.execute(items);
 		}
 	}
 
@@ -133,9 +175,9 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	 */
 	public void finish(Database.BatchableContext context)
 	{
-		if(this.processorLogic instanceof IF_Async.Finishable)
+		if(processorLogic instanceof IF_Async.Finishable)
 		{
-			((IF_Async.Finishable)this.processorLogic).finish(context);
+			((IF_Async.Finishable)processorLogic).finish(context);
 		}
 	}
 
@@ -149,7 +191,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	 */
 	public INT_Process initialise(IF_Queryable queryable)
 	{
-		return this.initialise(queryable, null);
+		return initialise(queryable, null);
 	}
 
 	/**
@@ -284,6 +326,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 				}
 				when else
 				{
+					warnWhenScopeSizeDoesNotFit(processSettings.batchJobSize);
 					return Database.executeBatch(this, processSettings.batchJobSize);
 				}
 			}
@@ -294,6 +337,97 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 			throw error;
 		}
 	}
+
+	/**
+	 * @description Works out the retrieve chunk the platform reads for a query-backed batch at the given scope size: 100
+	 * up to a scope of 100, 400 up to 400, 2,000 above that.
+	 *
+	 * @param scopeSize The scope size the batch is launched with.
+	 *
+	 * @return The chunk size.
+	 */
+	public static Integer computeRetrieveChunk(Integer scopeSize)
+	{
+		for(Integer chunkSize : RETRIEVE_CHUNK_SIZES)
+		{
+			if(scopeSize <= chunkSize)
+			{
+				return chunkSize;
+			}
+		}
+		return RETRIEVE_CHUNK_SIZES[RETRIEVE_CHUNK_SIZES.size() - 1];
+	}
+
+	/**
+	 * @description Finds the scope sizes nearest to the given one that divide their retrieve chunk exactly: the largest
+	 * fitting size below it and the smallest above it. At or below 100 a fitting size is a divisor of 100; above 100
+	 * it is one of 200, 400, 500, 1,000 and 2,000.
+	 *
+	 * @param scopeSize The scope size the batch is launched with.
+	 *
+	 * @return One or two sizes in ascending order, never the given size itself.
+	 */
+	public static List<Integer> findFittingScopeSizesAround(Integer scopeSize)
+	{
+		Integer below = null;
+		Integer above = null;
+		for(Integer candidate : FITTING_SCOPE_SIZES)
+		{
+			if(candidate < scopeSize)
+			{
+				below = candidate;
+			}
+			else if(candidate > scopeSize)
+			{
+				above = candidate;
+				break;
+			}
+		}
+
+		List<Integer> nearest = new List<Integer>();
+		if(below != null)
+		{
+			nearest.add(below);
+		}
+		if(above != null)
+		{
+			nearest.add(above);
+		}
+		return nearest;
+	}
+
+	/**
+	 * @description Writes one WARN entry when a query-backed batch is launched with a scope size that does not
+	 * divide its retrieve chunk, naming the size, the chunk, the short run each chunk leaves and the nearest sizes
+	 * that fit. An in-memory batch is immune and gets no entry, and neither does a size above the platform's maximum,
+	 * which the platform refuses with an error of its own. The entry is fingerprinted by processable and size, so
+	 * repeated launches fold into one problem.
+	 *
+	 * @param scopeSize The scope size the batch is launched with.
+	 */
+	private void warnWhenScopeSizeDoesNotFit(Integer scopeSize)
+	{
+		if(queryable == null || scopeSize > UTIL_SObjectDescribe.MAXIMUM_BATCH_SIZE)
+		{
+			return;
+		}
+		Integer chunkSize = computeRetrieveChunk(scopeSize);
+		Integer shortRun = Math.mod(chunkSize, scopeSize);
+		if(shortRun == 0)
+		{
+			return;
+		}
+		String fittingSizesText = String.join(findFittingScopeSizesAround(scopeSize), UTIL_String.COMMA + UTIL_String.SPACE);
+
+		LOG_Builder.build()
+				.warn(String.format(MESSAGE_SCOPE_SIZE_FORMAT, new List<Object> {scopeSize, chunkSize, shortRun, fittingSizesText}))
+				.withFingerprintInternal(FINGERPRINT_SCOPE_SIZE + processSettings.processableClassName + UTIL_String.COLON + scopeSize)
+				.withContext(CONTEXT_SCOPE_SIZE, scopeSize)
+				.withContext(CONTEXT_RETRIEVE_CHUNK, chunkSize)
+				.withContext(CONTEXT_FITTING_SCOPE_SIZES, fittingSizesText)
+				.emitAt(UTIL_System.getRuntimeTypeName(this) + '/run');
+	}
+
 	/**
 	 * @description Applies performance configuration settings to the processor.
 	 * Overrides default settings if provided.
@@ -301,13 +435,24 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	 * @param configuration The configuration object with performance settings.
 	 *
 	 * @return The INT_Process instance for method chaining.
-
 	 */
-
 	public INT_Process configure(DTO_ProcessSettings configuration)
 	{
-		this.processSettings = configuration;
+		processSettings = configuration;
+		processSettings.processableClassName = resolveProcessableClassName();
 		return this;
+	}
+
+	/**
+	 * @description Resolves the class name of the processing logic this processor runs. That name is the key the
+	 * settings use to find the `AsynchronousJobSetting__mdt` record configuring the batch size, so a subscriber
+	 * names the record after the Processable class they wrote.
+	 *
+	 * @return The runtime class name of the processing logic, or null when no logic has been supplied yet.
+	 */
+	private String resolveProcessableClassName()
+	{
+		return processorLogic == null ? null : UTIL_System.getRuntimeTypeName(processorLogic);
 	}
 
 	/**
@@ -335,7 +480,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 			if(firstJobId == null)
 			{
 				firstJobId = jobId;
-				this.asyncJobId = jobId;
+				asyncJobId = jobId;
 			}
 		}
 		return firstJobId;
@@ -530,7 +675,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 			)
 			{
 				AsyncProcessorQueueable nextQueueable = new AsyncProcessorQueueable(processor);
-				System.enqueueJob(nextQueueable, processor.processSettings.asyncOptions);
+				processor.enqueueWithOptionalDelay(nextQueueable);
 			}
 		}
 
@@ -572,7 +717,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 
 			for(Object item : processor.itemsToProcess)
 			{
-				itemsInScope.add(item instanceof SObject ? ((SObject)item).Id : item.toString());
+				itemsInScope.add(item instanceof SObject ? String.valueOf(((SObject)item).Id) : String.valueOf(item));
 			}
 
 			LOG_Builder.build()
@@ -601,7 +746,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 		 */
 		public QueueableToBatchableContext(QueueableContext context)
 		{
-			this.jobId = context.getJobId();
+			jobId = context.getJobId();
 		}
 
 		/**
@@ -611,7 +756,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 		 */
 		public Id getJobId()
 		{
-			return this.jobId;
+			return jobId;
 		}
 
 		/**
@@ -673,8 +818,16 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 		}
 
 		/**
+		 * @description The class name of the processing logic this job runs, stamped by the processor.
+		 * It is the name of the `AsynchronousJobSetting__mdt` record that configures `batchJobSize`, so a
+		 * subscriber names that record after the Processable class they wrote.
+		 */
+		public String processableClassName {get; set;}
+
+		/**
 		 * @description Number of items to process in each Batch Apex execution.
-		 * Default: Determined by `SEL_AsynchronousJobSetting.getBatchSize`, or 200 if not set.
+		 * When no size is set in code, the first read resolves it from the `AsynchronousJobSetting__mdt` record
+		 * named for `processableClassName`, and falls back to 200 when no such record exists.
 		 */
 		public Integer batchJobSize
 		{
@@ -682,7 +835,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 			{
 				if(batchJobSize == null)
 				{
-					batchJobSize = SEL_AsynchronousJobSetting.getBatchSize(UTIL_System.getRuntimeTypeName(this));
+					batchJobSize = SEL_AsynchronousJobSetting.getBatchSize(processableClassName);
 				}
 				return Math.max(1, batchJobSize);
 			}
