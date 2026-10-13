@@ -4,11 +4,40 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {spawnSync} = require('node:child_process');
 
-// shell: false (default). Passing pathspec args like 'force-app/**/*.cls'
-// with shell: true triggers Node's DEP0190 deprecation warning AND risks
-// the shell expanding the glob before git/sf sees it. Both tools accept
-// argv directly, so no shell is needed.
+// shell: false everywhere a shell is not needed. Passing pathspec args like 'force-app/**/*.cls' with shell: true
+// triggers Node's DEP0190 deprecation warning AND risks the shell expanding the glob before git/sf sees it. Both tools
+// accept argv directly. The one exception is Windows, where the Salesforce CLI is sf.cmd, a batch file Node will not
+// start without a shell and refuses by name (CVE-2024-27980): there sf is started through Command Prompt with every
+// argument quoted below, and Command Prompt expands no glob.
 const SPAWN_OPTS = {encoding: 'utf-8'};
+
+/**
+ * @description Quotes one argument the way Command Prompt needs it: only when it holds a space or a character the
+ *              prompt would otherwise interpret; an inner double quote is escaped for the program that receives it.
+ * @param {string} argument - One argument.
+ * @returns {string} The argument as it goes on the command line.
+ */
+function quoteForCommandPrompt(argument)
+{
+	return /[\s"&|<>^()]/.test(argument) ? `"${argument.replace(/"/g, '\\"')}"` : argument;
+}
+
+/**
+ * @description Starts the Salesforce CLI with the given arguments, on every system: shell-free where sf is a program,
+ *              through Command Prompt where it is sf.cmd.
+ * @param {string[]} args - The arguments, exactly as sf should receive them.
+ * @param {Object} options - spawnSync options.
+ * @returns {Object} The spawnSync result.
+ */
+function startSf(args, options)
+{
+	if(process.platform !== 'win32')
+	{
+		return spawnSync('sf', args, options);
+	}
+	const commandLine = ['sf', ...args].map(quoteForCommandPrompt).join(' ');
+	return spawnSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `"${commandLine}"`], {...options, windowsVerbatimArguments: true});
+}
 
 function buildSfcaArgs({workspace, configFile, ruleSelector, files, severityThreshold})
 {
@@ -36,12 +65,12 @@ function buildSfcaArgs({workspace, configFile, ruleSelector, files, severityThre
 function runSfca({workspace, configFile, ruleSelector, files, severityThreshold, stdio = 'inherit'})
 {
 	const args = buildSfcaArgs({workspace, configFile, ruleSelector, files, severityThreshold});
-	return spawnSync('sf', args, {...SPAWN_OPTS, stdio});
+	return startSf(args, {...SPAWN_OPTS, stdio});
 }
 
 function checkSfPresent()
 {
-	const result = spawnSync('sf', ['--version'], SPAWN_OPTS);
+	const result = startSf(['--version'], SPAWN_OPTS);
 	return result.status === 0;
 }
 
@@ -53,10 +82,7 @@ const SF_PLUGINS_MAX_BUFFER = 64 * 1024 * 1024;
 
 function runPluginsJson()
 {
-	const result = spawnSync('sf', [
-		'plugins',
-		'--json'
-	], {...SPAWN_OPTS, maxBuffer: SF_PLUGINS_MAX_BUFFER});
+	const result = startSf(['plugins', '--json'], {...SPAWN_OPTS, maxBuffer: SF_PLUGINS_MAX_BUFFER});
 	return result.status === 0 ? result.stdout : null;
 }
 
@@ -97,8 +123,8 @@ function checkSfcaPluginPresent()
 //     Apex AST shifted under the XPath rules. Advisory only — it never blocks.
 
 const PMD_APEX_MODULE_MINIMUM_VERSION = '7.19.0';
-const PMD_APEX_MODULE_VALIDATED_VERSION = '7.26.0';
-const PMD_APEX_MODULE_CEILING_VERSION = '7.27.0';
+const PMD_APEX_MODULE_VALIDATED_VERSION = '7.27.0';
+const PMD_APEX_MODULE_CEILING_VERSION = '7.28.0';
 
 const PMD_APEX_JAR_PATTERN = /^pmd-apex-(\d+(?:\.\d+)*)\.jar$/;
 const PMD_ENGINE_LIB_SEGMENTS = [
@@ -271,6 +297,8 @@ module.exports = {
 	buildSfcaArgs,
 	runSfca,
 	checkSfPresent,
+	startSf,
+	quoteForCommandPrompt,
 	checkSfcaPluginPresent,
 	pluginsJsonHasCodeAnalyzer,
 	classifyPmdApexVersion,

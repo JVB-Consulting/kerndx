@@ -106,16 +106,16 @@ test('pluginsJsonHasCodeAnalyzer: false for absent plugin, malformed JSON, null,
 test('PMD version constants are the hard minimum, validated baseline, and ceiling', () =>
 {
 	assert.equal(PMD_APEX_MODULE_MINIMUM_VERSION, '7.19.0');
-	assert.equal(PMD_APEX_MODULE_VALIDATED_VERSION, '7.26.0');
-	assert.equal(PMD_APEX_MODULE_CEILING_VERSION, '7.27.0');
+	assert.equal(PMD_APEX_MODULE_VALIDATED_VERSION, '7.27.0');
+	assert.equal(PMD_APEX_MODULE_CEILING_VERSION, '7.28.0');
 });
 
 test('classifyPmdApexVersion: validated baseline is ok with no message', () =>
 {
-	const v = classifyPmdApexVersion('7.26.0');
+	const v = classifyPmdApexVersion('7.27.0');
 	assert.equal(v.status, 'ok');
 	assert.equal(v.message, null);
-	assert.equal(v.version, '7.26.0');
+	assert.equal(v.version, '7.27.0');
 	assert.equal(v.minimum, PMD_APEX_MODULE_MINIMUM_VERSION);
 	assert.equal(v.validated, PMD_APEX_MODULE_VALIDATED_VERSION);
 	assert.equal(v.ceiling, PMD_APEX_MODULE_CEILING_VERSION);
@@ -123,7 +123,7 @@ test('classifyPmdApexVersion: validated baseline is ok with no message', () =>
 
 test('classifyPmdApexVersion: one patch below the ceiling is still ok', () =>
 {
-	assert.equal(classifyPmdApexVersion('7.26.9').status, 'ok');
+	assert.equal(classifyPmdApexVersion('7.27.9').status, 'ok');
 });
 
 test('classifyPmdApexVersion: below the 7.19.0 minimum is a hard-floor warning', () =>
@@ -135,24 +135,25 @@ test('classifyPmdApexVersion: below the 7.19.0 minimum is a hard-floor warning',
 	assert.match(v.message, /XPath/);
 });
 
-test('classifyPmdApexVersion: the 7.19.0 floor itself and the Code Analyzer bundled 7.25.0 are ok', () =>
+test('classifyPmdApexVersion: the 7.19.0 floor itself and the Code Analyzer bundled 7.26.0 are ok', () =>
 {
 	assert.equal(classifyPmdApexVersion('7.19.0').status, 'ok');
 	assert.equal(classifyPmdApexVersion('7.25.0').status, 'ok');
-	assert.equal(classifyPmdApexVersion('7.25.9').status, 'ok');
+	assert.equal(classifyPmdApexVersion('7.26.0').status, 'ok');
+	assert.equal(classifyPmdApexVersion('7.26.9').status, 'ok');
 });
 
 test('classifyPmdApexVersion: exactly the ceiling is ahead and warns', () =>
 {
-	const v = classifyPmdApexVersion('7.27.0');
+	const v = classifyPmdApexVersion('7.28.0');
 	assert.equal(v.status, 'ahead');
+	assert.match(v.message, /7\.28\.0/);
 	assert.match(v.message, /7\.27\.0/);
-	assert.match(v.message, /7\.26\.0/);
 });
 
 test('classifyPmdApexVersion: above the ceiling is ahead', () =>
 {
-	assert.equal(classifyPmdApexVersion('7.27.1').status, 'ahead');
+	assert.equal(classifyPmdApexVersion('7.28.1').status, 'ahead');
 	assert.equal(classifyPmdApexVersion('8.0.0').status, 'ahead');
 });
 
@@ -169,8 +170,10 @@ test('classifyPmdApexVersion: tolerates short and long version tuples', () =>
 	assert.equal(classifyPmdApexVersion('7.18').status, 'below');
 	assert.equal(classifyPmdApexVersion('7.25').status, 'ok');
 	assert.equal(classifyPmdApexVersion('7.26').status, 'ok');
-	assert.equal(classifyPmdApexVersion('7.27').status, 'ahead');
-	assert.equal(classifyPmdApexVersion('7.27.0.1').status, 'ahead');
+	assert.equal(classifyPmdApexVersion('7.27').status, 'ok');
+	assert.equal(classifyPmdApexVersion('7.27.0.1').status, 'ok');
+	assert.equal(classifyPmdApexVersion('7.28').status, 'ahead');
+	assert.equal(classifyPmdApexVersion('7.28.0.1').status, 'ahead');
 });
 
 test('parsePluginRoot: returns the code-analyzer plugin root', () =>
@@ -260,10 +263,10 @@ test('getBundledPmdApexVersion: null when sf/plugin unavailable or lib dir unrea
 test('pmdApexVersionVerdict: returns the full classified verdict for the bundled version', () =>
 {
 	const ahead = pmdApexVersionVerdict({
-		runPluginsJson: () => PLUGINS_JSON_TYPICAL, listJarDir: () => ['pmd-apex-7.27.0.jar']
+		runPluginsJson: () => PLUGINS_JSON_TYPICAL, listJarDir: () => ['pmd-apex-7.28.0.jar']
 	});
 	assert.equal(ahead.status, 'ahead');
-	assert.match(ahead.message, /7\.27\.0/);
+	assert.match(ahead.message, /7\.28\.0/);
 
 	const below = pmdApexVersionVerdict({
 		runPluginsJson: () => PLUGINS_JSON_TYPICAL, listJarDir: () => ['pmd-apex-7.18.0.jar']
@@ -285,9 +288,9 @@ test('pmdApexVersionVerdict: returns the full classified verdict for the bundled
 test('pmdApexVersionWarning: returns the warning string when below the minimum or ahead', () =>
 {
 	const ahead = pmdApexVersionWarning({
-		runPluginsJson: () => PLUGINS_JSON_TYPICAL, listJarDir: () => ['pmd-apex-7.27.0.jar']
+		runPluginsJson: () => PLUGINS_JSON_TYPICAL, listJarDir: () => ['pmd-apex-7.28.0.jar']
 	});
-	assert.match(ahead, /7\.27\.0/);
+	assert.match(ahead, /7\.28\.0/);
 
 	const below = pmdApexVersionWarning({
 		runPluginsJson: () => PLUGINS_JSON_TYPICAL, listJarDir: () => ['pmd-apex-7.18.0.jar']

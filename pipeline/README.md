@@ -28,16 +28,30 @@ needed offline (no npm-registry dependency after the initial install).
 
 **Quickstart:**
 
+Download `KernDX-YourVersion-pipeline.zip` from the Releases page above and put it in your project's top folder, the folder that holds `sfdx-project.json`. In the commands
+below, replace `YourVersion` with the version in the file name you downloaded.
+
+Unpack it into a folder named `.kerndx-pipeline`. On Windows, in Command Prompt:
+
+```bat
+mkdir .kerndx-pipeline
+tar -xf KernDX-YourVersion-pipeline.zip -C .kerndx-pipeline
+```
+
+On macOS or Linux:
+
 ```bash
-# 1. Download the latest pipeline zip from the Releases page above.
-cd /path/to/your/subscriber-repo
-unzip /path/to/KernDX-<version>-pipeline.zip -d .kerndx-pipeline
+unzip KernDX-YourVersion-pipeline.zip -d .kerndx-pipeline
+```
 
-# 2. Install the CLI's own dependencies (one-time, online).
-(cd .kerndx-pipeline/pipeline && npm ci --omit=dev)
+Install the CLI's own dependencies (one-time, online), then scaffold workflows + config into your repo:
 
-# 3. Scaffold workflows + config into your repo.
-./.kerndx-pipeline/bin/kerndx init
+```shell
+npm ci --omit=dev --prefix .kerndx-pipeline/pipeline
+```
+
+```shell
+node .kerndx-pipeline/bin/kerndx init
 ```
 
 The `init` command is interactive — it asks for your package directories, whether the repo builds on the KernDX framework (which picks the PMD ruleset your CI scans against), CI tool
@@ -45,7 +59,7 @@ The `init` command is interactive — it asks for your package directories, whet
 `.kerndx/config.yml`, `.kerndx/rulesets/`, and `.kerndx/manifest.json`.
 
 **Step-by-step install guide:** every zip bundle ships an `INSTALL-PIPELINE.md` at the zip root that walks each step in detail (SHA-256 verification, package.json scripts wiring,
-ESLint plugin wire-up, the upgrade flow, Windows fallback, troubleshooting). Unzip and open that file once you've grabbed the bundle.
+ESLint plugin wire-up, the upgrade flow, troubleshooting). Unzip and open that file once you've grabbed the bundle.
 
 ## After installation
 
@@ -54,7 +68,7 @@ Wire convenience scripts into your `package.json`:
 ```json
 {
   "scripts": {
-    "kerndx": "./.kerndx-pipeline/bin/kerndx",
+    "kerndx": "node .kerndx-pipeline/bin/kerndx",
     "preflight": "npm run kerndx -- preflight",
     "scan": "npm run kerndx -- scan",
     "secret-scan": "npm run kerndx -- secret-scan",
@@ -116,16 +130,35 @@ and fixture content); a bareword like `placeholder` suppresses only advisory fin
 
 ## Upgrading
 
-When a new bundle ships:
+When a new bundle ships, download the newer `KernDX-YourVersion-pipeline.zip` into your project's top folder, then replace the old tooling with it. On Windows, in Command
+Prompt:
+
+```bat
+rmdir /s /q .kerndx-pipeline
+mkdir .kerndx-pipeline
+tar -xf KernDX-YourVersion-pipeline.zip -C .kerndx-pipeline
+```
+
+On macOS or Linux:
 
 ```bash
 rm -rf .kerndx-pipeline
-unzip /path/to/KernDX-<new-version>-pipeline.zip -d .kerndx-pipeline
-./.kerndx-pipeline/bin/kerndx upgrade
+unzip KernDX-YourVersion-pipeline.zip -d .kerndx-pipeline
 ```
 
-`upgrade` backs up any locally-modified scaffolded file to `.bak` before overwriting. It refuses to run if `.bak` files from a prior upgrade still exist — review and delete them
-first, or pass `--force` to skip the review. The full upgrade flow is documented in the bundle's `INSTALL-PIPELINE.md`.
+Install its dependencies again, then let it refresh what it scaffolded:
+
+```shell
+npm ci --omit=dev --prefix .kerndx-pipeline/pipeline
+```
+
+```shell
+node .kerndx-pipeline/bin/kerndx upgrade
+```
+
+`upgrade` keeps your `.kerndx/config.yml`, re-renders the workflow templates against the new version, and backs up every scaffolded file to `.bak` before it overwrites it. It
+stops if `.bak` files from an earlier upgrade are still there: review and delete them, or add `--force` to skip that review. The full upgrade flow is documented in the
+bundle's `INSTALL-PIPELINE.md`.
 
 This version adds a required `Secret Scan` check. After upgrading, let the new `secret-scan.yml` workflow run once on your default branch **before** you re-apply your ingress
 branch-protection ruleset — so the check exists and has reported at least once by the time it becomes required. (Requiring a check that has never run leaves every PR waiting on a

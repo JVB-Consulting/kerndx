@@ -15,7 +15,7 @@
 # `kerndx init` selected the ruleset below from your answer to the framework
 # question; swap it at any time. Add your own custom rulesets to the
 # `custom_rulesets` list. Override individual rule severities under `rules:`
-# (see SameRecordFieldUpdates below for an example).
+# (see SameRecordUpdate below for an example).
 engines:
   pmd:
     custom_rulesets:
@@ -23,7 +23,7 @@ engines:
 
 rules:
   flow:
-    SameRecordFieldUpdates:
+    SameRecordUpdate:
       severity: Info
   regex:
     # `NoMixedIndentation` flags any line whose leading indentation mixes tabs

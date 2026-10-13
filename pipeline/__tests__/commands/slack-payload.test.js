@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const {
-	parseRow, parseCsv, encodeForSlack, classifyEngine, truncMid, groupRows, buildSlackPayload, slackPayload
+	parseRow, parseCsv, encodeForSlack, stripSlackMarkup, classifyEngine, truncMid, groupRows, buildSlackPayload, slackPayload
 } = require('../../src/commands/slack-payload.js');
 
 const FIXTURE_CSV = path.join(__dirname, '../fixtures/sfca-violations.csv');
@@ -59,6 +59,34 @@ test('encodeForSlack URL-encodes colons', () =>
 test('encodeForSlack encodes all three target characters together', () =>
 {
 	assert.equal(encodeForSlack('100%,foo:bar'), '100%25%2Cfoo%3Abar');
+});
+
+test('stripSlackMarkup removes the three Slack markup characters and nothing else', () =>
+{
+	assert.equal(stripSlackMarkup('<!channel> fix & <https://evil.example|click>'), '!channel fix  https://evil.example|click');
+	assert.equal(stripSlackMarkup('feature/plain-branch_name.v2'), 'feature/plain-branch_name.v2');
+	assert.equal(stripSlackMarkup(undefined), '');
+});
+
+test('slackPayload keeps a crafted pull request title and branch name from adding Slack markup', () =>
+{
+	const output = slackPayload({
+		csv: FIXTURE_CSV,
+		prUrl: 'https://github.com/test/repo/pull/42',
+		prTitle: '<!channel> Add feature <https://evil.example|click>',
+		prAuthor: 'jdev',
+		prNumber: '42',
+		headRef: 'feature/<@U0DEADBEEF>&co',
+		baseRef: 'main',
+		repo: 'test/repo',
+		runId: '12345'
+	});
+
+	const att = JSON.parse(output).attachments[0];
+	const prField = att.fields.find(f => f.title === 'PR');
+	const branchField = att.fields.find(f => f.title === 'Branch');
+	assert.equal(prField.value, '<https://github.com/test/repo/pull/42|#42 !channel Add feature https://evil.example|click>');
+	assert.equal(branchField.value, 'feature/@U0DEADBEEFco → main');
 });
 
 test('classifyEngine maps pmd to apex', () =>

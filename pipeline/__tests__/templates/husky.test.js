@@ -16,7 +16,7 @@ test('husky pre-push template renders advisory comment', () =>
 test('husky pre-push template calls preflight', () =>
 {
 	const rendered = renderTemplate(TPL, {});
-	assert.match(rendered, /\.\/\.kerndx-pipeline\/bin\/kerndx preflight/);
+	assert.match(rendered, /node \.kerndx-pipeline\/bin\/kerndx preflight/);
 });
 
 test('husky pre-push template exits 0', () =>

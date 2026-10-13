@@ -10,6 +10,7 @@ function renderTemplate(templatePath, data, {views} = {})
 		views: views || path.dirname(templatePath),
 		cache: false,
 		autoEscape: false,
+		autoTrim: false,
 		useWith: true,
 		tags: [
 			'<%',

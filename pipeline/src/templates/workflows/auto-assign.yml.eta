@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Assign random reviewer (excluding PR author)
         id: assign
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -85,33 +85,44 @@ jobs:
 
             core.setOutput('selected', pick.gh);
             core.setOutput('slack_id', pick.slack);
+<% if (slack.enabled) { -%>
+
+      # The Slack payloads are built in script code with JSON.stringify and the
+      # PR title and branch name are stripped of <, > and & first. Nothing a PR
+      # author controls is ever pasted into the JSON text or a shell command.
+      - name: Build reviewer Slack payload
+        id: reviewer_payload
+        # [E2E] title prefix suppresses Slack per harness convention.
+        if: steps.assign.outputs.slack_id != '' && !startsWith(github.event.pull_request.title, '[E2E]')
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          SLACK_ID: ${{ steps.assign.outputs.slack_id }}
+        with:
+          script: |
+            const clean = (value) => String(value || '').replace(/[<>&]/g, '');
+            const pull = context.payload.pull_request;
+            const payload = {
+              text: `👀 <@${process.env.SLACK_ID}> you have been assigned to review a PR`,
+              attachments: [{
+                color: '#36a64f',
+                fields: [
+                  { title: 'Pull Request', value: `<${pull.html_url}|${clean(pull.title)}>`, short: false },
+                  { title: 'Author', value: clean(pull.user.login), short: true },
+                  { title: 'Branch', value: `${clean(pull.head.ref)} → ${clean(pull.base.ref)}`, short: true }
+                ],
+                mrkdwn_in: ['text', 'fields']
+              }]
+            };
+            core.setOutput('payload', JSON.stringify(payload));
 
       - name: Notify reviewer on Slack
         # [E2E] title prefix suppresses Slack per harness convention.
         if: steps.assign.outputs.slack_id != '' && !startsWith(github.event.pull_request.title, '[E2E]')
-        uses: slackapi/slack-github-action@v2
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook: ${{ secrets.<%= slack.webhook_env_var %> }}
           webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "👀 <@${{ steps.assign.outputs.slack_id }}> you have been assigned to review a PR",
-              "attachments": [{
-                "color": "#36a64f",
-                "fields": [
-                  { "title": "Pull Request",
-                    "value": "<${{ github.event.pull_request.html_url }}|${{ github.event.pull_request.title }}>",
-                    "short": false },
-                  { "title": "Author",
-                    "value": "${{ github.event.pull_request.user.login }}",
-                    "short": true },
-                  { "title": "Branch",
-                    "value": "${{ github.head_ref }} → ${{ github.base_ref }}",
-                    "short": true }
-                ],
-                "mrkdwn_in": ["text", "fields"]
-              }]
-            }
+          payload: ${{ steps.reviewer_payload.outputs.payload }}
 
       # Detect ACTUAL back-promotion (gs-pipeline/<protected>_-_<protected>).
       # Previously this step used `startsWith(head_ref, 'gs-pipeline/')`,
@@ -120,8 +131,10 @@ jobs:
       # as back-promotions in Slack.
       - name: Detect actual back-promotion pattern
         id: backprom
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          HEAD="${{ github.head_ref }}"
+          HEAD="$HEAD_REF"
           PROTECTED='<%= protectedBranches.map(b => b.replace('.', '\\.')).join('|') %>'
           if [[ "$HEAD" =~ ^gs-pipeline/(${PROTECTED})_-_(${PROTECTED})$ ]]; then
             echo "is_backprom=true" >> "$GITHUB_OUTPUT"
@@ -132,26 +145,34 @@ jobs:
       # Fires ONLY on real back-promotion PRs (env→env sync from Gearset).
       # Also gated on `action == 'opened'` so pushes to an open back-prom
       # PR do not re-announce.
+      - name: Build back-promotion Slack payload
+        id: backprom_payload
+        # [E2E] title prefix suppresses Slack per harness convention.
+        if: steps.backprom.outputs.is_backprom == 'true' && github.event.action == 'opened' && !startsWith(github.event.pull_request.title, '[E2E]')
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const clean = (value) => String(value || '').replace(/[<>&]/g, '');
+            const pull = context.payload.pull_request;
+            const payload = {
+              text: '🔁 Back-promotion PR opened (scans skipped — review still required)',
+              attachments: [{
+                color: '#808080',
+                fields: [
+                  { title: 'Pull Request', value: `<${pull.html_url}|${clean(pull.title)}>`, short: false },
+                  { title: 'Branch', value: `${clean(pull.head.ref)} → ${clean(pull.base.ref)}`, short: true }
+                ],
+                mrkdwn_in: ['text', 'fields']
+              }]
+            };
+            core.setOutput('payload', JSON.stringify(payload));
+
       - name: Notify Slack on back-promotion
         # [E2E] title prefix suppresses Slack per harness convention.
         if: steps.backprom.outputs.is_backprom == 'true' && github.event.action == 'opened' && !startsWith(github.event.pull_request.title, '[E2E]')
-        uses: slackapi/slack-github-action@v2
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook: ${{ secrets.<%= slack.webhook_env_var %> }}
           webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "🔁 Back-promotion PR opened (scans skipped — review still required)",
-              "attachments": [{
-                "color": "#808080",
-                "fields": [
-                  { "title": "Pull Request",
-                    "value": "<${{ github.event.pull_request.html_url }}|${{ github.event.pull_request.title }}>",
-                    "short": false },
-                  { "title": "Branch",
-                    "value": "${{ github.head_ref }} → ${{ github.base_ref }}",
-                    "short": true }
-                ],
-                "mrkdwn_in": ["text", "fields"]
-              }]
-            }
+          payload: ${{ steps.backprom_payload.outputs.payload }}
+<% } -%>

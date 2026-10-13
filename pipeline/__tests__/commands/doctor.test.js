@@ -51,6 +51,30 @@ test('doctor detects manually-edited workflow', async() =>
 	}
 });
 
+test('doctor reports the reader command when the manifest is missing', async() =>
+{
+	const originalCwd = process.cwd();
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'doc-no-manifest-'));
+	const originalLog = console.log;
+	const lines = [];
+	console.log = (...args) =>
+	{
+		lines.push(args.join(' '));
+	};
+	try
+	{
+		process.chdir(dir);
+		const code = await runDoctor({verbose: false, skipEnvironmentChecks: true});
+		assert.equal(code, 1);
+		assert.ok(lines.some((line) => line.includes('node .kerndx-pipeline/bin/kerndx init')));
+	}
+	finally
+	{
+		console.log = originalLog;
+		process.chdir(originalCwd);
+	}
+});
+
 test('doctor tolerates CRLF line endings (LF-normalized hash)', async() =>
 {
 	const originalCwd = process.cwd();

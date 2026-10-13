@@ -19,8 +19,8 @@ test('naming-validation renders for subscriber-equivalent config', () =>
 
 	assert.match(rendered, /name: naming-validation/);
 	assert.match(rendered, /branches:.*build.*main/);
-	assert.match(rendered, /\.\/\.kerndx-pipeline\/bin\/kerndx naming --ci/);
-	assert.match(rendered, /node-version: ['"]20['"]/);
+	assert.match(rendered, /node \.kerndx-pipeline\/bin\/kerndx naming --ci/);
+	assert.match(rendered, /node-version: ['"]22['"]/);
 });
 
 test('naming-validation uses the runsOn value', () =>
@@ -34,14 +34,14 @@ test('naming-validation uses the runsOn value', () =>
 	assert.doesNotMatch(rendered, /branches:.*build/);
 });
 
-test('naming-validation locks node 20 in the bootstrap partial', () =>
+test('naming-validation locks node 22 in the bootstrap partial', () =>
 {
-	// _classify-ref partial hardcodes node 20 for CLI compatibility.
+	// _classify-ref partial hardcodes node 22 for CLI compatibility.
 	// nodeVersion data is no longer honored in the rendered output.
 	const rendered = renderTemplate(TPL, {
 		ingressBranches: ['main'], packageDirs: ['force-app/main/default'], nodeVersion: '18', runsOn: 'ubuntu-latest'
 	}, {views: VIEWS});
-	assert.match(rendered, /node-version: ['"]20['"]/);
+	assert.match(rendered, /node-version: ['"]22['"]/);
 	assert.doesNotMatch(rendered, /node-version: ['"]18['"]/);
 });
 
@@ -84,13 +84,10 @@ test('naming-validation uses explicit merge-base for PR diff', () =>
 test('naming-validation diff command ends with proper redirect (no orphan)', () =>
 {
 	const rendered = renderTemplate(TPL, {
-		ingressBranches: ['main'],
-		packageDirs: [
+		ingressBranches: ['main'], packageDirs: [
 			'force-app/main/default',
 			'src-shared'
-		],
-		nodeVersion: '20',
-		runsOn: 'ubuntu-latest'
+		], nodeVersion: '20', runsOn: 'ubuntu-latest'
 	}, {views: VIEWS});
 
 	const start = rendered.indexOf('git diff --name-only');

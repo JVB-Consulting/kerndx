@@ -14,13 +14,11 @@ jobs:
   naming-validation:
     name: Naming Validation
     runs-on: <%= runsOn %>
-
     permissions:
       contents: read
       pull-requests: write
     steps:
 <%~ include('_partials/_classify-ref') %>
-
       # ── Resolve changed Flow + Object files ────────────────────────────────
       # Writes changed-naming-files.txt used by the naming command below.
       # The diff is scoped to naming-relevant extensions only, so config-only
@@ -55,4 +53,4 @@ jobs:
       - name: Run naming validation
         id: naming
         if: steps.classify.outputs.is_backprom == 'false' && steps.changed.outputs.count > 0
-        run: ./.kerndx-pipeline/bin/kerndx naming --ci
+        run: node .kerndx-pipeline/bin/kerndx naming --ci

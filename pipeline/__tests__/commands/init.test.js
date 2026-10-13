@@ -51,6 +51,103 @@ test('runInit writes config + workflows + manifest + husky', async(t) =>
 	}
 });
 
+test('runInit writes every opted-in workflow, the auto-assign reviewer workflow included', async(t) =>
+{
+	// Regression: the config key is auto_assign_reviewer but the template is
+	// auto-assign, so a plain underscore-to-dash mapping dropped the opt-in
+	// and no subscriber who answered yes ever received the workflow.
+	const originalCwd = process.cwd();
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-opt-ins-'));
+	try
+	{
+		process.chdir(dir);
+
+		const answers = {
+			package_dirs: ['force-app/main/default'],
+			ci_adapter: {name: 'none'},
+			branches: {main: 'main', ingress: ['main'], protected: ['main', 'release'], release: ['release']},
+			naming: {enabled: true},
+			slack: {enabled: false},
+			workflows: {
+				runs_on: 'ubuntu-latest',
+				auto_assign_reviewer: true,
+				pr_ready_to_merge: true,
+				ingress_bypass_alert: true,
+				release_bypass_alert: true,
+				release_review_assigned: true,
+				scanner_parity: true,
+				validate_reviewers_json: true
+			}
+		};
+		await runInit({answers, interactive: false});
+
+		const expected = [
+			'sfca-quality-gate',
+			'secret-scan',
+			'naming-validation',
+			'auto-assign',
+			'pr-ready-to-merge',
+			'ingress-bypass-alert',
+			'release-bypass-alert',
+			'release-review-assigned',
+			'scanner-parity',
+			'validate-reviewers-json'
+		];
+		const written = fs.readdirSync('.github/workflows').sort();
+		assert.deepEqual(written, expected.map(name => `${name}.yml`).sort());
+
+		const autoAssign = fs.readFileSync('.github/workflows/auto-assign.yml', 'utf-8');
+		assert.match(autoAssign, /^name: auto-assign\n/);
+		assert.match(autoAssign, /pull_request_target:/);
+		assert.doesNotMatch(autoAssign, /actions\/checkout/, 'auto-assign runs on pull_request_target and must never check out PR code');
+
+		const manifest = JSON.parse(fs.readFileSync('.kerndx/manifest.json', 'utf-8'));
+		assert.ok(manifest.files['.github/workflows/auto-assign.yml'], 'auto-assign.yml is tracked in the manifest');
+	}
+	finally
+	{
+		process.chdir(originalCwd);
+	}
+});
+
+test('runInit leaves every opt-in workflow out when the answer is no', async(t) =>
+{
+	const originalCwd = process.cwd();
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-opt-outs-'));
+	try
+	{
+		process.chdir(dir);
+
+		const answers = {
+			package_dirs: ['force-app/main/default'],
+			ci_adapter: {name: 'none'},
+			branches: {main: 'main', ingress: ['main'], protected: ['main']},
+			naming: {enabled: false},
+			slack: {enabled: false},
+			workflows: {
+				runs_on: 'ubuntu-latest',
+				auto_assign_reviewer: false,
+				pr_ready_to_merge: false,
+				ingress_bypass_alert: false,
+				release_bypass_alert: false,
+				release_review_assigned: false,
+				scanner_parity: false,
+				validate_reviewers_json: false
+			}
+		};
+		await runInit({answers, interactive: false});
+
+		assert.deepEqual(fs.readdirSync('.github/workflows').sort(), [
+			'secret-scan.yml',
+			'sfca-quality-gate.yml'
+		]);
+	}
+	finally
+	{
+		process.chdir(originalCwd);
+	}
+});
+
 test('runInit persists slack config under notifications.slack when enabled', async(t) =>
 {
 	// Regression L12: prior init did not write slack to configRecord. On next
@@ -370,7 +467,7 @@ test('runInit safely appends to existing husky hook', async(t) =>
 
 		const hook = fs.readFileSync('.husky/pre-push', 'utf-8');
 		assert.match(hook, /npm run lint/);
-		assert.match(hook, /\.\/\.kerndx-pipeline\/bin\/kerndx preflight/);
+		assert.match(hook, /node \.kerndx-pipeline\/bin\/kerndx preflight/);
 	}
 	finally
 	{

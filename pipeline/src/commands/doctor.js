@@ -81,7 +81,7 @@ async function runDoctor({verbose = false, skipEnvironmentChecks = false} = {})
 	}
 	else
 	{
-		issues.push('.kerndx/manifest.json missing — run `./.kerndx-pipeline/bin/kerndx init`');
+		issues.push('.kerndx/manifest.json missing — run `node .kerndx-pipeline/bin/kerndx init`');
 	}
 
 	if(issues.length === 0)

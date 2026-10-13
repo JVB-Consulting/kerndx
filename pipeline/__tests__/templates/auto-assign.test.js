@@ -14,7 +14,7 @@ test('auto-assign renders for subscriber-equivalent config', () =>
 			'main',
 			'build',
 			'uat'
-		], runsOn: 'ubuntu-latest', nodeVersion: '20', reviewers: {configFile: '.github/reviewers.json'}
+		], runsOn: 'ubuntu-latest', nodeVersion: '20', slack: {enabled: false}, reviewers: {configFile: '.github/reviewers.json'}
 	}, {views: path.dirname(TPL)});
 
 	assert.match(rendered, /name: auto-assign/);
@@ -29,7 +29,7 @@ test('auto-assign branches list contains all protected branches', () =>
 			'main',
 			'build',
 			'uat'
-		], runsOn: 'ubuntu-latest', nodeVersion: '20', reviewers: {configFile: '.github/reviewers.json'}
+		], runsOn: 'ubuntu-latest', nodeVersion: '20', slack: {enabled: false}, reviewers: {configFile: '.github/reviewers.json'}
 	}, {views: path.dirname(TPL)});
 
 	assert.match(rendered, /branches: \[main, build, uat\]/);
@@ -38,7 +38,7 @@ test('auto-assign branches list contains all protected branches', () =>
 test('auto-assign uses custom runsOn value', () =>
 {
 	const rendered = renderTemplate(TPL, {
-		protectedBranches: ['main'], runsOn: 'self-hosted', nodeVersion: '20', reviewers: {configFile: '.github/reviewers.json'}
+		protectedBranches: ['main'], runsOn: 'self-hosted', nodeVersion: '20', slack: {enabled: false}, reviewers: {configFile: '.github/reviewers.json'}
 	}, {views: path.dirname(TPL)});
 
 	assert.match(rendered, /runs-on: self-hosted/);
@@ -47,7 +47,7 @@ test('auto-assign uses custom runsOn value', () =>
 test('auto-assign uses custom reviewers configFile path', () =>
 {
 	const rendered = renderTemplate(TPL, {
-		protectedBranches: ['main'], runsOn: 'ubuntu-latest', nodeVersion: '20', reviewers: {configFile: '.github/team/reviewers.json'}
+		protectedBranches: ['main'], runsOn: 'ubuntu-latest', nodeVersion: '20', slack: {enabled: false}, reviewers: {configFile: '.github/team/reviewers.json'}
 	}, {views: path.dirname(TPL)});
 
 	assert.match(rendered, /\.github\/team\/reviewers\.json/);
@@ -60,7 +60,7 @@ test('auto-assign slack_id comes from runtime reviewers.json data (not hardcoded
 			'main',
 			'build',
 			'uat'
-		], runsOn: 'ubuntu-latest', nodeVersion: '20', reviewers: {configFile: '.github/reviewers.json'}
+		], runsOn: 'ubuntu-latest', nodeVersion: '20', slack: {enabled: false}, reviewers: {configFile: '.github/reviewers.json'}
 	}, {views: path.dirname(TPL)});
 
 	assert.match(rendered, /pick\.slack/);

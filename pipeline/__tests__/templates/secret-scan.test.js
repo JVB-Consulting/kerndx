@@ -24,7 +24,7 @@ test('secret-scan renders for subscriber-equivalent config', () =>
 	assert.match(rendered, /name: secret-scan/);
 	assert.match(rendered, /name: Secret Scan/);
 	assert.match(rendered, /branches:.*build.*main/);
-	assert.match(rendered, /\.\/\.kerndx-pipeline\/bin\/kerndx secret-scan --ci/);
+	assert.match(rendered, /node \.kerndx-pipeline\/bin\/kerndx secret-scan --ci/);
 });
 
 test('secret-scan uses the runsOn value', () =>
@@ -40,8 +40,8 @@ test('secret-scan includes back-promotion skip logic via the partial', () =>
 	const rendered = render();
 	assert.match(rendered, /classify-ref|classify/);
 	assert.match(rendered, /is_backprom/);
-	// The partial pins node 20 + fetch-depth:0 (needed for merge-base diff base).
-	assert.match(rendered, /node-version: ['"]20['"]/);
+	// The partial pins node 22 + fetch-depth:0 (needed for merge-base diff base).
+	assert.match(rendered, /node-version: ['"]22['"]/);
 	assert.match(rendered, /fetch-depth: 0/);
 });
 

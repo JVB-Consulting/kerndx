@@ -365,9 +365,9 @@ function buildSlackPayload(opts)
 	}
 
 	const fields = [
-		{title: 'PR', value: `<${prUrl}|#${prNumber} ${prTitle}>`, short: false},
-		{title: 'Author', value: prAuthor, short: true},
-		{title: 'Branch', value: `${headRef} → ${baseRef}`, short: true},
+		{title: 'PR', value: `<${prUrl}|#${prNumber} ${stripSlackMarkup(prTitle)}>`, short: false},
+		{title: 'Author', value: stripSlackMarkup(prAuthor), short: true},
+		{title: 'Branch', value: `${stripSlackMarkup(headRef)} → ${stripSlackMarkup(baseRef)}`, short: true},
 		{title: 'Severity', value: stats, short: false}
 	];
 	if(topText)
@@ -424,4 +424,12 @@ function encodeForSlack(text)
 	return text.replace(/%/g, '%25').replace(/,/g, '%2C').replace(/:/g, '%3A');
 }
 
-module.exports = {slackPayload, parseCsv, parseRow, encodeForSlack, buildSlackPayload, classifyEngine, truncMid, groupRows};
+// Removes the characters Slack reads as markup (<link|label>, <@user>,
+// <!channel>, &amp;) from a value a pull request author controls, so a crafted
+// title or branch name cannot add links, mentions or broadcasts to the message.
+function stripSlackMarkup(value)
+{
+	return String(value || '').replace(/[<>&]/g, '');
+}
+
+module.exports = {slackPayload, parseCsv, parseRow, encodeForSlack, stripSlackMarkup, buildSlackPayload, classifyEngine, truncMid, groupRows};

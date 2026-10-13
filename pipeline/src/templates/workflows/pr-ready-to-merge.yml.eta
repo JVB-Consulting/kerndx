@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Resolve PR context + fetch reviewer config
         id: context
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -121,29 +121,46 @@ jobs:
             core.setOutput('pr_title',    fresh.title);
             core.setOutput('author',      fresh.user.login);
             core.setOutput('author_slack', hit ? hit.slack : '');
-<% if (slack.enabled) { %>
+<% if (slack.enabled) { -%>
+
+      # The Slack payload is built in script code with JSON.stringify and the
+      # PR title is stripped of <, > and & first. Nothing a PR author controls
+      # is ever pasted into the JSON text.
+      - name: Build Slack payload
+        id: ready_payload
+        if: steps.context.outputs.should_notify == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+          PR_URL: ${{ steps.context.outputs.pr_url }}
+          PR_TITLE: ${{ steps.context.outputs.pr_title }}
+          AUTHOR: ${{ steps.context.outputs.author }}
+          AUTHOR_SLACK: ${{ steps.context.outputs.author_slack }}
+        with:
+          script: |
+            const clean = (value) => String(value || '').replace(/[<>&]/g, '');
+            const values = process.env;
+            const author = values.AUTHOR_SLACK ? `<@${clean(values.AUTHOR_SLACK)}>` : clean(values.AUTHOR);
+            const payload = {
+              text: `✅ PR #${values.PR_NUMBER} is ready to merge`,
+              attachments: [{
+                color: '#36a64f',
+                title: `✅ ${clean(values.PR_TITLE)} — reviews approved + all checks green`,
+                title_link: values.PR_URL,
+                fields: [
+                  { title: 'Author', value: author, short: true },
+                  { title: 'PR', value: `<${values.PR_URL}|#${values.PR_NUMBER}>`, short: true }
+                ],
+                mrkdwn_in: ['text', 'fields']
+              }]
+            };
+            core.setOutput('payload', JSON.stringify(payload));
+
       - name: Notify Slack
         if: steps.context.outputs.should_notify == 'true'
-        uses: slackapi/slack-github-action@v2
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.<%= slack.webhook_env_var %> }}
           webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "✅ PR #${{ steps.context.outputs.pr_number }} is ready to merge",
-              "attachments": [{
-                "color": "#36a64f",
-                "title": "✅ ${{ steps.context.outputs.pr_title }} — reviews approved + all checks green",
-                "title_link": "${{ steps.context.outputs.pr_url }}",
-                "fields": [
-                  { "title": "Author",
-                    "value": "${{ steps.context.outputs.author_slack && format('<@{0}>', steps.context.outputs.author_slack) || steps.context.outputs.author }}",
-                    "short": true },
-                  { "title": "PR",
-                    "value": "<${{ steps.context.outputs.pr_url }}|#${{ steps.context.outputs.pr_number }}>",
-                    "short": true }
-                ],
-                "mrkdwn_in": ["text", "fields"]
-              }]
-            }
-<% } %>
+          payload: ${{ steps.ready_payload.outputs.payload }}
+<% } -%>

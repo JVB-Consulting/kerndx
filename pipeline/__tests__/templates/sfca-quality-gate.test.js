@@ -25,7 +25,7 @@ test('sfca-quality-gate renders for subscriber-equivalent config', () =>
 
 	assert.match(rendered, /name: sfca-quality-gate/);
 	assert.match(rendered, /branches:.*build.*main/);
-	assert.match(rendered, /forcedotcom\/run-code-analyzer@v2/);
+	assert.match(rendered, /forcedotcom\/run-code-analyzer@[0-9a-f]{40} # v2\./);
 	assert.match(rendered, /classify-ref/);
 	assert.match(rendered, /SLACK_WEBHOOK_URL/);
 });
@@ -116,16 +116,10 @@ test('sfca-quality-gate diff command ends with proper redirect (no orphan)', () 
 	// (which would silently truncate the file to empty). Verify by extracting
 	// the diff block + checking every non-trailing line ends with `\`.
 	const rendered = renderTemplate(TPL, {
-		ingressBranches: ['main'],
-		packageDirs: [
+		ingressBranches: ['main'], packageDirs: [
 			'force-app/main/default',
 			'src-shared'
-		],
-		nodeVersion: '20',
-		ciAdapterName: 'none',
-		runsOn: 'ubuntu-latest',
-		slack: {enabled: false},
-		ruleSelector: 'pmd,flow,eslint'
+		], nodeVersion: '20', ciAdapterName: 'none', runsOn: 'ubuntu-latest', slack: {enabled: false}, ruleSelector: 'pmd,flow,eslint'
 	}, {views: VIEWS});
 
 	const start = rendered.indexOf('git diff --name-only');

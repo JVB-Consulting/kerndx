@@ -10,7 +10,7 @@ const {hashContent} = require('../lib/hash.js');
 const {renderPmdRuleset} = require('../lib/render-pmd-ruleset.js');
 
 const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
-const HUSKY_LINE = './.kerndx-pipeline/bin/kerndx preflight';
+const HUSKY_LINE = 'node .kerndx-pipeline/bin/kerndx preflight';
 const HUSKY_MARKER = '# kerndx-pipeline:preflight';
 
 const WORKFLOW_TEMPLATES = {
@@ -24,6 +24,19 @@ const WORKFLOW_TEMPLATES = {
 	'release-review-assigned': 'release-review-assigned.yml.eta',
 	'scanner-parity': 'scanner-parity.yml.eta',
 	'validate-reviewers-json': 'validate-reviewers-json.yml.eta'
+};
+
+// Config keys under `workflows:` (config-schema.json) and the template each
+// opt-in scaffolds. The key and the template name do not always agree
+// (auto_assign_reviewer renders auto-assign), so the mapping is explicit.
+const WORKFLOW_OPT_INS = {
+	auto_assign_reviewer: 'auto-assign',
+	pr_ready_to_merge: 'pr-ready-to-merge',
+	ingress_bypass_alert: 'ingress-bypass-alert',
+	release_bypass_alert: 'release-bypass-alert',
+	release_review_assigned: 'release-review-assigned',
+	scanner_parity: 'scanner-parity',
+	validate_reviewers_json: 'validate-reviewers-json'
 };
 
 async function collectAnswers(sessionOpts = {})
@@ -240,14 +253,9 @@ async function runInit({answers = null, interactive = true} = {})
 	{
 		toScaffold.push('naming-validation');
 	}
-	for(const [key, optIn] of Object.entries(answers.workflows || {}))
+	for(const [key, wfName] of Object.entries(WORKFLOW_OPT_INS))
 	{
-		if(key === 'runs_on')
-		{
-			continue;
-		}
-		const wfName = key.replace(/_/g, '-');
-		if(optIn && WORKFLOW_TEMPLATES[wfName])
+		if(answers.workflows && answers.workflows[key] === true)
 		{
 			toScaffold.push(wfName);
 		}

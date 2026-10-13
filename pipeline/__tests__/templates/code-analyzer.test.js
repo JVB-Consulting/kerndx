@@ -32,11 +32,12 @@ test('code-analyzer.yml.eta documents all three bundled rulesets', () =>
 	assert.match(rendered, /kerndx-framework-ruleset\.xml/);
 });
 
-test('code-analyzer.yml.eta preserves SameRecordFieldUpdates Info-severity override', () =>
+test('code-analyzer.yml.eta overrides the flow rule by its current name, SameRecordUpdate, at Info severity', () =>
 {
+	// An override that matches no rule is ignored without a warning, and SameRecordFieldUpdates is another flow tool's name.
 	const rendered = renderTemplate(TPL, {usesFramework: true});
-	assert.match(rendered, /SameRecordFieldUpdates/);
-	assert.match(rendered, /severity: Info/);
+	assert.match(rendered, /^\s+SameRecordUpdate:\n\s+severity: Info$/m);
+	assert.doesNotMatch(rendered, /SameRecordFieldUpdates/);
 });
 
 test('code-analyzer.yml.eta preserves NoMixedIndentation tag-disable override', () =>

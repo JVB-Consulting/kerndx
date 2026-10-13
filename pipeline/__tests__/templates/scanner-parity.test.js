@@ -14,7 +14,7 @@ test('scanner-parity renders', () =>
 	}, {views: path.dirname(TPL)});
 
 	assert.match(rendered, /name: scanner-parity/);
-	assert.match(rendered, /node-version: ['"]20['"]/);
+	assert.match(rendered, /node-version: ['"]22['"]/);
 });
 
 test('scanner-parity uses custom runsOn value', () =>

@@ -10,9 +10,58 @@ pipeline package adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [v0.4.0] — Unreleased
+## [v0.5.0] — 2026-10-12
 
-**Distribution:** ships alongside the next framework release as `pipeline-v0.4.0` (bundle file name and framework version are recorded here at release).
+**Distribution:** `KernDX-1.8.0-11-pipeline.zip`. Ships as `pipeline-v0.5.0` with Kern 1.8.0-11.
+
+This release closes a hole in the CI workflows the pipeline writes: a pull request's branch name or title could run commands in a job or change a Slack message. It also
+makes the CLI and three ESLint rules work on Windows, prints one form of the `kerndx` command that runs in every terminal, and fixes the flow rule name in the scaffolded
+`code-analyzer.yml`. Workflows already in your repository keep the hole until you write them again: run `node .kerndx-pipeline/bin/kerndx upgrade`, which saves each file
+it replaces as `.bak` first. In the rulesets, a new informational rule reports governor limits read straight from `Limits`, `KernTriggerMustDelegate` now checks the
+whole trigger body, and `kerndx-framework-ruleset.xml` runs its rules again under Code Analyzer 5.16 and later. A gate may now report findings it missed before.
+
+### Security
+
+**What you need to do:** the fixes below are in the workflow templates. Workflows that an earlier version wrote into `.github/workflows/` keep the old form until you write
+them again. Run `node .kerndx-pipeline/bin/kerndx upgrade`, which backs up each file it replaces to `.bak` before it writes the new one. Until you do,
+`node .kerndx-pipeline/bin/kerndx doctor` reports those workflows as changed.
+
+- **A pull request's branch name and title can no longer run commands in your workflows.** The branch name is now passed to each workflow step as an environment variable instead of being pasted into the step's script, in `auto-assign`, `release-review-assigned` and the shared branch check that `naming-validation`, `secret-scan` and `sfca-quality-gate` use. The Slack payload step of `sfca-quality-gate` gets the same treatment for the pull request title, author, branch name and target branch. Run `node .kerndx-pipeline/bin/kerndx upgrade` to pick up the new workflow files.
+- **Slack messages are built safely.** In `auto-assign`, `pr-ready-to-merge` and `release-review-assigned` the pull request title and branch name used to be pasted straight into the Slack message text, so a crafted title could break the message or add links and mentions to it. Each message is now assembled in code, with the characters `<`, `>` and `&` removed from the title and branch names first, and handed to the Slack action as a step output. The `slack-payload` command that `sfca-quality-gate` uses removes the same characters from the title, author and branch names it receives. `auto-assign` now uses the webhook secret name you chose at `kerndx init` instead of a fixed one. Run `node .kerndx-pipeline/bin/kerndx upgrade` to pick up the new workflow files.
+- **Every GitHub Action the workflows use is pinned to an exact commit.** `actions/checkout`, `actions/setup-node`, `actions/github-script`, `actions/setup-java`, `slackapi/slack-github-action` and `forcedotcom/run-code-analyzer` were referenced by a moving version tag, so an upstream change could alter what runs in your pipeline without you opting in. Each reference now names the commit of a specific release, with the release number in a comment beside it. Run `node .kerndx-pipeline/bin/kerndx upgrade` to pick up the new workflow files.
+- **The Salesforce CLI and Code Analyzer plugin are installed at fixed versions.** `sfca-quality-gate` installed whatever was newest on each run. It now installs `@salesforce/cli` 2.152.14 and the `code-analyzer` plugin 5.16.0, so a new upstream release cannot change your scan results overnight. Update the two versions in the workflow when you want to move up. Run `node .kerndx-pipeline/bin/kerndx upgrade` to pick up the new workflow files.
+
+### Added
+
+- **`KernLimitsThroughWrapper` PMD rule** *(informational, priority 5)*: reports each place your Apex reads a governor limit straight from the platform's `Limits` class, such as `Limits.getQueries` or `System.Limits.getQueries`, and names the `UTIL_Limits` call to use instead, for example `UTIL_Limits.soqlQueries.used`. Reading every limit through the wrapper means every limit is read the same way, and the near-limit check lives in one place. Only `UTIL_Limits` and its own test class may read `Limits` directly. The rule is in the full ruleset only, which now holds 27 rules; the hygiene and framework tiers leave it out. A scan through the full ruleset gains one Info finding for each direct read.
+
+### Changed
+
+- **The workflows run on the current release of every GitHub Action and on Node 22.** `actions/checkout` 7.0.1, `actions/setup-node` 7.0.0, `actions/github-script` 9.0.0, `actions/setup-java` 6.0.1 and `slackapi/slack-github-action` 4.0.0 replace the previous majors, which ran on the Node 20 action runtime GitHub has retired; `forcedotcom/run-code-analyzer` stays on 2.14.0. The steps that install and run the pipeline itself (the shared bootstrap in `sfca-quality-gate`, `secret-scan` and `naming-validation`, and `scanner-parity`) now pin Node 22 instead of Node 20; `validate-reviewers-json` keeps the Node version `kerndx init` chooses. Self-hosted runners need runner version 2.327.1 or newer for the Node 24 runtime these actions use. Run `node .kerndx-pipeline/bin/kerndx upgrade` to pick up the new workflow files.
+- **Rules validated through PMD 7.27.0.** The KernDX rules were re-run against their fixtures on PMD 7.27.0 (released 2026-08-28). `doctor` now treats a bundled PMD apex module of 7.27.0 as validated and warns from 7.28.0 up. Salesforce Code Analyzer still bundles 7.26.0, so scan results do not change until that bundle moves.
+- **The pipeline prints one form of its command, which runs in every terminal.** That form is `node .kerndx-pipeline/bin/kerndx`. The `./.kerndx-pipeline/bin/kerndx` form it printed before does not run in Command Prompt. The `doctor` message, the Husky pre-push hook, the scaffolded workflows and the pipeline README now use the portable form. Files that an earlier version scaffolded show as changed in `doctor` until your next `upgrade` writes them again.
+- **The install and upgrade steps in the pipeline README run as printed on Windows, macOS and Linux.** Unpacking the bundle has a Command Prompt version (`mkdir` and `tar -xf`) and a macOS or Linux version (`unzip`), and installing the dependencies is one line that works everywhere: `npm ci --omit=dev --prefix .kerndx-pipeline/pipeline`. The upgrade steps now install the dependencies again, which the old steps skipped, and say what `upgrade` backs up: every scaffolded file, not only the ones you changed.
+- **The `use-component-builder` message names the package import.** It told every reader to import `ComponentBuilder` from `c/componentBuilder`. With the package installed, the import comes from `kern/componentBuilder`, so the message now names that first, and `c/componentBuilder` for a framework deployed from source.
+- **The ESLint example sets `enforce-component-naming` to `error`.** The bundle's ESLint snippet and the plugin README now match the Code Scanning guides, which already used `error`.
+- **`KernTriggerMustDelegate` checks the whole trigger body.** The rule used to see only statements nested inside a loop or a branch, so a trigger that ran a query at its top level, or wrapped its dispatcher call in an `if`, passed unnoticed. It now reports every top-level statement other than the call that hands the trigger to the dispatcher, `new TRG_Dispatcher.run` (with or without the `kern.` prefix). A trigger that never calls the dispatcher, such as a new trigger whose body is still empty, is reported too. This is a priority-1 rule in the full and framework rulesets, so a gate may now report findings it missed before: move top-level logic into a trigger action, or add the dispatcher call.
+
+### Fixed
+
+- **Workflow files rendered with `runs-on` and the next line joined together.** The scaffolder trimmed the line break after the runner name, so `auto-assign` and `pr-ready-to-merge` produced a workflow GitHub rejects as invalid. The line break is now kept in every rendered workflow.
+- **Answering yes to the auto-assign reviewer question now writes the workflow.** `kerndx init` recorded the answer in `.kerndx/config.yml` but never wrote `.github/workflows/auto-assign.yml`, so if you opted in you never received it. Your next `node .kerndx-pipeline/bin/kerndx upgrade` adds the file: a `pull_request_target` workflow with `pull-requests: write` permission that assigns a reviewer from `.github/reviewers.json` and checks out no pull request code.
+- **No workflow references a Slack secret when Slack is off.** `ingress-bypass-alert`, `release-bypass-alert` and `release-review-assigned` rendered their Slack step whether or not Slack was enabled, pointing it at `secrets.undefined`, and `auto-assign` always rendered its two Slack messages and the back-promotion detection step that only feeds one of them. With Slack turned off, all of those steps are now left out, so no rendered workflow mentions a Slack webhook secret.
+- **`release-review-assigned` renders a complete branch filter when no release branches are configured.** The job condition used to end in an empty group, `&& `, which GitHub rejects as an invalid expression; it now renders `&& (false)` and the header comment says `(none configured)` instead of trailing off.
+- **The CLI finds `sf` on Windows.** `kerndx doctor` and `kerndx scan` reported the Salesforce CLI missing on every Windows machine, because `sf` there is a batch file that needs a shell to start. The pipeline now starts it through Command Prompt on Windows, quoting each argument itself, so a workspace path with a space reaches the scanner intact.
+- **Three ESLint rules report on Windows.** `enforce-component-naming`, `no-jest-theatre` and `no-mutating-shared-fixture` split the file path only on the separator of the system they ran on, so on Windows they never found the component name or the `__tests__` folder and reported nothing. Each rule now reads either separator.
+- **The scaffolded `code-analyzer.yml` overrides the flow rule under a name Code Analyzer recognises.** The template overrode the after-save rule as `SameRecordFieldUpdates`, a name no Code Analyzer rule has ever carried (it belongs to a different flow tool), and an override that matches no rule is ignored without a warning, so the rule ran at Moderate instead of the Info the template intended. The key is now `SameRecordUpdate`. `init` preserves an existing `code-analyzer.yml` and `upgrade` does not rewrite it, so if yours was scaffolded earlier, rename the key under `rules: flow:` by hand. The CI gate blocks at severity 2, so the finding was reported louder than intended, not blocking.
+- **`kerndx-framework-ruleset.xml` runs its rules again under Code Analyzer 5.16 and later.** Code Analyzer 5.16 runs PMD from its own install folder. The framework ruleset pointed at the rule definitions in the full ruleset by a relative path, which stopped resolving there, so a scan that used the file ran no KernDX rule at all and still exited 0. The file now carries its own rule definitions, and what the rules check is unchanged. The `code-analyzer.yml` that `kerndx init` scaffolds uses the full or hygiene ruleset, which were not affected. If your own configuration uses the framework ruleset, a gate that has been passing may now report findings; they were already in your code, so fix them or adjust the gate.
+- **The pipeline's dependencies move past published security advisories.** `fast-uri`, which the config schema validator uses, moves from 3.1.5 to 3.1.8, past advisories on host confusion and server-side request forgery, and `js-yaml` moves from 4.3.1 to 4.3.2. A production-dependency audit of the pipeline runs clean.
+
+---
+
+## [v0.4.0] — 2026-08-18
+
+**Distribution:** `KernDX-1.7.0-13-pipeline.zip`. Shipped as `pipeline-v0.4.0` with Kern 1.7.0-13.
 
 This release makes the CI gate block what it says it blocks, opens the pipeline to repos that do not run the KernDX framework, and adds a Flow-invocable constructor check that runs on every supported PMD version.
 
@@ -131,6 +180,7 @@ troubleshooting).
 
 173/173 pipeline tests + 6/6 ESLint plugin tests + 1241/1241 script tests passing.
 
+[v0.5.0]: https://github.com/JVB-Consulting/kerndx/tree/pipeline-v0.5.0
 [v0.4.0]: https://github.com/JVB-Consulting/kerndx/tree/pipeline-v0.4.0
 [v0.3.0]: https://github.com/JVB-Consulting/kerndx/tree/pipeline-v0.3.0
 [v0.2.0]: https://github.com/JVB-Consulting/kerndx/tree/v1.0.0-121

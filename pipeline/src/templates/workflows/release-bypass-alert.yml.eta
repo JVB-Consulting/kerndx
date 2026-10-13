@@ -14,7 +14,6 @@ name: release-bypass-alert
 #
 # Required checks watched (update list if Release Gate ruleset changes):
 <%~ requiredChecks.map(c => '#   - ' + c).join(String.fromCharCode(10)) %>
-
 #
 # Expected firing rate under healthy ops: near-zero. Each alert should be a
 # genuine "someone merged something that should have been blocked."
@@ -33,7 +32,6 @@ jobs:
     name: Release Bypass Alert
     if: github.event.pull_request.merged == true
     runs-on: <%= runsOn %>
-
     steps:
       - name: Inspect review decision at merge
         id: inspect
@@ -80,11 +78,12 @@ jobs:
               echo "decision=${decision:-null}" >> "$GITHUB_OUTPUT"
               ;;
           esac
+<% if (slack.enabled) { -%>
 
       - name: Post Slack alert
         # [E2E] title prefix suppresses Slack per harness convention.
         if: steps.inspect.outputs.alert == 'true' && !startsWith(github.event.pull_request.title, '[E2E]')
-        uses: slackapi/slack-github-action@v2
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.<%= slack.webhook_env_var %> }}
           webhook-type: incoming-webhook
@@ -116,3 +115,4 @@ jobs:
                 }
               ]
             }
+<% } -%>

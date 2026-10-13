@@ -21,14 +21,14 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: .kerndx-pipeline/pipeline/package-lock.json
 
@@ -38,15 +38,17 @@ jobs:
 
       - name: Classify head ref
         id: classify
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          ./.kerndx-pipeline/bin/kerndx classify-ref \
-            --head-ref "${{ github.head_ref }}" \
+          node .kerndx-pipeline/bin/kerndx classify-ref \
+            --head-ref "$HEAD_REF" \
             --config .kerndx/config.yml \
             >> "$GITHUB_OUTPUT"
 
       - name: Set up Java
         if: steps.classify.outputs.is_backprom == 'false'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: "21"
@@ -54,8 +56,8 @@ jobs:
       - name: Install Salesforce CLI
         if: steps.classify.outputs.is_backprom == 'false'
         run: |
-          npm install -g @salesforce/cli@latest
-          sf plugins install code-analyzer@latest
+          npm install -g @salesforce/cli@2.152.14
+          sf plugins install code-analyzer@5.16.0
 
       # ── Resolve which files changed in this PR ──────────────────────────────
       # Build the --target argument string for SFCA so the analyzer scans
@@ -117,7 +119,7 @@ jobs:
       - name: Run Salesforce Code Analyzer
         id: sfca
         if: steps.classify.outputs.is_backprom == 'false' && steps.changed.outputs.count > 0
-        uses: forcedotcom/run-code-analyzer@v2
+        uses: forcedotcom/run-code-analyzer@318e7429b49b97904dc41f7acbd41003db403965 # v2.14.0
         with:
           run-arguments: >
             --workspace force-app/main/default

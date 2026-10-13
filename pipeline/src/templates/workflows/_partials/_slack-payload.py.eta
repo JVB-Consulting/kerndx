@@ -1,15 +1,20 @@
       - name: Build Slack payload
         id: slack_payload
         if: always() && steps.classify.outputs.is_backprom == 'false' && steps.sfca.outcome != 'skipped'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          ./.kerndx-pipeline/bin/kerndx slack-payload \
+          node .kerndx-pipeline/bin/kerndx slack-payload \
             --csv sfca-violations.csv \
             --pr-url "${{ github.event.pull_request.html_url }}" \
-            --pr-title "${{ github.event.pull_request.title }}" \
-            --pr-author "${{ github.event.pull_request.user.login }}" \
+            --pr-title "$PR_TITLE" \
+            --pr-author "$PR_AUTHOR" \
             --pr-number "${{ github.event.pull_request.number }}" \
-            --head-ref "${{ github.head_ref }}" \
-            --base-ref "${{ github.base_ref }}" \
+            --head-ref "$HEAD_REF" \
+            --base-ref "$BASE_REF" \
             --repo "${{ github.repository }}" \
             --run-id "${{ github.run_id }}" \
             > slack-payload.json

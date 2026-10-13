@@ -1,6 +1,6 @@
 {
   "name": "@jvb-consulting/kerndx-pipeline",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Reusable CI pipeline for KernDX subscribers — GitHub Actions native, deployment-tool agnostic.",
   "license": "MIT",
   "type": "commonjs",
@@ -16,12 +16,13 @@
     "src/"
   ],
   "scripts": {
-    "test": "node scripts/run-tests.js"
+    "test": "node scripts/run-tests.js",
+    "render-examples": "node scripts/render-examples.js"
   },
   "dependencies": {
     "ajv": "^8.12.0",
     "eta": "^3.4.0",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^4.3.2",
     "picocolors": "^1.0.0",
     "sade": "^1.8.1",
     "safe-regex": "^2.1.1"
