@@ -1,0 +1,52 @@
+{
+	"excluded": [
+		{"script": "build-package", "reason": "needs a Dev Hub login", "provenBy": "the release runbook's package build (Phase 1.1) on the Mac"},
+		{
+			"script": "prepare-build", "reason": "rewrites force-app in place and needs a clean tree",
+			"provenBy": "prepare-build:dry runs here, and the package build runs the real transform"
+		},
+		{
+			"script": "coverage:gate", "reason": "needs an org's test run to read coverage from",
+			"provenBy": "the coverage gate the maintainer runs before every package build on the Mac"
+		},
+		{"script": "fast-start:gate", "reason": "deploys to a subscriber org", "provenBy": "the Fast Start gate on the Mac at release"},
+		{"script": "fast-start:gate-wave1", "reason": "deploys to a subscriber org", "provenBy": "the Fast Start gate on the Mac at release"},
+		{"script": "fast-start:gate-wave2", "reason": "deploys to a subscriber org", "provenBy": "the Fast Start gate on the Mac at release"},
+		{"script": "fast-start:gate-doc", "reason": "deploys to a subscriber org", "provenBy": "the Fast Start gate on the Mac at release"},
+		{"script": "test:e2e", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:headed", "reason": "needs a subscriber org, a browser and a screen", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:debug", "reason": "needs a subscriber org, a browser and a person", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part1", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part2", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part3", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part4", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part5", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part6", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part7", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part8", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part9", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part10", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part11", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "test:e2e:part12", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{
+			"script": "test:e2e:changed", "reason": "reads git and a subscriber org's namespace, then runs Playwright",
+			"provenBy": "release-testing/__tests__/select-journeys.test.js and a development-org dry run at the plan's closeout"
+		},
+		{"script": "release:phase2", "reason": "runs anonymous Apex against a subscriber org", "provenBy": "release testing Phase 2"},
+		{"script": "release:phase3", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phase 3"},
+		{"script": "release:all", "reason": "needs a subscriber org and a browser", "provenBy": "release testing Phases 2 and 3"},
+		{"script": "test:unit:watch", "reason": "waits for a keypress", "provenBy": "test:unit runs the same suite here"},
+		{"script": "test:unit:debug", "reason": "waits for a debugger", "provenBy": "test:unit runs the same suite here"},
+		{"script": "postinstall", "reason": "already ran during the install step", "provenBy": "the install step of this job"},
+		{"script": "docs:convert", "reason": "needs the ApexDoc export the IDE writes", "provenBy": "the reference build the maintainer runs by hand from the IDE export before a release (not a runbook step)"},
+		{"script": "docs:build", "reason": "needs the ApexDoc export the IDE writes", "provenBy": "the reference build the maintainer runs by hand before a release (not a runbook step)"},
+		{
+			"script": "docs:validate",
+			"reason": "the reader's README links to files only the release build writes (RELEASE-PROVENANCE.json, CONTRIBUTING.md), which the export cannot carry",
+			"provenBy": "the release build's document validation over the assembled tree at the mirror gate, and docs:validate on the source tree before every release"
+		}
+	],
+	"changesFiles": [
+		"docs:fix-toc"
+	]
+}

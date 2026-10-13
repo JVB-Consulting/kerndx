@@ -24,23 +24,22 @@
  *
  * @group Testing
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters')
 public inherited sharing class TST_BuilderInternal
 {
 	/**
-	 * @description Build context that flows through nested builder calls.
-	 * When a parent builder sets generateMockIds, child builders inherit this setting.
-	 * This flag is set by TST_Builder.buildList() and consumed here.
+	 * @description A setting shared by nested builder calls. When a parent builder asks for mock IDs, its child
+	 * builders get mock IDs too. TST_Builder.buildList() sets this flag and this class reads it.
 	 */
 	public static Boolean globalGenerateMockIds = false;
 
 	/**
-	 * @description System audit fields that are always registered as read-only overrides without
-	 * attempting a direct write. A user holding the CreateAuditFields permission makes these fields
-	 * insert-writable, so the put()-throws detection in putField/putSObject would silently write mock
-	 * audit values to the database instead of registering them for in-memory mocking.
+	 * @description System audit fields that are always stored as read-only values to apply in memory, and never
+	 * written directly. A user with the CreateAuditFields permission can set these fields on insert. For that user,
+	 * put() does not throw, and putField and putSObject use a throw from put() to spot a read-only field. Without
+	 * this list, fake audit values would then be saved to the database instead of being applied in memory only.
 	 */
 	private static final Set<String> AUDIT_FIELD_NAMES = new Set<String>
 	{
@@ -48,17 +47,22 @@ public inherited sharing class TST_BuilderInternal
 	};
 
 	/**
-	 * @description Every mock ID issued by MockIdProvider in this transaction, guarding it against
-	 * the birthday-collision odds of the four-character random ID suffix in large builds.
+	 * @description Every mock ID that MockIdProvider has handed out in this transaction. The random part of a mock ID
+	 * is only four characters long, so in a large build two records could get the same ID by chance. This set lets
+	 * the provider spot a repeat and pick again.
 	 */
 	private static final Set<Id> ISSUED_MOCK_IDS = new Set<Id>();
 
 	/**
 	 * @description Provides unique mock IDs for each record when building without insertion.
-	 * Implements DefaultFieldValueProvider to integrate with the existing default value machinery.
+	 * It extends DefaultFieldValueProvider so that it works with the existing code that fills default values.
 	 */
 	public class MockIdProvider extends TST_Builder.DefaultFieldValueProvider
 	{
+		/**
+		 * @description The object the mock Ids are made for. Each Id this provider returns is a random Id of this object, so it
+		 * carries the right key prefix for the record it is placed on.
+		 */
 		private final SObjectType objectType;
 
 		/**
@@ -72,8 +76,8 @@ public inherited sharing class TST_BuilderInternal
 		}
 
 		/**
-		 * @description Generates a unique mock ID for the specified record index, re-rolling on the
-		 * rare random collision so uniqueness holds across all MockIdProvider-issued IDs in the transaction.
+		 * @description Generates a unique mock ID for the specified record index. In the rare case that the random ID
+		 * was already handed out in this transaction, it picks a new one, so every mock ID stays unique.
 		 *
 		 * @param recordIndex The index of the record being created (not used, but required by interface).
 		 *
@@ -203,7 +207,8 @@ public inherited sharing class TST_BuilderInternal
 
 		/**
 		 * @description Generates a list of SObject instances with child relationships.
-		 * Uses a single UOW transaction for atomic insertion of parents and children.
+		 * Parents and children are saved in one unit of work: the set of records saved together in one transaction,
+		 * so either all are saved or none are.
 		 *
 		 * @param mapOfValuesOverride A map of values to override when instantiating the SObject.
 		 * @param doInsert If true, the SObject list and children are inserted into the Salesforce database.
@@ -237,10 +242,10 @@ public inherited sharing class TST_BuilderInternal
 			// Handle child relationships
 			if(doInsert)
 			{
-				// Single UOW transaction: register children with parent's UOW before commit
+				// One unit of work: add the children to the parents' unit of work before it saves
 				ChildRelationshipHelper helper = new ChildRelationshipHelper();
 				objectManager.registerChildren(parents, childRelationships, parentType, helper);
-				objectManager.insertAll(); // Commits both parents and children atomically
+				objectManager.insertAll(); // Saves parents and children together: all or none
 			}
 			else
 			{
@@ -521,7 +526,7 @@ public inherited sharing class TST_BuilderInternal
 		 *
 		 * @return The main SObject instance.
 		 */
-		@SuppressWarnings('PMD.ExcessiveParameterList')
+		@SuppressWarnings('PMD.ExcessiveParameterList,PMD.PrivateMethodParameterCap')
 		@TestVisible
 		private SObject putSObject
 				(
@@ -567,7 +572,7 @@ public inherited sharing class TST_BuilderInternal
 			DescribeFieldResult fieldDescribe = sObjDescribe.getFieldDescribe(objectField);
 
 			// MetadataRelationship fields to EntityDefinition don't expose a relationship name via describe.
-			// Derive it from the field name (e.g., SObjectType__c → SObjectType__r).
+			// Derive it from the field name (e.g., SObjectType__c becomes SObjectType__r).
 			String resolvedRelationshipName = fieldDescribe.getRelationshipName();
 			if(resolvedRelationshipName == null && fieldDescribe.getName().endsWith(UTIL_SObjectDescribe.CUSTOM_FIELD_SUFFIX))
 			{
@@ -575,8 +580,8 @@ public inherited sharing class TST_BuilderInternal
 						+ UTIL_SObjectDescribe.RELATIONSHIP_SUFFIX;
 			}
 
-			// Audit relationships become insert-writable for users holding CreateAuditFields, so the
-			// read-only detection below would silently link mock audit values into real DML.
+			// A user with CreateAuditFields can set audit lookups on insert, so the read-only check
+			// below would not catch them, and fake audit values would be linked into a real save.
 			if(AUDIT_FIELD_NAMES.contains(fieldDescribe.getName().toLowerCase()))
 			{
 				objectManager.registerReadOnlyOverride(recordIndex, errorMessageMergeValue, resolvedRelationshipName, sObjectValue);
@@ -592,7 +597,7 @@ public inherited sharing class TST_BuilderInternal
 			// DML will enforce system read-only constraints, which we handle via exceptions if they occur.
 			if(doInsert)
 			{
-				//Use the Unit of Work
+				//Use the unit of work, so the lookup is filled in when the parent is saved
 				objectManager.registerLink(sObjectValue, fieldDescribe.getSobjectField(), sObj);
 			}
 			else
@@ -666,8 +671,8 @@ public inherited sharing class TST_BuilderInternal
 
 			DescribeFieldResult fieldDescribe = sObjDescribe.getFieldDescribe(objectField);
 
-			// Audit fields become insert-writable for users holding CreateAuditFields, so the
-			// put()-throws detection below would silently send mock audit values to real DML.
+			// A user with CreateAuditFields can set audit fields on insert, so put() below would not throw,
+			// and fake audit values would be sent to a real save without anyone noticing.
 			if(AUDIT_FIELD_NAMES.contains(fieldDescribe.name.toLowerCase()))
 			{
 				objectManager.registerReadOnlyOverride(recordIndex, errorMessageMergeValue, fieldDescribe.name, fieldValue);
@@ -1057,13 +1062,13 @@ public inherited sharing class TST_BuilderInternal
 		}
 
 		/**
-		 * @description Registers child SObjects with relationships to their parents using the UOW.
-		 * This allows children to be inserted in the same transaction as parents.
+		 * @description Adds child SObjects to the unit of work, each linked to its parent.
+		 * This lets the children be inserted in the same transaction as the parents.
 		 *
-		 * @param parents List of parent SObjects (already registered with UOW but not yet inserted)
+		 * @param parents List of parent SObjects (already added to the unit of work but not yet inserted)
 		 * @param childRelationships Map of relationship names to child SObject lists
 		 * @param parentType The SObjectType of the parent
-		 * @param relationshipHelper Helper for schema introspection
+		 * @param relationshipHelper Helper that reads relationships from the object's schema
 		 */
 		public void registerChildren(List<SObject> parents, Map<String, List<SObject>> childRelationships, SObjectType parentType, ChildRelationshipHelper relationshipHelper)
 		{
@@ -1089,7 +1094,7 @@ public inherited sharing class TST_BuilderInternal
 
 		/**
 		 * @description Commits all registered SObjects and relationships to the database.
-		 * All registration logic now happens during the build phase.
+		 * Records and relationships are all added earlier, while the records are built.
 		 */
 		public void insertAll()
 		{
@@ -1103,6 +1108,13 @@ public inherited sharing class TST_BuilderInternal
 	 */
 	public inherited sharing class SObjectFactoryProvider implements TST_Builder.FactoryProvider
 	{
+		/**
+		 * @description Creates the package's standard SObjectFactory for the given SObject type.
+		 *
+		 * @param sObjectType The SObject type the factory builds records for.
+		 *
+		 * @return A new SObjectFactory bound to that type.
+		 */
 		public TST_Builder.Factory createFactory(SObjectType sObjectType)
 		{
 			return new SObjectFactory(sObjectType);
@@ -1110,7 +1122,7 @@ public inherited sharing class TST_BuilderInternal
 	}
 
 	/**
-	 * @description Helper method to convert the new simplified list
+	 * @description Turns the list of fields to fill with default values
 	 * into the override map the internal factory understands.
 	 *
 	 * @param fieldsToDefault A list of SObjectField tokens or String API names.
@@ -1167,7 +1179,7 @@ public inherited sharing class TST_BuilderInternal
 		 */
 		public String getChildRelationshipName(SObjectType parentType, SObjectType childType)
 		{
-			DescribeSObjectResult parentDescribe = parentType.getDescribe();
+			DescribeSObjectResult parentDescribe = UTIL_SObjectDescribe.getDescribe(parentType).getDescribe();
 			List<String> foundRelationships = new List<String>();
 
 			for(ChildRelationship relationship : parentDescribe.getChildRelationships())
@@ -1229,7 +1241,8 @@ public inherited sharing class TST_BuilderInternal
 
 		/**
 		 * @description Applies child relationships via JSON mocking (for withoutInsertion).
-		 * This allows child records to be accessible via relationship queries without DML.
+		 * This allows child records to be accessible via relationship queries without DML. When the parent carries an Id
+		 * (a mock Id), each child's lookup to the parent is set to that Id, as it would be on saved records.
 		 *
 		 * @param parents List of parent SObjects
 		 * @param childRelationships Map of relationship names to child SObject lists
@@ -1239,6 +1252,7 @@ public inherited sharing class TST_BuilderInternal
 		public List<SObject> applyChildRelationshipsViaJSON(List<SObject> parents, Map<String, List<SObject>> childRelationships)
 		{
 			List<SObject> result = new List<SObject>();
+			Map<String, String> foreignKeyFieldByRelationship = new Map<String, String>();
 
 			for(SObject parent : parents)
 			{
@@ -1249,12 +1263,27 @@ public inherited sharing class TST_BuilderInternal
 				for(String relationshipName : childRelationships.keySet())
 				{
 					List<SObject> children = childRelationships.get(relationshipName);
+					String foreignKeyField = null;
+
+					if(parent.Id != null)
+					{
+						if(!foreignKeyFieldByRelationship.containsKey(relationshipName))
+						{
+							foreignKeyFieldByRelationship.put(relationshipName, getForeignKeyField(parent.getSObjectType(), relationshipName));
+						}
+						foreignKeyField = foreignKeyFieldByRelationship.get(relationshipName);
+					}
 
 					// Serialize children to List<Map<String,Object>> for proper QueryResult format
 					List<Object> childrenMaps = new List<Object>();
 					for(SObject child : children)
 					{
-						childrenMaps.add(JSON.deserializeUntyped(JSON.serialize(child)));
+						Map<String, Object> childMap = (Map<String, Object>)JSON.deserializeUntyped(JSON.serialize(child));
+						if(foreignKeyField != null)
+						{
+							childMap.put(foreignKeyField, parent.Id);
+						}
+						childrenMaps.add(childMap);
 					}
 
 					// Add in QueryResult format

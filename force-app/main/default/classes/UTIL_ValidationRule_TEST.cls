@@ -9,9 +9,9 @@
  *
  * @group Validation
  *
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 private class UTIL_ValidationRule_TEST
 {
@@ -54,6 +54,10 @@ private class UTIL_ValidationRule_TEST
 	 * Must be at top level since inner classes cannot have static fields.
 	 */
 	private static Boolean bulkContextPreLoadWasCalled = false;
+	/**
+	 * @description How many new records TestBulkValidationContext.preLoad was handed. The test compares it with the
+	 * number of records it validated, to prove the bulk hook receives the whole batch in one call.
+	 */
 	private static Integer bulkContextPreLoadRecordCount = 0;
 
 	/**
@@ -2405,7 +2409,7 @@ private class UTIL_ValidationRule_TEST
 	{
 		// Setup - enable validation performance logging with 0ms threshold (log all)
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500, true, 0);
+		TST_Factory.newLoggerSettings().withValidationLogging(0).apply();
 
 		TriggerSetting__mdt triggerSetting = TST_Factory.newTriggerSetting(TEST_OBJECT_NAME);
 		ValidationRuleGroup__mdt ruleGroup = TST_Factory.newValidationRuleGroup(triggerSetting);
@@ -2440,7 +2444,7 @@ private class UTIL_ValidationRule_TEST
 	{
 		// Setup - DISABLE validation performance logging
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500, false, 0);
+		TST_Factory.setupLoggerForTest();
 
 		TriggerSetting__mdt triggerSetting = TST_Factory.newTriggerSetting(TEST_OBJECT_NAME);
 		ValidationRuleGroup__mdt ruleGroup = TST_Factory.newValidationRuleGroup(triggerSetting);
@@ -2475,7 +2479,7 @@ private class UTIL_ValidationRule_TEST
 	{
 		// Setup - enable validation logging with very high threshold (10 seconds)
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500, true, 10000);
+		TST_Factory.newLoggerSettings().withValidationLogging(10000).apply();
 
 		TriggerSetting__mdt triggerSetting = TST_Factory.newTriggerSetting(TEST_OBJECT_NAME);
 		ValidationRuleGroup__mdt ruleGroup = TST_Factory.newValidationRuleGroup(triggerSetting);
@@ -2914,6 +2918,12 @@ private class UTIL_ValidationRule_TEST
 		 */
 		public Foobar__c oldRecord;
 
+		/**
+		 * @description Records in the outer class's static tracking fields that the bulk hook ran and how many new records it received.
+		 *
+		 * @param newRecords The new records for the batch.
+		 * @param oldRecords The prior versions of those records; unused.
+		 */
 		public void preLoad(List<SObject> newRecords, List<SObject> oldRecords)
 		{
 			// Update outer class static variables
@@ -2921,6 +2931,12 @@ private class UTIL_ValidationRule_TEST
 			UTIL_ValidationRule_TEST.bulkContextPreLoadRecordCount = newRecords?.size() ?? 0;
 		}
 
+		/**
+		 * @description Stores the typed old and new Foobar__c records for the evaluation.
+		 *
+		 * @param oldRecord The record before the DML operation.
+		 * @param newRecord The record after the DML operation.
+		 */
 		public void setContext(SObject oldRecord, SObject newRecord)
 		{
 			this.oldRecord = (Foobar__c)oldRecord;

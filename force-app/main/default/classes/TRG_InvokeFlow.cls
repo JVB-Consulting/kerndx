@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
+
 /**
  * @description Trigger action that invokes an auto-launched Flow as a trigger callback.
  * Subscribers configure flow actions via `TriggerAction__mdt` records by setting
@@ -12,7 +13,7 @@
  * which is why the empty-string form is used.
  *
  * For each trigger record the framework constructs a per-record interview, supplies
- * `record` (in/out) and — for update contexts — `recordPrior` (in only), executes the
+ * `record` (in/out) and, for update contexts, `recordPrior` (in only), executes the
  * flow, and copies the populated fields from the flow's output `record` variable back
  * onto the trigger record via `getPopulatedFieldsAsMap()`. Test authors can register
  * canned responses via `TST_InvokeFlowMock.forFlow(name)...register()` to bypass the
@@ -26,7 +27,7 @@
  *
  * Audit emission is gated by `LogSetting__c.EnableFlowActionLogging__c` with three
  * values: `Off`, `ErrorsOnly` (default), `AlwaysOn`. Performance monitoring is
- * inherited from the dispatcher's existing `UTIL_TriggerPerformanceTimer` wrapping —
+ * inherited from the dispatcher's existing `UTIL_TriggerPerformanceTimer` wrapping;
  * `flowName` is appended automatically when present.
  *
  * @see TRG_InvokeFlow_TEST
@@ -38,13 +39,10 @@
  *
  * @group Triggers
  *
- * @date April 2026, June 2026
+ * @date April 2026, October 2026
  *
  * @since 1.0
  */
-// Suppressed because: framework-level dispatch action coordinates 7 IF_Trigger contexts plus the
-// IF_Trigger.Configurable hook plus dual-phase Flow.Interview catch — splitting further would
-// fragment the per-context branch table and obscure the per-record loop's audit-emit semantics.
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 				IF_Trigger.AfterDelete,
@@ -100,7 +98,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * @description Class+method location string used in `LOG_Builder.at(...)` calls.
 	 * Computed via `class.getName()` so the emitted `ClassMethod__c` is namespace-aware
 	 * (`TRG_InvokeFlow.run` in unmanaged dev orgs / `kern.TRG_InvokeFlow.run` in managed
-	 * subscriber installs) — matches the convention used across `LOG_Builder.at(...)`
+	 * subscriber installs). This matches the convention used across `LOG_Builder.at(...)`
 	 * sites elsewhere in the framework so downstream diagnostic queries resolve cleanly
 	 * in either context.
 	 */
@@ -121,7 +119,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * @description Maximum number of underlying record Ids surfaced in the CDC aggregate
 	 * audit's `CONTEXT_RECORD_IDS` payload. A single CDC dispatch can carry far more than
 	 * 200 underlying record Ids when multiple Change Event records aggregate into one
-	 * dispatch loop. The audit's purpose is "what was the dispatch targeting" — the first
+	 * dispatch loop. The audit's purpose is "what was the dispatch targeting": the first
 	 * MAX_AUDITED_IDS Ids surface in `CONTEXT_RECORD_IDS` for spot-checking while
 	 * `CONTEXT_RECORD_COUNT` carries the true uncapped total.
 	 */
@@ -131,7 +129,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * @description `errorKind` value tagged on the warning audit entry emitted when a
 	 * Change Event dispatch resolves a `BlockDml` failure policy. The framework cannot
 	 * actually call `record.addError(...)` on a Change Event record (the underlying change
-	 * has already committed — there is nothing to roll back), so the policy is degraded
+	 * has already committed, so there is nothing to roll back), so the policy is degraded
 	 * to `LogAndContinue` semantics and a distinct queryable signal is emitted naming the
 	 * degrade so subscribers can pivot diagnostic queries on the degrade event.
 	 */
@@ -143,7 +141,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * subscribers reading the log see why the configured `BlockDml` policy did not block.
 	 */
 	private static final String CDC_BLOCK_DML_DEGRADE_MESSAGE_TEMPLATE =
-			'BlockDml is not supported on Change Event dispatch (cannot roll back a committed change) — degraded to LogAndContinue: {0}';
+			'BlockDml is not supported on Change Event dispatch (cannot roll back a committed change). It is degraded to LogAndContinue: {0}';
 
 	/**
 	 * @description Discriminator distinguishing classes of flow-action failure for downstream
@@ -183,7 +181,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	private TriggerAction__mdt actionConfig;
 
 	/**
-	 * @description Test-only seam — when set to a non-null Exception, `invokeSingle` throws
+	 * @description Set only by a test. When set to a non-null Exception, `invokeSingle` throws
 	 * it instead of calling `Flow.Interview.createInterview`. Lets tests drive the
 	 * `catch(Exception unexpectedConfigError)` defense-in-depth branch without coercing
 	 * the platform Flow runtime into raising a non-`TypeException` class. Production
@@ -193,11 +191,11 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	private static Exception simulateCreateInterviewExceptionForTest = null;
 
 	/**
-	 * @description Test-only seam — when set to a non-null `DTO_ChangeEventHeader`,
+	 * @description Set only by a test. When set to a non-null `DTO_ChangeEventHeader`,
 	 * the CDC dispatch path uses it as the injected `header` flow input variable instead
-	 * of projecting one from the platform `EventBus.ChangeEventHeader` on the record.
+	 * of building one from the platform `EventBus.ChangeEventHeader` on the record.
 	 *
-	 * Why this seam exists: the production cast
+	 * Why this override exists: the production cast
 	 * `(EventBus.ChangeEventHeader)record.get('ChangeEventHeader')` works for real
 	 * platform-delivered Change Event records, but crashes the platform with
 	 * `UNKNOWN_EXCEPTION` (an uncatchable runtime error, not a normal Apex exception)
@@ -217,7 +215,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * Called exactly once by `TRG_Dispatcher` between `newInstance()` and the
 	 * trigger-context interface method, per `TriggerAction__mdt` row.
 	 *
-	 * Implementations MUST NOT mutate `config` — the dispatcher's recursion-identity
+	 * Implementations MUST NOT mutate `config`. The dispatcher's recursion-identity
 	 * fingerprint relies on `config.DeveloperName` being stable across the action's
 	 * lifetime. Subclasses overriding `setConfig` must call `super.setConfig(config)`
 	 * and treat the supplied row as read-only.
@@ -441,12 +439,12 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 		/**
 		 * @description Total records the dispatch is iterating, captured up-front. For CDC
 		 * dispatches this is the change-event record count (not the underlying record Id
-		 * count surfaced in the audit) — the audit uses `totalCdcRecordIdCount` instead.
+		 * count surfaced in the audit); the audit uses `totalCdcRecordIdCount` instead.
 		 */
 		final Integer recordCount;
 		/**
 		 * @description Ids the non-CDC dispatch attempted to process (excludes records without
-		 * an Id). Includes Ids whose invocation subsequently failed — `attempted` is a superset
+		 * an Id). Includes Ids whose invocation subsequently failed, so `attempted` is a superset
 		 * of `failed`. Unused for CDC dispatches; see `attemptedCdcRecordIds`.
 		 */
 		final List<Id> attemptedRecordIds;
@@ -469,7 +467,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 		Integer totalCdcRecordIdCount;
 		/**
 		 * @description Underlying record Ids surfaced in the CDC audit, capped at `MAX_AUDITED_IDS`.
-		 * The first N Ids encountered across all change-event records — `totalCdcRecordIdCount`
+		 * The first N Ids encountered across all change-event records; `totalCdcRecordIdCount`
 		 * carries the full count. Unused for non-CDC dispatches.
 		 */
 		final List<String> attemptedCdcRecordIds;
@@ -480,6 +478,13 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 		 */
 		Integer failedCdcRecordCount;
 
+		/**
+		 * @description Starts the statistics for one dispatch: records how many records the dispatch will go through (zero for a
+		 * null list), and starts every list empty and every counter at zero. The dispatch is treated as a normal trigger dispatch
+		 * until `run()` sets `isCdcDispatch`.
+		 *
+		 * @param drivingRecords The records the dispatch goes through; may be null.
+		 */
 		RunStats(List<SObject> drivingRecords)
 		{
 			attemptedCdcRecordIds = new List<String>();
@@ -497,7 +502,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * `TST_InvokeFlowMock` when a mock is registered for the flow name. Otherwise constructs a
 	 * `Flow.Interview` via the 3-arg form (with explicit namespace) and runs it. The 2-arg form
 	 * fails with `TypeException: Invalid type` when invoking managed-package flows across
-	 * namespace boundaries — the platform does not reliably auto-resolve the namespace from a
+	 * namespace boundaries, because the platform does not reliably auto-resolve the namespace from a
 	 * bare or pre-prefixed flow name. The 3-arg form with an empty-string namespace is safe;
 	 * only a literal `null` namespace triggers an uncatchable `System.UnexpectedException` on
 	 * `start()`.
@@ -514,10 +519,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 *
 	 * @return True when the flow completed without error, false otherwise.
 	 */
-	// Suppressed because: dual-phase Flow.Interview catch (createInterview lookup vs start runtime) +
-	// mock short-circuit + mock-result handling fan out to ~11 branches; combining them in one
-	// method keeps the read-flow linear so reviewers can trace the per-record happy/error path.
-	@SuppressWarnings('PMD.CyclomaticComplexity,PMD.ExcessiveParameterList')
+	@SuppressWarnings('PMD.CyclomaticComplexity,PMD.ExcessiveParameterList,PMD.PrivateMethodParameterCap')
 	private static Boolean invokeSingle(SObject record, SObject priorRecord, String flowName, String failureAction, Boolean isMocked, DTO_ChangeEventHeader changeEventHeader)
 	{
 		Boolean isChangeEvent = (changeEventHeader != null);
@@ -573,9 +575,9 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	}
 
 	/**
-	 * @description Projects the platform `EventBus.ChangeEventHeader` carried on a Change
-	 * Event SObject onto a Flow-accessible `DTO_ChangeEventHeader`. When
-	 * `simulateChangeEventHeaderForTest` is set, returns the simulated DTO instead — the
+	 * @description Copies the platform `EventBus.ChangeEventHeader` carried on a Change
+	 * Event SObject into a Flow-accessible `DTO_ChangeEventHeader`. When
+	 * `simulateChangeEventHeaderForTest` is set, returns the simulated DTO instead. The
 	 * production cast `(EventBus.ChangeEventHeader)record.get(...)` cannot be exercised
 	 * from unit-mode Apex tests because `TST_Builder`, `TST_Mock`, and raw `JSON.deserialize`
 	 * construct in-memory Change Event SObjects whose `ChangeEventHeader` field crashes
@@ -585,7 +587,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 *
 	 * @param record The Change Event SObject (e.g. `AccountChangeEvent`, `Foobar__ChangeEvent`).
 	 *
-	 * @return The projected `DTO_ChangeEventHeader` for injection as the `header` flow input variable.
+	 * @return The built `DTO_ChangeEventHeader` for injection as the `header` flow input variable.
 	 */
 	private static DTO_ChangeEventHeader buildChangeEventHeaderDto(SObject record)
 	{
@@ -676,14 +678,54 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	@SuppressWarnings('PMD.ExcessiveParameterList')
 	private class FailureContext
 	{
+		/**
+		 * @description The trigger record whose flow run failed. The error log entry is written against its Id, and under `BlockDml`
+		 * the error is added to this record so its save is blocked.
+		 */
 		final SObject record;
+		/**
+		 * @description The API name of the flow that failed. It appears in the error log entry and in the message shown when the
+		 * save is blocked.
+		 */
 		final String flowName;
+		/**
+		 * @description The `FailureAction__c` value in force for the dispatch. It decides whether the failure is only logged or
+		 * also blocks the save.
+		 */
 		final String failureAction;
+		/**
+		 * @description The text that describes the failure. It is logged as the error message and included in the message shown
+		 * when the save is blocked.
+		 */
 		final String errorMessage;
+		/**
+		 * @description The exception that caused the failure, logged in place of the plain message when present. Null when the
+		 * failure came from a mock result, which carries only a message.
+		 */
 		final Exception sourceException;
+		/**
+		 * @description Which kind of failure this is: the flow failed while it ran, its interview (the running copy of the flow)
+		 * could not be created because the flow is set up wrongly, or creating it failed for another reason. It is written to
+		 * the error log entry so the kinds can be told apart.
+		 */
 		final ErrorKind errorKind;
+		/**
+		 * @description True when the record is a Change Event. The underlying change is then already saved, so `BlockDml` cannot
+		 * block it and a warning is logged in its place.
+		 */
 		final Boolean isChangeEvent;
 
+		/**
+		 * @description Stores the details of one flow failure, unchanged, for the failure-routing helpers to read.
+		 *
+		 * @param record The trigger record whose flow run failed.
+		 * @param flowName The API name of the flow that failed.
+		 * @param failureAction The `FailureAction__c` value in force for the dispatch.
+		 * @param errorMessage The text that describes the failure.
+		 * @param sourceException The exception that caused the failure, or null when there is only a message.
+		 * @param errorKind Which of the three kinds of failure this is.
+		 * @param isChangeEvent True when the record is a Change Event.
+		 */
 		FailureContext(SObject record, String flowName, String failureAction, String errorMessage, Exception sourceException, ErrorKind errorKind, Boolean isChangeEvent)
 		{
 			this.record = record;
@@ -699,12 +741,12 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	/**
 	 * @description Copies the populated fields from the flow's output record onto the
 	 * trigger record. Uses `getPopulatedFieldsAsMap()` so only fields the flow assigned
-	 * are written back — fields the flow left untouched are preserved.
+	 * are written back; fields the flow left untouched are preserved.
 	 *
 	 * Two filters apply:
 	 * 1. **Typo guard.** Field names that don't exist on the trigger record's SObjectType are
 	 *    skipped. `UTIL_SObjectDescribe.getFieldDescribe(name)` returns null for non-existent
-	 *    fields and is namespace-aware — when the running Apex namespace differs from the
+	 *    fields and is namespace-aware: when the running Apex namespace differs from the
 	 *    record's namespace (managed-package vs subscriber org), the lookup resolves through the
 	 *    framework's request-cached describe wrapper rather than raw `Schema.fields.getMap()`.
 	 * 2. **Non-editability defense-in-depth.** `try { put } catch(SObjectException)` silences
@@ -713,7 +755,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 *    net for cases where the flow runtime returns the input record envelope with system
 	 *    fields populated even though the flow didn't assign them. We deliberately do NOT
 	 *    pre-filter on `isUpdateable()` because that flag also reflects the running user's
-	 *    FLS — and this framework's contract is "write what the flow assigns; let DML enforce
+	 *    FLS, and this framework's contract is "write what the flow assigns; let DML enforce
 	 *    FLS at the boundary".
 	 *
 	 * @param triggerRecord The trigger record receiving the field updates.
@@ -772,7 +814,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 * `BlockDml` calls `record.addError(...)` with `[flowName] errorMessage (record: id)`.
 	 *
 	 * For Change Event dispatches `BlockDml` is **degraded** to `LogAndContinue` semantics
-	 * because the underlying change has already committed by the time CDC fires — calling
+	 * because the underlying change has already committed by the time CDC fires; calling
 	 * `record.addError(...)` cannot roll back a committed change. The degrade emits a
 	 * distinct warning audit entry tagged `errorKind = cdc-block-dml-degraded` so
 	 * subscribers can pivot queries on the policy switch.
@@ -854,7 +896,7 @@ public inherited sharing class TRG_InvokeFlow extends TRG_Base implements
 	 *
 	 * Modes:
 	 * - `Off`: no entries.
-	 * - `ErrorsOnly` (default): no entries — the per-record error entries emitted via
+	 * - `ErrorsOnly` (default): no entries here; the per-record error entries emitted via
 	 *   `emitErrorEntry` carry the audit signal.
 	 * - `AlwaysOn`: a single per-batch summary entry covering every record processed
 	 *   (success + failure), summarising counts.

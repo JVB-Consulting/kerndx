@@ -4,9 +4,11 @@
  * @description Full Documentation Build Orchestrator
  *
  * For CI/CD or manual full rebuilds. This script:
- * 1. Cleans existing output directories
- * 2. (Optional) Generates HTML via IcApexDoc if available
- * 3. Converts HTML to Markdown
+ * 1. (Optional) Generates HTML via IcApexDoc if available, replacing the previous export
+ * 2. Sets the Markdown reference directory aside, only once the export holds HTML to convert
+ * 3. Converts HTML to Markdown, then removes the set-aside pages; a failed conversion puts them back
+ *
+ * With neither an export nor IcApexDoc, it changes nothing and exits non-zero.
  *
  * Cross-platform compatible (Windows, macOS, Linux).
  *
@@ -39,6 +41,9 @@ const DEFAULT_CONFIG = {
 
 	/** Markdown reference output directory */
 	referenceDir: './docs/reference',
+
+	/** Where the previous reference pages wait while a conversion runs, so a failed one can put them back */
+	referenceBackupDir: './docs/reference.previous',
 
 	/** Path to the SFDX project file */
 	projectFile: './sfdx-project.json',
@@ -183,36 +188,71 @@ class DocsBuilder
 	}
 
 	/**
-	 * Step 1: Clean output directories
-	 * Preserves curated index.md if it exists (contains hand-written content)
-	 * @returns {{apexdocRemoved: boolean, referenceRemoved: boolean, indexPreserved: boolean}}
+	 * @description Whether the ApexDoc export is in place: the export folder exists and holds at least one HTML file.
+	 *              The build checks this before it sets the reference pages aside, so they are only replaced, never lost.
+	 * @returns {boolean} True when the export folder holds at least one HTML file.
 	 */
-	cleanDirectories()
+	hasApexDocExport()
 	{
-		this.log.step(1, 'Cleaning output directories...');
-
-		const apexdocExisted = this.fs.existsSync(this.config.apexdocDir);
-		removeDir(this.config.apexdocDir, this.fs);
-		this.log.info(`  Removed: ${this.config.apexdocDir}`);
-
-		const referenceExisted = this.fs.existsSync(this.config.referenceDir);
-		removeDir(this.config.referenceDir, this.fs);
-		this.log.info(`  Removed: ${this.config.referenceDir}`);
-
-		this.log.success('Clean complete');
-
-		return {apexdocRemoved: apexdocExisted, referenceRemoved: referenceExisted};
+		return this.fs.existsSync(this.config.apexdocDir) && this.fs.readdirSync(this.config.apexdocDir).some(file => file.endsWith('.html'));
 	}
 
 	/**
-	 * Step 2: Generate HTML via IcApexDoc (if available)
-	 * @returns {Promise<{attempted: boolean, success: boolean}>}
+	 * @description Whether the IcApexDoc command-line tool is installed, so the build can generate the export itself.
+	 * @returns {boolean} True when the tool's binary exists under the configured IcApexDoc home.
+	 */
+	isIcApexDocAvailable()
+	{
+		const icApexDocHome = this.env[this.config.icApexDocHomeEnv] || this.config.defaultIcApexDocHome;
+		return Boolean(icApexDocHome) && this.fs.existsSync(getIcApexDocBinary(icApexDocHome, this.platform));
+	}
+
+	/**
+	 * @description Step 2: renames the reference pages to the backup folder so the conversion writes them fresh. The
+	 *              build calls it only once the export is known to hold HTML to convert and no earlier backup is left,
+	 *              and puts the backup back if the conversion fails.
+	 * @returns {{referenceSetAside: boolean}} Whether there were reference pages to set aside.
+	 */
+	setReferenceDirectoryAside()
+	{
+		this.log.step(2, 'Setting the current reference pages aside...');
+
+		const referenceExisted = this.fs.existsSync(this.config.referenceDir);
+		if(referenceExisted)
+		{
+			this.fs.renameSync(this.config.referenceDir, this.config.referenceBackupDir);
+			this.log.info(`  Moved: ${this.config.referenceDir} to ${this.config.referenceBackupDir}`);
+		}
+
+		return {referenceSetAside: referenceExisted};
+	}
+
+	/**
+	 * @description After a failed conversion: removes whatever partial output it wrote and renames the backup back, so
+	 *              the reference pages are the ones the build started with. With no backup (a first build), the partial
+	 *              output is simply removed.
+	 * @param {boolean} referenceSetAside - Whether the build set previous reference pages aside.
+	 */
+	restoreReferenceDirectory(referenceSetAside)
+	{
+		removeDir(this.config.referenceDir, this.fs);
+		if(referenceSetAside)
+		{
+			this.fs.renameSync(this.config.referenceBackupDir, this.config.referenceDir);
+		}
+	}
+
+	/**
+	 * @description Step 1: generates the ApexDoc HTML with IcApexDoc when the tool and an org login are available. The
+	 *              previous export is deleted only just before the tool writes a new one, so a skipped generation leaves
+	 *              it in place to be converted.
+	 * @returns {Promise<{attempted: boolean, success: boolean}>} Whether the tool ran and whether it finished cleanly.
 	 */
 	generateHtml()
 	{
 		return new Promise((resolve) =>
 		{
-			this.log.step(2, 'Checking for IcApexDoc...');
+			this.log.step(1, 'Checking for IcApexDoc...');
 
 			const icApexDocHome = this.env[this.config.icApexDocHomeEnv] || this.config.defaultIcApexDocHome;
 
@@ -249,7 +289,8 @@ class DocsBuilder
 			this.log.info(`  Org: ${this.config.orgAlias} (${sfUsername})`);
 			this.log.info('  Generating ApexDoc HTML...');
 
-			// Ensure output directory exists
+			// Replace the previous export with a fresh one
+			removeDir(this.config.apexdocDir, this.fs);
 			this.fs.mkdirSync(this.config.apexdocDir, {recursive: true});
 
 			// Build command arguments
@@ -374,17 +415,53 @@ class DocsBuilder
 
 		try
 		{
-			// Step 1: Clean
-			steps.clean = this.cleanDirectories();
+			if(this.fs.existsSync(this.config.referenceBackupDir))
+			{
+				this.log.error(`${this.config.referenceBackupDir} holds the pages a previous run set aside; restore or remove it by hand, then build again.`);
+				return {success: false, steps, reason: 'backup_present'};
+			}
+
+			if(!this.isIcApexDocAvailable() && !this.hasApexDocExport())
+			{
+				this.log.error(`This script needs the ApexDoc export the IDE writes to ${this.config.apexdocDir}, or the IcApexDoc command-line tool to generate it; `
+						+ `neither was found, so ${this.config.referenceDir} is unchanged.`);
+				return {success: false, steps, reason: 'no_apexdoc_export'};
+			}
+
+			// Step 1: Generate (optional)
+			steps.generate = await this.generateHtml();
 			this.log.info('');
 
-			// Step 2: Generate (optional)
-			steps.generate = await this.generateHtml();
+			if(steps.generate.attempted && !steps.generate.success)
+			{
+				this.log.error(`IcApexDoc did not finish, so ${this.config.referenceDir} is unchanged.`);
+				return {success: false, steps, reason: 'generation_failed'};
+			}
+
+			if(!this.hasApexDocExport())
+			{
+				this.log.error(`${this.config.apexdocDir} holds no HTML file to convert, so ${this.config.referenceDir} is unchanged.`);
+				return {success: false, steps, reason: 'no_html_to_convert'};
+			}
+
+			// Step 2: Set the reference pages aside, now that there is HTML to replace them with
+			steps.clean = this.setReferenceDirectoryAside();
 			this.log.info('');
 
 			// Step 3: Convert
 			steps.convert = await this.convertToMarkdown();
 			this.log.info('');
+
+			if(!steps.convert.success)
+			{
+				this.restoreReferenceDirectory(steps.clean.referenceSetAside);
+				this.log.error(steps.clean.referenceSetAside
+						? `The conversion failed, so the previous pages in ${this.config.referenceDir} were kept.`
+						: `The conversion failed, so its partial output in ${this.config.referenceDir} was removed.`);
+				return {success: false, steps, reason: 'conversion_failed'};
+			}
+
+			removeDir(this.config.referenceBackupDir, this.fs);
 
 			// Summary
 			const totalTime = Date.now() - startTime;

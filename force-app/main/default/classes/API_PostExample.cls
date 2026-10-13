@@ -8,12 +8,20 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class API_PostExample extends API_Outbound
 {
+	/**
+	 * @description The name of the title property in the request and response JSON. Nothing in this class reads it; it is visible to
+	 * tests so they can name the property without repeating the literal.
+	 */
 	@TestVisible
 	private static final String TITLE_FIELD_NAME = 'title';
+	/**
+	 * @description The name of the caller-supplied parameter whose value becomes the request title. Visible to tests so they can
+	 * supply the parameter under the same name the request reads.
+	 */
 	@TestVisible
 	private static final String PARAMETER_NAME = 'foo';
 
@@ -63,13 +71,29 @@ public inherited sharing class API_PostExample extends API_Outbound
 	/**
 	 * @description Example request object that can serialize to Json
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Request extends DTO_JsonBase
 	{
+		/**
+		 * @description The body text sent to the example service. Given a random value when the request is populated.
+		 */
 		private String body;
+		/**
+		 * @description The title sent to the example service: the value of the PARAMETER_NAME parameter when the caller supplied
+		 * parameters, otherwise the record Id.
+		 */
 		private String title;
+		/**
+		 * @description The user number sent to the example service. Given a random value when the request is populated.
+		 */
 		private Integer userId;
 
+		/**
+		 * @description Runs the base population for the record, then gives the user id and body random values so every example call
+		 * carries a distinct payload.
+		 *
+		 * @param recordId The Id of the record the request is built from.
+		 */
 		public override void populate(Id recordId)
 		{
 			super.populate(recordId);
@@ -78,6 +102,13 @@ public inherited sharing class API_PostExample extends API_Outbound
 			body = UTIL_Random.randomDescription();
 		}
 
+		/**
+		 * @description Runs the base population for the record and parameters, then takes the title from the PARAMETER_NAME parameter
+		 * when the caller supplied any parameters and falls back to the record Id otherwise.
+		 *
+		 * @param recordId The Id of the record the request is built from.
+		 * @param dtoRequestParameters The name-value parameters supplied by the caller; may be empty.
+		 */
 		public override void populate(Id recordId, DTO_NameValues dtoRequestParameters)
 		{
 			super.populate(recordId, dtoRequestParameters);
@@ -92,9 +123,22 @@ public inherited sharing class API_PostExample extends API_Outbound
 	@SuppressWarnings('ApexUnusedDeclaration,ApexControlFlowAnalysis')
 	public class DTO_Response extends DTO_JsonBase
 	{
+		/**
+		 * @description The body text the example service returned. Filled when the response JSON is read; nothing in this class reads it.
+		 */
 		private String body;
+		/**
+		 * @description The title the example service returned. Filled when the response JSON is read; nothing in this class reads it.
+		 */
 		private String title;
+		/**
+		 * @description The user number the example service returned. Filled when the response JSON is read; nothing in this class reads it.
+		 */
 		private Integer userId;
+		/**
+		 * @description The number the example service gave the post it created. Filled when the response JSON is read; nothing in this
+		 * class reads it.
+		 */
 		private Integer id;
 
 		/**
