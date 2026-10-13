@@ -123,7 +123,9 @@ For more detail, keep reading the sections below.
     - [What Masking Is Not](#what-masking-is-not)
     - [Configuring Masking](#configuring-masking)
     - [Secret Scanning in CI](#secret-scanning-in-ci)
-12. [Record Sharing](#record-sharing)
+12. [Who runs a scheduled job](#who-runs-a-scheduled-job)
+13. [Record Sharing](#record-sharing)
+    - [Who can see the framework's own records?](#who-can-see-the-frameworks-own-records)
     - [Sharing Architecture](#sharing-architecture)
         - [Sharing Control Points](#sharing-control-points)
         - [Class Hierarchy](#class-hierarchy)
@@ -153,7 +155,7 @@ For more detail, keep reading the sections below.
     - [Testing Sharing Behavior](#testing-sharing-behavior)
         - [Testing with Different Users](#testing-with-different-users)
         - [Verifying Sharing Enforcement](#verifying-sharing-enforcement)
-13. [Sharing Rules & Access](#sharing-rules--access)
+14. [Sharing Rules & Access](#sharing-rules--access)
     - [Security vs Sharing](#security-vs-sharing)
         - [Field-Level Security (FLS)](#field-level-security-fls)
         - [Object-Level Security (CRUD)](#object-level-security-crud)
@@ -169,17 +171,17 @@ For more detail, keep reading the sections below.
         - [When to Bypass Sharing](#when-to-bypass-sharing)
         - [When to Enforce Sharing](#when-to-enforce-sharing)
         - [Cache Security](#cache-security)
-14. [Security Governance Evidence](#security-governance-evidence)
+15. [Security Governance Evidence](#security-governance-evidence)
     - [Masking Configuration as a Version-Controlled Record](#masking-configuration-as-a-version-controlled-record)
     - [Access-Review Primitives](#access-review-primitives)
-15. [Security Boundaries and Portal Hardening](#security-boundaries-and-portal-hardening)
+16. [Security Boundaries and Portal Hardening](#security-boundaries-and-portal-hardening)
     - [Parameter-Based Record Access in Portals](#parameter-based-record-access-in-portals)
     - [Flow Input-Variable Hygiene](#flow-input-variable-hygiene)
     - [What KernDX Does Not Monitor](#what-kerndx-does-not-monitor)
-16. [Testing](#testing)
-17. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
-18. [Anti-Patterns](#anti-patterns)
-19. [Best Practices](#best-practices)
+17. [Testing](#testing)
+18. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
+19. [Anti-Patterns](#anti-patterns)
+20. [Best Practices](#best-practices)
     - [Always Enforce CRUD/FLS in User-Facing Code](#always-enforce-crudfls-in-user-facing-code)
     - [Handle Security Exceptions Gracefully](#handle-security-exceptions-gracefully)
     - [Encrypt Sensitive Data in Transit](#encrypt-sensitive-data-in-transit)
@@ -194,11 +196,11 @@ For more detail, keep reading the sections below.
     - [Combine Sharing with FLS/CRUD Checks](#combine-sharing-with-flscrud-checks)
     - [Test Sharing Behavior](#test-sharing-behavior)
     - [Audit Sharing Bypasses](#audit-sharing-bypasses)
-20. [Quick Reference](#quick-reference)
+21. [Quick Reference](#quick-reference)
     - [Encryption/Decryption](#encryptiondecryption)
     - [Sharing Reference Table](#sharing-reference-table)
     - [Common Patterns](#common-patterns)
-21. [Related Documentation](#related-documentation)
+22. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -861,9 +863,81 @@ Runtime masking keeps secrets out of your *data*. A separate control, this one r
 
 ---
 
+## Who runs a scheduled job
+
+A scheduled job in its own mode runs as the user who saved its record, which is how the platform works. A job on the [job runner](Async%20Processing%20-%20Guide.md#running-many-jobs-on-one-job-runner)
+runs as the user who activated the runner in Health Check, because that user owns the runner's scheduled jobs. That is why putting a
+job on the runner, changing the class or parameters of a job already on it, running it now, and activating, repairing or deactivating
+the runner all need the Manage Job Runner permission: without it, anyone who could edit a schedule record could run code as a more
+privileged user. Grant the permission through the Kern Job Runner Management permission set, which ships assigned to nobody. The
+set also lets its holder open the Scheduled Jobs tab and create and edit scheduled jobs, but not delete them or change how a run
+went, and record sharing still decides which jobs they can edit. Activate the runner as an integration user that holds that set
+and the permissions every job needs, and Health Check will tell you if that user is ever deactivated.
+
+Running a failed API call again by hand works the same way. The Retry action on an API issue, the resolve action and the bulk retry
+(Retry Selected on the API Issues list) all run a failed call again, which can make an external system act a second time, so they
+need the Retry API Issue permission. Grant it through the Kern API Issue Resolver permission set, which ships assigned to nobody;
+the Kern Administrator set grants it too. The resolver set also lets its holder read every API issue and every API call (View All
+Records, so they see records other users made, which are otherwise private to their owner), so give it only to people who may see
+those calls. It grants no edit or delete access: the three retry actions mark an issue resolved for the resolver, and only after
+checking the Retry API Issue permission.
+
+Deleting an API call or an API issue needs the **Delete API Records** permission, which the Kern Administrator set carries.
+These records are the history of calls to and from other systems, so the package refuses the delete to anyone else, a resolver
+included, with a message that says so. A scheduled purge of old API calls or API issues must run as a person who may delete them.
+Who that is, and how you widen it, is in [Who can see the framework's own records?](#who-can-see-the-frameworks-own-records).
+
+The runner's own records are managed by Health Check only. A save re-owns a record's scheduled job to the saving user, so if those
+records could be edited elsewhere a later edit would silently change who every job on the runner runs as.
+
 ## Record Sharing
 
 In plain Apex, you decide whether a class respects sharing rules when you write it, by declaring `with sharing`, `without sharing`, or `inherited sharing` on the class. You cannot change that decision later. KernDX lets you **choose the sharing behaviour when the code runs** instead, so the same logic can enforce sharing for a UI user and bypass it for a system batch. This section covers that runtime control over Salesforce [sharing rules](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_security_sharing_rules.htm), and the small "proxy" class pattern that makes it possible.
+
+### Who can see the framework's own records?
+
+The framework saves four kinds of record of its own. All four are private by default, so a person sees a record only when they own it, sit above
+the owner in the role hierarchy, or hold View All Records on the object.
+
+| Object                                           | Sharing default | Who owns a record                                                                  |
+|--------------------------------------------------|-----------------|------------------------------------------------------------------------------------|
+| API Call (`ApiCall__c`)                          | Private         | The user whose transaction made the call                                           |
+| API Issue (`ApiIssue__c`)                        | Private         | The user whose transaction made the failed call                                    |
+| Log Entry (`LogEntry__c`)                        | Private         | The automated user that saves log entries in the background, so no person owns one |
+| Async Chain Execution (`AsyncChainExecution__c`) | Private         | The user whose transaction started the chain                                       |
+
+The **Kern Administrator** permission set includes View All Records on these objects, so your administrators see every record. The **Kern API
+Issue Resolver** permission set includes View All Records on API issues and API calls, so your support team sees every issue and call without a
+sharing rule, as the [Web Services Guide](Web%20Services%20-%20Guide.md#failures-and-retries) describes.
+
+One feature flag, `BypassApiRecordDeleteGuard`, decides who may delete an API call or an API issue. It decides for every way in: a
+record page, a flow, your own Apex and the scheduled purge alike. A built-in rule turns the flag on for every user who holds the Delete
+API Records permission, so your administrators can delete with nothing to set up. You do not see that rule in Setup, because it ships
+as a protected record of the package.
+
+- **To let more people delete**, add a `FeatureFlagStrategy__mdt` record (a row that says who a flag applies to) for a profile, a
+  permission set or one user.
+- **To let everyone delete**, set **Result On No Match** on the flag record to true. **Is Enabled By Default** has no effect on
+  this flag: a flag reads it only when it has no strategy records, and this one always has the built-in rule.
+- **If you deactivate the flag record**, nobody can delete an API call or an API issue, your administrators included, and every
+  scheduled purge of them deletes nothing. The Data Retention check on the Health Check page warns you when that happens.
+
+Record sharing and object permissions still apply on top of the flag: a person the flag is on for deletes only the records Salesforce
+already lets them delete.
+
+These defaults are what a new install gets. An upgrade never changes your org's sharing default, so an org that has had the package for a while may
+still show **Public Read/Write** for API Issue or Log Entry. Check under **Sharing Settings**, **Organization-Wide Defaults**, and set them to
+**Private** when you choose; the permission sets above keep your administrators and resolvers seeing every record.
+
+Some framework screens read every user's records on purpose, whatever the sharing default:
+
+- **The Log Console** lists, counts and groups every log entry. A log entry is owned by the background process that saved it, so a read limited
+  to your own records would show nothing at all. This is safe because the package gives access to the console only through the **Kern
+  Administrator** permission set, and that set already includes View All on log entries.
+- **The Chain Monitor's log stream and a scheduled job's last-run entry** show the log entries of the one chain or job on screen. They read
+  only for a user who may read log entries at all.
+- **The Health Check's Data Retention warning** counts every record of each object. A count shows no record's content, and the check is about
+  how much data your whole org holds.
 
 ### Sharing Architecture
 
@@ -1060,13 +1134,13 @@ For about 95% of queries, [`QRY_Builder`](reference/apex/QRY_Builder.md) (the fl
 
 ##### Security Method Summary
 
-| Method                | Effect                                                                            | When to Use                                                             |
-|-----------------------|-----------------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| `withUserMode()`      | Runs in USER_MODE (enforces CRUD, FLS, sharing at DB level)                       | User-facing code requiring full security                                |
-| `stripInaccessible()` | Removes inaccessible fields from results post-query                               | When null values for inaccessible fields are problematic                |
-| `withSharing()`       | Uses `with sharing` proxy class                                                   | Enforce sharing in SYSTEM_MODE queries                                  |
-| `bypassSharing()`     | Uses `without sharing` proxy class                                                | Bypass sharing in SYSTEM_MODE (use with caution)                        |
-| `withoutSecurity()`   | Clears USER_MODE, strip, and sharing selections (SYSTEM_MODE + inherited sharing) | System-level queries that must opt out of the secure-by-default posture |
+| Method                | Effect                                                                                                                        | When to Use                                                                                 |
+|-----------------------|-------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `withUserMode()`      | Runs in USER_MODE (enforces CRUD, FLS, sharing at DB level)                                                                   | User-facing code requiring full security                                                    |
+| `stripInaccessible()` | Removes inaccessible fields from results post-query                                                                           | When null values for inaccessible fields are problematic                                    |
+| `withSharing()`       | Uses `with sharing` proxy class                                                                                               | Enforce sharing in SYSTEM_MODE queries                                                      |
+| `bypassSharing()`     | Uses `without sharing` proxy class                                                                                            | Bypass sharing in SYSTEM_MODE (use with caution)                                            |
+| `withoutSecurity()`   | Waives object and field checks AND record sharing in one call (SYSTEM_MODE plus the sharing bypass); ignores the flag default | System-level reads that must span every record; audited as both a mode and a sharing bypass |
 
 ##### Default Behaviour
 
@@ -1124,6 +1198,13 @@ List<Account> fullSecurityAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.stripInaccessible()
 	.toList();
 ```
+
+**Profile Filtering.** With the Enable Profile Filtering release update on, which Salesforce enforces in Winter '27, a user without the View All Profiles permission
+sees only their own profile: a query on `Profile` returns one row, and another user's `Profile.Name` reads back as null. The framework's profile-targeted feature
+flags and its `kern.SEL_Profile` and `kern.SEL_User` selectors read profiles in system mode, so what they see does not change. Your own Apex that reads another
+user's profile name runs in user mode on API version 67.0 or later and, for a user without that permission, gets no row or a null name, silently. When the code must
+see the profile whatever permissions the running user has, read it through `kern.SEL_User`, which selects `Profile.Name` on every user it returns, or through
+`kern.SEL_Profile`, or with `Database.query(soql, AccessLevel.SYSTEM_MODE)`.
 
 ### Configuring Sharing at Runtime
 
@@ -1198,9 +1279,9 @@ List<Account> allAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.bypassSharing()
 	.toList();
 
-// Clear all previously-chained security selections on this builder
-// (falls back to SYSTEM_MODE + inherited sharing — opts out of USER_MODE even when the flag is true)
-List<Account> defaultedAccounts = QRY_Builder.selectFrom(Account.SObjectType)
+// Waive every security check on this builder in one call
+// (SYSTEM_MODE with record sharing bypassed, audited as both; opts out of USER_MODE even when the flag is true)
+List<Account> allAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<String>{'Id', 'Name', 'Industry'})
 	.withoutSecurity()
 	.toList();
@@ -1241,6 +1322,12 @@ List<SObject> tempShares = UTIL_Sharing.grantTemporary(accounts, groupId, 'Read'
 ```
 
 The framework creates the right Share records with `BYPASS` sharing mode, so the operation succeeds no matter what permissions the calling user has on Share objects.
+
+**Sharing recalculation can run in the background.** After a large change to groups or roles, Salesforce may recalculate the affected share records asynchronously
+rather than before the transaction returns (the "Update Apex Code and Flows for Changed Sharing Recalculation Behavior" release update, available since Spring '26
+and enforced in Spring '27). The framework's own share records are written directly, so they are unaffected. Your own Apex, flows and tests might: code that changes
+a user's group or role and then, in the same transaction, expects a record to be visible through the resulting share will see the old answer once the update is on.
+Move that expectation to a later transaction, or assert on the membership row rather than on visibility.
 
 ### Classes with Explicit Sharing Declarations
 
@@ -1818,6 +1905,12 @@ An autolaunched flow invoked from a portal, guest, or community context carries 
 untrusted. Where the flow calls Apex, route that Apex through `QRY_Builder` / `DML_Builder` in `USER_MODE` so access is enforced on the running user
 rather than on the flow's running context. Never pass an input Id straight into a system-mode query. Scope the input variable to the records the flow is meant
 to touch, and validate it before acting on it.
+
+The framework does not change a flow's run context: a flow launched from Apex, a trigger action included, inherits its
+caller's system context even when it is configured to run in user context. On API version 68.0 or later, saving the flow with the User Context–Enforces User Permissions
+option makes it run with the running user's access level whatever launched it; the
+[Triggers guide](Triggers%20-%20Guide.md#which-users-permissions-does-the-flow-run-with) explains when that is the right
+choice for a trigger action.
 
 ### What KernDX Does Not Monitor
 

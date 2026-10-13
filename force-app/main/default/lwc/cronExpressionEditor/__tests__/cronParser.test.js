@@ -4,12 +4,12 @@
  *              Tests parseCronExpression, buildCronExpression, and describeCronExpression.
  *
  * @author Jason van Beukering
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 
-// PLAN-111: resolve every CronExpressionEditor_* label to its real value so the existing
-// exact-string assertions verify byte-faithful interpolation (labels otherwise resolve to
-// 'c.X' in jest). Generated from the same ledger as the CustomLabels entries.
+// Resolve every CronExpressionEditor_* label to its real value, so the exact-string
+// assertions check that values are inserted into the text exactly (in jest a label otherwise
+// resolves to 'c.X'). The values are copied from the CustomLabels entries.
 jest.mock('@salesforce/label/c.CronExpressionEditor_FreqEveryNMinutes', () => ({default: 'Every N Minutes'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_FreqHourly', () => ({default: 'Hourly'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_FreqDaily', () => ({default: 'Daily'}), {virtual: true});
@@ -71,7 +71,16 @@ jest.mock('@salesforce/label/c.CronExpressionEditor_DescInMonthSuffix', () => ({
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescNearestWeekday', () => ({default: 'Nearest weekday to day {0} of every month{1} at {2}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescMonthlyOnDay', () => ({default: 'Monthly on day {0}{1} at {2}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_ValSeconds', () => ({default: 'Enter 0-59'}), {virtual: true});
-jest.mock('@salesforce/label/c.CronExpressionEditor_ValMinutes', () => ({default: 'Enter 0-59, *, */N, N/N, or comma/range lists'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValMinutes',
+		() => ({default: 'Enter one minute, 0 to 59. A scheduled job runs at most once an hour, so this field cannot take *, a step such as */15, or a list such as 0,30.'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValMinutesJobRunner',
+		() => ({default: 'Enter minutes 0 to 59, *, a step such as */15, a range such as 0-30, or a list such as 0,30. The job runner accepts them all.'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescEveryNMinutesOnRunner', () => ({default: '{0} on this job runner'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescFirstCheckOnOrAfter', () => ({default: 'Runs at the first job runner check on or after each scheduled time'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_IntervalActivateFirstNote', () => ({default: 'Activate the job runner in Health Check first; until then the job waits.'}),
+		{virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_ValHours', () => ({default: 'Enter 0-23, *, */N, N/N, or comma/range lists'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_ValDayOfMonth', () => ({default: 'Enter 1-31, *, ?, L, W, LW, */N, N/N, or comma/range lists'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_ValMonth', () => ({default: 'Enter 1-12, *, JAN-DEC, or comma/range lists'}), {virtual: true});
@@ -95,58 +104,36 @@ import {parseCronExpression, buildCronExpression, describeCronExpression, valida
 
 describe('cronParser', () =>
 {
+	// The minutes field takes a single number in the editor's own mode, so a step, a list and a range are
+	// read the way the job runner reads them, the mode where that grammar is allowed.
+	const JOB_RUNNER_OPTIONS = {jobRunnerMode: true};
+
 	describe('parseCronExpression', () =>
 	{
 		describe('every N minutes preset', () =>
 		{
-			it('parses */5 minute interval', () =>
+			it('never parses a stepped minutes field into a preset in own mode', () =>
 			{
-				let result = parseCronExpression('0 */5 * * * ?');
-				expect(result.mode).toBe('preset');
-				expect(result.preset.frequency).toBe('everyNMinutes');
-				expect(result.preset.minuteInterval).toBe('5');
-				expect(result.isValid).toBe(true);
+				let expressions = [
+					'0 */5 * * * ?',
+					'0 */15 * * * ?',
+					'0 */30 * * * ?',
+					'0 */5 * ? * *',
+					'0 0/15 * * * ?'
+				];
+				let outcomes = expressions.map((expression) =>
+				{
+					let result = parseCronExpression(expression);
+					return {expression, mode: result.mode, minutes: result.advanced && result.advanced.minutes};
+				});
+				expect(outcomes).toEqual(expressions.map((expression) => ({expression, mode: 'advanced', minutes: expression.split(' ')[1]})));
 			});
 
-			it('parses */10 minute interval', () =>
+			it('parses a stepped minutes field into the Every N Minutes preset on the job runner', () =>
 			{
-				let result = parseCronExpression('0 */10 * * * ?');
-				expect(result.preset.minuteInterval).toBe('10');
-			});
-
-			it('parses */15 minute interval', () =>
-			{
-				let result = parseCronExpression('0 */15 * * * ?');
-				expect(result.preset.minuteInterval).toBe('15');
-			});
-
-			it('parses */30 minute interval', () =>
-			{
-				let result = parseCronExpression('0 */30 * * * ?');
-				expect(result.preset.minuteInterval).toBe('30');
-			});
-
-			it('parses everyNMinutes with dayOfMonth as ? and dayOfWeek as *', () =>
-			{
-				let result = parseCronExpression('0 */5 * ? * *');
-				expect(result.mode).toBe('preset');
-				expect(result.preset.frequency).toBe('everyNMinutes');
-			});
-
-			it('normalises 0/5 to */5 and matches everyNMinutes preset', () =>
-			{
-				let result = parseCronExpression('0 0/5 * * * ?');
-				expect(result.mode).toBe('preset');
-				expect(result.preset.frequency).toBe('everyNMinutes');
-				expect(result.preset.minuteInterval).toBe('5');
-			});
-
-			it('normalises 0/15 to */15 and matches everyNMinutes preset', () =>
-			{
-				let result = parseCronExpression('0 0/15 * * * ?');
-				expect(result.mode).toBe('preset');
-				expect(result.preset.frequency).toBe('everyNMinutes');
-				expect(result.preset.minuteInterval).toBe('15');
+				expect(parseCronExpression('0 */15 * * * ?', JOB_RUNNER_OPTIONS).preset).toEqual({frequency: 'everyNMinutes', minuteInterval: '15'});
+				expect(parseCronExpression('0 0/5 * * * ?', JOB_RUNNER_OPTIONS).preset).toEqual({frequency: 'everyNMinutes', minuteInterval: '5'});
+				expect(parseCronExpression('0 */7 * * * ?', JOB_RUNNER_OPTIONS).mode).toBe('advanced');
 			});
 
 			it('falls back to advanced for unsupported interval like */7', () =>
@@ -583,24 +570,24 @@ describe('cronParser', () =>
 	{
 		describe('every N minutes patterns', () =>
 		{
-			it('describes */5 pattern', () =>
+			it('returns a stepped minutes expression unchanged in own mode', () =>
 			{
-				expect(describeCronExpression('0 */5 * * * ?')).toBe('Every 5 minutes');
+				expect(describeCronExpression('0 */5 * * * ?')).toBe('0 */5 * * * ?');
+				expect(describeCronExpression('0 0/15 * * * ?')).toBe('0 0/15 * * * ?');
 			});
 
-			it('describes */15 pattern', () =>
+			it('describes the effective interval on the job runner', () =>
 			{
-				expect(describeCronExpression('0 */15 * * * ?')).toBe('Every 15 minutes');
+				expect(describeCronExpression('0 */5 * * * ?', {jobRunnerMode: true, activeCheckIntervalMinutes: 15})).toBe('Every 15 minutes on this job runner');
+				expect(describeCronExpression('0 */30 * * * ?', {jobRunnerMode: true, activeCheckIntervalMinutes: 15})).toBe('Every 30 minutes on this job runner');
+				expect(describeCronExpression('0 */5 * * * ?', {jobRunnerMode: true})).toBe('Every 5 minutes');
 			});
 
-			it('describes 0/5 pattern same as */5', () =>
+			it('notes the first check on or after a time that is not on a check', () =>
 			{
-				expect(describeCronExpression('0 0/5 * * * ?')).toBe('Every 5 minutes');
-			});
-
-			it('describes 0/15 pattern same as */15', () =>
-			{
-				expect(describeCronExpression('0 0/15 * * * ?')).toBe('Every 15 minutes');
+				expect(describeCronExpression('0 17 9 * * ?', {jobRunnerMode: true, activeCheckIntervalMinutes: 15}))
+				.toBe('Every day at 9:17 AM. Runs at the first job runner check on or after each scheduled time');
+				expect(describeCronExpression('0 15 9 * * ?', {jobRunnerMode: true, activeCheckIntervalMinutes: 15})).toBe('Every day at 9:15 AM');
 			});
 		});
 
@@ -864,7 +851,7 @@ describe('cronParser', () =>
 
 	describe('validateCronField semantic validation', () =>
 	{
-		describe('step validation (Bug 1)', () =>
+		describe('step validation', () =>
 		{
 			it('rejects */0 step in hours', () =>
 			{
@@ -875,14 +862,14 @@ describe('cronParser', () =>
 
 			it('rejects */0 step in minutes', () =>
 			{
-				let result = validateCronField('minutes', '*/0');
+				let result = validateCronField('minutes', '*/0', JOB_RUNNER_OPTIONS);
 				expect(result.isValid).toBe(false);
 				expect(result.errorMessage).toContain('Step value must be at least 1');
 			});
 
 			it('rejects 5/0 step', () =>
 			{
-				let result = validateCronField('minutes', '5/0');
+				let result = validateCronField('minutes', '5/0', JOB_RUNNER_OPTIONS);
 				expect(result.isValid).toBe(false);
 				expect(result.errorMessage).toContain('Step value must be at least 1');
 			});
@@ -906,20 +893,20 @@ describe('cronParser', () =>
 
 			it('rejects step exceeding max for minutes', () =>
 			{
-				let result = validateCronField('minutes', '*/60');
+				let result = validateCronField('minutes', '*/60', JOB_RUNNER_OPTIONS);
 				expect(result.isValid).toBe(false);
 				expect(result.errorMessage).toContain('exceeds maximum');
 			});
 
 			it('rejects out-of-range base in step expression', () =>
 			{
-				let result = validateCronField('minutes', '60/2');
+				let result = validateCronField('minutes', '60/2', JOB_RUNNER_OPTIONS);
 				expect(result.isValid).toBe(false);
 				expect(result.errorMessage).toContain('out of range');
 			});
 		});
 
-		describe('list range validation (Bug 2)', () =>
+		describe('list range validation', () =>
 		{
 			it('rejects out-of-range value in hours list', () =>
 			{
@@ -930,7 +917,7 @@ describe('cronParser', () =>
 
 			it('rejects out-of-range value in minutes list', () =>
 			{
-				let result = validateCronField('minutes', '0,1,2,60');
+				let result = validateCronField('minutes', '0,1,2,60', JOB_RUNNER_OPTIONS);
 				expect(result.isValid).toBe(false);
 				expect(result.errorMessage).toContain('out of range');
 			});
@@ -949,7 +936,7 @@ describe('cronParser', () =>
 
 			it('accepts all-in-range minutes list', () =>
 			{
-				expect(validateCronField('minutes', '0,15,30,45').isValid).toBe(true);
+				expect(validateCronField('minutes', '0,15,30,45', JOB_RUNNER_OPTIONS).isValid).toBe(true);
 			});
 
 			it('accepts all-in-range dayOfMonth list', () =>
@@ -958,7 +945,7 @@ describe('cronParser', () =>
 			});
 		});
 
-		describe('empty comma elements (Bug 3)', () =>
+		describe('empty comma elements', () =>
 		{
 			it('rejects comma-only input in hours', () =>
 			{
@@ -968,28 +955,28 @@ describe('cronParser', () =>
 
 			it('rejects leading comma in minutes', () =>
 			{
-				let result = validateCronField('minutes', ',5');
+				let result = validateCronField('minutes', ',5', JOB_RUNNER_OPTIONS);
 				expect(result.isValid).toBe(false);
 			});
 
 			it('rejects trailing comma in minutes', () =>
 			{
-				let result = validateCronField('minutes', '5,');
+				let result = validateCronField('minutes', '5,', JOB_RUNNER_OPTIONS);
 				expect(result.isValid).toBe(false);
 			});
 
 			it('rejects empty element between commas', () =>
 			{
-				let result = validateCronField('minutes', '1,,3');
+				let result = validateCronField('minutes', '1,,3', JOB_RUNNER_OPTIONS);
 				expect(result.isValid).toBe(false);
 			});
 		});
 
-		describe('reversed ranges (Bug 8)', () =>
+		describe('reversed ranges', () =>
 		{
 			it('rejects reversed range in minutes', () =>
 			{
-				let result = validateCronField('minutes', '59-0');
+				let result = validateCronField('minutes', '59-0', JOB_RUNNER_OPTIONS);
 				expect(result.isValid).toBe(false);
 				expect(result.errorMessage).toContain('start must not exceed end');
 			});
@@ -1010,12 +997,12 @@ describe('cronParser', () =>
 
 			it('accepts valid range in minutes', () =>
 			{
-				expect(validateCronField('minutes', '0-30').isValid).toBe(true);
+				expect(validateCronField('minutes', '0-30', JOB_RUNNER_OPTIONS).isValid).toBe(true);
 			});
 
 			it('accepts equal endpoints in range', () =>
 			{
-				expect(validateCronField('minutes', '5-5').isValid).toBe(true);
+				expect(validateCronField('minutes', '5-5', JOB_RUNNER_OPTIONS).isValid).toBe(true);
 			});
 		});
 
@@ -1190,36 +1177,36 @@ describe('cronParser', () =>
 
 			it('rejects reversed range', () =>
 			{
-				let result = validateCronExpression('0 59-0 12 * * ?');
+				let result = validateCronExpression('0 59-0 12 * * ?', JOB_RUNNER_OPTIONS);
 				expect(result.isValid).toBe(false);
 				expect(result.errorMessage).toContain('start must not exceed end');
 			});
 		});
 
-		describe('cross-field validation (Bugs 4, 5, 6)', () =>
+		describe('cross-field validation', () =>
 		{
-			it('rejects both day fields as ? (Bug 4)', () =>
+			it('rejects both day fields as ?', () =>
 			{
 				let result = validateCronExpression('0 0 9 ? * ?');
 				expect(result.isValid).toBe(false);
 				expect(result.errorMessage).toContain('both cannot be ?');
 			});
 
-			it('rejects both day fields as * (Bug 5)', () =>
+			it('rejects both day fields as *', () =>
 			{
 				let result = validateCronExpression('0 0 9 * * *');
 				expect(result.isValid).toBe(false);
 				expect(result.errorMessage).toContain('set one field to ?');
 			});
 
-			it('rejects both day fields with concrete values — named day (Bug 6)', () =>
+			it('rejects both day fields with concrete values: named day', () =>
 			{
 				let result = validateCronExpression('0 0 12 15 * MON');
 				expect(result.isValid).toBe(false);
 				expect(result.errorMessage).toContain('set one field to ?');
 			});
 
-			it('rejects both day fields with concrete values — numeric day (Bug 6)', () =>
+			it('rejects both day fields with concrete values: numeric day', () =>
 			{
 				let result = validateCronExpression('0 0 12 15 * 2');
 				expect(result.isValid).toBe(false);

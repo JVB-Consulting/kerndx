@@ -5,18 +5,24 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2026, July 2026
+ * @date February 2026, September 2026
  */
 import {ComponentBuilder} from 'c/componentBuilder';
+import LightningConfirm from 'lightning/confirm';
 import ClassTypeResolverSetupModal from 'c/classTypeResolverSetupModal';
 import ApplyRetentionModal from 'c/applyRetentionModal';
 import ScheduledJobEditorModal from 'c/scheduledJobEditorModal';
 import ScheduleChainWatchdogModal from 'c/scheduleChainWatchdogModal';
+import ActivateJobRunnerModal from 'c/activateJobRunnerModal';
 import runHealthChecks from '@salesforce/apex/CTRL_HealthCheck.runHealthChecks';
 import getRetentionProposals from '@salesforce/apex/CTRL_HealthCheck.getRetentionProposals';
 import applyRetentionRecommendations from '@salesforce/apex/CTRL_HealthCheck.applyRetentionRecommendations';
 import getChainWatchdogProposal from '@salesforce/apex/CTRL_HealthCheck.getChainWatchdogProposal';
 import scheduleChainWatchdog from '@salesforce/apex/CTRL_HealthCheck.scheduleChainWatchdog';
+import getJobRunnerStatus from '@salesforce/apex/CTRL_HealthCheck.getJobRunnerStatus';
+import activateJobRunner from '@salesforce/apex/CTRL_HealthCheck.activateJobRunner';
+import repairJobRunner from '@salesforce/apex/CTRL_HealthCheck.repairJobRunner';
+import deactivateJobRunner from '@salesforce/apex/CTRL_HealthCheck.deactivateJobRunner';
 import CARD_TITLE from '@salesforce/label/c.HealthCheck_CardTitle';
 import REFRESH_ALT_TEXT from '@salesforce/label/c.HealthCheck_RefreshAltText';
 import ALL_PASS_HEADING from '@salesforce/label/c.HealthCheck_AllPassHeading';
@@ -55,6 +61,17 @@ import RECORD_COUNT_PLURAL from '@salesforce/label/c.HealthCheck_DataRetention_R
 import DAY_SUFFIX from '@salesforce/label/c.HealthCheck_DataRetention_DaySuffix';
 import CLASS_TYPE_RESOLVER_MODAL_TITLE from '@salesforce/label/c.ClassTypeResolverModal_Title';
 import SCHEDULED_JOB_CREATE_TITLE from '@salesforce/label/c.ScheduledJob_NewTitle';
+import CHECK_JOB_RUNNER from '@salesforce/label/c.HealthCheck_JobRunner_CheckName';
+import CHECK_JOB_RUNNER_ORPHANED from '@salesforce/label/c.HealthCheck_JobRunner_Orphaned_CheckName';
+import CHECK_JOB_RUNNER_CAPACITY from '@salesforce/label/c.HealthCheck_JobRunner_Capacity_CheckName';
+import JOB_RUNNER_CARD_TITLE from '@salesforce/label/c.HealthCheck_JobRunner_CardTitle';
+import JOB_RUNNER_ACTIVATE_BUTTON from '@salesforce/label/c.HealthCheck_JobRunner_ActivateButton';
+import JOB_RUNNER_REPAIR_BUTTON from '@salesforce/label/c.HealthCheck_JobRunner_RepairButton';
+import JOB_RUNNER_MODAL_TITLE from '@salesforce/label/c.HealthCheck_JobRunner_ModalTitle';
+import JOB_RUNNER_ACTIVATED from '@salesforce/label/c.HealthCheck_JobRunner_Activated';
+import JOB_RUNNER_REPAIRED from '@salesforce/label/c.HealthCheck_JobRunner_Repaired';
+import JOB_RUNNER_DEACTIVATED from '@salesforce/label/c.HealthCheck_JobRunner_Deactivated';
+import JOB_RUNNER_DEACTIVATE_CONFIRM from '@salesforce/label/c.HealthCheck_JobRunner_DeactivateConfirm';
 import {formatTemplateString} from 'c/utilityString';
 
 const PARAMETER_OBJECT_NAME = 'objectName';
@@ -64,6 +81,12 @@ const DATA_MASKING_ADVISOR_TAB = 'DataMaskingAdvisor';
 // auto-runs the coverage scan on arrival rather than leaving the admin to press "Scan N" again.
 const ADVISOR_SCAN_STATE_KEY = 'c__scan';
 const ADVISOR_SCAN_STATE_VALUE = '1';
+// The three results the job runner reports. Each one carries its own remedy button instead of the generic action button.
+const JOB_RUNNER_CHECK_NAMES = new Set([
+	CHECK_JOB_RUNNER,
+	CHECK_JOB_RUNNER_ORPHANED,
+	CHECK_JOB_RUNNER_CAPACITY
+]);
 
 export default class HealthCheck extends ComponentBuilder('controller', 'notification', 'navigation')
 {
@@ -73,6 +96,7 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 	hasFailures = false;
 	isCustomizeMode = false;
 	retentionProposals = [];
+	jobRunnerStatus;
 
 	labels = {
 		cardTitle: CARD_TITLE,
@@ -193,7 +217,15 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 	{
 		this.isLoading = true;
 
-		const data = await this.callControllerMethod(runHealthChecks);
+		// The job runner card sits beside the checks, so its status is read in the same round trip
+		// rather than after it. A failed status read is toasted by callControllerMethod and leaves
+		// the card showing what it last knew.
+		const [data, status] = await Promise.all([
+			this.callControllerMethod(runHealthChecks),
+			this.callControllerMethod(getJobRunnerStatus)
+		]);
+
+		this.jobRunnerStatus = status || this.jobRunnerStatus;
 
 		if(data)
 		{
@@ -204,6 +236,8 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 				failed: item.status === 'Fail',
 				isDataRetention: item.name === CHECK_DATA_RETENTION,
 				isChainWatchdog: item.name === CHECK_CHAIN_WATCHDOG,
+				isJobRunner: JOB_RUNNER_CHECK_NAMES.has(item.name),
+				jobRunnerRemedyLabel: this.getJobRunnerRemedyLabel(item.name),
 				iconName: this.getIconName(item.status),
 				iconVariant: this.getIconVariant(item.status)
 			}));
@@ -441,6 +475,132 @@ export default class HealthCheck extends ComponentBuilder('controller', 'notific
 		});
 
 		await this.runChecks();
+	}
+
+	/**
+	 * @description The button a job-runner result row offers, if any. The waiting-jobs row activates a
+	 *              runner; the job runner row repairs the one the org has. The capacity row returns
+	 *              null: its sentences already say what to do, and replacing scheduled jobs that are in
+	 *              order would not help.
+	 *
+	 * @param {string} resultName The name of the job-runner result.
+	 *
+	 * @return {string|null} The button label, or null when the row carries no button.
+	 */
+	getJobRunnerRemedyLabel(resultName)
+	{
+		if(resultName === CHECK_JOB_RUNNER_ORPHANED)
+		{
+			return JOB_RUNNER_ACTIVATE_BUTTON;
+		}
+
+		if(resultName === CHECK_JOB_RUNNER)
+		{
+			return JOB_RUNNER_REPAIR_BUTTON;
+		}
+
+		return null;
+	}
+
+	/**
+	 * @description Handles the remedy button on a job-runner result row. The waiting-jobs row means no
+	 *              runner is active, so its button activates one; every other job-runner row repairs the
+	 *              runner it already has.
+	 *
+	 * @param {Event} event Click event from the remedy button (carries data-name with the result name).
+	 *
+	 * @return {Promise<void>} Resolves after the activate-or-repair flow completes.
+	 */
+	async handleJobRunnerRemedy(event)
+	{
+		if(event.currentTarget.dataset.name === CHECK_JOB_RUNNER_ORPHANED)
+		{
+			await this.handleActivateJobRunner();
+			return;
+		}
+
+		await this.handleRepairJobRunner();
+	}
+
+	/**
+	 * @description Opens the Activate dialogue and, on confirm, activates the job runner at the chosen
+	 *              check interval, then re-runs the checks so every job-runner row and the card follow.
+	 *
+	 * @return {Promise<void>} Resolves after the activate-and-refresh flow completes.
+	 */
+	async handleActivateJobRunner()
+	{
+		const result = await ActivateJobRunnerModal.open({size: 'small', label: JOB_RUNNER_MODAL_TITLE, runningUserName: this.jobRunnerStatus?.runningUserName});
+
+		if(result?.action !== 'confirm')
+		{
+			return;
+		}
+
+		const status = await this.callControllerMethod(activateJobRunner, {intervalMinutes: Number(result.intervalMinutes)});
+
+		// callControllerMethod resolves undefined after surfacing a refused activation as an error toast.
+		if(!status)
+		{
+			return;
+		}
+
+		await this.runChecks();
+		this.showSuccessToast(formatTemplateString(JOB_RUNNER_ACTIVATED, [status.checkIntervalMinutes]));
+	}
+
+	/**
+	 * @description Replaces the job runner's scheduled jobs, then re-runs the checks.
+	 *
+	 * @return {Promise<void>} Resolves after the repair-and-refresh flow completes.
+	 */
+	async handleRepairJobRunner()
+	{
+		// Repair derives the check interval from the existing runner records; with none, the controller
+		// would ask for one, so open the picker instead.
+		if(!this.jobRunnerStatus || !this.jobRunnerStatus.runnerRecordCount)
+		{
+			await this.handleActivateJobRunner();
+			return;
+		}
+
+		const status = await this.callControllerMethod(repairJobRunner);
+
+		// callControllerMethod resolves undefined after surfacing a refused repair as an error toast.
+		if(!status)
+		{
+			return;
+		}
+
+		await this.runChecks();
+		this.showSuccessToast(JOB_RUNNER_REPAIRED);
+	}
+
+	/**
+	 * @description Asks for confirmation, because deactivating stops every job set to run on the runner,
+	 *              and on OK deactivates it and re-runs the checks.
+	 *
+	 * @return {Promise<void>} Resolves after the deactivate-and-refresh flow completes.
+	 */
+	async handleDeactivateJobRunner()
+	{
+		const confirmed = await LightningConfirm.open({message: JOB_RUNNER_DEACTIVATE_CONFIRM, label: JOB_RUNNER_CARD_TITLE, theme: 'warning'});
+
+		if(!confirmed)
+		{
+			return;
+		}
+
+		const status = await this.callControllerMethod(deactivateJobRunner);
+
+		// callControllerMethod resolves undefined after surfacing a refused deactivation as an error toast.
+		if(!status)
+		{
+			return;
+		}
+
+		await this.runChecks();
+		this.showSuccessToast(JOB_RUNNER_DEACTIVATED);
 	}
 
 	/**

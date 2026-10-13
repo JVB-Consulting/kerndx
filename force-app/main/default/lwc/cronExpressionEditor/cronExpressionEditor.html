@@ -15,6 +15,10 @@
 								value={presetMinuteInterval}></lightning-combobox>
 		</template>
 
+		<template lwc:if={showActivateFirstNote}>
+			<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_xx-small" data-testid="interval-activate-first-note">{label.intervalActivateFirstNote}</p>
+		</template>
+
 		<template lwc:if={isHourly}>
 			<lightning-combobox label={label.atMinute} name="presetMinute" onchange={handlePresetMinuteChange} options={minutesOptions} value={presetMinute}></lightning-combobox>
 		</template>
@@ -53,7 +57,8 @@
 									value={advancedSeconds}></lightning-combobox>
 			</lightning-layout-item>
 			<lightning-layout-item padding="horizontal-small" size="4">
-				<lightning-input field-level-help="0-59, *, */N" label={label.minutes} name="minutes" onchange={handleAdvancedMinutesChange} type="text"
+				<!-- i18n-allow: field-level-help is a cron-syntax token list, not translatable prose -->
+				<lightning-input field-level-help={minutesHelp} label={label.minutes} name="minutes" onchange={handleAdvancedMinutesChange} type="text"
 								 value={advancedMinutes}></lightning-input>
 			</lightning-layout-item>
 			<lightning-layout-item padding="horizontal-small" size="4">
@@ -90,12 +95,12 @@
 		<span class="slds-form-element__label">{label.preview}</span>
 		<div class="slds-form-element__control">
 			<span class="slds-form-element__static expression">{currentExpression}</span>
-			<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_xxx-small">{cronDescription}</p>
+			<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_xxx-small" data-testid="cron-description-preview">{cronDescription}</p>
 		</div>
 	</div>
 
 	<template lwc:if={showValidationError}>
-		<div class="slds-notify slds-notify_alert slds-alert_error slds-var-m-top_small" role="alert">
+		<div data-testid="cron-validation-error" class="slds-notify slds-notify_alert slds-alert_error slds-var-m-top_small" role="alert">
 			<lightning-icon alternative-text="Error" icon-name="utility:error" size="x-small" variant="inverse"></lightning-icon>
 			<span class="slds-var-m-left_x-small">{validationMessage}</span>
 		</div>

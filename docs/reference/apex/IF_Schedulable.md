@@ -22,7 +22,7 @@ global interface IF_Schedulable implements Schedulable
 
 **Implements:** [Schedulable](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_schedulable.htm)
 
-**Known Derived Types:** [SCHED_Base](SCHED_Base.md), [SCHED_ChainWatchdog](SCHED_ChainWatchdog.md), [SCHED_DeactivateUsers](SCHED_DeactivateUsers.md), [SCHED_PurgeRecords](SCHED_PurgeRecords.md), [SCHED_Base.getParameterDefinitions()](SCHED_Base.md#getparameterdefinitions), [SCHED_Base.setParameterValues(DTO_NameValues)](SCHED_Base.md#setparametervalues)
+**Known Derived Types:** [SCHED_Base](SCHED_Base.md), [SCHED_ChainWatchdog](SCHED_ChainWatchdog.md), [SCHED_DeactivateUsers](SCHED_DeactivateUsers.md), [SCHED_JobRunner](SCHED_JobRunner.md), [SCHED_PurgeRecords](SCHED_PurgeRecords.md), [SCHED_Base.getParameterDefinitions()](SCHED_Base.md#getparameterdefinitions), [SCHED_Base.setParameterValues(DTO_NameValues)](SCHED_Base.md#setparametervalues)
 
 An interface for a Schedulable class that can declare the parameters it supports and receive validated parameter values at scheduling time. Enables dynamic form rendering in the scheduledJobEditor LWC and required parameter validation by the trigger framework. Implementors have two paths: Extend SCHED_Base for built-in typed parameter resolution, default values, and accessors. Implement IF_Schedulable directly on an existing Schedulable class for full control.
 

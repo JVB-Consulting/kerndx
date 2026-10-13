@@ -1,0 +1,9 @@
+{
+	"guides": ["docs/Set Up Your Computer.md", "docs/Installation.md", "docs/Fast Start - Trigger Actions.md", "docs/Fast Start - Feature Flags.md", "docs/Fast Start - Outbound APIs.md", "docs/Fast Start - Inbound APIs.md", "docs/Fast Start - Selectors.md", "docs/Fast Start - DML.md", "docs/Fast Start - Security.md", "docs/Fast Start - Custom Validations.md", "docs/Fast Start - Data Masking.md", "docs/Fast Start - LWC.md", "docs/Fast Start - Code Scanning.md", "docs/Fast Start - E2E Testing.md", "docs/Fast Start - Logging.md", "docs/Fast Start - Resilience.md", "docs/Fast Start - Async Processing.md", "docs/Fast Start - Scheduled Jobs.md", "docs/Fast Start - Test Data.md", "docs/Code Scanning - Guide.md", "docs/Documentation Site - Guide.md", "docs/E2E Testing - Guide.md", "docs/Feature Flags - Guide.md", "docs/LWC - Guide.md", "docs/Test Data - Guide.md", "docs/Utilities - Guide.md", "docs/Data Masking - Guide.md"],
+	"surfaces": [
+		{"file": "bin/README.md"},
+		{"file": "mirror-content/README.public.md"},
+		{"generated": "INSTALL-PIPELINE.md"}
+	],
+	"mentions": ["npm ci", "npm run scan:flow-references", "sf project generate", "sf package create", "git checkout", "sf package version create", "sf org list", "sf apex run test", "npx playwright test", "npm run test:e2e", "sf code-analyzer", "sf org open --url-only", "sf org open -o OrgAlias --url-only -r", "sf org open -o <alias> --url-only -r", "sf org display -o <alias> --json", "sf apex run -o <alias> -f <file>", "sf data query --json", "sf data create record", "sf data delete record", "sf project deploy start -o <alias> -d <sourcePath>", "sf org login sfdx-url", "npm run docs:build", "npm run test:e2e -- --list"]
+}

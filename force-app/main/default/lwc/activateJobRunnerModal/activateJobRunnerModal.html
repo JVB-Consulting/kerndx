@@ -1,0 +1,20 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-modal-header data-testid="activate-job-runner-title" label={labels.title}></lightning-modal-header>
+	<lightning-modal-body>
+		<div class="slds-var-p-around_medium" data-testid="activate-job-runner-root">
+			<p class="slds-var-m-bottom_small" data-testid="activate-job-runner-subtitle">{labels.subtitle}</p>
+			<div class="slds-size_1-of-2">
+				<lightning-combobox data-testid="activate-job-runner-check-interval" label={labels.checkInterval} onchange={handleCheckIntervalChange}
+									options={checkIntervalOptions} value={selectedIntervalMinutes}></lightning-combobox>
+			</div>
+			<template lwc:if={showRunsAsNote}>
+				<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_small" data-testid="activate-job-runner-runs-as">{runsAsNote}</p>
+			</template>
+		</div>
+	</lightning-modal-body>
+	<lightning-modal-footer>
+		<lightning-button class="slds-var-m-right_x-small" data-testid="cancel-button" label={labels.cancel} onclick={handleCancel}></lightning-button>
+		<lightning-button data-testid="activate-job-runner-confirm" label={labels.confirm} onclick={handleConfirm} variant="brand"></lightning-button>
+	</lightning-modal-footer>
+</template>

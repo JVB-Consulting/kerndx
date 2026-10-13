@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 const {defineConfig} = require('@playwright/test');
 const path = require('path');
+const {authPathsFor} = require('./helpers/auth-paths');
 
 const sharedUse = {
 	browserName: 'chromium',
 	headless: true,
-	storageState: path.join(__dirname, '.auth', 'state.json'),
+	// The run's own org folder: global-setup signs in to SF_SUBSCRIBER_ORG_ALIAS and saves the session there.
+	storageState: authPathsFor().statePath,
 	// Pin the browser clock to the scratch-org user's Salesforce timezone (America/Los_Angeles
 	// is the scratch-org default). The Log Console computes its date presets from the browser
 	// clock, so part10's midnight-straddle probe (V108) is only coherent when browser and
@@ -29,7 +31,7 @@ const sharedUse = {
 // Running them on separate workers therefore races: part4's V15 can be mid-save when a
 // part1 cleanup fires, and the detail page V15 was waiting for never renders. Both files
 // already declare `test.describe.serial(...)` so tests within each file are ordered;
-// running the two files in a single-worker `scheduler-serial` project extends that
+// running the three files in a single-worker `scheduler-serial` project extends that
 // serialisation across files too, without losing parallelism on the other independent
 // specs (part2 / part3 / part7 / part8 / part9 / part10) that don't touch scheduled jobs.
 //
@@ -38,8 +40,24 @@ const sharedUse = {
 // launched (and its beforeAll finished) before part10 starts. part10 then seeds its own
 // LogEntry fixtures in its OWN beforeAll — after additionally waiting out any still-running
 // kern batch — so the purge can never race the seeded rows away mid-spec.
-const schedulerSerialMatch = /part(1|4)-.*\.spec\.js$/;
+//
+// part11 (job-runner) also runs in `scheduler-serial`: it changes org state (job-runner
+// records) that other parts assume absent, so it needs the same single-worker serialisation.
+//
+// part12 (consoles-at-volume) runs in its OWN `volume` project, never `independent`. Its
+// `beforeAll` lays a staged load on one worker for about twenty minutes while `independent`'s
+// other worker would otherwise run part7 through part10 beside it; the seed writes engine rows
+// (and the operate wave's launches) with `StartedAt` at or near now, in bursts far larger than
+// anything the other independent specs tolerate. part8's `selectRowByChainName` reads the
+// UNSCOPED Chain Monitor's first page (the twenty newest-first rows, no name search) at nine
+// sites, so a part8 fixture selected while the seed is writing can be pushed off page one by
+// those newer rows and the journey fails. Giving part12 its own single-worker project after
+// `independent` keeps part8 (and the other independent specs) clear of the seed's rows, and
+// `dependencies: ['independent']` keeps part1's purge ordered before part12's seed the same
+// way it always has.
+const schedulerSerialMatch = /part(1|4|11)-.*\.spec\.js$/;
 const independentMatch = /part(2|3|7|8|9|10)-.*\.spec\.js$/;
+const volumeMatch = /part12-.*\.spec\.js$/;
 const streamingMatch = /part(5|6)-.*\.spec\.js$/;
 
 module.exports = defineConfig({
@@ -54,7 +72,10 @@ module.exports = defineConfig({
 			name: 'independent', testMatch: independentMatch, fullyParallel: true, workers: 2, retries: 1, dependencies: ['scheduler-serial'], use: sharedUse
 		},
 		{
-			name: 'streaming-serial', testMatch: streamingMatch, fullyParallel: false, workers: 1, retries: 0, dependencies: ['independent'], use: sharedUse
+			name: 'volume', testMatch: volumeMatch, fullyParallel: false, workers: 1, retries: 1, dependencies: ['independent'], use: sharedUse
+		},
+		{
+			name: 'streaming-serial', testMatch: streamingMatch, fullyParallel: false, workers: 1, retries: 0, dependencies: ['volume'], use: sharedUse
 		},
 		// The media-capture projects are NOT release gates: they record hero videos/stills and
 		// carry their own seeded-state assumptions (the 2026-07-26 full release run failed 2

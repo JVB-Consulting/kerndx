@@ -3,7 +3,7 @@
  * @description Constants and option arrays for the cron expression editor.
  *              All values constrained to what Salesforce System.schedule() accepts.
  *
- * @date March 2026, May 2026
+ * @date March 2026, September 2026
  */
 import FREQ_EVERY_N_MINUTES from '@salesforce/label/c.CronExpressionEditor_FreqEveryNMinutes';
 import FREQ_HOURLY from '@salesforce/label/c.CronExpressionEditor_FreqHourly';

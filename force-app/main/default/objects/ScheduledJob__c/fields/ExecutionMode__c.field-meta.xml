@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ExecutionMode__c</fullName>
+    <description>Where this job runs. Its own scheduled job (the default) gives the record one platform scheduled job of its own. Job runner puts the record on the shared runner, which checks it every few minutes and starts it when it is due, costing no scheduled-job slot of its own. Blank means its own scheduled job.</description>
+    <inlineHelpText>Its own scheduled job: uses one of the org's 100 scheduled-job slots and runs at most once an hour. Job runner: uses no slot, can run every few minutes (for example */15), and runs as the user who activated the runner in Health Check. Needs the Manage Job Runner permission.</inlineHelpText>
+    <label>Execution Mode</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>OwnScheduledJob</fullName>
+                <default>true</default>
+                <label>Its own scheduled job</label>
+            </value>
+            <value>
+                <fullName>JobRunner</fullName>
+                <default>false</default>
+                <label>Job runner</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

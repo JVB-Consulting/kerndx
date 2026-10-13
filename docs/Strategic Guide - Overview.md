@@ -55,7 +55,7 @@ by querying the audit log, instead of hunting through the codebase. More on the 
 |---|---|
 | **Type** | An enterprise Salesforce managed-package framework |
 | **Namespace** | Configurable |
-| **API version** | 67.0 |
+| **API version** | 68.0 |
 | **Build status** | v1.0 packaged (first validated build; testing-hardened against 100% per-file Apex coverage, 95% LWC, and an extensive subscriber e2e harness) |
 | **Licensing fees** | Zero |
 | **Licence** | Source publicly available under BSL 1.1 (relicenses to Apache 2.0 after a four-year change date) |
@@ -87,7 +87,7 @@ Production-ready, end-to-end implementations across all of these areas:
 
 | Area | Guidance |
 |---|---|
-| Logging & Diagnostics | KernDX ships a `LOG_Engine` for capture + audit; pair with nebula-logger when you need a broader logging-surface (custom dashboards, per-class log levels, Pharos integration). |
+| Logging & Diagnostics | KernDX ships a `LOG_Engine` for capture + audit and the Log Console for browsing past entries (recurring problems grouped, a per-operation drilldown); pair with nebula-logger when you need a choice of how each log is saved, all seven log levels, a retention date per log entry or per scenario, or Big Object archiving. |
 | Testing (mock library) | KernDX mocks the query and HTTP layers rather than shipping a mock class family: `TST_Mock` registers in-memory records that framework queries and selectors return instead of running SOQL (WHERE conditions evaluated in memory where a context class is available, plus in-memory ORDER BY and LIMIT), `API_MockFactory` stubs HTTP callouts with call verification and fault simulation, and `TST_InvokeFlowMock` cans Flow responses. There is no DML stubbing: DML-free tests come from intercepting the query layer and building records without insertion. Pair with fflib-mocks when you specifically need Mockito-style behaviour-verification mocking. |
 | Domain Patterns | KernDX ships light on the Domain layer; pair with fflib + at4dx if you need the Service / Application factory pattern. |
 
@@ -184,7 +184,7 @@ either all at once or one piece at a time.
 | Field                     | Value                                                                                                                                                                                                                                                                                                      |
 |---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Package Type**          | Managed Package (2GP)                                                                                                                                                                                                                                                                                      |
-| **API Version**           | 67.0 (`sourceApiVersion` per `sfdx-project.json`)                                                                                                                                                                                                                                                          |
+| **API Version**           | 68.0 (`sourceApiVersion` per `sfdx-project.json`)                                                                                                                                                                                                                                                          |
 | **Licence**               | Business Source License 1.1: source-available, four-year clock to Apache 2.0                                                                                                                                                                                                                              |
 | **Status**                | First validated build shipped and packaged, testing-hardened (100% per-file Apex coverage gate + 95% LWC + subscriber e2e harness); publicly released under BSL 1.1 and promoted for production install, in active use at one known external client engagement at the snapshot date, with no named external production deployments yet and public adoption still early |
 | **Coverage gate**         | 100% Apex per-file + 95% LWC statements + 95% LWC branches enforced by `scripts/evaluate-coverage.js` at every release build                                                                                                                                                                               |
@@ -219,7 +219,8 @@ features* are what make the difference in the comparison:
 - **DML.** Decisive features: a multi-step save runs as one all-or-nothing transaction; all five DML operations supported; FLS/CRUD enforced on writes by default, with a
   per-write bypass that's audited.
 - **Web Services — Inbound.** KernDX is one of the few Apex frameworks surveyed that ships inbound REST routing. Decisive features: REST routing kept separate from business
-  logic; a central dispatcher; uniform error responses.
+  logic; a central dispatcher; uniform error responses. When a request fails, its path, method and body are kept on an API issue, and you can replay it from there through the
+  same handler: Retry on the issue, or Retry Selected on the API Issues list for many at once.
 - **Resilience.** Decisive features: feature flags via custom metadata or per-user/per-profile settings; read those flags from Apex, Flow, and LWC; an extensible strategy
   design you can plug into.
 - **Security.** Decisive features: reads enforce field-level security by default; a master off-switch and per-method opt-out; bypasses are audit-logged.
@@ -232,14 +233,15 @@ features* are what make the difference in the comparison:
   carries its own key, so a superseded or duplicate copy of a job cannot write over the live run; every chain that ends, however it ends, writes a final log entry; and a failed run
   records why it failed. Give a chain a deduplication key (one builder call in code) and a duplicate start of a run already in flight is refused. A step can also opt into a bounded
   number of retries with a widening delay. Two operator
-  capabilities sit on top, and each needs one deliberate setup step first: a scheduled recovery job that checks whether a chain's work is genuinely still running and safely restarts
-  the ones it can prove died, leaving anything it cannot prove dead untouched and flagging it for a human instead (an admin schedules that job once, the self-diagnostic offers a one-click way to do it, and a restarted run picks
-  up under the framework's default settings rather than the ones its original builder set); and a screen action in the Chain Monitor that stops a running chain at its next step
+  capabilities sit on top, and each needs one deliberate setup step first: a scheduled recovery job that checks whether a chain's work is genuinely still running and recovers
+  the ones it can prove died (it runs the stalled step again only when that is safe, and otherwise ends the chain as failed so nothing is done twice), leaving anything it
+  cannot prove dead untouched and flagging it for a human instead (an admin schedules that job once, the self-diagnostic offers a one-click way to do it, and a restarted
+  run picks up under the framework's default settings rather than the ones its original builder set); and a screen action in the Chain Monitor that stops a running chain at its next step
   boundary (behind a permission set that ships assigned to nobody, whose holder also needs administrator access to read chain data).
 - **Utilities.** Decisive features: 39 utility helpers; null-safe by default; masking helpers that combine with the Data Masking engine.
-- **Health & Self-Diagnostics.** KernDX is one of the few Apex frameworks surveyed that ships a health-check capability. Decisive features: a nine-dimension self-diagnostic with
+- **Health & Self-Diagnostics.** KernDX is one of the few Apex frameworks surveyed that ships a health-check capability. Decisive features: an eleven-dimension self-diagnostic with
   actionable results.
-- **CI / Tooling.** Decisive features: [26 PMD scanner rules](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) + a 7-rule ESLint plugin + 4 Node scanners; a coverage gate enforcing 100% Apex per-file and 95% LWC statements /
+- **CI / Tooling.** Decisive features: [PMD scanner rules](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) + an ESLint plugin + Node scanners; a coverage gate enforcing 100% Apex per-file and 95% LWC statements /
   95% LWC branches; the `kerndx-pipeline` distribution drops 10 GitHub Actions workflow templates into your repo (including `sfca-quality-gate`, which runs `sf code-analyzer run`
   against `force-app/**`, and a secret-scanning gate that blocks committed credentials) plus 2 branch-rule templates + 6 CI-tool adapters, all via `kerndx init`.
 - **Web Services — Outbound.** KernDX ships the broadest implementation of this area among the Apex libraries surveyed. On the mock-library piece, KernDX matches
@@ -255,7 +257,7 @@ specialist goes deeper; the per-piece tie that sits inside an otherwise broadly-
 
 | Area | What KernDX ships | Where a specialist goes deeper | Whole-area vs single-piece |
 |---|---|---|---|
-| **Logging & Diagnostics** | One delivery path via `LogEntryEvent__e`, 4 log levels | `nebula-logger`: several ways to record a log (event bus + queueable + REST + synchronous), seven log levels, a large surface, and a retention purge. Run it alongside KernDX; the two coexist. | Whole area: `nebula-logger` ships a broader implementation than KernDX. |
+| **Logging & Diagnostics** | One delivery path via `LogEntryEvent__e`, 4 log levels, and the Log Console for browsing past entries (recurring problems grouped, a per-operation drilldown) | `nebula-logger`: several ways to record a log (event bus + queueable + REST + synchronous), seven log levels, a retention date per log entry or per scenario with a purge, and Big Object archiving. Run it alongside KernDX; the two coexist. | Whole area: `nebula-logger` ships a broader implementation than KernDX. |
 | **Domain Patterns** | KernDX deliberately ships light on Domain-layer scaffolding | `fflib` (Application factory): `fflib_Application` with its UnitOfWorkFactory / ServiceFactory / SelectorFactory / DomainFactory inner classes. `at4dx`: cross-package field and process injection. Adopt `fflib` (plus `at4dx`) alongside KernDX. | Whole area: `fflib` + `at4dx` ship a broader implementation than KernDX. |
 | **Testing — Mockito-style mocking** | `TST_Mock`: DML-free query interception, a structurally different thing; no Mockito-style equivalent | `fflib-mocks`: 98 argument-matcher factories in `fflib_Match`, and verification modes `times/atLeast/atMost/between/never` via `fflib_VerificationMode`. Add it alongside KernDX `TST_Builder`. | Single piece inside Testing (an area KernDX otherwise covers broadly). |
 | **Outbound — HTTP-callout mock library** | `API_MockFactory`, plus a broader Outbound surface than the standalone library | `apex-fluently-httpmock`: 4 ways to resolve a mock (exact match + closest-prefix + a sequential queue + a StaticResource body source), and coverage of 7 HTTP verbs. KernDX matches this. | Single piece inside Outbound (an area KernDX otherwise covers broadly). KernDX ties; it does not fall behind. |

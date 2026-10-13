@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: BUSL-1.1 -->
 <template>
 	<lightning-card data-testid="scheduled-job-detail-root" title={labels.cardTitle}>
+		<lightning-button data-testid="run-now-button" label={labels.runNow} lwc:if={showRunNow} onclick={handleRunNow} slot="actions" variant="brand"></lightning-button>
+
 		<template lwc:if={isLoadingRecord}>
 			<div class="slds-is-relative slds-var-p-vertical_large">
 				<lightning-spinner alternative-text={labels.loading} size="small"></lightning-spinner>
@@ -47,6 +49,14 @@
 							</div>
 						</div>
 					</lightning-layout-item>
+					<lightning-layout-item size="12" medium-device-size="6" padding="horizontal-small">
+						<div class="slds-form-element slds-form-element_readonly slds-var-m-bottom_small">
+							<span class="slds-form-element__label">{labels.executionMode}</span>
+							<div class="slds-form-element__control">
+								<span class="slds-form-element__static" data-testid="detail-execution-mode">{viewExecutionMode}</span>
+							</div>
+						</div>
+					</lightning-layout-item>
 				</lightning-layout>
 
 				<div class="slds-var-m-top_medium">
@@ -59,6 +69,47 @@
 						<span class="slds-text-color_weak">{labels.noSchedule}</span>
 					</template>
 				</div>
+
+				<template lwc:if={isJobRunnerRecord}>
+					<div class="slds-var-m-top_medium">
+						<lightning-layout multiple-rows>
+							<lightning-layout-item size="12" medium-device-size="6" padding="horizontal-small">
+								<div class="slds-form-element slds-form-element_readonly slds-var-m-bottom_small">
+									<span class="slds-form-element__label">{labels.nextRun}</span>
+									<div class="slds-form-element__control"><span class="slds-form-element__static" data-testid="detail-next-run">{viewNextRun}</span></div>
+								</div>
+							</lightning-layout-item>
+							<lightning-layout-item size="12" medium-device-size="6" padding="horizontal-small">
+								<div class="slds-form-element slds-form-element_readonly slds-var-m-bottom_small">
+									<span class="slds-form-element__label">{labels.lastRun}</span>
+									<div class="slds-form-element__control"><span class="slds-form-element__static" data-testid="detail-last-run">{viewLastRun}</span></div>
+								</div>
+							</lightning-layout-item>
+							<lightning-layout-item size="12" medium-device-size="6" padding="horizontal-small">
+								<div class="slds-form-element slds-form-element_readonly slds-var-m-bottom_small">
+									<span class="slds-form-element__label">{labels.lastRunOutcome}</span>
+									<div class="slds-form-element__control">
+										<span class={outcomeBadgeClass} data-testid="detail-last-run-outcome">{viewLastRunOutcome}</span>
+										<template lwc:if={showLastRunLog}>
+											<lightning-button data-testid="detail-last-run-log" label={labels.viewLog} onclick={handleViewLastRunLog}
+															  variant="base"></lightning-button>
+										</template>
+									</div>
+								</div>
+							</lightning-layout-item>
+							<template lwc:if={hasLastRunReason}>
+								<lightning-layout-item size="12" padding="horizontal-small">
+									<div class="slds-form-element slds-form-element_readonly slds-var-m-bottom_small">
+										<span class="slds-form-element__label">{labels.lastRunReason}</span>
+										<div class="slds-form-element__control">
+											<span class="slds-form-element__static" data-testid="detail-last-run-reason">{viewLastRunReason}</span>
+										</div>
+									</div>
+								</lightning-layout-item>
+							</template>
+						</lightning-layout>
+					</div>
+				</template>
 
 				<template lwc:if={hasViewParameterPairs}>
 					<div class="slds-var-m-top_medium">

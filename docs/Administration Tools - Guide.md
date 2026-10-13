@@ -1,6 +1,6 @@
 ---
 group: "Getting Started"
-navOrder: 1
+navOrder: 3
 title: "Administration Tools"
 ---
 
@@ -78,7 +78,7 @@ One thing worth knowing: the five tools are launched from the home cards, not pi
 
 Before you rely on the framework, you want to know it is wired up properly. The readiness banner on Kern Home runs a short series of checks the moment the page loads and sorts the results into three groups: **Action required** for anything failing, **Review recommended** for things worth a look, and **Passing** for everything already in good shape. When all of it passes, the banner collapses to a single "all systems operational" line.
 
-The checks cover the configuration KernDX depends on: the platform cache it uses for state and retries, the trusted site for callouts back to your own org, the class that points the framework at your Apex, a data-retention schedule that stops the framework's own logs and call records growing without limit, your data-masking coverage, whether the chain-abort capability is enabled and granted, and whether the stalled-chain recovery job (the Chain Watchdog) is scheduled.
+The checks cover the configuration KernDX depends on: the platform cache it uses for state and retries, the class that points the framework at your Apex, a data-retention schedule that stops the framework's own logs and call records growing without limit, your data-masking coverage, whether the chain-abort capability is enabled and granted, whether the stalled-chain recovery job (the Chain Watchdog) is scheduled, and, once you use it, the job runner, which brings three readings of its own: **Job Runner** (whether it is checking for due jobs on schedule, with all its scheduled jobs in place, and whether the user it runs as is still active), **Jobs Waiting for the Job Runner** (whether a job is set to run on a runner that is not there) and **Job Runner Capacity** (how many of the org's scheduled-job slots are in use, and, while a runner is active, whether its last check started every job that was due).
 
 Many of the warnings can be fixed right there. Where a check is flagged because nothing is purging old framework records, for example, one action schedules the recommended clean-up jobs for you and the row flips to Passing without leaving the page. The Chain Watchdog row works the same way: one click schedules the recovery job with the recommended defaults.
 
@@ -87,6 +87,8 @@ Many of the warnings can be fixed right there. Where a check is flagged because 
 [Watch this walkthrough on the live docs site](https://docs.jvb-consulting.io/administration-tools-guide#is-your-org-set-up-correctly-health-check) · [Read the full write-up in the Utilities Guide](https://docs.jvb-consulting.io/utilities-guide#health-check)
 
 </HeroLoop>
+
+The job runner card sits under the banner. It lets you run many scheduled jobs from a few slots, as often as every five minutes; Activate, Repair and Deactivate live there. The [Async Processing Guide](Async%20Processing%20-%20Guide.md#running-many-jobs-on-one-job-runner) explains what it does and who its jobs run as.
 
 This is a check of your *KernDX* configuration, and it is separate from Salesforce's own Health Check in Setup, which scores your org's security settings against a baseline. The two answer different questions: this one tells you the framework is ready to run; the Setup one tells you your org's security posture. For how to set the checks up after install, see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide and the [post-install steps](Installation.md#post-install-configuration) in the Installation Guide.
 
@@ -160,7 +162,7 @@ When something breaks, these tools take you from "a call failed somewhere" to th
 
 Fire inbound **and** outbound API calls from a form, with mocking and Safe Mode rollback built in.
 
-Exercise a real Apex integration without Postman, throwaway anonymous Apex, or leftover test data. Safe Mode rolls back every database write. Mocking returns canned responses, so you can test a callout with no live endpoint.
+Exercise a real Apex integration without Postman, throwaway anonymous Apex, or leftover test data. Safe Mode rolls back every database write. Mocking returns canned responses, so you can test a callout with no live endpoint. Pick an outbound service and the form shows which parameters it requires and whether it needs a record ID, before you execute.
 
 <HeroLoop src="/recordings/api-harness.webm" mp4="/recordings/api-harness.mp4" poster="/recordings/api-harness-poster.jpg" caption="Run an outbound call, then an inbound one, with Safe Mode and Mocking built in." guide="/web-services-guide#api-test-harness-lwc-and-tab" guideLabel="Web Services Guide">
 
@@ -174,6 +176,8 @@ Follow an async chain step by step: each step's status, timing, and any error on
 
 When a multi-step async job fails, the platform barely tells you which step broke or how far it got. The Chain Monitor lays out every step and shows exactly where it stopped. And when a run is still going but needs to be stopped, the same screen offers an abort action to the users you have granted it to: it asks for confirmation first, then marks the run Aborted.
 
+Arriving from the Log Console with a whole action, the monitor lists only that action's chains, twenty a page with the same status boxes and name search, and a Launched under column says what launched each chain: a named chain (a step of it launched this one), the action itself, a restart of a named run, or that this chain started the action. The detail panel reads the same, and **Show the action's logs** returns to the Log Console with the whole action pinned. On a narrow screen the list keeps three columns, the chain, its status and when it started, plus Launched under while the list is kept to one action; the rest stays in the detail panel.
+
 The same screen can recover as well as stop. Users you grant the re-drive permission can retry a failed chain from its failed step (when the step declared itself safe to re-run), restart a chain whose author allowed restarts from the start as a new run, and clear stalled chains on demand; a separate grant controls the kill switch (a master off-switch you can flip in an incident without a deployment), which suspends and resumes all chain processing. A live activity stream in the detail panel shows each run's log entries as they happen. Every action ships switched off until you assign its permission set; see [the Async Processing Guide](Async%20Processing%20-%20Guide.md#re-driving-a-failed-chain) for how each is enabled and why an action can be unavailable.
 
 <HeroLoop src="/recordings/chain-monitor.webm" mp4="/recordings/chain-monitor.mp4" poster="/recordings/chain-monitor-poster.jpg" caption="Open a failed run and see exactly which step broke, and why. Then stop an in-flight run with the abort action." guide="/lwc-guide#chain-monitor-components" guideLabel="LWC Guide">
@@ -186,11 +190,11 @@ The same screen can recover as well as stop. Users you grant the re-drive permis
 
 Browse everything your code logged, grouped into recurring problems rather than a wall of rows, and drill from a problem to the exact run that caused it.
 
-Log records are flood-controlled: repeats of the same event roll up into one row with an occurrence count, which keeps the table small but makes raw list views awkward to diagnose from. The Log Console does that reading for you. Its **Problem summary** view folds the window down to distinct problems ("this error, N occurrences"); the **Individual entries** view shows the flat rows when you need every event. A summary ribbon across the top counts entries per level and names the top sources in the window, so you can see at a glance where the noise is coming from.
+Log records are flood-controlled: repeats of the same event roll up into one row with an occurrence count, which keeps the table small but makes raw list views awkward to diagnose from. The Log Console does that reading for you. Its **Problem summary** view folds the window down to distinct problems ("this error, N occurrences"); the **Individual entries** view shows the flat rows when you need every event. A summary ribbon across the top counts entries per level and names the top sources in the window, each with its origin (the framework's own code, your Apex, a Flow, or a component), so you can see at a glance where the noise is coming from, and an Origin filter narrows the list to one of them.
 
 The console also works the grouping out for itself, so recurring errors group into problems even where nobody tagged them in code. In Setup > Custom Settings > Log Setting you can change how many repeats it takes before something is listed as a problem, which log levels are covered, or turn the automatic grouping off altogether. None of those change what gets logged, and none of them deletes anything.
 
-From either view you can narrow the window with a date-range picker (rolling windows from the last 15 minutes up to the last 30 days, calendar presets, or a custom range), search the text, sort any column, and keep scrolling as more rows load. Selecting a row opens a detail drawer that lays the whole correlated run out as a timeline: every entry sharing the same tracking ID, in order, with the originating user, and usage bars for the resource limits the entry recorded. The Chain Monitor's **View logs** button jumps straight from a failed async step to its correlated logs here.
+From either view you can narrow the window with a date-range picker (rolling windows from the last 15 minutes up to the last 30 days, calendar presets, or a custom range), search the text, sort any column, and page through the rows with a position line that says where you are. Selecting a row opens a detail drawer that lays the whole correlated run out as a timeline: every entry sharing the same tracking ID, in order, with the originating user, and usage bars for the resource limits the entry recorded. Pin an action, from an entry's drawer, from the Chain Monitor or by pasting its tracking ID, and the console shows everything the action did in one banner: when it ran, how many chains ran under it and how many failed, up to five of the chains as chips, failed first, with a count for the rest, and every entry the action and its chains wrote, oldest first. The Chain Monitor's **View logs** button jumps straight from a failed async step to its correlated logs here.
 
 The console reads every user's log rows, so access sits behind the Kern Administrator permission set. For the full walkthrough, see [The Log Console](Logging%20-%20Guide.md#the-log-console) in the Logging Guide.
 
@@ -223,6 +227,8 @@ To run a class on a schedule, you normally write a `System.schedule` call with a
 The "when" is the useful part. You can start from a **Preset** (every hour, every weekday morning), drop to **Advanced** for finer control, or write a **Custom** cron expression directly. Whichever you use, a plain-English description rewrites itself as you go ("Every weekday at 6:00 AM"), and an impossible schedule is caught before you can save it (it will tell you, for instance, that day 31 does not exist in February).
 
 Salesforce's own Schedule Apex screen can do the basics if you are comfortable writing cron by hand and already have a schedulable class. This builder is for getting a correct schedule in place quickly, and for changing it later without touching code. For the declarative scheduling record behind it, see [Declarative Scheduling with ScheduledJob__c](Async%20Processing%20-%20Guide.md#declarative-scheduling-with-scheduledjob__c) in the Async Processing Guide.
+
+A job can also run on the job runner instead of taking a slot of its own: pick Job runner as its execution mode, and it may then run as often as every five minutes. The record shows its next run, last run and outcome, and a Run now button starts it on the spot.
 
 <HeroLoop src="/recordings/scheduled-jobs.webm" mp4="/recordings/scheduled-jobs.mp4" poster="/recordings/scheduled-jobs-poster.jpg" caption="Pick a mode, watch the schedule described in plain English, and see an impossible time rejected before you save." guide="/async-processing-guide#declarative-scheduling-with-scheduledjob-c" guideLabel="Async Processing Guide">
 
@@ -267,17 +273,7 @@ global with sharing class ACME_ClassTypeResolver extends kern.UTIL_TypeResolver.
 
 	private static Type getTypeForClassName(String className)
 	{
-		Type classType;
-
-		if(String.isNotBlank(className))
-		{
-			String namespace = kern.UTIL_System.getNamespacePrefix(kern.UTIL_System.getClassNamespace(className), '.');
-
-			classType = Type.forName(namespace, className);
-			classType = classType == null && String.isNotBlank(namespace) ? Type.forName('', className) : classType;
-		}
-
-		return classType;
+		return String.isBlank(className) ? null : Type.forName(className);
 	}
 }
 ```

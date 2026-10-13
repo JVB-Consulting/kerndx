@@ -4,9 +4,14 @@
  *
  * @author Jason van Beukering
  *
- * @date July 2026
+ * @date July 2026, September 2026
  */
-import {getTimezoneDisplayName, parseAttributes} from 'c/utilityScheduledJob';
+// The reader's Salesforce locale and time zone, pinned so the rendering assertions below prove the
+// formatter honours them rather than the machine's own browser defaults.
+jest.mock('@salesforce/i18n/locale', () => ({default: 'en-GB'}), {virtual: true});
+jest.mock('@salesforce/i18n/timeZone', () => ({default: 'Europe/London'}), {virtual: true});
+
+import {getTimezoneDisplayName, parseAttributes, formatInstant} from 'c/utilityScheduledJob';
 
 describe('getTimezoneDisplayName', () =>
 {
@@ -51,5 +56,29 @@ describe('parseAttributes', () =>
 	it('returns an empty map when the string is not valid JSON', () =>
 	{
 		expect(parseAttributes('{not valid json')).toEqual({});
+	});
+});
+
+describe('formatInstant', () =>
+{
+	it('renders an instant in the reader\'s own time zone and locale', () =>
+	{
+		let result = formatInstant('2026-09-11T14:15:00.000Z');
+		// 14:15 UTC is 15:15 in London that day, and a British reader reads the day before the month.
+		expect(result).toContain('15:15');
+		expect(result.startsWith('11 ')).toBe(true);
+		expect(result).toContain('2026');
+	});
+
+	it('renders nothing when there is no instant to show', () =>
+	{
+		expect(formatInstant(null)).toBe('');
+		expect(formatInstant(undefined)).toBe('');
+		expect(formatInstant('')).toBe('');
+	});
+
+	it('renders nothing when the value cannot be read as an instant', () =>
+	{
+		expect(formatInstant('not an instant')).toBe('');
 	});
 });

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 const {clickNavTab} = require('../helpers/sf-navigation');
 const {waitForSpinnerGone} = require('../helpers/wait-helpers');
+const {ELEMENT_WAIT_MILLISECONDS} = require('../helpers/wait-times');
 
 class KernHomePage
 {
@@ -48,7 +49,7 @@ class KernHomePage
 	async getHealthCheckActionItems()
 	{
 		const healthCheck = this.healthCheck();
-		await healthCheck.waitFor({state: 'visible', timeout: 15_000});
+		await healthCheck.waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS});
 		await waitForSpinnerGone(this.page);
 
 		const items = healthCheck.locator('[data-testid="health-check-item"]');
@@ -150,11 +151,11 @@ class KernHomePage
 	async clickHealthCheckActionNewTab(checkName)
 	{
 		const healthCheck = this.healthCheck();
-		await healthCheck.waitFor({state: 'visible', timeout: 15_000});
+		await healthCheck.waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS});
 		const button = this.healthCheckActionButton(checkName);
 		await button.waitFor({state: 'visible', timeout: 10_000});
 
-		const popupPromise = this.page.context().waitForEvent('page', {timeout: 15_000});
+		const popupPromise = this.page.context().waitForEvent('page', {timeout: ELEMENT_WAIT_MILLISECONDS});
 		await button.click();
 		const popup = await popupPromise;
 		await popup.waitForLoadState('domcontentloaded').catch(() =>
@@ -223,7 +224,7 @@ class KernHomePage
 	async clickApplyRetention()
 	{
 		await this.applyRetentionButton().click();
-		await this.applyRetentionModal().waitFor({state: 'visible', timeout: 15_000});
+		await this.applyRetentionModal().waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS});
 	}
 
 	/**
@@ -235,7 +236,7 @@ class KernHomePage
 	{
 		const modal = this.applyRetentionModal();
 		await modal.locator('[data-testid="confirm-button"]').click();
-		await modal.waitFor({state: 'hidden', timeout: 15_000}).catch(() =>
+		await modal.waitFor({state: 'hidden', timeout: ELEMENT_WAIT_MILLISECONDS}).catch(() =>
 		{
 		});
 		await waitForSpinnerGone(this.page);
@@ -391,6 +392,92 @@ class KernHomePage
 			results.push((text || '').replace(/\s+/g, ' ').trim());
 		}
 		return results;
+	}
+
+	/**
+	 * @description The job runner card Health Check renders beneath the readiness banner in both banner states.
+	 *
+	 * @return {import('@playwright/test').Locator} The card root.
+	 */
+	jobRunnerCard()
+	{
+		return this.kernHomeRoot().locator('[data-testid="job-runner-card"]').first();
+	}
+
+	jobRunnerActivateButton()
+	{
+		return this.jobRunnerCard().locator('[data-testid="job-runner-activate"]').first();
+	}
+
+	jobRunnerRepairButton()
+	{
+		return this.jobRunnerCard().locator('[data-testid="job-runner-repair"]').first();
+	}
+
+	jobRunnerDeactivateButton()
+	{
+		return this.jobRunnerCard().locator('[data-testid="job-runner-deactivate"]').first();
+	}
+
+	jobRunnerSummary()
+	{
+		return this.jobRunnerCard().locator('[data-testid="job-runner-summary"]').first();
+	}
+
+	jobRunnerActivator()
+	{
+		return this.jobRunnerCard().locator('[data-testid="job-runner-activator"]').first();
+	}
+
+	jobRunnerSlots()
+	{
+		return this.jobRunnerCard().locator('[data-testid="job-runner-slots"]').first();
+	}
+
+	jobRunnerModalRoot()
+	{
+		return this.page.locator('[data-testid="activate-job-runner-root"]').first();
+	}
+
+	/**
+	 * @description Picks a check interval in the Activate dialogue's combobox by its minute value (60, 30, 15, 10 or 5).
+	 *
+	 * @param {string} minutes The check interval in minutes, as the option value.
+	 *
+	 * @return {Promise<void>}
+	 */
+	async chooseJobRunnerCheckInterval(minutes)
+	{
+		const combobox = this.jobRunnerModalRoot().locator('[data-testid="activate-job-runner-check-interval"]');
+		await combobox.waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS});
+		await combobox.locator('button[role="combobox"], button, input').first().click();
+		// Option labels come from HealthCheck_JobRunner_CheckFrequencyOptions: "Every hour (1 slot)", "Every 15 minutes (4 slots)" and so on.
+		const optionLabel = minutes === '60' ? /^Every hour/ : new RegExp(`^Every ${minutes} minutes`);
+		const option = this.page.getByRole('option', {name: optionLabel}).first();
+		await option.waitFor({state: 'visible', timeout: 10_000});
+		await option.click();
+	}
+
+	async confirmJobRunnerModal()
+	{
+		// The confirm button sits in the modal's footer, outside the body's root, so it is found on the page.
+		const confirm = this.page.locator('[data-testid="activate-job-runner-confirm"]').first();
+		await confirm.evaluate((el) => el.click());
+		await this.jobRunnerModalRoot().waitFor({state: 'hidden', timeout: ELEMENT_WAIT_MILLISECONDS});
+		await waitForSpinnerGone(this.page);
+	}
+
+	/**
+	 * @description Accepts the Deactivate confirmation (a lightning/confirm dialogue whose accept button reads OK).
+	 *
+	 * @return {Promise<void>}
+	 */
+	async confirmDeactivate()
+	{
+		const okButton = this.page.getByRole('button', {name: 'OK'}).first();
+		await okButton.waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS});
+		await okButton.click();
+		await waitForSpinnerGone(this.page);
 	}
 }
 

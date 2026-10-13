@@ -2,15 +2,25 @@
 /**
  * @description Jest unit tests for healthCheck LWC component
  * @author Jason van Beukering
- * @date February 2026, August 2026
+ * @date February 2026, September 2026
  */
 import {createElement} from 'lwc';
 import HealthCheck from 'c/healthCheck';
 import {mockCallControllerMethod, mockShowSuccessToast, mockNavigate} from 'c/componentBuilder';
+import LightningConfirm from 'lightning/confirm';
+import ClassTypeResolverSetupModal from 'c/classTypeResolverSetupModal';
+import ApplyRetentionModal from 'c/applyRetentionModal';
+import ScheduledJobEditorModal from 'c/scheduledJobEditorModal';
+import ScheduleChainWatchdogModal from 'c/scheduleChainWatchdogModal';
+import ActivateJobRunnerModal from 'c/activateJobRunnerModal';
 import getRetentionProposals from '@salesforce/apex/CTRL_HealthCheck.getRetentionProposals';
 import applyRetentionRecommendations from '@salesforce/apex/CTRL_HealthCheck.applyRetentionRecommendations';
 import getChainWatchdogProposal from '@salesforce/apex/CTRL_HealthCheck.getChainWatchdogProposal';
 import scheduleChainWatchdog from '@salesforce/apex/CTRL_HealthCheck.scheduleChainWatchdog';
+import getJobRunnerStatus from '@salesforce/apex/CTRL_HealthCheck.getJobRunnerStatus';
+import activateJobRunner from '@salesforce/apex/CTRL_HealthCheck.activateJobRunner';
+import repairJobRunner from '@salesforce/apex/CTRL_HealthCheck.repairJobRunner';
+import deactivateJobRunner from '@salesforce/apex/CTRL_HealthCheck.deactivateJobRunner';
 
 /**
  * The runHealthChecks adapter is deliberately NOT jest.mock'd: the lwc jest transformer then
@@ -22,15 +32,24 @@ function runHealthChecksAdapter()
 	return global.__lwcJestMock_runHealthChecks;
 }
 
+/**
+ * The six dialogs the component opens are the real modules, imported above, with their static
+ * `open` replaced by a mock. A `jest.mock('c/...')` or `jest.mock('lightning/...')` of these
+ * modules is not reliable in this repo: once another suite in the same jest worker has loaded
+ * the real module, the mock silently stops intercepting and the component opens the real dialog
+ * while the test asserts on a mock that saw nothing (the 24 failures of 2026-09-19). A mock set on
+ * the class the component itself imports cannot be bypassed that way, because source and test
+ * share the one object. The five modals get their mock by assignment rather than `jest.spyOn`:
+ * their base class (the `lightning/modal` file mock) already carries a jest mock as `open`, and
+ * `jest.spyOn` hands an existing mock back instead of wrapping it, which would leave all five
+ * sharing the base class's one mock. The mocks are installed once here; the `afterEach` below
+ * only clears calls.
+ */
 const mockModalOpen = jest.fn().mockResolvedValue('confirmed');
-jest.mock('c/classTypeResolverSetupModal', () => ({
-	__esModule: true, default: {open: (...args) => mockModalOpen(...args)}
-}), {virtual: true});
+ClassTypeResolverSetupModal.open = mockModalOpen;
 
 const mockApplyRetentionModalOpen = jest.fn().mockResolvedValue({action: 'cancel'});
-jest.mock('c/applyRetentionModal', () => ({
-	__esModule: true, default: {open: (...args) => mockApplyRetentionModalOpen(...args)}
-}), {virtual: true});
+ApplyRetentionModal.open = mockApplyRetentionModalOpen;
 
 const MOCK_PROPOSALS = [
 	{
@@ -63,14 +82,10 @@ const mockApplyRetentionRecommendations = jest.fn().mockResolvedValue([
 jest.mock('@salesforce/apex/CTRL_HealthCheck.applyRetentionRecommendations', () => ({default: (...args) => mockApplyRetentionRecommendations(...args)}), {virtual: true});
 
 const mockScheduledJobEditorModalOpen = jest.fn().mockResolvedValue('a00xx00000002');
-jest.mock('c/scheduledJobEditorModal', () => ({
-	__esModule: true, default: {open: (...args) => mockScheduledJobEditorModalOpen(...args)}
-}), {virtual: true});
+ScheduledJobEditorModal.open = mockScheduledJobEditorModalOpen;
 
 const mockScheduleChainWatchdogModalOpen = jest.fn().mockResolvedValue({action: 'cancel'});
-jest.mock('c/scheduleChainWatchdogModal', () => ({
-	__esModule: true, default: {open: (...args) => mockScheduleChainWatchdogModalOpen(...args)}
-}), {virtual: true});
+ScheduleChainWatchdogModal.open = mockScheduleChainWatchdogModalOpen;
 
 const MOCK_WATCHDOG_PROPOSAL = {
 	schedulerName: 'Chain Watchdog',
@@ -87,6 +102,27 @@ jest.mock('@salesforce/apex/CTRL_HealthCheck.getChainWatchdogProposal', () => ({
 
 const mockScheduleChainWatchdog = jest.fn().mockResolvedValue('a00xx00000003');
 jest.mock('@salesforce/apex/CTRL_HealthCheck.scheduleChainWatchdog', () => ({default: (...args) => mockScheduleChainWatchdog(...args)}), {virtual: true});
+
+const MOCK_JOB_RUNNER_STATUS_INACTIVE = {isActive: false, canManage: true, runnerRecordCount: 0, runningUserName: 'Admin'};
+const MOCK_JOB_RUNNER_STATUS_ACTIVE = {isActive: true, canManage: true, runnerRecordCount: 4, checkIntervalMinutes: 15, runningUserName: 'Admin'};
+
+const mockGetJobRunnerStatus = jest.fn().mockResolvedValue(MOCK_JOB_RUNNER_STATUS_INACTIVE);
+jest.mock('@salesforce/apex/CTRL_HealthCheck.getJobRunnerStatus', () => ({default: (...args) => mockGetJobRunnerStatus(...args)}), {virtual: true});
+
+const mockActivateJobRunner = jest.fn().mockResolvedValue(MOCK_JOB_RUNNER_STATUS_ACTIVE);
+jest.mock('@salesforce/apex/CTRL_HealthCheck.activateJobRunner', () => ({default: (...args) => mockActivateJobRunner(...args)}), {virtual: true});
+
+const mockRepairJobRunner = jest.fn().mockResolvedValue(MOCK_JOB_RUNNER_STATUS_ACTIVE);
+jest.mock('@salesforce/apex/CTRL_HealthCheck.repairJobRunner', () => ({default: (...args) => mockRepairJobRunner(...args)}), {virtual: true});
+
+const mockDeactivateJobRunner = jest.fn().mockResolvedValue(MOCK_JOB_RUNNER_STATUS_INACTIVE);
+jest.mock('@salesforce/apex/CTRL_HealthCheck.deactivateJobRunner', () => ({default: (...args) => mockDeactivateJobRunner(...args)}), {virtual: true});
+
+const mockActivateJobRunnerModalOpen = jest.fn().mockResolvedValue({action: 'cancel'});
+ActivateJobRunnerModal.open = mockActivateJobRunnerModalOpen;
+
+const mockLightningConfirmOpen = jest.fn().mockResolvedValue(false);
+jest.spyOn(LightningConfirm, 'open').mockImplementation(mockLightningConfirmOpen);
 
 jest.mock('@salesforce/label/c.HealthCheck_CardTitle', () => ({default: 'Health Check'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_RefreshAltText', () => ({default: 'Refresh health checks'}), {virtual: true});
@@ -126,6 +162,21 @@ jest.mock('@salesforce/label/c.HealthCheck_ChainWatchdog_CustomizeLink', () => (
 jest.mock('@salesforce/label/c.HealthCheck_ChainWatchdog_ModalTitle', () => ({default: 'Schedule Chain Watchdog'}), {virtual: true});
 jest.mock('@salesforce/label/c.HealthCheck_ChainWatchdog_SuccessToast', () => ({default: 'Created the Chain Watchdog scheduled job.'}), {virtual: true});
 jest.mock('@salesforce/label/c.ScheduledJob_NewTitle', () => ({default: 'New Scheduled Job'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_JobRunner_CheckName', () => ({default: 'Job Runner'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_JobRunner_Orphaned_CheckName', () => ({default: 'Jobs Waiting for the Job Runner'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_JobRunner_Capacity_CheckName', () => ({default: 'Job Runner Capacity'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_JobRunner_CardTitle', () => ({default: 'Job runner'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_JobRunner_ActivateButton', () => ({default: 'Activate'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_JobRunner_RepairButton', () => ({default: 'Repair'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_JobRunner_ModalTitle', () => ({default: 'Activate the job runner'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_JobRunner_Activated', () => ({default: 'The job runner is active every {0} minutes.'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_JobRunner_Repaired', () => ({default: 'The job runner\'s scheduled jobs were replaced.'}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_JobRunner_Deactivated', () => ({
+	default: 'The job runner was deactivated. Jobs set to run on it wait until it is activated again.'
+}), {virtual: true});
+jest.mock('@salesforce/label/c.HealthCheck_JobRunner_DeactivateConfirm', () => ({
+	default: 'Deactivate the job runner? Every job set to run on it stops until it is activated again. The Chain Watchdog goes back to its own slot.'
+}), {virtual: true});
 
 const MOCK_RESULTS = [
 	{name: 'Org Cache', status: 'Pass', detail: 'Org Cache is allocated to the kern.Library partition.', actionLabel: null, priority: 10},
@@ -288,6 +339,22 @@ describe('c-health-check', () =>
 			{
 				return mockScheduleChainWatchdog(parameterMap).catch(() => undefined);
 			}
+			if(controllerMethod === getJobRunnerStatus)
+			{
+				return mockGetJobRunnerStatus(parameterMap).catch(() => undefined);
+			}
+			if(controllerMethod === activateJobRunner)
+			{
+				return mockActivateJobRunner(parameterMap).catch(() => undefined);
+			}
+			if(controllerMethod === repairJobRunner)
+			{
+				return mockRepairJobRunner(parameterMap).catch(() => undefined);
+			}
+			if(controllerMethod === deactivateJobRunner)
+			{
+				return mockDeactivateJobRunner(parameterMap).catch(() => undefined);
+			}
 			return Promise.resolve(healthCheckResults);
 		});
 	}
@@ -305,8 +372,9 @@ describe('c-health-check', () =>
 			is: HealthCheck
 		});
 		document.body.appendChild(element);
-		await Promise.resolve();
-		await Promise.resolve();
+		// runChecks awaits the checks and the job runner status together, so the first render lands a
+		// few microtasks after the mount: flush the queue rather than counting them.
+		await flushPromises();
 		return element;
 	}
 
@@ -479,12 +547,11 @@ describe('c-health-check', () =>
 
 		const refresh = element.shadowRoot.querySelector('[data-testid="health-check-refresh"]');
 		refresh.dispatchEvent(new CustomEvent('click'));
-		await Promise.resolve();
-		await Promise.resolve();
+		await flushPromises();
 
 		const mixedBanner = element.shadowRoot.querySelector('[data-testid="health-check-mixed"]');
 		expect(mixedBanner).toBeTruthy();
-		expect(mockCallControllerMethod).toHaveBeenCalledTimes(2);
+		expect(mockCallControllerMethod.mock.calls.filter(([controllerMethod]) => controllerMethod === runHealthChecksAdapter())).toHaveLength(2);
 	});
 
 	it('should refresh results when refresh button is clicked in mixed banner', async() =>
@@ -495,8 +562,7 @@ describe('c-health-check', () =>
 
 		const refresh = element.shadowRoot.querySelector('[data-testid="health-check-refresh"]');
 		refresh.dispatchEvent(new CustomEvent('click'));
-		await Promise.resolve();
-		await Promise.resolve();
+		await flushPromises();
 
 		const allPassBanner = element.shadowRoot.querySelector('[data-testid="health-check-all-pass"]');
 		expect(allPassBanner).toBeTruthy();
@@ -1102,11 +1168,7 @@ describe('c-health-check', () =>
 
 		const setUpButton = element.shadowRoot.querySelector('[data-testid="set-up-button"]');
 		setUpButton.dispatchEvent(new CustomEvent('click'));
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
-		await Promise.resolve();
+		await flushPromises();
 
 		expect(mockCallControllerMethod).toHaveBeenCalled();
 		expect(mockGetRetentionProposals).toHaveBeenCalledTimes(2);
@@ -1561,6 +1623,221 @@ describe('c-health-check', () =>
 
 			expect(mockCallControllerMethod).toHaveBeenCalledWith(getChainWatchdogProposal);
 			expect(mockScheduledJobEditorModalOpen).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('job runner', () =>
+	{
+		const jobRunnerResult = (name, status) =>
+		{
+			return {name, status, detail: `${name} detail.`, actionLabel: null, priority: 70};
+		};
+
+		const passingResult = (name) => jobRunnerResult(name, 'Pass');
+
+		const failingResult = (name) => jobRunnerResult(name, 'Fail');
+
+		const warningResult = (name) => jobRunnerResult(name, 'Warn');
+
+		beforeEach(() =>
+		{
+			mockGetJobRunnerStatus.mockResolvedValue(MOCK_JOB_RUNNER_STATUS_INACTIVE);
+			mockActivateJobRunner.mockResolvedValue(MOCK_JOB_RUNNER_STATUS_ACTIVE);
+			mockRepairJobRunner.mockResolvedValue(MOCK_JOB_RUNNER_STATUS_ACTIVE);
+			mockDeactivateJobRunner.mockResolvedValue(MOCK_JOB_RUNNER_STATUS_INACTIVE);
+			mockActivateJobRunnerModalOpen.mockResolvedValue({action: 'cancel'});
+			mockLightningConfirmOpen.mockResolvedValue(false);
+		});
+
+		it('loads the status beside the checks and passes it to the card', async() =>
+		{
+			const element = await createComponent([passingResult('Job Runner')]);
+
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(getJobRunnerStatus);
+			expect(element.shadowRoot.querySelector('c-job-runner-card').status).toEqual(MOCK_JOB_RUNNER_STATUS_INACTIVE);
+		});
+
+		it('keeps the last known status when a later status load fails', async() =>
+		{
+			const element = await createComponent([passingResult('Job Runner')]);
+
+			mockGetJobRunnerStatus.mockRejectedValueOnce(new Error('status read failed'));
+			element.shadowRoot.querySelector('[data-testid="health-check-refresh"]').dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(element.shadowRoot.querySelector('c-job-runner-card').status).toEqual(MOCK_JOB_RUNNER_STATUS_INACTIVE);
+		});
+
+		it('opens the picker from a waiting-jobs row and activates at the chosen check interval', async() =>
+		{
+			mockActivateJobRunnerModalOpen.mockResolvedValue({action: 'confirm', intervalMinutes: '15'});
+			const element = await createComponent([failingResult('Jobs Waiting for the Job Runner')]);
+
+			const remedy = element.shadowRoot.querySelector('[data-testid="job-runner-remedy"]');
+			expect(remedy.label).toBe('Activate');
+
+			remedy.dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockActivateJobRunnerModalOpen).toHaveBeenCalledWith({size: 'small', label: 'Activate the job runner', runningUserName: 'Admin'});
+			expect(mockActivateJobRunner).toHaveBeenCalledWith({intervalMinutes: 15});
+			expect(mockShowSuccessToast).toHaveBeenCalledWith('The job runner is active every 15 minutes.');
+		});
+
+		it('repairs without the picker when the runner still has its scheduled-job records', async() =>
+		{
+			mockGetJobRunnerStatus.mockResolvedValue(MOCK_JOB_RUNNER_STATUS_ACTIVE);
+			const element = await createComponent([failingResult('Job Runner')]);
+
+			const remedy = element.shadowRoot.querySelector('[data-testid="job-runner-remedy"]');
+			expect(remedy.label).toBe('Repair');
+
+			remedy.dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockActivateJobRunnerModalOpen).not.toHaveBeenCalled();
+			expect(mockRepairJobRunner).toHaveBeenCalled();
+			expect(mockShowSuccessToast).toHaveBeenCalledWith('The job runner\'s scheduled jobs were replaced.');
+		});
+
+		it('opens the picker from a Repair row when the status it holds names no check interval to repair at', async() =>
+		{
+			mockActivateJobRunnerModalOpen.mockResolvedValue({action: 'confirm', intervalMinutes: '5'});
+			mockActivateJobRunner.mockResolvedValue({...MOCK_JOB_RUNNER_STATUS_ACTIVE, checkIntervalMinutes: 5});
+			const element = await createComponent([failingResult('Job Runner')]);
+
+			element.shadowRoot.querySelector('[data-testid="job-runner-remedy"]').dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockRepairJobRunner).not.toHaveBeenCalled();
+			expect(mockActivateJobRunner).toHaveBeenCalledWith({intervalMinutes: 5});
+			expect(mockShowSuccessToast).toHaveBeenCalledWith('The job runner is active every 5 minutes.');
+		});
+
+		it('renders a job-runner warn row with its Repair remedy', async() =>
+		{
+			const element = await createComponent([warningResult('Job Runner')]);
+
+			const warnSection = element.shadowRoot.querySelector('[data-testid="warn-section"]');
+			expect(warnSection.querySelector('[data-testid="health-check-name"]').textContent).toBe('Job Runner');
+			expect(warnSection.querySelector('[data-testid="health-check-detail"]').textContent).toBe('Job Runner detail.');
+
+			const remedy = warnSection.querySelector('[data-testid="job-runner-remedy"]');
+			expect(remedy.label).toBe('Repair');
+			expect(remedy.dataset.name).toBe('Job Runner');
+		});
+
+		it('gives the capacity row, whose sentences already say what to do, no remedy button', async() =>
+		{
+			const failingCapacity = await createComponent([failingResult('Job Runner Capacity')]);
+			expect(failingCapacity.shadowRoot.querySelector('[data-testid="health-check-name"]').textContent).toBe('Job Runner Capacity');
+			expect(failingCapacity.shadowRoot.querySelector('[data-testid="job-runner-remedy"]')).toBeNull();
+
+			const warningCapacity = await createComponent([warningResult('Job Runner Capacity')]);
+			expect(warningCapacity.shadowRoot.querySelector('[data-testid="job-runner-remedy"]')).toBeNull();
+
+			const jobRunnerElement = await createComponent([failingResult('Job Runner')]);
+			expect(jobRunnerElement.shadowRoot.querySelector('[data-testid="job-runner-remedy"]').label).toBe('Repair');
+		});
+
+		it('leaves the runner alone when the Activate dialogue is cancelled', async() =>
+		{
+			const element = await createComponent([failingResult('Jobs Waiting for the Job Runner')]);
+
+			element.shadowRoot.querySelector('[data-testid="job-runner-remedy"]').dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockActivateJobRunnerModalOpen).toHaveBeenCalled();
+			expect(mockActivateJobRunner).not.toHaveBeenCalled();
+			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+		});
+
+		it('does not refresh or toast when the activation fails', async() =>
+		{
+			mockActivateJobRunnerModalOpen.mockResolvedValue({action: 'confirm', intervalMinutes: '15'});
+			mockActivateJobRunner.mockRejectedValue(new Error('activation refused'));
+			const element = await createComponent([failingResult('Jobs Waiting for the Job Runner')]);
+
+			mockCallControllerMethod.mockClear();
+			element.shadowRoot.querySelector('[data-testid="job-runner-remedy"]').dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockCallControllerMethod).not.toHaveBeenCalledWith(runHealthChecksAdapter());
+			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+		});
+
+		it('does not refresh or toast when the repair fails', async() =>
+		{
+			mockGetJobRunnerStatus.mockResolvedValue(MOCK_JOB_RUNNER_STATUS_ACTIVE);
+			mockRepairJobRunner.mockRejectedValue(new Error('repair refused'));
+			const element = await createComponent([failingResult('Job Runner')]);
+
+			mockCallControllerMethod.mockClear();
+			element.shadowRoot.querySelector('[data-testid="job-runner-remedy"]').dispatchEvent(new CustomEvent('click'));
+			await flushPromises();
+
+			expect(mockRepairJobRunner).toHaveBeenCalled();
+			expect(mockCallControllerMethod).not.toHaveBeenCalledWith(runHealthChecksAdapter());
+			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+		});
+
+		it('asks for confirmation and deactivates on OK', async() =>
+		{
+			mockGetJobRunnerStatus.mockResolvedValue(MOCK_JOB_RUNNER_STATUS_ACTIVE);
+			mockLightningConfirmOpen.mockResolvedValue(true);
+			const element = await createComponent([]);
+
+			element.shadowRoot.querySelector('c-job-runner-card').dispatchEvent(new CustomEvent('deactivate'));
+			await flushPromises();
+
+			expect(mockLightningConfirmOpen).toHaveBeenCalledWith(expect.objectContaining({message: expect.stringContaining('Deactivate the job runner?')}));
+			expect(mockDeactivateJobRunner).toHaveBeenCalled();
+			expect(mockShowSuccessToast).toHaveBeenCalledWith('The job runner was deactivated. Jobs set to run on it wait until it is activated again.');
+		});
+
+		it('leaves the runner active when the confirmation is dismissed', async() =>
+		{
+			mockGetJobRunnerStatus.mockResolvedValue(MOCK_JOB_RUNNER_STATUS_ACTIVE);
+			const element = await createComponent([]);
+
+			element.shadowRoot.querySelector('c-job-runner-card').dispatchEvent(new CustomEvent('deactivate'));
+			await flushPromises();
+
+			expect(mockLightningConfirmOpen).toHaveBeenCalled();
+			expect(mockDeactivateJobRunner).not.toHaveBeenCalled();
+			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+		});
+
+		it('does not refresh or toast when the deactivation fails', async() =>
+		{
+			mockGetJobRunnerStatus.mockResolvedValue(MOCK_JOB_RUNNER_STATUS_ACTIVE);
+			mockLightningConfirmOpen.mockResolvedValue(true);
+			mockDeactivateJobRunner.mockRejectedValue(new Error('deactivation refused'));
+			const element = await createComponent([]);
+
+			mockCallControllerMethod.mockClear();
+			element.shadowRoot.querySelector('c-job-runner-card').dispatchEvent(new CustomEvent('deactivate'));
+			await flushPromises();
+
+			expect(mockCallControllerMethod).not.toHaveBeenCalledWith(runHealthChecksAdapter());
+			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+		});
+
+		it('routes the card\'s own activate and repair actions', async() =>
+		{
+			mockGetJobRunnerStatus.mockResolvedValue(MOCK_JOB_RUNNER_STATUS_ACTIVE);
+			const element = await createComponent([]);
+			const card = element.shadowRoot.querySelector('c-job-runner-card');
+
+			card.dispatchEvent(new CustomEvent('repair'));
+			await flushPromises();
+
+			expect(mockRepairJobRunner).toHaveBeenCalled();
+
+			card.dispatchEvent(new CustomEvent('activate'));
+			await flushPromises();
+
+			expect(mockActivateJobRunnerModalOpen).toHaveBeenCalledWith({size: 'small', label: 'Activate the job runner', runningUserName: 'Admin'});
 		});
 	});
 });

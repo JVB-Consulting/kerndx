@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Lets a user put a scheduled job on the job runner, change the class or parameters of a job on it, run it now, and activate, repair or deactivate the runner in Health Check. Jobs on the runner run as the user who activated it.</description>
+    <isLicensed>false</isLicensed>
+    <label>Manage Job Runner</label>
+</CustomPermission>

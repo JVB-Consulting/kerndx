@@ -1,6 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomLabels xmlns="http://soap.sforce.com/2006/04/metadata">
     <labels>
+        <fullName>AsyncChain_BirthRefused</fullName>
+        <categories>Async Chain</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when a new chain run is refused; {0} is the status it was given</shortDescription>
+        <value>A chain run cannot be created in the status {0}.</value>
+    </labels>
+    <labels>
+        <fullName>AsyncChain_HandlerNotQueued</fullName>
+        <categories>Async Chain</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain note when a handler cannot be queued; {0} position, {1} step or class name</shortDescription>
+        <value>Handler not run: the {0} handler {1} could not be queued</value>
+    </labels>
+    <labels>
+        <fullName>AsyncChain_RecoveryStoppedAtStartedStep</fullName>
+        <categories>Async Chain</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain failure reason when recovery will not re-run a started step; {0} step name</shortDescription>
+        <value>Recovery stopped at step {0}. The step had started when the chain stalled and no result was saved, so it may already have done its work. It was not run again. Check whether its work landed, then start a replacement.</value>
+    </labels>
+    <labels>
+        <fullName>AsyncChain_TransitionRefused</fullName>
+        <categories>Async Chain</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when a chain run status change is refused; {0} current, {1} requested</shortDescription>
+        <value>This chain run cannot move from {0} to {1}.</value>
+    </labels>
+    <labels>
         <fullName>ChainMonitor_AbortAction</fullName>
         <categories>Chain Monitor</categories>
         <language>en_US</language>
@@ -97,6 +129,14 @@
         <value>Cancel</value>
     </labels>
     <labels>
+        <fullName>ChainMonitor_ActionPill</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Removable pill for a pinned action; {0} the abbreviated id</shortDescription>
+        <value>Action: {0}</value>
+    </labels>
+    <labels>
         <fullName>ChainMonitor_ClearStalledAction</fullName>
         <categories>Chain Monitor</categories>
         <language>en_US</language>
@@ -151,6 +191,22 @@
         <protected>false</protected>
         <shortDescription>Name and tooltip of the correlation id copy icon</shortDescription>
         <value>Copy</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_CopyAction</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Name of the button that copies the ID of the action that launched a run</shortDescription>
+        <value>Copy action ID</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_CopyCorrelation</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Name of the button that copies a run&apos;s correlation ID</shortDescription>
+        <value>Copy correlation ID</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_CopyFailed</fullName>
@@ -345,6 +401,46 @@
         <value>Restarted from</value>
     </labels>
     <labels>
+        <fullName>ChainMonitor_LaunchedUnder</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timing label of the launched-under entry</shortDescription>
+        <value>Launched under</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_LaunchedByThisAction</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Launched-under value for a run the action launched itself</shortDescription>
+        <value>this action</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StartedThisAction</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Launched-under value for the run that started the action</shortDescription>
+        <value>started this action</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_RestartOf</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Launched-under value for a restart; {0} the source's name and number</shortDescription>
+        <value>restart of {0}</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_LaunchedByStepNote</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timing note beside a launching chain</shortDescription>
+        <value>a step of that chain launched this one</value>
+    </labels>
+    <labels>
         <fullName>ChainMonitor_ResumeAction</fullName>
         <categories>Chain Monitor</categories>
         <language>en_US</language>
@@ -511,6 +607,14 @@
         <protected>false</protected>
         <shortDescription>Cross-link action to open the correlated logs in the Log Console</shortDescription>
         <value>View logs</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ShowActionLogsAction</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Action that opens the Log Console on the run's action</shortDescription>
+        <value>Show the action's logs</value>
     </labels>
     <labels>
         <fullName>ClassTypeResolverModal_Cancel</fullName>
@@ -2801,6 +2905,22 @@ Members: {0}</value>
         <value>Created the Chain Watchdog scheduled job.</value>
     </labels>
     <labels>
+        <fullName>HealthCheck_ChainWatchdog_SlotCostOnRunner</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Watchdog row: slot cost when a runner is active</shortDescription>
+        <value>The Chain Watchdog runs on the job runner and costs no scheduled-job slot of its own.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_ChainWatchdog_SlotCostOwnSlot</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Watchdog row: slot cost on its own scheduled job</shortDescription>
+        <value>The Chain Watchdog takes one of the org's 100 scheduled-job slots. To free it, schedule the watchdog on the job runner instead, which needs an active job runner.</value>
+    </labels>
+    <labels>
         <fullName>HealthCheck_ClassTypeResolver_CheckName</fullName>
         <categories>Health Check</categories>
         <language>en_US</language>
@@ -2961,6 +3081,30 @@ Members: {0}</value>
         <value>No data retention configured for {0}. Without scheduled purge jobs, these records accumulate indefinitely and consume storage.</value>
     </labels>
     <labels>
+        <fullName>HealthCheck_DataRetention_ApiPurgeNeedsUserWhoCanDelete</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Data retention: who must schedule the purge of API records</shortDescription>
+        <value>Schedule the purge of API calls and API issues as a user who may delete them: a user who holds the Delete API Records permission, which the Kern Administrator permission set carries, or a user an administrator turned on the Bypass API Record Delete Guard feature flag for. A purge scheduled by anyone else deletes nothing.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_ApiPurgeCannotDelete</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Data retention: an API record purge runs as a user who cannot delete</shortDescription>
+        <value>The purge of {0} runs as a user the Bypass API Record Delete Guard feature flag is off for, so it deletes nothing. Reschedule it as a user who holds the Delete API Records permission, which the Kern Administrator permission set carries, or ask an administrator to turn the flag on for that user.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_ApiRecordDeleteFlagInactive</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Data retention: the flag that allows API record deletes is off</shortDescription>
+        <value>The Bypass API Record Delete Guard feature flag is deactivated, so nobody can delete API calls or API issues, an administrator included, and every scheduled purge of them deletes nothing. Activate the flag record again to allow deletes.</value>
+    </labels>
+    <labels>
         <fullName>HealthCheck_DataRetention_ModalSubtitle</fullName>
         <categories>Health Check</categories>
         <language>en_US</language>
@@ -3094,7 +3238,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Detail message when Org Cache is not allocated. {0} = partition name.</shortDescription>
-        <value>Allocate Org Cache to the {0} partition (Setup &gt; Platform Cache &gt; Edit). Kern uses this cache to remember state between requests — without it, automatic retries on failing integrations, protection from repeated errors, and shared configuration lookups stop working.</value>
+        <value>Allocate Org Cache to the {0} partition (Setup &gt; Platform Cache &gt; Edit). Kern uses this cache to remember state between requests — without it, automatic retries on failing integrations, protection from repeated errors, and shared configuration lookups stop working. Cached queries still work within a single request but, unless Session Cache keeps them, are read again from the database on every new request.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_PassingPrefix</fullName>
@@ -3158,7 +3302,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Detail message when Session Cache is not allocated. {0} = partition name.</shortDescription>
-        <value>Allocate Session Cache to the {0} partition (Setup &gt; Platform Cache &gt; Edit). Kern uses this to store per-user data (like encryption keys) close to each user&apos;s session. Without it, that data falls back to the shared Org Cache — using more of your org-cache allocation and slowing down user-specific operations.</value>
+        <value>Allocate Session Cache to the {0} partition (Setup &gt; Platform Cache &gt; Edit). Kern uses this to store per-user data (like encryption keys) close to each user&apos;s session. Without it, that data falls back to the shared Org Cache — using more of your org-cache allocation and slowing down user-specific operations. Queries a selector asks to keep for the session are kept for the current request only.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_SetupActionLabel</fullName>
@@ -3189,8 +3333,8 @@ Members: {0}</value>
         <categories>Health Check</categories>
         <language>en_US</language>
         <protected>false</protected>
-        <shortDescription>Trusted URL missing detail</shortDescription>
-        <value>Add a Trusted URL for {0} (Setup &gt; Trusted URLs &gt; New Trusted URL). Some Kern features call back into your own org — for example, pushing to streaming channels and other self-service API operations. Salesforce blocks these calls unless your org domain is explicitly trusted.</value>
+        <shortDescription>Trusted URL not required (unused)</shortDescription>
+        <value>No Trusted URL is needed for {0}. Kern's calls back into your own org work without one.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_WarnSection_Heading</fullName>
@@ -3199,6 +3343,326 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Section heading for Warn-severity action items</shortDescription>
         <value>Review recommended</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunnerRecordName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Runner record name, {0} minute mark</shortDescription>
+        <value>Job runner :{0}</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Check name</shortDescription>
+        <value>Job Runner</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Orphaned_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Check name</shortDescription>
+        <value>Jobs Waiting for the Job Runner</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Capacity_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Check name</shortDescription>
+        <value>Job Runner Capacity</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_NotApplicable</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail when no runner is active</shortDescription>
+        <value>Not applicable: the job runner is not active.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Pass</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Job runner pass, {0} scheduled jobs in place, {1} time</shortDescription>
+        <value>The job runner's set of scheduled jobs is complete: {0} in place. It last checked for due jobs at {1}.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_AwaitingFirstCheck</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Job runner pass before the first check, {0} time, {1} minutes</shortDescription>
+        <value>The job runner was activated at {0}. Its first check is due within {1} minutes.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Late</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Job runner warn, {0} time, {1} minutes</shortDescription>
+        <value>The job runner last checked at {0}, later than its {1}-minute schedule. Press Repair if the next refresh still shows this.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Stopped</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Job runner fail, {0} time</shortDescription>
+        <value>The job runner has not checked for due jobs since {0}. Every job on it is waiting. Press Repair to re-create its scheduled jobs as you.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_ActivatorInactive</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Job runner fail, {0} user name</shortDescription>
+        <value>The job runner was activated by {0}, whose user is now inactive, so its checks cannot run. Press Repair to re-create its scheduled jobs as you.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Incomplete</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Job runner fail, {0} expected, {1} minutes, {2} records, {3} live</shortDescription>
+        <value>The job runner's set of scheduled jobs is incomplete: {0} needed to check every {1} minutes, {2} on record, {3} live on the platform. Press Repair to replace the set.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Capacity_Slots</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Capacity slots pass, {0} total, {1} runner, {2} own, {3} other</shortDescription>
+        <value>{0} of 100 scheduled-job slots are in use: {1} for the job runner, {2} for Scheduled Job records with their own slot, {3} for everything else.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Capacity_SlotsWarn</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Capacity slots warn, {0} total, {1} runner, {2} own, {3} other</shortDescription>
+        <value>{0} of 100 scheduled-job slots are in use ({1} for the job runner, {2} for Scheduled Job records with their own slot, {3} for everything else). The org is close to the cap; move recurring jobs to the job runner or retire schedules you no longer need.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Capacity_SlotsFail</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Capacity slots fail, {0} total, {1} runner, {2} own, {3} other</shortDescription>
+        <value>{0} of 100 scheduled-job slots are in use ({1} for the job runner, {2} for Scheduled Job records with their own slot, {3} for everything else). New schedules start failing at 100.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Orphaned_Pass</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Orphaned pass</shortDescription>
+        <value>No job is waiting for an inactive job runner.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Orphaned_Fail</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Orphaned fail, {0} count</shortDescription>
+        <value>Jobs are set to run on the job runner, but no job runner is active: {0} waiting. Activate it, or move the jobs back to their own scheduled job.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Capacity_LeftWaiting</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Capacity warn added when jobs waited, {0} left, {1} limit</shortDescription>
+        <value>The last check could not start every due job: {0} left waiting, because it may start at most {1} jobs at once. Raise that limit, check less often, or run fewer jobs.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_CardTitle</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card title</shortDescription>
+        <value>Job runner</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Inactive</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card summary when inactive</shortDescription>
+        <value>The job runner is not active. Every scheduled job uses its own platform slot.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_ActiveSummary</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card summary when active, {0} minutes, {1} slots</shortDescription>
+        <value>Checks for due jobs every {0} minutes, using {1} of the org's 100 scheduled-job slots.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_LastCheck</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card: when it last checked, {0} time</shortDescription>
+        <value>The job runner last checked for due jobs at {0}.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Activator</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card: who jobs run as, {0} name</shortDescription>
+        <value>Runs jobs as {0}</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_ActivatorInactiveBadge</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card: badge when the activator is inactive</shortDescription>
+        <value>user inactive</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_ActivatorAdvice</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card: running-user advice</shortDescription>
+        <value>Jobs on the runner run as the user who activated it. Activate it as an integration user that holds the Manage Job Runner permission and the permissions every job needs.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_ActivateButton</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card: Activate</shortDescription>
+        <value>Activate</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_RepairButton</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card and row: Repair</shortDescription>
+        <value>Repair</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_DeactivateButton</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Card: Deactivate</shortDescription>
+        <value>Deactivate</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_ModalTitle</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Activate dialogue title</shortDescription>
+        <value>Activate the job runner</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_ModalSubtitle</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Activate dialogue subtitle</shortDescription>
+        <value>Choose how often the runner checks for due jobs. Each choice costs a fixed number of the org's 100 scheduled-job slots; every job you put on the runner is then free.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_CheckFrequencyLabel</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Activate dialogue combobox label</shortDescription>
+        <value>Check for due jobs</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_CheckFrequencyOptions</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Activate dialogue options, pipe-delimited label=value</shortDescription>
+        <value>Every hour (1 slot)=60|Every 30 minutes (2 slots)=30|Every 15 minutes (4 slots)=15|Every 10 minutes (6 slots)=10|Every 5 minutes (12 slots)=5</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_RunsAsNote</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Activate dialogue: running-user note, {0} name</shortDescription>
+        <value>The runner's jobs will run as you ({0}). Deactivate and activate again as a different user to change this.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_ConfirmButton</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Activate dialogue confirm</shortDescription>
+        <value>Activate</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Activated</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast, {0} minutes</shortDescription>
+        <value>The job runner is active every {0} minutes.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Repaired</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast</shortDescription>
+        <value>The job runner's scheduled jobs were replaced.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_Deactivated</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast</shortDescription>
+        <value>The job runner was deactivated. Jobs set to run on it wait until it is activated again.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_DeactivateConfirm</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Confirm dialogue text</shortDescription>
+        <value>Deactivate the job runner? Every job set to run on it stops until it is activated again. The Chain Watchdog goes back to its own slot.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_PermissionRequired</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Controller refusal</shortDescription>
+        <value>You need the Manage Job Runner permission to change the job runner.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_RepairNeedsCheckFrequency</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Controller: Repair cannot derive a check frequency</shortDescription>
+        <value>No check frequency could be worked out from the existing records. Choose one.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_JobRunner_InvalidCheckFrequency</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Controller: bad interval</shortDescription>
+        <value>Choose every 60, 30, 15, 10 or 5 minutes.</value>
     </labels>
     <labels>
         <fullName>KernHome_AdministrationToolsHeading</fullName>
@@ -3305,6 +3769,70 @@ Members: {0}</value>
         <value>Open</value>
     </labels>
     <labels>
+        <fullName>LogConsole_ActionBannerChains</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Banner sentence; {0} chain count, {1} failed count</shortDescription>
+        <value>It ran {0} chains, {1} of them failed.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionBannerEyebrow</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Eyebrow over the whole-action banner</shortDescription>
+        <value>Everything this action did</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionBannerLegacy</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Banner sentence for an action recorded before roots</shortDescription>
+        <value>This action was recorded before chains were tracked by action.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionBannerNoChains</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Banner sentence for an action with no chains</shortDescription>
+        <value>No chains ran under it.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionBannerRanFor</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Banner fragment after the date; {0} the duration</shortDescription>
+        <value>and ran for {0}.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionBannerStarted</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Banner fragment before the formatted start date</shortDescription>
+        <value>This action started on</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionBannerStillRunning</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Banner fragment after the date while running; {0} the duration</shortDescription>
+        <value>and is still running after {0}.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionChipLaunchedBy</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chip note; {0} the launching chain's name and number</shortDescription>
+        <value>launched by {0}</value>
+    </labels>
+    <labels>
         <fullName>LogConsole_ActionExport</fullName>
         <categories>Log Console</categories>
         <language>en_US</language>
@@ -3321,6 +3849,22 @@ Members: {0}</value>
         <value>Hide signature (session)</value>
     </labels>
     <labels>
+        <fullName>LogConsole_ActionMoreChains</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chains beyond the five chips; {0} the count</shortDescription>
+        <value>and {0} more chains</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionNotRecorded</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Note beside the action id on an entry persisted before roots</shortDescription>
+        <value>recorded before chains were tracked by action</value>
+    </labels>
+    <labels>
         <fullName>LogConsole_ActionOpenChain</fullName>
         <categories>Log Console</categories>
         <language>en_US</language>
@@ -3329,12 +3873,60 @@ Members: {0}</value>
         <value>Open in Chain Monitor</value>
     </labels>
     <labels>
+        <fullName>LogConsole_ActionOpenChains</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Banner action that opens the action in the Chain Monitor</shortDescription>
+        <value>Open the chains in the Chain Monitor</value>
+    </labels>
+    <labels>
         <fullName>LogConsole_ActionOpenRecord</fullName>
         <categories>Log Console</categories>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Detail action: open the standard log entry record</shortDescription>
         <value>Open record</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionPill</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Removable pill for a pinned action; {0} the abbreviated id</shortDescription>
+        <value>Action: {0}</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionRangeNote</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status line after the range is set to an action's lifetime</shortDescription>
+        <value>Date range set to this action's lifetime.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionSelfNote</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Note beside the action id on an entry the action wrote itself</shortDescription>
+        <value>this entry was written by the action itself</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionShowWholeAction</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Drawer action that pins the entry's whole action</shortDescription>
+        <value>Show the whole action</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ActionStartedByChainNote</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Action-row note for an entry whose chain started the action</shortDescription>
+        <value>this chain started the action</value>
     </labels>
     <labels>
         <fullName>LogConsole_ActionSuppress</fullName>
@@ -3351,6 +3943,14 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Detail action label when suppress is unavailable for ERROR</shortDescription>
         <value>Suppress class (n/a for ERROR)</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_BackToList</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Drawer action at the overlay width that returns to the list</shortDescription>
+        <value>Back to the list</value>
     </labels>
     <labels>
         <fullName>LogConsole_ChainAllEntries</fullName>
@@ -3401,6 +4001,14 @@ Members: {0}</value>
         <value>+{0}s</value>
     </labels>
     <labels>
+        <fullName>LogConsole_ChainPill</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Removable pill for a pinned chain run; {0} name, {1} number</shortDescription>
+        <value>Chain: {0} · {1}</value>
+    </labels>
+    <labels>
         <fullName>LogConsole_ChainSoloNote</fullName>
         <categories>Log Console</categories>
         <language>en_US</language>
@@ -3423,6 +4031,14 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Marks the opened entry&apos;s own node in the correlation chain</shortDescription>
         <value>this</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ChainThisAction</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Chain cell for an entry the action wrote itself</shortDescription>
+        <value>this action</value>
     </labels>
     <labels>
         <fullName>LogConsole_ChainViewFull</fullName>
@@ -3457,12 +4073,60 @@ Members: {0}</value>
         <value>Copy</value>
     </labels>
     <labels>
+        <fullName>LogConsole_CopyAction</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Name of the button that copies an entry&apos;s action ID</shortDescription>
+        <value>Copy action ID</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_CopyCode</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Name of the button that copies the generated code</shortDescription>
+        <value>Copy code</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_CopyContext</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Name of the button that copies an entry&apos;s context</shortDescription>
+        <value>Copy context</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_CopyCorrelation</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Name of the button that copies an entry&apos;s correlation ID</shortDescription>
+        <value>Copy correlation ID</value>
+    </labels>
+    <labels>
         <fullName>LogConsole_CopyFailed</fullName>
         <categories>Log Console</categories>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Error toast shown when copying to the clipboard fails</shortDescription>
         <value>Couldn&apos;t copy to the clipboard. Try again or copy the text manually.</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_CopyMessage</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Name of the button that copies an entry&apos;s message</shortDescription>
+        <value>Copy message</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_CopyStackTrace</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Name of the button that copies an entry&apos;s stack trace</shortDescription>
+        <value>Copy stack trace</value>
     </labels>
     <labels>
         <fullName>LogConsole_DetailsHeading</fullName>
@@ -3503,6 +4167,14 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Note that only consumed governor limits are shown</shortDescription>
         <value>(only limits used)</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_MetaAction</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Details grid key for the action's tracking id</shortDescription>
+        <value>Action</value>
     </labels>
     <labels>
         <fullName>LogConsole_MetaContext</fullName>
@@ -3617,6 +4289,22 @@ Members: {0}</value>
         <value>Stack trace</value>
     </labels>
     <labels>
+        <fullName>LogConsole_TimelineDuration</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>What the clock icon beside the timeline&apos;s total time means</shortDescription>
+        <value>Duration</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_TimelineWarning</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>What the warning icon on a timeline segment means</shortDescription>
+        <value>Logged a warning or an error</value>
+    </labels>
+    <labels>
         <fullName>LogConsole_AllContexts</fullName>
         <categories>Log Console</categories>
         <language>en_US</language>
@@ -3633,6 +4321,14 @@ Members: {0}</value>
         <value>Counted the first {0} matches, and there may be more. Narrow the filters to see the rest.</value>
     </labels>
     <labels>
+        <fullName>LogConsole_CappedBannerAction</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Capped banner under an action scope; {0} the count</shortDescription>
+        <value>Counted the first {0} matches, and there may be more. Narrow to one chain or a shorter range to see the rest.</value>
+    </labels>
+    <labels>
         <fullName>LogConsole_ClearAll</fullName>
         <categories>Log Console</categories>
         <language>en_US</language>
@@ -3647,6 +4343,14 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Clear all session-hidden signatures</shortDescription>
         <value>Clear hides</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_ColChain</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>List column header for the chain behind a row</shortDescription>
+        <value>Chain</value>
     </labels>
     <labels>
         <fullName>LogConsole_ColContext</fullName>
@@ -3809,6 +4513,14 @@ Members: {0}</value>
         <value>% of shown</value>
     </labels>
     <labels>
+        <fullName>LogConsole_PerPage</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Page-size option; {0} the row count</shortDescription>
+        <value>{0} per page</value>
+    </labels>
+    <labels>
         <fullName>LogConsole_Refresh</fullName>
         <categories>Log Console</categories>
         <language>en_US</language>
@@ -3863,6 +4575,14 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>All-entries ribbon total card label for forensic rows matching the filters</shortDescription>
         <value>Matching entries</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_EntriesPosition</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Pager position; {0} first row, {1} last row, {2} total</shortDescription>
+        <value>Rows {0} to {1} of {2}</value>
     </labels>
     <labels>
         <fullName>LogConsole_LogRows</fullName>
@@ -4047,6 +4767,78 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Heading above the execution-context picklist in the filter row</shortDescription>
         <value>Context</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_OriginGroupLabel</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Heading above the origin picklist in the filter row</shortDescription>
+        <value>Origin</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_OriginFilter</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive label for the origin filter</shortDescription>
+        <value>Who wrote the entry</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_AllOrigins</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Default option for the origin filter</shortDescription>
+        <value>All origins</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_OriginFramework</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Origin badge for entries the framework's own code wrote</shortDescription>
+        <value>Framework</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_OriginApex</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Origin badge for entries your Apex wrote</shortDescription>
+        <value>Apex</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_OriginFlow</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Origin badge for entries a Flow wrote</shortDescription>
+        <value>Flow</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_OriginComponent</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Origin badge for entries a Lightning web component wrote</shortDescription>
+        <value>Component</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_OriginMixed</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Origin badge for a problem whose entries were written under more than one origin</shortDescription>
+        <value>Mixed</value>
+    </labels>
+    <labels>
+        <fullName>LogConsole_MetaOrigin</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Metadata grid label for who wrote the entry</shortDescription>
+        <value>Origin</value>
     </labels>
     <labels>
         <fullName>LogConsole_DateRange</fullName>
@@ -4865,6 +5657,14 @@ Members: {0}</value>
         <value>Correlated by id {0}. These entries share one operation, but it is not a registered async chain, so there is no Chain Monitor view.</value>
     </labels>
     <labels>
+        <fullName>LogConsole_TimelineActionOwn</fullName>
+        <categories>Log Console</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Timeline note for an entry the action wrote itself</shortDescription>
+        <value>This entry was written by the action itself, outside any chain. Show the whole action to see the chains it launched.</value>
+    </labels>
+    <labels>
         <fullName>LogConsole_TimelineOverview</fullName>
         <categories>Log Console</categories>
         <language>en_US</language>
@@ -5118,7 +5918,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Stack trace tab empty state hint: why this entry has none</shortDescription>
-        <value>Stack traces are captured for exceptions; this entry was logged without one.</value>
+        <value>A stack trace shows the code that led to this entry. None was recorded here, which happens when the entry was written by the framework itself, by a Flow, or by a component that reported no error.</value>
     </labels>
     <labels>
         <fullName>LogConsole_NoStackTraceSourceHint</fullName>
@@ -5126,7 +5926,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Stack trace tab hint naming where the entry was logged from</shortDescription>
-        <value>Only an error logged with an exception carries a stack trace. This entry was logged at {0}, which is where to look in your code.</value>
+        <value>A stack trace shows the code that led to this entry. None was recorded here, but the entry was logged at {0}, which is where to look.</value>
     </labels>
     <labels>
         <fullName>LogConsole_TimelineAllLevels</fullName>
@@ -5317,8 +6117,16 @@ Members: {0}</value>
         <categories>Scheduled Jobs</categories>
         <language>en_US</language>
         <protected>false</protected>
-        <shortDescription>Placeholder for the class-name lookup</shortDescription>
-        <value>Select a class...</value>
+        <shortDescription>Placeholder for the class-name field</shortDescription>
+        <value>Type or select a class...</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ClassNameNotSchedulable</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: a picked or typed class name cannot be scheduled, {0} the name</shortDescription>
+        <value>No class named {0} can be scheduled. Check the spelling, that the class is deployed to this org, and that it implements Schedulable.</value>
     </labels>
     <labels>
         <fullName>ScheduledJob_Active</fullName>
@@ -5423,6 +6231,294 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Parameters table value column header</shortDescription>
         <value>Value</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ExecutionMode</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: execution-mode radio label</shortDescription>
+        <value>Execution mode</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ExecutionModeOwn</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: own-mode option</shortDescription>
+        <value>Its own scheduled job</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ExecutionModeJobRunner</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: job-runner option</shortDescription>
+        <value>Job runner</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_JobRunnerInactiveNote</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: note when no runner is active</shortDescription>
+        <value>Activate the job runner in Health Check first; this job will wait until then.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_JobRunnerActiveNote</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: note when a runner is active, {0} minutes</shortDescription>
+        <value>This job runs at the first job runner check on or after each scheduled time (the runner checks every {0} minutes).</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_JobRunnerPermissionNote</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: option disabled without the permission</shortDescription>
+        <value>You need the Manage Job Runner permission to put a job on the job runner.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ManageJobRunnerPermissionRequired</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Trigger: error without the permission</shortDescription>
+        <value>Only a user with the Manage Job Runner permission can put a job on the job runner or change the class or parameters of a job that is on it.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_RunnerRecordManagedByHealthCheck</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Trigger: error on a runner record edit</shortDescription>
+        <value>This record belongs to the job runner. Use Activate, Repair or Deactivate in Health Check to manage the runner.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_CronExpressionInvalid</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Evaluator: unreadable expression, {0} token</shortDescription>
+        <value>The cron expression could not be read at "{0}".</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ExpressionCannotFireWithinHorizon</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Trigger and runner check: no fire within four years</shortDescription>
+        <value>This expression never fires within the next four years, so the job runner cannot schedule it.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ParkedClassNotFound</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Runner check: parked reason, {0} error</shortDescription>
+        <value>The job was parked because its class could not be loaded: {0}</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ParkedExpressionCannotBePlaced</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Runner check: parked reason, expression could not be placed</shortDescription>
+        <value>The job was parked because its next run time could not be worked out. The log entry for this record has the detail.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_SkippedPreviousRunStillRunning</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Runner check: skipped reason</shortDescription>
+        <value>Skipped: the previous run was still running when this run was due.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_SkippedRecordNoLongerOnRunner</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Run: skipped reason at start</shortDescription>
+        <value>Skipped: when the run started the job was inactive or no longer on the job runner.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_RunFailedWithoutMessage</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Finalizer: fallback failure text</shortDescription>
+        <value>The run failed without an error message.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_RunNow</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail: Run now button</shortDescription>
+        <value>Run now</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_RunNowStarted</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail: Run now success toast</shortDescription>
+        <value>The job was started. Its outcome appears on this record when the run finishes.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_RunNowRefusedPreviousRunLive</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Run now: refusal under Skip</shortDescription>
+        <value>The previous run is still running and this job's overlap policy is Skip. Wait for it to finish or set the policy to Allow.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_RunNowOnlyForJobRunnerRecords</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Run now: refusal for own mode or inactive</shortDescription>
+        <value>Run now is available for active jobs on the job runner only.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_RunNowRefusedRunnerOff</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Run now refused, runner off</shortDescription>
+        <value>The job runner is switched off, so Run now cannot start this job.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_RunNowPermissionRequired</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Run now: refusal without the permission</shortDescription>
+        <value>You need the Manage Job Runner permission to run a job now.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_RunPriority</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: run-priority input label</shortDescription>
+        <value>Run priority</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_RunPriorityHelp</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: run-priority help</shortDescription>
+        <value>Lower numbers start first when several jobs are due at the same check. Leave blank to go last.</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_OverlapPolicy</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: overlap-policy label</shortDescription>
+        <value>Overlap policy</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_OverlapPolicySkip</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: Skip option</shortDescription>
+        <value>Skip this run while the previous one is still running</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_OverlapPolicyAllow</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: Allow option</shortDescription>
+        <value>Allow runs to overlap</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_NextRunPreview</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: next-run preview, {0} date-time</shortDescription>
+        <value>Next run: {0}</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_NextRunPreviewUnavailable</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Editor: preview when the expression is invalid</shortDescription>
+        <value>Next run: not available until the expression is valid</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_ExecutionMode</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail: runs-on label</shortDescription>
+        <value>Runs on</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_NextRun</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail: next-run label</shortDescription>
+        <value>Next run</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_LastRun</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail: last-run label</shortDescription>
+        <value>Last run</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_LastRunOutcome</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail: outcome label</shortDescription>
+        <value>Outcome</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_LastRunReason</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail: reason label</shortDescription>
+        <value>Reason</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_NoRunYet</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail: placeholder before the first run</shortDescription>
+        <value>Not run yet</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_ViewLog</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail: link to the log entry of the last run</shortDescription>
+        <value>View log</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJobDetail_LogEntryNotFound</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Detail: message when the last run has no log entry left</shortDescription>
+        <value>The log entry for this run is no longer available.</value>
     </labels>
     <labels>
         <fullName>ScheduledJobEditorModal_SuccessToastTitle</fullName>
@@ -5918,7 +7014,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Validation help for the minutes field</shortDescription>
-        <value>Enter 0-59, *, */N, N/N, or comma/range lists</value>
+        <value>Enter one minute, 0 to 59. A scheduled job runs at most once an hour, so this field cannot take *, a step such as */15, or a list such as 0,30.</value>
     </labels>
     <labels>
         <fullName>CronExpressionEditor_ValHours</fullName>
@@ -6055,6 +7151,38 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Validation error: wrong number of fields</shortDescription>
         <value>Invalid cron expression — must have 6 or 7 space-separated fields</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_ValMinutesJobRunner</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Validation: minutes grammar on the runner</shortDescription>
+        <value>Enter minutes 0 to 59, *, a step such as */15, a range such as 0-30, or a list such as 0,30. The job runner accepts them all.</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescEveryNMinutesOnRunner</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description suffix on the runner, {0} description</shortDescription>
+        <value>{0} on this job runner</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescFirstCheckOnOrAfter</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: check alignment</shortDescription>
+        <value>Runs at the first job runner check on or after each scheduled time</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_IntervalActivateFirstNote</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Interval note when no runner is active</shortDescription>
+        <value>Activate the job runner in Health Check first; until then the job waits.</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_Title</fullName>
@@ -6223,6 +7351,30 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Chain list empty state when no status is selected</shortDescription>
         <value>No statuses are selected, so no chain run can match. Select at least one status.</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_FiltersToggleAlt</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive text of the button that shows or hides the status filters</shortDescription>
+        <value>Show or hide the status filters</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_LoadingAlt</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive text of the list's loading spinner</shortDescription>
+        <value>Loading chain runs</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_LoadingSteps</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Assistive text of the step timeline&apos;s loading spinner</shortDescription>
+        <value>Loading steps</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_ActionUnavailableNote</fullName>
@@ -7161,6 +8313,14 @@ Members: {0}</value>
         <value>JSON formatted payload with strings delimited by double quotes</value>
     </labels>
     <labels>
+        <fullName>ApiTestHarness_CardTitle</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Title of the API Test Harness card.</shortDescription>
+        <value>API Test Harness</value>
+    </labels>
+    <labels>
         <fullName>ApiTestHarness_Direction_Outbound</fullName>
         <categories>API Test Harness</categories>
         <language>en_US</language>
@@ -7199,6 +8359,14 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Mode badge when Safe Mode and Mocking are both on.</shortDescription>
         <value>Full Sandbox</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_ModeBadge_SafeModeRealCallouts</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mode badge when DML rolls back but callouts still reach the endpoint.</shortDescription>
+        <value>Safe Mode · Real callouts</value>
     </labels>
     <labels>
         <fullName>ApiTestHarness_SafeMode</fullName>
@@ -7247,6 +8415,30 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Validation error when the JSON body does not parse.</shortDescription>
         <value>JSON Body contains invalid JSON.</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Validation_RecordIdInvalid</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when the record ID is not 15 or 18 characters.</shortDescription>
+        <value>Enter a 15- or 18-character record ID.</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Validation_RecordIdRequired</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when the service needs a record ID and none is given.</shortDescription>
+        <value>This service needs a triggering record ID.</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_Validation_RequiredParameterMissing</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when a required parameter has no value.</shortDescription>
+        <value>Fill in every required parameter before executing.</value>
     </labels>
     <labels>
         <fullName>ApiTestHarness_Toast_ExecutionSuccess</fullName>
@@ -7457,12 +8649,28 @@ Members: {0}</value>
         <value>Enter triggering record ID</value>
     </labels>
     <labels>
+        <fullName>ApiTestHarness_RecordId_Optional</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Record ID label when the service does not require one.</shortDescription>
+        <value>Record ID (optional)</value>
+    </labels>
+    <labels>
         <fullName>ApiTestHarness_Parameters</fullName>
         <categories>API Test Harness</categories>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Heading above the outbound parameter rows.</shortDescription>
         <value>Parameters</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_RequiredMarker</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Marker beside a parameter the service declares as required.</shortDescription>
+        <value>Required</value>
     </labels>
     <labels>
         <fullName>ApiTestHarness_Key</fullName>
@@ -7713,6 +8921,214 @@ Members: {0}</value>
         <value>Configure the request on the left and click Execute.</value>
     </labels>
     <labels>
+        <fullName>ApiTestHarness_AlternativeText_Executing</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Screen-reader text for the spinner shown while a run is in flight.</shortDescription>
+        <value>Executing</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_AlternativeText_RemoveParameter</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Screen-reader text for the remove-parameter button.</shortDescription>
+        <value>Remove parameter</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_AlternativeText_ExecutionSettings</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Screen-reader text for the execution settings icon.</shortDescription>
+        <value>Execution settings</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_AlternativeText_CopySummary</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Screen-reader text for the copy-summary button.</shortDescription>
+        <value>Copy summary</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_AlternativeText_CopyRequestHeaders</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Screen-reader text for the copy-request-headers button.</shortDescription>
+        <value>Copy request headers</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_AlternativeText_CopyRequestBody</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Screen-reader text for the copy-request-body button.</shortDescription>
+        <value>Copy request body</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_AlternativeText_CopyResponseHeaders</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Screen-reader text for the copy-response-headers button.</shortDescription>
+        <value>Copy response headers</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_AlternativeText_CopyResponseBody</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Screen-reader text for the copy-response-body button.</shortDescription>
+        <value>Copy response body</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_AlternativeText_CopyErrors</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Screen-reader text for the copy-errors button.</shortDescription>
+        <value>Copy errors</value>
+    </labels>
+    <labels>
+        <fullName>ApiTestHarness_AlternativeText_NoResponse</fullName>
+        <categories>API Test Harness</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Screen-reader text for the empty-state icon before the first run.</shortDescription>
+        <value>No response</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_CredentialHeaderNotStored</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Retry blocked: hand-set credential header not stored.</shortDescription>
+        <value>This call set the {0} header itself, so its value is not stored with the call record and a retry cannot send it. Store the credential in a Named Credential or External Credential, then run the call again.</value>
+    </labels>
+    <labels>
+        <fullName>OutboundCall_NoRecordedError</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status line when a call failed with no error recorded.</shortDescription>
+        <value>The call produced no response and no error detail was recorded for it.</value>
+    </labels>
+    <labels>
+        <fullName>OutboundCall_NoResponseNotRepeated</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Issue line: a call got no response and was not sent again.</shortDescription>
+        <value>The request to {0} got no response and was not repeated: it may have reached the external system, and sending it again could run it twice. To allow automatic retries, give the call an idempotency key or turn on Idempotency Enabled for its setting.</value>
+    </labels>
+    <labels>
+        <fullName>OutboundCall_ServerErrorNotRepeated</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Issue line: a server error on a request that is not safe to repeat.</shortDescription>
+        <value>{0} responded with status {1} to a request that is not safe to repeat. The external system may have processed it, so it was not sent again. To allow automatic retries, give the call an idempotency key or turn on Idempotency Enabled for its setting.</value>
+    </labels>
+    <labels>
+        <fullName>OutboundCall_ExternalSystemAcceptedBeforeFailure</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Issue line: the external system accepted the request before the call failed.</shortDescription>
+        <value>{0} accepted this request (status {1}) before the call failed in your org. A retry sends the request again.</value>
+    </labels>
+    <labels>
+        <fullName>OutboundCall_CircuitOpen</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Issue line: the circuit breaker is open for the service.</shortDescription>
+        <value>The circuit breaker for {0} is open after repeated failures, so the request was not sent.</value>
+    </labels>
+    <labels>
+        <fullName>OutboundCall_TriggeringRecordIdRequired</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Issue line: the call has no valid triggering record Id.</shortDescription>
+        <value>A valid triggering record Id is required.</value>
+    </labels>
+    <labels>
+        <fullName>OutboundCall_RequiredParametersMissing</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Issue line: required parameters were not given or were blank.</shortDescription>
+        <value>The required parameters {0} were not provided or were blank.</value>
+    </labels>
+    <labels>
+        <fullName>OutboundCall_ApiSettingNotFound</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Issue line: no API setting record exists for the service.</shortDescription>
+        <value>No API setting record was found for the service {0}.</value>
+    </labels>
+    <labels>
+        <fullName>OutboundCall_RetryDecisionFailed</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Issue line: the retry settings could not be read.</shortDescription>
+        <value>The retry settings for {0} could not be read: {1}. The call ends Failed and is not retried.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_RetryNotEnabled</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the service has no API setting, or Retry Issues is off in it.</shortDescription>
+        <value>The call was not sent: this service has no API setting, or Retry Issues is off in its API setting. Ask your administrator to add the setting or turn on Retry Issues, then run the call again.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_ServiceNotAcceptingRetries</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the service is paused or switched off, so Retry sends nothing.</shortDescription>
+        <value>This service is paused or switched off, so the call was not sent and the issue stays open. Ask your administrator to check the service&apos;s API setting and its feature flags.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_InboundReplayFailed</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: an inbound request could not be replayed.</shortDescription>
+        <value>The inbound request could not be replayed.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_PermissionRequired</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the user lacks the Retry API Issue permission.</shortDescription>
+        <value>You need the Retry API Issue permission to run this call again. Ask your administrator for the Kern API Issue Resolver permission set.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_IssueNotVisible</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the user cannot see the API issue, or it no longer exists.</shortDescription>
+        <value>You can't see this API issue, or it no longer exists. Ask your administrator for the Kern API Issue Resolver permission set, which lets you see every API issue.</value>
+    </labels>
+    <labels>
+        <fullName>DeleteApiRecords_PermissionRequired</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the user may not delete API calls or API issues.</shortDescription>
+        <value>You can't delete API calls or API issues, the history of calls to other systems. You need the Delete API Records permission, which the Kern Administrator permission set has, or an administrator can turn on the Bypass API Record Delete Guard flag for you.</value>
+    </labels>
+    <labels>
         <fullName>RetryApiIssue_RetrySuccessful</fullName>
         <categories>API Issues</categories>
         <language>en_US</language>
@@ -7735,6 +9151,22 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Toast fallback when the retry action throws unexpectedly.</shortDescription>
         <value>An unexpected error occurred</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssues_NothingToRetry</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Bulk retry: none of the selected API issues is open.</shortDescription>
+        <value>None of the selected API issues is open. Only open issues can be retried.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssues_Queued</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Bulk retry: {0} queued of {1} selected open issues, and why the rest stay open.</shortDescription>
+        <value>{0} of {1} selected API issues were queued. An issue not queued stays open: the external system may have acted on it, or its service is paused or does not allow retries. A few may still be skipped when the job runs. An issue whose call succeeds is marked Resolved; the others stay open.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_DataRetention_ColumnObject</fullName>
@@ -8111,6 +9543,38 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Step status word: not yet executed.</shortDescription>
         <value>Pending</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StatusDidNotRun</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Step status word: the run ended before this step ran.</shortDescription>
+        <value>Did not run</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_StatusNoResultRecorded</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Step status word: the run ended before this step recorded a result.</shortDescription>
+        <value>No result recorded</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ManualRetryMarkerAfter</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Step timeline line above a manually retried step. {0} is the wait.</shortDescription>
+        <value>Retried manually after {0}</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_ManualRetryMarker</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Step timeline line above a manually retried step when the wait is unknown.</shortDescription>
+        <value>Retried manually</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_StepTimelineTitle</fullName>

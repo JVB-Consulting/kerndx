@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Shared helpers for the ScheduledJob__c editor, editor-modal and detail components:
- *              resolves a human-readable timezone name from an IANA sid key, and parses a
- *              DTO_NameValues JSON string into a plain key-value map.
+ * @description Shared helpers for the ScheduledJob__c editor, editor-modal and detail components and the
+ *              job runner card: resolves a human-readable timezone name from an IANA sid key, parses a
+ *              DTO_NameValues JSON string into a plain key-value map, and renders an instant in the reader's
+ *              own Salesforce locale and time zone.
  *
  * @author Jason van Beukering
  *
- * @date July 2026
+ * @date July 2026, September 2026
  */
+import LOCALE from '@salesforce/i18n/locale';
+import TIME_ZONE from '@salesforce/i18n/timeZone';
 
 /**
  * @description Returns a human-readable timezone name from an IANA TimeZoneSidKey
@@ -54,5 +57,30 @@ export function parseAttributes(attributeString)
 	catch
 	{
 		return {};
+	}
+}
+
+/**
+ * @description Renders an instant in the reader's own Salesforce locale and time zone, so a date on the page
+ * reads the same way as the record's own date fields wherever the browser happens to be set.
+ *
+ * @param {string} value The instant as the record holds it, which may be absent.
+ *
+ * @returns {string} The instant to show, or an empty string when there is none to show or it cannot be read.
+ */
+export function formatInstant(value)
+{
+	if(!value)
+	{
+		return '';
+	}
+
+	try
+	{
+		return new Intl.DateTimeFormat(LOCALE.replace('_', '-'), {timeZone: TIME_ZONE, dateStyle: 'medium', timeStyle: 'short'}).format(new Date(value));
+	}
+	catch
+	{
+		return '';
 	}
 }

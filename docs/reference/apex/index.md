@@ -2,7 +2,7 @@
 
 > Core Apex classes, utilities, and services
 
-**240 items** in this category.
+**247 items** in this category.
 
 ---
 
@@ -62,8 +62,8 @@
 
 | Name | Description |
 |------|-------------|
-| [DML_Builder](DML_Builder.md) | Fluent DML API for building and executing database operations. Uses a static factory entry point to  |
-| [DML_Transaction](DML_Transaction.md) | Transaction engine for managing complex DML operations across multiple SObjects. Handles dependency  |
+| [DML_Builder](DML_Builder.md) | Fluent DML API for building and running database operations: you set it up by chaining method calls. |
+| [DML_Transaction](DML_Transaction.md) | The engine that saves a set of DML operations across many SObjects as one transaction. This set is c |
 
 ## Email
 
@@ -118,6 +118,7 @@
 | [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) | A Data Transfer Object describing a single parameter definition supported by a scheduled job class.  |
 | [IF_Schedulable](IF_Schedulable.md) | An interface for a Schedulable class that can declare the parameters it supports and receive validat |
 | [SCHED_Base](SCHED_Base.md) | Abstract base class for scheduled jobs that support configurable parameters. Implements IF_Schedulab |
+| [SCHED_JobRunner](SCHED_JobRunner.md) | The job runner's scheduled job. Health Check schedules this class once per chosen minute mark (one t |
 | [SCHED_ProcessLoginHistory](SCHED_ProcessLoginHistory.md) | Scheduled job that runs daily to process login history data. Launches PROC_LoginFrequencyAggregator  |
 
 ## Selectors
@@ -215,10 +216,13 @@
 | [DTO_JsonBase](DTO_JsonBase.md) | A Data Transfer Object (DTO) base class for JSON serialization and deserialization, providing a fram |
 | [FLOW_CallApi](FLOW_CallApi.md) | Invokes web service calls synchronously, allowing for integration with external systems from Salesfo |
 | [FLOW_CallApiAsync](FLOW_CallApiAsync.md) | Asynchronously invokes web service calls, allowing large or delayed API callouts to be processed out |
+| [FLOW_RetryApiIssues](FLOW_RetryApiIssues.md) | Runs the failed calls of the API issues you select again, in one background job: from the Retry Sele |
 | [REST_Echo](REST_Echo.md) | REST Endpoint wrapper class for the inbound echo test service. This class serves as a RESTFUL endpoi |
 | [SCHED_PerformBatchedCallouts](SCHED_PerformBatchedCallouts.md) | The SCHED_PerformBatchedCallouts class is a scheduled job responsible for processing batched API cal |
 | [SEL_ApiCall](SEL_ApiCall.md) | Selector for the ApiCall__c object. Provides query methods for service call management, status track |
 | [SEL_ApiIssue](SEL_ApiIssue.md) | Selector for the ApiIssue__c SObject. Provides query methods for retrieving and filtering failed API |
+| [UTIL_Exceptions.PermanentFailureException](UTIL_Exceptions.PermanentFailureException.md) | Throw this from your own outbound handler code to say the failure is permanent: sending the same req |
+| [UTIL_Exceptions.RequestRefusedException](UTIL_Exceptions.RequestRefusedException.md) | Throw this from parseResponse() when the external system answered with a success status but its body |
 | [UTIL_HttpClient](UTIL_HttpClient.md) | Fluent HTTP client facade over the API_Dispatcher pipeline. Provides zero-boilerplate callouts with  |
 
 ## Other
@@ -231,7 +235,7 @@
 | [API_MockFactory.MockBuilder](API_MockFactory.MockBuilder.md) | Fluent builder for constructing and registering mock responses. |
 | [API_MockFactory.MockResponse](API_MockFactory.MockResponse.md) | Represents a mock HTTP response with fault simulation options. |
 | [DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) | Enum to specify the type of DML operation for external use. |
-| [DML_Builder.DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) | Async DML execution wrapper. Groups registered operations by type and delegates to PROC_ExecuteDML w |
+| [DML_Builder.DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) | Runs DML in an async job. It groups the registered operations by type and hands them to PROC_Execute |
 | [DML_Builder.TransactionResult](DML_Builder.TransactionResult.md) | Result object returned by execute() containing the outcome of all DML operations in the transaction. |
 | [DTO_BaseTable.DTO_Column](DTO_BaseTable.DTO_Column.md) | Represents a column in the DTO_BaseTable, containing properties for label, field name, type, and sor |
 | [DTO_ScheduledParameterDefinition.DataType](DTO_ScheduledParameterDefinition.DataType.md) | Enumeration of supported input data types for scheduled job parameters. |
@@ -251,6 +255,8 @@
 | [FLOW_LoggerLog.DTO_Request](FLOW_LoggerLog.DTO_Request.md) | Input parameters for logging a Flow event. |
 | [FLOW_LoggerStart.DTO_Request](FLOW_LoggerStart.DTO_Request.md) | Input parameters for starting Flow correlation. |
 | [FLOW_LoggerStart.DTO_Response](FLOW_LoggerStart.DTO_Response.md) | Output containing the generated correlation ID. |
+| [FLOW_RetryApiIssues.DTO_Request](FLOW_RetryApiIssues.DTO_Request.md) | What the action is asked: the API issues to run again. |
+| [FLOW_RetryApiIssues.DTO_Response](FLOW_RetryApiIssues.DTO_Response.md) | What the action answers: the job, the count and a message for the person who asked. |
 | [FLOW_SendEmail.DTO_Request](FLOW_SendEmail.DTO_Request.md) | Data Transfer Object (DTO) representing the input parameters for a single email request. |
 | [FLOW_SendEmail.DTO_Response](FLOW_SendEmail.DTO_Response.md) | Data Transfer Object (DTO) representing the outcome of an email request. |
 | [FLOW_WriteLog.DTO_Request](FLOW_WriteLog.DTO_Request.md) | Data Transfer Object (DTO) for log requests, specifying log level, message details, and context. |
@@ -292,14 +298,15 @@
 | [SEL_ObjectPermission.ObjectPermissionType](SEL_ObjectPermission.ObjectPermissionType.md) | A Permission that a User might have on a SObjectType. |
 | [SVC_Omnistudio.OmniCallable](SVC_Omnistudio.OmniCallable.md) | A global inner interface that allows the SVC_Omnistudio class to instantiate a class and perform an  |
 | [SVC_Omnistudio.Parameters](SVC_Omnistudio.Parameters.md) | A Data Transfer Object (DTO) used to wrap the original parameters provided by Omnistudio, organizing |
-| [TRG_ApiCall](TRG_ApiCall.md) | Trigger on ApiCall__c. Fires the configured trigger actions for content-document cleanup on delete a |
+| [TRG_ApiCall](TRG_ApiCall.md) | Trigger on ApiCall__c. Fires the configured trigger actions for data masking before insert and updat |
 | [TRG_ApiIssue](TRG_ApiIssue.md) | Trigger on ApiIssue__c. Fires the configured trigger actions for data masking before insert and upda |
 | [TRG_AsyncChainExecution](TRG_AsyncChainExecution.md) | Trigger on AsyncChainExecution__c. Fires the configured trigger actions for data masking before inse |
 | [TRG_Base.BypassType](TRG_Base.BypassType.md) | Indicates the type of trigger bypass being applied. |
+| [TRG_BatchApexErrorEvent](TRG_BatchApexErrorEvent.md) | Batch job failure trigger: hands each failure the platform reports to the framework, which writes it |
 | [TRG_Foobar](TRG_Foobar.md) | Example trigger demonstrating the Trigger Action framework |
 | [TRG_LogEntryEvent](TRG_LogEntryEvent.md) | Log entry event trigger for handling log events |
 | [TRG_ScheduledJob](TRG_ScheduledJob.md) | TRG_ScheduledJob activated by saving Scheduled Job records (rule: 1 record per periodic job setting) |
-| [TST_Builder.Builder](TST_Builder.Builder.md) | A fluid builder for configuring and creating SObject records. Obtain an instance via TST_Builder.of( |
+| [TST_Builder.Builder](TST_Builder.Builder.md) | A fluent builder for configuring and creating SObject records: you set it up by chaining method call |
 | [TST_Builder.DefaultFieldValueProvider](TST_Builder.DefaultFieldValueProvider.md) | Base class for field-level default value providers. @note Using a virtual class instead of an interf |
 | [TST_Builder.DefaultValueProvider](TST_Builder.DefaultValueProvider.md) | Base class for default value providers. Extend 'UTIL_SObjectBuilderDefaultProvider' (which extends t |
 | [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) | Fluent builder for registering a mock flow response. |

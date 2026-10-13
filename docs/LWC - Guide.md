@@ -165,7 +165,7 @@ For any other custom component, extend `ComponentBuilder` even with a single fea
         - [Utility Modules (8 components)](#utility-modules-8-components)
         - [Base Architecture (8 components)](#base-architecture-8-components)
         - [Subscriber-Usable Components (15 components)](#subscriber-usable-components-15-components)
-        - [Internal UI Components (10 components)](#internal-ui-components-10-components)
+        - [Internal UI Components (12 components)](#internal-ui-components-12-components)
         - [Streaming Monitor Internals (9 components)](#streaming-monitor-internals-9-components)
         - [Chain Monitor (7 components)](#chain-monitor-7-components)
         - [Log Console (4 components)](#log-console-4-components)
@@ -196,7 +196,7 @@ For any other custom component, extend `ComponentBuilder` even with a single fea
 Here is the whole idea in one example. To build a custom component, extend `ComponentBuilder` and list the features you want:
 
 ```javascript
-import {ComponentBuilder} from 'c/componentBuilder';
+import {ComponentBuilder} from 'kern/componentBuilder';
 
 export default class MyComponent extends ComponentBuilder('notification', 'controller')
 {
@@ -210,6 +210,11 @@ export default class MyComponent extends ComponentBuilder('notification', 'contr
 
 That one line gives your component toast notifications and a clean way to call Apex. Need more? Add `'navigation'` for record-page navigation, or pass `'all'` to include every feature. The rule of thumb is simple: build every new component on `ComponentBuilder`, not on `LightningElement` directly, so they all share the same wiring.
 
+One thing to set up before anyone but a System Administrator opens a page built this way: the package's modules and components call Apex classes in the package, and
+a user needs access to those classes. Assign the **Kern Component Access** permission set to every user of such a page (it grants the classes behind `kern/featureFlag`,
+`kern/utilityLogger`, `searchLookup`, `createForm` and `sObjectLookup`, and the matching Flow actions, and nothing else), or add Apex class access for the component's
+controller to a permission set they already have. Kern Administrator includes them all.
+
 The sections below go deeper on each piece.
 
 ---
@@ -220,8 +225,8 @@ The pieces of this part of KernDX are: helper functions for common operations (l
 
 > **What components are for, and what they are not for:** Components handle the screen: what the user sees and clicks. They should not hold business logic. Your Apex controllers and trigger actions own that. So keep components thin: call a server method with `callControllerMethod()` and display what comes back.
 
-> **What's in this part of KernDX:** 72 components, made up of 8 helper-function modules, the base-component architecture, Flow screen components, page components, form components,
-> data masking advisor components, log console components, and admin components. Every one is covered by tests: 73 Jest test files holding ~3,000 test cases (~45K lines of test code) at 100% coverage. So you can build on this layer without worrying that an upgrade will quietly break it.
+> **What's in this part of KernDX:** 74 components, made up of 8 helper-function modules, the base-component architecture, Flow screen components, page components, form components,
+> data masking advisor components, log console components, and admin components. Every one is covered by tests: 75 Jest test files holding ~3,000 test cases (~45K lines of test code) at 100% coverage. So you can build on this layer without worrying that an upgrade will quietly break it.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
 
@@ -362,14 +367,14 @@ What you get, and why it helps:
 
 This part of KernDX is organised into three groups, each solving a different need.
 
-1. **Helper functions for everyday tasks.** When you need to format a string, sort an array, generate a UUID, or write a client log, you import a small function instead of writing it yourself. These are plain JavaScript modules (`utilityLogger`, `utilityString`, `utilityArray`, `utilitySystem`, `utilityRandom`, `utilityGenerator`, `utilityStreaming`). They have no memory of past calls: you call a function, you get a result. They are not components, so you bring them into a component with a normal ES module import.
+1. **Helper functions for everyday tasks.** When you need to format a string, sort an array, generate a UUID, or write a client log, you import a small function instead of writing it yourself. These are plain JavaScript modules (`utilityLogger`, `utilityString`, `utilityArray`, `utilitySystem`, `utilityRandom`; `utilityGenerator` and `utilityStreaming` are internal to the package). They have no memory of past calls: you call a function, you get a result. They are not components, so you bring them into a component with a normal ES module import.
 
 2. **A base class for building your own components.** Rather than re-wiring toasts, Apex calls, and navigation in every component, you extend one base class that already has them. `ComponentBuilder(...)` is a factory: you list the features you want (notification, navigation, controller, lightning-message, flow-navigation) and it hands back a base class with exactly those mixed in. Your component extends that result instead of extending `LightningElement` directly. The [Base Component Architecture](#base-component-architecture) section explains the full system.
 
 3. **Pre-built components you can use as-is.** For common patterns there is already a finished component: Flow screen components (`flowFooter`, `jsonViewer`), page components (`streamingMonitor`, `searchLookup`, `scheduledJobDetail`), form components (`createForm`, `sObjectLookup`), and scheduling components (`scheduledJobEditor`, `scheduledJobEditorModal`, `cronExpressionEditor`). So a common screen often needs no new code at all.
 
 All components use Allman bracing, tabs for indentation, single quotes, and follow the conventions defined in
-[`docs/Code Conventions - Guide.md`](./Code%20Conventions%20-%20Guide.md). Every component requires a `.js-meta.xml` file with `apiVersion` 67.0.
+[`docs/Code Conventions - Guide.md`](./Code%20Conventions%20-%20Guide.md). Every component requires a `.js-meta.xml` file with `apiVersion` 68.0.
 
 ---
 
@@ -384,9 +389,9 @@ You want a record of what happened on the screen, kept and searchable, not a `co
 **Import:**
 
 ```javascript
-import utilityLogger, {LogLevel} from 'c/utilityLogger';
+import utilityLogger, {LogLevel} from 'kern/utilityLogger';
 // Or import specific functions
-import {debug, info, warn, error, startCorrelation, startTimer} from 'c/utilityLogger';
+import {debug, info, warn, error, startCorrelation, startTimer} from 'kern/utilityLogger';
 ```
 
 #### Log Level Constants
@@ -401,7 +406,7 @@ LogLevel.ERROR  // Error conditions
 #### Basic Logging
 
 ```javascript
-import {debug, info, warn, error} from 'c/utilityLogger';
+import {debug, info, warn, error} from 'kern/utilityLogger';
 
 // Simple messages
 debug('Component initialised');
@@ -422,7 +427,7 @@ info('Account loaded', {
 When one user action triggers several log entries, on the client and then on the server, a correlation ID ties them together so you can read them as a single trail. Here is how to start and end one by hand.
 
 ```javascript
-import {startCorrelation, endCorrelation, getCorrelationId, info} from 'c/utilityLogger';
+import {startCorrelation, endCorrelation, getCorrelationId, info} from 'kern/utilityLogger';
 
 // Manual correlation management
 async handleSave()
@@ -448,7 +453,7 @@ async handleSave()
 #### Automatic Correlation with withCorrelation
 
 ```javascript
-import {withCorrelation} from 'c/utilityLogger';
+import {withCorrelation} from 'kern/utilityLogger';
 
 // Wraps async operation with automatic correlation start/end
 async handleSave()
@@ -464,7 +469,7 @@ async handleSave()
 #### Performance Timing
 
 ```javascript
-import {startTimer, info} from 'c/utilityLogger';
+import {startTimer, info} from 'kern/utilityLogger';
 
 async loadData()
 {
@@ -512,7 +517,7 @@ import {
 	SPACE,
 	COMMA,
 	NEW_LINE
-} from 'c/utilityString';
+} from 'kern/utilityString';
 ```
 
 #### Template String Formatting
@@ -594,7 +599,7 @@ import {
 	convertObjectArrayToObject,
 	extractListOfObjectsById,
 	filterObjectListById
-} from 'c/utilityArray';
+} from 'kern/utilityArray';
 ```
 
 #### Convert Array to Keyed Object
@@ -652,7 +657,7 @@ import {
 	setPropertyOnObject,
 	flattenObject,
 	sortBy
-} from 'c/utilitySystem';
+} from 'kern/utilitySystem';
 ```
 
 #### Copy to Clipboard
@@ -742,7 +747,7 @@ import {
 	getRandomAlphaNumericString,
 	getRandomAlphaString,
 	getRandomNumericString
-} from 'c/utilityRandom';
+} from 'kern/utilityRandom';
 ```
 
 #### Generate UUID
@@ -783,11 +788,8 @@ const numeric = getRandomNumericString(4);
 
 Helpers for counting and stepping through a list on demand: a counter that produces the next number each time you ask, and a generator that walks an array forward, backward, or over part of it.
 
-**Import:**
-
-```javascript
-import {counter, arrayGenerator} from 'c/utilityGenerator';
-```
+This module is internal to the package: it is not exposed, so your own components cannot import it, and the package offers no exposed module in its place. The
+examples below show what the package's own components do with it; for the same effect in your code, write a small generator function of your own.
 
 #### Counter Generator
 
@@ -843,14 +845,14 @@ You want your component to ask "is this feature turned on for this user?" and ge
 **Import:**
 
 ```javascript
-import {isFlagEnabled} from 'c/featureFlag';
+import {isFlagEnabled} from 'kern/featureFlag';
 ```
 
 **Usage:**
 
 ```javascript
-import {ComponentBuilder} from 'c/componentBuilder';
-import {isFlagEnabled} from 'c/featureFlag';
+import {ComponentBuilder} from 'kern/componentBuilder';
+import {isFlagEnabled} from 'kern/featureFlag';
 
 export default class MyComponent extends ComponentBuilder('notification')
 {
@@ -876,10 +878,17 @@ There is one thing to know before you rely on this. The bridge calls `CTRL_Featu
 - An admin assigns or revokes a permission set that changes whether the flag applies to a user.
 - The user's browser keeps serving the value it already cached for `isFlagEnabled`. It refreshes only when the page reloads or the wire adapter is called with different parameters, and the flag name never changes, so the wire adapter never fires again on its own.
 
-**The rule, then:** do not use `c/featureFlag` as a security gate that must react to a permission change within the same session. Use it for shaping the experience instead: which panel to show, whether a hint is visible. Your Apex code remains the real place that decides who is allowed to do what.
+**The rule, then:** do not use `kern/featureFlag` as a security gate that must react to a permission change within the same session. Use it for shaping the experience instead: which panel to show, whether a hint is visible. Your Apex code remains the real place that decides who is allowed to do what.
 
 If a real authorization decision has to depend on a flag, check the flag inside the Apex controller method
 that does the protected work, not on the client.
+
+One distinction keeps that rule from being read too widely. It governs a cacheable Apex call behind a wire adapter,
+which is what the bridge uses. The platform's built-in state managers that expose list- or query-shaped data, such as
+related list records, have their own answer to stale data in Winter '27 and later: call `refresh()` on the state
+manager once its status is `loaded`, and it fetches the latest data from the server without reconfiguring the manager
+or reloading the page. That action belongs to state managers only; a cacheable Apex result still refreshes as
+described above.
 
 ---
 
@@ -894,13 +903,13 @@ Most components need the same handful of capabilities: showing a toast, calling 
 **Import:**
 
 ```javascript
-import {ComponentBuilder} from 'c/componentBuilder';
+import {ComponentBuilder} from 'kern/componentBuilder';
 ```
 
 **Basic Usage:**
 
 ```javascript
-import {ComponentBuilder} from 'c/componentBuilder';
+import {ComponentBuilder} from 'kern/componentBuilder';
 
 // Include specific modules
 export default class MyComponent extends ComponentBuilder('notification', 'controller')
@@ -925,7 +934,7 @@ export default class MyComponent extends ComponentBuilder('notification', 'contr
 **Include All Modules:**
 
 ```javascript
-import {ComponentBuilder} from 'c/componentBuilder';
+import {ComponentBuilder} from 'kern/componentBuilder';
 
 export default class FullFeaturedComponent extends ComponentBuilder('all')
 {
@@ -1025,7 +1034,7 @@ Why build it this way rather than one giant base class? Four reasons, each with 
 If you genuinely need to add a module after construction, you can do so like this:
 
 ```javascript
-import {componentExtender} from 'c/componentExtender';
+import {componentExtender} from 'kern/componentExtender';
 
 connectedCallback()
 {
@@ -1106,6 +1115,14 @@ wiredRecord(result)
 	});
 }
 ```
+
+Return a small result class from a controller method rather than a raw record where you can, the way the framework's
+own controllers do. From Spring '27 the platform strips non-public system fields from custom-object records returned by
+Aura actions, the calls that carry a Lightning web component's `@AuraEnabled` requests as well (the Remove Non-Public
+Fields from Custom Object Data in Aura Action Responses release update, available since Summer '26, which asks you to
+review every Lightning component that processes custom-object data). A component that reads such a field from a
+returned record can show missing data or fail with a JavaScript error. A result class carries exactly the fields the
+component uses, all of them part of the public API, so it cannot lose one to that update.
 
 #### Flow Navigation Methods
 
@@ -1301,7 +1318,7 @@ and `scheduledJobEditorModal` for inline editing. The editor embeds `cronExpress
 
 ### healthCheck - Post-Install Diagnostics
 
-After installing KernDX, a few things need to be set up correctly (caches, a trusted site, retention jobs). This component runs 9 checks and tells you what is healthy, what needs attention, and what to do about it, with one-click fixes where possible. Drop it on a Home Page so the status is visible at a glance.
+After installing KernDX, a few things need to be set up correctly (caches, retention jobs). This component runs 11 checks and tells you what is healthy, what needs attention, and what to do about it, with one-click fixes where possible. Drop it on a Home Page so the status is visible at a glance.
 
 **Targets:** `lightning__HomePage`
 
@@ -1309,15 +1326,20 @@ After installing KernDX, a few things need to be set up correctly (caches, a tru
 
 1. **Org Cache**: Platform Cache partition allocated (Fail if missing)
 2. **Session Cache**: Session partition allocated (Warn if missing)
-3. **Trusted Site**: CSP Trusted URL configured for the org domain (Fail if missing)
-4. **Class Type Resolver**: `ClassTypeResolver__mdt` record configured with a valid resolver class (Warn if missing, with Setup action)
-5. **Data Retention**: Scheduled purge jobs (`SCHED_PurgeRecords`) configured for framework data objects: Log Entry, API Call, API Issue, Async Chain Execution (Warn if any
-   unconfigured; item disappears from the card once all four are configured)
-6. **Data Masking**: masking posture across the org's configured targets. Warns on dead configuration (an active target pointing at an inactive or missing rule) or when almost
+3. **Class Type Resolver**: `ClassTypeResolver__mdt` record configured with a valid resolver class (Warn if missing, with Setup action)
+4. **Data Retention**: Scheduled purge jobs (`SCHED_PurgeRecords`) configured for framework data objects: Log Entry, API Call, API Issue, Async Chain Execution (Warn if any
+   unconfigured; item disappears from the card once all four are configured). The warning counts every user's records for each object,
+   whoever opens the page: the check is about how much data your whole org holds, and a count shows no record's content.
+   Only a user the `BypassApiRecordDeleteGuard` feature flag is on for can delete API calls and API issues. A built-in rule turns it
+   on for holders of the Delete API Records permission, which the Kern Administrator permission set carries. So the warning tells you
+   to schedule their purge as such a user. If a purge of either is already set up but runs as a user the flag is off for, the check
+   warns and names it, because that purge deletes nothing; reschedule it as a user who holds the Delete API Records permission. If
+   the flag record is deactivated, nobody can delete them, so the check warns that every purge of them deletes nothing.
+5. **Data Masking**: masking posture across the org's configured targets. Warns on dead configuration (an active target pointing at an inactive or missing rule) or when almost
    nothing is masked yet; the warning's action opens the [Data Masking Advisor](Data%20Masking%20-%20Guide.md#the-data-masking-advisor)
-7. **Custom Object Coverage**: how much of your own custom data carries masking (Warn when sensitive custom objects are left unmasked; the action opens the Data Masking Advisor)
-8. **Chain Abort Capability**: whether the Chain Monitor's abort action is enabled and granted to at least one user (Warn when the flag is deactivated, when any profile beyond System Administrator holds the abort permission, usually the footprint of an All Users install, or when nobody holds the Kern Async Chain Abort permission set)
-9. **Chain Watchdog**: whether the stalled-chain recovery job (`SCHED_ChainWatchdog`) is scheduled (Warn when it is not, with a one-click **Schedule Chain Watchdog** action that creates the hourly job with the recommended defaults, plus a **Customize schedule →** link for full control)
+6. **Custom Object Coverage**: how much of your own custom data carries masking (Warn when sensitive custom objects are left unmasked; the action opens the Data Masking Advisor)
+7. **Chain Abort Capability**: whether the Chain Monitor's abort action is enabled and granted to at least one user (Warn when the flag is deactivated, when any profile beyond System Administrator holds the abort permission, usually the footprint of an All Users install, or when nobody holds the Kern Async Chain Abort permission set)
+8. **Chain Watchdog**: whether the stalled-chain recovery job (`SCHED_ChainWatchdog`) is scheduled (Warn when it is not, with a one-click **Schedule Chain Watchdog** action that creates the hourly job with the recommended defaults, plus a **Customize schedule →** link for full control)
 
 **Features:**
 
@@ -1385,7 +1407,7 @@ import {
 	DATETIME_FIELD_TYPE,
 	BOOLEAN_FIELD_TYPE,
 	EMAIL_FIELD_TYPE
-} from 'c/createForm';
+} from 'kern/createForm';
 ```
 
 ---
@@ -1490,12 +1512,21 @@ chainStepTimeline (standalone on AsyncChainExecution__c record page)
 - **URL column:** the Chain Name links directly to the `AsyncChainExecution__c` record page.
 - **View logs cross-link:** `chainMonitorDetail` includes a **View logs** button that opens the Log Console
   pre-filtered to the run's correlation ID, so you jump from a failed step straight to everything that run logged.
+- **Launched under:** the detail panel always shows a Launched under row, and the list adds a Launched under column
+  while it is kept to one action. Each reads one of four ways: the launching chain's name and number (a step of it
+  launched this run) as a link that selects it, the action itself, a restart of a named run as a link, or that the run
+  started the action; in the detail panel, when the reading is "this action", the action's own tracking ID sits beside
+  the words with a copy button.
+- **Action scope:** the container reads `c__rootCorrelationId` from the page state (the Log Console's link) and hands it
+  to `chainMonitorList` as `actionRootCorrelationId`; the list shows the action as a removable pill with **Show the
+  action's logs**, which returns to the Log Console with `c__rootCorrelationId` and a click stamp only, never a date
+  window.
 
 | Component                | Purpose                                                                               |
 |--------------------------|---------------------------------------------------------------------------------------|
-| `chainMonitor`           | Split-panel container with empApi subscription and the header operations control (suspend/resume, clear stalled, state badge) |
-| `chainMonitorList`       | Datatable with collapsible status filters, search, sorting, pagination                |
-| `chainMonitorDetail`     | Status icon, progress bar, operator action buttons, step timeline, timing grid, error section, restart lineage, View logs link |
+| `chainMonitor`           | Split-panel container (the list above the detail on a narrow screen) with empApi subscription, the header operations control (suspend/resume, clear stalled, state badge), and the action deep link |
+| `chainMonitorList`       | Datatable with collapsible status filters, search, sorting, pagination, the action pill and Launched under column |
+| `chainMonitorDetail`     | Status icon, progress bar, operator action buttons, step timeline, timing grid, error section, View logs link, the Launched under row (a restart reads as a link to the run it was restarted from), Show the action's logs |
 | `chainStepTimeline`      | SLDS timeline blueprint with hover popovers; dual mode (@api steps or @api recordId) |
 | `chainLogStream`         | Live activity stream: shows the run's newest entries (the Apex seed arrives oldest-first and is rendered newest-first), then live over empApi, with the errors-always-stream caveat |
 | `chainAbortModal`        | Destructive confirmation dialogue for abort                                           |
@@ -1508,7 +1539,7 @@ The Log Console is where you browse and diagnose what your code logged: repeated
 **Component tree:**
 
 ```text
-logConsole (AppPage container — filters, two list views, ribbon, endless scroll)
+logConsole (AppPage container — filters, two list views, ribbon, paging)
 ├── logConsoleTable (datatable with a colour-coded severity badge cell)
 └── logConsoleDetail (tabbed drawer: Overview / Stack trace / Context / Timeline)
 
@@ -1520,8 +1551,9 @@ logConsoleContext (shared service module — readable execution-context names)
 - **Two list views, one container:** `logConsole` owns the filter state and switches between a **Problem summary**
   view (distinct problems with occurrence counts) and an **Individual entries** view (the flat rows), both read
   through `CTRL_LogConsole`.
-- **Debounced search and endless scroll:** the search box waits briefly after you stop typing before querying,
-  and both tables load more rows as you scroll instead of paging.
+- **Debounced search and paging:** the search box waits briefly after you stop typing before querying, and both
+  tables come a page at a time, with a position line under the list, Previous and Next, page numbers while there
+  are few enough to use, and a page size of 25, 50 or 100.
 - **Correlation deep links:** the console reads `c__correlationId` from the page state, so other tools (such as the
   Chain Monitor's **View logs** button) can open it pre-filtered to one correlated run; the detail drawer links back
   the other way into the Chain Monitor for async steps.
@@ -1556,19 +1588,29 @@ You write [Jest](https://developer.salesforce.com/docs/platform/lwc/guide/testin
 
 ### Jest Test Setup
 
-Run KernDX LWC tests on Node 22.22.3. The version matters: the Jest worker pool hangs on 22.23.x, with no error and no timeout, so the suite simply never finishes. The repository pins the working version in `.nvmrc`, and the command below reads that file rather than naming a version, so it stays correct when the pin moves.
+Run KernDX LWC tests on Node 22.22.3. The version matters: the Jest worker pool hangs on 22.23.x, with no error and no timeout, so the suite simply never finishes. Switch to it with the command below. It names the version, so it works in any folder and with nvm on Windows, a Mac or Linux:
 
-```bash
-# Switch to the pinned Node version (reads .nvmrc)
-nvm use
+```shell
+nvm use 22.22.3
+```
 
-# Run all tests
+If nvm says that version is not installed, install it with nvm first and run the command again, or, with no `nvm` on your machine, install that version from [Node's download page](https://nodejs.org/en/download).
+
+Run all the tests:
+
+```shell
 npm run test:unit
+```
 
-# Run specific component tests
-npm run test:unit -- --testPathPattern=utilityString
+Run the tests for one component, here `utilityString`:
 
-# Run with coverage
+```shell
+npm run test:unit -- -- --testPathPattern=utilityString
+```
+
+Run the tests with coverage:
+
+```shell
 npm run test:unit -- --coverage
 ```
 
@@ -1720,7 +1762,7 @@ export default class MyComponent extends ComponentBuilder('notification', 'contr
 
 ```javascript
 // Prefer this
-import {formatTemplateString} from 'c/utilityString';
+import {formatTemplateString} from 'kern/utilityString';
 const message = formatTemplateString('Hello {0}', [name]);
 
 // Over inline string manipulation
@@ -1803,14 +1845,14 @@ If something isn't working, start here. The table covers the most common symptom
 | Toast not showing         | Verify `moduleNotification` is included in ComponentBuilder                                                                                            |
 | Navigation not working    | Verify `moduleNavigation` is included; check [NavigationMixin](https://developer.salesforce.com/docs/platform/lwc/guide/use-navigate.html)             |
 | LMS messages not received | Verify channel import; check subscription in [connectedCallback](https://developer.salesforce.com/docs/platform/lwc/guide/create-lifecycle-hooks.html) |
-| Jest tests failing        | Run `nvm use` to pick up the pinned Node version (22.22.3); check mock setup                                                                            |
-| Jest hangs with no output | You are on Node 22.23.x, where the worker pool stalls silently. Run `nvm use` to return to the pinned version                                           |
+| Jest tests failing        | Switch to Node 22.22.3 with the command in [Jest Test Setup](#jest-test-setup); check mock setup                                                        |
+| Jest hangs with no output | You are on Node 22.23.x, where the worker pool stalls silently. Switch back to 22.22.3 with the command in [Jest Test Setup](#jest-test-setup)          |
 
 ### Debugging Tips
 
 1. **Enable verbose logging:**
    ```javascript
-   import {debug} from 'c/utilityLogger';
+   import {debug} from 'kern/utilityLogger';
    debug('State:', JSON.stringify(this.state));
    ```
 
@@ -1975,7 +2017,7 @@ public with sharing class MyController implements IF_Search
 
 #### healthCheck
 
-**Purpose:** Post-install diagnostics with 9 health checks and actionable warnings
+**Purpose:** Post-install diagnostics with 11 health checks and actionable warnings
 
 **Where to Use:** Home Pages
 
@@ -1985,7 +2027,7 @@ public with sharing class MyController implements IF_Search
 
 **Features:**
 
-- 9 checks: Org Cache, Session Cache, Trusted Site, Class Type Resolver, Data Retention, Masking Configuration, Masking Coverage (Custom Objects), Chain Abort Capability, Chain Watchdog
+- 11 checks: Org Cache, Session Cache, Class Type Resolver, Data Retention, Masking Configuration, Masking Coverage (Custom Objects), Chain Abort Capability, Chain Watchdog, Job Runner, Jobs Waiting for the Job Runner, Job Runner Capacity
 - Two-section layout: Action required (fail items) rendered above Review recommended (warn items); all-pass state collapses to a slim green banner
 - Validates resolver classes extend `BaseClassResolver`, and warns if a class exists but is incompatible
 - Setup button on resolver warnings opens a code generator modal
@@ -2132,11 +2174,13 @@ const columns = [
 <c-cron-expression-editor value={expression} oncronchange={handleChange}></c-cron-expression-editor>
 ```
 
-| Property         | Type                | Required | Default | Description                                        |
-|------------------|---------------------|----------|---------|----------------------------------------------------|
-| `value`          | String              | No       | -       | Initial cron expression (input)                    |
-| `cronExpression` | String (read-only)  | -        | -       | Current built expression (output)                  |
-| `isValid`        | Boolean (read-only) | -        | -       | Whether the current expression has valid structure |
+| Property                        | Type                | Required | Default | Description                                                                                                                                                       |
+|---------------------------------|---------------------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `value`                         | String              | No       | -       | Initial cron expression (input)                                                                                                                                   |
+| `cronExpression`                | String (read-only)  | -        | -       | Current built expression (output)                                                                                                                                 |
+| `isValid`                       | Boolean (read-only) | -        | -       | Whether the current expression has valid structure                                                                                                                |
+| `job-runner-mode`               | Boolean             | No       | `false` | When true the minutes field accepts the grammar the job runner reads (`*`, steps, ranges, lists) and the Every N Minutes preset is offered                        |
+| `active-check-interval-minutes` | Number              | No       | -       | How often the active runner checks for due jobs, in minutes; narrows the interval choices to multiples of it and states the effective interval in the description |
 
 **Events:**
 
@@ -2144,11 +2188,11 @@ const columns = [
 
 **Modes:**
 
-| Mode     | Description                                                                                                              |
-|----------|--------------------------------------------------------------------------------------------------------------------------|
-| Preset   | Frequency-based builder: Every N Minutes, Hourly, Daily, Weekly, Monthly                                                 |
-| Advanced | Field-by-field editor for all 7 Salesforce cron fields (Seconds, Minutes, Hours, Day of Month, Month, Day of Week, Year) |
-| Custom   | Free-text input for arbitrary cron expressions                                                                           |
+| Mode     | Description                                                                                                                                                                                    |
+|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Preset   | Frequency-based builder: Hourly, Daily, Weekly, Monthly; Every N Minutes is offered only when the editor's job-runner-mode attribute is set (a job in its own mode fires at most once an hour) |
+| Advanced | Field-by-field editor for all 7 Salesforce cron fields (Seconds, Minutes, Hours, Day of Month, Month, Day of Week, Year)                                                                       |
+| Custom   | Free-text input for arbitrary cron expressions                                                                                                                                                 |
 
 **Preview Section:**
 Always-visible preview showing the monospace cron string and a crontab.guru-style human-readable description (e.g., `0 30 9 ? * MON,WED,FRI` displays as "Every Monday, Wednesday,
@@ -2192,10 +2236,10 @@ and Friday at 9:30 AM").
 
 ### Complete Component Inventory
 
-All 72 LWC components in the KernDX framework with their category, exposure status, and test coverage.
+All 74 LWC components in the KernDX framework with their category, exposure status, and test coverage.
 
 <details>
-<summary>Expand the full 72-component inventory</summary>
+<summary>Expand the full 74-component inventory</summary>
 
 #### Utility Modules (8 components)
 
@@ -2243,7 +2287,7 @@ All 72 LWC components in the KernDX framework with their category, exposure stat
 | `healthCheck`          |   Yes   |    Yes     | Post-install diagnostics with resolver code generator             |
 | `featureFlag`          |   Yes   |    Yes     | Cacheable bridge to `UTIL_FeatureFlag.isEnabled()` for the UI      |
 
-#### Internal UI Components (10 components)
+#### Internal UI Components (12 components)
 
 | Component                     | Exposed | Jest Tests | Purpose                                                        |
 |-------------------------------|:-------:|:----------:|----------------------------------------------------------------|
@@ -2257,6 +2301,8 @@ All 72 LWC components in the KernDX framework with their category, exposure stat
 | `scheduledJobEditor`          |    -    |    Yes     | ScheduledJob__c editor form (action override via Aura wrapper) |
 | `scheduledJobEditorModal`     |    -    |    Yes     | Modal dialog for creating/editing ScheduledJob__c records      |
 | `scheduleChainWatchdogModal`  |    -    |    Yes     | Confirmation modal for the Health Check's one-click Chain Watchdog scheduling |
+| `jobRunnerCard`               |    -    |    Yes     | Job runner card on the Health Check readiness banner       |
+| `activateJobRunnerModal`      |    -    |    Yes     | Modal dialog that picks how often the job runner checks for due jobs |
 
 #### Streaming Monitor Internals (9 components)
 
@@ -2333,15 +2379,15 @@ The console and dialogs behind the **Data Masking Advisor** (see [Security Guide
 | Utility Modules     |     8      |        8        |   100%   |
 | Base Architecture   |     8      |        8        |   100%   |
 | Subscriber-Usable   |     15     |       15        |   100%   |
-| Internal UI         |     10     |       10        |   100%   |
+| Internal UI         |     12     |       12        |   100%   |
 | Streaming Internals |     9      |        9        |   100%   |
 | Chain Monitor       |     7      |        7        |   100%   |
 | Log Console         |     4      |        3        |   100%   |
 | Data Masking Advisor |    10     |       10        |   100%   |
 | Demo Components     |     1      |        1        |   100%   |
-| **TOTAL**           |   **72**   |     **71**      | **100%** |
+| **TOTAL**           |   **74**   |     **73**      | **100%** |
 
-> **Note:** Every LWC component is held at 100% Jest coverage (`logConsoleContext` is covered through the other Log Console components' test suites rather than a dedicated test file). Run `npm run test:unit -- --coverage` to verify coverage.
+> **Note:** Every LWC component is held at 100% Jest coverage (`logConsoleContext` is covered through the other Log Console components' test suites rather than a dedicated test file). To check it, run the coverage command in [Jest Test Setup](#jest-test-setup).
 
 ---
 

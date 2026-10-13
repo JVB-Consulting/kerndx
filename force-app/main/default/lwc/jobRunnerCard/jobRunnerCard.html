@@ -1,0 +1,30 @@
+<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<template>
+	<lightning-card data-testid="job-runner-card" title={labels.cardTitle}>
+		<div class="slds-p-horizontal_medium slds-p-bottom_small">
+			<p class="slds-text-body_regular" data-testid="job-runner-summary">{summary}</p>
+			<template lwc:if={isActive}>
+				<p class="slds-text-body_small slds-var-m-top_xx-small" data-testid="job-runner-activator">
+					{activator}
+					<template lwc:if={isActivatorInactive}>
+						<span class="slds-badge slds-theme_warning slds-var-m-left_x-small">{labels.activatorInactiveBadge}</span>
+					</template>
+				</p>
+				<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_xx-small" data-testid="job-runner-slots">{slots}</p>
+				<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_xx-small" data-testid="job-runner-last-check">{lastCheck}</p>
+			</template>
+			<template lwc:if={showAdvice}>
+				<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_x-small" data-testid="job-runner-advice">{labels.activatorAdvice}</p>
+			</template>
+			<div class="slds-var-m-top_small">
+				<template lwc:if={showActivate}>
+					<lightning-button data-testid="job-runner-activate" label={labels.activate} onclick={handleActivate} variant="brand"></lightning-button>
+				</template>
+				<template lwc:if={showRepairAndDeactivate}>
+					<lightning-button class="slds-var-m-right_x-small" data-testid="job-runner-repair" label={labels.repair} onclick={handleRepair}></lightning-button>
+					<lightning-button data-testid="job-runner-deactivate" label={labels.deactivate} onclick={handleDeactivate}></lightning-button>
+				</template>
+			</div>
+		</div>
+	</lightning-card>
+</template>

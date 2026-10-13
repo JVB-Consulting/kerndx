@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>LastRunReason__c</fullName>
+    <description>Why the last run was skipped or parked, written by the job runner. Blank when the last run succeeded or failed; a failure's detail is in the log entry for this record.</description>
+    <inlineHelpText>Set by the job runner. Blank after a success or a failure; the log entry for this record holds a failure's detail.</inlineHelpText>
+    <label>Last Run Reason</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>PreviousRunStillRunning</fullName>
+                <default>false</default>
+                <label>Previous run still running</label>
+            </value>
+            <value>
+                <fullName>RecordNoLongerOnRunner</fullName>
+                <default>false</default>
+                <label>Record no longer on the job runner</label>
+            </value>
+            <value>
+                <fullName>ClassNotFound</fullName>
+                <default>false</default>
+                <label>Class not found</label>
+            </value>
+            <value>
+                <fullName>ExpressionCannotBePlaced</fullName>
+                <default>false</default>
+                <label>Next run time could not be worked out</label>
+            </value>
+            <value>
+                <fullName>ExpressionCannotFireWithinHorizon</fullName>
+                <default>false</default>
+                <label>Expression never fires within four years</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

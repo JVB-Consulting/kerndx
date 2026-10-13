@@ -38,12 +38,12 @@
 
 ## Overview
 
-This reference contains **267 documented items** across the following categories:
+This reference contains **274 documented items** across the following categories:
 
 | Category | Items | Description | Browse |
 |----------|-------|-------------|--------|
 | **Custom Metadata Types** | 15 | Configuration and settings metadata | [Browse All](metadata/index.md) |
-| **Apex Classes** | 240 | Core Apex classes, utilities, and services | [Browse All](apex/index.md) |
+| **Apex Classes** | 247 | Core Apex classes, utilities, and services | [Browse All](apex/index.md) |
 | **Custom Objects** | 11 | Custom SObjects in the package | [Browse All](objects/index.md) |
 | **Platform Events** | 1 | Asynchronous event definitions | [Browse All](events/index.md) |
 
@@ -111,8 +111,8 @@ Transactional DML with dependency management, partial success handling, and shar
 
 | Class | Description |
 |-------|-------------|
-| [DML_Builder](apex/DML_Builder.md) | Fluent DML API for building and executing database operations. |
-| [DML_Transaction](apex/DML_Transaction.md) | Transaction engine for managing complex DML operations across multiple SObjects. |
+| [DML_Builder](apex/DML_Builder.md) | Fluent DML API for building and running database operations: you set it up by chaining method calls. |
+| [DML_Transaction](apex/DML_Transaction.md) | The engine that saves a set of DML operations across many SObjects as one transaction. |
 
 ### Trigger Framework
 
@@ -143,10 +143,13 @@ REST integration framework with automatic retry, circuit breaking, and queue-bas
 | [DTO_JsonBase](apex/DTO_JsonBase.md) | A Data Transfer Object (DTO) base class for JSON serialization and deserialization, providing a framework for transfo... |
 | [FLOW_CallApi](apex/FLOW_CallApi.md) | Invokes web service calls synchronously, allowing for integration with external systems from Salesforce using Lightni... |
 | [FLOW_CallApiAsync](apex/FLOW_CallApiAsync.md) | Asynchronously invokes web service calls, allowing large or delayed API callouts to be processed outside of immediate... |
+| [FLOW_RetryApiIssues](apex/FLOW_RetryApiIssues.md) | Runs the failed calls of the API issues you select again, in one background job: from the Retry Selected action on th... |
 | [REST_Echo](apex/REST_Echo.md) | REST Endpoint wrapper class for the inbound echo test service. |
 | [SCHED_PerformBatchedCallouts](apex/SCHED_PerformBatchedCallouts.md) | The SCHED_PerformBatchedCallouts class is a scheduled job responsible for processing batched API calls that are queue... |
 | [SEL_ApiCall](apex/SEL_ApiCall.md) | Selector for the ApiCall__c object. |
 | [SEL_ApiIssue](apex/SEL_ApiIssue.md) | Selector for the ApiIssue__c SObject. |
+| [UTIL_Exceptions.PermanentFailureException](apex/UTIL_Exceptions.PermanentFailureException.md) | Throw this from your own outbound handler code to say the failure is permanent: sending the same request again cannot... |
+| [UTIL_Exceptions.RequestRefusedException](apex/UTIL_Exceptions.RequestRefusedException.md) | Throw this from parseResponse() when the external system answered with a success status but its body says it refused ... |
 | [UTIL_HttpClient](apex/UTIL_HttpClient.md) | Fluent HTTP client facade over the API_Dispatcher pipeline. |
 
 ### Data Transfer Objects
@@ -252,6 +255,7 @@ Configurable scheduled jobs with metadata-driven scheduling and batch size contr
 | [DTO_ScheduledParameterDefinition](apex/DTO_ScheduledParameterDefinition.md) | A Data Transfer Object describing a single parameter definition supported by a scheduled job class. |
 | [IF_Schedulable](apex/IF_Schedulable.md) | An interface for a Schedulable class that can declare the parameters it supports and receive validated parameter valu... |
 | [SCHED_Base](apex/SCHED_Base.md) | Abstract base class for scheduled jobs that support configurable parameters. |
+| [SCHED_JobRunner](apex/SCHED_JobRunner.md) | The job runner's scheduled job. |
 | [SCHED_ProcessLoginHistory](apex/SCHED_ProcessLoginHistory.md) | Scheduled job that runs daily to process login history data. |
 
 ### Bulk DML
@@ -291,7 +295,7 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | [API_MockFactory.MockBuilder](apex/API_MockFactory.MockBuilder.md) | Fluent builder for constructing and registering mock responses. |
 | [API_MockFactory.MockResponse](apex/API_MockFactory.MockResponse.md) | Represents a mock HTTP response with fault simulation options. |
 | [DML_Builder.DatabaseOperation](apex/DML_Builder.DatabaseOperation.md) | Enum to specify the type of DML operation for external use. |
-| [DML_Builder.DML_AsyncBuilder](apex/DML_Builder.DML_AsyncBuilder.md) | Async DML execution wrapper. |
+| [DML_Builder.DML_AsyncBuilder](apex/DML_Builder.DML_AsyncBuilder.md) | Runs DML in an async job. |
 | [DML_Builder.TransactionResult](apex/DML_Builder.TransactionResult.md) | Result object returned by execute() containing the outcome of all DML operations in the transaction. |
 | [DTO_BaseTable.DTO_Column](apex/DTO_BaseTable.DTO_Column.md) | Represents a column in the DTO_BaseTable, containing properties for label, field name, type, and sorting ability. |
 | [DTO_ScheduledParameterDefinition.DataType](apex/DTO_ScheduledParameterDefinition.DataType.md) | Enumeration of supported input data types for scheduled job parameters. |
@@ -311,6 +315,8 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | [FLOW_LoggerLog.DTO_Request](apex/FLOW_LoggerLog.DTO_Request.md) | Input parameters for logging a Flow event. |
 | [FLOW_LoggerStart.DTO_Request](apex/FLOW_LoggerStart.DTO_Request.md) | Input parameters for starting Flow correlation. |
 | [FLOW_LoggerStart.DTO_Response](apex/FLOW_LoggerStart.DTO_Response.md) | Output containing the generated correlation ID. |
+| [FLOW_RetryApiIssues.DTO_Request](apex/FLOW_RetryApiIssues.DTO_Request.md) | What the action is asked: the API issues to run again. |
+| [FLOW_RetryApiIssues.DTO_Response](apex/FLOW_RetryApiIssues.DTO_Response.md) | What the action answers: the job, the count and a message for the person who asked. |
 | [FLOW_SendEmail.DTO_Request](apex/FLOW_SendEmail.DTO_Request.md) | Data Transfer Object (DTO) representing the input parameters for a single email request. |
 | [FLOW_SendEmail.DTO_Response](apex/FLOW_SendEmail.DTO_Response.md) | Data Transfer Object (DTO) representing the outcome of an email request. |
 | [FLOW_WriteLog.DTO_Request](apex/FLOW_WriteLog.DTO_Request.md) | Data Transfer Object (DTO) for log requests, specifying log level, message details, and context. |
@@ -356,10 +362,11 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | [TRG_ApiIssue](apex/TRG_ApiIssue.md) | Trigger on ApiIssue__c. |
 | [TRG_AsyncChainExecution](apex/TRG_AsyncChainExecution.md) | Trigger on AsyncChainExecution__c. |
 | [TRG_Base.BypassType](apex/TRG_Base.BypassType.md) | Indicates the type of trigger bypass being applied. |
+| [TRG_BatchApexErrorEvent](apex/TRG_BatchApexErrorEvent.md) | Batch job failure trigger: hands each failure the platform reports to the framework, which writes it to the log |
 | [TRG_Foobar](apex/TRG_Foobar.md) | Example trigger demonstrating the Trigger Action framework |
 | [TRG_LogEntryEvent](apex/TRG_LogEntryEvent.md) | Log entry event trigger for handling log events |
 | [TRG_ScheduledJob](apex/TRG_ScheduledJob.md) | TRG_ScheduledJob activated by saving Scheduled Job records (rule: 1 record per periodic job setting) |
-| [TST_Builder.Builder](apex/TST_Builder.Builder.md) | A fluid builder for configuring and creating SObject records. |
+| [TST_Builder.Builder](apex/TST_Builder.Builder.md) | A fluent builder for configuring and creating SObject records: you set it up by chaining method calls. |
 | [TST_Builder.DefaultFieldValueProvider](apex/TST_Builder.DefaultFieldValueProvider.md) | Base class for field-level default value providers. |
 | [TST_Builder.DefaultValueProvider](apex/TST_Builder.DefaultValueProvider.md) | Base class for default value providers. |
 | [TST_InvokeFlowMock.MockBuilder](apex/TST_InvokeFlowMock.MockBuilder.md) | Fluent builder for registering a mock flow response. |

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>LastRunOutcome__c</fullName>
+    <description>What happened at the most recent event on a job that runs on the job runner: Succeeded or Failed from a run, Skipped when a due run was not started because the previous run was still running or the job was inactive when its run began, Parked when the job's class could not be found or its next run time could not be worked out. Written by the framework.</description>
+    <inlineHelpText>The most recent event, not a running state. Written by the framework; do not edit.</inlineHelpText>
+    <label>Last Run Outcome</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Succeeded</fullName>
+                <default>false</default>
+                <label>Succeeded</label>
+            </value>
+            <value>
+                <fullName>Failed</fullName>
+                <default>false</default>
+                <label>Failed</label>
+            </value>
+            <value>
+                <fullName>Skipped</fullName>
+                <default>false</default>
+                <label>Skipped</label>
+            </value>
+            <value>
+                <fullName>Parked</fullName>
+                <default>false</default>
+                <label>Parked</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

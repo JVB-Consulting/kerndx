@@ -24,8 +24,9 @@
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const {spawnSync} = require('child_process');
+const {startTool} = require('./lib/start-tool');
 
 const lib = require('./coverage-lib');
 const {getDevOrgAlias} = require('./dev-org-config');
@@ -49,16 +50,50 @@ const CLASSES_RELATIVE_PATH = 'force-app/main/default/classes';
  * cognitive-complexity ceiling, or shared engines exercised from a sibling subject's suite.
  */
 const COMPANION_TEST_SUITES = {
-	UTIL_AsyncChain: ['UTIL_AsyncChainRecovery_TEST', 'UTIL_AsyncChainApi_TEST'],
+	UTIL_AsyncChain: ['UTIL_AsyncChainRecovery_TEST', 'UTIL_AsyncChainApi_TEST', 'UTIL_AsyncChainTransition_TEST', 'UTIL_AsyncChainStepState_TEST'],
 	CTRL_ChainMonitor: ['CTRL_ChainMonitorAbort_TEST', 'CTRL_ChainMonitorRedrive_TEST'],
+	DML_Transaction: ['TST_Builder_TEST', 'UTIL_HttpClientOutcome_TEST'],
+	API_Base: ['API_Outbound_TEST', 'API_Dispatcher_TEST', 'API_Echo_TEST'],
+	SEL_Hierarchy: ['SEL_HierarchyDepthLimit_TEST'],
 	API_Outbound: [
 		'UTIL_AsyncChainApi_TEST',
 		'API_Dispatcher_TEST',
 		'API_PostExample_TEST',
 		'API_PublishGenericEvent_TEST',
-		'UTIL_HttpClient_TEST'
-	]
+		'UTIL_HttpClient_TEST',
+		'UTIL_HttpClientDispatch_TEST',
+		'UTIL_HttpClientOutcome_TEST'
+	],
+	UTIL_HttpClient: ['UTIL_HttpClientDispatch_TEST', 'UTIL_HttpClientOutcome_TEST', 'UTIL_AsyncChainApi_TEST'],
+	UTIL_ScheduledJobRunner: ['CTRL_HealthCheck_TEST']
 };
+
+/**
+ * @description Classes whose tests live in a suite other than the derived `<class>_TEST` twin: the class has
+ * no twin in source, so the derived name resolves to nothing and a targeted run fails before it starts. Each
+ * entry names the one primary suite that carries the class's coverage; a class absent here keeps the derived
+ * twin. This is an explicit registry, never a search for a suite that mentions the class: a guessed suite
+ * would measure the wrong thing and read as a clean gate.
+ */
+const PRIMARY_TEST_SUITE_OVERRIDES = {
+	API_Inbound: 'API_Echo_TEST',
+	API_OutboundTestHelper: 'API_PostExample_TEST',
+	CTRL_ChainMonitorTypes: 'CTRL_ChainMonitor_TEST',
+	DTO_FlowValidationError: 'FLOW_ExecuteValidationRules_TEST',
+	DTO_PicklistValue: 'DTO_PickList_TEST',
+	FLOW_LoggerEnd: 'FLOW_Logger_TEST',
+	FLOW_LoggerLog: 'FLOW_Logger_TEST',
+	FLOW_LoggerStart: 'FLOW_Logger_TEST',
+	FLOW_SendEmailInternal: 'FLOW_SendEmail_TEST',
+	REST_Echo: 'API_Echo_TEST',
+	UTIL_AdaptiveAsynchronousProcessor: 'UTIL_AsynchronousJobLauncher_TEST'
+};
+
+/**
+ * @description The most test classes one coverage-row repair re-runs. The measured incident was two; a
+ * broadly empty aggregate would otherwise turn the repair into a second full run inside one wait.
+ */
+const REPAIR_RUN_MAXIMUM_TEST_CLASSES = 10;
 
 /** @description Repo-relative path to Jest's raw istanbul coverage output. */
 const JEST_COVERAGE_SUMMARY_PATH = 'coverage/coverage-final.json';
@@ -74,11 +109,12 @@ const JEST_COVERAGE_SUMMARY_PATH = 'coverage/coverage-final.json';
 const LWC_SOURCE_PREFIX = 'force-app/main/default/lwc/';
 
 /**
- * @description Repo-relative path to the dedicated Jest config used for the full
- * LWC coverage capture. It scopes `testMatch` to force-app LWC specs and drops
- * `collectCoverageFrom` so coverage is collected only from test-loaded modules
- * (the base config's `collectCoverageFrom` triggers an empty-instrumentation
- * pass that silently drops components whose imports fail to resolve standalone).
+ * @description Repo-relative path to the dedicated Jest config used for every
+ * LWC coverage capture, targeted and full alike. It scopes `testMatch` to
+ * force-app LWC specs and drops `collectCoverageFrom` so coverage is collected
+ * only from test-loaded modules (the base config's `collectCoverageFrom`
+ * triggers an empty-instrumentation pass that silently drops components whose
+ * imports fail to resolve standalone).
  */
 const LWC_COVERAGE_CONFIG = 'jest.lwc-coverage.config.cjs';
 
@@ -86,6 +122,63 @@ const LWC_COVERAGE_CONFIG = 'jest.lwc-coverage.config.cjs';
 const EXIT = Object.freeze({
 	OK: 0, GATE_FAIL: 1, USAGE: 2, RUNTIME: 3
 });
+
+/**
+ * @description Shape of an Apex test run id — the `707` AsyncApexJob id, 15 or 18 characters.
+ * Anything else reads as absent, so a verdict is never tied to a value that is not a run id.
+ */
+const TEST_RUN_ID_PATTERN = /^707[A-Za-z0-9]{12}([A-Za-z0-9]{3})?$/;
+
+/** @description How much of a failed subprocess's output is quoted back to the operator, in characters. */
+const CLI_OUTPUT_EXCERPT_LENGTH = 300;
+
+/** @description How long the poller waits before its first poll of a detached test run, in milliseconds. */
+const POLL_INITIAL_DELAY_MILLISECONDS = 2000;
+
+/** @description Multiplier applied to the poll delay after every poll, so a long run is polled ever more cheaply. */
+const POLL_BACKOFF_FACTOR = 1.5;
+
+/** @description Ceiling on a single poll delay, in milliseconds. */
+const POLL_MAXIMUM_DELAY_MILLISECONDS = 30000;
+
+/**
+ * @description How many consecutive successful polls must show the same untouched queue with
+ * nothing executing before the run is called stalled rather than slow.
+ */
+const STALL_SUCCESSFUL_POLL_THRESHOLD = 10;
+
+/** @description How long one queue item may sit `Processing` before the poller warns about it, in milliseconds. */
+const PROCESSING_WARNING_MILLISECONDS = 900000;
+
+/**
+ * @description `ApexTestQueueItem` statuses that mean the run still has work outstanding. The
+ * complement — `Completed`, `Failed`, `Aborted` — is terminal for the poller, `Failed` on purpose:
+ * a class that failed to compile or execute is done, and waiting for it to reach `Completed` would
+ * hang every poll to the ceiling. Refusing such a run is the verdict's job, not the poller's.
+ */
+const QUEUE_ITEM_IN_FLIGHT_STATUSES = Object.freeze([
+	'Holding',
+	'Queued',
+	'Preparing',
+	'Processing'
+]);
+
+/** @description `ApexTestRunResult` statuses that mean the run row itself has settled. */
+const RUN_ROW_TERMINAL_STATUSES = Object.freeze([
+	'Completed',
+	'Aborted',
+	'Failed'
+]);
+
+/** @description Default wait ceiling in minutes for the full-run modes, matching the `--wait` default. */
+const DEFAULT_FULL_RUN_WAIT_MINUTES = 60;
+
+/**
+ * @description How many unfinished queue items a refusal reason names before it summarises the
+ * rest as a count. A compile failure usually takes one class down, so a handful is enough to act
+ * on and a run that lost two hundred classes still yields a readable line.
+ */
+const QUEUE_ITEM_REASON_LIMIT = 5;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI entry point
@@ -287,13 +380,16 @@ function splitList(raw)
  * child_process, fs, and stdout.
  *
  * @param {Object} [overrides] - Partial override map.
- * @return {{logger: Object, runner: Function, cwd: string, readFile: Function, fileExists: Function, readdir: Function, writeFile: Function, now: Function}}
+ * @return {{logger: Object, runner: Function, cwd: string, readFile: Function, fileExists: Function,
+ *     readdir: Function, writeFile: Function, now: Function, sleepMilliseconds: Function}}
  */
 function buildDependencies(overrides)
 {
 	const defaults = {
 		logger: {
-			info: (message) => process.stdout.write(`${message}\n`), error: (message) => process.stderr.write(`${message}\n`)
+			info: (message) => process.stdout.write(`${message}\n`),
+			warn: (message) => process.stderr.write(`${message}\n`),
+			error: (message) => process.stderr.write(`${message}\n`)
 		},
 		runner: defaultRunner,
 		cwd: process.cwd(),
@@ -301,9 +397,28 @@ function buildDependencies(overrides)
 		fileExists: (filePath) => fs.existsSync(filePath),
 		readdir: (dir) => fs.readdirSync(dir),
 		writeFile: (filePath, contents) => fs.writeFileSync(filePath, contents, 'utf8'),
-		now: () => Date.now()
+		now: () => Date.now(),
+		sleepMilliseconds: defaultSleepMilliseconds
 	};
 	return {...defaults, ...(overrides || {})};
+}
+
+/**
+ * @description Blocks the calling thread for the given number of milliseconds. Synchronous on
+ * purpose: this harness is a straight-line `spawnSync` script, and the poll loop must not turn the
+ * module async. Injected through the dependency bundle so tests drive a fake clock and never sleep.
+ *
+ * @param {number} count - Milliseconds to block for; zero or less returns immediately.
+ * @return {void}
+ */
+function defaultSleepMilliseconds(count)
+{
+	const milliseconds = Math.max(0, Math.floor(Number(count) || 0));
+	if(milliseconds === 0)
+	{
+		return;
+	}
+	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }
 
 /**
@@ -320,7 +435,7 @@ function buildDependencies(overrides)
 function defaultRunner(command, args, options)
 {
 	const env = buildSubprocessEnv(command, process.env);
-	const result = spawnSync(command, args, {
+	const result = startTool(command, args, {
 		encoding: 'utf8', stdio: options && options.inherit ? 'inherit' : 'pipe', maxBuffer: 128 * 1024 * 1024, env
 	});
 	return {
@@ -385,6 +500,24 @@ function runTargeted(options, deps)
 		apexResult: apexResult ? apexResult.coverage : null, lwcResult, baseline, apexTargets: options.apex, lwcTargets: options.lwc
 	});
 
+	return settleVerdict(evaluation, apexResult, lwcResult, options, deps);
+}
+
+/**
+ * @description Emits the evaluation and settles the exit code the targeted and
+ * full modes share. A threshold violation fails first; then apex test
+ * failures; then a red component (jest) suite, which still writes coverage and
+ * so would otherwise read as a pass. Only a run with none of the three is OK.
+ *
+ * @param {{pass: boolean, violations: Array<Object>, measurements: Array<Object>, notes: Array<Object>}} evaluation
+ * @param {{coverage: {testsPassed: boolean, testFailures: Array<Object>}}|null} apexResult - Null when no apex ran.
+ * @param {{testsPassed: boolean, jestExitStatus: number}|null} lwcResult - Null when no component suite ran.
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {number} Exit code.
+ */
+function settleVerdict(evaluation, apexResult, lwcResult, options, deps)
+{
 	emitEvaluation(evaluation, options, deps);
 	if(!evaluation.pass)
 	{
@@ -393,6 +526,11 @@ function runTargeted(options, deps)
 	if(apexResult && !apexResult.coverage.testsPassed)
 	{
 		deps.logger.error(`apex test failures: ${apexResult.coverage.testFailures.length}`);
+		return EXIT.GATE_FAIL;
+	}
+	if(lwcResult && !lwcResult.testsPassed)
+	{
+		deps.logger.error(`lwc jest suite failed (exit ${lwcResult.jestExitStatus})`);
 		return EXIT.GATE_FAIL;
 	}
 	return EXIT.OK;
@@ -420,23 +558,17 @@ function runFull(options, deps)
 	}
 	const baseline = readBaselineFromDeps(baselinePath, deps);
 	const apexResult = runFullApex(options, deps);
+	if(apexResult.testRunBlocked)
+	{
+		return EXIT.GATE_FAIL;
+	}
 	const lwcResult = runFullLwc(deps);
 
 	const evaluation = lib.evaluateThresholds({
 		apexResult: apexResult.coverage, lwcResult, baseline, apexTargets: Object.keys(baseline.apex && baseline.apex.classes || {}), lwcTargets: listBaselineComponents(baseline)
 	});
 
-	emitEvaluation(evaluation, options, deps);
-	if(!evaluation.pass)
-	{
-		return EXIT.GATE_FAIL;
-	}
-	if(!apexResult.coverage.testsPassed)
-	{
-		deps.logger.error(`apex test failures: ${apexResult.coverage.testFailures.length}`);
-		return EXIT.GATE_FAIL;
-	}
-	return EXIT.OK;
+	return settleVerdict(evaluation, apexResult, lwcResult, options, deps);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -449,11 +581,13 @@ function runFull(options, deps)
  * a multi-line violations report on stderr. `pmd-xml` writes a single
  * PMD 7 XML document to stdout (suitable for piping into Gearset/Copado).
  * `github-annotations` writes one `::error`/`::warning` per violation to
- * stdout for GitHub Actions to pick up.
+ * stdout for GitHub Actions to pick up. A target the baseline does not hold is
+ * named after the summary in both: as a warning line on stderr in `text`, as a
+ * `::notice` in `github-annotations`; the PMD document carries violations only.
  *
- * @param {{pass: boolean, violations: Array<Object>, measurements: Array<Object>}} evaluation
+ * @param {{pass: boolean, violations: Array<Object>, measurements: Array<Object>, notes?: Array<Object>}} evaluation
  * @param {{format?: string}} options
- * @param {{logger: {info: Function, error: Function}}} deps
+ * @param {{logger: {info: Function, warn: Function, error: Function}}} deps
  * @return {void}
  */
 function emitEvaluation(evaluation, options, deps)
@@ -475,9 +609,19 @@ function emitEvaluation(evaluation, options, deps)
 		{
 			deps.logger.info(lib.formatSummaryLine(evaluation.measurements, evaluation.pass));
 		}
+		const notices = lib.formatGithubNotices(evaluation.notes);
+		if(notices.length > 0)
+		{
+			deps.logger.info(notices.replace(/\n$/, ''));
+		}
 		return;
 	}
 	deps.logger.info(lib.formatSummaryLine(evaluation.measurements, evaluation.pass));
+	const notes = lib.formatNotesReport(evaluation.notes);
+	if(notes.length > 0)
+	{
+		deps.logger.warn(notes);
+	}
 	if(!evaluation.pass)
 	{
 		deps.logger.error(lib.formatViolationsReport(evaluation.violations));
@@ -489,9 +633,10 @@ function emitEvaluation(evaluation, options, deps)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @description Captures a fresh baseline from a full RunLocalTests + full
- * jest run and writes it to `scripts/coverage-baseline.json`. The code must
- * already be deployed; no deploy step is performed.
+ * @description Captures a fresh baseline from the org's current coverage and a full jest run and
+ * writes it to `scripts/coverage-baseline.json`, but only after the test run it reports on is
+ * verified fully green (`baselineRunVerdict`); on any other run it writes nothing and fails. The
+ * code must already be deployed; no deploy step is performed.
  *
  * @param {Object} options
  * @param {Object} deps
@@ -500,7 +645,24 @@ function emitEvaluation(evaluation, options, deps)
 function runFixBaseline(options, deps)
 {
 	const apexResult = runFullApex(options, deps);
+	if(apexResult.testRunBlocked)
+	{
+		return EXIT.GATE_FAIL;
+	}
+	apexResult.coverage.testRun = withRunVerificationInputs(apexResult.coverage.testRun, options, deps);
+	const verdict = baselineRunVerdict(apexResult.coverage, options);
+	if(!verdict.green)
+	{
+		deps.logger.error(`baseline not written: ${verdict.reason}; re-run when RunLocalTests is fully green`);
+		return EXIT.GATE_FAIL;
+	}
+
 	const lwcResult = runFullLwc(deps);
+	if(!lwcResult.testsPassed)
+	{
+		deps.logger.error(`baseline not written: lwc jest suite failed (exit ${lwcResult.jestExitStatus}); re-run when the component suite is fully green`);
+		return EXIT.GATE_FAIL;
+	}
 	const testSetupClasses = findTestSetupClasses(deps);
 
 	const baseline = lib.buildBaseline({
@@ -511,14 +673,10 @@ function runFixBaseline(options, deps)
 
 	const apexClassCount = Object.keys(baseline.apex.classes).length;
 	const lwcFileCount = Object.keys(baseline.lwc.files).length;
+	const testRun = apexResult.coverage.testRun;
 	deps.logger.info(`baseline written to ${BASELINE_RELATIVE_PATH}`);
 	deps.logger.info(`apex classes: ${apexClassCount} | lwc files: ${lwcFileCount} | @TestSetup classes: ${testSetupClasses.length}`);
-
-	if(!apexResult.coverage.testsPassed)
-	{
-		deps.logger.error(`apex test failures: ${apexResult.coverage.testFailures.length} — baseline captured but CI gate would fail until tests are green`);
-		return EXIT.GATE_FAIL;
-	}
+	deps.logger.info(`verified against test run ${testRun.runId}: ${verdict.reason}`);
 	return EXIT.OK;
 }
 
@@ -550,6 +708,31 @@ function readBaselineFromDeps(baselinePath, deps)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * @description The suite that carries a class's own coverage: the registered primary suite when the class has
+ * no `_TEST` twin, otherwise the derived twin.
+ *
+ * @param {string} className
+ * @return {string}
+ */
+function primaryTestSuiteFor(className)
+{
+	return PRIMARY_TEST_SUITE_OVERRIDES[className] ?? `${className}_TEST`;
+}
+
+/**
+ * @description The test classes a class's coverage depends on: its primary suite (the `_TEST` twin, or the
+ * registered override) plus the companion suites registered for it. Shared by the targeted run and the
+ * coverage-row repair.
+ *
+ * @param {Array<string>} classes
+ * @return {Array<string>}
+ */
+function testSuitesFor(classes)
+{
+	return [...new Set(classes.flatMap(name => [primaryTestSuiteFor(name), ...(COMPANION_TEST_SUITES[name] ?? [])]))];
+}
+
+/**
  * @description Deploys (unless `--skip-deploy`), runs the matching `_TEST`
  * classes, parses coverage, applies exemptions, returns the adjusted result.
  *
@@ -564,7 +747,7 @@ function measureApex(classes, options, deps)
 	{
 		deployApexClasses(classes, options, deps);
 	}
-	const testClasses = [...new Set(classes.flatMap(name => [`${name}_TEST`, ...(COMPANION_TEST_SUITES[name] ?? [])]))];
+	const testClasses = testSuitesFor(classes);
 	const raw = executeApexTests(testClasses, options, deps);
 	const parsed = lib.parseApexCoverage(raw);
 	const exemptCounts = gatherExemptLineCounts(classes, deps);
@@ -578,28 +761,163 @@ function measureApex(classes, options, deps)
  * tests. This is dramatically faster than `sf apex run test --result-format
  * json` which OOMs Node on large packages during JSON serialisation.
  *
+ * With `--run-tests` the run is started detached and waited for by `pollTestRunUntilTerminal`; only
+ * a run the poller saw finish is measured. Any other poll outcome, and a started run whose id could
+ * not be read at all, returns `testRunBlocked` instead of coverage, so no caller can evaluate — or
+ * mint a baseline from — a run that never completed or that this gate never saw.
+ *
+ * The run's verification inputs are not fetched here: `--fix-baseline` attaches them itself, right
+ * before the verdict that is the only thing reading them.
+ *
  * @param {Object} options
  * @param {Object} deps
- * @return {{coverage: Object}}
+ * @return {{coverage: Object|null, testRunBlocked: Object|null}}
  */
 function runFullApex(options, deps)
 {
-	if(options.runTests)
+	const executedRun = options.runTests ? startAndAwaitDetachedRun(options, deps) : {runId: null, blocked: null};
+	if(executedRun.blocked)
 	{
-		executeFullRunLocalTests(options, deps);
+		reportUnverifiableRun(executedRun.blocked, deps);
+		return {coverage: null, testRunBlocked: executedRun.blocked};
 	}
+	const executedRunId = executedRun.runId;
 	deps.logger.info(`querying ApexCodeCoverageAggregate from ${options.org}…`);
 	const coverageRows = queryToolingApi('SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered FROM ApexCodeCoverageAggregate', options, deps);
 	const parsed = normaliseAggregateRows(coverageRows);
 	const reconciled = reconcileFlakyAggregateClasses(parsed, options, deps);
+	// The run the gate reports on is resolved before any repair run: a repair is a newer, smaller run, and
+	// the verdict must stay pinned to the full run the aggregate came from.
+	const testStatus = queryLatestTestRunStatus(options, deps, executedRunId);
+	const repaired = repairTestClassesWithoutCoverageRows(reconciled, options, deps);
 	const allClasses = listAllApexSourceClasses(deps);
 	const exemptCounts = gatherExemptLineCounts(allClasses, deps);
-	const adjusted = lib.applyApexExemptions(reconciled, exemptCounts);
-	const testStatus = queryLatestTestRunStatus(options, deps);
+	const adjusted = lib.applyApexExemptions(repaired, exemptCounts);
 	adjusted.testsPassed = testStatus.testsPassed;
 	adjusted.testFailures = testStatus.testFailures;
 	adjusted.wallClockSeconds = testStatus.wallClockSeconds;
-	return {coverage: adjusted};
+	adjusted.testRun = testStatus;
+	adjusted.executedRunId = executedRunId;
+	return {coverage: adjusted, testRunBlocked: null};
+}
+
+/**
+ * @description Starts a detached `RunLocalTests` and waits for the test queue to drain. A run the
+ * poller could not see through to `Completed` — timed out, stalled, or settled on `Aborted`/`Failed`
+ * — comes back as `blocked` carrying the poll state, which is the only honest thing to report: the
+ * org's coverage rows at that moment belong to a run that is still writing them or never finished.
+ * A run that was started but whose id could not be read is blocked too, under the `runIdUnreadable`
+ * outcome: there is nothing to poll and nothing to verify against, so the org's coverage rows are
+ * being written by a run this gate cannot see. Neither caller may measure them, and `--full` has no
+ * verdict step that would catch it later.
+ *
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {{runId: string|null, blocked: Object|null}}
+ */
+function startAndAwaitDetachedRun(options, deps)
+{
+	const runId = startDetachedTestRun(options, deps);
+	if(!runId)
+	{
+		return {
+			runId: null,
+			blocked: {outcome: 'runIdUnreadable', runId: null, runRowStatus: null, elapsedMilliseconds: 0, warnings: [], inFlightItems: []}
+		};
+	}
+	const poll = pollTestRunUntilTerminal(runId, options, deps);
+	if(poll.outcome === 'completed')
+	{
+		deps.logger.info(`test run ${runId} finished after ${Math.round(poll.elapsedMilliseconds / 1000)}s; verifying it`);
+		return {runId, blocked: null};
+	}
+	return {runId, blocked: {runId, ...poll}};
+}
+
+/**
+ * @description Prints why a detached run could not be verified: the poll outcome, the run row's last
+ * status, the time actually waited (not the budget), every warning the poller raised, and the queue
+ * items still in flight when it gave up. Enough for a human to decide between re-running and going
+ * to look at a stuck class. The `runIdUnreadable` outcome has none of that to print, so it says
+ * instead that the run was started and names both places the id was looked for.
+ *
+ * @param {Object} blocked - The poll result plus the `runId`: `outcome`, `runRowStatus`,
+ *     `elapsedMilliseconds`, `warnings` and `inFlightItems`.
+ * @param {Object} deps
+ * @return {void}
+ */
+function reportUnverifiableRun(blocked, deps)
+{
+	if(blocked.outcome === 'runIdUnreadable')
+	{
+		deps.logger.error('the test run was started but its id could not be read, from neither the CLI JSON (result.testRunId) nor test-run-id.txt '
+			+ 'in the output directory, so there is nothing to poll and nothing to verify the org coverage rows against');
+	}
+	else
+	{
+		deps.logger.error(`test run ${blocked.runId} did not complete: ${blocked.outcome} after ${Math.round(blocked.elapsedMilliseconds / 1000)}s `
+			+ `(run row status: ${blocked.runRowStatus || 'unknown'})`);
+	}
+	for(const warning of blocked.warnings)
+	{
+		deps.logger.error(`  warning: ${warning}`);
+	}
+	if(blocked.inFlightItems.length > 0)
+	{
+		deps.logger.error(`  still in flight: ${blocked.inFlightItems.map(item => `${describeQueueItem(item)} ${item.status}`).join(', ')}`);
+	}
+	deps.logger.error('no coverage was evaluated and no baseline was written');
+}
+
+/**
+ * @description Adds the two inputs the verdict decides on to a run's status: every `ApexTestQueueItem`
+ * of the run with the `ExtendedStatus` that explains a failed one, and the run's outcome tally. The
+ * tally is aggregated in the org (one row per `Outcome`) because a full run produces thousands of
+ * `ApexTestResult` rows and none of them is needed individually. Both are fetched after the run has
+ * finished, so a query that throws here is fatal by design: an unreadable run is an unverified run.
+ *
+ * Only `--fix-baseline` asks for them; `--full` has no verdict step and never issues these queries.
+ *
+ * @param {Object} testRun - The result of `queryLatestTestRunStatus`.
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {Object} The run status with `queueItems` and `resultTally` added.
+ */
+function withRunVerificationInputs(testRun, options, deps)
+{
+	if(!testRun.runFound || !testRun.runId)
+	{
+		return {...testRun, queueItems: [], resultTally: {}};
+	}
+	const escaped = String(testRun.runId).replace(/'/g, "\\'");
+	const queueItems = queryToolingApi(`SELECT Id, Status, ExtendedStatus, ApexClass.Name FROM ApexTestQueueItem WHERE ParentJobId = '${escaped}'`, options, deps);
+	const tallyRows = queryToolingApi(`SELECT Outcome, COUNT(Id) resultTally FROM ApexTestResult WHERE AsyncApexJobId = '${escaped}' GROUP BY Outcome`, options, deps);
+	return {...testRun, queueItems, resultTally: normaliseResultTallyRows(tallyRows)};
+}
+
+/**
+ * @description Converts the `GROUP BY Outcome` rows into an outcome-to-count map. The Tooling API
+ * returns the count under the query's alias, falling back to `expr0` when an alias is dropped, so
+ * both are read; a row whose count is neither is worth nothing and is skipped rather than counted
+ * as zero passes.
+ *
+ * @param {Array<Object>} rows
+ * @return {Object<string, number>}
+ */
+function normaliseResultTallyRows(rows)
+{
+	const tally = {};
+	for(const row of rows)
+	{
+		const outcome = row && row.Outcome;
+		const count = Number(row && (row.resultTally ?? row.expr0));
+		if(!outcome || !Number.isFinite(count))
+		{
+			continue;
+		}
+		tally[outcome] = (tally[outcome] || 0) + count;
+	}
+	return tally;
 }
 
 /**
@@ -619,9 +937,7 @@ function runFullApex(options, deps)
  */
 function reconcileFlakyAggregateClasses(coverage, options, deps)
 {
-	const belowFloor = Object.entries((coverage && coverage.classes) || {})
-	.filter(([, entry]) => entry && entry.uncoveredLines > 0)
-	.map(([name]) => name);
+	const belowFloor = classesBelowFloor(coverage);
 	if(belowFloor.length === 0)
 	{
 		return coverage;
@@ -652,18 +968,138 @@ function queryPerTestCoverageRows(className, options, deps)
 }
 
 /**
- * @description Kicks off a full RunLocalTests run and blocks until it finishes.
- * Used only when `--run-tests` is explicitly requested; `--fix-baseline` and
- * `--full` default to reading the most recent org state.
+ * @description The classes the aggregate shows with at least one uncovered line.
+ *
+ * @param {{classes: Object<string, Object>}} coverage
+ * @return {Array<string>}
+ */
+function classesBelowFloor(coverage)
+{
+	return Object.entries((coverage && coverage.classes) || {})
+	.filter(([, entry]) => entry && entry.uncoveredLines > 0)
+	.map(([name]) => name);
+}
+
+/**
+ * @description A full run can finish with every test passing and still leave a test class with no per-test
+ * `ApexCodeCoverage` rows for a class it covers (2026-09-03, Winter '27: two test classes of 185, 41 tests all
+ * Pass, 0 rows), so that class reads far below the floor and the per-test union has nothing to add.
+ * For every class still below 100 % after reconciliation, this names the test classes that should have
+ * covered it (the `_TEST` twin and the companion suites, those present in source), asks the org which test
+ * classes currently hold coverage rows for THAT class, re-runs once with coverage the ones that hold none, and
+ * reconciles again. The check is keyed by the pair: a test class that wrote rows for other classes and none
+ * for the class below the floor is row-less for it and is re-run. A class whose test classes all hold rows for
+ * it is left alone: its gap is genuine and the gate reports it. The repair is best effort: a re-run that fails
+ * or leaves no result is logged and the gate evaluates what the org holds. The run the gate reports on is
+ * resolved by the caller before this runs, so the repair run never becomes the run a verdict is decided from.
+ * Rows carry no run id, so a test class that wrote rows for the class in an earlier run and none in this one
+ * reads as healthy here. Every class is asked about before the re-run set is capped: asking is one query per
+ * class, and capping first would re-run an arbitrary subset.
+ *
+ * @param {{classes: Object<string, Object>}} coverage - Reconciled coverage.
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {{classes: Object<string, Object>}}
+ */
+function repairTestClassesWithoutCoverageRows(coverage, options, deps)
+{
+	const belowFloor = classesBelowFloor(coverage);
+	if(belowFloor.length === 0)
+	{
+		return coverage;
+	}
+	const allRowless = testSuitesHoldingNoCoverageRowsFor(belowFloor, options, deps);
+	const rowless = allRowless.slice(0, REPAIR_RUN_MAXIMUM_TEST_CLASSES);
+	if(rowless.length === 0)
+	{
+		return coverage;
+	}
+	const capNote = allRowless.length > rowless.length ? ` (the first ${rowless.length} of ${allRowless.length})` : '';
+	deps.logger.info(`${allRowless.length} test class(es) left no coverage rows for a class below the floor; re-running with coverage${capNote}: ${rowless.join(', ')}`);
+	try
+	{
+		executeApexTests(rowless, options, deps);
+	}
+	catch(error)
+	{
+		deps.logger.warn(`the repair run of ${rowless.join(', ')} produced no result (${error.code || error.name}: ${error.message}); evaluating what the org holds`);
+	}
+	return reconcileFlakyAggregateClasses(coverage, options, deps);
+}
+
+/**
+ * @description The test classes that hold no per-test `ApexCodeCoverage` rows for a class they should have
+ * covered: for each class, its test suites present in source, minus the ones the org shows holding rows for
+ * it. One query per class; a class with no test suite in source is a genuine gap and costs no query.
+ *
+ * @param {Array<string>} classes - The classes still below the floor.
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {Array<string>} Each row-less test class once, in first-seen order.
+ */
+function testSuitesHoldingNoCoverageRowsFor(classes, options, deps)
+{
+	const rowless = new Set();
+	for(const className of classes)
+	{
+		const expected = testSuitesFor([className]).filter(name => deps.fileExists(path.join(deps.cwd, CLASSES_RELATIVE_PATH, `${name}.cls`)));
+		const holding = expected.length === 0 ? new Set() : queryTestSuitesHoldingCoverageRowsFor(className, options, deps);
+		expected.filter(name => !holding.has(name)).forEach(name => rowless.add(name));
+	}
+	return [...rowless];
+}
+
+/**
+ * @description The names of the test classes that currently hold at least one per-test `ApexCodeCoverage` row
+ * for a class. Grouped, so the answer is one row per test class however many test methods touched the class.
+ *
+ * @param {string} className
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {Set<string>}
+ */
+function queryTestSuitesHoldingCoverageRowsFor(className, options, deps)
+{
+	const escaped = String(className).replace(/'/g, "\\'");
+	const soql = `SELECT ApexTestClass.Name suiteName FROM ApexCodeCoverage WHERE ApexClassOrTrigger.Name = '${escaped}' GROUP BY ApexTestClass.Name`;
+	return new Set(queryToolingApi(soql, options, deps).map(row => row.suiteName));
+}
+
+/**
+ * @description Reads the run id `sf apex run test --output-dir` records in `test-run-id.txt`, so a
+ * verdict can be tied to the run that was just executed rather than to whichever run is newest. The
+ * id must be an Apex test run id (`707` followed by 12 or 15 alphanumerics); anything else reads as
+ * absent, which the baseline verdict treats as "cannot verify" rather than "green".
+ *
+ * @param {string} outputDir
+ * @param {Object} deps
+ * @return {string|null} The run id, or null when the file is absent, empty or malformed.
+ */
+function readTestRunId(outputDir, deps)
+{
+	const filePath = path.join(outputDir, 'test-run-id.txt');
+	if(!deps.fileExists(filePath))
+	{
+		return null;
+	}
+	const runId = String(deps.readFile(filePath) || '').trim();
+	return TEST_RUN_ID_PATTERN.test(runId) ? runId : null;
+}
+
+/**
+ * @description Starts a full `RunLocalTests` run and returns as soon as the run is enqueued: the
+ * same arguments the blocking run uses, minus `--wait` and plus `--json`. The wait then belongs to
+ * `pollTestRunUntilTerminal`, which decides completion from the test queue rather than from the
+ * CLI's own progress counter. `--code-coverage` is what makes the run's coverage rows appear, and
+ * `--output-dir` keeps the `test-run-id.txt` fallback available, so both must survive any edit.
  *
  * @param {Object} options
  * @param {Object} deps
- * @return {void}
+ * @return {string|null} The `707` run id from the CLI JSON, else from `test-run-id.txt`, else null.
  */
-function executeFullRunLocalTests(options, deps)
+function startDetachedTestRun(options, deps)
 {
 	const outputDir = apexOutputDir(deps);
-	const waitMinutes = options.waitMinutes || 60;
 	const args = [
 		'apex',
 		'run',
@@ -673,13 +1109,200 @@ function executeFullRunLocalTests(options, deps)
 		'--test-level',
 		'RunLocalTests',
 		'--code-coverage',
-		'--wait',
-		String(waitMinutes),
+		'--json',
 		'--output-dir',
 		outputDir
 	];
-	deps.logger.info(`running RunLocalTests against ${options.org} (wait up to ${waitMinutes}m)…`);
-	deps.runner('sf', args, {inherit: true});
+	deps.logger.info(`starting RunLocalTests against ${options.org} (detached; this gate polls the test queue for completion)…`);
+	const result = deps.runner('sf', args, {inherit: false});
+	const runIdFromJson = parseDetachedRunId(result);
+	if(!runIdFromJson)
+	{
+		const cliOutput = String((result && (result.stderr || result.stdout)) || '').trim();
+		deps.logger.warn(`the detached start printed no readable run id (exit ${(result && result.status) ?? 'unknown'}): `
+			+ `${cliOutput.slice(0, CLI_OUTPUT_EXCERPT_LENGTH) || 'no output'}`);
+	}
+	return runIdFromJson || readTestRunId(outputDir, deps);
+}
+
+/**
+ * @description Pulls `result.testRunId` out of `sf apex run test --json` stdout. Deliberately
+ * forgiving: a CLI that printed a warning banner, failed outright, or emitted a value that is not
+ * a run id yields null so the caller can fall back to `test-run-id.txt`.
+ *
+ * @param {{stdout: string}} result - The runner result.
+ * @return {string|null}
+ */
+function parseDetachedRunId(result)
+{
+	let parsed = null;
+	try
+	{
+		parsed = JSON.parse((result && result.stdout) || '');
+	}
+	catch(error)
+	{
+		return null;
+	}
+	const runId = String((parsed && parsed.result && parsed.result.testRunId) || '').trim();
+	return TEST_RUN_ID_PATTERN.test(runId) ? runId : null;
+}
+
+/**
+ * @description Waits for a detached test run to reach a terminal state, deciding from the queue
+ * itself: the run is done when no `ApexTestQueueItem` is still in flight and the `ApexTestRunResult`
+ * row has settled. `MethodsCompleted` is never consulted — it under-reports on runs that are
+ * genuinely finished, which is what makes the CLI's own wait hang past completion.
+ *
+ * Sleeps before every poll, including the first, backing off from
+ * `POLL_INITIAL_DELAY_MILLISECONDS` towards `POLL_MAXIMUM_DELAY_MILLISECONDS`. A poll whose query
+ * throws is missed, not fatal: it is logged and retried, and it neither advances nor resets the
+ * stall counter. Outcomes: `completed` (queue drained, run row `Completed`), `runNotCompleted`
+ * (queue drained, run row `Aborted`/`Failed`), `stall` (past half the ceiling, nothing executing,
+ * and the same items left waiting across `STALL_SUCCESSFUL_POLL_THRESHOLD` successful polls), and
+ * `timeout` (the `--wait` budget ran out). Every non-`completed` outcome carries the run-row status,
+ * the elapsed time and the items still in flight so the caller can say why it gave up. A class that
+ * has been executing for more than `PROCESSING_WARNING_MILLISECONDS` adds one warning of its own
+ * and is then waited on regardless: slow is not the same as stuck.
+ *
+ * @param {string} runId - The `707` AsyncApexJob id of the run to wait for.
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {{outcome: string, runRowStatus: string|null, elapsedMilliseconds: number,
+ *     warnings: Array<string>, inFlightItems: Array<{id: string, status: string, className: string|null}>}}
+ */
+function pollTestRunUntilTerminal(runId, options, deps)
+{
+	const startedAt = deps.now();
+	const ceilingMilliseconds = (options.waitMinutes || DEFAULT_FULL_RUN_WAIT_MINUTES) * 60 * 1000;
+	const warnings = [];
+	let delayMilliseconds = POLL_INITIAL_DELAY_MILLISECONDS;
+	let runRowStatus = null;
+	let inFlightItems = [];
+	let stallSignature = null;
+	let stallPollCount = 0;
+	const processingSinceById = new Map();
+	const processingWarnedIds = new Set();
+
+	while(deps.now() - startedAt < ceilingMilliseconds)
+	{
+		deps.sleepMilliseconds(delayMilliseconds);
+		delayMilliseconds = Math.min(Math.round(delayMilliseconds * POLL_BACKOFF_FACTOR), POLL_MAXIMUM_DELAY_MILLISECONDS);
+
+		let poll = null;
+		try
+		{
+			poll = readTestRunPollState(runId, options, deps);
+		}
+		catch(error)
+		{
+			deps.logger.warn(`poll of test run ${runId} failed; retrying: ${error.message}`);
+			continue;
+		}
+
+		const elapsedMilliseconds = deps.now() - startedAt;
+		runRowStatus = poll.runRowStatus;
+		inFlightItems = poll.queueItems
+		.filter(item => QUEUE_ITEM_IN_FLIGHT_STATUSES.includes(item.Status))
+		.map(item => ({id: item.Id, status: item.Status, className: item.ApexClass && item.ApexClass.Name ? item.ApexClass.Name : null}));
+
+		if(inFlightItems.length === 0 && RUN_ROW_TERMINAL_STATUSES.includes(runRowStatus))
+		{
+			return {
+				outcome: runRowStatus === 'Completed' ? 'completed' : 'runNotCompleted', runRowStatus, elapsedMilliseconds, warnings, inFlightItems
+			};
+		}
+
+		const executing = inFlightItems.filter(item => item.status === 'Processing');
+		warnLongRunningItems(executing, elapsedMilliseconds, {processingSinceById, processingWarnedIds, warnings}, deps);
+
+		const waiting = inFlightItems.filter(item => item.status !== 'Processing');
+		const stallPossible = elapsedMilliseconds > ceilingMilliseconds / 2 && executing.length === 0 && waiting.length > 0;
+		if(!stallPossible)
+		{
+			stallSignature = null;
+			stallPollCount = 0;
+			continue;
+		}
+		const signature = waiting.map(item => item.id).sort().join(',');
+		stallPollCount = signature === stallSignature ? stallPollCount + 1 : 1;
+		stallSignature = signature;
+		if(stallPollCount >= STALL_SUCCESSFUL_POLL_THRESHOLD)
+		{
+			return {
+				outcome: 'stall', runRowStatus, elapsedMilliseconds, warnings, inFlightItems
+			};
+		}
+	}
+
+	return {
+		outcome: 'timeout', runRowStatus, elapsedMilliseconds: deps.now() - startedAt, warnings, inFlightItems
+	};
+}
+
+/**
+ * @description Warns about any single test class that has been executing for longer than
+ * `PROCESSING_WARNING_MILLISECONDS`, measured from the poll at which that item was first seen
+ * `Processing` — not from the start of the run, which would warn about a class that only just
+ * began merely because the run itself is long. The warning latches per item id, so each slow class
+ * is reported exactly once; an item that leaves `Processing` forgets both its start time and its
+ * latch, so a later spell starts its clock afresh.
+ *
+ * @param {Array<{id: string, status: string, className: string|null}>} executing - The items reading
+ *     `Processing` this poll.
+ * @param {number} elapsedMilliseconds - Milliseconds since the poll loop started.
+ * @param {{processingSinceById: Map, processingWarnedIds: Set, warnings: Array<string>}} tracker -
+ *     Mutable per-run state carried across polls.
+ * @param {Object} deps
+ * @return {void}
+ */
+function warnLongRunningItems(executing, elapsedMilliseconds, tracker, deps)
+{
+	const executingIds = new Set(executing.map(item => item.id));
+	for(const id of [...tracker.processingSinceById.keys()])
+	{
+		if(!executingIds.has(id))
+		{
+			tracker.processingSinceById.delete(id);
+			tracker.processingWarnedIds.delete(id);
+		}
+	}
+	for(const item of executing)
+	{
+		if(!tracker.processingSinceById.has(item.id))
+		{
+			tracker.processingSinceById.set(item.id, elapsedMilliseconds);
+			continue;
+		}
+		const processingMilliseconds = elapsedMilliseconds - tracker.processingSinceById.get(item.id);
+		if(processingMilliseconds < PROCESSING_WARNING_MILLISECONDS || tracker.processingWarnedIds.has(item.id))
+		{
+			continue;
+		}
+		tracker.processingWarnedIds.add(item.id);
+		const warning = `test class ${describeQueueItem(item)} has been Processing for ${Math.round(processingMilliseconds / 60000)}m`;
+		tracker.warnings.push(warning);
+		deps.logger.warn(warning);
+	}
+}
+
+/**
+ * @description Reads one poll's worth of state: every `ApexTestQueueItem` of the run with its
+ * status, and the run's own row status. Ids are queried rather than aggregated because the stall
+ * check needs to know that the *same* classes are still waiting, not merely how many are. The class
+ * name rides along so warnings and refusals can name the class, not the queue row.
+ *
+ * @param {string} runId
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {{queueItems: Array<Object>, runRowStatus: string|null}}
+ */
+function readTestRunPollState(runId, options, deps)
+{
+	const escaped = String(runId).replace(/'/g, "\\'");
+	const queueItems = queryToolingApi(`SELECT Id, Status, ApexClass.Name FROM ApexTestQueueItem WHERE ParentJobId = '${escaped}'`, options, deps);
+	const runRows = queryToolingApi(`SELECT Status FROM ApexTestRunResult WHERE AsyncApexJobId = '${escaped}' LIMIT 1`, options, deps);
+	return {queueItems, runRowStatus: (runRows[0] && runRows[0].Status) || null};
 }
 
 /**
@@ -742,32 +1365,145 @@ function normaliseAggregateRows(rows)
 }
 
 /**
- * @description Queries the latest `ApexTestRunResult` row to determine whether
- * the most recent test run passed and how long it took.
+ * @description Queries the `ApexTestRunResult` row for a run: the one whose `AsyncApexJobId` is
+ * `runId` when given, otherwise the newest. `testsPassed` keeps its original meaning (no failed
+ * methods; no row reads as passed) because `--full` relies on it; the other fields let
+ * `baselineRunVerdict` apply the stricter rule `--fix-baseline` needs.
  *
  * @param {Object} options
  * @param {Object} deps
- * @return {{testsPassed: boolean, testFailures: Array<Object>, wallClockSeconds: number}}
+ * @param {string|null} [runId] The run to report on; omit for the newest run.
+ * @return {{runFound: boolean, runId: string|null, status: string|null, methodsEnqueued: number,
+ *     methodsCompleted: number, methodsFailed: number, testsPassed: boolean,
+ *     testFailures: Array<Object>, wallClockSeconds: number}}
  */
-function queryLatestTestRunStatus(options, deps)
+function queryLatestTestRunStatus(options, deps, runId)
 {
-	const rows = queryToolingApi('SELECT Status, MethodsEnqueued, MethodsCompleted, MethodsFailed, TestTime FROM ApexTestRunResult ORDER BY StartTime DESC LIMIT 1', options, deps);
+	const scope = runId ? `WHERE AsyncApexJobId = '${runId}' ` : '';
+	const soql = `SELECT AsyncApexJobId, Status, MethodsEnqueued, MethodsCompleted, MethodsFailed, TestTime `
+		+ `FROM ApexTestRunResult ${scope}ORDER BY StartTime DESC LIMIT 1`;
+	const rows = queryToolingApi(soql, options, deps);
 	const latest = rows[0];
 	if(!latest)
 	{
-		return {testsPassed: true, testFailures: [], wallClockSeconds: 0};
+		return {
+			runFound: false, runId: runId || null, status: null, methodsEnqueued: 0, methodsCompleted: 0, methodsFailed: 0, testsPassed: true, testFailures: [], wallClockSeconds: 0
+		};
 	}
 	const failed = Number(latest.MethodsFailed) || 0;
 	const testTimeMs = Number(latest.TestTime) || 0;
 	const failures = failed > 0 ? new Array(failed).fill({Outcome: 'Fail'}) : [];
 	return {
-		testsPassed: failed === 0, testFailures: failures, wallClockSeconds: testTimeMs / 1000
+		runFound: true,
+		runId: latest.AsyncApexJobId || runId || null,
+		status: latest.Status || null,
+		methodsEnqueued: Number(latest.MethodsEnqueued) || 0,
+		methodsCompleted: Number(latest.MethodsCompleted) || 0,
+		methodsFailed: failed,
+		testsPassed: failed === 0,
+		testFailures: failures,
+		wallClockSeconds: testTimeMs / 1000
 	};
 }
 
 /**
+ * @description Decides whether a test run is one a baseline may be minted from. Every gate is
+ * decided from evidence of what the run actually did: the run row exists and reads `Completed`,
+ * every `ApexTestQueueItem` of the run reads `Completed` (a `Failed` item means the class never
+ * executed, an `Aborted` one that the run was cancelled, an in-flight one that it is not over),
+ * the run produced at least one `ApexTestResult`, and every outcome is `Pass` — `Skip` and
+ * `CompileFail` are not passes. With `--run-tests` the run must be the one just executed, never
+ * whichever run is newest.
+ *
+ * `MethodsCompleted` and `MethodsFailed` are reported and never gated on: the completed counter
+ * under-reports on runs that are genuinely finished (measured 4,106 of 4,369 enqueued on an
+ * all-`Pass` run), and a failing method always appears as a non-`Pass` outcome, which is the gate
+ * that refuses it. Nor is any count compared with `MethodsEnqueued` in the other direction: the same
+ * clean run produced 4,408 results against 4,369 enqueued methods.
+ *
+ * @param {{testRun: Object, executedRunId: string|null}} coverage The apex coverage result from runFullApex.
+ * @param {Object} options
+ * @return {{green: boolean, reason: string|null}}
+ */
+function baselineRunVerdict(coverage, options)
+{
+	const testRun = coverage.testRun || {};
+	if(options.runTests && !coverage.executedRunId)
+	{
+		return {green: false, reason: 'the RunLocalTests run id could not be read from test-run-id.txt, so its outcome cannot be verified'};
+	}
+	if(!testRun.runFound)
+	{
+		return {green: false, reason: `no ApexTestRunResult row exists for ${testRun.runId ? `run ${testRun.runId}` : 'any run'}`};
+	}
+	if(testRun.status !== 'Completed')
+	{
+		return {green: false, reason: `the run's status is ${testRun.status || 'unknown'}, not Completed`};
+	}
+	const queueItems = testRun.queueItems || [];
+	const unfinished = queueItems.filter(item => item.Status !== 'Completed');
+	if(unfinished.length > 0)
+	{
+		return {
+			green: false,
+			reason: `${unfinished.length} of ${queueItems.length} test queue item(s) did not complete: ${describeUnfinishedQueueItems(unfinished)}`
+		};
+	}
+	const resultTally = testRun.resultTally || {};
+	const outcomes = Object.entries(resultTally);
+	const resultCount = outcomes.reduce((total, [, count]) => total + count, 0);
+	if(resultCount === 0)
+	{
+		return {green: false, reason: 'the run produced no ApexTestResult rows, so nothing about it is proven'};
+	}
+	const nonPass = outcomes.filter(([outcome]) => outcome !== 'Pass');
+	if(nonPass.length > 0)
+	{
+		const nonPassCount = nonPass.reduce((total, [, count]) => total + count, 0);
+		const detail = nonPass.map(([outcome, count]) => `${count} ${outcome}`).join(', ');
+		return {green: false, reason: `${nonPassCount} of ${resultCount} test result(s) did not pass: ${detail}`};
+	}
+	return {
+		green: true,
+		reason: `Completed, all ${queueItems.length} test queue item(s) Completed, all ${resultCount} test result(s) Pass; the platform counter `
+			+ `reported ${testRun.methodsCompleted}/${testRun.methodsEnqueued} methods completed, which is informational only and gates nothing`
+	};
+}
+
+/**
+ * @description Names a queue item the way a person looks for it: by its test class. The id is the
+ * fallback for a row the query could not join to a class, so no message is ever blank.
+ *
+ * @param {{className?: string|null, ApexClass?: {Name?: string}|null, id?: string, Id?: string}} item
+ * @return {string}
+ */
+function describeQueueItem(item)
+{
+	const className = item.className || (item.ApexClass && item.ApexClass.Name);
+	return className || item.id || item.Id;
+}
+
+/**
+ * @description Renders the queue items that kept a run from being verified, each named by its test
+ * class and carrying the `ExtendedStatus` the platform recorded for it — that is where a compile
+ * error or a cancellation says what went wrong. Long lists are trimmed to `QUEUE_ITEM_REASON_LIMIT`
+ * with the remainder counted, so the reason stays one readable line.
+ *
+ * @param {Array<{Id: string, Status: string, ExtendedStatus: string|null, ApexClass: {Name: string}|null}>} items
+ * @return {string}
+ */
+function describeUnfinishedQueueItems(items)
+{
+	const listed = items
+	.slice(0, QUEUE_ITEM_REASON_LIMIT)
+	.map(item => `${describeQueueItem(item)} ${item.Status}${item.ExtendedStatus ? ` (${item.ExtendedStatus})` : ''}`)
+	.join('; ');
+	return items.length > QUEUE_ITEM_REASON_LIMIT ? `${listed}; and ${items.length - QUEUE_ITEM_REASON_LIMIT} more` : listed;
+}
+
+/**
  * @description Shells out to `sf project deploy start` for the given classes
- * and their `_TEST` companions.
+ * and the test suites that cover them.
  *
  * @param {Array<string>} classes
  * @param {Object} options
@@ -778,8 +1514,7 @@ function deployApexClasses(classes, options, deps)
 {
 	const metadata = [...new Set(classes.flatMap(name => [
 		`ApexClass:${name}`,
-		`ApexClass:${name}_TEST`,
-		...(COMPANION_TEST_SUITES[name] ?? []).map(suite => `ApexClass:${suite}`)
+		...testSuitesFor([name]).map(suite => `ApexClass:${suite}`)
 	]))];
 	deps.logger.info(`deploying: ${metadata.join(', ')}`);
 	const args = [
@@ -897,7 +1632,7 @@ function resolveApexResultFile(outputDir, deps)
  */
 function apexOutputDir(deps)
 {
-	return `/tmp/kern-apex-${deps.now()}`;
+	return path.join(os.tmpdir(), `kern-apex-${deps.now()}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -905,8 +1640,18 @@ function apexOutputDir(deps)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @description Runs jest against the named component folders with
- * coverage-summary output, then parses the resulting summary file.
+ * @description Measures the components the caller named. The run itself is the
+ * same whole-suite capture `--full` makes (`runFullLwc`), and only the summary
+ * is narrowed afterwards, for two reasons. Scoping the jest run to a component
+ * folder is not possible through the `test:unit:coverage` npm script at all —
+ * sfdx-lwc-jest drops the jest flags placed after npm's `--`, so the run falls
+ * back to the base config, whose `collectCoverageFrom` empty-instrumentation
+ * pass silently drops every component whose top-level imports do not resolve
+ * standalone, and the gate then reports no coverage data for a component whose
+ * tests just passed. And a scoped run would not be comparable with the
+ * committed baseline even if it worked, because the baseline is minted from
+ * the whole suite: a child component covered by its parent's suite reads low
+ * on its own tests. The whole suite takes seconds.
  *
  * @param {Array<string>} components
  * @param {Object} deps
@@ -914,31 +1659,25 @@ function apexOutputDir(deps)
  */
 function measureLwc(components, deps)
 {
-	const pattern = `(${components.map(escapeRegex).join('|')})`;
-	const collectArgs = components.map(name => `--collectCoverageFrom=force-app/main/default/lwc/${name}/**/*.js`);
-	const args = [
-		'run',
-		'test:unit:coverage',
-		'--',
-		'--coverageReporters=json',
-		`--testPathPattern=${pattern}`,
-		...collectArgs
-	];
-	deps.logger.info(`running jest for components: ${components.join(', ')}`);
-	deps.runner('npm', args, {inherit: true});
-	return loadJestSummary(deps);
+	deps.logger.info(`measuring lwc coverage for components: ${components.join(', ')}`);
+	return filterToNamedComponents(runFullLwc(deps), components);
 }
 
 /**
- * @description Runs the LWC jest suite with coverage output for `--full` /
- * `--fix-baseline` using the dedicated `LWC_COVERAGE_CONFIG`, then filters the
- * summary down to LWC `.js` source. Jest is invoked directly (not via the
+ * @description Runs the LWC jest suite with coverage output using the dedicated
+ * `LWC_COVERAGE_CONFIG`, then filters the summary down to LWC `.js` source.
+ * Every mode captures through here — `--full`, `--fix-baseline`, and the
+ * targeted `--lwc` path via `measureLwc` — so every figure the gate prints is
+ * comparable with the committed baseline. Jest is invoked directly (not via the
  * `test:unit:coverage` npm script) because that script routes through
  * sfdx-lwc-jest, which silently drops CLI overrides — the dedicated config is
  * the only reliable way to scope `testMatch` and drop `collectCoverageFrom`.
+ * The summary carries jest's own verdict too, `testsPassed` and
+ * `jestExitStatus`, because a red component suite still writes coverage and
+ * every mode must fail on it rather than read the figures as a pass.
  *
  * @param {Object} deps
- * @return {Object}
+ * @return {{files: Object<string, Object>, testsPassed: boolean, jestExitStatus: number}}
  */
 function runFullLwc(deps)
 {
@@ -950,8 +1689,9 @@ function runFullLwc(deps)
 		'--coverageReporters=json'
 	];
 	deps.logger.info('running lwc jest suite (force-app/main/default/lwc) with coverage…');
-	deps.runner('npx', args, {inherit: true});
-	return filterToLwcSource(loadJestSummary(deps));
+	const result = deps.runner('npx', args, {inherit: true});
+	const jestExitStatus = result && typeof result.status === 'number' ? result.status : EXIT.RUNTIME;
+	return {...filterToLwcSource(loadJestSummary(deps)), testsPassed: jestExitStatus === 0, jestExitStatus};
 }
 
 /**
@@ -972,6 +1712,30 @@ function filterToLwcSource(summary)
 		if(key.startsWith(LWC_SOURCE_PREFIX) && key.endsWith('.js') && !key.includes('/__tests__/'))
 		{
 			files[key] = value;
+		}
+	}
+	return {...summary, files};
+}
+
+/**
+ * @description Narrows an LWC summary to the files that belong to the named
+ * component folders, so a targeted run reports on what the caller asked about
+ * and nothing else. The whole-suite capture it starts from already holds every
+ * component, so a name that matches nothing simply contributes no files and
+ * the evaluation raises its own "no coverage data" violation.
+ *
+ * @param {{files: Object<string, Object>}} summary
+ * @param {Array<string>} components
+ * @return {{files: Object<string, Object>}}
+ */
+function filterToNamedComponents(summary, components)
+{
+	const files = {};
+	for(const component of components)
+	{
+		for(const match of lib.findLwcFilesForComponent(summary, component))
+		{
+			files[match.filePath] = match.coverage;
 		}
 	}
 	return {...summary, files};
@@ -1124,17 +1888,6 @@ function listBaselineComponents(baseline)
 	return [...components].sort();
 }
 
-/**
- * @description Escapes a string for safe use inside a regex character class.
- *
- * @param {string} value
- * @return {string}
- */
-function escapeRegex(value)
-{
-	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Help text
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1155,13 +1908,14 @@ function printHelp(logger)
 		'',
 		'MODES:',
 		'  --apex <list>     Measure named apex classes (deploys + runs *_TEST).',
-		'  --lwc <list>      Measure named lwc component folders.',
+		'  --lwc <list>      Measure named lwc component folders (runs the whole component suite).',
 		'  --full            Walk baseline; fail on any regression.',
 		'  --fix-baseline    Rebuild scripts/coverage-baseline.json from a full run.',
 		'',
 		'FLAGS:',
 		'  --skip-deploy     Do not deploy before apex test (assume deployed).',
-		'  --run-tests       Kick off RunLocalTests before querying org coverage (slow).',
+		'  --run-tests       Start RunLocalTests detached, wait for its queue to drain, then query coverage;',
+		'                    blocks the gate when the run cannot be verified (slow).',
 		`  --org <alias>     Target org (default: ${DEFAULT_ORG}).`,
 		'  --wait <minutes>  Max time to wait for apex tests to finish (default: 60 for --full/--fix-baseline, 15 for --apex).',
 		`  --format <fmt>    Output format — one of: ${lib.SUPPORTED_FORMATS.join(', ')} (default: text).`,
@@ -1193,14 +1947,22 @@ module.exports = {
 	measureLwc,
 	runFullApex,
 	runFullLwc,
+	testSuitesFor,
+	primaryTestSuiteFor,
+	PRIMARY_TEST_SUITE_OVERRIDES,
 	deployApexClasses,
 	executeApexTests,
 	readApexResultFile,
 	resolveApexResultFile,
 	queryToolingApi,
 	queryLatestTestRunStatus,
+	baselineRunVerdict,
 	normaliseAggregateRows,
-	executeFullRunLocalTests,
+	normaliseResultTallyRows,
+	withRunVerificationInputs,
+	readTestRunId,
+	startDetachedTestRun,
+	pollTestRunUntilTerminal,
 	loadJestSummary,
 	gatherExemptLineCounts,
 	listAllApexSourceClasses,
@@ -1208,12 +1970,12 @@ module.exports = {
 	listBaselineComponents,
 	readBaselineFromDeps,
 	buildSubprocessEnv,
-	escapeRegex,
 	printHelp,
 	DEFAULT_ORG,
 	BASELINE_RELATIVE_PATH,
 	CLASSES_RELATIVE_PATH,
 	JEST_COVERAGE_SUMMARY_PATH,
+	LWC_COVERAGE_CONFIG,
 	EXIT
 };
 

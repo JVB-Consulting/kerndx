@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>68.0</apiVersion>
+    <description>Dialogue for the Health Check's Activate action on the job runner: asks how often it checks for due jobs and names the user its jobs run as.</description>
+    <isExposed>false</isExposed>
+</LightningComponentBundle>

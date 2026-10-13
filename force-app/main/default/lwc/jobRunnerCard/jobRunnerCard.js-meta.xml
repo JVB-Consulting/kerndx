@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>68.0</apiVersion>
+    <description>The job runner card inside Health Check: whether the runner is active, how often it checks for due jobs, who its jobs run as, and the actions.</description>
+    <isExposed>false</isExposed>
+</LightningComponentBundle>

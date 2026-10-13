@@ -12,7 +12,7 @@
 > symlink or reference `docs/AI Agent Instructions.md` from that rules file so a `git pull` keeps it
 > current automatically.
 >
-> Namespace: `kern`. API version: 67.0.
+> Namespace: `kern`. API version: 68.0.
 >
 > **Audience: subscribers writing code that uses KernDX in their own org.** If you're instead working
 > inside this repository (modifying the kern source itself or extending the framework),
@@ -75,7 +75,8 @@ kern.API_Dispatcher.processInboundService(API_CreateOrder.class.getName());
 
 ### Formatting
 
-**Apex:** Tabs (size 3), Allman bracing, 180-char line limit.
+**Apex:** Tabs (size 3), Allman bracing, 180-char line limit. Annotation attributes in camelCase with a lower-case first letter (`@IsTest(seeAllData=false isParallel=true)`,
+`@AuraEnabled(cacheable=true)`); the annotation name keeps its capital (`@IsTest`).
 
 ```apex
 public with sharing class MyClass
@@ -128,7 +129,7 @@ class never lands. Whenever you create a class file (`.cls`), also create its pa
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>67.0</apiVersion>
+    <apiVersion>68.0</apiVersion>
     <status>Active</status>
 </ApexClass>
 ```
@@ -235,6 +236,9 @@ orgs.
 ### PMD
 
 Cyclomatic complexity ≤15/method, ≤50/class. Parameters ≤5. Nested ifs ≤4. Suppress: `@SuppressWarnings('PMD.RuleName')`.
+
+ApexGuru: opt in only when the scan's target org is a production or Full Copy Sandbox with ApexGuru enabled (`apex-guru` in `scanner.rule_selector`,
+`engines.apexguru.target_org` set to that org); leave it off everywhere else, where its static mode sees only literal SOQL and DML.
 
 ---
 
@@ -378,14 +382,14 @@ kern.DML_Builder.TransactionResult result = kern.DML_Builder.newTransaction()
 **Operations:** `.doInsert(SObject/List)` | `.doInsert(child, relField, parent)` | `.doUpdate()` | `.doDelete()` | `.doUpsert()` | `.doUpsert(records, externalId)` |
 `.doUndelete()`
 
-**Config:** `.allowPartial()` | `.withUserMode()` / `.withSystemMode()` | `.bypassSharing()` | `.suppressLogging()` | `.suppressExceptions()`
+**Config:** `.allowPartial()` | `.expectRefusal(StatusCode)` | `.withRetryOnLock([retries])` | `.withUserMode()` / `.withSystemMode()` | `.bypassSharing()` | `.suppressLogging()` | `.suppressExceptions()`
 
 **Result:** `isSuccess()` | `getInsertedIds()` | `getErrors()` | `getSuccessCount()` | `getFailureCount()`
 
 **Async:** `.async()` → `kern.DML_Builder.DML_AsyncBuilder` — a **type switch, not a config method**. The async builder exposes only `.withBatchSize(Integer)` and
-`.execute()`, and its `execute()` returns **`void`**, not a `TransactionResult`. Chain `.async()` last; none of the Config methods above exist on it. Three
-dials carry across the switch: `.allowPartial()`, the access mode (`.withUserMode()` / `.withSystemMode()`), and `.bypassSharing()`. `.suppressLogging()` /
-`.suppressExceptions()` do not — the async leg always logs and rethrows a `DmlException`.
+`.execute()`, and its `execute()` returns **`void`**, not a `TransactionResult`. Chain `.async()` last; none of the Config methods above exist on it. Five
+dials carry across the switch: `.allowPartial()`, the access mode (`.withUserMode()` / `.withSystemMode()`), `.bypassSharing()`, `.expectRefusal()`, and `.withRetryOnLock()`.
+`.suppressLogging()` / `.suppressExceptions()` do not — the async leg always logs and rethrows a `DmlException`.
 
 > **Record sharing on the async leg: enforced unless you opt out.** The async job cannot inherit your class's sharing declaration (the work runs inside the
 framework's own job processor), so the framework pins the sharing context explicitly: the write runs **with record sharing enforced** by default, and
@@ -400,7 +404,8 @@ kern.DML_Builder.newTransaction().doInsert(accounts).async().withBatchSize(50).e
 > **Default access mode:** USER_MODE (CRUD, FLS, sharing enforced). Controlled by the `UserModeDml_Enabled` feature flag (ships `IsEnabledByDefault__c = true`). Call
 `.withSystemMode()` on the transaction to bypass (e.g. writes to framework-owned audit objects).
 
-Parent must appear earlier in chain. Framework auto-sets lookup IDs.
+Register the parent with its own `.doInsert()`, before or after the child: the transaction orders the inserts from the relationships you registered and fills in the
+child's lookup Id.
 
 ---
 
@@ -654,7 +659,7 @@ The object and action sets are independent — `clearAllBypasses()` does not cle
 
 ```apex
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class TRG_SetAccountDefaults_TEST
 {
 	@IsTest
@@ -692,6 +697,8 @@ kern.UTIL_HttpClient.post('EmailService', '/send').body(payload).timeout(30000)
 `.withParameters()`
 
 **Terminal:** `.send()` → `HttpResponse` | `.asString()` | `.asMap()` | `.deserialize(Type)` | `.invoke()`
+
+Every failure the framework handles for a call (a refused call, a transport failure, a handler exception, an unsaved call record, a blocked masking rule) comes back with the response: check `getStatusCode()` (0 means no exchange happened) and never wrap `send()` in try/catch for those failures. A governor limit is the platform's exception and cannot be caught.
 
 ---
 
@@ -733,7 +740,7 @@ public with sharing class API_SendNotification extends kern.API_Outbound
 		return errors;
 	}
 
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Request extends kern.DTO_JsonBase
 	{
 		/** @description The recipient address. */
@@ -747,7 +754,7 @@ public with sharing class API_SendNotification extends kern.API_Outbound
 		}
 	}
 
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class DTO_Response extends kern.DTO_JsonBase
 	{
 		/** @description The message ID from the gateway. */
@@ -764,6 +771,11 @@ field is namespaced from your org: `apiCall.kern__TriggeringRecordId__c`, not `a
 `request` | `response` | `requestPayload` | `responsePayload` | `requiresTriggeringRecord` | `baseUrl` | `defaultMockBody` | `result` | `errorText` | `correlationId` |
 `inputs`. Your selector must declare every field you then read — `findById` selects only the selector's declared fields, so a `SEL_Contacts` that omits
 `Contact.Email` throws `SObjectException: SObject row was retrieved via SOQL without querying the requested field`.
+
+**Refusal in a success body:** when the external system answers a success status but its body says it refused the request (an order answered 200 with
+status `REJECTED`), throw `kern.UTIL_Exceptions.RequestRefusedException` from `parseResponse()`. The call ends `Failed` at once and is not retried on its own, and
+the issue it leaves says the external system did not act, so Retry Selected on the API Issues list can run it again once the cause is fixed. Thrown anywhere
+else it behaves as `kern.UTIL_Exceptions.PermanentFailureException`. Set `responsePayload` in `configure()` so `super.parseResponse()` reads the body into it.
 
 ### API Custom Metadata Configuration (REQUIRED for both Inbound and Outbound)
 
@@ -823,7 +835,7 @@ DeveloperName (filename) should match class without `API_` prefix (e.g., `kern__
 
 ```apex
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class API_SendNotification_TEST
 {
 	private static final String SERVICE_NAME = API_SendNotification.class.getName();
@@ -870,7 +882,7 @@ kern.API_MockFactory.wasCalled(SERVICE_NAME);
 ### REST Routing Class
 
 ```apex
-@RestResource(UrlMapping='/v1/contact-form/*')
+@RestResource(urlMapping='/v1/contact-form/*')
 global with sharing class REST_ContactForm
 {
 	@HttpPost
@@ -887,7 +899,7 @@ global with sharing class REST_ContactForm
 
 - **`onSuccess()`** — DML via inherited `doInsert()`/`doUpdate()`/`doDelete()` (NOT `kern.DML_Builder`)
 - **`updateResponseDTO()`** — runs after commit, populate response DTO from `result.isSuccess`
-- Both Request and Response DTOs: `@JsonAccess(Serializable='always' Deserializable='always')`, `public` props
+- Both Request and Response DTOs: `@JsonAccess(serializable='always' deserializable='always')`, `public` props
 - No manual `JSON.serialize()` — framework serializes DTOs
 
 ### Inbound Test Pattern
@@ -914,7 +926,7 @@ kern.SEL_ApiCall.assertServiceCompleted(API_ContactFormSubmit.class.getName());
 ```apex
 public with sharing class FLOW_CreateAccount
 {
-	@InvocableMethod(Category='Account Management' Label='Create Account' Description='Creates an Account.')
+	@InvocableMethod(category='Account Management' label='Create Account' description='Creates an Account.')
 	public static List<DTO_Response> execute(List<DTO_Request> requests)
 	{
 		if(requests == null || requests.size() != 1)
@@ -934,16 +946,16 @@ public with sharing class FLOW_CreateAccount
 
 	public class DTO_Request
 	{
-		@InvocableVariable(Label='Account Name' Description='The name for the new Account' Required=true)
+		@InvocableVariable(label='Account Name' description='The name for the new Account' required=true)
 		public String accountName;
 	}
 
 	public class DTO_Response
 	{
-		@InvocableVariable(Label='Account ID' Description='The ID of the created Account')
+		@InvocableVariable(label='Account ID' description='The ID of the created Account')
 		public Id accountId;
 
-		@InvocableVariable(Label='Success' Description='Whether the operation succeeded')
+		@InvocableVariable(label='Success' description='Whether the operation succeeded')
 		public Boolean success;
 	}
 }
@@ -952,11 +964,15 @@ public with sharing class FLOW_CreateAccount
 **Rules:** `public with sharing` on class + DTOs | guard `requests.size() == 1` with a platform-native `IllegalArgumentException` | `@InvocableVariable` with Label/Description/Required |
 `@InvocableMethod` with Category/Label/Description | `kern.DML_Builder` for DML | Method takes `List<DTO_Request>`, returns `void` or `List<DTO_Response>`
 
+**Shipped action you may call:** `kern.FLOW_RetryApiIssues.retryApiIssues` (Flow label **Retry API Issues**, category **Api Callouts**) runs the failed calls of
+the API issues you pass again, in one background job. Pass exactly one `kern.FLOW_RetryApiIssues.DTO_Request` with `apiIssueIds` (`List<String>`); it answers
+one `DTO_Response` with `jobId`, `queuedCount`, `success` and `message`. The running user needs the Retry API Issue permission, or nothing is queued.
+
 ### Flow Test Pattern
 
 ```apex
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class FLOW_CreateAccount_TEST
 {
 	@IsTest
@@ -1018,13 +1034,15 @@ scope.close();
 **Chain:** `.at(String)` | `.forRecord(Id)` | `.withContext(key, value)` | `.withSummary(String)`
 **Terminal:** `.emitAt(String)` (shorthand) | `.emit()`
 
+**Attribution:** the engine stamps `Origin__c` (FRAMEWORK, APEX, FLOW, COMPONENT) and `Source__c` (the writing class, Flow or component, as a plain name) on every entry from what you pass to `.at()` and the context it runs in. Never set them yourself; group reports by them.
+
 ---
 
 ## Testing
 
 ### Structure
 
-`@IsTest(SeeAllData=false IsParallel=true) private class MyClass_TEST` — Constants → @IsTest methods → helpers → inner classes.
+`@IsTest(seeAllData=false isParallel=true) private class MyClass_TEST` — Constants → @IsTest methods → helpers → inner classes.
 
 ### TST_Builder
 
@@ -1064,9 +1082,21 @@ catch(QueryException error)
 }
 ```
 
+**Consecutive queries, different answers:** `kern.TST_Mock.registerNext(SObjectType, List<SObject>)` (and a single-record
+overload) scripts the NEXT query or count only; answers serve in registration order, one query each, then the type returns to
+its registered records or the database. An empty list scripts "finds nothing". A registered exception fires first and leaves
+the queue in place. `clear()` / `clear(SObjectType)` drop queued answers and remove the registration, so a cleared type queries
+the database.
+
+```apex
+kern.TST_Mock.registerNext(Account.SObjectType, new List<SObject>()); // the next read misses
+// the read after that: registered records, else the database
+```
+
 ### TST_Factory
 
-`kern.TST_Factory.newFeatureFlag(flagName)` | `.newOutboundApiCall(service, recordId[, params])` | `.newInboundApiCall(service)` | `.newUser(profileName)`
+`kern.TST_Factory.newFeatureFlag(flagName)` | `.newOutboundApiCall(service, recordId[, params])` | `.newInboundApiCall(service)` | `.newUser(profileName[, companyName])` |
+`.insertUser(profileName[, companyName])`
 
 For trigger-action tests, invoke the handler directly on in-memory records built with `kern.TST_Builder.of(SObjectType).withoutInsertion().build()` (see the Trigger Test Pattern
 above). For custom-validation tests, deploy the rule as Custom Metadata, then assert with `kern.UTIL_ValidationTestHelper.assertRuleFails(record, ruleName)` /
@@ -1126,7 +1156,7 @@ generateRecordPageURL) | `flow-navigation` (dispatchFlowNext/Back/FinishEvent) |
 
 **Base (always):** `dispatchCustomEvent()` | `consoleLog()` | `consoleError()` | `isLoading`
 
-**HTML:** Lightning base components only (not raw HTML). **Meta:** apiVersion 67.0, isExposed true.
+**HTML:** Lightning base components only (not raw HTML). **Meta:** apiVersion 68.0, isExposed true.
 
 ### Jest Test Pattern
 
@@ -1149,7 +1179,7 @@ jest.mock('kern/componentBuilder', () => ({
 
 ## DTOs
 
-Extend `kern.DTO_JsonBase` + `@JsonAccess(Serializable='always' Deserializable='always')`.
+Extend `kern.DTO_JsonBase` + `@JsonAccess(serializable='always' deserializable='always')`.
 
 - **Standalone** (separate file, exposed to UI): `@AuraEnabled public` props
 - **Nested** (inside API class): `private` props + ApexDoc
@@ -1175,7 +1205,7 @@ never use raw `Schema.getGlobalDescribe()` / `fields.getMap()` from package code
 
 ### Framework-shipped Feature Flags
 
-Ten pre-built `FeatureFlag__mdt` records ship with the package. Query via `kern.UTIL_FeatureFlag.isEnabled('FlagDeveloperName')`; flip values by deploying an override record that
+These pre-built `FeatureFlag__mdt` records ship with the package. Query via `kern.UTIL_FeatureFlag.isEnabled('FlagDeveloperName')`; flip values by deploying an override record that
 sets `IsEnabledByDefault__c` (and, if strategies are attached, `ResultOnNoMatch__c`).
 
 | Flag                       | Default | Purpose                                                                                                                                                                                                          |
@@ -1189,6 +1219,7 @@ sets `IsEnabledByDefault__c` (and, if strategies are attached, `ResultOnNoMatch_
 | `DisableAllOutboundAPIs`   | `false` | Disables outbound `kern.API_Outbound` calls only.                                                                                                                                                                |
 | `MockAllAPIs`              | `false` | Returns mock responses for every outbound call (tests + dry runs).                                                                                                                                               |
 | `MockAllInboundAPIs`       | `false` | Returns mock responses for every inbound call.                                                                                                                                                                   |
+| `BypassApiRecordDeleteGuard` | `false` | Decides who may delete `ApiCall__c` / `ApiIssue__c` (UI, flow, Apex and `SCHED_PurgeRecords` alike). A built-in protected strategy turns it on for holders of the `DeleteApiRecords` custom permission (Kern Administrator). Widen it with a strategy per profile/permission set/user, or `ResultOnNoMatch__c = true` for everyone (`IsEnabledByDefault__c` is ignored, a strategy exists). Deactivated, it refuses every delete and Health Check warns. |
 | `TestFeatureFlag`          | `true`  | Example / smoke-test flag. Safe to leave as-is.                                                                                                                                                                  |
 
 ---
@@ -1248,7 +1279,8 @@ public with sharing class LoadDataStep extends kern.UTIL_AsyncChain.ChainStep
 ```
 
 **ChainBuilder:** `.then(step)`/`.then(step, continueOnError)`/`.withInitialContext(key, value)`/`.withMaxSteps(n)`/`.withMaxContextSize(n)`/`.withDelayMinutes(n)`/`.withDeduplicationKey(key)`/`.allowRestart()`/`.withAsyncOptions(opts)`/`.onError(step)`/`.onComplete(step)`/`.execute()`/`.execute(correlationId)`
-**Operator re-drive declarations (both default off — the Chain Monitor's retry/restart actions stay unavailable until the author declares them; neither changes how the chain runs):** `public override Boolean isIdempotent() { return true; }` on a `ChainStep` (an override, never a constructor; declares the step safe to re-run, gating retry-from-failed-step) / `.allowRestart()` on the builder (declares the whole chain safe to restart from step 1 and captures the as-built context snapshot for the restart to replay)
+**Re-run declarations (both default off, except an `ApiStep` whose request is safe to repeat, which declares `isIdempotent()` itself; neither changes a normal run):** `public override Boolean isIdempotent() { return true; }` on a `ChainStep` (an override, never a constructor; declares the step safe to re-run, gating the Chain Monitor's retry-from-failed-step AND the watchdog's recovery after a stall) / `.allowRestart()` on the builder (declares the whole chain safe to restart from step 1 and captures the as-built context snapshot for the restart to replay)
+**Stalled-step recovery:** the watchdog (`SCHED_ChainWatchdog`, and the Chain Monitor's Clear stalled button) re-runs a stalled step only if it never started or `isIdempotent()` returns true; a started step without the declaration ends the chain `Failed` (category Stalled) with a message telling the operator to check whether the step's work landed, then start a replacement. Declare `isIdempotent()` on every step that is safe to run twice. An `ApiStep` declares it by itself when its handler sends GET, PUT or DELETE, or its service setting has `IdempotencyEnabled__c`. On a slow queue, raise the watchdog's `StaleThresholdMinutes` (default 30): a step that waits in the queue past it also ends the chain `Failed`.
 **ChainContext:** `.put(key, value)`/`.get(key)`/`.getAs(key, Type)`/`.has(key)`/`.getChainExecutionId()`/`.getCorrelationId()`/`.getPreviousStepResult()`/`.getCurrentStepIndex()`/`.idempotencyKey()`/`.idempotencyKey(recordId)`/`.idempotencyKey(grain)`/`.getAttempt()`/`.isFinalAttempt()`/`.isFinalAttempt(error)`
 **StepResult:** `kern.UTIL_AsyncChain.succeeded()`/`.succeeded(msg)`/`.succeeded(msg, data)`/`.failed(msg)`/`.failed(exception)`/`.failedPermanently(msg)`/`.failedPermanently(exception)` — properties: `success`, `message`, `data`, `error`, `permanentFailure`
 **ApiStep:** Wraps `kern.API_Outbound` handler as a chain step:
@@ -1294,13 +1326,19 @@ global inherited sharing class SCHED_PurgeOldRecords extends kern.SCHED_Base
 **SCHED_Base accessors:** `getTextParameter(name)`/`getNumericParameter(name)`/`getBooleanParameter(name)`
 **DTO_ScheduledParameterDefinition:** `.of(name)` → `.required()`/`.asNumeric()`/`.asBoolean()`/`.withDefault(value)`/`.withDescription(text)`
 
+**Job runner (1.8):** a `ScheduledJob__c` record with `ExecutionMode__c = 'JobRunner'` runs on the shared runner (no `CronTrigger` of its own;
+minutes may be `*/N`, lists or ranges; runs as the runner's activator; needs the `ManageJobRunner` custom permission to enter). Framework-owned fields,
+never write them: `NextRunAt__c`, `LastRunAt__c`, `LastRunOutcome__c`, `LastRunReason__c`, `LastRunJobId__c`. Admin fields: `RunPriority__c`,
+`OverlapPolicy__c` (`Skip` default, `Allow`). A job on the runner receives a `SchedulableContext` whose `getTriggerId()` is the run's `AsyncApexJob` id;
+never pass it to `System.abortJob`. The runner's own records name `kern.SCHED_JobRunner` and are created only by Health Check.
+
 ---
 
 ## Common Agent Mistakes (beyond Critical Rules table above)
 
 | #  | Wrong                                  | Right                                                                       |
 |----|----------------------------------------|-----------------------------------------------------------------------------|
-| 1  | DTO missing `@JsonAccess`              | `@JsonAccess(Serializable='always' Deserializable='always')`                |
+| 1  | DTO missing `@JsonAccess`              | `@JsonAccess(serializable='always' deserializable='always')`                |
 | 2  | Missing `super.configure()`            | Always call `super.configure()` first                                       |
 | 3  | Missing `super.populate()`             | Always call `super.populate()` first                                        |
 | 4  | Missing `super.getRequiredInputs()`    | Call super and add to returned set                                          |
@@ -1318,6 +1356,7 @@ global inherited sharing class SCHED_PurgeOldRecords extends kern.SCHED_Base
 | 16 | `.cls` written without its `.cls-meta.xml` | Always create the paired `*-meta.xml` — a lone `.cls` is silently skipped (`No local changes to deploy`) |
 | 17 | `triggerOldMap.get(id)` to pair old/new in an action | Build `new Map<Id, SObject>(oldRecords)` from the parameter — `triggerOldMap` is null outside live trigger context (`NullPointerException` in direct-invocation tests) |
 | 18 | `Schema.getGlobalDescribe().get(name)` to resolve an object | `kern.UTIL_SObjectDescribe d = kern.UTIL_SObjectDescribe.getDescribe(name)` — returns the wrapper (type `kern.UTIL_SObjectDescribe`, NOT `Schema.DescribeSObjectResult`), null for an unknown name; then `d.getField(name)` |
+| 19 | `request.headers.get('X-Partner-Id')` to read a request header | `(String)new kern.UTIL_Map.CaseInsensitiveMap(request.headers).get('X-Partner-Id')` — header names carry no case and many clients send them lower-case, so an exact-case lookup misses them |
 
 ---
 

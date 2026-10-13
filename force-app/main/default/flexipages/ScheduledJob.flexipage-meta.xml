@@ -87,6 +87,16 @@
                 <identifier>RecordScheduledJobId_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.LastRunJobId__c</fieldItem>
+                <identifier>RecordLastRunJobId_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-9f52a926-06eb-4957-98e8-b22dd6c21fa1</name>
         <type>Facet</type>
     </flexiPageRegions>

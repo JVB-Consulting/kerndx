@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RunPriority__c</fullName>
+    <description>Order among jobs due at the same check of the job runner: lower numbers start first, blank goes last. A preference, not a guarantee; when a check has more due jobs than it may start, a low priority can wait.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Lower starts first when several jobs are due together. Leave blank to go last.</inlineHelpText>
+    <label>Run Priority</label>
+    <precision>5</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

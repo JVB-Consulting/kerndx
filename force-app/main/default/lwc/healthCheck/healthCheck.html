@@ -95,6 +95,18 @@
 												</div>
 											</template>
 										</template>
+										<template lwc:elseif={actionItem.isJobRunner}>
+											<div class="slds-col slds-grow">
+												<p class="slds-text-body_regular" data-testid="health-check-name"><strong>{actionItem.name}</strong></p>
+												<p class="slds-text-body_small slds-text-color_weak" data-testid="health-check-detail">{actionItem.detail}</p>
+											</div>
+											<template lwc:if={actionItem.jobRunnerRemedyLabel}>
+												<div class="slds-shrink-none slds-m-left_small">
+													<lightning-button data-name={actionItem.name} data-testid="job-runner-remedy" label={actionItem.jobRunnerRemedyLabel}
+																	  onclick={handleJobRunnerRemedy}></lightning-button>
+												</div>
+											</template>
+										</template>
 										<template lwc:else>
 											<div class="slds-col slds-grow">
 												<p class="slds-text-body_regular" data-testid="health-check-name"><strong>{actionItem.name}</strong></p>
@@ -175,6 +187,18 @@
 																  label={labels.watchdogCustomizeLink} onclick={handleCustomizeWatchdog} variant="base"></lightning-button>
 											</div>
 										</template>
+										<template lwc:elseif={actionItem.isJobRunner}>
+											<div class="slds-col slds-grow">
+												<p class="slds-text-body_regular" data-testid="health-check-name"><strong>{actionItem.name}</strong></p>
+												<p class="slds-text-body_small slds-text-color_weak" data-testid="health-check-detail">{actionItem.detail}</p>
+											</div>
+											<template lwc:if={actionItem.jobRunnerRemedyLabel}>
+												<div class="slds-shrink-none slds-m-left_small">
+													<lightning-button data-name={actionItem.name} data-testid="job-runner-remedy" label={actionItem.jobRunnerRemedyLabel}
+																	  onclick={handleJobRunnerRemedy}></lightning-button>
+												</div>
+											</template>
+										</template>
 										<template lwc:else>
 											<div class="slds-col slds-grow">
 												<p class="slds-text-body_regular" data-testid="health-check-name"><strong>{actionItem.name}</strong></p>
@@ -195,4 +219,11 @@
 			</template>
 		</div>
 	</lightning-card>
+
+	<template lwc:if={hasResults}>
+		<div class="slds-var-m-top_small">
+			<c-job-runner-card onactivate={handleActivateJobRunner} ondeactivate={handleDeactivateJobRunner} onrepair={handleRepairJobRunner}
+							   status={jobRunnerStatus}></c-job-runner-card>
+		</div>
+	</template>
 </template>

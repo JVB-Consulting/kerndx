@@ -2,225 +2,301 @@
 /**
  * @description Standalone form component for creating and editing ScheduledJob__c records.
  *              Used as the content of an Aura action override for the New and Edit standard buttons.
- *              Renders the form directly in a lightning-card with embedded cron expression editor
- *              and dynamic parameter inputs. On save, redirects to the record page.
+ *              Renders the shared scheduled job form in a lightning-card and adds the job runner fields:
+ *              where the job runs, its priority, its overlap policy and a preview of its next run. On save,
+ *              redirects to the record page.
  *
  * @author Jason van Beukering
  *
- * @date March 2026, July 2026
+ * @date March 2026, October 2026
  */
 import {api, wire} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
 import {getRecord, getFieldValue, notifyRecordUpdateAvailable} from 'lightning/uiRecordApi';
 import {reduceErrors} from 'c/utilitySystem';
-import {getTimezoneDisplayName, parseAttributes} from 'c/utilityScheduledJob';
-import getSchedulableClasses from '@salesforce/apex/CTRL_ScheduledJob.getSchedulableClasses';
-import getParameterDefinitions from '@salesforce/apex/CTRL_ScheduledJob.getParameterDefinitions';
-import getUserTimezone from '@salesforce/apex/CTRL_ScheduledJob.getUserTimezone';
-import saveRecord from '@salesforce/apex/CTRL_ScheduledJob.saveRecord';
-import SCHEDULER_NAME_FIELD from '@salesforce/schema/ScheduledJob__c.SchedulerName__c';
-import CLASS_NAME_FIELD from '@salesforce/schema/ScheduledJob__c.ClassName__c';
-import CRON_EXPRESSION_FIELD from '@salesforce/schema/ScheduledJob__c.CronExpression__c';
-import IS_ACTIVE_FIELD from '@salesforce/schema/ScheduledJob__c.IsActive__c';
-import DESCRIPTION_FIELD from '@salesforce/schema/ScheduledJob__c.Description__c';
-import PARAMETERS_FIELD from '@salesforce/schema/ScheduledJob__c.Parameters__c';
-import TIMEZONE_FIELD from '@salesforce/schema/ScheduledJob__c.Timezone__c';
+import {formatInstant} from 'c/utilityScheduledJob';
+import {ScheduledJobEditorForm, SCHEDULED_JOB_FORM_FIELDS, SCHEDULED_JOB_FORM_LABELS} from 'c/scheduledJobEditorForm';
+import getJobRunnerState from '@salesforce/apex/CTRL_ScheduledJob.getJobRunnerState';
+import previewNextRun from '@salesforce/apex/CTRL_ScheduledJob.previewNextRun';
+import EXECUTION_MODE_FIELD from '@salesforce/schema/ScheduledJob__c.ExecutionMode__c';
+import RUN_PRIORITY_FIELD from '@salesforce/schema/ScheduledJob__c.RunPriority__c';
+import OVERLAP_POLICY_FIELD from '@salesforce/schema/ScheduledJob__c.OverlapPolicy__c';
 import {formatTemplateString} from 'c/utilityString';
-import CREATE_TITLE from '@salesforce/label/c.ScheduledJob_NewTitle';
-import EDIT_TITLE from '@salesforce/label/c.ScheduledJob_EditTitle';
-import SCHEDULE from '@salesforce/label/c.ScheduledJob_Schedule';
-import SCHEDULE_WITH_TIMEZONE from '@salesforce/label/c.ScheduledJob_ScheduleWithTimezone';
 import LOAD_RECORD_FAILED from '@salesforce/label/c.ScheduledJob_LoadRecordFailed';
-import LOAD_PARAMETERS_FAILED from '@salesforce/label/c.ScheduledJob_LoadParameterDefinitionsFailed';
 import CREATED from '@salesforce/label/c.ScheduledJob_Created';
 import SAVED from '@salesforce/label/c.ScheduledJob_Saved';
-import SAVE_FAILED from '@salesforce/label/c.ScheduledJob_SaveFailed';
-import SCHEDULER_NAME_LABEL from '@salesforce/label/c.ScheduledJob_SchedulerName';
-import CLASS_NAME_LABEL from '@salesforce/label/c.ScheduledJob_ClassName';
-import CLASS_NAME_PLACEHOLDER from '@salesforce/label/c.ScheduledJob_ClassNamePlaceholder';
-import ACTIVE_LABEL from '@salesforce/label/c.ScheduledJob_Active';
-import INACTIVE_LABEL from '@salesforce/label/c.ScheduledJob_Inactive';
-import PARAMETERS_HEADING from '@salesforce/label/c.ScheduledJob_Parameters';
-import YES_LABEL from '@salesforce/label/c.ScheduledJob_Yes';
-import NO_LABEL from '@salesforce/label/c.ScheduledJob_No';
-import DESCRIPTION_LABEL from '@salesforce/label/c.ScheduledJob_Description';
-import CANCEL_LABEL from '@salesforce/label/c.ScheduledJob_Cancel';
-import SAVE_LABEL from '@salesforce/label/c.ScheduledJob_Save';
+import EXECUTION_MODE_LABEL from '@salesforce/label/c.ScheduledJob_ExecutionMode';
+import EXECUTION_MODE_OWN from '@salesforce/label/c.ScheduledJob_ExecutionModeOwn';
+import EXECUTION_MODE_JOB_RUNNER from '@salesforce/label/c.ScheduledJob_ExecutionModeJobRunner';
+import JOB_RUNNER_INACTIVE_NOTE from '@salesforce/label/c.ScheduledJob_JobRunnerInactiveNote';
+import JOB_RUNNER_ACTIVE_NOTE from '@salesforce/label/c.ScheduledJob_JobRunnerActiveNote';
+import JOB_RUNNER_PERMISSION_NOTE from '@salesforce/label/c.ScheduledJob_JobRunnerPermissionNote';
+import RUN_PRIORITY_LABEL from '@salesforce/label/c.ScheduledJob_RunPriority';
+import RUN_PRIORITY_HELP from '@salesforce/label/c.ScheduledJob_RunPriorityHelp';
+import OVERLAP_POLICY_LABEL from '@salesforce/label/c.ScheduledJob_OverlapPolicy';
+import OVERLAP_POLICY_SKIP from '@salesforce/label/c.ScheduledJob_OverlapPolicySkip';
+import OVERLAP_POLICY_ALLOW from '@salesforce/label/c.ScheduledJob_OverlapPolicyAllow';
+import NEXT_RUN_PREVIEW from '@salesforce/label/c.ScheduledJob_NextRunPreview';
+import NEXT_RUN_PREVIEW_UNAVAILABLE from '@salesforce/label/c.ScheduledJob_NextRunPreviewUnavailable';
 
 const FIELDS = [
-	SCHEDULER_NAME_FIELD,
-	CLASS_NAME_FIELD,
-	CRON_EXPRESSION_FIELD,
-	IS_ACTIVE_FIELD,
-	DESCRIPTION_FIELD,
-	PARAMETERS_FIELD,
-	TIMEZONE_FIELD
+	...SCHEDULED_JOB_FORM_FIELDS,
+	EXECUTION_MODE_FIELD,
+	RUN_PRIORITY_FIELD,
+	OVERLAP_POLICY_FIELD
 ];
 
-export default class ScheduledJobEditor extends ComponentBuilder('notification', 'navigation')
+/**
+ * @description Picklist value for a job that keeps its own scheduled job.
+ */
+const EXECUTION_MODE_OWN_VALUE = 'OwnScheduledJob';
+
+/**
+ * @description Picklist value for a job the job runner starts.
+ */
+const EXECUTION_MODE_JOB_RUNNER_VALUE = 'JobRunner';
+
+/**
+ * @description Picklist value for skipping a run while the previous one is still running.
+ */
+const OVERLAP_POLICY_SKIP_VALUE = 'Skip';
+
+/**
+ * @description Picklist value for letting runs overlap.
+ */
+const OVERLAP_POLICY_ALLOW_VALUE = 'Allow';
+
+export default class ScheduledJobEditor extends ScheduledJobEditorForm(ComponentBuilder('notification', 'navigation'))
 {
-	@api recordId;
 	/**
-	 * @description Names of parameters that should render read-only in the editor. Used by the customize-path
-	 *              retention flow to prefill and lock the target object while leaving other parameters editable.
+	 * @description The ScheduledJob__c record to edit. The shared form declares and reads it since 1.8; it stays
+	 *              declared here because a managed package keeps every public property it released.
+	 *
+	 * @type {string}
+	 */
+	@api recordId;
+
+	/**
+	 * @description Names of parameters that render read-only, used by the customize path to lock the target object
+	 *              while the other parameters stay editable. The shared form declares and reads it since 1.8; it
+	 *              stays declared here because a managed package keeps every public property it released.
 	 *
 	 * @type {string[]}
 	 */
 	@api lockedFields = [];
 
 	label = {
-		schedulerName: SCHEDULER_NAME_LABEL,
-		className: CLASS_NAME_LABEL,
-		classPlaceholder: CLASS_NAME_PLACEHOLDER,
-		active: ACTIVE_LABEL,
-		inactive: INACTIVE_LABEL,
-		parameters: PARAMETERS_HEADING,
-		yes: YES_LABEL,
-		no: NO_LABEL,
-		description: DESCRIPTION_LABEL,
-		cancel: CANCEL_LABEL,
-		save: SAVE_LABEL
+		...SCHEDULED_JOB_FORM_LABELS,
+		executionMode: EXECUTION_MODE_LABEL,
+		runPriority: RUN_PRIORITY_LABEL,
+		runPriorityHelp: RUN_PRIORITY_HELP,
+		overlapPolicy: OVERLAP_POLICY_LABEL,
+		jobRunnerPermissionNote: JOB_RUNNER_PERMISSION_NOTE
 	};
 
-	_lastLoadedClassName;
-	className = '';
-	classOptions = [];
-	cronExpression = '';
-	cronIsValid = true;
-	description = '';
-	isActive = false;
-	isSaving = false;
-	parameterDefinitions;
-	parameterValues = {};
-	schedulerName = '';
-	userTimezone = '';
+	/**
+	 * @description Where the job runs: its own scheduled job, or the job runner.
+	 *
+	 * @type {string}
+	 */
+	executionMode = EXECUTION_MODE_OWN_VALUE;
 
-	get isCreateMode()
+	/**
+	 * @description The order this job takes among the jobs due at the same check of the runner, as typed.
+	 *              Empty means the job goes last.
+	 *
+	 * @type {(string|number)}
+	 */
+	runPriority = '';
+
+	/**
+	 * @description What happens when a run is due while the previous one is still running.
+	 *
+	 * @type {string}
+	 */
+	overlapPolicy = OVERLAP_POLICY_SKIP_VALUE;
+
+	/**
+	 * @description Whether a job runner is active, how often it checks for due jobs, and whether the
+	 *              running user may put a job on it.
+	 *
+	 * @type {{isActive: boolean, checkIntervalMinutes: (number|null), canManage: boolean}}
+	 */
+	jobRunnerState = {isActive: false, checkIntervalMinutes: null, canManage: false};
+
+	/**
+	 * @description The instant the current expression next fires, as the controller reported it.
+	 *              Empty when there is nothing to show.
+	 *
+	 * @type {string}
+	 */
+	nextRunPreview = '';
+
+	/**
+	 * @description Whether the job being edited is set to run on the job runner.
+	 *
+	 * @return {boolean} True when the runner option is chosen.
+	 */
+	get isJobRunnerMode()
 	{
-		return !this.recordId;
+		return this.executionMode === EXECUTION_MODE_JOB_RUNNER_VALUE;
 	}
 
-	get cardTitle()
+	/**
+	 * @description The two places a job can run, for the execution-mode radio.
+	 *
+	 * @return {Object[]} The own-scheduled-job option and the job runner option.
+	 */
+	get executionModeOptions()
 	{
-		return this.isCreateMode ? CREATE_TITLE : EDIT_TITLE;
+		return [
+			{label: EXECUTION_MODE_OWN, value: EXECUTION_MODE_OWN_VALUE},
+			{label: EXECUTION_MODE_JOB_RUNNER, value: EXECUTION_MODE_JOB_RUNNER_VALUE}
+		];
 	}
 
-	get scheduleHeading()
+	/**
+	 * @description Whether the choice of where the job runs is closed to this user. It is closed only when the
+	 *              user may not manage the runner and the job is not already on it, so a job already on the
+	 *              runner stays editable.
+	 *
+	 * @return {boolean} True when the radio is disabled.
+	 */
+	get isExecutionModeDisabled()
 	{
-		if(this.userTimezone)
-		{
-			return formatTemplateString(SCHEDULE_WITH_TIMEZONE, [getTimezoneDisplayName(this.userTimezone)]);
-		}
-
-		return SCHEDULE;
+		return !this.jobRunnerState.canManage && !this.isJobRunnerMode;
 	}
 
-	get isSaveDisabled()
+	/**
+	 * @description Whether to say which permission puts a job on the runner.
+	 *
+	 * @return {boolean} True when the running user may not manage the runner.
+	 */
+	get showPermissionNote()
 	{
-		if(this.isSaving)
-		{
-			return true;
-		}
-
-		let hasRequiredFields = this.cronIsValid && this.schedulerName && this.className && this.cronExpression;
-
-		if(hasRequiredFields && this.hasParameterDefinitions)
-		{
-			// A parameter input renders pre-filled with its defaultValue, so an untouched default
-			// satisfies the requirement; only an explicitly cleared entry ('') leaves it unmet.
-			return this.parameterDefinitions.some((parameter) => parameter.isRequired && !(this.parameterValues[parameter.name] ?? parameter.defaultValue));
-		}
-
-		return !hasRequiredFields;
+		return !this.jobRunnerState.canManage;
 	}
 
-	get hasParameterDefinitions()
+	/**
+	 * @description How often an active runner checks for due jobs, for the cron editor's presets. Null while
+	 *              no runner is active, which leaves every interval on offer.
+	 *
+	 * @return {(number|null)} The number of minutes between checks, or null.
+	 */
+	get activeCheckIntervalMinutes()
 	{
-		return Boolean(this.parameterDefinitions && this.parameterDefinitions.length > 0);
+		return this.jobRunnerState.isActive ? this.jobRunnerState.checkIntervalMinutes : null;
 	}
 
-	get editParameterFields()
+	/**
+	 * @description What the runner does with this job: when the runner starts it, or that the job waits until
+	 *              a runner is activated.
+	 *
+	 * @return {string} The sentence shown under the execution-mode radio.
+	 */
+	get jobRunnerNote()
 	{
-		if(!this.hasParameterDefinitions)
-		{
-			return [];
-		}
-
-		let lockedNames = Array.isArray(this.lockedFields) ? this.lockedFields : [];
-
-		return this.parameterDefinitions.map((parameter) =>
-		{
-			let value = this.parameterValues[parameter.name] ?? parameter.defaultValue ?? '';
-			let type = String(parameter.dataType || '').toUpperCase();
-
-			return {
-				name: parameter.name,
-				label: parameter.label,
-				description: parameter.description,
-				isRequired: parameter.isRequired,
-				dataType: parameter.dataType,
-				testId: 'param-' + parameter.name,
-				value,
-				isText: type === 'TEXT',
-				isNumeric: type === 'NUMERIC',
-				isToggle: type === 'FLAG',
-				isLocked: lockedNames.indexOf(parameter.name) !== -1,
-				toggleChecked: type === 'FLAG' && String(value).toLowerCase() === 'true'
-			};
-		});
+		return this.jobRunnerState.isActive ? formatTemplateString(JOB_RUNNER_ACTIVE_NOTE, [this.jobRunnerState.checkIntervalMinutes]) : JOB_RUNNER_INACTIVE_NOTE;
 	}
 
+	/**
+	 * @description The two answers to a run falling due while the previous one is still running.
+	 *
+	 * @return {Object[]} The skip option and the allow option.
+	 */
+	get overlapPolicyOptions()
+	{
+		return [
+			{label: OVERLAP_POLICY_SKIP, value: OVERLAP_POLICY_SKIP_VALUE},
+			{label: OVERLAP_POLICY_ALLOW, value: OVERLAP_POLICY_ALLOW_VALUE}
+		];
+	}
+
+	/**
+	 * @description The next-run line under the schedule: the instant the expression next fires, or a line
+	 *              saying the expression has to be valid first.
+	 *
+	 * @return {string} The line to show.
+	 */
+	get nextRunPreviewLabel()
+	{
+		return this.nextRunPreview ? formatTemplateString(NEXT_RUN_PREVIEW, [formatInstant(this.nextRunPreview)]) : NEXT_RUN_PREVIEW_UNAVAILABLE;
+	}
+
+	/**
+	 * @description Reads what the shared form reads, and the job runner's state.
+	 */
 	connectedCallback()
 	{
-		this.loadSchedulableClasses();
-		this.loadUserTimezone();
+		super.connectedCallback();
+		this.loadJobRunnerState();
 	}
 
+	/**
+	 * @description Reads whether a runner is active, how often it checks and whether this user may manage it.
+	 *              A failure leaves the editor offering the own-scheduled-job mode only.
+	 *
+	 * @return {Promise<void>} Resolves once the state has been read.
+	 */
+	async loadJobRunnerState()
+	{
+		try
+		{
+			this.jobRunnerState = await getJobRunnerState({}) || this.jobRunnerState;
+		}
+		catch
+		{
+			this.jobRunnerState = {isActive: false, checkIntervalMinutes: null, canManage: false};
+		}
+	}
+
+	/**
+	 * @description Asks the controller when the current expression next fires, so the editor shows what the
+	 *              runner's check will do. Only a valid expression on the runner has a next run to show.
+	 *
+	 * @return {Promise<void>} Resolves once the preview has been refreshed.
+	 */
+	async refreshNextRunPreview()
+	{
+		if(!this.isJobRunnerMode || !this.cronIsValid || !this.cronExpression)
+		{
+			this.nextRunPreview = '';
+			return;
+		}
+
+		try
+		{
+			this.nextRunPreview = await previewNextRun({cronExpression: this.cronExpression, timezone: this.userTimezone}) || '';
+		}
+		catch
+		{
+			this.nextRunPreview = '';
+		}
+	}
+
+	/**
+	 * @description Reads the user's time zone, then previews the next run again in that zone.
+	 *
+	 * @return {Promise<void>} Resolves once the zone has been read and the preview refreshed.
+	 */
 	async loadUserTimezone()
 	{
-		try
-		{
-			this.userTimezone = await getUserTimezone({});
-		}
-		catch
-		{
-			this.userTimezone = '';
-		}
-	}
+		await super.loadUserTimezone();
 
-	async loadSchedulableClasses()
-	{
-		try
-		{
-			let classes = await getSchedulableClasses({});
-			this.classOptions = (classes || []).map((name) => ({label: name, value: name}));
-		}
-		catch
-		{
-			this.classOptions = [];
-		}
+		// The time zone and the record arrive independently, so a preview taken before the zone was known
+		// was computed in UTC. Ask for it again now that the zone is here.
+		await this.refreshNextRunPreview();
 	}
 
 	@wire(getRecord, {recordId: '$recordId', fields: FIELDS}) wiredRecord({data, error})
 	{
 		if(data)
 		{
-			let currentClassName = getFieldValue(data, CLASS_NAME_FIELD);
-
-			this.schedulerName = getFieldValue(data, SCHEDULER_NAME_FIELD) || '';
-			this.className = currentClassName || '';
-			this.cronExpression = getFieldValue(data, CRON_EXPRESSION_FIELD) || '';
-			this.isActive = getFieldValue(data, IS_ACTIVE_FIELD) || false;
-			this.description = getFieldValue(data, DESCRIPTION_FIELD) || '';
-
-			let attributeMap = parseAttributes(getFieldValue(data, PARAMETERS_FIELD) || '');
-			this.parameterValues = {...attributeMap};
-
-			if(currentClassName && currentClassName !== this._lastLoadedClassName)
-			{
-				this._lastLoadedClassName = currentClassName;
-				this.loadParameterDefinitions(currentClassName);
-			}
+			this.applyRecord(data);
+			this.executionMode = getFieldValue(data, EXECUTION_MODE_FIELD) || EXECUTION_MODE_OWN_VALUE;
+			this.runPriority = getFieldValue(data, RUN_PRIORITY_FIELD) ?? '';
+			this.overlapPolicy = getFieldValue(data, OVERLAP_POLICY_FIELD) || OVERLAP_POLICY_SKIP_VALUE;
+			this.refreshNextRunPreview();
 		}
 
 		if(error)
@@ -229,115 +305,86 @@ export default class ScheduledJobEditor extends ComponentBuilder('notification',
 		}
 	}
 
-	async loadParameterDefinitions(className)
-	{
-		try
-		{
-			this.parameterDefinitions = await getParameterDefinitions({className});
-		}
-		catch(error)
-		{
-			this.parameterDefinitions = null;
-			this.showErrorToast(reduceErrors(error) || LOAD_PARAMETERS_FAILED);
-		}
-	}
-
-	handleSchedulerNameChange(event)
-	{
-		this.schedulerName = event.detail.value;
-	}
-
-	handleClassNameChange(event)
-	{
-		this.className = event.detail.value;
-		this.loadParameterDefinitions(this.className);
-	}
-
-	handleIsActiveChange(event)
-	{
-		this.isActive = event.detail.checked;
-	}
-
-	handleDescriptionChange(event)
-	{
-		this.description = event.detail.value;
-	}
-
+	/**
+	 * @description Keeps the cron expression and refreshes the next-run line it changes.
+	 *
+	 * @param {CustomEvent} event The cron editor's cronchange event.
+	 */
 	handleCronChange(event)
 	{
-		this.cronExpression = event.detail.value;
-		this.cronIsValid = event.detail.isValid !== false;
+		super.handleCronChange(event);
+		this.refreshNextRunPreview();
 	}
 
-	handleParameterChange(event)
+	/**
+	 * @description Keeps the chosen place for the job to run, and refreshes the next-run line, which only a
+	 *              job on the runner has.
+	 *
+	 * @param {CustomEvent} event The radio's change event.
+	 */
+	handleExecutionModeChange(event)
 	{
-		let parameterName = event.target.dataset.parameterName;
-		let value = event.target.type === 'toggle' ? String(event.detail.checked) : String(event.detail.value ?? '');
-		this.parameterValues = {...this.parameterValues, [parameterName]: value};
+		this.executionMode = event.detail.value;
+		this.refreshNextRunPreview();
 	}
 
-	async handleSave()
+	/**
+	 * @description Keeps the run priority as typed.
+	 *
+	 * @param {CustomEvent} event The input's change event.
+	 */
+	handleRunPriorityChange(event)
 	{
-		try
-		{
-			this.isSaving = true;
+		this.runPriority = event.detail.value;
+	}
 
-			let parameters = null;
+	/**
+	 * @description Keeps the chosen answer to an overlapping run.
+	 *
+	 * @param {CustomEvent} event The radio's change event.
+	 */
+	handleOverlapPolicyChange(event)
+	{
+		this.overlapPolicy = event.detail.value;
+	}
 
-			if(this.hasParameterDefinitions)
-			{
-				parameters = {};
+	/**
+	 * @description Adds the job runner fields to the shared save request. A blank priority is sent as null.
+	 *
+	 * @return {Object} The save request.
+	 */
+	buildSaveRequest()
+	{
+		return {
+			...super.buildSaveRequest(),
+			executionMode: this.executionMode,
+			runPriority: this.runPriority === '' ? null : Number(this.runPriority),
+			overlapPolicy: this.overlapPolicy
+		};
+	}
 
-				// Serialise exactly what the form displays: every parameter defined for the currently
-				// selected class, using the entered value or the pre-filled defaultValue. This prunes
-				// orphaned entries left behind by a previously selected class and persists untouched defaults.
-				for(let parameter of this.parameterDefinitions)
-				{
-					parameters[parameter.name] = String(this.parameterValues[parameter.name] ?? parameter.defaultValue ?? '');
-				}
-			}
+	/**
+	 * @description Refreshes the record in the client cache, says the record was created or saved, and opens it.
+	 *
+	 * @param {string} savedRecordId The id of the record that was saved.
+	 *
+	 * @return {Promise<void>} Resolves once the redirect has been requested.
+	 */
+	async completeSave(savedRecordId)
+	{
+		await notifyRecordUpdateAvailable([{recordId: savedRecordId}]);
+		this.showSuccessToast(this.isCreateMode ? CREATED : SAVED);
+		this.redirectToRecordPage(savedRecordId);
+	}
 
-			let resultId = await saveRecord({
-				requestJson: JSON.stringify({
-					recordId: this.recordId || null,
-					schedulerName: this.schedulerName,
-					className: this.className,
-					cronExpression: this.cronExpression,
-					isActive: this.isActive === true,
-					description: this.description,
-					parameters,
-					timezone: this.userTimezone
-				})
-			});
-
-			let savedRecordId = resultId || this.recordId;
-			await notifyRecordUpdateAvailable([{recordId: savedRecordId}]);
-			this.showSuccessToast(this.isCreateMode ? CREATED : SAVED);
-			this.redirectToRecordPage(savedRecordId);
-		}
-		catch(error)
-		{
-			let message = SAVE_FAILED;
-
-			try
-			{
-				let reduced = reduceErrors(error);
-				if(reduced)
-				{
-					message = reduced;
-				}
-			}
-			catch
-			{
-				// use default message
-			}
-
-			this.showErrorToast(message);
-		}
-		finally
-		{
-			this.isSaving = false;
-		}
+	/**
+	 * @description Shows a failed save as an error toast.
+	 *
+	 * @param {string} message What went wrong.
+	 */
+	reportSaveFailure(message)
+	{
+		this.showErrorToast(message);
 	}
 
 	handleCancel()

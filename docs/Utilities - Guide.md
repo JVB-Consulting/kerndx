@@ -138,7 +138,7 @@ For deeper coverage, continue reading the sections below.
     - [TTL Management](#ttl-management)
         - [TTL Ranges](#ttl-ranges)
         - [Automatic TTL Enforcement](#automatic-ttl-enforcement)
-        - [Default TTL (No Specification)](#default-ttl-no-specification)
+        - [Default TTL (When You Give None)](#default-ttl-when-you-give-none)
     - [Automatic Compression](#automatic-compression)
         - [How Compression Works](#how-compression-works)
         - [Compression Algorithm](#compression-algorithm)
@@ -339,6 +339,10 @@ List<String> partMax = UTIL_String.split('a,b,c', ',', 2);
 // Join with separator
 String joined = UTIL_String.join(new String[]{'a', 'b', 'c'}, ',');
 // Result: 'a,b,c'
+
+// Join a Set in a stable order (a Set has no documented iteration order)
+String stable = UTIL_String.joinSorted(new Set<String>{'pear', 'apple'}, ',');
+// Result: 'apple,pear'
 ```
 
 ---
@@ -461,7 +465,7 @@ Boolean notEmpty = UTIL_List.isNotEmpty(myList);
 List<List<SObject>> batches = UTIL_List.partition(records, 200);
 ```
 
-> **Sorting:** To sort SObjects by a field, use Salesforce's built-in `Comparator<SObject>` interface and call `List.sort(comparator)` (the [Sorting](#sorting) section below shows the pattern). The framework's own `UTIL_List.sort(list, comparator)` and `UTIL_Comparators` are internal plumbing; the platform-native approach is the one to use in your code.
+> **Sorting:** To sort SObjects by a field, use Salesforce's built-in `Comparator<SObject>` interface and call `List.sort(comparator)` (the [Sorting](#sorting) section below shows the pattern). The framework's own list-sorting helpers are internal plumbing; the platform-native approach is the one to use in your code.
 
 ### [`UTIL_Map`](reference/apex/UTIL_Map.md)
 
@@ -481,7 +485,7 @@ String delimited = UTIL_Map.toDelimitedString(myMap, '|');
 
 ### Sorting
 
-To sort a list of records by a field, write a small class that implements Salesforce's built-in `Comparator<SObject>` interface, then call `List.sort(comparator)`. (The framework's own `UTIL_List.sort(...)` and `UTIL_Comparators.SObjectFieldComparator` are internal plumbing; the platform-native interface shown here is what your code should use.)
+To sort a list of records by a field, write a small class that implements Salesforce's built-in `Comparator<SObject>` interface, then call `List.sort(comparator)`. (The framework's own list-sorting helpers are internal plumbing; the platform-native interface shown here is what your code should use.)
 
 ```apex
 public with sharing class RevenueComparator implements Comparator<SObject>
@@ -686,18 +690,12 @@ To know how long a piece of code took, so you can spot what's slow, use the buil
 
 You get most timing for free: setting `TriggerSetting__mdt.EnablePerformanceLogging__c` times trigger actions, `ApiSetting__mdt` times API calls, and `UTIL_AsyncChain.ChainContext` carries timing through chain steps.
 
-To time a piece of your own code (a custom batch or callout, say), wrap it in a `LOG_Builder.scope()` block. The scope records the start and end times and writes a `LogEntryEvent__e` log record, tagged with the same tracking ID that follows the whole user action through triggers, queries, callouts, and jobs (the correlation ID), so you can see the timing alongside everything else that ran.
+To time a piece of your own code (a custom batch or callout, say), measure it and log the duration as context with `LOG_Builder`; it is kept as context data on the entry, since the duration column the framework's own timers fill is theirs alone. The entry carries the same tracking ID that follows the whole user action through triggers, queries, callouts, and jobs (the correlation ID), so you can see the timing alongside everything else that ran. `LOG_Builder.scope()` is not a timer: it batches the log entries emitted inside it, as the [Logging Developer Guide](Logging%20-%20Guide.md#log-buffering) explains.
 
 ```apex
-kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
-try
-{
-	// ... code to time ...
-}
-finally
-{
-	scope.close();
-}
+Long startedAt = System.currentTimeMillis();
+// ... code to time ...
+kern.LOG_Builder.build().info('Reconciliation finished').withContext('durationMs', System.currentTimeMillis() - startedAt).emitAt('ReconciliationJob.execute');
 ```
 
 ### [`UTIL_FormulaFilter`](reference/apex/UTIL_FormulaFilter.md)
@@ -827,7 +825,7 @@ String debugLimits = UTIL_Limits.toDebugString();
 | Operation     | Method                                  | Example                                                                                        |
 |---------------|-----------------------------------------|------------------------------------------------------------------------------------------------|
 | Partition     | `UTIL_List.partition(list, size)`       | Split into chunks                                                                              |
-| Sort by field | Platform-native `List.sort(comparator)` | Implement `Comparator<SObject>` (`UTIL_List.sort` + `UTIL_Comparators` are framework-internal) |
+| Sort by field | Platform-native `List.sort(comparator)` | Implement `Comparator<SObject>` (the framework's own sorting helpers are internal)             |
 
 ---
 
@@ -1102,7 +1100,7 @@ cache.put('Key2', 'Value', 3600); // Stays 3600s (1 hour)
 cache.put('Key3', 'Value', 200000); // Becomes 172,800s (48 hours)
 ```
 
-#### Default TTL (No Specification)
+#### Default TTL (When You Give None)
 
 ```apex
 // No TTL specified - Uses default (varies by cache type)
@@ -1807,23 +1805,7 @@ global with sharing class CMN_UTIL_ClassNameResolver extends kern.UTIL_TypeResol
 	 */
 	private static Type getTypeForClassName(String className)
 	{
-		Type classType;
-
-		if(String.isNotBlank(className))
-		{
-			String namespace = kern.UTIL_System.getNamespacePrefix(
-				kern.UTIL_System.getClassNamespace(className),
-				'.'
-			);
-
-			classType = Type.forName(namespace, className);
-			// Retry without namespace for nested classes (e.g., MyParentClass.MyChildClass)
-			classType = classType == null && String.isNotBlank(namespace)
-				? Type.forName('', className)
-				: classType;
-		}
-
-		return classType;
+		return String.isBlank(className) ? null : Type.forName(className);
 	}
 }
 ```
@@ -1846,7 +1828,7 @@ class names, and blank input. Replace `ACME_ClassTypeResolver` with your resolve
 
 ```apex
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class ACME_ClassTypeResolver_TEST
 {
 	@IsTest
@@ -2053,6 +2035,8 @@ MAP_SObject (Industry level)
     - Worst case (all unique): ~6 MB heap
     - Average case (50% duplication): ~3 MB heap
     - Best case (high duplication): <1 MB heap
+- **Against the limit**: the synchronous Apex heap limit is 10 MB and the asynchronous limit 25 MB (Winter '27 and later), so even the worst case above
+  fits a synchronous transaction with room to spare; `Limits.getLimitHeapSize()` reports the limit your org is on
 
 **Performance Example:**
 
@@ -2234,10 +2218,10 @@ List<SObject> acmeContacts = accountNameIndex.getAll('Acme Corporation');
 
 ### Advanced Operations
 
-**Using Specification Objects:**
+**Finding Records That Match an Example Record:**
 
 ```apex
-// Use SObject specifications for flexible queries
+// Fill in an example record with the field values you want, and get every record that has them
 // Create index
 List<String> fields = new List<String>{'Industry', 'Rating'};
 MAP_SObject index = new MAP_SObject(fields);
@@ -2248,14 +2232,14 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.toList();
 index.putAll(accounts);
 
-// Create specification object
-Account spec = new Account(
+// Create an example record with the values to match
+Account exampleRecord = new Account(
 	Industry = 'Technology',
 	Rating = 'Hot'
 );
 
 // Retrieve matching accounts
-List<SObject> hotTechAccounts = index.getAll(spec);
+List<SObject> hotTechAccounts = index.getAll(exampleRecord);
 // e.g., hotTechAccounts.size() = 7
 ```
 
@@ -2928,6 +2912,13 @@ else
 }
 ```
 
+**Logging the email as an activity.** Set `saveAsActivity` to `true`, then pick the method with `useStandardLogActivity`:
+
+- `true`: Salesforce logs the email itself. This works for a Contact or Lead recipient only. A request to log an email sent to a User is refused with a clear message, and nothing is sent.
+- `false` (the default): the framework logs a Task against the related record in `whatId`. For a User recipient the Task is related to that record only, because a Task cannot name a User as its contact.
+
+With `saveAsActivity` left off, the email goes to the recipient's address whichever method is set.
+
 **Custom Merge Fields:**
 
 ```apex
@@ -2967,10 +2958,10 @@ one-click fixes for the settings it can apply for you. Run it right after instal
 
 If you installed the package as a System Administrator, the **Kern** app is available to you straight away. Open the **App Launcher** (the grid icon, top-left), search for **Kern**, and select it. The app's **Home** tab runs the Health Check automatically and shows the results at the top of the page.
 
-To give another user access to the app and its tabs, assign the **Kern Administrator** permission set:
+To give a user who is not a System Administrator access to the app and its tabs, assign them the **Kern Administrator** permission set while logged in as an administrator. Name the user by adding `--on-behalf-of TheirUsername` to the line below, with their Salesforce username. Without that flag, the permission set goes to the user you are logged in as.
 
-```bash
-sf org assign permset -n kern__Administrator -o <username>
+```shell
+sf org assign permset -n kern__Administrator -o YourOrgAlias
 ```
 
 The check re-runs each time the Home tab loads. Use the refresh icon in the card header to run it again without reloading the page.
@@ -2991,13 +2982,15 @@ The card header summarises the overall state. For example, *Review recommended (
 |-------------------------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Org Cache**           | Action required    | Org Cache is allocated to KernDX's **LibraryCache** partition (the package ships the partition; you allocate the capacity). Without it, automatic integration retries, repeated-error protection, and shared configuration lookups stop working. |
 | **Session Cache**       | Review recommended | Session cache is allocated to the **LibraryCache** partition. Kern keeps per-user data such as encryption keys here; without it that data falls back to Org Cache.                                                                                        |
-| **Trusted Site**        | Action required    | A Trusted URL is registered for your org domain (Setup &gt; Trusted URLs). Only relevant if you use features that call back into your org, such as streaming channels.                                                                                    |
 | **Class Type Resolver** | Review recommended | A custom type resolver is registered so the framework can locate the Apex classes in your own namespace that you reference in configuration.                                                                                                              |
 | **Data Retention**      | Review recommended | A scheduled purge job exists for each framework data object (Log Entries, API Calls, API Issues, and Async Chain Executions). Without one, these records accumulate indefinitely.                                                                         |
 | **Data Masking**        | Review recommended | Every active masking target points at a live rule, and at least one object in the org carries active masking. Warns on a dead target (active, but its rule is missing or switched off) or when almost nothing is masked yet.                              |
 | **Custom Object Coverage** | Review recommended | Your own custom objects that hold likely-sensitive fields already carry masking. Warns and names any object left unprotected.                                                                                                                         |
 | **Chain Abort Capability** | Review recommended | The abort action is enabled and at least one user holds the Kern Async Chain Abort permission set. Warns when any profile beyond System Administrator holds the abort permission, usually the result of installing the package for All Users, because everyone in those profiles can silently abort chains. |
 | **Chain Watchdog**      | Review recommended | A recurring recovery job (`SCHED_ChainWatchdog`) is scheduled to sweep for stalled chains. Without one, a chain whose background job died is never automatically recovered.                                                                               |
+| **Job Runner**  | Action required    | The job runner, once active, has checked for due jobs within its check interval and all its scheduled jobs are in place: one live platform job for each minute mark of its check frequency. Fails when a record or a platform job is missing, when the runner has stopped, or when it was activated by a user who is now inactive; warns when the last check is only a little late. Not applicable while no runner is active; jobs left waiting for one are reported by the next row. |
+| **Jobs Waiting for the Job Runner** | Action required | No job is set to run on the job runner while no runner is active. Fails with the number of jobs waiting: activate the runner, or move those jobs back to a scheduled job of their own.                                                     |
+| **Job Runner Capacity** | Review recommended | How many of the org's 100 scheduled-job slots are in use, split into the runner's own, Scheduled Job records with a slot of their own, and everything else. Always shown, whether a runner is active or not. Warns at 80 slots and fails at 90, when new schedules are close to being refused. While a runner is active, also warns when its last check left jobs waiting because one check may start only so many at once: raise that limit, check less often, or run fewer jobs on the runner.                     |
 
 ### Built-in fixes
 

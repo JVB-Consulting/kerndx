@@ -179,14 +179,19 @@ Data Management. If you are new to the underlying Salesforce concepts, the offic
 
 ### Custom Objects
 
-| Object                                                                  | Purpose                            | Key Features                                                        |
-|-------------------------------------------------------------------------|------------------------------------|---------------------------------------------------------------------|
-| [`LogEntry__c`](reference/objects/LogEntry__c.md)                       | Persistent log storage             | Severity levels, stack traces, record associations, correlation IDs |
-| [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)               | Scheduled job management           | Cron expressions, execution history, active/inactive control        |
-| [`LoginFrequency__c`](reference/objects/LoginFrequency__c.md)           | User login analytics               | Tracks monthly login counts per user                                |
-| [`ApiCall__c`](reference/objects/ApiCall__c.md)                         | API orchestration & tracking       | Request/response logging, retry logic, performance metrics          |
-| [`ApiIssue__c`](reference/objects/ApiIssue__c.md)                       | Failed API retry management        | Error details, retry status, parameter hashing                      |
-| [`AsyncChainExecution__c`](reference/objects/AsyncChainExecution__c.md) | Async chain orchestration tracking | Step progress, duration, correlation IDs, context data              |
+| Object                                                                  | Purpose                            | Sharing default  | Key Features                                                        |
+|-------------------------------------------------------------------------|------------------------------------|------------------|---------------------------------------------------------------------|
+| [`LogEntry__c`](reference/objects/LogEntry__c.md)                       | Persistent log storage             | Private          | Severity levels, stack traces, record associations, correlation IDs |
+| [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md)               | Scheduled job management           | Public Read Only | Cron expressions, execution history, active/inactive control        |
+| [`LoginFrequency__c`](reference/objects/LoginFrequency__c.md)           | User login analytics               | Private          | Tracks monthly login counts per user                                |
+| [`ApiCall__c`](reference/objects/ApiCall__c.md)                         | API orchestration & tracking       | Private          | Request/response logging, retry logic, performance metrics          |
+| [`ApiIssue__c`](reference/objects/ApiIssue__c.md)                       | Failed API retry management        | Private          | Error details, retry status, parameter hashing                      |
+| [`AsyncChainExecution__c`](reference/objects/AsyncChainExecution__c.md) | Async chain orchestration tracking | Private          | Step progress, duration, correlation IDs, context data              |
+
+The sharing default is what a new install gets; an upgrade never changes the default your org already has. The
+[Security Guide](Security%20-%20Guide.md#who-can-see-the-frameworks-own-records) explains who can see each object's records and which permission sets show them. Only a person the
+`BypassApiRecordDeleteGuard` feature flag is on for can delete an `ApiCall__c` or an `ApiIssue__c` record. Out of the box that is everyone who holds
+the Delete API Records permission, which the Kern Administrator permission set grants.
 
 ### Custom Settings
 
@@ -310,9 +315,12 @@ See also: [Logging - Guide](Logging%20-%20Guide.md),
 |--------------------------|-----------------------|-------------------------------------------------------------------------------------------|
 | `ContextData__c`         | Long Text Area(32768) | Structured context data as JSON (key-value pairs for debugging)                           |
 | `CorrelationId__c`       | Text(36)              | Correlation ID linking related log entries across transactions                            |
+| `RootCorrelationId__c`   | Text(36)              | The tracking ID of the action the entry belongs to: the same value as the correlation ID outside a background chain, the action's ID inside one (External ID) |
 | `DurationMs__c`          | Number(18,0)          | Duration in milliseconds (for performance-timed operations)                               |
 | `ExceptionType__c`       | Text(80)              | The kind of failure recorded: an Apex exception class such as `System.DmlException`, or for entries logged from a Lightning web component, the JavaScript error name or the Apex type relayed from a failed server call |
 | `ExecutionEvent__c`      | Picklist              | Salesforce execution context (Quiddity): SYNCHRONOUS, BATCH_APEX, FUTURE, QUEUEABLE, etc. |
+| `Origin__c`              | Picklist              | Who wrote the entry: FRAMEWORK (Kern's own code), APEX (your Apex), FLOW or COMPONENT                   |
+| `Source__c`              | Text(100)             | The class, Flow or component that wrote the entry, as a plain name without namespace or method           |
 | `Limits__c`              | Long Text Area(1024)  | JSON snapshot of Salesforce governor limits at the time the event was logged              |
 | `LineNumber__c`          | Number(8,0)           | Source code line number where the exception occurred                                      |
 | `LogLevel__c`            | Picklist              | Logging level: DEBUG, INFO, WARN, ERROR                                                   |
@@ -320,7 +328,7 @@ See also: [Logging - Guide](Logging%20-%20Guide.md),
 | `ParentTransactionId__c` | Text(36)              | Parent transaction ID for hierarchical transaction tracking                               |
 | `RecordId__c`            | Text(18)              | Optional record ID this log is associated with                                            |
 | `RecordLink__c`          | Formula(Text)         | Hyperlink to the associated record                                                        |
-| `ClassMethod__c`         | Text(255)             | Source of log message (ClassName.MethodName)                                              |
+| `ClassMethod__c`         | Text(100)             | Source of log message (ClassName.MethodName)                                              |
 | `ShortMessage__c`        | Text(255)             | Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses                |
 | `StackTrace__c`          | Long Text Area(32768) | Stack trace information if applicable                                                     |
 | `TransactionId__c`       | Text(36)              | Unique transaction ID for grouping logs within a single execution                         |
@@ -358,16 +366,19 @@ LOG_Builder.build().info('Processing started').emitAt('MyClass.myMethod');
 |--------------------------|----------------------|-------------------------------------------------------------------------------------------|
 | `ContextData__c`         | Long Text Area(5000) | Structured context data as JSON                                                           |
 | `CorrelationId__c`       | Text(36)             | Correlation ID linking related log entries                                                |
+| `RootCorrelationId__c`   | Text(36)             | The tracking ID of the action the entry belongs to, persisted to the log entry's field of the same name |
 | `DurationMs__c`          | Number(18,0)         | Duration in milliseconds for timed operations                                             |
 | `ExceptionType__c`       | Text(80)             | The kind of failure recorded: an Apex exception class, or for entries logged from a Lightning web component, the JavaScript error name or the Apex type relayed from a failed server call |
 | `ExecutionEvent__c`      | Text(40)             | Salesforce execution context (Quiddity): SYNCHRONOUS, BATCH_APEX, FUTURE, QUEUEABLE, etc. |
+| `Origin__c`              | Text(20)             | Who wrote the entry: FRAMEWORK, APEX, FLOW or COMPONENT; copied to the log entry's picklist              |
+| `Source__c`              | Text(100)            | The class, Flow or component that wrote the entry, as a plain name                                        |
 | `Limits__c`              | Long Text Area(1024) | JSON snapshot of Salesforce governor limits at the time the event was logged              |
 | `LineNumber__c`          | Number(8,0)          | Source code line number where the exception occurred                                      |
 | `LogLevel__c`            | Text(20)             | Logging level (DEBUG, INFO, WARN, ERROR)                                                  |
 | `Message__c`             | Long Text Area(5000) | Log message                                                                               |
 | `ParentTransactionId__c` | Text(36)             | Parent transaction ID for hierarchical tracking                                           |
 | `RecordId__c`            | Text(18)             | Optional record ID                                                                        |
-| `ClassMethod__c`         | Text(255)            | Source (ClassName.MethodName)                                                             |
+| `ClassMethod__c`         | Text(100)            | Source (ClassName.MethodName)                                                             |
 | `ShortMessage__c`        | Text(255)            | Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses                |
 | `StackTrace__c`          | Long Text Area(5000) | Stack trace                                                                               |
 | `TransactionId__c`       | Text(36)             | Unique transaction ID                                                                     |
@@ -816,7 +827,8 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 - Drives the retry logic for failed calls
 - Records performance metrics
 - **Auto-correlation:** `LoggerContext__c` is filled in automatically when queue items are created through
-  [`TST_Factory`](reference/apex/TST_Factory.md) `.newOutboundApiCall()`. When the background job later runs,
+  [`TST_Factory`](reference/apex/TST_Factory.md) `.newOutboundApiCall()`, and when a call built with
+  [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) is given a correlation ID with `.withCorrelationId()`. When the background job later runs,
   the API dispatcher restores that logger context, so every log written during the async transaction is tied back to the original correlation ID (the tracking ID for the whole action).
 
 ##### [ApiIssue__c](reference/objects/ApiIssue__c.md) (Custom Object)
@@ -825,22 +837,23 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 
 **Fields**:
 
-| Field                      | Type                   | Description                                                                 |
-|----------------------------|------------------------|-----------------------------------------------------------------------------|
-| `ApiCall__c`               | Lookup(ApiCall__c)     | Parent call queue record                                                    |
-| `ServiceName__c`           | Text(100)              | Service class API name                                                      |
-| `Direction__c`             | Picklist               | Inbound or Outbound                                                         |
-| `Status__c`                | Picklist               | Open, Resolved (automatic retry batch job or manual retry via quick action) |
-| `ErrorMessages__c`         | Long Text Area(131072) | Error messages encountered                                                  |
-| `TriggeringRecordId__c`    | Text(18)               | ID of triggering record                                                     |
-| `OriginatingRecordId__c`   | Text(18)               | Originating record ID (when different from triggering record)               |
-| `IdempotencyKey__c`        | Text(255)              | Idempotency key from the original failed API call, preserved for retry      |
-| `RequestMethod__c`         | Text(10)               | HTTP method of the original inbound request (GET, POST, etc.)               |
-| `RequestPath__c`           | Text(255)              | URL path of the original inbound request for failure replay                 |
-| `RequestBody__c`           | Long Text Area(131072) | Body of the original inbound request for failure replay                     |
-| `RequestParameters__c`     | Long Text Area(131072) | Request parameters                                                          |
-| `RequestParametersHash__c` | Text(50)               | Hash of request parameters (deduplication)                                  |
-| `ResolvedDate__c`          | DateTime               | Date and time when the failure was resolved                                 |
+| Field                           | Type                   | Description                                                                                                                                                                                                                                                                                                           |
+|---------------------------------|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ApiCall__c`                    | Lookup(ApiCall__c)     | Parent call queue record                                                                                                                                                                                                                                                                                              |
+| `ServiceName__c`                | Text(100)              | Service class API name                                                                                                                                                                                                                                                                                                |
+| `Direction__c`                  | Picklist               | Inbound or Outbound                                                                                                                                                                                                                                                                                                   |
+| `Status__c`                     | Picklist               | Open or Resolved. The Retry action, the resolve action and the bulk retry (Retry Selected on the API Issues list) set Resolved, and so does a later successful call for the same request when Resolve Issues is on                                                                                                    |
+| `ExternalSystemMayHaveActed__c` | Checkbox               | Checked when the external system may already have acted on the request: a POST or PATCH sent with no Idempotency-Key got no response, or a 500, 502 or 504 response, or the external system accepted the request before the call failed in your org. Retry sends the request again; the bulk retry skips these issues |
+| `ErrorMessages__c`              | Long Text Area(131072) | Error messages encountered                                                                                                                                                                                                                                                                                            |
+| `TriggeringRecordId__c`         | Text(18)               | ID of triggering record                                                                                                                                                                                                                                                                                               |
+| `OriginatingRecordId__c`        | Text(18)               | Originating record ID (when different from triggering record)                                                                                                                                                                                                                                                         |
+| `IdempotencyKey__c`             | Text(255)              | Idempotency key from the original failed API call, preserved for retry                                                                                                                                                                                                                                                |
+| `RequestMethod__c`              | Text(10)               | HTTP method of the original inbound request (GET, POST, etc.)                                                                                                                                                                                                                                                         |
+| `RequestPath__c`                | Text(255)              | URL path of the original inbound request for failure replay                                                                                                                                                                                                                                                           |
+| `RequestBody__c`                | Long Text Area(131072) | Body of the original inbound request for failure replay                                                                                                                                                                                                                                                               |
+| `RequestParameters__c`          | Long Text Area(131072) | Request parameters                                                                                                                                                                                                                                                                                                    |
+| `RequestParametersHash__c`      | Text(50)               | Hash of request parameters (deduplication)                                                                                                                                                                                                                                                                            |
+| `ResolvedDate__c`               | DateTime               | Date and time when the failure was resolved                                                                                                                                                                                                                                                                           |
 
 **Relationships**:
 
@@ -858,27 +871,27 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 
 **Fields**:
 
-| Field                               | Type                  | Description                                                            |
-|-------------------------------------|-----------------------|------------------------------------------------------------------------|
-| `ClassName__c`                      | Text(100) (Unique)    | Fully qualified API Handler class name                                 |
-| `EndpointPath__c`                   | Text(255)             | Relative path (appended to Named Credential URL)                       |
-| `Direction__c`                      | Picklist              | Inbound or Outbound                                                    |
-| `IsActive__c`                       | Checkbox              | Whether this API route is active                                       |
-| `Priority__c`                       | Number(3,0)           | Routing priority (lower = higher priority, Default: 100)               |
-| `MaxRetryCount__c`                  | Number(2,0)           | Maximum number of retries                                              |
-| `RetryBackoffSeconds__c`            | Number(3,0)           | Backoff period between retries (seconds)                               |
-| `LogIssues__c`                      | Checkbox              | Whether to log API failures (Default: false)                           |
-| `RetryIssues__c`                    | Checkbox              | Whether to retry failures (Default: false)                             |
-| `ResolveIssues__c`                  | Checkbox              | Whether to resolve failures (Default: false)                           |
-| `IdempotencyEnabled__c`             | Checkbox              | Enable idempotency key duplicate detection (Default: false)            |
-| `MockingEnabled__c`                 | Checkbox              | Enable mock responses from ApiMock__mdt records (Default: false)       |
-| `ApiCredential__c`                  | Metadata Relationship | Link to credential configuration                                       |
-| `CircuitBreakerEnabled__c`          | Checkbox              | Turn on the circuit breaker: after repeated failures the framework stops calling a failing system for a cool-off, then resumes |
-| `CircuitBreakerFailureThreshold__c` | Number(3,0)           | Consecutive failures before opening circuit (Default: 10)              |
-| `CircuitBreakerSuccessThreshold__c` | Number(2,0)           | Consecutive successes in half-open state to close circuit (Default: 2) |
-| `CircuitBreakerTimeout__c`          | Number(5,0)           | Seconds before attempting to close the circuit (Default: 60)           |
-| `BypassFeatureFlag__c`              | Metadata Relationship | Feature Flag that bypasses this API when enabled                       |
-| `RequiredFeatureFlag__c`            | Metadata Relationship | Feature Flag required for this API to execute                          |
+| Field                               | Type                  | Description                                                                                                                                                                                           |
+|-------------------------------------|-----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ClassName__c`                      | Text(100) (Unique)    | Fully qualified API Handler class name                                                                                                                                                                |
+| `EndpointPath__c`                   | Text(255)             | Relative path (appended to Named Credential URL)                                                                                                                                                      |
+| `Direction__c`                      | Picklist              | Inbound or Outbound                                                                                                                                                                                   |
+| `IsActive__c`                       | Checkbox              | Whether this API route is active                                                                                                                                                                      |
+| `Priority__c`                       | Number(3,0)           | Routing priority (lower = higher priority, Default: 100)                                                                                                                                              |
+| `MaxRetryCount__c`                  | Number(2,0)           | Maximum number of retries                                                                                                                                                                             |
+| `RetryBackoffSeconds__c`            | Number(3,0)           | Backoff period between retries (seconds)                                                                                                                                                              |
+| `LogIssues__c`                      | Checkbox              | Whether to log API failures (Default: false)                                                                                                                                                          |
+| `RetryIssues__c`                    | Checkbox              | Whether the Retry action on an API issue and the bulk retry may send a failed outgoing call again (Default: false). A failed incoming request is replayed whatever this says. Automatic retries are governed by Max Retry Count and Retry Backoff |
+| `ResolveIssues__c`                  | Checkbox              | Whether to resolve failures (Default: false)                                                                                                                                                          |
+| `IdempotencyEnabled__c`             | Checkbox              | Inbound: duplicate requests with the same Idempotency-Key return the cached response. Outbound: a SHA-256 key of endpoint, parameters and body is sent as the Idempotency-Key header (Default: false) |
+| `MockingEnabled__c`                 | Checkbox              | Enable mock responses from ApiMock__mdt records (Default: false)                                                                                                                                      |
+| `ApiCredential__c`                  | Metadata Relationship | Link to credential configuration                                                                                                                                                                      |
+| `CircuitBreakerEnabled__c`          | Checkbox              | Turn on the circuit breaker: after repeated failures the framework stops calling a failing system for a cool-off, then resumes                                                                        |
+| `CircuitBreakerFailureThreshold__c` | Number(3,0)           | Consecutive failures before opening circuit (Default: 10)                                                                                                                                             |
+| `CircuitBreakerSuccessThreshold__c` | Number(2,0)           | Consecutive successes in half-open state to close circuit (Default: 2)                                                                                                                                |
+| `CircuitBreakerTimeout__c`          | Number(5,0)           | Seconds before attempting to close the circuit (Default: 60)                                                                                                                                          |
+| `BypassFeatureFlag__c`              | Metadata Relationship | Feature Flag that bypasses this API when enabled                                                                                                                                                      |
+| `RequiredFeatureFlag__c`            | Metadata Relationship | Feature Flag required for this API to execute                                                                                                                                                         |
 
 **Relationships**:
 
@@ -1178,7 +1191,8 @@ if(settings.DisableAllApis__c)
 **The pieces:** You launch background work with [`UTIL_AsynchronousJobLauncher`](reference/apex/UTIL_AsynchronousJobLauncher.md), tuned by [`AsynchronousJobSetting__mdt`](reference/metadata/AsynchronousJobSetting__mdt.md). Recurring jobs are defined as [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) records, and [`ScheduleSetting__c`](reference/objects/ScheduleSetting__c.md) keeps their runtime state (such as the last successful run time).
 
 See also: [Async Processing - Guide](Async%20Processing%20-%20Guide.md),
-[Fast Start - Async Processing](Fast%20Start%20-%20Async%20Processing.md)
+[Fast Start - Async Processing](Fast%20Start%20-%20Async%20Processing.md),
+[Fast Start - Scheduled Jobs](Fast%20Start%20-%20Scheduled%20Jobs.md)
 
 #### Architecture Diagram
 
@@ -1258,15 +1272,23 @@ Example Configuration:
 
 **Fields**:
 
-| Field               | Type                   | Description                                                                                |
-|---------------------|------------------------|--------------------------------------------------------------------------------------------|
-| `IsActive__c`       | Checkbox               | Whether scheduled job is active                                                            |
-| `SchedulerName__c`  | Text                   | User-friendly name for this scheduled job                                                  |
-| `ClassName__c`      | Text(255) (Required)   | Schedulable class name                                                                     |
-| `CronExpression__c` | Text(255) (Required)   | Cron expression for scheduling                                                             |
-| `Description__c`    | Text Area              | Description of scheduled job                                                               |
-| `Parameters__c`     | Long Text Area(131072) | JSON-serialised `DTO_NameValues` containing name/value pairs passed to the scheduled class |
-| `ScheduledJobId__c` | Text(18)               | Salesforce CronTrigger ID                                                                  |
+| Field               | Type                   | Description                                                                                                                                                  |
+|---------------------|------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `IsActive__c`       | Checkbox               | Whether scheduled job is active                                                                                                                              |
+| `SchedulerName__c`  | Text                   | User-friendly name for this scheduled job                                                                                                                    |
+| `ClassName__c`      | Text(255) (Required)   | Schedulable class name                                                                                                                                       |
+| `CronExpression__c` | Text(255) (Required)   | Cron expression for scheduling                                                                                                                               |
+| `Description__c`    | Text Area              | Description of scheduled job                                                                                                                                 |
+| `Parameters__c`     | Long Text Area(131072) | JSON-serialised `DTO_NameValues` containing name/value pairs passed to the scheduled class                                                                   |
+| `ScheduledJobId__c` | Text(18)               | Salesforce CronTrigger ID                                                                                                                                    |
+| `ExecutionMode__c`  | Picklist               | Where the job runs: its own scheduled job (the default) or the job runner                                                                                    |
+| `RunPriority__c`    | Number(5, 0)           | On the job runner: lower numbers start first when several jobs are due at the same check; blank goes last                                                    |
+| `OverlapPolicy__c`  | Picklist               | On the job runner: Skip (the default) records a due run as Skipped while the previous run is still running; Allow starts it anyway                           |
+| `NextRunAt__c`      | Datetime               | On the job runner: when the job is next due. Written by the framework                                                                                        |
+| `LastRunAt__c`      | Datetime               | When the most recent run on the job runner finished. Written by the framework                                                                                |
+| `LastRunOutcome__c` | Picklist               | Succeeded, Failed, Skipped or Parked: the most recent event on a job on the runner. Written by the framework                                                 |
+| `LastRunReason__c`  | Picklist               | On the job runner: why the most recent run was skipped or parked, as one of five fixed reasons; blank after a success or a failure. Written by the framework |
+| `LastRunJobId__c`   | Text(18)               | The platform job id of the most recent run, written when the run is queued                                                                                   |
 
 **Usage**:
 
@@ -1312,11 +1334,15 @@ insert job;
 | `CurrentStepName__c` | Text(255)                     | Name of the currently executing or last executed step                         |
 | `StartedAt__c`       | DateTime                      | When chain execution began                                                    |
 | `CompletedAt__c`     | DateTime                      | When chain execution finished                                                 |
-| `DurationMs__c`      | Number(10,0)                  | Wall-clock duration in milliseconds from start to terminal state              |
+| `DurationMs__c`      | Number(10,0)                  | Wall-clock duration in milliseconds from start to terminal state (at most 9,999,999,999, about 115.7 days) |
+| `ElapsedMs__c`       | Formula, Number(18,0)         | How long the run took, or how long it has been going if it has not finished. A Completed, Failed or Aborted run that stored no duration shows the time between its start and its end |
+| `LastManualRetryAt__c` | DateTime                    | When someone last used Retry on this run after it failed. Blank if nobody has |
 | `ErrorMessage__c`    | Long Text Area(32768)         | Error details if failed; non-fatal failure summaries if completed with issues |
 | `StepLog__c`         | Long Text Area(131072)        | JSON array of step definitions enriched with runtime outcomes                 |
 | `ContextData__c`     | Long Text Area(131072)        | Serialised shared chain context (JSON)                                        |
-| `CorrelationId__c`   | Text(36), External ID, Unique | UUID for distributed log tracing across async boundaries                      |
+| `CorrelationId__c`   | Text(36), External ID, Unique | UUID for distributed log tracing across async boundaries: the run's own ID, which every entry its steps write carries |
+| `LaunchCorrelationId__c` | Text(36), External ID     | The tracking ID that was live when the run was launched: the action's ID, or the parent run's ID when a step launched it. Empty for a chain that started its own action and for a restart |
+| `RootCorrelationId__c` | Text(36), External ID       | The tracking ID of the action the run belongs to; the run's own ID when it started the action |
 | `ActiveDeduplicationKey__c` | Text(255), External ID, Unique | The deduplication key while the chain is live. Cleared when the chain reaches an end state, so a finished chain frees its key for the next run |
 | `RunKey__c`          | Text(36)                      | Identifies the current run. The framework issues a new value when a chain starts or is recovered, so leftover jobs from an earlier run can no longer change the record |
 | `CurrentJobId__c`    | Text(18)                      | The background job currently working on this chain. The framework checks it before recovering a chain that looks stuck |
@@ -1410,17 +1436,7 @@ global with sharing class ACME_ClassTypeResolver extends kern.UTIL_TypeResolver.
 
 	private static Type getTypeForClassName(String className)
 	{
-		Type classType;
-
-		if(String.isNotBlank(className))
-		{
-			String namespace = kern.UTIL_System.getNamespacePrefix(kern.UTIL_System.getClassNamespace(className), '.');
-
-			classType = Type.forName(namespace, className);
-			classType = classType == null && String.isNotBlank(namespace) ? Type.forName('', className) : classType;
-		}
-
-		return classType;
+		return String.isBlank(className) ? null : Type.forName(className);
 	}
 }
 
@@ -1706,13 +1722,14 @@ unseeded: an unseeded flag is treated as off.
 
 These are common mistakes (anti-patterns) when working with the framework's objects and metadata, with what to do instead:
 
-| Anti-Pattern                                                          | Why It's Wrong                                                          | Instead                                                                                                                     |
-|-----------------------------------------------------------------------|-------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| Hardcoding `DeveloperName` strings to reference metadata records      | Breaks silently when records are renamed; no compile-time safety        | Use class name constants (e.g., `ClassName.class.getName()`) or `@TestVisible` constants                                    |
-| Using Custom Settings where Custom Metadata Types would suffice       | Custom Settings require DML in tests and cannot be deployed across orgs | Use Custom Metadata Types (`__mdt`) for static configuration; reserve Custom Settings for hierarchy or user-specific values |
-| Leaving `Description__c` fields empty on metadata records             | Makes configuration opaque to administrators and future developers      | Always populate `Description__c` with a brief explanation of the record's purpose                                           |
-| Creating org-specific test data that assumes specific metadata exists | Tests break in different orgs or after metadata changes                 | Exercise the framework through `kern.TST_Builder` and assert the effect; seed flag state with the global `kern.TST_Factory.newFeatureFlag(...)`; keep tests self-contained and never rely on pre-existing org data |
-| Querying metadata with inline SOQL                                    | Violates framework patterns and bypasses selector caching               | Use `SEL_*` selectors or `QRY_Builder` for all metadata queries                                                             |
+| Anti-Pattern                                                                                | Why It's Wrong                                                                                                                                                   | Instead                                                                                                                                                                                                            |
+|---------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Hardcoding `DeveloperName` strings to reference metadata records                            | Breaks silently when records are renamed; no compile-time safety                                                                                                 | Use class name constants (e.g., `ClassName.class.getName()`) or `@TestVisible` constants                                                                                                                           |
+| Using Custom Settings where Custom Metadata Types would suffice                             | Custom Settings require DML in tests and cannot be deployed across orgs                                                                                          | Use Custom Metadata Types (`__mdt`) for static configuration; reserve Custom Settings for hierarchy or user-specific values                                                                                        |
+| Leaving `Description__c` fields empty on metadata records                                   | Makes configuration opaque to administrators and future developers                                                                                               | Always populate `Description__c` with a brief explanation of the record's purpose                                                                                                                                  |
+| Creating org-specific test data that assumes specific metadata exists                       | Tests break in different orgs or after metadata changes                                                                                                          | Exercise the framework through `kern.TST_Builder` and assert the effect; seed flag state with the global `kern.TST_Factory.newFeatureFlag(...)`; keep tests self-contained and never rely on pre-existing org data |
+| Querying metadata with inline SOQL                                                          | Violates framework patterns and bypasses selector caching                                                                                                        | Use `SEL_*` selectors or `QRY_Builder` for all metadata queries                                                                                                                                                    |
+| Adding a field to a framework object under a name the framework already uses on that object | A query the framework runs on your behalf resolves a bare field name to the framework's own field, so a filter or a sort reads that field and never yours        | Give your field a name the framework does not use on that object; the field lists in this guide show which names are taken                                                                                         |
 
 ---
 
@@ -1733,7 +1750,7 @@ These are common mistakes (anti-patterns) when working with the framework's obje
   fallback.
 - **Review `LogEntry__c` retention** regularly. Configure `SCHED_PurgeRecords` via `ScheduledJob__c` to prevent
   storage growth from log accumulation.
-- **Test with `@IsTest(SeeAllData=false)`** to ensure tests do not depend on org-specific metadata records. Drive
+- **Test with `@IsTest(seeAllData=false)`** to ensure tests do not depend on org-specific metadata records. Drive
   metadata-configured behaviour through `kern.TST_Builder` and assert the outcome; seed feature-flag state with the
   global `kern.TST_Factory.newFeatureFlag(...)` helper.
 
@@ -1785,6 +1802,7 @@ erDiagram
         text ClassMethod__c
         longtext ContextData__c
         text CorrelationId__c
+        text RootCorrelationId__c
         number DurationMs__c
         text ExceptionType__c
         text ExecutionEvent__c
@@ -1806,6 +1824,7 @@ erDiagram
         text ClassMethod__c
         longtext ContextData__c
         text CorrelationId__c
+        text RootCorrelationId__c
         number DurationMs__c
         text ExceptionType__c
         text ExecutionEvent__c
@@ -1914,6 +1933,7 @@ erDiagram
         lookup ApiCall__c
         picklist Direction__c
         longtext ErrorMessages__c
+        checkbox ExternalSystemMayHaveActed__c
         text IdempotencyKey__c
         text OriginatingRecordId__c
         longtext RequestBody__c
@@ -1981,10 +2001,14 @@ erDiagram
         datetime StartedAt__c
         datetime CompletedAt__c
         number DurationMs__c
+        number ElapsedMs__c
+        datetime LastManualRetryAt__c
         longtext ErrorMessage__c
         longtext StepLog__c
         longtext ContextData__c
         text CorrelationId__c
+        text LaunchCorrelationId__c
+        text RootCorrelationId__c
         checkbox AllowRestart__c
         text DeclaredDeduplicationKey__c
         text ActiveDeduplicationKey__c

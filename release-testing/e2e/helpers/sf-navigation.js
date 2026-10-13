@@ -1,12 +1,26 @@
 // SPDX-License-Identifier: BUSL-1.1
 const {ensureAuthenticated, getInstanceUrl} = require('./sf-auth');
+const {ELEMENT_WAIT_MILLISECONDS} = require('./wait-times');
 
 // The packaged application's developer name is Console (label "Kern"), so the app URL path is
-// kern__Console. Navigating by an unknown path silently lands in the org-default app, which is
-// exactly the failure mode this map exists to prevent.
-const APP_PATHS = {
-	'Kern': 'kern__Console'
+// kern__Console on the subscriber org and c__Console on an org holding the source without a namespace.
+// Navigating by an unknown path silently lands in the org-default app, which is exactly the failure
+// mode this map exists to prevent.
+const APP_DEVELOPER_NAMES = {
+	'Kern': 'Console'
 };
+
+function appPathFor(appName)
+{
+	const developerName = APP_DEVELOPER_NAMES[appName];
+	if(!developerName)
+	{
+		return appName;
+	}
+	// Lazy: sf-namespace reaches the org through sf-cli, which needs sf-auth loaded first.
+	const {namespacePrefix} = require('./sf-namespace');
+	return `${namespacePrefix() || 'c__'}${developerName}`;
+}
 
 let cachedInstanceUrl = null;
 
@@ -23,7 +37,7 @@ async function navigateToApp(page, appName)
 {
 	await ensureAuthenticated(page);
 	const instanceUrl = resolveInstanceUrl();
-	const appPath = APP_PATHS[appName] || appName;
+	const appPath = appPathFor(appName);
 	await page.goto(`${instanceUrl}/lightning/app/${appPath}`, {waitUntil: 'domcontentloaded'});
 	await waitForLightningReady(page);
 }
@@ -46,7 +60,7 @@ async function clickNavTab(page, tabName)
 	if(!visible)
 	{
 		await navigateToApp(page, 'Kern');
-		await tab.waitFor({state: 'visible', timeout: 15_000});
+		await tab.waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS});
 	}
 	await tab.click();
 	await waitForPageLoad(page);
@@ -59,7 +73,7 @@ async function clickOtherNavTab(page, excludeTitle)
 	// rebuilt component legitimately resets its once-per-link state.
 	await ensureAuthenticated(page);
 	const other = page.locator(`one-app-nav-bar-item-root a:not([title="${excludeTitle}"])`).first();
-	await other.waitFor({state: 'visible', timeout: 15_000});
+	await other.waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS});
 	await other.click();
 	await waitForPageLoad(page);
 }
@@ -91,7 +105,7 @@ async function waitForLightningReady(page)
 	await page.locator('one-app-nav-bar, one-appnav').first()
 	.waitFor({state: 'attached', timeout: 30_000});
 	await page.locator('one-app-nav-bar a, one-appnav a').first()
-	.waitFor({state: 'visible', timeout: 15_000});
+	.waitFor({state: 'visible', timeout: ELEMENT_WAIT_MILLISECONDS});
 }
 
 async function waitForPageLoad(page)

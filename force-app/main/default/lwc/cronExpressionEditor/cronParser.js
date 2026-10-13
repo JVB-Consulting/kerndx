@@ -3,7 +3,7 @@
  * @description Pure functions for parsing, building, and describing Salesforce cron expressions.
  *              Supports the 7-field Salesforce format: Seconds Minutes Hours DayOfMonth Month DayOfWeek [Year]
  *
- * @date March 2026, May 2026
+ * @date March 2026, September 2026
  */
 import {
 	MODE_PRESET, MODE_ADVANCED, MODE_CUSTOM, DEFAULT_CRON_EXPRESSION, NUMBER_TO_DAY_NAME
@@ -24,6 +24,8 @@ import ORDINAL_FIFTH from '@salesforce/label/c.CronExpressionEditor_OrdinalFifth
 import DAY_LIST_TWO from '@salesforce/label/c.CronExpressionEditor_DayListTwo';
 import DAY_LIST_CONJUNCTION from '@salesforce/label/c.CronExpressionEditor_DayListConjunction';
 import DESC_EVERY_N_MINUTES from '@salesforce/label/c.CronExpressionEditor_DescEveryNMinutes';
+import DESC_EVERY_N_MINUTES_ON_RUNNER from '@salesforce/label/c.CronExpressionEditor_DescEveryNMinutesOnRunner';
+import DESC_FIRST_CHECK_ON_OR_AFTER from '@salesforce/label/c.CronExpressionEditor_DescFirstCheckOnOrAfter';
 import DESC_HOURLY from '@salesforce/label/c.CronExpressionEditor_DescHourly';
 import DESC_DAILY from '@salesforce/label/c.CronExpressionEditor_DescDaily';
 import DESC_DAILY_IN_MONTH from '@salesforce/label/c.CronExpressionEditor_DescDailyInMonth';
@@ -39,6 +41,7 @@ import DESC_NEAREST_WEEKDAY from '@salesforce/label/c.CronExpressionEditor_DescN
 import DESC_MONTHLY_ON_DAY from '@salesforce/label/c.CronExpressionEditor_DescMonthlyOnDay';
 import VAL_SECONDS from '@salesforce/label/c.CronExpressionEditor_ValSeconds';
 import VAL_MINUTES from '@salesforce/label/c.CronExpressionEditor_ValMinutes';
+import VAL_MINUTES_JOB_RUNNER from '@salesforce/label/c.CronExpressionEditor_ValMinutesJobRunner';
 import VAL_HOURS from '@salesforce/label/c.CronExpressionEditor_ValHours';
 import VAL_DAY_OF_MONTH from '@salesforce/label/c.CronExpressionEditor_ValDayOfMonth';
 import VAL_MONTH from '@salesforce/label/c.CronExpressionEditor_ValMonth';
@@ -56,6 +59,22 @@ import VAL_DAY_NOT_IN_MONTH from '@salesforce/label/c.CronExpressionEditor_ValDa
 import VAL_BOTH_QUESTION from '@salesforce/label/c.CronExpressionEditor_ValBothQuestion';
 import VAL_NEITHER_QUESTION from '@salesforce/label/c.CronExpressionEditor_ValNeitherQuestion';
 import VAL_STRUCTURE from '@salesforce/label/c.CronExpressionEditor_ValStructure';
+
+/**
+ * @description How the editor reads an expression when the caller says nothing: its own mode, where a
+ *              scheduled job runs at most once an hour and no job runner is checking for due jobs.
+ */
+const OWN_MODE_OPTIONS = Object.freeze({jobRunnerMode: false, activeCheckIntervalMinutes: null});
+
+/**
+ * @description Fills in the reading options a caller left out, so every function below can read them plainly.
+ * @param {Object} [options] - Caller options: jobRunnerMode, activeCheckIntervalMinutes
+ * @returns {Object} The options with every value filled in
+ */
+function resolveOptions(options)
+{
+	return {...OWN_MODE_OPTIONS, ...(options || {})};
+}
 
 const VALID_MINUTE_INTERVALS = [
 	'5',
@@ -171,11 +190,14 @@ function parseDayList(dayOfWeek)
 /**
  * @description Matcher definitions for mapping parsed cron fields to preset configurations.
  *              Each entry specifies a match predicate and a factory that builds the preset result.
+ *              A matcher marked jobRunnerOnly is skipped unless the record runs on the job runner.
  */
 const PRESET_MATCHERS = [
 	{
+		jobRunnerOnly: true,
 		match: (fields) => fields.minutes.startsWith('*/') && VALID_MINUTE_INTERVALS.includes(fields.minutes.substring(2)) && fields.hours === '*' && isWildcard(fields.dayOfMonth)
-				&& isWildcard(fields.dayOfWeek), build: (fields) => ({frequency: 'everyNMinutes', minuteInterval: fields.minutes.substring(2)})
+				&& isWildcard(fields.dayOfWeek),
+		build: (fields) => ({frequency: 'everyNMinutes', minuteInterval: fields.minutes.substring(2)})
 	},
 	{
 		match: (fields) => isSingleNumber(fields.minutes) && fields.hours === '*' && isWildcard(fields.dayOfMonth) && isWildcard(fields.dayOfWeek),
@@ -198,8 +220,11 @@ const PRESET_MATCHERS = [
 
 /**
  * @description Attempts to match a parsed expression against preset patterns.
+ * @param {Array} parts - The split cron expression parts
+ * @param {Object} options - Resolved reading options
+ * @returns {Object|null} The preset result, or null when no preset matches
  */
-function matchPreset(parts)
+function matchPreset(parts, options)
 {
 	if(parts.length > 6)
 	{
@@ -213,14 +238,19 @@ function matchPreset(parts)
 		return null;
 	}
 
-	let normalisedMinutes = /^0\/\d+$/.test(minutes) ? '*/' + minutes.substring(2) : minutes;
+	let normalisedMinutes = options.jobRunnerMode && /^0\/\d+$/.test(minutes) ? '*/' + minutes.substring(2) : minutes;
 	let fields = {minutes: normalisedMinutes, hours, dayOfMonth, month, dayOfWeek: normaliseDayOfWeek(dayOfWeek)};
 
-	for(const {match, build} of PRESET_MATCHERS)
+	for(const matcher of PRESET_MATCHERS)
 	{
-		if(match(fields))
+		if(matcher.jobRunnerOnly && !options.jobRunnerMode)
 		{
-			return {mode: MODE_PRESET, preset: build(fields), isValid: true};
+			continue;
+		}
+
+		if(matcher.match(fields))
+		{
+			return {mode: MODE_PRESET, preset: matcher.build(fields), isValid: true};
 		}
 	}
 
@@ -252,10 +282,14 @@ function expandDayRange(range)
 /**
  * @description Parses a cron expression string into a structured result.
  * @param {string} expression - The cron expression to parse
+ * @param {Object} [options] - jobRunnerMode true reads the expression the way the job runner does,
+ *                             where the minutes field may carry a step and the Every N Minutes preset exists
  * @returns {Object} Parsed result with mode, preset/advanced state, and isValid flag
  */
-export function parseCronExpression(expression)
+export function parseCronExpression(expression, options)
 {
+	let resolved = resolveOptions(options);
+
 	if(!expression || typeof expression !== 'string')
 	{
 		return {mode: MODE_PRESET, preset: {frequency: 'daily', hour: '12', minute: '0'}, isValid: true};
@@ -272,7 +306,7 @@ export function parseCronExpression(expression)
 		return {mode: MODE_CUSTOM, raw: expression, isValid: false};
 	}
 
-	let presetResult = matchPreset(parts);
+	let presetResult = matchPreset(parts, resolved);
 	if(presetResult)
 	{
 		return presetResult;
@@ -401,15 +435,6 @@ function describeDayList(days)
 }
 
 /**
- * @description Describes an interval-based minutes pattern into a readable string.
- */
-function describeIntervalMinutes(minutes)
-{
-	let interval = minutes.substring(2);
-	return formatTemplateString(DESC_EVERY_N_MINUTES, [interval]);
-}
-
-/**
  * @description Describes an hourly pattern with a specific minute value.
  */
 function describeHourlyPattern(minuteNum)
@@ -477,12 +502,24 @@ function describeTimeBasedPattern(hours, minutes, dayOfMonth, month, dayOfWeek, 
 }
 
 /**
+ * @description Whether a scheduled minute falls between two of an active job runner's checks, so the job runs late.
+ */
+function isOffCheckInterval(minutes, checkInterval)
+{
+	return Boolean(checkInterval) && isSingleNumber(minutes) && parseInt(minutes, 10) % checkInterval !== 0;
+}
+
+/**
  * @description Generates a human-readable description of a cron expression.
  * @param {string} expression - The cron expression to describe
+ * @param {Object} [options] - jobRunnerMode true describes what the job runner will do, and
+ *                             activeCheckIntervalMinutes says how often the active runner checks for due jobs
  * @returns {string} Human-readable description, or the raw expression if unparseable
  */
-export function describeCronExpression(expression)
+export function describeCronExpression(expression, options)
 {
+	let resolved = resolveOptions(options);
+
 	if(!expression || typeof expression !== 'string')
 	{
 		return '';
@@ -505,11 +542,25 @@ export function describeCronExpression(expression)
 
 	if(minutes.startsWith('*/') || /^0\/\d+$/.test(minutes))
 	{
-		let normalised = minutes.startsWith('0/') ? '*/' + minutes.substring(2) : minutes;
-		return describeIntervalMinutes(normalised);
+		if(!resolved.jobRunnerMode)
+		{
+			return expression;
+		}
+
+		let interval = parseInt(minutes.substring(2), 10);
+		let checkInterval = resolved.activeCheckIntervalMinutes ? Math.max(interval, resolved.activeCheckIntervalMinutes) : interval;
+		let described = formatTemplateString(DESC_EVERY_N_MINUTES, [checkInterval]);
+		return resolved.activeCheckIntervalMinutes ? formatTemplateString(DESC_EVERY_N_MINUTES_ON_RUNNER, [described]) : described;
 	}
 
-	return describeTimeBasedPattern(hours, minutes, dayOfMonth, month, dayOfWeek, expression);
+	let description = describeTimeBasedPattern(hours, minutes, dayOfMonth, month, dayOfWeek, expression);
+
+	if(resolved.jobRunnerMode && isOffCheckInterval(minutes, resolved.activeCheckIntervalMinutes) && description !== expression)
+	{
+		return description + '. ' + DESC_FIRST_CHECK_ON_OR_AFTER;
+	}
+
+	return description;
 }
 
 /**
@@ -565,7 +616,7 @@ function describeDayOfWeekPattern(dayOfWeek, time)
 
 const CRON_FIELD_PATTERNS = {
 	seconds: {pattern: /^(\d{1,2})$/, message: VAL_SECONDS, min: 0, max: 59},
-	minutes: {pattern: /^(\*|\d{1,2}|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,-]\d{1,2})+)$/, message: VAL_MINUTES, min: 0, max: 59},
+	minutes: {pattern: /^(\d{1,2})$/, message: VAL_MINUTES, min: 0, max: 59},
 	hours: {pattern: /^(\*|\d{1,2}|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,-]\d{1,2})+)$/, message: VAL_HOURS, min: 0, max: 23},
 	dayOfMonth: {
 		pattern: /^(\*|\?|L|LW|\d{1,2}W?|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,-]\d{1,2})+)$/, message: VAL_DAY_OF_MONTH, min: 1, max: 31
@@ -575,6 +626,14 @@ const CRON_FIELD_PATTERNS = {
 	},
 	dayOfWeek: {pattern: /^(\*|\?|\d(L|#\d)?|[A-Za-z]{3}(L|#\d)?|[\dA-Za-z]{1,3}([,-][\dA-Za-z]{1,3})*)$/, message: VAL_DAY_OF_WEEK, min: 1, max: 7},
 	year: {pattern: /^(\d{4})?$/, message: VAL_YEAR, min: 1970, max: 2099, isPastAware: true}
+};
+
+/**
+ * @description The minutes field as the job runner reads it: Kern reads the expression itself there,
+ *              so a step, a range and a list all work, not the single minute a scheduled job is limited to.
+ */
+const JOB_RUNNER_MINUTES_PATTERN = {
+	pattern: /^(\*|\d{1,2}|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,-]\d{1,2})+)$/, message: VAL_MINUTES_JOB_RUNNER, min: 0, max: 59
 };
 
 /**
@@ -722,11 +781,12 @@ function validateFieldSemantics(fieldName, value, field)
  * @description Validates a single cron field value against its expected pattern.
  * @param {string} fieldName - The field name (minutes, hours, dayOfMonth, month, dayOfWeek, year)
  * @param {string} value - The value to validate
+ * @param {Object} [options] - jobRunnerMode true reads the minutes field the way the job runner does
  * @returns {Object} Result with isValid boolean and errorMessage string
  */
-export function validateCronField(fieldName, value)
+export function validateCronField(fieldName, value, options)
 {
-	let field = CRON_FIELD_PATTERNS[fieldName];
+	let field = fieldName === 'minutes' && resolveOptions(options).jobRunnerMode ? JOB_RUNNER_MINUTES_PATTERN : CRON_FIELD_PATTERNS[fieldName];
 
 	if(!field)
 	{
@@ -883,9 +943,10 @@ function validateCronCrossFields(parts)
 /**
  * @description Validates a complete cron expression including structural, per-field, and cross-field rules.
  * @param {string} expression - The cron expression to validate
+ * @param {Object} [options] - jobRunnerMode true reads the minutes field the way the job runner does
  * @returns {Object} Result with isValid boolean and errorMessage string
  */
-export function validateCronExpression(expression)
+export function validateCronExpression(expression, options)
 {
 	let parts = splitCronExpression(expression || '');
 	if(!parts || !parts.every((part) => part.length > 0))
@@ -904,7 +965,7 @@ export function validateCronExpression(expression)
 	];
 	for(let i = 0; i < parts.length; i++)
 	{
-		let result = validateCronField(fieldNames[i], parts[i]);
+		let result = validateCronField(fieldNames[i], parts[i], options);
 		if(!result.isValid)
 		{
 			return {isValid: false, errorMessage: `${fieldNames[i]}: ${result.errorMessage}`};

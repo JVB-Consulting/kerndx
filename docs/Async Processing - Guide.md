@@ -107,6 +107,7 @@ describe the work once; the dispatcher decides how to move it.
     - [Retrying a failed step](#retrying-a-failed-step)
     - [Preventing duplicate runs](#preventing-duplicate-runs)
     - [Monitoring](#monitoring)
+    - [What happens to a stalled step?](#what-happens-to-a-stalled-step)
     - [Stopping a chain from the Chain Monitor](#stopping-a-chain-from-the-chain-monitor)
     - [Re-driving a failed chain](#re-driving-a-failed-chain)
     - [Restarting a chain from the start](#restarting-a-chain-from-the-start)
@@ -159,6 +160,7 @@ describe the work once; the dispatcher decides how to move it.
 22. [Anti-Patterns](#anti-patterns)
 23. [Best Practices](#best-practices)
     - [For Developers](#for-developers)
+    - [Choosing a Batch Size](#choosing-a-batch-size)
     - [For Architects](#for-architects)
     - [For Administrators](#for-administrators)
 24. [Related Documentation](#related-documentation)
@@ -344,7 +346,7 @@ feature-by-feature breakdown is below.
 | **Configurable Jobs**       | [`IF_Schedulable`](reference/apex/IF_Schedulable.md) with parameter definitions        | Must hard-code or use custom settings              |
 | **Parallel Queueables**     | `PARALLEL_QUEUEABLES` strategy                                                         | Manual enqueue loop required                       |
 | **Chained Queueables**      | `CHAINABLE` with auto-chaining                                                         | Manual chaining in execute()                       |
-| **Error Events**            | Queueable crashes captured by a finalizer → durable `LogEntry__c`                                             | Native Batch fires `BatchApexErrorEvent`; Queueables surface nothing                  |
+| **Error Events**            | Queueable crashes are captured by a finalizer the framework attaches to every Queueable it runs, and batch crashes by a listener on the platform's `BatchApexErrorEvent` (your own batch classes included, when they implement `Database.RaisesPlatformEvents`); both land as durable `LogEntry__c` rows     | Native Batch fires `BatchApexErrorEvent`; Queueables surface nothing unless you write a Finalizer yourself, which the `sf template generate apex class --template Queueable` scaffold includes |
 | **Finalisation**            | [`IF_Async.Finishable`](reference/apex/IF_Async.Finishable.md) works for both          | Only Batch has finish(), Queueable needs Finalizer |
 | **Log Correlation**         | [`LOG_Builder`](reference/apex/LOG_Builder.md) `serializeContext()`/`hydrateContext()` | Must implement manually                            |
 | **Query-Based Processing**  | Pass [`QRY_Builder.Builder`](reference/apex/QRY_Builder.md)                            | `Database.QueryLocator` in Batch                   |
@@ -1169,9 +1171,13 @@ Before you turn retry on, check the step is safe to repeat:
 - The step still behaves correctly if recovery re-drives the chain while a retry is waiting (see
   [Preventing duplicate runs](#preventing-duplicate-runs) and [Monitoring](#monitoring)).
 
-A step that passes this checklist can say so: override `isIdempotent()` in the step to return `true`. The
-declaration never changes how the chain runs; it unlocks the Chain Monitor's operator retry for the step, described in
-[Re-driving a failed chain](#re-driving-a-failed-chain). Keep it an override, not a constructor: the framework
+A step that passes this checklist can say so: override `isIdempotent()` in the step to return `true`. Do this on every
+step that is safe to run twice. The declaration does not change a normal run; it matters only when something goes wrong.
+It lets the watchdog run the step again after the chain stalls (see
+[What happens to a stalled step](#what-happens-to-a-stalled-step)), and it unlocks the Chain Monitor's operator retry for the
+step, described in [Re-driving a failed chain](#re-driving-a-failed-chain). An `ApiStep` whose request is safe to repeat
+(the handler sends a GET, PUT or DELETE, or its service setting has Idempotency Enabled turned on) makes this declaration by
+itself. Keep it an override, not a constructor: the framework
 creates each step from its class name on every hop, and a step class that declares its own constructor cannot be
 created that way from inside the package (see the note under the example below).
 
@@ -1251,10 +1257,22 @@ and no backoff. Automatic recovery still never touches a Failed chain: the watch
 that have already failed. What a Failed chain can get is operator attention, and only when it opted in: if the failed
 step declares itself safe to re-run, the Chain Monitor offers [a retry from the failed step](#re-driving-a-failed-chain),
 and a chain built with `allowRestart()` can be [restarted from the start as a new run](#restarting-a-chain-from-the-start).
-Both actions ship switched off and stay unavailable until those declarations are made. For a chain that is still
-running, `durationMs` is filled in live from its start time, so it matches what the Chain Monitor shows.
+Both actions ship switched off and stay unavailable until those declarations are made. `durationMs` is the same number
+the Chain Monitor shows in its Duration column, worked out as the next paragraph describes, so a chain that is
+`Running` or `Stalled` reports how long it has been going so far.
 
-**Turn on stalled-chain recovery.** The watchdog that revives stalled chains (it safely restarts the ones it can prove died and flags anything it cannot prove dead for a person) is itself a scheduled job, and a managed package cannot ship one, so it stays dormant until an admin schedules it. The quickest way is one click: the Health Check on the Kern app's Home tab spots a missing watchdog and schedules it for you (hourly, with a 30-minute stale threshold and up to 50 chains per sweep). Until you do, only one class of stall surfaces on its own: a chain whose next step could not be queued is marked `Stalled` immediately, but a run whose background job died without leaving a trace stays on `Running` until the watchdog's sweep picks it up, restarting it when it can prove the job died or marking it `Stalled` when it cannot, and neither class is re-driven until the watchdog is scheduled. Schedule it once, the same declarative way as the built-in housekeeping jobs: create a [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) record whose `ClassName__c` is `SCHED_ChainWatchdog`, running hourly (`0 0 * * * ?`); see [Declarative Scheduling with `ScheduledJob__c`](#declarative-scheduling-with-scheduledjob__c). Two optional attributes tune it: `StaleThresholdMinutes` (how many minutes a chain may sit idle before it counts as stalled, default 30) and `BatchSize` (how many chains one sweep inspects, default 50). If you would rather schedule it in Apex, `System.schedule('Chain Watchdog', '0 0 * * * ?', new SCHED_ChainWatchdog());` does the same job. The [Installation guide](Installation.md#post-install-configuration) lists this next to the other one-time setup steps.
+**Duration counts a run that is still going.** The Chain Monitor's Duration column sorts by the same number it shows:
+how long a run took, or how long it has been going if it has not finished. A run stalled for an hour and a half sorts
+as an hour and a half, in among the finished runs, instead of sorting as empty. That number is the **Elapsed (ms)**
+field on the run record, so list views and reports can use it too. A run that ended without storing a duration, such
+as one whose background job crashed, shows the time between its start and its end, and sorts by it. While you page through a list sorted by Duration, a run that is still going keeps growing,
+so it can move to another page between two page requests; refresh the list to see the current order.
+
+**A step that never ran says so.** Once a run has ended, a step it never reached reads "Did not run" instead of
+"Pending". A step the run may still have been working on when it ended reads "No result recorded": nothing was recorded
+for it, so the Chain Monitor cannot say whether it ran.
+
+**Turn on stalled-chain recovery.** The watchdog that revives stalled chains (when it can prove a chain died, it runs the stalled step again only if that is safe and otherwise ends the chain `Failed`; it flags anything it cannot prove dead for a person; [What happens to a stalled step?](#what-happens-to-a-stalled-step) says which steps it runs again) is itself a scheduled job, and a managed package cannot ship one, so it stays dormant until an admin schedules it. The quickest way is one click: the Health Check on the Kern app's Home tab spots a missing watchdog and schedules it for you (hourly, with a 30-minute stale threshold and up to 50 chains per sweep). Until you do, only one class of stall surfaces on its own: a chain whose next step could not be queued is marked `Stalled` immediately, but a run whose background job died without leaving a trace stays on `Running` until the watchdog's sweep picks it up, recovering it when it can prove the job died or marking it `Stalled` when it cannot, and neither class is re-driven until the watchdog is scheduled. Schedule it once, the same declarative way as the built-in housekeeping jobs: create a [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) record whose `ClassName__c` is `SCHED_ChainWatchdog`, running hourly (`0 0 * * * ?`); see [Declarative Scheduling with `ScheduledJob__c`](#declarative-scheduling-with-scheduledjob__c). Two optional attributes tune it: `StaleThresholdMinutes` (how many minutes a chain may sit idle before it counts as stalled, default 30) and `BatchSize` (how many chains one sweep inspects, default 50). If you would rather schedule it in Apex, `System.schedule('Chain Watchdog', '0 0 * * * ?', new SCHED_ChainWatchdog());` does the same job. The [Installation guide](Installation.md#post-install-configuration) lists this next to the other one-time setup steps.
 
 The first time a chain with no `onError` handler registered goes `Stalled`, that stall is recorded at ERROR level, so it
 stands out in the Log Console even when nobody is watching the Chain Monitor. Chains with a handler keep the WARN-level
@@ -1281,8 +1299,12 @@ to, exactly as `getStatus` does.
 | `CurrentStepName__c` | Name of the currently executing step                                                 |
 | `ErrorMessage__c`    | Error details if failed; non-fatal failure summaries if completed with issues        |
 | `DurationMs__c`      | Total chain execution duration in milliseconds                                       |
+| `ElapsedMs__c`       | How long the run took, or how long it has been going if it has not finished. A Completed, Failed or Aborted run that stored no duration shows the time between its start and its end |
+| `LastManualRetryAt__c` | When someone last used Retry on this run after it failed. Blank if nobody has     |
 | `StepLog__c`         | JSON log of each step: className, success, durationMs, message (enriched at runtime) |
-| `CorrelationId__c`   | Correlation ID for log tracing                                                       |
+| `CorrelationId__c`   | Correlation ID for log tracing: the run's own ID, which every entry its steps write carries |
+| `LaunchCorrelationId__c` | The tracking ID the run was launched under: the action's ID, or the parent run's ID when a step launched it. Empty when the chain started its own action, and on a restart |
+| `RootCorrelationId__c` | The tracking ID of the action the run belongs to (the run's own ID when it started the action) |
 | `ContextData__c`     | Serialized chain context (JSON)                                                      |
 | `AllowRestart__c`    | Whether the chain was built with `allowRestart()` and may be restarted from the start (see [Restarting a chain from the start](#restarting-a-chain-from-the-start)) |
 | `InitialContextData__c` | The initial context as built, captured only for chains that declare `allowRestart()`; a restart replays this snapshot, never the evolved context |
@@ -1293,6 +1315,38 @@ to, exactly as `getStatus` does.
 
 The object has field history tracking enabled on `Status__c`, `CompletedSteps__c`, `CurrentStepName__c`, and
 `CompletedAt__c`, providing a full audit trail of chain progression step by step.
+
+### What happens to a stalled step?
+
+When a chain stalls, the watchdog has to decide whether to run the step it stopped on again. Running a step twice is
+harmless for some steps and costly for others: a step that sends a payment or creates a record in another system may
+already have done its work before the chain lost track of it. So the watchdog runs a stalled step again only when it
+knows that is safe:
+
+| The step the chain stalled on | What the watchdog does |
+|---|---|
+| Never started | Runs it, and the chain carries on |
+| Had started, and declares `isIdempotent()` as `true` | Runs it again, and the chain carries on |
+| Had started, with no such declaration | Does not run it again. The chain ends `Failed`, with a failure category of `Stalled` |
+
+A step counts as started once the framework has handed it to the platform to run, even if the chain stalled before the
+step saved a result. In that case nobody can tell from the chain record whether the step's work happened, so the
+framework does not guess.
+
+A chain that ends this way says what to do in its error message, which the Chain Monitor shows on the run and on the step:
+"Recovery stopped at step {name}. The step had started when the chain stalled and no result was saved, so it may already
+have done its work. It was not run again. Check whether its work landed, then start a replacement." The chain's `onError`
+handler, if it has one, is told. The **Clear stalled** button in the Chain Monitor follows the same rule.
+
+**Declare `isIdempotent()` on every step that is safe to run twice**, so the watchdog keeps recovering it on its own (see
+[Retrying a failed step](#retrying-a-failed-step) for the checklist). An `ApiStep` whose request is safe to repeat makes
+the declaration by itself: its handler sends a GET, PUT or DELETE, or its service setting has Idempotency Enabled turned
+on. One case it cannot see: if your handler overrides `createRequest()` and leaves the Idempotency-Key header off, the
+step still counts as safe because the setting is on. For such a handler, do not rely on the setting.
+
+**On an org whose background queue is slow,** one step that never ran can also end the chain this way: a step whose job
+waited in the queue for longer than the watchdog's stale threshold before the platform could start it. If you see that,
+raise the watchdog's `StaleThresholdMinutes` (30 by default) above the longest wait you see.
 
 ### Stopping a chain from the Chain Monitor
 
@@ -1334,6 +1388,19 @@ locked by a job that has long since finished. Rather than rebuilding and relaunc
 can re-drive a Failed run from exactly the step that failed. Steps that already completed do not run again, the chain
 keeps its record and its tracking ID, and the failed step's retry attempts start again from zero.
 
+**What a retry leaves behind.** The step timeline shows a line above the step that was retried: "Retried manually
+after 37m", where the time is how long the run sat failed before someone pressed Retry. When that wait cannot be
+worked out, the line reads "Retried manually" with no time. It stays once the step goes on to succeed. Retry the same
+step again and the newer line replaces the older one, so a step shows one line at a time; a run retried at two different
+steps shows two lines, one above each. On a very long chain whose step log has nearly filled the field
+that holds it, the line is left off to make room, and the retry itself still runs.
+
+**What the run record keeps.** The **Last Manual Retry At** field holds when Retry was last used, whether or not the
+line is shown, so list views, reports and Flows can find the runs a person had to step into. Only a person pressing
+Retry sets it: a step's own automatic retries and the recovery of a stalled run do not. A run restarted from the start
+is a new run that nobody has retried, so it starts without the line and without the date; the run it was restarted
+from keeps both.
+
 The action stays unavailable until two people opt in: the step's author and your administrator.
 
 **The step author declares the step safe to re-run.** Retry is only offered when the step that failed answers
@@ -1357,8 +1424,10 @@ public class RefreshExchangeRatesStep extends UTIL_AsyncChain.ChainStep
 
 Declare it only when a repeat run of `work()` cannot double the step's side effects, either because the work is
 naturally safe to repeat or because the step guards itself with `idempotencyKey()` (see
-[Step Design Guidance](#step-design-guidance)). The declaration never changes how the chain runs; it is consulted only
-when an operator asks to re-drive. Chains that ran before the declaration existed are never eligible.
+[Step Design Guidance](#step-design-guidance)). The declaration does not change a normal run; it is consulted only when an
+operator asks to re-drive and when the watchdog decides whether to run a stalled step again (see
+[What happens to a stalled step](#what-happens-to-a-stalled-step)). Chains that ran before the declaration existed are never
+eligible.
 
 > **Do not declare a constructor on a step class.** The framework creates every step from its class name in each hop,
 > and from inside the package it can only use the constructor Apex provides when a class declares none (or a `global`
@@ -1399,8 +1468,8 @@ run's entries as it progresses.
 Retry resumes a run; restart begins a new one. When a chain declares `.allowRestart()` at build time, the Chain Monitor
 can restart a Failed or Aborted run from its first step as a fresh chain: a new record, a new tracking ID, and the
 context the chain was originally built with. The original record is not touched; it keeps its status and its
-diagnostics as the audit record, and the new run carries a **Restarted from** reference that re-opens the original in
-the monitor. When you confirm, the monitor moves you to the new run.
+diagnostics as the audit record, and the new run's **Launched under** row names the original as a restart, a link
+that re-opens it in the monitor. When you confirm, the monitor moves you to the new run.
 
 ```apex
 UTIL_AsyncChain.newChain('NightlyAccountSync')
@@ -1427,9 +1496,12 @@ ones its original builder set.
 ### Clearing stalled chains
 
 The watchdog sweeps stalled chains on a schedule; during an incident you may not want to wait for the next sweep. The
-**Clear stalled** button in the Chain Monitor's header runs the same sweep on demand: each stalled chain the sweep
-reaches is checked, re-driven when the framework can prove its background job died, marked failed when its saved run
-state is beyond repair, and left waiting when nothing can be proven. The checks are the scheduled watchdog's own, applied in the same
+**Clear stalled** button in the Chain Monitor's header runs the same sweep on demand. Each stalled chain the sweep
+reaches is checked, and it is changed only when the framework can prove its background job died. It is then re-driven
+when the step it stalled on never started, or had started and is declared safe to repeat (see
+[What happens to a stalled step?](#what-happens-to-a-stalled-step)). It is marked failed when that step had started and
+is not declared safe to repeat, or when its saved run state is beyond repair. It is left waiting when its job is still
+running, when its job cannot be checked, or when the sweep runs short of its limits. The checks are the scheduled watchdog's own, applied in the same
 order with the same caution, so the button never does anything the watchdog would not have done at its next sweep.
 
 The result comes back as a toast: how many stalled chains were checked, how many re-driven, how many marked failed, and
@@ -1532,15 +1604,19 @@ finished but had problems along the way.
 ### Log Correlation
 
 A correlation ID is one tracking ID that follows a single user action across triggers, queries, callouts, and jobs, so
-you can pull every log from one action together later. Chains inherit the current `LOG_Builder` correlation context
-automatically. When a chain spans several Queueable transactions, the framework calls `LOG_Builder.serializeContext()`
-and `hydrateContext()` for you behind the scenes, carrying the correlation ID, the parent transaction ID, and any custom
-context data across each transaction boundary.
+you can pull every log from one action together later. A chain run carries two of them. Its own correlation ID, minted
+when the chain is launched and shown on its tracking record and in the Chain Monitor, is on every log its steps write.
+Its root correlation ID is the tracking ID of the action that started everything: the ID that was live when your code
+launched the chain, or the chain's own ID when nothing was live (a scheduled job, for example). Every log entry carries
+both. In the Log Console, pin an action (from an entry's drawer, from the Chain Monitor, or by pasting the action's ID)
+and you see the whole action: its own entries and the entries of every chain it launched and every chain those
+launched, with one banner that counts the chains and names the failed ones first, up to five, with a count for the
+rest; a run's ID pins that run alone. The Chain Monitor lists the action's chains and says what launched each one. One
+search in **App Launcher > Kern > Log Entries** for the action's ID brings back the same entries as a flat list, the
+chains' entries included, with no banner and no chips. When a chain spans several Queueable transactions, the framework
+carries both IDs, the parent transaction ID and any custom context data across each transaction boundary for you.
 
-Because every log a chain's steps write shares the same correlation ID, you can trace a whole chain run in one place:
-**App Launcher > Kern > Log Entries**.
-
-To supply a specific correlation ID:
+To supply the run's own correlation ID yourself:
 
 ```apex
 UTIL_AsyncChain.newChain('MyChain')
@@ -1548,16 +1624,27 @@ UTIL_AsyncChain.newChain('MyChain')
 	.execute('my-custom-correlation-id');
 ```
 
-**Launching several chains at once.** A correlation ID belongs to one chain run, so when your code
-starts a correlation and then launches two or more chains in the same transaction, only the first
-chain is recorded under it. Each of the others gets a correlation of its own on its tracking record,
-and the framework writes one log entry under your original correlation naming that new ID. The new ID
-identifies that run in the Chain Monitor; its log entries stay under your original correlation, so
-one search in **Log Entries** still brings back the whole action rather than one chain at a time.
+**Launching several chains at once, or a chain from inside a step.** Every run gets an ID of its own, so your code can
+launch as many chains as it likes inside one action, and a step or a completion handler can launch one chain of its own.
+Each run's tracking record shows the ID it was launched under (the action's ID, or the parent run's ID when a step
+launched it), and whenever the launching code has a tracking ID of its own, the framework writes one log entry in the
+launching story naming the new run. `LOG_Builder.rootCorrelationId` answers the action's ID from anywhere, a step
+included. Three rules apply to a chain launched from inside another. A step or handler may launch one chain each time
+it runs, because the platform lets a running background job add one job of its own; a second launch in the same run of
+the step is refused with a message that says so, and so is a launch after the step has already added a job of its own.
+A chain may sit up to five levels below the first chain of the action, and a launch deeper than that is refused before
+anything is written.
+And when you set no deduplication key of your own, the framework remembers which chain a step launched, so a step that
+is retried after launching one gets the same chain back rather than a second one; a completion handler and an error
+handler each get a chain of their own. The new chain's first step runs under the launching chain's maximum queueable
+stack depth, because the platform lets a running job pass that maximum on but not change it. The framework's default
+maximum leaves room for this and counts from the depth the launching step runs at, so if you set your own maximum on a
+chain launched from a step, include that depth; and if the launching chain's maximum leaves no room, the launch is
+refused with a message that says so.
 
-If you supply the correlation IDs yourself, give each chain a different one. Reusing an ID that
-another chain already holds is refused straight away, with a message naming the ID and telling you
-how to fix it, rather than a database error you have to decode.
+If you supply the correlation IDs yourself, give each chain a different one. Reusing an ID that another chain already
+holds is refused straight away, with a message naming the ID, the run holding it when you can see that run, and how to
+fix it, rather than a database error you have to decode.
 
 ### Step Design Guidance
 
@@ -1693,15 +1780,31 @@ UTIL_AsyncChain.newChain('OrderProcessing')
 `ChainStep` opting in with `createRetryStrategy()`. Pass the total number of attempts including the
 first, and a base backoff in seconds: `.withRetry(3, 30)` allows up to three tries. When you set this,
 the chain owns the retry and the outbound engine's own rescheduling is switched off for that step, so
-the call is retried once by the chain, never twice by both. Leave `withRetry` off and the call behaves
+the call is retried once by the chain, never twice by both. The chain decides, and the handler's own
+`createRetryStrategy()` is not asked; the handler's `getRetryableExceptionTypes()` still counts in the
+one case described below. Leave `withRetry` off and the call behaves
 exactly as before, with the outbound engine keeping sole charge of retries. The same whole-minute
 backoff rule applies as for step retries.
-By default every failed status is retried. To spend the budget only on failures that might
-heal, add `.retryOn(new Set<Integer>{500, 503})`: a failed call whose status is outside the
-set fails permanently on that attempt, because a deterministic status (a 400 returns 400
-however often you re-send it) can never be cured by retrying. A failure with no status code at
-all, where the transport gave out before any response arrived, always stays retryable.
-`retryOn` has no effect without `withRetry`.
+By default every failed status is retried, with one exception that protects the external
+system. To spend the budget only on failures that might heal, add
+`.retryOn(new Set<Integer>{500, 503})`: a failed call whose status is outside the set fails
+permanently on that attempt, because a deterministic status (a 400 returns 400 however often you
+re-send it) can never be cured by retrying. `retryOn` has no effect without `withRetry`.
+
+**The exception: a request that is not safe to repeat stops when the external system may have
+acted on it.** A request is safe to repeat when it is a GET, PUT or DELETE, or when it carried
+an Idempotency-Key. For any other request (a POST or PATCH with no key), the step fails for good,
+without a retry, in three cases: no response came back, the response was a 500, 502 or 504, or
+the external system accepted the request and the call then failed in your org. The external
+system may already have done the work, so sending it again could do it twice. The step's message
+gives the reason first, after the handler's name. The no-response case has one way back in: if the handler's
+`getRetryableExceptionTypes()` returns a set that holds `System.CalloutException.class`, the step
+keeps retrying after no response. A status you name in the step's `retryOn(...)` is your explicit choice
+and is retried whatever the method, so name a 500, 502 or 504 there only when sending the
+request twice is safe. A request that is safe to repeat keeps retrying in all three cases, and
+so does a call the platform refused before it ever left your org (nothing reached the external
+system). A handler that throws `UTIL_Exceptions.PermanentFailureException` fails the step at
+once, whatever the method.
 
 #### Reading Results from Downstream Steps
 
@@ -1785,9 +1888,9 @@ private static void shouldCompleteThreeStepChain()
 }
 ```
 
-> **Why `maximumQueueableStackDepth`?** In production the framework sets the stack depth to `steps.size() + 1`
-> automatically. In tests, Salesforce defaults to a depth of 1, which blocks chained Queueables from running. Pass
-> `withAsyncOptions()` to raise that limit for the test.
+> **Why `maximumQueueableStackDepth`?** In production the framework sets the stack depth for you: the number of steps
+> plus one, plus five spare levels for chains your steps launch. In tests, Salesforce defaults to a depth of 1, which
+> blocks chained Queueables from running. Pass `withAsyncOptions()` to raise that limit for the test.
 
 > **The framework creates and wires up the `ChainContext` for you.** You never construct it yourself. Drive chains
 > through `newChain().then().execute()` inside `Test.startTest()`/`Test.stopTest()`, and the framework builds the
@@ -1975,7 +2078,8 @@ initial context, and [Monitoring](#monitoring) for finding both runs in the Chai
 
 When you want a chain every night, you do not need new machinery: a small schedulable builds the chain,
 and a [`ScheduledJob__c`](#declarative-scheduling-with-scheduledjob__c) record decides when it runs,
-with what parameters, in which timezone. Admins change the schedule without a deployment.
+with what parameters, in which timezone. Admins change the schedule without a deployment. The same recipe
+works when the record is set to run on the [job runner](#running-many-jobs-on-one-job-runner).
 
 ```apex
 @SuppressWarnings('PMD.AvoidGlobalModifier')
@@ -2158,6 +2262,10 @@ When you need a job to run on a recurring schedule (nightly, hourly, every Monda
 one lets admins create and change schedules as configuration records, with no code deployment. The other is the
 platform's own `System.schedule()` call, for full programmatic control. This section covers both.
 
+> **Step-by-step walkthrough:** [Fast Start - Scheduled Jobs](Fast%20Start%20-%20Scheduled%20Jobs.md) schedules a class
+> with a record, moves it onto the job runner, and reads a succeeded and a failed run, in about 25 minutes. This section
+> is the deep reference behind that Fast Start.
+
 ### Scheduler Architecture
 
 ```text
@@ -2230,16 +2338,24 @@ The full field reference for the scheduling record is below.
 <details>
 <summary>Every ScheduledJob__c field</summary>
 
-| Field               | Type                   | Description                                                                                                                        |
-|---------------------|------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| `SchedulerName__c`  | Text                   | Human-readable name for the job                                                                                                    |
-| `ClassName__c`      | Text                   | Fully qualified class name (with namespace if needed)                                                                              |
-| `CronExpression__c` | Text                   | Standard Salesforce [cron expression](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_scheduler.htm) |
-| `IsActive__c`       | Checkbox               | When true, job runs; when false, job stopped                                                                                       |
-| `Parameters__c`     | Long Text Area(131072) | JSON-serialized `DTO_NameValues` containing name/value pairs for configurable schedulers                                           |
-| `Description__c`    | Long Text              | Documentation of job purpose                                                                                                       |
-| `Timezone__c`       | Text                   | IANA TimeZoneSidKey of the cron author (e.g., `Africa/Johannesburg`). Used for timezone-aware scheduling                           |
-| `ScheduledJobId__c` | Text                   | Auto-populated with CronTrigger ID                                                                                                 |
+| Field               | Type                   | Description                                                                                                                                                  |
+|---------------------|------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `SchedulerName__c`  | Text                   | Human-readable name for the job                                                                                                                              |
+| `ClassName__c`      | Text                   | Fully qualified class name (with namespace if needed)                                                                                                        |
+| `CronExpression__c` | Text                   | Standard Salesforce [cron expression](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_scheduler.htm)                           |
+| `IsActive__c`       | Checkbox               | When true, job runs; when false, job stopped                                                                                                                 |
+| `Parameters__c`     | Long Text Area(131072) | JSON-serialized `DTO_NameValues` containing name/value pairs for configurable schedulers                                                                     |
+| `Description__c`    | Long Text              | Documentation of job purpose                                                                                                                                 |
+| `Timezone__c`       | Text                   | IANA TimeZoneSidKey of the cron author (e.g., `Africa/Johannesburg`). Used for timezone-aware scheduling                                                     |
+| `ScheduledJobId__c` | Text                   | Auto-populated with CronTrigger ID                                                                                                                           |
+| `ExecutionMode__c`  | Picklist               | Where the job runs: its own scheduled job (the default) or the job runner                                                                                    |
+| `RunPriority__c`    | Number                 | On the job runner: lower numbers start first when several jobs are due at the same check; blank goes last                                                    |
+| `OverlapPolicy__c`  | Picklist               | On the job runner: Skip (the default) records a due run as Skipped while the previous run is still running; Allow starts it anyway                           |
+| `NextRunAt__c`      | Datetime               | On the job runner: when the job is next due. Written by the framework                                                                                        |
+| `LastRunAt__c`      | Datetime               | When the most recent run on the job runner finished. Written by the framework                                                                                |
+| `LastRunOutcome__c` | Picklist               | Succeeded, Failed, Skipped or Parked: the most recent event on a job on the runner. Written by the framework                                                 |
+| `LastRunReason__c`  | Picklist               | On the job runner: why the most recent run was skipped or parked, as one of five fixed reasons; blank after a success or a failure. Written by the framework |
+| `LastRunJobId__c`   | Text                   | The platform job id of the most recent run, written when the run is queued                                                                                   |
 
 </details>
 
@@ -2267,10 +2383,14 @@ DML_Builder.newTransaction().doInsert(purgeJob).execute();
 |-------------------------|------------------------|----------------------------|
 | Daily at 2 AM           | `0 0 2 * * ?`          | Every day at 2:00 AM       |
 | Hourly                  | `0 0 * * * ?`          | Every hour on the hour     |
-| Every 15 minutes        | `0 0,15,30,45 * * * ?` | At :00, :15, :30, :45      |
 | Weekly Sunday 1 AM      | `0 0 1 ? * SUN`        | Every Sunday at 1:00 AM    |
 | Monthly 1st at midnight | `0 0 0 1 * ?`          | First of month at midnight |
 | Weekdays 8 AM           | `0 0 8 ? * MON-FRI`    | Monday-Friday at 8:00 AM   |
+
+A scheduled job in its own mode fires at most once an hour. Salesforce takes a single number in the minutes field, never `*`, a step
+such as `*/15`, or a list such as `0,15,30,45`, and refuses the record at save if you try. To run a job more often than hourly,
+put it on the [job runner](#running-many-jobs-on-one-job-runner), which reads the minutes field itself: `0 */15 * * * ?`
+then means every fifteen minutes and costs no scheduled-job slot of its own.
 
 #### Timezone Awareness
 
@@ -2302,16 +2422,106 @@ year across such a pair of zones, re-save it after a daylight-saving change.
 | Wildcard/step hours (`*`, `*/2`)               | Not shifted; it fires at regular intervals regardless           |
 | `L`/`W` day-of-month suffixes                  | Not shifted; relative expressions cannot be reliably shifted |
 
+### Running many jobs on one job runner
+
+Salesforce gives an org 100 scheduled-job slots in total, shared with every installed package, and a single scheduled job fires
+at most once an hour. A job that must run every five minutes therefore costs twelve of those slots. The job runner removes
+both limits for the jobs you put on it: the runner takes a fixed handful of slots (one to twelve, your choice), and every job you
+add after that is free and may run as often as every five minutes.
+
+#### What the job runner is, and is not
+
+The runner is a scheduling mechanism, not a second orchestration framework. It is a few ordinary scheduled jobs, one per minute
+mark, that each run the same small Kern class, `SCHED_JobRunner`. Every time one of them fires, the runner checks for due jobs
+and starts every job whose record is set to run on it and is due. Once a run is started, it is an ordinary scheduled job: the
+same class, the same parameters, the same `execute` method. A job that needs several steps builds an async chain, exactly as it
+does today.
+
+#### Turning it on
+
+Open Kern Home. The job runner card under the readiness banner offers Activate; choose how often the runner checks for due
+jobs. Every hour costs one slot, every 30 minutes two, every 15 minutes four, every 10 minutes six, every 5 minutes twelve. The
+runner's own records appear in Scheduled Jobs like any other schedule, named "Job runner :00", ":15" and so on. Only Health
+Check may create or replace them. Deleting one is allowed, but the runner then misses that minute mark (an hourly runner stops
+altogether) until you Repair it; the Job Runner row in Health Check says so.
+
+#### Putting a job on the runner
+
+Edit the job's record and set Execution mode to Job runner. You need the Manage Job Runner permission (the Job Runner
+Management permission set) to do so, because jobs on the runner run as the user who activated it (see below). A job on the runner
+keeps its class, parameters, time zone and description; two fields join them:
+
+- Run priority: when several jobs are due at the same check, lower numbers start first and blank goes last. A preference, not a
+  guarantee: when a check has already started as many jobs as it may, a low-priority job waits for the next one.
+- Overlap policy: Skip (the default) records a due run as Skipped while the previous run is still running; Allow starts it anyway.
+  A run that never finishes skips every following occurrence until it does.
+
+The record shows the runner's view of the job: Next run, Last run, Outcome (Succeeded, Failed, Skipped or Parked) and, for a
+skipped or parked run, the Reason in a fixed sentence. A failed or parked run's detail is in its log entry, which the View log
+link beside the outcome opens. Run now starts the job immediately, as you, without changing its schedule.
+
+#### How a run is timed
+
+- The runner checks for due jobs at a fixed interval. A job runs at the first check on or after its scheduled time: a job set to
+  09:17 on a runner that checks every 15 minutes runs at 09:30.
+- A due occurrence is used up when its run starts, not when it succeeds. A run that fails does not run again at the next check;
+  retrying is the job's own business. Its next occurrence runs as scheduled.
+- A missed occurrence (the runner was stopped, or the org was busy) runs once, at the first check after the runner is back. Three
+  hours of downtime give one run, not thirty-six.
+- On the runner, Kern reads the cron expression itself, so the minutes field may carry `*`, a step such as `*/15`, a range or a
+  list. Every other field keeps its Salesforce meaning, including `L`, `W`, `LW`, `nL` and `n#m`. The expression is read in the
+  record's time zone.
+- Daylight saving follows two rules. When the hours field is `*` (every N minutes), the job fires once per elapsed interval and
+  neither skips nor doubles across a change. When the hours field names hours, the job follows the local clock: a time that falls
+  into the spring-forward gap fires at the moment the clocks jump, and a time that happens twice in the autumn fires once, at the
+  earlier of the two. An hour step such as `*/2` therefore shifts by one hour once a year.
+- The runner looks four years ahead for a job's next run: four years, a safety bound rather than a limit you plan around. An
+  expression that never fires in that window (a year field in the past, 30 February) is refused at save; if a job's class can no
+  longer be found or its next run can no longer be worked out, the job is parked with the reason on its record, and tried again a
+  day later, or sooner after an edit to its expression, time zone, mode or active flag.
+
+#### Who the jobs run as
+
+Every job on the runner runs as the user who activated it, because that user owns the runner's scheduled jobs. Activate the runner
+as an integration user that holds the Kern Job Runner Management permission set and the permissions every job needs. On its own the
+set lets a user create and edit jobs and run them now; deleting one needs the Kern Administrator set, and activating the runner needs
+access to Health Check. Run now runs as the person who presses it. Apex cannot schedule a job as another user, so the card cannot
+pick a service account for you; it names the activator, shows whether that user is still active, and offers Repair (activation
+again, as you) when the activator has left.
+
+#### Calling out, and building chains
+
+A job on the runner executes inside a queued job that allows callouts, so it may call an external system directly. A job that
+builds an async chain works unchanged on the runner: the chain runs on queued jobs and costs no slot.
+
+#### If your job reads the scheduling context
+
+A job on the runner receives a Kern scheduling context whose `getTriggerId()` returns the id of the run itself, not of a
+scheduled job. Logging or correlating on it works unchanged; do not pass it to `System.abortJob`.
+
+#### When the clock stops, and when not to use it
+
+Health Check reports three readings on the runner: **Job Runner** (whether it has checked for due jobs recently, whether all its
+scheduled jobs are still there, and whether the user it runs as is still active), **Jobs Waiting for the Job Runner** (whether a
+job is set to run on a runner that is not there) and **Job Runner Capacity** (how many of the org's scheduled-job slots are in
+use, and, while a runner is active, whether its last check started every job that was due). The first two each carry the
+button that fixes them, Repair on the first and Activate on the second; the capacity reading says what to change instead.
+A handful of
+daily or weekly jobs is fine on its own slots and gains nothing from the runner. Reach for it when jobs must run more often than
+hourly, when the org is near the cap, or when re-scheduling after every upgrade has become a chore.
+
 ### Built-in Schedulers
 
-Four common housekeeping jobs ship ready to use. You schedule them by configuration alone, no code:
+Six housekeeping and framework jobs ship ready to use. You schedule them by configuration alone, no code:
 
-| Scheduler                                                                        | Purpose                   | Key Attributes                                                    |
-|----------------------------------------------------------------------------------|---------------------------|-------------------------------------------------------------------|
-| [`SCHED_PurgeRecords`](reference/apex/SCHED_PurgeRecords.md)                     | Delete old records        | `objectName`, `minimumNumberOfDays`, `dateFieldName`, `batchSize` |
-| [`SCHED_DeactivateUsers`](reference/apex/SCHED_DeactivateUsers.md)               | Deactivate inactive users | `profileNames`, `minimumNumberOfDays`, `batchSize`                |
-| [`SCHED_PerformBatchedCallouts`](reference/apex/SCHED_PerformBatchedCallouts.md) | Process queued callouts   | None                                                              |
-| [`SCHED_ProcessLoginHistory`](reference/apex/SCHED_ProcessLoginHistory.md)       | Process login records     | None (batch size set by an `AsynchronousJobSetting__mdt` record)  |
+| Scheduler                                                                        | Purpose                                                                      | Key Attributes                                                    |
+|----------------------------------------------------------------------------------|------------------------------------------------------------------------------|-------------------------------------------------------------------|
+| [`SCHED_PurgeRecords`](reference/apex/SCHED_PurgeRecords.md)                     | Delete old records                                                           | `objectName`, `minimumNumberOfDays`, `dateFieldName`, `batchSize` |
+| [`SCHED_DeactivateUsers`](reference/apex/SCHED_DeactivateUsers.md)               | Deactivate inactive users                                                    | `profileNames`, `minimumNumberOfDays`, `batchSize`                |
+| [`SCHED_PerformBatchedCallouts`](reference/apex/SCHED_PerformBatchedCallouts.md) | Process queued callouts                                                      | None                                                              |
+| [`SCHED_ProcessLoginHistory`](reference/apex/SCHED_ProcessLoginHistory.md)       | Process login records                                                        | None (batch size set by an `AsynchronousJobSetting__mdt` record)  |
+| [`SCHED_ChainWatchdog`](reference/apex/SCHED_ChainWatchdog.md)                   | Find silently stuck async chains and mark them Stalled                       | `StaleThresholdMinutes`, `BatchSize`                              |
+| [`SCHED_JobRunner`](reference/apex/SCHED_JobRunner.md)                           | Check for jobs due on the job runner; Health Check schedules it for you      | None                                                              |
 
 > **See Also:** [`DTO_NameValues`](reference/apex/DTO_NameValues.md) for attribute parsing utilities.
 
@@ -2515,6 +2725,9 @@ All methods are available on [`LOG_Builder`](reference/apex/LOG_Builder.md):
 | `hydrateContext(String)`         | Start of async job execute()           | Restores context from serialized string                      |
 | `setCorrelationId(String)`       | When receiving external correlation    | Sets specific ID from external system                        |
 | `setParentTransactionId(String)` | Manual parent linking                  | Links to specific parent transaction                         |
+
+The `rootCorrelationId` property answers the tracking ID of the action that started everything, from anywhere, the
+way `correlationId` answers the live one; the two differ inside a chain run, where the live ID is the run's own.
 
 The one-argument form matters when a restarted run should read as its own story rather than a continuation of the one that spawned it. Pass the new correlation id and the job you hand it to gets a clean logging identity, with none of the current transaction's lineage attached.
 
@@ -2789,6 +3002,27 @@ These are common mistakes (anti-patterns) that look reasonable but cause trouble
 4. **Size batches based on complexity** - smaller for callouts, larger for simple DML
 5. **Always capture logger context** in async job constructors
 6. **Test with `Test.startTest()`/`Test.stopTest()`** to execute async synchronously
+
+### Choosing a Batch Size
+
+When a batch job reads its records from a query, the platform fetches them in fixed chunks before handing them to your
+code, and one `execute()` call never spans two chunks. The chunk size depends on the batch size you choose:
+
+| Batch size you choose | Chunk the platform reads |
+|-----------------------|--------------------------|
+| 1 to 100              | 100 records              |
+| 101 to 400            | 400 records              |
+| 401 to 2,000          | 2,000 records            |
+
+A batch size that does not divide its chunk exactly leaves a short run at the end of every chunk. At a batch size of 75,
+for example, each chunk of 100 becomes one call of 75 and one of 25, so a job over 290 records makes six calls instead of
+four. Above 100, the sizes that fit are 200, 400, 500, 1,000 and 2,000. At or below 100, any divisor of 100 fits: 1, 2, 4,
+5, 10, 20, 25, 50 or 100. Every size the framework uses by default fits; only a size you set yourself, in code, in an
+`AsynchronousJobSetting__mdt` record or through a scheduled job's `batchSize` parameter, can miss.
+
+When a query-backed batch is launched with a size that does not fit, the framework writes one WARN entry naming the
+size, the chunk, the short run and the nearest sizes that fit, folded into one problem in the Log Console however often
+the job runs. A job that processes an in-memory list instead of a query is not affected.
 
 ### For Architects
 

@@ -3,7 +3,7 @@
  * @description Reusable cron expression editor component with preset, advanced, and custom modes.
  *              Supports Salesforce 7-field cron syntax. Designed for embedding in any context.
  *
- * @date March 2026, May 2026
+ * @date March 2026, September 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
@@ -33,6 +33,7 @@ import YEAR_HELP from '@salesforce/label/c.CronExpressionEditor_YearHelp';
 import YEAR_OPTIONAL_LABEL from '@salesforce/label/c.CronExpressionEditor_YearOptionalLabel';
 import CRON_EXPRESSION_LABEL from '@salesforce/label/c.CronExpressionEditor_CronExpressionLabel';
 import PREVIEW_LABEL from '@salesforce/label/c.CronExpressionEditor_PreviewLabel';
+import INTERVAL_ACTIVATE_FIRST_NOTE from '@salesforce/label/c.CronExpressionEditor_IntervalActivateFirstNote';
 
 export default class CronExpressionEditor extends ComponentBuilder('notification')
 {
@@ -54,7 +55,8 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 		yearHelp: YEAR_HELP,
 		yearOptional: YEAR_OPTIONAL_LABEL,
 		cronExpression: CRON_EXPRESSION_LABEL,
-		preview: PREVIEW_LABEL
+		preview: PREVIEW_LABEL,
+		intervalActivateFirstNote: INTERVAL_ACTIVATE_FIRST_NOTE
 	};
 
 	mode = MODE_PRESET;
@@ -95,9 +97,48 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 		return this.buildCurrentExpression();
 	}
 
+	/** @description Backing field for jobRunnerMode. */
+	_jobRunnerMode = false;
+
+	/**
+	 * @description Whether the record this editor edits runs on the job runner. On the runner Kern reads the expression
+	 *              itself, so the minutes field may carry steps, lists and ranges and the Every N Minutes preset is offered.
+	 *              Clearing the flag while such a preset is selected re-reads the expression the own-mode way (advanced mode).
+	 */
+	@api get jobRunnerMode()
+	{
+		return this._jobRunnerMode;
+	}
+
+	set jobRunnerMode(value)
+	{
+		let wasOnRunner = this._jobRunnerMode;
+		this._jobRunnerMode = value === true;
+
+		if(wasOnRunner && !this._jobRunnerMode && this.mode === MODE_PRESET && this.presetFrequency === 'everyNMinutes')
+		{
+			this.parseAndPopulate(this.buildCurrentExpression());
+		}
+	}
+
+	/**
+	 * @description How often the active job runner checks for due jobs, in minutes, or null when none is active.
+	 *              Narrows the interval choices to multiples of it.
+	 */
+	@api activeCheckIntervalMinutes;
+
+	/**
+	 * @description The options every parser call in this component passes, so the editor reads and describes an
+	 *              expression the same way the record's own runner will.
+	 */
+	get parserOptions()
+	{
+		return {jobRunnerMode: this._jobRunnerMode, activeCheckIntervalMinutes: this.activeCheckIntervalMinutes ? Number(this.activeCheckIntervalMinutes) : null};
+	}
+
 	get cronDescription()
 	{
-		return describeCronExpression(this.buildCurrentExpression());
+		return describeCronExpression(this.buildCurrentExpression(), this.parserOptions);
 	}
 
 	get modeOptions()
@@ -105,14 +146,50 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 		return MODE_OPTIONS;
 	}
 
-	get presetFrequencies()
-	{
-		return PRESET_FREQUENCIES;
-	}
-
+	/**
+	 * @description The interval choices the Every N Minutes preset offers: every interval when no job runner is
+	 *              active, and otherwise those the active runner's check interval can actually hit, plus the interval an
+	 *              Every N Minutes job is already saved with, so a saved job never opens on a blank choice.
+	 */
 	get minuteIntervals()
 	{
-		return MINUTE_INTERVALS;
+		let checkInterval = this.parserOptions.activeCheckIntervalMinutes;
+
+		if(!checkInterval)
+		{
+			return MINUTE_INTERVALS;
+		}
+
+		return MINUTE_INTERVALS.filter((option) => Number(option.value) % checkInterval === 0 || (this.isEveryNMinutes && option.value === this.presetMinuteInterval));
+	}
+
+	/**
+	 * @description The frequencies the preset mode offers. Every N Minutes is offered only on the job runner, while an
+	 *              interval it can hit remains or while this job is already using it.
+	 */
+	get presetFrequencies()
+	{
+		let offersIntervals = this._jobRunnerMode && (this.minuteIntervals.length > 0 || this.presetFrequency === 'everyNMinutes');
+		return offersIntervals ? PRESET_FREQUENCIES : PRESET_FREQUENCIES.filter((option) => option.value !== 'everyNMinutes');
+	}
+
+	/**
+	 * @description Whether to tell the reader that no job runner is active yet, so an Every N Minutes job waits
+	 *              until one is activated.
+	 */
+	get showActivateFirstNote()
+	{
+		return this._jobRunnerMode && this.isEveryNMinutes && !this.parserOptions.activeCheckIntervalMinutes;
+	}
+
+	/**
+	 * @description The minutes the advanced field accepts, as a list of cron tokens: one number in the editor's own
+	 *              mode, and the wide grammar on the job runner.
+	 */
+	get minutesHelp()
+	{
+		// eslint-disable-next-line kerndx/no-hardcoded-user-text -- a list of cron syntax tokens, not translatable prose
+		return this._jobRunnerMode ? '0-59, *, */N, N/N, N,N, N-N' : '0-59';
 	}
 
 	get daysOfWeekOptions()
@@ -192,7 +269,7 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 
 	@api get isValid()
 	{
-		return validateCronExpression(this.buildCurrentExpression()).isValid;
+		return validateCronExpression(this.buildCurrentExpression(), this.parserOptions).isValid;
 	}
 
 	get showValidationError()
@@ -202,7 +279,7 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 
 	get validationMessage()
 	{
-		return validateCronExpression(this.buildCurrentExpression()).errorMessage;
+		return validateCronExpression(this.buildCurrentExpression(), this.parserOptions).errorMessage;
 	}
 
 	connectedCallback()
@@ -212,17 +289,12 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 
 	parseAndPopulate(expression)
 	{
-		let result = parseCronExpression(expression);
+		let result = parseCronExpression(expression, this.parserOptions);
 		this.mode = result.mode;
 
 		if(result.mode === MODE_PRESET && result.preset)
 		{
-			this.presetFrequency = result.preset.frequency;
-			this.presetMinuteInterval = result.preset.minuteInterval || '5';
-			this.presetMinute = result.preset.minute || '0';
-			this.presetHour = result.preset.hour || '12';
-			this.presetDaysOfWeek = result.preset.daysOfWeek || [];
-			this.presetDayOfMonth = result.preset.dayOfMonth || '1';
+			this.applyPreset(result.preset);
 		}
 		else if(result.mode === MODE_ADVANCED && result.advanced)
 		{
@@ -238,6 +310,17 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 		{
 			this.customExpression = result.raw;
 		}
+	}
+
+	/** @description Copies a parsed preset into the preset fields the editor shows, filling in a default for anything the preset leaves out. */
+	applyPreset(preset)
+	{
+		this.presetFrequency = preset.frequency;
+		this.presetMinuteInterval = preset.minuteInterval || '5';
+		this.presetMinute = preset.minute || '0';
+		this.presetHour = preset.hour || '12';
+		this.presetDaysOfWeek = preset.daysOfWeek || [];
+		this.presetDayOfMonth = preset.dayOfMonth || '1';
 	}
 
 	buildCurrentExpression()
@@ -300,7 +383,7 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 		}
 		else if(targetMode === MODE_PRESET)
 		{
-			let result = parseCronExpression(currentExpression);
+			let result = parseCronExpression(currentExpression, this.parserOptions);
 			if(!result.preset)
 			{
 				this.showWarningToast(PRESET_MODE_UNREPRESENTABLE);
@@ -313,12 +396,8 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 				});
 				return;
 			}
-			this.presetFrequency = result.preset.frequency;
-			this.presetMinuteInterval = result.preset.minuteInterval || '5';
-			this.presetMinute = result.preset.minute || '0';
-			this.presetHour = result.preset.hour || '12';
-			this.presetDaysOfWeek = result.preset.daysOfWeek || [];
-			this.presetDayOfMonth = result.preset.dayOfMonth || '1';
+
+			this.applyPreset(result.preset);
 		}
 
 		this.mode = targetMode;
@@ -332,6 +411,16 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 		if(this.presetFrequency === 'weekly' && this.presetDaysOfWeek.length === 0)
 		{
 			this.presetDaysOfWeek = ['MON'];
+		}
+
+		let checkInterval = this.parserOptions.activeCheckIntervalMinutes;
+		let reachableIntervals = MINUTE_INTERVALS.filter((option) => Number(option.value) % checkInterval === 0);
+
+		// A job opens on five minutes, which a runner checking every fifteen never reaches, so choosing Every N
+		// Minutes moves the interval to the first one that runner's check can actually hit.
+		if(this.isEveryNMinutes && reachableIntervals.length > 0 && Number(this.presetMinuteInterval) % checkInterval !== 0)
+		{
+			this.presetMinuteInterval = reachableIntervals[0].value;
 		}
 
 		this.dispatchChangeEvent();

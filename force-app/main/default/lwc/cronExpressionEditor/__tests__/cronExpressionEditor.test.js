@@ -3,12 +3,12 @@
  * @description Jest unit tests for cronExpressionEditor LWC component.
  *
  * @author Jason van Beukering
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 
-// PLAN-111: resolve every CronExpressionEditor_* label to its real value so the existing
-// exact-string assertions verify byte-faithful interpolation (labels otherwise resolve to
-// 'c.X' in jest). Generated from the same ledger as the CustomLabels entries.
+// Resolve every CronExpressionEditor_* label to its real value, so the exact-string
+// assertions check that values are inserted into the text exactly (in jest a label otherwise
+// resolves to 'c.X'). The values are copied from the CustomLabels entries.
 jest.mock('@salesforce/label/c.CronExpressionEditor_FreqEveryNMinutes', () => ({default: 'Every N Minutes'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_FreqHourly', () => ({default: 'Hourly'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_FreqDaily', () => ({default: 'Daily'}), {virtual: true});
@@ -70,7 +70,16 @@ jest.mock('@salesforce/label/c.CronExpressionEditor_DescInMonthSuffix', () => ({
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescNearestWeekday', () => ({default: 'Nearest weekday to day {0} of every month{1} at {2}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescMonthlyOnDay', () => ({default: 'Monthly on day {0}{1} at {2}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_ValSeconds', () => ({default: 'Enter 0-59'}), {virtual: true});
-jest.mock('@salesforce/label/c.CronExpressionEditor_ValMinutes', () => ({default: 'Enter 0-59, *, */N, N/N, or comma/range lists'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValMinutes',
+		() => ({default: 'Enter one minute, 0 to 59. A scheduled job runs at most once an hour, so this field cannot take *, a step such as */15, or a list such as 0,30.'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_ValMinutesJobRunner',
+		() => ({default: 'Enter minutes 0 to 59, *, a step such as */15, a range such as 0-30, or a list such as 0,30. The job runner accepts them all.'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescEveryNMinutesOnRunner', () => ({default: '{0} on this job runner'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescFirstCheckOnOrAfter', () => ({default: 'Runs at the first job runner check on or after each scheduled time'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_IntervalActivateFirstNote', () => ({default: 'Activate the job runner in Health Check first; until then the job waits.'}),
+		{virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_ValHours', () => ({default: 'Enter 0-23, *, */N, N/N, or comma/range lists'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_ValDayOfMonth', () => ({default: 'Enter 1-31, *, ?, L, W, LW, */N, N/N, or comma/range lists'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_ValMonth', () => ({default: 'Enter 1-12, *, JAN-DEC, or comma/range lists'}), {virtual: true});
@@ -269,10 +278,24 @@ describe('c-cron-expression-editor', () =>
 			return Object.getOwnPropertyDescriptor(prototype, name).get;
 		};
 
+		// Accessors the mock context reads from the prototype, so a getter under test sees the same
+		// chain of getters the rendered component does.
+		const CONTEXT_ACCESSORS = [
+			'parserOptions',
+			'presetFrequencies',
+			'minuteIntervals',
+			'showActivateFirstNote',
+			'minutesHelp',
+			'isEveryNMinutes'
+		];
+
 		const createMockContext = (overrides = {}) =>
 		{
+			let {jobRunnerMode, ...otherOverrides} = overrides;
 			let context = {
 				_value: undefined,
+				_jobRunnerMode: jobRunnerMode === true,
+				activeCheckIntervalMinutes: null,
 				mode: 'preset',
 				presetFrequency: 'daily',
 				presetMinuteInterval: '5',
@@ -292,10 +315,15 @@ describe('c-cron-expression-editor', () =>
 				showErrorToast: jest.fn(),
 				template: {querySelectorAll: jest.fn(() => [])},
 				parseAndPopulate: prototype.parseAndPopulate,
+				applyPreset: prototype.applyPreset,
 				buildCurrentExpression: prototype.buildCurrentExpression,
 				dispatchChangeEvent: prototype.dispatchChangeEvent,
-				connectedCallback: prototype.connectedCallback, ...overrides
+				connectedCallback: prototype.connectedCallback, ...otherOverrides
 			};
+			CONTEXT_ACCESSORS.forEach((name) =>
+			{
+				Object.defineProperty(context, name, {...Object.getOwnPropertyDescriptor(prototype, name), configurable: true});
+			});
 			Object.defineProperty(context, 'isValid', {
 				get()
 				{
@@ -372,13 +400,12 @@ describe('c-cron-expression-editor', () =>
 				expect(context.presetDayOfMonth).toBe('15');
 			});
 
-			it('populates everyNMinutes preset', () =>
+			it('populates advanced mode for a stepped minutes field', () =>
 			{
 				let context = createMockContext();
 				prototype.parseAndPopulate.call(context, '0 */15 * * * ?');
-				expect(context.mode).toBe('preset');
-				expect(context.presetFrequency).toBe('everyNMinutes');
-				expect(context.presetMinuteInterval).toBe('15');
+				expect(context.mode).toBe('advanced');
+				expect(context.advancedMinutes).toBe('*/15');
 			});
 
 			it('populates hourly preset', () =>
@@ -557,11 +584,11 @@ describe('c-cron-expression-editor', () =>
 				expect(getter.call(context)).toHaveLength(3);
 			});
 
-			it('presetFrequencies returns five frequencies', () =>
+			it('presetFrequencies returns four frequencies in own mode', () =>
 			{
 				let context = createMockContext();
 				let getter = Object.getOwnPropertyDescriptor(prototype, 'presetFrequencies').get;
-				expect(getter.call(context)).toHaveLength(5);
+				expect(getter.call(context)).toHaveLength(4);
 			});
 
 			it('minuteIntervals returns four intervals', () =>
@@ -604,6 +631,79 @@ describe('c-cron-expression-editor', () =>
 				let context = createMockContext();
 				let getter = Object.getOwnPropertyDescriptor(prototype, 'secondsOptions').get;
 				expect(getter.call(context)).toHaveLength(SECONDS_IN_MINUTE);
+			});
+		});
+
+		describe('job runner mode', () =>
+		{
+			it('offers Every N Minutes only on the job runner, with the intervals the check interval allows', () =>
+			{
+				let ownMode = createMockContext();
+				expect(getGetter('presetFrequencies').call(ownMode).map((option) => option.value)).toEqual([
+					'hourly',
+					'daily',
+					'weekly',
+					'monthly'
+				]);
+
+				let onRunner = createMockContext({jobRunnerMode: true, activeCheckIntervalMinutes: 15});
+				expect(getGetter('presetFrequencies').call(onRunner).map((option) => option.value)).toEqual([
+					'everyNMinutes',
+					'hourly',
+					'daily',
+					'weekly',
+					'monthly'
+				]);
+				expect(getGetter('minuteIntervals').call(onRunner).map((option) => option.value)).toEqual([
+					'15',
+					'30'
+				]);
+
+				let noRunner = createMockContext({jobRunnerMode: true, activeCheckIntervalMinutes: null});
+				expect(getGetter('minuteIntervals').call(noRunner).map((option) => option.value)).toEqual([
+					'5',
+					'10',
+					'15',
+					'30'
+				]);
+				expect(getGetter('showActivateFirstNote').call(createMockContext({jobRunnerMode: true, activeCheckIntervalMinutes: null, presetFrequency: 'everyNMinutes'})))
+				.toBe(true);
+
+				let everyHour = createMockContext({jobRunnerMode: true, activeCheckIntervalMinutes: 60});
+				expect(getGetter('presetFrequencies').call(everyHour).map((option) => option.value)).toEqual([
+					'hourly',
+					'daily',
+					'weekly',
+					'monthly'
+				]);
+			});
+
+			it('keeps the interval a saved job already uses, even when the runner no longer checks that often', () =>
+			{
+				let context = createMockContext({jobRunnerMode: true, activeCheckIntervalMinutes: 15, presetFrequency: 'everyNMinutes', presetMinuteInterval: '5'});
+				expect(getGetter('minuteIntervals').call(context).map((option) => option.value)).toEqual([
+					'5',
+					'15',
+					'30'
+				]);
+			});
+
+			it('keeps Every N Minutes while a saved job is using it, even when no interval survives', () =>
+			{
+				let context = createMockContext({jobRunnerMode: true, activeCheckIntervalMinutes: 60, presetFrequency: 'everyNMinutes'});
+				expect(getGetter('presetFrequencies').call(context).map((option) => option.value)).toEqual([
+					'everyNMinutes',
+					'hourly',
+					'daily',
+					'weekly',
+					'monthly'
+				]);
+			});
+
+			it('spells the minutes grammar each mode accepts in the advanced field help', () =>
+			{
+				expect(getGetter('minutesHelp').call(createMockContext())).toBe('0-59');
+				expect(getGetter('minutesHelp').call(createMockContext({jobRunnerMode: true}))).toBe('0-59, *, */N, N/N, N,N, N-N');
 			});
 		});
 
@@ -794,6 +894,31 @@ describe('c-cron-expression-editor', () =>
 					'TUE',
 					'THU'
 				]);
+			});
+
+			it('handleFrequencyChange moves a fresh Every N Minutes choice to an interval the active runner can hit', () =>
+			{
+				let context = createMockContext({jobRunnerMode: true, activeCheckIntervalMinutes: 15});
+				prototype.handleFrequencyChange.call(context, {detail: {value: 'everyNMinutes'}});
+				expect(context.presetMinuteInterval).toBe('15');
+			});
+
+			it('handleFrequencyChange keeps an interval the active runner already hits', () =>
+			{
+				let context = createMockContext({jobRunnerMode: true, activeCheckIntervalMinutes: 15, presetMinuteInterval: '30'});
+				prototype.handleFrequencyChange.call(context, {detail: {value: 'everyNMinutes'}});
+				expect(context.presetMinuteInterval).toBe('30');
+			});
+
+			it('handleFrequencyChange keeps the interval while no runner is active, and while none of them fits the runner', () =>
+			{
+				let noRunner = createMockContext({jobRunnerMode: true, activeCheckIntervalMinutes: null});
+				prototype.handleFrequencyChange.call(noRunner, {detail: {value: 'everyNMinutes'}});
+				expect(noRunner.presetMinuteInterval).toBe('5');
+
+				let hourlyRunner = createMockContext({jobRunnerMode: true, activeCheckIntervalMinutes: 60});
+				prototype.handleFrequencyChange.call(hourlyRunner, {detail: {value: 'everyNMinutes'}});
+				expect(hourlyRunner.presetMinuteInterval).toBe('5');
 			});
 
 			it('handleMinuteIntervalChange updates interval and dispatches cronchange', () =>
@@ -991,6 +1116,7 @@ describe('c-cron-expression-editor', () =>
 				showErrorToast: jest.fn(),
 				template: {querySelectorAll: jest.fn(() => [])},
 				parseAndPopulate: prototype.parseAndPopulate,
+				applyPreset: prototype.applyPreset,
 				buildCurrentExpression: prototype.buildCurrentExpression,
 				dispatchChangeEvent: prototype.dispatchChangeEvent, ...overrides
 			};
@@ -1053,7 +1179,7 @@ describe('c-cron-expression-editor', () =>
 			expect(getter.call(context)).toContain('Step value must be at least 1');
 		});
 
-		it('handleModeChange bounces mode through null on rejected preset switch (Bug 7)', async() =>
+		it('handleModeChange bounces mode through null on rejected preset switch', async() =>
 		{
 			let context = createValidationContext({
 				advancedSeconds: '0', advancedMinutes: '0', advancedHours: '17', advancedDayOfMonth: 'LW', advancedMonth: '*', advancedDayOfWeek: '?', advancedYear: ''
@@ -1070,27 +1196,48 @@ describe('c-cron-expression-editor', () =>
 	{
 		const {validateCronField} = require('c/cronExpressionEditor');
 
-		it('validates minutes field with valid values', () =>
+		it('accepts a single minute only in own mode', () =>
 		{
 			expect(validateCronField('minutes', '0').isValid).toBe(true);
 			expect(validateCronField('minutes', '59').isValid).toBe(true);
-			expect(validateCronField('minutes', '*').isValid).toBe(true);
-			expect(validateCronField('minutes', '*/5').isValid).toBe(true);
-			expect(validateCronField('minutes', '0/5').isValid).toBe(true);
-			expect(validateCronField('minutes', '0/15').isValid).toBe(true);
+			let rejected = [
+				'*',
+				'*/5',
+				'0/5',
+				'0,15,30,45',
+				'0-30',
+				'60'
+			];
+			expect(rejected.map((value) => ({value, isValid: validateCronField('minutes', value).isValid})))
+			.toEqual(rejected.map((value) => ({value, isValid: false})));
+			expect(validateCronField('minutes', '*/15').errorMessage)
+			.toBe('Enter one minute, 0 to 59. A scheduled job runs at most once an hour, so this field cannot take *, a step such as */15, or a list such as 0,30.');
 		});
 
-		it('validates minutes field with comma-separated and range values', () =>
+		it('accepts the wide minutes grammar on the job runner, with its own message', () =>
 		{
-			expect(validateCronField('minutes', '0,15,30,45').isValid).toBe(true);
-			expect(validateCronField('minutes', '0-30').isValid).toBe(true);
+			const options = {jobRunnerMode: true};
+			let accepted = [
+				'*',
+				'*/5',
+				'0/5',
+				'0,15,30,45',
+				'0-30',
+				'7'
+			];
+			expect(accepted.map((value) => ({value, isValid: validateCronField('minutes', value, options).isValid})))
+			.toEqual(accepted.map((value) => ({value, isValid: true})));
+			expect(validateCronField('minutes', '60', options).isValid).toBe(false);
+			expect(validateCronField('minutes', 'x', options).errorMessage).toContain('The job runner accepts them all');
+			expect(validateCronExpression('0 */15 * * * ?').isValid).toBe(false);
+			expect(validateCronExpression('0 */15 * * * ?', options).isValid).toBe(true);
 		});
 
 		it('rejects invalid minutes values', () =>
 		{
 			let result = validateCronField('minutes', '0.2');
 			expect(result.isValid).toBe(false);
-			expect(result.errorMessage).toContain('Enter 0-59');
+			expect(result.errorMessage).toContain('Enter one minute, 0 to 59');
 		});
 
 		it('validates hours field with valid values', () =>
@@ -1230,7 +1377,7 @@ describe('c-cron-expression-editor', () =>
 
 		it('does not apply range check to non-numeric values', () =>
 		{
-			expect(validateCronField('minutes', '*').isValid).toBe(true);
+			expect(validateCronField('minutes', '*', {jobRunnerMode: true}).isValid).toBe(true);
 			expect(validateCronField('hours', '*/2').isValid).toBe(true);
 			expect(validateCronField('dayOfMonth', 'L').isValid).toBe(true);
 			expect(validateCronField('month', 'JAN').isValid).toBe(true);
@@ -1311,6 +1458,30 @@ describe('c-cron-expression-editor', () =>
 			await Promise.resolve();
 
 			expect(element.isValid).toBe(true);
+		});
+
+		it('re-parses a runner-only preset into advanced mode when the runner flag is cleared', async() =>
+		{
+			const CronExpressionEditor = require('c/cronExpressionEditor').default;
+			let element = createElement('c-cron-expression-editor', {is: CronExpressionEditor});
+			element.jobRunnerMode = true;
+			element.value = '0 */15 * * * ?';
+			document.body.appendChild(element);
+
+			await Promise.resolve();
+
+			let intervalCombobox = [...element.shadowRoot.querySelectorAll('lightning-combobox')].find((field) => field.name === 'minuteInterval');
+			expect(intervalCombobox.value).toBe('15');
+			expect(element.jobRunnerMode).toBe(true);
+
+			element.jobRunnerMode = false;
+
+			await Promise.resolve();
+
+			expect(element.jobRunnerMode).toBe(false);
+			let minutesInput = [...element.shadowRoot.querySelectorAll('lightning-input')].find((field) => field.name === 'minutes');
+			expect(minutesInput.value).toBe('*/15');
+			expect(element.cronExpression).toBe('0 */15 * * * ?');
 		});
 
 		it('isValid returns true for valid 6-field expression', async() =>

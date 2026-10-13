@@ -42,7 +42,7 @@ LOG_Builder.build()
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [debug](#debug)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> messages) | Sets the log level to DEBUG with the given batch of messages. |
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [debug](#debug)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message) | Sets the log level to DEBUG with the given message. |
 | global void [emit](#emit)() | Emits the log entry with all configured properties. |
-| global void [emitAt](#emitat)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) classMethod) | Convenience terminal that sets the class/method and emits in one call. |
+| global void [emitAt](#emitat)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) classMethod) | A shortcut that sets the class and method and emits the entry in one call. |
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [error](#error)([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) error) | Sets the log level to ERROR with the given exception. |
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [error](#error)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> messages) | Sets the log level to ERROR with the given batch of messages. |
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [error](#error)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message) | Sets the log level to ERROR with the given message. |
@@ -53,7 +53,7 @@ LOG_Builder.build()
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [warn](#warn)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> messages) | Sets the log level to WARN with the given batch of messages. |
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [warn](#warn)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message) | Sets the log level to WARN with the given message. |
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [withContext](#withcontext)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Adds a context key-value pair to this log entry. |
-| global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [withFingerprint](#withfingerprint)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key) | Sets a grouping fingerprint for this entry, enabling flood control: the first occurrence persists as a full detail row, repeats roll up into daily counter rows. |
+| global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [withFingerprint](#withfingerprint)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key) | Sets a grouping fingerprint for this entry, which turns on flood control. |
 | global [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [withSummary](#withsummary)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) shortMessage) | Sets a brief summary message for the log entry. |
 
 ### at
@@ -136,7 +136,7 @@ then cleaned up to prevent leaking into subsequent logs.
 global void emitAt(String classMethod)
 ```
 
-Convenience terminal that sets the class/method and emits in one call.
+A shortcut that sets the class and method and emits the entry in one call.
 Equivalent to `.at(classMethod).emit()`.
 
 **Parameters**
@@ -334,11 +334,11 @@ global LOG_Builder.LogEntry withContext(String key, Object value)
 Adds a context key-value pair to this log entry.
 Context is scoped to this entry only and does not affect other logs.
 
-Complex types (Maps, Lists, SObjects) are JSON-serialised automatically inside
-`LOG_Engine.setGlobalContext` — callers MUST NOT pre-serialise via `JSON.serialize(value)`
-or the payload is double-encoded. Pass the value object directly and let the engine
-decide the wire form. Prefer `LOG_Engine.CONTEXT_*` constants for `key` over string
-literals so cross-framework log entries pivot on the same key namespace.
+Complex types (Maps, Lists, SObjects) are turned into JSON automatically inside
+`LOG_Engine.setGlobalContext`. Callers MUST NOT turn them into JSON first with `JSON.serialize(value)`,
+or the value is encoded twice. Pass the value object directly and let the engine decide how to store it.
+Use the `LOG_Engine.CONTEXT_*` constants for `key` instead of your own text, so that log entries from every
+part of the framework use the same key names and can be searched together.
 
 **Parameters**
 
@@ -359,14 +359,14 @@ literals so cross-framework log entries pivot on the same key namespace.
 global LOG_Builder.LogEntry withFingerprint(String key)
 ```
 
-Sets a grouping fingerprint for this entry, enabling flood control: the first
-occurrence persists as a full detail row, repeats roll up into daily counter rows. Use a
-STABLE event-template identity (e.g. 'payment-retry-loop') — never per-occurrence data
-such as record ids or timestamps, which would make every entry unique and produce MORE
-rows than plain logging. Keys are trimmed; keys longer than 200 characters or starting
-with the reserved 'bypass:' prefix are SHA-256 hashed. When a key is hashed, the original
-key is recorded in this entry's context (`LOG_Engine.CONTEXT_FINGERPRINT_SOURCE`) so the
-opaque stored fingerprint stays reconcilable with what you supplied.
+Sets a grouping fingerprint for this entry, which turns on flood control. Flood control stops
+the same event from filling the log: the first time the event happens it is saved as a full detail row,
+and repeats are added up in one counter row per day. Use a key that names the kind of event and never
+changes (e.g. 'payment-retry-loop'). Never use data that changes each time, such as record ids or
+timestamps: that would make every entry unique and produce MORE rows than plain logging. Keys are trimmed.
+Keys longer than 200 characters, or starting with the reserved 'bypass:' prefix, are replaced by their
+SHA-256 hash. When a key is hashed, the original key is saved in this entry's context
+(`LOG_Engine.CONTEXT_FINGERPRINT_SOURCE`), so you can still match the stored hash to the key you supplied.
 
 **Parameters**
 
@@ -392,7 +392,8 @@ LOG_Builder.build().warn('Retry failed').withFingerprint('order-sync-retry').emi
 global LOG_Builder.LogEntry withSummary(String shortMessage)
 ```
 
-Sets a brief summary message for the log entry.
+Sets a brief summary message for the log entry. On an entry that carries an
+exception, the summary becomes the short message and the exception's text stays the message.
 
 **Parameters**
 

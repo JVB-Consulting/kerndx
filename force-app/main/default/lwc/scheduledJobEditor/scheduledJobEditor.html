@@ -1,14 +1,14 @@
 <!-- SPDX-License-Identifier: BUSL-1.1 -->
 <template>
-	<lightning-card data-testid="scheduled-job-editor-root" title={cardTitle}>
+	<lightning-card data-testid="scheduled-job-editor-root" title={formTitle}>
 		<div class="slds-var-p-around_medium">
 			<div class="slds-grid slds-wrap slds-gutters_small">
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-m-bottom_small">
 					<lightning-input data-testid="scheduler-name" label={label.schedulerName} onchange={handleSchedulerNameChange} required value={schedulerName}></lightning-input>
 				</div>
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-m-bottom_small">
-					<lightning-combobox data-testid="class-name" label={label.className} name="className" onchange={handleClassNameChange} options={classOptions}
-										placeholder={label.classPlaceholder} required value={className}></lightning-combobox>
+					<c-scheduled-job-class-picker data-testid="class-name" error-message={classNameError} label={label.className} onclasschange={handleClassNameChange}
+												  options={classOptions} placeholder={label.classPlaceholder} required value={className}></c-scheduled-job-class-picker>
 				</div>
 				<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-var-m-bottom_small">
 					<lightning-input checked={isActive} data-testid="is-active" label={label.active} message-toggle-active={label.active} message-toggle-inactive={label.inactive}
@@ -17,8 +17,33 @@
 			</div>
 
 			<div class="slds-var-m-top_medium">
+				<lightning-radio-group data-testid="execution-mode" disabled={isExecutionModeDisabled} label={label.executionMode} name="executionMode"
+									   onchange={handleExecutionModeChange} options={executionModeOptions} type="radio" value={executionMode}></lightning-radio-group>
+				<template lwc:if={showPermissionNote}>
+					<p class="slds-text-body_small slds-text-color_weak" data-testid="job-runner-permission-note">{label.jobRunnerPermissionNote}</p>
+				</template>
+				<template lwc:if={isJobRunnerMode}>
+					<p class="slds-text-body_small slds-text-color_weak slds-var-m-top_xx-small" data-testid="job-runner-note">{jobRunnerNote}</p>
+					<div class="slds-grid slds-wrap slds-gutters_small slds-var-m-top_small">
+						<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+							<lightning-input data-testid="run-priority" field-level-help={label.runPriorityHelp} label={label.runPriority} min="0"
+											 onchange={handleRunPriorityChange} step="1" type="number" value={runPriority}></lightning-input>
+						</div>
+						<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2">
+							<lightning-radio-group data-testid="overlap-policy" label={label.overlapPolicy} name="overlapPolicy" onchange={handleOverlapPolicyChange}
+												   options={overlapPolicyOptions} type="radio" value={overlapPolicy}></lightning-radio-group>
+						</div>
+					</div>
+				</template>
+			</div>
+
+			<div class="slds-var-m-top_medium">
 				<h3 class="slds-text-heading_small slds-var-m-bottom_small">{scheduleHeading}</h3>
-				<c-cron-expression-editor oncronchange={handleCronChange} value={cronExpression}></c-cron-expression-editor>
+				<c-cron-expression-editor active-check-interval-minutes={activeCheckIntervalMinutes} job-runner-mode={isJobRunnerMode} oncronchange={handleCronChange}
+										  value={cronExpression}></c-cron-expression-editor>
+				<template lwc:if={isJobRunnerMode}>
+					<p class="slds-text-body_small slds-var-m-top_x-small" data-testid="next-run-preview">{nextRunPreviewLabel}</p>
+				</template>
 			</div>
 
 			<template lwc:if={hasParameterDefinitions}>

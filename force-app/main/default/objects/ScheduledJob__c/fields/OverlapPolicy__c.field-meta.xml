@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>OverlapPolicy__c</fullName>
+    <description>On the job runner: Skip marks a due run as Skipped while the previous run is still running; Allow starts it anyway. A skipped run is not made up later.</description>
+    <inlineHelpText>Skip is the safe default for a job that must never run twice at once.</inlineHelpText>
+    <label>Overlap Policy</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Skip</fullName>
+                <default>true</default>
+                <label>Skip this run while the previous one is still running</label>
+            </value>
+            <value>
+                <fullName>Allow</fullName>
+                <default>false</default>
+                <label>Allow runs to overlap</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

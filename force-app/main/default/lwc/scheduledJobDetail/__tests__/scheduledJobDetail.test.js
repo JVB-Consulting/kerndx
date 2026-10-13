@@ -3,7 +3,7 @@
  * @description Jest unit tests for scheduledJobDetail LWC component.
  *
  * @author Jason van Beukering
- * @date March 2026, August 2026
+ * @date March 2026, September 2026
  */
 import {createElement} from 'lwc';
 import LOADING_LABEL from '@salesforce/label/c.ScheduledJobDetail_Loading';
@@ -13,7 +13,7 @@ import ACTIVE_STATUS from '@salesforce/label/c.ScheduledJob_Active';
 import INACTIVE_STATUS from '@salesforce/label/c.ScheduledJob_Inactive';
 
 jest.mock('lightning/uiRecordApi', () => ({
-	getRecord: jest.fn(), getFieldValue: jest.fn()
+	getRecord: jest.fn(), getFieldValue: jest.fn(), getFieldDisplayValue: jest.fn(), notifyRecordUpdateAvailable: jest.fn().mockResolvedValue()
 }), {virtual: true});
 
 jest.mock('@salesforce/schema/ScheduledJob__c.SchedulerName__c', () => ({default: 'ScheduledJob__c.SchedulerName__c'}), {virtual: true});
@@ -23,8 +23,35 @@ jest.mock('@salesforce/schema/ScheduledJob__c.IsActive__c', () => ({default: 'Sc
 jest.mock('@salesforce/schema/ScheduledJob__c.Description__c', () => ({default: 'ScheduledJob__c.Description__c'}), {virtual: true});
 jest.mock('@salesforce/schema/ScheduledJob__c.Parameters__c', () => ({default: 'ScheduledJob__c.Parameters__c'}), {virtual: true});
 jest.mock('@salesforce/schema/ScheduledJob__c.Timezone__c', () => ({default: 'ScheduledJob__c.Timezone__c'}), {virtual: true});
+jest.mock('@salesforce/schema/ScheduledJob__c.ExecutionMode__c', () => ({default: 'ScheduledJob__c.ExecutionMode__c'}), {virtual: true});
+jest.mock('@salesforce/schema/ScheduledJob__c.NextRunAt__c', () => ({default: 'ScheduledJob__c.NextRunAt__c'}), {virtual: true});
+jest.mock('@salesforce/schema/ScheduledJob__c.LastRunAt__c', () => ({default: 'ScheduledJob__c.LastRunAt__c'}), {virtual: true});
+jest.mock('@salesforce/schema/ScheduledJob__c.LastRunOutcome__c', () => ({default: 'ScheduledJob__c.LastRunOutcome__c'}), {virtual: true});
+jest.mock('@salesforce/schema/ScheduledJob__c.LastRunReason__c', () => ({default: 'ScheduledJob__c.LastRunReason__c'}), {virtual: true});
 
 jest.mock('@salesforce/apex/CTRL_ScheduledJob.getParameterDefinitions', () => ({default: jest.fn()}), {virtual: true});
+jest.mock('@salesforce/apex/CTRL_ScheduledJob.getJobRunnerState', () => ({default: jest.fn()}), {virtual: true});
+jest.mock('@salesforce/apex/CTRL_ScheduledJob.runNow', () => ({default: jest.fn()}), {virtual: true});
+jest.mock('@salesforce/apex/CTRL_ScheduledJob.findLastRunLogEntryId', () => ({default: jest.fn()}), {virtual: true});
+
+// The job runner labels resolve to their shipped values, so every assertion below reads the
+// sentence a subscriber sees rather than the default 'c.X' stub.
+jest.mock('@salesforce/label/c.ScheduledJob_ExecutionModeOwn', () => ({default: 'Its own scheduled job'}), {virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJob_ExecutionModeJobRunner', () => ({default: 'Job runner'}), {virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJob_RunNow', () => ({default: 'Run now'}), {virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJob_RunNowStarted', () => ({default: 'The job was started. Its outcome appears on this record when the run finishes.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJob_SkippedPreviousRunStillRunning', () => ({default: 'Skipped: the previous run was still running when this run was due.'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJob_SkippedRecordNoLongerOnRunner', () => ({default: 'Skipped: when the run started the job was inactive or no longer on the job runner.'}),
+		{virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJob_ParkedClassNotFound', () => ({default: 'The job was parked because its class could not be loaded: {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJob_ParkedExpressionCannotBePlaced',
+		() => ({default: 'The job was parked because its next run time could not be worked out. The log entry for this record has the detail.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJob_ExpressionCannotFireWithinHorizon',
+		() => ({default: 'This expression never fires within the next four years, so the job runner cannot schedule it.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJobDetail_NoRunYet', () => ({default: 'Not run yet'}), {virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJobDetail_ViewLog', () => ({default: 'View log'}), {virtual: true});
+jest.mock('@salesforce/label/c.ScheduledJobDetail_LogEntryNotFound', () => ({default: 'The log entry for this run is no longer available.'}), {virtual: true});
 
 jest.mock('c/cronExpressionEditor', () => ({
 	describeCronExpression: jest.fn().mockReturnValue('Every day at noon')
@@ -137,7 +164,7 @@ describe('c-scheduled-job-detail', () =>
 	{
 		const ScheduledJobDetail = require('c/scheduledJobDetail').default;
 		const prototype = ScheduledJobDetail.prototype;
-		const {getFieldValue} = require('lightning/uiRecordApi');
+		const {getFieldValue, getFieldDisplayValue} = require('lightning/uiRecordApi');
 
 		const getGetter = (name) =>
 		{
@@ -158,7 +185,9 @@ describe('c-scheduled-job-detail', () =>
 				dispatchEvent: jest.fn(),
 				callControllerMethod: jest.fn().mockResolvedValue(null),
 				redirectToRecordPage: jest.fn(),
-				loadParameterDefinitions: jest.fn(), ...overrides
+				loadParameterDefinitions: jest.fn(),
+				loadJobRunnerState: jest.fn().mockResolvedValue(),
+				jobRunnerState: {isActive: false, checkIntervalMinutes: null, canManage: false}, ...overrides
 			};
 		};
 
@@ -646,6 +675,277 @@ describe('c-scheduled-job-detail', () =>
 				expect(context.showErrorToast).toHaveBeenCalledWith(LOAD_PARAMETERS_FAILED);
 			});
 		});
+
+		describe('job runner fields', () =>
+		{
+			const runNow = require('@salesforce/apex/CTRL_ScheduledJob.runNow').default;
+			const findLastRunLogEntryId = require('@salesforce/apex/CTRL_ScheduledJob.findLastRunLogEntryId').default;
+			const getJobRunnerState = require('@salesforce/apex/CTRL_ScheduledJob.getJobRunnerState').default;
+			const RUN_NOW_STARTED = 'The job was started. Its outcome appears on this record when the run finishes.';
+
+			/**
+			 * Builds the wired-record shape the component reads, keyed the way the schema mocks name
+			 * each field, and points getFieldValue at it.
+			 */
+			const recordOf = (fieldValues, displayValues = {}) =>
+			{
+				let record = {fields: {}};
+
+				for(let fieldName of Object.keys(fieldValues))
+				{
+					let value = fieldValues[fieldName];
+					let displayValue = Object.prototype.hasOwnProperty.call(displayValues, fieldName) ? displayValues[fieldName] : value;
+					record.fields['ScheduledJob__c.' + fieldName] = {value, displayValue};
+				}
+
+				getFieldValue.mockImplementation((wiredRecord, fieldName) => (wiredRecord.fields[fieldName] ? wiredRecord.fields[fieldName].value : null));
+				getFieldDisplayValue.mockImplementation((wiredRecord, fieldName) => (wiredRecord.fields[fieldName] ? wiredRecord.fields[fieldName].displayValue : null));
+				return record;
+			};
+
+			const runnerContext = (fieldValues, overrides = {}, displayValues = {}) =>
+			{
+				return createMockContext({record: recordOf(fieldValues, displayValues), ...overrides});
+			};
+
+			afterEach(() =>
+			{
+				getFieldValue.mockReset();
+				getFieldDisplayValue.mockReset();
+			});
+
+			it('names where the job runs', () =>
+			{
+				let onRunner = runnerContext({ExecutionMode__c: 'JobRunner'});
+				expect(getGetter('isJobRunnerRecord').call(onRunner)).toBe(true);
+				expect(getGetter('viewExecutionMode').call(onRunner)).toBe('Job runner');
+
+				let ownMode = runnerContext({ExecutionMode__c: 'OwnScheduledJob'});
+				expect(getGetter('isJobRunnerRecord').call(ownMode)).toBe(false);
+				expect(getGetter('viewExecutionMode').call(ownMode)).toBe('Its own scheduled job');
+
+				expect(getGetter('isJobRunnerRecord').call(createMockContext({record: null}))).toBe(false);
+			});
+
+			it('shows the next run, the last run and the outcome of a record that has run', () =>
+			{
+				let context = runnerContext({
+					ExecutionMode__c: 'JobRunner', NextRunAt__c: '2026-09-11T14:15:00.000Z', LastRunAt__c: '2026-09-11T14:00:00.000Z', LastRunOutcome__c: 'Failed'
+				});
+
+				expect(getGetter('viewNextRun').call(context)).not.toBe('');
+				expect(getGetter('viewLastRun').call(context)).not.toBe('Not run yet');
+				expect(getGetter('viewLastRunOutcome').call(context)).toBe('Failed');
+			});
+
+			it('reads the never-run words before the first run', () =>
+			{
+				let context = runnerContext({ExecutionMode__c: 'JobRunner'});
+
+				expect(getGetter('viewNextRun').call(context)).toBe('');
+				expect(getGetter('viewLastRun').call(context)).toBe('Not run yet');
+				expect(getGetter('viewLastRunOutcome').call(context)).toBe('Not run yet');
+			});
+
+			it('shows the outcome in the reader own language, falling back to the stored value', () =>
+			{
+				let translated = runnerContext({ExecutionMode__c: 'JobRunner', LastRunOutcome__c: 'Succeeded'}, {}, {LastRunOutcome__c: 'Reussi'});
+				expect(getGetter('viewLastRunOutcome').call(translated)).toBe('Reussi');
+
+				let withoutDisplayValue = runnerContext({ExecutionMode__c: 'JobRunner', LastRunOutcome__c: 'Succeeded'}, {}, {LastRunOutcome__c: null});
+				expect(getGetter('viewLastRunOutcome').call(withoutDisplayValue)).toBe('Succeeded');
+			});
+
+			it.each([
+				[
+					'Succeeded',
+					'slds-badge badge-success'
+				],
+				[
+					'Failed',
+					'slds-badge slds-theme_error'
+				],
+				[
+					'Parked',
+					'slds-badge slds-theme_warning'
+				],
+				[
+					'Skipped',
+					'slds-badge'
+				],
+				[
+					null,
+					'slds-badge'
+				]
+			])('badges the %s outcome', (outcome, expectedClass) =>
+			{
+				let context = runnerContext({ExecutionMode__c: 'JobRunner', LastRunOutcome__c: outcome});
+				expect(getGetter('outcomeBadgeClass').call(context)).toBe(expectedClass);
+			});
+
+			it.each([
+				[
+					'PreviousRunStillRunning',
+					'Skipped: the previous run was still running when this run was due.'
+				],
+				[
+					'RecordNoLongerOnRunner',
+					'Skipped: when the run started the job was inactive or no longer on the job runner.'
+				],
+				[
+					'ExpressionCannotBePlaced',
+					'The job was parked because its next run time could not be worked out. The log entry for this record has the detail.'
+				],
+				[
+					'ExpressionCannotFireWithinHorizon',
+					'This expression never fires within the next four years, so the job runner cannot schedule it.'
+				]
+			])('explains the %s reason in its own sentence', (reason, expectedSentence) =>
+			{
+				let context = runnerContext({ExecutionMode__c: 'JobRunner', LastRunReason__c: reason});
+				expect(getGetter('viewLastRunReason').call(context)).toBe(expectedSentence);
+				expect(getGetter('hasLastRunReason').call(context)).toBe(true);
+			});
+
+			it('names the class a parked job could not load', () =>
+			{
+				let context = runnerContext({ExecutionMode__c: 'JobRunner', LastRunReason__c: 'ClassNotFound', ClassName__c: 'SCHED_PurgeRecords'});
+				expect(getGetter('viewLastRunReason').call(context)).toBe('The job was parked because its class could not be loaded: SCHED_PurgeRecords');
+			});
+
+			it('shows a reason it does not recognise rather than an empty row, and no row at all without a reason', () =>
+			{
+				let laterRelease = runnerContext({ExecutionMode__c: 'JobRunner', LastRunReason__c: 'SomethingNewer'});
+				expect(getGetter('viewLastRunReason').call(laterRelease)).toBe('SomethingNewer');
+
+				let noReason = runnerContext({ExecutionMode__c: 'JobRunner'});
+				expect(getGetter('viewLastRunReason').call(noReason)).toBe('');
+				expect(getGetter('hasLastRunReason').call(noReason)).toBe(false);
+			});
+
+			it('offers Run now only for an active runner job to a user who may manage the runner', () =>
+			{
+				let managing = {isActive: true, checkIntervalMinutes: 15, canManage: true};
+				expect(getGetter('showRunNow').call(runnerContext({ExecutionMode__c: 'JobRunner', IsActive__c: true}, {jobRunnerState: managing}))).toBe(true);
+				expect(getGetter('showRunNow').call(runnerContext({ExecutionMode__c: 'JobRunner', IsActive__c: false}, {jobRunnerState: managing}))).toBe(false);
+				expect(getGetter('showRunNow').call(runnerContext({ExecutionMode__c: 'OwnScheduledJob', IsActive__c: true}, {jobRunnerState: managing}))).toBe(false);
+				expect(getGetter('showRunNow').call(runnerContext({ExecutionMode__c: 'JobRunner', IsActive__c: true}))).toBe(false);
+			});
+
+			it('offers the way to the log entry for a failed and a parked run only', () =>
+			{
+				expect(getGetter('showLastRunLog').call(runnerContext({ExecutionMode__c: 'JobRunner', LastRunOutcome__c: 'Failed'}))).toBe(true);
+				expect(getGetter('showLastRunLog').call(runnerContext({ExecutionMode__c: 'JobRunner', LastRunOutcome__c: 'Parked'}))).toBe(true);
+				expect(getGetter('showLastRunLog').call(runnerContext({ExecutionMode__c: 'JobRunner', LastRunOutcome__c: 'Succeeded'}))).toBe(false);
+				expect(getGetter('showLastRunLog').call(runnerContext({ExecutionMode__c: 'JobRunner'}))).toBe(false);
+			});
+
+			it('starts the job and says so, then asks the page for the new values', async() =>
+			{
+				const {notifyRecordUpdateAvailable} = require('lightning/uiRecordApi');
+				let context = runnerContext({ExecutionMode__c: 'JobRunner', IsActive__c: true});
+				context.callControllerMethod = jest.fn().mockResolvedValue('7071234567890ABCDE');
+
+				await prototype.handleRunNow.call(context);
+
+				expect(context.callControllerMethod).toHaveBeenCalledWith(runNow, {recordId: context.recordId});
+				expect(context.showSuccessToast).toHaveBeenCalledWith(RUN_NOW_STARTED);
+				expect(notifyRecordUpdateAvailable).toHaveBeenCalledWith([{recordId: context.recordId}]);
+			});
+
+			it('says nothing started when the run was refused', async() =>
+			{
+				let context = runnerContext({ExecutionMode__c: 'JobRunner', IsActive__c: true});
+				context.callControllerMethod = jest.fn().mockResolvedValue(null);
+
+				await prototype.handleRunNow.call(context);
+
+				expect(context.showSuccessToast).not.toHaveBeenCalled();
+			});
+
+			it('opens the log entry of the last run', async() =>
+			{
+				let context = runnerContext({ExecutionMode__c: 'JobRunner', LastRunOutcome__c: 'Failed'});
+				context.callControllerMethod = jest.fn().mockResolvedValue('a0L000000000001AAA');
+
+				await prototype.handleViewLastRunLog.call(context);
+
+				expect(context.callControllerMethod).toHaveBeenCalledWith(findLastRunLogEntryId, {recordId: context.recordId});
+				expect(context.redirectToRecordPage).toHaveBeenCalledWith('a0L000000000001AAA');
+			});
+
+			it('says so when the log entry of the last run is gone', async() =>
+			{
+				let context = runnerContext({ExecutionMode__c: 'JobRunner', LastRunOutcome__c: 'Failed'});
+				context.callControllerMethod = jest.fn().mockResolvedValue(null);
+
+				await prototype.handleViewLastRunLog.call(context);
+
+				expect(context.redirectToRecordPage).not.toHaveBeenCalled();
+				expect(context.showErrorToast).toHaveBeenCalledWith('The log entry for this run is no longer available.');
+			});
+
+			it('leaves a failed lookup to the failure the controller call already reported', async() =>
+			{
+				// A failed call is surfaced by the component builder and resolves as undefined; only the
+				// controller's own answer of nothing at all means there is no entry to open.
+				let context = runnerContext({ExecutionMode__c: 'JobRunner', LastRunOutcome__c: 'Failed'});
+				context.callControllerMethod = jest.fn().mockResolvedValue(undefined);
+
+				await prototype.handleViewLastRunLog.call(context);
+
+				expect(context.redirectToRecordPage).not.toHaveBeenCalled();
+				expect(context.showErrorToast).not.toHaveBeenCalled();
+			});
+
+			it('tells the schedule description that the job is on the runner and how often the runner checks', () =>
+			{
+				const {describeCronExpression} = require('c/cronExpressionEditor');
+				let context = runnerContext({ExecutionMode__c: 'JobRunner', CronExpression__c: '0 */5 * * * ?'}, {
+					jobRunnerState: {isActive: true, checkIntervalMinutes: 15, canManage: true}
+				});
+				Object.defineProperty(context, 'viewCronExpression', {get: () => '0 */5 * * * ?'});
+				Object.defineProperty(context, 'viewTimezoneLabel', {get: () => ''});
+
+				getGetter('viewCronDescription').call(context);
+
+				expect(describeCronExpression).toHaveBeenCalledWith('0 */5 * * * ?', {jobRunnerMode: true, activeCheckIntervalMinutes: 15});
+			});
+
+			it('leaves the check interval out of the description while no runner is active', () =>
+			{
+				const {describeCronExpression} = require('c/cronExpressionEditor');
+				let context = runnerContext({ExecutionMode__c: 'JobRunner', CronExpression__c: '0 */5 * * * ?'});
+				Object.defineProperty(context, 'viewCronExpression', {get: () => '0 */5 * * * ?'});
+				Object.defineProperty(context, 'viewTimezoneLabel', {get: () => ''});
+
+				getGetter('viewCronDescription').call(context);
+
+				expect(describeCronExpression).toHaveBeenCalledWith('0 */5 * * * ?', {jobRunnerMode: true, activeCheckIntervalMinutes: null});
+			});
+
+			it('reads the runner state when the component connects, and falls back when it cannot', async() =>
+			{
+				let connecting = createMockContext();
+				prototype.connectedCallback.call(connecting);
+				expect(connecting.loadJobRunnerState).toHaveBeenCalled();
+
+				getJobRunnerState.mockResolvedValueOnce({isActive: true, checkIntervalMinutes: 15, canManage: true});
+				let reading = createMockContext();
+				await prototype.loadJobRunnerState.call(reading);
+				expect(reading.jobRunnerState).toEqual({isActive: true, checkIntervalMinutes: 15, canManage: true});
+
+				getJobRunnerState.mockRejectedValueOnce(new Error('no access'));
+				let failing = createMockContext({jobRunnerState: {isActive: true, checkIntervalMinutes: 15, canManage: true}});
+				await prototype.loadJobRunnerState.call(failing);
+				expect(failing.jobRunnerState).toEqual({isActive: false, checkIntervalMinutes: null, canManage: false});
+
+				getJobRunnerState.mockResolvedValueOnce(null);
+				let empty = createMockContext({jobRunnerState: {isActive: true, checkIntervalMinutes: 15, canManage: true}});
+				await prototype.loadJobRunnerState.call(empty);
+				expect(empty.jobRunnerState).toEqual({isActive: true, checkIntervalMinutes: 15, canManage: true});
+			});
+		});
 	});
 
 	describe('DOM rendering', () =>
@@ -750,6 +1050,36 @@ describe('c-scheduled-job-detail', () =>
 				}
 			}
 		});
+
+		it('renders the runner rows, the Run now action and the way to the log, each behind its own condition', () =>
+		{
+			const fs = require('fs');
+			const path = require('path');
+			let templatePath = path.resolve(__dirname, '..', 'scheduledJobDetail.html');
+			let template = fs.readFileSync(templatePath, 'utf8');
+			expect(template).toContain('data-testid="detail-execution-mode"');
+			expect(template).toContain('lwc:if={isJobRunnerRecord}');
+			expect(template).toContain('data-testid="detail-next-run"');
+			expect(template).toContain('data-testid="detail-last-run"');
+			expect(template).toContain('data-testid="detail-last-run-outcome"');
+			expect(template).toContain('lwc:if={hasLastRunReason}');
+			expect(template).toContain('data-testid="detail-last-run-reason"');
+			expect(template).toContain('lwc:if={showRunNow}');
+			expect(template).toContain('data-testid="run-now-button"');
+			expect(template).toContain('slot="actions"');
+			expect(template).toContain('lwc:if={showLastRunLog}');
+			expect(template).toContain('data-testid="detail-last-run-log"');
+		});
+
+		it('carries no trace of the free-text message the record no longer holds', () =>
+		{
+			const fs = require('fs');
+			const path = require('path');
+			let templatePath = path.resolve(__dirname, '..', 'scheduledJobDetail.html');
+			let template = fs.readFileSync(templatePath, 'utf8');
+			expect(template).not.toContain('LastRunMessage');
+			expect(template).not.toContain('detail-last-run-message');
+		});
 	});
 
 	/*
@@ -770,8 +1100,16 @@ describe('c-scheduled-job-detail', () =>
 				throw new Error('forced require failure');
 			}, {virtual: true});
 			jest.doMock('lightning/uiRecordApi', () => ({
-				getRecord: jest.fn(), getFieldValue: jest.fn()
+				getRecord: jest.fn(), getFieldValue: jest.fn(), getFieldDisplayValue: jest.fn(), notifyRecordUpdateAvailable: jest.fn().mockResolvedValue()
 			}), {virtual: true});
+			jest.doMock('@salesforce/apex/CTRL_ScheduledJob.getJobRunnerState', () => ({default: jest.fn()}), {virtual: true});
+			jest.doMock('@salesforce/apex/CTRL_ScheduledJob.runNow', () => ({default: jest.fn()}), {virtual: true});
+			jest.doMock('@salesforce/apex/CTRL_ScheduledJob.findLastRunLogEntryId', () => ({default: jest.fn()}), {virtual: true});
+			jest.doMock('@salesforce/schema/ScheduledJob__c.ExecutionMode__c', () => ({default: 'x'}), {virtual: true});
+			jest.doMock('@salesforce/schema/ScheduledJob__c.NextRunAt__c', () => ({default: 'x'}), {virtual: true});
+			jest.doMock('@salesforce/schema/ScheduledJob__c.LastRunAt__c', () => ({default: 'x'}), {virtual: true});
+			jest.doMock('@salesforce/schema/ScheduledJob__c.LastRunOutcome__c', () => ({default: 'x'}), {virtual: true});
+			jest.doMock('@salesforce/schema/ScheduledJob__c.LastRunReason__c', () => ({default: 'x'}), {virtual: true});
 			jest.doMock('@salesforce/schema/ScheduledJob__c.SchedulerName__c', () => ({default: 'x'}), {virtual: true});
 			jest.doMock('@salesforce/schema/ScheduledJob__c.ClassName__c', () => ({default: 'x'}), {virtual: true});
 			jest.doMock('@salesforce/schema/ScheduledJob__c.CronExpression__c', () => ({default: 'x'}), {virtual: true});

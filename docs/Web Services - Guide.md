@@ -149,6 +149,7 @@ That is the whole shape of it: extend a base class, fill in the parts specific t
         - [setHeaders()](#setheaders)
         - [requiresTriggeringRecord](#requirestriggeringrecord)
     - [Inbound-Specific Methods (API_Inbound)](#inbound-specific-methods-api_inbound)
+        - [Reading a request header](#reading-a-request-header)
         - [processRequest()](#processrequest)
         - [updateCallResult()](#updatecallresult)
         - [updateResponseDTO()](#updateresponsedto)
@@ -156,6 +157,7 @@ That is the whole shape of it: extend a base class, fill in the parts specific t
 15. [What else can it do?](#what-else-can-it-do)
     - [Automatic Retries](#automatic-retries)
         - [Custom Retry Strategies](#custom-retry-strategies)
+        - [Failures and retries](#failures-and-retries)
     - [Circuit Breaker Pattern](#circuit-breaker-pattern)
         - [How It Works in the Framework](#how-it-works-in-the-framework)
         - [State Transitions Example](#state-transitions-example)
@@ -176,7 +178,6 @@ That is the whole shape of it: extend a base class, fill in the parts specific t
     - [Performance Monitoring](#performance-monitoring)
     - [Batched Outbound Calls](#batched-outbound-calls)
     - [Safe Mode](#safe-mode)
-        - [Framework usage (reference)](#framework-usage-reference)
         - [Behavior](#behavior)
         - [Use Cases](#use-cases)
     - [API Test Harness (LWC and Tab)](#api-test-harness-lwc-and-tab)
@@ -302,7 +303,7 @@ What you get, and why it matters to you:
 ### UTIL_HttpClient (Fluent HTTP Client)
 
 When you just need to make a quick HTTP call and still want retries, logging, and masking, you don't have to write a whole API class first. [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) is the simplest way to make HTTP calls in KernDX. You configure the call with a few short chained calls, then one call sends it. It wraps the
-[`API_Outbound`](reference/apex/API_Outbound.md) pipeline, so you still get automatic retry, a circuit breaker (after repeated failures it stops calling a failing system for a cool-off, then resumes), failure logging, performance timing, and data masking, without writing a dedicated API class.
+[`API_Outbound`](reference/apex/API_Outbound.md) pipeline, so you still get automatic retry, a circuit breaker you switch on with `.withCircuitBreaker()` (after repeated failures it stops calling a failing system for a cool-off, then resumes), failure logging, performance timing, and data masking, without writing a dedicated API class.
 
 **When to use UTIL_HttpClient vs API_Outbound:**
 
@@ -333,6 +334,36 @@ HttpResponse response = UTIL_HttpClient.del('CRM', '/contacts/{id}')
 	.send();
 ```
 
+**What a response tells you.** `send()` always hands back an `HttpResponse`, never null, so you can call `getStatusCode()` and `getBody()` without a null
+check. A status code of `0` means the call produced no response. That happens in two ways: the call was refused before it ever left your org (a credential
+that could not be resolved, an open circuit breaker, a refusal from validation), or it did go out and nothing came back (a timeout, a transport failure).
+A call that got no answer is retried later only when the request is safe to repeat; see [Failures and retries](#failures-and-retries).
+The status line carries the reason, when one was recorded. Check the status code first, before you read the body: getting a response object back does not
+mean the remote system answered.
+
+Every failure the framework handles for a call still ends in a response from `send()`: a refused call, a transport failure, an exception in your
+handler, a call record that could not be saved, or a masking rule that blocked the call's attachments. You do not need a try/catch around `send()` for any
+of those. A governor limit is the platform's own exception and cannot be caught by any Apex code.
+
+`invoke()` gives you the same picture through the handler it returns, but that return can still be null when no handler resolved for the call, so check for
+that too:
+
+```apex
+if (response.getStatusCode() == 0)
+{
+	// No response came back. response.getStatus() carries the reason, when one was recorded.
+}
+
+API_Outbound handler = UTIL_HttpClient.useHandler(API_SendEmail.class)
+	.credential('PaymentGateway')
+	.invoke();
+
+if (handler != null && handler.result.hasFailed)
+{
+	// handler.result carries the structured outcome, including the recorded errors.
+}
+```
+
 **Delegation mode:** route processing through a subscriber handler via `useHandler()`:
 
 ```apex
@@ -346,16 +377,34 @@ API_Outbound handler = UTIL_HttpClient.useHandler(API_SendEmail.class)
 Caller-provided settings override the handler's [`ApiSetting__mdt`](reference/metadata/ApiSetting__mdt.md) defaults. Unspecified settings fall back to the
 handler's CMDT values:
 
-| Builder method            | Overrides                                     |
-|---------------------------|-----------------------------------------------|
-| `.credential(name)`       | Named Credential                              |
-| `.path(urlPath)`          | `EndpointPath__c`                             |
-| `.withRetry(n)`           | `MaxRetryCount__c`                            |
-| `.withRetry(n, backoff)`  | `MaxRetryCount__c` + `RetryBackoffSeconds__c` |
-| `.withCircuitBreaker()`   | `CircuitBreakerEnabled__c`                    |
-| `.onFailure(LOG_FAILURE)` | `LogIssues__c`                                |
+| Builder method              | Overrides                                                                                       |
+|-----------------------------|-------------------------------------------------------------------------------------------------|
+| `.credential(name)`         | Named Credential                                                                                |
+| `.path(urlPath)`            | `EndpointPath__c`                                                                               |
+| `.withRetry(n)`             | `MaxRetryCount__c`                                                                              |
+| `.withRetry(n, backoff)`    | `MaxRetryCount__c` + `RetryBackoffSeconds__c`                                                   |
+| `.withCircuitBreaker()`     | `CircuitBreakerEnabled__c`                                                                      |
+| `.withCircuitBreaker(name)` | `CircuitBreakerEnabled__c`, and the call uses the breaker you name instead of the handler's own |
+| `.onFailure(LOG_FAILURE)`   | `LogIssues__c`                                                                                  |
 
 For full API details, see the [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) reference.
+
+**Where credentials belong.** Give a request its credentials through the Named Credential you pass as the first argument. For an API that wants its key in a
+header instead, use an External Credential, the platform's own store for a secret an admin enters once: keep the key there, then either declare the header on
+the credential itself or reference it from the call as `.header('X-Api-Key', '{!$Credential.MyExternalCredential.ApiKey}')`. With
+**Allow Formulas in HTTP Header** switched on for that Named Credential, Salesforce swaps that reference for the real key as the request leaves your org, so
+the secret never enters your code or the call record, and a retry sends the same reference again and authenticates the way the first send did, as long as the
+user it runs as can still use the credential. A scheduled retry runs as the same user the original call ran as, so give that person the permission set that
+grants access to the External Credential. Running a failed call again by hand, from its API issue, is a separate permission: assign the **Kern API Issue
+Resolver** permission set to the support users who do that. It grants the **Retry API Issue** permission, access to the Retry action, read access to
+every API issue and every API call (View All Records, so the holder sees records other users made, which are otherwise private to their owner), the API
+Issues tab and the Kern app. It grants no edit or delete access (see [Failures and retries](#failures-and-retries)).
+
+Set a value by hand on a header the framework recognises as carrying a credential (`Authorization`, `X-Api-Key` and the others listed under
+[API Test Harness](#api-test-harness-lwc-and-tab)) and the first send still goes out exactly as you wrote it, but the call record stores `[REDACTED]` in its
+place. A call that then fails is parked instead of retried, and its [`ApiIssue__c`](reference/objects/ApiIssue__c.md) record says in plain words that the call
+set the header itself, so the value was not kept and a retry cannot send it. The Retry action on that record stops the same call with the same message. Move
+the key onto a Named Credential or an External Credential and the first send and every retry both work again.
 
 ---
 
@@ -619,7 +668,7 @@ Salesforce Event Monitoring rather than `ApiCall__c`.
 **Large Content Handling**: A big payload won't be silently cut off and lost. If request/response bodies exceed field limits, they're stored as **ContentVersion** files linked to the queue item, so the full body is still kept.
 
 **Automatic Transaction Correlation**: An integration usually runs in the background, after the user's click has finished. The challenge is tying the background logs back to the action that started them. The `LoggerContext__c` field solves this by carrying a correlation ID, one tracking ID that follows a single user action across triggers, queries, callouts, and jobs, so the related logs stay linked across that async boundary. When queue items are created via
-`TST_Factory.newOutboundApiCall()` or `newInboundApiCall()`, the current logger context (correlation ID, transaction ID, global context) is automatically captured.
+`TST_Factory.newOutboundApiCall()` or `newInboundApiCall()`, the current logger context (correlation ID, transaction ID, global context) is automatically captured. A call you build with `UTIL_HttpClient` stores the same context when you give it a correlation ID with `.withCorrelationId()`.
 
 When `API_Dispatcher.execute()` processes the queue item asynchronously, it hydrates this context, ensuring all logs in the async transaction share the same correlation ID as the
 originating transaction. The benefit: you can trace one user action end to end with no extra work, since this requires **zero code changes** in subscriber orgs.
@@ -644,7 +693,7 @@ This is where you tune how each integration behaves, retries, circuit-breaker th
 | `LogIssues__c`                      | Create `ApiIssue__c` records                                                              |
 | `ResolveIssues__c`                  | Auto-resolve failures on success                                                          |
 
-**Centralized Validation:** Three of these settings act as gates: they decide whether the service is even allowed to run, so you can turn an integration off, or limit it to a feature flag, from configuration alone. `API_Base.performValidation()` automatically checks these three fields before any API handler executes:
+**Centralized Validation:** Three of these settings act as gates: they decide whether the service is even allowed to run, so you can turn an integration off, or limit it to a feature flag, from configuration alone. The framework checks these three fields before any handler runs:
 
 1. **`IsActive__c`**: If `false`, the service aborts with error: *"API service is inactive"*
 2. **`RequiredFeatureFlag__c`**: If the Feature Flag is not enabled for the running user, the service aborts with error: *"Required feature flag is not enabled"*
@@ -708,6 +757,12 @@ feature flags.
 Your endpoint URLs and passwords live here, kept out of code so a credential rotation never means a redeploy. A Named Credential stores the authentication details securely
 via [External Credentials](https://developer.salesforce.com/docs/atlas.en-us.securityImplGuide.meta/securityImplGuide/external_credentials.htm), and `ApiSetting__mdt` points to it by name.
 
+A Named Credential can also reach a server whose certificate is signed by your own private or internal certificate authority (Winter '27 and later, in
+Enterprise, Performance, Unlimited and Developer editions, though not in every org): upload the issuing root certificate to your org's certificate trust store, and named credential
+callouts to that endpoint trust it from then on. The TLS handshake happens before any token or API key is sent, so without that upload a callout to such a server
+fails before the request leaves your org, whatever authentication the credential carries. An internal service behind a corporate certificate authority
+therefore needs no publicly trusted certificate to be called through `kern.UTIL_HttpClient`.
+
 **The two named credentials KernDX ships.** Both back the framework's outbound examples and call public, unauthenticated endpoints, so they store no secrets:
 
 | Named Credential     | Label           | Endpoint                              | Authentication   | Used by                                       |
@@ -735,7 +790,7 @@ Your data-transfer classes (DTOs, the small classes that hold exactly the fields
 
 ```apex
 // ✅ CORRECT - @JsonAccess grants managed package permission to serialize/deserialize
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_Request extends DTO_JsonBase
 {
 	public String customerId;
@@ -764,7 +819,7 @@ When the framework reads a JSON response back into a DTO, it has to find the rig
 **Option A: Make DTOs Global (simple but exposes classes)**
 
 ```apex
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 global class DTO_Request extends DTO_JsonBase
 {
 	public String data;
@@ -774,7 +829,7 @@ global class DTO_Request extends DTO_JsonBase
 **Option B: Implement getObjectType() in Every DTO (repetitive but explicit)**
 
 ```apex
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_Request extends DTO_JsonBase
 {
 	public String data;
@@ -819,23 +874,7 @@ global with sharing class CustomTypeResolver extends kern.UTIL_TypeResolver.Base
 	 */
 	private static Type getTypeForClassName(String className)
 	{
-		Type classType;
-
-		if(String.isNotBlank(className))
-		{
-			String namespace = kern.UTIL_System.getNamespacePrefix(
-				kern.UTIL_System.getClassNamespace(className),
-				'.'
-			);
-
-			classType = Type.forName(namespace, className);
-			// Retry without namespace for nested classes (e.g., MyParentClass.MyChildClass)
-			classType = classType == null && String.isNotBlank(namespace)
-				? Type.forName('', className)
-				: classType;
-		}
-
-		return classType;
+		return String.isBlank(className) ? null : Type.forName(className);
 	}
 }
 ```
@@ -907,7 +946,7 @@ public inherited sharing class MyAPI_SendEmail extends API_Outbound
 	/**
 	 * @description Data Transfer Object for the API request payload.
 	 */
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	public class DTO_Request extends DTO_JsonBase
 	{
 		public String recipient;
@@ -918,7 +957,7 @@ public inherited sharing class MyAPI_SendEmail extends API_Outbound
 	/**
 	 * @description Data Transfer Object for the API response payload.
 	 */
-	@JsonAccess(Deserializable='always')
+	@JsonAccess(deserializable='always')
 	public class DTO_Response extends DTO_JsonBase
 	{
 		public Boolean success;
@@ -1020,7 +1059,7 @@ public inherited sharing class API_MinimalExample extends API_Outbound
 	/**
 	 * @description Data Transfer Object for API response.
 	 */
-	@JsonAccess(Deserializable='always')
+	@JsonAccess(deserializable='always')
 	public class DTO_Response extends DTO_JsonBase
 	{
 		public String result;
@@ -1166,7 +1205,7 @@ public inherited sharing class API_SendMail extends API_Outbound
 	/**
 	 * @description Data Transfer Object for send mail request.
 	 */
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	private class DTO_Request extends DTO_JsonBase
 	{
 		private List<DTO_Mail> messages = new List<DTO_Mail>();
@@ -1195,7 +1234,7 @@ public inherited sharing class API_SendMail extends API_Outbound
 	/**
 	 * @description Data Transfer Object for individual mail message.
 	 */
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	private class DTO_Mail
 	{
 		public String toAddress;
@@ -1206,7 +1245,7 @@ public inherited sharing class API_SendMail extends API_Outbound
 	/**
 	 * @description Data Transfer Object for API response.
 	 */
-	@JsonAccess(Deserializable='always')
+	@JsonAccess(deserializable='always')
 	private class DTO_Response extends DTO_JsonBase
 	{
 		public List<DTO_SendMessageOutcome> results;
@@ -1331,7 +1370,7 @@ Each inbound REST endpoint is made of two classes, each with one job:
  *
  * @date January 2025
  */
-@RestResource(UrlMapping='/echo/*')
+@RestResource(urlMapping='/echo/*')
 global inherited sharing class REST_Echo
 {
 	/**
@@ -1435,7 +1474,7 @@ A single URL often needs to do more than one thing: read a record and update it,
  *
  * @date January 2025
  */
-@RestResource(UrlMapping='/v1/identity/persons/*')
+@RestResource(urlMapping='/v1/identity/persons/*')
 global inherited sharing class REST_Person
 {
 	/**
@@ -1552,7 +1591,7 @@ public inherited sharing class API_PersonRetrieve extends API_Inbound
 	/**
 	 * @description Data Transfer Object for person response.
 	 */
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	public class DTO_Response extends DTO_JsonBase
 	{
 		public String identityId;
@@ -1658,7 +1697,7 @@ public inherited sharing class API_PersonUpdate extends API_Inbound
 	/**
 	 * @description Data Transfer Object for person update request.
 	 */
-	@JsonAccess(Deserializable='always')
+	@JsonAccess(deserializable='always')
 	public class DTO_Request extends DTO_JsonBase
 	{
 		public String identityId;
@@ -1670,7 +1709,7 @@ public inherited sharing class API_PersonUpdate extends API_Inbound
 	/**
 	 * @description Data Transfer Object for update response.
 	 */
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	public class DTO_Response extends DTO_JsonBase
 	{
 		public String message;
@@ -1767,7 +1806,7 @@ public inherited sharing class API_CompositeExample extends API_CallCurrentOrg
 	/**
 	 * @description Data Transfer Object for Composite API request.
 	 */
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	public class DTO_Request extends DTO_JsonBase
 	{
 		public Boolean allOrNone = true;
@@ -1777,7 +1816,7 @@ public inherited sharing class API_CompositeExample extends API_CallCurrentOrg
 	/**
 	 * @description Data Transfer Object for individual composite sub-request.
 	 */
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	public class CompositeSubRequest
 	{
 		public String method;
@@ -1789,7 +1828,7 @@ public inherited sharing class API_CompositeExample extends API_CallCurrentOrg
 	/**
 	 * @description Data Transfer Object for Composite API response.
 	 */
-	@JsonAccess(Deserializable='always')
+	@JsonAccess(deserializable='always')
 	public class DTO_Response extends DTO_JsonBase
 	{
 		public List<CompositeSubResponse> compositeResponse;
@@ -1808,7 +1847,7 @@ public inherited sharing class API_CompositeExample extends API_CallCurrentOrg
 	/**
 	 * @description Data Transfer Object for individual composite sub-response.
 	 */
-	@JsonAccess(Deserializable='always')
+	@JsonAccess(deserializable='always')
 	public class CompositeSubResponse
 	{
 		public Integer httpStatusCode;
@@ -1843,7 +1882,7 @@ global protected virtual override String getWebServiceEndPoint()
 	String orgBaseUrl = Url.getOrgDomainUrl().toExternalForm();
 	String endpointPath = setting?.EndpointPath__c;
 
-	return orgBaseUrl + (String.isNotBlank(endpointPath) ? endpointPath : UTIL_String.EMPTY);
+	return orgBaseUrl + (String.isNotBlank(endpointPath) ? endpointPath : '');
 }
 ```
 
@@ -1854,16 +1893,16 @@ In your `ApiSetting__mdt` record:
 | Field            | Value                                   |
 |------------------|-----------------------------------------|
 | ClassName__c     | `API_CompositeExample`                  |
-| EndpointPath__c  | `/services/data/v67.0/composite`        |
+| EndpointPath__c  | `/services/data/v68.0/composite`        |
 | ApiCredential__c | (Leave blank - session ID handles auth) |
 
 **Note**: You can leave the credential blank for intra-org calls. The session ID handles authentication, and the org base URL is resolved at runtime via `URL.getOrgDomainURL()`, so there is no Named Credential (a stored, reusable connection definition) to set up.
 
-> **Subscriber Setup**: Salesforce treats a call back into your own org as an outbound callout, so it needs to be allowed first. Add a [Remote Site Setting](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_callouts_remote_site_settings.htm) for your My Domain URL (Setup > Remote Site Settings > New). Without this, callouts to the current org will fail with a `System.CalloutException`.
+> **No Setup step before the call works.** A call back into your own org goes out as an outbound callout, but Salesforce allows a callout to your org's own domain (the address `URL.getOrgDomainURL()` returns) without a Remote Site Setting and without a Named Credential. There is nothing to register in Setup first.
 
 > **Only works from a live user session.** [`API_CallCurrentOrg`](reference/apex/API_CallCurrentOrg.md) signs each call with the current user's session ID, and that session ID exists only while a real user session is active. Asynchronous Apex has none: a scheduled job, a queueable, a batch, a future method, and therefore any step running inside an async chain all run without a user session. The call then goes out with no usable session and your org rejects it, every time, with an HTTP 401 (Unauthorised). To call back into your own org from a background job, authenticate with a stored connection instead: extend [`API_Outbound`](reference/apex/API_Outbound.md) with a Named Credential (a stored, reusable connection definition) or an `ApiCredential__mdt` record, rather than `API_CallCurrentOrg`.
 >
-> Do not reach for retry to paper over that 401 inside a chain. The 401 comes back as an ordinary HTTP response, so the step records a failed result with no thrown exception attached. `withRetry` cannot heal a session that was never going to exist: the call is deterministic, so every attempt returns the same 401. Keep 401 out of your `.retryOn(...)` set, or leave `withRetry` off for this step, so the deterministic failure fails permanently instead of spending your retry budget on the same answer. Check the service's own retry settings on its `ApiSetting` record too: with `withRetry` off, the service's configured retries still re-send on their own schedule, even when the chain does not. See [Retrying a failed step](Async%20Processing%20-%20Guide.md#retrying-a-failed-step) and [ApiStep: Web Service Integration](Async%20Processing%20-%20Guide.md#apistep-web-service-integration) in the Async Processing Guide; for the full background-delivery composition, see [Calling an external system only after the transaction commits](Async%20Processing%20-%20Guide.md#calling-an-external-system-only-after-the-transaction-commits).
+> Do not reach for retry to paper over that 401 inside a chain. The 401 comes back as an ordinary HTTP response, so the step records a failed result with no thrown exception attached. `withRetry` cannot heal a session that was never going to exist: the call is deterministic, so every attempt returns the same 401. Keep 401 out of your `.retryOn(...)` set, or leave `withRetry` off for this step, so the deterministic failure fails permanently instead of spending your retry budget on the same answer. With `withRetry` off, the service's own retries take charge, and they do not re-send a 401: it is outside the default set (`408, 425, 429, 500, 502, 503, 504`), so it is retried only if the handler's `getRetryableStatusCodes()` adds it. See [Retrying a failed step](Async%20Processing%20-%20Guide.md#retrying-a-failed-step) and [ApiStep: Web Service Integration](Async%20Processing%20-%20Guide.md#apistep-web-service-integration) in the Async Processing Guide; for the full background-delivery composition, see [Calling an external system only after the transaction commits](Async%20Processing%20-%20Guide.md#calling-an-external-system-only-after-the-transaction-commits).
 
 ---
 
@@ -2113,6 +2152,7 @@ public override String getQueryParameters()
 #### getRequiredInputs()
 
 **Purpose**: Lists the parameters the call cannot run without, so the framework rejects an incomplete request up front rather than failing later with a confusing error.
+Declaring them here is also what the API Test Harness reads to seed its form: it fills in those parameter names for you and locks them, leaving you just the values to type.
 
 **Signature**: `global protected virtual Set<String> getRequiredInputs()`
 
@@ -2360,6 +2400,32 @@ These methods are only available in inbound APIs.
 
 ---
 
+#### Reading a request header
+
+HTTP header names carry no case, and many callers (Node and every HTTP/2 client among them) send them in lower case, so a caller may send `x-partner-id` where
+you expect `X-Partner-Id`. `request.headers.get(...)` finds a header only when its name has exactly the case you asked for. Wrap the headers in
+`kern.UTIL_Map.CaseInsensitiveMap` instead, and the header is found whatever case its name arrived in. You can do this in any of your handler's overrides.
+
+```apex
+/**
+ * @description Rejects a request that does not name the partner sending it.
+ */
+public override List<String> getValidationErrors()
+{
+	List<String> errors = super.getValidationErrors();
+	String partner = (String)new kern.UTIL_Map.CaseInsensitiveMap(request.headers).get('X-Partner-Id');
+
+	if(String.isBlank(partner))
+	{
+		errors.add('The X-Partner-Id header is required');
+	}
+
+	return errors;
+}
+```
+
+---
+
 #### processRequest()
 
 **Purpose**: This is the heart of an inbound endpoint: where you read what the caller sent, look up whatever Salesforce data you need, and run your business logic. The framework hands you the request here and lets you decide what to do with it.
@@ -2508,13 +2574,18 @@ When an outbound call fails because the other system was briefly unavailable, yo
 
 When an API call fails, the framework:
 
-1. Checks if `MaxRetryCount__c` is configured and not exceeded
-2. Calculates the next retry time using linear backoff (default strategy):
+1. Decides, from where the call failed, whether sending it again could fix it (see [Failures and retries](#failures-and-retries)); a failure a repeat
+   cannot fix ends the call `Failed` at once
+2. Checks if `MaxRetryCount__c` is configured and not exceeded
+3. Calculates the next retry time using linear backoff (default strategy):
     - Each retry uses `RetryBackoffSeconds__c` seconds as the delay
     - Example: With `RetryBackoffSeconds__c = 30`, all retries wait 30 seconds
-3. Sets `NextRetry__c` datetime field
-4. Sets `Status__c` to `'Retry'`
-5. Increments `Retries__c` counter
+4. Sets `NextRetry__c` datetime field
+5. Sets `Status__c` to `'Retry'`
+6. Increments `Retries__c` counter
+
+A `RetryBackoffSeconds__c` of `0` schedules nothing, so the call ends `Failed`, except while the circuit breaker is open: then the retry waits for the
+breaker's cool-off.
 
 **Configuration**:
 
@@ -2534,7 +2605,8 @@ In `ApiSetting__mdt`:
 
 The framework ships with a built-in record-triggered flow (`RetryOutboundApiCall`) that automatically processes retries. When an API call fails and the framework sets
 `Status__c = 'Retry'` with a `NextRetry__c` datetime, the flow uses a time-based scheduled path to wait until the scheduled time, then invokes `FLOW_CallApiAsync` to re-execute the
-callout and sets `Status__c` to `'Retrying'` to prevent re-triggering.
+callout and sets `Status__c` to `'Retrying'` to prevent re-triggering. A call that ends `Failed` is never picked up by the flow; the Retry action on its
+API issue is where you run it again (see [Failures and retries](#failures-and-retries)).
 
 No custom scheduled jobs or platform events are needed. Retry processing is fully automated out of the box.
 
@@ -2559,13 +2631,173 @@ public inherited sharing class API_SendGridEmail extends API_Outbound
 }
 ```
 
+**When the framework asks your strategy.** `createRetryStrategy()` runs once for each failed call, after the response is in hand (or after the failure,
+when no response came back). It runs on the same handler instance that ran `prepareRequest()`, `parseResponse()` and `onSuccess()`, so you can read
+`response`, `result.statusCode` and `result.responseBody` inside it. The framework decides first, from where the call failed, whether sending it again
+could help at all (see [Failures and retries](#failures-and-retries)); it asks your strategy only about a failure it may retry.
+
+**What the strategy sees, and how to say no.** The context your strategy receives carries the retry count and, when the failure was an exception, that
+exception. A failure the external system answered with a status carries no exception, so an exception allowlist does not stop it and a denylist cannot
+match it: choose which statuses retry with `getRetryableStatusCodes()` instead. To refuse a retry, return a strategy whose `shouldRetry` answers false
+(`UTIL_Retry.linear().withMaxRetries(0)`), or throw `UTIL_Exceptions.PermanentFailureException` (or its subclass `RequestRefusedException` for a refusal
+in a success body) from `prepareRequest()`, `parseResponse()`, `onSuccess()` or `createRetryStrategy()`. (Thrown from `getValidationErrors()`
+it ends the call `Aborted`, as every validation refusal does.) Any other exception thrown while the framework decides ends the call `Failed`, with a warning in the log.
+
+**`getRetryableStatusCodes()`** lists the HTTP statuses that may be retried. The default is `408, 425, 429, 500, 502, 503, 504`. A 408, 425, 429 or 503
+means the external system did not process the request, so it is retried for any request. A 500, 502 or 504 can come after the external system did the
+work, so it is retried only when the request is safe to repeat (a GET, PUT or DELETE, or a request that carried an `Idempotency-Key`). Override the method
+to add a status your external system uses to mean "try later", or to remove one; an empty set retries no status. A status you add is your own choice, so
+it is retried whatever the method.
+
+**`getRetryableExceptionTypes()`** lists the exception types from your own code that may be retried. It is empty by default: code that ran in your org and
+threw usually throws again on the next attempt, so the call ends `Failed` at once with one issue. List a type when a failure of that type can pass on its
+own, such as a row lock. A type is matched by its exact name, so list each concrete type you throw; a parent type such as `Exception` matches nothing.
+
+##### A 200 whose body carries a business failure
+
+Some systems answer `200 OK` and put the refusal in the body. Throw `UTIL_Exceptions.RequestRefusedException` from `parseResponse()` so the call ends
+`Failed` and the framework never sends it again on its own, whatever your other retry settings say. Use this exception, not the plain
+`PermanentFailureException`, for a refusal in a success body: the issue it leaves says the external system did not act, so a person can run the call
+again with Retry Selected on the API Issues list once you have fixed the cause. Set the response DTO in `configure()` (after `super.configure()`), so
+`super.parseResponse()` reads the body into it:
+
+```apex
+global inherited sharing class API_SendEmail extends API_Outbound
+{
+	global override void configure()
+	{
+		super.configure();
+		responsePayload = new DTO_Response();
+	}
+
+	global override void parseResponse()
+	{
+		super.parseResponse();
+		DTO_Response sendResult = (DTO_Response)responsePayload;
+		if(sendResult.status == 'REJECTED')
+		{
+			throw new UTIL_Exceptions.RequestRefusedException('The provider rejected the message; fix the message and run the call again.');
+		}
+	}
+}
+```
+
+##### A status failure the body proves permanent
+
+Some systems answer a 503 for both "busy, try later" and "this account is closed". Read the body in `createRetryStrategy()` and refuse the retry only
+when it carries the permanent marker:
+
+```apex
+global inherited sharing class API_SendEmail extends API_Outbound
+{
+	global override UTIL_Retry.Strategy createRetryStrategy()
+	{
+		if(result.responseBody?.contains('ACCOUNT_CLOSED') == true)
+		{
+			return UTIL_Retry.linear().withMaxRetries(0);
+		}
+		return super.createRetryStrategy();
+	}
+}
+```
+
 The full retry API is documented in the **[Resilience - Guide](Resilience%20-%20Guide.md)**: exponential vs linear backoff, jitter, exception allowlists and denylists, and writing a custom `UTIL_Retry.Strategy` (for example, HTTP-status-aware backoff).
+
+#### Failures and retries
+
+Sending a request again only helps when the first attempt failed for a reason that can pass, and only when a second send cannot make the external system
+act twice. So before any retry setting is read, the framework looks at where the call failed:
+
+| Where the call failed                                                          | What the framework does by default                                                                                                                                                                       | How your handler changes it                                                                                                                                                            |
+|--------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Your own code threw before the request was sent                                | Ends the call `Failed` at once: the same code throws again                                                                                                                                               | `getRetryableExceptionTypes()` lets a listed type retry                                                                                                                                |
+| The request went out and no answer came back (a timeout, a dropped connection) | Retries when the request is safe to repeat: a GET, PUT or DELETE, or a request that carried an `Idempotency-Key`. Otherwise ends `Failed` at once, and the issue says the external system may have acted | Turn on **Idempotency Enabled**, stamp a key with `withIdempotencyKey(...)`, or list `System.CalloutException` in `getRetryableExceptionTypes()` (at your own risk on a POST or PATCH) |
+| The external system answered with an error status                              | Retries `408, 425, 429, 500, 502, 503, 504`; a 500, 502 or 504 only when the request is safe to repeat. Any other status ends `Failed` at once                                                           | `getRetryableStatusCodes()` changes the set; it is the handler form of `retryOn(...)`                                                                                                  |
+| The external system answered with success, then your own code threw            | Ends `Failed` at once: the external system has already acted                                                                                                                                             | A type listed in `getRetryableExceptionTypes()` retries, but only when the request is safe to repeat                                                                                   |
+| The circuit breaker was open, so the request was never sent                    | Tries again after the breaker's cool-off while retries remain; ends `Aborted` when the setting allows no retries                                                                                         | The circuit breaker fields on the service's setting                                                                                                                                    |
+
+A request is safe to repeat when the method is a GET, PUT or DELETE, or when the request carried an `Idempotency-Key` header. A POST or PATCH sent without a
+key that gets no answer, or gets a 500, 502 or 504, may already have been acted on, so the framework does not send it again on its own.
+
+A callout the platform refused before it left your org (for example because unsaved work was pending in the transaction) reached nobody, so it is tried
+again while retries remain, whatever the method. Fix the cause in your code: the retry budget limits what it costs you.
+
+**Calls made with `UTIL_HttpClient`.** The immediate retries made inside `send()` never repeat a call that got no answer; the scheduled retry (which needs a
+wait time in `withRetry(n, backoff)`) does, when the request is safe to repeat. `withCircuitBreaker()` uses the credential's own breaker, so every call on
+one credential shares one breaker. `withCircuitBreaker('PaymentGateway')` uses a breaker you name instead: calls that give the same name share one
+breaker whatever credential or handler they use, and calls that give different names keep separate breakers even on the same credential, so one failing
+endpoint does not stop calls to another. A call refused by an open breaker says which breaker in its error line. The scheduled retry of a call built from a
+credential keeps the name. A call made through `useHandler(...)` uses the name when you make it, but its scheduled retry runs the handler on its own and
+uses the handler's own breaker.
+
+**Running a failed call again by hand.** Press **Retry** on an API issue to run its failed call again. For a call your org made, Retry sends the request
+to the external system again. For a call your org received, Retry replays the request inside your org, and its changes are kept when it works. Either way,
+a call that works marks the issue resolved. Retry works on one issue at a time: unless **Resolve Issues** is on (see below), the other open issues of the
+same outgoing request stay open. When several open issues record the same outgoing request, use **Retry Selected** on the API Issues list
+instead: it sends the request once and marks every issue of that request resolved. An API issue whose external system may have acted has the
+**External System May Have Acted** box ticked (`ApiIssue__c.ExternalSystemMayHaveActed__c`), and its error messages include a line that says
+why. Check with the external system first: pressing **Retry** sends the request again. The bulk retry skips these issues and leaves them open
+for a person to decide. The **Retry Issues** setting on the
+service applies only to calls your org made: Retry and the bulk retry send such a call again only when it is turned on. A call your org received is
+replayed whatever that setting says. Retry also sends nothing while the service is paused or switched off (its setting inactive, its required feature
+flag off, its bypass feature flag on, or all APIs or all outbound APIs switched off): the issue stays open, and the message says so. The bulk
+retry follows the same rule. Retry, the resolve action and the bulk retry all need the **Retry API Issue** permission. The **Kern API Issue
+Resolver** permission set grants it to support users without the rest of the administrator's access, and the **Kern Administrator** set grants it too.
+
+**Running many failed calls again at once.** On the API Issues list, select the issues and press **Retry Selected**. The screen tells you how many of the
+open issues you selected were queued; the calls run in one background job, so you can go on working. From your own flow, add the **Retry API Issues**
+action (in the **Api Callouts** category) and pass it the issue ids; from Apex, call `kern.FLOW_RetryApiIssues.retryApiIssues`, which takes one request
+holding `apiIssueIds` and answers with `jobId`, `queuedCount`, `success` and `message`. The job sends each distinct request once, even when several of
+the selected issues were logged for it, and marks every issue of that request resolved when the call succeeds. Some issues are left open instead:
+
+- an issue whose external system may have acted, and every other issue of the same request;
+- an outbound issue whose service is paused or does not allow retries: **Retry Issues** off, the setting inactive, its required feature flag off, its
+  bypass feature flag on, or all APIs or all outbound APIs switched off;
+- an outbound issue whose own call, or a call for the same record, is still in progress or waiting to be sent. The job counts these in a warning in the
+  log, so you can run them again when that call has finished.
+
+In each batch of the job, the outbound calls are sent together first and the failed inbound requests are replayed after them. A replay saves data, and
+Salesforce does not allow a callout after unsaved data in the same transaction, so the replays must come last.
+
+The job runs as the person who started it, so it sends nothing when that person no longer holds the **Retry API Issue** permission.
+
+**Who can see and change an API issue.** API issues are private records. A person sees an issue only when they own it (the issue belongs to the user
+whose transaction made the failed call), sit above the owner in the role hierarchy, or hold View All Records on API issues. Both Kern permission sets
+that deal with issues include View All Records, so you need no sharing rule or group:
+
+- **Kern API Issue Resolver** sees every API issue and every API call, but cannot edit or delete them. Retry, the resolve action and **Retry Selected**
+  mark an issue resolved for the resolver, whoever owns the issue. They do this only after checking that the person holds the **Retry API Issue**
+  permission. If you hold that permission through another permission set, without View All Records on API issues, Retry and the resolve action on an
+  issue you cannot see send nothing and tell you so, and suggest you ask your administrator for the Kern API Issue Resolver set.
+- **Kern Administrator** sees, edits and deletes every issue and every call.
+
+The automatic resolve works the same way: with **Resolve Issues** on, a later successful call for the same request resolves every user's open issue for
+that request, whoever made the call that failed.
+
+**Who can delete an API call or an API issue.** These records are the history of every call to and from other systems, and an issue is the record that a
+call failed. One feature flag, `BypassApiRecordDeleteGuard`, decides who may delete them, from a record page, a flow, your own Apex and the scheduled
+purge alike. A built-in rule turns it on for every person who holds the **Delete API Records** permission; the **Kern Administrator** permission set
+grants it. Anyone else who tries, including a resolver, gets a message that says so, and nothing is deleted. A scheduled purge of old API calls or API
+issues must run as a person the flag is on for, for example an administrator with the Kern Administrator set. So schedule it as that person: a purge
+scheduled by anyone else deletes nothing and writes one warning with the same message to the log. To let more people delete, or to see what happens when
+the flag record is deactivated, read [Who can see the framework's own records?](Security%20-%20Guide.md#who-can-see-the-frameworks-own-records) in the
+Security Guide. The check runs in the API Call and API Issue triggers, so Apex that turns those triggers off with `TRG_Base.bypass(...)` also turns
+the check off, until that code clears the bypass or the transaction ends.
+
+The sharing default is a setting your org owns, and an upgrade never changes it. A new install sets **API Issue** to **Private**. An upgraded org keeps
+the default it had, often **Public Read/Write**, until you change it; the View All Records access of the resolver set arrives with the upgrade either
+way. To check yours, open **Sharing Settings** and find **API Issue** under **Organization-Wide Defaults**. To make it **Private**, edit the default and
+set **API Issue** to **Private**. Your resolvers and administrators keep sight of every issue through their permission sets.
+
+**A note on Idempotency Enabled.** The key the framework builds is a hash of the endpoint, the parameters and the body. Two calls with the same endpoint,
+parameters and body therefore share a key, so an external system that honours the header also treats a deliberate second send of the same payload as a
+repeat. Stamp your own key with `withIdempotencyKey(...)` when two identical payloads are two separate requests.
 
 ---
 
 ### Circuit Breaker Pattern
 
-When an external system keeps failing, there is no point hammering it with more requests, since every one just waits for a timeout and slows your users down. The framework guards against this with a *circuit breaker*: after a system fails repeatedly, the framework stops calling it for a short cool-off period (so later calls fail fast instead of piling up timeouts), then quietly tries again to see if it has recovered. This protection is applied automatically to every outbound API call.
+When an external system keeps failing, there is no point hammering it with more requests, since every one just waits for a timeout and slows your users down. The framework guards against this with a *circuit breaker*: after a system fails repeatedly, the framework stops calling it for a short cool-off period (so later calls fail fast instead of piling up timeouts), then quietly tries again to see if it has recovered. You switch this protection on for each service with **Circuit Breaker Enabled** (`CircuitBreakerEnabled__c`) on its API setting; it is off until you do.
 
 The breaker has three states it moves between on its own: normal operation (CLOSED), tripped and refusing calls during the cool-off (OPEN), and cautiously testing whether the system is back (HALF_OPEN).
 
@@ -2577,21 +2809,24 @@ The breaker has three states it moves between on its own: normal operation (CLOS
 
 Turning this on means a failing service can no longer drag down every other call, since the framework starts rejecting calls to it quickly once it sees a run of failures.
 
-**Automatic Activation**: Every outbound API automatically gets circuit breaker protection when you configure `ApiSetting__mdt`.
+**Turning it on**: The breaker runs only for a service whose `ApiSetting__mdt` record has `CircuitBreakerEnabled__c` checked. The field is
+unchecked by default, so a service without it is never refused for an open circuit.
 
 **Configuration** via `ApiSetting__mdt`:
 
-| Field                               | Description                                               | Example |
-|-------------------------------------|-----------------------------------------------------------|---------|
-| `CircuitBreakerFailureThreshold__c` | Consecutive failures before opening circuit               | `5`     |
-| `CircuitBreakerTimeout__c`          | Seconds to keep circuit open before testing recovery      | `60`    |
-| `CircuitBreakerSuccessThreshold__c` | Consecutive successes in half-open state to close circuit | `2`     |
+| Field                               | Description                                                  | Example |
+|-------------------------------------|--------------------------------------------------------------|---------|
+| `CircuitBreakerEnabled__c`          | Turns the breaker on for this service (unchecked by default) | `true`  |
+| `CircuitBreakerFailureThreshold__c` | Consecutive failures before opening circuit                  | `5`     |
+| `CircuitBreakerTimeout__c`          | Seconds to keep circuit open before testing recovery         | `60`    |
+| `CircuitBreakerSuccessThreshold__c` | Consecutive successes in half-open state to close circuit    | `2`     |
 
 **Example Configuration**:
 
 ```text
 DeveloperName: SendGrid_Email_API
 ClassName__c: API_SendGridEmail
+CircuitBreakerEnabled__c: true
 CircuitBreakerFailureThreshold__c: 5
 CircuitBreakerTimeout__c: 60
 CircuitBreakerSuccessThreshold__c: 2
@@ -2600,7 +2835,8 @@ CircuitBreakerSuccessThreshold__c: 2
 **Behavior**:
 
 1. After **5 consecutive failures**, circuit opens
-2. For the next **60 seconds**, all calls immediately fail with `CircuitOpenException`
+2. For the next **60 seconds**, every call is refused without being sent, and its record says the circuit breaker is open. A call whose
+   setting allows retries is tried again after the cool-off while it has retries left; a call whose setting allows none ends `Aborted`
 3. After 60 seconds, circuit enters half-open state
 4. Test requests are allowed to verify recovery
 5. After **2 consecutive successes**, circuit closes (normal operation)
@@ -2620,7 +2856,7 @@ Time    Event                           Circuit State    Action
 10:02   Call fails (timeout)            CLOSED           Failure count: 3
 10:03   Call fails (503 error)          CLOSED           Failure count: 4
 10:04   Call fails (timeout)            CLOSED → OPEN    Failure count: 5 (threshold reached)
-10:05   Call attempted                  OPEN             Immediately rejected (CircuitOpenException)
+10:05   Call attempted                  OPEN             Refused, not sent (the open-circuit line is recorded)
 10:06   Call attempted                  OPEN             Immediately rejected
 10:07   Call attempted                  OPEN             Immediately rejected
 ...
@@ -2645,28 +2881,30 @@ Circuit state is persisted in **Platform Cache** (org-wide), ensuring:
 **Example**:
 
 ```apex
-// User A makes call at 10:04, circuit opens
-API_SendGridEmail api = new API_SendGridEmail();
-api.run(); // 5th failure, circuit opens
+// User A's call at 10:04 is the 5th failure in a row, so the circuit opens
+API_Outbound first = UTIL_HttpClient.useHandler(API_SendGridEmail.class).invoke();
 
-// User B makes call at 10:05 (different transaction, different user)
-API_SendGridEmail api2 = new API_SendGridEmail();
-api2.run(); // Immediately fails with CircuitOpenException (state loaded from cache)
+// User B's call at 10:05 (different transaction, different user) reads the open state from the cache
+API_Outbound second = UTIL_HttpClient.useHandler(API_SendGridEmail.class).invoke();
+// Nothing was sent: second.result.errors holds
+// "The circuit breaker for API_SendGridEmail is open after repeated failures, so the request was not sent."
 ```
 
 ---
 
 #### Default Behavior (No Configuration)
 
-You don't have to set anything up to get this protection: if you leave the fields blank, the framework falls back to safe starting values.
+Once `CircuitBreakerEnabled__c` is checked, you don't have to fill in the other fields: if you leave them blank, the framework falls back to safe
+starting values.
 
-If circuit breaker fields are **not configured** in `ApiSetting__mdt`:
+If `CircuitBreakerEnabled__c` is checked and the other circuit breaker fields are **not configured** in `ApiSetting__mdt`:
 
-- **Default Threshold**: 3 consecutive failures
+- **Default Threshold**: 5 consecutive failures
 - **Default Timeout**: 60 seconds
-- **Default Half-Open Requests**: 1
+- **Default Success Threshold**: 2 consecutive successes in the half-open state
+- **Default Half-Open Requests**: 3
 
-So circuit-breaker protection is on even before you configure anything, using the values above.
+Without `CircuitBreakerEnabled__c`, the service has no circuit breaker at all.
 
 ---
 
@@ -2687,13 +2925,14 @@ The right settings depend on the service you're calling, so the guidance below h
 
 Circuit breakers and retry strategies work together:
 
-- **Retry Strategy**: Handles transient failures (1-3 attempts for network blips)
+- **Retry Strategy**: Handles failures a repeat can fix (1-3 attempts for network blips; see [Failures and retries](#failures-and-retries) for which failures those are)
 - **Circuit Breaker**: Handles sustained failures (service is down)
 
 ```apex
 public inherited sharing class API_SendGridEmail extends API_Outbound
 {
-	// Retry handles transient errors (network timeouts, 429 rate limits)
+	// Retry handles a timeout on a call that is safe to repeat (GET, PUT, DELETE, or one that carries an Idempotency-Key)
+	// and a 408, 425, 429, 500, 502, 503 or 504 answer
 	global override UTIL_Retry.Strategy createRetryStrategy()
 	{
 		return UTIL_Retry.exponential()
@@ -2708,22 +2947,28 @@ public inherited sharing class API_SendGridEmail extends API_Outbound
 
 **Request Flow**:
 
-1. Circuit breaker checks state (CLOSED = proceed, OPEN = reject immediately)
+1. Circuit breaker checks state (CLOSED = proceed, OPEN = refuse the call without sending it; with retries left, the call is tried again after the cool-off)
 2. If CLOSED, retry strategy attempts call (up to 3 times with backoff)
 3. If all retries fail, circuit breaker increments failure count
 4. When threshold reached, circuit opens
 
 **3. Monitor Circuit State**
 
-Check `ApiCall__c` for circuit-related failures:
+Check `ApiCall__c` for calls the open circuit refused. A refused call was never sent, so it has no status code, and its `ErrorMessages__c`
+holds the line "The circuit breaker for *service name* is open after repeated failures, so the request was not sent." `ErrorMessages__c` is a long
+text field, which SOQL cannot filter, so select the day's unsent calls and read that line in the results:
 
 ```soql
 SELECT Id, ServiceName__c, Status__c, ErrorMessages__c, CreatedDate
 FROM ApiCall__c
-WHERE ErrorMessages__c LIKE '%Circuit breaker is OPEN%'
+WHERE StatusCode__c = null
+  AND Status__c IN ('Aborted', 'Retry', 'Failed')
   AND CreatedDate = TODAY
 ORDER BY CreatedDate DESC
 ```
+
+The query also returns calls refused before the send for another reason (a missing setting, a missing parameter), which is why you read the
+line. The line comes from the `OutboundCall_CircuitOpen` custom label, so if your org translates or overrides that label, look for your wording.
 
 **4. Environment-Specific Configuration**
 
@@ -2743,22 +2988,23 @@ CircuitBreakerFailureThreshold__c: 3
 CircuitBreakerTimeout__c: 300
 ```
 
-**5. Handle Circuit Open Exceptions Gracefully**
+**5. Handle an Open Circuit Gracefully**
 
-When circuit is open, the framework sets `Status__c = 'Aborted'` and logs the error. Implement fallback logic:
+When the circuit is open, the framework does not send the call and records the open-circuit line in `ErrorMessages__c`. A call whose
+setting allows retries is scheduled again after the cool-off (`Status__c = 'Retry'`) and ends `Failed` once its retries are used up; a call
+whose setting allows no retries ends `Aborted`. Implement fallback logic:
 
 ```apex
-// In your calling code
-ApiCall__c queueItem = TST_Factory.newOutboundApiCall('API_SendGridEmail', emailId);
-DML_Builder.newTransaction().doInsert(queueItem).execute();
+// In your calling code: the call runs now, so its result is in hand when invoke() returns
+API_Outbound handler = UTIL_HttpClient.useHandler(API_SendGridEmail.class)
+	.withTriggeringRecord(emailId)
+	.invoke();
 
-// Check result after processing
-queueItem = (ApiCall__c)QRY_Builder.selectFrom(ApiCall__c.SObjectType)
-	.addFields(new List<SObjectField>{ApiCall__c.Status__c, ApiCall__c.ErrorMessages__c})
-	.condition(ApiCall__c.Id).equals(queueItem.Id)
-	.getFirst();
+Boolean isCircuitOpen = handler != null
+		&& !handler.result.isSuccess
+		&& String.join(handler.result.errors, '\n').contains('is open after repeated failures');
 
-if(queueItem.Status__c == 'Aborted' && queueItem.ErrorMessages__c.contains('Circuit breaker is OPEN'))
+if(isCircuitOpen)
 {
 	// Circuit is open - use alternative approach
 	// Option 1: Queue for later retry
@@ -2807,7 +3053,7 @@ When the breaker isn't behaving the way you expect, the symptom usually points t
 
 **Solution**: Increase `CircuitBreakerSuccessThreshold__c` (e.g., from 1 to 3) to require more successful tests
 
-**Problem**: All calls showing "Circuit breaker is OPEN"
+**Problem**: Calls refused with "The circuit breaker for *service name* is open after repeated failures, so the request was not sent."
 
 **Cause**: Service is genuinely down or experiencing issues
 
@@ -2876,7 +3122,7 @@ public override void configure()
 }
 ```
 
-In tests, the framework automatically returns this JSON as the mock HTTP response (200 OK) when no higher-priority mock is registered.
+In unit tests, the framework automatically returns this JSON as the mock HTTP response (200 OK) when no higher-priority mock is registered. Outside a unit test the canned answer never stands in: in production and in a sandbox the handler makes its real call, whether or not the caller named a credential. To answer canned data outside tests on purpose, enable the `MockAllAPIs` feature flag (see [Declarative Mock Mode](#declarative-mock-mode)).
 
 #### API_MockFactory (Programmatic Mocking)
 
@@ -2971,7 +3217,7 @@ The options above are written in Apex. You can also switch mocking on through co
 
 **Via Feature Flag**: Enable the `MockAllInboundAPIs` feature flag to force mock mode for all inbound APIs.
 
-**Per-Service**: Set `MockingEnabled__c = true` on the service's `ApiSetting__mdt` record.
+**Per-Service**: Set `MockingEnabled__c = true` on the service's `ApiSetting__mdt` record. This switch reaches inbound services only. For an outbound service, enable the `MockAllAPIs` feature flag instead; with the flag on, the service answers a matching `ApiMock__mdt` record if you added one, otherwise the handler's canned body; a service with neither fails with a configuration error.
 
 **Metadata Mocks** (via `ApiMock__mdt`):
 
@@ -3022,14 +3268,14 @@ Sometimes you don't want to make a callout right now. You'd rather queue up many
 
 **Scheduled Processing**:
 
-The framework includes [`SCHED_PerformBatchedCallouts`](reference/apex/SCHED_PerformBatchedCallouts.md) to process the queued API calls. Schedule it to run as often as you need:
+The framework includes [`SCHED_PerformBatchedCallouts`](reference/apex/SCHED_PerformBatchedCallouts.md) to process the queued API calls. The sample below schedules it hourly, the fastest `System.schedule` allows; to run it more often, put it on the [job runner](Async%20Processing%20-%20Guide.md#running-many-jobs-on-one-job-runner) instead:
 
 ```apex
 // Schedule batched callout processing.
 System.schedule
 (
 	'Process Batched API Calls',
-	'0 */5 * * * ?',
+	'0 0 * * * ?',
 	new SCHED_PerformBatchedCallouts()
 );
 ```
@@ -3045,36 +3291,14 @@ System.schedule
 
 ### Safe Mode
 
-Sometimes you want to run an API handler to see what it would do without actually changing any data, for instance to replay a failed request or to try a new handler before it goes live. Safe Mode does exactly that: it runs the handler as a dry run, then rolls back every database change at the end so nothing is left behind. The framework uses it internally for testing, debugging, and validating API
+Sometimes you want to run an API handler to see what it would do without actually changing any data in your org, for instance to replay a failed request or to try a new handler before it goes live. Safe Mode does exactly that: it runs the handler as a dry run, then rolls back every database change at the end so nothing is left behind. The framework uses it internally for testing, debugging, and validating API
 behaviour without persisting changes.
 
 > **Dry-run testing of your own APIs.** To exercise an inbound API without persisting changes, write `@IsTest` methods with `Test.startTest()` / `Test.stopTest()` and let the
 > test-mode rollback do the work. To exercise an outbound API without making a real callout, mock it via `kern.API_MockFactory.forService(serviceName).body(json).register()`.
-> Both give you a clean dry run, and both run in your own namespace. The framework relies on `API_Base.enterSafeMode()`, `API_Base.isSafeModeActive()`, and `API_Base.SafeModeContext`
-> internally for the same effect (shown below for reference).
+> Both give you a clean dry run, and both run in your own namespace.
 
-#### Framework usage (reference)
-
-```apex
-// Internal framework pattern — shown for documentation only.
-API_Base.SafeModeContext safeMode = API_Base.enterSafeMode();
-try
-{
-	API_Dispatcher.processInboundService('API_MyHandler');
-}
-finally
-{
-	safeMode.close();
-}
-```
-
-**Framework-internal methods:**
-
-| Method                        | Visibility | Description                                                  |
-|-------------------------------|-----------:|--------------------------------------------------------------|
-| `API_Base.enterSafeMode()`    |   `public` | Returns a `SafeModeContext`, must be closed via try/finally |
-| `API_Base.isSafeModeActive()` |   `public` | Check if any Safe Mode scope is currently active             |
-| `safeMode.close()`            |   `public` | Close the scope (idempotent, safe to call multiple times)   |
+Without writing any Apex, you reach Safe Mode through the API Test Harness screen described below, which runs in Safe Mode by default: pick a service, run it, read the response, and nothing the handler wrote to the database is left behind. Everywhere else the framework turns Safe Mode on for itself whenever it needs a dry run, so you get the same rollback without setting anything up.
 
 #### Behavior
 
@@ -3084,7 +3308,7 @@ finally
 | Triggers          | Fire normally                     |
 | Validation Rules  | Execute and can block             |
 | Workflows/Flows   | Execute but rolled back           |
-| HTTP Callouts     | Blocked with mock response        |
+| HTTP Callouts     | Still sent unless Mocking is on   |
 | Emails            | NOT rolled back                   |
 | Platform Events   | Rolled back (deferred publishing) |
 | Governor Limits   | Consumed as normal                |
@@ -3092,7 +3316,8 @@ finally
 
 #### Use Cases
 
-- **Debugging failed APIs**: replay a request with Safe Mode to inspect behaviour without side effects
+- **Debugging failed APIs**: replay a request with Safe Mode to inspect behaviour without leaving database changes behind
+  (turn Mocking on as well if the callout itself must not reach the endpoint)
 - **Validating new API handlers**: test end-to-end flow before enabling in production
 - **Demo environments**: execute APIs without creating real records
 - **Test Harness**: the `apiTestHarnessForm` LWC uses Safe Mode by default
@@ -3109,10 +3334,15 @@ FlexiPage + Custom Tab, so you reach it from the Kern Home page (or any nav menu
 - **Two-column page layout**: configuration on the left, response preview on the right
 - **Service discovery**: auto-populates available services from `ApiSetting__mdt` filtered by direction
 - **Direction toggle**: switch between inbound and outbound APIs, reloads the service list automatically
-- **Key-value parameter grid**: dynamic rows for outbound parameters (add/remove/replacement-row), serialised to the Apex controller as a structured `List<DTO_NameValue>` inside a
-  single JSON request payload (avoids the comma/equals footgun of delimited strings)
+- **Key-value parameter grid**: dynamic rows for outbound parameters (add/remove/replacement-row for optional rows), serialised to the Apex controller as a structured
+  `List<DTO_NameValue>` inside a single JSON request payload (avoids the comma/equals footgun of delimited strings)
+- **Shows what a service needs before you run it**: pick an outbound service and the form reads the inputs it declares through `getRequiredInputs()`, along with whether it
+  needs a triggering record (`requiresTriggeringRecord`). Those parameters arrive as rows marked "Required" whose names are fixed, so you only fill in the values; one empty
+  optional row follows them for anything else. The Record ID field reads "Record ID (optional)" unless the service needs one, and Execute stays disabled, with a short line
+  underneath naming what is still missing, until every required value is present and, when the service needs a record, the Record ID you type is 15 or 18 characters. The same
+  checks still run on the server, so a call built outside the harness is validated exactly as before.
 - **Execution Settings safety bar**: 4-state combined indicator for Safe Mode and Mocking:
-    - **Safe Mode** (blue info): DML rolled back, real callouts
+    - **Safe Mode · Real callouts** (blue info): DML rolled back, but the callout still reaches the real endpoint unless you also turn Mocking on
     - **Full Sandbox** (green success): DML rolled back AND responses mocked
     - **Live DML · Mocked callouts** (amber warning): persistent DML but mocked external calls
     - **LIVE** (red error + SLDS alert-texture stripes): fully persistent, maximum risk
@@ -3123,6 +3353,9 @@ FlexiPage + Custom Tab, so you reach it from the Kern Home page (or any nav menu
   Mode was on (no persisted record), the Id is plain text
 - **Sticky config column**: on wide viewports, the left-side configuration panel stays pinned while the user scrolls the response preview, so Execute and Reset stay visible
 - **Capped scroll regions**: inner JSON viewers and header tables scroll internally rather than stretching the whole page, so very large responses stay manageable
+- **Credential headers shown redacted**: the Request Headers and Response Headers tables, and their copy actions, replace the value of `Authorization`,
+  `Proxy-Authorization`, `Cookie`, `Set-Cookie`, `X-Api-Key`, `Api-Key`, `X-Auth-Token` and any header whose name contains `secret`, `password`, `passwd`, `token` or
+  `credential` with `[REDACTED]`, so a screenshot or a pasted header block never carries a session token or an API key
 
 #### Deployment
 
@@ -3147,6 +3380,7 @@ Here is the problem this solves. A caller sends you a request, the network drops
 (So "a retry can't create a duplicate" is true only for the genuine same-body retry; a *different* body under the same key is rejected, not quietly accepted.)
 
 Turn it on per-service with `kern__ApiSetting__mdt.IdempotencyEnabled__c = true`. Once enabled, callers send a unique `Idempotency-Key` HTTP header on each request (a tracking value the caller picks for that one request), and the framework matches it against `kern__ApiCall__c.IdempotencyKey__c` to spot a repeat.
+The header name is matched without regard to case, so a caller that sends `idempotency-key` in lower case is recognised too.
 
 #### What gets stored
 
@@ -3754,7 +3988,7 @@ These methods let you verify that an outbound call succeeded, failed, or was abo
  *
  * @see API_PostExample
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class API_PostExample_TEST
 {
 	/**
@@ -3931,7 +4165,7 @@ An inbound test has to pretend a real HTTP request arrived: it needs a request a
  * @see API_PersonRetrieve
  * @see REST_Person
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class API_PersonRetrieve_TEST
 {
 	/**
@@ -4252,7 +4486,7 @@ Most of what this framework does is controlled by configuration records, not cod
 | Mock mode                             | `ApiSetting__mdt`                         | `MockingEnabled__c`                                                                                                                   | Enable mock responses without callouts                                                                                    |
 | API disable switch                    | `ApiRuntimeSwitch__c`                     | `DisableAllApis__c`                                                                                                                   | Emergency kill switch for all API calls (hierarchy)                                                                       |
 | Retry strategy                        | `ApiSetting__mdt`                         | `MaxRetryCount__c`, `RetryBackoffSeconds__c`                                                                                          | Configurable retry with linear or exponential backoff                                                                     |
-| Circuit breaker                       | `ApiSetting__mdt`                         | `CircuitBreakerEnabled__c`                                                                                                            | Automatic circuit breaker protection                                                                                      |
+| Circuit breaker                       | `ApiSetting__mdt`                         | `CircuitBreakerEnabled__c`                                                                                                            | Circuit breaker protection, on when the field is checked                                                                  |
 | Performance logging                   | Automatic                                 | `ApiCall__c.TotalDurationMs__c`                                                                                                       | All API calls are automatically timed and logged                                                                          |
 | Batched callouts                      | `ScheduledJob__c`                         | `SCHED_PerformBatchedCallouts`                                                                                                        | Process queued API calls in scheduled batches                                                                             |
 
@@ -4268,7 +4502,7 @@ Each habit below quietly breaks something the framework was built to give you: a
 | DML before callout in the same transaction             | Salesforce throws `CalloutException`; you cannot make callouts after DML      | Use the framework's orchestration pattern: callout first, then `onSuccess()` for DML registration                |
 | Hardcoding endpoints or credentials in Apex            | Cannot change per environment, fails security review, blocks testing            | Use `ApiSetting__mdt` + Named Credentials; override `getWebServiceEndPoint()` only when dynamic                  |
 | Overriding every virtual method                        | Makes the class brittle and harder to maintain when the framework evolves       | Override only what differs from the defaults (see [Override Only What You Need](#override-only-what-you-need)) |
-| Skipping `@JsonAccess` on DTOs in subscriber orgs      | Serialization fails at runtime with a security error in managed package context | Always add `@JsonAccess(Serializable='always' Deserializable='always')` to every DTO                             |
+| Skipping `@JsonAccess` on DTOs in subscriber orgs      | Serialization fails at runtime with a security error in managed package context | Always add `@JsonAccess(serializable='always' deserializable='always')` to every DTO                             |
 
 ---
 
