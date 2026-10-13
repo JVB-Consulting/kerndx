@@ -8,15 +8,30 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class FLOW_CallApi_TEST
 {
+	/**
+	 * @description Failure message for the check that the response body holds the value the test sent as an input.
+	 */
 	private static final String MSG_CONTAINS_VALUE = 'Response body should contain expected parameter';
+
+	/**
+	 * @description Failure message for the check that the action returned at least one response for the request.
+	 */
 	private static final String MSG_NOT_EMPTY = 'Response list should not be empty';
+
+	/**
+	 * @description Failure message for the check that a value read from the response is present.
+	 */
 	private static final String MSG_NOT_NULL = 'Value should not be null';
+
+	/**
+	 * @description Failure message for the check that the response reports the callout as a success.
+	 */
 	private static final String MSG_SUCCESSFUL = 'Callout should be successful';
 
 	/**

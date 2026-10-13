@@ -8,18 +8,47 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class SCHED_DeactivateUsers_TEST
 {
+	/**
+	 * @description The first of the two profile names the valid-parameters test passes to the job.
+	 */
 	private static final String CHATTER_FREE_PROFILE = SEL_Profile.PROFILE_CHATTER_FREE_USER;
+
+	/**
+	 * @description Name of the job's required parameter that holds the minimum number of days.
+	 */
 	private static final String DAYS_PARAM = SCHED_DeactivateUsers.REQUIRED_PARAMETER_MINIMUM_NUMBER_OF_DAYS;
+
+	/**
+	 * @description Failure message for the check that the scheduled job record holds the id of a started job.
+	 */
 	private static final String ERROR_NO_JOB_STARTED = SCHED_DeactivateUsers.class.getName() + ' was not started';
+
+	/**
+	 * @description The minimum number of days the valid-parameters test passes to the job. It is text because job
+	 * parameters are passed as text.
+	 */
 	private static final String MINIMUM_DAYS = '10';
+
+	/**
+	 * @description Name of the job's required parameter that holds the profile names.
+	 */
 	private static final String PROFILE_PARAM = SCHED_DeactivateUsers.REQUIRED_PARAMETER_PROFILE_NAMES;
+
+	/**
+	 * @description Class name of the job under test, which a scheduled job record names as the class to run.
+	 */
 	private static final String SCHEDULER_CLASS_NAME = SCHED_DeactivateUsers.class.getName();
+
+	/**
+	 * @description The second of the two profile names the valid-parameters test passes to the job, joined to the first
+	 * with a pipe character.
+	 */
 	private static final String SYSTEM_ADMIN_PROFILE = SEL_Profile.PROFILE_SYSTEM_ADMIN;
 
 	/**

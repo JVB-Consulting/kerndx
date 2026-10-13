@@ -10,7 +10,7 @@
  *
  * @date October 2024, May 2026
  */
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class SEL_Group_TEST
 {
 	/**

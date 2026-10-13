@@ -14,7 +14,7 @@
  *
  * @group Validation
  *
- * @date January 2026, July 2026
+ * @date January 2026, October 2026
  *
  * @since 1.0
  *
@@ -60,9 +60,9 @@ global inherited sharing class FLOW_BypassValidation
 	 */
 	@InvocableMethod
 	(
-			Category='Validation'
-			Label='Bypass Validation'
-			Description='Bypasses validation rules for an object, group, or specific rule for the current transaction.'
+			category='Validation'
+			label='Bypass Validation'
+			description='Bypasses validation rules for an object, group, or specific rule for the current transaction.'
 	)
 	global static void bypass(List<DTO_Request> requests)
 	{
@@ -74,7 +74,8 @@ global inherited sharing class FLOW_BypassValidation
 
 	/**
 	 * @description Processes a single bypass request by determining the bypass type and applying
-	 * the appropriate bypass via UTIL_ValidationRule.
+	 * the appropriate bypass via UTIL_ValidationRule. The type is read whatever its letter case, because the enum's
+	 * valueOf ignores case; a blank type means OBJECT_NAME.
 	 *
 	 * @param request The bypass request containing the bypass type and name
 	 *
@@ -87,7 +88,7 @@ global inherited sharing class FLOW_BypassValidation
 			return;
 		}
 
-		String bypassTypeString = String.isNotBlank(request.bypassType) ? request.bypassType.toUpperCase() : 'OBJECT_NAME';
+		String bypassTypeString = String.isNotBlank(request.bypassType) ? request.bypassType : 'OBJECT_NAME';
 
 		try
 		{
@@ -123,10 +124,10 @@ global inherited sharing class FLOW_BypassValidation
 		@SuppressWarnings('LongLine')
 		@InvocableVariable
 		(
-				Label='Bypass Type'
-				Description='Pick Object to bypass all validation rules on an object, Rule Group to bypass one rule group, or Rule to bypass a single rule. Stored values are OBJECT_NAME, GROUP_NAME, and RULE_NAME; the field shows the stored value.'
-				DefaultValue='OBJECT_NAME'
-				PlaceholderText='OBJECT_NAME'
+				label='Bypass Type'
+				description='Pick Object to bypass all validation rules on an object, Rule Group to bypass one rule group, or Rule to bypass a single rule. Stored values are OBJECT_NAME, GROUP_NAME, and RULE_NAME; the field shows the stored value.'
+				defaultValue='OBJECT_NAME'
+				placeholderText='OBJECT_NAME'
 		)
 		global String bypassType;
 
@@ -141,10 +142,10 @@ global inherited sharing class FLOW_BypassValidation
 		 */
 		@InvocableVariable
 		(
-				Label='Name'
-				Description='Object API name, group DeveloperName, or rule DeveloperName to bypass.'
-				PlaceholderText='Account'
-				Required=true
+				label='Name'
+				description='Object API name, group DeveloperName, or rule DeveloperName to bypass.'
+				placeholderText='Account'
+				required=true
 		)
 		global String name;
 	}

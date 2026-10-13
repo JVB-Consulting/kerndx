@@ -8,13 +8,23 @@
  *
  * @group Controllers
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class CTRL_Search_TEST
 {
+	/**
+	 * @description Company name of the admin user created in the test setup. Each test finds that user by this name and
+	 * runs as them.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'CTRL_Search_TEST-admin';
+
+	/**
+	 * @description The most results a search may return, passed by the two tests that set a limit. In the limit test two
+	 * records match the search, so getting one back shows the limit was applied. The unresolved-object test passes it only
+	 * to send a complete request.
+	 */
 	private static final Integer LIMIT_TO_ONE_RESULT = 1;
 
 	/**

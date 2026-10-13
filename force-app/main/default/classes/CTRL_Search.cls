@@ -8,10 +8,14 @@
  *
  * @group Controllers
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class CTRL_Search implements IF_Search
 {
+	/**
+	 * @description How many records a search by search term returns when the caller does not supply the maximumNumberOfResults
+	 * search parameter.
+	 */
 	private static final Integer MAXIMUM_NUMBER_OF_RESULTS = 20;
 	/**
 	 * @description Record Id
@@ -41,7 +45,7 @@ public inherited sharing class CTRL_Search implements IF_Search
 	 *
 	 * @return Response object
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static Object search(Object searchTerm, Map<String, Object> searchParameters)
 	{
 		Object result;

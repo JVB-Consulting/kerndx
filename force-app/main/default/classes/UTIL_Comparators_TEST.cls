@@ -12,21 +12,65 @@
  *
  * @group Utilities
  *
- * @date 2012, June 2026
+ * @date 2012, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class UTIL_Comparators_TEST
 {
+	/**
+	 * @description The result a comparator gives when the two values sort in the same place.
+	 */
 	private static final Integer EQUAL = 0;
+
+	/**
+	 * @description The result a comparator gives when the first value sorts after the second.
+	 */
 	private static final Integer GREATER = 1;
+
+	/**
+	 * @description The result a comparator gives when the first value sorts before the second.
+	 */
 	private static final Integer LESS = -1;
+
+	/**
+	 * @description Name of the text field the tests compare and sort Foobar__c records by.
+	 */
 	private static final String FIELD_NAME = SEL_Foobar.FIELD_NAME;
+
+	/**
+	 * @description Name of the number field the tests compare and sort Foobar__c records by.
+	 */
 	private static final String FIELD_NUMBER = SEL_Foobar.FIELD_DECIMAL;
+
+	/**
+	 * @description The same text field as FIELD_NAME, as a field token, for the tests of orderBy and thenBy, which take a
+	 * token and not a name.
+	 */
 	private static final SObjectField FIELD_NAME_TOKEN = Foobar__c.Name;
+
+	/**
+	 * @description The same number field as FIELD_NUMBER, as a field token, for the tests of orderBy and thenBy, which take
+	 * a token and not a name.
+	 */
 	private static final SObjectField FIELD_NUMBER_TOKEN = Foobar__c.NumberDecimal__c;
+
+	/**
+	 * @description Failure message for a test that expects an IllegalArgumentException. {0} is the invalid input that was
+	 * tried.
+	 */
 	private static final String MSG_EXPECTED_EXCEPTION = 'Expected IllegalArgumentException for invalid input: {0}';
+
+	/**
+	 * @description Failure message for a wrong comparison. {0} is the expected result, {1} and {2} are the two values
+	 * compared, and {3} is the result found.
+	 */
 	private static final String MSG_WRONG_COMPARISON = 'Expected comparison result {0} for {1} vs {2}, but found {3}';
+
+	/**
+	 * @description Failure message for a list sorted in the wrong order. {0} is the field, {1} is the position in the list,
+	 * {2} is the expected value, and {3} is the value found.
+	 */
 	private static final String MSG_WRONG_SORT = 'Expected {0} at index {1} to be {2}, but found {3}';
 
 	/**
@@ -538,6 +582,15 @@ private class UTIL_Comparators_TEST
 		};
 	}
 
+	/**
+	 * @description Builds a Foobar__c record in memory with a name and a number, the two fields the comparator tests compare
+	 * and sort by.
+	 *
+	 * @param name The value for the Name field.
+	 * @param numberDecimal The value for the NumberDecimal__c field.
+	 *
+	 * @return The record with both fields set.
+	 */
 	private static Foobar__c newFoobarWithNameAndDecimal(String name, Decimal numberDecimal)
 	{
 		Foobar__c foobar = TST_Factory.newFoobarWithName(name);

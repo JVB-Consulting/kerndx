@@ -63,9 +63,9 @@ global inherited sharing class FLOW_CallApiAsync
 
 	@InvocableMethod
 	(
-			Category='Api Callouts'
-			Label='Invoke Callout Asynchronously'
-			Description='Queues an HTTP callout asynchronously. Use when a Flow sends data to an external service and does not need to wait for the response.'
+			category='Api Callouts'
+			label='Invoke Callout Asynchronously'
+			description='Queues an HTTP callout asynchronously. Use when a Flow sends data to an external service and does not need to wait for the response.'
 	)
 	global static void invokeApiCallAsynchronously(List<ApiCall__c> apiCalls)
 	{

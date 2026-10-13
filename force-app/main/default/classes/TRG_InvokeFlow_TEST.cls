@@ -17,10 +17,10 @@
  *
  * @group Triggers
  *
- * @date April 2026, May 2026
+ * @date April 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class TRG_InvokeFlow_TEST
 {
 	/**
@@ -146,7 +146,7 @@ private class TRG_InvokeFlow_TEST
 	 * @description Verifies the runtime-error catch block routes through `LogAndContinue`
 	 * when the mocked flow throws an exception at the equivalent of `Flow.Interview.start()`.
 	 * Drives the `catch (Exception runtimeError)` opener, the `handleFailure` call inside the
-	 * catch, and the `return false` sentinel via `TST_InvokeFlowMock.throwOnStart` — without needing
+	 * catch, and the `return false` sentinel via `TST_InvokeFlowMock.throwOnStart`, without needing
 	 * a deliberately-broken flow XML to be deployed.
 	 */
 	@IsTest
@@ -402,7 +402,7 @@ private class TRG_InvokeFlow_TEST
 	 * (invoked from `TRG_InvokeFlow.createInterviewOrFail`) executes when `FlowName__c`
 	 * carries a `namespace__name` prefix shape. Uses a non-existent namespace so
 	 * `Flow.Interview.createInterview` deterministically throws `TypeException` after the
-	 * parse — the `LogAndContinue` failure strategy routes the lookup failure through
+	 * parse. The `LogAndContinue` failure strategy routes the lookup failure through
 	 * `handleFailure`, DML proceeds without `addError`, and the configuration error is
 	 * recorded to the audit log. Both dev-org (unmanaged) and subscriber (managed) runs
 	 * reach the parse block via this synthetic prefix, closing the coverage gap that an
@@ -482,7 +482,7 @@ private class TRG_InvokeFlow_TEST
 		Assert.isFalse(triggerRecord.hasErrors(), 'Non-updateable field write should be silently skipped, not raise addError');
 		Assert.areEqual('From flow', triggerRecord.Description, 'Updateable Description should land via applyResults');
 		LogEntry__c errorLog = new SEL_LogEntry().findByMethod(TRIGGER_ACTION + '.run');
-		Assert.isNull(errorLog, 'applyResults must silence non-editable writes via tryPutField — no error log should emit');
+		Assert.isNull(errorLog, 'applyResults must silence non-editable writes via tryPutField; no error log should emit');
 	}
 
 	/**
@@ -490,7 +490,7 @@ private class TRG_InvokeFlow_TEST
 	 * SObject but not on the trigger record's SObjectType. The describe-based typo guard
 	 * (`UTIL_SObjectDescribe.getFieldDescribe` returning null) prevents the `put` from being
 	 * attempted at all. This is the correctness path for "flow author bound to wrong SObject"
-	 * misconfiguration — the trigger record is preserved and the dispatch continues without error.
+	 * misconfiguration: the trigger record is preserved and the dispatch continues without error.
 	 */
 	@IsTest
 	private static void shouldSkipFieldsNotPresentOnTriggerRecordType()
@@ -561,7 +561,7 @@ private class TRG_InvokeFlow_TEST
 	 * tagged with `errorKind = configuration-unexpected`. Empirically only `System.TypeException`
 	 * fires from `createInterview`, but the broad fallback ensures subscribers' configured
 	 * strategy still wins if the empirical assumption ever proves wrong. Drives the branch via
-	 * the `simulateCreateInterviewExceptionForTest` seam so the test does not depend on
+	 * the `simulateCreateInterviewExceptionForTest` test override so the test does not depend on
 	 * coercing the platform Flow runtime.
 	 */
 	@IsTest
@@ -599,7 +599,7 @@ private class TRG_InvokeFlow_TEST
 
 	/**
 	 * @description Verifies the unexpected-config catch rethrows when the caught exception is
-	 * a fatal governor blow — matches the runtime catch's `isFatalGovernorError` rethrow
+	 * a fatal governor error. This matches the runtime catch's `isFatalGovernorError` rethrow
 	 * semantics so governor exhaustion is never swallowed by the configuration-error gate.
 	 */
 	@IsTest
@@ -831,7 +831,7 @@ private class TRG_InvokeFlow_TEST
 	 * the seven trigger callbacks. Drives each public callback once with a fail-mock and asserts
 	 * (a) the mock observed seven invocations total, (b) no record raises addError. The
 	 * underlying `handleFailure` routing is identical per context, so a single combined test
-	 * is sufficient regression coverage — splitting per-context would duplicate setup without
+	 * is sufficient regression coverage; splitting per-context would duplicate setup without
 	 * exercising distinct code paths.
 	 */
 	@IsTest
@@ -865,7 +865,7 @@ private class TRG_InvokeFlow_TEST
 
 	/**
 	 * @description Verifies action-level bypass via `TRG_Base.bypassAction('TRG_InvokeFlow')`
-	 * skips the flow action entirely on `BEFORE_INSERT` — the dispatcher's
+	 * skips the flow action entirely on `BEFORE_INSERT`. The dispatcher's
 	 * `isActionBypassed(className)` check fires before `setConfig` runs, so the mock is
 	 * never invoked.
 	 */
@@ -897,7 +897,7 @@ private class TRG_InvokeFlow_TEST
 	/**
 	 * @description Verifies action-level bypass on `BEFORE_UPDATE` mirrors the BEFORE_INSERT
 	 * behavior. Two-context coverage proves the bypass check fires regardless of dispatch
-	 * context — it's evaluated once per dispatch loop iteration.
+	 * context; it is evaluated once per dispatch loop iteration.
 	 */
 	@IsTest
 	private static void shouldSkipFlowActionWhenActionLevelBypassedOnBeforeUpdate()
@@ -931,7 +931,7 @@ private class TRG_InvokeFlow_TEST
 
 	/**
 	 * @description Verifies object-level bypass via `TRG_Base.bypass(SEL_Foobar.OBJECT_NAME)`
-	 * short-circuits the entire dispatch — the dispatcher's `isBypassed(sObjectName)` check
+	 * short-circuits the entire dispatch. The dispatcher's `isBypassed(sObjectName)` check
 	 * runs before action enumeration, so the flow action is never reached.
 	 */
 	@IsTest
@@ -1082,7 +1082,7 @@ private class TRG_InvokeFlow_TEST
 	private static void shouldEmitPerformanceLogWithFlowNameWhenThresholdBreached()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, true, 0);
+		TST_Factory.newLoggerSettings().withTriggerLogging(0).apply();
 
 		TST_InvokeFlowMock.forFlow(FLOW_NAME).succeed().register();
 
@@ -1120,7 +1120,7 @@ private class TRG_InvokeFlow_TEST
 	private static void shouldNotEmitPerformanceLogForFlowActionWhenSuppressFlagSet()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, true, 0);
+		TST_Factory.newLoggerSettings().withTriggerLogging(0).apply();
 
 		TST_InvokeFlowMock.forFlow(FLOW_NAME).succeed().register();
 
@@ -1149,7 +1149,7 @@ private class TRG_InvokeFlow_TEST
 	 * @description Verifies `setConfig` stores the supplied `TriggerAction__mdt` reference on
 	 * the action's `actionConfig` field, exposing it via `@TestVisible`. Locks the contract
 	 * the dispatcher relies on: `setConfig` is the only mutator and it stores the reference
-	 * verbatim — no copy, no transformation, no validation side-effects.
+	 * as it is: no copy, no transformation, no validation side-effects.
 	 */
 	@IsTest
 	private static void shouldStoreSuppliedConfigOnSetConfig()
@@ -1206,18 +1206,18 @@ private class TRG_InvokeFlow_TEST
 	 * `System.LimitException` instance via direct method call (the catch in `invokeSingle` is
 	 * unreachable from user-mode tests, but the discriminator function is callable directly).
 	 * Locks the production behavior that real `System.LimitException` instances trigger the
-	 * rethrow path even when the test seam is off.
+	 * rethrow path even when the test override is off.
 	 */
 	@IsTest
 	private static void shouldClassifyRealLimitExceptionAsFatalGovernorError()
 	{
-		Assert.isFalse(UTIL_Exceptions.simulateFatalGovernorErrorForTest, 'Test seam must be off for production-shape assertion');
+		Assert.isFalse(UTIL_Exceptions.simulateFatalGovernorErrorForTest, 'The test override must be off so the check matches production');
 		Assert.isTrue(UTIL_Exceptions.isFatalGovernorError(new System.LimitException('any')), 'System.LimitException should classify as fatal governor error');
-		Assert.isFalse(UTIL_Exceptions.isFatalGovernorError(new System.NullPointerException()), 'Non-LimitException must NOT classify as fatal when test seam is off');
+		Assert.isFalse(UTIL_Exceptions.isFatalGovernorError(new System.NullPointerException()), 'Non-LimitException must NOT classify as fatal when the test override is off');
 	}
 
 	/**
-	 * @description Verifies `run()` short-circuits cleanly when `FlowName__c` is blank — no
+	 * @description Verifies `run()` short-circuits cleanly when `FlowName__c` is blank: no
 	 * exception, no mock invocation, no addError. This is the production-shape contract for a
 	 * mis-configured CMDT row: the action exits silently rather than throwing a configuration
 	 * error mid-trigger.
@@ -1246,12 +1246,12 @@ private class TRG_InvokeFlow_TEST
 	/**
 	 * @description Verifies a Change Event dispatch injects a `DTO_ChangeEventHeader` into
 	 * the Flow input variables map and threads it through to the mock recorder. The dispatch
-	 * is driven by an in-memory `AccountChangeEvent` SObject built via `TST_Builder` —
-	 * standard `AccountChangeEvent` resolves identically in both unmanaged dev orgs and
+	 * is driven by an in-memory `AccountChangeEvent` SObject built via `TST_Builder`.
+	 * Standard `AccountChangeEvent` resolves identically in both unmanaged dev orgs and
 	 * managed subscriber installs, and `String.endsWith('ChangeEvent')` fires on the API
 	 * name to flag the CDC branch.
 	 *
-	 * The header is supplied via the `simulateChangeEventHeaderForTest` seam rather than
+	 * The header is supplied via the `simulateChangeEventHeaderForTest` test override rather than
 	 * populated on the SObject because the platform crashes on
 	 * `(EventBus.ChangeEventHeader)record.get('ChangeEventHeader')` for any JSON-roundtripped
 	 * Change Event SObject (`TST_Builder`/`TST_Mock`/raw deserialize all share this
@@ -1311,7 +1311,7 @@ private class TRG_InvokeFlow_TEST
 	 * enabled, a Change Event dispatch emits exactly one per-batch audit `LogEntry__c` whose
 	 * serialized context carries the underlying `header.recordIds` (not the synthetic
 	 * change-event record Id) and whose `recordCount` reflects the total recordIds across
-	 * all change-event records (not the change-event record count). The simulator seam
+	 * all change-event records (not the change-event record count). The test override
 	 * supplies a known header so the assertion can match exact recordId values.
 	 *
 	 * Confirms the design intent: subscribers querying the flow-action audit for "what
@@ -1382,7 +1382,7 @@ private class TRG_InvokeFlow_TEST
 	/**
 	 * @description Verifies the CDC aggregate audit caps the recordIds list at `MAX_AUDITED_IDS`
 	 * while the total count reflects the full uncapped sum. Dispatches three change-event
-	 * records whose combined header.recordIds total 300 (3 × 100) — the audit list caps at 200
+	 * records whose combined header.recordIds total 300 (3 × 100). The audit list caps at 200
 	 * (first 200 ids surface in `CONTEXT_RECORD_IDS`) while `CONTEXT_RECORD_COUNT` reports 300.
 	 *
 	 * Drives the cap-saturation branch where `remaining <= 0` short-circuits subsequent
@@ -1448,14 +1448,14 @@ private class TRG_InvokeFlow_TEST
 		Assert.isTrue(serializedIds.contains(bulkIds[0]), 'First id should be in audit list (below cap)');
 		List<Object> capturedIds = (List<Object>)JSON.deserializeUntyped(serializedIds);
 		Assert.areEqual(200, capturedIds.size(),
-				'attemptedCdcRecordIds must cap at MAX_AUDITED_IDS (200) — full uncapped total surfaces only via recordCount');
+				'attemptedCdcRecordIds must cap at MAX_AUDITED_IDS (200); the full uncapped total surfaces only via recordCount');
 	}
 
 	/**
 	 * @description Verifies a CDC dispatch with a header carrying null `recordIds` does not
 	 * throw and emits an audit entry with `recordCount = 0`. Covers the defensive early
-	 * return in `accumulateCdcAuditIds` when the simulator seam produces a DTO without a
-	 * populated `recordIds` list (default-constructor case) — production CDC delivery
+	 * return in `accumulateCdcAuditIds` when the test override produces a DTO without a
+	 * populated `recordIds` list (default-constructor case). Production CDC delivery
 	 * always populates `recordIds`, but the framework must not crash on a malformed
 	 * synthetic header.
 	 */
@@ -1558,7 +1558,7 @@ private class TRG_InvokeFlow_TEST
 		Test.stopTest();
 
 		Assert.isFalse(cdcRecord.hasErrors(),
-				'BlockDml on Change Event must degrade to LogAndContinue — addError cannot roll back a committed change');
+				'BlockDml on Change Event must degrade to LogAndContinue, because addError cannot roll back a committed change');
 		List<LogEntry__c> allEntries = new SEL_LogEntry().findAllByMethod(TRIGGER_ACTION + '.run');
 		Boolean foundDegradeWarning = false;
 		for(LogEntry__c entry : allEntries)
@@ -1594,7 +1594,7 @@ private class TRG_InvokeFlow_TEST
 	 * `contextData` map. LOG_Builder wraps the user-supplied context map in a `{"contextData":
 	 * {...}}` envelope before serializing, so test assertions on individual context keys must
 	 * navigate one level into the outer object. Returns an empty map when the field is null
-	 * or the inner envelope is missing — callers should follow up with explicit value checks.
+	 * or the inner envelope is missing; callers should follow up with explicit value checks.
 	 *
 	 * @param contextDataJson The raw `ContextData__c` field value (LOG_Builder-serialized JSON).
 	 *
@@ -1635,7 +1635,7 @@ private class TRG_InvokeFlow_TEST
 	}
 
 	/**
-	 * @description Builds a `TriggerAction__mdt` row suitable for dispatcher-driven tests —
+	 * @description Builds a `TriggerAction__mdt` row suitable for dispatcher-driven tests.
 	 * `ApexClassName__c` and dispatcher-required defaults are populated via `TST_Factory`,
 	 * then the flow-specific fields (`FlowName__c`, `FailureAction__c`) are layered on.
 	 * Use this for any test that goes through `TRG_Dispatcher.run()`; the lighter

@@ -12,17 +12,36 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class UTIL_List_TEST
 {
+	/**
+	 * @description Failure message shown when a null list or a list with no items is not treated as empty.
+	 */
 	private static final String MSG_IS_EMPTY = 'List should be considered empty';
+	/**
+	 * @description Failure message shown when a list holding at least one item is treated as empty.
+	 */
 	private static final String MSG_NOT_EMPTY = 'List should be considered non-empty';
+	/**
+	 * @description Failure message shown when a helper that must always hand back a list returns null.
+	 */
 	private static final String MSG_NOT_NULL = 'Result should not be null';
+	/**
+	 * @description Failure message shown when a helper returns a value where the tests expect null, for example
+	 * when taking an item from an empty list.
+	 */
 	private static final String MSG_NULL_RESULT = 'Result should be null';
+	/**
+	 * @description Failure message shown when a list does not hold the number of items the test expects.
+	 */
 	private static final String MSG_SIZE_EQUALITY = 'List size should match expected';
+	/**
+	 * @description Failure message shown when a returned item or list differs from the one the test expects.
+	 */
 	private static final String MSG_VALUE_EQUALITY = 'Value should match expected';
 
 	/**

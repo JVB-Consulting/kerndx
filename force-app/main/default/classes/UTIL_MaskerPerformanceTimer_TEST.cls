@@ -11,9 +11,9 @@
  *
  * @group Utilities
  *
- * @date April 2026, May 2026
+ * @date April 2026, September 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class UTIL_MaskerPerformanceTimer_TEST
 {
@@ -35,7 +35,7 @@ private class UTIL_MaskerPerformanceTimer_TEST
 	private static void shouldEmitLogWhenEnabledAndAboveThreshold()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500);
+		TST_Factory.setupLoggerForTest();
 		LOG_Engine.logSettingOverride.EnableMaskerPerformanceLogging__c = true;
 		LOG_Engine.logSettingOverride.MaskerPerformanceThresholdMs__c = 0;
 
@@ -57,7 +57,7 @@ private class UTIL_MaskerPerformanceTimer_TEST
 	private static void shouldNotEmitWhenDisabled()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500);
+		TST_Factory.setupLoggerForTest();
 		LOG_Engine.logSettingOverride.EnableMaskerPerformanceLogging__c = false;
 		LOG_Engine.logSettingOverride.MaskerPerformanceThresholdMs__c = 0;
 
@@ -79,7 +79,7 @@ private class UTIL_MaskerPerformanceTimer_TEST
 	private static void shouldNotEmitBelowThreshold()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500);
+		TST_Factory.setupLoggerForTest();
 		LOG_Engine.logSettingOverride.EnableMaskerPerformanceLogging__c = true;
 		LOG_Engine.logSettingOverride.MaskerPerformanceThresholdMs__c = 999999;
 
@@ -101,7 +101,7 @@ private class UTIL_MaskerPerformanceTimer_TEST
 	private static void shouldSkipEmissionOnLogEntryEventReentrance()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500);
+		TST_Factory.setupLoggerForTest();
 		LOG_Engine.logSettingOverride.EnableMaskerPerformanceLogging__c = true;
 		LOG_Engine.logSettingOverride.MaskerPerformanceThresholdMs__c = 0;
 
@@ -124,7 +124,7 @@ private class UTIL_MaskerPerformanceTimer_TEST
 	private static void shouldCapEmissionPerTransaction()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500);
+		TST_Factory.setupLoggerForTest();
 		LOG_Engine.logSettingOverride.EnableMaskerPerformanceLogging__c = true;
 		LOG_Engine.logSettingOverride.MaskerPerformanceThresholdMs__c = 0;
 
@@ -151,7 +151,7 @@ private class UTIL_MaskerPerformanceTimer_TEST
 	private static void shouldSkipEmissionWhenRecursionGuardEngaged()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500);
+		TST_Factory.setupLoggerForTest();
 		LOG_Engine.logSettingOverride.EnableMaskerPerformanceLogging__c = true;
 		LOG_Engine.logSettingOverride.MaskerPerformanceThresholdMs__c = 0;
 
@@ -181,7 +181,7 @@ private class UTIL_MaskerPerformanceTimer_TEST
 	private static void shouldNotDivideByZeroOnEmptyBatch()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500);
+		TST_Factory.setupLoggerForTest();
 		LOG_Engine.logSettingOverride.EnableMaskerPerformanceLogging__c = true;
 		LOG_Engine.logSettingOverride.MaskerPerformanceThresholdMs__c = 0;
 
@@ -204,7 +204,7 @@ private class UTIL_MaskerPerformanceTimer_TEST
 	private static void shouldSwallowExceptionsFromEmitPerformanceLog()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest(false, 0, false, 0, false, 500);
+		TST_Factory.setupLoggerForTest();
 		LOG_Engine.logSettingOverride.EnableMaskerPerformanceLogging__c = true;
 		LOG_Engine.logSettingOverride.MaskerPerformanceThresholdMs__c = 0;
 

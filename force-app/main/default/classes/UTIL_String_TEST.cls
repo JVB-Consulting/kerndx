@@ -12,9 +12,9 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.ApexUnitTestClassShouldHaveRunAs')
 private class UTIL_String_TEST
 {
@@ -104,7 +104,7 @@ private class UTIL_String_TEST
 	private static final String VALID_UNION_PAY_19 = '6221260000000000001';
 
 	/**
-	 * @description A 16-digit run that does not pass Luhn — representative transaction ID.
+	 * @description A 16-digit run that does not pass Luhn: a representative transaction ID.
 	 */
 	private static final String INVALID_TRANSACTION_ID_16 = '1234567890123456';
 
@@ -112,6 +112,36 @@ private class UTIL_String_TEST
 	 * @description A 19-digit nanosecond timestamp. Not a card.
 	 */
 	private static final String TIMESTAMP_NANO_19 = '1776297919466123000';
+
+	/**
+	 * @description The fewest digits a card number may have.
+	 */
+	private static final Integer SHORTEST_CARD_DIGITS = 13;
+
+	/**
+	 * @description The most digits a card number may have.
+	 */
+	private static final Integer LONGEST_CARD_DIGITS = 19;
+
+	/**
+	 * @description A zero placed in front of a run of digits: it adds one digit without changing the Luhn sum.
+	 */
+	private static final String LEADING_ZERO = '0';
+
+	/**
+	 * @description Separator character used to render a sorted list of fruit names.
+	 */
+	private static final String FRUIT_SEPARATOR = ', ';
+
+	/**
+	 * @description Fruit names joined with FRUIT_SEPARATOR in ascending order.
+	 */
+	private static final String SORTED_FRUIT = 'apple, fig, pear';
+
+	/**
+	 * @description Fruit names joined with no separator in ascending order.
+	 */
+	private static final String SORTED_FRUIT_UNSEPARATED = 'applefigpear';
 
 	/**
 	 * @description Verifies that abbreviate with two arguments truncates strings correctly.
@@ -520,6 +550,21 @@ private class UTIL_String_TEST
 		String result = UTIL_String.join(new Set<String> {'alpha', 'beta'}, ',');
 		Assert.isTrue(result.contains('alpha'), 'Should contain alpha');
 		Assert.isTrue(result.contains('beta'), 'Should contain beta');
+	}
+
+	/**
+	 * @description Verifies that joinSorted renders a Set in ascending order whatever its insertion order,
+	 * treats a null separator as empty, returns an empty string for an empty set and null for a null set.
+	 */
+	@IsTest
+	private static void joinSortedRendersAscendingOrder()
+	{
+		Assert.isNull(UTIL_String.joinSorted(null, FRUIT_SEPARATOR), 'Null set should return null');
+		Assert.areEqual(UTIL_String.EMPTY, UTIL_String.joinSorted(new Set<String>(), FRUIT_SEPARATOR), 'Empty set should return an empty string');
+		Assert.areEqual(SORTED_FRUIT, UTIL_String.joinSorted(new Set<String> {'pear', 'apple', 'fig'}, FRUIT_SEPARATOR),
+				'Members should render in ascending order whatever the insertion order');
+		Assert.areEqual(SORTED_FRUIT_UNSEPARATED, UTIL_String.joinSorted(new Set<String> {'pear', 'apple', 'fig'}, null),
+				'A null separator should join with nothing between members');
 	}
 
 	/**
@@ -1397,6 +1442,12 @@ private class UTIL_String_TEST
 		Assert.areEqual('***', parsed.get('password'), 'Top-level password should still be redacted even when a neighbouring branch exceeds depth');
 	}
 
+	/**
+	 * @description A JSON payload that is only the literal null comes back unchanged from maskJsonKeys. It has no keys to
+	 * mask, and the call must not fail on a payload that is neither an object nor a list.
+	 *
+	 * @see UTIL_String.maskJsonKeys
+	 */
 	@IsTest
 	private static void shouldReturnInputUnchangedWhenJsonPayloadIsLiteralNull()
 	{
@@ -1425,7 +1476,7 @@ private class UTIL_String_TEST
 
 	/**
 	 * @description Tests that the counter-returning variant of the JsonKey tree walker keeps
-	 * its mutation flag clear and its replacement count at zero when no key matches — the
+	 * its mutation flag clear and its replacement count at zero when no key matches: the
 	 * cheap-path signal that lets the batching caller skip a redundant re-serialize.
 	 *
 	 * @see UTIL_String.applyJsonKeyRuleToTreeWithCount
@@ -1444,7 +1495,7 @@ private class UTIL_String_TEST
 	/**
 	 * @description Tests that the counter-returning variant of the JsonKey tree walker counts
 	 * every replacement, not just the first, when the same key appears at several nesting
-	 * levels — preventing a hidden undercount in batched rule telemetry.
+	 * levels, preventing a hidden undercount in batched rule telemetry.
 	 *
 	 * @see UTIL_String.applyJsonKeyRuleToTreeWithCount
 	 */
@@ -1459,42 +1510,84 @@ private class UTIL_String_TEST
 		Assert.areEqual(2, result.replacementCount, 'Both nested secret keys must be counted');
 	}
 
+	/**
+	 * @description A real-format 15-digit American Express number is accepted as a card number, so a card shorter than 16
+	 * digits is not mistaken for an ordinary number.
+	 *
+	 * @see UTIL_String.isValidCardNumber
+	 */
 	@IsTest
 	private static void shouldAcceptValidAmex()
 	{
 		Assert.isTrue(UTIL_String.isValidCardNumber(VALID_AMEX_15), 'Valid 15-digit Amex must pass card-number validation');
 	}
 
+	/**
+	 * @description A real-format 16-digit Visa number is accepted as a card number: it has a card's length and passes the
+	 * Luhn check, the checksum built into card numbers.
+	 *
+	 * @see UTIL_String.isValidCardNumber
+	 */
 	@IsTest
 	private static void shouldAcceptValidVisa()
 	{
 		Assert.isTrue(UTIL_String.isValidCardNumber(VALID_VISA_16), 'Valid 16-digit Visa must pass card-number validation');
 	}
 
+	/**
+	 * @description A real-format 16-digit Mastercard number is accepted as a card number, so acceptance does not depend on
+	 * one card brand's leading digits.
+	 *
+	 * @see UTIL_String.isValidCardNumber
+	 */
 	@IsTest
 	private static void shouldAcceptValidMastercard()
 	{
 		Assert.isTrue(UTIL_String.isValidCardNumber(VALID_MC_16), 'Valid 16-digit Mastercard must pass card-number validation');
 	}
 
+	/**
+	 * @description A real-format 19-digit UnionPay number is accepted as a card number, so the longest card length is
+	 * covered as well as the common 16 digits.
+	 *
+	 * @see UTIL_String.isValidCardNumber
+	 */
 	@IsTest
 	private static void shouldAcceptValidUnionPay()
 	{
 		Assert.isTrue(UTIL_String.isValidCardNumber(VALID_UNION_PAY_19), 'Valid 19-digit UnionPay must pass card-number validation');
 	}
 
+	/**
+	 * @description A 16-digit transaction id has the length of a card number but fails the Luhn check (the checksum built
+	 * into card numbers), so it is not accepted as a card number. Length alone never makes a number a card.
+	 *
+	 * @see UTIL_String.isValidCardNumber
+	 */
 	@IsTest
 	private static void shouldRejectTransactionIdShapedAs16Digits()
 	{
 		Assert.isFalse(UTIL_String.isValidCardNumber(INVALID_TRANSACTION_ID_16), '16-digit transaction ID must not card-number-validate');
 	}
 
+	/**
+	 * @description A 19-digit timestamp in nanoseconds is not accepted as a card number, although 19 digits is a valid card
+	 * length. A number that is not a card is not read as one just because of its length.
+	 *
+	 * @see UTIL_String.isValidCardNumber
+	 */
 	@IsTest
 	private static void shouldRejectNanosecondTimestamp()
 	{
 		Assert.isFalse(UTIL_String.isValidCardNumber(TIMESTAMP_NANO_19), '19-digit nanosecond timestamp must not card-number-validate');
 	}
 
+	/**
+	 * @description A card number written in groups of four, with hyphens or with spaces between the groups, is accepted: the
+	 * separators are ignored and only the digits are checked.
+	 *
+	 * @see UTIL_String.isValidCardNumber
+	 */
 	@IsTest
 	private static void shouldStripSpacesAndHyphensBeforeValidating()
 	{
@@ -1502,18 +1595,44 @@ private class UTIL_String_TEST
 		Assert.isTrue(UTIL_String.isValidCardNumber('4111 1111 1111 1111'), 'Spaces must be stripped before card-number validation');
 	}
 
+	/**
+	 * @description A 12-digit number that passes the Luhn check is not accepted as a card number: it is shorter than 13
+	 * digits, the shortest length a card number may have. The same digits with a leading zero, which keeps the Luhn check
+	 * passing, are accepted at 13 digits, so length is the only reason the shorter one is turned away.
+	 *
+	 * @see UTIL_String.isValidCardNumber
+	 */
 	@IsTest
 	private static void shouldRejectTooShortInput()
 	{
-		Assert.isFalse(UTIL_String.isValidCardNumber('1234567890'), '10-digit input must be rejected (below 13-digit card floor)');
+		String tooShort = generateLuhnValidDigits(SHORTEST_CARD_DIGITS - 1);
+
+		Assert.isTrue(UTIL_String.isValidCardNumber(LEADING_ZERO + tooShort), 'Expected the 13-digit Luhn-valid number to be accepted, got rejected');
+		Assert.isFalse(UTIL_String.isValidCardNumber(tooShort), 'Expected the 12-digit Luhn-valid number to be rejected for its length, got accepted');
 	}
 
+	/**
+	 * @description A 20-digit number that passes the Luhn check is not accepted as a card number: it is longer than 19
+	 * digits, the longest length a card number may have. The same digits without their leading zero are accepted at 19
+	 * digits, so length is the only reason the longer one is turned away.
+	 *
+	 * @see UTIL_String.isValidCardNumber
+	 */
 	@IsTest
 	private static void shouldRejectTooLongInput()
 	{
-		Assert.isFalse(UTIL_String.isValidCardNumber('12345678901234567890'), '20-digit input must be rejected (above 19-digit card ceiling)');
+		String longestAccepted = generateLuhnValidDigits(LONGEST_CARD_DIGITS);
+
+		Assert.isTrue(UTIL_String.isValidCardNumber(longestAccepted), 'Expected the 19-digit Luhn-valid number to be accepted, got rejected');
+		Assert.isFalse(UTIL_String.isValidCardNumber(LEADING_ZERO + longestAccepted), 'Expected the 20-digit Luhn-valid number to be rejected for its length, got accepted');
 	}
 
+	/**
+	 * @description A null value, an empty text and a text of spaces only are each answered with false and no error, so a
+	 * caller can pass any value without checking it first.
+	 *
+	 * @see UTIL_String.isValidCardNumber
+	 */
 	@IsTest
 	private static void shouldRejectNullAndEmpty()
 	{
@@ -1522,12 +1641,25 @@ private class UTIL_String_TEST
 		Assert.isFalse(UTIL_String.isValidCardNumber('   '), 'Whitespace-only input must return false');
 	}
 
+	/**
+	 * @description A text with letters between its digits is not accepted as a card number. Only spaces and hyphens are
+	 * ignored; any other character makes the text something other than a card number.
+	 *
+	 * @see UTIL_String.isValidCardNumber
+	 */
 	@IsTest
 	private static void shouldRejectLetterContaminatedInput()
 	{
 		Assert.isFalse(UTIL_String.isValidCardNumber('4111A1111B1111C1111'), 'Letters must cause rejection even if digits would otherwise Luhn-validate');
 	}
 
+	/**
+	 * @description A run of digits that the pattern finds and that passes the Luhn check (the checksum built into card
+	 * numbers) is replaced with the mask text, and the words around it stay as they were. A real card number in a message
+	 * is hidden.
+	 *
+	 * @see UTIL_String.maskWithLuhnValidatedRegex
+	 */
 	@IsTest
 	private static void shouldMaskLuhnValidCardInRegexAndLuhnPipeline()
 	{
@@ -1537,6 +1669,12 @@ private class UTIL_String_TEST
 		Assert.areEqual('Charge receipt: [CARD_REDACTED] accepted', output, 'Luhn-valid match must be redacted');
 	}
 
+	/**
+	 * @description A run of digits that the pattern finds but that fails the Luhn check is left as it is: a 16-digit
+	 * transaction id stays readable, so masking card numbers does not destroy ids that only look like cards.
+	 *
+	 * @see UTIL_String.maskWithLuhnValidatedRegex
+	 */
 	@IsTest
 	private static void shouldLeaveLuhnInvalidDigitRunAloneInPipeline()
 	{
@@ -1546,6 +1684,12 @@ private class UTIL_String_TEST
 		Assert.areEqual('parentTransactionId: TID:1234567890123456', output, 'Luhn-invalid 16-digit transaction ID must pass through unchanged');
 	}
 
+	/**
+	 * @description When one text holds both a card number and a 16-digit id that fails the Luhn check, only the card number
+	 * is replaced. Each match is checked on its own, so one real card does not cause every digit run to be masked.
+	 *
+	 * @see UTIL_String.maskWithLuhnValidatedRegex
+	 */
 	@IsTest
 	private static void shouldRedactOnlyLuhnValidMatchesWhenBothPresent()
 	{
@@ -1555,11 +1699,48 @@ private class UTIL_String_TEST
 		Assert.areEqual('card X, trace 1234567890123456, done', output, 'Only the Luhn-valid card must be redacted; the trace ID survives');
 	}
 
+	/**
+	 * @description A null text comes back as null and an empty text comes back empty, with no error, so a caller can mask a
+	 * value without checking first whether it has one.
+	 *
+	 * @see UTIL_String.maskWithLuhnValidatedRegex
+	 */
 	@IsTest
 	private static void shouldReturnInputUnchangedWhenNullOrEmptyInLuhnPipeline()
 	{
 		String regex = '\\b(?:\\d[ -]*?){15,19}\\b';
 		Assert.areEqual(null, UTIL_String.maskWithLuhnValidatedRegex(null, regex, 'X', false), 'Null passes through unchanged');
 		Assert.areEqual('', UTIL_String.maskWithLuhnValidatedRegex('', regex, 'X', false), 'Empty passes through unchanged');
+	}
+
+	/**
+	 * @description Builds a random run of digits of the given length that passes the Luhn check: random digits followed by
+	 * the check digit that makes the Luhn sum a multiple of ten. Prefixing the result with zeros keeps it Luhn-valid.
+	 *
+	 * @param length The number of digits to return, check digit included
+	 *
+	 * @return A Luhn-valid run of digits of the given length
+	 */
+	private static String generateLuhnValidDigits(Integer length)
+	{
+		String payload = UTIL_Random.randomNumeric(length - 1);
+		Integer sum = 0;
+		Boolean doubleDigit = true;
+
+		for(Integer position = payload.length() - 1; position >= 0; position--)
+		{
+			Integer digit = Integer.valueOf(payload.substring(position, position + 1));
+
+			if(doubleDigit)
+			{
+				digit = digit * 2;
+				digit = digit > 9 ? digit - 9 : digit;
+			}
+
+			sum += digit;
+			doubleDigit = !doubleDigit;
+		}
+
+		return payload + String.valueOf(Math.mod(10 - Math.mod(sum, 10), 10));
 	}
 }

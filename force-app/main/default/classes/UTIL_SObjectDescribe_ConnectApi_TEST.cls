@@ -11,7 +11,7 @@
  *
  * @date February 2026, May 2026
  */
-@IsTest(SeeAllData=true)
+@IsTest(seeAllData=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ApexUnitTestShouldNotUseSeeAllDataTrue')
 private class UTIL_SObjectDescribe_ConnectApi_TEST
 {

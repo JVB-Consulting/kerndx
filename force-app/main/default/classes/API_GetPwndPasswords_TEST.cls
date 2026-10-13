@@ -8,17 +8,46 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class API_GetPwndPasswords_TEST
 {
+	/**
+	 * @description Company name given to the admin user created in test setup. It is unique to this class, so getTestAdmin
+	 * can find that one user again by company name.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'API_GetPwndPasswords_TEST-admin';
+
+	/**
+	 * @description Failure message for the check that the service reported the password as found in the breach list.
+	 * The placeholder {0} is filled with the value the handler actually returned.
+	 */
 	private static final String MSG_PASSWORD_FOUND = 'Expected password to be found in response, but found {0}';
+
+	/**
+	 * @description Failure message for the checks that the password does not appear in what was saved.
+	 * The placeholder {0} is filled with the saved text, so a failing run shows what leaked.
+	 */
 	private static final String MSG_SENSITIVE_DATA_MASKED = 'Expected sensitive data to be masked, but found {0}';
+
+	/**
+	 * @description Name of the request parameter that carries the password, taken from the handler so the tests send
+	 * the password under the same name the handler reads.
+	 */
 	private static final String PARAMETER_PASSWORD = API_GetPwndPasswords.PARAMETER_PASSWORD;
+
+	/**
+	 * @description Name of the service under test. It selects the handler to call and finds the saved ApiCall__c record
+	 * for that call.
+	 */
 	private static final String SERVICE_NAME = API_GetPwndPasswords.class.getName();
+
+	/**
+	 * @description The password the tests send, taken from the handler. The tests search the saved record and stored
+	 * files for this exact text to prove it was masked.
+	 */
 	private static final String TEST_PASSWORD = API_GetPwndPasswords.TEST_PASSWORD;
 
 	/**

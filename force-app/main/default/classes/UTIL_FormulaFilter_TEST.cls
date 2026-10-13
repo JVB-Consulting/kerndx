@@ -8,27 +8,100 @@
  *
  * @group Utilities
  *
- * @date April 2025, May 2026
+ * @date April 2025, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class UTIL_FormulaFilter_TEST
 {
+	/**
+	 * @description How many records the test with a formula that matches only some records starts from. It is large
+	 * enough for the test to expect some records to match and some to be left out.
+	 */
 	private static final Integer LARGE_RECORD_COUNT = 10;
+
+	/**
+	 * @description How many new records the tests pass to the filter. The tests expect the same number back when nothing
+	 * should be left out.
+	 */
 	private static final Integer NEW_RECORD_COUNT = 2;
+
+	/**
+	 * @description How many old records the test with no formula passes to the filter. It differs from NEW_RECORD_COUNT,
+	 * so the test can tell the old list and the new list apart in the result.
+	 */
 	private static final Integer OLD_RECORD_COUNT = 3;
+
+	/**
+	 * @description Name of the context class for Foobar__c records. A context class holds the old and new record a
+	 * formula is checked against. The tests pass this name to the filter when they filter Foobar__c records.
+	 */
 	private static final String CONTEXT_CLASS_NAME = UTIL_FormulaContext.FoobarContext.class.getName();
+
+	/**
+	 * @description Failure message used when a call the test expected to throw an exception finished normally.
+	 */
 	private static final String ERROR_EXPECTED_FAILURE = 'Expected method to throw an exception';
+
+	/**
+	 * @description Failure message used when a call threw an exception of a different type from the one the test expects.
+	 */
 	private static final String ERROR_INVALID_EXCEPTION = 'Invalid exception type thrown';
+
+	/**
+	 * @description Failure message used when the filter did not give back the number of records the test expects.
+	 */
 	private static final String ERROR_NO_RECORDS_FILTERED = 'Records were not filtered correctly';
+
+	/**
+	 * @description Failure message used when the filter gave back a different number of old records than new records,
+	 * although each old record is paired with a new one.
+	 */
 	private static final String ERROR_RECORD_COUNT_MISMATCH = 'Number of filtered old and new records should match';
+
+	/**
+	 * @description Failure message used when the filter gave back no records although some of them match the formula.
+	 */
 	private static final String ERROR_SOME_RECORDS_EXPECTED = 'Some records should have been matched';
+
+	/**
+	 * @description Failure message used when the filter gave back every record although some of them do not match the
+	 * formula.
+	 */
 	private static final String ERROR_UNEXPECTED_FILTERING = 'Some records should have been excluded';
+
+	/**
+	 * @description Failure message used when the filter gave back records although none can match the formula.
+	 */
 	private static final String ERROR_UNEXPECTED_RECORDS = 'No records should be matched';
+
+	/**
+	 * @description Failure message used when the filter gave back old records although the test passed in none.
+	 */
 	private static final String ERROR_WRONG_OLD_RECORDS = 'Old records should be empty';
+
+	/**
+	 * @description A class name that does not exist, used to prove the filter refuses a context class it cannot find.
+	 */
 	private static final String INVALID_CLASS_NAME = 'InvalidTypeName';
+
+	/**
+	 * @description A formula the tests expect to fail validation. It names the checkbox field on its own, without the
+	 * newRecord. or oldRecord. prefix the valid formulas use.
+	 */
 	private static final String INVALID_FORMULA = SEL_Foobar.FIELD_CHECK_BOX + ' = TRUE';
+
+	/**
+	 * @description A valid formula that looks only at the new record and is true when its number field is above zero. The
+	 * tests expect it to match every new record the test factory makes, and to match nothing when no new record is given.
+	 */
 	private static final String VALID_FORMULA_ALL = 'newRecord.' + SEL_Foobar.FIELD_INTEGER + ' > 0';
+
+	/**
+	 * @description A valid formula that looks at both versions of the record: the checkbox on the new record must be
+	 * ticked and the number field on the old record must be above zero. The tests expect it to match some of the records
+	 * the test factory makes, but not all of them.
+	 */
 	private static final String VALID_FORMULA_SOME = 'newRecord.' + SEL_Foobar.FIELD_CHECK_BOX + ' = TRUE && oldRecord.' + SEL_Foobar.FIELD_INTEGER + ' > 0';
 
 	/**
@@ -50,7 +123,7 @@ private class UTIL_FormulaFilter_TEST
 		}
 		catch(Exception error)
 		{
-			Assert.isTrue(error instanceof FormulaValidationException, ERROR_INVALID_EXCEPTION);
+			Assert.isInstanceOfType(error, FormulaValidationException.class, ERROR_INVALID_EXCEPTION);
 		}
 
 		Test.stopTest();
@@ -76,7 +149,7 @@ private class UTIL_FormulaFilter_TEST
 		}
 		catch(Exception error)
 		{
-			Assert.isTrue(error instanceof TypeException, ERROR_INVALID_EXCEPTION);
+			Assert.isInstanceOfType(error, TypeException.class, ERROR_INVALID_EXCEPTION);
 		}
 
 		Test.stopTest();
@@ -123,7 +196,7 @@ private class UTIL_FormulaFilter_TEST
 		}
 		catch(Exception error)
 		{
-			Assert.isTrue(error instanceof IllegalArgumentException, ERROR_INVALID_EXCEPTION);
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, ERROR_INVALID_EXCEPTION);
 		}
 
 		Test.stopTest();
@@ -540,7 +613,7 @@ private class UTIL_FormulaFilter_TEST
 		}
 		catch(Exception error)
 		{
-			Assert.isTrue(error instanceof FormulaValidationException, ERROR_INVALID_EXCEPTION);
+			Assert.isInstanceOfType(error, FormulaValidationException.class, ERROR_INVALID_EXCEPTION);
 			Assert.isTrue(error.getMessage().contains('TestProcess'), 'Error should contain process name');
 		}
 
@@ -590,7 +663,7 @@ private class UTIL_FormulaFilter_TEST
 		Test.stopTest();
 
 		Assert.isNotNull(context, 'Should create a valid context instance');
-		Assert.isTrue(context instanceof UTIL_FormulaContext.FoobarContext, 'Should be correct context type');
+		Assert.isInstanceOfType(context, UTIL_FormulaContext.FoobarContext.class, 'Should be correct context type');
 	}
 
 	/**
@@ -610,7 +683,7 @@ private class UTIL_FormulaFilter_TEST
 		}
 		catch(Exception error)
 		{
-			Assert.isTrue(error instanceof IllegalArgumentException, ERROR_INVALID_EXCEPTION);
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, ERROR_INVALID_EXCEPTION);
 		}
 
 		Test.stopTest();
@@ -633,7 +706,7 @@ private class UTIL_FormulaFilter_TEST
 		}
 		catch(Exception error)
 		{
-			Assert.isTrue(error instanceof TypeException, ERROR_INVALID_EXCEPTION);
+			Assert.isInstanceOfType(error, TypeException.class, ERROR_INVALID_EXCEPTION);
 		}
 
 		Test.stopTest();

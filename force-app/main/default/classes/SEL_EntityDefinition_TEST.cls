@@ -8,9 +8,9 @@
  *
  * @group Selectors
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class SEL_EntityDefinition_TEST
 {
@@ -49,10 +49,10 @@ private class SEL_EntityDefinition_TEST
 
 	/**
 	 * @description Tests that `getAllChangeCaptureEvents` returns both standard and custom
-	 * ChangeEvent entities from a single query, with the `QualifiedApiName` passed through verbatim
-	 * (never rewritten). `TST_Mock` returns registered rows regardless of the query predicate, so
-	 * this test asserts the passthrough contract the caller relies on; the `PublisherId`/capability
-	 * filter itself is proven against a real org by the streaming release tests.
+	 * ChangeEvent entities from one query, with each `QualifiedApiName` returned exactly as stored.
+	 * `TST_Mock` returns the registered rows whatever the query's WHERE clause says. So this test
+	 * checks only that the method hands the rows back unchanged, which is what callers rely on. The
+	 * `PublisherId` filter itself is tested against a real org by the streaming release tests.
 	 */
 	@IsTest
 	private static void shouldGetAllChangeCaptureEvents()
@@ -80,9 +80,9 @@ private class SEL_EntityDefinition_TEST
 	}
 
 	/**
-	 * @description Tests that `findByDurableIds` short-circuits to an empty list when passed
-	 * a null set — guards callers (e.g., `SEL_MaskingTarget.resolveDurableIds`) from needing
-	 * their own null check.
+	 * @description Tests that `findByDurableIds` returns an empty list at once when passed
+	 * a null set. Callers such as `SEL_MaskingTarget.resolveDurableIds` then need no null check
+	 * of their own.
 	 */
 	@IsTest
 	private static void shouldReturnEmptyWhenDurableIdsNull()
@@ -94,8 +94,8 @@ private class SEL_EntityDefinition_TEST
 	}
 
 	/**
-	 * @description Tests that `findByDurableIds` short-circuits to an empty list when passed
-	 * an empty set, avoiding a wasted SOQL.
+	 * @description Tests that `findByDurableIds` returns an empty list at once when passed
+	 * an empty set, so no query is spent.
 	 */
 	@IsTest
 	private static void shouldReturnEmptyWhenDurableIdsEmpty()
@@ -107,9 +107,9 @@ private class SEL_EntityDefinition_TEST
 	}
 
 	/**
-	 * @description Tests that `findByDurableIds` executes the query path (covers the `toList`
-	 * branch) when called with a syntactically-valid but non-matching durable Id. Returns an
-	 * empty list rather than throwing.
+	 * @description Tests that `findByDurableIds` runs the query (the `toList` branch) when called
+	 * with a durable Id that is well formed but matches no object. It returns an empty list and
+	 * does not throw.
 	 */
 	@IsTest
 	private static void shouldReturnEmptyListForUnknownDurableId()
@@ -122,8 +122,8 @@ private class SEL_EntityDefinition_TEST
 
 	/**
 	 * @description Tests that `findSelectableObjects` returns the customizable entities an administrator
-	 * can analyze in the advisor. Every org exposes customizable objects (e.g. Account), so the result is
-	 * non-empty — exercising the query path.
+	 * can analyze in the advisor. Every org has customizable objects, such as Account, so the result is
+	 * never empty. This runs the query itself.
 	 */
 	@IsTest
 	private static void findSelectableObjectsReturnsCustomizableObjects()
@@ -154,13 +154,14 @@ private class SEL_EntityDefinition_TEST
 	}
 
 	/**
-	 * @description Tests that `findSelectableObjects` projects `NamespacePrefix`, which the Data Masking
-	 * Advisor reads to scope its custom-object coverage scan to the subscriber's own (un-namespaced)
-	 * objects — managed-package objects are excluded from the default scan population. Reading the field
-	 * off every returned row proves the projection carries it (an unqueried field throws SObjectException).
+	 * @description Tests that `findSelectableObjects` queries the `NamespacePrefix` field. The Data Masking
+	 * Advisor reads this field so that its scan of custom objects covers only the subscriber's own objects,
+	 * the ones without a namespace. Objects from managed packages are left out of the default scan. The test
+	 * reads the field on every returned row. A field the query did not select throws SObjectException when
+	 * read, so this proves the query selects it.
 	 */
 	@IsTest
-	private static void findSelectableObjectsProjectsNamespacePrefix()
+	private static void findSelectableObjectsQueriesNamespacePrefix()
 	{
 		Boolean foundUnNamespacedObject = false;
 		for(EntityDefinition entity : new SEL_EntityDefinition().findSelectableObjects())

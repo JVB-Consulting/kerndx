@@ -457,9 +457,6 @@ global inherited sharing class TRG_Dispatcher
 	 * @param newRecords The list of new or updated records.
 	 * @param oldRecords The list of previous or deleted records.
 	 */
-	// Suppressed because: thin orchestration shim wires together six dispatch primitives (context,
-	// action, metadata, className, newRecords, oldRecords) that come from different origins in the
-	// caller; bundling them upstream would propagate the wide-arg shape further from the caller.
 	@SuppressWarnings('PMD.ExcessiveParameterList')
 	private void dispatchUnderTimer
 			(
@@ -674,9 +671,6 @@ global inherited sharing class TRG_Dispatcher
 	 * @param triggerAction The action instance to validate.
 	 * @param className The class name of the action (for error reporting).
 	 */
-	// Suppressed because: each cast inside the switch is intentionally not assigned — the cast
-	// throws TypeException when the action does not implement the expected interface, which the
-	// catch translates into a structured INVALID_TYPE_ERROR for diagnostic surfacing.
 	@SuppressWarnings('ApexUnnecessaryCast')
 	private void assertActionImplementsInterface(TriggerOperation operation, Object triggerAction, String className)
 	{

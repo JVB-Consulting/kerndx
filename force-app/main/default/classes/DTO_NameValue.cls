@@ -32,9 +32,9 @@ global inherited sharing class DTO_NameValue
 	@AuraEnabled
 	@InvocableVariable
 	(
-			Label='Field Name'
-			Description='The name of the data field or placeholder, used as a key in invocable methods (e.g., merge field placeholder or parameter key).'
-			Required=true
+			label='Field Name'
+			description='The name of the data field or placeholder, used as a key in invocable methods (e.g., merge field placeholder or parameter key).'
+			required=true
 	)
 	global String name;
 
@@ -46,9 +46,9 @@ global inherited sharing class DTO_NameValue
 	@AuraEnabled
 	@InvocableVariable
 	(
-			Label='Field Value'
-			Description='The value to associate with the field name, used for substitution or configuration in invocable methods (e.g., email body merge fields or parameter values).'
-			Required=false
+			label='Field Value'
+			description='The value to associate with the field name, used for substitution or configuration in invocable methods (e.g., email body merge fields or parameter values).'
+			required=false
 	)
 	global String value;
 

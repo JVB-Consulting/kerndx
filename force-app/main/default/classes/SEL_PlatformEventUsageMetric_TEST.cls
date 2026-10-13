@@ -8,9 +8,9 @@
  *
  * @group Selectors
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class SEL_PlatformEventUsageMetric_TEST
 {
@@ -61,8 +61,8 @@ private class SEL_PlatformEventUsageMetric_TEST
 	}
 
 	/**
-	 * @description Tests that minRangeMinutes returns one bucket per segment — the live-verified
-	 * platform minimum below which the UDD validator rejects the query outright.
+	 * @description Tests that minRangeMinutes returns one bucket per segment. That is the platform
+	 * minimum, checked in a live org: below it the platform's query validator rejects the query outright.
 	 */
 	@IsTest
 	private static void shouldExposeMinRangeMinutesPerSegment()
@@ -134,8 +134,8 @@ private class SEL_PlatformEventUsageMetric_TEST
 	}
 
 	/**
-	 * @description Tests the segment-and-range query on the legacy (probe-off) branch: no
-	 * TimeSegment projection or condition, the supplied range applied.
+	 * @description Tests the segment-and-range query on the legacy branch (the org has no
+	 * TimeSegment field): TimeSegment is neither selected nor filtered on, the supplied range applied.
 	 */
 	@IsTest
 	private static void shouldGetBySegmentAndDateRangeLegacyBranch()

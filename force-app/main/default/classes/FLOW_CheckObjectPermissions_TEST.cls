@@ -8,11 +8,16 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 private class FLOW_CheckObjectPermissions_TEST
 {
+	/**
+	 * @description Failure message shown when a read, create, edit or delete answer from the action differs from
+	 * what the object describe reports for the running user, or when an object name that does not exist is reported
+	 * as having any access.
+	 */
 	private static final String ERROR_PERMISSIONS_INCORRECT = 'Permissions Incorrect';
 
 	/**

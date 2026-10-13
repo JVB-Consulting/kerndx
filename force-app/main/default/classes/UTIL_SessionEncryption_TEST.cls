@@ -10,25 +10,67 @@
  *
  * @group Utilities
  *
- * @date January 2025, May 2026
+ * @date January 2025, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class UTIL_SessionEncryption_TEST
 {
+	/**
+	 * @description Text that is not in the encrypted format: encrypted text has three parts separated by colons, and this
+	 * has no colon. Decrypting it must fail as an invalid payload.
+	 */
 	private static final String INVALID_ENCRYPTED_TEXT = 'InvalidBase64NoSeparator';
+
+	/**
+	 * @description Failure message for a test that reaches the line after a call that should have thrown.
+	 */
 	private static final String MSG_EXCEPTION_EXPECTED = 'Expected an exception to be thrown';
+
+	/**
+	 * @description Failure message for the checks that encrypting or decrypting a null input gives null back.
+	 */
 	private static final String MSG_NULL = 'Result should be null';
+
+	/**
+	 * @description Failure message for a check that two values are the same, such as the decrypted text and the original,
+	 * or an error's message and the expected one.
+	 */
 	private static final String MSG_VALUE_EQUALITY = 'Value should match expected';
+
+	/**
+	 * @description Failure message for the check that the encrypted text is different from the plain text it came from.
+	 */
 	private static final String MSG_WRONG_VALUE = 'Value should not match expected';
+
+	/**
+	 * @description The plain text the tests encrypt. It mixes letters, digits, spaces and symbols.
+	 */
 	private static final String SAMPLE_TEXT = 'Test sensitive data 123!@#';
 
 	/**
-	 * @description Tests basic encryption and decryption functionality (Happy Path)
+	 * @description The start of the error message encrypting gives when it cannot save the new key in the cache.
+	 */
+	private static final String KEY_NOT_SAVED_MESSAGE = 'Critical Security Failure: Unable to persist encryption key to cache.';
+
+	/**
+	 * @description The part of the cache's own error message that says the cache has no space set aside for it.
+	 */
+	private static final String NO_CACHE_SPACE_MESSAGE = 'has no capacity allocated';
+
+	/**
+	 * @description Tests basic encryption and decryption functionality (Happy Path). In an org whose platform cache has no
+	 * space set aside, the test checks instead that encrypting fails, because the key cannot be saved.
 	 */
 	@IsTest
 	private static void shouldEncryptAndDecryptSuccessfully()
 	{
+		if(!UTIL_Cache.isAllocated())
+		{
+			assertEncryptingFailsWithoutCacheSpace();
+			return;
+		}
+
 		Test.startTest();
 
 		String encryptedText = UTIL_SessionEncryption.encrypt(SAMPLE_TEXT);
@@ -112,13 +154,12 @@ private class UTIL_SessionEncryption_TEST
 	}
 
 	/**
-	 * @description Tests "Read Failure" scenario.
+	 * @description Tests "Read Failure" scenario: when reading the key from the cache fails, encrypting fails with the read
+	 * error. The read fails before any key is needed, so the test holds whether or not the org's platform cache has space.
 	 */
 	@IsTest
 	private static void shouldThrowExceptionOnCacheReadFailure()
 	{
-		UTIL_SessionEncryption.encrypt(SAMPLE_TEXT);
-
 		UTIL_Cache.simulateGetException = true;
 
 		Test.startTest();
@@ -138,11 +179,18 @@ private class UTIL_SessionEncryption_TEST
 	}
 
 	/**
-	 * @description Tests that a new random key is generated if the cache is cleared.
+	 * @description Tests that a new random key is generated if the cache is cleared. In an org whose platform cache has no
+	 * space set aside, the test checks instead that encrypting fails, because the key cannot be saved.
 	 */
 	@IsTest
 	private static void shouldGenerateRandomKeys()
 	{
+		if(!UTIL_Cache.isAllocated())
+		{
+			assertEncryptingFailsWithoutCacheSpace();
+			return;
+		}
+
 		Test.startTest();
 
 		UTIL_SessionEncryption.encrypt(SAMPLE_TEXT);
@@ -163,11 +211,18 @@ private class UTIL_SessionEncryption_TEST
 
 	/**
 	 * @description Tests detection of tampered data.
-	 * If the Ciphertext is modified, the HMAC check should fail before decryption is attempted.
+	 * If the Ciphertext is modified, the HMAC check should fail before decryption is attempted. In an org whose platform
+	 * cache has no space set aside, the test checks instead that encrypting fails, because the key cannot be saved.
 	 */
 	@IsTest
 	private static void shouldDetectTamperedCiphertext()
 	{
+		if(!UTIL_Cache.isAllocated())
+		{
+			assertEncryptingFailsWithoutCacheSpace();
+			return;
+		}
+
 		Test.startTest();
 
 		String encryptedText = UTIL_SessionEncryption.encrypt(SAMPLE_TEXT);
@@ -195,11 +250,18 @@ private class UTIL_SessionEncryption_TEST
 
 	/**
 	 * @description Tests detection of tampered IV.
-	 * If the IV is modified, the HMAC check should fail.
+	 * If the IV is modified, the HMAC check should fail. In an org whose platform cache has no space set aside, the test
+	 * checks instead that encrypting fails, because the key cannot be saved.
 	 */
 	@IsTest
 	private static void shouldDetectTamperedIV()
 	{
+		if(!UTIL_Cache.isAllocated())
+		{
+			assertEncryptingFailsWithoutCacheSpace();
+			return;
+		}
+
 		Test.startTest();
 
 		String encryptedText = UTIL_SessionEncryption.encrypt(SAMPLE_TEXT);
@@ -225,11 +287,18 @@ private class UTIL_SessionEncryption_TEST
 	}
 
 	/**
-	 * @description Tests decryption with invalid encrypted text (bad structure).
+	 * @description Tests decryption with invalid encrypted text (bad structure). In an org whose platform cache has no
+	 * space set aside, the test checks instead that encrypting fails, because the key cannot be saved.
 	 */
 	@IsTest
 	private static void shouldHandleInvalidEncryptedText()
 	{
+		if(!UTIL_Cache.isAllocated())
+		{
+			assertEncryptingFailsWithoutCacheSpace();
+			return;
+		}
+
 		// First encrypt something to ensure a key exists in cache
 		UTIL_SessionEncryption.encrypt(SAMPLE_TEXT);
 
@@ -274,11 +343,18 @@ private class UTIL_SessionEncryption_TEST
 
 	/**
 	 * @description Tests decryption with a valid encrypted value but a different key in cache.
-	 * This simulates a key rotation or expiration event. The HMAC check will fail first.
+	 * This simulates a key rotation or expiration event. The HMAC check will fail first. In an org whose platform cache has
+	 * no space set aside, the test checks instead that encrypting fails, because the key cannot be saved.
 	 */
 	@IsTest
 	private static void shouldHandleWrongKey()
 	{
+		if(!UTIL_Cache.isAllocated())
+		{
+			assertEncryptingFailsWithoutCacheSpace();
+			return;
+		}
+
 		Test.startTest();
 
 		// Encrypt with Key A
@@ -327,5 +403,26 @@ private class UTIL_SessionEncryption_TEST
 		Assert.areEqual(UTIL_String.EMPTY, encryptedEmptyString, MSG_VALUE_EQUALITY);
 		Assert.isNull(decryptedNullInput, MSG_NULL);
 		Assert.isNull(encryptedNullInput, MSG_NULL);
+	}
+
+	/**
+	 * @description Checks what encrypting does in an org whose platform cache has no space set aside for it. A new key
+	 * must be saved in the cache before it is used, and the cache refuses to save it, so encrypting stops with a cache
+	 * error. The error says the key could not be saved and that the cache has no space.
+	 */
+	private static void assertEncryptingFailsWithoutCacheSpace()
+	{
+		try
+		{
+			UTIL_SessionEncryption.encrypt(SAMPLE_TEXT);
+			Assert.fail('Expected encrypting to fail when the cache has no space for the key, but it returned a value');
+		}
+		catch(Exception caughtException)
+		{
+			String message = caughtException.getMessage();
+			Assert.isInstanceOfType(caughtException, Cache.CacheException.class, 'Expected a cache error, got ' + caughtException.getTypeName());
+			Assert.isTrue(message.startsWith(KEY_NOT_SAVED_MESSAGE), 'Expected the message to say the key could not be saved, got ' + message);
+			Assert.isTrue(message.contains(NO_CACHE_SPACE_MESSAGE), 'Expected the message to say the cache has no space, got ' + message);
+		}
 	}
 }

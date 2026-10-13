@@ -8,12 +8,27 @@
  *
  * @group Testing
  *
- * @date February 2026, July 2026
+ * @date February 2026, September 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
+@IsTest(seeAllData=false isParallel=true)
 private class TST_Mock_TEST
 {
+	/**
+	 * @description Message on the exception the precedence test registers, so the failure asserted is this test's own.
+	 */
+	private static final String REGISTERED_FAILURE = 'Registered before the queued answer';
+
+	/**
+	 * @description Text every refusal of a null next answer must carry, pointing the caller at the empty list.
+	 */
+	private static final String EMPTY_LIST_HINT = 'empty list';
+
+	/**
+	 * @description Text the refusal of a record of another type must carry.
+	 */
+	private static final String TYPE_MISMATCH_HINT = 'type mismatch';
+
 	/**
 	 * @description Tests that registering a single record makes it retrievable.
 	 */
@@ -612,5 +627,212 @@ private class TST_Mock_TEST
 				.build();
 
 		Assert.isNotNull(mock.Id, 'Parent should have a mock Id');
+	}
+
+	/**
+	 * @description Tests that registerNext serves its answer to exactly one selector query, after which the
+	 * records registered with register answer again.
+	 */
+	@IsTest
+	private static void shouldServeTheNextAnswerOnceThenTheRegisteredRecords()
+	{
+		Foobar__c registered = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).build();
+		TST_Mock.register(Foobar__c.SObjectType, registered);
+		TST_Mock.registerNext(Foobar__c.SObjectType, new List<SObject>());
+
+		Assert.isNull(new SEL_Foobar().findById(registered.Id), 'The queued empty answer makes the first query find nothing');
+		Foobar__c found = (Foobar__c)new SEL_Foobar().findById(registered.Id);
+		Assert.areEqual(registered.Id, found?.Id, 'The second query falls back to the registered records');
+	}
+
+	/**
+	 * @description Tests that queued answers serve in registration order, a one-record answer through the
+	 * single-record overload, and that the registered records answer once the queue is used up.
+	 */
+	@IsTest
+	private static void shouldServeQueuedAnswersInRegistrationOrder()
+	{
+		Foobar__c registered = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).build();
+		Foobar__c scripted = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).build();
+		TST_Mock.register(Foobar__c.SObjectType, registered);
+		TST_Mock.registerNext(Foobar__c.SObjectType, new List<SObject>());
+		TST_Mock.registerNext(Foobar__c.SObjectType, scripted);
+
+		List<SObject> first = QRY_Builder.selectFrom(Foobar__c.SObjectType).toList();
+		List<SObject> second = QRY_Builder.selectFrom(Foobar__c.SObjectType).toList();
+		List<SObject> third = QRY_Builder.selectFrom(Foobar__c.SObjectType).toList();
+
+		Assert.isTrue(first.isEmpty(), 'The first answer is the empty one');
+		Assert.areEqual(scripted.Id, second[0].Id, 'The second answer is the scripted record');
+		Assert.areEqual(registered.Id, third[0].Id, 'After the queue the registered records answer');
+	}
+
+	/**
+	 * @description Tests that with nothing registered, the query after the last queued answer reads the
+	 * database: the row stored for real is found on the second read. The read sequence: the first read is the
+	 * queued empty answer, the second reads the database.
+	 */
+	@IsTest
+	private static void shouldReadTheDatabaseOnceTheQueuedAnswersAreUsed()
+	{
+		Foobar__c stored = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+		TST_Mock.registerNext(Foobar__c.SObjectType, new List<SObject>());
+
+		Assert.isNull(new SEL_Foobar().findById(stored.Id), 'The queued empty answer blinds the first read to the stored row');
+		Foobar__c found = (Foobar__c)new SEL_Foobar().findById(stored.Id);
+		Assert.areEqual(stored.Id, found?.Id, 'With nothing queued or registered, the second read finds the stored row');
+	}
+
+	/**
+	 * @description Tests that a count consumes a queued answer and returns its size, then the registered records' size.
+	 */
+	@IsTest
+	private static void shouldServeTheNextAnswerToACount()
+	{
+		TST_Mock.register(Foobar__c.SObjectType, TST_Builder.of(Foobar__c.SObjectType).withCount(2).withoutInsertion(true).buildList());
+		TST_Mock.registerNext(Foobar__c.SObjectType, TST_Builder.of(Foobar__c.SObjectType).withCount(3).withoutInsertion(true).buildList());
+
+		Assert.areEqual(3, QRY_Builder.selectFrom(Foobar__c.SObjectType).count(), 'A count consumes the queued answer and returns its size');
+		Assert.areEqual(2, QRY_Builder.selectFrom(Foobar__c.SObjectType).count(), 'The next count returns the registered records');
+	}
+
+	/**
+	 * @description Tests that a registered exception fires before any queued answer and consumes nothing: once
+	 * the exception alone is cleared, the queued answer serves.
+	 */
+	@IsTest
+	private static void shouldFireARegisteredExceptionBeforeAQueuedAnswer()
+	{
+		Foobar__c scripted = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).build();
+		TST_Mock.registerNext(Foobar__c.SObjectType, scripted);
+		TST_Mock.throwsException(Foobar__c.SObjectType, REGISTERED_FAILURE);
+
+		try
+		{
+			QRY_Builder.selectFrom(Foobar__c.SObjectType).toList();
+			Assert.fail('The registered exception fires before any queued answer');
+		}
+		catch(QueryException error)
+		{
+			Assert.areEqual(REGISTERED_FAILURE, error.getMessage(), 'The registered exception is the one thrown');
+		}
+
+		QRY_Engine.clearMockException(Foobar__c.SObjectType);
+
+		List<SObject> served = QRY_Builder.selectFrom(Foobar__c.SObjectType).toList();
+		Assert.areEqual(scripted.Id, served[0].Id, 'The queued answer was not consumed by the query that threw');
+	}
+
+	/**
+	 * @description Tests that clear(SObjectType) drops that type's queued answers and leaves another type's, and
+	 * that clear() drops every queued answer.
+	 */
+	@IsTest
+	private static void shouldDropQueuedAnswersOnClear()
+	{
+		Foobar__c scriptedFoobar = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).build();
+		Account scriptedAccount = (Account)TST_Builder.of(Account.SObjectType).withoutInsertion(true).build();
+		TST_Mock.registerNext(Foobar__c.SObjectType, scriptedFoobar);
+		TST_Mock.registerNext(Account.SObjectType, scriptedAccount);
+
+		TST_Mock.clear(Foobar__c.SObjectType);
+
+		Assert.isTrue(QRY_Builder.selectFrom(Foobar__c.SObjectType).toList().isEmpty(), 'clear(type) drops that type\'s queued answers, so the query reads the empty database');
+		Assert.areEqual(scriptedAccount.Id, QRY_Builder.selectFrom(Account.SObjectType).toList()[0].Id, 'clear(type) leaves the other type\'s queue intact');
+
+		TST_Mock.registerNext(Account.SObjectType, scriptedAccount);
+		TST_Mock.clear();
+
+		Assert.isTrue(QRY_Builder.selectFrom(Account.SObjectType).toList().isEmpty(), 'clear() drops every queued answer');
+	}
+
+	/**
+	 * @description Tests the clear fix: a cleared type no longer intercepts. While a mock is registered the stored
+	 * row is hidden; after clear(type) and after clear() the registration is gone and the database answers.
+	 */
+	@IsTest
+	private static void shouldQueryTheDatabaseAgainOnceAMockIsCleared()
+	{
+		Foobar__c stored = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+		Foobar__c registered = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).build();
+		TST_Mock.register(Foobar__c.SObjectType, registered);
+		Assert.isNull(new SEL_Foobar().findById(stored.Id), 'While registered, the mock hides the stored row');
+
+		TST_Mock.clear(Foobar__c.SObjectType);
+
+		Assert.isFalse(QRY_Engine.hasMock(Foobar__c.SObjectType), 'clear(type) removes the registration outright');
+		Foobar__c found = (Foobar__c)new SEL_Foobar().findById(stored.Id);
+		Assert.areEqual(stored.Id, found?.Id, 'A cleared type reads the database again');
+
+		TST_Mock.register(Foobar__c.SObjectType, registered);
+		TST_Mock.clear();
+
+		Assert.isFalse(QRY_Engine.hasMock(Foobar__c.SObjectType), 'clear() removes every registration outright');
+	}
+
+	/**
+	 * @description Tests that a null list is refused as the next answer, with the empty list named as the way to
+	 * script a query that finds nothing.
+	 */
+	@IsTest
+	private static void shouldRefuseANullListAsTheNextAnswer()
+	{
+		try
+		{
+			TST_Mock.registerNext(Foobar__c.SObjectType, (List<SObject>)null);
+			Assert.fail('A null list should be refused as the next answer');
+		}
+		catch(IllegalArgumentException error)
+		{
+			Assert.isTrue(error.getMessage().contains(EMPTY_LIST_HINT), 'The refusal points at the empty list: ' + error.getMessage());
+		}
+	}
+
+	/**
+	 * @description Tests that a null record is refused as the next answer rather than queued as a one-null answer.
+	 */
+	@IsTest
+	private static void shouldRefuseANullRecordAsTheNextAnswer()
+	{
+		try
+		{
+			TST_Mock.registerNext(Foobar__c.SObjectType, (SObject)null);
+			Assert.fail('A null record should be refused as the next answer');
+		}
+		catch(IllegalArgumentException error)
+		{
+			Assert.isTrue(error.getMessage().contains(EMPTY_LIST_HINT), 'The refusal points at the empty list: ' + error.getMessage());
+		}
+	}
+
+	/**
+	 * @description Tests that a record of another type is refused as the next answer by the mock validation.
+	 */
+	@IsTest
+	private static void shouldRefuseARecordOfAnotherTypeAsTheNextAnswer()
+	{
+		Account account = (Account)TST_Builder.of(Account.SObjectType).withoutInsertion(true).build();
+		try
+		{
+			TST_Mock.registerNext(Foobar__c.SObjectType, account);
+			Assert.fail('A record of another type should be refused');
+		}
+		catch(IllegalArgumentException error)
+		{
+			Assert.isTrue(error.getMessage().contains(TYPE_MISMATCH_HINT), 'The refusal names the mismatch: ' + error.getMessage());
+		}
+	}
+
+	/**
+	 * @description Tests that get returns registered records only, never queued answers.
+	 */
+	@IsTest
+	private static void shouldNotIncludeQueuedAnswersInGet()
+	{
+		TST_Mock.registerNext(Foobar__c.SObjectType, TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).buildList());
+
+		Assert.isTrue(TST_Mock.get(Foobar__c.SObjectType).isEmpty(), 'get returns registered records only, never queued answers');
+
+		TST_Mock.clear();
 	}
 }

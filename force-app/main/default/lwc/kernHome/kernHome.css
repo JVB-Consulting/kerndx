@@ -1,4 +1,12 @@
 /* SPDX-License-Identifier: BUSL-1.1 */
+/* Stated rather than inherited: every tile in a row takes the tallest tile's height, so the "Open"
+   buttons pushed to the card foot below share one baseline instead of sitting wherever each
+   description happens to end. */
+.tool-card-grid
+{
+	align-items : stretch;
+}
+
 .tool-card-wrapper
 {
 	display : flex;

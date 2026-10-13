@@ -2,8 +2,10 @@
 /**
  * @description LWC bridge to `UTIL_FeatureFlag.isEnabled(String)` for the running user. Exposes
  * a single `@AuraEnabled(cacheable=true)` method so subscriber LWCs can branch on feature flag
- * state without hand-rolling per-component controller wrappers. Pair with the `c/featureFlag`
- * LWC utility module (`isFlagEnabled(flagName)`) for the idiomatic call site.
+ * state without hand-rolling per-component controller wrappers. Pair with the `kern/featureFlag`
+ * LWC utility module (`isFlagEnabled(flagName)`) for the idiomatic call site. A user who is not a
+ * System Administrator needs Apex class access to this class: the Kern Component Access and Kern
+ * Administrator permission sets grant it.
  *
  * @see UTIL_FeatureFlag
  * @see CTRL_FeatureFlag_TEST
@@ -12,13 +14,13 @@
  *
  * @group Feature Flags
  *
- * @date May 2026
+ * @date May 2026, October 2026
  *
  * @since 1.0
  *
  * @example
  * ```javascript
- * import {isFlagEnabled} from 'c/featureFlag';
+ * import {isFlagEnabled} from 'kern/featureFlag';
  * const enabled = await isFlagEnabled('NewCheckout_Enabled');
  * ```
  */
@@ -52,7 +54,7 @@ public with sharing class CTRL_FeatureFlag
 	 * const result = await isEnabled({flagName: 'NewCheckout_Enabled'});
 	 * ```
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static Boolean isEnabled(String flagName)
 	{
 		return UTIL_FeatureFlag.isEnabled(flagName);

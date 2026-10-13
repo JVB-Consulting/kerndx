@@ -37,7 +37,7 @@ global inherited sharing class DTO_PickList
 	 * ```
 	 */
 	@AuraEnabled
-	@InvocableVariable(Label='Api Name' Description='The API Name for the picklist' Required=true)
+	@InvocableVariable(label='Api Name' description='The API Name for the picklist' required=true)
 	global String picklistName;
 	/**
 	 * @description The default value for the picklist, represented as a `DTO_PicklistValue` object.
@@ -51,7 +51,7 @@ global inherited sharing class DTO_PickList
 	 * ```
 	 */
 	@AuraEnabled
-	@InvocableVariable(Label='Default Value' Description='The default value for the picklist, or null if there isn\'t one' Required=false)
+	@InvocableVariable(label='Default Value' description='The default value for the picklist, or null if there isn\'t one' required=false)
 	global DTO_PicklistValue defaultValue;
 	/**
 	 * @description A list of all available values for this picklist. Each entry is represented as a
@@ -67,6 +67,6 @@ global inherited sharing class DTO_PickList
 	 * ```
 	 */
 	@AuraEnabled
-	@InvocableVariable(Label='Values' Description='A list of values for PickList field' Required=true)
+	@InvocableVariable(label='Values' description='A list of values for PickList field' required=true)
 	global List<DTO_PicklistValue> values;
 }

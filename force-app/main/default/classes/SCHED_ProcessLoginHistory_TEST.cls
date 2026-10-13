@@ -10,7 +10,7 @@
  *
  * @date February 2026, August 2026
  */
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class SCHED_ProcessLoginHistory_TEST
 {
 	/**

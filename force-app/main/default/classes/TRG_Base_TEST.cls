@@ -25,12 +25,17 @@
  *
  * @group Triggers
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class TRG_Base_TEST
 {
+	/**
+	 * @description The object the bypass tests switch trigger handling off and on for. It is passed as text, to
+	 * exercise the bypass methods that take a name instead of an object type. The action bypass tests reuse the same
+	 * text as a stand-in action name; no action of that name needs to exist.
+	 */
 	private static final String OBJECT_NAME = SEL_Foobar.OBJECT_NAME;
 
 	/**
@@ -656,36 +661,80 @@ private class TRG_Base_TEST
 		 */
 		public Boolean hasBeenExecuted = false;
 
+		/**
+		 * @description Notes that the action was called for the before insert step. It does nothing to the records,
+		 * so a test can tell from hasBeenExecuted alone whether the step ran.
+		 *
+		 * @param newList The records being inserted; not read.
+		 */
 		public void beforeInsert(List<SObject> newList)
 		{
 			this.hasBeenExecuted = true;
 		}
 
+		/**
+		 * @description Notes that the action was called for the after insert step. It does nothing to the records,
+		 * so a test can tell from hasBeenExecuted alone whether the step ran.
+		 *
+		 * @param newList The records that were inserted; not read.
+		 */
 		public void afterInsert(List<SObject> newList)
 		{
 			this.hasBeenExecuted = true;
 		}
 
+		/**
+		 * @description Notes that the action was called for the before update step. It does nothing to the records,
+		 * so a test can tell from hasBeenExecuted alone whether the step ran.
+		 *
+		 * @param newList The records with their new values; not read.
+		 * @param oldList The records with the values they had before the update; not read.
+		 */
 		public void beforeUpdate(List<SObject> newList, List<SObject> oldList)
 		{
 			this.hasBeenExecuted = true;
 		}
 
+		/**
+		 * @description Notes that the action was called for the after update step. It does nothing to the records,
+		 * so a test can tell from hasBeenExecuted alone whether the step ran.
+		 *
+		 * @param newList The records with their new values; not read.
+		 * @param oldList The records with the values they had before the update; not read.
+		 */
 		public void afterUpdate(List<SObject> newList, List<SObject> oldList)
 		{
 			this.hasBeenExecuted = true;
 		}
 
+		/**
+		 * @description Notes that the action was called for the before delete step. It does nothing to the records,
+		 * so a test can tell from hasBeenExecuted alone whether the step ran.
+		 *
+		 * @param oldList The records being deleted; not read.
+		 */
 		public void beforeDelete(List<SObject> oldList)
 		{
 			this.hasBeenExecuted = true;
 		}
 
-		public void afterDelete(List<SObject> newList)
+		/**
+		 * @description Notes that the action was called for the after delete step. It does nothing to the records,
+		 * so a test can tell from hasBeenExecuted alone whether the step ran.
+		 *
+		 * @param oldList The records that were deleted; not read.
+		 */
+		public void afterDelete(List<SObject> oldList)
 		{
 			this.hasBeenExecuted = true;
 		}
 
+		/**
+		 * @description Notes that the action was called for the after undelete step. It does nothing to the
+		 * records, so a test can tell from hasBeenExecuted alone whether the step ran.
+		 *
+		 * @param newList The records that were restored; not read.
+		 */
 		public void afterUndelete(List<SObject> newList)
 		{
 			this.hasBeenExecuted = true;

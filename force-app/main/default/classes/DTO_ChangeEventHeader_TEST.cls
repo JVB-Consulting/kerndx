@@ -12,7 +12,7 @@
  *
  * @date May 2026
  */
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class DTO_ChangeEventHeader_TEST
 {

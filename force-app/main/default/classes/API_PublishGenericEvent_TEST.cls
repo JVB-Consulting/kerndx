@@ -8,12 +8,15 @@
  *
  * @group Web Services
  *
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class API_PublishGenericEvent_TEST
 {
+	/**
+	 * @description Name of the service under test, passed to the outbound test helper so it calls this handler.
+	 */
 	private static final String SERVICE_NAME = API_PublishGenericEvent.class.getName();
 
 	/**

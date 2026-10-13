@@ -29,7 +29,7 @@
  * Assert.areEqual('{"message":"Hello, Echo!"}', response.getBody());
  * ```
  */
-@RestResource(UrlMapping='/echo/*')
+@RestResource(urlMapping='/echo/*')
 global inherited sharing class REST_Echo
 {
 	/**

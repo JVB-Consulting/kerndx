@@ -64,7 +64,7 @@ global inherited sharing class FLOW_GetPicklistValues
 	 * List<DTO_Response> responses = FLOW_GetPicklistValues.getPickListValues(dtoRequests);
 	 * ```
 	 */
-	@InvocableMethod(Category='Utilities' Label='Get PickList Values' Description='Returns the available picklist values for a specified object and record type. Use to dynamically populate choice lists or validate picklist selections in a Flow.')
+	@InvocableMethod(category='Utilities' label='Get PickList Values' description='Returns the available picklist values for a specified object and record type. Use to dynamically populate choice lists or validate picklist selections in a Flow.')
 	global static List<DTO_Response> getPickListValues(List<DTO_Request> dtoRequests)
 	{
 		TRG_Base.validateSingleRequest(dtoRequests.size(), FLOW_GetPicklistValues.class.getName());
@@ -162,7 +162,7 @@ global inherited sharing class FLOW_GetPicklistValues
 		 * String value = instance.objectApiName;
 		 * ```
 		 */
-		@InvocableVariable(Label='Object Name' Description='The SObject Api Name' Required=true PlaceholderText='Foobar__c')
+		@InvocableVariable(label='Object Name' description='The SObject Api Name' required=true placeholderText='Foobar__c')
 		global String objectApiName;
 
 		/**
@@ -175,7 +175,7 @@ global inherited sharing class FLOW_GetPicklistValues
 		 * String value = instance.recordTypeApiName;
 		 * ```
 		 */
-		@InvocableVariable(Label='Record Type Name' Description='The Record Type Api Name' Required=true PlaceholderText='DefaultFoobar')
+		@InvocableVariable(label='Record Type Name' description='The Record Type Api Name' required=true placeholderText='DefaultFoobar')
 		global String recordTypeApiName;
 	}
 
@@ -196,7 +196,7 @@ global inherited sharing class FLOW_GetPicklistValues
 		 * Boolean value = instance.callSuccessful;
 		 * ```
 		 */
-		@InvocableVariable(Label='Call Successful' Description='Indicates whether an error was encountered when performing a request' Required=true)
+		@InvocableVariable(label='Call Successful' description='Indicates whether an error was encountered when performing a request' required=true)
 		global Boolean callSuccessful;
 
 		/**
@@ -209,7 +209,7 @@ global inherited sharing class FLOW_GetPicklistValues
 		 * String value = instance.errorText;
 		 * ```
 		 */
-		@InvocableVariable(Label='Error Text' Description='Will contains the error message(s) if any are encountered' Required=false)
+		@InvocableVariable(label='Error Text' description='Will contains the error message(s) if any are encountered' required=false)
 		global String errorText;
 
 		/**
@@ -222,7 +222,7 @@ global inherited sharing class FLOW_GetPicklistValues
 		 * List<DTO_PickList> value = instance.pickLists;
 		 * ```
 		 */
-		@InvocableVariable(Label='PickList' Description=' will contain a list of picklist and their values for a given object and record type' Required=false)
+		@InvocableVariable(label='PickList' description=' will contain a list of picklist and their values for a given object and record type' required=false)
 		global List<DTO_PickList> pickLists;
 	}
 }

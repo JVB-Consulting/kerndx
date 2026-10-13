@@ -18,7 +18,7 @@
  *
  * @group Validation
  *
- * @date January 2026, July 2026
+ * @date January 2026, October 2026
  *
  * @since 1.0
  *
@@ -66,9 +66,9 @@ global inherited sharing class FLOW_ExecuteValidationRules
 	 */
 	@InvocableMethod
 	(
-			Category='Validation'
-			Label='Execute Validation Rules'
-			Description='Validates records against formula-driven validation rules. Returns errors/warnings without blocking save.'
+			category='Validation'
+			label='Execute Validation Rules'
+			description='Validates records against formula-driven validation rules. Returns errors/warnings without blocking save.'
 	)
 	global static List<DTO_Response> execute(List<DTO_Request> requests)
 	{
@@ -153,7 +153,8 @@ global inherited sharing class FLOW_ExecuteValidationRules
 	}
 
 	/**
-	 * @description Resolves a trigger context string to a TriggerOperation enum.
+	 * @description Resolves a trigger context string to a TriggerOperation enum. Spaces around the text are ignored, and
+	 * so is letter case: TriggerOperation.valueOf matches before_insert and Before_Insert to BEFORE_INSERT on its own.
 	 *
 	 * @param contextString The context string matching TriggerOperation enum values:
 	 * BEFORE_INSERT, BEFORE_UPDATE, BEFORE_DELETE, AFTER_INSERT, AFTER_UPDATE, AFTER_DELETE, or AFTER_UNDELETE
@@ -169,7 +170,7 @@ global inherited sharing class FLOW_ExecuteValidationRules
 			return TriggerOperation.BEFORE_INSERT;
 		}
 
-		return TriggerOperation.valueOf(contextString.trim().toUpperCase());
+		return TriggerOperation.valueOf(contextString.trim());
 	}
 
 	/**
@@ -190,9 +191,9 @@ global inherited sharing class FLOW_ExecuteValidationRules
 		@SuppressWarnings('LongLine')
 		@InvocableVariable
 		(
-				Label='Records'
-				Description='The new/current records to validate. For insert: the records being created. For update: the records with new values. For delete: the records being deleted.'
-				Required=true
+				label='Records'
+				description='The new/current records to validate. For insert: the records being created. For update: the records with new values. For delete: the records being deleted.'
+				required=true
 		)
 		global List<SObject> records;
 
@@ -207,8 +208,8 @@ global inherited sharing class FLOW_ExecuteValidationRules
 		@SuppressWarnings('LongLine')
 		@InvocableVariable
 		(
-				Label='Old Records'
-				Description='The previous record values before the change. Required for BEFORE_UPDATE and AFTER_UPDATE to enable change detection in validation formulas. Leave empty for insert, delete, and undelete operations.'
+				label='Old Records'
+				description='The previous record values before the change. Required for BEFORE_UPDATE and AFTER_UPDATE to enable change detection in validation formulas. Leave empty for insert, delete, and undelete operations.'
 		)
 		global List<SObject> oldRecords;
 
@@ -223,10 +224,10 @@ global inherited sharing class FLOW_ExecuteValidationRules
 		@SuppressWarnings('LongLine')
 		@InvocableVariable
 		(
-				Label='Trigger Context'
-				Description='Pick the trigger context whose validation rules should run, from Before Insert to After Undelete. Stored values match the TriggerOperation enum (for example BEFORE_INSERT); the field shows the stored value.'
-				DefaultValue='BEFORE_INSERT'
-				PlaceholderText='BEFORE_INSERT'
+				label='Trigger Context'
+				description='Pick the trigger context whose validation rules should run, from Before Insert to After Undelete. Stored values match the TriggerOperation enum (for example BEFORE_INSERT); the field shows the stored value.'
+				defaultValue='BEFORE_INSERT'
+				placeholderText='BEFORE_INSERT'
 		)
 		global String triggerContext;
 	}
@@ -252,7 +253,7 @@ global inherited sharing class FLOW_ExecuteValidationRules
 		 * Boolean value = instance.hasErrors;
 		 * ```
 		 */
-		@InvocableVariable(Label='Has Errors' Description='True if validation failed with blocking errors')
+		@InvocableVariable(label='Has Errors' description='True if validation failed with blocking errors')
 		global Boolean hasErrors;
 
 		/**
@@ -267,7 +268,7 @@ global inherited sharing class FLOW_ExecuteValidationRules
 		 * Boolean value = instance.hasWarnings;
 		 * ```
 		 */
-		@InvocableVariable(Label='Has Warnings' Description='True if validation produced warnings')
+		@InvocableVariable(label='Has Warnings' description='True if validation produced warnings')
 		global Boolean hasWarnings;
 
 		/**
@@ -282,7 +283,7 @@ global inherited sharing class FLOW_ExecuteValidationRules
 		 * String value = instance.errorMessage;
 		 * ```
 		 */
-		@InvocableVariable(Label='Error Message' Description='Combined error message for simple display')
+		@InvocableVariable(label='Error Message' description='Combined error message for simple display')
 		global String errorMessage;
 
 		/**
@@ -297,7 +298,7 @@ global inherited sharing class FLOW_ExecuteValidationRules
 		 * List<DTO_FlowValidationError> value = instance.errors;
 		 * ```
 		 */
-		@InvocableVariable(Label='Errors' Description='List of blocking validation errors')
+		@InvocableVariable(label='Errors' description='List of blocking validation errors')
 		global List<DTO_FlowValidationError> errors;
 
 		/**
@@ -312,7 +313,7 @@ global inherited sharing class FLOW_ExecuteValidationRules
 		 * List<DTO_FlowValidationError> value = instance.warnings;
 		 * ```
 		 */
-		@InvocableVariable(Label='Warnings' Description='List of validation warnings')
+		@InvocableVariable(label='Warnings' description='List of validation warnings')
 		global List<DTO_FlowValidationError> warnings;
 	}
 }

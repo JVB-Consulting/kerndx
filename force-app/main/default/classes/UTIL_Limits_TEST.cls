@@ -8,9 +8,9 @@
  *
  * @group Utilities
  *
- * @date April 2026, May 2026
+ * @date April 2026, September 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class UTIL_Limits_TEST
 {
@@ -35,6 +35,31 @@ private class UTIL_Limits_TEST
 		Assert.isTrue(UTIL_Limits.soqlQueryLocatorRows().remaining() >= 0, 'QueryLocator Rows remaining should be non-negative');
 		Assert.isTrue(UTIL_Limits.queueableJobs().remaining() >= 0, 'Queueable Jobs remaining should be non-negative');
 		Assert.isTrue(UTIL_Limits.soslQueries().remaining() >= 0, 'SOSL Queries remaining should be non-negative');
+		Assert.isTrue(UTIL_Limits.apexCursors().remaining() >= 0, 'Apex Cursors remaining should be non-negative');
+		Assert.isTrue(UTIL_Limits.apexCursorRows().remaining() >= 0, 'Apex Cursor Rows remaining should be non-negative');
+		Assert.isTrue(UTIL_Limits.apexPaginationCursors().remaining() >= 0, 'Apex Pagination Cursors remaining should be non-negative');
+		Assert.isTrue(UTIL_Limits.apexPaginationCursorRows().remaining() >= 0, 'Apex Pagination Cursor Rows remaining should be non-negative');
+		Assert.isTrue(UTIL_Limits.fetchCallsOnApexCursor().remaining() >= 0, 'Apex Cursor Fetch Calls remaining should be non-negative');
+	}
+
+	/**
+	 * @description Verifies that every cursor limit maximum mirrors its raw platform value, proving the
+	 * Limits.getLimitX() wiring rather than the switch default of zero. Raw Limits calls are the
+	 * independent oracle here.
+	 */
+	@IsTest
+	private static void shouldMirrorPlatformMaximumForCursorLimits()
+	{
+		Assert.areEqual(Limits.getLimitApexCursors(), UTIL_Limits.apexCursors().maximum(), 'Apex Cursors maximum should mirror the platform limit');
+		Assert.areEqual(Limits.getLimitApexCursorRows(), UTIL_Limits.apexCursorRows().maximum(), 'Apex Cursor Rows maximum should mirror the platform limit');
+		Assert.areEqual(Limits.getLimitApexPaginationCursors(), UTIL_Limits.apexPaginationCursors().maximum(), 'Apex Pagination Cursors maximum should mirror the platform limit');
+		Assert.areEqual
+				(
+						Limits.getLimitApexPaginationCursorRows(),
+						UTIL_Limits.apexPaginationCursorRows().maximum(),
+						'Pagination Cursor Rows maximum should mirror the platform limit'
+				);
+		Assert.areEqual(Limits.getLimitFetchCallsOnApexCursor(), UTIL_Limits.fetchCallsOnApexCursor().maximum(), 'Apex Cursor Fetch Calls maximum should mirror the platform limit');
 	}
 
 	/**
@@ -113,7 +138,7 @@ private class UTIL_Limits_TEST
 	{
 		List<UTIL_Limits.LimitCheck> checks = UTIL_Limits.snapshot();
 
-		Assert.areEqual(15, checks.size(), 'Snapshot should contain 15 limit types');
+		Assert.areEqual(20, checks.size(), 'Snapshot should contain 20 limit types');
 
 		for(UTIL_Limits.LimitCheck check : checks)
 		{
@@ -134,6 +159,7 @@ private class UTIL_Limits_TEST
 		Assert.isTrue(debugString.contains('Callouts:'), 'Debug string should contain Callouts');
 		Assert.isTrue(debugString.contains('Heap Size:'), 'Debug string should contain Heap Size');
 		Assert.isTrue(debugString.contains('DML Rows:'), 'Debug string should contain DML Rows');
+		Assert.isTrue(debugString.contains('Apex Cursors:'), 'Debug string should contain Apex Cursors');
 		Assert.isTrue(debugString.contains(' of '), 'Debug string should contain " of " separator');
 	}
 
@@ -146,6 +172,7 @@ private class UTIL_Limits_TEST
 		Assert.areEqual('Callouts', UTIL_Limits.callouts().label, 'Callouts label should be "Callouts"');
 		Assert.areEqual('Queries', UTIL_Limits.soqlQueries().label, 'SOQL Queries label should be "Queries"');
 		Assert.areEqual('Heap Size', UTIL_Limits.heapSize().label, 'Heap Size label should be "Heap Size"');
+		Assert.areEqual('Apex Cursor Fetch Calls', UTIL_Limits.fetchCallsOnApexCursor().label, 'Fetch calls label should be "Apex Cursor Fetch Calls"');
 	}
 
 }

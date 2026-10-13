@@ -8,19 +8,38 @@
  *
  * @group Controllers
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.ExcessivePublicCount,PMD.AvoidBooleanMethodParameters')
 public inherited sharing class CTRL_FieldSet implements IF_Search
 {
+	/**
+	 * @description The message of the exception search throws when the search parameters carry no field set names, because there
+	 * is then nothing to look up.
+	 */
 	@TestVisible
 	private static final String ERROR_FIELD_SET_LIST_NOT_PROVIDED = '"fieldSetApiList" must be provided and must contain values.';
+	/**
+	 * @description The message of the exception search throws when the search parameters carry neither a record Id nor an object
+	 * name, because the object that owns the field sets cannot then be worked out.
+	 */
 	@TestVisible
 	private static final String ERROR_RECORD_ID_OR_OBJECT_NAME_NOT_PROVIDED = '"recordId" or "objectName" must be provided';
+	/**
+	 * @description The search parameter that carries the list of field set API names to return. Required.
+	 */
 	@TestVisible
 	private static final String PARAMETER_FIELD_SET_LIST = 'fieldSetApiList';
+	/**
+	 * @description The search parameter that carries the API name of the object that owns the field sets. Read only when no record
+	 * Id is supplied.
+	 */
 	@TestVisible
 	private static final String PARAMETER_OBJECT_NAME = 'objectName';
+	/**
+	 * @description The search parameter that carries a record Id; the field sets are then read from that record's object. When it
+	 * is present the object name parameter is ignored.
+	 */
 	@TestVisible
 	private static final String PARAMETER_RECORD_ID = 'recordId';
 
@@ -36,7 +55,7 @@ public inherited sharing class CTRL_FieldSet implements IF_Search
 	 * @throws IllegalArgumentException If required parameters are not provided
 	 */
 	@SuppressWarnings('ApexUnusedDeclaration')
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static Object search(Object searchTerm, Map<String, Object> searchParameters)
 	{
 		List<String> fieldSetNames = UTIL_List.filterStrings((List<Object>)searchParameters.get(PARAMETER_FIELD_SET_LIST));
@@ -72,7 +91,7 @@ public inherited sharing class CTRL_FieldSet implements IF_Search
 	 *
 	 * @return JS Import Structure
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static DTO_FieldSetGroupApiNames getFieldSetApiNamesField()
 	{
 		DTO_FieldSetGroupApiNames dtoSchemaFieldJSImport = new DTO_FieldSetGroupApiNames();
@@ -88,7 +107,7 @@ public inherited sharing class CTRL_FieldSet implements IF_Search
 	 *
 	 * @return JS Import Structure
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static DTO_FieldSetGroupApiNames getDefaultActiveSectionsField()
 	{
 		DTO_FieldSetGroupApiNames dtoSchemaFieldJSImport = new DTO_FieldSetGroupApiNames();
@@ -108,7 +127,7 @@ public inherited sharing class CTRL_FieldSet implements IF_Search
 	 *
 	 * @return Map of FieldSetAPIName with List of DTO_FieldSetMembers
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static Map<Id, Map<String, List<DTO_FieldSetMember>>> getFieldSetsForRecord(Map<Id, List<String>> recordIdToFieldSetListMap)
 	{
 		Map<Id, Set<FieldSet>> objectIdToFieldsSetMap = new Map<Id, Set<FieldSet>>();
@@ -315,7 +334,7 @@ public inherited sharing class CTRL_FieldSet implements IF_Search
 	 *
 	 * @return Map of ObjectName to Map of FieldSetAPIName with List of DTO_FieldSetMembers
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static Map<String, Map<String, List<DTO_FieldSetMember>>> getFieldSetsForObject(Map<String, List<String>> objectNameToFieldSetListMap)
 	{
 		Map<String, Map<String, List<DTO_FieldSetMember>>> objectNameToFieldSetMap = new Map<String, Map<String, List<DTO_FieldSetMember>>>();
@@ -389,7 +408,7 @@ public inherited sharing class CTRL_FieldSet implements IF_Search
 	 *
 	 * @return Map of DeveloperName to the CustomMetadata record
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static FieldSetGroup__mdt findByDeveloperName(String developerName)
 	{
 		return new SEL_FieldSetGroup().findByDeveloperName(developerName);
@@ -402,7 +421,7 @@ public inherited sharing class CTRL_FieldSet implements IF_Search
 	 *
 	 * @return SObject API Name
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static String getObjectNameFromId(Id recordId)
 	{
 		return UTIL_SObjectDescribe.getObjectNameFromId(recordId);

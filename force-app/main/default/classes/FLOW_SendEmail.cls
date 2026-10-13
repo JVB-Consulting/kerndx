@@ -13,7 +13,7 @@
  *
  * @group Email
  *
- * @date February 2026, May 2026
+ * @date February 2026, September 2026
  *
  * @since 1.0
  *
@@ -57,9 +57,9 @@ global inherited sharing class FLOW_SendEmail
 	 */
 	@InvocableMethod
 	(
-			Category='Email'
-			Label='Send Email (Flow-Delegated) and Log Activity'
-			Description='Sends an email using a template by delegating to an internal Flow. Optionally logs an activity, using either standard email limits or the Workflow Engine.'
+			category='Email'
+			label='Send Email (Flow-Delegated) and Log Activity'
+			description='Sends an email using a template by delegating to an internal Flow. Optionally logs an activity, using either standard email limits or the Workflow Engine.'
 	)
 	global static List<DTO_Response> sendEmail(List<DTO_Request> dtoEmails)
 	{
@@ -80,9 +80,9 @@ global inherited sharing class FLOW_SendEmail
 		 */
 		@InvocableVariable
 		(
-				Label='To Address or Target WhoId'
-				Description='The Id of the Contact, Lead, or User, or the recipient email address. Used to resolve "TargetObjectId".'
-				Required=false
+				label='To Address or Target WhoId'
+				description='The Id of the Contact, Lead, or User, or the recipient email address. Used to resolve "TargetObjectId".'
+				required=false
 		)
 		global String toAddress;
 
@@ -93,9 +93,9 @@ global inherited sharing class FLOW_SendEmail
 		 */
 		@InvocableVariable
 		(
-				Label='Email Template Unique Name'
-				Description='The unique name (DeveloperName) of the email template to generate the email content.'
-				Required=true
+				label='Email Template Unique Name'
+				description='The unique name (DeveloperName) of the email template to generate the email content.'
+				required=true
 		)
 		global String templateUniqueName;
 
@@ -106,9 +106,9 @@ global inherited sharing class FLOW_SendEmail
 		 */
 		@InvocableVariable
 		(
-				Label='Sender Org Wide Email Address'
-				Description='The org-wide email address to be used as the sender (From address).'
-				Required=true
+				label='Sender Org Wide Email Address'
+				description='The org-wide email address to be used as the sender (From address).'
+				required=true
 		)
 		global String orgWideEmailAddress;
 
@@ -119,9 +119,9 @@ global inherited sharing class FLOW_SendEmail
 		 */
 		@InvocableVariable
 		(
-				Label='Related To WhatId'
-				Description='The Id of a record related to the email for merge field data (WhatId).'
-				Required=true
+				label='Related To WhatId'
+				description='The Id of a record related to the email for merge field data (WhatId).'
+				required=true
 		)
 		global Id whatId;
 
@@ -132,24 +132,26 @@ global inherited sharing class FLOW_SendEmail
 		 */
 		@InvocableVariable
 		(
-				Label='List of File Ids for Attachments'
-				Description='A list of ContentVersion or Document Ids to attach as files to the email.'
-				Required=false
+				label='List of File Ids for Attachments'
+				description='A list of ContentVersion or Document Ids to attach as files to the email.'
+				required=false
 		)
 		global List<Id> fileIds;
 
 		/**
-		 * @description Determines if a Task should be created.
-		 * Note: This is ignored if `whatId` is null or if `useStandardLogActivity` is enabled (which handles logging natively).
+		 * @description Whether the email is logged as an activity. With custom logging (`useStandardLogActivity`
+		 * false) the framework inserts a Task against `whatId`, so a null `whatId` logs nothing. With standard logging
+		 * Salesforce logs the email itself for a Contact or Lead recipient, and the recipient Id reaches the flow only
+		 * when this is `true`; a User recipient is refused, because Salesforce does not log an email sent to a User.
 		 *
 		 * @since 1.0
 		 */
 		@InvocableVariable
 		(
-				Label='Save as Activity'
-				Description='Indicates if an activity (Task) should be logged against the Related To Id (WhatId). Ignored if Related To Id is null.'
-				DefaultValue='false'
-				PlaceholderText='false'
+				label='Save as Activity'
+				description='Log the email as an activity. Custom logging needs a Related To Id; standard logging needs a Contact or Lead recipient.'
+				defaultValue='false'
+				placeholderText='false'
 		)
 		global Boolean saveAsActivity;
 
@@ -160,14 +162,17 @@ global inherited sharing class FLOW_SendEmail
 		 */
 		@InvocableVariable
 		(
-				Label='Custom Merge Fields'
-				Description='List of name-value pairs for custom merge fields to replace in the email body. Placeholders must be in the format [mergefieldname].'
-				Required=false
+				label='Custom Merge Fields'
+				description='List of name-value pairs for custom merge fields to replace in the email body. Placeholders must be in the format [mergefieldname].'
+				required=false
 		)
 		global List<DTO_NameValue> mergeFields;
 
 		/**
-		 * @description Controls the mechanism used for Activity Logging.
+		 * @description Controls the mechanism used for Activity Logging when `saveAsActivity` is `true`; without an
+		 * activity wanted it has no effect, and the email is sent to the recipient's address. Standard logging needs a
+		 * Contact or Lead recipient: Salesforce does not log an email sent to a User, so that request is refused. With
+		 * custom logging a User recipient's Task is related to `whatId` only, because a Task cannot name a User as its WhoId.
 		 * - `true`: Uses standard `Messaging.SingleEmailMessage` activity logging (counts towards limits).
 		 * - `false`: Uses a custom Task insertion approach (via Workflow Engine/Flow).
 		 *
@@ -175,10 +180,10 @@ global inherited sharing class FLOW_SendEmail
 		 */
 		@InvocableVariable
 		(
-				Label='Use Standard Activity Logging'
-				Description='If True, standard activity logging is used. If False, custom activity logging is performed via the internal Flow.'
-				DefaultValue='false'
-				PlaceholderText='false'
+				label='Use Standard Activity Logging'
+				description='True: Salesforce logs the email (Contact or Lead recipients only). False: the framework logs a Task itself. Applies only with Save as Activity.'
+				defaultValue='false'
+				placeholderText='false'
 		)
 		global Boolean useStandardLogActivity;
 	}
@@ -197,9 +202,9 @@ global inherited sharing class FLOW_SendEmail
 		 */
 		@InvocableVariable
 		(
-				Label='Send Successful'
-				Description='Indicates whether the email was successfully submitted (true) or failed validation/internal process (false).'
-				Required=true
+				label='Send Successful'
+				description='Indicates whether the email was successfully submitted (true) or failed validation/internal process (false).'
+				required=true
 		)
 		global Boolean success;
 
@@ -210,9 +215,9 @@ global inherited sharing class FLOW_SendEmail
 		 */
 		@InvocableVariable
 		(
-				Label='Errors'
-				Description='A string of errors encountered during the email send or activity logging attempt.'
-				Required=false
+				label='Errors'
+				description='A string of errors encountered during the email send or activity logging attempt.'
+				required=false
 		)
 		global String errors;
 	}

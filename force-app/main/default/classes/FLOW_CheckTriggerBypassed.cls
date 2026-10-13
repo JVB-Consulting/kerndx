@@ -69,7 +69,7 @@ global inherited sharing class FLOW_CheckTriggerBypassed
 	 * List<Boolean> isBypassedResult = FLOW_CheckTriggerBypassed.isBypassed(requests);
 	 * ```
 	 */
-	@InvocableMethod(Category='Trigger Actions' Label='Is Bypassed' Description='Returns if the bypass for an Object or Apex trigger action class is set to true.')
+	@InvocableMethod(category='Trigger Actions' label='Is Bypassed' description='Returns if the bypass for an Object or Apex trigger action class is set to true.')
 	global static List<Boolean> isBypassed(List<DTO_Request> dtoRequests)
 	{
 		TRG_Base.validateSingleRequest(dtoRequests.size(), FLOW_CheckTriggerBypassed.class.getName());
@@ -101,10 +101,10 @@ global inherited sharing class FLOW_CheckTriggerBypassed
 		@SuppressWarnings('LongLine')
 		@InvocableVariable
 		(
-				Label='Bypass Type'
-				Description='Pick Class to check a trigger action class bypass, or Object to check an object-wide bypass. Stored values are CLASS_NAME and OBJECT_NAME; the field shows the stored value.'
-				DefaultValue='OBJECT_NAME'
-				PlaceholderText='OBJECT_NAME'
+				label='Bypass Type'
+				description='Pick Class to check a trigger action class bypass, or Object to check an object-wide bypass. Stored values are CLASS_NAME and OBJECT_NAME; the field shows the stored value.'
+				defaultValue='OBJECT_NAME'
+				placeholderText='OBJECT_NAME'
 		)
 		global String bypassType;
 
@@ -113,7 +113,7 @@ global inherited sharing class FLOW_CheckTriggerBypassed
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='Item Name' Description='API name of the trigger action class or SObject to check' Required=true)
+		@InvocableVariable(label='Item Name' description='API name of the trigger action class or SObject to check' required=true)
 		global String name;
 	}
 }

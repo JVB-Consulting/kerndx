@@ -23,19 +23,28 @@
  *
  * @group Testing
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 private class TST_BuilderInternal_TEST
 {
+	/**
+	 * @description Company name of the admin user created in the test setup. Each test finds that user by this name and
+	 * runs as them.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'TST_BuilderInternal_TEST-admin';
+
+	/**
+	 * @description A short text value the tests use wherever any text will do: as a record name and as a field value. Two
+	 * tests also pass it as a field name or relationship name, because no field or relationship has that name.
+	 */
 	private static final String TEST_STRING = 'test';
 
 	/**
-	 * @description Creates a dedicated test admin user so System.runAs in each test starts a fresh
-	 * permission-evaluation context, bypassing the synthetic-org permission-cache staleness issue
-	 * that affected mutating the running user's permissionSet mid-transaction.
+	 * @description Creates an admin user just for these tests. Each test runs as this user with System.runAs, so the
+	 * platform works out the user's permissions afresh. This avoids a known problem: when a test changed the running
+	 * user's permission sets in the middle of a transaction, the platform could keep using the old permissions.
 	 */
 	@TestSetup
 	private static void setupTestAdmin()
@@ -194,7 +203,7 @@ private class TST_BuilderInternal_TEST
 	/**
 	 * @description Tests 'getListSObjectInstance' when `doInsert=false` (withoutInsertion).
 	 * Verifies it correctly applies read-only fields, read-only lookups,
-	 * and read-only child relationships using the new JSON mocking logic.
+	 * and read-only child relationships. It sets them by writing the record to JSON and reading it back.
 	 */
 	@IsTest
 	private static void factoryGetListSObjectInstanceWithoutInsertAppliesReadOnlyMocks()
@@ -948,6 +957,14 @@ private class TST_BuilderInternal_TEST
 	 */
 	private class ExceptionThrowingProvider extends TST_Builder.DefaultFieldValueProvider
 	{
+		/**
+		 * @description Always throws, so a test that reads a field value through this provider can check that the error it
+		 * gets names the field and still carries this original message.
+		 *
+		 * @param recordIndex Position of the record being built; unused.
+		 *
+		 * @return Nothing: the method always throws an IllegalArgumentException.
+		 */
 		public override Object getValue(Integer recordIndex)
 		{
 			throw new IllegalArgumentException('Intentional Test Error');
@@ -989,8 +1006,8 @@ private class TST_BuilderInternal_TEST
 	}
 
 	/**
-	 * @description Tests that MockIdProvider never repeats an Id across a volume large enough
-	 * that the four-character random Id suffix alone would statistically collide.
+	 * @description Tests that MockIdProvider never repeats an Id, even across so many Ids that the four-character
+	 * random part alone would very likely produce the same Id twice.
 	 */
 	@IsTest
 	private static void mockIdProviderGetValueNeverRepeatsAcrossLargeVolume()
@@ -1454,7 +1471,7 @@ private class TST_BuilderInternal_TEST
 
 	/**
 	 * @description Tests getListSObjectInstanceWithChildren with actual insertion and children.
-	 * This covers the registerChildren path with UOW.
+	 * This runs registerChildren, which adds the children to the unit of work: the set of records saved together.
 	 * Uses Foobar__c to avoid subscriber org validation rules.
 	 */
 	@IsTest
@@ -1508,7 +1525,7 @@ private class TST_BuilderInternal_TEST
 	}
 
 	/**
-	 * @description Tests initSObjectInstance with nested SObject value (covers line 313).
+	 * @description Tests initSObjectInstance with a nested SObject value.
 	 * When a nested relationship path has an SObject value, it should call putSObject.
 	 */
 	@IsTest
@@ -1541,7 +1558,7 @@ private class TST_BuilderInternal_TEST
 
 	/**
 	 * @description Tests putSObject with field name (e.g., 'Lookup__c') instead of relationship name.
-	 * This covers line 519 where childFieldName = relationshipName when input is already a field name.
+	 * When the input is already a field name, putSObject uses it as the field name as it is.
 	 */
 	@IsTest
 	private static void factoryPutSObjectWithFieldName()
@@ -1560,7 +1577,7 @@ private class TST_BuilderInternal_TEST
 	}
 
 	/**
-	 * @description Tests putSObject with doInsert=true to cover registerLink path (line 547).
+	 * @description Tests putSObject with doInsert=true, which registers the link through registerLink.
 	 */
 	@IsTest
 	private static void factoryPutSObjectWithInsertRegistersLink()
@@ -1583,7 +1600,7 @@ private class TST_BuilderInternal_TEST
 	}
 
 	/**
-	 * @description Tests putSObject when parent SObject has an ID to cover line 560.
+	 * @description Tests putSObject when the parent SObject has an ID: both the relationship and the ID field are set.
 	 */
 	@IsTest
 	private static void factoryPutSObjectWithParentIdSetsIdField()
@@ -1661,7 +1678,7 @@ private class TST_BuilderInternal_TEST
 	}
 
 	/**
-	 * @description Tests convertFieldToRelationshipName with blank segment (covers line 928).
+	 * @description Tests convertFieldToRelationshipName with a blank part in the path, such as after a trailing dot.
 	 */
 	@IsTest
 	private static void managerConvertFieldToRelationshipNameWithBlankSegment()
@@ -1680,7 +1697,8 @@ private class TST_BuilderInternal_TEST
 	}
 
 	/**
-	 * @description Tests SObjectManager.registerChildren registers children correctly with UOW.
+	 * @description Tests that SObjectManager.registerChildren adds children correctly to the unit of work, the set of
+	 * records saved together in one transaction.
 	 * Uses Foobar__c to avoid subscriber org validation rules.
 	 */
 	@IsTest
@@ -1730,6 +1748,15 @@ private class TST_BuilderInternal_TEST
 		}
 	}
 
+	/**
+	 * @description Builds a Foobar__c record in memory with the given id and name, without inserting it. It stands in for a
+	 * parent record that already has an id.
+	 *
+	 * @param recordId The id to put on the record.
+	 * @param name The name to put on the record.
+	 *
+	 * @return The record, not inserted.
+	 */
 	private static Foobar__c newFoobarWithIdAndName(Id recordId, String name)
 	{
 		Foobar__c foobar = TST_Factory.newFoobar();
@@ -1739,8 +1766,8 @@ private class TST_BuilderInternal_TEST
 	}
 
 	/**
-	 * @description Retrieves the committed test admin user set up in @TestSetup for use with
-	 * System.runAs, so each test body runs with a fresh permission-evaluation context.
+	 * @description Retrieves the test admin user saved in @TestSetup, to use with System.runAs, so the platform
+	 * works out the user's permissions afresh in each test.
 	 *
 	 * @return The test admin User record.
 	 */

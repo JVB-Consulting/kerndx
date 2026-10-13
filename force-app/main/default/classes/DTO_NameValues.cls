@@ -9,7 +9,7 @@
  *
  * @group Data Transfer Objects
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -23,9 +23,13 @@
  * ```
  */
 @SuppressWarnings('PMD.AvoidGlobalModifier,PMD.AvoidBooleanMethodParameters')
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 global inherited sharing class DTO_NameValues extends DTO_JsonBase
 {
+	/**
+	 * @description The stored pairs, keyed by name. Every method of this class reads or writes this one map, so a name holds one
+	 * value at a time.
+	 */
 	private final Map<String, String> nameValueMap;
 
 	/**

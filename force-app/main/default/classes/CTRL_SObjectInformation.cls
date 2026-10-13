@@ -20,7 +20,7 @@ public inherited sharing class CTRL_SObjectInformation
 	 *
 	 * @return Map keyed by field API name to its metadata wrapper, or null when objectName is blank.
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> getSObjectAllFieldsInformation(String objectName)
 	{
 		return UTIL_SObjectDescribe.getAllFieldInformation(objectName);
@@ -34,7 +34,7 @@ public inherited sharing class CTRL_SObjectInformation
 	 *
 	 * @return Map keyed by field API name to its metadata wrapper, or null when objectName is blank.
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> getSObjectFieldInformation(String objectName, List<String> fieldList)
 	{
 		return UTIL_SObjectDescribe.getFieldInformation(objectName, fieldList);
@@ -47,7 +47,7 @@ public inherited sharing class CTRL_SObjectInformation
 	 *
 	 * @return List of record type metadata wrappers.
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static List<DTO_RecordTypeInformation> getRecordTypes(String objectName)
 	{
 		List<DTO_RecordTypeInformation> items = new List<DTO_RecordTypeInformation>();

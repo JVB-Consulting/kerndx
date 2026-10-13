@@ -8,13 +8,22 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class PROC_ExecuteDML_TEST
 {
+	/**
+	 * @description Company name of the admin user created in the test setup. Each test finds that user by this name and
+	 * runs as them.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'PROC_ExecuteDML_TEST-admin';
+
+	/**
+	 * @description An email value the platform refuses with INVALID_EMAIL_ADDRESS.
+	 */
+	private static final String INVALID_EMAIL = 'not-a-valid-email';
 
 	/**
 	 * @description DML operation constant for delete.
@@ -245,6 +254,61 @@ private class PROC_ExecuteDML_TEST
 	}
 
 	/**
+	 * @description Proves a processor told which refusals to expect logs one of them at WARN rather than
+	 * ERROR when the commit allows partial success, which is what lets the declaration made on the
+	 * synchronous side keep its meaning once the job runs.
+	 */
+	@IsTest
+	private static void shouldLogExpectedRefusalAtWarn()
+	{
+		System.runAs(getTestAdmin())
+		{
+			captureLogEntries();
+			PROC_ExecuteDML processor = new PROC_ExecuteDML(OPERATION_INSERT, false, AccessLevel.SYSTEM_MODE);
+			processor.expectRefusals(new Set<StatusCode> {StatusCode.INVALID_EMAIL_ADDRESS});
+
+			Test.startTest();
+
+			processor.execute(new List<Object> {TST_Factory.newFoobarWithEmail(INVALID_EMAIL)});
+
+			Test.stopTest();
+
+			Assert.areEqual(1, new SEL_LogEntry().findByLogLevel(LOG_Engine.LEVEL_WARN).size(), 'The expected refusal should be logged once at WARN');
+			Assert.isTrue(new SEL_LogEntry().findByLogLevel(LOG_Engine.LEVEL_ERROR).isEmpty(), 'Nothing should be logged at ERROR');
+		}
+	}
+
+	/**
+	 * @description Verifies the carried count reaches the job's builder as given: a batch refused twice for a row lock
+	 * recovers on its third attempt, which one retry, the builder's default, could not do.
+	 */
+	@IsTest
+	private static void retryOnLockShouldReachTheBatchBuilder()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<SObject> records = TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().withCount(2).buildList();
+			PROC_ExecuteDML processor = new PROC_ExecuteDML(OPERATION_INSERT, true, AccessLevel.SYSTEM_MODE);
+			processor.retryOnLock(2);
+			DML_SharingProxy.sharingProxyForTest = new DML_ThrowingLockProxy_TEST(2);
+
+			try
+			{
+				Test.startTest();
+				processor.execute(records);
+				Test.stopTest();
+			}
+			finally
+			{
+				DML_SharingProxy.sharingProxyForTest = null;
+			}
+
+			Assert.isNotNull(records[0].Id, 'The batch should save on its third attempt');
+			Assert.isNotNull(records[1].Id, 'Every row of the batch should be saved');
+		}
+	}
+
+	/**
 	 * @description Tests all-or-nothing mode (default behavior).
 	 */
 	@IsTest
@@ -305,7 +369,7 @@ private class PROC_ExecuteDML_TEST
 	}
 
 	/**
-	 * @description Tests that DML exceptions are logged and rethrown.
+	 * @description Tests that DML exceptions are logged at the transaction's commit and rethrown.
 	 */
 	@IsTest
 	private static void shouldLogDmlExceptions()
@@ -332,7 +396,7 @@ private class PROC_ExecuteDML_TEST
 
 			Test.getEventBus().deliver();
 
-			LogEntry__c logEntry = new SEL_LogEntry().findByMethod(PROC_ExecuteDML.CLASS_METHOD_EXECUTE);
+			LogEntry__c logEntry = new SEL_LogEntry().findByMethod(DML_Transaction.CLASS_METHOD_COMMIT);
 			Assert.isNotNull(logEntry, 'Expected log entry for DML exception');
 		}
 	}
@@ -405,5 +469,18 @@ private class PROC_ExecuteDML_TEST
 	private static User getTestAdmin()
 	{
 		return new SEL_User().findByCompanyName(TEST_ADMIN_COMPANY);
+	}
+
+	/**
+	 * @description Makes log rows observable: platform events are delivered at Test.stopTest() and a
+	 * DEBUG threshold keeps every level, so a WARN row is never filtered by an org-level setting.
+	 */
+	private static void captureLogEntries()
+	{
+		LogSetting__c setting = new LogSetting__c();
+		setting.IsEnabled__c = true;
+		setting.LogLevelThreshold__c = LOG_Engine.LEVEL_DEBUG;
+		LOG_Engine.logSettingOverride = setting;
+		LOG_Builder.ignoreTestMode = true;
 	}
 }

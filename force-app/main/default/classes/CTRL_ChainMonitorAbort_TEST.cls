@@ -12,22 +12,41 @@
  *
  * @group Async
  *
- * @date July 2026, August 2026
+ * @date July 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class CTRL_ChainMonitorAbort_TEST
 {
+	/**
+	 * @description Company name given to the grantee, the test user who holds the permission to abort a chain.
+	 * It is unique to this class, so getGrantee can find that one user again by company name.
+	 */
 	private static final String GRANTEE_COMPANY = 'CTRL_ChainMonitorAbort_TEST-grantee';
+
+	/**
+	 * @description Company name given to the bystander, the test user who does not hold the permission to abort a chain.
+	 * It is unique to this class, so getBystander can find that one user again by company name.
+	 */
 	private static final String BYSTANDER_COMPANY = 'CTRL_ChainMonitorAbort_TEST-bystander';
+
+	/**
+	 * @description Chain name written on every chain execution record the tests create. The value itself carries no
+	 * meaning; the record only needs a name.
+	 */
 	private static final String TEST_CHAIN = 'AbortControllerChain';
 
+	/**
+	 * @description Creates the two users the tests run as: a grantee who is assigned the permission set that allows
+	 * aborting a chain, and a bystander who is not. Both sit on the Standard User profile and both hold the administrator
+	 * permission set, so the abort permission is the only difference between them.
+	 */
 	@TestSetup
 	private static void setupTestUsers()
 	{
 		// Package installs write the AbortAsyncChain custom permission INTO profiles: the System
 		// Administrator profile on an admins-only install (the default), every profile on an all-users
-		// install. Both witness users therefore live on the Standard User profile, which the default
-		// install leaves grant-free, so grantee and bystander differ only by the AsyncChainAbort assignment —
+		// install. Both test users therefore live on the Standard User profile, which the default
+		// install leaves grant-free, so grantee and bystander differ only by the AsyncChainAbort assignment,
 		// and nothing here touches an org-level setup row: the profile grants are shared state that
 		// every parallel test class can see, and deleting them collides on the row lock. The Kern
 		// Administrator permission set on both users is for the post-refusal row re-reads: view-all-
@@ -38,6 +57,11 @@ private class CTRL_ChainMonitorAbort_TEST
 		TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_STANDARD_USER, BYSTANDER_COMPANY, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
 	}
 
+	/**
+	 * @description Finds the grantee created in test setup, so a test can run as a user who is allowed to abort a chain.
+	 *
+	 * @return The user who holds the abort permission.
+	 */
 	private static User getGrantee()
 	{
 		return new SEL_User().findByCompanyName(GRANTEE_COMPANY);
@@ -53,7 +77,14 @@ private class CTRL_ChainMonitorAbort_TEST
 	private static User getBystander()
 	{
 		User bystander = new SEL_User().findByCompanyName(BYSTANDER_COMPANY);
-		Assert.isFalse(SEL_CustomPermission.hasPackagePermission(bystander.Id, UTIL_AsyncChain.ABORT_CUSTOM_PERMISSION_NAME), 'This org grants ' + UTIL_AsyncChain.ABORT_CUSTOM_PERMISSION_NAME + ' to the Standard User profile (an all-users package install), so no bystander exists to prove the refusal against; run this suite in an org installed for admins only');
+		Assert.isFalse
+				(
+						SEL_CustomPermission.hasPackagePermission(bystander.Id, UTIL_AsyncChain.ABORT_CUSTOM_PERMISSION_NAME),
+						'This org grants ' +
+						UTIL_AsyncChain.ABORT_CUSTOM_PERMISSION_NAME +
+						' to the Standard User profile (an all-users package install), so no bystander exists to prove the refusal against; ' +
+						'run this suite in an org installed for admins only'
+				);
 		return bystander;
 	}
 

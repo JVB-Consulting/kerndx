@@ -14,7 +14,7 @@
  *
  * @date February 2026, August 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class UTIL_Character_TEST
 {

@@ -11,7 +11,7 @@
  *
  * @date February 2026, May 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class QRY_BindRegistry_TEST
 {

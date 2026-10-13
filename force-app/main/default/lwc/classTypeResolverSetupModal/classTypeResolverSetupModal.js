@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, July 2026
+ * @date April 2026, October 2026
  */
 import LightningModal from 'lightning/modal';
 import {copyToClipBoard} from 'c/utilitySystem';
@@ -85,17 +85,7 @@ global with sharing class ${name} extends kern.UTIL_TypeResolver.BaseClassResolv
 
 \tprivate static Type getTypeForClassName(String className)
 \t{
-\t\tType classType;
-
-\t\tif(String.isNotBlank(className))
-\t\t{
-\t\t\tString namespace = kern.UTIL_System.getNamespacePrefix(kern.UTIL_System.getClassNamespace(className), '.');
-
-\t\t\tclassType = Type.forName(namespace, className);
-\t\t\tclassType = classType == null && String.isNotBlank(namespace) ? Type.forName('', className) : classType;
-\t\t}
-
-\t\treturn classType;
+\t\treturn String.isBlank(className) ? null : Type.forName(className);
 \t}
 }`;
 	}
@@ -104,7 +94,7 @@ global with sharing class ${name} extends kern.UTIL_TypeResolver.BaseClassResolv
 	{
 		const name = this.resolverClassName;
 		return `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class ${name}_TEST
 {
 \t@IsTest

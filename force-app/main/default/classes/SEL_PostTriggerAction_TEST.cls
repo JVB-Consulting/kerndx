@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
  * @description Test class for SEL_PostTriggerAction. Verifies ordered retrieval, null-Order
- * handling, override-seam behaviour, and the SOQL fall-through when no override is set.
+ * handling, the test override for rows, and the SOQL fall-through when no override is set.
  *
  * @see SEL_PostTriggerAction
  * @see PostTriggerAction__mdt
@@ -10,14 +10,14 @@
  *
  * @group Triggers
  *
- * @date May 2026, June 2026
+ * @date May 2026, October 2026
  */
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class SEL_PostTriggerAction_TEST
 {
 	/**
-	 * @description Verifies the override seam returns rows sorted by `Order__c` ascending.
+	 * @description Verifies the test override returns rows sorted by `Order__c` ascending.
 	 */
 	@IsTest
 	private static void findActiveOrderedReturnsRowsSortedByOrderAscending()
@@ -40,7 +40,7 @@ private class SEL_PostTriggerAction_TEST
 	}
 
 	/**
-	 * @description Verifies that a null `Order__c` value sorts first — before any non-null
+	 * @description Verifies that a null `Order__c` value sorts first, before any non-null
 	 * Order value.
 	 */
 	@IsTest
@@ -107,7 +107,7 @@ private class SEL_PostTriggerAction_TEST
 	/**
 	 * @description Verifies the SOQL fall-through path runs cleanly when no override is set.
 	 * In a dev org with no `PostTriggerAction__mdt` records deployed, the SOQL returns an
-	 * empty list — confirms the QRY_Builder field set + condition compile and execute.
+	 * empty list. This confirms the QRY_Builder field set + condition compile and execute.
 	 */
 	@IsTest
 	private static void findActiveOrderedQueriesCmdtWhenOverrideIsNull()
@@ -125,7 +125,7 @@ private class SEL_PostTriggerAction_TEST
 	 * @description Cascade guard. The real SOQL path reads framework CMDT config in
 	 * SYSTEM_MODE through the non-audited internal channel, so it must NOT emit a bypass-audit
 	 * `LogEntryEvent__e`. The post-action handler runs on the outermost unwind of EVERY
-	 * dispatch — including the `LogEntryEvent__e` handler itself — so an audited read here
+	 * dispatch, including the `LogEntryEvent__e` handler itself, so an audited read here
 	 * re-enters the dispatcher and self-feeds an emit->deliver->dispatch->query->emit logging
 	 * cascade (one log write fanning out into ~120). Measures the audit-buffer delta around the
 	 * call (before `Test.stopTest` flushes it) so a regression to `.withSystemMode()` fails loudly.
@@ -152,10 +152,10 @@ private class SEL_PostTriggerAction_TEST
 
 	/**
 	 * @description Caching guard. The post-action hook runs at the outermost unwind of EVERY
-	 * dispatch — including each delivered `LogEntryEvent__e` — so `findActiveOrdered()` must read
+	 * dispatch, including each delivered `LogEntryEvent__e`, so `findActiveOrdered()` must read
 	 * the CMDT config once per transaction, not once per dispatch. An uncached query re-runs per
 	 * delivered log event and exhausts the SOQL governor in log-heavy transactions. Asserts that
-	 * repeated calls (override seam unset) issue no additional SOQL after the first, exercising the
+	 * repeated calls (test override unset) issue no additional SOQL after the first, exercising the
 	 * lazily-loaded `cachedActiveRows` property.
 	 *
 	 * @see SEL_PostTriggerAction.findActiveOrdered
@@ -167,29 +167,29 @@ private class SEL_PostTriggerAction_TEST
 
 		Test.startTest();
 		SEL_PostTriggerAction.findActiveOrdered();
-		Integer queriesAfterFirstCall = Limits.getQueries();
+		Integer queriesAfterFirstCall = UTIL_Limits.soqlQueries().used();
 		SEL_PostTriggerAction.findActiveOrdered();
 		SEL_PostTriggerAction.findActiveOrdered();
-		Integer queriesAfterRepeatCalls = Limits.getQueries();
+		Integer queriesAfterRepeatCalls = UTIL_Limits.soqlQueries().used();
 		Test.stopTest();
 
 		Assert.areEqual(queriesAfterFirstCall, queriesAfterRepeatCalls,
-				'findActiveOrdered must cache the CMDT read per transaction — repeated per-dispatch hook invocations should issue no further SOQL');
+				'findActiveOrdered must cache the CMDT read per transaction; repeated per-dispatch hook invocations should issue no further SOQL');
 	}
 
 	/**
-	 * @description Guards against the field-projection regression class where the handler
-	 * reads a field off a SOQL-returned row that the selector never queried — which throws
-	 * `SObjectException` on the real CMDT path yet is invisible to the override seam (whose
-	 * in-memory rows expose every field). Asserts `queriedFieldNames()` covers both every direct
-	 * field AND every relationship-path traversal `UTIL_PostTriggerAction` reads at runtime — a
-	 * relationship path (`Lookup__r.Field__c`) is not auto-included by querying its base lookup,
-	 * so the traversals are the more fragile half of the projection and must be pinned explicitly.
+	 * @description Guards against a missing selected field: the handler reads a field off a
+	 * SOQL-returned row that the selector never queried. That throws `SObjectException` on the
+	 * real CMDT path, yet the test override cannot show it, because its in-memory rows carry
+	 * every field. Asserts `queriedFieldNames()` covers every direct field AND every relationship
+	 * path `UTIL_PostTriggerAction` reads at runtime. A relationship path (`Lookup__r.Field__c`)
+	 * is not included by querying its lookup field, so the paths are the easier half to miss and
+	 * are checked one by one.
 	 */
 	@IsTest
 	private static void queriedFieldNamesCoverEveryHandlerReadField()
 	{
-		Set<String> projected = new Set<String>(SEL_PostTriggerAction.queriedFieldNames());
+		Set<String> selectedFieldNames = new Set<String>(SEL_PostTriggerAction.queriedFieldNames());
 
 		List<Schema.SObjectField> handlerReadFields = new List<Schema.SObjectField>
 		{
@@ -209,8 +209,8 @@ private class SEL_PostTriggerAction_TEST
 		for(Schema.SObjectField field : handlerReadFields)
 		{
 			String fieldName = UTIL_SObjectDescribe.getCachedFieldName(field);
-			Assert.isTrue(projected.contains(fieldName),
-					'Projection must query ' + fieldName + ' — the handler reads it off the SOQL-returned row');
+			Assert.isTrue(selectedFieldNames.contains(fieldName),
+					'The query must select ' + fieldName + ', because the handler reads it off the SOQL-returned row');
 		}
 
 		Map<Schema.SObjectField, String> handlerReadRelationshipPaths = new Map<Schema.SObjectField, String>
@@ -224,8 +224,8 @@ private class SEL_PostTriggerAction_TEST
 		{
 			String relationshipPath = UTIL_SObjectDescribe.getCachedFieldDescribe(lookupField).getRelationshipName()
 					+ handlerReadRelationshipPaths.get(lookupField);
-			Assert.isTrue(projected.contains(relationshipPath),
-					'Projection must query ' + relationshipPath + ' — the handler traverses it off the SOQL-returned row');
+			Assert.isTrue(selectedFieldNames.contains(relationshipPath),
+					'The query must select ' + relationshipPath + ', because the handler reads it off the SOQL-returned row through the relationship');
 		}
 	}
 

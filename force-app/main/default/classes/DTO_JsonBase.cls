@@ -16,7 +16,7 @@
  *
  * @example
  * ```apex
- * @JsonAccess(Serializable='always' Deserializable='always')
+ * @JsonAccess(serializable='always' deserializable='always')
  * public class DTO_Invoice extends DTO_JsonBase
  * {
  *     public String invoiceId;
@@ -25,7 +25,7 @@
  * ```
  */
 @SuppressWarnings('PMD.AvoidGlobalModifier')
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 global inherited sharing virtual class DTO_JsonBase extends DTO_Base
 {
 	/**

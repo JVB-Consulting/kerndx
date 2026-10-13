@@ -8,15 +8,31 @@
  *
  * @group Omnistudio
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class SVC_Omnistudio_TEST
 {
+	/**
+	 * @description The message the test asks GetFoobar to throw. The test then checks that the same text comes
+	 * back on the exception, which proves the error raised inside the called class reaches the caller unchanged.
+	 */
 	private static final String ERROR_MESSAGE = 'Exception thrown as expected';
+	/**
+	 * @description Key in the input map under which the test passes the Id of the Foobar record that GetFoobar
+	 * must look up.
+	 */
 	private static final String PARAMETER_FOOBAR_ID = 'foobarId';
+	/**
+	 * @description Key in the output map under which GetFoobar hands back the record it found, and under which
+	 * the test reads it.
+	 */
 	private static final String PARAMETER_FOUND_FOOBAR_OUTPUT = 'foobar';
+	/**
+	 * @description Key in the options map that tells GetFoobar to throw instead of querying. The value stored
+	 * under it becomes the exception message.
+	 */
 	private static final String PARAMETER_THROW_EXCEPTION = 'throwException';
 
 	/**
@@ -89,21 +105,20 @@ private class SVC_Omnistudio_TEST
 
 		Callable omnistudioCallable = (Callable)UTIL_System.getTypeForClassName(SVC_Omnistudio.CLASS_NAME, Callable.class).newInstance();
 
+		Test.startTest();
+
 		try
 		{
-			Test.startTest();
-
 			omnistudioCallable.call(GetFoobar.class.getName(), parameters);
-
-			Test.stopTest();
-
-			Assert.fail('No Exception thrown as excpected');
+			Assert.fail('Expected an IllegalArgumentException, got no exception');
 		}
 		catch(Exception error)
 		{
-			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException object');
-			Assert.areEqual(ERROR_MESSAGE, error.getMessage(), 'Error message incorrect');
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException, got ' + error.getTypeName());
+			Assert.areEqual(ERROR_MESSAGE, error.getMessage(), 'Expected the message the callable was asked to throw, got ' + error.getMessage());
 		}
+
+		Test.stopTest();
 	}
 
 	/**

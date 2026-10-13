@@ -5,7 +5,7 @@
 
 		<lightning-card icon-name="utility:setup" title={labels.administrationToolsHeading}>
 			<div class="slds-p-horizontal_medium slds-p-bottom_small">
-				<div class="slds-grid slds-wrap slds-gutters">
+				<div class="slds-grid slds-wrap slds-gutters tool-card-grid">
 					<template for:each={tools} for:item="tool">
 						<div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-2 slds-large-size_1-of-3 slds-p-bottom_small tool-card-wrapper" key={tool.key}>
 							<!-- Hand-built rather than lightning-card, and it must stay that way: lightning-card hard-codes an <h2> around both a string

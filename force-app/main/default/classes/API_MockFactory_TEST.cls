@@ -10,7 +10,7 @@
  *
  * @date February 2026, August 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 private class API_MockFactory_TEST
 {

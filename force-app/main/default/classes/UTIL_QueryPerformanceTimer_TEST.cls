@@ -8,13 +8,22 @@
  *
  * @group Utilities
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class UTIL_QueryPerformanceTimer_TEST
 {
+	/**
+	 * @description The "class/method" text given to every timer in these tests. It stands in for the place in the code that
+	 * a real caller says it is timing from.
+	 */
 	private static final String CLASS_METHOD = UTIL_QueryPerformanceTimer.class.getName() + '/testMethod';
+
+	/**
+	 * @description The operation name given to every timer in these tests. It stands in for the name a real caller gives
+	 * the query it is timing.
+	 */
 	private static final String OPERATION_NAME = 'TestQuery';
 
 	/**

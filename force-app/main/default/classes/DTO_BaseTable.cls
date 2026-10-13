@@ -23,7 +23,7 @@
  * ```
  */
 @SuppressWarnings('PMD.AvoidGlobalModifier,PMD.AvoidBooleanMethodParameters')
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 global virtual class DTO_BaseTable extends DTO_JsonBase
 {
 	/**

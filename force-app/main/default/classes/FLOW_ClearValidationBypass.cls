@@ -52,9 +52,9 @@ global inherited sharing class FLOW_ClearValidationBypass
 	 */
 	@InvocableMethod
 	(
-			Category='Validation'
-			Label='Clear Validation Bypass'
-			Description='Clears validation rule bypasses for an object, group, or specific rule for the current transaction.'
+			category='Validation'
+			label='Clear Validation Bypass'
+			description='Clears validation rule bypasses for an object, group, or specific rule for the current transaction.'
 	)
 	global static void clearBypass(List<DTO_Request> requests)
 	{
@@ -100,8 +100,8 @@ global inherited sharing class FLOW_ClearValidationBypass
 		 */
 		@InvocableVariable
 		(
-				Label='Clear All'
-				Description='When true, clears all active bypasses (Name is ignored)'
+				label='Clear All'
+				description='When true, clears all active bypasses (Name is ignored)'
 		)
 		global Boolean clearAll;
 
@@ -115,9 +115,9 @@ global inherited sharing class FLOW_ClearValidationBypass
 		 */
 		@InvocableVariable
 		(
-				Label='Name'
-				Description='Object API name, group DeveloperName, or rule DeveloperName to clear from bypass list.'
-				PlaceholderText='Account'
+				label='Name'
+				description='Object API name, group DeveloperName, or rule DeveloperName to clear from bypass list.'
+				placeholderText='Account'
 		)
 		global String name;
 	}

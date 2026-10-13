@@ -13,7 +13,7 @@
  * @date November 2025, May 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 private class FLOW_CheckFeatureFlag_TEST
 {
 	/**

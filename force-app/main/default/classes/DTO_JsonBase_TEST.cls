@@ -12,14 +12,14 @@
  * @date April 2026, May 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class DTO_JsonBase_TEST
 {
 	/**
 	 * @description Inner DTO whose runtime name resolves against the managed package — used to
 	 * exercise the happy path of `getObjectType()`, `deserialize()`, and `serialize()`.
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	public class TestableDto extends DTO_JsonBase
 	{
 		/**
@@ -134,7 +134,7 @@ private class DTO_JsonBase_TEST
 	 * via `Type.forName` from the managed-package context at runtime — triggering the catch
 	 * branch in `DTO_JsonBase.getObjectType()`.
 	 */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	private class UnresolvableDto extends DTO_JsonBase
 	{
 		/**

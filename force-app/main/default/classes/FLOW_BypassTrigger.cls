@@ -46,7 +46,7 @@ global inherited sharing class FLOW_BypassTrigger
 	 * FLOW_BypassTrigger.execute(new List<FLOW_BypassTrigger.DTO_Request>{request});
 	 * ```
 	 */
-	@InvocableMethod(Category='Trigger Actions' Label='Trigger Bypass' Description='Bypass, clear, or clear all trigger bypasses for an object or action class.')
+	@InvocableMethod(category='Trigger Actions' label='Trigger Bypass' description='Bypass, clear, or clear all trigger bypasses for an object or action class.')
 	global static void execute(List<DTO_Request> requests)
 	{
 		TRG_Base.validateSingleRequest(requests.size(), FLOW_BypassTrigger.class.getName());
@@ -91,10 +91,10 @@ global inherited sharing class FLOW_BypassTrigger
 		@SuppressWarnings('LongLine')
 		@InvocableVariable
 		(
-				Label='Action'
-				Description='Pick Bypass to add a bypass, Clear to remove one, or Clear All to remove every bypass. Stored values are BYPASS, CLEAR, and CLEAR_ALL; the field shows the stored value.'
-				DefaultValue='BYPASS'
-				PlaceholderText='BYPASS'
+				label='Action'
+				description='Pick Bypass to add a bypass, Clear to remove one, or Clear All to remove every bypass. Stored values are BYPASS, CLEAR, and CLEAR_ALL; the field shows the stored value.'
+				defaultValue='BYPASS'
+				placeholderText='BYPASS'
 		)
 		global String action;
 
@@ -107,10 +107,10 @@ global inherited sharing class FLOW_BypassTrigger
 		@SuppressWarnings('LongLine')
 		@InvocableVariable
 		(
-				Label='Bypass Type'
-				Description='Pick Class to bypass one trigger action class, or Object to bypass every trigger action on an object. Stored values are CLASS_NAME and OBJECT_NAME; the field shows the stored value.'
-				DefaultValue='OBJECT_NAME'
-				PlaceholderText='OBJECT_NAME'
+				label='Bypass Type'
+				description='Pick Class to bypass one trigger action class, or Object to bypass every trigger action on an object. Stored values are CLASS_NAME and OBJECT_NAME; the field shows the stored value.'
+				defaultValue='OBJECT_NAME'
+				placeholderText='OBJECT_NAME'
 		)
 		global String bypassType;
 
@@ -119,7 +119,7 @@ global inherited sharing class FLOW_BypassTrigger
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='Name' Description='API Name of the trigger action class or SObject' Required=true)
+		@InvocableVariable(label='Name' description='API Name of the trigger action class or SObject' required=true)
 		global String name;
 	}
 }

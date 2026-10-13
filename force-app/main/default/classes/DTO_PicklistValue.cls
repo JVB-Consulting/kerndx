@@ -36,7 +36,7 @@ global inherited sharing class DTO_PicklistValue
 	 * ```
 	 */
 	@AuraEnabled
-	@InvocableVariable(Label='Label' Description='The displayable value of the picklist' Required=true)
+	@InvocableVariable(label='Label' description='The displayable value of the picklist' required=true)
 	global String label;
 	/**
 	 * @description If the picklist is a dependent picklist, the property contains a list of the controlling value indexes for which this value is valid.
@@ -47,9 +47,9 @@ global inherited sharing class DTO_PicklistValue
 	@AuraEnabled
 	@InvocableVariable
 	(
-			Label='ValidFor'
-			Description='If the picklist is a dependent picklist, the property contains a list of the controlling values for which this value is valid'
-			Required=false
+			label='ValidFor'
+			description='If the picklist is a dependent picklist, the property contains a list of the controlling values for which this value is valid'
+			required=false
 	)
 	global List<String> validFor;
 	/**
@@ -64,6 +64,6 @@ global inherited sharing class DTO_PicklistValue
 	 * ```
 	 */
 	@AuraEnabled
-	@InvocableVariable(Label='Value' Description='The value of the picklist to use in the API' Required=true)
+	@InvocableVariable(label='Value' description='The value of the picklist to use in the API' required=true)
 	global String value;
 }

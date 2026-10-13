@@ -22,7 +22,7 @@
  * ```
  */
 @SuppressWarnings('PMD.AvoidGlobalModifier')
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 global inherited sharing virtual class DTO_Base
 {
 	/**

@@ -10,7 +10,7 @@
  *
  * @date February 2026, May 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class SEL_RecordType_TEST
 {

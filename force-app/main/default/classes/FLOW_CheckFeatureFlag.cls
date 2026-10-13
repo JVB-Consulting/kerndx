@@ -42,7 +42,7 @@ global inherited sharing class FLOW_CheckFeatureFlag
 	 * }
 	 * ```
 	 */
-	@InvocableMethod(Category='Utilities' Label='Is Feature Flag Enabled' Description='Returns true if the specified Feature Flag is enabled for the current user.')
+	@InvocableMethod(category='Utilities' label='Is Feature Flag Enabled' description='Returns true if the specified Feature Flag is enabled for the current user.')
 	global static List<Boolean> isEnabled(List<String> flagNames)
 	{
 		List<Boolean> flagStatuses = new List<Boolean>();

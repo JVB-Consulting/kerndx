@@ -8,15 +8,33 @@
  *
  * @group Utilities
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class UTIL_TriggerPerformanceTimer_TEST
 {
+	/**
+	 * @description The number of records the tests tell the timer the trigger is handling. No records are created; the
+	 * timer only needs a figure to report.
+	 */
 	private static final Integer RECORD_COUNT = 100;
+
+	/**
+	 * @description A made-up trigger action class name the tests give the timer as the action being timed. No class of
+	 * this name needs to exist.
+	 */
 	private static final String ACTION_CLASS_NAME = 'TRG_Account_TestAction';
+
+	/**
+	 * @description The object name the tests give the timer as the object the trigger runs on.
+	 */
 	private static final String OBJECT_NAME = 'Account';
+
+	/**
+	 * @description The trigger operation the tests give the timer, here a before-insert trigger. One test checks the
+	 * timer keeps this value as given.
+	 */
 	private static final String TRIGGER_OPERATION = 'BEFORE_INSERT';
 
 	/**
@@ -109,7 +127,7 @@ private class UTIL_TriggerPerformanceTimer_TEST
 	{
 		LOG_Builder.ignoreTestMode = true;
 		// Enable trigger logging so we reach the threshold logic
-		TST_Factory.setupLoggerForTest(true, 0, true, 0, true, 10000);
+		TST_Factory.newLoggerSettings().withQueryLogging(0).withWebserviceLogging(0).withTriggerLogging(10000).apply();
 
 		UTIL_TriggerPerformanceTimer timer = new UTIL_TriggerPerformanceTimer(
 				ACTION_CLASS_NAME, TRIGGER_OPERATION, OBJECT_NAME, RECORD_COUNT
@@ -398,7 +416,7 @@ private class UTIL_TriggerPerformanceTimer_TEST
 	{
 		LOG_Builder.ignoreTestMode = true;
 		// Enable trigger logging with 0ms threshold (log all)
-		TST_Factory.setupLoggerForTest(true, 0, true, 0, true, 0);
+		TST_Factory.newLoggerSettings().withQueryLogging(0).withWebserviceLogging(0).withTriggerLogging(0).apply();
 
 		UTIL_TriggerPerformanceTimer timer = new UTIL_TriggerPerformanceTimer(
 				ACTION_CLASS_NAME, TRIGGER_OPERATION, OBJECT_NAME, RECORD_COUNT
@@ -423,7 +441,7 @@ private class UTIL_TriggerPerformanceTimer_TEST
 	{
 		LOG_Builder.ignoreTestMode = true;
 		// Disable trigger logging (false for trigger settings)
-		TST_Factory.setupLoggerForTest(true, 0, true, 0, false, 500);
+		TST_Factory.newLoggerSettings().withQueryLogging(0).withWebserviceLogging(0).apply();
 
 		UTIL_TriggerPerformanceTimer timer = new UTIL_TriggerPerformanceTimer(
 				ACTION_CLASS_NAME, TRIGGER_OPERATION, OBJECT_NAME, RECORD_COUNT
@@ -447,7 +465,7 @@ private class UTIL_TriggerPerformanceTimer_TEST
 	{
 		LOG_Builder.ignoreTestMode = true;
 		// Enable trigger logging with high threshold (10 seconds)
-		TST_Factory.setupLoggerForTest(true, 0, true, 0, true, 10000);
+		TST_Factory.newLoggerSettings().withQueryLogging(0).withWebserviceLogging(0).withTriggerLogging(10000).apply();
 
 		UTIL_TriggerPerformanceTimer timer = new UTIL_TriggerPerformanceTimer(
 				ACTION_CLASS_NAME, TRIGGER_OPERATION, OBJECT_NAME, RECORD_COUNT
@@ -500,6 +518,11 @@ private class UTIL_TriggerPerformanceTimer_TEST
 		Assert.isTrue(timer.getTime() >= 0, 'Timer should have recorded time');
 	}
 
+	/**
+	 * @description Switches the logger on, starts a timer, forces it to log with log() and stops it. It then checks that
+	 * the logger's context stack is empty, which proves the trigger details the timer added for its log entry were
+	 * removed again afterwards. Two tests share this body.
+	 */
 	private static void assertForceLogAndContextStackEmpty()
 	{
 		LOG_Builder.ignoreTestMode = true;

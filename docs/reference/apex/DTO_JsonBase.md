@@ -29,7 +29,7 @@ A Data Transfer Object (DTO) base class for JSON serialization and deserializati
 **Example**
 
 ```apex
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_Invoice extends DTO_JsonBase
 {
     public String invoiceId;

@@ -9,13 +9,21 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class UTIL_BulkUpdates_TEST
 {
+	/**
+	 * @description Company name given to the admin user created in the test setup. It is unique to this class, so
+	 * the tests can find that one user again by company name.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'UTIL_BulkUpdates_TEST-admin';
+	/**
+	 * @description Company name given to the minimum-access user created in the test setup, so the tests that need
+	 * a user without permissions can find that one user again by company name.
+	 */
 	private static final String LOW_PRIVILEGE_COMPANY = 'UTIL_BulkUpdates_TEST-low-privilege';
 
 	/**
@@ -265,7 +273,7 @@ private class UTIL_BulkUpdates_TEST
 
 			Assert.isTrue(userNotToDeactivate.IsActive, 'User should still be active');
 
-			LogEntry__c logEntry = new SEL_LogEntry().findByMethod(DML_Builder.class.getName() + '.execute');
+			LogEntry__c logEntry = new SEL_LogEntry().findByMethod(DML_Transaction.CLASS_METHOD_COMMIT);
 
 			if(logEntry == null)
 			{

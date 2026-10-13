@@ -26,7 +26,7 @@
  * ```
  */
 @SuppressWarnings('PMD.AvoidGlobalModifier')
-@JsonAccess(Serializable='always' Deserializable='always')
+@JsonAccess(serializable='always' deserializable='always')
 global inherited sharing class DTO_ScheduledParameterDefinition extends DTO_JsonBase
 {
 	/**

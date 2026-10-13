@@ -25,12 +25,17 @@
  *
  * @group Triggers
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class FLOW_CheckTriggerBypassed_TEST
 {
+	/**
+	 * @description A made-up name the tests bypass and then ask about. It stands in for an object name or an action class
+	 * name, depending on the kind of bypass the test sets. One test also sends it as the bypass type, where it is not a
+	 * valid type, to prove the request is refused.
+	 */
 	private static final String BYPASS_ITEM_NAME = 'BypassedItemName';
 
 	/**
@@ -71,7 +76,7 @@ private class FLOW_CheckTriggerBypassed_TEST
 
 		Test.stopTest();
 
-		Assert.isTrue(isBypassed, 'The Item should be bypassed');
+		Assert.isTrue(isBypassed, 'Expected the item to be reported as bypassed, got ' + isBypassed);
 	}
 
 	/**
@@ -97,12 +102,12 @@ private class FLOW_CheckTriggerBypassed_TEST
 
 			Test.stopTest();
 
-			Assert.fail('Exception not thrown as expected');
+			Assert.fail('Expected an IllegalArgumentException for an empty request list, got no exception');
 		}
 		catch(Exception error)
 		{
-			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'The exception should be of the correct type');
-			Assert.isTrue(error.getMessage().contains(FLOW_CheckTriggerBypassed.class.getName()), 'Error should reference the class name');
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException, got ' + error.getTypeName());
+			Assert.isTrue(error.getMessage().contains(FLOW_CheckTriggerBypassed.class.getName()), 'Expected the message to name the class, got ' + error.getMessage());
 		}
 	}
 
@@ -125,12 +130,12 @@ private class FLOW_CheckTriggerBypassed_TEST
 
 			Test.stopTest();
 
-			Assert.fail('Exception not thrown as expected');
+			Assert.fail('Expected a NoSuchElementException for an invalid bypass type, got no exception');
 		}
 		catch(Exception error)
 		{
-			Assert.isInstanceOfType(error, NoSuchElementException.class, 'The exception should be of the correct type');
-			Assert.areEqual(error.getMessage(), TRG_Base.ERROR_INVALID_BYPASS_TYPE, 'The exception should contain the message we are looking for');
+			Assert.isInstanceOfType(error, NoSuchElementException.class, 'Expected a NoSuchElementException, got ' + error.getTypeName());
+			Assert.areEqual(TRG_Base.ERROR_INVALID_BYPASS_TYPE, error.getMessage(), 'Expected the invalid bypass type message, got ' + error.getMessage());
 		}
 	}
 }

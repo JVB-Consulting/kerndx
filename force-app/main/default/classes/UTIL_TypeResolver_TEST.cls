@@ -8,13 +8,20 @@
  *
  * @group Utilities
  *
- * @date March 2025, May 2026
+ * @date March 2025, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class UTIL_TypeResolver_TEST
 {
+	/**
+	 * @description Failure message shown when the resolver returns a type, but not the class the test asked for by
+	 * name.
+	 */
 	private static final String MSG_TYPE_MISMATCH = 'Resolved type should match expected class';
+	/**
+	 * @description Failure message shown when the resolver returns null for a class name that exists.
+	 */
 	private static final String MSG_TYPE_NOT_RESOLVED = 'Type should be resolved';
 
 	/**

@@ -67,7 +67,7 @@ public inherited sharing class API_PublishGenericEvent extends API_CallCurrentOr
 	/**
 	 * @description DTO for the push request body.
 	 */
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	public class DTO_Request extends DTO_JsonBase
 	{
 		/**
@@ -92,7 +92,7 @@ public inherited sharing class API_PublishGenericEvent extends API_CallCurrentOr
 	/**
 	 * @description Inner DTO for the pushEvent object.
 	 */
-	@JsonAccess(Serializable='always')
+	@JsonAccess(serializable='always')
 	public class DTO_PushEvent
 	{
 		/**

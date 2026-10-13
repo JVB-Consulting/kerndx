@@ -21,33 +21,133 @@
  *
  * @group Testing
  *
- * @date October 2025, August 2026
+ * @date October 2025, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 private class UTIL_SObjectBuilderDefaultProvider_TEST
 {
+	// The field-name prefix of the User preference checkboxes the base provider must leave unset
+	/**
+	 * @description Start of the name of every User preference checkbox field. The tests use it to recognise those fields:
+	 * the base provider lists them as optional and must give none of them a default value.
+	 */
+	private static final String USER_PREFERENCE_FIELD_PREFIX = 'UserPreferences';
+
 	// Lowercase Keys (String map key for assertions, derived from SEL_Foobar)
+	/**
+	 * @description Key of the Foobar__c checkbox field in the map of default values, which is keyed by field name in lower
+	 * case. The tests expect a Boolean default under it.
+	 */
 	private static final String FOOBAR_CHECKBOX_FIELD_KEY = SEL_Foobar.FIELD_CHECK_BOX.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c currency field in the map of default values, which is keyed by field name in lower
+	 * case. The tests expect a Decimal default under it.
+	 */
 	private static final String FOOBAR_CURRENCY_FIELD_KEY = SEL_Foobar.FIELD_CURRENCY.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c date and time field in the map of default values, which is keyed by field name in
+	 * lower case. The tests expect a Datetime default under it.
+	 */
 	private static final String FOOBAR_DATETIME_FIELD_KEY = SEL_Foobar.FIELD_DATETIME.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c date field in the map of default values, which is keyed by field name in lower case.
+	 * The tests expect a Date default under it.
+	 */
 	private static final String FOOBAR_DATE_FIELD_KEY = SEL_Foobar.FIELD_DATE.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c decimal number field in the map of default values, which is keyed by field name in
+	 * lower case. The tests expect a Decimal default under it.
+	 */
 	private static final String FOOBAR_DECIMAL_FIELD_KEY = SEL_Foobar.FIELD_DECIMAL.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c email field in the map of default values, which is keyed by field name in lower
+	 * case. The tests expect a text default under it.
+	 */
 	private static final String FOOBAR_EMAIL_FIELD_KEY = SEL_Foobar.FIELD_EMAIL.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c geolocation field in the map of default values, which is keyed by field name in
+	 * lower case. The tests expect a Location default under it.
+	 */
 	private static final String FOOBAR_GEOLOCATION_FIELD_KEY = SEL_Foobar.FIELD_GEOLOCATION.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c whole number field in the map of default values, which is keyed by field name in
+	 * lower case. The tests expect a Decimal default under it.
+	 */
 	private static final String FOOBAR_INTEGER_FIELD_KEY = SEL_Foobar.FIELD_INTEGER.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c Name field in the map of default values, which is keyed by field name in lower case.
+	 * The tests read the name's default or override under it.
+	 */
 	private static final String FOOBAR_NAME_FIELD_KEY = SEL_Foobar.FIELD_NAME.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c percent field in the map of default values, which is keyed by field name in lower
+	 * case. The tests expect a Decimal default under it.
+	 */
 	private static final String FOOBAR_PERCENT_FIELD_KEY = SEL_Foobar.FIELD_PERCENT.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c phone field in the map of default values, which is keyed by field name in lower
+	 * case. The tests expect a text default under it.
+	 */
 	private static final String FOOBAR_PHONE_FIELD_KEY = SEL_Foobar.FIELD_PHONE.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c picklist field in the map of default values, which is keyed by field name in lower
+	 * case. The tests expect a default under it.
+	 */
 	private static final String FOOBAR_PICKLIST_FIELD_KEY = SEL_Foobar.FIELD_PICKLIST.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c multi-select picklist field in the map of default values, which is keyed by field
+	 * name in lower case. The tests expect a default under it.
+	 */
 	private static final String FOOBAR_PICKLIST_MULTI_SELECT_FIELD_KEY = SEL_Foobar.FIELD_PICKLIST_MULTI_SELECT.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c text area field in the map of default values, which is keyed by field name in lower
+	 * case. The tests expect a text default under it.
+	 */
 	private static final String FOOBAR_TEXT_AREA_FIELD_KEY = SEL_Foobar.FIELD_TEXT_AREA.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c text field in the map of default values, which is keyed by field name in lower case.
+	 * The tests expect a text default under it.
+	 */
 	private static final String FOOBAR_TEXT_FIELD_KEY = SEL_Foobar.FIELD_TEXT.toLowerCase();
+
+	/**
+	 * @description Key of the Foobar__c URL field in the map of default values, which is keyed by field name in lower case.
+	 * The tests expect a text default under it.
+	 */
 	private static final String FOOBAR_URL_FIELD_KEY = SEL_Foobar.FIELD_URL.toLowerCase();
 
 	// Relationship / Compound Keys
+	/**
+	 * @description Lower-case name of the relationship from a Foobar__c record to its parent Foobar__c record. It is the
+	 * first part of the keys for fields on the parent.
+	 */
 	private static final String FOOBAR_LOOKUP_RELATIONSHIP_NAME_KEY = SEL_Foobar.RELATIONSHIP_LOOKUP.toLowerCase();
+
+	/**
+	 * @description Key of the text area field on the parent record in the map of default values: the relationship name, a
+	 * dot, then the field name, all in lower case.
+	 */
 	private static final String FOOBAR_RELATIONSHIP_TEXT_AREA_FIELD_KEY = FOOBAR_LOOKUP_RELATIONSHIP_NAME_KEY + UTIL_String.DOT + FOOBAR_TEXT_AREA_FIELD_KEY;
+
+	/**
+	 * @description Key of the text field on the parent record in the map of default values: the relationship name, a dot,
+	 * then the field name, all in lower case.
+	 */
 	private static final String FOOBAR_RELATIONSHIP_TEXT_FIELD_KEY = FOOBAR_LOOKUP_RELATIONSHIP_NAME_KEY + UTIL_String.DOT + FOOBAR_TEXT_FIELD_KEY;
 
 	/**
@@ -270,21 +370,30 @@ private class UTIL_SObjectBuilderDefaultProvider_TEST
 	/**
 	 * @description Given: The base provider with no subclass overrides
 	 * When: 'defineSObjectOptionalFields' is called for the User SObjectType
-	 * Then: Every UserPermissions* field is marked optional, preventing license-based
-	 * field integrity exceptions during User test data generation
+	 * Then: Every UserPermissions* and UserPreferences* field is marked optional and nothing else is.
+	 * The permission family prevents licence-based field integrity exceptions, the preference family
+	 * keeps coin-flipped preferences off every built User
 	 */
 	@IsTest
-	private static void givenBaseProviderWhenUserOptionalFieldsRequestedThenUserPermissionFieldsReturned()
+	private static void givenBaseProviderWhenUserOptionalFieldsRequestedThenPermissionAndPreferenceFieldsReturned()
 	{
 		Set<SObjectField> optionalFields = new UTIL_SObjectBuilderDefaultProvider().defineSObjectOptionalFields(User.SObjectType);
 
 		Assert.isNotNull(optionalFields, 'The base provider should define optional fields for User.');
-		Assert.isFalse(optionalFields.isEmpty(), 'At least one UserPermissions field should be marked optional.');
+		Boolean hasPermissionField = false;
+		Boolean hasPreferenceField = false;
 		for(SObjectField optionalField : optionalFields)
 		{
 			// Raw describe as the independent oracle for the wrapper-driven production scan
-			Assert.isTrue(optionalField.getDescribe().getName().startsWithIgnoreCase('UserPermissions'), 'Only UserPermissions fields should be marked optional, found: ' + optionalField);
+			String fieldName = optionalField.getDescribe().getName();
+			Boolean isPermissionField = fieldName.startsWithIgnoreCase('UserPermissions');
+			Boolean isPreferenceField = fieldName.startsWithIgnoreCase(USER_PREFERENCE_FIELD_PREFIX);
+			hasPermissionField = hasPermissionField || isPermissionField;
+			hasPreferenceField = hasPreferenceField || isPreferenceField;
+			Assert.isTrue(isPermissionField || isPreferenceField, 'Only UserPermissions and UserPreferences fields should be optional, found: ' + optionalField);
 		}
+		Assert.isTrue(hasPermissionField, 'At least one UserPermissions field should be marked optional.');
+		Assert.isTrue(hasPreferenceField, 'At least one UserPreferences field should be marked optional.');
 	}
 
 	/**
@@ -295,7 +404,33 @@ private class UTIL_SObjectBuilderDefaultProvider_TEST
 	@IsTest
 	private static void givenBaseProviderWhenNonUserOptionalFieldsRequestedThenNullReturned()
 	{
-		Assert.isNull(new UTIL_SObjectBuilderDefaultProvider().defineSObjectOptionalFields(Foobar__c.SObjectType), 'The base provider should define no optional fields for non-User types.');
+		Assert.isNull
+				(
+						new UTIL_SObjectBuilderDefaultProvider().defineSObjectOptionalFields(Foobar__c.SObjectType),
+						'The base provider should define no optional fields for non-User types.'
+				);
+	}
+
+	/**
+	 * @description Given: The base provider with no subclass overrides
+	 * When: The default map of values is generated for the User SObjectType
+	 * Then: No UserPreferences* checkbox is populated. The preference family is left to the org's own
+	 * defaults, so a coin-flipped preference can never trip org-side validation or a derived-preference
+	 * field the org's describe does not expose (the subscriber-reported
+	 * INVALID_FIELD_FOR_INSERT_UPDATE on a field the framework never names)
+	 */
+	@IsTest
+	private static void givenBaseProviderWhenUserDefaultsGeneratedThenNoUserPreferenceFieldIsPopulated()
+	{
+		Map<String, TST_Builder.DefaultFieldValueProvider> mapOfValues =
+				new UTIL_SObjectBuilderDefaultProvider().getDefaultMapOfValues(User.SObjectType, new Map<String, Object>());
+
+		Assert.isNotNull(mapOfValues, 'The map of values should not be null.');
+		Assert.isFalse(mapOfValues.isEmpty(), 'The User default map should still populate the required non-preference fields.');
+		for(String fieldKey : mapOfValues.keySet())
+		{
+			Assert.isFalse(fieldKey.startsWithIgnoreCase(USER_PREFERENCE_FIELD_PREFIX), 'No UserPreferences field should be defaulted for User, found: ' + fieldKey);
+		}
 	}
 
 	/**
@@ -304,6 +439,14 @@ private class UTIL_SObjectBuilderDefaultProvider_TEST
 	 */
 	private class DefaultValueProviderOverride extends UTIL_SObjectBuilderDefaultProvider
 	{
+		/**
+		 * @description Declares Email__c and Name as the required fields of Foobar__c, so the tests can check that the fields a
+		 * subclass declares as required are given default values.
+		 *
+		 * @param sObjectType The object whose required fields are asked for.
+		 *
+		 * @return The two required fields for Foobar__c; null for any other object.
+		 */
 		public override Set<SObjectField> defineSObjectRequiredFields(SObjectType sObjectType)
 		{
 			if(sObjectType == Foobar__c.SObjectType)
@@ -317,6 +460,14 @@ private class UTIL_SObjectBuilderDefaultProvider_TEST
 			return null;
 		}
 
+		/**
+		 * @description Declares TextArea__c and Text__c as the optional fields of Foobar__c, so the tests can check that a field
+		 * a subclass declares as optional is given no default value.
+		 *
+		 * @param sObjectType The object whose optional fields are asked for.
+		 *
+		 * @return The two optional fields for Foobar__c; null for any other object.
+		 */
 		public override Set<SObjectField> defineSObjectOptionalFields(SObjectType sObjectType)
 		{
 			if(sObjectType == Foobar__c.SObjectType)
@@ -330,6 +481,15 @@ private class UTIL_SObjectBuilderDefaultProvider_TEST
 			return null;
 		}
 
+		/**
+		 * @description Returns an email address a test can recognise, built from the record's position, so a test can tell
+		 * that the value came from this subclass and not from the base class.
+		 *
+		 * @param fieldDescribe The describe of the email field; unused.
+		 * @param recordIndex Position of the record being built, which becomes part of the address.
+		 *
+		 * @return The recognisable email address.
+		 */
 		public override String getEmailDefaultValue(DescribeFieldResult fieldDescribe, Integer recordIndex)
 		{
 			// This override is to test that the custom provider is being called
@@ -377,6 +537,14 @@ private class UTIL_SObjectBuilderDefaultProvider_TEST
 	 */
 	private class AllTypesRequiredProvider extends UTIL_SObjectBuilderDefaultProvider
 	{
+		/**
+		 * @description Declares fifteen Foobar__c fields as required, one for each kind of field the test checks, so a default
+		 * value is produced for every kind. The same fields are returned whatever object is asked for.
+		 *
+		 * @param sObjectType The object whose required fields are asked for; unused.
+		 *
+		 * @return The fifteen Foobar__c fields.
+		 */
 		public override Set<SObjectField> defineSObjectRequiredFields(SObjectType sObjectType)
 		{
 			return new Set<SObjectField>

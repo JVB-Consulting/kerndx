@@ -11,7 +11,7 @@
  * @date February 2026, May 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 private class SEL_PermissionSetAssignment_TEST
 {
 	/**

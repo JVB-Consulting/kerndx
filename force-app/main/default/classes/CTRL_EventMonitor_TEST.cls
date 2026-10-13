@@ -12,12 +12,22 @@
  *
  * @group Controllers
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class CTRL_EventMonitor_TEST
 {
+	/**
+	 * @description The API name of the platform's list view monitoring event, spelt letter for letter as Salesforce documents it.
+	 */
+	private static final String LIST_VIEW_EVENT_NAME = 'ListViewEventStream';
+
+	/**
+	 * @description The label the channel picker shows for the list view monitoring event.
+	 */
+	private static final String LIST_VIEW_EVENT_LABEL = 'List View Event Stream';
+
 	/**
 	 * @description Tests that publishing an event throws a label-sourced AuraHandledException when
 	 * the event type is unsupported, and that the thrown message names the event type.
@@ -71,7 +81,7 @@ private class CTRL_EventMonitor_TEST
 
 	/**
 	 * @description Tests that publishing an event with an invalid JSON payload throws a label-sourced
-	 * AuraHandledException — the raw parser text goes to the logger, never the UI — and that the
+	 * AuraHandledException (the raw parser text goes to the logger, never the UI) and that the
 	 * thrown publish-failure message names the event.
 	 *
 	 * @see CTRL_EventMonitor.publishStreamingEvent
@@ -225,6 +235,13 @@ private class CTRL_EventMonitor_TEST
 		Test.stopTest();
 	}
 
+	/**
+	 * @description Inserts a streaming channel whose name carries the generic-event prefix ('/u/') and a random suffix, so
+	 * each test publishes to, or lists, a channel no other test shares. Callers compare names without the prefix, either
+	 * stripping it from this channel's name or adding it back to the name the controller returns.
+	 *
+	 * @return The inserted streaming channel.
+	 */
 	private static StreamingChannel createNewChannel()
 	{
 		StreamingChannel newChannel = (StreamingChannel)TST_Builder.of(StreamingChannel.SObjectType)
@@ -241,7 +258,7 @@ private class CTRL_EventMonitor_TEST
 
 	/**
 	 * @description Tests that a failing API call surfaces as a label-sourced AuraHandledException
-	 * naming the channel — the raw API failure detail is recorded by the API framework, not rethrown.
+	 * naming the channel; the raw API failure detail is recorded by the API framework, not rethrown.
 	 *
 	 * @see CTRL_EventMonitor.publishGenericEvent
 	 */
@@ -334,6 +351,36 @@ private class CTRL_EventMonitor_TEST
 	}
 
 	/**
+	 * @description Tests that the list view monitoring event is offered under the platform's exact spelling. Streaming channel
+	 * names are matched letter for letter, so a value that differs only in letter case subscribes to a channel that does not exist.
+	 *
+	 * @see CTRL_EventMonitor.getAllEventChannels
+	 */
+	@IsTest
+	private static void getAllEventChannelsListViewEventMatchesPlatformSpelling()
+	{
+		Test.startTest();
+
+		List<CTRL_EventMonitor.ComboBoxItem> monitoringItems = CTRL_EventMonitor.getAllEventChannels().get(CTRL_EventMonitor.StreamingEventTypes.MonitoringEvent.name());
+
+		Test.stopTest();
+
+		CTRL_EventMonitor.ComboBoxItem listViewItem;
+
+		for(CTRL_EventMonitor.ComboBoxItem item : monitoringItems)
+		{
+			if(item.value.equalsIgnoreCase(LIST_VIEW_EVENT_NAME))
+			{
+				listViewItem = item;
+			}
+		}
+
+		Assert.isNotNull(listViewItem, 'Expected a monitoring channel named ' + LIST_VIEW_EVENT_NAME + ', got none');
+		Assert.isTrue(LIST_VIEW_EVENT_NAME.equals(listViewItem.value), 'Expected channel value ' + LIST_VIEW_EVENT_NAME + ', got ' + listViewItem.value);
+		Assert.isTrue(LIST_VIEW_EVENT_LABEL.equals(listViewItem.label), 'Expected channel label ' + LIST_VIEW_EVENT_LABEL + ', got ' + listViewItem.label);
+	}
+
+	/**
 	 * @description Checks that the related method retrieves existing push topic event channels
 	 *
 	 * @see CTRL_EventMonitor.getPushTopicEventChannels
@@ -400,7 +447,7 @@ private class CTRL_EventMonitor_TEST
 
 	/**
 	 * @description Checks that the related method throws a label-sourced AuraHandledException for an
-	 * invalid event name — the raw describe failure goes to the logger, never the UI — and that the
+	 * invalid event name (the raw describe failure goes to the logger, never the UI) and that the
 	 * thrown payload-template message names the event.
 	 *
 	 * @see CTRL_EventMonitor.getInitialisedEvent
@@ -462,7 +509,7 @@ private class CTRL_EventMonitor_TEST
 	/**
 	 * @description Checks that a valid non-default segment with an in-window date range is accepted
 	 * and routed to the selector. The probe is forced on and the query is mocked so the enhanced
-	 * branch is exercised regardless of org capability — the TimeSegment column only exists in orgs
+	 * branch is exercised regardless of org capability: the TimeSegment column only exists in orgs
 	 * with Enhanced Usage Metrics, so an unmocked query would throw QueryException elsewhere.
 	 *
 	 * @see CTRL_EventMonitor.getEventUsageMetrics
@@ -570,7 +617,7 @@ private class CTRL_EventMonitor_TEST
 	}
 
 	/**
-	 * @description Checks that a range exactly one bucket wide is accepted — the platform minimum is
+	 * @description Checks that a range exactly one bucket wide is accepted: the platform minimum is
 	 * inclusive (live-verified: a 60-minute Hourly range queries cleanly), so the boundary must not
 	 * be rejected by the too-narrow guard.
 	 *

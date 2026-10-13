@@ -48,9 +48,9 @@ global inherited sharing class FLOW_CallApi
 	 */
 	@InvocableMethod
 	(
-			Category='Api Callouts'
-			Callout=true Label='Invoke Callout Synchronously'
-			Description='Makes a real-time HTTP callout to an external system using a configured API handler. Use when a Flow needs to send or retrieve data from an external service and wait for the response.'
+			category='Api Callouts'
+			callout=true label='Invoke Callout Synchronously'
+			description='Makes a real-time HTTP callout to an external system using a configured API handler. Use when a Flow needs to send or retrieve data from an external service and wait for the response.'
 	)
 	global static List<DTO_Response> invokeApiCallSynchronously(List<DTO_Request> requestDataTransferObjects)
 	{
@@ -173,7 +173,7 @@ global inherited sharing class FLOW_CallApi
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='API Name' Description='The full class name of the API handler' Required=true PlaceholderText='API_PostExample')
+		@InvocableVariable(label='API Name' description='The full class name of the API handler' required=true placeholderText='API_PostExample')
 		global String apiName;
 
 		/**
@@ -181,7 +181,7 @@ global inherited sharing class FLOW_CallApi
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='Record Id' Description='The ID of the object triggering the callout' Required=false)
+		@InvocableVariable(label='Record Id' description='The ID of the object triggering the callout' required=false)
 		global String recordId;
 
 		/**
@@ -191,10 +191,10 @@ global inherited sharing class FLOW_CallApi
 		 */
 		@InvocableVariable
 		(
-				Label='Inputs'
-				Description='A list of parameters in the format paramName=paramValue,paramName2=paramValue2'
-				Required=false
-				PlaceholderText='ubiNum=1234'
+				label='Inputs'
+				description='A list of parameters in the format paramName=paramValue,paramName2=paramValue2'
+				required=false
+				placeholderText='ubiNum=1234'
 		)
 		global String inputs;
 
@@ -205,9 +205,9 @@ global inherited sharing class FLOW_CallApi
 		 */
 		@InvocableVariable
 		(
-				Label='Extract Path (JSONPath)'
-				Description='Element to extract from the JSON response, using JsonPath Notation'
-				Required=false
+				label='Extract Path (JSONPath)'
+				description='Element to extract from the JSON response, using JsonPath Notation'
+				required=false
 		)
 		global String extractPath;
 
@@ -218,9 +218,9 @@ global inherited sharing class FLOW_CallApi
 		 */
 		@InvocableVariable
 		(
-				Label='Input Delimiter'
-				Description='The delimiter to use when splitting parameters, defaults to a comma'
-				Required=false
+				label='Input Delimiter'
+				description='The delimiter to use when splitting parameters, defaults to a comma'
+				required=false
 		)
 		global String inputDelimiter;
 
@@ -229,7 +229,7 @@ global inherited sharing class FLOW_CallApi
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='Idempotency Key' Description='Explicit idempotency key for duplicate detection. If blank, auto-generated when enabled.' Required=false)
+		@InvocableVariable(label='Idempotency Key' description='Explicit idempotency key for duplicate detection. If blank, auto-generated when enabled.' required=false)
 		global String idempotencyKey;
 	}
 
@@ -245,7 +245,7 @@ global inherited sharing class FLOW_CallApi
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='API Response Success Indicator' Description='A boolean representation of the success or failure of the callout')
+		@InvocableVariable(label='API Response Success Indicator' description='A boolean representation of the success or failure of the callout')
 		global Boolean success;
 
 		/**
@@ -255,8 +255,8 @@ global inherited sharing class FLOW_CallApi
 		 */
 		@InvocableVariable
 		(
-				Label='Response Body'
-				Description='The JSON payload containing the response of the callout or failure message if applicable'
+				label='Response Body'
+				description='The JSON payload containing the response of the callout or failure message if applicable'
 		)
 		global String responseBody;
 
@@ -265,7 +265,7 @@ global inherited sharing class FLOW_CallApi
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='API Call Id' Description='Id of the API Call record for the callout')
+		@InvocableVariable(label='API Call Id' description='Id of the API Call record for the callout')
 		global String apiCallId;
 
 		/**
@@ -273,7 +273,7 @@ global inherited sharing class FLOW_CallApi
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='Extracted Value' Description='The extracted element from the JSON response')
+		@InvocableVariable(label='Extracted Value' description='The extracted element from the JSON response')
 		global String extractedValue;
 	}
 }

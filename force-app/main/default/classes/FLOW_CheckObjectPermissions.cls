@@ -43,7 +43,7 @@ global inherited sharing class FLOW_CheckObjectPermissions
 	 * }
 	 * ```
 	 */
-	@InvocableMethod(Category='Utilities' Label='Check Object Permissions' Description='Checks whether the current user has read, create, edit, and delete access to a specified Salesforce object. Use to conditionally show or hide UI elements based on permissions.')
+	@InvocableMethod(category='Utilities' label='Check Object Permissions' description='Checks whether the current user has read, create, edit, and delete access to a specified Salesforce object. Use to conditionally show or hide UI elements based on permissions.')
 	global static List<DTO_Response> checkPermissions(List<DTO_Request> dtoRequests)
 	{
 		List<DTO_Response> dtoObjectAccesses = new List<DTO_Response>();
@@ -85,7 +85,7 @@ global inherited sharing class FLOW_CheckObjectPermissions
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='Object Name' Description='The API name of the object for which you want to check permissions' Required=true PlaceholderText='Foobar__c')
+		@InvocableVariable(label='Object Name' description='The API name of the object for which you want to check permissions' required=true placeholderText='Foobar__c')
 		global String objectApiName;
 	}
 
@@ -101,7 +101,7 @@ global inherited sharing class FLOW_CheckObjectPermissions
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Required=true Label='Object Name' Description='The API name of the object these permissions apply to')
+		@InvocableVariable(required=true label='Object Name' description='The API name of the object these permissions apply to')
 		global String objectApiName;
 
 		/**
@@ -109,7 +109,7 @@ global inherited sharing class FLOW_CheckObjectPermissions
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Label='Is Valid Object' Description='Whether the provided object API name resolves to a valid SObject type')
+		@InvocableVariable(label='Is Valid Object' description='Whether the provided object API name resolves to a valid SObject type')
 		global Boolean isValidObject = false;
 
 		/**
@@ -117,7 +117,7 @@ global inherited sharing class FLOW_CheckObjectPermissions
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Required=true Label='Has Read Access' Description='Whether the running user can read records of this object type')
+		@InvocableVariable(required=true label='Has Read Access' description='Whether the running user can read records of this object type')
 		global Boolean hasReadAccess = false;
 
 		/**
@@ -125,7 +125,7 @@ global inherited sharing class FLOW_CheckObjectPermissions
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Required=true Label='Has Create Access' Description='Whether the running user can create records of this object type')
+		@InvocableVariable(required=true label='Has Create Access' description='Whether the running user can create records of this object type')
 		global Boolean hasCreateAccess = false;
 
 		/**
@@ -133,7 +133,7 @@ global inherited sharing class FLOW_CheckObjectPermissions
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Required=true Label='Has Edit Access' Description='Whether the running user can edit records of this object type')
+		@InvocableVariable(required=true label='Has Edit Access' description='Whether the running user can edit records of this object type')
 		global Boolean hasEditAccess = false;
 
 		/**
@@ -141,7 +141,7 @@ global inherited sharing class FLOW_CheckObjectPermissions
 		 *
 		 * @since 1.0
 		 */
-		@InvocableVariable(Required=true Label='Has Delete Access' Description='Whether the running user can delete records of this object type')
+		@InvocableVariable(required=true label='Has Delete Access' description='Whether the running user can delete records of this object type')
 		global Boolean hasDeleteAccess = false;
 	}
 }

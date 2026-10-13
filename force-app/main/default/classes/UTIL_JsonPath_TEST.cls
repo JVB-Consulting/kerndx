@@ -33,18 +33,30 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class UTIL_JsonPath_TEST
 {
 	// Some JSON samples from https://json.org/example.html
+	/**
+	 * @description A small menu document: an object that holds text values, a nested object and a list of menu
+	 * items. Most tests read from it, to prove that a path can step through objects and into a list.
+	 */
 	private static final String SAMPLE1 = '{"menu":{"id":"file","value":"File","popup":{"menuitem":[{"value":"New","onclick":"CreateNewDoc()"},{"value":"Open",' +
 			'"onclick":"OpenDoc()"},{"value":"Close","onclick":"CloseDoc()"}]}}}';
+	/**
+	 * @description A widget document with several nested objects that mix text and number values. One test reads a
+	 * whole number from it, and one asks it for a key that does not exist to check the error that comes back.
+	 */
 	private static final String SAMPLE2 = '{"widget":{"debug":"on","window":{"title":"SampleKonfabulatorWidget","name":"main_window","width":500,"height":500},' +
 			'"image":{"src":"Images/Sun.png","name":"sun1","hOffset":250,"vOffset":250,"alignment":"center"},"text":{"data":"ClickHere","size":36,"style":"bold",' +
 			'"name":"text1","hOffset":250,"vOffset":100,"alignment":"center","onMouseUp":"sun1.opacity=(sun1.opacity/100)*90;"}}}';
+	/**
+	 * @description A servlet configuration document whose top level is a list, not an object, and whose key names
+	 * contain hyphens and colons. The tests use it to check paths that start with a position in a list.
+	 */
 	private static final String SAMPLE3 = '[{"servlet-name":"cofaxCDS","servlet-class":"org.cofax.cds.CDSServlet","init-param":{"configGlossary:installationAt":' +
 			'"Philadelphia,PA","configGlossary:adminEmail":"ksm@pobox.com","configGlossary:poweredBy":"Cofax","configGlossary:poweredByIcon":"/images/cofax.gif",' +
 			'"configGlossary:staticPath":"/content/static","templateProcessorClass":"org.cofax.WysiwygTemplate","templateLoaderClass":' +

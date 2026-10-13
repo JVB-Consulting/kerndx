@@ -12,13 +12,22 @@
  *
  * @group Utilities
  *
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ApexUnitTestClassShouldHaveAsserts')
 private class UTIL_FormulaContext_TEST
 {
+	/**
+	 * @description Name of the property a context class keeps the old version of the record in. The tests turn the context
+	 * into JSON and read this key to see whether an old record was stored.
+	 */
 	private static final String OLD_RECORD_KEY = 'oldRecord';
+
+	/**
+	 * @description Name of the property a context class keeps the new version of the record in. The tests turn the context
+	 * into JSON and read this key to see whether a new record was stored.
+	 */
 	private static final String NEW_RECORD_KEY = 'newRecord';
 
 	/**

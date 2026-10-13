@@ -1,8 +1,25 @@
 /* SPDX-License-Identifier: BUSL-1.1 */
+/* Token block: the only place a colour is written. PLAN-114 replaces this block with the shared kernConsoleTokens import. */
+:host
+{
+	--kern-border          : #C9C7C5;
+	--kern-border-subtle   : #DDDBDA;
+	--kern-link            : #0176D3;
+	--kern-link-hover      : #014486;
+	--kern-status-error    : #BA0517;
+	--kern-status-success  : #2E844A;
+	--kern-status-warning  : #DD7A01;
+	--kern-surface-error   : #FEF0EE;
+	--kern-surface-muted   : #F4F6F9;
+	--kern-surface-success : #EBF7EE;
+	--kern-surface-warning : #FEF6E8;
+	--kern-text-weak       : #706E6B;
+}
+
 .config-column
 {
 	align-self    : flex-start;
-	border-right  : 1px solid #DDDBDA;
+	border-right  : 1px solid var(--kern-border-subtle);
 	max-height    : calc(100vh - 4rem);
 	overflow-y    : auto;
 	padding-right : 1rem;
@@ -22,19 +39,35 @@
 	overflow   : auto;
 }
 
-.response-column .slds-table
+/* The scroll box belongs to the wrapper, never to the table: a scrolling table has to be a block, and a
+   block table stops filling its column. */
+.table-scroll
 {
-	display    : block;
 	max-height : 16rem;
 	overflow   : auto;
+}
+
+.result-card
+{
+	border-left : 3px solid transparent;
+}
+
+.result-card_warning
+{
+	border-left-color : var(--kern-status-warning);
+}
+
+.result-card_error
+{
+	border-left-color : var(--kern-status-error);
 }
 
 .api-call-link
 {
 	--slds-c-button-spacing-inline-end   : 0;
 	--slds-c-button-spacing-inline-start : 0;
-	--slds-c-button-text-color           : #0176D3;
-	--slds-c-button-text-color-hover     : #014486;
+	--slds-c-button-text-color           : var(--kern-link);
+	--slds-c-button-text-color-hover     : var(--kern-link-hover);
 }
 
 @media (max-width : 1023px)
@@ -61,10 +94,32 @@
 	align-items : center;
 }
 
+/* The tail column holds either a delete icon or the word "Required", so it is sized by its content
+   rather than by the icon-width twelfth the SLDS grid class gives it; the key and value columns shrink
+   to make room. */
+.parameter-row__tail
+{
+	flex      : 0 0 auto;
+	max-width : none;
+	width     : auto;
+}
+
+.required-marker
+{
+	white-space : nowrap;
+}
+
+/* Nothing to report means nothing to reserve space for: the reason line is empty for inbound requests
+   and before a service is chosen. */
+.gate-reason:empty
+{
+	display : none;
+}
+
 .safety-bar
 {
-	background-color : #F4F6F9;
-	border-left      : 4px solid #C9C7C5;
+	background-color : var(--kern-surface-muted);
+	border-left      : 4px solid var(--kern-border);
 	border-radius    : 0.25rem;
 	margin-top       : 1rem;
 	padding          : 0.75rem 1rem;
@@ -73,26 +128,26 @@
 
 .safety-bar_sandbox
 {
-	background-color : #EBF7EE;
-	border-left      : 4px solid #2E844A;
+	background-color : var(--kern-surface-success);
+	border-left      : 4px solid var(--kern-status-success);
 }
 
 .safety-bar_warning
 {
-	background-color : #FEF6E8;
-	border-left      : 4px solid #DD7A01;
+	background-color : var(--kern-surface-warning);
+	border-left      : 4px solid var(--kern-status-warning);
 }
 
 .safety-bar_danger
 {
-	background-color : #FEF0EE;
-	border-left      : 4px solid #BA0517;
+	background-color : var(--kern-surface-error);
+	border-left      : 4px solid var(--kern-status-error);
 }
 
 .empty-response
 {
 	align-items     : center;
-	color           : #706E6B;
+	color           : var(--kern-text-weak);
 	display         : flex;
 	flex-direction  : column;
 	justify-content : center;

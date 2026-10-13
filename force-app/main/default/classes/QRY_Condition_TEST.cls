@@ -9,12 +9,16 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class QRY_Condition_TEST
 {
+	/**
+	 * @description Company name given to the admin user created in test setup. It is unique to this class, so getTestAdmin
+	 * can find that one user again by company name.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'QRY_Condition_TEST-admin';
 
 	/**
