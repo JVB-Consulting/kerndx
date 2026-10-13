@@ -26,6 +26,24 @@ const os = require('os');
 // Constants & Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * @description The guide file names the distribution manifest's blacklist keeps under `docs/`: the guides that never
+ *              ship. Read when the manifest is present; a published clone has no manifest and gets an empty list.
+ * @param {string} manifestPath - The manifest's path.
+ * @returns {string[]} File names relative to `docs/`, in manifest order.
+ */
+function internalDocsFrom(manifestPath)
+{
+	if(!fs.existsSync(manifestPath))
+	{
+		return [];
+	}
+	const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+	return (manifest.blacklist_assertions || [])
+		.filter(entry => /^docs\/[^/*]+\.md$/.test(entry))
+		.map(entry => entry.slice('docs/'.length));
+}
+
 const DEFAULT_CONFIG = {
 	/** Directory containing guide docs */
 	docsDir: './docs',
@@ -37,7 +55,15 @@ const DEFAULT_CONFIG = {
 	referenceDir: './docs/reference/apex',
 
 	/** File patterns to include */
-	includePattern: /- Guide\.md$|Strategic Guide\.md$|AI Agent Instructions\.md$|Installation\.md$|Start Here\.md$|README\.md$|Glossary\.md$|Personas\.md$|^Fast Start/,
+	includePattern: /- Guide\.md$|^Strategic Guide - |AI Agent Instructions\.md$|Installation\.md$|Start Here\.md$|README\.md$|Glossary\.md$|Personas\.md$|^Fast Start/,
+
+	/**
+	 * Guides that never reach a subscriber, so the shipped-document checks skip them: the guides the distribution
+	 * manifest's blacklist keeps under `docs/` because they name and score competitors. The manifest never ships, so
+	 * a published clone skips nothing, which is right: those guides are not there either. Every other
+	 * `Strategic Guide - *.md` ships and is scanned here.
+	 */
+	internalDocs: internalDocsFrom(path.join(__dirname, '..', 'distribution', 'public-mirror-manifest.json')),
 
 	/** File patterns to exclude */
 	excludePattern: /^$/,
@@ -235,6 +261,50 @@ const KERN_CLASS_REF_EXCEPTIONS = [
 	// TRG_InvokeFlow is `public` (no reference page) by design.
 	{file: 'docs/Triggers - Guide.md', ref: 'TRG_InvokeFlow'}
 ];
+
+/**
+ * `Class.member` references that are intentionally unreachable.
+ *
+ * File-scoped like the class list, so the same reference still errors anywhere else. Every entry
+ * carries a written `reason` — an entry here is a claim that the doc deliberately names something
+ * a subscriber cannot compile, which needs a stated justification, not a silent suppression.
+ */
+const KERN_MEMBER_REF_EXCEPTIONS = [
+	{
+		file: 'release-notes/Release Notes - Kern 1.0.md',
+		ref: 'API_Base.enterSafeMode',
+		reason: 'Historical release note: describes the API surface as it stood at that release; frozen at publication, never edited retroactively.'
+	},
+	{
+		file: 'release-notes/Release Notes - Kern 1.0.md',
+		ref: 'UTIL_String.isValidCardNumber',
+		reason: 'Historical release note: describes the API surface as it stood at that release; frozen at publication, never edited retroactively.'
+	}
+];
+
+/**
+ * Member tokens that are really file extensions (`DML_Builder.md`, `SCHED_PurgeRecords.class`).
+ * Naming a file is not a claim that the name compiles, so those matches never resolve.
+ */
+const FILE_NAME_MEMBER_TOKENS = new Set(['md', 'cls', 'trigger', 'class', 'js']);
+
+/**
+ * `Class.member` and `Outer.Inner.member` tokens. Group 1 is the type, optionally carrying one
+ * inner-type segment; group 2 is the member. A trailing `*` is allowed so a wildcard roster is
+ * seen and reported rather than silently skipped.
+ */
+const MEMBER_REF_PATTERN = /(?:\bkern\.)?\b([A-Z]{2,}[A-Z0-9]*_[A-Za-z]\w*(?:\.[A-Z]\w*)?)\.([A-Za-z_][\w*]*)\b/g;
+
+// Copied from scripts/lib/boundary-gate-lint.js rather than required from it: that module pulls
+// in the agent-eval scorer, and this validator has to run in a checkout that carries the docs and
+// scripts alone. Keep the three patterns in step with their source.
+const GLOBAL_TYPE_PATTERN = /^\s*(?:@\w+(?:\([^)]*\))?\s+)*global\s+(?:(?:virtual|abstract|with sharing|without sharing|inherited sharing)\s+)*(class|interface|enum)\s+(\w+)/i;
+const GLOBAL_MEMBER_PATTERN =
+	/^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:global|webservice)\s+(?:(?:static|virtual|abstract|override|final|transient|protected)\s+)*[\w.<>,\s\[\]]+?\s(\w+)\s*[({=;]/i;
+const GLOBAL_CONSTRUCTOR_PATTERN = /^\s*(?:@\w+(?:\([^)]*\))?\s+)*global\s+(\w+)\s*\(/i;
+
+/** Any top-level or inner type declaration, whatever its visibility. */
+const TYPE_DECLARATION_PATTERN = /^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:global|public|private|protected)\s+[\w\s]*\b(?:class|interface|enum)\s+\w+/i;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Logging
@@ -443,6 +513,13 @@ function parseLinks(content)
 		{
 			links.push({text: match[1], href: match[2], line: lineNum});
 		}
+		// A badge is an image inside a link, `[![alt](image)](target)`; the pattern above sees only the image, so the
+		// link around it is read here.
+		const badgeRegex = /\[!\[([^\]]*)\]\([^)]*\)\]\(([^)]+)\)/g;
+		while((match = badgeRegex.exec(line)) !== null)
+		{
+			links.push({text: match[1], href: match[2], line: lineNum});
+		}
 	}
 
 	return links;
@@ -483,6 +560,12 @@ function githubSlug(heading, slugCounts)
 
 /** Maximum allowed line length for prose (outside code blocks) */
 const MAX_LINE_LENGTH = 180;
+
+/** The top folder of this checkout, where a link into the public repository is checked */
+const REPOSITORY_ROOT = path.resolve(__dirname, '..');
+
+/** How a guide links to a file in the public repository, so the documentation site can follow the link too */
+const PUBLIC_REPOSITORY_FILE_PREFIX = 'https://github.com/JVB-Consulting/kerndx/blob/main/';
 
 /**
  * Checks for lines exceeding the maximum allowed length (outside code blocks)
@@ -641,7 +724,10 @@ function checkLinks(content, filePath, fsModule = fs)
 
 	for(const link of links)
 	{
-		if(link.href.startsWith('http://') || link.href.startsWith('https://'))
+		// A guide that the documentation site also renders links to a repository file by its address in the public
+		// repository; that file is in this checkout too, so it is checked here like a relative link.
+		const inPublicRepository = link.href.startsWith(PUBLIC_REPOSITORY_FILE_PREFIX);
+		if(!inPublicRepository && (link.href.startsWith('http://') || link.href.startsWith('https://')))
 		{
 			continue;
 		}
@@ -650,19 +736,39 @@ function checkLinks(content, filePath, fsModule = fs)
 			continue;
 		}
 
-		let targetPath = link.href.split('#')[0];
+		let targetPath = (inPublicRepository ? link.href.slice(PUBLIC_REPOSITORY_FILE_PREFIX.length) : link.href).split('#')[0];
 		targetPath = decodeURIComponent(targetPath);
-		const resolved = path.resolve(fileDir, targetPath);
+		const resolved = inPublicRepository ? path.resolve(REPOSITORY_ROOT, targetPath) : path.resolve(fileDir, targetPath);
 
 		if(!fsModule.existsSync(resolved))
 		{
 			issues.push({
 				file: filePath, line: link.line, severity: 'error', check: 'link', message: `Broken link: ${link.href}`
 			});
+			continue;
+		}
+
+		const anchor = link.href.includes('#') ? link.href.slice(link.href.indexOf('#') + 1) : '';
+		if(anchor && resolved.endsWith('.md') && !findHeadingSlugs(fsModule.readFileSync(resolved, 'utf-8')).has(decodeURIComponent(anchor)))
+		{
+			issues.push({
+				file: filePath, line: link.line, severity: 'error', check: 'link', message: `Broken anchor: ${link.href} (no heading in ${targetPath} has that anchor)`
+			});
 		}
 	}
 
 	return issues;
+}
+
+/**
+ * Lists the anchors a Markdown file's headings get on GitHub, so a link to `file.md#anchor` can be checked.
+ * @param {string} content - Markdown content of the target file
+ * @returns {Set<string>} the anchor of every heading, a repeated heading numbered as GitHub numbers it
+ */
+function findHeadingSlugs(content)
+{
+	const slugCounts = new Map();
+	return new Set(parseHeadings(content).map(heading => githubSlug(heading.text, slugCounts)));
 }
 
 /**
@@ -980,14 +1086,43 @@ function checkCodeFenceLanguages(content, filePath)
  */
 function scanProseClassReferences(content, record)
 {
-	// Mask fenced blocks line-for-line so reported line numbers stay accurate. Backtick and tilde
-	// fences both count, and the marker tolerates leading whitespace — the same anchor rule
-	// parseCodeBlocks uses, so a fence body is masked here exactly when its lines are scanned as
-	// code there. (Indented fences were once invisible to BOTH passes: parseCodeBlocks anchored
-	// its fence regexes at column 0, so a list-nested ```apex fence opened no block and its body
-	// was scanned by neither the code-block pass nor this prose pass. Both ends were un-anchored
-	// together — opener AND closer — because un-anchoring only the opener leaves a block
-	// permanently open and blinds every downstream check.)
+	const text = maskNonProseContent(content);
+	const lineOf = buildLineResolver(text);
+	const spanRegex = /`([^`\n]+)`/g;
+	const qualifiedRegex = /\bkern\.([A-Z]{2,}[A-Z0-9]*_[A-Za-z]\w*)\b/g;
+	let spanMatch;
+
+	while((spanMatch = spanRegex.exec(text)) !== null)
+	{
+		let match;
+		qualifiedRegex.lastIndex = 0;
+
+		while((match = qualifiedRegex.exec(spanMatch[1])) !== null)
+		{
+			record(match[1], true, lineOf(spanMatch.index));
+		}
+	}
+}
+
+/**
+ * Blanks everything that is not prose, keeping the line count intact.
+ *
+ * Fenced blocks are masked line-for-line so reported line numbers stay accurate. Backtick and
+ * tilde fences both count, and the marker tolerates leading whitespace — the same anchor rule
+ * parseCodeBlocks uses, so a fence body is masked here exactly when its lines are scanned as code
+ * there. (Indented fences were once invisible to BOTH passes: parseCodeBlocks anchored its fence
+ * regexes at column 0, so a list-nested ```apex fence opened no block and its body was scanned by
+ * neither the code-block pass nor the prose pass. Both ends were un-anchored together — opener AND
+ * closer — because un-anchoring only the opener leaves a block permanently open and blinds every
+ * downstream check.)
+ *
+ * HTML comments are blanked in place, newlines preserved: they carry retired names on purpose.
+ *
+ * @param {string} content - Markdown content
+ * @returns {string} The content with fences and HTML comments blanked
+ */
+function maskNonProseContent(content)
+{
 	const masked = [];
 	let fenceMarker = '';
 
@@ -1015,10 +1150,18 @@ function scanProseClassReferences(content, record)
 		masked.push(line);
 	}
 
-	// Blank out HTML comments in place (newlines preserved) — they carry retired names on purpose.
-	const text = masked.join('\n').replace(/<!--[\s\S]*?-->/g, comment => comment.replace(/[^\n]/g, ' '));
+	return masked.join('\n').replace(/<!--[\s\S]*?-->/g, comment => comment.replace(/[^\n]/g, ' '));
+}
 
-	// One pass to map offset → line, so the scan stays linear on large files.
+/**
+ * Builds an offset → line-number resolver over one text, in a single indexing pass, so a scan of
+ * a large file stays linear rather than counting newlines per match.
+ *
+ * @param {string} text - The text the offsets index into
+ * @returns {function(number): number} Offset → 1-based line number
+ */
+function buildLineResolver(text)
+{
 	const lineStarts = [0];
 	for(let i = 0; i < text.length; i++)
 	{
@@ -1028,7 +1171,7 @@ function scanProseClassReferences(content, record)
 		}
 	}
 
-	const lineOf = (offset) =>
+	return (offset) =>
 	{
 		let low = 0;
 		let high = lineStarts.length - 1;
@@ -1046,21 +1189,6 @@ function scanProseClassReferences(content, record)
 		}
 		return low + 1;
 	};
-
-	const spanRegex = /`([^`\n]+)`/g;
-	const qualifiedRegex = /\bkern\.([A-Z]{2,}[A-Z0-9]*_[A-Za-z]\w*)\b/g;
-	let spanMatch;
-
-	while((spanMatch = spanRegex.exec(text)) !== null)
-	{
-		let match;
-		qualifiedRegex.lastIndex = 0;
-
-		while((match = qualifiedRegex.exec(spanMatch[1])) !== null)
-		{
-			record(match[1], true, lineOf(spanMatch.index));
-		}
-	}
 }
 
 /**
@@ -1188,6 +1316,351 @@ function checkClassReferences(content, filePath, classIndex, globalIndex = null)
 }
 
 /**
+ * Collects `Class.member` tokens from one stretch of text.
+ *
+ * File-name tokens are dropped here rather than at the call sites, so every scanner treats
+ * `DML_Builder.md` the same way: as a file, never as a member.
+ *
+ * @param {string} text - The text to scan
+ * @returns {Array<{typeName: string, member: string, index: number}>} Tokens, with their offsets
+ */
+function collectMemberTokens(text)
+{
+	const tokens = [];
+	let match;
+
+	MEMBER_REF_PATTERN.lastIndex = 0;
+	while((match = MEMBER_REF_PATTERN.exec(text)) !== null)
+	{
+		if(FILE_NAME_MEMBER_TOKENS.has(match[2]))
+		{
+			continue;
+		}
+
+		tokens.push({typeName: match[1], member: match[2], index: match.index});
+	}
+
+	return tokens;
+}
+
+/**
+ * Collects the offset ranges of Markdown link targets, so a path inside `](...)` is never read as
+ * a member reference.
+ *
+ * @param {string} text - The text to scan
+ * @returns {Array<Array<number>>} `[start, end)` offset pairs
+ */
+function collectLinkTargetRanges(text)
+{
+	const ranges = [];
+	const linkRegex = /]\(([^)\n]*)\)/g;
+	let match;
+
+	while((match = linkRegex.exec(text)) !== null)
+	{
+		ranges.push([match.index + 2, match.index + 2 + match[1].length]);
+	}
+
+	return ranges;
+}
+
+/**
+ * Builds the message a member miss reports.
+ *
+ * @param {string} typeName - The type carrying the member
+ * @param {string} member - The member as written
+ * @returns {string} The issue message
+ */
+function memberRefMessage(typeName, member)
+{
+	return `Unknown framework member reference: ${typeName}.${member} — not on docs/reference/apex/${typeName}.md, `
+		+ 'so a managed-package reader cannot compile it; spell the literal or describe the behaviour instead';
+}
+
+/**
+ * Tests one reference against the file-scoped member allowlist.
+ *
+ * @param {string} ref - `Class.member` as written
+ * @param {string} normalisedPath - The file path, forward-slashed
+ * @returns {boolean} True when this file may name this reference
+ */
+function isMemberRefAllowlisted(ref, normalisedPath)
+{
+	return KERN_MEMBER_REF_EXCEPTIONS.some(
+		entry => entry.ref === ref && (normalisedPath === entry.file || normalisedPath.endsWith(`/${entry.file}`))
+	);
+}
+
+/**
+ * Validates that every `Class.member` a doc names is published on that class's reference page.
+ *
+ * The check reports ONLY what it can resolve with certainty: a type that HAS a reference page,
+ * naming a member that page does not carry. A type without a page is left entirely to
+ * checkClassReferences — a subscriber-authored example class, a `public` framework internal and a
+ * typo are indistinguishable at the member level, and a false positive here would cost more than
+ * the miss. Everything else — file names, link targets, unindexed types — passes.
+ *
+ * Apex fences and inline code spans are scanned; bare prose is not, for the same reason the class
+ * check leaves it alone.
+ *
+ * @param {string} content - File content
+ * @param {string} filePath - File path for reporting
+ * @param {Map<string, Set<string>>} memberIndex - Type name → published member names
+ * @returns {Array<{file: string, line: number, severity: string, check: string, message: string}>}
+ */
+function scanMemberReferences(content, filePath, memberIndex)
+{
+	const issues = [];
+
+	// No reference pages available (e.g. a partial clone) → the check is off, as for classes.
+	if(!memberIndex || memberIndex.size === 0)
+	{
+		return issues;
+	}
+
+	const normalisedPath = filePath.split(path.sep).join('/');
+	const reported = new Set();
+
+	const record = (token, line) =>
+	{
+		const members = memberIndex.get(token.typeName);
+		const ref = `${token.typeName}.${token.member}`;
+
+		// A wildcard roster (`SEL_MaskingRule.RULE_MASK_*`) never resolves, which is the point:
+		// the stem is stripped only so an exact member spelled with one is still matched.
+		if(!members || members.has(token.member.replace(/\*+$/, '')) || reported.has(ref) || isMemberRefAllowlisted(ref, normalisedPath))
+		{
+			return;
+		}
+
+		reported.add(ref);
+		issues.push({
+			file: filePath, line, severity: 'error', check: 'member-ref',
+			message: memberRefMessage(token.typeName, token.member)
+		});
+	};
+
+	for(const block of parseCodeBlocks(content))
+	{
+		if(block.lang !== 'apex')
+		{
+			continue;
+		}
+
+		const codeLines = block.code.split('\n');
+		for(let i = 0; i < codeLines.length; i++)
+		{
+			const trimmed = codeLines[i].trimStart();
+
+			if(trimmed.startsWith('//') || trimmed.startsWith('*'))
+			{
+				continue;
+			}
+
+			for(const token of collectMemberTokens(codeLines[i]))
+			{
+				record(token, block.startLine + i + 1);
+			}
+		}
+	}
+
+	scanProseMemberReferences(content, record);
+
+	return issues;
+}
+
+/**
+ * Scans PROSE for `Class.member` references.
+ *
+ * Only inline code spans are inspected — the same false-positive control scanProseClassReferences
+ * relies on — and a token inside a Markdown link target is skipped, because a path is not a claim
+ * that the name compiles.
+ *
+ * @param {string} content - File content
+ * @param {function({typeName: string, member: string, index: number}, number): void} record
+ * @returns {void}
+ */
+function scanProseMemberReferences(content, record)
+{
+	const text = maskNonProseContent(content);
+	const lineOf = buildLineResolver(text);
+	const linkRanges = collectLinkTargetRanges(text);
+	const spanRegex = /`([^`\n]+)`/g;
+	let spanMatch;
+
+	while((spanMatch = spanRegex.exec(text)) !== null)
+	{
+		for(const token of collectMemberTokens(spanMatch[1]))
+		{
+			const offset = spanMatch.index + 1 + token.index;
+
+			if(linkRanges.some(([start, end]) => offset >= start && offset < end))
+			{
+				continue;
+			}
+
+			record(token, lineOf(spanMatch.index));
+		}
+	}
+}
+
+/**
+ * Decides whether a file's FIRST type declaration is `global`.
+ *
+ * ApexDoc on a `public` class never reaches a subscriber, so only global classes are scanned.
+ * Comments are stripped first so prose naming a declaration cannot be mistaken for one.
+ *
+ * @param {string} content - Apex class source
+ * @returns {boolean} True when the file declares a global type
+ */
+function declaresGlobalType(content)
+{
+	const stripped = content.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+	const declaration = stripped.split('\n').find(line => TYPE_DECLARATION_PATTERN.test(line));
+
+	return Boolean(declaration) && GLOBAL_TYPE_PATTERN.test(declaration);
+}
+
+/**
+ * Collects the `/** ... *\/` block ranges of one Apex file.
+ *
+ * @param {Array<string>} lines - The file's lines
+ * @returns {Array<{startIndex: number, endIndex: number}>} Zero-based, inclusive line ranges
+ */
+function collectApexDocBlocks(lines)
+{
+	const blocks = [];
+	let startIndex = -1;
+
+	for(let i = 0; i < lines.length; i++)
+	{
+		if(startIndex === -1 && lines[i].trimStart().startsWith('/**'))
+		{
+			startIndex = i;
+		}
+
+		if(startIndex > -1 && lines[i].includes('*/'))
+		{
+			blocks.push({startIndex, endIndex: i});
+			startIndex = -1;
+		}
+	}
+
+	return blocks;
+}
+
+/**
+ * Decides whether a doc block documents subscriber-visible surface: the next real line after it
+ * is a global type, a global or webservice member, or a global constructor.
+ *
+ * @param {Array<string>} lines - The file's lines
+ * @param {number} endIndex - Zero-based index of the block's closing line
+ * @returns {boolean} True when the documented member is part of the global surface
+ */
+function documentsGlobalSurface(lines, endIndex)
+{
+	for(let i = endIndex + 1; i < lines.length; i++)
+	{
+		const trimmed = lines[i].trim();
+
+		if(trimmed === '' || /^@\w+/.test(trimmed))
+		{
+			continue;
+		}
+
+		return GLOBAL_TYPE_PATTERN.test(lines[i]) || GLOBAL_MEMBER_PATTERN.test(lines[i]) || GLOBAL_CONSTRUCTOR_PATTERN.test(lines[i]);
+	}
+
+	return false;
+}
+
+/**
+ * Renders a path relative to the repository root when it sits inside it, for reporting.
+ *
+ * @param {string} absolutePath - The path to render
+ * @returns {string} A forward-slashed, repo-relative path where possible
+ */
+function toRepoRelativePath(absolutePath)
+{
+	const root = `${process.cwd()}${path.sep}`;
+	const relative = absolutePath.startsWith(root) ? absolutePath.slice(root.length) : absolutePath;
+
+	return relative.split(path.sep).join('/');
+}
+
+/**
+ * Validates the member references in ApexDoc on the released global surface.
+ *
+ * ApexDoc on a global member IS shipped documentation — the generator copies it onto the
+ * reference page — so a comment naming an unreachable member leaks exactly the same defect a
+ * guide would. Scanning the source rather than the generated pages makes the leak fail at commit
+ * time instead of at the next generator run.
+ *
+ * @param {string} classesDir - Path to the Apex classes directory
+ * @param {Map<string, Set<string>>} memberIndex - Type name → published member names
+ * @param {Object} [fsModule=fs] - File system module (for testing)
+ * @returns {Array<{file: string, line: number, severity: string, check: string, message: string}>}
+ */
+function checkApexDocMemberReferences(classesDir, memberIndex, fsModule = fs)
+{
+	const issues = [];
+
+	if(!memberIndex || memberIndex.size === 0 || !fsModule.existsSync(classesDir))
+	{
+		return issues;
+	}
+
+	for(const file of fsModule.readdirSync(classesDir))
+	{
+		if(!file.endsWith('.cls'))
+		{
+			continue;
+		}
+
+		const content = fsModule.readFileSync(path.join(classesDir, file), 'utf8');
+
+		if(!declaresGlobalType(content))
+		{
+			continue;
+		}
+
+		const reportPath = toRepoRelativePath(path.join(classesDir, file));
+		const lines = content.split('\n');
+		const reported = new Set();
+
+		for(const block of collectApexDocBlocks(lines))
+		{
+			if(!documentsGlobalSurface(lines, block.endIndex))
+			{
+				continue;
+			}
+
+			for(let i = block.startIndex; i <= block.endIndex; i++)
+			{
+				for(const token of collectMemberTokens(lines[i]))
+				{
+					const members = memberIndex.get(token.typeName);
+					const ref = `${token.typeName}.${token.member}`;
+
+					if(!members || members.has(token.member.replace(/\*+$/, '')) || reported.has(ref) || isMemberRefAllowlisted(ref, reportPath))
+					{
+						continue;
+					}
+
+					reported.add(ref);
+					issues.push({
+						file: reportPath, line: i + 1, severity: 'error', check: 'apexdoc-member-ref',
+						message: memberRefMessage(token.typeName, token.member)
+					});
+				}
+			}
+		}
+	}
+
+	return issues;
+}
+
+/**
  * Builds an index of known class names from the classes directory and reference docs
  * @param {string} classesDir - Path to Apex classes directory
  * @param {string} referenceDir - Path to reference docs directory
@@ -1307,6 +1780,121 @@ function buildGlobalClassIndex(referenceDir, fsModule = fs)
 				index.add(name);
 				index.add(name.split('.')[0]);
 			}
+		}
+	}
+
+	return index;
+}
+
+/**
+ * Reads one generated reference page's member headings.
+ *
+ * Every `### name` heading is a member; the subset sitting under `## Methods` is tracked
+ * separately because only methods fold into the outer class. A constructor heading drops its
+ * argument list, and Markdown escapes are stripped.
+ *
+ * @param {string} content - The page's Markdown
+ * @returns {{members: Set<string>, methods: Set<string>}} All member names, and the methods among them
+ */
+function parseReferencePageMembers(content)
+{
+	const members = new Set();
+	const methods = new Set();
+	let section = '';
+
+	for(const line of content.split('\n'))
+	{
+		const sectionHeading = /^##\s+(.+?)\s*$/.exec(line);
+
+		if(sectionHeading)
+		{
+			section = sectionHeading[1];
+			continue;
+		}
+
+		const heading = /^###\s+(.+?)\s*$/.exec(line);
+
+		if(heading)
+		{
+			const member = heading[1].replace(/\\/g, '').split('(')[0].trim();
+			members.add(member);
+
+			if(section === 'Methods')
+			{
+				methods.add(member);
+			}
+		}
+	}
+
+	return {members, methods};
+}
+
+/**
+ * Builds the index of PUBLISHED members, keyed by the type that carries them.
+ *
+ * A `### name` heading on a generated reference page is the proof that a member is part of the
+ * released global surface — the generator writes one heading per global member — so a member the
+ * page does not carry cannot be compiled by a subscriber. Constructor headings drop their
+ * argument list, and an overload set collapses to the one name it shares.
+ *
+ * An inner-type page (`Outer.Inner.md`) contributes `Inner` to `Outer`'s set as well, because
+ * `Outer.Inner` is itself a member reference a doc may make, and so do that page's METHODS: the
+ * guides name a fluent step by the type that starts the chain, and that method is published. Its
+ * fields and enum values do not fold — they never compile through the outer type name — and the
+ * fold happens only when the outer class has a page of its own.
+ *
+ * @param {string} referenceDir - Absolute path to docs/reference/apex
+ * @param {Object} [fsModule=fs] - File system module (for testing)
+ * @returns {Map<string, Set<string>>} Type name → the member names its page publishes
+ */
+function buildGlobalMemberIndex(referenceDir, fsModule = fs)
+{
+	const index = new Map();
+
+	if(!fsModule.existsSync(referenceDir))
+	{
+		return index;
+	}
+
+	const methodsByPage = new Map();
+
+	for(const file of fsModule.readdirSync(referenceDir))
+	{
+		if(!file.endsWith('.md') || file === 'index.md')
+		{
+			continue;
+		}
+
+		const name = file.slice(0, -3);
+		const page = parseReferencePageMembers(fsModule.readFileSync(path.join(referenceDir, file), 'utf8'));
+
+		index.set(name, page.members);
+		methodsByPage.set(name, page.methods);
+	}
+
+	// Second pass, over the collected headings only (no page is read twice): an inner type folds
+	// into its outer class. The guides name a fluent step by the type that starts the chain
+	// (`QRY_Builder.withUserMode()` for a method published on QRY_Builder.Builder), and that member
+	// IS on the released surface — so resolving it only against the outer page would report house
+	// style as a defect. Only METHODS fold: an enum value or a field named on the outer type
+	// (`API_Base.GET`) does not compile, and must keep failing. The fold also requires the outer
+	// page to exist, because inventing a key from an inner page alone would give that class a
+	// partial member set and turn every other member of it into a false positive.
+	for(const [name, methods] of methodsByPage)
+	{
+		const separator = name.indexOf('.');
+		const outer = separator > -1 ? index.get(name.slice(0, separator)) : null;
+
+		if(!outer)
+		{
+			continue;
+		}
+
+		outer.add(name.slice(separator + 1).split('.')[0]);
+
+		for(const method of methods)
+		{
+			outer.add(method);
 		}
 	}
 
@@ -1492,6 +2080,7 @@ function rewriteToc(content, headings)
 // Shared extractor — same heuristics + skip rules on both sides. See
 // scripts/lib/doc-claim-extractor.js.
 const docClaimExtractor = require('./lib/doc-claim-extractor');
+const {checkStepShape, checkSurfaces, checkRoster} = require('./lib/guide-step-shape');
 
 // Source-side allowlist — intentionally tiny. The extractor's built-in skip
 // rules (SUBSCRIBER_APEX_RE, FAST_START_RE, TUTORIAL_APEX_RE, ...) already
@@ -1538,7 +2127,10 @@ const DEFAULT_PROSE_REF_ALLOWLIST = [
 	// npm scripts referenced in docs/Strategic Guide - Personas.md
 	// §"Operational discipline" as evidence of operational rigor.
 	'npm:test:load:extended',
-	'npm:test:perf:report'
+	'npm:test:perf:report',
+	// `CONTRIBUTING.md` — synthesized into the published repository at sync time;
+	// never present in this source repo, legitimately referenced by shipped guides.
+	'CONTRIBUTING.md'
 ];
 
 let _sourceFileIndex = null;
@@ -1554,7 +2146,10 @@ function buildSourceFileIndex(repoRoot, fsModule)
 		'node_modules',
 		'.git',
 		'tmp',
-		'.planning'
+		'.planning',
+		// evidence/ is internal research (mirror-blacklisted, never shipped) and its git-excluded _repos/ clones
+		// satisfied lookups by accident; nothing under it may satisfy a shipped-doc source claim
+		'evidence'
 	]);
 	(function walk(d)
 	{
@@ -1691,7 +2286,7 @@ function checkProseFileRefs(content, filePath, repoRoot, fsModule, allowlist)
 	}));
 }
 
-// Committed Apex artifacts that back the Fast Start fences live here.
+// The committed Apex classes and triggers that back a guide's code fences live here.
 const FAST_START_CLASS_DIR = 'release-testing/subscriber/classes';
 
 // Lines that introduce a full-file code fence the reader copies verbatim.
@@ -1706,6 +2301,11 @@ const FENCE_FILE_PROSE_PATTERNS = [
 // against pairing the prose with a distant, unrelated fence when the immediate
 // full-file fence is absent.
 const FENCE_PROSE_MAX_GAP = 12;
+
+// A one-line text fence naming the Apex file the step shape asks the reader to fill. Any name: when a file of that name
+// is committed under FAST_START_CLASS_DIR, the fence that follows is compared with it; otherwise the reader creates the
+// file and nothing is compared.
+const STEP_PATH_FENCE = /^force-app\/main\/default\/(?:classes|triggers)\/([A-Za-z0-9_]+\.(?:cls|trigger))$/;
 
 /**
  * Truncates a line at its first `//` line comment, honouring single-quoted
@@ -1754,8 +2354,8 @@ function stripInlineApexComment(line)
  * teaching fence and its committed-and-hardened artifact:
  *   - block comments (ApexDoc headers, incl. SPDX `// …` and `@date` lines)
  *     and `//` line/trailing comments
- *   - the no-op `SeeAllData=false` default (artifacts state it explicitly; the
- *     teaching fence omits it — behaviourally identical)
+ *   - the no-op `seeAllData=false` default, in any letter case (artifacts state
+ *     it explicitly; the teaching fence omits it — behaviourally identical)
  *   - ALL whitespace (indentation + the IDE formatter's continuation spacing,
  *     which touches the committed .cls but never the markdown fence)
  *   - Allman brace style: a lone `{` the formatter drops onto its own line in
@@ -1787,7 +2387,7 @@ function apexCodeLines(source)
 		const key = text
 		.replace(/^global(\s)/, 'public$1')
 		.replace(/^(trigger\s+\w+\s+on\s+\w+\s*\()[^)]*\)/i, '$1)')
-		.replace(/\bSeeAllData\s*=\s*false\b,?/g, '')
+		.replace(/\bseeAllData\s*=\s*false\b,?/gi, '')
 		.replace(/\s+/g, '');
 		if(key.length > 0)
 		{
@@ -1809,10 +2409,11 @@ function apexCodeLines(source)
  * from the fence must be backed by the committed artifact. The check errors
  * only when the fence teaches a code line the artifact does not contain (the
  * reader would be copying untested/divergent code), after the normalisation in
- * apexCodeLines (comments, indentation, formatter spacing, SeeAllData=false).
+ * apexCodeLines (comments, indentation, formatter spacing, seeAllData=false).
  *
- * Only runs on `Fast Start - *.md` docs. A named file with no committed
- * counterpart is skipped (that is a gate-wiring concern, not a parity concern).
+ * The old "create this file" wording is read only in `Fast Start - *.md` docs. The step shape is read in every guide:
+ * a one-line `text` fence naming an Apex file, followed by the code fence. A named file with no committed
+ * counterpart is skipped (the reader creates it, so there is nothing to compare).
  *
  * @param {string} content - Markdown content
  * @param {string} filePath - File path (for error reporting + Fast Start gate)
@@ -1822,14 +2423,9 @@ function apexCodeLines(source)
  */
 function checkFenceFileParity(content, filePath, repoRoot, fsModule = fs)
 {
-	if(!/^Fast Start - .+\.md$/.test(path.basename(filePath)))
-	{
-		return [];
-	}
-
 	const issues = [];
 	const blocks = parseCodeBlocks(content);
-	const lines = content.split('\n');
+	const lines = /^Fast Start - .+\.md$/.test(path.basename(filePath)) ? content.split('\n') : [];
 
 	for(let i = 0; i < lines.length; i++)
 	{
@@ -1850,37 +2446,64 @@ function checkFenceFileParity(content, filePath, repoRoot, fsModule = fs)
 
 		const proseLine = i + 1;
 		const basename = path.basename(named);
-		const committedPath = path.join(repoRoot, FAST_START_CLASS_DIR, basename);
-		if(!fsModule.existsSync(committedPath))
-		{
-			continue;
-		}
-
 		const fence = blocks.find(b => b.startLine > proseLine && (b.startLine - proseLine) <= FENCE_PROSE_MAX_GAP);
 		if(!fence)
 		{
 			continue;
 		}
 
-		const fenceLines = apexCodeLines(fence.code);
-		const fileKeys = new Set(apexCodeLines(fsModule.readFileSync(committedPath, 'utf8')).map(l => l.key));
+		issues.push(...compareFenceWithCommittedFile(fence, basename, filePath, repoRoot, fsModule));
+	}
 
-		const unbacked = fenceLines.find(l => !fileKeys.has(l.key));
-		if(!unbacked)
+	for(let index = 0; index < blocks.length - 1; index++)
+	{
+		const pathMatch = blocks[index].lang === 'text' ? blocks[index].code.trim().match(STEP_PATH_FENCE) : null;
+		const fence = blocks[index + 1];
+		if(!pathMatch || (fence.startLine - blocks[index].endLine) > FENCE_PROSE_MAX_GAP)
 		{
 			continue;
 		}
 
-		issues.push({
-			file: filePath,
-			line: fence.startLine,
-			severity: 'error',
-			check: 'fence-file-parity',
-			message: `code fence teaches a line not backed by committed reference ${FAST_START_CLASS_DIR}/${basename} (the artifact may add to the fence, but must contain everything in it); unbacked line: \`${unbacked.text}\``
-		});
+		issues.push(...compareFenceWithCommittedFile(fence, pathMatch[1], filePath, repoRoot, fsModule));
 	}
 
 	return issues;
+}
+
+/**
+ * Compares one teaching fence with the committed release-testing file of that name, as the subset contract in
+ * checkFenceFileParity describes. Returns no issue when the file is not committed.
+ *
+ * @param {Object} fence - The code block the reader copies
+ * @param {string} basename - The committed file's name
+ * @param {string} filePath - File path (for error reporting)
+ * @param {string} repoRoot - Source repo root
+ * @param {Object} fsModule - File system module
+ * @returns {Array} At most one issue (check: 'fence-file-parity')
+ */
+function compareFenceWithCommittedFile(fence, basename, filePath, repoRoot, fsModule)
+{
+	const committedPath = path.join(repoRoot, FAST_START_CLASS_DIR, basename);
+	if(!fsModule.existsSync(committedPath))
+	{
+		return [];
+	}
+
+	const fileKeys = new Set(apexCodeLines(fsModule.readFileSync(committedPath, 'utf8')).map(l => l.key));
+	const unbacked = apexCodeLines(fence.code).find(l => !fileKeys.has(l.key));
+	if(!unbacked)
+	{
+		return [];
+	}
+
+	return [{
+		file: filePath,
+		line: fence.startLine,
+		severity: 'error',
+		check: 'fence-file-parity',
+		message: `code fence teaches a line not backed by committed reference ${FAST_START_CLASS_DIR}/${basename} `
+			+ `(the artifact may add to the fence, but must contain everything in it); unbacked line: \`${unbacked.text}\``
+	}];
 }
 
 /**
@@ -1996,6 +2619,7 @@ class DocsValidator
 		.filter(f => f.endsWith('.md'))
 		.filter(f => this.config.includePattern.test(f))
 		.filter(f => !this.config.excludePattern.test(f))
+		.filter(f => !(this.config.internalDocs || []).includes(f))
 		.sort()
 		.map(f => path.join(docsDir, f));
 
@@ -2034,6 +2658,7 @@ class DocsValidator
 		const files = this.getFiles();
 		const classIndex = buildClassIndex(path.resolve(this.config.classesDir), path.resolve(this.config.referenceDir), this.fs);
 		const globalClassIndex = buildGlobalClassIndex(path.resolve(this.config.referenceDir), this.fs);
+		const globalMemberIndex = buildGlobalMemberIndex(path.resolve(this.config.referenceDir), this.fs);
 		let allIssues = [];
 
 		this.log.info('docs:validate \u2014 Documentation Validation\n');
@@ -2041,6 +2666,8 @@ class DocsValidator
 
 		const repoRoot = path.resolve(this.config.docsDir, '..');
 		const allFileContents = [];
+		const stepShapeRoster = JSON.parse(this.fs.readFileSync(path.join(__dirname, 'step-shaped-guides.json'), 'utf8'));
+		const platformPairs = JSON.parse(this.fs.readFileSync(path.join(__dirname, 'platform-specific-blocks.json'), 'utf8'));
 		for(const filePath of files)
 		{
 			const content = this.fs.readFileSync(filePath, 'utf8');
@@ -2054,10 +2681,12 @@ class DocsValidator
 				...checkToc(content, filePath),
 				...checkCodeFenceLanguages(content, filePath),
 				...checkClassReferences(content, filePath, classIndex, globalClassIndex),
+				...scanMemberReferences(content, filePath, globalMemberIndex),
 				...checkLineLength(content, filePath),
 				...checkTableAlignment(content, filePath),
 				...checkProseFileRefs(content, filePath, repoRoot, this.fs, this.config.proseRefAllowlist),
-				...checkFenceFileParity(content, filePath, repoRoot, this.fs)
+				...checkFenceFileParity(content, filePath, repoRoot, this.fs),
+				...checkStepShape(content, path.relative(repoRoot, filePath).split(path.sep).join('/'), {roster: stepShapeRoster, allowList: platformPairs})
 			];
 
 			fileIssues.sort((a, b) => a.line - b.line);
@@ -2073,6 +2702,22 @@ class DocsValidator
 
 			allIssues = allIssues.concat(fileIssues);
 		}
+
+		const stepShapeIo = {
+			exists: relative => this.fs.existsSync(path.join(repoRoot, relative)),
+			read: relative => this.fs.readFileSync(path.join(repoRoot, relative), 'utf8'),
+			generated: fs.existsSync(path.join(__dirname, 'build-distribution.js'))
+				? {'INSTALL-PIPELINE.md': () => require('./build-distribution').synthInstallPipeline({version: '1.0.0-117'})}
+				: {},
+			note: line => this.log.info(line)
+		};
+		const stepShapeIssues = [...checkSurfaces(stepShapeRoster, platformPairs, stepShapeIo), ...checkRoster(stepShapeRoster, platformPairs, stepShapeIo)];
+		for(const issue of stepShapeIssues)
+		{
+			this.log.file(issue.file);
+			this.log.issue(issue.line, issue.severity, issue.check, issue.message);
+		}
+		allIssues = allIssues.concat(stepShapeIssues);
 
 		// Cross-file check: every Kern@X.Y.Z-N reference across the doc set
 		// should agree. CHANGELOG + release-notes are exempt because they
@@ -2106,6 +2751,12 @@ class DocsValidator
 			allIssues = allIssues.concat(crossDocIssues);
 		}
 
+		// Source-side leg of the member check: ApexDoc on a global member is copied onto the
+		// reference page verbatim, so it ships to subscribers and is held to the same bar.
+		const apexDocIssues = checkApexDocMemberReferences(path.resolve(this.config.classesDir), globalMemberIndex, this.fs);
+		this.reportApexDocIssues(apexDocIssues);
+		allIssues = allIssues.concat(apexDocIssues);
+
 		const duration = Date.now() - startTime;
 		const errors = allIssues.filter(i => i.severity === 'error').length;
 		const warnings = allIssues.filter(i => i.severity === 'warning').length;
@@ -2115,6 +2766,37 @@ class DocsValidator
 				files: files.length, errors, warnings, duration
 			}
 		};
+	}
+
+	/**
+	 * Prints the ApexDoc member issues, grouped by the class file that carries them. Those issues
+	 * come from the source tree rather than a scanned doc, so they are reported after the per-file
+	 * pass under their own headings.
+	 *
+	 * @param {Array<{file: string, line: number, severity: string, check: string, message: string}>} issues
+	 * @returns {void}
+	 */
+	reportApexDocIssues(issues)
+	{
+		const grouped = new Map();
+
+		for(const issue of issues)
+		{
+			if(!grouped.has(issue.file))
+			{
+				grouped.set(issue.file, []);
+			}
+			grouped.get(issue.file).push(issue);
+		}
+
+		for(const [classFile, classIssues] of grouped)
+		{
+			this.log.file(classFile);
+			for(const issue of classIssues)
+			{
+				this.log.issue(issue.line, issue.severity, issue.check, issue.message);
+			}
+		}
 	}
 
 	/**
@@ -2190,6 +2872,7 @@ const FAST_START_TOPICS = [
 	{topic: 'trigger-actions', doc: 'Fast Start - Trigger Actions.md', demo: 'FastStart_TriggerAction_DEMO', wave: 2},
 	{topic: 'validations', doc: 'Fast Start - Custom Validations.md', demo: 'FastStart_Validation_DEMO', wave: 2},
 	{topic: 'async', doc: 'Fast Start - Async Processing.md', demo: 'FastStart_AsyncChain_DEMO', wave: 2},
+	{topic: 'scheduled-jobs', doc: 'Fast Start - Scheduled Jobs.md', demo: 'FastStart_ScheduledJob_DEMO', wave: 2},
 	{topic: 'e2e-testing', doc: 'Fast Start - E2E Testing.md', demo: 'FastStart_E2E_DEMO', wave: 2},
 	{topic: 'code-scanning', doc: 'Fast Start - Code Scanning.md', demo: 'FastStart_Scanner_DEMO', wave: 2, noTestClass: true}
 ];
@@ -2684,6 +3367,7 @@ if(require.main === module)
 
 module.exports = {
 	DocsValidator,
+	internalDocsFrom,
 	createLogger,
 	parseCodeBlocks,
 	parseHeadings,
@@ -2700,6 +3384,7 @@ module.exports = {
 	checkProseFileRefs,
 	checkCrossDocVersionConsistency,
 	checkFenceFileParity,
+	checkStepShape,
 	findUnresolvedClaims,
 	validateReleaseDocs,
 	DEFAULT_PROSE_REF_ALLOWLIST,
@@ -2711,8 +3396,12 @@ module.exports = {
 	checkTableAlignment,
 	buildClassIndex,
 	buildGlobalClassIndex,
+	buildGlobalMemberIndex,
 	scanProseClassReferences,
+	scanMemberReferences,
+	checkApexDocMemberReferences,
 	KERN_CLASS_REF_EXCEPTIONS,
+	KERN_MEMBER_REF_EXCEPTIONS,
 	DEFAULT_CONFIG,
 	MAX_LINE_LENGTH,
 	SF_STANDARD_TYPES,
