@@ -5,6 +5,10 @@ name: ci
 #   - validate-docs.js   — markdown + prose-file-ref check (zero errors required)
 #   - test:scripts       — Jest suite for scripts/__tests__/ (~10s)
 #   - scanner tests      — node --test (eslint-plugin-kerndx rules; 6 suites)
+# and jobs of their own, which take a few minutes each on every push and pull request:
+#   - AppExchange rule set — Code Analyzer's AppExchange rules against scanner/appexchange-baseline.json
+#   - Local Apex runtime   — every Apex test on aer, against scripts/aer-baseline.json; it runs only when
+#     the repository holds an aer licence in the AER_LICENSE secret, and shows as skipped otherwise
 #
 # Scope is dev correctness only. Two release-time concerns are deliberately NOT
 # gated here: the strategic-metrics drift counter and the full release-artifact
@@ -13,8 +17,10 @@ name: ci
 # unrelated pushes red whenever a metric moved or a release-only doc reference
 # drifted — each masking the next. They still bite at release time.
 #
-# Read-only by design: no secrets consumed, no auth to external services, no
-# pushes. Subscribers cloning the repo can run the same commands locally
+# Read-only by design: no auth to external services and no pushes. The one
+# secret read is the optional AER_LICENSE (an aer licence for the Local Apex
+# runtime job); without it that job is skipped. Subscribers cloning the repo can
+# run the same commands locally
 # (`nvm use && npm ci && node scripts/validate-docs.js && npm run test:scripts`)
 # and reproduce the result.
 #
@@ -30,12 +36,146 @@ permissions:
   contents: read
 
 jobs:
+  appexchange-scan:
+    name: AppExchange rule set
+    # Scans force-app with Salesforce Code Analyzer's AppExchange rule set and fails on any finding that is not
+    # in scanner/appexchange-baseline.json, where each known finding points at its explanation in SECURITY.md.
+    # The scan runs on a copy outside the repository, so the repository's own code-analyzer.yml (the KernDX
+    # rules) does not apply: this is the rule set as Salesforce ships it. The analyzer exits 0 even with
+    # findings, so the comparison script is the gate. The flow engine needs Python 3.10 or later, which the
+    # runner image provides; if it ever cannot start, the script fails on the engine error.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install the Salesforce CLI and Code Analyzer
+        run: |
+          set -eu
+          npm install --global @salesforce/cli@2.153.5
+          sf plugins install code-analyzer@5.16.0
+          python3 --version
+          java -version
+
+      - name: Scan a copy of force-app with the AppExchange rule set
+        run: |
+          set -eu
+          copy="$RUNNER_TEMP/appexchange-scan"
+          mkdir -p "$copy"
+          cp -R force-app "$copy/force-app"
+          cd "$copy"
+          sf code-analyzer run --rule-selector AppExchange --workspace "$copy/force-app" --output-file "$copy/appexchange-scan.json"
+
+      - name: Compare with the documented findings
+        run: node scripts/check-appexchange-baseline.js "$RUNNER_TEMP/appexchange-scan/appexchange-scan.json"
+
+      - name: Keep the scan result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: appexchange-scan
+          path: ${{ runner.temp }}/appexchange-scan/appexchange-scan.json
+          if-no-files-found: warn
+
+  local-apex-runtime-licence:
+    name: Local Apex runtime (licence check)
+    # Running aer in CI needs a licence that covers CI use, which aer's free tier does not give. This job only
+    # looks for the AER_LICENSE secret. Without it, the "Local Apex runtime" job below is skipped (shown as
+    # skipped, never as passed), and this job prints one line saying so.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      licensed: ${{ steps.check.outputs.licensed }}
+    steps:
+      - name: Look for an aer licence
+        id: check
+        env:
+          AER_LICENSE: ${{ secrets.AER_LICENSE }}
+        run: |
+          if [ -n "$AER_LICENSE" ]; then
+            echo "licensed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "licensed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Local Apex runtime::Skipped: waiting on an aer licence in the AER_LICENSE secret."
+          fi
+
+  local-apex-runtime:
+    name: Local Apex runtime
+    needs: local-apex-runtime-licence
+    if: needs.local-apex-runtime-licence.outputs.licensed == 'true'
+    # Runs every Apex test on aer, a local Apex runtime by October Swimmer, with no org, using the licence in
+    # the AER_LICENSE secret. scripts/aer-run.js runs the tests in groups of at most 100. The checkout has no
+    # profiles folder, so the tests run as a user with the Administrator permission set (-p Administrator).
+    # The job fails on a failing test that is not listed in scripts/aer-baseline.json and on a test that reports
+    # no result; the published figure in the Metrics guide comes from the recorded run, not from this job.
+    # aer is pinned: the version, download address and checksum are those of the octoberswimmer/tap Homebrew
+    # cask for that version (Casks/aer.rb at tap commit b0b8af70eb32df408da90746e740f88f45d982d6).
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      AER_VERSION: 1.4.27
+      AER_SHA256: 662154f50d69e25cbde4a01cda139dbe5d055dee8255674de8dfb5f34fedcda2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install aer
+        run: |
+          set -eu
+          archive="$RUNNER_TEMP/aer.zip"
+          curl --fail --silent --show-error --location --output "$archive" \
+            "https://github.com/octoberswimmer/aer-dist/releases/download/v${AER_VERSION}/aer_linux_amd64_v${AER_VERSION}.zip"
+          echo "${AER_SHA256}  $archive" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/aer"
+          unzip -q "$archive" -d "$RUNNER_TEMP/aer"
+          chmod +x "$RUNNER_TEMP/aer/aer"
+          echo "$RUNNER_TEMP/aer" >> "$GITHUB_PATH"
+
+      - name: Run the Apex tests on aer against the known failures
+        env:
+          AER_LICENSE: ${{ secrets.AER_LICENSE }}
+        run: |
+          aer license register "$AER_LICENSE"
+          aer --version
+          node scripts/aer-run.js --gate scripts/aer-baseline.json -p Administrator --work "$RUNNER_TEMP/aer-run"
+
+      - name: Keep the run result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: aer-run
+          path: |
+            ${{ runner.temp }}/aer-run/aer-run.json
+            ${{ runner.temp }}/aer-run/*.log
+          if-no-files-found: warn
+
   validate:
     name: Lint + script tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # The full history: the released-surface gate in the script tests
+          # reads the released commit's components.
+          fetch-depth: 0
 
       - name: Reject merge commits on master/main
         # Squash-merge-only enforcement on master/main. Paired with the
@@ -65,12 +205,40 @@ jobs:
           echo "Squash-merge gate PASS — no merge commits in PR range $BASE_SHA..$HEAD_SHA"
 
       - name: Set up Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
           node-version-file: ".nvmrc"
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Start the Windows proof when a terminal block or a shipped tool changed
+        # Costs seconds here instead of a billed minute per push in a job of its own. The Windows
+        # workflow has no push trigger: this step is the only thing that starts it automatically.
+        # A tree without the Windows workflow (a public copy older than the sync that first ships it, or a
+        # fork that dropped it) has nothing to start, hence the first test.
+        # In the public repository every push is a sync, so the heavy depth runs on each.
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          if [ ! -f .github/workflows/windows.yml ]; then echo "No Windows workflow in this repository."; exit 0; fi
+          if [ "$GITHUB_REPOSITORY" = "JVB-Consulting/kerndx" ]; then
+            echo "Every push to the public repository is a sync, so the heavy proof runs here, where its minutes are free."
+            gh workflow run windows.yml --ref "$GITHUB_REF_NAME" -f depth=heavy
+            exit 0
+          fi
+          # No --depth here: a depth-limited fetch makes the clone shallow again, and the released-surface
+          # gate in the script tests refuses a shallow clone. The checkout above already holds the history.
+          git fetch --no-tags origin "$BEFORE_SHA" 2>/dev/null || true
+          decision=$(node scripts/terminal-blocks-changed.js "$BEFORE_SHA" "$AFTER_SHA")
+          echo "$decision"
+          case "$decision" in
+            changed=true*) gh workflow run windows.yml --ref "$GITHUB_REF_NAME" -f depth=light ;;
+          esac
 
       - name: Validate documentation
         id: docs
@@ -92,6 +260,7 @@ jobs:
         # public source drop, so the step no-ops there). Global-surface /
         # test-seam / abstraction-name additions must carry a boundary-card
         # row or a 'no-boundary: <reason>' commit-message tag.
+        if: hashFiles('scripts/check-boundary-gate.js') != ''
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}

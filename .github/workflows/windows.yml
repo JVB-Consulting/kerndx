@@ -1,0 +1,276 @@
+# windows.yml - the Windows proof: the guides' commands and the Path 2 journey.
+#
+# Runs the commands the guides print, exactly as printed, in Command Prompt (promised) and in both
+# PowerShells (also tested), then runs Path 2's journey in a fresh clone of the public tree.
+#
+# COST GUARD: Windows minutes are billed double. This workflow has no push or pull_request trigger and
+# must never get one. It is started by the ci job's "Start the Windows proof" step, only when a terminal
+# block or a shipped tool changed, or by hand. It uploads no artifacts and uses no secrets.
+# Started with depth=heavy by hand once per release in this repository, and by the ci job on every push in the public repository, where the minutes are free.
+
+name: windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      depth:
+        description: light proves the guides' commands and Path 2; heavy also runs every shipped npm script, the pipeline's tests, the bundle build and Path 3 for real, on a fresh copy of the tree
+        type: choice
+        options: [light, heavy]
+        default: light
+
+permissions:
+  contents: read
+
+jobs:
+  light:
+    name: ${{ inputs.depth == 'heavy' && 'Heavy - the shipped scripts, Path 3 for real, then the light proof' || 'Guide commands and the Path 2 journey' }}
+    runs-on: windows-latest
+    timeout-minutes: ${{ inputs.depth == 'heavy' && 60 || 40 }}
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Get the public tree, the one a reader clones
+        run: git clone -c core.autocrlf=false --depth 1 https://github.com/JVB-Consulting/kerndx "%RUNNER_TEMP%\public-tree"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Give git an identity for the journey's commits
+        run: git config --global user.name "windows proof" && git config --global user.email "windows-proof@example.invalid"
+
+      - name: Lay this checkout's tools over the public tree
+        run: node -e "const fs=require('fs');const t=process.argv[1];fs.cpSync('bin',t+'/bin',{recursive:true});for(const f of ['build-package.js','prepare-package-build.js'])fs.copyFileSync('scripts/'+f,t+'/scripts/'+f);fs.mkdirSync(t+'/scripts/lib',{recursive:true});fs.copyFileSync('scripts/lib/start-tool.js',t+'/scripts/lib/start-tool.js')" "%RUNNER_TEMP%\public-tree"
+
+      - name: Commit the tools under test, so the tree is clean
+        run: git -C "%RUNNER_TEMP%\public-tree" add -A && git -C "%RUNNER_TEMP%\public-tree" commit -q -m "tools under test" --allow-empty
+
+      - name: Heavy - an export of this tree, as a reader's copy
+        if: inputs.depth == 'heavy'
+        run: git archive --format=tar -o "%RUNNER_TEMP%\tree.tar" HEAD && mkdir "%RUNNER_TEMP%\shipped" && tar -xf "%RUNNER_TEMP%\tree.tar" -C "%RUNNER_TEMP%\shipped"
+
+      - name: Heavy - the package.json and README a reader gets
+        if: inputs.depth == 'heavy' && hashFiles('scripts/write-shipped-package-json.js') != ''
+        run: node scripts/write-shipped-package-json.js --working-directory "%RUNNER_TEMP%\shipped"
+
+      - name: Heavy - stop when the reader's package.json could not be written
+        if: inputs.depth == 'heavy' && hashFiles('scripts/write-shipped-package-json.js') == '' && github.repository != 'JVB-Consulting/kerndx'
+        run: echo The reader's package.json and README were not written because scripts/write-shipped-package-json.js is missing from this repository. && exit /b 1
+
+      - name: Heavy - install as the next sync would ship it (this repository)
+        if: inputs.depth == 'heavy' && github.repository != 'JVB-Consulting/kerndx'
+        working-directory: ${{ runner.temp }}\shipped
+        run: npm install --no-audit --no-fund
+
+      - name: Heavy - install as a reader does (the public repository)
+        if: inputs.depth == 'heavy' && github.repository == 'JVB-Consulting/kerndx'
+        working-directory: ${{ runner.temp }}\shipped
+        run: npm ci
+
+      - name: Heavy - every shipped npm script that needs no org
+        if: inputs.depth == 'heavy'
+        run: node scripts/run-shipped-npm-scripts.js --working-directory "%RUNNER_TEMP%\shipped"
+
+      - name: Heavy - the current package version, for the bundle's name
+        if: inputs.depth == 'heavy'
+        id: version
+        run: for /f "delims=" %%v in ('node -p "Object.keys(require('./sfdx-project.json').packageAliases).pop().split('@')[1]"') do >>%GITHUB_OUTPUT% echo version=%%v
+
+      - name: Heavy - build the pipeline bundle
+        if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
+        run: node scripts/build-distribution.js --flavor=pipeline --version=${{ steps.version.outputs.version }}
+
+      - name: Heavy - a project for Path 3, with the bundle under the guide's own file name
+        if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
+        run: mkdir "%RUNNER_TEMP%\path3" && copy "tmp\dist\KernDX-${{ steps.version.outputs.version }}-pipeline.zip" "%RUNNER_TEMP%\path3\KernDX-YourVersion-pipeline.zip" && copy sfdx-project.json "%RUNNER_TEMP%\path3\sfdx-project.json"
+
+      - name: Heavy - Path 3's install steps, as printed, for real
+        if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
+        run: node scripts/run-docs-commands.js --real --scope installation-path-3-install --working-directory "%RUNNER_TEMP%\path3"
+
+      - name: Heavy - init, answered as a reader would, without the prompts
+        if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
+        working-directory: ${{ runner.temp }}\path3
+        run: |
+          node -e "require('./.kerndx-pipeline/pipeline/src/commands/init.js').runInit({answers: {package_dirs: ['force-app/main/default'], framework_package: true, ci_adapter: {name: 'none'}, branches: {main: 'main', ingress: ['main'], protected: ['main'], release: []}, slack: {enabled: false}}}).then(() => console.log('init done'))"
+
+      - name: Heavy - the real Salesforce CLI, installed from nothing
+        if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
+        run: npm install -g @salesforce/cli && sf version && sf plugins install code-analyzer
+
+      - name: Heavy - doctor finds sf and every check passes
+        if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
+        working-directory: ${{ runner.temp }}\path3
+        run: node .kerndx-pipeline/bin/kerndx doctor > "%RUNNER_TEMP%\doctor.log" & type "%RUNNER_TEMP%\doctor.log" & findstr /c:"All checks pass." "%RUNNER_TEMP%\doctor.log"
+
+      - name: Heavy - Path 3's upgrading steps, as printed, for real
+        if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
+        run: node scripts/run-docs-commands.js --real --scope installation-path-3-upgrading --working-directory "%RUNNER_TEMP%\path3"
+
+      - name: Heavy - doctor still passes after the upgrade
+        if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
+        working-directory: ${{ runner.temp }}\path3
+        run: node .kerndx-pipeline/bin/kerndx doctor > "%RUNNER_TEMP%\doctor-after.log" & type "%RUNNER_TEMP%\doctor-after.log" & findstr /c:"All checks pass." "%RUNNER_TEMP%\doctor-after.log"
+
+      - name: Heavy - Path 3 for real is left to the repository that carries the bundle build tool
+        if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') == ''
+        run: '>>%GITHUB_STEP_SUMMARY% echo Path 3 for real needs the bundle build tool, which this tree does not carry; it is proven by the heavy run in the repository that has it.'
+
+      - name: Heavy - the first-run claims - ver works in Command Prompt
+        if: inputs.depth == 'heavy'
+        run: ver
+
+      - name: Heavy - the first-run claims - ver is not recognised in either PowerShell
+        if: inputs.depth == 'heavy'
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -Command "ver" 2>&1 | Tee-Object -Variable inFive | Out-Null
+          if ($LASTEXITCODE -eq 0) { Write-Error "ver succeeded in Windows PowerShell 5.1; the readiness check cannot rely on it."; exit 1 }
+          pwsh -NoProfile -Command "ver" 2>&1 | Tee-Object -Variable inSeven | Out-Null
+          if ($LASTEXITCODE -eq 0) { Write-Error "ver succeeded in PowerShell 7; the readiness check cannot rely on it."; exit 1 }
+          Add-Content $env:GITHUB_STEP_SUMMARY "## What a reader sees when ver runs in Windows PowerShell 5.1`n`n``````text`n$inFive`n``````"
+          Add-Content $env:GITHUB_STEP_SUMMARY "## What a reader sees when ver runs in PowerShell 7`n`n``````text`n$inSeven`n``````"
+          # The pwsh shell ends a step with its last native command's exit code, which is the failing ver this step expects.
+          exit 0
+
+      - name: Heavy - the first-run claims - npm is blocked by PowerShell's default policy and runs in Command Prompt
+        if: inputs.depth == 'heavy'
+        shell: pwsh
+        run: |
+          $blocked = powershell.exe -NoProfile -ExecutionPolicy Restricted -Command "npm --version" 2>&1 | Out-String
+          if ($LASTEXITCODE -eq 0) { Write-Error "npm ran under the Restricted policy; the FAQ entry about 'running scripts is disabled' would be untrue."; exit 1 }
+          if ($blocked -notmatch 'running scripts is disabled') { Write-Error "npm failed for another reason: $blocked"; exit 1 }
+          cmd /c npm --version
+          if ($LASTEXITCODE -ne 0) { Write-Error "npm failed in Command Prompt."; exit 1 }
+          Add-Content $env:GITHUB_STEP_SUMMARY "## What a reader sees when npm runs in PowerShell on a fresh machine`n`n``````text`n$blocked`n``````"
+
+      - name: Run the guides' commands in every Windows terminal
+        run: node scripts/run-docs-commands.js --working-directory "%RUNNER_TEMP%\public-tree"
+
+      - name: Journey - copy the tree
+        run: node -e "require('fs').cpSync(process.argv[1],process.argv[2],{recursive:true})" "%RUNNER_TEMP%\public-tree" "%RUNNER_TEMP%\journey"
+
+      - name: Journey - swap
+        working-directory: ${{ runner.temp }}\journey
+        run: node bin/swap-namespace.js winproof
+
+      - name: Journey - verify the swap
+        working-directory: ${{ runner.temp }}\journey
+        run: node bin/swap-namespace.js --verify
+
+      - name: Journey - stage the rebrand
+        working-directory: ${{ runner.temp }}\journey
+        run: git add -A
+
+      - name: Journey - commit the rebrand
+        working-directory: ${{ runner.temp }}\journey
+        run: git commit -q -m "rebrand to winproof"
+
+      - name: Journey - the package build's dry run
+        working-directory: ${{ runner.temp }}\journey
+        run: node scripts/build-package.js --dry-run
+
+      - name: Held open - copy the tree
+        run: node -e "require('fs').cpSync(process.argv[1],process.argv[2],{recursive:true})" "%RUNNER_TEMP%\public-tree" "%RUNNER_TEMP%\held-open"
+
+      - name: Held open - start a watcher on it, as an editor would
+        shell: pwsh
+        run: |
+          $held = "$env:RUNNER_TEMP\held-open"
+          $watcher = Start-Process node -PassThru -WindowStyle Hidden -ArgumentList 'scripts\hold-file-watcher.js', $held, "$env:RUNNER_TEMP\held-open-watcher.json"
+          Write-Host "The watcher was started as process $($watcher.Id)."
+          Start-Sleep -Seconds 5
+          Write-Host "What the watcher had seen before the swap ran:"
+          Get-Content "$env:RUNNER_TEMP\held-open-watcher.json"
+
+      - name: Held open - swap
+        working-directory: ${{ runner.temp }}\held-open
+        run: node bin/swap-namespace.js winproof
+
+      - name: Held open - verify the swap
+        working-directory: ${{ runner.temp }}\held-open
+        run: node bin/swap-namespace.js --verify
+
+      - name: Held open - the watcher was alive and watching while the swap ran
+        shell: pwsh
+        run: |
+          $statusFile = "$env:RUNNER_TEMP\held-open-watcher.json"
+          if (-not (Test-Path $statusFile)) { Write-Error "The watcher never wrote its status file, so it never started watching."; exit 1 }
+          $status = Get-Content $statusFile -Raw
+          Write-Host "What the watcher had seen by the time the swap was done:"
+          Write-Host $status
+          $watcher = $status | ConvertFrom-Json
+          $process = Get-Process -Id $watcher.processId -ErrorAction SilentlyContinue
+          if (-not $process) { Write-Error "The watcher was gone, so the swap was not run against a held folder and this experiment proves nothing."; exit 1 }
+          if ($process.ProcessName -ne "node") { Write-Error "Process $($watcher.processId) is $($process.ProcessName), not the watcher."; exit 1 }
+          if ($watcher.eventsSeen -le 0) { Write-Error "The watcher was handed no file events, so it was not watching the folder the swap rewrote."; exit 1 }
+          Stop-Process -Id $watcher.processId -Force
+
+      - name: Locked file - copy the tree
+        run: node -e "require('fs').cpSync(process.argv[1],process.argv[2],{recursive:true})" "%RUNNER_TEMP%\public-tree" "%RUNNER_TEMP%\locked-file"
+
+      - name: Locked file - hold one class open with no sharing, for two minutes, in the background
+        shell: pwsh
+        run: |
+          $file = Get-ChildItem "$env:RUNNER_TEMP\locked-file\force-app\main\default\classes\*.cls" | Select-Object -First 1
+          $holder = Start-Process pwsh -PassThru -ArgumentList '-NoProfile', '-Command', "`$handle = [System.IO.File]::Open('$($file.FullName)', 'Open', 'Read', 'None'); Start-Sleep -Seconds 120"
+          $holder.Id | Set-Content "$env:RUNNER_TEMP\locked-file-holder.txt"
+          Start-Sleep -Seconds 5
+
+      - name: Locked file - the swap must refuse cleanly
+        shell: pwsh
+        working-directory: ${{ runner.temp }}\locked-file
+        run: |
+          node bin/swap-namespace.js winproof *> "$env:RUNNER_TEMP\locked-swap.log"
+          $code = $LASTEXITCODE
+          Get-Content "$env:RUNNER_TEMP\locked-swap.log"
+          Stop-Process -Id (Get-Content "$env:RUNNER_TEMP\locked-file-holder.txt") -Force
+          Start-Sleep -Seconds 1
+          if ($code -eq 0) { Write-Error "The swap claimed success while a file was locked."; exit 1 }
+          if (git status --porcelain) { Write-Error "The swap failed and left the tree changed."; git status --porcelain; exit 1 }
+          if (-not (Select-String -Path "$env:RUNNER_TEMP\locked-swap.log" -Pattern "Close editors" -Quiet)) { Write-Error "The message does not say what to do."; exit 1 }
+
+      - name: Windows line endings - clone the way Git for Windows does by default
+        run: git clone -c core.autocrlf=true --depth 1 https://github.com/JVB-Consulting/kerndx "%RUNNER_TEMP%\crlf"
+
+      - name: Say which line endings each clone was given
+        run: git -C "%RUNNER_TEMP%\public-tree" config --get core.autocrlf && git -C "%RUNNER_TEMP%\crlf" config --get core.autocrlf
+
+      - name: Windows line endings - lay this checkout's tools over it
+        run: node -e "const fs=require('fs');const t=process.argv[1];fs.cpSync('bin',t+'/bin',{recursive:true});for(const f of ['build-package.js','prepare-package-build.js'])fs.copyFileSync('scripts/'+f,t+'/scripts/'+f);fs.mkdirSync(t+'/scripts/lib',{recursive:true});fs.copyFileSync('scripts/lib/start-tool.js',t+'/scripts/lib/start-tool.js')" "%RUNNER_TEMP%\crlf"
+
+      - name: Windows line endings - swap
+        working-directory: ${{ runner.temp }}\crlf
+        run: node bin/swap-namespace.js winproof
+
+      - name: Windows line endings - verify the swap
+        working-directory: ${{ runner.temp }}\crlf
+        run: node bin/swap-namespace.js --verify
+
+      - name: Windows line endings - stage the rebrand
+        working-directory: ${{ runner.temp }}\crlf
+        run: git add -A
+
+      - name: Windows line endings - commit the rebrand
+        working-directory: ${{ runner.temp }}\crlf
+        run: git commit -q -m "rebrand to winproof"
+
+      - name: Windows line endings - the package build's dry run
+        working-directory: ${{ runner.temp }}\crlf
+        run: node scripts/build-package.js --dry-run --verbose
+
+      - name: The shipped tools' own tests, on Windows
+        if: hashFiles('jest.scripts.config.js') != ''
+        run: npx sfdx-lwc-jest -- --config jest.scripts.config.js --testPathPattern "(terminal-blocks|stand-in-tools|run-docs-commands|swap-namespace|prepare-package-build|start-tool|run-shipped-npm-scripts|write-shipped-package-json|report-command-shapes|package-scripts-portable|kerndx-command-spelling)"
+
+      - name: The pipeline starts the real sf.cmd, proven with a stand-in
+        run: node --test pipeline/__tests__/lib/sfca-runner-start.test.js

@@ -1,0 +1,200 @@
+{
+	"description": "Known findings of Salesforce Code Analyzer with the AppExchange rule set, each explained in SECURITY.md under the section named in documentedIn. A finding is its rule, file, message and a hash of the trimmed source line it points at. scripts/check-appexchange-baseline.js fails CI on any other finding.",
+	"documentedIn": {
+		"AvoidLmcIsExposedTrue": "Two message channels are exposed",
+		"AvoidLwcBubblesComposedTrue": "Test files for the streaming monitor",
+		"AvoidUnauthorizedApiSessionIdInVisualforce": "A Visualforce page reads the session ID",
+		"ProtectSensitiveData": "Field names that look like secrets"
+	},
+	"findings": [
+		{
+			"rule": "AvoidLmcIsExposedTrue",
+			"file": "force-app/main/default/messageChannels/Component.messageChannel-meta.xml",
+			"message": "Detected Lightning Message Channel with isExposed set to true.",
+			"lineHash": "6e6ad415153314eb",
+			"count": 1
+		},
+		{
+			"rule": "AvoidLmcIsExposedTrue",
+			"file": "force-app/main/default/messageChannels/Navigation.messageChannel-meta.xml",
+			"message": "Detected Lightning Message Channel with isExposed set to true.",
+			"lineHash": "6e6ad415153314eb",
+			"count": 1
+		},
+		{
+			"rule": "AvoidLwcBubblesComposedTrue",
+			"file": "force-app/main/default/lwc/streamingMonitor/__tests__/streamingMonitor.test.js",
+			"message": "Avoid setting both Lightning Web component bubbles and composed=true at the same time.",
+			"lineHash": "11afce8958fbb45b",
+			"count": 7
+		},
+		{
+			"rule": "AvoidLwcBubblesComposedTrue",
+			"file": "force-app/main/default/lwc/streamingMonitor/__tests__/streamingMonitor.test.js",
+			"message": "Avoid setting both Lightning Web component bubbles and composed=true at the same time.",
+			"lineHash": "e864471d7e356b41",
+			"count": 11
+		},
+		{
+			"rule": "AvoidUnauthorizedApiSessionIdInVisualforce",
+			"file": "force-app/main/default/pages/UTIL_GetApiEnabledSessionId.page",
+			"message": "Retrieval of session ID using API.Session_ID is not authorized.",
+			"lineHash": "5bba3006ae83c486",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/ApiCall__c/fields/IdempotencyKey__c.field-meta.xml",
+			"message": "IdempotencyKey__c is a potential auth token in a custom object: ApiCall__c",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/ApiCall__c/fields/IdempotencyKeyBodyHash__c.field-meta.xml",
+			"message": "IdempotencyKeyBodyHash__c is a potential auth token in a custom object: ApiCall__c",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/ApiCredential__mdt/fields/NamedCredential__c.field-meta.xml",
+			"message": "NamedCredential__c is a potential auth token in the object: ApiCredential__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/ApiIssue__c/fields/IdempotencyKey__c.field-meta.xml",
+			"message": "IdempotencyKey__c is a potential auth token in a custom object: ApiIssue__c",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/ApiIssue__c/fields/RequestParametersHash__c.field-meta.xml",
+			"message": "RequestParametersHash__c is a potential auth token in a custom object: ApiIssue__c",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/ApiSetting__mdt/fields/ApiCredential__c.field-meta.xml",
+			"message": "ApiCredential__c is a potential auth token in the object: ApiSetting__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/ApiSetting__mdt/fields/BypassFeatureFlag__c.field-meta.xml",
+			"message": "BypassFeatureFlag__c is a potential auth token in the object: ApiSetting__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/AsyncChainExecution__c/fields/ActiveDeduplicationKey__c.field-meta.xml",
+			"message": "ActiveDeduplicationKey__c is a potential auth token in a custom object: AsyncChainExecution__c",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/AsyncChainExecution__c/fields/DeclaredDeduplicationKey__c.field-meta.xml",
+			"message": "DeclaredDeduplicationKey__c is a potential auth token in a custom object: AsyncChainExecution__c",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/AsyncChainExecution__c/fields/RunKey__c.field-meta.xml",
+			"message": "RunKey__c is a potential auth token in a custom object: AsyncChainExecution__c",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/Foobar__c/fields/TextAreaEncrypted__c.field-meta.xml",
+			"message": "TextAreaEncrypted__c is a potential auth token in a custom object: Foobar__c",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/LoginFrequency__c/fields/CompositeKey__c.field-meta.xml",
+			"message": "CompositeKey__c is a potential auth token in a custom object: LoginFrequency__c",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/PostTriggerAction__mdt/fields/BypassExecution__c.field-meta.xml",
+			"message": "BypassExecution__c is a potential auth token in the object: PostTriggerAction__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/PostTriggerAction__mdt/fields/BypassFeatureFlag__c.field-meta.xml",
+			"message": "BypassFeatureFlag__c is a potential auth token in the object: PostTriggerAction__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/TriggerAction__mdt/fields/BypassExecution__c.field-meta.xml",
+			"message": "BypassExecution__c is a potential auth token in the object: TriggerAction__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/TriggerAction__mdt/fields/BypassFeatureFlag__c.field-meta.xml",
+			"message": "BypassFeatureFlag__c is a potential auth token in the object: TriggerAction__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/TriggerSetting__mdt/fields/BypassExecution__c.field-meta.xml",
+			"message": "BypassExecution__c is a potential auth token in the object: TriggerSetting__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/TriggerSetting__mdt/fields/BypassFeatureFlag__c.field-meta.xml",
+			"message": "BypassFeatureFlag__c is a potential auth token in the object: TriggerSetting__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/ValidationRule__mdt/fields/BypassExecution__c.field-meta.xml",
+			"message": "BypassExecution__c is a potential auth token in the object: ValidationRule__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/ValidationRule__mdt/fields/BypassFeatureFlag__c.field-meta.xml",
+			"message": "BypassFeatureFlag__c is a potential auth token in the object: ValidationRule__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/ValidationRuleGroup__mdt/fields/BypassExecution__c.field-meta.xml",
+			"message": "BypassExecution__c is a potential auth token in the object: ValidationRuleGroup__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		},
+		{
+			"rule": "ProtectSensitiveData",
+			"file": "force-app/main/default/objects/ValidationRuleGroup__mdt/fields/BypassFeatureFlag__c.field-meta.xml",
+			"message": "BypassFeatureFlag__c is a potential auth token in the object: ValidationRuleGroup__mdt with public visibility",
+			"lineHash": "12c29731e40adc0c",
+			"count": 1
+		}
+	]
+}
