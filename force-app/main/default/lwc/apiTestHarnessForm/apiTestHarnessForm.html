@@ -1,266 +1,284 @@
 <!-- SPDX-License-Identifier: BUSL-1.1 -->
 <template>
-	<div class="slds-p-around_medium slds-is-relative" data-testid="api-test-harness-root">
-		<template lwc:if={isLoading}>
-			<lightning-spinner alternative-text="Executing" size="medium"></lightning-spinner>
-		</template>
+	<lightning-card icon-name="custom:custom63" title={labels.cardTitle}>
+		<div class="slds-p-around_medium slds-is-relative" data-testid="api-test-harness-root">
+			<template lwc:if={isLoading}>
+				<lightning-spinner alternative-text={labels.alternativeTextExecuting} size="medium"></lightning-spinner>
+			</template>
 
-		<div class="slds-grid slds-wrap slds-gutters">
-			<div class="slds-col slds-size_1-of-1 slds-large-size_5-of-12 config-column">
-				<lightning-radio-group data-testid="harness-direction" label={labels.direction} name="direction" onchange={handleDirectionChange} options={directionOptions}
-									   type="button" value={direction}></lightning-radio-group>
-
-				<div class="slds-var-m-top_medium">
-					<lightning-combobox data-testid="harness-service" label={labels.service} message-when-value-missing={labels.serviceValueMissing} name="service"
-										onchange={handleServiceChange} options={serviceOptions} placeholder={labels.servicePlaceholder} required
-										value={selectedService}></lightning-combobox>
-				</div>
-
-				<template lwc:if={isOutbound}>
-					<div class="slds-var-m-top_medium">
-						<lightning-input data-id="recordId" label={labels.recordId} onchange={handleRecordIdChange} placeholder={labels.recordIdPlaceholder}
-										 value={recordId}></lightning-input>
-					</div>
+			<div class="slds-grid slds-wrap slds-gutters">
+				<div class="slds-col slds-size_1-of-1 slds-large-size_5-of-12 config-column">
+					<lightning-radio-group data-testid="harness-direction" label={labels.direction} name="direction" onchange={handleDirectionChange} options={directionOptions}
+										   type="button" value={direction}></lightning-radio-group>
 
 					<div class="slds-var-m-top_medium">
-						<label class="slds-form-element__label">{labels.parameters}</label>
-						<template for:each={parameterRows} for:item="row">
-							<div class="parameter-row slds-grid slds-gutters_x-small slds-var-m-bottom_x-small" key={row.id}>
-								<div class="slds-col slds-size_5-of-12">
-									<lightning-input data-row-id={row.id} data-testid="parameter-key" label={labels.key} onchange={handleParameterKeyChange}
-													 placeholder={labels.key} value={row.key} variant="label-hidden"></lightning-input>
+						<lightning-combobox data-testid="harness-service" label={labels.service} message-when-value-missing={labels.serviceValueMissing} name="service"
+											onchange={handleServiceChange} options={serviceOptions} placeholder={labels.servicePlaceholder} required
+											value={selectedService}></lightning-combobox>
+					</div>
+
+					<template lwc:if={isOutbound}>
+						<div class="slds-var-m-top_medium">
+							<lightning-input data-id="recordId" label={recordIdLabel} onchange={handleRecordIdChange} placeholder={labels.recordIdPlaceholder}
+											 required={isRecordIdRequired} value={recordId}></lightning-input>
+						</div>
+
+						<div class="slds-var-m-top_medium">
+							<label class="slds-form-element__label">{labels.parameters}</label>
+							<template for:each={displayRows} for:item="row">
+								<div class="parameter-row slds-grid slds-gutters_x-small slds-var-m-bottom_x-small" key={row.id}>
+									<div class="slds-col slds-size_5-of-12">
+										<lightning-input data-row-id={row.id} data-testid="parameter-key" label={labels.key} onchange={handleParameterKeyChange}
+														 placeholder={labels.key} read-only={row.isRequired} value={row.key} variant="label-hidden"></lightning-input>
+									</div>
+									<div class="slds-col slds-size_6-of-12">
+										<lightning-input data-row-id={row.id} data-testid="parameter-value" label={labels.value} onchange={handleParameterValueChange}
+														 placeholder={labels.value} required={row.isRequired} value={row.value} variant="label-hidden"></lightning-input>
+									</div>
+									<div class="parameter-row__tail slds-col slds-size_1-of-12 slds-align-middle">
+										<template lwc:if={row.canRemove}>
+											<lightning-button-icon alternative-text={labels.alternativeTextRemoveParameter} data-row-id={row.id} data-testid="remove-parameter"
+																   icon-name="utility:delete" onclick={handleRemoveParameterRow} size="small"
+																   variant="bare"></lightning-button-icon>
+										</template>
+										<template lwc:else>
+											<span class="required-marker slds-text-body_small slds-text-color_weak" data-testid="required-marker">{labels.requiredMarker}</span>
+										</template>
+									</div>
 								</div>
-								<div class="slds-col slds-size_6-of-12">
-									<lightning-input data-row-id={row.id} data-testid="parameter-value" label={labels.value} onchange={handleParameterValueChange}
-													 placeholder={labels.value} value={row.value} variant="label-hidden"></lightning-input>
-								</div>
-								<div class="slds-col slds-size_1-of-12 slds-align-middle">
-									<lightning-button-icon alternative-text="Remove parameter" data-row-id={row.id} data-testid="remove-parameter" icon-name="utility:delete"
-														   onclick={handleRemoveParameterRow} size="small" variant="bare"></lightning-button-icon>
-								</div>
+							</template>
+							<lightning-button class="slds-var-m-top_x-small" data-testid="add-parameter" icon-name="utility:add" label={labels.addParameter}
+											  onclick={handleAddParameterRow}></lightning-button>
+						</div>
+					</template>
+
+					<template lwc:if={isInbound}>
+						<div class="slds-var-m-top_medium">
+							<lightning-textarea data-id="jsonBody" data-testid="harness-body" label={labels.jsonBody} onchange={handleJsonBodyChange}
+												placeholder={labels.jsonBodyPlaceholder} value={jsonBody}></lightning-textarea>
+						</div>
+					</template>
+
+					<div class={safetyBarClass} data-testid="safety-bar">
+						<div class="slds-grid slds-grid_vertical-center slds-var-m-bottom_x-small">
+							<lightning-icon alternative-text={labels.alternativeTextExecutionSettings} class="slds-var-m-right_x-small" icon-name="utility:shield"
+											size="x-small"></lightning-icon>
+							<span class="slds-text-title_caps slds-grow">{labels.executionSettings}</span>
+							<lightning-badge class={modeBadgeClass} data-testid="mode-badge" label={modeBadgeLabel}></lightning-badge>
+						</div>
+						<div class="slds-grid slds-gutters_small">
+							<div class="slds-col">
+								<lightning-input checked={safeModeEnabled} data-id="safeMode" label={labels.safeMode} message-toggle-active={labels.safeModeToggleActive}
+												 message-toggle-inactive={labels.safeModeToggleInactive} onchange={handleSafeModeChange} type="toggle"></lightning-input>
 							</div>
-						</template>
-						<lightning-button class="slds-var-m-top_x-small" data-testid="add-parameter" icon-name="utility:add" label={labels.addParameter}
-										  onclick={handleAddParameterRow}></lightning-button>
-					</div>
-				</template>
-
-				<template lwc:if={isInbound}>
-					<div class="slds-var-m-top_medium">
-						<lightning-textarea data-id="jsonBody" data-testid="harness-body" label={labels.jsonBody} onchange={handleJsonBodyChange}
-											placeholder={labels.jsonBodyPlaceholder} value={jsonBody}></lightning-textarea>
-					</div>
-				</template>
-
-				<div class={safetyBarClass} data-testid="safety-bar">
-					<div class="slds-grid slds-grid_vertical-center slds-var-m-bottom_x-small">
-						<lightning-icon alternative-text="Execution settings" class="slds-var-m-right_x-small" icon-name="utility:shield" size="x-small"></lightning-icon>
-						<span class="slds-text-title_caps slds-grow">{labels.executionSettings}</span>
-						<lightning-badge class={modeBadgeClass} data-testid="mode-badge" label={modeBadgeLabel}></lightning-badge>
-					</div>
-					<div class="slds-grid slds-gutters_small">
-						<div class="slds-col">
-							<lightning-input checked={safeModeEnabled} data-id="safeMode" label={labels.safeMode} message-toggle-active={labels.safeModeToggleActive}
-											 message-toggle-inactive={labels.safeModeToggleInactive} onchange={handleSafeModeChange} type="toggle"></lightning-input>
-						</div>
-						<div class="slds-col">
-							<lightning-input checked={mockingEnabled} data-id="mocking" label={labels.mocking} message-toggle-active={labels.mockingToggleActive}
-											 message-toggle-inactive={labels.mockingToggleInactive} onchange={handleMockingChange} type="toggle"></lightning-input>
+							<div class="slds-col">
+								<lightning-input checked={mockingEnabled} data-id="mocking" label={labels.mocking} message-toggle-active={labels.mockingToggleActive}
+												 message-toggle-inactive={labels.mockingToggleInactive} onchange={handleMockingChange} type="toggle"></lightning-input>
+							</div>
 						</div>
 					</div>
+
+					<div class="slds-var-m-top_medium slds-grid slds-gutters_x-small">
+						<div class="slds-col slds-no-flex">
+							<lightning-button data-id="execute" data-testid="harness-execute" disabled={isExecuteDisabled} icon-name={executeIcon} label={executeLabel}
+											  onclick={handleExecute} variant={executeVariant}></lightning-button>
+						</div>
+						<div class="slds-col slds-no-flex">
+							<lightning-button data-id="reset" data-testid="harness-reset" label={labels.reset} onclick={handleReset}></lightning-button>
+						</div>
+					</div>
+					<p class="gate-reason slds-text-body_small slds-text-color_weak slds-var-m-top_x-small" data-testid="gate-reason">{executeGateReason}</p>
 				</div>
 
-				<div class="slds-var-m-top_medium slds-grid slds-gutters_x-small">
-					<div class="slds-col slds-no-flex">
-						<lightning-button data-id="execute" data-testid="harness-execute" disabled={isExecuteDisabled} icon-name={executeIcon} label={executeLabel}
-										  onclick={handleExecute} variant={executeVariant}></lightning-button>
-					</div>
-					<div class="slds-col slds-no-flex">
-						<lightning-button data-id="reset" data-testid="harness-reset" label={labels.reset} onclick={handleReset}></lightning-button>
-					</div>
+				<div class="slds-col slds-size_1-of-1 slds-large-size_7-of-12 response-column">
+					<template lwc:if={hasResult}>
+						<div class={resultCardClass} data-testid="result-card">
+							<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_medium">
+								<div class="slds-grid slds-grid_vertical-align-center slds-gutters_xx-small">
+									<lightning-badge class={resultStatusClass} data-id="statusBadge" label={resultStatusLabel}></lightning-badge>
+									<template lwc:if={result.safeModeEnabled}>
+										<lightning-badge class="slds-theme_warning" data-id="safeModeBadge" label={labels.safeMode}></lightning-badge>
+									</template>
+									<template lwc:if={result.isMockedResponse}>
+										<lightning-badge class="slds-theme_info" data-id="mockedBadge" label={labels.mocked}></lightning-badge>
+									</template>
+								</div>
+								<lightning-button-icon alternative-text={labels.alternativeTextCopySummary} data-id="copySummary" icon-name={copyIcons.summary}
+													   onclick={handleCopySummary} variant="bare"></lightning-button-icon>
+							</div>
+
+							<div class="slds-grid slds-wrap slds-gutters_small">
+								<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
+									<p class="slds-text-title">{labels.statusCode}</p>
+									<p class="slds-text-body_regular">{statusCodeDisplay}</p>
+								</div>
+								<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
+									<p class="slds-text-title">{labels.total}</p>
+									<p class="slds-text-body_regular">{executionTimeDisplay}</p>
+								</div>
+								<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
+									<p class="slds-text-title">{labels.handler}</p>
+									<p class="slds-text-body_regular">{handlerTimeDisplay}</p>
+								</div>
+								<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
+									<p class="slds-text-title">{labels.callout}</p>
+									<p class="slds-text-body_regular">{calloutTimeDisplay}</p>
+								</div>
+								<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
+									<p class="slds-text-title">{labels.commit}</p>
+									<p class="slds-text-body_regular">{commitTimeDisplay}</p>
+								</div>
+								<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
+									<p class="slds-text-title">{labels.apiCallId}</p>
+									<template lwc:if={hasApiCallLink}>
+										<lightning-button class="api-call-link" data-testid="api-call-link" label={result.apiCallId} onclick={handleOpenApiCall}
+														  variant="base"></lightning-button>
+									</template>
+									<template lwc:else>
+										<p class="slds-text-body_regular">{apiCallIdDisplay}</p>
+									</template>
+								</div>
+							</div>
+
+							<template lwc:if={hasTabContent}>
+								<lightning-tabset class="slds-var-m-top_medium">
+									<template lwc:if={hasRequestContent}>
+										<lightning-tab label={labels.tabRequest}>
+											<template lwc:if={hasRequestHeaders}>
+												<div class="slds-var-m-bottom_medium">
+													<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
+														<p class="slds-text-title">{labels.requestHeaders}</p>
+														<lightning-button-icon alternative-text={labels.alternativeTextCopyRequestHeaders} data-id="copyRequestHeaders"
+																			   icon-name={copyIcons.requestHeaders} onclick={handleCopyRequestHeaders}
+																			   variant="bare"></lightning-button-icon>
+													</div>
+													<div class="table-scroll">
+														<table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout">
+															<thead>
+															<tr class="slds-line-height_reset">
+																<th class="slds-cell-wrap" scope="col">
+																	<div class="slds-truncate" title={labels.name}>{labels.name}</div>
+																</th>
+																<th class="slds-cell-wrap" scope="col">
+																	<div class="slds-truncate" title={labels.value}>{labels.value}</div>
+																</th>
+															</tr>
+															</thead>
+															<tbody>
+															<template for:each={parsedRequestHeaders} for:item="header">
+																<tr key={header.name}>
+																	<td class="slds-cell-wrap">
+																		<div class="slds-truncate" title={header.name}>{header.name}</div>
+																	</td>
+																	<td class="slds-cell-wrap">
+																		<div class="slds-truncate" title={header.value}>{header.value}</div>
+																	</td>
+																</tr>
+															</template>
+															</tbody>
+														</table>
+													</div>
+												</div>
+											</template>
+
+											<template lwc:if={hasRequestBody}>
+												<div>
+													<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
+														<p class="slds-text-title">{labels.requestBody}</p>
+														<lightning-button-icon alternative-text={labels.alternativeTextCopyRequestBody} data-id="copyRequestBody"
+																			   icon-name={copyIcons.requestBody} onclick={handleCopyRequestBody}
+																			   variant="bare"></lightning-button-icon>
+													</div>
+													<c-json-viewer json-text={result.requestBody}></c-json-viewer>
+												</div>
+											</template>
+										</lightning-tab>
+									</template>
+
+									<template lwc:if={hasResponseContent}>
+										<lightning-tab label={labels.tabResponse}>
+											<template lwc:if={hasResponseHeaders}>
+												<div class="slds-var-m-bottom_medium">
+													<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
+														<p class="slds-text-title">{labels.responseHeaders}</p>
+														<lightning-button-icon alternative-text={labels.alternativeTextCopyResponseHeaders} data-id="copyResponseHeaders"
+																			   icon-name={copyIcons.responseHeaders} onclick={handleCopyResponseHeaders}
+																			   variant="bare"></lightning-button-icon>
+													</div>
+													<div class="table-scroll">
+														<table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout">
+															<thead>
+															<tr class="slds-line-height_reset">
+																<th class="slds-cell-wrap" scope="col">
+																	<div class="slds-truncate" title={labels.name}>{labels.name}</div>
+																</th>
+																<th class="slds-cell-wrap" scope="col">
+																	<div class="slds-truncate" title={labels.value}>{labels.value}</div>
+																</th>
+															</tr>
+															</thead>
+															<tbody>
+															<template for:each={parsedResponseHeaders} for:item="header">
+																<tr key={header.name}>
+																	<td class="slds-cell-wrap">
+																		<div class="slds-truncate" title={header.name}>{header.name}</div>
+																	</td>
+																	<td class="slds-cell-wrap">
+																		<div class="slds-truncate" title={header.value}>{header.value}</div>
+																	</td>
+																</tr>
+															</template>
+															</tbody>
+														</table>
+													</div>
+												</div>
+											</template>
+
+											<template lwc:if={hasResponseBody}>
+												<div>
+													<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
+														<p class="slds-text-title">{labels.responseBody}</p>
+														<lightning-button-icon alternative-text={labels.alternativeTextCopyResponseBody} data-id="copyResponseBody"
+																			   icon-name={copyIcons.responseBody} onclick={handleCopyResponseBody}
+																			   variant="bare"></lightning-button-icon>
+													</div>
+													<c-json-viewer json-text={result.responseBody}></c-json-viewer>
+												</div>
+											</template>
+										</lightning-tab>
+									</template>
+
+									<template lwc:if={hasErrors}>
+										<lightning-tab label={labels.tabErrors}>
+											<div class="slds-text-color_error">
+												<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
+													<p class="slds-text-title">{labels.errorMessages}</p>
+													<lightning-button-icon alternative-text={labels.alternativeTextCopyErrors} data-id="copyErrors" icon-name={copyIcons.errors}
+																		   onclick={handleCopyErrors} variant="bare"></lightning-button-icon>
+												</div>
+												<pre>{result.errorMessages}</pre>
+											</div>
+										</lightning-tab>
+									</template>
+								</lightning-tabset>
+							</template>
+
+							<template lwc:else>
+								<p class="slds-var-m-top_medium slds-text-body_regular slds-text-color_weak slds-align_absolute-center">{labels.noData}</p>
+							</template>
+						</div>
+					</template>
+
+					<template lwc:else>
+						<div class="empty-response slds-box" data-testid="empty-response" role="status">
+							<lightning-icon alternative-text={labels.alternativeTextNoResponse} class="slds-var-m-bottom_small" icon-name="utility:all"
+											size="large"></lightning-icon>
+							<p class="slds-text-heading_small slds-var-m-bottom_x-small">{labels.emptyStateHeading}</p>
+							<p class="slds-text-body_regular slds-text-color_weak">{labels.emptyStateBody}</p>
+						</div>
+					</template>
 				</div>
-			</div>
-
-			<div class="slds-col slds-size_1-of-1 slds-large-size_7-of-12 response-column">
-				<template lwc:if={hasResult}>
-					<div class="slds-box">
-						<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_medium">
-							<div class="slds-grid slds-grid_vertical-align-center slds-gutters_xx-small">
-								<lightning-badge class={resultStatusClass} data-id="statusBadge" label={resultStatusLabel}></lightning-badge>
-								<template lwc:if={result.safeModeEnabled}>
-									<lightning-badge class="slds-theme_warning" data-id="safeModeBadge" label={labels.safeMode}></lightning-badge>
-								</template>
-								<template lwc:if={result.isMockedResponse}>
-									<lightning-badge class="slds-theme_info" data-id="mockedBadge" label={labels.mocked}></lightning-badge>
-								</template>
-							</div>
-							<lightning-button-icon alternative-text="Copy summary" data-id="copySummary" icon-name={copyIcons.summary} onclick={handleCopySummary}
-												   variant="bare"></lightning-button-icon>
-						</div>
-
-						<div class="slds-grid slds-wrap slds-gutters_small">
-							<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
-								<p class="slds-text-title">{labels.statusCode}</p>
-								<p class="slds-text-body_regular">{statusCodeDisplay}</p>
-							</div>
-							<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
-								<p class="slds-text-title">{labels.total}</p>
-								<p class="slds-text-body_regular">{executionTimeDisplay}</p>
-							</div>
-							<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
-								<p class="slds-text-title">{labels.handler}</p>
-								<p class="slds-text-body_regular">{handlerTimeDisplay}</p>
-							</div>
-							<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
-								<p class="slds-text-title">{labels.callout}</p>
-								<p class="slds-text-body_regular">{calloutTimeDisplay}</p>
-							</div>
-							<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
-								<p class="slds-text-title">{labels.commit}</p>
-								<p class="slds-text-body_regular">{commitTimeDisplay}</p>
-							</div>
-							<div class="slds-col slds-size_1-of-3 slds-var-p-bottom_small">
-								<p class="slds-text-title">{labels.apiCallId}</p>
-								<template lwc:if={hasApiCallLink}>
-									<lightning-button class="api-call-link" data-testid="api-call-link" label={result.apiCallId} onclick={handleOpenApiCall}
-													  variant="base"></lightning-button>
-								</template>
-								<template lwc:else>
-									<p class="slds-text-body_regular">{apiCallIdDisplay}</p>
-								</template>
-							</div>
-						</div>
-
-						<template lwc:if={hasTabContent}>
-							<lightning-tabset class="slds-var-m-top_medium">
-								<template lwc:if={hasRequestContent}>
-									<lightning-tab label={labels.tabRequest}>
-										<template lwc:if={hasRequestHeaders}>
-											<div class="slds-var-m-bottom_medium">
-												<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
-													<p class="slds-text-title">{labels.requestHeaders}</p>
-													<lightning-button-icon alternative-text="Copy request headers" data-id="copyRequestHeaders" icon-name={copyIcons.requestHeaders}
-																		   onclick={handleCopyRequestHeaders} variant="bare"></lightning-button-icon>
-												</div>
-												<table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout">
-													<thead>
-													<tr class="slds-line-height_reset">
-														<th class="slds-cell-wrap" scope="col">
-															<div class="slds-truncate" title={labels.name}>{labels.name}</div>
-														</th>
-														<th class="slds-cell-wrap" scope="col">
-															<div class="slds-truncate" title={labels.value}>{labels.value}</div>
-														</th>
-													</tr>
-													</thead>
-													<tbody>
-													<template for:each={parsedRequestHeaders} for:item="header">
-														<tr key={header.name}>
-															<td class="slds-cell-wrap">
-																<div class="slds-truncate" title={header.name}>{header.name}</div>
-															</td>
-															<td class="slds-cell-wrap">
-																<div class="slds-truncate" title={header.value}>{header.value}</div>
-															</td>
-														</tr>
-													</template>
-													</tbody>
-												</table>
-											</div>
-										</template>
-
-										<template lwc:if={hasRequestBody}>
-											<div>
-												<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
-													<p class="slds-text-title">{labels.requestBody}</p>
-													<lightning-button-icon alternative-text="Copy request body" data-id="copyRequestBody" icon-name={copyIcons.requestBody}
-																		   onclick={handleCopyRequestBody} variant="bare"></lightning-button-icon>
-												</div>
-												<c-json-viewer json-text={result.requestBody}></c-json-viewer>
-											</div>
-										</template>
-									</lightning-tab>
-								</template>
-
-								<template lwc:if={hasResponseContent}>
-									<lightning-tab label={labels.tabResponse}>
-										<template lwc:if={hasResponseHeaders}>
-											<div class="slds-var-m-bottom_medium">
-												<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
-													<p class="slds-text-title">{labels.responseHeaders}</p>
-													<lightning-button-icon alternative-text="Copy response headers" data-id="copyResponseHeaders"
-																		   icon-name={copyIcons.responseHeaders} onclick={handleCopyResponseHeaders}
-																		   variant="bare"></lightning-button-icon>
-												</div>
-												<table class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_fixed-layout">
-													<thead>
-													<tr class="slds-line-height_reset">
-														<th class="slds-cell-wrap" scope="col">
-															<div class="slds-truncate" title={labels.name}>{labels.name}</div>
-														</th>
-														<th class="slds-cell-wrap" scope="col">
-															<div class="slds-truncate" title={labels.value}>{labels.value}</div>
-														</th>
-													</tr>
-													</thead>
-													<tbody>
-													<template for:each={parsedResponseHeaders} for:item="header">
-														<tr key={header.name}>
-															<td class="slds-cell-wrap">
-																<div class="slds-truncate" title={header.name}>{header.name}</div>
-															</td>
-															<td class="slds-cell-wrap">
-																<div class="slds-truncate" title={header.value}>{header.value}</div>
-															</td>
-														</tr>
-													</template>
-													</tbody>
-												</table>
-											</div>
-										</template>
-
-										<template lwc:if={hasResponseBody}>
-											<div>
-												<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
-													<p class="slds-text-title">{labels.responseBody}</p>
-													<lightning-button-icon alternative-text="Copy response body" data-id="copyResponseBody" icon-name={copyIcons.responseBody}
-																		   onclick={handleCopyResponseBody} variant="bare"></lightning-button-icon>
-												</div>
-												<c-json-viewer json-text={result.responseBody}></c-json-viewer>
-											</div>
-										</template>
-									</lightning-tab>
-								</template>
-
-								<template lwc:if={hasErrors}>
-									<lightning-tab label={labels.tabErrors}>
-										<div class="slds-text-color_error">
-											<div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-var-m-bottom_x-small">
-												<p class="slds-text-title">{labels.errorMessages}</p>
-												<lightning-button-icon alternative-text="Copy errors" data-id="copyErrors" icon-name={copyIcons.errors} onclick={handleCopyErrors}
-																	   variant="bare"></lightning-button-icon>
-											</div>
-											<pre>{result.errorMessages}</pre>
-										</div>
-									</lightning-tab>
-								</template>
-							</lightning-tabset>
-						</template>
-
-						<template lwc:else>
-							<p class="slds-var-m-top_medium slds-text-body_regular slds-text-color_weak slds-align_absolute-center">{labels.noData}</p>
-						</template>
-					</div>
-				</template>
-
-				<template lwc:else>
-					<div class="empty-response slds-box" data-testid="empty-response">
-						<lightning-icon alternative-text="No response" class="slds-var-m-bottom_small" icon-name="utility:all" size="large"></lightning-icon>
-						<p class="slds-text-heading_small slds-var-m-bottom_x-small">{labels.emptyStateHeading}</p>
-						<p class="slds-text-body_regular slds-text-color_weak">{labels.emptyStateBody}</p>
-					</div>
-				</template>
 			</div>
 		</div>
-	</div>
+	</lightning-card>
 </template>

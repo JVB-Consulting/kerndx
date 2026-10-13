@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Tests for SubscriberChainSteps — exercises async chain orchestration
+ * @description Tests for SubscriberChainSteps, which exercise async chain orchestration
  * from subscriber context with real DML, API callouts, and context manipulation.
  *
  * @see SubscriberChainSteps
@@ -9,16 +9,77 @@
  *
  * @group Async
  *
- * @date April 2026, August 2026
+ * @date April 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 private class SubscriberChainSteps_TEST
 {
 	/**
 	 * @description Chain name used across tests.
 	 */
 	private static final String CHAIN_NAME = 'SubscriberTest';
+
+	/**
+	 * @description The suffix the framework appends to a launching run's id to key a launch from its first step.
+	 */
+	private static final String FIRST_STEP_LAUNCH_KEY_SUFFIX = ':0';
+
+	/**
+	 * @description The maximum queueable stack depth the nested-launch test gives the parent: its one step and first
+	 * hop, plus the child's two steps.
+	 */
+	private static final Integer NESTED_LAUNCH_STACK_DEPTH = 4;
+
+	/**
+	 * @description The CPU budget the fan-out tests give each busy step: every hop of a test chain runs in the one
+	 * test transaction, so the default budget over ten busy steps would exhaust the transaction's CPU.
+	 */
+	private static final Integer TEST_BUSY_MILLISECONDS = 100;
+
+	/**
+	 * @description The context key under which the engine keeps the last step's result; a successful step's message
+	 * lives there, since the step log records a message only for a failed step.
+	 */
+	private static final String PREVIOUS_STEP_RESULT_KEY = '__previousStepResult';
+
+	/**
+	 * @description The run token the volume tests key their ids by: eight letters of the id alphabet.
+	 */
+	private static final String TEST_RUN_TOKEN = 'abcdefab';
+
+	/**
+	 * @description The CPU budget the busy-step test asks for, in milliseconds.
+	 */
+	private static final Integer BUSY_TEST_MILLISECONDS = 300;
+
+	/**
+	 * @description A step may launch a chain of its own: the child completes both its steps, records the parent run as
+	 * the id it was launched under and the action as its root, and is remembered under the parent run and the step.
+	 */
+	@IsTest
+	private static void shouldLaunchAChildChainFromAStep()
+	{
+		String actionCorrelationId = kern.LOG_Builder.startCorrelation();
+		AsyncOptions options = new AsyncOptions();
+		options.maximumQueueableStackDepth = NESTED_LAUNCH_STACK_DEPTH;
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.then(new SubscriberChainSteps.LaunchChildChainStep())
+				.withAsyncOptions(options)
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c parent = queryExecution(executionId);
+		Assert.areEqual('Completed', parent.kern__Status__c, 'The parent completes: ' + parent.kern__ErrorMessage__c);
+		String childExecutionId = (String)parseContext(parent).get(SubscriberChainSteps.KEY_CHILD_EXECUTION_ID);
+		kern__AsyncChainExecution__c child = queryExecution(childExecutionId);
+		Assert.areEqual('Completed', child.kern__Status__c, 'The child completes: ' + child.kern__ErrorMessage__c);
+		Assert.areEqual(2, child.kern__CompletedSteps__c, 'The child ran both its steps');
+		Assert.areEqual(parent.kern__CorrelationId__c, child.kern__LaunchCorrelationId__c, 'The child was launched under the parent run');
+		Assert.areEqual(actionCorrelationId, child.kern__RootCorrelationId__c, 'The child keeps the action as its root');
+		Assert.areEqual(executionId + FIRST_STEP_LAUNCH_KEY_SUFFIX, child.kern__DeclaredDeduplicationKey__c, 'The child is remembered under the parent run and the step');
+	}
 
 	/**
 	 * @description Verifies that a single-step chain creates a Foobar and completes.
@@ -336,15 +397,175 @@ private class SubscriberChainSteps_TEST
 	}
 
 	/**
-	 * @description Verifies that a chain inherits the current LOG_Builder correlation
-	 * and that log entries from the chain share the same correlation ID.
+	 * @description After a Foobar is created, the call is sent and the Foobar is updated, VerifyContextStep finds all
+	 * three and writes true under KEY_VERIFIED, and the chain completes all four steps.
+	 */
+	@IsTest
+	private static void shouldVerifyTheContextOnceEveryEarlierStepHasRun()
+	{
+		kern.API_MockFactory.forService('kern.API_PostExample')
+				.body('{"body":"test","id":101,"title":"ChainTest","userId":9}')
+				.statusCode(201)
+				.register();
+
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.then(new SubscriberChainSteps.CreateFoobarStep())
+				.then(new SubscriberChainSteps.CallApiStep())
+				.then(new SubscriberChainSteps.UpdateFoobarStep())
+				.then(new SubscriberChainSteps.VerifyContextStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		Assert.areEqual('Completed', execution.kern__Status__c, 'Expected the chain to complete, got ' + execution.kern__ErrorMessage__c);
+		Assert.areEqual(4, execution.kern__CompletedSteps__c, 'Expected all four steps to complete');
+		Assert.areEqual(true, parseContext(execution).get(SubscriberChainSteps.KEY_VERIFIED), 'Expected VerifyContextStep to write true');
+	}
+
+	/**
+	 * @description VerifyContextStep given a Foobar Id that names no record fails with the message that names the Id,
+	 * rather than with an error from reading a record that is not there.
+	 */
+	@IsTest
+	private static void shouldFailVerificationWhenTheFoobarIdNamesNoRecord()
+	{
+		Id unknownFoobarId = kern.UTIL_Random.randomId(kern__Foobar__c.SObjectType);
+
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.withInitialContext(SubscriberChainSteps.KEY_FOOBAR_ID, unknownFoobarId)
+				.withInitialContext(SubscriberChainSteps.KEY_API_RESPONSE, kern.UTIL_Random.randomAlphanumeric(8))
+				.then(new SubscriberChainSteps.VerifyContextStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		String expectedMessage = SubscriberChainSteps.FOOBAR_NOT_FOUND_MESSAGE + unknownFoobarId;
+		Assert.areEqual('Failed', execution.kern__Status__c, 'Expected the chain to fail');
+		Assert.areEqual(0, execution.kern__CompletedSteps__c, 'Expected no step to complete');
+		Assert.isTrue(execution.kern__ErrorMessage__c.contains(expectedMessage), 'Expected "' + expectedMessage + '", got ' + execution.kern__ErrorMessage__c);
+		Assert.isNull(parseContext(execution).get(SubscriberChainSteps.KEY_VERIFIED), 'Expected nothing under KEY_VERIFIED');
+	}
+
+	/**
+	 * @description VerifyContextStep run with no Foobar Id in the context fails with the message that says so.
+	 */
+	@IsTest
+	private static void shouldFailVerificationWhenTheContextHoldsNoFoobarId()
+	{
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.then(new SubscriberChainSteps.VerifyContextStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		String expectedMessage = SubscriberChainSteps.MISSING_FOOBAR_ID_MESSAGE;
+		Assert.areEqual('Failed', execution.kern__Status__c, 'Expected the chain to fail, got ' + execution.kern__Status__c);
+		Assert.areEqual(0, execution.kern__CompletedSteps__c, 'Expected no step to complete, got ' + execution.kern__CompletedSteps__c);
+		Assert.isTrue(execution.kern__ErrorMessage__c.contains(expectedMessage), 'Expected "' + expectedMessage + '", got ' + execution.kern__ErrorMessage__c);
+		Assert.isNull(parseContext(execution).get(SubscriberChainSteps.KEY_VERIFIED), 'Expected nothing under KEY_VERIFIED');
+	}
+
+	/**
+	 * @description VerifyContextStep run with a Foobar Id but no API marker in the context fails with the message that
+	 * names the missing marker.
+	 */
+	@IsTest
+	private static void shouldFailVerificationWhenTheContextHoldsNoApiMarker()
+	{
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.withInitialContext(SubscriberChainSteps.KEY_FOOBAR_ID, kern.UTIL_Random.randomId(kern__Foobar__c.SObjectType))
+				.then(new SubscriberChainSteps.VerifyContextStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		String expectedMessage = SubscriberChainSteps.MISSING_API_MARKER_MESSAGE;
+		Assert.areEqual('Failed', execution.kern__Status__c, 'Expected the chain to fail, got ' + execution.kern__Status__c);
+		Assert.areEqual(0, execution.kern__CompletedSteps__c, 'Expected no step to complete, got ' + execution.kern__CompletedSteps__c);
+		Assert.isTrue(execution.kern__ErrorMessage__c.contains(expectedMessage), 'Expected "' + expectedMessage + '", got ' + execution.kern__ErrorMessage__c);
+		Assert.isNull(parseContext(execution).get(SubscriberChainSteps.KEY_VERIFIED), 'Expected nothing under KEY_VERIFIED');
+	}
+
+	/**
+	 * @description VerifyContextStep run after a Foobar was created but never updated fails with the message that says
+	 * the earlier step did not update it.
+	 */
+	@IsTest
+	private static void shouldFailVerificationWhenTheFoobarWasNotUpdated()
+	{
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.withInitialContext(SubscriberChainSteps.KEY_API_RESPONSE, kern.UTIL_Random.randomAlphanumeric(8))
+				.then(new SubscriberChainSteps.CreateFoobarStep())
+				.then(new SubscriberChainSteps.VerifyContextStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		Assert.areEqual('Failed', execution.kern__Status__c, 'Expected the chain to fail');
+		Assert.areEqual(1, execution.kern__CompletedSteps__c, 'Expected only the create step to complete');
+		Assert.isTrue(execution.kern__ErrorMessage__c.contains(SubscriberChainSteps.FOOBAR_NOT_UPDATED_MESSAGE),
+				'Expected the not-updated failure, got ' + execution.kern__ErrorMessage__c);
+	}
+
+	/**
+	 * @description UpdateFoobarStep run with no Foobar Id in the context fails with the message that says so, rather
+	 * than with a null-pointer error, and no step completes.
+	 */
+	@IsTest
+	private static void shouldFailTheUpdateWhenTheContextHoldsNoFoobarId()
+	{
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.then(new SubscriberChainSteps.UpdateFoobarStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		String expectedMessage = SubscriberChainSteps.MISSING_FOOBAR_ID_MESSAGE;
+		Assert.areEqual('Failed', execution.kern__Status__c, 'Expected the chain to fail');
+		Assert.areEqual(0, execution.kern__CompletedSteps__c, 'Expected no step to complete');
+		Assert.isTrue(execution.kern__ErrorMessage__c.contains(expectedMessage), 'Expected "' + expectedMessage + '", got ' + execution.kern__ErrorMessage__c);
+	}
+
+	/**
+	 * @description UpdateFoobarStep given a Foobar Id that names no record fails with the message that names the Id,
+	 * rather than with a null-pointer error, and no step completes.
+	 */
+	@IsTest
+	private static void shouldFailTheUpdateWhenTheFoobarIdNamesNoRecord()
+	{
+		Id unknownFoobarId = kern.UTIL_Random.randomId(kern__Foobar__c.SObjectType);
+
+		Test.startTest();
+		String executionId = kern.UTIL_AsyncChain.newChain(CHAIN_NAME)
+				.withInitialContext(SubscriberChainSteps.KEY_FOOBAR_ID, unknownFoobarId)
+				.then(new SubscriberChainSteps.UpdateFoobarStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c execution = queryExecution(executionId);
+		String expectedMessage = SubscriberChainSteps.FOOBAR_NOT_FOUND_MESSAGE + unknownFoobarId;
+		Assert.areEqual('Failed', execution.kern__Status__c, 'Expected the chain to fail');
+		Assert.areEqual(0, execution.kern__CompletedSteps__c, 'Expected no step to complete');
+		Assert.isTrue(execution.kern__ErrorMessage__c.contains(expectedMessage), 'Expected "' + expectedMessage + '", got ' + execution.kern__ErrorMessage__c);
+	}
+
+	/**
+	 * @description Verifies that a chain launched inside a traced action runs under a correlation id of its own,
+	 * records the action's id as the id it was launched under and as its root, and writes its steps' log entries with
+	 * the action's id as their root, so a query by the action's id finds the whole action.
 	 */
 	@IsTest
 	private static void shouldCorrelateLogsAcrossChainSteps()
 	{
 		kern.LOG_Builder.ignoreTestMode = true;
 
-		String correlationId = kern.LOG_Builder.startCorrelation();
+		String actionCorrelationId = kern.LOG_Builder.startCorrelation();
 
 		Test.startTest();
 		String executionId = kern.UTIL_AsyncChain.newChain('CorrelationTest')
@@ -354,16 +575,20 @@ private class SubscriberChainSteps_TEST
 		Test.stopTest();
 
 		kern__AsyncChainExecution__c execution = queryExecution(executionId);
-		Assert.areEqual(correlationId, execution.kern__CorrelationId__c, 'Chain should inherit subscriber correlation ID');
 		Assert.areEqual('Completed', execution.kern__Status__c, 'Chain should complete');
+		Assert.areNotEqual(actionCorrelationId, execution.kern__CorrelationId__c, 'The run gets a correlation id of its own');
+		Assert.areEqual(actionCorrelationId, execution.kern__LaunchCorrelationId__c, 'The run records the action\'s id as the id it was launched under');
+		Assert.areEqual(actionCorrelationId, execution.kern__RootCorrelationId__c, 'The run records the action\'s id as its root');
 
-		List<kern__LogEntry__c> correlatedLogs =
+		String runCorrelationId = execution.kern__CorrelationId__c;
+		List<kern__LogEntry__c> runLogs =
 		[
 				SELECT kern__CorrelationId__c
 				FROM kern__LogEntry__c
-				WHERE kern__CorrelationId__c = :correlationId
+				WHERE kern__RootCorrelationId__c = :actionCorrelationId
+				AND kern__CorrelationId__c = :runCorrelationId
 		];
-		Assert.isTrue(correlatedLogs.size() >= 1, 'At least 1 log entry should share the correlation ID (continueOnError warn)');
+		Assert.isTrue(runLogs.size() >= 1, 'At least 1 log entry of the run carries the action as its root (continueOnError warn)');
 	}
 
 	/**
@@ -803,6 +1028,9 @@ private class SubscriberChainSteps_TEST
 						kern__ErrorMessage__c,
 						kern__ContextData__c,
 						kern__CorrelationId__c,
+						kern__LaunchCorrelationId__c,
+						kern__RootCorrelationId__c,
+						kern__DeclaredDeduplicationKey__c,
 						kern__DurationMs__c,
 						kern__StepLog__c
 				FROM kern__AsyncChainExecution__c
@@ -822,5 +1050,205 @@ private class SubscriberChainSteps_TEST
 		return String.isNotBlank(execution.kern__ContextData__c)
 				? (Map<String, Object>)JSON.deserializeUntyped(execution.kern__ContextData__c)
 				: new Map<String, Object>();
+	}
+
+	/**
+	 * @description Reads a run row by id with the fields the volume tests assert on.
+	 *
+	 * @param executionId The run's record id.
+	 *
+	 * @return The run row.
+	 */
+	private static kern__AsyncChainExecution__c readRun(Id executionId)
+	{
+		return (kern__AsyncChainExecution__c)kern.QRY_Builder.selectFrom(kern__AsyncChainExecution__c.SObjectType)
+				.fields(new List<SObjectField>
+				{
+						kern__AsyncChainExecution__c.kern__Status__c, kern__AsyncChainExecution__c.kern__FailureCategory__c, kern__AsyncChainExecution__c.kern__StepLog__c,
+						kern__AsyncChainExecution__c.kern__ErrorMessage__c, kern__AsyncChainExecution__c.kern__CorrelationId__c, kern__AsyncChainExecution__c.kern__DurationMs__c,
+						kern__AsyncChainExecution__c.kern__ContextData__c
+				})
+				.condition(kern__AsyncChainExecution__c.Id).equals(executionId)
+				.getFirst();
+	}
+
+	/**
+	 * @description The message of the last step the engine ran, read from the run's persisted context.
+	 *
+	 * @param run The run row, with its context data.
+	 *
+	 * @return The message, or null when no step result is persisted.
+	 */
+	private static String lastStepMessage(kern__AsyncChainExecution__c run)
+	{
+		Map<String, Object> previous = (Map<String, Object>)parseContext(run).get(PREVIOUS_STEP_RESULT_KEY);
+		return previous == null ? null : (String)previous.get('message');
+	}
+
+	/**
+	 * @description Reads the one run launched under a correlation, or null.
+	 *
+	 * @param correlationId The launching run's correlation id.
+	 *
+	 * @return The launched run, or null when none was launched under it.
+	 */
+	private static kern__AsyncChainExecution__c readLaunchedUnder(String correlationId)
+	{
+		return (kern__AsyncChainExecution__c)kern.QRY_Builder.selectFrom(kern__AsyncChainExecution__c.SObjectType)
+				.fields(new List<SObjectField>
+				{
+						kern__AsyncChainExecution__c.kern__ChainName__c, kern__AsyncChainExecution__c.kern__TotalSteps__c, kern__AsyncChainExecution__c.kern__StepLog__c,
+						kern__AsyncChainExecution__c.kern__CorrelationId__c
+				})
+				.condition(kern__AsyncChainExecution__c.kern__LaunchCorrelationId__c).equals(correlationId)
+				.getFirst();
+	}
+
+	/**
+	 * @description Every eighth leaf fails, and the failing kinds cycle plain, permanent, after retries.
+	 */
+	@IsTest
+	private static void shouldComputeTheLeafOutcomeFromTheOrdinal()
+	{
+		Assert.areEqual(SubscriberChainSteps.OUTCOME_SUCCEED, SubscriberChainSteps.leafOutcome(1), 'A leaf off the failing stride succeeds');
+		Assert.areEqual(SubscriberChainSteps.OUTCOME_FAIL, SubscriberChainSteps.leafOutcome(0), 'The first failing leaf fails plainly');
+		Assert.areEqual(SubscriberChainSteps.OUTCOME_FAIL_PERMANENTLY, SubscriberChainSteps.leafOutcome(8), 'The second fails permanently');
+		Assert.areEqual(SubscriberChainSteps.OUTCOME_FAIL_AFTER_RETRIES, SubscriberChainSteps.leafOutcome(16), 'The third fails after retries');
+		Assert.areEqual(SubscriberChainSteps.OUTCOME_FAIL, SubscriberChainSteps.leafOutcome(24), 'The kinds cycle');
+	}
+
+	/**
+	 * @description A harness id is UUID-shaped from the letters a to f, so the console's search resolves it and no digit run forms.
+	 */
+	@IsTest
+	private static void shouldSpellHarnessIdsInTheTrackingIdShapeWithLettersOnly()
+	{
+		Assert.areEqual('aaaa', SubscriberChainSteps.volumeLetters(0, 4), 'Zero is the first letter, padded');
+		Assert.areEqual('aaba', SubscriberChainSteps.volumeLetters(6, 4), 'Six carries into the next letter');
+		String id = SubscriberChainSteps.volumeRunId(TEST_RUN_TOKEN, SubscriberChainSteps.KIND_RECONCILIATION_RUN, 12, 3, 124);
+		Assert.areEqual(36, id.length(), 'A harness id is 36 characters');
+		Assert.isTrue(Pattern.matches('^[a-f]{8}-[a-f]{4}-[a-f]{4}-[a-f]{4}-[a-f]{12}$', id), 'A harness id is UUID-shaped from the letters a to f: ' + id);
+	}
+
+	/**
+	 * @description When the next level is the target depth, the fan-out step launches a five-step leaf under its own run.
+	 */
+	@IsTest
+	private static void shouldLaunchALeafChildWhenTheNextLevelIsTheTarget()
+	{
+		Test.startTest();
+		Id rootId = kern.UTIL_AsyncChain.newChain(SubscriberChainSteps.VOLUME_CHAIN_NAMES[0])
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_DEPTH, 0)
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_TARGET_DEPTH, 1)
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_ORDINAL, 0)
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_ROOT_ORDINAL, 0)
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_RUN_IDENTIFIER, TEST_RUN_TOKEN)
+				.withInitialContext(SubscriberChainSteps.KEY_BUSY_MILLISECONDS, TEST_BUSY_MILLISECONDS)
+				.then(new SubscriberChainSteps.FanOutStep())
+				.execute(SubscriberChainSteps.volumeRunId(TEST_RUN_TOKEN, SubscriberChainSteps.KIND_RECONCILIATION_RUN, 0, 0, 0));
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c child = readLaunchedUnder(readRun(rootId).kern__CorrelationId__c);
+		Assert.isNotNull(child, 'The fan-out step launched one child under the root');
+		Assert.areEqual(SubscriberChainSteps.VOLUME_CHAIN_NAMES[1], child.kern__ChainName__c, 'The child carries the next level\'s name');
+		String expectedChildId = SubscriberChainSteps.volumeRunId(TEST_RUN_TOKEN, SubscriberChainSteps.KIND_RECONCILIATION_RUN, 0, 1, 0);
+		Assert.areEqual(expectedChildId, child.kern__CorrelationId__c, 'The child carries the token-keyed id the step minted');
+		Assert.areEqual(5, child.kern__TotalSteps__c, 'A leaf has five steps');
+		Assert.isTrue(child.kern__StepLog__c.contains('OutcomeStep') || child.kern__StepLog__c.contains('RetryingFailureStep'), 'A leaf ends in an outcome');
+	}
+
+	/**
+	 * @description Below the target depth, the fan-out step launches a child of five fanning steps, not a leaf.
+	 */
+	@IsTest
+	private static void shouldLaunchAFanningChildBelowTheTarget()
+	{
+		Test.startTest();
+		Id rootId = kern.UTIL_AsyncChain.newChain(SubscriberChainSteps.VOLUME_CHAIN_NAMES[0])
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_DEPTH, 0)
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_TARGET_DEPTH, 2)
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_ORDINAL, 0)
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_ROOT_ORDINAL, 1)
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_RUN_IDENTIFIER, TEST_RUN_TOKEN)
+				.withInitialContext(SubscriberChainSteps.KEY_BUSY_MILLISECONDS, TEST_BUSY_MILLISECONDS)
+				.then(new SubscriberChainSteps.FanOutStep())
+				.execute(SubscriberChainSteps.volumeRunId(TEST_RUN_TOKEN, SubscriberChainSteps.KIND_RECONCILIATION_RUN, 1, 0, 0));
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c child = readLaunchedUnder(readRun(rootId).kern__CorrelationId__c);
+		Assert.isNotNull(child, 'The fan-out step launched one child under the root');
+		Assert.areEqual(5, child.kern__TotalSteps__c, 'A fanning child has five steps');
+		Assert.isTrue(child.kern__StepLog__c.contains('FanOutStep'), 'A child below the target fans out again');
+		Assert.isFalse(child.kern__StepLog__c.contains('OutcomeStep'), 'A child below the target is not a leaf');
+	}
+
+	/**
+	 * @description The busy step spends at least the CPU budget its context names and reports the work.
+	 */
+	@IsTest
+	private static void shouldWorkForTheRequestedBudget()
+	{
+		Test.startTest();
+		Id executionId = kern.UTIL_AsyncChain.newChain('Volume_BusyTest')
+				.withInitialContext(SubscriberChainSteps.KEY_BUSY_MILLISECONDS, BUSY_TEST_MILLISECONDS)
+				.then(new SubscriberChainSteps.BusyStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c run = readRun(executionId);
+		Assert.areEqual('Completed', run.kern__Status__c, 'The busy step completes');
+		Assert.isTrue(String.valueOf(lastStepMessage(run)).startsWith('Worked'), 'The step reports its work: ' + lastStepMessage(run));
+		Assert.isTrue(run.kern__DurationMs__c >= BUSY_TEST_MILLISECONDS, 'The step worked at least its budget, worked ' + run.kern__DurationMs__c);
+	}
+
+	/**
+	 * @description A leaf ends the way its outcome says: a plain failure, a permanent one, or a narrated completion.
+	 */
+	@IsTest
+	private static void shouldEndALeafTheWayItsOutcomeSays()
+	{
+		Test.startTest();
+		Id failedId = kern.UTIL_AsyncChain.newChain('Volume_OutcomeTest')
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_OUTCOME, SubscriberChainSteps.OUTCOME_FAIL)
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_ORDINAL, 8)
+				.then(new SubscriberChainSteps.OutcomeStep())
+				.execute();
+		Id permanentId = kern.UTIL_AsyncChain.newChain('Volume_OutcomeTest')
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_OUTCOME, SubscriberChainSteps.OUTCOME_FAIL_PERMANENTLY)
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_ORDINAL, 16)
+				.then(new SubscriberChainSteps.OutcomeStep())
+				.execute();
+		Id narratedId = kern.UTIL_AsyncChain.newChain('Volume_OutcomeTest')
+				.withInitialContext(SubscriberChainSteps.KEY_VOLUME_ORDINAL, 3)
+				.then(new SubscriberChainSteps.NarratingStep())
+				.execute();
+		Test.stopTest();
+
+		Assert.areEqual('Failed', readRun(failedId).kern__Status__c, 'A plain failure ends Failed');
+		Assert.isTrue(readRun(failedId).kern__ErrorMessage__c.contains('did not balance'), 'The failure reads like a business message');
+		Assert.isTrue(readRun(permanentId).kern__StepLog__c.contains('"permanentFailure":true'), 'A permanent failure is marked permanent');
+		Assert.areEqual('Completed', readRun(narratedId).kern__Status__c, 'The narrating step completes');
+		Assert.areEqual('Validated account batch 3 against the ledger', lastStepMessage(readRun(narratedId)), 'The narrating step names its batch');
+	}
+
+	/**
+	 * @description The retrying failure step declares a strategy and keeps failing; every retry hop runs inside the
+	 * test, so the run ends with its retries exhausted and the last attempt's message on the row.
+	 */
+	@IsTest
+	private static void shouldDeclareARetryStrategyAndKeepFailing()
+	{
+		Assert.isNotNull(new SubscriberChainSteps.RetryingFailureStep().createRetryStrategy(), 'The step declares a retry strategy');
+
+		Test.startTest();
+		Id executionId = kern.UTIL_AsyncChain.newChain('Volume_RetryTest')
+				.then(new SubscriberChainSteps.RetryingFailureStep())
+				.execute();
+		Test.stopTest();
+
+		kern__AsyncChainExecution__c run = readRun(executionId);
+		Assert.areEqual('Failed', run.kern__Status__c, 'The run ends failed once its retries are spent: ' + run.kern__ErrorMessage__c);
+		Assert.areEqual('RetriesExhausted', run.kern__FailureCategory__c, 'The failure is categorised as exhausted retries: ' + run.kern__ErrorMessage__c);
+		Assert.isFalse(run.kern__ErrorMessage__c.endsWith('attempt 1'), 'The last attempt was not the first: ' + run.kern__ErrorMessage__c);
 	}
 }

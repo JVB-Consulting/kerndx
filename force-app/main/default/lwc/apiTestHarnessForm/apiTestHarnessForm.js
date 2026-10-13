@@ -6,25 +6,31 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2026, July 2026
+ * @date February 2026, August 2026
  */
 import {ComponentBuilder} from 'c/componentBuilder';
 import {formatTemplateString} from 'c/utilityString';
 import getServices from '@salesforce/apex/CTRL_ApiTestHarness.getServices';
+import describeService from '@salesforce/apex/CTRL_ApiTestHarness.describeService';
 import invokeOutbound from '@salesforce/apex/CTRL_ApiTestHarness.invokeOutbound';
 import invokeInbound from '@salesforce/apex/CTRL_ApiTestHarness.invokeInbound';
 
+import CARD_TITLE from '@salesforce/label/c.ApiTestHarness_CardTitle';
 import DIRECTION_OUTBOUND from '@salesforce/label/c.ApiTestHarness_Direction_Outbound';
 import DIRECTION_INBOUND from '@salesforce/label/c.ApiTestHarness_Direction_Inbound';
 import MODE_BADGE_LIVE from '@salesforce/label/c.ApiTestHarness_ModeBadge_Live';
 import MODE_BADGE_LIVE_DML_MOCKED from '@salesforce/label/c.ApiTestHarness_ModeBadge_LiveDmlMocked';
 import MODE_BADGE_FULL_SANDBOX from '@salesforce/label/c.ApiTestHarness_ModeBadge_FullSandbox';
+import MODE_BADGE_SAFE_MODE_REAL_CALLOUTS from '@salesforce/label/c.ApiTestHarness_ModeBadge_SafeModeRealCallouts';
 import SAFE_MODE from '@salesforce/label/c.ApiTestHarness_SafeMode';
 import EXECUTE from '@salesforce/label/c.ApiTestHarness_Execute';
 import EXECUTE_LIVE from '@salesforce/label/c.ApiTestHarness_ExecuteLive';
 import STATUS_UNKNOWN from '@salesforce/label/c.ApiTestHarness_Status_Unknown';
 import VALIDATION_BLANK_PARAMETER_KEY from '@salesforce/label/c.ApiTestHarness_Validation_BlankParameterKey';
 import VALIDATION_INVALID_JSON from '@salesforce/label/c.ApiTestHarness_Validation_InvalidJson';
+import VALIDATION_REQUIRED_PARAMETER_MISSING from '@salesforce/label/c.ApiTestHarness_Validation_RequiredParameterMissing';
+import VALIDATION_RECORD_ID_REQUIRED from '@salesforce/label/c.ApiTestHarness_Validation_RecordIdRequired';
+import VALIDATION_RECORD_ID_INVALID from '@salesforce/label/c.ApiTestHarness_Validation_RecordIdInvalid';
 import TOAST_EXECUTION_SUCCESS from '@salesforce/label/c.ApiTestHarness_Toast_ExecutionSuccess';
 import TOAST_EXECUTION_ABORTED from '@salesforce/label/c.ApiTestHarness_Toast_ExecutionAborted';
 import TOAST_EXECUTION_FAILED from '@salesforce/label/c.ApiTestHarness_Toast_ExecutionFailed';
@@ -50,8 +56,10 @@ import SERVICE from '@salesforce/label/c.ApiTestHarness_Service';
 import SERVICE_VALUE_MISSING from '@salesforce/label/c.ApiTestHarness_Service_ValueMissing';
 import SERVICE_PLACEHOLDER from '@salesforce/label/c.ApiTestHarness_Service_Placeholder';
 import RECORD_ID from '@salesforce/label/c.ApiTestHarness_RecordId';
+import RECORD_ID_OPTIONAL from '@salesforce/label/c.ApiTestHarness_RecordId_Optional';
 import RECORD_ID_PLACEHOLDER from '@salesforce/label/c.ApiTestHarness_RecordId_Placeholder';
 import PARAMETERS from '@salesforce/label/c.ApiTestHarness_Parameters';
+import REQUIRED_MARKER from '@salesforce/label/c.ApiTestHarness_RequiredMarker';
 import KEY from '@salesforce/label/c.ApiTestHarness_Key';
 import VALUE from '@salesforce/label/c.ApiTestHarness_Value';
 import NAME from '@salesforce/label/c.ApiTestHarness_Name';
@@ -83,16 +91,44 @@ import ERROR_MESSAGES from '@salesforce/label/c.ApiTestHarness_ErrorMessages';
 import NO_DATA from '@salesforce/label/c.ApiTestHarness_NoData';
 import EMPTY_STATE_HEADING from '@salesforce/label/c.ApiTestHarness_EmptyState_Heading';
 import EMPTY_STATE_BODY from '@salesforce/label/c.ApiTestHarness_EmptyState_Body';
+import ALTERNATIVE_TEXT_EXECUTING from '@salesforce/label/c.ApiTestHarness_AlternativeText_Executing';
+import ALTERNATIVE_TEXT_REMOVE_PARAMETER from '@salesforce/label/c.ApiTestHarness_AlternativeText_RemoveParameter';
+import ALTERNATIVE_TEXT_EXECUTION_SETTINGS from '@salesforce/label/c.ApiTestHarness_AlternativeText_ExecutionSettings';
+import ALTERNATIVE_TEXT_COPY_SUMMARY from '@salesforce/label/c.ApiTestHarness_AlternativeText_CopySummary';
+import ALTERNATIVE_TEXT_COPY_REQUEST_HEADERS from '@salesforce/label/c.ApiTestHarness_AlternativeText_CopyRequestHeaders';
+import ALTERNATIVE_TEXT_COPY_REQUEST_BODY from '@salesforce/label/c.ApiTestHarness_AlternativeText_CopyRequestBody';
+import ALTERNATIVE_TEXT_COPY_RESPONSE_HEADERS from '@salesforce/label/c.ApiTestHarness_AlternativeText_CopyResponseHeaders';
+import ALTERNATIVE_TEXT_COPY_RESPONSE_BODY from '@salesforce/label/c.ApiTestHarness_AlternativeText_CopyResponseBody';
+import ALTERNATIVE_TEXT_COPY_ERRORS from '@salesforce/label/c.ApiTestHarness_AlternativeText_CopyErrors';
+import ALTERNATIVE_TEXT_NO_RESPONSE from '@salesforce/label/c.ApiTestHarness_AlternativeText_NoResponse';
 
 const COPY_RESET_DELAY = 1500;
+const EMPTY_DESCRIPTION = Object.freeze({inputs: [], requiresTriggeringRecord: false});
+const RECORD_ID_PATTERN = /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/;
+
+const SEVERITY_SUCCESS = 'success';
+const SEVERITY_WARNING = 'warning';
+const SEVERITY_ERROR = 'error';
+
+/** Badge theme per result severity, so the status badge reads from the one severity source. */
+const SEVERITY_BADGE_CLASS = Object.freeze({
+	[SEVERITY_SUCCESS]: 'slds-theme_success', [SEVERITY_WARNING]: 'slds-theme_warning', [SEVERITY_ERROR]: 'slds-theme_error'
+});
+
+/** Result-card accent per result severity; a clean run carries the base card classes alone. */
+const SEVERITY_CARD_CLASS = Object.freeze({
+	[SEVERITY_SUCCESS]: 'slds-box result-card', [SEVERITY_WARNING]: 'slds-box result-card result-card_warning', [SEVERITY_ERROR]: 'slds-box result-card result-card_error'
+});
 
 export default class ApiTestHarnessForm extends ComponentBuilder('controller', 'notification', 'navigation')
 {
 	direction = 'Outbound';
 	selectedService = '';
 	serviceOptions = [];
+	serviceDescription = EMPTY_DESCRIPTION;
+	isDescribePending = false;
 	recordId = '';
-	parameterRows = [{id: 'row-0', key: '', value: ''}];
+	parameterRows = [{id: 'row-0', key: '', value: '', isRequired: false}];
 	jsonBody = '';
 	safeModeEnabled = true;
 	mockingEnabled = false;
@@ -101,16 +137,20 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 	copiedButtonId = null;
 
 	_nextRowId = 1;
+	_describeRequestNumber = 0;
 
 	/** @description Template-bound Custom Labels for the harness form and result panel. */
 	labels = {
+		cardTitle: CARD_TITLE,
 		direction: DIRECTION,
 		service: SERVICE,
 		serviceValueMissing: SERVICE_VALUE_MISSING,
 		servicePlaceholder: SERVICE_PLACEHOLDER,
 		recordId: RECORD_ID,
+		recordIdOptional: RECORD_ID_OPTIONAL,
 		recordIdPlaceholder: RECORD_ID_PLACEHOLDER,
 		parameters: PARAMETERS,
+		requiredMarker: REQUIRED_MARKER,
 		key: KEY,
 		value: VALUE,
 		name: NAME,
@@ -142,7 +182,17 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		errorMessages: ERROR_MESSAGES,
 		noData: NO_DATA,
 		emptyStateHeading: EMPTY_STATE_HEADING,
-		emptyStateBody: EMPTY_STATE_BODY
+		emptyStateBody: EMPTY_STATE_BODY,
+		alternativeTextExecuting: ALTERNATIVE_TEXT_EXECUTING,
+		alternativeTextRemoveParameter: ALTERNATIVE_TEXT_REMOVE_PARAMETER,
+		alternativeTextExecutionSettings: ALTERNATIVE_TEXT_EXECUTION_SETTINGS,
+		alternativeTextCopySummary: ALTERNATIVE_TEXT_COPY_SUMMARY,
+		alternativeTextCopyRequestHeaders: ALTERNATIVE_TEXT_COPY_REQUEST_HEADERS,
+		alternativeTextCopyRequestBody: ALTERNATIVE_TEXT_COPY_REQUEST_BODY,
+		alternativeTextCopyResponseHeaders: ALTERNATIVE_TEXT_COPY_RESPONSE_HEADERS,
+		alternativeTextCopyResponseBody: ALTERNATIVE_TEXT_COPY_RESPONSE_BODY,
+		alternativeTextCopyErrors: ALTERNATIVE_TEXT_COPY_ERRORS,
+		alternativeTextNoResponse: ALTERNATIVE_TEXT_NO_RESPONSE
 	};
 
 	directionOptions = [
@@ -163,6 +213,48 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 	get hasResult()
 	{
 		return this.result !== null;
+	}
+
+	/** @description True when the selected service told us it cannot run without a triggering record. */
+	get isRecordIdRequired()
+	{
+		return this.serviceDescription.requiresTriggeringRecord === true;
+	}
+
+	/** @description Record ID field label, which says so when the field is safe to leave empty. */
+	get recordIdLabel()
+	{
+		return this.isRecordIdRequired ? this.labels.recordId : this.labels.recordIdOptional;
+	}
+
+	/**
+	 * @description Parameter rows carrying the two flags the grid renders from: a required row locks
+	 * its key and shows the marker in place of the delete control, so the seeded set cannot be edited
+	 * away, while every other row keeps the free-form behaviour.
+	 */
+	get displayRows()
+	{
+		return this.parameterRows.map((row) => ({...row, isRequired: row.isRequired === true, canRemove: row.isRequired !== true}));
+	}
+
+	/** @description True while an input the selected outbound service declares as mandatory is still missing. */
+	get hasMissingRequiredInput()
+	{
+		return this.isOutbound && this.validateRequiredInputs() !== null;
+	}
+
+	/**
+	 * @description The quiet line under Execute naming what is still missing. Empty once the request
+	 * is ready to send, and empty before a service is chosen — the combobox says that for itself.
+	 */
+	get executeGateReason()
+	{
+		if(!this.isOutbound || !this.selectedService || this.isDescribePending)
+		{
+			return '';
+		}
+
+		return this.validateRequiredInputs() ?? '';
 	}
 
 	/**
@@ -207,7 +299,7 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		{
 			return MODE_BADGE_FULL_SANDBOX;
 		}
-		return SAFE_MODE;
+		return MODE_BADGE_SAFE_MODE_REAL_CALLOUTS;
 	}
 
 	get modeBadgeClass()
@@ -284,7 +376,7 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 
 	get isExecuteDisabled()
 	{
-		return !this.selectedService || this.isLoading;
+		return !this.selectedService || this.isLoading || this.isDescribePending || this.hasMissingRequiredInput;
 	}
 
 	get statusCodeDisplay()
@@ -316,18 +408,39 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		return this.result?.status === 'Aborted';
 	}
 
-	get resultStatusClass()
+	/**
+	 * @description How severely the current result reads: an error when it came back 4xx/5xx or failed
+	 * outright, a warning when the framework aborted it before the callout, and a success on a clean
+	 * run. The single source the status badge and the card accent both render from, so a status added
+	 * later cannot colour the badge one way and the panel edge another.
+	 */
+	get resultSeverity()
 	{
 		const statusCode = this.result?.statusCode;
+
 		if(statusCode != null && statusCode >= 400)
 		{
-			return 'slds-theme_error';
+			return SEVERITY_ERROR;
 		}
-		if(this.result?.isSuccess)
+
+		if(this.isAborted)
 		{
-			return 'slds-theme_success';
+			return SEVERITY_WARNING;
 		}
-		return this.isAborted ? 'slds-theme_warning' : 'slds-theme_error';
+
+		return this.result?.isSuccess ? SEVERITY_SUCCESS : SEVERITY_ERROR;
+	}
+
+	/** @description Theme of the status badge above the result, taken from the result severity. */
+	get resultStatusClass()
+	{
+		return SEVERITY_BADGE_CLASS[this.resultSeverity];
+	}
+
+	/** @description The result panel's left edge, accented from the same severity as the status badge. */
+	get resultCardClass()
+	{
+		return SEVERITY_CARD_CLASS[this.resultSeverity];
 	}
 
 	get executionTimeDisplay()
@@ -446,17 +559,20 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		this.direction = event.detail.value;
 		this.selectedService = '';
 		this.result = null;
+		this.clearServiceDescription();
 		await this.loadServices();
 	}
 
-	handleServiceChange(event)
+	async handleServiceChange(event)
 	{
 		this.selectedService = event.detail.value;
+		await this.loadServiceDescription();
 	}
 
+	/** @description Stores the record Id trimmed, so the gate validates exactly what the request will carry. */
 	handleRecordIdChange(event)
 	{
-		this.recordId = event.detail.value;
+		this.recordId = event.detail.value.trim();
 	}
 
 	handleParameterKeyChange(event)
@@ -473,11 +589,9 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 
 	handleAddParameterRow()
 	{
-		const id = `row-${this._nextRowId}`;
-		this._nextRowId += 1;
 		this.parameterRows = [
 			...this.parameterRows,
-			{id, key: '', value: ''}
+			this.buildParameterRow('', false)
 		];
 	}
 
@@ -486,12 +600,9 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		const rowId = event.currentTarget.dataset.rowId;
 		const remaining = this.parameterRows.filter((row) => row.id !== rowId);
 
-		if(remaining.length === 0)
+		if(!remaining.some((row) => !row.isRequired))
 		{
-			const replacementId = `row-${this._nextRowId}`;
-			this._nextRowId += 1;
-			this.parameterRows = [{id: replacementId, key: '', value: ''}];
-			return;
+			remaining.push(this.buildParameterRow('', false));
 		}
 
 		this.parameterRows = remaining;
@@ -523,8 +634,7 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		this.result = null;
 		this.resultKey = 0;
 		this.copiedButtonId = null;
-		this._nextRowId = 1;
-		this.parameterRows = [{id: 'row-0', key: '', value: ''}];
+		this.clearServiceDescription();
 		this.loadServices();
 	}
 
@@ -533,10 +643,128 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		this.serviceOptions = await this.callControllerMethod(getServices, {direction: this.direction}) || [];
 	}
 
+	/**
+	 * @description Asks the controller what the selected outbound service declares, then reseeds the
+	 * parameter grid from the answer. A describe the controller could not complete comes back empty
+	 * rather than as a failure, so the form falls back to the free-form single row it starts with and
+	 * the harness stays usable. Execute stays shut while the answer is outstanding, and an answer the
+	 * user has already moved on from — a second service, a reset, a direction change — is discarded
+	 * rather than seeding rows that belong to a request nobody is waiting on any more. The request
+	 * number, not the service name, decides that: re-selecting the same service after a reset is a
+	 * new request, and the answer to the one it superseded is dropped rather than seeding twice.
+	 */
+	async loadServiceDescription()
+	{
+		if(!this.isOutbound)
+		{
+			this.clearServiceDescription();
+			return;
+		}
+
+		this._describeRequestNumber += 1;
+
+		const requestNumber = this._describeRequestNumber;
+		this.isDescribePending = true;
+
+		let description;
+
+		try
+		{
+			description = await this.callControllerMethod(describeService, {className: this.selectedService}, {silent: true});
+		}
+		finally
+		{
+			// A superseded describe must leave the flag alone: the newer request that replaced it is
+			// still outstanding and owns it.
+			if(this._describeRequestNumber === requestNumber)
+			{
+				this.isDescribePending = false;
+			}
+		}
+
+		if(this._describeRequestNumber !== requestNumber)
+		{
+			return;
+		}
+
+		this.serviceDescription = description ?? EMPTY_DESCRIPTION;
+		this.seedParameterRows();
+	}
+
+	/**
+	 * @description Forgets what the last service declared and returns the grid to a single free-form
+	 * row. Counts as a describe request of its own, so an answer still in flight is superseded by it.
+	 */
+	clearServiceDescription()
+	{
+		this._describeRequestNumber += 1;
+		this.serviceDescription = EMPTY_DESCRIPTION;
+		this.isDescribePending = false;
+		this.seedParameterRows();
+	}
+
+	/**
+	 * @description Rebuilds the parameter grid: one locked row per declared required input, in the
+	 * order the controller returned them, then exactly one empty row for anything else to send.
+	 */
+	seedParameterRows()
+	{
+		this._nextRowId = 0;
+
+		const requiredRows = this.serviceDescription.inputs
+		.filter((input) => input.isRequired)
+		.map((input) => this.buildParameterRow(input.name, true));
+
+		this.parameterRows = [
+			...requiredRows,
+			this.buildParameterRow('', false)
+		];
+	}
+
+	/** @description Builds one empty-valued parameter row and consumes the next free row id. */
+	buildParameterRow(key, isRequired)
+	{
+		const id = `row-${this._nextRowId}`;
+		this._nextRowId += 1;
+
+		return {id, key, value: '', isRequired};
+	}
+
+	/**
+	 * @description Names the first input the selected service declares as mandatory that is still
+	 * missing, or null when the request is ready to send. One source for the Execute gate, the reason
+	 * line under it, and the pre-flight check in `validateInputs`.
+	 */
+	validateRequiredInputs()
+	{
+		if(this.parameterRows.some((row) => row.isRequired && !(row.value || '').trim()))
+		{
+			return VALIDATION_REQUIRED_PARAMETER_MISSING;
+		}
+
+		if(this.isRecordIdRequired && !this.recordId)
+		{
+			return VALIDATION_RECORD_ID_REQUIRED;
+		}
+
+		if(this.isRecordIdRequired && !RECORD_ID_PATTERN.test(this.recordId))
+		{
+			return VALIDATION_RECORD_ID_INVALID;
+		}
+
+		return null;
+	}
+
 	validateInputs()
 	{
 		if(this.isOutbound)
 		{
+			const missingRequiredInput = this.validateRequiredInputs();
+			if(missingRequiredInput)
+			{
+				return missingRequiredInput;
+			}
+
 			const hasBlankKeyWithValue = this.parameterRows.some((row) => (!row.key || !row.key.trim()) && row.value && row.value.trim() !== '');
 			if(hasBlankKeyWithValue)
 			{

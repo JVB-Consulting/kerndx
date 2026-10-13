@@ -8,12 +8,21 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class UTIL_AccountClassifier_TEST
 {
+	/**
+	 * @description How many child Contacts the parent Account is built with.
+	 */
+	private static final Integer CHILD_CONTACT_COUNT = 3;
+
+	/**
+	 * @description An Account with no Industry is Unclassified. Industry is checked first, so without it nothing else
+	 * about the Account is looked at.
+	 */
 	@IsTest
 	private static void shouldClassifyAsUnclassifiedWhenNoIndustry()
 	{
@@ -24,6 +33,10 @@ private class UTIL_AccountClassifier_TEST
 		Assert.areEqual(UTIL_AccountClassifier.UNCLASSIFIED, result, 'Should be Unclassified when Industry is blank');
 	}
 
+	/**
+	 * @description An Account with an Industry and an annual revenue above the Enterprise threshold (five million here,
+	 * against a threshold of one million) is Enterprise.
+	 */
 	@IsTest
 	private static void shouldClassifyAsEnterpriseWhenHighRevenue()
 	{
@@ -36,6 +49,10 @@ private class UTIL_AccountClassifier_TEST
 		Assert.areEqual(UTIL_AccountClassifier.ENTERPRISE, result, 'Should be Enterprise for high revenue');
 	}
 
+	/**
+	 * @description An Account with an Industry and an annual revenue below the Enterprise threshold (500,000 here) is
+	 * Standard.
+	 */
 	@IsTest
 	private static void shouldClassifyAsStandard()
 	{
@@ -48,6 +65,11 @@ private class UTIL_AccountClassifier_TEST
 		Assert.areEqual(UTIL_AccountClassifier.STANDARD, result, 'Should be Standard for normal revenue');
 	}
 
+	/**
+	 * @description Six Accounts whose Industry cycles through three values, and which have no revenue, are all Standard:
+	 * any Industry is enough, and an Account with no revenue is never Enterprise. Also shows withCycle and withCount on
+	 * kern.TST_Builder, which build several varied records in one call.
+	 */
 	@IsTest
 	private static void shouldClassifyMultipleAccountsWithCycling()
 	{
@@ -63,25 +85,25 @@ private class UTIL_AccountClassifier_TEST
 		}
 	}
 
+	/**
+	 * @description A parent Account with an Industry and no revenue, built in memory with three child Contacts, classifies
+	 * as Standard: the children make no difference to the classification. Shows withChildren on kern.TST_Builder with
+	 * made-up Ids, which puts the Contacts in the parent's Contacts list without saving anything, so no validation rule in
+	 * the org can stop the test.
+	 */
 	@IsTest
-	private static void shouldCreateAccountWithChildren()
+	private static void shouldClassifyAnAccountBuiltWithChildContacts()
 	{
-		kern.UTIL_ValidationRule.bypassObject('Account');
 		Account parent = (Account)kern.TST_Builder.of(Account.SObjectType)
-				.withOverride(Account.Name, 'Parent Corp')
 				.withOverride(Account.Industry, 'Technology')
-				.withChildren(Contact.SObjectType, 3)
+				.withChildren(Contact.SObjectType, CHILD_CONTACT_COUNT)
+				.withoutInsertion(true)
 				.build();
 
-		Assert.isNotNull(parent.Id, 'Parent should be inserted');
-
-		List<Contact> children = kern.QRY_Builder.selectFrom(Contact.SObjectType)
-				.fields(new List<SObjectField> {Contact.LastName, Contact.AccountId})
-				.condition(Contact.AccountId).equals(parent.Id)
-				.toList();
-		Assert.areEqual(3, children.size(), 'Should create 3 child Contacts');
+		Assert.areEqual(CHILD_CONTACT_COUNT, parent.Contacts.size(), 'Expected ' + CHILD_CONTACT_COUNT + ' child Contacts, got ' + parent.Contacts.size());
 
 		String result = UTIL_AccountClassifier.classify(parent);
-		Assert.areEqual(UTIL_AccountClassifier.STANDARD, result, 'Parent should be classified');
+
+		Assert.areEqual(UTIL_AccountClassifier.STANDARD, result, 'Expected Standard for an Account with an Industry and no revenue, got ' + result);
 	}
 }

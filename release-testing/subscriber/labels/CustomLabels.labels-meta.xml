@@ -8,4 +8,12 @@
         <shortDescription>Error toast shown when the accountCard component cannot load its Account.</shortDescription>
         <value>Could not load the account.</value>
     </labels>
+    <labels>
+        <fullName>AccountName_ContainsBlocked</fullName>
+        <categories>Account Validation</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Error shown when a new Account's name contains the word BLOCKED.</shortDescription>
+        <value>Account Name cannot contain BLOCKED</value>
+    </labels>
 </CustomLabels>

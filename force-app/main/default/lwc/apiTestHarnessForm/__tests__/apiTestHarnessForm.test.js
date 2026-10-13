@@ -2,16 +2,20 @@
 /**
  * @description Jest unit tests for apiTestHarnessForm LWC component
  * @author Jason van Beukering
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  */
 
 import {createElement} from 'lwc';
 import ApiTestHarnessForm from 'c/apiTestHarnessForm';
 import getServices from '@salesforce/apex/CTRL_ApiTestHarness.getServices';
+import describeService from '@salesforce/apex/CTRL_ApiTestHarness.describeService';
 import invokeOutbound from '@salesforce/apex/CTRL_ApiTestHarness.invokeOutbound';
 import invokeInbound from '@salesforce/apex/CTRL_ApiTestHarness.invokeInbound';
 
-const mockCallControllerMethod = jest.fn().mockResolvedValue([]);
+const EMPTY_DESCRIPTION = {inputs: [], requiresTriggeringRecord: false};
+const DEFAULT_ROUTING = {services: [], description: EMPTY_DESCRIPTION, result: null, describeRejects: false};
+
+const mockCallControllerMethod = jest.fn();
 const mockShowSuccessToast = jest.fn();
 const mockShowWarningToast = jest.fn();
 const mockShowErrorToast = jest.fn();
@@ -34,6 +38,7 @@ function extractRequest(apexMethod)
 }
 
 jest.mock('@salesforce/apex/CTRL_ApiTestHarness.getServices', () => ({default: jest.fn()}), {virtual: true});
+jest.mock('@salesforce/apex/CTRL_ApiTestHarness.describeService', () => ({default: jest.fn()}), {virtual: true});
 jest.mock('@salesforce/apex/CTRL_ApiTestHarness.invokeOutbound', () => ({default: jest.fn()}), {virtual: true});
 jest.mock('@salesforce/apex/CTRL_ApiTestHarness.invokeInbound', () => ({default: jest.fn()}), {virtual: true});
 
@@ -89,17 +94,22 @@ jest.mock('c/jsonViewer', () =>
 // each to the bare string 'c.<Name>'), so value assertions stay byte-faithful to the shipped
 // labels. The six summary templates keep their {0}-form so the real formatTemplateString
 // interpolation is verified end-to-end.
+jest.mock('@salesforce/label/c.ApiTestHarness_CardTitle', () => ({default: 'API Test Harness'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Direction_Outbound', () => ({default: 'Outbound'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Direction_Inbound', () => ({default: 'Inbound'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_ModeBadge_Live', () => ({default: 'LIVE'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_ModeBadge_LiveDmlMocked', () => ({default: 'Live DML · Mocked callouts'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_ModeBadge_FullSandbox', () => ({default: 'Full Sandbox'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_ModeBadge_SafeModeRealCallouts', () => ({default: 'Safe Mode · Real callouts'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_SafeMode', () => ({default: 'Safe Mode'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Execute', () => ({default: 'Execute'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_ExecuteLive', () => ({default: 'Execute (Live)'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Status_Unknown', () => ({default: 'Unknown'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Validation_BlankParameterKey', () => ({default: 'Parameter key cannot be blank when a value is provided.'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Validation_InvalidJson', () => ({default: 'JSON Body contains invalid JSON.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Validation_RequiredParameterMissing', () => ({default: 'Fill in every required parameter before executing.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Validation_RecordIdRequired', () => ({default: 'This service needs a triggering record ID.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_Validation_RecordIdInvalid', () => ({default: 'Enter a 15- or 18-character record ID.'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Toast_ExecutionSuccess', () => ({default: 'Execution completed successfully'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Toast_ExecutionAborted', () => ({default: 'Execution aborted'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Toast_ExecutionFailed', () => ({default: 'Execution failed'}), {virtual: true});
@@ -125,8 +135,10 @@ jest.mock('@salesforce/label/c.ApiTestHarness_Service', () => ({default: 'Servic
 jest.mock('@salesforce/label/c.ApiTestHarness_Service_ValueMissing', () => ({default: 'Select a service to execute'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Service_Placeholder', () => ({default: 'Select a service'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_RecordId', () => ({default: 'Record ID'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_RecordId_Optional', () => ({default: 'Record ID (optional)'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_RecordId_Placeholder', () => ({default: 'Enter triggering record ID'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Parameters', () => ({default: 'Parameters'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_RequiredMarker', () => ({default: 'Required'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Key', () => ({default: 'Key'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Value', () => ({default: 'Value'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_Name', () => ({default: 'Name'}), {virtual: true});
@@ -158,9 +170,59 @@ jest.mock('@salesforce/label/c.ApiTestHarness_ErrorMessages', () => ({default: '
 jest.mock('@salesforce/label/c.ApiTestHarness_NoData', () => ({default: 'No request or response data available.'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_EmptyState_Heading', () => ({default: 'No response yet'}), {virtual: true});
 jest.mock('@salesforce/label/c.ApiTestHarness_EmptyState_Body', () => ({default: 'Configure the request on the left and click Execute.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_AlternativeText_Executing', () => ({default: 'Executing'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_AlternativeText_RemoveParameter', () => ({default: 'Remove parameter'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_AlternativeText_ExecutionSettings', () => ({default: 'Execution settings'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_AlternativeText_CopySummary', () => ({default: 'Copy summary'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_AlternativeText_CopyRequestHeaders', () => ({default: 'Copy request headers'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_AlternativeText_CopyRequestBody', () => ({default: 'Copy request body'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_AlternativeText_CopyResponseHeaders', () => ({default: 'Copy response headers'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_AlternativeText_CopyResponseBody', () => ({default: 'Copy response body'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_AlternativeText_CopyErrors', () => ({default: 'Copy errors'}), {virtual: true});
+jest.mock('@salesforce/label/c.ApiTestHarness_AlternativeText_NoResponse', () => ({default: 'No response'}), {virtual: true});
 
 describe('c-api-test-harness-form', () =>
 {
+	let routing = {...DEFAULT_ROUTING};
+	let isRoutingConfigured = false;
+
+	/**
+	 * Answers `callControllerMethod` by Apex method identity rather than by call order, so a test
+	 * stays correct however many describe calls the component makes while a service is selected.
+	 * A failed controller call is modelled as a resolved falsy value, never a rejection: the
+	 * wired method routes rejections to `surfaceError` and resolves `undefined` unless asked to
+	 * throw, so a rejection here would not reproduce what the component actually sees.
+	 *
+	 * `description` may be a function of the call parameters instead of a value, which is how a
+	 * test hands back a promise it controls (to hold a describe open) or a different answer per
+	 * service (to interleave two describes).
+	 */
+	function routeControllerCalls(options = {})
+	{
+		isRoutingConfigured = true;
+		routing = {...DEFAULT_ROUTING, ...options};
+
+		mockCallControllerMethod.mockImplementation((method, parameters) =>
+		{
+			if(method === getServices)
+			{
+				return Promise.resolve(routing.services);
+			}
+			if(method === describeService)
+			{
+				const description = typeof routing.description === 'function' ? routing.description(parameters) : routing.description;
+				return Promise.resolve(routing.describeRejects ? null : description);
+			}
+			return Promise.resolve(routing.result);
+		});
+	}
+
+	beforeEach(() =>
+	{
+		routeControllerCalls();
+		isRoutingConfigured = false;
+	});
+
 	afterEach(() =>
 	{
 		while(document.body.firstChild)
@@ -172,6 +234,11 @@ describe('c-api-test-harness-form', () =>
 
 	async function createComponent(props = {})
 	{
+		if(!isRoutingConfigured)
+		{
+			routeControllerCalls({services: [{label: 'Test', value: 'API_Test'}]});
+		}
+
 		const element = createElement('c-api-test-harness-form', {is: ApiTestHarnessForm});
 		Object.assign(element, props);
 		document.body.appendChild(element);
@@ -181,7 +248,7 @@ describe('c-api-test-harness-form', () =>
 
 	async function executeWithResult(element, result)
 	{
-		mockCallControllerMethod.mockResolvedValueOnce(result);
+		routing.result = result;
 
 		const button = element.shadowRoot.querySelector('[data-id="execute"]');
 		button.click();
@@ -189,16 +256,19 @@ describe('c-api-test-harness-form', () =>
 		await Promise.resolve();
 	}
 
+	async function selectService(element, value = 'API_Test')
+	{
+		element.shadowRoot.querySelector('lightning-combobox').dispatchEvent(new CustomEvent('change', {detail: {value}}));
+		await Promise.resolve();
+		await Promise.resolve();
+	}
+
 	async function selectServiceAndExecute(result)
 	{
-		mockCallControllerMethod.mockResolvedValueOnce([{label: 'Test', value: 'API_Test'}]);
 		const element = await createComponent();
 		await Promise.resolve();
 
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
-
+		await selectService(element);
 		await executeWithResult(element, result);
 		return element;
 	}
@@ -261,15 +331,11 @@ describe('c-api-test-harness-form', () =>
 
 	it('should call invokeOutbound on execute for outbound', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValueOnce([{label: 'Test', value: 'API_Test'}]);
+		routeControllerCalls({services: [{label: 'Test', value: 'API_Test'}], result: {isSuccess: true, executionTimeMs: 100}});
 		const element = await createComponent();
 		await Promise.resolve();
 
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 100});
-
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
+		await selectService(element);
 
 		const button = element.shadowRoot.querySelector('[data-id="execute"]');
 		button.click();
@@ -282,17 +348,14 @@ describe('c-api-test-harness-form', () =>
 
 	it('should call invokeInbound on execute for inbound', async() =>
 	{
+		routeControllerCalls({services: [{label: 'Test', value: 'API_Test'}], result: {isSuccess: true, executionTimeMs: 50}});
 		const element = await createComponent();
 
 		const radioGroup = element.shadowRoot.querySelector('lightning-radio-group');
 		radioGroup.dispatchEvent(new CustomEvent('change', {detail: {value: 'Inbound'}}));
 		await Promise.resolve();
 
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 50});
-
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Echo'}}));
-		await Promise.resolve();
+		await selectService(element, 'API_Echo');
 
 		const button = element.shadowRoot.querySelector('[data-id="execute"]');
 		button.click();
@@ -328,9 +391,9 @@ describe('c-api-test-harness-form', () =>
 
 	it('should show warning toast on aborted execution', async() =>
 	{
-		await selectServiceAndExecute({isSuccess: false, status: 'Aborted', executionTimeMs: 10, errorMessages: 'A valid Triggering Object Id is required.'});
+		await selectServiceAndExecute({isSuccess: false, status: 'Aborted', executionTimeMs: 10, errorMessages: 'A valid triggering record Id is required.'});
 
-		expect(mockShowWarningToast).toHaveBeenCalledWith('A valid Triggering Object Id is required.');
+		expect(mockShowWarningToast).toHaveBeenCalledWith('A valid triggering record Id is required.');
 	});
 
 	it('should remove spinner after execution completes', async() =>
@@ -343,15 +406,11 @@ describe('c-api-test-harness-form', () =>
 
 	it('should remove spinner after execution returns undefined', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValueOnce([{label: 'Test', value: 'API_Test'}]);
+		routeControllerCalls({services: [{label: 'Test', value: 'API_Test'}], result: undefined});
 		const element = await createComponent();
 		await Promise.resolve();
 
-		mockCallControllerMethod.mockResolvedValueOnce(undefined);
-
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
+		await selectService(element);
 
 		const button = element.shadowRoot.querySelector('[data-id="execute"]');
 		button.click();
@@ -478,16 +537,8 @@ describe('c-api-test-harness-form', () =>
 		input.dispatchEvent(new CustomEvent('change', {detail: {value: '001000000000001'}}));
 		await Promise.resolve();
 
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 5});
-
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
-
-		const button = element.shadowRoot.querySelector('[data-id="execute"]');
-		button.click();
-		await Promise.resolve();
-		await Promise.resolve();
+		await selectService(element);
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
 
 		const request = extractRequest(invokeOutbound);
 		expect(request.recordId).toBe('001000000000001');
@@ -496,6 +547,7 @@ describe('c-api-test-harness-form', () =>
 	it('should update parameter key/value via the grid inputs', async() =>
 	{
 		const element = await createComponent();
+		await selectService(element);
 
 		const keyInput = element.shadowRoot.querySelector('[data-testid="parameter-key"]');
 		const valueInput = element.shadowRoot.querySelector('[data-testid="parameter-value"]');
@@ -505,16 +557,7 @@ describe('c-api-test-harness-form', () =>
 		valueInput.dispatchEvent(new CustomEvent('change', {detail: {value: 'value'}}));
 		await Promise.resolve();
 
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 5});
-
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
-
-		const button = element.shadowRoot.querySelector('[data-id="execute"]');
-		button.click();
-		await Promise.resolve();
-		await Promise.resolve();
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
 
 		const request = extractRequest(invokeOutbound);
 		expect(request.parameters).toEqual([{name: 'key', value: 'value'}]);
@@ -532,16 +575,8 @@ describe('c-api-test-harness-form', () =>
 		textarea.dispatchEvent(new CustomEvent('change', {detail: {value: '{"test":true}'}}));
 		await Promise.resolve();
 
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 5});
-
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Echo'}}));
-		await Promise.resolve();
-
-		const button = element.shadowRoot.querySelector('[data-id="execute"]');
-		button.click();
-		await Promise.resolve();
-		await Promise.resolve();
+		await selectService(element, 'API_Echo');
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
 
 		const request = extractRequest(invokeInbound);
 		expect(request.jsonBody).toBe('{"test":true}');
@@ -556,16 +591,8 @@ describe('c-api-test-harness-form', () =>
 		safeModeToggle.dispatchEvent(new CustomEvent('change'));
 		await Promise.resolve();
 
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 5});
-
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
-
-		const button = element.shadowRoot.querySelector('[data-id="execute"]');
-		button.click();
-		await Promise.resolve();
-		await Promise.resolve();
+		await selectService(element);
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
 
 		const request = extractRequest(invokeOutbound);
 		expect(request.enableSafeMode).toBe(false);
@@ -580,16 +607,8 @@ describe('c-api-test-harness-form', () =>
 		mockingToggle.dispatchEvent(new CustomEvent('change'));
 		await Promise.resolve();
 
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 5});
-
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
-
-		const button = element.shadowRoot.querySelector('[data-id="execute"]');
-		button.click();
-		await Promise.resolve();
-		await Promise.resolve();
+		await selectService(element);
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
 
 		const request = extractRequest(invokeOutbound);
 		expect(request.enableMocking).toBe(true);
@@ -597,7 +616,7 @@ describe('c-api-test-harness-form', () =>
 
 	it('should default serviceOptions to empty array when loadServices returns undefined', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValueOnce(undefined);
+		routeControllerCalls({services: undefined});
 		const element = await createComponent();
 		await Promise.resolve();
 
@@ -609,13 +628,10 @@ describe('c-api-test-harness-form', () =>
 	{
 		// callControllerMethod resolves undefined after surfacing an Apex failure as an error
 		// toast; a component-level toast on top of that stacks two error toasts for one failure.
-		mockCallControllerMethod.mockResolvedValueOnce([{label: 'Test', value: 'API_Test'}]);
 		const element = await createComponent();
 		await Promise.resolve();
 
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
+		await selectService(element);
 
 		await executeWithResult(element, {isSuccess: true, executionTimeMs: 10});
 		expect(element.shadowRoot.querySelector('[data-id="statusBadge"]')).toBeTruthy();
@@ -691,7 +707,7 @@ describe('c-api-test-harness-form', () =>
 		const tabset = element.shadowRoot.querySelector('lightning-tabset');
 		expect(tabset).toBeFalsy();
 
-		const emptyMessage = element.shadowRoot.querySelector('.slds-text-color_weak');
+		const emptyMessage = element.shadowRoot.querySelector('.slds-align_absolute-center');
 		expect(emptyMessage).toBeTruthy();
 		expect(emptyMessage.textContent).toContain('No request or response data');
 	});
@@ -874,13 +890,10 @@ describe('c-api-test-harness-form', () =>
 
 	it('should show error toast when a parameter value has no key', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValueOnce([{label: 'Test', value: 'API_Test'}]);
 		const element = await createComponent();
 		await Promise.resolve();
 
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
+		await selectService(element);
 
 		const valueInputs = element.shadowRoot.querySelectorAll('[data-testid="parameter-value"]');
 		valueInputs[0].dispatchEvent(new CustomEvent('change', {detail: {value: 'orphan'}}));
@@ -896,13 +909,10 @@ describe('c-api-test-harness-form', () =>
 
 	it('should allow valid key-value parameter pairs', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValueOnce([{label: 'Test', value: 'API_Test'}]);
 		const element = await createComponent();
 		await Promise.resolve();
 
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
+		await selectService(element);
 
 		const firstKey = element.shadowRoot.querySelectorAll('[data-testid="parameter-key"]')[0];
 		const firstValue = element.shadowRoot.querySelectorAll('[data-testid="parameter-value"]')[0];
@@ -922,12 +932,7 @@ describe('c-api-test-harness-form', () =>
 		secondValue.dispatchEvent(new CustomEvent('change', {detail: {value: 'value2'}}));
 		await Promise.resolve();
 
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 5});
-
-		const button = element.shadowRoot.querySelector('[data-id="execute"]');
-		button.click();
-		await Promise.resolve();
-		await Promise.resolve();
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
 
 		const request = extractRequest(invokeOutbound);
 		expect(request.parameters).toEqual([
@@ -976,12 +981,7 @@ describe('c-api-test-harness-form', () =>
 		textarea.dispatchEvent(new CustomEvent('change', {detail: {value: '{"valid":"json"}'}}));
 		await Promise.resolve();
 
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 5});
-
-		const button = element.shadowRoot.querySelector('[data-id="execute"]');
-		button.click();
-		await Promise.resolve();
-		await Promise.resolve();
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
 
 		const request = extractRequest(invokeInbound);
 		expect(request.jsonBody).toBe('{"valid":"json"}');
@@ -1062,13 +1062,10 @@ describe('c-api-test-harness-form', () =>
 
 	it('should filter out parameter rows with blank keys when serializing for Apex', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValueOnce([{label: 'Test', value: 'API_Test'}]);
 		const element = await createComponent();
 		await Promise.resolve();
 
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
+		await selectService(element);
 
 		const addButton = element.shadowRoot.querySelector('[data-testid="add-parameter"]');
 		addButton.dispatchEvent(new CustomEvent('click'));
@@ -1084,12 +1081,7 @@ describe('c-api-test-harness-form', () =>
 		valueInputs[1].dispatchEvent(new CustomEvent('change', {detail: {value: ''}}));
 		await Promise.resolve();
 
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 5});
-
-		const button = element.shadowRoot.querySelector('[data-id="execute"]');
-		button.click();
-		await Promise.resolve();
-		await Promise.resolve();
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
 
 		const request = extractRequest(invokeOutbound);
 		expect(request.parameters).toEqual([{name: 'keepMe', value: 'stays'}]);
@@ -1113,22 +1105,30 @@ describe('c-api-test-harness-form', () =>
 		expect(updatedButton.iconName).toBe('utility:check');
 	});
 
+	it('copies a summary with em dashes where the result named nothing', async() =>
+	{
+		const mockWriteText = jest.fn().mockResolvedValue(undefined);
+		Object.assign(navigator, {clipboard: {writeText: mockWriteText}});
+
+		const element = await selectServiceAndExecute({isSuccess: true, executionTimeMs: 10});
+
+		element.shadowRoot.querySelector('[data-id="copySummary"]').click();
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const copied = mockWriteText.mock.calls[0][0];
+		expect(copied).toContain('Service: \u2014');
+		expect(copied).toContain('Status: Unknown (\u2014)');
+		expect(copied).toContain('API Call ID: \u2014');
+	});
+
 	it('should skip validation for empty parameters', async() =>
 	{
-		mockCallControllerMethod.mockResolvedValueOnce([{label: 'Test', value: 'API_Test'}]);
 		const element = await createComponent();
 		await Promise.resolve();
 
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Test'}}));
-		await Promise.resolve();
-
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 5});
-
-		const button = element.shadowRoot.querySelector('[data-id="execute"]');
-		button.click();
-		await Promise.resolve();
-		await Promise.resolve();
+		await selectService(element);
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
 
 		const request = extractRequest(invokeOutbound);
 		expect(request.parameters).toEqual([]);
@@ -1142,16 +1142,8 @@ describe('c-api-test-harness-form', () =>
 		radioGroup.dispatchEvent(new CustomEvent('change', {detail: {value: 'Inbound'}}));
 		await Promise.resolve();
 
-		const combobox = element.shadowRoot.querySelector('lightning-combobox');
-		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'API_Echo'}}));
-		await Promise.resolve();
-
-		mockCallControllerMethod.mockResolvedValueOnce({isSuccess: true, executionTimeMs: 5});
-
-		const button = element.shadowRoot.querySelector('[data-id="execute"]');
-		button.click();
-		await Promise.resolve();
-		await Promise.resolve();
+		await selectService(element, 'API_Echo');
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
 
 		const request = extractRequest(invokeInbound);
 		expect(request.jsonBody).toBe('');
@@ -1224,12 +1216,12 @@ describe('c-api-test-harness-form', () =>
 		expect(emptyState).toBeFalsy();
 	});
 
-	it('should render Safe Mode badge by default (Safe ON, Mock OFF)', async() =>
+	it('should read Safe Mode · Real callouts on the mode badge when only Safe Mode is on', async() =>
 	{
 		const element = await createComponent();
 
 		const badge = element.shadowRoot.querySelector('[data-testid="mode-badge"]');
-		expect(badge.label).toBe('Safe Mode');
+		expect(badge.label).toBe('Safe Mode · Real callouts');
 		expect(badge.className).toContain('slds-theme_info');
 
 		const safetyBar = element.shadowRoot.querySelector('[data-testid="safety-bar"]');
@@ -1320,7 +1312,6 @@ describe('c-api-test-harness-form', () =>
 		await Promise.resolve();
 		expect(element.shadowRoot.querySelectorAll('.parameter-row').length).toBe(2);
 
-		mockCallControllerMethod.mockResolvedValueOnce([{label: 'Test', value: 'API_Test'}]);
 		const resetButton = element.shadowRoot.querySelector('[data-testid="harness-reset"]');
 		resetButton.dispatchEvent(new CustomEvent('click'));
 		await Promise.resolve();
@@ -1418,5 +1409,443 @@ describe('c-api-test-harness-form', () =>
 
 		const afterTimeout = element.shadowRoot.querySelector('[data-id="copySummary"]');
 		expect(afterTimeout.iconName).toBe('utility:copy_to_clipboard');
+	});
+
+	const PWND_DESCRIPTION = {inputs: [{name: 'password', isRequired: true}], requiresTriggeringRecord: false};
+	const RECORD_DESCRIPTION = {inputs: [], requiresTriggeringRecord: true};
+	const VALID_RECORD_ID = '001000000000001AAA';
+
+	function findParameterRows(element)
+	{
+		return [...element.shadowRoot.querySelectorAll('.parameter-row')];
+	}
+
+	function findExecuteButton(element)
+	{
+		return element.shadowRoot.querySelector('[data-id="execute"]');
+	}
+
+	/** Drains the microtasks a held-open describe needs to settle, seed its rows and re-render. */
+	async function settleDescribe()
+	{
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+	}
+
+	it('seeds one read-only required row per declared input plus one optional row', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Pwnd', value: 'API_GetPwndPasswords'}], description: PWND_DESCRIPTION});
+		const element = await createComponent();
+		await selectService(element, 'API_GetPwndPasswords');
+
+		const seeded = findParameterRows(element);
+		expect(seeded).toHaveLength(2);
+
+		const requiredKey = seeded[0].querySelector('[data-testid="parameter-key"]');
+		expect(requiredKey.value).toBe('password');
+		expect(requiredKey.readOnly).toBe(true);
+		expect(seeded[0].querySelector('[data-testid="parameter-value"]').required).toBe(true);
+		expect(seeded[0].querySelector('[data-testid="remove-parameter"]')).toBeNull();
+		expect(seeded[0].querySelector('[data-testid="required-marker"]').textContent).toBe('Required');
+		expect(seeded[1].querySelector('[data-testid="remove-parameter"]')).not.toBeNull();
+	});
+
+	it('asks the controller what the selected service declares', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Pwnd', value: 'API_GetPwndPasswords'}], description: PWND_DESCRIPTION});
+		const element = await createComponent();
+		await selectService(element, 'API_GetPwndPasswords');
+
+		expect(mockCallControllerMethod).toHaveBeenCalledWith(describeService, {className: 'API_GetPwndPasswords'}, {silent: true});
+	});
+
+	it('disables Execute until every required value is filled', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Pwnd', value: 'API_GetPwndPasswords'}], description: PWND_DESCRIPTION});
+		const element = await createComponent();
+		await selectService(element, 'API_GetPwndPasswords');
+		expect(findExecuteButton(element).disabled).toBe(true);
+
+		const valueInput = findParameterRows(element)[0].querySelector('[data-testid="parameter-value"]');
+		valueInput.dispatchEvent(new CustomEvent('change', {detail: {value: 'Password123'}}));
+		await Promise.resolve();
+		expect(findExecuteButton(element).disabled).toBe(false);
+	});
+
+	it('refuses to execute while a required parameter is blank', async() =>
+	{
+		routeControllerCalls({
+			services: [{label: 'Pwnd', value: 'API_GetPwndPasswords'}], description: PWND_DESCRIPTION, result: {isSuccess: true, executionTimeMs: 5}
+		});
+		const element = await createComponent();
+		await selectService(element, 'API_GetPwndPasswords');
+
+		findExecuteButton(element).click();
+		await Promise.resolve();
+
+		expect(mockShowErrorToast).toHaveBeenCalledWith('Fill in every required parameter before executing.');
+		expect(mockCallControllerMethod).not.toHaveBeenCalledWith(invokeOutbound, expect.anything());
+	});
+
+	it('labels the record id optional when the service does not require one', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Pwnd', value: 'API_GetPwndPasswords'}], description: PWND_DESCRIPTION});
+		const element = await createComponent();
+		await selectService(element, 'API_GetPwndPasswords');
+
+		const recordInput = element.shadowRoot.querySelector('[data-id="recordId"]');
+		expect(recordInput.label).toBe('Record ID (optional)');
+		expect(recordInput.required).toBe(false);
+	});
+
+	it('requires an id-shaped record id when the service declares one', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Post', value: 'API_PostExample'}], description: RECORD_DESCRIPTION});
+		const element = await createComponent();
+		await selectService(element, 'API_PostExample');
+
+		const recordInput = element.shadowRoot.querySelector('[data-id="recordId"]');
+		expect(recordInput.label).toBe('Record ID');
+		expect(recordInput.required).toBe(true);
+		expect(findExecuteButton(element).disabled).toBe(true);
+
+		recordInput.dispatchEvent(new CustomEvent('change', {detail: {value: 'not-an-id'}}));
+		await Promise.resolve();
+		expect(findExecuteButton(element).disabled).toBe(true);
+		expect(element.shadowRoot.querySelector('[data-testid="gate-reason"]').textContent).toBe('Enter a 15- or 18-character record ID.');
+
+		recordInput.dispatchEvent(new CustomEvent('change', {detail: {value: VALID_RECORD_ID}}));
+		await Promise.resolve();
+		expect(findExecuteButton(element).disabled).toBe(false);
+	});
+
+	it('names the missing record id as the reason Execute is disabled', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Post', value: 'API_PostExample'}], description: RECORD_DESCRIPTION});
+		const element = await createComponent();
+		await selectService(element, 'API_PostExample');
+
+		expect(element.shadowRoot.querySelector('[data-testid="gate-reason"]').textContent).toBe('This service needs a triggering record ID.');
+	});
+
+	it('explains why Execute is disabled and clears the reason once executable', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Pwnd', value: 'API_GetPwndPasswords'}], description: PWND_DESCRIPTION});
+		const element = await createComponent();
+		await selectService(element, 'API_GetPwndPasswords');
+		expect(element.shadowRoot.querySelector('[data-testid="gate-reason"]').textContent).toBe('Fill in every required parameter before executing.');
+
+		findParameterRows(element)[0].querySelector('[data-testid="parameter-value"]').dispatchEvent(new CustomEvent('change', {detail: {value: 'Password123'}}));
+		await Promise.resolve();
+		expect(element.shadowRoot.querySelector('[data-testid="gate-reason"]').textContent).toBe('');
+	});
+
+	it('falls back to one optional row when describe fails', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Test', value: 'API_Test'}], describeRejects: true});
+		const element = await createComponent();
+		await selectService(element);
+
+		expect(findParameterRows(element)).toHaveLength(1);
+		expect(findParameterRows(element)[0].querySelector('[data-testid="remove-parameter"]')).not.toBeNull();
+		expect(element.shadowRoot.querySelector('[data-id="recordId"]').required).toBe(false);
+		expect(findExecuteButton(element).disabled).toBe(false);
+	});
+
+	it('re-seeds from scratch on re-select and clears on reset', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Pwnd', value: 'API_GetPwndPasswords'}], description: PWND_DESCRIPTION});
+		const element = await createComponent();
+		await selectService(element, 'API_GetPwndPasswords');
+		element.shadowRoot.querySelector('[data-testid="add-parameter"]').click();
+		await Promise.resolve();
+		expect(findParameterRows(element)).toHaveLength(3);
+
+		await selectService(element, 'API_GetPwndPasswords');
+		expect(findParameterRows(element)).toHaveLength(2);
+
+		element.shadowRoot.querySelector('[data-id="reset"]').click();
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(findParameterRows(element)).toHaveLength(1);
+		expect(element.shadowRoot.querySelector('[data-id="recordId"]').required).toBe(false);
+	});
+
+	it('keeps one empty optional row when the last optional row is removed beside a required one', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Pwnd', value: 'API_GetPwndPasswords'}], description: PWND_DESCRIPTION});
+		const element = await createComponent();
+		await selectService(element, 'API_GetPwndPasswords');
+
+		const removeButtons = element.shadowRoot.querySelectorAll('[data-testid="remove-parameter"]');
+		expect(removeButtons).toHaveLength(1);
+		removeButtons[0].dispatchEvent(new CustomEvent('click'));
+		await Promise.resolve();
+
+		const remaining = findParameterRows(element);
+		expect(remaining).toHaveLength(2);
+		expect(remaining[0].querySelector('[data-testid="parameter-key"]').value).toBe('password');
+		expect(remaining[1].querySelector('[data-testid="parameter-key"]').value).toBe('');
+	});
+
+	it('sends a filled required row as a plain name/value pair', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Pwnd', value: 'API_GetPwndPasswords'}], description: PWND_DESCRIPTION});
+		const element = await createComponent();
+		await selectService(element, 'API_GetPwndPasswords');
+
+		findParameterRows(element)[0].querySelector('[data-testid="parameter-value"]').dispatchEvent(new CustomEvent('change', {detail: {value: 'Password123'}}));
+		await Promise.resolve();
+
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
+
+		expect(extractRequest(invokeOutbound).parameters).toEqual([{name: 'password', value: 'Password123'}]);
+	});
+
+	it('sends the record id trimmed of the whitespace the user pasted', async() =>
+	{
+		routeControllerCalls({services: [{label: 'Post', value: 'API_PostExample'}], description: RECORD_DESCRIPTION});
+		const element = await createComponent();
+		await selectService(element, 'API_PostExample');
+
+		const recordInput = element.shadowRoot.querySelector('[data-id="recordId"]');
+		recordInput.dispatchEvent(new CustomEvent('change', {detail: {value: `  ${VALID_RECORD_ID}  `}}));
+		await Promise.resolve();
+		expect(findExecuteButton(element).disabled).toBe(false);
+
+		await executeWithResult(element, {isSuccess: true, executionTimeMs: 5});
+
+		expect(extractRequest(invokeOutbound).recordId).toBe(VALID_RECORD_ID);
+	});
+
+	it('disables Execute while the service description is still loading', async() =>
+	{
+		let resolveDescribe;
+		const pendingDescribe = new Promise((resolve) =>
+		{
+			resolveDescribe = resolve;
+		});
+		routeControllerCalls({services: [{label: 'Test', value: 'API_Test'}], description: () => pendingDescribe});
+		const element = await createComponent();
+		await selectService(element);
+
+		expect(findExecuteButton(element).disabled).toBe(true);
+		expect(element.shadowRoot.querySelector('[data-testid="gate-reason"]').textContent).toBe('');
+
+		resolveDescribe(EMPTY_DESCRIPTION);
+		await settleDescribe();
+
+		expect(findExecuteButton(element).disabled).toBe(false);
+	});
+
+	it('ignores a describe that resolves after the user has picked another service', async() =>
+	{
+		let resolveFirstDescribe;
+		const firstDescribe = new Promise((resolve) =>
+		{
+			resolveFirstDescribe = resolve;
+		});
+		routeControllerCalls({
+			services: [
+				{label: 'Pwnd', value: 'API_GetPwndPasswords'},
+				{label: 'Post', value: 'API_PostExample'}
+			], description: (parameters) => (parameters.className === 'API_GetPwndPasswords' ? firstDescribe : EMPTY_DESCRIPTION)
+		});
+		const element = await createComponent();
+
+		await selectService(element, 'API_GetPwndPasswords');
+		await selectService(element, 'API_PostExample');
+
+		resolveFirstDescribe(PWND_DESCRIPTION);
+		await settleDescribe();
+
+		expect(findParameterRows(element)).toHaveLength(1);
+		expect(element.shadowRoot.querySelector('[data-testid="required-marker"]')).toBeNull();
+		expect(findExecuteButton(element).disabled).toBe(false);
+	});
+
+	it('applies one seeding when the same service is re-selected after a reset inside the describe window', async() =>
+	{
+		const describeResolvers = [];
+		routeControllerCalls({
+			services: [{label: 'Test', value: 'API_Test'}], description: () => new Promise((resolve) => describeResolvers.push(resolve))
+		});
+		const element = await createComponent();
+
+		await selectService(element);
+
+		element.shadowRoot.querySelector('[data-id="reset"]').click();
+		await Promise.resolve();
+		await Promise.resolve();
+
+		await selectService(element);
+		element.shadowRoot.querySelector('[data-testid="add-parameter"]').click();
+		await Promise.resolve();
+		expect(findParameterRows(element)).toHaveLength(2);
+
+		describeResolvers[0](EMPTY_DESCRIPTION);
+		await settleDescribe();
+
+		expect(findParameterRows(element)).toHaveLength(2);
+		expect(findExecuteButton(element).disabled).toBe(true);
+
+		describeResolvers[1](EMPTY_DESCRIPTION);
+		await settleDescribe();
+
+		expect(findParameterRows(element)).toHaveLength(1);
+		expect(findExecuteButton(element).disabled).toBe(false);
+	});
+
+	it('clears the seeded rows and the record requirement when the direction changes', async() =>
+	{
+		const bothDescription = {inputs: [{name: 'password', isRequired: true}], requiresTriggeringRecord: true};
+		routeControllerCalls({services: [{label: 'Pwnd', value: 'API_GetPwndPasswords'}], description: bothDescription});
+		const element = await createComponent();
+		await selectService(element, 'API_GetPwndPasswords');
+		expect(findParameterRows(element)).toHaveLength(2);
+		expect(element.shadowRoot.querySelector('[data-id="recordId"]').required).toBe(true);
+
+		const radioGroup = element.shadowRoot.querySelector('lightning-radio-group');
+		radioGroup.dispatchEvent(new CustomEvent('change', {detail: {value: 'Inbound'}}));
+		await Promise.resolve();
+		await Promise.resolve();
+		radioGroup.dispatchEvent(new CustomEvent('change', {detail: {value: 'Outbound'}}));
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(findParameterRows(element)).toHaveLength(1);
+		expect(element.shadowRoot.querySelector('[data-id="recordId"]').required).toBe(false);
+	});
+
+	it('renders inside a lightning-card shell with the harness title', async() =>
+	{
+		const element = await createComponent();
+		const card = element.shadowRoot.querySelector('lightning-card');
+		expect(card).not.toBeNull();
+		expect(card.title).toBe('API Test Harness');
+		expect(card.querySelector('[data-testid="api-test-harness-root"]')).not.toBeNull();
+	});
+
+	it('gives the empty state a status role inside the shell', async() =>
+	{
+		const element = await createComponent();
+		expect(element.shadowRoot.querySelector('[data-testid="empty-response"]').getAttribute('role')).toBe('status');
+	});
+
+	it('collapses the gate reason line while it has nothing to say', async() =>
+	{
+		const element = await createComponent();
+		const gateReason = element.shadowRoot.querySelector('[data-testid="gate-reason"]');
+		expect(gateReason.textContent).toBe('');
+		expect(gateReason.classList.contains('gate-reason')).toBe(true);
+	});
+
+	it('accents an aborted result and not a completed one', async() =>
+	{
+		let element = await selectServiceAndExecute({isSuccess: false, status: 'Aborted', executionTimeMs: 10, errorMessages: 'x'});
+		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_warning')).toBe(true);
+
+		element = await selectServiceAndExecute({isSuccess: true, statusCode: 200, status: 'Completed', executionTimeMs: 10});
+		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_warning')).toBe(false);
+		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_error')).toBe(false);
+	});
+
+	it('accents a failed result whether the failure carries a status code or not', async() =>
+	{
+		let element = await selectServiceAndExecute({isSuccess: false, status: 'Failed', executionTimeMs: 10, errorMessages: 'boom'});
+		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_error')).toBe(true);
+
+		element = await selectServiceAndExecute({isSuccess: true, statusCode: 503, status: 'Completed', executionTimeMs: 10});
+		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_error')).toBe(true);
+	});
+
+	it('takes the screen-reader text of the always-rendered icons from Custom Labels', async() =>
+	{
+		const element = await createComponent();
+
+		expect(element.shadowRoot.querySelector('[data-testid="empty-response"] lightning-icon').alternativeText).toBe('No response');
+		expect(element.shadowRoot.querySelector('[data-testid="safety-bar"] lightning-icon').alternativeText).toBe('Execution settings');
+		expect(element.shadowRoot.querySelector('[data-testid="remove-parameter"]').alternativeText).toBe('Remove parameter');
+	});
+
+	it('takes the screen-reader text of the result copy buttons from Custom Labels', async() =>
+	{
+		const element = await selectServiceAndExecute({
+			isSuccess: true,
+			statusCode: 200,
+			status: 'Completed',
+			executionTimeMs: 10,
+			requestBody: '{"a":1}',
+			responseBody: '{"b":2}',
+			requestHeaders: '{"Accept":"application/json"}',
+			responseHeaders: '{"X-Request-Id":"abc123"}',
+			errorMessages: 'boom'
+		});
+
+		expect(element.shadowRoot.querySelector('[data-id="copySummary"]').alternativeText).toBe('Copy summary');
+		expect(element.shadowRoot.querySelector('[data-id="copyRequestHeaders"]').alternativeText).toBe('Copy request headers');
+		expect(element.shadowRoot.querySelector('[data-id="copyRequestBody"]').alternativeText).toBe('Copy request body');
+		expect(element.shadowRoot.querySelector('[data-id="copyResponseHeaders"]').alternativeText).toBe('Copy response headers');
+		expect(element.shadowRoot.querySelector('[data-id="copyResponseBody"]').alternativeText).toBe('Copy response body');
+		expect(element.shadowRoot.querySelector('[data-id="copyErrors"]').alternativeText).toBe('Copy errors');
+	});
+
+	it('reads a completed success as success on the badge and no accent on the card', async() =>
+	{
+		const element = await selectServiceAndExecute({isSuccess: true, statusCode: 200, status: 'Completed', executionTimeMs: 10});
+
+		expect(element.shadowRoot.querySelector('[data-id="statusBadge"]').className).toBe('slds-theme_success');
+		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').className).toBe('slds-box result-card');
+	});
+
+	it('reads a success without a status code as success on the badge and no accent on the card', async() =>
+	{
+		const element = await selectServiceAndExecute({isSuccess: true, status: 'Completed', executionTimeMs: 10});
+
+		expect(element.shadowRoot.querySelector('[data-id="statusBadge"]').className).toBe('slds-theme_success');
+		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').className).toBe('slds-box result-card');
+	});
+
+	it('reads a 4xx as error on both the badge and the card even when the result claims success', async() =>
+	{
+		const element = await selectServiceAndExecute({isSuccess: true, statusCode: 404, status: 'Completed', executionTimeMs: 10});
+
+		expect(element.shadowRoot.querySelector('[data-id="statusBadge"]').className).toBe('slds-theme_error');
+		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').className).toBe('slds-box result-card result-card_error');
+	});
+
+	it('reads a 5xx as error on both the badge and the card', async() =>
+	{
+		const element = await selectServiceAndExecute({isSuccess: false, statusCode: 500, status: 'Failed', executionTimeMs: 10, errorMessages: 'boom'});
+
+		expect(element.shadowRoot.querySelector('[data-id="statusBadge"]').className).toBe('slds-theme_error');
+		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').className).toBe('slds-box result-card result-card_error');
+	});
+
+	it('reads a failure without a status code as error on both the badge and the card', async() =>
+	{
+		const element = await selectServiceAndExecute({isSuccess: false, status: 'Failed', executionTimeMs: 10, errorMessages: 'boom'});
+
+		expect(element.shadowRoot.querySelector('[data-id="statusBadge"]').className).toBe('slds-theme_error');
+		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').className).toBe('slds-box result-card result-card_error');
+	});
+
+	it('reads an aborted run as warning on both the badge and the card', async() =>
+	{
+		const element = await selectServiceAndExecute({isSuccess: false, status: 'Aborted', executionTimeMs: 10, errorMessages: 'x'});
+
+		expect(element.shadowRoot.querySelector('[data-id="statusBadge"]').className).toBe('slds-theme_warning');
+		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').className).toBe('slds-box result-card result-card_warning');
+	});
+
+	it('scrolls header tables inside a wrapper instead of turning the table into a block', async() =>
+	{
+		const element = await selectServiceAndExecute({
+			isSuccess: true, statusCode: 200, status: 'Completed', executionTimeMs: 10, requestHeaders: JSON.stringify({Accept: 'application/json'})
+		});
+		const table = element.shadowRoot.querySelector('.table-scroll table.slds-table');
+		expect(table).not.toBeNull();
 	});
 });

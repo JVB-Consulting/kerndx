@@ -11,10 +11,10 @@
  *
  * @group Trigger Actions
  *
- * @date March 2026, May 2026
+ * @date March 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class TRG_AccountHandlers_TEST
 {
 	/**
@@ -32,7 +32,8 @@ private class TRG_AccountHandlers_TEST
 		}
 		catch(DmlException error)
 		{
-			Assert.isTrue(error.getMessage().contains('BLOCKED'), 'Error should mention BLOCKED');
+			Assert.isTrue(error.getMessage().contains(System.Label.AccountName_ContainsBlocked),
+					'Expected the message "' + System.Label.AccountName_ContainsBlocked + '", got ' + error.getMessage());
 		}
 	}
 
