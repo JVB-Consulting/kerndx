@@ -21,7 +21,7 @@ function mermaidConfigPlugin(userConfig = {})
 	const resolvedId = '\0' + virtualId;
 	// Upstream's defaults. `startOnLoad: false` matters — the component renders on mount itself,
 	// and letting mermaid scan the document on load would race it.
-	const settings = {securityLevel: 'loose', startOnLoad: false, ...userConfig};
+	const settings = {securityLevel: 'strict', startOnLoad: false, ...userConfig};
 	return {
 		name: 'kern-mermaid-config',
 		resolveId(source)
@@ -192,7 +192,7 @@ export default defineConfig({
 		],
 		search: {
 			provider: 'local', options: {
-				// The corpus is code-heavy (269 auto-generated Apex reference pages). Indexing
+				// The corpus is code-heavy (268 generated API reference pages). Indexing
 				// fenced code blocks pushed the local-search index well past the ~1 MB target, so
 				// strip fenced code (and the noisy frontmatter) from the indexed content before
 				// rendering. Prose, headings, and tables are still indexed; code is excluded.
@@ -206,7 +206,16 @@ export default defineConfig({
 					const withoutCode = src
 					.replace(/^---\n[\s\S]*?\n---\n/, '')
 					.replace(/^ {0,3}(([`~])\2{2,})[\s\S]*?^ {0,3}\1\2*\s*$/gm, '');
-					return md.render(withoutCode, env);
+					// The generated API reference pages are the bulk of the corpus even without
+					// their code. Index only the text above a reference page's first "## "
+					// section (its heading and summary; a page with no member sections, such as
+					// a trigger, is small and stays indexed whole): a class or member name still
+					// finds its page, and its member-by-member text stays out of the index. The
+					// artifact audit's search-index budget (scripts/artifact-audit.mjs) fails the
+					// build if the chunk creeps back up.
+					const isReference = (env?.relativePath ?? '').startsWith('reference/');
+					const indexed = isReference ? withoutCode.split(/^## /m)[0] : withoutCode;
+					return md.render(indexed, env);
 				}
 			}
 		}, sidebar, outline: {

@@ -145,7 +145,32 @@ for (const p of pages) {
   }
 }
 
-console.log(`artifact-audit: ${pages.length} pages, ${anchorChecked} in-page anchors checked, ${descGroups.size} distinct descriptions, ${strayPreloads.size} stray preload target(s), ${imgChecked} <img> sized, entry ${entry ? Math.round((await stat(path.join(assetsDir, entry))).size / 1024) + ' KB' : 'missing'}.`)
+// 7. Local-search index budget. The search box downloads @localSearchIndexroot.*.js the first time
+// a reader uses it, so every page's indexed text is paid on that first search. The corpus is the
+// generated API reference pages (268 under src/reference on 2026-08-30) plus the guides. With the
+// reference pages indexed in full the chunk was 3.4 MB raw; config.mjs's search._render strips
+// fenced code from every page and indexes only the text above a reference page's first member
+// section, which brought it to 2.4 MB raw (0.56 MB compressed) on 2026-08-30. What remains is the
+// guides' own prose, spread evenly over them, so a smaller index would mean dropping guides from
+// search. The ceiling sits ~18% above the measured level: room for new guide pages, and a hard stop
+// for the regressions that matter (the reference pages indexed in full again is +1 MB; a bulk page
+// dumped into docs/ shows the same way). Ordinary guide and release-note growth reached 2,823 KB on
+// 2026-10-06, past the first ceiling (2,816 KB); the ceiling was re-set to ~18% above that and still
+// fails the +1 MB regression.
+const SEARCH_INDEX_CEILING_BYTES = 3328 * 1024
+const chunksDir = path.join(assetsDir, 'chunks')
+const searchIndex = (await readdir(chunksDir)).find(f => /^@localSearchIndexroot\.[A-Za-z0-9_-]+\.js$/.test(f))
+let searchIndexBytes = null
+if (!searchIndex) {
+  failures.push('SEARCH  no @localSearchIndexroot.*.js found in dist/assets/chunks — has the local search provider or the build layout changed?')
+} else {
+  searchIndexBytes = (await stat(path.join(chunksDir, searchIndex))).size
+  if (searchIndexBytes > SEARCH_INDEX_CEILING_BYTES) {
+    failures.push(`SEARCH  ${searchIndex} is ${Math.round(searchIndexBytes / 1024)} KB raw, over the ${SEARCH_INDEX_CEILING_BYTES / 1024} KB budget — index less text per page in config.mjs search._render`)
+  }
+}
+
+console.log(`artifact-audit: ${pages.length} pages, ${anchorChecked} in-page anchors checked, ${descGroups.size} distinct descriptions, ${strayPreloads.size} stray preload target(s), ${imgChecked} <img> sized, entry ${entry ? Math.round((await stat(path.join(assetsDir, entry))).size / 1024) + ' KB' : 'missing'}, search index ${searchIndexBytes === null ? 'missing' : Math.round(searchIndexBytes / 1024) + ' KB'}.`)
 if (failures.length) {
   console.error(`\n✗ ${failures.length} failure(s):`)
   for (const f of failures) console.error('  ' + f)
