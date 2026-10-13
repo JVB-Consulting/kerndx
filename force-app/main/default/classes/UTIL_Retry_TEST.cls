@@ -8,12 +8,18 @@
  *
  * @group Resilience
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class UTIL_Retry_TEST
 {
+	/**
+	 * @description The message the exceptions of the type-matcher test carry; the matcher compares type names and never
+	 * reads it.
+	 */
+	private static final String MESSAGE_MATCHER_PROBE = 'A failure the type matcher is asked about';
+
 	/**
 	 * @description Tests exponential backoff strategy with default configuration
 	 */
@@ -493,6 +499,26 @@ private class UTIL_Retry_TEST
 		UTIL_Retry.Context contextWithNoException = UTIL_Retry.newContext(0);
 		Assert.isTrue(strategy.shouldRetry(contextWithNoException),
 				'Context without an exception in customData must fall through to base strategy and retry');
+	}
+
+	/**
+	 * @description Verifies the type matcher the outbound retry decision shares with the strategy filters: an exact type
+	 * name matches, a parent type never matches a thrown subtype, and a null exception, a null set or an empty set matches
+	 * nothing, so a status failure (which carries no exception) can never be opted in by a type.
+	 */
+	@IsTest
+	private static void shouldMatchAnExceptionByItsExactTypeNameOnly()
+	{
+		Set<Type> listedTypes = new Set<Type> {System.IllegalArgumentException.class};
+		Exception listedFailure = new IllegalArgumentException(MESSAGE_MATCHER_PROBE);
+		Exception unlistedFailure = new System.QueryException(MESSAGE_MATCHER_PROBE);
+
+		Assert.isTrue(UTIL_Retry.matchesExceptionType(listedFailure, listedTypes), 'Expected the listed type to match, got no match');
+		Assert.isFalse(UTIL_Retry.matchesExceptionType(unlistedFailure, listedTypes), 'Expected an unlisted type not to match, got a match');
+		Assert.isFalse(UTIL_Retry.matchesExceptionType(listedFailure, new Set<Type> {Exception.class}), 'Expected the parent type Exception to match nothing thrown, got a match');
+		Assert.isFalse(UTIL_Retry.matchesExceptionType(null, listedTypes), 'Expected a null exception to match nothing, got a match');
+		Assert.isFalse(UTIL_Retry.matchesExceptionType(listedFailure, null), 'Expected a null set to match nothing, got a match');
+		Assert.isFalse(UTIL_Retry.matchesExceptionType(listedFailure, new Set<Type>()), 'Expected an empty set to match nothing, got a match');
 	}
 
 	/**

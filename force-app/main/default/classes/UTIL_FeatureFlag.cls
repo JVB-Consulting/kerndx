@@ -15,8 +15,12 @@
  * Performance and SOQL Cost:
  * The first `isEnabled(...)` call per transaction loads every active flag and its active strategies in
  * one CMDT query (`SEL_FeatureFlag.activeFlags` static cache); subsequent calls reuse that cache. Most
- * strategy types then add 1 SOQL per evaluation — Hierarchical/List Custom Setting, Custom Metadata,
- * Profile, Public Group, Permission Set Group, and unprefixed (subscriber-local) Custom Permission.
+ * strategy types then add 1 SOQL per evaluation: Profile, Public Group, Permission Set Group, and unprefixed
+ * (subscriber-local) Custom Permission. A Hierarchical Custom Setting, a List Custom Setting or a Custom Metadata
+ * record is read once per transaction (per setting and user for the hierarchy): the rows are kept in memory
+ * until a framework write empties the query cache, so a loop that checks the same flag pays one query, not one per pass.
+ * Code that flips a setting and checks the flag again in the same transaction writes the setting through
+ * `DML_Builder`; a plain `insert` or `update` leaves the kept rows in place.
  * Namespaced or `core.` Custom Permission for the running user is free (`FeatureManagement.checkPermission()`).
  * For per-record loops or batch jobs, hoist the boolean out of the loop, or implement an
  * `INT_FeatureFlagStrategy` handler that calls typed `MyCS__c.getInstance(...)` to dodge SOQL on
@@ -30,7 +34,7 @@
  *
  * @group Feature Flags
  *
- * @date November 2025, July 2026
+ * @date November 2025, October 2026
  *
  * @since 1.0
  *
@@ -739,7 +743,10 @@ global inherited sharing class UTIL_FeatureFlag
 	}
 
 	/**
-	 * @description Dynamically retrieves a field value from a Custom Metadata Type or List Custom Setting record.
+	 * @description Dynamically retrieves a field value from a Custom Metadata Type or List Custom Setting record. The
+	 * record is read once per transaction and kept in memory until a framework write empties the query cache, so a flag
+	 * checked for every record of a selection costs one query. Neither object has sharing, so the read states none to
+	 * enforce.
 	 *
 	 * @param objectName API name of the object (e.g., `My_Settings__mdt`).
 	 * @param uniqueRecordName DeveloperName (MDT) or Name (List Setting) of the record.
@@ -752,6 +759,8 @@ global inherited sharing class UTIL_FeatureFlag
 	{
 		SObject foundRecord = QRY_Builder.selectFrom(UTIL_SObjectDescribe.getSObjectTypeByName(objectName))
 				.systemModeInternal()
+				.bypassSharingInternal()
+				.withCache(UTIL_Cache.Scope.IN_TRANSACTION, null)
 				.fields(new List<String> {fieldToReturn})
 				.condition(isCustomMetadata ? 'DeveloperName' : 'Name').equals(uniqueRecordName)
 				.getFirst();
@@ -784,6 +793,9 @@ global inherited sharing class UTIL_FeatureFlag
 
 	/**
 	 * @description Retrieves a field value from a Hierarchical Custom Setting, respecting user to profile to org precedence.
+	 * The rows are read once per setting and user in a transaction and kept in memory, so a flag checked for every record
+	 * of a selection costs one query. A framework write empties that memory, so a switch flipped mid-transaction through
+	 * the framework is read again. A custom setting has no sharing, so the read states none to enforce.
 	 *
 	 * @param objectName API name of the Custom Setting (e.g., `My_Settings__c`).
 	 * @param fieldName API name of the field to retrieve.
@@ -802,8 +814,10 @@ global inherited sharing class UTIL_FeatureFlag
 
 		List<SObject> foundSettings = QRY_Builder.selectFrom(UTIL_SObjectDescribe.getSObjectTypeByName(objectName))
 				.systemModeInternal()
+				.bypassSharingInternal()
+				.withCache(UTIL_Cache.Scope.IN_TRANSACTION, null)
 				.fields(new List<String> {setupOwnerFieldName, fieldName})
-				.condition(setupOwnerFieldName).isIn(new List<Id> {userId, profileId, orgId})
+				.condition(setupOwnerFieldName).isIn(ownerIds)
 				.toList();
 		Map<Id, SObject> settingsMap = UTIL_SObject.indexById(foundSettings, setupOwnerFieldName);
 

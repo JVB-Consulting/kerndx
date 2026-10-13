@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ExternalSystemMayHaveActed__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Checked when the external system may already have acted on the request this issue records: a request that is not safe to repeat (a POST or PATCH sent with no Idempotency-Key) got no response, or got a 500, 502 or 504 response; or the external system accepted the request before the call failed in your org. Pressing Retry sends the request again.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>The external system may already have processed this request. Retry sends it again; check the external system first.</inlineHelpText>
+    <label>External System May Have Acted</label>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

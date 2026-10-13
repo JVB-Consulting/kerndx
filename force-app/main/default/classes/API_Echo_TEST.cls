@@ -9,10 +9,10 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class API_Echo_TEST
 {
 	/**
@@ -24,6 +24,26 @@ private class API_Echo_TEST
 	 * @description The endpoint path pattern matching the REST_Echo URL mapping.
 	 */
 	private static final String TEST_ENDPOINT_PATH = '/echo/*';
+
+	/**
+	 * @description The content type header name in mixed case, as a client might send it.
+	 */
+	private static final String MIXED_CASE_CONTENT_TYPE = 'Content-TYPE';
+
+	/**
+	 * @description A content type value different from the canonical one, sent under the lower-case header name.
+	 */
+	private static final String LOWER_CASE_CONTENT_TYPE_VALUE = 'text/plain';
+
+	/**
+	 * @description The partner header the Web Services guide's example reads.
+	 */
+	private static final String PARTNER_HEADER = 'X-Partner-Id';
+
+	/**
+	 * @description The validation error the guide's example reports when the partner header is missing.
+	 */
+	private static final String PARTNER_HEADER_REQUIRED = 'The X-Partner-Id header is required';
 
 	/**
 	 * @description Sets up the Rest request context to mimic an inbound API call
@@ -484,12 +504,7 @@ private class API_Echo_TEST
 		String idempotencyKey = UTIL_Random.randomUUID();
 		String cachedResponseBody = '{"cached":"true","echo":"intercepted"}';
 
-		TST_Builder.of(ApiCall__c.SObjectType)
-				.withOverride(ApiCall__c.IdempotencyKey__c, idempotencyKey)
-				.withOverride(ApiCall__c.Response__c, cachedResponseBody)
-				.withOverride(ApiCall__c.ServiceName__c, SERVICE_NAME)
-				.withOverride(ApiCall__c.Status__c, SEL_ApiCall.STATUS_COMPLETED)
-				.build();
+		insertCompletedApiCall(idempotencyKey, cachedResponseBody);
 
 		enableIdempotency();
 
@@ -516,6 +531,175 @@ private class API_Echo_TEST
 			}
 		}
 		Assert.isTrue(foundIdempotencyHit, 'Should flag the duplicate request as an idempotency hit');
+	}
+
+	/**
+	 * @description Proves a replay whose idempotency header name arrives all lower-case, as Node and every HTTP/2 client send it,
+	 * still returns the cached response: header names carry no case, so the key must be found whatever case the client used.
+	 *
+	 * @see API_Inbound.checkIdempotency
+	 */
+	@IsTest
+	private static void shouldReturnCachedResponseWhenIdempotencyHeaderNameIsLowerCase()
+	{
+		String idempotencyKey = UTIL_Random.randomUUID();
+		String cachedResponseBody = '{"cached":"true","echo":"intercepted"}';
+
+		insertCompletedApiCall(idempotencyKey, cachedResponseBody);
+
+		enableIdempotency();
+
+		setupContext();
+		RestContext.request.headers.put(API_Base.HEADER_IDEMPOTENCY_KEY.toLowerCase(), idempotencyKey);
+
+		Test.startTest();
+
+		API_Base handler = API_Dispatcher.processInboundService(SERVICE_NAME);
+
+		Test.stopTest();
+
+		Assert.areEqual(cachedResponseBody, handler.result.responseBody, 'A lower-case idempotency header name should still return the cached response');
+	}
+
+	/**
+	 * @description Proves the call record keeps the idempotency key when the header name arrives all upper-case, so a replay can find it.
+	 *
+	 * @see API_Inbound.checkIdempotency
+	 */
+	@IsTest
+	private static void shouldPersistIdempotencyKeyWhenHeaderNameIsUpperCase()
+	{
+		String idempotencyKey = UTIL_Random.randomUUID();
+
+		enableIdempotency();
+
+		setupContext();
+		RestContext.request.headers.put(API_Base.HEADER_IDEMPOTENCY_KEY.toUpperCase(), idempotencyKey);
+
+		Test.startTest();
+
+		API_Dispatcher.processInboundService(SERVICE_NAME);
+
+		Test.stopTest();
+
+		ApiCall__c apiCall = SEL_ApiCall.assertServiceCompleted(SERVICE_NAME).iterator().next();
+
+		Assert.areEqual(idempotencyKey, apiCall.IdempotencyKey__c, 'An upper-case idempotency header name should still persist the key');
+	}
+
+	/**
+	 * @description Proves the content type is read when its header name arrives all lower-case, so a JSON body from such a client is recognised.
+	 *
+	 * @see API_Inbound.getEncoding
+	 */
+	@IsTest
+	private static void shouldReadContentTypeWhenHeaderNameIsLowerCase()
+	{
+		setupContext();
+		RestContext.request.headers.remove(API_Base.HTTP_CONTENT_TYPE);
+		RestContext.request.headers.put(API_Base.HTTP_CONTENT_TYPE.toLowerCase(), API_Base.HTTP_ENCODING_JSON);
+
+		Test.startTest();
+
+		String encoding = new API_HeaderReader().readEncoding();
+
+		Test.stopTest();
+
+		Assert.areEqual(API_Base.HTTP_ENCODING_JSON, encoding, 'A lower-case content type header name should still be read');
+	}
+
+	/**
+	 * @description Proves the content type is read when its header name arrives in mixed case.
+	 *
+	 * @see API_Inbound.getEncoding
+	 */
+	@IsTest
+	private static void shouldReadContentTypeWhenHeaderNameIsMixedCase()
+	{
+		setupContext();
+		RestContext.request.headers.remove(API_Base.HTTP_CONTENT_TYPE);
+		RestContext.request.headers.put(MIXED_CASE_CONTENT_TYPE, API_Base.HTTP_ENCODING_JSON);
+
+		Test.startTest();
+
+		String encoding = new API_HeaderReader().readEncoding();
+
+		Test.stopTest();
+
+		Assert.areEqual(API_Base.HTTP_ENCODING_JSON, encoding, 'A mixed-case content type header name should still be read');
+	}
+
+	/**
+	 * @description Proves the caller's trace is adopted when the trace header name arrives capitalised as `Traceparent`, so a caller that
+	 * does not send the lower-case spelling still has its calls tied to its own trace.
+	 *
+	 * @see API_Inbound.extractTraceContext
+	 */
+	@IsTest
+	private static void shouldAdoptTraceParentWhenHeaderNameIsCapitalised()
+	{
+		String traceId = EncodingUtil.convertToHex(Crypto.generateAesKey(128)).substring(0, 32);
+		String spanId = EncodingUtil.convertToHex(Crypto.generateAesKey(128)).substring(0, 16);
+		String traceParent = '00-' + traceId + '-' + spanId + '-01';
+
+		setupContext();
+		RestContext.request.headers.put(API_Base.HEADER_TRACE_PARENT.capitalize(), traceParent);
+
+		Test.startTest();
+
+		API_Dispatcher.processInboundService(SERVICE_NAME);
+
+		Test.stopTest();
+
+		ApiCall__c apiCall = SEL_ApiCall.assertServiceCompleted(SERVICE_NAME).iterator().next();
+
+		Assert.areEqual(traceId, apiCall.TraceId__c, 'Trace ID should be parsed from a capitalised Trace Parent header');
+		Assert.areEqual(spanId, apiCall.ParentSpanId__c, 'Parent span ID should be parsed from a capitalised Trace Parent header');
+	}
+
+	/**
+	 * @description Proves that when a request carries the content type under both the canonical and the lower-case spelling, the canonical
+	 * one is read, so a request that worked before keeps reading the same value.
+	 *
+	 * @see API_Inbound.getEncoding
+	 */
+	@IsTest
+	private static void shouldPreferCanonicalContentTypeWhenBothSpellingsArePresent()
+	{
+		setupContext();
+		RestContext.request.headers.put(API_Base.HTTP_CONTENT_TYPE.toLowerCase(), LOWER_CASE_CONTENT_TYPE_VALUE);
+
+		Test.startTest();
+
+		String encoding = new API_HeaderReader().readEncoding();
+
+		Test.stopTest();
+
+		Assert.areEqual(API_Base.HTTP_ENCODING_JSON, encoding, 'The canonically spelled content type should win over the lower-case one');
+	}
+
+	/**
+	 * @description Proves the header read the Web Services guide shows, written inside a handler's getValidationErrors override, compiles and
+	 * finds a header sent in lower case, and reports the header as missing when the request does not carry it.
+	 *
+	 * @see UTIL_Map.CaseInsensitiveMap
+	 */
+	@IsTest
+	private static void shouldReadHeaderInsideOverrideAsTheGuideShows()
+	{
+		setupContext();
+		API_HeaderReader reader = new API_HeaderReader();
+
+		Test.startTest();
+
+		List<String> errorsWithoutHeader = reader.getValidationErrors();
+		RestContext.request.headers.put(PARTNER_HEADER.toLowerCase(), UTIL_Random.randomName());
+		List<String> errorsWithHeader = reader.getValidationErrors();
+
+		Test.stopTest();
+
+		Assert.areEqual(new List<String> {PARTNER_HEADER_REQUIRED}, errorsWithoutHeader, 'A request without the partner header should fail validation');
+		Assert.isTrue(errorsWithHeader.isEmpty(), 'A lower-case partner header should satisfy the validation');
 	}
 
 	/**
@@ -641,12 +825,7 @@ private class API_Echo_TEST
 		String divergentRequestBody = '{"helloWorld":"new-shape"}';
 		String cachedResponseBody = '{"echo":"legacy-cached"}';
 
-		TST_Builder.of(ApiCall__c.SObjectType)
-				.withOverride(ApiCall__c.IdempotencyKey__c, idempotencyKey)
-				.withOverride(ApiCall__c.Response__c, cachedResponseBody)
-				.withOverride(ApiCall__c.ServiceName__c, SERVICE_NAME)
-				.withOverride(ApiCall__c.Status__c, SEL_ApiCall.STATUS_COMPLETED)
-				.build();
+		insertCompletedApiCall(idempotencyKey, cachedResponseBody);
 
 		enableIdempotency();
 		API_InboundTestHelper.setupRestContext();
@@ -816,6 +995,22 @@ private class API_Echo_TEST
 	}
 
 	/**
+	 * @description Saves a completed Echo API call carrying an idempotency key and the response a replay should return.
+	 *
+	 * @param idempotencyKey The idempotency key the earlier call was made with
+	 * @param responseBody The response the earlier call returned
+	 */
+	private static void insertCompletedApiCall(String idempotencyKey, String responseBody)
+	{
+		TST_Builder.of(ApiCall__c.SObjectType)
+				.withOverride(ApiCall__c.IdempotencyKey__c, idempotencyKey)
+				.withOverride(ApiCall__c.Response__c, responseBody)
+				.withOverride(ApiCall__c.ServiceName__c, SERVICE_NAME)
+				.withOverride(ApiCall__c.Status__c, SEL_ApiCall.STATUS_COMPLETED)
+				.build();
+	}
+
+	/**
 	 * @description Enables idempotency for the Echo API by mocking the ApiSetting metadata record.
 	 */
 	private static void enableIdempotency()
@@ -824,10 +1019,48 @@ private class API_Echo_TEST
 	}
 
 	/**
+	 * @description An inbound handler written the way the Web Services guide shows, used to read request headers through the protected API.
+	 */
+	private class API_HeaderReader extends API_Inbound
+	{
+		/**
+		 * @description Rejects a request that does not name the partner sending it, reading the header exactly as the guide's example does.
+		 *
+		 * @return The validation errors, empty when the partner header is present in any case
+		 */
+		public override List<String> getValidationErrors()
+		{
+			List<String> errors = super.getValidationErrors();
+			String partner = (String)new UTIL_Map.CaseInsensitiveMap(request.headers).get(PARTNER_HEADER);
+
+			if(String.isBlank(partner))
+			{
+				errors.add(PARTNER_HEADER_REQUIRED);
+			}
+
+			return errors;
+		}
+
+		/**
+		 * @description Reads the request's content type through the handler's own encoding lookup.
+		 *
+		 * @return The content type header value, or null when the request has none
+		 */
+		public String readEncoding()
+		{
+			return getEncoding();
+		}
+	}
+
+	/**
 	 * @description Class used to generate a test JSON payload to test the API
 	 */
 	private class DTO_InboundTest extends DTO_JsonBase
 	{
+		/**
+		 * @description The only value in the test payload. The tests give it a random value so the request body serialises to
+		 * JSON of the form {"helloWorld":"..."} and each test can check that the same body comes back from the echo service.
+		 */
 		private String helloWorld;
 
 		/**

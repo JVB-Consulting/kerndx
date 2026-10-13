@@ -36,9 +36,9 @@
  *
  * @group Logging
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
-@SuppressWarnings('PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.ExcessivePublicCount,PMD.NcssTypeCount')
+@SuppressWarnings('PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.ExcessivePublicCount,PMD.NcssTypeCount,PMD.NcssCount')
 public inherited sharing class LOG_Engine
 {
 	/**
@@ -49,9 +49,8 @@ public inherited sharing class LOG_Engine
 	private static final Id CURRENT_USER_ID = UserInfo.getUserId();
 
 	/**
-	 * @description Maximum events per `EventBus.publish` batch. With `ContextData__c` permitted up
-	 * to 32KB, 50 events conservatively stays under the 1MB platform-event payload limit
-	 * (~1.6MB headroom). Lowering risks more publishes; raising risks payload-size errors.
+	 * @description The engine publishes at most 50 events in one `EventBus.publish` call. A lower number means more
+	 * publishes; a higher number risks errors when the data is too large.
 	 */
 	private static final Integer BATCH_SIZE = 50;
 
@@ -63,26 +62,41 @@ public inherited sharing class LOG_Engine
 	private static final Integer CLASS_METHOD_LENGTH = LogEntryEvent__e.ClassMethod__c.getDescribe().length;
 
 	/**
-	 * @description Regex used by `DTO_LogMessages.getStackTrace` to parse Apex stack-trace lines
-	 * into class/method/line components. Compiled once because regex compilation is non-trivial.
+	 * @description The character the bridges put between their prefix and the writer's name in `ClassMethod__c`,
+	 * as in `LWC/orderPanel.submitOrder` and `Flow/Order Intake`.
 	 */
-	private static final Pattern STACK_LINE = Pattern.compile('^(?:Class\\.)?([^.]+)\\.?([^.:]+)?[.:]?([^.:]*): line (\\d+), column (\\d+)$');
+	public static final String SOURCE_PREFIX_DELIMITER = '/';
 
 	/**
-	 * @description Leading token of an Apex class stack frame (`Class.Name.method: line N`), used
-	 * to anchor framework-frame prefixes to the start of a frame.
+	 * @description The value the Flow bridges push under the `source` context key.
 	 */
-	private static final String CLASS_FRAME_PREFIX = 'Class' + UTIL_String.DOT;
+	public static final String FLOW_SOURCE_MARKER = 'Flow';
 
 	/**
-	 * @description Frame prefixes used to strip framework infrastructure frames from generated
-	 * stack traces so logging plumbing (builder, engine, LWC/Flow bridges) doesn't dominate the
-	 * persisted `StackTrace__c` field. Each prefix anchors to the full class-frame shape
-	 * (`Class.<resolved name>.`) and derives the name from the class reference rather than a
-	 * string literal, so it carries the package namespace when installed managed
-	 * (`Class.kern.LOG_Engine.`) and cannot match a subscriber class whose name merely ends with a
-	 * framework class name (`Class.AppLOG_Engine.run`). Entries logged through a bridge with no
-	 * caller frames left persist an empty trace rather than a misleading one.
+	 * @description The prefix the Flow bridges put before a Flow's name or step in `ClassMethod__c`. Shared with
+	 * `resolveSource` so the writer and the reader can never disagree.
+	 */
+	public static final String FLOW_SOURCE_PREFIX = FLOW_SOURCE_MARKER + SOURCE_PREFIX_DELIMITER;
+
+	/**
+	 * @description Shape of one Apex stack-trace frame, used by `DTO_LogMessages.getStackTrace` to keep the
+	 * frames of a synthetic trace and drop every other line. A frame is a location token followed by
+	 * `: line N, column M`; the token holds any number of dotted segments (the `Class.` prefix, a namespace,
+	 * the outer class, an inner class, the method), so an inner class's frame in a namespaced org survives.
+	 * A managed frame masked to `(namespace)` in a subscriber org and a blank line have no location and are
+	 * dropped. Compiled once because regex compilation is non-trivial.
+	 */
+	private static final Pattern STACK_LINE = Pattern.compile('^[^\\s:]+: line \\d+, column \\d+$');
+
+	/**
+	 * @description The start of each stack-trace line (frame) that belongs to the logging framework itself: the
+	 * builder, the engine, and the classes that pass logs from Lightning web components and Flows (the bridges).
+	 * These frames are removed from a generated stack trace, so they do not fill the saved `StackTrace__c` field.
+	 * Each prefix matches the full start of a class frame (`Class.<resolved name>.`). It takes the name from the
+	 * class itself, not from fixed text, so it includes the package namespace in a managed install
+	 * (`Class.kern.LOG_Engine.`). It also cannot match a subscriber class whose name only ends with a framework
+	 * class name (`Class.AppLOG_Engine.run`). An entry logged through a bridge, with no caller frames left, saves an
+	 * empty stack trace rather than a misleading one.
 	 */
 	private static final Set<String> FRAMEWORK_FRAME_PREFIXES = new Set<String>
 	{
@@ -125,9 +139,23 @@ public inherited sharing class LOG_Engine
 	private static Boolean simulateDMLimitsBreach = false;
 
 	/**
-	 * @description String name of `LoggingLevel.WARN` cached once for repeated comparisons in the
-	 * threshold-filter and ordinal-lookup hot paths. `LoggingLevel.WARN.name()` calls into the
-	 * platform every invocation; caching avoids the per-emit overhead.
+	 * @description The start of the debug text written when a stored logging context cannot be restored. The error
+	 * message follows it.
+	 */
+	@TestVisible
+	private static final String HYDRATION_FAILURE_PREFIX = 'Failed to hydrate logging context. Error: ';
+
+	/**
+	 * @description Separates the error from the masked stored context in the debug text written when a stored logging
+	 * context cannot be restored.
+	 */
+	@TestVisible
+	private static final String HYDRATION_PAYLOAD_SEPARATOR = ' | Payload: ';
+
+	/**
+	 * @description String name of `LoggingLevel.WARN`, read once and kept for the comparisons that run on every
+	 * log: the level threshold check and the severity lookup. `LoggingLevel.WARN.name()` calls the platform every
+	 * time, so keeping the value saves that cost on each emit.
 	 */
 	@TestVisible
 	private static final String LEVEL_WARN = LoggingLevel.WARN.name();
@@ -141,7 +169,8 @@ public inherited sharing class LOG_Engine
 
 	/**
 	 * @description String name of `LoggingLevel.ERROR` cached once. Used by `publishEventsTo` to
-	 * detect ERROR entries that bypass the suspended-saving buffer.
+	 * detect ERROR entries that bypass the suspended-saving buffer, except inside a platform-event or
+	 * change-event trigger the dispatcher runs, where they wait with the rest until the trigger ends.
 	 */
 	@TestVisible
 	private static final String LEVEL_ERROR = LoggingLevel.ERROR.name();
@@ -244,6 +273,38 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
+	 * @description The prefix the component bridge puts before a component's name in `ClassMethod__c`. Shared
+	 * with `resolveSource`.
+	 */
+	public static final String COMPONENT_SOURCE_PREFIX = OperationType.LWC.name() + SOURCE_PREFIX_DELIMITER;
+
+	/**
+	 * @description Who wrote a log entry: the framework's own code, your Apex, a Flow, or a Lightning web
+	 * component. Stored on the entry's `Origin__c` field by `name()`.
+	 *
+	 * @since 1.8
+	 */
+	public enum Origin
+	{
+		/**
+		 * @description The framework's own code, recognised by the package namespace on the class name.
+		 */
+		FRAMEWORK,
+		/**
+		 * @description Apex outside the framework's namespace.
+		 */
+		APEX,
+		/**
+		 * @description A Flow, through one of the framework's Flow actions.
+		 */
+		FLOW,
+		/**
+		 * @description A Lightning web component, through the framework's client logger.
+		 */
+		COMPONENT
+	}
+
+	/**
 	 * @description Context key for the source of the log entry (e.g., 'LWC', 'Flow', 'Apex').
 	 */
 	public static final String CONTEXT_SOURCE = 'source';
@@ -279,6 +340,18 @@ public inherited sharing class LOG_Engine
 	 * @description Context key for the record scope (Ids in process) of a failed asynchronous job.
 	 */
 	public static final String CONTEXT_JOB_SCOPE = 'jobScope';
+	/**
+	 * @description Context key for whether the platform cut a failed batch job's record scope short because it was too long to carry whole.
+	 */
+	public static final String CONTEXT_JOB_SCOPE_TRUNCATED = 'jobScopeTruncated';
+	/**
+	 * @description Context key for the step a failed batch job was in when it failed (START, EXECUTE or FINISH).
+	 */
+	public static final String CONTEXT_BATCH_PHASE = 'batchPhase';
+	/**
+	 * @description Context key for the platform's id of the request in which a batch job failed.
+	 */
+	public static final String CONTEXT_REQUEST_ID = 'requestId';
 	/**
 	 * @description Context key for the Flow name.
 	 */
@@ -336,16 +409,16 @@ public inherited sharing class LOG_Engine
 	 */
 	public static final String CONTEXT_ACTION_NAME = 'actionName';
 	/**
-	 * @description Context key carrying the client-side JavaScript error stack captured by the
-	 * LWC logger. Promoted into `StackTrace__c` by `CTRL_Logger` instead of the synthetic Apex
-	 * trace, which for LWC entries holds only framework plumbing.
+	 * @description Context key for the JavaScript error stack that the Lightning web component logger captured in
+	 * the browser. `CTRL_Logger` saves it in `StackTrace__c` instead of the Apex stack trace, which for these
+	 * entries shows only framework code.
 	 */
 	public static final String CONTEXT_ERROR_STACK = 'errorStack';
 	/**
-	 * @description Context key carrying the exception class a client-side failure reported — the Apex
-	 * exception name an Aura failure relays, or the JavaScript error name. Promoted into
-	 * `ExceptionType__c` by `CTRL_Logger` so an LWC failure names its type the way a server-side one
-	 * does and joins the same problem grouping.
+	 * @description Context key for the exception class that a failure in the browser reported: the Apex exception
+	 * name that an Aura failure passes on, or the JavaScript error name. `CTRL_Logger` saves it in
+	 * `ExceptionType__c`, so a failure in a Lightning web component names its type the way a failure in Apex does,
+	 * and is grouped with the same problems.
 	 */
 	public static final String CONTEXT_EXCEPTION_TYPE = 'exceptionType';
 	/**
@@ -389,9 +462,9 @@ public inherited sharing class LOG_Engine
 	 */
 	public static final String CONTEXT_FAILURE_ACTION = 'failureAction';
 	/**
-	 * @description Context key recording the original fingerprint key a caller passed, written only
-	 * when the key was transformed (hashed) during normalization so the opaque stored fingerprint
-	 * stays reconcilable with what the caller supplied.
+	 * @description Context key that records the original fingerprint key a caller passed. It is written only when
+	 * the key was changed (hashed) while being cleaned up, so the stored hash can still be matched to the key the
+	 * caller supplied.
 	 */
 	public static final String CONTEXT_FINGERPRINT_SOURCE = 'fingerprintSource';
 
@@ -404,26 +477,35 @@ public inherited sharing class LOG_Engine
 	private static String currentCorrelationId;
 
 	/**
-	 * @description Per-emit fingerprint channel — set by `LOG_Builder.LogEntry.emitInternal` just
-	 * before the log call and cleared in its finally, mirroring the per-entry context push/pop.
-	 * Carried onto every `LogEntryEvent__e` built while set.
+	 * @description Transaction-scoped root correlation id: the tracking id of the action that started everything this
+	 * transaction belongs to. Set by the first correlation a request establishes and never moved afterwards; carried
+	 * by every context document, so a chain or job that runs under a tracking id of its own still names the action.
+	 * Stamped onto every emitted `LogEntryEvent__e.RootCorrelationId__c`.
+	 */
+	@TestVisible
+	private static String currentRootCorrelationId;
+
+	/**
+	 * @description The fingerprint for the current emit only. A value that lives for one emit is called a channel.
+	 * `LOG_Builder.LogEntry.emitInternal` sets it just before the log call and clears it in its finally block, the
+	 * same way it sets and clears the entry's own context. Every `LogEntryEvent__e` built while it is set carries it.
 	 */
 	private static String currentFingerprint;
 
 	/**
-	 * @description Per-emit stack-trace override channel — set by `LOG_Builder.LogEntry.emitInternal`
-	 * just before the log call and cleared in its finally, mirroring the fingerprint channel. Used
-	 * when the true stack is known but is not the current Apex call stack (e.g. a client-side
-	 * JavaScript stack relayed by `CTRL_Logger`). A real exception's own trace always wins over it.
+	 * @description The stack trace to use instead of the Apex call stack, for the current emit only.
+	 * `LOG_Builder.LogEntry.emitInternal` sets it just before the log call and clears it in its finally block, like
+	 * the fingerprint. It is used when the real stack is known but is not the current Apex call stack, for example
+	 * a JavaScript stack that `CTRL_Logger` passes on from the browser. A real exception's own stack trace is always
+	 * used instead of it.
 	 */
 	private static String currentStackTrace;
 
 	/**
-	 * @description Per-emit exception-type override channel — set by `LOG_Builder.LogEntry.emitInternal`
-	 * just before the log call and cleared in its finally, mirroring the stack-trace channel. Used when
-	 * the failure's type is known but no Apex exception carries it, such as the exception class a
-	 * client-side failure reported and `CTRL_Logger` relays. A real exception's own type always wins
-	 * over it.
+	 * @description The exception type to record, for the current emit only. `LOG_Builder.LogEntry.emitInternal`
+	 * sets it just before the log call and clears it in its finally block, like the stack trace. It is used when the
+	 * failure's type is known but no Apex exception carries it, such as the exception class that a failure in the
+	 * browser reported and `CTRL_Logger` passes on. A real exception's own type is always used instead of it.
 	 */
 	private static String currentExceptionType;
 
@@ -502,24 +584,22 @@ public inherited sharing class LOG_Engine
 	private static Boolean eventContextDidSuspendSaving = false;
 
 	/**
-	 * @description Running count of DML statements consumed by the framework's own log
-	 * persistence — `TRG_PersistLogEntry.persist` reached via `dispatchEvents` in event-trigger
-	 * context, the only engine egress that moves `Limits.getDmlStatements()` (publishing is
-	 * metered by `Limits.getPublishImmediateDML()` instead). Read by
-	 * `UTIL_PostTriggerAction.runOne` through `getFrameworkLogPersistenceDmlStatements` so the
-	 * post-action no-DML guard discounts the engine's own persistence from its measured delta —
-	 * a post-action that logs must not be blamed for DML the logger itself performed.
-	 * Engine-owned and transaction-scoped, the same ownership shape as the event-trigger-context
-	 * re-entrancy state above.
+	 * @description Running count of the DML statements the framework used to save its own logs. Inside an event
+	 * trigger, `dispatchEvents` saves logs by calling `TRG_PersistLogEntry.persist`. That is the only way the engine
+	 * sends logs out that counts in `Limits.getDmlStatements()`; publishing counts in
+	 * `Limits.getPublishImmediateDML()` instead. `UTIL_PostTriggerAction.runOne` reads this count through
+	 * `getFrameworkLogPersistenceDmlStatements`. A post-action may not do DML, and the check for that subtracts the
+	 * engine's own log saves from the DML it measured. So a post-action that logs is not blamed for DML the logger
+	 * did. Only the engine changes this value, and it lasts for one transaction, like the event-trigger state above.
 	 */
 	private static Integer frameworkLogPersistenceDmlStatements = 0;
 
 	/**
-	 * @description Application log buffer. Accumulates `LogEntryEvent__e` events while
-	 * `isSavingSuspended` is `true`, then drains via `flushBuffer()` in chunked batches through
-	 * `safePublish` to honor the platform-event 1MB payload limit. Audit-shape entries are
-	 * tracked separately on `auditLogBuffer` so test assertions that count buffer size are not
-	 * polluted by `BypassEvent` emissions.
+	 * @description Application log buffer: the `LogEntryEvent__e` events waiting to be published. It collects
+	 * events while `isSavingSuspended` is `true`. `flushBuffer()` then publishes them in batches through
+	 * `safePublish`, at most `BATCH_SIZE` events in one publish, so one publish never carries too much data. Audit
+	 * entries are kept separately in `auditLogBuffer`, so that `BypassEvent` entries do not change the results of
+	 * tests that count this buffer.
 	 */
 	@TestVisible
 	private static List<LogEntryEvent__e> logBuffer
@@ -536,12 +616,11 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Audit log buffer. Accumulates `BypassEvent`-shape `LogEntryEvent__e` events
-	 * routed through `LOG_Engine.publishAuditEvents` (via `LOG_Builder.LogEntry.emitAsAudit()`).
-	 * Drained alongside `logBuffer` by `flushBuffer()` so subscribers see one platform-event
-	 * publisher; isolated from `logBuffer` so application-log buffer-size assertions aren't
-	 * contaminated by audit emissions and the `emit→deliver→persist→emit` cascade has no
-	 * fixpoint to land in.
+	 * @description Audit log buffer. It collects the `BypassEvent` `LogEntryEvent__e` events sent through
+	 * `LOG_Engine.publishAuditEvents` (from `LOG_Builder.LogEntry.emitAsAudit()`). `flushBuffer()` publishes it
+	 * together with `logBuffer`, so subscribers see a single publisher of platform events. It is kept apart from
+	 * `logBuffer` for two reasons. Tests that count the application log buffer are not affected by audit entries.
+	 * And it stops a loop where an audit entry is emitted, delivered and saved, and its save emits another one.
 	 */
 	@TestVisible
 	private static List<LogEntryEvent__e> auditLogBuffer
@@ -558,15 +637,15 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Buffer-size threshold beyond which `publishEventsTo` auto-flushes to bound
-	 * memory under sustained suspended-saving load. Each chunk to `safePublish` is limited to
-	 * `BATCH_SIZE` (50) events to stay under the 1MB platform-event payload limit.
+	 * @description The buffer size above which `publishEventsTo` publishes the buffer by itself, to limit memory
+	 * use when saving stays suspended for a long time. Each batch sent to `safePublish` holds at most
+	 * `BATCH_SIZE` (50) events: the engine publishes at most 50 events in one `EventBus.publish` call.
 	 */
 	private static final Integer MAX_BUFFER_SIZE = 500;
 
 	/**
-	 * @description Test seam: when `true`, `safePublish` throws a `TestSimulatedException` so
-	 * tests can verify the logger never crashes the business transaction on publish failure.
+	 * @description When a test sets this to `true`, `safePublish` throws a `TestSimulatedException`. Tests use it
+	 * to check that a failed publish never makes the business transaction fail.
 	 */
 	@TestVisible
 	private static Boolean simulatePublishFailure = false;
@@ -574,7 +653,7 @@ public inherited sharing class LOG_Engine
 	/**
 	 * @description Stack of operation contexts for nested operation tracking. Each entry
 	 * represents a nested operation (webservice, query, trigger, flow, lwc). Contexts are merged
-	 * when serializing to logs — later contexts override earlier ones. Lazy-allocated so
+	 * when serializing to logs; later contexts override earlier ones. Lazy-allocated so
 	 * transactions that never push an operation context incur no list allocation.
 	 */
 	@TestVisible
@@ -597,11 +676,18 @@ public inherited sharing class LOG_Engine
 	private static final Integer MAX_CONTEXT_DEPTH = 10;
 
 	/**
+	 * @description How many pushes the engine has refused at the cap and not yet seen popped. A pop spends one of
+	 * these before it looks at the stack, so a caller whose push was refused never removes the context of the caller
+	 * underneath it. Per transaction, like the stack itself.
+	 */
+	private static Integer refusedPushCount = 0;
+
+	/**
 	 * @description Builds the anchored stack-frame prefix (`Class.<resolved name>.`) for a
 	 * framework class, resolving the name from the type so it carries the namespace in a managed
 	 * install.
 	 *
-	 * @param frameworkType The framework class whose frames count as logging plumbing.
+	 * @param frameworkType The framework class whose frames count as the logging framework's own code.
 	 *
 	 * @return The anchored frame prefix for the class.
 	 *
@@ -609,12 +695,12 @@ public inherited sharing class LOG_Engine
 	 */
 	private static String frameworkFramePrefix(Type frameworkType)
 	{
-		return CLASS_FRAME_PREFIX + frameworkType.getName() + UTIL_String.DOT;
+		return UTIL_System.STACK_CLASS_PREFIX + frameworkType.getName() + UTIL_String.DOT;
 	}
 
 	/**
 	 * @description Returns the effective LogSetting__c for the current user.
-	 * Uses hierarchical custom setting resolution (User → Profile → Org).
+	 * Uses the hierarchy custom setting order: the user's value, then the profile's, then the org's.
 	 * When no record exists, applies code-level defaults matching original AllUsers behaviour.
 	 * In tests, returns logSettingOverride when set.
 	 *
@@ -681,7 +767,7 @@ public inherited sharing class LOG_Engine
 	 */
 	public static void log(String longMessage, String classMethod, Id recordId, LoggingLevel logLevel)
 	{
-		log(null, longMessage, classMethod, recordId, logLevel);
+		log((String)null, longMessage, classMethod, recordId, logLevel);
 	}
 
 	/**
@@ -725,6 +811,23 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
+	 * @description Writes a log entry with exception data and a summary of the caller's own; the
+	 * summary becomes the entry's short message, the exception's text its message, and the stack
+	 * trace lands in the entry's own stack-trace field as it does for every exception entry.
+	 *
+	 * @param error the exception to be logged
+	 * @param shortMessage the caller's own summary of the entry
+	 * @param classMethod <class>/<method> if applicable
+	 * @param recordId record Id related to log event
+	 * @param logLevel the System.LoggingLevel to log as
+	 */
+	@SuppressWarnings('PMD.ExcessiveParameterList')
+	public static void log(Exception error, String shortMessage, String classMethod, Id recordId, LoggingLevel logLevel)
+	{
+		log(new DTO_LogMessages(error, shortMessage, recordId, logLevel, classMethod));
+	}
+
+	/**
 	 * @description Will iterate through save results from DML operations and log errors encountered
 	 *
 	 * @param operationResults Results from an DML Operation, could be any of save result types listed below
@@ -738,53 +841,99 @@ public inherited sharing class LOG_Engine
 	 */
 	public static Boolean log(List<Object> operationResults, String classMethod)
 	{
-		DTO_LogMessages dtoLogMessages = new DTO_LogMessages(LoggingLevel.ERROR, classMethod);
+		return log(operationResults, classMethod, LoggingLevel.ERROR);
+	}
+
+	/**
+	 * @description Iterates DML results and logs every failed row at the given level. ERROR is the level
+	 * every framework path uses; DML_Transaction logs a caller's expected refusals at WARN.
+	 *
+	 * @param operationResults Results from a DML operation, any mix of the four Database result types
+	 * @param classMethod <class>/<method> if applicable
+	 * @param logLevel The level every failed row is logged at
+	 *
+	 * @return True if any failed row was found and logged
+	 *
+	 * @see Database.DeleteResult
+	 * @see Database.SaveResult
+	 * @see Database.UndeleteResult
+	 * @see Database.UpsertResult
+	 */
+	public static Boolean log(List<Object> operationResults, String classMethod, LoggingLevel logLevel)
+	{
+		DTO_LogMessages dtoLogMessages = new DTO_LogMessages(logLevel, classMethod);
 
 		for(Object operationResult : operationResults)
 		{
-			Boolean operationFailed;
-			Id recordId;
-			List<Database.Error> errors;
+			List<Database.Error> errors = getOperationErrors(operationResult);
 
-			if(operationResult instanceof Database.SaveResult)
+			if(!errors.isEmpty())
 			{
-				Database.SaveResult saveResult = (Database.SaveResult)operationResult;
-				errors = saveResult.errors;
-				operationFailed = !saveResult.success;
-				recordId = saveResult.id;
-			}
-			else if(operationResult instanceof Database.DeleteResult)
-			{
-				Database.DeleteResult deleteResult = (Database.DeleteResult)operationResult;
-				errors = deleteResult.errors;
-				operationFailed = !deleteResult.success;
-				recordId = deleteResult.id;
-			}
-			else if(operationResult instanceof Database.UndeleteResult)
-			{
-				Database.UndeleteResult undeleteResult = (Database.UndeleteResult)operationResult;
-				errors = undeleteResult.errors;
-				operationFailed = !undeleteResult.success;
-				recordId = undeleteResult.id;
-			}
-			else
-			{
-				Database.UpsertResult upsertResult = (Database.UpsertResult)operationResult;
-				errors = upsertResult.errors;
-				operationFailed = !upsertResult.success;
-				recordId = upsertResult.id;
-			}
-
-			if(operationFailed)
-			{
-				String errorMessage = extractErrorMessage(errors);
-				dtoLogMessages.addMessage(String.format(DML_ERROR_FORMAT, new List<Object> {errorMessage, recordId}), recordId);
+				Id recordId = getOperationRecordId(operationResult);
+				dtoLogMessages.addMessage(String.format(DML_ERROR_FORMAT, new List<Object> {extractErrorMessage(errors), recordId}), recordId);
 			}
 		}
 
 		log(dtoLogMessages);
 
 		return !dtoLogMessages.isEmpty;
+	}
+
+	/**
+	 * @description Returns the errors carried by a DML result of any of the four Database result types.
+	 * A successful result carries none: the list is empty, never null, even for a Database.UndeleteResult,
+	 * whose platform-supplied error list is null on success.
+	 *
+	 * @param operationResult A Database.SaveResult, Database.DeleteResult, Database.UndeleteResult or Database.UpsertResult
+	 *
+	 * @return The result's errors, empty when the row succeeded
+	 */
+	public static List<Database.Error> getOperationErrors(Object operationResult)
+	{
+		List<Database.Error> errors;
+
+		if(operationResult instanceof Database.SaveResult)
+		{
+			errors = ((Database.SaveResult)operationResult).errors;
+		}
+		else if(operationResult instanceof Database.DeleteResult)
+		{
+			errors = ((Database.DeleteResult)operationResult).errors;
+		}
+		else if(operationResult instanceof Database.UndeleteResult)
+		{
+			errors = ((Database.UndeleteResult)operationResult).errors;
+		}
+		else
+		{
+			errors = ((Database.UpsertResult)operationResult).errors;
+		}
+
+		return errors ?? new List<Database.Error>();
+	}
+
+	/**
+	 * @description Returns the record Id carried by a DML result of any of the four Database result types.
+	 *
+	 * @param operationResult A Database.SaveResult, Database.DeleteResult, Database.UndeleteResult or Database.UpsertResult
+	 *
+	 * @return The result's record Id, null when the platform assigned none
+	 */
+	private static Id getOperationRecordId(Object operationResult)
+	{
+		if(operationResult instanceof Database.SaveResult)
+		{
+			return ((Database.SaveResult)operationResult).id;
+		}
+		if(operationResult instanceof Database.DeleteResult)
+		{
+			return ((Database.DeleteResult)operationResult).id;
+		}
+		if(operationResult instanceof Database.UndeleteResult)
+		{
+			return ((Database.UndeleteResult)operationResult).id;
+		}
+		return ((Database.UpsertResult)operationResult).id;
 	}
 
 	/**
@@ -853,16 +1002,15 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Audit-routing variant of `log(DTO_LogMessages)` — when `isAudit` is `true`,
-	 * routes the resulting `LogEntryEvent__e` events through `publishAuditEvents` so they
-	 * accumulate in the dedicated audit buffer rather than the application log buffer.
+	 * @description A version of `log(DTO_LogMessages)` that can send to the audit log. When `isAudit` is `true`, it
+	 * sends the resulting `LogEntryEvent__e` events through `publishAuditEvents`, so they collect in the separate
+	 * audit buffer instead of the application log buffer.
 	 *
-	 * Audit emissions in test context require an explicit `LOG_Builder.ignoreTestMode = true`
-	 * opt-in (matching the application-log path's existing test-mode skip). Without the opt-in,
-	 * audit emissions short-circuit BEFORE `dtoLogMessages.getEvents()` runs so the framework's
-	 * cold-cache CMDT/EntityDefinition lookups (driven by `UTIL_FrameworkMasker.isMaskingEnabled`
-	 * inside `getEvents`) do not inflate SOQL counts in tests that do not exercise the audit
-	 * channel. Tests that DO exercise the audit channel set `ignoreTestMode = true` to opt in.
+	 * In a test, audit entries are emitted only when the test sets `LOG_Builder.ignoreTestMode = true`, the same
+	 * as application logs. Without it, an audit entry returns BEFORE `dtoLogMessages.getEvents()` runs. So the
+	 * framework's first lookups of custom metadata and EntityDefinition (made by
+	 * `UTIL_FrameworkMasker.isMaskingEnabled` inside `getEvents`) do not add queries to tests that do not test
+	 * the audit log. Tests that DO test the audit log set `ignoreTestMode = true`.
 	 *
 	 * @param dtoLogMessages List of log messages.
 	 * @param isAudit `true` to route to the audit buffer (`publishAuditEvents`); `false` for app.
@@ -884,22 +1032,15 @@ public inherited sharing class LOG_Engine
 			{
 				publishEvents(events);
 			}
-			//Ensure that the events are published in unit tests — but never deliver re-entrantly
-			//from inside a platform-event/change-event trigger: the test event bus would redeliver
-			//the in-flight batch, double-persisting every delivered event. In event-trigger context
-			//the engine persists via direct DML and never publishes, so there is nothing to deliver.
-			if(Test.isRunningTest() && !isInEventTriggerContext())
-			{
-				Test.getEventBus().deliver();
-			}
+			deliverInTestWithEmitChannelsClosed();
 		}
 	}
 
 	/**
-	 * @description Audit-routing variant of `log(String, String, String, Id, LoggingLevel)`.
-	 * Used by `LOG_Builder.LogEntry.emitAsAudit()` to route `BypassEvent`-shape audit entries
-	 * through the dedicated audit buffer so they don't pollute application-log buffer assertions.
-	 * Public-but-not-global so subscribers cannot bind to it.
+	 * @description A version of `log(String, String, String, Id, LoggingLevel)` that sends to the audit log.
+	 * `LOG_Builder.LogEntry.emitAsAudit()` uses it to send `BypassEvent` audit entries to the separate audit buffer,
+	 * so they do not change the results of tests that count the application log buffer.
+	 * It is public, not global, so subscribers cannot call it.
 	 *
 	 * @param shortMessage Short message for the log entry.
 	 * @param longMessage Long message body for the log entry.
@@ -915,7 +1056,8 @@ public inherited sharing class LOG_Engine
 
 	/**
 	 * @description Determines whether an entry should be logged based on the hierarchical LogSetting__c.
-	 * Evaluation order: ERROR always passes → kill switch → threshold check → class filter.
+	 * Checks in this order: ERROR always passes, then the switch that turns logging off, then the level threshold,
+	 * then the class filter.
 	 *
 	 * @param logLevel The debug logging level
 	 * @param classMethod The class/method context (e.g., 'ClassName/methodName')
@@ -971,8 +1113,8 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Returns the severity rank of a log level (DEBUG < INFO < WARN < ERROR) — the single ordering
-	 * the framework already uses to compare a level against the configured threshold. Exposed so readers of the
+	 * @description Returns the severity rank of a log level (DEBUG < INFO < WARN < ERROR). This is the same order
+	 * the framework uses to compare a level with the configured threshold. It is public so that readers of the
 	 * log (the Log Console) sort the Level column by severity, matching the `LogLevel__c` picklist order the
 	 * All-entries view sorts by, rather than re-implementing the ranking. Returns -1 for a null or unknown level
 	 * so such rows sort before DEBUG on an ascending sort.
@@ -995,9 +1137,149 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Extracts the source class name from a ClassMethod value — the canonical parser for the
-	 * `ClassMethod__c` format this engine writes, handling both the 'ClassName/methodName' (test) and
-	 * 'ClassName.methodName' forms and returning the full string when no separator is present. Exposed so
+	 * @description Works out the class and method an entry was written at from the stack the engine built for it.
+	 * The top frame of that stack is the caller's, because the framework's own frames have already been taken out.
+	 * A frame names a location and then its line, so the text before the first colon is the location, and the
+	 * `Class.` or `Trigger.` a frame opens with is dropped because the writer's name is what follows it. A top frame
+	 * that is not a frame at all gives nothing back, so the entry keeps no class-method rather than a wrong one.
+	 *
+	 * @param stackTrace The caller's frames, newest first, or blank when no frames were left after the framework's.
+	 *
+	 * @return The class and method the top frame names, or null when there is no readable frame on top.
+	 *
+	 * @example
+	 * ```apex
+	 * String classMethod = LOG_Engine.resolveClassMethodFromStack('Class.OrderService.submit: line 12, column 1');
+	 * ```
+	 */
+	public static String resolveClassMethodFromStack(String stackTrace)
+	{
+		String topFrame = (stackTrace ?? UTIL_String.EMPTY).substringBefore(UTIL_String.LF).trim();
+		Integer locationEndIndex = topFrame.indexOf(UTIL_String.COLON);
+		String location = locationEndIndex > 0 ? topFrame.substring(0, locationEndIndex) : null;
+		return UTIL_System.stripFrameQualifier(location);
+	}
+
+	/**
+	 * @description Works out who wrote an entry. A Flow or component bridge's operation context on top of the
+	 * stack wins; otherwise a class name that starts with the package namespace is the framework's own; anything
+	 * else is Apex outside the framework. The method reads nothing else: the caller passes the namespace prefix, so
+	 * a test can reach the Framework result even in an org with no namespace.
+	 *
+	 * @param classMethod The class and method the entry was written at, as the builder received it.
+	 * @param namespacePrefix The package namespace followed by a dot (`kern.`), or blank in an org with no namespace.
+	 * @param operationType The operation type on top of the context stack, or null when the stack is empty.
+	 *
+	 * @return The origin; never null.
+	 *
+	 * @example
+	 * ```apex
+	 * LOG_Engine.Origin origin = LOG_Engine.resolveOrigin('kern.UTIL_AsyncChain.ChainExecutor.execute', 'kern.', null);
+	 * ```
+	 */
+	public static Origin resolveOrigin(String classMethod, String namespacePrefix, String operationType)
+	{
+		if(LOG_Engine.OperationType.FLOW.name() == operationType)
+		{
+			return Origin.FLOW;
+		}
+		if(LOG_Engine.OperationType.LWC.name() == operationType)
+		{
+			return Origin.COMPONENT;
+		}
+		if(String.isNotBlank(namespacePrefix) && classMethod?.startsWith(namespacePrefix) == true)
+		{
+			return Origin.FRAMEWORK;
+		}
+		return Origin.APEX;
+	}
+
+	/**
+	 * @description The writer's plain name for grouping: the namespace prefix goes first, and so does a namespace of
+	 * the org's own when Apex can see the class in it. After a Flow prefix the name runs to the next slash, or to the
+	 * end, because a Flow may have a dot in its own name. Anything else keeps the text before the first slash or dot,
+	 * which is the rule `extractClassName` has always applied. The name is only a good guess for grouping, never an
+	 * exact identity; `ClassMethod__c` keeps the exact location.
+	 *
+	 * @param classMethod The class and method the entry was written at.
+	 * @param namespacePrefix The package namespace followed by a dot, or blank.
+	 *
+	 * @return The source name, or null when the class-method is blank or nothing remains after the prefixes.
+	 *
+	 * @example
+	 * ```apex
+	 * String source = LOG_Engine.resolveSource('LWC/orderPanel.submitOrder', 'kern.'); // orderPanel
+	 * ```
+	 */
+	public static String resolveSource(String classMethod, String namespacePrefix)
+	{
+		if(String.isBlank(classMethod))
+		{
+			return null;
+		}
+
+		String remainder = removePrefix(classMethod, namespacePrefix);
+		String source;
+
+		if(remainder.startsWith(FLOW_SOURCE_PREFIX))
+		{
+			source = remainder.substring(FLOW_SOURCE_PREFIX.length()).substringBefore(SOURCE_PREFIX_DELIMITER);
+		}
+		else if(remainder.startsWith(COMPONENT_SOURCE_PREFIX))
+		{
+			source = extractClassName(remainder.substring(COMPONENT_SOURCE_PREFIX.length()));
+		}
+		else
+		{
+			source = extractClassName(removeNamespaceApexCanSee(remainder));
+		}
+
+		return String.isBlank(source) ? null : source;
+	}
+
+	/**
+	 * @description Removes a leading namespace that is not the package's, such as the namespace of the org itself, so a
+	 * class in such an org groups under its class name and not under the namespace. The first word is taken as a
+	 * namespace when Apex can see a class named by the second word in it; a location with no second word, or whose first
+	 * word is no namespace, is returned unchanged.
+	 *
+	 * @param location The class-method with the package prefix already removed.
+	 *
+	 * @return The location without its namespace, or the location as given.
+	 */
+	private static String removeNamespaceApexCanSee(String location)
+	{
+		Integer firstDot = location.indexOf(UTIL_String.DOT);
+
+		if(firstDot <= 0)
+		{
+			return location;
+		}
+
+		String namespace = location.substring(0, firstDot);
+		String afterNamespace = location.substring(firstDot + 1);
+		String className = afterNamespace.substringBefore(UTIL_String.DOT).substringBefore(SOURCE_PREFIX_DELIMITER);
+
+		return UTIL_System.isClassInNamespace(namespace, className) ? afterNamespace : location;
+	}
+
+	/**
+	 * @description Removes a leading prefix when the value starts with it; otherwise returns the value unchanged.
+	 *
+	 * @param value The text to trim.
+	 * @param prefix The prefix to remove, or blank for none.
+	 *
+	 * @return The value without the prefix.
+	 */
+	private static String removePrefix(String value, String prefix)
+	{
+		return String.isNotBlank(prefix) && value?.startsWith(prefix) == true ? value.substring(prefix.length()) : value;
+	}
+
+	/**
+	 * @description Extracts the source class name from a ClassMethod value. It is the one method that reads the
+	 * `ClassMethod__c` format this engine writes. It handles both the 'ClassName/methodName' (test) and
+	 * 'ClassName.methodName' forms, and returns the full text when there is no separator. It is public so that
 	 * readers of the log (the Log Console) interpret the source class exactly as the engine records it, rather
 	 * than re-implementing the split.
 	 *
@@ -1073,24 +1355,28 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Generates and sets a new correlation ID for this transaction.
+	 * @description Generates and sets a new correlation ID for this transaction. The first correlation a request
+	 * establishes also becomes its root; a later start never moves the root.
 	 *
 	 * @return String The generated correlation ID
 	 */
 	public static String startCorrelation()
 	{
 		currentCorrelationId = UTIL_Random.randomUUID();
+		adoptRootCorrelationIfBlank(currentCorrelationId);
 		return currentCorrelationId;
 	}
 
 	/**
-	 * @description Sets the correlation ID (for child transactions).
+	 * @description Sets the correlation ID (for child transactions). The first correlation a request establishes also
+	 * becomes its root; a later set never moves the root.
 	 *
 	 * @param correlationId The correlation ID from parent transaction
 	 */
 	public static void setCorrelationId(String correlationId)
 	{
 		currentCorrelationId = correlationId;
+		adoptRootCorrelationIfBlank(correlationId);
 	}
 
 	/**
@@ -1104,8 +1390,34 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
+	 * @description Returns the root correlation id: the tracking id of the action that started everything this
+	 * transaction belongs to. It equals the correlation id until a chain or job continues the action under a tracking
+	 * id of its own.
+	 *
+	 * @return String The root correlation id, or null when no correlation has been established
+	 */
+	public static String getRootCorrelationId()
+	{
+		return currentRootCorrelationId;
+	}
+
+	/**
+	 * @description Makes the supplied id the root when this request has none yet. The first correlation a request
+	 * establishes names the action; a later change of the live correlation never moves the root.
+	 *
+	 * @param correlationId The correlation just established
+	 */
+	private static void adoptRootCorrelationIfBlank(String correlationId)
+	{
+		if(String.isBlank(currentRootCorrelationId) && String.isNotBlank(correlationId))
+		{
+			currentRootCorrelationId = correlationId;
+		}
+	}
+
+	/**
 	 * @description Sets the fingerprint applied to events built during the current emit call.
-	 * Public-but-not-global so subscribers route through `LOG_Builder.withFingerprint`.
+	 * It is public, not global, so subscribers set a fingerprint through `LOG_Builder.withFingerprint` instead.
 	 *
 	 * @param fingerprintKey The normalized grouping key.
 	 */
@@ -1115,7 +1427,7 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Clears the per-emit fingerprint channel so it cannot leak into later entries.
+	 * @description Clears the fingerprint set for the current emit, so it cannot reach later entries.
 	 */
 	public static void clearCurrentFingerprint()
 	{
@@ -1123,10 +1435,10 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Sets the stack-trace override applied to events built during the current emit
-	 * call. Public-but-not-global so subscribers route through `LOG_Builder`; used by the LWC
-	 * logging bridge to persist the client-side JavaScript stack instead of the synthetic Apex
-	 * trace. Capped to the `StackTrace__c` field length.
+	 * @description Sets the stack trace to use, instead of the Apex call stack, for events built during the
+	 * current emit call. It is public, not global, so subscribers go through `LOG_Builder`. The class that passes
+	 * Lightning web component logs to Apex uses it to save the JavaScript stack from the browser instead of the
+	 * Apex stack. The text is cut to the length of the `StackTrace__c` field.
 	 *
 	 * @param stackTrace The caller-supplied stack trace text.
 	 *
@@ -1138,7 +1450,7 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Clears the per-emit stack-trace override so it cannot leak into later entries.
+	 * @description Clears the stack trace set for the current emit, so it cannot reach later entries.
 	 *
 	 * @date July 2026
 	 */
@@ -1149,9 +1461,10 @@ public inherited sharing class LOG_Engine
 
 	/**
 	 * @description Sets the exception type applied to events built during the current emit call.
-	 * Public-but-not-global so subscribers route through `LOG_Builder`; used by the LWC logging bridge
-	 * to name the failure a client reported when no Apex exception carries that name. Capped to the
-	 * `ExceptionType__c` field length so an over-long name costs its own text, never the whole entry.
+	 * It is public, not global, so subscribers go through `LOG_Builder`. The class that passes Lightning web
+	 * component logs to Apex uses it to name the failure the browser reported when no Apex exception carries that
+	 * name. The text is cut to the length of the `ExceptionType__c` field, so a name that is too long loses only its
+	 * end, and the entry is still saved.
 	 *
 	 * @param exceptionType The caller-supplied exception class name.
 	 */
@@ -1161,7 +1474,7 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Clears the per-emit exception-type override so it cannot leak into later entries.
+	 * @description Clears the exception type set for the current emit, so it cannot reach later entries.
 	 */
 	public static void clearCurrentExceptionType()
 	{
@@ -1187,6 +1500,7 @@ public inherited sharing class LOG_Engine
 	{
 		DTO_LoggerContext context = new DTO_LoggerContext();
 		context.correlationId = currentCorrelationId;
+		context.rootCorrelationId = currentRootCorrelationId;
 		context.parentTransactionId = Request.getCurrent()?.getRequestId();
 		if(!globalContextData.isEmpty())
 		{
@@ -1196,11 +1510,11 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Serializes a logging context FOR the supplied correlation id: a minimal
-	 * document carrying only that identity — no transaction lineage and no live context data,
-	 * because the document is written for a DIFFERENT execution and outlives this request. The
-	 * live transaction context is never read or touched: mutating it instead (set, serialize,
-	 * restore) would re-tag every log this transaction emits after the restore point.
+	 * @description Serializes a logging context FOR the supplied correlation id. The result is a small document that
+	 * carries only that id. It carries no parent transaction and none of the current context values, because it is
+	 * written for a DIFFERENT run and outlives this request. The current transaction's context is never read or
+	 * changed. Changing it instead (set, serialize, restore) would put the wrong id on every log this transaction
+	 * emits after the restore.
 	 *
 	 * @param correlationId The correlation id the serialized context carries.
 	 *
@@ -1214,7 +1528,65 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Restores context from serialized string in async jobs.
+	 * @description Serializes the current context under the supplied correlation id: the full document (the parent
+	 * transaction id, the root correlation id, the context values) with the correlation replaced, for an execution that
+	 * continues this transaction's story under a tracking id of its own, such as a chain run. The live context is
+	 * read, never changed. When this request has no root yet, the live correlation is the root; when it has neither,
+	 * the supplied id is the root, because the execution starts the action.
+	 *
+	 * @param correlationId The correlation id the serialized context carries
+	 *
+	 * @return String JSON context for the supplied correlation id, ready for hydrateContext
+	 */
+	public static String serializeContextWithCorrelationId(String correlationId)
+	{
+		DTO_LoggerContext context = new DTO_LoggerContext();
+		context.correlationId = correlationId;
+		String liveRootCorrelationId = String.isNotBlank(currentRootCorrelationId) ? currentRootCorrelationId : currentCorrelationId;
+		context.rootCorrelationId = String.isNotBlank(liveRootCorrelationId) ? liveRootCorrelationId : correlationId;
+		context.parentTransactionId = Request.getCurrent()?.getRequestId();
+		if(!globalContextData.isEmpty())
+		{
+			context.contextData = globalContextData;
+		}
+		return JSON.serializePretty(context, true);
+	}
+
+	/**
+	 * @description Rewrites a stored context document so it carries the supplied correlation id, keeping the root, the
+	 * parent transaction id and the context values it already holds. A document without a root names its old
+	 * correlation as the root; a blank or unreadable document becomes one carrying the supplied id as both. Used when a
+	 * run is cloned by a restart and must keep the launch's context under an id of its own.
+	 *
+	 * @param serializedContext The stored JSON context, from serializeContext or serializeContextWithCorrelationId
+	 * @param correlationId The correlation id the rewritten context carries
+	 *
+	 * @return String JSON context carrying the supplied correlation id, ready for hydrateContext
+	 */
+	public static String replaceCorrelationId(String serializedContext, String correlationId)
+	{
+		DTO_LoggerContext context = new DTO_LoggerContext();
+		try
+		{
+			if(String.isNotBlank(serializedContext))
+			{
+				context = (DTO_LoggerContext)JSON.deserialize(serializedContext, DTO_LoggerContext.class);
+			}
+		}
+		catch(JSONException unreadable)
+		{
+			context = new DTO_LoggerContext();
+		}
+		String storedRootCorrelationId = String.isNotBlank(context.rootCorrelationId) ? context.rootCorrelationId : context.correlationId;
+		context.rootCorrelationId = String.isNotBlank(storedRootCorrelationId) ? storedRootCorrelationId : correlationId;
+		context.correlationId = correlationId;
+		return JSON.serializePretty(context, true);
+	}
+
+	/**
+	 * @description Restores context from serialized string in async jobs. A document without a root, written before
+	 * roots existed, restores with its correlation as the root. Restoring replaces the live correlation, root and
+	 * parent transaction, because the document describes the execution this transaction continues.
 	 *
 	 * @param serializedContext JSON from serializeContext()
 	 */
@@ -1230,6 +1602,7 @@ public inherited sharing class LOG_Engine
 		{
 			DTO_LoggerContext context = (DTO_LoggerContext)JSON.deserialize(serializedContext, DTO_LoggerContext.class);
 			currentCorrelationId = context.correlationId;
+			currentRootCorrelationId = String.isNotBlank(context.rootCorrelationId) ? context.rootCorrelationId : context.correlationId;
 			currentParentTransactionId = context.parentTransactionId;
 
 			if(context.contextData != null)
@@ -1239,8 +1612,69 @@ public inherited sharing class LOG_Engine
 		}
 		catch(Exception error)
 		{
-			// Include the payload that caused the failure to help debug async context loss
-			System.debug(LoggingLevel.WARN, 'Failed to hydrate logging context. Error: ' + error.getMessage() + ' | Payload: ' + serializedContext);
+			System.debug(LoggingLevel.WARN, describeHydrationFailure(error, serializedContext));
+		}
+	}
+
+	/**
+	 * @description Builds the debug text for a stored context that could not be restored: the error, then the stored
+	 * context so the lost correlation can be traced. The stored context goes through the same masking a log entry's context
+	 * data gets before it is published. When masking blocks the text or fails, or the masking switch itself cannot be read,
+	 * the text holds the error alone, so the stored context never reaches the debug log unmasked. Nothing in this method
+	 * throws, so the catch in hydrateContext that calls it cannot throw either.
+	 *
+	 * @param error The failure raised while restoring the stored context
+	 * @param serializedContext The stored context that could not be restored
+	 *
+	 * @return The error, followed by the stored context as masking left it, or the error alone when masking did not complete
+	 */
+	@TestVisible
+	private static String describeHydrationFailure(Exception error, String serializedContext)
+	{
+		String failure = HYDRATION_FAILURE_PREFIX + error.getMessage();
+		LogEntryEvent__e carrier = new LogEntryEvent__e(ContextData__c = serializedContext);
+
+		try
+		{
+			if(UTIL_FrameworkMasker.isMaskingEnabled)
+			{
+				UTIL_FrameworkMasker.forRecord(carrier).apply();
+			}
+		}
+		catch(Exception maskingFailure)
+		{
+			return failure;
+		}
+
+		return failure + HYDRATION_PAYLOAD_SEPARATOR + carrier.ContextData__c;
+	}
+
+	/**
+	 * @description Tells whether a stored context document was written by the request now running: the document names
+	 * this request as its parent transaction. Such a document describes the live context itself, so restoring it would
+	 * only make the transaction its own parent. A blank or unreadable document, and one that names no parent, were not
+	 * written by this request.
+	 *
+	 * @param serializedContext The stored JSON context, from serializeContext or serializeContextWithCorrelationId
+	 *
+	 * @return True when the document names the request now running as its parent transaction
+	 */
+	public static Boolean wasContextWrittenByCurrentRequest(String serializedContext)
+	{
+		if(String.isBlank(serializedContext))
+		{
+			return false;
+		}
+
+		try
+		{
+			DTO_LoggerContext context = (DTO_LoggerContext)JSON.deserialize(serializedContext, DTO_LoggerContext.class);
+			String currentRequestId = Request.getCurrent()?.getRequestId();
+			return String.isNotBlank(currentRequestId) && currentRequestId.equals(context.parentTransactionId);
+		}
+		catch(JSONException unreadable)
+		{
+			return false;
 		}
 	}
 
@@ -1261,13 +1695,7 @@ public inherited sharing class LOG_Engine
 		{
 			publishEvents(dtoLogMessages.getEvents());
 
-			//See log(DTO_LogMessages, Boolean): never deliver re-entrantly from inside a
-			//platform-event/change-event trigger — the test event bus would redeliver the
-			//in-flight batch and double-persist every delivered event.
-			if(Test.isRunningTest() && !isInEventTriggerContext())
-			{
-				Test.getEventBus().deliver();
-			}
+			deliverInTestWithEmitChannelsClosed();
 		}
 	}
 
@@ -1326,6 +1754,10 @@ public inherited sharing class LOG_Engine
 	 * The context will be merged with parent contexts when logging.
 	 * Use this at the start of operations (webservice, query, trigger, flow, lwc).
 	 *
+	 * Once the stack already holds as many contexts as the engine keeps, the push is refused and nothing is added.
+	 * The engine remembers the refusal, so the `popOperationContext()` that goes with it removes nothing and the
+	 * caller underneath keeps the context it pushed.
+	 *
 	 * @param operationType The type of operation from the OperationType enum (WEBSERVICE, QUERY,
 	 *        TRIGGER_ACTION, FLOW, LWC, WEBSERVICE_BATCH)
 	 * @param contextData Key-value pairs of context information specific to this operation
@@ -1347,6 +1779,7 @@ public inherited sharing class LOG_Engine
 	{
 		if(contextStack.size() >= MAX_CONTEXT_DEPTH)
 		{
+			refusedPushCount++;
 			return; // Prevent memory issues in deeply nested operations
 		}
 
@@ -1366,9 +1799,18 @@ public inherited sharing class LOG_Engine
 	 * @description Pops the most recent operation context from the stack.
 	 * Call this when an operation completes to prevent context bleeding into subsequent logs.
 	 * Always use in a finally block to ensure cleanup even on exceptions.
+	 *
+	 * A pop that goes with a push the engine refused at the cap removes nothing: it spends the refusal instead, so
+	 * the context of the caller underneath survives.
 	 */
 	public static void popOperationContext()
 	{
+		if(refusedPushCount > 0)
+		{
+			refusedPushCount--;
+			return;
+		}
+
 		if(!contextStack.isEmpty())
 		{
 			contextStack.remove(contextStack.size() - 1);
@@ -1403,16 +1845,18 @@ public inherited sharing class LOG_Engine
 	/**
 	 * @description Clears the entire context stack.
 	 * Use at the start of a new transaction or after error recovery to ensure clean state.
+	 * Any pushes the engine refused at the cap are forgotten with it, so the next pop works on the cleared stack.
 	 */
 	public static void clearContextStack()
 	{
 		contextStack.clear();
+		refusedPushCount = 0;
 	}
 
 	/**
 	 * @description Merges all contexts in the stack into a single map.
 	 * Later contexts override earlier ones for the same keys.
-	 * Order: globalContext → stack[0] → stack[1] → ... → webserviceContext
+	 * Order: globalContext, then stack[0], stack[1] and so on, then webserviceContext.
 	 *
 	 * @return Map<String, String> Merged context map containing all context data
 	 */
@@ -1443,7 +1887,8 @@ public inherited sharing class LOG_Engine
 
 	/**
 	 * @description Merges all context sources (global, stack, webservice) and serializes to JSON via DTO with truncation.
-	 * Order: global (base) → stack contexts → webservice for current correlation (override).
+	 * Order: global context first, then the stack contexts, then the webservice context for the current
+	 * correlation, which overrides the others.
 	 * Uses MaxContextDataSize__c from active filter if configured, otherwise uses default field length.
 	 *
 	 * @return String JSON serialized context using DTO_LoggerContext structure, or null if empty
@@ -1554,15 +1999,14 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Enters event-trigger context for the remainder of the current dispatch when the
-	 * dispatched records are a platform event (`__e`) or change event (`*ChangeEvent`). In that
-	 * context every log this transaction emits is persisted to `LogEntry__c` via direct DML instead
-	 * of being published as a `LogEntryEvent__e` — publishing a platform event from inside a
-	 * platform-event / change-event trigger makes the platform redeliver the source event, which
-	 * would loop the dispatcher unbounded. Buffering is switched on so the suppressed-publish persist
-	 * coalesces into one bulk DML at the dispatch boundary (`endEventTriggerContext`) rather than one
-	 * per emit. Only the outermost event dispatch owns the context; a nested re-entrant dispatch
-	 * returns `false` and leaves teardown to the owner.
+	 * @description Enters the event-trigger state for the rest of the current trigger run, when the trigger's
+	 * records are a platform event (custom `__e` or standard) or a change event. In that state, every log this
+	 * transaction emits is saved to `LogEntry__c` with direct DML instead of being published as a
+	 * `LogEntryEvent__e`. Publishing a platform event from inside a platform event or change event trigger makes
+	 * the platform deliver the original event again, so the dispatcher would loop without end. Buffering is turned
+	 * on, so the logs are saved together in one DML statement when the trigger run ends (`endEventTriggerContext`),
+	 * not one statement per emit. Only the outermost event trigger run owns the state. A nested run that starts
+	 * inside it returns `false` and leaves the clean-up to the owner.
 	 *
 	 * @param records The dispatched trigger's `Trigger.new` records.
 	 *
@@ -1585,11 +2029,11 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Exits the event-trigger context entered by `beginEventTriggerContext`. Drains any
-	 * buffered in-context logs FIRST — while the context flag is still set, so the flush routes
-	 * through `dispatchEvents` to direct DML rather than `EventBus.publish` — then restores the prior
-	 * suspended-saving state (only if this owner switched it on) and clears the context flag. Called
-	 * from the dispatcher's `finally` so an aborted dispatch still tears the context down.
+	 * @description Leaves the event-trigger state entered by `beginEventTriggerContext`. It FIRST saves any logs
+	 * waiting in the buffer, while the state flag is still set, so the flush goes through `dispatchEvents` to direct
+	 * DML and not to `EventBus.publish`. It then turns suspended saving back off, but only if this owner turned it
+	 * on, and clears the state flag. The dispatcher calls it from its `finally` block, so a trigger run that fails
+	 * still leaves the state.
 	 */
 	public static void endEventTriggerContext()
 	{
@@ -1603,15 +2047,19 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Reports whether the supplied records belong to a platform event (`__e`) or a
-	 * change event (`*ChangeEvent`) — the SObject kinds whose triggers cause the platform to
-	 * redeliver the source event when a platform event is published during their execution. Reads the
-	 * API name straight off the record's `SObjectType` token (no describe call). Returns `false` for
-	 * a null or empty list so a delete-context dispatch (no `Trigger.new`) is treated as non-event.
+	 * @description Reports whether the supplied records are events of any kind: the kinds whose
+	 * triggers make the platform redeliver the source event when a platform event is published during
+	 * their execution. Two name endings settle the common cases: `__e` names a custom platform event
+	 * and `ChangeEvent` a change event. A standard platform event such as `BatchApexErrorEvent` carries
+	 * neither ending, so a name with neither is settled by what every event has in common, standard or
+	 * custom: it cannot be queried, while every ordinary object can. The name and that answer both come
+	 * from the cached describe wrapper, so the object is described at most once per transaction.
+	 * Returns `false` for a null or empty list so a delete-context dispatch (no `Trigger.new`) is
+	 * treated as non-event.
 	 *
 	 * @param records The records to classify.
 	 *
-	 * @return `true` when the records are a platform event or change event.
+	 * @return `true` when the records are events of any kind.
 	 */
 	@TestVisible
 	private static Boolean isChangeEventOrPlatformEvent(List<SObject> records)
@@ -1620,19 +2068,23 @@ public inherited sharing class LOG_Engine
 		{
 			return false;
 		}
-		String objectName = String.valueOf(records[0].getSObjectType());
-		return objectName.endsWith(UTIL_SObjectDescribe.CHANGE_EVENT_SUFFIX) || objectName.endsWith(UTIL_SObjectDescribe.PLATFORM_EVENT_SUFFIX);
+		SObjectType objectType = records[0].getSObjectType();
+		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(objectType);
+		if(objectName.endsWith(UTIL_SObjectDescribe.CHANGE_EVENT_SUFFIX) || objectName.endsWith(UTIL_SObjectDescribe.PLATFORM_EVENT_SUFFIX))
+		{
+			return true;
+		}
+		return !UTIL_SObjectDescribe.getDescribe(objectType).getDescribe().isQueryable();
 	}
 
 	/**
-	 * @description Single egress for a chunk of log events. In event-trigger context the events are
-	 * persisted to `LogEntry__c` via `TRG_PersistLogEntry.persist` (direct DML, no publish, loop-safe);
-	 * otherwise they publish normally as `LogEntryEvent__e`. Both the immediate path
-	 * (`publishEventsTo`) and the buffered flush path (`safePublish`) route through here so the
-	 * publish-suppression decision is made in exactly one place. The DML statements the persist
-	 * consumes are accumulated onto `frameworkLogPersistenceDmlStatements` (in a `finally`, so a
-	 * failing persist still accounts for what it consumed) — the post-action no-DML guard reads
-	 * that count to discount framework-owned log DML.
+	 * @description The single place a batch of log events leaves the engine. In the event-trigger state the events
+	 * are saved to `LogEntry__c` through `TRG_PersistLogEntry.persist`: direct DML, no publish, so no loop.
+	 * Otherwise they are published as `LogEntryEvent__e` as usual. Both the immediate path (`publishEventsTo`) and
+	 * the buffer flush path (`safePublish`) go through here, so the choice not to publish is made in one place
+	 * only. The DML statements the save uses are added to `frameworkLogPersistenceDmlStatements`. This happens in a
+	 * `finally` block, so a save that fails still counts what it used. The check that a post-action does no DML
+	 * reads that count, so it does not count the framework's own log DML.
 	 *
 	 * @param events The events to dispatch.
 	 *
@@ -1642,14 +2094,14 @@ public inherited sharing class LOG_Engine
 	{
 		if(isInEventTriggerContext())
 		{
-			Integer dmlStatementsBefore = Limits.getDmlStatements();
+			Integer dmlStatementsBefore = UTIL_Limits.dmlStatements().used();
 			try
 			{
 				TRG_PersistLogEntry.persist(events);
 			}
 			finally
 			{
-				frameworkLogPersistenceDmlStatements += Limits.getDmlStatements() - dmlStatementsBefore;
+				frameworkLogPersistenceDmlStatements += UTIL_Limits.dmlStatements().used() - dmlStatementsBefore;
 			}
 			return null;
 		}
@@ -1657,11 +2109,10 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Whether the current execution is inside a platform-event / change-event trigger
-	 * and must therefore suppress `LogEntryEvent__e` publishing. True when the dispatcher has entered
-	 * the context explicitly (`beginEventTriggerContext`), or — as a backstop for a subscriber
-	 * platform-event trigger that calls kern logging without going through `TRG_Dispatcher` — when an
-	 * event trigger is currently executing.
+	 * @description Whether the code is running inside a platform event or change event trigger, and so must not
+	 * publish `LogEntryEvent__e`. It is true when the dispatcher has entered the state itself
+	 * (`beginEventTriggerContext`). It is also true when any event trigger is running. That second check is a safety
+	 * net for a subscriber's platform event trigger that calls kern logging without going through `TRG_Dispatcher`.
 	 *
 	 * @return `true` when log publishing must be suppressed in favour of direct-DML persistence.
 	 */
@@ -1675,13 +2126,45 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Flushes all buffered logs in chunked batches to avoid 1MB payload limit.
-	 * Salesforce Platform Events have a 1MB limit per publish call. With large ContextData__c
-	 * (up to 32KB), we conservatively batch 50 events per publish (~1.6MB headroom).
-	 * Publication failures are caught to prevent the logger from rolling back business transactions.
+	 * @description Delivers the published events at once, in a unit test only, with the values set for one emit (the
+	 * channels) cleared during the delivery. The delivery runs before the emitting entry clears its own channels. A
+	 * log emitted during the delivery would otherwise read that entry's fingerprint, stack trace and exception type
+	 * and be saved with them. Examples are a trigger action on the log event that writes its own entry, or a
+	 * subscriber trigger on the saved rows. It never delivers from inside a platform event or change event trigger:
+	 * the test event bus would deliver the current batch again and save every event twice. In that state the engine
+	 * saves with direct DML and never publishes.
+	 */
+	private static void deliverInTestWithEmitChannelsClosed()
+	{
+		if(!Test.isRunningTest() || isInEventTriggerContext())
+		{
+			return;
+		}
+		String ownerFingerprint = currentFingerprint;
+		String ownerStackTrace = currentStackTrace;
+		String ownerExceptionType = currentExceptionType;
+		currentFingerprint = null;
+		currentStackTrace = null;
+		currentExceptionType = null;
+		try
+		{
+			Test.getEventBus().deliver();
+		}
+		finally
+		{
+			currentFingerprint = ownerFingerprint;
+			currentStackTrace = ownerStackTrace;
+			currentExceptionType = ownerExceptionType;
+		}
+	}
+
+	/**
+	 * @description Flushes all buffered logs in batches. The engine publishes at most 50 events in one
+	 * `EventBus.publish` call. A lower number means more publishes; a higher number risks errors when the data is
+	 * too large. Publication failures are caught to prevent the logger from rolling back business transactions.
 	 *
 	 * Both the application log buffer and the audit log buffer are flushed via the same chunked
-	 * `safePublish` path so a single platform-event publisher is honored — application logs
+	 * `safePublish` path, so there is a single publisher of platform events. Application logs
 	 * flush first, then audit logs.
 	 */
 	@SuppressWarnings('PMD.AvoidDebugStatements')
@@ -1707,7 +2190,7 @@ public inherited sharing class LOG_Engine
 		for(LogEntryEvent__e event : buffer)
 		{
 			batch.add(event);
-			// Safety: Publish in chunks to avoid 1MB payload limit
+			// Publish at most BATCH_SIZE events at a time, so one publish never carries too much data.
 			if(batch.size() == BATCH_SIZE)
 			{
 				safePublish(batch);
@@ -1770,12 +2253,11 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Returns the running count of DML statements consumed by the framework's own
-	 * log persistence in this transaction — the direct-DML path that replaces publishing inside
-	 * a platform-event / change-event trigger dispatch. `UTIL_PostTriggerAction.runOne` samples
-	 * this before and after a post-action's `execute(context)` so the no-DML contract guard
-	 * discounts the engine's own persistence and blames the post-action only for DML it
-	 * performed itself. Public-but-not-global so subscribers cannot bind to it.
+	 * @description Returns the running count of DML statements the framework used in this transaction to save its
+	 * own logs. That is the direct DML used instead of publishing inside a platform event or change event trigger.
+	 * `UTIL_PostTriggerAction.runOne` reads it before and after a post-action's `execute(context)`. A post-action may
+	 * not do DML, and the check for that subtracts the engine's own log saves, so the post-action is blamed only for
+	 * DML it did itself. It is public, not global, so subscribers cannot call it.
 	 *
 	 * @return The DML statements consumed so far by framework log persistence.
 	 *
@@ -1787,7 +2269,9 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description publishes event... optionally suppresses when in test... deals with errors
+	 * @description Publishes the log events. During a unit test it does not publish them unless ignoreTestMode is
+	 * true. It catches publish errors, so logging never makes the business transaction fail. While saving is
+	 * suspended, it adds the events to the buffer instead (ERROR entries are the exception, see `publishEventsTo`).
 	 *
 	 * @param logEvents LogEntryEvent__e events to be published
 	 *
@@ -1801,13 +2285,12 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Audit-routing sibling of `publishEvents`. Routes `BypassEvent`-shape audit
-	 * entries through the dedicated `auditLogBuffer` so test assertions that count application
-	 * log buffer size are not contaminated by audit emissions, and the test-mode guard in
-	 * `UTIL_BypassAudit.emit` is no longer needed for buffer-pollution avoidance.
+	 * @description The audit version of `publishEvents`. It sends `BypassEvent` audit entries to the separate
+	 * `auditLogBuffer`, so audit entries do not change the results of tests that count the application log buffer.
+	 * That is also why `UTIL_BypassAudit.emit` needs no test-mode check to keep that buffer clean.
 	 *
-	 * Shares wire-format and chunked-publish semantics with `publishEvents` — same `safePublish`
-	 * batcher in `flushBuffer`, same persisted `LogEntry__c` row shape via `TRG_PersistLogEntry`.
+	 * It publishes exactly as `publishEvents` does: in the same batches through `safePublish` in `flushBuffer`, and
+	 * saved by `TRG_PersistLogEntry` as the same kind of `LogEntry__c` row.
 	 *
 	 * @param auditEvents LogEntryEvent__e events to be published as audit entries
 	 *
@@ -1826,6 +2309,19 @@ public inherited sharing class LOG_Engine
 	 * events, and falls back to async dispatch when DML budget is exhausted. The application
 	 * vs audit split is purely about which buffer accumulates suspended events; the actual
 	 * platform-event publish path is identical so subscribers see one publisher.
+	 *
+	 * The ERROR bypass does not apply inside a platform-event or change-event trigger that the
+	 * framework's dispatcher runs, because that dispatcher owns the event-trigger context and its
+	 * cleanup flushes the buffer when the trigger ends. There an ERROR entry waits in the buffer like
+	 * any other: a direct insert rolls back with a failed transaction whether it ran early or late,
+	 * and one insert per error entry would spend the DML budget on a trigger that receives up to 2,000
+	 * events. `MAX_BUFFER_SIZE` still flushes a long run automatically. A subscriber's own event
+	 * trigger that does not run through the dispatcher has no such cleanup, so there an ERROR still
+	 * flushes at once, written by direct DML through `dispatchEvents`.
+	 *
+	 * The asynchronous fallback picks its route from the remaining budgets (the adaptive launcher),
+	 * so a spent queueable budget re-routes to batch rather than throwing; a transaction with no
+	 * asynchronous budget left at all is the platform's own limit, outside this method's control.
 	 *
 	 * @param events The events to publish.
 	 * @param buffer The buffer to accumulate suspended events into.
@@ -1848,8 +2344,11 @@ public inherited sharing class LOG_Engine
 			}
 		}
 
+		// Inside a dispatcher-owned event trigger an ERROR waits for the dispatcher's flush like any other entry
+		Boolean flushNow = hasErrorLog && !isEventTriggerContext;
+
 		// Handle buffering
-		if(isSavingSuspended && !hasErrorLog)
+		if(isSavingSuspended && !flushNow)
 		{
 			buffer.addAll(events);
 
@@ -1860,7 +2359,7 @@ public inherited sharing class LOG_Engine
 			}
 			return null;
 		}
-		else if(isSavingSuspended && hasErrorLog)
+		else if(isSavingSuspended && flushNow)
 		{
 			// Add to buffer then flush everything (ERROR bypass)
 			buffer.addAll(events);
@@ -2013,6 +2512,23 @@ public inherited sharing class LOG_Engine
 		}
 
 		/**
+		 * @description Default class constructor
+		 *
+		 * @param error Error from which to retrieve the message
+		 * @param shortMessage The caller's own summary, persisted as the entry's short message
+		 * @param recordId Record Id of the object for which error was thrown
+		 * @param logLevel Log Level
+		 * @param classMethod <class>/<method> if applicable
+		 */
+		@SuppressWarnings('PMD.ExcessiveParameterList')
+		private DTO_LogMessages(Exception error, String shortMessage, Id recordId, LoggingLevel logLevel, String classMethod)
+		{
+			this(logLevel, classMethod);
+			this.error = error;
+			addMessage(shortMessage, error.getMessage(), recordId);
+		}
+
+		/**
 		 * @description Add a message to the list
 		 *
 		 * @param longMessage Message text
@@ -2084,18 +2600,31 @@ public inherited sharing class LOG_Engine
 		}
 
 		/**
-		 * @description Will construct a list off events from the log messages
+		 * @description Will construct a list off events from the log messages. An entry a masking
+		 * rule blocks is dropped rather than published unmasked; a debug line records why.
 		 *
 		 * @return List of items
 		 */
+		@SuppressWarnings('PMD.AvoidDebugStatements')
 		private List<LogEntryEvent__e> getEvents()
 		{
 			List<LogEntryEvent__e> events = new List<LogEntryEvent__e>();
 
 			// Request.getCurrent()/getQuiddity() are null in sessionless contexts (Auth registration
-			// handlers, inbound email services, some guest flows) — a log emit must never throw there
+			// handlers, inbound email services, some guest flows); a log emit must never throw there
 			String executionEvent = (Request.getCurrent()?.getQuiddity() ?? Quiddity.UNDEFINED).name();
 			String stackTrace = getStackTrace(error);
+			String namespacePrefix = UTIL_System.getManagedPackageNamespacePrefix(UTIL_String.DOT);
+
+			// Only where the engine built the stack itself is its top frame the caller's, so only there can the
+			// caller's class and method be read off it when the caller named none
+			if(String.isBlank(classMethod) && error == null && String.isBlank(currentStackTrace))
+			{
+				classMethod = resolveClassMethodFromStack(stackTrace);
+			}
+
+			String origin = resolveOrigin(classMethod, namespacePrefix, getCurrentOperationType()).name();
+			String source = UTIL_String.abbreviate(resolveSource(classMethod, namespacePrefix), LogEntryEvent__e.Source__c);
 
 			for(DTO_LogMessage dtoLogMessage : logMessages)
 			{
@@ -2107,11 +2636,14 @@ public inherited sharing class LOG_Engine
 				event.Limits__c = getDebugLimits();
 				event.LineNumber__c = error?.getLineNumber();
 				event.LogLevel__c = logLevel.name();
+				event.Origin__c = origin;
+				event.Source__c = source;
 				event.StackTrace__c = stackTrace;
 				event.UserId__c = CURRENT_USER_ID;
 
 				// Correlation fields
 				event.CorrelationId__c = currentCorrelationId;
+				event.RootCorrelationId__c = currentRootCorrelationId;
 				event.TransactionId__c = Request.getCurrent()?.getRequestId();
 				event.ParentTransactionId__c = currentParentTransactionId;
 				event.Fingerprint__c = currentFingerprint;
@@ -2122,7 +2654,19 @@ public inherited sharing class LOG_Engine
 
 				if(UTIL_FrameworkMasker.isMaskingEnabled)
 				{
-					UTIL_FrameworkMasker.forRecord(event).apply();
+					try
+					{
+						UTIL_FrameworkMasker.forRecord(event).apply();
+					}
+					catch(UTIL_Exceptions.MaskingBlockedException blocked)
+					{
+						// A rule set to block DML failed on this entry: the entry must not be published unmasked, and the
+						// logger must not take the business transaction down with it. This debug line is the only
+						// breadcrumb the transaction keeps, so it carries the reason, the origin and the correlation.
+						System.debug(LoggingLevel.WARN, 'Log entry dropped because a masking rule blocked it: ' + blocked.getMessage()
+								+ ' | classMethod: ' + classMethod + ' | correlationId: ' + currentCorrelationId);
+						continue;
+					}
 				}
 
 				events.add(event);
@@ -2133,7 +2677,7 @@ public inherited sharing class LOG_Engine
 
 		/**
 		 * @description Will return the stack trace to be included in the error log. A real
-		 * exception's own trace wins; otherwise a caller-supplied override (the per-emit channel
+		 * exception's own trace wins; otherwise a stack trace the caller supplied (the channel for one emit
 		 * set via `setCurrentStackTrace`, e.g. a client-side JavaScript stack) is used; otherwise
 		 * the stack is calculated from the current call stack with framework infrastructure frames
 		 * stripped. Calculation idea taken from https://salesforce.stackexchange.com/questions/153835
@@ -2180,7 +2724,7 @@ public inherited sharing class LOG_Engine
 
 		/**
 		 * @description Returns whether a stack-trace line belongs to the logging framework's own
-		 * plumbing (builder, engine, LWC/Flow bridges) rather than caller code.
+		 * code (builder, engine, and the classes that pass logs from components and Flows) rather than caller code.
 		 *
 		 * @param stackTraceLine The raw stack-trace line to classify.
 		 *
@@ -2307,8 +2851,26 @@ public inherited sharing class LOG_Engine
 	@TestVisible
 	private inherited sharing class DTO_LoggerContext
 	{
+		/**
+		 * @description The tracking id that the logs of the receiving job are written under. Restoring the context makes it the
+		 * live correlation id of that job.
+		 */
 		public String correlationId;
+		/**
+		 * @description The tracking id of the action that started the whole story, which stays the same however many jobs follow.
+		 * When a stored context has none, its correlationId is used as the root.
+		 */
+		public String rootCorrelationId;
+		/**
+		 * @description The request id of the transaction that wrote this context, so the receiving job can name the transaction
+		 * it continues. Left empty when the context is written for a correlation id alone.
+		 */
 		public String parentTransactionId;
+		/**
+		 * @description Name and value pairs. In a context handed to another job they are the pairs attached to every log of the
+		 * writing transaction, carried over so the receiving job logs them too; they are left empty when the writing transaction
+		 * had none. The same field, on its own, is also the stored shape of one log entry's context values.
+		 */
 		public Map<String, String> contextData;
 	}
 

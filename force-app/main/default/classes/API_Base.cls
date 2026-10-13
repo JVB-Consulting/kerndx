@@ -12,7 +12,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -28,7 +28,7 @@
  * }
  * ```
  */
-@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters')
+@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters,PMD.ExcessivePublicCount')
 global abstract inherited sharing class API_Base extends DML_Transaction
 {
 	/**
@@ -61,8 +61,14 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	/**
 	 * @description Feature flag name for disabling all API calls.
 	 */
-	@TestVisible
-	private static final String FLAG_DISABLE_ALL_APIS = 'DisableAllAPIs';
+	public static final String FLAG_DISABLE_ALL_APIS = 'DisableAllAPIs';
+
+	/**
+	 * @description Feature flag name that decides who may delete API calls and API issues. A built-in rule turns it on for
+	 * everyone who holds the Delete API Records permission. The scheduled purge and the Health Check read it. The delete
+	 * guard's trigger action records name it too.
+	 */
+	public static final String FLAG_BYPASS_API_RECORD_DELETE_GUARD = 'BypassApiRecordDeleteGuard';
 
 	/**
 	 * @description Feature flag name for mocking all API calls.
@@ -84,10 +90,40 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	private String handlerCorrelationId;
 
 	/**
+	 * @description The id under which the logging engine holds this handler's call details: the handler's own id until
+	 * the call runs under a trace, then the trace id. Only one entry is held at a time; moving to another id drops the
+	 * entry under the previous one.
+	 */
+	private String loggingContextKey;
+
+	/**
 	 * @description Flag tracking whether the setting query has been executed.
 	 */
 	@TestVisible
 	private Boolean settingQueryRun = false;
+
+	/**
+	 * @description How many times the handler's own unit of work tries its commit again when the platform refuses a row
+	 * lock: once, the same count DML_Builder.withRetryOnLock() applies without an argument. Only the commit of the records
+	 * the handler registered runs again; the callout the handler made is never sent again by this retry.
+	 */
+	private static final Integer COMMIT_RETRIES_ON_LOCK = 1;
+
+	/**
+	 * @description The phrase the platform puts in the message of every DmlException it raises for refused rows. A
+	 * DmlException built in code (throw new DmlException('...')) carries no row errors, and asking it for them ends the
+	 * transaction with an error no catch block receives, so the row errors are read only from an exception whose message
+	 * carries this phrase.
+	 */
+	private static final String DML_ROW_ERRORS_PHRASE = 'First exception on row';
+
+	/**
+	 * @description True when the last attempt of the current commit failed. Each attempt sets it to false when it
+	 * starts and to its own result when it ends. So once the commit is over, it is true only when the commit failed for
+	 * good. commitWork then reads it to clear the Id of a call record that was new: the insert that gave the record its
+	 * Id was rolled back, so the Id no longer points to a saved row.
+	 */
+	private Boolean hasLastCommitAttemptFailed = false;
 
 	/**
 	 * @description Length of a W3C span ID in hex characters.
@@ -118,11 +154,11 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	 */
 	private static final Pattern HEX_PATTERN = Pattern.compile('[0-9a-f]+');
 	/**
-	 * @description Invalid all-zeros trace ID per W3C Trace Context specification.
+	 * @description Invalid all-zeros trace ID, as the W3C Trace Context standard defines it.
 	 */
 	private static final String INVALID_TRACE_ID = '00000000000000000000000000000000';
 	/**
-	 * @description Invalid all-zeros parent ID per W3C Trace Context specification.
+	 * @description Invalid all-zeros parent ID, as the W3C Trace Context standard defines it.
 	 */
 	private static final String INVALID_PARENT_ID = '0000000000000000';
 
@@ -169,6 +205,11 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	public static final Integer HTTP_BAD_REQUEST = 400;
 
 	/**
+	 * @description HTTP status code for request timeout (408): the external system gave up waiting for the request and asks for it again.
+	 */
+	public static final Integer HTTP_REQUEST_TIMEOUT = 408;
+
+	/**
 	 * @description HTTP status code for `Conflict` (409). Returned when an inbound request
 	 * replays the same `Idempotency-Key` with a different request body — the original
 	 * processed call's `ApiCall__c.Id` is included in the 409 response body so callers can
@@ -182,6 +223,11 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	public static final Integer HTTP_NOT_FOUND = 404;
 
 	/**
+	 * @description HTTP status code for too early (425): the external system asks the caller to wait and send again.
+	 */
+	public static final Integer HTTP_TOO_EARLY = 425;
+
+	/**
 	 * @description HTTP status code for too many requests (429).
 	 */
 	public static final Integer HTTP_TOO_MANY_REQUESTS = 429;
@@ -190,6 +236,21 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	 * @description HTTP status code for internal server error (500).
 	 */
 	public static final Integer HTTP_INTERNAL_SERVER_ERROR = 500;
+
+	/**
+	 * @description HTTP status code for bad gateway (502): a system between the caller and the external system failed to respond.
+	 */
+	public static final Integer HTTP_BAD_GATEWAY = 502;
+
+	/**
+	 * @description HTTP status code for service unavailable (503): the external system is temporarily unable to respond.
+	 */
+	public static final Integer HTTP_SERVICE_UNAVAILABLE = 503;
+
+	/**
+	 * @description HTTP status code for gateway timeout (504): a system between the caller and the external system gave up waiting.
+	 */
+	public static final Integer HTTP_GATEWAY_TIMEOUT = 504;
 
 	/**
 	 * @description Set of HTTP status codes indicating successful requests.
@@ -230,6 +291,47 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	 */
 	@SuppressWarnings('PMD.AvoidHardcodedCredentialsInFieldDecls')
 	public static final String HTTP_HEADER_AUTHORIZATION = 'Authorization';
+
+	/**
+	 * @description Names of the headers whose values are credentials: the standard HTTP carriers (Authorization,
+	 * Proxy-Authorization, Cookie, Set-Cookie) and the vendor key headers most APIs use (X-Api-Key, Api-Key,
+	 * X-Auth-Token). Lower-case, compared case-insensitively by redactCredentialHeaders. Every surface that shows or
+	 * stores a call's headers redacts exactly these, so the displayed and the stored copies never drift apart.
+	 */
+	@SuppressWarnings('PMD.AvoidHardcodedCredentialsInFieldDecls')
+	public static final Set<String> CREDENTIAL_HEADER_NAMES = new Set<String>
+	{
+			'authorization', 'proxy-authorization', 'cookie', 'set-cookie', 'x-api-key', 'api-key', 'x-auth-token'
+	};
+
+	/**
+	 * @description Name fragments that mark a header as credential-bearing whatever its exact name, so a vendor's
+	 * proprietary header (X-Vendor-Secret, X-Access-Token) is caught without a list entry. Lower-case, matched as a
+	 * case-insensitive contains. The fragment 'key' is deliberately absent: Idempotency-Key and similar operational
+	 * headers carry no secret and must stay visible.
+	 */
+	@SuppressWarnings('PMD.AvoidHardcodedCredentialsInFieldDecls')
+	public static final Set<String> CREDENTIAL_HEADER_NAME_FRAGMENTS = new Set<String>
+	{
+			'secret', 'password', 'passwd', 'token', 'credential'
+	};
+
+	/**
+	 * @description The value written in place of a credential header's value wherever the framework shows or stores
+	 * headers. A data marker rather than message text: the same bytes land in the stored call record and in the API
+	 * Test Harness, so it is a constant and not a label, and it matches the vocabulary of the shipped MaskAuthHeader rule.
+	 */
+	public static final String REDACTED_HEADER_VALUE = '[REDACTED]';
+
+	/**
+	 * @description The prefix of a credential merge field ({!$Credential...}), matched anywhere in a header value so
+	 * a scheme-prefixed form like 'Bearer {!$Credential.MyExternalCredential.Token}' also qualifies. A credential
+	 * header whose value carries it holds no secret, only the platform's placeholder, and is kept verbatim wherever
+	 * headers are shown or stored: the merge text is the documented way to send a credential header, and its stored
+	 * copy must survive so a retry can send it for the platform to substitute. Deliberately the credential syntax
+	 * only, never a bare '{!': an arbitrary merge expression is not a credential reference and gets no pass-through.
+	 */
+	public static final String PLATFORM_MERGE_FIELD_PREFIX = '{!$Credential';
 
 	/**
 	 * @description Ensures that RFC-7230 validation is enforced.
@@ -543,20 +645,37 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	}
 
 	/**
-	 * @description Base constructor. Pins the transaction's `AccessLevel` to `SYSTEM_MODE` because
-	 * `API_Base` extends `DML_Transaction` and its UnitOfWork is dominated by framework-owned audit
-	 * DML (`ApiCall__c` save, `ApiIssue__c` create on failure, `ContentVersion` attachments) that
-	 * must succeed regardless of whether the running user holds CRUD on those framework objects.
-	 * Without this pin the audit trail would disappear silently any time a subscriber API invocation
-	 * runs as a non-admin who lacks CRUD on `ApiCall__c` — a failure mode we explicitly guard against.
-	 * Subscriber services whose `onSuccess()` / `populate()` code does user-mode DML opt in per-call
-	 * via `DML_Builder.newTransaction().withUserMode()...execute()` rather than registering with this
-	 * inherited UoW.
+	 * @description The exception the framework caught for this call: a parse failure, a throw from a handler hook, or a
+	 * callout that got no response. Null when the failure carried no exception, as when the external system responded
+	 * with a status code. The outbound retry decision reads it to learn the failure's type and passes it into the retry
+	 * context. It is set at the framework's own catch sites, never inside handleError, because a handler may override
+	 * handleError without calling the base method. There are three such sites: where an outbound response is parsed, on
+	 * the dispatcher's error path, and where UTIL_HttpClient hands a call to a subscriber's handler and that handler's
+	 * processing or commit throws. A throw from performValidation() leaves it null on purpose (see API_Outbound).
+	 */
+	public Exception lastFailure
+	{
+		protected get;
+		set;
+	}
+
+	/**
+	 * @description Base constructor. Sets the transaction's `AccessLevel` to `SYSTEM_MODE`. `API_Base` extends
+	 * `DML_Transaction`, and most of what its unit of work saves is the framework's own audit data: the `ApiCall__c`
+	 * record, the `ApiIssue__c` record created on a failure, and the `ContentVersion` attachments. These saves must
+	 * succeed whether or not the running user has create, read, update and delete access to those framework objects.
+	 * Without this setting, the audit trail would silently disappear whenever a service runs as a user who is not an
+	 * administrator and has no access to `ApiCall__c`. A service whose `onSuccess()` or `populate()` code must save
+	 * records with the running user's permissions does so in its own transaction, through
+	 * `DML_Builder.newTransaction().withUserMode()...execute()`, instead of registering the records with this inherited
+	 * unit of work. The unit of work also tries a commit again once when the platform refuses it for a row lock, so a
+	 * lock while saving a successful call's records never sends the call again.
 	 */
 	@SuppressWarnings('ApexUnusedDeclaration,RedundantSuppression')
 	public API_Base()
 	{
 		setAccessLevel(System.AccessLevel.SYSTEM_MODE);
+		setRetryOnLock(COMMIT_RETRIES_ON_LOCK);
 		configure();
 	}
 
@@ -589,17 +708,31 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	 * the corresponding ApiCall__c field length limits. Content is masked with the same
 	 * MaskingTarget__mdt rules that fire on the ApiCall__c record itself, so oversized payloads
 	 * landing in ContentVersion files carry the same redaction the persisted record does.
+	 * A rule set to block DML that fails while the payloads are redacted attaches nothing: the block is
+	 * recorded on the result and the call still answers its caller (the rule's own warning log names the rule).
 	 *
-	 * @return A list of uncommitted ContentVersion records, empty if no fields exceed limits.
+	 * @return A list of uncommitted ContentVersion records, empty if no fields exceed limits or a masking rule blocked the redaction.
 	 */
 	public List<ContentVersion> createRelatedContentVersions()
 	{
 		List<ContentVersion> versions = new List<ContentVersion>();
+		String maskedRequestBody;
+		String maskedResponseBody;
+		String maskedUrl;
+		String maskedParameters;
 
-		String maskedRequestBody = maskContent(ApiCall__c.Request__c, result.requestBody);
-		String maskedResponseBody = maskContent(ApiCall__c.Response__c, result.responseBody);
-		String maskedUrl = maskContent(ApiCall__c.URL__c, result.url);
-		String maskedParameters = maskContent(ApiCall__c.RequestParameters__c, inputs.serialize());
+		try
+		{
+			maskedRequestBody = maskContent(ApiCall__c.Request__c, result.requestBody);
+			maskedResponseBody = maskContent(ApiCall__c.Response__c, result.responseBody);
+			maskedUrl = maskContent(ApiCall__c.URL__c, result.url);
+			maskedParameters = maskContent(ApiCall__c.RequestParameters__c, inputs.serialize());
+		}
+		catch(UTIL_Exceptions.MaskingBlockedException blocked)
+		{
+			result.errors.add(blocked.getMessage());
+			return versions;
+		}
 
 		if(shouldStoreAsFile(maskedRequestBody, SEL_ApiCall.REQUEST_LENGTH))
 		{
@@ -618,6 +751,85 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 			versions.add(TST_Factory.newContentVersion(apiCall.Id, 'RequestParameters' + SEL_ContentVersion.TEXT_FILE_EXTENSION, Blob.valueOf(maskedParameters)));
 		}
 		return versions;
+	}
+
+	/**
+	 * @description Returns a copy of the headers in which every credential header carries REDACTED_HEADER_VALUE
+	 * instead of its value. A header is credential-bearing when its name is in CREDENTIAL_HEADER_NAMES or contains a
+	 * CREDENTIAL_HEADER_NAME_FRAGMENTS entry, compared case-insensitively. Every other header is copied as sent, and
+	 * two credential values pass through untouched: a blank value (an absent token is not reported as a redacted one)
+	 * and a value carrying credential merge-field text (PLATFORM_MERGE_FIELD_PREFIX anywhere in the value, so
+	 * 'Bearer {!$Credential...}' qualifies: it holds no secret and its stored copy must survive for retries). A null
+	 * map yields an empty map. The redaction reads neither the data-masking feature flag nor any masking rule: it is
+	 * a disclosure control on what the framework shows and stores, not a data-at-rest policy an administrator tunes.
+	 *
+	 * @param headers The headers as sent or received; may be null.
+	 *
+	 * @return A new map with every credential value redacted.
+	 */
+	public static Map<String, String> redactCredentialHeaders(Map<String, String> headers)
+	{
+		Map<String, String> redacted = new Map<String, String>();
+		if(headers == null)
+		{
+			return redacted;
+		}
+		for(String name : headers.keySet())
+		{
+			String value = headers.get(name);
+			redacted.put(name, isCredentialHeader(name) && String.isNotBlank(value) && !value.contains(PLATFORM_MERGE_FIELD_PREFIX) ? REDACTED_HEADER_VALUE : value);
+		}
+		return redacted;
+	}
+
+	/**
+	 * @description Reports whether a header name is credential-bearing: an exact CREDENTIAL_HEADER_NAMES member or a
+	 * name containing a CREDENTIAL_HEADER_NAME_FRAGMENTS entry, compared case-insensitively.
+	 *
+	 * @param name The header name; may be null.
+	 *
+	 * @return True when the header's value is a credential.
+	 */
+	public static Boolean isCredentialHeader(String name)
+	{
+		if(name == null)
+		{
+			return false;
+		}
+		String lowered = name.toLowerCase();
+		if(CREDENTIAL_HEADER_NAMES.contains(lowered))
+		{
+			return true;
+		}
+		for(String fragment : CREDENTIAL_HEADER_NAME_FRAGMENTS)
+		{
+			if(lowered.contains(fragment))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @description The DTO_NameValues form of redactCredentialHeaders(Map), for the invocation results the API Test
+	 * Harness maps. Returns a new instance and never mutates its input; a null input yields an empty instance.
+	 *
+	 * @param headers The headers as sent or received; may be null.
+	 *
+	 * @return A new DTO_NameValues with every credential value redacted.
+	 */
+	public static DTO_NameValues redactCredentialHeaders(DTO_NameValues headers)
+	{
+		Map<String, String> source = new Map<String, String>();
+		if(headers != null)
+		{
+			for(String name : headers.names)
+			{
+				source.put(name, headers.get(name));
+			}
+		}
+		return new DTO_NameValues(redactCredentialHeaders(source));
 	}
 
 	/**
@@ -746,8 +958,8 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 
 	/**
 	 * @description Extracts human-readable error messages from an exception.
-	 * For DML exceptions, returns the individual row-level messages; for all others,
-	 * returns the top-level exception message.
+	 * For a DML exception the platform raised for refused rows, returns the individual row-level messages; for all
+	 * others, a DmlException built in code included, returns the top-level exception message.
 	 *
 	 * @param exceptionThrown The exception to extract messages from.
 	 *
@@ -756,7 +968,7 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	private static List<String> extractErrorMessages(Exception exceptionThrown)
 	{
 		List<String> messages = new List<String>();
-		if(exceptionThrown instanceof DmlException)
+		if(exceptionThrown instanceof DmlException && exceptionThrown.getMessage()?.contains(DML_ROW_ERRORS_PHRASE) == true)
 		{
 			DmlException dmlError = (DmlException)exceptionThrown;
 			for(Integer i = 0, rowCount = dmlError.getNumDml(); i < rowCount; i++)
@@ -774,13 +986,59 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	/**
 	 * @description Applies this handler's API context to the static logger.
 	 * Sets the current correlation ID to the W3C trace ID when available, falling back
-	 * to the handler's unique ID. This bridges distributed trace context to log entries.
+	 * to the handler's unique ID. This bridges distributed trace context to log entries. The call details are held under
+	 * that same ID, so every line logged under it carries them.
 	 */
 	public void applyLoggingContext()
 	{
-		LOG_Builder.setCorrelationId(String.isNotBlank(apiCall?.TraceId__c) ? apiCall.TraceId__c : handlerCorrelationId);
-		LOG_Engine.setWebserviceContext(handlerCorrelationId, getServiceName(), result.url, toHttpString(getHttpMethod()));
-		LOG_Engine.updateWebserviceContext(handlerCorrelationId, result.statusCode, calloutProcessingTime.getTime());
+		String loggingCorrelationId = String.isNotBlank(apiCall?.TraceId__c) ? apiCall.TraceId__c : handlerCorrelationId;
+		if(loggingContextKey != loggingCorrelationId)
+		{
+			LOG_Engine.clearWebserviceContext(loggingContextKey);
+		}
+		loggingContextKey = loggingCorrelationId;
+
+		LOG_Builder.setCorrelationId(loggingCorrelationId);
+		LOG_Engine.setWebserviceContext(loggingCorrelationId, getServiceName(), result.url, toHttpString(getHttpMethod()));
+		LOG_Engine.updateWebserviceContext(loggingCorrelationId, result.statusCode, calloutProcessingTime.getTime());
+	}
+
+	/**
+	 * @description Removes this handler's call details from the logging engine, so lines logged after the handler is
+	 * done no longer carry its endpoint, status code or callout duration. The code that runs the handler calls this once
+	 * the handler's work is over, whether it succeeded or failed.
+	 */
+	public void clearLoggingContext()
+	{
+		LOG_Engine.clearWebserviceContext(loggingContextKey);
+	}
+
+	/**
+	 * @description Gives this handler the call record being processed when it does not hold one yet, without saving the
+	 * record. A handler that fails before its processing takes the record in hand can then still write the failure's
+	 * details onto it.
+	 *
+	 * @param apiCallRecord The call record being processed.
+	 */
+	public void assignApiCallWhenMissing(ApiCall__c apiCallRecord)
+	{
+		apiCall = apiCall ?? apiCallRecord;
+	}
+
+	/**
+	 * @description Builds the service name and HTTP method that this handler's `API_CALL` logging context carries. The code
+	 * that runs the handler pushes them around each piece of the handler's work and pops them in a `finally`; creating a
+	 * handler pushes nothing.
+	 *
+	 * @return The service name and the HTTP method, keyed by the engine's context keys.
+	 */
+	public Map<String, String> buildCallContext()
+	{
+		return new Map<String, String>
+		{
+				LOG_Engine.CONTEXT_SERVICE_NAME => getServiceName(),
+				LOG_Engine.CONTEXT_HTTP_METHOD => toHttpString(getHttpMethod())
+		};
 	}
 
 	/**
@@ -807,14 +1065,9 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 		setUnitOfWorksObjectTypes();
 
 		handlerCorrelationId = UTIL_Random.randomUUID();
+		loggingContextKey = handlerCorrelationId;
 
 		LOG_Engine.setWebserviceContext(handlerCorrelationId, getServiceName(), UTIL_String.EMPTY, toHttpString(getHttpMethod()));
-
-		LOG_Engine.pushOperationContext(LOG_Engine.OperationType.API_CALL, new Map<String, String>
-		{
-				LOG_Engine.CONTEXT_SERVICE_NAME => getServiceName(),
-				LOG_Engine.CONTEXT_HTTP_METHOD => toHttpString(getHttpMethod())
-		});
 	}
 
 	/**
@@ -849,13 +1102,19 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	}
 
 	/**
-	 * @description Performs actions after unit of work DML operations.
+	 * @description Performs actions after an attempt of the commit ends. It runs once for each attempt of the commit, and
+	 * an attempt the platform refused for a row lock is run again once, so everything here is safe to run more than once:
+	 * the files for oversized call data are created only after the attempt that succeeds, the attempt's outcome is noted
+	 * for the end of the commit, and the handler's call details are removed from the logging engine. An override must
+	 * call super.onCommitWorkFinished(wasSuccessful) first, before its own work: this method notes the attempt's outcome,
+	 * and an override that throws before that call leaves a failed attempt unnoted.
 	 *
-	 * @param wasSuccessful Indicates if the commit was successful.
+	 * @param wasSuccessful Indicates if the attempt was successful.
 	 */
 	public override virtual void onCommitWorkFinished(Boolean wasSuccessful)
 	{
 		super.onCommitWorkFinished(wasSuccessful);
+		hasLastCommitAttemptFailed = !wasSuccessful;
 		if(wasSuccessful)
 		{
 			List<ContentVersion> relatedContentVersions = createRelatedContentVersions();
@@ -864,24 +1123,20 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 				DML_Builder.newTransaction().systemModeInternal().doInsert(relatedContentVersions).allowPartial().execute();
 			}
 		}
-		else
-		{
-			apiCall.Id = null;
-		}
-		commitProcessingTime.stop();
 
-		LOG_Engine.popOperationContext();
-		LOG_Engine.clearWebserviceContext(handlerCorrelationId);
+		clearLoggingContext();
 	}
 
 	/**
-	 * @description Performs actions before unit of work DML operations.
+	 * @description Performs actions before an attempt of the commit starts. It runs once for each attempt of the commit,
+	 * and an attempt the platform refused for a row lock is run again once, so everything here is safe to run more than
+	 * once: the handler's call details are given to the logging engine for the attempt. The stopwatches are not touched
+	 * here; commitWork stops the service time and starts the commit time once, before the first attempt.
 	 */
 	public override virtual void onCommitWorkStarting()
 	{
 		super.onCommitWorkStarting();
-		serviceProcessingTime.stop();
-		commitProcessingTime.start();
+		hasLastCommitAttemptFailed = false;
 
 		applyLoggingContext();
 	}
@@ -1162,27 +1417,59 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 
 	/**
 	 * @description Commits all registered DML operations with optional sharing enforcement.
-	 * When Safe Mode is active, wraps execution in savepoint with guaranteed rollback.
+	 * When Safe Mode is active, wraps execution in savepoint with guaranteed rollback. Every attempt empties the
+	 * transaction's in-memory query cache before its first statement and again when it ends, whatever the outcome, and
+	 * safe mode empties it once more after its rollback, so no read after a write is served rows from before it or from
+	 * a write that was rolled back. The work that belongs to the commit as a whole happens here, once, however many
+	 * attempts the commit takes: the service time is stopped and the commit time started before the first attempt, and
+	 * the commit time is stopped when the commit ends, so it covers every attempt. The commit time is stopped only when it
+	 * was started: a commit refused before that point fails with its own exception, never with a second one raised by
+	 * stopping a stopwatch that is not running. When the commit fails for good, the Id of a call record that was new when
+	 * the commit began is cleared, because the insert that gave it the Id was rolled back. A call record that was already
+	 * saved when the commit began keeps its Id whatever happens, because the Id still names its row: the next attempt
+	 * updates that row, and after a commit that fails for good the failure is written to that same row.
 	 *
 	 * @param enforceSharing Whether to enforce sharing rules during commit
 	 */
 	public override void commitWork(Boolean enforceSharing)
 	{
-		if(isSafeModeActive())
+		Boolean isNewCallRecord = apiCall?.Id == null;
+		Boolean hasCommitTimeStarted = false;
+		try
 		{
-			Savepoint safeModeCheckpoint = Database.setSavepoint();
-			try
+			serviceProcessingTime.stop();
+			commitProcessingTime.start();
+			hasCommitTimeStarted = true;
+
+			if(isSafeModeActive())
+			{
+				SavePoint safeModeCheckpoint = Database.setSavepoint();
+				try
+				{
+					super.commitWork(enforceSharing);
+				}
+				finally
+				{
+					Database.rollback(safeModeCheckpoint);
+					// Safe mode rolls back a commit that succeeded, so rows cached during it describe a write that no longer exists.
+					QRY_Engine.clearQueryResultMemoryCache();
+				}
+			}
+			else
 			{
 				super.commitWork(enforceSharing);
 			}
-			finally
-			{
-				Database.rollback(safeModeCheckpoint);
-			}
 		}
-		else
+		finally
 		{
-			super.commitWork(enforceSharing);
+			if(hasLastCommitAttemptFailed && isNewCallRecord)
+			{
+				apiCall.Id = null;
+			}
+			if(hasCommitTimeStarted)
+			{
+				commitProcessingTime.stop();
+			}
 		}
 	}
 
@@ -1417,11 +1704,10 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	}
 
 	/**
-	 * @description Parses a W3C Trace Parent header value per the W3C Trace Context specification.
-	 * Validates the header format: version (2 hex), trace-id (32 hex, not all zeros),
-	 * parent-id (16 hex, not all zeros), and trace-flags (2 hex).
-	 * Invalid headers are logged as warnings and a new context is generated instead — the API
-	 * call is never aborted due to a malformed trace header.
+	 * @description Parses a W3C Trace Parent header value, following the W3C Trace Context standard. Validates the
+	 * header format: version (2 hex), trace-id (32 hex, not all zeros), parent-id (16 hex, not all zeros), and
+	 * trace-flags (2 hex). An invalid header is logged as a warning and a new context is generated instead: the API
+	 * call is never aborted because of a malformed trace header.
 	 *
 	 * @param headerValue The Trace Parent header value (e.g., '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01')
 	 *
@@ -1452,12 +1738,12 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	}
 
 	/**
-	 * @description Validates the parts of a W3C Trace Parent header against the specification.
+	 * @description Validates the parts of a W3C Trace Parent header against the W3C Trace Context standard.
 	 * Checks field lengths, lowercase hex character format, and rejects all-zeros trace-id and parent-id.
 	 *
 	 * @param parts The split traceparent header parts (version, trace-id, parent-id, trace-flags)
 	 *
-	 * @return True if all parts are valid per the W3C Trace Context specification
+	 * @return True if all parts are valid under the W3C Trace Context standard
 	 */
 	private static Boolean isValidTraceParent(List<String> parts)
 	{

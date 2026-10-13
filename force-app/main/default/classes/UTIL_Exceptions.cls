@@ -10,7 +10,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -26,12 +26,12 @@
 global inherited sharing class UTIL_Exceptions
 {
 	/**
-	 * @description Test-only seam — when set to `true`, `isFatalGovernorError` returns true for ANY
+	 * @description Test-only switch: when set to `true`, `isFatalGovernorError` returns true for ANY
 	 * caught exception so tests can drive the rethrow branch without throwing a real
 	 * `System.LimitException`. Production code paths leave this `false`.
 	 *
 	 * Exposed `@TestVisible` because user-mode Apex tests cannot drive a real
-	 * `System.LimitException` through a try/catch — user-thrown LimitException escapes all
+	 * `System.LimitException` through a try/catch. A LimitException that user code throws escapes all
 	 * catches at the executor level. The toggle lets tests drive the rethrow branch with an
 	 * injectable non-LimitException for coverage purposes; production code paths set the
 	 * toggle to `false` and never mutate it.
@@ -135,16 +135,79 @@ global inherited sharing class UTIL_Exceptions
 	}
 
 	/**
+	 * @description Throw this from your own outbound handler code to say the failure is permanent: sending the same
+	 * request again cannot help. The framework then ends the call Failed at once, with one issue and no retry scheduled,
+	 * whatever the retry settings and the handler's retry strategy say. Throw it from prepareRequest(), a request DTO's
+	 * populate(), createRequest() and the methods it calls, parseResponse(), onSuccess() or createRetryStrategy().
+	 * Thrown from getValidationErrors() it ends the call Aborted instead, because a refusal in validation always does. A
+	 * throw raised while the records you registered are saved reaches the framework as a DmlException, whatever you
+	 * threw, and is decided like any other failure after a successful response. For a success status whose body carries
+	 * a refusal, throw RequestRefusedException from parseResponse() instead: it is refused the same way, and the issue
+	 * it leaves records that the external system did not act.
+	 *
+	 * @see API_Outbound
+	 *
+	 * @group Web Services
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * global override void prepareRequest()
+	 * {
+	 *     super.prepareRequest();
+	 *     if(String.isBlank(orderNumber))
+	 *     {
+	 *         throw new UTIL_Exceptions.PermanentFailureException('The order has no number; sending it again cannot help.');
+	 *     }
+	 * }
+	 * ```
+	 */
+	global virtual inherited sharing class PermanentFailureException extends Exception
+	{
+	}
+
+	/**
+	 * @description Throw this from parseResponse() when the external system answered with a success status but its body says
+	 * it refused the request, for example an order answered 200 with status REJECTED. It is a PermanentFailureException, so
+	 * the call ends Failed at once, with one issue and no retry scheduled. A refusal means the external system did not act,
+	 * so the issue's External System May Have Acted box stays clear and the issue can be run again from the API Issues list
+	 * once the cause is fixed. Thrown from anywhere else, onSuccess() included, it behaves exactly as PermanentFailureException
+	 * does, and an issue for a failure after a success status then says the external system acted, because by then it did.
+	 *
+	 * @see API_Outbound
+	 *
+	 * @group Web Services
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * global override void parseResponse()
+	 * {
+	 *     super.parseResponse();
+	 *     if(((DTO_Response)responsePayload).status == 'REJECTED')
+	 *     {
+	 *         throw new UTIL_Exceptions.RequestRefusedException('The external system rejected the order; fix the order and run the call again.');
+	 *     }
+	 * }
+	 * ```
+	 */
+	global inherited sharing class RequestRefusedException extends PermanentFailureException
+	{
+	}
+
+	/**
 	 * @description Thrown by the post-trigger no-DML contract guard when an
 	 * `IF_Trigger.PostAction.execute(context)` performs synchronous DML inside the trigger
 	 * dispatcher unwind. `UTIL_PostTriggerAction.handleFailure` always rethrows this type
-	 * regardless of the row's `FailureAction__c` policy — the no-DML contract is a framework
-	 * invariant, not a policy-controlled behaviour.
+	 * regardless of the row's `FailureAction__c` policy, because the no-DML rule is the framework's
+	 * own rule, not a choice the policy makes.
 	 *
-	 * Intentionally `public`, not `global`: it signals a developer-time contract violation
-	 * (a post-action must compute, log, or enqueue async only — never synchronous DML),
+	 * Intentionally `public`, not `global`: it signals a broken rule found while developing
+	 * (a post-action may only compute, log or queue asynchronous work, never run synchronous DML),
 	 * always aborts the transaction, and is never caught for recovery by subscriber code.
-	 * A distinct type is load-bearing — the guard discriminates it via `instanceof` from
+	 * The type must be its own: the guard tells it apart through `instanceof` from
 	 * exceptions thrown by the action itself, so it must be a type no subscriber action raises.
 	 *
 	 * @see UTIL_PostTriggerAction

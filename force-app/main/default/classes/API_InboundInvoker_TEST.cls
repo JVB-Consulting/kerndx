@@ -9,10 +9,10 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class API_InboundInvoker_TEST
 {
 	/**
@@ -31,6 +31,10 @@ private class API_InboundInvoker_TEST
 	 * @description HTTP POST method constant.
 	 */
 	private static final String HTTP_POST = 'POST';
+	/**
+	 * @description A stored request body in XML, which the inbound base class does not read into a request object.
+	 */
+	private static final String TEST_XML_BODY = '<hello>world</hello>';
 
 	/**
 	 * @description Tests that invocation populates status code, response body, request body, and execution time.
@@ -323,5 +327,118 @@ private class API_InboundInvoker_TEST
 	{
 		Assert.areEqual('/test', API_InboundInvoker.toConcreteEndpointPath(null), 'Null pattern should produce default path');
 		Assert.areEqual('/test', API_InboundInvoker.toConcreteEndpointPath(''), 'Empty pattern should produce default path');
+	}
+
+	/**
+	 * @description A replay from a stored issue hands the stored body to the handler as its parsed request, as the original request
+	 * did: the handler saves a record named by a field of the body, and the record is found by that name. The issue keeps no headers,
+	 * so the replay must say the body is JSON itself; without that the handler runs on an empty request and still reports success.
+	 */
+	@IsTest
+	private static void shouldHandTheStoredBodyToTheHandlerAsItsParsedRequestOnReplay()
+	{
+		String serviceName = RecordSavingInbound.class.getName();
+		TST_Factory.newInboundApiSetting(serviceName, TEST_PATH);
+		RecordSavingRequest storedRequest = new RecordSavingRequest();
+		storedRequest.recordName = UTIL_Random.randomName();
+		ApiIssue__c failure = (ApiIssue__c)TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.RequestPath__c, TEST_PATH)
+				.withOverride(ApiIssue__c.RequestMethod__c, HTTP_POST)
+				.withOverride(ApiIssue__c.RequestBody__c, JSON.serialize(storedRequest))
+				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.build();
+
+		Test.startTest();
+		DTO_InvocationResult invocationResult = API_InboundInvoker.replay(failure.Id, false);
+		Test.stopTest();
+
+		Assert.isTrue(invocationResult.success, 'Expected the replay to succeed, got: ' + invocationResult.errorText);
+		Integer savedCount = QRY_Builder.selectFrom(Foobar__c.SObjectType).condition(Foobar__c.Name).equals(storedRequest.recordName).count();
+		Assert.areEqual(1, savedCount, 'Expected the handler to save one record named by the stored body on replay, got ' + savedCount);
+	}
+
+	/**
+	 * @description A replay of a stored issue with no body sends no content type header: there is nothing to read, so the replay
+	 * does not say the request is JSON.
+	 */
+	@IsTest
+	private static void shouldReplayAnIssueWithNoBodyWithoutAContentType()
+	{
+		TST_Factory.newInboundApiSetting(RecordSavingInbound.class.getName(), TEST_PATH);
+		ApiIssue__c failure = (ApiIssue__c)TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.RequestPath__c, TEST_PATH)
+				.withOverride(ApiIssue__c.RequestMethod__c, HTTP_POST)
+				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.build();
+
+		Test.startTest();
+		DTO_InvocationResult invocationResult = API_InboundInvoker.replay(failure.Id, true);
+		Test.stopTest();
+
+		Assert.isTrue(invocationResult.success, 'Expected the replay with no body to reach the handler, got: ' + invocationResult.errorText);
+		Boolean hasContentType = invocationResult.requestHeaders?.exists(API_Base.HTTP_CONTENT_TYPE) == true;
+		Assert.isFalse(hasContentType, 'Expected no content type header on a replay with no body');
+	}
+
+	/**
+	 * @description A replay of a stored XML body sends no content type header, as before, and the handler that reads the raw body
+	 * gets it unchanged: the echo handler sends back exactly the stored XML.
+	 */
+	@IsTest
+	private static void shouldReplayAnXmlBodyWithoutAContentTypeAndUnchanged()
+	{
+		TST_Factory.newInboundApiSetting(SERVICE_NAME, '/echo/*');
+		ApiIssue__c failure = (ApiIssue__c)TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.RequestPath__c, TEST_PATH)
+				.withOverride(ApiIssue__c.RequestMethod__c, HTTP_POST)
+				.withOverride(ApiIssue__c.RequestBody__c, TEST_XML_BODY)
+				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.build();
+
+		Test.startTest();
+		DTO_InvocationResult invocationResult = API_InboundInvoker.replay(failure.Id, false);
+		Test.stopTest();
+
+		Assert.isTrue(invocationResult.success, 'Expected the replay of an XML body to succeed, got: ' + invocationResult.errorText);
+		Assert.areEqual(TEST_XML_BODY, invocationResult.responseBody, 'Expected the handler to receive the stored XML body unchanged');
+		Boolean hasContentType = invocationResult.requestHeaders?.exists(API_Base.HTTP_CONTENT_TYPE) == true;
+		Assert.isFalse(hasContentType, 'Expected no content type header on a replay of an XML body');
+	}
+
+	/**
+	 * @description The request a replayed body is parsed into: the name of the record the handler saves.
+	 */
+	@JsonAccess(serializable='always' deserializable='always')
+	public class RecordSavingRequest extends DTO_JsonBase
+	{
+		/**
+		 * @description The name the saved record gets.
+		 */
+		public String recordName;
+	}
+
+	/**
+	 * @description An inbound handler that saves one record, named by its parsed request, when the request succeeds.
+	 */
+	public inherited sharing class RecordSavingInbound extends API_Inbound
+	{
+		/**
+		 * @description Sets the typed request so the body is parsed into it.
+		 */
+		public override void configure()
+		{
+			super.configure();
+			requestPayload = new RecordSavingRequest();
+			responsePayload = new DTO_JsonBase();
+		}
+
+		/**
+		 * @description Saves the record named by the request.
+		 */
+		public override void onSuccess()
+		{
+			super.onSuccess();
+			doInsert(TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Name, ((RecordSavingRequest)requestPayload).recordName).withoutInsertion().build());
+		}
 	}
 }

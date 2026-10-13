@@ -4,16 +4,25 @@
  * and invocation methods for testing inbound and outbound APIs with Safe Mode
  * and mocking control.
  *
+ * @see API_Outbound
  * @see CTRL_ApiTestHarness_TEST
+ * @see LOG_Builder
+ * @see LOG_Engine
+ * @see UTIL_System
  *
  * @author Jason van Beukering
  *
  * @group Controllers
  *
- * @date February 2026, May 2026
+ * @date February 2026, September 2026
  */
 public inherited sharing class CTRL_ApiTestHarness
 {
+	/**
+	 * @description Class name for log source attribution on the service description endpoint.
+	 */
+	private static final String CLASS_NAME = CTRL_ApiTestHarness.class.getName();
+
 	/**
 	 * @description Returns active API services filtered by direction for combobox population.
 	 *
@@ -21,7 +30,7 @@ public inherited sharing class CTRL_ApiTestHarness
 	 *
 	 * @return List of service options with label and value
 	 */
-	@AuraEnabled(Cacheable=true)
+	@AuraEnabled(cacheable=true)
 	public static List<DTO_ServiceOption> getServices(String direction)
 	{
 		List<DTO_ServiceOption> options = new List<DTO_ServiceOption>();
@@ -37,6 +46,58 @@ public inherited sharing class CTRL_ApiTestHarness
 		}
 
 		return options;
+	}
+
+	/**
+	 * @description Describes what an outbound service declares before the administrator executes it: the required
+	 * input names (from the service's `getRequiredInputs()` override) and whether a triggering record Id is required
+	 * (from `requiresTriggeringRecord` after `configure()`). The harness seeds its form from this. A blank, unknown,
+	 * non-outbound or failing class name yields an empty description rather than an error, so a misconfigured
+	 * ApiSetting__mdt never blocks the form; the cause is logged at DEBUG. Instantiating the service runs its
+	 * `configure()`, which registers a webservice logging context; that context is cleared before returning.
+	 *
+	 * @param className The outbound service class name from ApiSetting__mdt.ClassName__c
+	 *
+	 * @return The declared inputs and record requirement, never null
+	 */
+	@AuraEnabled(cacheable=true)
+	public static DTO_ServiceDescription describeService(String className)
+	{
+		DTO_ServiceDescription description = new DTO_ServiceDescription();
+		if(String.isBlank(className))
+		{
+			return description;
+		}
+
+		API_Outbound service;
+		try
+		{
+			service = (API_Outbound)UTIL_System.getTypeForClassName(className, API_Outbound.class).newInstance();
+			List<String> requiredNames = new List<String>(service.describeRequiredInputs());
+			requiredNames.sort();
+			for(String requiredName : requiredNames)
+			{
+				DTO_InputDescription input = new DTO_InputDescription();
+				input.name = requiredName;
+				input.isRequired = true;
+				description.inputs.add(input);
+			}
+			description.requiresTriggeringRecord = service.isTriggeringRecordRequired();
+		}
+		catch(Exception describeFailure)
+		{
+			LOG_Builder.build().debug('Service could not be described: ' + className + ' (' + describeFailure.getMessage() + ')').at(CLASS_NAME + '.describeService').emit();
+			description = new DTO_ServiceDescription();
+		}
+		finally
+		{
+			if(service != null)
+			{
+				LOG_Engine.clearWebserviceContext(service.correlationId);
+			}
+		}
+
+		return description;
 	}
 
 	/**
@@ -108,7 +169,9 @@ public inherited sharing class CTRL_ApiTestHarness
 	}
 
 	/**
-	 * @description Maps an invocation result to the controller DTO, serializing headers for the LWC.
+	 * @description Maps an invocation result to the controller DTO, serialising the headers for the LWC with every
+	 * credential value redacted (API_Base.redactCredentialHeaders), so neither the page, its copy actions, nor the
+	 * Aura payload carries a token or cookie.
 	 *
 	 * @param invocationResult The invocation result from either invoker
 	 *
@@ -117,6 +180,8 @@ public inherited sharing class CTRL_ApiTestHarness
 	private static DTO_TestResult mapResult(DTO_InvocationResult invocationResult)
 	{
 		DTO_TestResult dtoTestResult = new DTO_TestResult();
+		DTO_NameValues requestHeaders = API_Base.redactCredentialHeaders(invocationResult.requestHeaders);
+		DTO_NameValues responseHeaders = API_Base.redactCredentialHeaders(invocationResult.responseHeaders);
 
 		dtoTestResult.apiCallId = invocationResult.apiCallId;
 		dtoTestResult.errorMessages = invocationResult.errorText;
@@ -125,9 +190,9 @@ public inherited sharing class CTRL_ApiTestHarness
 		dtoTestResult.isSuccess = invocationResult.success;
 		dtoTestResult.mockingEnabled = invocationResult.mockingEnabled;
 		dtoTestResult.requestBody = invocationResult.requestBody;
-		dtoTestResult.requestHeaders = invocationResult.requestHeaders.isEmpty() ? dtoTestResult.requestHeaders : invocationResult.requestHeaders.serialize();
+		dtoTestResult.requestHeaders = requestHeaders.isEmpty() ? dtoTestResult.requestHeaders : requestHeaders.serialize();
 		dtoTestResult.responseBody = invocationResult.responseBody;
-		dtoTestResult.responseHeaders = invocationResult.responseHeaders.isEmpty() ? dtoTestResult.responseHeaders : invocationResult.responseHeaders.serialize();
+		dtoTestResult.responseHeaders = responseHeaders.isEmpty() ? dtoTestResult.responseHeaders : responseHeaders.serialize();
 		dtoTestResult.safeModeEnabled = invocationResult.safeModeEnabled;
 		dtoTestResult.serviceName = invocationResult.serviceName;
 		dtoTestResult.status = invocationResult.status;
@@ -200,6 +265,43 @@ public inherited sharing class CTRL_ApiTestHarness
 		 */
 		@AuraEnabled
 		public String value;
+	}
+
+	/**
+	 * @description What an outbound service declares about its inputs, shaped for the harness form. Inputs are
+	 * descriptors rather than names so later attributes (type, description, sensitivity) are additive.
+	 */
+	public class DTO_ServiceDescription
+	{
+		/**
+		 * @description The declared inputs, sorted by name, never null. Today every entry is required.
+		 */
+		@AuraEnabled
+		public List<DTO_InputDescription> inputs = new List<DTO_InputDescription>();
+
+		/**
+		 * @description Whether a triggering record Id must accompany the call.
+		 */
+		@AuraEnabled
+		public Boolean requiresTriggeringRecord = false;
+	}
+
+	/**
+	 * @description One declared input of an outbound service.
+	 */
+	public class DTO_InputDescription
+	{
+		/**
+		 * @description The input name the service reads from its parameters.
+		 */
+		@AuraEnabled
+		public String name;
+
+		/**
+		 * @description Whether the service refuses to run without a non-blank value.
+		 */
+		@AuraEnabled
+		public Boolean isRequired = false;
 	}
 
 	/**
@@ -280,13 +382,13 @@ public inherited sharing class CTRL_ApiTestHarness
 		public String apiCallId;
 
 		/**
-		 * @description JSON-serialized request headers.
+		 * @description JSON-serialized request headers; credential header values are redacted.
 		 */
 		@AuraEnabled
 		public String requestHeaders;
 
 		/**
-		 * @description JSON-serialized response headers.
+		 * @description JSON-serialized response headers; credential header values are redacted.
 		 */
 		@AuraEnabled
 		public String responseHeaders;

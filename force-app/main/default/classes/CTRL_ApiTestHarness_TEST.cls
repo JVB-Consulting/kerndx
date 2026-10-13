@@ -9,10 +9,10 @@
  *
  * @group Controllers
  *
- * @date February 2026, May 2026
+ * @date February 2026, September 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 private class CTRL_ApiTestHarness_TEST
 {
 	/**
@@ -23,6 +23,54 @@ private class CTRL_ApiTestHarness_TEST
 	 * @description The inbound service class name.
 	 */
 	private static final String INBOUND_SERVICE = API_Echo.class.getName();
+	/**
+	 * @description The outbound service class name that declares a required input.
+	 */
+	private static final String DECLARING_SERVICE = API_GetPwndPasswords.class.getName();
+	/**
+	 * @description A class name that resolves to no Apex class.
+	 */
+	private static final String UNKNOWN_SERVICE = 'API_DoesNotExist' + UTIL_Random.randomAlphanumeric(6);
+	/**
+	 * @description The required input name that API_GetPwndPasswords declares.
+	 */
+	private static final String PASSWORD_INPUT = 'password';
+	/**
+	 * @description The outbound service that sends a bearer token on every request: the inner test subclass below.
+	 */
+	private static final String BEARER_SERVICE = CTRL_ApiTestHarness_TEST.BearerOutbound.class.getName();
+	/**
+	 * @description The credential the bearer service sends; random so no fixed value can pass by coincidence.
+	 */
+	private static final String BEARER_TOKEN = UTIL_Random.randomAlphanumeric(32);
+	/**
+	 * @description The session cookie the mocked endpoint sets on its response.
+	 */
+	private static final String RESPONSE_COOKIE = 'sid=' + UTIL_Random.randomAlphanumeric(16);
+	/**
+	 * @description The response header that carries a cookie.
+	 */
+	private static final String HEADER_SET_COOKIE = 'Set-Cookie';
+	/**
+	 * @description The JSON content type the mocked endpoint answers with.
+	 */
+	private static final String CONTENT_TYPE_JSON = 'application/json';
+	/**
+	 * @description The key DTO_NameValues serialises its map under.
+	 */
+	private static final String NAME_VALUE_MAP_KEY = 'nameValueMap';
+	/**
+	 * @description The shipped example named credential, so the bearer service resolves to a real endpoint host.
+	 */
+	private static final String EXAMPLE_CREDENTIAL = 'API_ExampleRestApi';
+	/**
+	 * @description The endpoint path the bearer service calls on that credential.
+	 */
+	private static final String EXAMPLE_PATH = '/posts';
+	/**
+	 * @description The body every mocked bearer-service response carries.
+	 */
+	private static final String MOCK_BODY = '{"id": 101}';
 
 	/**
 	 * @description Builds a JSON-serialized outbound request for the controller.
@@ -219,6 +267,75 @@ private class CTRL_ApiTestHarness_TEST
 	}
 
 	/**
+	 * @description Tests that the harness never hands the page the bearer token a service sends: the Authorization
+	 * value in the serialised request headers is the redaction marker, the token appears nowhere in that payload, and
+	 * a non-credential header is still reported as sent.
+	 */
+	@IsTest
+	private static void shouldRedactTheAuthorizationHeaderInTheOutboundResult()
+	{
+		registerBearerService();
+		String requestJson = buildOutboundRequest(BEARER_SERVICE, UserInfo.getUserId(), null, true, true);
+
+		Test.startTest();
+		CTRL_ApiTestHarness.DTO_TestResult testResult = CTRL_ApiTestHarness.invokeOutbound(requestJson);
+		Test.stopTest();
+
+		Map<String, Object> requestHeaders = headersOf(testResult.requestHeaders);
+		Assert.areEqual(API_Base.REDACTED_HEADER_VALUE, requestHeaders.get(API_Base.HTTP_HEADER_AUTHORIZATION), 'The Authorization value must be the redaction marker');
+		Assert.isFalse(testResult.requestHeaders.contains(BEARER_TOKEN), 'The bearer token must not appear anywhere in the serialised request headers');
+		Assert.isNotNull(requestHeaders.get(API_Base.HTTP_CONTENT_TYPE), 'A non-credential header is still reported');
+		Assert.areNotEqual(API_Base.REDACTED_HEADER_VALUE, requestHeaders.get(API_Base.HTTP_CONTENT_TYPE), 'A non-credential header is reported as sent, not redacted');
+	}
+
+	/**
+	 * @description Tests that a cookie the endpoint sets is redacted in the serialised response headers while the
+	 * response content type is reported as received.
+	 */
+	@IsTest
+	private static void shouldRedactTheSetCookieHeaderInTheOutboundResponse()
+	{
+		registerBearerService();
+		API_MockFactory.forService(BEARER_SERVICE)
+				.body(MOCK_BODY).statusCode(API_Base.HTTP_OK).status('OK')
+				.withHeader(HEADER_SET_COOKIE, RESPONSE_COOKIE)
+				.withHeader(API_Base.HTTP_CONTENT_TYPE, CONTENT_TYPE_JSON)
+				.register();
+		String requestJson = buildOutboundRequest(BEARER_SERVICE, UserInfo.getUserId(), null, true, true);
+
+		Test.startTest();
+		CTRL_ApiTestHarness.DTO_TestResult testResult = CTRL_ApiTestHarness.invokeOutbound(requestJson);
+		Test.stopTest();
+
+		Assert.isNotNull(testResult.responseHeaders, 'Precondition: the mocked response headers reach the result');
+		Map<String, Object> responseHeaders = headersOf(testResult.responseHeaders);
+		Assert.areEqual(API_Base.REDACTED_HEADER_VALUE, responseHeaders.get(HEADER_SET_COOKIE), 'The Set-Cookie value must be the redaction marker');
+		Assert.isFalse(testResult.responseHeaders.contains(RESPONSE_COOKIE), 'The cookie must not appear anywhere in the serialised response headers');
+		Assert.areEqual(CONTENT_TYPE_JSON, responseHeaders.get(API_Base.HTTP_CONTENT_TYPE), 'A non-credential response header is reported as received');
+	}
+
+	/**
+	 * @description Tests that the redaction is a disclosure control, not a masking policy: with the masking framework
+	 * switched off, the Authorization value is still the redaction marker.
+	 */
+	@IsTest
+	private static void shouldRedactHeadersWithTheMaskingFrameworkSwitchedOff()
+	{
+		SEL_FeatureFlag.activeFlags.remove(UTIL_FrameworkMasker.FLAG_MASKING_FRAMEWORK_ENABLED);
+		registerBearerService();
+		String requestJson = buildOutboundRequest(BEARER_SERVICE, UserInfo.getUserId(), null, true, true);
+
+		Test.startTest();
+		CTRL_ApiTestHarness.DTO_TestResult testResult = CTRL_ApiTestHarness.invokeOutbound(requestJson);
+		Test.stopTest();
+
+		Assert.isFalse(UTIL_FrameworkMasker.isMaskingEnabled, 'Precondition: the masking framework is off');
+		Assert.areEqual(API_Base.REDACTED_HEADER_VALUE, headersOf(testResult.requestHeaders).get(API_Base.HTTP_HEADER_AUTHORIZATION),
+				'The Authorization value must be redacted with masking off');
+		Assert.isFalse(testResult.requestHeaders.contains(BEARER_TOKEN), 'The bearer token must not appear with masking off');
+	}
+
+	/**
 	 * @description Tests that inbound request headers are surfaced as DTO_NameValues in the invocation result.
 	 * Uses direct invoke path with custom headers since invokeByServiceName does not pass headers.
 	 */
@@ -344,5 +461,114 @@ private class CTRL_ApiTestHarness_TEST
 		Test.stopTest();
 
 		Assert.isNotNull(testResult, 'Should return a result when requestJson is null');
+	}
+
+	/**
+	 * @description Tests that describeService reports the required inputs and the record requirement a service declares.
+	 */
+	@IsTest
+	private static void describeServiceReturnsTheDeclaredInputsAndRecordRequirement()
+	{
+		LOG_Engine.pushOperationContext(LOG_Engine.OperationType.LWC, new Map<String, String> {LOG_Engine.CONTEXT_SERVICE_NAME => DECLARING_SERVICE});
+
+		try
+		{
+			CTRL_ApiTestHarness.DTO_ServiceDescription description = CTRL_ApiTestHarness.describeService(DECLARING_SERVICE);
+
+			Assert.areEqual(1, LOG_Engine.getContextStackDepth(), 'Describing a service leaves the caller\'s context on the stack.');
+			Assert.areEqual(1, description.inputs.size(), 'API_GetPwndPasswords declares exactly one input.');
+			Assert.areEqual(PASSWORD_INPUT, description.inputs[0].name, 'API_GetPwndPasswords declares password.');
+			Assert.isTrue(description.inputs[0].isRequired, 'A declared input is required.');
+			Assert.isFalse(description.requiresTriggeringRecord, 'API_GetPwndPasswords sets requiresTriggeringRecord = false.');
+			Assert.isTrue(LOG_Engine.webserviceContextsByCorrelation.isEmpty(), 'describeService clears the webservice context it registered.');
+		}
+		finally
+		{
+			LOG_Engine.popOperationContext();
+		}
+	}
+
+	/**
+	 * @description Tests that describeService falls back to the API_Outbound defaults when a service declares nothing.
+	 */
+	@IsTest
+	private static void describeServiceReportsTheBaseDefaultsForAnUndeclaringService()
+	{
+		CTRL_ApiTestHarness.DTO_ServiceDescription description = CTRL_ApiTestHarness.describeService(OUTBOUND_SERVICE);
+
+		Assert.isTrue(description.inputs.isEmpty(), 'API_PostExample declares no required inputs.');
+		Assert.isTrue(description.requiresTriggeringRecord, 'The base default requires a triggering record.');
+		Assert.areEqual(0, LOG_Engine.getContextStackDepth(), 'Describing a service leaves the context stack as it found it.');
+		Assert.isTrue(LOG_Engine.webserviceContextsByCorrelation.isEmpty(), 'describeService clears the webservice context it registered.');
+	}
+
+	/**
+	 * @description Tests that describeService answers a blank, unknown or non-outbound class name with an empty
+	 * description instead of raising an error at the client.
+	 */
+	@IsTest
+	private static void describeServiceReturnsAnEmptyDescriptionInsteadOfThrowing()
+	{
+		for(String className : new List<String> {null, '', UNKNOWN_SERVICE, INBOUND_SERVICE})
+		{
+			CTRL_ApiTestHarness.DTO_ServiceDescription description = CTRL_ApiTestHarness.describeService(className);
+
+			Assert.isTrue(description.inputs.isEmpty(), 'Empty description expected for: ' + className);
+			Assert.isFalse(description.requiresTriggeringRecord, 'No record requirement expected for: ' + className);
+		}
+	}
+
+	/**
+	 * @description Registers the bearer service as an active outbound setting on the shipped example credential.
+	 */
+	private static void registerBearerService()
+	{
+		TST_Factory.newOutboundApiSetting(BEARER_SERVICE, new Map<SObjectField, Object>
+		{
+				ApiSetting__mdt.ApiCredential__c => EXAMPLE_CREDENTIAL,
+				ApiSetting__mdt.EndpointPath__c => EXAMPLE_PATH
+		});
+	}
+
+	/**
+	 * @description Reads the header map out of the harness's serialised header JSON ({"nameValueMap": {...}}).
+	 *
+	 * @param serialisedHeaders The DTO_TestResult header string
+	 *
+	 * @return The name-to-value map the page renders
+	 */
+	private static Map<String, Object> headersOf(String serialisedHeaders)
+	{
+		Map<String, Object> envelope = (Map<String, Object>)JSON.deserializeUntyped(serialisedHeaders);
+		return (Map<String, Object>)envelope.get(NAME_VALUE_MAP_KEY);
+	}
+
+	/**
+	 * @description An outbound service that sends a bearer token, so the harness has a real Authorization header to
+	 * redact. Mirrors API_PostExample's configuration (that class is not virtual, so it cannot be extended).
+	 */
+	public inherited sharing class BearerOutbound extends API_Outbound
+	{
+		/**
+		 * @description Mirrors API_PostExample's configuration: the example request and response payloads plus the harness mock body,
+		 * so the service runs end to end without a live endpoint.
+		 */
+		public override void configure()
+		{
+			super.configure();
+			requestPayload = new API_PostExample.DTO_Request();
+			responsePayload = new API_PostExample.DTO_Response();
+			defaultMockBody = MOCK_BODY;
+		}
+
+		/**
+		 * @description Supplies the bearer token the harness must redact.
+		 *
+		 * @return The Bearer scheme followed by BEARER_TOKEN.
+		 */
+		public override String getAuthorisationToken()
+		{
+			return API_Base.HTTP_AUTH_TOKEN_BEARER + BEARER_TOKEN;
+		}
 	}
 }

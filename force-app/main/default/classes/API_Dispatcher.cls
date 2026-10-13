@@ -10,7 +10,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -51,6 +51,11 @@ global inherited sharing class API_Dispatcher
 	private static Boolean simulateCalloutBudgetExhausted = false;
 
 	/**
+	 * @description What separates one service name from the next in the batch context's list of names.
+	 */
+	private static final String SERVICE_NAME_SEPARATOR = ', ';
+
+	/**
 	 * @description Returns whether the callout governor limit has been reached.
 	 * Called by UTIL_HttpClient (retry guard) and CTRL_RetryApiIssue (bulk replay guard).
 	 *
@@ -62,8 +67,11 @@ global inherited sharing class API_Dispatcher
 	}
 
 	/**
-	 * @description Hydrates logger context from API calls for cross-transaction correlation.
-	 * Uses the first API call's context, then starts a new correlation for this batch if needed.
+	 * @description Hydrates the logger context from the API calls, so a run of stored calls names the transaction that
+	 * built them as its parent. The first call that carries a context document decides. A document this very request
+	 * wrote (a call built and dispatched in one transaction) describes the live context itself, so it is left alone and
+	 * the live context stands: restoring it would only make the transaction its own parent. With no document in any
+	 * call, a correlation is started for the batch when there is none.
 	 *
 	 * @param apiCalls The API calls being processed
 	 */
@@ -74,22 +82,51 @@ global inherited sharing class API_Dispatcher
 			return;
 		}
 
-		// Try to hydrate from first API call with context
 		for(ApiCall__c apiCall : apiCalls)
 		{
 			if(String.isNotBlank(apiCall.LoggerContext__c))
 			{
-				LOG_Builder.hydrateContext(apiCall.LoggerContext__c);
+				if(!LOG_Engine.wasContextWrittenByCurrentRequest(apiCall.LoggerContext__c))
+				{
+					LOG_Builder.hydrateContext(apiCall.LoggerContext__c);
+				}
 				return;
 			}
 		}
 
-		// No context found in any API call - start fresh correlation for this batch
-		// This handles legacy API calls created before the auto-correlation enhancement
+		// No document in any call: records from before contexts were stored. Give the batch a correlation when there is none.
 		if(String.isBlank(LOG_Builder.correlationId))
 		{
 			LOG_Builder.startCorrelation();
 		}
+	}
+
+	/**
+	 * @description Builds the details the batch's `API_BATCH` logging context carries: how many calls the batch holds and
+	 * the names of the services they call, each name once, in alphabetical order. Every line logged while the batch runs
+	 * carries them, including lines from the batch-wide save that follows the handlers and belongs to no single call.
+	 * Inside a call, that call's own context names the service instead.
+	 *
+	 * @param apiCalls The API calls the batch processes.
+	 *
+	 * @return The batch size, and the service names when at least one call names a service.
+	 */
+	private static Map<String, String> buildBatchContext(List<ApiCall__c> apiCalls)
+	{
+		Map<String, String> batchContext = new Map<String, String> {LOG_Engine.CONTEXT_BATCH_SIZE => String.valueOf(apiCalls.size())};
+		Set<String> serviceNames = new Set<String>();
+		for(ApiCall__c apiCall : apiCalls)
+		{
+			if(String.isNotBlank(apiCall.ServiceName__c))
+			{
+				serviceNames.add(apiCall.ServiceName__c);
+			}
+		}
+		if(!serviceNames.isEmpty())
+		{
+			batchContext.put(LOG_Engine.CONTEXT_SERVICE_NAME, UTIL_String.joinSorted(serviceNames, SERVICE_NAME_SEPARATOR));
+		}
+		return batchContext;
 	}
 
 	/**
@@ -129,7 +166,6 @@ global inherited sharing class API_Dispatcher
 	 * List<API_Base> handlers = API_Dispatcher.execute(apiCalls);
 	 * ```
 	 */
-	@SuppressWarnings('PMD.CyclomaticComplexity')
 	global static List<API_Base> execute(List<ApiCall__c> apiCalls)
 	{
 		List<API_Base> apiHandlers = new List<API_Base>();
@@ -139,7 +175,7 @@ global inherited sharing class API_Dispatcher
 		unitOfWork.setAllowPartial(true);
 
 		hydrateLoggerContext(apiCalls);
-		LOG_Engine.pushOperationContext(LOG_Engine.OperationType.API_BATCH, new Map<String, String> {LOG_Engine.CONTEXT_BATCH_SIZE => String.valueOf(apiCalls.size())});
+		LOG_Engine.pushOperationContext(LOG_Engine.OperationType.API_BATCH, buildBatchContext(apiCalls));
 		LOG_Builder.suspendSaving();
 
 		try
@@ -168,18 +204,9 @@ global inherited sharing class API_Dispatcher
 					continue;
 				}
 
-				try
+				if(processWithinCallContext(apiHandler, apiCall, unitOfWork))
 				{
-					apiHandler.process(apiCall);
-					if(simulateProcessException)
-					{
-						throw new UTIL_Exceptions.IllegalStateException('Simulated process exception');
-					}
 					handlersToCommit.add(apiHandler);
-				}
-				catch(Exception error)
-				{
-					handleError(apiHandler, error, unitOfWork);
 				}
 			}
 
@@ -192,14 +219,7 @@ global inherited sharing class API_Dispatcher
 
 			for(API_Base handlerToCommit : handlersToCommit)
 			{
-				try
-				{
-					handlerToCommit.commitWork();
-				}
-				catch(Exception error)
-				{
-					handleError(handlerToCommit, error, unitOfWork);
-				}
+				commitWithinCallContext(handlerToCommit, unitOfWork);
 			}
 
 			finalizeHandlers(apiHandlers, unitOfWork);
@@ -207,11 +227,26 @@ global inherited sharing class API_Dispatcher
 		}
 		finally
 		{
+			clearLoggingContexts(apiHandlers);
 			LOG_Engine.popOperationContext();
 			LOG_Builder.resumeSaving();
 		}
 
 		return apiHandlers;
+	}
+
+	/**
+	 * @description Removes each handler's call details from the logging engine, so lines logged once the handlers are
+	 * done carry the batch's own context only.
+	 *
+	 * @param handlers The handlers the batch ran.
+	 */
+	private static void clearLoggingContexts(List<API_Base> handlers)
+	{
+		for(API_Base handler : handlers)
+		{
+			handler.clearLoggingContext();
+		}
 	}
 
 	/**
@@ -233,6 +268,8 @@ global inherited sharing class API_Dispatcher
 				unitOfWork.doSave(handler.apiCall);
 			}
 		}
+
+		clearLoggingContexts(handlers);
 	}
 
 	/**
@@ -281,6 +318,65 @@ global inherited sharing class API_Dispatcher
 	}
 
 	/**
+	 * @description Processes one API call with the handler's `API_CALL` logging context on the stack, popping it in a
+	 * `finally` so the context never outlives the run. Errors are handled inside that context, so the error entry
+	 * carries the handler's service name and HTTP method.
+	 *
+	 * @param handler The handler that processes the call.
+	 * @param apiCall The API call record to process.
+	 * @param unitOfWork The shared unit of work for failure artifacts.
+	 *
+	 * @return True when the call processed without error and is ready to commit.
+	 */
+	private static Boolean processWithinCallContext(API_Base handler, ApiCall__c apiCall, DML_Transaction unitOfWork)
+	{
+		Boolean isProcessed = false;
+		LOG_Engine.pushOperationContext(LOG_Engine.OperationType.API_CALL, handler.buildCallContext());
+		try
+		{
+			handler.process(apiCall);
+			if(simulateProcessException)
+			{
+				throw new UTIL_Exceptions.IllegalStateException('Simulated process exception');
+			}
+			isProcessed = true;
+		}
+		catch(Exception error)
+		{
+			handleError(handler, apiCall, error, unitOfWork);
+		}
+		finally
+		{
+			LOG_Engine.popOperationContext();
+		}
+		return isProcessed;
+	}
+
+	/**
+	 * @description Commits one handler's work with that handler's `API_CALL` logging context on the stack, popping it
+	 * in a `finally` so each commit runs under its own handler's context.
+	 *
+	 * @param handler The handler whose work is committed.
+	 * @param unitOfWork The shared unit of work for failure artifacts.
+	 */
+	private static void commitWithinCallContext(API_Base handler, DML_Transaction unitOfWork)
+	{
+		LOG_Engine.pushOperationContext(LOG_Engine.OperationType.API_CALL, handler.buildCallContext());
+		try
+		{
+			handler.commitWork();
+		}
+		catch(Exception error)
+		{
+			handleError(handler, handler.apiCall, error, unitOfWork);
+		}
+		finally
+		{
+			LOG_Engine.popOperationContext();
+		}
+	}
+
+	/**
 	 * @description Aborts an API call that could not be resolved to a handler class.
 	 * Logs the error, marks the call as aborted, and writes an error response.
 	 *
@@ -288,6 +384,7 @@ global inherited sharing class API_Dispatcher
 	 * @param error The exception thrown during handler resolution.
 	 * @param unitOfWork The unit of work for persistence.
 	 */
+	@SuppressWarnings('PMD.KernNoRawRestContext')
 	private static void abortUnresolvableCall(ApiCall__c apiCall, Exception error, DML_Transaction unitOfWork)
 	{
 		LOG_Engine.setWebserviceContext(null, apiCall.ServiceName__c, 'Unknown-Endpoint', 'Unknown-Method');
@@ -317,26 +414,70 @@ global inherited sharing class API_Dispatcher
 	}
 
 	/**
-	 * @description Handles errors encountered during API call processing or commit.
-	 * Delegates error recording to the handler, resets retry state, and registers
-	 * failure artifacts (ApiIssue__c and ContentVersion files) in the shared unit of work.
+	 * @description Handles errors met while an API call is processed or committed. If the handler failed before it
+	 * received the call record, it is given the record first. The exception is kept for the retry decision. Then the
+	 * handler's own error handling runs inside a guard: the logging context, handleError, setApiCallDetails (which
+	 * decides the retry and writes it to the call) and the failure records. If any of those throws, that one call ends
+	 * Failed with both messages and no retry time, and the batch's other calls are saved as they would have been. The
+	 * retry fields that setApiCallDetails writes are kept: nothing here resets the next retry time or the retry count.
 	 *
 	 * @param handler The `API_Base` handler processing the request.
+	 * @param apiCall The API call record being processed.
 	 * @param error The exception encountered.
 	 * @param unitOfWork The unit of work for updating API call records.
 	 */
-	private static void handleError(API_Base handler, Exception error, DML_Transaction unitOfWork)
+	private static void handleError(API_Base handler, ApiCall__c apiCall, Exception error, DML_Transaction unitOfWork)
 	{
-		handler.applyLoggingContext();
-		handler.handleError(error);
-		handler.setApiCallDetails();
+		handler.assignApiCallWhenMissing(apiCall);
+		handler.lastFailure = error;
+		try
+		{
+			handler.applyLoggingContext();
+			handler.handleError(error);
+			handler.setApiCallDetails();
+			registerFailureArtifacts(handler, unitOfWork);
+			LOG_Builder.build().error(error).at(handler.apiCall.ServiceName__c).emit();
+		}
+		catch(Exception handlingFailure)
+		{
+			failWithoutTheHandler(handler, error, handlingFailure);
+		}
+		finally
+		{
+			handler.clearLoggingContext();
+		}
+	}
 
+	/**
+	 * @description Ends one call Failed when the handler's own error handling threw (a handleError override, a retry
+	 * strategy, a hook or a failure-record override that throws): the row keeps both messages and no time, both failures
+	 * are logged once each (the error log inside the guard runs last, so a throw before it never doubles the entry), and
+	 * the batch's other calls are saved as they would have been. No issue record is registered, because building one runs
+	 * the same handler code that just threw; the row's error text is the record of this failure, the one case in which a
+	 * Failed row carries no issue. An inbound handler writes the REST response inside its own handleError, which is the
+	 * code that threw, so for an inbound call the response is written here: status 500 with the row's error text as the
+	 * body, so the caller never reads a failed request as a success.
+	 *
+	 * @param handler The handler whose error handling threw.
+	 * @param error The exception the call failed with.
+	 * @param handlingFailure The exception the handler's error handling threw.
+	 */
+	@SuppressWarnings('PMD.KernNoRawRestContext')
+	private static void failWithoutTheHandler(API_Base handler, Exception error, Exception handlingFailure)
+	{
 		ApiCall__c handlerApiCall = handler.apiCall;
+		handlerApiCall.Status__c = SEL_ApiCall.STATUS_FAILED;
 		handlerApiCall.NextRetry__c = null;
-		handlerApiCall.Retries__c = 0;
-
+		handlerApiCall.ErrorMessages__c = UTIL_String.abbreviate(error.getMessage() + UTIL_String.SPACE + handlingFailure.getMessage(), ApiCall__c.ErrorMessages__c);
 		LOG_Builder.build().error(error).at(handlerApiCall.ServiceName__c).emit();
-		registerFailureArtifacts(handler, unitOfWork);
+		LOG_Builder.build().error(handlingFailure).at(handlerApiCall.ServiceName__c).emit();
+
+		if(handler instanceof API_Inbound)
+		{
+			RestContext.response = RestContext.response ?? new RestResponse();
+			RestContext.response.responseBody = Blob.valueOf(handlerApiCall.ErrorMessages__c);
+			RestContext.response.statusCode = API_Base.HTTP_INTERNAL_SERVER_ERROR;
+		}
 	}
 
 	/**
@@ -395,6 +536,7 @@ global inherited sharing class API_Dispatcher
 	 *
 	 * @return The handler that processed the request, or null if no route found
 	 */
+	@SuppressWarnings('PMD.KernNoRawRestContext')
 	public static API_Base routeRequest()
 	{
 		RestRequest request = RestContext.request;

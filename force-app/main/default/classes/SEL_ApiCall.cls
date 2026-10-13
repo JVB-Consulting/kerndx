@@ -10,7 +10,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -72,6 +72,11 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	public static final String STATUS_FAILED = 'Failed';
 
 	/**
+	 * @description Status indicating the API call is being sent.
+	 */
+	public static final String STATUS_PROCESSING = 'Processing';
+
+	/**
 	 * @description Status indicating the API call is queued for processing.
 	 */
 	public static final String STATUS_QUEUED = 'Queued';
@@ -80,6 +85,11 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	 * @description Status indicating the API call is set for retry.
 	 */
 	public static final String STATUS_RETRY = 'Retry';
+
+	/**
+	 * @description Status indicating the API call is being sent again by its automatic retry.
+	 */
+	public static final String STATUS_RETRYING = 'Retrying';
 
 	/**
 	 * @description Type indicating an inbound API call.
@@ -105,6 +115,13 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	 * @description Error message when no API calls are found for a service.
 	 */
 	private static final String ERROR_NO_ITEMS_FOUND = 'No API calls found for service';
+
+	/**
+	 * @description The statuses that mean a call is in progress or will be sent: Batched, Processing, Queued, Retry and
+	 * Retrying. A new status with that meaning is added here in the same change. A list, because the query condition
+	 * that matches one of several values takes a list.
+	 */
+	private static final List<String> OPEN_STATUSES = new List<String> {STATUS_BATCHED, STATUS_PROCESSING, STATUS_QUEUED, STATUS_RETRY, STATUS_RETRYING};
 
 	/**
 	 * @description Constructs a new SEL_ApiCall selector instance.
@@ -236,7 +253,7 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 
 	/**
 	 * @description Retrieves ApiCall__c records that are batched and outbound. Bypasses sharing
-	 * rules: this is the batched-callout sweep, which must see every user's batched calls —
+	 * rules: this is the batched-callout sweep, which must see every user's batched calls.
 	 * `ApiCall__c` has a Private sharing model, so a sweep scheduled by a user without View All
 	 * would otherwise silently skip rows owned by other users.
 	 *
@@ -253,6 +270,48 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 				.bypassSharingInternal()
 				.condition(ApiCall__c.Direction__c).equals(TYPE_OUTBOUND)
 				.condition(ApiCall__c.Status__c).equals(STATUS_BATCHED)
+				.withLimit(UTIL_Limits.soqlQueryRows().maximum())
+				.toList();
+	}
+
+	/**
+	 * @description Finds the calls among the given ids that are still in progress or waiting to be sent: Queued, Processing,
+	 * Retry, Retrying or Batched. Bypasses sharing rules for this one read on purpose: ApiCall__c is Private, and the read
+	 * must see a call another user started, or the bulk retry would send a request that is already on its way. The bulk
+	 * retry job runs without sharing, so the bypass is stated here so that a caller with sharing gets the same answer.
+	 * Nothing else reads through this method.
+	 *
+	 * @param callIds The call ids to look at
+	 *
+	 * @return The open calls among them
+	 */
+	public List<ApiCall__c> findOpenById(Set<Id> callIds)
+	{
+		return query
+				.bypassSharingInternal()
+				.condition(ApiCall__c.Id).isIn(new List<Id>(callIds))
+				.condition(ApiCall__c.Status__c).isIn(OPEN_STATUSES)
+				.withLimit(UTIL_Limits.soqlQueryRows().maximum())
+				.toList();
+	}
+
+	/**
+	 * @description Finds the calls made for any of the given records that are still in progress or waiting to be sent:
+	 * Queued, Processing, Retry, Retrying or Batched. Bypasses sharing rules for this one read on purpose: ApiCall__c is
+	 * Private, and the read must see a call another user started, or the bulk retry would send a request that is already
+	 * on its way. The bulk retry job runs without sharing, so the bypass is stated here so that a caller with sharing gets
+	 * the same answer. Nothing else reads through this method.
+	 *
+	 * @param triggeringRecordIds The ids of the records the calls were made for
+	 *
+	 * @return The open calls made for those records
+	 */
+	public List<ApiCall__c> findOpenByTriggeringRecordIds(Set<Id> triggeringRecordIds)
+	{
+		return query
+				.bypassSharingInternal()
+				.condition(ApiCall__c.TriggeringRecordId__c).isIn(new List<Id>(triggeringRecordIds))
+				.condition(ApiCall__c.Status__c).isIn(OPEN_STATUSES)
 				.withLimit(UTIL_Limits.soqlQueryRows().maximum())
 				.toList();
 	}
@@ -367,6 +426,27 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	global static List<ApiCall__c> assertServiceFailed(String serviceName, String errorPhrase)
 	{
 		return assertServiceHasCorrectStatus(serviceName, errorPhrase, STATUS_FAILED);
+	}
+
+	/**
+	 * @description Verifies that every API call of a service is in the state the RetryOutboundApiCall flow picks up:
+	 * Status__c is Retry and NextRetry__c is set. The flow's entry conditions are exactly NextRetry__c not null,
+	 * Status__c equal to Retry and Direction__c equal to Outbound. So a row at Retry with no next retry time is never
+	 * retried, and a test that checks only one of the two fields proves nothing about the retry. It is public, not
+	 * global, so only the package's own code can call it (its tests use it).
+	 *
+	 * @param serviceName The name of the API class to check.
+	 *
+	 * @return List of ApiCall__c records at Retry with a next retry time for the service.
+	 */
+	public static List<ApiCall__c> assertServiceRetrying(String serviceName)
+	{
+		List<ApiCall__c> items = assertServiceHasCorrectStatus(serviceName, null, STATUS_RETRY);
+		for(ApiCall__c item : items)
+		{
+			Assert.isNotNull(item.NextRetry__c, ERROR_INCORRECT_STATUS + ': a Retry row carries no next retry time, so the flow never picks it up: ' + item.Id);
+		}
+		return items;
 	}
 
 	/**

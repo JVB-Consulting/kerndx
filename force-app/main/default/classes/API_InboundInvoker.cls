@@ -10,17 +10,16 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 public inherited sharing class API_InboundInvoker
 {
 	/**
-	 * @description Test seam to force an exception during invocation for exercising defensive error handling.
-	 * Architectural constraint: API_Dispatcher.routeRequest() catches handler-level exceptions internally,
-	 * so no realistic failure scenario can propagate an exception to this invoker's catch block.
-	 * The catch block exists as a defensive guard for unexpected platform-level failures (governor limits,
-	 * runtime errors in orchestration) and must be tested via this seam.
+	 * @description When a test sets this to true, the invoker throws an exception during the call. This is the only
+	 * way a test can reach the invoker's error handling. API_Dispatcher.routeRequest() catches the errors of a
+	 * handler itself, so no normal failure reaches this invoker's catch block. The catch block is a safety net for
+	 * unexpected platform failures, such as a governor limit or a runtime error while the request is routed.
 	 */
 	@TestVisible
 	private static Boolean forceException = false;
@@ -209,7 +208,12 @@ public inherited sharing class API_InboundInvoker
 	}
 
 	/**
-	 * @description Replays a failed inbound request from ApiIssue__c.
+	 * @description Replays a failed inbound request from ApiIssue__c. The issue keeps no headers, so the replay guesses
+	 * the content type from the body's first character. A body that starts with { or [ is sent as JSON, the only encoding
+	 * the inbound base class reads into the handler's request; a handler that reads the raw body therefore gets a JSON
+	 * body parsed first, and a body that is not valid JSON ends the call Aborted, as a live call with that content type
+	 * would. Any other body (blank, XML, plain text) is sent with no headers, as before, so a handler that reads the raw
+	 * body gets it unchanged.
 	 *
 	 * @param failureId The ID of the ApiIssue__c record
 	 * @param enableSafeMode When true, replay with rollback
@@ -229,7 +233,24 @@ public inherited sharing class API_InboundInvoker
 			return errorResult;
 		}
 
-		return invoke(failure.RequestPath__c, failure.RequestMethod__c, failure.RequestBody__c, enableSafeMode);
+		Map<String, String> headers = isJsonShaped(failure.RequestBody__c)
+				? new Map<String, String> {API_Base.HTTP_CONTENT_TYPE => API_Base.HTTP_ENCODING_JSON}
+				: null;
+		return invoke(failure.RequestPath__c, failure.RequestMethod__c, failure.RequestBody__c, headers, enableSafeMode);
+	}
+
+	/**
+	 * @description Checks whether a stored body looks like JSON: after whitespace is removed from both ends, it starts with
+	 * { or [. The issue keeps no headers, so this first character is the only sign of the body's encoding.
+	 *
+	 * @param body The stored request body
+	 *
+	 * @return True when the body starts with { or [, false for a blank body or any other text
+	 */
+	private static Boolean isJsonShaped(String body)
+	{
+		String trimmedBody = body?.trim() ?? UTIL_String.EMPTY;
+		return trimmedBody.startsWith('{') || trimmedBody.startsWith('[');
 	}
 
 	/**

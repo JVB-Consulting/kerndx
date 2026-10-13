@@ -8,14 +8,6 @@ navOrder: 32
 
 **What this is:** A way to call an external system (a payment gateway, a shipping API, any REST endpoint) from Salesforce, starting with a single line of Apex and growing into a fully tested, production-ready service. **Why it exists:** Hand-rolled HTTP callouts repeat the same plumbing every time (retries, timeouts, logging, error handling) and break in ways that are hard to trace. KernDX gives you that plumbing once, the same way every time. **Who should follow this:** developers building integrations, and tech leads who want callouts that are logged, tested, and consistent. **When to use it:** any time Salesforce needs to send data to, or fetch data from, another system.
 
-**Before you start:**
-
-- [ ] KernDX package installed in your org
-- [ ] Org configured post-install. Verify with the **Kern** app's Health Check (see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (run `sf org open -o YourOrgAlias` to verify), or just use the Developer Console
-  (Gear Icon > Developer Console) for all Apex work
-- [ ] Working in a sandbox or scratch org (not production)
-
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
@@ -33,8 +25,17 @@ job. Use this when you want retries, request/response logging, validation, and t
 shape across many integrations.
 
 **In one line:** `kern.UTIL_HttpClient.post('PaymentGateway', '/charges').body(request).withRetry(3).send();`
-That single call comes with automatic retries, a circuit breaker (after repeated failures the framework
+That single call comes with automatic retries for the failures that sending it again can safely fix, a circuit
+breaker you add with `.withCircuitBreaker()` (after repeated failures the framework
 stops calling a failing system for a cool-off, then resumes), and logging already built in.
+
+## Before you start
+
+Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
+Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
+once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
+today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
+where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
@@ -43,26 +44,33 @@ stops calling a failing system for a cool-off, then resumes), and logging alread
 <details>
 <summary>Expand</summary>
 
-1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
+1. [Before you start](#before-you-start)
+2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
     - [Check the Named Credential](#check-the-named-credential)
     - [GET Request](#get-request)
     - [POST Request](#post-request)
     - [Builder Features](#builder-features)
-2. [Tier 2: Build Your Own (~15 minutes)](#tier-2-build-your-own-15-minutes)
+3. [Tier 2: Build Your Own (~15 minutes)](#tier-2-build-your-own-15-minutes)
     - [Step 1: Create the API Handler](#step-1-create-the-api-handler)
     - [Step 2: Register Metadata](#step-2-register-metadata)
-        - [2a. Create ApiCredential](#2a-create-apicredential)
-        - [2b. Create ApiSetting](#2b-create-apisetting)
+        - [Step 2.1: Create the API credential](#step-21-create-the-api-credential)
+        - [Step 2.2: Create the API setting](#step-22-create-the-api-setting)
     - [Step 3: Execute](#step-3-execute)
     - [Step 4: Write Tests](#step-4-write-tests)
     - [Step 5: Add Validation](#step-5-add-validation)
     - [Step 6: Understanding Mocks](#step-6-understanding-mocks)
-3. [Tier 3: Production Patterns (~10 minutes)](#tier-3-production-patterns-10-minutes)
+4. [Tier 3: Production Patterns (~10 minutes)](#tier-3-production-patterns-10-minutes)
     - [From a Flow](#from-a-flow)
         - [Build a Screen Flow (step-by-step)](#build-a-screen-flow-step-by-step)
     - [From Apex (Queue-Based)](#from-apex-queue-based)
-4. [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)
+    - [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)
+    - [Clean up](#clean-up)
 5. [Common Issues](#common-issues)
+    - [Step 1: Create the API Handler](#step-1-create-the-api-handler-1)
+    - [Step 2: Register Metadata](#step-2-register-metadata-1)
+    - [Step 3: Execute](#step-3-execute-1)
+    - [Step 5: Add Validation](#step-5-add-validation-1)
+    - [Clean up](#clean-up-1)
 6. [What You Now Know](#what-you-now-know)
 7. [Next Steps](#next-steps)
 
@@ -82,19 +90,20 @@ So you can try everything here without signing up for anything, the package ship
 connection called **Example REST API** (`kern__API_ExampleRestApi`). It points to
 [JSONPlaceholder](https://jsonplaceholder.typicode.com), a free, public fake API. No API keys needed.
 
-Go to **Setup > Named Credentials** and confirm you see it with endpoint `https://jsonplaceholder.typicode.com`
-and **Callout Status** `Enabled`.
+**In Salesforce**, open Setup, then Named Credentials, and confirm you see it with endpoint
+`https://jsonplaceholder.typicode.com` and **Callout Status** `Enabled`.
 
 ### GET Request
 
-Open **Developer Console > Debug > Open Execute Anonymous Window** and run:
+**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
+Anonymous Window, and run:
 
 ```apex
 Map<String, Object> post = kern.UTIL_HttpClient.get('kern__API_ExampleRestApi', '/posts/1').asMap();
 System.debug(JSON.serializePretty(post));
 ```
 
-**Expected output:**
+You should see the post in the log, like this (shortened here):
 
 ```json
 {
@@ -106,6 +115,8 @@ System.debug(JSON.serializePretty(post));
 ```
 
 ### POST Request
+
+**In Salesforce**, in the same Execute Anonymous window, run:
 
 ```apex
 Map<String, Object> body = new Map<String, Object>{
@@ -122,7 +133,7 @@ System.debug('Status: ' + response.getStatusCode());
 System.debug('Body: ' + response.getBody());
 ```
 
-**Expected output:**
+You should see these lines in the log (the body is shortened here):
 
 ```text
 Status: 201
@@ -135,7 +146,9 @@ Body: {"id": 101}
 ### Builder Features
 
 You configure each call with short chained method calls, then one final call (such as `.send()`) runs it
-and returns the result. Here are the common options you can add to any call:
+and returns the result. Here are the common options you can add to any call.
+
+**In Salesforce**, in the Execute Anonymous window, try any of these:
 
 ```apex
 // Headers
@@ -167,6 +180,10 @@ kern.UTIL_HttpClient.post('kern__API_ExampleRestApi', '/posts')
 	.send();
 ```
 
+Headers like `Accept` are yours to set freely. A credential is different: it belongs in the Named Credential the call already names, or, for an API that wants
+its key in a header, in an External Credential.
+[Where credentials belong](Web%20Services%20-%20Guide.md#util_httpclient-fluent-http-client) in the Web Services Guide explains why and how.
+
 > **When to move to Tier 2:** Move on once you need typed DTOs (the small request/response classes),
 > input validation, tests that run without real callouts and assert in one line, or retry and circuit
 > breaker settings managed as configuration records rather than in code.
@@ -177,7 +194,7 @@ kern.UTIL_HttpClient.post('kern__API_ExampleRestApi', '/posts')
 
 > **No local project?** You can create classes directly in the Developer Console (Gear Icon > Developer
 > Console > File > New > Apex Class) and run tests from there too (Test > New Run). Paste the code, save,
-> and skip the `sf project deploy start` and `sf apex run test` commands.
+> and skip the terminal commands.
 
 A one-liner is great for trying things out, but a real integration needs structure: known request and
 response shapes, validation, and tests. In this tier you build a reusable API handler class
@@ -186,8 +203,27 @@ response classes), test coverage, and parameter validation.
 
 ### Step 1: Create the API Handler
 
-Create a new file named `API_GetPost.cls`. Copy the following code exactly as is. Do not modify the class
-name or the `kern.*` namespace references.
+The handler is one class that describes a single call: which verb it uses, which inputs it needs, and the shape of
+the request and the response. You create an empty class with one command, paste the code into it, then send it to
+your org.
+
+**1. In the terminal**, from your project's top folder, create the empty class:
+
+```shell
+sf apex generate class --name API_GetPost --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `API_GetPost.cls` and its companion of the
+same name ending in `.cls-meta.xml`.
+
+The second file tells Salesforce which API version the class uses. You never edit it, but a deploy fails without it.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save. Copy the code exactly
+as it is: do not change the class name.
+
+```text
+force-app/main/default/classes/API_GetPost.cls
+```
 
 > **Why `global`?** This lets the managed package find and run your class at runtime without any extra setup.
 > If you prefer `public with sharing`, you instead point the framework at where your classes live (a Type
@@ -261,13 +297,13 @@ global with sharing class API_GetPost extends kern.API_Outbound
 	// @JsonAccess is required for managed packages — the framework runs in the kern namespace
 	// and needs explicit serialization access to your DTO fields
 	/** @description Request DTO (empty for GET requests -- parameters go in the URL). */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	global class DTO_Request extends kern.DTO_JsonBase
 	{
 	}
 
 	/** @description Response DTO matching the JSONPlaceholder post schema. */
-	@JsonAccess(Serializable='always' Deserializable='always')
+	@JsonAccess(serializable='always' deserializable='always')
 	global class DTO_Response extends kern.DTO_JsonBase
 	{
 		/** @description The user who created the post. */
@@ -295,221 +331,115 @@ global with sharing class API_GetPost extends kern.API_Outbound
 }
 ```
 
-**Deploy:**
+**3. In the terminal**, send the class to your org:
 
-```bash
+```shell
 sf project deploy start -o YourOrgAlias -m "ApexClass:API_GetPost"
 ```
+
+You should see `Status: Succeeded`, with `API_GetPost` listed as created.
+
+Something went wrong? See [Common Issues, Step 1](#step-1-create-the-api-handler-1).
 
 ### Step 2: Register Metadata
 
 Your handler class is written, but the framework still needs to know how to run it. You tell it with two
-configuration records: an **ApiCredential** record (which Named Credential, that is, which connection, to
-use) and an **ApiSetting** record (how to run your handler).
+configuration records: an **API Credential** record (which Named Credential, that is, which connection, to
+use) and an **API Setting** record (how to run your handler). You create each one in Setup, then pull it into your
+project so it is under source control with your code.
 
-#### 2a. Create ApiCredential
+#### Step 2.1: Create the API credential
 
-The ApiCredential record tells the framework which Named Credential (which connection) to use for HTTP calls.
+The API Credential record tells the framework which Named Credential (which connection) to use for HTTP calls.
 
-<details>
-<summary><strong>Windows (PowerShell)</strong></summary>
+**1. In Salesforce**, open Setup, then Custom Metadata Types, then **API Credential**, then **Manage API
+Credentials**, then **New**, and save a record with these values:
 
-```powershell
-New-Item -ItemType Directory -Force -Path force-app/main/default/customMetadata | Out-Null
-@'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>Example REST API</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__NamedCredential__c</field>
-        <value xsi:type="xsd:string">kern__API_ExampleRestApi</value>
-    </values>
-</CustomMetadata>
-'@ | Set-Content -Path "force-app/main/default/customMetadata/kern__ApiCredential.API_ExampleRestApi.md-meta.xml" -Encoding UTF8
-sf project deploy start -o YourOrgAlias -m "CustomMetadata:kern__ApiCredential.API_ExampleRestApi" --ignore-conflicts
-```
-
-</details>
-
-<details>
-<summary><strong>macOS/Linux (bash)</strong></summary>
-
-```bash
-mkdir -p force-app/main/default/customMetadata
-cat > force-app/main/default/customMetadata/kern__ApiCredential.API_ExampleRestApi.md-meta.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>Example REST API</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__NamedCredential__c</field>
-        <value xsi:type="xsd:string">kern__API_ExampleRestApi</value>
-    </values>
-</CustomMetadata>
-EOF
-sf project deploy start -o YourOrgAlias \
-  -m "CustomMetadata:kern__ApiCredential.API_ExampleRestApi" --ignore-conflicts
-```
-
-</details>
-
-> **Prefer the UI?** Create this record in **Setup > Custom Metadata Types > ApiCredential > Manage Records > New**:
-> Label = `Example REST API`, Name = `API_ExampleRestApi`, NamedCredential__c = `kern__API_ExampleRestApi`.
+| Field               | API name                   | Value                      |
+|---------------------|----------------------------|----------------------------|
+| Label               | `MasterLabel`              | `Example REST API`         |
+| API Credential Name | `DeveloperName`            | `API_ExampleRestApi`       |
+| Named Credential    | `kern__NamedCredential__c` | `kern__API_ExampleRestApi` |
 
 > **Why create this?** The package ships an `ApiCredential` record for the Example REST API, but it is
 > protected (kept internal to the package), so your code cannot reference it. Your org needs its own
 > `ApiCredential` record that points to the same Named Credential.
 
-#### 2b. Create ApiSetting
+**2. In the terminal**, pull the record into your project:
 
-The ApiSetting record configures how your handler runs: its class name, endpoint path, retry policy, and more.
-
-<details>
-<summary><strong>Windows (PowerShell)</strong></summary>
-
-```powershell
-@'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>API Get Post</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__ApiCredential__c</field>
-        <value xsi:type="xsd:string">API_ExampleRestApi</value>
-    </values>
-    <values>
-        <field>kern__CircuitBreakerEnabled__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__ClassName__c</field>
-        <value xsi:type="xsd:string">API_GetPost</value>
-    </values>
-    <values>
-        <field>kern__Direction__c</field>
-        <value xsi:type="xsd:string">Outbound</value>
-    </values>
-    <values>
-        <field>kern__EndpointPath__c</field>
-        <value xsi:type="xsd:string">/posts</value>
-    </values>
-    <values>
-        <field>kern__IsActive__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__LogIssues__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__MaxRetryCount__c</field>
-        <value xsi:type="xsd:double">3.0</value>
-    </values>
-    <values>
-        <field>kern__RetryBackoffSeconds__c</field>
-        <value xsi:type="xsd:double">5.0</value>
-    </values>
-</CustomMetadata>
-'@ | Set-Content -Path "force-app/main/default/customMetadata/kern__ApiSetting.API_GetPost.md-meta.xml" -Encoding UTF8
-sf project deploy start -o YourOrgAlias -m "CustomMetadata:kern__ApiSetting.API_GetPost" --ignore-conflicts
+```shell
+sf project retrieve start -o YourOrgAlias -m "CustomMetadata:kern__ApiCredential.API_ExampleRestApi"
 ```
 
-</details>
+You should see one file created under `force-app/main/default/customMetadata`, named after the record.
 
-<details>
-<summary><strong>macOS/Linux (bash)</strong></summary>
+Something went wrong? See [Common Issues, Step 2](#step-2-register-metadata-1).
 
-```bash
-cat > force-app/main/default/customMetadata/kern__ApiSetting.API_GetPost.md-meta.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
-    <label>API Get Post</label>
-    <protected>false</protected>
-    <values>
-        <field>kern__ApiCredential__c</field>
-        <value xsi:type="xsd:string">API_ExampleRestApi</value>
-    </values>
-    <values>
-        <field>kern__CircuitBreakerEnabled__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__ClassName__c</field>
-        <value xsi:type="xsd:string">API_GetPost</value>
-    </values>
-    <values>
-        <field>kern__Direction__c</field>
-        <value xsi:type="xsd:string">Outbound</value>
-    </values>
-    <values>
-        <field>kern__EndpointPath__c</field>
-        <value xsi:type="xsd:string">/posts</value>
-    </values>
-    <values>
-        <field>kern__IsActive__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__LogIssues__c</field>
-        <value xsi:type="xsd:boolean">true</value>
-    </values>
-    <values>
-        <field>kern__MaxRetryCount__c</field>
-        <value xsi:type="xsd:double">3.0</value>
-    </values>
-    <values>
-        <field>kern__RetryBackoffSeconds__c</field>
-        <value xsi:type="xsd:double">5.0</value>
-    </values>
-</CustomMetadata>
-EOF
-sf project deploy start -o YourOrgAlias \
-  -m "CustomMetadata:kern__ApiSetting.API_GetPost" --ignore-conflicts
-```
+#### Step 2.2: Create the API setting
 
-</details>
+The API Setting record configures how your handler runs: its class name, endpoint path, retry policy, and more.
 
-> **Prefer the UI?** Create this record in **Setup > Custom Metadata Types > ApiSetting > Manage Records > New**:
-> Label = `API Get Post`, Name = `API_GetPost`, ClassName__c = `API_GetPost`, Direction__c = `Outbound`,
-> EndpointPath__c = `/posts`, ApiCredential__c = (select) `Example REST API`,
-> IsActive__c = checked, LogIssues__c = checked, MaxRetryCount__c = `3`, RetryBackoffSeconds__c = `5`,
-> CircuitBreakerEnabled__c = checked.
+**1. In Salesforce**, open Setup, then Custom Metadata Types, then **API Setting**, then **Manage API Settings**,
+then **New**, and save a record with these values:
 
-> **ClassName__c** is the simple class name (`API_GetPost`), without a namespace prefix. The framework's
-> type resolver (how it finds your classes) handles the namespace for you.
+| Field                   | API name                         | Value                                                         |
+|-------------------------|----------------------------------|---------------------------------------------------------------|
+| Label                   | `MasterLabel`                    | `API Get Post`                                                |
+| API Setting Name        | `DeveloperName`                  | `API_GetPost`                                                 |
+| API Credential          | `kern__ApiCredential__c`         | `API_ExampleRestApi` (the list shows `Example REST API`)      |
+| Circuit Breaker Enabled | `kern__CircuitBreakerEnabled__c` | checked                                                       |
+| Class Name              | `kern__ClassName__c`             | `API_GetPost`                                                 |
+| Direction               | `kern__Direction__c`             | `Outbound`                                                    |
+| Endpoint Path           | `kern__EndpointPath__c`          | `/posts`                                                      |
+| Is Active               | `kern__IsActive__c`              | checked                                                       |
+| Log Issues              | `kern__LogIssues__c`             | checked                                                       |
+| Max Retry Count         | `kern__MaxRetryCount__c`         | `3`                                                           |
+| Retry Backoff (sec)     | `kern__RetryBackoffSeconds__c`   | `5`                                                           |
+
+> **Class Name** (`kern__ClassName__c`) is the simple class name (`API_GetPost`), without a namespace prefix. The
+> framework's type resolver (how it finds your classes) handles the namespace for you.
 >
-> **ApiCredential__c** is a lookup (a metadata relationship) to `ApiCredential__mdt`. Select the record you
-> created in step 2a.
+> **API Credential** (`kern__ApiCredential__c`) is a lookup (a metadata relationship) to `kern__ApiCredential__mdt`.
+> Select the record you created in Step 2.1. The handler in Step 3 names the same Named Credential; the record
+> is what the framework uses when a handler names none.
 
 > **How the HTTP verb is set for outbound calls:** `getHttpMethod()` in your handler class decides the verb.
 > The framework reads it inside `setHeaders()` and applies it to the request that goes over the wire. The
 > default (when you do not override it) is `POST`, so override `getHttpMethod()` to use a different verb.
 
+**2. In the terminal**, pull the record into your project:
+
+```shell
+sf project retrieve start -o YourOrgAlias -m "CustomMetadata:kern__ApiSetting.API_GetPost"
+```
+
+You should see one file created under `force-app/main/default/customMetadata`, named after the record.
+
+Something went wrong? See [Common Issues, Step 2](#step-2-register-metadata-1).
+
 ### Step 3: Execute
 
-Test from anonymous Apex:
+Run the handler once and read what came back.
+
+**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
+Anonymous Window, and run:
 
 ```apex
-// Use the simple DeveloperName (e.g., 'API_ExampleRestApi'), not the namespace-prefixed version
+// The Named Credential's real name, which on the managed package carries the kern__ prefix.
+// The API Setting record supplies it when a call names none; this call names it itself.
 kern.API_Outbound handler = kern.UTIL_HttpClient.useHandler(API_GetPost.class)
-	.credential('API_ExampleRestApi')
+	.credential('kern__API_ExampleRestApi')
 	.withParameter('postId', '1')
 	.invoke();
 
-System.debug('Success: ' + handler.result.isSuccess);
-System.debug('Response: ' + handler.result.responseBody);
+if (handler != null)
+{
+	System.debug('Success: ' + handler.result.isSuccess);
+	System.debug('Response: ' + handler.result.responseBody);
+}
 ```
 
-**Expected output:**
+You should see these lines in the log (the response is shortened here):
 
 ```text
 Success: true
@@ -520,9 +450,27 @@ Response: {"userId": 1, "id": 1, "title": "sunt aut facere repellat provident...
 > You'll see your call logged with the full request/response details, status, and timing. This visual
 > confirmation is the real proof it worked.
 
+Something went wrong? See [Common Issues, Step 3](#step-3-execute-1).
+
 ### Step 4: Write Tests
 
-Create `API_GetPost_TEST.cls`:
+The test class checks both paths: a call with the post ID succeeds, and a call without it stops before anything is
+sent. You create the empty class with one command, paste the code into it, send it to your org, then run it.
+
+**1. In the terminal**, from your project's top folder, create the empty test class:
+
+```shell
+sf apex generate class --name API_GetPost_TEST --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`: `API_GetPost_TEST.cls` and its companion of
+the same name ending in `.cls-meta.xml`.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save:
+
+```text
+force-app/main/default/classes/API_GetPost_TEST.cls
+```
 
 ```apex
 /**
@@ -537,7 +485,7 @@ Create `API_GetPost_TEST.cls`:
  * @date February 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(IsParallel=true)
+@IsTest(isParallel=true)
 private class API_GetPost_TEST
 {
 	/** @description The API service class name. */
@@ -567,25 +515,36 @@ private class API_GetPost_TEST
 }
 ```
 
-**Deploy and run:**
+**3. In the terminal**, send the test class to your org:
 
-```bash
+```shell
 sf project deploy start -o YourOrgAlias -m "ApexClass:API_GetPost_TEST"
+```
+
+You should see `Status: Succeeded`, with `API_GetPost_TEST` listed as created.
+
+**4. In the terminal**, run the test:
+
+```shell
 sf apex run test -o YourOrgAlias -t API_GetPost_TEST --code-coverage --synchronous --result-format human
 ```
 
-**Expected:** 2 tests passing, 100% coverage on `API_GetPost`.
+You should see 2 tests passing: both tests show `Pass`, the summary line `Outcome` reads `Passed`, and the coverage
+table lists `API_GetPost`, fully covered (it showed `100%` on our test org).
 
-> **About the annotations:** `@IsTest(IsParallel=true)` lets tests run in parallel, which makes the run
+> **About the annotations:** `@IsTest(isParallel=true)` lets tests run in parallel, which makes the run
 > faster. `SeeAllData` defaults to `false`, so we omit it. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
 > turns off a code-scanner rule about `System.runAs()`. That is fine for a quick start, but in production
 > tests consider adding `System.runAs()` to verify profile and permission set access.
 
+Something went wrong? See [Common Issues](#common-issues).
+
 ### Step 5: Add Validation
 
 Sometimes a request should be rejected before it ever leaves your org, for example when an input is the
-wrong shape. You can add your own checks that run before the HTTP call. Add this method to `API_GetPost.cls`
-after `getRequiredInputs()`:
+wrong shape. You can add your own checks that run before the HTTP call.
+
+**1. In your editor**, open `API_GetPost.cls` and add this method after `getRequiredInputs()`, inside the class:
 
 ```apex
 /**
@@ -607,7 +566,7 @@ public override List<String> getValidationErrors()
 }
 ```
 
-Add a test for the abort path in `API_GetPost_TEST.cls`:
+**2. In your editor**, add a test for the abort path in `API_GetPost_TEST.cls`, inside the class:
 
 ```apex
 /** @description Tests that the call is aborted when post ID is not numeric. */
@@ -622,29 +581,40 @@ private static void shouldAbortWhenPostIdNotNumeric()
 }
 ```
 
-**Redeploy and run:**
+**3. In the terminal**, send both classes to your org:
 
-```bash
+```shell
 sf project deploy start -o YourOrgAlias -m "ApexClass:API_GetPost" -m "ApexClass:API_GetPost_TEST"
+```
+
+You should see `Status: Succeeded`, with `API_GetPost` and `API_GetPost_TEST` listed as changed.
+
+**4. In the terminal**, run the tests again:
+
+```shell
 sf apex run test -o YourOrgAlias -t API_GetPost_TEST --code-coverage --synchronous --result-format human
 ```
 
-**Expected:** 3 tests passing, 100% coverage.
+You should see 3 tests passing: all three show `Pass`, the summary line `Outcome` reads `Passed`, and the coverage
+table lists `API_GetPost`, still fully covered (`100%` on our test org).
 
-**Try it out:** Run these in **Execute Anonymous** to see validation in action:
+**Try it out.** **In Salesforce**, in the Execute Anonymous window, run this to see validation in action:
 
 ```apex
 // Invalid post ID — should abort with validation error
 kern.API_Outbound handler = kern.UTIL_HttpClient.useHandler(API_GetPost.class)
-	.credential('API_ExampleRestApi')
+	.credential('kern__API_ExampleRestApi')
 	.withParameter('postId', 'ABC')
 	.invoke();
 
-System.debug('Success: ' + handler.result.isSuccess);
-System.debug('Errors: ' + handler.result.errors);
+if (handler != null)
+{
+	System.debug('Success: ' + handler.result.isSuccess);
+	System.debug('Errors: ' + handler.result.errors);
+}
 ```
 
-**Expected output:**
+You should see these lines in the log:
 
 ```text
 Success: false
@@ -653,16 +623,23 @@ Errors: (Post ID must be a numeric value)
 
 Check the **API Calls** tab. You'll see an entry with status **Aborted** and the validation error logged.
 
+**In Salesforce**, run this one to see a valid ID go through:
+
 ```apex
 // Valid post ID — should succeed
 kern.API_Outbound handler = kern.UTIL_HttpClient.useHandler(API_GetPost.class)
-	.credential('API_ExampleRestApi')
+	.credential('kern__API_ExampleRestApi')
 	.withParameter('postId', '1')
 	.invoke();
 
-System.debug('Success: ' + handler.result.isSuccess);
-System.debug('Response: ' + handler.result.responseBody);
+if (handler != null)
+{
+	System.debug('Success: ' + handler.result.isSuccess);
+	System.debug('Response: ' + handler.result.responseBody);
+}
 ```
+
+Something went wrong? See [Common Issues, Step 5](#step-5-add-validation-1).
 
 ### Step 6: Understanding Mocks
 
@@ -675,6 +652,8 @@ The `defaultMockBody` you set in `configure()` is the stand-in response. When te
 intercepts the HTTP callout and returns that JSON instead of calling JSONPlaceholder. There is no extra
 setup and no `Test.setMock()` to wire up: the framework handles it.
 
+**In your editor**, this is the line in `configure()` that does it:
+
 ```apex
 // In configure() — this IS your test mock
 defaultMockBody = '{"userId": 1, "id": 1, "title": "Mock Post Title", "body": "Mock post body"}';
@@ -683,7 +662,9 @@ defaultMockBody = '{"userId": 1, "id": 1, "title": "Mock Post Title", "body": "M
 **Custom mocks (`API_MockFactory`):**
 
 Sometimes one test needs a different response, for example to check how your code handles an error or an
-edge case. For that, use `API_MockFactory`:
+edge case. For that, use `API_MockFactory`.
+
+**In your editor**, inside a test method:
 
 ```apex
 // Return a custom response body
@@ -699,7 +680,7 @@ kern.API_MockFactory.registerErrorMock(SERVICE_NAME);
 kern.API_MockFactory.registerParseFailMock(SERVICE_NAME);
 ```
 
-Add this test to `API_GetPost_TEST.cls` to see error mocking in action:
+**In your editor**, add this test to `API_GetPost_TEST.cls` to see error mocking in action:
 
 ```apex
 /** @description Tests that the call fails when the API returns a server error. */
@@ -765,7 +746,9 @@ The `inputs` field uses `key=value` format, comma-delimited for multiple paramet
 
 For calls that should run in the background rather than while a user waits, create a `kern__ApiCall__c`
 record directly. A record-triggered flow in the framework picks up the item, runs the call asynchronously,
-and logs the result:
+and logs the result.
+
+**In Salesforce**, to try it, run this in the Execute Anonymous window:
 
 ```apex
 kern__ApiCall__c queueItem = new kern__ApiCall__c(
@@ -782,7 +765,7 @@ System.debug('Queue item created: ' + queueItem.Id);
 > **Note:** `kern.TST_Factory.newOutboundApiCall()` is a **test-only** utility. In production code, create
 > `kern__ApiCall__c` records directly as shown above.
 
-Check status after a few seconds using the built-in `SEL_ApiCall` selector:
+**In Salesforce**, check the status after a few seconds using the built-in `SEL_ApiCall` selector:
 
 ```apex
 List<kern__ApiCall__c> calls = new kern.SEL_ApiCall().findByServiceName('API_GetPost');
@@ -793,12 +776,12 @@ for(kern__ApiCall__c apiCall : calls)
 }
 ```
 
-> **Lifecycle:** `Queued` -> `Processing` -> `Completed` / `Failed` / `Aborted`. Failed items retry
-> automatically per the `MaxRetryCount__c` setting. See [Web Services - Guide](Web%20Services%20-%20Guide.md).
+> **Lifecycle:** `Queued` -> `Processing` -> `Completed` / `Failed` / `Aborted`, with `Retry` and `Retrying` in between
+> when a retry is scheduled. A failure that sending the request again could fix is retried automatically, up to the
+> `MaxRetryCount__c` setting; a `Failed` call is not retried. See
+> [Failures and retries](Web%20Services%20-%20Guide.md#failures-and-retries).
 
----
-
-## Sensitive data is masked by default
+### Sensitive data is masked by default
 
 Logging every call is useful, but you do not want secrets sitting in those logs. `ApiCall__c` records store
 the request body, response body, URL, and parameters captured from every outbound call, so before any of
@@ -816,23 +799,117 @@ has them redacted. The actual HTTP request going over the wire is unchanged: onl
 Fifteen more rules ship as inactive templates (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone,
 JWT, AWS access key, URL basic auth, authorization header, private IPv4, postal address, free text, and
 international phone). To switch one on, set `kern__MaskingRule__mdt.IsActive__c = true` and add a
-`kern__MaskingTarget__mdt` record that wires the rule to the field(s) that need it.
+`kern__MaskingTarget__mdt` record that wires the rule to the field(s) that need it. If a sensitive value still
+shows on a saved `kern__ApiCall__c` record, no active rule recognises it: switch on the rule that matches it and,
+unless a shipped `kern__MaskingTarget__mdt` record already wires that rule to the field, add one that does (see the
+Web Services Guide).
+
+### Clean up
+
+If you built this example only to try the framework, run these lines when you have finished the guide, to remove it
+from your org. Delete it in two commands, in this order: the org refuses to delete the API credential while an API
+setting still points at it.
+
+**1. In the terminal**, delete the two classes and the API setting:
+
+```shell
+sf project delete source -o YourOrgAlias -m "ApexClass:API_GetPost_TEST" -m "ApexClass:API_GetPost" -m "CustomMetadata:kern__ApiSetting.API_GetPost" --no-prompt
+```
+
+You should see `Status: Succeeded`, then a `Deleted Source` table listing the two classes and the API setting.
+
+**2. In the terminal**, delete the API credential:
+
+```shell
+sf project delete source -o YourOrgAlias -m "CustomMetadata:kern__ApiCredential.API_ExampleRestApi" --no-prompt
+```
+
+You should see `Status: Succeeded`, then a `Deleted Source` table listing the API credential.
+
+The commands delete the files from your project too. Two things they leave behind: the calls you made stay on the
+**API Calls** tab as a record of what ran, and if you built the `Get Post Demo` screen flow, deactivate it and
+delete it in Setup, then Flows.
+
+Something went wrong? See [Common Issues](#clean-up-1).
+
+---
 
 ## Common Issues
 
-| Problem                                      | Cause                                 | Fix                                                                                                                        |
-|----------------------------------------------|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
-| `Type cannot be serialized`                  | Missing `@JsonAccess` on DTO          | Add `@JsonAccess(Serializable='always' Deserializable='always')`                                                           |
-| `Type cannot be deserialized`                | `public` class not visible to package | Make the class `global`, or set up a Type Resolver ([details](Utilities%20-%20Guide.md#type-resolution-util_typeresolver)) |
-| `No ApiSetting found`                        | Missing or mismatched metadata        | Check `ClassName__c` matches your simple class name (e.g., `API_GetPost`, not namespace-prefixed)                          |
-| `Required parameter missing`                 | Parameter not passed                  | Check `getRequiredInputs()` for required names                                                                             |
-| Named Credential not found                   | Wrong credential name                 | Use `kern__API_ExampleRestApi` (namespace-prefixed)                                                                        |
-| `no CustomMetadata named ApiCredential...`   | ApiCredential record missing          | Create your own `ApiCredential__mdt` record (step 2a); the package's is protected                                          |
-| `Uncommitted work pending`                   | DML during callout phase              | Move DML to `onSuccess()` using `DML_Builder`                                                                              |
-| `super.configure()` not called               | Missing `super` in override           | Always call `super.configure()` first                                                                                      |
-| Sensitive value not redacted on `ApiCall__c` | Field not covered by a masking target | Add a `kern__MaskingTarget__mdt` record (see Web Services Guide)                                                           |
+Trouble with your computer rather than this guide (`sf` is not recognised, scripts are disabled, you are not logged
+in, the wrong folder)? Those are answered once, in
+[Set Up Your Computer](Set%20Up%20Your%20Computer.md#if-something-went-wrong).
 
----
+### Step 1: Create the API Handler
+
+#### The deploy says there is nothing to deploy
+
+The deploy stops with `No source-backed components present in the package.` The command ran inside another project's
+folder, so the CLI looked for the class there and found nothing. Open the terminal in your own project's top folder,
+the one that holds `sfdx-project.json`, and run the command again.
+
+#### The deploy fails with an Invalid type message naming API_Outbound
+
+The org you deployed to does not have KernDX installed, so it cannot find the framework's base class. The message
+names the class with the package namespace in front (`Invalid type: kern.API_Outbound`). Install KernDX in that org
+first (see the [Installation guide](Installation.md)). If you installed KernDX under your own namespace or without
+one, change the `kern.` prefix in the code as the namespace note at the top of this guide explains.
+
+### Step 2: Register Metadata
+
+#### The pull says `Nothing retrieved`
+
+The pull finishes with the warning `Nothing retrieved` and a line saying the record `cannot be found`. The name in
+the pull command does not match a record in your org: either the record was not saved in Step 2.1 or Step 2.2, or
+its name differs. Check the **API Credential Name** or **API Setting Name** you saved matches the table exactly,
+then run the pull again.
+
+### Step 3: Execute
+
+#### `Success: false` and `Response: null`
+
+The call did not come back. To see why, add this line to the end of the block and run it again:
+`System.debug('Errors: ' + handler.result.errors);`. The entries below cover what it can show.
+
+If the errors line says `the named credential "API_ExampleRestApi" might not exist`, the call used the wrong
+Named Credential name. On the managed package, use `kern__API_ExampleRestApi` (namespace-prefixed), as the
+namespace note at the top of this guide explains.
+
+#### `Type cannot be serialized`
+
+A DTO class is missing `@JsonAccess`, so the framework, which runs in the `kern` namespace, is not allowed to turn it
+into JSON. The call also shows on the **API Calls** tab with this error. Add
+`@JsonAccess(serializable='always' deserializable='always')` above each DTO class, as the Step 1 code does, and send
+the class to your org again.
+
+#### `The required parameters ["postId"] were not provided or were blank.`
+
+The call was made without the post ID, so the framework stopped it before sending anything (the **API Calls** tab
+shows it as **Aborted**). Pass every name that `getRequiredInputs()` lists, here with `.withParameter('postId', '1')`.
+
+#### `Type cannot be deserialized`
+
+The same cause and fix as in the Inbound APIs guide: see its [Common Issues](Fast%20Start%20-%20Inbound%20APIs.md#type-cannot-be-deserialized).
+
+#### `Stopwatch is not running.`
+
+The same cause and fix as in the Inbound APIs guide: see its [Common Issues](Fast%20Start%20-%20Inbound%20APIs.md#stopwatch-is-not-running).
+
+### Step 5: Add Validation
+
+#### `Missing '<EOF>' at 'public'`
+
+The deploy fails with this message because the new method was pasted after the class's last closing brace, outside
+the class. Move it up so it sits inside the class, after `getRequiredInputs()`, and send the class again.
+
+### Clean up
+
+#### `Your attempt to delete Example REST API could not be completed`
+
+The API credential was deleted while the API setting still pointed at it, and the org refuses that. Delete in two
+commands, as the clean-up shows: first the classes and the API setting, then the API credential.
+
+Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?template=bug_report.md&title=%5Bdocs%5D%20Outbound%20APIs) which step and what you saw.
 
 ## What You Now Know
 

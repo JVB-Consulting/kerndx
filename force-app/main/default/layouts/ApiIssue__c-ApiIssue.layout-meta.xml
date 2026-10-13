@@ -21,6 +21,10 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Readonly</behavior>
+                <field>ExternalSystemMayHaveActed__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Readonly</behavior>
                 <field>ResolvedDate__c</field>
             </layoutItems>
         </layoutColumns>

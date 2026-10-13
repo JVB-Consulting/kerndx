@@ -73,7 +73,8 @@ const CONFIG = {
 	FLOW_FILES: [
 		'InvokeOutboundApiCall.flow-meta.xml',
 		'ResetOutboundApiCall.flow-meta.xml',
-		'RetryOutboundApiCall.flow-meta.xml'
+		'RetryOutboundApiCall.flow-meta.xml',
+		'RetrySelectedApiIssues.flow-meta.xml'
 	]
 };
 
@@ -647,6 +648,16 @@ function normalizeWhitespace(content)
 }
 
 /**
+ * @description Writes a repository-relative path the way git expects it in `HEAD:<path>`, whatever system built it.
+ * @param {string} relativePath - A relative path that may use backslashes.
+ * @returns {string} The same path with forward slashes.
+ */
+function toGitPath(relativePath)
+{
+	return relativePath.replace(/\\/g, '/');
+}
+
+/**
  * @description Gets the committed version of a file from git.
  * @param {string} filePath - The file path (absolute or relative).
  * @returns {string|null} The committed content or null if not in git.
@@ -656,7 +667,7 @@ function getGitVersion(filePath)
 	try
 	{
 		// Convert absolute path to relative path for git
-		const relativePath = path.relative(process.cwd(), filePath);
+		const relativePath = toGitPath(path.relative(process.cwd(), filePath));
 		return execSync(`git show HEAD:"${relativePath}"`, {
 			encoding: 'utf8', stdio: [
 				'pipe',
@@ -1099,6 +1110,7 @@ module.exports = {
 	transformFlowContent,
 	normalizeWhitespace,
 	getGitVersion,
+	toGitPath,
 	writeFileWithGitFormatting,
 	readNamespace,
 	main,

@@ -2,14 +2,15 @@
 /**
  * @description Base API class for all handlers that call the current Org standard APIs.
  * Uses session-ID-based authentication and resolves the org base URL dynamically
- * via URL.getOrgDomainURL(). Subscribers must add a Remote Site Setting for their
- * My Domain URL.
+ * via URL.getOrgDomainURL(). A call to your own org's domain needs neither a Remote Site
+ * Setting nor a Named Credential (a stored, reusable connection definition): the platform
+ * allows it, and the session id signs it.
  *
  * @author Jason van Beukering
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, September 2026
  *
  * @since 1.0
  *

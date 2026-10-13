@@ -17,7 +17,7 @@
  *
  * @group Resilience
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  *
  * @since 1.0
  *
@@ -93,6 +93,8 @@ global inherited sharing class UTIL_Retry
 		 *
 		 * @return The retry count
 		 *
+		 * @since 1.0
+		 *
 		 * @example
 		 * ```apex
 		 * UTIL_Retry.Context ctx = UTIL_Retry.newContext(2);
@@ -105,6 +107,8 @@ global inherited sharing class UTIL_Retry
 		 * @description Gets the datetime of the last retry attempt
 		 *
 		 * @return The last attempt time, or null if not set
+		 *
+		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
@@ -119,6 +123,8 @@ global inherited sharing class UTIL_Retry
 		 * @description Gets custom data for use with custom retry strategies
 		 *
 		 * @return The custom data object, or null if not set
+		 *
+		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
@@ -137,6 +143,8 @@ global inherited sharing class UTIL_Retry
 		 *
 		 * @return This context for method chaining
 		 *
+		 * @since 1.0
+		 *
 		 * @example
 		 * ```apex
 		 * UTIL_Retry.Context ctx = UTIL_Retry.newContext(1)
@@ -152,6 +160,8 @@ global inherited sharing class UTIL_Retry
 		 *
 		 * @return This context for method chaining
 		 *
+		 * @since 1.0
+		 *
 		 * @example
 		 * ```apex
 		 * ApiCall__c apiCall = [SELECT Id, StatusCode__c FROM ApiCall__c LIMIT 1];
@@ -165,6 +175,8 @@ global inherited sharing class UTIL_Retry
 		 * @description Gets the configured base backoff in seconds
 		 *
 		 * @return The base backoff period
+		 *
+		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
@@ -180,6 +192,8 @@ global inherited sharing class UTIL_Retry
 		 * @description Gets the configured maximum backoff in seconds
 		 *
 		 * @return The maximum backoff period
+		 *
+		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
@@ -207,6 +221,8 @@ global inherited sharing class UTIL_Retry
 		 *
 		 * @return True if a retry should be attempted, false otherwise
 		 *
+		 * @since 1.0
+		 *
 		 * @example
 		 * ```apex
 		 * UTIL_Retry.Strategy strategy = UTIL_Retry.exponential();
@@ -226,6 +242,8 @@ global inherited sharing class UTIL_Retry
 		 *
 		 * @return The backoff period in seconds
 		 *
+		 * @since 1.0
+		 *
 		 * @example
 		 * ```apex
 		 * UTIL_Retry.Strategy strategy = UTIL_Retry.exponential();
@@ -243,6 +261,8 @@ global inherited sharing class UTIL_Retry
 		 *
 		 * @return This strategy for method chaining
 		 *
+		 * @since 1.0
+		 *
 		 * @example
 		 * ```apex
 		 * UTIL_Retry.Strategy strategy = UTIL_Retry.exponential()
@@ -257,6 +277,8 @@ global inherited sharing class UTIL_Retry
 		 * @param seconds The base backoff period
 		 *
 		 * @return This strategy for method chaining
+		 *
+		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
@@ -273,6 +295,8 @@ global inherited sharing class UTIL_Retry
 		 *
 		 * @return This strategy for method chaining
 		 *
+		 * @since 1.0
+		 *
 		 * @example
 		 * ```apex
 		 * UTIL_Retry.Strategy strategy = UTIL_Retry.exponential()
@@ -288,6 +312,8 @@ global inherited sharing class UTIL_Retry
 		 *
 		 * @return This strategy for method chaining
 		 *
+		 * @since 1.0
+		 *
 		 * @example
 		 * ```apex
 		 * UTIL_Retry.Strategy strategy = UTIL_Retry.exponential()
@@ -302,6 +328,8 @@ global inherited sharing class UTIL_Retry
 		 * @param multiplier The exponential multiplier (must be >= 1.0, default: 2.0)
 		 *
 		 * @return This strategy for method chaining
+		 *
+		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
@@ -451,6 +479,34 @@ global inherited sharing class UTIL_Retry
 	}
 
 	/**
+	 * @description Returns true when the caught exception is of one of the given types, compared by exact type name:
+	 * Apex offers no instanceof against a runtime Type, and a parent type is deliberately never matched, so a broad
+	 * "retry everything" set cannot be written by accident (Exception.class matches nothing that is thrown). A null
+	 * exception, a null set or an empty set matches nothing, which is how a status failure, which carries no exception,
+	 * stays out of every type-based decision. Shared by the strategy filters and by the outbound retry decision.
+	 *
+	 * @param caught The exception to classify, or null when the failure carried none.
+	 * @param types The types to test against; null or empty matches nothing.
+	 *
+	 * @return True when the exception's type name equals a listed type's name.
+	 */
+	public static Boolean matchesExceptionType(Exception caught, Set<Type> types)
+	{
+		if(caught != null && types?.isEmpty() == false)
+		{
+			String caughtName = caught.getTypeName();
+			for(Type candidate : types)
+			{
+				if(candidate?.getName() == caughtName)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * @description Internal Strategy decorator that applies an exception-type allowlist or
 	 * denylist on top of a base strategy. Constructed via `dontRetryOnException` or
 	 * `retryOnlyOnException`; not directly instantiable by subscribers (private). Delegates
@@ -489,17 +545,25 @@ global inherited sharing class UTIL_Retry
 			this.allowList = allowList;
 		}
 
+		/**
+		 * @description Applies the exception filters, then asks the delegate: a caught exception on the denylist
+		 * never retries, one outside a non-empty allowlist never retries, and anything else is the delegate's call.
+		 *
+		 * @param context The retry context; its custom data carries the caught exception when there is one.
+		 *
+		 * @return True when the filters allow a retry and the delegate agrees.
+		 */
 		public Boolean shouldRetry(Context context)
 		{
 			Object customData = context?.getCustomData();
 			if(customData instanceof Exception)
 			{
 				Exception caught = (Exception)customData;
-				if(denyList != null && exceptionMatchesType(caught, denyList))
+				if(denyList != null && matchesExceptionType(caught, denyList))
 				{
 					return false;
 				}
-				if(allowList != null && !allowList.isEmpty() && !exceptionMatchesType(caught, allowList))
+				if(allowList != null && !allowList.isEmpty() && !matchesExceptionType(caught, allowList))
 				{
 					return false;
 				}
@@ -507,62 +571,81 @@ global inherited sharing class UTIL_Retry
 			return delegate.shouldRetry(context);
 		}
 
+		/**
+		 * @description Hands the backoff calculation to the delegate; the filters decide only whether a retry runs.
+		 *
+		 * @param context The retry context.
+		 *
+		 * @return The delegate's backoff in seconds.
+		 */
 		public Integer calculateBackoff(Context context)
 		{
 			return delegate.calculateBackoff(context);
 		}
 
+		/**
+		 * @description Sets the delegate's retry cap and keeps the filters in front of it.
+		 *
+		 * @param max The maximum number of retries.
+		 *
+		 * @return This filtered strategy for method chaining.
+		 */
 		public Strategy withMaxRetries(Integer max)
 		{
 			delegate.withMaxRetries(max);
 			return this;
 		}
 
+		/**
+		 * @description Sets the delegate's base backoff and keeps the filters in front of it.
+		 *
+		 * @param seconds The base backoff in seconds.
+		 *
+		 * @return This filtered strategy for method chaining.
+		 */
 		public Strategy withBaseBackoff(Integer seconds)
 		{
 			delegate.withBaseBackoff(seconds);
 			return this;
 		}
 
+		/**
+		 * @description Turns the delegate's jitter on or off and keeps the filters in front of it.
+		 *
+		 * @param enabled True to add jitter to the backoff.
+		 *
+		 * @return This filtered strategy for method chaining.
+		 */
 		public Strategy withJitter(Boolean enabled)
 		{
 			delegate.withJitter(enabled);
 			return this;
 		}
 
+		/**
+		 * @description Sets the delegate's backoff ceiling and keeps the filters in front of it.
+		 *
+		 * @param seconds The maximum backoff in seconds.
+		 *
+		 * @return This filtered strategy for method chaining.
+		 */
 		public Strategy withMaximumBackoff(Integer seconds)
 		{
 			delegate.withMaximumBackoff(seconds);
 			return this;
 		}
 
+		/**
+		 * @description Sets the delegate's exponential multiplier and keeps the filters in front of it.
+		 *
+		 * @param multiplier The factor each retry's backoff grows by.
+		 *
+		 * @return This filtered strategy for method chaining.
+		 */
 		public Strategy withExponentialMultiplier(Decimal multiplier)
 		{
 			delegate.withExponentialMultiplier(multiplier);
 			return this;
-		}
-
-		/**
-		 * @description Returns true when the caught exception is an instance of any type in
-		 * the supplied set. Compares by canonical type name (Apex doesn't expose `instanceof`
-		 * via runtime `Type` tokens, so name-based matching is the supported pattern).
-		 *
-		 * @param caught The exception to classify.
-		 * @param types The set of types to test against.
-		 *
-		 * @return True when the exception's type name matches any entry in the set.
-		 */
-		private Boolean exceptionMatchesType(Exception caught, Set<Type> types)
-		{
-			String caughtName = caught.getTypeName();
-			for(Type candidate : types)
-			{
-				if(candidate?.getName() == caughtName)
-				{
-					return true;
-				}
-			}
-			return false;
 		}
 	}
 

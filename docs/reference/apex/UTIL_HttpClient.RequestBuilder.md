@@ -54,13 +54,13 @@ Map<String, Object> result = UTIL_HttpClient.get('MyService', '/status')
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [replaceRequestTokens](#replacerequesttokens)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> tokens) | Registers multiple request body replacement tokens. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [replaceResponseToken](#replaceresponsetoken)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) searchToken, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) replaceToken) | Registers a single response body replacement token. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [replaceResponseTokens](#replaceresponsetokens)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> tokens) | Registers multiple response body replacement tokens. |
-| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [retryOn](#retryon)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)> statusCodes) | Restricts retry to specific HTTP status codes. |
+| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [retryOn](#retryon)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)> statusCodes) | Chooses which HTTP status codes are worth another attempt. |
 | global [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm) [send](#send)() | Executes the HTTP request and returns the raw HttpResponse. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [skipLogging](#skiplogging)() | Skips ApiCall__c persistence for this request. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [timeout](#timeout)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) milliseconds) | Sets the request timeout in milliseconds. |
-| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withCircuitBreaker](#withcircuitbreaker)() | Enables circuit breaker protection using the credential name as identifier. |
-| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withCircuitBreaker](#withcircuitbreaker)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) circuitName) | Enables circuit breaker protection with a custom identifier. |
-| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withCorrelationId](#withcorrelationid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) correlationId) | Sets a correlation ID for cross-transaction log tracing. |
+| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withCircuitBreaker](#withcircuitbreaker)() | Enables circuit breaker protection under the service's own breaker: the credential's breaker for a call built from a credential, the handler's breaker for a call made through useHandler(...). |
+| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withCircuitBreaker](#withcircuitbreaker)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) circuitName) | Enables circuit breaker protection under a breaker you name. |
+| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withCorrelationId](#withcorrelationid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) correlationId) | Keeps a correlation id with the call. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withExponentialBackoff](#withexponentialbackoff)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maxRetries, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) baseBackoffSeconds) | Enables synchronous retry with exponential backoff. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withIdempotencyKey](#withidempotencykey)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) idempotencyKey) | Sets an explicit idempotency key for duplicate detection. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withMockResponse](#withmockresponse)([API_MockFactory.MockResponse](API_MockFactory.MockResponse.md) mockResponse) | Sets a mock response to inject at framework level, overriding the handler's own mock. |
@@ -98,7 +98,9 @@ Map<String, Object> data = UTIL_HttpClient.get('MyService', '/data').asMap();
 global String asString()
 ```
 
-Executes the request and returns the response body as a String.
+Executes the request and returns the response body as a String. Answers null when
+the request produced no response of its own, so an outcome with nothing to read stays
+distinguishable from a response whose body really is empty.
 
 **Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — The response body string
 
@@ -570,13 +572,24 @@ HttpResponse response = UTIL_HttpClient.get('PaymentGateway', '/charges')
 global UTIL_HttpClient.RequestBuilder retryOn(Set<Integer> statusCodes)
 ```
 
-Restricts retry to specific HTTP status codes.
+Chooses which HTTP status codes are worth another attempt. When the external system responds with one
+of the codes you list, the request is sent again straight away, in the same transaction, whatever its HTTP
+method: naming a code here is your choice to repeat the request. The same list decides whether a later retry is
+scheduled, which happens only when you also gave a wait time in `withRetry`, and a code you name is retried
+later too, whatever the method. A response with any other code is not retried, so an empty set retries nothing.
+Passing null is the same as not calling this method.
+Naming 500, 502 or 504 for a POST or PATCH without an idempotency key is at your own risk: the external system
+may have processed the request, and the call's issue, when one is logged, says so. If you do not call this
+method, the request is sent again straight away after a 408 or 503, and after a 500, 502 or 504 when it is safe
+to repeat; a POST or PATCH without an idempotency key is not sent again after a 500, 502 or 504, because the
+external system may have processed it. 425 and 429 mean "slow down", so the request waits for the scheduled
+retry instead.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `statusCodes` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The status codes eligible for retry |
+| `statusCodes` | [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm) | The HTTP status codes that should be tried again |
 
 **Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
@@ -599,7 +612,17 @@ UTIL_HttpClient.post('MyService', '/send')
 global HttpResponse send()
 ```
 
-Executes the HTTP request and returns the raw HttpResponse.
+Executes the HTTP request and returns the raw HttpResponse. A response always
+comes back, so a caller never has to guard the return. When the request produced no response
+of its own, because processing failed, the configuration refused the call or the circuit was
+open, the response you get has status code 0, which no HTTP exchange can report, and a status
+line holding the first error recorded for the call. Its body is unset. Repeat calls hand back
+the same response object as the first call.
+Every failure the framework handles for a call leaves this method answering with its response rather than throwing: a
+call refused before it leaves the org, a transport failure, an exception in the handler, a call record that
+cannot be saved, a stored logger context that cannot be read, and a masking rule that blocks the failure
+attachments. A try/catch around this call has nothing to catch on those paths. A governor limit is the
+platform's own exception, outside this contract, and no Apex code can catch it.
 
 **Returns** [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm) — The HttpResponse from the callout
 
@@ -669,7 +692,10 @@ UTIL_HttpClient.get('MyService', '/data')
 global UTIL_HttpClient.RequestBuilder withCircuitBreaker()
 ```
 
-Enables circuit breaker protection using the credential name as identifier.
+Enables circuit breaker protection under the service's own breaker: the credential's breaker for a
+call built from a credential, the handler's breaker for a call made through useHandler(...). Every call to the
+same service shares that breaker, so once it opens after repeated failures, later calls are refused without
+being sent until it cools off. Calling it after withCircuitBreaker(String) drops the name given there.
 
 **Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
@@ -689,13 +715,17 @@ UTIL_HttpClient.post('MyService', '/send')
 global UTIL_HttpClient.RequestBuilder withCircuitBreaker(String circuitName)
 ```
 
-Enables circuit breaker protection with a custom identifier.
+Enables circuit breaker protection under a breaker you name. Calls that give the same name share
+one breaker whatever credential or handler they use, and calls that give different names keep separate breakers
+even on the same credential, so one failing endpoint does not stop calls to another. The name also applies to a
+call made through useHandler(...), and the retries the framework schedules for a call built from a credential keep
+it. When the breaker is open, the call is refused without being sent and its error line names the breaker.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `circuitName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The circuit breaker identifier |
+| `circuitName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The name of the circuit breaker this call uses |
 
 **Returns** [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) — This builder for method chaining
 
@@ -717,7 +747,10 @@ UTIL_HttpClient.post('MyService', '/send')
 global UTIL_HttpClient.RequestBuilder withCorrelationId(String correlationId)
 ```
 
-Sets a correlation ID for cross-transaction log tracing.
+Keeps a correlation id with the call. The call record stores your transaction's logger
+context, including this id, so when the stored call runs again later (a scheduled retry) that run's log
+entries carry your transaction as their parent and keep your global context. The entries of an outbound
+call always correlate by the call's own trace id.
 
 **Parameters**
 
@@ -775,7 +808,9 @@ global UTIL_HttpClient.RequestBuilder withIdempotencyKey(String idempotencyKey)
 ```
 
 Sets an explicit idempotency key for duplicate detection.
-When set, this key takes priority over auto-generated keys.
+When set, this key takes priority over auto-generated keys. It is sent as the Idempotency-Key header and recorded
+on the call, on send() and on a useHandler(...).invoke() alike, whether or not the service setting has Idempotency
+Enabled, and a POST or PATCH that carries it counts as safe to send again.
 
 **Parameters**
 
@@ -892,7 +927,14 @@ UTIL_HttpClient.useHandler(API_SendEmail.class)
 global UTIL_HttpClient.RequestBuilder withRetry(Integer maxRetries)
 ```
 
-Enables synchronous retry with the specified maximum attempts.
+Enables synchronous retry with the specified maximum attempts. After a 408 or 503 the request is
+sent again straight away, in the same transaction. After a 500, 502 or 504 it is sent again straight away only
+when it is safe to repeat: a GET, PUT or DELETE, or a request you gave an idempotency key with
+withIdempotencyKey. A POST or PATCH without a key is not sent again after those three, because the external
+system may have processed it; the call ends Failed with a line that says so. A 425 or 429 means "slow down", so
+it is not sent again straight away. To choose the codes yourself, use retryOn: a status you name there is sent
+again whatever the method, a POST or PATCH without a key included, so name a 500, 502 or 504 only when sending
+the request twice is safe.
 
 **Parameters**
 
@@ -918,7 +960,14 @@ UTIL_HttpClient.post('MyService', '/send')
 global UTIL_HttpClient.RequestBuilder withRetry(Integer maxRetries, Integer backoffSeconds)
 ```
 
-Enables synchronous retry with a linear backoff.
+Enables synchronous retry with a linear backoff. The wait time lets the framework schedule a later
+retry when the attempts made straight away do not succeed. After a 408 or 503 the request is sent again straight
+away, in the same transaction. After a 500, 502 or 504 it is sent again, straight away or later, only when it is
+safe to repeat: a GET, PUT or DELETE, or a request you gave an idempotency key with withIdempotencyKey. A POST or
+PATCH without a key is not sent again after those three, because the external system may have processed it; the
+call ends Failed with a line that says so. A 425 or 429 means "slow down", so it waits for the later retry. To
+choose the codes yourself, use retryOn: a status you name there is sent again whatever the method, a POST or
+PATCH without a key included, so name a 500, 502 or 504 only when sending the request twice is safe.
 
 **Parameters**
 

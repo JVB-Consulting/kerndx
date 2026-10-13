@@ -5,7 +5,7 @@ pageClass: reference
 description: "Centralised container for framework-specific exception types. Groups related exception classes under a single outer class to minimise top-level file count while keeping each exception independently re"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -43,4 +43,6 @@ if(config == null)
 | [IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | Thrown when an operation is attempted on an object whose internal state does not support that operation. |
 | [MaskingBlockedException](UTIL_Exceptions.MaskingBlockedException.md) | Thrown when a masking rule configured with FailureAction__c = BlockDml fails. |
 | [NotFoundException](UTIL_Exceptions.NotFoundException.md) | Thrown when a lookup for a specific record or resource yields no results. |
+| [PermanentFailureException](UTIL_Exceptions.PermanentFailureException.md) | Throw this from your own outbound handler code to say the failure is permanent: sending the same request again cannot help. |
+| [RequestRefusedException](UTIL_Exceptions.RequestRefusedException.md) | Throw this from parseResponse() when the external system answered with a success status but its body says it refused the request, for example an order answered 200 with status REJECTED. |
 

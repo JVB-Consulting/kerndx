@@ -10,7 +10,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -125,7 +125,8 @@ global virtual inherited sharing class API_Inbound extends API_Base
 
 	/**
 	 * @description Reference to the current inbound REST request. Provides access to the details of the incoming request,
-	 * such as headers, parameters, and the request body.
+	 * such as headers, parameters, and the request body. Header names carry no case, and many clients send them in lower case,
+	 * so read a header through `UTIL_Map.CaseInsensitiveMap`, which finds it whatever case its name arrived in.
 	 *
 	 * @see RestRequest
 	 *
@@ -133,7 +134,7 @@ global virtual inherited sharing class API_Inbound extends API_Base
 	 *
 	 * @example
 	 * ```apex
-	 * String headerValue = request.headers.get('X-Custom-Header');
+	 * String partner = (String)new UTIL_Map.CaseInsensitiveMap(request.headers).get('X-Partner-Id');
 	 * ```
 	 */
 	global protected RestRequest request
@@ -279,7 +280,7 @@ global virtual inherited sharing class API_Inbound extends API_Base
 	 */
 	global protected override virtual String getEncoding()
 	{
-		return request.headers.get(HTTP_CONTENT_TYPE);
+		return readHeader(HTTP_CONTENT_TYPE);
 	}
 
 	/**
@@ -577,7 +578,9 @@ global virtual inherited sharing class API_Inbound extends API_Base
 	}
 
 	/**
-	 * @description Performs actions before committing changes to the database.
+	 * @description Performs actions before committing changes to the database. It runs once for each attempt of the
+	 * commit: an attempt the platform refused for a row lock is tried again once, and this method runs again for the new
+	 * attempt. So write what you add here so that it is safe to run more than once.
 	 *
 	 * @since 1.0
 	 *
@@ -649,7 +652,7 @@ global virtual inherited sharing class API_Inbound extends API_Base
 	 */
 	private void extractTraceContext()
 	{
-		String traceParentHeader = request.headers.get(API_Base.HEADER_TRACE_PARENT);
+		String traceParentHeader = readHeader(API_Base.HEADER_TRACE_PARENT);
 
 		if(String.isNotBlank(traceParentHeader))
 		{
@@ -659,6 +662,22 @@ global virtual inherited sharing class API_Inbound extends API_Base
 		{
 			generateTraceContext();
 		}
+	}
+
+	/**
+	 * @description Reads a request header whatever case its name arrived in. Header names carry no case, and many clients send them
+	 * in lower case. A header spelled exactly as asked is returned first, so a request that carries both spellings yields the one
+	 * spelled as asked; otherwise the name is matched without regard to case.
+	 *
+	 * @param name The header name to read
+	 *
+	 * @return The header value, or null when the request carries no header of that name in any case
+	 */
+	private String readHeader(String name)
+	{
+		Map<String, String> headers = request.headers;
+
+		return headers.containsKey(name) ? headers.get(name) : (String)new UTIL_Map.CaseInsensitiveMap(headers).get(name);
 	}
 
 	/**
@@ -679,7 +698,7 @@ global virtual inherited sharing class API_Inbound extends API_Base
 	 */
 	private Boolean checkIdempotency()
 	{
-		idempotencyKey = request.headers.get(API_Base.HEADER_IDEMPOTENCY_KEY);
+		idempotencyKey = readHeader(API_Base.HEADER_IDEMPOTENCY_KEY);
 
 		if(String.isBlank(idempotencyKey) || setting?.IdempotencyEnabled__c != true)
 		{

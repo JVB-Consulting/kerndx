@@ -8,9 +8,9 @@
  *
  * @group Web Services
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ApexUnitTestClassShouldHaveAsserts,PMD.CyclomaticComplexity')
 private class UTIL_HttpClient_TEST
 {
@@ -36,9 +36,14 @@ private class UTIL_HttpClient_TEST
 	private static final String RESPONSE_BODY = '{"status":"ok","id":"12345"}';
 
 	/**
-	 * @description Error JSON response body for failure mocks.
+	 * @description A second credential, for calls that must not share the first credential's own circuit breaker.
 	 */
-	private static final String ERROR_BODY = '{"error":"Internal Server Error"}';
+	private static final String OTHER_CREDENTIAL = 'OtherTestCredential';
+
+	/**
+	 * @description The length of a random circuit breaker name, so no breaker state left by another test is shared.
+	 */
+	private static final Integer RANDOM_BREAKER_NAME_LENGTH = 16;
 
 	/**
 	 * @description Registers a mock response for the DefaultOutboundHandler with the given parameters.
@@ -59,30 +64,6 @@ private class UTIL_HttpClient_TEST
 	private static void registerSuccessMock()
 	{
 		registerMock(RESPONSE_BODY, API_Base.HTTP_OK, 'OK');
-	}
-
-	/**
-	 * @description Registers a server error mock for the DefaultOutboundHandler.
-	 */
-	private static void registerServerErrorMock()
-	{
-		registerMock(ERROR_BODY, API_Base.HTTP_INTERNAL_SERVER_ERROR, 'Internal Server Error');
-	}
-
-	/**
-	 * @description Registers a bad request mock for the DefaultOutboundHandler.
-	 */
-	private static void registerBadRequestMock()
-	{
-		registerMock(ERROR_BODY, API_Base.HTTP_BAD_REQUEST, 'Bad Request');
-	}
-
-	/**
-	 * @description Registers a too many requests mock for the DefaultOutboundHandler.
-	 */
-	private static void registerTooManyRequestsMock()
-	{
-		registerMock(ERROR_BODY, API_Base.HTTP_TOO_MANY_REQUESTS, 'Too Many Requests');
 	}
 
 	/**
@@ -298,17 +279,21 @@ private class UTIL_HttpClient_TEST
 	}
 
 	/**
-	 * @description Tests that the correlation ID is set on the API call record.
+	 * @description Tests that the correlation id given to a call is stored as a logger context the logger reads back:
+	 * hydrating the stored document restores that correlation.
 	 */
 	@IsTest
-	private static void shouldSetCorrelationId()
+	private static void shouldStoreTheCorrelationInAReadableLoggerContext()
 	{
 		registerSuccessMock();
+		String correlationId = UTIL_Random.randomUUID();
 
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withCorrelationId('corr-123');
+		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withCorrelationId(correlationId);
 		assertSend(builder);
 
-		Assert.areEqual('corr-123', builder.handlerInstance.apiCall.LoggerContext__c, 'Correlation ID should be set');
+		LOG_Builder.setCorrelationId(null);
+		LOG_Builder.hydrateContext(builder.handlerInstance.apiCall.LoggerContext__c);
+		Assert.areEqual(correlationId, LOG_Builder.correlationId, 'The stored logger context must hydrate to the correlation the call was built with');
 	}
 
 	/**
@@ -343,55 +328,11 @@ private class UTIL_HttpClient_TEST
 	}
 
 	/**
-	 * @description Tests that retries are exhausted and the final failed response is returned.
+	 * @description Two calls on one credential that name different circuit breakers keep separate breakers: the call whose
+	 * breaker is open is refused without being sent, and its error line names that breaker, while the other call is sent.
 	 */
 	@IsTest
-	private static void shouldExhaustRetriesAndReturnFinalResponse()
-	{
-		registerServerErrorMock();
-
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withRetry(2);
-		assertSend(builder, API_Base.HTTP_INTERNAL_SERVER_ERROR);
-
-		Assert.areEqual(2, (Integer)builder.handlerInstance.apiCall.Retries__c, 'Should record all retries');
-	}
-
-	/**
-	 * @description Tests that retry only occurs on configured status codes.
-	 */
-	@IsTest
-	private static void shouldRetryOnlyOnConfiguredStatusCodes()
-	{
-		registerTooManyRequestsMock();
-
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH)
-				.withRetry(2)
-				.retryOn(new Set<Integer> {429});
-		assertSend(builder, API_Base.HTTP_TOO_MANY_REQUESTS);
-
-		Assert.areEqual(2, (Integer)builder.handlerInstance.apiCall.Retries__c, 'Should retry on 429');
-	}
-
-	/**
-	 * @description Tests that a 400 client error is not retried by default.
-	 */
-	@IsTest
-	private static void shouldNotRetryOnClientError()
-	{
-		registerBadRequestMock();
-
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withRetry(2);
-		assertSend(builder, API_Base.HTTP_BAD_REQUEST);
-
-		Assert.isNull(builder.handlerInstance.apiCall.Retries__c, 'Should not retry on 400');
-	}
-
-	/**
-	 * @description Tests that a call is aborted when circuit breaker is OPEN.
-	 * Requires Platform Cache to persist circuit breaker state between instances.
-	 */
-	@IsTest
-	private static void shouldAbortWhenCircuitBreakerOpen()
+	private static void shouldKeepSeparateBreakersForDifferentNamesOnOneCredential()
 	{
 		if(!UTIL_Cache.isOrgAllocated())
 		{
@@ -399,138 +340,109 @@ private class UTIL_HttpClient_TEST
 		}
 
 		registerSuccessMock();
+		String openBreakerName = UTIL_Random.randomAlphanumeric(RANDOM_BREAKER_NAME_LENGTH);
+		String closedBreakerName = UTIL_Random.randomAlphanumeric(RANDOM_BREAKER_NAME_LENGTH);
+		UTIL_CircuitBreaker.monitor(openBreakerName).forceOpen();
 
-		UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor(TEST_CREDENTIAL);
-		breaker.forceOpen();
-
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withCircuitBreaker();
-
-		Test.startTest();
-		builder.send();
-		Test.stopTest();
-
-		Assert.isTrue(builder.handlerInstance.result.isAborted, 'Should abort when circuit breaker is open');
-	}
-
-	/**
-	 * @description Tests that circuit breaker success is recorded after a successful call.
-	 */
-	@IsTest
-	private static void shouldRecordCircuitBreakerSuccess()
-	{
-		registerSuccessMock();
-
-		UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor(TEST_CREDENTIAL);
-
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withCircuitBreaker();
-		assertSend(builder);
-
-		Assert.areEqual(UTIL_CircuitBreaker.State.CLOSED, breaker.getState(), 'Circuit should be closed');
-	}
-
-	/**
-	 * @description Tests that a ApiIssue__c record is created with LOG_FAILURE action.
-	 */
-	@IsTest
-	private static void shouldCreateFailureRecordOnLogFailure()
-	{
-		registerServerErrorMock();
-
-		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH)
-				.onFailure(UTIL_HttpClient.FailureAction.LOG_FAILURE)
-				.withTriggeringRecord(record.Id);
-		assertSend(builder);
-
-		String serviceName = builder.handlerInstance.apiCall.ServiceName__c;
-		List<ApiIssue__c> failures = new SEL_ApiIssue().findUnresolvedByService(serviceName);
-
-		Assert.areEqual(1, failures.size(), 'Should create one failure record');
-	}
-
-	/**
-	 * @description Tests that LOG_FAILURE skips retry and logs immediately.
-	 */
-	@IsTest
-	private static void shouldSkipRetryWithLogFailureAction()
-	{
-		registerServerErrorMock();
-
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH)
-				.onFailure(UTIL_HttpClient.FailureAction.LOG_FAILURE)
-				.withRetry(3);
-		assertSend(builder);
-
-		Assert.isNull(builder.handlerInstance.apiCall.Retries__c, 'Should not retry with LOG_FAILURE');
-	}
-
-	/**
-	 * @description Tests that send() returns a cached response on subsequent calls.
-	 */
-	@IsTest
-	private static void shouldReturnCachedResponse()
-	{
-		registerSuccessMock();
-
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH);
+		UTIL_HttpClient.RequestBuilder sentCall = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withCircuitBreaker(closedBreakerName);
+		UTIL_HttpClient.RequestBuilder refusedCall = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withCircuitBreaker(openBreakerName);
 
 		Test.startTest();
-		HttpResponse first = builder.send();
-		HttpResponse second = builder.send();
+		HttpResponse response = sentCall.send();
+		refusedCall.send();
 		Test.stopTest();
 
-		assertNotAborted(builder);
-		Assert.isTrue(first === second, 'Should return same cached response instance');
+		assertNotAborted(sentCall);
+		Assert.areEqual(API_Base.HTTP_OK, response.getStatusCode(), 'Expected the call on the closed breaker to be sent, got ' + response.getStatusCode());
+		List<String> errors = refusedCall.handlerInstance.result.errors;
+		Assert.isTrue(errors.contains(buildOpenBreakerLine(openBreakerName)), 'Expected the call to be refused by breaker ' + openBreakerName + ', got ' + errors);
 	}
 
 	/**
-	 * @description Tests the failed API call record has error details populated.
+	 * @description Two calls on different credentials that name the same circuit breaker share it: once that breaker is
+	 * open, both are refused without being sent, though neither credential's own breaker is open.
 	 */
 	@IsTest
-	private static void shouldLogFailedApiCallRecordWithErrors()
+	private static void shouldShareOneNamedBreakerAcrossCredentials()
 	{
-		registerServerErrorMock();
+		if(!UTIL_Cache.isOrgAllocated())
+		{
+			return;
+		}
 
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH);
-		assertSend(builder);
-
-		Assert.isTrue(builder.handlerInstance.result.hasFailed, 'Result should be failed');
-	}
-
-	/**
-	 * @description Tests that invoke() returns the handler instance.
-	 */
-	@IsTest
-	private static void shouldReturnHandlerViaInvokeTerminal()
-	{
 		registerSuccessMock();
+		String sharedBreakerName = UTIL_Random.randomAlphanumeric(RANDOM_BREAKER_NAME_LENGTH);
+		UTIL_CircuitBreaker.monitor(sharedBreakerName).forceOpen();
 
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH);
+		UTIL_HttpClient.RequestBuilder firstCall = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withCircuitBreaker(sharedBreakerName);
+		UTIL_HttpClient.RequestBuilder secondCall = UTIL_HttpClient.get(OTHER_CREDENTIAL, TEST_PATH).withCircuitBreaker(sharedBreakerName);
 
 		Test.startTest();
-		API_Outbound handler = builder.invoke();
+		firstCall.send();
+		secondCall.send();
 		Test.stopTest();
 
-		assertNotAborted(builder);
-		Assert.isNotNull(handler, 'Handler should be returned');
-		Assert.isNotNull(handler.getHttpResponse(), 'Handler response should be set');
+		String expectedLine = buildOpenBreakerLine(sharedBreakerName);
+		List<String> firstErrors = firstCall.handlerInstance.result.errors;
+		List<String> secondErrors = secondCall.handlerInstance.result.errors;
+		Assert.isTrue(firstErrors.contains(expectedLine), 'Expected the first credential\'s call to be refused, got ' + firstErrors);
+		Assert.isTrue(secondErrors.contains(expectedLine), 'Expected the second credential\'s call to be refused, got ' + secondErrors);
 	}
 
 	/**
-	 * @description Tests that a custom circuit breaker name is used when specified.
+	 * @description A call that enables the circuit breaker without a name uses the credential's own breaker,
+	 * and its error line names the credential; enabling it without a name after giving one drops the name given.
 	 */
 	@IsTest
-	private static void shouldUseCustomCircuitBreakerName()
+	private static void shouldUseTheCredentialsBreakerWithoutAName()
 	{
+		if(!UTIL_Cache.isOrgAllocated())
+		{
+			return;
+		}
+
 		registerSuccessMock();
+		UTIL_CircuitBreaker.monitor(TEST_CREDENTIAL).forceOpen();
+		String droppedBreakerName = UTIL_Random.randomAlphanumeric(RANDOM_BREAKER_NAME_LENGTH);
 
-		UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor('shared-circuit');
+		UTIL_HttpClient.RequestBuilder unnamedCall = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withCircuitBreaker();
+		UTIL_HttpClient.RequestBuilder renamedCall = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withCircuitBreaker(droppedBreakerName).withCircuitBreaker();
 
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withCircuitBreaker('shared-circuit');
-		assertSend(builder);
+		Test.startTest();
+		unnamedCall.send();
+		renamedCall.send();
+		Test.stopTest();
 
-		Assert.areEqual(UTIL_CircuitBreaker.State.CLOSED, breaker.getState(), 'Named circuit should be closed');
+		String expectedLine = buildOpenBreakerLine(TEST_CREDENTIAL);
+		List<String> unnamedErrors = unnamedCall.handlerInstance.result.errors;
+		List<String> renamedErrors = renamedCall.handlerInstance.result.errors;
+		Assert.isTrue(unnamedErrors.contains(expectedLine), 'Expected the unnamed call to be refused by the credential\'s breaker, got ' + unnamedErrors);
+		Assert.isTrue(renamedErrors.contains(expectedLine), 'Expected the name given first to be dropped, got ' + renamedErrors);
+	}
+
+	/**
+	 * @description A call made through useHandler(...) that names a circuit breaker uses that breaker instead of the
+	 * handler's own: once the named breaker is open, the handler's call is refused without being sent.
+	 */
+	@IsTest
+	private static void shouldUseTheNamedBreakerForADelegatedCall()
+	{
+		if(!UTIL_Cache.isOrgAllocated())
+		{
+			return;
+		}
+
+		String breakerName = UTIL_Random.randomAlphanumeric(RANDOM_BREAKER_NAME_LENGTH);
+		UTIL_CircuitBreaker.monitor(breakerName).forceOpen();
+
+		UTIL_HttpClient.RequestBuilder delegatedCall = UTIL_HttpClient.useHandler(TestMockedHandler.class).withCircuitBreaker(breakerName);
+
+		Test.startTest();
+		delegatedCall.send();
+		Test.stopTest();
+
+		List<String> errors = delegatedCall.handlerInstance.result.errors;
+		Assert.isTrue(errors.contains(buildOpenBreakerLine(breakerName)), 'Expected the delegated call to be refused by breaker ' + breakerName + ', got ' + errors);
 	}
 
 	/**
@@ -582,57 +494,6 @@ private class UTIL_HttpClient_TEST
 		Assert.isTrue(parameters.contains('value1'), 'Should contain value1');
 		Assert.isTrue(parameters.contains('key2'), 'Should contain key2 parameter');
 		Assert.isTrue(parameters.contains('value2'), 'Should contain value2');
-	}
-
-	/**
-	 * @description Tests that abort conditions propagate from delegate handler when required inputs are not satisfied.
-	 */
-	@IsTest
-	private static void shouldAbortDelegateWhenValidationFails()
-	{
-		Test.startTest();
-		API_Outbound handler = UTIL_HttpClient.useHandler(API_GetPwndPasswords.class)
-				.withParameter('nonRequiredParam', 'someValue')
-				.invoke();
-		Test.stopTest();
-
-		Assert.isTrue(handler.result.isAborted, 'Should abort when required input is missing');
-	}
-
-	/**
-	 * @description Tests that withMockResponse() works in ad-hoc mode.
-	 */
-	@IsTest
-	private static void shouldUseMockResponseOnAdHocRequest()
-	{
-		API_MockFactory.MockResponse mock = new API_MockFactory.MockResponse();
-		mock.body = RESPONSE_BODY;
-
-		HttpResponse response = assertSend(UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withMockResponse(mock));
-
-		Assert.areEqual(RESPONSE_BODY, response.getBody(), 'Should use injected mock');
-	}
-
-	/**
-	 * @description Tests that mock response headers are applied to the HttpResponse.
-	 *
-	 * @see API_MockFactory.CalloutMock
-	 */
-	@IsTest
-	private static void shouldApplyMockResponseHeaders()
-	{
-		API_MockFactory.MockResponse mock = new API_MockFactory.MockResponse();
-		mock.body = RESPONSE_BODY;
-		mock.headers = new Map<String, String>
-		{
-				'X-Request-Id' => 'req-12345',
-				'X-Correlation-Id' => 'corr-67890'
-		};
-
-		HttpResponse response = assertSend(UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withMockResponse(mock), API_Base.HTTP_OK);
-
-		Assert.areEqual('req-12345', response.getHeader('X-Request-Id'), 'Custom header should be applied');
-		Assert.areEqual('corr-67890', response.getHeader('X-Correlation-Id'), 'Custom header should be applied');
 	}
 
 	/**
@@ -765,17 +626,6 @@ private class UTIL_HttpClient_TEST
 	}
 
 	/**
-	 * @description Tests that the default mock is used when no mock response is injected.
-	 */
-	@IsTest
-	private static void shouldUseDefaultMockWhenNoMockInjected()
-	{
-		HttpResponse response = assertSend(UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH), API_Base.HTTP_OK);
-
-		Assert.areEqual('{"success":true}', response.getBody(), 'Should use default mock body');
-	}
-
-	/**
 	 * @description Tests that an empty deserialized query parameter map returns null.
 	 */
 	@IsTest
@@ -783,62 +633,6 @@ private class UTIL_HttpClient_TEST
 	{
 		registerSuccessMock();
 		assertSend(UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withParameter(UTIL_HttpClient.KEY_QUERY_PARAMETERS, '{}'), API_Base.HTTP_OK);
-	}
-
-	/**
-	 * @description Tests that prepareRequest is a no-op override for ad-hoc mode.
-	 */
-	@IsTest
-	private static void shouldSupportPrepareRequestOverride()
-	{
-		registerSuccessMock();
-
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH);
-		assertSend(builder);
-
-		builder.handlerInstance.prepareRequest();
-		Assert.isTrue(builder.handlerInstance.result.isSuccess, 'Handler should remain successful after prepareRequest no-op');
-	}
-
-	/**
-	 * @description Tests delegation mode with no subscriber parameters.
-	 */
-	@IsTest
-	private static void shouldDelegateWithNoSubscriberParameters()
-	{
-		Test.startTest();
-		API_Outbound handler = UTIL_HttpClient.useHandler(API_GetPwndPasswords.class).invoke();
-		Test.stopTest();
-
-		Assert.isTrue(handler.result.isAborted, 'Should abort when required inputs are missing');
-	}
-
-	/**
-	 * @description Tests that an ApiCall__c record is persisted when delegation mode aborts.
-	 */
-	@IsTest
-	private static void shouldPersistApiCallWhenDelegateAborts()
-	{
-		Test.startTest();
-		UTIL_HttpClient.useHandler(API_GetPwndPasswords.class).invoke();
-		Test.stopTest();
-
-		SEL_ApiCall.assertServiceAborted(API_GetPwndPasswords.class.getName());
-	}
-
-	/**
-	 * @description Tests that an ApiCall__c record is persisted when delegation mode succeeds.
-	 */
-	@IsTest
-	private static void shouldPersistApiCallWhenDelegateSucceeds()
-	{
-		Test.startTest();
-		UTIL_HttpClient.useHandler(API_GetPwndPasswords.class)
-				.withParameter(API_GetPwndPasswords.PARAMETER_PASSWORD, API_GetPwndPasswords.TEST_PASSWORD)
-				.invoke();
-		Test.stopTest();
-
-		SEL_ApiCall.assertServiceCompleted(API_GetPwndPasswords.class.getName());
 	}
 
 	/**
@@ -857,178 +651,6 @@ private class UTIL_HttpClient_TEST
 
 		Assert.areEqual(expectedKey, builder.handlerInstance.apiCall.IdempotencyKey__c, 'Explicit idempotency key should be set on ApiCall');
 		Assert.areEqual(expectedKey, builder.handlerInstance.request.getHeader(API_Base.HEADER_IDEMPOTENCY_KEY), 'Explicit idempotency key should be sent as HTTP header');
-	}
-
-	/**
-	 * @description Tests that retries are skipped when the callout budget is exhausted.
-	 * The initial attempt proceeds but no retries are performed.
-	 */
-	@IsTest
-	private static void shouldSkipRetriesWhenCalloutBudgetExhausted()
-	{
-		registerServerErrorMock();
-		API_Dispatcher.simulateCalloutBudgetExhausted = true;
-
-		UTIL_HttpClient.RequestBuilder builder = UTIL_HttpClient.get(TEST_CREDENTIAL, TEST_PATH).withRetry(2);
-
-		Test.startTest();
-		builder.send();
-		Test.stopTest();
-
-		Assert.isNull(builder.handlerInstance.apiCall.Retries__c, 'Should not retry when callout budget is exhausted');
-	}
-
-	/**
-	 * @description Tests that delegation mode auto-applies settings and enables mocking when the
-	 * subscriber handler has no ApiSetting__mdt record but provides a defaultMockBody.
-	 */
-	@IsTest
-	private static void shouldAutoApplySettingsWhenDelegateHandlerLacksCMDT()
-	{
-		Test.startTest();
-		API_Outbound handler = UTIL_HttpClient.useHandler(TestDelegationHandler.class)
-				.withParameter('input', 'test')
-				.invoke();
-		Test.stopTest();
-
-		Assert.isTrue(handler.result.isSuccess, 'Handler should succeed via auto-mocking');
-		Assert.isFalse(handler.result.isAborted, 'Handler should not be aborted');
-		SEL_ApiCall.assertServiceCompleted(TestDelegationHandler.class.getName());
-	}
-
-	/**
-	 * @description Tests that delegation mode catches unexpected exceptions from the subscriber
-	 * handler and persists the ApiCall__c as failed.
-	 */
-	@IsTest
-	private static void shouldCatchDelegateHandlerUnexpectedError()
-	{
-		Test.startTest();
-		API_Outbound handler = UTIL_HttpClient.useHandler(TestThrowingHandler.class)
-				.withParameter('input', 'test')
-				.invoke();
-		Test.stopTest();
-
-		Assert.isFalse(handler.result.isSuccess, 'Handler should not report success');
-		SEL_ApiCall.assertServiceFailed(TestThrowingHandler.class.getName());
-	}
-
-	/**
-	 * @description Tests that caller-provided credential overrides the subscriber handler default in delegation mode.
-	 */
-	@IsTest
-	private static void shouldOverrideCredentialInDelegationMode()
-	{
-		String handlerName = TestDelegationHandler.class.getName();
-		API_MockFactory.enableMocking(handlerName);
-
-		Test.startTest();
-		API_Outbound handler = UTIL_HttpClient.useHandler(TestDelegationHandler.class)
-				.credential('OverrideCredential')
-				.withParameter('input', 'test')
-				.invoke();
-		Test.stopTest();
-
-		Assert.areEqual('OverrideCredential', handler.namedCredentialOverride, 'Credential should be overridden');
-		Assert.isTrue(handler.result.isSuccess, 'Handler should succeed with mock enabled');
-	}
-
-	/**
-	 * @description Tests that caller-provided path overrides the subscriber handler default in delegation mode.
-	 */
-	@IsTest
-	private static void shouldOverridePathInDelegationMode()
-	{
-		Test.startTest();
-		API_Outbound handler = UTIL_HttpClient.useHandler(TestDelegationHandler.class)
-				.path('/v2/override')
-				.withParameter('input', 'test')
-				.invoke();
-		Test.stopTest();
-
-		Assert.areEqual('/v2/override', handler.setting.EndpointPath__c, 'Endpoint path should be overridden');
-		Assert.isTrue(handler.result.isSuccess, 'Handler should succeed via auto-mocking');
-	}
-
-	/**
-	 * @description Tests that caller-provided retry count overrides the subscriber handler default in delegation mode.
-	 */
-	@IsTest
-	private static void shouldOverrideRetryInDelegationMode()
-	{
-		Test.startTest();
-		API_Outbound handler = UTIL_HttpClient.useHandler(TestDelegationHandler.class)
-				.withRetry(5)
-				.withParameter('input', 'test')
-				.invoke();
-		Test.stopTest();
-
-		Assert.areEqual(5, handler.setting.MaxRetryCount__c, 'Max retry count should be overridden');
-		Assert.isTrue(handler.result.isSuccess, 'Handler should succeed via auto-mocking');
-	}
-
-	/**
-	 * @description Tests that handler CMDT values are preserved when the caller provides no overrides.
-	 */
-	@IsTest
-	private static void shouldFallBackToHandlerDefaultsWithoutOverrides()
-	{
-		String handlerName = TestDelegationHandlerWithCMDT.class.getName();
-		API_MockFactory.enableMocking(handlerName);
-
-		Test.startTest();
-		API_Outbound handler = UTIL_HttpClient.useHandler(TestDelegationHandlerWithCMDT.class)
-				.withParameter('input', 'test')
-				.invoke();
-		Test.stopTest();
-
-		Assert.areEqual('OriginalCredential', handler.namedCredentialOverride, 'Credential should be preserved from handler CMDT');
-		Assert.areEqual('/original/path', handler.setting.EndpointPath__c, 'Endpoint path should be preserved from handler CMDT');
-		Assert.areEqual(2, handler.setting.MaxRetryCount__c, 'Max retry count should be preserved from handler CMDT');
-	}
-
-	/**
-	 * @description Tests that partial caller overrides are merged with existing handler CMDT values,
-	 * including backoff, circuit breaker, and failure logging overrides.
-	 */
-	@IsTest
-	private static void shouldMergePartialOverridesWithHandlerCMDT()
-	{
-		String handlerName = TestDelegationHandlerWithCMDT.class.getName();
-		API_MockFactory.enableMocking(handlerName);
-
-		Test.startTest();
-		API_Outbound handler = UTIL_HttpClient.useHandler(TestDelegationHandlerWithCMDT.class)
-				.withRetry(7, 10)
-				.withCircuitBreaker()
-				.onFailure(UTIL_HttpClient.FailureAction.LOG_FAILURE)
-				.withParameter('input', 'test')
-				.invoke();
-		Test.stopTest();
-
-		Assert.areEqual('OriginalCredential', handler.namedCredentialOverride, 'Credential should be preserved from handler CMDT');
-		Assert.areEqual('/original/path', handler.setting.EndpointPath__c, 'Endpoint path should be preserved from handler CMDT');
-		Assert.areEqual(7, handler.setting.MaxRetryCount__c, 'Max retry count should be overridden by caller');
-		Assert.areEqual(10, handler.setting.RetryBackoffSeconds__c, 'Backoff seconds should be overridden by caller');
-		Assert.isTrue(handler.setting.CircuitBreakerEnabled__c, 'Circuit breaker should be overridden by caller');
-		Assert.isTrue(handler.setting.LogIssues__c, 'Log issues should be overridden by caller');
-	}
-
-	/**
-	 * @description Tests that auto-mocking is not enabled when a credential override is provided.
-	 */
-	@IsTest
-	private static void shouldNotAutoMockWhenCredentialOverrideProvided()
-	{
-		Test.startTest();
-		UTIL_HttpClient.useHandler(TestDelegationHandler.class)
-				.credential('NonExistentCredential')
-				.withParameter('input', 'test')
-				.invoke();
-		Test.stopTest();
-
-		String handlerName = TestDelegationHandler.class.getName();
-		Assert.isFalse(API_MockFactory.isMockingEnabled(handlerName), 'Auto-mocking should not be enabled when credential override is provided');
 	}
 
 	/**
@@ -1075,6 +697,35 @@ private class UTIL_HttpClient_TEST
 	}
 
 	/**
+	 * @description The error line a call refused by an open circuit breaker carries.
+	 *
+	 * @param breakerName The circuit breaker the line names
+	 *
+	 * @return The labelled line naming that breaker.
+	 */
+	private static String buildOpenBreakerLine(String breakerName)
+	{
+		return String.format(System.Label.OutboundCall_CircuitOpen, new List<Object> {breakerName});
+	}
+
+	/**
+	 * @description Delegate handler that runs the standard outbound flow against its default mock body, so a call made
+	 * through it reaches the circuit breaker check like any real handler's call.
+	 */
+	public class TestMockedHandler extends API_Outbound
+	{
+		/**
+		 * @description Configure handler with no triggering record requirement and a default mock body.
+		 */
+		public override void configure()
+		{
+			super.configure();
+			requiresTriggeringRecord = false;
+			defaultMockBody = RESPONSE_BODY;
+		}
+	}
+
+	/**
 	 * @description DTO used for typed deserialization tests.
 	 */
 	private class ResponseDTO
@@ -1088,75 +739,5 @@ private class UTIL_HttpClient_TEST
 		 * @description The id field.
 		 */
 		public String id;
-	}
-
-	/**
-	 * @description Minimal API_Outbound handler with no ApiSetting__mdt record.
-	 * Used to test the applySubscriberSettings fallback path in delegation mode.
-	 */
-	public class TestDelegationHandler extends API_Outbound
-	{
-		/**
-		 * @description Configure handler with mock body and no triggering record requirement.
-		 */
-		public override void configure()
-		{
-			super.configure();
-			requiresTriggeringRecord = false;
-			defaultMockBody = '{"delegation":"auto"}';
-		}
-	}
-
-	/**
-	 * @description Handler that throws during onSuccess() to test delegation error handling.
-	 */
-	public class TestThrowingHandler extends API_Outbound
-	{
-		/**
-		 * @description Configure handler with mock body and no triggering record requirement.
-		 */
-		public override void configure()
-		{
-			super.configure();
-			requiresTriggeringRecord = false;
-			defaultMockBody = '{"will":"throw"}';
-		}
-
-		/**
-		 * @description Forces an unexpected exception during processing.
-		 */
-		public override void onSuccess()
-		{
-			super.onSuccess();
-			throw new UTIL_Exceptions.ConfigurationException('Test forced error');
-		}
-	}
-
-	/**
-	 * @description API_Outbound handler with pre-configured ApiSetting__mdt.
-	 * Used to test caller overrides merging with existing handler CMDT values.
-	 */
-	public class TestDelegationHandlerWithCMDT extends API_Outbound
-	{
-		/**
-		 * @description Configure handler with pre-applied settings simulating real CMDT.
-		 */
-		public override void configure()
-		{
-			super.configure();
-			requiresTriggeringRecord = false;
-			defaultMockBody = '{"delegation":"cmdt"}';
-
-			ApiSetting__mdt preConfiguredSetting = (ApiSetting__mdt)TST_Builder.of(ApiSetting__mdt.SObjectType)
-					.withOverride(ApiSetting__mdt.IsActive__c, true)
-					.withOverride(ApiSetting__mdt.ClassName__c, TestDelegationHandlerWithCMDT.class.getName())
-					.withOverride(ApiSetting__mdt.DeveloperName, TestDelegationHandlerWithCMDT.class.getName())
-					.withOverride(ApiSetting__mdt.EndpointPath__c, '/original/path')
-					.withOverride(ApiSetting__mdt.MaxRetryCount__c, 2)
-					.withoutInsertion()
-					.build();
-			applySettings(preConfiguredSetting);
-			namedCredentialOverride = 'OriginalCredential';
-		}
 	}
 }

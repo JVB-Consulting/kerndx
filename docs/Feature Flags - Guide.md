@@ -171,7 +171,7 @@ You are never locked into the framework. Feature flags are opt-in: the `kern.UTI
 | **A plain on/off value with no targeting**   | A `Boolean` field on your own `FeatureFlag__mdt` record read directly, or your own Custom Metadata / Custom Setting.       | [How a Flag Is Defined](#how-a-flag-is-defined)                       |
 | **Zero-SOQL config reads in a tight loop**   | A `CustomHandler__c` strategy that calls your typed `MyCS__c.getInstance(...)`. This reads from the platform cache, so it costs no SOQL.                 | [Performance and SOQL Cost](#performance-and-soql-cost)               |
 | **A package-permission check, nothing else** | `FeatureManagement.checkPermission('YourPermission')` directly. This is the platform API the framework uses for the running user. | [Custom Permission Target Formats](#custom-permission-target-formats) |
-| **A flag value on the client**               | The `isFlagEnabled(flagName)` bridge from `c/featureFlag` (UX-shaping only, not authorisation).                            | [Evaluating a Flag in LWC](#evaluating-a-flag-in-lwc)                 |
+| **A flag value on the client**               | The `isFlagEnabled(flagName)` bridge from `kern/featureFlag` (UX-shaping only, not authorisation).                            | [Evaluating a Flag in LWC](#evaluating-a-flag-in-lwc)                 |
 
 The flag layer is a productivity convenience, not a wall. Use it when its features earn their keep, and skip it when they do not.
 
@@ -254,9 +254,8 @@ The simplest flag has `IsActive__c = true`, `IsEnabledByDefault__c = true`, and 
 
 A flag record is a `.md-meta.xml` file under `customMetadata/`. Replace `YourOrgAlias` with your org alias.
 
-```bash
-sf project deploy start -o YourOrgAlias \
-  -m "CustomMetadata:kern__FeatureFlag.New_Pricing_Engine" --ignore-conflicts
+```shell
+sf project deploy start -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlag.New_Pricing_Engine"
 ```
 
 The record file sets the package-namespaced fields:
@@ -277,12 +276,12 @@ The record file sets the package-namespaced fields:
 </CustomMetadata>
 ```
 
-The [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md#create-the-flag-and-try-again) guide
-includes copy-paste blocks for both Windows (PowerShell) and macOS/Linux (bash) that create this file for you.
+The [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md#step-1-create-the-flag-and-try-again) guide
+shows how to create a flag record like this one in Setup and pull it into your project with one command.
 
 ### Create a Flag in Setup
 
-Prefer the UI? Go to **Setup > Custom Metadata Types > Feature Flag > Manage Records > New**:
+Prefer the UI? Go to **Setup > Custom Metadata Types > Feature Flag > Manage Feature Flags > New**:
 
 - **Label:** `New Pricing Engine`
 - **Feature Flag Name:** `New_Pricing_Engine` (this becomes the `DeveloperName` you pass to `isEnabled`)
@@ -394,6 +393,10 @@ Despite its name, the `Permission Set Group` strategy matches a permission set *
 The match is against whatever is *directly* assigned. A permission set that reaches a user only because it sits inside an assigned permission set group will not match under its own name, so target the group instead.
 
 For the Custom Metadata, List Custom Setting, and Hierarchical Custom Setting strategies, `Target__c` is a dotted path that points at a field. The framework reads that field's value and compares it against `ExpectedValue__c`. The Hierarchical Custom Setting strategy follows the standard Salesforce precedence when picking the value: a user-level setting wins over a profile-level one, which wins over the org-level default.
+
+The Profile strategy reads the profile in system mode, so it keeps working once the Enable Profile Filtering release update hides other users' profile names from
+ordinary queries (enforced in Winter '27); the [Security guide](Security%20-%20Guide.md#query-sharing-enforcement) explains what that update does to
+profile reads in your own code.
 
 ### ExpectedValue and the Three Outcomes
 
@@ -530,7 +533,7 @@ Once your handler class exists, you connect it to a flag with a strategy record.
 | Is Active      | checked              |
 | Order          | `1`                  |
 
-Create the record at **Setup > Custom Metadata Types > Feature Flag Strategy > Manage Records > New**. While `CustomHandler__c` is populated, the `Type__c` value is ignored.
+Create the record at **Setup > Custom Metadata Types > Feature Flag Strategy > Manage Feature Flag Strategies > New**. While `CustomHandler__c` is populated, the `Type__c` value is ignored.
 
 ---
 
@@ -551,11 +554,11 @@ You can branch a Flow on a feature flag the same way your Apex does, with no cod
 
 ## Evaluating a Flag in LWC
 
-You want a Lightning component to show or hide something based on a flag. Import the `isFlagEnabled` bridge from the `c/featureFlag` module and call it. It gives you the same per-user answer your Apex sees (it runs through the `CTRL_FeatureFlag.isEnabled` cacheable Apex method) and returns a `Promise<boolean>` you await.
+You want a Lightning component to show or hide something based on a flag. Import the `isFlagEnabled` bridge from the `kern/featureFlag` module and call it. It gives you the same per-user answer your Apex sees (it runs through the `CTRL_FeatureFlag.isEnabled` cacheable Apex method) and returns a `Promise<boolean>` you await.
 
 ```javascript
-import {ComponentBuilder} from 'c/componentBuilder';
-import {isFlagEnabled} from 'c/featureFlag';
+import {ComponentBuilder} from 'kern/componentBuilder';
+import {isFlagEnabled} from 'kern/featureFlag';
 
 export default class MyComponent extends ComponentBuilder('notification')
 {
@@ -578,6 +581,10 @@ export default class MyComponent extends ComponentBuilder('notification')
 > **The bridge rejects on error; it does not silently resolve to `false`.** The Apex calls return `false` for a missing or inactive flag, but the client bridge behaves differently: when the controller errors, it *rejects* the promise instead. So wrap the call in `try/catch` (or chain `.catch()`) and fall back to your chosen default, as shown above, so a one-off failure does not leave the value unset.
 
 Any text the component renders should come from a Custom Label, not a hardcoded string. Import labels with `import LABEL_NAME from '@salesforce/label/c.Label_Name';` so the copy stays translatable.
+
+A user who is not a System Administrator also needs access to the Apex class behind the bridge, or the page fails with "You do not have access to the Apex class named
+'CTRL_FeatureFlag'". Assign the **Kern Component Access** permission set (it also grants the matching Flow action), or add Apex class access for
+`kern.CTRL_FeatureFlag` (the name Setup shows under Apex Class Access) to a permission set they already have. Kern Administrator includes it.
 
 > **Not for client-side authorisation.** `CTRL_FeatureFlag.isEnabled` is marked `@AuraEnabled(cacheable=true)`, so Salesforce may keep serving a cached result after an admin assigns or revokes a permission set that would flip the flag for that user. The cache clears on a full page reload, but not when the same wire re-fires. So use the bridge for shaping the experience (which panel to show, whether a hint is visible). For a real authorisation decision, evaluate the flag inside the Apex method that performs the protected operation, where no cache can get stale. See [LWC - Guide → featureFlag Bridge](LWC%20-%20Guide.md#featureflag---feature-flag-bridge).
 
@@ -619,7 +626,7 @@ The framework reads these flags itself, so your own code never references them. 
 
 ## Performance and SOQL Cost
 
-A flag check is cheap on a normal page, but the same check repeated thousands of times in a loop or batch can run you into SOQL limits. The cost comes from one place: the framework caches the flag-and-strategy Custom Metadata for the whole transaction, but it re-checks each strategy's *target* on every `isEnabled(...)` call. Knowing exactly where SOQL fires lets you keep flag checks free where it matters.
+A flag check is cheap on a normal page, but the same check repeated thousands of times in a loop or batch can run you into SOQL limits. The cost comes from one place: the framework caches the flag-and-strategy Custom Metadata for the whole transaction, but it re-checks each strategy's *target* on every `isEnabled(...)` call. A setting or Custom Metadata target is read once and kept in memory for the transaction, until a write through the framework empties that memory; a profile, group or permission set target is read on every check. If your own Apex flips a setting in the same transaction and checks the flag again, write the setting through `kern.DML_Builder`: a plain `insert` or `update` does not empty that memory, so the next check would still see the old value. Knowing exactly where SOQL fires lets you keep flag checks free where it matters.
 
 **Transaction-level caches (free after the first call):**
 
@@ -639,9 +646,9 @@ A flag check is cheap on a normal page, but the same check repeated thousands of
 | Profile                                                    | 1            | 1                         | Resolves the target profile by name.                                                               |
 | Public Group                                               | 1            | 1                         | Group-membership lookup.                                                                           |
 | Permission Set or Group                                    | 1            | 1                         | One assignment lookup by name, matching a permission set or a permission set group.                |
-| Hierarchical Custom Setting                                | 1            | 1 (+ lazy profile lookup) | Reads `SetupOwnerId IN (userId, profileId, orgId)` and picks the highest-precedence non-null.      |
-| List Custom Setting                                        | 1            | 1                         | Single-record lookup by Name.                                                                      |
-| Custom Metadata                                            | 1            | 1                         | Single-record lookup by DeveloperName.                                                             |
+| Hierarchical Custom Setting                                | 1 per transaction | 1 per transaction (+ lazy profile lookup) | Reads `SetupOwnerId IN (userId, profileId, orgId)` once per setting and user, keeps the rows in memory until a framework write, and picks the highest-precedence non-null. |
+| List Custom Setting                                        | 1 per transaction | 1 per transaction    | Single-record lookup by Name, kept in memory until a framework write.                              |
+| Custom Metadata                                            | 1 per transaction | 1 per transaction    | Single-record lookup by DeveloperName, kept in memory until a framework write.                     |
 | Custom Handler                                             | depends      | depends                   | Whatever your handler does.                                                                        |
 
 </details>
@@ -660,7 +667,7 @@ A flag check is cheap on a normal page, but the same check repeated thousands of
    }
    ```
 
-2. **Use a `getInstance()`-based custom handler** when several flags read the same Custom Setting. A handler that calls your typed `MyCS__c.getInstance(...)` reads from the platform cache and costs no SOQL once it is warm. The built-in Custom Setting strategy, by contrast, issues one SOQL per check (see the per-strategy cost table above).
+2. **Use a `getInstance()`-based custom handler** when several flags read the same Custom Setting. A handler that calls your typed `MyCS__c.getInstance(...)` reads from the platform cache and costs no SOQL once it is warm. The built-in Custom Setting strategy, by contrast, issues one SOQL per transaction (see the per-strategy cost table above).
 
 ---
 
@@ -727,7 +734,7 @@ Test your handler through `isEnabled(...)`, just as production calls it, and cov
 5. **Document the flag.** Fill in `Description__c` so the next person knows what the flag controls.
 6. **Retire flags after rollout.** Once a feature is fully on, remove the flag and the branch it gated. A flag left
    behind after its rollout is dead weight that future readers have to puzzle over.
-7. **Do not gate authorisation on the LWC bridge.** Use `c/featureFlag` to shape the experience, and enforce real
+7. **Do not gate authorisation on the LWC bridge.** Use `kern/featureFlag` to shape the experience, and enforce real
    authorisation in Apex.
 8. **Keep flag checks out of tight loops.** Hoist the boolean or use a `getInstance()`-based custom handler (see
    [Performance and SOQL Cost](#performance-and-soql-cost)).
@@ -753,4 +760,4 @@ Test your handler through `isEnabled(...)`, just as production calls it, and cov
 - [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) - Hands-on, build-a-feature walkthrough with both flag paths under test
 - [UTIL_FeatureFlag API Reference](reference/apex/UTIL_FeatureFlag.md) - Method-by-method API for the feature-flag utility
 - [Selectors - Guide](Selectors%20-%20Guide.md#sharing-enforcement) - How `UserModeQueries_Enabled` shapes default query access mode
-- [LWC - Guide](LWC%20-%20Guide.md#featureflag---feature-flag-bridge) - The `c/featureFlag` client bridge and its cache caveats
+- [LWC - Guide](LWC%20-%20Guide.md#featureflag---feature-flag-bridge) - The `kern/featureFlag` client bridge and its cache caveats

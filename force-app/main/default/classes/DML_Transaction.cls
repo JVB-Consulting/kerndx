@@ -26,9 +26,12 @@
  */
 
 /**
- * @description Transaction engine for managing complex DML operations across multiple SObjects.
- * Handles dependency ordering via topological sort, parent-child relationship resolution,
- * and lifecycle hooks for extensibility.
+ * @description The engine that saves a set of DML operations across many SObjects as one transaction. This set is
+ * called a unit of work: the records registered to be saved together. By default, if one record fails, the whole save
+ * is rolled back. In partial mode, the records that save stay saved. The engine saves parent object types before their
+ * children, by sorting the types so each parent comes first. It fills each child's
+ * lookup with its parent's new Id. It also offers hooks, methods a subclass can override to run its own code at
+ * fixed points of the save.
  *
  * @see DML_Transaction_TEST
  * @see DML_Builder
@@ -38,7 +41,7 @@
  *
  * @group DML
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -50,18 +53,39 @@
  * aTransaction.commitWork();
  * ```
  */
-@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier,PMD.ExcessivePublicCount,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters')
+@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier,PMD.ExcessivePublicCount,PMD.ExcessiveClassLength,PMD.NcssCount,PMD.NcssTypeCount')
 global virtual inherited sharing class DML_Transaction
 {
 	/**
-	 * @description Enum to specify the type of DML operation to perform.
+	 * @description The kind of database write a record in the transaction is waiting for. When the transaction is committed the
+	 * writes go to the database one kind at a time, in the order listed here: undeletes, inserts, upserts, updates, deletes.
 	 */
 	private enum OperationType
 	{
+		/**
+		 * @description Restores a deleted record from the Recycle Bin. Restores are written before any other kind, and a record
+		 * queued twice is restored once.
+		 */
 		DML_UNDELETE,
+		/**
+		 * @description Creates a new record. Parent object types are created before their child types, whatever order the records
+		 * were queued in, and each new parent Id is then copied onto its waiting children.
+		 */
 		DML_INSERT,
+		/**
+		 * @description Creates the record when it does not exist yet and updates it when it does, matched on the record Id or on
+		 * the external Id field chosen for the object type.
+		 */
 		DML_UPSERT,
+		/**
+		 * @description Saves changes to a record that already exists. Updates are written after the inserts and upserts, and a
+		 * record queued twice is updated once.
+		 */
 		DML_UPDATE,
+		/**
+		 * @description Deletes an existing record. Deletes are written after every other kind, and a record queued twice is
+		 * deleted once.
+		 */
 		DML_DELETE
 	}
 
@@ -72,24 +96,146 @@ global virtual inherited sharing class DML_Transaction
 	private static final String CLASS_METHOD_COMMIT = DML_Transaction.class.getName() + '.commitWork';
 
 	/**
+	 * @description Context key for the outcome of a partial-mode save. It is set on the log entry written when a
+	 * DML statement throws an exception and partial mode catches it.
+	 */
+	@TestVisible
+	private static final String CONTEXT_KEY_PARTIAL_COMMIT_OUTCOME = 'partialCommitOutcome';
+
+	/**
+	 * @description Context value that says what a partial-mode save did with an exception thrown during the save:
+	 * the statements that had already saved stay saved, and the registered operations not yet run never ran.
+	 */
+	@TestVisible
+	private static final String MESSAGE_STATEMENT_FAILURE_SWALLOWED = 'Partial mode swallowed this exception raised during the commit: '
+			+ 'statements that had already committed stand, and registered operations not yet performed never ran.';
+
+	/**
+	 * @description The status code the platform reports when another transaction holds a record (a row lock). The
+	 * message of a thrown refusal also contains this name, and isLockRefusalException looks for it there.
+	 */
+	@TestVisible
+	private static final String LOCK_REFUSAL_TOKEN = StatusCode.UNABLE_TO_LOCK_ROW.name();
+
+	/**
+	 * @description Context key: how many retries the commit used before it saved or gave up.
+	 */
+	@TestVisible
+	private static final String CONTEXT_KEY_RETRIES_USED = 'retriesUsed';
+
+	/**
+	 * @description Context key: how many rows a partial commit recovered through a retry.
+	 */
+	@TestVisible
+	private static final String CONTEXT_KEY_ROWS_RECOVERED = 'rowsRecovered';
+
+	/**
+	 * @description Context key: how many rows a partial commit still had refused after its last round.
+	 */
+	@TestVisible
+	private static final String CONTEXT_KEY_ROWS_STILL_REFUSED = 'rowsStillRefused';
+
+	/**
+	 * @description Context key: what stopped the retries, if they stopped. Either the retry count ran out, or the
+	 * headroom guard stopped them. The headroom guard is the check that enough DML limits are left for another attempt.
+	 */
+	@TestVisible
+	private static final String CONTEXT_KEY_RETRY_STOPPED_BY = 'retryStoppedBy';
+
+	/**
+	 * @description Context value: the configured retry count was used up.
+	 */
+	@TestVisible
+	private static final String RETRY_STOPPED_BY_COUNT = 'count';
+
+	/**
+	 * @description Context value: the remaining DML limits could not cover another attempt.
+	 */
+	@TestVisible
+	private static final String RETRY_STOPPED_BY_HEADROOM = 'headroom';
+
+	/**
+	 * @description The message of the WARN entry a save writes when it met a row lock: either a retry ran, or the
+	 * headroom guard stopped the partial-mode retry rounds before one could run.
+	 */
+	@TestVisible
+	private static final String MESSAGE_RETRY_SUMMARY = 'The platform refused a row lock during this commit; the context carries the retry outcome.';
+
+	/**
+	 * @description A value a test sets for the headroom guard: the number of DML statements the guard treats as
+	 * left. Null, the default and the production value, reads the real limit. A test cannot really use up 150
+	 * statements to reach the guard, so it sets this instead.
+	 */
+	@TestVisible
+	private static Integer remainingDmlStatementsForTest;
+
+	/**
+	 * @description A value a test sets for the headroom guard: the number of DML rows the guard treats as left.
+	 * Null reads the real limit.
+	 */
+	@TestVisible
+	private static Integer remainingDmlRowsForTest;
+
+	/**
 	 * @description Whether to allow partial success for DML operations.
 	 */
 	@TestVisible
 	private Boolean allowPartial = false;
 
 	/**
-	 * @description Whether to suppress LOG_Builder error logging for partial results.
+	 * @description Whether to suppress LOG_Builder error logging for partial results and commit failures.
 	 */
 	@TestVisible
 	private Boolean suppressLogging = false;
 
 	/**
-	 * @description Access level to apply on every DML operation. Null means "use flag-driven default"
-	 * (`UserModeDml_Enabled`). Subscriber-reachable paths inherit the default; framework internals
-	 * opt out explicitly via `DML_Builder.withSystemMode()` or direct `setAccessLevel()`.
+	 * @description Status codes the caller declared as expected refusals. In partial mode a failed row whose
+	 * errors all carry one of them is logged at WARN instead of ERROR. Empty by default, which keeps every
+	 * failed row at ERROR.
+	 */
+	@TestVisible
+	private Set<StatusCode> expectedRefusalStatusCodes = new Set<StatusCode>();
+
+	/**
+	 * @description Access level to apply on every DML operation. Null means "use the default that the
+	 * `UserModeDml_Enabled` flag sets". Code a subscriber can reach uses the default; framework code chooses
+	 * explicitly with `DML_Builder.withSystemMode()` or by calling `setAccessLevel()` directly.
 	 */
 	@TestVisible
 	private AccessLevel accessLevel;
+
+	/**
+	 * @description How many times a save refused for a row lock is tried again. Zero, the default, means the
+	 * save runs once.
+	 */
+	@TestVisible
+	private Integer retriesOnLock = 0;
+
+	/**
+	 * @description Retries the current commit has used; reset at the start of every commit.
+	 */
+	private Integer retriesUsed = 0;
+
+	/**
+	 * @description Rows a partial commit recovered through a retry; reset at the start of every commit.
+	 */
+	private Integer rowsRecovered = 0;
+
+	/**
+	 * @description Rows a partial commit still had refused after its last round; reset at the start of every commit.
+	 */
+	private Integer rowsStillRefused = 0;
+
+	/**
+	 * @description What stopped the retries when they stopped: RETRY_STOPPED_BY_COUNT or RETRY_STOPPED_BY_HEADROOM.
+	 */
+	private String retryStoppedBy;
+
+	/**
+	 * @description The DML statements the save still has to run. A partial-mode retry round keeps this many
+	 * statements free, so the rest of the save can still run.
+	 */
+	private Integer statementsStillPlanned = 0;
 
 	/**
 	 * @description Relationships registered via registerDirty (update with relationship).
@@ -542,14 +688,17 @@ global virtual inherited sharing class DML_Transaction
 	 * dmlTransaction.commitWork();
 	 * ```
 	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 	global void setAllowPartial(Boolean allow)
 	{
 		this.allowPartial = allow;
 	}
 
 	/**
-	 * @description Sets whether to suppress LOG_Builder error logging for partial DML results.
-	 * When enabled, partial failures are not logged.
+	 * @description Sets whether to turn off LOG_Builder error logging for DML failures. When it is on, failed rows
+	 * in a partial save are not logged, and neither is a failed save. That covers the ERROR entry an all-or-nothing
+	 * save writes after it rolls back, just before it throws the exception again. It also covers the ERROR entry a
+	 * partial save writes when it catches an exception thrown during the save and carries on.
 	 *
 	 * @param suppress True to suppress logging, false to allow logging (default).
 	 *
@@ -564,17 +713,48 @@ global virtual inherited sharing class DML_Transaction
 	 * dmlTransaction.commitWork();
 	 * ```
 	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 	global void setSuppressLogging(Boolean suppress)
 	{
 		this.suppressLogging = suppress;
 	}
 
 	/**
-	 * @description Sets the `AccessLevel` that will be passed to every DML operation via the
-	 * `DML_SharingProxy` three-arg methods. When null, the proxy resolves to the flag-driven
-	 * default (`UserModeDml_Enabled`).
+	 * @description Declares the status codes of refusals the caller expects and handles. In partial mode a
+	 * failed row whose errors all carry one of them is logged at WARN instead of ERROR; every other failed
+	 * row still logs at ERROR, and the save's results are unchanged. Only the package itself calls this:
+	 * `DML_Builder` passes its `expectRefusal()` declarations to the transaction through this method.
 	 *
-	 * @param accessLevel The `AccessLevel` to apply; null to inherit the flag-driven default.
+	 * @param statusCodes The expected status codes; null means none.
+	 */
+	public void setExpectedRefusalStatusCodes(Set<StatusCode> statusCodes)
+	{
+		this.expectedRefusalStatusCodes = statusCodes ?? new Set<StatusCode>();
+	}
+
+	/**
+	 * @description Sets how many times a save refused for a row lock is tried again. Only the package itself calls
+	 * this. Callers set the count through DML_Builder.withRetryOnLock, and in an async job PROC_ExecuteDML passes
+	 * the count to each batch.
+	 *
+	 * @param retries Extra attempts after the first; null, zero or a negative count means the commit runs once.
+	 *
+	 * @example
+	 * ```apex
+	 * dmlTransaction.setRetryOnLock(1);
+	 * ```
+	 */
+	public void setRetryOnLock(Integer retries)
+	{
+		retriesOnLock = Math.max(retries ?? 0, 0);
+	}
+
+	/**
+	 * @description Sets the `AccessLevel` passed to every DML operation through the `DML_SharingProxy` methods
+	 * that take an access level. When it is null, the proxy uses the default that the `UserModeDml_Enabled`
+	 * flag sets.
+	 *
+	 * @param accessLevel The `AccessLevel` to apply; null to use the default that the flag sets.
 	 *
 	 * @since 1.0
 	 *
@@ -609,7 +789,14 @@ global virtual inherited sharing class DML_Transaction
 	}
 
 	/**
-	 * @description Commits all registered DML operations with configurable sharing enforcement.
+	 * @description Saves all registered DML operations, with the record sharing you choose. A retry count can be set,
+	 * usually through DML_Builder.withRetryOnLock. When it is set and the platform refuses a row lock, the save is
+	 * rolled back and runs again. The hooks run once for each attempt. Static values a failed attempt set are not
+	 * reset. A retry puts back the registered records as they were when commitWork was called. Records a hook
+	 * registers during an attempt are not put back, and a record the hook registers again keeps the Id the
+	 * rolled-back attempt gave it. Every attempt empties the transaction's in-memory query cache (the query results
+	 * kept in memory for reuse) before its first statement and again when it ends, whatever the outcome. So a read
+	 * after a save never gets rows from before the save, or from a save that was rolled back.
 	 *
 	 * @param enforceSharing If true, enforces sharing; if false, bypasses sharing; if null, inherits sharing.
 	 *
@@ -622,10 +809,58 @@ global virtual inherited sharing class DML_Transaction
 	 * dmlTransaction.commitWork(false);
 	 * ```
 	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 	global virtual void commitWork(Boolean enforceSharing)
 	{
+		retriesUsed = 0;
+		rowsRecovered = 0;
+		rowsStillRefused = 0;
+		retryStoppedBy = null;
+		RegistrationSnapshot snapshot = retriesOnLock > 0 && !allowPartial ? new RegistrationSnapshot(this) : null;
+
+		while(true)
+		{
+			statementsStillPlanned = countPlannedStatements();
+			try
+			{
+				commitAttempt(enforceSharing);
+				break;
+			}
+			catch(RetryAttemptException signal)
+			{
+				retriesUsed++;
+				snapshot.restore();
+			}
+		}
+
+		logRetrySummary();
+	}
+
+	/**
+	 * @description One attempt at the save. It sets the savepoint, runs the hooks, runs the statements through the
+	 * sharing proxy with parents first, and rolls back on failure. When nothing is registered, no savepoint is set
+	 * before onCommitWorkStarting runs. If that hook then registers work, the savepoint is set before the first
+	 * statement, so a later failure rolls back the hook's work too. If the hook registers nothing, there is no
+	 * savepoint. A failure on that path then skips the rollback, and the exception is logged and thrown again
+	 * unchanged. After the rollback, a lock refusal that may be retried is passed to commitWork as a
+	 * RetryAttemptException. Every other failure is logged, unless logging is turned off, and thrown again. When a
+	 * partial save is allowed, there is no rollback and the failure is logged, not thrown. Every attempt empties the
+	 * transaction's in-memory query cache before its first statement and again when it ends, whatever the outcome.
+	 * So a read after a save never gets rows from before the save, or from a save that was rolled back. Rows cached
+	 * during the save are not kept, because they may be older than the save: a read in a before trigger has the
+	 * values before the save, and a read of a parent has its roll-up totals before they were updated.
+	 *
+	 * @param enforceSharing If true, enforces sharing; if false, bypasses sharing; if null, inherits sharing.
+	 */
+	private void commitAttempt(Boolean enforceSharing)
+	{
+		// A write can change any cached read (roll-ups, formulas, parent fields, cascades, sharing), and trigger
+		// actions fire inside the write, so the query cache is emptied before anything reaches the database.
+		QRY_Engine.clearQueryResultMemoryCache();
 		Boolean wasSuccessful = true;
-		Savepoint savePoint = allObjectsToCommit.isEmpty() ? null : Database.setSavepoint();
+		Integer statementsAtStart = UTIL_Limits.dmlStatements().used();
+		Integer rowsAtStart = UTIL_Limits.dmlRows().used();
+		SavePoint savePoint = allObjectsToCommit.isEmpty() ? null : Database.setSavepoint();
 
 		try
 		{
@@ -633,6 +868,7 @@ global virtual inherited sharing class DML_Transaction
 
 			if(!allObjectsToCommit.isEmpty())
 			{
+				savePoint = savePoint ?? Database.setSavepoint();
 				onDMLStarting();
 
 				DML_SharingProxy.SharingType shareType = enforceSharing == null
@@ -659,19 +895,536 @@ global virtual inherited sharing class DML_Transaction
 
 			if(!allowPartial)
 			{
-				Database.rollback(savePoint);
-				Database.releaseSavepoint(savePoint);
+				if(savePoint != null)
+				{
+					Database.rollback(savePoint);
+					Database.releaseSavepoint(savePoint);
+				}
+				if(canRetryCommit(error, UTIL_Limits.dmlStatements().used() - statementsAtStart, UTIL_Limits.dmlRows().used() - rowsAtStart))
+				{
+					throw new RetryAttemptException(error);
+				}
+				if(!suppressLogging)
+				{
+					logCommitFailure(error);
+				}
 				throw error;
+			}
+
+			if(!suppressLogging)
+			{
+				LOG_Builder.build().error(error).withContext(CONTEXT_KEY_PARTIAL_COMMIT_OUTCOME, MESSAGE_STATEMENT_FAILURE_SWALLOWED).at(CLASS_METHOD_COMMIT).emit();
 			}
 		}
 		finally
 		{
+			// Rows cached during the save may be older than it (before-trigger reads, roll-ups) or show a save that was rolled back, so empty them.
+			QRY_Engine.clearQueryResultMemoryCache();
 			onCommitWorkFinished(wasSuccessful);
 		}
 	}
 
 	/**
-	 * @description Hook called before the commit process starts.
+	 * @description Writes the failure entry of an all-or-nothing save that will not run again. The retry details are
+	 * added only when a retry count was set, so a caller who never asked for a retry sees no retry details.
+	 *
+	 * @param error The failure being rethrown.
+	 */
+	private void logCommitFailure(Exception error)
+	{
+		LOG_Builder.LogEntry entry = LOG_Builder.build().error(error).at(CLASS_METHOD_COMMIT);
+		if(retriesOnLock > 0)
+		{
+			addRetryContext(entry);
+		}
+		entry.emit();
+	}
+
+	/**
+	 * @description Whether commitWork may run the save again after this failure. Three things must hold: the refusal
+	 * is a row lock, retries are left, and the limits left still cover what the failed attempt used. That use is
+	 * measured, not guessed: its savepoint, its statements and its rollback. When the retries stop, this method
+	 * records what stopped them.
+	 *
+	 * @param error The failure of the attempt that just rolled back.
+	 * @param statementsUsed The DML statements the attempt consumed.
+	 * @param rowsUsed The DML rows the attempt consumed.
+	 *
+	 * @return True when the commit should run again.
+	 */
+	private Boolean canRetryCommit(Exception error, Integer statementsUsed, Integer rowsUsed)
+	{
+		if(retriesOnLock == 0 || !isLockRefusalException(error))
+		{
+			return false;
+		}
+		if(retriesUsed >= retriesOnLock)
+		{
+			retryStoppedBy = RETRY_STOPPED_BY_COUNT;
+			return false;
+		}
+		if(remainingDmlStatements() < statementsUsed || remainingDmlRows() < rowsUsed)
+		{
+			retryStoppedBy = RETRY_STOPPED_BY_HEADROOM;
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * @description The DML statements the headroom guard treats as left: the value a test set, if any, else the real limit.
+	 *
+	 * @return Remaining DML statements.
+	 */
+	private static Integer remainingDmlStatements()
+	{
+		return remainingDmlStatementsForTest ?? UTIL_Limits.dmlStatements().remaining();
+	}
+
+	/**
+	 * @description The DML rows the headroom guard treats as left: the value a test set, if any, else the real limit.
+	 *
+	 * @return Remaining DML rows.
+	 */
+	private static Integer remainingDmlRows()
+	{
+		return remainingDmlRowsForTest ?? UTIL_Limits.dmlRows().remaining();
+	}
+
+	/**
+	 * @description Whether a thrown failure is the platform's row-lock refusal: a DmlException whose message contains
+	 * UNABLE_TO_LOCK_ROW. The method reads the message, not the rows, because a DmlException built in a test has no
+	 * rows. The platform's message names the status code of the first refused row.
+	 *
+	 * @param error The failure to classify.
+	 *
+	 * @return True when the failure is a lock refusal.
+	 */
+	@TestVisible
+	private static Boolean isLockRefusalException(Exception error)
+	{
+		return error instanceof DmlException && error.getMessage() != null && error.getMessage().contains(LOCK_REFUSAL_TOKEN);
+	}
+
+	/**
+	 * @description Whether a DML result is a row refused only for a lock: it failed, and every error it carries is
+	 * UNABLE_TO_LOCK_ROW. A row that also carries another error would be refused again, so it is not retried.
+	 *
+	 * @param result The DML result to classify.
+	 *
+	 * @return True when the row was refused only for a lock.
+	 */
+	@TestVisible
+	private static Boolean isLockRefusedRow(Object result)
+	{
+		List<Database.Error> errors = LOG_Engine.getOperationErrors(result);
+
+		if(errors.isEmpty())
+		{
+			return false;
+		}
+
+		for(Database.Error error : errors)
+		{
+			if(error.getStatusCode() != StatusCode.UNABLE_TO_LOCK_ROW)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * @description Adds the retry counters to a log entry: retries used, rows recovered, rows still refused, and what
+	 * stopped the retries when something did.
+	 *
+	 * @param entry The entry to enrich.
+	 */
+	private void addRetryContext(LOG_Builder.LogEntry entry)
+	{
+		entry.withContext(CONTEXT_KEY_RETRIES_USED, retriesUsed).withContext(CONTEXT_KEY_ROWS_RECOVERED, rowsRecovered);
+		entry.withContext(CONTEXT_KEY_ROWS_STILL_REFUSED, rowsStillRefused);
+		if(retryStoppedBy != null)
+		{
+			entry.withContext(CONTEXT_KEY_RETRY_STOPPED_BY, retryStoppedBy);
+		}
+	}
+
+	/**
+	 * @description Writes the one WARN entry a save must write when it met a row lock, unless logging is turned off.
+	 * A save meets a row lock when a retry ran, when rows were saved on a retry, or when rows stayed refused because
+	 * the headroom guard stopped the partial-mode retry rounds. An all-or-nothing save that never got through does
+	 * not reach this method: its refusal was already thrown and logged as a failure.
+	 */
+	private void logRetrySummary()
+	{
+		if(suppressLogging || (retriesUsed == 0 && rowsRecovered == 0 && rowsStillRefused == 0))
+		{
+			return;
+		}
+		LOG_Builder.LogEntry entry = LOG_Builder.build().warn(MESSAGE_RETRY_SUMMARY).at(CLASS_METHOD_COMMIT);
+		addRetryContext(entry);
+		entry.emit();
+	}
+
+	/**
+	 * @description Counts the DML statements the save will run: one for all undeletes, one for each inserted type,
+	 * one for each upserted type, one for all updates, and one for each deleted type. The update count includes the
+	 * update the save adds midway when a record looks up to a parent of its own type. A partial-mode retry round
+	 * keeps this many statements free.
+	 *
+	 * @return The statements still to be issued by the perform steps.
+	 */
+	private Integer countPlannedStatements()
+	{
+		Integer planned = 0;
+		for(OperationType kind : allObjectsToCommit.keySet())
+		{
+			planned += kind == OperationType.DML_UNDELETE || kind == OperationType.DML_UPDATE ? 1 : allObjectsToCommit.get(kind).size();
+		}
+		if(!allObjectsToCommit.containsKey(OperationType.DML_UPDATE) && hasSelfReferencingChild())
+		{
+			planned++;
+		}
+		return planned;
+	}
+
+	/**
+	 * @description Whether a registered child relationship points to a parent of the child's own type. In that case
+	 * the step that fills in parent Ids adds an update for the child midway through the save, and that statement
+	 * must be counted.
+	 *
+	 * @return True when any registered child shares its parent's type.
+	 */
+	private Boolean hasSelfReferencingChild()
+	{
+		for(List<DTO_Relationship> relationships : parentToChildRelationshipsMap.values())
+		{
+			for(DTO_Relationship relationship : relationships)
+			{
+				if(relationship.childRecord.getSObjectType() == relationship.parentRecord.getSObjectType())
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @description Saves again the rows a partial-mode statement refused for a row lock. It does this in rounds, up to
+	 * the retry count, before the save moves on, so a parent saved on a retry still passes its Id to its children.
+	 * Each round keeps only the rows still refused for a lock, and keeps free the statements the rest of the save
+	 * needs. Returns the latest result of each retried row, by the row's original position. The caller puts these
+	 * results back in place.
+	 *
+	 * @param kind The operation the statement performed.
+	 * @param records The statement's records, in the order the results describe.
+	 * @param results The statement's results, one per record.
+	 * @param databaseProxy The proxy the statement went through.
+	 *
+	 * @return The latest result of every retried row, keyed by original position.
+	 */
+	@SuppressWarnings('PMD.ExcessiveParameterList')
+	private Map<Integer, Object> retryLockRefusedRows(OperationType kind, List<SObject> records, List<Object> results, DML_SharingProxy.DatabaseProxy databaseProxy)
+	{
+		Map<Integer, Object> replacements = new Map<Integer, Object>();
+		if(!allowPartial || retriesOnLock == 0)
+		{
+			return replacements;
+		}
+
+		List<Integer> refusedIndexes = new List<Integer>();
+		for(Integer index = 0; index < results.size(); index++)
+		{
+			if(isLockRefusedRow(results[index]))
+			{
+				refusedIndexes.add(index);
+			}
+		}
+
+		Integer round = 0;
+		while(!refusedIndexes.isEmpty() && round < retriesOnLock)
+		{
+			if(remainingDmlStatements() - statementsStillPlanned < 1 || remainingDmlRows() < refusedIndexes.size())
+			{
+				retryStoppedBy = RETRY_STOPPED_BY_HEADROOM;
+				break;
+			}
+			round++;
+
+			List<SObject> retriedRecords = new List<SObject>();
+			for(Integer index : refusedIndexes)
+			{
+				retriedRecords.add(records[index]);
+			}
+			List<Object> retriedResults = reissue(kind, retriedRecords, databaseProxy);
+
+			List<Integer> stillRefused = new List<Integer>();
+			for(Integer position = 0; position < refusedIndexes.size(); position++)
+			{
+				Integer originalIndex = refusedIndexes[position];
+				Object retriedResult = retriedResults[position];
+				replacements.put(originalIndex, retriedResult);
+				if(isLockRefusedRow(retriedResult))
+				{
+					stillRefused.add(originalIndex);
+				}
+				else if(LOG_Engine.getOperationErrors(retriedResult).isEmpty())
+				{
+					rowsRecovered++;
+				}
+			}
+			refusedIndexes = stillRefused;
+		}
+
+		if(!refusedIndexes.isEmpty() && round >= retriesOnLock)
+		{
+			retryStoppedBy = RETRY_STOPPED_BY_COUNT;
+		}
+		rowsStillRefused += refusedIndexes.size();
+		retriesUsed = Math.max(retriesUsed, round);
+		return replacements;
+	}
+
+	/**
+	 * @description Runs one more statement for the given rows in partial mode, through the same proxy method and with
+	 * the same arguments as the first statement. An upsert reads its external Id field from the transaction's own
+	 * map, as the first statement did.
+	 *
+	 * @param kind The operation to repeat.
+	 * @param records The rows to save again; an upsert's rows share one type, which names its external Id field.
+	 * @param databaseProxy The proxy to go through.
+	 *
+	 * @return The statement's results, one per row.
+	 */
+	private List<Object> reissue(OperationType kind, List<SObject> records, DML_SharingProxy.DatabaseProxy databaseProxy)
+	{
+		switch on kind
+		{
+			when DML_UNDELETE
+			{
+				return databaseProxy.doUndelete(records, false, accessLevel);
+			}
+			when DML_INSERT
+			{
+				return databaseProxy.doInsert(records, false, accessLevel);
+			}
+			when DML_UPSERT
+			{
+				SObjectField externalIdField = upsertExternalIdFieldMap.get(records[0].getSObjectType());
+				return externalIdField == null ? databaseProxy.doUpsert(records, false, accessLevel) : databaseProxy.doUpsert(records, externalIdField, false, accessLevel);
+			}
+			when DML_UPDATE
+			{
+				return databaseProxy.doUpdate(records, false, accessLevel);
+			}
+			when else
+			{
+				return databaseProxy.doDelete(records, false, accessLevel);
+			}
+		}
+	}
+
+	/**
+	 * @description Tells commitWork that the attempt was rolled back after a lock refusal that may be retried. It
+	 * carries the refusal as its cause. It is always caught inside commitWork and never reaches the caller.
+	 */
+	private class RetryAttemptException extends Exception
+	{
+	}
+
+	/**
+	 * @description A copy of what the save uses up as it runs, taken before the first attempt, so that a retry starts
+	 * from the same registered records. It holds five things. First, the records by operation and type: the insert
+	 * and upsert maps lose each type as it is saved, and a record that looks up to a parent of its own type adds an
+	 * extra update to the update map midway. Second, the relationships registered for update, which are removed as
+	 * they are applied. Third, the child relationships, which the step that fills in parent Ids reads on every
+	 * attempt. Fourth, the records that had no Id before the first attempt: the Ids the rolled-back attempt gave
+	 * them must be cleared before they can be inserted again. Fifth, the value of every registered child
+	 * relationship field. A child of its parent's own type is inserted in the same statement as the parent, before
+	 * the fill-in step can replace the rolled-back parent Id that the first attempt wrote into it.
+	 */
+	private class RegistrationSnapshot
+	{
+		/**
+		 * @description The transaction whose registration was captured.
+		 */
+		private final DML_Transaction owner;
+
+		/**
+		 * @description The registered records by operation and type, each list copied.
+		 */
+		private final Map<OperationType, Map<SObjectType, List<SObject>>> recordsByOperation = new Map<OperationType, Map<SObjectType, List<SObject>>>();
+
+		/**
+		 * @description The relationships registered for update (through registerDirty) before the first attempt.
+		 */
+		private final List<DTO_Relationship> dirtyRelationships;
+
+		/**
+		 * @description The child relationships registered before the first attempt, by parent type.
+		 */
+		private final Map<SObjectType, List<DTO_Relationship>> childRelationshipsByParent = new Map<SObjectType, List<DTO_Relationship>>();
+
+		/**
+		 * @description The insert and upsert records that had no Id before the first attempt.
+		 */
+		private final List<SObject> recordsToClearOnRetry = new List<SObject>();
+
+		/**
+		 * @description Every registered child relationship field with the value it held before the first attempt.
+		 */
+		private final List<RelationshipFieldValue> relationshipFieldValues = new List<RelationshipFieldValue>();
+
+		/**
+		 * @description Captures the owner's registration.
+		 *
+		 * @param owner The transaction about to run its first attempt.
+		 */
+		private RegistrationSnapshot(DML_Transaction owner)
+		{
+			this.owner = owner;
+			captureRecords();
+			dirtyRelationships = new List<DTO_Relationship>(owner.registeredDirtyRelationships);
+			captureChildRelationships();
+		}
+
+		/**
+		 * @description Copies the registered records by operation and type, noting the insert and upsert records
+		 * that have no Id yet.
+		 */
+		private void captureRecords()
+		{
+			for(OperationType kind : owner.allObjectsToCommit.keySet())
+			{
+				Map<SObjectType, List<SObject>> copy = new Map<SObjectType, List<SObject>>();
+				for(SObjectType objectType : owner.allObjectsToCommit.get(kind).keySet())
+				{
+					List<SObject> records = owner.allObjectsToCommit.get(kind).get(objectType);
+					copy.put(objectType, new List<SObject>(records));
+					if(kind == OperationType.DML_INSERT || kind == OperationType.DML_UPSERT)
+					{
+						for(SObject record : records)
+						{
+							if(record.Id == null)
+							{
+								recordsToClearOnRetry.add(record);
+							}
+						}
+					}
+				}
+				recordsByOperation.put(kind, copy);
+			}
+		}
+
+		/**
+		 * @description Copies the child relationships by parent type and notes the value each relationship field
+		 * holds before the first attempt.
+		 */
+		private void captureChildRelationships()
+		{
+			for(SObjectType parentType : owner.parentToChildRelationshipsMap.keySet())
+			{
+				List<DTO_Relationship> relationships = owner.parentToChildRelationshipsMap.get(parentType);
+				childRelationshipsByParent.put(parentType, new List<DTO_Relationship>(relationships));
+				for(DTO_Relationship relationship : relationships)
+				{
+					relationshipFieldValues.add(new RelationshipFieldValue(relationship));
+				}
+			}
+		}
+
+		/**
+		 * @description Puts the owner back where it was before the first attempt: clears the Ids the failed attempt
+		 * assigned, puts back the child relationship values it overwrote, restores the three registration
+		 * collections and empties the collected results.
+		 */
+		private void restore()
+		{
+			for(SObject record : recordsToClearOnRetry)
+			{
+				record.Id = null;
+			}
+			for(RelationshipFieldValue relationshipFieldValue : relationshipFieldValues)
+			{
+				relationshipFieldValue.restore();
+			}
+			owner.allObjectsToCommit.clear();
+			for(OperationType kind : recordsByOperation.keySet())
+			{
+				Map<SObjectType, List<SObject>> copy = new Map<SObjectType, List<SObject>>();
+				for(SObjectType objectType : recordsByOperation.get(kind).keySet())
+				{
+					copy.put(objectType, new List<SObject>(recordsByOperation.get(kind).get(objectType)));
+				}
+				owner.allObjectsToCommit.put(kind, copy);
+			}
+			owner.registeredDirtyRelationships.clear();
+			owner.registeredDirtyRelationships.addAll(dirtyRelationships);
+			owner.parentToChildRelationshipsMap.clear();
+			for(SObjectType parentType : childRelationshipsByParent.keySet())
+			{
+				owner.parentToChildRelationshipsMap.put(parentType, new List<DTO_Relationship>(childRelationshipsByParent.get(parentType)));
+			}
+			owner.collectedInsertResults.clear();
+			owner.collectedUpdateResults.clear();
+			owner.collectedUpsertResults.clear();
+			owner.collectedDeleteResults.clear();
+			owner.collectedUndeleteResults.clear();
+		}
+	}
+
+	/**
+	 * @description A child record's relationship field and the value it held before the first attempt, so a retry
+	 * starts from that value rather than from a rolled-back parent's Id.
+	 */
+	private class RelationshipFieldValue
+	{
+		/**
+		 * @description The child record carrying the relationship field.
+		 */
+		private final SObject childRecord;
+
+		/**
+		 * @description The relationship field that the step which fills in parent Ids writes.
+		 */
+		private final SObjectField relationshipField;
+
+		/**
+		 * @description The field's value before the first attempt, usually null.
+		 */
+		private final Object valueBefore;
+
+		/**
+		 * @description Captures the field's value before the first attempt.
+		 *
+		 * @param relationship The registered child relationship.
+		 */
+		private RelationshipFieldValue(DTO_Relationship relationship)
+		{
+			childRecord = relationship.childRecord;
+			relationshipField = relationship.relationshipField;
+			valueBefore = childRecord.get(relationshipField);
+		}
+
+		/**
+		 * @description Puts the value the field held before the first attempt back on the child record.
+		 */
+		private void restore()
+		{
+			childRecord.put(relationshipField, valueBefore);
+		}
+	}
+
+	/**
+	 * @description Hook called before the commit process starts. Work registered here is committed with the rest
+	 * and, in an all-or-nothing commit, rolled back with it when a later statement fails. A read made here is cached
+	 * like any other read and is from before this commit's write. It runs once for each attempt of the commit: when the
+	 * commit is set to try again after a row lock (DML_Builder.withRetryOnLock does that, and an API handler's commit
+	 * tries again once), it runs again for the new attempt. So write what you do here so that it is safe to run more than
+	 * once.
 	 *
 	 * @since 1.0
 	 *
@@ -690,7 +1443,8 @@ global virtual inherited sharing class DML_Transaction
 	}
 
 	/**
-	 * @description Hook called before DML operations start.
+	 * @description Hook called before DML operations start. A read made here is cached like any other read and is from
+	 * before this commit's write.
 	 *
 	 * @since 1.0
 	 *
@@ -747,9 +1501,15 @@ global virtual inherited sharing class DML_Transaction
 	}
 
 	/**
-	 * @description Hook called after the commit process finalizes, indicating success or failure.
+	 * @description Hook called after the commit process finalizes, indicating success or failure. It runs after the
+	 * transaction's in-memory query cache has been emptied, so a read made here is cached like any other and sees the
+	 * rows as they are after the attempt, whether it was saved or rolled back. It runs once for each attempt of the
+	 * commit: when the commit is set to try again after a row lock (DML_Builder.withRetryOnLock does that, and an API
+	 * handler's commit tries again once), it runs with false after the attempt that was refused and again after the next
+	 * attempt. So write what you do here so that it is safe to run more than once, and do work that must happen once only
+	 * when the value is true.
 	 *
-	 * @param wasSuccessful Whether the commit was successful.
+	 * @param wasSuccessful Whether the attempt that just ended was successful.
 	 *
 	 * @since 1.0
 	 *
@@ -765,7 +1525,7 @@ global virtual inherited sharing class DML_Transaction
 	 * }
 	 * ```
 	 */
-	@SuppressWarnings('PMD.EmptyStatementBlock,RedundantSuppression')
+	@SuppressWarnings('PMD.EmptyStatementBlock,RedundantSuppression,PMD.AvoidBooleanMethodParameters')
 	global virtual void onCommitWorkFinished(Boolean wasSuccessful)
 	{
 	}
@@ -895,6 +1655,12 @@ global virtual inherited sharing class DML_Transaction
 			if(!recordsToUndelete.isEmpty())
 			{
 				List<Database.UndeleteResult> results = databaseProxy.doUndelete(recordsToUndelete, !allowPartial, accessLevel);
+				statementsStillPlanned--;
+				Map<Integer, Object> retried = retryLockRefusedRows(OperationType.DML_UNDELETE, recordsToUndelete, results, databaseProxy);
+				for(Integer index : retried.keySet())
+				{
+					results[index] = (Database.UndeleteResult)retried.get(index);
+				}
 				collectedUndeleteResults.addAll(results);
 				logPartialResults(results);
 			}
@@ -919,6 +1685,12 @@ global virtual inherited sharing class DML_Transaction
 				if(recordsToInsert != null)
 				{
 					List<Database.SaveResult> results = databaseProxy.doInsert(recordsToInsert, !allowPartial, accessLevel);
+					statementsStillPlanned--;
+					Map<Integer, Object> retried = retryLockRefusedRows(OperationType.DML_INSERT, recordsToInsert, results, databaseProxy);
+					for(Integer index : retried.keySet())
+					{
+						results[index] = (Database.SaveResult)retried.get(index);
+					}
 					collectedInsertResults.addAll(results);
 					logPartialResults(results);
 				}
@@ -955,6 +1727,12 @@ global virtual inherited sharing class DML_Transaction
 					{
 						results = databaseProxy.doUpsert(recordsToUpsert, !allowPartial, accessLevel);
 					}
+					statementsStillPlanned--;
+					Map<Integer, Object> retried = retryLockRefusedRows(OperationType.DML_UPSERT, recordsToUpsert, results, databaseProxy);
+					for(Integer index : retried.keySet())
+					{
+						results[index] = (Database.UpsertResult)retried.get(index);
+					}
 					collectedUpsertResults.addAll(results);
 					logPartialResults(results);
 				}
@@ -965,7 +1743,7 @@ global virtual inherited sharing class DML_Transaction
 	}
 
 	/**
-	 * @description Performs update operations for registered SObjects, handling dirty relationships.
+	 * @description Performs update operations for registered SObjects, including the relationships registered for update.
 	 * In partial mode, skips relationship writes whose parent failed to obtain an Id, so the
 	 * child's existing lookup value is left untouched.
 	 *
@@ -1001,6 +1779,12 @@ global virtual inherited sharing class DML_Transaction
 			if(!recordsToUpdate.isEmpty())
 			{
 				List<Database.SaveResult> results = databaseProxy.doUpdate(recordsToUpdate, !allowPartial, accessLevel);
+				statementsStillPlanned--;
+				Map<Integer, Object> retried = retryLockRefusedRows(OperationType.DML_UPDATE, recordsToUpdate, results, databaseProxy);
+				for(Integer index : retried.keySet())
+				{
+					results[index] = (Database.SaveResult)retried.get(index);
+				}
 				collectedUpdateResults.addAll(results);
 				logPartialResults(results);
 			}
@@ -1027,6 +1811,12 @@ global virtual inherited sharing class DML_Transaction
 				if(recordsToDelete != null)
 				{
 					List<Database.DeleteResult> results = databaseProxy.doDelete(recordsToDelete, !allowPartial, accessLevel);
+					statementsStillPlanned--;
+					Map<Integer, Object> retried = retryLockRefusedRows(OperationType.DML_DELETE, recordsToDelete, results, databaseProxy);
+					for(Integer index : retried.keySet())
+					{
+						results[index] = (Database.DeleteResult)retried.get(index);
+					}
 					collectedDeleteResults.addAll(results);
 					logPartialResults(results);
 				}
@@ -1035,16 +1825,67 @@ global virtual inherited sharing class DML_Transaction
 	}
 
 	/**
-	 * @description Logs partial DML results when in partial mode and logging is not suppressed.
+	 * @description Logs the failed rows of a partial commit when logging is not suppressed: rows whose
+	 * errors all carry a declared expected status code at WARN, every other failed row at ERROR.
 	 *
 	 * @param results The DML results to log (SaveResult, UpsertResult, DeleteResult, or UndeleteResult).
 	 */
 	private void logPartialResults(List<Object> results)
 	{
-		if(allowPartial && !suppressLogging && results != null)
+		if(!allowPartial || suppressLogging || results == null)
 		{
-			LOG_Builder.errorDMLOperationResults(results, CLASS_METHOD_COMMIT);
+			return;
 		}
+
+		List<Object> expectedRefusals = new List<Object>();
+		List<Object> otherResults = new List<Object>();
+
+		for(Object result : results)
+		{
+			if(isExpectedRefusal(result))
+			{
+				expectedRefusals.add(result);
+			}
+			else
+			{
+				otherResults.add(result);
+			}
+		}
+
+		LOG_Builder.errorDMLOperationResults(otherResults, CLASS_METHOD_COMMIT);
+		LOG_Engine.log(expectedRefusals, CLASS_METHOD_COMMIT, LoggingLevel.WARN);
+	}
+
+	/**
+	 * @description Whether a DML result is a failed row whose every error carries a declared expected status
+	 * code. A successful row is never an expected refusal; a row mixing an expected and an unexpected
+	 * error is not one either. It is visible to tests for DML_Transaction_TEST only. Real DML on this platform
+	 * reports one error per row, so the test checks the rule that every error must match with a result built
+	 * from JSON that carries two errors.
+	 *
+	 * @param result The DML result to classify.
+	 *
+	 * @return True when the row failed only for declared reasons.
+	 */
+	@TestVisible
+	private Boolean isExpectedRefusal(Object result)
+	{
+		List<Database.Error> errors = LOG_Engine.getOperationErrors(result);
+
+		if(errors.isEmpty() || expectedRefusalStatusCodes.isEmpty())
+		{
+			return false;
+		}
+
+		for(Database.Error error : errors)
+		{
+			if(!expectedRefusalStatusCodes.contains(error.getStatusCode()))
+			{
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**
@@ -1121,7 +1962,7 @@ global virtual inherited sharing class DML_Transaction
 
 	/**
 	 * @description Recursively visits SObject types for topological sorting with cycle detection.
-	 * Self-referential types (e.g., Foobar__c → Foobar__c) are not cycles; they are handled
+	 * Types that look up to themselves (e.g., Foobar__c to Foobar__c) are not cycles; they are handled
 	 * separately via doUpdate in populateChildRelationships.
 	 *
 	 * @param objectType The SObject type to process.

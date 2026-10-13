@@ -8,16 +8,26 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 public class API_PostExample_TEST
 {
 	/**
 	 * @description The API class name used for test assertions.
 	 */
 	private static final String SERVICE_NAME = API_PostExample.class.getName();
+
+	/**
+	 * @description The PostExample setting's circuit breaker timeout, in seconds.
+	 */
+	private static final Integer CIRCUIT_TIMEOUT_SECONDS = 60;
+
+	/**
+	 * @description A stored timestamp keeps whole seconds.
+	 */
+	private static final Integer ONE_SECOND_TOLERANCE = 1;
 
 	/**
 	 * @description To setup the List of API Calls
@@ -127,7 +137,8 @@ public class API_PostExample_TEST
 	}
 
 	/**
-	 * @description Emulates a successful call and checks if existing failed API call record is resolved
+	 * @description Emulates a successful call and checks that the open issue logged for the same request is resolved,
+	 * with the time it was resolved.
 	 *
 	 * @see API_Outbound.resolveApiIssues
 	 */
@@ -140,12 +151,46 @@ public class API_PostExample_TEST
 
 			ApiCall__c apiCall = apiCalls.iterator().next();
 			TST_Factory.insertApiIssue(apiCall, UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c));
+			Datetime earliestResolvedDate = Datetime.now().addSeconds(-ONE_SECOND_TOLERANCE);
 
 			API_OutboundTestHelper.assertCallSuccessful(apiCalls);
 
 			ApiIssue__c apiIssue = new SEL_ApiIssue().getAll().iterator().next();
 			Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, apiIssue.Status__c, 'API issues not resolved as expected');
+			Assert.isNotNull(apiIssue.ResolvedDate__c, 'Expected the resolved issue to carry the time it was resolved');
+			Assert.isTrue(apiIssue.ResolvedDate__c >= earliestResolvedDate, 'Expected the resolved date to be set by this call, got ' + apiIssue.ResolvedDate__c);
 		}
+	}
+
+	/**
+	 * @description A later successful call resolves every user's open issue for the same request. API issues are Private.
+	 * User A owns the issue that A's failed call logged. User B later sends the same request from a class declared with
+	 * sharing, as a Lightning action would, and the call succeeds. B cannot see A's issue, yet the framework resolves it,
+	 * because it is closing its own record of the failed request.
+	 *
+	 * @see API_Outbound.resolveApiIssues
+	 */
+	@IsTest
+	private static void shouldResolveAnotherUsersIssueWhenTheSameRequestSucceeds()
+	{
+		ApiCall__c apiCall = setup().iterator().next();
+		ApiIssue__c apiIssue;
+		System.runAs(TST_Factory.newUser(SEL_Profile.PROFILE_STANDARD_USER))
+		{
+			apiIssue = TST_Factory.insertApiIssue(apiCall, UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c));
+		}
+		List<API_Base> handlers;
+
+		System.runAs(TST_Factory.newUser(SEL_Profile.PROFILE_STANDARD_USER))
+		{
+			Test.startTest();
+			handlers = new SharingEnforcedDispatcher().execute(new List<ApiCall__c> {apiCall});
+			Test.stopTest();
+		}
+
+		Assert.isTrue(handlers[0].result.isSuccess, 'Expected the later call to succeed');
+		ApiIssue__c resolvedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id);
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, resolvedIssue.Status__c, 'Expected the issue another user owns to be resolved');
 	}
 
 	/**
@@ -419,22 +464,24 @@ public class API_PostExample_TEST
 	}
 
 	/**
-	 * @description Tests that circuit breaker aborts requests when circuit is OPEN
-	 *
-	 * This test opens the circuit by causing 3 failed requests (threshold from metadata),
-	 * then verifies that the 4th request is aborted due to the circuit being OPEN.
+	 * @description Tests that a call meeting an open circuit while it still has retry budget is scheduled at the breaker's
+	 * cool-off and spends one attempt instead of ending Aborted: three failures open the circuit (threshold 3), the fourth
+	 * call stays at Retry with a next retry time at least the circuit timeout away and Retries__c 1, and its error text is
+	 * the labelled open-circuit line. In an org whose org cache has no space set aside, each call's breaker starts with
+	 * no saved failures, so the circuit never opens: the fourth call is sent and fails like the first three, and its
+	 * errors hold no open-circuit line.
 	 *
 	 * @see UTIL_CircuitBreaker
 	 * @see API_Base.getValidationErrors
 	 */
 	@IsTest
-	private static void circuitBreakerAbortsWhenOpen()
+	private static void shouldScheduleTheCoolOffWhenTheCircuitIsOpenWithBudgetLeft()
 	{
-		Assert.isTrue(UTIL_Cache.isOrgAllocated(), 'Org cache must be allocated for circuit breaker testing');
+		Boolean hasOrgCacheSpace = UTIL_Cache.isOrgAllocated();
 
 		API_MockFactory.registerErrorMock(SERVICE_NAME);
 
-		// Create 4 API calls, because of circuit breaker configuration we know after 3 failures, the 4th will abort
+		// Four API calls: the setting opens the circuit after three failures, so the fourth meets an open circuit and is scheduled at the cool-off
 		List<ApiCall__c> apiCalls = setup();
 
 		for(Integer i = 0; i < 3; i++)
@@ -447,6 +494,7 @@ public class API_PostExample_TEST
 							UTIL_Random.randomName()
 					));
 		}
+		Datetime beforeDispatch = Datetime.now();
 
 		Test.startTest();
 
@@ -455,10 +503,22 @@ public class API_PostExample_TEST
 		Test.stopTest();
 
 		API_Base handler = handlers[3];
+		String circuitOpenLine = String.format(System.Label.OutboundCall_CircuitOpen, new List<Object> {SERVICE_NAME});
 
-		// Verify the request was aborted due to circuit breaker
-		Assert.isTrue(handler.result.isAborted, 'Call should have been aborted');
-		Assert.isTrue(handler.result.errors.iterator().next().contains('Circuit breaker is OPEN'), 'Error should mention circuit breaker');
+		if(!hasOrgCacheSpace)
+		{
+			String errorText = String.valueOf(handler.result.errors);
+			Assert.isTrue(handler.result.hasFailed, 'Expected the fourth call to be sent and fail like the first three, got no failure');
+			Assert.isFalse(errorText.contains(circuitOpenLine), 'Expected no open-circuit line when the org cache has no space, got ' + errorText);
+			return;
+		}
+		Assert.isTrue(handler.result.hasFailed, 'Expected the refused call to be failed, not aborted, so the retry decision runs; aborted: ' + handler.result.isAborted);
+		String status = handler.apiCall.Status__c;
+		Assert.areEqual(SEL_ApiCall.STATUS_RETRY, status, 'Expected the call to wait at Retry for the cool-off while budget remains, got ' + status);
+		Datetime earliestRetry = beforeDispatch.addSeconds(CIRCUIT_TIMEOUT_SECONDS - ONE_SECOND_TOLERANCE);
+		Assert.isTrue(handler.apiCall.NextRetry__c >= earliestRetry, 'Expected a wait of at least the circuit timeout, got ' + handler.apiCall.NextRetry__c);
+		Assert.areEqual(1, handler.apiCall.Retries__c, 'Expected one attempt spent waiting for the cool-off, got ' + handler.apiCall.Retries__c);
+		Assert.isTrue(handler.result.errors.iterator().next().contains(circuitOpenLine), 'Expected the labelled open-circuit line, got ' + handler.result.errors);
 	}
 
 	/**
@@ -937,5 +997,25 @@ public class API_PostExample_TEST
 	private class DTO_IncorrectlyImplemented extends DTO_JsonBase
 	{
 
+	}
+
+	/**
+	 * @description Sends calls from a class declared with sharing, so the running user's record sharing applies the way it
+	 * does when a Lightning action makes the call. This test class declares no sharing, so a call made straight from a
+	 * test method does not apply record sharing.
+	 */
+	private with sharing class SharingEnforcedDispatcher
+	{
+		/**
+		 * @description Sends the calls through the dispatcher.
+		 *
+		 * @param apiCalls The calls to send
+		 *
+		 * @return The handler of each call
+		 */
+		public List<API_Base> execute(List<ApiCall__c> apiCalls)
+		{
+			return API_Dispatcher.execute(apiCalls);
+		}
 	}
 }

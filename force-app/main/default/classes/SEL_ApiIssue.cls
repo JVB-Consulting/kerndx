@@ -11,7 +11,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -83,20 +83,21 @@ global inherited sharing class SEL_ApiIssue extends SEL_Base
 	{
 		return new List<SObjectField>
 		{
-				ApiIssue__c.ErrorMessages__c,
-				ApiIssue__c.IdempotencyKey__c,
-				ApiIssue__c.OriginatingRecordId__c,
-				ApiIssue__c.RequestParametersHash__c,
-				ApiIssue__c.RequestParameters__c,
-				ApiIssue__c.ServiceName__c,
-				ApiIssue__c.Status__c,
-				ApiIssue__c.TriggeringRecordId__c,
 				ApiIssue__c.ApiCall__c,
 				ApiIssue__c.Direction__c,
-				ApiIssue__c.RequestPath__c,
-				ApiIssue__c.RequestMethod__c,
+				ApiIssue__c.ErrorMessages__c,
+				ApiIssue__c.ExternalSystemMayHaveActed__c,
+				ApiIssue__c.IdempotencyKey__c,
+				ApiIssue__c.OriginatingRecordId__c,
 				ApiIssue__c.RequestBody__c,
-				ApiIssue__c.ResolvedDate__c
+				ApiIssue__c.RequestMethod__c,
+				ApiIssue__c.RequestParametersHash__c,
+				ApiIssue__c.RequestParameters__c,
+				ApiIssue__c.RequestPath__c,
+				ApiIssue__c.ResolvedDate__c,
+				ApiIssue__c.ServiceName__c,
+				ApiIssue__c.Status__c,
+				ApiIssue__c.TriggeringRecordId__c
 		};
 	}
 
@@ -132,19 +133,30 @@ global inherited sharing class SEL_ApiIssue extends SEL_Base
 	}
 
 	/**
-	 * @description Finds failed API call records matching the triggering object, service name, and request hash.
+	 * @description Finds every user's open issues for one request: the same triggering record, service name and request
+	 * parameters hash. Use it to find out whether a request you know about has failed and is still open, for example to
+	 * mark those issues resolved once the request succeeds.
+	 *
+	 * The method reads in system mode and ignores record sharing, so it returns the open issues of every user, not only
+	 * the ones the running user owns or can see. That is safe because you must already hold the record Id, the service
+	 * name and the request parameters hash to ask: you are asking about a request you know. The framework itself relies on
+	 * this answer when a later call for the same request succeeds, and the user whose call succeeds is often not the user
+	 * whose call failed. Your code decides what to show to whom: if you show the returned issues to a person, check that
+	 * they may see them first.
 	 *
 	 * @param recordId The Id of the triggering record
 	 * @param serviceName The name of the web service
 	 * @param hashParameter The request parameters hash to match
 	 *
-	 * @return List of matching failed ApiIssue__c records
+	 * @return The open issues for the request, whoever owns them
 	 *
 	 * @since 1.0
 	 */
 	global List<ApiIssue__c> findByFailedApiCall(Id recordId, String serviceName, String hashParameter)
 	{
 		return query
+				.systemModeInternal()
+				.bypassSharingInternal()
 				.condition(ApiIssue__c.TriggeringRecordId__c).equals(recordId)
 				.condition(ApiIssue__c.Status__c).equals(STATUS_OPEN)
 				.condition(ApiIssue__c.ServiceName__c).equals(serviceName)

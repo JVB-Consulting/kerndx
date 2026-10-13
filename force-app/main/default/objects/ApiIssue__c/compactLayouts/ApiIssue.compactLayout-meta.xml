@@ -4,6 +4,7 @@
     <fields>Name</fields>
     <fields>ServiceName__c</fields>
     <fields>Status__c</fields>
+    <fields>ExternalSystemMayHaveActed__c</fields>
     <fields>ApiCall__c</fields>
     <fields>LastModifiedById</fields>
     <label>ApiIssue</label>

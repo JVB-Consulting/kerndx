@@ -8,9 +8,9 @@
  *
  * @group Web Services
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class SEL_ApiCall_TEST
 {
@@ -18,6 +18,11 @@ private class SEL_ApiCall_TEST
 	 * @description Test service name for API call creation.
 	 */
 	private static final String TEST_SERVICE_NAME = 'TestService';
+
+	/**
+	 * @description The retry wait a scheduled row is given, in seconds.
+	 */
+	private static final Integer SECONDS_UNTIL_RETRY = 30;
 
 	/**
 	 * @description Company name discriminator for the committed test admin user set up in
@@ -30,6 +35,29 @@ private class SEL_ApiCall_TEST
 	 * - Salesforce profile) set up in @TestSetup and used by the tier-A regression test.
 	 */
 	private static final String LOW_PRIVILEGE_COMPANY = 'SEL_ApiCall_TEST-low-privilege';
+
+	/**
+	 * @description Company name of the Standard User who owns none of the seeded calls, so a read that finds them as this
+	 * user proves the read sees past the Private sharing model.
+	 */
+	private static final String STANDARD_USER_COMPANY = 'SEL_ApiCall_TEST-standard-user';
+
+	/**
+	 * @description The statuses that mean a call is in progress or will be sent; the open-call reads must find exactly these.
+	 */
+	private static final List<String> OPEN_STATUSES = new List<String>
+	{
+			SEL_ApiCall.STATUS_BATCHED,
+			SEL_ApiCall.STATUS_PROCESSING,
+			SEL_ApiCall.STATUS_QUEUED,
+			SEL_ApiCall.STATUS_RETRY,
+			SEL_ApiCall.STATUS_RETRYING
+	};
+
+	/**
+	 * @description The statuses of calls that have finished; the open-call reads must leave these out.
+	 */
+	private static final List<String> FINISHED_STATUSES = new List<String> {SEL_ApiCall.STATUS_COMPLETED, SEL_ApiCall.STATUS_FAILED};
 
 	/**
 	 * @description Commits both a test-admin and a low-privilege user in @TestSetup's separate
@@ -52,7 +80,123 @@ private class SEL_ApiCall_TEST
 				);
 
 		User lowPrivilegeUser = TST_Factory.newMinimumAccessUser(LOW_PRIVILEGE_COMPANY);
-		insert lowPrivilegeUser;
+		DML_Builder.newTransaction().doInsert(lowPrivilegeUser).execute();
+
+		TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER, STANDARD_USER_COMPANY);
+	}
+
+	/**
+	 * @description Seeds one call for every open status and one for every finished status, all for the same triggering
+	 * record and owned by the running user.
+	 *
+	 * @param triggeringRecordId The record every seeded call was made for
+	 *
+	 * @return The seeded calls, open ones first
+	 */
+	private static List<ApiCall__c> seedOpenAndFinishedCalls(Id triggeringRecordId)
+	{
+		List<String> statuses = new List<String>(OPEN_STATUSES);
+		statuses.addAll(FINISHED_STATUSES);
+		List<ApiCall__c> calls = new List<ApiCall__c>();
+		for(String status : statuses)
+		{
+			calls.add((ApiCall__c)apiCallBuilder(status).withOverride(ApiCall__c.TriggeringRecordId__c, triggeringRecordId).build());
+		}
+		return calls;
+	}
+
+	/**
+	 * @description Collects the ids of the seeded calls at an open status.
+	 *
+	 * @param seededCalls The calls seeded, open and finished
+	 *
+	 * @return The ids of the open ones
+	 */
+	private static Set<Id> collectOpenCallIds(List<ApiCall__c> seededCalls)
+	{
+		return UTIL_SObject.extractIds(UTIL_SObject.findWhereIn(seededCalls, UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.Status__c), OPEN_STATUSES));
+	}
+
+	/**
+	 * @description The read by call id returns the calls that are Queued, Processing, Retry, Retrying or Batched, and leaves
+	 * out the Completed and the Failed one.
+	 *
+	 * @see SEL_ApiCall.findOpenById
+	 */
+	@IsTest
+	private static void shouldFindOnlyOpenCallsById()
+	{
+		List<ApiCall__c> seededCalls = seedOpenAndFinishedCalls(UTIL_Random.randomId(Foobar__c.SObjectType));
+
+		List<ApiCall__c> foundCalls = new SEL_ApiCall().findOpenById(UTIL_SObject.extractIds(seededCalls));
+
+		Set<Id> openCallIds = collectOpenCallIds(seededCalls);
+		Assert.areEqual(OPEN_STATUSES.size(), openCallIds.size(), 'Expected one seeded call per open status, got ' + openCallIds.size());
+		Assert.areEqual(openCallIds, UTIL_SObject.extractIds(foundCalls), 'Expected exactly the calls at an open status, got ' + foundCalls);
+	}
+
+	/**
+	 * @description The read by triggering record returns the open calls made for that record, and leaves out the finished
+	 * ones.
+	 *
+	 * @see SEL_ApiCall.findOpenByTriggeringRecordIds
+	 */
+	@IsTest
+	private static void shouldFindOnlyOpenCallsByTriggeringRecord()
+	{
+		Id triggeringRecordId = UTIL_Random.randomId(Foobar__c.SObjectType);
+		List<ApiCall__c> seededCalls = seedOpenAndFinishedCalls(triggeringRecordId);
+
+		List<ApiCall__c> foundCalls = new SEL_ApiCall().findOpenByTriggeringRecordIds(new Set<Id> {triggeringRecordId});
+
+		Set<Id> openCallIds = collectOpenCallIds(seededCalls);
+		Assert.areEqual(OPEN_STATUSES.size(), openCallIds.size(), 'Expected one seeded call per open status, got ' + openCallIds.size());
+		Assert.areEqual(openCallIds, UTIL_SObject.extractIds(foundCalls), 'Expected exactly the calls at an open status, got ' + foundCalls);
+	}
+
+	/**
+	 * @description A Standard User who owns none of the calls still finds every open one among their ids: ApiCall__c is
+	 * Private, and the bulk retry must see an issue's own call even when another user started it.
+	 *
+	 * @see SEL_ApiCall.findOpenById
+	 */
+	@IsTest
+	private static void shouldFindAnotherUsersOpenCallsById()
+	{
+		List<ApiCall__c> seededCalls = seedOpenAndFinishedCalls(UTIL_Random.randomId(Foobar__c.SObjectType));
+		List<ApiCall__c> foundCalls;
+
+		System.runAs(new SEL_User().findByCompanyName(STANDARD_USER_COMPANY))
+		{
+			foundCalls = new SEL_ApiCall().findOpenById(UTIL_SObject.extractIds(seededCalls));
+		}
+
+		Set<Id> openCallIds = collectOpenCallIds(seededCalls);
+		Assert.areEqual(OPEN_STATUSES.size(), openCallIds.size(), 'Expected one seeded call per open status, got ' + openCallIds.size());
+		Assert.areEqual(openCallIds, UTIL_SObject.extractIds(foundCalls), 'Expected exactly the calls at an open status, got ' + foundCalls);
+	}
+
+	/**
+	 * @description A Standard User who owns none of the calls still finds every open call made for the record: ApiCall__c is
+	 * Private, and the bulk retry must see a call another user started before it sends the same request again.
+	 *
+	 * @see SEL_ApiCall.findOpenByTriggeringRecordIds
+	 */
+	@IsTest
+	private static void shouldFindAnotherUsersOpenCallsByTriggeringRecord()
+	{
+		Id triggeringRecordId = UTIL_Random.randomId(Foobar__c.SObjectType);
+		List<ApiCall__c> seededCalls = seedOpenAndFinishedCalls(triggeringRecordId);
+		List<ApiCall__c> foundCalls;
+
+		System.runAs(new SEL_User().findByCompanyName(STANDARD_USER_COMPANY))
+		{
+			foundCalls = new SEL_ApiCall().findOpenByTriggeringRecordIds(new Set<Id> {triggeringRecordId});
+		}
+
+		Set<Id> openCallIds = collectOpenCallIds(seededCalls);
+		Assert.areEqual(OPEN_STATUSES.size(), openCallIds.size(), 'Expected one seeded call per open status, got ' + openCallIds.size());
+		Assert.areEqual(openCallIds, UTIL_SObject.extractIds(foundCalls), 'Expected exactly the calls at an open status, got ' + foundCalls);
 	}
 
 	/**
@@ -169,6 +313,54 @@ private class SEL_ApiCall_TEST
 		List<ApiCall__c> results = SEL_ApiCall.assertServiceAborted(TEST_SERVICE_NAME, 'Connection timeout');
 
 		Assert.areEqual(1, results.size(), 'Should find one aborted item');
+	}
+
+	/**
+	 * @description Tests that assertServiceAborted, without an error phrase, passes for an aborted API call.
+	 */
+	@IsTest
+	private static void shouldAssertServiceAborted()
+	{
+		apiCallBuilder(SEL_ApiCall.STATUS_ABORTED).build();
+
+		List<ApiCall__c> results = SEL_ApiCall.assertServiceAborted(TEST_SERVICE_NAME);
+
+		Assert.areEqual(1, results.size(), 'Expected one aborted call, got ' + results.size());
+	}
+
+	/**
+	 * @description Tests that assertServiceFailed passes for a failed API call, with and without an error phrase.
+	 */
+	@IsTest
+	private static void shouldAssertServiceFailed()
+	{
+		String errorPhrase = UTIL_Random.randomName();
+		apiCallBuilder(SEL_ApiCall.STATUS_FAILED).withOverride(ApiCall__c.ErrorMessages__c, 'Failed: ' + errorPhrase).build();
+
+		List<ApiCall__c> results = SEL_ApiCall.assertServiceFailed(TEST_SERVICE_NAME);
+		List<ApiCall__c> resultsWithPhrase = SEL_ApiCall.assertServiceFailed(TEST_SERVICE_NAME, errorPhrase);
+
+		Assert.areEqual(1, results.size(), 'Expected one failed call, got ' + results.size());
+		Assert.areEqual(1, resultsWithPhrase.size(), 'Expected one failed call carrying the phrase, got ' + resultsWithPhrase.size());
+	}
+
+	/**
+	 * @description Proves the assertion the retry tests share reads the pair the RetryOutboundApiCall flow filters on: a
+	 * row at Retry with a next retry time passes and is returned. A Retry row with no time cannot be shown to be rejected
+	 * inside a test, because an assertion failure cannot be caught; the retry engine's own tests fail through this
+	 * assertion when a schedule is lost.
+	 */
+	@IsTest
+	private static void shouldAcceptARowAtRetryWithANextRetryTime()
+	{
+		apiCallBuilder(SEL_ApiCall.STATUS_RETRY, SEL_ApiCall.TYPE_OUTBOUND)
+				.withOverride(ApiCall__c.NextRetry__c, Datetime.now().addSeconds(SECONDS_UNTIL_RETRY))
+				.build();
+
+		List<ApiCall__c> retrying = SEL_ApiCall.assertServiceRetrying(TEST_SERVICE_NAME);
+
+		Assert.areEqual(1, retrying.size(), 'Expected the one scheduled row to be returned, got ' + retrying.size());
+		Assert.isNotNull(retrying[0].NextRetry__c, 'Expected the returned row to carry its next retry time, got none');
 	}
 
 	/**

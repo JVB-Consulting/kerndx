@@ -6,7 +6,7 @@ navOrder: 18
 
 **Framework:** KernDX
 **Package Type:** Managed Package
-**API Version:** 67.0
+**API Version:** 68.0
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
@@ -104,6 +104,7 @@ Think of it as a flight recorder for your code. Every action leaves a timestampe
     - [Filters, Search, and Date Range](#filters-search-and-date-range)
     - [The Detail Drawer](#the-detail-drawer)
     - [The Timeline Tab](#the-timeline-tab)
+    - [The Whole Action](#the-whole-action)
     - [To and From the Chain Monitor](#to-and-from-the-chain-monitor)
     - [What the Log Console Does Not Do](#what-the-log-console-does-not-do)
 17. [Querying Log Entries](#querying-log-entries)
@@ -173,8 +174,8 @@ catch(Exception e)
 ### LWC - Log with Correlation
 
 ```javascript
-import {ComponentBuilder} from 'c/componentBuilder';
-import {startCorrelation, info, error} from 'c/utilityLogger';
+import {ComponentBuilder} from 'kern/componentBuilder';
+import {startCorrelation, info, error} from 'kern/utilityLogger';
 
 export default class MyComponent extends ComponentBuilder('notification')
 {
@@ -266,6 +267,11 @@ The steps are:
 3. Log entries are published as [platform events](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) (`LogEntryEvent__e`) (non-blocking, so your transaction is not slowed down)
 4. [`TRG_LogEntryEvent`](reference/apex/TRG_LogEntryEvent.md) trigger inserts records into `LogEntry__c`
 
+The settings that control how `TRG_LogEntryEvent` receives those events, including the largest number of events it is handed in one run, live in its Platform
+Events Subscriber Config. From Winter '27, in Developer, Enterprise, Performance and Unlimited edition orgs, you can see and edit that record in Setup, in Event
+Studio, where it is labelled Apex Trigger Details; before that it was reachable only through the Metadata or Tooling API. The framework ships no such record, so
+your org's platform defaults apply until you add one.
+
 **The trade-off behind the hand-off:** delivery is deliberately best-effort. The logger is designed never to fail or roll back your business transaction, and the price of that
 guarantee is that a log entry can be silently lost. If the platform-event publish fails, the framework does not retry and does not fall back to writing `LogEntry__c` directly:
 a publish that throws leaves at most a debug line that is visible only while an Apex trace flag is active, and per-event publish errors reported by the platform are not
@@ -327,6 +333,8 @@ catch(Exception e)
 	throw e; // Re-throw if needed
 }
 ```
+
+Every entry records the code that led to it, with or without an exception: the frames of the code that logged the entry, the logging framework's own steps left out. When you pass an exception, its own trace is kept instead. The Log Console shows it on the entry's Stack trace tab. An entry can have no frames to show: one the framework wrote from inside its own work, because Salesforce hides an installed package's code; one logged from a Flow; or one from a component that reported no error. For those the tab says so and names where the entry was logged from.
 
 ### DML Error Logging
 
@@ -392,7 +400,8 @@ You rarely need to do this reading by hand. [The Log Console](#the-log-console)'
 There is one place where logging needs special care, and the framework handles it for you so you do not have to think about it. Normally a log is published as a `LogEntryEvent__e`
 platform event and saved a moment later (see [How does it work?](#how-does-it-work)). But if you log **while your code is running inside a platform event (`__e`) or Change Data Capture
 (`*ChangeEvent`) trigger**, publishing a brand-new platform event from inside an event trigger can make the platform redeliver the original event. A "log on every delivery" pattern
-would then turn into an endless redelivery loop.
+would then turn into an endless redelivery loop. A trigger on one of Salesforce's own platform events, such as `BatchApexErrorEvent`, is covered in the same way, even though its
+name carries neither ending.
 
 To prevent that, when a log is emitted while a platform-event or change-event trigger is on the stack, the engine skips the event publish and instead saves the entry directly in the
 same transaction. You get the same `LogEntry__c` rows, with no second platform event and no loop. There is nothing to configure: logging from a Change Data Capture trigger action or
@@ -409,6 +418,12 @@ One user action often touches several disconnected places: a button click, a tri
 together rather than hunting through them one at a time. A correlation ID makes that possible: it is one tracking ID that follows a single user action across triggers, queries,
 callouts, and jobs, so every log produced along the way carries the same ID. The framework stores that ID on each `LogEntryEvent__e` and then on every `LogEntry__c` record, so you
 can filter for the whole story of one action in a `SEL_LogEntry` query.
+
+When a background chain continues an action under a tracking ID of its own, each of its entries carries two IDs: the
+run's own correlation ID and the root correlation ID, the ID of the action that started everything. Your own entries
+outside any chain normally carry the same value in both. `LOG_Builder.rootCorrelationId` answers the root at any point, the Log
+Console search matches either ID, and a query on `LogEntry__c.RootCorrelationId__c` returns the whole action in one
+go. Entries written before the framework recorded roots carry no root; they are still found by their correlation ID.
 
 ### Starting Correlation
 
@@ -481,7 +496,7 @@ global inherited sharing class OrderAPI
 	global static void createOrder()
 	{
 		RestRequest req = RestContext.request;
-		String externalCorrelationId = req.headers.get('X-Correlation-ID');
+		String externalCorrelationId = (String)new kern.UTIL_Map.CaseInsensitiveMap(req.headers).get('X-Correlation-ID');
 
 		if(String.isNotBlank(externalCorrelationId))
 		{
@@ -579,21 +594,18 @@ All of this performance logging is off by default and only fires once an operati
 
 ### Custom Timing in Your Own Code
 
-When you want to time a piece of your own code (a custom batch step, a callout) the same way the framework times itself, wrap the work in a `LOG_Builder.scope()` block. The scope
-records when the work started and finished and emits a `LogEntryEvent__e` that joins the same correlation chain as the framework's automatic timers, so your custom timing shows up
-right alongside everything else for the same user action.
+The timers above belong to the framework's own operations; there is no timer to call for a piece of your own code. To time a custom batch step or a callout the same way, measure
+it yourself and log the result as context. The duration is kept as context data on the entry (the duration column the framework's own timers fill is theirs alone), and the entry
+lands in the same searchable log stream and carries the tracking ID of the user action it belongs to, so your timing shows up alongside everything else that ran.
 
 ```apex
-kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
-try
-{
-	// ... do work ...
-}
-finally
-{
-	scope.close();
-}
+Long startedAt = System.currentTimeMillis();
+// ... do work ...
+kern.LOG_Builder.build().info('Reconciliation finished').withContext('durationMs', System.currentTimeMillis() - startedAt).emitAt('ReconciliationJob.execute');
 ```
+
+`LOG_Builder.scope()` is not a timer. It records nothing about when work started or finished and writes no log entry of its own: it holds the entries you emit inside it and
+publishes them together when you close it, which is what keeps a busy loop under the platform's publish cap. [Log Buffering](#log-buffering) explains it.
 
 ### Performance Configuration
 
@@ -620,9 +632,32 @@ masking. Each entry carries the target SObject name in `ClassMethod__c` (for exa
 
 ## Log Buffering
 
-A batch job that logs once per record can publish thousands of platform events, and those events count against your org's allocations. To use far fewer, tell the framework to hold
-logs and publish them together rather than one at a time. This is buffering, and it
-[reduces platform event publishes](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_publish.htm):
+Each `.emit()` publishes a `LogEntryEvent__e` straight away: the event goes out as soon as it is published, not when your transaction commits, so it is not rolled back if the
+transaction later fails, and each publish call counts against the platform's limit of 150 immediate publishes per transaction. A long loop of emits can use them all up, so a later
+publish in the same transaction fails, such as a scope's flush or your own `EventBus.publish` call, and every event counts against your org's platform-event allocations. To use
+far fewer publish calls, tell the framework to hold entries and publish them together rather than one at a time. This is buffering, and it
+[reduces platform event publishes](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_publish.htm).
+
+The simplest form is a scope. Open one, emit as usual inside a try/finally, and close it: every entry below ERROR level emitted inside is held, then published together when
+`scope.close()` runs, in chunks of 50 events per publish call so a large batch stays within the platform's payload limit.
+
+```apex
+kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
+try
+{
+	for(SObject record : records)
+	{
+		kern.LOG_Builder.build().debug('Processing: ' + record.Id).emitAt('BulkProcessor.process');
+		processRecord(record);
+	}
+}
+finally
+{
+	scope.close();
+}
+```
+
+`suspendSaving()`, `flushBuffer()` and `resumeSaving()` are the same mechanism by hand, for when you want to flush part-way through a long loop:
 
 ```apex
 public void processBulkRecords(List<SObject> records)
@@ -653,6 +688,9 @@ public void processBulkRecords(List<SObject> records)
 ```
 
 > **Note:** ERROR-level logs skip the buffer and are sent immediately, even while buffering is on. That way an error is never sitting unpublished in the buffer when you need to see it.
+> The one exception is a trigger the framework runs on a platform event or change event: there an ERROR waits with the rest and is written when the trigger ends.
+> A buffer that reaches 500 entries publishes itself without waiting for the close, so memory stays bounded in a long loop. A flush that fails loses the entries in it, as the
+> trade-off under [How does it work?](#how-does-it-work) explains.
 
 ---
 
@@ -666,16 +704,20 @@ your component that logging, and it tracks the correlation ID for you so a click
 Import the logging functions your component needs (a default export bundling all of them is also available):
 
 ```javascript
-import {debug, info, warn, error} from 'c/utilityLogger';
+import {debug, info, warn, error} from 'kern/utilityLogger';
 ```
+
+A user who is not a System Administrator needs access to the Apex class the logger writes through, or the entries are refused. Assign the **Kern Component Access**
+permission set (it also grants the Flow logging actions), or add Apex class access for `kern.CTRL_Logger` (the name Setup shows under Apex Class Access) to a
+permission set they already have. Kern Administrator includes it.
 
 ### LWC Basic Usage
 
 When you catch an error, pass the `Error` object itself as the second argument to `error()`. The framework keeps both halves: the error's message lands in the entry's context, and its JavaScript stack is saved as the entry's stack trace, so the record you open later shows what actually failed in the browser.
 
 ```javascript
-import {ComponentBuilder} from 'c/componentBuilder';
-import {debug, info, error} from 'c/utilityLogger';
+import {ComponentBuilder} from 'kern/componentBuilder';
+import {debug, info, error} from 'kern/utilityLogger';
 
 export default class MyComponent extends ComponentBuilder('notification')
 {
@@ -711,8 +753,8 @@ export default class MyComponent extends ComponentBuilder('notification')
 ### LWC Correlation
 
 ```javascript
-import {ComponentBuilder} from 'c/componentBuilder';
-import {startCorrelation, endCorrelation, info, error} from 'c/utilityLogger';
+import {ComponentBuilder} from 'kern/componentBuilder';
+import {startCorrelation, endCorrelation, info, error} from 'kern/utilityLogger';
 import processRecords from '@salesforce/apex/MyController.processRecords';
 
 export default class MyComponent extends ComponentBuilder('notification', 'controller')
@@ -752,7 +794,7 @@ If you would rather not manage the start/end pair yourself, `withCorrelation(act
 ### LWC Performance Timing
 
 ```javascript
-import {startTimer, error} from 'c/utilityLogger';
+import {startTimer, error} from 'kern/utilityLogger';
 
 async loadData()
 {
@@ -832,7 +874,9 @@ debugging:
 ## Flow Logging ([`FLOW_LoggerStart`](reference/apex/FLOW_LoggerStart.md), [`FLOW_LoggerLog`](reference/apex/FLOW_LoggerLog.md), [`FLOW_LoggerEnd`](reference/apex/FLOW_LoggerEnd.md))
 
 Admins and flow builders can log from a screen flow or record-triggered flow without writing Apex, using invocable actions. There are two ways to do it: a single action for one-off
-messages, and a three-action "bookend" pattern when you want every log in the flow tied together.
+messages, and a three-action "bookend" pattern when you want every log in the flow tied together. A user who is not a System Administrator and runs a screen flow
+with these actions needs access to the Apex classes behind them: assign the **Kern Component Access** permission set, or add Apex class access for the action
+classes to a permission set they already have.
 
 ### Flow Simple Logging
 
@@ -847,18 +891,20 @@ When you just need to drop a single log message and do not need it linked to any
 - `recordId` (Optional) - Associated record
 - `correlationId` (Optional) - Link to existing correlation
 
+Entries written by this action carry the origin Flow. Their source is the class name you pass in `classMethod`, or `FLOW_WriteLog` when you leave it blank.
+
 ### Flow Bookend Pattern
 
 When you want every log from a flow tied together (so you can see the whole run as one story), use the bookend pattern: one action to start, one to log each message, and one to end.
-You start the correlation once, pass the returned ID into each log along the way, and close it out at the end. The three invocable actions are:
+You start the correlation once, pass the returned ID into each log along the way, and close it out at the end. Entries from these three actions carry the origin Flow; the start and end entries name the Flow as their source, and each logged message names the Flow as its source when you fill in its Flow Name input; left blank, it names the step you give it in the Flow Step input, or `action` when that is blank too. The three invocable actions are:
 
 **1. [`FLOW_LoggerStart`](reference/apex/FLOW_LoggerStart.md)** - Begin correlation
 
-| Input                    | Description         |
-|--------------------------|---------------------|
-| `flowName` (Required)    | Name of the Flow    |
-| `flowVersion` (Optional) | Flow version number |
-| `recordId` (Optional)    | Associated record   |
+| Input                          | Description                            |
+|--------------------------------|----------------------------------------|
+| `flowName` (Required)          | Name of the Flow                       |
+| `recordId` (Optional)          | Associated record                      |
+| `additionalContext` (Optional) | Extra context to store with the entry  |
 
 | Output          | Description              |
 |-----------------|--------------------------|
@@ -866,22 +912,24 @@ You start the correlation once, pass the returned ID into each log along the way
 
 **2. [`FLOW_LoggerLog`](reference/apex/FLOW_LoggerLog.md)** - Log messages
 
-| Input                      | Description              |
-|----------------------------|--------------------------|
-| `correlationId` (Required) | From FLOW_LoggerStart    |
-| `message` (Required)       | Log message              |
-| `logLevel` (Optional)      | DEBUG, INFO, WARN, ERROR (picklist in Flow Builder) |
-| `shortMessage` (Optional)  | Brief summary            |
-| `recordId` (Optional)      | Associated record        |
-| `stepName` (Optional)      | Current Flow step        |
+| Input                          | Description                                                                 |
+|--------------------------------|-----------------------------------------------------------------------------|
+| `correlationId` (Required)     | From FLOW_LoggerStart                                                       |
+| `message` (Required)           | Log message                                                                 |
+| `logLevel` (Optional)          | DEBUG, INFO, WARN, ERROR (picklist in Flow Builder)                         |
+| `flowStep` (Optional)          | Current Flow step, shown as **Flow Step**                                   |
+| `flowName` (Optional)          | Name of the Flow, so the entry is filed under the Flow rather than the step |
+| `recordId` (Optional)          | Associated record                                                           |
+| `additionalContext` (Optional) | Extra context to store with the entry                                       |
 
 **3. [`FLOW_LoggerEnd`](reference/apex/FLOW_LoggerEnd.md)** - End correlation
 
-| Input                      | Description            |
-|----------------------------|------------------------|
-| `correlationId` (Required) | From FLOW_LoggerStart  |
-| `status` (Optional)        | SUCCESS, FAILURE, etc. |
-| `message` (Optional)       | Final message          |
+| Input                      | Description                                  |
+|----------------------------|----------------------------------------------|
+| `correlationId` (Required) | From FLOW_LoggerStart                        |
+| `flowName` (Required)      | Name of the Flow                             |
+| `success` (Optional)       | Whether the Flow finished successfully       |
+| `errorMessage` (Optional)  | What went wrong, when it did not             |
 
 **Example Flow:**
 
@@ -899,7 +947,7 @@ You start the correlation once, pass the returned ID into each log along the way
 |  correlationId: {!varCorr}             |
 |  message: "Approval request created"   |
 |  logLevel: "INFO"                      |
-|  stepName: "Create Request"            |
+|  flowStep: "Create Request"            |
 +-------------------+--------------------+
                     |
                     v
@@ -921,7 +969,8 @@ You start the correlation once, pass the returned ID into each log along the way
 +----------------------------------------+
 |  End Flow Logger                       |
 |  correlationId: {!varCorr}             |
-|  status: {!varFinalStatus}             |
+|  flowName: "Account Approval Flow"     |
+|  success: {!varApproved}               |
 +----------------------------------------+
 ```
 
@@ -933,7 +982,7 @@ In unit tests, logging is turned off by default so it does not add noise or side
 first:
 
 ```apex
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class MyService_TEST
 {
 	@IsTest
@@ -982,6 +1031,8 @@ Open it from the **App Launcher** (search "Log Console"), from its launch card o
 
 Access sits behind the **Kern Administrator** permission set. The console deliberately shows every user's log rows, not just your own, so a production problem is visible no matter
 whose click triggered it. That breadth is exactly why access is gated to administrators.
+Log entries are private records owned by the background process that saves them, so outside the console a user sees them only through View All
+Records, which the Kern Administrator set includes (see [Who can see the framework's own records?](Security%20-%20Guide.md#who-can-see-the-frameworks-own-records)).
 
 ### The Two Views
 
@@ -995,8 +1046,9 @@ Two buttons at the top switch how the same window of logs is read:
 - **Individual entries** shows the flat rows, newest first: every kept entry, including the ones no problem row covers. The counter rows that only hold a tally stay out of this
   list, so everything you see is a real, inspectable entry.
 
-Every column in both views is sortable, and sorting happens on the server, so it orders the full result in your date range, not just the rows you have scrolled through. The
-**Log Number** column links straight to the `LogEntry__c` record.
+Every column is sortable, apart from Chain in Individual entries, and sorting happens on the server, so it orders the full result in your date range, not just the rows
+on the page you are looking at. The Source column sorts by the name of the class, Flow or component that wrote each entry. The **Log Number** column links straight to the
+`LogEntry__c` record.
 
 ### Problem Grouping
 
@@ -1039,10 +1091,15 @@ it is the tally your code reported.
 
 **Three things keep an entry out of the grouped half:**
 
-- **It has to say something about itself.** Grouping needs an entry to carry either the source it
-  came from or the type of error that occurred. An entry with neither (a bare `warn('something
-  happened')` with no `.at(...)`) has nothing to group on, so it stays in Individual entries. The
-  drawer offers you a one-line fix for this, described below.
+- **It has to say something about itself.** Grouping needs an entry to carry either the class and
+  method it came from or the type of error that occurred. Everything the logger writes now carries
+  at least one of the two: a bare `warn('something happened')` with no `.at(...)` is stamped with
+  the class and method that called it, read from the call stack, and an entry logged from an
+  exception carries the exception's type. What still has nothing to group on is an entry with
+  neither, such as a row written straight into `LogEntry__c` by something other than the logger, or
+  a bare entry written before this version was installed; those stay in Individual entries. The
+  drawer's one-line fix, described below, is still the way to group a problem under a name you
+  choose rather than the class it came from.
 - **It has to repeat.** A one-off is not a problem. By default something must happen at least twice
   inside your date range before it earns a row.
 - **It has to be at a level grouping covers.** Out of the box that is ERROR and WARN, which is where
@@ -1207,46 +1264,71 @@ you can see at a glance that somebody chose to watch it.
 
 ### The Summary Ribbon
 
-Across the top, a ribbon summarises the whole window regardless of how far you have scrolled:
+Across the top, a ribbon summarises the whole window whichever page of the list you are on:
 
 - a **total** card: the total occurrences and how many distinct problems they fold into (in Individual entries, the count of matching rows instead),
 - one card per active **level**, showing that level's occurrences and its distinct-problem count (row counts in Individual entries), and
-- a **Top sources** card ranking the three sources producing the most activity: each one's share of occurrences in Problem summary, its row count in Individual entries.
+- a **Top sources** card ranking the three writers producing the most activity, each shown with its origin (Framework, Apex, Flow or Component, or Mixed when the problem's entries span more than one): its share of occurrences in Problem summary, its row count in Individual entries.
 
-The cards are shortcuts, not just numbers: click a level card to narrow the list to that level, or click a source to drill into it.
+The cards are shortcuts, not just numbers: click a level card to narrow the list to that level, or click a source to pin the list to exactly that writer. The pin shows as a removable pill and the Origin filter follows the writer's origin, so the count on the card is the count in the list, and a Mixed writer is pinned by name across every origin. Removing the pill leaves the Origin filter where the drill set it, so you can widen to the whole origin in one click; **Clear all** puts it back to every origin. An **Origin** filter beside Context narrows either view to one origin on its own.
 
 **When totals show as approximate.** Two different things can leave the number best-effort, and the badge's help text tells you which one you are looking at. A very busy window
 can hold more grouped activity than the console reads in one pass, so the counts cover the most recent activity only and the true total is higher. Or part of the list could not be
 worked out for the date range at all, in which case its share is missing from the totals rather than trimmed, and the help text says so instead. Either way the
 **Totals approximate** badge is the console being honest about a best-effort number instead of presenting it as exact. Narrow the date range and it disappears.
 
+#### Who wrote an entry
+
+Every entry records two facts about its writer at the moment it is written:
+
+- **Origin**: Framework (Kern's own code), Apex (your Apex), Flow (an entry written through the framework's Flow actions), or Component (an entry written through the framework's component logger). Origin says who wrote the entry, not where the code was running: Apex a component called is Apex, and the Context filter's Aura / LWC is what tells you it ran in a component's request.
+- **Source**: the class, Flow or component that wrote it, as a plain name: `UTIL_AsyncChain`, `Order Intake`, `orderPanel`. In the list, this column shows that name, then the method and line the entry recorded, with who wrote it shown beside it (Framework, Apex, Flow, Component, or Mixed on a problem whose entries span more than one); clicking the column heading sorts by the writer's name. Entries written before this version was installed show their class and method as before, with nothing beside them saying who wrote it.
+
+The class-method field still holds the exact location, class and method. Origin and Source are ordinary fields on the log entry (`Origin__c` and `Source__c`), so your own reports and list views can group by them, and the entry's record page shows both to anyone whose permission sets grant the two fields. The Administrator permission set that ships with Kern grants them; if your org gives log access through permission sets of its own, add the two fields there as well. The Log Console shows them either way. A problem whose entries were written under more than one origin shows Mixed.
+
+If you leave `.at('Class.method')` out, the framework reads the class and method from the call stack, so the entry still names a writer and can reach the Top sources card. The writer it reads is the method that called `emit()`: if a helper of your own wraps the logger, the helper is what gets named, so pass `.at(...)` from the helper when you want the business class instead. A class and method you give always wins over the one the framework reads, and an entry you log from an exception is the one case where nothing is read: it carries the exception's own trace, so pass `.at(...)` when you want that entry to say who wrote it.
+
+Entries written before this version was installed carry neither value: they still count in the totals and the level cards, and the Top sources card leaves them out until they age out of your retention window.
+
+Where Kern is deployed from source rather than installed as the managed package, its code cannot be told apart from yours: in an org with no namespace every Apex entry, the framework's included, shows as Apex, and in an org with its own namespace every entry whose class carries that namespace shows as Framework, the framework's and yours alike; Flow and component entries keep their own origin either way. With the managed package installed in an org that has a namespace of its own, the class read from the call stack carries that namespace; the framework recognises a namespace it can see a class in and removes it, so those entries group under the class name, and a class and method you pass with the namespace in it group the same way.
+
 ### Filters, Search, and Date Range
 
 - **Log levels.** Toggle ERROR, WARN, INFO, and DEBUG independently. ERROR and WARN start on, so the console opens showing problems rather than routine tracing.
 - **Execution context.** Filter to where the code was running: Batch Apex, Queueable, Queueable finalizer, Scheduled, Future, Aura / LWC, REST API, Synchronous, or Anonymous Apex.
+- **Origin.** Narrow to the entries the framework wrote, the ones your Apex wrote, the ones a Flow wrote, or the ones a component wrote. Drilling into a writer on the Top sources card sets this for you.
 - **Date range.** One picklist covers rolling windows (Last 15 minutes up to Last 30 days), calendar ranges (Today, Yesterday, This week, Last week, This month) computed in your
   time zone, and a custom From/To date-and-time pair. The default is the last 24 hours.
-- **Search.** One box searches messages and problem text, stack traces, source class and method names, and correlation IDs, re-querying when you pause typing. Problem-text and
-  correlation matches are immediate; matches inside a long message body or stack trace go through Salesforce's search index, so an entry saved seconds ago can take a moment to
-  become findable by its body.
+- **Search.** One box searches messages and problem text, stack traces, source class and method names, and tracking IDs, re-querying when you pause typing. Paste a whole tracking
+  ID and the console recognises it: an action's ID pins the whole action, a chain run's ID pins that run, and the box clears; anything else is searched as text. What you type is
+  looked for as text: `*`, `?` and words such as `OR` are characters and words to find, not instructions to the search, and several words are found together, in the order you
+  typed them. Problem text and tracking IDs match on any part of their text and match immediately; a message body or stack trace matches on whole words through Salesforce's
+  search index, so an entry saved seconds ago can take a moment to become findable by its body.
 
-Results load a page at a time as you scroll, while the ribbon keeps describing the whole window. If a search matches more rows than the console will page through, a banner says so
-and asks you to narrow the filters. **Refresh** re-runs everything; **Clear all** returns every filter to its default.
+Results come a page at a time: a position line under the list says which rows you are looking at, Previous and Next move through them, page numbers appear while there are few
+enough to use, and you can show 25, 50 or 100 rows a page. The ribbon keeps describing the whole window whichever page is showing. If a search matches more rows than the console
+will page through, a banner says so and asks you to narrow the filters. **Refresh** re-runs everything; **Clear all** returns every filter to its default.
 
 ### The Detail Drawer
 
 Click any row and a drawer opens with the entry's full story, in four tabs:
 
 - **Overview**: the full message, plus a details grid: the log number, the source (`Class.method:line`), the execution context, the user who produced the entry (shown by name; the
-  console resolves the stored user ID for you, sidestepping the `CreatedById` trap described under [Querying Log Entries](#querying-log-entries)), the correlation ID, and the
-  transaction and parent-transaction IDs. In Problem summary the drawer also shows the occurrence count and the first-seen and last-seen times. Below that sit the
-  **governor limits at capture**: usage bars for each limit the transaction had consumed when the entry was saved, showing only the limits actually used.
-- **Stack trace**: the stored stack trace, with a copy button. For an entry logged from a Lightning component this is the client's JavaScript stack (see
-  [Server Persistence](#server-persistence)).
+  console resolves the stored user ID for you, sidestepping the `CreatedById` trap described under [Querying Log Entries](#querying-log-entries)), the action the entry belongs to
+  (with a note when the entry was written by the action itself, outside any chain, when the entry's own chain started the action, or when it predates action tracking), the
+  correlation ID, named with its chain when a chain run holds it, and the transaction and parent-transaction IDs. In Problem summary the drawer also shows the occurrence count and
+  the first-seen and last-seen times. Below that sit the **governor limits at capture**: usage bars for each limit the transaction had consumed when the entry was saved, showing
+  only the limits actually used.
+- **Stack trace**: the stored stack trace, with a copy button. For an Apex entry this is the code that led to the entry, the logging framework's own steps left
+  out; for an entry logged from a Lightning component it is the client's JavaScript stack (see [Server Persistence](#server-persistence)). When nothing was
+  recorded, the tab says so and names where the entry was logged from. Every copy button in the drawer says exactly what it copies: message, action ID, correlation ID,
+  code, stack trace, context.
 - **Context**: the entry's context data as JSON, the key-value pairs attached through global context, `.withContext(...)`, or a client-side log call.
 - **Timeline**: the correlated execution, described next.
 
 **Open record** opens the standard `LogEntry__c` record page for the entry.
+
+**Show the whole action** pins the action the entry belongs to; the next section describes what that shows. It hides while that action is already pinned.
 
 ### The Timeline Tab
 
@@ -1262,6 +1344,33 @@ your place in the console. A very long trace is capped, and the drawer points yo
 
 An entry with no correlation ID shows a single-entry timeline and says so plainly: it stands alone.
 
+### The Whole Action
+
+An action is one thing a user or a job did: a click, a scheduled run, an inbound call. Log entries carry the action's tracking ID beside their own, so the console can show
+you everything the action did, the entries the action wrote itself and the entries of every chain it launched, however many that is.
+
+Pin an action from the drawer's **Show the whole action**, from the Chain Monitor's **Show the action's logs**, or by pasting the action's ID into the search box. The console then
+switches to Individual entries, turns ERROR, WARN and INFO on (DEBUG stays as you had it), lists the entries oldest first, and sets the date range to the action's lifetime, from
+its first entry to its last, with a status line under the date range that says so. That line stays until you change the range yourself, so you are never left on a range you did not
+choose without the sentence that explains it. Removing the pill keeps the range; **Clear all** returns everything to its default.
+
+Each pin is part of the page's address. Pin an action, or narrow it to one chain, and the browser's Back button undoes that one step; a refresh keeps what you pinned; and you can
+share the address with a colleague, who opens the console on the same pins.
+
+Under the ribbon, one banner tells the action's story in a sentence: when it started, how long it ran (or how long it has been running), how many chains ran under it and how many
+failed. Every number is exact, however large the action. At most five chains follow as chips, the failed ones first. A chip says how its chain entered the action when that was not
+the action itself: launched by a named chain (a step of that chain launched it), a restart of a named run, or the run that started the action. Click a chip and the list narrows to
+that chain, shown as a removable pill named after the chain; remove it and you are back to the whole action. The rest of the chains are a number, and **Open the chains in the
+Chain Monitor** lists all of them there.
+
+The **Chain** column names the chain behind each row (its name and number), says "this action" for an entry the action wrote itself, and shows a dash when no chain holds the
+entry's tracking ID and the action did not write the entry itself. It is not sortable.
+
+An action recorded before chains were tracked by action has no root on its entries. Its own correlation ID stands in: the drawer's Action row says so, the banner says the action
+was recorded before chains were tracked by action, and when a chain adopted the action's ID that chain is the one chip.
+
+Nothing here draws a tree. Nesting shows in words on the chips, and in full in the Chain Monitor's Launched under column, which the next section describes.
+
 ### To and From the Chain Monitor
 
 When the correlated operation is a registered [async chain](Async%20Processing%20-%20Guide.md), the drawer offers **Open in Chain Monitor**, which opens that chain's live status
@@ -1270,7 +1379,12 @@ part of a registered chain get a timeline note saying so instead.
 
 The link works in the other direction too: the Chain Monitor's detail panel has a **View logs** action that opens the Log Console pre-filtered to that chain's correlation ID. A
 deep link like that lands on Individual entries with all four levels on and the widest rolling window, so an older chain's rows are still visible, and the pinned correlation shows
-as a removable pill, so you can see, and clear, exactly what is filtering the list.
+as a removable pill, so you can see, and clear, exactly what is filtering the list. That pinned run and its window are part of the address too, so a refresh keeps them and Back
+returns you to the Chain Monitor.
+
+The two consoles also link at the level of a whole action. The banner's **Open the chains in the Chain Monitor** lists the action's chains there, with a Launched under column that
+says what launched each one; the Chain Monitor's **Show the action's logs**, beside its pill and in a run's detail, brings you back here with the whole action pinned. An
+action-level link carries no date window: the console sets the range from the action's lifetime instead.
 
 For a single chain the Chain Monitor also carries its own [live activity stream](Async%20Processing%20-%20Guide.md#the-live-activity-stream): the run's entries, seeded newest-first
 and then streaming in as they happen. The console remains the place to browse, search, and diagnose across chains and everything else your code logged.
@@ -1279,8 +1393,10 @@ and then streaming in as they happen. The console remains the place to browse, s
 
 - **It never changes your data.** Browsing, filtering, and drilling are reads. There is no edit, delete, or purge in the console.
 - **It reads this framework's log table only.** It shows `LogEntry__c` rows. Salesforce debug logs and other packages' log stores do not appear here.
-- **Grouping needs something to group on.** An entry that records neither its source nor an error type has no shape the console can recognise, so it appears in Individual
-  entries but never in a problem row. Log it with `.emitAt('Class.method')`, or give the event a [fingerprint](#log-grouping--flood-control), and it joins the problems.
+- **Grouping needs something to group on.** An entry that records neither the class and method it came from nor an error type has no shape the console can recognise, so it
+  appears in Individual entries but never in a problem row. The logger stamps one or the other on everything it writes (a call with no `.at('Class.method')` is stamped with
+  the class and method that made it, read from the call stack), so such an entry is rare: a row written straight into `LogEntry__c` by something other than the logger, or a
+  bare entry written before this version was installed. Give such an event a [fingerprint](#log-grouping--flood-control) in code and it joins the problems.
   Grouping also stays inside the log levels it is configured for, and stands down on a date range too large to read in one pass; see [Problem Grouping](#problem-grouping).
 - **It is not an analytics dashboard.** For charts, trends, and scheduled reporting, build reports and dashboards on `LogEntry__c` (see
   [Querying Log Entries](#querying-log-entries)). The console is for finding and diagnosing problems now.
@@ -1346,11 +1462,12 @@ DML_Builder.newTransaction().doDelete(stale).execute();
 
 ### Sharing considerations
 
-Because `TRG_PersistLogEntry` runs `inherited sharing`, the organization-wide default sharing on
-`LogEntry__c` is judged against the Automated Process user's record access, not the access of the
-user who emitted the log. If you want each user to see their own logs without giving them the
-broad "View All" permission, add a criteria-based sharing rule keyed on `UserId__c`. That closes
-the visibility gap for exactly those records.
+Log entries are private by default, and the automated user that saves them in the background owns every one, so no person owns a log entry.
+A person therefore sees a log entry in one of two ways: they hold View All Records on `LogEntry__c` (the Kern Administrator permission set
+includes it), or a sharing rule shares the entry with them. If a team needs to see some log entries without View All Records, add a
+criteria-based sharing rule. For example, a rule with a condition on `UserId__c` shares the entries of the user you name with a public group
+or a role you choose. The [Security Guide](Security%20-%20Guide.md#who-can-see-the-frameworks-own-records) explains who can see the
+framework's other records.
 
 ---
 
@@ -1485,19 +1602,7 @@ finally
 ### Enable Performance Logging for Critical Operations
 
 Turn on performance logging in `LogSetting__c` to surface your slow operations. The framework already times queries, trigger actions, and API calls for you, with no code changes. To
-time your own code as well, wrap the work in a `LOG_Builder.scope()` block:
-
-```apex
-kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
-try
-{
-	kern.UTIL_HttpClient.post('MyGateway', '/charges').body(payload).send();
-}
-finally
-{
-	scope.close();
-}
-```
+time your own code as well, measure it and log the duration as context, as [Custom Timing in Your Own Code](#custom-timing-in-your-own-code) shows.
 
 ---
 

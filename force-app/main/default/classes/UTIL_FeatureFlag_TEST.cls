@@ -9,9 +9,9 @@
  *
  * @group Feature Flags
  *
- * @date November 2025, July 2026
+ * @date November 2025, October 2026
  */
-@IsTest(SeeAllData=false)
+@IsTest(seeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 public class UTIL_FeatureFlag_TEST
 {
@@ -355,6 +355,67 @@ public class UTIL_FeatureFlag_TEST
 	}
 
 	/**
+	 * @description A Hierarchical Custom Setting strategy reads its rows once in a transaction: the second check of the
+	 * same flag costs no query, so a flag checked once per record of a large selection does not run out of queries.
+	 *
+	 * @see UTIL_FeatureFlag.getHierarchicalSettingValue
+	 */
+	@IsTest
+	private static void hierarchicalSettingIsReadOnceInATransaction()
+	{
+		FeatureFlagStrategy__mdt strategy = SEL_FeatureFlag.activeFlags.get(SEL_FeatureFlag.TEST_FEATURE_FLAG).FeatureFlagStrategies__r.iterator().next();
+		strategy.Type__c = SEL_FeatureFlagStrategy.TYPE_HIERARCHICAL_CUSTOM_SETTING;
+
+		UTIL_SObjectDescribe objectDescribe = UTIL_SObjectDescribe.getDescribe(ApiRuntimeSwitch__c.SObjectType);
+		strategy.Target__c = objectDescribe.getDescribe().name + UTIL_String.DOT + ApiRuntimeSwitch__c.DisableAllApis__c.getDescribe().name;
+		Integer queriesOfSecondCheck;
+
+		System.runAs(new SEL_User().findByFederationId(TEST_FEDERATION_ID))
+		{
+			Test.startTest();
+			UTIL_FeatureFlag.isEnabled(SEL_FeatureFlag.TEST_FEATURE_FLAG);
+			Integer queriesBeforeSecondCheck = UTIL_Limits.soqlQueries().used();
+			UTIL_FeatureFlag.isEnabled(SEL_FeatureFlag.TEST_FEATURE_FLAG);
+			queriesOfSecondCheck = UTIL_Limits.soqlQueries().used() - queriesBeforeSecondCheck;
+			Test.stopTest();
+		}
+
+		Assert.areEqual(0, queriesOfSecondCheck, 'Expected the second check of a hierarchical setting flag in a transaction to read the database no more');
+	}
+
+	/**
+	 * @description A setting written through the framework is seen by the next check of its flag in the same transaction:
+	 * the write empties the kept rows, so the flag reads the new value rather than the one kept from before the write.
+	 *
+	 * @see UTIL_FeatureFlag.getHierarchicalSettingValue
+	 */
+	@IsTest
+	private static void hierarchicalSettingWrittenThroughTheFrameworkIsReadAgain()
+	{
+		FeatureFlagStrategy__mdt strategy = SEL_FeatureFlag.activeFlags.get(SEL_FeatureFlag.TEST_FEATURE_FLAG).FeatureFlagStrategies__r.iterator().next();
+		strategy.Type__c = SEL_FeatureFlagStrategy.TYPE_HIERARCHICAL_CUSTOM_SETTING;
+
+		UTIL_SObjectDescribe objectDescribe = UTIL_SObjectDescribe.getDescribe(ApiRuntimeSwitch__c.SObjectType);
+		strategy.Target__c = objectDescribe.getDescribe().name + UTIL_String.DOT + ApiRuntimeSwitch__c.DisableAllApis__c.getDescribe().name;
+		Boolean isEnabledBeforeTheWrite;
+		Boolean isEnabledAfterTheWrite;
+
+		System.runAs(new SEL_User().findByFederationId(TEST_FEDERATION_ID))
+		{
+			Test.startTest();
+			isEnabledBeforeTheWrite = UTIL_FeatureFlag.isEnabled(SEL_FeatureFlag.TEST_FEATURE_FLAG);
+			DML_Builder.newTransaction().systemModeInternal()
+					.doInsert(new ApiRuntimeSwitch__c(SetupOwnerId = UserInfo.getOrganizationId(), DisableAllApis__c = true))
+					.execute();
+			isEnabledAfterTheWrite = UTIL_FeatureFlag.isEnabled(SEL_FeatureFlag.TEST_FEATURE_FLAG);
+			Test.stopTest();
+		}
+
+		Assert.isFalse(isEnabledBeforeTheWrite, 'Expected the flag to be off while the setting has no row');
+		Assert.isTrue(isEnabledAfterTheWrite, 'Expected the flag to read the row the framework wrote in the same transaction');
+	}
+
+	/**
 	 * @description Verifies that an invalid Hierarchical Custom Setting path
 	 * results in the flag being disabled due to graceful error handling.
 	 *
@@ -583,6 +644,36 @@ public class UTIL_FeatureFlag_TEST
 		strategy.ExpectedValue__c = 'true';
 
 		assertFlagValueWithUser(true);
+	}
+
+	/**
+	 * @description A Custom Metadata strategy reads its record once in a transaction: the second check of the same
+	 * flag costs no query, so a flag checked once per record of a large selection does not run out of queries.
+	 *
+	 * @see UTIL_FeatureFlag.getCustomMetadataOrSettingValue
+	 */
+	@IsTest
+	private static void customMetadataRecordIsReadOnceInATransaction()
+	{
+		TriggerAction__mdt foundAction = SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation(SEL_Foobar.OBJECT_NAME, TriggerOperation.BEFORE_INSERT).iterator().next();
+		FeatureFlagStrategy__mdt strategy = SEL_FeatureFlag.activeFlags.get(SEL_FeatureFlag.TEST_FEATURE_FLAG).FeatureFlagStrategies__r.iterator().next();
+		strategy.Type__c = SEL_FeatureFlagStrategy.TYPE_CUSTOM_METADATA;
+		strategy.Target__c = SEL_TriggerAction.OBJECT_NAME_TRIGGER_ACTION +
+				UTIL_String.DOT + foundAction.DeveloperName + UTIL_String.DOT + TriggerAction__mdt.AllowNonSelfInitiated__c.getDescribe().name;
+		strategy.ExpectedValue__c = 'true';
+		Integer queriesOfSecondCheck;
+
+		System.runAs(new SEL_User().findByFederationId(TEST_FEDERATION_ID))
+		{
+			Test.startTest();
+			UTIL_FeatureFlag.isEnabled(SEL_FeatureFlag.TEST_FEATURE_FLAG);
+			Integer queriesBeforeSecondCheck = UTIL_Limits.soqlQueries().used();
+			UTIL_FeatureFlag.isEnabled(SEL_FeatureFlag.TEST_FEATURE_FLAG);
+			queriesOfSecondCheck = UTIL_Limits.soqlQueries().used() - queriesBeforeSecondCheck;
+			Test.stopTest();
+		}
+
+		Assert.areEqual(0, queriesOfSecondCheck, 'Expected the second check of a custom metadata flag in a transaction to read the database no more');
 	}
 
 	/**

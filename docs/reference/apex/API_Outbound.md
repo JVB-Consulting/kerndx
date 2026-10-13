@@ -5,7 +5,7 @@ pageClass: reference
 description: "Base class for all outbound web service calls. Extends API_Base to provide functionality for making HTTP callouts, handling responses, managing retries, and token replacements."
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, July 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -51,7 +51,7 @@ public with sharing class API_SendEmail extends API_Outbound
 |--------|-------------|
 | global override virtual void [configure](#configure)() | Initializes global variables; override in descendant classes if needed. |
 | global virtual [HttpRequest](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httprequest.htm) [createRequest](#createrequest)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) requestBody) | Constructs the HttpRequest object used to make the outbound API call. |
-| global virtual [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [createRetryStrategy](#createretrystrategy)() | Creates the retry strategy for failed service calls. |
+| global virtual [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [createRetryStrategy](#createretrystrategy)() | Creates the retry strategy for a failed call. |
 | global virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getAuthorisationToken](#getauthorisationtoken)() | Returns the authorization token required for outbound API requests. |
 | global virtual override [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getBody](#getbody)() | Generates the request body using the type of the requestPayload. |
 | global override virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getEncoding](#getencoding)() | Retrieves the HTTP encoding. |
@@ -61,6 +61,8 @@ public with sharing class API_SendEmail extends API_Outbound
 | global virtual [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getRequiredInputs](#getrequiredinputs)() | Indicates required service inputs. |
 | global virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getResponseBody](#getresponsebody)() | Retrieves the current response body; override to manipulate response body first. |
 | global virtual void [getResponseReplacementTokens](#getresponsereplacementtokens)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> searchTokens, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> replaceTokens) | Specifies token replacements for the response body before deserialization. |
+| global virtual [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm)> [getRetryableExceptionTypes](#getretryableexceptiontypes)() | The exception types from your own code that the framework may retry. |
+| global virtual [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)> [getRetryableStatusCodes](#getretryablestatuscodes)() | The HTTP status codes the framework may retry when the external system responds with one of them. |
 | global virtual [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getTimeout](#gettimeout)() | Retrieves the HTTP Service Timeout. |
 | global virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getWebServiceEndPoint](#getwebserviceendpoint)() | Constructs and returns the full URL endpoint for the web service, resolving Named Credentials and appending the API path. |
 | global virtual [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasArrayResponse](#hasarrayresponse)() | Checks if the JSON response is in the form of an array without a key. |
@@ -102,6 +104,11 @@ global virtual HttpRequest createRequest(String requestBody)
 ```
 
 Constructs the `HttpRequest` object used to make the outbound API call. It sets the headers, request body, and endpoint URL.
+The request this method returns is the one sent, and whether a failed call is safe to send again is judged from its
+method and headers: a GET, PUT or DELETE, or a request that carries an Idempotency-Key header, is safe to repeat,
+and a POST or PATCH that drops the header (for example a new request your override builds without copying it) is
+treated as not safe to repeat, even when Idempotency Enabled is on or the call has a key. A key your override sets on
+the request itself counts as sent, and the key recorded on the call and its issue is the one the request carried.
 
 **Parameters**
 
@@ -132,8 +139,20 @@ global override HttpRequest createRequest(String requestBody)
 global virtual UTIL_Retry.Strategy createRetryStrategy()
 ```
 
-Creates the retry strategy for failed service calls.
-Override this method in subclasses to provide custom retry strategies.
+Creates the retry strategy for a failed call. Override it to give a handler its own backoff, or to
+refuse a retry the framework would otherwise allow.
+It runs once for each failed call, after the response has arrived (or after the failure, when there was no
+response). It runs on the same handler instance that ran prepareRequest(), parseResponse() and onSuccess(), so
+you may read response, result.statusCode and result.responseBody, and result.errors holds the failure text.
+The context the strategy receives carries the retry count. When the failure was an exception (a parse failure, a
+throw from your own code, or a callout that got no response), the context carries that exception too. A failure
+by status carries no exception, so an allowlist does not stop it and a denylist cannot match it: use
+getRetryableStatusCodes() for statuses.
+To refuse the retry, return a strategy whose shouldRetry returns false (UTIL_Retry.linear().withMaxRetries(0)),
+or throw UTIL_Exceptions.PermanentFailureException. Any other throw ends the call Failed with a warning in the
+log.
+The framework decides first, from where the failure happened. The strategy is asked only about a failure the
+framework may retry.
 
 **Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — Configured instance
 
@@ -382,6 +401,75 @@ global override void getResponseReplacementTokens(List<String> searchTokens, Lis
 
 </div>
 
+### getRetryableExceptionTypes
+
+<div class="apex-member">
+
+```apex
+global virtual Set<Type> getRetryableExceptionTypes()
+```
+
+The exception types from your own code that the framework may retry. By default none: code that ran in
+your org and threw fails the same way on every attempt, so the call ends Failed at once with one issue. List a
+type here when a failure of that type can pass on its own, for example a row lock in a selector. A type is matched
+by its exact name; list each concrete type you throw, because a parent type such as Exception matches nothing.
+After a successful response the framework retries a listed type only when the request is safe to repeat: GET, PUT,
+DELETE, or an Idempotency-Key was sent. A callout that got no response retries on a safe-to-repeat request without
+being listed here; listing System.CalloutException retries it on a POST without an Idempotency-Key too, at your own risk.
+
+**Returns** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) — The exception types a retry may follow; empty by default.
+
+**Example**
+
+```apex
+global override Set<Type> getRetryableExceptionTypes()
+{
+    return new Set<Type> {System.QueryException.class};
+}
+```
+
+</div>
+
+### getRetryableStatusCodes
+
+<div class="apex-member">
+
+```apex
+global virtual Set<Integer> getRetryableStatusCodes()
+```
+
+The HTTP status codes the framework may retry when the external system responds with one of them.
+The default is 408, 425, 429, 500, 502, 503 and 504. Any other status ends the call Failed at once.
+A 408, 425, 429 or 503 means the external system did not process the request, so it is retried for every request.
+A 500, 502 or 504 can come after the external system processed the request, so it is retried only when the
+request is safe to repeat: a GET, PUT or DELETE, or a request that sent an Idempotency-Key. A POST or PATCH
+without a key that gets one of those three ends Failed at once, and its issue says the external system may have
+acted.
+Override this method to add a code your external system uses to mean "try later", or to remove one. An empty set,
+or null, retries no status. A code you add that is not in the default list is your own choice, so it is retried
+for every request, whatever its method. Adding it does not change how 500, 502 and 504 are treated.
+This method does for a handler what UTIL_HttpClient's retryOn(...) does for a call built with UTIL_HttpClient,
+with one difference: a 500, 502 or 504 you name in retryOn is retried whatever the method, while one returned
+here is not.
+A callout the platform refused before it left your org (for example because unsaved work was pending) has no
+status, so this method does not decide it. Nothing was sent, so it is tried again while retries remain, whatever
+the HTTP method.
+
+**Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — The status codes a retry may follow.
+
+**Example**
+
+```apex
+global override Set<Integer> getRetryableStatusCodes()
+{
+    Set<Integer> codes = super.getRetryableStatusCodes();
+    codes.add(409);
+    return codes;
+}
+```
+
+</div>
+
 ### getTimeout
 
 <div class="apex-member">
@@ -574,7 +662,8 @@ global String defaultMockBody
 
 Default mock response body for unit tests and mock mode.
 Set this in configure() to declare the handler's default mock response.
-When set, API_MockFactory.CalloutMock uses this as fallback when no factory mock is registered.
+When set, the callout mock registered for the service through API_MockFactory.forService uses
+this as fallback when no factory mock is registered.
 
 ### request
 

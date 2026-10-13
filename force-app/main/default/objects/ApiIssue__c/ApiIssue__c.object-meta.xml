@@ -166,6 +166,7 @@
     </nameField>
     <pluralLabel>API Issues</pluralLabel>
     <searchLayouts>
+        <massQuickActions>RetrySelected</massQuickActions>
         <searchResultsAdditionalFields>ServiceName__c</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>Status__c</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>ApiCall__c</searchResultsAdditionalFields>
@@ -173,6 +174,6 @@
         <searchResultsAdditionalFields>UPDATEDBY_USER</searchResultsAdditionalFields>
         <searchResultsAdditionalFields>LAST_UPDATE</searchResultsAdditionalFields>
     </searchLayouts>
-    <sharingModel>ReadWrite</sharingModel>
+    <sharingModel>Private</sharingModel>
     <visibility>Public</visibility>
 </CustomObject>

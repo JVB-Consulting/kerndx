@@ -2,7 +2,7 @@
 /**
  * @description Fluent HTTP client facade over the API_Dispatcher pipeline. Provides zero-boilerplate callouts
  * with automatic retry, circuit breaker, failure logging, performance timing, sensitive data masking,
- * and ApiCall__c lifecycle management — all routed through API_Dispatcher.execute().
+ * and ApiCall__c lifecycle management, all routed through API_Dispatcher.execute().
  *
  * Supports two usage modes:
  * - Ad-hoc mode: Direct HTTP calls via get()/post()/put()/del()/patch() entry points
@@ -14,7 +14,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -26,7 +26,7 @@
  *    .send();
  * ```
  */
-@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 global inherited sharing class UTIL_HttpClient
 {
 	/**
@@ -171,15 +171,31 @@ global inherited sharing class UTIL_HttpClient
 	private static final String KEY_RESPONSE_TOKENS = KEY_PREFIX + 'responseTokens';
 
 	/**
-	 * @description Default HTTP status codes eligible for retry.
+	 * @description Status codes by which the external system asks the caller to wait: 425 (too early) and 429 (too many
+	 * requests). When the caller gave no retryOn(...) codes, the synchronous loop in DefaultOutboundHandler.sendRequest
+	 * does not re-send these at once and leaves them to the scheduled retry, which waits the backoff. A caller who names
+	 * one of them in retryOn(...) chose the immediate re-send, so the loop re-sends it like any other named code.
 	 */
-	private static final Set<Integer> DEFAULT_RETRYABLE_CODES = new Set<Integer> {500, 502, 503, 504};
+	private static final Set<Integer> WAIT_BEFORE_RETRY_CODES = new Set<Integer> {API_Base.HTTP_TOO_EARLY, API_Base.HTTP_TOO_MANY_REQUESTS};
 
 	/**
 	 * @description Maximum number of synchronous retry attempts to prevent governor limit exhaustion.
 	 */
 	@TestVisible
 	private static final Integer MAX_SYNCHRONOUS_RETRIES = 3;
+
+	/**
+	 * @description Status code carried by the response the builder supplies when a request produced
+	 * none of its own. No HTTP exchange can report it, so a caller reading it knows no response came
+	 * back, whether the request was refused before it left the org or went out and produced none.
+	 */
+	private static final Integer SYNTHETIC_STATUS_CODE = 0;
+
+	/**
+	 * @description Longest status line the supplied response carries. The recorded error is trimmed to
+	 * it so a long message stays a single readable status line.
+	 */
+	private static final Integer SYNTHETIC_STATUS_MAXIMUM_LENGTH = 255;
 
 	/**
 	 * @description Defines the action to take when an HTTP call fails.
@@ -418,7 +434,7 @@ global inherited sharing class UTIL_HttpClient
 
 		/**
 		 * @description Processes the API call. Delegates to subscriber handler or runs normal outbound flow.
-		 * For delegation mode, calls setApiCall directly then delegates.
+		 * For delegation mode, calls setApiCall directly, puts the caller's idempotency key on the call, then delegates.
 		 * For normal mode, super.process() handles the full lifecycle (setApiCall is called by API_Base.process).
 		 *
 		 * @param apiCallRecord The API call to process
@@ -428,6 +444,7 @@ global inherited sharing class UTIL_HttpClient
 			if(hasSubscriberHandler(apiCallRecord))
 			{
 				setApiCall(apiCallRecord);
+				applyCallersIdempotencyKey();
 				processSubscriberHandler(apiCallRecord);
 			}
 			else
@@ -437,14 +454,39 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Framework validation hook. Builds and applies in-memory settings before
-		 * the standard validation runs, ensuring settings are available for circuit breaker checks etc.
+		 * @description Framework validation hook. Builds and applies in-memory settings before the standard validation
+		 * runs, ensuring settings are available for circuit breaker checks etc. Also aborts, before any callout leaves
+		 * the org, a dispatch of a stored call whose credential header carries the redaction marker instead of a value:
+		 * that call cannot authenticate however often it is re-dispatched, so a scheduled retry made before the park
+		 * existed, or a retry started from the issue list, stops here with the labelled reason naming the header rather
+		 * than spending a callout to be rejected. Credential merge-field text is stored verbatim and never carries the
+		 * marker, so a merge-field header dispatches untouched.
 		 *
 		 * @return True if the request should be aborted
 		 */
 		protected override Boolean performValidation()
 		{
 			buildAndApplySettings();
+
+			String headersJson = inputs.get(KEY_HTTP_HEADERS);
+			if(String.isNotBlank(headersJson) && headersJson.contains(API_Base.REDACTED_HEADER_VALUE))
+			{
+				Map<String, String> storedHeaders = (Map<String, String>)JSON.deserialize(headersJson, Map<String, String>.class);
+				List<String> redactedNames = new List<String>();
+				for(String name : storedHeaders.keySet())
+				{
+					if(API_Base.REDACTED_HEADER_VALUE.equals(storedHeaders.get(name)))
+					{
+						redactedNames.add(name);
+					}
+				}
+				if(!redactedNames.isEmpty())
+				{
+					result.errors.add(String.format(System.Label.RetryApiIssue_CredentialHeaderNotStored, new List<Object> {String.join(redactedNames, ', ')}));
+					return true;
+				}
+			}
+
 			return super.performValidation();
 		}
 
@@ -472,6 +514,47 @@ global inherited sharing class UTIL_HttpClient
 		{
 			String method = inputs.get(KEY_HTTP_METHOD);
 			return method != null ? API_Base.fromHttpString(method) : HttpMethod.POST;
+		}
+
+		/**
+		 * @description The caller's retryOn(...) codes when given, else the shared default, so the attempts made in this
+		 * transaction and the attempt the framework schedules later agree on which responses are worth a retry.
+		 *
+		 * @return The status codes a retry may follow.
+		 */
+		public override Set<Integer> getRetryableStatusCodes()
+		{
+			String retryableCodesJson = inputs.get(KEY_RETRYABLE_CODES);
+			return retryableCodesJson != null ? (Set<Integer>)JSON.deserialize(retryableCodesJson, Set<Integer>.class) : super.getRetryableStatusCodes();
+		}
+
+		/**
+		 * @description Every code the caller named in retryOn(...) is the caller's own choice, so the scheduled retry may
+		 * send the request again after it whatever the method, as the synchronous loop does. The retryable set is then
+		 * exactly the caller's codes (getRetryableStatusCodes), so a status outside them never reaches this question.
+		 * Without retryOn(...) the framework's default rule applies.
+		 *
+		 * @param statusCode The status the external system responded with.
+		 *
+		 * @return True when the caller named codes through retryOn(...), or when the default rule counts the status as chosen.
+		 */
+		protected override Boolean isStatusTheHandlersOwnChoice(Integer statusCode)
+		{
+			return inputs.get(KEY_RETRYABLE_CODES) != null || super.isStatusTheHandlersOwnChoice(statusCode);
+		}
+
+		/**
+		 * @description The issue record for this call, or none when the call is delegated to a subscriber handler. In
+		 * delegation mode this handler reads the subscriber handler's setting, because its service name is the subscriber
+		 * handler's name, but the subscriber handler records the call's issue itself (from its own commit, or from
+		 * processSubscriberHandler when its handling threw) and only it knows where the call failed. Recording one here
+		 * too would give the call a second issue that never says whether the external system may have acted.
+		 *
+		 * @return The issue record, or null in delegation mode or when failure logging is off.
+		 */
+		public override ApiIssue__c createFailureRecord()
+		{
+			return subscriberHandler == null ? super.createFailureRecord() : null;
 		}
 
 		/**
@@ -586,14 +669,61 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Sends the request with synchronous retry logic.
+		 * @description Redacts the credential headers the caller set through header() / headers() in the stored copy of
+		 * the request parameters, before the base class writes them to the call record, and parks (holds back from any retry) a failed call whose
+		 * credential was redacted: its scheduled retry could never authenticate (the stored value is the marker, and
+		 * credential merge-field text is deliberately kept instead, for the platform to substitute), so instead of
+		 * burning the retry schedule on a deterministic dead end, no self-retry is scheduled and the error text says
+		 * why in the labelled words, leaving the issue for a human to resolve by moving the credential to a Named or
+		 * External Credential and running the call again. Runs after every send attempt of this transaction has used
+		 * the live HttpRequest (and again if the dispatcher handles an exception; the redaction and the park are both
+		 * idempotent: the second pass finds nothing left to redact), so the callout itself is unaffected. The two JSON
+		 * passes run once per call on the persistence path and are negligible against the callout they follow; do not
+		 * cache or restructure them. Parking a call (see above) turns off this handler's own retry scheduling. The
+		 * retry decision still runs. It still works out whether the handler refuses to send the request again (see
+		 * API_Outbound.isRepeatRefusedByTheHandler). No caller reads that answer here. But for a POST or PATCH sent
+		 * with no idempotency key that got no response or a 500, 502 or 504, the answer is yes. So the call's errors
+		 * start with the line saying the request was not sent again, ahead of the credential line. Both lines are true;
+		 * neither changes what happens to the call.
+		 */
+		public override void setApiCallDetails()
+		{
+			String headersJson = inputs.get(KEY_HTTP_HEADERS);
+			if(String.isNotBlank(headersJson))
+			{
+				Map<String, String> callerHeaders = (Map<String, String>)JSON.deserialize(headersJson, Map<String, String>.class);
+				Map<String, String> redactedHeaders = API_Base.redactCredentialHeaders(callerHeaders);
+				List<String> redactedNames = new List<String>();
+				for(String name : callerHeaders.keySet())
+				{
+					if(API_Base.REDACTED_HEADER_VALUE.equals(redactedHeaders.get(name)) && !API_Base.REDACTED_HEADER_VALUE.equals(callerHeaders.get(name)))
+					{
+						redactedNames.add(name);
+					}
+				}
+				inputs.add(KEY_HTTP_HEADERS, JSON.serialize(redactedHeaders));
+				if(!redactedNames.isEmpty() && result.hasFailed)
+				{
+					suppressSelfRetryScheduling();
+					result.errors.add(String.format(System.Label.RetryApiIssue_CredentialHeaderNotStored, new List<Object> {String.join(redactedNames, ', ')}));
+				}
+			}
+			super.setApiCallDetails();
+		}
+
+		/**
+		 * @description Sends the request with synchronous retry logic. Codes the caller named in retryOn(...) are re-sent
+		 * at once, whichever they are and whatever the method. Without retryOn(...) the shared default applies, and two
+		 * kinds of its codes are not re-sent at once: the two that mean wait (425, 429), which are left to the scheduled
+		 * retry, and a 500, 502 or 504 to a request that is not safe to repeat (see isUnsafeToRepeatAfterStatus), which
+		 * stops the loop so the scheduled retry decision ends the call Failed. A throw from the send escapes the loop, so a
+		 * callout that got no response is never re-sent in the transaction and is decided by the scheduled retry.
 		 *
 		 * @param requestObj The HTTP request to send
 		 */
 		public override void sendRequest(HttpRequest requestObj)
 		{
 			String maxRetriesValue = inputs.get(KEY_MAX_RETRIES);
-			String retryableCodesJson = inputs.get(KEY_RETRYABLE_CODES);
 			String skipRetryValue = inputs.get(KEY_SKIP_RETRY);
 
 			Integer maxAttempts = Math.min
@@ -601,9 +731,8 @@ global inherited sharing class UTIL_HttpClient
 							1 + (maxRetriesValue != null ? Integer.valueOf(maxRetriesValue) : 0),
 							1 + MAX_SYNCHRONOUS_RETRIES
 					);
-			Set<Integer> codes = retryableCodesJson != null
-					? (Set<Integer>)JSON.deserialize(retryableCodesJson, Set<Integer>.class)
-					: DEFAULT_RETRYABLE_CODES;
+			Set<Integer> codes = getRetryableStatusCodes();
+			Boolean hasCallerNamedCodes = inputs.get(KEY_RETRYABLE_CODES) != null;
 			Boolean isSkipRetry = 'true'.equalsIgnoreCase(skipRetryValue);
 
 			for(Integer attempt = 0; attempt < maxAttempts; attempt++)
@@ -626,7 +755,8 @@ global inherited sharing class UTIL_HttpClient
 				}
 
 				Integer statusCode = response.getStatusCode();
-				Boolean isRetryable = codes.contains(statusCode);
+				Boolean isResentAtOnceByDefault = !WAIT_BEFORE_RETRY_CODES.contains(statusCode) && !isUnsafeToRepeatAfterStatus(statusCode);
+				Boolean isRetryable = codes.contains(statusCode) && (hasCallerNamedCodes || isResentAtOnceByDefault);
 
 				if(attempt < (maxAttempts - 1) && isRetryable)
 				{
@@ -721,7 +851,8 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Builds and applies in-memory ApiSetting__mdt from inputs.
+		 * @description Builds and applies in-memory ApiSetting__mdt from inputs, with the caller's idempotency key and the
+		 * circuit breaker name the caller chose, if any.
 		 */
 		private void buildAndApplySettings()
 		{
@@ -731,7 +862,6 @@ global inherited sharing class UTIL_HttpClient
 			String maxRetriesValue = inputs.get(KEY_MAX_RETRIES);
 			String pathValue = inputs.get(KEY_PATH);
 			String settingName = inputs.get(KEY_API_HANDLER_NAME) ?? getServiceName();
-			String explicitIdempotencyKey = inputs.get(KEY_IDEMPOTENCY_KEY);
 
 			ApiSetting__mdt setting = (ApiSetting__mdt)TST_Builder.of(ApiSetting__mdt.SObjectType)
 					.withOverride(ApiSetting__mdt.IsActive__c, true)
@@ -746,15 +876,33 @@ global inherited sharing class UTIL_HttpClient
 					.build();
 
 			applySettings(setting);
+			applyCallersIdempotencyKey();
+			circuitBreakerNameOverride = inputs.get(KEY_CIRCUIT_NAME);
+		}
 
-			if(String.isNotBlank(explicitIdempotencyKey))
+		/**
+		 * @description Puts the idempotency key the caller gave withIdempotencyKey on the call, in ad-hoc and delegation
+		 * mode alike, so the request sends it as the Idempotency-Key header whatever the service setting says. When the
+		 * caller gave no key, the call keeps any key it already carries.
+		 */
+		private void applyCallersIdempotencyKey()
+		{
+			String callersIdempotencyKey = inputs.get(KEY_IDEMPOTENCY_KEY);
+			if(String.isNotBlank(callersIdempotencyKey))
 			{
-				apiCall.IdempotencyKey__c = explicitIdempotencyKey;
+				apiCall.IdempotencyKey__c = callersIdempotencyKey;
 			}
 		}
 
 		/**
-		 * @description Delegates processing to a subscriber handler.
+		 * @description Delegates processing to a subscriber handler. When the subscriber handler's processing or commit
+		 * throws, the exception is kept on the handler for its retry decision, as the dispatcher keeps it, its own error
+		 * handling runs and it records the call's issue, as its commit records the issue of a call that failed without a
+		 * throw; the dispatcher never sees that throw, so it records none. The call it hands the handler already carries
+		 * the idempotency key the caller gave (see applyCallersIdempotencyKey), so the handler sends that key. The catch has
+		 * no guard of its own around the handler's error handling: if that handling throws too, the throw leaves this method
+		 * and reaches the dispatcher's error path for this handler, which keeps the exception for the retry decision and
+		 * runs its own guard, so the call still ends with a status.
 		 *
 		 * @param apiCallRecord The API call to process
 		 */
@@ -801,6 +949,7 @@ global inherited sharing class UTIL_HttpClient
 
 			applySubscriberSettings(handlerName, callerOverrides);
 
+			LOG_Engine.pushOperationContext(LOG_Engine.OperationType.API_CALL, subscriberHandler.buildCallContext());
 			try
 			{
 				subscriberHandler.process(apiCallRecord);
@@ -808,8 +957,16 @@ global inherited sharing class UTIL_HttpClient
 			}
 			catch(Exception error)
 			{
+				subscriberHandler.lastFailure = error;
 				subscriberHandler.handleError(error);
+				subscriberHandler.assignApiCallWhenMissing(apiCallRecord);
 				subscriberHandler.setApiCallDetails();
+				subscriberHandler.logApiIssues();
+			}
+			finally
+			{
+				LOG_Engine.popOperationContext();
+				subscriberHandler.clearLoggingContext();
 			}
 
 			if(!inputs.exists(KEY_SKIP_PERSISTENCE))
@@ -827,6 +984,10 @@ global inherited sharing class UTIL_HttpClient
 		 * @description Applies in-memory settings and caller overrides to the subscriber handler.
 		 * When the handler has its own ApiSetting__mdt, caller overrides are merged onto it.
 		 * When no CMDT exists, a minimal in-memory setting is created and overrides applied.
+		 * A circuit breaker name the caller chose replaces the handler's own breaker for this call.
+		 * Inside a unit test, a handler that declares a defaultMockBody and gets no credential from the caller is put
+		 * into mock mode, so it answers a registered mock or, failing one, that body. Outside a unit test, in production
+		 * and inside an Apex integration test alike, the handler always makes its real call.
 		 *
 		 * @param handlerName The subscriber handler class name
 		 * @param callerOverrides Caller-provided configuration values to merge onto the setting
@@ -853,9 +1014,10 @@ global inherited sharing class UTIL_HttpClient
 			{
 				subscriberHandler.namedCredentialOverride = credentialOverride;
 			}
+			subscriberHandler.circuitBreakerNameOverride = inputs.get(KEY_CIRCUIT_NAME);
 
 			Boolean hasCredential = String.isNotBlank(subscriberHandler.namedCredentialOverride);
-			if(!hasCredential && subscriberHandler.defaultMockBody != null)
+			if(Test.isRunningTest() && !UTIL_System.isRunningIntegrationTest() && !hasCredential && subscriberHandler.defaultMockBody != null)
 			{
 				API_MockFactory.enableMocking(handlerName);
 			}
@@ -1058,6 +1220,13 @@ global inherited sharing class UTIL_HttpClient
 		 * @description Whether the request has been executed.
 		 */
 		private Boolean executed = false;
+
+		/**
+		 * @description Whether cachedResponse holds the response the builder supplied because execution
+		 * produced none. That response carries no body, and the platform reads an unset body back as an
+		 * empty string rather than as null, so asString() consults this flag to keep answering null.
+		 */
+		private Boolean responseSynthesized = false;
 
 		/**
 		 * @description The handler instance after execution.
@@ -1334,7 +1503,14 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Enables synchronous retry with the specified maximum attempts.
+		 * @description Enables synchronous retry with the specified maximum attempts. After a 408 or 503 the request is
+		 * sent again straight away, in the same transaction. After a 500, 502 or 504 it is sent again straight away only
+		 * when it is safe to repeat: a GET, PUT or DELETE, or a request you gave an idempotency key with
+		 * withIdempotencyKey. A POST or PATCH without a key is not sent again after those three, because the external
+		 * system may have processed it; the call ends Failed with a line that says so. A 425 or 429 means "slow down", so
+		 * it is not sent again straight away. To choose the codes yourself, use retryOn: a status you name there is sent
+		 * again whatever the method, a POST or PATCH without a key included, so name a 500, 502 or 504 only when sending
+		 * the request twice is safe.
 		 *
 		 * @param maxRetries The maximum number of retry attempts
 		 *
@@ -1356,7 +1532,14 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Enables synchronous retry with a linear backoff.
+		 * @description Enables synchronous retry with a linear backoff. The wait time lets the framework schedule a later
+		 * retry when the attempts made straight away do not succeed. After a 408 or 503 the request is sent again straight
+		 * away, in the same transaction. After a 500, 502 or 504 it is sent again, straight away or later, only when it is
+		 * safe to repeat: a GET, PUT or DELETE, or a request you gave an idempotency key with withIdempotencyKey. A POST or
+		 * PATCH without a key is not sent again after those three, because the external system may have processed it; the
+		 * call ends Failed with a line that says so. A 425 or 429 means "slow down", so it waits for the later retry. To
+		 * choose the codes yourself, use retryOn: a status you name there is sent again whatever the method, a POST or
+		 * PATCH without a key included, so name a 500, 502 or 504 only when sending the request twice is safe.
 		 *
 		 * @param maxRetries The maximum number of retry attempts
 		 * @param backoffSeconds The backoff period in seconds
@@ -1405,9 +1588,20 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Restricts retry to specific HTTP status codes.
+		 * @description Chooses which HTTP status codes are worth another attempt. When the external system responds with one
+		 * of the codes you list, the request is sent again straight away, in the same transaction, whatever its HTTP
+		 * method: naming a code here is your choice to repeat the request. The same list decides whether a later retry is
+		 * scheduled, which happens only when you also gave a wait time in `withRetry`, and a code you name is retried
+		 * later too, whatever the method. A response with any other code is not retried, so an empty set retries nothing.
+		 * Passing null is the same as not calling this method.
+		 * Naming 500, 502 or 504 for a POST or PATCH without an idempotency key is at your own risk: the external system
+		 * may have processed the request, and the call's issue, when one is logged, says so. If you do not call this
+		 * method, the request is sent again straight away after a 408 or 503, and after a 500, 502 or 504 when it is safe
+		 * to repeat; a POST or PATCH without an idempotency key is not sent again after a 500, 502 or 504, because the
+		 * external system may have processed it. 425 and 429 mean "slow down", so the request waits for the scheduled
+		 * retry instead.
 		 *
-		 * @param statusCodes The status codes eligible for retry
+		 * @param statusCodes The HTTP status codes that should be tried again
 		 *
 		 * @return This builder for method chaining
 		 *
@@ -1450,7 +1644,10 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Enables circuit breaker protection using the credential name as identifier.
+		 * @description Enables circuit breaker protection under the service's own breaker: the credential's breaker for a
+		 * call built from a credential, the handler's breaker for a call made through useHandler(...). Every call to the
+		 * same service shares that breaker, so once it opens after repeated failures, later calls are refused without
+		 * being sent until it cools off. Calling it after withCircuitBreaker(String) drops the name given there.
 		 *
 		 * @return This builder for method chaining
 		 *
@@ -1466,14 +1663,18 @@ global inherited sharing class UTIL_HttpClient
 		global RequestBuilder withCircuitBreaker()
 		{
 			useCircuitBreaker = true;
-			circuitName = credentialName;
+			circuitName = null;
 			return this;
 		}
 
 		/**
-		 * @description Enables circuit breaker protection with a custom identifier.
+		 * @description Enables circuit breaker protection under a breaker you name. Calls that give the same name share
+		 * one breaker whatever credential or handler they use, and calls that give different names keep separate breakers
+		 * even on the same credential, so one failing endpoint does not stop calls to another. The name also applies to a
+		 * call made through useHandler(...), and the retries the framework schedules for a call built from a credential keep
+		 * it. When the breaker is open, the call is refused without being sent and its error line names the breaker.
 		 *
-		 * @param circuitName The circuit breaker identifier
+		 * @param circuitName The name of the circuit breaker this call uses
 		 *
 		 * @return This builder for method chaining
 		 *
@@ -1514,7 +1715,10 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Sets a correlation ID for cross-transaction log tracing.
+		 * @description Keeps a correlation id with the call. The call record stores your transaction's logger
+		 * context, including this id, so when the stored call runs again later (a scheduled retry) that run's log
+		 * entries carry your transaction as their parent and keep your global context. The entries of an outbound
+		 * call always correlate by the call's own trace id.
 		 *
 		 * @param correlationId The correlation identifier
 		 *
@@ -1537,7 +1741,9 @@ global inherited sharing class UTIL_HttpClient
 
 		/**
 		 * @description Sets an explicit idempotency key for duplicate detection.
-		 * When set, this key takes priority over auto-generated keys.
+		 * When set, this key takes priority over auto-generated keys. It is sent as the Idempotency-Key header and recorded
+		 * on the call, on send() and on a useHandler(...).invoke() alike, whether or not the service setting has Idempotency
+		 * Enabled, and a POST or PATCH that carries it counts as safe to send again.
 		 *
 		 * @param idempotencyKey The idempotency key value
 		 *
@@ -1748,7 +1954,17 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Executes the HTTP request and returns the raw HttpResponse.
+		 * @description Executes the HTTP request and returns the raw HttpResponse. A response always
+		 * comes back, so a caller never has to guard the return. When the request produced no response
+		 * of its own, because processing failed, the configuration refused the call or the circuit was
+		 * open, the response you get has status code 0, which no HTTP exchange can report, and a status
+		 * line holding the first error recorded for the call. Its body is unset. Repeat calls hand back
+		 * the same response object as the first call.
+		 * Every failure the framework handles for a call leaves this method answering with its response rather than throwing: a
+		 * call refused before it leaves the org, a transport failure, an exception in the handler, a call record that
+		 * cannot be saved, a stored logger context that cannot be read, and a masking rule that blocks the failure
+		 * attachments. A try/catch around this call has nothing to catch on those paths. A governor limit is the
+		 * platform's own exception, outside this contract, and no Apex code can catch it.
 		 *
 		 * @return The HttpResponse from the callout
 		 *
@@ -1765,11 +1981,42 @@ global inherited sharing class UTIL_HttpClient
 			{
 				doExecute();
 			}
+			if(cachedResponse == null)
+			{
+				cachedResponse = buildSyntheticFailureResponse();
+				responseSynthesized = true;
+			}
 			return cachedResponse;
 		}
 
 		/**
-		 * @description Executes the request and returns the response body as a String.
+		 * @description Builds the response send() supplies when execution produced none of its own. The
+		 * status code is SYNTHETIC_STATUS_CODE, which no HTTP exchange can report; the status line is the
+		 * first error recorded against the handler that ran, trimmed to SYNTHETIC_STATUS_MAXIMUM_LENGTH
+		 * so the stack trace recorded after it never reaches the caller. When no handler ran, or the one
+		 * that ran recorded no error, or the error it recorded carries no readable message, the status
+		 * line is the OutboundCall_NoRecordedError label instead.
+		 * The body is never set. Every value read here is guarded, so this method cannot itself throw and
+		 * the caller of send() is answered whatever went wrong.
+		 *
+		 * @return The response standing in for the one execution never produced.
+		 */
+		private HttpResponse buildSyntheticFailureResponse()
+		{
+			List<String> errors = invoke()?.result?.errors;
+			String firstError = errors == null || errors.isEmpty() ? null : errors[0];
+			String statusLine = String.isBlank(firstError) ? System.Label.OutboundCall_NoRecordedError : UTIL_String.abbreviate(firstError, SYNTHETIC_STATUS_MAXIMUM_LENGTH);
+
+			HttpResponse syntheticResponse = new HttpResponse();
+			syntheticResponse.setStatusCode(SYNTHETIC_STATUS_CODE);
+			syntheticResponse.setStatus(statusLine);
+			return syntheticResponse;
+		}
+
+		/**
+		 * @description Executes the request and returns the response body as a String. Answers null when
+		 * the request produced no response of its own, so an outcome with nothing to read stays
+		 * distinguishable from a response whose body really is empty.
 		 *
 		 * @return The response body string
 		 *
@@ -1782,7 +2029,8 @@ global inherited sharing class UTIL_HttpClient
 		 */
 		global String asString()
 		{
-			return send()?.getBody();
+			HttpResponse response = send();
+			return responseSynthesized ? null : response?.getBody();
 		}
 
 		/**
@@ -1826,9 +2074,9 @@ global inherited sharing class UTIL_HttpClient
 		/**
 		 * @description Suppresses the delegate handler's own NextRetry__c self-scheduling for this
 		 * invocation: the flag is threaded through the request parameters and applied to the fresh
-		 * handler instance at instantiation, before the callout runs. Framework-internal seam for
-		 * callers that own the retry lifecycle themselves (the async chain's per-step retry) — one
-		 * retry authority, never two. Delegation mode (useHandler) only.
+		 * handler instance when it is created, before the callout runs. Framework-internal: it is for callers that
+		 * manage the retries themselves (the async chain's per-step retry), so that only one piece of code schedules
+		 * the retries of a call. Delegation mode (useHandler) only.
 		 *
 		 * @return This builder for method chaining.
 		 *
@@ -1871,12 +2119,12 @@ global inherited sharing class UTIL_HttpClient
 		{
 			executed = true;
 
-			ApiCall__c apiCall = buildApiCall();
-
 			if(String.isNotBlank(correlationId))
 			{
 				LOG_Builder.setCorrelationId(correlationId);
 			}
+
+			ApiCall__c apiCall = buildApiCall();
 
 			String mockServiceName = credentialName ?? apiCall.ServiceName__c;
 			Boolean mockRegistered = false;
@@ -1922,7 +2170,7 @@ global inherited sharing class UTIL_HttpClient
 		 *
 		 * @return An uncommitted API call record
 		 */
-		@SuppressWarnings('PMD.NcssMethodCount')
+		@SuppressWarnings('PMD.NcssMethodCount,PMD.NcssCount')
 		private ApiCall__c buildApiCall()
 		{
 			DTO_NameValues parameters = new DTO_NameValues();
@@ -2035,7 +2283,9 @@ global inherited sharing class UTIL_HttpClient
 
 			if(String.isNotBlank(correlationId))
 			{
-				apiCall.LoggerContext__c = correlationId;
+				// doExecute has already applied the correlation id to the live logger context, so the record stores the
+				// same context document every framework-built call record carries, and a later run can read it back.
+				apiCall.LoggerContext__c = LOG_Builder.serializeContext();
 			}
 
 			return apiCall;
