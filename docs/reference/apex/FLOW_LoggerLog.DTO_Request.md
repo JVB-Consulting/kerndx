@@ -29,6 +29,7 @@ Input parameters for logging a Flow event.
 |-------|-------------|
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [additionalContext](#additionalcontext) | Additional context to include with the log entry |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [correlationId](#correlationid) | Correlation ID from Start Flow Correlation |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [flowName](#flowname) | The name of the Flow this event belongs to. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [flowStep](#flowstep) | Current step/screen name for context |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [logLevel](#loglevel) | The log level: Debug, Info, Warning, or Error (stored as DEBUG, INFO, WARN, or ERROR). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [message](#message) | Log message |
@@ -64,6 +65,23 @@ Correlation ID from Start Flow Correlation
 
 ```apex
 String value = instance.correlationId;
+```
+
+### flowName
+
+```apex
+@InvocableVariable(description='The name of the Flow this event belongs to. Filled in, the entry is filed under the Flow and the step stays in the location text; left blank, the entry is filed under the step, as before.' label='Flow Name') global String flowName
+```
+
+**Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
+
+The name of the Flow this event belongs to. Filled in, the entry names the Flow as its source and
+keeps the step in its location text; left blank, the entry names the step, as before.
+
+**Example**
+
+```apex
+String value = instance.flowName;
 ```
 
 ### flowStep

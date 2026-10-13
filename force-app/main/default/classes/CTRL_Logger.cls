@@ -9,7 +9,7 @@
  *
  * @group Logging
  *
- * @date December 2025, August 2026
+ * @date December 2025, September 2026
  *
  * @example
  * ```javascript
@@ -51,7 +51,9 @@ public inherited sharing class CTRL_Logger
 	 * entry's client context is persisted into `ContextData__c`, a client JavaScript error
 	 * stack, when present, becomes the entry's stack trace, the exception class the client
 	 * reported becomes the entry's exception type, and the component and action named in that
-	 * context become the entry's class/method label.
+	 * context become the entry's class/method label. The operation context this opens for the batch is
+	 * closed again whether the batch is written or an entry in it cannot be read, so a failure here never
+	 * leaves a later log entry in the same request stamped with it.
 	 *
 	 * @param entriesJson JSON-serialized List of DTO_ClientLogEntry objects to persist.
 	 */
@@ -74,38 +76,43 @@ public inherited sharing class CTRL_Logger
 			// Push LWC context
 			LOG_Engine.pushOperationContext(LOG_Engine.OperationType.LWC, new Map<String, String> {LOG_Engine.CONTEXT_SOURCE => LOG_Engine.OperationType.LWC.name()});
 
-			for(DTO_ClientLogEntry dtoClientLogEntry : dtoClientLogEntries)
+			try
 			{
-				Map<String, Object> contextMap = String.isNotBlank(dtoClientLogEntry.context)
-						? (Map<String, Object>)JSON.deserializeUntyped(dtoClientLogEntry.context)
-						: null;
-				Map<String, String> sourceNames = resolveSourceNames(contextMap);
-				LOG_Builder.LogEntry entry = LOG_Builder.build().at(buildClassMethod(sourceNames));
-
-				attachClientContext(entry, contextMap, sourceNames.keySet());
-
-				switch on dtoClientLogEntry.level
+				for(DTO_ClientLogEntry dtoClientLogEntry : dtoClientLogEntries)
 				{
-					when ERROR
+					Map<String, Object> contextMap = String.isNotBlank(dtoClientLogEntry.context)
+							? (Map<String, Object>)JSON.deserializeUntyped(dtoClientLogEntry.context)
+							: null;
+					Map<String, String> sourceNames = resolveSourceNames(contextMap);
+					LOG_Builder.LogEntry entry = LOG_Builder.build().at(buildClassMethod(sourceNames));
+
+					attachClientContext(entry, contextMap, sourceNames.keySet());
+
+					switch on dtoClientLogEntry.level
 					{
-						entry.error(dtoClientLogEntry.message).emit();
-					}
-					when WARN
-					{
-						entry.warn(dtoClientLogEntry.message).emit();
-					}
-					when DEBUG
-					{
-						entry.debug(dtoClientLogEntry.message).emit();
-					}
-					when else
-					{
-						entry.info(dtoClientLogEntry.message).emit();
+						when ERROR
+						{
+							entry.error(dtoClientLogEntry.message).emit();
+						}
+						when WARN
+						{
+							entry.warn(dtoClientLogEntry.message).emit();
+						}
+						when DEBUG
+						{
+							entry.debug(dtoClientLogEntry.message).emit();
+						}
+						when else
+						{
+							entry.info(dtoClientLogEntry.message).emit();
+						}
 					}
 				}
 			}
-
-			LOG_Engine.popOperationContext();
+			finally
+			{
+				LOG_Engine.popOperationContext();
+			}
 		}
 	}
 
@@ -158,7 +165,7 @@ public inherited sharing class CTRL_Logger
 			}
 		}
 
-		return LOG_Engine.OperationType.LWC.name() + '/' + (sourceSegments.isEmpty() ? UNKNOWN_SOURCE : String.join(sourceSegments, '.'));
+		return LOG_Engine.COMPONENT_SOURCE_PREFIX + (sourceSegments.isEmpty() ? UNKNOWN_SOURCE : String.join(sourceSegments, '.'));
 	}
 
 	/**

@@ -8,9 +8,9 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class PROC_LoginFrequencyAggregator_TEST
 {
 	/**
@@ -65,18 +65,22 @@ private class PROC_LoginFrequencyAggregator_TEST
 	}
 
 	/**
-	 * @description Tests that execute() logs errors and re-throws when processing fails.
+	 * @description Tests that execute() logs errors and re-throws when processing fails, and that the error line is
+	 * labelled with the class name the platform resolves, so an install under a namespace stamps it as the framework's.
 	 */
 	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 	@IsTest
 	private static void shouldLogErrorWhenProcessingFails()
 	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
 		List<LoginHistory> loginHistories = (List<LoginHistory>)JSON.deserialize
 				(
 						'[{"UserId":"' + RUNNING_USER_ID + '"}]',
 						List<LoginHistory>.class
 				);
 
+		Test.startTest();
 		try
 		{
 			new PROC_LoginFrequencyAggregator(Datetime.now()).execute(loginHistories);
@@ -86,6 +90,11 @@ private class PROC_LoginFrequencyAggregator_TEST
 		{
 			Assert.isInstanceOfType(error, NullPointerException.class, 'Incorrect Exception Type');
 		}
+		Test.stopTest();
+
+		String expectedClassMethod = PROC_LoginFrequencyAggregator.class.getName() + UTIL_String.DOT + 'execute';
+		LogEntry__c errorRow = new SEL_LogEntry().findByMethod(expectedClassMethod);
+		Assert.isNotNull(errorRow, 'The failure was written under the class name the platform resolves, not a bare literal');
 	}
 
 	/**
@@ -380,6 +389,13 @@ private class PROC_LoginFrequencyAggregator_TEST
 		Assert.areEqual(2, results[0].UniqueLoginCount__c, 'Logins spanning UTC midnight should be two unique days');
 	}
 
+	/**
+	 * @description Reads every login frequency record with its month, year, both login counts and composite key, so a test
+	 * can check what the aggregator saved. It skips the object and field permission checks, so the read does not fail
+	 * when the running user lacks permission on the object or its fields.
+	 *
+	 * @return All login frequency records, each with the five fields named above.
+	 */
 	private static List<LoginFrequency__c> queryLoginFrequenciesWithMonthAndYear()
 	{
 		return QRY_Builder.selectFrom(LoginFrequency__c.SObjectType)
@@ -395,6 +411,14 @@ private class PROC_LoginFrequencyAggregator_TEST
 				.toList();
 	}
 
+	/**
+	 * @description Builds one login for the aggregator to count, in the shape the aggregator takes as input.
+	 *
+	 * @param userId The user who logged in.
+	 * @param isoTimestamp When the login happened, as ISO 8601 text such as 2022-05-05T23:59:59.000+0000.
+	 *
+	 * @return The login, with its user and login time set.
+	 */
 	private static PROC_LoginFrequencyAggregator.DTO_LoginHistory createDto(Id userId, String isoTimestamp)
 	{
 		PROC_LoginFrequencyAggregator.DTO_LoginHistory dto = new PROC_LoginFrequencyAggregator.DTO_LoginHistory();
@@ -403,6 +427,14 @@ private class PROC_LoginFrequencyAggregator_TEST
 		return dto;
 	}
 
+	/**
+	 * @description Indexes login frequency records by their composite key, so a test can pick out the record for one
+	 * user and month and check its counts.
+	 *
+	 * @param records The login frequency records to index. Each must have its composite key loaded.
+	 *
+	 * @return The records keyed by composite key.
+	 */
 	private static Map<String, LoginFrequency__c> toMapByCompositeKey(List<LoginFrequency__c> records)
 	{
 		Map<String, LoginFrequency__c> resultMap = new Map<String, LoginFrequency__c>();
@@ -415,6 +447,14 @@ private class PROC_LoginFrequencyAggregator_TEST
 		return resultMap;
 	}
 
+	/**
+	 * @description Works out the composite key each login belongs under: the user ID, an underscore, then the year and
+	 * month of the login in GMT (for example 2022-05). Logins by the same user in the same month give one key.
+	 *
+	 * @param loginHistories The logins to work out keys for.
+	 *
+	 * @return The distinct composite keys the logins fall under.
+	 */
 	private static Set<String> getConcatenatedStrings(List<PROC_LoginFrequencyAggregator.DTO_LoginHistory> loginHistories)
 	{
 		Set<String> concatenatedStrings = new Set<String>();

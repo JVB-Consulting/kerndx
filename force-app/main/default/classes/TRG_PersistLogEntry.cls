@@ -5,17 +5,17 @@
  * `public static` service so a second caller can write the same rows: `LOG_Engine` calls it directly
  * when a log is emitted while executing inside a platform-event (`__e`) or change-event
  * (`*ChangeEvent`) trigger, where publishing a `LogEntryEvent__e` would make the platform redeliver
- * the source event and loop — there the engine suppresses the publish and persists in-context
+ * the source event and loop. There the engine suppresses the publish and persists in-context
  * through this class instead. Both entry points produce identical rows.
  *
  * Events without a fingerprint persist unchanged (the original path); events carrying a
- * `Fingerprint__c` collapse into flood control — one forensic detail row per fingerprint
+ * `Fingerprint__c` collapse into flood control: one forensic detail row per fingerprint
  * (presence-based, re-armed automatically after purges because the unique detail key no longer
  * exists) plus one rollup counter row per fingerprint per UTC day. Any aggregation failure falls
  * back to plain per-row inserts with a null fingerprint so no event is ever lost.
  *
- * Grouping keys are normalized where the stored keys are composed — `groupEvents` runs each one
- * through `LOG_Builder.normalizeStoredFingerprintKey` rather than trusting it — because this class
+ * Grouping keys are normalized where the stored keys are composed (`groupEvents` runs each one
+ * through `LOG_Builder.normalizeStoredFingerprintKey` rather than trusting it), because this class
  * persists any delivered `LogEntryEvent__e`, including one published straight to the platform event,
  * which never passes through `LOG_Builder` and can therefore carry edge whitespace or a key too long
  * for the stored `detail:`/`rollup:` form.
@@ -23,9 +23,12 @@
  * Flood control writes its own rows through row-level `Database` DML rather than `DML_Builder`,
  * because partial success is the whole point here: the detail key is a unique index, so a second
  * writer that raced the presence check has its row rejected, and an all-or-nothing transaction
- * would take the rest of the chunk — including the plain rows of unrelated events — down with it.
+ * would take the rest of the chunk, including the plain rows of unrelated events, down with it.
  * Rejected rows are recovered instead (folded into the row already stored, or kept as plain rows)
  * and one WARN breadcrumb records that it happened.
+ * The plain rows are saved through `DML_Builder`, which empties the transaction's query cache like any other commit.
+ * The flood-control rows written with raw `Database` DML deliberately do not empty it: a log can be persisted in the
+ * middle of a transaction, so clearing there would empty every cache on each flush, and Kern caches no LogEntry__c read.
  * Originally adapted from [ApexLogger](https://github.com/mlockett/ApexLogger).
  *
  * @see TRG_PersistLogEntry_TEST
@@ -39,14 +42,14 @@
  *
  * @group Triggers
  *
- * @date January 2026, August 2026
+ * @date January 2026, October 2026
  */
 public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements IF_Trigger.AfterInsert
 {
 	/**
 	 * @description Key prefix marking the single forensic detail row kept per fingerprint (the full
-	 * sample). This persist handler owns the persisted key shape — it stamps the prefix onto
-	 * `Fingerprint__c` here — so the prefix is defined here as the single source of truth and the Log
+	 * sample). This persist handler owns the persisted key shape (it stamps the prefix onto
+	 * `Fingerprint__c` here), so the prefix is defined here as the single source of truth and the Log
 	 * Console read layer references it to strip the key back to the base fingerprint.
 	 */
 	public static final String PREFIX_DETAIL = 'detail:';
@@ -61,7 +64,7 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	/**
 	 * @description Character length of a rollup key's trailing day suffix (':' + the UTC day bucket).
 	 * Derived from the same UTIL_String.COLON and UTIL_Date.toUtcDayBucket sources buildRollupKey
-	 * composes with — any fixed instant yields the fixed-width `yyyyMMdd` bucket — so the decode width
+	 * composes with (any fixed instant yields the fixed-width `yyyyMMdd` bucket), so the decode width
 	 * can never drift from the written key shape.
 	 *
 	 * @date July 2026
@@ -127,8 +130,8 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	}
 
 	/**
-	 * @description Strips the 'detail:' prefix from a detail key to recover the base fingerprint — the
-	 * decode twin of buildDetailKey, kept beside it so the key format is parsed only where it is written.
+	 * @description Strips the 'detail:' prefix from a detail key to recover the base fingerprint. It is the
+	 * reverse of buildDetailKey, kept beside it so the key format is parsed only where it is written.
 	 *
 	 * @param detailKey The full 'detail:<base>' key.
 	 *
@@ -148,7 +151,7 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 
 	/**
 	 * @description Strips the 'rollup:' prefix and the trailing ':yyyyMMdd' day suffix from a rollup key
-	 * to recover the base fingerprint shared with its detail sample — the decode twin of buildRollupKey.
+	 * to recover the base fingerprint shared with its detail sample. It is the reverse of buildRollupKey.
 	 * The suffix width derives from the same sources the compose side uses, so a bucket-format change can
 	 * never leave the decode silently truncating the base.
 	 *
@@ -169,7 +172,7 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	}
 
 	/**
-	 * @description Will ensure that the events raised are logged to the LogEntry__c object —
+	 * @description Will ensure that the events raised are logged to the LogEntry__c object:
 	 * plain events persist unchanged, fingerprinted events collapse into detail + rollup rows.
 	 *
 	 * @param newRecords The platform events being inserted.
@@ -188,8 +191,8 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	/**
 	 * @description Persists a chunk of log events: plain events insert as today; fingerprinted
 	 * events collapse into presence-based detail rows and per-day rollup counters via the
-	 * insert/update split routed off one indexed selector query. If that aggregation throws — the
-	 * presence-check query failing under load is the realistic way — the fingerprinted events
+	 * insert/update split routed off one indexed selector query. If that aggregation throws (in practice, when the
+	 * presence-check query fails under load), the fingerprinted events
 	 * persist as plain null-fingerprint rows instead, so no log event is lost to the flood-control
 	 * path.
 	 *
@@ -203,8 +206,8 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	 * The two layers commit separately: plain rows keep their original all-or-nothing
 	 * `DML_Builder` transaction, while the flood-control rows commit row by row so a rejection on
 	 * the unique fingerprint index costs only the row the database refused (see
-	 * `persistFloodControlRows`). No `EventBus.RetryableException` is thrown at any point — retry
-	 * exhaustion would suspend the subscription and stop persisting logs org-wide.
+	 * `persistFloodControlRows`). No `EventBus.RetryableException` is thrown at any point, because running
+	 * out of retries would suspend the subscription and stop persisting logs org-wide.
 	 *
 	 * `public static` because two callers share it: the `afterInsert` trigger callback (normal
 	 * delivered-event path) and `LOG_Engine` (in-context path, when publishing would loop).
@@ -259,13 +262,13 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	/**
 	 * @description Commits the flood-control layer row by row, so one refused row costs only itself.
 	 * Raw `Database` DML is deliberate here: `DML_Builder` is all-or-nothing by design, and
-	 * all-or-nothing is exactly wrong for this layer — `Fingerprint__c` is a unique index, so a
+	 * all-or-nothing is exactly wrong for this layer. `Fingerprint__c` is a unique index, so a
 	 * writer that raced another on a first-seen key has its row refused, and an all-or-nothing
 	 * commit would discard the whole chunk (including rows for entirely unrelated fingerprints) to
 	 * no purpose. Both statements therefore run with `allOrNone` false, in the same `SYSTEM_MODE`
 	 * the plain path uses.
 	 *
-	 * Refused inserts are recovered — the row is not lost. Refused updates are not: an update means
+	 * Refused inserts are recovered, so the row is not lost. Refused updates are not: an update means
 	 * the row is already stored (that is why it is an update), so only a counter increment is
 	 * missed, and re-persisting the row would double-count the window. The breadcrumb records both.
 	 *
@@ -327,13 +330,13 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	 * @description Recovers the flood-control rows the database refused, then records the fallback.
 	 * Each refused row is re-read under its own key. A row already stored under that key wins: the
 	 * refused row's occurrences fold into it, which is what a genuine two-writer race on a first-seen
-	 * key needs — the winner committed between this transaction's presence check and its insert, and
-	 * its counter would otherwise be short by the loser's window. With nothing stored under the key,
+	 * key needs. The other writer committed between this transaction's presence check and its insert, and
+	 * its counter would otherwise be short by the refused row's occurrences. With nothing stored under the key,
 	 * the refusal was not a collision this transaction can reconcile, so the row persists plain,
 	 * without a fingerprint, where it can neither collide again nor be lost.
 	 *
 	 * The fold adds the refused row's occurrences to the stored row's, and leaves the counter unset
-	 * when neither row counts any — a refused detail row carries no count and folds into a detail
+	 * when neither row counts any: a refused detail row carries no count and folds into a detail
 	 * row that carries none either. That keeps the two row shapes meaning what they mean: a stored
 	 * row with a count is a rollup counter, one without is a forensic sample, and the Log Console
 	 * reads them apart on exactly that.
@@ -371,9 +374,7 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 			}
 			else
 			{
-				// kern-coverage-exempt: cross-transaction only — a stored row under a refused row's key needs a winner that committed after this transaction's presence check ran
 				stored.OccurrenceCount__c = stored.OccurrenceCount__c == null && refusedCount == null ? null : (stored.OccurrenceCount__c ?? 0) + (refusedCount ?? 0);
-				// kern-coverage-exempt: same cross-transaction race as the fold above; the winner's row is findable only once its own transaction has committed
 				foldedRowsById.put(stored.Id, stored);
 			}
 		}
@@ -382,7 +383,6 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 
 		if(!foldedRowsById.isEmpty())
 		{
-			// kern-coverage-exempt: writes the folded counters, so it runs only when the cross-transaction race above found a stored row
 			Database.update(foldedRowsById.values(), false, AccessLevel.SYSTEM_MODE);
 		}
 		Database.insert(plainRows, false, AccessLevel.SYSTEM_MODE);
@@ -396,7 +396,7 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	 * The row is composed and written here, as an ordinary `LogEntry__c`, rather than emitted
 	 * through `LOG_Builder`. That is the point: an emitted breadcrumb would publish a
 	 * `LogEntryEvent__e`, the platform would deliver it straight back into this trigger, and inside
-	 * an event-trigger context `LOG_Engine` calls `persist` directly — either way the breadcrumb
+	 * an event-trigger context `LOG_Engine` calls `persist` directly. Either way the breadcrumb
 	 * would re-enter the very path it is reporting on. Writing the row keeps the fallback flat. Its
 	 * `Fingerprint__c` is left null for the same reason: a breadcrumb can never collide, so it can
 	 * never be refused, so it can never provoke a breadcrumb of its own.
@@ -457,18 +457,18 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	 * `rollup:` key.
 	 *
 	 * Both keys are composed from the event's grouping key put into storable shape
-	 * (`LOG_Builder.normalizeStoredFingerprintKey`) rather than from the key as it arrived — trimmed,
+	 * (`LOG_Builder.normalizeStoredFingerprintKey`) rather than from the key as it arrived: trimmed,
 	 * and hashed when it is longer than the prefixed form can hold. Normalizing here, at the one
 	 * place the keys are composed, is what lets the presence check find what the insert stored: the
 	 * shape is fixed before any key exists, and the delivered event itself is never written to,
 	 * because a platform event's record is read-only once the platform has delivered it.
 	 *
-	 * Window assignment uses `CreatedDate` — the event PUBLISH time, not the trigger
-	 * persist time — so the publish-to-persist delivery lag never mis-buckets (spec §4.3). This
+	 * Window assignment uses `CreatedDate`, the event PUBLISH time, not the trigger
+	 * persist time, so the delay between publish and persist never puts an event in the wrong day. This
 	 * equals the original occurrence time only for immediately-published events; under log buffering
 	 * (`suspendSaving`/`LogScope`) or the async DML-budget fallback, publish can lag the occurrence,
 	 * so an occurrence near a UTC-midnight boundary may land in the adjacent day's rollup. Per-
-	 * fingerprint TOTALS are unaffected — the reporting recipe SUMs OccurrenceCount__c across all
+	 * fingerprint TOTALS are unaffected, because the reporting recipe SUMs OccurrenceCount__c across all
 	 * `rollup:` rows; only single-day attribution can shift by the buffer window.
 	 *
 	 * @param events The fingerprinted events of this chunk.
@@ -517,7 +517,7 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 
 	/**
 	 * @description Adds a detail row insert for each fingerprint whose detail row is not already
-	 * present — presence-based, so a purged detail row re-arms on the next occurrence.
+	 * present. The check is by presence, so after a detail row is purged, the next occurrence saves a new one.
 	 *
 	 * @param detailSampleByKey First event seen per `detail:` key.
 	 * @param existingByKey Existing rows keyed by Fingerprint__c.
@@ -582,12 +582,15 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 		logEntry.ClassMethod__c = UTIL_String.abbreviate(event.ClassMethod__c, LogEntry__c.ClassMethod__c);
 		logEntry.ContextData__c = UTIL_String.abbreviate(event.ContextData__c, LogEntry__c.ContextData__c);
 		logEntry.CorrelationId__c = UTIL_String.abbreviate(event.CorrelationId__c, LogEntry__c.CorrelationId__c);
+		logEntry.RootCorrelationId__c = UTIL_String.abbreviate(event.RootCorrelationId__c, LogEntry__c.RootCorrelationId__c);
 		logEntry.DurationMs__c = event.DurationMs__c;
 		logEntry.ExceptionType__c = UTIL_String.abbreviate(event.ExceptionType__c, LogEntry__c.ExceptionType__c);
 		logEntry.ExecutionEvent__c = event.ExecutionEvent__c;
 		logEntry.Limits__c = UTIL_String.abbreviate(event.Limits__c, LogEntry__c.Limits__c);
 		logEntry.LineNumber__c = event.LineNumber__c;
 		logEntry.LogLevel__c = event.LogLevel__c;
+		logEntry.Origin__c = event.Origin__c;
+		logEntry.Source__c = UTIL_String.abbreviate(event.Source__c, LogEntry__c.Source__c);
 		logEntry.Message__c = UTIL_String.abbreviate(event.Message__c, LogEntry__c.Message__c);
 		logEntry.ParentTransactionId__c = UTIL_String.abbreviate(event.ParentTransactionId__c, LogEntry__c.ParentTransactionId__c);
 		logEntry.RecordId__c = UTIL_String.abbreviate(event.RecordId__c, LogEntry__c.RecordId__c);
@@ -606,7 +609,7 @@ public inherited sharing class TRG_PersistLogEntry extends TRG_Base implements I
 	private class RollupWindow
 	{
 		/**
-		 * @description First event observed for this window — the rollup row's payload sample.
+		 * @description First event observed for this window: the rollup row's payload sample.
 		 */
 		private final LogEntryEvent__e sample;
 

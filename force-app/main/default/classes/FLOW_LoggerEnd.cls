@@ -9,7 +9,7 @@
  *
  * @group Logging
  *
- * @date December 2025, May 2026
+ * @date December 2025, September 2026
  *
  * @since 1.0
  *
@@ -37,7 +37,7 @@ global inherited sharing class FLOW_LoggerEnd
 	 * FLOW_LoggerEnd.execute(new List<DTO_Request>());
 	 * ```
 	 */
-	@InvocableMethod(Label='End Flow Correlation' Description='Ends logging correlation for a Flow and logs completion status.' Category='Logging')
+	@InvocableMethod(label='End Flow Correlation' description='Ends logging correlation for a Flow and logs completion status.' category='Logging')
 	global static void execute(List<DTO_Request> inputs)
 	{
 		for(DTO_Request input : inputs)
@@ -51,14 +51,14 @@ global inherited sharing class FLOW_LoggerEnd
 			{
 					LOG_Engine.CONTEXT_FLOW_NAME => input.flowName,
 					LOG_Engine.CONTEXT_FLOW_STATUS => input.success == true ? 'SUCCESS' : 'FAILED',
-					LOG_Engine.CONTEXT_SOURCE => 'Flow'
+					LOG_Engine.CONTEXT_SOURCE => LOG_Engine.FLOW_SOURCE_MARKER
 			};
 
 			LOG_Engine.pushOperationContext(LOG_Engine.OperationType.FLOW, context);
 
 			try
 			{
-				String classMethod = 'Flow/' + input.flowName;
+				String classMethod = LOG_Engine.FLOW_SOURCE_PREFIX + input.flowName;
 
 				if(input.success == true)
 				{
@@ -98,7 +98,7 @@ global inherited sharing class FLOW_LoggerEnd
 		 * String value = instance.correlationId;
 		 * ```
 		 */
-		@InvocableVariable(Label='Correlation ID' Description='Correlation ID from Start Flow Correlation' Required=true)
+		@InvocableVariable(label='Correlation ID' description='Correlation ID from Start Flow Correlation' required=true)
 		global String correlationId;
 
 		/**
@@ -111,7 +111,7 @@ global inherited sharing class FLOW_LoggerEnd
 		 * String value = instance.flowName;
 		 * ```
 		 */
-		@InvocableVariable(Label='Flow Name' Description='Name of the Flow for logging' Required=true)
+		@InvocableVariable(label='Flow Name' description='Name of the Flow for logging' required=true)
 		global String flowName;
 
 		/**
@@ -124,7 +124,7 @@ global inherited sharing class FLOW_LoggerEnd
 		 * Boolean value = instance.success;
 		 * ```
 		 */
-		@InvocableVariable(Label='Success' Description='Whether the Flow completed successfully')
+		@InvocableVariable(label='Success' description='Whether the Flow completed successfully')
 		global Boolean success;
 
 		/**
@@ -137,7 +137,7 @@ global inherited sharing class FLOW_LoggerEnd
 		 * String value = instance.errorMessage;
 		 * ```
 		 */
-		@InvocableVariable(Label='Error Message' Description='Error message if Flow failed')
+		@InvocableVariable(label='Error Message' description='Error message if Flow failed')
 		global String errorMessage;
 	}
 }

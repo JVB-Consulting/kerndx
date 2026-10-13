@@ -8,10 +8,10 @@
  *
  * @group Utilities
  *
- * @date February 2026, June 2026
+ * @date February 2026, September 2026
  */
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.CognitiveComplexity,PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class UTIL_System_TEST
 {
 	/**
@@ -41,6 +41,20 @@ private class UTIL_System_TEST
 	private static final String STACK_FALLBACK = 'fallback.value';
 
 	/**
+	 * @description The package namespace the frame tests pass, and build their namespaced and
+	 * obfuscated frames from. A single quoted literal so a subscriber's namespace swap rewrites the
+	 * frames and the namespace argument together; a bare `(kern)` literal is not rewritten and would
+	 * leave the frame under one namespace and the argument under another.
+	 */
+	private static final String PACKAGE_NAMESPACE = 'kern';
+
+	/**
+	 * @description Subscriber-org obfuscated frame for the package namespace, as the platform
+	 * collapses every run of managed frames.
+	 */
+	private static final String OBFUSCATED_PACKAGE_FRAME = '(' + PACKAGE_NAMESPACE + ')';
+
+	/**
 	 * @description Tests retrieving the namespace from a class name.
 	 *
 	 * @see UTIL_System.getClassNamespace
@@ -55,6 +69,26 @@ private class UTIL_System_TEST
 		Test.stopTest();
 
 		Assert.areEqual('acmelib', namespace, 'Namespace incorrect');
+	}
+
+	/**
+	 * @description Tests that a first word is only taken as a namespace when Apex can see a class of the second name in
+	 * it, that an outer class holding an inner class is not a namespace, and that each pair is looked up once.
+	 *
+	 * @see UTIL_System.isClassInNamespace
+	 */
+	@IsTest
+	private static void isClassInNamespaceAnswersFromTheClassRegistryAndRemembers()
+	{
+		Assert.isTrue(UTIL_System.isClassInNamespace('System', 'Url'), 'A class Apex can see in a namespace is a match');
+		Assert.isFalse(UTIL_System.isClassInNamespace('System', NONEXISTENT_FLOW), 'A name that is no class in the namespace is no match');
+		Assert.isFalse(UTIL_System.isClassInNamespace(NONEXISTENT_NAMESPACE, 'UTIL_System'), 'A word that is no namespace is no match');
+		Assert.isFalse(UTIL_System.isClassInNamespace('API_PostExample', 'DTO_Request'), 'An outer class holding an inner class is not a namespace');
+		Assert.isFalse(UTIL_System.isClassInNamespace(UTIL_String.EMPTY, 'Url'), 'A blank namespace is no match');
+		Assert.isFalse(UTIL_System.isClassInNamespace('System', null), 'A blank class name is no match');
+		UTIL_System.isClassInNamespace('System', 'Url');
+
+		Assert.areEqual(4, UTIL_System.namespaceAnswersByLocation.size(), 'Each location is looked up once and remembered; blank inputs are never looked up');
 	}
 
 	/**
@@ -538,13 +572,13 @@ private class UTIL_System_TEST
 	{
 		Assert.isNull(UTIL_System.externalFrame('Class.UTIL_BypassAudit.emit: line 258, column 1', '', new Set<String> {'UTIL_BypassAudit'}),
 				'A named framework frame should be skipped in an unmanaged org');
-		Assert.isNull(UTIL_System.externalFrame('Class.kern.UTIL_ValidationRule.bypassObject: line 531, column 1', 'kern', new Set<String>()),
+		Assert.isNull(UTIL_System.externalFrame('Class.' + PACKAGE_NAMESPACE + '.UTIL_ValidationRule.bypassObject: line 531, column 1', PACKAGE_NAMESPACE, new Set<String>()),
 				'A package-namespaced framework frame should be skipped in a managed install');
-		Assert.isNull(UTIL_System.externalFrame('Class.kern.UTIL_BypassAudit.AuditQueue.flush: line 383, column 1', 'kern', new Set<String>()),
+		Assert.isNull(UTIL_System.externalFrame('Class.' + PACKAGE_NAMESPACE + '.UTIL_BypassAudit.AuditQueue.flush: line 383, column 1', PACKAGE_NAMESPACE, new Set<String>()),
 				'A package-namespaced inner-class framework frame (4 segments) should be skipped in a managed install');
-		Assert.isNull(UTIL_System.externalFrame('(kern)', 'kern', new Set<String>()),
+		Assert.isNull(UTIL_System.externalFrame(OBFUSCATED_PACKAGE_FRAME, PACKAGE_NAMESPACE, new Set<String>()),
 				'A subscriber-org obfuscated package frame should be skipped in a managed install');
-		Assert.isNull(UTIL_System.externalFrame('(kern): line 297, column 1', 'kern', new Set<String>()),
+		Assert.isNull(UTIL_System.externalFrame(OBFUSCATED_PACKAGE_FRAME + ': line 297, column 1', PACKAGE_NAMESPACE, new Set<String>()),
 				'An obfuscated package frame with a location suffix should be skipped');
 		Assert.isNull(UTIL_System.externalFrame('', '', new Set<String>()),
 				'A blank frame should be skipped rather than returned as a junk caller');
@@ -562,12 +596,12 @@ private class UTIL_System_TEST
 	{
 		List<String> stackLines = new List<String>
 		{
-				'(kern)',
+				OBFUSCATED_PACKAGE_FRAME,
 				'Class.AccountService.recalculate: line 42, column 3'
 		};
 
 		Assert.areEqual('AccountService.recalculate',
-				UTIL_System.findExternalFrame(stackLines, 'kern', new Set<String>(), STACK_FALLBACK),
+				UTIL_System.findExternalFrame(stackLines, PACKAGE_NAMESPACE, new Set<String>(), STACK_FALLBACK),
 				'Frames below an obfuscated package run should resolve as the external caller');
 	}
 
@@ -587,10 +621,28 @@ private class UTIL_System_TEST
 				'A trigger frame should yield the trigger name without the Trigger. qualifier');
 		Assert.areEqual('AnonymousBlock', UTIL_System.externalFrame('AnonymousBlock', '', new Set<String>()),
 				'A frame without a location suffix should pass through unchanged');
-		Assert.areEqual('acme.AcmeService.run', UTIL_System.externalFrame('Class.acme.AcmeService.run: line 7, column 1', 'kern', new Set<String>()),
+		Assert.areEqual('acme.AcmeService.run', UTIL_System.externalFrame('Class.acme.AcmeService.run: line 7, column 1', PACKAGE_NAMESPACE, new Set<String>()),
 				'A subscriber-namespaced frame should be returned intact when it is not the package namespace');
-		Assert.areEqual('(acme)', UTIL_System.externalFrame('(acme)', 'kern', new Set<String>()),
+		Assert.areEqual('(acme)', UTIL_System.externalFrame('(acme)', PACKAGE_NAMESPACE, new Set<String>()),
 				'Another package\'s obfuscated frame is an external caller, not framework');
+	}
+
+	/**
+	 * @description Tests that the integration-test predicate reads false in a unit test, whose quiddity is one of
+	 * the RUNTEST values and never RUN_INTEGRATION_TESTS.
+	 *
+	 * @see UTIL_System.isRunningIntegrationTest
+	 */
+	@IsTest
+	private static void isRunningIntegrationTestReadsFalseInAUnitTest()
+	{
+		Test.startTest();
+
+		Boolean isIntegrationTest = UTIL_System.isRunningIntegrationTest();
+
+		Test.stopTest();
+
+		Assert.isFalse(isIntegrationTest, 'A unit test must never read as an integration test');
 	}
 
 	/**

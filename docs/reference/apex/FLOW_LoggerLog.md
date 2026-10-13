@@ -5,7 +5,7 @@ pageClass: reference
 description: "Logs an event within a Flow with correlation support. Use this to log messages, warnings, or errors during Flow execution."
 author: "Jason Van Beukering"
 group: "Logging"
-date: "December 2025, July 2026"
+date: "December 2025, September 2026"
 since: "1.0"
 category: apex
 ---
@@ -24,7 +24,7 @@ Logs an event within a Flow with correlation support. Use this to log messages, 
 
 **Example**
 
-`In Flow Builder: ` Add "Log Flow Event" action anywhere in your Flow Pass the Correlation ID from "Start Flow Correlation" Set Message and optionally Log Level (DEBUG, INFO, WARN, ERROR) `Optionally set Flow Step to identify where in the Flow the log occurred `
+`In Flow Builder: ` Add "Log Flow Event" action anywhere in your Flow Pass the Correlation ID from "Start Flow Correlation" Set Message and optionally Log Level (DEBUG, INFO, WARN, ERROR) Optionally set Flow Step to identify where in the Flow the log occurred `Optionally set Flow Name so the entry is filed under the Flow rather than the step `
 
 </div>
 

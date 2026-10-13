@@ -10,28 +10,28 @@ navOrder: 18
 
 > What you'll get working: persistent, queryable logging that adds no database writes to your own transaction and survives rollbacks.
 
-**Before you start:**
-
-- [ ] KernDX package installed in your org
-- [ ] Org configured post-install (verify with the **Kern** app's Health Check; see [Installation guide](Installation.md#post-install-configuration))
-- [ ] CLI authenticated (`sf org open -o YourOrgAlias` to verify), or just use the Developer Console
-  (Gear Icon > Developer Console) for all Apex work
-- [ ] Working in a sandbox or scratch org (not production)
-
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **What you'll build:** A service class that logs every step of order processing (start, per-record
-progress, errors, and completion), with all entries correlated under a single ID.
+progress, errors, and completion), with all entries from one run sharing a Transaction ID.
 
-**Success looks like:** Log entries visible in **App Launcher > Kern > Log Entries**, showing correlated
+**Success looks like:** Log entries visible in **App Launcher > Kern > Log Entries**, showing
 info/debug/error messages linked to specific Account records. Your test class shows 2/2 passing. (The two
 tests cover the happy path; the defensive per-record error handler isn't exercised, so `SVC_OrderProcessor`
 lands at ~82% coverage. Add a test that forces a failure inside the loop to take it to 100%.)
 
 **In one line:** `kern.LOG_Builder.build().info('Payment processed').forRecord(accountId).emitAt('SVC.charge');`
 persists via platform event and survives rollbacks.
+
+## Before you start
+
+Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
+Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
+once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
+today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
+where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
@@ -40,17 +40,17 @@ persists via platform event and survives rollbacks.
 <details>
 <summary>Expand</summary>
 
-1. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
+1. [Before you start](#before-you-start)
+2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
     - [Log at every level](#log-at-every-level)
     - [Log an exception with full stack trace](#log-an-exception-with-full-stack-trace)
     - [Correlate logs to a record](#correlate-logs-to-a-record)
-2. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
+3. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
     - [Step 1: Create the service class](#step-1-create-the-service-class)
-    - [Step 2: Deploy and execute](#step-2-deploy-and-execute)
-    - [Step 3: Write the test class](#step-3-write-the-test-class)
-    - [Step 4: Deploy and run tests](#step-4-deploy-and-run-tests)
+    - [Step 2: Try the service](#step-2-try-the-service)
+    - [Step 3: Write and run the test](#step-3-write-and-run-the-test)
         - [Key Patterns](#key-patterns)
-3. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
+4. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
     - [Log levels](#log-levels)
     - [Flood control for repeated events](#flood-control-for-repeated-events)
     - [Shorthand: .emitAt()](#shorthand-emitat)
@@ -59,10 +59,16 @@ persists via platform event and survives rollbacks.
     - [Scoped logging](#scoped-logging)
     - [Logging from Flows](#logging-from-flows)
     - [Logging from LWC](#logging-from-lwc)
-4. [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)
-5. [Common Issues](#common-issues)
-6. [What You Now Know](#what-you-now-know)
-7. [Next Steps](#next-steps)
+5. [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)
+    - [Clean up](#clean-up)
+6. [Common Issues](#common-issues)
+    - [Step 1: Create the service class](#step-1-create-the-service-class-1)
+    - [Step 2: Try the service](#step-2-try-the-service-1)
+    - [Step 3: Write and run the test](#step-3-write-and-run-the-test-1)
+    - [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes-1)
+    - [Sensitive data is masked by default](#sensitive-data-is-masked-by-default-1)
+7. [What You Now Know](#what-you-now-know)
+8. [Next Steps](#next-steps)
 
 </details>
 
@@ -73,6 +79,9 @@ persists via platform event and survives rollbacks.
 Run these blocks in **Execute Anonymous** (Developer Console or VS Code) to see logging in action.
 
 ### Log at every level
+
+**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
+Anonymous Window, and run:
 
 ```apex
 kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
@@ -91,13 +100,15 @@ finally
 ```
 
 Open **App Launcher > Kern > Log Entries** to see your four entries. Each has a log level, message, and
-class/method context. All four also share the same **Correlation ID**, a single tracking ID that follows
-one user action across triggers, queries, callouts, and jobs, so you can filter the four entries as a group.
+class/method context. All four also share the same **Transaction ID**, because they were written in one transaction,
+so you can filter the four entries as a group. A Correlation ID follows one user action across triggers, callouts and
+jobs when you start one with `kern.LOG_Builder.startCorrelation()` (see the [Logging Developer Guide](Logging%20-%20Guide.md#correlation-tracking)).
 
 Once you have real volume, open the **Log Console** instead (from the launcher card on the **Kern** app's
 home page, or search "Log Console" in the App Launcher): it groups recurring problems with occurrence
-counts, filters by severity, searches past entries, and opens a drawer that walks one operation end to
-end. The [Logging Developer Guide](Logging%20-%20Guide.md#the-log-console) covers it in full.
+counts, ranks the writers producing the most entries with their origin, filters by severity, searches past
+entries, and opens a drawer that walks one operation end to end.
+The [Logging Developer Guide](Logging%20-%20Guide.md#the-log-console) covers it in full.
 
 > **Why the scope wrapper?** Each `.emit()` publishes a platform event, and Salesforce caps a single
 > transaction at 150 such immediate publishes (the `PublishImmediate` governor). The scope wrapper keeps
@@ -105,6 +116,8 @@ end. The [Logging Developer Guide](Logging%20-%20Guide.md#the-log-console) cover
 > sends them as one batch when `scope.close()` runs.
 
 ### Log an exception with full stack trace
+
+**In Salesforce**, in the same Execute Anonymous window, run:
 
 ```apex
 try
@@ -121,6 +134,8 @@ Open the log entry. You'll see the exception type (`MathException`) and the full
 captured automatically.
 
 ### Correlate logs to a record
+
+**In Salesforce**, in the same Execute Anonymous window, run:
 
 ```apex
 Account newAccount = new Account(Name = 'Logging Demo Corp', Phone = '555-0100');
@@ -149,14 +164,30 @@ Both log entries link to the Account record. Click **View Record** on any log en
 
 > **No local project?** You can create classes directly in the Developer Console (Gear Icon > Developer Console >
 > File > New > Apex Class) and run tests from there too (Test > New Run). Paste the code, save, and skip the
-> `sf project deploy start` and `sf apex run test` commands.
+> terminal commands.
 
 ### Step 1: Create the service class
 
 This service processes Account records and logs every step (start, per-record progress, errors, and
-completion), correlated under one Scope.
+completion), batched under one scope. You create an empty class with one command, paste the code into it, then
+send it to your org.
 
-Copy this code exactly as is into `force-app/main/default/classes/SVC_OrderProcessor.cls`:
+**1. In the terminal**, from your project's top folder, create the empty class:
+
+```shell
+sf apex generate class --name SVC_OrderProcessor --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`, both named `SVC_OrderProcessor`: the class,
+ending in `.cls`, and its companion, ending in `.cls-meta.xml`.
+
+The second file tells Salesforce which API version the class uses. You never edit it, but a deploy fails without it.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save:
+
+```text
+force-app/main/default/classes/SVC_OrderProcessor.cls
+```
 
 ```apex
 /**
@@ -236,21 +267,34 @@ public with sharing class SVC_OrderProcessor
 
 **What this code does:**
 
-- `LOG_Builder.scope()` opens a batch scope: every `.emit()` call inside the try/finally shares one
-  Correlation ID and is flushed together at `scope.close()`, staying well under the 150-event limit
+- `LOG_Builder.scope()` opens a batch scope: every `.emit()` call inside the try/finally is held back and published
+  together at `scope.close()`, staying well under the 150-event limit
 - `.info()` / `.debug()` / `.warn()` / `.error()` set the log level
 - `.at('ClassName.methodName')` records where the log came from
 - `.forRecord(account.Id)` links the log entry to the Account being processed
 - `.withContext(key, value)` adds structured key-value data to the entry
 - `.emitAt('Class.method')` shorthand for `.at(...).emit()`
 
-### Step 2: Deploy and execute
+Every entry also records two facts you never have to set: who wrote it (Framework, Apex, Flow or Component)
+and the plain name of the class, Flow or component that did. The Log Console shows them on its Top sources
+card, and your own reports can group by them.
+The [Logging Developer Guide](Logging%20-%20Guide.md#who-wrote-an-entry) explains both.
 
-```bash
-sf project deploy start -o YourOrgAlias -m "ApexClass:SVC_OrderProcessor" --ignore-conflicts
+**3. In the terminal**, send the class to your org:
+
+```shell
+sf project deploy start -o YourOrgAlias -m "ApexClass:SVC_OrderProcessor"
 ```
 
-Test it from Execute Anonymous:
+You should see `Status: Succeeded`, with `SVC_OrderProcessor` listed as created.
+
+Something went wrong? See [Common Issues, Step 1](#step-1-create-the-service-class-1).
+
+### Step 2: Try the service
+
+Create one Account and hand it to the service, then look at the entries it wrote.
+
+**In Salesforce**, in the Developer Console's Execute Anonymous window, run:
 
 ```apex
 Account newAccount = new Account(Name = 'Order Demo Corp', Phone = '555-0200', BillingCity = 'Melbourne');
@@ -260,12 +304,37 @@ new SVC_OrderProcessor().processOrders(new List<Account>{ newAccount });
 System.debug('Done — check App Launcher > Kern > Log Entries');
 ```
 
-> **See it in the org:** Open **App Launcher > Kern > Log Entries**. You'll see three entries (an INFO
-> for started, a DEBUG per record, and an INFO for completed), all sharing the same Correlation ID.
+You should see this line in the log:
 
-### Step 3: Write the test class
+```text
+Done — check App Launcher > Kern > Log Entries
+```
 
-Copy this code exactly as is into `force-app/main/default/classes/SVC_OrderProcessor_TEST.cls`:
+Then, in **App Launcher > Kern > Log Entries**, you should see three new entries: an INFO `Order processing started`,
+a DEBUG `Processing account` linked to the Account, and an INFO `Order processing completed`, all sharing the same
+Transaction ID.
+
+Something went wrong? See [Common Issues, Step 2](#step-2-try-the-service-1).
+
+### Step 3: Write and run the test
+
+The test class checks both methods: the order run writes INFO entries, and the alert writes one ERROR entry with its
+message. You create the empty class with one command, paste the code into it, send it to your org, then run it.
+
+**1. In the terminal**, from your project's top folder, create the empty test class:
+
+```shell
+sf apex generate class --name SVC_OrderProcessor_TEST --output-dir force-app/main/default/classes
+```
+
+You should see two files created in `force-app/main/default/classes`, both named `SVC_OrderProcessor_TEST`: the
+class, ending in `.cls`, and its companion, ending in `.cls-meta.xml`.
+
+**2. In your editor**, open this file, delete what is there, paste the code below in, and save:
+
+```text
+force-app/main/default/classes/SVC_OrderProcessor_TEST.cls
+```
 
 ```apex
 /**
@@ -280,7 +349,7 @@ Copy this code exactly as is into `force-app/main/default/classes/SVC_OrderProce
  * @date February 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class SVC_OrderProcessor_TEST
 {
 	/** @description Log level string for INFO entries. */
@@ -364,32 +433,36 @@ private class SVC_OrderProcessor_TEST
 > Automated Process user, so a `CreatedById` filter returns zero rows. The `kern__UserId__c` field, by
 > contrast, holds the ID of the user who emitted the log.
 
-> **About the annotations:** `@IsTest(SeeAllData=false IsParallel=true)` keeps tests isolated and
+> **About the annotations:** `@IsTest(seeAllData=false isParallel=true)` keeps tests isolated and
 > enables parallel execution. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` suppresses a
 > code analysis rule. In production tests, consider wrapping logic in `System.runAs(testUser)` to
 > verify profile and permission set access.
 
-### Step 4: Deploy and run tests
+**3. In the terminal**, send the test class to your org:
 
-```bash
-sf project deploy start -o YourOrgAlias -m "ApexClass:SVC_OrderProcessor_TEST" --ignore-conflicts
+```shell
+sf project deploy start -o YourOrgAlias -m "ApexClass:SVC_OrderProcessor_TEST"
+```
+
+You should see `Status: Succeeded`, with `SVC_OrderProcessor_TEST` listed as created.
+
+**4. In the terminal**, run the test:
+
+```shell
 sf apex run test -o YourOrgAlias -t SVC_OrderProcessor_TEST --code-coverage --synchronous --result-format human
 ```
 
-**Expected output:**
+You should see 2 tests passing: both tests show `Pass`, the summary line `Outcome` reads `Passed`, and the coverage
+table shows `SVC_OrderProcessor` at around 82%. The lines left uncovered are the per-record error handler, which
+neither test reaches.
 
-```text
-=== Test Results
-Tests Ran        2
-Passing          2
-Failing          0
-```
+Something went wrong? See [Common Issues, Step 3](#step-3-write-and-run-the-test-1).
 
 #### Key Patterns
 
 | Pattern                  | Example                                   | Why                                                                    |
 |--------------------------|-------------------------------------------|------------------------------------------------------------------------|
-| Scope batching           | `LOG_Builder.scope()` + try/finally       | Keeps you under the platform-event publish limit; groups entries under one Correlation ID |
+| Scope batching           | `LOG_Builder.scope()` + try/finally       | Keeps you under the platform-event publish limit                       |
 | Log at method boundaries | `.info('started')` + `.info('completed')` | Trace execution flow in production                                     |
 | Per-record context       | `.forRecord(account.Id)`                  | All logs for one record queryable together                             |
 | Debug inside loops       | `.debug('Processing account')`            | Filtered in production; visible in sandbox                             |
@@ -417,6 +490,8 @@ configuration.
 
 When the same event fires repeatedly in a hot loop, you don't want thousands of near-identical rows drowning the log table. Tag the event with a fingerprint instead: the first occurrence keeps a full entry, and repeats roll up into a daily counter.
 
+**In your editor**, in your own class:
+
 ```apex
 kern.LOG_Builder.build()
 		.warn('Payment gateway retry failed')
@@ -428,7 +503,9 @@ Pick a fingerprint that identifies the *kind* of event, and keep it stable (neve
 
 ### Shorthand: `.emitAt()`
 
-When you don't need `.forRecord()` or `.withContext()`, use `.emitAt()` as shorthand for `.at().emit()`:
+When you don't need `.forRecord()` or `.withContext()`, use `.emitAt()` as shorthand for `.at().emit()`.
+
+**In your editor**, in your own class:
 
 ```apex
 // These are equivalent:
@@ -441,7 +518,9 @@ Use `.emitAt()` for simple messages. Use `.at()` + chain + `.emit()` when adding
 
 ### Exception logging
 
-Always pass the `Exception` object, never `.getMessage()`:
+Always pass the `Exception` object, never `.getMessage()`.
+
+**In your editor**, in a catch block of your own class:
 
 ```apex
 catch(Exception error)
@@ -459,7 +538,9 @@ logs are suppressed in `@IsTest` context. Two steps turn them on. Set
 `kern.LOG_Builder.ignoreTestMode = true` before your log call to enable logging in tests, then call
 `Test.getEventBus().deliver()` to deliver the platform events synchronously before you assert.
 
-Here's the complete working pattern:
+Here's the complete working pattern.
+
+**In your editor**, in a test method:
 
 ```apex
 kern.LOG_Builder.ignoreTestMode = true;
@@ -492,11 +573,12 @@ Assert.isFalse(entries.isEmpty(), 'Should have log entries');
 
 ### Scoped logging
 
-When one operation emits many logs, you want them grouped together and you want to avoid the platform
-event publish cap. A scope does both. `LOG_Builder.scope()` groups every log entry emitted inside a
-try/finally block under a single Correlation ID, and batches their platform event publications into one
-flush at `scope.close()`. That single flush keeps you well clear of the 150-event `PublishImmediate`
-governor limit.
+When one operation emits many logs, you want to avoid the platform event publish cap. A scope keeps you under the
+cap; the entries of one transaction already share a Transaction ID. `LOG_Builder.scope()` holds back every log entry
+emitted inside a try/finally block and publishes them in one flush at `scope.close()`. That single flush keeps you
+well clear of the 150-event `PublishImmediate` governor limit.
+
+**In your editor**, in your own class:
 
 ```apex
 kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
@@ -513,7 +595,9 @@ finally
 }
 ```
 
-Run this from Execute Anonymous to see correlated scoped entries:
+To see scoped entries, try it out.
+
+**In Salesforce**, in the Developer Console's Execute Anonymous window, run:
 
 ```apex
 kern.LOG_Builder.LogScope scope = kern.LOG_Builder.scope();
@@ -529,7 +613,7 @@ finally
 	scope.close();
 }
 
-System.debug('Check App Launcher > Kern > Log Entries — all three entries share the same Correlation ID.');
+System.debug('Check App Launcher > Kern > Log Entries — all three entries share the same Transaction ID.');
 ```
 
 ### Logging from Flows
@@ -550,6 +634,7 @@ Use invocable actions to log from Flows. This creates correlated log entries vis
     - Set **message** to a description (e.g., `Account created successfully`)
     - Set **Log Level** (input name `logLevel`) to `INFO`, `WARN`, or `ERROR`
     - Optionally set **Record ID** (input name `recordId`) to the record this log is about (e.g., `{!$Record.Id}`) so every log for that record can be filtered together
+    - Optionally set **Flow Name** (input name `flowName`) to the same Flow name used in step 2, so the entry is filed under the Flow rather than the step
 4. At the end of the Flow, add an **Action** element:
     - Search for **End Flow Correlation**
     - Set **flowName** to the same Flow name used in step 2
@@ -573,7 +658,12 @@ For correlation tracking, timers, and explicit log levels, import the `kern/util
 directly: its `debug()` / `info()` / `warn()` / `error()` calls are flushed to Apex automatically and
 saved as `kern__LogEntry__c` rows. Pass an `Error` object to `error()` and its JavaScript stack trace is kept on the
 entry, along with any context data you pass, so you can read later exactly what the client saw. For logging
-from your Apex controller methods themselves, use `LOG_Builder`.
+from your Apex controller methods themselves, use `LOG_Builder`. A user who is not a System Administrator needs
+access to the Apex class the client logger writes through: assign the **Kern Component Access** permission set
+(it also grants the Flow logging actions), or add Apex class access for `kern.CTRL_Logger` to a permission set they
+already have.
+
+**In your editor**, in your component's JavaScript file:
 
 ```javascript
 // In any ComponentBuilder LWC:
@@ -621,23 +711,97 @@ to the fields that need it.
 > exceeds `LogSetting__c.MaskerPerformanceThresholdMs__c` (default 100ms), so it stays quiet until there's
 > something worth seeing.
 
+### Clean up
+
+If you built this example only to try the framework, run this command when you have finished the guide. The Accounts
+the Tier 1 and Step 2 blocks created (`Logging Demo Corp` and `Order Demo Corp`) and the log entries stay; delete them
+in the app, or leave them.
+
+**In the terminal**, delete the two classes:
+
+```shell
+sf project delete source -o YourOrgAlias -m "ApexClass:SVC_OrderProcessor_TEST" -m "ApexClass:SVC_OrderProcessor" --no-prompt
+```
+
+You should see `Status: Succeeded`, then a `Deleted Source` table listing the two classes. The command deletes the
+files from your project too.
+
+Something went wrong? See [Common Issues](#common-issues).
+
 ---
 
 ## Common Issues
 
-| Problem                                        | Cause                                                      | Fix                                                                                                                                                                        |
-|------------------------------------------------|------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| No log entries appear in tests                 | Logs suppressed in test context                            | Set `kern.LOG_Builder.ignoreTestMode = true` before logging                                                                                                                |
-| Log entries empty after `ignoreTestMode`       | Platform events not delivered                              | Call `Test.getEventBus().deliver()` after emitting and before asserting                                                                                                    |
-| Query returns zero rows in tests               | Filtering by `CreatedById` instead of `kern__UserId__c`    | Use `kern__LogEntry__c.kern__UserId__c = UserInfo.getUserId()`. `TRG_PersistLogEntry` runs as the Automated Process user, so `CreatedById` never matches the running user |
-| `Variable does not exist: kern__LogEntry__c`   | Missing namespace prefix                                   | Use `kern__LogEntry__c` and `kern__FieldName__c` (double underscore) for SObjects and fields                                                                               |
-| `.error(error.getMessage())` loses stack trace | Passing String instead of Exception                        | Use `.error(error)` to pass the Exception object directly                                                                                                                  |
-| Logs have no method context                    | Missing `.at()` or `.emitAt()`                             | Always include `.emitAt('Class.method')` or `.at('Class.method')`                                                                                                          |
-| Platform-event limit error after many emits    | >150 `PublishImmediate` events in one transaction          | Wrap emit calls in `kern.LOG_Builder.scope()` + try/finally to batch the flush                                                                                             |
-| `Test.getEventBus()` not found                 | Running outside `@IsTest` context                          | `Test.getEventBus().deliver()` only works inside test methods                                                                                                              |
-| Sensitive value appears raw in a log           | Field not covered by a masking target, or rule is inactive | Add a `kern__MaskingTarget__mdt` record with the rule, SObjectType, and field (blank `Field__c` for a wildcard). See [Logging Guide](Logging%20-%20Guide.md)              |
+Trouble with your computer rather than this guide (`sf` is not recognised, scripts are disabled, you are not logged
+in, the wrong folder)? Those are answered once, in
+[Set Up Your Computer](Set%20Up%20Your%20Computer.md#if-something-went-wrong).
 
----
+### Step 1: Create the service class
+
+#### The deploy says there is nothing to deploy
+
+The deploy stops with `No source-backed components present in the package.` The command ran inside another project's
+folder, so the CLI looked for the class there and found nothing. Open the terminal in your own project's top folder,
+the one that holds `sfdx-project.json`, and run the command again.
+
+### Step 2: Try the service
+
+#### No entries appear
+
+The entries arrive by platform event, a moment after the block finishes, so the list can still be empty when you first
+open it. Wait a few seconds and refresh **Log Entries**.
+
+### Step 3: Write and run the test
+
+#### `Invalid type: LogEntry__c`
+
+The test class's deploy fails with this message when the code names the log object without its namespace prefix. On the
+managed package, use `kern__LogEntry__c` and `kern__FieldName__c` (double underscore) for the object and its fields, as
+the test class in this step does. If you installed KernDX under your own namespace or without one, change the `kern__`
+prefix in the code as the namespace note at the top of this guide explains.
+
+### Tier 3: Production Patterns (~5-10 minutes)
+
+#### Your own test's query finds no log entries
+
+A test you write yourself asserts on log entries and its query returns zero rows. The test class in Step 3 shows the
+three things that must all be in place, as [Testing with logs](#testing-with-logs) explains:
+
+- Logs are suppressed in test context. Set `kern.LOG_Builder.ignoreTestMode = true` before logging.
+- The platform events must be delivered. Call `Test.getEventBus().deliver()` after emitting and before asserting.
+- The query must filter by `kern__UserId__c`, not `CreatedById`. Use
+  `kern__LogEntry__c.kern__UserId__c = UserInfo.getUserId()`. `TRG_PersistLogEntry` runs as the Automated Process
+  user, so `CreatedById` never matches the running user.
+
+#### The log entry has no stack trace
+
+The code passed a String instead of the Exception: `.error(error.getMessage())` loses the stack trace. Use
+`.error(error)` to pass the Exception object directly, as [Exception logging](#exception-logging) shows.
+
+#### The log entries have no method context
+
+The call is missing `.at()` or `.emitAt()`. Always include `.emitAt('Class.method')` or `.at('Class.method')`.
+
+#### A platform-event limit error after many emits
+
+Your org allows 150 immediate event publishes in one transaction. Each emit outside a scope is its own publish, so a
+long loop of emits can use them all up, and a later publish in the same transaction then fails: a scope's flush, the
+flush of an error entry, or your own `EventBus.publish`. A scope keeps its entries in one publish. Wrap the emit calls
+in `kern.LOG_Builder.scope()` plus try/finally, as [Scoped logging](#scoped-logging) shows.
+
+#### `Test.getEventBus() can only be called from test methods`
+
+The line ran outside an `@IsTest` context, for example in the Execute Anonymous window. `Test.getEventBus().deliver()`
+only works inside test methods.
+
+### Sensitive data is masked by default
+
+#### A sensitive value appears raw in a log
+
+The field is not covered by a masking target, or the rule is inactive. Add a `kern__MaskingTarget__mdt` record with the
+rule, SObjectType, and field (blank `Field__c` for a wildcard). See [Logging Guide](Logging%20-%20Guide.md).
+
+Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?template=bug_report.md&title=%5Bdocs%5D%20Logging) which step and what you saw.
 
 ## What You Now Know
 
@@ -651,7 +815,7 @@ to the fields that need it.
 | `.withSummary(message)`                         | Sets a short searchable summary on the entry                         |
 | `.emitAt('Class.method')`                       | Shorthand for `.at().emit()`                                         |
 | `.emit()`                                       | Publishes the log as a platform event                                |
-| `LOG_Builder.scope()`                           | Batches all emits under one Correlation ID; keeps you under the platform-event publish limit |
+| `LOG_Builder.scope()`                           | Publishes all emits in one batch; keeps you under the platform-event publish limit |
 | `ignoreTestMode = true`                         | Enables logging in test context                                      |
 | `Test.getEventBus().deliver()`                  | Delivers platform events synchronously in tests                      |
 | `kern__UserId__c`                               | The field to filter on when querying log entries (NOT `CreatedById`) |

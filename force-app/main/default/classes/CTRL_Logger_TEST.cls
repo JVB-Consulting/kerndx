@@ -8,9 +8,9 @@
  *
  * @group Logging
  *
- * @date December 2025, August 2026
+ * @date December 2025, September 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class CTRL_Logger_TEST
 {
@@ -50,6 +50,12 @@ private class CTRL_Logger_TEST
 	 * value cut to the field length still proves the most identifying part of the name survived.
 	 */
 	private static final String LONG_EXCEPTION_TYPE_PREFIX = 'System.QueryLocatorIteratorException';
+
+	/**
+	 * @description Client context that is not JSON, used to make one entry of a batch fail while the
+	 * bridge is reading it.
+	 */
+	private static final String MALFORMED_CONTEXT_JSON = '{not valid json';
 
 	/**
 	 * @description Resets logger state for test isolation.
@@ -100,6 +106,41 @@ private class CTRL_Logger_TEST
 
 		// Verify correlation was set
 		Assert.areEqual('test-correlation-123', LOG_Engine.getCorrelationId(), 'Correlation ID should be set from client log');
+	}
+
+	/**
+	 * @description Tests that the operation context the bridge pushes is popped even when an entry in the
+	 * batch cannot be read. The second entry carries context that is not JSON, so the call gives up part
+	 * way through the loop. Afterwards the engine's context stack must stand exactly where it stood before
+	 * the call, or every later entry in the same transaction would be stamped with a context the bridge had
+	 * already finished with.
+	 */
+	@IsTest
+	private static void shouldPopTheOperationContextWhenAnEntryCannotBeRead()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		CTRL_Logger.DTO_ClientLogEntry readable = createEntry(LoggingLevel.INFO, 'the first entry reads cleanly', 'context-pop-test');
+		CTRL_Logger.DTO_ClientLogEntry unreadable = createEntry(LoggingLevel.INFO, 'the second entry does not', 'context-pop-test');
+		unreadable.context = MALFORMED_CONTEXT_JSON;
+
+		Integer depthBeforeTheCall = LOG_Engine.getContextStackDepth();
+
+		Test.startTest();
+		try
+		{
+			CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {readable, unreadable}));
+			Assert.fail('An entry whose context is not JSON must still fail the call');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, JSONException.class, 'The failure to read the entry must reach the caller unchanged');
+		}
+		Test.stopTest();
+
+		Assert.areEqual(depthBeforeTheCall, LOG_Engine.getContextStackDepth(),
+				'The operation context the bridge pushed must be popped even when an entry in the batch throws');
 	}
 
 	/**
@@ -348,6 +389,32 @@ private class CTRL_Logger_TEST
 		LogEntry__c row = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/' + COMPONENT_NAME + '.' + ACTION_NAME);
 		Assert.isNotNull(row, 'The entry should be labelled with the component and the action');
 		Assert.isFalse(row.ContextData__c?.contains(LOG_Engine.CONTEXT_ACTION_NAME) ?? false, 'Both promoted names belong in the label, not in the context');
+	}
+
+	/**
+	 * @description A client entry is stamped Component and names its component as the source, action dropped.
+	 */
+	@IsTest
+	private static void shouldStampComponentOriginWithTheComponentAsSource()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		CTRL_Logger.DTO_ClientLogEntry entry = createEntry(LoggingLevel.INFO, UTIL_Random.randomDescription(), UTIL_Random.randomName());
+		entry.context = JSON.serialize(new Map<String, Object>
+		{
+				CTRL_Logger.CONTEXT_COMPONENT_NAME => COMPONENT_NAME,
+				LOG_Engine.CONTEXT_ACTION_NAME => ACTION_NAME
+		});
+
+		Test.startTest();
+		CTRL_Logger.persistLogs(JSON.serialize(new List<CTRL_Logger.DTO_ClientLogEntry> {entry}));
+		Test.stopTest();
+
+		LogEntry__c row = new SEL_LogEntry().findByMethod(LOG_Engine.COMPONENT_SOURCE_PREFIX + COMPONENT_NAME + UTIL_String.DOT + ACTION_NAME);
+		Assert.isNotNull(row, 'The entry was written under the component label');
+		Assert.areEqual(LOG_Engine.Origin.COMPONENT.name(), row.Origin__c, 'A component wrote this line');
+		Assert.areEqual(COMPONENT_NAME, row.Source__c, 'The source is the component, not the action');
 	}
 
 	/**

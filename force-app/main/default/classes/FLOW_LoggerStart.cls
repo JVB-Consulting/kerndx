@@ -10,7 +10,7 @@
  *
  * @group Logging
  *
- * @date December 2025, May 2026
+ * @date December 2025, September 2026
  *
  * @since 1.0
  *
@@ -39,9 +39,9 @@ global inherited sharing class FLOW_LoggerStart
 	 */
 	@InvocableMethod
 	(
-			Label='Start Flow Correlation'
-			Description='Starts logging correlation for a Flow. Returns a correlation ID to pass to other logging actions.'
-			Category='Logging'
+			label='Start Flow Correlation'
+			description='Starts logging correlation for a Flow. Returns a correlation ID to pass to other logging actions.'
+			category='Logging'
 	)
 	global static List<DTO_Response> execute(List<DTO_Request> dtoRequests)
 	{
@@ -57,7 +57,7 @@ global inherited sharing class FLOW_LoggerStart
 			Map<String, String> context = new Map<String, String>
 			{
 					LOG_Engine.CONTEXT_FLOW_NAME => dtoRequest.flowName,
-					LOG_Engine.CONTEXT_SOURCE => 'Flow'
+					LOG_Engine.CONTEXT_SOURCE => LOG_Engine.FLOW_SOURCE_MARKER
 			};
 
 			if(String.isNotBlank(dtoRequest.recordId))
@@ -74,7 +74,7 @@ global inherited sharing class FLOW_LoggerStart
 
 			try
 			{
-				LOG_Builder.build().info('[Flow] ' + dtoRequest.flowName + ' started').at('Flow/' + dtoRequest.flowName).emit();
+				LOG_Builder.build().info('[Flow] ' + dtoRequest.flowName + ' started').at(LOG_Engine.FLOW_SOURCE_PREFIX + dtoRequest.flowName).emit();
 			}
 			finally
 			{
@@ -104,7 +104,7 @@ global inherited sharing class FLOW_LoggerStart
 		 * String value = instance.flowName;
 		 * ```
 		 */
-		@InvocableVariable(Label='Flow Name' Description='Name of the Flow for logging' Required=true)
+		@InvocableVariable(label='Flow Name' description='Name of the Flow for logging' required=true)
 		global String flowName;
 
 		/**
@@ -117,7 +117,7 @@ global inherited sharing class FLOW_LoggerStart
 		 * String value = instance.recordId;
 		 * ```
 		 */
-		@InvocableVariable(Label='Record ID' Description='Optional record ID for context')
+		@InvocableVariable(label='Record ID' description='Optional record ID for context')
 		global String recordId;
 
 		/**
@@ -130,7 +130,7 @@ global inherited sharing class FLOW_LoggerStart
 		 * String value = instance.additionalContext;
 		 * ```
 		 */
-		@InvocableVariable(Label='Additional Context' Description='Additional context to include with the log entry')
+		@InvocableVariable(label='Additional Context' description='Additional context to include with the log entry')
 		global String additionalContext;
 	}
 
@@ -151,7 +151,7 @@ global inherited sharing class FLOW_LoggerStart
 		 * String value = instance.correlationId;
 		 * ```
 		 */
-		@InvocableVariable(Label='Correlation ID' Description='Generated correlation ID to pass to subsequent actions')
+		@InvocableVariable(label='Correlation ID' description='Generated correlation ID to pass to subsequent actions')
 		global String correlationId;
 	}
 }

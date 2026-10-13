@@ -1,7 +1,7 @@
 {
-  "capturedAt": "2026-08-17T06:50:20.738Z",
+  "capturedAt": "2026-08-31T10:38:37.641Z",
   "apex": {
-    "totalWallClockSeconds": 806.834,
+    "totalWallClockSeconds": 862.698,
     "testSetupClasses": [
       "API_Dispatcher_TEST",
       "API_GetPwndPasswords_TEST",
@@ -46,7 +46,7 @@
     "classes": {
       "API_Base": {
         "percentage": 100,
-        "coveredLines": 284,
+        "coveredLines": 323,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -112,7 +112,7 @@
       },
       "API_Outbound": {
         "percentage": 100,
-        "coveredLines": 277,
+        "coveredLines": 281,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -142,7 +142,7 @@
       },
       "CTRL_ApiTestHarness": {
         "percentage": 100,
-        "coveredLines": 49,
+        "coveredLines": 78,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -238,7 +238,7 @@
       },
       "DML_Builder": {
         "percentage": 100,
-        "coveredLines": 302,
+        "coveredLines": 312,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -250,7 +250,7 @@
       },
       "DML_Transaction": {
         "percentage": 100,
-        "coveredLines": 263,
+        "coveredLines": 284,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -442,7 +442,7 @@
       },
       "LOG_Engine": {
         "percentage": 100,
-        "coveredLines": 513,
+        "coveredLines": 515,
         "uncoveredLines": 0,
         "exemptLines": 2
       },
@@ -454,7 +454,7 @@
       },
       "PROC_ExecuteDML": {
         "percentage": 100,
-        "coveredLines": 41,
+        "coveredLines": 47,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -478,7 +478,7 @@
       },
       "QRY_Builder": {
         "percentage": 100,
-        "coveredLines": 1003,
+        "coveredLines": 1004,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -496,7 +496,7 @@
       },
       "QRY_Engine": {
         "percentage": 100,
-        "coveredLines": 350,
+        "coveredLines": 363,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -508,7 +508,7 @@
       },
       "QRY_Generator": {
         "percentage": 100,
-        "coveredLines": 384,
+        "coveredLines": 382,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -598,7 +598,7 @@
       },
       "SEL_AsynchronousJobSetting": {
         "percentage": 100,
-        "coveredLines": 10,
+        "coveredLines": 14,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -682,7 +682,7 @@
       },
       "SEL_LogEntry": {
         "percentage": 100,
-        "coveredLines": 350,
+        "coveredLines": 352,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -892,9 +892,9 @@
       },
       "TRG_PersistLogEntry": {
         "percentage": 100,
-        "coveredLines": 155,
+        "coveredLines": 158,
         "uncoveredLines": 0,
-        "exemptLines": 3
+        "exemptLines": 0
       },
       "TRG_ScheduleJob": {
         "percentage": 100,
@@ -927,9 +927,9 @@
         "exemptLines": 0
       },
       "TST_Factory": {
-        "percentage": 100,
-        "coveredLines": 533,
-        "uncoveredLines": 0,
+        "percentage": 99.6,
+        "coveredLines": 509,
+        "uncoveredLines": 2,
         "exemptLines": 0
       },
       "TST_InvokeFlowMock": {
@@ -946,7 +946,7 @@
       },
       "UTIL_AdaptiveAsynchronousProcessor": {
         "percentage": 100,
-        "coveredLines": 171,
+        "coveredLines": 176,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -981,9 +981,9 @@
         "exemptLines": 0
       },
       "UTIL_Cache": {
-        "percentage": 100,
-        "coveredLines": 494,
-        "uncoveredLines": 0,
+        "percentage": 53.6,
+        "coveredLines": 265,
+        "uncoveredLines": 229,
         "exemptLines": 0
       },
       "UTIL_Character": {
@@ -1060,7 +1060,7 @@
       },
       "UTIL_HttpClient": {
         "percentage": 100,
-        "coveredLines": 464,
+        "coveredLines": 505,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1180,7 +1180,7 @@
       },
       "UTIL_String": {
         "percentage": 100,
-        "coveredLines": 387,
+        "coveredLines": 393,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1221,8 +1221,8 @@
     "files": {
       "force-app/main/default/lwc/apiTestHarnessForm/apiTestHarnessForm.js": {
         "statements": 100,
-        "branches": 95,
-        "functions": 98.7,
+        "branches": 97.3,
+        "functions": 98.9,
         "lines": 100
       },
       "force-app/main/default/lwc/applyRetentionModal/applyRetentionModal.js": {
@@ -1519,6 +1519,12 @@
         "functions": 100,
         "lines": 100
       },
+      "force-app/main/default/lwc/scheduledJobClassPicker/scheduledJobClassPicker.js": {
+        "statements": 100,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
       "force-app/main/default/lwc/scheduledJobDetail/scheduledJobDetail.js": {
         "statements": 100,
         "branches": 100,
@@ -1527,14 +1533,20 @@
       },
       "force-app/main/default/lwc/scheduledJobEditor/scheduledJobEditor.js": {
         "statements": 100,
-        "branches": 97.1,
+        "branches": 100,
+        "functions": 100,
+        "lines": 100
+      },
+      "force-app/main/default/lwc/scheduledJobEditorForm/scheduledJobEditorForm.js": {
+        "statements": 100,
+        "branches": 100,
         "functions": 96.2,
         "lines": 100
       },
       "force-app/main/default/lwc/scheduledJobEditorModal/scheduledJobEditorModal.js": {
         "statements": 100,
         "branches": 100,
-        "functions": 96.4,
+        "functions": 100,
         "lines": 100
       },
       "force-app/main/default/lwc/searchLookup/searchLookup.js": {

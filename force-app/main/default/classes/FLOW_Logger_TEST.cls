@@ -9,12 +9,17 @@
  *
  * @group Logging
  *
- * @date December 2025, June 2026
+ * @date December 2025, September 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class FLOW_Logger_TEST
 {
+	/**
+	 * @description The step the Log Flow Event action files an entry under when the Flow Step input is left blank.
+	 */
+	private static final String DEFAULT_FLOW_STEP = 'action';
+
 	/**
 	 * @description Tests starting Flow correlation returns a correlation ID.
 	 */
@@ -434,5 +439,82 @@ private class FLOW_Logger_TEST
 		{
 			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Incorrect Exception Type');
 		}
+	}
+
+	/**
+	 * @description The three Flow actions stamp Flow; the start and end lines name the Flow as their source, a logged
+	 * message given no Flow name names its step, and a logged message given the Flow name names the Flow and keeps its
+	 * step in the location text.
+	 */
+	@IsTest
+	private static void shouldStampFlowOriginWithTheFlowOrTheStepAsSource()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		String flowName = UTIL_Random.randomName();
+		String stepName = UTIL_Random.randomName();
+		String namedStepName = UTIL_Random.randomName();
+
+		FLOW_LoggerStart.DTO_Request start = new FLOW_LoggerStart.DTO_Request();
+		start.flowName = flowName;
+		FLOW_LoggerLog.DTO_Request logged = new FLOW_LoggerLog.DTO_Request();
+		logged.message = UTIL_Random.randomDescription();
+		logged.logLevel = LoggingLevel.INFO.name();
+		logged.flowStep = stepName;
+		FLOW_LoggerLog.DTO_Request named = new FLOW_LoggerLog.DTO_Request();
+		named.message = UTIL_Random.randomDescription();
+		named.logLevel = LoggingLevel.INFO.name();
+		named.flowStep = namedStepName;
+		named.flowName = flowName;
+		FLOW_LoggerLog.DTO_Request namedWithoutStep = new FLOW_LoggerLog.DTO_Request();
+		namedWithoutStep.message = UTIL_Random.randomDescription();
+		namedWithoutStep.logLevel = LoggingLevel.INFO.name();
+		namedWithoutStep.flowName = flowName;
+		FLOW_LoggerEnd.DTO_Request finished = new FLOW_LoggerEnd.DTO_Request();
+		finished.flowName = flowName;
+		finished.success = true;
+
+		Test.startTest();
+		logged.correlationId = FLOW_LoggerStart.execute(new List<FLOW_LoggerStart.DTO_Request> {start})[0].correlationId;
+		finished.correlationId = logged.correlationId;
+		named.correlationId = logged.correlationId;
+		namedWithoutStep.correlationId = logged.correlationId;
+		FLOW_LoggerLog.execute(new List<FLOW_LoggerLog.DTO_Request> {logged, named, namedWithoutStep});
+		FLOW_LoggerEnd.execute(new List<FLOW_LoggerEnd.DTO_Request> {finished});
+		Test.stopTest();
+
+		Assert.areEqual('Flow/', LOG_Engine.FLOW_SOURCE_PREFIX, 'The stored class-method of every Flow entry depends on this prefix');
+
+		List<LogEntry__c> flowNameRows = new List<LogEntry__c>();
+		for(LogEntry__c row : new SEL_LogEntry().getAll())
+		{
+			if(row.ClassMethod__c == LOG_Engine.FLOW_SOURCE_PREFIX + flowName)
+			{
+				flowNameRows.add(row);
+			}
+		}
+		Assert.areEqual(2, flowNameRows.size(), 'The start line and the end line both name the Flow');
+		for(LogEntry__c row : flowNameRows)
+		{
+			Assert.areEqual(LOG_Engine.Origin.FLOW.name(), row.Origin__c, 'The start and end lines are Flow');
+			Assert.areEqual(flowName, row.Source__c, 'The start and end lines name the Flow');
+		}
+
+		LogEntry__c stepRow = new SEL_LogEntry().findByMethod(LOG_Engine.FLOW_SOURCE_PREFIX + stepName);
+		Assert.isNotNull(stepRow, 'The logged line was written');
+		Assert.areEqual(LOG_Engine.Origin.FLOW.name(), stepRow.Origin__c, 'The logged line is Flow');
+		Assert.areEqual(stepName, stepRow.Source__c, 'The logged line names its step');
+		Assert.isFalse(stepRow.ContextData__c?.contains(LOG_Engine.CONTEXT_FLOW_NAME) == true, 'A logged message given no Flow name carries no Flow name in its context');
+
+		LogEntry__c namedStepRow = new SEL_LogEntry().findByMethod(LOG_Engine.FLOW_SOURCE_PREFIX + flowName + LOG_Engine.SOURCE_PREFIX_DELIMITER + namedStepName);
+		Assert.isNotNull(namedStepRow, 'A logged message given the Flow name keeps its step in its location');
+		Assert.areEqual(LOG_Engine.Origin.FLOW.name(), namedStepRow.Origin__c, 'A logged message given the Flow name is Flow');
+		Assert.areEqual(flowName, namedStepRow.Source__c, 'A logged message given the Flow name names the Flow');
+		Assert.isTrue(namedStepRow.ContextData__c?.contains(flowName) == true, 'A logged message given the Flow name carries it in its context');
+
+		LogEntry__c namedDefaultStepRow = new SEL_LogEntry()
+				.findByMethod(LOG_Engine.FLOW_SOURCE_PREFIX + flowName + LOG_Engine.SOURCE_PREFIX_DELIMITER + DEFAULT_FLOW_STEP);
+		Assert.isNotNull(namedDefaultStepRow, 'A logged message given only the Flow name is at the Flow\'s default step');
+		Assert.areEqual(flowName, namedDefaultStepRow.Source__c, 'A logged message given only the Flow name names the Flow');
 	}
 }

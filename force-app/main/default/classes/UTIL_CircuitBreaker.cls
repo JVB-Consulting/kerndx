@@ -25,6 +25,8 @@
  * - OPEN → HALF_OPEN: After timeout period expires
  * - HALF_OPEN → CLOSED: When success count indicates recovery
  * - HALF_OPEN → OPEN: When failures continue
+ * - HALF_OPEN stays HALF_OPEN with a new round of trial requests: when every trial request of the round was used,
+ *   none of them closed or reopened the circuit, and the timeout period has passed since the round began
  *
  * @see API_Outbound
  * @see UTIL_CircuitBreaker_TEST
@@ -35,7 +37,7 @@
  *
  * @group Resilience
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  *
  * @since 1.0
  *
@@ -70,20 +72,24 @@
  *     }
  * }
  * ```
- * Example 3: Integration with API_Outbound
+ * Example 3: An API_Outbound handler needs no breaker code. Check Circuit Breaker Enabled on the service's API setting
+ * (it is off by default) and the framework checks a breaker named after the service before each send. While that breaker
+ * is open, the call is not sent, and its errors hold the line "The circuit breaker for (the service name) is open after
+ * repeated failures, so the request was not sent." A call whose setting allows retries is tried again after the cool-off
+ * while retries remain; a call whose setting allows no retries ends Aborted. To spot that outcome in your own code:
  * ```apex
- * UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor(getServiceName());
- * if(!breaker.allowRequest())
- * {
- *     result.errors.add('Circuit breaker is OPEN - service temporarily unavailable');
- *     result.isAborted = true;
- *     return;
- * }
+ * API_Outbound handler = UTIL_HttpClient.useHandler(API_SendGridEmail.class).invoke();
+ * Boolean isCircuitOpen = handler != null && String.join(handler.result.errors, '\n').contains('is open after repeated failures');
  * ```
  */
 @SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength')
 global inherited sharing class UTIL_CircuitBreaker
 {
+	/**
+	 * @description Class name for log source attribution on the state-transition entries.
+	 */
+	private static final String CLASS_NAME = UTIL_CircuitBreaker.class.getName();
+
 	/**
 	 * @description Default failure threshold before opening the circuit
 	 */
@@ -109,6 +115,14 @@ global inherited sharing class UTIL_CircuitBreaker
 	 * This ensures the state still exists when the timeout completes, allowing the logic to transition to HALF_OPEN.
 	 */
 	private static final Integer TTL_BUFFER_SECONDS = 300;
+
+	/**
+	 * @description The log line written when a HALF_OPEN circuit starts a new round of trial requests; {0} is the
+	 * circuit's id. It says why: every trial request of the round before was used, and none closed or reopened the
+	 * circuit.
+	 */
+	private static final String MESSAGE_NEW_ROUND_OF_TRIALS =
+			'Circuit breaker {0} started a new round of trial requests: every trial request of the round before was used and none closed or reopened the circuit';
 
 	/**
 	 * @description Cache partition name for circuit breaker state
@@ -223,7 +237,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		global Datetime lastFailureTime;
 
 		/**
-		 * @description Time when state last changed
+		 * @description Time when the state last changed. While the circuit is HALF_OPEN it is the time the current round of
+		 * trial requests began.
 		 *
 		 * @since 1.0
 		 *
@@ -262,16 +277,22 @@ global inherited sharing class UTIL_CircuitBreaker
 		 * @description Determines if a request is allowed through the circuit breaker
 		 *
 		 * @return True if the request should proceed, false if it should fail fast
+		 *
+		 * @since 1.0
 		 */
 		Boolean allowRequest();
 
 		/**
 		 * @description Records a successful request
+		 *
+		 * @since 1.0
 		 */
 		void recordSuccess();
 
 		/**
 		 * @description Records a failed request
+		 *
+		 * @since 1.0
 		 */
 		void recordFailure();
 
@@ -279,6 +300,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		 * @description Gets the current state of the circuit breaker
 		 *
 		 * @return The current circuit state
+		 *
+		 * @since 1.0
 		 */
 		State getState();
 
@@ -286,16 +309,22 @@ global inherited sharing class UTIL_CircuitBreaker
 		 * @description Gets detailed metrics about the circuit breaker
 		 *
 		 * @return Circuit metrics including failure count, state, etc.
+		 *
+		 * @since 1.0
 		 */
 		Metrics getMetrics();
 
 		/**
 		 * @description Manually resets the circuit breaker to CLOSED state (use with caution)
+		 *
+		 * @since 1.0
 		 */
 		void reset();
 
 		/**
 		 * @description Manually forces the circuit breaker to OPEN state (use with caution)
+		 *
+		 * @since 1.0
 		 */
 		void forceOpen();
 
@@ -305,6 +334,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		 * @param threshold Number of failures before opening the circuit
 		 *
 		 * @return This instance for method chaining
+		 *
+		 * @since 1.0
 		 */
 		Breaker withFailureThreshold(Integer threshold);
 
@@ -314,6 +345,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		 * @param seconds Timeout in seconds before transitioning from OPEN to HALF_OPEN
 		 *
 		 * @return This instance for method chaining
+		 *
+		 * @since 1.0
 		 */
 		Breaker withTimeout(Integer seconds);
 
@@ -323,6 +356,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		 * @param threshold Number of consecutive successes needed to close circuit
 		 *
 		 * @return This instance for method chaining
+		 *
+		 * @since 1.0
 		 */
 		Breaker withSuccessThreshold(Integer threshold);
 
@@ -332,6 +367,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		 * @param maxAttempts Maximum number of requests allowed in HALF_OPEN state
 		 *
 		 * @return This instance for method chaining
+		 *
+		 * @since 1.0
 		 */
 		Breaker withHalfOpenMaxAttempts(Integer maxAttempts);
 
@@ -346,6 +383,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		 * @param action The action to execute with circuit breaker protection
 		 *
 		 * @throws OpenException if the circuit is OPEN and request is blocked
+		 *
+		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
@@ -374,6 +413,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		 * @return The result from action.execute() (caller must cast to appropriate type)
 		 *
 		 * @throws OpenException if the circuit is OPEN and request is blocked
+		 *
+		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
@@ -429,6 +470,8 @@ global inherited sharing class UTIL_CircuitBreaker
 	{
 		/**
 		 * @description The code to execute with circuit breaker protection
+		 *
+		 * @since 1.0
 		 */
 		void execute();
 	}
@@ -468,6 +511,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		 * @description The code to execute with circuit breaker protection
 		 *
 		 * @return The result of the operation (caller must cast to appropriate type)
+		 *
+		 * @since 1.0
 		 */
 		Object execute();
 	}
@@ -588,7 +633,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		private Datetime lastFailureTime;
 
 		/**
-		 * @description Time when state last changed
+		 * @description Time when the state last changed. While the circuit is HALF_OPEN it is the time the current round of
+		 * trial requests began, which is later than the change to HALF_OPEN once a new round has started.
 		 */
 		private Datetime stateChangedTime;
 
@@ -603,7 +649,7 @@ global inherited sharing class UTIL_CircuitBreaker
 		private Integer failureCount;
 
 		/**
-		 * @description Number of attempts made in HALF_OPEN state
+		 * @description Number of trial requests let through in the current round while the circuit is HALF_OPEN
 		 */
 		private Integer halfOpenAttempts;
 	}
@@ -613,6 +659,7 @@ global inherited sharing class UTIL_CircuitBreaker
 	 * PRIVATE: Implementation detail not exposed to API consumers.
 	 * Subscribers only interact via the Breaker interface.
 	 */
+	@SuppressWarnings('PMD.CyclomaticComplexity')
 	@TestVisible
 	private class DefaultCircuitBreaker implements Breaker
 	{
@@ -667,7 +714,7 @@ global inherited sharing class UTIL_CircuitBreaker
 				when HALF_OPEN
 				{
 					// Allow limited requests in half-open state
-					Boolean allowed = currentState.halfOpenAttempts < configuration.halfOpenMaxAttempts;
+					Boolean allowed = !hasUsedEveryTrialRequest();
 					if(allowed)
 					{
 						currentState.halfOpenAttempts++;
@@ -939,7 +986,13 @@ global inherited sharing class UTIL_CircuitBreaker
 		}
 
 		/**
-		 * @description Checks if state transition is needed based on timeout
+		 * @description Moves the circuit on when its timeout has passed, and saves the state when it does. An OPEN circuit
+		 * becomes HALF_OPEN once the timeout has passed since the last failure. A HALF_OPEN circuit that has used every
+		 * trial request of its round, none of which closed or reopened the circuit, starts a new round of trial requests
+		 * once the timeout has passed since the current round began, so a round that settled nothing never leaves the
+		 * circuit refusing every request. Nothing changes while the circuit is CLOSED or while a HALF_OPEN circuit still
+		 * has trial requests left. The first call after the circuit opens checks nothing, so a circuit with a zero timeout
+		 * stays OPEN for that call.
 		 */
 		private void updateStateIfNeeded()
 		{
@@ -950,34 +1003,51 @@ global inherited sharing class UTIL_CircuitBreaker
 				return;
 			}
 
-			// Only transition from OPEN to HALF_OPEN after timeout
-			if(currentState.state == State.OPEN && currentState.lastFailureTime != null)
+			if(currentState.state == State.OPEN && currentState.lastFailureTime != null && hasTimeoutPassedSince(currentState.lastFailureTime))
 			{
-				Long currentTime = Datetime.now().getTime();
-				Long millisecondsSinceFailure = currentTime - currentState.lastFailureTime.getTime();
-				Long secondsSinceFailure = millisecondsSinceFailure / 1000;
-
-				// Check if timeout period has elapsed
-				// In test context with timeout=0, use milliseconds to allow rapid state changes
-				// In production, always use seconds
-				Boolean timeoutElapsed;
-				if(Test.isRunningTest() && configuration.timeoutSeconds == 0)
-				{
-					// In tests with timeout=0, transition after any millisecond passes
-					timeoutElapsed = millisecondsSinceFailure > 0;
-				}
-				else
-				{
-					// Normal operation: use seconds and require time > timeout
-					timeoutElapsed = secondsSinceFailure > configuration.timeoutSeconds;
-				}
-
-				if(timeoutElapsed)
-				{
-					transitionToHalfOpen();
-					saveState();
-				}
+				transitionToHalfOpen();
+				saveState();
 			}
+			else if(currentState.state == State.HALF_OPEN && hasUsedEveryTrialRequest() && hasTimeoutPassedSince(currentState.stateChangedTime))
+			{
+				startNewRoundOfTrials();
+				saveState();
+			}
+		}
+
+		/**
+		 * @description Whether a HALF_OPEN circuit has let through every trial request its current round allows.
+		 *
+		 * @return True when no trial request is left in the current round.
+		 */
+		private Boolean hasUsedEveryTrialRequest()
+		{
+			return currentState.halfOpenAttempts >= configuration.halfOpenMaxAttempts;
+		}
+
+		/**
+		 * @description Whether the configured timeout has passed since a moment. More whole seconds than the timeout must
+		 * have gone by. Inside a test a timeout of zero is read in milliseconds, so a test can let the timeout pass by
+		 * letting the clock move on. A missing start time reads as a timeout that has passed, so a state saved without one
+		 * never blocks the circuit.
+		 *
+		 * @param startTime The moment the timeout is counted from, or null when the state holds none.
+		 *
+		 * @return True when the timeout has passed since the start time, or when there is no start time.
+		 */
+		private Boolean hasTimeoutPassedSince(Datetime startTime)
+		{
+			if(startTime == null)
+			{
+				return true;
+			}
+
+			Long millisecondsSinceStart = Datetime.now().getTime() - startTime.getTime();
+			if(Test.isRunningTest() && configuration.timeoutSeconds == 0)
+			{
+				return millisecondsSinceStart > 0;
+			}
+			return millisecondsSinceStart / 1000 > configuration.timeoutSeconds;
 		}
 
 		/**
@@ -993,7 +1063,7 @@ global inherited sharing class UTIL_CircuitBreaker
 
 			LOG_Builder.build()
 					.info(String.format('Circuit breaker {0} transitioned to CLOSED', new List<String> {circuitId}))
-					.at('UTIL_CircuitBreaker.transitionToClosed')
+					.at(CLASS_NAME + '.transitionToClosed')
 					.emit();
 		}
 
@@ -1013,7 +1083,7 @@ global inherited sharing class UTIL_CircuitBreaker
 
 			LOG_Builder.build()
 					.warn(String.format('Circuit breaker {0} transitioned to OPEN after {1} failures', new List<String> {circuitId, String.valueOf(currentState.failureCount)}))
-					.at('UTIL_CircuitBreaker.transitionToOpen')
+					.at(CLASS_NAME + '.transitionToOpen')
 					.emit();
 		}
 
@@ -1029,7 +1099,23 @@ global inherited sharing class UTIL_CircuitBreaker
 
 			LOG_Builder.build()
 					.info(String.format('Circuit breaker {0} transitioned to HALF_OPEN for recovery testing', new List<String> {circuitId}))
-					.at('UTIL_CircuitBreaker.transitionToHalfOpen')
+					.at(CLASS_NAME + '.transitionToHalfOpen')
+					.emit();
+		}
+
+		/**
+		 * @description Starts a new round of trial requests while the circuit stays HALF_OPEN: the count of trial requests
+		 * used goes back to zero and the round's start time becomes now. Successes already recorded still count towards
+		 * closing the circuit, and the failure count and the time of the last failure are left as they are.
+		 */
+		private void startNewRoundOfTrials()
+		{
+			currentState.halfOpenAttempts = 0;
+			currentState.stateChangedTime = Datetime.now();
+
+			LOG_Builder.build()
+					.info(String.format(MESSAGE_NEW_ROUND_OF_TRIALS, new List<String> {circuitId}))
+					.at(CLASS_NAME + '.startNewRoundOfTrials')
 					.emit();
 		}
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RootCorrelationId__c</fullName>
+    <description>The tracking id of the action that started everything this entry belongs to. Equal to the correlation id until a background chain continues the action under a tracking id of its own.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>The tracking id of the action that started everything. Search it to see every entry the action produced, including the chains it launched.</inlineHelpText>
+    <isFilteringDisabled>false</isFilteringDisabled>
+    <isNameField>false</isNameField>
+    <isSortingDisabled>false</isSortingDisabled>
+    <label>Root Correlation ID</label>
+    <length>36</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

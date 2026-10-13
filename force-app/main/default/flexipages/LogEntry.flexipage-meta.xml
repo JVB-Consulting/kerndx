@@ -52,6 +52,26 @@
                     <name>uiBehavior</name>
                     <value>none</value>
                 </fieldInstanceProperties>
+                <fieldItem>Record.Origin__c</fieldItem>
+                <identifier>RecordOrigin_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Source__c</fieldItem>
+                <identifier>RecordSource_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
                 <fieldItem>Record.ExceptionType__c</fieldItem>
                 <identifier>RecordExceptionType_cField</identifier>
             </fieldInstance>
@@ -120,6 +140,26 @@
                 </fieldInstanceProperties>
                 <fieldItem>Record.ExecutionEvent__c</fieldItem>
                 <identifier>RecordExecutionEvent_cField1</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Origin__c</fieldItem>
+                <identifier>RecordOrigin_cField1</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Source__c</fieldItem>
+                <identifier>RecordSource_cField1</identifier>
             </fieldInstance>
         </itemInstances>
         <itemInstances>
@@ -450,6 +490,16 @@
                 </fieldInstanceProperties>
                 <fieldItem>Record.CorrelationId__c</fieldItem>
                 <identifier>RecordCorrelationId_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>none</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.RootCorrelationId__c</fieldItem>
+                <identifier>RecordRootCorrelationId_cField</identifier>
             </fieldInstance>
         </itemInstances>
         <itemInstances>

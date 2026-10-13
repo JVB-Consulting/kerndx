@@ -74,6 +74,14 @@
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>
+                <field>Origin__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>Source__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
                 <field>StackTrace__c</field>
             </layoutItems>
         </layoutColumns>
@@ -115,6 +123,10 @@
             <layoutItems>
                 <behavior>Edit</behavior>
                 <field>CorrelationId__c</field>
+            </layoutItems>
+            <layoutItems>
+                <behavior>Edit</behavior>
+                <field>RootCorrelationId__c</field>
             </layoutItems>
             <layoutItems>
                 <behavior>Edit</behavior>

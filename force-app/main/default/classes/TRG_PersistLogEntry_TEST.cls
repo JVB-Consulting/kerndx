@@ -8,10 +8,10 @@
  *
  * @group Triggers
  *
- * @date January 2026, August 2026
+ * @date January 2026, October 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
-@IsTest(SeeAllData=false IsParallel=false)
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
+@IsTest(seeAllData=false isParallel=false)
 private class TRG_PersistLogEntry_TEST
 {
 	/**
@@ -41,8 +41,8 @@ private class TRG_PersistLogEntry_TEST
 
 	/**
 	 * @description Grouping key used by the durability tests that force a rejected detail row: they
-	 * store a row under this key for real, then blind the presence check to it, so the handler
-	 * inserts a row the database refuses — the state a writer is in when another transaction wins
+	 * store a row under this key for real, then hide it from the presence check, so the handler
+	 * inserts a row the database refuses. That is the state a writer is in when another transaction wins
 	 * the race between its presence check and its insert.
 	 */
 	private static final String DUPLICATE_KEY_FINGERPRINT = 'f1-duplicate-key';
@@ -58,6 +58,39 @@ private class TRG_PersistLogEntry_TEST
 	 * so counting the rows of one class/method never accidentally counts the row the test seeded.
 	 */
 	private static final String STORED_SAMPLE_CLASS_METHOD = 'TestClass/storedDetailSample';
+
+	/**
+	 * @description Grouping key for the fold-arithmetic test on a detail row, kept apart from the other
+	 * duplicate-key tests' keys so no two stored rows ever share a fingerprint.
+	 */
+	private static final String COUNTED_KEY_FINGERPRINT = 'f1-counted-key';
+
+	/**
+	 * @description Grouping key for the fold-arithmetic test on a counter row, kept apart for the same reason.
+	 */
+	private static final String ROLLUP_KEY_FINGERPRINT = 'f1-rollup-key';
+
+	/**
+	 * @description Occurrence count already on the row a refused row folds into: an arbitrary non-zero value, so
+	 * a fold that adopted the refused row's empty count or reset the counter to zero would read differently.
+	 */
+	private static final Integer STORED_OCCURRENCE_COUNT = 7;
+
+	/**
+	 * @description Occurrences the refused counter row carries in the counter-row fold test: one event in the chunk.
+	 */
+	private static final Integer REFUSED_ROLLUP_OCCURRENCES = 1;
+
+	/**
+	 * @description Fixed publish instant stamped on the counter-row fold test's event, so the stored counter sits
+	 * under the exact rollup key the handler composes for it and the test cannot flake across UTC midnight.
+	 */
+	private static final String ROLLUP_PUBLISH_INSTANT = '2026-09-04T12:00:00.000Z';
+
+	/**
+	 * @description Tally the breadcrumb must carry when the one refused row folded into the row already stored.
+	 */
+	private static final String TALLY_ONE_FOLDED = '1 folded into the row already stored';
 
 	/**
 	 * @description Bare grouping key the whitespace tests group under, kept apart from the padded
@@ -78,7 +111,7 @@ private class TRG_PersistLogEntry_TEST
 	private static final Integer MAXIMUM_EVENT_FINGERPRINT_LENGTH = LogEntryEvent__e.Fingerprint__c.getDescribe().getLength();
 
 	/**
-	 * @description A grouping key filling `LogEntryEvent__e.Fingerprint__c` to its limit — valid on
+	 * @description A grouping key filling `LogEntryEvent__e.Fingerprint__c` to its limit: valid on
 	 * the event, and longer than the prefixed `detail:`/`rollup:` key the row is stored under.
 	 */
 	private static final String FIELD_LENGTH_FINGERPRINT = 'f1-field-length-key'.rightPad(MAXIMUM_EVENT_FINGERPRINT_LENGTH, 'x');
@@ -90,8 +123,8 @@ private class TRG_PersistLogEntry_TEST
 	private static final String REFUSED_CLASS_METHOD = 'TestClass/refusedFloodControlRow';
 
 	/**
-	 * @description Class/method the fallback breadcrumb is stamped with — this test's independent
-	 * oracle of the handler's own stamp.
+	 * @description Class/method the fallback breadcrumb is stamped with. The test sets this value
+	 * itself, so it checks the handler's own stamp independently.
 	 */
 	private static final String BREADCRUMB_CLASS_METHOD = TRG_PersistLogEntry.class.getName() + '/persist';
 
@@ -340,7 +373,7 @@ private class TRG_PersistLogEntry_TEST
 
 	/**
 	 * @description Tests that a known fingerprint (detail row already present) increments the
-	 * existing rollup row instead of inserting new rows — the steady-state path.
+	 * existing rollup row instead of inserting new rows: the normal path once a fingerprint is known.
 	 */
 	@IsTest
 	private static void shouldIncrementExistingRollupForKnownFingerprint()
@@ -422,13 +455,49 @@ private class TRG_PersistLogEntry_TEST
 		Assert.areEqual
 				(
 						base,
-						TRG_PersistLogEntry.decodeBaseFromRollupKey(rollupKey), 'Decoding the rollup key strips exactly the prefix and the day suffix, even when the base contains colons'
+						TRG_PersistLogEntry.decodeBaseFromRollupKey(rollupKey),
+						'Decoding the rollup key strips exactly the prefix and the day suffix, even when the base contains colons'
 				);
 	}
 
 	/**
+	 * @description The origin and the source on the event reach every row the trigger writes: the plain row, the
+	 * detail sample and the rollup counter.
+	 */
+	@IsTest
+	private static void shouldCopyOriginAndSourceToEveryRowKind()
+	{
+		String source = UTIL_Random.randomName();
+		String plainClassMethod = UTIL_Random.randomName();
+		LogEntryEvent__e plainEvent = buildEvent(null);
+		plainEvent.ClassMethod__c = plainClassMethod;
+		plainEvent.LogLevel__c = LoggingLevel.ERROR.name();
+		plainEvent.Origin__c = LOG_Engine.Origin.FLOW.name();
+		plainEvent.Source__c = source;
+		LogEntryEvent__e groupedEvent = buildEvent(TEST_FINGERPRINT);
+		groupedEvent.Origin__c = LOG_Engine.Origin.COMPONENT.name();
+		groupedEvent.Source__c = source;
+
+		Test.startTest();
+		EventBus.publish(new List<LogEntryEvent__e> {plainEvent, groupedEvent});
+		Test.stopTest();
+
+		LogEntry__c plainRow = new SEL_LogEntry().findByMethod(plainClassMethod);
+		Assert.areEqual(LOG_Engine.Origin.FLOW.name(), plainRow.Origin__c, 'The plain row keeps the event\'s origin');
+		Assert.areEqual(source, plainRow.Source__c, 'The plain row keeps the event\'s source');
+
+		Map<String, LogEntry__c> rows = rowsByFingerprint();
+		LogEntry__c detail = rows.get(PREFIX_DETAIL + TEST_FINGERPRINT);
+		Assert.areEqual(LOG_Engine.Origin.COMPONENT.name(), detail.Origin__c, 'The detail sample keeps the origin');
+		Assert.areEqual(source, detail.Source__c, 'The detail sample keeps the source');
+		LogEntry__c rollup = findRollup(rows, TEST_FINGERPRINT);
+		Assert.areEqual(LOG_Engine.Origin.COMPONENT.name(), rollup.Origin__c, 'The rollup counter keeps the origin');
+		Assert.areEqual(source, rollup.Source__c, 'The rollup counter keeps the source');
+	}
+
+	/**
 	 * @description Tests that events without a fingerprint follow the existing plain path
-	 * unchanged — the regression guard pinning Fingerprint__c and OccurrenceCount__c null.
+	 * unchanged. This guards that Fingerprint__c and OccurrenceCount__c stay null on that path.
 	 */
 	@IsTest
 	private static void shouldPersistUnfingerprintedEventsUnchanged()
@@ -444,16 +513,16 @@ private class TRG_PersistLogEntry_TEST
 	}
 
 	/**
-	 * @description Tests that an empty chunk persists nothing and consumes no DML — the
+	 * @description Tests that an empty chunk persists nothing and consumes no DML. This is the
 	 * defensive early-return guard for a no-op delivery.
 	 */
 	@IsTest
 	private static void shouldPersistNothingForEmptyChunk()
 	{
 		Test.startTest();
-		Integer dmlBefore = Limits.getDmlStatements();
+		Integer dmlBefore = UTIL_Limits.dmlStatements().used();
 		new TRG_PersistLogEntry().afterInsert(new List<SObject>());
-		Integer dmlUsed = Limits.getDmlStatements() - dmlBefore;
+		Integer dmlUsed = UTIL_Limits.dmlStatements().used() - dmlBefore;
 		Test.stopTest();
 
 		Assert.areEqual(0, dmlUsed, 'An empty chunk must consume no DML');
@@ -461,7 +530,7 @@ private class TRG_PersistLogEntry_TEST
 	}
 
 	/**
-	 * @description Pins the governor cost at full chunk scale: 2000 fingerprinted events across
+	 * @description Checks the governor cost at full chunk scale: 2000 fingerprinted events across
 	 * mixed novel keys must aggregate with at most one fingerprint SOQL query and bulkified DML
 	 * (equality IN on the unique index, index seek by construction).
 	 */
@@ -475,11 +544,11 @@ private class TRG_PersistLogEntry_TEST
 		}
 
 		Test.startTest();
-		Integer queriesBefore = Limits.getQueries();
-		Integer dmlBefore = Limits.getDmlStatements();
+		Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+		Integer dmlBefore = UTIL_Limits.dmlStatements().used();
 		new TRG_PersistLogEntry().afterInsert(events);
-		Integer queriesUsed = Limits.getQueries() - queriesBefore;
-		Integer dmlUsed = Limits.getDmlStatements() - dmlBefore;
+		Integer queriesUsed = UTIL_Limits.soqlQueries().used() - queriesBefore;
+		Integer dmlUsed = UTIL_Limits.dmlStatements().used() - dmlBefore;
 		Test.stopTest();
 
 		Assert.isTrue(queriesUsed <= 1, 'Aggregation must use at most one SOQL query, used: ' + queriesUsed);
@@ -492,14 +561,14 @@ private class TRG_PersistLogEntry_TEST
 	/**
 	 * @description Tests that a grouping key arriving with edge whitespace is stored under its
 	 * trimmed form. Salesforce strips a text field's edge whitespace on save, so a key stored as
-	 * sent would live under a value no lookup of the key as sent can match — the presence check
+	 * sent would live under a value no lookup of the key as sent can match. The presence check
 	 * would miss it every time and every persist of that key would be refused, permanently. The
 	 * assertion that no fallback breadcrumb exists is the point of the test: the rows are never
 	 * refused, not merely recovered afterwards.
 	 *
 	 * Driven through `persist` directly, the entry point `LOG_Engine` uses when a log is emitted
 	 * inside an event trigger: there the events are handed over in memory, exactly as the caller
-	 * built them, so edge whitespace survives. Publishing would not reproduce it — the platform
+	 * built them, so edge whitespace survives. Publishing would not reproduce it, because the platform
 	 * strips the event field's own edge whitespace before delivery.
 	 */
 	@IsTest
@@ -533,7 +602,11 @@ private class TRG_PersistLogEntry_TEST
 		Map<String, LogEntry__c> rows = rowsByFingerprint();
 		Assert.areEqual(2, findRollup(rows, PADDED_FINGERPRINT_BASE).OccurrenceCount__c?.intValue(), 'The second occurrence increments the window the first opened');
 		Assert.isNotNull(rows.get(PREFIX_DETAIL + PADDED_FINGERPRINT_BASE), 'The forensic sample stays a single detail row');
-		Assert.isTrue(new SEL_LogEntry().findAllByMethod(BREADCRUMB_CLASS_METHOD).isEmpty(), 'A recurring padded key is counted, not refused, so no fallback breadcrumb is written');
+		Assert.isTrue
+				(
+						new SEL_LogEntry().findAllByMethod(BREADCRUMB_CLASS_METHOD).isEmpty(),
+						'A recurring padded key is counted, not refused, so no fallback breadcrumb is written'
+				);
 	}
 
 	/**
@@ -562,7 +635,7 @@ private class TRG_PersistLogEntry_TEST
 	 * @description Tests the compute-level durability fallback: when the presence check cannot run,
 	 * the chunk's fingerprinted events persist as ordinary rows instead of being lost. A query
 	 * against the fingerprint index can fail in production for reasons this handler cannot influence
-	 * — a query timeout, or a query the platform rejects — and a chunk of log events disappearing to
+	 * (a query timeout, or a query the platform rejects), and a chunk of log events disappearing to
 	 * one is exactly the silent loss the fallback exists to prevent.
 	 *
 	 * Staged by making every LogEntry__c query throw, which is what the aggregation compute cannot
@@ -596,15 +669,14 @@ private class TRG_PersistLogEntry_TEST
 	 * @description Tests that a flood-control row the database rejects persists as a plain row
 	 * instead of being lost, that a plain event sharing the same chunk is untouched by the
 	 * rejection, and that one WARN breadcrumb quotes the rejection and tallies what was stored
-	 * plain. A row is stored under the key for real and the handler is blinded to it, so the database
-	 * refuses the duplicate the handler then inserts — a real refusal on the unique index.
+	 * plain. A row is stored under the key for real and hidden from the handler, so the database
+	 * refuses the duplicate the handler then inserts: a real refusal on the unique index.
 	 *
-	 * The blind covers the recovery re-read as well as the presence check, because both run off the
-	 * one selector, and that is why the outcome asserted here is the PLAIN arm: with the re-read
-	 * blinded too, nothing is findable under the refused row's key. A true two-writer race would take
-	 * the FOLD arm instead — its winner has committed and IS findable by the time the loser re-reads —
-	 * which no single transaction can stage while both reads answer identically (sequenced per-call
-	 * mock returns are BACKLOG-1.8 §4).
+	 * The rows stay hidden from the recovery re-read as well as the presence check, because both run off
+	 * the one selector, and that is why the outcome asserted here is the PLAIN arm: with the rows hidden
+	 * from the re-read too, nothing is findable under the refused row's key. A true two-writer race takes the
+	 * FOLD arm instead, because the first writer has committed before the refused writer re-reads; the three fold tests
+	 * below stage that by hiding the stored rows from the next read only (`hideStoredRowsFromTheNextFingerprintRead`).
 	 */
 	@IsTest
 	private static void shouldPersistARefusedRowPlainWhenTheRecoveryReReadFindsNoStoredRow()
@@ -612,7 +684,7 @@ private class TRG_PersistLogEntry_TEST
 		storeDetailRow();
 		LogEntryEvent__e racing = buildEvent(DUPLICATE_KEY_FINGERPRINT);
 		racing.ClassMethod__c = REFUSED_CLASS_METHOD;
-		blindTheFingerprintPresenceCheck();
+		hideStoredRowsFromEveryFingerprintRead();
 
 		Test.startTest();
 		TRG_PersistLogEntry.persist(new List<LogEntryEvent__e> {buildEvent(null), racing});
@@ -644,6 +716,90 @@ private class TRG_PersistLogEntry_TEST
 	}
 
 	/**
+	 * @description Tests that a flood-control row the database refuses for a duplicate key folds into the row
+	 * already stored under that key instead of taking the chunk down: the stored sample survives untouched, the
+	 * stored row keeps no counter (neither side counts), the rollup row of the same chunk persists, and one WARN
+	 * breadcrumb quotes the refusal and tallies the fold. Staged as the refused writer in a two-writer race: the row is
+	 * stored for real, the row is hidden from the presence check alone (the next read), the insert collides on the
+	 * unique index, and the recovery re-read finds the first writer's row in the database. Only a refused insert
+	 * writes the breadcrumb. If another read used up the hiding first, this assertion would fail.
+	 */
+	@IsTest
+	private static void shouldFoldARefusedDetailRowIntoTheRowAlreadyStored()
+	{
+		storeDetailRow();
+		hideStoredRowsFromTheNextFingerprintRead();
+
+		Test.startTest();
+		TRG_PersistLogEntry.persist(new List<LogEntryEvent__e> {buildEvent(DUPLICATE_KEY_FINGERPRINT)});
+		Test.stopTest();
+
+		Map<String, LogEntry__c> rows = rowsByFingerprint();
+		LogEntry__c storedDetail = rows.get(PREFIX_DETAIL + DUPLICATE_KEY_FINGERPRINT);
+		Assert.isNotNull(storedDetail, 'The stored detail row must survive the refused duplicate');
+		Assert.areEqual(STORED_SAMPLE_MESSAGE, storedDetail.Message__c, 'The refused duplicate must not overwrite the sample on file');
+		Assert.isNull(storedDetail.OccurrenceCount__c, 'Folding a refused detail row into a stored detail row leaves the stored row without a counter');
+
+		LogEntry__c rollup = findRollup(rows, DUPLICATE_KEY_FINGERPRINT);
+		Assert.isNotNull(rollup, 'The rollup row must persist even though its detail twin was refused');
+		Assert.areEqual(1, rollup.OccurrenceCount__c?.intValue(), 'The refused detail row costs the window no occurrences');
+
+		LogEntry__c breadcrumb = findSingleBreadcrumb();
+		Assert.isTrue(breadcrumb.Message__c.contains(DUPLICATE_VALUE_TEXT), 'The breadcrumb quotes the duplicate-key refusal: ' + breadcrumb.Message__c);
+		Assert.isTrue(breadcrumb.Message__c.contains(TALLY_ONE_FOLDED), 'The breadcrumb tallies the folded row: ' + breadcrumb.Message__c);
+	}
+
+	/**
+	 * @description Tests that folding a refused row into a stored row that already counts occurrences leaves that
+	 * count exactly as it was: a refused detail row contributes none, so the fold must neither adopt its empty
+	 * count nor reset the stored counter to zero. Staged as the detail fold above: the row is stored for real, the
+	 * row is hidden from the next read alone, the recovery re-read finds the stored row. The breadcrumb proves the fold path ran.
+	 */
+	@IsTest
+	private static void shouldLeaveAStoredOccurrenceCountUntouchedWhenARefusedDetailRowFoldsIntoIt()
+	{
+		detailRowBuilder(COUNTED_KEY_FINGERPRINT).withOverride(LogEntry__c.OccurrenceCount__c, STORED_OCCURRENCE_COUNT).build();
+		hideStoredRowsFromTheNextFingerprintRead();
+
+		Test.startTest();
+		TRG_PersistLogEntry.persist(new List<LogEntryEvent__e> {buildEvent(COUNTED_KEY_FINGERPRINT)});
+		Test.stopTest();
+
+		LogEntry__c stored = rowsByFingerprint().get(PREFIX_DETAIL + COUNTED_KEY_FINGERPRINT);
+		Assert.isNotNull(stored, 'The stored row must survive the refused duplicate');
+		Assert.areEqual(STORED_OCCURRENCE_COUNT, stored.OccurrenceCount__c?.intValue(), 'A refused row that counts nothing must leave the stored count exactly as it was');
+		Assert.isTrue(findSingleBreadcrumb().Message__c.contains(TALLY_ONE_FOLDED), 'The breadcrumb tallies the folded row, which only a refused insert produces');
+	}
+
+	/**
+	 * @description Tests the fold's arithmetic when the collision is on a COUNTER row: a rollup row stored with a
+	 * count and a refused rollup insert carrying the chunk's count fold to their sum, so no occurrence is lost to
+	 * the race. The stored row sits under the exact key the handler composes for the event's publish instant
+	 * (`buildRollupKey` with a fixed instant carried on the event), never a re-derived day suffix. The detail row
+	 * of the same chunk has no stored twin and inserts normally. The update path, taken if another read used up the hiding first, also
+	 * arrives at the same sum, which is why the breadcrumb, written only for a refused insert, is what proves the fold ran.
+	 */
+	@IsTest
+	private static void shouldSumBothOccurrenceCountsWhenARefusedRollupRowFoldsIntoTheStoredCounter()
+	{
+		LogEntryEvent__e event = buildEventPublishedAt(ROLLUP_KEY_FINGERPRINT, ROLLUP_PUBLISH_INSTANT);
+		String rollupKey = TRG_PersistLogEntry.buildRollupKey(ROLLUP_KEY_FINGERPRINT, event.CreatedDate);
+		storedRowBuilder(rollupKey).withOverride(LogEntry__c.OccurrenceCount__c, STORED_OCCURRENCE_COUNT).build();
+		hideStoredRowsFromTheNextFingerprintRead();
+
+		Test.startTest();
+		TRG_PersistLogEntry.persist(new List<LogEntryEvent__e> {event});
+		Test.stopTest();
+
+		Map<String, LogEntry__c> rows = rowsByFingerprint();
+		Assert.areEqual(STORED_OCCURRENCE_COUNT + REFUSED_ROLLUP_OCCURRENCES, rows.get(rollupKey).OccurrenceCount__c?.intValue(),
+				'The refused rollup row\'s count folds into the stored counter: both operands summed');
+		Assert.isNotNull(rows.get(PREFIX_DETAIL + ROLLUP_KEY_FINGERPRINT), 'The detail row of the chunk, with no stored twin, inserts normally');
+		LogEntry__c breadcrumb = findSingleBreadcrumb();
+		Assert.isTrue(breadcrumb.Message__c.contains(TALLY_ONE_FOLDED), 'The breadcrumb tallies the folded row, which only a refused insert produces: ' + breadcrumb.Message__c);
+	}
+
+	/**
 	 * @description Tests that the fallback breadcrumb never re-enters the path it is protecting: it
 	 * publishes no LogEntryEvent__e, never reaches either engine buffer, and leaves nothing queued
 	 * that a later delivery could turn into a second breadcrumb.
@@ -653,12 +809,12 @@ private class TRG_PersistLogEntry_TEST
 	{
 		storeDetailRow();
 		List<LogEntryEvent__e> events = new List<LogEntryEvent__e> {buildEvent(DUPLICATE_KEY_FINGERPRINT)};
-		blindTheFingerprintPresenceCheck();
+		hideStoredRowsFromEveryFingerprintRead();
 
 		Test.startTest();
-		Integer publishesBefore = Limits.getPublishImmediateDML();
+		Integer publishesBefore = UTIL_Limits.publishImmediateDml().used();
 		TRG_PersistLogEntry.persist(events);
-		Integer publishesUsed = Limits.getPublishImmediateDML() - publishesBefore;
+		Integer publishesUsed = UTIL_Limits.publishImmediateDml().used() - publishesBefore;
 		restoreLogEntryQuerying();
 		Integer breadcrumbsWhenTheFallbackFired = new SEL_LogEntry().findAllByMethod(BREADCRUMB_CLASS_METHOD).size();
 		Test.getEventBus().deliver();
@@ -676,45 +832,81 @@ private class TRG_PersistLogEntry_TEST
 	 */
 	private static void storeDetailRow()
 	{
-		TST_Builder.of(LogEntry__c.SObjectType)
-				.withOverride(LogEntry__c.ClassMethod__c, STORED_SAMPLE_CLASS_METHOD)
-				.withOverride(LogEntry__c.Message__c, STORED_SAMPLE_MESSAGE)
-				.withOverride(LogEntry__c.LogLevel__c, LoggingLevel.WARN.name())
-				.withOverride(LogEntry__c.Fingerprint__c, PREFIX_DETAIL + DUPLICATE_KEY_FINGERPRINT)
-				.build();
+		detailRowBuilder(DUPLICATE_KEY_FINGERPRINT).build();
 	}
 
 	/**
-	 * @description Hides every stored LogEntry__c row from the handler, so it reports no row under a
-	 * key the database does in fact hold. Registering an empty mock list is what blinds the read; the
-	 * rows themselves stay stored, so the unique index still refuses the insert — the refusal is real
-	 * even though the blindness is staged.
+	 * @description Builds, but does not yet store, a detail row under the given grouping key, so a caller needing
+	 * one more field on it (an occurrence count, say) can add it before storing.
 	 *
-	 * The blind is not selective: the presence check and the recovery re-read both go through
+	 * @param fingerprint The bare grouping key the row is stored under.
+	 *
+	 * @return The builder for the unstored detail row.
+	 */
+	private static TST_Builder.Builder detailRowBuilder(String fingerprint)
+	{
+		return storedRowBuilder(PREFIX_DETAIL + fingerprint);
+	}
+
+	/**
+	 * @description Builds, but does not yet store, the row the duplicate-key tests race against, under the exact
+	 * stored key given: a prefixed detail key, or a rollup key the handler composed.
+	 *
+	 * @param storedKey The full Fingerprint__c value the row is stored under.
+	 *
+	 * @return The builder for the unstored row.
+	 */
+	private static TST_Builder.Builder storedRowBuilder(String storedKey)
+	{
+		return TST_Builder.of(LogEntry__c.SObjectType)
+				.withOverride(LogEntry__c.ClassMethod__c, STORED_SAMPLE_CLASS_METHOD)
+				.withOverride(LogEntry__c.Message__c, STORED_SAMPLE_MESSAGE)
+				.withOverride(LogEntry__c.LogLevel__c, LoggingLevel.WARN.name())
+				.withOverride(LogEntry__c.Fingerprint__c, storedKey);
+	}
+
+	/**
+	 * @description Hides every stored LogEntry__c row from every read the handler makes, so it reports no
+	 * row under a key the database does in fact hold. Registering an empty mock list is what hides the
+	 * rows; the rows themselves stay stored, so the unique index still refuses the insert. The refusal is
+	 * real even though the hiding is staged.
+	 *
+	 * The hiding is not selective: the presence check and the recovery re-read both go through
 	 * `findByKey`, so hiding rows from one hides them from the other. A caller therefore gets a
-	 * refused row whose key looks unstored on re-read — the PLAIN arm — and cannot reach the FOLD arm
-	 * this way. Splitting the two would need sequenced per-call mock returns (BACKLOG-1.8 §4).
+	 * refused row whose key looks unstored on re-read, the PLAIN arm. The FOLD arm's tests hide the stored rows from the
+	 * next read only (`hideStoredRowsFromTheNextFingerprintRead`).
 	 *
-	 * Blindness is the only shape of rejection the framework itself can now produce, malformed keys
-	 * being normalized where the stored keys are composed; a subscriber's own validation rule or
+	 * A stored row the handler cannot see is the only cause of a refusal the framework itself can now
+	 * produce, because malformed keys are normalized where the stored keys are composed; a subscriber's own validation rule or
 	 * trigger on LogEntry__c can still refuse a row for reasons of its own.
 	 */
-	private static void blindTheFingerprintPresenceCheck()
+	private static void hideStoredRowsFromEveryFingerprintRead()
 	{
 		TST_Mock.register(LogEntry__c.SObjectType, new List<SObject>());
 	}
 
 	/**
-	 * @description Restores real LogEntry__c querying so the assertions read the database rather than
-	 * whatever a test staged in front of it. Both calls are needed: `TST_Mock.clear` is what drops a
-	 * registered query exception, but it re-registers an empty mock list, which still intercepts and
-	 * would answer every assertion with no rows — so a null mock list follows, which removes the
-	 * registration outright.
+	 * @description Hides the stored rows from the handler's NEXT read of LogEntry__c only: the presence check
+	 * reports no row under a key the database holds, so the insert is refused for real, and the recovery re-read
+	 * then reads the database and finds the stored row. That is what the refused writer sees when the other
+	 * writer has already committed. The read sequence this relies on: `findByKey` for the presence check, then
+	 * `findByKey` again inside the recovery, with nothing else reading LogEntry__c in between. Only a refused
+	 * insert writes a breadcrumb, so if any other read uses up the empty answer queued for it, the fold tests fail on the
+	 * breadcrumb instead of passing by the update path.
+	 */
+	private static void hideStoredRowsFromTheNextFingerprintRead()
+	{
+		TST_Mock.registerNext(LogEntry__c.SObjectType, new List<SObject>());
+	}
+
+	/**
+	 * @description Restores real LogEntry__c querying so the assertions read the database rather than whatever a
+	 * test staged in front of it: `TST_Mock.clear` removes the registration outright and drops any registered
+	 * query exception.
 	 */
 	private static void restoreLogEntryQuerying()
 	{
 		TST_Mock.clear(LogEntry__c.SObjectType);
-		QRY_Builder.setMock(LogEntry__c.SObjectType, null);
 	}
 
 	/**
@@ -754,10 +946,7 @@ private class TRG_PersistLogEntry_TEST
 	}
 
 	/**
-	 * @description Builds a fingerprinted event whose read-only CreatedDate is pre-set via a JSON
-	 * round-trip. Serializing a real event emits context-correct field API names (namespace-prefixed
-	 * in a managed install), so the payload never hardcodes a field-name literal; CreatedDate is a
-	 * standard field and carries no prefix in any context.
+	 * @description Builds an event under the suite's default grouping key whose read-only CreatedDate is pre-set.
 	 *
 	 * @param publishInstant The ISO 8601 UTC instant to stamp as the event publish time.
 	 *
@@ -765,7 +954,23 @@ private class TRG_PersistLogEntry_TEST
 	 */
 	private static LogEntryEvent__e buildEventPublishedAt(String publishInstant)
 	{
-		Map<String, Object> raw = (Map<String, Object>)JSON.deserializeUntyped(JSON.serialize(buildEvent(TEST_FINGERPRINT)));
+		return buildEventPublishedAt(TEST_FINGERPRINT, publishInstant);
+	}
+
+	/**
+	 * @description Builds a fingerprinted event whose read-only CreatedDate is pre-set via a JSON
+	 * round-trip. Serializing a real event emits context-correct field API names (namespace-prefixed
+	 * in a managed install), so the payload never hardcodes a field-name literal; CreatedDate is a
+	 * standard field and carries no prefix in any context.
+	 *
+	 * @param fingerprint The grouping key to stamp on the event.
+	 * @param publishInstant The ISO 8601 UTC instant to stamp as the event publish time.
+	 *
+	 * @return The unpublished event carrying the pre-set CreatedDate.
+	 */
+	private static LogEntryEvent__e buildEventPublishedAt(String fingerprint, String publishInstant)
+	{
+		Map<String, Object> raw = (Map<String, Object>)JSON.deserializeUntyped(JSON.serialize(buildEvent(fingerprint)));
 		raw.put('CreatedDate', publishInstant);
 		return (LogEntryEvent__e)JSON.deserialize(JSON.serialize(raw), LogEntryEvent__e.class);
 	}
@@ -812,7 +1017,7 @@ private class TRG_PersistLogEntry_TEST
 	 * @description Counts only the rows keyed by this test's own fingerprint. Orgs with their own
 	 * flag-gated trigger actions (e.g. a subscriber harness) legitimately persist additional
 	 * flood-controlled skip rows during the same transaction, so unfiltered map-size assertions are
-	 * environment-fragile — a doubling regression still fails this count because doubled rows share
+	 * environment-fragile. A doubling regression still fails this count because doubled rows share
 	 * the test's key.
 	 *
 	 * @param rows All fingerprinted rows keyed by Fingerprint__c.

@@ -13,7 +13,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, May 2026
+ * @date February 2026, September 2026
  */
 public inherited sharing class PROC_LoginFrequencyAggregator implements IF_Async.Processable, IF_Async.Finishable
 {
@@ -21,6 +21,11 @@ public inherited sharing class PROC_LoginFrequencyAggregator implements IF_Async
 	 * @description The ScheduleSetting__c record name used for watermark tracking.
 	 */
 	public static final String SETTING_NAME = PROC_LoginFrequencyAggregator.class.getName();
+
+	/**
+	 * @description Class name for log source attribution on the error entry this processor emits.
+	 */
+	private static final String CLASS_NAME = PROC_LoginFrequencyAggregator.class.getName();
 
 	/**
 	 * @description Separator used in composite keys (userId_yyyy-MM).
@@ -57,7 +62,7 @@ public inherited sharing class PROC_LoginFrequencyAggregator implements IF_Async
 		}
 		catch(Exception error)
 		{
-			LOG_Builder.build().error(error).at('PROC_LoginFrequencyAggregator.execute').emit();
+			LOG_Builder.build().error(error).at(CLASS_NAME + '.execute').emit();
 			throw error;
 		}
 	}

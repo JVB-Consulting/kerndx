@@ -10,7 +10,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -24,9 +24,17 @@
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.CognitiveComplexity,PMD.AvoidGlobalModifier')
 global inherited sharing class UTIL_System
 {
+	/**
+	 * @description The message of the exception assertTypeAssignable throws when a type cannot be used where another type is
+	 * expected. The first placeholder takes the expected type and the second the type that was found.
+	 */
 	@TestVisible
 	private static final String ERROR_TYPE_NOT_ASSIGNABLE = 'Resolved type "{1}" is not assignable to expected type "{0}".';
 
+	/**
+	 * @description The message of the exception getTypeForClassName throws when no class with the given name can be found. The
+	 * placeholder takes the class name that was asked for.
+	 */
 	@TestVisible
 	private static final String ERROR_TYPE_NOT_FOUND = 'Unable to resolve type for class "{0}".';
 
@@ -46,9 +54,10 @@ global inherited sharing class UTIL_System
 	private static final String STACK_LOCATION_DELIMITER = ': line ';
 
 	/**
-	 * @description Leading qualifier on Apex class stack frames (`Class.<name>.<method>`).
+	 * @description Leading qualifier on Apex class stack frames (`Class.<name>.<method>`). The logging engine uses it to
+	 * anchor a framework frame prefix to the start of a frame.
 	 */
-	private static final String STACK_CLASS_PREFIX = 'Class.';
+	public static final String STACK_CLASS_PREFIX = 'Class.';
 
 	/**
 	 * @description Leading qualifier on Apex trigger stack frames (`Trigger.<name>`).
@@ -63,6 +72,11 @@ global inherited sharing class UTIL_System
 	 */
 	private static final String STACK_OBFUSCATED_FRAME_FORMAT = '({0})';
 
+	/**
+	 * @description A session Id of the running user that can be used for API calls. It is read once per transaction, on first
+	 * use, by rendering the Visualforce page UTIL_GetApiEnabledSessionId and taking the text between `[[` and `]]`. A test cannot
+	 * render a page, so in a test the value is a fixed dummy that is not a real session.
+	 */
 	private static final String apiEnabledSessionId
 	{
 		get
@@ -86,6 +100,10 @@ global inherited sharing class UTIL_System
 		set;
 	}
 
+	/**
+	 * @description The namespace this class runs under, worked out once per transaction from this class's own name on first use.
+	 * It is the value getManagedPackageNamespace returns.
+	 */
 	private static final String currentNamespace
 	{
 		get
@@ -96,6 +114,25 @@ global inherited sharing class UTIL_System
 			}
 
 			return currentNamespace;
+		}
+		set;
+	}
+
+	/**
+	 * @description The answers already given in this transaction to "is this first word a namespace that holds this
+	 * class", keyed by the two words joined with a dot, so a location is looked up once however many entries it writes.
+	 */
+	@TestVisible
+	private static final Map<String, Boolean> namespaceAnswersByLocation
+	{
+		get
+		{
+			if(namespaceAnswersByLocation == null)
+			{
+				namespaceAnswersByLocation = new Map<String, Boolean>();
+			}
+
+			return namespaceAnswersByLocation;
 		}
 		set;
 	}
@@ -188,6 +225,41 @@ global inherited sharing class UTIL_System
 	}
 
 	/**
+	 * @description Says whether a class named `className` exists in a namespace named `namespace`, as the code that asks
+	 * can see it. Apex answers from its class registry, never from a query, and the answer is remembered for the rest of
+	 * the transaction. A blank namespace or class name is never a match, and an outer class is not a namespace for its
+	 * inner classes.
+	 *
+	 * @param namespace The word that may be a namespace.
+	 * @param className The word that may be a class in that namespace.
+	 *
+	 * @return True when Apex can see a class of that name in that namespace.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean isNamespace = UTIL_System.isClassInNamespace('System', 'Url'); // true
+	 * ```
+	 */
+	public static Boolean isClassInNamespace(String namespace, String className)
+	{
+		if(String.isBlank(namespace) || String.isBlank(className))
+		{
+			return false;
+		}
+
+		String location = namespace + UTIL_String.DOT + className;
+		Boolean isKnownClass = namespaceAnswersByLocation.get(location);
+
+		if(isKnownClass == null)
+		{
+			isKnownClass = Type.forName(namespace, className) != null;
+			namespaceAnswersByLocation.put(location, isKnownClass);
+		}
+
+		return isKnownClass;
+	}
+
+	/**
 	 * @description Returns the first frame on the current call stack that is outside the framework —
 	 * the external (subscriber) caller — formatted as `Class.method`. A frame is treated as
 	 * framework when it carries the managed-package namespace prefix (managed install), is the
@@ -245,6 +317,24 @@ global inherited sharing class UTIL_System
 	}
 
 	/**
+	 * @description Takes the qualifier off the front of a stack frame's location. The platform opens an Apex class frame with
+	 * `Class.` and a trigger frame with `Trigger.`; what follows is the class and method, or the trigger's own name. A location
+	 * that opens with neither, or a null one, comes back unchanged.
+	 *
+	 * @param location The part of a stack-trace line before its `: line N, column M` suffix, or null.
+	 *
+	 * @return The location without its `Class.` or `Trigger.` qualifier.
+	 */
+	public static String stripFrameQualifier(String location)
+	{
+		if(location?.startsWith(STACK_CLASS_PREFIX) == true)
+		{
+			return location.substring(STACK_CLASS_PREFIX.length());
+		}
+		return location?.startsWith(STACK_TRIGGER_PREFIX) == true ? location.substring(STACK_TRIGGER_PREFIX.length()) : location;
+	}
+
+	/**
 	 * @description Extracts the `Class.method` portion of a single stack-trace line, or returns
 	 * `null` when the line is a framework frame that should be skipped. A frame is framework when it
 	 * carries the package namespace prefix (managed install), is the subscriber-org obfuscated form
@@ -262,14 +352,7 @@ global inherited sharing class UTIL_System
 		Integer locationIndex = stackLine.indexOf(STACK_LOCATION_DELIMITER);
 		String frame = locationIndex >= 0 ? stackLine.substring(0, locationIndex) : stackLine;
 
-		if(frame.startsWith(STACK_CLASS_PREFIX))
-		{
-			frame = frame.substring(STACK_CLASS_PREFIX.length());
-		}
-		else if(frame.startsWith(STACK_TRIGGER_PREFIX))
-		{
-			frame = frame.substring(STACK_TRIGGER_PREFIX.length());
-		}
+		frame = stripFrameQualifier(frame);
 
 		if(String.isBlank(frame))
 		{
@@ -643,6 +726,18 @@ global inherited sharing class UTIL_System
 	{
 		Matcher matches = Pattern.compile('/v(\\d+\\.0)').matcher(JSON.serialize(UTIL_SObjectDescribe.getDescribe(User.SObjectType).getDescribe(), true));
 		return matches.find() ? matches.group(1) : UTIL_String.EMPTY;
+	}
+
+	/**
+	 * @description Tells whether the current request is an Apex integration test, the Winter '27 test type that
+	 * commits its data and may call real endpoints. True only when the platform reports the request's quiddity as
+	 * RUN_INTEGRATION_TESTS; false in a unit test, in production and in a request that has no session.
+	 *
+	 * @return True inside an Apex integration test, otherwise false.
+	 */
+	public static Boolean isRunningIntegrationTest()
+	{
+		return Request.getCurrent()?.getQuiddity() == Quiddity.RUN_INTEGRATION_TESTS;
 	}
 
 	/**

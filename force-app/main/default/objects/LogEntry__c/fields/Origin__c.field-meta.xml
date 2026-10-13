@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Origin__c</fullName>
+    <description>Who wrote this entry: the framework's own code, your Apex, a Flow, or a Lightning web component.</description>
+    <inlineHelpText>Who wrote this entry. Framework is Kern's own code; Apex is your Apex; Flow and Component are entries written through the Flow actions and the component logger.</inlineHelpText>
+    <label>Origin</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>FRAMEWORK</fullName>
+                <default>false</default>
+                <label>Framework</label>
+            </value>
+            <value>
+                <fullName>APEX</fullName>
+                <default>false</default>
+                <label>Apex</label>
+            </value>
+            <value>
+                <fullName>FLOW</fullName>
+                <default>false</default>
+                <label>Flow</label>
+            </value>
+            <value>
+                <fullName>COMPONENT</fullName>
+                <default>false</default>
+                <label>Component</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

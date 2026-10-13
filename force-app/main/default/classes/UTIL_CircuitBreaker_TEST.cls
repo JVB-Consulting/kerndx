@@ -9,13 +9,70 @@
  *
  * @group Resilience
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class UTIL_CircuitBreaker_TEST
 {
+	/**
+	 * @description The name of the circuit the tests of this class watch.
+	 */
 	private static final String SERVICE_NAME = 'TestAPIService';
+
+	/**
+	 * @description A timeout of zero seconds. In a test the breaker treats a zero timeout as passed once the clock has
+	 * moved on by one millisecond, so a test can let the timeout pass without waiting.
+	 */
+	private static final Integer IMMEDIATE_TIMEOUT_SECONDS = 0;
+
+	/**
+	 * @description A timeout no test waits out, in seconds, so a breaker that carries it never sees its timeout pass.
+	 */
+	private static final Integer LONG_TIMEOUT_SECONDS = 60;
+
+	/**
+	 * @description How many trial requests the half-open tests let through in one round.
+	 */
+	private static final Integer TRIAL_REQUESTS = 2;
+
+	/**
+	 * @description How many successful trial requests close the circuit in the test that spreads them over two rounds.
+	 */
+	private static final Integer SUCCESSES_TO_CLOSE = 2;
+
+	/**
+	 * @description The length of the random circuit name the cache-loading test uses, so no other test shares its state.
+	 */
+	private static final Integer CACHED_CIRCUIT_NAME_LENGTH = 16;
+
+	/**
+	 * @description The failure threshold of the circuit in the cache-loading test: above the failures it records, so the
+	 * circuit stays closed and the test reads the failure count alone.
+	 */
+	private static final Integer CACHED_CIRCUIT_FAILURE_THRESHOLD = 3;
+
+	/**
+	 * @description The failures the cache-loading test records through its first breaker and expects the second to load.
+	 */
+	private static final Integer CACHED_CIRCUIT_FAILURES = 2;
+
+	/**
+	 * @description The name of the field of the cached circuit state that holds when the current round of trial requests
+	 * began.
+	 */
+	private static final String FIELD_STATE_CHANGED_TIME = 'stateChangedTime';
+
+	/**
+	 * @description How long a test keeps the state it writes to the org cache, in seconds: the shortest time the platform
+	 * accepts.
+	 */
+	private static final Integer CACHE_SECONDS = 300;
+
+	/**
+	 * @description The name of the breaker method that starts a new round of trial requests, as its log line carries it.
+	 */
+	private static final String METHOD_START_NEW_ROUND = 'startNewRoundOfTrials';
 
 	/**
 	 * @description Tests circuit starts in CLOSED state and allows requests
@@ -103,19 +160,23 @@ private class UTIL_CircuitBreaker_TEST
 	}
 
 	/**
-	 * @description Tests limited requests allowed in HALF_OPEN state
+	 * @description Tests limited requests allowed in HALF_OPEN state. The timeout is raised once the circuit is
+	 * HALF_OPEN, because a zero timeout would start a new round of trial requests as soon as the two were used.
 	 */
 	@IsTest
 	private static void shouldAllowLimitedRequestsInHalfOpenState()
 	{
 		UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor(SERVICE_NAME)
 				.withFailureThreshold(1)
-				.withTimeout(0)
-				.withHalfOpenMaxAttempts(2);
+				.withTimeout(IMMEDIATE_TIMEOUT_SECONDS)
+				.withHalfOpenMaxAttempts(TRIAL_REQUESTS);
 
 		// When - Open circuit and transition to HALF_OPEN
 		breaker.recordFailure();
 		breaker.getState(); // Trigger transition to HALF_OPEN
+		UTIL_CircuitBreaker.State stateBeforeTheTrials = breaker.getState();
+		Assert.areEqual(UTIL_CircuitBreaker.State.HALF_OPEN, stateBeforeTheTrials, 'Expected HALF_OPEN once the zero timeout passed, got ' + stateBeforeTheTrials);
+		breaker.withTimeout(LONG_TIMEOUT_SECONDS);
 
 		// Then - Should allow limited requests
 		Assert.isTrue(breaker.allowRequest(), 'First request should be allowed in HALF_OPEN');
@@ -174,6 +235,154 @@ private class UTIL_CircuitBreaker_TEST
 
 		Assert.areEqual(UTIL_CircuitBreaker.State.OPEN, state, 'Circuit should reopen on failure in HALF_OPEN');
 		Assert.isFalse(breaker.allowRequest(), 'Should not allow requests in OPEN state');
+	}
+
+	/**
+	 * @description A trial request that ends with no result recorded must not leave the circuit refusing every request.
+	 * Every trial request of the round is let through and none records a success or a failure. Once the timeout has
+	 * passed since the round began, the next request is allowed, the circuit is still HALF_OPEN and the metrics show the
+	 * later time at which the new round began.
+	 */
+	@IsTest
+	private static void shouldStartANewRoundOfTrialsWhenEveryTrialEndedWithoutAResult()
+	{
+		UTIL_CircuitBreaker.Breaker breaker = newHalfOpenBreaker();
+		Long firstRoundStartedAt = breaker.getMetrics().stateChangedTime.getTime();
+		assertTrialRequestsAreAllowed(breaker, TRIAL_REQUESTS);
+		waitForTheClockToMove();
+
+		Boolean isAllowed = breaker.allowRequest();
+		UTIL_CircuitBreaker.Metrics metrics = breaker.getMetrics();
+
+		Assert.isTrue(isAllowed, 'Expected a request to be allowed once the timeout passed since the trial requests began, got a refusal');
+		Assert.areEqual(UTIL_CircuitBreaker.State.HALF_OPEN, metrics.state, 'Expected the circuit to stay HALF_OPEN in the new round, got ' + metrics.state);
+		Long newRoundStartedAt = metrics.stateChangedTime.getTime();
+		Assert.isTrue(newRoundStartedAt > firstRoundStartedAt, 'Expected the new round to begin after ' + firstRoundStartedAt + ', got ' + newRoundStartedAt);
+	}
+
+	/**
+	 * @description A new round of trial requests waits for the timeout. With every trial request used and a timeout that
+	 * has not passed since the round began, the next request is still refused, the circuit stays HALF_OPEN and the round
+	 * keeps its start time.
+	 */
+	@IsTest
+	private static void shouldKeepRefusingUntilTheTimeoutHasPassedSinceTheTrialsBegan()
+	{
+		UTIL_CircuitBreaker.Breaker breaker = newHalfOpenBreaker().withTimeout(LONG_TIMEOUT_SECONDS);
+		Datetime roundStartedAt = breaker.getMetrics().stateChangedTime;
+		assertTrialRequestsAreAllowed(breaker, TRIAL_REQUESTS);
+		waitForTheClockToMove();
+
+		Boolean isAllowed = breaker.allowRequest();
+		UTIL_CircuitBreaker.Metrics metrics = breaker.getMetrics();
+
+		Assert.isFalse(isAllowed, 'Expected a refusal while the timeout has not passed since the trial requests began, got an allowed request');
+		Assert.areEqual(UTIL_CircuitBreaker.State.HALF_OPEN, metrics.state, 'Expected the circuit to stay HALF_OPEN while it refuses, got ' + metrics.state);
+		Assert.areEqual(roundStartedAt, metrics.stateChangedTime, 'Expected the round to keep its start time ' + roundStartedAt + ', got ' + metrics.stateChangedTime);
+	}
+
+	/**
+	 * @description A new round of trial requests keeps the successes already recorded. With two successes needed to close
+	 * the circuit, one trial request succeeds and the others of the round end with no result. After the timeout a new
+	 * round begins with that one success still counted, so one more success closes the circuit.
+	 */
+	@IsTest
+	private static void shouldKeepRecordedSuccessesWhenANewRoundOfTrialsStarts()
+	{
+		UTIL_CircuitBreaker.Breaker breaker = newHalfOpenBreaker().withSuccessThreshold(SUCCESSES_TO_CLOSE);
+		assertTrialRequestsAreAllowed(breaker, 1);
+		breaker.recordSuccess();
+		assertTrialRequestsAreAllowed(breaker, TRIAL_REQUESTS - 1);
+		waitForTheClockToMove();
+
+		Boolean isAllowed = breaker.allowRequest();
+		Integer successesInTheNewRound = breaker.getMetrics().consecutiveSuccesses;
+		breaker.recordSuccess();
+		UTIL_CircuitBreaker.State stateAfterTheSecondSuccess = breaker.getState();
+
+		Assert.isTrue(isAllowed, 'Expected a request to be allowed in the new round, got a refusal');
+		Assert.areEqual(1, successesInTheNewRound, 'Expected the one recorded success to still count in the new round, got ' + successesInTheNewRound);
+		Assert.areEqual(UTIL_CircuitBreaker.State.CLOSED, stateAfterTheSecondSuccess, 'Expected the second success to close the circuit, got ' + stateAfterTheSecondSuccess);
+	}
+
+	/**
+	 * @description A failure recorded in a new round of trial requests reopens the circuit at once, as a failure in the
+	 * first round does, and the reopened circuit refuses the next request.
+	 */
+	@IsTest
+	private static void shouldReopenTheCircuitWhenATrialOfANewRoundFails()
+	{
+		UTIL_CircuitBreaker.Breaker breaker = newHalfOpenBreaker();
+		assertTrialRequestsAreAllowed(breaker, TRIAL_REQUESTS);
+		waitForTheClockToMove();
+		Boolean isAllowed = breaker.allowRequest();
+		breaker.withTimeout(LONG_TIMEOUT_SECONDS);
+
+		breaker.recordFailure();
+		UTIL_CircuitBreaker.State stateAfterTheFailure = breaker.getState();
+
+		Assert.isTrue(isAllowed, 'Expected a request to be allowed in the new round, got a refusal');
+		Assert.areEqual(UTIL_CircuitBreaker.State.OPEN, stateAfterTheFailure, 'Expected the failure to reopen the circuit, got ' + stateAfterTheFailure);
+		Assert.isFalse(breaker.allowRequest(), 'Expected the reopened circuit to refuse the next request, got an allowed request');
+	}
+
+	/**
+	 * @description A new round of trial requests is saved, so the next transaction sees it. One breaker starts the new
+	 * round by reading its state, which uses no trial request. A second breaker for the same circuit, built afterwards
+	 * with a timeout that has not passed, reads the state from the org cache and allows a request. Without the save the
+	 * second breaker would read every trial request as used and refuse. In an org whose org cache has no space set aside,
+	 * nothing is saved: the second breaker finds no state, starts CLOSED and allows the request.
+	 */
+	@IsTest
+	private static void shouldSaveANewRoundOfTrialsForTheNextBreakerOfTheCircuit()
+	{
+		UTIL_CircuitBreaker.State expectedState = UTIL_Cache.isOrgAllocated() ? UTIL_CircuitBreaker.State.HALF_OPEN : UTIL_CircuitBreaker.State.CLOSED;
+		UTIL_CircuitBreaker.Breaker firstBreaker = newHalfOpenBreaker();
+		assertTrialRequestsAreAllowed(firstBreaker, TRIAL_REQUESTS);
+		waitForTheClockToMove();
+		firstBreaker.getState();
+
+		UTIL_CircuitBreaker.Breaker secondBreaker = UTIL_CircuitBreaker.monitor(SERVICE_NAME).withTimeout(LONG_TIMEOUT_SECONDS).withHalfOpenMaxAttempts(TRIAL_REQUESTS);
+		UTIL_CircuitBreaker.State stateReadFromTheCache = secondBreaker.getState();
+		Boolean isAllowed = secondBreaker.allowRequest();
+
+		Assert.areEqual(expectedState, stateReadFromTheCache, 'Expected the second breaker to read ' + expectedState + ', got ' + stateReadFromTheCache);
+		Assert.isTrue(isAllowed, 'Expected the second breaker to allow a request, got a refusal');
+	}
+
+	/**
+	 * @description A circuit state kept in the org cache with no start time for its round of trial requests still
+	 * recovers. The test stores such a state with every trial request used, then asks a breaker whose timeout has not
+	 * passed. The missing time reads as a timeout that has passed: the request is allowed, nothing throws and the new
+	 * round gets a start time. In an org whose org cache has no space set aside, the breaker cannot save its state: the
+	 * test checks that the org cache holds none and that a new breaker for the circuit starts CLOSED.
+	 */
+	@IsTest
+	private static void shouldStartANewRoundOfTrialsWhenTheCachedStateHasNoStartTime()
+	{
+		Boolean hasOrgCacheSpace = UTIL_Cache.isOrgAllocated();
+		assertTrialRequestsAreAllowed(newHalfOpenBreaker(), TRIAL_REQUESTS);
+		UTIL_Cache.Store cache = UTIL_Cache.org().withPartition(UTIL_Cache.getPlatformCacheName());
+		Object cachedState = cache.get(SERVICE_NAME);
+		if(!hasOrgCacheSpace)
+		{
+			Assert.isNull(cachedState, 'Expected no circuit state in the org cache when it has no space, got ' + cachedState);
+			UTIL_CircuitBreaker.State stateOfANewBreaker = UTIL_CircuitBreaker.monitor(SERVICE_NAME).getState();
+			Assert.areEqual(UTIL_CircuitBreaker.State.CLOSED, stateOfANewBreaker, 'Expected a new breaker to start CLOSED with no saved state, got ' + stateOfANewBreaker);
+			return;
+		}
+		Assert.isNotNull(cachedState, 'Expected the circuit state in the org cache, got none');
+		Map<String, Object> stateByField = (Map<String, Object>)JSON.deserializeUntyped(JSON.serialize(cachedState));
+		stateByField.remove(FIELD_STATE_CHANGED_TIME);
+		cache.put(SERVICE_NAME, JSON.deserialize(JSON.serialize(stateByField), UTIL_CircuitBreaker.CircuitState.class), CACHE_SECONDS);
+		UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor(SERVICE_NAME).withTimeout(LONG_TIMEOUT_SECONDS).withHalfOpenMaxAttempts(TRIAL_REQUESTS);
+
+		Boolean isAllowed = breaker.allowRequest();
+		UTIL_CircuitBreaker.Metrics metrics = breaker.getMetrics();
+
+		Assert.isTrue(isAllowed, 'Expected a request to be allowed when the cached state has no start time for its round, got a refusal');
+		Assert.areEqual(UTIL_CircuitBreaker.State.HALF_OPEN, metrics.state, 'Expected the HALF_OPEN state the test stored in the org cache, got ' + metrics.state);
+		Assert.isNotNull(metrics.stateChangedTime, 'Expected the new round to get a start time, got none');
 	}
 
 	/**
@@ -295,9 +504,19 @@ private class UTIL_CircuitBreaker_TEST
 	 */
 	private class TestProtectedAction implements UTIL_CircuitBreaker.ProtectedAction
 	{
+		/**
+		 * @description True once execute() has run, so a test can tell whether the breaker let the action through.
+		 */
 		public Boolean wasExecuted = false;
+
+		/**
+		 * @description Set to true to make execute() throw, standing in for a call to an external system that fails.
+		 */
 		public Boolean shouldFail = false;
 
+		/**
+		 * @description Notes that the action ran, then throws when the test asked for a failure.
+		 */
 		public void execute()
 		{
 			wasExecuted = true;
@@ -313,10 +532,26 @@ private class UTIL_CircuitBreaker_TEST
 	 */
 	private class TestProvider implements UTIL_CircuitBreaker.Provider
 	{
+		/**
+		 * @description True once execute() has run, so a test can tell whether the breaker let the provider through.
+		 */
 		public Boolean wasExecuted = false;
+
+		/**
+		 * @description Set to true to make execute() throw, standing in for a call to an external system that fails.
+		 */
 		public Boolean shouldFail = false;
+
+		/**
+		 * @description The value execute() returns when it does not throw.
+		 */
 		public String resultValue = 'test result';
 
+		/**
+		 * @description Notes that the provider ran, then throws when the test asked for a failure.
+		 *
+		 * @return The value held in resultValue.
+		 */
 		public Object execute()
 		{
 			wasExecuted = true;
@@ -527,40 +762,24 @@ private class UTIL_CircuitBreaker_TEST
 	}
 
 	/**
-	 * @description Tests that circuit breaker state loads from cache when available.
-	 * This test manually populates the cache to exercise the cache.get() code path (line 1047).
+	 * @description A breaker loads the state an earlier breaker for the same circuit saved to Platform Cache: two failures
+	 * recorded through one breaker are read back by a second breaker created for the same circuit. Each call to monitor()
+	 * creates a new breaker, so the second one can only know the failures through the cache. The circuit name is random,
+	 * so no other test shares its cached state. In an org whose org cache has no space set aside, nothing is saved, so
+	 * the second breaker starts with no failures.
 	 */
 	@IsTest
 	private static void shouldLoadStateFromCache()
 	{
-		// Given - Manually create and save a circuit state to cache
-		String testCircuitId = 'TestCachedCircuit';
+		Integer expectedFailures = UTIL_Cache.isOrgAllocated() ? CACHED_CIRCUIT_FAILURES : 0;
+		String circuitId = UTIL_Random.randomAlphanumeric(CACHED_CIRCUIT_NAME_LENGTH);
+		UTIL_CircuitBreaker.Breaker firstBreaker = UTIL_CircuitBreaker.monitor(circuitId).withFailureThreshold(CACHED_CIRCUIT_FAILURE_THRESHOLD);
+		firstBreaker.recordFailure();
+		firstBreaker.recordFailure();
 
-		// Note: We can't easily serialize CircuitState since it's private, so this test
-		// verifies the cache retrieval logic by creating a breaker, letting it save state,
-		// then creating another instance to load it
-		UTIL_CircuitBreaker.Breaker breaker1 = UTIL_CircuitBreaker.monitor(testCircuitId)
-				.withFailureThreshold(3);
+		UTIL_CircuitBreaker.Metrics metrics = UTIL_CircuitBreaker.monitor(circuitId).getMetrics();
 
-		// Record failures to trigger state save to cache
-		breaker1.recordFailure();
-		breaker1.recordFailure();
-
-		// When - Create a NEW instance (not singleton) which should attempt to load from cache
-		// The loadState() method will call cache.contains() and cache.get()
-		UTIL_CircuitBreaker.Breaker breaker2 = UTIL_CircuitBreaker.monitor(testCircuitId);
-
-		// Then - If cache is working, breaker2 loads the saved state. If cache is not available in tests,
-		// it creates new state. Either way, this test exercises the loadState() code path including line 1047.
-		UTIL_CircuitBreaker.Metrics metrics = breaker2.getMetrics();
-
-		// The assertion depends on whether platform cache is available in the test environment
-		// In most cases, cache works and we'll load the 2 failures. If not, we get 0.
-		Boolean cacheWorked = (metrics.failureCount == 2);
-		Boolean cacheMissed = (metrics.failureCount == 0);
-
-		Assert.isTrue(cacheWorked || cacheMissed,
-				'Should either load from cache (2 failures) or create new state (0 failures). Got: ' + metrics.failureCount);
+		Assert.areEqual(expectedFailures, metrics.failureCount, 'Expected the second breaker to read ' + expectedFailures + ' failures, got ' + metrics.failureCount);
 	}
 
 	/**
@@ -605,12 +824,14 @@ private class UTIL_CircuitBreaker_TEST
 	}
 
 	/**
-	 * @description Tests that state transitions log appropriately
+	 * @description Tests that state transitions log appropriately, and that each transition line is labelled with
+	 * the class name the platform resolves, so an install under a namespace stamps the line as the framework's.
 	 */
 	@IsTest
 	private static void shouldLogStateTransitions()
 	{
 		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
 
 		UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor(SERVICE_NAME)
 				.withFailureThreshold(1)
@@ -618,10 +839,87 @@ private class UTIL_CircuitBreaker_TEST
 				.withSuccessThreshold(1);
 
 		// When - Trigger all state transitions
+		Test.startTest();
 		breaker.recordFailure(); // CLOSED -> OPEN (should log warn)
 		breaker.getState(); // OPEN -> HALF_OPEN (should log info)
 		breaker.recordSuccess(); // HALF_OPEN -> CLOSED (should log info)
+		Test.stopTest();
 
 		Assert.areEqual(UTIL_CircuitBreaker.State.CLOSED, breaker.getState(), 'Should be back to CLOSED');
+
+		String expectedClassMethod = UTIL_CircuitBreaker.class.getName() + UTIL_String.DOT + 'transitionToOpen';
+		LogEntry__c openRow = new SEL_LogEntry().findByMethod(expectedClassMethod);
+		Assert.isNotNull(openRow, 'The transition to OPEN was written under the class name the platform resolves, not a bare literal');
+	}
+
+	/**
+	 * @description A new round of trial requests writes one log line under the breaker's class name, so an administrator
+	 * reading the log can see why a circuit whose trial requests were all used is letting requests through again.
+	 */
+	@IsTest
+	private static void shouldLogANewRoundOfTrials()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Test.startTest();
+		UTIL_CircuitBreaker.Breaker breaker = newHalfOpenBreaker();
+		assertTrialRequestsAreAllowed(breaker, TRIAL_REQUESTS);
+		waitForTheClockToMove();
+		breaker.getState();
+		Test.stopTest();
+
+		String expectedClassMethod = UTIL_CircuitBreaker.class.getName() + UTIL_String.DOT + METHOD_START_NEW_ROUND;
+		LogEntry__c newRoundRow = new SEL_LogEntry().findByMethod(expectedClassMethod);
+		Assert.isNotNull(newRoundRow, 'Expected one log line written at ' + expectedClassMethod + ' for the new round of trial requests, got none');
+	}
+
+	/**
+	 * @description Builds a breaker for the test circuit and takes it to HALF_OPEN with a zero timeout: one failure opens
+	 * the circuit, the timeout passes as soon as the clock moves, and reading the state moves the circuit on. The state is
+	 * read twice because the breaker skips its timeout check on the first read after the circuit opens.
+	 *
+	 * @return The breaker, HALF_OPEN, with no trial request used.
+	 */
+	private static UTIL_CircuitBreaker.Breaker newHalfOpenBreaker()
+	{
+		UTIL_CircuitBreaker.Breaker breaker = UTIL_CircuitBreaker.monitor(SERVICE_NAME)
+				.withFailureThreshold(1)
+				.withTimeout(IMMEDIATE_TIMEOUT_SECONDS)
+				.withHalfOpenMaxAttempts(TRIAL_REQUESTS);
+		breaker.recordFailure();
+		breaker.getState();
+		waitForTheClockToMove();
+		breaker.getState();
+		return breaker;
+	}
+
+	/**
+	 * @description Asks the breaker for a number of requests in a row and asserts each one is allowed. No result is
+	 * recorded for any of them, so each one uses a trial request of a HALF_OPEN circuit and leaves it used.
+	 *
+	 * @param breaker The breaker to ask.
+	 * @param requestCount How many requests to ask for.
+	 */
+	private static void assertTrialRequestsAreAllowed(UTIL_CircuitBreaker.Breaker breaker, Integer requestCount)
+	{
+		for(Integer request = 1; request <= requestCount; request++)
+		{
+			Assert.isTrue(breaker.allowRequest(), 'Expected trial request ' + request + ' of ' + requestCount + ' to be allowed, got a refusal');
+		}
+	}
+
+	/**
+	 * @description Returns once the clock has moved on by at least one millisecond. A breaker with a zero timeout reads
+	 * its timeout as passed from then on, so a test that calls this never depends on how long its own statements took.
+	 */
+	private static void waitForTheClockToMove()
+	{
+		Long startedAt = Datetime.now().getTime();
+		Long currentTime = startedAt;
+		while(currentTime == startedAt)
+		{
+			currentTime = Datetime.now().getTime();
+		}
 	}
 }

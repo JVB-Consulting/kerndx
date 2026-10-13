@@ -49,27 +49,27 @@
  * - Scoped logging for batched publish
  * - Integration with platform events for asynchronous log processing
  *
- * **Querying log entries — filter by `UserId__c`, NOT `CreatedById`:**
- * Log entries are persisted by `TRG_PersistLogEntry` running on the `LogEntryEvent__e` Platform
- * Event subscriber. Salesforce executes Platform Event triggers as the Automated Process user, so
- * EVERY persisted `LogEntry__c` row has `CreatedById` set to the Automated Process user — NOT
- * the user that called `LOG_Builder.emit()`. The framework captures the emitting user's Id at
- * publish time into `LogEntry__c.UserId__c`. To query logs by emitting user, use:
+ * **Querying log entries: filter by `UserId__c`, NOT `CreatedById`.**
+ * `TRG_PersistLogEntry` saves log entries. It is the trigger on the `LogEntryEvent__e` platform event.
+ * Salesforce runs platform event triggers as the Automated Process user. So EVERY saved `LogEntry__c` row
+ * has `CreatedById` set to the Automated Process user, NOT to the user that called `LOG_Builder.emit()`.
+ * When the event is published, the framework stores the Id of the user who logged the entry in
+ * `LogEntry__c.UserId__c`. To query logs by that user, use:
  *
  * ```apex
- * // RIGHT — returns logs from the running user
+ * // RIGHT: returns logs from the running user
  * QRY_Builder.selectFrom(LogEntry__c.SObjectType)
  *     .condition(LogEntry__c.UserId__c).equals(UserInfo.getUserId())
  *     .toList();
  *
- * // WRONG — silently returns ZERO rows (CreatedById is the Automated Process user)
+ * // WRONG: returns ZERO rows without any error (CreatedById is the Automated Process user)
  * QRY_Builder.selectFrom(LogEntry__c.SObjectType)
  *     .condition(LogEntry__c.CreatedById).equals(UserInfo.getUserId())
  *     .toList();
  * ```
  *
  * The same applies to subscriber reports, dashboards, cleanup scripts, and audit queries. See
- * the Logging Developer Guide → "Querying Log Entries" for worked subscriber examples.
+ * the section "Querying Log Entries" in the Logging Developer Guide for full examples.
  *
  * @see LoggingLevel
  * @see LOG_Builder_TEST
@@ -79,7 +79,7 @@
  *
  * @group Logging
  *
- * @date October 2024, August 2026
+ * @date October 2024, October 2026
  *
  * @since 1.0
  *
@@ -99,9 +99,9 @@ global inherited sharing class LOG_Builder
 	private static final Integer MAXIMUM_RAW_FINGERPRINT_LENGTH = 200;
 
 	/**
-	 * @description Key prefix reserved for framework bypass-audit fingerprints; subscriber keys
-	 * invading it are hashed so they can never collide with framework keys. Public so the framework
-	 * producer (`UTIL_BypassAudit`) and the normalizer share one source of truth for the prefix.
+	 * @description Key prefix kept for the framework's bypass audit fingerprints. A subscriber key that starts with
+	 * it is hashed, so it can never match a framework key. It is public so that `UTIL_BypassAudit`, which writes
+	 * these keys, and the method that cleans up keys read the prefix from one place.
 	 */
 	public static final String RESERVED_FINGERPRINT_PREFIX = 'bypass:';
 
@@ -159,7 +159,9 @@ global inherited sharing class LOG_Builder
 	}
 
 	/**
-	 * @description Starts a new correlation context for multi-transaction tracing.
+	 * @description Starts a new correlation context for multi-transaction tracing. The first correlation a transaction
+	 * starts also becomes its root correlation id, the id the entries that follow name as their action; a later
+	 * correlation started in the same transaction moves the correlation id and keeps that root.
 	 *
 	 * @return String The generated correlation ID to pass to child processes
 	 *
@@ -177,7 +179,8 @@ global inherited sharing class LOG_Builder
 	}
 
 	/**
-	 * @description Sets the correlation ID for child transactions.
+	 * @description Sets the correlation ID for child transactions. When the transaction has no root correlation id
+	 * yet, this id becomes it; a later call moves the correlation id and keeps that root.
 	 *
 	 * @param correlationId The correlation ID from parent transaction
 	 *
@@ -208,6 +211,27 @@ global inherited sharing class LOG_Builder
 		get
 		{
 			return LOG_Engine.getCorrelationId();
+		}
+	}
+
+	/**
+	 * @description The root correlation id: the tracking id of the action that started everything the current
+	 * transaction belongs to. It equals the correlation id until a background chain continues the action under a
+	 * tracking id of its own; then the correlation id names that run and the root still names the action. Search the
+	 * Log Console for it to see every entry the action produced.
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * String actionId = LOG_Builder.rootCorrelationId;
+	 * ```
+	 */
+	global static String rootCorrelationId
+	{
+		get
+		{
+			return LOG_Engine.getRootCorrelationId();
 		}
 	}
 
@@ -247,11 +271,14 @@ global inherited sharing class LOG_Builder
 	}
 
 	/**
-	 * @description Serializes a logging context carrying the SUPPLIED correlation id — for
+	 * @description Serializes a logging context carrying the SUPPLIED correlation id: for
 	 * handing a different execution its own logging identity (for example, a restarted chain's
 	 * fresh run) without reading or touching this transaction's live context. The document is
 	 * minimal on purpose: it carries no transaction lineage and no live context data, because it
-	 * is written for another execution and outlives this request.
+	 * is written for another execution and outlives this request. It starts a new action: a job that
+	 * restores it names the supplied id as both its correlation id and its root, so a search for the
+	 * launching action's root does not find that job's entries. A job meant to continue the current
+	 * action should carry serializeContext() instead.
 	 *
 	 * @param correlationId The correlation id the serialized context carries.
 	 *
@@ -343,7 +370,8 @@ global inherited sharing class LOG_Builder
 
 	/**
 	 * @description Suspends log publishing. Use try/finally to ensure resumeSaving().
-	 * ERROR logs bypass buffer and trigger immediate flush.
+	 * ERROR logs bypass buffer and trigger immediate flush, except inside a trigger the framework runs on a
+	 * platform event or change event, where an ERROR waits with the rest and is written when the trigger ends.
 	 *
 	 * @since 1.0
 	 *
@@ -534,26 +562,9 @@ global inherited sharing class LOG_Builder
 	}
 
 	/**
-	 * @description Fluent builder for constructing rich log entries with context.
-	 * Provides a chainable API for setting log level, location, record association,
-	 * and contextual metadata before emitting the log.
-	 *
-	 * @since 1.0
-	 *
-	 * @example
-	 * ```apex
-	 * LOG_Builder.build()
-	 *     .error(caughtException)
-	 *     .at('PaymentService.charge')
-	 *     .forRecord(paymentId)
-	 *     .withContext('amount', payment.Amount__c)
-	 *     .emit();
-	 * ```
-	 */
-	/**
-	 * @description Normalizes a subscriber-supplied fingerprint key: trims; blank → null;
-	 * oversized or reserved-prefix keys → SHA-256 hex (never truncated — truncation would
-	 * silently collapse distinct events whose keys differ only past the cut).
+	 * @description Cleans up a fingerprint key that a subscriber supplied. It trims the key, and a blank key becomes
+	 * null. A key that is too long, or that starts with the reserved prefix, becomes its SHA-256 hash in hex. A key
+	 * is never cut short, because two different events whose keys differ only after the cut would then look the same.
 	 *
 	 * @param key The raw subscriber key.
 	 *
@@ -570,20 +581,20 @@ global inherited sharing class LOG_Builder
 	}
 
 	/**
-	 * @description Puts a fingerprint key into the exact shape `LogEntry__c.Fingerprint__c` can hold:
-	 * blank → null, edge whitespace trimmed, anything past the raw budget SHA-256 hashed. Both halves
-	 * matter to the database, and for opposite reasons — Salesforce strips a text field's edge
-	 * whitespace on save, so an untrimmed key is stored under a value no lookup of the untrimmed key
-	 * can ever match, while a key past the budget makes the prefixed `detail:`/`rollup:` key longer
-	 * than the field and the row is refused outright.
+	 * @description Puts a fingerprint key into the exact form that `LogEntry__c.Fingerprint__c` can hold. A blank
+	 * key becomes null, spaces at the start and end are trimmed, and a key longer than MAXIMUM_RAW_FINGERPRINT_LENGTH
+	 * is replaced by its SHA-256 hash. The database needs both the trim and the length check, for different reasons.
+	 * Salesforce removes spaces at the start and end of a text field when it saves it. So a key that was not trimmed
+	 * is stored under a value that a lookup with the untrimmed key can never find. And a key that is too long makes
+	 * the key with its `detail:` or `rollup:` prefix longer than the field, so the row is refused.
 	 *
-	 * Every producer of a stored fingerprint runs its key through here, so one rule governs the whole
-	 * lifecycle: `withFingerprint`, `withFingerprintInternal`, and the persist side
-	 * (`TRG_PersistLogEntry.groupEvents`), which normalizes again because it also receives events
-	 * nothing in this class ever touched — a `LogEntryEvent__e` published directly carries whatever
-	 * its own 216-character field accepted.
+	 * Every piece of code that stores a fingerprint passes its key through this method, so one rule applies
+	 * everywhere: `withFingerprint`, `withFingerprintInternal`, and the trigger that saves log entries
+	 * (`TRG_PersistLogEntry.groupEvents`). The trigger cleans the key again because it also receives events that
+	 * never passed through this class: a `LogEntryEvent__e` published directly carries whatever its own
+	 * 216-character field accepted.
 	 *
-	 * @param key The raw key to put into storable shape.
+	 * @param key The raw key to put into a form that can be stored.
 	 *
 	 * @return The storable key, or null when the key is blank.
 	 */
@@ -593,17 +604,17 @@ global inherited sharing class LOG_Builder
 	}
 
 	/**
-	 * @description Length-caps a fingerprint key to the raw budget by SHA-256 hashing anything
-	 * longer, so the prefixed `detail:`/`rollup:` keys always fit the Fingerprint__c field. Hashing
-	 * rather than truncating is the point: a cut would silently collapse distinct events whose keys
-	 * differ only past it.
+	 * @description Keeps a fingerprint key within MAXIMUM_RAW_FINGERPRINT_LENGTH by replacing a longer key with its
+	 * SHA-256 hash, so the keys with a `detail:` or `rollup:` prefix always fit the Fingerprint__c field. The key is
+	 * hashed, not cut short, on purpose: a cut would make two different events whose keys differ only after the cut
+	 * look the same.
 	 *
-	 * The length half of `normalizeStoredFingerprintKey`, which is its only caller and which has
-	 * already trimmed the key by the time it arrives here.
+	 * This is the length check of `normalizeStoredFingerprintKey`. That method is its only caller, and it has
+	 * already trimmed the key.
 	 *
-	 * @param key The already-trimmed key to length-check.
+	 * @param key The already-trimmed key to check.
 	 *
-	 * @return The key unchanged when within budget, otherwise its SHA-256 hash.
+	 * @return The key unchanged when it is short enough, otherwise its SHA-256 hash.
 	 */
 	private static String capFingerprintLength(String key)
 	{
@@ -615,8 +626,8 @@ global inherited sharing class LOG_Builder
 	}
 
 	/**
-	 * @description Test-only window onto normalizeFingerprintKey so normalization rules are
-	 * pinned without exposing the helper to subscribers.
+	 * @description Lets a test call normalizeFingerprintKey, so tests can check the key clean-up rules
+	 * without making the method visible to subscribers.
 	 *
 	 * @param key The raw key to normalize.
 	 *
@@ -894,7 +905,8 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
-		 * @description Sets a brief summary message for the log entry.
+		 * @description Sets a brief summary message for the log entry. On an entry that carries an
+		 * exception, the summary becomes the short message and the exception's text stays the message.
 		 *
 		 * @param shortMessage The summary message
 		 *
@@ -909,14 +921,14 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
-		 * @description Sets a grouping fingerprint for this entry, enabling flood control: the first
-		 * occurrence persists as a full detail row, repeats roll up into daily counter rows. Use a
-		 * STABLE event-template identity (e.g. 'payment-retry-loop') — never per-occurrence data
-		 * such as record ids or timestamps, which would make every entry unique and produce MORE
-		 * rows than plain logging. Keys are trimmed; keys longer than 200 characters or starting
-		 * with the reserved 'bypass:' prefix are SHA-256 hashed. When a key is hashed, the original
-		 * key is recorded in this entry's context (`LOG_Engine.CONTEXT_FINGERPRINT_SOURCE`) so the
-		 * opaque stored fingerprint stays reconcilable with what you supplied.
+		 * @description Sets a grouping fingerprint for this entry, which turns on flood control. Flood control stops
+		 * the same event from filling the log: the first time the event happens it is saved as a full detail row,
+		 * and repeats are added up in one counter row per day. Use a key that names the kind of event and never
+		 * changes (e.g. 'payment-retry-loop'). Never use data that changes each time, such as record ids or
+		 * timestamps: that would make every entry unique and produce MORE rows than plain logging. Keys are trimmed.
+		 * Keys longer than 200 characters, or starting with the reserved 'bypass:' prefix, are replaced by their
+		 * SHA-256 hash. When a key is hashed, the original key is saved in this entry's context
+		 * (`LOG_Engine.CONTEXT_FINGERPRINT_SOURCE`), so you can still match the stored hash to the key you supplied.
 		 *
 		 * @param key The stable grouping key.
 		 *
@@ -940,12 +952,11 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
-		 * @description Framework-internal fingerprint setter that skips the reserved-prefix hashing so
-		 * the framework can stamp reserved-prefix keys verbatim (e.g. bypass-audit fingerprints), while
-		 * still putting the key into storable shape — trimmed and length-capped by
-		 * `normalizeStoredFingerprintKey` — so a framework key can never be refused by the database for
-		 * a shape the subscriber setter would have fixed. Public-but-not-global so subscribers cannot
-		 * bind to it.
+		 * @description The framework's own way to set a fingerprint. It does not hash keys that start with the
+		 * reserved prefix, so the framework can store such keys exactly as written, for example bypass audit
+		 * fingerprints. It still trims the key and limits its length through `normalizeStoredFingerprintKey`, so the
+		 * database never refuses a framework key that the subscriber method would have fixed. It is public, not
+		 * global, so subscribers cannot call it.
 		 *
 		 * @param key The pre-composed framework fingerprint key.
 		 *
@@ -958,12 +969,12 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
-		 * @description Framework-internal variant that persists a caller-supplied stack trace
-		 * instead of the synthetic Apex trace calculated at emit time. Used by `CTRL_Logger` to
-		 * carry the client-side JavaScript stack of LWC-originated entries, whose Apex call stack
-		 * holds only framework plumbing. Ignored when the entry logs a real exception — the
-		 * exception's own trace always wins. Public-but-not-global so subscribers cannot bind to
-		 * it; subscriber Apex logs its own call stack (or an exception) through the global surface.
+		 * @description For the framework only: saves a stack trace the caller supplies, instead of the Apex stack trace
+		 * worked out when the entry is emitted. `CTRL_Logger` uses it to keep the JavaScript stack trace of entries
+		 * that come from a Lightning web component, because their Apex call stack shows only framework code. It is
+		 * ignored when the entry logs a real exception: the exception's own stack trace is always used. It is public,
+		 * not global, so subscribers cannot call it. Subscriber Apex logs its own call stack, or an exception, through
+		 * the global methods.
 		 *
 		 * @param stackTrace The stack trace text to persist; blank values are ignored.
 		 *
@@ -978,12 +989,12 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
-		 * @description Framework-internal variant that names the entry's exception type when no Apex
-		 * exception carries that name. Used by `CTRL_Logger` to persist the exception class a
-		 * client-side failure reported, so an LWC failure names its type the way a server-side one does
-		 * and folds into the same problem grouping. Ignored when the entry logs a real exception — the
-		 * exception's own type always wins. Public-but-not-global so subscribers cannot bind to it;
-		 * subscriber Apex names a type by logging the exception itself through the global surface.
+		 * @description For the framework only: names the entry's exception type when no Apex exception carries that
+		 * name. `CTRL_Logger` uses it to save the exception class that a failure in the browser reported. So a
+		 * failure in a Lightning web component names its type the way a failure in Apex does, and is grouped with the
+		 * same problems. It is ignored when the entry logs a real exception: the exception's own type is always used.
+		 * It is public, not global, so subscribers cannot call it. Subscriber Apex names a type by logging the
+		 * exception itself through the global methods.
 		 *
 		 * @param exceptionType The exception class name to persist; blank values are ignored.
 		 *
@@ -999,11 +1010,11 @@ global inherited sharing class LOG_Builder
 		 * @description Adds a context key-value pair to this log entry.
 		 * Context is scoped to this entry only and does not affect other logs.
 		 *
-		 * Complex types (Maps, Lists, SObjects) are JSON-serialised automatically inside
-		 * `LOG_Engine.setGlobalContext` — callers MUST NOT pre-serialise via `JSON.serialize(value)`
-		 * or the payload is double-encoded. Pass the value object directly and let the engine
-		 * decide the wire form. Prefer `LOG_Engine.CONTEXT_*` constants for `key` over string
-		 * literals so cross-framework log entries pivot on the same key namespace.
+		 * Complex types (Maps, Lists, SObjects) are turned into JSON automatically inside
+		 * `LOG_Engine.setGlobalContext`. Callers MUST NOT turn them into JSON first with `JSON.serialize(value)`,
+		 * or the value is encoded twice. Pass the value object directly and let the engine decide how to store it.
+		 * Use the `LOG_Engine.CONTEXT_*` constants for `key` instead of your own text, so that log entries from every
+		 * part of the framework use the same key names and can be searched together.
 		 *
 		 * @param key The context key (use a `LOG_Engine.CONTEXT_*` constant where one exists).
 		 * @param value The context value (any type; auto-serialised when complex).
@@ -1019,7 +1030,7 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
-		 * @description Convenience terminal that sets the class/method and emits in one call.
+		 * @description A shortcut that sets the class and method and emits the entry in one call.
 		 * Equivalent to `.at(classMethod).emit()`.
 		 *
 		 * @param classMethod The class and method in format 'ClassName.methodName'
@@ -1050,18 +1061,18 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
-		 * @description Framework-internal terminal that routes this log entry into the dedicated
-		 * audit log buffer instead of the application log buffer. Used by `UTIL_BypassAudit.emit`
-		 * so `BypassEvent`-shape audit entries do not pollute test assertions that count
-		 * application-log buffer size or `LogEntry__c` rows. The persisted wire format is identical
-		 * to `emit()` — same `LogEntryEvent__e` payload, same `TRG_PersistLogEntry` persistence,
-		 * same `LogEntry__c` row shape — only the in-flight buffer accumulates separately.
+		 * @description For the framework only: emits this log entry into the separate audit log buffer instead of the
+		 * application log buffer. A buffer is the list of entries waiting to be published. `UTIL_BypassAudit.emit`
+		 * uses it, so that `BypassEvent` audit entries do not change the results of tests that count the entries in
+		 * the application log buffer or the `LogEntry__c` rows. What is saved is exactly the same as with `emit()`: the
+		 * same `LogEntryEvent__e` data, saved by the same `TRG_PersistLogEntry`, as the same kind of `LogEntry__c` row.
+		 * Only the waiting entries are kept in a separate list.
 		 *
-		 * Public-but-not-global so subscribers cannot bind to it; subscriber Apex emitting their
-		 * own logs must call `emit()` so application-log buffer accounting reflects their writes.
-		 * Used by `UTIL_BypassAudit.emit` when persisting bypass audit entries (which require an
-		 * isolated buffer to avoid the emit→deliver→persist→emit cascade in test mode and to keep
-		 * application-log buffer assertions clean).
+		 * It is public, not global, so subscribers cannot call it. Subscriber Apex that emits its own logs must call
+		 * `emit()`, so the application log buffer counts those entries. `UTIL_BypassAudit.emit` uses this method to save
+		 * bypass audit entries. They need their own buffer for two reasons. In test mode it stops a loop where saving
+		 * an entry writes an audit entry, which is emitted and saved, and writes another. And it keeps test checks of
+		 * the application log buffer accurate.
 		 *
 		 * @example
 		 * ```apex
@@ -1078,12 +1089,11 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
-		 * @description Shared implementation of `emit()` and `emitAsAudit()` — routes the log
-		 * entry through either the application-log path (`LOG_Engine.log`) or the audit-log path
-		 * (`LOG_Engine.logAudit`) depending on `isAudit`. Per-entry context is temporarily set as
-		 * global context for the duration of the log call, then cleaned up to prevent leaking
-		 * into subsequent logs; the per-emit channels follow the same lifecycle, opened by
-		 * `openEmitChannels` and closed by `closeEmitChannels` in the finally.
+		 * @description The code that `emit()` and `emitAsAudit()` share. It sends the log entry either to the
+		 * application log (`LOG_Engine.log`) or to the audit log (`LOG_Engine.logAudit`), depending on `isAudit`. The
+		 * entry's own context is set as global context only while the log call runs, then removed, so it does not
+		 * reach later logs. The values the entry passes to the engine for one emit follow the same pattern:
+		 * `openEmitChannels` sets them, and `closeEmitChannels` clears them in the finally block.
 		 *
 		 * @param isAudit `true` to route to the audit buffer; `false` for the application buffer.
 		 */
@@ -1111,7 +1121,11 @@ global inherited sharing class LOG_Builder
 				}
 				else if(error != null)
 				{
-					if(recordId != null)
+					if(shortMessage != null)
+					{
+						LOG_Engine.log(error, shortMessage, classMethod, recordId, logLevel);
+					}
+					else if(recordId != null)
 					{
 						LOG_Engine.log(error, classMethod, recordId, logLevel);
 					}
@@ -1137,10 +1151,10 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
-		 * @description Opens the per-emit channels this entry carries — its fingerprint, its stack trace
-		 * and its exception type — on the engine, so every event built during the log call picks them up.
-		 * A channel is opened only when this entry supplies a value for it, leaving the others untouched.
-		 * `emitInternal` closes all three in its finally, so a channel can never carry into a later entry.
+		 * @description Passes this entry's values for one emit to the engine: its fingerprint, its stack trace and
+		 * its exception type. Each of these is called a channel. Every event built during the log call then uses them.
+		 * A channel is set only when this entry has a value for it; the others are left as they are. `emitInternal`
+		 * clears all three in its finally block, so a value can never carry over into a later entry.
 		 */
 		private void openEmitChannels()
 		{
@@ -1161,8 +1175,8 @@ global inherited sharing class LOG_Builder
 		}
 
 		/**
-		 * @description Closes every per-emit channel `openEmitChannels` can open, whether this entry
-		 * opened it or not, so the next entry emitted in the same transaction starts from a clean engine.
+		 * @description Clears every channel that `openEmitChannels` can set, whether this entry set it or not, so the
+		 * next entry emitted in the same transaction starts with none of these values on the engine.
 		 */
 		private void closeEmitChannels()
 		{
