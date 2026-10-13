@@ -111,6 +111,16 @@ Think of a selector as a recipe card for one object. The card lists the fields y
     - [Parent Relationship Queries](#parent-relationship-queries)
         - [Querying Related Fields](#querying-related-fields)
     - [Caching Queries](#caching-queries)
+        - [Caching every read from a selector](#caching-every-read-from-a-selector)
+        - [Where are cached rows kept?](#where-are-cached-rows-kept)
+        - [Changing the caching for one query](#changing-the-caching-for-one-query)
+        - [Telling callers how old the rows may be](#telling-callers-how-old-the-rows-may-be)
+        - [What empties the cache?](#what-empties-the-cache)
+        - [Seeing what the cache did](#seeing-what-the-cache-did)
+        - [System-mode selectors and sharing](#system-mode-selectors-and-sharing)
+        - [Custom metadata selectors](#custom-metadata-selectors)
+        - [Caching in tests](#caching-in-tests)
+        - [What is never kept in memory?](#what-is-never-kept-in-memory)
         - [Platform Cache Integration](#platform-cache-integration)
     - [Query Performance Logging](#query-performance-logging)
         - [Force Logging a Query](#force-logging-a-query)
@@ -348,7 +358,7 @@ List<Account> accounts = [SELECT Id, Name, Industry FROM Account WHERE Industry 
 | **Sharing Control**           | ✅ Explicit `withSharing()` / `bypassSharing()` methods                                                  | ✅ `with sharing` / `without sharing` / `inherited sharing` keywords + `WITH USER_MODE` clause |
 | **Dynamic Queries**           | ✅ [`QRY_Builder`](reference/apex/QRY_Builder.md) fluent API, type-safe                                  | ⚠️ Requires `Database.query()` with string concatenation                                              |
 | **SOQL Injection Protection** | ✅ Bind variables where possible, automatic escaping as fallback                                         | ⚠️ Manual escaping required for dynamic queries                                                       |
-| **Result Caching**            | ✅ Built-in Platform Cache integration (`cacheTTL`, `userScopedCache` params)                            | ❌ Manual cache implementation required                                                                |
+| **Result Caching**            | ✅ Per selector (`cacheScope()`) or per query (`withCache()`), keyed per sharing setting and user        | ❌ Manual cache implementation required                                                                |
 | **Cursor Support**            | ✅ Automatic `Database.getCursor()` for compatible queries (bypasses 2K OFFSET limit, supports 50M rows) | ⚠️ Manual `Database.getCursor()` implementation required                                              |
 | **Pagination**                | ✅ Built-in with auto Cursor/OFFSET selection                                                            | ⚠️ Manual OFFSET (2K limit) or Cursor implementation                                                  |
 | **QueryLocator**              | ✅ `getQueryLocator()` method for Batch Apex                                                             | ✅ `Database.getQueryLocator()` available                                                              |
@@ -543,8 +553,10 @@ Two terms matter here. A query in **USER_MODE** runs with the current user's rea
 - `withSystemMode()` - Force `AccessLevel.SYSTEM_MODE` (bypasses CRUD/FLS; typically paired with `.bypassSharing()` for framework-internal reads) regardless of flag state
 - `stripInaccessible()` - Remove inaccessible fields from results post-query
 - `withSharing()` / `bypassSharing()` - Control sharing via proxy class (SYSTEM_MODE only)
-- `withoutSecurity()` - Clear USER_MODE, strip, and sharing selections (forces SYSTEM_MODE with inherited sharing regardless of the flag default)
-- `withCache()` - Enable platform cache for query results
+- `withoutSecurity()` - Waives object and field permission checks and record sharing in one call
+  (SYSTEM_MODE plus the sharing bypass); use `withSystemMode()` to keep the calling class's sharing
+- `withCache(ttl)` / `withCache(scope, ttl)` - Cache this query's results, in memory for the transaction or in Platform Cache (see [Caching Queries](#caching-queries))
+- `withoutCache()` - Read from the database, whatever caching the selector or an earlier call asked for
 - `fields(List, AccessType)` / `addField(field, AccessType)` - Add fields with security checks
 
 **Query Performance Logging:**
@@ -626,6 +638,8 @@ public static Account findByIdCached(Id accountId)
 	return (Account)QRY_Builder.selectFrom(Account.SObjectType)
 		.fields(new List<SObjectField>{Account.Name, Account.Industry, Account.Phone})
 		.condition(Account.Id).equals(accountId)
+		.withSystemMode()
+		.withSharing()
 		.withCache(300) // Cache for 5 minutes
 		.getFirst();
 }
@@ -674,6 +688,7 @@ Contact contact = (Contact)new SEL_Contacts().findById(contactId);
 - `findById()` - Query by record ID(s)
 - `findByField()` - Query by any field value(s)
 - `getFields()` - Override to define consistent field sets per object
+- `cacheScope()` / `cacheTimeToLiveSeconds()` - Override to cache every list or record read the selector makes (see [Caching every read from a selector](#caching-every-read-from-a-selector))
 
 **Example:** Uses the same `SEL_Accounts` structure shown in [Basic Queries](#basic-queries) below, with `findById()` and `findByField()` inherited from `SEL_Base`:
 
@@ -1055,19 +1070,36 @@ public static List<QRY_Builder.AggregateRow> getTotalRevenueByIndustry()
 
 You often need to decide whether a query should respect the org's sharing rules (which records each user is allowed to see) or read past them for a system task. The framework gives you that [control](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_keywords_sharing.htm), and the security options on [QRY_Builder](reference/apex/QRY_Builder.md) can be combined. By default, queries run in USER_MODE (the current user's permissions and sharing enforced), driven by the `UserModeQueries_Enabled` feature flag, which ships with `IsEnabledByDefault__c=true`.
 
-| Method                 | Effect                                                                                                                     | When to Use                                                                      |
-|------------------------|----------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
-| `.withUserMode()`      | Explicitly runs in USER_MODE (the shipped default)                                                                         | Your code that must enforce the running user's permissions                 |
-| `.withSystemMode()`    | Runs in SYSTEM_MODE, skipping the CRUD and FLS checks. **Sharing is not affected** (see the note below)                   | Framework-internal reads of configuration or audit data; rare in your own code |
-| `.stripInaccessible()` | Removes inaccessible fields from results post-query                                                                        | Complements USER_MODE when null values are problematic                           |
-| `.withSharing()`       | Uses `with sharing` proxy class (SYSTEM_MODE only)                                                                         | Enforce sharing while bypassing CRUD/FLS                                         |
-| `.bypassSharing()`     | Uses `without sharing` proxy class (SYSTEM_MODE only)                                                                      | Bypass sharing in SYSTEM_MODE (use with caution)                                 |
-| `.withoutSecurity()`   | Clears USER_MODE, strip, and sharing selections (forces SYSTEM_MODE with inherited sharing regardless of the flag default) | System-level queries                                                             |
+| Method                 | Effect                                                                                                                        | When to Use                                                                                 |
+|------------------------|-------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `.withUserMode()`      | Explicitly runs in USER_MODE (the shipped default)                                                                            | Your code that must enforce the running user's permissions                                  |
+| `.withSystemMode()`    | Runs in SYSTEM_MODE, skipping the CRUD and FLS checks. **Sharing is not affected** (see the note below)                       | Framework-internal reads of configuration or audit data; rare in your own code              |
+| `.stripInaccessible()` | Removes inaccessible fields from results post-query                                                                           | Complements USER_MODE when null values are problematic                                      |
+| `.withSharing()`       | Uses `with sharing` proxy class (SYSTEM_MODE only)                                                                            | Enforce sharing while bypassing CRUD/FLS                                                    |
+| `.bypassSharing()`     | Uses `without sharing` proxy class (SYSTEM_MODE only)                                                                         | Bypass sharing in SYSTEM_MODE (use with caution)                                            |
+| `.withoutSecurity()`   | Waives object and field checks AND record sharing in one call (SYSTEM_MODE plus the sharing bypass); ignores the flag default | System-level reads that must span every record; audited as both a mode and a sharing bypass |
 
 > **SYSTEM_MODE does not bypass sharing.** `withSystemMode()` sets aside object and field permission checks only. Record sharing keeps following
 > the sharing keyword of the class your query runs in, because `QRY_Builder` and `SEL_Base` both inherit sharing from their caller. To read past
 > sharing as well, add `.bypassSharing()`. A `with sharing` class that calls `.withSystemMode()` on its own gets **zero rows** for a record the
 > running user cannot see through sharing, and no exception either, so nothing downstream can tell that result from a legitimately empty one.
+> To waive all three in one call, use `.withoutSecurity()`.
+
+**What the three settings actually return.** Take a selector declared `with sharing`, reading a record on a custom object whose
+org-wide default is Private, running as a user who has neither a share on that record nor read permission on the object:
+
+| Setting                             | What that user gets                                                               |
+|-------------------------------------|-----------------------------------------------------------------------------------|
+| Neither (the USER_MODE default)     | `QueryException: sObject type '...' is not supported`, a loud and correct refusal |
+| `.withSystemMode()` on its own      | **Zero rows, and no exception**                                                   |
+| `.withSystemMode().bypassSharing()` | The record, which is the right answer for a system read                           |
+
+The first two rows fail for unrelated reasons. Row 1 is USER_MODE refusing the query because the user has no permission on the object;
+row 2 is the sharing filter quietly dropping the record. They belong in one table because they are the three combinations in
+this table, not three points on one scale. Row 2 is the one that fails silently, which makes it the one nobody thinks to test.
+
+Cover both halves in your own test suite: a `.withSystemMode()` read run as a user without a share must come back empty from
+`toList()`, and adding `.bypassSharing()` must return the rows.
 
 ### Enforcing Sharing
 
@@ -1383,7 +1415,7 @@ public inherited sharing class SEL_Contacts extends SEL_Base
  *
  * @date January 2026
  */
-@IsTest(SeeAllData=false IsParallel=true)
+@IsTest(seeAllData=false isParallel=true)
 private class SEL_Contacts_TEST
 {
 	/**
@@ -1759,7 +1791,238 @@ public static List<Contact> findContactsWithAccountInfo(Id accountId)
 
 ### Caching Queries
 
+The same read often runs several times in one transaction: three trigger actions each look up the same parent accounts, or a service and the
+validation it calls both read the same settings. Each repeat costs a query against the governor limit of 100. When a selector opts into caching,
+the first read goes to the database and every repeat with the same query, binds, user and access mode comes back from the cache, so the repeats cost
+no query at all.
+
+Each caller gets its own copy of the rows, so a caller that changes a record it was given changes nothing for the next caller. A write through
+the framework empties the in-memory cache (see [What empties the cache?](#what-empties-the-cache)), so a read kept in memory sees the write.
+
+In this section, a **transaction** is the save that fired the trigger and everything it runs synchronously; each Queueable, batch chunk or future
+call starts fresh.
+
+#### Caching every read from a selector
+
+Override `cacheScope()` on your selector, and every list or record read it makes through `query`, the inherited `findById` and `findByField`
+methods included, is cached. Counts (`count()`, `exists()`) and query locators (`toQueryLocator()`) always go to the database:
+
+```apex
+public inherited sharing class SEL_Accounts extends SEL_Base
+{
+	public SEL_Accounts()
+	{
+		super(Account.SObjectType);
+	}
+
+	public override List<SObjectField> getFields()
+	{
+		return new List<SObjectField>{ Account.Name, Account.Industry, Account.OwnerId };
+	}
+
+	public override UTIL_Cache.Scope cacheScope()
+	{
+		return UTIL_Cache.Scope.IN_TRANSACTION;
+	}
+}
+
+// The first call queries; the second, with the same Ids, comes from memory
+List<SObject> parents = new SEL_Accounts().findById(parentIds);
+List<SObject> sameParents = new SEL_Accounts().findById(parentIds);
+```
+
+This selector keeps its rows for one transaction only. Rows are kept beyond one transaction, in Platform Cache, only when all three of these
+hold:
+
+- the scope is `AUTO`, `SESSION` or `ORG`, not `IN_TRANSACTION` (overriding only `cacheTimeToLiveSeconds()` means `AUTO`);
+- the read runs in system mode: the selector overrides `systemModeRequired()` to return `true`, the method calls `withSystemMode()` (or
+  `withoutSecurity()`, which includes it and also bypasses sharing), or the `UserModeQueries_Enabled` feature flag is switched off;
+- the method states its sharing with `withSharing()`, `bypassSharing()` or `withoutSecurity()`.
+
+Even then, the rows stay in memory for the transaction only where your org has no Platform Cache space for that scope. A user-mode read
+never keeps rows beyond the transaction, whatever the selector overrides.
+
+`cacheTimeToLiveSeconds()` is the number of seconds Platform Cache may keep the rows; a scope with no time-to-live uses 900 seconds. The
+time-to-live does not apply to rows kept in memory, which last until the transaction ends or a write empties the cache.
+
+Both methods are called each time the selector's `query` builder is built, so return a constant from them rather than working a value out.
+
+#### Where are cached rows kept?
+
+The scope says where a read may be kept. Kern keeps each read only where it is safe for that read:
+
+| Scope (`UTIL_Cache.Scope`) | Where the rows are kept                                                                                                   |
+|----------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| `IN_TRANSACTION`           | In memory, for the rest of the transaction.                                                                               |
+| `AUTO`                     | Platform Cache for a system-mode read whose sharing is stated, where a partition keeps it; in memory otherwise.           |
+| `SESSION`                  | Platform Cache's session cache, for a system-mode read whose sharing is stated; in memory for the transaction otherwise.  |
+| `ORG`                      | Platform Cache's org cache, for a system-mode read whose sharing is stated; in memory for the transaction otherwise.      |
+
+A user-mode read, the default, runs with the current user's object, field and sharing checks enforced, so its rows are kept in memory for the
+transaction only and never reach Platform Cache. Where your org has no Platform Cache space allocated for a scope, a read asked for that scope is
+kept in memory for the transaction instead, so caching still saves the repeats within each transaction.
+
+#### Changing the caching for one query
+
+Inside a selector method, `query.withoutCache()` makes that one read go to the database, whatever the selector's `cacheScope()` says, and
+`query.withCache(scope, ttlSeconds)` gives that one read a different scope or time-to-live. The last caching call on a builder wins, so a
+method's own call always beats the selector's default.
+
+```apex
+List<SObject> fresh = new SEL_Accounts().query.withoutCache().condition(Account.Id).isIn(new List<Id>(accountIds)).toList();
+```
+
+#### Telling callers how old the rows may be
+
+A selector method returns rows, not a builder, so its caller cannot change how the query runs. The scope and time-to-live are therefore part of
+what a selector promises its callers about how old the rows may be. A method that caches across transactions says so in its ApexDoc, and the
+selector offers a fresh version beside it for the callers that cannot accept older rows.
+
+The selector below runs its reads in system mode, so each method states its sharing (here through the shared `recentOrders` builder), which is
+what lets the rows be cached at all:
+
+```apex
+public inherited sharing class SEL_Orders extends SEL_Base
+{
+	public SEL_Orders()
+	{
+		super(Order.SObjectType);
+	}
+
+	public override Boolean systemModeRequired()
+	{
+		return true;
+	}
+
+	/**
+	 * @description Finds the accounts' orders, newest first. Where your org has an Org Cache partition, the rows are
+	 * kept for up to an hour; otherwise only for the transaction. An order saved or changed in that time can be
+	 * missing or out of date; use findRecentOrdersFresh when that matters.
+	 *
+	 * @param accountIds The accounts whose orders to find
+	 *
+	 * @return The orders, newest first
+	 */
+	public List<Order> findRecentOrders(Set<Id> accountIds)
+	{
+		return (List<Order>)recentOrders(accountIds).withCache(UTIL_Cache.Scope.ORG, 3600).toList();
+	}
+
+	/**
+	 * @description Finds the accounts' orders, newest first, always from the database.
+	 *
+	 * @param accountIds The accounts whose orders to find
+	 *
+	 * @return The orders, newest first
+	 */
+	public List<Order> findRecentOrdersFresh(Set<Id> accountIds)
+	{
+		return (List<Order>)recentOrders(accountIds).withoutCache().toList();
+	}
+
+	private QRY_Builder.Builder recentOrders(Set<Id> accountIds)
+	{
+		return query.withSharing().condition(Order.AccountId).isIn(new List<Id>(accountIds)).orderBy(Order.EffectiveDate).descending();
+	}
+}
+```
+
+#### What empties the cache?
+
+Every write through `DML_Builder` empties the whole in-memory cache before the save starts and again when it ends, saved or rolled back. So do
+the framework's other writes: inbound web services, the test data builders (`TST_Factory`, `TST_Builder`) and the Flow email action's activity
+Task. The whole cache is emptied, even for a write to an unrelated object, because one write can change other objects' rows through roll-up
+summaries, formulas, cascading deletes and sharing recalculation, and the cache cannot tell which.
+
+Logging usually leaves the cache alone. A log entry is normally published as a platform event, which saves nothing in your transaction, so
+nothing is emptied. Inside a platform-event or change-event trigger, log entries are saved straight away through `DML_Builder` instead, and that
+save empties the in-memory cache like any other; only entries under flood control (where repeats of the same entry are counted rather than each
+saved) are saved without emptying it.
+
+Writes the framework does not make are not seen: a Flow, a plain `insert` or `update` statement, another package, or a class built on
+`DML_Transaction` that runs its own DML statements. If your code writes that way and then reads the same rows back through a caching selector in the
+same transaction, read with `withoutCache()`.
+
+Rows kept in Platform Cache are not emptied by any write: they can stay until their time-to-live runs out. That is why a method that caches across
+transactions says so, and why its selector offers a fresh version.
+
+#### Seeing what the cache did
+
+When a query's performance is logged (see [Query Performance Logging](#query-performance-logging)), the entry records a cache status that says what
+happened to the read and, when it was not cached, why:
+
+| Cache status                 | What happened                                                                                     |
+|------------------------------|---------------------------------------------------------------------------------------------------|
+| `MEMORY_HIT`                 | Served from memory                                                                                |
+| `HIT`                        | Served from Platform Cache                                                                        |
+| `STORED`                     | Read from the database and kept in Platform Cache                                                 |
+| `MEMORY_STORED`              | Read from the database and kept in memory, as the transaction scope asked                         |
+| `MEMORY_STORED_USER_MODE`    | Read from the database and kept in memory only, because it is a user-mode read                    |
+| `MEMORY_STORED_NO_PARTITION` | Read from the database and kept in memory only, because no Platform Cache partition kept it       |
+| `DECLINED_INHERITED_SHARING` | Not cached: a system-mode read that left its sharing to the calling class                         |
+| `DECLINED_ROW_CAP`           | Not cached: more than 200 rows, for a read only memory could keep                                 |
+| `DECLINED_HEAP_GUARD`        | Not cached: heap stayed at or over 40% of its limit, for a read only memory could keep            |
+| `DECLINED_AGGREGATE`         | Not cached in memory: an aggregate query                                                          |
+| `DECLINED_CHILD_SUBQUERY`    | Not cached in memory: a query with a child subquery                                               |
+| `BYPASS`                     | No caching was asked for, or this kind of read is never cached                                    |
+
+#### System-mode selectors and sharing
+
+A system-mode read is cached only when the method states its sharing with `withSharing()` or `bypassSharing()`. A read that leaves its sharing
+to the calling class is not cached at all, because the cache cannot tell one calling class's sharing from another's. So a selector that
+overrides `systemModeRequired()` caches only in the methods that set sharing, as `SEL_Orders` does above. The same holds for every selector while
+the `UserModeQueries_Enabled` feature flag is switched off, because its reads then run in system mode.
+
+#### Custom metadata selectors
+
+Caching a custom metadata selector usually saves little: most custom metadata queries do not count against the 100-query limit. A custom
+metadata query counts only when it selects a long text area field at the top level of the query, so that is the case where caching saves
+queries.
+
+If a custom metadata selector does cache, declare `IN_TRANSACTION`. Custom metadata does not change within a transaction, but a deployment can
+change it between transactions. A custom metadata selector that reads in system mode (`systemModeRequired()`) and states its sharing would,
+with `AUTO` (or a time-to-live alone), keep its rows in Platform Cache, and a deployed change could stay invisible until the time-to-live runs
+out. Such a selector also states the sharing in each method, or its reads are not cached at all:
+
+```apex
+public override UTIL_Cache.Scope cacheScope()
+{
+	return UTIL_Cache.Scope.IN_TRANSACTION;
+}
+```
+
+#### Caching in tests
+
+A test that saves its data through `TST_Factory` or `TST_Builder` needs nothing extra: they empty the cache before they write. A test that inserts
+data another way (a plain `insert`, for example) after a caching selector has already read, and then reads that data back through the same
+selector, uses `withoutCache()` for that read, or it gets the rows from before the insert.
+
+#### What is never kept in memory?
+
+Some reads are never kept in memory, whatever the scope. Declining is silent: the read goes to the database and costs one query, as it would
+without caching.
+
+- **Results over 200 rows.** A larger result would take too much of the heap to copy for each caller.
+- **Aggregate queries** (`toAggregateList`).
+- **Queries with a child subquery.** Copying their rows would share the child records between callers. The check reads the query text, so a
+  subquery added as a raw string counts, and a semi-join (`IN (SELECT ...)`) does not. In a caching selector, read the children in a
+  separate method, so both reads are cached.
+- **Any new result while heap use stays at or over 40% of the transaction's limit.** The oldest entries are dropped first to make room, so a
+  long bulk load keeps caching its newest reads. The framework measures heap while the query runs, and once the query returns its rows count for
+  a little more, so a transaction that leans heavily on the cache can use up to about half of the heap limit for cached and returned rows
+  together. There is nothing you need to do: the 40% guard already leaves room for it.
+
+These limits are for memory only. A read that may use Platform Cache (a system-mode read with its sharing stated, under a scope other than
+`IN_TRANSACTION`) can still be kept there, where your org's partition keeps it.
+
+A few kinds of read are never cached anywhere, in memory or in Platform Cache: row-locking reads (`FOR UPDATE`, `FOR REFERENCE`, `FOR VIEW`),
+`ALL ROWS` reads, random picks (`getRandomItem()`), paged and cursor reads (`getPage()`, `toCursor()`), counts (`count()`, `exists()`) and
+query locators (`toQueryLocator()`).
+
 #### Platform Cache Integration
+
+`withCache(ttl)` caches one query. With a time-to-live it behaves like the `AUTO` scope above: a system-mode read whose sharing is stated is kept
+in Platform Cache, and every other read is kept in memory for the transaction.
 
 ```apex
 /**
@@ -1774,6 +2037,8 @@ public static Account getCachedAccount(Id accountId)
 	return (Account)QRY_Builder.selectFrom(Account.SObjectType)
 		.fields(new List<SObjectField>{Account.Name, Account.Industry, Account.Phone, Account.Website})
 		.condition(Account.Id).equals(accountId)
+		.withSystemMode()
+		.withSharing()
 		.withCache(300) // Cache for 5 minutes (300 seconds)
 		.getFirst();
 }
@@ -1782,7 +2047,7 @@ public static Account getCachedAccount(Id accountId)
  * @description Checks if last query result came from cache
  *
  * @example
- * QRY_Builder.Builder query = QRY_Builder.selectFrom(Account.SObjectType).withCache(600);
+ * QRY_Builder.Builder query = QRY_Builder.selectFrom(Account.SObjectType).withSystemMode().withSharing().withCache(600);
  * List<Account> accounts = query.toList();
  * if(query.isCached())
  * {
@@ -1790,6 +2055,17 @@ public static Account getCachedAccount(Id accountId)
  * }
  */
 ```
+
+Cached results are keyed per sharing setting and, where sharing applies, per user, so one caller never receives rows another caller cached under a different setting.
+A read with sharing bypassed is cached once for the whole org, unless the query itself shows that its rows or values depend on the user: a scope other than
+everything, one of the SOQL functions `toLabel`, `FORMAT`, `convertCurrency` or `convertTimezone`, or a relative date such as `TODAY` or `THIS_FISCAL_QUARTER`, which
+is read in the user's time zone. Those reads are cached per user. A value the platform translates with nothing in the query to say so, such as a record type's name,
+is not detected: cache that read with `.withSharing()`, or select it through `toLabel`.
+Paged and cursor reads (`getPage()`, `toCursor()`) are never cached: a cached page could not carry its total or its cursor.
+A system-mode read that leaves the sharing setting to the calling class is not cached either: the cache cannot tell one calling class's sharing from another's.
+A read in user mode, the default, is kept in memory for the transaction only and never reaches Platform Cache.
+To keep a read in Platform Cache across transactions, call `.withSystemMode()` and state the sharing setting on the builder: `.withSharing()` or `.bypassSharing()`.
+Because a system-mode read skips the object and field permission checks, cache only data that every caller of that code is allowed to see.
 
 ### Query Performance Logging
 
@@ -2127,19 +2403,20 @@ QRY_Builder's security options can be combined freely. By default, queries run i
 
 #### Security Methods Overview
 
-| Method                | Effect                                                                                                                     | When to Use                                                                      |
-|-----------------------|----------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
-| `withUserMode()`      | Explicitly runs in USER_MODE (the shipped default)                                                                         | Your code that must enforce the running user's permissions                 |
-| `withSystemMode()`    | Runs in SYSTEM_MODE, skipping the CRUD and FLS checks. **Sharing is not affected** (see the note below)                   | Framework-internal reads of configuration or audit data; rare in your own code |
-| `stripInaccessible()` | Removes inaccessible fields from results post-query                                                                        | Complements USER_MODE when null values are problematic                           |
-| `withSharing()`       | Uses `with sharing` proxy class (SYSTEM_MODE only)                                                                         | Enforce sharing while bypassing CRUD/FLS                                         |
-| `bypassSharing()`     | Uses `without sharing` proxy class (SYSTEM_MODE only)                                                                      | Bypass sharing in SYSTEM_MODE (use with caution)                                 |
-| `withoutSecurity()`   | Clears USER_MODE, strip, and sharing selections (forces SYSTEM_MODE with inherited sharing regardless of the flag default) | System-level queries                                                             |
+| Method                | Effect                                                                                                                        | When to Use                                                                                 |
+|-----------------------|-------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `withUserMode()`      | Explicitly runs in USER_MODE (the shipped default)                                                                            | Your code that must enforce the running user's permissions                                  |
+| `withSystemMode()`    | Runs in SYSTEM_MODE, skipping the CRUD and FLS checks. **Sharing is not affected** (see the note below)                       | Framework-internal reads of configuration or audit data; rare in your own code              |
+| `stripInaccessible()` | Removes inaccessible fields from results post-query                                                                           | Complements USER_MODE when null values are problematic                                      |
+| `withSharing()`       | Uses `with sharing` proxy class (SYSTEM_MODE only)                                                                            | Enforce sharing while bypassing CRUD/FLS                                                    |
+| `bypassSharing()`     | Uses `without sharing` proxy class (SYSTEM_MODE only)                                                                         | Bypass sharing in SYSTEM_MODE (use with caution)                                            |
+| `withoutSecurity()`   | Waives object and field checks AND record sharing in one call (SYSTEM_MODE plus the sharing bypass); ignores the flag default | System-level reads that must span every record; audited as both a mode and a sharing bypass |
 
 > **SYSTEM_MODE does not bypass sharing.** `withSystemMode()` sets aside object and field permission checks only. Record sharing keeps following
 > the sharing keyword of the class your query runs in, because `QRY_Builder` and `SEL_Base` both inherit sharing from their caller. To read past
 > sharing as well, add `.bypassSharing()`. A `with sharing` class that calls `.withSystemMode()` on its own gets **zero rows** for a record the
 > running user cannot see through sharing, and no exception either, so nothing downstream can tell that result from a legitimately empty one.
+> To waive all three in one call, use `.withoutSecurity()`.
 
 **Important:** With `withUserMode()` (or the USER_MODE default), sharing is enforced at the database level no matter what `withSharing()` or `bypassSharing()` say. Those proxy methods only take effect in SYSTEM_MODE.
 
@@ -2413,7 +2690,7 @@ public with sharing class BATCH_ProcessAccounts implements Database.Batchable<SO
 
 #### Cursor-Based Processing
 
-When you need to walk through a large result set in your own code (not in Batch Apex), `toCursor()` lets you fetch records in chunks on demand. It goes past the 2,000-record OFFSET ceiling, supports up to 50 million records, and never loads everything into memory at once.
+When you need to walk through a large result set in your own code (not in Batch Apex), `toCursor()` lets you fetch records in chunks on demand. It goes past the 2,000-record OFFSET ceiling, supports up to 50 million records, and never loads everything into memory at once. The cursor is opened under the builder's sharing setting, so what its fetches return follows the same rules as every other read, including when you fetch from a later transaction, such as a queueable that walks the result set in stages.
 
 ```apex
 /**
@@ -2562,6 +2839,8 @@ public static List<Opportunity> findRecentHighValueOpportunities(Decimal minimum
 		.orderBy(Opportunity.LastModifiedDate).descending()
 		.orderBy(Opportunity.Amount).descending().nullsLast()
 		// Performance & Security
+		.withSystemMode()
+		.withSharing()
 		.withCache(600) // Cache for 10 minutes
 		.stripInaccessible()
 		// Limit results
@@ -2827,9 +3106,11 @@ Mocks are active for the **entire test transaction** until cleared. Always call 
 | Strip inaccessible fields        | Post-query field removal   | `.stripInaccessible()` | Removes fields the running user cannot access   |
 | Sharing enforcement              | Proxy class delegation     | `.withSharing()`       | Runs query in `with sharing` context            |
 | Sharing bypass                   | Proxy class delegation     | `.bypassSharing()`     | Runs query in `without sharing` context         |
-| Reset to defaults                | Security reset             | `.withoutSecurity()`   | Returns to SYSTEM_MODE with inherited sharing   |
+| Full waiver                      | Security reset             | `.withoutSecurity()`   | SYSTEM_MODE with record sharing bypassed        |
 | Row locking                      | FOR UPDATE clause          | `.forUpdate()`         | Locks records for update within the transaction |
-| Query caching                    | Platform cache             | `.withCache()`         | Caches query results in platform cache          |
+| Query caching                    | Memory or Platform Cache   | `.withCache()`         | Keeps results in memory or in Platform Cache    |
+| Selector-wide caching            | Selector hook              | `cacheScope()`         | Caches each list or record read it makes        |
+| Read past the cache              | Per query                  | `.withoutCache()`      | Reads from the database, ignoring any caching   |
 
 ---
 
@@ -2960,6 +3241,8 @@ List<Account> techAccounts = new SEL_Accounts().findByIndustry('Technology');
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<SObjectField>{Account.Name, Account.Industry})
 	.condition(Account.AnnualRevenue).greaterThan(1000000)
+	.withSystemMode()
+	.withSharing()
 	.withCache(300)
 	.toList();
 ```

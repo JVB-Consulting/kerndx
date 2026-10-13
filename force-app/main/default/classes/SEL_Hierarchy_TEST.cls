@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Test class for SEL_Hierarchy - validates hierarchy traversal and update functionality.
+ * @description Test class for SEL_Hierarchy - validates hierarchy traversal and update functionality. The depth limit and
+ * records that point at each other in a circle are tested in SEL_HierarchyDepthLimit_TEST.
  *
  * NOTE: IsParallel=false is required because some tests use User DML (via TestSetup)
  * for testing sharing/access restrictions. User DML is not permitted in parallel tests.
  *
  * @see SEL_Hierarchy
+ * @see SEL_HierarchyDepthLimit_TEST
  *
  * @author Jason van Beukering
  *
  * @group Selectors
  *
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  *
  * @example
  * ```apex
@@ -26,11 +28,20 @@
  * Map<Id, Id> ultimateParents = accountHierarchy.findUltimateParents(accountIds);
  * ```
  */
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 private class SEL_Hierarchy_TEST
 {
+	/**
+	 * @description Company name of the admin user created in the test setup. Each test finds that user by this name and
+	 * runs as them.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'SEL_Hierarchy_TEST-admin';
+
+	/**
+	 * @description The lookup from a Foobar__c record to another Foobar__c record. It is the parent link the tests build
+	 * their record trees with and ask the selector to follow.
+	 */
 	private static final SObjectField PARENT_FIELD = Foobar__c.Lookup__c;
 
 	/**
@@ -260,41 +271,6 @@ private class SEL_Hierarchy_TEST
 			Assert.areEqual(root1.Id, result.get(child1.Id), 'Child1 should map to Root1');
 			Assert.areEqual(root2.Id, result.get(child2.Id), 'Child2 should map to Root2');
 			Assert.areEqual(root1.Id, result.get(root1.Id), 'Root1 should map to itself');
-		}
-	}
-
-	/**
-	 * @description Verifies that findUltimateParents throws HierarchyException for circular references.
-	 */
-	@IsTest
-	private static void findUltimateParentsThrowsExceptionForCircularReference()
-	{
-		System.runAs(getTestAdmin())
-		{
-			List<SObject> records = TST_Factory.insertFoobars(3);
-			Foobar__c record1 = (Foobar__c)records[0];
-			Foobar__c record2 = (Foobar__c)records[1];
-			Foobar__c record3 = (Foobar__c)records[2];
-
-			// Create circular reference: 1 -> 2 -> 3 -> 1
-			record1.Lookup__c = record2.Id;
-			record2.Lookup__c = record3.Id;
-			record3.Lookup__c = record1.Id;
-			DML_Builder.newTransaction().doUpdate(records).execute();
-
-			Test.startTest();
-			try
-			{
-				SEL_Hierarchy.forField(PARENT_FIELD)
-						.withMaxDepth(10)
-						.findUltimateParents(new Set<Id> {record1.Id});
-				Assert.fail('Should throw HierarchyException for circular reference');
-			}
-			catch(SEL_Hierarchy.HierarchyException error)
-			{
-				Assert.isTrue(error.getMessage().contains('Maximum hierarchy depth'), 'Exception message should mention max depth');
-			}
-			Test.stopTest();
 		}
 	}
 
@@ -645,41 +621,6 @@ private class SEL_Hierarchy_TEST
 	}
 
 	/**
-	 * @description Verifies that findAllAncestors throws HierarchyException for circular references.
-	 */
-	@IsTest
-	private static void findAllAncestorsThrowsExceptionForCircularReference()
-	{
-		System.runAs(getTestAdmin())
-		{
-			// Create circular reference: A -> B -> C -> A
-			Foobar__c recordA = TST_Factory.insertFoobar();
-			Foobar__c recordB = (Foobar__c)TST_Factory.getFoobarBuilder()
-					.withOverride(Foobar__c.Lookup__c, recordA.Id).build();
-			Foobar__c recordC = (Foobar__c)TST_Factory.getFoobarBuilder()
-					.withOverride(Foobar__c.Lookup__c, recordB.Id).build();
-
-			recordA.Lookup__c = recordC.Id;
-			DML_Builder.newTransaction().doUpdate(recordA).execute();
-
-			Test.startTest();
-			try
-			{
-				SEL_Hierarchy.forField(PARENT_FIELD)
-						.withMaxDepth(10)
-						.findAllAncestors(recordA.Id);
-				Assert.fail('Should throw HierarchyException for circular reference');
-			}
-			catch(Exception error)
-			{
-				Assert.isInstanceOfType(error, SEL_Hierarchy.HierarchyException.class, 'Should throw HierarchyException');
-				Assert.isTrue(error.getMessage().contains('circular reference'), 'Message should mention circular reference');
-			}
-			Test.stopTest();
-		}
-	}
-
-	/**
 	 * @description Verifies that findAllAncestors gracefully handles a deleted record Id by returning an empty ancestors list.
 	 */
 	@IsTest
@@ -868,40 +809,6 @@ private class SEL_Hierarchy_TEST
 	}
 
 	/**
-	 * @description Verifies that calculateUltimateParents throws HierarchyException for circular references when including descendants.
-	 */
-	@IsTest
-	private static void calculateUltimateParentsWithDescendantsThrowsOnCircularReference()
-	{
-		System.runAs(getTestAdmin())
-		{
-			// Create circular reference: A -> B -> C -> A
-			Foobar__c recordA = TST_Factory.insertFoobar();
-			Foobar__c recordB = (Foobar__c)TST_Factory.getFoobarBuilder()
-					.withOverride(Foobar__c.Lookup__c, recordA.Id).build();
-			Foobar__c recordC = (Foobar__c)TST_Factory.getFoobarBuilder()
-					.withOverride(Foobar__c.Lookup__c, recordB.Id).build();
-
-			recordA.Lookup__c = recordC.Id;
-			DML_Builder.newTransaction().doUpdate(recordA).execute();
-
-			Test.startTest();
-			try
-			{
-				SEL_Hierarchy.forField(PARENT_FIELD)
-						.calculateUltimateParents(new Set<Id> {recordA.Id}, true);
-				Assert.fail('Should throw HierarchyException for circular reference');
-			}
-			catch(Exception error)
-			{
-				Assert.isInstanceOfType(error, SEL_Hierarchy.HierarchyException.class, 'Should throw HierarchyException');
-				Assert.isTrue(error.getMessage().contains('circular reference'), 'Message should mention circular reference');
-			}
-			Test.stopTest();
-		}
-	}
-
-	/**
 	 * @description Verifies that calculateUltimateParents handles a hierarchy where the root has no parent.
 	 */
 	@IsTest
@@ -924,25 +831,6 @@ private class SEL_Hierarchy_TEST
 			Assert.areEqual(root.Id, result.get(root.Id), 'Root maps to itself');
 			Assert.areEqual(root.Id, result.get(child.Id), 'Child maps to root');
 			Assert.areEqual(root.Id, result.get(grandChild.Id), 'GrandChild maps to root');
-		}
-	}
-
-	/**
-	 * @description Verifies that the DEFAULT_MAX_DEPTH constant has a reasonable value.
-	 */
-	@IsTest
-	private static void defaultMaxDepthConstantIsAccessible()
-	{
-		System.runAs(getTestAdmin())
-		{
-			Assert.isTrue(
-					SEL_Hierarchy.DEFAULT_MAX_DEPTH >= 10,
-					'Default max depth should be at least 10 to handle typical hierarchies'
-			);
-			Assert.isTrue(
-					SEL_Hierarchy.DEFAULT_MAX_DEPTH <= 100,
-					'Default max depth should be at most 100 to prevent excessive queries'
-			);
 		}
 	}
 
@@ -1166,39 +1054,6 @@ private class SEL_Hierarchy_TEST
 
 			Assert.isTrue(descendants.contains(recordB.Id), 'Should contain B');
 			Assert.isTrue(descendants.contains(recordC.Id), 'Should contain C');
-		}
-	}
-
-	/**
-	 * @description Verifies that findAllDescendants throws HierarchyException when max depth is exceeded.
-	 */
-	@IsTest
-	private static void findAllDescendantsThrowsExceptionForMaxDepthExceeded()
-	{
-		System.runAs(getTestAdmin())
-		{
-			Foobar__c root = TST_Factory.insertFoobar();
-			Foobar__c level1 = (Foobar__c)TST_Factory.getFoobarBuilder()
-					.withOverride(Foobar__c.Lookup__c, root.Id).build();
-			Foobar__c level2 = (Foobar__c)TST_Factory.getFoobarBuilder()
-					.withOverride(Foobar__c.Lookup__c, level1.Id).build();
-			Foobar__c level3 = (Foobar__c)TST_Factory.getFoobarBuilder()
-					.withOverride(Foobar__c.Lookup__c, level2.Id).build();
-			TST_Factory.getFoobarBuilder()
-					.withOverride(Foobar__c.Lookup__c, level3.Id).build();
-
-			Test.startTest();
-			try
-			{
-				SEL_Hierarchy.forField(PARENT_FIELD).withMaxDepth(2).findAllDescendants(root.Id);
-				Assert.fail('Should throw HierarchyException when max depth exceeded');
-			}
-			catch(Exception error)
-			{
-				Assert.isInstanceOfType(error, SEL_Hierarchy.HierarchyException.class, 'Should throw HierarchyException');
-				Assert.isTrue(error.getMessage().contains('Maximum hierarchy depth'), 'Message should mention max depth');
-			}
-			Test.stopTest();
 		}
 	}
 

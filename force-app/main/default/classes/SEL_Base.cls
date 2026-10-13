@@ -11,7 +11,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -186,14 +186,62 @@ global abstract inherited sharing class SEL_Base implements IF_Queryable
 	}
 
 	/**
+	 * @description Where this selector's reads may be cached. Override it to opt every read into caching;
+	 * IN_TRANSACTION keeps results in memory for the current transaction only. The default caches nothing, unless
+	 * cacheTimeToLiveSeconds() is overridden, in which case it is AUTO: the most durable storage that is safe for
+	 * each read. User-mode reads are only ever kept for the current transaction. A system-mode selector caches only
+	 * in methods that state their sharing with withSharing() or bypassSharing(). A method can change this for one
+	 * query with query.withoutCache() or query.withCache(...). The scope and time-to-live are part of what this
+	 * selector promises its callers about how old the rows may be.
+	 *
+	 * @return The scope, or null for no caching
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * public override UTIL_Cache.Scope cacheScope()
+	 * {
+	 *     return UTIL_Cache.Scope.IN_TRANSACTION;
+	 * }
+	 * ```
+	 */
+	global virtual UTIL_Cache.Scope cacheScope()
+	{
+		return cacheTimeToLiveSeconds() == null ? null : UTIL_Cache.Scope.AUTO;
+	}
+
+	/**
+	 * @description How long, in seconds, this selector's reads may be kept in Platform Cache. Ignored for reads
+	 * kept in memory. Overriding only this method caches every read with the AUTO scope.
+	 *
+	 * @return Seconds, or null for the default of 900 seconds when a scope is set
+	 *
+	 * @since 1.8
+	 *
+	 * @example
+	 * ```apex
+	 * public override Integer cacheTimeToLiveSeconds()
+	 * {
+	 *     return 300;
+	 * }
+	 * ```
+	 */
+	global virtual Integer cacheTimeToLiveSeconds()
+	{
+		return null;
+	}
+
+	/**
 	 * @description Returns a new query builder pre-configured with this selector's SObjectType
 	 * and all field sources. Each access creates a fresh builder instance to prevent state
 	 * leaking between queries. When `systemModeRequired()` returns `true`, the builder has
 	 * `systemModeInternal()` applied so framework-internal reads (CMDT, framework-owned
-	 * sObjects) run in SYSTEM_MODE without polluting the `BypassEvent` audit trail —
+	 * sObjects) run in SYSTEM_MODE without polluting the `BypassEvent` audit trail:
 	 * a static `systemModeRequired()` design choice is not a runtime bypass. Selectors that
 	 * leave `systemModeRequired()` at the default (`false`) inherit the `UserModeQueries_Enabled`
-	 * flag-driven default.
+	 * flag-driven default. When `cacheScope()` returns a scope, the builder also has
+	 * `withCache(cacheScope(), cacheTimeToLiveSeconds())` applied, so every read from this selector is cached.
 	 *
 	 * @since 1.0
 	 *
@@ -214,6 +262,11 @@ global abstract inherited sharing class SEL_Base implements IF_Queryable
 			if(systemModeRequired())
 			{
 				builder = builder.systemModeInternal();
+			}
+			UTIL_Cache.Scope requestedScope = cacheScope();
+			if(requestedScope != null)
+			{
+				builder = builder.withCache(requestedScope, cacheTimeToLiveSeconds());
 			}
 			return builder;
 		}

@@ -13,12 +13,13 @@
  * - Uses efficient Map-based lookups over iterations
  *
  * @see SEL_Hierarchy_TEST
+ * @see SEL_HierarchyDepthLimit_TEST
  *
  * @author Jason van Beukering
  *
  * @group Selectors
  *
- * @date January 2026, June 2026
+ * @date January 2026, October 2026
  *
  * @since 1.0
  *
@@ -60,7 +61,17 @@ global inherited sharing class SEL_Hierarchy
 	 * @description Maximum levels that can be traversed in a single SOQL parent relationship query.
 	 */
 	private static final Integer SOQL_MAX_PARENT_LEVELS = 5;
+	/**
+	 * @description The name of the record Id field. Every hierarchy query selects it, on the record and on each parent level, and
+	 * the query that loads records by Id filters on it.
+	 */
 	private static final String FIELD_ID = 'Id';
+	/**
+	 * @description The error message the descendant search (findDescendantsWithParentMap) throws when it reaches the depth limit
+	 * with records still to resolve. The placeholder {0} is the limit.
+	 */
+	@TestVisible
+	private static final String DESCENDANT_DEPTH_EXCEEDED_MESSAGE = 'Maximum hierarchy depth ({0}) exceeded while finding descendants. Possible circular reference.';
 
 	/**
 	 * @description Creates a Selector for hierarchy operations using the specified parent field.
@@ -95,9 +106,30 @@ global inherited sharing class SEL_Hierarchy
 	 */
 	global inherited sharing class Selector
 	{
+		/**
+		 * @description The most levels a search goes through before it stops. For the upward searches the limit is also what ends
+		 * a walk through records that point at each other in a circle. The descendant search ends a circle as soon as a level
+		 * brings no new records, and throws only when the circle holds more records than the limit. The upward searches load
+		 * five levels with each query and count in fives, so they can go up to four levels past the limit. Every search throws a HierarchyException when it reaches the limit with
+		 * records still to resolve, rather than return part of the answer. The one descendant search, findDescendantsWithParentMap
+		 * (behind findAllDescendants, propagateToDescendants and calculateUltimateParents), counts one level per query and loads
+		 * one more level at the limit to check, so a hierarchy exactly as deep as the limit succeeds.
+		 */
 		private Integer maxDepth = DEFAULT_MAX_DEPTH;
+		/**
+		 * @description The object whose records form the hierarchy: the object the parent field points to, which for a field that
+		 * points to its own object is also the object that holds the field.
+		 */
 		private final SObjectType objectType;
+		/**
+		 * @description The API name of the parent lookup field, for example ParentId. It is read from each record to find its
+		 * parent and used as the filter to find a record's children.
+		 */
 		private final String parentFieldName;
+		/**
+		 * @description The relationship name of the parent lookup field, for example Parent. It is repeated to build the query
+		 * paths that load several parent levels in one query, and to read each loaded parent from a record.
+		 */
 		private final String relationshipName;
 
 		/**
@@ -108,7 +140,7 @@ global inherited sharing class SEL_Hierarchy
 		 */
 		private Selector(SObjectField parentField)
 		{
-			DescribeFieldResult describe = parentField.getDescribe();
+			DescribeFieldResult describe = UTIL_SObjectDescribe.getCachedFieldDescribe(parentField);
 			// For self-referencing lookups, getReferenceTo() returns the same object type
 			objectType = describe.getReferenceTo().iterator().next();
 			parentFieldName = describe.name;
@@ -116,10 +148,17 @@ global inherited sharing class SEL_Hierarchy
 		}
 
 		/**
-		 * @description Sets the maximum hierarchy depth for this selector.
-		 * Useful for limiting traversal in known shallow hierarchies or testing.
+		 * @description Sets the most levels a search on this selector goes through. The default is 20.
+		 * When a search reaches the limit with records still to resolve, it throws an error instead of returning part of the
+		 * answer. Searches up the hierarchy load five levels at a time, so they can go up to four levels past the limit before
+		 * they stop. When records point at each other in a circle, a search up the hierarchy never finds a record without a
+		 * parent, so it also ends in the error; propagateToDescendants and calculateUltimateParents start with such a search, so
+		 * they end the same way. findAllDescendants stops at a circle once it has found every record in it and returns them; it
+		 * throws only when the circle holds more records than the limit.
+		 * Call this method with a higher number when your hierarchy is deeper than 20 levels, or with a lower number to stop
+		 * sooner in a hierarchy you know is shallow.
 		 *
-		 * @param depth Maximum levels to traverse.
+		 * @param depth The most levels a search goes through.
 		 *
 		 * @return This selector for method chaining.
 		 *
@@ -127,8 +166,9 @@ global inherited sharing class SEL_Hierarchy
 		 *
 		 * @example
 		 * ```apex
+		 * // An account hierarchy that can be up to 40 levels deep
 		 * SEL_Hierarchy.Selector hierarchy = SEL_Hierarchy.forField(Account.ParentId)
-		 *     .withMaxDepth(10);
+		 *     .withMaxDepth(40);
 		 * ```
 		 */
 		global Selector withMaxDepth(Integer depth)
@@ -200,6 +240,10 @@ global inherited sharing class SEL_Hierarchy
 		/**
 		 * @description Finds all descendants (children, grandchildren, etc.) of a record.
 		 *
+		 * **Depth limit:** the search goes at most as many levels as `withMaxDepth` allows (20 by default). If the descendants go
+		 * deeper than that, the method throws an error instead of returning only part of them. A hierarchy exactly as deep as
+		 * the limit still succeeds. For a deeper hierarchy, raise the limit with `withMaxDepth`.
+		 *
 		 * @param parentId The Id of the parent record.
 		 *
 		 * @return Set of all descendant record Ids (does not include the parent).
@@ -225,6 +269,10 @@ global inherited sharing class SEL_Hierarchy
 		/**
 		 * @description Finds all descendants for multiple parent records.
 		 *
+		 * **Depth limit:** the search goes at most as many levels as `withMaxDepth` allows (20 by default). If the descendants go
+		 * deeper than that, the method throws an error instead of returning only part of them. A hierarchy exactly as deep as
+		 * the limit still succeeds. For a deeper hierarchy, raise the limit with `withMaxDepth`.
+		 *
 		 * @param parentIds Set of parent record Ids.
 		 *
 		 * @return Set of all descendant record Ids (does not include the parent Ids).
@@ -245,7 +293,7 @@ global inherited sharing class SEL_Hierarchy
 				return new Set<Id>();
 			}
 
-			return findAllDescendantsInternal(parentIds);
+			return findDescendantsWithParentMap(parentIds).allDescendants;
 		}
 
 		/**
@@ -315,6 +363,11 @@ global inherited sharing class SEL_Hierarchy
 		 * **Use Case:** When Account A's parent changes, all of A's children (and their children)
 		 * need their UltimateParent__c field updated to point to A's new ultimate parent.
 		 *
+		 * **Depth limit:** the search goes at most as many levels as `withMaxDepth` allows (20 by default). If a changed record's
+		 * descendants go deeper than that, or records point at each other in a circle, the method throws an error and returns
+		 * nothing, so no descendant is silently left with an old value. A hierarchy exactly as deep as the limit still succeeds.
+		 * For a deeper hierarchy, raise the limit with `withMaxDepth`.
+		 *
 		 * @param changedRecordIds Records whose parent has changed.
 		 * @param ultimateParentField The field to store the ultimate parent reference.
 		 *
@@ -337,7 +390,7 @@ global inherited sharing class SEL_Hierarchy
 				return new List<SObject>();
 			}
 
-			String ultimateParentFieldName = ultimateParentField.getDescribe().name;
+			String ultimateParentFieldName = UTIL_SObjectDescribe.getCachedFieldName(ultimateParentField);
 
 			// Step 1: Find ultimate parents for the changed records
 			Map<Id, Id> ultimateParentsForChanged = findUltimateParentsInternal(changedRecordIds);
@@ -374,6 +427,11 @@ global inherited sharing class SEL_Hierarchy
 		/**
 		 * @description Calculates ultimate parent values for records without performing DML.
 		 * Returns a map that can be used for updates or analysis.
+		 *
+		 * **Depth limit:** the search goes at most as many levels as `withMaxDepth` allows (20 by default). When
+		 * `includeDescendants` is true and a changed record's descendants go deeper than that, or records point at each other in
+		 * a circle, the method throws an error and returns nothing, so no descendant is silently left out of the map. A
+		 * hierarchy exactly as deep as the limit still succeeds. For a deeper hierarchy, raise the limit with `withMaxDepth`.
 		 *
 		 * @param changedRecordIds Records whose parent has changed.
 		 * @param includeDescendants Whether to include all descendants in the result.
@@ -490,60 +548,6 @@ global inherited sharing class SEL_Hierarchy
 		}
 
 		/**
-		 * @description Internal implementation of findAllDescendants.
-		 *
-		 * @param parentIds Set of parent record Ids to find descendants for.
-		 *
-		 * @return Set of all descendant record Ids.
-		 */
-		private Set<Id> findAllDescendantsInternal(Set<Id> parentIds)
-		{
-			Set<Id> allDescendants = new Set<Id>();
-			Set<Id> currentLevelParentIds = new Set<Id>(parentIds);
-			Integer currentDepth = 0;
-
-			while(!currentLevelParentIds.isEmpty() && currentDepth < maxDepth)
-			{
-				// Query all immediate children of current level
-				List<SObject> children = QRY_Builder.selectFrom(objectType)
-						.systemModeInternal()
-						.fields(new List<String> {FIELD_ID})
-						.condition(parentFieldName).isIn(new List<Id>(currentLevelParentIds))
-						.toList();
-
-				if(children.isEmpty())
-				{
-					break;
-				}
-
-				Set<Id> childIds = new Set<Id>();
-				for(SObject child : children)
-				{
-					if(!allDescendants.contains(child.Id))
-					{
-						childIds.add(child.Id);
-					}
-				}
-
-				if(childIds.isEmpty())
-				{
-					break;
-				}
-
-				allDescendants.addAll(childIds);
-				currentLevelParentIds = childIds;
-				currentDepth++;
-			}
-
-			if(currentDepth >= maxDepth && !currentLevelParentIds.isEmpty())
-			{
-				throw new HierarchyException('Maximum hierarchy depth (' + maxDepth + ') exceeded while finding descendants. Possible circular reference.');
-			}
-
-			return allDescendants;
-		}
-
-		/**
 		 * @description Internal implementation of findAllAncestors.
 		 * Uses the same efficient multi-level SOQL traversal as findUltimateParentsInternal,
 		 * but collects all ancestors along the way instead of just the ultimate parent.
@@ -623,11 +627,18 @@ global inherited sharing class SEL_Hierarchy
 		}
 
 		/**
-		 * @description Finds all descendants AND builds a child->parent map in a single pass.
+		 * @description Finds all descendants AND builds a child->parent map in a single pass. It is the one descendant search:
+		 * findAllDescendants uses its set of descendants, and propagateToDescendants and calculateUltimateParents also use the map
+		 * to find the changed record each descendant belongs to. It loads one level of children per
+		 * query and stops when a level brings no new records. When the limit is reached it still loads the next level: if that
+		 * level holds new records it throws a HierarchyException rather than return part of the descendants, so a hierarchy
+		 * exactly as deep as the limit succeeds and one level deeper fails.
 		 *
 		 * @param rootIds Set of root record Ids to find descendants for.
 		 *
 		 * @return DescendantResult containing all descendants and child-to-parent map.
+		 *
+		 * @throws HierarchyException When records remain below the deepest level the limit allows.
 		 */
 		private DescendantResult findDescendantsWithParentMap(Set<Id> rootIds)
 		{
@@ -635,18 +646,13 @@ global inherited sharing class SEL_Hierarchy
 			Set<Id> currentLevelParentIds = new Set<Id>(rootIds);
 			Integer currentDepth = 0;
 
-			while(!currentLevelParentIds.isEmpty() && currentDepth < maxDepth)
+			while(!currentLevelParentIds.isEmpty())
 			{
 				// Query children with their parent reference
 				List<SObject> children = QRY_Builder.selectFrom(objectType).systemModeInternal()
 						.fields(new List<String> {FIELD_ID, parentFieldName})
 						.condition(parentFieldName).isIn(new List<Id>(currentLevelParentIds))
 						.toList();
-
-				if(children.isEmpty())
-				{
-					break;
-				}
 
 				Set<Id> childIds = new Set<Id>();
 				for(SObject child : children)
@@ -659,10 +665,10 @@ global inherited sharing class SEL_Hierarchy
 					}
 				}
 
-				// Note: childIds.isEmpty() check is unnecessary here because:
-				// 1. findUltimateParentsInternal already validated no circular references in ancestors
-				// 2. For self-referencing lookups, any descendant cycle creates an ancestor cycle
-				// 3. Therefore, we will never encounter all-duplicate children at this point
+				if(!childIds.isEmpty() && currentDepth >= maxDepth)
+				{
+					throw new HierarchyException(String.format(DESCENDANT_DEPTH_EXCEEDED_MESSAGE, new List<Object> {String.valueOf(maxDepth)}));
+				}
 
 				result.allDescendants.addAll(childIds);
 				currentLevelParentIds = childIds;
@@ -817,7 +823,15 @@ global inherited sharing class SEL_Hierarchy
 	 */
 	private class DescendantResult
 	{
+		/**
+		 * @description The Id of every record found below the starting records, at any level. The starting records themselves
+		 * are not added.
+		 */
 		public Set<Id> allDescendants = new Set<Id>();
+		/**
+		 * @description For each record in allDescendants, the Id of its direct parent. Walking this map upwards from a descendant
+		 * leads back to the starting record it belongs to without another query.
+		 */
 		public Map<Id, Id> childToParentMap = new Map<Id, Id>();
 	}
 
@@ -826,7 +840,15 @@ global inherited sharing class SEL_Hierarchy
 	 */
 	private class TraversalResult
 	{
+		/**
+		 * @description The Id of the highest record the walk reached. When foundUltimate is true this is the top of the hierarchy;
+		 * otherwise it is the record the next query continues from.
+		 */
 		public Id lastId;
+		/**
+		 * @description True when the walk reached a record with no parent, so the top of the hierarchy is known. False when the
+		 * walk ran out of loaded levels, or met a parent the query did not return, before reaching the top.
+		 */
 		public Boolean foundUltimate;
 	}
 

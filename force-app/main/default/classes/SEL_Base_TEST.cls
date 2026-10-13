@@ -11,13 +11,32 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
-@IsTest(SeeAllData=false IsParallel=false)
+@IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class SEL_Base_TEST
 {
+	/**
+	 * @description Company name given to the admin user created in test setup. It is unique to this class, so getTestAdmin
+	 * can find that one user again by company name.
+	 */
 	private static final String TEST_ADMIN_COMPANY = 'SEL_Base_TEST-admin';
+
+	/**
+	 * @description Time-to-live returned by the selector that overrides only cacheTimeToLiveSeconds().
+	 */
+	private static final Integer TIME_TO_LIVE_ONLY_SECONDS = 300;
+
+	/**
+	 * @description Time-to-live returned by the selector that overrides both caching hooks.
+	 */
+	private static final Integer SCOPE_AND_TIME_TO_LIVE_SECONDS = 600;
+
+	/**
+	 * @description Time-to-live a selector method passes to query.withCache(...) to replace the selector's own.
+	 */
+	private static final Integer METHOD_TIME_TO_LIVE_SECONDS = 3600;
 
 	/**
 	 * @description Concrete selector for testing SEL_Base with Foobar__c.
@@ -58,6 +77,88 @@ private class SEL_Base_TEST
 		public DefaultSelector()
 		{
 			super(Foobar__c.SObjectType);
+		}
+	}
+
+	/**
+	 * @description Selector that overrides only the time-to-live hook, so its reads are cached with the AUTO scope.
+	 */
+	private class TimeToLiveOnlySelector extends SEL_Base
+	{
+		/**
+		 * @description Constructs a TimeToLiveOnlySelector for Foobar__c.
+		 */
+		public TimeToLiveOnlySelector()
+		{
+			super(Foobar__c.SObjectType);
+		}
+
+		/**
+		 * @description Returns the selector's time-to-live.
+		 *
+		 * @return The time-to-live in seconds
+		 */
+		public override Integer cacheTimeToLiveSeconds()
+		{
+			return TIME_TO_LIVE_ONLY_SECONDS;
+		}
+	}
+
+	/**
+	 * @description Selector that overrides only the scope hook, keeping its reads in memory for the transaction.
+	 */
+	private class ScopeOnlySelector extends SEL_Base
+	{
+		/**
+		 * @description Constructs a ScopeOnlySelector for Foobar__c.
+		 */
+		public ScopeOnlySelector()
+		{
+			super(Foobar__c.SObjectType);
+		}
+
+		/**
+		 * @description Returns the selector's cache scope.
+		 *
+		 * @return The in-transaction scope
+		 */
+		public override UTIL_Cache.Scope cacheScope()
+		{
+			return UTIL_Cache.Scope.IN_TRANSACTION;
+		}
+	}
+
+	/**
+	 * @description Selector that overrides both caching hooks.
+	 */
+	private class ScopeAndTimeToLiveSelector extends SEL_Base
+	{
+		/**
+		 * @description Constructs a ScopeAndTimeToLiveSelector for Foobar__c.
+		 */
+		public ScopeAndTimeToLiveSelector()
+		{
+			super(Foobar__c.SObjectType);
+		}
+
+		/**
+		 * @description Returns the selector's cache scope.
+		 *
+		 * @return The org scope
+		 */
+		public override UTIL_Cache.Scope cacheScope()
+		{
+			return UTIL_Cache.Scope.ORG;
+		}
+
+		/**
+		 * @description Returns the selector's time-to-live.
+		 *
+		 * @return The time-to-live in seconds
+		 */
+		public override Integer cacheTimeToLiveSeconds()
+		{
+			return SCOPE_AND_TIME_TO_LIVE_SECONDS;
 		}
 	}
 
@@ -829,6 +930,97 @@ private class SEL_Base_TEST
 			TestSelector selector = new TestSelector();
 
 			Assert.isFalse(selector.query.userModeEnabled, 'Flag disabled + hook default should yield SYSTEM_MODE');
+		}
+	}
+
+	/**
+	 * @description A selector that overrides neither caching hook requests no caching.
+	 */
+	@IsTest
+	private static void shouldNotCacheWhenNoCachingHookIsOverridden()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Builder.Builder query = new TestSelector().query;
+
+			Assert.isNull(query.cacheScope, 'A selector with no caching hook should request no cache scope');
+			Assert.isNull(query.cacheTTL, 'A selector with no caching hook should request no time-to-live');
+		}
+	}
+
+	/**
+	 * @description A selector that overrides only the time-to-live caches with the AUTO scope and that time-to-live.
+	 */
+	@IsTest
+	private static void shouldCacheWithAutoScopeWhenOnlyTimeToLiveIsOverridden()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Builder.Builder query = new TimeToLiveOnlySelector().query;
+
+			Assert.areEqual(UTIL_Cache.Scope.AUTO, query.cacheScope, 'A time-to-live alone should request the AUTO scope');
+			Assert.areEqual(TIME_TO_LIVE_ONLY_SECONDS, query.cacheTTL, 'The selector time-to-live should be applied');
+		}
+	}
+
+	/**
+	 * @description A selector that overrides the scope caches with that scope, and with its time-to-live only when it
+	 * overrides that hook too.
+	 */
+	@IsTest
+	private static void shouldCacheWithTheScopeTheSelectorReturns()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Builder.Builder scopeOnlyQuery = new ScopeOnlySelector().query;
+			QRY_Builder.Builder scopeAndTimeToLiveQuery = new ScopeAndTimeToLiveSelector().query;
+
+			Assert.areEqual(UTIL_Cache.Scope.IN_TRANSACTION, scopeOnlyQuery.cacheScope, 'The selector scope should be applied');
+			Assert.isNull(scopeOnlyQuery.cacheTTL, 'A scope alone should request no time-to-live');
+			Assert.areEqual(UTIL_Cache.Scope.ORG, scopeAndTimeToLiveQuery.cacheScope, 'The selector scope should be applied');
+			Assert.areEqual(SCOPE_AND_TIME_TO_LIVE_SECONDS, scopeAndTimeToLiveQuery.cacheTTL, 'The selector time-to-live should be applied');
+		}
+	}
+
+	/**
+	 * @description A selector method can turn caching off for one query with query.withoutCache(), or replace the
+	 * selector's caching for one query with query.withCache(...).
+	 */
+	@IsTest
+	private static void shouldLetAMethodChangeTheSelectorCachingForOneQuery()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Builder.Builder uncachedQuery = new ScopeOnlySelector().query.withoutCache();
+			QRY_Builder.Builder replacedQuery = new ScopeOnlySelector().query.withCache(UTIL_Cache.Scope.ORG, METHOD_TIME_TO_LIVE_SECONDS);
+
+			Assert.isNull(uncachedQuery.cacheScope, 'withoutCache() should clear the selector scope for this query');
+			Assert.areEqual(UTIL_Cache.Scope.ORG, replacedQuery.cacheScope, 'withCache(...) should replace the selector scope');
+			Assert.areEqual(METHOD_TIME_TO_LIVE_SECONDS, replacedQuery.cacheTTL, 'withCache(...) should replace the selector time-to-live');
+		}
+	}
+
+	/**
+	 * @description A user-mode read from a selector that keeps its reads in memory runs its query once when repeated.
+	 */
+	@IsTest
+	private static void shouldRunOneQueryWhenCachedSelectorReadsTwiceInUserMode()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+			ScopeOnlySelector selector = new ScopeOnlySelector();
+			Assert.isTrue(selector.query.userModeEnabled, 'The selector should read in user mode, so the reads below are user-mode reads');
+
+			Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+			Foobar__c first = (Foobar__c)selector.findById(record.Id);
+			Foobar__c second = (Foobar__c)selector.findById(record.Id);
+			Integer queriesUsed = UTIL_Limits.soqlQueries().used() - queriesBefore;
+
+			Assert.areEqual(1, queriesUsed, 'The repeated read should be served from memory');
+			Assert.areEqual(record.Id, first.Id, 'The first read should return the record');
+			Assert.areEqual(record.Id, second.Id, 'The repeated read should return the record');
 		}
 	}
 
