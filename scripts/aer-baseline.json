@@ -1,9 +1,80 @@
 {
 	"description": "Apex tests that fail on aer, the local Apex runtime, and pass in a Salesforce org. scripts/aer-run.js --gate fails on any other failure and on a test that reports no result. Categories: \"runtime gap\" (aer behaves differently from Salesforce, shown), \"profile\" (the copy has no profiles folder) and \"unclassified\" (the cause is not yet known).",
 	"measuredWith": {
-		"aerVersion": "1.4.27",
-		"commit": "f2b30763884f7614d9c51863794f29ff76897910",
+		"aerVersion": "1.4.31",
+		"commit": "0afbcf7fe65279c43c78d44e68482eb82e921ebf",
 		"permissionSet": "Administrator"
 	},
-	"failures": []
+	"failures": [
+		{
+			"test": "API_Base_TEST.shouldCompleteASynchronousInboundSaveOfALongestSecretBearingJsonRequest",
+			"category": "runtime gap",
+			"error": "aer stops the pattern with Regex too complicated; Salesforce runs it (the test passes in an org). First error on aer: LimitException: Regex too complicated"
+		},
+		{
+			"test": "UTIL_FrameworkMasker_TEST.shouldCompleteOnEveryHostileCardShape",
+			"category": "unclassified",
+			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_FrameworkMasker_TEST.cls:4899: Assertion Failed: Expected the number of hidden numbers on digits and spaces: Expected: 3399, Actual: 3400"
+		},
+		{
+			"test": "UTIL_FrameworkMasker_TEST.shouldMarkOnlyTheValueAWriteFailureMarkerRuleFailsOn",
+			"category": "unclassified",
+			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_FrameworkMasker_TEST.cls:2718: Assertion Failed: Expected the value the rule failed on to carry the marker: Expected: [MASKING_FAILURE], A"
+		},
+		{
+			"test": "UTIL_FrameworkMasker_TEST.shouldMaskEveryTokenInALongestPlainTextValue",
+			"category": "runtime gap",
+			"error": "aer stops the pattern with Regex too complicated; Salesforce runs it (the test passes in an org). First error on aer: LimitException: Regex too complicated"
+		},
+		{
+			"test": "UTIL_FrameworkMasker_TEST.shouldSkipTheFailureMarkerWrittenInPlaceOfAValue",
+			"category": "unclassified",
+			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_FrameworkMasker_TEST.cls:1374: Assertion Failed: Expected the failed rule to write the failure marker: Expected: [MASKING_FAILURE], Actual"
+		},
+		{
+			"test": "UTIL_FrameworkMasker_TEST.shouldWarnOnceForABlockDmlRuleThatFailsOnManyValues",
+			"category": "unclassified",
+			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_FrameworkMasker_TEST.cls:2884: Assertion Failed: Assertion failed: Expected the Block DML rule to refuse the value"
+		},
+		{
+			"test": "UTIL_FrameworkMasker_TEST.shouldWarnOnceForARuleThatFailsOnManyValues",
+			"category": "unclassified",
+			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_FrameworkMasker_TEST.cls:2843: Assertion Failed: Expected the first value the rule failed on to carry the marker: Expected: [MASKING_FAILU"
+		},
+		{
+			"test": "UTIL_String_TEST.shouldMarkASecretTooLongToReadInOneTryInsteadOfEndingTheTransaction",
+			"category": "runtime gap",
+			"error": "aer stops the pattern with Regex too complicated; Salesforce runs it (the test passes in an org). First error on aer: LimitException: Regex too complicated"
+		},
+		{
+			"test": "UTIL_String_TEST.shouldMaskALongStringSecretWithoutHittingTheRegexLimit",
+			"category": "unclassified",
+			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_String_TEST.cls:2883: Assertion Failed: Expected the long secret replaced whole: Expected: {\"password\":\"***SECRET***\"} sent at step 2, Act"
+		},
+		{
+			"test": "UTIL_String_TEST.shouldMaskASecretOfLettersAndEscapedQuotesThatFitsInOneRead",
+			"category": "unclassified",
+			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_String_TEST.cls:2959: Assertion Failed: Expected the secret replaced whole: Expected: {\"password\":\"***SECRET***\"} sent at step 2, Actual: "
+		},
+		{
+			"test": "UTIL_String_TEST.shouldMaskASecretWhoseValueCrossesTheEndOfAPiece",
+			"category": "unclassified",
+			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_String_TEST.cls:2976: Assertion Failed: Expected the secret replaced whole: Expected: {\"note\":\"nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"
+		},
+		{
+			"test": "UTIL_String_TEST.shouldMaskTokensAtTheStartMiddleAndEndOfALongestValue",
+			"category": "runtime gap",
+			"error": "aer stops the pattern with Regex too complicated; Salesforce runs it (the test passes in an org). First error on aer: LimitException: Regex too complicated"
+		},
+		{
+			"test": "UTIL_String_TEST.shouldNotReadAnEscapedQuoteAtThePieceStartAsAKey",
+			"category": "unclassified",
+			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_String_TEST.cls:2824: Assertion Failed: Expected the very same text back, with hunter2 kept inside the note"
+		},
+		{
+			"test": "UTIL_String_TEST.shouldNotTakeATokenAtThePieceStartAfterATokenCharacter",
+			"category": "unclassified",
+			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_String_TEST.cls:1696: Assertion Failed: Expected the token joined to a token character to stay: Expected:                                 "
+		}
+	]
 }
