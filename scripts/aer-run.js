@@ -622,7 +622,50 @@ function readReleaseOfCommit(tree)
 }
 
 /**
- * @description Writes a clean copy of the current commit's force-app folder and project file into a folder.
+ * @description Patterns aer reads differently from Salesforce, rewritten in aer's copy of the source only. Each rewrite keeps
+ * the pattern's meaning for Java and Salesforce, so the tests check the same behaviour; the shipped source is never changed.
+ * Remove a row when aer fixes the issue it names.
+ */
+const AER_SOURCE_WORKAROUNDS = [
+	{
+		file: 'force-app/main/default/classes/UTIL_String.cls',
+		issue: 'https://github.com/octoberswimmer/aer-dist/issues/606',
+		// aer reads an escaped backslash followed by Q or E as the \Q...\E quoting operator; [Q] and [E] are the same letters.
+		from: String.raw`'\\\\Q[\\s\\S]*?(?:\\\\E|$)`,
+		to: String.raw`'\\\\[Q][\\s\\S]*?(?:\\\\[E]|$)`
+	}
+];
+
+/**
+ * @description Applies AER_SOURCE_WORKAROUNDS to a copy of the source. A row whose text is not found exactly once is
+ * reported and skipped, so a later change to the pattern shows up here instead of as a silent difference.
+ *
+ * @param {string} folder - the copy of the source
+ * @param {Array<{file: string, issue: string, from: string, to: string}>} [workarounds]
+ * @return {{applied: Array<string>, missed: Array<string>}} the files changed, and the rows not applied
+ */
+function applyAerWorkarounds(folder, workarounds = AER_SOURCE_WORKAROUNDS)
+{
+	const applied = [];
+	const missed = [];
+	for(const workaround of workarounds)
+	{
+		const file = path.join(folder, workaround.file);
+		const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
+		if(text.split(workaround.from).length !== 2)
+		{
+			missed.push(`${workaround.file} (${workaround.issue})`);
+			continue;
+		}
+		fs.writeFileSync(file, text.split(workaround.from).join(workaround.to));
+		applied.push(workaround.file);
+	}
+	return {applied, missed};
+}
+
+/**
+ * @description Writes a clean copy of the current commit's force-app folder and project file into a folder, with the aer
+ * workarounds applied to the copy.
  *
  * @param {string} folder
  * @return {string} the folder
@@ -633,10 +676,15 @@ function prepareCommitTree(folder)
 	const archive = path.join(path.dirname(folder), 'tree.tar');
 	execFileSync('git', ['archive', '--output', archive, 'HEAD', 'force-app', 'sfdx-project.json'], {cwd: REPOSITORY_ROOT});
 	execFileSync('tar', ['-xf', archive, '-C', folder]);
+	const {applied, missed} = applyAerWorkarounds(folder);
+	applied.forEach(file => console.log(`aer workaround applied to the copy of ${file}`));
+	missed.forEach(row => console.warn(`WARNING aer workaround not applied, its text was not found: ${row}`));
 	return folder;
 }
 
 module.exports = {
+	AER_SOURCE_WORKAROUNDS,
+	applyAerWorkarounds,
 	BATCH_LIMIT,
 	UNLICENSED_RUNS_MAY_BATCH,
 	LICENCE_NEEDED_MESSAGE,
