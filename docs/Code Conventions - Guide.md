@@ -715,6 +715,29 @@ UTIL_AsyncChain.newChain('DataMigration')
 `new UTIL_AsyncChain.ApiStep(API_SendEmail.class).credential('Gateway').withParameter(k, v).withParameterFrom(param, contextKey).triggeringRecord(id).triggeringRecordFrom(contextKey)`
 **Status:** `UTIL_AsyncChain.getStatus(chainExecutionId)` → `Map<String, Object>` (executionId, chainName, status, totalSteps, completedSteps, errorMessage)
 
+### Rules for changing the chain engine
+
+These rules are for contributors who change `UTIL_AsyncChain` itself, not for code that uses it.
+
+- **One writer for a run's status.** Every change to `AsyncChainExecution__c.Status__c` goes through `applyRunTransition` with a
+  named `RunEvent`. The trigger that guards a run's status only checks a change made this way; it never makes one, so it does not
+  replace this rule.
+- **A new step-log marker comes with its room and its rule.** A marker is a field the engine saves on a step entry in
+  `StepLog__c` (for example `started` or `success`). A new marker adds its saved width to `STEP_RUNTIME_RESERVE_LENGTH` and its
+  rule to `resolveStepState` in the same commit. Without both, the step log can run out of room, or a reader can work out the
+  wrong state for the step. A reviewer refuses a diff that has only one of the two.
+- **A new axis re-walks every table it touches before it lands.** An axis is a new status, step-log marker, phase or entry path.
+  Before the change lands, walk all three decisions again, case by case: the run status table (`ALLOWED_FROM_STATUSES_BY_RUN_EVENT`
+  and `TARGET_STATUS_BY_RUN_EVENT`), the step resolver (`resolveStepState`) and the outbound retry decision
+  (`scheduleRetryWhenAllowed` and `isRetryableByPhase` in `API_Outbound`). Mark each case the axis reaches as tested, untested or the
+  same as a tested case, and turn every untested case into a test or a tracked work item.
+- **The trigger backstop never decides a move.** `TRG_AsyncChainRunTransition` asks `isAllowedRunTransition` in
+  `UTIL_AsyncChain` whether a move is allowed and checks the rules a row must meet in its status. Nothing else. A change that puts a list of
+  statuses, a move or a field rule into the trigger action is refused at review; that change belongs in `UTIL_AsyncChain`.
+- **The tables and resolvers check this engine only.** The run status table, the step resolver and the outbound retry decision
+  exist to verify the chain engine and the outbound retry. They are not a framework feature, and they are never made general or
+  opened up for use outside the package.
+
 ## Schedulable Framework
 
 `global inherited sharing class SCHED_* extends SCHED_Base` implementing `IF_Schedulable`. `IF_Schedulable` extends `Schedulable` with `getParameterDefinitions()` and

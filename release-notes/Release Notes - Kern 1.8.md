@@ -6,7 +6,7 @@ Notes](./Release%20Notes%20-%20Kern%201.5.md), [Kern 1.4 Release Notes](./Releas
 [Kern 1.0 Feature Reference](./Release%20Notes%20-%20Kern%201.0.md), which together remain the full reference for everything 1.8 carries forward.
 **Platform:** Salesforce API 68.0 (Winter '27), up from API 67.0 (Summer '26) in 1.7 · [What Winter '27 changes](#ready-for-winter-27)
 · **Namespace:** `kern` (rebrandable via [Installation](../docs/Installation.md))
-**Release status:** in release testing; the build number is filled in at promotion. Kern 1.8.0-N will be the production-installable 1.8 line.
+**Release status:** released. Kern 1.8.0-11 is the production-installable 1.8 line.
 
 > **What 1.8 is.** 1.8 moves KernDX to Salesforce Winter '27 (API 68.0) and brings 147 improvements
 > since 1.7, split by area in the table below. They include 51 behaviour changes, listed under

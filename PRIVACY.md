@@ -14,9 +14,11 @@ Data masking deserves a special mention: it exists to *remove* sensitive values 
 
 ## Does anything ever leave my org?
 
-Only when you tell it to. The outbound HTTP framework calls the endpoints you configure in your own org's settings and named credentials. KernDX ships no destination of its own and adds none.
+Only when you tell it to. The outbound HTTP framework calls the endpoints you configure in your own org's settings and named credentials. KernDX contacts no destination of its own: the only addresses it ships belong to the two example services below, and they run only if your code calls them.
 
-One shipped reference integration is worth naming plainly: `API_GetPwndPasswords`, an optional example service that checks whether a password appears in the free [Pwned Passwords](https://haveibeenpwned.com/API/v3#PwnedPasswords) breach dataset. It runs only if your code calls it, and it sends only the first five characters of the password's SHA-1 hash, never the password itself, so the service cannot learn what was checked.
+Two shipped reference integrations are worth naming plainly. The first, `API_GetPwndPasswords`, is an optional example service that checks whether a password appears in the free [Pwned Passwords](https://haveibeenpwned.com/API/v3#PwnedPasswords) breach dataset. It runs only if your code calls it, and it sends only the first five characters of the password's SHA-1 hash, never the password itself, so the service cannot learn what was checked.
+
+The second, `API_PostExample`, is a demonstration service that sends a test request to `jsonplaceholder.typicode.com`, a free public test API, so you can see an outbound call working. It too runs only if your code, or an admin using the API Test Harness, calls it.
 
 The CI tooling runs in your own pipeline and reports only to destinations you configure (for example, your own Slack webhook). Nothing in the package, the CI tooling, or the build scripts contacts JVB Consulting.
 

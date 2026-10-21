@@ -1,0 +1,93 @@
+---
+title: "QRY_Condition.OrCondition"
+type: class
+pageClass: reference
+description: "Represents a SOQL \"OR\" condition group."
+since: "1.0"
+category: apex
+---
+
+# QRY_Condition.OrCondition
+
+**Class**
+
+<div class="apex-member apex-class">
+
+```apex
+global inherited sharing class QRY_Condition.OrCondition extends QRY_Condition.ConditionGroup
+```
+
+**Known Derived Types:** [QRY_Condition.Nestable.add(QRY_Condition.Evaluable)](QRY_Condition.Nestable.md#add)
+
+Represents a SOQL "OR" condition group.
+
+**Example**
+
+```apex
+QRY_Condition.OrCondition group = new QRY_Condition.OrCondition();
+group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Active'));
+group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Pending'));
+```
+
+</div>
+
+---
+
+## Methods
+
+| Method | Description |
+|--------|-------------|
+| global override [QRY_Condition.Nestable](QRY_Condition.Nestable.md) [add](#add)([QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) condition) | Adds a condition to this OR group. |
+
+### add
+
+<div class="apex-member">
+
+```apex
+global override QRY_Condition.Nestable add(QRY_Condition.Evaluable condition)
+```
+
+Adds a condition to this OR group.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `condition` | [QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) | The condition to add. |
+
+**Returns** [QRY_Condition.Nestable](QRY_Condition.Nestable.md) — The current Nestable with the added condition.
+
+**Example**
+
+```apex
+QRY_Condition.OrCondition group = new QRY_Condition.OrCondition();
+group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Active'));
+group.add(new QRY_Condition.FieldCondition('Status__c', QRY_Condition.Operator.EQUALS, 'Pending'));
+```
+
+</div>
+
+## Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| global [OrCondition](#constructors)() | Constructor for creating an OR condition group. |
+
+### OrCondition()
+
+<div class="apex-member">
+
+```apex
+global OrCondition()
+```
+
+Constructor for creating an OR condition group.
+
+**Example**
+
+```apex
+QRY_Condition.OrCondition instance = new QRY_Condition.OrCondition();
+```
+
+</div>
+
