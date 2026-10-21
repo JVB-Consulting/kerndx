@@ -99,8 +99,9 @@ function retryLiveRowsLeft(startedAt)
 function deleteRetryLiveRows(startedAt)
 {
 	const since = `CreatedDate >= ${startedAt}`;
-	executeAnonymousApex(`delete [SELECT Id FROM kern__ApiCall__c WHERE kern__ServiceName__c = '${RETRY_LIVE_SERVICE}' AND ${since}];`
-			+ ` delete [SELECT Id FROM kern__ApiIssue__c WHERE kern__ServiceName__c = '${RETRY_LIVE_SERVICE}' AND ${since}];`
+	// Issues before calls: a call with an open issue cannot be deleted.
+	executeAnonymousApex(`delete [SELECT Id FROM kern__ApiIssue__c WHERE kern__ServiceName__c = '${RETRY_LIVE_SERVICE}' AND ${since}];`
+			+ ` delete [SELECT Id FROM kern__ApiCall__c WHERE kern__ServiceName__c = '${RETRY_LIVE_SERVICE}' AND ${since}];`
 			+ ` delete [SELECT Id FROM kern__LogEntry__c WHERE ${retryLiveLogFilter(since)}];`);
 }
 
@@ -134,12 +135,12 @@ function retrySelectedRowsLeft(rows)
 			+ soqlQuery(forOrg(`SELECT Id FROM kern__ApiIssue__c WHERE ${filter.issues}`)).length;
 }
 
-// Deletes V159's calls, then its issues.
+// Deletes V159's issues, then its calls: a call with an open issue cannot be deleted.
 function deleteRetrySelectedRows(rows)
 {
 	const filter = retrySelectedFilter(rows);
-	executeAnonymousApex(`delete [SELECT Id FROM kern__ApiCall__c WHERE ${filter.calls}];`
-			+ ` delete [SELECT Id FROM kern__ApiIssue__c WHERE ${filter.issues}];`);
+	executeAnonymousApex(`delete [SELECT Id FROM kern__ApiIssue__c WHERE ${filter.issues}];`
+			+ ` delete [SELECT Id FROM kern__ApiCall__c WHERE ${filter.calls}];`);
 }
 
 // Creates a Standard User holding Kern API Issue Resolver, plus the subscriber's own Run Flows set, and signs it in on a
