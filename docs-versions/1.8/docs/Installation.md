@@ -44,7 +44,7 @@ navOrder: 1
      - [mkdir says the folder already exists](#mkdir-says-the-folder-already-exists)
      - [npm ci complains about the Node version](#npm-ci-complains-about-the-node-version)
      - [kerndx init or kerndx upgrade stops with a message](#kerndx-init-or-kerndx-upgrade-stops-with-a-message)
-     - [aer stops after 100 tests, or a test fails only in aer](#aer-stops-after-100-tests-or-a-test-fails-only-in-aer)
+     - [aer stops after 100 tests, or a test fails only in aer](#aer-runs-fewer-tests-than-you-asked-for-or-a-test-fails-only-in-aer)
    - [Run the tests on your computer with aer (optional)](#run-the-tests-on-your-computer-with-aer-optional)
    - [Next Steps](#next-steps)
 4. [Path 3: CI Tooling Only](#path-3-ci-tooling-only)
@@ -807,13 +807,13 @@ This applies to Path 3, when you set up or upgrade the tooling.
 **What to do:** give it what the message asks for, then run it again. The [Full Reference](#full-reference) section
 lists where to find each command and its flags.
 
-#### aer stops after 100 tests, or a test fails only in aer
+#### aer runs fewer tests than you asked for, or a test fails only in aer
 
 This applies when you run the tests on your computer with aer.
 
-**Why:** without a licence key, aer runs the first 100 test methods, reports the rest as `FAIL`, and prints `Running more than 100 tests requires a valid license`. Those failures are the limit, not a problem in the code. Separately, aer does not copy every detail of how Salesforce behaves, so now and then a test that passes in an org fails in aer.
+**Why:** how many tests one aer run may take depends on aer's licence terms. When a run asks for more than those terms allow, aer prints a licence message and stops or skips tests. That is the licence, not a problem in the code. Separately, aer does not copy every detail of how Salesforce behaves, so now and then a test that passes in an org fails in aer.
 
-**What to do:** run a smaller group with `-f`, run everything 100 at a time with the script in step 4 of [Run the tests on your computer with aer](#run-the-tests-on-your-computer-with-aer-optional), or add a licence key from [aer's plans](https://www.octoberswimmer.com/tools/aer/subscribe/). If a test passes in your org but fails in aer, report it on [aer's issue tracker](https://github.com/octoberswimmer/aer-dist/issues).
+**What to do:** for a licence message, run one test method at a time (step 3 of [Run the tests on your computer with aer](#run-the-tests-on-your-computer-with-aer-optional)), or see [aer's repository](https://github.com/octoberswimmer/aer-dist), which explains its licence terms. If a test passes in your org but fails in aer, report it on [aer's issue tracker](https://github.com/octoberswimmer/aer-dist/issues).
 
 ---
 
@@ -823,15 +823,9 @@ Running Apex tests normally means deploying to an org and waiting. aer, a tool m
 
 This is for you if you deploy KernDX from source: repackaged under your own namespace (this path) or deployed with no namespace. It works the same way on your own Apex classes in the same project.
 
-aer is a paid, closed-source product with a free tier. Without a licence key, one aer run takes at most 100 test methods. The limit counts methods, not classes, and a few KernDX test classes have more than 100 methods on their own. Step 4 below runs everything in runs of 100, so the free tier is enough. See [aer's plans](https://www.octoberswimmer.com/tools/aer/subscribe/) and [aer's documentation](https://www.octoberswimmer.com/tools/aer/docs/) for every option.
+aer is a separate product with its own licence terms. [aer's repository](https://github.com/octoberswimmer/aer-dist) explains how to install it and how many tests one run may take with and without a licence. The steps below cover only what is specific to KernDX.
 
-**1. Install aer.** The steps below need the `aer` command on your `PATH` (the list of folders your terminal searches for programs).
-
-**Windows:** from [aer's releases page](https://github.com/octoberswimmer/aer-dist/releases), download the Windows zip for your processor (amd64 or arm64), unzip it, and move `aer.exe` into a folder on your `PATH`.
-
-**macOS or Linux:** install it with Homebrew by running `brew install octoberswimmer/tap/aer` in the terminal.
-
-aer's [getting started page](https://www.octoberswimmer.com/tools/aer/getting-started/) lists the other ways to install it.
+**1. Install aer** by following [aer's repository](https://github.com/octoberswimmer/aer-dist). The steps below need the `aer` command on your `PATH` (the list of folders your terminal searches for programs).
 
 **2. In the terminal**, check that aer is installed:
 
@@ -841,7 +835,17 @@ aer --version
 
 You should see `aer version` followed by its version number.
 
-**3. In the terminal**, from the top folder of your project, run one test class:
+**3. In the terminal**, from the top folder of your project, run one test method:
+
+```shell
+aer test force-app -p Administrator -f UTIL_Random_TEST.shouldGenerateNonNullBoolean
+```
+
+You should see `PASS UTIL_Random_TEST.shouldGenerateNonNullBoolean`, then `Ran 1 tests: 1 passed, 0 failed`.
+
+Put your own class and method name after `-f` to run a different test.
+
+To run more than one test in a single aer run on a project the size of KernDX, your aer licence must allow it ([aer's repository](https://github.com/octoberswimmer/aer-dist) explains the terms). Without that, aer prints a licence message and runs none of the tests you asked for. With it, put only a class name after `-f` to run every test in that class:
 
 ```shell
 aer test force-app -p Administrator -f UTIL_Random_TEST
@@ -849,11 +853,9 @@ aer test force-app -p Administrator -f UTIL_Random_TEST
 
 You should see a `PASS` line for each test method, then a summary such as `Ran 20 tests: 20 passed, 0 failed`.
 
-Put your own class name after `-f` to run a different class.
-
 Why `-p Administrator`? The public repository has no `profiles` folder, and aer gives its test user only the access your source folder grants. `-p Administrator` tells aer to run as a user who holds the Kern Administrator permission set, as an admin would in a real org. Without it, tests that read fields only that permission set grants will fail.
 
-To run a group of classes, give `-f` a name pattern, where `*` stands for any characters. **In the terminal**:
+With the same licence, you can run a group of classes by giving `-f` a name pattern, where `*` stands for any characters. **In the terminal**:
 
 ```shell
 aer test force-app -p Administrator -f "UTIL_R*"
@@ -863,45 +865,13 @@ You should see a `PASS` line for each test method in every class whose name star
 
 These commands are written to work in Command Prompt, PowerShell and a macOS or Linux terminal. Keep the double quotes around a pattern: Command Prompt does not treat single quotes as quotes.
 
-**4. In your editor**, to run every test on the free tier, save this script as a new file named **run-aer-tests.js** in the top folder of your project. It asks aer for the list of test methods, then runs them 100 at a time:
-
-```javascript
-// Runs every Apex test in force-app with aer, at most 100 test methods per run.
-const {spawnSync} = require('child_process');
-
-const LIMIT = 100;
-const OPTIONS = ['test', 'force-app', '-p', 'Administrator'];
-
-const listed = spawnSync('aer', [...OPTIONS, '--dry-run'], {encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit']});
-if(listed.error || listed.status !== 0)
-{
-	console.error(listed.error ? 'aer was not found. Install it and put it on your PATH (step 1).' : 'aer could not list the tests. Its message is above.');
-	process.exit(1);
-}
-const methods = listed.stdout.split('\n').map(line => line.trim()).filter(line => /^[\w.]+$/.test(line));
-let failedRuns = 0;
-for(let start = 0; start < methods.length; start += LIMIT)
-{
-	const filters = methods.slice(start, start + LIMIT).flatMap(name => ['-f', name]);
-	const result = spawnSync('aer', [...OPTIONS, '--quiet', ...filters], {stdio: 'inherit'});
-	if(result.status !== 0)
-	{
-		failedRuns++;
-	}
-}
-console.log(`${methods.length} test methods, ${Math.ceil(methods.length / LIMIT)} runs, ${failedRuns} with a failure`);
-process.exitCode = failedRuns === 0 ? 0 : 1;
-```
-
-**5. In the terminal**, run it:
+**4. To run every test at once**, check first that your aer licence allows a run that size ([aer's repository](https://github.com/octoberswimmer/aer-dist) explains the terms). Then, **in the terminal**, from the top folder of your project, run every test:
 
 ```shell
-node run-aer-tests.js
+aer test force-app -p Administrator
 ```
 
-You should see the failures and the summary of each run, then a last line that counts the test methods, the runs, and the runs with a failure.
-
-With a licence key you can skip the script and run everything at once: `aer test force-app -p Administrator`.
+You should see a `PASS` line for each test method, any failures, then the summary of the whole run.
 
 **What to expect.** Almost all of KernDX's tests pass under aer; the current figure is in [Strategic Guide - Metrics](Strategic%20Guide%20-%20Metrics.md). A few behave differently, because aer does not copy every detail of how Salesforce behaves. So a real org stays the final word: before you build your package, run the tests there too (the package build in Step 5.2 does this when validation is on).
 
@@ -910,7 +880,7 @@ Two limits to know:
 - If you use aer's namespace option (`-d YourNamespace`), it does not check that only `global` classes and methods can be reached from another namespace. Only a real org with your namespace proves that.
 - aer can stand in for an installed managed package so you can test code that calls it (its `aer package mock` command), but that does not work for the KernDX managed package today: it stops on the `MaskingTarget__mdt` custom metadata type. So you cannot yet use aer to test your own code against an installed KernDX (Path 1).
 
-Something went wrong? See [Troubleshooting](#aer-stops-after-100-tests-or-a-test-fails-only-in-aer).
+Something went wrong? See [Troubleshooting](#aer-runs-fewer-tests-than-you-asked-for-or-a-test-fails-only-in-aer).
 
 ---
 

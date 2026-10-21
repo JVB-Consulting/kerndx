@@ -7,11 +7,9 @@
  *
  *              The script finds every test method under force-app/main/default/classes/*_TEST.cls, then asks aer
  *              whether this computer has an aer licence (`aer license show`). With a licence, it runs every test in
- *              one aer run. Without one, what it does depends on UNLICENSED_RUNS_MAY_BATCH below. When that is true,
- *              it runs the tests in groups of at most 100 test methods, four groups at once, because aer's free tier
- *              runs at most 100 test methods at a time. When it is false, it does not run the tests: it says that a
- *              full run needs an aer licence and stops. To register a licence, run `aer license register <key>`;
- *              licences come from https://portal.aertest.com/.
+ *              one aer run. Without one, it does not run the tests: it says that a full run needs an aer licence and
+ *              stops. To register a licence, run `aer license register <key>`; licences come from
+ *              https://portal.aertest.com/.
  *              By default it runs on a clean copy of the current commit (git archive), so the result belongs to that
  *              commit and to nothing else in the working tree. That copy has no profiles folder, the same as the
  *              public repository, so pass `-p Administrator` to run as a user who holds the Administrator permission
@@ -39,7 +37,7 @@
  *              (default tmp/aer-run).
  *
  *              Exit codes: 0 done (gate passed), 1 the gate failed, 2 the run could not start (this includes a run
- *              with no aer licence when UNLICENSED_RUNS_MAY_BATCH is false).
+ *              with no aer licence; a dry run with no licence exits 0).
  *
  * @author Kern Framework
  * @date October 2026
@@ -50,8 +48,6 @@ const path = require('node:path');
 const {spawn, execFileSync} = require('node:child_process');
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
-const BATCH_LIMIT = 100;
-const CONCURRENT_RUNS = 4;
 const CLASSES_FOLDER = path.join('force-app', 'main', 'default', 'classes');
 const DEFAULT_WORK_FOLDER = path.join(REPOSITORY_ROOT, 'tmp', 'aer-run');
 const DEFAULT_RECORD = path.join(REPOSITORY_ROOT, 'verify-results', 'aer-run.json');
@@ -68,15 +64,8 @@ const BASELINE_CATEGORIES = ['runtime gap', 'profile', UNCLASSIFIED];
 const LICENCE_ERROR_MARKER = 'license error';
 
 /**
- * @description Says whether a run without an aer licence may split the tests into groups of at most 100 test
- * methods, so that aer's free tier can run them. When it is true, such a run runs the groups. When it is false, such
- * a run does not start: it says that a full run needs an aer licence and exits with code 2 (a dry run says the same
- * and exits with code 0). The copy of this script in the public repository has it set to false.
- */
-const UNLICENSED_RUNS_MAY_BATCH = false;
-
-/**
- * @description The message a run without an aer licence prints when UNLICENSED_RUNS_MAY_BATCH is false.
+ * @description The message a run without an aer licence prints. Such a run does not start: it exits with code 2 (a
+ * dry run prints the same message and exits with code 0).
  */
 const LICENCE_NEEDED_MESSAGE = 'A full run needs an aer licence, and aer has none. Register one with `aer license register <key>`; '
 	+ 'get one at https://portal.aertest.com/.';
@@ -106,44 +95,6 @@ function discoverTestClasses(classesFolder)
 		const methods = [...source.matchAll(TEST_METHOD_PATTERN)].map(match => match[1]);
 		return {className: file.replace(/\.cls$/, ''), methods};
 	});
-}
-
-/**
- * @description Groups the test classes into runs of at most `limit` methods. Whole classes share a run while they
- * fit, named `Class.*`; a class with more methods than the limit is split into runs of single methods.
- *
- * @param {Array<{className: string, methods: string[]}>} classes
- * @param {number} limit
- * @return {Array<{filters: string[], methodCount: number}>}
- */
-function buildBatches(classes, limit)
-{
-	const batches = [];
-	let current = null;
-	for(const {className, methods} of classes)
-	{
-		if(methods.length === 0)
-		{
-			continue;
-		}
-		if(methods.length > limit)
-		{
-			for(let start = 0; start < methods.length; start += limit)
-			{
-				const slice = methods.slice(start, start + limit);
-				batches.push({filters: slice.map(method => `${className}.${method}`), methodCount: slice.length});
-			}
-			continue;
-		}
-		if(!current || current.methodCount + methods.length > limit)
-		{
-			current = {filters: [], methodCount: 0};
-			batches.push(current);
-		}
-		current.filters.push(`${className}.*`);
-		current.methodCount += methods.length;
-	}
-	return batches;
 }
 
 /**
@@ -372,58 +323,28 @@ async function hasAerLicence(runAer, folder)
 }
 
 /**
- * @description Starts one aer test run and reads its result rows. A run with no filters runs every test in force-app.
+ * @description Starts one aer run of every test in force-app and reads its result rows.
  *
- * @param {{filters: string[], methodCount: number}} batch the tests to run
- * @param {string} label names the run's result and log files in the working folder
  * @param {object} settings runAer, source, work, permissionSet
  * @return {Promise<Array<{testName: string, passed: boolean, errorMessage: string}>>}
  */
-async function runOneAerTest(batch, label, {runAer, source, work, permissionSet})
+async function runOneAerTest({runAer, source, work, permissionSet})
 {
-	const jsonFile = path.join(work, `${label}.jsonl`);
+	const jsonFile = path.join(work, 'run.jsonl');
 	const args = ['test', 'force-app', '--skip-errors', `--json=${jsonFile}`];
 	if(permissionSet)
 	{
 		args.push('-p', permissionSet);
 	}
-	for(const filter of batch.filters)
-	{
-		args.push('-f', filter);
-	}
 	const result = await runAer(args, {cwd: source});
-	fs.writeFileSync(path.join(work, `${label}.log`), result.output);
+	fs.writeFileSync(path.join(work, 'run.log'), result.output);
 	return fs.existsSync(jsonFile) ? parseResultRows(fs.readFileSync(jsonFile, 'utf8')) : [];
 }
 
 /**
- * @description Runs the groups of tests, four at once, as aer's free tier needs, and gathers every result row.
- *
- * @param {Array<{filters: string[], methodCount: number}>} batches
- * @param {object} settings runAer, source, work, permissionSet, log
- * @return {Promise<Array<{testName: string, passed: boolean, errorMessage: string}>>}
- */
-async function runBatches(batches, settings)
-{
-	const queue = batches.map((batch, index) => ({batch, number: index + 1}));
-	const rows = [];
-	async function worker()
-	{
-		while(queue.length)
-		{
-			const {batch, number} = queue.shift();
-			rows.push(...await runOneAerTest(batch, `batch-${String(number).padStart(3, '0')}`, settings));
-			settings.log(`run ${number} of ${batches.length} finished (${batch.methodCount} methods)`);
-		}
-	}
-	await Promise.all(Array.from({length: CONCURRENT_RUNS}, worker));
-	return rows;
-}
-
-/**
  * @description Runs every test in one aer run, as a licensed aer allows. When aer reports fewer results than the
- * number of test methods found, it warns that the licence may not be in force, because aer without a licence stops
- * after 100 test methods. The record and the exit code stay the same; the warning only makes the gap visible.
+ * number of test methods found, it warns that the licence may not be in force, because aer without a licence does
+ * not run the whole suite. The record and the exit code stay the same; the warning only makes the gap visible.
  *
  * @param {number} methodCount the number of test methods found, for the progress log and the warning
  * @param {object} settings runAer, source, work, permissionSet, log, warn
@@ -432,7 +353,7 @@ async function runBatches(batches, settings)
 async function runWholeSuite(methodCount, settings)
 {
 	settings.log(`Running all ${plural(methodCount, 'test method')} in one aer run.`);
-	const rows = await runOneAerTest({filters: [], methodCount}, 'run', settings);
+	const rows = await runOneAerTest(settings);
 	settings.log(`The run finished: aer reported ${plural(rows.length, 'result')}.`);
 	if(rows.length < methodCount)
 	{
@@ -485,14 +406,12 @@ function reportGate(record, baseline, {log, warn})
  * `dependencies`, so the tests can stand in for aer.
  *
  * @param {string[]} argv
- * @param {object} dependencies runAer, readCommit, readRelease, prepareSource, now, log, warn, and optionally
- * unlicensedRunsMayBatch, which takes the place of UNLICENSED_RUNS_MAY_BATCH when it is given
+ * @param {object} dependencies runAer, readCommit, readRelease, prepareSource, now, log, warn
  * @return {Promise<number>} the exit code
  */
 async function run(argv, dependencies)
 {
 	const {runAer, readCommit, readRelease, prepareSource, now, log, warn} = dependencies;
-	const unlicensedRunsMayBatch = dependencies.unlicensedRunsMayBatch ?? UNLICENSED_RUNS_MAY_BATCH;
 	let options;
 	try
 	{
@@ -528,39 +447,21 @@ async function run(argv, dependencies)
 	}
 	const classesFolder = path.join(tree || REPOSITORY_ROOT, CLASSES_FOLDER);
 	const classes = discoverTestClasses(classesFolder);
-	const batches = buildBatches(classes, BATCH_LIMIT);
-	const methodCount = batches.reduce((sum, batch) => sum + batch.methodCount, 0);
+	const methodCount = classes.reduce((sum, testClass) => sum + testClass.methods.length, 0);
 	if(methodCount === 0)
 	{
 		log(`No test classes found under ${classesFolder}`);
 		return 2;
 	}
-	const licensed = await hasAerLicence(runAer, tree || REPOSITORY_ROOT);
-	if(licensed)
-	{
-		log(`${plural(methodCount, 'test method')} in ${plural(classes.length, 'class')}, in one run: aer has a licence`);
-	}
-	else if(!unlicensedRunsMayBatch)
+	if(!await hasAerLicence(runAer, tree || REPOSITORY_ROOT))
 	{
 		log(`${plural(methodCount, 'test method')} in ${plural(classes.length, 'class')}. ${LICENCE_NEEDED_MESSAGE}`);
 		return options.dryRun ? 0 : 2;
 	}
-	else
-	{
-		log(`${plural(methodCount, 'test method')} in ${plural(classes.length, 'class')}, ${plural(batches.length, 'run')} of at most ${BATCH_LIMIT}: `
-			+ 'aer has no licence, and its free tier runs at most 100 test methods at a time. '
-			+ 'To run them in one run, register a licence with `aer license register <key>`; get one at https://portal.aertest.com/.');
-	}
+	log(`${plural(methodCount, 'test method')} in ${plural(classes.length, 'class')}, in one run: aer has a licence`);
 	if(options.dryRun)
 	{
-		if(licensed)
-		{
-			log(`run 1 (${methodCount} methods): every test in force-app`);
-		}
-		else
-		{
-			batches.forEach((batch, index) => log(`run ${index + 1} (${batch.methodCount} methods): ${batch.filters.join(' ')}`));
-		}
+		log(`run 1 (${methodCount} methods): every test in force-app`);
 		return 0;
 	}
 	const commit = readCommit();
@@ -573,7 +474,7 @@ async function run(argv, dependencies)
 
 	const started = now();
 	const settings = {runAer, source: tree, work, permissionSet: options.permissionSet, log, warn};
-	const rows = licensed ? await runWholeSuite(methodCount, settings) : await runBatches(batches, settings);
+	const rows = await runWholeSuite(methodCount, settings);
 	const durationSeconds = (now() - started) / 1000;
 
 	const baselineFile = options.gate || DEFAULT_BASELINE;
@@ -685,11 +586,8 @@ function prepareCommitTree(folder)
 module.exports = {
 	AER_SOURCE_WORKAROUNDS,
 	applyAerWorkarounds,
-	BATCH_LIMIT,
-	UNLICENSED_RUNS_MAY_BATCH,
 	LICENCE_NEEDED_MESSAGE,
 	discoverTestClasses,
-	buildBatches,
 	parseResultRows,
 	parseAerVersion,
 	buildRecord,
