@@ -1,8 +1,10 @@
 // Section 40 — Subscriber masking: every shipped rule's regex pattern compiles
 // and matches a curated sample.
 //
-// Subscribers may activate any of the 12 inactive rule templates by flipping
-// MaskingRule__mdt.IsActive__c = true and wiring a MaskingTarget__mdt. This test
+// Subscribers may activate any of the 15 inactive shipped rules (14 templates plus
+// the older card rule MaskCreditCard, which ships switched off with its four
+// targets) by flipping MaskingRule__mdt.IsActive__c = true and wiring a
+// MaskingTarget__mdt. A fresh install has 18 rules: 3 active, 15 inactive. This test
 // loads every shipped rule (active + inactive), compiles its Pattern__c as a
 // regex, and verifies a positive + negative sample. Catches a deploy regression
 // that ships an invalid regex (would throw PatternSyntaxException on first use
@@ -109,7 +111,14 @@ List<kern__MaskingRule__mdt> rules =
 		ORDER BY DeveloperName
 ];
 
-System.debug('Validating ' + rules.size() + ' shipped MaskingRule__mdt records');
+Integer inactiveCount = 0;
+for(kern__MaskingRule__mdt rule : rules)
+{
+	inactiveCount += rule.kern__IsActive__c == true ? 0 : 1;
+}
+
+System.debug('Validating ' + rules.size() + ' shipped MaskingRule__mdt records (' + (rules.size() - inactiveCount) + ' active, ' + inactiveCount
+		+ ' inactive; expected on a fresh install: 18, 3 active, 15 inactive)');
 
 for(kern__MaskingRule__mdt rule : rules)
 {
@@ -153,11 +162,12 @@ for(kern__MaskingRule__mdt rule : rules)
 	System.debug
 			(
 					(passCompiles && passPositive && passNegativeExcluded ? 'PASS: ' : 'FAIL: ') +
-					ruleName + ' (' + mode + ', active=' + rule.kern__IsActive__c + ') — compile=' + passCompiles + ' positive=' + passPositive + ' negative=' + passNegativeExcluded
+					ruleName + ' (' + mode + ', active=' + rule.kern__IsActive__c + ') — compile=' + passCompiles
+					+ ' positive=' + passPositive + ' negative=' + passNegativeExcluded
 			);
 
 	passCount += (passCompiles ? 1 : 0) + (passPositive ? 1 : 0) + (passNegativeExcluded ? 1 : 0);
 	failCount += (passCompiles ? 0 : 1) + (passPositive ? 0 : 1) + (passNegativeExcluded ? 0 : 1);
 }
 
-System.debug('=== SECTION 40 SUMMARY: ' + passCount + ' passed, ' + failCount + ' failed ===');
+System.debug('=== SECTION 40 SUMMARY: ' + passCount + ' passed, ' + failCount + ' failed; ' + inactiveCount + ' inactive rules ===');

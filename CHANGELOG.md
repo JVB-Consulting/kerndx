@@ -13,6 +13,71 @@ All notable changes to KernDX are recorded here. The format is based on [Keep a 
 
 ---
 
+## [1.9.0-4] — 2026-10-21
+
+**Subscriber package version id:** `04tfj000000drajAAA`
+
+1.9 does two main things. First, when a request another system sends to your org fails, you can now see it: once you tick Log Issues on the service it leaves an API issue, and the issue closes itself when the same caller's retry succeeds with the same `Idempotency-Key` (a key the caller sends so a repeat can be spotted), if the service also has Idempotency Enabled and Resolve Issues ticked. Running such a request again yourself is now something you switch on per service, and it is checked against what originally came in. Second, data masking is more dependable: it masks the same fields whoever saves the record, it is much faster on large data (up to 30 times faster on bulk payloads in our tests), it masks each API payload only once, and on a new installation its shipped rules never let a value through unmasked when they fail. Separately, the package's profile settings no longer grant access to Kern objects.
+
+### Added
+
+- **API issues for failed incoming requests.** Tick Log Issues on an inbound service's API setting, and a request that fails in your code, whose changes cannot be saved, or that the service's checks refuse leaves one Open API issue linked to its call. The caller's HTTP status is the same as before, and a caller that retries a failing request many times leaves one open issue, not one for each try.
+- **The caller's retry closes the issue.** With Idempotency Enabled on the service, a retry of the same body with the same `Idempotency-Key` is linked to the failed call through the new Previous Attempt field (the earlier call lists it under Later Attempts). With Resolve Issues ticked too, any later successful request from the same user with that key resolves the earlier issues. A key belongs to the user who sent it: the same key from another user links nothing and resolves nothing.
+- **A failure that can never work is marked.** Throw `UTIL_Exceptions.PermanentFailureException` from `processRequest()`, `onSuccess()` or `getValidationErrors()` and the call is ticked Permanent Failure, a new field. Retry never runs such a call again, whether it came in or went out. A `RequestRefusedException` does not tick the box, so a refused call stays open to Retry.
+- **Dismiss on an API issue.** A new Dismiss action on the API issue record page marks an issue Resolved without running anything, for an issue nobody will run again. It needs the Retry API Issue permission.
+- **Outbound Retry links its new call** to the one that failed, through Previous Attempt.
+- **JSON Web Tokens are masked on API calls and issues.** On a new installation, `MaskJwt` ships active. It skips values shorter than 20 characters, and its pattern limits the length of each part of the token, so a long text cannot stop the save. Two new object-wide targets, `ApiCall_All_Jwt` and `Issue_All_Jwt`, save a token in a request, a response or an issue payload as `[JWT_REDACTED]`. An upgraded org gets the two targets but keeps `MaskJwt` off until you switch it on in the upgrade step. Until you do, Health Check warns that the two targets point at an inactive rule; if you decide not to mask tokens, deactivate the two targets instead.
+- **`API_Base.onDMLFinished()`.** One new global member, so a handler class that extends `API_Outbound` or `API_Inbound` can override that hook as it could in 1.8.
+
+### Fixed
+
+- A masking target that names no field (one that covers every text field of its object) now masks the same fields whoever saves the record. In 1.8 and earlier the list of fields came from what the saving user could edit, so a save by a user who could not edit them, such as an integration user or the Automated Process user, was not masked: secrets in API calls, outbound API issues, chain runs and log entries were stored as received. Records saved before the upgrade keep what was stored.
+- Masking with the shipped rules no longer breaks a save on the very large or unusual data we tested. Deeply nested JSON no longer ends the save at the stack limit, a list of 7,700 card numbers that took 4.5 seconds masks in about 0.14 seconds, and the worst API save measured, which used to stop at the 10-second CPU limit, now takes about a second, partly because each payload is masked once instead of up to three times. These are CPU times measured on a development org. A pattern of your own, or the older card rule (which an upgraded org keeps on until the upgrade step), can still end such a save.
+- A Write Failure Marker rule (a rule that, when it cannot mask a value, saves `[MASKING_FAILURE]` in its place so the original is never stored) now keeps running after a failure and marks each value it fails on; before, every later value it covered in the transaction was saved unmasked ([#50](https://github.com/JVB-Consulting/kerndx/issues/50)).
+- A masking target that names one field, such as `Account.Phone`, now masks that field, and the Data Masking Advisor shows the rule on the field's row.
+- A masking target with a Caller Class now fires on API calls and API issues: the calling class is the handler class the API setting names for the record's service ([#51](https://github.com/JVB-Consulting/kerndx/issues/51)). Targets with a Caller Class on any other object, log entries included, still do not fire.
+- A request whose `Idempotency-Key` matched a completed call of a different service no longer gets that other service's stored answer.
+- The shipped `MaskJwt` pattern no longer ends a save on a long run of text such as `eyJ-eyJ-eyJ-`, and finds a token whose signature ends in a hyphen; an upgraded org sets the new pattern by hand (see the upgrade step below).
+- Masking writes fewer warning log rows. A rule that fails on a log entry or a log event no longer writes a warning about itself. For each of the three masking warnings, the first time it happens is written as a full log row, and the repeats are counted in one row per day. A Block DML rule (one that refuses the whole save when it cannot mask a value) warns once per rule in a transaction, not once for every value it refused.
+
+### Changed
+
+Each change below has a row, with what to do, in the "Behaviour changes at a glance" table of the 1.9 release note.
+
+- **Inbound services that already have Log Issues ticked start writing issues** as soon as you upgrade, and with Resolve Issues and Idempotency Enabled ticked too, they start resolving them. Before you upgrade, untick Log Issues where you do not want issues.
+- **A stored answer belongs to one service and one caller.** With Idempotency Enabled, a request that repeats a key gets the earlier call's stored response instead of running again. That stored response is now given only when the same user sends the key to the same service; otherwise the request runs. Ask callers to send a fresh key, such as a UUID (a long random identifier), for each new request.
+- **You choose which services can run a failed incoming request again, and each run is checked first.** To let Retry, Retry Selected or `FLOW_RetryApiIssues` run an inbound issue again, tick Retry Issues on its service; do this for services whose callers never retry on their own. The request is read from the issue's call, and it is not run when:
+  - the service is paused or switched off;
+  - the call is marked Permanent Failure;
+  - the call no longer holds an exact copy of the request (masking changed the body, or the request was cut to fit its field);
+  - the issue has neither a call nor a request of its own;
+  - the request is kept only as a file on the call and you cannot see the call's files (it is refused as altered; run it as a user who can).
+
+  A run that fails does not create another issue. For an issue on a call saved by 1.8 or earlier, check the call's Request before you press Retry: masking changes cannot be detected there, and such an issue is refused when the call kept the whole body only in a file.
+- **Retry on an outbound issue refuses a call marked Permanent Failure.** Dismiss the issue, or set the call's Status to Queued to send it on purpose.
+- **A call with an Open API issue cannot be deleted or purged** by any user, System Administrators and the scheduled purge included. Resolve or dismiss the issue first. The purge leaves these calls out only when the user it runs as can read every open issue, and it does not start for API calls at all when that user cannot read API issues, so schedule it as a user with the Kern Administrator permission set. Code or tools that delete calls with their issues delete the issues first. Bypassing the API Call trigger with `TRG_Base.bypass(...)` turns this check off too.
+- **`SEL_ApiCall.getFields()` returns two more fields**, `IsPermanentFailure__c` and `PreviousAttempt__c`, and so does a selector of yours that extends it.
+- **The sample Echo service no longer logs issues.**
+- **The package's profile settings no longer grant object, field or tab access.** An upgrade does not take away access an earlier install gave: if you installed Kern for all users or for chosen profiles, remove Kern object access those profiles' users should not have, and give access through Kern's permission sets.
+- **Shipped masking rules fail closed: a rule that fails never lets the value through unmasked.** Twelve rules move from Log and Continue (which saves the value unmasked, writes a warning and skips the rule for the rest of the transaction) to Write Failure Marker, the two card rules move from Block DML to Write Failure Marker, and a rule you create on a new installation starts at Write Failure Marker. An upgraded org keeps its own values until you follow the upgrade step.
+- **A changed failure action no longer counts as customising a card rule.** The newer card rule, `MaskPaymentCard`, replaces the older `MaskCreditCard` on the framework's own objects unless you customised one of them; changing only a failure action no longer counts, so `MaskPaymentCard` alone does the work there.
+- **The older card rule, `MaskCreditCard`, and its four targets ship switched off** on a new installation; an upgraded org keeps them on until the upgrade step. The Data Masking Advisor then shows "1 object-wide rule inactive" and marks the rule Superseded; that is expected.
+- **Only the first 50 numbers in one value that look like card numbers get the card checksum** (the arithmetic test every real card number passes). Later ones are hidden as `[CARD_REDACTED]` without it, so a long list of numbers that are not cards can be partly hidden. If a field of yours holds long lists of numbers you need to read later, check how it looks after a save.
+- **Masking targets that name a field, and targets with a Caller Class on API calls and API issues, start masking on upgrade.** A target whose rule uses Block DML now refuses the save when that rule fails, where before it did nothing: review those targets before the upgrade reaches production, and deactivate any you no longer want. Write the class name exactly as the API setting writes it.
+- **An API save masks each payload once.** If a handler overrides `onDMLFinished`, call `super.onDMLFinished()` first in it, or that handler keeps masking each payload more than once. With masker performance logging on, you may see two new kinds of log entry, `UTIL_MaskerPerformanceTimer/<object>.<field>` and `UTIL_MaskerPerformanceTimer/ContentVersion`. Both are expected and need no action.
+- **Very long JSON is masked by a quicker text search when someone is waiting on the save.** When such a save holds a JSON value longer than 196,608 characters, masking searches it as text for key and value pairs instead of reading it as JSON. Reading a value that long as JSON takes several seconds, and a request that runs longer than 5 seconds counts toward a platform limit after which new requests are refused. Background jobs (Queueable, Batch, future and Scheduled) still read JSON in full, so run calls that receive large payloads in a Queueable job if the detail matters. In the text search:
+  - numbers, `true`, `false` and `null` under a matching key are now masked too;
+  - an object or a list under a matching key saves the whole field as `[MASKING_FAILURE]`;
+  - a text in quotes with other text right after its closing quote, or a key with a backslash that JSON cannot read, saves the whole field as `[MASKING_FAILURE]`;
+  - if a key pattern is open-ended (a repeat with no upper limit, or an upper count of three or more digits), any value holding a quote also saves the whole field as `[MASKING_FAILURE]`. Narrow such a pattern, for example to `^(secret|client_secret)$`.
+- **The help text of Dead Lettered and Manual Dead Letter in an upgraded org still names a Recover action that does not exist.** Permanent Failure decides whether Retry runs a call; to run an outgoing call again, untick Manual Dead Letter and set Status to Queued.
+
+Backward-compatible: no global Apex member is removed or changed in signature, and one is added, `API_Base.onDMLFinished()`; what `FLOW_RetryApiIssues.retryApiIssues`, `API_Dispatcher.processInboundService`, `API_Dispatcher.execute` and `SEL_ApiCall.getFields()` do changes as described above. The metadata surface is additive too: two new fields on API Call (Permanent Failure, and Previous Attempt with its Later Attempts related list), the Dismiss quick action with its component, a trigger action that refuses deleting a call with an open issue, new Custom Labels and two new masking targets, with nothing removed or renamed; the Kern Administrator and Kern API Issue Resolver sets grant Read on both new fields.
+
+**Upgrading from 1.8 or earlier?** Before you upgrade, check which inbound services have Log Issues ticked, and review masking targets that name a field or a Caller Class. After you upgrade, make three changes in Setup: add the new fields to the API Call page layout, add the Dismiss action to the API Issue page layout, and switch the masking rules to the new defaults. If you installed Kern for all users or for chosen profiles, also check those profiles. Follow [Upgrading & compatibility in the 1.9 release notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.9.md#upgrading--compatibility).
+
+For the full tour and every upgrade note, see [Kern 1.9 Release Notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.9.md).
+
 ## [1.8.0-11] — 2026-10-12
 
 **Subscriber package version id:** `04tfj000000cIDdAAM`
@@ -237,3 +302,4 @@ Initial publicly-tagged release. Every framework module, every Strategic Guide, 
 [1.7.0-12]: https://github.com/JVB-Consulting/kerndx/tree/v1.7.0-12
 [1.7.0-13]: https://github.com/JVB-Consulting/kerndx/tree/v1.7.0-13
 [1.8.0-11]: https://github.com/JVB-Consulting/kerndx/tree/v1.8.0-11
+[1.9.0-4]: https://github.com/JVB-Consulting/kerndx/tree/v1.9.0-4

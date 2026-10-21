@@ -2566,6 +2566,64 @@ function validateReleaseDocs(mirrorDir, allowlist)
 	return violations;
 }
 
+/**
+ * @description Checks that the "is it released" lines agree with the record of promoted versions
+ *              (`release-testing/released-versions.json`, written by `scripts/promote-package.js`). For each
+ *              recorded version from the promote script's `FIRST_CHECKED_VERSION` on, the release note of its
+ *              minor line must have a `**Release status:**` line that opens with "released." and names the build,
+ *              with no pre-release wording or build-number placeholder left. Notes for older versions are
+ *              published history and are not checked. And the newest recorded version must be the one CLAUDE.md's Package status sentence names as the
+ *              released line. A release note for a minor with no recorded version is not checked. The record
+ *              never ships to the published repository, so there the check finds nothing to do.
+ * @param {string} repoRoot - The repository root.
+ * @param {Object} [fsModule] - File system module (for testing).
+ * @returns {Array<{file: string, line: number, severity: string, check: string, message: string}>} One error per problem.
+ */
+function checkReleaseStatus(repoRoot, fsModule = fs)
+{
+	const recordPath = path.join(repoRoot, 'release-testing', 'released-versions.json');
+	if(!fsModule.existsSync(recordPath))
+	{
+		return [];
+	}
+	// Loaded only here: the published repository ships this file but neither the record nor the promote script.
+	const releaseStatus = require('./promote-package');
+	const entries = releaseStatus.readReleasedVersions(recordPath, fsModule);
+	const issues = [];
+	const error = (file, line, message) => issues.push({file, line, severity: 'error', check: 'release-status', message});
+
+	for(const entry of entries.filter(recorded => releaseStatus.isCheckedVersion(recorded.version)))
+	{
+		const notePath = releaseStatus.releaseNotePath(entry.version);
+		if(!fsModule.existsSync(path.join(repoRoot, notePath)))
+		{
+			error(releaseStatus.RECORD_RELATIVE_PATH, 1, `${entry.version} is recorded as released, but ${notePath} does not exist`);
+			continue;
+		}
+		const {line, problems} = releaseStatus.findReleaseStatusProblems(fsModule.readFileSync(path.join(repoRoot, notePath), 'utf8'), entry.version);
+		for(const problem of problems)
+		{
+			error(notePath, line, problem);
+		}
+	}
+
+	const claudePath = path.join(repoRoot, 'CLAUDE.md');
+	const newest = releaseStatus.findNewestEntry(entries);
+	if(newest && fsModule.existsSync(claudePath))
+	{
+		const named = releaseStatus.readReleasedLineFromClaude(fsModule.readFileSync(claudePath, 'utf8'));
+		if(!named)
+		{
+			error('CLAUDE.md', 1, `has no "**Package status:** Kern X.Y.Z-N is the released line" sentence; the newest released version is ${newest.version}`);
+		}
+		else if(named.version !== newest.version)
+		{
+			error('CLAUDE.md', named.line, `**Package status:** names ${named.version} as the released line, but the newest released version in ${releaseStatus.RECORD_RELATIVE_PATH} is ${newest.version}`);
+		}
+	}
+	return issues;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DocsValidator Class
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2749,6 +2807,20 @@ class DocsValidator
 				}
 			}
 			allIssues = allIssues.concat(crossDocIssues);
+		}
+
+		// Release status: every promoted version's release note must say it is released, and CLAUDE.md
+		// must name the newest one. A run on named files only checks those files, so it skips this. The check
+		// reads its own files from disk (the record, the notes, CLAUDE.md), not the scanned doc set.
+		if(!this.config.overrideFiles || this.config.overrideFiles.length === 0)
+		{
+			const releaseStatusIssues = checkReleaseStatus(repoRoot);
+			for(const issue of releaseStatusIssues)
+			{
+				this.log.file(issue.file);
+				this.log.issue(issue.line, issue.severity, issue.check, issue.message);
+			}
+			allIssues = allIssues.concat(releaseStatusIssues);
 		}
 
 		// Source-side leg of the member check: ApexDoc on a global member is copied onto the
@@ -3383,6 +3455,7 @@ module.exports = {
 	checkOldNaming,
 	checkProseFileRefs,
 	checkCrossDocVersionConsistency,
+	checkReleaseStatus,
 	checkFenceFileParity,
 	checkStepShape,
 	findUnresolvedClaims,
