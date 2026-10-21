@@ -306,7 +306,7 @@ The security framework works in layers. You turn each one on independently and c
 3. **Query security options.** On a query, `QRY_Builder` offers `withUserMode()` (enforce object permissions, field security, and sharing at the database), `stripInaccessible()` (remove unreadable fields after the query), and `withSharing()` / `bypassSharing()` (control sharing for a query that runs without full permission enforcement).
 4. **Data protection.** `UTIL_SessionEncryption` encrypts sensitive values with AES-256 and manages the key for you.
 
-The layers do not depend on one another: you can enforce field security without enforcing sharing, or control sharing without checking object permissions. The starting point matters most: **every query and save your own code can reach runs with the current user's permissions and sharing enforced by default** (`AccessLevel.USER_MODE`). So a developer who does nothing special still gets the safe behaviour.
+The layers do not depend on one another: you can enforce field security without enforcing sharing, or control sharing without checking object permissions. The starting point matters most: **every query and save your own code can reach runs with the current user's permissions and sharing enforced by default** (`AccessLevel.USER_MODE`). So a developer who does nothing special still gets the safe behaviour. The one exception is records an API service registers in `onSuccess()`: they are saved in system mode (see [onSuccess()](Web%20Services%20-%20Guide.md#onsuccess)).
 
 A few framework-internal selectors do need to skip those checks, for example readers of custom metadata, framework-owned objects, and system schema. They opt out by overriding the `systemModeRequired()` hook on `SEL_Base`. If you ever need to roll the secure default back across the whole org in an incident, there is a master off-switch you can flip in metadata without a deployment: the `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled` records, described in [Safe by Default](#safe-by-default) below.
 
@@ -859,7 +859,7 @@ For how the Advisor's artifacts fit a governance or audit process, and what they
 
 ### Secret Scanning in CI
 
-Runtime masking keeps secrets out of your *data*. A separate control, this one running at development time, keeps them out of your *source code*. The KernDX delivery pipeline ships a Salesforce-aware **`kerndx secret-scan`** gate that inspects changed files for hardcoded credentials such as API keys, tokens, and private keys, and fails the build before they can merge. It runs as part of the standard CI workflow, and you can suppress a reviewed false positive inline or by fingerprint. See the [Code Scanning Guide](Code%20Scanning%20-%20Guide.md) for setup and rule detail.
+Runtime masking keeps secrets out of your *data*. A separate control, this one running at development time, keeps them out of your *source code*. The KernDX delivery pipeline ships a Salesforce-aware **`kerndx secret-scan`** gate that inspects changed files for hardcoded credentials such as API keys, tokens, and private keys, and fails the build before they can merge. It runs in your own CI, as part of the pipeline workflow `kerndx init` sets up, and you can suppress a reviewed false positive inline or by fingerprint. See the [Code Scanning Guide](Code%20Scanning%20-%20Guide.md) for setup and rule detail.
 
 ---
 

@@ -687,14 +687,16 @@ masking framework before it is saved. Out of the box, two rules fire:
 - **`MaskPaymentCard`** redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all
   major card brands (digits may be separated by spaces or hyphens). The Luhn check filters out most
   transaction IDs, order numbers, and other long digit runs that would otherwise false-positive as card
-  data. (It replaces the original `MaskCreditCard` rule, which still ships for compatibility.)
+  data. (It replaces the original `MaskCreditCard` rule, which still ships, switched off. If you switch it
+  on, switch its four targets on with it.)
 
 So `LOG_Builder.build().info('Payload: ' + JSON.serialize(payload)).emitAt(...)` is safe even if `payload`
 contains a `password` or card number: the persisted `LogEntry__c.Message__c` will have them redacted.
-Fifteen more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key,
-URL basic auth, authorization header, private IPv4, postal address, free text, international phone) ship as inactive templates. To switch one on, flip
-`kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` record wiring the rule
-to the fields that need it.
+Fourteen more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, AWS access key,
+URL basic auth, authorization header, private IPv4, postal address, free text, international phone) ship as inactive templates.
+To switch one on, flip `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt`
+record wiring the rule to the fields that need it. (A fourth active rule, `MaskJwt`, redacts JSON Web Tokens
+on API call records and API issues, not on log entries.)
 
 > **Wiring gotcha.** Wiring a rule to a field doesn't guarantee it fires: a rule carries two optional
 > filters that can quietly veto a target. `ApplicableFieldTypes__c` restricts which `DisplayType`s the

@@ -939,10 +939,11 @@ Example Configuration:
 
 **Redaction of API request and response payloads** is handled by the shared data masking framework
 (see [`MaskingRule__mdt`](reference/metadata/MaskingRule__mdt.md) and [`MaskingTarget__mdt`](reference/metadata/MaskingTarget__mdt.md)
-in the Data Masking section of this guide, or the reference pages directly). Out of the box, two rules are applied to every
+in the Data Masking section of this guide, or the reference pages directly). Out of the box, three rules are applied to every
 text field of `ApiCall__c` and `ApiIssue__c`: `MaskSecretKeys`
-(JSON key redaction for `password`, `token`, `apiKey`, and similar) and `MaskPaymentCard` (13–19 digit
-sequences that pass the Luhn checksum, across all major card brands). So raw secrets and card numbers never land in the logged request or response.
+(JSON key redaction for `password`, `token`, `apiKey`, and similar), `MaskPaymentCard` (13–19 digit
+sequences that pass the Luhn checksum, across all major card brands) and `MaskJwt` (JSON Web Tokens, the signed access tokens many APIs pass around).
+So raw secrets, card numbers and access tokens never land in the logged request or response.
 
 ##### [ApiMock__mdt](reference/metadata/ApiMock__mdt.md) (Custom Metadata)
 
@@ -1010,8 +1011,9 @@ Example Mock Configuration:
 - Parent of `MaskingTarget__mdt` (1:N)
 
 **Pre-built records (18 shipped):** 3 are active out of the box: `MaskSecretKeys` (JSON key redaction scoped to `STRING;TEXTAREA`), `MaskPaymentCard` (13–19 digit Luhn-checked card numbers with
-`MinInputLength=13`, scoped to `STRING;TEXTAREA;ENCRYPTEDSTRING`), and `MaskCreditCard` (the original issuer-prefix card rule that `MaskPaymentCard` replaces; still shipped for
-compatibility with configurations that reference it). The other 15 are inactive templates for SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key,
+`MinInputLength=13`, scoped to `STRING;TEXTAREA;ENCRYPTEDSTRING`), and `MaskJwt` (JSON Web Tokens, the signed access tokens many APIs pass around). The other 15 are inactive.
+One of them is `MaskCreditCard`, the original issuer-prefix card rule that `MaskPaymentCard` replaces: it ships switched off, its four targets ship switched off too, and you
+switch the rule and its four targets on or off together. The other 14 are templates for SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, AWS access key,
 URL basic auth, authorization header, private IPv4, postal address, free text, and international phone. To use one, set `IsActive__c=true` and add a `MaskingTarget__mdt` when your org's data
 profile calls for it.
 
@@ -1026,16 +1028,17 @@ profile calls for it.
 | `Rule__c`        | MetadataRelationship(MaskingRule__mdt) (Required) | The rule to apply                                                                                                             |
 | `SObjectType__c` | MetadataRelationship(EntityDefinition) (Required) | Target SObject (e.g., `ApiCall__c`, `LogEntryEvent__e`)                                                                       |
 | `Field__c`       | MetadataRelationship(FieldDefinition)             | Specific field (picklist filtered by `SObjectType__c`), or blank for a wildcard across every text-shaped field on the SObject except unique keys and external ids |
-| `CallerClass__c` | Text(100)                                         | Optional scope: only fire when the caller class name matches                                                                  |
+| `CallerClass__c` | Text(100)                                         | Optional: one service's API calls and issues ([Caller-Class Scoping](Data%20Masking%20-%20Guide.md#caller-class-scoping))     |
 | `IsActive__c`    | Checkbox                                          | Enable/disable this wiring without touching the rule                                                                          |
 
 **Relationships**:
 
 - Child of `MaskingRule__mdt` via `Rule__c`
 
-**Pre-built records (12 shipped):** the secrets, payment-card, and legacy credit-card rules are each wildcarded onto `ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, and
-`LogEntryEvent__e`. So out of the box, every persisted API, async-chain, and log row passes through `MaskSecretKeys` and `MaskPaymentCard` (on those objects the legacy credit-card targets defer to
-the payment-card rule).
+**Pre-built records (14 shipped, 10 switched on):** the secrets, payment-card, and legacy credit-card rules are each wildcarded onto `ApiCall__c`, `ApiIssue__c`,
+`AsyncChainExecution__c`, and `LogEntryEvent__e`, and the JSON Web Token rule onto `ApiCall__c` and `ApiIssue__c`. The four legacy credit-card targets ship switched off, like
+their rule. So out of the box, every persisted API, async-chain, and log row passes through `MaskSecretKeys` and `MaskPaymentCard`, and every API call and API issue also passes
+through `MaskJwt`. If you switch the legacy credit-card rule and its targets on, on those objects they defer to the payment-card rule.
 
 **Interaction with `ApplicableFieldTypes__c`:** Rule-level filters take precedence over per-target wiring. If a target wires a rule to a specific `Field__c` whose `DisplayType` is
 excluded by the rule's `ApplicableFieldTypes__c`, the rule will **not** fire on that field. To flag the misconfiguration, the framework writes a one-time `warn`-level `LogEntry__c` with

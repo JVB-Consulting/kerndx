@@ -62,10 +62,10 @@ Every push to this repository runs that scan in continuous integration (CI). The
 This is an approved use. Salesforce's [Security Considerations for Session IDs](https://developer.salesforce.com/docs/atlas.en-us.secure_coding_guide.meta/secure_coding_guide/secure_coding_considerations_sessionid.htm) permits session IDs for SOAP and REST Data API calls that access org data and for Metadata API reads. The framework stays inside that boundary:
 
 - The session ID is only ever sent to your org's own My Domain URL. It never leaves the org.
-- Access to the page is granted by the `ApiSessionId` permission set. A user without it gets no session ID.
+- Access to the page is granted by two permission sets: `ApiSessionId`, and the framework's `Administrator` set, which includes it. A user with neither gets no session ID.
 - The framework never uses the session to edit org-wide settings, Named Credentials or connected apps.
 
-If you never call back into your own org, do not assign that permission set. If you repackage the framework and do not need calls into your own org, remove the page and `API_CallCurrentOrg` together.
+If you never call back into your own org, do not assign `ApiSessionId`, and keep `Administrator` for the people who administer the framework. If you repackage the framework and do not need calls into your own org, remove the page and `API_CallCurrentOrg` together.
 
 ### Two message channels are exposed
 
@@ -78,6 +78,10 @@ The scanner flags any field whose name contains a word such as Key, Hash, Creden
 ### Test files for the streaming monitor
 
 The Jest tests for the streaming monitor, under `lwc/streamingMonitor/__tests__/`, dispatch events with `bubbles` and `composed` set to true. The component itself sends its events with neither option, and its parent listens on the child tag in its own template, so in a browser no event crosses a component boundary. The scanner reads test files like any other file, so it reports each of those test events. A `__tests__` folder is never part of the package, so none of them runs in your org.
+
+### Test files for the JSON viewer
+
+A run with the Recommended rule set also flags `innerHTML` five times in `lwc/jsonViewer/__tests__/`. Those lines only read `innerHTML` to check that the viewer escapes what it shows: that `&`, `<` and `>` come out as `&amp;`, `&lt;` and `&gt;`, and that a `<script>` tag in the data appears as text and never runs. Nothing in the tests writes HTML into the page. Like every `__tests__` folder, they are not part of the package.
 
 ### One flow updates its own record
 

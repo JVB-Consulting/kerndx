@@ -42,15 +42,15 @@ Configures outbound web service handlers with endpoint paths, retry behavior, ci
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [EndpointPath__c](#endpointpath__c) | Relative path for a service call; prefixed by the URL provided either by a Named Credential or the Endpoint URL field |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [IdempotencyEnabled__c](#idempotencyenabled__c) | Idempotency means that processing the same request twice has the same effect as processing it once. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [IsActive__c](#isactive__c) | Controls whether this API route is active. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [LogIssues__c](#logissues__c) | When enabled, failed API calls create an ApiIssue__c record for troubleshooting and triage. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [LogIssues__c](#logissues__c) | When ticked, a failed call of this service leaves an API issue that a person can review, run again or dismiss. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [MaxRetryCount__c](#maxretrycount__c) | Maximum number of automatic retries for a failed call. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [MockingEnabled__c](#mockingenabled__c) | When enabled, the service returns mock responses from associated ApiMock__mdt records instead of executing real logic. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Priority__c](#priority__c) | Routing priority for this API setting. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [RequiredFeatureFlag__c](#requiredfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [RequiredFeatureFlag__r](#requiredfeatureflag__r) | Optional. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ResolveIssues__c](#resolveissues__c) | When enabled, allows manual resolution of API issues via the ApiIssue__c object. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ResolveIssues__c](#resolveissues__c) | When ticked, a later successful call closes the open API issues of the same request. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [RetryBackoffSeconds__c](#retrybackoffseconds__c) | The number of seconds to wait between retry attempts under the default linear backoff. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [RetryIssues__c](#retryissues__c) | Lets the Retry action on an API issue, and the bulk retry, run a failed call again. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [RetryIssues__c](#retryissues__c) | Lets a person run a failed call of this service again from its API issue: the Retry action, Retry Selected on the API Issues list, and the Retry API Issues flow action. |
 
 ### ApiCredential__c
 
@@ -252,7 +252,7 @@ Relative path for a service call; prefixed by the URL provided either by a Named
 global Boolean IdempotencyEnabled__c
 ```
 
-Idempotency means that processing the same request twice has the same effect as processing it once. Inbound: the framework checks for a duplicate Idempotency-Key header and returns the cached response without running the request again. Outbound: a key is built as a SHA-256 hash of the endpoint, the request parameters and the body, and sent as the Idempotency-Key header; a retry is safe only if the remote system honours that header, and two calls with identical endpoint, parameters and body share a key.
+Idempotency means that processing the same request twice has the same effect as processing it once. Inbound: a request whose Idempotency-Key header the same user already sent to this service is not run again. It gets the stored response when the earlier call completed with the same body, and HTTP 409 when the body differs. A key another user sent is a separate request. A retry with the same key and body after a failure links to the failed call (Previous Attempt), and with Resolve Issues on, a success resolves the earlier failures' issues. Outbound: a key is built as a SHA-256 hash of the endpoint, the request parameters and the body, and sent as the Idempotency-Key header; a retry is safe only if the remote system honours that header, and two calls with identical endpoint, parameters and body share a key.
 
 **Field Attributes:**
 
@@ -282,7 +282,7 @@ Controls whether this API route is active. Inactive routes are skipped during re
 global Boolean LogIssues__c
 ```
 
-When enabled, failed API calls create an ApiIssue__c record for troubleshooting and triage.
+When ticked, a failed call of this service leaves an API issue that a person can review, run again or dismiss. Outbound: a call your org sent that failed or was refused. Inbound: a request your org received that failed in the service's code, was refused by its checks, or whose changes could not be saved. The inbound issue links to its call, which keeps the request. A request refused because it reused an Idempotency-Key with another body writes no issue, and neither does a failed run of an issue's request again.
 
 **Field Attributes:**
 
@@ -379,7 +379,7 @@ Optional. The service is aborted when the Feature Flag is not enabled.
 global Boolean ResolveIssues__c
 ```
 
-When enabled, allows manual resolution of API issues via the ApiIssue__c object.
+When ticked, a later successful call closes the open API issues of the same request. Outbound: a successful call with the same triggering record, service and request parameters marks every open issue of that request Resolved. Inbound: this also needs Idempotency Enabled. A request answered with a status from 200 to 299 marks Resolved the open issues of the earlier failed requests that the same user sent to this service with the same Idempotency-Key, whatever their body. A request without a key resolves nothing.
 
 **Field Attributes:**
 
@@ -411,7 +411,7 @@ The number of seconds to wait between retry attempts under the default linear ba
 global Boolean RetryIssues__c
 ```
 
-Lets the Retry action on an API issue, and the bulk retry, run a failed call again. This is not the automatic retry: that is governed by Max Retry Count and Retry Backoff. A re-run sends the request again.
+Lets a person run a failed call of this service again from its API issue: the Retry action, Retry Selected on the API Issues list, and the Retry API Issues flow action. Outbound: the request is sent again. Inbound: the request is read from the call and run again in your org; turn this on only when the callers of the service do not send failed requests again themselves. Retry never runs a call marked Permanent Failure, nor an inbound request the call does not hold an exact copy of. This is not the automatic retry: that is governed by Max Retry Count and Retry Backoff.
 
 **Field Attributes:**
 

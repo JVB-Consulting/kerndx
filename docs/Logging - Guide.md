@@ -622,11 +622,16 @@ Configure via `LogSetting__c` (Setup > Custom Settings > Log Setting):
 | `EnableValidationPerformanceLogging__c` | Enable validation performance logging                 | `true`  |
 | `ValidationPerformanceThresholdMs__c`   | Threshold for validation processing (ms)              | `100`   |
 | `EnableMaskerPerformanceLogging__c`     | Enable data-masking performance logging (default OFF) | `false` |
-| `MaskerPerformanceThresholdMs__c`       | Threshold for masking on a trigger batch (ms)         | `100`   |
+| `MaskerPerformanceThresholdMs__c`       | Threshold for one masking run (ms)                    | `100`   |
 
-Masker performance logging emits one combined `LogEntryEvent__e` per trigger batch, but only when `EnableMaskerPerformanceLogging__c` is true and the masker's elapsed time meets the
-threshold. It is off by default so you pay zero log volume unless you ask for it. Turn it on when you are investigating slow saves and want to know how much of the time is data
-masking. Each entry carries the target SObject name in `ClassMethod__c` (for example `UTIL_MaskerPerformanceTimer/Foobar__c`), so you can group the results by object.
+Masker performance logging emits one combined `LogEntryEvent__e` per masking run (for example, one per trigger batch), but only when `EnableMaskerPerformanceLogging__c` is true
+and the masker's elapsed time meets the threshold. It is off by default so you pay zero log volume unless you ask for it. Turn it on when you are investigating slow saves and want
+to know how much of the time is data masking. Each entry's `ClassMethod__c` says what was masked, so you can group the results:
+
+- `UTIL_MaskerPerformanceTimer/<object>` (for example `UTIL_MaskerPerformanceTimer/Foobar__c`): masking a batch of records in a trigger.
+- `UTIL_MaskerPerformanceTimer/ApiCall__c.<field>` (for example `UTIL_MaskerPerformanceTimer/ApiCall__c.Request__c`): masking an API call payload that is too long
+  for its field, once, when it is written to the call.
+- `UTIL_MaskerPerformanceTimer/ContentVersion`: the step that builds a call's payload files had to mask a payload again.
 
 ---
 

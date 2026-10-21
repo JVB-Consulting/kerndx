@@ -786,18 +786,21 @@ for(kern__ApiCall__c apiCall : calls)
 Logging every call is useful, but you do not want secrets sitting in those logs. `ApiCall__c` records store
 the request body, response body, URL, and parameters captured from every outbound call, so before any of
 that is saved, it passes through the data masking framework and sensitive values are redacted. Out of the
-box, two rules fire:
+box, three rules fire:
 
 - **`MaskSecretKeys`** redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`,
   `bearer`, `client_secret`, `private_key`, `access_token`, `refresh_token`).
 - **`MaskPaymentCard`** redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all
   major card brands; the digits may be separated by spaces or hyphens. (This replaces the original
-  `MaskCreditCard` rule, which still ships for compatibility.)
+  `MaskCreditCard` rule, which still ships, switched off. If you switch it on, switch its four targets on
+  with it.)
+- **`MaskJwt`** redacts JSON Web Tokens (the signed access tokens many APIs pass around; each one starts
+  with `eyJ` and has three dot-separated parts) as `[JWT_REDACTED]`.
 
 So if your outbound request body contains a `password` or a card number, the saved `ApiCall__c.Request__c`
 has them redacted. The actual HTTP request going over the wire is unchanged: only the stored copy is masked.
-Fifteen more rules ship as inactive templates (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone,
-JWT, AWS access key, URL basic auth, authorization header, private IPv4, postal address, free text, and
+Fourteen more rules ship as inactive templates (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone,
+AWS access key, URL basic auth, authorization header, private IPv4, postal address, free text, and
 international phone). To switch one on, set `kern__MaskingRule__mdt.IsActive__c = true` and add a
 `kern__MaskingTarget__mdt` record that wires the rule to the field(s) that need it. If a sensitive value still
 shows on a saved `kern__ApiCall__c` record, no active rule recognises it: switch on the rule that matches it and,
