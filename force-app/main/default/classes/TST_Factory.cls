@@ -1559,7 +1559,9 @@ global without sharing class TST_Factory
 	}
 
 	/**
-	 * @description Creates an uncommitted ApiIssue__c record for a web service API call.
+	 * @description Creates an uncommitted ApiIssue__c record for a web service API call. It is the record the outbound
+	 * framework builds for a failed call (see API_Outbound.buildOutboundFailureRecord), so a test's issue and a real one
+	 * cannot drift apart.
 	 *
 	 * @param apiCall The associated ApiCall__c record.
 	 * @param itemHash A hash uniquely identifying the failure.
@@ -1569,17 +1571,14 @@ global without sharing class TST_Factory
 	 * @example
 	 * ```apex
 	 * ApiCall__c apiCall = TST_Factory.newApiCall('TestService');
-	 * insert apiCall;
-	 * ApiIssue__c failure = TST_Factory.newApiIssue(apiCall, 'uniqueHash');
-	 * insert failure;
-	 * System.debug('ApiIssue Id: ' + failure.Id);
+	 * DML_Builder.newTransaction().doInsert(apiCall).execute();
+	 * ApiIssue__c issue = TST_Factory.newApiIssue(apiCall, 'uniqueHash');
+	 * DML_Builder.newTransaction().doInsert(issue).execute();
 	 * ```
 	 */
 	public static ApiIssue__c newApiIssue(ApiCall__c apiCall, String itemHash)
 	{
-		return (ApiIssue__c)getApiIssueBuilder(apiCall, itemHash)
-				.withoutInsertion()
-				.build();
+		return API_Outbound.buildOutboundFailureRecord(apiCall, itemHash);
 	}
 
 	/**
@@ -1995,7 +1994,8 @@ global without sharing class TST_Factory
 	}
 
 	/**
-	 * @description Creates a pre-configured SObjectBuilder for ApiIssue__c.
+	 * @description Creates a pre-configured SObjectBuilder for ApiIssue__c, with every field the outbound framework sets
+	 * on the issue of a failed call (see API_Outbound.buildOutboundFailureRecord).
 	 *
 	 * @param apiCall The associated ApiCall__c record.
 	 * @param itemHash A hash uniquely identifying the failure.
@@ -2004,16 +2004,8 @@ global without sharing class TST_Factory
 	 */
 	private static TST_Builder.Builder getApiIssueBuilder(ApiCall__c apiCall, String itemHash)
 	{
-		String errorMsg = String.isBlank(apiCall.ErrorMessages__c) ? apiCall.Response__c : apiCall.ErrorMessages__c;
-
 		return TST_Builder.of(ApiIssue__c.SObjectType)
-				.withOverride(ApiIssue__c.ErrorMessages__c, errorMsg)
-				.withOverride(ApiIssue__c.RequestParametersHash__c, itemHash)
-				.withOverride(ApiIssue__c.RequestParameters__c, apiCall.RequestParameters__c)
-				.withOverride(ApiIssue__c.ServiceName__c, apiCall.ServiceName__c)
-				.withOverride(ApiIssue__c.Status__c, SEL_ApiIssue.STATUS_OPEN)
-				.withOverride(ApiIssue__c.TriggeringRecordId__c, apiCall.TriggeringRecordId__c)
-				.withOverride(ApiIssue__c.ApiCall__c, apiCall.Id);
+				.withOverrides(API_Outbound.buildOutboundFailureRecord(apiCall, itemHash).getPopulatedFieldsAsMap());
 	}
 
 	/**
@@ -2200,14 +2192,12 @@ global without sharing class TST_Factory
 	public static String getRunTransitionActionClassName()
 	{
 		String packageNamespace = UTIL_System.getManagedPackageNamespace();
-		QRY_Builder.Builder query = QRY_Builder.selectFrom(TriggerAction__mdt.SObjectType)
+		TriggerAction__mdt action = (TriggerAction__mdt)QRY_Builder.selectFrom(TriggerAction__mdt.SObjectType)
 				.fields(new List<SObjectField> {TriggerAction__mdt.ApexClassName__c})
 				.condition(TriggerAction__mdt.DeveloperName).equals(RUN_TRANSITION_ACTION_RECORD)
-				.withSystemMode();
-		query = String.isBlank(packageNamespace)
-				? query.andCondition(TriggerAction__mdt.NamespacePrefix).isNull()
-				: query.andCondition(TriggerAction__mdt.NamespacePrefix).equals(packageNamespace);
-		TriggerAction__mdt action = (TriggerAction__mdt)query.getFirst();
+				.andCondition(TriggerAction__mdt.NamespacePrefix).equals(String.isBlank(packageNamespace) ? null : packageNamespace)
+				.withSystemMode()
+				.getFirst();
 		return action.ApexClassName__c;
 	}
 

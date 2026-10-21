@@ -26,7 +26,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -95,6 +95,18 @@ global inherited sharing class TRG_Dispatcher
 	 * downstream diagnostic queries resolve cleanly in either context.
 	 */
 	private static final String AT_LOCATION_DISPATCH_ACTION = TRG_Dispatcher.class.getName() + '.dispatchAction';
+
+	/**
+	 * @description The service name field of each object whose records the masking step masks for the handler class
+	 * that saved them: API calls and API issues. The service name of a record is the class name of its handler, which
+	 * the API settings give (see `SEL_ApiSetting.findClassNameByServiceName`). Records of every other object are masked
+	 * for no caller.
+	 */
+	private static final Map<SObjectType, SObjectField> SERVICE_NAME_FIELD_BY_OBJECT_TYPE = new Map<SObjectType, SObjectField>
+	{
+			ApiCall__c.SObjectType => ApiCall__c.ServiceName__c,
+			ApiIssue__c.SObjectType => ApiIssue__c.ServiceName__c
+	};
 
 	/**
 	 * @description Override map for injecting trigger action metadata in tests.
@@ -310,11 +322,16 @@ global inherited sharing class TRG_Dispatcher
 	 * @description Runs the data masking framework against `Trigger.new` when all three
 	 * gates pass: the operation is before-insert or before-update, the `MaskingFramework_Enabled`
 	 * feature flag is on, and the object's `TriggerSetting__mdt.ApplyMasking__c` is checked.
-	 * Masking happens as a pre-step — before any configured `TriggerAction__mdt` handlers run —
-	 * so subsequent actions see the redacted records. A `UTIL_MaskerPerformanceTimer` times
+	 * Masking runs first, before any configured `TriggerAction__mdt` handlers run,
+	 * so the actions after it see the redacted records. A `UTIL_MaskerPerformanceTimer` times
 	 * the run and auto-emits a single aggregate log entry when `LogSetting__c.EnableMaskerPerformanceLogging__c`
 	 * is on and elapsed meets or exceeds the configured threshold. Logging defaults off so
 	 * subscribers pay zero log volume by default.
+	 *
+	 * API calls and API issues are masked in groups, one for each handler class their service names give (see
+	 * `groupRecordsByMaskingCaller`), and each group is masked for its handler class, so a masking target limited to a
+	 * handler in `CallerClass__c` applies to that handler's records only. Records of every other object, and API
+	 * records whose service has no handler class, are masked for no caller, so only the targets for every caller apply.
 	 */
 	private void applyMaskingIfConfigured()
 	{
@@ -333,8 +350,42 @@ global inherited sharing class TRG_Dispatcher
 
 		UTIL_MaskerPerformanceTimer timer = new UTIL_MaskerPerformanceTimer(sObjectName, triggerNew.size());
 		timer.start();
-		UTIL_FrameworkMasker.forRecords(triggerNew).apply();
+		Map<String, List<SObject>> recordsByCallerClassName = groupRecordsByMaskingCaller(triggerNew);
+		for(String callerClassName : recordsByCallerClassName.keySet())
+		{
+			UTIL_FrameworkMasker.forRecords(recordsByCallerClassName.get(callerClassName)).calledFrom(callerClassName).apply();
+		}
 		timer.stop();
+	}
+
+	/**
+	 * @description Groups the records to mask by the handler class they are masked for. For API calls and API issues,
+	 * the class comes from each record's service name through `SEL_ApiSetting.findClassNameByServiceName`, which reads
+	 * the API settings once per transaction; a service with no setting or no class name gives the empty string, which
+	 * means no caller. Records of every other object form one group under null, which also means no caller.
+	 *
+	 * @param records The records of one object to mask, never empty
+	 *
+	 * @return The records grouped by the handler class name they are masked for
+	 */
+	private static Map<String, List<SObject>> groupRecordsByMaskingCaller(List<SObject> records)
+	{
+		Map<String, List<SObject>> recordsByCallerClassName = new Map<String, List<SObject>>();
+		SObjectField serviceNameField = SERVICE_NAME_FIELD_BY_OBJECT_TYPE.get(records[0].getSObjectType());
+		if(serviceNameField == null)
+		{
+			recordsByCallerClassName.put(null, records);
+			return recordsByCallerClassName;
+		}
+
+		for(SObject record : records)
+		{
+			String callerClassName = SEL_ApiSetting.findClassNameByServiceName((String)record.get(serviceNameField));
+			List<SObject> callerRecords = recordsByCallerClassName.get(callerClassName) ?? new List<SObject>();
+			callerRecords.add(record);
+			recordsByCallerClassName.put(callerClassName, callerRecords);
+		}
+		return recordsByCallerClassName;
 	}
 
 	/**

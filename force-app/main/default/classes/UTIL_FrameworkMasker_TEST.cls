@@ -30,6 +30,11 @@ private class UTIL_FrameworkMasker_TEST
 	private static final String SAMPLE_VALUE = 'alice@example.com';
 
 	/**
+	 * @description The message of the error a test raises when it makes field details (FieldDefinition) unreadable.
+	 */
+	private static final String FIELD_DETAILS_DENIAL = 'Simulated FieldDefinition denial';
+
+	/**
 	 * @description Sample caller class name used across tests.
 	 */
 	private static final String SAMPLE_CALLER = 'API_SendEmail';
@@ -127,6 +132,459 @@ private class UTIL_FrameworkMasker_TEST
 	 * @description Where the masker would say that a target is wired to a field type its rule excludes.
 	 */
 	private static final String MISMATCHED_TYPE_WARNING_LOCATION = UTIL_FrameworkMasker.class.getName() + UTIL_String.DOT + 'filterTargetsByFieldType';
+
+	/**
+	 * @description Where the masker writes its warning when a masking rule fails.
+	 */
+	private static final String RULE_FAILURE_WARNING_LOCATION = UTIL_FrameworkMasker.class.getName() + UTIL_String.DOT + 'handleRuleFailure';
+
+	/**
+	 * @description The flood-control key the masker puts on its warning that a rule failed, for the rule the
+	 * failure-action fixtures register.
+	 */
+	private static final String RULE_FAILURE_FINGERPRINT = 'masking:rule-failure:TestRule';
+
+	/**
+	 * @description The flood-control key the masker puts on its warning that a rule names a field type that does not
+	 * exist, for the rule the unknown-type fixture registers.
+	 */
+	private static final String UNKNOWN_TYPE_FINGERPRINT = 'masking:unknown-field-type:FoobarUnknownTypeRule';
+
+	/**
+	 * @description The flood-control key the masker puts on its warning that a target wires a rule to a field whose
+	 * type the rule excludes, for the rule and field the mismatch fixture registers.
+	 */
+	private static final String EXCLUDED_TYPE_FINGERPRINT = 'masking:excluded-field-type:FoobarExcludedTypeRule:'
+			+ UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType) + UTIL_String.DOT + UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.URL__c);
+
+	/**
+	 * @description Developer name of the rule the unknown-type fingerprint test registers on Foobar__c.
+	 */
+	private static final String FOOBAR_UNKNOWN_TYPE_RULE_NAME = 'FoobarUnknownTypeRule';
+
+	/**
+	 * @description Developer name of the rule the excluded-type fingerprint test registers on Foobar__c.
+	 */
+	private static final String FOOBAR_EXCLUDED_TYPE_RULE_NAME = 'FoobarExcludedTypeRule';
+
+	/**
+	 * @description The DeveloperName the single-rule helpers give their rule.
+	 */
+	private static final String TEST_RULE_NAME = 'TestRule';
+
+	/**
+	 * @description The DeveloperName of the broken rule that the log event test links to a deployed log event target.
+	 */
+	private static final String LOG_EVENT_BROKEN_RULE_NAME = 'LogEventBrokenRule';
+
+	/**
+	 * @description A pattern that can never compile, because its group and its character set are never closed.
+	 */
+	private static final String BROKEN_PATTERN = '([bad';
+
+	/**
+	 * @description A pattern that compiles and has only one group, so a replacement that names a second group fails.
+	 */
+	private static final String ONE_GROUP_PATTERN = '(a+)b';
+
+	/**
+	 * @description A replacement that names a second group. It fails only on a value the pattern matches.
+	 */
+	private static final String SECOND_GROUP_REPLACEMENT = '$2';
+
+	/**
+	 * @description The replacement the tests with a broken pattern give their rule. It is never used.
+	 */
+	private static final String UNUSED_REPLACEMENT = 'X';
+
+	/**
+	 * @description A whole value that an exact-match rule replaces with nothing, so the value is blank afterwards.
+	 */
+	private static final String ERASED_VALUE = 'erase me';
+
+	/**
+	 * @description The name of a rule that runs first, fails, and puts the failure marker in place of the value.
+	 */
+	private static final String MARKER_RULE_NAME = 'BrokenMarkerRule';
+
+	/**
+	 * @description The name of a rule that runs after the marker rule on the same value.
+	 */
+	private static final String LATER_RULE_NAME = 'LaterRule';
+
+	/**
+	 * @description The order of the rule that runs first in the tests with two rules on one field.
+	 */
+	private static final Integer FIRST_RULE_ORDER = 10;
+
+	/**
+	 * @description The order of the rule that runs second in the tests with two rules on one field.
+	 */
+	private static final Integer SECOND_RULE_ORDER = 20;
+
+	/**
+	 * @description A small JSON value with a password key, for the tests on the JSON key path.
+	 */
+	private static final String PASSWORD_JSON = '{"password":"hunter2"}';
+
+	/**
+	 * @description A plain text value that a pattern matching any text would replace in full.
+	 */
+	private static final String PLAIN_VALUE = 'some value';
+
+	/**
+	 * @description A JSON key pattern that matches only the key named password.
+	 */
+	private static final String PASSWORD_KEY_PATTERN = '^password$';
+
+	/**
+	 * @description What the password key rule puts in place of the password.
+	 */
+	private static final String PASSWORD_REPLACEMENT = '***';
+
+	/**
+	 * @description A pattern that matches any text, so a rule with it replaces the whole value.
+	 */
+	private static final String WHOLE_VALUE_PATTERN = '(?s).+';
+
+	/**
+	 * @description What the rule with the whole value pattern puts in place of the value.
+	 */
+	private static final String WHOLE_VALUE_REPLACEMENT = '[TEXT_REDACTED]';
+
+	/**
+	 * @description The name of the target that names one field and is built the way a deployed target is read.
+	 */
+	private static final String DEPLOYED_FIELD_TARGET_NAME = 'FoobarTextTarget';
+
+	/**
+	 * @description A stored field value in the shape a deployed target keeps (the object's durable Id and the
+	 * field's Id, joined by a dot) that matches no field in the org, as it reads after the field was deleted.
+	 */
+	private static final String DELETED_FIELD_DURABLE_ID = '01I000000000000.00N000000000000';
+
+	/**
+	 * @description How many numbers the card pattern finds in a full-length text of a digit and a separator repeated:
+	 * 65,536 digits make 3,449 numbers of 19 digits. With a card number in the middle the count is the same: the card
+	 * number is one of them.
+	 */
+	private static final Integer NUMBERS_IN_A_FULL_SEPARATED_DIGIT_WALL = 3449;
+
+	/**
+	 * @description How many 19-digit numbers that pass the Luhn check a full-length text of them holds.
+	 */
+	private static final Integer NUMBERS_IN_FULL_NINETEEN_DIGIT_GROUPS = 6553;
+
+	/**
+	 * @description How many different card numbers a full-length list of card numbers holds.
+	 */
+	private static final Integer NUMBERS_IN_A_FULL_CARD_DUMP = 7710;
+
+	/**
+	 * @description How many digits end the full-length text of 19-digit numbers: the text is cut after 12 digits of a last
+	 * number, which is too short for a card number and stays.
+	 */
+	private static final Integer DIGITS_LEFT_AFTER_THE_LAST_GROUP = 12;
+
+	/**
+	 * @description Every digit, to check that no digit is left in a masked text.
+	 */
+	private static final String DIGITS = '0123456789';
+
+	/**
+	 * @description A 16-digit Visa test number that passes the Luhn check, placed in the middle of the long digit texts.
+	 */
+	private static final String VISA_TEST_CARD = '4111111111111111';
+
+	/**
+	 * @description A 19-digit number that passes the Luhn check, followed by a space: the unit the long text of 19-digit
+	 * numbers repeats.
+	 */
+	private static final String NINETEEN_DIGIT_GROUP = '4111111111111111110 ';
+
+	/**
+	 * @description The digit the long digit texts are made of.
+	 */
+	private static final String DIGIT_ONE = '1';
+
+	/**
+	 * @description The digit used to pad a card number body on the left.
+	 */
+	private static final String DIGIT_ZERO = '0';
+
+	/**
+	 * @description A hyphen, the second separator the card pattern allows between two digits.
+	 */
+	private static final String HYPHEN = '-';
+
+	/**
+	 * @description Character code of the digit 0. A digit is its character code minus this value.
+	 */
+	private static final Integer ZERO_CHARACTER_CODE = 48;
+
+	/**
+	 * @description The first digit of every number in the long list of card numbers, as a Visa number has.
+	 */
+	private static final String VISA_FIRST_DIGIT = '4';
+
+	/**
+	 * @description How many digits follow the first digit and come before the check digit in a 16-digit card number.
+	 */
+	private static final Integer CARD_BODY_DIGITS = 14;
+
+	/**
+	 * @description The first number body used to make the long list of card numbers.
+	 */
+	private static final Long FIRST_CARD_BODY = 10000000000000L;
+
+	/**
+	 * @description How far apart two number bodies are in the long list of card numbers, so that every number is different.
+	 */
+	private static final Long CARD_BODY_STEP = 7919L;
+
+	/**
+	 * @description How many empty objects `buildAboveTheStructureLine` puts in front of a JSON value: one more than the
+	 * most opening brackets a value can hold and still be read as a whole tree. So the value is read one token at a time.
+	 */
+	private static final Integer EMPTY_OBJECTS_ABOVE_THE_STRUCTURE_LINE = UTIL_String.JSON_STRUCTURE_LINE + 1;
+
+	/**
+	 * @description One empty JSON object followed by a comma, the unit `buildAboveTheStructureLine` repeats.
+	 */
+	private static final String EMPTY_OBJECT_IN_A_LIST = '{},';
+
+	/**
+	 * @description One level of the deep nests: an object whose only key holds the next level.
+	 */
+	private static final String NEST_LEVEL_OPENING = '{"a":';
+
+	/**
+	 * @description The closing brace of one level of the deep nests.
+	 */
+	private static final String NEST_LEVEL_CLOSING = '}';
+
+	/**
+	 * @description The object with a secret key at the bottom of the deep nests that hold one.
+	 */
+	private static final String DEEP_TOKEN_OBJECT = '{"token":"deep"}';
+
+	/**
+	 * @description One object of the full-length token list, followed by a comma.
+	 */
+	private static final String TOKEN_OBJECT_IN_A_LIST = '{"token":"x"},';
+
+	/**
+	 * @description The start of a token key and its value as the token list writes it, before any masking.
+	 */
+	private static final String TOKEN_VALUE_IN_CLEAR = '"token":"x';
+
+	/**
+	 * @description How many objects with a token the full-length token list holds before its last, padded object.
+	 */
+	private static final Integer FULL_OBJECTS_IN_THE_TOKEN_LIST = 9000;
+
+	/**
+	 * @description How many token values the full-length token list holds: the full objects and the padded last one.
+	 */
+	private static final Integer TOKENS_IN_THE_FULL_TOKEN_LIST = FULL_OBJECTS_IN_THE_TOKEN_LIST + 1;
+
+	/**
+	 * @description The length at which the token list is cut to make text that is not JSON: inside the value of its last
+	 * token, so the text ends in an open string.
+	 */
+	private static final Integer TOKEN_LIST_CUT_LENGTH = 131000;
+
+	/**
+	 * @description The depth of the smaller deep nest. A whole-tree JSON reader ends the transaction at this depth.
+	 */
+	private static final Integer TWO_THOUSAND_LEVELS = 2000;
+
+	/**
+	 * @description The depth of the larger deep nest, which nearly fills a field of full length.
+	 */
+	private static final Integer TWENTY_ONE_THOUSAND_LEVELS = 21000;
+
+	/**
+	 * @description A depth past the 50 levels at which the tree walk stops looking for keys.
+	 */
+	private static final Integer SIXTY_LEVELS = 60;
+
+	/**
+	 * @description The word the tests on the masker's memory treat as a secret.
+	 */
+	private static final String SECRET_WORD = 'secret';
+
+	/**
+	 * @description What the rule in the tests on the masker's memory writes in place of the secret word.
+	 */
+	private static final String SECRET_WORD_REPLACEMENT = 'X';
+
+	/**
+	 * @description A short text that holds the secret word once.
+	 */
+	private static final String TEXT_WITH_A_SECRET = 'the secret is here';
+
+	/**
+	 * @description The same short text after the rule replaced the secret word.
+	 */
+	private static final String MASKED_TEXT_WITH_A_SECRET = 'the X is here';
+
+	/**
+	 * @description What the email rule in the tests on fields no one can write puts in place of the address.
+	 */
+	private static final String EMAIL_REPLACEMENT = '[EMAIL_HIDDEN]';
+
+	/**
+	 * @description Where the masker writes its warning when the platform refuses the masked value for a field.
+	 */
+	private static final String WRITE_REFUSED_WARNING_LOCATION = UTIL_FrameworkMasker.class.getName() + UTIL_String.DOT + 'applyFieldPlanToRecord';
+
+	/**
+	 * @description The flood-control key on the warning that the platform refused the masked value for `Case.ContactEmail`.
+	 */
+	private static final String WRITE_REFUSED_FINGERPRINT = 'masking:write-refused:'
+			+ UTIL_SObjectDescribe.getObjectNameFromType(Case.SObjectType) + UTIL_String.DOT + UTIL_SObjectDescribe.getCachedFieldName(Case.ContactEmail);
+
+	/**
+	 * @description The short text with the secret word, changed after it was registered as masked.
+	 */
+	private static final String CHANGED_TEXT_WITH_A_SECRET = 'the secret is there';
+
+	/**
+	 * @description The changed short text after the rule replaced the secret word.
+	 */
+	private static final String MASKED_CHANGED_TEXT_WITH_A_SECRET = 'the X is there';
+
+	/**
+	 * @description A short text without the secret word, so the rule changes nothing in it.
+	 */
+	private static final String TEXT_WITHOUT_A_SECRET = 'nothing to hide';
+
+	/**
+	 * @description How many times the text without a secret is repeated to make a text longer than `Foobar__c.Text__c`.
+	 */
+	private static final Integer REPEATS_PAST_THE_TEXT_FIELD = 20;
+
+	/**
+	 * @description A second caller class name, so a test can show that what the masker knows under one caller is not
+	 * used for another caller.
+	 */
+	private static final String OTHER_CALLER = 'API_Other';
+
+	/**
+	 * @description The letter the growing rule replaces. A text made only of this letter grows three times longer when
+	 * it is masked, so its masked text is too long for its field and must be cut.
+	 */
+	private static final String GROWING_LETTER = 'a';
+
+	/**
+	 * @description What the growing rule writes in place of each letter: three characters for one.
+	 */
+	private static final String GROWING_LETTER_REPLACEMENT = '[A]';
+
+	/**
+	 * @description How many letters the growing texts hold: 200 letters become 600 characters when masked, more than
+	 * the 255 characters `Foobar__c.Text__c` can hold.
+	 */
+	private static final Integer GROWING_LETTER_COUNT = 200;
+
+	/**
+	 * @description A letter the growing rule leaves as it is. It pads a growing text so that its masked text has an exact
+	 * length.
+	 */
+	private static final String LETTER_NO_RULE_CHANGES = 'b';
+
+	/**
+	 * @description A value the one-group pattern matches, so the rule with a replacement that names a second group fails
+	 * on it.
+	 */
+	private static final String VALUE_THE_ONE_GROUP_PATTERN_MATCHES = 'aab';
+
+	/**
+	 * @description A text made only of spaces. Its SHA-256 hash is not computed, so the masker never remembers it.
+	 */
+	private static final String SPACES_ONLY_TEXT = '   ';
+
+	/**
+	 * @description A JSON Web Token in the shape the shipped token rule finds: a header, a payload and a signature, joined
+	 * by dots.
+	 */
+	private static final String WEB_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+
+	/**
+	 * @description The length of the longest value the masking reads: 2,000,000 characters.
+	 */
+	private static final Integer LONGEST_VALUE_LENGTH = 2000000;
+
+	/**
+	 * @description Ordinary text without a token: a digit and a space.
+	 */
+	private static final String DIGIT_AND_SPACE = '1 ';
+
+	/**
+	 * @description The key of the padding text in the value that `OBJECT_UNDER_A_SECRET_KEY_HEAD` starts.
+	 */
+	private static final String PADDING_KEY = 'pad';
+
+	/**
+	 * @description The character the padding text is made of.
+	 */
+	private static final String PADDING_CHARACTER = 'v';
+
+	/**
+	 * @description The start of a JSON object whose secret key holds an object, followed by the start of a padding text.
+	 * The text search cannot hide an object safely, so it puts the failure marker in place of the whole value. Reading
+	 * the value as JSON replaces the object.
+	 */
+	private static final String OBJECT_UNDER_A_SECRET_KEY_HEAD = '{"token":{"k":"v"},"' + PADDING_KEY + '":"';
+
+	/**
+	 * @description The end of the padding text and of the object that `OBJECT_UNDER_A_SECRET_KEY_HEAD` starts.
+	 */
+	private static final String PADDED_OBJECT_TAIL = '"}';
+
+	/**
+	 * @description The key that holds an object in the value that `OBJECT_UNDER_A_SECRET_KEY_HEAD` starts.
+	 */
+	private static final String SECRET_KEY_HOLDING_AN_OBJECT = 'token';
+
+	/**
+	 * @description A key pattern with two key names: `password`, and `pass"word`, a name with a quote inside it. In JSON
+	 * text the quote inside a key is written with a backslash before it.
+	 */
+	private static final String ESCAPED_KEY_NAMES_PATTERN = '^(password|pass"word)$';
+
+	/**
+	 * @description The start of a JSON object whose secret keys are written with JSON escapes, followed by the start of a
+	 * padding text. The first key reads `password`: its letter a is written as a backslash, the letter u and the
+	 * hexadecimal digits 0061. The second key reads `pass"word`: a backslash before a quote stands for the quote.
+	 */
+	private static final String KEYS_WRITTEN_WITH_ESCAPES_HEAD = '{"p\\u0061ssword":"hunter2","pass\\"word":"hunter3","' + PADDING_KEY + '":"';
+
+	/**
+	 * @description A key pattern with one key name of twelve letters: `clientsecret`.
+	 */
+	private static final String LONG_KEY_NAME_PATTERN = '^clientsecret$';
+
+	/**
+	 * @description The key name `clientsecret` with every letter written as a JSON escape: a backslash, the letter u and
+	 * four hexadecimal digits. Some programs write every letter outside plain English this way, so a key name in Japanese or
+	 * Russian is written just as long. In quotes and with its colon, the key is 75 characters long.
+	 */
+	private static final String CLIENT_SECRET_WRITTEN_WITH_ESCAPES = '\\u0063\\u006c\\u0069\\u0065\\u006e\\u0074\\u0073\\u0065\\u0063\\u0072\\u0065\\u0074';
+
+	/**
+	 * @description How many characters of the key in quotes lie after the end of the first piece of the text search, in
+	 * the test where a key written with escapes crosses that end. The key in quotes is 74 characters long, so it starts
+	 * 70 characters before that end, inside the `UTIL_String.JSON_TEXT_SEARCH_PIECE_OVERLAP` characters that the next
+	 * piece reads too.
+	 */
+	private static final Integer KEY_CHARACTERS_AFTER_THE_PIECE_END = 4;
+
+	/**
+	 * @description The masking result the Queueable of the running test produced.
+	 */
+	private static UTIL_FrameworkMasker.MaskingResult resultMaskedInQueueable;
 
 	/**
 	 * @description Creates a separate test admin user, so System.runAs in each test starts with fresh
@@ -616,6 +1074,336 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
+	 * @description Proves that the masker answers FITTED for a value whose masked text fits in its field: both a value a
+	 * rule changed and a value no rule changed. On this answer a caller knows the field holds the whole masked value, so
+	 * it does not mask the raw value again. A call with no caller and a call with an empty caller name ask the same thing.
+	 */
+	@IsTest
+	private static void shouldAnswerFittedForAValueThatWasMaskedAndFits()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_EXACT_MATCH, SECRET_WORD, SECRET_WORD_REPLACEMENT, null);
+			Foobar__c maskedRecord = buildFoobarWithText(TEXT_WITH_A_SECRET);
+			Foobar__c unchangedRecord = buildFoobarWithText(TEXT_WITHOUT_A_SECRET);
+
+			UTIL_FrameworkMasker.forRecords(new List<SObject> {maskedRecord, unchangedRecord}).apply();
+
+			UTIL_FrameworkMasker.MaskedValueAnswer maskedAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, UTIL_String.EMPTY, TEXT_WITH_A_SECRET);
+			UTIL_FrameworkMasker.MaskedValueAnswer unchangedAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, null, TEXT_WITHOUT_A_SECRET);
+
+			Assert.areEqual(MASKED_TEXT_WITH_A_SECRET, maskedRecord.Text__c, 'Expected the rule to mask the secret word on the record');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.FITTED, maskedAnswer.state, 'Expected a masked value that fits its field to be answered as fitted');
+			Assert.isNull(maskedAnswer.uncutMaskedValue, 'Expected no remembered text for a value that was not cut');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.FITTED, unchangedAnswer.state, 'Expected a value no rule changed to be answered as fitted');
+		}
+	}
+
+	/**
+	 * @description Proves that the masker answers NOT_SEEN for a value no masking pass masked in this transaction, and
+	 * for a value longer than its field that no rule changed: the masker cannot say that such a value fits. On this
+	 * answer a caller masks the raw value again.
+	 */
+	@IsTest
+	private static void shouldAnswerNotSeenForAValueNoPassMasked()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_EXACT_MATCH, SECRET_WORD, SECRET_WORD_REPLACEMENT, null);
+			String longTextWithoutASecret = TEXT_WITHOUT_A_SECRET.repeat(REPEATS_PAST_THE_TEXT_FIELD);
+
+			UTIL_FrameworkMasker.forRecords(new List<SObject> {buildFoobarWithText(TEXT_WITH_A_SECRET)}).apply();
+			UTIL_FrameworkMasker.MaskingResult longResult = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(longTextWithoutASecret);
+
+			UTIL_FrameworkMasker.MaskedValueAnswer otherAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, null, CHANGED_TEXT_WITH_A_SECRET);
+			UTIL_FrameworkMasker.MaskedValueAnswer longAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, null, longTextWithoutASecret);
+
+			Assert.areEqual(longTextWithoutASecret, longResult.maskedValue, 'Expected a long value no rule changed to come back whole');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.NOT_SEEN, otherAnswer.state, 'Expected a value no pass masked to be answered as not seen');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.NOT_SEEN, longAnswer.state, 'Expected a long value no rule changed to be answered as not seen');
+			Assert.isNull(otherAnswer.uncutMaskedValue, 'Expected no remembered text for a value no pass masked');
+		}
+	}
+
+	/**
+	 * @description Proves that the masker keeps the whole masked text of a value it had to cut to fit its field, and
+	 * hands it over once. The second question about the same value answers NOT_SEEN: the text is gone, so the caller
+	 * masks the raw value again instead of saving a cut value as if it were whole.
+	 */
+	@IsTest
+	private static void shouldRememberTheUncutTextWhenTheMaskedValueWasCut()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_EXACT_MATCH, GROWING_LETTER, GROWING_LETTER_REPLACEMENT, null);
+			String rawValue = GROWING_LETTER.repeat(GROWING_LETTER_COUNT);
+			Foobar__c record = buildFoobarWithText(rawValue);
+
+			UTIL_FrameworkMasker.forRecords(new List<SObject> {record}).apply();
+
+			UTIL_FrameworkMasker.MaskedValueAnswer firstAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, null, rawValue);
+			UTIL_FrameworkMasker.MaskedValueAnswer secondAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, null, rawValue);
+
+			Assert.isTrue(record.Text__c.length() <= getTextFieldLength(), 'Expected the masked value on the record to be cut to fit the field');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.REMEMBERED, firstAnswer.state, 'Expected a cut value to be answered as remembered');
+			Assert.areEqual(GROWING_LETTER_REPLACEMENT.repeat(GROWING_LETTER_COUNT), firstAnswer.uncutMaskedValue, 'Expected the whole masked text to be handed over');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.NOT_SEEN, secondAnswer.state, 'Expected a remembered text to be handed over only once');
+			Assert.isNull(secondAnswer.uncutMaskedValue, 'Expected no text the second time');
+		}
+	}
+
+	/**
+	 * @description Proves that the masker stops keeping whole masked texts once the next one would pass the cap, and
+	 * answers DROPPED for that value. The first value's masked text is exactly as long as the cap, so it is kept and
+	 * leaves no room. The value on the record is still masked and cut to fit: only the copy of the whole masked text is
+	 * not kept, and the caller masks the raw value again when it needs the whole text.
+	 */
+	@IsTest
+	private static void shouldAnswerDroppedPastTheCap()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_EXACT_MATCH, GROWING_LETTER, GROWING_LETTER_REPLACEMENT, null);
+			String firstRawValue = buildRawValueMaskedToLength(UTIL_FrameworkMasker.REMEMBERED_TEXT_CAP);
+			String secondRawValue = GROWING_LETTER.repeat(GROWING_LETTER_COUNT);
+			Foobar__c secondRecord = buildFoobarWithText(secondRawValue);
+
+			UTIL_FrameworkMasker.forRecords(new List<SObject> {buildFoobarWithText(firstRawValue), secondRecord}).apply();
+
+			UTIL_FrameworkMasker.MaskedValueAnswer firstAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, null, firstRawValue);
+			UTIL_FrameworkMasker.MaskedValueAnswer secondAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, null, secondRawValue);
+
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.REMEMBERED, firstAnswer.state, 'Expected the value that fills the cap exactly to be remembered');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.DROPPED, secondAnswer.state, 'Expected the value past the cap to be answered as dropped');
+			Assert.isNull(secondAnswer.uncutMaskedValue, 'Expected no text for a dropped value');
+			Assert.isTrue(secondRecord.Text__c.startsWith(GROWING_LETTER_REPLACEMENT), 'Expected the dropped value to be masked on the record all the same');
+			Assert.isTrue(secondRecord.Text__c.length() <= getTextFieldLength(), 'Expected the dropped value to be cut to fit the field all the same');
+		}
+	}
+
+	/**
+	 * @description Proves that maskAndReturnWholeText hands the whole masked text straight to the caller, even when the
+	 * cap would stop the masker from keeping any of it: the text that fits the field is cut, the whole text is returned
+	 * beside it, and the masker keeps nothing, so a later answer for the value is NOT_SEEN. A value whose masked text
+	 * fits is answered FITTED and comes with no whole text, and an empty value comes back as it is. A first record pass
+	 * fills the cap exactly, so no room is left when the whole text is handed over.
+	 */
+	@IsTest
+	private static void shouldReturnTheWholeMaskedTextWhateverTheCap()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_EXACT_MATCH, GROWING_LETTER, GROWING_LETTER_REPLACEMENT, SAMPLE_CALLER);
+			String capFillingRawValue = buildRawValueMaskedToLength(UTIL_FrameworkMasker.REMEMBERED_TEXT_CAP);
+			UTIL_FrameworkMasker.forRecords(new List<SObject> {buildFoobarWithText(capFillingRawValue)}).calledFrom(SAMPLE_CALLER).apply();
+			String rawValue = GROWING_LETTER.repeat(GROWING_LETTER_COUNT);
+			UTIL_FrameworkMasker.FieldMasker masker = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).calledFrom(SAMPLE_CALLER);
+
+			UTIL_FrameworkMasker.MaskingResult cutResult = masker.maskAndReturnWholeText(rawValue);
+			UTIL_FrameworkMasker.MaskingResult fittingResult = masker.maskAndReturnWholeText(GROWING_LETTER);
+			UTIL_FrameworkMasker.MaskingResult emptyResult = masker.maskAndReturnWholeText(UTIL_String.EMPTY);
+
+			Assert.areEqual(GROWING_LETTER_REPLACEMENT.repeat(GROWING_LETTER_COUNT), cutResult.uncutMaskedValue, 'Expected the whole masked text beside the cut one');
+			Assert.areEqual(getTextFieldLength(), cutResult.maskedValue.length(), 'Expected the masked text cut to the field length');
+			UTIL_FrameworkMasker.MaskedValueState cutState = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, SAMPLE_CALLER, rawValue).state;
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.NOT_SEEN, cutState, 'Expected the masker to keep nothing for a text it handed over, got ' + cutState);
+			Assert.isNull(fittingResult.uncutMaskedValue, 'Expected no whole text for a masked text that fits');
+			UTIL_FrameworkMasker.MaskedValueState fittingState = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, SAMPLE_CALLER, GROWING_LETTER).state;
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.FITTED, fittingState, 'Expected a masked text that fits to be answered as fitted, got ' + fittingState);
+			Assert.areEqual(UTIL_String.EMPTY, emptyResult.maskedValue, 'Expected an empty value to come back as it is');
+			Assert.isNull(emptyResult.uncutMaskedValue, 'Expected no whole text for an empty value');
+			UTIL_FrameworkMasker.MaskedValueState capFillingState = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, SAMPLE_CALLER, capFillingRawValue).state;
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.REMEMBERED, capFillingState, 'Expected the text that fills the cap to be kept, got ' + capFillingState);
+		}
+	}
+
+	/**
+	 * @description Proves that a field whose text was registered as already masked, for the same field and caller, is
+	 * left as it is and no rule runs on it. The text registered here still holds the secret word, so a rule that ran
+	 * would change it. Also proves that the masker registers the text it writes: a second pass over a record it already
+	 * masked skips the field.
+	 */
+	@IsTest
+	private static void shouldSkipAFieldWhoseTextIsRegisteredUnderTheSameCaller()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_EXACT_MATCH, SECRET_WORD, SECRET_WORD_REPLACEMENT, null);
+			Foobar__c registeredRecord = buildFoobarWithText(TEXT_WITH_A_SECRET);
+			Foobar__c storedRecord = buildFoobarWithText(CHANGED_TEXT_WITH_A_SECRET);
+
+			UTIL_FrameworkMasker.registerMaskedFieldText(Foobar__c.Text__c, SAMPLE_CALLER, TEXT_WITH_A_SECRET);
+			UTIL_FrameworkMasker.MaskingResult registeredResult = UTIL_FrameworkMasker.forRecords(new List<SObject> {registeredRecord}).calledFrom(SAMPLE_CALLER).apply().get(0);
+			UTIL_FrameworkMasker.MaskingResult firstPass = UTIL_FrameworkMasker.forRecords(new List<SObject> {storedRecord}).calledFrom(SAMPLE_CALLER).apply().get(0);
+			UTIL_FrameworkMasker.MaskingResult secondPass = UTIL_FrameworkMasker.forRecords(new List<SObject> {storedRecord}).calledFrom(SAMPLE_CALLER).apply().get(0);
+
+			Assert.areEqual(TEXT_WITH_A_SECRET, registeredRecord.Text__c, 'Expected the registered text to be left as it is');
+			Assert.areEqual(0, registeredResult.rulesMatched, 'Expected no rule to run on the registered text');
+			Assert.areEqual(1, registeredResult.fieldsSkippedAsAlreadyMasked, 'Expected the skip to be counted');
+			Assert.areEqual(MASKED_CHANGED_TEXT_WITH_A_SECRET, storedRecord.Text__c, 'Expected the first pass to mask the text');
+			Assert.areEqual(0, firstPass.fieldsSkippedAsAlreadyMasked, 'Expected the first pass not to skip a text nobody registered');
+			Assert.areEqual(1, secondPass.fieldsSkippedAsAlreadyMasked, 'Expected the second pass to skip the text the first pass wrote');
+			Assert.areEqual(0, secondPass.rulesMatched, 'Expected no rule to run on the text the first pass wrote');
+		}
+	}
+
+	/**
+	 * @description Proves that a text registered as masked for one caller is masked as usual for another caller,
+	 * in both directions: a named caller does not use a registration made for another named caller, and a call with no
+	 * caller does not use a registration made for a named caller. Two callers can have different rules, so a text masked
+	 * with one caller's rules is not masked enough for the other's.
+	 */
+	@IsTest
+	private static void shouldNotSkipAFieldRegisteredUnderAnotherCaller()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_EXACT_MATCH, SECRET_WORD, SECRET_WORD_REPLACEMENT, null);
+			Foobar__c namedCallerRecord = buildFoobarWithText(TEXT_WITH_A_SECRET);
+			Foobar__c noCallerRecord = buildFoobarWithText(TEXT_WITH_A_SECRET);
+
+			UTIL_FrameworkMasker.registerMaskedFieldText(Foobar__c.Text__c, OTHER_CALLER, TEXT_WITH_A_SECRET);
+			UTIL_FrameworkMasker.MaskingResult namedCallerResult = UTIL_FrameworkMasker.forRecords(new List<SObject> {namedCallerRecord}).calledFrom(SAMPLE_CALLER).apply().get(0);
+			UTIL_FrameworkMasker.registerMaskedFieldText(Foobar__c.Text__c, SAMPLE_CALLER, TEXT_WITH_A_SECRET);
+			UTIL_FrameworkMasker.MaskingResult noCallerResult = UTIL_FrameworkMasker.forRecords(new List<SObject> {noCallerRecord}).apply().get(0);
+
+			Assert.areEqual(MASKED_TEXT_WITH_A_SECRET, namedCallerRecord.Text__c, 'Expected a text registered for another caller to be masked');
+			Assert.areEqual(0, namedCallerResult.fieldsSkippedAsAlreadyMasked, 'Expected no skip for a text registered for another caller');
+			Assert.areEqual(MASKED_TEXT_WITH_A_SECRET, noCallerRecord.Text__c, 'Expected a call with no caller to mask a text registered for a named caller');
+			Assert.areEqual(0, noCallerResult.fieldsSkippedAsAlreadyMasked, 'Expected no skip for a call with no caller');
+		}
+	}
+
+	/**
+	 * @description Proves that a field whose text changed after a text was registered for it is masked as usual. The
+	 * registration is for one exact text, so another step that writes a new value to the field before the save cannot
+	 * get that new value past the rules.
+	 */
+	@IsTest
+	private static void shouldNotSkipAFieldWhoseTextChangedAfterRegistration()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_EXACT_MATCH, SECRET_WORD, SECRET_WORD_REPLACEMENT, null);
+			Foobar__c record = buildFoobarWithText(CHANGED_TEXT_WITH_A_SECRET);
+
+			UTIL_FrameworkMasker.registerMaskedFieldText(Foobar__c.Text__c, SAMPLE_CALLER, TEXT_WITH_A_SECRET);
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forRecords(new List<SObject> {record}).calledFrom(SAMPLE_CALLER).apply().get(0);
+
+			Assert.areEqual(MASKED_CHANGED_TEXT_WITH_A_SECRET, record.Text__c, 'Expected the changed text to be masked');
+			Assert.areEqual(1, result.rulesMatched, 'Expected the rule to run on the changed text');
+			Assert.areEqual(0, result.fieldsSkippedAsAlreadyMasked, 'Expected no skip for a text that changed after registration');
+		}
+	}
+
+	/**
+	 * @description Proves that masking the same raw value again, as a retry does, replaces what the masker kept for it
+	 * and counts its length against the cap once. The two whole masked texts together are exactly as long as the cap, so
+	 * a value counted twice would push the next value past the cap. The text the retry wrote is still registered: one
+	 * more record pass over it leaves it as it is.
+	 */
+	@IsTest
+	private static void shouldCountARetriedWriteOnceAgainstTheCap()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_EXACT_MATCH, GROWING_LETTER, GROWING_LETTER_REPLACEMENT, null);
+			Integer firstMaskedLength = UTIL_FrameworkMasker.REMEMBERED_TEXT_CAP / GROWING_LETTER_REPLACEMENT.length();
+			String firstRawValue = buildRawValueMaskedToLength(firstMaskedLength);
+			String secondRawValue = buildRawValueMaskedToLength(UTIL_FrameworkMasker.REMEMBERED_TEXT_CAP - firstMaskedLength);
+			Foobar__c retriedRecord = buildFoobarWithText(firstRawValue);
+
+			UTIL_FrameworkMasker.forRecords(new List<SObject> {buildFoobarWithText(firstRawValue)}).apply();
+			UTIL_FrameworkMasker.MaskingResult retriedResult = UTIL_FrameworkMasker.forRecords(new List<SObject> {retriedRecord}).apply().get(0);
+			UTIL_FrameworkMasker.forRecords(new List<SObject> {buildFoobarWithText(secondRawValue)}).apply();
+			UTIL_FrameworkMasker.MaskingResult passAfterRetry = UTIL_FrameworkMasker.forRecords(new List<SObject> {retriedRecord}).apply().get(0);
+
+			UTIL_FrameworkMasker.MaskedValueAnswer firstAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, null, firstRawValue);
+			UTIL_FrameworkMasker.MaskedValueAnswer secondAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, null, secondRawValue);
+
+			Assert.areEqual(1, retriedResult.rulesMatched, 'Expected the retry to mask the raw value again');
+			Assert.areEqual(1, passAfterRetry.fieldsSkippedAsAlreadyMasked, 'Expected a pass over the text the retry wrote to find it registered and skip it');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.REMEMBERED, firstAnswer.state, 'Expected the retried value to be remembered');
+			Assert.areEqual(firstRawValue.replace(GROWING_LETTER, GROWING_LETTER_REPLACEMENT), firstAnswer.uncutMaskedValue, 'Expected the whole text of the retried value');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.REMEMBERED, secondAnswer.state, 'Expected the next value to fit under the cap, so the retry was counted once');
+		}
+	}
+
+	/**
+	 * @description Proves that a whole masked text the masker kept for one field and caller is never handed over for
+	 * another field or another caller, even for the same raw value. Only the field and caller it was masked for get it.
+	 */
+	@IsTest
+	private static void shouldNeverHandBackARememberedTextForAnotherField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_EXACT_MATCH, GROWING_LETTER, GROWING_LETTER_REPLACEMENT, null);
+			String rawValue = GROWING_LETTER.repeat(GROWING_LETTER_COUNT);
+
+			UTIL_FrameworkMasker.forRecords(new List<SObject> {buildFoobarWithText(rawValue)}).calledFrom(SAMPLE_CALLER).apply();
+
+			UTIL_FrameworkMasker.MaskedValueAnswer otherFieldAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.TextArea__c, SAMPLE_CALLER, rawValue);
+			UTIL_FrameworkMasker.MaskedValueAnswer otherCallerAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, OTHER_CALLER, rawValue);
+			UTIL_FrameworkMasker.MaskedValueAnswer sameFieldAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, SAMPLE_CALLER, rawValue);
+
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.NOT_SEEN, otherFieldAnswer.state, 'Expected another field to get no answer for the value');
+			Assert.isNull(otherFieldAnswer.uncutMaskedValue, 'Expected another field to get no remembered text');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.NOT_SEEN, otherCallerAnswer.state, 'Expected another caller to get no answer for the value');
+			Assert.isNull(otherCallerAnswer.uncutMaskedValue, 'Expected another caller to get no remembered text');
+			Assert.areEqual(GROWING_LETTER_REPLACEMENT.repeat(GROWING_LETTER_COUNT), sameFieldAnswer.uncutMaskedValue, 'Expected the field it was masked for to get it');
+		}
+	}
+
+	/**
+	 * @description Proves that when a Write Failure Marker rule fails on a value, the marker that `forField` returns is
+	 * answered as FITTED and registered, so a later record pass that finds the marker in the field leaves it as it is.
+	 */
+	@IsTest
+	private static void shouldSkipTheFailureMarkerWrittenInPlaceOfAValue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextWithFailureAction(SEL_MaskingRule.MODE_REGEX, ONE_GROUP_PATTERN, SECOND_GROUP_REPLACEMENT, null, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+
+			UTIL_FrameworkMasker.MaskingResult fieldResult = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).calledFrom(SAMPLE_CALLER).mask(VALUE_THE_ONE_GROUP_PATTERN_MATCHES);
+			UTIL_FrameworkMasker.MaskedValueAnswer answer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, SAMPLE_CALLER, VALUE_THE_ONE_GROUP_PATTERN_MATCHES);
+			Foobar__c record = buildFoobarWithText(fieldResult.maskedValue);
+			UTIL_FrameworkMasker.MaskingResult recordResult = UTIL_FrameworkMasker.forRecords(new List<SObject> {record}).calledFrom(SAMPLE_CALLER).apply().get(0);
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, fieldResult.maskedValue, 'Expected the failed rule to write the failure marker');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.FITTED, answer.state, 'Expected the marker to be answered as fitted');
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, record.Text__c, 'Expected the marker to stay in the field');
+			Assert.areEqual(1, recordResult.fieldsSkippedAsAlreadyMasked, 'Expected the record pass to skip the registered marker');
+		}
+	}
+
+	/**
+	 * @description Proves that a text made only of spaces is never registered and never remembered. Its hash is not
+	 * computed, so all such texts would share one key; the masker masks each of them as usual instead.
+	 */
+	@IsTest
+	private static void shouldNeverSkipOrRememberABlankText()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_REGEX, WHOLE_VALUE_PATTERN, WHOLE_VALUE_REPLACEMENT, null);
+			Foobar__c record = buildFoobarWithText(TEXT_WITHOUT_A_SECRET);
+			record.Text__c = SPACES_ONLY_TEXT;
+
+			UTIL_FrameworkMasker.registerMaskedFieldText(Foobar__c.Text__c, SAMPLE_CALLER, SPACES_ONLY_TEXT);
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forRecords(new List<SObject> {record}).calledFrom(SAMPLE_CALLER).apply().get(0);
+			UTIL_FrameworkMasker.MaskedValueAnswer blankAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, SAMPLE_CALLER, SPACES_ONLY_TEXT);
+			UTIL_FrameworkMasker.MaskedValueAnswer nullAnswer = UTIL_FrameworkMasker.takeMaskedValueAnswer(Foobar__c.Text__c, SAMPLE_CALLER, null);
+
+			Assert.areEqual(WHOLE_VALUE_REPLACEMENT, record.Text__c, 'Expected a text of spaces to be masked as usual');
+			Assert.areEqual(0, result.fieldsSkippedAsAlreadyMasked, 'Expected no skip for a text of spaces');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.NOT_SEEN, blankAnswer.state, 'Expected no answer for a text of spaces');
+			Assert.areEqual(UTIL_FrameworkMasker.MaskedValueState.NOT_SEEN, nullAnswer.state, 'Expected no answer for a missing value');
+		}
+	}
+
+	/**
 	 * @description Tests that a Regex-mode MaskingTarget fires when mask() is called for its field.
 	 */
 	@IsTest
@@ -687,6 +1475,691 @@ private class UTIL_FrameworkMasker_TEST
 
 			Assert.areEqual('TID:1234567890123456 recorded', result.maskedValue, 'Luhn-invalid 16-digit transaction ID must pass through in CreditCard mode');
 			Assert.areEqual(0, result.rulesMatched, 'No rules should have matched when the Luhn gate fails');
+		}
+	}
+
+	/**
+	 * @description The shipped rule that hides payment card numbers finds the real card number in a full-length text of
+	 * digits and spaces and hides it. The masking finishes without an error, although the text holds thousands of
+	 * card-shaped numbers.
+	 */
+	@IsTest
+	private static void shouldMaskTheCardInsideAFullLengthSpacedDigitWall()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt cardRule = registerShippedCardRuleOnApiCallRequest();
+			String value = buildSpacedDigitWallWithCard(SEL_ApiCall.REQUEST_LENGTH);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(value);
+
+			Assert.isFalse(result.hadErrors, 'Expected the card rule to finish without an error');
+			Assert.isFalse(result.maskedValue.contains(VISA_TEST_CARD), 'Expected the card number to be hidden');
+			Assert.isTrue(result.maskedValue.contains(cardRule.Replacement__c), 'Expected the card replacement in the masked text');
+		}
+	}
+
+	/**
+	 * @description The shipped card rule finishes on every long hostile text at the full length of the field, and hides
+	 * the expected number of numbers. In the texts of a digit and a separator, the numbers past the checking limit are
+	 * hidden without the Luhn check. In the text without separators the pattern finds nothing, and a card number placed in
+	 * it is found alone. Every 19-digit number and every number in a list of card numbers is hidden whole: no digit of
+	 * them is left in clear, also where a number crosses the end of a search piece.
+	 */
+	@IsTest
+	private static void shouldCompleteOnEveryHostileCardShape()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt cardRule = registerShippedCardRuleOnApiCallRequest();
+			Integer length = SEL_ApiCall.REQUEST_LENGTH;
+			Integer hiddenInASeparatedWall = NUMBERS_IN_A_FULL_SEPARATED_DIGIT_WALL - UTIL_String.LUHN_CANDIDATE_BUDGET;
+
+			assertCardRuleHides('a text of digits only', buildDigitWall(length), 0, cardRule);
+			assertCardRuleHides('digits and spaces', buildSpacedDigitWall(length), hiddenInASeparatedWall, cardRule);
+			assertCardRuleHides('digits and hyphens', buildHyphenatedDigitWall(length), hiddenInASeparatedWall, cardRule);
+			assertCardRuleHides('digits only with a card', buildDigitWallWithCard(length), 1, cardRule);
+			assertCardRuleHides('digits and spaces with a card', buildSpacedDigitWallWithCard(length), hiddenInASeparatedWall, cardRule);
+			assertCardRuleHides('digits and hyphens with a card', buildHyphenatedDigitWallWithCard(length), hiddenInASeparatedWall, cardRule);
+			String maskedGroups = assertCardRuleHides('19-digit numbers', buildNineteenDigitGroups(length), NUMBERS_IN_FULL_NINETEEN_DIGIT_GROUPS, cardRule);
+			String maskedCards = assertCardRuleHides('a list of card numbers', buildCardDump(length), NUMBERS_IN_A_FULL_CARD_DUMP, cardRule);
+
+			Assert.isFalse(maskedGroups.left(maskedGroups.length() - DIGITS_LEFT_AFTER_THE_LAST_GROUP).containsAny(DIGITS),
+					'Expected no digit of a 19-digit number to be left in clear');
+			String groupsTail = maskedGroups.right(DIGITS_LEFT_AFTER_THE_LAST_GROUP);
+			Assert.areEqual(NINETEEN_DIGIT_GROUP.left(DIGITS_LEFT_AFTER_THE_LAST_GROUP), groupsTail,
+					'Expected the text to end with the digits of the cut last number, got ' + groupsTail);
+			Assert.isFalse(maskedCards.containsAny(DIGITS), 'Expected no digit of a card number to be left in clear');
+		}
+	}
+
+	/**
+	 * @description The shipped secret-keys rule replaces the value of every one of the 9,001 keys named `token` in a
+	 * full-length list of objects, and finishes. The list has far more opening brackets than the line, so it is read one token at a time.
+	 * The masked text is longer than the field and is cut to its length afterwards.
+	 */
+	@IsTest
+	private static void shouldMaskEveryTokenInAFullLengthArray()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerShippedSecretKeysRuleOnApiCallRequest();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(buildTokenArray(SEL_ApiCall.REQUEST_LENGTH));
+
+			Assert.isFalse(result.hadErrors, 'Expected the secret-keys rule to finish without an error');
+			Assert.areEqual(TOKENS_IN_THE_FULL_TOKEN_LIST, result.valuesRedacted, 'Expected all 9,001 token values to be replaced');
+			Assert.isFalse(result.maskedValue.contains(TOKEN_VALUE_IN_CLEAR), 'Expected no token value to be left in clear');
+		}
+	}
+
+	/**
+	 * @description A JSON value nested 2,000 levels deep is masked, and the masking finishes. A whole-tree JSON reader
+	 * ends the transaction at this depth with an error no code can catch. The nest with a token at the bottom has the
+	 * token replaced. The nest without a key is stored unchanged. The texts are compared as text, because a test cannot
+	 * read them back as a tree either.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldCompleteOnADeepNestOfTwoThousandLevels()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			assertDeepNestsAreMasked(TWO_THOUSAND_LEVELS, 0, secretRule);
+		}
+	}
+
+	/**
+	 * @description A JSON value nested 21,000 levels deep, nearly the full length of the field, is masked, and the
+	 * masking finishes. The nest with a token at the bottom has the token replaced. The nest without a key, padded to
+	 * the full length, is stored unchanged.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldCompleteOnADeepNestOfTwentyOneThousandLevels()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			assertDeepNestsAreMasked(TWENTY_ONE_THOUSAND_LEVELS, SEL_ApiCall.REQUEST_LENGTH, secretRule);
+		}
+	}
+
+	/**
+	 * @description A secret key that holds a number has the number replaced, in a value read one token at a time.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldMaskASecretStoredAsANumber()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			String expected = '{"token":"' + secretRule.Replacement__c + '","keep":1}';
+
+			assertSecretKeysRuleMasksAboveTheLine('{"token":12345,"keep":1}', expected, 1);
+		}
+	}
+
+	/**
+	 * @description A secret key that holds a whole object has the whole object replaced, with every key inside it, in a
+	 * value read one token at a time. The key named `token` inside the object is not counted: it is gone with the
+	 * object.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldMaskASecretStoredAsANestedObject()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			String expected = '{"apikey":"' + secretRule.Replacement__c + '","keep":1}';
+
+			assertSecretKeysRuleMasksAboveTheLine('{"apikey":{"nested":{"x":[3]},"token":"inner"},"keep":1}', expected, 1);
+		}
+	}
+
+	/**
+	 * @description A secret key 61 levels deep is masked. The tree walk stops looking 50 levels deep, so the value is
+	 * built with more opening brackets than the line, which makes it read one token at a time, at any depth.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldMaskASecretAtDepthSixty()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			String deepSecret = NEST_LEVEL_OPENING.repeat(SIXTY_LEVELS) + DEEP_TOKEN_OBJECT + NEST_LEVEL_CLOSING.repeat(SIXTY_LEVELS);
+			String expected = NEST_LEVEL_OPENING.repeat(SIXTY_LEVELS) + '{"token":"' + secretRule.Replacement__c + '"}' + NEST_LEVEL_CLOSING.repeat(SIXTY_LEVELS);
+
+			assertSecretKeysRuleMasksAboveTheLine(deepSecret, expected, 1);
+		}
+	}
+
+	/**
+	 * @description A value that is text with JSON-like pairs in it takes the text search of the shipped secret-keys rule.
+	 * Every plain value under a secret key is replaced: a text, a text with spaces around its colon, a number, true and
+	 * null. The ordinary pair and the text around the pairs are kept.
+	 */
+	@IsTest
+	private static void shouldMaskEveryScalarSecretWhenAValueTakesTheTextPass()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			String masked = '"' + secretRule.Replacement__c + '"';
+			String value = 'login failed for {"password":"x", "secret" : "y", "token":12345, "bearer":true, "apikey":null, "user":"alice"} at step 2';
+			String expected = 'login failed for {"password":' + masked + ', "secret" : ' + masked + ', "token":' + masked + ', "bearer":' + masked + ', "apikey":' + masked
+					+ ', "user":"alice"} at step 2';
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(value);
+
+			Assert.isFalse(result.hadErrors, 'Expected the secret-keys rule to finish without an error');
+			Assert.areEqual(expected, result.maskedValue, 'Expected every plain secret value replaced');
+		}
+	}
+
+	/**
+	 * @description When the text search of the secret-keys rule puts the failure marker in place of a value, the marker is
+	 * final. A later Regex rule would replace the whole original value, but it does not run on the marker.
+	 */
+	@IsTest
+	private static void shouldKeepTheTextPassMarkerFinalWhenALaterRuleWouldMatch()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			MaskingRule__mdt laterRule = (MaskingRule__mdt)mockRuleBuilder(LATER_RULE_NAME, SEL_MaskingRule.MODE_REGEX, WHOLE_VALUE_PATTERN, WHOLE_VALUE_REPLACEMENT,
+					secretRule.Order__c + 1)
+					.withoutInsertion(true)
+					.build();
+			registerMockTargetOn(ApiCall__c.SObjectType, laterRule, UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.Request__c), null);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask('{"token":{"k":"v"}} sent');
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the marker to stay in place of the value');
+		}
+	}
+
+	/**
+	 * @description A value that starts like JSON but has text after its end takes the text search. An object under a
+	 * secret key cannot be hidden safely there, so the value gets the failure marker.
+	 */
+	@IsTest
+	private static void shouldMarkAValueThatStartsLikeJsonButHoldsAnObjectUnderASecretKeyAndTrailingText()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerShippedSecretKeysRuleOnApiCallRequest();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask('{"token":{"k":"v"}}x');
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the failure marker');
+		}
+	}
+
+	/**
+	 * @description A value that starts like JSON but has text after its end takes the text search, which replaces a
+	 * number under a secret key and keeps the text after the JSON.
+	 */
+	@IsTest
+	private static void shouldMaskANumberUnderASecretKeyInAValueThatStartsLikeJsonWithTrailingText()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask('{"token":12345} x');
+
+			Assert.isFalse(result.hadErrors, 'Expected the secret-keys rule to finish without an error');
+			Assert.areEqual('{"token":"' + secretRule.Replacement__c + '"} x', result.maskedValue, 'Expected the number replaced');
+		}
+	}
+
+	/**
+	 * @description When the text search puts the failure marker in place of a value, the masking counts that as a value
+	 * the rule handled: the rule is counted as matched, one value is counted as replaced, and no error is recorded. The
+	 * marker hides the whole value, so nothing secret is saved, and the rule did not fail.
+	 */
+	@IsTest
+	private static void shouldCountTheTextPassMarkerAsAHandledValue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask('{"token":{"k":"v"}}x');
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the failure marker');
+			Assert.areEqual(1, result.rulesMatched, 'Expected the rule counted as matched, got ' + result.rulesMatched);
+			Assert.areEqual(1, result.valuesRedacted, 'Expected one value counted as replaced, got ' + result.valuesRedacted);
+			Assert.isFalse(result.hadErrors, 'Expected no error recorded for the marker');
+			Assert.isTrue(result.matchedRuleDeveloperNames.contains(secretRule.DeveloperName), 'Expected the secret-keys rule named as matched');
+		}
+	}
+
+	/**
+	 * @description A full stop right after the closing quote of a secret text is not a character that may end a JSON
+	 * value, so the text search cannot tell where the secret ends, and the whole value gets the failure marker. A full
+	 * stop after the closing brace is outside the pair, so there the secret text is replaced in place.
+	 */
+	@IsTest
+	private static void shouldMarkTheWholeValueWhenAFullStopFollowsTheSecretText()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			UTIL_FrameworkMasker.FieldMasker masker = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c);
+
+			UTIL_FrameworkMasker.MaskingResult stopAfterTheQuote = masker.mask('{"password":"x".}');
+			UTIL_FrameworkMasker.MaskingResult stopAfterTheBrace = masker.mask('{"password":"x"}.');
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, stopAfterTheQuote.maskedValue, 'Expected the failure marker for a full stop after the quote');
+			Assert.areEqual('{"password":"' + secretRule.Replacement__c + '"}.', stopAfterTheBrace.maskedValue, 'Expected the secret replaced for a full stop after the brace');
+		}
+	}
+
+	/**
+	 * @description A value read one token at a time in which no key matches is stored exactly as it came: the very same
+	 * text, with its spaces, line break, number written as `1.00`, key written twice and escapes. The text holds a key
+	 * that only starts with a secret key name, so the rule does read the whole value.
+	 */
+	@IsTest
+	private static void shouldStoreAValueWithNoMatchingKeyByteForByte()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerShippedSecretKeysRuleOnApiCallRequest();
+			String value = buildAboveTheStructureLine('{ "user" : "alice",\n  "amount": 1.00, "dup":1, "dup":2, "esc":"caf\\u00e9 \\/", "token_hint":"x" }');
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(value);
+
+			Object storedValue = result.maskedValue;
+			Object originalValue = value;
+			Assert.isTrue(storedValue === originalValue, 'Expected the very same text to be stored, byte for byte');
+			Assert.areEqual(0, result.rulesMatched, 'Expected no rule to match');
+			Assert.isFalse(result.hadErrors, 'Expected no error');
+		}
+	}
+
+	/**
+	 * @description The shipped token rule replaces every token in a plain text of 2,000,000 characters, and the masking
+	 * finishes. One search over a text this long stops at the platform limit and ends the transaction, so the rule
+	 * searches it in pieces.
+	 */
+	@IsTest
+	private static void shouldMaskEveryTokenInALongestPlainTextValue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt tokenRule = shippedRule(SEL_MaskingRule.RULE_MASK_JWT);
+			registerMockTargetOn(ApiCall__c.SObjectType, tokenRule, UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.Request__c), null);
+			Integer fillerLength = (LONGEST_VALUE_LENGTH - 3 * WEB_TOKEN.length()) / 2;
+			String filler = DIGIT_AND_SPACE.repeat(fillerLength / DIGIT_AND_SPACE.length());
+			String value = WEB_TOKEN + filler + WEB_TOKEN + filler + WEB_TOKEN;
+			value += UTIL_String.SPACE.repeat(LONGEST_VALUE_LENGTH - value.length());
+			filler = null;
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).maskAndReturnWholeText(value);
+
+			value = null;
+			Assert.isFalse(result.hadErrors, 'Expected the token rule to finish without an error');
+			Assert.areEqual(3, result.uncutMaskedValue.countMatches(tokenRule.Replacement__c), 'Expected the three tokens replaced');
+			Assert.isFalse(result.uncutMaskedValue.contains(WEB_TOKEN.left(10)), 'Expected no token left in clear');
+		}
+	}
+
+	/**
+	 * @description In a synchronous transaction, a JSON value just longer than
+	 * `UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE` takes the quick text search of the secret-keys rule instead
+	 * of being read as JSON. The text search cannot hide the object under the secret key safely, so the whole value gets
+	 * the failure marker. Nothing secret is saved.
+	 */
+	@IsTest
+	private static void shouldMarkJsonJustOverTheLineInASynchronousTransaction()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerShippedSecretKeysRuleOnApiCallRequest();
+			String value = buildObjectUnderASecretKey(UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE + 1);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).maskAndReturnWholeText(value);
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the failure marker in place of the value');
+		}
+	}
+
+	/**
+	 * @description In a synchronous transaction, a JSON value exactly as long as
+	 * `UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE` is still read as JSON: the object under the secret key is
+	 * replaced, and the rest of the value is kept.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldMaskJsonAtTheLinePreciselyInASynchronousTransaction()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			String value = buildObjectUnderASecretKey(UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).maskAndReturnWholeText(value);
+
+			assertObjectUnderTheSecretKeyReplaced(result, secretRule);
+		}
+	}
+
+	/**
+	 * @description In a Queueable, an asynchronous transaction, a JSON value longer than
+	 * `UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE` is still read as JSON: the object under the secret key is
+	 * replaced, and the rest of the value is kept.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.KernNoRawEnqueueJob,PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldMaskJsonOverTheLinePreciselyInAQueueable()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+
+			Test.startTest();
+
+			System.enqueueJob(new MaskInQueueable(buildObjectUnderASecretKey(UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE + 1)));
+
+			Test.stopTest();
+
+			assertObjectUnderTheSecretKeyReplaced(resultMaskedInQueueable, secretRule);
+		}
+	}
+
+	/**
+	 * @description In a synchronous transaction, a JSON value longer than
+	 * `UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE` takes the quick text search, which reads a key written with
+	 * JSON escapes by the name it stands for. A key spelled with a backslash, the letter u and four hexadecimal digits, and a key
+	 * with an escaped quote inside it, both have their values replaced. The keys are kept as they were written, which
+	 * shows that the text search, and not the JSON reader, masked the value.
+	 */
+	@IsTest
+	private static void shouldMaskSecretKeysWrittenWithEscapesOverTheLineInASynchronousTransaction()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerMockJsonKeyRuleOnApiCallRequest(TEST_RULE_NAME, ESCAPED_KEY_NAMES_PATTERN, PASSWORD_REPLACEMENT, FIRST_RULE_ORDER, null);
+			Integer paddingLength = UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE + 1 - KEYS_WRITTEN_WITH_ESCAPES_HEAD.length() - PADDED_OBJECT_TAIL.length();
+			String value = KEYS_WRITTEN_WITH_ESCAPES_HEAD + PADDING_CHARACTER.repeat(paddingLength) + PADDED_OBJECT_TAIL;
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).maskAndReturnWholeText(value);
+
+			String maskedText = result.uncutMaskedValue ?? result.maskedValue;
+			Assert.isFalse(result.hadErrors, 'Expected the rule to finish without an error');
+			Assert.isFalse(maskedText.contains('hunter'), 'Expected no secret left in clear');
+			Assert.isTrue
+					(
+							maskedText.startsWith('{"p\\u0061ssword":"' + PASSWORD_REPLACEMENT + '","pass\\"word":"' + PASSWORD_REPLACEMENT + '","' + PADDING_KEY + '":"'),
+							'Expected both values replaced and both keys kept as written, got ' + maskedText.left(80)
+					);
+		}
+	}
+
+	/**
+	 * @description In a synchronous transaction, a JSON value longer than
+	 * `UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE` takes the quick text search, which reads the value in pieces.
+	 * A secret key with every letter written as a JSON escape is 74 characters long in quotes. When it crosses the end of
+	 * the first piece, its value is still replaced: the next piece starts `UTIL_String.JSON_TEXT_SEARCH_PIECE_OVERLAP`
+	 * characters before that end, so it holds the whole key.
+	 */
+	@IsTest
+	private static void shouldMaskALongEscapedKeyAcrossAPieceEndOverTheLineInASynchronousTransaction()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerMockJsonKeyRuleOnApiCallRequest(TEST_RULE_NAME, LONG_KEY_NAME_PATTERN, PASSWORD_REPLACEMENT, FIRST_RULE_ORDER, null);
+			String quotedKey = '"' + CLIENT_SECRET_WRITTEN_WITH_ESCAPES + '"';
+			String head = '{"' + PADDING_KEY + '":"';
+			String paddingEnd = '",';
+			Integer keyStart = UTIL_String.JSON_TEXT_SEARCH_PIECE_LENGTH - quotedKey.length() + KEY_CHARACTERS_AFTER_THE_PIECE_END;
+			String beforeKey = head + PADDING_CHARACTER.repeat(keyStart - head.length() - paddingEnd.length()) + paddingEnd;
+			String pair = quotedKey + ':"hunter2","' + PADDING_KEY + '":"';
+			Integer tailLength = UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE + 1 - beforeKey.length() - pair.length() - PADDED_OBJECT_TAIL.length();
+			String value = beforeKey + pair + PADDING_CHARACTER.repeat(tailLength) + PADDED_OBJECT_TAIL;
+			Assert.areEqual(keyStart, value.indexOf(quotedKey), 'Expected the key to start where it crosses the end of the first piece');
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).maskAndReturnWholeText(value);
+
+			String maskedText = result.uncutMaskedValue ?? result.maskedValue;
+			Assert.isFalse(result.hadErrors, 'Expected the rule to finish without an error');
+			Assert.isFalse(maskedText.contains('hunter'), 'Expected no secret left in clear');
+			Assert.isTrue(maskedText.contains(quotedKey + ':"' + PASSWORD_REPLACEMENT + '"'), 'Expected the value replaced and the key kept as written');
+		}
+	}
+
+	/**
+	 * @description Text that does not start and end like a JSON object or list goes to the text search for
+	 * `"key":"value"` pairs, and the masking finishes. The full-length token list cut inside its last value is such a
+	 * text: every complete token value in it is replaced, and the masked text is cut to the field length. A short cut list
+	 * shows the whole result: the last value has no closing quote and stays as it is.
+	 */
+	@IsTest
+	private static void shouldSendTextThatIsNotJsonToTheTextPass()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			UTIL_FrameworkMasker.FieldMasker masker = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c);
+
+			UTIL_FrameworkMasker.MaskingResult cutList = masker.mask(buildTokenArrayCut(SEL_ApiCall.REQUEST_LENGTH));
+			UTIL_FrameworkMasker.MaskingResult shortCutList = masker.mask('[{"token":"abc"},{"user":"x","note":"hel');
+
+			Assert.isFalse(cutList.hadErrors, 'Expected the text search to finish without an error');
+			Assert.areEqual(1, cutList.rulesMatched, 'Expected the secret-keys rule to match the cut list');
+			Assert.isFalse(cutList.maskedValue.contains(TOKEN_VALUE_IN_CLEAR), 'Expected no complete token value to be left in clear');
+			Assert.areEqual('[{"token":"' + secretRule.Replacement__c + '"},{"user":"x","note":"hel', shortCutList.maskedValue,
+					'Expected the complete token value replaced and the rest of the cut text left as it is');
+		}
+	}
+
+	/**
+	 * @description A full-length JSON object in which no secret key name appears anywhere is stored unchanged, as the
+	 * very same text, and no rule is counted as matched. The key name search finds no secret key name in the text.
+	 */
+	@IsTest
+	private static void shouldSkipTheRuleWhenNoKeyNameAppearsInTheText()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			String value = buildManyKeys(SEL_ApiCall.REQUEST_LENGTH);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(value);
+
+			Object storedValue = result.maskedValue;
+			Object originalValue = value;
+			Assert.isFalse(UTIL_String.canHoldMatchingJsonKey(value, secretRule.Pattern__c), 'Expected the key name search to find no secret key name');
+			Assert.isTrue(storedValue === originalValue, 'Expected the very same text to be stored');
+			Assert.areEqual(0, result.rulesMatched, 'Expected no rule to match');
+		}
+	}
+
+	/**
+	 * @description A secret key name written with a Unicode escape does not appear as it reads in the raw text: here
+	 * `password` has its letter a written as a backslash, the letter u and the hexadecimal digits 0061. The rule must still read
+	 * the value, and masks the key, in a value read as a tree and in a value read one token at a time.
+	 */
+	@IsTest
+	private static void shouldNotSkipTheRuleWhenTheTextHoldsAUnicodeEscape()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			String escapedSecret = '{"p\\u0061ssword":"hunter2"}';
+			String expected = '{"password":"' + secretRule.Replacement__c + '"}';
+
+			UTIL_FrameworkMasker.MaskingResult treeResult = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(escapedSecret);
+
+			Assert.areEqual(JSON.deserializeUntyped(expected), JSON.deserializeUntyped(treeResult.maskedValue), 'Expected the escaped key masked in the tree');
+			assertSecretKeysRuleMasksAboveTheLine(escapedSecret, expected, 1);
+		}
+	}
+
+	/**
+	 * @description Full-length texts of a digit and a space, or a digit and a hyphen, are stored unchanged by the
+	 * secret-keys rule. They do not start like a JSON object or list, so they go to the text search, which finds no
+	 * key in them, and the masking finishes.
+	 */
+	@IsTest
+	private static void shouldLeaveTheSpacedDigitShapesUnchangedThroughTheTextPass()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerShippedSecretKeysRuleOnApiCallRequest();
+			UTIL_FrameworkMasker.FieldMasker masker = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c);
+			String spacedDigits = buildSpacedDigitWall(SEL_ApiCall.REQUEST_LENGTH);
+			String hyphenatedDigits = buildHyphenatedDigitWall(SEL_ApiCall.REQUEST_LENGTH);
+
+			Assert.areEqual(spacedDigits, masker.mask(spacedDigits).maskedValue, 'Expected digits and spaces to be stored unchanged');
+			Assert.areEqual(hyphenatedDigits, masker.mask(hyphenatedDigits).maskedValue, 'Expected digits and hyphens to be stored unchanged');
+		}
+	}
+
+	/**
+	 * @description A value that is one JSON text or one JSON number, not an object or list, goes to the text search and
+	 * is stored unchanged: it holds no key.
+	 */
+	@IsTest
+	private static void shouldSendATopLevelScalarToTheTextPass()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerShippedSecretKeysRuleOnApiCallRequest();
+			UTIL_FrameworkMasker.FieldMasker masker = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c);
+			String scalarText = '"secret"';
+			String scalarNumber = '42';
+
+			UTIL_FrameworkMasker.MaskingResult textResult = masker.mask(scalarText);
+			UTIL_FrameworkMasker.MaskingResult numberResult = masker.mask(scalarNumber);
+
+			Assert.areEqual(scalarText, textResult.maskedValue, 'Expected a JSON text alone to be stored unchanged');
+			Assert.areEqual(scalarNumber, numberResult.maskedValue, 'Expected a JSON number alone to be stored unchanged');
+			Assert.areEqual(0, textResult.rulesMatched + numberResult.rulesMatched, 'Expected no rule to match');
+		}
+	}
+
+	/**
+	 * @description A value that starts and ends like a JSON object but is broken inside goes to the text search, which
+	 * masks the complete `"key":"value"` pairs, both in a value read as a tree and in a value read one token at a time.
+	 */
+	@IsTest
+	private static void shouldSendBrokenJsonToTheTextPass()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			UTIL_FrameworkMasker.FieldMasker masker = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c);
+			String broken = '{"token":"abc",,"user":"x"}';
+			String expected = '{"token":"' + secretRule.Replacement__c + '",,"user":"x"}';
+
+			UTIL_FrameworkMasker.MaskingResult treeResult = masker.mask(broken);
+			UTIL_FrameworkMasker.MaskingResult streamResult = masker.mask(buildAboveTheStructureLine(broken));
+
+			Assert.areEqual(expected, treeResult.maskedValue, 'Expected the text search to mask the broken value');
+			Assert.areEqual(buildAboveTheStructureLine(expected), streamResult.maskedValue, 'Expected the text search to mask the broken long value');
+			Assert.areEqual(1, streamResult.rulesMatched, 'Expected the secret-keys rule to match the broken long value');
+		}
+	}
+
+	/**
+	 * @description Two JsonKey rules on a value read one token at a time run in rule order, each on the output of the
+	 * rule before. The later rule wins where both patterns match a key, and each rule's own replacements are counted.
+	 */
+	@IsTest
+	private static void shouldApplyJsonKeyRulesInOrderOnAValueReadAsAStream()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerMockJsonKeyRuleOnApiCallRequest('FirstJsonKeyRule', '^(access_token|token)$', 'A', 10, null);
+			registerMockJsonKeyRuleOnApiCallRequest('SecondJsonKeyRule', '^(access_token|session)$', 'B', 20, null);
+			String value = buildAboveTheStructureLine('{"access_token":"a","session":"c","token":"d","user":"u"}');
+			String expected = buildAboveTheStructureLine('{"access_token":"B","session":"B","token":"A","user":"u"}');
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(value);
+
+			Assert.areEqual(expected, result.maskedValue, 'Expected both rules applied in order');
+			Assert.areEqual(2, result.rulesMatched, 'Expected both rules to match');
+			Assert.areEqual(4, result.valuesRedacted, 'Expected two replacements from each rule');
+		}
+	}
+
+	/**
+	 * @description On a value read as a tree, a JsonKey rule whose key name is not in the text is skipped, and the next
+	 * rule still reads the value and masks it.
+	 */
+	@IsTest
+	private static void shouldRunTheNextJsonKeyRuleAfterASkippedOneOnATree()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerMockJsonKeyRuleOnApiCallRequest('SkippedJsonKeyRule', '^session$', 'S', 10, null);
+			registerMockJsonKeyRuleOnApiCallRequest('MatchingJsonKeyRule', '^token$', 'T', 20, null);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask('{"token":"d","user":"u"}');
+
+			Assert.areEqual(JSON.deserializeUntyped('{"token":"T","user":"u"}'), JSON.deserializeUntyped(result.maskedValue), 'Expected the second rule to mask');
+			Assert.areEqual(1, result.rulesMatched, 'Expected only the second rule to match');
+		}
+	}
+
+	/**
+	 * @description A JsonKey rule with a blank pattern does not stop the masking of a value read as a tree with an error.
+	 * The rule runs, fails, and its failure is recorded for the rule.
+	 */
+	@IsTest
+	private static void shouldRecordAFailureForAJsonKeyRuleWithABlankPatternOnATree()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerBlankPatternJsonKeyRuleOnApiCallRequest();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask('{"password":"x"}');
+
+			Assert.areEqual(new List<String> {TEST_RULE_NAME}, result.failedRuleDeveloperNames, 'Expected the rule failure recorded');
+		}
+	}
+
+	/**
+	 * @description A JsonKey rule with a blank pattern does not stop the masking of a value read one token at a time with
+	 * an error. The rule runs, fails, and its failure is recorded for the rule.
+	 */
+	@IsTest
+	private static void shouldRecordAFailureForAJsonKeyRuleWithABlankPatternOnAStream()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerBlankPatternJsonKeyRuleOnApiCallRequest();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(buildAboveTheStructureLine('{"password":"x"}'));
+
+			Assert.areEqual(new List<String> {TEST_RULE_NAME}, result.failedRuleDeveloperNames, 'Expected the rule failure recorded');
+		}
+	}
+
+	/**
+	 * @description A JsonKey rule whose pattern cannot compile fails on a value read one token at a time, and the
+	 * failure is recorded for the rule, as on a value read as a tree.
+	 */
+	@IsTest
+	private static void shouldCaptureAJsonKeyRuleFailureOnAValueReadAsAStream()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerMockJsonKeyRuleOnApiCallRequest(TEST_RULE_NAME, BROKEN_PATTERN, UNUSED_REPLACEMENT, 10, null);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(buildAboveTheStructureLine('{"password":"x"}'));
+
+			Assert.isTrue(result.hadErrors, 'Expected the rule failure to be recorded');
+			Assert.areEqual(new List<String> {TEST_RULE_NAME}, result.failedRuleDeveloperNames, 'Expected the failing rule to be named');
+			Assert.areEqual(0, result.rulesMatched, 'Expected no rule to count as matched');
 		}
 	}
 
@@ -917,6 +2390,556 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
+	 * @description A Write Failure Marker rule whose pattern cannot compile can never mask anything. The value it fails
+	 * on gets the marker, and so does every later value it covers in the same transaction. Each of those results
+	 * records the error, so a caller that reads the results sees every marked value.
+	 */
+	@IsTest
+	private static void shouldMarkEveryValueWhenAWriteFailureMarkerRuleCannotCompile()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextWithFailureAction(SEL_MaskingRule.MODE_REGEX, BROKEN_PATTERN, UNUSED_REPLACEMENT, null, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+
+			UTIL_FrameworkMasker.MaskingResult first = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('first');
+			UTIL_FrameworkMasker.MaskingResult second = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('second');
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, first.maskedValue, 'Expected the value that failed to carry the marker');
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, second.maskedValue, 'Expected a later value of a rule that cannot compile to carry the marker');
+			Assert.isTrue(second.hadErrors, 'Expected the later marked value to report an error');
+			Assert.isTrue(second.failedRuleDeveloperNames.contains(TEST_RULE_NAME), 'Expected the later marked value to name the rule that failed');
+		}
+	}
+
+	/**
+	 * @description On the record path, a Write Failure Marker regex rule that cannot compile marks the second record of
+	 * the batch too. It is not skipped after it failed on the first record.
+	 */
+	@IsTest
+	private static void shouldMarkBothRecordsWhenAWriteFailureMarkerRegexRuleCannotCompile()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextWithFailureAction(SEL_MaskingRule.MODE_REGEX, BROKEN_PATTERN, UNUSED_REPLACEMENT, null, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+
+			Foobar__c firstRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Text__c, 'first')
+					.withoutInsertion()
+					.build();
+			Foobar__c secondRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Text__c, 'second')
+					.withoutInsertion()
+					.build();
+
+			List<UTIL_FrameworkMasker.MaskingResult> results = UTIL_FrameworkMasker.forRecords(new List<SObject> {firstRecord, secondRecord}).apply();
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, firstRecord.Text__c, 'Expected the first record to carry the marker');
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, secondRecord.Text__c, 'Expected the second record to carry the marker');
+			Assert.isTrue(results.get(1).hadErrors, 'Expected the second record to report an error');
+		}
+	}
+
+	/**
+	 * @description On the JSON path, a Write Failure Marker JsonKey rule that cannot compile marks the second record of
+	 * the batch too. It is not skipped after it failed on the first record.
+	 */
+	@IsTest
+	private static void shouldMarkBothRecordsWhenAWriteFailureMarkerJsonKeyRuleCannotCompile()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextAreaWithFailureAction(SEL_MaskingRule.MODE_JSON_KEY, BROKEN_PATTERN, UNUSED_REPLACEMENT, null, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+
+			Foobar__c firstRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.TextArea__c, '{"password":"hunter2"}')
+					.withoutInsertion()
+					.build();
+			Foobar__c secondRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.TextArea__c, '{"password":"other"}')
+					.withoutInsertion()
+					.build();
+
+			List<UTIL_FrameworkMasker.MaskingResult> results = UTIL_FrameworkMasker.forRecords(new List<SObject> {firstRecord, secondRecord}).apply();
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, firstRecord.TextArea__c, 'Expected the first record to carry the marker');
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, secondRecord.TextArea__c, 'Expected the second record to carry the marker');
+			Assert.isTrue(results.get(1).hadErrors, 'Expected the second record to report an error');
+		}
+	}
+
+	/**
+	 * @description On the JSON path, the failure marker is final. The first JSON key rule cannot compile and puts the
+	 * marker in place of the value. The second rule would match the password key. Its masked JSON must not be written
+	 * over the marker.
+	 */
+	@IsTest
+	private static void shouldKeepTheMarkerWhenALaterJsonKeyRuleMatchesInTheSameBatch()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String textAreaField = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.TextArea__c);
+			mockTarget
+					(
+							textAreaField,
+							SEL_MaskingRule.MODE_JSON_KEY,
+							BROKEN_PATTERN,
+							UNUSED_REPLACEMENT,
+							null,
+							MARKER_RULE_NAME,
+							FIRST_RULE_ORDER,
+							SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER
+					);
+			mockTarget(textAreaField, SEL_MaskingRule.MODE_JSON_KEY, PASSWORD_KEY_PATTERN, PASSWORD_REPLACEMENT, null, LATER_RULE_NAME, SECOND_RULE_ORDER, null);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c).mask(PASSWORD_JSON);
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the marker to survive a later rule that matched');
+			Assert.isFalse(result.matchedRuleDeveloperNames.contains(LATER_RULE_NAME), 'Expected the later rule not to run on the marked value');
+			Assert.areEqual(0, result.rulesMatched, 'Expected no rule to count a match on a marked value');
+		}
+	}
+
+	/**
+	 * @description On the JSON path, the failure marker is final even when an earlier rule has already changed the
+	 * JSON. The first JSON key rule works and masks the password. The second rule cannot compile and puts the marker
+	 * in place of the value. The value must stay the marker: the masked JSON from the first rule must not be written
+	 * over it at the end. This order needs its own test, because the stop at the start of each rule cannot help here:
+	 * the marker is written by the last rule, after the stop was checked. Only the check before the JSON is written
+	 * back keeps the marker.
+	 */
+	@IsTest
+	private static void shouldKeepTheMarkerWhenAnEarlierJsonKeyRuleMatchedBeforeALaterRuleFailed()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String textAreaField = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.TextArea__c);
+			mockTarget(textAreaField, SEL_MaskingRule.MODE_JSON_KEY, PASSWORD_KEY_PATTERN, PASSWORD_REPLACEMENT, null, TEST_RULE_NAME, FIRST_RULE_ORDER, null);
+			mockTarget
+					(
+							textAreaField,
+							SEL_MaskingRule.MODE_JSON_KEY,
+							BROKEN_PATTERN,
+							UNUSED_REPLACEMENT,
+							null,
+							LATER_RULE_NAME,
+							SECOND_RULE_ORDER,
+							SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER
+					);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c).mask(PASSWORD_JSON);
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the marker, not the JSON the earlier rule masked');
+			Assert.isTrue(result.hadErrors, 'Expected the result to report an error');
+			Assert.isTrue(result.failedRuleDeveloperNames.contains(LATER_RULE_NAME), 'Expected the result to name the later rule as failed');
+			Assert.isTrue(result.matchedRuleDeveloperNames.contains(TEST_RULE_NAME), 'Expected the earlier rule to have run and matched');
+		}
+	}
+
+	/**
+	 * @description On the JSON path, a Block DML JSON key rule that comes after the marker rule is not run on the
+	 * marked value, because the marker holds no secret. The same rule still refuses the next JSON value that is not
+	 * marked. The Block DML rule has two targets: one on TextArea__c, after the marker rule, and one on Text__c, where
+	 * it is the only rule. This shape keeps both checks in one transaction, so the test proves the skip on the marked
+	 * value did not turn the rule off.
+	 */
+	@IsTest
+	private static void shouldNotRunALaterBlockDmlJsonKeyRuleOnAMarkedValueButRefuseTheNextUnmarkedOne()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String textAreaField = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.TextArea__c);
+			mockTarget
+					(
+							textAreaField,
+							SEL_MaskingRule.MODE_JSON_KEY,
+							BROKEN_PATTERN,
+							UNUSED_REPLACEMENT,
+							null,
+							MARKER_RULE_NAME,
+							FIRST_RULE_ORDER,
+							SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER
+					);
+
+			MaskingRule__mdt blockRule = (MaskingRule__mdt)mockRuleBuilder(LATER_RULE_NAME, SEL_MaskingRule.MODE_JSON_KEY, BROKEN_PATTERN, UNUSED_REPLACEMENT, SECOND_RULE_ORDER)
+					.withOverride(MaskingRule__mdt.FailureAction__c, SEL_MaskingRule.FAILURE_BLOCK_DML)
+					.withoutInsertion(true)
+					.build();
+			registerMockTarget(blockRule, textAreaField, null);
+			registerMockTarget(blockRule, UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c), null);
+
+			UTIL_FrameworkMasker.MaskingResult marked = UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c).mask(PASSWORD_JSON);
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, marked.maskedValue, 'Expected the marked JSON value to keep the marker');
+
+			try
+			{
+				UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(PASSWORD_JSON);
+				Assert.fail('Expected the Block DML rule to refuse the next JSON value that is not marked');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, UTIL_Exceptions.MaskingBlockedException.class, 'Expected a MaskingBlockedException for the unmarked JSON value');
+			}
+		}
+	}
+
+	/**
+	 * @description A JSON key rule also runs on a value that is not JSON, and there too the failure marker is final.
+	 * Both rules are Write Failure Marker JSON key rules whose pattern cannot compile. Masking a JSON value first, on
+	 * each field, makes the framework learn that each pattern is broken. The later rule has its own target on Text__c
+	 * for this reason, because on TextArea__c it never runs after the marker. Then a plain value on TextArea__c gets
+	 * the marker from the first rule. The later rule must not run on the marker, so the result names only the first
+	 * rule as failed.
+	 */
+	@IsTest
+	private static void shouldKeepTheMarkerWhenALaterJsonKeyRuleMeetsAValueThatIsNotJson()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String textAreaField = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.TextArea__c);
+			mockTarget
+					(
+							textAreaField,
+							SEL_MaskingRule.MODE_JSON_KEY,
+							BROKEN_PATTERN,
+							UNUSED_REPLACEMENT,
+							null,
+							MARKER_RULE_NAME,
+							FIRST_RULE_ORDER,
+							SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER
+					);
+
+			MaskingRule__mdt laterRule = (MaskingRule__mdt)mockRuleBuilder(LATER_RULE_NAME, SEL_MaskingRule.MODE_JSON_KEY, BROKEN_PATTERN, UNUSED_REPLACEMENT, SECOND_RULE_ORDER)
+					.withOverride(MaskingRule__mdt.FailureAction__c, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER)
+					.withoutInsertion(true)
+					.build();
+			registerMockTarget(laterRule, textAreaField, null);
+			registerMockTarget(laterRule, UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c), null);
+
+			UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c).mask(PASSWORD_JSON);
+			UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(PASSWORD_JSON);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c).mask(PLAIN_VALUE);
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the plain value to carry the marker');
+			Assert.isTrue(result.failedRuleDeveloperNames.contains(MARKER_RULE_NAME), 'Expected the result to name the rule that put the marker');
+			Assert.isFalse(result.failedRuleDeveloperNames.contains(LATER_RULE_NAME), 'Expected the later rule not to run on the marker');
+		}
+	}
+
+	/**
+	 * @description On the text path, the failure marker is final. The first rule cannot compile and puts the marker in
+	 * place of the value. The second rule matches any text and would replace the marker. It must not run on the marker.
+	 */
+	@IsTest
+	private static void shouldKeepTheMarkerWhenALaterRegexRuleWouldReplaceTheWholeField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText
+					(
+							SEL_MaskingRule.MODE_REGEX,
+							BROKEN_PATTERN,
+							UNUSED_REPLACEMENT,
+							null,
+							MARKER_RULE_NAME,
+							FIRST_RULE_ORDER,
+							SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER
+					);
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_REGEX, WHOLE_VALUE_PATTERN, WHOLE_VALUE_REPLACEMENT, null, LATER_RULE_NAME, SECOND_RULE_ORDER);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(PLAIN_VALUE);
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the marker to end the pass for that value');
+		}
+	}
+
+	/**
+	 * @description A Block DML rule that comes after the marker rule is not run on the marked value, because the marker
+	 * holds no secret. The same rule still refuses the next value that is not marked. The Block DML rule has two
+	 * targets: one on Text__c, after the marker rule, and one on TextArea__c, where it is the only rule. This shape
+	 * keeps both checks in one transaction, so the test proves the skip on the marked value did not turn the rule off.
+	 */
+	@IsTest
+	private static void shouldNotRunALaterBlockDmlRuleOnAMarkedValueButRefuseTheNextUnmarkedOne()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText
+					(
+							SEL_MaskingRule.MODE_REGEX,
+							BROKEN_PATTERN,
+							UNUSED_REPLACEMENT,
+							null,
+							MARKER_RULE_NAME,
+							FIRST_RULE_ORDER,
+							SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER
+					);
+
+			MaskingRule__mdt blockRule = (MaskingRule__mdt)mockRuleBuilder(LATER_RULE_NAME, SEL_MaskingRule.MODE_REGEX, BROKEN_PATTERN, UNUSED_REPLACEMENT, SECOND_RULE_ORDER)
+					.withOverride(MaskingRule__mdt.FailureAction__c, SEL_MaskingRule.FAILURE_BLOCK_DML)
+					.withoutInsertion(true)
+					.build();
+			registerMockTarget(blockRule, UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c), null);
+			registerMockTarget(blockRule, UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.TextArea__c), null);
+
+			UTIL_FrameworkMasker.MaskingResult marked = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(PLAIN_VALUE);
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, marked.maskedValue, 'Expected the marked value to keep the marker');
+
+			try
+			{
+				UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c).mask(SAMPLE_VALUE);
+				Assert.fail('Expected the Block DML rule to refuse the next value that is not marked');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, UTIL_Exceptions.MaskingBlockedException.class, 'Expected a MaskingBlockedException for the unmarked value');
+			}
+		}
+	}
+
+	/**
+	 * @description A Write Failure Marker rule whose pattern compiles, but which fails on one value, marks only that
+	 * value. The rule keeps running: it leaves a value it does not match, and it marks the next value it fails on.
+	 * The replacement names a second group the pattern does not have, which fails only on a value the pattern matches.
+	 */
+	@IsTest
+	private static void shouldMarkOnlyTheValueAWriteFailureMarkerRuleFailsOn()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextWithFailureAction(SEL_MaskingRule.MODE_REGEX, ONE_GROUP_PATTERN, SECOND_GROUP_REPLACEMENT, null, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+
+			UTIL_FrameworkMasker.MaskingResult first = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('xxaab');
+			UTIL_FrameworkMasker.MaskingResult second = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('nothing here');
+			UTIL_FrameworkMasker.MaskingResult third = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('aab again');
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, first.maskedValue, 'Expected the value the rule failed on to carry the marker');
+			Assert.areEqual('nothing here', second.maskedValue, 'Expected the rule to keep running and leave a value it does not match');
+			Assert.isFalse(second.hadErrors, 'Expected no error on a value the rule handled');
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, third.maskedValue, 'Expected a second matching value to be marked, not skipped');
+			Assert.isTrue(third.hadErrors, 'Expected the second matching value to report an error');
+		}
+	}
+
+	/**
+	 * @description After a Write Failure Marker rule is known to be broken, a blank or null value stays as it is. There
+	 * is nothing in it to hide, so it does not get the marker. That holds for a value that was blank from the start,
+	 * and for a value an earlier rule left blank.
+	 */
+	@IsTest
+	private static void shouldLeaveABlankValueBlankAfterAWriteFailureMarkerRuleBroke()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_EXACT_MATCH, ERASED_VALUE, UTIL_String.EMPTY, null, 'ErasingRule', 10);
+			mockTarget
+					(
+							UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c),
+							SEL_MaskingRule.MODE_REGEX,
+							BROKEN_PATTERN,
+							UNUSED_REPLACEMENT,
+							null,
+							TEST_RULE_NAME,
+							20,
+							SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER
+					);
+
+			UTIL_FrameworkMasker.MaskingResult first = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('first');
+			UTIL_FrameworkMasker.MaskingResult erased = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(ERASED_VALUE);
+			UTIL_FrameworkMasker.MaskingResult blank = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(UTIL_String.EMPTY);
+			UTIL_FrameworkMasker.MaskingResult missing = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(null);
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, first.maskedValue, 'Expected the value that failed to carry the marker');
+			Assert.areEqual(UTIL_String.EMPTY, erased.maskedValue, 'Expected a value an earlier rule left blank to stay blank');
+			Assert.isFalse(erased.hadErrors, 'Expected no error on a value the broken rule left alone');
+			Assert.areEqual(UTIL_String.EMPTY, blank.maskedValue, 'Expected a blank value to stay blank');
+			Assert.isNull(missing.maskedValue, 'Expected a null value to stay null');
+		}
+	}
+
+	/**
+	 * @description After a Write Failure Marker rule is known to be broken, a value shorter than the rule's minimum
+	 * input length stays as it is. The rule's author has said such a short value cannot hold the secret.
+	 */
+	@IsTest
+	private static void shouldLeaveAShortValueAloneAfterAWriteFailureMarkerRuleBroke()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextWithMinInputLength(SEL_MaskingRule.MODE_REGEX, BROKEN_PATTERN, UNUSED_REPLACEMENT, null, 10, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+
+			UTIL_FrameworkMasker.MaskingResult first = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('long enough value');
+			UTIL_FrameworkMasker.MaskingResult second = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('short');
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, first.maskedValue, 'Expected the long value the rule failed on to carry the marker');
+			Assert.areEqual('short', second.maskedValue, 'Expected a value shorter than the minimum input length to stay as it is');
+			Assert.isFalse(second.hadErrors, 'Expected no error on a value the rule does not look at');
+		}
+	}
+
+	/**
+	 * @description A broken Write Failure Marker rule on a log entry writes no warning, neither on the value it fails on
+	 * nor on the next one, because a warning written while a log entry is masked starts a logging loop. The next value
+	 * still gets the marker.
+	 */
+	@IsTest
+	private static void shouldMarkWithoutWarningOnALogEntryTargetAfterAWriteFailureMarkerRuleBroke()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.setupLoggerForTest();
+			LOG_Engine.ignoreTestMode = true;
+
+			String logEntryObjectName = UTIL_SObjectDescribe.getObjectNameFromType(LogEntry__c.SObjectType);
+			String fieldApiName = UTIL_SObjectDescribe.getCachedFieldName(LogEntry__c.Message__c);
+
+			MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder('LogEntryRule', SEL_MaskingRule.MODE_REGEX, BROKEN_PATTERN, UNUSED_REPLACEMENT, 10)
+					.withOverride(MaskingRule__mdt.FailureAction__c, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER)
+					.withoutInsertion(true)
+					.build();
+
+			TST_Mock.of(MaskingTarget__mdt.SObjectType)
+					.withOverride(MaskingTarget__mdt.IsActive__c, true)
+					.withOverride(MaskingTarget__mdt.SObjectType__c, logEntryObjectName)
+					.withOverride(MaskingTarget__mdt.Field__c, logEntryObjectName + UTIL_String.DOT + fieldApiName)
+					.withOverride(MaskingTarget__mdt.Rule__c, rule)
+					.build();
+
+			Test.startTest();
+			UTIL_FrameworkMasker.MaskingResult first = UTIL_FrameworkMasker.forField(LogEntry__c.Message__c).mask('first');
+			UTIL_FrameworkMasker.MaskingResult second = UTIL_FrameworkMasker.forField(LogEntry__c.Message__c).mask('second');
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, first.maskedValue, 'Expected the value that failed to carry the marker');
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, second.maskedValue, 'Expected the next log entry value to carry the marker');
+			Assert.isTrue(new SEL_LogEntry().findAllByMethod(RULE_FAILURE_WARNING_LOCATION).isEmpty(), 'Expected no warning from a rule on a log entry');
+		}
+	}
+
+	/**
+	 * @description A rule that fails on many values in one transaction writes its warning once, not once for each
+	 * value it marks. The rule's pattern compiles, so it runs and fails again on every value. A pattern that cannot
+	 * compile would be no good here: after the first value it marks later values without running, so it never
+	 * reaches the warning again, and the count would be one even without the once-per-rule check. The warning
+	 * carries a flood-control key named after the rule, so the count is read from the stored counter row.
+	 */
+	@IsTest
+	private static void shouldWarnOnceForARuleThatFailsOnManyValues()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.setupLoggerForTest();
+			LOG_Engine.ignoreTestMode = true;
+			mockTargetForFoobarTextWithFailureAction(SEL_MaskingRule.MODE_REGEX, ONE_GROUP_PATTERN, SECOND_GROUP_REPLACEMENT, null, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+
+			Test.startTest();
+			UTIL_FrameworkMasker.MaskingResult first = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('aab');
+			UTIL_FrameworkMasker.MaskingResult second = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('aaab');
+			UTIL_FrameworkMasker.MaskingResult third = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask('ab');
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, first.maskedValue, 'Expected the first value the rule failed on to carry the marker');
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, second.maskedValue, 'Expected the second value the rule failed on to carry the marker');
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, third.maskedValue, 'Expected the third value the rule failed on to carry the marker');
+			assertStoredUnderFloodControl(new SEL_LogEntry().findAllByMethod(RULE_FAILURE_WARNING_LOCATION), RULE_FAILURE_FINGERPRINT, 1);
+		}
+	}
+
+	/**
+	 * @description A Block DML rule that fails on many values in one transaction writes its warning once, not once
+	 * for each value it refuses. The rule's pattern compiles, so it runs and fails again on every value, and each
+	 * value is refused with the exception that stops the save.
+	 */
+	@IsTest
+	private static void shouldWarnOnceForABlockDmlRuleThatFailsOnManyValues()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.setupLoggerForTest();
+			LOG_Engine.ignoreTestMode = true;
+			mockTargetForFoobarTextWithFailureAction(SEL_MaskingRule.MODE_REGEX, ONE_GROUP_PATTERN, SECOND_GROUP_REPLACEMENT, null, SEL_MaskingRule.FAILURE_BLOCK_DML);
+
+			Test.startTest();
+			assertMaskingIsBlocked('aab');
+			assertMaskingIsBlocked('aaab');
+			assertMaskingIsBlocked('ab');
+			Test.stopTest();
+
+			assertStoredUnderFloodControl(new SEL_LogEntry().findAllByMethod(RULE_FAILURE_WARNING_LOCATION), RULE_FAILURE_FINGERPRINT, 1);
+		}
+	}
+
+	/**
+	 * @description Masks one value on `Foobar__c.Text__c` and checks that the Block DML rule refuses it.
+	 *
+	 * @param value The value to mask.
+	 */
+	private static void assertMaskingIsBlocked(String value)
+	{
+		try
+		{
+			UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(value);
+			Assert.fail('Expected the Block DML rule to refuse the value');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, UTIL_Exceptions.MaskingBlockedException.class, 'Expected the Block DML rule to refuse the value');
+		}
+	}
+
+	/**
+	 * @description The warning that a rule names a field type that does not exist carries a flood-control key named
+	 * after the rule, so a misconfigured rule that is met on every save fills one detail row and a daily counter.
+	 */
+	@IsTest
+	private static void shouldFingerprintTheWarningAboutAnUnknownFieldTypeWithTheRuleName()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.setupLoggerForTest();
+			LOG_Engine.ignoreTestMode = true;
+			mockTargetForFoobarWildcardWithApplicableFieldTypes
+					(SEL_MaskingRule.MODE_EXACT_MATCH, UNMATCHED_TOKEN, UNUSED_REPLACEMENT, FOOBAR_UNKNOWN_TYPE_RULE_NAME, UNKNOWN_FIELD_TYPE);
+			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Text__c, UTIL_Random.randomName()).withoutInsertion().build();
+
+			Test.startTest();
+			UTIL_FrameworkMasker.forRecord(record).apply();
+			Test.stopTest();
+
+			assertStoredUnderFloodControl(new SEL_LogEntry().findAllByMethod(UNKNOWN_TYPE_WARNING_LOCATION), UNKNOWN_TYPE_FINGERPRINT, 1);
+		}
+	}
+
+	/**
+	 * @description The warning that a target wires a rule to a field whose type the rule excludes carries a
+	 * flood-control key named after the rule and the field, so each misconfigured target fills one detail row and a
+	 * daily counter.
+	 */
+	@IsTest
+	private static void shouldFingerprintTheWarningAboutAnExcludedFieldTypeWithTheRuleAndFieldNames()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.setupLoggerForTest();
+			LOG_Engine.ignoreTestMode = true;
+			MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder(FOOBAR_EXCLUDED_TYPE_RULE_NAME, SEL_MaskingRule.MODE_EXACT_MATCH, UNMATCHED_TOKEN, UNUSED_REPLACEMENT, 10)
+					.withOverride(MaskingRule__mdt.ApplicableFieldTypes__c, String.valueOf(DisplayType.EMAIL))
+					.withoutInsertion(true)
+					.build();
+			registerMockTarget(rule, UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.URL__c), null);
+			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.URL__c, UTIL_Random.randomName()).withoutInsertion().build();
+
+			Test.startTest();
+			UTIL_FrameworkMasker.forRecord(record).apply();
+			Test.stopTest();
+
+			assertStoredUnderFloodControl(new SEL_LogEntry().findAllByMethod(MISMATCHED_TYPE_WARNING_LOCATION), EXCLUDED_TYPE_FINGERPRINT, 1);
+		}
+	}
+
+	/**
 	 * @description Tests that isLogEntryTarget returns true for the LogEntry__c object and
 	 * false for other objects. This is the check that stops warning logs on masking failures against
 	 * LogEntry targets, which breaks the logging loop across transactions.
@@ -945,6 +2968,225 @@ private class UTIL_FrameworkMasker_TEST
 			Assert.isTrue(UTIL_FrameworkMasker.isLogEntryTarget(logEntryEventTarget), 'LogEntryEvent__e target should be identified');
 			Assert.isFalse(UTIL_FrameworkMasker.isLogEntryTarget(foobarTarget), 'Non-log target should not be identified');
 		}
+	}
+
+	/**
+	 * @description Every masking target the package ships on the log event is seen as a log target when it is read
+	 * the way the masker reads it. A deployed target does not store the object's API name. It stores the object's
+	 * durable Id (the fixed key the platform gives each object; for a custom object, an Id such as `01I...`), and the
+	 * API name on its related object is empty. So a check that compares the stored value with the API name misses
+	 * every deployed target.
+	 */
+	@IsTest
+	private static void shouldIdentifyEveryShippedLogEventTargetAsALogEntryTarget()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<MaskingTarget__mdt> logEventTargets = new SEL_MaskingTarget().findAllForSObjectType(LogEntryEvent__e.SObjectType);
+
+			Assert.isFalse(logEventTargets.isEmpty(), 'Expected the package to ship masking targets on the log event');
+			for(MaskingTarget__mdt target : logEventTargets)
+			{
+				Assert.areNotEqual(UTIL_FrameworkMasker.LOG_ENTRY_EVENT_OBJECT_NAME, target.SObjectType__c, 'Expected a deployed target to store the object Id');
+				Assert.isTrue(UTIL_FrameworkMasker.isLogEntryTarget(target), 'Expected ' + target.DeveloperName + ' to be seen as a log target');
+			}
+		}
+	}
+
+	/**
+	 * @description The log event targets are still seen as log targets when the selector cannot use its normal read.
+	 * That happens when two masking targets share a DeveloperName: the selector then reads the targets with a plain
+	 * query, and the copies it makes keep the stored object Id but have no related object at all.
+	 */
+	@IsTest
+	private static void shouldIdentifyTheShippedLogEventTargetsWhenTheSelectorFallsBackToAQuery()
+	{
+		System.runAs(getTestAdmin())
+		{
+			SEL_MaskingTarget.simulateGetAllCollisionForTest = true;
+
+			List<MaskingTarget__mdt> logEventTargets = new SEL_MaskingTarget().findAllForSObjectType(LogEntryEvent__e.SObjectType);
+
+			Assert.isFalse(logEventTargets.isEmpty(), 'Expected the fallback read to find the log event targets');
+			for(MaskingTarget__mdt target : logEventTargets)
+			{
+				Assert.isNull(target.SObjectType__r, 'Expected the fallback copy to have no related object');
+				Assert.isTrue(UTIL_FrameworkMasker.isLogEntryTarget(target), 'Expected ' + target.DeveloperName + ' to be seen as a log target');
+			}
+		}
+	}
+
+	/**
+	 * @description A broken rule on a deployed log event target writes no warning. The target is a copy of a target
+	 * the package ships, read the way the masker reads it, so it stores the object's durable Id and not its API name.
+	 * Its rule is replaced by one whose pattern cannot compile, and it is limited to one caller class, so the broken
+	 * rule does not also change the warning, if one is written, before it is saved. A warning written while a log
+	 * event is masked would publish another log event, which is masked again, so the warning is skipped. The value
+	 * still gets the failure marker.
+	 */
+	@IsTest
+	private static void shouldWriteNoWarningWhenARuleFailsOnADeployedLogEventTarget()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.setupLoggerForTest();
+			LOG_Engine.ignoreTestMode = true;
+
+			MaskingRule__mdt brokenRule = (MaskingRule__mdt)mockRuleBuilder(LOG_EVENT_BROKEN_RULE_NAME, SEL_MaskingRule.MODE_REGEX, BROKEN_PATTERN, UNUSED_REPLACEMENT, 10)
+					.withOverride(MaskingRule__mdt.FailureAction__c, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER)
+					.withoutInsertion(true)
+					.build();
+			List<MaskingTarget__mdt> shippedLogEventTargets = new SEL_MaskingTarget().findAllForSObjectType(LogEntryEvent__e.SObjectType);
+			Assert.isFalse(shippedLogEventTargets.isEmpty(), 'Expected the package to ship masking targets on the log event');
+			MaskingTarget__mdt deployedTarget = shippedLogEventTargets[0].clone(true);
+			deployedTarget.Rule__c = brokenRule.Id;
+			deployedTarget.IsActive__c = true;
+			deployedTarget.CallerClass__c = SAMPLE_CALLER;
+
+			SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt> {deployedTarget.DeveloperName => deployedTarget};
+			SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt> {LOG_EVENT_BROKEN_RULE_NAME => brokenRule};
+			SEL_MaskingTarget.cachedTargetsByType = null;
+			SEL_MaskingTarget.cachedRulesById = null;
+
+			Test.startTest();
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(LogEntryEvent__e.Message__c).calledFrom(SAMPLE_CALLER).mask(UTIL_Random.randomName());
+			Test.stopTest();
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the value the broken rule failed on to carry the marker');
+			Assert.areEqual(0, new SEL_LogEntry().getRecordCount(), 'Expected no warning from a broken rule on a log event target');
+		}
+	}
+
+	/**
+	 * @description A target that names one field masks that field when the target is read the way a deployed
+	 * target is read. A deployed target does not store `Object.Field`. It stores two durable Ids joined by a dot,
+	 * the object's and the field's (a durable Id is the fixed key the platform gives each object and each field),
+	 * and its related field record has no API name. The masker must still find the field the target names.
+	 */
+	@IsTest
+	private static void shouldMaskTheFieldADeployedTargetNames()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt rule = buildWholeValueRule();
+			MaskingTarget__mdt deployedTarget = buildDeployedTextFieldTarget(rule);
+			SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt> {DEPLOYED_FIELD_TARGET_NAME => deployedTarget};
+			SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt> {TEST_RULE_NAME => rule};
+			SEL_MaskingTarget.cachedTargetsByType = null;
+			SEL_MaskingTarget.cachedRulesById = null;
+
+			Test.startTest();
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(UTIL_Random.randomName());
+			Test.stopTest();
+
+			Assert.areEqual(WHOLE_VALUE_REPLACEMENT, result.maskedValue, 'Expected the field the deployed target names to be masked');
+		}
+	}
+
+	/**
+	 * @description A deployed target that names one field still masks that field when the selector cannot use its
+	 * normal read. That happens when two masking targets share a DeveloperName: the selector then reads the targets
+	 * with a plain query, and the copies it makes keep the two stored durable Ids but have no related records at all.
+	 */
+	@IsTest
+	private static void shouldMaskTheFieldADeployedTargetNamesWhenTheSelectorFallsBackToAQuery()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt rule = buildWholeValueRule();
+			TST_Mock.registerNext(MaskingTarget__mdt.SObjectType, buildDeployedTextFieldTarget(rule));
+			SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt> {TEST_RULE_NAME => rule};
+			SEL_MaskingTarget.simulateGetAllCollisionForTest = true;
+			SEL_MaskingTarget.cachedTargetsByType = null;
+			SEL_MaskingTarget.cachedRulesById = null;
+
+			Test.startTest();
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(UTIL_Random.randomName());
+			Test.stopTest();
+
+			Assert.areEqual(WHOLE_VALUE_REPLACEMENT, result.maskedValue, 'Expected the field the deployed target names to be masked on the fallback read');
+		}
+	}
+
+	/**
+	 * @description Masking fails when a target names a field and the field details (FieldDefinition) cannot be read.
+	 * A deployed target stores the field's durable Id, so the masker needs the field details to know which field the
+	 * target masks. Without them it must not guess: the error reaches the caller, so a save fails and the value is
+	 * never saved without masking.
+	 */
+	@IsTest
+	private static void shouldFailMaskingWhenTheFieldATargetNamesCannotBeFound()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt rule = buildWholeValueRule();
+			MaskingTarget__mdt deployedTarget = buildDeployedTextFieldTarget(rule);
+			SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt> {DEPLOYED_FIELD_TARGET_NAME => deployedTarget};
+			SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt> {TEST_RULE_NAME => rule};
+			SEL_MaskingTarget.cachedTargetsByType = null;
+			SEL_MaskingTarget.cachedRulesById = null;
+			TST_Mock.throwsException(FieldDefinition.SObjectType, FIELD_DETAILS_DENIAL);
+
+			Test.startTest();
+			try
+			{
+				UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(UTIL_Random.randomName());
+				Assert.fail('Expected masking to fail when the field the target names cannot be found');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, QueryException.class, 'Expected the error from reading field details to reach the caller');
+			}
+			Test.stopTest();
+		}
+	}
+
+	/**
+	 * @description Builds an active rule that replaces the whole value, for the deployed target tests.
+	 *
+	 * @return An uninserted MaskingRule__mdt.
+	 */
+	private static MaskingRule__mdt buildWholeValueRule()
+	{
+		return (MaskingRule__mdt)mockRuleBuilder(TEST_RULE_NAME, SEL_MaskingRule.MODE_REGEX, WHOLE_VALUE_PATTERN, WHOLE_VALUE_REPLACEMENT, FIRST_RULE_ORDER)
+				.withoutInsertion(true)
+				.build();
+	}
+
+	/**
+	 * @description Builds an active target on `Foobar__c.Text__c` in the shape a deployed target has. Its object
+	 * and field hold the durable Ids the platform gives them, read from the org, and only its related object
+	 * record carries an API name.
+	 *
+	 * @param rule The rule the target points at.
+	 *
+	 * @return An uninserted MaskingTarget__mdt that names the field by its durable Ids.
+	 */
+	private static MaskingTarget__mdt buildDeployedTextFieldTarget(MaskingRule__mdt rule)
+	{
+		String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c);
+		String fieldDurableId;
+		for(FieldDefinition field : new SEL_FieldDefinition().findByEntity(UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType)))
+		{
+			if(field.QualifiedApiName == fieldName)
+			{
+				fieldDurableId = field.DurableId;
+			}
+		}
+		String objectDurableId = fieldDurableId.substringBefore(UTIL_String.DOT);
+		EntityDefinition foobarObject = new SEL_EntityDefinition().findByDurableIds(new Set<String> {objectDurableId})[0];
+
+		MaskingTarget__mdt target = (MaskingTarget__mdt)TST_Builder.of(MaskingTarget__mdt.SObjectType)
+				.withOverride(MaskingTarget__mdt.DeveloperName, DEPLOYED_FIELD_TARGET_NAME)
+				.withOverride(MaskingTarget__mdt.SObjectType__c, foobarObject)
+				.withoutInsertion(true)
+				.build();
+		target.SObjectType__c = objectDurableId;
+		target.Field__c = fieldDurableId;
+		target.Rule__c = rule.Id;
+		target.IsActive__c = true;
+		target.CallerClass__c = null;
+		return target;
 	}
 
 	/**
@@ -1265,6 +3507,36 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
+	 * @description A deployed target whose field was deleted still has its related object and field records, but
+	 * neither carries an API name, and the selector has no name for the stored value. The resolver then returns the
+	 * stored `Field__c` value, so the key and the warning text carry the stored durable Ids, not `null.null`.
+	 */
+	@IsTest
+	private static void shouldResolveTheStoredValueForATargetWhoseFieldWasDeleted()
+	{
+		System.runAs(getTestAdmin())
+		{
+			EntityDefinition entityDefinition = (EntityDefinition)TST_Builder.of(EntityDefinition.SObjectType).withoutInsertion().build();
+			FieldDefinition fieldDefinition = (FieldDefinition)TST_Builder.of(FieldDefinition.SObjectType).withoutInsertion().build();
+			MaskingTarget__mdt target = (MaskingTarget__mdt)TST_Builder.of(MaskingTarget__mdt.SObjectType)
+					.withOverride(MaskingTarget__mdt.SObjectType__c, entityDefinition)
+					.withOverride(MaskingTarget__mdt.Field__c, fieldDefinition)
+					.withoutInsertion(true)
+					.build();
+			target.SObjectType__c = DELETED_FIELD_DURABLE_ID.substringBefore(UTIL_String.DOT);
+			target.Field__c = DELETED_FIELD_DURABLE_ID;
+
+			Assert.isNotNull(target.SObjectType__r, 'Expected the target to carry a related object record');
+			Assert.isNotNull(target.Field__r, 'Expected the target to carry a related field record');
+			Assert.isNull(target.Field__r.QualifiedApiName, 'Expected the related field record to carry no API name');
+
+			String resolved = UTIL_FrameworkMasker.resolveQualifiedFieldName(target);
+
+			Assert.areEqual(DELETED_FIELD_DURABLE_ID, resolved, 'Expected the stored field value when no API name is known');
+		}
+	}
+
+	/**
 	 * @description Tests that a target naming a field wins over a wildcard (blank Field__c) target
 	 * with the same rule and caller. This is the rule in `selectApplicableTargets` that a named field
 	 * beats a wildcard. The wildcard target should be left out of the applicable targets, so only the
@@ -1351,9 +3623,9 @@ private class UTIL_FrameworkMasker_TEST
 
 	/**
 	 * @description Tests that a wildcard MaskingTarget (blank `Field__c`) applied through
-	 * `RecordMasker.apply` expands to every updateable text-shaped field on the SObjectType via
-	 * `buildBatchPlan` + `getUpdateableTextFields`. The same rule fires on `Text__c`,
-	 * `TextArea__c`, `Email__c`, and every other text-shaped field that holds matching input.
+	 * `RecordMasker.apply` expands to every text field it covers on the SObjectType, through
+	 * `buildBatchPlan` and `getTextFieldsCoveredByWildcard`. The same rule fires on `Text__c`,
+	 * `TextArea__c`, `Email__c`, and every other text field that holds matching input.
 	 */
 	@IsTest
 	private static void shouldApplyWildcardTargetViaRecordMasker()
@@ -1376,20 +3648,35 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that `getUpdateableTextFields` returns a non-empty list for Foobar__c. Runs
-	 * the code that finds and filters writable text fields directly, so the cache and the field-type
+	 * @description Tests that `getTextFieldsCoveredByWildcard` returns a non-empty list for Foobar__c. Runs
+	 * the code that finds and filters the text fields directly, so the cache and the field-type
 	 * filter are both covered on their own, apart from the RecordMasker path.
 	 */
 	@IsTest
-	private static void shouldEnumerateUpdateableTextFields()
+	private static void shouldEnumerateTextFieldsCoveredByWildcard()
 	{
 		System.runAs(getTestAdmin())
 		{
-			List<SObjectField> first = UTIL_FrameworkMasker.getUpdateableTextFields(Foobar__c.SObjectType);
-			List<SObjectField> second = UTIL_FrameworkMasker.getUpdateableTextFields(Foobar__c.SObjectType);
+			List<SObjectField> first = UTIL_FrameworkMasker.getTextFieldsCoveredByWildcard(Foobar__c.SObjectType);
+			List<SObjectField> second = UTIL_FrameworkMasker.getTextFieldsCoveredByWildcard(Foobar__c.SObjectType);
 
-			Assert.isFalse(first.isEmpty(), 'Foobar__c should expose at least one updateable text-shaped field');
+			Assert.isFalse(first.isEmpty(), 'Foobar__c should have at least one text field a wildcard covers');
 			Assert.areEqual(first.size(), second.size(), 'Cached lookup should return the same list on repeated calls');
+		}
+	}
+
+	/**
+	 * @description Tests the check for one field that the wildcard list is built from. An ordinary text field is
+	 * covered, an identifier is not, and a field that cannot be found is not covered either.
+	 */
+	@IsTest
+	private static void shouldReportWhetherAWildcardCoversOneField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Assert.isTrue(UTIL_FrameworkMasker.isCoveredByWildcard(Foobar__c.Text__c), 'Expected an ordinary text field to be covered');
+			Assert.isFalse(UTIL_FrameworkMasker.isCoveredByWildcard(Foobar__c.ExternalId__c), 'Expected an external id not to be covered');
+			Assert.isFalse(UTIL_FrameworkMasker.isCoveredByWildcard(null), 'Expected a field that cannot be found not to be covered');
 		}
 	}
 
@@ -1405,8 +3692,8 @@ private class UTIL_FrameworkMasker_TEST
 	{
 		System.runAs(getTestAdmin())
 		{
-			Set<SObjectField> chainFields = new Set<SObjectField>(UTIL_FrameworkMasker.getUpdateableTextFields(AsyncChainExecution__c.SObjectType));
-			Set<SObjectField> foobarFields = new Set<SObjectField>(UTIL_FrameworkMasker.getUpdateableTextFields(Foobar__c.SObjectType));
+			Set<SObjectField> chainFields = new Set<SObjectField>(UTIL_FrameworkMasker.getTextFieldsCoveredByWildcard(AsyncChainExecution__c.SObjectType));
+			Set<SObjectField> foobarFields = new Set<SObjectField>(UTIL_FrameworkMasker.getTextFieldsCoveredByWildcard(Foobar__c.SObjectType));
 
 			Assert.isFalse(chainFields.contains(AsyncChainExecution__c.CorrelationId__c), 'A unique external-id key must never be a wildcard masking target');
 			Assert.isFalse(chainFields.contains(AsyncChainExecution__c.ActiveDeduplicationKey__c), 'The unique deduplication key must never be a wildcard masking target');
@@ -1482,7 +3769,7 @@ private class UTIL_FrameworkMasker_TEST
 	{
 		System.runAs(getTestAdmin())
 		{
-			Set<SObjectField> chainFields = new Set<SObjectField>(UTIL_FrameworkMasker.getUpdateableTextFields(AsyncChainExecution__c.SObjectType));
+			Set<SObjectField> chainFields = new Set<SObjectField>(UTIL_FrameworkMasker.getTextFieldsCoveredByWildcard(AsyncChainExecution__c.SObjectType));
 
 			Assert.isFalse(chainFields.contains(AsyncChainExecution__c.RunKey__c), 'The run key is a fence token the engine compares for equality; no wildcard may rewrite it');
 			Assert.isFalse(chainFields.contains(AsyncChainExecution__c.CurrentJobId__c), 'The job id is what the watchdog reads for liveness; no wildcard may rewrite it');
@@ -1551,18 +3838,20 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
-	 * @description Tests that `getUpdateableTextFields` also works on platform events, using
-	 * `isCreateable()` instead of `isUpdateable()` because every platform event field reports
-	 * `isUpdateable() == false`.
+	 * @description Tests that on a platform event a wildcard covers the custom text fields only. The platform sets
+	 * the standard event fields `ReplayId` and `EventUuid` itself, so a wildcard must never cover them, while a custom
+	 * field such as the log event's `Message__c` is covered.
 	 */
 	@IsTest
-	private static void shouldEnumerateCreateableTextFieldsOnPlatformEvent()
+	private static void shouldExpandWildcardOnlyToCustomTextFieldsOfAPlatformEvent()
 	{
 		System.runAs(getTestAdmin())
 		{
-			List<SObjectField> fields = UTIL_FrameworkMasker.getUpdateableTextFields(LogEntryEvent__e.SObjectType);
+			Set<SObjectField> eventFields = new Set<SObjectField>(UTIL_FrameworkMasker.getTextFieldsCoveredByWildcard(LogEntryEvent__e.SObjectType));
 
-			Assert.isFalse(fields.isEmpty(), 'Platform event should expose at least one createable text-shaped field');
+			Assert.isFalse(eventFields.contains(LogEntryEvent__e.ReplayId), 'Expected the standard field ReplayId to stay out of the wildcard list');
+			Assert.isFalse(eventFields.contains(LogEntryEvent__e.EventUuid), 'Expected the standard field EventUuid to stay out of the wildcard list');
+			Assert.isTrue(eventFields.contains(LogEntryEvent__e.Message__c), 'Expected the custom text field Message__c in the wildcard list');
 		}
 	}
 
@@ -1653,11 +3942,12 @@ private class UTIL_FrameworkMasker_TEST
 
 			Assert.isTrue(record.URL__c.contains('4111111111111111'), 'A target naming the field must not override the rule-level type filter: the rule should not run');
 			Assert.areEqual(1, UTIL_FrameworkMasker.warnedSpecificFieldTypeMismatches.size(), 'Framework must warn once when explicit wiring is dropped by the type filter');
-			String expectedWarnKey = 'TestSpecificFieldMismatch|' + UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.URL__c);
+			String expectedWarnKey = 'masking:excluded-field-type:TestSpecificFieldMismatch:'
+					+ UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType) + UTIL_String.DOT + UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.URL__c);
 			Assert.isTrue
 					(
 							UTIL_FrameworkMasker.warnedSpecificFieldTypeMismatches.contains(expectedWarnKey),
-							'Warning key must identify rule + field so admins can locate the misconfigured target (expected ' + expectedWarnKey + ')'
+							'Warning key must identify rule, object and field so admins can locate the misconfigured target (expected ' + expectedWarnKey + ')'
 					);
 
 			UTIL_FrameworkMasker.cachedBatchPlans.clear();
@@ -1885,8 +4175,33 @@ private class UTIL_FrameworkMasker_TEST
 					Integer minInputLength
 			)
 	{
-		MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder('TestRule', mode, rulePattern, replacement, 10)
+		mockTargetForFoobarTextWithMinInputLength(mode, rulePattern, replacement, callerClassScope, minInputLength, null);
+	}
+
+	/**
+	 * @description Registers a MaskingTarget pointing at Foobar__c.Text__c with both a minimum input length and a
+	 * failure action, for tests that prove a short value stays as it is after the rule failed.
+	 *
+	 * @param mode Rule mode
+	 * @param rulePattern Rule pattern
+	 * @param replacement Rule replacement
+	 * @param callerClassScope Optional CallerClass__c scope; null means unscoped
+	 * @param minInputLength The MaskingRule__mdt.MinInputLength__c value; rule is skipped when the value is shorter
+	 * @param failureAction The MaskingRule__mdt.FailureAction__c value; null leaves it unset
+	 */
+	private static void mockTargetForFoobarTextWithMinInputLength
+			(
+					String mode,
+					String rulePattern,
+					String replacement,
+					String callerClassScope,
+					Integer minInputLength,
+					String failureAction
+			)
+	{
+		MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder(TEST_RULE_NAME, mode, rulePattern, replacement, 10)
 				.withOverride(MaskingRule__mdt.MinInputLength__c, minInputLength)
+				.withOverride(MaskingRule__mdt.FailureAction__c, failureAction)
 				.withoutInsertion(true)
 				.build();
 		registerMockTarget(rule, UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c), callerClassScope);
@@ -1909,6 +4224,32 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
+	 * @description Registers a MaskingTarget pointing at Foobar__c.Text__c with a custom rule developer name, Order__c
+	 * and `FailureAction__c`, for tests where a rule that fails runs before or after another rule on the same field.
+	 *
+	 * @param mode Rule mode
+	 * @param rulePattern Rule pattern
+	 * @param replacement Rule replacement
+	 * @param callerClassScope Optional CallerClass__c scope; null means unscoped
+	 * @param ruleDeveloperName The MaskingRule__mdt DeveloperName to assign
+	 * @param ruleOrder The MaskingRule__mdt.Order__c value controlling execution sequence
+	 * @param failureAction The MaskingRule__mdt.FailureAction__c value; null leaves it unset
+	 */
+	private static void mockTargetForFoobarText
+			(
+					String mode,
+					String rulePattern,
+					String replacement,
+					String callerClassScope,
+					String ruleDeveloperName,
+					Integer ruleOrder,
+					String failureAction
+			)
+	{
+		mockTarget(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c), mode, rulePattern, replacement, callerClassScope, ruleDeveloperName, ruleOrder, failureAction);
+	}
+
+	/**
 	 * @description Registers a single active MaskingTarget pointing at Foobar__c.TextArea__c with an inline rule.
 	 * Used by shouldSkipRulesForOtherFields to prove targets for a different field don't fire.
 	 *
@@ -1920,6 +4261,21 @@ private class UTIL_FrameworkMasker_TEST
 	private static void mockTargetForFoobarTextArea(String mode, String rulePattern, String replacement, String callerClassScope)
 	{
 		mockTarget(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.TextArea__c), mode, rulePattern, replacement, callerClassScope, 'TestRule', 10, null);
+	}
+
+	/**
+	 * @description Registers a MaskingTarget pointing at Foobar__c.TextArea__c with an explicit `FailureAction__c`
+	 * value, for failure-handling tests on the JSON path.
+	 *
+	 * @param mode Rule mode
+	 * @param rulePattern Rule pattern (typically malformed so the rule throws)
+	 * @param replacement Rule replacement
+	 * @param callerClassScope Optional CallerClass__c scope; null means unscoped
+	 * @param failureAction The MaskingRule__mdt.FailureAction__c picklist value to assign
+	 */
+	private static void mockTargetForFoobarTextAreaWithFailureAction(String mode, String rulePattern, String replacement, String callerClassScope, String failureAction)
+	{
+		mockTarget(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.TextArea__c), mode, rulePattern, replacement, callerClassScope, TEST_RULE_NAME, 10, failureAction);
 	}
 
 	/**
@@ -2043,6 +4399,45 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
+	 * @description A rule that replaces the secret word wherever it appears in a value.
+	 *
+	 * @return An uninserted MaskingRule__mdt.
+	 */
+	private static MaskingRule__mdt mockSecretWordRule()
+	{
+		return (MaskingRule__mdt)mockRuleBuilder('SecretWordRule', SEL_MaskingRule.MODE_EXACT_MATCH, SECRET_WORD, SECRET_WORD_REPLACEMENT, 10).withoutInsertion(true).build();
+	}
+
+	/**
+	 * @description A rule that replaces the sample email address wherever it appears in a value.
+	 *
+	 * @return An uninserted MaskingRule__mdt.
+	 */
+	private static MaskingRule__mdt mockEmailRule()
+	{
+		return (MaskingRule__mdt)mockRuleBuilder('EmailRule', SEL_MaskingRule.MODE_EXACT_MATCH, SAMPLE_VALUE, EMAIL_REPLACEMENT, 10).withoutInsertion(true).build();
+	}
+
+	/**
+	 * @description Builds a Case, not saved, whose `ContactEmail` and `Description` both hold the given address. Apex
+	 * cannot set `ContactEmail` directly, because the platform fills it from the case's contact, so the Case is read
+	 * from JSON, which is how a record with that field set reaches the masker.
+	 *
+	 * @param emailAddress The address both fields hold
+	 *
+	 * @return A Case that is not saved
+	 */
+	private static Case buildCaseWithContactEmailAndDescription(String emailAddress)
+	{
+		Map<String, Object> values = new Map<String, Object>
+		{
+				UTIL_SObjectDescribe.getCachedFieldName(Case.ContactEmail) => emailAddress,
+				UTIL_SObjectDescribe.getCachedFieldName(Case.Description) => emailAddress
+		};
+		return (Case)JSON.deserialize(JSON.serialize(values), Case.class);
+	}
+
+	/**
 	 * @description Builds an uninserted Foobar__c with Text__c and TextArea__c pre-populated.
 	 * Several wildcard-target tests exercise the framework against a record carrying values on
 	 * both field types; this helper builds that common record.
@@ -2059,6 +4454,46 @@ private class UTIL_FrameworkMasker_TEST
 				.withOverride(Foobar__c.TextArea__c, textAreaValue)
 				.withoutInsertion()
 				.build();
+	}
+
+	/**
+	 * @description Builds a Foobar__c that is not saved, with `Text__c` set, for the tests on the masker's memory.
+	 *
+	 * @param textValue Value for `Foobar__c.Text__c`
+	 *
+	 * @return A Foobar__c with a test Id that is not saved
+	 */
+	private static Foobar__c buildFoobarWithText(String textValue)
+	{
+		return (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Text__c, textValue)
+				.withoutInsertion(true)
+				.build();
+	}
+
+	/**
+	 * @description Builds a raw value whose masked text, after the growing rule, has exactly the given length: growing
+	 * letters for most of it, then up to two letters the rule leaves as they are.
+	 *
+	 * @param maskedLength The number of characters the masked text must have
+	 *
+	 * @return The raw value
+	 */
+	private static String buildRawValueMaskedToLength(Integer maskedLength)
+	{
+		Integer growingLetterCount = maskedLength / GROWING_LETTER_REPLACEMENT.length();
+		Integer unchangedLetterCount = maskedLength - growingLetterCount * GROWING_LETTER_REPLACEMENT.length();
+		return GROWING_LETTER.repeat(growingLetterCount) + LETTER_NO_RULE_CHANGES.repeat(unchangedLetterCount);
+	}
+
+	/**
+	 * @description Reads how many characters `Foobar__c.Text__c` can hold.
+	 *
+	 * @return The field's length
+	 */
+	private static Integer getTextFieldLength()
+	{
+		return UTIL_SObjectDescribe.getCachedFieldDescribe(Foobar__c.Text__c).getLength();
 	}
 
 	/**
@@ -2095,6 +4530,170 @@ private class UTIL_FrameworkMasker_TEST
 		Assert.areEqual('the X is here', record.Text__c, 'Field value should be masked in place for low-privilege caller');
 		Assert.areEqual(1, result.rulesMatched, 'Aggregate rulesMatched should reflect the single match');
 		Assert.isFalse(result.hadErrors, 'Masking should complete without errors for low-privilege caller');
+	}
+
+	/**
+	 * @description A wildcard target (one with a blank `Field__c`) masks a record that a user without field access
+	 * saves. The user has the Minimum Access profile and no permission on any field of `Foobar__c`. Which fields a
+	 * wildcard covers must not depend on who saves the record. If it did, this user's secret would be stored as it
+	 * was received. The record is built inside `System.runAs`. The field details the framework reads are kept for the
+	 * rest of the transaction, so details read first as the administrator would hide what this user is allowed to do.
+	 */
+	@IsTest
+	private static void shouldMaskRecordThroughAWildcardTargetForAUserWithoutFieldAccess()
+	{
+		registerMockTarget(mockSecretWordRule(), null, null);
+		Foobar__c record;
+		UTIL_FrameworkMasker.MaskingResult result;
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			record = buildFoobarWithText(TEXT_WITH_A_SECRET);
+			result = UTIL_FrameworkMasker.forRecord(record).apply();
+		}
+
+		Assert.areEqual(MASKED_TEXT_WITH_A_SECRET, record.Text__c, 'Expected the wildcard target to mask the field for a user without field access');
+		Assert.areEqual(1, result.rulesMatched, 'Expected the rule to match once');
+		Assert.isFalse(result.hadErrors, 'Expected masking to finish without errors');
+	}
+
+	/**
+	 * @description A wildcard target masks a log event that a user without field access builds. The log engine
+	 * masks every event this way before it publishes it. The user has the Minimum Access profile and no permission
+	 * to create log events, so the event's fields must still be covered whoever builds it. The event is built inside
+	 * `System.runAs` for the reason the record test above gives.
+	 */
+	@IsTest
+	private static void shouldMaskLogEventThroughAWildcardTargetForAUserWithoutFieldAccess()
+	{
+		registerMockTargetOn(LogEntryEvent__e.SObjectType, mockSecretWordRule(), null, null);
+		LogEntryEvent__e logEvent;
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			logEvent = (LogEntryEvent__e)TST_Builder.of(LogEntryEvent__e.SObjectType)
+					.withOverride(LogEntryEvent__e.Message__c, TEXT_WITH_A_SECRET)
+					.withoutInsertion()
+					.build();
+			UTIL_FrameworkMasker.forRecord(logEvent).apply();
+		}
+
+		Assert.areEqual(MASKED_TEXT_WITH_A_SECRET, logEvent.Message__c, 'Expected the wildcard target to mask the event message for a user without field access');
+	}
+
+	/**
+	 * @description The fields a wildcard covers are the same for a user without field access as for an
+	 * administrator. The list is kept for the rest of the transaction, keyed by object only, so the test builds the
+	 * list for the user without access first. Built the other way round, that user would read the administrator's
+	 * list from the cache, and the test could not fail. The check that the first list holds an ordinary text field is
+	 * what proves the rule; the comparison then shows that both users work with that same list.
+	 */
+	@IsTest
+	private static void shouldListTheSameWildcardFieldsForAUserWithoutFieldAccessAsForAnAdministrator()
+	{
+		List<SObjectField> lowPrivilegeFields;
+		List<SObjectField> administratorFields;
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			lowPrivilegeFields = UTIL_FrameworkMasker.getTextFieldsCoveredByWildcard(Foobar__c.SObjectType);
+		}
+
+		System.runAs(getTestAdmin())
+		{
+			administratorFields = UTIL_FrameworkMasker.getTextFieldsCoveredByWildcard(Foobar__c.SObjectType);
+		}
+
+		Assert.isTrue(lowPrivilegeFields.contains(Foobar__c.Text__c), 'Expected the list for a user without field access to hold an ordinary text field');
+		Assert.areEqual(new Set<SObjectField>(administratorFields), new Set<SObjectField>(lowPrivilegeFields), 'Expected the same list for both users');
+	}
+
+	/**
+	 * @description A wildcard never covers a field that no one writes: a formula or an auto-number. The platform
+	 * works out their values. On `ApiCall__c`, `TriggeringRecordUrl__c` is a text formula and `Name` is an auto-number.
+	 */
+	@IsTest
+	private static void shouldNotExpandWildcardToFormulaOrAutoNumberFields()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Set<SObjectField> apiCallFields = new Set<SObjectField>(UTIL_FrameworkMasker.getTextFieldsCoveredByWildcard(ApiCall__c.SObjectType));
+
+			Assert.isFalse(apiCallFields.contains(ApiCall__c.TriggeringRecordUrl__c), 'Expected a formula field to stay out of the wildcard list');
+			Assert.isFalse(apiCallFields.contains(ApiCall__c.Name), 'Expected an auto-number field to stay out of the wildcard list');
+			Assert.isTrue(apiCallFields.contains(ApiCall__c.Request__c), 'Expected an ordinary text field to be in the wildcard list');
+		}
+	}
+
+	/**
+	 * @description A wildcard covers the standard text fields of a record, not only the custom ones, for a user
+	 * without field access too. On `Lead`, `Company` is required, so no permission controls it, and `Description` and
+	 * `Email` are ordinary standard fields.
+	 */
+	@IsTest
+	private static void shouldExpandWildcardToStandardTextFieldsOfARecord()
+	{
+		List<SObjectField> leadFields;
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			leadFields = UTIL_FrameworkMasker.getTextFieldsCoveredByWildcard(Lead.SObjectType);
+		}
+
+		Assert.isTrue(leadFields.contains(Lead.Company), 'Expected the required standard field Company in the wildcard list');
+		Assert.isTrue(leadFields.contains(Lead.Description), 'Expected the standard field Description in the wildcard list');
+		Assert.isTrue(leadFields.contains(Lead.Email), 'Expected the standard field Email in the wildcard list');
+	}
+
+	/**
+	 * @description Some standard text fields are in the wildcard list, but the platform lets no one write them.
+	 * `Case.ContactEmail` is one: the platform copies it from the case's contact. The masker must leave such a field
+	 * as it is, mask the other fields of the record, and report no error. The save cannot change that field either,
+	 * so nothing new is stored without masking. The user has the Minimum Access profile, and the record is built
+	 * inside `System.runAs`, so the test also proves that `Description` is masked for a user without field access.
+	 */
+	@IsTest
+	private static void shouldLeaveAFieldNoOneCanWriteAndMaskTheOtherFields()
+	{
+		registerMockTargetOn(Case.SObjectType, mockEmailRule(), null, null);
+		Case record;
+		UTIL_FrameworkMasker.MaskingResult result;
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			record = buildCaseWithContactEmailAndDescription(SAMPLE_VALUE);
+			result = UTIL_FrameworkMasker.forRecord(record).apply();
+		}
+
+		Assert.areEqual(EMAIL_REPLACEMENT, record.Description, 'Expected the field that can be written to be masked');
+		Assert.areEqual(SAMPLE_VALUE, record.ContactEmail, 'Expected the field no one can write to keep its value');
+		Assert.isFalse(result.hadErrors, 'Expected no error for a field no one can write');
+	}
+
+	/**
+	 * @description The masker warns once per transaction about a field the platform refuses to write, however many
+	 * records carry it, and keeps masking the other fields of every record. After the first refusal the field is
+	 * skipped, so no rule runs on it again in the transaction.
+	 */
+	@IsTest
+	private static void shouldWarnOnceAboutAFieldNoOneCanWrite()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.setupLoggerForTest();
+			LOG_Engine.ignoreTestMode = true;
+			registerMockTargetOn(Case.SObjectType, mockEmailRule(), null, null);
+			Case firstRecord = buildCaseWithContactEmailAndDescription(SAMPLE_VALUE);
+			Case secondRecord = buildCaseWithContactEmailAndDescription(SAMPLE_VALUE);
+
+			Test.startTest();
+			UTIL_FrameworkMasker.forRecords(new List<SObject> {firstRecord, secondRecord}).apply();
+			Test.stopTest();
+
+			Assert.areEqual(EMAIL_REPLACEMENT, secondRecord.Description, 'Expected the later record to be masked too');
+			Assert.areEqual(SAMPLE_VALUE, secondRecord.ContactEmail, 'Expected the field no one can write to keep its value on the later record');
+			assertStoredUnderFloodControl(new SEL_LogEntry().findAllByMethod(WRITE_REFUSED_WARNING_LOCATION), WRITE_REFUSED_FINGERPRINT, 1);
+		}
 	}
 
 	/**
@@ -2266,6 +4865,407 @@ private class UTIL_FrameworkMasker_TEST
 		}
 		Assert.isNotNull(found, 'the shipped rule ' + developerName + ' must be deployed to the org for the round-trip test to run');
 		return found;
+	}
+
+	/**
+	 * @description Makes the shipped rule that hides payment card numbers the only rule for `ApiCall__c.Request__c`. The
+	 * rule is the deployed record; only the target that links it to the field is a test record.
+	 *
+	 * @return The shipped card rule
+	 */
+	private static MaskingRule__mdt registerShippedCardRuleOnApiCallRequest()
+	{
+		MaskingRule__mdt cardRule = shippedRule(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD);
+		registerMockTargetOn(ApiCall__c.SObjectType, cardRule, UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.Request__c), null);
+		return cardRule;
+	}
+
+	/**
+	 * @description Masks one value of `ApiCall__c.Request__c` and checks that the card rule finished without an error and
+	 * put its replacement in the expected number of places.
+	 *
+	 * @param shapeName A short name of the text, used in the failure messages
+	 * @param value The text to mask
+	 * @param expectedReplacements How many replacements the masked text must hold
+	 * @param cardRule The shipped card rule, whose replacement is counted
+	 *
+	 * @return The masked text, for checks that only some shapes need
+	 */
+	private static String assertCardRuleHides(String shapeName, String value, Integer expectedReplacements, MaskingRule__mdt cardRule)
+	{
+		UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(value);
+
+		Assert.isFalse(result.hadErrors, 'Expected the card rule to finish without an error on ' + shapeName);
+		Assert.areEqual(expectedReplacements, result.maskedValue.countMatches(cardRule.Replacement__c), 'Expected the number of hidden numbers on ' + shapeName);
+		return result.maskedValue;
+	}
+
+	/**
+	 * @description Builds a text made only of the digit 1. It has no space or hyphen, so the card pattern finds nothing in
+	 * it.
+	 *
+	 * @param length The length of the text
+	 *
+	 * @return The digit text
+	 */
+	private static String buildDigitWall(Integer length)
+	{
+		return DIGIT_ONE.repeat(length);
+	}
+
+	/**
+	 * @description Builds a text of the digit 1 and a space, repeated. The card pattern finds a 19-digit number in every
+	 * 37 characters, and none of them passes the Luhn check.
+	 *
+	 * @param length The length of the text
+	 *
+	 * @return The digit text
+	 */
+	private static String buildSpacedDigitWall(Integer length)
+	{
+		return (DIGIT_ONE + UTIL_String.SPACE).repeat(length / 2);
+	}
+
+	/**
+	 * @description Builds a text of the digit 1 and a hyphen, repeated. It is the spaced digit text with hyphens.
+	 *
+	 * @param length The length of the text
+	 *
+	 * @return The digit text
+	 */
+	private static String buildHyphenatedDigitWall(Integer length)
+	{
+		return (DIGIT_ONE + HYPHEN).repeat(length / 2);
+	}
+
+	/**
+	 * @description Builds the text of `buildDigitWall` with a real card number in the middle.
+	 *
+	 * @param length The length of the text
+	 *
+	 * @return The digit text with the card number
+	 */
+	private static String buildDigitWallWithCard(Integer length)
+	{
+		return placeCardInTheMiddle(buildDigitWall(length), UTIL_String.SPACE, length);
+	}
+
+	/**
+	 * @description Builds the text of `buildSpacedDigitWall` with a real card number in the middle.
+	 *
+	 * @param length The length of the text
+	 *
+	 * @return The digit text with the card number
+	 */
+	private static String buildSpacedDigitWallWithCard(Integer length)
+	{
+		return placeCardInTheMiddle(buildSpacedDigitWall(length), UTIL_String.SPACE, length);
+	}
+
+	/**
+	 * @description Builds the text of `buildHyphenatedDigitWall` with a real card number in the middle.
+	 *
+	 * @param length The length of the text
+	 *
+	 * @return The digit text with the card number
+	 */
+	private static String buildHyphenatedDigitWallWithCard(Integer length)
+	{
+		return placeCardInTheMiddle(buildHyphenatedDigitWall(length), HYPHEN, length);
+	}
+
+	/**
+	 * @description Builds a text of 19-digit numbers that pass the Luhn check, one space apart, cut to the length.
+	 *
+	 * @param length The length of the text
+	 *
+	 * @return The text of numbers
+	 */
+	private static String buildNineteenDigitGroups(Integer length)
+	{
+		return NINETEEN_DIGIT_GROUP.repeat(length / NINETEEN_DIGIT_GROUP.length() + 1).left(length);
+	}
+
+	/**
+	 * @description Builds a text of different 16-digit card numbers that all pass the Luhn check, one space apart, with
+	 * spaces at the end to reach the length. A text of this length holds `(length + 1) / 17` numbers.
+	 *
+	 * @param length The length of the text
+	 *
+	 * @return The text of card numbers
+	 */
+	private static String buildCardDump(Integer length)
+	{
+		final Integer cardWithSeparatorLength = 17;
+		List<String> cards = new List<String>();
+		Long body = FIRST_CARD_BODY;
+
+		for(Integer count = 0; count < (length + 1) / cardWithSeparatorLength; count++)
+		{
+			cards.add(buildLuhnValidCard(body));
+			body += CARD_BODY_STEP;
+		}
+
+		String joined = String.join(cards, UTIL_String.SPACE);
+		return joined + UTIL_String.SPACE.repeat(length - joined.length());
+	}
+
+	/**
+	 * @description Puts `VISA_TEST_CARD`, with two separators on each side, in the middle of a text. The card number starts
+	 * at an even place, so in a text of a digit and a separator repeated it follows a separator.
+	 *
+	 * @param base The text to put the card number in
+	 * @param separator The separator to put on each side of the card number
+	 * @param length The length of the result
+	 *
+	 * @return The text with the card number in the middle
+	 */
+	private static String placeCardInTheMiddle(String base, String separator, Integer length)
+	{
+		String inserted = separator + separator + VISA_TEST_CARD + separator + separator;
+		Integer half = (length - inserted.length()) / 2;
+		half += Math.mod(half, 2);
+		return base.left(half) + inserted + base.substring(0, length - half - inserted.length());
+	}
+
+	/**
+	 * @description Builds a 16-digit card number that starts with 4, holds the given body and ends with the check digit
+	 * that makes it pass the Luhn check.
+	 *
+	 * @param body The 14 digits between the first digit and the check digit, padded with zeros on the left
+	 *
+	 * @return The card number
+	 */
+	private static String buildLuhnValidCard(Long body)
+	{
+		String digits = VISA_FIRST_DIGIT + String.valueOf(body).leftPad(CARD_BODY_DIGITS, DIGIT_ZERO);
+		List<Integer> characterCodes = digits.getChars();
+		Integer sum = 0;
+
+		for(Integer index = characterCodes.size() - 1; index >= 0; index--)
+		{
+			Integer digit = characterCodes[index] - ZERO_CHARACTER_CODE;
+
+			if(Math.mod(characterCodes.size() - index, 2) == 1)
+			{
+				digit = digit * 2 > 9 ? digit * 2 - 9 : digit * 2;
+			}
+
+			sum += digit;
+		}
+
+		return digits + String.valueOf(Math.mod(10 - Math.mod(sum, 10), 10));
+	}
+
+	/**
+	 * @description Makes the shipped secret-keys rule the only rule for `ApiCall__c.Request__c`. The rule is the deployed
+	 * record; only the target that links it to the field is a test record.
+	 *
+	 * @return The shipped secret-keys rule
+	 */
+	private static MaskingRule__mdt registerShippedSecretKeysRuleOnApiCallRequest()
+	{
+		MaskingRule__mdt secretRule = shippedRule(SEL_MaskingRule.RULE_MASK_SECRET_KEYS);
+		registerMockTargetOn(ApiCall__c.SObjectType, secretRule, UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.Request__c), null);
+		return secretRule;
+	}
+
+	/**
+	 * @description Registers a test JsonKey rule and its target on `ApiCall__c.Request__c`, a field long enough for the
+	 * values that are read one token at a time.
+	 *
+	 * @param developerName The rule DeveloperName
+	 * @param keyPattern The key pattern of the rule
+	 * @param replacement The text the rule writes in place of a matched value
+	 * @param ruleOrder The rule Order__c, which sets when the rule runs
+	 * @param failureAction The rule FailureAction__c; null leaves it unset
+	 */
+	private static void registerMockJsonKeyRuleOnApiCallRequest(String developerName, String keyPattern, String replacement, Integer ruleOrder, String failureAction)
+	{
+		MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder(developerName, SEL_MaskingRule.MODE_JSON_KEY, keyPattern, replacement, ruleOrder)
+				.withOverride(MaskingRule__mdt.FailureAction__c, failureAction)
+				.withoutInsertion(true)
+				.build();
+		registerMockTargetOn(ApiCall__c.SObjectType, rule, UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.Request__c), null);
+	}
+
+	/**
+	 * @description Registers a test JsonKey rule with no pattern on `ApiCall__c.Request__c`. The rule cares about case,
+	 * so the missing pattern cannot compile and the rule fails when it runs.
+	 */
+	private static void registerBlankPatternJsonKeyRuleOnApiCallRequest()
+	{
+		MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder(TEST_RULE_NAME, SEL_MaskingRule.MODE_JSON_KEY, null, UNUSED_REPLACEMENT, 10)
+				.withOverride(MaskingRule__mdt.CaseSensitive__c, true)
+				.withoutInsertion(true)
+				.build();
+		Assert.isNull(rule.Pattern__c, 'Expected the test rule to have no pattern');
+		registerMockTargetOn(ApiCall__c.SObjectType, rule, UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.Request__c), null);
+	}
+
+	/**
+	 * @description Masks two deep nests on `ApiCall__c.Request__c` and checks the results: the nest with a token at the
+	 * bottom has the token replaced, and the nest without a key is stored unchanged.
+	 *
+	 * @param levels How deep the nests are
+	 * @param length The length to pad the nest without a key to; 0 leaves it unpadded
+	 * @param secretRule The shipped secret-keys rule, whose replacement is expected
+	 */
+	private static void assertDeepNestsAreMasked(Integer levels, Integer length, MaskingRule__mdt secretRule)
+	{
+		UTIL_FrameworkMasker.FieldMasker masker = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c);
+		String expected = NEST_LEVEL_OPENING.repeat(levels) + '{"token":"' + secretRule.Replacement__c + '"}' + NEST_LEVEL_CLOSING.repeat(levels);
+		String nestWithoutKey = buildDeepNest(levels, length);
+
+		UTIL_FrameworkMasker.MaskingResult tokenResult = masker.mask(buildDeepNestWithToken(levels));
+		UTIL_FrameworkMasker.MaskingResult plainResult = masker.mask(nestWithoutKey);
+
+		Assert.isFalse(tokenResult.hadErrors, 'Expected the deep nest with a token to be masked without an error');
+		Assert.areEqual(expected, tokenResult.maskedValue, 'Expected the token at the bottom of the nest to be replaced');
+		Assert.areEqual(1, tokenResult.valuesRedacted, 'Expected one value to be replaced');
+		Assert.areEqual(nestWithoutKey, plainResult.maskedValue, 'Expected the nest without a key to be stored unchanged');
+	}
+
+	/**
+	 * @description Masks a JSON value with the shipped secret-keys rule on `ApiCall__c.Request__c` after putting it behind
+	 * more opening brackets than the line (see `buildAboveTheStructureLine`), so it is read one token at a time. Checks
+	 * the result as a value: both texts are read as JSON and compared.
+	 *
+	 * @param jsonValue The JSON value to mask
+	 * @param expectedJson The JSON value expected after masking
+	 * @param expectedReplacements How many values the rule must replace
+	 */
+	private static void assertSecretKeysRuleMasksAboveTheLine(String jsonValue, String expectedJson, Integer expectedReplacements)
+	{
+		UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(buildAboveTheStructureLine(jsonValue));
+
+		Assert.isFalse(result.hadErrors, 'Expected the secret-keys rule to finish without an error');
+		Assert.areEqual(JSON.deserializeUntyped(buildAboveTheStructureLine(expectedJson)), JSON.deserializeUntyped(result.maskedValue), 'Expected the secret value replaced');
+		Assert.areEqual(expectedReplacements, result.valuesRedacted, 'Expected the number of replaced values');
+	}
+
+	/**
+	 * @description Puts a JSON value at the end of a list that starts with `EMPTY_OBJECTS_ABOVE_THE_STRUCTURE_LINE` empty
+	 * objects. The list holds more opening brackets than the line, so the masking reads it one token at a time.
+	 *
+	 * @param jsonValue The JSON value to put in the list
+	 *
+	 * @return The list as JSON text
+	 */
+	private static String buildAboveTheStructureLine(String jsonValue)
+	{
+		return '[' + EMPTY_OBJECT_IN_A_LIST.repeat(EMPTY_OBJECTS_ABOVE_THE_STRUCTURE_LINE) + jsonValue + ']';
+	}
+
+	/**
+	 * @description Builds a JSON list of `FULL_OBJECTS_IN_THE_TOKEN_LIST` objects with a token key, then one last object
+	 * whose token value is padded so the text has the given length.
+	 *
+	 * @param length The length of the text
+	 *
+	 * @return The token list as JSON text
+	 */
+	private static String buildTokenArray(Integer length)
+	{
+		String head = '[' + TOKEN_OBJECT_IN_A_LIST.repeat(FULL_OBJECTS_IN_THE_TOKEN_LIST) + '{"token":"';
+		String tail = '"}]';
+		return head + 'x'.repeat(length - head.length() - tail.length()) + tail;
+	}
+
+	/**
+	 * @description Builds the token list of `buildTokenArray` cut at `TOKEN_LIST_CUT_LENGTH` characters, inside the value
+	 * of its last token. The text is not JSON: it ends in an open string.
+	 *
+	 * @param length The length of the token list before the cut
+	 *
+	 * @return The cut token list
+	 */
+	private static String buildTokenArrayCut(Integer length)
+	{
+		return buildTokenArray(length).left(TOKEN_LIST_CUT_LENGTH);
+	}
+
+	/**
+	 * @description Builds one JSON object with thousands of short keys (`k0`, `k1`, and so on) and a last key whose
+	 * value is padded so the text has the given length. No key is a secret key name, and no secret key name appears
+	 * anywhere in the text.
+	 *
+	 * @param length The length of the text
+	 *
+	 * @return The object as JSON text
+	 */
+	private static String buildManyKeys(Integer length)
+	{
+		final Integer roomForTheLastKey = 400;
+		List<String> entries = new List<String>();
+		Integer used = 2;
+
+		for(Integer index = 0; used < length - roomForTheLastKey; index++)
+		{
+			String entry = '"k' + index + '":"v"';
+			entries.add(entry);
+			used += entry.length() + 1;
+		}
+
+		String head = '{' + String.join(entries, UTIL_String.COMMA) + ',"pad":"';
+		String tail = '"}';
+		return head + 'v'.repeat(length - head.length() - tail.length()) + tail;
+	}
+
+	/**
+	 * @description Builds a JSON value nested the given number of levels deep, with one text at the bottom. The text is
+	 * padded so the value has the given length, and holds at least one character.
+	 *
+	 * @param levels How deep the value is nested
+	 * @param length The length of the text; 0 gives the shortest nest
+	 *
+	 * @return The deep nest as JSON text
+	 */
+	private static String buildDeepNest(Integer levels, Integer length)
+	{
+		Integer padding = Math.max(1, length - levels * (NEST_LEVEL_OPENING.length() + NEST_LEVEL_CLOSING.length()) - 2);
+		String bottom = UTIL_String.DOUBLE_QUOTE + 'v'.repeat(padding) + UTIL_String.DOUBLE_QUOTE;
+		return NEST_LEVEL_OPENING.repeat(levels) + bottom + NEST_LEVEL_CLOSING.repeat(levels);
+	}
+
+	/**
+	 * @description Builds a JSON value nested the given number of levels deep, with `DEEP_TOKEN_OBJECT`, an object
+	 * holding a token key, at the bottom.
+	 *
+	 * @param levels How deep the token object is nested
+	 *
+	 * @return The deep nest as JSON text
+	 */
+	private static String buildDeepNestWithToken(Integer levels)
+	{
+		return NEST_LEVEL_OPENING.repeat(levels) + DEEP_TOKEN_OBJECT + NEST_LEVEL_CLOSING.repeat(levels);
+	}
+
+	/**
+	 * @description Asserts that a warning was stored under flood control: one detail row and one counter row for
+	 * today, both keyed from the given fingerprint, nothing else at that location, and the counter holding the number
+	 * of times the warning was written.
+	 *
+	 * @param warnings The rows found at the warning's location
+	 * @param fingerprint The flood-control key the warning is expected to carry
+	 * @param occurrences How many times the warning is expected to have been written
+	 */
+	private static void assertStoredUnderFloodControl(List<LogEntry__c> warnings, String fingerprint, Decimal occurrences)
+	{
+		String counterKeyStart = TRG_PersistLogEntry.PREFIX_ROLLUP + fingerprint + UTIL_String.COLON;
+		Set<String> storedKeys = new Set<String>();
+		Decimal counted;
+		for(LogEntry__c warning : warnings)
+		{
+			storedKeys.add(warning.Fingerprint__c);
+			if(warning.Fingerprint__c?.startsWith(counterKeyStart) == true)
+			{
+				counted = warning.OccurrenceCount__c;
+			}
+		}
+		Assert.areEqual(2, warnings.size(), 'Expected the warning stored as one detail row and one counter row, found keys ' + storedKeys);
+		Assert.isTrue(storedKeys.contains(TRG_PersistLogEntry.buildDetailKey(fingerprint)), 'Expected a detail row under the key ' + fingerprint + ', found keys ' + storedKeys);
+		Assert.areEqual(occurrences, counted, 'Expected the counter row to hold the number of times the warning was written, found keys ' + storedKeys);
 	}
 
 	/**
@@ -2662,5 +5662,68 @@ private class UTIL_FrameworkMasker_TEST
 				.withOverride(Foobar__c.Name, PREDECESSOR_TOKEN + ' ' + SUCCESSOR_TOKEN)
 				.withoutInsertion()
 				.build();
+	}
+
+	/**
+	 * @description Builds a JSON object of the given length whose secret key holds an object, followed by a padding text
+	 * (see `OBJECT_UNDER_A_SECRET_KEY_HEAD`).
+	 *
+	 * @param length The length of the JSON text
+	 *
+	 * @return The JSON text
+	 */
+	private static String buildObjectUnderASecretKey(Integer length)
+	{
+		return OBJECT_UNDER_A_SECRET_KEY_HEAD + PADDING_CHARACTER.repeat(length - OBJECT_UNDER_A_SECRET_KEY_HEAD.length() - PADDED_OBJECT_TAIL.length()) + PADDED_OBJECT_TAIL;
+	}
+
+	/**
+	 * @description Checks that the value built by `buildObjectUnderASecretKey` was read as JSON: the object under the
+	 * secret key is replaced by the replacement of the secret-keys rule, and the padding text is kept. The masked text is
+	 * longer than the field, so the whole text is read from `uncutMaskedValue`.
+	 *
+	 * @param result The masking result to check
+	 * @param secretRule The shipped secret-keys rule, whose replacement is expected
+	 */
+	private static void assertObjectUnderTheSecretKeyReplaced(UTIL_FrameworkMasker.MaskingResult result, MaskingRule__mdt secretRule)
+	{
+		Assert.isFalse(result.hadErrors, 'Expected the secret-keys rule to finish without an error');
+		Assert.isNotNull(result.uncutMaskedValue, 'Expected the masked text to be longer than the field, got ' + result.maskedValue?.left(40));
+		Map<String, Object> masked = (Map<String, Object>)JSON.deserializeUntyped(result.uncutMaskedValue);
+		Assert.areEqual(secretRule.Replacement__c, masked.get(SECRET_KEY_HOLDING_AN_OBJECT), 'Expected the object under the secret key replaced');
+		Assert.isTrue(((String)masked.get(PADDING_KEY)).startsWith(PADDING_CHARACTER), 'Expected the padding text kept');
+	}
+
+	/**
+	 * @description A Queueable that masks one value of `ApiCall__c.Request__c` and keeps the result in
+	 * `resultMaskedInQueueable`, so a test can check how the masking reads a value in an asynchronous transaction.
+	 */
+	@SuppressWarnings('PMD.QueueableWithoutFinalizer')
+	private inherited sharing class MaskInQueueable implements Queueable
+	{
+		/**
+		 * @description The value to mask.
+		 */
+		private final String value;
+
+		/**
+		 * @description Prepares the job.
+		 *
+		 * @param value The value to mask
+		 */
+		private MaskInQueueable(String value)
+		{
+			this.value = value;
+		}
+
+		/**
+		 * @description Masks the value and keeps the result.
+		 *
+		 * @param context The context of the Queueable job
+		 */
+		public void execute(QueueableContext context)
+		{
+			resultMaskedInQueueable = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).maskAndReturnWholeText(value);
+		}
 	}
 }

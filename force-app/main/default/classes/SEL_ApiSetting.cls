@@ -10,7 +10,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_ApiSetting extends SEL_Base
 {
@@ -41,6 +41,13 @@ public inherited sharing class SEL_ApiSetting extends SEL_Base
 	 * @description Direction value indicating an outbound API setting.
 	 */
 	public static final String DIRECTION_OUTBOUND = 'Outbound';
+
+	/**
+	 * @description The handler class name of every API setting, for the rest of the transaction, keyed by the class
+	 * name in lower case and without the package namespace (see `buildServiceKey`). Read from the settings once, on the
+	 * first call of `findClassNameByServiceName`; null until then.
+	 */
+	private static Map<String, String> classNamesByServiceKey;
 
 	/**
 	 * @description Constructs an ApiSetting selector.
@@ -123,6 +130,81 @@ public inherited sharing class SEL_ApiSetting extends SEL_Base
 	public ApiSetting__mdt findByClassName(String className)
 	{
 		return (ApiSetting__mdt)findFirstByField(ApiSetting__mdt.ClassName__c, className);
+	}
+
+	/**
+	 * @description Finds the handler class name of the API setting for a service name, as the setting writes it in
+	 * `ClassName__c`. The service name of an API call or an API issue is the class name of its handler, so this is the
+	 * class a masking target names in `CallerClass__c` to apply only to that handler's calls and issues.
+	 *
+	 * The names are compared without regard to letter case and without the package namespace, so `kern.API_Example`
+	 * and `API_Example` name the same setting. All settings are read once per transaction, on the first call, and every
+	 * later call answers from memory. A service with no setting, a setting with no class name, a blank service name, or
+	 * settings that cannot be read all give the empty string, which means no caller.
+	 *
+	 * @param serviceName The service name of an API call or an API issue; may be blank
+	 *
+	 * @return The handler class name from the setting, or the empty string when there is none
+	 *
+	 * @example
+	 * ```apex
+	 * String callerClassName = SEL_ApiSetting.findClassNameByServiceName(apiCall.ServiceName__c);
+	 * ```
+	 */
+	public static String findClassNameByServiceName(String serviceName)
+	{
+		if(String.isBlank(serviceName))
+		{
+			return UTIL_String.EMPTY;
+		}
+		if(classNamesByServiceKey == null)
+		{
+			classNamesByServiceKey = readClassNamesByServiceKey();
+		}
+		return classNamesByServiceKey.get(buildServiceKey(serviceName)) ?? UTIL_String.EMPTY;
+	}
+
+	/**
+	 * @description Reads every API setting once and keys its class name by `buildServiceKey`. When the settings cannot
+	 * be read, it writes a warning and gives an empty map, so every service resolves to no caller and only the masking
+	 * targets for every caller apply.
+	 *
+	 * @return The class name of each setting that has one, keyed by its service key
+	 */
+	private static Map<String, String> readClassNamesByServiceKey()
+	{
+		Map<String, String> classNames = new Map<String, String>();
+		try
+		{
+			for(SObject record : new SEL_ApiSetting().toList())
+			{
+				String className = ((ApiSetting__mdt)record).ClassName__c;
+				if(String.isNotBlank(className))
+				{
+					classNames.put(buildServiceKey(className), className);
+				}
+			}
+		}
+		catch(Exception readFailure)
+		{
+			LOG_Builder.build()
+					.warn('The API settings could not be read, so API calls and issues are masked for no caller: ' + readFailure.getMessage())
+					.emitAt(SEL_ApiSetting.class.getName() + '.findClassNameByServiceName');
+		}
+		return classNames;
+	}
+
+	/**
+	 * @description Builds the key a class name or a service name is looked up by: the name in lower case, with the
+	 * package namespace and its dot removed from the start.
+	 *
+	 * @param name A class name or a service name, never blank
+	 *
+	 * @return The key
+	 */
+	private static String buildServiceKey(String name)
+	{
+		return name.trim().toLowerCase().removeStart(UTIL_System.getManagedPackageNamespacePrefix(UTIL_String.DOT).toLowerCase());
 	}
 
 	/**

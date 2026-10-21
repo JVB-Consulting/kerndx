@@ -854,6 +854,27 @@ private class TST_Factory_TEST
 	}
 
 	/**
+	 * @description The factory's issue for a call is the issue the outbound framework builds for that same call, field for
+	 * field, so an issue a test seeds through the factory looks exactly like one a real outbound failure writes.
+	 *
+	 * @see TST_Factory.newApiIssue
+	 * @see API_Outbound.buildOutboundFailureRecord
+	 */
+	@IsTest
+	private static void shouldBuildTheSameIssueAsTheOutboundBuilder()
+	{
+		ApiCall__c apiCall = TST_Factory.newOutboundApiCall(UTIL_Random.randomName(), UserInfo.getUserId(), UTIL_Random.randomName(), UTIL_Random.randomName());
+		apiCall.ErrorMessages__c = UTIL_Random.randomName();
+		String requestHash = UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c);
+
+		ApiIssue__c factoryIssue = TST_Factory.newApiIssue(apiCall, requestHash);
+		ApiIssue__c outboundIssue = API_Outbound.buildOutboundFailureRecord(apiCall, requestHash);
+
+		Assert.areEqual(SEL_ApiIssue.DIRECTION_OUTBOUND, factoryIssue.Direction__c, 'Expected an outbound issue, got ' + factoryIssue.Direction__c);
+		Assert.areEqual(outboundIssue.getPopulatedFieldsAsMap(), factoryIssue.getPopulatedFieldsAsMap(), 'Expected the factory to build the outbound issue');
+	}
+
+	/**
 	 * @description Verifies that using TST_Factory keeps a default value provider that was registered
 	 * before the factory class loaded — the factory must never replace a registered provider. The
 	 * factory call is the test method's first TST_Factory reference, so its static initializer runs

@@ -41,6 +41,23 @@ private class TRG_Dispatcher_TEST
 	 */
 	private static final String DEFAULT_RECORD_NAME = 'My Record';
 	/**
+	 * @description The pattern of the secret the masking grouping test hides: the word secret, a hyphen, then letters
+	 * and digits.
+	 */
+	private static final String SECRET_PATTERN = 'secret-[A-Za-z0-9]+';
+	/**
+	 * @description A secret SECRET_PATTERN finds. Its last part is random, so no fixed text can pass by chance.
+	 */
+	private static final String SECRET = 'secret-' + UTIL_Random.randomAlphanumeric(12);
+	/**
+	 * @description The text the masking target limited to the first handler class writes in place of the secret.
+	 */
+	private static final String FIRST_HANDLER_TOKEN = '[FIRST]';
+	/**
+	 * @description The text the masking target limited to the second handler class writes in place of the secret.
+	 */
+	private static final String SECOND_HANDLER_TOKEN = '[SECOND]';
+	/**
 	 * @description Failure message shown when a dispatcher run that must throw finishes without an exception.
 	 */
 	private static final String MSG_EXCEPTION_EXPECTED = 'Expected an exception to be thrown';
@@ -1178,6 +1195,93 @@ private class TRG_Dispatcher_TEST
 		FACTORY_TRIGGER_ACTION.run();
 
 		Assert.areEqual(0, UTIL_MaskerPerformanceTimer.logCountThisTransaction, 'Masker timer must not run when masking framework flag is off');
+	}
+
+	/**
+	 * @description Tests that the dispatcher masks the API calls of one save in groups, one group for each handler class
+	 * their service names resolve to through the API settings. Each call gets the targets limited to its own handler,
+	 * and a call whose service has no setting gets only the targets for every caller.
+	 */
+	@IsTest
+	private static void shouldGroupRecordsByResolvedCaller()
+	{
+		TST_Factory.newOutboundApiSetting(TEST_BEFORE_INSERT, null);
+		TST_Factory.newOutboundApiSetting(TEST_BEFORE_UPDATE, null);
+		registerApiCallRequestTarget(newMaskingRule('HideSecretForFirst', SECRET_PATTERN, FIRST_HANDLER_TOKEN), TEST_BEFORE_INSERT);
+		registerApiCallRequestTarget(newMaskingRule('HideSecretForSecond', SECRET_PATTERN, SECOND_HANDLER_TOKEN), TEST_BEFORE_UPDATE);
+		ApiCall__c firstCall = newApiCallInMemory(TEST_BEFORE_INSERT, SECRET);
+		ApiCall__c secondCall = newApiCallInMemory(TEST_BEFORE_UPDATE, SECRET);
+		ApiCall__c callWithNoSetting = newApiCallInMemory(BOGUS_CLASS_NAME, SECRET);
+
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<ApiCall__c> {firstCall, secondCall, callWithNoSetting};
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.BEFORE_INSERT;
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.BEFORE_INSERT => new List<TriggerAction__mdt>()
+		};
+
+		FACTORY_TRIGGER_ACTION.run();
+
+		Assert.areEqual(FIRST_HANDLER_TOKEN, firstCall.Request__c, 'Expected the first handler\'s target on its call, got ' + firstCall.Request__c);
+		Assert.areEqual(SECOND_HANDLER_TOKEN, secondCall.Request__c, 'Expected the second handler\'s target on its call, got ' + secondCall.Request__c);
+		Assert.areEqual(SECRET, callWithNoSetting.Request__c, 'Expected no handler target on a call whose service has no setting, got ' + callWithNoSetting.Request__c);
+	}
+
+	/**
+	 * @description Builds a test masking rule in regular expression mode, held in memory only.
+	 *
+	 * @param developerName The rule name.
+	 * @param rulePattern The regular expression the rule finds.
+	 * @param replacement The text the rule writes in place of each match.
+	 *
+	 * @return The rule.
+	 */
+	private static MaskingRule__mdt newMaskingRule(String developerName, String rulePattern, String replacement)
+	{
+		return (MaskingRule__mdt)TST_Builder.of(MaskingRule__mdt.SObjectType).withOverrides(new Map<SObjectField, Object>
+		{
+				MaskingRule__mdt.DeveloperName => developerName,
+				MaskingRule__mdt.Mode__c => SEL_MaskingRule.MODE_REGEX,
+				MaskingRule__mdt.Pattern__c => rulePattern,
+				MaskingRule__mdt.Replacement__c => replacement,
+				MaskingRule__mdt.IsActive__c => true
+		}).withoutInsertion(true).build();
+	}
+
+	/**
+	 * @description Registers an active masking target that runs a rule on the request field of API calls, limited to
+	 * one handler class.
+	 *
+	 * @param rule The rule the target runs.
+	 * @param callerClassName The handler class the target is limited to.
+	 */
+	private static void registerApiCallRequestTarget(MaskingRule__mdt rule, String callerClassName)
+	{
+		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType);
+		TST_Mock.of(MaskingTarget__mdt.SObjectType)
+				.withOverride(MaskingTarget__mdt.IsActive__c, true)
+				.withOverride(MaskingTarget__mdt.SObjectType__c, objectName)
+				.withOverride(MaskingTarget__mdt.Field__c, objectName + UTIL_String.DOT + UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.Request__c))
+				.withOverride(MaskingTarget__mdt.CallerClass__c, callerClassName)
+				.withOverride(MaskingTarget__mdt.Rule__c, rule)
+				.build();
+	}
+
+	/**
+	 * @description Builds an API call in memory with a service name and a request.
+	 *
+	 * @param serviceName The service name of the call.
+	 * @param request The request text.
+	 *
+	 * @return The call, not saved.
+	 */
+	private static ApiCall__c newApiCallInMemory(String serviceName, String request)
+	{
+		return (ApiCall__c)TST_Builder.of(ApiCall__c.SObjectType)
+				.withOverride(ApiCall__c.ServiceName__c, serviceName)
+				.withOverride(ApiCall__c.Request__c, request)
+				.withoutInsertion()
+				.build();
 	}
 
 	/**
