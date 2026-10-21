@@ -112,18 +112,22 @@ jobs:
     needs: local-apex-runtime-licence
     if: needs.local-apex-runtime-licence.outputs.licensed == 'true'
     # Runs every Apex test on aer, a local Apex runtime by October Swimmer, with no org, using the licence in
-    # the AER_LICENSE secret. scripts/aer-run.js runs the tests in groups of at most 100. The checkout has no
-    # profiles folder, so the tests run as a user with the Administrator permission set (-p Administrator).
+    # the AER_LICENSE secret. With the licence registered, scripts/aer-run.js runs every test in one aer run.
+    # The checkout has no profiles folder, so the tests run as a user with the Administrator permission set
+    # (-p Administrator).
     # The job fails on a failing test that is not listed in scripts/aer-baseline.json and on a test that reports
     # no result; the published figure in the Metrics guide comes from the recorded run, not from this job.
     # aer is pinned: the version, download address and checksum are those of the octoberswimmer/tap Homebrew
-    # cask for that version (Casks/aer.rb at tap commit b0b8af70eb32df408da90746e740f88f45d982d6).
+    # cask for that version (Casks/aer.rb at tap commit 0be472abe0d2feeadaf7cbb5280d87dac555e448).
+    # The licence is for public repositories only: aer checks it with the job's own GitHub token, so the test step
+    # passes GITHUB_TOKEN, and the step stops with an error when aer still refuses the licence, because an unlicensed
+    # aer runs only one test at a time on a codebase this size.
     runs-on: ubuntu-latest
     permissions:
       contents: read
     env:
-      AER_VERSION: 1.4.27
-      AER_SHA256: 662154f50d69e25cbde4a01cda139dbe5d055dee8255674de8dfb5f34fedcda2
+      AER_VERSION: 1.4.31
+      AER_SHA256: c332a6335c292bfbcad06c8e3ad57d0796556d33b7daf8c4cd5d2cb01012585e
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -148,8 +152,15 @@ jobs:
       - name: Run the Apex tests on aer against the known failures
         env:
           AER_LICENSE: ${{ secrets.AER_LICENSE }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           aer license register "$AER_LICENSE"
+          licence_status="$(aer license show 2>&1 || true)"
+          echo "$licence_status"
+          if [ -z "$licence_status" ] || printf '%s' "$licence_status" | grep -qi 'license error'; then
+            echo "::error title=Local Apex runtime::aer did not accept the licence in AER_LICENSE"
+            exit 1
+          fi
           aer --version
           node scripts/aer-run.js --gate scripts/aer-baseline.json -p Administrator --work "$RUNNER_TEMP/aer-run"
 

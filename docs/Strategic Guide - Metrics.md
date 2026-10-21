@@ -40,10 +40,10 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric                          |                Count | Notes                                                                                                                                              |
 |---------------------------------|---------------------:|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| Apex classes (total)            |                  398 | sum of production + test                                                                                                                           |
-| Apex production classes         |                  200 | `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                                       |
-| Apex test classes               |                  198 | `force-app/main/default/classes/*_TEST.cls`                                                                                                        |
-| Apex test methods               |                5,213 | counted from `force-app/main/default/classes/*_TEST.cls` (method-level `@IsTest` annotations; class-level `@IsTest(...)` annotations are excluded) |
+| Apex classes (total)            |                  402 | sum of production + test                                                                                                                           |
+| Apex production classes         |                  201 | `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                                       |
+| Apex test classes               |                  201 | `force-app/main/default/classes/*_TEST.cls`                                                                                                        |
+| Apex test methods               |                5,565 | counted from `force-app/main/default/classes/*_TEST.cls` (method-level `@IsTest` annotations; class-level `@IsTest(...)` annotations are excluded) |
 | Apex test coverage              |        100% per-file | enforced at every release build by `scripts/evaluate-coverage.js`                                                                                  |
 | Lines of code (production Apex) |                ~105K | counted from `force-app/main/default/classes/*.cls` excluding `_TEST.cls`                                                                          |
 | Lines of code (test Apex)       |                ~114K | counted from `force-app/main/default/classes/*_TEST.cls`                                                                                           |
@@ -51,7 +51,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Lines of code (LWC Jest tests)  |                 ~49K | counted from `force-app/main/default/lwc/**/*.test.js`                                                                                             |
 | Lines of code (total)           |                ~294K | the rows above are rounded; exact total 294,036                                                                                                    |
 | Source API version              |                 68.0 | visible in Setup → Installed Packages → Kern → API Version; also in `sfdx-project.json`                                                            |
-| Latest packaged version         |  1.8.0-11 (released) | `sfdx-project.json` `packageAliases`                                                                                                               |
+| Latest packaged version         |  1.9.0-4 (released) | `sfdx-project.json` `packageAliases`                                                                                                               |
 
 ## Org Apex Usage (Unmanaged)
 
@@ -84,12 +84,12 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 |----------------------------------|--------:|--------------------------------------------------------------------------------------------------------------|
 | `TriggerSetting__mdt`            |       7 |                                                                                                              |
 | `TriggerAction__mdt`             |      11 |                                                                                                              |
-| `FeatureFlag__mdt`               |      16 | excluding the `TestFeatureFlag` fixture record                                                               |
-| `FeatureFlagStrategy__mdt`       |       7 | excluding the `TestFeatureFlagStrategy` fixture record                                                       |
+| `FeatureFlag__mdt`               |      15 | excluding the `TestFeatureFlag` fixture record                                                               |
+| `FeatureFlagStrategy__mdt`       |       6 | excluding the `TestFeatureFlagStrategy` fixture record                                                       |
 | `ApiSetting__mdt`                |       4 |                                                                                                              |
 | `ApiCredential__mdt`             |       3 |                                                                                                              |
-| `MaskingRule__mdt`               |      18 | 3 active by default (MaskSecretKeys, MaskPaymentCard, and the legacy MaskCreditCard it replaces), 15 shipped as inactive templates |
-| `MaskingTarget__mdt`             |      12 | Wildcards wiring the card and secret rules to ApiCall__c, ApiIssue__c, AsyncChainExecution__c, and LogEntryEvent__e (4 of the 12 belong to the replaced credit-card rule) |
+| `MaskingRule__mdt`               |      18 | 3 active by default (MaskSecretKeys, MaskPaymentCard, MaskJwt), 15 shipped inactive (14 templates and the legacy MaskCreditCard that MaskPaymentCard replaces) |
+| `MaskingTarget__mdt`             |      14 | Wildcards wiring the card and secret rules to ApiCall__c, ApiIssue__c, AsyncChainExecution__c, and LogEntryEvent__e, and the JWT rule to ApiCall__c and ApiIssue__c (ApiCall_All_Jwt, Issue_All_Jwt); 4 of the 14 belong to the replaced credit-card rule and ship inactive |
 | `ApiMock__mdt`                   |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
 | `ValidationRuleGroup__mdt`       |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
 | `ValidationRule__mdt`            |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
@@ -130,9 +130,9 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric                 |                        Count | Notes                                                             |
 |------------------------|-----------------------------:|-------------------------------------------------------------------|
-| LWC components (total) |                           76 | `force-app/main/default/lwc/**/`                                  |
-| Jest test files        |                           77 | counted from `force-app/main/default/lwc/**/*.test.js`            |
-| Jest test cases        |                        3,431 | counted across all Jest test files                                |
+| LWC components (total) |                           78 | `force-app/main/default/lwc/**/`                                  |
+| Jest test files        |                           79 | counted from `force-app/main/default/lwc/**/*.test.js`            |
+| Jest test cases        |                        3,430 | counted across all Jest test files                                |
 | Jest test coverage     | 95%+ statement / 95%+ branch | enforced at every release build by `scripts/evaluate-coverage.js` |
 
 ## Salesforce Metadata
@@ -142,7 +142,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Custom objects (`__c`)          |    11 |
 | Custom metadata types (`__mdt`) |    15 |
 | Platform events (`__e`)         |     1 |
-| Custom fields (total)           |   297 |
+| Custom fields (total)           |   299 |
 | — on custom objects             |   155 |
 | — on custom metadata types      |   122 |
 | — on platform events            |    20 |
@@ -178,12 +178,12 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric                                | Count |
 |---------------------------------------|------:|
-| Subscriber Apex classes (production)  |    77 |
-| Subscriber test classes               |    53 |
-| Subscriber test methods               |   277 |
+| Subscriber Apex classes (production)  |    79 |
+| Subscriber test classes               |    54 |
+| Subscriber test methods               |   279 |
 | Anonymous Apex test sections          |    83 |
 | Anonymous Apex assertions (`PASS:`)   |   454 |
-| Anonymous Apex assertions (`Assert.`) |   591 |
+| Anonymous Apex assertions (`Assert.`) |   596 |
 
 ### Local test run
 
@@ -192,7 +192,7 @@ The package's own Apex tests, run on a computer with no Salesforce org. The figu
 | Metric                               | Value                                                                                                                                                |
 |--------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Apex tests passing locally           | 5,213 of 5,213 (100.0%)                                                                                                                              |
-| Runtime                              | [aer](https://www.octoberswimmer.com/tools/aer/) 1.4.27 by October Swimmer, a local Apex runtime (a paid product with a free tier)                   |
+| Runtime                              | [aer](https://github.com/octoberswimmer/aer-dist) 1.4.27 by October Swimmer, a local Apex runtime                                                    |
 | How it ran                           | as a user with the Administrator permission set (`-p Administrator`), on a copy of the source with no `profiles` folder, at most 100 tests at a time |
 | Source                               | v1.8.0-11                                                                                                                                            |
 | Measured                             | 2026-10-13                                                                                                                                           |
@@ -217,12 +217,12 @@ The package's own Apex tests, run on a computer with no Salesforce org. The figu
 
 | Layer                       |         Tests |  Assertions |
 |-----------------------------|--------------:|------------:|
-| Package Apex tests          | 5,213 methods |      ~7,729 |
-| Package Jest tests          |   3,431 cases |      ~5,054 |
-| Subscriber Apex tests       |   277 methods |        ~349 |
+| Package Apex tests          | 5,565 methods |      ~7,729 |
+| Package Jest tests          |   3,430 cases |      ~5,054 |
+| Subscriber Apex tests       |   279 methods |        ~349 |
 | Subscriber anonymous Apex   |   83 sections |         453 |
 | Subscriber E2E (Playwright) |     131 cases |        ~342 |
-| **Total**                   |     **9,135** | **~13,927** |
+| **Total**                   |     **9,488** | **~13,927** |
 
 > The Tests column is recounted from source every release. The Assertions column carries forward from the 1.6 reconciliation and was not recounted this release, except the anonymous Apex row, which takes the `PASS:` count from the Subscriber Tests table above.
 
@@ -232,8 +232,8 @@ These figures describe how well-supported and ready-to-install the package is, m
 
 | Metric                             |                Value | Source                                                                                  |
 |------------------------------------|---------------------:|-----------------------------------------------------------------------------------------|
-| Published managed-package versions |                  141 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000cIDdAAM` |
-| Latest packaged version            |  1.8.0-11 (released) | `sfdx-project.json` `packageAliases`                                                    |
+| Published managed-package versions |                  141 | `sfdx-project.json` `packageAliases`: `04tfj000000EtB7AAK` through `04tfj000000drajAAA` |
+| Latest packaged version            |  1.9.0-4 (released) | `sfdx-project.json` `packageAliases`                                                    |
 | Primary contributors               |                    1 | single-maintainer project                                                               |
 
 > KernDX is a single-maintainer project. Its readiness to install shows up in the 136 published managed-package versions, rather than in a long public commit history. So what this means for you: the package itself is well-exercised through repeated releases, even though it does not yet have the years-long open commit log of an older project.
