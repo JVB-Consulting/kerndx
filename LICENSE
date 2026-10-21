@@ -6,24 +6,26 @@ License text copyright (c) 2020 MariaDB Corporation Ab, All Rights Reserved.
 Parameters
 
 Licensor:             JVB Consulting
-Licensed Work:        KernDX. The Licensed Work is (c) 2026
-                      JVB Consulting.
+Licensed Work:        KernDX (the contents of this repository), excluding the
+                      pipeline tooling under `pipeline/` (licensed under the MIT
+                      License, see `pipeline/LICENSE`) and the files listed in
+                      `NOTICES.md` as derived from Apache-2.0, MIT or
+                      BSD-3-Clause projects (which remain under their upstream
+                      licenses). The Licensed Work is (c) 2026 JVB Consulting.
 Additional Use Grant: You may make production use of the Licensed Work, provided
                       Your use does not include offering the Licensed Work to third
                       parties on a hosted or embedded basis in order to compete with
-                      the Licensor's paid version(s) of the Licensed Work. For
-                      purposes of this license:
+                      the Licensed Work. For purposes of this license:
 
                       A "competitive offering" is a Product that is offered to third
                       parties on a paid basis, including through paid support
                       arrangements, that significantly overlaps with the capabilities
-                      of the Licensor's paid version(s) of the Licensed Work. If Your
-                      Product is not a competitive offering when You first make it
-                      generally available, it will not become a competitive offering
-                      later due to the Licensor releasing a new version of the
-                      Licensed Work with additional capabilities. In addition,
-                      Products that are not provided on a paid basis are not
-                      competitive.
+                      of the Licensed Work. If Your Product is not a competitive
+                      offering when You first make it generally available, it will
+                      not become a competitive offering later due to the Licensor
+                      releasing a new version of the Licensed Work with additional
+                      capabilities. In addition, Products that are not provided on a
+                      paid basis are not competitive.
 
                       "Product" means software that is offered to end users to manage
                       in their own environments or offered as a service on a hosted
@@ -38,108 +40,12 @@ Additional Use Grant: You may make production use of the Licensed Work, provided
                       Installing and using the Licensed Work within a Salesforce
                       organization as a subscriber is permitted production use and
                       is not considered a competitive offering.
-Change Date:          Four years from the date the Licensed Work is published.
+Change Date:          Four years from the date each version of the Licensed Work
+                      is first publicly distributed.
 Change License:       Apache License, Version 2.0
 
 For information about alternative licensing arrangements for the Licensed Work,
 please contact jason@jvb-consulting.io.
-
-License Carve-Out for Pipeline Tooling
-
-The standalone CI pipeline tooling shipped under the `pipeline/` directory
-of this repository is licensed separately under the MIT License — see
-`pipeline/LICENSE` for the full MIT terms. The Business Source License 1.1
-above governs the rest of the Licensed Work (Apex framework, LWC components,
-documentation, scripts, scanner rulesets, release-testing harness, and all
-other files outside `pipeline/` and outside the third-party-derived files
-enumerated below).
-
-License Carve-Out for Third-Party-Derived Files
-
-A subset of the Apex source files under `force-app/main/default/classes/` are
-derivative works of third-party open-source projects and remain licensed
-under their upstream licenses. The Business Source License 1.1 above does
-not apply to these files. Full upstream attribution (project URLs, copyright
-holders, original license texts) lives in `NOTICES.md`. The canonical text
-of each upstream license is shipped at `LICENSES/Apache-2.0.txt`,
-`LICENSES/MIT.txt`, and `LICENSES/BSD-3-Clause.txt`.
-
-Apache License 2.0 — 27 files across 2 upstream projects:
-
-  Derived from apex-lang (https://code.google.com/p/apex-lang/) — 19 files:
-    UTIL_Boolean.cls, UTIL_Boolean_TEST.cls,
-    UTIL_Character.cls, UTIL_Character_TEST.cls,
-    UTIL_Comparators.cls, UTIL_Comparators_TEST.cls,
-    UTIL_Email.cls,
-    UTIL_List.cls, UTIL_List_TEST.cls,
-    UTIL_Map.cls, UTIL_Map_TEST.cls,
-    UTIL_NumberRange.cls, UTIL_NumberRange_TEST.cls,
-    UTIL_Random.cls, UTIL_Random_TEST.cls,
-    UTIL_Set.cls, UTIL_Set_TEST.cls,
-    UTIL_String.cls, UTIL_String_TEST.cls.
-
-  Derived from apex-trigger-actions-framework
-  (https://github.com/mitchspano/apex-trigger-actions-framework) — 8 files:
-    FLOW_CheckTriggerBypassed.cls, FLOW_CheckTriggerBypassed_TEST.cls,
-    IF_Trigger.cls,
-    TRG_Base.cls, TRG_Base_TEST.cls,
-    TRG_Dispatcher.cls, TRG_Dispatcher_TEST.cls,
-    UTIL_FormulaFilter.cls.
-
-MIT License — 8 files across 3 upstream projects:
-
-  Derived from apex-logger by Mike Lockett — 4 files:
-    LOG_Builder.cls, LOG_Builder_TEST.cls,
-    LOG_Engine.cls, LOG_Engine_TEST.cls.
-
-  Derived from SObjectIndex by Aidan Harding / Nebula Consulting — 2 files:
-    MAP_SObject.cls, MAP_SObject_TEST.cls.
-
-  Derived from JsonPath by open-force — 2 files:
-    UTIL_JsonPath.cls, UTIL_JsonPath_TEST.cls.
-
-BSD 3-Clause License — 4 files across 1 upstream project:
-
-  Derived from Apex-Util by capeterson (predecessor of FinancialForce
-  apex-common / fflib_SObjectDescribe + fflib_SObjectUnitOfWork) — 4 files:
-    UTIL_SObjectDescribe.cls, UTIL_SObjectDescribe_TEST.cls,
-    DML_Transaction.cls, DML_Transaction_TEST.cls.
-
-Each file above is governed solely by its upstream license (Apache 2.0,
-MIT, or BSD 3-Clause as enumerated). The Business Source License 1.1 above
-does not modify these terms. See `NOTICES.md` for full upstream attribution
-and original copyright notices.
-
-Acknowledgement of Public-Domain-Derived Files (CC0-1.0)
-
-Separately from the carve-out above, a set of files derive from Philippe Ozil's
-streaming-monitor project (https://github.com/pozil/streaming-monitor), which is
-dedicated to the public domain under CC0-1.0. CC0-1.0 waives all copyright and
-related rights and imposes no attribution requirement, so these files are NOT
-carved out above: they are relicensed under the Business Source License 1.1
-alongside the rest of the Licensed Work, which CC0-1.0 expressly permits.
-
-They are listed here purely as an acknowledgement, not a licence obligation. We
-credit Philippe Ozil because it is the right thing to do, even though CC0-1.0
-does not require it. His original tool is free on the AppExchange (listing
-a0N3A00000FYEEWUA5). The full CC0-1.0 text is shipped at LICENSES/CC0-1.0.txt.
-
-Adapted from streaming-monitor, Copyright (c) Philippe Ozil (rights waived
-under CC0-1.0):
-
-  LWC components (11, under force-app/main/default/lwc/): streamingActions,
-    streamingEventFilters, streamingEvents, streamingEventsHeader,
-    streamingMonitor, streamingSidebar, streamingSubscriptions,
-    streamingTimeline, streamingUsageFilters, streamingUsageMetrics,
-    utilityStreaming.
-
-  Apex classes (under force-app/main/default/classes/): CTRL_EventMonitor.cls
-    and CTRL_EventMonitor_TEST.cls in full, and SEL_EntityDefinition.cls in
-    part (the streaming channel-discovery query methods only).
-
-The orgLimits LWC is an original KernDX rebuild and is deliberately excluded
-from this list. See NOTICES.md for the full per-file enumeration and upstream
-URLs.
 
 Notice
 
@@ -185,3 +91,34 @@ AN "AS IS" BASIS. LICENSOR HEREBY DISCLAIMS ALL WARRANTIES AND CONDITIONS,
 EXPRESS OR IMPLIED, INCLUDING (WITHOUT LIMITATION) WARRANTIES OF
 MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND
 TITLE.
+
+MariaDB hereby grants you permission to use this License's text to license your
+works, and to refer to it using the trademark "Business Source License", as long
+as you comply with the Covenants of Licensor below.
+
+Covenants of Licensor
+
+In consideration of the right to use this License's text and the "Business
+Source License" name and trademark, Licensor covenants to MariaDB, and to all
+other recipients of the licensed work to be provided by Licensor:
+
+1. To specify as the Change License the GPL Version 2.0 or any later version,
+   or a license that is compatible with GPL Version 2.0 or a later version,
+   where "compatible" means that software provided under the Change License can
+   be included in a program with software provided under GPL Version 2.0 or a
+   later version. Licensor may specify additional Change Licenses without
+   limitation.
+
+2. To either: (a) specify an additional grant of rights to use that does not
+   impose any additional restriction on the right granted in this License, as
+   the Additional Use Grant; or (b) insert the text "None".
+
+3. To specify a Change Date.
+
+4. Not to modify this License in any other way.
+
+Notice
+
+The Business Source License (this document, or the "License") is not an Open
+Source license. However, the Licensed Work will eventually be made available
+under an Open Source License, as stated in this License.

@@ -5,9 +5,9 @@ This file enumerates those upstream projects, their licenses, and copyright
 holders, per Apache License 2.0 §4 (a–d), the MIT License attribution
 requirement, and the BSD 3-Clause attribution requirement, plus voluntary
 attribution for CC0-1.0 derivatives where the upstream license imposes no
-requirement. It complements the per-file
-license carve-out in `LICENSE` and the SPDX-License-Identifier headers in
-each derived source file.
+requirement. The root `LICENSE` excludes these files from the Business
+Source License by referring to this file, and each derived source file also
+carries an SPDX-License-Identifier header.
 
 For each upstream project below: the project name, its canonical URL, its
 license, the copyright holder(s) we can establish from the upstream source
@@ -22,9 +22,10 @@ Full license texts are shipped at:
   - `LICENSES/MIT.txt` — canonical MIT License (Expat form)
   - `LICENSES/BSD-3-Clause.txt` — canonical BSD 3-Clause License
 
-The Business Source License 1.1 text is inlined in the root `LICENSE` file
-(which also enumerates the per-file carve-out for the Apache-2.0 / MIT /
-BSD-3-Clause derivative files listed below).
+The Business Source License 1.1 text is in the root `LICENSE` file. Its
+Licensed Work parameter excludes the pipeline tooling under `pipeline/`
+(MIT, see `pipeline/LICENSE`) and the Apache-2.0 / MIT / BSD-3-Clause
+derivative files listed below.
 
 The Business Source License 1.1 under which the rest of KernDX is licensed
 does **not** apply to the Apache-2.0, MIT, and BSD-3-Clause files enumerated
@@ -196,7 +197,7 @@ because their licensing diverges from the framework default.
   CC0-1.0 is a public-domain dedication that waives all copyright and
   related rights. The kern derivative files are therefore relicensed under
   the Business Source License 1.1 alongside the rest of KernDX and are
-  **not** carved out of the root `LICENSE` file.
+  **not** excluded from the root `LICENSE` file.
 - **Original author:** Philippe Ozil (Salesforce). His original tool is free
   on the AppExchange (listing `a0N3A00000FYEEWUA5`). CC0-1.0 explicitly waives
   the right to require attribution, so none of the credit below is a licence
@@ -253,12 +254,12 @@ because their licensing diverges from the framework default.
   lines). Its output is the source-of-truth for this file's enumeration.
   If a new derivative file is added, the audit surfaces it; this file is
   updated to match before the next sync.
-- The `LICENSE` carve-out section enumerates the same file list with
-  per-file paths but without the upstream-URL prose; this NOTICES.md is
-  the long-form companion document with research-quality citations and
-  the upstream URLs subscribers can use to follow back to original source.
+- This file is the only list of the derived files: the root `LICENSE`
+  refers to it rather than repeating the list, so the two cannot drift
+  apart. It carries the upstream URLs and citations you can use to follow
+  each file back to its original source.
 - A build-time mirror gate enforces that every staged source
   file carries an SPDX identifier matching one of the expected tags
-  (`BUSL-1.1`, `MIT`, `Apache-2.0`, `BSD-3-Clause`); the carve-out files
+  (`BUSL-1.1`, `MIT`, `Apache-2.0`, `BSD-3-Clause`); the excluded files
   enumerated here are the only Apache-2.0 / MIT / BSD-3-Clause files in the
   framework source tree outside of `pipeline/`.

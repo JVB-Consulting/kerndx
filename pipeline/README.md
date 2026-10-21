@@ -208,5 +208,5 @@ CI runs both suites via `.github/workflows/pipeline-ci.yml` on every push.
 
 ## License
 
-MIT — see `pipeline/LICENSE` for the full text. The top-level `LICENSE` is BUSL-1.1 with an explicit carve-out for this directory; see its "License Carve-Out for Pipeline Tooling"
-section. For licensing inquiries about the broader framework, contact `jason@jvb-consulting.io`.
+MIT — see `pipeline/LICENSE` for the full text. The top-level `LICENSE` is BUSL-1.1 and excludes this directory in its Licensed Work
+parameter. For licensing inquiries about the broader framework, contact `jason@jvb-consulting.io`.
