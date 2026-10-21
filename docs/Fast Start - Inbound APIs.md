@@ -382,6 +382,8 @@ create the record in Setup, then pull it into your project so it is under source
 | Is Active        | `kern__IsActive__c`     | checked                 |
 | Log Issues       | `kern__LogIssues__c`    | checked                 |
 
+With Log Issues ticked, each failed request also leaves an API issue for your support team. Untick it if you do not want one.
+
 **2. In the terminal**, pull the record into your project:
 
 ```shell
@@ -537,17 +539,18 @@ Something went wrong? See [Common Issues](#common-issues).
 
 ## Sensitive data is masked by default
 
-Logging every call is useful, but you don't want a logged audit record to become the place a password or card number leaks. To avoid that, every inbound request and response is captured to `ApiCall__c` for audit, and the request body, response body, URL, and parameters are first run through the data masking framework, which redacts sensitive values before they are saved. Out of the box, two rules fire:
+Logging every call is useful, but you don't want a logged audit record to become the place a password or card number leaks. To avoid that, every inbound request and response is captured to `ApiCall__c` for audit, and the request body, response body, URL, and parameters are first run through the data masking framework, which redacts sensitive values before they are saved. Out of the box, three rules fire:
 
 - **`MaskSecretKeys`**: redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`, `access_token`,
   `refresh_token`).
 - **`MaskPaymentCard`**: redacts 13–19 digit sequences that pass the Luhn (mod-10) checksum, covering all major card brands; digits may be separated by spaces or hyphens.
-  (Replaces the original `MaskCreditCard` rule, which still ships for compatibility.)
+  (Replaces the original `MaskCreditCard` rule, which still ships, switched off. If you switch it on, switch its four targets on with it.)
+- **`MaskJwt`**: redacts JSON Web Tokens (the signed access tokens many APIs pass around; each one starts with `eyJ` and has three dot-separated parts) as `[JWT_REDACTED]`.
 
 So if a caller posts a body containing a `password` or card number, the persisted `ApiCall__c.Request__c` has those redacted. The response you generate and return to the caller is
 untouched.
 
-Fifteen more rules ship as inactive templates: SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth, authorization header, private IPv4, postal address,
+Fourteen more rules ship as inactive templates: SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, AWS access key, URL basic auth, authorization header, private IPv4, postal address,
 free text, and international phone. To turn one on, set `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` record wiring the rule to the field(s)
 that need it.
 

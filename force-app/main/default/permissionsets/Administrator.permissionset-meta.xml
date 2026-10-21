@@ -803,6 +803,11 @@
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
+        <editable>false</editable>
+        <field>ApiCall__c.IsPermanentFailure__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
         <editable>true</editable>
         <field>ApiCall__c.LoggerContext__c</field>
         <readable>true</readable>
@@ -825,6 +830,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>ApiCall__c.ParentSpanId__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>ApiCall__c.PreviousAttempt__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

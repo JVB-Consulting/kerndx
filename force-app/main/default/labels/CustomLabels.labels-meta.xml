@@ -2241,6 +2241,22 @@ Members: {0}</value>
         <value>Superseded by {0}. Existing bindings still actively mask their objects — deactivating this rule stops masking wherever it is still bound. Rebind those objects to {0} first.</value>
     </labels>
     <labels>
+        <fullName>MaskingAdvisorOlderCardRuleWouldRun</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Advisor finding: the older card rule still runs. {0}=older rule, {1}=newer rule.</shortDescription>
+        <value>Masking rule &quot;{0}&quot; is the older card number rule, and it still runs. This happens when the newer rule &quot;{1}&quot; is off, or when the pattern, the replacement or another setting that decides what one of the two rules masks was changed, because then &quot;{1}&quot; no longer replaces it. A changed failure action does not count. On long text with many digits, &quot;{0}&quot; can use up all the processing time a save is allowed, and then the save fails. Keep &quot;{1}&quot; on. Switch &quot;{0}&quot; off, together with the masking targets that use it (the package ships four). If you decide to keep the older rule, switch the rule and its targets on together.</value>
+    </labels>
+    <labels>
+        <fullName>MaskingAdvisorCardRuleBlocksSaves</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Advisor finding: a card rule stops saves when it fails. {0}=rule name.</shortDescription>
+        <value>Masking rule &quot;{0}&quot; has the failure action Block DML. If the rule fails on a value, the save is stopped. For an API call, the call log record is refused and the whole save that carries it fails. To let the save go on, change the failure action of &quot;{0}&quot; to Write Failure Marker. The field then shows a marker that says masking failed, and the original value is not stored.</value>
+    </labels>
+    <labels>
         <fullName>EventMonitor_ChangeEventChannelCustom</fullName>
         <categories>Streaming Monitor</categories>
         <language>en_US</language>
@@ -9113,6 +9129,14 @@ Members: {0}</value>
         <value>You need the Retry API Issue permission to run this call again. Ask your administrator for the Kern API Issue Resolver permission set.</value>
     </labels>
     <labels>
+        <fullName>RetryApiIssue_DismissPermissionRequired</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the user lacks the permission to dismiss an API issue.</shortDescription>
+        <value>You need the Retry API Issue permission to dismiss this issue. Ask your administrator for the Kern API Issue Resolver permission set.</value>
+    </labels>
+    <labels>
         <fullName>RetryApiIssue_IssueNotVisible</fullName>
         <categories>API Issues</categories>
         <language>en_US</language>
@@ -9151,6 +9175,70 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Toast fallback when the retry action throws unexpectedly.</shortDescription>
         <value>An unexpected error occurred</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_ReplayNotEnabled</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: Retry Issues is off for the service a request came to.</shortDescription>
+        <value>The request was not run again: Retry Issues is off in this service&apos;s API setting. Ask your administrator to turn it on if the callers of this service do not resend failed requests themselves.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_ReplayServiceNotAccepting</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the service a request came to is paused or off.</shortDescription>
+        <value>This service is paused or switched off, so the request was not run again and the issue stays open. Ask your administrator to check the service&apos;s API setting and its feature flags.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_PermanentFailure</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the call failed in a way a new run cannot fix.</shortDescription>
+        <value>This call failed in a way that running it again cannot fix, so it was not run again. The issue stays open.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_StoredRequestDiffers</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the stored request is not the one received.</shortDescription>
+        <value>The stored request is not the one that was received: masking changed it, or it was too long to keep whole. It was not run again, and the issue stays open.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_OriginalCallMissing</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the call is gone and the issue keeps no request.</shortDescription>
+        <value>The call this issue belongs to no longer exists and the issue holds no copy of the request, so there is nothing to run again. Dismiss the issue.</value>
+    </labels>
+    <labels>
+        <fullName>DeleteApiCall_OpenIssue</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the API call has an open API issue.</shortDescription>
+        <value>This API call has an open API issue. Resolve or dismiss the issue first, then delete the call.</value>
+    </labels>
+    <labels>
+        <fullName>DeleteApiCalls_ApiIssueReadAccessRequired</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the purge of API calls needs read access to API issues.</shortDescription>
+        <value>The purge of API calls did not start, because you can't read API issues. The purge must read API issues and their Status and API Call fields to leave out every call that still has an open issue. The Kern Administrator permission set gives this access.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_Dismissed</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Toast when an issue is marked resolved without a new run.</shortDescription>
+        <value>The issue was marked resolved without running the request again.</value>
     </labels>
     <labels>
         <fullName>RetryApiIssues_NothingToRetry</fullName>

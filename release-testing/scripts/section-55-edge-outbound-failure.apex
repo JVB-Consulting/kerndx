@@ -577,21 +577,9 @@ catch(Exception scenarioError)
 	fail++;
 }
 
-// Cleanup — bounded to stay under the 10K DML row governor. Section 55 inserts roughly 28
-// ApiCall rows (8 single-shot scenarios 55a-55g + 20 from 55h's failureRate loop) plus a
-// matching ~10-30 ApiIssue rows (~2 per failed call). Capping each delete at 9000 keeps a
-// safety margin without leaking, and the SOQL is keyed to API_EchoSubscriber so that other
-// services' ApiCall rows in the same scratch org are unaffected.
-delete
-[
-		SELECT Id
-		FROM kern__ApiIssue__c
-		WHERE kern__ServiceName__c = :SERVICE_NAME
-		AND CreatedDate = TODAY
-		AND CreatedById = :UserInfo.getUserId()
-		LIMIT 9000
-];
-delete
+// Cleanup, capped at 9000 rows per delete to stay under the 10,000 DML row limit (this section saves about 28 calls and up
+// to 30 issues), and keyed to this service so other services' rows are left alone.
+List<kern__ApiCall__c> cleanupCalls =
 [
 		SELECT Id
 		FROM kern__ApiCall__c
@@ -600,6 +588,16 @@ delete
 		AND CreatedById = :UserInfo.getUserId()
 		LIMIT 9000
 ];
+// The issues first: a call with an Open issue cannot be deleted, so the issues of these calls go too, whoever wrote them.
+delete
+[
+		SELECT Id
+		FROM kern__ApiIssue__c
+		WHERE (kern__ServiceName__c = :SERVICE_NAME AND CreatedDate = TODAY AND CreatedById = :UserInfo.getUserId())
+		OR kern__ApiCall__c IN :cleanupCalls
+		LIMIT 9000
+];
+delete cleanupCalls;
 // Log entries are written from a platform event after this transaction ends, so the ones this run
 // emits are deleted by section-55-edge-outbound-failure-cleanup.apex, run 30 seconds later; the
 // ones already written (an earlier run's) are deleted here. The Automated Process user writes them, so they are not

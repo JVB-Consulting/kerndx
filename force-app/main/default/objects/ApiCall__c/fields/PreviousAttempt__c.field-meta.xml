@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PreviousAttempt__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>The earlier call this call tried again: the call a Retry or a replay ran again, or, for a request your org received, the earlier failed call with the same Idempotency-Key and body when the service has Idempotency Enabled.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>The earlier call this call is a retry or a replay of.</inlineHelpText>
+    <label>Previous Attempt</label>
+    <referenceTo>ApiCall__c</referenceTo>
+    <relationshipLabel>Later Attempts</relationshipLabel>
+    <relationshipName>LaterAttempts</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

@@ -54,6 +54,8 @@ const COMPANION_TEST_SUITES = {
 	CTRL_ChainMonitor: ['CTRL_ChainMonitorAbort_TEST', 'CTRL_ChainMonitorRedrive_TEST'],
 	DML_Transaction: ['TST_Builder_TEST', 'UTIL_HttpClientOutcome_TEST'],
 	API_Base: ['API_Outbound_TEST', 'API_Dispatcher_TEST', 'API_Echo_TEST'],
+	API_Inbound: ['API_InboundIssue_TEST', 'API_InboundRetryLink_TEST'],
+	API_Dispatcher: ['API_InboundIssue_TEST'],
 	SEL_Hierarchy: ['SEL_HierarchyDepthLimit_TEST'],
 	API_Outbound: [
 		'UTIL_AsyncChainApi_TEST',

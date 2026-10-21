@@ -309,17 +309,7 @@ finally
 {
 	kern.API_MockFactory.clearMocks();
 
-	List<kern__ApiCall__c> testCalls =
-	[
-			SELECT Id
-			FROM kern__ApiCall__c
-			WHERE Id NOT IN :baselineCallIds
-	];
-	if(!testCalls.isEmpty())
-	{
-		delete testCalls;
-	}
-
+	// The issues first: a call with an Open issue cannot be deleted.
 	List<kern__ApiIssue__c> testIssues =
 	[
 			SELECT Id
@@ -329,6 +319,17 @@ finally
 	if(!testIssues.isEmpty())
 	{
 		delete testIssues;
+	}
+
+	List<kern__ApiCall__c> testCalls =
+	[
+			SELECT Id
+			FROM kern__ApiCall__c
+			WHERE Id NOT IN :baselineCallIds
+	];
+	if(!testCalls.isEmpty())
+	{
+		delete testCalls;
 	}
 
 	Integer callsLeft = [SELECT COUNT() FROM kern__ApiCall__c WHERE Id NOT IN :baselineCallIds];

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <FlexiPage xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description>Record page for API Issues. Displays issue details with a conditional Retry action visible when the status is Open.</description>
+    <description>Record page for API Issues. Displays issue details with Retry and Dismiss actions visible when the status is Open.</description>
     <flexiPageRegions>
         <itemInstances>
             <componentInstance>
@@ -9,6 +9,16 @@
                     <valueList>
                         <valueListItems>
                             <value>ApiIssue__c.Retry</value>
+                            <visibilityRule>
+                                <criteria>
+                                    <leftValue>{!Record.Status__c}</leftValue>
+                                    <operator>EQUAL</operator>
+                                    <rightValue>Open</rightValue>
+                                </criteria>
+                            </visibilityRule>
+                        </valueListItems>
+                        <valueListItems>
+                            <value>ApiIssue__c.Dismiss</value>
                             <visibilityRule>
                                 <criteria>
                                     <leftValue>{!Record.Status__c}</leftValue>

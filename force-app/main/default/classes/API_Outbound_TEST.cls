@@ -149,8 +149,8 @@ public class API_Outbound_TEST
 
 	/**
 	 * @description Saves the call rows the saved-row tests dispatch, in their own transaction, so each test's callout
-	 * happens before anything in the test writes: one for the saved-row lock test, and one carrying the Idempotency-Key a
-	 * first attempt recorded, for the test that retries it. Each row is one the scheduled retry would run again: it has an
+	 * happens before anything in the test writes: one for the saved-row lock test, one carrying the Idempotency-Key a
+	 * first attempt recorded, for the test that retries it, and one for the lock test of a call that fails. Each row is one the scheduled retry would run again: it has an
 	 * Id, the Retry status and a retry time.
 	 */
 	@TestSetup
@@ -158,6 +158,7 @@ public class API_Outbound_TEST
 	{
 		insertARowTheScheduledRetryRuns(SavedRowOutbound.class.getName(), null);
 		insertARowTheScheduledRetryRuns(SavedKeySettingPostOutbound.class.getName(), UTIL_Random.randomName());
+		insertARowTheScheduledRetryRuns(SavedRowFailingOutbound.class.getName(), null);
 	}
 
 	/**
@@ -287,6 +288,31 @@ public class API_Outbound_TEST
 		List<ApiIssue__c> issues = new SEL_ApiIssue().findUnresolvedByService(serviceName);
 		Assert.areEqual(1, issues.size(), 'Expected one issue, got ' + issues.size());
 		Assert.isTrue(issues[0].ExternalSystemMayHaveActed__c, 'Expected the issue to say the external system acted before the save failed');
+	}
+
+	/**
+	 * @description A failed call whose save is refused once for a row lock gets one issue, not one for each attempt: the
+	 * first attempt to save the call is refused, the second saves it, and only the attempt that succeeds saves the issue.
+	 * The call row was saved before the call, the kind the scheduled retry runs again, so its Id still names a row after
+	 * the refused attempt, and an issue saved after that attempt would point at a real row and stay. The handler
+	 * registers a test record before it sends, so the save has a statement for the stand-in to refuse.
+	 */
+	@IsTest
+	private static void shouldLogOneIssueWhenTheSaveOfAFailedCallIsRetriedOnARowLock()
+	{
+		String serviceName = SavedRowFailingOutbound.class.getName();
+		registerRetryingSetting(serviceName);
+		API_MockFactory.forService(serviceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_BAD_REQUEST).register();
+		ApiCall__c savedRow = new SEL_ApiCall().findByServiceName(serviceName)[0];
+
+		dispatchWithLockRefusals(savedRow, new DML_ThrowingLockProxy_TEST(1));
+
+		List<ApiCall__c> failed = SEL_ApiCall.assertServiceFailed(serviceName);
+		Assert.areEqual(savedRow.Id, failed[0].Id, 'Expected the saved row to end Failed, got ' + failed[0].Id);
+		Integer issueCount = countIssuesFor(serviceName);
+		Assert.areEqual(1, issueCount, 'Expected one issue for the failed call, got ' + issueCount);
+		Integer savedCount = new SEL_Foobar().findByField(Foobar__c.Name, SAVED_RECORD_NAME).size();
+		Assert.areEqual(1, savedCount, 'Expected the record the handler registered to be saved on the second attempt, got ' + savedCount);
 	}
 
 	/**
@@ -1422,6 +1448,67 @@ public class API_Outbound_TEST
 	}
 
 	/**
+	 * @description With issue logging on, an outbound call that fails gets exactly one issue, and every field of that
+	 * issue comes from the call it failed for: the Outbound direction, the Open status, the service, the request
+	 * parameters and their hash, the triggering record, the call itself and the call's error messages.
+	 */
+	@IsTest
+	private static void shouldBuildTheOutboundIssueFromTheCallItFailedFor()
+	{
+		String serviceName = BadRequestOutbound.class.getName();
+		registerRetryingSetting(serviceName);
+		API_MockFactory.forService(serviceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_BAD_REQUEST).register();
+
+		Test.startTest();
+		API_Dispatcher.execute(TST_Factory.newOutboundApiCall(serviceName, UserInfo.getUserId(), UTIL_Random.randomName(), UTIL_Random.randomName()));
+		Test.stopTest();
+
+		ApiCall__c failed = SEL_ApiCall.assertServiceFailed(serviceName)[0];
+		Assert.isFalse(String.isBlank(failed.RequestParameters__c), 'Expected the call to carry its request parameters, got none');
+		Assert.isFalse(String.isBlank(failed.ErrorMessages__c), 'Expected the call to carry error messages, got none');
+		List<ApiIssue__c> issues = new SEL_ApiIssue().findUnresolvedByService(serviceName);
+		Assert.areEqual(1, issues.size(), 'Expected one issue, got ' + issues.size());
+		ApiIssue__c issue = issues[0];
+		Assert.areEqual(SEL_ApiIssue.DIRECTION_OUTBOUND, issue.Direction__c, 'Expected an outbound issue, got ' + issue.Direction__c);
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, issue.Status__c, 'Expected an open issue, got ' + issue.Status__c);
+		Assert.areEqual(failed.ServiceName__c, issue.ServiceName__c, 'Expected the call\'s service, got ' + issue.ServiceName__c);
+		Assert.areEqual(failed.RequestParameters__c, issue.RequestParameters__c, 'Expected the call\'s request parameters, got ' + issue.RequestParameters__c);
+		Assert.areEqual(failed.TriggeringRecordId__c, issue.TriggeringRecordId__c, 'Expected the call\'s triggering record, got ' + issue.TriggeringRecordId__c);
+		Assert.areEqual(failed.Id, issue.ApiCall__c, 'Expected the issue to point at the call, got ' + issue.ApiCall__c);
+		Assert.areEqual(failed.ErrorMessages__c, issue.ErrorMessages__c, 'Expected the call\'s error messages, got ' + issue.ErrorMessages__c);
+		String expectedHash = UTIL_String.abbreviate(UTIL_Crypto.generateMD5Hash(failed.RequestParameters__c), SEL_ApiIssue.REQUEST_PARAMETERS_HASH_LENGTH);
+		Assert.areEqual(expectedHash, issue.RequestParametersHash__c, 'Expected the hash of the call\'s request parameters, got ' + issue.RequestParametersHash__c);
+	}
+
+	/**
+	 * @description With issue logging off, an outbound call that fails gets no issue, wherever it fails. A handler that
+	 * throws before the send fails inside the dispatcher's error handling, where the issue record is the only place that
+	 * checks the setting. A call the external system refuses with 400 fails in the handler's own save. The refused call is
+	 * sent first, because the platform refuses a callout after the first call's records are saved.
+	 */
+	@IsTest
+	private static void shouldWriteNoOutboundIssueWhenLogIssuesIsOff()
+	{
+		String throwingServiceName = PrepareThrowingOutbound.class.getName();
+		String refusedServiceName = BadRequestOutbound.class.getName();
+		registerRetryingSettingWithoutIssueLogging(throwingServiceName);
+		registerRetryingSettingWithoutIssueLogging(refusedServiceName);
+		API_MockFactory.forService(refusedServiceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_BAD_REQUEST).register();
+
+		Test.startTest();
+		API_Dispatcher.execute(TST_Factory.newOutboundApiCall(refusedServiceName, UserInfo.getUserId()));
+		API_Dispatcher.execute(TST_Factory.newOutboundApiCall(throwingServiceName, UserInfo.getUserId()));
+		Test.stopTest();
+
+		SEL_ApiCall.assertServiceFailed(throwingServiceName);
+		SEL_ApiCall.assertServiceFailed(refusedServiceName);
+		Integer throwingIssueCount = countIssuesFor(throwingServiceName);
+		Assert.areEqual(0, throwingIssueCount, 'Expected no issue for the handler that threw, got ' + throwingIssueCount);
+		Integer refusedIssueCount = countIssuesFor(refusedServiceName);
+		Assert.areEqual(0, refusedIssueCount, 'Expected no issue for the refused call, got ' + refusedIssueCount);
+	}
+
+	/**
 	 * @description A handler exception retries only when its exact type is opted in, and the budget still ends it: the
 	 * first dispatch stays at Retry with one attempt spent, dispatching the same row again spends the second and the
 	 * third, and the dispatch that finds the budget spent ends Failed with the count at the maximum, and no new retry is scheduled.
@@ -1600,6 +1687,115 @@ public class API_Outbound_TEST
 
 		ApiCall__c aborted = SEL_ApiCall.assertServiceAborted(serviceName, MESSAGE_HANDLER_THREW)[0];
 		Assert.isNull(aborted.NextRetry__c, 'Expected no next retry time on an aborted call, got ' + aborted.NextRetry__c);
+	}
+
+	/**
+	 * @description On the dispatcher's path, which Retry and the retry job also use, a call is marked as a permanent
+	 * failure when a UTIL_Exceptions.PermanentFailureException is thrown: from prepareRequest(), before the send, or from
+	 * createRetryStrategy(), inside the retry decision after a 500. A call whose handler throws an ordinary exception is
+	 * not marked. The call that makes a callout goes first in the batch, because the log rows the dispatcher's error path
+	 * saves would make the platform refuse a later callout in the same test transaction.
+	 */
+	@IsTest
+	private static void shouldMarkTheOutboundCallPermanentWhenTheHandlerRaisesAPermanentFailure()
+	{
+		String strategyServiceName = RefusingStrategyOutbound.class.getName();
+		String prepareServiceName = RefusingPrepareOutbound.class.getName();
+		String ordinaryServiceName = PrepareThrowingOutbound.class.getName();
+		List<ApiCall__c> apiCalls = new List<ApiCall__c>();
+		for(String serviceName : new List<String> {strategyServiceName, prepareServiceName, ordinaryServiceName})
+		{
+			registerRetryingSetting(serviceName);
+			apiCalls.add(TST_Factory.newOutboundApiCall(serviceName, UserInfo.getUserId()));
+		}
+		API_MockFactory.registerErrorMock(strategyServiceName);
+
+		Test.startTest();
+		API_Dispatcher.execute(apiCalls);
+		Test.stopTest();
+
+		ApiCall__c strategyRefusal = SEL_ApiCall.assertServiceFailed(strategyServiceName, MESSAGE_HANDLER_THREW)[0];
+		Assert.isTrue(strategyRefusal.IsPermanentFailure__c, 'Expected a permanent failure from createRetryStrategy() to mark the call');
+		ApiCall__c prepareRefusal = SEL_ApiCall.assertServiceFailed(prepareServiceName, MESSAGE_HANDLER_THREW)[0];
+		Assert.isTrue(prepareRefusal.IsPermanentFailure__c, 'Expected a permanent failure from prepareRequest() to mark the call');
+		ApiCall__c ordinaryFailure = SEL_ApiCall.assertServiceFailed(ordinaryServiceName)[0];
+		Assert.isFalse(ordinaryFailure.IsPermanentFailure__c, 'Expected an ordinary exception not to mark the call');
+	}
+
+	/**
+	 * @description A UTIL_Exceptions.RequestRefusedException says the external system refused the request, so a person
+	 * may run the call again with Retry once the cause is fixed. The call still ends Failed with no next retry time, but it
+	 * is not marked as a permanent failure: neither when parseResponse() throws it after a 200, nor when
+	 * createRetryStrategy() throws it inside the retry decision after a 500.
+	 */
+	@IsTest
+	private static void shouldNotMarkTheOutboundCallPermanentWhenTheRequestIsRefused()
+	{
+		String parseServiceName = RefusingRequestInParseOutbound.class.getName();
+		String strategyServiceName = RefusingRequestInStrategyOutbound.class.getName();
+		List<ApiCall__c> apiCalls = new List<ApiCall__c>();
+		for(String serviceName : new List<String> {parseServiceName, strategyServiceName})
+		{
+			registerRetryingSetting(serviceName);
+			apiCalls.add(TST_Factory.newOutboundApiCall(serviceName, UserInfo.getUserId()));
+		}
+		API_MockFactory.forService(parseServiceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_OK).register();
+		API_MockFactory.registerErrorMock(strategyServiceName);
+
+		Test.startTest();
+		API_Dispatcher.execute(apiCalls);
+		Test.stopTest();
+
+		List<String> markedServiceNames = new List<String>();
+		for(String serviceName : new List<String> {parseServiceName, strategyServiceName})
+		{
+			ApiCall__c refused = SEL_ApiCall.assertServiceFailed(serviceName, MESSAGE_HANDLER_THREW)[0];
+			Assert.isNull(refused.NextRetry__c, 'Expected no next retry time for ' + serviceName + ', got ' + refused.NextRetry__c);
+			if(refused.IsPermanentFailure__c)
+			{
+				markedServiceNames.add(serviceName);
+			}
+		}
+		Assert.isTrue(markedServiceNames.isEmpty(), 'Expected a refused request not to mark the call, got marked calls for ' + markedServiceNames);
+	}
+
+	/**
+	 * @description A UTIL_Exceptions.PermanentFailureException thrown from getValidationErrors() ends the call Aborted, not
+	 * Failed, and the call is still marked as a permanent failure. Retry can reach an Aborted call through its issue, so
+	 * the mark is what stops it from sending the call again.
+	 */
+	@IsTest
+	private static void shouldMarkTheAbortedOutboundCallPermanentWhenValidationRaisesAPermanentFailure()
+	{
+		String serviceName = RefusingValidationOutbound.class.getName();
+		registerRetryingSetting(serviceName);
+
+		Test.startTest();
+		API_Dispatcher.execute(TST_Factory.newOutboundApiCall(serviceName, UserInfo.getUserId()));
+		Test.stopTest();
+
+		ApiCall__c aborted = SEL_ApiCall.assertServiceAborted(serviceName, MESSAGE_HANDLER_THREW)[0];
+		Assert.isTrue(aborted.IsPermanentFailure__c, 'Expected a permanent failure from the checks to mark the aborted call');
+	}
+
+	/**
+	 * @description A handler whose self-retry scheduling is suppressed, as the async chain's step sets up the handler it
+	 * runs, also marks its call as a permanent failure when its code throws a UTIL_Exceptions.PermanentFailureException.
+	 * The handler also reports to the chain that a permanent failure refuses the repeat.
+	 */
+	@IsTest
+	private static void shouldMarkTheOutboundCallPermanentOnTheChainPath()
+	{
+		String serviceName = SuppressedRefusingPrepareOutbound.class.getName();
+		registerRetryingSetting(serviceName);
+
+		Test.startTest();
+		API_Outbound handler = (API_Outbound)API_Dispatcher.execute(TST_Factory.newOutboundApiCall(serviceName, UserInfo.getUserId()));
+		Test.stopTest();
+
+		ApiCall__c failed = SEL_ApiCall.assertServiceFailed(serviceName, MESSAGE_HANDLER_THREW)[0];
+		Assert.isTrue(failed.IsPermanentFailure__c, 'Expected a permanent failure on the chain path to mark the call');
+		Assert.isTrue(handler.isRepeatRefusedByAPermanentFailure(), 'Expected the handler to tell the chain that a permanent failure refuses the repeat');
 	}
 
 	/**
@@ -2185,7 +2381,8 @@ public class API_Outbound_TEST
 
 	/**
 	 * @description Reads the HTTP method recorded on the service's saved call row. The call selector does not select that
-	 * field, so the read goes through QRY_Builder.
+	 * field, so the read goes through QRY_Builder, in system mode: the user a package build runs its tests as has no
+	 * access to the package's own fields, and a user-mode read of one fails there with "No such column".
 	 *
 	 * @param serviceName The handler whose row is read back.
 	 *
@@ -2196,6 +2393,7 @@ public class API_Outbound_TEST
 		ApiCall__c saved = (ApiCall__c)QRY_Builder.selectFrom(ApiCall__c.SObjectType)
 				.fields(new List<SObjectField> {ApiCall__c.HttpMethod__c})
 				.condition(ApiCall__c.ServiceName__c).equals(serviceName)
+				.withSystemMode()
 				.getFirst();
 		return saved?.HttpMethod__c;
 	}
@@ -2256,6 +2454,21 @@ public class API_Outbound_TEST
 		{
 				ApiSetting__mdt.MaxRetryCount__c => 0, ApiSetting__mdt.RetryBackoffSeconds__c => RETRY_BACKOFF_SECONDS,
 				ApiSetting__mdt.LogIssues__c => true, ApiSetting__mdt.CircuitBreakerEnabled__c => true
+		});
+	}
+
+	/**
+	 * @description Registers the retrying setting with issue logging off, so a failed call writes no issue.
+	 *
+	 * @param serviceName The handler class the setting names.
+	 */
+	private static void registerRetryingSettingWithoutIssueLogging(String serviceName)
+	{
+		TST_Factory.newOutboundApiSetting(serviceName, new Map<SObjectField, Object>
+		{
+				ApiSetting__mdt.MaxRetryCount__c => RETRY_BUDGET,
+				ApiSetting__mdt.RetryBackoffSeconds__c => RETRY_BACKOFF_SECONDS,
+				ApiSetting__mdt.LogIssues__c => false
 		});
 	}
 
@@ -2416,6 +2629,22 @@ public class API_Outbound_TEST
 		{
 			successCount++;
 			registerFoobar(Foobar__c.Name, SAVED_RECORD_NAME);
+		}
+	}
+
+	/**
+	 * @description A handler for a call that fails, under its own service name, for a call row the test setup saves. It
+	 * registers a test record before it sends, so the save of the failed call has a statement the lock stand-in refuses.
+	 */
+	public class SavedRowFailingOutbound extends RetryProbeOutbound
+	{
+		/**
+		 * @description Registers the record the commit must save, then prepares the request.
+		 */
+		public override void prepareRequest()
+		{
+			registerFoobar(Foobar__c.Name, SAVED_RECORD_NAME);
+			super.prepareRequest();
 		}
 	}
 
@@ -3296,6 +3525,32 @@ public class API_Outbound_TEST
 	}
 
 	/**
+	 * @description A handler whose self-retry scheduling is suppressed, as the async chain's step sets up the handler it
+	 * runs, and that refuses the retry from prepareRequest().
+	 */
+	public class SuppressedRefusingPrepareOutbound extends RetryProbeOutbound
+	{
+		/**
+		 * @description Suppresses this instance's self-retry scheduling, then processes the call.
+		 *
+		 * @param apiCall The API call being processed.
+		 */
+		public override void process(ApiCall__c apiCall)
+		{
+			suppressSelfRetryScheduling();
+			super.process(apiCall);
+		}
+
+		/**
+		 * @description Refuses the retry before the request is built.
+		 */
+		public override void prepareRequest()
+		{
+			throw new UTIL_Exceptions.PermanentFailureException(MESSAGE_HANDLER_THREW);
+		}
+	}
+
+	/**
 	 * @description A handler that refuses the retry from onSuccess().
 	 */
 	public class RefusingOnSuccessOutbound extends RetryProbeOutbound
@@ -3322,6 +3577,22 @@ public class API_Outbound_TEST
 		public override UTIL_Retry.Strategy createRetryStrategy()
 		{
 			throw new UTIL_Exceptions.PermanentFailureException(MESSAGE_HANDLER_THREW);
+		}
+	}
+
+	/**
+	 * @description A handler whose createRetryStrategy() says the external system refused the request.
+	 */
+	public class RefusingRequestInStrategyOutbound extends RetryProbeOutbound
+	{
+		/**
+		 * @description Refuses the request instead of building a strategy.
+		 *
+		 * @return Never returns.
+		 */
+		public override UTIL_Retry.Strategy createRetryStrategy()
+		{
+			throw new UTIL_Exceptions.RequestRefusedException(MESSAGE_HANDLER_THREW);
 		}
 	}
 

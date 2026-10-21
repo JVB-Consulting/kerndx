@@ -28,7 +28,7 @@ global inherited sharing class SEL_ApiIssue extends SEL_Base
 	/**
 	 * @description The maximum number of characters that can be stored in the Request Parameters Hash field.
 	 */
-	public static final Integer REQUEST_PARAMETERS_HASH_LENGTH = ApiIssue__c.RequestParametersHash__c.getDescribe().getLength();
+	public static final Integer REQUEST_PARAMETERS_HASH_LENGTH = UTIL_SObjectDescribe.getCachedFieldDescribe(ApiIssue__c.RequestParametersHash__c).getLength();
 
 	/**
 	 * @description Direction value indicating an inbound API issue. Mirrors the `Inbound` value of
@@ -51,6 +51,46 @@ global inherited sharing class SEL_ApiIssue extends SEL_Base
 	 * @description Status value indicating an issue that was resolved by a successful retry.
 	 */
 	public static final String STATUS_RESOLVED = 'Resolved';
+
+	/**
+	 * @description The start of the path, from an issue, to a field of its call: the name of the ApiCall__c lookup as a
+	 * relationship, then a dot. It is built from the describe of the field, so it carries the package namespace when
+	 * there is one.
+	 */
+	private static final String CALL_PATH = UTIL_SObjectDescribe.getCachedFieldDescribe(ApiIssue__c.ApiCall__c).getRelationshipName() + UTIL_String.DOT;
+
+	/**
+	 * @description The path, from an issue, to the service name of its call.
+	 */
+	private static final String CALL_SERVICE_NAME_FIELD = CALL_PATH + UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.ServiceName__c);
+
+	/**
+	 * @description The path, from an issue, to the Idempotency-Key of its call.
+	 */
+	private static final String CALL_IDEMPOTENCY_KEY_FIELD = CALL_PATH + UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.IdempotencyKey__c);
+
+	/**
+	 * @description The path, from an issue, to the status of its call.
+	 */
+	private static final String CALL_STATUS_FIELD = CALL_PATH + UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.Status__c);
+
+	/**
+	 * @description The path, from an issue, to the field that says its call was answered from an earlier call.
+	 */
+	private static final String CALL_IDEMPOTENCY_HIT_FIELD = CALL_PATH + UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.IsIdempotencyHit__c);
+
+	/**
+	 * @description The path, from an issue, to the user who created its call.
+	 */
+	private static final String CALL_SENDER_FIELD = CALL_PATH + UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.CreatedById);
+
+	/**
+	 * @description The path, from an issue, to the user who created the call its own call tries again: its call's
+	 * PreviousAttempt__c lookup followed to that call's CreatedById.
+	 */
+	private static final String CALL_PREVIOUS_ATTEMPT_SENDER_FIELD = CALL_PATH
+			+ UTIL_SObjectDescribe.getCachedFieldDescribe(ApiCall__c.PreviousAttempt__c).getRelationshipName()
+			+ UTIL_String.DOT + UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.CreatedById);
 
 	/**
 	 * @description Constructs an ApiIssue selector.
@@ -161,6 +201,74 @@ global inherited sharing class SEL_ApiIssue extends SEL_Base
 				.condition(ApiIssue__c.Status__c).equals(STATUS_OPEN)
 				.condition(ApiIssue__c.ServiceName__c).equals(serviceName)
 				.condition(ApiIssue__c.RequestParametersHash__c).equals(hashParameter)
+				.withLimit(UTIL_Limits.dmlRows().maximum())
+				.toList();
+	}
+
+	/**
+	 * @description Finds the open issues of the given API calls, whoever owns them. The delete guard on API calls
+	 * (TRG_GuardApiCallWithOpenIssue) uses it to keep every call that still has an open issue.
+	 *
+	 * The method reads in system mode and ignores record sharing. API issues are private, so a read with the running
+	 * user's sharing would miss the issues that user cannot see, and the deleting user could then delete a call whose
+	 * issue is still open. The rows are never shown to anyone: they only refuse a delete.
+	 *
+	 * @param apiCallIds The Ids of the API calls to check
+	 *
+	 * @return The open issues of those calls, whoever owns them
+	 */
+	public List<ApiIssue__c> findOpenByApiCalls(Set<Id> apiCallIds)
+	{
+		return query
+				.systemModeInternal()
+				.bypassSharingInternal()
+				.condition(ApiIssue__c.ApiCall__c).isIn(new List<Id>(apiCallIds))
+				.andCondition(ApiIssue__c.Status__c).equals(STATUS_OPEN)
+				.toList();
+	}
+
+	/**
+	 * @description Finds the open issues of one inbound request, whoever owns them. A request is what one user sent to one
+	 * service under one Idempotency-Key, however many times that user sent it. The issues found are those whose call
+	 * belongs to the request and did not complete. Two parts of the framework use it (see API_Inbound):
+	 *
+	 * 1. A failed request with a key writes no issue of its own when this finds one. It only checks whether any row came
+	 *    back.
+	 * 2. A successful request with a key marks Resolved the issues this finds, and saves them.
+	 *
+	 * A call belongs to the user in two ways, as in SEL_ApiCall.findByServiceAndIdempotencyKey: the user created it
+	 * (CreatedById), or it tries again a call the user created (its PreviousAttempt__c), which is how a run of the
+	 * request by another person is found. A call answered from an earlier call (IsIdempotencyHit__c) is left out, because
+	 * it ran nothing. Unlike that read of the calls, this read does not stop at the newest calls: only the first failed
+	 * call of a request holds the open issue, and a caller may have sent the request many times since.
+	 *
+	 * The method reads in system mode and ignores record sharing. API issues and API calls are private, so a read with the
+	 * running user's sharing would miss the issues that user cannot see: a failed request could then write a second open
+	 * issue, or a request could leave an issue open after its retry succeeded. The rows are never shown to anyone: they
+	 * decide whether an issue is written, or are saved as Resolved. It returns at most as many rows as one transaction
+	 * may save.
+	 *
+	 * @param serviceName The service the request was sent to
+	 * @param idempotencyKey The Idempotency-Key the request carried
+	 * @param senderId The user who sent the request. While an issue's request is run again, it is the user who sent the
+	 * call the request was read from.
+	 *
+	 * @return The open issues of the request, whoever owns them
+	 */
+	public List<ApiIssue__c> findOpenByIdempotencyKey(String serviceName, String idempotencyKey, Id senderId)
+	{
+		QRY_Condition.OrCondition sentByTheSender = new QRY_Condition.OrCondition();
+		sentByTheSender.add(new QRY_Condition.FieldCondition(CALL_SENDER_FIELD, QRY_Condition.Operator.EQUALS, senderId));
+		sentByTheSender.add(new QRY_Condition.FieldCondition(CALL_PREVIOUS_ATTEMPT_SENDER_FIELD, QRY_Condition.Operator.EQUALS, senderId));
+		return query
+				.systemModeInternal()
+				.bypassSharingInternal()
+				.condition(ApiIssue__c.Status__c).equals(STATUS_OPEN)
+				.condition(CALL_SERVICE_NAME_FIELD).equals(serviceName)
+				.condition(CALL_IDEMPOTENCY_KEY_FIELD).equals(idempotencyKey)
+				.condition(CALL_STATUS_FIELD).notEquals(SEL_ApiCall.STATUS_COMPLETED)
+				.condition(CALL_IDEMPOTENCY_HIT_FIELD).equals(false)
+				.addCondition(sentByTheSender)
 				.withLimit(UTIL_Limits.dmlRows().maximum())
 				.toList();
 	}

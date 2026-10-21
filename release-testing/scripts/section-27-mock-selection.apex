@@ -195,6 +195,8 @@ finally
 	];
 	if(!apiCalls.isEmpty())
 	{
+		// The issues first: a call with an Open issue cannot be deleted, so the issues of these calls go too, whoever wrote them.
+		delete [SELECT Id FROM kern__ApiIssue__c WHERE kern__ApiCall__c IN :apiCalls];
 		delete apiCalls;
 		System.debug('Cleanup: Deleted ' + apiCalls.size() + ' test ApiCall record(s)');
 	}

@@ -775,7 +775,8 @@ field is namespaced from your org: `apiCall.kern__TriggeringRecordId__c`, not `a
 **Refusal in a success body:** when the external system answers a success status but its body says it refused the request (an order answered 200 with
 status `REJECTED`), throw `kern.UTIL_Exceptions.RequestRefusedException` from `parseResponse()`. The call ends `Failed` at once and is not retried on its own, and
 the issue it leaves says the external system did not act, so Retry Selected on the API Issues list can run it again once the cause is fixed. Thrown anywhere
-else it behaves as `kern.UTIL_Exceptions.PermanentFailureException`. Set `responsePayload` in `configure()` so `super.parseResponse()` reads the body into it.
+else it stops automatic retries as `kern.UTIL_Exceptions.PermanentFailureException` does; wherever it is thrown,
+it never ticks the call's Permanent Failure box. Set `responsePayload` in `configure()` so `super.parseResponse()` reads the body into it.
 
 ### API Custom Metadata Configuration (REQUIRED for both Inbound and Outbound)
 
@@ -791,10 +792,16 @@ else it behaves as `kern.UTIL_Exceptions.PermanentFailureException`. Set `respon
 | `kern__Direction__c`      | `Outbound`                        | `Inbound`                                 |
 | `kern__EndpointPath__c`   | API path (e.g., `/notifications`) | REST route pattern (e.g., `/v1/person/*`) |
 | `kern__IsActive__c`       | `true`                            | `true`                                    |
-| `kern__MockingEnabled__c` | `true` (enables test mocking)     | Same                                      |
+| `kern__MockingEnabled__c` | `false`                           | `false`                                   |
 | `kern__LogIssues__c`      | `true`                            | `true`                                    |
 | `kern__Priority__c`       | `100.0`                           | `100.0`                                   |
 | `kern__ApiCredential__c`  | Named Credential DeveloperName    | —                                         |
+
+`kern__LogIssues__c` `true` on an inbound setting writes a `kern__ApiIssue__c` per failed request; set it `false` when the caller handles failures
+itself.
+
+Leave `kern__MockingEnabled__c` `false`. When it is `true`, an inbound service returns a mock response (a matching API Mock record, or a
+default body when none matches) instead of running its handler, so set it only while testing, never in production.
 
 DeveloperName (filename) should match class without `API_` prefix (e.g., `kern__ApiSetting.SendNotification`).
 
@@ -809,7 +816,7 @@ DeveloperName (filename) should match class without `API_` prefix (e.g., `kern__
     <values><field>kern__Direction__c</field><value xsi:type="xsd:string">Outbound</value></values>
     <values><field>kern__EndpointPath__c</field><value xsi:type="xsd:string">/notifications</value></values>
     <values><field>kern__IsActive__c</field><value xsi:type="xsd:boolean">true</value></values>
-    <values><field>kern__MockingEnabled__c</field><value xsi:type="xsd:boolean">true</value></values>
+    <values><field>kern__MockingEnabled__c</field><value xsi:type="xsd:boolean">false</value></values>
     <values><field>kern__LogIssues__c</field><value xsi:type="xsd:boolean">true</value></values>
     <values><field>kern__Priority__c</field><value xsi:type="xsd:double">100.0</value></values>
 </CustomMetadata>
@@ -897,10 +904,41 @@ global with sharing class REST_ContactForm
 
 `public with sharing class API_* extends kern.API_Inbound`. Same pattern as Outbound (`configure()`, `getValidationErrors()`, DTOs extend `kern.DTO_JsonBase`) plus:
 
-- **`onSuccess()`** — DML via inherited `doInsert()`/`doUpdate()`/`doDelete()` (NOT `kern.DML_Builder`)
+- **`onSuccess()`** — DML via inherited `doInsert()`/`doUpdate()`/`doDelete()` (NOT `kern.DML_Builder`). These saves run in `SYSTEM_MODE` (object and field
+  permissions not checked); when a save must enforce the running user's permissions, use `kern.DML_Builder.newTransaction().withUserMode()…execute()` in
+  its own transaction
 - **`updateResponseDTO()`** — runs after commit, populate response DTO from `result.isSuccess`
 - Both Request and Response DTOs: `@JsonAccess(serializable='always' deserializable='always')`, `public` props
 - No manual `JSON.serialize()` — framework serializes DTOs
+
+**Failed requests and API issues:** every request leaves a `kern__ApiCall__c` that keeps the request (a body too long for `kern__Request__c` is kept whole
+in a file on the call; `kern__IdempotencyKeyBodyHash__c` holds the body's SHA-256 on every inbound call). With `kern__LogIssues__c` true, a request that
+fails (`processRequest()` or `onSuccess()` throws, the commit rolls back, the setting's switches refuse it, `getValidationErrors()` returns errors or
+throws, or a `handleError()` override throws) also leaves one Open `kern__ApiIssue__c` linked to the call; it holds no copy of the request. No issue
+for a body that cannot be read (for example JSON that does not parse: the call ends Aborted with 500 before any handler runs), a 409, a stored answer,
+a mock, an error status the handler answers on purpose, or Safe Mode. The issue never changes the caller's HTTP status.
+Throw `kern.UTIL_Exceptions.PermanentFailureException` from `processRequest()`, `onSuccess()` or `getValidationErrors()` for a request that can never
+work: the call is ticked `kern__IsPermanentFailure__c` and Retry refuses it. Its subclass `kern.UTIL_Exceptions.RequestRefusedException` does not tick
+it, so the call stays open to Retry. Returned validation errors are not permanent.
+
+**Key link:** the caller owns the retry. A retry is linked to the earlier failure only when it sends the same `Idempotency-Key` and the service has
+`kern__IdempotencyEnabled__c` true; without a key nothing is linked. A key belongs to its service and to the user who sent it: the same key from
+another user is a new request (no link, no resolve, no stored answer). A same-body retry sets `kern__PreviousAttempt__c` to the failed call; a 2xx success
+with the same key, with `kern__ResolveIssues__c` also true, resolves every earlier attempt's open issue, whatever its body; a keyed retry that fails
+while an earlier attempt has an open issue writes none. Tell callers to send a fresh UUID per request and reuse it only to resend that request.
+
+**Replay (opt-in):** Retry on an inbound issue runs the request again in the org only when `kern__RetryIssues__c` is true; leave it false when the
+caller retries. It reads the request from the issue's call, sends it to the issue's service and links the new call through `kern__PreviousAttempt__c`. It
+refuses, with a label and nothing run, a service that is paused, a call ticked `kern__IsPermanentFailure__c`, a stored body whose hash differs from the
+recorded one (masked or cut), a cut address or parameters, and an issue with no call and no request of its own. When the service has `kern__IdempotencyEnabled__c`
+true, the key is checked as the original sender, so a request the caller already completed gets its stored answer. A failed replay writes no new issue.
+Outbound Retry also refuses a permanent
+call and links its new call through `kern__PreviousAttempt__c`. **Dismiss** on an issue marks it Resolved without running anything (Retry API Issue
+permission). A handler that saves outside its inherited `doInsert()`/`doUpdate()`/`doDelete()` is not safe to replay.
+
+**Delete guard:** no user and no purge can delete a `kern__ApiCall__c` with an Open issue (label `DeleteApiCall_OpenIssue`); resolve or dismiss the
+issue first. The purge leaves such calls out when its user can read every open issue (Kern Administrator), and does not start for calls when its
+user cannot read API issues. `TRG_Base.bypass(...)` on the trigger lifts the guard, as it lifts the delete permission check.
 
 ### Inbound Test Pattern
 
@@ -1230,15 +1268,22 @@ Sensitive-data redaction is declarative — subscribers configure `MaskingRule__
 masking as a before-insert / before-update pre-step on the trigger dispatcher for package-owned objects (`ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, `LogEntryEvent__e` /
 `LogEntry__c`).
 
-**Ship set:** 18 `MaskingRule__mdt` records (3 active by default — `MaskSecretKeys` JSON-key redaction, `MaskPaymentCard` Luhn-validated card redaction, and `MaskCreditCard`, the
-original card rule that `MaskPaymentCard` replaces, kept for compatibility; 15 inactive templates for SSN, email, phone, IBAN, SWIFT, Medicare, JWT, AWS keys, postal address, free
-text, IPv4, etc.). 12 `MaskingTarget__mdt` wildcard records wire the active rules onto all four logged objects; where the payment-card and credit-card rules are wired to the same
-object, the payment-card rule does the work.
+**Ship set:** 18 `MaskingRule__mdt` records (3 active by default: `MaskSecretKeys` JSON-key redaction, `MaskPaymentCard` Luhn-validated card redaction and `MaskJwt` JSON Web
+Token redaction; 15 inactive: templates for SSN, email, phone, IBAN, SWIFT, Medicare, AWS keys, postal address, free text, IPv4, etc., plus `MaskCreditCard`, the original card
+rule that `MaskPaymentCard` replaces). 14 `MaskingTarget__mdt` wildcard records: the card and secret rules on all four logged objects, and `MaskJwt` on `ApiCall__c` and
+`ApiIssue__c`; the four `*_All_Card` targets of `MaskCreditCard` ship inactive, and the rule and its targets are switched on or off together. Where the payment-card and
+credit-card rules are both active on the same object, the payment-card rule does the work unless a setting that decides what either rule masks was changed (a changed
+`FailureAction__c` does not count). Both card rules ship with `WriteFailureMarker`.
+**Caller-class scope:** a target with `CallerClass__c` set fires only on `ApiCall__c` and `ApiIssue__c` records whose service's API setting names that handler class (and in the
+Advisor preview); saves of every other object have no caller, so only targets with a blank `CallerClass__c` apply there.
 
 **Mode picklist values on `MaskingRule__mdt.Mode__c`:** `Regex`, `JsonKey`, `ExactMatch`, `CreditCard`.
 **Optional short-circuit fields:** `MinInputLength__c` (skip rule for shorter values) and `ApplicableFieldTypes__c` (semicolon-delimited `System.DisplayType` names — e.g.,
 `STRING;TEXTAREA;ENCRYPTEDSTRING`).
-**Failure handling:** `MaskingRule__mdt.FailureAction__c` = `LogAndContinue` / `WriteFailureMarker` / `BlockDml`.
+**Failure handling:** `MaskingRule__mdt.FailureAction__c` = `LogAndContinue` (the value is saved unmasked and the rule is skipped for the rest of the transaction) /
+`WriteFailureMarker` (the default and the shipped choice: `[MASKING_FAILURE]` is saved in place of each value the rule fails on, the rule keeps running on the others, and a pattern
+that cannot compile marks every value it covers) / `BlockDml` (throws `kern.UTIL_Exceptions.MaskingBlockedException`: a record save fails, an outbound call attaches no payload
+files, a log entry is dropped).
 **Kill switch:** `FeatureFlag.MaskingFramework_Enabled` (default `true`). Per-object opt-out: `TriggerSetting__mdt.ApplyMasking__c`.
 **Performance logging (opt-in):** `LogSetting__c.EnableMaskerPerformanceLogging__c = true` with `LogSetting__c.MaskerPerformanceThresholdMs__c` (default 100 ms) emits
 `LogEntryEvent__e` for batches exceeding the threshold.

@@ -11,8 +11,11 @@
  *     request any of whose issues is marked is never handed to the job, so all 20 stay Open and none is queued.
  *   - 10 outbound issues whose record (a Foobar) has a call still in progress (status Processing). They are queued; the
  *     job reads the open call when it runs, skips them, and logs the count at warn.
- *   - 120 inbound issues for API_SubscriberCreateAccount, each holding a stored request that creates one Account. Every
- *     inbound issue is its own request, and the job replays each after the outbound calls of its batch.
+ *   - 120 inbound issues for API_SubscriberCreateAccount, each linked to a Failed inbound call that holds the request
+ *     (path, method, body, key) and the SHA-256 hex of the body, as a failed request leaves them. Each request creates
+ *     one Account. The issue keeps no copy of the request, as an issue the framework writes keeps none: the replay reads
+ *     it from the call, and proves the body is an exact copy by its hash. Every inbound issue is its own request, and
+ *     the job replays each after the outbound calls of its batch.
  * The action answers at once: 430 of the 450 open issues queued (300 + 10 + 120), with the labelled message. The job
  * holds 280 requests (150 + 10 + 120) and starts min(the FLOW_CallApiAsync job size, 100) requests per Queueable, 20
  * when no Asynchronous Job Setting changes it, so 14 Queueables run side by side. A batch never holds more requests
@@ -28,14 +31,17 @@
  * SECTION86 PENDING (and deletes nothing) until the jobs have finished and every call has had its one retry.
  *
  * Run-isolation: refuses to start while rows of an earlier run are left (RetryLive calls, issues or Foobars, or inbound
- * issues and Accounts marked RetryLiveBulkInbound). Run sections 86b and 86c, or 84b, to delete them.
+ * calls, their issues and Accounts marked RetryLiveBulkInbound). Run sections 86b and 86c, or 84b, to delete them.
  *
  * Prerequisites:
  *   - subscriber org with the kern managed package installed
  *   - API_RetryLiveGet, API_SubscriberCreateAccount and their settings deployed (kern__ApiSetting.RetryLiveGet and
- *     RetryLiveUnreachable; kern__ApiSetting.SubscriberCreateAccount active, with Mocking Enabled off: section 27 turns
- *     it on for its own run and must have turned it off again); no Named Credential called RetryLiveDoesNotExist
+ *     RetryLiveUnreachable; kern__ApiSetting.SubscriberCreateAccount active, with Retry Issues on, so its issues may be
+ *     replayed, and Mocking Enabled off: section 27 turns it on for its own run and must have turned it off again); no
+ *     Named Credential called RetryLiveDoesNotExist
  *   - the RetryOutboundApiCall flow active (the end state 86b reads is after its one retry)
+ *   - no active masking rule that changes the inbound bodies (section 76b turns MaskPhoneUS on and 76c turns it off again):
+ *     a call whose body was changed no longer matches its hash, and the replay refuses it
  *   - the running user holds the Retry API Issue permission (the Kern Administrator permission set grants it) and the
  *     Delete API Records permission (the same set; 86b and 86c delete API calls and issues). Without the first the action
  *     queues nothing: this section prints one FAIL line that names the permission and rolls the seed back
@@ -68,6 +74,8 @@ final String BUSY_HASH_PREFIX = 'RetryLiveBulkBusy';
 final String JOB_SIZE_SETTING_NAME = 'kern_FLOW_CallApiAsync';
 final String STATUS_OPEN = 'Open';
 final String STATUS_PROCESSING = 'Processing';
+final String STATUS_FAILED = 'Failed';
+final String HASH_ALGORITHM = 'SHA-256';
 final String DIRECTION_OUTBOUND = 'Outbound';
 final String DIRECTION_INBOUND = 'Inbound';
 final String INBOUND_PATH = '/subscriber/accounts';
@@ -88,7 +96,8 @@ final Long STARTED_AT_MS = System.currentTimeMillis();
 
 Integer leftoverRows = [SELECT COUNT() FROM kern__ApiCall__c WHERE kern__ServiceName__c LIKE :ROW_PATTERN OR kern__URL__c LIKE :ROW_PATTERN]
 		+ [SELECT COUNT() FROM kern__ApiIssue__c WHERE kern__ServiceName__c LIKE :ROW_PATTERN]
-		+ [SELECT COUNT() FROM kern__ApiIssue__c WHERE kern__ServiceName__c = :SERVICE_INBOUND AND kern__IdempotencyKey__c LIKE :INBOUND_PATTERN]
+		+ [SELECT COUNT() FROM kern__ApiCall__c WHERE kern__ServiceName__c = :SERVICE_INBOUND AND kern__IdempotencyKey__c LIKE :INBOUND_PATTERN]
+		+ [SELECT COUNT() FROM kern__ApiIssue__c WHERE kern__ServiceName__c = :SERVICE_INBOUND AND kern__ApiCall__r.kern__IdempotencyKey__c LIKE :INBOUND_PATTERN]
 		+ [SELECT COUNT() FROM kern__Foobar__c WHERE Name LIKE :ROW_PATTERN]
 		+ [SELECT COUNT() FROM Account WHERE Name LIKE :INBOUND_PATTERN];
 if(leftoverRows > 0)
@@ -151,12 +160,20 @@ try
 		issues.add(new kern__ApiIssue__c(kern__ServiceName__c = SERVICE_GET, kern__Status__c = STATUS_OPEN, kern__Direction__c = DIRECTION_OUTBOUND,
 				kern__RequestParametersHash__c = BUSY_HASH_PREFIX + index, kern__TriggeringRecordId__c = busyRecord.Id));
 	}
+	// Each inbound request is held by a Failed call, as a failed request leaves it; the hash proves the body is an exact copy.
+	List<kern__ApiCall__c> inboundCalls = new List<kern__ApiCall__c>();
 	for(Integer index = 0; index < INBOUND_COUNT; index++)
 	{
 		String body = JSON.serialize(new Map<String, Object> {'accountName' => INBOUND_MARKER + ' ' + index, 'industry' => INBOUND_INDUSTRY, 'phone' => INBOUND_PHONE});
+		inboundCalls.add(new kern__ApiCall__c(kern__ServiceName__c = SERVICE_INBOUND, kern__Status__c = STATUS_FAILED, kern__Direction__c = DIRECTION_INBOUND,
+				kern__URL__c = INBOUND_PATH, kern__HttpMethod__c = INBOUND_METHOD, kern__Request__c = body, kern__IdempotencyKey__c = INBOUND_MARKER + index,
+				kern__IdempotencyKeyBodyHash__c = EncodingUtil.convertToHex(Crypto.generateDigest(HASH_ALGORITHM, Blob.valueOf(body)))));
+	}
+	insert inboundCalls;
+	for(kern__ApiCall__c inboundCall : inboundCalls)
+	{
 		issues.add(new kern__ApiIssue__c(kern__ServiceName__c = SERVICE_INBOUND, kern__Status__c = STATUS_OPEN, kern__Direction__c = DIRECTION_INBOUND,
-				kern__RequestPath__c = INBOUND_PATH, kern__RequestMethod__c = INBOUND_METHOD, kern__RequestBody__c = body,
-				kern__IdempotencyKey__c = INBOUND_MARKER + index));
+				kern__ApiCall__c = inboundCall.Id));
 	}
 	insert issues;
 
@@ -164,7 +181,8 @@ try
 	if(seeded == SELECTED_COUNT)
 	{
 		pass++;
-		System.debug('SECTION86 PASS 86-1: seeded ' + seeded + ' open issues and one call in progress; job size ' + jobSize
+		System.debug('SECTION86 PASS 86-1: seeded ' + seeded + ' open issues, the ' + INBOUND_COUNT + ' failed inbound calls that hold their requests and '
+				+ 'one call in progress; job size ' + jobSize
 				+ ', so ' + REQUEST_COUNT + ' requests make ' + expectedJobs + ' Queueables');
 	}
 	else

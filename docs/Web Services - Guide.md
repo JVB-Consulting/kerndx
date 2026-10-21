@@ -122,6 +122,7 @@ That is the whole shape of it: extend a base class, fill in the parts specific t
     - [Advanced Example: Multiple Operations on One URL](#advanced-example-multiple-operations-on-one-url)
     - [Multi-method routing](#multi-method-routing)
     - [Naming Conventions for Inbound APIs](#naming-conventions-for-inbound-apis)
+    - [When a request fails](#when-a-request-fails)
 13. [Intra-Org API Calls](#intra-org-api-calls)
     - [What is it for?](#what-is-it-for)
     - [What you get](#what-you-get)
@@ -651,6 +652,8 @@ Every API call leaves a record here, so when an integration misbehaves in produc
 | `ErrorMessages__c`      | Error messages if call failed                                              |
 | `NextRetry__c`          | Scheduled retry datetime (populated when retry is needed)                  |
 | `Retries__c`            | Number of retry attempts made                                              |
+| `IsPermanentFailure__c` | **Permanent Failure**: ticked when sending the request again cannot fix the failure, so Retry refuses the call. A `UTIL_Exceptions.RequestRefusedException` does not tick it. |
+| `PreviousAttempt__c`    | **Previous Attempt**: the earlier call this call is a retry or a replay of. The earlier call lists its retries under **Later Attempts**. |
 | `IsMockedResponse__c`   | Indicates if response was mocked                                           |
 | `CalloutDurationMs__c`  | Time spent in HTTP callout (milliseconds)                                  |
 | `HandlerDurationMs__c`  | Time spent in handler logic                                                |
@@ -691,7 +694,9 @@ This is where you tune how each integration behaves, retries, circuit-breaker th
 | `CircuitBreakerTimeout__c`          | Seconds to keep circuit open before testing recovery (e.g., 60)                           |
 | `CircuitBreakerSuccessThreshold__c` | Number of consecutive successes in half-open state to close the circuit (e.g., 2)         |
 | `LogIssues__c`                      | Create `ApiIssue__c` records                                                              |
-| `ResolveIssues__c`                  | Auto-resolve failures on success                                                          |
+| `ResolveIssues__c`                  | Auto-resolve failures on success. Inbound, it also needs `IdempotencyEnabled__c` and an `Idempotency-Key` on the request. |
+| `RetryIssues__c`                    | Lets Retry, Retry Selected and the Retry API Issues flow action run a failed call again. Inbound, it replays the request in your org. |
+| `IdempotencyEnabled__c`             | Inbound: a repeat of a key from the same user gets the stored answer, and a retry is linked to the failed call. Outbound: sends an `Idempotency-Key` header. |
 
 **Centralized Validation:** Three of these settings act as gates: they decide whether the service is even allowed to run, so you can turn an integration off, or limit it to a feature flag, from configuration alone. The framework checks these three fields before any handler runs:
 
@@ -725,14 +730,15 @@ Masking (redaction) keeps secrets and personal data out of your logs, so a card 
 | `Rule__c`        | The `MaskingRule__mdt` to apply                                      |
 | `SObjectType__c` | Target SObject (e.g., `ApiCall__c`)                                  |
 | `Field__c`       | Specific field path, or blank for a wildcard across every text field (unique keys and external ids excepted) |
-| `CallerClass__c` | Optional scope: only fire when the caller class name matches         |
+| `CallerClass__c` | Optional: one service's API calls and API issues only (see below)    |
 | `IsActive__c`    | Enable/disable this wiring without touching the rule                 |
 
-**Default ship set (3 rules active, 12 targets):** Sensible protection is already on the day you install, so common secrets are masked before you configure anything. Two rules do the work out of the box. `MaskSecretKeys` (JSON key redaction for password/token/apiKey/authorization/bearer and similar, scoped to `STRING;TEXTAREA` since
+**Default ship set (3 rules active, 14 targets, 10 of them switched on):** Sensible protection is already on the day you install, so common secrets are masked before you configure anything. Three rules do the work out of the box. `MaskSecretKeys` (JSON key redaction for password/token/apiKey/authorization/bearer and similar, scoped to `STRING;TEXTAREA` since
 JSON payloads only live in free-text fields) and `MaskPaymentCard` (`CreditCard` mode: 13-19 digit sequences passing the Luhn checksum, spaces or hyphens allowed,
 `MinInputLength = 13`, restricted to `STRING;TEXTAREA;ENCRYPTEDSTRING` field types), each wildcarded onto `ApiCall__c`, `ApiIssue__c`,
-`AsyncChainExecution__c`, and `LogEntryEvent__e`. `MaskPaymentCard` replaces the original `MaskCreditCard` rule, which still ships active (with its own four targets) for
-compatibility with configurations that reference it. Where both rules are wired to the same object, the payment-card rule does the work. Fifteen other rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, JWT, AWS access key, URL basic auth,
+`AsyncChainExecution__c`, and `LogEntryEvent__e`; and `MaskJwt` (JSON Web Tokens, the signed access tokens many APIs pass around, `MinInputLength = 20`), wildcarded onto
+`ApiCall__c` and `ApiIssue__c`. `MaskPaymentCard` replaces the original `MaskCreditCard` rule, which ships switched off, and so do its own four targets.
+If you switch it on, switch its four targets on with it. Where both rules are wired to the same object, the payment-card rule does the work. Fourteen other rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, AWS access key, URL basic auth,
 authorization header, private IPv4, postal address, free text, and international phone) ship as inactive templates: when your org's data profile calls for one, flip `IsActive__c = true` and add a `MaskingTarget__mdt` to switch it on.
 
 **Rule-level filters override explicit target wiring.** One precedence rule can surprise you, so know it before you debug a mask that never fires. If a `MaskingTarget__mdt` wires a rule to a specific `Field__c` (non-wildcard) whose `DisplayType` is excluded by the rule's
@@ -1748,6 +1754,70 @@ You create one `ApiSetting__mdt` record per handler, and its `ClassName__c` fiel
     - `API_PersonUpdate` - Domain + Operation + Resource
     - `DOMAIN_API_CreateCase` - Domain + Operation + Resource
 
+### When a request fails
+
+A request another system sends you can fail: your code throws, the data it refers to is missing, or the service is switched off. The
+caller gets an error status and decides what to do next. This section says what your org keeps about the failure, and how a caller's own
+retry is tied back to it.
+
+**Every request leaves an API call record.** Each request your org receives leaves an API call (`ApiCall__c`), whether it worked or not.
+The call keeps the request: the address with its query string, the method, the body, the parameters, the `Idempotency-Key` when the caller
+sent one, and a fingerprint of the body (a SHA-256 hash, in **Idempotency Key Body Hash**). A body too long for the call's **Request**
+field is kept whole in a file on the call. There is one exception: when no handler can be built for the request's service, the call keeps
+only the start of the body, as much as the **Request** field holds, with no file and no fingerprint. The call is kept even when your
+handler's changes are rolled back.
+
+**An API issue, when you ask for one.** Tick **Log Issues** on the service's API setting, and a failed request also leaves an API issue
+(`ApiIssue__c`): an Open record that a support user can review, run again or dismiss. The issue links to its call and holds the service
+name, the direction (Inbound) and the error messages. It holds no copy of the request: the call keeps the request, and running the issue
+again reads it from there. With **Log Issues** off, nothing changes for the caller and no issue is written.
+
+These failures write an issue:
+
+- your `processRequest()` or `onSuccess()` throws, or the save of your changes fails and is rolled back;
+- the request is refused before your code runs, because the service's setting is inactive, its required feature flag is off, its bypass
+  feature flag is on, or all APIs, or all inbound APIs, are switched off;
+- your `getValidationErrors()` returns errors or throws;
+- your handler's `handleError()` override throws.
+
+These outcomes write no issue, even with **Log Issues** on: the request's body cannot be read (for example, JSON that does not parse), so
+the call ends Aborted with HTTP 500 before your handler runs; no handler can be built for the service; the request reused an `Idempotency-Key` with another body (HTTP
+409); the answer came from an earlier call with the same key or from a mock; your handler answered an error status on purpose and the call
+ended Completed; and Safe Mode, which saves nothing at all. The issue is written after the caller's answer is decided, so it never changes
+the HTTP status the caller receives.
+
+**Permanent failures.** Some requests can never work, however often they are sent: an order for a product that no longer exists, for
+example. Throw `UTIL_Exceptions.PermanentFailureException` from `processRequest()`, `onSuccess()` or `getValidationErrors()` to say so.
+The call is then ticked **Permanent Failure**, and Retry never runs it again (see [Failures and retries](#failures-and-retries)). Its
+subclass `UTIL_Exceptions.RequestRefusedException` does not tick the box: a call that fails with it stays open to Retry. Errors that
+`getValidationErrors()` returns are not permanent: the request may work once the data it refers to is fixed.
+
+**The caller owns the retry.** The framework does not run a failed incoming request again on its own. The system that sent it is expected
+to send it again, as most integration platforms do. To let the framework tie that retry to the failure, the caller sends an
+`Idempotency-Key` header (a value the caller picks for one request, explained under
+[Idempotency (Inbound APIs)](#idempotency-inbound-apis)), and the service has **Idempotency Enabled**.
+
+The framework links a retry to the earlier failure only when the caller sends the same `Idempotency-Key` and the service has Idempotency
+Enabled; without a key nothing is linked. The key also belongs to the user who sent it: two requests are the same request only when the
+same user sent them to the same service with the same key. For a request that is the same:
+
+- **A retry with the same body is linked.** Its call's **Previous Attempt** points at the newest earlier call of that request that received
+  the same body and did not complete. The earlier call lists it under **Later Attempts**.
+- **A success closes the earlier issues.** With **Resolve Issues** also ticked, a request answered with a status from 200 to 299 marks
+  Resolved the open issues of every earlier failed attempt, whatever body each one carried. A caller that corrects its body after a 400
+  and sends it again with the same key therefore closes the first issue. A later request with the first body and that key still gets 409.
+  An error status your handler answers on purpose resolves nothing.
+- **Failing again adds no issue.** While an earlier attempt still has an open issue, a failed retry writes no new one, so a caller that
+  retries ten times leaves one open issue, not ten.
+
+A request sent by another user with the same key is a new request: it links nothing, resolves nothing and gets no stored answer. Ask the
+owners of each calling system to send a fresh value, such as a UUID (a long random identifier), for every new request, and to reuse it only
+when they send that same request again from the same integration user. The framework reads the newest 20 calls of one key, so a key reused
+more often than that has its oldest calls left out.
+
+Two first requests that carry the same key and arrive at the same moment are both processed, because neither has finished when the other
+one checks.
+
 ---
 
 ## Intra-Org API Calls
@@ -2008,6 +2078,11 @@ public override List<String> getValidationErrors()
 - Managing relationships
 
 **Important**: `API_Base` extends `DML_Transaction`, so the database methods (`doInsert()`, `doUpdate()`, `doDelete()`, `doUpsert()`) are already available to you. Call them inside `onSuccess()` to register the records you want changed: the framework saves them as one batch after all callouts finish. **Never run a plain DML statement (insert/update/delete) directly**, because that would save outside the framework's ordering and could break the callout-before-save rule.
+
+**Saves here do not check the user's permissions.** This applies to inbound and outbound services alike. The records you register in `onSuccess()` are
+saved in system mode (`SYSTEM_MODE`), so the running user's object and field permissions are not checked. The framework does this on purpose: the same
+save writes its own record of the call, and that record must be kept even when the user has no access to it. If a record must be saved with the running
+user's permissions, do not register it here. Save it with `DML_Builder.newTransaction().withUserMode()` in its own transaction instead.
 
 **Example**:
 
@@ -2731,18 +2806,66 @@ credential keeps the name. A call made through `useHandler(...)` uses the name w
 uses the handler's own breaker.
 
 **Running a failed call again by hand.** Press **Retry** on an API issue to run its failed call again. For a call your org made, Retry sends the request
-to the external system again. For a call your org received, Retry replays the request inside your org, and its changes are kept when it works. Either way,
-a call that works marks the issue resolved. Retry works on one issue at a time: unless **Resolve Issues** is on (see below), the other open issues of the
-same outgoing request stay open. When several open issues record the same outgoing request, use **Retry Selected** on the API Issues list
-instead: it sends the request once and marks every issue of that request resolved. An API issue whose external system may have acted has the
-**External System May Have Acted** box ticked (`ApiIssue__c.ExternalSystemMayHaveActed__c`), and its error messages include a line that says
-why. Check with the external system first: pressing **Retry** sends the request again. The bulk retry skips these issues and leaves them open
-for a person to decide. The **Retry Issues** setting on the
-service applies only to calls your org made: Retry and the bulk retry send such a call again only when it is turned on. A call your org received is
-replayed whatever that setting says. Retry also sends nothing while the service is paused or switched off (its setting inactive, its required feature
-flag off, its bypass feature flag on, or all APIs or all outbound APIs switched off): the issue stays open, and the message says so. The bulk
-retry follows the same rule. Retry, the resolve action and the bulk retry all need the **Retry API Issue** permission. The **Kern API Issue
-Resolver** permission set grants it to support users without the rest of the administrator's access, and the **Kern Administrator** set grants it too.
+to the external system again, and the new call's **Previous Attempt** points at the call that failed. For a call your org received, Retry replays the
+request inside your org, and its changes are kept when it works. Either way, a call that works marks the issue resolved. Retry works on one issue at a
+time: unless **Resolve Issues** is on (see below), the other open issues of the same outgoing request stay open. When several open issues record the
+same outgoing request, use **Retry Selected** on the API Issues list instead: it sends the request once and marks every issue of that request resolved.
+An API issue whose external system may have acted has the **External System May Have Acted** box ticked
+(`ApiIssue__c.ExternalSystemMayHaveActed__c`), and its error messages include a line that says why. Check with the external system first: pressing
+**Retry** sends the request again. The bulk retry skips these issues and leaves them open for a person to decide.
+
+Retry runs a call again only when the **Retry Issues** setting on its service is turned on, for a call your org made and a call your org received
+alike. Retry also sends nothing while the service is paused or switched off (its setting inactive, its required feature flag off, its bypass feature
+flag on, or all APIs, or all APIs of the call's direction, switched off): the issue stays open, and the message says so. The bulk retry follows the same
+rules. Retry, the resolve action, **Dismiss** and the bulk retry all need the **Retry API Issue** permission. The **Kern API Issue Resolver**
+permission set grants it to support users without the rest of the administrator's access, and the **Kern Administrator** set grants it too.
+
+**Retry never runs a permanent failure again.** A call ticked **Permanent Failure** failed in a way that sending it again cannot fix: your code
+threw `UTIL_Exceptions.PermanentFailureException`. A `UTIL_Exceptions.RequestRefusedException` is the one exception to this: it does not tick the
+box, so a refused call stays open to Retry (see [A 200 whose body carries a business failure](#a-200-whose-body-carries-a-business-failure)). Retry,
+Retry Selected and the **Retry API Issues** flow action all refuse a call ticked **Permanent Failure**. The issue stays open until it is dismissed,
+or until a later success for the same request resolves it when **Resolve Issues** is on (see [Automatic resolve](#automatic-resolve)). For a call your org
+made, an administrator can still run it again on purpose: setting the call's **Status** back to **Queued** sends it again, and that is the
+deliberate way to override the marker.
+
+**Dead letters.** **Dead Lettered** shows whether an outgoing call's automatic retries are used up, or that an administrator ticked **Manual Dead
+Letter** to give up on it. It does not decide whether Retry runs a call; **Permanent Failure** does. There is no Recover action, whatever the help text
+of those two fields says in an org that upgraded from an earlier version: to run an outgoing call again, untick **Manual Dead Letter** and set
+**Status** to **Queued**. Setting **Queued** on an incoming call runs nothing.
+
+**Replaying a request your org received.** A replay is the recovery path for callers that never send a failed request again themselves. When the
+caller does retry (see [When a request fails](#when-a-request-fails)), leave **Retry Issues** off for that service, so a request is not run twice. With
+it on, Retry reads the request from the issue's call: the address, the method, the body (from the call's file when the body was too long for its
+field), the parameters and the `Idempotency-Key`. It sends the request to the service the issue names, and the new call's **Previous Attempt** points
+at the call it replayed. Before anything runs, Retry refuses, with a message, and the issue stays open:
+
+| Why the replay is refused | What the person sees |
+|---|---|
+| **Retry Issues** is off for the service | "The request was not run again: Retry Issues is off in this service's API setting. Ask your administrator to turn it on if the callers of this service do not resend failed requests themselves." |
+| The service is paused or switched off | "This service is paused or switched off, so the request was not run again and the issue stays open. Ask your administrator to check the service's API setting and its feature flags." |
+| The call is ticked **Permanent Failure** | "This call failed in a way that running it again cannot fix, so it was not run again. The issue stays open." |
+| The call no longer holds an exact copy of the request: masking changed the body, the body was cut and no file holds it, the address or the parameters fill their field and may have been cut, or the parameters cannot be read back | "The stored request is not the one that was received: masking changed it, or it was too long to keep whole. It was not run again, and the issue stays open." |
+| The call is gone, and the issue holds no copy of the request | "The call this issue belongs to no longer exists and the issue holds no copy of the request, so there is nothing to run again. Dismiss the issue." |
+
+The body is checked against the fingerprint the call recorded when the request came in, so a replay never processes a masked or cut body as if it
+were real. An issue made by hand, with no call, is replayed from its own request fields, without that check.
+
+A replay runs as the person who pressed Retry, but the request still belongs to the user who sent it. So when the service has **Idempotency Enabled**,
+its `Idempotency-Key` is checked as that user: if the caller has already completed the request with that key, the replay gets the stored answer, runs
+nothing and resolves the issue. And once a replay works, the caller's own later retry with the same key gets the replay's answer too, so
+nothing runs twice. A replay that fails writes no new issue: the issue it ran for stays the one open issue of the request.
+
+**A request too long for its field.** A request whose body is too long for the call's **Request** field is kept whole only as a file on the call.
+A user who holds only the **Kern API Issue Resolver** permission set cannot read that file, so the replay finds a cut body and refuses it as altered.
+Such a request is replayed by a user who can see the call's files, such as an administrator.
+
+**A handler that saves outside its unit of work is not safe to replay.** A replay is safe because your handler's changes are saved together, or
+rolled back together, through the inherited `doInsert()`, `doUpdate()` and `doDelete()`. A handler that saves records some other way may have saved
+part of its work before it failed, and a replay would save that part a second time.
+
+**Dismiss closes an issue that will not be run again.** Press **Dismiss** on an API issue to mark it Resolved without running anything: for a
+permanent failure, a request the call no longer holds, or a failure you dealt with another way. It needs the **Retry API Issue** permission, works for
+both directions, and frees the issue's call to be deleted or purged (see below).
 
 **Running many failed calls again at once.** On the API Issues list, select the issues and press **Retry Selected**. The screen tells you how many of the
 open issues you selected were queued; the calls run in one background job, so you can go on working. From your own flow, add the **Retry API Issues**
@@ -2751,8 +2874,16 @@ holding `apiIssueIds` and answers with `jobId`, `queuedCount`, `success` and `me
 the selected issues were logged for it, and marks every issue of that request resolved when the call succeeds. Some issues are left open instead:
 
 - an issue whose external system may have acted, and every other issue of the same request;
-- an outbound issue whose service is paused or does not allow retries: **Retry Issues** off, the setting inactive, its required feature flag off, its
-  bypass feature flag on, or all APIs or all outbound APIs switched off;
+- an issue whose service is paused or does not allow retries: **Retry Issues** off, the setting inactive, its required feature flag off, its
+  bypass feature flag on, or all APIs, or all APIs of the issue's direction, switched off;
+- an issue whose call is ticked **Permanent Failure**;
+- an inbound issue that the button itself refuses, because it can tell without reading the request's body: the issue has no call and no request
+  of its own, its call has an `Idempotency-Key` but no body fingerprint, or its call's address fills its field and may have been cut. A call
+  with no key and no fingerprint whose address fills its field is not refused here when the issue holds a request of its own (its **Request
+  Path** is filled in), because the job then runs the request the issue holds. The screen does not count these as queued;
+- an inbound issue that the button counts as queued, but that the job refuses, because only the job reads the stored body: the body no longer
+  matches its fingerprint; the parameters were cut or cannot be read back; or the call has no key and no fingerprint, its body filled the
+  **Request** field or was kept in a file, and the issue holds no request of its own. The job leaves the issue Open and writes a warning in the log;
 - an outbound issue whose own call, or a call for the same record, is still in progress or waiting to be sent. The job counts these in a warning in the
   log, so you can run them again when that call has finished.
 
@@ -2765,14 +2896,11 @@ The job runs as the person who started it, so it sends nothing when that person 
 whose transaction made the failed call), sit above the owner in the role hierarchy, or hold View All Records on API issues. Both Kern permission sets
 that deal with issues include View All Records, so you need no sharing rule or group:
 
-- **Kern API Issue Resolver** sees every API issue and every API call, but cannot edit or delete them. Retry, the resolve action and **Retry Selected**
-  mark an issue resolved for the resolver, whoever owns the issue. They do this only after checking that the person holds the **Retry API Issue**
+- **Kern API Issue Resolver** sees every API issue and every API call, but cannot edit or delete them. Retry, the resolve action, **Dismiss** and
+  **Retry Selected** mark an issue resolved for the resolver, whoever owns the issue. They do this only after checking that the person holds the **Retry API Issue**
   permission. If you hold that permission through another permission set, without View All Records on API issues, Retry and the resolve action on an
   issue you cannot see send nothing and tell you so, and suggest you ask your administrator for the Kern API Issue Resolver set.
 - **Kern Administrator** sees, edits and deletes every issue and every call.
-
-The automatic resolve works the same way: with **Resolve Issues** on, a later successful call for the same request resolves every user's open issue for
-that request, whoever made the call that failed.
 
 **Who can delete an API call or an API issue.** These records are the history of every call to and from other systems, and an issue is the record that a
 call failed. One feature flag, `BypassApiRecordDeleteGuard`, decides who may delete them, from a record page, a flow, your own Apex and the scheduled
@@ -2784,6 +2912,23 @@ the flag record is deactivated, read [Who can see the framework's own records?](
 Security Guide. The check runs in the API Call and API Issue triggers, so Apex that turns those triggers off with `TRG_Base.bypass(...)` also turns
 the check off, until that code clears the bypass or the transaction ends.
 
+**A call with an open issue is kept until the issue is closed.** An open issue is a failure nobody has dealt with yet, and its call holds the request
+that Retry runs again. So no one can delete an API call that has an Open API issue: not a holder of Delete API Records, not a System Administrator,
+and not the purge. The person is told: "This API call has an open API issue. Resolve or dismiss the issue first, then delete the call." In a delete
+of many calls that allows some to fail, the other calls are still deleted. Once the issue is resolved or dismissed, the call can be deleted or purged.
+When an earlier call is deleted or purged, the **Previous Attempt** of a later call that pointed at it is cleared. This check runs in the API Call
+trigger too, so the same `TRG_Base.bypass(...)` turns it off.
+
+The purge of API calls reads as the user who runs it:
+
+- When that user can read every open API issue, the purge leaves the calls with an open issue out of what it deletes. The **Kern Administrator**
+  permission set gives this access.
+- When the user cannot see the open issue of a call, the purge still tries to delete it. The check above refuses that call, one call at a time, and
+  each refusal is logged.
+- When the user cannot read API issues at all, the purge of API calls does not start, and one warning in the log says so.
+
+A call left out is purged by a later run, once its issue is resolved or dismissed.
+
 The sharing default is a setting your org owns, and an upgrade never changes it. A new install sets **API Issue** to **Private**. An upgraded org keeps
 the default it had, often **Public Read/Write**, until you change it; the View All Records access of the resolver set arrives with the upgrade either
 way. To check yours, open **Sharing Settings** and find **API Issue** under **Organization-Wide Defaults**. To make it **Private**, edit the default and
@@ -2792,6 +2937,12 @@ set **API Issue** to **Private**. Your resolvers and administrators keep sight o
 **A note on Idempotency Enabled.** The key the framework builds is a hash of the endpoint, the parameters and the body. Two calls with the same endpoint,
 parameters and body therefore share a key, so an external system that honours the header also treats a deliberate second send of the same payload as a
 repeat. Stamp your own key with `withIdempotencyKey(...)` when two identical payloads are two separate requests.
+
+##### Automatic resolve
+
+With **Resolve Issues** on, a later successful call your org makes for the same request resolves every user's
+open issue for that request, whoever made the call that failed. For a request your org receives, the resolve needs **Idempotency Enabled** and a key,
+and it resolves only the issues of earlier requests the same user sent with that key (see [When a request fails](#when-a-request-fails)).
 
 ---
 
@@ -3071,8 +3222,17 @@ When the breaker isn't behaving the way you expect, the symptom usually points t
 Every API call is logged, which is good for troubleshooting but risky if the request or response contained a password, a token, or a card number. Data masking redacts those sensitive values before the log row is saved, so secrets and personal data don't end up sitting in `ApiCall__c` and `ApiIssue__c` where anyone with read access could see them.
 
 It uses the shared [data masking framework](#maskingrule__mdt--maskingtarget__mdt). The payload fields (`Request__c`,
-`Response__c`, `URL__c`, `RequestParameters__c`, `ErrorMessages__c`) are redacted on the trigger dispatcher's before-insert / before-update pre-step, so the persisted row never
-holds the raw sensitive value.
+`Response__c`, `URL__c`, `RequestParameters__c`, `ErrorMessages__c`) are redacted on the trigger dispatcher's before-insert / before-update pre-step, before the row is saved.
+
+Know what each kind of rule can reach on a stored call:
+
+- **Key rules** (`JsonKey`) read `Request__c` and `Response__c` as JSON, so they find a secret key inside nested objects there too.
+- **In `RequestParameters__c`, the request body and the query parameters are stored as text inside the JSON.** A key rule does not look inside JSON that is stored as
+  text, so only the rules that search the text itself (`Regex`, `CreditCard`, `ExactMatch`) reach the body and the query parameters there.
+- **The same copies are kept on the API issue** (`ApiIssue__c`) when a call fails, so the same limits apply to it.
+
+Keep secrets such as tokens and passwords in a Named Credential or an External Credential, never in the request body or the query parameters. The stored call then never
+holds them.
 
 **Default coverage out of the box:** `MaskSecretKeys` redacts JSON keys named `password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`,
 `access_token`, `refresh_token` (and common variants). `MaskPaymentCard` redacts 13–19 digit sequences that pass the Luhn checksum (all major card brands; spaces or hyphens
@@ -3091,8 +3251,10 @@ Add a `MaskingTarget__mdt` wiring the shipped-but-inactive `MaskSsn` rule onto `
 
 **Example: scope a rule to one service**
 
-Use `CallerClass__c` on a `MaskingTarget__mdt` to fire a rule only when a specific API class is invoking the mask, useful when one rule (e.g., a credit-card format your processor
-uses) should only apply to payment-service payloads and not bleed into unrelated callouts.
+Use `CallerClass__c` on a `MaskingTarget__mdt` when one rule (e.g., a credit-card format your processor uses) should apply only to one service's calls and not to
+unrelated callouts. Write the handler class that the service's API setting names, spelled the same way. The target then masks that service's `ApiCall__c` and `ApiIssue__c`
+records and no others. On any other object the target never fires (see the Data Masking Guide's
+[Caller-Class Scoping](Data%20Masking%20-%20Guide.md#caller-class-scoping)).
 
 **How it works:** the framework reads the populated text fields of the record, caches the resolved rule-to-field plan for `(SObjectType, callerClassName)` once per transaction,
 then applies each rule in rule-order with JSON-key rules batched into a single deserialize/serialize pass. The actual HTTP request/response going over the wire is unaffected; only
@@ -3382,15 +3544,17 @@ Here is the problem this solves. A caller sends you a request, the network drops
 Turn it on per-service with `kern__ApiSetting__mdt.IdempotencyEnabled__c = true`. Once enabled, callers send a unique `Idempotency-Key` HTTP header on each request (a tracking value the caller picks for that one request), and the framework matches it against `kern__ApiCall__c.IdempotencyKey__c` to spot a repeat.
 The header name is matched without regard to case, so a caller that sends `idempotency-key` in lower case is recognised too.
 
+A key belongs to the service and to the user who sent it. A repeat is a request with the same key, sent to the same service by the same user. The same key sent to another service, or by another user, is a separate request: it is run, and it never gets another request's stored answer. So ask each caller to send a fresh value, such as a UUID (a long random identifier), for every new request, and to reuse it only when sending that same request again from the same integration user. The same key also ties a caller's retry to an earlier failure; see [When a request fails](#when-a-request-fails).
+
 #### What gets stored
 
-When idempotency is enabled and a caller sends an `Idempotency-Key` header, the framework stores three fields on `ApiCall__c` after it has processed the first call:
+When idempotency is enabled and a caller sends an `Idempotency-Key` header, the framework stores these fields on `ApiCall__c` after it has processed the first call:
 
 - **`IdempotencyKey__c`**: the raw header value, indexed as an external ID so a repeat can be looked up quickly
 - **`IdempotencyKeyBodyHash__c`**: a short fingerprint of the request body (a SHA-256 hex digest), used to tell whether a later request that reuses the same key actually carries the same body or a different one (see "Replay behaviour" below)
 - **`IsIdempotencyHit__c`**: `true` if the answer was returned from an earlier call's record without re-running the handler; `false` for first calls
 
-The body fingerprint is computed once per call. Outbound calls leave `IdempotencyKeyBodyHash__c` blank: for an outbound call, the caller decides the key explicitly by stamping it via `UTIL_HttpClient`'s `withIdempotencyKey()` (stored on `IdempotencyKey__c`), rather than the framework computing a fingerprint from the body.
+The body fingerprint is computed once per call, and it is stored on every incoming call, with or without a key: running an issue's request again compares the stored body with it, to prove the body was not changed or cut. Outbound calls leave `IdempotencyKeyBodyHash__c` blank: for an outbound call, the caller decides the key explicitly by stamping it via `UTIL_HttpClient`'s `withIdempotencyKey()` (stored on `IdempotencyKey__c`), rather than the framework computing a fingerprint from the body.
 
 #### Replay behaviour
 
@@ -3401,6 +3565,8 @@ The framework's replay decision is a three-way branch on the inbound request:
 | **Same key, same body** (network retry, idempotent replay)    | matches                        | matches               | HTTP 200 + cached response from `Response__c`                                  |
 | **Same key, different body** (caller bug or stale-edit retry) | populated                      | differs               | **HTTP 409** with JSON body referencing the original `ApiCall.Id`              |
 | **Same key, legacy record** (created before body-hash detection shipped) | null                           | any                   | HTTP 200 + cached response (legacy passthrough, see "Backward compatibility") |
+
+These rows apply when an earlier call with the key completed. When no earlier call with the key completed (they failed or were refused), the request runs, and it is linked to the failure as [When a request fails](#when-a-request-fails) describes.
 
 The HTTP 409 response body shape:
 
@@ -4483,7 +4649,7 @@ Most of what this framework does is controlled by configuration records, not cod
 | API endpoint configuration (outbound) | `ApiSetting__mdt`                         | `EndpointPath__c` (HTTP method via handler's `getHttpMethod()` override)                                                              | Declarative endpoint; HTTP verb is set in the handler class, not the metadata record                                      |
 | Credential management                 | `ApiCredential__mdt`                      | Named Credential reference                                                                                                            | Secure credential storage and rotation                                                                                    |
 | Data masking                          | `MaskingRule__mdt` + `MaskingTarget__mdt` | `Mode__c` (Regex / JsonKey / ExactMatch / CreditCard), `Pattern__c`, `Replacement__c`, `MinInputLength__c`, `ApplicableFieldTypes__c` | Shared redaction framework; ships with secrets + credit-card rules active; you opt additional rules in per field |
-| Mock mode                             | `ApiSetting__mdt`                         | `MockingEnabled__c`                                                                                                                   | Enable mock responses without callouts                                                                                    |
+| Mock mode                             | `ApiSetting__mdt`                         | `MockingEnabled__c`                                                                                                                   | Inbound only: answers with mock responses instead of running the handler (testing only)                                   |
 | API disable switch                    | `ApiRuntimeSwitch__c`                     | `DisableAllApis__c`                                                                                                                   | Emergency kill switch for all API calls (hierarchy)                                                                       |
 | Retry strategy                        | `ApiSetting__mdt`                         | `MaxRetryCount__c`, `RetryBackoffSeconds__c`                                                                                          | Configurable retry with linear or exponential backoff                                                                     |
 | Circuit breaker                       | `ApiSetting__mdt`                         | `CircuitBreakerEnabled__c`                                                                                                            | Circuit breaker protection, on when the field is checked                                                                  |

@@ -14,5 +14,7 @@ List<kern__ApiCall__c> marked = [SELECT Id, kern__Status__c, kern__NextRetry__c,
 System.debug(LoggingLevel.ERROR, 'BASELINE17 after script ' + JSON.serialize(marked));
 System.debug(LoggingLevel.ERROR, 'BASELINE17 issues='
 		+ [SELECT COUNT() FROM kern__ApiIssue__c WHERE kern__ApiCall__c IN :marked OR kern__ServiceName__c = 'Baseline17DoesNotExist']);
+// The issues first: a call with an Open issue cannot be deleted, so the issues of these calls go too, whoever wrote them.
+delete [SELECT Id FROM kern__ApiIssue__c WHERE kern__ApiCall__c IN :marked];
 delete marked;
 System.debug(LoggingLevel.ERROR, 'BASELINE17 left=' + [SELECT COUNT() FROM kern__ApiCall__c WHERE kern__URL__c LIKE '%Baseline17DoesNotExist%']);

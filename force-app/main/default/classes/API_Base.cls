@@ -28,7 +28,10 @@
  * }
  * ```
  */
-@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters,PMD.ExcessivePublicCount')
+@SuppressWarnings
+(
+		'PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters,PMD.ExcessivePublicCount,PMD.NcssCount'
+)
 global abstract inherited sharing class API_Base extends DML_Transaction
 {
 	/**
@@ -124,6 +127,62 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	 * Id was rolled back, so the Id no longer points to a saved row.
 	 */
 	private Boolean hasLastCommitAttemptFailed = false;
+
+	/**
+	 * @description The exception that API_Base.performValidation caught while it checked the call, for example one that
+	 * getValidationErrors() threw. Null when those checks threw nothing. The extra outbound checks in
+	 * API_Outbound.performValidation never set it. It is kept apart from lastFailure, because the
+	 * outbound retry decision reads lastFailure and a call that failed its checks must never be retried. Each direction
+	 * reads it to mark the call as a permanent failure when isPermanentFailure says the exception is one.
+	 */
+	protected Exception validationFailure;
+
+	/**
+	 * @description The payload fields of the call record, in the order their files are made: the request body, the
+	 * response body, the address and the request parameters.
+	 */
+	private static final List<SObjectField> PAYLOAD_FIELDS = new List<SObjectField>
+	{
+			ApiCall__c.Request__c, ApiCall__c.Response__c, ApiCall__c.URL__c, ApiCall__c.RequestParameters__c
+	};
+
+	/**
+	 * @description The title, before the file extension, of the file that holds the whole request body of a call when
+	 * the body is too long for the Request field of the call record.
+	 */
+	public static final String REQUEST_BODY_FILE_TITLE = 'RequestBody';
+
+	/**
+	 * @description The title, before the file extension, of the file that holds the whole text of each payload field
+	 * when the text is too long for the field.
+	 */
+	private static final Map<SObjectField, String> FILE_TITLE_BY_PAYLOAD_FIELD = new Map<SObjectField, String>
+	{
+			ApiCall__c.Request__c => REQUEST_BODY_FILE_TITLE,
+			ApiCall__c.Response__c => 'ResponseBody',
+			ApiCall__c.URL__c => 'Url',
+			ApiCall__c.RequestParameters__c => 'RequestParameters'
+	};
+
+	/**
+	 * @description What this handler already masked for each payload field: the raw payload, the masked text written to
+	 * the field and, while no file holds it yet, the whole masked text when it is too long for the field. There is at
+	 * most one entry for each payload field. setApiCallDetails adds an entry when it masks a payload too long for its
+	 * field; the file step adds one when it masks a payload again. When setApiCallDetails or the file step meets the
+	 * same raw payload again (the inbound commit writes the call details twice, a commit refused for a row lock runs
+	 * again, a failed call writes them once more), the entry's field text is used and nothing is masked again. The file
+	 * step takes the whole masked text once and drops it, so a long text is not kept for the rest of the transaction.
+	 */
+	private final Map<SObjectField, MaskedPayload> maskedPayloadsByField = new Map<SObjectField, MaskedPayload>();
+
+	/**
+	 * @description The values of the call record's fields as the handler's own commit wrote them, taken right after the
+	 * commit's statements ran (see onDMLFinished), before any step of the commit changes the record again.
+	 * buildApiCallChangesToSave compares the record with them, so the save after the commit sends only the fields that
+	 * changed since the row was written, including the ones the inbound commit fills after its statements. Null until a
+	 * commit of this handler wrote the record, and again after an attempt of the commit that failed.
+	 */
+	private Map<String, Object> savedApiCallFieldValues;
 
 	/**
 	 * @description Length of a W3C span ID in hex characters.
@@ -473,6 +532,14 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	/**
 	 * @description The ApiCall__c object that initiated the service call.
 	 *
+	 * Its payload fields (the request, the response, the address and the request parameters) are not always masked,
+	 * even after the call was saved. A payload that fits its field is masked when the call is saved to the database,
+	 * but this record still holds the raw text the call sent or received: the save does not copy the masked text back
+	 * into it. A payload field holds masked text only when the payload is longer than the field (the masked text is then
+	 * cut to fit), or, in some cases, when the payload was masked again to make its file. So code that reads this record
+	 * after a save must never pass a payload field on as if it were masked. To get the masked text, read the saved call
+	 * back from the database by its Id.
+	 *
 	 * @since 1.0
 	 *
 	 * @example
@@ -651,7 +718,8 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	 * context. It is set at the framework's own catch sites, never inside handleError, because a handler may override
 	 * handleError without calling the base method. There are three such sites: where an outbound response is parsed, on
 	 * the dispatcher's error path, and where UTIL_HttpClient hands a call to a subscriber's handler and that handler's
-	 * processing or commit throws. A throw from performValidation() leaves it null on purpose (see API_Outbound).
+	 * processing or commit throws. A throw from performValidation() leaves it null on purpose (see API_Outbound); that
+	 * exception is kept in validationFailure instead.
 	 */
 	public Exception lastFailure
 	{
@@ -708,6 +776,21 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	 * the corresponding ApiCall__c field length limits. Content is masked with the same
 	 * MaskingTarget__mdt rules that fire on the ApiCall__c record itself, so oversized payloads
 	 * landing in ContentVersion files carry the same redaction the persisted record does.
+	 *
+	 * Each payload is masked once on a save, so the file is built from a masked text that already exists when there is
+	 * one. For each payload, in this order:
+	 *
+	 * 1. This handler already masked the same raw text (see maskedPayloadsByField): the whole masked text it kept, if
+	 *    any, is the file, and it is not kept any longer. No whole text means no file is needed, or a file already holds
+	 *    it.
+	 * 2. Otherwise the masker is asked what it did with the raw text for this handler (see
+	 *    UTIL_FrameworkMasker.takeMaskedValueAnswer). REMEMBERED: the trigger cut the masked text and kept all of it, and
+	 *    that text is the file. FITTED: the masked text fits the field, so no file is needed.
+	 * 3. NOT_SEEN or DROPPED: the trigger never masked this raw text (another step changed the field first, for
+	 *    example), or did not keep the whole text. The raw text is masked again here, and a file is made when the whole
+	 *    masked text is too long for its field. This masking is timed by UTIL_MaskerPerformanceTimer under the name
+	 *    ContentVersion, so a performance entry shows each time the file step masks again.
+	 *
 	 * A rule set to block DML that fails while the payloads are redacted attaches nothing: the block is
 	 * recorded on the result and the call still answers its caller (the rule's own warning log names the rule).
 	 *
@@ -716,17 +799,29 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	public List<ContentVersion> createRelatedContentVersions()
 	{
 		List<ContentVersion> versions = new List<ContentVersion>();
-		String maskedRequestBody;
-		String maskedResponseBody;
-		String maskedUrl;
-		String maskedParameters;
+		String callerClassName = getMaskingCallerClassName();
+		Map<SObjectField, String> rawValuesByField = buildRawPayloadsByField();
+		Map<SObjectField, String> fileTextsByField = new Map<SObjectField, String>();
+		List<SObjectField> fieldsToMaskAgain = new List<SObjectField>();
+
+		for(SObjectField field : PAYLOAD_FIELDS)
+		{
+			String rawValue = rawValuesByField.get(field);
+			MaskedPayload knownPayload = findMaskedPayload(field, rawValue);
+			if(knownPayload != null)
+			{
+				fileTextsByField.put(field, knownPayload.wholeMaskedText ?? (simulateStoreToFile ? knownPayload.fieldText : null));
+				knownPayload.wholeMaskedText = null;
+			}
+			else if(String.isNotEmpty(rawValue))
+			{
+				addFileTextFromMaskerAnswer(field, rawValue, callerClassName, fileTextsByField, fieldsToMaskAgain);
+			}
+		}
 
 		try
 		{
-			maskedRequestBody = maskContent(ApiCall__c.Request__c, result.requestBody);
-			maskedResponseBody = maskContent(ApiCall__c.Response__c, result.responseBody);
-			maskedUrl = maskContent(ApiCall__c.URL__c, result.url);
-			maskedParameters = maskContent(ApiCall__c.RequestParameters__c, inputs.serialize());
+			fileTextsByField.putAll(maskPayloadsAgain(fieldsToMaskAgain, rawValuesByField, callerClassName));
 		}
 		catch(UTIL_Exceptions.MaskingBlockedException blocked)
 		{
@@ -734,23 +829,176 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 			return versions;
 		}
 
-		if(shouldStoreAsFile(maskedRequestBody, SEL_ApiCall.REQUEST_LENGTH))
+		for(SObjectField field : PAYLOAD_FIELDS)
 		{
-			versions.add(TST_Factory.newContentVersion(apiCall.Id, 'RequestBody' + SEL_ContentVersion.TEXT_FILE_EXTENSION, Blob.valueOf(maskedRequestBody)));
-		}
-		if(shouldStoreAsFile(maskedResponseBody, SEL_ApiCall.RESPONSE_LENGTH))
-		{
-			versions.add(TST_Factory.newContentVersion(apiCall.Id, 'ResponseBody' + SEL_ContentVersion.TEXT_FILE_EXTENSION, Blob.valueOf(maskedResponseBody)));
-		}
-		if(shouldStoreAsFile(maskedUrl, SEL_ApiCall.URL_LENGTH))
-		{
-			versions.add(TST_Factory.newContentVersion(apiCall.Id, 'Url' + SEL_ContentVersion.TEXT_FILE_EXTENSION, Blob.valueOf(maskedUrl)));
-		}
-		if(shouldStoreAsFile(maskedParameters, SEL_ApiCall.REQUEST_PARAMETERS_LENGTH))
-		{
-			versions.add(TST_Factory.newContentVersion(apiCall.Id, 'RequestParameters' + SEL_ContentVersion.TEXT_FILE_EXTENSION, Blob.valueOf(maskedParameters)));
+			String fileText = fileTextsByField.get(field);
+			if(shouldStoreAsFile(fileText, UTIL_SObjectDescribe.getCachedFieldDescribe(field).getLength()))
+			{
+				versions.add(TST_Factory.newContentVersion(apiCall.Id, FILE_TITLE_BY_PAYLOAD_FIELD.get(field) + SEL_ContentVersion.TEXT_FILE_EXTENSION, Blob.valueOf(fileText)));
+			}
 		}
 		return versions;
+	}
+
+	/**
+	 * @description Asks the masker what it did with one raw payload for this handler, and acts on the answer: a
+	 * REMEMBERED answer gives the file text, a FITTED answer needs no file, and any other answer puts the field in the
+	 * list of fields to mask again. A FITTED payload is masked again too while simulateStoreToFile is on, because a test
+	 * then wants a file for every payload, and the masker does not keep a masked text that fits its field.
+	 *
+	 * @param field The payload field.
+	 * @param rawValue The raw payload, never empty.
+	 * @param callerClassName The handler class the payload was masked for; empty for no caller.
+	 * @param fileTextsByField The file texts found so far; a REMEMBERED text is added.
+	 * @param fieldsToMaskAgain The fields whose raw payload must be masked again; the field is added when needed.
+	 */
+	@SuppressWarnings('PMD.ExcessiveParameterList')
+	private static void addFileTextFromMaskerAnswer
+			(
+					SObjectField field,
+					String rawValue,
+					String callerClassName,
+					Map<SObjectField, String> fileTextsByField,
+					List<SObjectField> fieldsToMaskAgain
+			)
+	{
+		UTIL_FrameworkMasker.MaskedValueAnswer answer = UTIL_FrameworkMasker.takeMaskedValueAnswer(field, callerClassName, rawValue);
+		if(answer.state == UTIL_FrameworkMasker.MaskedValueState.REMEMBERED)
+		{
+			fileTextsByField.put(field, answer.uncutMaskedValue);
+		}
+		else if(answer.state != UTIL_FrameworkMasker.MaskedValueState.FITTED || simulateStoreToFile)
+		{
+			fieldsToMaskAgain.add(field);
+		}
+	}
+
+	/**
+	 * @description Masks the raw payloads of the given fields again, for the files, and times that masking with a
+	 * UTIL_MaskerPerformanceTimer named ContentVersion, which writes one performance entry for the run when masker
+	 * performance logging is on. Nothing is masked or timed when the list is empty or masking is switched off.
+	 *
+	 * When the record's field still holds the raw payload (cut to fit), the trigger has not masked it yet: the payload
+	 * was set after the record was written (the inbound response, for example), or the record is not saved yet. The
+	 * second case is a call that failed before its commit saved it: the error path of API_Dispatcher builds the files of
+	 * such a call and saves them together with the call. In both cases the masked text that fits the field is written to
+	 * the record and registered with the masker, so the save that follows sends masked text and the trigger leaves it as
+	 * it is: the payload is masked once, here. The raw payload and its field text are kept (see maskedPayloadsByField), so a later
+	 * setApiCallDetails on the same raw payload masks nothing.
+	 *
+	 * @param fields The payload fields to mask again.
+	 * @param rawValuesByField The raw payload of each field.
+	 * @param callerClassName The handler class to mask for; empty for no caller.
+	 *
+	 * @return The whole masked text of each field, never cut to the field's length.
+	 *
+	 * @throws UTIL_Exceptions.MaskingBlockedException when a rule with FailureAction = BlockDml fails
+	 */
+	private Map<SObjectField, String> maskPayloadsAgain(List<SObjectField> fields, Map<SObjectField, String> rawValuesByField, String callerClassName)
+	{
+		Map<SObjectField, String> maskedTextsByField = new Map<SObjectField, String>();
+		if(fields.isEmpty())
+		{
+			return maskedTextsByField;
+		}
+
+		UTIL_MaskerPerformanceTimer timer = UTIL_FrameworkMasker.isMaskingEnabled
+				? new UTIL_MaskerPerformanceTimer(UTIL_SObjectDescribe.getObjectNameFromType(ContentVersion.SObjectType), fields.size())
+				: null;
+		timer?.start();
+		for(SObjectField field : fields)
+		{
+			String rawValue = rawValuesByField.get(field);
+			String wholeMaskedText = maskContent(field, rawValue, callerClassName);
+			maskedTextsByField.put(field, wholeMaskedText);
+			writeMaskedTextOverRawField(field, rawValue, wholeMaskedText, callerClassName);
+		}
+		timer?.stop();
+		return maskedTextsByField;
+	}
+
+	/**
+	 * @description Writes the masked text that fits the field over the record's field when the field still holds the
+	 * raw payload cut to fit, registers it with the masker and keeps the raw payload with it (see maskPayloadsAgain).
+	 * A field that holds anything else (the trigger's masked text, or a text another step wrote) is left as it is.
+	 * Nothing happens while masking is switched off.
+	 *
+	 * @param field The payload field.
+	 * @param rawValue The raw payload, never empty.
+	 * @param wholeMaskedText The whole masked text of the raw payload.
+	 * @param callerClassName The handler class the payload was masked for; empty for no caller.
+	 */
+	@SuppressWarnings('PMD.ExcessiveParameterList')
+	private void writeMaskedTextOverRawField(SObjectField field, String rawValue, String wholeMaskedText, String callerClassName)
+	{
+		if(!UTIL_FrameworkMasker.isMaskingEnabled || !UTIL_String.abbreviate(rawValue, field).equals(apiCall.get(field)))
+		{
+			return;
+		}
+		String fieldText = UTIL_String.abbreviate(wholeMaskedText, field);
+		apiCall.put(field, fieldText);
+		UTIL_FrameworkMasker.registerMaskedFieldText(field, callerClassName, fieldText);
+		maskedPayloadsByField.put(field, new MaskedPayload(rawValue, fieldText, null));
+	}
+
+	/**
+	 * @description Finds what this handler already masked for a payload field, when it was the same raw payload.
+	 *
+	 * @param field The payload field.
+	 * @param rawValue The raw payload now; may be null.
+	 *
+	 * @return The kept entry, or null when the field has none or its entry came from another raw payload.
+	 */
+	private MaskedPayload findMaskedPayload(SObjectField field, String rawValue)
+	{
+		MaskedPayload knownPayload = maskedPayloadsByField.get(field);
+		return knownPayload != null && knownPayload.rawValue.equals(rawValue) ? knownPayload : null;
+	}
+
+	/**
+	 * @description Builds the raw text of each payload field: the request body, the response body and the address the
+	 * call used, and the serialized request parameters. Empty parameters ({}) count as no parameters, as on the record,
+	 * so they are never masked for a file. The one exception is while simulateStoreToFile is on, when a test wants a
+	 * file for every payload, empty parameters included.
+	 *
+	 * @return The raw text of each payload field; a payload the call does not have is null.
+	 */
+	private Map<SObjectField, String> buildRawPayloadsByField()
+	{
+		String parameters = inputs.serialize();
+		return new Map<SObjectField, String>
+		{
+				ApiCall__c.Request__c => result.requestBody,
+				ApiCall__c.Response__c => result.responseBody,
+				ApiCall__c.URL__c => result.url,
+				ApiCall__c.RequestParameters__c => UTIL_String.EMPTY_JSON_RESPONSE.equals(parameters) && !simulateStoreToFile ? null : parameters
+		};
+	}
+
+	/**
+	 * @description Finds the handler class a masking target names in CallerClass__c to apply to this handler's calls:
+	 * the class name in the API setting of the call's service. The trigger finds the class for the call record the same
+	 * way, from the same service name, so the masking this handler does before the save and the masking the trigger
+	 * does are always for the same caller.
+	 *
+	 * @return The handler class name, or the empty string when the service has no setting with a class name.
+	 */
+	private String getMaskingCallerClassName()
+	{
+		return SEL_ApiSetting.findClassNameByServiceName(apiCall?.ServiceName__c);
+	}
+
+	/**
+	 * @description Checks whether a text is longer than its field can hold.
+	 *
+	 * @param text The text; may be null.
+	 * @param field The field the text is saved to.
+	 *
+	 * @return True when the text has more characters than the field holds.
+	 */
+	private static Boolean isLongerThanField(String text, SObjectField field)
+	{
+		return text != null && text.length() > UTIL_SObjectDescribe.getCachedFieldDescribe(field).getLength();
 	}
 
 	/**
@@ -834,21 +1082,26 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 
 	/**
 	 * @description Runs the MaskingTarget rules configured for one ApiCall__c field against an
-	 * arbitrary string. Lets ContentVersion blobs inherit the same redaction the persisted
-	 * ApiCall record gets from its before-insert trigger action.
+	 * arbitrary string, for the handler class the record is masked for. Lets ContentVersion blobs inherit the same
+	 * redaction the persisted ApiCall record gets from its before-insert trigger action. The whole masked text is
+	 * returned, never cut to the field's length, so it can be saved in a file.
 	 *
 	 * @param field The ApiCall__c SObjectField whose rules to apply
 	 * @param value The string content to redact
+	 * @param callerClassName The handler class to mask for; empty for no caller
 	 *
 	 * @return The redacted string, or the original value when masking is disabled or the input is blank
+	 *
+	 * @throws UTIL_Exceptions.MaskingBlockedException when a rule with FailureAction = BlockDml fails
 	 */
-	private static String maskContent(SObjectField field, String value)
+	private static String maskContent(SObjectField field, String value, String callerClassName)
 	{
 		if(!UTIL_FrameworkMasker.isMaskingEnabled || String.isEmpty(value))
 		{
 			return value;
 		}
-		return UTIL_FrameworkMasker.forField(field).mask(value).maskedValue;
+		UTIL_FrameworkMasker.MaskingResult masked = UTIL_FrameworkMasker.forField(field).calledFrom(callerClassName).maskAndReturnWholeText(value);
+		return masked.uncutMaskedValue ?? masked.maskedValue;
 	}
 
 	/**
@@ -931,6 +1184,80 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	public virtual ApiIssue__c createFailureRecord()
 	{
 		return null;
+	}
+
+	/**
+	 * @description Builds an issue record for a call that failed, with only the fields that every direction shares: the
+	 * call's error messages (or the call's response when it has no error messages), the service, the Open status, the
+	 * triggering record and the call itself. The record is not saved. Each direction adds its own fields to it, so every
+	 * issue the framework writes starts from this one builder.
+	 *
+	 * @param apiCall The call that failed.
+	 *
+	 * @return A new issue record for the call, not yet saved.
+	 */
+	public static ApiIssue__c buildFailureRecord(ApiCall__c apiCall)
+	{
+		return new ApiIssue__c(
+				ErrorMessages__c = String.isBlank(apiCall.ErrorMessages__c) ? apiCall.Response__c : apiCall.ErrorMessages__c,
+				ServiceName__c = apiCall.ServiceName__c,
+				Status__c = SEL_ApiIssue.STATUS_OPEN,
+				TriggeringRecordId__c = apiCall.TriggeringRecordId__c,
+				ApiCall__c = apiCall.Id
+		);
+	}
+
+	/**
+	 * @description Whether an exception marks its call as a permanent failure, so that Retry, Retry Selected and the Flow
+	 * action refuse to run the call again. That is true for a UTIL_Exceptions.PermanentFailureException, but not for a
+	 * UTIL_Exceptions.RequestRefusedException. A refused request still ends Failed, and the framework never sends it again
+	 * on its own. But the external system said no to it, so a person can run it again once the cause is fixed. Both
+	 * directions use this one rule.
+	 *
+	 * @param failure The exception the call caught, or null when it caught none.
+	 *
+	 * @return True when the exception marks the call as a permanent failure.
+	 */
+	protected Boolean isPermanentFailure(Exception failure)
+	{
+		return failure instanceof UTIL_Exceptions.PermanentFailureException && !(failure instanceof UTIL_Exceptions.RequestRefusedException);
+	}
+
+	/**
+	 * @description Saves the issue record for this failed call, when createFailureRecord gives one. The save waives
+	 * field and object permissions, because the user whose call failed often has no access to issue records, and an
+	 * issue the platform refuses is skipped without an error. An issue must be saved whatever access the running
+	 * user has, so the failure is never lost. The framework runs this after the call's records are
+	 * saved, when the call failed and its setting has Log Issues on. The HTTP client also runs it when a handler it
+	 * passed a call to throws.
+	 *
+	 * @example
+	 * ```apex
+	 * protected override void logApiIssues()
+	 * {
+	 *     super.logApiIssues();
+	 *     // more failure logging
+	 * }
+	 * ```
+	 */
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	protected virtual void logApiIssues()
+	{
+		ApiIssue__c apiIssue = createFailureRecord();
+		if(apiIssue != null)
+		{
+			DML_Builder.newTransaction().withSystemMode().doInsert(apiIssue).allowPartial().execute();
+		}
+	}
+
+	/**
+	 * @description Marks the open issues of an earlier failure of this request as resolved. By default it does nothing:
+	 * each direction decides which issues a success closes. The framework runs this after a save of the call that
+	 * succeeded, when the call succeeded and its setting has Resolve Issues on.
+	 */
+	@SuppressWarnings('PMD.EmptyStatementBlock')
+	protected virtual void resolveApiIssues()
+	{
 	}
 
 	/**
@@ -1102,12 +1429,17 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	}
 
 	/**
-	 * @description Performs actions after an attempt of the commit ends. It runs once for each attempt of the commit, and
-	 * an attempt the platform refused for a row lock is run again once, so everything here is safe to run more than once:
-	 * the files for oversized call data are created only after the attempt that succeeds, the attempt's outcome is noted
-	 * for the end of the commit, and the handler's call details are removed from the logging engine. An override must
-	 * call super.onCommitWorkFinished(wasSuccessful) first, before its own work: this method notes the attempt's outcome,
-	 * and an override that throws before that call leaves a failed attempt unnoted.
+	 * @description Performs actions after an attempt of the commit ends. It runs once for each attempt of the commit. An
+	 * attempt the platform refused for a row lock is run again once, so everything here is safe to run more than once.
+	 * The steps run in this order:
+	 * 1. The parent class's own step for the end of an attempt runs.
+	 * 2. The attempt's outcome is noted for the end of the commit. When the attempt failed, the values onDMLFinished took are dropped.
+	 * 3. Only after an attempt that succeeds: a call that succeeded resolves its earlier issues, when its setting has Resolve Issues on (resolveApiIssues).
+	 * 4. Only after an attempt that succeeds: a call that failed saves its issue, when its setting has Log Issues on (logApiIssues).
+	 * 5. Only after an attempt that succeeds: the files that hold call data too long for its fields are created.
+	 * 6. The handler's call details are removed from the logging engine.
+	 * An override must call super.onCommitWorkFinished(wasSuccessful) first, before its own work: this method notes the
+	 * attempt's outcome, and an override that throws before that call leaves a failed attempt unnoted.
 	 *
 	 * @param wasSuccessful Indicates if the attempt was successful.
 	 */
@@ -1115,6 +1447,18 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	{
 		super.onCommitWorkFinished(wasSuccessful);
 		hasLastCommitAttemptFailed = !wasSuccessful;
+		if(!wasSuccessful)
+		{
+			savedApiCallFieldValues = null;
+		}
+		if(wasSuccessful && result.isSuccess && setting?.ResolveIssues__c == true)
+		{
+			resolveApiIssues();
+		}
+		if(wasSuccessful && !result.isSuccess && setting?.LogIssues__c == true)
+		{
+			logApiIssues();
+		}
 		if(wasSuccessful)
 		{
 			List<ContentVersion> relatedContentVersions = createRelatedContentVersions();
@@ -1170,7 +1514,10 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 
 	/**
 	 * @description Performs framework-level validation (disabled check, subscriber validation).
-	 * Subclasses (API_Outbound, API_Inbound) override to add their own validation.
+	 * Subclasses (API_Outbound, API_Inbound) override to add their own validation. An exception thrown by the checks in
+	 * this method, getValidationErrors() among them, aborts the call and is kept in validationFailure. The extra checks
+	 * an override makes do not set validationFailure: API_Outbound.performValidation (the triggering record, the
+	 * required inputs, the setting and the circuit breaker) catches its own exception and leaves the field null.
 	 *
 	 * @return Boolean True if the request should be aborted, otherwise false.
 	 */
@@ -1215,6 +1562,7 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 		}
 		catch(Exception exceptionThrown)
 		{
+			validationFailure = exceptionThrown;
 			handleError(exceptionThrown);
 			mustAbort = true;
 		}
@@ -1260,27 +1608,187 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	}
 
 	/**
-	 * @description Updates the API call with HTTP request/response details.
+	 * @description Updates the API call with HTTP request/response details. Each payload (the request body, the
+	 * response body, the address and the request parameters) is written by writePayload: a payload that fits its field
+	 * is written as it is and the trigger masks it on the save, and a payload too long for its field is masked here, once,
+	 * for this handler's class (see writePayload).
+	 *
+	 * @throws UTIL_Exceptions.MaskingBlockedException when a rule with FailureAction = BlockDml fails while a payload too
+	 * long for its field is masked. The save is then refused, as it is when the trigger meets the same failure.
 	 */
 	public virtual void setApiCallDetails()
 	{
+		String callerClassName = getMaskingCallerClassName();
+		Map<SObjectField, String> rawValuesByField = buildRawPayloadsByField();
+
 		apiCall.ErrorMessages__c = errorText;
 		apiCall.HttpMethod__c = toHttpString(getHttpMethod());
 		apiCall.IsMockedResponse__c = result.isMocked ?? false;
 		apiCall.NextRetry__c = null;
-		apiCall.RequestParameters__c = UTIL_String.abbreviate(inputs.serialize(), ApiCall__c.RequestParameters__c);
-		apiCall.RequestParameters__c = UTIL_String.EMPTY_JSON_RESPONSE.equals(apiCall.RequestParameters__c) ? null : apiCall.RequestParameters__c;
-		apiCall.Request__c = UTIL_String.abbreviate(result.requestBody, ApiCall__c.Request__c);
-		apiCall.Response__c = UTIL_String.abbreviate(result.responseBody, ApiCall__c.Response__c);
 		apiCall.StatusCode__c = result.statusCode;
 		apiCall.Status__c = result.statusText;
-		apiCall.URL__c = UTIL_String.abbreviate(result.url, ApiCall__c.URL__c);
+		for(SObjectField field : PAYLOAD_FIELDS)
+		{
+			writePayload(field, rawValuesByField.get(field), callerClassName);
+		}
+		apiCall.RequestParameters__c = UTIL_String.EMPTY_JSON_RESPONSE.equals(apiCall.RequestParameters__c) ? null : apiCall.RequestParameters__c;
 
 		if(currentTraceContext != null)
 		{
 			apiCall.TraceId__c = currentTraceContext.traceId;
 			apiCall.ParentSpanId__c = currentTraceContext.parentSpanId;
 		}
+	}
+
+	/**
+	 * @description Writes one payload to its field on the call record. A payload that fits its field, or any payload
+	 * while masking is switched off, is written as it is, and the trigger masks it on the save. A payload too long for
+	 * its field is masked here, once, for this handler's class, so it is never masked again on the save or for its
+	 * file:
+	 *
+	 * 1. The masker returns both the masked text that fits the field and the whole masked text (see
+	 *    UTIL_FrameworkMasker.FieldMasker.maskAndReturnWholeText). The whole text comes straight from the masker, so a
+	 *    payload of any length keeps all of it. The masking is timed by a UTIL_MaskerPerformanceTimer named after the
+	 *    field (for example ApiCall__c.Request__c), so a performance entry shows each time a payload is masked here.
+	 * 2. The field gets the masked text, cut to fit with three dots at the end when it is still too long.
+	 * 3. The raw payload, the field text and, when it is too long for the field, the whole masked text are kept in
+	 *    maskedPayloadsByField. createRelatedContentVersions saves the whole text in a file.
+	 * 4. The text written to the field is registered with the masker for this field and caller, so the trigger leaves
+	 *    it as it is on the insert and on the update after the callout.
+	 *
+	 * When this handler already masked the same raw payload for this field, here or in the file step, the kept field
+	 * text is written and nothing is masked again: the inbound commit writes the call details before and after its
+	 * statements, a commit refused for a row lock runs again, and a failed call writes them once more.
+	 *
+	 * The raw payload, cut to fit, is written before the masking runs. When a rule set to block DML fails, the masking
+	 * throws, and that text stays in the field: it is not registered, so the trigger masks it on any later save, meets
+	 * the same rule and refuses the save.
+	 *
+	 * @param field The payload field.
+	 * @param rawValue The raw payload; may be null.
+	 * @param callerClassName The handler class to mask for; empty for no caller.
+	 *
+	 * @throws UTIL_Exceptions.MaskingBlockedException when a rule with FailureAction = BlockDml fails
+	 */
+	private void writePayload(SObjectField field, String rawValue, String callerClassName)
+	{
+		MaskedPayload knownPayload = findMaskedPayload(field, rawValue);
+		if(knownPayload != null)
+		{
+			apiCall.put(field, knownPayload.fieldText);
+			return;
+		}
+
+		maskedPayloadsByField.remove(field);
+		apiCall.put(field, UTIL_String.abbreviate(rawValue, field));
+		if(!UTIL_FrameworkMasker.isMaskingEnabled || !isLongerThanField(rawValue, field))
+		{
+			return;
+		}
+
+		UTIL_MaskerPerformanceTimer timer = new UTIL_MaskerPerformanceTimer(UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType) + UTIL_String.DOT
+				+ UTIL_SObjectDescribe.getCachedFieldName(field), 1);
+		timer.start();
+		UTIL_FrameworkMasker.MaskingResult masked = UTIL_FrameworkMasker.forField(field).calledFrom(callerClassName).maskAndReturnWholeText(rawValue);
+		timer.stop();
+
+		String wholeMaskedText = masked.uncutMaskedValue ?? masked.maskedValue;
+		String fieldText = UTIL_String.abbreviate(masked.maskedValue, field);
+		maskedPayloadsByField.put(field, new MaskedPayload(rawValue, fieldText, isLongerThanField(wholeMaskedText, field) ? wholeMaskedText : null));
+		apiCall.put(field, fieldText);
+		UTIL_FrameworkMasker.registerMaskedFieldText(field, callerClassName, fieldText);
+	}
+
+	/**
+	 * @description Builds the call record to save after the handler's own commit: the save that writes the timings,
+	 * and the outcome when the call failed after the commit. When the handler's commit saved the record, it is a new
+	 * record with the Id and only the fields whose values changed since that commit, so a payload saved on the commit,
+	 * and masked then, is not sent again and the trigger has nothing new to mask. Otherwise it is the handler's own
+	 * record, with every field: a record that is not saved yet must be inserted whole, and a record whose commit failed
+	 * holds values that are not saved yet.
+	 *
+	 * @return The record to save.
+	 */
+	public ApiCall__c buildApiCallChangesToSave()
+	{
+		if(apiCall?.Id == null || savedApiCallFieldValues == null)
+		{
+			return apiCall;
+		}
+
+		ApiCall__c changes = new ApiCall__c(Id = apiCall.Id);
+		Map<String, Object> currentValues = apiCall.getPopulatedFieldsAsMap();
+		for(String fieldName : currentValues.keySet())
+		{
+			Object currentValue = currentValues.get(fieldName);
+			if(!(currentValue instanceof SObject) && !(currentValue instanceof List<SObject>) && hasFieldChangedSinceSave(fieldName, currentValue))
+			{
+				changes.put(fieldName, currentValue);
+			}
+		}
+		return changes;
+	}
+
+	/**
+	 * @description Checks whether a field of the call record holds a value other than the one the handler's commit
+	 * saved. Text is compared with its letter case, so a change of case counts as a change.
+	 *
+	 * @param fieldName The field's API name.
+	 * @param currentValue The field's value now.
+	 *
+	 * @return True when the field was not saved by the commit or now holds another value.
+	 */
+	private Boolean hasFieldChangedSinceSave(String fieldName, Object currentValue)
+	{
+		if(!savedApiCallFieldValues.containsKey(fieldName))
+		{
+			return true;
+		}
+		Object savedValue = savedApiCallFieldValues.get(fieldName);
+		if(currentValue instanceof String && savedValue instanceof String)
+		{
+			return !((String)currentValue).equals(savedValue);
+		}
+		return currentValue != savedValue;
+	}
+
+	/**
+	 * @description Takes the values of the call record's fields as the commit's statements wrote them, for
+	 * buildApiCallChangesToSave. Nothing is taken when the handler does not save the record (skipPersistence), in safe
+	 * mode (the commit is rolled back) or when the record has no Id.
+	 */
+	private void rememberSavedApiCallFields()
+	{
+		if(!skipPersistence && !isSafeModeActive() && apiCall?.Id != null)
+		{
+			savedApiCallFieldValues = new Map<String, Object>(apiCall.getPopulatedFieldsAsMap());
+		}
+	}
+
+	/**
+	 * @description Runs after the commit has written its records to the database, and before onCommitWorkFinishing and
+	 * onCommitWorkFinished. It keeps a copy of the call record's field values as they were written. The call record is
+	 * saved once more after the commit, to write the timings and the outcome. Because of the copy, that second save sends
+	 * only the fields that changed after the commit, such as the response the inbound commit writes in
+	 * onCommitWorkFinishing. When an attempt fails after this point, the copy is dropped again. Your handler class may
+	 * override this method. Your override must call super.onDMLFinished() first. If it does not, the second save sends
+	 * the whole call record again.
+	 *
+	 * @since 1.9
+	 *
+	 * @example
+	 * ```apex
+	 * global override void onDMLFinished()
+	 * {
+	 *     super.onDMLFinished();
+	 *     // your own work, after the commit has written its records
+	 * }
+	 * ```
+	 */
+	global override virtual void onDMLFinished()
+	{
+		super.onDMLFinished();
+		rememberSavedApiCallFields();
 	}
 
 	/**
@@ -1427,7 +1935,9 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	 * stopping a stopwatch that is not running. When the commit fails for good, the Id of a call record that was new when
 	 * the commit began is cleared, because the insert that gave it the Id was rolled back. A call record that was already
 	 * saved when the commit began keeps its Id whatever happens, because the Id still names its row: the next attempt
-	 * updates that row, and after a commit that fails for good the failure is written to that same row.
+	 * updates that row, and after a commit that fails for good the failure is written to that same row. The values the
+	 * commit wrote to the call record are taken right after its statements, for buildApiCallChangesToSave (see
+	 * onDMLFinished).
 	 *
 	 * @param enforceSharing Whether to enforce sharing rules during commit
 	 */
@@ -1641,6 +2151,44 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 			{
 				status = value == true ? API_Base.WebserviceStatus.ABORTED : status;
 			}
+		}
+	}
+
+	/**
+	 * @description What this handler masked for one payload field: the raw payload, the masked text written to the
+	 * field and, until the file step takes it, the whole masked text when it is too long for the field (see
+	 * maskedPayloadsByField).
+	 */
+	private inherited sharing class MaskedPayload
+	{
+		/**
+		 * @description The raw payload that was masked.
+		 */
+		private final String rawValue;
+
+		/**
+		 * @description The masked text written to the field, cut to fit.
+		 */
+		private final String fieldText;
+
+		/**
+		 * @description The whole masked text when it is too long for the field and no file holds it yet; null
+		 * otherwise. The file step takes it once and sets it to null.
+		 */
+		private String wholeMaskedText;
+
+		/**
+		 * @description Keeps a raw payload with its masked texts.
+		 *
+		 * @param rawValue The raw payload that was masked.
+		 * @param fieldText The masked text written to the field.
+		 * @param wholeMaskedText The whole masked text when it is too long for the field; null otherwise.
+		 */
+		private MaskedPayload(String rawValue, String fieldText, String wholeMaskedText)
+		{
+			this.rawValue = rawValue;
+			this.fieldText = fieldText;
+			this.wholeMaskedText = wholeMaskedText;
 		}
 	}
 

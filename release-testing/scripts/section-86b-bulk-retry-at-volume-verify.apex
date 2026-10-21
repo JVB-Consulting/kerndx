@@ -293,8 +293,10 @@ else
 	// Cleanup: the breaker first (its reset writes a log entry that lands after this transaction), then every RetryLive
 	// call and issue, the busy Foobar and the job's warnings. The handoff Foobar stays for section 86c.
 	kern.UTIL_CircuitBreaker.monitor(SERVICE_GET).reset();
-	delete [SELECT Id FROM kern__ApiIssue__c WHERE kern__ServiceName__c LIKE :ROW_PATTERN];
-	delete [SELECT Id FROM kern__ApiCall__c WHERE kern__ServiceName__c LIKE :ROW_PATTERN OR kern__URL__c LIKE :ROW_PATTERN];
+	List<kern__ApiCall__c> cleanupCalls = [SELECT Id FROM kern__ApiCall__c WHERE kern__ServiceName__c LIKE :ROW_PATTERN OR kern__URL__c LIKE :ROW_PATTERN];
+	// The issues first: a call with an Open issue cannot be deleted, so the issues of these calls go too, whoever wrote them.
+	delete [SELECT Id FROM kern__ApiIssue__c WHERE kern__ServiceName__c LIKE :ROW_PATTERN OR kern__ApiCall__c IN :cleanupCalls];
+	delete cleanupCalls;
 	delete [SELECT Id FROM kern__Foobar__c WHERE Name LIKE :ROW_PATTERN AND Name != :HANDOFF_NAME];
 	delete processorWarnings;
 

@@ -238,6 +238,98 @@ private class SEL_ApiIssue_TEST
 	}
 
 	/**
+	 * @description findOpenByApiCalls returns the open issues of the given API calls, even when another user owns them
+	 * and the reader cannot see them: the delete guard on API calls must see every open issue. The test administrator
+	 * owns three calls: one with an open issue, one with only a resolved issue, and one with an open issue that is not
+	 * asked about. A Minimum Access user reads from a class declared with sharing and gets only the open issue of the
+	 * first call.
+	 */
+	@IsTest
+	private static void shouldFindAnotherUsersOpenIssuesByApiCall()
+	{
+		List<ApiCall__c> apiCalls;
+		List<ApiIssue__c> issues;
+		System.runAs(getTestAdmin())
+		{
+			apiCalls = TST_Factory.getApiCallBuilder().withCount(3).buildList();
+			issues = TST_Builder.of(ApiIssue__c.SObjectType)
+					.withCount(3)
+					.withCycle(ApiIssue__c.ApiCall__c, new List<Object> {apiCalls[0].Id, apiCalls[1].Id, apiCalls[2].Id})
+					.withCycle(ApiIssue__c.Status__c, new List<Object> {SEL_ApiIssue.STATUS_OPEN, SEL_ApiIssue.STATUS_RESOLVED, SEL_ApiIssue.STATUS_OPEN})
+					.buildList();
+		}
+		List<ApiIssue__c> results;
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			results = new SharingEnforcedReader().findOpenByApiCalls(new Set<Id> {apiCalls[0].Id, apiCalls[1].Id});
+		}
+
+		Assert.areEqual(1, results.size(), 'Expected only the open issue of the calls asked about');
+		Assert.areEqual(issues[0].Id, results[0].Id, 'Expected the open issue another user owns');
+	}
+
+	/**
+	 * @description findOpenByIdempotencyKey returns the open issues of one request, whoever owns them: the issues whose call
+	 * the sender sent to the service with the key and that did not complete, and the issue of a call another user made
+	 * when running the sender's request again (it links to the sender's call). The test administrator sends the calls,
+	 * and a Minimum Access user reads from a class declared with sharing. Left out: a resolved issue, and the issues of a
+	 * call with another key, of a call that completed, and of a call another user sent with the same key.
+	 */
+	@IsTest
+	private static void shouldFindAnotherUsersOpenIssuesOfOneRequest()
+	{
+		String serviceName = UTIL_Random.randomName();
+		String idempotencyKey = UTIL_Random.randomUUID();
+		User sender = getTestAdmin();
+		List<ApiCall__c> senderCalls;
+		System.runAs(sender)
+		{
+			senderCalls = TST_Factory.getApiCallBuilder()
+					.withCount(4)
+					.withOverride(ApiCall__c.ServiceName__c, serviceName)
+					.withCycle(ApiCall__c.IdempotencyKey__c, new List<Object> {idempotencyKey, idempotencyKey, UTIL_Random.randomUUID(), idempotencyKey})
+					.withCycle(ApiCall__c.Status__c, new List<Object>
+					{
+							SEL_ApiCall.STATUS_FAILED, SEL_ApiCall.STATUS_FAILED, SEL_ApiCall.STATUS_FAILED, SEL_ApiCall.STATUS_COMPLETED
+					})
+					.buildList();
+		}
+		Map<SObjectField, Object> sameRequestFields = new Map<SObjectField, Object>
+		{
+				ApiCall__c.ServiceName__c => serviceName,
+				ApiCall__c.IdempotencyKey__c => idempotencyKey,
+				ApiCall__c.Status__c => SEL_ApiCall.STATUS_FAILED
+		};
+		ApiCall__c rerunCall = (ApiCall__c)TST_Factory.getApiCallBuilder()
+				.withOverrides(sameRequestFields)
+				.withOverride(ApiCall__c.PreviousAttempt__c, senderCalls[0].Id)
+				.build();
+		ApiCall__c otherSenderCall = (ApiCall__c)TST_Factory.getApiCallBuilder().withOverrides(sameRequestFields).build();
+		List<ApiIssue__c> issues = TST_Builder.of(ApiIssue__c.SObjectType)
+				.withCount(6)
+				.withCycle(ApiIssue__c.ApiCall__c, new List<Object>
+				{
+						senderCalls[0].Id, senderCalls[1].Id, senderCalls[2].Id, senderCalls[3].Id, rerunCall.Id, otherSenderCall.Id
+				})
+				.withCycle(ApiIssue__c.Status__c, new List<Object>
+				{
+						SEL_ApiIssue.STATUS_OPEN, SEL_ApiIssue.STATUS_RESOLVED, SEL_ApiIssue.STATUS_OPEN,
+						SEL_ApiIssue.STATUS_OPEN, SEL_ApiIssue.STATUS_OPEN, SEL_ApiIssue.STATUS_OPEN
+				})
+				.buildList();
+		List<ApiIssue__c> results;
+
+		System.runAs(getLowPrivilegeUser())
+		{
+			results = new SharingEnforcedReader().findOpenByIdempotencyKey(serviceName, idempotencyKey, sender.Id);
+		}
+
+		Set<Id> expectedIds = new Set<Id> {issues[0].Id, issues[4].Id};
+		Assert.areEqual(expectedIds, UTIL_SObject.extractIds(results), 'Expected the open issues of the sender\'s call and of the run by another user');
+	}
+
+	/**
 	 * @description Retrieves the committed test admin user set up in @TestSetup. Used by the
 	 * tier-A test to seed the ApiIssue__c row before the low-privilege user queries it.
 	 *
@@ -279,6 +371,32 @@ private class SEL_ApiIssue_TEST
 		public List<ApiIssue__c> findByFailedApiCall(Id recordId, String serviceName, String hashParameter)
 		{
 			return new SEL_ApiIssue().findByFailedApiCall(recordId, serviceName, hashParameter);
+		}
+
+		/**
+		 * @description Finds every user's open issues of the given API calls through SEL_ApiIssue.findOpenByApiCalls.
+		 *
+		 * @param apiCallIds The Ids of the API calls to check
+		 *
+		 * @return The open issues of those calls
+		 */
+		public List<ApiIssue__c> findOpenByApiCalls(Set<Id> apiCallIds)
+		{
+			return new SEL_ApiIssue().findOpenByApiCalls(apiCallIds);
+		}
+
+		/**
+		 * @description Finds every user's open issues of one request through SEL_ApiIssue.findOpenByIdempotencyKey.
+		 *
+		 * @param serviceName The service the request was sent to
+		 * @param idempotencyKey The Idempotency-Key the request carried
+		 * @param senderId The user who sent the request
+		 *
+		 * @return The open issues of the request
+		 */
+		public List<ApiIssue__c> findOpenByIdempotencyKey(String serviceName, String idempotencyKey, Id senderId)
+		{
+			return new SEL_ApiIssue().findOpenByIdempotencyKey(serviceName, idempotencyKey, senderId);
 		}
 	}
 }

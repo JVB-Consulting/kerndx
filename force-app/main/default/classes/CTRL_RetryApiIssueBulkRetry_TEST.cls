@@ -47,7 +47,6 @@ private class CTRL_RetryApiIssueBulkRetry_TEST
 	 * @description The start of a triggering record value that is not a record id, as a subscriber may write one.
 	 */
 	private static final String NON_ID_RECORD_PREFIX = 'ORDER-';
-
 	/**
 	 * @description How many digits follow the prefix of a triggering record value that is not a record id.
 	 */
@@ -165,7 +164,6 @@ private class CTRL_RetryApiIssueBulkRetry_TEST
 	{
 		DML_Builder.newTransaction().withSystemMode().doInsert(apiCall).execute();
 	}
-
 	/**
 	 * @description Counts the calls of a service.
 	 *
@@ -730,6 +728,56 @@ private class CTRL_RetryApiIssueBulkRetry_TEST
 		Assert.areEqual(withoutRetryCallCountBefore, countCalls(SERVICE_WITHOUT_RETRY_NAME), 'Expected no call to the service without retries');
 		assertStatus(UTIL_SObject.extractIds(acceptingIssues), SEL_ApiIssue.STATUS_RESOLVED);
 		assertStatus(UTIL_SObject.extractIds(issuesWithoutRetry), SEL_ApiIssue.STATUS_OPEN);
+	}
+
+	/**
+	 * @description The call the job sends links to the call of the issue it was sent for (PreviousAttempt__c), so the
+	 * attempts of one request can be followed from the first to the last.
+	 */
+	@IsTest
+	private static void shouldLinkTheOutboundRetryCallToTheOriginalInTheJob()
+	{
+		ApiCall__c originalCall = TST_Factory.newOutboundApiCall(SERVICE_NAME, UserInfo.getUserId(), PARAMETER_NAME, UTIL_Random.randomName());
+		originalCall.Status__c = SEL_ApiCall.STATUS_FAILED;
+		insertCall(originalCall);
+		ApiIssue__c issue = TST_Factory.newApiIssue(originalCall, UTIL_Crypto.generateMD5Hash(originalCall.RequestParameters__c));
+		Set<Id> issueIds = insertIssues(new List<ApiIssue__c> {issue});
+
+		scheduleAs(getUserWithApiIssueResolverPermissionSet(), issueIds);
+
+		assertStatus(issueIds, SEL_ApiIssue.STATUS_RESOLVED);
+		List<ApiCall__c> retryCalls = new List<ApiCall__c>();
+		for(ApiCall__c apiCall : new SEL_ApiCall().findByServiceName(SERVICE_NAME))
+		{
+			if(apiCall.Id != originalCall.Id)
+			{
+				retryCalls.add(apiCall);
+			}
+		}
+		Assert.areEqual(1, retryCalls.size(), 'Expected one call sent by the job');
+		Assert.areEqual(originalCall.Id, retryCalls.get(0).PreviousAttempt__c, 'Expected the job\'s call to link to the original call');
+	}
+
+	/**
+	 * @description An issue whose call is marked as a permanent failure is not queued and not sent: running it again
+	 * cannot help. It stays open.
+	 */
+	@IsTest
+	private static void shouldNotQueueAnIssueWhoseCallIsMarkedPermanent()
+	{
+		ApiCall__c originalCall = TST_Factory.newOutboundApiCall(SERVICE_NAME, UserInfo.getUserId(), PARAMETER_NAME, UTIL_Random.randomName());
+		originalCall.Status__c = SEL_ApiCall.STATUS_FAILED;
+		originalCall.IsPermanentFailure__c = true;
+		insertCall(originalCall);
+		Set<Id> issueIds = insertIssues(new List<ApiIssue__c> {TST_Factory.newApiIssue(originalCall, UTIL_Crypto.generateMD5Hash(originalCall.RequestParameters__c))});
+		Integer callCountBefore = countCalls(SERVICE_NAME);
+
+		CTRL_RetryApiIssue.DTO_ScheduledBulkRetry scheduledRetry = scheduleAs(getUserWithApiIssueResolverPermissionSet(), issueIds);
+
+		Assert.areEqual(1, scheduledRetry.selectedCount, 'Expected the open issue to be counted as selected');
+		Assert.areEqual(0, scheduledRetry.queuedCount, 'Expected the issue of a permanent failure not to be queued');
+		Assert.areEqual(callCountBefore, countCalls(SERVICE_NAME), 'Expected no call');
+		assertStatus(issueIds, SEL_ApiIssue.STATUS_OPEN);
 	}
 
 	/**

@@ -20,6 +20,11 @@ private class SEL_ApiCall_TEST
 	private static final String TEST_SERVICE_NAME = 'TestService';
 
 	/**
+	 * @description The address an inbound call kept for its request, with its query string.
+	 */
+	private static final String TEST_URL = '/services/apexrest/echo/test?reference=1';
+
+	/**
 	 * @description The retry wait a scheduled row is given, in seconds.
 	 */
 	private static final Integer SECONDS_UNTIL_RETRY = 30;
@@ -200,6 +205,111 @@ private class SEL_ApiCall_TEST
 	}
 
 	/**
+	 * @description The read of a call's request returns what a replay needs (the body, the address, the hash of the
+	 * body), and leaves out the response, which can be as long as the request, so a check of many issues does not hold
+	 * every response in memory.
+	 *
+	 * @see SEL_ApiCall.findRequestById
+	 */
+	@IsTest
+	private static void shouldReadTheRequestOfACallWithoutItsResponse()
+	{
+		String body = UTIL_Random.randomName();
+		ApiCall__c seededCall = (ApiCall__c)apiCallBuilder(SEL_ApiCall.STATUS_FAILED, SEL_ApiCall.TYPE_INBOUND)
+				.withOverrides(new Map<SObjectField, Object>
+				{
+						ApiCall__c.Request__c => body,
+						ApiCall__c.Response__c => UTIL_Random.randomName(),
+						ApiCall__c.URL__c => TEST_URL,
+						ApiCall__c.IdempotencyKeyBodyHash__c => API_Inbound.computeBodyHash(body)
+				})
+				.build();
+
+		List<ApiCall__c> foundCalls = new SEL_ApiCall().findRequestById(new Set<Id> {seededCall.Id});
+
+		Assert.areEqual(1, foundCalls.size(), 'Expected the one call, got ' + foundCalls);
+		ApiCall__c foundCall = foundCalls.get(0);
+		Assert.areEqual(body, foundCall.Request__c, 'Expected the body the call kept');
+		Assert.areEqual(TEST_URL, foundCall.URL__c, 'Expected the address the call kept');
+		Assert.areEqual(API_Inbound.computeBodyHash(body), foundCall.IdempotencyKeyBodyHash__c, 'Expected the hash of the body the call kept');
+		Assert.isFalse(foundCall.isSet(ApiCall__c.Response__c), 'Expected the response not to be read');
+	}
+
+	/**
+	 * @description A Standard User who owns none of the calls reads the small fields of the request a call kept (the
+	 * address, the key, the hash of the body and the permanent failure marker), and the read holds nothing large: no
+	 * body, no parameters and no response. Retry Selected reads the calls of every selected inbound issue this way, so a
+	 * large selection does not fill the memory the action may use.
+	 *
+	 * @see SEL_ApiCall.findRequestWithoutBodyById
+	 */
+	@IsTest
+	private static void shouldReadTheRequestOfAnotherUsersCallWithoutItsBody()
+	{
+		String body = UTIL_Random.randomName();
+		String idempotencyKey = UTIL_Random.randomUUID();
+		ApiCall__c seededCall = (ApiCall__c)apiCallBuilder(SEL_ApiCall.STATUS_FAILED, SEL_ApiCall.TYPE_INBOUND)
+				.withOverrides(new Map<SObjectField, Object>
+				{
+						ApiCall__c.Request__c => body,
+						ApiCall__c.RequestParameters__c => UTIL_Random.randomName(),
+						ApiCall__c.Response__c => UTIL_Random.randomName(),
+						ApiCall__c.URL__c => TEST_URL,
+						ApiCall__c.IdempotencyKey__c => idempotencyKey,
+						ApiCall__c.IdempotencyKeyBodyHash__c => API_Inbound.computeBodyHash(body),
+						ApiCall__c.IsPermanentFailure__c => true
+				})
+				.build();
+		List<ApiCall__c> foundCalls;
+
+		System.runAs(new SEL_User().findByCompanyName(STANDARD_USER_COMPANY))
+		{
+			foundCalls = new SEL_ApiCall().findRequestWithoutBodyById(new Set<Id> {seededCall.Id});
+		}
+
+		Assert.areEqual(1, foundCalls.size(), 'Expected the call another user wrote, got ' + foundCalls);
+		ApiCall__c foundCall = foundCalls.get(0);
+		Assert.areEqual(TEST_URL, foundCall.URL__c, 'Expected the address the call kept');
+		Assert.areEqual(idempotencyKey, foundCall.IdempotencyKey__c, 'Expected the key the call kept');
+		Assert.areEqual(API_Inbound.computeBodyHash(body), foundCall.IdempotencyKeyBodyHash__c, 'Expected the hash of the body the call kept');
+		Assert.isTrue(foundCall.IsPermanentFailure__c, 'Expected the call to be marked as failed permanently');
+		Assert.isFalse(foundCall.isSet(ApiCall__c.Request__c), 'Expected the body not to be read');
+		Assert.isFalse(foundCall.isSet(ApiCall__c.RequestParameters__c), 'Expected the parameters not to be read');
+		Assert.isFalse(foundCall.isSet(ApiCall__c.Response__c), 'Expected the response not to be read');
+	}
+
+	/**
+	 * @description A Standard User who owns none of the calls still finds that a call failed permanently, and the read
+	 * holds nothing else of the call: no request and no response. ApiCall__c is Private, and an outbound issue whose call
+	 * failed permanently must not be sent again because the user cannot see the call.
+	 *
+	 * @see SEL_ApiCall.findPermanentFailureById
+	 */
+	@IsTest
+	private static void shouldFindThatAnotherUsersCallFailedPermanentlyWithoutItsPayloads()
+	{
+		ApiCall__c seededCall = (ApiCall__c)apiCallBuilder(SEL_ApiCall.STATUS_FAILED)
+				.withOverrides(new Map<SObjectField, Object>
+				{
+						ApiCall__c.IsPermanentFailure__c => true,
+						ApiCall__c.Request__c => UTIL_Random.randomName(),
+						ApiCall__c.Response__c => UTIL_Random.randomName()
+				})
+				.build();
+		List<ApiCall__c> foundCalls;
+
+		System.runAs(new SEL_User().findByCompanyName(STANDARD_USER_COMPANY))
+		{
+			foundCalls = new SEL_ApiCall().findPermanentFailureById(new Set<Id> {seededCall.Id});
+		}
+
+		Assert.areEqual(1, foundCalls.size(), 'Expected the call another user wrote, got ' + foundCalls);
+		Assert.isTrue(foundCalls.get(0).IsPermanentFailure__c, 'Expected the call to be marked as failed permanently');
+		Assert.isFalse(foundCalls.get(0).isSet(ApiCall__c.Request__c), 'Expected the request not to be read');
+		Assert.isFalse(foundCalls.get(0).isSet(ApiCall__c.Response__c), 'Expected the response not to be read');
+	}
+
+	/**
 	 * @description Creates a pre-configured ApiCall builder with common test fields.
 	 *
 	 * @param status The status value for the API call
@@ -228,6 +338,19 @@ private class SEL_ApiCall_TEST
 	private static TST_Builder.Builder apiCallBuilder(String status)
 	{
 		return apiCallBuilder(status, SEL_ApiCall.TYPE_OUTBOUND);
+	}
+
+	/**
+	 * @description Creates a pre-configured inbound ApiCall builder for the test service, with an Idempotency-Key.
+	 *
+	 * @param status The status value for the API call
+	 * @param idempotencyKey The key the call carried
+	 *
+	 * @return A TST_Builder.Builder ready for further chaining or .build()
+	 */
+	private static TST_Builder.Builder inboundCallBuilder(String status, String idempotencyKey)
+	{
+		return apiCallBuilder(status, SEL_ApiCall.TYPE_INBOUND).withOverride(ApiCall__c.IdempotencyKey__c, idempotencyKey);
 	}
 
 	/**
@@ -382,38 +505,38 @@ private class SEL_ApiCall_TEST
 	}
 
 	/**
-	 * @description Tests that findCompletedByIdempotencyKey returns only completed records.
+	 * @description A Standard User who owns none of the calls finds every call the user who runs the test sent to the
+	 * service with the key, whatever its status, newest first, even though record sharing hides those calls from the Standard User. The
+	 * read leaves out a call of another service with the same key, a call of the service with another key, and a call
+	 * that was answered from an earlier call. The same read for the Standard User finds none of these calls, because a
+	 * key belongs to the user who sent it: another user's call with the same service and key is never returned.
+	 *
+	 * @see SEL_ApiCall.findByServiceAndIdempotencyKey
 	 */
 	@IsTest
-	private static void shouldFindCompletedByIdempotencyKey()
+	private static void shouldFindOnlyTheCallsTheUserSentToTheServiceWithTheKey()
 	{
 		String idempotencyKey = UTIL_Random.randomUUID();
+		Id senderId = UserInfo.getUserId();
+		ApiCall__c completedCall = (ApiCall__c)inboundCallBuilder(SEL_ApiCall.STATUS_COMPLETED, idempotencyKey).build();
+		ApiCall__c failedCall = (ApiCall__c)inboundCallBuilder(SEL_ApiCall.STATUS_FAILED, idempotencyKey).build();
+		inboundCallBuilder(SEL_ApiCall.STATUS_FAILED, idempotencyKey).withOverride(ApiCall__c.ServiceName__c, UTIL_Random.randomName()).build();
+		inboundCallBuilder(SEL_ApiCall.STATUS_FAILED, UTIL_Random.randomUUID()).build();
+		inboundCallBuilder(SEL_ApiCall.STATUS_COMPLETED, idempotencyKey).withOverride(ApiCall__c.IsIdempotencyHit__c, true).build();
+		List<ApiCall__c> foundCalls;
+		List<ApiCall__c> callsOfAnotherSender;
 
-		apiCallBuilder(SEL_ApiCall.STATUS_COMPLETED, SEL_ApiCall.TYPE_INBOUND)
-				.withOverride(ApiCall__c.IdempotencyKey__c, idempotencyKey)
-				.build();
+		System.runAs(new SEL_User().findByCompanyName(STANDARD_USER_COMPANY))
+		{
+			foundCalls = new SEL_ApiCall().findByServiceAndIdempotencyKey(TEST_SERVICE_NAME, idempotencyKey, senderId);
+			callsOfAnotherSender = new SEL_ApiCall().findByServiceAndIdempotencyKey(TEST_SERVICE_NAME, idempotencyKey, UserInfo.getUserId());
+		}
 
-		ApiCall__c result = new SEL_ApiCall().findCompletedByIdempotencyKey(idempotencyKey);
-
-		Assert.isNotNull(result, 'Should find completed API call by idempotency key');
-		Assert.areEqual(idempotencyKey, result.IdempotencyKey__c, 'Idempotency key should match');
-	}
-
-	/**
-	 * @description Tests that findCompletedByIdempotencyKey ignores failed records.
-	 */
-	@IsTest
-	private static void shouldIgnoreFailedCallForCompletedIdempotencyLookup()
-	{
-		String idempotencyKey = UTIL_Random.randomUUID();
-
-		apiCallBuilder(SEL_ApiCall.STATUS_FAILED, SEL_ApiCall.TYPE_INBOUND)
-				.withOverride(ApiCall__c.IdempotencyKey__c, idempotencyKey)
-				.build();
-
-		ApiCall__c result = new SEL_ApiCall().findCompletedByIdempotencyKey(idempotencyKey);
-
-		Assert.isNull(result, 'Should not return failed API call for completed idempotency lookup');
+		Assert.isTrue(callsOfAnotherSender.isEmpty(), 'Expected no call of another user with the same service and key, got ' + callsOfAnotherSender);
+		Assert.areEqual(2, foundCalls.size(), 'Expected only the two calls of the service with the key, got ' + foundCalls);
+		Assert.areEqual(failedCall.Id, foundCalls[0].Id, 'Expected the newest call first');
+		Assert.areEqual(completedCall.Id, foundCalls[1].Id, 'Expected the older call second');
+		Assert.areEqual(SEL_ApiCall.STATUS_FAILED, foundCalls[0].Status__c, 'Expected the read to hold the status of the call');
 	}
 
 	/**

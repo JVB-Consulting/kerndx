@@ -46,6 +46,18 @@ private class API_Echo_TEST
 	private static final String PARTNER_HEADER_REQUIRED = 'The X-Partner-Id header is required';
 
 	/**
+	 * @description The routing priority of the echo setting a test registers; any value works, because it is the only
+	 * setting for the path.
+	 */
+	private static final Integer ROUTE_PRIORITY = 100;
+
+	/**
+	 * @description How many queries a successful echo request makes once the settings a transaction keeps are read: one,
+	 * the read of the switch that can turn off every API. A request that also read issues would make more.
+	 */
+	private static final Integer QUERIES_OF_A_SUCCESSFUL_REQUEST = 1;
+
+	/**
 	 * @description Sets up the Rest request context to mimic an inbound API call
 	 *
 	 * @return DTO that will be serialised in to the request object
@@ -135,6 +147,68 @@ private class API_Echo_TEST
 		Test.stopTest();
 
 		SEL_ApiCall.assertServiceFailed(SERVICE_NAME, API_Echo.ERROR_POST_COMMIT);
+	}
+
+	/**
+	 * @description A successful inbound request closes no issue, even when its setting has Resolve Issues on. An open
+	 * issue of the echo service matches the request the way an outbound success matches its issues: the same service,
+	 * the same empty triggering record and the same hash of the request parameters. It stays Open, and the request reads
+	 * no issue at all, because the request carries no Idempotency-Key: an inbound success closes only the issues of
+	 * earlier calls of the same service that carried its key. A first request runs before the
+	 * issue is saved, so the settings the framework reads once in a transaction and then keeps are already read; the
+	 * request that is measured then makes only the one query every request makes.
+	 */
+	@IsTest
+	private static void shouldResolveNothingWhenAnInboundRequestSucceedsWithResolveIssuesOn()
+	{
+		TST_Factory.newInboundApiSetting(SERVICE_NAME, TEST_ENDPOINT_PATH, ROUTE_PRIORITY, new Map<SObjectField, Object>
+		{
+				ApiSetting__mdt.ResolveIssues__c => true,
+				ApiSetting__mdt.LogIssues__c => true
+		});
+		setupContext();
+		API_Dispatcher.processInboundService(SERVICE_NAME);
+		String parameterName = UTIL_Random.randomName();
+		String parameterValue = UTIL_Random.randomName();
+		DTO_InboundTest inboundRequest = new DTO_InboundTest();
+		inboundRequest.helloWorld = UTIL_Random.randomName();
+		API_InboundTestHelper.setupRestContext(inboundRequest);
+		RestContext.request.addParameter(parameterName, parameterValue);
+		ApiIssue__c openIssue = insertOpenIssueForTheParameter(parameterName, parameterValue);
+
+		Test.startTest();
+		Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+		API_Base handler = API_Dispatcher.processInboundService(SERVICE_NAME);
+		Integer queriesUsed = UTIL_Limits.soqlQueries().used() - queriesBefore;
+		Test.stopTest();
+
+		ApiCall__c completed = (ApiCall__c)new SEL_ApiCall().findById(handler.apiCall.Id);
+		Assert.areEqual(SEL_ApiCall.STATUS_COMPLETED, completed.Status__c, 'Expected the request to complete, got ' + completed.Status__c);
+		Assert.isTrue(String.isBlank(completed.TriggeringRecordId__c), 'Expected no triggering record on the call, got ' + completed.TriggeringRecordId__c);
+		String requestHash = UTIL_String.abbreviate(UTIL_Crypto.generateMD5Hash(completed.RequestParameters__c), SEL_ApiIssue.REQUEST_PARAMETERS_HASH_LENGTH);
+		Assert.areEqual(openIssue.RequestParametersHash__c, requestHash, 'Expected the issue to match the request parameters, got ' + requestHash);
+		List<ApiIssue__c> openIssues = new SEL_ApiIssue().findUnresolvedByService(SERVICE_NAME);
+		Assert.areEqual(1, openIssues.size(), 'Expected the issue to stay open, got ' + openIssues.size() + ' open issues');
+		Assert.areEqual(openIssue.Id, openIssues[0].Id, 'Expected the open issue to be the one inserted, got ' + openIssues[0].Id);
+		Assert.areEqual(QUERIES_OF_A_SUCCESSFUL_REQUEST, queriesUsed, 'Expected only the query of the switch for every API, got ' + queriesUsed + ' queries');
+	}
+
+	/**
+	 * @description Saves an open issue of the echo service for a request that carries one parameter, with no triggering
+	 * record and the hash of the request parameters that the echo service records for such a request.
+	 *
+	 * @param parameterName The name of the request's parameter.
+	 * @param parameterValue The value of the request's parameter.
+	 *
+	 * @return The saved issue.
+	 */
+	private static ApiIssue__c insertOpenIssueForTheParameter(String parameterName, String parameterValue)
+	{
+		ApiCall__c earlierCall = TST_Factory.newInboundApiCall(SERVICE_NAME);
+		earlierCall.TriggeringRecordId__c = null;
+		earlierCall.RequestParameters__c = new DTO_NameValues(new Map<String, String> {parameterName => parameterValue}).serialize();
+		String requestHash = UTIL_String.abbreviate(UTIL_Crypto.generateMD5Hash(earlierCall.RequestParameters__c), SEL_ApiIssue.REQUEST_PARAMETERS_HASH_LENGTH);
+		return TST_Factory.insertApiIssue(earlierCall, requestHash);
 	}
 
 	/**

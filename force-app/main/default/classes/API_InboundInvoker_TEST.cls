@@ -35,6 +35,15 @@ private class API_InboundInvoker_TEST
 	 * @description A stored request body in XML, which the inbound base class does not read into a request object.
 	 */
 	private static final String TEST_XML_BODY = '<hello>world</hello>';
+	/**
+	 * @description Stored parameters that are not the JSON text a call keeps them as, so they cannot be read back.
+	 */
+	private static final String UNREADABLE_PARAMETERS = 'reference=order-42';
+	/**
+	 * @description The character a stored body is filled with when a test needs a body that fills the call's Request__c
+	 * field to its full length, as a body that was cut does.
+	 */
+	private static final String FILL_CHARACTER = 'x';
 
 	/**
 	 * @description Tests that invocation populates status code, response body, request body, and execution time.
@@ -112,7 +121,8 @@ private class API_InboundInvoker_TEST
 	}
 
 	/**
-	 * @description Creates a pre-configured inbound failure record for replay testing.
+	 * @description Creates an inbound issue made by hand for replay testing: it links to no call, holds the request in
+	 * its own fields and names the echo service.
 	 *
 	 * @return The inserted ApiIssue__c record
 	 */
@@ -123,7 +133,239 @@ private class API_InboundInvoker_TEST
 				.withOverride(ApiIssue__c.RequestMethod__c, HTTP_POST)
 				.withOverride(ApiIssue__c.RequestBody__c, TEST_BODY)
 				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, SERVICE_NAME)
 				.build();
+	}
+
+	/**
+	 * @description An issue that links to no call and holds no request in its own fields has nothing to run again. The
+	 * replay is refused with the labelled message that says so, and it is not successful.
+	 */
+	@IsTest
+	private static void shouldRefuseToReplayAnIssueWithNoRequest()
+	{
+		TST_Factory.newInboundApiSetting(SERVICE_NAME, '/echo/*');
+		ApiIssue__c failure = (ApiIssue__c)TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, SERVICE_NAME)
+				.build();
+
+		DTO_InvocationResult invocationResult = API_InboundInvoker.replay(failure.Id, false);
+
+		Assert.isFalse(invocationResult.success, 'Expected the replay to be refused');
+		Assert.areEqual(System.Label.RetryApiIssue_OriginalCallMissing, invocationResult.errorText, 'Expected the refusal to come from the label');
+		Assert.isTrue(new SEL_ApiCall().findByServiceName(SERVICE_NAME).isEmpty(), 'Expected nothing to run');
+	}
+
+	/**
+	 * @description Saves a failed inbound call of the echo service that kept the test request (path, method and body, with
+	 * the hash of the body), and an inbound issue that links to it.
+	 *
+	 * @param requestParameters The parameters the call kept, or null for none
+	 *
+	 * @return The saved issue
+	 */
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	private static ApiIssue__c insertIssueOfFailedCall(String requestParameters)
+	{
+		ApiCall__c originalCall = TST_Factory.newInboundApiCall(SERVICE_NAME);
+		originalCall.Status__c = SEL_ApiCall.STATUS_FAILED;
+		originalCall.URL__c = TEST_PATH;
+		originalCall.HttpMethod__c = HTTP_POST;
+		originalCall.Request__c = TEST_BODY;
+		originalCall.IdempotencyKeyBodyHash__c = API_Inbound.computeBodyHash(TEST_BODY);
+		originalCall.RequestParameters__c = requestParameters;
+		DML_Builder.newTransaction().withSystemMode().doInsert(originalCall).execute();
+		return (ApiIssue__c)TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, SERVICE_NAME)
+				.withOverride(ApiIssue__c.ApiCall__c, originalCall.Id)
+				.build();
+	}
+
+	/**
+	 * @description A call that kept no parameters is replayed from the call: the body it kept reaches the echo service
+	 * unchanged, and the replay's call links to the call the request was read from.
+	 */
+	@IsTest
+	private static void shouldReplayTheRequestOfACallWithNoParameters()
+	{
+		TST_Factory.newInboundApiSetting(SERVICE_NAME, '/echo/*');
+		ApiIssue__c failure = insertIssueOfFailedCall(null);
+
+		Test.startTest();
+		DTO_InvocationResult invocationResult = API_InboundInvoker.replay(failure.Id, false);
+		Test.stopTest();
+
+		Assert.isTrue(invocationResult.success, 'Expected the replay to succeed, got: ' + invocationResult.errorText);
+		Assert.areEqual(TEST_BODY, invocationResult.responseBody, 'Expected the echo service to receive the body the call kept');
+		Boolean isLinked = false;
+		for(ApiCall__c apiCall : new SEL_ApiCall().findByServiceName(SERVICE_NAME))
+		{
+			isLinked = isLinked || apiCall.PreviousAttempt__c == failure.ApiCall__c;
+		}
+		Assert.isTrue(isLinked, 'Expected the replay\'s call to link to the call the request was read from');
+	}
+
+	/**
+	 * @description Parameters the call kept that cannot be read back may not be what the request carried, so the request
+	 * is not replayed: the replay is refused with the labelled message that says the stored request is not the one
+	 * received, even though the body's hash matches.
+	 */
+	@IsTest
+	private static void shouldRefuseToReplayParametersThatCannotBeReadBack()
+	{
+		TST_Factory.newInboundApiSetting(SERVICE_NAME, '/echo/*');
+		ApiIssue__c failure = insertIssueOfFailedCall(UNREADABLE_PARAMETERS);
+
+		DTO_InvocationResult invocationResult = API_InboundInvoker.replay(failure.Id, false);
+
+		Assert.isFalse(invocationResult.success, 'Expected the replay to be refused');
+		Assert.areEqual(System.Label.RetryApiIssue_StoredRequestDiffers, invocationResult.errorText, 'Expected the refusal to come from the label');
+		Assert.areEqual(1, new SEL_ApiCall().findByServiceName(SERVICE_NAME).size(), 'Expected nothing to run');
+	}
+
+	/**
+	 * @description Builds, without saving it, a failed inbound call of the echo service that kept the test path and method
+	 * and the given body, the way version 1.8 saved a request with no Idempotency-Key: no key and no hash of the body.
+	 *
+	 * @param storedBody The body the call kept
+	 *
+	 * @return The call, not yet saved
+	 */
+	private static ApiCall__c newFailedCallWithoutAHash(String storedBody)
+	{
+		ApiCall__c originalCall = TST_Factory.newInboundApiCall(SERVICE_NAME);
+		originalCall.Status__c = SEL_ApiCall.STATUS_FAILED;
+		originalCall.URL__c = TEST_PATH;
+		originalCall.HttpMethod__c = HTTP_POST;
+		originalCall.Request__c = storedBody;
+		return originalCall;
+	}
+
+	/**
+	 * @description Saves a call and an inbound issue of the echo service that links to it. When a body is given, the issue
+	 * also holds the test path, method and that body in its own fields, as a person may have typed them in version 1.8.
+	 *
+	 * @param originalCall The call to save
+	 * @param issueBody The body the issue holds, or null for an issue that holds no request of its own
+	 *
+	 * @return The saved issue
+	 */
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	private static ApiIssue__c insertIssueOfCall(ApiCall__c originalCall, String issueBody)
+	{
+		DML_Builder.newTransaction().withSystemMode().doInsert(originalCall).execute();
+		TST_Builder.Builder issueBuilder = TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, SERVICE_NAME)
+				.withOverride(ApiIssue__c.ApiCall__c, originalCall.Id);
+		if(issueBody != null)
+		{
+			issueBuilder
+					.withOverride(ApiIssue__c.RequestPath__c, TEST_PATH)
+					.withOverride(ApiIssue__c.RequestMethod__c, HTTP_POST)
+					.withOverride(ApiIssue__c.RequestBody__c, issueBody);
+		}
+		return (ApiIssue__c)issueBuilder.build();
+	}
+
+	/**
+	 * @description Checks that a replay ran and that the echo service received the given body, and that the replay's call
+	 * links to the issue's call.
+	 *
+	 * @param invocationResult What the replay returned
+	 * @param failure The issue whose request was run again
+	 * @param expectedBody The body the echo service should have received
+	 */
+	private static void assertReplayedBody(DTO_InvocationResult invocationResult, ApiIssue__c failure, String expectedBody)
+	{
+		Assert.isTrue(invocationResult.success, 'Expected the replay to succeed, got: ' + invocationResult.errorText);
+		Assert.areEqual(expectedBody, invocationResult.responseBody, 'Expected the echo service to receive the body, got ' + invocationResult.responseBody);
+		Boolean isLinked = false;
+		for(ApiCall__c apiCall : new SEL_ApiCall().findByServiceName(SERVICE_NAME))
+		{
+			isLinked = isLinked || apiCall.PreviousAttempt__c == failure.ApiCall__c;
+		}
+		Assert.isTrue(isLinked, 'Expected the replay\'s call to link to the issue\'s call');
+	}
+
+	/**
+	 * @description Version 1.8 recorded the hash of the body only for a request with an Idempotency-Key. So an issue on a
+	 * call with no key and no hash, saved by version 1.8, is replayed from the call when the call kept the body whole: the
+	 * missing hash means the body cannot be checked, not that it was changed.
+	 */
+	@IsTest
+	private static void shouldReplayTheBodyOfACallWithNoKeyAndNoHash()
+	{
+		TST_Factory.newInboundApiSetting(SERVICE_NAME, '/echo/*');
+		ApiIssue__c failure = insertIssueOfCall(newFailedCallWithoutAHash(TEST_BODY), null);
+
+		Test.startTest();
+		DTO_InvocationResult invocationResult = API_InboundInvoker.replay(failure.Id, false);
+		Test.stopTest();
+
+		assertReplayedBody(invocationResult, failure, TEST_BODY);
+	}
+
+	/**
+	 * @description A call with no key and no hash whose body fills Request__c to its full length may have been cut. When
+	 * its issue holds a request in its own fields, as version 1.8 ran it, the request the issue holds is replayed instead,
+	 * and the replay's call still links to the issue's call.
+	 */
+	@IsTest
+	private static void shouldReplayTheIssuesOwnRequestWhenACallWithNoHashKeptItsBodyCut()
+	{
+		TST_Factory.newInboundApiSetting(SERVICE_NAME, '/echo/*');
+		ApiIssue__c failure = insertIssueOfCall(newFailedCallWithoutAHash(FILL_CHARACTER.repeat(SEL_ApiCall.REQUEST_LENGTH)), TEST_BODY);
+
+		Test.startTest();
+		DTO_InvocationResult invocationResult = API_InboundInvoker.replay(failure.Id, false);
+		Test.stopTest();
+
+		assertReplayedBody(invocationResult, failure, TEST_BODY);
+	}
+
+	/**
+	 * @description A call with no key and no hash whose body fills Request__c to its full length may have been cut, and its
+	 * issue holds no request of its own. Nothing whole is left to run, so the replay is refused with the labelled message
+	 * that says the stored request is not the one received.
+	 */
+	@IsTest
+	private static void shouldRefuseACallWithNoHashThatKeptItsBodyCutWhenTheIssueHoldsNoRequest()
+	{
+		TST_Factory.newInboundApiSetting(SERVICE_NAME, '/echo/*');
+		ApiIssue__c failure = insertIssueOfCall(newFailedCallWithoutAHash(FILL_CHARACTER.repeat(SEL_ApiCall.REQUEST_LENGTH)), null);
+
+		DTO_InvocationResult invocationResult = API_InboundInvoker.replay(failure.Id, false);
+
+		Assert.isFalse(invocationResult.success, 'Expected the replay to be refused');
+		Assert.areEqual(System.Label.RetryApiIssue_StoredRequestDiffers, invocationResult.errorText, 'Expected the refusal to come from the label');
+		Assert.areEqual(1, new SEL_ApiCall().findByServiceName(SERVICE_NAME).size(), 'Expected nothing to run');
+	}
+
+	/**
+	 * @description A call whose recorded hash differs from the hash of the body it kept no longer holds the body it
+	 * received, so the replay is refused with the labelled message, even when the issue holds a request of its own. A call
+	 * with a key but no hash is refused the same way: a call with a key always recorded the hash.
+	 */
+	@IsTest
+	private static void shouldRefuseACallWhoseBodyCannotBeProvedToBeTheOneReceived()
+	{
+		TST_Factory.newInboundApiSetting(SERVICE_NAME, '/echo/*');
+		ApiCall__c changedBodyCall = newFailedCallWithoutAHash(TEST_BODY);
+		changedBodyCall.IdempotencyKeyBodyHash__c = API_Inbound.computeBodyHash(TEST_XML_BODY);
+		ApiCall__c keyedCall = newFailedCallWithoutAHash(TEST_BODY);
+		keyedCall.IdempotencyKey__c = UTIL_Random.randomUUID();
+		ApiIssue__c changedBodyIssue = insertIssueOfCall(changedBodyCall, TEST_BODY);
+		ApiIssue__c keyedIssue = insertIssueOfCall(keyedCall, null);
+
+		DTO_InvocationResult changedBodyResult = API_InboundInvoker.replay(changedBodyIssue.Id, false);
+		DTO_InvocationResult keyedResult = API_InboundInvoker.replay(keyedIssue.Id, false);
+
+		Assert.areEqual(System.Label.RetryApiIssue_StoredRequestDiffers, changedBodyResult.errorText, 'Expected the changed body to be refused by the label');
+		Assert.areEqual(System.Label.RetryApiIssue_StoredRequestDiffers, keyedResult.errorText, 'Expected the keyed call with no hash to be refused by the label');
+		Assert.areEqual(2, new SEL_ApiCall().findByServiceName(SERVICE_NAME).size(), 'Expected nothing to run');
 	}
 
 	/**
@@ -346,6 +588,7 @@ private class API_InboundInvoker_TEST
 				.withOverride(ApiIssue__c.RequestMethod__c, HTTP_POST)
 				.withOverride(ApiIssue__c.RequestBody__c, JSON.serialize(storedRequest))
 				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, serviceName)
 				.build();
 
 		Test.startTest();
@@ -369,6 +612,7 @@ private class API_InboundInvoker_TEST
 				.withOverride(ApiIssue__c.RequestPath__c, TEST_PATH)
 				.withOverride(ApiIssue__c.RequestMethod__c, HTTP_POST)
 				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, RecordSavingInbound.class.getName())
 				.build();
 
 		Test.startTest();
@@ -393,6 +637,7 @@ private class API_InboundInvoker_TEST
 				.withOverride(ApiIssue__c.RequestMethod__c, HTTP_POST)
 				.withOverride(ApiIssue__c.RequestBody__c, TEST_XML_BODY)
 				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, SERVICE_NAME)
 				.build();
 
 		Test.startTest();

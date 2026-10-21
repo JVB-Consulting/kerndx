@@ -2,8 +2,8 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>ManualDeadLetter__c</fullName>
     <defaultValue>false</defaultValue>
-    <description>Admin override to permanently dead-letter a failed API call. When checked, the call is treated as dead-lettered regardless of retry count.</description>
-    <inlineHelpText>Check to permanently dead-letter this call. Uncheck and use Recover to re-queue.</inlineHelpText>
+    <description>Ticked by an administrator to show a failed call in the Dead Letters list as given up on. It does not stop a scheduled retry, and Retry does not read it.</description>
+    <inlineHelpText>Tick to show this call in the Dead Letters list as one you have given up on. It does not stop a retry that is already scheduled. To run an outgoing call again, untick it and set Status to Queued.</inlineHelpText>
     <label>Manual Dead Letter</label>
     <trackFeedHistory>false</trackFeedHistory>
     <trackHistory>true</trackHistory>

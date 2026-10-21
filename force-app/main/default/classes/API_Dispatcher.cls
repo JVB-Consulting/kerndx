@@ -5,6 +5,7 @@
  * Supports both single and batch processing of web service requests.
  *
  * @see API_Dispatcher_TEST
+ * @see API_InboundIssue_TEST
  *
  * @author Jason van Beukering
  *
@@ -251,7 +252,9 @@ global inherited sharing class API_Dispatcher
 
 	/**
 	 * @description Records timing metrics for all processed handlers and registers their
-	 * ApiCall__c records for persistence.
+	 * ApiCall__c records for persistence. A call record the handler's own commit already saved is registered with only
+	 * the fields that changed since that commit (see API_Base.buildApiCallChangesToSave), so the payloads that commit
+	 * saved, and masked, are not sent again.
 	 *
 	 * @param handlers The list of API handlers that were processed.
 	 * @param unitOfWork The shared unit of work for final persistence.
@@ -265,7 +268,7 @@ global inherited sharing class API_Dispatcher
 
 			if(!handler.skipPersistence && !API_Base.isSafeModeActive())
 			{
-				unitOfWork.doSave(handler.apiCall);
+				unitOfWork.doSave(handler.buildApiCallChangesToSave());
 			}
 		}
 
@@ -418,8 +421,11 @@ global inherited sharing class API_Dispatcher
 	 * received the call record, it is given the record first. The exception is kept for the retry decision. Then the
 	 * handler's own error handling runs inside a guard: the logging context, handleError, setApiCallDetails (which
 	 * decides the retry and writes it to the call) and the failure records. If any of those throws, that one call ends
-	 * Failed with both messages and no retry time, and the batch's other calls are saved as they would have been. The
-	 * retry fields that setApiCallDetails writes are kept: nothing here resets the next retry time or the retry count.
+	 * Failed with both messages and no retry time, and the batch's other calls are saved as they would have been. An
+	 * inbound call then still gets its key, the hash of its body, its permanent failure marker and its issue, all without
+	 * the handler's code (see recordInboundCallWithoutTheHandler). Its issue is left out when the issue step already ran
+	 * before the throw, whatever that step decided, so a call never gets two issues and never gets one the step refused.
+	 * The retry fields that setApiCallDetails writes are kept: nothing here resets the next retry time or the retry count.
 	 *
 	 * @param handler The `API_Base` handler processing the request.
 	 * @param apiCall The API call record being processed.
@@ -430,17 +436,21 @@ global inherited sharing class API_Dispatcher
 	{
 		handler.assignApiCallWhenMissing(apiCall);
 		handler.lastFailure = error;
+		Boolean hasFailureRecordStepRun = false;
 		try
 		{
 			handler.applyLoggingContext();
 			handler.handleError(error);
 			handler.setApiCallDetails();
-			registerFailureArtifacts(handler, unitOfWork);
+			registerFailureRecord(handler.createFailureRecord(), handler.apiCall, unitOfWork);
+			hasFailureRecordStepRun = true;
+			registerRelatedFiles(handler, unitOfWork);
 			LOG_Builder.build().error(error).at(handler.apiCall.ServiceName__c).emit();
 		}
 		catch(Exception handlingFailure)
 		{
 			failWithoutTheHandler(handler, error, handlingFailure);
+			recordInboundCallWithoutTheHandler(handler, unitOfWork, hasFailureRecordStepRun);
 		}
 		finally
 		{
@@ -452,11 +462,12 @@ global inherited sharing class API_Dispatcher
 	 * @description Ends one call Failed when the handler's own error handling threw (a handleError override, a retry
 	 * strategy, a hook or a failure-record override that throws): the row keeps both messages and no time, both failures
 	 * are logged once each (the error log inside the guard runs last, so a throw before it never doubles the entry), and
-	 * the batch's other calls are saved as they would have been. No issue record is registered, because building one runs
-	 * the same handler code that just threw; the row's error text is the record of this failure, the one case in which a
-	 * Failed row carries no issue. An inbound handler writes the REST response inside its own handleError, which is the
-	 * code that threw, so for an inbound call the response is written here: status 500 with the row's error text as the
-	 * body, so the caller never reads a failed request as a success.
+	 * the batch's other calls are saved as they would have been. An inbound handler writes the REST response inside its
+	 * own handleError, which is the code that threw, so for an inbound call the response is written here: status 500
+	 * with the row's error text as the body, so the caller never reads a failed request as a success. The details and the
+	 * issue of an inbound call are recorded after this method (see recordInboundCallWithoutTheHandler). An outbound call
+	 * gets no issue here, because building one runs the same handler code that just threw; the row's error text is the
+	 * record of this failure.
 	 *
 	 * @param handler The handler whose error handling threw.
 	 * @param error The exception the call failed with.
@@ -481,20 +492,69 @@ global inherited sharing class API_Dispatcher
 	}
 
 	/**
-	 * @description Registers failure-related records (ApiIssue__c and ContentVersion attachments)
-	 * in the shared unit of work for later persistence.
+	 * @description Records an inbound call whose handler's error handling threw. First the call gets its key, the hash
+	 * of its body and its permanent failure marker (see API_Inbound.recordRequestDetailsWithoutTheHandler), so a call
+	 * like this is never run again after a permanent failure and can still prove its stored body is an exact copy. Then,
+	 * when the issue step did not run before the throw, the issue is registered. It is built by
+	 * API_Inbound.buildInboundFailureRecord, which keeps the same rules as the handler: no issue when Log Issues is off,
+	 * none for a key reused with another body, and none when an earlier call with the same key already holds an open
+	 * issue. Both methods run none of the handler's own code. The first only reads fields; the second makes at most one
+	 * read, which checks the query limit first and catches its own errors. So they cannot throw the way the handler did.
+	 * An outbound call gets nothing here.
+	 *
+	 * @param handler The handler whose error handling threw.
+	 * @param unitOfWork The unit of work for registering DML operations.
+	 * @param hasFailureRecordStepRun True when the issue step ran before the throw, whether or not it gave an issue.
+	 */
+	private static void recordInboundCallWithoutTheHandler(API_Base handler, DML_Transaction unitOfWork, Boolean hasFailureRecordStepRun)
+	{
+		if(handler instanceof API_Inbound)
+		{
+			API_Inbound inboundHandler = (API_Inbound)handler;
+			inboundHandler.recordRequestDetailsWithoutTheHandler();
+			if(!hasFailureRecordStepRun)
+			{
+				registerFailureRecord(inboundHandler.buildInboundFailureRecord(), handler.apiCall, unitOfWork);
+			}
+		}
+	}
+
+	/**
+	 * @description Registers an issue record in the shared unit of work. When the call is not saved yet, the issue is
+	 * registered with the call as its parent, so the save fills in the issue's link to the call once the call has an Id.
+	 * When the call is already saved, the issue is registered as it is: it already holds the call's Id.
+	 *
+	 * @param failureRecord The issue to register; may be null, and then nothing is registered.
+	 * @param handlerApiCall The call the issue belongs to.
+	 * @param unitOfWork The unit of work for registering DML operations.
+	 */
+	private static void registerFailureRecord(ApiIssue__c failureRecord, ApiCall__c handlerApiCall, DML_Transaction unitOfWork)
+	{
+		if(failureRecord == null)
+		{
+			return;
+		}
+
+		if(String.isBlank(handlerApiCall.Id))
+		{
+			unitOfWork.doInsert(failureRecord, ApiIssue__c.ApiCall__c, handlerApiCall);
+		}
+		else
+		{
+			unitOfWork.doSave(failureRecord);
+		}
+	}
+
+	/**
+	 * @description Registers the files for call data too long for its fields (ContentVersion attachments) in the shared
+	 * unit of work for later persistence. When the call is not saved yet, each file is registered with the call as its
+	 * parent.
 	 *
 	 * @param handler The handler that produced the failure.
 	 * @param unitOfWork The unit of work for registering DML operations.
 	 */
-	private static void registerFailureArtifacts(API_Base handler, DML_Transaction unitOfWork)
+	private static void registerRelatedFiles(API_Base handler, DML_Transaction unitOfWork)
 	{
-		ApiIssue__c failureRecord = handler.createFailureRecord();
-		if(failureRecord != null)
-		{
-			unitOfWork.doSave(failureRecord);
-		}
-
 		ApiCall__c handlerApiCall = handler.apiCall;
 		for(ContentVersion version : handler.createRelatedContentVersions())
 		{

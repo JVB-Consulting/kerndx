@@ -261,6 +261,29 @@ production build, both legs run again from the default definition.
 Chain Monitor Read Only permission set, created and assigned while the org is still on the released version. Make it
 now, before the second install, or that check cannot be run without repeating the leg.
 
+Also between the two installs, run section 84i. It saves one inbound call while the org is still on the released
+version, for a request sent without an Idempotency-Key: a released 1.8 saves such a call with no key and no hash of its
+body. Section 84j runs it again after the upgrade. Assign the Kern Administrator set to the administrator, deploy only
+the one test service, its setting, and the org's class resolver with its record (the released version finds a class of
+the org only through that resolver; the 1.4 deploy later replaces all of them with the same files), and run the script:
+
+```bash
+sf org assign permset -o KernUpgradeSubscriber -n kern__Administrator
+cd /tmp/kern-subscriber && mkdir -p force-app/main/default/classes force-app/main/default/customMetadata
+cp <repo-root>/release-testing/subscriber/classes/*RetryLiveOnHold.cls* force-app/main/default/classes/
+cp <repo-root>/release-testing/subscriber/classes/CustomTypeResolver.cls* force-app/main/default/classes/
+cp <repo-root>/release-testing/subscriber/customMetadata/kern__ApiSetting.RetryLiveOnHold.md-meta.xml force-app/main/default/customMetadata/
+cp <repo-root>/release-testing/subscriber/customMetadata/kern__ClassTypeResolver.CurrentOrgResolver.md-meta.xml force-app/main/default/customMetadata/
+sf project deploy start -o KernUpgradeSubscriber -m ApexClass:API_RetryLiveOnHold -m ApexClass:REST_RetryLiveOnHold \
+  -m ApexClass:CustomTypeResolver -m CustomMetadata:kern__ApiSetting.RetryLiveOnHold \
+  -m CustomMetadata:kern__ClassTypeResolver.CurrentOrgResolver
+cd <repo-root> && SF_SUBSCRIBER_ORG_ALIAS=KernUpgradeSubscriber node release-testing/scripts/section-84i-keyless-inbound-call-before-upgrade.js
+```
+
+It must print `SECTION84 PASS` for 84i-1 and 84i-2, then a `SECTION84 PENDING 84j` line with the command for 84j.
+Keep that line: 84j needs its time and call id. When 84i fails,
+it deletes its own rows; fix the cause and run it again before installing the candidate. Skip 84j only if 84i cannot pass.
+
 ```bash
 sf package install -o KernUpgradeSubscriber --package <candidate 04t> --wait 15 --no-prompt
 ```
@@ -272,6 +295,13 @@ records, permission sets, and labels). Record the outcome as the upgrade-leg blo
 results file. Mind the DevHub's active-scratch-org limit — free a superseded org first if creation
 fails with `LIMIT_EXCEEDED`.
 
+From 1.9 on, on the upgraded org, run section 84j with the command 84i printed, after the 1.4 deploy (it needs the
+upgraded package and the 1.4 test service) and before sections 84g and 84h, or after 84h has deleted its rows: 84j
+counts every row of the same test service since 84i started, so it must not run while 84g's rows are there. It saves an
+Open issue by hand on the call 1.8 saved, runs it again through Retry Selected's Flow action, and waits up to three
+minutes for the job. It must print `SECTION84 PASS` for 84j-1 to 84j-4 and for 84j-cleanup. When it prints
+`SECTION84 PENDING`, run the command it prints 30 seconds later.
+
 From 1.8 on, on the upgraded org, the upgrade delivers the Retry Selected action and its flow but never the list view's
 own action list: search layouts belong to the org once the object is installed, so the API Issues list on an upgraded
 org shows no Retry Selected until the release note's upgrader step is applied (2026-10-11, two upgraded orgs). Apply it
@@ -281,10 +311,12 @@ back (a file holding only the search layout is refused), and record that the ste
 Selected appears on the API Issues list once rows are selected, whether a Standard User with Kern API Issue Resolver
 and `SubscriberRunFlows` (Run Flows, see 1.3) can run it, and the largest number of rows the list lets you select.
 
-From 1.8 on, on the upgraded org, the sharing default is a PASS line: an upgrade never changes it, so **API Issue** and
-**Log Entry** must still read **Public Read/Write**. Right after the upgrade, set the constant
-`EXPECTED_API_ISSUE_AND_LOG_ENTRY_DEFAULT` at the top of `release-testing/scripts/section-85-sharing-defaults.apex` to
-`'ReadWrite'` and run the script: it must print `85a PASS`. Run `RunLocalTests` and the e2e parts on the org as the
+From 1.8 on, on the upgraded org, the sharing default is a PASS line: an upgrade never changes it, so the upgraded org
+keeps what the released version installed. A leg that starts on 1.8 or later starts Private (1.8 installs **API Issue**
+and **Log Entry** Private): run the script as shipped, right after the upgrade; it must print `85a PASS`, and steps (b)
+and the second run below do not apply (record that). A leg that starts on 1.7 or earlier starts **Public Read/Write**:
+right after the upgrade, set the constant `EXPECTED_API_ISSUE_AND_LOG_ENTRY_DEFAULT` at the top of
+`release-testing/scripts/section-85-sharing-defaults.apex` to `'ReadWrite'` and run the script: it must print `85a PASS`. Run `RunLocalTests` and the e2e parts on the org as the
 upgrade left it. Then walk the step the release note gives ("API issues and log entries are private on a new install")
 and record each outcome: (a) confirm the upgrade gave Kern API Issue Resolver **View All** on API Issue and API Call
 (Setup, Permission Sets, Object Settings); (b) set **API Issue** and **Log Entry** to **Private** and wait for the
@@ -435,7 +467,7 @@ Filter output with: `sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f <script> 2>&1 | 
 The **Runner** column says who runs each row. `runner` rows are run by `npm run release:phase2`
 (`release-testing/runner/run-phase2.js`), which scores each section against the count in the Expected column. A
 `by hand` row is never run by the runner: a person runs it with the commands in its note. The by-hand rows are 32, 33,
-40, the load tests 44 to 51, 80 to 84d, 86, 87 and the section 83 load, plus the lock-retry, integration callout and
+40, the load tests 44 to 51, 80 to 84d, 84g to 84j, 86, 87 and the section 83 load, plus the lock-retry, integration callout and
 nested chain launch probes below the table. When a row has two or more counts (`1/1 + 3/3`), they are its scripts'
 counts in the order they run: the launch script first, then its verify script (76c runs twice, so it has two).
 
@@ -481,7 +513,7 @@ counts in the order they run: the launch script first, then its verify script (7
 | 37  | `release-testing/scripts/section-37-masking-min-input-length.apex`            | Masking `MinInputLength__c` short-circuit + successor-floor probe — sub-13 values skip pattern eval; a 13-digit Luhn-valid card redacts via `MaskPaymentCard` (the old rule's floor of 15 would have skipped it)                                                                                                                          | runner | 3/3      |
 | 38  | `release-testing/scripts/section-38-masking-transactionid-preservation.apex`  | Regression guard for the original parent-transaction-ID false-redaction bug (Luhn checksum gate)                                                                                                                                                                                                                                          | runner | 3/3      |
 | 39  | `release-testing/scripts/section-39-masking-type-filter-warn.apex`            | Explicit-field `MaskingTarget__mdt` dropped by type filter emits a one-time warn LogEntry (P12)                                                                                                                                                                                                                                           | runner | 1/1 |
-| 40  | `release-testing/scripts/section-40-masking-inactive-rule-validation.apex`    | Every shipped masking rule's `Pattern__c` compiles + matches a curated positive + negative sample (active + inactive)                                                                                                                                                                                                                     | by hand | 45/45    |
+| 40  | `release-testing/scripts/section-40-masking-inactive-rule-validation.apex`    | Every shipped masking rule's `Pattern__c` compiles + matches a curated positive + negative sample (active + inactive). The first line reports 18 rules, 3 active and 15 inactive on a fresh install (`MaskCreditCard` ships inactive); the summary ends with `15 inactive rules`                                                          | by hand | 45/45    |
 | 41  | `release-testing/scripts/section-41-flow-action-subscriber.apex`              | Cross-namespace `kern__TRG_InvokeFlow` dispatch — flow runs, output applied, LogAndContinue, recursion-identity, mock harness, variable contract                                                                                                                                                                                          | runner | 6/6      |
 | 42  | `release-testing/scripts/section-42-flow-action-blockdml.apex`                | `FailureAction__c = BlockDml` halts DML when bound flow throws (requires `section-flow-blockdml-active` fixture before; restore via `section-flow-blockdml-default`)                                                                                                                                                                      | runner | 1/1      |
 | 43  | `release-testing/scripts/section-43-flow-action-feature-flag.apex`            | `RequiredFeatureFlag__c` gating disables flow action when flag is off (requires `section-flow-flag-disabled` fixture before; restore via `section-flow-flag-default`)                                                                                                                                                                     | runner | 1/1      |
@@ -539,12 +571,16 @@ counts in the order they run: the launch script first, then its verify script (7
 | 84  | `release-testing/scripts/section-84-outbound-retry-live.apex` | Outbound retry classification live: three handlers at a Named Credential that does not exist (GET, unkeyed POST, keyed POST); the GET and keyed POST rest at Retry with a time, the unkeyed POST fails at once with the labelled issue; a callout refused after a save rests at Retry unmarked, with no retry left it ends Failed unmarked; a half-open circuit starts a new round of trials; queues the Queueable and after-a-delete refusals (Launch). None of these Named Credentials may exist on the org: `RetryLiveDoesNotExist`, `RetryLiveNeverSentSave`, `RetryLiveNeverSentNoBudget`, `RetryLiveNeverSentQueueable`, `RetryLiveNeverSentDelete`, `RetryLiveSeparateCounts`. 84 and 86 share the `RetryLive` rows: run one after the other, never interleaved | by hand | 5/5 |
 | 84b | `release-testing/scripts/section-84b-outbound-retry-live-verify.apex` | Verify, at least 90 seconds later: the two scheduled rows ended Failed with one retry spent, the queued refusals rest at Retry unmarked with no breaker failure, nothing rests at Retry without a time, the breaker counted every callout that left the org; 84f-1: two breaker names on one credential keep separate failure counts; 84f-2: an open circuit with retry budget left rests at Retry with the circuit's wait and one retry counted; then resets the breakers, deletes every RetryLive call, issue, log entry and Foobar and proves by query that no call, issue or Foobar is left (prints SECTION84 PENDING and is run again 30 seconds later while a retry or job is still running). 84f-1 and 84f-2 print a PASS line and skip when no org cache is allocated | by hand | 7/7 |
 | 84  | `release-testing/scripts/section-84-outbound-retry-live-log-cleanup.apex` | 30 seconds after 84b (and after 84e on the development org): deletes the RetryLive log entries, which land after each script's transaction ends (a breaker reset writes one), and proves by query that none is left | by hand | 1/1 |
-| 84c | `node release-testing/scripts/section-84c-inbound-error-handling-live.js` | An inbound handler whose processing throws and whose handleError override throws too, called over a real REST call: answered 500 with both messages, one Failed call record; then deletes the call, issue and log entries and proves it by query | by hand | 3/3 |
+| 84c | `node release-testing/scripts/section-84c-inbound-error-handling-live.js` | An inbound handler whose processing throws and whose handleError override throws too, called over a real REST call: answered 500 with both messages, one Failed call record, and exactly one Open inbound issue linked to it that keeps no copy of the request (84c-3); then checks it finds exactly that call and that issue (a missing or extra row is a FAIL and nothing is deleted), deletes the issue before the call, then the log entries, and proves it by query. Needs Kern Administrator on the running user (Delete API Records) | by hand | 4/4 |
 | 84d | `release-testing/scripts/section-84d-bulk-retry-development-org.apex` | The development-org rehearsal. Section 84d starts the bulk retry through the per-service `CTRL_RetryApiIssue.scheduleBulkRetry(service, delay)`, which is not global, so it runs on the development org; on the subscriber org the same background job is started through the global Flow action `kern.FLOW_RetryApiIssues.retryApiIssues`, which section 86 runs at volume. 84d seeds three Open issues, one marked External System May Have Acted, and schedules the bulk retry; verify 84e 30 seconds later: both unmarked issues sent as one batch with none refused for pending work, the marked issue skipped and the skip logged; then deletes and proves by query; then the 84 log cleanup 30 seconds later | by hand | 1/1 + 3/3 |
+| 84g | `node release-testing/scripts/section-84g-inbound-issue-live.js` | An inbound request that fails, then succeeds when the caller sends it again, over real REST calls to `API_RetryLiveOnHold` (it fails while an Account named "RetryLive hold" exists, the script creates and deletes it). Every request is sent by the running user, because an Idempotency-Key belongs to the user who sent it: a keyed request that failed and its retry with the same body link (Previous Attempt) and resolve the issue; a corrected body with the same key resolves the issue and links to nothing, and the first body sent again is answered 409; deleting a call whose issue is Open is refused with the `DeleteApiCall_OpenIssue` label; a request without a key fails, and the global Flow action `kern.FLOW_RetryApiIssues.retryApiIssues` queues its replay (Launch). Prints `SECTION84 PENDING` and the 84h command with the ids. When a check fails it starts no replay and deletes its own rows, issues first. Needs Kern Administrator on the running user, `API_RetryLiveOnHold`, `REST_RetryLiveOnHold` and `kern__ApiSetting.RetryLiveOnHold` | by hand | 7/7 |
+| 84h | `node release-testing/scripts/section-84h-inbound-replay-live-verify.js` with the arguments 84g printed | Verify, at least 60 seconds after 84g: the replay made one Completed call that holds the body of the failed call and links to it (Previous Attempt), the replayed issue is Resolved and the replay wrote no issue; then checks it finds exactly the calls and issues 84g listed plus the replay's call (a missing or extra row is a FAIL and nothing is deleted), deletes the issues before the calls, then the log entries, and proves it by query. Prints `SECTION84 PENDING`, deletes nothing and exits with code 2 while the replay's job runs (run it again 30 seconds later) | by hand | 3/3 |
+| 84i | `node release-testing/scripts/section-84i-keyless-inbound-call-before-upgrade.js` | Upgrade leg only (1.3b), between the two installs, while the org is on the released version: a request without an Idempotency-Key sent to `API_RetryLiveOnHold` while it is on hold fails, and exactly one Failed call is saved with no key, no hash of its body and the body whole; no issue is written. Prints `SECTION84 PENDING` and the 84j command with the time and the call id. When a check fails it deletes its own rows. Needs Kern Administrator on the running user, and only `API_RetryLiveOnHold`, `REST_RetryLiveOnHold` and `kern__ApiSetting.RetryLiveOnHold` deployed before the upgrade | by hand | 2/2 |
+| 84j | `node release-testing/scripts/section-84j-keyless-inbound-replay-after-upgrade.js` with the arguments 84i printed | Upgrade leg only (1.3b), after the upgrade and the 1.4 deploy, not while 84g's rows are there: saves an Open inbound issue by hand on the call 84i saved (no copy of the request) and runs it through the global Flow action `kern.FLOW_RetryApiIssues.retryApiIssues`; the job Completed, the replay made one Completed call that holds the body of the call 1.8 saved and links to it (Previous Attempt), the issue is Resolved and the replay wrote no issue; then checks it finds exactly those calls and that issue (a missing or extra row is a FAIL and nothing is deleted), deletes the issue before the calls, then the log entries and any hold Account, and proves it by query. Waits up to three minutes for the job; while it still runs, prints `SECTION84 PENDING` with a command to run 30 seconds later, deletes nothing and exits with code 2 | by hand | 5/5 |
 | 85  | `release-testing/scripts/section-85-sharing-defaults.apex` | The sharing default of the four framework objects: API Issue, Log Entry, API Call and Async Chain Execution all read Private on a fresh install (one check, `85a`). Phase 1.3 runs it as shipped; on the upgrade leg (1.3b) a person edits the constant `EXPECTED_API_ISSUE_AND_LOG_ENTRY_DEFAULT` at the top of the script and runs it twice (see 1.3b). The runner runs it as shipped on the fresh-install org | runner | 1/1 |
-| 86  | `release-testing/scripts/section-86-bulk-retry-at-volume.apex` | Bulk retry at volume on the subscriber org, through the global Flow action `kern.FLOW_RetryApiIssues.retryApiIssues`: seeds 450 Open issues (outbound at a Named Credential that does not exist, some marked External System May Have Acted, some whose call is still in progress, and inbound issues of `API_SubscriberCreateAccount`) and presses the action once (Launch). Run first. Needs Kern Administrator on the running user, the `RetryLive` handlers and settings of section 84 and no Named Credential `RetryLiveDoesNotExist`, `SubscriberCreateAccount` active with Mocking Enabled off (section 27 turns it on and back off), the RetryOutboundApiCall flow active, and no `RetryLive` rows left from section 84 | by hand | 2/2 |
+| 86  | `release-testing/scripts/section-86-bulk-retry-at-volume.apex` | Bulk retry at volume on the subscriber org, through the global Flow action `kern.FLOW_RetryApiIssues.retryApiIssues`: seeds 450 Open issues (outbound at a Named Credential that does not exist, some marked External System May Have Acted, some whose call is still in progress, and inbound issues of `API_SubscriberCreateAccount`, each linked to a Failed inbound call that holds its request and the SHA-256 hex of its body, as a failed request leaves them) and presses the action once (Launch). Run first. Needs Kern Administrator on the running user, the `RetryLive` handlers and settings of section 84 and no Named Credential `RetryLiveDoesNotExist`, `SubscriberCreateAccount` active with Retry Issues on and Mocking Enabled off (section 27 turns it on and back off), no active masking rule that changes the inbound bodies (76b turns MaskPhoneUS on, 76c off), the RetryOutboundApiCall flow active, and no `RetryLive` rows left from section 84 | by hand | 2/2 |
 | 86b | `release-testing/scripts/section-86b-bulk-retry-at-volume-verify.apex` | Verify, at least 3 minutes after 86: one call per request, each ended Failed with its one retry spent; the issues held back and the ones whose call is in progress stay Open, with the "still in progress" warnings adding up to 10; the 14 Queueables Completed, nothing deferred, no call refused before it left the org. Prints `SECTION86 PENDING` and deletes nothing while a job runs or a call waits for its retry (run it again 30 seconds later); prints the section 86 `PERF_ROW` lines; then deletes the outbound leg | by hand | 7/7 |
-| 86c | `release-testing/scripts/section-86c-bulk-retry-inbound-leg.apex` | After 86b: the inbound issues were replayed and resolved, one Account per replay; then deletes the inbound leg. Precondition for the whole family: an Asynchronous Job Setting record `kern_FLOW_CallApiAsync` with a batch size of 10 on the org before 86 (at the default of 20, twenty inbound replays in one job reach the 150-DML limit: the 1.8 known issue), removed after 86c. Then run `section-84-outbound-retry-live-log-cleanup.apex` for the log entries | by hand | 4/4 |
+| 86c | `release-testing/scripts/section-86c-bulk-retry-inbound-leg.apex` | After 86b: the inbound issues were replayed and resolved, one Account per replay, and the 240 inbound calls are the 120 seeded calls, still Failed, and one Completed replay call per issue, each linked to a different seeded call (86c-3); then deletes the inbound leg, issues before calls. Precondition for the whole family: an Asynchronous Job Setting record `kern_FLOW_CallApiAsync` with a batch size of 10 on the org before 86 (at the default of 20, twenty inbound replays in one job reach the 150-DML limit: the 1.8 known issue), removed after 86c. Then run `section-84-outbound-retry-live-log-cleanup.apex` for the log entries | by hand | 4/4 |
 | 87  | `release-testing/scripts/section-87-purge-at-volume.apex` | Purge at volume: tops up a seed of 5,000 API calls back-dated more than 365 days (needs the audit-field recipe of Phase 1.4 and Kern Administrator) and, on the run that completes the seed, schedules the purge job. Earlier runs print one `SECTION87 PENDING` line: run it again until the two PASS lines print. **Destructive:** the purge deletes every API call older than 365 days on the org; run it only on a fresh scratch org | by hand | 2/2 |
 | 87b | `release-testing/scripts/section-87b-purge-at-volume-verify.apex` | Verify, at least 4 minutes after the run of 87 that scheduled the job: no API call older than 365 days is left, the purge's batches all Completed, and no "Delete API Records" refusal was logged; prints `SECTION87 PENDING` and deletes nothing until the job has fired and its batches ended (run it again 30 seconds later), for at most about 10 minutes after the job's time; after that it prints its FAIL lines; prints the section 87 `PERF_ROW` lines; then deletes the scheduled job row and any seeded row left | by hand | 4/4 |
 
@@ -1442,6 +1478,12 @@ which is what the successor-rule mechanism it now verifies was built to solve.
 
 **Succession matrix (upgrade leg only — these seeded states cannot exist on a fresh install):**
 
+The matrix below proves the arrival of `MaskPaymentCard` beside `MaskCreditCard`, so it applies to a leg that starts on 1.7
+or earlier. A leg that starts on 1.8 already has both rules; from 1.9 on, the upgrade leg instead proves that the upgraded
+org keeps its own masking values (the rules on Log and Continue, the card rules on Block DML, `MaskJwt` off, the card targets
+active) and that the release note's upgrade step switches them to the shipped defaults, and it records each outcome (first
+run 2026-10-20, 1.8.0-11 to 1.9.0-4, PASS).
+
 1. **Pristine predecessor.** Upgrade, then assert: `MaskPaymentCard` + its 4 targets arrived AND each target's
    `Rule__c` resolves to the successor record (closes the dangling-reference failure mode); `MaskCreditCard` still
    carries its 1.0 values; a 2-series Mastercard PAN masks on a framework surface; a pre-created subscriber target
@@ -1454,7 +1496,7 @@ which is what the successor-rule mechanism it now verifies was built to solve.
    the framework-object work on their own (no coverage hole). Verify with a targeted probe (a 16-digit Luhn-valid
    card on a framework surface still redacts via the resumed `MaskCreditCard`) and re-run `RunAllTestsInOrg`.
    Do NOT run the full Phase 2 masking sections in this state — sections that pin the successor active fail by
-   design while it is deactivated (37 Case B, 61e, 76b, 76c). Re-activate `MaskPaymentCard`, confirm the takeover
+   design while it is deactivated (37 Case B, 61e, and section 76 from 76b on). Re-activate `MaskPaymentCard`, confirm the takeover
    resumes (section 37 goes green again), then continue.
 4. **Deactivated predecessor seeded pre-upgrade.** The upgrade re-activates card masking through the successor
    (accepted behaviour, release-noted with the opt-out path: deactivate `MaskPaymentCard` too); consciously verify
@@ -1993,7 +2035,7 @@ After completing all phases, create a result file in `release-testing/results/` 
 
 ## Promotion Decision
 
-- [ ] **PROMOTE** — All tests passed. Ready for `sf package version promote`.
+- [ ] **PROMOTE** — All tests passed. Ready for `node scripts/promote-package.js --version <X.Y.Z-N>`.
 - [ ] **HOLD** — Issues found. See findings above.
 - Heavy Windows proof: run <id>
 - Real-Windows stage: run <id>
@@ -2011,6 +2053,13 @@ After completing all phases, create a result file in `release-testing/results/` 
 7. Inside a preview window (1.1) there are two files, one per build: the preview build's carries Phases 1 to 4, the
    production build's carries Phase 1, Phase 5 and the promotion decision, and names the preview build's file for the
    pass it rests on.
+8. Promote with `node scripts/promote-package.js --version <X.Y.Z-N>`, never a bare `sf package version promote`
+   (add `--dry-run` first to see the changes). The script promotes the build and, only when the promotion succeeds,
+   writes the released state in one pass: the version's entry in the record of promoted versions, the release note's
+   `**Release status:**` line, the Package status sentence in `CLAUDE.md` and the Metrics guide's latest-version rows.
+   Commit the files it printed. `node scripts/validate-docs.js` fails CI while any of those lines disagrees with the
+   record, and the mirror sync refuses to publish a release note that still says "in release testing" for a promoted
+   version.
 
 ---
 

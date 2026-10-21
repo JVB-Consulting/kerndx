@@ -328,8 +328,11 @@ else
 	{
 		kern.UTIL_CircuitBreaker.monitor(circuitName).reset();
 	}
-	delete [SELECT Id FROM kern__ApiIssue__c WHERE kern__ServiceName__c LIKE :ROW_PATTERN OR kern__TriggeringRecordId__c IN :triggeringRecordIds];
-	delete [SELECT Id FROM kern__ApiCall__c WHERE kern__ServiceName__c LIKE :ROW_PATTERN OR kern__URL__c LIKE :ROW_PATTERN];
+	List<kern__ApiCall__c> cleanupCalls = [SELECT Id FROM kern__ApiCall__c WHERE kern__ServiceName__c LIKE :ROW_PATTERN OR kern__URL__c LIKE :ROW_PATTERN];
+	// The issues first: a call with an Open issue cannot be deleted, so the issues of these calls go too, whoever wrote them.
+	delete [SELECT Id FROM kern__ApiIssue__c WHERE kern__ServiceName__c LIKE :ROW_PATTERN OR kern__TriggeringRecordId__c IN :triggeringRecordIds
+			OR kern__ApiCall__c IN :cleanupCalls];
+	delete cleanupCalls;
 	delete [SELECT Id FROM kern__LogEntry__c WHERE kern__ClassMethod__c LIKE :ROW_PATTERN OR kern__ShortMessage__c LIKE :ROW_PATTERN];
 	delete [SELECT Id FROM kern__Foobar__c WHERE Name LIKE :ROW_PATTERN];
 

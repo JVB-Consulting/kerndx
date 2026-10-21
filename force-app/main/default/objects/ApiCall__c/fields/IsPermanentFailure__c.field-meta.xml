@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>IsPermanentFailure__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Ticked when the call failed in a way that sending the same request again cannot fix: the service&apos;s code raised a permanent failure. A refused request (RequestRefusedException) does not tick it, so it can be run again once the cause is fixed. Retry and Retry Selected never run a ticked call again.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Ticked when running this request again cannot help, so Retry will not run it. Dead Lettered is a different thing: it shows whether the automatic retries are used up, or an administrator gave up on the call.</inlineHelpText>
+    <label>Permanent Failure</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Checkbox</type>
+</CustomField>

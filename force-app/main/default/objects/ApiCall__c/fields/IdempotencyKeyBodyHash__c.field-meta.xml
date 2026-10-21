@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>IdempotencyKeyBodyHash__c</fullName>
-    <description>SHA-256 hex digest of the inbound request body, captured when the call was first processed. On a subsequent inbound call with the same Idempotency-Key, the framework compares the new request body&apos;s hash against this value: if they match, the original cached response is returned; if they differ, the framework rejects with HTTP 409 to surface the contract violation. Empty for outbound calls and for inbound calls created before the body-hash check shipped (legacy records fall through to the cached-response path on replay).</description>
+    <description>SHA-256 hex digest of the inbound request body as it was received. It is recorded on every inbound call that reaches a handler, with or without an Idempotency-Key. A request refused because no handler can be built for its service keeps only the start of its body and no hash. When a later request arrives with the same Idempotency-Key, its body&apos;s hash is compared with this value: if they match, the original answer is returned again; if they differ, the request is refused with HTTP 409. The hash also shows whether the body stored on the call is an exact copy of the body received. Empty for outbound calls and for inbound calls saved before the hash was recorded; such a call with a key returns its original answer to a later request with the same key.</description>
     <externalId>false</externalId>
-    <inlineHelpText>SHA-256 hex digest of the request body. Used to detect Idempotency-Key reuse with a different body (HTTP 409 conflict).</inlineHelpText>
+    <inlineHelpText>A fingerprint (SHA-256 hex digest) of the request body as it was received, kept for every incoming request that reaches a handler. A request refused because no handler can be built for its service has none. It shows when a reused Idempotency-Key carries another body (HTTP 409), and proves that the body stored on the call is an exact copy before Retry runs the request again. Empty for outgoing calls.</inlineHelpText>
     <label>Idempotency Key Body Hash</label>
     <length>64</length>
     <required>false</required>

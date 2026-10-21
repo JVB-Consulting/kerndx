@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Test Class for CTRL_RetryApiIssue
+ * @description Test Class for CTRL_RetryApiIssue. The class size and complexity warnings are turned off on purpose, as in
+ * the other large test classes: the tests of the Retry, resolve, dismiss and replay actions share their helpers here.
  *
  * @see CTRL_RetryApiIssue
  *
@@ -10,7 +11,7 @@
  *
  * @date February 2026, October 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssCount,PMD.NcssTypeCount')
 @IsTest(seeAllData=false isParallel=false)
 public class CTRL_RetryApiIssue_TEST
 {
@@ -31,9 +32,75 @@ public class CTRL_RetryApiIssue_TEST
 	 */
 	private static final String HTTP_POST = 'POST';
 	/**
+	 * @description How many days before the test an already Resolved issue was resolved, when a test dismisses it.
+	 */
+	private static final Integer DAYS_SINCE_EARLIER_RESOLUTION = 3;
+	/**
+	 * @description The route pattern of the inbound settings the tests register, so a request to the test path finds them.
+	 */
+	private static final String ROUTE_PATH = '/echo/*';
+	/**
+	 * @description The routing priority of the inbound settings the tests register.
+	 */
+	private static final Integer ROUTE_PRIORITY = 100;
+	/**
+	 * @description The test handler that records the request it receives.
+	 */
+	private static final String RECORDING_SERVICE_NAME = ReplayRecordingInbound.class.getName();
+	/**
+	 * @description The name of the query parameter each inbound test request carries.
+	 */
+	private static final String PARAMETER_NAME = 'reference';
+	/**
+	 * @description The value of the query parameter each inbound test request carries.
+	 */
+	private static final String PARAMETER_VALUE = 'order-42';
+	/**
+	 * @description The message of the failure the recording handler throws on the first request.
+	 */
+	private static final String HANDLER_FAILURE_MESSAGE = 'The handler failed on purpose';
+	/**
+	 * @description The exception the recording handler throws while it is set, or null to let the request succeed.
+	 */
+	private static Exception handlerFailure;
+	/**
+	 * @description The request the recording handler last received, or null when it did not run.
+	 */
+	private static RestRequest receivedRequest;
+	/**
+	 * @description The test outbound service that records the memory a run is using while it sends.
+	 */
+	private static final String MEMORY_RECORDING_SERVICE_NAME = MemoryRecordingOutbound.class.getName();
+	/**
+	 * @description The answer the test callout of the memory recording service gives.
+	 */
+	private static final String MOCK_RESPONSE_BODY = '{"body": "Some Random Body","id": 101,"title": "{{request.title}}","userId": 9}';
+	/**
+	 * @description The memory, in bytes, the run was using when the memory recording service sent its call, or null when
+	 * it did not send.
+	 */
+	private static Integer heapUsedWhileSending;
+	/**
 	 * @description How many open issues the bulk retry test sends together.
 	 */
 	private static final Integer BULK_ISSUE_COUNT = 3;
+
+	/**
+	 * @description How many outbound issues of one request the memory test sends together. Their calls' requests and responses, read
+	 * whole, would use more memory than one run may use.
+	 */
+	private static final Integer FULL_PAYLOAD_ISSUE_COUNT = 30;
+
+	/**
+	 * @description The character a full-length request or response is filled with.
+	 */
+	private static final String PAYLOAD_FILL_CHARACTER = 'x';
+
+	/**
+	 * @description The memory test allows the job at most this fraction (one part in this many) of the length of the
+	 * calls' requests and responses together while it sends.
+	 */
+	private static final Integer PAYLOAD_SHARE_DIVISOR = 4;
 
 	/**
 	 * @description A job size an administrator could configure that is above the number of callouts one transaction may
@@ -169,23 +236,219 @@ public class CTRL_RetryApiIssue_TEST
 	}
 
 	/**
-	 * @description Creates a real ApiIssue with inbound direction and request details.
+	 * @description Creates an inbound issue made by hand: it links to no call and holds the request in its own fields, as
+	 * an issue written before inbound issues linked to their call does. A replay sends the request from those fields to
+	 * the echo service.
 	 *
 	 * @return The inserted ApiIssue__c record
 	 */
-	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
 	private static ApiIssue__c createInboundIssue()
 	{
-		ApiCall__c apiCall = TST_Factory.newOutboundApiCall(INBOUND_SERVICE_NAME, UserInfo.getUserId(), UTIL_Random.randomName(), UTIL_Random.randomName());
-		ApiIssue__c apiIssue = TST_Factory.insertApiIssue(apiCall, UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c));
+		return (ApiIssue__c)TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, INBOUND_SERVICE_NAME)
+				.withOverride(ApiIssue__c.Status__c, SEL_ApiIssue.STATUS_OPEN)
+				.withOverride(ApiIssue__c.RequestPath__c, TEST_PATH)
+				.withOverride(ApiIssue__c.RequestMethod__c, HTTP_POST)
+				.withOverride(ApiIssue__c.RequestBody__c, TEST_BODY)
+				.build();
+	}
 
-		apiIssue.Direction__c = SEL_ApiIssue.DIRECTION_INBOUND;
-		apiIssue.RequestPath__c = TEST_PATH;
-		apiIssue.RequestMethod__c = HTTP_POST;
-		apiIssue.RequestBody__c = TEST_BODY;
+	/**
+	 * @description Registers, through the test mock, the inbound setting of a service, routed to the echo path, with Log
+	 * Issues and Retry Issues on and the switches that would change the outcome off, so no test depends on a setting
+	 * the package ships.
+	 *
+	 * @param serviceName The handler class the setting names
+	 * @param overrides The field values the setting gets on top of those
+	 *
+	 * @return The registered setting
+	 */
+	private static ApiSetting__mdt registerInboundSetting(String serviceName, Map<SObjectField, Object> overrides)
+	{
+		Map<SObjectField, Object> settingOverrides = new Map<SObjectField, Object>
+		{
+				ApiSetting__mdt.LogIssues__c => true,
+				ApiSetting__mdt.RetryIssues__c => true,
+				ApiSetting__mdt.ResolveIssues__c => false,
+				ApiSetting__mdt.IdempotencyEnabled__c => false,
+				ApiSetting__mdt.MockingEnabled__c => false
+		};
+		settingOverrides.putAll(overrides);
+		return TST_Factory.newInboundApiSetting(serviceName, ROUTE_PATH, ROUTE_PRIORITY, settingOverrides);
+	}
+
+	/**
+	 * @description Sets up a POST request to the echo path, with a body, one query parameter and, when given, an
+	 * Idempotency-Key header.
+	 *
+	 * @param body The body to send
+	 * @param idempotencyKey The key to send, or null to send none
+	 */
+	private static void setupInboundRequest(String body, String idempotencyKey)
+	{
+		API_InboundTestHelper.setupRestContext();
+		RestContext.request.requestURI = TEST_PATH;
+		RestContext.request.requestBody = Blob.valueOf(body);
+		RestContext.request.addParameter(PARAMETER_NAME, PARAMETER_VALUE);
+		if(String.isNotBlank(idempotencyKey))
+		{
+			RestContext.request.headers.put(API_Base.HEADER_IDEMPOTENCY_KEY, idempotencyKey);
+		}
+	}
+
+	/**
+	 * @description Sends a request to the echo endpoint that fails while it is handled, so the framework writes its
+	 * failed call and one open inbound issue, as a live request does. The request context is then replaced with an
+	 * unrelated empty request, so a replay must build its own request from the call.
+	 *
+	 * @param body The body to send
+	 * @param idempotencyKey The key to send, or null to send none
+	 *
+	 * @return The open issue the failure wrote
+	 */
+	private static ApiIssue__c failEchoRequest(String body, String idempotencyKey)
+	{
+		setupInboundRequest(body, idempotencyKey);
+		API_Inbound.returnErrorResponse = true;
+		REST_Echo.echo();
+		API_Inbound.returnErrorResponse = false;
+		API_InboundTestHelper.setupRestContext();
+		return findOnlyOpenIssue(INBOUND_SERVICE_NAME);
+	}
+
+	/**
+	 * @description Sends a request to the test handler that records what it receives, while the handler fails with the
+	 * given exception, so the framework writes the failed call and one open inbound issue. The request context is then
+	 * replaced with an unrelated empty request, so a replay must build its own request from the call.
+	 *
+	 * @param body The body to send
+	 * @param idempotencyKey The key to send, or null to send none
+	 * @param failure The exception the handler throws
+	 *
+	 * @return The open issue the failure wrote
+	 */
+	private static ApiIssue__c failRecordedRequest(String body, String idempotencyKey, Exception failure)
+	{
+		setupInboundRequest(body, idempotencyKey);
+		handlerFailure = failure;
+		API_Dispatcher.processInboundService(RECORDING_SERVICE_NAME);
+		handlerFailure = null;
+		API_InboundTestHelper.setupRestContext();
+		return findOnlyOpenIssue(RECORDING_SERVICE_NAME);
+	}
+
+	/**
+	 * @description Finds the one open issue of a service, and asserts there is exactly one.
+	 *
+	 * @param serviceName The service
+	 *
+	 * @return The open issue
+	 */
+	private static ApiIssue__c findOnlyOpenIssue(String serviceName)
+	{
+		List<ApiIssue__c> openIssues = new SEL_ApiIssue().findUnresolvedByService(serviceName);
+		Assert.areEqual(1, openIssues.size(), 'Expected one open issue for ' + serviceName + ', got ' + openIssues.size());
+		return openIssues.get(0);
+	}
+
+	/**
+	 * @description Finds the calls of a service other than the given one: the calls a retry or a replay made.
+	 *
+	 * @param serviceName The service
+	 * @param originalCallId The call to leave out
+	 *
+	 * @return The other calls of the service
+	 */
+	private static List<ApiCall__c> findLaterCalls(String serviceName, Id originalCallId)
+	{
+		List<ApiCall__c> laterCalls = new List<ApiCall__c>();
+		for(ApiCall__c apiCall : new SEL_ApiCall().findByServiceName(serviceName))
+		{
+			if(apiCall.Id != originalCallId)
+			{
+				laterCalls.add(apiCall);
+			}
+		}
+		return laterCalls;
+	}
+
+	/**
+	 * @description Changes one field of a saved record, for example a call the way masking or a cut would have changed it
+	 * after it was saved, or an issue's status. Only that field is written.
+	 *
+	 * @param recordId The id of the saved record
+	 * @param field The field to change
+	 * @param value The new value
+	 */
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	private static void updateField(Id recordId, SObjectField field, Object value)
+	{
+		SObject changedRecord = recordId.getSobjectType().newSObject(recordId);
+		changedRecord.put(field, value);
+		DML_Builder.newTransaction().withSystemMode().doUpdate(changedRecord).execute();
+	}
+
+	/**
+	 * @description Saves changes to an issue, as a user who closed it earlier would have.
+	 *
+	 * @param apiIssue The issue, with the changed field values
+	 */
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	private static void updateIssue(ApiIssue__c apiIssue)
+	{
 		DML_Builder.newTransaction().withSystemMode().doUpdate(apiIssue).execute();
+	}
 
-		return apiIssue;
+	/**
+	 * @description Saves an outbound call that failed, so an issue can link to it.
+	 *
+	 * @param isPermanentFailure Whether the call is marked as a permanent failure
+	 *
+	 * @return The saved call
+	 */
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	private static ApiCall__c insertFailedOutboundCall(Boolean isPermanentFailure)
+	{
+		ApiCall__c apiCall = TST_Factory.newOutboundApiCall(API_PostExample.class.getName(), UserInfo.getUserId(), UTIL_Random.randomName(), UTIL_Random.randomName());
+		apiCall.Status__c = SEL_ApiCall.STATUS_FAILED;
+		apiCall.IsPermanentFailure__c = isPermanentFailure;
+		DML_Builder.newTransaction().withSystemMode().doInsert(apiCall).execute();
+		return apiCall;
+	}
+
+	/**
+	 * @description Saves outbound calls of one request that failed, each with a request and a response at their fields'
+	 * full length, and one open issue for each call. Each call has its own short error text, so its issue does not copy the response.
+	 * The long texts are shared by every call and go out of use when this method returns.
+	 *
+	 * @param issueCount How many calls and issues to save
+	 *
+	 * @return The saved issues
+	 */
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	private static List<ApiIssue__c> insertOutboundIssuesWithFullLengthPayloads(Integer issueCount)
+	{
+		String fullLengthRequest = PAYLOAD_FILL_CHARACTER.repeat(SEL_ApiCall.REQUEST_LENGTH);
+		String fullLengthResponse = PAYLOAD_FILL_CHARACTER.repeat(SEL_ApiCall.RESPONSE_LENGTH);
+		List<ApiCall__c> apiCalls = new List<ApiCall__c>();
+		for(Integer index = 0; index < issueCount; index++)
+		{
+			ApiCall__c apiCall = TST_Factory.newOutboundApiCall(MEMORY_RECORDING_SERVICE_NAME, UserInfo.getUserId(), PARAMETER_NAME, PARAMETER_VALUE);
+			apiCall.Status__c = SEL_ApiCall.STATUS_FAILED;
+			apiCall.ErrorMessages__c = HANDLER_FAILURE_MESSAGE;
+			apiCall.Request__c = fullLengthRequest;
+			apiCall.Response__c = fullLengthResponse;
+			apiCalls.add(apiCall);
+		}
+		DML_Builder.newTransaction().withSystemMode().doInsert(apiCalls).execute();
+		List<ApiIssue__c> issues = new List<ApiIssue__c>();
+		for(ApiCall__c apiCall : apiCalls)
+		{
+			issues.add(TST_Factory.newApiIssue(apiCall, UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c)));
+		}
+		DML_Builder.newTransaction().withSystemMode().doInsert(issues).execute();
+		return issues;
 	}
 
 	/**
@@ -358,7 +621,7 @@ public class CTRL_RetryApiIssue_TEST
 	@IsTest
 	private static void shouldResolveInboundFailureViaResolveAction()
 	{
-		TST_Factory.newInboundApiSetting(INBOUND_SERVICE_NAME, '/echo/*');
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
 		ApiIssue__c apiIssue = createInboundIssue();
 		CTRL_RetryApiIssue.DTO_Response dtoResponse;
 
@@ -382,6 +645,7 @@ public class CTRL_RetryApiIssue_TEST
 	@IsTest
 	private static void shouldReportInboundReplayFailure()
 	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
 		ApiIssue__c apiIssue = createInboundIssue();
 		API_InboundInvoker.forceException = true;
 		CTRL_RetryApiIssue.DTO_Response dtoResponse;
@@ -402,14 +666,17 @@ public class CTRL_RetryApiIssue_TEST
 
 	/**
 	 * @description Verifies resolveFailure uses fallback message when inbound replay fails with blank error text.
-	 * This occurs when no matching inbound route is configured for the failure's request path.
+	 * This occurs when the service the issue names has a setting but no handler class, so no handler runs and none
+	 * reports an error.
 	 */
 	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
 	@IsTest
 	private static void shouldUseFallbackMessageWhenReplayHasBlankErrorText()
 	{
+		String serviceWithoutHandler = UTIL_Random.randomName();
+		registerInboundSetting(serviceWithoutHandler, new Map<SObjectField, Object>());
 		ApiIssue__c apiIssue = createInboundIssue();
-		apiIssue.RequestPath__c = '/nonexistent/route/' + UTIL_Random.randomName();
+		apiIssue.ServiceName__c = serviceWithoutHandler;
 		DML_Builder.newTransaction().withSystemMode().doUpdate(apiIssue).execute();
 		CTRL_RetryApiIssue.DTO_Response dtoResponse;
 
@@ -433,7 +700,7 @@ public class CTRL_RetryApiIssue_TEST
 	@IsTest
 	private static void shouldLeaveTheIssueOpenWhenTheStoredBodyCannotBeRead()
 	{
-		TST_Factory.newInboundApiSetting(INBOUND_SERVICE_NAME, '/echo/*');
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
 		ApiIssue__c apiIssue = createInboundIssue();
 		apiIssue.RequestBody__c = '{' + UTIL_Random.randomName();
 		DML_Builder.newTransaction().withSystemMode().doUpdate(apiIssue).execute();
@@ -721,7 +988,7 @@ public class CTRL_RetryApiIssue_TEST
 	private static void shouldResolveInboundAndOutboundIssuesInOneBulkRetry()
 	{
 		TST_Mock.register(ApiSetting__mdt.SObjectType, new SEL_ApiSetting().findByClassName(API_PostExample.class.getName()));
-		TST_Factory.newInboundApiSetting(INBOUND_SERVICE_NAME, '/echo/*');
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
 		ApiIssue__c inboundIssue = createInboundIssue();
 		ApiCall__c apiCall = TST_Factory.newOutboundApiCall(API_PostExample.class.getName(), UserInfo.getUserId(), UTIL_Random.randomName(), UTIL_Random.randomName());
 		ApiIssue__c outboundIssue = TST_Factory.insertApiIssue(apiCall, UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c));
@@ -732,6 +999,37 @@ public class CTRL_RetryApiIssue_TEST
 		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, replayedIssue.Status__c, 'Expected the inbound issue to resolve');
 		ApiIssue__c retriedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(outboundIssue.Id);
 		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, retriedIssue.Status__c, 'Expected the outbound issue to resolve');
+	}
+
+	/**
+	 * @description Many open outbound issues logged for one request, each with its own call that holds a request and a
+	 * response at their full length, are sent once and all resolve, and the job does not hold those requests and
+	 * responses in memory while it sends. Before it sends, the job checks whether each issue's call failed permanently,
+	 * and it keeps that check while it sends; the check reads only that one field of each call. The memory the run uses
+	 * while the call is sent is recorded by the test service, and must stay below a quarter of what the calls' requests
+	 * and responses together take as text; a check holding them all uses more than that.
+	 */
+	@IsTest
+	private static void shouldNotHoldTheCallsPayloadsWhileTheJobSends()
+	{
+		TST_Factory.newOutboundApiSetting(MEMORY_RECORDING_SERVICE_NAME, new Map<SObjectField, Object> {ApiSetting__mdt.RetryIssues__c => true});
+		List<ApiIssue__c> issues = insertOutboundIssuesWithFullLengthPayloads(FULL_PAYLOAD_ISSUE_COUNT);
+		Integer payloadBytes = FULL_PAYLOAD_ISSUE_COUNT * (SEL_ApiCall.REQUEST_LENGTH + SEL_ApiCall.RESPONSE_LENGTH);
+
+		runJobAsUserWithApiIssueResolverPermissionSet(new List<Object> {new List<Id>(UTIL_SObject.extractIds(issues))});
+
+		Integer resolvedCount = 0;
+		for(ApiIssue__c retriedIssue : (List<ApiIssue__c>)new SEL_ApiIssue().findById(UTIL_SObject.extractIds(issues)))
+		{
+			resolvedCount += retriedIssue.Status__c == SEL_ApiIssue.STATUS_RESOLVED ? 1 : 0;
+		}
+		Assert.areEqual(FULL_PAYLOAD_ISSUE_COUNT, resolvedCount, 'Expected every issue to resolve');
+		Assert.isNotNull(heapUsedWhileSending, 'Expected the job to send the call');
+		Assert.isTrue
+				(
+						heapUsedWhileSending < payloadBytes / PAYLOAD_SHARE_DIVISOR,
+						'Expected the job not to hold the calls\' payloads while it sends, but it used ' + heapUsedWhileSending + ' bytes'
+				);
 	}
 
 	/**
@@ -827,7 +1125,7 @@ public class CTRL_RetryApiIssue_TEST
 	private static void shouldDeferInboundReplaysWhenCalloutBudgetExhausted()
 	{
 		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.newInboundApiSetting(INBOUND_SERVICE_NAME, '/echo/*');
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
 		ApiIssue__c firstIssue = createInboundIssue();
 		ApiIssue__c secondIssue = createInboundIssue();
 		API_Dispatcher.simulateCalloutBudgetExhausted = true;
@@ -933,7 +1231,7 @@ public class CTRL_RetryApiIssue_TEST
 	@IsTest
 	private static void shouldRefuseResolveFailureToAUserWithoutTheRetryPermission()
 	{
-		TST_Factory.newInboundApiSetting(INBOUND_SERVICE_NAME, '/echo/*');
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
 		ApiIssue__c apiIssue = createInboundIssue();
 		CTRL_RetryApiIssue.DTO_Response dtoResponse;
 
@@ -1006,7 +1304,7 @@ public class CTRL_RetryApiIssue_TEST
 	@IsTest
 	private static void shouldReplayAnInboundIssueAnotherUserOwnsFromTheRecordPage()
 	{
-		TST_Factory.newInboundApiSetting(INBOUND_SERVICE_NAME, '/echo/*');
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
 		ApiIssue__c apiIssue = createInboundIssue();
 		CTRL_RetryApiIssue.DTO_Response dtoResponse;
 
@@ -1128,7 +1426,7 @@ public class CTRL_RetryApiIssue_TEST
 		LOG_Builder.ignoreTestMode = true;
 		TST_Mock.register(ApiSetting__mdt.SObjectType, new SEL_ApiSetting().findByClassName(API_PostExample.class.getName()));
 		String serviceName = API_PostExample.class.getName();
-		TST_Factory.newInboundApiSetting(INBOUND_SERVICE_NAME, '/echo/*');
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
 		ApiIssue__c inboundIssue = createInboundIssue();
 		ApiCall__c apiCall = TST_Factory.newOutboundApiCall(serviceName, UserInfo.getUserId(), UTIL_Random.randomName(), UTIL_Random.randomName());
 		ApiIssue__c outboundIssue = TST_Factory.insertApiIssue(apiCall, UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c));
@@ -1148,9 +1446,9 @@ public class CTRL_RetryApiIssue_TEST
 		Assert.areEqual(callCountBefore, new SEL_ApiCall().findByServiceName(serviceName).size(), 'Expected no call to be sent');
 		ApiIssue__c unsentIssue = (ApiIssue__c)new SEL_ApiIssue().findById(outboundIssue.Id);
 		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, unsentIssue.Status__c, 'Expected the outbound issue to stay Open');
-		ApiIssue__c unreplayedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(inboundIssue.Id);
-		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, unreplayedIssue.Status__c, 'Expected the inbound issue to stay Open');
-		Assert.isNull(unreplayedIssue.ResolvedDate__c, 'Expected the inbound request not to be replayed');
+		ApiIssue__c inboundIssueStillOpen = (ApiIssue__c)new SEL_ApiIssue().findById(inboundIssue.Id);
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, inboundIssueStillOpen.Status__c, 'Expected the inbound issue to stay Open');
+		Assert.isNull(inboundIssueStillOpen.ResolvedDate__c, 'Expected the inbound request not to be replayed');
 		LogEntry__c entryLog = new SEL_LogEntry().findByMethod(CTRL_RetryApiIssue.class.getName() + '/scheduleBulkRetry');
 		Assert.isNotNull(entryLog, 'Expected the refusal at entry to be logged');
 		Assert.isTrue(entryLog.ShortMessage__c.contains(CTRL_RetryApiIssue.RETRY_API_ISSUE_CUSTOM_PERMISSION_NAME), 'Expected the warning to name the permission');
@@ -1161,6 +1459,757 @@ public class CTRL_RetryApiIssue_TEST
 						processorLog.ShortMessage__c.startsWith(items.size() + ' failure replay(s) refused'),
 						'Expected the warning to count the refused items, got ' + processorLog.ShortMessage__c
 				);
+	}
+
+	/**
+	 * @description A replay sends the request the call kept, not the issue's own fields: the handler receives the path,
+	 * the method, the body, the query parameter and the Idempotency-Key the first request carried. The issue holds no copy
+	 * of the request, so a replay that read the issue would send nothing.
+	 */
+	@IsTest
+	private static void shouldReplayTheRequestTheCallKept()
+	{
+		registerInboundSetting(RECORDING_SERVICE_NAME, new Map<SObjectField, Object>());
+		String body = JSON.serialize(new Map<String, Object> {PARAMETER_NAME => UTIL_Random.randomName()});
+		String idempotencyKey = UTIL_Random.randomUUID();
+		ApiIssue__c apiIssue = failRecordedRequest(body, idempotencyKey, new UTIL_Exceptions.IllegalStateException(HANDLER_FAILURE_MESSAGE));
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isTrue(dtoResponse.callSuccessful, 'Expected the replay to succeed, got ' + dtoResponse.errorMessage);
+		Assert.isNotNull(receivedRequest, 'Expected the handler to receive the replayed request');
+		Assert.areEqual(TEST_PATH, receivedRequest.requestURI, 'Expected the path the first request was sent to');
+		Assert.areEqual(HTTP_POST, receivedRequest.httpMethod, 'Expected the method of the first request');
+		Assert.areEqual(body, receivedRequest.requestBody?.toString(), 'Expected the body the first request carried');
+		Assert.areEqual(PARAMETER_VALUE, receivedRequest.params.get(PARAMETER_NAME), 'Expected the query parameter the first request carried');
+		Assert.areEqual(idempotencyKey, receivedRequest.headers.get(API_Base.HEADER_IDEMPOTENCY_KEY), 'Expected the key the first request carried');
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to be resolved');
+	}
+
+	/**
+	 * @description A body too long for the call's field is kept whole in the call's request body file, and the field
+	 * keeps a cut copy. A replay reads the body from the file: the field here holds other text, and the handler still
+	 * receives the body the first request carried, whose hash matches the one the call recorded. The resolver sends the
+	 * first request too, so the call and its files are the resolver's own: only a user who can read the call's files
+	 * gets the body from the file.
+	 */
+	@IsTest
+	private static void shouldReplayAnOversizedBodyFromTheCallsFile()
+	{
+		registerInboundSetting(RECORDING_SERVICE_NAME, new Map<SObjectField, Object>());
+		String body = JSON.serialize(new Map<String, Object> {PARAMETER_NAME => UTIL_Random.randomName()});
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			API_Base.simulateStoreToFile = true;
+			ApiIssue__c apiIssue = failRecordedRequest(body, null, new UTIL_Exceptions.IllegalStateException(HANDLER_FAILURE_MESSAGE));
+			API_Base.simulateStoreToFile = false;
+			updateField(apiIssue.ApiCall__c, ApiCall__c.Request__c, UTIL_Random.randomName());
+
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isTrue(dtoResponse.callSuccessful, 'Expected the replay from the file to succeed, got ' + dtoResponse.errorMessage);
+		Assert.areEqual(body, receivedRequest?.requestBody?.toString(), 'Expected the handler to receive the body kept in the file');
+	}
+
+	/**
+	 * @description An issue made by hand links to no call but holds a request in its own fields. A replay sends that
+	 * request to the service the issue names and resolves the issue. No exact copy check is possible, because there is no
+	 * call that recorded the hash of the body.
+	 */
+	@IsTest
+	private static void shouldReplayAHandMadeIssueWithNoCallFromItsOwnFields()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = createInboundIssue();
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isTrue(dtoResponse.callSuccessful, 'Expected the replay from the issue\'s own fields to succeed, got ' + dtoResponse.errorMessage);
+		ApiCall__c replayCall = new SEL_ApiCall().findByServiceName(INBOUND_SERVICE_NAME).get(0);
+		Assert.areEqual(TEST_BODY, replayCall.Request__c, 'Expected the replay to send the body the issue holds');
+		Assert.isNull(replayCall.PreviousAttempt__c, 'Expected no link, because the request came from no call');
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to be resolved');
+	}
+
+	/**
+	 * @description An issue whose call was deleted, and which holds no copy of the request, has nothing to run again. The
+	 * call is deleted while the issue is resolved, and the issue is then opened again. The replay is refused with the
+	 * labelled message that says so, nothing runs, and the issue stays open.
+	 */
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	@IsTest
+	private static void shouldRefuseToReplayAnIssueWhoseCallIsGone()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		TST_Factory.newFeatureFlag(API_Base.FLAG_BYPASS_API_RECORD_DELETE_GUARD);
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+		updateField(apiIssue.Id, ApiIssue__c.Status__c, SEL_ApiIssue.STATUS_RESOLVED);
+		DML_Builder.newTransaction().withSystemMode().doDelete(ApiCall__c.SObjectType.newSObject(apiIssue.ApiCall__c)).execute();
+		updateField(apiIssue.Id, ApiIssue__c.Status__c, SEL_ApiIssue.STATUS_OPEN);
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isFalse(dtoResponse.callSuccessful, 'Expected the replay to be refused');
+		Assert.areEqual(System.Label.RetryApiIssue_OriginalCallMissing, dtoResponse.errorMessage, 'Expected the refusal to come from the label');
+		Assert.isTrue(new SEL_ApiCall().findByServiceName(INBOUND_SERVICE_NAME).isEmpty(), 'Expected nothing to run');
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to stay open');
+	}
+
+	/**
+	 * @description An inbound issue of a service with Retry Issues off is not replayed: the callers of such a service
+	 * resend failed requests themselves. The refusal speaks of a request received, nothing runs, and the issue stays open.
+	 */
+	@IsTest
+	private static void shouldRefuseToReplayWhenRetryIssuesIsOff()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object> {ApiSetting__mdt.RetryIssues__c => false});
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+
+		Assert.areEqual(System.Label.RetryApiIssue_ReplayNotEnabled, replayAndReadRefusal(apiIssue), 'Expected the refusal to come from the label');
+	}
+
+	/**
+	 * @description While every inbound API is switched off, an inbound issue is not replayed, so a replay does not fail
+	 * only to be refused by the same switch. The refusal says the service is paused, nothing runs, and the issue stays open.
+	 */
+	@IsTest
+	private static void shouldRefuseToReplayWhenInboundApisAreSwitchedOff()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+		TST_Factory.newFeatureFlag(API_Inbound.FLAG_DISABLE_ALL_INBOUND_APIS);
+
+		Assert.areEqual(System.Label.RetryApiIssue_ReplayServiceNotAccepting, replayAndReadRefusal(apiIssue), 'Expected the refusal to come from the label');
+	}
+
+	/**
+	 * @description A request whose handler said it can never succeed (a UTIL_Exceptions.PermanentFailureException) marks
+	 * its call as a permanent failure. Its issue is not replayed: the refusal says why, nothing runs, and the issue stays
+	 * open.
+	 */
+	@IsTest
+	private static void shouldRefuseToReplayAPermanentCall()
+	{
+		registerInboundSetting(RECORDING_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = failRecordedRequest(TEST_BODY, null, new UTIL_Exceptions.PermanentFailureException(HANDLER_FAILURE_MESSAGE));
+
+		Assert.areEqual(System.Label.RetryApiIssue_PermanentFailure, replayAndReadRefusal(apiIssue), 'Expected the refusal to come from the label');
+		Assert.isNull(receivedRequest, 'Expected the handler not to run again');
+	}
+
+	/**
+	 * @description A request whose handler refused it (a UTIL_Exceptions.RequestRefusedException) does not mark its call
+	 * as a permanent failure, so its issue can be run again once the cause is fixed: Retry runs the request, and the issue
+	 * is resolved.
+	 */
+	@IsTest
+	private static void shouldReplayARequestTheHandlerRefused()
+	{
+		registerInboundSetting(RECORDING_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = failRecordedRequest(TEST_BODY, null, new UTIL_Exceptions.RequestRefusedException(HANDLER_FAILURE_MESSAGE));
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isTrue(dtoResponse.callSuccessful, 'Expected the replay to run, got ' + dtoResponse.errorMessage);
+		Assert.isNotNull(receivedRequest, 'Expected the handler to receive the replayed request');
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to be resolved');
+	}
+
+	/**
+	 * @description A body the call no longer holds as it was received (masking changed it after the hash of the body was
+	 * recorded) is not replayed: the stored body's hash differs from the recorded one. The refusal says so, nothing runs,
+	 * and the issue stays open.
+	 */
+	@IsTest
+	private static void shouldRefuseToReplayAMaskedBody()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+		updateField(apiIssue.ApiCall__c, ApiCall__c.Request__c, TEST_BODY.replace('world', '*****'));
+
+		Assert.areEqual(System.Label.RetryApiIssue_StoredRequestDiffers, replayAndReadRefusal(apiIssue), 'Expected the refusal to come from the label');
+	}
+
+	/**
+	 * @description An address that fills the call's URL__c field to its full length may have been cut when it was saved,
+	 * so the request is not replayed. The refusal says the stored request is not the one received, nothing runs, and the
+	 * issue stays open.
+	 */
+	@IsTest
+	private static void shouldRefuseToReplayACutUrl()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+		String fullLengthUrl = (TEST_PATH + '?' + PARAMETER_NAME + '=').rightPad(SEL_ApiCall.URL_LENGTH, 'x');
+		updateField(apiIssue.ApiCall__c, ApiCall__c.URL__c, fullLengthUrl);
+
+		Assert.areEqual(System.Label.RetryApiIssue_StoredRequestDiffers, replayAndReadRefusal(apiIssue), 'Expected the refusal to come from the label');
+	}
+
+	/**
+	 * @description Retry Selected checks the selected inbound issues before it schedules the job without reading the body
+	 * each call kept, so a large selection does not fill the memory the action may use. The test answers every read of API
+	 * calls, while the action runs, with the issue's call read without its body: reading the body from that answer throws.
+	 * The issue is still handed to the job, and the job, which reads the whole request just before it runs it, replays it
+	 * and marks the issue Resolved.
+	 */
+	@IsTest
+	private static void shouldNotReadTheBodyWhenRetrySelectedSchedulesAnInboundIssue()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+		TST_Mock.register(ApiCall__c.SObjectType, readCallWithoutItsBody(apiIssue.ApiCall__c));
+		CTRL_RetryApiIssue.DTO_ScheduledBulkRetry scheduledRetry;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			scheduledRetry = CTRL_RetryApiIssue.scheduleBulkRetryOfIssues(new Set<Id> {apiIssue.Id});
+			TST_Mock.clear(ApiCall__c.SObjectType);
+			Test.stopTest();
+		}
+
+		Assert.areEqual(1, scheduledRetry.queuedCount, 'Expected the issue to be handed to the job, got ' + scheduledRetry.queuedCount);
+		Assert.isNotNull(scheduledRetry.jobId, 'Expected a job for the issue');
+		ApiIssue__c replayedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id);
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, replayedIssue.Status__c, 'Expected the job to replay the request and resolve the issue');
+	}
+
+	/**
+	 * @description The bulk retry of a service checks its open inbound issues before it schedules the job without reading
+	 * the body each call kept, as Retry Selected does. The test answers every read of API calls, while the bulk retry is
+	 * scheduled, with the issue's call read without its body: reading the body from that answer throws. A job is still
+	 * scheduled.
+	 */
+	@IsTest
+	private static void shouldNotReadTheBodyWhenTheBulkRetryOfAServiceSchedulesItsInboundIssues()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+		TST_Mock.register(ApiCall__c.SObjectType, readCallWithoutItsBody(apiIssue.ApiCall__c));
+		Id jobId;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			jobId = CTRL_RetryApiIssue.scheduleBulkRetry(INBOUND_SERVICE_NAME, 0);
+			TST_Mock.clear(ApiCall__c.SObjectType);
+			Test.stopTest();
+		}
+
+		Assert.isNotNull(jobId, 'Expected a job for the open inbound issue of the service');
+	}
+
+	/**
+	 * @description A call whose body was changed after it was saved can be found only from the body. Retry Selected does
+	 * not read the body, so it hands the issue to the job. The job reads the request whole, refuses it, runs nothing and
+	 * logs at warn how many issues it did not run. The issue stays open.
+	 */
+	@IsTest
+	private static void shouldLeaveAChangedBodyForTheJobToRefuse()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+		updateField(apiIssue.ApiCall__c, ApiCall__c.Request__c, TEST_BODY.replace('world', '*****'));
+		CTRL_RetryApiIssue.DTO_ScheduledBulkRetry scheduledRetry;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			scheduledRetry = CTRL_RetryApiIssue.scheduleBulkRetryOfIssues(new Set<Id> {apiIssue.Id});
+			Test.stopTest();
+		}
+
+		Assert.areEqual(1, scheduledRetry.queuedCount, 'Expected the issue to be handed to the job, got ' + scheduledRetry.queuedCount);
+		Assert.isTrue(findLaterCalls(INBOUND_SERVICE_NAME, apiIssue.ApiCall__c).isEmpty(), 'Expected the job to run nothing');
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to stay open');
+		LogEntry__c warningLog = new SEL_LogEntry().findByMethod(CTRL_RetryApiIssue.class.getName() + '/FailureReplayProcessor');
+		Assert.isNotNull(warningLog, 'Expected the job to log the issue it did not run');
+		Assert.isTrue(warningLog.ShortMessage__c.startsWith('1 failure replay(s) skipped: Retry Issues is off'), 'Expected the refused count, got ' + warningLog.ShortMessage__c);
+	}
+
+	/**
+	 * @description Retry Selected still refuses, before it schedules the job, every inbound issue it can refuse without the
+	 * body. Of five selected issues, one has no call and no request of its own, one has a call whose address fills its
+	 * field, so it may have been cut, and one has a call with no key and no hash, as version 1.8 saved it, whose address
+	 * fills its field while the issue holds no request: none is handed to the job. An issue made by hand that holds its
+	 * request is handed to the job. So is an issue on a call with no key, no hash and a full-length address that holds its
+	 * own request: that request may be run instead, and only the job can tell.
+	 */
+	@IsTest
+	private static void shouldStillRefuseWhatCanBeRefusedWithoutTheBodyWhenRetrySelectedSchedules()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		String fullLengthUrl = (TEST_PATH + '?' + PARAMETER_NAME + '=').rightPad(SEL_ApiCall.URL_LENGTH, 'x');
+		ApiIssue__c cutAddressIssue = failEchoRequest(TEST_BODY, null);
+		updateField(cutAddressIssue.ApiCall__c, ApiCall__c.URL__c, fullLengthUrl);
+		ApiIssue__c handMadeIssue = createInboundIssue();
+		ApiIssue__c noRequestIssue = (ApiIssue__c)TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, INBOUND_SERVICE_NAME)
+				.withOverride(ApiIssue__c.Status__c, SEL_ApiIssue.STATUS_OPEN)
+				.build();
+		ApiIssue__c noHashIssueWithNoRequest = insertIssueOfCallWithoutAHash(fullLengthUrl, false);
+		ApiIssue__c noHashIssueWithItsRequest = insertIssueOfCallWithoutAHash(fullLengthUrl, true);
+		CTRL_RetryApiIssue.DTO_ScheduledBulkRetry scheduledRetry;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			scheduledRetry = CTRL_RetryApiIssue.scheduleBulkRetryOfIssues(new Set<Id>
+			{
+					cutAddressIssue.Id, handMadeIssue.Id, noRequestIssue.Id, noHashIssueWithNoRequest.Id, noHashIssueWithItsRequest.Id
+			});
+			Test.stopTest();
+		}
+
+		Assert.areEqual(5, scheduledRetry.selectedCount, 'Expected five issues to count as selected, got ' + scheduledRetry.selectedCount);
+		Assert.areEqual(2, scheduledRetry.queuedCount,
+				'Expected only the hand-made issue and the issue on the call with no hash that holds its own request to be queued, got ' + scheduledRetry.queuedCount);
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, ((ApiIssue__c)new SEL_ApiIssue().findById(noHashIssueWithNoRequest.Id)).Status__c,
+				'Expected the issue on the call with no hash and no request of its own to be refused before the job and stay open');
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, ((ApiIssue__c)new SEL_ApiIssue().findById(noHashIssueWithItsRequest.Id)).Status__c,
+				'Expected the job to run the request the issue holds and resolve the issue on the call with no hash');
+	}
+
+	/**
+	 * @description Reads a saved call with its small fields only, and not its body or its parameters: reading the body from
+	 * the record returned throws, because the read did not ask for it. A test registers it as the answer to every read of
+	 * API calls, so code that reads the body of a call from that answer fails the test.
+	 *
+	 * @param callId The id of the call
+	 *
+	 * @return The call, read without its body
+	 */
+	private static List<ApiCall__c> readCallWithoutItsBody(Id callId)
+	{
+		return QRY_Builder.selectFrom(ApiCall__c.SObjectType)
+				.fields(new List<SObjectField>
+				{
+						ApiCall__c.CreatedById,
+						ApiCall__c.HttpMethod__c,
+						ApiCall__c.IdempotencyKeyBodyHash__c,
+						ApiCall__c.IdempotencyKey__c,
+						ApiCall__c.IsPermanentFailure__c,
+						ApiCall__c.URL__c
+				})
+				.condition(ApiCall__c.Id).equals(callId)
+				.withSystemMode()
+				.toList();
+	}
+
+	/**
+	 * @description Saves a failed inbound call of the echo service with no key and no hash of its body, as version 1.8 saved
+	 * a request with no key, and an open inbound issue that links to it and, when asked, its own request.
+	 *
+	 * @param url The address the call kept
+	 * @param holdsItsRequest True to give the issue its own request path, method and body, as a person may type them; false to leave the issue with no request
+	 *
+	 * @return The saved issue
+	 */
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	private static ApiIssue__c insertIssueOfCallWithoutAHash(String url, Boolean holdsItsRequest)
+	{
+		ApiCall__c originalCall = TST_Factory.newInboundApiCall(INBOUND_SERVICE_NAME);
+		originalCall.Status__c = SEL_ApiCall.STATUS_FAILED;
+		originalCall.URL__c = url;
+		originalCall.HttpMethod__c = HTTP_POST;
+		originalCall.Request__c = TEST_BODY;
+		DML_Builder.newTransaction().withSystemMode().doInsert(originalCall).execute();
+		TST_Builder.Builder issueBuilder = TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, INBOUND_SERVICE_NAME)
+				.withOverride(ApiIssue__c.Status__c, SEL_ApiIssue.STATUS_OPEN)
+				.withOverride(ApiIssue__c.ApiCall__c, originalCall.Id);
+		if(holdsItsRequest)
+		{
+			issueBuilder.withOverride(ApiIssue__c.RequestPath__c, TEST_PATH)
+					.withOverride(ApiIssue__c.RequestMethod__c, HTTP_POST)
+					.withOverride(ApiIssue__c.RequestBody__c, TEST_BODY);
+		}
+		return (ApiIssue__c)issueBuilder.build();
+	}
+
+	/**
+	 * @description The bulk retry job checks the setting of every issue itself before it runs it, because the setting may
+	 * have changed since the job was scheduled. The test gives the job an inbound issue whose setting has Retry Issues
+	 * off. The job runs nothing for the issue, the issue stays open, and the job logs at warn how many issues it did not
+	 * run.
+	 */
+	@IsTest
+	private static void shouldRunNothingInTheJobWhenRetryIssuesIsOff()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object> {ApiSetting__mdt.RetryIssues__c => false});
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+
+		runJobAsUserWithApiIssueResolverPermissionSet(toRequestGroups(new List<Object> {apiIssue}));
+
+		Assert.areEqual(1, new SEL_ApiCall().findByServiceName(INBOUND_SERVICE_NAME).size(), 'Expected the job to run nothing');
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to stay open');
+		LogEntry__c warningLog = new SEL_LogEntry().findByMethod(CTRL_RetryApiIssue.class.getName() + '/FailureReplayProcessor');
+		Assert.isNotNull(warningLog, 'Expected the job to log the issue it did not run');
+		Assert.isTrue(warningLog.ShortMessage__c.startsWith('1 failure replay(s) skipped: Retry Issues is off'), 'Expected the refused count, got ' + warningLog.ShortMessage__c);
+	}
+
+	/**
+	 * @description A replay goes to the service the issue names, even when the path now leads to another service: a
+	 * setting for the echo service matches the exact path, so routing by the path would send the request there. The
+	 * handler of the issue's service receives the request, and the new call names that service.
+	 */
+	@IsTest
+	private static void shouldReplayByTheIssuesServiceWhenTheRouteNowPointsElsewhere()
+	{
+		registerInboundSetting(RECORDING_SERVICE_NAME, new Map<SObjectField, Object>());
+		TST_Factory.newInboundApiSetting
+				(
+						INBOUND_SERVICE_NAME,
+						TEST_PATH,
+						ROUTE_PRIORITY,
+						new Map<SObjectField, Object> {ApiSetting__mdt.RetryIssues__c => true, ApiSetting__mdt.LogIssues__c => true}
+				);
+		ApiIssue__c apiIssue = failRecordedRequest(TEST_BODY, null, new UTIL_Exceptions.IllegalStateException(HANDLER_FAILURE_MESSAGE));
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			CTRL_RetryApiIssue.resolveFailure(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isNotNull(receivedRequest, 'Expected the handler of the issue\'s service to receive the replay');
+		Assert.areEqual(TEST_PATH, receivedRequest.requestURI, 'Expected the handler to receive the replayed request');
+		Assert.areEqual(1, findLaterCalls(RECORDING_SERVICE_NAME, apiIssue.ApiCall__c).size(), 'Expected the new call to name the issue\'s service');
+		Assert.isTrue(new SEL_ApiCall().findByServiceName(INBOUND_SERVICE_NAME).isEmpty(), 'Expected nothing sent to the service the path now leads to');
+	}
+
+	/**
+	 * @description The call a replay makes links to the call the request was read from (PreviousAttempt__c), so the
+	 * attempts of one request can be followed from the first to the last.
+	 */
+	@IsTest
+	private static void shouldLinkTheReplayToTheOriginalCall()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		List<ApiCall__c> replayCalls = findLaterCalls(INBOUND_SERVICE_NAME, apiIssue.ApiCall__c);
+		Assert.areEqual(1, replayCalls.size(), 'Expected one call for the replay');
+		Assert.areEqual(SEL_ApiCall.STATUS_COMPLETED, replayCalls.get(0).Status__c, 'Expected the replay to complete');
+		Assert.areEqual(apiIssue.ApiCall__c, replayCalls.get(0).PreviousAttempt__c, 'Expected the replay\'s call to link to the original call');
+	}
+
+	/**
+	 * @description With idempotency on, a replay of a keyed request the caller has since completed is answered from the
+	 * completed call's stored response, and the handler does not run again. The issue is resolved.
+	 */
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	@IsTest
+	private static void shouldAnswerAReplayOfACompletedKeyedRequestFromTheStoredResponse()
+	{
+		registerInboundSetting(RECORDING_SERVICE_NAME, new Map<SObjectField, Object> {ApiSetting__mdt.IdempotencyEnabled__c => true});
+		String idempotencyKey = UTIL_Random.randomUUID();
+		ApiIssue__c apiIssue = failRecordedRequest(TEST_BODY, idempotencyKey, new UTIL_Exceptions.IllegalStateException(HANDLER_FAILURE_MESSAGE));
+		String storedResponse = JSON.serialize(new Map<String, Object> {PARAMETER_NAME => UTIL_Random.randomName()});
+		ApiCall__c completedCall = TST_Factory.newInboundApiCall(RECORDING_SERVICE_NAME);
+		completedCall.IdempotencyKey__c = idempotencyKey;
+		completedCall.IdempotencyKeyBodyHash__c = API_Inbound.computeBodyHash(TEST_BODY);
+		completedCall.Response__c = storedResponse;
+		DML_Builder.newTransaction().withSystemMode().doInsert(completedCall).execute();
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isTrue(dtoResponse.callSuccessful, 'Expected the replay to be answered, got ' + dtoResponse.errorMessage);
+		Assert.isNull(receivedRequest, 'Expected the handler not to run again');
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to be resolved');
+		Boolean hasAnsweredCall = false;
+		for(ApiCall__c laterCall : findLaterCalls(RECORDING_SERVICE_NAME, apiIssue.ApiCall__c))
+		{
+			hasAnsweredCall = hasAnsweredCall || (laterCall.IsIdempotencyHit__c && laterCall.Response__c == storedResponse);
+		}
+		Assert.isTrue(hasAnsweredCall, 'Expected a call answered from the stored response');
+	}
+
+	/**
+	 * @description The Retry action follows the issue's direction: on an inbound issue it replays the request the call
+	 * kept, instead of sending an outbound call to the inbound service. The replay completes and the issue is resolved.
+	 */
+	@IsTest
+	private static void shouldRouteRetryOfAnInboundIssueToTheReplay()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isTrue(dtoResponse.callSuccessful, 'Expected Retry to replay the inbound request, got ' + dtoResponse.errorMessage);
+		List<ApiCall__c> replayCalls = findLaterCalls(INBOUND_SERVICE_NAME, apiIssue.ApiCall__c);
+		Assert.areEqual(1, replayCalls.size(), 'Expected one new call');
+		Assert.areEqual(SEL_ApiCall.TYPE_INBOUND, replayCalls.get(0).Direction__c, 'Expected the new call to be an inbound replay');
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to be resolved');
+	}
+
+	/**
+	 * @description A replay that fails writes no new issue: the issue it was run for stays the one open issue of the
+	 * request, so running Retry Selected again and again never adds issues. The failed replay's call still links to the
+	 * original call.
+	 */
+	@IsTest
+	private static void shouldWriteNoNewIssueWhenTheReplayFails()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		ApiIssue__c apiIssue = failEchoRequest(TEST_BODY, null);
+		API_Inbound.returnErrorResponse = true;
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isFalse(dtoResponse.callSuccessful, 'Expected the replay to fail');
+		Assert.areEqual(apiIssue.Id, findOnlyOpenIssue(INBOUND_SERVICE_NAME).Id, 'Expected the original issue to stay the one open issue');
+		List<ApiCall__c> replayCalls = findLaterCalls(INBOUND_SERVICE_NAME, apiIssue.ApiCall__c);
+		Assert.areEqual(1, replayCalls.size(), 'Expected one call for the failed replay');
+		Assert.areEqual(SEL_ApiCall.STATUS_FAILED, replayCalls.get(0).Status__c, 'Expected the replay\'s call to fail');
+		Assert.areEqual(apiIssue.ApiCall__c, replayCalls.get(0).PreviousAttempt__c, 'Expected the failed replay\'s call to link to the original call');
+	}
+
+	/**
+	 * @description An outbound call marked as a permanent failure is not sent again: Retry answers with the labelled
+	 * message, sends nothing, and the issue stays open.
+	 */
+	@IsTest
+	private static void shouldRefuseToResendAnOutboundCallMarkedPermanent()
+	{
+		ApiCall__c originalCall = insertFailedOutboundCall(true);
+		ApiIssue__c apiIssue = TST_Factory.insertApiIssue(originalCall, UTIL_Crypto.generateMD5Hash(originalCall.RequestParameters__c));
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isFalse(dtoResponse.callSuccessful, 'Expected Retry to be refused');
+		Assert.areEqual(System.Label.RetryApiIssue_PermanentFailure, dtoResponse.errorMessage, 'Expected the refusal to come from the label');
+		Assert.isTrue(findLaterCalls(API_PostExample.class.getName(), originalCall.Id).isEmpty(), 'Expected no call to be sent');
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to stay open');
+	}
+
+	/**
+	 * @description The call the Retry action sends links to the issue's call (PreviousAttempt__c), so the attempts of one
+	 * request can be followed from the first to the last.
+	 */
+	@IsTest
+	private static void shouldLinkTheOutboundRetryCallToTheOriginal()
+	{
+		ApiCall__c originalCall = insertFailedOutboundCall(false);
+		ApiIssue__c apiIssue = TST_Factory.insertApiIssue(originalCall, UTIL_Crypto.generateMD5Hash(originalCall.RequestParameters__c));
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isTrue(dtoResponse.callSuccessful, 'Expected Retry to succeed, got ' + dtoResponse.errorMessage);
+		List<ApiCall__c> retryCalls = findLaterCalls(API_PostExample.class.getName(), originalCall.Id);
+		Assert.areEqual(1, retryCalls.size(), 'Expected one call for the retry');
+		Assert.areEqual(originalCall.Id, retryCalls.get(0).PreviousAttempt__c, 'Expected the retry\'s call to link to the original call');
+	}
+
+	/**
+	 * @description A user who holds the Retry API Issue permission dismisses an issue whose call failed permanently: the
+	 * issue is marked Resolved with a resolved date, though the user may not edit issues, and nothing is sent again.
+	 */
+	@IsTest
+	private static void shouldDismissAnIssueForAUserWithTheRetryPermission()
+	{
+		ApiCall__c originalCall = insertFailedOutboundCall(true);
+		ApiIssue__c apiIssue = TST_Factory.insertApiIssue(originalCall, UTIL_Crypto.generateMD5Hash(originalCall.RequestParameters__c));
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = new SharingEnforcedCaller().dismiss(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isTrue(dtoResponse.callSuccessful, 'Expected the issue to be dismissed, got ' + dtoResponse.errorMessage);
+		ApiIssue__c dismissedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id);
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, dismissedIssue.Status__c, 'Expected the dismissed issue to be Resolved');
+		Assert.isNotNull(dismissedIssue.ResolvedDate__c, 'Expected the dismiss to set the resolved date');
+		Assert.isTrue(findLaterCalls(API_PostExample.class.getName(), originalCall.Id).isEmpty(), 'Expected nothing to be sent');
+	}
+
+	/**
+	 * @description A user without the Retry API Issue permission cannot dismiss an issue: the answer carries the labelled
+	 * refusal and the issue stays open.
+	 */
+	@IsTest
+	private static void shouldRefuseToDismissWithoutThePermission()
+	{
+		ApiCall__c originalCall = insertFailedOutboundCall(true);
+		ApiIssue__c apiIssue = TST_Factory.insertApiIssue(originalCall, UTIL_Crypto.generateMD5Hash(originalCall.RequestParameters__c));
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithoutRetryPermission())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.dismiss(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isFalse(dtoResponse.callSuccessful, 'Expected the dismiss to be refused');
+		Assert.areEqual(System.Label.RetryApiIssue_DismissPermissionRequired, dtoResponse.errorMessage, 'Expected the dismiss refusal to come from its own label');
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to stay open');
+	}
+
+	/**
+	 * @description A user who holds the permission but cannot read the issue is told so and dismisses nothing. The id was
+	 * never saved, so no read can return it under any sharing default.
+	 */
+	@IsTest
+	private static void shouldRefuseToDismissAnIssueTheUserCannotSee()
+	{
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithRetryPermissionWithoutViewAll())
+		{
+			Test.startTest();
+			dtoResponse = new SharingEnforcedCaller().dismiss(UTIL_Random.randomId(ApiIssue__c.SObjectType));
+			Test.stopTest();
+		}
+
+		Assert.isFalse(dtoResponse.callSuccessful, 'Expected the dismiss to be refused');
+		Assert.areEqual(System.Label.RetryApiIssue_IssueNotVisible, dtoResponse.errorMessage, 'Expected the refusal to come from the label');
+	}
+
+	/**
+	 * @description Dismissing an issue that is already Resolved saves nothing: the answer is a success, the issue stays
+	 * Resolved, and its resolved date is not moved to now.
+	 */
+	@IsTest
+	private static void shouldKeepTheResolvedDateWhenDismissingAResolvedIssue()
+	{
+		ApiCall__c originalCall = insertFailedOutboundCall(true);
+		ApiIssue__c apiIssue = TST_Factory.insertApiIssue(originalCall, UTIL_Crypto.generateMD5Hash(originalCall.RequestParameters__c));
+		apiIssue.Status__c = SEL_ApiIssue.STATUS_RESOLVED;
+		apiIssue.ResolvedDate__c = Datetime.now().addDays(-DAYS_SINCE_EARLIER_RESOLUTION);
+		updateIssue(apiIssue);
+		Datetime earlierResolvedDate = ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).ResolvedDate__c;
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = new SharingEnforcedCaller().dismiss(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isTrue(dtoResponse.callSuccessful, 'Expected dismissing a closed issue to answer success, got ' + dtoResponse.errorMessage);
+		ApiIssue__c dismissedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id);
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, dismissedIssue.Status__c, 'Expected the issue to stay Resolved');
+		Assert.areEqual(earlierResolvedDate, dismissedIssue.ResolvedDate__c, 'Expected the resolved date to stay as it was');
+	}
+
+	/**
+	 * @description Asks, as a resolver, for an inbound issue to be run again, asserts that the replay was refused, that
+	 * nothing ran, and that the issue stays open, and returns the message the refusal carries for the test to check.
+	 *
+	 * @param apiIssue The inbound issue, written by a failed request
+	 *
+	 * @return The message the refusal carries
+	 */
+	private static String replayAndReadRefusal(ApiIssue__c apiIssue)
+	{
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isFalse(dtoResponse.callSuccessful, 'Expected the replay to be refused');
+		Assert.isTrue(findLaterCalls(apiIssue.ServiceName__c, apiIssue.ApiCall__c).isEmpty(), 'Expected nothing to run');
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to stay open');
+		return dtoResponse.errorMessage;
+	}
+
+	/**
+	 * @description An inbound handler that records the request it receives, and fails while a test sets a failure for it.
+	 */
+	public inherited sharing class ReplayRecordingInbound extends API_Inbound
+	{
+		/**
+		 * @description Throws the failure the test set, or records the request it received.
+		 */
+		public override void processRequest()
+		{
+			if(handlerFailure != null)
+			{
+				throw handlerFailure;
+			}
+			receivedRequest = request;
+		}
 	}
 
 	/**
@@ -1195,6 +2244,18 @@ public class CTRL_RetryApiIssue_TEST
 		}
 
 		/**
+		 * @description Dismisses one issue, as the dismiss action on the issue's record page does.
+		 *
+		 * @param issueId The id of the issue
+		 *
+		 * @return Whether the issue was marked Resolved, and the reason when it was not
+		 */
+		public CTRL_RetryApiIssue.DTO_Response dismiss(Id issueId)
+		{
+			return CTRL_RetryApiIssue.dismiss(issueId);
+		}
+
+		/**
 		 * @description Runs the bulk retry job on the given items.
 		 *
 		 * @param items The groups of issue ids the job holds
@@ -1214,6 +2275,35 @@ public class CTRL_RetryApiIssue_TEST
 		public CTRL_RetryApiIssue.DTO_ScheduledBulkRetry scheduleBulkRetryOfIssues(Set<Id> issueIds)
 		{
 			return CTRL_RetryApiIssue.scheduleBulkRetryOfIssues(issueIds);
+		}
+	}
+
+	/**
+	 * @description An outbound service that sends the same request as API_PostExample, and records how much memory the
+	 * run is using when the call is checked before it is sent.
+	 */
+	public inherited sharing class MemoryRecordingOutbound extends API_Outbound
+	{
+		/**
+		 * @description Sets the request and response the call uses, and the answer the test callout gives.
+		 */
+		public override void configure()
+		{
+			super.configure();
+			requestPayload = new API_PostExample.DTO_Request();
+			responsePayload = new API_PostExample.DTO_Response();
+			defaultMockBody = MOCK_RESPONSE_BODY;
+		}
+
+		/**
+		 * @description Records the memory the run is using while the call is being sent, and finds no error.
+		 *
+		 * @return No errors
+		 */
+		public override List<String> getValidationErrors()
+		{
+			heapUsedWhileSending = UTIL_Limits.heapSize().used();
+			return new List<String>();
 		}
 	}
 }

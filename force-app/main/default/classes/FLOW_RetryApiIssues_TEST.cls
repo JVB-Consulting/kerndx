@@ -47,6 +47,26 @@ private class FLOW_RetryApiIssues_TEST
 	private static final String DIRECTION_OUTBOUND = 'Outbound';
 
 	/**
+	 * @description The direction of an issue logged for a request the org received, written as a subscriber writes it.
+	 */
+	private static final String DIRECTION_INBOUND = 'Inbound';
+
+	/**
+	 * @description The route pattern of the inbound setting the inbound test registers.
+	 */
+	private static final String INBOUND_ROUTE_PATH = '/echo/*';
+
+	/**
+	 * @description The routing priority of the inbound setting the inbound test registers.
+	 */
+	private static final Integer INBOUND_ROUTE_PRIORITY = 100;
+
+	/**
+	 * @description The path of the request the inbound issue holds.
+	 */
+	private static final String INBOUND_REQUEST_PATH = '/echo/test';
+
+	/**
 	 * @description The status an open issue has, written as a subscriber writes it.
 	 */
 	private static final String STATUS_OPEN = 'Open';
@@ -293,6 +313,41 @@ private class FLOW_RetryApiIssues_TEST
 				);
 		assertStatus(flaggedIssue.Id, STATUS_OPEN);
 		assertStatus(plainIssue.Id, STATUS_RESOLVED);
+	}
+
+	/**
+	 * @description An issue of a request your org received is checked like any other: when its service has Retry Issues
+	 * off, it is not queued, the answer says none of one was queued, and the issue stays open.
+	 */
+	@IsTest
+	private static void shouldNotQueueAnInboundIssueWhoseServiceHasRetryIssuesOff()
+	{
+		String inboundServiceName = API_Echo.class.getName();
+		TST_Factory.newInboundApiSetting
+				(
+						inboundServiceName,
+						INBOUND_ROUTE_PATH,
+						INBOUND_ROUTE_PRIORITY,
+						new Map<SObjectField, Object> {ApiSetting__mdt.RetryIssues__c => false, ApiSetting__mdt.LogIssues__c => true}
+				);
+		ApiIssue__c inboundIssue = (ApiIssue__c)TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.Direction__c, DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, inboundServiceName)
+				.withOverride(ApiIssue__c.Status__c, STATUS_OPEN)
+				.withOverride(ApiIssue__c.RequestPath__c, INBOUND_REQUEST_PATH)
+				.build();
+
+		FLOW_RetryApiIssues.DTO_Response response = retryAs(getUserWithApiIssueResolverPermissionSet(), new List<String> {inboundIssue.Id});
+
+		Assert.isFalse(response.success, 'Expected nothing to be accepted');
+		Assert.areEqual(0, response.queuedCount, 'Expected the inbound issue not to be queued');
+		Assert.areEqual
+				(
+						String.format(System.Label.RetryApiIssues_Queued, new List<Object> {0, 1}),
+						response.message,
+						'Expected the message to say none of one was queued'
+				);
+		assertStatus(inboundIssue.Id, STATUS_OPEN);
 	}
 
 	/**

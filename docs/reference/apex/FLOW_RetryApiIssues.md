@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class FLOW_RetryApiIssues
 ```
 
-Runs the failed calls of the API issues you select again, in one background job: from the Retry Selected action on the API Issues list, from your own flow, or from Apex. The issues that are still open are handed to the job. The job sends each distinct request once, skips an issue whose external system may already have acted, an issue of a call your org made whose service is paused or does not allow retries, and an issue whose call or record still has a call in progress, and marks resolved every issue whose call succeeds. An issue of a call your org received is replayed whatever its service's Retry Issues setting says. You need the Retry API Issue permission; without it nothing is queued and the message says so.
+Runs the failed calls of the API issues you select again, in one background job: from the Retry Selected action on the API Issues list, from your own flow, or from Apex. The issues that are still open are handed to the job. The job sends each distinct request once and marks resolved every issue whose call succeeds. It skips an issue whose external system may already have acted, an issue whose call or record still has a call in progress, and an issue whose service is paused or does not allow retries (Retry Issues is off in its API setting). It also skips an issue whose call failed in a way a new run cannot fix, and an issue of a call your org received when the call no longer holds the request exactly as it was received. A request your org received is run again from the call that received it. You need the Retry API Issue permission; without it nothing is queued and the message says so.
 
 **Example**
 
@@ -50,8 +50,9 @@ FLOW_RetryApiIssues.DTO_Response response = FLOW_RetryApiIssues.retryApiIssues(n
 
 Queues a retry of the open issues among the ids you pass and tells you how many were queued. Ids that are
 not record ids and ids of other objects are left out. An issue is not queued, and stays open, when it is not open, when
-the external system may already have acted on it, or, for a call your org made, when its service is paused or does
-not allow retries; the message says how many of the open issues you named were queued and why the rest were not. The
+the external system may already have acted on it, when its service is paused or does not allow retries, when its call
+failed in a way a new run cannot fix, or, for a call your org received, when the call no longer holds the request
+exactly as it was received; the message says how many of the open issues you named were queued and why the rest were not. The
 job may still skip a few, for example when a call for the same record is still running, and each issue shows its own
 result. The answer carries no count of the issues it left out.
 

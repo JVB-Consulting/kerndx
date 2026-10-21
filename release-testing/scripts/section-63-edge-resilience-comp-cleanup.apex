@@ -18,8 +18,11 @@ final String CIRCUIT_LOG_PATTERN = '%S63_%';
 final Id RUNNING_USER_ID = UserInfo.getUserId();
 
 delete [SELECT Id FROM kern__LogEntry__c WHERE (kern__ClassMethod__c LIKE :LOG_PATTERN OR kern__ShortMessage__c LIKE :CIRCUIT_LOG_PATTERN) AND CreatedDate = TODAY LIMIT 9000];
-delete [SELECT Id FROM kern__ApiIssue__c WHERE kern__ServiceName__c = :SERVICE_NAME AND CreatedDate = TODAY AND CreatedById = :RUNNING_USER_ID LIMIT 9000];
-delete [SELECT Id FROM kern__ApiCall__c WHERE kern__ServiceName__c = :SERVICE_NAME AND CreatedDate = TODAY AND CreatedById = :RUNNING_USER_ID LIMIT 9000];
+List<kern__ApiCall__c> calls = [SELECT Id FROM kern__ApiCall__c WHERE kern__ServiceName__c = :SERVICE_NAME AND CreatedDate = TODAY AND CreatedById = :RUNNING_USER_ID LIMIT 9000];
+// The issues first: a call with an Open issue cannot be deleted, so the issues of these calls go too, whoever wrote them.
+delete [SELECT Id FROM kern__ApiIssue__c WHERE (kern__ServiceName__c = :SERVICE_NAME AND CreatedDate = TODAY AND CreatedById = :RUNNING_USER_ID)
+		OR kern__ApiCall__c IN :calls LIMIT 9000];
+delete calls;
 
 Integer logEntriesLeft = [SELECT COUNT() FROM kern__LogEntry__c
 		WHERE (kern__ClassMethod__c LIKE :LOG_PATTERN OR kern__ShortMessage__c LIKE :CIRCUIT_LOG_PATTERN) AND CreatedDate = TODAY];

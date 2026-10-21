@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>ResolveIssues__c</fullName>
     <defaultValue>false</defaultValue>
-    <description>When enabled, allows manual resolution of API issues via the ApiIssue__c object.</description>
+    <description>When ticked, a later successful call closes the open API issues of the same request. Outbound: a successful call with the same triggering record, service and request parameters marks every open issue of that request Resolved. Inbound: this also needs Idempotency Enabled. A request answered with a status from 200 to 299 marks Resolved the open issues of the earlier failed requests that the same user sent to this service with the same Idempotency-Key, whatever their body. A request without a key resolves nothing.</description>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <inlineHelpText>Enable manual resolution workflow for API issues. Requires Log Issues.</inlineHelpText>
+    <inlineHelpText>Tick to close open API issues when the same request later succeeds. Outbound: a successful call for the same record, service and parameters. Inbound: also needs Idempotency Enabled; a success (status 200 to 299) with the same Idempotency-Key from the same user resolves the issues of the earlier failed requests.</inlineHelpText>
     <label>Resolve Issues</label>
     <type>Checkbox</type>
 </CustomField>

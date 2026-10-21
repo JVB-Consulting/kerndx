@@ -197,6 +197,14 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	private Boolean repeatRefusedByAPermanentFailure = false;
 
 	/**
+	 * @description True when the retry decision caught a UTIL_Exceptions.PermanentFailureException that marks the call as
+	 * a permanent failure (see API_Base.isPermanentFailure), for example one that createRetryStrategy() threw. A
+	 * UTIL_Exceptions.RequestRefusedException does not set it. It is set whether or not self-retry scheduling is
+	 * suppressed, so the call is marked as a permanent failure on every path (see setApiCallDetails).
+	 */
+	private Boolean permanentFailureCaughtByTheRetryDecision = false;
+
+	/**
 	 * @description Overrides the Named Credential name for this handler instance.
 	 * Set by UTIL_HttpClient delegation mode when the caller provides a credential override.
 	 */
@@ -715,27 +723,6 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	}
 
 	/**
-	 * @description Logs the failed API call.
-	 *
-	 * @example
-	 * ```apex
-	 * global override void logApiIssues()
-	 * {
-	 *     super.logApiIssues();
-	 *     // additional failure logging
-	 * }
-	 * ```
-	 */
-	protected virtual void logApiIssues()
-	{
-		ApiIssue__c apiIssue = createFailureRecord();
-		if(apiIssue != null)
-		{
-			DML_Builder.newTransaction().withSystemMode().doInsert(apiIssue).allowPartial().execute();
-		}
-	}
-
-	/**
 	 * @description Generates the request body using the type of the requestPayload.
 	 * Applies token replacements to the request body before sending.
 	 *
@@ -891,7 +878,7 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 * }
 	 * ```
 	 */
-	protected virtual void resolveApiIssues()
+	protected override virtual void resolveApiIssues()
 	{
 		String hashParameter = generateApiIssueHash();
 		List<ApiIssue__c> updateApiIssues = new List<ApiIssue__c>();
@@ -1276,7 +1263,30 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	}
 
 	/**
-	 * @description Creates a ApiIssue__c record for logging failures.
+	 * @description Builds the issue record for an outbound call that failed: the record every direction shares (see
+	 * API_Base.buildFailureRecord) plus the outbound fields, which are the Outbound direction, the call's request
+	 * parameters and the hash of those parameters. A later success of the same request finds the issue by that hash. The
+	 * record is not saved.
+	 *
+	 * @param apiCall The outbound call that failed.
+	 * @param requestHash The hash of the call's request parameters.
+	 *
+	 * @return A new outbound issue record for the call, not yet saved.
+	 */
+	public static ApiIssue__c buildOutboundFailureRecord(ApiCall__c apiCall, String requestHash)
+	{
+		ApiIssue__c apiIssue = API_Base.buildFailureRecord(apiCall);
+		apiIssue.Direction__c = SEL_ApiIssue.DIRECTION_OUTBOUND;
+		apiIssue.RequestParameters__c = apiCall.RequestParameters__c;
+		apiIssue.RequestParametersHash__c = requestHash;
+		return apiIssue;
+	}
+
+	/**
+	 * @description Creates the issue record for this failed call when its setting has Log Issues on: the outbound issue
+	 * (see buildOutboundFailureRecord) with the Idempotency-Key the call recorded and whether the external system may
+	 * have acted on the request. The setting is checked here as well as in the step after the commit, because the
+	 * dispatcher's error handling asks for this record, and the HTTP client saves it, outside that step.
 	 *
 	 * @return A new uncommitted ApiIssue__c record, or null if failure logging is disabled.
 	 *
@@ -1295,7 +1305,7 @@ global virtual inherited sharing class API_Outbound extends API_Base
 		ApiIssue__c apiIssue = super.createFailureRecord();
 		if(setting?.LogIssues__c == true)
 		{
-			apiIssue = TST_Factory.newApiIssue(apiCall, generateApiIssueHash());
+			apiIssue = buildOutboundFailureRecord(apiCall, generateApiIssueHash());
 
 			String recordedIdempotencyKey = getRecordedIdempotencyKey();
 			if(String.isNotBlank(recordedIdempotencyKey))
@@ -1396,7 +1406,8 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 * own key or takes the one the framework worked out, and the headers are those of the request the framework built.
 	 * The HTTP method follows the same rule: the method of the request that was sent, normalised to a picklist value, or
 	 * the declared getHttpMethod() before a send and when the sent method is not a picklist value (see
-	 * resolveSentHttpMethod).
+	 * resolveSentHttpMethod). On every run, after the retry decision, the call is marked as a permanent failure or not
+	 * (see hasFailedPermanently).
 	 */
 	public override virtual void setApiCallDetails()
 	{
@@ -1447,24 +1458,26 @@ global virtual inherited sharing class API_Outbound extends API_Base
 			retry();
 			apiCall.ErrorMessages__c = errorText;
 		}
+
+		apiCall.IsPermanentFailure__c = hasFailedPermanently();
 	}
 
 	/**
-	 * @description Performs operations after the unit of work (the set of records saved together in one commit) has saved its records.
+	 * @description Whether this call failed in a way that sending the same request again cannot fix. That is true when the
+	 * call did not succeed (it ended Failed, or Aborted by its checks) and a UTIL_Exceptions.PermanentFailureException
+	 * was thrown: by the handler's own code (lastFailure), by getValidationErrors() (validationFailure), or inside the
+	 * retry decision, for example by createRetryStrategy(). A UTIL_Exceptions.RequestRefusedException does not count
+	 * (see API_Base.isPermanentFailure): a person can run a refused call again once the cause is fixed. The answer does
+	 * not depend on whether self-retry scheduling is suppressed, so the dispatcher, Retry and the async chain all mark the
+	 * call the same way.
 	 *
-	 * @param wasSuccessful Indicates if the commit was successful or not.
+	 * @return True when the call failed permanently.
 	 */
-	public override virtual void onCommitWorkFinished(Boolean wasSuccessful)
+	private Boolean hasFailedPermanently()
 	{
-		if(wasSuccessful && result.isSuccess && setting?.ResolveIssues__c == true)
-		{
-			resolveApiIssues();
-		}
-		if(wasSuccessful && !result.isSuccess && setting?.LogIssues__c == true)
-		{
-			logApiIssues();
-		}
-		super.onCommitWorkFinished(wasSuccessful);
+		Boolean hasNotSucceeded = result.hasFailed || result.isAborted;
+		Boolean wasPermanentFailureThrown = isPermanentFailure(lastFailure) || isPermanentFailure(validationFailure) || permanentFailureCaughtByTheRetryDecision;
+		return hasNotSucceeded && wasPermanentFailureThrown;
 	}
 
 	/**
@@ -1686,6 +1699,7 @@ global virtual inherited sharing class API_Outbound extends API_Base
 		}
 		catch(UTIL_Exceptions.PermanentFailureException refusal)
 		{
+			permanentFailureCaughtByTheRetryDecision = isPermanentFailure(refusal);
 			repeatRefusedByTheHandler = selfRetrySchedulingSuppressed;
 			repeatRefusedByAPermanentFailure = selfRetrySchedulingSuppressed;
 			result.errors.add(refusal.getMessage());

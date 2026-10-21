@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>DeadLettered__c</fullName>
-    <description>Formula field that evaluates to true when retries are exhausted or manually dead-lettered. Dead-lettered calls are permanently failed and skipped by retry logic.</description>
+    <description>True when a call has Failed and its retry count has reached its Max Retries, or an administrator ticked Manual Dead Letter. Retry does not read it; a call that must never run again is marked Permanent Failure.</description>
     <formula>OR(
 	AND(
 		TEXT(Status__c) = &quot;Failed&quot;,
@@ -9,7 +9,7 @@
 	),
 	ManualDeadLetter__c = TRUE
 )</formula>
-    <inlineHelpText>True when retries are exhausted or manually dead-lettered. Use the Recover action to re-queue.</inlineHelpText>
+    <inlineHelpText>True when a call has Failed and its retry count has reached its Max Retries (an incoming call, and a call of a service with no retries, show this as soon as they fail), or Manual Dead Letter is ticked. It says nothing about whether Retry will run the call: see Permanent Failure.</inlineHelpText>
     <label>Dead Lettered</label>
     <trackHistory>false</trackHistory>
     <trackTrending>false</trackTrending>

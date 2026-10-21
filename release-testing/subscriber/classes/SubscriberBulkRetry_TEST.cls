@@ -75,6 +75,12 @@ private class SubscriberBulkRetry_TEST
 	private static final String INBOUND_PATH = '/bulk-retry-inbound';
 
 	/**
+	 * @description The routing priority of the inbound service's setting. It is the value the factory uses when no
+	 * priority is given.
+	 */
+	private static final Integer INBOUND_PRIORITY = 100;
+
+	/**
 	 * @description The method of the inbound issue's request.
 	 */
 	private static final String HTTP_METHOD_POST = 'POST';
@@ -215,14 +221,15 @@ private class SubscriberBulkRetry_TEST
 	}
 
 	/**
-	 * @description The resolver runs the flow action on one open inbound issue: the job replays the stored request through
-	 * the inbound handler, the handler's record is saved, and the issue reads Resolved with the date it was resolved.
+	 * @description The resolver runs the flow action on one open inbound issue of a service that accepts retries (Retry
+	 * Issues is on): the job replays the stored request through the inbound handler, the handler's record is saved, and
+	 * the issue reads Resolved with the date it was resolved.
 	 */
 	@IsTest
 	private static void shouldReplayAnInboundIssueAndResolveItThroughTheFlowAction()
 	{
 		String serviceName = BulkRetryInbound.class.getName();
-		kern.TST_Factory.newInboundApiSetting(serviceName, INBOUND_PATH);
+		kern.TST_Factory.newInboundApiSetting(serviceName, INBOUND_PATH, INBOUND_PRIORITY, new Map<SObjectField, Object> {kern__ApiSetting__mdt.kern__RetryIssues__c => true});
 		BulkRetryInboundRequest storedRequest = new BulkRetryInboundRequest();
 		storedRequest.recordName = kern.UTIL_Random.randomName();
 		kern__ApiIssue__c issue = (kern__ApiIssue__c)kern.TST_Builder.of(kern__ApiIssue__c.SObjectType)

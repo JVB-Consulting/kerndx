@@ -1356,6 +1356,31 @@ private class API_Dispatcher_TEST
 	}
 
 	/**
+	 * @description An outbound call that is not saved yet, such as the new call a Retry builds, and whose handler throws
+	 * before the send, gets one issue that links to the call. The call has no Id when the issue is built, so the issue is
+	 * registered with the call as its parent, and the save fills in the link once the call is saved.
+	 *
+	 * @see API_Dispatcher.handleError
+	 */
+	@IsTest
+	private static void shouldLinkTheIssueToTheNewCallWhenAnOutboundRetryThrows()
+	{
+		String serviceName = ThrowingBeforeSendOutbound.class.getName();
+		registerRetryingSetting(serviceName);
+
+		Test.startTest();
+
+		API_Dispatcher.execute(TST_Factory.newOutboundApiCall(serviceName, UserInfo.getUserId()));
+
+		Test.stopTest();
+
+		ApiCall__c failedCall = SEL_ApiCall.assertServiceFailed(serviceName, MESSAGE_HANDLER_THREW)[0];
+		List<ApiIssue__c> issues = new SEL_ApiIssue().findUnresolvedByService(serviceName);
+		Assert.areEqual(1, issues.size(), 'Expected one issue for the failed call, got ' + issues.size());
+		Assert.areEqual(failedCall.Id, issues[0].ApiCall__c, 'Expected the issue to link to the new call, got ' + issues[0].ApiCall__c);
+	}
+
+	/**
 	 * @description Registers the mocked setting the dispatcher-created handler reads: retries on, a wait, issues logged.
 	 * Every handler of a batch registers one with these same values, because the mock hands the first registered row to
 	 * every setting lookup of the test.

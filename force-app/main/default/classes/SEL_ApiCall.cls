@@ -27,27 +27,27 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	/**
 	 * @description The maximum number of digits that can be stored in the CalloutDurationMs__c field.
 	 */
-	public static final Integer CALL_OUT_TIME_TAKEN_LENGTH = ApiCall__c.CalloutDurationMs__c.getDescribe().getPrecision();
+	public static final Integer CALL_OUT_TIME_TAKEN_LENGTH = UTIL_SObjectDescribe.getCachedFieldDescribe(ApiCall__c.CalloutDurationMs__c).getPrecision();
 
 	/**
 	 * @description The maximum number of characters that can be stored in the Request__c field.
 	 */
-	public static final Integer REQUEST_LENGTH = ApiCall__c.Request__c.getDescribe().getLength();
+	public static final Integer REQUEST_LENGTH = UTIL_SObjectDescribe.getCachedFieldDescribe(ApiCall__c.Request__c).getLength();
 
 	/**
 	 * @description The maximum number of characters that can be stored in the RequestParameters__c field.
 	 */
-	public static final Integer REQUEST_PARAMETERS_LENGTH = ApiCall__c.RequestParameters__c.getDescribe().getLength();
+	public static final Integer REQUEST_PARAMETERS_LENGTH = UTIL_SObjectDescribe.getCachedFieldDescribe(ApiCall__c.RequestParameters__c).getLength();
 
 	/**
 	 * @description The maximum number of characters that can be stored in the Response__c field.
 	 */
-	public static final Integer RESPONSE_LENGTH = ApiCall__c.Response__c.getDescribe().getLength();
+	public static final Integer RESPONSE_LENGTH = UTIL_SObjectDescribe.getCachedFieldDescribe(ApiCall__c.Response__c).getLength();
 
 	/**
 	 * @description The maximum number of characters that can be stored in the URL__c field.
 	 */
-	public static final Integer URL_LENGTH = ApiCall__c.URL__c.getDescribe().getLength();
+	public static final Integer URL_LENGTH = UTIL_SObjectDescribe.getCachedFieldDescribe(ApiCall__c.URL__c).getLength();
 
 	/**
 	 * @description Status indicating the API call was aborted. Mirrors the `Aborted` value of the
@@ -117,6 +117,22 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	private static final String ERROR_NO_ITEMS_FOUND = 'No API calls found for service';
 
 	/**
+	 * @description The most calls findByServiceAndIdempotencyKey returns for one key. Every inbound request with a key
+	 * makes that read, so it stays small: each call read can hold a response as long as the Response field. A caller that
+	 * sends the same key more often than this has its oldest calls left out of the read.
+	 */
+	@TestVisible
+	private static final Integer MAXIMUM_CALLS_PER_IDEMPOTENCY_KEY = 20;
+
+	/**
+	 * @description The path, from a call, to the user who sent the call it tries again: the PreviousAttempt__c lookup
+	 * followed to that call's CreatedById. It is built from the describe of the fields, so it carries the package
+	 * namespace when there is one.
+	 */
+	private static final String PREVIOUS_ATTEMPT_SENDER_FIELD = UTIL_SObjectDescribe.getCachedFieldDescribe(ApiCall__c.PreviousAttempt__c).getRelationshipName()
+			+ UTIL_String.DOT + UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.CreatedById);
+
+	/**
 	 * @description The statuses that mean a call is in progress or will be sent: Batched, Processing, Queued, Retry and
 	 * Retrying. A new status with that meaning is added here in the same change. A list, because the query condition
 	 * that matches one of several values takes a list.
@@ -162,12 +178,14 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 				ApiCall__c.IdempotencyKey__c,
 				ApiCall__c.IdempotencyKeyBodyHash__c,
 				ApiCall__c.IsIdempotencyHit__c,
+				ApiCall__c.IsPermanentFailure__c,
 				ApiCall__c.LoggerContext__c,
 				ApiCall__c.ManualDeadLetter__c,
 				ApiCall__c.MaxRetries__c,
 				ApiCall__c.Name,
 				ApiCall__c.NextRetry__c,
 				ApiCall__c.ParentSpanId__c,
+				ApiCall__c.PreviousAttempt__c,
 				ApiCall__c.RequestParameters__c,
 				ApiCall__c.Request__c,
 				ApiCall__c.Response__c,
@@ -184,12 +202,12 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	}
 
 	/**
-	 * @description Framework-owned sObject selector — always runs in `AccessLevel.SYSTEM_MODE`
+	 * @description Framework-owned sObject selector: always runs in `AccessLevel.SYSTEM_MODE`
 	 * regardless of the `UserModeQueries_Enabled` feature flag. Running users typically have no
 	 * CRUD on framework-owned records (the framework owns their lifecycle), so USER_MODE reads
 	 * would return empty and observability would silently break.
 	 *
-	 * @return `true` — this selector requires SYSTEM_MODE.
+	 * @return `true`, because this selector requires SYSTEM_MODE.
 	 */
 	public override Boolean systemModeRequired()
 	{
@@ -235,20 +253,53 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	}
 
 	/**
-	 * @description Finds a successfully completed ApiCall__c record by its idempotency key.
-	 * Only returns records with Completed status — failed or aborted calls are ignored
-	 * so that clients can retry after a failure.
+	 * @description Finds the calls one user sent to one service with the given Idempotency-Key, whatever their status,
+	 * newest first. An inbound request with a key reads them once, before it runs, to decide three things: whether a
+	 * completed call already holds the answer, whether this request is a retry of an earlier call that did not complete,
+	 * and which earlier calls may hold an open issue. A key belongs to the user who sent it: a call another user sent with
+	 * the same key is a different request, so it is never read here. A call that was itself answered from an earlier call
+	 * (IsIdempotencyHit__c) is left out, because it ran nothing.
 	 *
-	 * @param idempotencyKey The idempotency key to search for
+	 * A call counts as the user's call in two ways:
 	 *
-	 * @return The matching completed ApiCall__c record, or null if not found or not completed
+	 * 1. The user created it (CreatedById).
+	 * 2. It tries again a call the user created (its PreviousAttempt__c). This is how the call of an issue's request run
+	 *    again is found. A person who runs the request again creates that call, but the request still belongs to the user
+	 *    who sent it first. So when that user sends the request again after it was run again with success, the user gets
+	 *    the answer that run stored, and the request does not run twice. A request links only to a call its own sender
+	 *    created (see API_Inbound.checkIdempotency), so a call found this way that the user did not create is a run of
+	 *    one of the user's requests by another person: the framework sets the link in no other way.
+	 *
+	 * The read returns at most MAXIMUM_CALLS_PER_IDEMPOTENCY_KEY calls, and only the fields those decisions need: the
+	 * user who created the call, the status, the hash of the body and the response. It ignores record sharing on purpose,
+	 * for this read only (the inbound request's check of its key, API_Inbound). ApiCall__c is Private, and a call of the
+	 * user can belong to another owner. So the answer depends only on who sent the calls, never on which calls the user
+	 * can see.
+	 *
+	 * @param serviceName The service the calls belong to.
+	 * @param idempotencyKey The Idempotency-Key the calls carried.
+	 * @param senderId The user who sent the calls: the running user of the inbound request, saved on each call as the
+	 * user who created it (CreatedById). While an issue's request is run again, it is the user who sent the call the
+	 * request was read from.
+	 *
+	 * @return The calls of the user for the service with the key, newest first.
 	 */
-	public ApiCall__c findCompletedByIdempotencyKey(String idempotencyKey)
+	public List<ApiCall__c> findByServiceAndIdempotencyKey(String serviceName, String idempotencyKey, Id senderId)
 	{
-		return (ApiCall__c)query
+		QRY_Condition.OrCondition sentByTheSender = new QRY_Condition.OrCondition();
+		sentByTheSender.add(new QRY_Condition.FieldCondition(ApiCall__c.CreatedById, QRY_Condition.Operator.EQUALS, senderId));
+		sentByTheSender.add(new QRY_Condition.FieldCondition(PREVIOUS_ATTEMPT_SENDER_FIELD, QRY_Condition.Operator.EQUALS, senderId));
+		return query
+				.bypassSharingInternal()
+				.onlyFields(new List<SObjectField> {ApiCall__c.CreatedById, ApiCall__c.IdempotencyKeyBodyHash__c, ApiCall__c.Response__c, ApiCall__c.Status__c})
+				.condition(ApiCall__c.ServiceName__c).equals(serviceName)
 				.condition(ApiCall__c.IdempotencyKey__c).equals(idempotencyKey)
-				.andCondition(ApiCall__c.Status__c).equals(STATUS_COMPLETED)
-				.getFirst();
+				.addCondition(sentByTheSender)
+				.condition(ApiCall__c.IsIdempotencyHit__c).equals(false)
+				.orderBy(ApiCall__c.CreatedDate).descending()
+				.orderBy(ApiCall__c.Id).descending()
+				.withLimit(MAXIMUM_CALLS_PER_IDEMPOTENCY_KEY)
+				.toList();
 	}
 
 	/**
@@ -312,6 +363,93 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 				.bypassSharingInternal()
 				.condition(ApiCall__c.TriggeringRecordId__c).isIn(new List<Id>(triggeringRecordIds))
 				.condition(ApiCall__c.Status__c).isIn(OPEN_STATUSES)
+				.withLimit(UTIL_Limits.soqlQueryRows().maximum())
+				.toList();
+	}
+
+	/**
+	 * @description Finds the calls with the given ids and reads only what each call kept of its request: the address
+	 * with its query string, the HTTP method, the body, the parameters, the Idempotency-Key, the hash of the body as it
+	 * was received, whether the call failed permanently, and the user who sent it (CreatedById), because the request
+	 * run again checks its key as that user. It reads no other field: the response alone can hold
+	 * 131,072 characters, and a check of many issues would hold all of them in memory. Running an inbound issue's request
+	 * again reads the request from the issue's call through this method. Bypasses sharing rules for this one read on
+	 * purpose: ApiCall__c is Private, and a user who may run issues again sees every issue, so the read must see the call
+	 * of an issue another user's request wrote. Nothing else reads through this method.
+	 *
+	 * @param callIds The ids of the calls to read
+	 *
+	 * @return The calls found, with their request fields only
+	 */
+	public List<ApiCall__c> findRequestById(Set<Id> callIds)
+	{
+		return query
+				.bypassSharingInternal()
+				.onlyFields(new List<SObjectField>
+				{
+						ApiCall__c.CreatedById,
+						ApiCall__c.HttpMethod__c,
+						ApiCall__c.IdempotencyKeyBodyHash__c,
+						ApiCall__c.IdempotencyKey__c,
+						ApiCall__c.IsPermanentFailure__c,
+						ApiCall__c.RequestParameters__c,
+						ApiCall__c.Request__c,
+						ApiCall__c.URL__c
+				})
+				.condition(ApiCall__c.Id).isIn(new List<Id>(callIds))
+				.withLimit(UTIL_Limits.soqlQueryRows().maximum())
+				.toList();
+	}
+
+	/**
+	 * @description Finds the calls with the given ids and reads only the small fields of the request each call kept: the
+	 * address with its query string, the Idempotency-Key, the hash of the body as it was received, and whether the call
+	 * failed permanently. It does not read the body or the parameters, which can each hold 131,072 characters. Retry
+	 * Selected and the bulk retry read the calls of every selected inbound issue through this method when they schedule
+	 * the job, so a large selection does not fill the memory a request may use; the job reads each request whole just
+	 * before it runs it (see findRequestById). Bypasses sharing rules for this one read on purpose: ApiCall__c is Private,
+	 * and a user who may run issues again sees every issue, so the read must see the call of an issue another user's
+	 * request wrote. Nothing else reads through this method.
+	 *
+	 * @param callIds The ids of the calls to read
+	 *
+	 * @return The calls found, with those fields only
+	 */
+	public List<ApiCall__c> findRequestWithoutBodyById(Set<Id> callIds)
+	{
+		return query
+				.bypassSharingInternal()
+				.onlyFields(new List<SObjectField>
+				{
+						ApiCall__c.IdempotencyKeyBodyHash__c,
+						ApiCall__c.IdempotencyKey__c,
+						ApiCall__c.IsPermanentFailure__c,
+						ApiCall__c.URL__c
+				})
+				.condition(ApiCall__c.Id).isIn(new List<Id>(callIds))
+				.withLimit(UTIL_Limits.soqlQueryRows().maximum())
+				.toList();
+	}
+
+	/**
+	 * @description Finds the calls with the given ids and reads only whether each one failed in a way that
+	 * running it again cannot fix (IsPermanentFailure__c). Sending an outbound issue's call again checks this first,
+	 * and needs nothing else of the call, so the large request and response fields are not read. Bypasses sharing rules
+	 * for this one read on purpose: ApiCall__c is Private, and a user may hold the Retry API Issue permission without
+	 * seeing every call. Without the bypass, a call another user wrote would be missing from the answer, so it would
+	 * look as if it had not failed permanently, and its request would be sent again. Nothing else reads through this
+	 * method.
+	 *
+	 * @param callIds The ids of the calls to read
+	 *
+	 * @return The calls found, each with its id and its permanent failure field only
+	 */
+	public List<ApiCall__c> findPermanentFailureById(Set<Id> callIds)
+	{
+		return query
+				.bypassSharingInternal()
+				.onlyFields(new List<SObjectField> {ApiCall__c.IsPermanentFailure__c})
+				.condition(ApiCall__c.Id).isIn(new List<Id>(callIds))
 				.withLimit(UTIL_Limits.soqlQueryRows().maximum())
 				.toList();
 	}

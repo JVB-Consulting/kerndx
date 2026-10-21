@@ -243,6 +243,7 @@ catch(Exception scenarioError)
 // and cleans up after asserting. If section-56b is skipped, manual cleanup is needed:
 //   delete [SELECT Id FROM kern__Foobar__c WHERE CreatedDate = TODAY AND CreatedById = :UserInfo.getUserId() LIMIT 9000];
 //   delete [SELECT Id FROM kern__AsyncChainExecution__c WHERE CreatedDate = TODAY AND CreatedById = :UserInfo.getUserId() LIMIT 9000];
+//   delete [SELECT Id FROM kern__ApiIssue__c WHERE kern__ApiCall__r.CreatedDate = TODAY AND kern__ApiCall__r.CreatedById = :UserInfo.getUserId() LIMIT 9000];
 //   delete [SELECT Id FROM kern__ApiCall__c WHERE CreatedDate = TODAY AND CreatedById = :UserInfo.getUserId() LIMIT 9000];
 //   kern.API_MockFactory.clearMocks();
 //   kern.TRG_Base.clearAllBypasses();

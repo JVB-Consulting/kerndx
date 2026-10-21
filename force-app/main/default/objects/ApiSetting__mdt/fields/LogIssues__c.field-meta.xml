@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>LogIssues__c</fullName>
     <defaultValue>false</defaultValue>
-    <description>When enabled, failed API calls create an ApiIssue__c record for troubleshooting and triage.</description>
+    <description>When ticked, a failed call of this service leaves an API issue that a person can review, run again or dismiss. Outbound: a call your org sent that failed or was refused. Inbound: a request your org received that failed in the service&apos;s code, was refused by its checks, or whose changes could not be saved. The inbound issue links to its call, which keeps the request. A request refused because it reused an Idempotency-Key with another body writes no issue, and neither does a failed run of an issue&apos;s request again.</description>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <inlineHelpText>Create issue records when API calls fail. Required for Resolve/Retry Issues.</inlineHelpText>
+    <inlineHelpText>Tick to record each failed call of this service as an API issue. Outbound: a call your org sent that failed. Inbound: a request your org received that failed or was refused; the issue links to the call, which keeps the request. Resolve Issues and Retry Issues act on these issues.</inlineHelpText>
     <label>Log Issues</label>
     <type>Checkbox</type>
 </CustomField>

@@ -19,6 +19,13 @@
  * permission set grants, and your org can widen it to more users. A purge of either, run by anyone else, deletes
  * nothing, starts no job and logs one warning that says so. Schedule such a purge as a user the flag is on for.
  *
+ * A purge of API calls leaves out every call that still has an open API issue, because such a call is never deleted,
+ * not even by an administrator. The purge reads as the user who runs it, so it leaves out such a call only when that user
+ * can read every open issue. The Kern Administrator permission set gives this access. When the user cannot see the open
+ * issue of a call, the delete guard refuses that call, one call at a time, and logs each refusal. A user who cannot read
+ * API issues is told so in one warning, and the purge of API calls does not start. A call that is left out is purged by
+ * a later run, once its issue is resolved or dismissed.
+ *
  * @see PROC_ExecuteDML
  * @see UTIL_FeatureFlag
  * @see UTIL_PurgeRecords_TEST
@@ -285,6 +292,11 @@ global inherited sharing class UTIL_PurgeRecords
 	 * this logs one warning with the Delete API Records message, at the entry that was called, and the purge starts no
 	 * job.
 	 *
+	 * A purge of API calls also needs read access to API issues and to their Status and API Call fields, because its
+	 * query leaves out every call that still has an open issue, and that query runs as the user. Without this access the
+	 * query would fail. So for such a user this logs one warning that says so, in the same way, and the purge starts no
+	 * job.
+	 *
 	 * @param objectApiName The API name of the object to purge.
 	 * @param entryName The name of the purge entry that was called, logged as the location.
 	 *
@@ -294,16 +306,42 @@ global inherited sharing class UTIL_PurgeRecords
 	{
 		SObjectType objectType = UTIL_SObjectDescribe.getSObjectTypeByName(objectApiName);
 		Boolean isApiRecord = objectType == ApiCall__c.SObjectType || objectType == ApiIssue__c.SObjectType;
-		if(!isApiRecord || UTIL_FeatureFlag.isEnabled(API_Base.FLAG_BYPASS_API_RECORD_DELETE_GUARD))
+		String refusal;
+		if(isApiRecord && !UTIL_FeatureFlag.isEnabled(API_Base.FLAG_BYPASS_API_RECORD_DELETE_GUARD))
+		{
+			refusal = System.Label.DeleteApiRecords_PermissionRequired;
+		}
+		else if(objectType == ApiCall__c.SObjectType && !canReadApiIssues())
+		{
+			refusal = System.Label.DeleteApiCalls_ApiIssueReadAccessRequired;
+		}
+		if(refusal == null)
 		{
 			return true;
 		}
-		LOG_Builder.build().warn(System.Label.DeleteApiRecords_PermissionRequired).emitAt(UTIL_PurgeRecords.class.getName() + '/' + entryName);
+		LOG_Builder.build().warn(refusal).emitAt(UTIL_PurgeRecords.class.getName() + '/' + entryName);
 		return false;
 	}
 
 	/**
-	 * @description Builds a queryable for the purge operation.
+	 * @description Checks whether the running user can read API issues and their Status and API Call fields. The purge of
+	 * API calls needs all three to leave out the calls that still have an open issue.
+	 *
+	 * @return True when the user can read API issues and both fields, false otherwise.
+	 */
+	private static Boolean canReadApiIssues()
+	{
+		return UTIL_SObjectDescribe.isObjectAccessible(ApiIssue__c.SObjectType)
+				&& UTIL_SObjectDescribe.getCachedFieldDescribe(ApiIssue__c.Status__c).isAccessible()
+				&& UTIL_SObjectDescribe.getCachedFieldDescribe(ApiIssue__c.ApiCall__c).isAccessible();
+	}
+
+	/**
+	 * @description Builds a queryable for the purge operation. For API calls it leaves out every call that still has an
+	 * open issue: the delete guard (TRG_GuardApiCallWithOpenIssue) would refuse each of them, so the purge does not try.
+	 * The query reads as the user who runs the purge, so it leaves out only the open issues that user can read. When the
+	 * user cannot see the open issue of a call, the call stays in the query, and the delete guard refuses it and logs the
+	 * refusal. Such a call is purged by a later run, once its issue is resolved or dismissed.
 	 *
 	 * @param objectApiName The API name of the SObject to query.
 	 * @param searchConditions Optional conditions to filter records.
@@ -312,12 +350,21 @@ global inherited sharing class UTIL_PurgeRecords
 	 */
 	private static IF_Queryable buildPurgeQuery(String objectApiName, QRY_Condition.Evaluable searchConditions)
 	{
-		QRY_Builder.Builder query = QRY_Builder.selectFrom(UTIL_SObjectDescribe.getSObjectTypeByName(objectApiName))
+		SObjectType objectType = UTIL_SObjectDescribe.getSObjectTypeByName(objectApiName);
+		QRY_Builder.Builder query = QRY_Builder.selectFrom(objectType)
 				.fields(new List<String>(SEARCH_FIELDS));
 
 		if(searchConditions != null)
 		{
 			query.addCondition(searchConditions);
+		}
+
+		if(objectType == ApiCall__c.SObjectType)
+		{
+			QRY_Builder.Builder callsWithOpenIssue = QRY_Builder.selectFrom(ApiIssue__c.SObjectType)
+					.fields(new List<SObjectField> {ApiIssue__c.ApiCall__c})
+					.condition(ApiIssue__c.Status__c).equals(SEL_ApiIssue.STATUS_OPEN);
+			query.condition(ApiCall__c.Id).notIn(callsWithOpenIssue);
 		}
 
 		return query;
