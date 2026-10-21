@@ -25,8 +25,9 @@
 public inherited sharing class CTRL_MaskingAdvisor
 {
 	/**
-	 * @description The kind of dead-configuration problem found on an active masking target. A closed
-	 * set — each value maps to a user-facing Custom Label that explains the problem to an administrator.
+	 * @description The kind of configuration problem the Advisor reports: an active masking target that
+	 * masks nothing, or a packaged card number rule set up in a way that can make saves fail. A closed
+	 * set. Each value maps to a user-facing Custom Label that explains the problem to an administrator.
 	 */
 	public enum ConfigurationIssue
 	{
@@ -37,7 +38,17 @@ public inherited sharing class CTRL_MaskingAdvisor
 		/**
 		 * @description An active target references a rule that does not exist (or is null) — it masks nothing.
 		 */
-		MISSING_RULE
+		MISSING_RULE,
+		/**
+		 * @description The older card number rule (MaskCreditCard) is on and still runs, because the newer card
+		 * rule does not replace it. On long text with many digits it can use up the time a save is allowed.
+		 */
+		OLDER_CARD_RULE_WOULD_RUN,
+		/**
+		 * @description A card number rule that runs has the failure action Block DML. If the rule fails on a
+		 * value, the save is stopped.
+		 */
+		CARD_RULE_BLOCKS_SAVES
 	}
 
 	/**
@@ -296,14 +307,17 @@ public inherited sharing class CTRL_MaskingAdvisor
 	private static final RuleMatch NO_MATCH = new RuleMatch(null, MatchProvenance.NONE);
 
 	/**
-	 * @description Admin-facing message templates keyed by issue kind. Each template carries a single
-	 * `{0}` placeholder for the offending target's developer name, substituted at request time.
+	 * @description Admin-facing message templates keyed by issue kind. A target template carries one
+	 * `{0}` placeholder for the target's developer name. The older card rule template carries `{0}` for
+	 * the older rule and `{1}` for the newer rule; the Block DML template carries `{0}` for the rule.
 	 */
 	@TestVisible
 	private static final Map<ConfigurationIssue, String> MESSAGE_TEMPLATE_BY_ISSUE = new Map<ConfigurationIssue, String>
 	{
 			ConfigurationIssue.INACTIVE_RULE => System.Label.DataMaskingAdvisor_DeadConfiguration_InactiveRule,
-			ConfigurationIssue.MISSING_RULE => System.Label.DataMaskingAdvisor_DeadConfiguration_MissingRule
+			ConfigurationIssue.MISSING_RULE => System.Label.DataMaskingAdvisor_DeadConfiguration_MissingRule,
+			ConfigurationIssue.OLDER_CARD_RULE_WOULD_RUN => System.Label.MaskingAdvisorOlderCardRuleWouldRun,
+			ConfigurationIssue.CARD_RULE_BLOCKS_SAVES => System.Label.MaskingAdvisorCardRuleBlocksSaves
 	};
 
 	/**
@@ -350,12 +364,13 @@ public inherited sharing class CTRL_MaskingAdvisor
 	private static final String TYPE_STEM_MASKING_RULE = SEL_MaskingRule.OBJECT_NAME.removeEnd(CUSTOM_METADATA_SUFFIX);
 
 	/**
-	 * @description Returns every dead-configuration finding across the org's masking setup. Sources all
-	 * masking targets and rules — active and inactive — through SEL_MaskingTarget so the inactive-rule
-	 * versus missing-rule distinction is preserved, then flags each active target whose rule is inactive
-	 * or absent.
+	 * @description Returns every finding the Advisor has about the org's masking setup: each dead configuration
+	 * (an active masking target that masks nothing) and each card rule finding. It reads all masking targets and
+	 * rules, active and inactive, through SEL_MaskingTarget, so that a rule that is off can be told apart from a
+	 * rule that is missing. It then flags each active target whose rule is off or missing. It also checks the two
+	 * packaged card number rules and adds at most one finding for each (see analyzeCardRules).
 	 *
-	 * @return One finding per dead active target (empty when the configuration is healthy)
+	 * @return One finding per dead active target, then the card rule findings (empty when the configuration is healthy)
 	 *
 	 * @example
 	 * ```apex
@@ -366,7 +381,10 @@ public inherited sharing class CTRL_MaskingAdvisor
 	public static List<DTO_DeadConfiguration> getDeadConfigurations()
 	{
 		SEL_MaskingTarget selector = new SEL_MaskingTarget();
-		return analyzeDeadConfiguration(selector.getAllTargets(), selector.getAllRulesById());
+		Map<Id, MaskingRule__mdt> rulesById = selector.getAllRulesById();
+		List<DTO_DeadConfiguration> findings = analyzeDeadConfiguration(selector.getAllTargets(), rulesById);
+		findings.addAll(analyzeCardRules(rulesById.values()));
+		return findings;
 	}
 
 	/**
@@ -511,6 +529,7 @@ public inherited sharing class CTRL_MaskingAdvisor
 		Map<String, String> successorLabelByReplacedName = resolveSuccessorLabels(allRules);
 		List<MaskingRule__mdt> recommendationCandidates = sortedRecommendationCandidates(rulesWithoutSuperseded(allRules));
 		ExistingMasking existing = resolveExistingTargets(sObjectType, successorLabelByReplacedName);
+		analysis.classificationAvailable = analysis.classificationAvailable && existing.fieldNamesFound;
 		FieldAnalysisContext context = new FieldAnalysisContext
 				(
 						sObjectType,
@@ -898,8 +917,15 @@ public inherited sharing class CTRL_MaskingAdvisor
 	 * read through `findAllForSObjectType`. Returns every field's applied targets keyed by lowercased field
 	 * API name plus the object-wide applied targets. The advisor renders the applied targets as checkbox
 	 * chips and re-emits them (flipped) in a disable / re-enable diff, so it must see the inactive ones too.
-	 * A target's field reference is a `FieldDefinition` durable Id in `Object.Field` form, so the field name
-	 * is taken after the dot.
+	 * A deployed target stores the field's durable Id, not its name, so the field's `Object.Field` name comes
+	 * from `SEL_MaskingTarget.getQualifiedFieldName`, and the stored value is used when the selector has no
+	 * name for it. The field name is taken after the dot.
+	 *
+	 * Finding the field names reads field details (`FieldDefinition`). When that read fails, the targets are
+	 * read again through `findAllForSObjectTypeWithoutFieldNames` and each one keeps its stored value. A
+	 * standard field stores `Object.Field`, so its target still shows on its field. A custom field stores a
+	 * durable Id, which matches no field row, so its target shows on no field. The result then says that the
+	 * field names were not found, and `describeFields` reports that classification is not available.
 	 *
 	 * @param sObjectType The object whose targets to resolve.
 	 * @param successorLabelByReplacedName Successor label keyed by qualified replaced-rule name.
@@ -910,8 +936,20 @@ public inherited sharing class CTRL_MaskingAdvisor
 	{
 		Map<String, List<DTO_AppliedRule>> appliedByFieldLowerName = new Map<String, List<DTO_AppliedRule>>();
 		List<DTO_AppliedRule> objectWideRules = new List<DTO_AppliedRule>();
+		Boolean fieldNamesFound = true;
+		List<MaskingTarget__mdt> targets;
 
-		for(MaskingTarget__mdt target : new SEL_MaskingTarget().findAllForSObjectType(sObjectType))
+		try
+		{
+			targets = new SEL_MaskingTarget().findAllForSObjectType(sObjectType);
+		}
+		catch(QueryException error)
+		{
+			fieldNamesFound = false;
+			targets = new SEL_MaskingTarget().findAllForSObjectTypeWithoutFieldNames(sObjectType);
+		}
+
+		for(MaskingTarget__mdt target : targets)
 		{
 			DTO_AppliedRule applied = toAppliedRule(target, successorLabelByReplacedName);
 
@@ -921,7 +959,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 			}
 			else
 			{
-				String fieldNameLowerCase = target.Field__c.substringAfter(UTIL_String.DOT).toLowerCase();
+				String qualifiedFieldName = SEL_MaskingTarget.getQualifiedFieldName(target) ?? target.Field__c;
+				String fieldNameLowerCase = qualifiedFieldName.substringAfter(UTIL_String.DOT).toLowerCase();
 				if(!appliedByFieldLowerName.containsKey(fieldNameLowerCase))
 				{
 					appliedByFieldLowerName.put(fieldNameLowerCase, new List<DTO_AppliedRule>());
@@ -930,7 +969,7 @@ public inherited sharing class CTRL_MaskingAdvisor
 			}
 		}
 
-		return new ExistingMasking(appliedByFieldLowerName, objectWideRules);
+		return new ExistingMasking(appliedByFieldLowerName, objectWideRules, fieldNamesFound);
 	}
 
 	/**
@@ -2460,6 +2499,113 @@ public inherited sharing class CTRL_MaskingAdvisor
 	}
 
 	/**
+	 * @description Checks the two packaged card number rules and returns at most one finding for each.
+	 * A rule is skipped when it is off, when it belongs to another namespace (an org may add its own rule
+	 * with the same name), or when a newer rule replaces it, because then it does not run.
+	 *
+	 * The older card rule (MaskCreditCard) gets a finding whenever it runs. That happens when the newer rule
+	 * (MaskPaymentCard) is off, or when the pattern, the replacement or another setting that decides what one of
+	 * the two rules masks was changed, so the newer rule no longer replaces it. A changed failure action does not
+	 * count. Its pattern can use up the time a save is allowed on long text with many digits. When the older rule is
+	 * also on Block DML, the same finding carries the Block DML advice, so the rule never gets two findings.
+	 *
+	 * The newer card rule gets a finding only when it runs and is on Block DML: if it fails on a value, the
+	 * save is stopped.
+	 *
+	 * @param rules Every masking rule, active and inactive, as getAll() returns them
+	 *
+	 * @return The card rule findings (empty when neither card rule needs attention)
+	 */
+	private static List<DTO_DeadConfiguration> analyzeCardRules(List<MaskingRule__mdt> rules)
+	{
+		List<DTO_DeadConfiguration> findings = new List<DTO_DeadConfiguration>();
+		Set<String> supersededNames = SEL_MaskingRule.findSupersededRuleNames(rules);
+
+		for(MaskingRule__mdt rule : rules)
+		{
+			if(rule.IsActive__c != true || !isPackageOwnedRule(rule) || supersededNames.contains(SEL_MaskingRule.resolveQualifiedDeveloperName(rule)))
+			{
+				continue;
+			}
+			if(rule.DeveloperName == SEL_MaskingRule.RULE_MASK_CREDIT_CARD)
+			{
+				findings.add(buildOlderCardRuleFinding(rule));
+			}
+			else if(rule.DeveloperName == SEL_MaskingRule.RULE_MASK_PAYMENT_CARD && isBlockingSaves(rule))
+			{
+				findings.add(buildRuleFinding(rule.DeveloperName, ConfigurationIssue.CARD_RULE_BLOCKS_SAVES, formatBlocksSavesAdvice(rule)));
+			}
+		}
+
+		return findings;
+	}
+
+	/**
+	 * @description Builds the finding for an older card rule that runs. The message names the risk and the
+	 * steps. When the rule is on Block DML, the Block DML advice for the same rule follows in the same message.
+	 *
+	 * @param rule The older card rule (MaskCreditCard), active and not replaced
+	 *
+	 * @return The finding
+	 */
+	private static DTO_DeadConfiguration buildOlderCardRuleFinding(MaskingRule__mdt rule)
+	{
+		String message = String.format(MESSAGE_TEMPLATE_BY_ISSUE.get(ConfigurationIssue.OLDER_CARD_RULE_WOULD_RUN),
+				new List<Object> {rule.DeveloperName, SEL_MaskingRule.RULE_MASK_PAYMENT_CARD});
+
+		if(isBlockingSaves(rule))
+		{
+			message += UTIL_String.SPACE + formatBlocksSavesAdvice(rule);
+		}
+
+		return buildRuleFinding(rule.DeveloperName, ConfigurationIssue.OLDER_CARD_RULE_WOULD_RUN, message);
+	}
+
+	/**
+	 * @description Builds the Block DML advice for one rule from its Custom Label: what Block DML means for
+	 * an API call, and the step to switch the failure action to Write Failure Marker.
+	 *
+	 * @param rule The rule the advice names
+	 *
+	 * @return The advice text
+	 */
+	private static String formatBlocksSavesAdvice(MaskingRule__mdt rule)
+	{
+		return String.format(MESSAGE_TEMPLATE_BY_ISSUE.get(ConfigurationIssue.CARD_RULE_BLOCKS_SAVES), new List<Object> {rule.DeveloperName});
+	}
+
+	/**
+	 * @description Checks whether a rule stops the save when it fails on a value (the failure action Block DML).
+	 *
+	 * @param rule The rule to check
+	 *
+	 * @return True when the rule's failure action is Block DML
+	 */
+	private static Boolean isBlockingSaves(MaskingRule__mdt rule)
+	{
+		return rule.FailureAction__c == SEL_MaskingRule.FAILURE_BLOCK_DML;
+	}
+
+	/**
+	 * @description Builds a finding about a rule. The target name stays blank, so the component can tell a
+	 * rule finding from a target finding.
+	 *
+	 * @param ruleDeveloperName Developer name of the rule the finding is about
+	 * @param issue The kind of problem found
+	 * @param message The admin-facing message, already filled in
+	 *
+	 * @return The populated finding
+	 */
+	private static DTO_DeadConfiguration buildRuleFinding(String ruleDeveloperName, ConfigurationIssue issue, String message)
+	{
+		DTO_DeadConfiguration finding = new DTO_DeadConfiguration();
+		finding.ruleDeveloperName = ruleDeveloperName;
+		finding.issueCode = issue.name();
+		finding.message = message;
+		return finding;
+	}
+
+	/**
 	 * @description Reduces the org's targets to the four posture counts in a single pass. Active targets are
 	 * partitioned into field-level (a non-blank `Field__c`) and object-wide (a blank `Field__c`); the distinct
 	 * `SObjectType__c` durable Ids among active targets give the object count; inactive targets are ignored. The
@@ -2638,15 +2784,24 @@ public inherited sharing class CTRL_MaskingAdvisor
 	}
 
 	/**
-	 * @description One dead-configuration finding for an active masking target that silently masks nothing.
+	 * @description One configuration finding: an active masking target that silently masks nothing, or a
+	 * packaged card number rule set up in a way that can make saves fail.
 	 */
 	public class DTO_DeadConfiguration
 	{
 		/**
-		 * @description Developer name of the active masking target that masks nothing.
+		 * @description Developer name of the active masking target that masks nothing. Blank when the finding is
+		 * about a rule (see ruleDeveloperName).
 		 */
 		@AuraEnabled
 		public String targetDeveloperName;
+
+		/**
+		 * @description Developer name of the masking rule the finding is about. Set only for a card rule finding;
+		 * blank when the finding is about a target.
+		 */
+		@AuraEnabled
+		public String ruleDeveloperName;
 
 		/**
 		 * @description The issue kind as the `ConfigurationIssue` enum name (e.g. `INACTIVE_RULE`), so the
@@ -2656,7 +2811,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 		public String issueCode;
 
 		/**
-		 * @description Admin-facing message explaining the problem and how to fix it, naming the target.
+		 * @description Admin-facing message that explains the problem and how to fix it. It names the target, or the
+		 * rule when the finding is about a card rule.
 		 */
 		@AuraEnabled
 		public String message;
@@ -3587,15 +3743,23 @@ public inherited sharing class CTRL_MaskingAdvisor
 		private final List<DTO_AppliedRule> objectWideRules;
 
 		/**
+		 * @description True when the names of the fields the targets name could be looked up. False when field
+		 * details could not be read, so each target keeps its stored value.
+		 */
+		private final Boolean fieldNamesFound;
+
+		/**
 		 * @description Builds an existing-masking bundle.
 		 *
 		 * @param appliedByFieldLowerName Applied targets keyed by lowercased field API name.
 		 * @param objectWideRules The object-wide applied targets.
+		 * @param fieldNamesFound Whether the names of the fields the targets name could be looked up.
 		 */
-		private ExistingMasking(Map<String, List<DTO_AppliedRule>> appliedByFieldLowerName, List<DTO_AppliedRule> objectWideRules)
+		private ExistingMasking(Map<String, List<DTO_AppliedRule>> appliedByFieldLowerName, List<DTO_AppliedRule> objectWideRules, Boolean fieldNamesFound)
 		{
 			this.appliedByFieldLowerName = appliedByFieldLowerName;
 			this.objectWideRules = objectWideRules;
+			this.fieldNamesFound = fieldNamesFound;
 		}
 
 		/**

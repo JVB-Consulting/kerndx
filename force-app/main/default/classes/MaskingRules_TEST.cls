@@ -15,7 +15,7 @@
  * @date April 2026, October 2026
  */
 @IsTest(seeAllData=false isParallel=true)
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 private class MaskingRules_TEST
 {
 	/**
@@ -30,6 +30,79 @@ private class MaskingRules_TEST
 	 * @description Replacement token both shipped card rules apply.
 	 */
 	private static final String CREDIT_CARD_REPLACEMENT = '[CARD_REDACTED]';
+
+	/**
+	 * @description A replacement text an admin might put on the older card rule in place of the shipped one. A changed
+	 * replacement must stop the newer rule from replacing the older one.
+	 */
+	private static final String REPLACEMENT_CHANGED_BY_AN_ADMIN = '[CARD_HIDDEN_BY_ADMIN]';
+
+	/**
+	 * @description A copy of the card pattern the older card rule, MaskCreditCard, has shipped since version 1.0. It
+	 * lists the number ranges of each card brand. These values never change, because the newer rule stores a
+	 * fingerprint of them: a short code worked out from the values, used to tell whether an admin changed the rule.
+	 */
+	private static final String OLDER_CARD_RULE_PATTERN = '\\b(?:4(?:[ -]?\\d){12,15}|(?:5[1-5]|2(?:2[2-9]|[3-6]\\d|7[01]|720))(?:[ -]?\\d){14}'
+			+ '|3[47](?:[ -]?\\d){13}|(?:6011|65\\d{2}|64[4-9]\\d)(?:[ -]?\\d){12}|3(?:0[0-5]|[68]\\d)(?:[ -]?\\d){11}'
+			+ '|(?:2131|1800|35\\d{3})(?:[ -]?\\d){11}|(?:62|88)(?:[ -]?\\d){13,17})\\b';
+
+	/**
+	 * @description The shortest value, in characters, the older card rule looks at, as shipped since version 1.0.
+	 */
+	private static final Decimal OLDER_CARD_RULE_MINIMUM_INPUT_LENGTH = 15;
+
+	/**
+	 * @description The shortest value, in characters, the newer card rule looks at, as this version ships it.
+	 */
+	private static final Decimal NEWER_CARD_RULE_MINIMUM_INPUT_LENGTH = 13;
+
+	/**
+	 * @description The field types both shipped card rules look at.
+	 */
+	private static final String CARD_RULE_FIELD_TYPES = 'STRING;TEXTAREA;ENCRYPTEDSTRING';
+
+	/**
+	 * @description The number of characters a value needs before the shipped MaskJwt rule looks at it.
+	 */
+	private static final Integer JWT_MINIMUM_INPUT_LENGTH = 20;
+
+	/**
+	 * @description The names of the four shipped targets that point at the older card rule, MaskCreditCard: one each
+	 * for API calls, API issues, chain runs and log events.
+	 */
+	private static final List<String> OLDER_CARD_RULE_TARGET_NAMES = new List<String> {'ApiCall_All_Card', 'Issue_All_Card', 'Chain_All_Card', 'Event_All_Card'};
+
+	/**
+	 * @description A copy of the description this version ships on the older card rule, MaskCreditCard. An upgrade never
+	 * changes a description the org already has, so an org carries this text only after a fresh install of this version.
+	 */
+	private static final String CREDIT_CARD_DESCRIPTION_OF_THIS_VERSION = 'Older card rule, replaced by Mask Payment Card Numbers, which covers the same '
+			+ 'cards. Ships off: on a long text full of digits, its pattern can use so much processing time that the save stops. If masking fails, the '
+			+ 'value becomes [MASKING_FAILURE].';
+
+	/**
+	 * @description A copy of the description this version ships on the newer card rule, MaskPaymentCard. An upgrade never
+	 * changes a description the org already has, so an org carries this text only after a fresh install of this version.
+	 */
+	private static final String PAYMENT_CARD_DESCRIPTION_OF_THIS_VERSION = 'Hides 13 to 19 digit numbers that pass the Luhn (mod-10) card checksum, '
+			+ 'for all major card brands, with spaces or hyphens allowed. If masking fails, the value is replaced with [MASKING_FAILURE] and the save '
+			+ 'goes on. Review with PCI before disabling.';
+
+	/**
+	 * @description The description an earlier version shipped on the older card rule. An org upgraded from that version
+	 * still carries it.
+	 */
+	private static final String CREDIT_CARD_DESCRIPTION_OF_AN_EARLIER_VERSION = 'Redacts credit card numbers matching ISO/IEC 7812 issuer prefixes '
+			+ '(Visa, MC, Amex, Discover, Diners, JCB, UnionPay) that additionally pass the Luhn mod-10 checksum. MinInputLength 15, Block DML. Review '
+			+ 'with PCI before deactivating.';
+
+	/**
+	 * @description The description an earlier version shipped on the newer card rule. An org upgraded from that version
+	 * still carries it.
+	 */
+	private static final String PAYMENT_CARD_DESCRIPTION_OF_AN_EARLIER_VERSION = 'Redacts 13-19 digit numbers passing the Luhn (mod-10) checksum. '
+			+ 'Covers all major card brands (Visa, Mastercard, Amex, Discover, JCB, UnionPay, Maestro); spaces or hyphens allowed. Blocks saving if '
+			+ 'masking fails. Review with PCI before disabling.';
 
 	/**
 	 * @description Tests that MaskEmail redacts the local-part and preserves the domain so the
@@ -87,15 +160,182 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that MaskCreditCard ships with FailureAction = BlockDml, so a broken setup
-	 * stops the DML instead of quietly leaking cardholder data.
+	 * @description Tests that both card rules ship with the Write Failure Marker failure action. When a card rule fails
+	 * on a value, the value is hidden behind the failure marker and the save goes on. The card value is never kept, and
+	 * a hard-to-read value cannot stop a save. An org upgraded from an earlier version keeps its own failure actions,
+	 * so there the test checks that the newer rule still replaces the older one instead.
 	 */
 	@IsTest
-	private static void shouldShipCreditCardWithBlockDmlFailureAction()
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldShipBothCardRulesOnWriteFailureMarker()
 	{
-		MaskingRule__mdt rule = findShippedRule(SEL_MaskingRule.RULE_MASK_CREDIT_CARD);
+		assertCardRuleFailureActions();
+	}
 
-		Assert.areEqual(SEL_MaskingRule.FAILURE_BLOCK_DML, rule.FailureAction__c, 'MaskCreditCard must ship with FailureAction = BlockDml');
+	/**
+	 * @description Tests that the older card rule ships off. MaskPaymentCard covers every card the older rule covers.
+	 * On a long text full of digits, the older rule's pattern can use so much processing time that the save stops, so
+	 * a fresh install runs only the newer rule. An org upgraded from an earlier version keeps the older rule on, so
+	 * there the test checks that the newer rule still replaces it instead.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldShipTheOlderCardRuleInactive()
+	{
+		assertOlderCardRuleState();
+	}
+
+	/**
+	 * @description Tests that the four shipped targets of the older card rule ship off with their rule. Each is read by
+	 * name through the target selector, and each must be found. After a fresh install each must be off. An org upgraded
+	 * from an earlier version keeps them on, so there the test checks that the newer rule still replaces the older one,
+	 * which makes the targets that are on mask nothing.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldShipTheFourTargetsOfTheOlderCardRuleInactive()
+	{
+		assertOlderCardRuleTargets();
+	}
+
+	/**
+	 * @description Tests the three card checks on rules and targets that carry the values a fresh install of this
+	 * version gets: both rules on Write Failure Marker, the older rule and its four targets off, and this version's
+	 * descriptions. The checks must take their strict path and pass.
+	 */
+	@IsTest
+	private static void shouldCheckTheShippedCardValuesAfterAFreshInstall()
+	{
+		registerCardRules(
+				buildCardRuleCopy(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD, true, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER, PAYMENT_CARD_DESCRIPTION_OF_THIS_VERSION),
+				buildCardRuleCopy(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, false, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER, CREDIT_CARD_DESCRIPTION_OF_THIS_VERSION),
+				false);
+
+		Assert.isTrue(hasCardRuleDescriptionsOfAFreshInstall(), 'Expected the card rules to read as a fresh install of this version');
+		assertCardRuleFailureActions();
+		assertOlderCardRuleState();
+		assertOlderCardRuleTargets();
+	}
+
+	/**
+	 * @description Tests the three card checks on rules and targets that carry the values an org upgraded from an earlier
+	 * version keeps: both rules on Block DML, the older rule and its four targets on, and the earlier descriptions. The
+	 * checks must take the other path and pass, because the newer rule still replaces the older one there. The copies
+	 * carry the values the package ships, not the org's own, so the test also passes in an org whose admin changed a
+	 * card rule.
+	 */
+	@IsTest
+	private static void shouldCheckThatTheNewerCardRuleStillReplacesTheOlderOneAfterAnUpgrade()
+	{
+		registerCardRules(
+				buildCardRuleCopy(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD, true, SEL_MaskingRule.FAILURE_BLOCK_DML, PAYMENT_CARD_DESCRIPTION_OF_AN_EARLIER_VERSION),
+				buildCardRuleCopy(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, true, SEL_MaskingRule.FAILURE_BLOCK_DML, CREDIT_CARD_DESCRIPTION_OF_AN_EARLIER_VERSION),
+				true);
+
+		Assert.isFalse(hasCardRuleDescriptionsOfAFreshInstall(), 'Expected the card rules to read as an upgraded org');
+		Assert.isTrue(isOlderCardRuleReplaced(), 'Expected the newer card rule to replace the older one in the upgraded org');
+		assertCardRuleFailureActions();
+		assertOlderCardRuleState();
+		assertOlderCardRuleTargets();
+	}
+
+	/**
+	 * @description Tests the card checks in an org upgraded from an earlier version whose admin changed the replacement
+	 * text of the older card rule. The changed rule no longer matches the fingerprint stored on the newer rule (a short
+	 * code worked out from the values that decide how a rule masks), so the newer rule must not replace the older one,
+	 * and the older rule keeps masking. The three card checks and the fingerprint check must expect exactly that.
+	 */
+	@IsTest
+	private static void shouldStopReplacingTheOlderCardRuleWhenAnAdminChangedItsReplacement()
+	{
+		MaskingRule__mdt older = buildCardRuleCopy(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, true, SEL_MaskingRule.FAILURE_BLOCK_DML, CREDIT_CARD_DESCRIPTION_OF_AN_EARLIER_VERSION);
+		older.Replacement__c = REPLACEMENT_CHANGED_BY_AN_ADMIN;
+		registerCardRules(
+				buildCardRuleCopy(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD, true, SEL_MaskingRule.FAILURE_BLOCK_DML, PAYMENT_CARD_DESCRIPTION_OF_AN_EARLIER_VERSION),
+				older,
+				true);
+
+		Assert.isFalse(hasCardRuleDescriptionsOfAFreshInstall(), 'Expected the card rules to read as an upgraded org');
+		Assert.isFalse(isOlderCardRuleReplaced(), 'Expected the newer card rule not to replace the older one after an admin changed its replacement');
+		assertCardRuleFailureActions();
+		assertOlderCardRuleState();
+		assertOlderCardRuleTargets();
+		assertStoredFingerprint(SEL_MaskingRule.computeFingerprint(findShippedRule(SEL_MaskingRule.RULE_MASK_CREDIT_CARD)),
+				findShippedRule(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD).ReplacesFingerprint__c, SEL_MaskingRule.RULE_MASK_CREDIT_CARD);
+	}
+
+	/**
+	 * @description Tests the card checks in an org upgraded from an earlier version whose admin switched the newer card
+	 * rule off. A rule that is off replaces nothing, so the older rule keeps masking even though both rules still carry
+	 * their shipped values. The three card checks must expect exactly that.
+	 */
+	@IsTest
+	private static void shouldKeepTheOlderCardRuleRunningWhenTheNewerOneIsOff()
+	{
+		registerCardRules(
+				buildCardRuleCopy(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD, false, SEL_MaskingRule.FAILURE_BLOCK_DML, PAYMENT_CARD_DESCRIPTION_OF_AN_EARLIER_VERSION),
+				buildCardRuleCopy(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, true, SEL_MaskingRule.FAILURE_BLOCK_DML, CREDIT_CARD_DESCRIPTION_OF_AN_EARLIER_VERSION),
+				true);
+
+		Assert.isFalse(hasCardRuleDescriptionsOfAFreshInstall(), 'Expected the card rules to read as an upgraded org');
+		Assert.isFalse(isOlderCardRuleReplaced(), 'Expected the newer card rule not to replace the older one while the newer rule is off');
+		assertCardRuleFailureActions();
+		assertOlderCardRuleState();
+		assertOlderCardRuleTargets();
+	}
+
+	/**
+	 * @description Tests that no shipped target that is on points at a shipped rule that is off. Such a target masks
+	 * nothing, and the Data Masking Advisor warns about it, so a fresh install must open the Advisor with no such
+	 * warning. The targets of the two card rules are left out. An admin may switch the newer card rule off after an
+	 * upgrade, and its targets then stay on, so the older rule's targets take over the work. The card checks above
+	 * check the targets of the older card rule.
+	 */
+	@IsTest
+	private static void shouldShipNoActiveTargetOnAnInactiveShippedRule()
+	{
+		Set<String> cardRuleNames = new Set<String> {SEL_MaskingRule.RULE_MASK_PAYMENT_CARD, SEL_MaskingRule.RULE_MASK_CREDIT_CARD};
+		Map<Id, MaskingRule__mdt> rulesById = new SEL_MaskingTarget().getAllRulesById();
+		List<String> activeTargetsOnInactiveRules = new List<String>();
+		Integer checkedTargetCount = 0;
+
+		for(MaskingTarget__mdt target : findShippedTargets())
+		{
+			MaskingRule__mdt rule = rulesById.get(target.Rule__c);
+
+			if(cardRuleNames.contains(rule?.DeveloperName))
+			{
+				continue;
+			}
+
+			checkedTargetCount++;
+
+			if(target.IsActive__c == true && rule?.IsActive__c != true)
+			{
+				activeTargetsOnInactiveRules.add(target.DeveloperName);
+			}
+		}
+
+		Assert.isTrue(checkedTargetCount > 0, 'Expected shipped targets of rules other than the card rules to be deployed for this test to run');
+		Assert.isTrue(activeTargetsOnInactiveRules.isEmpty(), 'Expected no shipped target that is on to point at a rule that is off: ' + activeTargetsOnInactiveRules);
+	}
+
+	/**
+	 * @description Tests that the fingerprints stored on MaskPaymentCard are the ones the fingerprint code gives for the
+	 * two shipped card rules, read the way the masking engine reads them. A wrong stored fingerprint reads as a rule an
+	 * admin changed, and the newer rule would then never replace the older one. After a fresh install of this version
+	 * both must match. In an upgraded org an admin may have changed a card rule, so a rule whose values no longer match
+	 * must stop the newer rule from replacing the older one instead.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldShipAFingerprintThatMatchesTheHelperForEachCardRule()
+	{
+		MaskingRule__mdt newer = findShippedRule(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD);
+		MaskingRule__mdt older = findShippedRule(SEL_MaskingRule.RULE_MASK_CREDIT_CARD);
+
+		assertStoredFingerprint(SEL_MaskingRule.computeFingerprint(newer), newer.ShippedFingerprint__c, SEL_MaskingRule.RULE_MASK_PAYMENT_CARD);
+		assertStoredFingerprint(SEL_MaskingRule.computeFingerprint(older), newer.ReplacesFingerprint__c, SEL_MaskingRule.RULE_MASK_CREDIT_CARD);
 	}
 
 	/**
@@ -105,6 +345,69 @@ private class MaskingRules_TEST
 	private static void shouldMaskJwt()
 	{
 		assertRuleMasks(SEL_MaskingRule.RULE_MASK_JWT, 'token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.abcdef here', 'token [JWT_REDACTED] here');
+	}
+
+	/**
+	 * @description Tests that no rule the package ships keeps the failure action that lets a broken
+	 * rule pass the value through unmasked. Every shipped rule must stop or mark the value instead.
+	 * It reads the installed rules the same way as the other shipped-record tests and looks at the
+	 * package's own rules only, so a rule a subscriber wrote never counts.
+	 */
+	@IsTest
+	private static void shouldShipNoRuleOnLogAndContinue()
+	{
+		String packageNamespace = UTIL_System.getManagedPackageNamespace() ?? UTIL_String.EMPTY;
+		Integer shippedRuleCount = 0;
+
+		for(MaskingRule__mdt rule : new SEL_MaskingTarget().getAllRulesById().values())
+		{
+			if((rule.NamespacePrefix ?? UTIL_String.EMPTY) == packageNamespace)
+			{
+				shippedRuleCount++;
+				Assert.areNotEqual(SEL_MaskingRule.FAILURE_LOG_AND_CONTINUE, rule.FailureAction__c, 'Expected ' + rule.DeveloperName + ' to fail closed');
+			}
+		}
+
+		Assert.isTrue(shippedRuleCount > 0, 'Expected the shipped rules to be deployed for this test to run');
+	}
+
+	/**
+	 * @description Tests that MaskJwt ships active, writes a failure marker when it fails, and skips
+	 * values shorter than 20 characters. It reads the installed record and asserts on the values the
+	 * package ships. It has no guard for a rule a subscriber changed: the test checks the record as the
+	 * package ships it, and an org that changed or upgraded the record may hold other values.
+	 */
+	@IsTest
+	private static void shouldShipJwtRuleActiveOnWriteFailureMarker()
+	{
+		MaskingRule__mdt rule = findShippedRule(SEL_MaskingRule.RULE_MASK_JWT);
+
+		Assert.isTrue(rule.IsActive__c, 'Expected MaskJwt to ship active');
+		Assert.areEqual(SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER, rule.FailureAction__c, 'Expected MaskJwt to write a failure marker');
+		Assert.areEqual(JWT_MINIMUM_INPUT_LENGTH, rule.MinInputLength__c?.intValue(), 'Expected MaskJwt to skip values shorter than the shortest real token');
+	}
+
+	/**
+	 * @description Tests that the MaskJwt pattern still matches a very short real token. The token
+	 * has 32 characters, just over the 20 character floor. This test applies the pattern only and does
+	 * not look at the floor. The record test above checks the floor value itself.
+	 */
+	@IsTest
+	private static void shouldMaskAMinimalJwtLongerThanTheLengthFloor()
+	{
+		assertRuleMasks(SEL_MaskingRule.RULE_MASK_JWT, 'eyJhbGciOiJub25lIn0.eyJhIjoxfQ.x', '[JWT_REDACTED]');
+	}
+
+	/**
+	 * @description Tests that MaskSecretKeys ships with the failure action that writes a failure
+	 * marker, so a broken rule never lets a secret key through in plain text.
+	 */
+	@IsTest
+	private static void shouldShipSecretKeysRuleOnWriteFailureMarker()
+	{
+		MaskingRule__mdt rule = findShippedRule(SEL_MaskingRule.RULE_MASK_SECRET_KEYS);
+
+		Assert.areEqual(SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER, rule.FailureAction__c, 'Expected MaskSecretKeys to write a failure marker');
 	}
 
 	/**
@@ -544,8 +847,9 @@ private class MaskingRules_TEST
 	}
 
 	/**
-	 * @description Tests that the MaskCreditCard record, now replaced by a successor, still ships its
-	 * 1.0 values on purpose. The successor (Mask Payment Card Numbers) carries the current behaviour.
+	 * @description Tests that the MaskCreditCard record, now replaced by a successor, still ships the
+	 * 1.0 values that decide how it masks, on purpose. Its on or off state and its failure action are not
+	 * among them. The successor (Mask Payment Card Numbers) carries the current behaviour.
 	 * DO NOT "modernise" the older record: the same shipped values are what make new installs and
 	 * upgraded orgs behave the same, and the supersession fingerprint depends on them. In orgs where
 	 * the record was customised (or installed from a 1.1 build before release) it may differ, and
@@ -897,6 +1201,204 @@ private class MaskingRules_TEST
 	}
 
 	/**
+	 * @description True when both card rules carry the descriptions this version ships. A fresh install of this version
+	 * writes them. An upgrade never changes a description the org already has, so an org upgraded from an earlier
+	 * version keeps the earlier text and gets false. The description is used because, like the failure action and the
+	 * on or off state, it is a value the admin owns, and this version is the first to ship it, so it tells the two kinds
+	 * of org apart. Apex cannot read when or how the package was installed, so no install fact can do this.
+	 * What it cannot see: an admin who edited a description makes the card checks take the upgraded path, which checks
+	 * less. An admin who changed a failure action or an on or off state after a fresh install, but left the
+	 * descriptions alone, makes the strict checks fail, as with every other shipped value an admin changed. A later
+	 * version that changes either description must change the copies in this class with it.
+	 *
+	 * @return True when the card rules carry the descriptions of a fresh install of this version
+	 */
+	private static Boolean hasCardRuleDescriptionsOfAFreshInstall()
+	{
+		return findShippedRule(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD).Description__c == PAYMENT_CARD_DESCRIPTION_OF_THIS_VERSION
+				&& findShippedRule(SEL_MaskingRule.RULE_MASK_CREDIT_CARD).Description__c == CREDIT_CARD_DESCRIPTION_OF_THIS_VERSION;
+	}
+
+	/**
+	 * @description True when the masking engine skips the older card rule because the newer one replaces it.
+	 *
+	 * @return True when the older card rule is in the engine's set of replaced rules
+	 */
+	private static Boolean isOlderCardRuleReplaced()
+	{
+		List<MaskingRule__mdt> allRules = new SEL_MaskingTarget().getAllRulesById().values();
+		String olderRuleName = SEL_MaskingRule.resolveQualifiedDeveloperName(findShippedRule(SEL_MaskingRule.RULE_MASK_CREDIT_CARD));
+
+		return SEL_MaskingRule.findSupersededRuleNames(allRules).contains(olderRuleName);
+	}
+
+	/**
+	 * @description Checks what must hold for the card rules in an org that does not carry the values of a fresh install.
+	 * The newer rule replaces the older one exactly while the newer rule is on and both rules still mask the way they
+	 * were shipped. The failure action and the on or off state of the older rule play no part. When the older rule is
+	 * replaced, the engine skips it, so its targets that are on mask nothing.
+	 */
+	private static void assertOlderCardRuleReplacedWhileUnchanged()
+	{
+		Boolean shouldBeReplaced = findShippedRule(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD).IsActive__c == true && isSuccessorUntuned() && isPredecessorUntuned();
+
+		Assert.areEqual(shouldBeReplaced, isOlderCardRuleReplaced(),
+				'Expected the newer card rule to replace the older one exactly while the newer rule is on and both still mask as shipped');
+	}
+
+	/**
+	 * @description Checks the failure action of both card rules. After a fresh install of this version both must be on
+	 * Write Failure Marker. In any other org it checks that the newer rule still replaces the older one.
+	 */
+	private static void assertCardRuleFailureActions()
+	{
+		if(!hasCardRuleDescriptionsOfAFreshInstall())
+		{
+			assertOlderCardRuleReplacedWhileUnchanged();
+			return;
+		}
+
+		Assert.areEqual(SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER, findShippedRule(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD).FailureAction__c,
+				'Expected MaskPaymentCard to ship with Write Failure Marker');
+		Assert.areEqual(SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER, findShippedRule(SEL_MaskingRule.RULE_MASK_CREDIT_CARD).FailureAction__c,
+				'Expected MaskCreditCard to ship with Write Failure Marker');
+	}
+
+	/**
+	 * @description Checks the on or off state of the older card rule. After a fresh install of this version it must be
+	 * off. In any other org it checks that the newer rule still replaces the older one.
+	 */
+	private static void assertOlderCardRuleState()
+	{
+		if(!hasCardRuleDescriptionsOfAFreshInstall())
+		{
+			assertOlderCardRuleReplacedWhileUnchanged();
+			return;
+		}
+
+		Assert.isFalse(findShippedRule(SEL_MaskingRule.RULE_MASK_CREDIT_CARD).IsActive__c, 'Expected MaskCreditCard to ship inactive');
+	}
+
+	/**
+	 * @description Checks the four shipped targets of the older card rule. Each must be found in every org. After a fresh
+	 * install of this version each must be off. In any other org it checks that the newer rule still replaces the older
+	 * one, so the targets that are on mask nothing.
+	 */
+	private static void assertOlderCardRuleTargets()
+	{
+		Map<String, MaskingTarget__mdt> shippedTargetsByName = new Map<String, MaskingTarget__mdt>();
+
+		for(MaskingTarget__mdt target : findShippedTargets())
+		{
+			shippedTargetsByName.put(target.DeveloperName, target);
+		}
+
+		for(String targetName : OLDER_CARD_RULE_TARGET_NAMES)
+		{
+			Assert.isTrue(shippedTargetsByName.containsKey(targetName), 'Expected the shipped target ' + targetName + ' to be deployed');
+		}
+
+		if(!hasCardRuleDescriptionsOfAFreshInstall())
+		{
+			assertOlderCardRuleReplacedWhileUnchanged();
+			return;
+		}
+
+		for(String targetName : OLDER_CARD_RULE_TARGET_NAMES)
+		{
+			Assert.isFalse(shippedTargetsByName.get(targetName).IsActive__c, 'Expected the shipped target ' + targetName + ' to ship inactive');
+		}
+	}
+
+	/**
+	 * @description Checks one fingerprint stored on the newer card rule against the fingerprint worked out from a card
+	 * rule's values. After a fresh install of this version the two must be equal. In any other org they must be equal
+	 * too, unless an admin changed the rule. A changed rule must then stop the newer rule from replacing the older
+	 * one, so the older rule keeps masking.
+	 *
+	 * @param computed The fingerprint worked out from the rule's values in the org
+	 * @param stored The fingerprint stored on the newer card rule
+	 * @param ruleName The name of the rule the fingerprint belongs to
+	 */
+	private static void assertStoredFingerprint(String computed, String stored, String ruleName)
+	{
+		if(computed == stored || hasCardRuleDescriptionsOfAFreshInstall())
+		{
+			Assert.areEqual(computed, stored, 'Expected the stored fingerprint of ' + ruleName + ' to match its values');
+			return;
+		}
+
+		Assert.isFalse(isOlderCardRuleReplaced(), 'Expected the newer card rule not to replace the older one while ' + ruleName + ' is changed');
+	}
+
+	/**
+	 * @description Builds an in-memory copy of a card rule with the values that decide how it masks as the package ships
+	 * them, whatever the org's own record holds, and with the given failure action, on or off state and description.
+	 * The newer rule's copy also carries the two fingerprints stored on the org's newer rule. An upgrade always delivers
+	 * those, so they match the copies in every org of this version.
+	 *
+	 * @param developerName The name of the card rule, MaskPaymentCard or MaskCreditCard
+	 * @param isActive The IsActive__c value of the copy
+	 * @param failureAction The FailureAction__c value of the copy
+	 * @param description The Description__c value of the copy
+	 *
+	 * @return The in-memory copy
+	 */
+	@SuppressWarnings('PMD.ExcessiveParameterList')
+	private static MaskingRule__mdt buildCardRuleCopy(String developerName, Boolean isActive, String failureAction, String description)
+	{
+		MaskingRule__mdt shippedNewer = findShippedRule(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD);
+		Boolean isNewer = developerName == SEL_MaskingRule.RULE_MASK_PAYMENT_CARD;
+
+		return (MaskingRule__mdt)TST_Builder.of(MaskingRule__mdt.SObjectType)
+				.withOverride(MaskingRule__mdt.DeveloperName, developerName)
+				.withOverride(MaskingRule__mdt.NamespacePrefix, shippedNewer.NamespacePrefix)
+				.withOverride(MaskingRule__mdt.Pattern__c, isNewer ? CREDIT_CARD_CURRENT_PATTERN : OLDER_CARD_RULE_PATTERN)
+				.withOverride(MaskingRule__mdt.Mode__c, SEL_MaskingRule.MODE_CREDIT_CARD)
+				.withOverride(MaskingRule__mdt.Replacement__c, CREDIT_CARD_REPLACEMENT)
+				.withOverride(MaskingRule__mdt.CaseSensitive__c, false)
+				.withOverride(MaskingRule__mdt.MinInputLength__c, isNewer ? NEWER_CARD_RULE_MINIMUM_INPUT_LENGTH : OLDER_CARD_RULE_MINIMUM_INPUT_LENGTH)
+				.withOverride(MaskingRule__mdt.ApplicableFieldTypes__c, CARD_RULE_FIELD_TYPES)
+				.withOverride(MaskingRule__mdt.Order__c, shippedNewer.Order__c)
+				.withOverride(MaskingRule__mdt.Replaces__c, isNewer ? SEL_MaskingRule.RULE_MASK_CREDIT_CARD : null)
+				.withOverride(MaskingRule__mdt.ReplacesFingerprint__c, isNewer ? shippedNewer.ReplacesFingerprint__c : null)
+				.withOverride(MaskingRule__mdt.ShippedFingerprint__c, isNewer ? shippedNewer.ShippedFingerprint__c : null)
+				.withOverride(MaskingRule__mdt.IsActive__c, isActive)
+				.withOverride(MaskingRule__mdt.FailureAction__c, failureAction)
+				.withOverride(MaskingRule__mdt.Description__c, description)
+				.withoutInsertion(true)
+				.build();
+	}
+
+	/**
+	 * @description Makes the target selector read only the two given card rules and the four targets of the older rule,
+	 * all on or all off, in place of the records deployed in the org.
+	 *
+	 * @param newer The copy of MaskPaymentCard
+	 * @param older The copy of MaskCreditCard
+	 * @param areTargetsActive The IsActive__c value of the four targets
+	 */
+	private static void registerCardRules(MaskingRule__mdt newer, MaskingRule__mdt older, Boolean areTargetsActive)
+	{
+		Map<String, MaskingTarget__mdt> targetsByName = new Map<String, MaskingTarget__mdt>();
+
+		for(String targetName : OLDER_CARD_RULE_TARGET_NAMES)
+		{
+			targetsByName.put(targetName, (MaskingTarget__mdt)TST_Builder.of(MaskingTarget__mdt.SObjectType)
+					.withOverride(MaskingTarget__mdt.DeveloperName, targetName)
+					.withOverride(MaskingTarget__mdt.NamespacePrefix, older.NamespacePrefix)
+					.withOverride(MaskingTarget__mdt.IsActive__c, areTargetsActive)
+					.withOverride(MaskingTarget__mdt.Rule__c, older.Id)
+					.withoutInsertion(true)
+					.build());
+		}
+
+		SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt> {newer.DeveloperName => newer, older.DeveloperName => older};
+		SEL_MaskingTarget.allTargetsOverrideForTest = targetsByName;
+		SEL_MaskingTarget.cachedRulesById = null;
+	}
+
+	/**
 	 * @description Asserts the current card behaviour directly against the Luhn-checked digit-run
 	 * pattern. This is what the engine guarantees, whatever values the org's installed records carry.
 	 * Every card test uses it when the org's card rules were tuned.
@@ -936,8 +1438,30 @@ private class MaskingRules_TEST
 			}
 		}
 
-		Assert.isNotNull(found, 'the shipped rule ' + developerName + ' must be deployed for this test to run');
+		Assert.isNotNull(found, 'Expected the shipped rule ' + developerName + ' to be deployed for this test to run');
 		return found;
+	}
+
+	/**
+	 * @description Loads the package's own shipped masking targets through the framework's selector, matched by
+	 * namespace, so a target an admin wrote in the org is never counted.
+	 *
+	 * @return Every shipped target, on or off
+	 */
+	private static List<MaskingTarget__mdt> findShippedTargets()
+	{
+		String packageNamespace = UTIL_System.getManagedPackageNamespace() ?? UTIL_String.EMPTY;
+		List<MaskingTarget__mdt> shipped = new List<MaskingTarget__mdt>();
+
+		for(MaskingTarget__mdt target : new SEL_MaskingTarget().getAllTargets())
+		{
+			if((target.NamespacePrefix ?? UTIL_String.EMPTY) == packageNamespace)
+			{
+				shipped.add(target);
+			}
+		}
+
+		return shipped;
 	}
 
 	/**
@@ -1012,6 +1536,6 @@ private class MaskingRules_TEST
 	{
 		String output = applyRule(developerName, input);
 
-		Assert.areEqual(expected, output, developerName + ' did not produce the expected masked output');
+		Assert.areEqual(expected, output, 'Expected ' + developerName + ' to produce the expected masked output');
 	}
 }

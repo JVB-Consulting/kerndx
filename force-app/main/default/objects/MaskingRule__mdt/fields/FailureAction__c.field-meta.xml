@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>FailureAction__c</fullName>
-    <description>What to do if applying this rule throws an error at runtime (for example, a bad regex or an unparseable JSON payload). Log and Continue keeps the original value and records the failure. Write Failure Marker replaces the entire field value with a sentinel marker so the original is never persisted. Block DML refuses the save and surfaces an error to the caller.</description>
+    <description>What happens when this rule fails on a value, for example because its pattern cannot compile. Log and Continue saves the value unmasked, writes a warning, and skips the rule for the rest of the transaction, so later values it covers are saved unmasked too. Write Failure Marker saves [MASKING_FAILURE] in place of the value the rule failed on and keeps running the rule on other values; if the pattern cannot compile, every value the rule covers gets the marker. Block DML refuses the save, and the rule keeps refusing every later save it meets in the transaction.</description>
     <fieldManageability>SubscriberControlled</fieldManageability>
-    <inlineHelpText>Log and Continue keeps the original on error. Write Failure Marker replaces the field with a sentinel. Block DML refuses the save. Pick the strictest option your compliance requires.</inlineHelpText>
+    <inlineHelpText>Log and Continue: the value is saved unmasked, and the rule stops for the rest of the transaction, so later values are saved unmasked too. Write Failure Marker (the default): [MASKING_FAILURE] is saved in place of each value the rule fails on, and the rule keeps masking the others. Block DML: the save is refused, and so is every later save the rule meets in the transaction. Choose the strictest option your data needs.</inlineHelpText>
     <label>Failure Action</label>
     <required>true</required>
     <type>Picklist</type>
@@ -13,12 +13,12 @@
             <sorted>false</sorted>
             <value>
                 <fullName>LogAndContinue</fullName>
-                <default>true</default>
+                <default>false</default>
                 <label>Log and Continue</label>
             </value>
             <value>
                 <fullName>WriteFailureMarker</fullName>
-                <default>false</default>
+                <default>true</default>
                 <label>Write Failure Marker</label>
             </value>
             <value>

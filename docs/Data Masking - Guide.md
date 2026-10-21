@@ -64,6 +64,7 @@ Think of masking as a black marker held over a value on its way to being written
 4. [What Ships Masked by Default](#what-ships-masked-by-default)
 5. [Masking Rules](#masking-rules)
     - [Modes](#modes)
+    - [How does a JSON-key rule read a value?](#how-does-a-json-key-rule-read-a-value)
     - [Failure Actions](#failure-actions)
     - [The Shipped Rules](#the-shipped-rules)
     - [Rule Fields](#rule-fields)
@@ -81,6 +82,7 @@ Think of masking as a black marker held over a value on its way to being written
     - [Scanning Custom Objects](#scanning-custom-objects)
     - [Exporting a Regulated-Field Inventory](#exporting-a-regulated-field-inventory)
     - [Testing a Rule](#testing-a-rule)
+    - [Card Rule Findings](#card-rule-findings)
     - [What the Advisor Does Not Do](#what-the-advisor-does-not-do)
     - [Health Check Cards](#health-check-cards)
 8. [Programmatic Access](#programmatic-access)
@@ -137,7 +139,7 @@ assign a rule to the sensitive field, and click **Export** to download a ready-t
 
 The goal is simple: stop sensitive values from being written somewhere you do not want them. KernDX masking replaces a sensitive value with a harmless marker before it is stored. It does this in **two ways**:
 
-1. **In the framework's own logs and integration records (on by default).** Whenever KernDX writes its own data (debug logs, outbound API call records, async-chain execution records, and platform events), it redacts credit-card numbers and secret-bearing JSON keys before saving them. You configure nothing to get this protection; it is already running.
+1. **In the framework's own logs and integration records (on by default).** Whenever KernDX writes its own data (debug logs, outbound API call records, async-chain execution records, and platform events), it redacts credit-card numbers and secret-bearing JSON keys (and JSON Web Tokens on API call records and API issues) before saving them. You configure nothing to get this protection; it is already running.
 
 2. **On records of objects you choose (you opt in).** For any object you set up with a masking target, the sensitive value is blanked **on the record itself**, in the moment just before it is saved (the `before insert` / `before update` window). Both your other trigger logic and the saved row see the masked value, not the original.
 
@@ -170,7 +172,7 @@ The whole subsystem comes down to three moving parts plus a console to manage th
 ```text
 ┌──────────────────────────────────────────────────────────────────┐
 │  Rules (MaskingRule__mdt)        — WHAT to look for + how to redact│
-│  18 shipped (3 active, 15 dormant templates)                       │
+│  18 shipped (3 active; 15 dormant: 14 templates, 1 older rule)     │
 ├──────────────────────────────────────────────────────────────────┤
 │  Targets (MaskingTarget__mdt)    — WHERE to apply a rule           │
 │  Rule × Object × Field (+ optional caller scope)                   │
@@ -192,25 +194,35 @@ Read the three parts as *what*, *where*, and *do it*. A **rule** says *what* a s
 
 ## What Ships Masked by Default
 
-You get protection on day one with no configuration. The framework handles credit-card numbers and API secrets on your behalf all the time (in logs, callouts, and background jobs), so it must never write those values down. Two rules do that masking work on the framework's own objects:
+You get protection on day one with no configuration. The framework handles credit-card numbers, API secrets and access tokens on your behalf all the time (in logs, callouts, and background jobs), so it must never write those values down. Three rules do that masking work on the framework's own objects:
 
 | Active rule        | Redacts                                                   | Wired to                                                                 |
 |--------------------|-----------------------------------------------------------|--------------------------------------------------------------------------|
 | `MaskPaymentCard`  | 13–19 digit payment-card numbers that pass the Luhn check | `ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, `LogEntryEvent__e` |
 | `MaskSecretKeys`   | Values under secret-bearing JSON keys (`password`, `token`, `api_key`, `authorization`, `bearer`, `client_secret`, `access_token`, `refresh_token`, …) | the same four framework objects |
+| `MaskJwt`          | JSON Web Tokens, the signed access tokens many APIs pass around. Each one starts with `eyJ` and has three dot-separated parts | `ApiCall__c`, `ApiIssue__c` |
 
-These are wired through **8 masking targets**: one payment-card target and one secret target on each of the four framework objects. Each is an
-*object-wide wildcard* (no specific field named, so every text-shaped field on the object is covered, except unique keys and external ids). Concretely, this is what gets redacted before it is saved:
+These are wired through **10 masking targets**: one payment-card target and one secret target on each of the four framework objects, plus one JSON Web Token target on each of `ApiCall__c` and `ApiIssue__c`. Each is an
+*object-wide wildcard* (no specific field named, so every text-shaped field on the object is covered, whoever saves the record; see [Step 2](#step-2---declare-a-masking-target) for the few fields it leaves out). Concretely, this is what gets redacted before it is saved:
 
 - **Logs:** `LogEntryEvent__e` messages and context (the logger path).
 - **Outbound API records:** `ApiCall__c` request content, including request bodies stored as attachments (the outbound path).
 - **API issues and async-chain records:** `ApiIssue__c` and `AsyncChainExecution__c` payloads.
 
-A third rule also ships active: `MaskCreditCard`, the original credit-card rule that `MaskPaymentCard` replaces. It still ships (along with its four framework targets) so that
-existing configurations referencing it keep working. On the four framework objects above, though, the payment-card rule does the actual work.
+Each request and response on an API call is masked once when the call is saved. When a payload is too long for its field, the whole masked text is saved in a file
+attached to the call, so the file carries the same redaction as the record.
 
-Your own customisations always win. If you have changed the pattern, replacement, or other behaviour of either rule, that change takes effect: a customised `MaskCreditCard`
-keeps running everywhere it is wired, and customising `MaskPaymentCard` switches the takeover off, so both rules run.
+A fourth rule also ships, switched off: `MaskCreditCard`, the original credit-card rule that `MaskPaymentCard` replaces. Its four framework targets
+(`ApiCall_All_Card`, `Chain_All_Card`, `Event_All_Card` and `Issue_All_Card`) ship switched off too. The newer rule finds the same cards, and the older rule has a cost:
+on a long text full of digits, its pattern can use so much processing time that the save stops with an error no code can catch.
+
+If you decide to use the older rule, switch it and its four targets on together. To stop using it, switch all five off together. A target that is on while its rule
+is off masks nothing, and the Advisor and Health Check both flag it.
+
+Your own customisations always win. If you change a setting that decides what a card rule masks (its pattern, mode, replacement, case setting, minimum input length or
+field types), that change takes effect: a customised `MaskCreditCard` runs everywhere it is switched on and wired, and customising `MaskPaymentCard` switches the
+takeover off, so both rules run. A changed failure action does not count as a customisation. It decides what happens when a rule fails, not what the rule masks, so
+the payment-card rule still does the work.
 
 > **No business object is masked out of the box.** None of the shipped targets point at Contact, Account, Case, or any custom object. Masking records on your own
 > objects is opt-in, covered in the next sections.
@@ -232,27 +244,74 @@ The mode decides *how* a rule recognises a sensitive value, so picking the right
 |--------------|----------------------------------------------------------------------------------------------------------------------------|
 | `Regex`      | A standard regular expression. Matched substrings are replaced. Honours the rule's `CaseSensitive__c` flag.                 |
 | `CreditCard` | A regex **plus** a Luhn (mod-10) checksum, so only matches that are valid card numbers get redacted. A 16-digit order number survives. |
-| `JsonKey`    | Treats the value as JSON and redacts the value under each matching **key**, recursing into nested objects. Non-JSON input falls back to a regex pass. |
+| `JsonKey`    | Treats the value as JSON and redacts the value under each matching **key**, recursing into nested objects. Text that is not JSON goes to a text search for `"key":"value"` pairs (see [How does a JSON-key rule read a value?](#how-does-a-json-key-rule-read-a-value)). JSON stored as text inside another JSON value is not walked. |
 | `ExactMatch` | The pattern is matched as a literal substring (no regex metacharacters).                                                    |
 
 An unrecognised mode does nothing at all: the value passes through unchanged.
 
+### How does a JSON-key rule read a value?
+
+The shipped `MaskSecretKeys` rule is a JSON-key rule, so this is how secrets in API payloads and logs get found. How the rule reads a value depends on its shape
+and size:
+
+1. **A quick check before reading JSON.** If no key name the rule matches can appear anywhere in a JSON value, the value is left as it is, without reading it.
+2. **Most JSON is read as a whole.** A JSON object or list with up to 500 opening brackets (`{` and `[` counted together) is read whole, and every key is checked
+   down to 50 levels deep. A matching key nested deeper than 50 levels in such a value is not masked.
+3. **Large or deeply nested JSON is read one piece at a time.** A JSON value with more than 500 opening brackets is read one name or value at a time, so every key is checked at
+   any depth, however deep the nesting.
+4. **Everything else goes to a text search.** Text that does not start and end like a JSON object or list (including JSON followed by other text, such as
+   `{"token":"a"} and more`), and JSON that the platform's reader refuses, is searched as text for `"key":"value"` pairs.
+
+The text search masks every plain value under a matching key: a text, a number, `true`, `false` or `null`. When a matching key holds an object, a list, or a value
+whose end the search cannot find, the search cannot hide it safely, so the whole field is saved as `[MASKING_FAILURE]` instead. The field loses its detail, but no
+secret is stored. A value counts as ended only when a comma, a closing brace or bracket, a space or the end of the text follows it. So `{"password":"x"}.` is masked
+in place, but in `{"password":"x".}` a full stop follows the secret text, and the whole field gets the marker.
+
+**Long JSON in a synchronous save.** In a save that someone waits for (a user's click, or an API request), JSON longer than 196,608 characters also goes to the text
+search, because reading it as JSON takes too long. A request that runs longer than 5 seconds counts toward a platform limit on long-running requests, and new requests
+are refused once that limit is reached. With the text search, a 2 MB JSON body masks in about 3 seconds in a synchronous save. Queueable, Batch, future and Scheduled
+jobs have no one waiting, so they read JSON as JSON at any length.
+
+A few limits of the text search are worth knowing:
+
+- **Keys written with escapes.** A key written with JSON escapes (for example `p\u0061ssword` for `password`) is read by the name it stands for. A key with a
+  backslash that JSON cannot read gives the search no name to check, so the whole field gets `[MASKING_FAILURE]`. Ordinary text with such a key does too: for example,
+  a Windows path written as `"C:\path": 1`.
+- **Very long keys.** The search reads long values in overlapping pieces. A key written longer than 512 characters (escapes count as written) can be missed where
+  one piece ends and the next begins.
+- **Key patterns with an open-ended or large repeat.** A key pattern with a repeat that has no upper limit, such as `.*secret.*`, can take so many steps on text full
+  of quotes that the platform stops the save. A repeat whose upper count has three or more digits, such as `{1,100}`, is treated the same way, because the search
+  cannot tell how many steps it takes. So the text search does not run with such a pattern: every value that goes to the text search and holds a quote gets
+  `[MASKING_FAILURE]`. Nothing secret is stored, and the marker tells you the rule needs a narrower pattern, such as `^(secret|client_secret)$`.
+
 ### Failure Actions
 
-Masking can occasionally hit an error while processing a value, and you get to decide how safe-versus-strict that moment should be. The choice is a real trade-off: keep the original value and stay quiet, replace it with a visible failure marker, or refuse the save entirely. A rule's `FailureAction__c` field sets that behaviour:
+Masking can occasionally hit an error while processing a value (for example, a rule whose pattern cannot compile), and you decide what happens next. The choice is a real trade-off: keep the original value, save a visible failure marker in its place, or refuse the save. A rule's `FailureAction__c` field sets that behaviour. Every shipped rule uses `WriteFailureMarker` or `BlockDml`, and `WriteFailureMarker` is the field's default for a rule you create.
 
-| Action               | Behaviour                                                                                                                 |
-|----------------------|---------------------------------------------------------------------------------------------------------------------------|
-| `LogAndContinue`     | Logs a warning and keeps the original value. The safest default for non-critical fields.                                   |
-| `WriteFailureMarker` | Replaces the field with the marker `[MASKING_FAILURE]` so a failed redaction can never silently leak the real value.       |
-| `BlockDml`           | Throws `kern.UTIL_Exceptions.MaskingBlockedException`, aborting the surrounding save. Use when an unmasked value must never persist. |
+| Action               | What happens to the value                                                                                       | What your code sees                                                    |
+|----------------------|-----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------|
+| `LogAndContinue`     | The value is saved as it is, unmasked. The rule is then skipped for the rest of the transaction, so every later value it covers is saved unmasked too. | The save goes ahead, and a warning log entry names the rule.            |
+| `WriteFailureMarker` | The value the rule failed on is saved as `[MASKING_FAILURE]`, and no later rule changes it. The rule keeps running on every other value. If the rule's pattern cannot compile, the rule can never mask anything, so every value it covers gets the marker. | The save goes ahead, the field holds `[MASKING_FAILURE]`, and a warning log entry names the rule. |
+| `BlockDml`           | The value is not saved. The rule keeps blocking for the rest of the transaction, so every later save it meets is refused too. | It depends on what was being saved (see the list below).               |
 
-When a rule fails, the engine also switches that rule off for the rest of the transaction, so one bad value does not throw again and again across a bulk batch. It records
-the failure on the masking result it returns internally.
+The warning is written once for each rule in a transaction, so a bulk save that fails on many values adds one log entry, not hundreds. A failure on a log entry itself writes no warning, so the logger cannot start a loop.
+
+What a `BlockDml` rule refuses depends on what was being saved:
+
+- **A record save** (a record on your own object, or one of the framework's own records): the save fails with `kern.UTIL_Exceptions.MaskingBlockedException`, which your code can catch (see [Programmatic Access](#programmatic-access)).
+- **The files an outbound call attaches for content too long for the call record:** no files are attached, the block is recorded among the call's errors, and the call still returns its answer to your code.
+- **A log entry:** that one entry is dropped instead of being published unmasked, and the rest of your transaction carries on.
+
+**The card rules ship with `WriteFailureMarker`.** Both `MaskPaymentCard` and `MaskCreditCard` use it. If a card rule fails on a value, the field holds
+`[MASKING_FAILURE]`, which means masking failed on that value and the original was not stored. The save goes ahead, so an API call's log record is still saved. On
+`BlockDml`, the same failure would refuse the call's log record, and the whole save that carries it would fail. The Data Masking Advisor flags a card rule that is
+set to `BlockDml` (see [Card rule findings](#card-rule-findings)).
 
 ### The Shipped Rules
 
-You do not have to write rules for common sensitive values; the framework already includes them. KernDX ships **18 rules**. Three are **active** (wired to the framework objects above). The other **15 are dormant templates**: ready-made patterns you switch on when you need them. Activating a template takes two things: an active target that references it, and (because it is one of the dormant rules) setting the rule's own
+You do not have to write rules for common sensitive values; the framework already includes them. KernDX ships **18 rules**. Three are **active** (wired to the framework objects above). The other **15 are dormant**: 14 templates (ready-made patterns you switch on when you need them),
+and the older card rule `MaskCreditCard`, which ships switched off together with its four targets (see
+[What Ships Masked by Default](#what-ships-masked-by-default)). Activating a template takes two things: an active target that references it, and (because it is one of the dormant rules) setting the rule's own
 `IsActive__c` to true.
 
 <details>
@@ -262,7 +321,8 @@ You do not have to write rules for common sensitive values; the framework alread
 |-----------------------------|------------|--------|-------------------------------------------------------------------|
 | `MaskPaymentCard`           | CreditCard | Yes    | 13–19 digit Luhn-valid card numbers → `[CARD_REDACTED]`           |
 | `MaskSecretKeys`            | JsonKey    | Yes    | Secret-bearing JSON key values → `***SECRET***`                    |
-| `MaskCreditCard`            | CreditCard | Yes    | Issuer-prefixed card numbers (replaced by `MaskPaymentCard`; kept for compatibility) |
+| `MaskJwt`                   | Regex      | Yes    | `eyJ`-prefixed JSON Web Tokens → `[JWT_REDACTED]`                 |
+| `MaskCreditCard`            | CreditCard | No     | Issuer-prefixed card numbers (replaced by `MaskPaymentCard`; ships switched off with its four targets) |
 | `MaskAddress`               | Regex      | No     | Whole field → `[ADDRESS_REDACTED]`                                 |
 | `MaskAuthHeader`            | Regex      | No     | HTTP `Authorization` header value (consumes a `Bearer` prefix)    |
 | `MaskAwsAccessKey`          | Regex      | No     | `AKIA` / `ASIA` AWS access-key IDs                                 |
@@ -271,7 +331,6 @@ You do not have to write rules for common sensitive values; the framework alread
 | `MaskHealthKeywords`        | JsonKey    | No     | PHI JSON keys (`diagnosis`, `mrn`, `rx_number`, …) → `***PHI***`  |
 | `MaskIban`                  | Regex      | No     | IBAN account numbers                                              |
 | `MaskIpv4Private`           | Regex      | No     | RFC 1918 + loopback IPv4 addresses                                |
-| `MaskJwt`                   | Regex      | No     | `eyJ`-prefixed JSON Web Tokens                                    |
 | `MaskMedicareBeneficiaryId` | Regex      | No     | 11-character CMS Medicare Beneficiary Identifiers                 |
 | `MaskPhoneInternational`    | Regex      | No     | Whole field → `[PHONE_REDACTED]`                                  |
 | `MaskPhoneUS`               | Regex      | No     | US-format phone numbers                                           |
@@ -360,8 +419,8 @@ Now you point a rule at the exact place it should run. That connection is a `Mas
 |-------------------|---------------------------------------------------------------------------------------------------------------------------------|----------|
 | `Rule__c`         | The `MaskingRule__mdt` to apply (its developer name, e.g. `MaskSecretKeys`).                                                     | Yes      |
 | `SObjectType__c`  | The object API name (e.g. `kern__ApiCall__c`, or your own `Contact`).                                                            | Yes      |
-| `Field__c`        | A specific field. **Leave blank for an object-wide wildcard** (every text-shaped field on the object, except unique keys and external ids, explained below). | No       |
-| `CallerClass__c`  | Restrict the target to calls from one Apex class (blank = any caller). See [Caller-Class Scoping](#caller-class-scoping).        | No       |
+| `Field__c`        | A specific field. **Leave blank for an object-wide wildcard** (every text-shaped field on the object, whoever saves the record, except the fields explained below). | No       |
+| `CallerClass__c`  | One service's API calls and API issues only (blank = any caller). See [Caller-Class Scoping](#caller-class-scoping).             | No       |
 | `IsActive__c`     | Turn the target on or off without deleting it. Defaults to true.                                                                  | No       |
 
 A **specific-field** target (one with `Field__c` set) takes precedence over a wildcard target for the same rule and caller. That lets you blanket an object and still carve out
@@ -371,6 +430,14 @@ A wildcard never touches a field that identifies the record (a unique field or a
 that rewrite destroys the key. A correlation id or order number long enough to look like a card number would come out as `[CARD_REDACTED]`, and the next record whose key
 masks to the same constant would fail to save on a unique index. If you really do want a rule on such a field, name it explicitly in `Field__c`. An explicit target is
 honoured; only the wildcard steps around it.
+
+**Which fields a wildcard covers.** A wildcard covers every text field of the object: Text, Text Area, Long Text Area, Rich Text Area, URL, Email, Phone and
+Encrypted Text. It leaves out a formula, a roll-up summary, an auto-number, a field that identifies the record (above), and two fields the
+framework uses to track a chain run. On a platform event
+it covers custom fields only. The list depends on what each field is, never on who saves the record. A user who cannot see or edit a field, such
+as an integration user or the Automated Process user, has that field masked all the same. A few standard text fields pass these tests although
+no one can write them (for example the contact email on a case, which the platform copies from the contact). If the platform refuses the masked
+value for such a field, the framework skips the field for the rest of the transaction and writes one warning, and the save goes ahead.
 
 Here is a shipped wildcard target, the secret-key target on `ApiCall__c`, as a worked example of the XML shape:
 
@@ -410,6 +477,16 @@ Here is a shipped wildcard target, the secret-key target on `ApiCall__c`, as a w
 
 Sometimes one integration needs a field redacted while other code may legitimately store the same field in full. The `CallerClass__c` field handles exactly that case: it narrows a target to calls coming from one Apex class. Leave it blank and the target applies to every caller (this is how all shipped targets
 work). Set it to a class name and the target fires only when that class invoked the masking path. All shipped targets leave it blank.
+
+A target with `CallerClass__c` set can only fire where the masking knows which class is calling. That is true in two places:
+
+- **API call and API issue records** (`ApiCall__c` and `ApiIssue__c`). The calling class is the handler class that your API setting names for the record's
+  service. Write the class name in `CallerClass__c` the same way the API setting writes it. A target scoped this way masks that service's calls and issues, and
+  no others. A service with no API setting, or a setting with no class name, has no calling class.
+- **The Advisor's Test this rule preview**, which masks your sample for the caller class the target names.
+
+Saves of every other object have no calling class: your own objects, async-chain records and log events. There, a target with `CallerClass__c` set never fires,
+and only targets with it blank apply.
 
 ### What Record-Value Masking Does Not Do
 
@@ -486,6 +563,19 @@ read-only, so nothing changes in your org.
 Before you commit to a rule, you can check it does what you expect. The Advisor's rule detail offers a live **Test this rule** preview: type a sample value, pick a rule, and see the masked
 output. For a JSON-key rule it prompts for JSON input. The preview runs the real engine against your sample, and it never reads or writes record data.
 
+### Card Rule Findings
+
+The Advisor's **Configuration health** list checks the two card rules the package ships, and adds up to one finding for each. A finding has no title: the
+Advisor shows its message, which explains the problem and what to do. The first column below gives the opening words of each message.
+
+| The message starts with                    | When it shows                                                                                                                                                                    | What to do                                                                                                                                                       |
+|--------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Masking rule "MaskCreditCard" is the older card number rule, and it still runs. | `MaskCreditCard` is switched on and the payment-card rule does not replace it: `MaskPaymentCard` is off, or a setting that decides what one of the two rules masks was changed. A changed failure action does not count. | Keep `MaskPaymentCard` on. Switch `MaskCreditCard` off together with its four targets. If you decide to keep the older rule, switch the rule and its targets on together. |
+| Masking rule "MaskPaymentCard" has the failure action Block DML. | `MaskPaymentCard` runs with the failure action `BlockDml`. If it fails on a value, the save stops: for an API call, the call's log record is refused and the whole save that carries it fails. | Change the rule's failure action to `WriteFailureMarker`. The field then holds the marker that says masking failed, and the original value is not stored. |
+
+When the older rule both runs and is set to `BlockDml`, its one finding carries both pieces of advice. The older rule matters because, on a long text with many
+digits, its pattern can use up all the processing time a save is allowed, and then the save fails.
+
 ### What the Advisor Does Not Do
 
 Three honest boundaries to keep in mind:
@@ -554,11 +644,11 @@ If you are evaluating masking rather than configuring it, this table is the at-a
 
 | Capability                                  | Supported | Notes                                                                                 |
 |---------------------------------------------|-----------|---------------------------------------------------------------------------------------|
-| Redact framework logs / callouts by default | ✅        | Three active rules on four framework objects (two do the masking work; the legacy credit-card rule ships for compatibility); on out of the box |
+| Redact framework logs / callouts by default | ✅        | Three active rules on four framework objects (the older credit-card rule ships switched off); on out of the box |
 | Mask records on an object you own           | ✅        | `MaskingTarget__mdt` + `ApplyMasking__c`; `before insert` / `before update`            |
 | Regex / credit-card / JSON-key / literal    | ✅        | Four modes; credit-card adds a Luhn check                                              |
 | Fail-open / marker / block-save behaviour   | ✅        | `LogAndContinue` / `WriteFailureMarker` / `BlockDml`                                    |
-| Per-field, per-object, per-caller scope     | ✅        | Wildcard or specific field; optional caller-class scope                                |
+| Per-field, per-object, per-caller scope     | ✅        | Wildcard or specific field; optional caller-class scope on API call and API issue records |
 | No-code review and configuration            | ✅        | Data Masking Advisor (review, assign rules, export)                                    |
 | Regulated-field inventory export            | ✅        | CSV / JSON, optional Sensitive-only filter                                             |
 | Mask existing stored data                   | ❌        | Write-time only; use a batch scrub for data already saved                              |
@@ -619,10 +709,49 @@ You can leave masking on without worrying that it will slow your triggers and bu
 - **Cheap gates first.** A record is only examined when the master flag is on and the object opts in. An input shorter than a rule's `MinInputLength__c` is skipped
   before the more expensive pattern runs.
 - **Luhn before replace.** Credit-card masking validates the checksum on each candidate match before redacting, so it does not rewrite numbers that merely look
-  card-shaped.
+  card-shaped. The check has a budget: in one value, the first 50 card-shaped numbers are checked, and every card-shaped number after those 50 is hidden without the
+  check. A text with that many long numbers is not an ordinary message, so some numbers that are not cards can be hidden there too.
+- **Long values are searched in pieces.** A pattern (`Regex`) rule searches a value longer than 131,072 characters in pieces of that length, each piece overlapping
+  the one before by 32,768 characters, so one search never takes so many steps that the platform stops the save. A single match longer than 32,768 characters can be
+  cut where two pieces meet, and its tail is then left unmasked. No JSON Web Token comes near that length; it matters only for a pattern of your own that can match
+  very long text.
+
+**Large and unusual input.** The shipped rules are built so that none of the inputs measured below ends your save, but very large payloads still
+have limits (see **Large API responses and memory** below). Masking a value takes CPU time, and a save that runs out of CPU time fails as a
+whole, not only its masking, so this matters most for fields that hold what another system sent. Measured on a development org, with each
+field filled to its full 131,072 characters (the 2,000-level nest is 12,003), times in your org will differ with its data and setup:
+
+| What the field held | What that looks like in real life | CPU time masking took |
+|---|---|---|
+| About 7,700 card numbers, one space apart | a payment batch, a card export or a test file pasted into a request | about 140 ms |
+| About 6,500 numbers of 19 digits (the longest a card number can be) that pass the card checksum | a list of gift-card or loyalty numbers | about 125 ms |
+| One long run of single digits with a space or a hyphen between each | a fixed-width file, a table of quantities or codes: no card in it, but a card number may contain spaces and hyphens, so every digit could be where one starts | about 80 ms (most of the digits are hidden: see **Luhn before replace** above) |
+| A JSON list of about 9,000 entries, each holding a value under the key `token` | an API response that lists access tokens or keys | about 500 ms |
+| The same list, cut short | a long response stored cut to the length of its field, which is no longer valid JSON | about 150 ms; the whole field is saved as `[MASKING_FAILURE]` |
+| JSON nested 2,000 or 21,000 levels deep | rarely real data: a broken payload, or one built to break the receiver | 21 to 41 ms |
+| A whole API save with a request, parameters and response each holding one of the inputs above (the worst mix measured) | an integration that sends or receives bulk data | about 990 ms for the save |
+
+A 2 MB request body masks in about 1 to 3 seconds in a synchronous save (one someone waits for), with no secret left in it. Each API call
+payload is masked once per save. These figures hold for the rules and patterns the package ships: a pattern of your own, or the older card
+rule `MaskCreditCard` if you switch it on, can still end the save on such text. The secret-key rule does not mask a key and its value
+written as JSON inside another JSON text value, with each quote escaped as `\"` (for example `{"title":"{\"password\":\"x\"}"}`). This is
+true in every field and in the attached file. Card numbers in such text are still masked.
 
 To benchmark your own configuration, run masking under a representative bulk load and watch CPU time. The cost scales with the number of *active targets* and
 the size of the text being scanned, not with the size of the rule catalogue (dormant rules cost nothing).
+
+**Large API responses and memory.** Masking a large payload needs room in memory (the platform calls it heap) for the text and its masked copy. Two 2 MB responses
+in one synchronous `kern.API_Dispatcher.execute` call reach the platform's 10 MB heap limit for a synchronous transaction. A Queueable job has 25 MB: two such
+responses fit, and three reach the limit. If your integrations receive large responses, make fewer calls in each transaction or job, and run them in a Queueable
+job rather than while a user waits.
+
+**Seeing the time masking takes.** Masker performance logging is off by default (see the [Logging - Guide](Logging%20-%20Guide.md)). When you switch it on, each
+masking run that takes at least your threshold writes one log entry, and the entry's class and method name (`ClassMethod__c`) says what was masked:
+
+- `UTIL_MaskerPerformanceTimer/<object>` (for example `UTIL_MaskerPerformanceTimer/Foobar__c`): masking a batch of records in a trigger.
+- `UTIL_MaskerPerformanceTimer/ApiCall__c.<field>` (for example `UTIL_MaskerPerformanceTimer/ApiCall__c.Request__c`): masking an API call payload that is too long
+  for its field, once, when it is written to the call.
+- `UTIL_MaskerPerformanceTimer/ContentVersion`: the step that builds a call's payload files had to mask a payload again.
 
 ---
 
@@ -649,8 +778,9 @@ A short checklist to get masking right and keep it that way.
 
 - Let the default framework-path redaction run: keep `MaskingFramework_Enabled` on.
 - Use the Advisor to review coverage and export configuration, then deploy the metadata it produces.
-- Choose the failure action deliberately: `BlockDml` for values that must never persist unmasked, `WriteFailureMarker` to make failures visible, `LogAndContinue`
-  for best-effort fields.
+- Choose the failure action deliberately. `WriteFailureMarker` is the shipped choice: a failure leaves a visible marker instead of the sensitive value, and the save
+  still goes ahead. Choose `BlockDml` when an unmasked value must never be stored and a refused save is the better outcome, and `LogAndContinue` only for a field
+  where keeping the original value matters more than a missed redaction.
 - Add a `TriggerSetting__mdt` with `ApplyMasking__c` for any business object you mask.
 - Test masking through behaviour: the flag probe, the exception, and the stored value.
 

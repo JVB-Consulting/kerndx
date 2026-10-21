@@ -12,7 +12,7 @@
  *        inactive: the disable half of the advisor's diff round-trips.
  *
  *   76g. Posture recompute — all four counts return to baseline: Case leaves the
- *        masked-object set (5 -> 4), the probes stop counting object-wide (14 -> 12), and
+ *        masked-object set (5 -> 4), the probes stop counting object-wide (12 -> 10), and
  *        the dead config vanishes (1 -> 0) because an INACTIVE target bound to a dormant
  *        rule is not dead — it masks nothing by design.
  *        HEALTH CHECK INPUT: deadConfigCount=0, objectsWithActiveTargets=4 => the
@@ -126,8 +126,8 @@ try
 			+ activeObjectIdentifiers.size() + ': ' + activeObjectIdentifiers);
 	Assert.isFalse(activeObjectIdentifiers.contains('Case'),
 			'76g: Case must not be in the masked-object set after disable. Got: ' + activeObjectIdentifiers);
-	Assert.areEqual(12, objectWideCount,
-			'76g: object-wide count must return to the 12 shipped targets. Got: ' + objectWideCount);
+	Assert.areEqual(10, objectWideCount,
+			'76g: object-wide count must return to the 10 shipped active targets. Got: ' + objectWideCount);
 	Assert.areEqual(1, fieldLevelCount,
 			'76g: the harness field-level target must be untouched. Got: ' + fieldLevelCount);
 	Assert.areEqual(0, deadCount,
@@ -135,7 +135,7 @@ try
 			+ 'nothing by design). Dead: ' + deadTargetNames);
 
 	System.debug(LoggingLevel.INFO,
-			'76g PASS: posture recomputed back to baseline — 4 masked objects / 12 object-wide / '
+			'76g PASS: posture recomputed back to baseline — 4 masked objects / 10 object-wide / '
 			+ '1 field-level / 0 dead. HEALTH CHECK INPUT: deadConfigCount=0 and '
 			+ 'objectsWithActiveTargets=4 => masking-posture computes Pass(4) again — the Health '
 			+ 'Check recovers when the dead config is disabled.');

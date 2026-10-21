@@ -16,10 +16,12 @@
 					<h3 class="slds-text-heading_small slds-text-color_error">
 						<strong>{labels.deadConfigHeading}</strong>
 					</h3>
-					<p class="slds-text-body_regular slds-m-top_xx-small">{deadConfigSummary}</p>
+					<template lwc:if={deadConfigSummary}>
+						<p class="slds-text-body_regular slds-m-top_xx-small" data-testid="dead-config-summary">{deadConfigSummary}</p>
+					</template>
 					<ul class="slds-list_dotted slds-m-top_x-small">
 						<template for:each={deadConfigFindings} for:item="finding">
-							<li class="slds-text-body_regular" data-testid="dead-config-item" key={finding.targetDeveloperName}>{finding.message}</li>
+							<li class="slds-text-body_regular" data-testid="dead-config-item" key={finding.key}>{finding.message}</li>
 						</template>
 					</ul>
 				</div>

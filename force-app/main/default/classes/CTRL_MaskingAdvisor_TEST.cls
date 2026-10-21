@@ -25,6 +25,49 @@ private class CTRL_MaskingAdvisor_TEST
 	private static final String SECURITY_CLASSIFICATION_CONFIDENTIAL = 'Confidential';
 
 	/**
+	 * @description The pattern the test copy of the older card rule carries. Any fixed text works: the tests only
+	 * need the newer rule to record the older rule as it is, so that the newer rule replaces it.
+	 */
+	private static final String OLDER_CARD_PATTERN = '\\b4\\d{12}(?:\\d{3})?\\b';
+
+	/**
+	 * @description The pattern the test copy of the newer card rule carries.
+	 */
+	private static final String NEWER_CARD_PATTERN = '\\b\\d(?:[ -]?\\d){12,18}\\b';
+
+	/**
+	 * @description The text both card rules put in place of a card number.
+	 */
+	private static final String CARD_REPLACEMENT = '[CARD]';
+
+	/**
+	 * @description A pattern an admin typed over the shipped one. Editing a rule like this stops the newer rule
+	 * from replacing the older one.
+	 */
+	private static final String EDITED_CARD_PATTERN = '\\b5\\d{15}\\b';
+
+	/**
+	 * @description A replacement an admin typed over the shipped one.
+	 */
+	private static final String EDITED_CARD_REPLACEMENT = '[CARD NUMBER]';
+
+	/**
+	 * @description A namespace that is not the package namespace, for a rule an org added with a packaged rule name.
+	 */
+	private static final String OTHER_NAMESPACE = 'acme';
+
+	/**
+	 * @description The message of the error the tests raise when they make field details (FieldDefinition) unreadable.
+	 */
+	private static final String FIELD_DETAILS_DENIAL = 'Simulated FieldDefinition denial';
+
+	/**
+	 * @description The developer name of the target that names the Account Phone field, for the tests where field
+	 * details cannot be read.
+	 */
+	private static final String PHONE_TARGET_NAME = 'MaskAccountPhoneByName';
+
+	/**
 	 * @description Verifies that an active target bound to an inactive rule is flagged as an inactive-rule issue.
 	 */
 	@IsTest
@@ -143,6 +186,141 @@ private class CTRL_MaskingAdvisor_TEST
 		Test.stopTest();
 
 		Assert.isNotNull(findings, 'the org-wide entry point returns a (possibly empty) list, never null');
+	}
+
+	/**
+	 * @description Proves the Advisor warns when the older card rule is on and the newer card rule is off. With
+	 * the newer rule off, nothing replaces the older rule, so it runs on every field its targets cover.
+	 */
+	@IsTest
+	private static void shouldWarnWhenTheOlderCardRuleWouldRunBecauseTheNewerIsOff()
+	{
+		MaskingRule__mdt olderRule = olderCardRule(true, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+		MaskingRule__mdt newerRule = newerCardRule(olderRule, false, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+
+		List<CTRL_MaskingAdvisor.DTO_DeadConfiguration> findings = findCardRuleFindings(new List<MaskingRule__mdt> {olderRule, newerRule});
+
+		Assert.areEqual(1, findings.size(), 'Expected one finding for the older card rule, which runs because the newer rule is off.');
+		Assert.areEqual(CTRL_MaskingAdvisor.ConfigurationIssue.OLDER_CARD_RULE_WOULD_RUN.name(), findings[0].issueCode,
+				'Expected the finding to say that the older card rule would run.');
+		Assert.areEqual(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, findings[0].ruleDeveloperName, 'Expected the finding to name the older card rule.');
+		Assert.isNull(findings[0].targetDeveloperName, 'Expected no target name, because the finding is about a rule.');
+		Assert.areEqual(formatOlderCardRuleMessage(), findings[0].message,
+				'Expected only the older card rule text, because the rule does not stop saves when it fails.');
+	}
+
+	/**
+	 * @description Proves the Advisor warns when both card rules are on but one of them was edited. An edit to
+	 * the pattern of the older rule, or to the replacement of the newer rule, stops the newer rule from
+	 * replacing the older one, so the older rule runs again.
+	 */
+	@IsTest
+	private static void shouldWarnWhenTheOlderCardRuleWouldRunBecauseARuleIsTuned()
+	{
+		MaskingRule__mdt editedOlderRule = olderCardRule(true, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+		MaskingRule__mdt newerRule = newerCardRule(editedOlderRule, true, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+		editedOlderRule.Pattern__c = EDITED_CARD_PATTERN;
+
+		List<CTRL_MaskingAdvisor.DTO_DeadConfiguration> olderEditedFindings = findCardRuleFindings(new List<MaskingRule__mdt> {editedOlderRule, newerRule});
+
+		MaskingRule__mdt olderRule = olderCardRule(true, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+		MaskingRule__mdt editedNewerRule = newerCardRule(olderRule, true, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+		editedNewerRule.Replacement__c = EDITED_CARD_REPLACEMENT;
+
+		List<CTRL_MaskingAdvisor.DTO_DeadConfiguration> newerEditedFindings = findCardRuleFindings(new List<MaskingRule__mdt> {olderRule, editedNewerRule});
+
+		Assert.areEqual(1, olderEditedFindings.size(), 'Expected one finding when the older card rule was edited.');
+		Assert.areEqual(CTRL_MaskingAdvisor.ConfigurationIssue.OLDER_CARD_RULE_WOULD_RUN.name(), olderEditedFindings[0].issueCode,
+				'Expected the older card rule to run when its pattern was edited.');
+		Assert.areEqual(1, newerEditedFindings.size(), 'Expected one finding when the newer card rule was edited.');
+		Assert.areEqual(CTRL_MaskingAdvisor.ConfigurationIssue.OLDER_CARD_RULE_WOULD_RUN.name(), newerEditedFindings[0].issueCode,
+				'Expected the older card rule to run when the replacement of the newer rule was edited.');
+		Assert.areEqual(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, newerEditedFindings[0].ruleDeveloperName, 'Expected the finding to name the older card rule.');
+	}
+
+	/**
+	 * @description Proves the Advisor does not warn about the older card rule while the newer rule replaces it.
+	 * The rules carry the values an org installed before this change still has: both rules on, neither edited,
+	 * both on Block DML. The older rule does not run, so only the newer rule gets a finding, for Block DML.
+	 */
+	@IsTest
+	private static void shouldNotWarnAboutTheOlderCardRuleInTheShippedState()
+	{
+		MaskingRule__mdt olderRule = olderCardRule(true, SEL_MaskingRule.FAILURE_BLOCK_DML);
+		MaskingRule__mdt newerRule = newerCardRule(olderRule, true, SEL_MaskingRule.FAILURE_BLOCK_DML);
+
+		List<CTRL_MaskingAdvisor.DTO_DeadConfiguration> findings = findCardRuleFindings(new List<MaskingRule__mdt> {olderRule, newerRule});
+
+		Assert.areEqual(1, findings.size(), 'Expected one finding: the newer card rule stops saves, and the replaced older rule does not run.');
+		Assert.areEqual(CTRL_MaskingAdvisor.ConfigurationIssue.CARD_RULE_BLOCKS_SAVES.name(), findings[0].issueCode,
+				'Expected no older card rule finding while the newer rule replaces it.');
+		Assert.areEqual(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD, findings[0].ruleDeveloperName, 'Expected the finding to name the newer card rule.');
+	}
+
+	/**
+	 * @description Proves the Advisor warns when a card rule that runs is on Block DML, and the message names the
+	 * rule and the step to switch its failure action.
+	 */
+	@IsTest
+	private static void shouldWarnWhenAnActiveCardRuleBlocksSaves()
+	{
+		MaskingRule__mdt olderRule = olderCardRule(false, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+		MaskingRule__mdt newerRule = newerCardRule(olderRule, true, SEL_MaskingRule.FAILURE_BLOCK_DML);
+
+		List<CTRL_MaskingAdvisor.DTO_DeadConfiguration> findings = findCardRuleFindings(new List<MaskingRule__mdt> {olderRule, newerRule});
+
+		Assert.areEqual(1, findings.size(), 'Expected one finding for the newer card rule on Block DML.');
+		Assert.areEqual(CTRL_MaskingAdvisor.ConfigurationIssue.CARD_RULE_BLOCKS_SAVES.name(), findings[0].issueCode,
+				'Expected the finding to say that the card rule stops saves.');
+		Assert.areEqual(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD, findings[0].ruleDeveloperName, 'Expected the finding to name the newer card rule.');
+		Assert.areEqual(formatBlocksSavesMessage(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD), findings[0].message,
+				'Expected the Block DML text, naming the newer card rule.');
+	}
+
+	/**
+	 * @description Proves each card rule gets one finding at most. When the older card rule runs and is on Block
+	 * DML, its one finding carries the Block DML advice too. When both rules run and both are on Block DML, each
+	 * rule gets its own single finding.
+	 */
+	@IsTest
+	private static void shouldShowExactlyOneFindingForAnOlderCardRuleThatRunsAndBlocks()
+	{
+		MaskingRule__mdt olderRule = olderCardRule(true, SEL_MaskingRule.FAILURE_BLOCK_DML);
+		MaskingRule__mdt newerRule = newerCardRule(olderRule, false, SEL_MaskingRule.FAILURE_BLOCK_DML);
+
+		List<CTRL_MaskingAdvisor.DTO_DeadConfiguration> newerOffFindings = findCardRuleFindings(new List<MaskingRule__mdt> {olderRule, newerRule});
+
+		MaskingRule__mdt editedOlderRule = olderCardRule(true, SEL_MaskingRule.FAILURE_BLOCK_DML);
+		MaskingRule__mdt activeNewerRule = newerCardRule(editedOlderRule, true, SEL_MaskingRule.FAILURE_BLOCK_DML);
+		editedOlderRule.Pattern__c = EDITED_CARD_PATTERN;
+
+		List<CTRL_MaskingAdvisor.DTO_DeadConfiguration> bothRunFindings = findCardRuleFindings(new List<MaskingRule__mdt> {editedOlderRule, activeNewerRule});
+
+		Assert.areEqual(1, newerOffFindings.size(), 'Expected exactly one finding for the older card rule that runs and stops saves.');
+		Assert.areEqual(CTRL_MaskingAdvisor.ConfigurationIssue.OLDER_CARD_RULE_WOULD_RUN.name(), newerOffFindings[0].issueCode,
+				'Expected the older card rule finding, not a separate Block DML finding.');
+		Assert.areEqual(formatOlderCardRuleMessage() + UTIL_String.SPACE + formatBlocksSavesMessage(SEL_MaskingRule.RULE_MASK_CREDIT_CARD),
+				newerOffFindings[0].message, 'Expected the older card rule text followed by the Block DML advice for the same rule.');
+		Assert.areEqual(2, bothRunFindings.size(), 'Expected one finding for each card rule when both run and both stop saves.');
+		Assert.areNotEqual(bothRunFindings[0].ruleDeveloperName, bothRunFindings[1].ruleDeveloperName, 'Expected the two findings to name different rules.');
+	}
+
+	/**
+	 * @description Proves a fresh install shows no card rule finding: the older card rule is off, the newer rule is
+	 * on, and both write a failure marker instead of stopping the save. A rule an org added in its own namespace
+	 * with the older rule name is not the packaged rule, so it gets no card finding either.
+	 */
+	@IsTest
+	private static void shouldShowNoCardFindingOnAFreshInstall()
+	{
+		MaskingRule__mdt olderRule = olderCardRule(false, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+		MaskingRule__mdt newerRule = newerCardRule(olderRule, true, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+		MaskingRule__mdt orgOwnedRule = prefixedRule(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, OTHER_NAMESPACE, null);
+		orgOwnedRule.FailureAction__c = SEL_MaskingRule.FAILURE_BLOCK_DML;
+
+		List<CTRL_MaskingAdvisor.DTO_DeadConfiguration> findings = findCardRuleFindings(new List<MaskingRule__mdt> {olderRule, newerRule, orgOwnedRule});
+
+		Assert.areEqual(0, findings.size(), 'Expected no card rule finding on a fresh install.');
 	}
 
 	/**
@@ -570,11 +748,13 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that an unreadable FieldDefinition query degrades gracefully to heuristic-only mode.
+	 * The test sets an empty list of masking targets, so the result does not depend on the targets in the org.
 	 */
 	@IsTest
 	private static void describeFieldsDegradesToHeuristicWhenClassificationUnreadable()
 	{
-		TST_Mock.throwsException(FieldDefinition.SObjectType, 'Simulated FieldDefinition denial');
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt>();
+		TST_Mock.throwsException(FieldDefinition.SObjectType, FIELD_DETAILS_DENIAL);
 
 		CTRL_MaskingAdvisor.DTO_FieldAnalysis analysis = CTRL_MaskingAdvisor.describeFields('Account');
 
@@ -585,6 +765,34 @@ private class CTRL_MaskingAdvisor_TEST
 				rowFor(analysis, Account.Phone).heuristicConfidence,
 				'heuristics still run when classification is unavailable'
 		);
+	}
+
+	/**
+	 * @description Verifies that `describeFields` still answers when field details (FieldDefinition) cannot be read
+	 * and a masking target names a field. Finding the name of the field the target names also reads field details,
+	 * so that read fails too. The Advisor then works from guesses based on field names, and it still shows the
+	 * target on the field it names, so it does not report that field as unmasked.
+	 */
+	@IsTest
+	private static void shouldShowTheTargetOnItsFieldWhenFieldDetailsCannotBeRead()
+	{
+		String accountName = UTIL_SObjectDescribe.getObjectNameFromType(Account.SObjectType);
+		String phoneReference = accountName + UTIL_String.DOT + UTIL_SObjectDescribe.getCachedFieldName(Account.Phone);
+		MaskingRule__mdt cardRule = ruleWithName(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, true);
+		MaskingTarget__mdt phoneTarget = appliedTarget(PHONE_TARGET_NAME, accountName, phoneReference, true, cardRule);
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt> {PHONE_TARGET_NAME => phoneTarget};
+		SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt> {SEL_MaskingRule.RULE_MASK_CREDIT_CARD => cardRule};
+		TST_Mock.throwsException(FieldDefinition.SObjectType, FIELD_DETAILS_DENIAL);
+
+		CTRL_MaskingAdvisor.DTO_FieldAnalysis analysis = CTRL_MaskingAdvisor.describeFields(accountName);
+
+		Assert.isFalse(analysis.classificationAvailable, 'Expected the Advisor to fall back to guesses when field details cannot be read');
+		Assert.isFalse(analysis.fields.isEmpty(), 'Expected the field rows to be built from the object description');
+		CTRL_MaskingAdvisor.DTO_FieldRow phoneRow = rowFor(analysis, Account.Phone);
+		Assert.isNotNull(phoneRow, 'Expected a row for ' + phoneReference);
+		CTRL_MaskingAdvisor.DTO_AppliedRule applied = appliedRuleByTarget(phoneRow.appliedRules, PHONE_TARGET_NAME);
+		Assert.isNotNull(applied, 'Expected the target to show on the field it names, ' + phoneReference);
+		Assert.areEqual(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, applied.ruleDeveloperName, 'Expected the rule of the target on the field it names');
 	}
 
 	/**
@@ -1190,13 +1398,14 @@ private class CTRL_MaskingAdvisor_TEST
 
 	/**
 	 * @description Verifies that the inventory still lists heuristic-rated regulated fields when native
-	 * classification is unreadable, degrading gracefully without error.
+	 * classification is unreadable, degrading gracefully without error. The test sets an empty list of masking
+	 * targets, so the result does not depend on the targets in the org.
 	 */
 	@IsTest
 	private static void getRegulatedFieldInventorySurvivesHeuristicOnlyMode()
 	{
-		TST_Mock.throwsException(FieldDefinition.SObjectType, 'Simulated FieldDefinition denial');
-		TST_Mock.register(MaskingTarget__mdt.SObjectType, new List<MaskingTarget__mdt>());
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt>();
+		TST_Mock.throwsException(FieldDefinition.SObjectType, FIELD_DETAILS_DENIAL);
 
 		CTRL_MaskingAdvisor.DTO_ObjectFieldInventory inventory =
 				CTRL_MaskingAdvisor.getRegulatedFieldInventory(UTIL_SObjectDescribe.getObjectNameFromType(Account.SObjectType));
@@ -2755,6 +2964,54 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
+	 * @description Verifies `describeFields` shows a deployed target's rule on the field the target names. A
+	 * deployed target does not store `Object.Field`. It stores the field's durable Id (the fixed key the platform
+	 * gives each field: for a custom field, the object's durable Id and the field's Id joined by a dot), and only
+	 * its related object record is filled. The durable Id is read from the org, and the target is loaded through
+	 * the selector's own cache, not through a mock.
+	 */
+	@IsTest
+	private static void describeFieldsShowsTheRuleOfADeployedTargetOnTheFieldItNames()
+	{
+		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType);
+		String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c);
+		String fieldDurableId;
+		for(FieldDefinition field : new SEL_FieldDefinition().findByEntity(objectName))
+		{
+			if(field.QualifiedApiName == fieldName)
+			{
+				fieldDurableId = field.DurableId;
+			}
+		}
+		String objectDurableId = fieldDurableId.substringBefore(UTIL_String.DOT);
+		EntityDefinition foobarObject = new SEL_EntityDefinition().findByDurableIds(new Set<String> {objectDurableId})[0];
+
+		MaskingRule__mdt cardRule = ruleWithName(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, true);
+		MaskingTarget__mdt deployedTarget = (MaskingTarget__mdt)TST_Builder.of(MaskingTarget__mdt.SObjectType)
+				.withOverride(MaskingTarget__mdt.DeveloperName, 'MaskFoobarTextDeployed')
+				.withOverride(MaskingTarget__mdt.SObjectType__c, foobarObject)
+				.withoutInsertion(true)
+				.build();
+		deployedTarget.SObjectType__c = objectDurableId;
+		deployedTarget.Field__c = fieldDurableId;
+		deployedTarget.Rule__c = cardRule.Id;
+		deployedTarget.IsActive__c = true;
+		deployedTarget.CallerClass__c = null;
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt> {deployedTarget.DeveloperName => deployedTarget};
+		SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt> {SEL_MaskingRule.RULE_MASK_CREDIT_CARD => cardRule};
+		SEL_MaskingTarget.cachedTargetsByType = null;
+		SEL_MaskingTarget.cachedRulesById = null;
+
+		CTRL_MaskingAdvisor.DTO_FieldAnalysis analysis = CTRL_MaskingAdvisor.describeFields(objectName);
+		CTRL_MaskingAdvisor.DTO_FieldRow textRow = rowFor(analysis, Foobar__c.Text__c);
+
+		Assert.isNotNull(textRow, 'Expected a row for ' + fieldName.toLowerCase());
+		CTRL_MaskingAdvisor.DTO_AppliedRule applied = appliedRuleByTarget(textRow.appliedRules, deployedTarget.DeveloperName);
+		Assert.isNotNull(applied, 'Expected the deployed target to show on the field it names, ' + fieldName.toLowerCase());
+		Assert.areEqual(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, applied.ruleDeveloperName, 'Expected the rule of the deployed target');
+	}
+
+	/**
 	 * @description Verifies `describeFields` surfaces the object's object-wide masking targets (Field__c
 	 * blank), active and inactive, as `objectWideRules` on the analysis, and resolves an absolute
 	 * `newRuleSetupUrl` that points at the New-Masking-Rule Setup page. The URL starts at the org domain (the
@@ -2947,6 +3204,96 @@ private class CTRL_MaskingAdvisor_TEST
 		successor.ReplacesFingerprint__c = SEL_MaskingRule.computeFingerprint(predecessor);
 		successor.ShippedFingerprint__c = SEL_MaskingRule.computeFingerprint(successor);
 		return successor;
+	}
+
+	/**
+	 * @description Builds an in-memory, package-owned copy of the older card rule (MaskCreditCard) with fixed
+	 * values, so the newer card rule built from it records it as it is.
+	 *
+	 * @param active Whether the rule is on
+	 * @param failureAction What the rule does when it fails on a value (a SEL_MaskingRule failure action)
+	 *
+	 * @return The in-memory older card rule
+	 */
+	private static MaskingRule__mdt olderCardRule(Boolean active, String failureAction)
+	{
+		MaskingRule__mdt rule = ruleWithName(SEL_MaskingRule.RULE_MASK_CREDIT_CARD, active);
+		rule.Mode__c = SEL_MaskingRule.MODE_CREDIT_CARD;
+		rule.Pattern__c = OLDER_CARD_PATTERN;
+		rule.Replacement__c = CARD_REPLACEMENT;
+		rule.FailureAction__c = failureAction;
+		return rule;
+	}
+
+	/**
+	 * @description Builds an in-memory, package-owned copy of the newer card rule (MaskPaymentCard) that replaces
+	 * the given older rule. It names the older rule and stores both fingerprints (a short code computed from a
+	 * rule's masking values), so it replaces the older rule while it is on and neither rule is edited. A test
+	 * edits a rule after this call to stop the replacement.
+	 *
+	 * @param olderRule The older card rule this rule replaces
+	 * @param active Whether the rule is on
+	 * @param failureAction What the rule does when it fails on a value (a SEL_MaskingRule failure action)
+	 *
+	 * @return The in-memory newer card rule
+	 */
+	private static MaskingRule__mdt newerCardRule(MaskingRule__mdt olderRule, Boolean active, String failureAction)
+	{
+		MaskingRule__mdt rule = ruleWithName(SEL_MaskingRule.RULE_MASK_PAYMENT_CARD, active);
+		rule.Mode__c = SEL_MaskingRule.MODE_CREDIT_CARD;
+		rule.Pattern__c = NEWER_CARD_PATTERN;
+		rule.Replacement__c = CARD_REPLACEMENT;
+		rule.FailureAction__c = failureAction;
+		rule.Replaces__c = olderRule.DeveloperName;
+		rule.ReplacesFingerprint__c = SEL_MaskingRule.computeFingerprint(olderRule);
+		rule.ShippedFingerprint__c = SEL_MaskingRule.computeFingerprint(rule);
+		return rule;
+	}
+
+	/**
+	 * @description Makes the given rules the only masking rules in the org, with no masking targets, and reads the
+	 * Advisor findings through the real entry point. With no targets, every finding returned is a card rule finding.
+	 * The selector keeps the rules it read for the rest of the transaction, so this clears that saved copy first;
+	 * a test that calls this twice then sees the second set of rules.
+	 *
+	 * @param rules The masking rules the org holds
+	 *
+	 * @return The Advisor findings
+	 */
+	private static List<CTRL_MaskingAdvisor.DTO_DeadConfiguration> findCardRuleFindings(List<MaskingRule__mdt> rules)
+	{
+		Map<String, MaskingRule__mdt> rulesByName = new Map<String, MaskingRule__mdt>();
+		for(MaskingRule__mdt rule : rules)
+		{
+			rulesByName.put(SEL_MaskingRule.resolveQualifiedDeveloperName(rule), rule);
+		}
+		SEL_MaskingTarget.cachedRulesById = null;
+		SEL_MaskingTarget.allRulesOverrideForTest = rulesByName;
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt>();
+		return CTRL_MaskingAdvisor.getDeadConfigurations();
+	}
+
+	/**
+	 * @description Builds the message expected for the older card rule finding, from its Custom Label.
+	 *
+	 * @return The expected message
+	 */
+	private static String formatOlderCardRuleMessage()
+	{
+		return String.format(System.Label.MaskingAdvisorOlderCardRuleWouldRun,
+				new List<Object> {SEL_MaskingRule.RULE_MASK_CREDIT_CARD, SEL_MaskingRule.RULE_MASK_PAYMENT_CARD});
+	}
+
+	/**
+	 * @description Builds the Block DML advice expected for a card rule, from its Custom Label.
+	 *
+	 * @param ruleDeveloperName The card rule the advice names
+	 *
+	 * @return The expected advice
+	 */
+	private static String formatBlocksSavesMessage(String ruleDeveloperName)
+	{
+		return String.format(System.Label.MaskingAdvisorCardRuleBlocksSaves, new List<Object> {ruleDeveloperName});
 	}
 
 	/**

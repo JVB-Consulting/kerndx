@@ -54,6 +54,7 @@ public class API_MyService extends API_Outbound
 | global virtual [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [getValidationErrors](#getvalidationerrors)() | Determines if the web service request should be aborted. |
 | global virtual void [handleError](#handleerror)([Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) exceptionThrown) | Handles errors encountered during the service call. |
 | global virtual [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isDisabled](#isdisabled)() | Checks if the API is disabled for the current user. |
+| global override virtual void [onDMLFinished](#ondmlfinished)() | Runs after the commit has written its records to the database, and before onCommitWorkFinishing and onCommitWorkFinished. |
 | global virtual void [onSuccess](#onsuccess)() | Registers database changes after a successful call. |
 
 ### configure
@@ -232,6 +233,34 @@ global override Boolean isDisabled()
 
 </div>
 
+### onDMLFinished
+
+<div class="apex-member">
+
+```apex
+global override virtual void onDMLFinished()
+```
+
+Runs after the commit has written its records to the database, and before onCommitWorkFinishing and
+onCommitWorkFinished. It keeps a copy of the call record's field values as they were written. The call record is
+saved once more after the commit, to write the timings and the outcome. Because of the copy, that second save sends
+only the fields that changed after the commit, such as the response the inbound commit writes in
+onCommitWorkFinishing. When an attempt fails after this point, the copy is dropped again. Your handler class may
+override this method. Your override must call super.onDMLFinished() first. If it does not, the second save sends
+the whole call record again.
+
+**Example**
+
+```apex
+global override void onDMLFinished()
+{
+    super.onDMLFinished();
+    // your own work, after the commit has written its records
+}
+```
+
+</div>
+
 ### onSuccess
 
 <div class="apex-member">
@@ -274,6 +303,14 @@ global ApiCall__c apiCall
 **Type:** [ApiCall__c](../objects/ApiCall__c.md)
 
 The ApiCall__c object that initiated the service call.
+
+Its payload fields (the request, the response, the address and the request parameters) are not always masked,
+even after the call was saved. A payload that fits its field is masked when the call is saved to the database,
+but this record still holds the raw text the call sent or received: the save does not copy the masked text back
+into it. A payload field holds masked text only when the payload is longer than the field (the masked text is then
+cut to fit), or, in some cases, when the payload was masked again to make its file. So code that reads this record
+after a save must never pass a payload field on as if it were masked. To get the masked text, read the saved call
+back from the database by its Id.
 
 ### correlationId
 

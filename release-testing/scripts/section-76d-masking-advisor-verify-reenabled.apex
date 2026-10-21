@@ -13,8 +13,8 @@
  *        by the disable deploy) may move.
  *
  *   76i. Posture recompute — Case rejoins the masked-object set (4 -> 5) with one
- *        object-wide target more than baseline (12 -> 13) and ZERO dead configs — distinct
- *        from the create state (5 objects / 14 object-wide / 1 dead), so the three deploys
+ *        object-wide target more than baseline (10 -> 11) and ZERO dead configs — distinct
+ *        from the create state (5 objects / 12 object-wide / 1 dead), so the three deploys
  *        produce three distinguishable postures.
  *        HEALTH CHECK INPUT: deadConfigCount=0, objectsWithActiveTargets=5 => the
  *        masking-posture check computes Pass(5) — a PASS-branch value change from the
@@ -59,8 +59,8 @@ try
 			'76h: both probe records must still exist. Found: ' + probesByName.keySet());
 	Assert.isTrue(probesByName.get('Case_All_Card_Probe').kern__IsActive__c == true,
 			'76h: Case_All_Card_Probe must be active again after the re-enable deploy');
-	Assert.areEqual('MaskCreditCard', probesByName.get('Case_All_Card_Probe').kern__Rule__r.DeveloperName,
-			'76h: the re-enabled probe must still bind MaskCreditCard');
+	Assert.areEqual('MaskPaymentCard', probesByName.get('Case_All_Card_Probe').kern__Rule__r.DeveloperName,
+			'76h: the re-enabled probe must still bind MaskPaymentCard');
 	Assert.isTrue(probesByName.get('Case_All_Email_DeadProbe').kern__IsActive__c != true,
 			'76h: Case_All_Email_DeadProbe must REMAIN inactive — the re-enable bundle does not carry '
 			+ 'it, and a deploy must only touch the records in its package.xml');
@@ -140,15 +140,15 @@ try
 			+ activeObjectIdentifiers.size() + ': ' + activeObjectIdentifiers);
 	Assert.isTrue(activeObjectIdentifiers.contains('Case'),
 			'76i: the masked-object set must contain Case. Got: ' + activeObjectIdentifiers);
-	Assert.areEqual(13, objectWideCount,
-			'76i: only the healthy probe re-enabled — 12 baseline + 1 = 13 object-wide. Got: ' + objectWideCount);
+	Assert.areEqual(11, objectWideCount,
+			'76i: only the healthy probe re-enabled — 10 baseline + 1 = 11 object-wide. Got: ' + objectWideCount);
 	Assert.areEqual(1, fieldLevelCount,
 			'76i: the harness field-level target must be untouched. Got: ' + fieldLevelCount);
 	Assert.areEqual(0, deadCount,
 			'76i: no dead configuration — the dead probe stayed disabled. Dead: ' + deadTargetNames);
 
 	System.debug(LoggingLevel.INFO,
-			'76i PASS: posture recomputed to the third distinct state — 5 masked objects / 13 object-wide / '
+			'76i PASS: posture recomputed to the third distinct state — 5 masked objects / 11 object-wide / '
 			+ '1 field-level / 0 dead. HEALTH CHECK INPUT: deadConfigCount=0 and '
 			+ 'objectsWithActiveTargets=5 => masking-posture computes Pass(5), a PASS-branch value '
 			+ 'change from the baseline Pass(4). With 76e\'s Warn flip, configuration changes alone '

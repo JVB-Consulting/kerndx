@@ -32,7 +32,7 @@ Defines a rule for masking sensitive data in a field — what to look for and wh
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [CaseSensitive__c](#casesensitive__c) | When checked, the Pattern matches only exact case. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Category__c](#category__c) | An optional short category label for this rule. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Description__c](#description__c) | Plain-language explanation of what this rule detects and why it exists. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FailureAction__c](#failureaction__c) | What to do if applying this rule throws an error at runtime (for example, a bad regex or an unparseable JSON payload). |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FailureAction__c](#failureaction__c) | What happens when this rule fails on a value, for example because its pattern cannot compile. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [IsActive__c](#isactive__c) | Controls whether this rule runs. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[MaskingTarget__mdt](../metadata/MaskingTarget__mdt.md)> [MaskingTargets__r](#maskingtargets__r) | Reciprocal relationship for MaskingTarget__mdt.Rule__c. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [MinInputLength__c](#mininputlength__c) | Optional minimum field-value length before this rule is evaluated. |
@@ -114,7 +114,7 @@ Plain-language explanation of what this rule detects and why it exists. Required
 global String FailureAction__c
 ```
 
-What to do if applying this rule throws an error at runtime (for example, a bad regex or an unparseable JSON payload). Log and Continue keeps the original value and records the failure. Write Failure Marker replaces the entire field value with a sentinel marker so the original is never persisted. Block DML refuses the save and surfaces an error to the caller.
+What happens when this rule fails on a value, for example because its pattern cannot compile. Log and Continue saves the value unmasked, writes a warning, and skips the rule for the rest of the transaction, so later values it covers are saved unmasked too. Write Failure Marker saves [MASKING_FAILURE] in place of the value the rule failed on and keeps running the rule on other values; if the pattern cannot compile, every value the rule covers gets the marker. Block DML refuses the save, and the rule keeps refusing every later save it meets in the transaction.
 
 **Field Attributes:**
 
@@ -127,8 +127,8 @@ What to do if applying this rule throws an error at runtime (for example, a bad 
 
 | API Name | Label | Active |
 |----------|-------|--------|
-| `LogAndContinue` | Log and Continue | Yes |
-| `WriteFailureMarker` | Write Failure Marker | No |
+| `LogAndContinue` | Log and Continue | No |
+| `WriteFailureMarker` | Write Failure Marker | Yes |
 | `BlockDml` | Block DML | No |
 
 ### IsActive__c

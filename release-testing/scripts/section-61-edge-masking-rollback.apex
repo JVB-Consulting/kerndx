@@ -66,16 +66,16 @@
  *        CMDT DML block makes step 3 impossible in anon Apex. Unit test coverage of the static
  *        cache isolation is in UTIL_FrameworkMasker_TEST.
  *
- *   61e. FAILURE_BLOCK_DML masker rule fires — kern.UTIL_Exceptions.MaskingBlockedException — PARTIALLY TESTABLE.
- *        MaskPaymentCard (shipped, active — it owns the framework surfaces; the legacy
- *        MaskCreditCard is also BlockDml) has FailureAction__c = 'BlockDml'. handleRuleFailure()
- *        in UTIL_FrameworkMasker fires and throws kern.UTIL_Exceptions.MaskingBlockedException ONLY when the
- *        masking rule itself throws an internal exception (catch block in applySingleTargetStatic /
- *        applyJsonKeyBatchStatic). A successful rule match-and-replace does NOT fire handleRuleFailure.
- *        To make MaskPaymentCard throw requires a CMDT record with an invalid Pattern__c — but CMDT
- *        DML is platform-blocked in anon Apex.
+ *   61e. Failure actions of the shipped rules — kern.UTIL_Exceptions.MaskingBlockedException — PARTIALLY TESTABLE.
+ *        The shipped card rules fail closed: MaskPaymentCard (active) has FailureAction__c =
+ *        'WriteFailureMarker', so a failure saves [MASKING_FAILURE] and the save goes on. The
+ *        legacy MaskCreditCard ships dormant. BlockDml rules still ship, all dormant, so no
+ *        shipped rule blocks a save. handleRuleFailure() throws MaskingBlockedException ONLY for
+ *        a BlockDml rule that throws internally; proving that end to end needs an active BlockDml
+ *        rule with an invalid Pattern__c, and CMDT DML is platform-blocked in anon Apex.
  *        OBSERVABLE CONTRACTS asserted here (using only subscriber-accessible APIs):
- *        (a) MaskPaymentCard.FailureAction__c = 'BlockDml' confirmed from CMDT query.
+ *        (a) Shipped rules: MaskPaymentCard active with WriteFailureMarker, MaskCreditCard
+ *            dormant, at least one BlockDml rule shipped, none of them active.
  *        (b) Positive insert: Luhn-valid card succeeds, card masked, no exception thrown.
  *        (c) kern.UTIL_Exceptions.MaskingBlockedException is now a global nested type — subscriber Apex can
  *            catch it by name (verified by referencing kern.UTIL_Exceptions.MaskingBlockedException.class).
@@ -104,9 +104,9 @@
  * Prerequisites:
  *   - subscriber scratch org with kern managed package installed
  *   - MaskingFramework_Enabled feature flag ON (set during subscriber setup)
- *   - MaskingRule__mdt (MaskPaymentCard, MaskSecretKeys, legacy MaskCreditCard) and
- *     MaskingTarget__mdt (ApiCall_All_PaymentCard, ApiCall_All_Secret; ApiCall_All_Card also
- *     ships but defers to the successor) deployed with the package (shipped CMDT records)
+ *   - MaskingRule__mdt (MaskPaymentCard and MaskSecretKeys active; legacy MaskCreditCard dormant) and
+ *     MaskingTarget__mdt (ApiCall_All_PaymentCard, ApiCall_All_Secret active; ApiCall_All_Card
+ *     ships inactive) deployed with the package (shipped CMDT records)
  *   - TriggerSetting.ApiCall has ApplyMasking__c = true (shipped)
  *
  * Run (in isolation):
@@ -431,54 +431,50 @@ catch(Exception scenarioError)
 	fail++;
 }
 
-// Scenario 61e — FAILURE_BLOCK_DML masker rule: observable contracts from subscriber Apex.
-// MaskPaymentCard (shipped, active — it owns the framework surfaces) has FailureAction__c =
-// 'BlockDml'; the legacy MaskCreditCard it replaces is also BlockDml. The framework throws
-// kern.UTIL_Exceptions.MaskingBlockedException ONLY when the rule itself throws an internal exception.
-// A successful rule match-and-replace does NOT trigger handleRuleFailure.
-//
-// Assertions in this scenario use only APIs accessible from subscriber context:
-// (a) MaskPaymentCard.FailureAction__c = 'BlockDml' confirmed via CMDT query.
+// Scenario 61e — failure actions of the shipped rules, seen from subscriber Apex.
+// The shipped card rules fail closed: on a failure the value is saved as [MASKING_FAILURE]
+// (WriteFailureMarker) and the save goes on. BlockDml rules still ship, but all of them dormant.
+// These are the values of a fresh install: an org upgraded from 1.8 keeps its own until it takes the release note's step.
+// (a) Shipped rules: MaskPaymentCard active with WriteFailureMarker, MaskCreditCard dormant,
+//     BlockDml rules present but none active.
 // (b) Positive insert: Luhn-valid card succeeds, card masked, no exception thrown.
-// (c) kern.UTIL_Exceptions.MaskingBlockedException is a global nested class — referenced directly
-//     to confirm subscriber Apex can catch it by type.
-// DEFERRED: trigger -> rule-failure -> exception propagation -> DML abort — see header §6.10 #5.
+// (c) kern.UTIL_Exceptions.MaskingBlockedException can be caught by type.
 try
 {
-	List<kern__MaskingRule__mdt> blockDmlRules61e =
+	Map<String, kern__MaskingRule__mdt> shippedRules61e = new Map<String, kern__MaskingRule__mdt>();
+	List<String> activeBlockDmlRules61e = new List<String>();
+	List<String> dormantBlockDmlRules61e = new List<String>();
+	for(kern__MaskingRule__mdt rule :
 	[
 			SELECT DeveloperName,
 					kern__FailureAction__c,
 					kern__IsActive__c
 			FROM kern__MaskingRule__mdt
-			WHERE kern__FailureAction__c = 'BlockDml'
-			AND kern__IsActive__c = TRUE
-			ORDER BY DeveloperName
-	];
-
-	Assert.isFalse(blockDmlRules61e.isEmpty(),
-			'61e: at least one active MaskingRule__mdt with FailureAction__c = BlockDml must be deployed. '
-			+ 'Expected MaskPaymentCard (+ legacy MaskCreditCard). Re-check package deployment.');
-
-	Boolean hasMaskPaymentCard61e = false;
-	Boolean hasMaskCreditCard61e = false;
-	for(kern__MaskingRule__mdt rule : blockDmlRules61e)
+			WHERE NamespacePrefix = 'kern'
+	])
 	{
-		if(rule.DeveloperName == 'MaskPaymentCard')
+		shippedRules61e.put(rule.DeveloperName, rule);
+		if(rule.kern__FailureAction__c == 'BlockDml' && rule.kern__IsActive__c == true)
 		{
-			hasMaskPaymentCard61e = true;
+			activeBlockDmlRules61e.add(rule.DeveloperName);
 		}
-		if(rule.DeveloperName == 'MaskCreditCard')
+		else if(rule.kern__FailureAction__c == 'BlockDml')
 		{
-			hasMaskCreditCard61e = true;
+			dormantBlockDmlRules61e.add(rule.DeveloperName);
 		}
 	}
-	Assert.isTrue(hasMaskPaymentCard61e,
-			'61e: MaskPaymentCard must be deployed with FailureAction__c = BlockDml and IsActive__c = true — '
-			+ 'it does the card masking on the framework objects. Found active BlockDml rules: ' + blockDmlRules61e);
-	Assert.isTrue(hasMaskCreditCard61e,
-			'61e: the legacy MaskCreditCard must still ship with FailureAction__c = BlockDml and IsActive__c = true '
-			+ '(replaced by MaskPaymentCard but kept for compatibility). Found active BlockDml rules: ' + blockDmlRules61e);
+
+	kern__MaskingRule__mdt paymentCard61e = shippedRules61e.get('MaskPaymentCard');
+	Assert.isNotNull(paymentCard61e, '61e: MaskPaymentCard must ship. Shipped: ' + shippedRules61e.keySet());
+	Assert.isTrue(paymentCard61e.kern__IsActive__c == true, '61e: MaskPaymentCard must ship active');
+	Assert.areEqual('WriteFailureMarker', paymentCard61e.kern__FailureAction__c,
+			'61e: MaskPaymentCard must fail closed with WriteFailureMarker');
+	Assert.isTrue(shippedRules61e.get('MaskCreditCard')?.kern__IsActive__c == false,
+			'61e: the legacy MaskCreditCard must ship, and ship dormant');
+	Assert.isTrue(activeBlockDmlRules61e.isEmpty(),
+			'61e: no shipped rule may be active with BlockDml. Active: ' + activeBlockDmlRules61e);
+	Assert.isFalse(dormantBlockDmlRules61e.isEmpty(),
+			'61e: BlockDml must still be offered by at least one dormant shipped rule');
 
 	Boolean maskingThrewOnSuccess61e = false;
 	String unexpectedExceptionType61e = null;
@@ -507,8 +503,7 @@ try
 
 	Assert.isFalse(maskingThrewOnSuccess61e,
 			'61e: NO exception must be thrown when MaskPaymentCard successfully redacts a Luhn-valid card. '
-			+ 'BlockDml fires only when the rule throws internally — successful masking never triggers '
-			+ 'handleRuleFailure(). Unexpected exception type: ' + unexpectedExceptionType61e);
+			+ 'Unexpected exception type: ' + unexpectedExceptionType61e);
 
 	if(record61e != null && record61e.Id != null)
 	{
@@ -527,7 +522,7 @@ try
 				+ stored61e.kern__Request__c);
 	}
 
-	final String BLOCK_DML_MESSAGE = 'Masking rule MaskPaymentCard failed and is configured to block DML';
+	final String BLOCK_DML_MESSAGE = 'Masking rule MaskIban failed and is configured to block DML';
 	kern.UTIL_Exceptions.MaskingBlockedException caughtBlocked61e = null;
 	try
 	{
@@ -542,21 +537,18 @@ try
 	Assert.isTrue(caughtBlocked61e.getMessage().containsIgnoreCase('block DML'),
 			'61e: framework handleRuleFailure() message contains "block DML". Got: '
 			+ caughtBlocked61e.getMessage());
-	Assert.isTrue(caughtBlocked61e.getMessage().containsIgnoreCase('MaskPaymentCard'),
+	Assert.isTrue(caughtBlocked61e.getMessage().containsIgnoreCase('MaskIban'),
 			'61e: framework handleRuleFailure() message includes the rule DeveloperName. Got: '
 			+ caughtBlocked61e.getMessage());
 
 	System.debug(LoggingLevel.INFO,
 			'61e PASS (end-to-end deferred — see header §6.10 #5): '
-			+ '(a) MaskPaymentCard (+ legacy MaskCreditCard) FailureAction__c = BlockDml confirmed in org ('
-			+ blockDmlRules61e.size() + ' active BlockDml rule(s)). '
-			+ '(b) Successful Luhn-valid card insert completed without any exception — '
-			+ 'BlockDml is orthogonal to rule success; card was masked in stored record. '
-			+ '(c) kern.UTIL_Exceptions.MaskingBlockedException caught by type from subscriber context — '
-			+ 'message format includes rule DeveloperName + "block DML". '
-			+ 'DEFERRED: trigger -> rule-failure -> exception -> DML abort. '
-			+ 'Unit path covered in UTIL_FrameworkMasker_TEST; e2e in Subscriber_MaskingEdges_TEST. '
-			+ 'SPEC DEVIATION: §6.10 #5 blocked by CMDT DML block in anon Apex.');
+			+ '(a) MaskPaymentCard active with WriteFailureMarker, MaskCreditCard dormant, no active shipped BlockDml '
+			+ 'rule; dormant BlockDml rules: ' + dormantBlockDmlRules61e + '. '
+			+ '(b) Successful Luhn-valid card insert completed without any exception; card masked in stored record. '
+			+ '(c) kern.UTIL_Exceptions.MaskingBlockedException caught by type from subscriber context. '
+			+ 'DEFERRED: trigger -> rule-failure -> exception -> DML abort (CMDT DML blocked in anon Apex). '
+			+ 'Unit path covered in UTIL_FrameworkMasker_TEST.');
 	pass++;
 }
 catch(Exception scenarioError)

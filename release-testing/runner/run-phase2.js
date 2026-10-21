@@ -84,6 +84,16 @@ const BATCH_JOBS_WAIT_MILLISECONDS = 60_000;
 // How much of a scanner failure is kept in the recorded note — enough to recognise the failure, short enough to read.
 const SCANNER_NOTE_MAXIMUM_LENGTH = 120;
 
+// The two ESLint scans of the runbook: 2.3d over the scanner's LWC fixtures, and 2.3e over the framework's own components.
+const REPOSITORY_ROOT = path.join(__dirname, '..', '..');
+const ESLINT_FIXTURES_DIRECTORY = path.join(REPOSITORY_ROOT, 'release-testing', 'scanner', 'lwc');
+const FRAMEWORK_COMPONENTS_DIRECTORY = path.join(REPOSITORY_ROOT, 'force-app', 'main', 'default', 'lwc');
+const COMPONENT_BUILDER_RULE = 'kerndx/use-component-builder';
+const ESLINT_FIXTURES_COMMAND = 'npx eslint "**/*.js" --format json';
+const FRAMEWORK_COMPONENTS_COMMAND = `npx eslint --rule "${COMPONENT_BUILDER_RULE}: error" "**/*.js" --ignore-pattern "**/*.test.js" --format json`;
+const ESLINT_TIMEOUT_MILLISECONDS = 180_000;
+const ESLINT_OUTPUT_MAXIMUM_BYTES = 64 * 1024 * 1024;
+
 // Waits for work that happens outside this process. Sections stub this wait in their unit tests so it fires at once.
 function pause(milliseconds)
 {
@@ -539,11 +549,63 @@ function countScannerViolations(pmdData)
 	return pmdData.violations?.length ?? 0;
 }
 
+// Runs one ESLint scan and returns its JSON report. ESLint ends with exit code 1 whenever it finds a problem, so a
+// failed command that still printed a report is a scan that worked; a failure with no report is passed on.
+function readEslintReport(command, directory)
+{
+	const options = {cwd: directory, encoding: 'utf8', timeout: ESLINT_TIMEOUT_MILLISECONDS, maxBuffer: ESLINT_OUTPUT_MAXIMUM_BYTES};
+	let output;
+	try
+	{
+		output = execSync(command, options);
+	}
+	catch(error)
+	{
+		if(!error.stdout)
+		{
+			throw error;
+		}
+		output = error.stdout;
+	}
+	return JSON.parse(output);
+}
+
+// Counts the problems in an ESLint report, or only the problems of one rule when a rule is named.
+function countEslintProblems(report, ruleId)
+{
+	return report.flatMap(file => file.messages).filter(message => !ruleId || message.ruleId === ruleId).length;
+}
+
+// Records both ESLint counts. A scan that cannot report leaves its count empty and says why, never a false zero.
+function runEslintScans()
+{
+	const eslintResult = {fixtureViolations: null, frameworkViolations: null, notes: ''};
+	const failures = [];
+	try
+	{
+		eslintResult.fixtureViolations = countEslintProblems(readEslintReport(ESLINT_FIXTURES_COMMAND, ESLINT_FIXTURES_DIRECTORY));
+	}
+	catch(error)
+	{
+		failures.push('Fixture scan failed: ' + (error.message || '').slice(0, SCANNER_NOTE_MAXIMUM_LENGTH));
+	}
+	try
+	{
+		const frameworkReport = readEslintReport(FRAMEWORK_COMPONENTS_COMMAND, FRAMEWORK_COMPONENTS_DIRECTORY);
+		eslintResult.frameworkViolations = countEslintProblems(frameworkReport, COMPONENT_BUILDER_RULE);
+	}
+	catch(error)
+	{
+		failures.push('Framework scan failed: ' + (error.message || '').slice(0, SCANNER_NOTE_MAXIMUM_LENGTH));
+	}
+	eslintResult.notes = failures.join(' ');
+	return eslintResult;
+}
+
 async function runScanner()
 {
 	console.log('\n  Running scanner...');
 	const pmdResult = {violations: 0, notes: ''};
-	const eslintResult = {fixtureViolations: 0, frameworkViolations: 0, notes: ''};
 
 	const scannerOutputPath = path.join(__dirname, '..', 'results', 'scanner-violations.json');
 	try
@@ -574,7 +636,8 @@ async function runScanner()
 		pmdResult.notes = 'Scanner failed: ' + (error.message || '').slice(0, SCANNER_NOTE_MAXIMUM_LENGTH);
 	}
 
-	return {scanner: pmdResult, eslint: eslintResult};
+	console.log('\n  Running ESLint scans...');
+	return {scanner: pmdResult, eslint: runEslintScans()};
 }
 
 async function runSection35()

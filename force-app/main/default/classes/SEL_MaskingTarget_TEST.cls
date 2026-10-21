@@ -20,6 +20,11 @@ private class SEL_MaskingTarget_TEST
 	private static final String OBJECT_FOOBAR = UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType);
 
 	/**
+	 * @description How many targets the package ships for the MaskJwt rule, counted over every object.
+	 */
+	private static final Integer SHIPPED_JWT_TARGET_COUNT = 2;
+
+	/**
 	 * @description Tests that `findActiveForSObjectType` returns the registered mocks when `TST_Mock`
 	 * has MaskingTarget records, so the mocking that `UTIL_FrameworkMasker_TEST` relies on keeps
 	 * working.
@@ -418,6 +423,73 @@ private class SEL_MaskingTarget_TEST
 	}
 
 	/**
+	 * @description Tests that the package ships one active object-wide target for the MaskJwt rule on
+	 * each of the two web service log objects (the call record and the issue record), and no other.
+	 * It reads the targets the way the engine does, through the selector's own grouping by object, so
+	 * the object of each target is resolved by the selector and not read from the stored Id. It counts
+	 * the package's own targets only, so a target a subscriber added never counts. It has no guard for a
+	 * target a subscriber changed: the test checks the records as the package ships them, and an org that
+	 * changed or upgraded them may hold other values.
+	 */
+	@IsTest
+	private static void shouldShipAJwtTargetOnApiCallAndApiIssue()
+	{
+		SEL_MaskingTarget.cachedTargetsByType = null;
+		SEL_MaskingTarget.cachedRulesById = null;
+		TST_Mock.clear(MaskingTarget__mdt.SObjectType);
+
+		SEL_MaskingTarget selector = new SEL_MaskingTarget();
+		Set<String> objectNames = new Set<String>();
+		Integer jwtTargetCount = 0;
+
+		for(MaskingTarget__mdt target : selector.getAllTargets())
+		{
+			if(isShippedJwtTarget(target, selector))
+			{
+				jwtTargetCount++;
+			}
+		}
+
+		Assert.areEqual(SHIPPED_JWT_TARGET_COUNT, jwtTargetCount, 'Expected exactly two shipped targets, on any object, to point at the JWT rule');
+
+		for(SObjectType objectType : new List<SObjectType> {ApiCall__c.SObjectType, ApiIssue__c.SObjectType})
+		{
+			for(MaskingTarget__mdt target : selector.findAllForSObjectType(objectType))
+			{
+				if(isShippedJwtTarget(target, selector))
+				{
+					objectNames.add(UTIL_SObjectDescribe.getObjectNameFromType(objectType));
+					Assert.isTrue(target.IsActive__c, 'Expected the JWT target on ' + objectType + ' to ship active');
+					Assert.isTrue(String.isBlank(target.Field__c), 'Expected the JWT target on ' + objectType + ' to cover every field');
+					Assert.isTrue(String.isBlank(target.CallerClass__c), 'Expected the JWT target on ' + objectType + ' to apply to every caller');
+				}
+			}
+		}
+
+		Assert.areEqual(
+				new Set<String> {UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType), UTIL_SObjectDescribe.getObjectNameFromType(ApiIssue__c.SObjectType)},
+				objectNames, 'Expected the JWT targets to cover the call record and the issue record');
+	}
+
+	/**
+	 * @description Tells whether a target is one of the package's own and points at the shipped MaskJwt rule.
+	 *
+	 * @param target The target to check
+	 * @param selector The selector that resolves the target's rule
+	 *
+	 * @return True when the target and its rule both belong to the package and the rule is MaskJwt
+	 */
+	private static Boolean isShippedJwtTarget(MaskingTarget__mdt target, SEL_MaskingTarget selector)
+	{
+		String packageNamespace = UTIL_System.getManagedPackageNamespace() ?? UTIL_String.EMPTY;
+		MaskingRule__mdt rule = selector.getAllRulesById().get(target.Rule__c);
+
+		return rule != null && rule.DeveloperName == SEL_MaskingRule.RULE_MASK_JWT
+				&& (rule.NamespacePrefix ?? UTIL_String.EMPTY) == packageNamespace
+				&& (target.NamespacePrefix ?? UTIL_String.EMPTY) == packageNamespace;
+	}
+
+	/**
 	 * @description Covers the branch in `groupTargetsByType` for an EntityDefinition DurableId that
 	 * matches nothing. A target whose `SObjectType__c` holds a DurableId that no EntityDefinition row
 	 * matches is dropped without notice, not cached against a null type, so the type's cache entry is
@@ -658,4 +730,78 @@ private class SEL_MaskingTarget_TEST
 				'the framework record must be saved after an insert on the duplicate-name fallback (no ListException)');
 	}
 
+	/**
+	 * @description Tests that building the target cache finds the field name of a target that stores the field's
+	 * durable Id, the fixed key the platform gives each field. A deployed target stores this key in `Field__c`, not
+	 * `Object.Field`, and `getQualifiedFieldName` must give back `Object.Field`.
+	 */
+	@IsTest
+	private static void shouldFindTheFieldNameOfATargetThatStoresTheFieldDurableId()
+	{
+		String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c);
+		String fieldDurableId = findFoobarFieldDurableId(fieldName);
+		MaskingTarget__mdt deployedTarget = TST_Factory.newMaskingTarget(new Map<SObjectField, Object>
+		{
+				MaskingTarget__mdt.IsActive__c => true,
+				MaskingTarget__mdt.SObjectType__c => fieldDurableId.substringBefore(UTIL_String.DOT),
+				MaskingTarget__mdt.Field__c => fieldDurableId
+		});
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt> {'DeployedFieldTarget' => deployedTarget};
+		SEL_MaskingTarget.cachedTargetsByType = null;
+
+		List<MaskingTarget__mdt> results = new SEL_MaskingTarget().findAllForSObjectType(Foobar__c.SObjectType);
+
+		Assert.areEqual(1, results.size(), 'Expected the target to be cached against its object');
+		Assert.areEqual(OBJECT_FOOBAR + UTIL_String.DOT + fieldName, SEL_MaskingTarget.getQualifiedFieldName(results[0]),
+				'Expected the stored durable Id to give back the field name');
+	}
+
+	/**
+	 * @description Tests that `getQualifiedFieldName` gives no name for a target that names no field, or for a
+	 * target that already stores `Object.Field` as text (the shape test mocks use), so callers keep the stored value.
+	 */
+	@IsTest
+	private static void shouldFindNoFieldNameForATargetWithoutAFieldDurableId()
+	{
+		String fieldDurableId = findFoobarFieldDurableId(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c));
+		String objectDurableId = fieldDurableId.substringBefore(UTIL_String.DOT);
+		MaskingTarget__mdt wildcardTarget = TST_Factory.newMaskingTarget(new Map<SObjectField, Object>
+		{
+				MaskingTarget__mdt.IsActive__c => true,
+				MaskingTarget__mdt.SObjectType__c => objectDurableId,
+				MaskingTarget__mdt.Field__c => null
+		});
+		MaskingTarget__mdt textTarget = TST_Factory.newMaskingTarget(new Map<SObjectField, Object>
+		{
+				MaskingTarget__mdt.IsActive__c => true,
+				MaskingTarget__mdt.SObjectType__c => objectDurableId,
+				MaskingTarget__mdt.Field__c => OBJECT_FOOBAR + UTIL_String.DOT + UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c)
+		});
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt> {'WildcardTarget' => wildcardTarget, 'TextTarget' => textTarget};
+		SEL_MaskingTarget.cachedTargetsByType = null;
+
+		Assert.areEqual(2, new SEL_MaskingTarget().findAllForSObjectType(Foobar__c.SObjectType).size(), 'Expected both targets to be cached');
+		Assert.isNull(SEL_MaskingTarget.getQualifiedFieldName(wildcardTarget), 'Expected no name for a target that names no field');
+		Assert.isNull(SEL_MaskingTarget.getQualifiedFieldName(textTarget), 'Expected no name for a value that is not a durable Id');
+	}
+
+	/**
+	 * @description Reads the durable Id of one `Foobar__c` field from the org.
+	 *
+	 * @param fieldName The API name of the field.
+	 *
+	 * @return The field's durable Id: the object's durable Id and the field's Id joined by a dot.
+	 */
+	private static String findFoobarFieldDurableId(String fieldName)
+	{
+		String durableId;
+		for(FieldDefinition field : new SEL_FieldDefinition().findByEntity(OBJECT_FOOBAR))
+		{
+			if(field.QualifiedApiName == fieldName)
+			{
+				durableId = field.DurableId;
+			}
+		}
+		return durableId;
+	}
 }

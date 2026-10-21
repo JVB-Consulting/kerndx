@@ -16,19 +16,19 @@
     </values>
     <values>
         <field>Description__c</field>
-        <value xsi:type="xsd:string">Redacts JSON Web Tokens (three dot-separated base64url segments starting with the standard eyJ header). Catches accidental token leakage without matching unrelated base64-looking strings.</value>
+        <value xsi:type="xsd:string">Redacts JSON Web Tokens: a token that starts with eyJ and has three dot-separated parts. Values under 20 characters are not checked. Part limits: header 4,000, payload 16,000, signature 2,000 characters. A token with a longer part is left alone.</value>
     </values>
     <values>
         <field>FailureAction__c</field>
-        <value xsi:type="xsd:string">LogAndContinue</value>
+        <value xsi:type="xsd:string">WriteFailureMarker</value>
     </values>
     <values>
         <field>IsActive__c</field>
-        <value xsi:type="xsd:boolean">false</value>
+        <value xsi:type="xsd:boolean">true</value>
     </values>
     <values>
         <field>MinInputLength__c</field>
-        <value xsi:nil="true"/>
+        <value xsi:type="xsd:double">20.0</value>
     </values>
     <values>
         <field>Mode__c</field>
@@ -40,7 +40,7 @@
     </values>
     <values>
         <field>Pattern__c</field>
-        <value xsi:type="xsd:string">\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b</value>
+        <value xsi:type="xsd:string">(?&lt;![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{2,4000}+\.eyJ[A-Za-z0-9_-]{2,16000}+\.[A-Za-z0-9_-]{1,2000}+(?![A-Za-z0-9_-])</value>
     </values>
     <values>
         <field>Replacement__c</field>

@@ -11,7 +11,7 @@
  *              override / revert, and the per-object session draft.
  *
  * @author Jason van Beukering
- * @date May 2026, June 2026
+ * @date May 2026, October 2026
  */
 import {createElement} from 'lwc';
 import {CurrentPageReference} from 'lightning/navigation';
@@ -262,6 +262,13 @@ const MOCK_DEAD_CONFIG = [
 		message: 'Masking target "Contact_Phone_Mask" points to a rule that no longer exists, so it is currently masking nothing.'
 	}
 ];
+
+// A card rule finding: it names a rule, not a target, so it has no targetDeveloperName.
+const MOCK_CARD_RULE_FINDING = {
+	ruleDeveloperName: 'MaskCreditCard',
+	issueCode: 'OLDER_CARD_RULE_WOULD_RUN',
+	message: 'Masking rule "MaskCreditCard" is the older card number rule, and it still runs.'
+};
 
 const NEW_RULE_SETUP_URL = '/lightning/setup/CustomMetadata/page?address=%2Fm08%2Fe%3FsObjectName%3DMaskingRule__mdt';
 
@@ -957,6 +964,28 @@ describe('c-data-masking-advisor — dead-config banner', () =>
 	{
 		const element = await createAdvisor({dead: [MOCK_DEAD_CONFIG[0]]});
 		expect(element.shadowRoot.querySelector('[data-testid="dead-config-banner"] p').textContent).toContain('1 active masking target is');
+	});
+
+	it('shows a card rule finding in the banner without a target count line', async() =>
+	{
+		const element = await createAdvisor({dead: [MOCK_CARD_RULE_FINDING]});
+		const items = element.shadowRoot.querySelectorAll('[data-testid="dead-config-item"]');
+		expect(items).toHaveLength(1);
+		expect(items[0].textContent).toBe(MOCK_CARD_RULE_FINDING.message);
+		expect(element.shadowRoot.querySelector('[data-testid="dead-config-summary"]')).toBeNull();
+	});
+
+	it('counts only the targets that mask nothing in the summary when card rule findings are also shown', async() =>
+	{
+		const element = await createAdvisor({dead: [MOCK_DEAD_CONFIG[0], MOCK_CARD_RULE_FINDING]});
+		expect(element.shadowRoot.querySelectorAll('[data-testid="dead-config-item"]')).toHaveLength(2);
+		expect(element.shadowRoot.querySelector('[data-testid="dead-config-summary"]').textContent).toBe('1 active masking target is currently masking nothing.');
+	});
+
+	it('shows no banner when the findings call returns nothing', async() =>
+	{
+		const element = await createAdvisor({dead: null});
+		expect(element.shadowRoot.querySelector('[data-testid="dead-config-banner"]')).toBeNull();
 	});
 
 	it('swallows a getDeadConfigurations failure without breaking the rest of the component', async() =>

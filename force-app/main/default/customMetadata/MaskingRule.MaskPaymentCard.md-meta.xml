@@ -16,11 +16,11 @@
     </values>
     <values>
         <field>Description__c</field>
-        <value xsi:type="xsd:string">Redacts 13-19 digit numbers passing the Luhn (mod-10) checksum. Covers all major card brands (Visa, Mastercard, Amex, Discover, JCB, UnionPay, Maestro); spaces or hyphens allowed. Blocks saving if masking fails. Review with PCI before disabling.</value>
+        <value xsi:type="xsd:string">Hides 13 to 19 digit numbers that pass the Luhn (mod-10) card checksum, for all major card brands, with spaces or hyphens allowed. If masking fails, the value is replaced with [MASKING_FAILURE] and the save goes on. Review with PCI before disabling.</value>
     </values>
     <values>
         <field>FailureAction__c</field>
-        <value xsi:type="xsd:string">BlockDml</value>
+        <value xsi:type="xsd:string">WriteFailureMarker</value>
     </values>
     <values>
         <field>IsActive__c</field>
@@ -48,7 +48,7 @@
     </values>
     <values>
         <field>ReplacesFingerprint__c</field>
-        <value xsi:type="xsd:string">4a7d0e90c279226127cf2431ed41c6f0cafc98efa6b60704370d258a1e67ad99</value>
+        <value xsi:type="xsd:string">aeb3f2da3973c48bc65f18453bddb7091b7ed97a96667c913adbbb7b531c223e</value>
     </values>
     <values>
         <field>Replaces__c</field>
@@ -56,6 +56,6 @@
     </values>
     <values>
         <field>ShippedFingerprint__c</field>
-        <value xsi:type="xsd:string">0593ef03f0725e64e777c5bda0622dea9385658e9da7b492a60cee7d564c3a56</value>
+        <value xsi:type="xsd:string">1994186e53ad894797dbdf3e7e97bab1fa01c4aef1d85e6cf5dec32601c3fc35</value>
     </values>
 </CustomMetadata>

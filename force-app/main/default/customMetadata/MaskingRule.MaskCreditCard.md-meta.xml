@@ -16,15 +16,15 @@
     </values>
     <values>
         <field>Description__c</field>
-        <value xsi:type="xsd:string">Redacts credit card numbers matching ISO/IEC 7812 issuer prefixes (Visa, MC, Amex, Discover, Diners, JCB, UnionPay) that additionally pass the Luhn mod-10 checksum. MinInputLength 15, Block DML. Review with PCI before deactivating.</value>
+        <value xsi:type="xsd:string">Older card rule, replaced by Mask Payment Card Numbers, which covers the same cards. Ships off: on a long text full of digits, its pattern can use so much processing time that the save stops. If masking fails, the value becomes [MASKING_FAILURE].</value>
     </values>
     <values>
         <field>FailureAction__c</field>
-        <value xsi:type="xsd:string">BlockDml</value>
+        <value xsi:type="xsd:string">WriteFailureMarker</value>
     </values>
     <values>
         <field>IsActive__c</field>
-        <value xsi:type="xsd:boolean">true</value>
+        <value xsi:type="xsd:boolean">false</value>
     </values>
     <values>
         <field>MinInputLength__c</field>

@@ -12,7 +12,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -24,7 +24,7 @@
  * String replaced = UTIL_String.replace('Hello World', 'World', 'Apex');
  * ```
  */
-@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssTypeCount,PMD.AvoidGlobalModifier')
+@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssTypeCount,PMD.NcssCount,PMD.AvoidGlobalModifier')
 global inherited sharing class UTIL_String
 {
 	/**
@@ -137,18 +137,216 @@ global inherited sharing class UTIL_String
 	private static final Integer MIN_MASK_LENGTH = 3;
 
 	/**
-	 * @description Maximum input size (characters) before JSON deserialization is skipped in
-	 * favour of the regex fallback. Prevents the untyped walk from exhausting Apex heap on
-	 * very large payloads. @TestVisible so tests can exercise the branch without generating
-	 * multi-megabyte inputs.
+	 * @description What the Luhn check adds for a digit it doubles. The list is read by digit: place 0 holds the value for 0,
+	 * place 7 holds the value for 7. A doubled digit above 9 counts as its two digits added together, so 7 doubled is 14 and
+	 * counts as 5.
 	 */
-	@TestVisible
-	private static Integer jsonWalkSizeThreshold = 2000000;
+	private static final List<Integer> DOUBLED_DIGIT_VALUES = new List<Integer>{ 0, 2, 4, 6, 8, 1, 3, 5, 7, 9 };
+
+	/**
+	 * @description How many numbers `maskWithLuhnValidatedRegex` checks with the Luhn check in one value. The pattern finds
+	 * the numbers one by one. The first 50 numbers are checked, and only the ones that pass are hidden. Every number the
+	 * pattern finds after the first 50 is hidden without the check. A text with that many card-shaped numbers is not an
+	 * ordinary message, and checking thousands of them one by one would use too much processing time.
+	 */
+	public static final Integer LUHN_CANDIDATE_BUDGET = 50;
+
+	/**
+	 * @description The longest piece of a value that `maskWithLuhnValidatedRegex` searches with one pattern search. The
+	 * platform stops a pattern search that takes too many steps, and a long digit text can reach that limit. So a value
+	 * longer than this is searched in pieces of at most this many characters. A shorter value is searched in one go.
+	 */
+	public static final Integer CARD_SEARCH_PIECE_LENGTH = 32768;
+
+	/**
+	 * @description How many characters two pieces of a long value have in common when `maskWithLuhnValidatedRegex`
+	 * searches it in pieces. Each piece starts this many characters before the end of the piece before it, so a number
+	 * that crosses the end of one piece is found whole in the next one. This works for every number up to this length. A
+	 * number longer than this, which only a pattern that allows long runs of separators can find, can be cut at the end of a
+	 * piece. No card number written with single spaces or hyphens comes near this length: the longest is 37 characters,
+	 * 19 digits and 18 separators.
+	 */
+	public static final Integer CARD_SEARCH_PIECE_OVERLAP = 2048;
+
+	/**
+	 * @description The longest piece of a value that `maskWithRegex` searches with one pattern search. The platform stops
+	 * a pattern search that takes too many steps, and ends the transaction with an error that no code can catch. The
+	 * shipped rule that hides JSON Web Tokens reaches that limit in one search over 400,000 to 490,000 characters of
+	 * ordinary text. The limit counts each search on its own, so fifteen searches of this length in one transaction
+	 * finish in about 60 milliseconds. A value at or under this length is searched in one go.
+	 */
+	public static final Integer PATTERN_SEARCH_PIECE_LENGTH = 131072;
+
+	/**
+	 * @description How many characters two pieces of a long value have in common when `maskWithRegex` searches it in
+	 * pieces. Each piece starts this many characters before the end of the piece before it, so a match of up to this
+	 * length that crosses the end of one piece is found whole in the next one. A JSON Web Token is at most about 22,000
+	 * characters long, so it always fits. A match of a pattern that can match more than this many characters can be cut
+	 * at the end of a piece.
+	 */
+	public static final Integer PATTERN_SEARCH_PIECE_OVERLAP = 32768;
+
+	/**
+	 * @description The backslash that, in a replacement, writes the character after it as it is. `\$` writes a dollar
+	 * sign instead of starting a group reference.
+	 */
+	private static final String REPLACEMENT_ESCAPE_START = '\\';
+
+	/**
+	 * @description The dollar sign that starts a group reference in a replacement, such as `$1` or `${name}`.
+	 */
+	private static final String REPLACEMENT_GROUP_START = '$';
+
+	/**
+	 * @description The ten digits. A character is a digit when this text holds it.
+	 */
+	private static final String DIGITS = '0123456789';
+
+	/**
+	 * @description Finds, in the text of a pattern, the parts that matter for numbering its groups: a quoted part
+	 * (`\Q...\E`), an escaped character, a character class, a bracket that opens a group without a name, and a bracket
+	 * that opens a named group (its name is group 1). See `findGroupNumbersByName`.
+	 */
+	private static final Pattern GROUP_OPENING_SEARCH =
+			Pattern.compile('\\\\Q[\\s\\S]*?(?:\\\\E|$)|\\\\[\\s\\S]|\\[(?:\\\\[\\s\\S]|[^\\]\\\\])*+\\]|\\((?!\\?)|\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>');
 
 	/**
 	 * @description Maximum recursion depth while walking a deserialized JSON tree.
 	 */
 	private static final Integer JSON_WALK_MAX_DEPTH = 50;
+
+	/**
+	 * @description The most opening brackets (`{` and `[` added together) a JSON value can hold and still be read as a
+	 * whole tree by `maskJsonKeys`. A value with more is read one token at a time by `maskJsonKeysStreaming`. The
+	 * platform reads a whole tree by going one level deeper for each nested object or list. A value nested 1,000 levels
+	 * deep is read without a problem, but one nested 2,000 levels deep ends the transaction with an error that no code can
+	 * catch. A value is never nested deeper than its count of opening brackets, so a value at or under this count is far
+	 * from that limit. The count also sends long lists of small objects to the token reader. The tree takes more than
+	 * a second on a full-length list of 9,000 objects, and the token reader takes about a third of a second.
+	 */
+	public static final Integer JSON_STRUCTURE_LINE = 500;
+
+	/**
+	 * @description The longest piece of a value that `canHoldMatchingJsonKey` searches for a key name with one pattern
+	 * search. The platform stops a pattern search that takes too many steps: one search for the key names over a whole
+	 * full-length value ends the transaction from about 96,000 characters. A search over pieces of this length stays far
+	 * below that limit. Each piece gets its own matcher, because the platform adds up the steps of every search made with
+	 * one matcher.
+	 */
+	public static final Integer KEY_SEARCH_PIECE_LENGTH = 16384;
+
+	/**
+	 * @description How many characters two pieces of a value have in common when `canHoldMatchingJsonKey` searches it in
+	 * pieces. Each piece starts this many characters before the end of the piece before it. So a key name of up to this
+	 * length that crosses the end of one piece lies whole inside the next piece, and the search finds it there. The longest
+	 * key name the shipped secret-keys rule matches has 13 characters.
+	 * <p>What this does not cover: a key name longer than this that crosses the end of a piece can be missed. The search
+	 * then finds no key name, and the rule skips the value, so the value under that key is not replaced.</p>
+	 */
+	public static final Integer KEY_SEARCH_PIECE_OVERLAP = 64;
+
+	/**
+	 * @description Finds the parts of a key pattern that make the key name search of `canHoldMatchingJsonKey` unsafe.
+	 * The text search for `"key":"value"` pairs does not run with such a pattern either (see `maskJsonKeysViaRegex`).
+	 * <ul>
+	 *   <li>A `^` or `$` left inside the pattern, a backslash anchor or word boundary (`\b`, `\B`, `\A`, `\z`, `\Z`,
+	 *       `\G`), and a look-ahead or look-behind group. Each of them can match a key name on its own but fail on the
+	 *       same name inside the whole text, because they look at what comes before or after the name.</li>
+	 *   <li>A repeat with no upper limit: `*`, `+` or `{n,}`. Searched over a long piece of text, such a pattern (for
+	 *       example `.*secret.*`) tries a match from every place to every later place. The number of steps grows with the
+	 *       square of the piece length and ends the transaction.</li>
+	 *   <li>A repeat whose upper count has three digits or more, such as `{0,99999}`, `{100}` or the `{1,100}` in
+	 *       `^x_[a-z0-9]{1,100}$`. The check does not work out how many steps such a repeat can take (a repeat inside
+	 *       another repeat multiplies them), so it treats every large count as unsafe. This applies to the text search
+	 *       too: a value that holds a quote then gets `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole value.
+	 *       No key name needs a count that large.</li>
+	 * </ul>
+	 * The check does not look at a backslash before a character. So an escaped `\*` or `\+`, which matches only that
+	 * character, counts as a repeat too. That is on the safe side: such a pattern only loses the quick key name search,
+	 * and the text search does not run with it.
+	 */
+	private static final Pattern KEY_SEARCH_UNSAFE_PARTS = Pattern.compile('\\^|\\$|\\\\[bBAzZG]|\\(\\?[=!<]|\\*|\\+|\\{\\d+,\\}|\\{(?:\\d+,)?\\d{3,}\\}');
+
+	/**
+	 * @description The backslash that starts every escape in JSON text. For example, the letter a can be written as a
+	 * backslash, the letter u and the four hexadecimal digits 0061.
+	 */
+	private static final String JSON_ESCAPE_START = '\\';
+
+	/**
+	 * @description The longest piece of a value that the text search for `"key":"value"` pairs (see
+	 * `maskJsonKeysViaRegex`) searches with one pattern search. The platform adds up the steps of every search made with
+	 * one matcher, and one search over a whole full-length value, such as a wall of quotes, ends the transaction with an
+	 * error that no code can catch. Each piece gets its own matcher, and a search over a piece of this length stays far
+	 * below that limit.
+	 */
+	public static final Integer JSON_TEXT_SEARCH_PIECE_LENGTH = 16384;
+
+	/**
+	 * @description How many characters two pieces of a value have in common when the text search for `"key":"value"`
+	 * pairs searches it in pieces. Each piece starts this many characters before the end of the piece before it. So a
+	 * key in quotes, with its colon, of up to this length that crosses the end of one piece lies whole inside the next
+	 * piece, and the search finds it there.
+	 * <p>A key can be written with JSON escapes, where six characters stand for one letter: a backslash, the letter u
+	 * and four hexadecimal digits. Some programs write every letter outside plain English this way. So a key name of up to about
+	 * 84 letters still fits, even with every letter written as an escape. Each piece reads about 3% of its text twice.</p>
+	 * <p>What this does not cover: a key written longer than this length can be missed where one piece ends and the next
+	 * begins, and then its value is not replaced.</p>
+	 */
+	public static final Integer JSON_TEXT_SEARCH_PIECE_OVERLAP = 512;
+
+	/**
+	 * @description The most characters the text search for `"key":"value"` pairs reads, from the start of a key, when it
+	 * reads a pair again over the rest of the value (see `JsonTextSearch.readPairAt`). One match over a long text ends the
+	 * transaction with a platform error that no code can catch. Escapes cost more than plain text: a run of plain
+	 * letters is read in one go, but each escape (a backslash and the character after it) is read on its own.
+	 * <p>Measured with one match in a synchronous transaction: it finished over 900,000 plain letters and ended the
+	 * transaction at 1,000,000. Over escaped quotes (a backslash and a quote, again and again) it finished at 650,000
+	 * characters and ended the transaction at 675,000. Over a letter and an escaped quote taking turns, the text that
+	 * costs the most for each character, it finished at 585,000 characters and ended the transaction at 600,000. This
+	 * length is less than half of the lowest of these, to leave a wide margin.</p>
+	 * <p>A secret text longer than this has no closing quote inside what is read, so the search cannot hide it safely,
+	 * and the whole value gets the failure marker instead.</p>
+	 */
+	private static final Integer JSON_TEXT_PAIR_READ_LENGTH = 262144;
+
+	/**
+	 * @description The start of the pattern of the text search for `"key":"value"` pairs: the case flag (`__FLAG__`), the
+	 * key in quotes, and the colon with any spaces around it. The key is read in one of two ways:
+	 * <ul>
+	 *   <li>As it is written: the key pattern of the rule (`__KEY__`) matches the text between the quotes.</li>
+	 *   <li>As a key written with JSON escapes, in the named group `escapedKey`: any text between the quotes that holds
+	 *       at least one backslash, read as JSON reads a text. For example, the letter a of `password` can be written
+	 *       as a backslash, the letter u and the hexadecimal digits 0061. The search then checks the name the key stands for
+	 *       (see `JsonTextSearch.isEscapedKeyMatching`). The opening quote of such a key must not follow a backslash,
+	 *       because a quote after a backslash is part of a text and never starts a key. This also keeps the search
+	 *       quick on a text full of escaped quotes: each try reads only to the next quote that ends a text.</li>
+	 * </ul>
+	 * Spaces are read possessively: once read, they are never given back, so a long run of spaces costs one step.
+	 */
+	private static final String JSON_TEXT_KEY_TEMPLATE = '__FLAG__(?:"(?:__KEY__)|(?<!\\\\)"(?<escapedKey>[^"\\\\]*+(?:\\\\[\\s\\S][^"\\\\]*+)++))"\\s*+:\\s*+';
+
+	/**
+	 * @description The end of the pattern of the text search for `"key":"value"` pairs: the value after the colon, in one
+	 * of two named groups.
+	 * <ul>
+	 *   <li>`scalar`: one whole JSON text, number, `true`, `false` or `null`, followed by a space, a comma, a closing
+	 *       brace or bracket, or the end of the text. A text is read as JSON reads it: ordinary characters, or a
+	 *       backslash and the character after it, up to the closing quote. A run of ordinary characters is read in one
+	 *       go, but each escape is read on its own, so a long text full of escapes costs more (see
+	 *       `JSON_TEXT_PAIR_READ_LENGTH`).</li>
+	 *   <li>`other`: any other character after the colon, or the end of the text. This is an object, a list, a text
+	 *       without its closing quote, or a word without quotes.</li>
+	 * </ul>
+	 */
+	private static final String JSON_TEXT_VALUE_PATTERN =
+			'(?:(?<scalar>"(?:[^"\\\\]++|\\\\[\\s\\S])*+"|-?\\d++(?:\\.\\d++)?+(?:[eE][+-]?+\\d++)?+|true|false|null)(?=[\\s,}\\]]|$)|(?<other>[\\s\\S]|$))';
+
+	/**
+	 * @description Finds a run of spaces, line breaks and colons at the start of a text. The text search reads the end of a
+	 * piece backwards with it, to find where the spaces at the end of the piece begin.
+	 */
+	private static final Pattern SPACES_AND_COLONS = Pattern.compile('[\\s:]*+');
 
 	/**
 	 * @description <p>Abbreviates a String using ellipses. This will turn
@@ -1231,26 +1429,27 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description Reports whether `candidate` is a valid credit-card number shape: 13–19 digits
-	 * (optionally interrupted by single spaces or hyphens) passing the Luhn (mod-10) checksum
-	 * per ISO/IEC 7812. Null / empty / whitespace / letter-containing inputs return false
-	 * without throwing. Separators (space, hyphen) are stripped before the checksum; any other
-	 * non-digit character causes an early-return false.
+	 * @description Reports whether `candidate` looks like a real card number: 13 to 19 digits that pass the Luhn check
+	 * (the checksum built into card numbers, defined in ISO/IEC 7812). Every space and hyphen is ignored: one between two
+	 * digits, several in a row, and any before the first digit or after the last one. Any other character, a null value,
+	 * an empty text and a text of spaces only all return false. The method never throws.
 	 *
-	 * Used by `maskWithLuhnValidatedRegex` to gate credit-card redaction on values that
-	 * actually satisfy the card-industry checksum — without it a 15–19 digit regex match would
-	 * redact transaction IDs, nanosecond timestamps, and order numbers as if they were cards.
-	 * Regex checks route through `UTIL_String`'s per-transaction compiled-pattern cache to
-	 * avoid recompiling on each call.
+	 * This method is hot: `maskWithLuhnValidatedRegex` calls it once for every digit group the pattern finds, and a long
+	 * field can hold thousands of groups. So it uses no pattern matching, no substrings and no text-to-number conversion.
+	 * It removes the spaces and hyphens with two plain text replacements, checks that only the digits 0 to 9 remain, and
+	 * then adds up the digits by their character codes. A digit is its character code minus 48.
 	 *
-	 * @param candidate The string to validate
+	 * The Luhn check doubles every second digit, counting from the last one. The last digit is added as it is, the one before
+	 * it is doubled, and so on.
 	 *
-	 * @return True when `candidate` is 13–19 digits long after stripping separators and the Luhn sum mod 10 is zero
+	 * @param candidate The text to check
+	 *
+	 * @return True when `candidate` holds 13 to 19 digits, ignoring spaces and hyphens, and the Luhn sum divided by 10 leaves no remainder
 	 *
 	 * @example
 	 * ```apex
-	 * UTIL_String.isValidCardNumber('4111 1111 1111 1111'); // true — valid Visa test number
-	 * UTIL_String.isValidCardNumber('1234567890123456');    // false — 16-digit transaction ID
+	 * UTIL_String.isValidCardNumber('4111 1111 1111 1111'); // true: a valid Visa test number
+	 * UTIL_String.isValidCardNumber('1234567890123456');    // false: a 16-digit transaction ID
 	 * ```
 	 */
 	public static Boolean isValidCardNumber(String candidate)
@@ -1262,37 +1461,27 @@ global inherited sharing class UTIL_String
 
 		final Integer minimumCardDigits = 13;
 		final Integer maximumCardDigits = 19;
+		final Integer zeroCharacterCode = 48;
 
-		if(getCompiledPattern('[^0-9 \\-]', false).matcher(candidate).find())
+		String digits = candidate.remove(' ').remove('-');
+		Integer digitCount = digits.length();
+
+		if(digitCount < minimumCardDigits || digitCount > maximumCardDigits || !digits.isNumeric() || !digits.isAsciiPrintable())
 		{
 			return false;
 		}
 
-		String digits = getCompiledPattern('[^0-9]', false).matcher(candidate).replaceAll('');
-
-		if(digits.length() < minimumCardDigits || digits.length() > maximumCardDigits)
-		{
-			return false;
-		}
-
+		List<Integer> characterCodes = digits.getChars();
 		Integer sum = 0;
-		Boolean doubleNext = false;
 
-		for(Integer position = digits.length() - 1; position >= 0; position--)
+		for(Integer index = digitCount - 1; index >= 0; index -= 2)
 		{
-			Integer digit = Integer.valueOf(digits.substring(position, position + 1));
+			sum += characterCodes[index] - zeroCharacterCode;
+		}
 
-			if(doubleNext)
-			{
-				digit = digit * 2;
-				if(digit > 9)
-				{
-					digit = digit - 9;
-				}
-			}
-
-			sum = sum + digit;
-			doubleNext = !doubleNext;
+		for(Integer index = digitCount - 2; index >= 0; index -= 2)
+		{
+			sum += DOUBLED_DIGIT_VALUES[characterCodes[index] - zeroCharacterCode];
 		}
 
 		return Math.mod(sum, 10) == 0;
@@ -1325,6 +1514,13 @@ global inherited sharing class UTIL_String
 	 * replacement. Use `caseSensitive = false` (the default via the 3-arg overload) for
 	 * case-insensitive matching.
 	 *
+	 * A value of at most `PATTERN_SEARCH_PIECE_LENGTH` characters is searched with one `replaceAll`. A longer value is
+	 * searched in pieces (see `PatternSearch`), because one search over a long value can take too many steps, and the
+	 * platform then ends the transaction with an error that no code can catch. The pieces give the same text as one
+	 * `replaceAll` would, with two limits: a match longer than `PATTERN_SEARCH_PIECE_OVERLAP` can be cut at the end of a
+	 * piece, and a match that runs to the end of a piece is joined with a match that starts right where it ends, so a
+	 * pattern such as `(?s).+` replaces the whole value once.
+	 *
 	 * @param input The value to mask
 	 * @param regex The regex pattern to match
 	 * @param replacement The replacement string; `$1`, `$2` etc. reference capture groups
@@ -1345,24 +1541,461 @@ global inherited sharing class UTIL_String
 			return input;
 		}
 
-		return getCompiledPattern(regex, caseSensitive).matcher(input).replaceAll(replacement);
+		Pattern compiledPattern = getCompiledPattern(regex, caseSensitive);
+
+		if(input.length() <= PATTERN_SEARCH_PIECE_LENGTH)
+		{
+			return compiledPattern.matcher(input).replaceAll(replacement);
+		}
+
+		PatternSearch search = new PatternSearch(input, compiledPattern, replacement);
+		search.searchWholeValue();
+		return search.buildMaskedValue();
 	}
 
 	/**
-	 * @description Like `maskWithRegex`, but each regex match is independently checked against
-	 * `isValidCardNumber` before being replaced. Matches that do not Luhn-validate are left as-is.
-	 * Intended for credit-card redaction patterns that would otherwise generate false positives
-	 * on any 15-19 digit run (transaction IDs, nanosecond timestamps, order numbers).
+	 * @description Finds every match of a pattern in a value longer than `PATTERN_SEARCH_PIECE_LENGTH`, for
+	 * `maskWithRegex`. It keeps where each match starts and ends in the value, and the text that replaces it. The value is
+	 * built again once, at the end.
+	 * <p>The value is searched in pieces of `PATTERN_SEARCH_PIECE_LENGTH` characters. Each piece starts
+	 * `PATTERN_SEARCH_PIECE_OVERLAP` characters before the end of the piece before it, and the last piece ends at the end
+	 * of the value. Each piece gets a matcher of its own, because the platform adds up the steps of every search made with
+	 * one matcher. The matcher reads the whole value but looks for matches only inside its piece (a region). A look-behind
+	 * or a look-ahead in the pattern still sees the characters just outside the piece, and `^` and `$` match only at the
+	 * real start and end of the value, not at the ends of a piece.</p>
+	 */
+	private inherited sharing class PatternSearch
+	{
+		/**
+		 * @description The value that is searched.
+		 */
+		private final String input;
+
+		/**
+		 * @description The compiled pattern.
+		 */
+		private final Pattern searchPattern;
+
+		/**
+		 * @description The replacement as the caller gave it, with any group references still in it.
+		 */
+		private final String replacement;
+
+		/**
+		 * @description The replacement read into its parts, built when the first match is found (see `ReplacementText`).
+		 */
+		private ReplacementText replacementText;
+
+		/**
+		 * @description Where each match starts in the value, in the order the matches appear.
+		 */
+		private final List<Integer> matchStarts = new List<Integer>();
+
+		/**
+		 * @description Where each match ends in the value (the place just after its last character), in the same order as
+		 * `matchStarts`.
+		 */
+		private final List<Integer> matchEnds = new List<Integer>();
+
+		/**
+		 * @description The text that replaces each match, in the same order as `matchStarts`.
+		 */
+		private final List<String> matchReplacements = new List<String>();
+
+		/**
+		 * @description The place in the value where the next search starts. Every place before it is decided: either it
+		 * belongs to a match already kept, or no match starts there.
+		 */
+		private Integer resumeAt = 0;
+
+		/**
+		 * @description True when the last match kept runs to the end of its piece, and the search looked at that end. The
+		 * match may go on in the next piece, so a match that starts exactly where it ends is joined to it.
+		 */
+		private Boolean isLastMatchOpenAtPieceEnd = false;
+
+		/**
+		 * @description Prepares a search of one value.
+		 *
+		 * @param input The value to search
+		 * @param searchPattern The compiled pattern
+		 * @param replacement The replacement, with any group references still in it
+		 */
+		private PatternSearch(String input, Pattern searchPattern, String replacement)
+		{
+			this.input = input;
+			this.searchPattern = searchPattern;
+			this.replacement = replacement;
+		}
+
+		/**
+		 * @description Searches the whole value in pieces of `PATTERN_SEARCH_PIECE_LENGTH` characters. Each piece starts
+		 * `PATTERN_SEARCH_PIECE_OVERLAP` characters before the end of the piece before it, and the last piece ends at the
+		 * end of the value.
+		 */
+		private void searchWholeValue()
+		{
+			Integer inputLength = input.length();
+			Integer pieceStart = 0;
+			Integer pieceEnd = 0;
+
+			while(pieceEnd < inputLength)
+			{
+				pieceEnd = Math.min(pieceStart + PATTERN_SEARCH_PIECE_LENGTH, inputLength);
+				searchPiece(pieceStart, pieceEnd);
+				pieceStart = pieceEnd - PATTERN_SEARCH_PIECE_OVERLAP;
+			}
+		}
+
+		/**
+		 * @description Searches one piece of the value, from `resumeAt` on, and keeps the matches it finds.
+		 * <p>The end of a piece is not the end of the value. The matcher says when a match may depend on the text after the
+		 * piece: `hitEnd()` is true when the search looked at the end of the piece. Such a match, when it starts in the
+		 * part the next piece also holds, is left for the next piece, which sees the text after it. Such a match that
+		 * starts earlier is kept, and when it runs to the end of the piece, the next piece joins a match that starts
+		 * right where it ends (see `keepMatch`).</p>
+		 *
+		 * @param pieceStart Where the piece starts in the value
+		 * @param pieceEnd Where the piece ends in the value (the place just after its last character)
+		 */
+		private void searchPiece(Integer pieceStart, Integer pieceEnd)
+		{
+			Boolean isLastPiece = pieceEnd == input.length();
+			Integer nextPieceStart = pieceEnd - PATTERN_SEARCH_PIECE_OVERLAP;
+			Matcher matcher = searchPattern.matcher(input).useTransparentBounds(true).useAnchoringBounds(false).region(Math.max(pieceStart, resumeAt), pieceEnd);
+
+			while(matcher.find())
+			{
+				Integer matchStart = matcher.start();
+				Integer matchEnd = matcher.end();
+				Boolean isCutByPieceEnd = !isLastPiece && matcher.hitEnd();
+
+				if(isCutByPieceEnd && matchStart >= nextPieceStart)
+				{
+					resumeAt = matchStart;
+					return;
+				}
+
+				keepMatch(matcher, matchStart, matchEnd);
+				isLastMatchOpenAtPieceEnd = isCutByPieceEnd && matchEnd == pieceEnd;
+				resumeAt = matchEnd == matchStart ? matchEnd + 1 : matchEnd;
+			}
+
+			resumeAt = Math.max(resumeAt, nextPieceStart);
+		}
+
+		/**
+		 * @description Keeps one match. A match that starts exactly where the last kept match ends, when that match runs
+		 * to the end of its piece, is the rest of the same match: the last kept match is made longer, and keeps its
+		 * replacement. Any other match is kept with its own replacement.
+		 *
+		 * @param matcher The matcher positioned on the match
+		 * @param matchStart Where the match starts in the value
+		 * @param matchEnd Where the match ends in the value
+		 */
+		private void keepMatch(Matcher matcher, Integer matchStart, Integer matchEnd)
+		{
+			Integer lastIndex = matchEnds.size() - 1;
+
+			if(isLastMatchOpenAtPieceEnd && matchEnds[lastIndex] == matchStart)
+			{
+				matchEnds[lastIndex] = matchEnd;
+				return;
+			}
+
+			replacementText = replacementText ?? new ReplacementText(replacement, matcher);
+			matchStarts.add(matchStart);
+			matchEnds.add(matchEnd);
+			matchReplacements.add(replacementText.writeFor(matcher));
+		}
+
+		/**
+		 * @description Builds the value again with the kept matches replaced: the text between them is copied, and the
+		 * replacement of each match is written in its place.
+		 *
+		 * @return The masked value, or the value itself when no match was kept
+		 */
+		private String buildMaskedValue()
+		{
+			if(matchStarts.isEmpty())
+			{
+				return input;
+			}
+
+			List<String> parts = new List<String>();
+			Integer copiedUpTo = 0;
+
+			for(Integer index = 0; index < matchStarts.size(); index++)
+			{
+				parts.add(input.substring(copiedUpTo, matchStarts[index]));
+				parts.add(matchReplacements[index]);
+				copiedUpTo = matchEnds[index];
+			}
+
+			parts.add(input.substring(copiedUpTo));
+			return String.join(parts, EMPTY);
+		}
+	}
+
+	/**
+	 * @description A replacement read into its parts, so that the text for each match is the text `replaceAll` writes
+	 * for it. The platform matcher has no method that writes the replacement for one match, so the replacement is read
+	 * here, with the same rules `replaceAll` uses:
+	 * <ul>
+	 *   <li>A backslash writes the character after it as it is. `\$` writes a dollar sign.</li>
+	 *   <li>A dollar sign and a group number write the text of that group. The number takes as many digits as still make
+	 *       a group the pattern has: with eleven groups, `$11` is group 11 and `$12` is group 1 followed by the digit
+	 *       2.</li>
+	 *   <li>A dollar sign and a name in braces, such as `${name}`, write the text of the group with that name.</li>
+	 *   <li>A group that took no part in the match writes nothing.</li>
+	 * </ul>
+	 * A replacement that `replaceAll` refuses, such as one that names a group the pattern does not have, is refused
+	 * here with the same `StringException`.
+	 */
+	private inherited sharing class ReplacementText
+	{
+		/**
+		 * @description The parts of the replacement, in order. A part is either a text written as it is, or null where a
+		 * group is written.
+		 */
+		private final List<String> textParts = new List<String>();
+
+		/**
+		 * @description For each part, the number of the group written there, or null where `textParts` holds a text.
+		 */
+		private final List<Integer> groupParts = new List<Integer>();
+
+		/**
+		 * @description How many groups the pattern has.
+		 */
+		private final Integer groupCount;
+
+		/**
+		 * @description Reads the replacement into its parts. It first lets the platform check the replacement, so a
+		 * replacement `replaceAll` refuses is refused here with the same exception.
+		 *
+		 * @param replacement The replacement, with any group references still in it
+		 * @param matcher A matcher of the pattern, positioned on a match
+		 *
+		 * @throws StringException When `replaceAll` refuses the replacement
+		 */
+		private ReplacementText(String replacement, Matcher matcher)
+		{
+			groupCount = matcher.groupCount();
+			Map<String, Integer> groupNumbersByName = replacement.contains('${') ? findGroupNumbersByName(matcher.pattern().pattern()) : new Map<String, Integer>();
+			checkReplacement(replacement, groupNumbersByName);
+			readParts(replacement, groupNumbersByName);
+		}
+
+		/**
+		 * @description Lets the platform check the replacement. A pattern of empty groups, as many as the pattern has and
+		 * with the same names in the same places, matches an empty text once, and `replaceAll` then reads the replacement
+		 * and throws for a replacement it refuses.
+		 *
+		 * @param replacement The replacement to check
+		 * @param groupNumbersByName The number of each named group of the pattern
+		 *
+		 * @throws StringException When `replaceAll` refuses the replacement
+		 */
+		private void checkReplacement(String replacement, Map<String, Integer> groupNumbersByName)
+		{
+			List<String> emptyGroups = new List<String>();
+
+			for(Integer groupNumber = 1; groupNumber <= groupCount; groupNumber++)
+			{
+				emptyGroups.add('()');
+			}
+
+			for(String groupName : groupNumbersByName.keySet())
+			{
+				Integer groupNumber = groupNumbersByName.get(groupName);
+
+				if(groupNumber <= groupCount)
+				{
+					emptyGroups[groupNumber - 1] = '(?<' + groupName + '>)';
+				}
+			}
+
+			Pattern.compile(String.join(emptyGroups, EMPTY)).matcher(EMPTY).replaceAll(replacement);
+		}
+
+		/**
+		 * @description Reads the replacement, which the platform has checked, into texts and group references (see
+		 * `ReplacementText`).
+		 *
+		 * @param replacement The checked replacement
+		 * @param groupNumbersByName The number of each named group of the pattern
+		 */
+		private void readParts(String replacement, Map<String, Integer> groupNumbersByName)
+		{
+			List<String> text = new List<String>();
+			Integer index = 0;
+
+			while(index < replacement.length())
+			{
+				String character = replacement.substring(index, index + 1);
+				index++;
+
+				if(character == REPLACEMENT_ESCAPE_START)
+				{
+					text.add(replacement.substring(index, index + 1));
+					index++;
+				}
+				else if(character == REPLACEMENT_GROUP_START)
+				{
+					addPart(String.join(text, EMPTY), null);
+					text.clear();
+					index = readGroupReferenceAt(replacement, index, groupNumbersByName);
+				}
+				else
+				{
+					text.add(character);
+				}
+			}
+
+			addPart(String.join(text, EMPTY), null);
+		}
+
+		/**
+		 * @description Reads the group reference that follows a dollar sign, and adds it as a part: a name in braces, or
+		 * a group number of as many digits as still make a group the pattern has.
+		 *
+		 * @param replacement The checked replacement
+		 * @param index Where the reference starts: the place just after the dollar sign
+		 * @param groupNumbersByName The number of each named group of the pattern
+		 *
+		 * @return The place just after the reference
+		 */
+		private Integer readGroupReferenceAt(String replacement, Integer index, Map<String, Integer> groupNumbersByName)
+		{
+			if(replacement.substring(index, index + 1) == '{')
+			{
+				Integer nameEnd = replacement.indexOf('}', index);
+				addPart(null, groupNumbersByName.get(replacement.substring(index + 1, nameEnd)));
+				return nameEnd + 1;
+			}
+
+			Integer groupNumber = Integer.valueOf(replacement.substring(index, index + 1));
+			Integer next = index + 1;
+
+			while(next < replacement.length())
+			{
+				String digit = replacement.substring(next, next + 1);
+				Integer longerNumber = DIGITS.contains(digit) ? groupNumber * 10 + Integer.valueOf(digit) : null;
+
+				if(longerNumber == null || longerNumber > groupCount)
+				{
+					break;
+				}
+
+				groupNumber = longerNumber;
+				next++;
+			}
+
+			addPart(null, groupNumber);
+			return next;
+		}
+
+		/**
+		 * @description Adds one part: a text, or the number of a group. An empty text adds nothing.
+		 *
+		 * @param text The text to write as it is, or null for a group
+		 * @param groupNumber The number of the group to write, or null for a text
+		 */
+		private void addPart(String text, Integer groupNumber)
+		{
+			if(String.isEmpty(text) && groupNumber == null)
+			{
+				return;
+			}
+
+			textParts.add(text);
+			groupParts.add(groupNumber);
+		}
+
+		/**
+		 * @description Writes the replacement for the match the matcher is on.
+		 *
+		 * @param matcher The matcher positioned on the match
+		 *
+		 * @return The replacement text for this match
+		 */
+		private String writeFor(Matcher matcher)
+		{
+			List<String> written = new List<String>();
+
+			for(Integer index = 0; index < textParts.size(); index++)
+			{
+				written.add(textParts[index] ?? matcher.group(groupParts[index]) ?? EMPTY);
+			}
+
+			return String.join(written, EMPTY);
+		}
+	}
+
+	/**
+	 * @description Finds the number of each named group in a pattern, such as `(?<name>...)`. Groups are numbered by
+	 * where they open, from 1, the same way the platform numbers them. Brackets that open no group are not counted: an
+	 * escaped bracket, a bracket in a quoted part (`\Q...\E`) or in a character class, and a bracket followed by `?`
+	 * (such as `(?:`, `(?=` and `(?i)`), except a named group. A character class inside another character class is not
+	 * read; a bracket in it can make the numbers wrong.
 	 *
-	 * Uses the same `getCompiledPattern` cache as `maskWithRegex` for the pattern, and the
-	 * `isValidCardNumber` cache for the Luhn-gate regexes - no recompilation on bulk callers.
+	 * @param regex The pattern
+	 *
+	 * @return The number of each named group, by name
+	 */
+	private static Map<String, Integer> findGroupNumbersByName(String regex)
+	{
+		Map<String, Integer> groupNumbersByName = new Map<String, Integer>();
+		Matcher token = GROUP_OPENING_SEARCH.matcher(regex);
+		Integer groupNumber = 0;
+
+		while(token.find())
+		{
+			if(token.group().startsWith('('))
+			{
+				groupNumber++;
+			}
+
+			if(token.group(1) != null)
+			{
+				groupNumbersByName.put(token.group(1), groupNumber);
+			}
+		}
+
+		return groupNumbersByName;
+	}
+
+	/**
+	 * @description Like `maskWithRegex`, but a number the pattern finds is replaced only when it looks like a real card
+	 * number. It is meant for card patterns, which would otherwise also hide transaction ids, timestamps and order numbers
+	 * of 13 to 19 digits.
+	 *
+	 * How it works:
+	 * 1. The pattern finds the numbers one by one, from the start of the value to its end.
+	 * 2. Each of the first `LUHN_CANDIDATE_BUDGET` numbers is checked with `isValidCardNumber`, which applies the Luhn check
+	 *    (the checksum built into card numbers). A number that passes is replaced. A number that fails stays.
+	 * 3. Every number after the first `LUHN_CANDIDATE_BUDGET` is replaced without the check. A text with that many
+	 *    card-shaped numbers is not an ordinary message, and checking each one would use too much processing time.
+	 * 4. The value is built again once. The text between the replaced numbers is copied, and the replacement is written
+	 *    where each replaced number was. Only the places the pattern found are replaced: the same digits elsewhere in the
+	 *    value, for example inside a longer run of digits, stay.
+	 *
+	 * A value longer than `CARD_SEARCH_PIECE_LENGTH` is searched in pieces of that length, because the platform stops a
+	 * pattern search that takes too many steps. Each piece starts `CARD_SEARCH_PIECE_OVERLAP` characters before the end of
+	 * the piece before it. So a card number that crosses the end of one piece is found whole in the next one, and no
+	 * number is found twice. A number longer than `CARD_SEARCH_PIECE_OVERLAP` can be cut at the end of a piece. Only a
+	 * pattern that allows long runs of separators finds such a number.
+	 *
+	 * The pattern comes from the same `getCompiledPattern` cache as `maskWithRegex`, so it is compiled once per transaction.
+	 * The replacement is written exactly as given: a group reference such as `$1` is not expanded.
 	 *
 	 * @param input The value to mask
-	 * @param regex The regex pattern to match
-	 * @param replacement The replacement string used for every Luhn-valid match
-	 * @param caseSensitive When false, the regex is wrapped with `(?i)` for case-insensitive matching
+	 * @param regex The pattern that finds the numbers
+	 * @param replacement The text written in place of every replaced number
+	 * @param caseSensitive When false, the pattern is wrapped with `(?i)` so that case does not matter
 	 *
-	 * @return The input with every Luhn-valid match replaced; Luhn-invalid matches and non-matches pass through unchanged
+	 * @return The input with the replaced numbers, or the input unchanged when no number is replaced
 	 *
 	 * @example
 	 * ```apex
@@ -1382,29 +2015,179 @@ global inherited sharing class UTIL_String
 			return input;
 		}
 
-		Set<String> luhnValidMatches = new Set<String>();
-		Matcher matcher = getCompiledPattern(regex, caseSensitive).matcher(input);
+		CardNumberSearch search = new CardNumberSearch(input, getCompiledPattern(regex, caseSensitive));
+		search.searchWholeValue();
+		return search.buildMaskedValue(replacement);
+	}
 
-		while(matcher.find())
+	/**
+	 * @description Finds the numbers that `maskWithLuhnValidatedRegex` replaces in one value, and keeps where each one
+	 * starts and ends in the value. The steps and the search in pieces are described on `maskWithLuhnValidatedRegex`.
+	 */
+	private inherited sharing class CardNumberSearch
+	{
+		/**
+		 * @description The value that is searched.
+		 */
+		private final String input;
+
+		/**
+		 * @description The compiled card pattern.
+		 */
+		private final Pattern cardPattern;
+
+		/**
+		 * @description Where each number to replace starts in the value, in the order the numbers appear.
+		 */
+		private final List<Integer> numberStarts = new List<Integer>();
+
+		/**
+		 * @description Where each number to replace ends in the value (the place just after its last character), in the
+		 * same order as `numberStarts`.
+		 */
+		private final List<Integer> numberEnds = new List<Integer>();
+
+		/**
+		 * @description How many numbers the pattern has found so far in the value, checked or not. Compared with
+		 * `LUHN_CANDIDATE_BUDGET`.
+		 */
+		private Integer candidateCount = 0;
+
+		/**
+		 * @description The place in the value where the next search starts. Every place before it is decided: either it
+		 * belongs to a number already found, or no number starts there.
+		 */
+		private Integer resumeAt = 0;
+
+		/**
+		 * @description Prepares a search of one value.
+		 *
+		 * @param input The value to search
+		 * @param cardPattern The compiled card pattern
+		 */
+		private CardNumberSearch(String input, Pattern cardPattern)
 		{
-			String matched = matcher.group();
-			if(isValidCardNumber(matched))
+			this.input = input;
+			this.cardPattern = cardPattern;
+		}
+
+		/**
+		 * @description Searches the whole value. A value of at most `CARD_SEARCH_PIECE_LENGTH` characters is searched in
+		 * one go. A longer value is searched in pieces of that length. Each piece starts `CARD_SEARCH_PIECE_OVERLAP`
+		 * characters before the end of the piece before it, and the last piece ends at the end of the value.
+		 */
+		private void searchWholeValue()
+		{
+			Integer inputLength = input.length();
+
+			if(inputLength <= CARD_SEARCH_PIECE_LENGTH)
 			{
-				luhnValidMatches.add(matched);
+				searchPiece(cardPattern.matcher(input), 0, inputLength);
+				return;
+			}
+
+			Integer pieceStart = 0;
+			Integer pieceEnd = 0;
+
+			while(pieceEnd < inputLength)
+			{
+				pieceEnd = Math.min(pieceStart + CARD_SEARCH_PIECE_LENGTH, inputLength);
+				searchPiece(cardPattern.matcher(input.substring(pieceStart, pieceEnd)), pieceStart, pieceEnd);
+				pieceStart = pieceEnd - CARD_SEARCH_PIECE_OVERLAP;
 			}
 		}
 
-		if(luhnValidMatches.isEmpty())
+		/**
+		 * @description Searches one piece of the value, from `resumeAt` on, and keeps the numbers it finds.
+		 *
+		 * The end of a piece is not the end of the value. A number found near the end of a piece can be cut short, or can
+		 * be found only because the text after it is missing. The matcher says so: `hitEnd()` is true when the search
+		 * looked at the end of the piece. Such a number, when it starts in the part the next piece also holds, is left
+		 * for the next piece, which holds the text after it.
+		 *
+		 * A piece searched as text of its own cannot see the character just before it. So the next piece starts its
+		 * search one character into its first part, except when this piece already found a number that starts exactly
+		 * where the next piece starts. In that case the start of that number is known to be right.
+		 *
+		 * @param matcher A matcher over the piece only
+		 * @param pieceStart Where the piece starts in the value
+		 * @param pieceEnd Where the piece ends in the value (the place just after its last character)
+		 */
+		private void searchPiece(Matcher matcher, Integer pieceStart, Integer pieceEnd)
 		{
-			return input;
+			Boolean isLastPiece = pieceEnd == input.length();
+			Integer nextPieceStart = pieceEnd - CARD_SEARCH_PIECE_OVERLAP;
+			Boolean isFound = matcher.find(resumeAt - pieceStart);
+
+			while(isFound)
+			{
+				Integer numberStart = pieceStart + matcher.start();
+
+				if(!isLastPiece && numberStart >= nextPieceStart && matcher.hitEnd())
+				{
+					resumeAt = numberStart == nextPieceStart ? nextPieceStart : Math.max(resumeAt, nextPieceStart + 1);
+					return;
+				}
+
+				Integer numberEnd = pieceStart + matcher.end();
+				addCandidate(matcher, numberStart, numberEnd);
+				resumeAt = numberEnd;
+				isFound = matcher.find();
+			}
+
+			if(!isLastPiece)
+			{
+				resumeAt = Math.max(resumeAt, nextPieceStart + 1);
+			}
 		}
 
-		String result = input;
-		for(String validMatch : luhnValidMatches)
+		/**
+		 * @description Counts one number the pattern found and keeps it for replacement when it is past the checking limit
+		 * or passes the Luhn check. The text of the number is read only when it is checked.
+		 *
+		 * @param matcher The matcher positioned on the number
+		 * @param numberStart Where the number starts in the value
+		 * @param numberEnd Where the number ends in the value
+		 */
+		private void addCandidate(Matcher matcher, Integer numberStart, Integer numberEnd)
 		{
-			result = result.replace(validMatch, replacement);
+			candidateCount++;
+
+			if(candidateCount > LUHN_CANDIDATE_BUDGET || isValidCardNumber(matcher.group()))
+			{
+				numberStarts.add(numberStart);
+				numberEnds.add(numberEnd);
+			}
 		}
-		return result;
+
+		/**
+		 * @description Builds the value again with the kept numbers replaced: the text between them is copied and the
+		 * replacement is written in place of each one.
+		 *
+		 * @param replacement The text written in place of each kept number
+		 *
+		 * @return The masked value, or the value itself when no number was kept
+		 */
+		private String buildMaskedValue(String replacement)
+		{
+			if(numberStarts.isEmpty())
+			{
+				return input;
+			}
+
+			List<String> parts = new List<String>();
+			Integer copiedUpTo = 0;
+
+			for(Integer index = 0; index < numberStarts.size(); index++)
+			{
+				parts.add(input.substring(copiedUpTo, numberStarts[index]));
+				parts.add(replacement);
+				copiedUpTo = numberEnds[index];
+			}
+
+			parts.add(input.substring(copiedUpTo));
+			return String.join(parts, EMPTY);
+		}
 	}
 
 	/**
@@ -1448,6 +2231,29 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
+	 * @description Answers whether the given regex can be compiled. A pattern that compiles is kept
+	 * for the rest of the transaction, so later use is fast. A pattern that fails is not kept.
+	 * This method never throws.
+	 *
+	 * @param regex The regex pattern
+	 * @param caseSensitive When false, the pattern is wrapped with `(?i)`
+	 *
+	 * @return True when the pattern compiles, false when it does not
+	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+	public static Boolean canCompilePattern(String regex, Boolean caseSensitive)
+	{
+		try
+		{
+			return getCompiledPattern(regex, caseSensitive) != null;
+		}
+		catch(Exception compileError)
+		{
+			return false;
+		}
+	}
+
+	/**
 	 * @description Replaces every occurrence of the given literal substring with the supplied
 	 * replacement. Plain text search — `$` and `\` in the replacement pass through without
 	 * triggering regex capture-group handling.
@@ -1481,7 +2287,8 @@ global inherited sharing class UTIL_String
 	 * @param keyRegex Regex matched against each JSON key; matching keys have their value replaced
 	 * @param replacement The literal string written in place of matching values
 	 *
-	 * @return The input with matching values redacted; unchanged if no keys match
+	 * @return The input with matching values redacted; unchanged if no keys match. See the four-argument
+	 * `maskJsonKeys` for a value that is not JSON.
 	 *
 	 * @example
 	 * ```apex
@@ -1494,16 +2301,35 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description Redacts values stored under JSON keys matching the supplied regex.
-	 * Prefers a typed `JSON.deserializeUntyped` walk; falls back to a raw-string regex pass
-	 * when the payload is malformed JSON or exceeds a 2 MB safety threshold.
+	 * @description Redacts values stored under JSON keys matching the supplied regex. The masking engine takes the same
+	 * steps for a JsonKey rule, with one exception: in a synchronous transaction, the engine sends a value longer than
+	 * `UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE` straight to the text search (see `maskJsonKeysViaRegex`),
+	 * and this method does not. For every other value, this method and the engine give the same result. The steps:
+	 * <ol>
+	 *   <li>A value that does not start with `{` and end with `}`, or start with `[` and end with `]`, is not a JSON
+	 *       object or list. It goes to a text search for `"key":"value"` pairs (see `hasJsonObjectOrArrayShape`).</li>
+	 *   <li>A value in which no key name of the pattern can appear is returned as it is, without reading it as JSON
+	 *       (see `canHoldMatchingJsonKey`).</li>
+	 *   <li>A value with at most `JSON_STRUCTURE_LINE` opening brackets is read as a whole tree and walked. The walk
+	 *       stops 50 levels deep.</li>
+	 *   <li>A value with more opening brackets is read one token at a time (see `maskJsonKeysStreaming`), at any
+	 *       depth.</li>
+	 *   <li>A value that the JSON reader refuses goes to the text search.</li>
+	 * </ol>
+	 * When no key matched, the method returns the input string itself, byte for byte. The text search replaces every
+	 * plain value under a matching key: a text, a number, `true`, `false` or `null`. When a matching key holds a value
+	 * it cannot hide safely, such as an object or a text with no closing quote, the method returns
+	 * `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole value (see `maskJsonKeysViaRegex`).
 	 *
 	 * @param input The JSON string to mask
 	 * @param keyRegex Regex matched against each JSON key
 	 * @param replacement The literal string written in place of matching values
 	 * @param caseSensitive When false, the key regex is wrapped with `(?i)`
 	 *
-	 * @return The input with matching values redacted
+	 * @return The input with matching values redacted, `UTIL_FrameworkMasker.FAILURE_MARKER` when the text search meets a
+	 * value it cannot hide safely, or the input itself when no key matched
+	 *
+	 * @throws IllegalArgumentException When the value goes to the text search and the key pattern is blank
 	 */
 	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 	public static String maskJsonKeys(String input, String keyRegex, String replacement, Boolean caseSensitive)
@@ -1513,16 +2339,25 @@ global inherited sharing class UTIL_String
 			return input;
 		}
 
-		if(input.length() > jsonWalkSizeThreshold)
+		if(!hasJsonObjectOrArrayShape(input))
 		{
 			return maskJsonKeysViaRegex(input, keyRegex, replacement, caseSensitive);
 		}
 
+		if(!canHoldMatchingJsonKey(input, keyRegex))
+		{
+			return input;
+		}
+
 		try
 		{
-			Object parsed = JSON.deserializeUntyped(input);
-			Object masked = applyJsonKeyRuleToTree(parsed, keyRegex, replacement, caseSensitive);
-			return JSON.serialize(masked);
+			if(exceedsJsonStructureLine(input))
+			{
+				return maskJsonKeysStreaming(input, keyRegex, replacement, caseSensitive).maskedText;
+			}
+
+			JsonKeyMaskResult masked = applyJsonKeyRuleToTreeWithCount(JSON.deserializeUntyped(input), keyRegex, replacement, caseSensitive);
+			return masked.mutated ? JSON.serialize(masked.tree) : input;
 		}
 		catch(System.JSONException parseError)
 		{
@@ -1531,18 +2366,277 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description Result wrapper returned by `applyJsonKeyRuleToTreeWithCount`. Callers get
-	 * the (possibly mutated) tree, a boolean flag indicating whether any replacement happened,
-	 * and a count of replacements performed. The flag lets callers avoid a redundant round-trip
-	 * `JSON.serialize` comparison to detect mutation — the hot-path optimisation driving
-	 * the masking performance pass.
+	 * @description Checks whether a value has the outline of a JSON object or list: after spaces and line breaks at both
+	 * ends are removed, it starts with `{` and ends with `}`, or starts with `[` and ends with `]`. A value without this
+	 * outline cannot be a JSON object or list, so the JsonKey masking does not try to read it as JSON. A value with the
+	 * outline can still be broken inside; the JSON reader finds that. A value that starts like JSON but has more text after
+	 * its last brace, such as `{"token":"a"} and more`, has no outline either and goes to the text search. The text
+	 * search keeps it safe: it masks every plain value under a secret key, and puts the failure marker in place of the
+	 * whole value when an object or list follows a secret key.
+	 *
+	 * @param input The value to check
+	 *
+	 * @return True when the value starts and ends like a JSON object or a JSON list
+	 */
+	public static Boolean hasJsonObjectOrArrayShape(String input)
+	{
+		String trimmed = input?.trim() ?? EMPTY;
+		return (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
+	}
+
+	/**
+	 * @description Checks whether a JSON value holds more opening brackets (`{` and `[` added together) than
+	 * `JSON_STRUCTURE_LINE`. Such a value is read one token at a time by `maskJsonKeysStreaming` instead of as a
+	 * whole tree. Brackets inside strings are counted too: that can only send a value to the token reader, which reads
+	 * every valid JSON value correctly.
+	 *
+	 * @param input The JSON value to check
+	 *
+	 * @return True when the value holds more opening brackets than `JSON_STRUCTURE_LINE`; false for a null value
+	 */
+	public static Boolean exceedsJsonStructureLine(String input)
+	{
+		return input != null && input.countMatches('{') + input.countMatches('[') > JSON_STRUCTURE_LINE;
+	}
+
+	/**
+	 * @description Checks, without reading the value as JSON, whether a JSON value can hold a key name that the key
+	 * pattern matches. It returns false only when that is certain, and then the JsonKey rule can skip the value.
+	 * <p>Why the answer false is safe: in a JSON text without a backslash, every key name is written exactly as it
+	 * reads, between quotes. So when the pattern matches a key name, the same pattern without its `^` at the start and `$`
+	 * at the end finds that name in the raw text. The search ignores upper and lower case, so it finds every name a
+	 * rule that cares about case would match too.</p>
+	 * <p>It returns true, so the rule runs, in these cases:</p>
+	 * <ul>
+	 *   <li>The text holds a backslash. A key name can then be written with an escape, for example `password` with
+	 *       its letter a written as a backslash, the letter u and the hexadecimal digits 0061. The raw text then does not show
+	 *       the name as it reads.</li>
+	 *   <li>The pattern holds another `^` or `$`, a backslash anchor or word boundary, or a look-ahead or look-behind
+	 *       group (see `KEY_SEARCH_UNSAFE_PARTS`). Such a pattern can match a key name alone and fail on it inside the
+	 *       text.</li>
+	 *   <li>The pattern holds a repeat with no upper limit (`*`, `+` or `{n,}`). Searching for it over a long text can
+	 *       take so many steps that the transaction ends.</li>
+	 *   <li>The pattern holds a repeat with an upper count of three digits or more. The check does not work out how many
+	 *       steps such a repeat can take, so it treats it as unsafe too.</li>
+	 *   <li>The pattern is blank, or without its `^` and `$` does not compile. The rule then runs and reports its own
+	 *       failure.</li>
+	 *   <li>The search finds a match.</li>
+	 * </ul>
+	 * <p>The search runs over pieces of `KEY_SEARCH_PIECE_LENGTH` characters, because one search over a whole long value
+	 * can end the transaction. Two pieces in a row share `KEY_SEARCH_PIECE_OVERLAP` characters, so a key name that crosses
+	 * the end of one piece lies whole inside the next one. This holds for every key name up to that length.</p>
+	 *
+	 * @param input The JSON value to search
+	 * @param keyRegex The key pattern of the rule, usually anchored with `^` and `$`
+	 *
+	 * @return False when no key name the pattern matches can be in the value, and for a null value; true otherwise
+	 */
+	public static Boolean canHoldMatchingJsonKey(String input, String keyRegex)
+	{
+		if(input == null)
+		{
+			return false;
+		}
+
+		if(String.isBlank(keyRegex))
+		{
+			return true;
+		}
+
+		String keyNamePattern = keyRegex.removeStart('^').removeEnd('$');
+
+		if(input.contains(JSON_ESCAPE_START) || KEY_SEARCH_UNSAFE_PARTS.matcher(keyNamePattern).find())
+		{
+			return true;
+		}
+
+		Pattern keyNameSearch;
+
+		try
+		{
+			keyNameSearch = getCompiledPattern(keyNamePattern, false);
+		}
+		catch(Exception compileError)
+		{
+			return true;
+		}
+
+		Integer start = 0;
+		Integer finish = 0;
+
+		while(finish < input.length())
+		{
+			finish = Math.min(start + KEY_SEARCH_PIECE_LENGTH, input.length());
+
+			if(keyNameSearch.matcher(input).region(start, finish).find())
+			{
+				return true;
+			}
+
+			start = finish - KEY_SEARCH_PIECE_OVERLAP;
+		}
+
+		return false;
+	}
+
+	/**
+	 * @description Redacts values stored under JSON keys matching the pattern, reading the JSON text one token at a time
+	 * instead of as a whole tree. The reader and the writer keep no nesting of their own, so a value nested thousands of
+	 * levels deep is read to the end, and a key is found at any depth.
+	 * <ul>
+	 *   <li>Every token is copied to the output as it comes, except the value of a key the pattern matches.</li>
+	 *   <li>That value is replaced by the replacement, whatever it is: a text, a number, true, false, null, or a whole
+	 *       object or list with everything in it. A null replacement is written as JSON null.</li>
+	 *   <li>Keys keep their order, and a key written twice stays twice; each copy is checked.</li>
+	 *   <li>Numbers are written again from their value: `1.00` stays `1.00`, but `1e5` is written as `1E+5`, the same
+	 *       number.</li>
+	 * </ul>
+	 * When no key matched, `maskedText` is the input string itself, byte for byte. To apply several rules to one value,
+	 * call this once per rule, in rule order, each time on the output of the call before.
+	 *
+	 * @param input The JSON text to mask
+	 * @param keyRegex Regex matched against each JSON key
+	 * @param replacement The literal string written in place of matching values
+	 * @param caseSensitive When false, the key regex is wrapped with `(?i)`
+	 *
+	 * @return A `JsonKeyMaskResult` with `maskedText`, `mutated` and `replacementCount` set; `tree` stays null
+	 *
+	 * @throws System.JSONException When the text is not valid JSON. Nothing is returned then, so the caller decides what
+	 * to do with the value.
+	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters,PMD.ExcessiveParameterList')
+	public static JsonKeyMaskResult maskJsonKeysStreaming(String input, String keyRegex, String replacement, Boolean caseSensitive)
+	{
+		JsonKeyMaskResult result = new JsonKeyMaskResult();
+		result.maskedText = input;
+
+		if(String.isEmpty(input))
+		{
+			return result;
+		}
+
+		Pattern keyPattern = getCompiledPattern(keyRegex, caseSensitive);
+		JSONParser parser = JSON.createParser(input);
+		JSONGenerator generator = JSON.createGenerator(false);
+
+		for(JSONToken token = parser.nextToken(); token != null; token = parser.nextToken())
+		{
+			copyJsonToken(token, parser, generator);
+
+			if(token == JSONToken.FIELD_NAME && keyPattern.matcher(parser.getText()).matches())
+			{
+				writeReplacementForFieldValue(parser, generator, replacement);
+				result.replacementCount++;
+			}
+		}
+
+		if(result.replacementCount > 0)
+		{
+			result.mutated = true;
+			result.maskedText = generator.getAsString();
+		}
+
+		return result;
+	}
+
+	/**
+	 * @description Copies the token the reader is on to the writer. The reader gives no other kinds of token for JSON
+	 * text than the ones copied here. A number is written again through a Decimal. A number too large for a Decimal, such
+	 * as `1e9999999999`, makes the copy throw a TypeException, which is not a JSON error, so the masking records the rule
+	 * as failed on that value.
+	 *
+	 * @param token The token the reader is on
+	 * @param parser The JSON reader, used for the text of names, strings and numbers
+	 * @param generator The JSON writer
+	 */
+	private static void copyJsonToken(JSONToken token, JSONParser parser, JSONGenerator generator)
+	{
+		switch on token
+		{
+			when START_OBJECT
+			{
+				generator.writeStartObject();
+			}
+			when END_OBJECT
+			{
+				generator.writeEndObject();
+			}
+			when START_ARRAY
+			{
+				generator.writeStartArray();
+			}
+			when END_ARRAY
+			{
+				generator.writeEndArray();
+			}
+			when FIELD_NAME
+			{
+				generator.writeFieldName(parser.getText());
+			}
+			when VALUE_STRING
+			{
+				generator.writeString(parser.getText());
+			}
+			when VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT
+			{
+				generator.writeNumber(Decimal.valueOf(parser.getText()));
+			}
+			when VALUE_TRUE, VALUE_FALSE
+			{
+				generator.writeBoolean(token == JSONToken.VALUE_TRUE);
+			}
+			when VALUE_NULL
+			{
+				generator.writeNull();
+			}
+		}
+	}
+
+	/**
+	 * @description Moves the reader past the value of the key it has just read, and writes the replacement in its place.
+	 * When the value is an object or a list, the reader skips everything inside it, so nothing of the value is copied.
+	 *
+	 * @param parser The JSON reader, on the name of a key the pattern matched
+	 * @param generator The JSON writer, which has just written that key name
+	 * @param replacement The text written in place of the value; null writes JSON null
+	 */
+	private static void writeReplacementForFieldValue(JSONParser parser, JSONGenerator generator, String replacement)
+	{
+		JSONToken valueToken = parser.nextToken();
+
+		if(valueToken == JSONToken.START_OBJECT || valueToken == JSONToken.START_ARRAY)
+		{
+			parser.skipChildren();
+		}
+
+		if(replacement == null)
+		{
+			generator.writeNull();
+			return;
+		}
+
+		generator.writeString(replacement);
+	}
+
+	/**
+	 * @description Result wrapper returned by `applyJsonKeyRuleToTreeWithCount` and `maskJsonKeysStreaming`. Callers get
+	 * the (possibly mutated) tree or masked text, a boolean flag indicating whether any replacement happened,
+	 * and a count of replacements performed. The flag lets callers see a change without writing the
+	 * tree out with `JSON.serialize` and comparing the text, which costs time on every record.
 	 */
 	public class JsonKeyMaskResult
 	{
 		/**
-		 * @description The same tree reference passed in, with values under matching keys replaced.
+		 * @description The same tree reference passed in, with values under matching keys replaced. Set by
+		 * `applyJsonKeyRuleToTreeWithCount`; `maskJsonKeysStreaming` leaves it null.
 		 */
 		public Object tree;
+
+		/**
+		 * @description The masked JSON text. Set by `maskJsonKeysStreaming`: the input string itself when no key matched.
+		 * `applyJsonKeyRuleToTreeWithCount` leaves it null.
+		 */
+		public String maskedText;
 
 		/**
 		 * @description True when at least one replacement was performed. False when no key matched.
@@ -1558,7 +2652,7 @@ global inherited sharing class UTIL_String
 	/**
 	 * @description Applies a JsonKey masking rule to an already-deserialized JSON tree and
 	 * returns a `JsonKeyMaskResult` carrying both the tree and a mutation indicator. Use this
-	 * when batching multiple JsonKey rules on the same parsed tree — the mutation flag lets
+	 * when batching multiple JsonKey rules on the same parsed tree: the mutation flag lets
 	 * the batch driver serialize the tree exactly once at the end, instead of once per rule.
 	 *
 	 * @param parsedValue The deserialized JSON tree (`Map<String, Object>`, `List<Object>`, or a scalar)
@@ -1605,8 +2699,8 @@ global inherited sharing class UTIL_String
 	/**
 	 * @description Recursively walks a deserialized JSON value, replacing the value under every
 	 * key that matches the pattern and incrementing the tracked result counter on each replacement.
-	 * Stops descending a branch when depth exceeds `JSON_WALK_MAX_DEPTH`. Preserves the traversal
-	 * semantics of the previous `walkAndMaskJsonKeys` verbatim — only mutation tracking is added.
+	 * Stops descending a branch when depth exceeds `JSON_WALK_MAX_DEPTH`, so a key deeper than that
+	 * is not masked by the walk.
 	 *
 	 * @param value The current node in the JSON tree
 	 * @param keyPattern Compiled pattern matched against each key
@@ -1651,41 +2745,406 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description Regex-based fallback for maskJsonKeys when the payload cannot be parsed or is
-	 * too large for the typed walk. Matches the JSON `"key": "value"` pattern for each key
-	 * satisfying keyRegex and replaces the value.
+	 * @description The text search that `maskJsonKeys` uses for a value that does not have the outline of a JSON object
+	 * or list, or that the JSON reader refuses. It looks for a key in quotes that the key pattern matches, then a colon,
+	 * then the value. Spaces and line breaks are allowed on both sides of the colon. For each matching key, one of two
+	 * things happens:
+	 * <ul>
+	 *   <li>The value is one whole JSON text, number, `true`, `false` or `null`, followed by a comma, a closing brace or
+	 *       bracket, a space or the end of the value. The value is replaced by the replacement, written in quotes. A
+	 *       text can hold escaped quotes, such as `"ab\"cd"`, and is replaced whole.</li>
+	 *   <li>The value is anything else: an object, a list, a text with no closing quote, or a word without quotes such
+	 *       as `hunter2`. The search cannot tell where such a value ends, so it cannot hide it safely. The method then
+	 *       returns `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole input, and the masking saves the marker
+	 *       instead of the value.</li>
+	 * </ul>
+	 * A key written with JSON escapes, such as `pass\"word` for `pass"word`, or `password` with its letter a written as
+	 * a backslash, the letter u and the hexadecimal digits 0061, is read as JSON reads it, and the key pattern is checked
+	 * against the name it stands for. A key with a backslash that JSON cannot read has no name to check, so the method
+	 * returns `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole input. When no key matches, the method returns
+	 * the input itself. Text that only looks like a key, written with escaped quotes inside an ordinary text, is not read
+	 * as a key. The search reads the value in pieces, so a long value cannot end the transaction (see `JsonTextSearch`).
+	 * The masking engine also calls this method directly for a JSON value longer than
+	 * `UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE` in a synchronous transaction, because this search is much
+	 * quicker than reading the value as JSON.
+	 * <p>Some key patterns are not safe for this search (see `KEY_SEARCH_UNSAFE_PARTS`). The main case is a repeat with
+	 * no upper limit, such as `.*secret.*`. The search tries the pattern at every quote in the text, and such a pattern
+	 * then reads to the end of the line each time. On a text full of quotes this ends the transaction with an error that
+	 * no code can catch, already at about 1,000 characters. So the method does not search with such a pattern. A repeat
+	 * with an upper count of three digits or more, such as `^x_[a-z0-9]{1,100}$`, is treated the same way, because the
+	 * check does not work out how many steps it can take. A value that holds a quote, and so could hold a key, gets
+	 * `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole value. Nothing secret is saved, and the marker shows the admin that the rule needs a narrower pattern, such as
+	 * `^(secret|client_secret)$`. A value without a quote is returned as it is.</p>
 	 *
-	 * @param input The raw string
-	 * @param keyRegex The key pattern supplied by the caller
-	 * @param replacement The literal string to substitute
-	 * @param caseSensitive Whether the match is case-sensitive
+	 * @param input The value to search
+	 * @param keyRegex The key pattern of the rule, usually anchored with `^` and `$`
+	 * @param replacement The text written in place of each matched value; null is written as an empty text
+	 * @param caseSensitive When false, the key pattern is wrapped with `(?i)` so that case does not matter
 	 *
-	 * @return The input with matching JSON-style key-value pairs redacted
+	 * @return The input with every matched value replaced, `UTIL_FrameworkMasker.FAILURE_MARKER` when a matching key holds
+	 * a value that cannot be replaced safely or the key pattern is not safe for the search, or the input itself when no
+	 * key matched
+	 *
+	 * @throws IllegalArgumentException When the key pattern is blank. The masking records the rule as failed.
+	 *
+	 * @example
+	 * ```apex
+	 * String masked = UTIL_String.maskJsonKeysViaRegex('{"token":"abc","items":[1,2]}', '^(token)$', '***', false);
+	 * // masked: '{"token":"***","items":[1,2]}'
+	 * ```
 	 */
-	private static String maskJsonKeysViaRegex(String input, String keyRegex, String replacement, Boolean caseSensitive)
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+	public static String maskJsonKeysViaRegex(String input, String keyRegex, String replacement, Boolean caseSensitive)
 	{
-		String keyRegexInner = keyRegex.removeStart('^').removeEnd('$');
-		String compositeKey = 'jsonComposite:' + (caseSensitive ? 'cs:' : 'ci:') + keyRegexInner;
-
-		Pattern compositePattern = compiledPatternCache.get(compositeKey);
-
-		if(compositePattern == null)
+		if(String.isBlank(keyRegex))
 		{
-			String flag = caseSensitive ? '' : '(?i)';
-			// Use named groups so capturing groups inside the caller-supplied key regex
-			// do not shift `$1`/`$2` positions in the replacement. `keyRegexInner` often
-			// contains its own parens (e.g. `(password|token|...)`), and unnamed positional
-			// back-references would then point at the key name rather than the trailing quote.
-			// Template-assembled so the static analyser sees a complete regex literal with
-			// both groups closed — prevents "Empty group" false positives.
-			String compositeTemplate = '__FLAG__(?<lead>"(?:__KEY__)"\\s*:\\s*")[^"]*(?<tail>")';
-			String assembledRegex = compositeTemplate.replace('__FLAG__', flag).replace('__KEY__', keyRegexInner);
-			compositePattern = Pattern.compile(assembledRegex);
-			compiledPatternCache.put(compositeKey, compositePattern);
+			throw new IllegalArgumentException('The key pattern of the JSON key masking rule is blank, so the rule cannot find any key.');
 		}
 
-		String safeReplacement = replacement == null ? '' : replacement.replace('\\', '\\\\').replace('$', '\\$');
-		return compositePattern.matcher(input).replaceAll('${lead}' + safeReplacement + '${tail}');
+		if(KEY_SEARCH_UNSAFE_PARTS.matcher(keyRegex.removeStart('^').removeEnd('$')).find())
+		{
+			return input.contains(DOUBLE_QUOTE) ? UTIL_FrameworkMasker.FAILURE_MARKER : input;
+		}
+
+		JsonTextSearch search = new JsonTextSearch(input, keyRegex, caseSensitive);
+		search.searchWholeValue();
+		return search.buildMaskedValue(replacement);
+	}
+
+	/**
+	 * @description Builds the pattern of the text search for `"key":"value"` pairs, or takes it from
+	 * `compiledPatternCache`. The pattern reads, in order: the key in quotes, matched by the key pattern without its `^`
+	 * and `$`, or a key written with JSON escapes in the named group `escapedKey` (see `JSON_TEXT_KEY_TEMPLATE`); spaces,
+	 * the colon and more spaces; and then one of two named groups, `scalar` and `other` (see `JSON_TEXT_VALUE_PATTERN`). A
+	 * group the key pattern has of its own comes before them, so `escapedKey` is always the third group from the end,
+	 * `scalar` the one before the last group and `other` the last group.
+	 *
+	 * @param keyRegex The key pattern of the rule
+	 * @param caseSensitive When false, the pattern is wrapped with `(?i)` so that case does not matter
+	 *
+	 * @return The compiled pattern
+	 */
+	private static Pattern getJsonTextSearchPattern(String keyRegex, Boolean caseSensitive)
+	{
+		String keyNamePattern = keyRegex.removeStart('^').removeEnd('$');
+		String cacheKey = 'jsonTextSearch:' + (caseSensitive ? 'cs:' : 'ci:') + keyNamePattern;
+		Pattern searchPattern = compiledPatternCache.get(cacheKey);
+
+		if(searchPattern == null)
+		{
+			String flag = caseSensitive ? EMPTY : '(?i)';
+			searchPattern = Pattern.compile(JSON_TEXT_KEY_TEMPLATE.replace('__FLAG__', flag).replace('__KEY__', keyNamePattern) + JSON_TEXT_VALUE_PATTERN);
+			compiledPatternCache.put(cacheKey, searchPattern);
+		}
+
+		return searchPattern;
+	}
+
+	/**
+	 * @description Finds the values that `maskJsonKeysViaRegex` replaces in one value, and keeps where each one starts and
+	 * ends in the value. The value is rebuilt once, at the end.
+	 * <p>A value longer than `JSON_TEXT_SEARCH_PIECE_LENGTH` is searched in pieces. Each piece gets its own matcher, and
+	 * each piece starts `JSON_TEXT_SEARCH_PIECE_OVERLAP` characters before the end of the piece before it. The end of a
+	 * piece is not the end of the value, so a pair found at the end of a piece can be cut short. For such a pair, the
+	 * search reads the key once more with a new matcher over the rest of the value, up to `JSON_TEXT_PAIR_READ_LENGTH`
+	 * characters. That one try stays far below the length at which one match ends the transaction.</p>
+	 */
+	private inherited sharing class JsonTextSearch
+	{
+		/**
+		 * @description The value that is searched.
+		 */
+		private final String input;
+
+		/**
+		 * @description The compiled pattern of the text search (see `getJsonTextSearchPattern`).
+		 */
+		private final Pattern searchPattern;
+
+		/**
+		 * @description The key pattern of the rule, as the rule holds it. A key written with JSON escapes is checked
+		 * against it after the key is read (see `isEscapedKeyMatching`).
+		 */
+		private final String keyRegex;
+
+		/**
+		 * @description False when case does not matter to the key pattern.
+		 */
+		private final Boolean caseSensitive;
+
+		/**
+		 * @description For each key written with JSON escapes that the search has met, as written, whether the name it
+		 * stands for matches the key pattern. A key repeated many times, as in a long list of objects, is read once.
+		 */
+		private final Map<String, Boolean> escapedKeyMatches = new Map<String, Boolean>();
+
+		/**
+		 * @description Where each value to replace starts in the whole value, in the order the values appear.
+		 */
+		private final List<Integer> valueStarts = new List<Integer>();
+
+		/**
+		 * @description Where each value to replace ends in the whole value (the place just after its last character), in
+		 * the same order as `valueStarts`.
+		 */
+		private final List<Integer> valueEnds = new List<Integer>();
+
+		/**
+		 * @description The place in the value where the next search starts. Every place before it is decided: either it
+		 * belongs to a pair already found, or no pair starts there.
+		 */
+		private Integer resumeAt = 0;
+
+		/**
+		 * @description True once a matching key holds a value that cannot be replaced safely. The search then stops, and
+		 * the whole value gets the failure marker.
+		 */
+		private Boolean hasUnboundedValue = false;
+
+		/**
+		 * @description Prepares a search of one value.
+		 *
+		 * @param input The value to search
+		 * @param keyRegex The key pattern of the rule
+		 * @param caseSensitive When false, case does not matter to the key pattern
+		 */
+		private JsonTextSearch(String input, String keyRegex, Boolean caseSensitive)
+		{
+			this.input = input;
+			this.keyRegex = keyRegex;
+			this.caseSensitive = caseSensitive;
+			searchPattern = getJsonTextSearchPattern(keyRegex, caseSensitive);
+		}
+
+		/**
+		 * @description Searches the whole value. A value of at most `JSON_TEXT_SEARCH_PIECE_LENGTH` characters is searched
+		 * in one go. A longer value is searched in pieces of that length. Each piece starts `JSON_TEXT_SEARCH_PIECE_OVERLAP`
+		 * characters before the end of the piece before it, or after the last replaced value when that is later.
+		 */
+		private void searchWholeValue()
+		{
+			Integer inputLength = input.length();
+
+			if(inputLength <= JSON_TEXT_SEARCH_PIECE_LENGTH)
+			{
+				searchPiece(input, 0);
+				return;
+			}
+
+			Integer pieceStart = 0;
+			Integer pieceEnd = 0;
+
+			while(pieceEnd < inputLength && !hasUnboundedValue)
+			{
+				pieceEnd = Math.min(pieceStart + JSON_TEXT_SEARCH_PIECE_LENGTH, inputLength);
+				searchPiece(input.substring(pieceStart, pieceEnd), pieceStart);
+				pieceStart = Math.min(Math.max(pieceEnd - JSON_TEXT_SEARCH_PIECE_OVERLAP, resumeAt), inputLength);
+			}
+		}
+
+		/**
+		 * @description Searches one piece of the value, from `resumeAt` on, and keeps the pairs it finds.
+		 * <p>The matcher says when a pair it found may be cut short: `hitEnd()` is true when the search looked at the end
+		 * of the piece. In a piece that is not the last one, such a pair is read again over the whole rest of the value
+		 * (see `readPairAt`). After the search, a piece that is not the last one is also checked for a key whose spaces
+		 * run past its end (see `readKeyBeforeSpacesAtPieceEnd`).</p>
+		 *
+		 * <p>The matcher reads the whole value, limited to the piece. A look-behind or look-ahead in the pattern still sees
+		 * the text outside the piece. So it sees the character before the piece: a quote at the start of the piece that
+		 * follows a backslash is not read as the start of a key. And the check after a value sees the real next character,
+		 * even when it lies after the end of the piece. A match itself never runs past the end of the piece, and a `$` in
+		 * the pattern matches there, so a pair cut at the end of the piece is read again as said above.</p>
+		 *
+		 * @param piece The text of the piece
+		 * @param pieceStart Where the piece starts in the value
+		 */
+		private void searchPiece(String piece, Integer pieceStart)
+		{
+			Integer pieceEnd = pieceStart + piece.length();
+			Boolean isLastPiece = pieceEnd == input.length();
+			Matcher matcher = searchPattern.matcher(input).useTransparentBounds(true).useAnchoringBounds(true);
+
+			while(!hasUnboundedValue && resumeAt < pieceEnd && matcher.region(Math.max(resumeAt, pieceStart), pieceEnd).find())
+			{
+				if(isLastPiece || !matcher.hitEnd())
+				{
+					keepPair(matcher, 0);
+				}
+				else
+				{
+					Integer keyStart = matcher.start();
+					resumeAt = keyStart + 1;
+					readPairAt(keyStart);
+				}
+			}
+
+			if(!hasUnboundedValue && !isLastPiece)
+			{
+				readKeyBeforeSpacesAtPieceEnd(piece, pieceStart);
+			}
+		}
+
+		/**
+		 * @description Reads the pair that starts at one place, with a new matcher over the rest of the value, and keeps
+		 * or marks it (see `keepPair`). When no pair starts at that place, nothing changes. The matcher tries this one
+		 * place only. It reads at most `JSON_TEXT_PAIR_READ_LENGTH` characters, so one match cannot end the transaction,
+		 * and a text value with no closing quote inside them is read as a value that cannot be hidden safely. The
+		 * matcher still sees the character after what it reads, and treats only the real end of the value as its end.
+		 *
+		 * @param keyStart Where the key starts in the value: the place of its opening quote
+		 */
+		private void readPairAt(Integer keyStart)
+		{
+			Integer readEnd = Math.min(keyStart + JSON_TEXT_PAIR_READ_LENGTH, input.length());
+			Matcher pairMatcher = searchPattern.matcher(input).useTransparentBounds(true).useAnchoringBounds(false).region(keyStart, readEnd);
+
+			if(pairMatcher.lookingAt())
+			{
+				keepPair(pairMatcher, 0);
+			}
+		}
+
+		/**
+		 * @description Keeps the value of a pair the matcher found, or marks the whole value when the pair holds a value
+		 * that cannot be replaced safely (the `other` group, the last group of the pattern). A pair whose key is written
+		 * with JSON escapes (the `escapedKey` group, the third group from the end) is kept only when the name the key
+		 * stands for matches the key pattern. Otherwise it is passed over, and the search goes on from the place just
+		 * after the opening quote of the key.
+		 *
+		 * @param matcher The matcher positioned on the pair
+		 * @param offset Where the text the matcher reads starts in the value
+		 */
+		private void keepPair(Matcher matcher, Integer offset)
+		{
+			Integer scalarGroup = matcher.groupCount() - 1;
+			Integer escapedKeyGroup = scalarGroup - 1;
+
+			if(matcher.start(escapedKeyGroup) != -1 && !isEscapedKeyMatching(matcher.group(escapedKeyGroup)))
+			{
+				resumeAt = Math.max(resumeAt, offset + matcher.start() + 1);
+				return;
+			}
+
+			if(hasUnboundedValue || matcher.start(scalarGroup) == -1)
+			{
+				hasUnboundedValue = true;
+				return;
+			}
+
+			valueStarts.add(offset + matcher.start(scalarGroup));
+			valueEnds.add(offset + matcher.end(scalarGroup));
+			resumeAt = offset + matcher.end();
+		}
+
+		/**
+		 * @description Checks whether a key written with JSON escapes stands for a name that the key pattern matches. The
+		 * key is read as JSON reads a text: for example a backslash, the letter u and the hexadecimal digits 0061 read as the
+		 * letter a, and `pass\"word` reads `pass"word`. The key pattern is then checked against the whole name, as when
+		 * the value is read as JSON. A key that JSON cannot read, such as one with a backslash before the letter e, has
+		 * no name to check. The search cannot rule out that it is secret, so the whole value gets the failure marker,
+		 * and the method returns true.
+		 *
+		 * @param escapedKey The key as it is written, without its quotes
+		 *
+		 * @return True when the name the key stands for matches the key pattern, or when the key cannot be read
+		 */
+		private Boolean isEscapedKeyMatching(String escapedKey)
+		{
+			if(!escapedKeyMatches.containsKey(escapedKey))
+			{
+				Boolean isMatching = true;
+
+				try
+				{
+					String keyName = (String)JSON.deserialize(DOUBLE_QUOTE + escapedKey + DOUBLE_QUOTE, String.class);
+					isMatching = getCompiledPattern(keyRegex, caseSensitive).matcher(keyName).matches();
+				}
+				catch(System.JSONException unreadableKey)
+				{
+					hasUnboundedValue = true;
+				}
+
+				escapedKeyMatches.put(escapedKey, isMatching);
+			}
+
+			return escapedKeyMatches.get(escapedKey);
+		}
+
+		/**
+		 * @description Finds a pair that the search of a piece cannot see because the spaces after its key run past the end
+		 * of the piece. The next piece starts `JSON_TEXT_SEARCH_PIECE_OVERLAP` characters before the end of this one, so
+		 * it does not see a key that starts before that.
+		 * <p>Such a key ends just before a run of spaces, line breaks and colons that reaches the end of the piece. So the
+		 * run is found first, reading the piece backwards. Then each quote just before the run, in a stretch of
+		 * `JSON_TEXT_SEARCH_PIECE_OVERLAP` characters, is tried as the start of a pair (see `readPairAt`).</p>
+		 *
+		 * @param piece The text of the piece
+		 * @param pieceStart Where the piece starts in the value
+		 */
+		private void readKeyBeforeSpacesAtPieceEnd(String piece, Integer pieceStart)
+		{
+			Matcher spaces = SPACES_AND_COLONS.matcher(piece.reverse());
+			spaces.lookingAt();
+
+			if(spaces.end() == 0)
+			{
+				return;
+			}
+
+			Integer pieceEnd = pieceStart + piece.length();
+			Integer keyEnd = pieceEnd - spaces.end() - 1;
+			Integer lastCandidate = Math.min(keyEnd, pieceEnd - JSON_TEXT_SEARCH_PIECE_OVERLAP);
+			Integer candidate = input.indexOf(DOUBLE_QUOTE, Math.max(resumeAt, keyEnd - JSON_TEXT_SEARCH_PIECE_OVERLAP));
+
+			while(candidate != -1 && candidate < lastCandidate)
+			{
+				Integer keptBefore = valueStarts.size();
+				readPairAt(candidate);
+
+				if(hasUnboundedValue || valueStarts.size() > keptBefore)
+				{
+					return;
+				}
+
+				candidate = input.indexOf(DOUBLE_QUOTE, candidate + 1);
+			}
+		}
+
+		/**
+		 * @description Builds the value again with the kept values replaced: the text between them is copied, and the
+		 * replacement, in quotes, is written in place of each one.
+		 *
+		 * @param replacement The text written in place of each kept value; null is written as an empty text
+		 *
+		 * @return `UTIL_FrameworkMasker.FAILURE_MARKER` when a value cannot be replaced safely, the value itself when no
+		 * value was kept, or the masked value
+		 */
+		private String buildMaskedValue(String replacement)
+		{
+			if(hasUnboundedValue)
+			{
+				return UTIL_FrameworkMasker.FAILURE_MARKER;
+			}
+
+			if(valueStarts.isEmpty())
+			{
+				return input;
+			}
+
+			String quotedReplacement = DOUBLE_QUOTE + (replacement ?? EMPTY) + DOUBLE_QUOTE;
+			List<String> parts = new List<String>();
+			Integer copiedUpTo = 0;
+
+			for(Integer index = 0; index < valueStarts.size(); index++)
+			{
+				parts.add(input.substring(copiedUpTo, valueStarts[index]));
+				parts.add(quotedReplacement);
+				copiedUpTo = valueEnds[index];
+			}
+
+			parts.add(input.substring(copiedUpTo));
+			return String.join(parts, EMPTY);
+		}
 	}
 
 	/**

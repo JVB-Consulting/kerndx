@@ -274,10 +274,10 @@ sf project retrieve start -o YourOrgAlias -m "CustomMetadata:kern__MaskingTarget
 
 You should see one file created under `force-app/main/default/customMetadata`, named after the record.
 
-A blank `kern__Field__c` is an **object-wide wildcard**: the SSN rule scans every text-shaped field on `Contact`
-your code can write to, except the ones that identify a record, so the note's SSN is caught wherever it lands in
-ordinary text. A unique field or an external id is never touched by a wildcard, because rewriting a key breaks it,
-and neither is a read-only or formula field, because there is nothing there to rewrite. If you do want a rule on
+A blank `kern__Field__c` is an **object-wide wildcard**: the SSN rule scans every text field on `Contact` (Text, Text Area, Long Text
+Area, URL, Email, Phone and Encrypted Text), whoever saves the record, so the note's SSN is caught wherever it lands in ordinary text.
+A unique field or an external id is never touched by a wildcard, because rewriting a key breaks it, and neither is a formula, roll-up
+summary or auto-number field, because the platform works out those values and there is nothing to rewrite. If you do want a rule on
 a key field, name that field explicitly in `kern__Field__c`: an explicit target is treated as your deliberate choice
 and is honoured. To narrow the target to a single field, let the Advisor build the field reference for you, because
 getting the namespaced field path right by hand is the fiddly part the export removes.
@@ -322,8 +322,8 @@ Something went wrong? See [Common Issues, Step 4](#step-4-verify-the-redaction-1
 ### Rule modes
 
 A masking rule (`kern__MaskingRule__mdt`) matches in one of four modes. KernDX ships 18 rules: 3 active, and 15
-dormant templates you activate by wiring a target to them. (Two of the active rules overlap: `kern__MaskPaymentCard`
-replaces the original `kern__MaskCreditCard`, which still ships for compatibility.)
+dormant ones you activate by wiring a target to them. (One dormant rule is the original `kern__MaskCreditCard`, which
+`kern__MaskPaymentCard` replaces. It ships switched off with its four targets; switch all five on or off together.)
 
 | Mode         | What it matches                                                                                      |
 |--------------|------------------------------------------------------------------------------------------------------|
@@ -338,9 +338,9 @@ Each rule's failure action decides what happens if it errors while masking a val
 
 | Action               | Behaviour                                                                                      |
 |----------------------|------------------------------------------------------------------------------------------------|
-| `LogAndContinue`     | Logs a warning and keeps the original value.                                                    |
-| `WriteFailureMarker` | Replaces the field with `[MASKING_FAILURE]`, so a failed redaction can never leak the value.   |
-| `BlockDml`           | Throws `kern.UTIL_Exceptions.MaskingBlockedException`, aborting the save.                       |
+| `LogAndContinue`     | Logs a warning and keeps the original value. The rule is skipped for the rest of the transaction, so later values it covers stay unmasked too. |
+| `WriteFailureMarker` | Saves `[MASKING_FAILURE]` in place of the value it failed on, and keeps masking every other value. The default for a rule you create. |
+| `BlockDml`           | Throws `kern.UTIL_Exceptions.MaskingBlockedException`, so the record save fails. On the framework's own log entries and call files, it drops what it could not mask. |
 
 ### The Data Masking Advisor
 

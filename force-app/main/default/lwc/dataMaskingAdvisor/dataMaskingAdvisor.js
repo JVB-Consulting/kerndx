@@ -12,7 +12,7 @@
  *
  * @author Jason van Beukering
  *
- * @date May 2026, July 2026
+ * @date May 2026, October 2026
  */
 import {wire} from 'lwc';
 import {CurrentPageReference} from 'lightning/navigation';
@@ -269,8 +269,9 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	objectOptions = [];
 
 	/**
-	 * @description The org-wide dead-configuration findings (masking targets masking nothing), shown in the
-	 * landing dead-config banner.
+	 * @description The org-wide configuration findings shown in the landing configuration-health banner:
+	 * masking targets that mask nothing (these carry a targetDeveloperName) and card number rule findings
+	 * (these carry a ruleDeveloperName). Each finding also carries a key that is unique in the list.
 	 * @type {Array<Object>}
 	 */
 	deadConfigFindings = [];
@@ -558,12 +559,17 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	}
 
 	/**
-	 * @description The dead-config banner summary line, singular or count-substituted plural.
+	 * @description The dead-config banner summary line, singular or count-substituted plural. It counts only
+	 * the targets that mask nothing, not the card rule findings, and is empty when there are none.
 	 * @returns {string}
 	 */
 	get deadConfigSummary()
 	{
-		const count = this.deadConfigFindings.length;
+		const count = this.deadConfigFindings.filter((finding) => finding.targetDeveloperName).length;
+		if(count === 0)
+		{
+			return '';
+		}
 		if(count === 1)
 		{
 			return DEAD_CONFIG_SUMMARY_SINGULAR;
@@ -1766,14 +1772,19 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	}
 
 	/**
-	 * @description Loads the org-wide dead-configuration findings; a failure degrades to an empty list so
-	 * the landing still renders.
+	 * @description Loads the org-wide configuration findings; a failure degrades to an empty list so the
+	 * landing still renders. Each finding gets a key built from its kind and the target or rule it names,
+	 * because a rule finding has no target name.
 	 */
 	async loadDeadConfigurations()
 	{
 		try
 		{
-			this.deadConfigFindings = await this.callControllerMethod(getDeadConfigurations);
+			const findings = await this.callControllerMethod(getDeadConfigurations);
+			this.deadConfigFindings = (findings ?? []).map((finding) => ({
+				...finding,
+				key: finding.issueCode + ':' + (finding.targetDeveloperName ?? finding.ruleDeveloperName)
+			}));
 		}
 		catch
 		{

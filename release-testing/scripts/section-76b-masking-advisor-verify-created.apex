@@ -8,14 +8,14 @@
  *   76d. Re-read — both probe records exist in kern__MaskingTarget__mdt with every field
  *        the bundle carried: active, object-wide (blank Field__c), all-callers (blank
  *        CallerClass__c), SObjectType resolved to Case, and the namespace-qualified rule
- *        references in the bundle XML (kern__MaskCreditCard / kern__MaskEmail) resolved
+ *        references in the bundle XML (kern__MaskPaymentCard / kern__MaskEmail) resolved
  *        through the MetadataRelationship to the PACKAGED rules (kern__Rule__r.DeveloperName
- *        round-trips as MaskCreditCard / MaskEmail, the namespace-stripped developer name).
+ *        round-trips as MaskPaymentCard / MaskEmail, the namespace-stripped developer name).
  *        Labels round-trip verbatim.
  *
  *   76e. Posture recompute — the four posture counts move exactly as the advisor's
  *        semantics dictate: Case joins the masked-object set (4 -> 5), both probes count
- *        object-wide (12 -> 14), the harness field-level target is untouched (1), and the
+ *        object-wide (10 -> 12), the harness field-level target is untouched (1), and the
  *        dead-config probe (active target bound to the dormant MaskEmail rule) registers
  *        as the org's single dead configuration (0 -> 1).
  *        HEALTH CHECK INPUT: deadConfigCount=1 => the masking-posture check now computes
@@ -85,13 +85,13 @@ try
 	Assert.areEqual('Case', healthyProbe.kern__SObjectType__c,
 			'76d: SObjectType__c must resolve to the Case entity. Got: ' + healthyProbe.kern__SObjectType__c);
 	Assert.isNotNull(healthyProbe.kern__Rule__r,
-			'76d: the namespace-qualified rule reference kern__MaskCreditCard in the bundle XML must resolve through the '
+			'76d: the namespace-qualified rule reference kern__MaskPaymentCard in the bundle XML must resolve through the '
 			+ 'MetadataRelationship to the packaged rule — the advisor qualifies the rule name so '
 			+ 'the export deploys on a managed subscriber org (a bare name resolves to no such record)');
-	Assert.areEqual('MaskCreditCard', healthyProbe.kern__Rule__r.DeveloperName,
-			'76d: Case_All_Card_Probe must bind the packaged MaskCreditCard rule. Got: ' + healthyProbe.kern__Rule__r.DeveloperName);
+	Assert.areEqual('MaskPaymentCard', healthyProbe.kern__Rule__r.DeveloperName,
+			'76d: Case_All_Card_Probe must bind the packaged MaskPaymentCard rule. Got: ' + healthyProbe.kern__Rule__r.DeveloperName);
 	Assert.isTrue(healthyProbe.kern__Rule__r.kern__IsActive__c == true,
-			'76d: MaskCreditCard must be active — the healthy probe must not register as dead config');
+			'76d: MaskPaymentCard must be active — the healthy probe must not register as dead config');
 
 	kern__MaskingTarget__mdt deadProbe = probesByName.get('Case_All_Email_DeadProbe');
 	Assert.isTrue(deadProbe.kern__IsActive__c == true,
@@ -110,7 +110,7 @@ try
 	System.debug(LoggingLevel.INFO,
 			'76d PASS: create bundle round-tripped field-for-field — both probes active on Case, '
 			+ 'object-wide, all-callers, labels verbatim, and the bundle\'s namespace-qualified rule references '
-			+ '(kern__MaskCreditCard / kern__MaskEmail) resolved through the MetadataRelationship to the packaged '
+			+ '(kern__MaskPaymentCard / kern__MaskEmail) resolved through the MetadataRelationship to the packaged '
 			+ 'kern__ rules. CONTRACT: the advisor export deploys on a subscriber org exactly as generated.');
 	pass++;
 }
@@ -169,8 +169,8 @@ try
 			+ activeObjectIdentifiers.size() + ': ' + activeObjectIdentifiers);
 	Assert.isTrue(activeObjectIdentifiers.contains('Case'),
 			'76e: the masked-object set must contain Case. Got: ' + activeObjectIdentifiers);
-	Assert.areEqual(14, objectWideCount,
-			'76e: both probes count object-wide — 12 baseline + 2 = 14. Got: ' + objectWideCount);
+	Assert.areEqual(12, objectWideCount,
+			'76e: both probes count object-wide — 10 baseline + 2 = 12. Got: ' + objectWideCount);
 	Assert.areEqual(1, fieldLevelCount,
 			'76e: the field-level count must be untouched by the object-wide probes. Got: ' + fieldLevelCount);
 	Assert.areEqual(1, deadCount,
@@ -180,7 +180,7 @@ try
 			'76e: the dead configuration must be Case_All_Email_DeadProbe specifically. Got: ' + deadTargetNames);
 
 	System.debug(LoggingLevel.INFO,
-			'76e PASS: posture recomputed from the deployed config — 5 masked objects / 14 object-wide / '
+			'76e PASS: posture recomputed from the deployed config — 5 masked objects / 12 object-wide / '
 			+ '1 field-level / 1 dead. HEALTH CHECK INPUT: deadConfigCount=1 => the masking-posture check '
 			+ 'now computes WARN (dead-configuration branch) where the baseline computed Pass(4). '
 			+ 'A masking-config change moved the Health Check result — the recompute proof.');

@@ -8,7 +8,9 @@
  * every target (active and inactive) grouped by `SObjectType`; {@see cachedRulesById} holds every rule
  * (active and inactive) keyed by Id. Both are built on first read from the in-memory `getAll()`. The
  * targets cache adds one `EntityDefinition WHERE DurableId IN (...)` SOQL query, to turn each target's
- * `SObjectType__c` MetadataRelationship DurableId back into its object type. This avoids the slow
+ * `SObjectType__c` MetadataRelationship DurableId back into its object type. When any target names a
+ * field, it also adds one `FieldDefinition WHERE DurableId IN (...)` query, to turn each stored
+ * `Field__c` durable Id into its `Object.Field` name ({@see getQualifiedFieldName}). This avoids the slow
  * CMDT query that joins MetadataRelationship fields (about 900 ms per transaction on a cold cache). It
  * also avoids reading the rule through JSON, which in a managed package quietly drops namespaced fields
  * from a nested `Rule__r` child SObject.
@@ -42,6 +44,7 @@
  * @see SEL_MaskingTarget_TEST
  * @see SEL_MaskingRule
  * @see SEL_EntityDefinition
+ * @see SEL_FieldDefinition
  * @see MaskingTarget__mdt
  *
  * @author Jason van Beukering
@@ -148,6 +151,15 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 		}
 		set;
 	}
+
+	/**
+	 * @description The `Object.Field` name of each field a target names, keyed by the value stored in the
+	 * target's `Field__c`. A deployed target stores the field's durable Id there (the fixed key the platform
+	 * gives each field), not its name, and neither the `getAll()` read nor the fallback query fills in the
+	 * name. Filled when {@see cachedTargetsByType} is built, from one `FieldDefinition` query, and read through
+	 * {@see getQualifiedFieldName}. Empty until then.
+	 */
+	private static Map<String, String> qualifiedFieldNameByStoredValue = new Map<String, String>();
 
 	/**
 	 * @description Test override for the `MaskingRule__mdt.getAll()` read behind `cachedRulesById`. When
@@ -309,6 +321,26 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
+	 * @description Finds **all** masking targets for an SObjectType, active and inactive, without finding
+	 * the name of the field each target names. A target that names a field keeps the value stored in its
+	 * `Field__c` (for a custom field, a durable Id: the fixed key the platform gives each field), and
+	 * {@see getQualifiedFieldName} has no name for it. Only the Data Masking Advisor uses this method, when
+	 * {@see findAllForSObjectType} fails because field details (`FieldDefinition`) cannot be read: the
+	 * Advisor can still show the targets it knows about. Masking never uses it. When masking cannot find
+	 * the field a target names, it must fail, so that a value is never saved without masking. Not cached:
+	 * each call reads the targets again and runs one `EntityDefinition` query.
+	 *
+	 * @param sObjectType The object whose targets to find.
+	 *
+	 * @return All targets for the type, active and inactive (empty list if none).
+	 */
+	public List<MaskingTarget__mdt> findAllForSObjectTypeWithoutFieldNames(SObjectType sObjectType)
+	{
+		Map<SObjectType, List<MaskingTarget__mdt>> targetsByType = groupByObjectType(getAllTargets());
+		return targetsByType.containsKey(sObjectType) ? targetsByType.get(sObjectType) : new List<MaskingTarget__mdt>();
+	}
+
+	/**
 	 * @description Returns the all-targets cache entry for a type, or an empty list when the type has
 	 * no targets. The first read builds `cachedTargetsByType`.
 	 *
@@ -362,6 +394,23 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
+	 * @description Returns the `Object.Field` name of the field a target names, for a target read from the
+	 * target cache. A deployed target stores the field's durable Id in `Field__c` (for a custom field, the
+	 * object's durable Id and the field's Id joined by a dot), so callers that compare the target with a
+	 * field name must ask here first. Returns null when the target names no field, or when the stored value
+	 * is not a durable Id the cache build found (a test mock that already stores `Object.Field`, or a field
+	 * that has since been deleted).
+	 *
+	 * @param target The target whose field name to find.
+	 *
+	 * @return The field's `Object.Field` name, or `null` when the cache holds none for the stored value.
+	 */
+	public static String getQualifiedFieldName(MaskingTarget__mdt target)
+	{
+		return String.isBlank(target.Field__c) ? null : qualifiedFieldNameByStoredValue.get(target.Field__c);
+	}
+
+	/**
 	 * @description Returns every masking target (active and inactive, whatever the state of the parent
 	 * rule) as a flat list. {@see findActiveForSObjectType} drops targets whose rule is inactive; this
 	 * method keeps them, so callers such as the dead-configuration check can find active targets linked
@@ -396,13 +445,30 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	 * @description Groups masking targets by their `SObjectType`. One `EntityDefinition` SOQL query turns
 	 * each target's `SObjectType__c` MetadataRelationship DurableId back into its SObject type. A target
 	 * whose DurableId matches no EntityDefinition row (an object that has since been deleted) is dropped,
-	 * not cached against a null type.
+	 * not cached against a null type. Also finds the field name of every target that names a field, through
+	 * {@see resolveFieldNames}.
 	 *
 	 * @param targets The targets to group.
 	 *
 	 * @return Targets grouped by resolved SObjectType (unresolvable targets omitted).
 	 */
 	private static Map<SObjectType, List<MaskingTarget__mdt>> groupTargetsByType(List<MaskingTarget__mdt> targets)
+	{
+		resolveFieldNames(targets);
+		return groupByObjectType(targets);
+	}
+
+	/**
+	 * @description Groups masking targets by their `SObjectType`, without finding any field names. One
+	 * `EntityDefinition` SOQL query turns each target's `SObjectType__c` MetadataRelationship DurableId back
+	 * into its SObject type. A target whose DurableId matches no EntityDefinition row (an object that has
+	 * since been deleted) is dropped, not kept against a null type.
+	 *
+	 * @param targets The targets to group.
+	 *
+	 * @return Targets grouped by resolved SObjectType (unresolvable targets omitted).
+	 */
+	private static Map<SObjectType, List<MaskingTarget__mdt>> groupByObjectType(List<MaskingTarget__mdt> targets)
 	{
 		Set<String> durableIds = new Set<String>();
 		for(MaskingTarget__mdt target : targets)
@@ -436,6 +502,33 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 		}
 
 		return targetsByType;
+	}
+
+	/**
+	 * @description Finds the `Object.Field` name of every field the targets name, and keeps it in
+	 * {@see qualifiedFieldNameByStoredValue}. One `FieldDefinition` query reads every stored value at once, and
+	 * no query runs when no target names a field. A stored value that matches no field definition gets no
+	 * entry: callers then fall back to the stored value itself.
+	 *
+	 * @param targets The targets whose field names to find.
+	 */
+	private static void resolveFieldNames(List<MaskingTarget__mdt> targets)
+	{
+		Set<String> storedValues = new Set<String>();
+		for(MaskingTarget__mdt target : targets)
+		{
+			if(String.isNotBlank(target.Field__c))
+			{
+				storedValues.add(target.Field__c);
+			}
+		}
+
+		Map<String, String> resolvedNames = new Map<String, String>();
+		for(FieldDefinition field : new SEL_FieldDefinition().findByDurableIds(storedValues))
+		{
+			resolvedNames.put(field.DurableId, field.EntityDefinition.QualifiedApiName + UTIL_String.DOT + field.QualifiedApiName);
+		}
+		qualifiedFieldNameByStoredValue = resolvedNames;
 	}
 
 	/**

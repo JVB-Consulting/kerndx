@@ -11,7 +11,7 @@
  * @date April 2026, October 2026
  */
 @IsTest(seeAllData=false isParallel=true)
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 private class SEL_MaskingRule_TEST
 {
 	/**
@@ -23,6 +23,58 @@ private class SEL_MaskingRule_TEST
 	 * @description DeveloperName of the successor rule in the supersession test data.
 	 */
 	private static final String SUCCESSOR_NAME = 'SuccessorRule';
+
+	/**
+	 * @description A word that only the older rule in the compatibility tests finds and replaces.
+	 */
+	private static final String OLDER_TOKEN = 'OLDER-TOKEN';
+
+	/**
+	 * @description A word that only the newer rule in the compatibility tests finds and replaces.
+	 */
+	private static final String NEWER_TOKEN = 'NEWER-TOKEN';
+
+	/**
+	 * @description The text the older rule writes in place of its word.
+	 */
+	private static final String OLDER_REPLACEMENT = '[OLDER]';
+
+	/**
+	 * @description The text the newer rule writes in place of its word.
+	 */
+	private static final String NEWER_REPLACEMENT = '[NEWER]';
+
+	/**
+	 * @description The text an admin chose in place of a rule's shipped replacement.
+	 */
+	private static final String TUNED_REPLACEMENT = '[TUNED]';
+
+	/**
+	 * @description Added to a rule's pattern to stand for an admin's change to it. The changed pattern
+	 * still finds the rule's own word, so the change shows only in the fingerprint.
+	 */
+	private static final String TUNED_PATTERN_SUFFIX = '|UNUSED-TOKEN';
+
+	/**
+	 * @description The value both rules in the compatibility tests mask: the older rule's word, a space,
+	 * then the newer rule's word. The saved result shows which rule ran.
+	 */
+	private static final String COMPATIBILITY_VALUE = OLDER_TOKEN + ' ' + NEWER_TOKEN;
+
+	/**
+	 * @description The saved value when only the newer rule runs: the older rule was replaced, or is off.
+	 */
+	private static final String ONLY_NEWER_RULE_RAN = OLDER_TOKEN + ' ' + NEWER_REPLACEMENT;
+
+	/**
+	 * @description The saved value when both rules run: neither rule replaced the other.
+	 */
+	private static final String BOTH_RULES_RAN = OLDER_REPLACEMENT + ' ' + NEWER_REPLACEMENT;
+
+	/**
+	 * @description The saved value when only the older rule runs: the newer rule is off.
+	 */
+	private static final String ONLY_OLDER_RULE_RAN = OLDER_REPLACEMENT + ' ' + NEWER_TOKEN;
 
 	/**
 	 * @description Tests that getFields returns a populated list.
@@ -148,7 +200,7 @@ private class SEL_MaskingRule_TEST
 
 		Assert.areEqual(64, fingerprint.length(), 'Fingerprint must be a SHA-256 hex digest');
 		Assert.areEqual(fingerprint.toLowerCase(), fingerprint, 'Fingerprint must be lowercase hex');
-		Assert.areEqual('4a7d0e90c279226127cf2431ed41c6f0cafc98efa6b60704370d258a1e67ad99', fingerprint,
+		Assert.areEqual('aeb3f2da3973c48bc65f18453bddb7091b7ed97a96667c913adbbb7b531c223e', fingerprint,
 				'The fingerprint code must give the stored ReplacesFingerprint__c of Mask Payment Card Numbers. A platform change, or a change to the fingerprint code,'
 				+ ' here means EVERY stored fingerprint must be generated again in the same version');
 	}
@@ -174,7 +226,7 @@ private class SEL_MaskingRule_TEST
 						FailureAction__c = SEL_MaskingRule.FAILURE_BLOCK_DML
 				);
 
-		Assert.areEqual('0593ef03f0725e64e777c5bda0622dea9385658e9da7b492a60cee7d564c3a56', SEL_MaskingRule.computeFingerprint(shipped),
+		Assert.areEqual('1994186e53ad894797dbdf3e7e97bab1fa01c4aef1d85e6cf5dec32601c3fc35', SEL_MaskingRule.computeFingerprint(shipped),
 				'The fingerprint code must give the stored ShippedFingerprint__c of Mask Payment Card Numbers from its shipped values');
 	}
 
@@ -192,6 +244,30 @@ private class SEL_MaskingRule_TEST
 				'Decimal scale must not change the fingerprint');
 		Assert.areNotEqual(SEL_MaskingRule.computeFingerprint(sparse), SEL_MaskingRule.computeFingerprint(new MaskingRule__mdt()),
 				'A populated field must change the fingerprint versus all-null');
+	}
+
+	/**
+	 * @description Tests that the failure action does not change the fingerprint. Four rules that are equal in every
+	 * value that changes how a rule masks, each with a different failure action (or none), get the same fingerprint.
+	 * The failure action decides what happens when a rule fails, not how it masks, so an admin who changes it must not
+	 * end the replacement of an older rule by a newer one.
+	 */
+	@IsTest
+	private static void shouldIgnoreTheFailureActionInTheFingerprint()
+	{
+		MaskingRule__mdt blocking = buildInMemoryRule(PREDECESSOR_NAME, 'old-pattern', true);
+		MaskingRule__mdt marking = buildInMemoryRule(PREDECESSOR_NAME, 'old-pattern', true);
+		MaskingRule__mdt continuing = buildInMemoryRule(PREDECESSOR_NAME, 'old-pattern', true);
+		MaskingRule__mdt unset = buildInMemoryRule(PREDECESSOR_NAME, 'old-pattern', true);
+		marking.FailureAction__c = SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER;
+		continuing.FailureAction__c = SEL_MaskingRule.FAILURE_LOG_AND_CONTINUE;
+		unset.FailureAction__c = null;
+
+		String expected = SEL_MaskingRule.computeFingerprint(blocking);
+
+		Assert.areEqual(expected, SEL_MaskingRule.computeFingerprint(marking), 'Expected Write Failure Marker to give the Block DML fingerprint');
+		Assert.areEqual(expected, SEL_MaskingRule.computeFingerprint(continuing), 'Expected Log And Continue to give the Block DML fingerprint');
+		Assert.areEqual(expected, SEL_MaskingRule.computeFingerprint(unset), 'Expected a rule with no failure action to give the Block DML fingerprint');
 	}
 
 	/**
@@ -366,7 +442,7 @@ private class SEL_MaskingRule_TEST
 	}
 
 	/**
-	 * @description Tests that a change to any one of the seven fingerprint fields (the values that
+	 * @description Tests that a change to any one of the six fingerprint fields (the values that
 	 * change how a rule masks) is seen as tuning. An untuned pair is superseded first, as the case that
 	 * must succeed; then changing exactly one field on the predecessor must stop the supersession. If
 	 * computeFingerprint quietly stopped reading a field, the check for that field fails.
@@ -376,11 +452,169 @@ private class SEL_MaskingRule_TEST
 	{
 		assertPredecessorTuningDetected(MaskingRule__mdt.Pattern__c, 'tuned-pattern');
 		assertPredecessorTuningDetected(MaskingRule__mdt.Mode__c, SEL_MaskingRule.MODE_REGEX);
-		assertPredecessorTuningDetected(MaskingRule__mdt.Replacement__c, '[TUNED]');
+		assertPredecessorTuningDetected(MaskingRule__mdt.Replacement__c, TUNED_REPLACEMENT);
 		assertPredecessorTuningDetected(MaskingRule__mdt.CaseSensitive__c, true);
 		assertPredecessorTuningDetected(MaskingRule__mdt.MinInputLength__c, 14);
 		assertPredecessorTuningDetected(MaskingRule__mdt.ApplicableFieldTypes__c, 'TEXTAREA');
-		assertPredecessorTuningDetected(MaskingRule__mdt.FailureAction__c, SEL_MaskingRule.FAILURE_LOG_AND_CONTINUE);
+	}
+
+	/**
+	 * @description Compatibility case: both rules as a fresh install ships them. The older rule is off with its
+	 * targets off, and the newer rule is on. The older rule counts as replaced, and only the newer rule masks the value.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldReplaceTheOlderRuleAsShipped()
+	{
+		List<MaskingRule__mdt> pair = buildCompatibilityPair(false, true);
+
+		assertCompatibilityOutcome(pair, true, ONLY_NEWER_RULE_RAN);
+	}
+
+	/**
+	 * @description Compatibility case: an admin switches the newer rule off in an org where the older rule is on (an
+	 * upgraded org). A rule that is off replaces nothing, so the older rule masks the value alone.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldRunOnlyTheOlderRuleWhenTheNewerRuleIsOff()
+	{
+		List<MaskingRule__mdt> pair = buildCompatibilityPair(true, false);
+
+		assertCompatibilityOutcome(pair, false, ONLY_OLDER_RULE_RAN);
+	}
+
+	/**
+	 * @description Compatibility case: an admin switches the older rule on by hand and leaves both rules as shipped.
+	 * The newer rule still replaces it, so the older rule never runs.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldReplaceTheOlderRuleSwitchedOnByHand()
+	{
+		List<MaskingRule__mdt> pair = buildCompatibilityPair(true, true);
+
+		assertCompatibilityOutcome(pair, true, ONLY_NEWER_RULE_RAN);
+	}
+
+	/**
+	 * @description Compatibility case: an admin changes the older rule's pattern. The older rule no longer matches the
+	 * values the newer rule was shipped to replace, so it keeps running beside the newer rule.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldRunBothRulesWhenTheOlderPatternIsTuned()
+	{
+		List<MaskingRule__mdt> pair = buildCompatibilityPair(true, true);
+		pair[0].Pattern__c += TUNED_PATTERN_SUFFIX;
+
+		assertCompatibilityOutcome(pair, false, BOTH_RULES_RAN);
+	}
+
+	/**
+	 * @description Compatibility case: an admin changes the newer rule's pattern. A changed newer rule might cover less
+	 * than the older one, so it replaces nothing and both rules run.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldRunBothRulesWhenTheNewerPatternIsTuned()
+	{
+		List<MaskingRule__mdt> pair = buildCompatibilityPair(true, true);
+		pair[1].Pattern__c += TUNED_PATTERN_SUFFIX;
+
+		assertCompatibilityOutcome(pair, false, BOTH_RULES_RAN);
+	}
+
+	/**
+	 * @description Compatibility case: an admin changes the older rule's replacement text. The older rule keeps
+	 * running, and the saved value carries the admin's text.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldRunBothRulesWhenTheOlderReplacementIsTuned()
+	{
+		List<MaskingRule__mdt> pair = buildCompatibilityPair(true, true);
+		pair[0].Replacement__c = TUNED_REPLACEMENT;
+
+		assertCompatibilityOutcome(pair, false, TUNED_REPLACEMENT + ' ' + NEWER_REPLACEMENT);
+	}
+
+	/**
+	 * @description Compatibility case: an admin changes the older rule's mode from a regular expression to an exact
+	 * match. The word still matches in the new mode, and the older rule keeps running beside the newer rule.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldRunBothRulesWhenTheOlderModeIsTuned()
+	{
+		List<MaskingRule__mdt> pair = buildCompatibilityPair(true, true);
+		pair[0].Mode__c = SEL_MaskingRule.MODE_EXACT_MATCH;
+
+		assertCompatibilityOutcome(pair, false, BOTH_RULES_RAN);
+	}
+
+	/**
+	 * @description Compatibility case: an admin changes the older rule's failure action. The failure action decides
+	 * what happens when a rule fails, not how it masks, so the newer rule still replaces the older one.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldStillReplaceTheOlderRuleWhenItsFailureActionIsTuned()
+	{
+		List<MaskingRule__mdt> pair = buildCompatibilityPair(true, true);
+		pair[0].FailureAction__c = SEL_MaskingRule.FAILURE_BLOCK_DML;
+
+		assertCompatibilityOutcome(pair, true, ONLY_NEWER_RULE_RAN);
+	}
+
+	/**
+	 * @description Compatibility case: an admin changes the newer rule's failure action. The newer rule masks exactly
+	 * as shipped, so it still replaces the older one.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldStillReplaceTheOlderRuleWhenTheNewerFailureActionIsTuned()
+	{
+		List<MaskingRule__mdt> pair = buildCompatibilityPair(true, true);
+		pair[1].FailureAction__c = SEL_MaskingRule.FAILURE_BLOCK_DML;
+
+		assertCompatibilityOutcome(pair, true, ONLY_NEWER_RULE_RAN);
+	}
+
+	/**
+	 * @description Compatibility case: an admin changes both rules, each in its own way. Neither rule matches what was
+	 * shipped, so both run and the saved value carries the older rule's new text.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldRunBothRulesWhenBothRulesAreTuned()
+	{
+		List<MaskingRule__mdt> pair = buildCompatibilityPair(true, true);
+		pair[0].Replacement__c = TUNED_REPLACEMENT;
+		pair[1].Pattern__c += TUNED_PATTERN_SUFFIX;
+
+		assertCompatibilityOutcome(pair, false, TUNED_REPLACEMENT + ' ' + NEWER_REPLACEMENT);
+	}
+
+	/**
+	 * @description Compatibility case: an admin switches the older rule on and the newer rule off. The on or off state
+	 * is not part of the fingerprint, so both fingerprints stay the same and still match the stored ones. Only the
+	 * newer rule being off stops the replacement, and the older rule masks the value alone.
+	 */
+	@IsTest
+	private static void shouldKeepTheFingerprintsWhenTheActiveFlagsChange()
+	{
+		List<MaskingRule__mdt> pair = buildCompatibilityPair(false, true);
+		String olderFingerprint = SEL_MaskingRule.computeFingerprint(pair[0]);
+		String newerFingerprint = SEL_MaskingRule.computeFingerprint(pair[1]);
+		pair[0].IsActive__c = true;
+		pair[1].IsActive__c = false;
+
+		Assert.areEqual(olderFingerprint, SEL_MaskingRule.computeFingerprint(pair[0]), 'Expected switching the older rule on to keep its fingerprint');
+		Assert.areEqual(newerFingerprint, SEL_MaskingRule.computeFingerprint(pair[1]), 'Expected switching the newer rule off to keep its fingerprint');
+		Assert.areEqual(pair[1].ReplacesFingerprint__c, SEL_MaskingRule.computeFingerprint(pair[0]), 'Expected the older rule to still match the stored fingerprint');
+		Assert.areEqual(pair[1].ShippedFingerprint__c, SEL_MaskingRule.computeFingerprint(pair[1]), 'Expected the newer rule to still match its stored fingerprint');
+		assertCompatibilityOutcome(pair, false, ONLY_OLDER_RULE_RAN);
 	}
 
 	/**
@@ -403,6 +637,100 @@ private class SEL_MaskingRule_TEST
 
 		Assert.isFalse(SEL_MaskingRule.findSupersededRuleNames(new List<MaskingRule__mdt> {predecessor, successor}).contains(PREDECESSOR_NAME),
 				'Tuning ' + field + ' must stop the supersession');
+	}
+
+	/**
+	 * @description Checks one compatibility case in two ways. First, which rules the supersession check counts as
+	 * replaced. Second, through the masking engine, which rule's replacement the saved value carries. The engine gets
+	 * the two rules, each with a target on every Foobar__c field.
+	 *
+	 * @param pair The older rule (index 0) and the newer rule (index 1), in the state the case needs
+	 * @param isOlderRuleReplaced True when the newer rule must replace the older rule
+	 * @param expectedValue The value the engine must return for COMPATIBILITY_VALUE
+	 */
+	private static void assertCompatibilityOutcome(List<MaskingRule__mdt> pair, Boolean isOlderRuleReplaced, String expectedValue)
+	{
+		registerCompatibilityRules(pair);
+		Set<String> expectedReplaced = isOlderRuleReplaced ? new Set<String> {PREDECESSOR_NAME} : new Set<String>();
+
+		Set<String> replaced = SEL_MaskingRule.findSupersededRuleNames(pair);
+		String savedValue = UTIL_FrameworkMasker.forField(Foobar__c.Name).mask(COMPATIBILITY_VALUE).maskedValue;
+
+		Assert.areEqual(expectedReplaced, replaced, 'Expected these rules to count as replaced');
+		Assert.areEqual(expectedValue, savedValue, 'Expected the saved value to show which rules ran');
+	}
+
+	/**
+	 * @description Builds the two rules of the compatibility tests, shaped like the shipped card rules: a newer rule
+	 * that names the older rule in Replaces__c and carries both fingerprints, taken as the shipped records carry them.
+	 * Both rules ship with the Write Failure Marker failure action. Each test then changes the values its case needs.
+	 *
+	 * @param isOlderRuleActive The older rule's IsActive__c value
+	 * @param isNewerRuleActive The newer rule's IsActive__c value
+	 *
+	 * @return The older rule (index 0) and the newer rule (index 1)
+	 */
+	private static List<MaskingRule__mdt> buildCompatibilityPair(Boolean isOlderRuleActive, Boolean isNewerRuleActive)
+	{
+		MaskingRule__mdt older = buildCompatibilityRule(PREDECESSOR_NAME, OLDER_TOKEN, OLDER_REPLACEMENT);
+		older.IsActive__c = isOlderRuleActive;
+		MaskingRule__mdt newer = buildCompatibilityRule(SUCCESSOR_NAME, NEWER_TOKEN, NEWER_REPLACEMENT);
+		newer.IsActive__c = isNewerRuleActive;
+		newer.Replaces__c = PREDECESSOR_NAME;
+		newer.ReplacesFingerprint__c = SEL_MaskingRule.computeFingerprint(older);
+		newer.ShippedFingerprint__c = SEL_MaskingRule.computeFingerprint(newer);
+		return new List<MaskingRule__mdt> {older, newer};
+	}
+
+	/**
+	 * @description Builds one in-memory rule for the compatibility tests. It finds its word with a regular expression
+	 * and has a test record Id, so a test target can point at it. The rule is on; a test that needs it off changes
+	 * IsActive__c afterwards.
+	 *
+	 * @param developerName The rule DeveloperName
+	 * @param token The word the rule finds
+	 * @param replacement The text the rule writes in place of the word
+	 *
+	 * @return The in-memory rule
+	 */
+	private static MaskingRule__mdt buildCompatibilityRule(String developerName, String token, String replacement)
+	{
+		return (MaskingRule__mdt)TST_Builder.of(MaskingRule__mdt.SObjectType)
+				.withOverride(MaskingRule__mdt.DeveloperName, developerName)
+				.withOverride(MaskingRule__mdt.Pattern__c, token)
+				.withOverride(MaskingRule__mdt.Mode__c, SEL_MaskingRule.MODE_REGEX)
+				.withOverride(MaskingRule__mdt.Replacement__c, replacement)
+				.withOverride(MaskingRule__mdt.CaseSensitive__c, true)
+				.withOverride(MaskingRule__mdt.FailureAction__c, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER)
+				.withOverride(MaskingRule__mdt.IsActive__c, true)
+				.withOverride(MaskingRule__mdt.Order__c, 200)
+				.withoutInsertion(true)
+				.build();
+	}
+
+	/**
+	 * @description Gives the masking engine exactly these rules, each with one target on every Foobar__c field. A test
+	 * target is on or off with its rule, as the shipped targets of a rule that ships off are. The engine checks a rule's
+	 * state only for targets it reads from the org, not for test targets, so the target carries that state here.
+	 *
+	 * @param rules The rules the engine must see
+	 */
+	private static void registerCompatibilityRules(List<MaskingRule__mdt> rules)
+	{
+		Map<String, MaskingRule__mdt> rulesByKey = new Map<String, MaskingRule__mdt>();
+		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType);
+
+		for(MaskingRule__mdt rule : rules)
+		{
+			rulesByKey.put(rule.DeveloperName, rule);
+			TST_Mock.of(MaskingTarget__mdt.SObjectType)
+					.withOverride(MaskingTarget__mdt.IsActive__c, rule.IsActive__c)
+					.withOverride(MaskingTarget__mdt.SObjectType__c, objectName)
+					.withOverride(MaskingTarget__mdt.Rule__c, rule)
+					.build();
+		}
+
+		SEL_MaskingTarget.allRulesOverrideForTest = rulesByKey;
 	}
 
 	/**

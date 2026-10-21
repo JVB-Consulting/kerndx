@@ -15,8 +15,8 @@
  *
  *   76b. Shipped rule catalogue — the packaged rules a fresh subscriber receives: at least
  *        19 rules visible (18 shipped + the harness's TestTypeFilterWarn from section 39),
- *        MaskPaymentCard + MaskSecretKeys + the legacy MaskCreditCard (replaced by
- *        MaskPaymentCard, kept for compatibility) active by default, and MaskEmail /
+ *        MaskPaymentCard + MaskSecretKeys + MaskJwt active by default, and the legacy
+ *        MaskCreditCard (replaced by MaskPaymentCard, kept for compatibility) + MaskEmail /
  *        MaskPhoneUS / MaskPhoneInternational present but dormant. The shipped rules deliberately leave
  *        ApplicableFieldTypes__c blank (unscoped — any maskable text-shaped field); the
  *        console's multi-mask pre-selection (one phone field surfacing BOTH phone rules)
@@ -27,9 +27,9 @@
  *        blank Field__c; dead = active target whose rule is missing or inactive). A fresh
  *        subscriber org with the test harness deployed sits at exactly:
  *          objects-with-active-targets = 4   (ApiCall, ApiIssue, AsyncChainExecution, LogEntryEvent)
- *          object-wide targets         = 12  (Card + PaymentCard + Secret per object, shipped;
- *                                             the Card targets stay active CMDT rows — the engine
- *                                             defers them to the PaymentCard successor at runtime)
+ *          object-wide targets         = 10  (PaymentCard + Secret per object, plus Jwt on ApiCall
+ *                                             and ApiIssue; the four legacy Card targets ship
+ *                                             inactive, so they count neither here nor as dead)
  *          field-level targets         = 1   (harness TestTypeFilterWarnOnApiCallUrl, section 39)
  *          dead configurations         = 0
  *        These four counts are the exact inputs to the Health Check masking-posture result
@@ -112,8 +112,8 @@ catch(Exception scenarioError)
 
 // Scenario 76b — shipped rule catalogue under kern__.
 // A fresh subscriber org receives 18 packaged rules (plus the harness's section-39 rule).
-// The payment-card, secret, and legacy credit-card rules are active by default; Email and
-// both Phone rules ship dormant.
+// The payment-card, secret, and JWT rules are active by default; the legacy credit-card rule,
+// Email and both Phone rules ship dormant.
 // MaskEmail staying dormant is what the dead-config probe depends on; the dormant phone
 // pair is what the console's stem-driven multi-mask pre-selection recommends (part9 V96).
 try
@@ -133,19 +133,21 @@ try
 			'76b: expected at least 19 masking rules (18 shipped + harness TestTypeFilterWarn). Got '
 			+ rulesByName.size() + ': ' + rulesByName.keySet());
 
-	for(String shippedRuleName : new List<String> {'MaskCreditCard', 'MaskPaymentCard', 'MaskSecretKeys', 'MaskEmail', 'MaskPhoneUS', 'MaskPhoneInternational'})
+	for(String shippedRuleName : new List<String> {'MaskCreditCard', 'MaskPaymentCard', 'MaskSecretKeys', 'MaskJwt', 'MaskEmail', 'MaskPhoneUS', 'MaskPhoneInternational'})
 	{
 		Assert.isTrue(rulesByName.containsKey(shippedRuleName),
 				'76b: shipped rule ' + shippedRuleName + ' must be visible under kern__ from subscriber context. Visible: '
 				+ rulesByName.keySet());
 	}
 
-	Assert.isTrue(rulesByName.get('MaskCreditCard').kern__IsActive__c == true,
-			'76b: MaskCreditCard must ship active by default (replaced by MaskPaymentCard but kept active for compatibility)');
+	Assert.isTrue(rulesByName.get('MaskCreditCard').kern__IsActive__c != true,
+			'76b: MaskCreditCard must ship dormant (replaced by MaskPaymentCard, kept only for compatibility)');
 	Assert.isTrue(rulesByName.get('MaskPaymentCard').kern__IsActive__c == true,
 			'76b: MaskPaymentCard must ship active by default — it does the card masking on the framework objects');
 	Assert.isTrue(rulesByName.get('MaskSecretKeys').kern__IsActive__c == true,
 			'76b: MaskSecretKeys must ship active by default');
+	Assert.isTrue(rulesByName.get('MaskJwt').kern__IsActive__c == true,
+			'76b: MaskJwt must ship active by default');
 	Assert.isTrue(rulesByName.get('MaskEmail').kern__IsActive__c != true,
 			'76b: MaskEmail must ship dormant — the round-trip dead-config probe depends on it staying inactive');
 	Assert.isTrue(rulesByName.get('MaskPhoneUS').kern__IsActive__c != true,
@@ -155,7 +157,7 @@ try
 
 	System.debug(LoggingLevel.INFO,
 			'76b PASS: rule catalogue visible under kern__ (' + rulesByName.size() + ' rules). '
-			+ 'MaskPaymentCard + MaskSecretKeys + legacy MaskCreditCard active by default; MaskEmail / MaskPhoneUS / '
+			+ 'MaskPaymentCard + MaskSecretKeys + MaskJwt active by default; legacy MaskCreditCard, MaskEmail / MaskPhoneUS / '
 			+ 'MaskPhoneInternational dormant. Shipped rules are unscoped (blank '
 			+ 'ApplicableFieldTypes__c); the multi-mask phone pre-selection is stem-driven '
 			+ 'and covered end-to-end by part9 V96.');
@@ -218,10 +220,22 @@ try
 
 	Assert.areEqual(4, activeObjectIdentifiers.size(),
 			'76c: baseline must show exactly 4 objects with active targets (ApiCall, ApiIssue, '
-			+ 'AsyncChainExecution, LogEntryEvent — shipped object-wide Card/PaymentCard/Secret triples). Got '
+			+ 'AsyncChainExecution, LogEntryEvent — shipped object-wide PaymentCard/Secret pairs). Got '
 			+ activeObjectIdentifiers.size() + ': ' + activeObjectIdentifiers);
-	Assert.areEqual(12, objectWideCount,
-			'76c: baseline must show exactly 12 active object-wide targets (Card + PaymentCard + Secret per shipped object). Got: ' + objectWideCount);
+	Assert.areEqual(10, objectWideCount,
+			'76c: baseline must show exactly 10 active object-wide targets (PaymentCard + Secret per shipped object, '
+			+ 'plus Jwt on ApiCall and ApiIssue). Got: ' + objectWideCount);
+
+	Integer inactiveLegacyCardTargets = 0;
+	for(kern__MaskingTarget__mdt target : targets)
+	{
+		if(target.DeveloperName.endsWith('_All_Card') && target.kern__IsActive__c != true)
+		{
+			inactiveLegacyCardTargets++;
+		}
+	}
+	Assert.areEqual(4, inactiveLegacyCardTargets,
+			'76c: the four legacy Card targets (one per shipped object) must ship, and ship inactive. Got: ' + inactiveLegacyCardTargets);
 	Assert.areEqual(1, fieldLevelCount,
 			'76c: baseline must show exactly 1 active field-level target (harness TestTypeFilterWarnOnApiCallUrl). Got: ' + fieldLevelCount);
 	Assert.areEqual(0, deadCount,
@@ -241,7 +255,7 @@ try
 	}
 
 	System.debug(LoggingLevel.INFO,
-			'76c PASS: posture baseline = 4 masked objects / 12 object-wide / 1 field-level / 0 dead. '
+			'76c PASS: posture baseline = 4 masked objects / 10 object-wide / 1 field-level / 0 dead. '
 			+ 'HEALTH CHECK INPUT: deadConfigCount=0 and objectsWithActiveTargets=4 => masking-posture '
 			+ 'check computes Pass(4). The round-trip deploys that follow move these counts and with '
 			+ 'them the Health Check result — the value-change proof.');

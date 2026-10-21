@@ -63,6 +63,7 @@ const {
 	runSection77,
 	runOrchestratedSection,
 	ORCHESTRATED_SECTIONS,
+	runScanner,
 	preflightAuditBackdating,
 	preflightPackageInstalled,
 	reportFailure,
@@ -1391,5 +1392,105 @@ describe('ORCHESTRATED_SECTIONS', () =>
 			expect(typeof entry.header).toBe('string');
 			expect(entry.header.length).toBeGreaterThan(0);
 		}
+	});
+});
+
+describe('runScanner', () =>
+{
+	const FIXTURE_SCAN_PROBLEMS = [
+		'kerndx/use-component-builder',
+		'kerndx/use-component-builder',
+		'kerndx/use-component-builder',
+		'kerndx/no-console-log',
+		'kerndx/no-console-log',
+		'kerndx/no-console-log'
+	];
+
+	// An ESLint JSON report with one file that holds one problem for each rule named.
+	function eslintReport(ruleIds)
+	{
+		return JSON.stringify([{filePath: 'component.js', messages: ruleIds.map(ruleId => ({ruleId, severity: 2}))}]);
+	}
+
+	// ESLint ends with exit code 1 when it finds a problem: the report is on the error the command throws.
+	function eslintFoundProblems(ruleIds)
+	{
+		return Object.assign(new Error('Command failed: npx eslint'), {status: 1, stdout: eslintReport(ruleIds)});
+	}
+
+	// Answers the fixture scan and the framework scan with the outcomes given; the code analyzer prints nothing.
+	function mockScans(fixtureScan, frameworkScan)
+	{
+		execSync.mockImplementation((command) =>
+		{
+			if(!command.startsWith('npx eslint'))
+			{
+				return '';
+			}
+			const outcome = command.includes('--rule') ? frameworkScan : fixtureScan;
+			if(outcome instanceof Error)
+			{
+				throw outcome;
+			}
+			return outcome;
+		});
+	}
+
+	beforeEach(() =>
+	{
+		jest.clearAllMocks();
+		jest.spyOn(console, 'log').mockImplementation(() => undefined);
+		jest.spyOn(fs, 'rmSync').mockImplementation(() => undefined);
+		jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+	});
+
+	afterEach(() =>
+	{
+		console.log.mockRestore();
+		fs.rmSync.mockRestore();
+		fs.existsSync.mockRestore();
+	});
+
+	it('records every problem the fixture scan reports, though ESLint ends with exit code 1 when it finds one', async() =>
+	{
+		mockScans(eslintFoundProblems(FIXTURE_SCAN_PROBLEMS), eslintReport([]));
+
+		const {eslint} = await runScanner();
+
+		expect(eslint.fixtureViolations).toBe(FIXTURE_SCAN_PROBLEMS.length);
+		expect(eslint.frameworkViolations).toBe(0);
+		expect(eslint.notes).toBe('');
+	});
+
+	it('runs the fixture scan in the scanner fixture folder and the framework scan in the framework components folder', async() =>
+	{
+		mockScans(eslintReport([]), eslintReport([]));
+
+		await runScanner();
+
+		const eslintCalls = execSync.mock.calls.filter(([command]) => command.startsWith('npx eslint'));
+		expect(eslintCalls).toHaveLength(2);
+		expect(eslintCalls[0][1].cwd).toMatch(/release-testing[\\/]scanner[\\/]lwc$/);
+		expect(eslintCalls[1][1].cwd).toMatch(/force-app[\\/]main[\\/]default[\\/]lwc$/);
+	});
+
+	it('counts only component-builder problems in the framework scan, as the runbook does', async() =>
+	{
+		mockScans(eslintReport([]), eslintFoundProblems(['kerndx/use-component-builder', 'no-await-in-loop']));
+
+		const {eslint} = await runScanner();
+
+		expect(eslint.frameworkViolations).toBe(1);
+	});
+
+	it('records no count, and says why, when a scan cannot report', async() =>
+	{
+		mockScans(Object.assign(new Error('Command failed: npx eslint (bad configuration)'), {status: 2, stdout: ''}), eslintReport([]));
+
+		const {eslint} = await runScanner();
+
+		expect(eslint.fixtureViolations).toBeNull();
+		expect(eslint.notes).toContain('Fixture scan failed');
+		expect(eslint.frameworkViolations).toBe(0);
 	});
 });
