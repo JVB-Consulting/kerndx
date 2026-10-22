@@ -1,15 +1,15 @@
 {
 	"description": "Apex tests that fail on aer, the local Apex runtime, and pass in a Salesforce org. scripts/aer-run.js --gate fails on any other failure and on a test that reports no result. Categories: \"runtime gap\" (aer behaves differently from Salesforce, shown), \"profile\" (the copy has no profiles folder) and \"unclassified\" (the cause is not yet known).",
 	"measuredWith": {
-		"aerVersion": "1.4.31",
-		"commit": "0afbcf7fe65279c43c78d44e68482eb82e921ebf",
+		"aerVersion": "1.4.36",
+		"commit": "b761673a7db96c6d1aeedc180b773baad5280e1b",
 		"permissionSet": "Administrator"
 	},
 	"failures": [
 		{
 			"test": "API_Base_TEST.shouldCompleteASynchronousInboundSaveOfALongestSecretBearingJsonRequest",
-			"category": "runtime gap",
-			"error": "aer stops the pattern with Regex too complicated; Salesforce runs it (the test passes in an org). First error on aer: LimitException: Regex too complicated"
+			"category": "unclassified",
+			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: API_Base_TEST.cls:1741: Assertion Failed: Expected the stored request masked, got [MASKING_FAILURE]"
 		},
 		{
 			"test": "UTIL_FrameworkMasker_TEST.shouldCompleteOnEveryHostileCardShape",
@@ -20,11 +20,6 @@
 			"test": "UTIL_FrameworkMasker_TEST.shouldMarkOnlyTheValueAWriteFailureMarkerRuleFailsOn",
 			"category": "unclassified",
 			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_FrameworkMasker_TEST.cls:2718: Assertion Failed: Expected the value the rule failed on to carry the marker: Expected: [MASKING_FAILURE], A"
-		},
-		{
-			"test": "UTIL_FrameworkMasker_TEST.shouldMaskEveryTokenInALongestPlainTextValue",
-			"category": "runtime gap",
-			"error": "aer stops the pattern with Regex too complicated; Salesforce runs it (the test passes in an org). First error on aer: LimitException: Regex too complicated"
 		},
 		{
 			"test": "UTIL_FrameworkMasker_TEST.shouldSkipTheFailureMarkerWrittenInPlaceOfAValue",
@@ -42,11 +37,6 @@
 			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_FrameworkMasker_TEST.cls:2843: Assertion Failed: Expected the first value the rule failed on to carry the marker: Expected: [MASKING_FAILU"
 		},
 		{
-			"test": "UTIL_String_TEST.shouldMarkASecretTooLongToReadInOneTryInsteadOfEndingTheTransaction",
-			"category": "runtime gap",
-			"error": "aer stops the pattern with Regex too complicated; Salesforce runs it (the test passes in an org). First error on aer: LimitException: Regex too complicated"
-		},
-		{
 			"test": "UTIL_String_TEST.shouldMaskALongStringSecretWithoutHittingTheRegexLimit",
 			"category": "unclassified",
 			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_String_TEST.cls:2883: Assertion Failed: Expected the long secret replaced whole: Expected: {\"password\":\"***SECRET***\"} sent at step 2, Act"
@@ -60,11 +50,6 @@
 			"test": "UTIL_String_TEST.shouldMaskASecretWhoseValueCrossesTheEndOfAPiece",
 			"category": "unclassified",
 			"error": "Passes in a Salesforce org. The test pushes a masking rule into the regex limits, which differ on aer; not yet shown test by test. First error on aer: AssertException: UTIL_String_TEST.cls:2976: Assertion Failed: Expected the secret replaced whole: Expected: {\"note\":\"nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"
-		},
-		{
-			"test": "UTIL_String_TEST.shouldMaskTokensAtTheStartMiddleAndEndOfALongestValue",
-			"category": "runtime gap",
-			"error": "aer stops the pattern with Regex too complicated; Salesforce runs it (the test passes in an org). First error on aer: LimitException: Regex too complicated"
 		},
 		{
 			"test": "UTIL_String_TEST.shouldNotReadAnEscapedQuoteAtThePieceStartAsAKey",
