@@ -1,16 +1,16 @@
 {
-	"aerVersion": "1.4.31",
-	"commit": "6955a1e22ec6b67a4e0642540ee76ac305765c64",
+	"aerVersion": "1.4.36",
+	"commit": "eaaff92d701b7e7ec2ef5d696b84d5136cd47013",
 	"release": "v1.9.0-4",
-	"measuredAt": "2026-10-21T12:54:16.557Z",
+	"measuredAt": "2026-10-22T10:31:31.168Z",
 	"permissionSet": "Administrator",
 	"total": 5565,
-	"passed": 5551,
+	"passed": 5554,
 	"failures": [
 		{
 			"test": "API_Base_TEST.shouldCompleteASynchronousInboundSaveOfALongestSecretBearingJsonRequest",
-			"error": "LimitException: Regex too complicated",
-			"category": "runtime gap"
+			"error": "AssertException: API_Base_TEST.cls:1741: Assertion Failed: Expected the stored request masked, got [MASKING_FAILURE]",
+			"category": "unclassified"
 		},
 		{
 			"test": "UTIL_FrameworkMasker_TEST.shouldCompleteOnEveryHostileCardShape",
@@ -21,11 +21,6 @@
 			"test": "UTIL_FrameworkMasker_TEST.shouldMarkOnlyTheValueAWriteFailureMarkerRuleFailsOn",
 			"error": "AssertException: UTIL_FrameworkMasker_TEST.cls:2718: Assertion Failed: Expected the value the rule failed on to carry the marker: Expected: [MASKING_FAILURE], Actual: xx",
 			"category": "unclassified"
-		},
-		{
-			"test": "UTIL_FrameworkMasker_TEST.shouldMaskEveryTokenInALongestPlainTextValue",
-			"error": "LimitException: Regex too complicated",
-			"category": "runtime gap"
 		},
 		{
 			"test": "UTIL_FrameworkMasker_TEST.shouldSkipTheFailureMarkerWrittenInPlaceOfAValue",
@@ -43,11 +38,6 @@
 			"category": "unclassified"
 		},
 		{
-			"test": "UTIL_String_TEST.shouldMarkASecretTooLongToReadInOneTryInsteadOfEndingTheTransaction",
-			"error": "LimitException: Regex too complicated",
-			"category": "runtime gap"
-		},
-		{
 			"test": "UTIL_String_TEST.shouldMaskALongStringSecretWithoutHittingTheRegexLimit",
 			"error": "AssertException: UTIL_String_TEST.cls:2883: Assertion Failed: Expected the long secret replaced whole: Expected: {\"password\":\"***SECRET***\"} sent at step 2, Actual: [MASKING_FAILURE]",
 			"category": "unclassified"
@@ -63,11 +53,6 @@
 			"category": "unclassified"
 		},
 		{
-			"test": "UTIL_String_TEST.shouldMaskTokensAtTheStartMiddleAndEndOfALongestValue",
-			"error": "LimitException: Regex too complicated",
-			"category": "runtime gap"
-		},
-		{
 			"test": "UTIL_String_TEST.shouldNotReadAnEscapedQuoteAtThePieceStartAsAKey",
 			"error": "AssertException: UTIL_String_TEST.cls:2824: Assertion Failed: Expected the very same text back, with hunter2 kept inside the note",
 			"category": "unclassified"
@@ -78,5 +63,5 @@
 			"category": "unclassified"
 		}
 	],
-	"durationSeconds": 305
+	"durationSeconds": 296
 }

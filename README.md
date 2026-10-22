@@ -5,7 +5,7 @@
 [![Last release](https://img.shields.io/github/release-date/JVB-Consulting/kerndx?label=last%20release)](https://github.com/JVB-Consulting/kerndx/releases/latest)
 [![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-orange.svg)](./LICENSE)
 [![Salesforce API](https://img.shields.io/badge/Salesforce%20API-v68.0-00A1E0.svg)](./sfdx-project.json)
-[![Tests passing locally](https://img.shields.io/badge/tests%20passing%20locally-5551%2F5565-brightgreen.svg)](./docs/Strategic%20Guide%20-%20Metrics.md#local-test-run)
+[![Tests passing locally](https://img.shields.io/badge/tests%20passing%20locally-5554%2F5565-brightgreen.svg)](./docs/Strategic%20Guide%20-%20Metrics.md#local-test-run)
 [![Security scan: Code Analyzer's AppExchange rule set, all findings documented](https://img.shields.io/badge/security%20scan-all%20findings%20documented-brightgreen.svg)](./SECURITY.md#what-a-code-scan-reports-and-why)
 [![Documentation](https://img.shields.io/badge/docs-online-blue.svg)](https://docs.jvb-consulting.io/)
 [![docs & tooling CI](https://img.shields.io/github/actions/workflow/status/JVB-Consulting/kerndx/ci.yml?branch=main&label=docs%20%26%20tooling%20CI)](https://github.com/JVB-Consulting/kerndx/actions/workflows/ci.yml)
