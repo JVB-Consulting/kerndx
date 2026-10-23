@@ -361,7 +361,6 @@ function computeExpected(repoRoot)
 
 	const fastStartGuides = fs.existsSync(docsDir) ? fs.readdirSync(docsDir).filter(f => f.startsWith('Fast Start - ') && f.endsWith('.md')).length : 0;
 	const developerGuides = fs.existsSync(docsDir) ? fs.readdirSync(docsDir).filter(f => f.endsWith(' - Guide.md')).length : 0;
-	const strategicGuidesSource = fs.existsSync(docsDir) ? fs.readdirSync(docsDir).filter(f => f.startsWith('Strategic Guide - ') && f.endsWith('.md')).length : 0;
 	// Strategic Guide count: source-tree files matching the pattern minus
 	// internal-only guides (which are excluded from the release artifact;
 	// substring filtering keeps the count consistent in both trees).
@@ -736,15 +735,16 @@ function parseLocalTestRun(content)
 }
 
 /**
- * @description The pass rate shown beside a local test run, to one decimal place.
+ * @description The pass rate shown beside a local test run, to two decimal places, so that one failure in
+ * several thousand tests still shows below 100% (5,564 of 5,565 is 99.98%, where one decimal place shows 100.0%).
  *
  * @param {number} passed
  * @param {number} total
- * @return {string} for example "98.8%"
+ * @return {string} for example "98.83%"
  */
 function formatPassRate(passed, total)
 {
-	return `${(passed / total * 100).toFixed(1)}%`;
+	return `${(passed / total * 100).toFixed(2)}%`;
 }
 
 function versionParts(text)
