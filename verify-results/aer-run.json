@@ -1,17 +1,11 @@
 {
-	"aerVersion": "1.4.37",
-	"commit": "7373bf17778f51be5aa64bf5d3d007235146bfde",
+	"aerVersion": "1.4.38",
+	"commit": "260d2286df650a077c792c9309f3c0c6f24bd2f8",
 	"release": "v1.9.0-4",
-	"measuredAt": "2026-10-23T12:27:10.137Z",
+	"measuredAt": "2026-10-23T19:14:32.546Z",
 	"permissionSet": "Administrator",
 	"total": 5565,
-	"passed": 5564,
-	"failures": [
-		{
-			"test": "API_Base_TEST.shouldCompleteASynchronousInboundSaveOfALongestSecretBearingJsonRequest",
-			"error": "LimitException: Apex CPU time limit exceeded",
-			"category": "runtime gap"
-		}
-	],
-	"durationSeconds": 525
+	"passed": 5565,
+	"failures": [],
+	"durationSeconds": 440
 }

@@ -191,15 +191,15 @@ The package's own Apex tests, run on a computer with no Salesforce org. The figu
 
 | Metric                               | Value                                                                                                                                                |
 |--------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Apex tests passing locally           | 5,564 of 5,565 (99.98%)                                                                                                                              |
-| Runtime                              | [aer](https://github.com/octoberswimmer/aer-dist) 1.4.37 by October Swimmer, a local Apex runtime                                                    |
+| Apex tests passing locally           | 5,565 of 5,565 (100.00%)                                                                                                                             |
+| Runtime                              | [aer](https://github.com/octoberswimmer/aer-dist) 1.4.38 by October Swimmer, a local Apex runtime                                                    |
 | How it ran                           | as a user with the Administrator permission set (`-p Administrator`), on a copy of the source with no `profiles` folder, in one run                  |
 | Source                               | v1.9.0-4                                                                                                                                             |
 | Measured                             | 2026-10-23                                                                                                                                           |
-| Failing: aer differs from Salesforce | 1                                                                                                                                                    |
+| Failing: aer differs from Salesforce | 0                                                                                                                                                    |
 | Failing: cause not yet known         | 0                                                                                                                                                    |
 
-> What the runtime cannot run: the two "Failing" rows above. aer copies most of how Salesforce behaves, not all of it, so a real org stays the final word. Each failing test is listed with its reason in `scripts/aer-baseline.json`. The one failing test passes in a Salesforce org. On aer it runs out of time, because aer is much slower than Salesforce at cutting a long text into many pieces. We have reported this to aer's makers as [issue 635](https://github.com/octoberswimmer/aer-dist/issues/635).
+> What the runtime cannot run: the two "Failing" rows above. aer copies most of how Salesforce behaves, not all of it, so a real org stays the final word. Each failing test is listed with its reason in `scripts/aer-baseline.json`. On this run no test failed.
 
 ## E2E Tests (Playwright)
 
