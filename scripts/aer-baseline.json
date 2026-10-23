@@ -5,5 +5,11 @@
 		"commit": "da03d9f4970cb6aef8f4206971e01f2dcd4684e2",
 		"permissionSet": "Administrator"
 	},
-	"failures": []
+	"failures": [
+		{
+			"test": "API_Base_TEST.shouldCompleteASynchronousInboundSaveOfALongestSecretBearingJsonRequest",
+			"category": "runtime gap",
+			"error": "Passes in a Salesforce org, inside the CPU time limit. On aer 1.4.37 the masking gives the right result but runs far slower than in an org (277 seconds for this one test on a Mac), and the full CI run stops it at the CPU time limit. First error on aer: LimitException: Apex CPU time limit exceeded"
+		}
+	]
 }
