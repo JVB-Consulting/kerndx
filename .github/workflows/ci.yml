@@ -118,7 +118,7 @@ jobs:
     # The job fails on a failing test that is not listed in scripts/aer-baseline.json and on a test that reports
     # no result; the published figure in the Metrics guide comes from the recorded run, not from this job.
     # aer is pinned: the version, download address and checksum are those of the octoberswimmer/tap Homebrew
-    # cask for that version (Casks/aer.rb at tap commit 659cbc9a9d8cfefb77d8efc0fa8bb8b39beedeae).
+    # cask for that version (Casks/aer.rb at tap commit 9a87422afc9532650e26fbe6c686d721621aa59a).
     # The licence is for public repositories only: aer checks it with the job's own GitHub token, so the test step
     # passes GITHUB_TOKEN, and the step stops with an error when aer still refuses the licence, because an unlicensed
     # aer runs only one test at a time on a codebase this size.
@@ -126,8 +126,8 @@ jobs:
     permissions:
       contents: read
     env:
-      AER_VERSION: 1.4.37
-      AER_SHA256: 5f8c19a5300dc9ec0e2e1271edfb2c9fee1cc5f28d9f29a76a80baa8b083ff4d
+      AER_VERSION: 1.4.38
+      AER_SHA256: 5d6079aabb44c1056395d27787cc07750b5e38cfb3eae0b5decc4021e07bb15d
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
