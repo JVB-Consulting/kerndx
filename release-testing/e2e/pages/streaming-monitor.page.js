@@ -270,7 +270,7 @@ class StreamingMonitorPage
 		await this.page.waitForTimeout(500);
 	}
 
-	// ── Org Limits view (PLAN-108 card grid) ─────────────────────────────
+	// ── Org Limits view (card grid) ──────────────────────────────────────
 
 	async navigateToOrgLimits()
 	{

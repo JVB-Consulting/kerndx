@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-// Part 12: the consoles at volume (PLAN-175, board row 91). Seeded by the volume driver in staged mode; the seed is
+// Part 12: the consoles at volume. Seeded by the volume driver in staged mode; the seed is
 // reused when its manifest and rows are present. Every journey reads thousands of rows, never one, and every count
 // it asserts is read from the database as it runs.
 const {test, expect} = require('@playwright/test');
@@ -11,7 +11,8 @@ const {soqlQuery, waitForFrameworkBatchesToFinish} = require('../helpers/sf-cli'
 const {namespacePrefix} = require('../helpers/sf-namespace');
 const {getInstanceUrl} = require('../helpers/sf-auth');
 const {waitForSpinnerGone, waitForToastMessage} = require('../helpers/wait-helpers');
-const {readManifest, writeManifest} = require('../../scripts/consoles-at-volume/manifest');
+const {readManifest, writeManifest, describeForeignManifest} = require('../../scripts/consoles-at-volume/manifest');
+const {getSubscriberOrgAlias} = require('../../runner/subscriber-config');
 const {countRuns, countEntries, runKeys, findRun, field} = require('../explore/manifest-oracle');
 const {collectPageKeys, findRepeatsAndLosses, readPageLabel, pagesFor} = require('../explore/coverage');
 const {addressKeys} = require('../explore/checks');
@@ -105,7 +106,8 @@ async function openConsoleOnAction(page, logConsole, actionId)
 /**
  * @description Whether the manifest on disk describes a verified load the org no longer holds whole: it has no chain
  *              row or no log entry under the manifest's token. Part 1's beforeAll purges every log entry in the org,
- *              and an org purge or a recreated org takes the chain rows too, while the manifest stays on disk. `run`
+ *              and an org purge takes the chain rows too, while the manifest stays on disk. (A recreated org under the
+ *              same alias never gets here: the driver refuses its manifest as another org's.) `run`
  *              skips the stages a manifest records as done and only verifies again, which would fail and never heal,
  *              so such a load is torn down first (teardown moves its manifest aside even with nothing to delete) and
  *              `run` then lays a new one. No manifest, or one not yet verified clean, is left to `run`.
@@ -142,6 +144,13 @@ test.describe.serial('Part 12: the consoles at volume', () =>
 		test.setTimeout(SEED_TIMEOUT_MILLISECONDS);
 		await waitForFrameworkBatchesToFinish();
 		const existing = readManifest(MANIFEST_PATH);
+		// A manifest left by another org (often a deleted one) is never torn down here: teardown would run its ids against
+		// this org. The journeys stop at once with the remedy instead; the driver itself refuses the same manifest.
+		const foreign = describeForeignManifest(existing, {alias: getSubscriberOrgAlias(), manifestPath: MANIFEST_PATH});
+		if(foreign)
+		{
+			throw new Error(foreign);
+		}
 		if(verifiedLoadMissingRows(existing))
 		{
 			runDriver('teardown', ['--mode', existing.mode, '--size', String(existing.size), '--output-directory', OUTPUT_DIRECTORY]);

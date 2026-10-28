@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // The shape table of the consoles-at-volume load. The candidate shape is the spec's (section 2.1); what the platform
-// measured is the probe's (PLAN-175 Task 1), read from probe-report.json beside this file and never guessed: the
+// measured is the probe's, read from probe-report.json beside this file and never guessed: the
 // driver refuses to run without it. A remembered platform limit is not a measured one.
 const fs = require('fs');
 const path = require('path');
@@ -24,7 +24,7 @@ function readProbeReport(filePath = PROBE_REPORT_PATH)
 	if(!fs.existsSync(filePath))
 	{
 		throw new Error(
-				`No probe report at ${filePath}. Run release-testing/scripts/consoles-at-volume-probe.js first (PLAN-175 Task 1); `
+				`No probe report at ${filePath}. Run release-testing/scripts/consoles-at-volume-probe.js first; `
 					+ 'the shape table carries no guessed number.');
 	}
 	const report = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -54,7 +54,7 @@ function stallStrategy(report = readProbeReport())
 	return report.stallStrategy;
 }
 
-// The candidate shape (spec section 2.1), ratified from the probe's measurement (D2): rootsPerBatch and the stagger
+// The candidate shape, ratified from the probe's measurement: rootsPerBatch and the stagger
 // follow the report's fitsInOneTransaction.
 const RECONCILIATION_SHAPE = {
 	chainNames: [

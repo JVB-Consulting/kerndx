@@ -46,7 +46,7 @@ describe('resolveOutputDirectory', () =>
 {
 	const {resolveOutputDirectory} = require('../e2e/explore/coverage');
 
-	it('sends a release run under results, a development run under tmp, and a shaped run where PLAN-166 put it', () =>
+	it('sends a release run under results, a development run under tmp, and a shaped run where the explorer puts it', () =>
 	{
 		expect(resolveOutputDirectory({manifest: 'm.json', namespacePrefix: 'kern__', version: '1.8.0-1'}))
 		.toMatch(/release-testing[\\/]results[\\/]1\.8\.0-1[\\/]consoles-at-volume$/);

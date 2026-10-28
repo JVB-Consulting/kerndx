@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL-1.1
-// Multi-version docs build + assembly (PLAN-105 Phase 2.4). Builds the latest tree at the
+// Multi-version docs build + assembly. Builds the latest tree at the
 // root, then every frozen docs-versions/<X.Y>/ line under /X.Y/, into one dist/:
 //
 //   dist/            ← latest  (DOCS_BASE=/)            canonical CNAME / 404 / robots / sitemap

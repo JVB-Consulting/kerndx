@@ -130,6 +130,8 @@ Runs four extended scripts:
 
 ## Common Subscriber Pitfalls
 
+Findings from the framework follow-ups review; the full list is in the maintainers' planning record.
+
 - **`kern__LogEntry__c` queries: use `kern__UserId__c`, NOT `CreatedById`** (A37) — `TRG_PersistLogEntry` runs as the Automated Process user. Querying by `CreatedById` will miss
   all log entries.
 - **PE flood >150 emits per transaction hits the PublishImmediate governor** (A18) — non-scoped `LOG_Builder.build()...emit()` calls bypass batching. Use `LOG_Builder.scope()` to

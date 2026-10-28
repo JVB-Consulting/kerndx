@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: BUSL-1.1
-// Loads an org for the consoles-at-volume proof (PLAN-175): preflight, launch, drain, operate, verify, each a
+// Loads an org for the consoles-at-volume proof: preflight, launch, drain, operate, verify, each a
 // subcommand and each resumable from the manifest; `run` does the five in order; `teardown` is separate and optional.
 //   SF_SUBSCRIBER_ORG_ALIAS=<your org alias> node release-testing/scripts/consoles-at-volume.js run --mode staged
 'use strict';
@@ -12,11 +12,11 @@ const {getSubscriberOrgAlias} = require('../runner/subscriber-config');
 const ORG_ALIAS_VARIABLE = 'SF_SUBSCRIBER_ORG_ALIAS';
 const {parseCommandLine, USAGE} = require('./consoles-at-volume/command-line');
 const {createOrgDoor} = require('./consoles-at-volume/org-door');
-const {readManifest, writeManifest, isStageDone, assertSameRun, describeManifest} = require('./consoles-at-volume/manifest');
+const {readManifest, writeManifest, isStageDone, assertSameRun, describeForeignManifest, describeManifest} = require('./consoles-at-volume/manifest');
 const {scaleShape} = require('./consoles-at-volume/shapes');
 
 const USAGE_EXIT_CODE = 2;
-// A stage whose module is not named after it (D8 names the operate stage's module operator-wave.js).
+// A stage whose module is not named after it (the operate stage's module is operator-wave.js).
 const STAGE_MODULES = {operate: 'operator-wave'};
 const STAGE_ORDER = [
 	'preflight',
@@ -110,6 +110,37 @@ function pinOrgAlias(options, environment = process.env)
 }
 
 /**
+ * @description Refuses a manifest written on another org than the one this command targets: one that names another
+ * alias, or one whose org cannot be reached or now signs in as another user (the alias points at a new org). The
+ * alias is compared first, with no call to the org; the run user is read only when the aliases agree and the
+ * manifest recorded one.
+ *
+ * @param {object|null} manifest The manifest on disk, or null when there is none.
+ * @param {object} options The parsed command line.
+ * @param {object} salesforce The org door for the targeted org.
+ */
+function assertManifestBelongsToOrg(manifest, options, salesforce)
+{
+	const target = {alias: options.alias, manifestPath: options.manifestPath};
+	if(manifest?.org && manifest.org.alias === options.alias && manifest.org.userId)
+	{
+		try
+		{
+			target.userId = salesforce.runUserId();
+		}
+		catch(failure)
+		{
+			target.unreachable = failure.message.split('\n')[0];
+		}
+	}
+	const foreign = describeForeignManifest(manifest, target);
+	if(foreign)
+	{
+		throw new Error(foreign);
+	}
+}
+
+/**
  * @description Reads the command line, then runs the asked stages in order against the org.
  */
 async function main()
@@ -136,7 +167,16 @@ async function main()
 	const shape = scaleShape(options.mode, options.size);
 	if(existing)
 	{
-		assertSameRun(existing, options);
+		try
+		{
+			assertManifestBelongsToOrg(existing, options, salesforce);
+			assertSameRun(existing, options);
+		}
+		catch(refusal)
+		{
+			console.error(refusal.message);
+			process.exit(1);
+		}
 	}
 	// A stage that records progress batch by batch writes the manifest as it goes, so a failure mid-stage keeps what landed.
 	const context = {options, salesforce, shape, manifest: existing, log: (line) => console.log(line), persist: (manifest) => writeManifest(options.manifestPath, manifest)};
@@ -162,4 +202,4 @@ if(require.main === module)
 	});
 }
 
-module.exports = {STAGE_ORDER, STAGE_MODULES, loadStage, runStage, exitCodeFor, pinOrgAlias, USAGE};
+module.exports = {STAGE_ORDER, STAGE_MODULES, loadStage, runStage, exitCodeFor, pinOrgAlias, assertManifestBelongsToOrg, USAGE};

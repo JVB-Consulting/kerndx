@@ -43,7 +43,7 @@ function readPackageVersion(projectPath = path.join(REPOSITORY_ROOT, 'sfdx-proje
 /**
  * @description The exploration's output folder: the one given; else the release results for the version when
  *              the org is a release target and a manifest is set; else the development folder for a manifest run;
- *              else where PLAN-166 put the shaped run.
+ *              else where the explorer puts the shaped run.
  * @param {Object} choice The manifest path, the org's namespace prefix, the package version and any folder given.
  * @returns {string} The folder.
  */

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 //
-// Part 10: Log Console (V106-V113, plus the V122-V126 scripted matrix from PLAN-106 Phase 0 R3:
+// Part 10: Log Console (V106-V113, plus the V122-V126 scripted matrix from the Log Console review:
 // OFFSET-proof deep scroll, sort persistence across a filter change, phone-width ribbon + drawer,
-// the View-occurrences drill, and the still-running-chain window end that Refresh moves; plus V127 from Phase 4:
+// the View-occurrences drill, and the still-running-chain window end that Refresh moves; plus V127:
 // opening a read-time-grouped problem, which the jest suite structurally cannot cover because it
 // stubs lightning/datatable and so sees neither real key-field handling nor real focus movement;
 // plus V128/V129, which prove a cleared hand-off cannot return — neither with the temporary tab it
@@ -1402,7 +1402,7 @@ test.describe.serial('Part 10: Log Console', () =>
 		await console.switchView('entries');
 
 		// The summary ribbon must overflow-scroll at phone width — wrapped or clipped cards were
-		// the R2 mobile defect this guards against.
+		// the mobile defect this guards against.
 		const ribbon = console.root().locator('.summary').first();
 		const overflow = await ribbon.evaluate((element) => element.scrollWidth - element.clientWidth);
 		expect(overflow, 'The ribbon should overflow horizontally at phone width').toBeGreaterThan(0);

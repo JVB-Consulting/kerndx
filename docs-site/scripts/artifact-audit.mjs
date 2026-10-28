@@ -17,7 +17,7 @@ async function walk(dir) {
     const p = path.join(dir, e.name)
     // Skip assets and frozen version subtrees (/1.x/): the site-wide duplicate-description
     // and cross-tree anchor checks are latest-only — a frozen page legitimately repeats its
-    // latest counterpart's description (PLAN-105 blocker #5).
+    // latest counterpart's description.
     if (e.isDirectory()) { if (e.name === 'assets' || /^\d+\.\d+$/.test(e.name)) continue; out.push(...await walk(p)) }
     else if (e.name.endsWith('.html')) out.push(p)
   }

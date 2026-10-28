@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: BUSL-1.1
-// The consoles-at-volume probe (PLAN-175 Task 1): one root fanned out three deep on the harness org, sampled every
+// The consoles-at-volume probe: one root fanned out three deep on the harness org, sampled every
 // fifteen seconds; a one-off watchdog sweep with a two-minute threshold at the widest point; a chain whose first
 // step spends the transaction's enqueue. Prints and writes tmp/consoles-at-volume/probe-report.md, and the record
 // the shape table reads, release-testing/scripts/consoles-at-volume/probe-report.json.
@@ -228,7 +228,7 @@ function measureTree(org, run, say)
 	say(`- runs under the action: ${total} (expected ${EXPECTED_RUNS}); by status ${statuses}; by name ${names}`);
 	say(`- leaves launched under a depth-2 run: ${leavesUnderDepthTwo} (expected ${EXPECTED_LEAVES}); Finalizer enqueue failures (rows Stalled): ${finalizerFailures}; `
 			+ `failed or aborted engine jobs: ${platformFailures}`);
-	say(`- watchdog re-drives logged after the ${WATCHDOG_THRESHOLD_MINUTES}-minute sweep: ${watchdogRedrives} (a healthy chain re-driven is a finding for Task 13)`);
+	say(`- watchdog re-drives logged after the ${WATCHDOG_THRESHOLD_MINUTES}-minute sweep: ${watchdogRedrives} (a healthy chain re-driven is a finding)`);
 	return {total, byStatus, leavesUnderDepthTwo, finalizerFailures, platformFailures, watchdogRedrives};
 }
 
@@ -264,7 +264,7 @@ async function probeStall(org, say)
 }
 
 /**
- * @description D1's criteria, each named, so the report says which one a run missed.
+ * @description The verdict criteria, each named, so the report says which one a run missed.
  *
  * @param {object} tree The measured counts.
  * @param {object} drain The drain's result.
@@ -299,7 +299,7 @@ function judge(tree, drain, peak)
 function writeReports(record, lines)
 {
 	fs.writeFileSync(REPORT_PATH, `${lines.join('\n')}\n`, 'utf8');
-	// The record the shape table reads (shapes.js readProbeReport): committed with Task 1, never guessed.
+	// The record the shape table reads (shapes.js readProbeReport): committed with the probe, never guessed.
 	fs.writeFileSync(JSON_REPORT_PATH, `${JSON.stringify(record, null, '\t')}\n`, 'utf8');
 	console.log(`report: ${REPORT_PATH} and ${JSON_REPORT_PATH}`);
 }
@@ -346,7 +346,7 @@ async function main()
 	const checks = judge(tree, drain, peak);
 	const verdict = checks.every((check) => check.pass) ? 'FITS' : 'DOES NOT FIT';
 	const missed = checks.filter((check) => !check.pass).map((check) => check.name);
-	say(`- verdict: ${verdict} (D1 criteria; 140 Completed and 16 Failed expected)${missed.length ? `; missed: ${missed.join('; ')}` : ''}`);
+	say(`- verdict: ${verdict} (the verdict criteria; 140 Completed and 16 Failed expected)${missed.length ? `; missed: ${missed.join('; ')}` : ''}`);
 	const rootWallClockMinutes = Number(((drain.samples[drain.samples.length - 1].at - drain.samples[0].at) / MINUTE_MILLISECONDS).toFixed(1));
 	writeReports({
 		measuredAt: run.sinceIso,

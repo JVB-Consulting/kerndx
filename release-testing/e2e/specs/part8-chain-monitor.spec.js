@@ -11,7 +11,7 @@ const {namespacePrefix, apexNamespacePrefix} = require('../helpers/sf-namespace'
 const {deployMetadataDir} = require('../../runner/cmdt-deployer');
 const {readShippedLabelValues} = require('../lib/shipped-labels');
 
-// --- Operator-action fixtures (V116+): frozen copy of record from the PLAN-138 M0 spec ---
+// --- Operator-action fixtures (V116+): frozen copy of record from the operator-actions mockup ---
 const CHAIN_STEPS_FIXTURE_DIR = path.join(__dirname, '..', 'fixtures', 'chain-steps');
 const RETRY_SUCCESS_TOAST = 'Retry started. E2E_RetryRecovery resumes at its failed step.';
 const RESTART_SUCCESS_TOAST = 'Restart started. E2E_RestartLineage is running again from step 1, and its new run is selected.';
@@ -132,7 +132,7 @@ function launchChain(chainName, builderCalls, stepClassName, options = {})
 	// A launch transaction with an active log correlation is the designed correlated path: the
 	// chain adopts it AND serializes it into the executor's log context, so the chain's own log
 	// entries carry the correlation the stream seed reads by. A correlation-less launch mints a
-	// chain UUID its logs never carry — raised at M4 as an engine gap (ChainBuilder line 2185
+	// chain UUID its logs never carry — raised as an engine gap (ChainBuilder line 2185
 	// still serializes the no-argument context).
 	const correlationStatement = options.withLogCorrelation ? `${apexNamespacePrefix()}LOG_Builder.startCorrelation();` : '';
 	// A step the chain runs after the first one, when the journey needs a step that waits on it.

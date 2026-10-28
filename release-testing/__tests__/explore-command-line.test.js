@@ -3,7 +3,7 @@ const {parseArguments} = require('../e2e/explore/command-line');
 
 describe('parseArguments', () =>
 {
-	it('keeps the PLAN-166 defaults and reads the volume options', () =>
+	it('keeps the explorer defaults and reads the volume options', () =>
 	{
 		const options = parseArguments(['--seed', '5', '--phases', 'widths', '--timing-budget-read', '800']);
 		expect(options).toMatchObject({seed: 5, sessions: 3, steps: 40, phases: ['widths'], manifest: null, timingBudgets: {pageOpenMilliseconds: 3000, inPageReadMilliseconds: 800}});

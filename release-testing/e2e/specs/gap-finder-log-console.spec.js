@@ -7,7 +7,7 @@
 //     Stack trace / Context)
 //   - the timeline prototype (drawer Timeline tab)
 //
-// Ids fall into three buckets, following the PLAN-138 chain-monitor precedent:
+// Ids fall into three buckets, following the chain-monitor gap-finder's precedent:
 //  - DOM ids: located as `[data-spec-id]` across the console/drawer states that can render them.
 //    A state that a live org cannot reach without fixtures is seeded and torn down by this spec.
 //  - Copy-checked ids: the deployed text is compared byte-for-byte against the SHIPPED Custom Label

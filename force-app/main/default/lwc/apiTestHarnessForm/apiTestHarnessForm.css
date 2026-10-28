@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: BUSL-1.1 */
-/* Token block: the only place a colour is written. PLAN-114 replaces this block with the shared kernConsoleTokens import. */
+/* Token block: the only place a colour is written. The console unification replaces this block with the shared kernConsoleTokens import. */
 :host
 {
 	--kern-border          : #C9C7C5;
