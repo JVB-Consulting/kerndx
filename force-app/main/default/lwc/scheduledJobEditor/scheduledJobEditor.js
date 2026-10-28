@@ -15,7 +15,7 @@ import {ComponentBuilder} from 'c/componentBuilder';
 import {getRecord, getFieldValue, notifyRecordUpdateAvailable} from 'lightning/uiRecordApi';
 import {reduceErrors} from 'c/utilitySystem';
 import {formatInstant} from 'c/utilityScheduledJob';
-import {ScheduledJobEditorForm, SCHEDULED_JOB_FORM_FIELDS, SCHEDULED_JOB_FORM_LABELS} from 'c/scheduledJobEditorForm';
+import {ScheduledJobEditorForm, SCHEDULED_JOB_FORM_FIELDS, SCHEDULED_JOB_FORM_LABELS, EXECUTION_MODE_JOB_RUNNER_VALUE} from 'c/scheduledJobEditorForm';
 import getJobRunnerState from '@salesforce/apex/CTRL_ScheduledJob.getJobRunnerState';
 import previewNextRun from '@salesforce/apex/CTRL_ScheduledJob.previewNextRun';
 import EXECUTION_MODE_FIELD from '@salesforce/schema/ScheduledJob__c.ExecutionMode__c';
@@ -50,11 +50,6 @@ const FIELDS = [
  * @description Picklist value for a job that keeps its own scheduled job.
  */
 const EXECUTION_MODE_OWN_VALUE = 'OwnScheduledJob';
-
-/**
- * @description Picklist value for a job the job runner starts.
- */
-const EXECUTION_MODE_JOB_RUNNER_VALUE = 'JobRunner';
 
 /**
  * @description Picklist value for skipping a run while the previous one is still running.
@@ -131,6 +126,13 @@ export default class ScheduledJobEditor extends ScheduledJobEditorForm(Component
 	 * @type {string}
 	 */
 	nextRunPreview = '';
+
+	/**
+	 * @description The number of the latest next run preview request, so an answer to an earlier request is dropped.
+	 *
+	 * @type {number}
+	 */
+	nextRunPreviewRequest = 0;
 
 	/**
 	 * @description Whether the job being edited is set to run on the job runner.
@@ -258,19 +260,31 @@ export default class ScheduledJobEditor extends ScheduledJobEditorForm(Component
 	 */
 	async refreshNextRunPreview()
 	{
+		// Each refresh takes a new number. An answer that arrives after a later refresh started is for an older
+		// expression, time zone or mode, so it is dropped and the later answer stays.
+		const request = this.nextRunPreviewRequest + 1;
+		this.nextRunPreviewRequest = request;
+
 		if(!this.isJobRunnerMode || !this.cronIsValid || !this.cronExpression)
 		{
 			this.nextRunPreview = '';
 			return;
 		}
 
+		let nextRun;
+
 		try
 		{
-			this.nextRunPreview = await previewNextRun({cronExpression: this.cronExpression, timezone: this.userTimezone}) || '';
+			nextRun = await previewNextRun({cronExpression: this.cronExpression, timezone: this.userTimezone}) || '';
 		}
 		catch
 		{
-			this.nextRunPreview = '';
+			nextRun = '';
+		}
+
+		if(request === this.nextRunPreviewRequest)
+		{
+			this.nextRunPreview = nextRun;
 		}
 	}
 
@@ -310,10 +324,10 @@ export default class ScheduledJobEditor extends ScheduledJobEditorForm(Component
 	 *
 	 * @param {CustomEvent} event The cron editor's cronchange event.
 	 */
-	handleCronChange(event)
+	async handleCronChange(event)
 	{
 		super.handleCronChange(event);
-		this.refreshNextRunPreview();
+		await this.refreshNextRunPreview();
 	}
 
 	/**
@@ -322,10 +336,10 @@ export default class ScheduledJobEditor extends ScheduledJobEditorForm(Component
 	 *
 	 * @param {CustomEvent} event The radio's change event.
 	 */
-	handleExecutionModeChange(event)
+	async handleExecutionModeChange(event)
 	{
 		this.executionMode = event.detail.value;
-		this.refreshNextRunPreview();
+		await this.refreshNextRunPreview();
 	}
 
 	/**

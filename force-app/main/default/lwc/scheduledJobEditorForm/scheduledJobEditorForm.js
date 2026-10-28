@@ -66,6 +66,13 @@ export const SCHEDULED_JOB_FORM_FIELDS = [
 ];
 
 /**
+ * @description The execution mode value that routes a job through the job runner.
+ *
+ * @type {string}
+ */
+export const EXECUTION_MODE_JOB_RUNNER_VALUE = 'JobRunner';
+
+/**
  * @description The labels of the form fields and buttons every editor renders.
  *
  * @type {Object<string, string>}
@@ -144,6 +151,13 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 	lastLoadedClassName;
 
 	/**
+	 * @description Counts the requests for a class's parameters, so only the answer to the latest request is shown.
+	 *
+	 * @type {number}
+	 */
+	parameterRequestNumber = 0;
+
+	/**
 	 * @description Whether the form creates a new record rather than editing one.
 	 *
 	 * @return {boolean} True when there is no record to edit.
@@ -192,7 +206,7 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 			return true;
 		}
 
-		let hasRequiredFields = this.cronIsValid && this.schedulerName && this.className && this.cronExpression;
+		const hasRequiredFields = this.cronIsValid && this.schedulerName && this.className && this.cronExpression;
 
 		if(hasRequiredFields && this.hasParameterDefinitions)
 		{
@@ -239,12 +253,12 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 			return [];
 		}
 
-		let lockedNames = Array.isArray(this.lockedFields) ? this.lockedFields : [];
+		const lockedNames = Array.isArray(this.lockedFields) ? this.lockedFields : [];
 
 		return this.parameterDefinitions.map((parameter) =>
 		{
-			let value = this.parameterValues[parameter.name] ?? parameter.defaultValue ?? '';
-			let type = String(parameter.dataType || '').toUpperCase();
+			const value = this.parameterValues[parameter.name] ?? parameter.defaultValue ?? '';
+			const type = String(parameter.dataType || '').toUpperCase();
 
 			return {
 				name: parameter.name,
@@ -298,7 +312,7 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 	{
 		try
 		{
-			let classes = await getSchedulableClasses({});
+			const classes = await getSchedulableClasses({});
 			this.classOptions = (classes || []).map((name) => ({label: name, value: name}));
 		}
 		catch
@@ -315,7 +329,7 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 	 */
 	applyRecord(data)
 	{
-		let currentClassName = getFieldValue(data, CLASS_NAME_FIELD);
+		const currentClassName = getFieldValue(data, CLASS_NAME_FIELD);
 
 		this.schedulerName = getFieldValue(data, SCHEDULER_NAME_FIELD) || '';
 		this.className = currentClassName || '';
@@ -336,24 +350,40 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 	 * @description Reads the parameters the class declares, which also checks the name: a name that cannot be found, or
 	 *              that names a class that is not Schedulable, is refused, and the field says so.
 	 *
+	 *              When the user picks another class before the answer comes back, the older answer is ignored, so the
+	 *              rows and the message always belong to the class picked last.
+	 *
 	 * @param {string} className The class name, picked, typed or prefilled.
 	 *
-	 * @return {Promise<boolean>} True when the class was accepted, false when the name was refused.
+	 * @return {Promise<boolean|null>} True when the class was accepted, false when the name was refused, null when a
+	 *                                 later request replaced this one and its answer was ignored.
 	 */
 	async loadParameterDefinitions(className)
 	{
+		this.parameterRequestNumber += 1;
+		const requestNumber = this.parameterRequestNumber;
+		let definitions;
+		let isAccepted;
+
 		try
 		{
-			this.parameterDefinitions = await getParameterDefinitions({className});
-			this.classNameError = '';
-			return true;
+			definitions = await getParameterDefinitions({className});
+			isAccepted = true;
 		}
 		catch
 		{
-			this.parameterDefinitions = null;
-			this.classNameError = formatTemplateString(CLASS_NAME_NOT_SCHEDULABLE, [className]);
-			return false;
+			definitions = null;
+			isAccepted = false;
 		}
+
+		if(requestNumber !== this.parameterRequestNumber)
+		{
+			return null;
+		}
+
+		this.parameterDefinitions = definitions;
+		this.classNameError = isAccepted ? '' : formatTemplateString(CLASS_NAME_NOT_SCHEDULABLE, [className]);
+		return isAccepted;
 	}
 
 	/**
@@ -416,8 +446,8 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 	 */
 	handleParameterChange(event)
 	{
-		let parameterName = event.target.dataset.parameterName;
-		let value = event.target.type === 'toggle' ? String(event.detail.checked) : String(event.detail.value ?? '');
+		const parameterName = event.target.dataset.parameterName;
+		const value = event.target.type === 'toggle' ? String(event.detail.checked) : String(event.detail.value ?? '');
 		this.parameterValues = {...this.parameterValues, [parameterName]: value};
 	}
 
@@ -436,7 +466,7 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 		{
 			parameters = {};
 
-			for(let parameter of this.parameterDefinitions)
+			for(const parameter of this.parameterDefinitions)
 			{
 				parameters[parameter.name] = String(this.parameterValues[parameter.name] ?? parameter.defaultValue ?? '');
 			}
@@ -466,7 +496,7 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 		{
 			this.isSaving = true;
 
-			let resultId = await saveRecord({requestJson: JSON.stringify(this.buildSaveRequest())});
+			const resultId = await saveRecord({requestJson: JSON.stringify(this.buildSaveRequest())});
 			await this.completeSave(resultId || this.recordId);
 		}
 		catch(error)
@@ -475,7 +505,7 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 
 			try
 			{
-				let reduced = reduceErrors(error);
+				const reduced = reduceErrors(error);
 				if(reduced)
 				{
 					message = reduced;

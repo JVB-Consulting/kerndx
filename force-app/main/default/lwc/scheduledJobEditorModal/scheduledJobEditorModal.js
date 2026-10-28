@@ -11,17 +11,40 @@
  */
 import LightningModal from 'lightning/modal';
 import {api, wire} from 'lwc';
-import {getRecord} from 'lightning/uiRecordApi';
+import {getRecord, getFieldValue} from 'lightning/uiRecordApi';
 import {ShowToastEvent} from 'lightning/platformShowToastEvent';
 import {reduceErrors} from 'c/utilitySystem';
-import {ScheduledJobEditorForm, SCHEDULED_JOB_FORM_FIELDS, SCHEDULED_JOB_FORM_LABELS} from 'c/scheduledJobEditorForm';
+import {ScheduledJobEditorForm, SCHEDULED_JOB_FORM_FIELDS, SCHEDULED_JOB_FORM_LABELS, EXECUTION_MODE_JOB_RUNNER_VALUE} from 'c/scheduledJobEditorForm';
+import EXECUTION_MODE_FIELD from '@salesforce/schema/ScheduledJob__c.ExecutionMode__c';
+import RUN_PRIORITY_FIELD from '@salesforce/schema/ScheduledJob__c.RunPriority__c';
+import OVERLAP_POLICY_FIELD from '@salesforce/schema/ScheduledJob__c.OverlapPolicy__c';
 import LOAD_RECORD_FAILED_LABEL from '@salesforce/label/c.ScheduledJob_LoadRecordFailed';
 import SUCCESS_TOAST_TITLE from '@salesforce/label/c.ScheduledJobEditorModal_SuccessToastTitle';
 import CREATED from '@salesforce/label/c.ScheduledJob_Created';
 import SAVED from '@salesforce/label/c.ScheduledJob_Saved';
 
+/**
+ * @description The fields the modal reads: the shared form's fields and the job runner fields. The modal does not edit
+ *              the job runner fields; it reads them so the cron editor checks the expression the way the record runs, and
+ *              so a save sends them back unchanged.
+ */
+const FIELDS = [
+	...SCHEDULED_JOB_FORM_FIELDS,
+	EXECUTION_MODE_FIELD,
+	RUN_PRIORITY_FIELD,
+	OVERLAP_POLICY_FIELD
+];
+
 export default class ScheduledJobEditorModal extends ScheduledJobEditorForm(LightningModal)
 {
+	/**
+	 * @description The job runner fields of the record being edited, as loaded. Null values for a new record, which the
+	 *              server saves as a job with its own scheduled job.
+	 *
+	 * @type {Object}
+	 */
+	jobRunnerSettings = {executionMode: null, runPriority: null, overlapPolicy: null};
+
 	/**
 	 * @description The ScheduledJob__c record to edit; when omitted, the modal creates one. The shared form declares
 	 *              and reads it since 1.8; it stays declared here because a managed package keeps every public
@@ -81,7 +104,7 @@ export default class ScheduledJobEditorModal extends ScheduledJobEditorForm(Ligh
 	 */
 	get isClassNameLocked()
 	{
-		let lockedNames = Array.isArray(this.lockedFields) ? this.lockedFields : [];
+		const lockedNames = Array.isArray(this.lockedFields) ? this.lockedFields : [];
 		return lockedNames.indexOf('className') !== -1;
 	}
 
@@ -94,7 +117,7 @@ export default class ScheduledJobEditorModal extends ScheduledJobEditorForm(Ligh
 
 		if(!this.recordId && this.prefill)
 		{
-			let prefill = this.prefill;
+			const prefill = this.prefill;
 
 			this.schedulerName = prefill.schedulerName || this.schedulerName;
 			this.className = prefill.className || this.className;
@@ -123,11 +146,26 @@ export default class ScheduledJobEditorModal extends ScheduledJobEditorForm(Ligh
 		}
 	}
 
-	@wire(getRecord, {recordId: '$recordId', fields: SCHEDULED_JOB_FORM_FIELDS}) wiredRecord({data, error})
+	/**
+	 * @description Whether the record being edited runs on the job runner, so the cron editor accepts what the runner accepts.
+	 *
+	 * @return {boolean} True when the loaded record runs on the job runner.
+	 */
+	get isJobRunnerMode()
+	{
+		return this.jobRunnerSettings.executionMode === EXECUTION_MODE_JOB_RUNNER_VALUE;
+	}
+
+	@wire(getRecord, {recordId: '$recordId', fields: FIELDS}) wiredRecord({data, error})
 	{
 		if(data)
 		{
 			this.applyRecord(data);
+			this.jobRunnerSettings = {
+				executionMode: getFieldValue(data, EXECUTION_MODE_FIELD) ?? null,
+				runPriority: getFieldValue(data, RUN_PRIORITY_FIELD) ?? null,
+				overlapPolicy: getFieldValue(data, OVERLAP_POLICY_FIELD) ?? null
+			};
 			this.errorMessage = '';
 		}
 
@@ -144,11 +182,17 @@ export default class ScheduledJobEditorModal extends ScheduledJobEditorForm(Ligh
 	 *
 	 * @param {string} className The class name, picked, typed or prefilled.
 	 *
-	 * @return {Promise<boolean>} True when the class was accepted, false when the name was refused.
+	 * @return {Promise<boolean|null>} True when the class was accepted, false when the name was refused, null when a
+	 *                                 later request replaced this one.
 	 */
 	async loadParameterDefinitions(className)
 	{
-		let isAccepted = await super.loadParameterDefinitions(className);
+		const isAccepted = await super.loadParameterDefinitions(className);
+
+		if(isAccepted === null)
+		{
+			return null;
+		}
 
 		if(isAccepted)
 		{
@@ -160,6 +204,17 @@ export default class ScheduledJobEditorModal extends ScheduledJobEditorForm(Ligh
 		}
 
 		return isAccepted;
+	}
+
+	/**
+	 * @description Adds the record's job runner fields to the shared save request unchanged, so saving from the modal
+	 *              does not move a job off the job runner.
+	 *
+	 * @return {Object} The save request.
+	 */
+	buildSaveRequest()
+	{
+		return {...super.buildSaveRequest(), ...this.jobRunnerSettings};
 	}
 
 	/**
