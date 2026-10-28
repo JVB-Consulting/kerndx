@@ -2,10 +2,10 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Priority__c</fullName>
     <defaultValue>100</defaultValue>
-    <description>Routing priority for this API setting. Lower values indicate higher priority. Used to resolve conflicts when multiple routes match.</description>
+    <description>Chooses between active inbound services whose matching paths are the same length; outgoing calls do not read it. When an incoming request matches the Endpoint Path of several active inbound services, the longest path wins. Between paths of the same length, the service with the lower number wins.</description>
     <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
-    <inlineHelpText>Lower number = higher priority. Used when multiple routes match the same request path.</inlineHelpText>
+    <inlineHelpText>Inbound only. A lower number wins, but only between matching Endpoint Paths of the same length: otherwise the longest matching path wins.</inlineHelpText>
     <label>Priority</label>
     <precision>3</precision>
     <required>false</required>

@@ -120,6 +120,11 @@ public class API_Outbound_TEST
 	private static Integer successCount = 0;
 
 	/**
+	 * @description How many times the counting handler ran onCommitWorkStarting in the running test.
+	 */
+	private static Integer commitWorkStartingCount = 0;
+
+	/**
 	 * @description The Idempotency-Key the key-setting handler set on its request in the running test; null when it found a
 	 * key already on the request and set none of its own.
 	 */
@@ -460,6 +465,28 @@ public class API_Outbound_TEST
 		Long expectedHandlerTime = handler.serviceProcessingTime.getTime() - handler.calloutProcessingTime.getTime();
 		Assert.areEqual(expectedCommitTime, commitTime?.longValue(), 'Expected the commit time to be the stopped stopwatch\'s ' + expectedCommitTime + ', got ' + commitTime);
 		Assert.areEqual(expectedHandlerTime, handlerTime?.longValue(), 'Expected the handler time to be service less callout, ' + expectedHandlerTime + ', got ' + handlerTime);
+	}
+
+	/**
+	 * @description An outbound handler can override onCommitWorkStarting(), the step that runs just before the framework
+	 * saves the call's changes. One call that succeeds runs the override once, and the call still ends Completed.
+	 */
+	@IsTest
+	private static void shouldRunTheOutboundHandlersCommitWorkStartingOverrideOnce()
+	{
+		commitWorkStartingCount = 0;
+		String serviceName = CommitWorkStartingOutbound.class.getName();
+		registerRetryingSetting(serviceName);
+		API_MockFactory.forService(serviceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_OK).register();
+
+		Test.startTest();
+		API_Base handler = API_Dispatcher.execute(TST_Factory.newOutboundApiCall(serviceName, UserInfo.getUserId()));
+		Test.stopTest();
+
+		List<ApiCall__c> completed = SEL_ApiCall.assertServiceCompleted(serviceName);
+		Assert.areEqual(1, completed.size(), 'Expected one completed call row, got ' + completed.size());
+		Assert.areEqual(completed[0].Id, handler.apiCall.Id, 'Expected the handler to hold the saved row\'s Id, got ' + handler.apiCall.Id);
+		Assert.areEqual(1, commitWorkStartingCount, 'Expected the onCommitWorkStarting() override to run once, got ' + commitWorkStartingCount);
 	}
 
 	/**
@@ -3681,6 +3708,21 @@ public class API_Outbound_TEST
 	 */
 	public class CompletingOutbound extends RetryProbeOutbound
 	{
+	}
+
+	/**
+	 * @description A handler that counts how many times the framework runs its onCommitWorkStarting override.
+	 */
+	public class CommitWorkStartingOutbound extends RetryProbeOutbound
+	{
+		/**
+		 * @description Keeps the framework's own work before the save, then counts the run.
+		 */
+		public override void onCommitWorkStarting()
+		{
+			super.onCommitWorkStarting();
+			commitWorkStartingCount++;
+		}
 	}
 
 	/**

@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>MockingEnabled__c</fullName>
     <defaultValue>false</defaultValue>
-    <description>When enabled, the service returns mock responses from associated ApiMock__mdt records instead of executing real logic.</description>
+    <description>Picks this service for mocking, outgoing or incoming. It takes effect only for the users that the Mock Selected APIs feature flag is on for. For those users, the service answers from its API Mock records instead of calling the real system or running its own code. With the flag off, the box changes nothing. The Health Check lists every active service with this box ticked.</description>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <inlineHelpText>Enable to activate mock responses for this service. Configure mocks via the API Mocks related list.</inlineHelpText>
+    <inlineHelpText>Tick to pick this service for mocking. It answers from its API Mock records only for the users that the Mock Selected APIs feature flag is on for. For everyone else, it works for real. With no matching API Mock record, an outgoing service answers its default mock body or fails, and an incoming one answers a default body.</inlineHelpText>
     <label>Mocking Enabled</label>
     <type>Checkbox</type>
 </CustomField>

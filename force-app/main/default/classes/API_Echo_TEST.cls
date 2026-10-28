@@ -517,7 +517,7 @@ private class API_Echo_TEST
 
 	/**
 	 * @description Tests that inbound mock injection returns a mocked response when the
-	 * MockingEnabled checkbox is enabled on the ApiSetting metadata record.
+	 * MockingEnabled checkbox is enabled on the ApiSetting metadata record and the Mock Selected APIs feature flag is on.
 	 *
 	 * @see API_Inbound.shouldMock
 	 */
@@ -531,6 +531,7 @@ private class API_Echo_TEST
 		{
 				ApiSetting__mdt.MockingEnabled__c => true
 		});
+		TST_Factory.newFeatureFlag(API_Base.FLAG_MOCK_SELECTED_APIS);
 
 		setupContext();
 

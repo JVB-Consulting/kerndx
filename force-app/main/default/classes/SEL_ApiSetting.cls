@@ -33,12 +33,12 @@ public inherited sharing class SEL_ApiSetting extends SEL_Base
 			ApiSetting__mdt.RequiredFeatureFlag__c.getDescribe().getRelationshipName() + '.DeveloperName';
 
 	/**
-	 * @description Direction value indicating an inbound API setting.
+	 * @description The Direction__c value of a setting for requests that other systems send into this org.
 	 */
 	public static final String DIRECTION_INBOUND = 'Inbound';
 
 	/**
-	 * @description Direction value indicating an outbound API setting.
+	 * @description The Direction__c value of a setting for calls this org makes to other systems.
 	 */
 	public static final String DIRECTION_OUTBOUND = 'Outbound';
 
@@ -50,7 +50,8 @@ public inherited sharing class SEL_ApiSetting extends SEL_Base
 	private static Map<String, String> classNamesByServiceKey;
 
 	/**
-	 * @description Constructs an ApiSetting selector.
+	 * @description Reads the ApiSetting__mdt custom metadata records that configure each web service. Every query skips the running user's object and field permission checks
+	 * (system mode). Creating the selector runs no query.
 	 */
 	public SEL_ApiSetting()
 	{
@@ -236,5 +237,30 @@ public inherited sharing class SEL_ApiSetting extends SEL_Base
 				.andCondition(ApiSetting__mdt.IsActive__c).equals(true)
 				.orderBy(ApiSetting__mdt.MasterLabel).ascending()
 				.toList();
+	}
+
+	/**
+	 * @description Builds the read behind findActiveWithMockingEnabled: every active API setting that has Mocking Enabled
+	 * ticked, for both directions, sorted by label. Callers that need the rows use findActiveWithMockingEnabled.
+	 *
+	 * @return The builder, ready to execute.
+	 */
+	public QRY_Builder.Builder buildActiveWithMockingEnabledRead()
+	{
+		return query
+				.condition(ApiSetting__mdt.IsActive__c).equals(true)
+				.andCondition(ApiSetting__mdt.MockingEnabled__c).equals(true)
+				.orderBy(ApiSetting__mdt.MasterLabel).ascending();
+	}
+
+	/**
+	 * @description Finds every active API setting that has Mocking Enabled ticked, for both directions, sorted by label.
+	 * These are the services that answer from mock data for a user the Mock Selected APIs feature flag is on for.
+	 *
+	 * @return The active settings with Mocking Enabled ticked, sorted by label; empty when there are none
+	 */
+	public List<ApiSetting__mdt> findActiveWithMockingEnabled()
+	{
+		return buildActiveWithMockingEnabledRead().toList();
 	}
 }

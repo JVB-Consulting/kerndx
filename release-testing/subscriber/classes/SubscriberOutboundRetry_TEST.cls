@@ -156,6 +156,16 @@ private class SubscriberOutboundRetry_TEST
 	private static Integer dmlStartingRuns = 0;
 
 	/**
+	 * @description How many times the commit-hooks handler's onCommitWorkStarting() ran in this transaction.
+	 */
+	private static Integer commitWorkStartingRuns = 0;
+
+	/**
+	 * @description How many times the inbound commit-hooks handler's onCommitWorkStarting() ran in this transaction.
+	 */
+	private static Integer inboundCommitWorkStartingRuns = 0;
+
+	/**
 	 * @description How many times the commit-hooks handler's onDMLFinished() ran in this transaction.
 	 */
 	private static Integer dmlFinishedRuns = 0;
@@ -393,8 +403,9 @@ private class SubscriberOutboundRetry_TEST
 	}
 
 	/**
-	 * @description An outbound handler's own onDMLStarting(), onDMLFinished() and onCommitWorkFinishing() overrides run
-	 * once for each attempt of a commit that has work: once for a commit that succeeds at the first attempt. A second
+	 * @description An outbound handler's own onCommitWorkStarting(), onDMLStarting(), onDMLFinished() and
+	 * onCommitWorkFinishing() overrides run once for each attempt of a commit that has work: once for a commit that
+	 * succeeds at the first attempt. This class compiles only while an outbound handler can override all four. A second
 	 * attempt needs a real row lock, which a unit test cannot produce; the package tests that hold the lock prove the
 	 * retried commit (API_Outbound_TEST.shouldRetryTheCommitOnceOnARowLockWithoutResendingTheCallout and
 	 * API_Base_TEST.shouldRetryAnInboundCommitOnceOnARowLockAndRespondOnce).
@@ -411,6 +422,7 @@ private class SubscriberOutboundRetry_TEST
 		Test.stopTest();
 
 		kern.SEL_ApiCall.assertServiceCompleted(serviceName);
+		Assert.areEqual(1, commitWorkStartingRuns, 'Expected onCommitWorkStarting to run once for the one attempt');
 		Assert.areEqual(1, dmlStartingRuns, 'Expected onDMLStarting to run once for the one attempt');
 		Assert.areEqual(1, dmlFinishedRuns, 'Expected onDMLFinished to run once for the one attempt');
 		Assert.areEqual(1, commitWorkFinishingRuns, 'Expected onCommitWorkFinishing to run once for the one attempt');
@@ -456,6 +468,27 @@ private class SubscriberOutboundRetry_TEST
 		Assert.areEqual(HTTP_INTERNAL_SERVER_ERROR, RestContext.response.statusCode, 'Expected the caller to be answered 500');
 		Assert.isTrue(responseBody.contains(MESSAGE_HANDLER_THREW), 'Expected the call\'s own failure in the answer, got ' + responseBody);
 		Assert.isTrue(responseBody.contains(MESSAGE_ERROR_HANDLING_THREW), 'Expected the error handling\'s failure in the answer, got ' + responseBody);
+	}
+
+	/**
+	 * @description An inbound handler's own onCommitWorkStarting() override runs once for a call it accepts, and the
+	 * caller is answered 200. This class compiles only while an inbound handler can override the hook, the same proof
+	 * the outbound commit-hooks test gives for an outbound handler.
+	 */
+	@IsTest
+	private static void shouldRunTheInboundHandlersCommitWorkStartingOverrideOnce()
+	{
+		String serviceName = RetryEdgeInboundCommitHooks.class.getName();
+		kern.TST_Factory.newInboundApiSetting(serviceName, INBOUND_PATH);
+		kern.API_InboundTestHelper.setupRestContext(new RetryEdgePayload());
+
+		Test.startTest();
+		kern.API_Dispatcher.processInboundService(serviceName);
+		Test.stopTest();
+
+		kern.SEL_ApiCall.assertServiceCompleted(serviceName);
+		Assert.areEqual(HTTP_OK, RestContext.response.statusCode, 'Expected the caller to be answered 200, got ' + RestContext.response.statusCode);
+		Assert.areEqual(1, inboundCommitWorkStartingRuns, 'Expected onCommitWorkStarting to run once for the one attempt, got ' + inboundCommitWorkStartingRuns);
 	}
 
 	/**
@@ -764,6 +797,15 @@ private class SubscriberOutboundRetry_TEST
 		}
 
 		/**
+		 * @description Counts one attempt that started, after the framework's own work.
+		 */
+		public override void onCommitWorkStarting()
+		{
+			super.onCommitWorkStarting();
+			commitWorkStartingRuns++;
+		}
+
+		/**
 		 * @description Counts one attempt that reached its first statement, after the framework's own work.
 		 */
 		public override void onDMLStarting()
@@ -856,6 +898,32 @@ private class SubscriberOutboundRetry_TEST
 		public override void handleError(Exception error)
 		{
 			throw new RetryEdgeException(MESSAGE_ERROR_HANDLING_THREW);
+		}
+	}
+
+	/**
+	 * @description An inbound handler that accepts the request and counts the attempts of its commit through the
+	 * onCommitWorkStarting() hook an inbound handler can override.
+	 */
+	public class RetryEdgeInboundCommitHooks extends kern.API_Inbound
+	{
+		/**
+		 * @description Sets the payloads.
+		 */
+		public override void configure()
+		{
+			super.configure();
+			requestPayload = new RetryEdgePayload();
+			responsePayload = new RetryEdgePayload();
+		}
+
+		/**
+		 * @description Counts one attempt that started, after the framework's own work.
+		 */
+		public override void onCommitWorkStarting()
+		{
+			super.onCommitWorkStarting();
+			inboundCommitWorkStartingRuns++;
 		}
 	}
 }

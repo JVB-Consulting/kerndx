@@ -33,6 +33,46 @@
         <value>This chain run cannot move from {0} to {1}.</value>
     </labels>
     <labels>
+        <fullName>QueryBuilder_ConditionSeparator_NotAllowed</fullName>
+        <categories>Query Builder</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when a group of conditions is not joined by AND or OR; {0} class</shortDescription>
+        <value>{0} accepts only AND or OR to join conditions.</value>
+    </labels>
+    <labels>
+        <fullName>QueryBuilder_FieldName_NotAllowed</fullName>
+        <categories>Query Builder</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when a query method gets text that is not a field name; {0} method</shortDescription>
+        <value>{0} accepts only a name, such as Name or Account.Owner.Name, or a form SOQL allows there, such as a date or distance function from QRY_Function. Other text is refused so that it cannot change the query.</value>
+    </labels>
+    <labels>
+        <fullName>QueryBuilder_BypassSharingField_NotReadable</fullName>
+        <categories>Query Builder</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when bypassSharing would filter or sort on a hidden field; {0} field</shortDescription>
+        <value>The running user cannot read the field {0}, so bypassSharing() cannot filter or sort on it: the result would show its values. Remove the field from the filter or the sort, or add withSystemMode(), which also turns off the object and field permission checks for this read.</value>
+    </labels>
+    <labels>
+        <fullName>QueryBuilder_BypassSharingObject_NotReadable</fullName>
+        <categories>Query Builder</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when bypassSharing reads an object the user cannot read; {0} object</shortDescription>
+        <value>The running user cannot read {0} records, so bypassSharing() cannot read them. Give the user read access to {0}, or add withSystemMode(), which also turns off the object and field permission checks for this read.</value>
+    </labels>
+    <labels>
+        <fullName>QueryBuilder_BypassSharingRead_NeedsSystemMode</fullName>
+        <categories>Query Builder</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when a read cannot run with bypassSharing alone; {0} method</shortDescription>
+        <value>{0} cannot remove the fields the running user cannot read, so it cannot run with bypassSharing() alone. Add withSystemMode() to read without sharing. withSystemMode() also turns off the object and field permission checks for this read. Otherwise remove bypassSharing().</value>
+    </labels>
+    <labels>
         <fullName>ChainMonitor_AbortAction</fullName>
         <categories>Chain Monitor</categories>
         <language>en_US</language>
@@ -87,6 +127,14 @@
         <protected>false</protected>
         <shortDescription>Abort confirmation modal title</shortDescription>
         <value>Abort chain</value>
+    </labels>
+    <labels>
+        <fullName>ChainMonitor_AbortSelectionChanged</fullName>
+        <categories>Chain Monitor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Abort not done because another run was selected while the dialog was open</shortDescription>
+        <value>The selected run changed while the confirmation was open. Nothing was aborted; select the run again and try again.</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_AbortSuccessToast</fullName>
@@ -1849,6 +1897,22 @@ Members: {0}</value>
         <value>{0} field targets masking nothing</value>
     </labels>
     <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Summary_RuleOff_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health summary fragment: one target that is on while its rule is off.</shortDescription>
+        <value>1 target whose rule is off</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Summary_RuleOff_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health summary fragment: several targets that are on while their rule is off.</shortDescription>
+        <value>{0} targets whose rule is off</value>
+    </labels>
+    <labels>
         <fullName>DataMaskingAdvisor_HealthBanner_Detail_ObjectWideInactive_Singular</fullName>
         <categories>Data Masking Advisor</categories>
         <language>en_US</language>
@@ -1871,6 +1935,30 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Health detail line for one field target that is masking nothing.</shortDescription>
         <value>Field-level rule {0} on this object is masking nothing.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Detail_RuleOffObjectWide_Singular</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health detail line: one object-wide target is on, but its rule is off.</shortDescription>
+        <value>1 object-wide target is on, but its rule is off, so it masks nothing.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Detail_RuleOffObjectWide_Plural</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health detail line: several object-wide targets are on, but their rule is off.</shortDescription>
+        <value>{0} object-wide targets are on, but their rule is off, so they mask nothing.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_HealthBanner_Detail_RuleOffFieldTarget</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Health detail: field target on, rule off. {0} is the rule, {1} the field.</shortDescription>
+        <value>The field-level target for rule {0} on {1} is on, but that rule is off, so it masks nothing.</value>
     </labels>
     <labels>
         <fullName>DataMaskingAdvisor_NoChangesQueued_Note</fullName>
@@ -2865,6 +2953,14 @@ Members: {0}</value>
         <value>Stale threshold 30 minutes · up to 50 chains per sweep — adjustable later from Scheduled Jobs.</value>
     </labels>
     <labels>
+        <fullName>HealthCheck_ChainWatchdog_JobDescription</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Watchdog job description, {0} minutes with no progress</shortDescription>
+        <value>Checks for chains that have stopped moving. A chain with no progress for {0} minutes is marked Stalled and its error notification is sent.</value>
+    </labels>
+    <labels>
         <fullName>HealthCheck_ChainWatchdog_Missing</fullName>
         <categories>Health Check</categories>
         <language>en_US</language>
@@ -3087,6 +3183,22 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>First-run deletion warning</shortDescription>
         <value>Records older than the retention period will be deleted on the first scheduled run.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_JobDescription</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Purge job description, {0} object plural label, {1} days</shortDescription>
+        <value>Deletes {0} that were created more than {1} days ago.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_DataRetention_JobDescriptionWithDateField</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Purge job description, {0} object plural, {1} date field, {2} days</shortDescription>
+        <value>Deletes {0} whose {1} is more than {2} days ago.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_DataRetention_Missing</fullName>
@@ -3361,6 +3473,14 @@ Members: {0}</value>
         <value>Review recommended</value>
     </labels>
     <labels>
+        <fullName>HealthCheck_JobRunnerRecordDescription</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Runner record description, {0} minute of the hour</shortDescription>
+        <value>One of the job runner&apos;s regular checks. It runs at minute {0} of every hour and starts the jobs on the runner that are due.</value>
+    </labels>
+    <labels>
         <fullName>HealthCheck_JobRunnerRecordName</fullName>
         <categories>Health Check</categories>
         <language>en_US</language>
@@ -3495,6 +3615,62 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Capacity warn added when jobs waited, {0} left, {1} limit</shortDescription>
         <value>The last check could not start every due job: {0} left waiting, because it may start at most {1} jobs at once. Raise that limit, check less often, or run fewer jobs.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_SelectedApiMocking_CheckName</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Name of the health check row for selected API mocking</shortDescription>
+        <value>Selected API Mocking</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_SelectedApiMocking_NoneTicked</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Selected API mocking passes: no active setting has Mocking Enabled</shortDescription>
+        <value>No active API Setting has Mocking Enabled ticked.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_SelectedApiMocking_FlagOnForYou</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Ticked settings warn, flag on for the viewer, {0} setting labels</shortDescription>
+        <value>These active API Settings have Mocking Enabled ticked: {0}. The Mock Selected APIs feature flag is on for you, so for you they answer from mock data. Each call checks the flag for the user it runs as: a scheduled flow or a retry for the user who runs it, and an incoming request for the user the caller signs in as.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_SelectedApiMocking_FlagOffForYou</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Ticked settings warn, flag off for the viewer, {0} setting labels</shortDescription>
+        <value>These active API Settings have Mocking Enabled ticked: {0}. The Mock Selected APIs feature flag is off for you, so for you an outgoing service calls the real system and an incoming service runs its own code. Each call checks the flag for the user it runs as: a scheduled flow or a retry for the user who runs it, and an incoming request for the user the caller signs in as.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_SelectedApiMocking_FlagOffForYouWithMockAll</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Ticked settings warn, flag off for viewer, a Mock All flag on</shortDescription>
+        <value>These active API Settings have Mocking Enabled ticked: {0}. The Mock Selected APIs feature flag is off for you, so the box on its own does not mock them for you. Each call checks the flag for the user it runs as: a scheduled flow or a retry for the user who runs it, and an incoming request for the user the caller signs in as.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_SelectedApiMocking_MockAllApisOnForYou</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mocking row warns: Mock All APIs is on for the viewer</shortDescription>
+        <value>The Mock All APIs feature flag is on for you, so for you every outgoing service answers from mock data, whatever its API Setting says.</value>
+    </labels>
+    <labels>
+        <fullName>HealthCheck_SelectedApiMocking_MockAllInboundApisOnForYou</fullName>
+        <categories>Health Check</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mocking row warns: Mock All Inbound APIs is on for the viewer</shortDescription>
+        <value>The Mock All Inbound APIs feature flag is on for you, so every incoming service answers mock data to requests signed in as you, whatever its API Setting says.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_JobRunner_CardTitle</fullName>
@@ -7001,6 +7177,14 @@ Members: {0}</value>
         <value>in month {0}</value>
     </labels>
     <labels>
+        <fullName>CronExpressionEditor_DescInYearSuffix</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description suffix naming the one year a job runs in</shortDescription>
+        <value>in {0}</value>
+    </labels>
+    <labels>
         <fullName>CronExpressionEditor_DescNearestWeekday</fullName>
         <categories>Scheduled Jobs</categories>
         <language>en_US</language>
@@ -7191,6 +7375,30 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Description: check alignment</shortDescription>
         <value>Runs at the first job runner check on or after each scheduled time</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescMinuteOfEveryHour</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: time text for a given minute of every hour, {0} minute</shortDescription>
+        <value>minute {0} of every hour</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescMinuteIntervals</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: time text for runs every few minutes, {0} minutes</shortDescription>
+        <value>{0}-minute intervals</value>
+    </labels>
+    <labels>
+        <fullName>CronExpressionEditor_DescMinuteIntervalsFromTo</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Description: time text for runs every few minutes between two times</shortDescription>
+        <value>{0}-minute intervals from {1} to {2}</value>
     </labels>
     <labels>
         <fullName>CronExpressionEditor_IntervalActivateFirstNote</fullName>
@@ -8782,7 +8990,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Mocking toggle message when off.</shortDescription>
-        <value>Real endpoint responses</value>
+        <value>Real endpoint responses, unless the service&apos;s API Setting has Mocking Enabled ticked and the Mock Selected APIs feature flag is on for you, or Mock All APIs is on for you</value>
     </labels>
     <labels>
         <fullName>ApiTestHarness_Reset</fullName>
@@ -9255,6 +9463,14 @@ Members: {0}</value>
         <protected>false</protected>
         <shortDescription>Bulk retry: {0} queued of {1} selected open issues, and why the rest stay open.</shortDescription>
         <value>{0} of {1} selected API issues were queued. An issue not queued stays open: the external system may have acted on it, or its service is paused or does not allow retries. A few may still be skipped when the job runs. An issue whose call succeeds is marked Resolved; the others stay open.</value>
+    </labels>
+    <labels>
+        <fullName>ApiMocking_NoMockResponseConfigured</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Mocked outgoing call: no mock answer is set up for service {0}.</shortDescription>
+        <value>No mock response is set up for {0}. Add an API Mock record for this service, or clear Mocking Enabled on its API Setting. In Apex, register a mock with API_MockFactory.forService() or set defaultMockBody in configure().</value>
     </labels>
     <labels>
         <fullName>HealthCheck_DataRetention_ColumnObject</fullName>

@@ -412,6 +412,7 @@ private class API_InboundIssue_TEST
 				ApiSetting__mdt.LogIssues__c => true,
 				ApiSetting__mdt.MockingEnabled__c => true
 		});
+		TST_Factory.newFeatureFlag(API_Base.FLAG_MOCK_SELECTED_APIS);
 		setupRequest(buildBody(), null);
 		API_Inbound.returnErrorResponse = true;
 

@@ -30,7 +30,7 @@
  */
 @SuppressWarnings
 (
-		'PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters,PMD.ExcessivePublicCount,PMD.NcssCount'
+		'PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters,PMD.ExcessivePublicCount,PMD.NcssCount,PMD.NcssTypeCount'
 )
 global abstract inherited sharing class API_Base extends DML_Transaction
 {
@@ -74,10 +74,15 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	public static final String FLAG_BYPASS_API_RECORD_DELETE_GUARD = 'BypassApiRecordDeleteGuard';
 
 	/**
-	 * @description Feature flag name for mocking all API calls.
+	 * @description Feature flag name that mocks every outgoing call for the users it is on for. The Health Check reads it too.
 	 */
-	@TestVisible
-	private static final String FLAG_MOCK_ALL_APIS = 'MockAllAPIs';
+	public static final String FLAG_MOCK_ALL_APIS = 'MockAllAPIs';
+
+	/**
+	 * @description Feature flag name that turns on mocking for the services whose API Setting has Mocking Enabled
+	 * ticked. Only the users the flag is on for get mock answers; for everyone else those services work for real.
+	 */
+	public static final String FLAG_MOCK_SELECTED_APIS = 'MockSelectedAPIs';
 
 	/**
 	 * @description Number of active safe mode scopes.
@@ -1162,7 +1167,9 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	}
 
 	/**
-	 * @description Returns the current service name.
+	 * @description Returns the name of the class that runs the call, read from the object's runtime type the first
+	 * time and kept after that. The framework uses it to find the service's API setting and mock, and to label its
+	 * timers and log entries.
 	 *
 	 * @return String The class name of the service.
 	 *
@@ -1419,13 +1426,20 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	}
 
 	/**
-	 * @description Checks if the API is set to return mock responses.
+	 * @description Checks if this outgoing service answers mock data instead of calling the real system. There are three
+	 * ways a service mocks:
+	 * 1. The API Test Harness or a test turned mocking on for the service in this transaction.
+	 * 2. The Mock All APIs feature flag is on for the running user.
+	 * 3. The service's API Setting has Mocking Enabled ticked, and the Mock Selected APIs feature flag is on for the
+	 * running user. The box alone, or the flag alone, mocks nothing.
+	 * Each flag is checked for the user the transaction runs as. The check adds no query: the setting is already loaded.
 	 *
-	 * @return Boolean True if mocking is enabled, otherwise false.
+	 * @return True if the service answers mock data, otherwise false.
 	 */
 	protected Boolean isMocking()
 	{
-		return API_MockFactory.isMockingEnabled(getServiceName()) || UTIL_FeatureFlag.isEnabled(FLAG_MOCK_ALL_APIS);
+		return API_MockFactory.isMockingEnabled(getServiceName()) || UTIL_FeatureFlag.isEnabled(FLAG_MOCK_ALL_APIS)
+				|| (setting?.MockingEnabled__c == true && UTIL_FeatureFlag.isEnabled(FLAG_MOCK_SELECTED_APIS));
 	}
 
 	/**
@@ -1487,7 +1501,7 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 
 	/**
 	 * @description Determines if the web service request should be aborted. Returns a list of validation error messages.
-	 * Subscribers override this to add custom validation. Framework validation is handled internally
+	 * Override this to add your own validation. Framework validation is handled internally
 	 * by performValidation() — no super call needed.
 	 *
 	 * @return A list of error messages. Empty list means validation passed.
@@ -1590,6 +1604,8 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 
 	/**
 	 * @description Registers database changes after a successful call.
+	 * Records you register here are saved in system mode, so the running user's object and field permissions are not checked.
+	 * To save with the user's permissions, use `DML_Builder.newTransaction().withUserMode()` in its own transaction.
 	 *
 	 * @since 1.0
 	 *
@@ -2050,7 +2066,7 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 		 * endpoint but `parseResponse()` failed (typically a JSON deserialization error
 		 * or unexpected payload shape). When `true` the transport itself succeeded — the
 		 * status code and body are populated — but `responsePayload` is unreliable.
-		 * Subscribers branch on this to distinguish parse failure from transport failure
+		 * Check this flag in your code to tell a parse failure from a transport failure
 		 * without inspecting `errors[]` strings.
 		 *
 		 * @since 1.0
@@ -2103,7 +2119,8 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 		}
 
 		/**
-		 * @description Indicates if the service call failed.
+		 * @description True when the call's status is FAILED. Setting it to true marks the status FAILED; setting it
+		 * to false leaves the status as it is.
 		 *
 		 * @since 1.0
 		 */

@@ -17,7 +17,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -383,7 +383,9 @@ global inherited sharing class API_MockFactory
 	}
 
 	/**
-	 * @description Unregisters a specific mock by service class name.
+	 * @description Removes the response registered in memory for one service. The name is matched without regard to
+	 * case or surrounding spaces. Recorded calls are kept, mocking stays on if enableMocking turned it on, and a mock
+	 * defined in an API mock record can still answer. Does nothing when no response is registered.
 	 *
 	 * @param serviceClassName The service class name to unregister
 	 */
@@ -694,7 +696,8 @@ global inherited sharing class API_MockFactory
 		private Boolean transportFailure;
 
 		/**
-		 * @description Creates a new mock response with default values.
+		 * @description Starts a response that answers 200 OK with no body and no headers. It is marked as registered in Apex,
+		 * not read from an API mock record, with no delay, no random failures and no transport failure.
 		 */
 		public MockResponse()
 		{
@@ -773,7 +776,8 @@ global inherited sharing class API_MockFactory
 		private final MockResponse mock;
 
 		/**
-		 * @description Creates a new MockBuilder for the given service.
+		 * @description Used only by forService. Starts from a default response (200 OK, no body); the service name
+		 * is kept as given and matched without regard to case or surrounding spaces when the mock is registered.
 		 *
 		 * @param serviceClassName The fully qualified service class name
 		 */
@@ -983,10 +987,7 @@ global inherited sharing class API_MockFactory
 				return httpResponse;
 			}
 
-			throw new UTIL_Exceptions.ConfigurationException
-					(
-							'No mock response configured for ' + apiClassName + '. Register a mock via API_MockFactory.forService() or set defaultMockBody in configure().'
-					);
+			throw new UTIL_Exceptions.ConfigurationException(String.format(System.Label.ApiMocking_NoMockResponseConfigured, new List<Object> {apiClassName}));
 		}
 	}
 }

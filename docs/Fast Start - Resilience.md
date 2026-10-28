@@ -474,7 +474,7 @@ kern.UTIL_Retry.Strategy fast = kern.UTIL_Retry.exponential();
 kern.UTIL_Retry.Strategy steady = kern.UTIL_Retry.linear();
 ```
 
-Tune any strategy with the fluent setters: `.withMaxRetries(n)`, `.withBaseBackoff(seconds)`,
+Tune any strategy with short chained calls: `.withMaxRetries(n)`, `.withBaseBackoff(seconds)`,
 `.withMaximumBackoff(seconds)` (the cap), and, for exponential, `.withExponentialMultiplier(decimal)` to
 grow faster or slower than doubling.
 
@@ -555,7 +555,7 @@ A breaker moves through three states automatically:
 | **HALF_OPEN** | Tests recovery: a limited number of calls allowed  | → CLOSED after enough successes, or → OPEN on any failure |
 
 The defaults: failure threshold 5, timeout 60 seconds, success threshold 2 (consecutive successes to close
-from HALF_OPEN), and up to 3 trial calls in HALF_OPEN. Tune them fluently.
+from HALF_OPEN), and up to 3 trial calls in HALF_OPEN. Tune them with short chained calls.
 
 **In your editor**, in your own class:
 

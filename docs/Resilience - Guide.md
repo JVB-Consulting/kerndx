@@ -119,7 +119,7 @@ You are never required to use these classes. The Resilience framework is opt-in:
 | **Retry timing without a circuit breaker**                | `kern.UTIL_Retry` alone. It only computes backoff and the retry/stop decision.                                                                                                   | [Retry with Backoff](#retry-with-backoff-util_retry)                                |
 | **Fail-fast gating without backoff maths**                | `kern.UTIL_CircuitBreaker` alone. It gates requests and tracks state.                                                                                                            | [Circuit Breaker](#circuit-breaker-util_circuitbreaker)                             |
 | **Resilience built into your callouts automatically**     | The [Web Services framework](Web%20Services%20-%20Guide.md): `API_Outbound` applies retry for you, and the circuit breaker once a service's setting has Circuit Breaker Enabled. | [Use with the Web Services Framework](#use-with-the-web-services-framework)         |
-| **Per-call retry/circuit settings from a fluent callout** | `kern.UTIL_HttpClient` builder methods `.withRetry()` / `.withCircuitBreaker()`.                                                                                                 | [Per-Call Overrides with UTIL_HttpClient](#per-call-overrides-with-util_httpclient) |
+| **Per-call retry/circuit settings on a callout configured with short chained calls** | `kern.UTIL_HttpClient` builder methods `.withRetry()` / `.withCircuitBreaker()`.                                                                                                 | [Per-Call Overrides with UTIL_HttpClient](#per-call-overrides-with-util_httpclient) |
 | **Completely custom retry logic**                         | Implement `kern.UTIL_Retry.Strategy` yourself; the framework will use it anywhere a strategy is accepted.                                                                        | [Custom Strategies](#custom-strategies)                                             |
 
 These are utilities, not a wall. Use them where the unreliability is real, and skip them where it isn't.
@@ -371,8 +371,8 @@ kern.UTIL_Retry.Context context = kern.UTIL_Retry.newContext(1)
 | `getRetryCount()`               | `Integer`  | Current attempt number (0-based)                                             |
 | `getLastAttemptTime()`          | `Datetime` | Time of the last attempt, or null if not set                                 |
 | `getCustomData()`               | `Object`   | Caller-supplied payload (exception, map, SObject, etc.), or null             |
-| `withLastAttemptTime(Datetime)` | `Context`  | Sets the last-attempt time (fluent)                                          |
-| `withCustomData(Object)`        | `Context`  | Sets the custom payload (fluent)                                             |
+| `withLastAttemptTime(Datetime)` | `Context`  | Sets the last-attempt time and returns the context, so you can chain the next call |
+| `withCustomData(Object)`        | `Context`  | Sets the custom payload and returns the context, so you can chain the next call |
 | `getBaseBackoff()`              | `Integer`  | Base backoff the strategy used (populated when `calculateBackoff()` runs)    |
 | `getMaxBackoff()`               | `Integer`  | Maximum backoff the strategy used (populated when `calculateBackoff()` runs) |
 
@@ -732,20 +732,18 @@ test-request limit is not an `ApiSetting` field; it uses the breaker default and
 `API_Outbound` exposes a `createRetryStrategy()` hook. By default it returns a linear strategy built from the `ApiSetting__mdt` values. Override it to use any strategy you like, including a custom one:
 
 ```apex
-global with sharing class API_PaymentGateway extends API_Outbound
+global with sharing class API_PaymentGateway extends kern.API_Outbound
 {
-	global override UTIL_Retry.Strategy createRetryStrategy()
+	global override kern.UTIL_Retry.Strategy createRetryStrategy()
 	{
 		// Exponential backoff with jitter for a rate-limited gateway.
-		return UTIL_Retry.exponential()
+		return kern.UTIL_Retry.exponential()
 			.withMaxRetries(5)
 			.withBaseBackoff(10)
 			.withJitter(true);
 	}
 }
 ```
-
-> Inside your own `API_Outbound` subclass, you write return types and framework symbols without the `kern.` prefix, because the subclass is compiled in your namespace against the managed parent. Use the `kern.` prefix when you call these utilities from ordinary, unrelated Apex.
 
 When a call fails, the framework first decides, from where the failure happened, whether a repeat can fix it (see
 [Failures and retries](Web%20Services%20-%20Guide.md#failures-and-retries) in the Web Services Guide). For a failure it may retry, it builds a
@@ -783,7 +781,7 @@ If you don't write Apex, this table is your summary: it lists what resilience th
 | Capability                                   | Built in?                 | Where it comes from                                                                                            |
 |----------------------------------------------|---------------------------|----------------------------------------------------------------------------------------------------------------|
 | Retry transient failures with backoff        | Yes                       | `UTIL_Retry` (exponential or linear)                                                                           |
-| Spread retries to avoid thundering herd      | Yes (opt-in)              | `UTIL_Retry.withJitter(true)`                                                                                  |
+| Spread retries so they don't all hit at once | Yes (opt-in)              | `withJitter(true)` on a strategy, e.g. `UTIL_Retry.exponential().withJitter(true)`                             |
 | Never retry specific error types             | Yes                       | `UTIL_Retry.dontRetryOnException(...)`                                                                         |
 | Retry only specific error types              | Yes                       | `UTIL_Retry.retryOnlyOnException(...)`                                                                         |
 | Fail at once on a failure in your own code   | Yes (default)             | `API_Outbound`: `getRetryableExceptionTypes()` opts a type in                                                  |
@@ -825,7 +823,7 @@ private static void shouldCalculateExponentialBackoff()
 
 ### Testing Circuit Breakers
 
-Move a breaker through its states by recording failures and successes. Set `withTimeout(0)` so the OPEN-to-HALF_OPEN transition happens immediately in the test, then read `getState()` to advance the breaker and assert on where it landed.
+Move a breaker through its states by recording failures and successes. Set `withTimeout(0)` so the OPEN-to-HALF_OPEN transition happens immediately in the test, then read `getState()` to advance the breaker and assert on where it landed. The breaker skips its first state check after it opens, so the first `getState()` call still returns OPEN; the next call moves it to HALF_OPEN.
 
 ```apex
 @IsTest
@@ -854,7 +852,8 @@ private static void shouldRecoverThroughHalfOpen()
 		.withSuccessThreshold(2);
 
 	breaker.recordFailure();     // CLOSED -> OPEN
-	breaker.getState();          // OPEN -> HALF_OPEN (timeout elapsed)
+	breaker.getState();          // still OPEN: the first check after opening is skipped
+	Assert.areEqual(kern.UTIL_CircuitBreaker.State.HALF_OPEN, breaker.getState(), 'OPEN -> HALF_OPEN (timeout elapsed)');
 
 	breaker.recordSuccess();
 	breaker.recordSuccess();     // reaches success threshold -> CLOSED

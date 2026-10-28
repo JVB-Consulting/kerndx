@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Factory class for generating test data, permission set assignments, share records, metadata updates, and failure logs across Salesforce objects.
+ * @description Factory class that builds test data for your unit tests.
  *
- * Optimized for unit tests and integration processes, providing methods to create records with random data and configure system settings such as API toggles,
- * triggers, and scheduled jobs.
+ * It has helpers for: users (new or inserted, with or without a permission set), permission set assignments, feature flag records,
+ * API call records (inbound and outbound), API setting records (inbound and outbound), and content versions (files).
  *
  * @see TST_Factory_TEST
  *
@@ -24,7 +24,8 @@
 global without sharing class TST_Factory
 {
 	/**
-	 * @description The number of mock users to create for login history testing.
+	 * @description How many users getDtoLoginHistories makes. The users get made-up Ids and are never saved. Each
+	 * user gets two login history entries.
 	 */
 	@TestVisible
 	private static final Integer NUMBER_OF_MOCK_USERS_FOR_LOGIN_HISTORY = 3;
@@ -51,6 +52,33 @@ global without sharing class TST_Factory
 	 * status. Tests that must save such a record read the class name from this record, see getRunTransitionActionClassName.
 	 */
 	private static final String RUN_TRANSITION_ACTION_RECORD = 'AsyncChainRunTransition_BeforeInsert';
+
+	/**
+	 * @description The start of the name of each permission set that insertUserWithOneHiddenField saves. A random
+	 * ending follows it, so two calls in one test never use the same name.
+	 */
+	private static final String HIDDEN_FIELD_PERMISSION_SET_PREFIX = 'OneHiddenField';
+
+	/**
+	 * @description How many random letters and digits end the name of a permission set that
+	 * insertUserWithOneHiddenField saves.
+	 */
+	private static final Integer PERMISSION_SET_NAME_RANDOM_LENGTH = 12;
+
+	/**
+	 * @description The JSON key that holds how many child records a query result carries.
+	 */
+	private static final String JSON_TOTAL_SIZE = 'totalSize';
+
+	/**
+	 * @description The JSON key that says a query result carries all its child records.
+	 */
+	private static final String JSON_DONE = 'done';
+
+	/**
+	 * @description The JSON key that holds the child records of a query result.
+	 */
+	private static final String JSON_RECORDS = 'records';
 
 	/**
 	 * @description Disables all inbound APIs by activating the DisableAllInboundAPIs feature flag.
@@ -119,7 +147,7 @@ global without sharing class TST_Factory
 	@TestVisible
 	private static void mockAllInboundApis()
 	{
-		newFeatureFlag('MockAllInboundAPIs');
+		newFeatureFlag(API_Inbound.FLAG_MOCK_ALL_INBOUND_APIS);
 	}
 
 	/**
@@ -138,7 +166,7 @@ global without sharing class TST_Factory
 	 * insert mockUsers;
 	 * for (User u : mockUsers)
 	 * {
-	 * System.debug('User Email: ' + u.Email);
+	 * Assert.isNotNull(u.Id, 'Expected each user to be saved');
 	 * }
 	 * ```
 	 */
@@ -163,7 +191,7 @@ global without sharing class TST_Factory
 	 * ```apex
 	 * User testUser = TST_Factory.newUser('System Administrator');
 	 * insert testUser;
-	 * System.debug('User Email: ' + testUser.Email);
+	 * Assert.isNotNull(testUser.Id, 'Expected the user to be saved');
 	 * ```
 	 */
 	global static User newUser(String profileName)
@@ -418,6 +446,188 @@ global without sharing class TST_Factory
 	}
 
 	/**
+	 * @description Saves a user who can read and edit every field of the given objects except one, for tests that
+	 * check a read or a save keeps field permissions. The method saves, in this order:
+	 * 1. A new permission set, made only for this test, with a random name.
+	 * 2. On each given object, the given object permissions. Pass the permission fields to turn on, for example
+	 *    ObjectPermissions.PermissionsRead or ObjectPermissions.PermissionsEdit. Never pass View All or Modify All:
+	 *    they would let the user see every record, so record sharing could not be tested.
+	 * 3. Read and edit on every field of those objects that can carry a field permission, except hiddenField. Edit is
+	 *    left off a field the platform calculates (a formula or an auto number). A field the platform never lets
+	 *    anyone set stays read only for the user, even with edit on its row. Which fields get read and edit depends
+	 *    only on the fields themselves, so the user gets the same access whoever runs the tests, even a user who
+	 *    cannot see or edit those fields.
+	 * 4. A user on the named profile, and the assignment of the permission set to that user.
+	 *
+	 * A permission set can only add access, so the profile decides what the user has before it. Pick a profile that
+	 * gives no access to the hidden field. The users and permission records are saved in a way that lets a test also
+	 * save ordinary records in the same test, before or after this call. Everything is undone when the test ends.
+	 *
+	 * @param profileName The name of the profile the user is on.
+	 * @param objectTypes The objects the permission set gives access to.
+	 * @param permissionFields The ObjectPermissions fields to set to true on each object.
+	 * @param hiddenField The one field the user gets no field permission on.
+	 *
+	 * @return The saved user, with the permission set assigned.
+	 *
+	 * @throws AssertException If the profile cannot be found.
+	 * @throws IllegalArgumentException If permissionFields holds View All or Modify All.
+	 *
+	 * @example
+	 * ```apex
+	 * User readOnlyUser = TST_Factory.insertUserWithOneHiddenField
+	 *         (
+	 *                 SEL_Profile.PROFILE_STANDARD_USER,
+	 *                 new List<SObjectType> {Foobar__c.SObjectType},
+	 *                 new List<SObjectField> {ObjectPermissions.PermissionsRead},
+	 *                 Foobar__c.Email__c
+	 *         );
+	 * ```
+	 */
+	public static User insertUserWithOneHiddenField(String profileName, List<SObjectType> objectTypes, List<SObjectField> permissionFields, SObjectField hiddenField)
+	{
+		Profile profile = new SEL_Profile().findByName(profileName);
+		Assert.isNotNull(profile, 'Profile not found: ' + profileName);
+
+		if(permissionFields.contains(ObjectPermissions.PermissionsViewAllRecords) || permissionFields.contains(ObjectPermissions.PermissionsModifyAllRecords))
+		{
+			throw new IllegalArgumentException('View All and Modify All would let the user see every record, so they cannot be given here');
+		}
+
+		String permissionSetName = HIDDEN_FIELD_PERMISSION_SET_PREFIX + UTIL_Random.randomAlphanumeric(PERMISSION_SET_NAME_RANDOM_LENGTH);
+		PermissionSet permissionSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
+				.withOptionalFields(new List<String>(UTIL_SObjectDescribe.getDescribe(PermissionSet.SObjectType).getCreatableRequiredFields()))
+				.withOverride(PermissionSet.Name, permissionSetName)
+				.withOverride(PermissionSet.Label, permissionSetName)
+				.withoutInsertion()
+				.build();
+		insertSetupRecords(new List<SObject> {permissionSet});
+
+		List<SObject> grants = new List<SObject>();
+		List<SObject> fieldGrants = new List<SObject>();
+
+		for(SObjectType objectType : objectTypes)
+		{
+			grants.add(newObjectPermissions(permissionSet.Id, objectType, permissionFields));
+			fieldGrants.addAll(newFieldPermissions(permissionSet.Id, objectType, hiddenField));
+		}
+
+		grants.addAll(fieldGrants);
+		insertSetupRecords(grants);
+
+		User user = insertUsers(new List<User> {newUser(profileName)})[0];
+		createPermissionSetAssignments(new List<User> {user}, permissionSet.Id);
+		return user;
+	}
+
+	/**
+	 * @description Builds an unsaved object permission row that turns on the given permissions on one object.
+	 *
+	 * @param permissionSetId The permission set the row belongs to.
+	 * @param objectType The object the row gives access to.
+	 * @param permissionFields The ObjectPermissions fields to set to true.
+	 *
+	 * @return The unsaved object permission row.
+	 *
+	 * @example
+	 * ```apex
+	 * SObject grant = newObjectPermissions(permissionSetId, Foobar__c.SObjectType, new List<SObjectField> {ObjectPermissions.PermissionsRead});
+	 * ```
+	 */
+	private static SObject newObjectPermissions(Id permissionSetId, SObjectType objectType, List<SObjectField> permissionFields)
+	{
+		// ObjectPermissions has a field named SobjectType, so the type token comes from an instance.
+		SObjectType objectPermissionsType = new ObjectPermissions().getSObjectType();
+		Map<SObjectField, Object> overrides = new Map<SObjectField, Object>
+		{
+				ObjectPermissions.ParentId => permissionSetId,
+				ObjectPermissions.SobjectType => UTIL_SObjectDescribe.getObjectNameFromType(objectType)
+		};
+
+		for(SObjectField permission : permissionFields)
+		{
+			overrides.put(permission, true);
+		}
+
+		return TST_Builder.of(objectPermissionsType)
+				.withOptionalFields(new List<String>(UTIL_SObjectDescribe.getDescribe(objectPermissionsType).getCreatableRequiredFields()))
+				.withOverrides(overrides)
+				.withoutInsertion()
+				.build();
+	}
+
+	/**
+	 * @description Builds unsaved field permission rows that give read, and edit unless the platform calculates the
+	 * field, on every field of one object that can carry a field permission, except the hidden field. Fields the
+	 * platform always shows or always controls itself (the Name field, required fields, system fields) cannot carry a
+	 * field permission and are skipped. So are the parts of a compound field, such as the latitude of a geolocation field: the row for
+	 * the whole field covers its parts.
+	 *
+	 * @param permissionSetId The permission set the rows belong to.
+	 * @param objectType The object whose fields the rows give access to.
+	 * @param hiddenField The field that gets no row.
+	 *
+	 * @return The unsaved field permission rows.
+	 *
+	 * @example
+	 * ```apex
+	 * List<SObject> grants = newFieldPermissions(permissionSetId, Foobar__c.SObjectType, Foobar__c.Email__c);
+	 * ```
+	 */
+	private static List<SObject> newFieldPermissions(Id permissionSetId, SObjectType objectType, SObjectField hiddenField)
+	{
+		// FieldPermissions has a field named SobjectType, so the type token comes from an instance.
+		SObjectType fieldPermissionsType = new FieldPermissions().getSObjectType();
+		List<String> requiredFields = new List<String>(UTIL_SObjectDescribe.getDescribe(fieldPermissionsType).getCreatableRequiredFields());
+		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(objectType);
+		List<SObject> grants = new List<SObject>();
+
+		for(SObjectField field : UTIL_SObjectDescribe.getObjectFieldMap(objectType).values())
+		{
+			DescribeFieldResult fieldDescribe = UTIL_SObjectDescribe.getCachedFieldDescribe(field);
+
+			if(field != hiddenField && fieldDescribe.isPermissionable() && fieldDescribe.getCompoundFieldName() == null)
+			{
+				grants.add(TST_Builder.of(fieldPermissionsType)
+						.withOptionalFields(requiredFields)
+						.withOverride(FieldPermissions.ParentId, permissionSetId)
+						.withOverride(FieldPermissions.SobjectType, objectName)
+						.withOverride(FieldPermissions.Field, objectName + '.' + UTIL_SObjectDescribe.getCachedFieldName(field))
+						.withOverride(FieldPermissions.PermissionsRead, true)
+						.withOverride(FieldPermissions.PermissionsEdit, isFieldEditable(fieldDescribe))
+						.withoutInsertion()
+						.build());
+			}
+		}
+
+		return grants;
+	}
+
+	/**
+	 * @description Whether a field permission row should give edit on a field. It never gives edit on a formula or an
+	 * auto number. The check reads only what kind of field it is, never whether the user who runs the tests can edit
+	 * the field: that user may have no access to the field at all, and the answer must be the same whoever runs the
+	 * tests. The platform accepted a row that gives edit on a field no one can set on every Foobar__c and Account
+	 * field in the framework's own tests; the field stays read only for the user. The framework's own objects have no
+	 * auto-number field that can carry a field permission (their auto numbers are Name fields, and a standard auto
+	 * number never can), so its tests reach only the formula case; the auto-number case is kept for any other object
+	 * a caller passes.
+	 *
+	 * @param fieldDescribe The describe of the field.
+	 *
+	 * @return True when the row should give edit on the field.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean canGrantEdit = isFieldEditable(UTIL_SObjectDescribe.getCachedFieldDescribe(Foobar__c.Email__c));
+	 * ```
+	 */
+	private static Boolean isFieldEditable(DescribeFieldResult fieldDescribe)
+	{
+		return !fieldDescribe.isCalculated() && !fieldDescribe.isAutoNumber();
+	}
+
+	/**
 	 * @description Creates an uncommitted ContentVersion record from file data.
 	 *
 	 * @param linkToObjectId The Id of the object to link the content version to.
@@ -433,7 +643,7 @@ global without sharing class TST_Factory
 	 * Account account = (Account)TST_Builder.of(Account.SObjectType).build();
 	 * ContentVersion version = TST_Factory.newContentVersion(account.Id, 'test.pdf', Blob.valueOf('Test data'));
 	 * insert version;
-	 * System.debug('ContentVersion Title: ' + version.Title);
+	 * Assert.areEqual('test.pdf', version.Title, 'Expected the file name to be the title');
 	 * ```
 	 */
 	global static ContentVersion newContentVersion(Id linkToObjectId, String fileName, Blob body)
@@ -481,7 +691,7 @@ global without sharing class TST_Factory
 	 * @example
 	 * ```apex
 	 * ScheduledJob__c scheduler = TST_Factory.insertScheduledJob('MySchedulerClass');
-	 * System.debug('Scheduler Id: ' + scheduler.Id);
+	 * Assert.isNotNull(scheduler.Id, 'Expected the job record to be saved');
 	 * ```
 	 */
 	@TestVisible
@@ -546,7 +756,7 @@ global without sharing class TST_Factory
 	 * ```apex
 	 * ApiCall__c apiCall = TST_Factory.newApiCall();
 	 * insert apiCall;
-	 * System.debug('API Call Id: ' + apiCall.Id);
+	 * Assert.isNotNull(apiCall.Id, 'Expected the call record to be saved');
 	 * ```
 	 */
 	global static ApiCall__c newApiCall()
@@ -569,7 +779,7 @@ global without sharing class TST_Factory
 	 * ```apex
 	 * ApiCall__c apiCall = TST_Factory.newApiCall('MyService');
 	 * insert apiCall;
-	 * System.debug('API Call Service: ' + apiCall.ServiceName__c);
+	 * Assert.areEqual('MyService', apiCall.ServiceName__c, 'Expected the given service name');
 	 * ```
 	 */
 	global static ApiCall__c newApiCall(String serviceName)
@@ -598,7 +808,7 @@ global without sharing class TST_Factory
 	 * ```apex
 	 * ApiCall__c inboundApiCall = TST_Factory.newInboundApiCall('InboundService');
 	 * insert inboundApiCall;
-	 * System.debug('Inbound API Call Id: ' + inboundApiCall.Id);
+	 * Assert.isNotNull(inboundApiCall.Id, 'Expected the inbound call record to be saved');
 	 * ```
 	 */
 	global static ApiCall__c newInboundApiCall(String serviceName)
@@ -630,7 +840,7 @@ global without sharing class TST_Factory
 	 * ```apex
 	 * ApiCall__c outboundApiCall = TST_Factory.newOutboundApiCall('OutboundService');
 	 * insert outboundApiCall;
-	 * System.debug('Outbound API Call Id: ' + outboundApiCall.Id);
+	 * Assert.isNotNull(outboundApiCall.Id, 'Expected the outbound call record to be saved');
 	 * ```
 	 */
 	global static ApiCall__c newOutboundApiCall(String serviceName)
@@ -662,7 +872,7 @@ global without sharing class TST_Factory
 	 * Account account = (Account)TST_Builder.of(Account.SObjectType).build();
 	 * ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id);
 	 * insert apiCall;
-	 * System.debug('API Call Id: ' + apiCall.Id);
+	 * Assert.isNotNull(apiCall.Id, 'Expected the call record to be saved');
 	 * ```
 	 */
 	global static ApiCall__c newOutboundApiCall(String serviceName, Id recordId)
@@ -700,7 +910,7 @@ global without sharing class TST_Factory
 	 * };
 	 * ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id, params);
 	 * insert apiCall;
-	 * System.debug('API Call Id: ' + apiCall.Id);
+	 * Assert.isNotNull(apiCall.Id, 'Expected the call record to be saved');
 	 * ```
 	 */
 	global static ApiCall__c newOutboundApiCall(String serviceName, Id recordId, Map<String, String> requestParameters)
@@ -739,7 +949,7 @@ global without sharing class TST_Factory
 	 * Account account = (Account)TST_Builder.of(Account.SObjectType).build();
 	 * ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id, 'key', 'value');
 	 * insert apiCall;
-	 * System.debug('API Call Id: ' + apiCall.Id);
+	 * Assert.isNotNull(apiCall.Id, 'Expected the call record to be saved');
 	 * ```
 	 */
 	global static ApiCall__c newOutboundApiCall(String serviceName, Id recordId, String parameterName, String parameterValue)
@@ -832,7 +1042,7 @@ global without sharing class TST_Factory
 	 * ```apex
 	 * ApiSetting__mdt setting = TST_Factory.newInboundApiSetting('API_Echo', '/echo/*', 100, new Map<SObjectField, Object>
 	 * {
-	 *     ApiSetting__mdt.MockingEnabled__c => true
+	 *     ApiSetting__mdt.LogIssues__c => true
 	 * });
 	 * ```
 	 */
@@ -1046,7 +1256,7 @@ global without sharing class TST_Factory
 	 * @example
 	 * ```apex
 	 * List<Foobar__c> foobars = TST_Factory.insertFoobars(3);
-	 * System.debug('Created ' + foobars.size() + ' Foobars');
+	 * Assert.areEqual(3, foobars.size(), 'Expected three Foobar records');
 	 * ```
 	 */
 	public static List<Foobar__c> insertFoobars(Integer numberOfItems)
@@ -1068,7 +1278,7 @@ global without sharing class TST_Factory
 	 * ```apex
 	 * List<Foobar__c> foobars = TST_Factory.newFoobars(3);
 	 * insert foobars;
-	 * System.debug('Created ' + foobars.size() + ' Foobars');
+	 * Assert.areEqual(3, foobars.size(), 'Expected three Foobar records');
 	 * ```
 	 */
 	public static List<Foobar__c> newFoobars(Integer numberOfItems)
@@ -1088,7 +1298,7 @@ global without sharing class TST_Factory
 	 * @example
 	 * ```apex
 	 * Foobar__c foobar = TST_Factory.insertFoobar();
-	 * System.debug('Foobar Name: ' + foobar.Name);
+	 * Assert.isNotNull(foobar.Id, 'Expected the Foobar record to be saved');
 	 * ```
 	 */
 	public static Foobar__c insertFoobar()
@@ -1106,7 +1316,7 @@ global without sharing class TST_Factory
 	 * ```apex
 	 * Foobar__c foobar = TST_Factory.newFoobar();
 	 * insert foobar;
-	 * System.debug('Foobar Name: ' + foobar.Name);
+	 * Assert.isNotNull(foobar.Id, 'Expected the Foobar record to be saved');
 	 * ```
 	 */
 	public static Foobar__c newFoobar()
@@ -1124,7 +1334,7 @@ global without sharing class TST_Factory
 	 * @example
 	 * ```apex
 	 * Foobar__c foobar = TST_Factory.newFoobarWithMockId();
-	 * System.debug('Foobar Id: ' + foobar.Id); // Mock ID generated
+	 * Assert.isNotNull(foobar.Id, 'Expected a made-up Id although nothing was saved');
 	 * QRY_Builder.setMock(Foobar__c.SObjectType, new List<Foobar__c>{foobar});
 	 * ```
 	 */
@@ -1143,7 +1353,7 @@ global without sharing class TST_Factory
 	 * @example
 	 * ```apex
 	 * Foobar__c foobar = TST_Factory.newFoobarWithName('Parent Record');
-	 * System.debug('Foobar Name: ' + foobar.Name);
+	 * Assert.areEqual('Parent Record', foobar.Name, 'Expected the given name');
 	 * ```
 	 */
 	public static Foobar__c newFoobarWithName(String name)
@@ -1184,7 +1394,7 @@ global without sharing class TST_Factory
 	 * ```apex
 	 * ContentVersion version = TST_Factory.newContentVersion();
 	 * insert version;
-	 * System.debug('ContentVersion Title: ' + version.Title);
+	 * Assert.isNotNull(version.Id, 'Expected the file to be saved');
 	 * ```
 	 */
 	@TestVisible
@@ -1204,7 +1414,7 @@ global without sharing class TST_Factory
 	 * ```apex
 	 * ContentVersion version = TST_Factory.newContentVersion('TestDocument');
 	 * insert version;
-	 * System.debug('ContentVersion Title: ' + version.Title);
+	 * Assert.areEqual('TestDocument', version.Title, 'Expected the given title');
 	 * ```
 	 */
 	@TestVisible
@@ -1250,7 +1460,7 @@ global without sharing class TST_Factory
 	 * SEL_ObjectShare.DTO_ObjectShareDescribe shareDescribe = SEL_ObjectShare.getShareDescribe(account.Id);
 	 * SObject share = TST_Factory.newSObjectShare(shareDescribe, account.Id, 'Edit', user.Id);
 	 * insert share;
-	 * System.debug('Share Record Created');
+	 * Assert.isNotNull(share.Id, 'Expected the share record to be saved');
 	 * ```
 	 */
 	public static SObject newSObjectShare(SEL_ObjectShare.DTO_ObjectShareDescribe dtoShareDescribe, Id relatedRecordId, String accessLevel, Id userOrGroupId)
@@ -1285,7 +1495,7 @@ global without sharing class TST_Factory
 	 * insert user;
 	 * SObject share = TST_Factory.newSObjectShare(account.Id, 'Edit', user.Id);
 	 * insert share;
-	 * System.debug('Share Record Created');
+	 * Assert.isNotNull(share.Id, 'Expected the share record to be saved');
 	 * ```
 	 */
 	public static SObject newSObjectShare(Id relatedRecordId, String accessLevel, Id userOrGroupId)
@@ -1431,7 +1641,7 @@ global without sharing class TST_Factory
 	 * @example
 	 * ```apex
 	 * List<PROC_LoginFrequencyAggregator.DTO_LoginHistory> loginHistories = TST_Factory.getDtoLoginHistories();
-	 * System.debug('Created ' + loginHistories.size() + ' Login History DTOs');
+	 * Assert.areEqual(6, loginHistories.size(), 'Expected six login history entries');
 	 * ```
 	 */
 	@TestVisible
@@ -1493,7 +1703,7 @@ global without sharing class TST_Factory
 	 *     'user2_2022_06'
 	 * };
 	 * List<LoginFrequency__c> loginFrequencies = TST_Factory.createLoginFrequencyRecords(2, strings);
-	 * System.debug('Created ' + loginFrequencies.size() + ' LoginFrequency Records');
+	 * Assert.areEqual(2, loginFrequencies.size(), 'Expected two login frequency records');
 	 * ```
 	 */
 	@TestVisible
@@ -1526,7 +1736,7 @@ global without sharing class TST_Factory
 	 * @example
 	 * ```apex
 	 * LogEntry__c logEntry = TST_Factory.insertLogEntry();
-	 * System.debug('LogEntry Id: ' + logEntry.Id);
+	 * Assert.isNotNull(logEntry.Id, 'Expected the log entry to be saved');
 	 * ```
 	 */
 	@TestVisible
@@ -1548,7 +1758,7 @@ global without sharing class TST_Factory
 	 * ApiCall__c apiCall = TST_Factory.newApiCall('TestService');
 	 * insert apiCall;
 	 * ApiIssue__c failure = TST_Factory.insertApiIssue(apiCall, 'uniqueHash');
-	 * System.debug('ApiIssue Id: ' + failure.Id);
+	 * Assert.isNotNull(failure.Id, 'Expected the issue record to be saved');
 	 * ```
 	 */
 	@TestVisible
@@ -1791,6 +2001,52 @@ global without sharing class TST_Factory
 			builder = builder.withOverride(TriggerAction__mdt.RequiredFeatureFlag__c, newFeatureFlag(requiredPermission, false));
 		}
 		return (TriggerAction__mdt)builder.withoutInsertion().build();
+	}
+
+	/**
+	 * @description Attaches trigger actions to an uncommitted trigger setting as its child records, in the shape a
+	 * query of the setting with its actions returns. Register the result with TST_Mock.register, and the trigger
+	 * framework runs those actions for the setting's object in the test.
+	 *
+	 * @param triggerSetting The uncommitted TriggerSetting__mdt record.
+	 * @param triggerActions The uncommitted TriggerAction__mdt records to attach, in the order the trigger framework
+	 * should see them.
+	 *
+	 * @return A new TriggerSetting__mdt record with the same fields that carries the actions as its child records.
+	 *
+	 * @example
+	 * ```apex
+	 * TriggerSetting__mdt setting = TST_Factory.newTriggerSetting('Account');
+	 * TriggerAction__mdt action = TST_Factory.newTriggerActionForContext('TRG_AccountAfterInsert', setting, TriggerOperation.AFTER_INSERT);
+	 * TST_Mock.register(TriggerSetting__mdt.SObjectType, TST_Factory.newTriggerSettingWithActions(setting, new List<TriggerAction__mdt> {action}));
+	 * ```
+	 */
+	@TestVisible
+	private static TriggerSetting__mdt newTriggerSettingWithActions(TriggerSetting__mdt triggerSetting, List<TriggerAction__mdt> triggerActions)
+	{
+		String relationshipName;
+		for(ChildRelationship relationship : UTIL_SObjectDescribe.getDescribe(TriggerSetting__mdt.SObjectType).getDescribe().getChildRelationships())
+		{
+			if(relationship.getChildSObject() == TriggerAction__mdt.SObjectType)
+			{
+				relationshipName = relationship.getRelationshipName();
+				break;
+			}
+		}
+		Assert.isNotNull(relationshipName, 'TriggerSetting__mdt has no child relationship to TriggerAction__mdt');
+		List<Object> actionRecords = new List<Object>();
+		for(TriggerAction__mdt triggerAction : triggerActions)
+		{
+			actionRecords.add(triggerAction.getPopulatedFieldsAsMap());
+		}
+		Map<String, Object> settingFields = new Map<String, Object>(triggerSetting.getPopulatedFieldsAsMap());
+		settingFields.put(relationshipName, new Map<String, Object>
+		{
+				JSON_TOTAL_SIZE => actionRecords.size(),
+				JSON_DONE => true,
+				JSON_RECORDS => actionRecords
+		});
+		return (TriggerSetting__mdt)JSON.deserialize(JSON.serialize(settingFields), TriggerSetting__mdt.class);
 	}
 
 	/**

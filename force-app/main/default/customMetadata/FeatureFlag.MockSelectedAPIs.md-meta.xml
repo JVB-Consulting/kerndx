@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <label>Mock Selected APIs</label>
+    <protected>false</protected>
+    <values>
+        <field>Description__c</field>
+        <value xsi:type="xsd:string">Turns on mocking for the services whose API Setting has Mocking Enabled ticked, for the users this flag is on for. Those services answer from their API Mock records. A service without that box is never affected.</value>
+    </values>
+    <values>
+        <field>IsActive__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>IsEnabledByDefault__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+    <values>
+        <field>ResultOnNoMatch__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+</CustomMetadata>

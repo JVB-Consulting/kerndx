@@ -6,6 +6,7 @@
  * @see API_Outbound_TEST
  * @see API_PostExample_TEST
  * @see API_GetPwndPasswords_TEST
+ * @see UTIL_HttpClientRetryTiming_TEST
  *
  * @author Jason van Beukering
  *
@@ -115,6 +116,26 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 * @description The message the simulated circuit breaker failure throws with, shared by the two guarded breaker calls.
 	 */
 	private static final String MESSAGE_SIMULATED_CIRCUIT_BREAKER_FAILURE = 'Simulated circuit breaker failure';
+
+	/**
+	 * @description The name of the call input that asks for exponential backoff. UTIL_HttpClient writes it with the value
+	 * true for a request built with withExponentialBackoff. createRetryStrategy reads it.
+	 */
+	public static final String INPUT_EXPONENTIAL_BACKOFF = '__exponentialBackoff';
+
+	/**
+	 * @description The name of the call input that holds the maximum number of retries the caller asked for.
+	 * UTIL_HttpClient writes it for a request built with withRetry or withExponentialBackoff. When it is on the call, it
+	 * wins over Max Retry Count in the service setting, on the first run and on every scheduled retry.
+	 */
+	public static final String INPUT_MAXIMUM_RETRIES = '__maxRetries';
+
+	/**
+	 * @description The name of the call input that holds the base wait, in seconds, the caller asked for. UTIL_HttpClient
+	 * writes it for a request built with withRetry or withExponentialBackoff. When it is on the call, it wins over Retry
+	 * Backoff Seconds in the service setting, on the first run and on every scheduled retry.
+	 */
+	public static final String INPUT_BASE_BACKOFF_SECONDS = '__backoffSeconds';
 
 	/**
 	 * @description Where a failed outbound call stopped. The framework decides whether the call may be tried again from
@@ -899,6 +920,28 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	}
 
 	/**
+	 * @description Performs actions before the framework saves the call's changes to the database. It runs once for each
+	 * attempt of the save: an attempt the platform refused for a row lock is tried again once, and this method runs again
+	 * for the new attempt. So write what you add here so that it is safe to run more than once. Always call
+	 * super.onCommitWorkStarting() first: it prepares the save and the logging for the call.
+	 *
+	 * @since 1.10
+	 *
+	 * @example
+	 * ```apex
+	 * global override void onCommitWorkStarting()
+	 * {
+	 *     super.onCommitWorkStarting();
+	 *     // work to do before the save
+	 * }
+	 * ```
+	 */
+	global override virtual void onCommitWorkStarting()
+	{
+		super.onCommitWorkStarting();
+	}
+
+	/**
 	 * @description Sends the HTTP request to the specified endpoint and processes the response. In a unit test it
 	 * answers from the handler's mock instead of sending; inside an Apex integration test the call reaches the
 	 * endpoint unless a mock is registered. Integrates with circuit breaker when enabled to prevent cascading failures.
@@ -1218,7 +1261,32 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 */
 	private Boolean isOpenCircuitRefusalOfARetryableCall()
 	{
-		return refusedByOpenCircuit && result.errors.size() == 1 && (setting?.MaxRetryCount__c ?? 0) > 0;
+		return refusedByOpenCircuit && result.errors.size() == 1 && getMaximumRetries() > 0;
+	}
+
+	/**
+	 * @description The maximum number of retries of this call. The value the caller asked for (see INPUT_MAXIMUM_RETRIES)
+	 * wins when the call carries it. Otherwise it is Max Retry Count in the service setting, or 0 without a setting.
+	 *
+	 * @return The maximum number of retries.
+	 */
+	private Integer getMaximumRetries()
+	{
+		String callersMaximum = inputs.get(INPUT_MAXIMUM_RETRIES);
+		return callersMaximum != null ? Integer.valueOf(callersMaximum) : (setting?.MaxRetryCount__c ?? 0).intValue();
+	}
+
+	/**
+	 * @description The base wait, in seconds, before a scheduled retry of this call. The value the caller asked for (see
+	 * INPUT_BASE_BACKOFF_SECONDS) wins when the call carries it. Otherwise it is Retry Backoff Seconds in the service
+	 * setting, or 0 without a setting.
+	 *
+	 * @return The base wait, in seconds.
+	 */
+	private Integer getBaseBackoffSeconds()
+	{
+		String callersBaseBackoff = inputs.get(INPUT_BASE_BACKOFF_SECONDS);
+		return callersBaseBackoff != null ? Integer.valueOf(callersBaseBackoff) : (setting?.RetryBackoffSeconds__c ?? 0).intValue();
 	}
 
 	/**
@@ -1412,7 +1480,7 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	public override virtual void setApiCallDetails()
 	{
 		super.setApiCallDetails();
-		apiCall.MaxRetries__c = setting?.MaxRetryCount__c ?? 0;
+		apiCall.MaxRetries__c = getMaximumRetries();
 
 		if(outboundTraceContext != null)
 		{
@@ -1521,6 +1589,15 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 * The framework decides first, from where the failure happened. The strategy is asked only about a failure the
 	 * framework may retry.
 	 *
+	 * The default strategy reads the service setting: Retry Backoff Seconds is the base wait, and Max Retry Count is the
+	 * number of retries. A call made through UTIL_HttpClient with withRetry or withExponentialBackoff uses the number of
+	 * retries passed there, and the base wait when one was passed, instead of the setting's values, on every run. It waits the base before the first scheduled retry,
+	 * and then the base times the number of retries already made. A call made with withExponentialBackoff gets a
+	 * different wait: the base before the first retry, then twice as long each time, up to 300 seconds. For a base of 30
+	 * seconds that is 30, 60, 120, 240 and then 300 seconds. The retries already made count, including the ones sent
+	 * again at once in the same transaction. This also holds for your handler when it is called through
+	 * UTIL_HttpClient.useHandler, unless your handler overrides this method: then your strategy decides.
+	 *
 	 * @return Configured instance
 	 *
 	 * @since 1.0
@@ -1540,12 +1617,11 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 */
 	global virtual UTIL_Retry.Strategy createRetryStrategy()
 	{
-		Decimal baseBackoff = setting?.RetryBackoffSeconds__c ?? 0;
-		Decimal maxRetries = setting?.MaxRetryCount__c ?? 0;
+		UTIL_Retry.Strategy strategy = 'true'.equalsIgnoreCase(inputs.get(INPUT_EXPONENTIAL_BACKOFF)) ? UTIL_Retry.exponential() : UTIL_Retry.linear();
 
-		return UTIL_Retry.linear()
-				.withBaseBackoff(baseBackoff.intValue())
-				.withMaxRetries(maxRetries.intValue());
+		return strategy
+				.withBaseBackoff(getBaseBackoffSeconds())
+				.withMaxRetries(getMaximumRetries());
 	}
 
 	/**

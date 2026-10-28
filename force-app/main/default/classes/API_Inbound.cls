@@ -46,6 +46,12 @@ global virtual inherited sharing class API_Inbound extends API_Base
 	public static final String FLAG_DISABLE_ALL_INBOUND_APIS = 'DisableAllInboundAPIs';
 
 	/**
+	 * @description Feature flag name that mocks every incoming service for the users it is on for. A request signed in as
+	 * such a user gets a mock answer, whatever the service's API Setting says. The Health Check reads it too.
+	 */
+	public static final String FLAG_MOCK_ALL_INBOUND_APIS = 'MockAllInboundAPIs';
+
+	/**
 	 * @description Error message used to test exception handling in inbound APIs.
 	 */
 	@TestVisible
@@ -418,6 +424,8 @@ global virtual inherited sharing class API_Inbound extends API_Base
 
 	/**
 	 * @description Registers database changes after a successful call.
+	 * Records you register here are saved in system mode, so the running user's object and field permissions are not checked.
+	 * To save with the user's permissions, use `DML_Builder.newTransaction().withUserMode()` in its own transaction.
 	 * Simulates an error for testing if `returnErrorResponse` is set.
 	 *
 	 * @since 1.0
@@ -1046,16 +1054,21 @@ global virtual inherited sharing class API_Inbound extends API_Base
 	}
 
 	/**
-	 * @description Determines whether mock injection should be applied for this inbound request.
-	 * Checks two sources in priority order: per-service setting checkbox, global feature switch.
+	 * @description Checks if this incoming request gets a mock answer instead of running the service's own code. There
+	 * are three ways a service mocks:
+	 * 1. The API Test Harness or a test turned mocking on for the service in this transaction.
+	 * 2. The Mock All Inbound APIs feature flag is on for the running user.
+	 * 3. The service's API Setting has Mocking Enabled ticked, and the Mock Selected APIs feature flag is on for the
+	 * running user. The box alone, or the flag alone, mocks nothing.
+	 * Each flag is checked for the user the request runs as.
 	 *
-	 * @return True if mocking should be applied
+	 * @return True if the request gets a mock answer, otherwise false.
 	 */
 	private Boolean shouldMock()
 	{
 		return API_MockFactory.isMockingEnabled(getServiceName()) ||
-				setting?.MockingEnabled__c == true ||
-				UTIL_FeatureFlag.isEnabled('MockAllInboundAPIs');
+				(setting?.MockingEnabled__c == true && UTIL_FeatureFlag.isEnabled(API_Base.FLAG_MOCK_SELECTED_APIS)) ||
+				UTIL_FeatureFlag.isEnabled(FLAG_MOCK_ALL_INBOUND_APIS);
 	}
 
 }

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>EndpointPath__c</fullName>
-    <description>Relative path for a service call; prefixed by the URL provided either by a Named Credential or the Endpoint URL field</description>
+    <description>The path of this service. Outgoing and incoming services both use it. Outbound: the path is added after the service&apos;s address, which is usually the Named Credential named on the API Credential, for example /api/v1/accounts. Inbound: an incoming request reaches this service when its path matches this one. The match ignores upper and lower case, and a * matches any characters. When the paths of several active inbound services match, the longest path wins, and Priority decides between paths of the same length.</description>
     <externalId>false</externalId>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <inlineHelpText>Relative URL path appended to the base endpoint (e.g., /api/v1/accounts)</inlineHelpText>
+    <inlineHelpText>Outbound: the path added after the service&apos;s address, usually its Named Credential (for example /api/v1/accounts). Inbound: the path an incoming request must match to reach this service; a * matches any characters, and the longest matching path wins.</inlineHelpText>
     <label>Endpoint Path</label>
     <length>255</length>
     <required>false</required>
