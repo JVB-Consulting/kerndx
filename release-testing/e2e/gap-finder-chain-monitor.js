@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Chain Monitor mockup gap-finder (AGENTS.md lever 2): proves every data-spec-id frozen at the
-// PLAN-138 M0 sign-off round-trips into the DEPLOYED Chain Monitor with matching visible text.
+// operator-actions mockup sign-off round-trips into the DEPLOYED Chain Monitor with matching visible text.
 //
 // Ids fall into three buckets:
 //  - DOM ids: located as data-testid attributes across the page states that can render them
@@ -30,11 +30,16 @@ const {chainMonitorIds} = require('./lib/whole-action-spec-ids');
 
 // The validated operator-actions mockup is an internal design artifact that does not ship with the
 // public repository; a checkout without it passes its own copy via GAP_FINDER_MOCKUP.
-const MOCKUP_PATH = process.env.GAP_FINDER_MOCKUP || path.join(__dirname, '..', '..', 'plans', 'completed', 'PLAN-138-mockups', 'chain-monitor-operator-actions.html');
+const MOCKUP_PATH = process.env.GAP_FINDER_MOCKUP || '';
 // The whole-action prototype draws both consoles on one page; this gap-finder owns its monitor half,
 // the Log Console gap-finder the rest, and lib/whole-action-spec-ids.js holds the split.
 const WHOLE_ACTION_PROTOTYPE_PATH = process.env.GAP_FINDER_WHOLE_ACTION_PROTOTYPE
 		|| path.join(__dirname, '..', '..', 'plans', 'superpowers', 'specs', '2026-09-07-log-console-whole-action-prototype.html');
+if(!MOCKUP_PATH)
+{
+	console.error('Set GAP_FINDER_MOCKUP to the path of the operator-actions mockup: the mockup does not ship with the public repository.');
+	process.exit(1);
+}
 const AUTH_STATE_PATH = authPathsFor().statePath;
 
 // The action-scope state reads the whole-action runs the Log Console's shaped seed lays down: the
