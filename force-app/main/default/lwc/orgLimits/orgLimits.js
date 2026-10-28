@@ -121,7 +121,6 @@ function bandLevel(percentage)
 
 // ── Component ────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class OrgLimits extends LightningElement
 {
 	// ── Internal State ───────────────────────────────────────────────────
@@ -224,13 +223,14 @@ export default class OrgLimits extends LightningElement
 
 	/**
 	 * @description Loads org-limit data from Apex once. A failure stores the error so the template
-	 * can render a visible error state rather than a silent blank card.
+	 * can render a visible error state rather than a silent blank card. A call that returns nothing
+	 * counts as an empty list, so the card shows its empty state instead of a spinner that never stops.
 	 */
 	async connectedCallback()
 	{
 		try
 		{
-			this.rawLimits = await getOrgLimits();
+			this.rawLimits = (await getOrgLimits()) ?? [];
 		}
 		catch(error)
 		{

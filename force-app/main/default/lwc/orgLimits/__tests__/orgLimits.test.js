@@ -4,7 +4,7 @@
  * worst-first ordering, the 70/90 colour bands, the cosmetic name prettify, client-side search and
  * sort, the locale-aware usage line, the max==0 guard, and the loading/empty/error states.
  * @author Jason van Beukering
- * @date July 2026
+ * @date July 2026, October 2026
  */
 import {createElement} from 'lwc';
 import CARD_TITLE from '@salesforce/label/c.OrgLimits_CardTitle';
@@ -189,7 +189,14 @@ describe('c-org-limits', () =>
 			{name: 'Band100', value: 100, max: 100},
 			{name: 'BandZeroMax', value: 5, max: 0}
 		]);
-		const expectedLevel = (percent) => (percent >= 90 ? 'red' : percent >= 70 ? 'amber' : 'green');
+		const expectedLevel = (percent) =>
+		{
+			if(percent >= 90)
+			{
+				return 'red';
+			}
+			return percent >= 70 ? 'amber' : 'green';
+		};
 		for(const card of cards(element))
 		{
 			const percent = Number(card.querySelector('[data-testid="limit-bar"]').getAttribute('aria-valuenow'));
@@ -322,6 +329,16 @@ describe('c-org-limits', () =>
 		combobox.dispatchEvent(new CustomEvent('change', {detail: {value: 'name'}}));
 		await flushPromises();
 		expect(cardNames(element)).toEqual(MIXED_ALPHABETICAL);
+	});
+
+	it('stops the spinner and shows the empty state when the Apex call returns nothing', async() =>
+	{
+		const element = await renderWith(null);
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
+		expect(element.shadowRoot.querySelector('[data-spec-id="org-limits-grid"]')).toBeNull();
+		const empty = element.shadowRoot.querySelector('[data-spec-id="org-limits-empty"]');
+		expect(empty).not.toBeNull();
+		expect(empty.textContent).toContain(EMPTY_LABEL);
 	});
 
 	// ── Error state ──────────────────────────────────────────────────────
