@@ -191,15 +191,27 @@ The package's own Apex tests, run on a computer with no Salesforce org. The figu
 
 | Metric                               | Value                                                                                                                                                |
 |--------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Apex tests passing locally           | 5,565 of 5,565 (100.00%)                                                                                                                             |
+| Apex tests passing locally           | 5,784 of 5,793 (99.84%)                                                                                                                              |
 | Runtime                              | [aer](https://github.com/octoberswimmer/aer-dist) 1.4.38 by October Swimmer, a local Apex runtime                                                    |
 | How it ran                           | as a user with the Administrator permission set (`-p Administrator`), on a copy of the source with no `profiles` folder, in one run                  |
-| Source                               | v1.9.0-4                                                                                                                                             |
-| Measured                             | 2026-10-23                                                                                                                                           |
-| Failing: aer differs from Salesforce | 0                                                                                                                                                    |
+| Source                               | v1.10.0-4                                                                                                                                            |
+| Measured                             | 2026-10-28                                                                                                                                           |
+| Failing: aer differs from Salesforce | 9                                                                                                                                                    |
 | Failing: cause not yet known         | 0                                                                                                                                                    |
 
-> What the runtime cannot run: the two "Failing" rows above. aer copies most of how Salesforce behaves, not all of it, so a real org stays the final word. Each failing test is listed with its reason in `scripts/aer-baseline.json`. On this run no test failed.
+> What the runtime cannot run: the two "Failing" rows above. aer copies most of how Salesforce behaves, not all of it, so a real org stays the final word. Each failing test is listed with its reason in `scripts/aer-baseline.json`. On this run 9 tests failed. Each one passes in a Salesforce org, and each one fails on aer because aer behaves differently from Salesforce:
+
+| Where aer differs from Salesforce                                                                                  | Test it affects                                                                               |
+|--------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| aer saves a record whose parent is found by a key the user cannot read; Salesforce refuses the save                | `DML_Builder_TEST.bypassSharingAloneRefusesAChildWhoseParentIsFoundByAKeyTheUserCannotRead`   |
+| aer refuses an upsert on a key the user cannot read with a `DmlException`; Salesforce throws an `SObjectException` | `DML_Builder_TEST.bypassSharingAloneRefusesAnUpsertOnAKeyTheUserCannotRead`                   |
+| On aer, a warning about a parent field does not name the field under its object (Account)                          | `DML_Builder_TEST.bypassSharingAloneWarningNamesAParentFieldUnderTheParentObject`             |
+| aer lets a user without the create permission upsert by Id in user mode; Salesforce refuses it                     | `DML_Builder_TEST.userModeRefusesAnUpsertByIdFromAUserWhoCannotCreate`                        |
+| aer refuses the second save of a locked row with an access error (`INSUFFICIENT_ACCESS_ON_CROSS_REFERENCE_ENTITY`) | `DML_Transaction_TEST.commitWorkFalseKeepsTheStripWhenAPartialSaveRetriesALockedRow`          |
+| aer reads a number with a fraction as a whole number (`Integer`) instead of refusing it                            | `QRY_Builder_TEST.aggregateRowConvertsNumbersBetweenTypes`                                    |
+| aer cannot run a query that uses `TOLABEL`                                                                         | `QRY_Builder_TEST.shouldKeepTheQueryTextForReleasedFieldNameShapes`                           |
+| aer does not give a permission set group the permissions of the permission sets in it                              | `SEL_CustomPermission_TEST.realGroupAssignmentGrantsPermissionHeldByItsPermissionSet`         |
+| aer turns into JSON a value that Salesforce cannot turn into JSON                                                  | `UTIL_ValidationRule_TEST.shouldProcessMergeFieldsWarnsOnceWhenContextCannotBeTurnedIntoJson` |
 
 ## E2E Tests (Playwright)
 
