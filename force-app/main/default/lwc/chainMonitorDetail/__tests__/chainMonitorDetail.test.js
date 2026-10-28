@@ -12,10 +12,11 @@ jest.mock('@salesforce/apex/CTRL_ChainMonitor.getNamespacePrefix', () => ({defau
 
 import {createElement} from 'lwc';
 // noinspection JSUnresolvedReference - mock helpers are provided by the c/componentBuilder jest mock at run time
-import {mockCallControllerMethod, mockNavigate, mockShowErrorToast, mockShowSuccessToast} from 'c/componentBuilder';
+import {mockCallControllerMethod, mockNavigate, mockShowErrorToast, mockShowSuccessToast, mockShowWarningToast} from 'c/componentBuilder';
 import ChainAbortModal from 'c/chainAbortModal';
 import ChainActionConfirmModal from 'c/chainActionConfirmModal';
 import getChainLogEntries from '@salesforce/apex/CTRL_ChainMonitor.getChainLogEntries';
+import abortChain from '@salesforce/apex/CTRL_ChainMonitor.abortChain';
 
 // Spy-on-real: the static open lives on the real module (lightning/modal resolves to the repo's
 // moduleNameMapper mock), so the interception survives the resolver-cache flip that silently
@@ -36,7 +37,7 @@ jest.mock('@salesforce/label/c.ChainMonitor_CopyFailed', () => ({default: 'Could
 // The progress phrase carries {0}/{1} placeholders; the real template value keeps the
 // 'Step 3 of 3' assertion an end-to-end check of formatTemplateString. The rest mirror their
 // in-org values so the DOM-text and toast-title assertions verify byte-faithful wiring, not a
-// bare label id. (Value ratified at M0 P13; the abort modal body composes this phrase too.)
+// bare label id. (The abort modal body composes this phrase too.)
 jest.mock('@salesforce/label/c.ChainMonitor_ProgressSteps', () => ({default: 'Step {0} of {1}'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_CorrelationCopied', () => ({default: 'Correlation ID copied'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_StepsSection', () => ({default: 'Steps'}), {virtual: true});
@@ -60,6 +61,8 @@ jest.mock('@salesforce/label/c.ChainMonitor_AbortModalTitle', () => ({default: '
 jest.mock('@salesforce/label/c.ChainMonitor_AbortConfirmButton', () => ({default: 'Abort chain'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_AbortCancelButton', () => ({default: 'Cancel'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_AbortSuccessToast', () => ({default: 'Abort recorded. The chain stops at its next step boundary.'}), {virtual: true});
+jest.mock('@salesforce/label/c.ChainMonitor_AbortSelectionChanged',
+		() => ({default: 'The selected run changed while the confirmation was open. Nothing was aborted; select the run again and try again.'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_AbortUnavailableDisabled',
 		() => ({default: 'Aborting chains is switched off for this org. An administrator can enable it by activating the Async Chain Abort Enabled feature flag.'}),
 		{virtual: true});
@@ -77,7 +80,7 @@ jest.mock('@salesforce/label/c.ChainMonitor_StatusConflict', () => ({default: 'E
 jest.mock('@salesforce/label/c.ChainMonitor_StatusConflictDetail', () => ({
 	default: 'This chain recorded a completion and was then marked Stalled by recovery. It has ended and will not run again; the recorded status conflict is diagnostic only.'
 }), {virtual: true});
-// Operator-action labels mirror their in-org values byte-for-byte (the M0 frozen copy), so the
+// Operator-action labels mirror their in-org values byte-for-byte, so the
 // modal-payload, tooltip, and toast assertions verify byte-faithful wiring end to end.
 jest.mock('@salesforce/label/c.ChainMonitor_RetryAction', () => ({default: 'Retry from failed step'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_RetryModalTitle', () => ({default: 'Retry chain from failed step'}), {virtual: true});
@@ -896,11 +899,11 @@ describe('c-chain-monitor-detail', () =>
 
 			expect(mockChainAbortModalOpen).toHaveBeenCalledWith({
 				size: 'small', label: 'Abort chain', title: 'Abort chain', // The abort body composes its own '2/5 steps' fragment, deliberately distinct
-				// from the headline's P13 'Step N of M' phrase.
+				// from the headline's 'Step N of M' phrase.
 				body: 'TestChain has completed 2/5 steps. No further steps start, and the chain cannot be resumed. A step already running is not interrupted, so a hung step keeps '
 						+ 'the chain from stopping until it ends.', confirmLabel: 'Abort chain', cancelLabel: 'Cancel'
 			});
-			expect(mockCallControllerMethod).toHaveBeenCalledWith(expect.anything(), {executionId: 'a00000000000001AAA'});
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(abortChain, {executionId: 'a00000000000001AAA'});
 			expect(element.shadowRoot.querySelector('[data-testid="status-badge"]').label).toBe('Aborted');
 			expect(element.shadowRoot.querySelector('[data-testid="abort-button"]')).toBeFalsy();
 			expect(abortHandler).toHaveBeenCalledTimes(1);
@@ -949,6 +952,35 @@ describe('c-chain-monitor-detail', () =>
 			expect(mockShowSuccessToast).not.toHaveBeenCalled();
 			expect(element.shadowRoot.querySelector('[data-testid="status-badge"]').label).toBe('Running');
 			expect(element.shadowRoot.querySelector('[data-testid="abort-button"]')).toBeTruthy();
+		});
+
+		it('aborts nothing and shows a toast when another run is selected while the confirmation is open', async() =>
+		{
+			const element = await createComponent('a00000000000001AAA', MOCK_RUNNING_DETAIL);
+			const abortHandler = jest.fn();
+			element.addEventListener('chainabort', abortHandler);
+			let confirmAbort;
+			mockChainAbortModalOpen.mockReturnValueOnce(new Promise((resolve) =>
+			{
+				confirmAbort = resolve;
+			}));
+			element.shadowRoot.querySelector('[data-testid="abort-button"]').dispatchEvent(new CustomEvent('click'));
+			await flushAbortHandler();
+
+			mockCallControllerMethod.mockResolvedValueOnce({...MOCK_RUNNING_DETAIL, executionId: 'a00000000000003AAA', chainName: 'LaterRun'});
+			element.executionId = 'a00000000000003AAA';
+			await flushAbortHandler();
+			mockCallControllerMethod.mockClear();
+
+			confirmAbort({action: 'confirm'});
+			await flushAbortHandler();
+
+			expect(mockCallControllerMethod).not.toHaveBeenCalledWith(abortChain, expect.anything());
+			expect(abortHandler).not.toHaveBeenCalled();
+			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+			expect(mockShowWarningToast)
+			.toHaveBeenCalledWith('The selected run changed while the confirmation was open. Nothing was aborted; select the run again and try again.');
+			expect(mockShowErrorToast).not.toHaveBeenCalled();
 		});
 	});
 

@@ -6,7 +6,7 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, September 2026
+ * @date April 2026, October 2026
  */
 import {wire} from 'lwc';
 import {CurrentPageReference} from 'lightning/navigation';
@@ -207,8 +207,12 @@ export default class ChainMonitor extends ComponentBuilder('controller', 'notifi
 		this.loadOperationsState();
 	}
 
+	/**
+	 * @description Runs the base component's teardown first, then stops listening to the log event channel.
+	 */
 	disconnectedCallback()
 	{
+		super.disconnectedCallback();
 		// Advancing the generation invalidates any subscribe still in flight from the connection
 		// being torn down; a plain disconnected flag cannot, because an immediate reconnect
 		// resets it and lets the stale run register a second, orphaned subscription.
@@ -369,8 +373,15 @@ export default class ChainMonitor extends ComponentBuilder('controller', 'notifi
 	 * with both header controls held disabled until the controller promise settles — a rapid
 	 * second click during server transit is impossible client-side; the server re-resolves
 	 * availability on every call and remains the enforcement point.
+	 *
+	 * @param {Object} modalConfiguration The settings for the confirmation dialog
+	 * @param {Function} controllerMethod The Apex method to run once the user confirms
+	 * @param {Function} onSuccess Called with the answer when the Apex method returns one
+	 * @param {Object} [callOptions] Options for the call helper. `{silent: true}` stops the helper's own error toast,
+	 * for an action that shows its own failure toast.
+	 * @returns {Promise<{confirmed: boolean, data: *}>} Whether the user confirmed, and the answer of the Apex method
 	 */
-	async runConfirmedOperation(modalConfiguration, controllerMethod, onSuccess)
+	async runConfirmedOperation(modalConfiguration, controllerMethod, onSuccess, callOptions)
 	{
 		const result = await ChainActionConfirmModal.open(modalConfiguration);
 
@@ -382,7 +393,7 @@ export default class ChainMonitor extends ComponentBuilder('controller', 'notifi
 		this.isOperationsProcessing = true;
 		try
 		{
-			const data = await this.callControllerMethod(controllerMethod);
+			const data = await this.callControllerMethod(controllerMethod, undefined, callOptions);
 
 			if(data)
 			{
@@ -401,6 +412,8 @@ export default class ChainMonitor extends ComponentBuilder('controller', 'notifi
 	 * in the result toast and refreshes the list, the detail, and the operations state. A sweep
 	 * that answers nothing at all gets the labelled failure toast — the engine swallows
 	 * per-candidate failures, so a missing result means the sweep itself did not complete.
+	 * The call runs silent, so a failed call shows only this one labelled toast and not also the
+	 * call helper's own error toast. The helper still logs the error.
 	 * The waiting count is re-read first: the dialog names it, and a page left open while chains
 	 * stall would otherwise quote whatever was true when the header last loaded. Reading the count
 	 * straight off the state needs no fallback — the button that reaches this handler renders only
@@ -432,7 +445,7 @@ export default class ChainMonitor extends ComponentBuilder('controller', 'notifi
 			this.detailComponent?.refresh();
 			// noinspection JSIgnoredPromiseFromCall
 			this.loadOperationsState();
-		});
+		}, {silent: true});
 
 		if(outcome.confirmed && !outcome.data)
 		{

@@ -42,6 +42,7 @@ import abortModalProgress from '@salesforce/label/c.ChainMonitor_AbortModalProgr
 import abortConfirmButton from '@salesforce/label/c.ChainMonitor_AbortConfirmButton';
 import abortCancelButton from '@salesforce/label/c.ChainMonitor_AbortCancelButton';
 import abortSuccessToast from '@salesforce/label/c.ChainMonitor_AbortSuccessToast';
+import abortSelectionChanged from '@salesforce/label/c.ChainMonitor_AbortSelectionChanged';
 import abortUnavailableDisabled from '@salesforce/label/c.ChainMonitor_AbortUnavailableDisabled';
 import abortUnavailableMissingPermission from '@salesforce/label/c.ChainMonitor_AbortUnavailableMissingPermission';
 import retryAction from '@salesforce/label/c.ChainMonitor_RetryAction';
@@ -692,13 +693,16 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 	 * @description Confirms the destructive abort through the modal, records it via the controller,
 	 * and on success replaces the detail with the fresh state, toasts, and notifies the parent so
 	 * the list refreshes. A refused abort resolves undefined (callControllerMethod has already
-	 * toasted the labelled refusal), so the detail stays untouched and no event fires.
+	 * toasted the labelled refusal), so the detail stays untouched and no event fires. If another
+	 * run was selected while the dialog was open, nothing is aborted and a toast says so.
 	 */
 	async handleAbort()
 	{
 		// The abort body composes its own progress fragment ('2/5 steps') — the mockup deliberately
 		// keeps it distinct from the headline's 'Step N of M' phrase, and the sentence is released
 		// subscriber copy that must not drift with the headline.
+		// The run is read before the dialog opens, so the dialog and the abort always name the same run.
+		const actedExecutionId = this.currentExecutionId;
 		const result = await ChainAbortModal.open({
 			size: 'small', label: abortModalTitle, title: abortModalTitle, body: formatTemplateString(abortModalBody, [
 				this.detail.chainName,
@@ -714,8 +718,12 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 			return;
 		}
 
-		// The run acted on: a row clicked during the round trip wins the pane, and the event names this run.
-		const actedExecutionId = this.currentExecutionId;
+		if(actedExecutionId !== this.currentExecutionId)
+		{
+			this.showWarningToast(abortSelectionChanged);
+			return;
+		}
+
 		this.isProcessing = true;
 		try
 		{
@@ -723,6 +731,7 @@ export default class ChainMonitorDetail extends ComponentBuilder('controller', '
 
 			if(data)
 			{
+				// A row clicked while the server was working keeps its own detail on screen; the event still names the run acted on.
 				if(actedExecutionId === this.currentExecutionId)
 				{
 					this.acceptActionDetail(data);

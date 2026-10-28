@@ -5,7 +5,7 @@
 // live in seed-log-console-actions.apex, which always runs right after this one (helpers/log-console-seed.js
 // runs both, in order). A new fixture goes in that second script, or a third.
 //
-// Log Console e2e seed fixture (PLAN-106 Phase 0 / R0 — one coherent, internally-consistent dataset).
+// Log Console e2e seed fixture (one coherent, internally-consistent dataset).
 //
 // Tells ONE coherent story plus the supporting scenarios every Log Console surface needs:
 //   - A REGISTERED async chain (4-step fulfilment incident ending in a payment-callout timeout): four
@@ -52,11 +52,16 @@ Datetime t = Datetime.now();
 // calendar presets and the midnight straddle are exercised in the viewer's own day.
 Date today = Date.today();
 Datetime todayMidnight = Datetime.newInstance(today, Time.newInstance(0, 0, 0, 0));
-Datetime todayEarly = Datetime.newInstance(today, Time.newInstance(0, 30, 0, 0)); // 00:30 local TODAY
+// When the script runs in the first half hour after local midnight, 00:30 has not happened yet and the insert refuses
+// a future time: the row then goes halfway between midnight and now, so it is still today. Before 09:00 on the 1st
+// of a month, the month-start row uses the same time. Otherwise the today row sits at 00:30 local.
+Datetime halfPastMidnight = Datetime.newInstance(today, Time.newInstance(0, 30, 0, 0));
+Datetime todayEarly = halfPastMidnight < t ? halfPastMidnight : todayMidnight.addSeconds(((t.getTime() - todayMidnight.getTime()) / 2000).intValue());
 Datetime yesterdayLate = todayMidnight.addMinutes(-30); // 23:30 local YESTERDAY (straddle)
 Datetime yesterdayNoon = Datetime.newInstance(today.addDays(-1), Time.newInstance(12, 0, 0, 0));
 Datetime lastWeekRow = Datetime.newInstance(today.addDays(-8), Time.newInstance(12, 0, 0, 0));
-Datetime monthStartRow = Datetime.newInstance(today.toStartOfMonth(), Time.newInstance(9, 0, 0, 0));
+Datetime monthStartNine = Datetime.newInstance(today.toStartOfMonth(), Time.newInstance(9, 0, 0, 0));
+Datetime monthStartRow = monthStartNine < t ? monthStartNine : todayEarly;
 
 // Idempotent: clear only THIS script's shaped rows (e2e- markers, never the e2e-bulk- rows), and the shaped
 // chain record. NOTE (load-bearing): SOQL evaluates `null LIKE 'x'` as FALSE (not UNKNOWN), so
