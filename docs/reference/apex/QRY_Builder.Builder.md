@@ -70,7 +70,7 @@ List<Account> accounts = query.toList();
 | global [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [asValueSet](#asvalueset)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Executes the query and returns a Set of distinct values for the specified field. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [avg](#avg)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies an AVG aggregate function. |
 | global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [avg](#avg)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Applies an AVG aggregate under an explicit result alias. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [bypassSharing](#bypasssharing)() | Bypasses sharing rules using a without sharing proxy class. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [bypassSharing](#bypasssharing)() | Reads records whatever the record sharing, through a without sharing proxy class. |
 | global virtual [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([QRY_Function](QRY_Function.md) functionField) | Starts a WHERE condition whose left-hand side is a SOQL function expression (for example a geolocation DISTANCE from QRY_Function.distanceInMiles), so you can filter on the function result: .lessThan(10) renders DISTANCE(...) < 10. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField) | Starts a WHERE condition on a field using an SObjectField token. |
 | global [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) [condition](#condition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Starts a WHERE condition on a field using its API name. |
@@ -136,7 +136,7 @@ List<Account> accounts = query.toList();
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [subselect](#subselect)([QRY_Builder.Builder](QRY_Builder.Builder.md) childQuery, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) relationshipName) | Adds a child subquery (child relationship query). |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [sum](#sum)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Applies a SUM aggregate function. |
 | global virtual [QRY_Builder.Builder](QRY_Builder.Builder.md) [sum](#sum)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Applies a SUM aggregate under an explicit result alias. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [suppressPerformanceLogging](#suppressperformancelogging)() | Suppresses performance logging for this query. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [suppressPerformanceLogging](#suppressperformancelogging)() | Stops this query from writing a performance log entry, even when it is slow. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[QRY_Builder.AggregateRow](QRY_Builder.AggregateRow.md)> [toAggregateList](#toaggregatelist)() | Executes an aggregate query and returns results as typed AggregateRow wrappers. |
 | global [Database.Cursor](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_Cursor.htm) [toCursor](#tocursor)() | Returns a Database.Cursor for reading a large set of records in parts. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [toList](#tolist)() | Executes the query and returns a List of SObjects. |
@@ -476,15 +476,23 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.ConditionBuilder andCondition(String fieldName)
 ```
 
-Starts an AND condition on a field using its API name.
+Starts an AND condition on a field using its API name. The text may also be a date or distance
+function from QRY_Function, or toLabel around a field name. Text that comes from a page or a user must first be
+matched to a field through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Field API name |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name |
 
 **Returns** [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) — ConditionBuilder for specifying the operator
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not a field name |
 
 **Example**
 
@@ -998,16 +1006,53 @@ add up, so one query can combine several aggregates and read each back by its al
 global QRY_Builder.Builder bypassSharing()
 ```
 
-Bypasses sharing rules using a `without sharing` proxy class.
+Reads records whatever the record sharing, through a `without sharing` proxy class. The call is
+recorded in the bypass audit when the query runs.
+
+Under user mode (the `UserModeQueries_Enabled` flag on, or withUserMode()) the running user's object and field
+permissions still apply:
+
+- a user who cannot read the object is refused with a QueryException;
+
+- fields the user cannot read are removed from the rows, in parent fields and child rows too, and are not
+reported;
+
+- a filter or a sort on a field of the queried object that the user cannot read is refused;
+
+- a query inside isIn() or notIn(), and a child query added with subselect(), are checked the same way, each on
+its own object: the user must be able to read that object and the fields it filters or sorts on;
+
+- toQueryLocator(), toCursor() and every total or group read (toAggregateList(), getFirstAggregate(), or a
+grouped query read as records) are refused, because their rows cannot be cleaned;
+
+- getPage() returns a page with a null cursor, for the same reason.
+
+A filter in your own Evaluable, on a path through a parent such as `Parent__r.Email__c`, or inside a function
+is not checked. Its rows can tell the user something about that field, so do not filter or sort on a field the
+user cannot read that way.
+
+To read a locator, a cursor or totals without sharing, add withSystemMode(). withSystemMode() also turns off
+the object and field permission checks for the read. With the `UserModeQueries_Enabled` flag off, a read runs
+in system mode, so nothing is checked, as for any read.
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
 **Example**
 
 ```apex
-List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
+// Reads every open case, whoever owns it. Fields the user cannot read are removed from the rows.
+List<Case> openCases = QRY_Builder.selectFrom(Case.SObjectType)
+    .condition(Case.IsClosed).equals(false)
     .bypassSharing()
     .toList();
+```
+
+```apex
+// A batch job's locator needs withSystemMode() too, which also turns off the field checks.
+Database.QueryLocator locator = QRY_Builder.selectFrom(Case.SObjectType)
+    .withSystemMode()
+    .bypassSharing()
+    .toQueryLocator();
 ```
 
 </div>
@@ -1075,15 +1120,23 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.ConditionBuilder condition(String fieldName)
 ```
 
-Starts a WHERE condition on a field using its API name.
+Starts a WHERE condition on a field using its API name. The text may also be a date or distance
+function from QRY_Function, or toLabel around a field name. Text that comes from a page or a user must first be
+matched to a field through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Field API name |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name |
 
 **Returns** [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) — ConditionBuilder for specifying the operator
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not a field name |
 
 **Example**
 
@@ -1106,6 +1159,13 @@ global Integer count()
 Returns the number of records that match the query criteria.
 
 **Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — Integer count
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters on a field the running user cannot read. Add withSystemMode(). |
 
 **Example**
 
@@ -1160,15 +1220,22 @@ List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObject
 global QRY_Builder.Builder count(String fieldName)
 ```
 
-Applies a COUNT aggregate function.
+Applies a COUNT aggregate function. Text that comes from a page or a user must first be matched to a
+field through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The field to count (or null for COUNT()) |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name (or null for COUNT()) |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not one field path |
 
 **Example**
 
@@ -1248,15 +1315,22 @@ aggregates add up, so one query can combine several aggregates and read each bac
 global QRY_Builder.Builder countDistinct(String fieldName)
 ```
 
-Applies a COUNT_DISTINCT aggregate function.
+Applies a COUNT_DISTINCT aggregate function. Text that comes from a page or a user must first be
+matched to a field through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The field name to count distinct values |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not one field path |
 
 **Example**
 
@@ -1327,6 +1401,13 @@ global Boolean exists()
 Checks whether any records exist matching the query criteria.
 
 **Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — Boolean true if at least one record exists
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters on a field the running user cannot read. Add withSystemMode(). |
 
 **Example**
 
@@ -1596,13 +1677,20 @@ Convenience method for single-row aggregates (e.g., SUM without GROUP BY).
 
 **Returns** [QRY_Builder.AggregateRow](QRY_Builder.AggregateRow.md) — Single AggregateRow or null if no results
 
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode: totals and group values cannot have the fields the running user cannot read removed. Add withSystemMode(). |
+
 **Example**
 
 ```apex
 QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
-    .sum('Amount')
+    .sum(Opportunity.Amount, 'totalAmount')
     .getFirstAggregate();
-Decimal totalAmount = row.getDecimal('expr0');
+Decimal totalAmount = row.getDecimal('totalAmount');
 ```
 
 </div>
@@ -1619,6 +1707,10 @@ Executes a paged query and returns results with pagination metadata.
 
 A page may hold at most 2,000 records, which is all a cursor will hand back in one fetch.
 
+With bypassSharing() alone, under user mode, the page has no cursor: `cursor` is null. Rows read later from
+that cursor would keep the fields the user cannot read, so it is not handed back. `records`, `totalRecords`
+and the paging flags stay correct. Ask for each later page with getPage().
+
 **Parameters**
 
 | Parameter | Type | Description |
@@ -1633,7 +1725,8 @@ A page may hold at most 2,000 records, which is all a cursor will hand back in o
 | Exception | Description |
 |-----------|-------------|
 | [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When the page number is below 1, or the page size is outside 1 to 2000 |
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | When the transaction has used up its cursors (about fifty paged reads in one transaction that could not use a pagination cursor), and the requested page also starts past the 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query. |
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | When the transaction has used up its cursors (about fifty paged reads in one transaction that could not use a pagination cursor), and the requested page also starts past the 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query. Also with bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode(). |
 
 **Example**
 
@@ -1683,6 +1776,9 @@ full result set (up to 50 million records).
 
 When mocks are active, falls back to standard SOQL OFFSET (capped at 2,000).
 
+With stripInaccessible() on, the fields the running user cannot read are removed from the records, as in
+toList().
+
 **Parameters**
 
 | Parameter | Type | Description |
@@ -1690,6 +1786,13 @@ When mocks are active, falls back to standard SOQL OFFSET (capped at 2,000).
 | `randomCount` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | Maximum number of random records to return |
 
 **Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List of random SObjects
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | In a test, when the query is an aggregate query and aggregate rows are registered for the object type. Read such a query with toAggregateList(). Also with bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode(). |
 
 **Example**
 
@@ -1767,15 +1870,23 @@ List<QRY_Builder.AggregateRow> results = QRY_Builder.selectFrom(Account.SObjectT
 global QRY_Builder.Builder groupBy(String groupField)
 ```
 
-Adds a GROUP BY clause.
+Adds a GROUP BY clause. The text is kept as given. It may be one field or several joined by commas, and
+each may be a date function from QRY_Function. Text that comes from a page or a user must first be matched to a field
+through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `groupField` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The field to group by |
+| `groupField` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name, or a list such as Name, Industry |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not a list of field names or date functions |
 
 **Example**
 
@@ -1826,15 +1937,22 @@ List<QRY_Builder.AggregateRow> results = QRY_Builder.selectFrom(Opportunity.SObj
 global QRY_Builder.Builder grouping(String fieldName)
 ```
 
-Adds a GROUPING(field) expression to the SELECT clause by field name.
+Adds a GROUPING(field) expression to the SELECT clause by field name. Text that comes from a page or a
+user must first be matched to a field through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The field API name to wrap in GROUPING() |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name, or a date function from QRY_Function |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not a field name or a date function |
 
 **Example**
 
@@ -2299,15 +2417,23 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.ConditionBuilder orCondition(String fieldName)
 ```
 
-Starts an OR condition on a field using its API name.
+Starts an OR condition on a field using its API name. The text may also be a date or distance
+function from QRY_Function, or toLabel around a field name. Text that comes from a page or a user must first be
+matched to a field through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Field API name |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name |
 
 **Returns** [QRY_Builder.ConditionBuilder](QRY_Builder.ConditionBuilder.md) — ConditionBuilder for specifying the operator
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not a field name |
 
 **Example**
 
@@ -2462,15 +2588,24 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder orderBy(String fieldName)
 ```
 
-Adds an ORDER BY clause (default ascending).
+Adds an ORDER BY clause (default ascending). The text is written as given. It may be one sort item or
+several joined by commas. A sort item is a field name or a date or distance function from QRY_Function, then ASC or
+DESC if wanted, then NULLS FIRST or NULLS LAST if wanted, such as Name DESC NULLS LAST, CreatedDate. Text that comes
+from a page or a user must first be matched to a field through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Field API name to sort by |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name, or a list of sort items |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not a list of sort items |
 
 **Example**
 
@@ -2489,16 +2624,25 @@ global QRY_Builder.Builder orderBy(String fieldName, Boolean sortDescending)
 ```
 
 Adds an ORDER BY clause with a dynamic sort direction. Nulls placement
-defaults to standard SOQL behavior (NULLS FIRST for ASC, NULLS LAST for DESC).
+defaults to standard SOQL behavior (NULLS FIRST for ASC, NULLS LAST for DESC). The text may be a list of sort
+items joined by commas, as for orderBy(String), but its last item must have no direction and no nulls order,
+because this method adds them. Text that comes from a page or a user must first be matched to a field through a
+list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Field API name to sort by |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name |
 | `sortDescending` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | When true, sorts DESCENDING; otherwise ASCENDING |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not such a list |
 
 **Example**
 
@@ -2517,17 +2661,26 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder orderBy(String fieldName, Boolean sortDescending, Boolean nullsLast)
 ```
 
-Adds an ORDER BY clause with a dynamic sort direction and nulls placement.
+Adds an ORDER BY clause with a dynamic sort direction and nulls placement. The text may be a list of
+sort items joined by commas, as for orderBy(String), but its last item must have no direction and no nulls order,
+because this method adds them. Text that comes from a page or a user must first be matched to a field through a
+list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Field API name to sort by |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name |
 | `sortDescending` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | When true, sorts DESCENDING; otherwise ASCENDING |
 | `nullsLast` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | When true, places nulls last; otherwise places nulls first |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not such a list |
 
 **Example**
 
@@ -2589,15 +2742,22 @@ List<QRY_Builder.AggregateRow> topSources = QRY_Builder.selectFrom(Opportunity.S
 global QRY_Builder.Builder relatedField(String parentField)
 ```
 
-Adds a single parent field.
+Adds a single parent field. The text must be one field path. Text that comes from a page or a user
+must first be matched to a field through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `parentField` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | Field path (e.g., 'Account.Owner.Name') |
+| `parentField` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not one field path |
 
 **Example**
 
@@ -2617,15 +2777,22 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
 global QRY_Builder.Builder relatedFields(List<String> parentFields)
 ```
 
-Adds parent (related) fields to the selection.
+Adds parent (related) fields to the selection. Each text must be one field path. Text that comes from a
+page or a user must first be matched to a field through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `parentFields` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | List of field paths (e.g., 'Account.Name') |
+| `parentFields` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list of field API names, such as Name or Account.Owner.Name |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if a text in the list is not blank and is not one field path. Nothing is added then. |
 
 **Example**
 
@@ -2715,7 +2882,8 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder subselect(QRY_Builder.Builder childQuery, String relationshipName)
 ```
 
-Adds a child subquery (child relationship query).
+Adds a child subquery (child relationship query). The relationship name must be one name. Text that
+comes from a page or a user must first be matched to a relationship through a list of names you allow.
 
 **Parameters**
 
@@ -2725,6 +2893,12 @@ Adds a child subquery (child relationship query).
 | `relationshipName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The child relationship API name (e.g., 'Contacts') |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the relationship name is not blank and is not one name |
 
 **Example**
 
@@ -2759,10 +2933,11 @@ Applies a SUM aggregate function.
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
     .groupBy(Opportunity.StageName)
     .sum(Opportunity.Amount)
-    .toList();
+    .toAggregateList();
+Decimal firstStageTotal = rows[0].getDecimal('sum_Amount');
 ```
 
 </div>
@@ -2807,7 +2982,9 @@ add up, so one query can combine several aggregates and read each back by its al
 global QRY_Builder.Builder suppressPerformanceLogging()
 ```
 
-Suppresses performance logging for this query.
+Stops this query from writing a performance log entry, even when it is slow. Use it for a query you
+expect to be slow, so it does not fill the logs. The last of suppressPerformanceLogging, forcePerformanceLogging and
+logPerformanceIfSlowerThan called on the builder is the one that applies.
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
@@ -2830,20 +3007,32 @@ global List<QRY_Builder.AggregateRow> toAggregateList()
 ```
 
 Executes an aggregate query and returns results as typed AggregateRow wrappers.
-Use with aggregate methods like count(), sum(), avg(), min(), max() and groupBy().
+Use with aggregate methods like count(field, alias), sum(), avg(), min(), max() and groupBy(). The count() that
+ends a query and returns a number is not an aggregate read.
+
+In a test, rows registered with TST_Mock.registerAggregateRows or QRY_Builder.setAggregateMock answer the
+query instead of the database.
 
 **Returns** [QRY_Builder.AggregateRow](QRY_Builder.AggregateRow.md) — List of AggregateRow wrappers
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | In a test, when record mocks are registered for the object type but no aggregate rows are. Record mocks never answer an aggregate query. Also with bypassSharing() alone, under user mode: totals and group values cannot have the fields the running user cannot read removed. Add withSystemMode(). |
 
 **Example**
 
 ```apex
 List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Account.SObjectType)
-    .count('Id')
-    .groupBy('Industry')
+    .count(Account.Id, 'total')
+    .groupBy(Account.Industry)
     .toAggregateList();
+Map<String, Integer> totalByIndustry = new Map<String, Integer>();
 for(QRY_Builder.AggregateRow row : rows)
 {
-    System.debug(row.getString('Industry') + ': ' + row.getInteger('expr0'));
+    totalByIndustry.put(row.getString('Industry'), row.getInteger('total'));
 }
 ```
 
@@ -2859,11 +3048,18 @@ global Database.Cursor toCursor()
 
 Returns a Database.Cursor for reading a large set of records in parts. The cursor is opened
 with the sharing this builder was set up with, or with the caller's own sharing when none is set. So a cursor
-built with bypassSharing() fetches every row the query matches, whatever the record sharing, on every later
+built with withSystemMode() and bypassSharing() fetches every row the query matches, whatever the record sharing, on every later
 fetch in this transaction or a later one. An exception registered through TST_Mock.throwsException() is
 thrown from this call exactly as it is from every other method that runs the query.
 
 **Returns** [Database.Cursor](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Database_Cursor.htm) — Database.Cursor
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode. The rows are fetched later, so the fields the running user cannot read cannot be removed. Add withSystemMode(). |
 
 **Example**
 
@@ -2887,6 +3083,14 @@ Executes the query and returns a List of SObjects.
 
 **Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — List results
 
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | In a test, when the query is an aggregate query and rows registered with TST_Mock.registerAggregateRows answer it. Read an aggregate query with toAggregateList(). The other methods that return records, such as getFirst(), getPage() and asMap(), throw in the same case. |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode(). |
+
 **Example**
 
 ```apex
@@ -2908,6 +3112,13 @@ global Database.QueryLocator toQueryLocator()
 Returns a Database.QueryLocator for batch processing.
 
 **Returns** [Database.QueryLocator](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_database_batch.htm) — Database.QueryLocator
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode. A batch job reads the rows later, so the fields the running user cannot read cannot be removed. Add withSystemMode(). |
 
 **Example**
 
@@ -2981,7 +3192,9 @@ Enables caching for this query. A non-null time-to-live means
 withCache(UTIL_Cache.Scope.AUTO, ttlSeconds); a null one requests no caching. A user-mode read is kept
 in memory for this transaction. A system-mode read that leaves the sharing setting to the
 calling class is not cached, because the cache cannot tell one calling class's sharing from another's;
-to cache a system-mode read, state the setting with withSharing() or bypassSharing().
+to cache a system-mode read, state the setting with withSharing() or bypassSharing(). A read with
+bypassSharing() alone under user mode is cached as a system-mode read, and the fields each running user cannot
+read are removed from the rows when they are returned.
 
 **Parameters**
 
@@ -3014,7 +3227,9 @@ Caches this query's results in the given scope. AUTO is not a place: it asks for
 durable storage that is safe for this read when it runs, Platform Cache for a system-mode read where a
 partition keeps it, and memory for this transaction otherwise. A user-mode read is only ever kept in
 memory for this transaction. A system-mode read whose sharing is left to the calling class is not cached;
-state it with withSharing() or bypassSharing(). The last caching call on a builder wins.
+state it with withSharing() or bypassSharing(). A read with bypassSharing() alone under user mode is cached
+as a system-mode read, and the fields each running user cannot read are removed from the rows when they are
+returned. The last caching call on a builder wins.
 
 **Parameters**
 
@@ -3044,13 +3259,14 @@ List<Account> parents = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.DataCategoryBuilder withDataCategory(String groupName)
 ```
 
-Starts a WITH DATA CATEGORY filter for the specified data category group.
+Starts a WITH DATA CATEGORY filter for the specified data category group. Text that comes from a page or
+a user must first be matched to a group through a list of names you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `groupName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The data category group API name |
+| `groupName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The data category group API name, such as Geography__c |
 
 **Returns** [QRY_Builder.DataCategoryBuilder](QRY_Builder.DataCategoryBuilder.md) — DataCategoryBuilder for operator selection
 
@@ -3058,7 +3274,7 @@ Starts a WITH DATA CATEGORY filter for the specified data category group.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if groupName is blank |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if groupName is blank, or is not one name |
 
 **Example**
 
@@ -3234,7 +3450,8 @@ TriggerSetting__mdt setting = (TriggerSetting__mdt)QRY_Builder.selectFrom(Trigge
 global QRY_Builder.Builder withUserMode()
 ```
 
-Runs the query in USER_MODE.
+Runs the query in USER_MODE. With bypassSharing(), the read runs without record sharing but still
+checks object and field permissions.
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
@@ -3252,8 +3469,8 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 | Constructor | Description |
 |-------------|-------------|
-| global [Builder](#constructors)() | Default constructor. |
-| global [Builder](#constructors)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType) | Constructor that sets the SObject type. |
+| global [Builder](#constructors)() | Creates a builder with no object to read: objectType stays null, and nothing can set it later. |
+| global [Builder](#constructors)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType) | Creates a builder that reads the given object. |
 
 ### Builder()
 
@@ -3263,7 +3480,8 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global Builder()
 ```
 
-Default constructor.
+Creates a builder with no object to read: objectType stays null, and nothing can set it later. To build
+a query you will run, use QRY_Builder.selectFrom or the constructor that takes an SObjectType.
 
 **Example**
 
@@ -3281,7 +3499,8 @@ QRY_Builder.Builder query = new QRY_Builder.Builder();
 global Builder(SObjectType sObjectType)
 ```
 
-Constructor that sets the SObject type.
+Creates a builder that reads the given object. QRY_Builder.selectFrom calls this constructor, so the two
+give the same builder. A class that extends Builder calls it to set the object it reads.
 
 **Parameters**
 
@@ -3301,7 +3520,7 @@ QRY_Builder.Builder query = new QRY_Builder.Builder(Account.SObjectType);
 
 | Property | Description |
 |----------|-------------|
-| global [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) [objectType](#objecttype) | The SObjectType being queried by this builder. |
+| global [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) [objectType](#objecttype) | The object this builder reads, as passed to QRY_Builder.selectFrom. |
 
 ### objectType
 
@@ -3311,5 +3530,6 @@ global SObjectType objectType
 
 **Type:** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)
 
-The SObjectType being queried by this builder.
+The object this builder reads, as passed to QRY_Builder.selectFrom. You can read it but not change it. It
+is null on a builder made with the constructor that takes no arguments.
 

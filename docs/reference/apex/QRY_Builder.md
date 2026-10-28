@@ -62,6 +62,7 @@ QRY_Builder.QueryPage result = QRY_Builder.selectFrom(Account.SObjectType)
 | global static void [clearMocks](#clearmocks)() | Clears all registered mocks and mock context classes for all SObjectTypes. |
 | global static void [registerMockContextClass](#registermockcontextclass)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) contextClassName) | Registers a FormulaEval context class for an SObjectType, enabling smart mock filtering. |
 | global static [QRY_Builder.Builder](QRY_Builder.Builder.md) [selectFrom](#selectfrom)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType) | Entry point for inline queries. |
+| global static void [setAggregateMock](#setaggregatemock)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)>> rows) | Makes every aggregate query on this object type return these rows instead of reading the database, in your tests. |
 | global static void [setMock](#setmock)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> mocks) | Registers mock records for a specific SObjectType during test execution. |
 | global static void [setMockException](#setmockexception)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType, [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) exceptionToThrow) | Registers an exception to be thrown when QRY_Builder is invoked for the specified SObjectType. |
 
@@ -140,6 +141,54 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
     .fields(new List<String>{'Name', 'Industry'})
     .condition(Account.Industry).equals('Technology')
     .toList();
+```
+
+</div>
+
+### setAggregateMock
+
+<div class="apex-member">
+
+```apex
+global static void setAggregateMock(SObjectType sObjectType, List<Map<String, Object>> rows)
+```
+
+Makes every aggregate query on this object type return these rows instead of reading the database,
+in your tests. Each map is one row: its keys are the aliases your code reads, its values what they hold. Pass
+null to clear.
+
+An aggregate query is one with count(field, alias), count(fieldName), countDistinct(), sum(), avg(), min(), max()
+or groupBy(). The count() that ends a query and returns a number is not one: like toList(), it reads record mocks
+set with setMock. Read the rows with toAggregateList() or getFirstAggregate(). The rows come back in the order you
+gave them; only the query's limit is applied to them. Aliases are matched without regard to case. Rows set here
+replace any set earlier for the type, as setMock replaces records; TST_Mock.registerAggregateRows adds to them
+instead. clearMocks() removes them too.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The object type whose aggregate queries the rows answer. |
+| `rows` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The rows to return, in this order, or null to remove the rows set for the type. |
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When sObjectType is null. |
+
+**Example**
+
+```apex
+QRY_Builder.setAggregateMock(Account.SObjectType, new List<Map<String, Object>>
+{
+    new Map<String, Object> {'total' => 3, 'Industry' => 'Energy'}
+});
+QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Account.SObjectType)
+    .count(Account.Id, 'total')
+    .groupBy(Account.Industry)
+    .getFirstAggregate();
+Integer total = row.getInteger('total');
 ```
 
 </div>

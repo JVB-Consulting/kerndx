@@ -68,6 +68,76 @@ global inherited sharing class QRY_Builder
 	private static final Integer MAXIMUM_CURSOR_FETCH_ROWS = 2000;
 
 	/**
+	 * @description Message thrown when a test reads an alias that its registered aggregate row does not hold. The
+	 * placeholders are the alias that was read and the aliases the row holds.
+	 */
+	private static final String AGGREGATE_ALIAS_NOT_SET_MESSAGE = 'The aggregate row has no alias {0}. The aliases set on this row are: {1}. '
+			+ 'Check the spelling of the alias in the query and in the registered row.';
+
+	/**
+	 * @description Message thrown when a test registers an aggregate row with two aliases that differ only in case. The
+	 * placeholders are the two aliases.
+	 */
+	private static final String AGGREGATE_ALIASES_DIFFER_ONLY_IN_CASE_MESSAGE = 'The aggregate row holds the aliases {0} and {1}, which differ only in case. '
+			+ 'A real aggregate row cannot hold both, because a query cannot use the same alias twice. Keep one of them in the registered row.';
+
+	/**
+	 * @description Message thrown when a record read, such as toList(), meets an aggregate query that registered aggregate
+	 * rows answered. The placeholder is the SObjectType.
+	 */
+	private static final String RECORDS_READ_FROM_AGGREGATE_MOCK_MESSAGE = 'Aggregate rows are registered for {0}, so this aggregate query cannot be read '
+			+ 'as records. A live run would return AggregateResult rows here, and a test cannot build those. '
+			+ 'Read the rows with toAggregateList() or getFirstAggregate(). '
+			+ 'Reading an aggregate query with toList() or another record read is a sign the code should use toAggregateList() too.';
+
+	/**
+	 * @description Name of the toList() method, shown when a read with bypassSharing() alone is refused.
+	 */
+	private static final String METHOD_TO_LIST = 'toList';
+
+	/**
+	 * @description Name of the toAggregateList() method, shown when a read with bypassSharing() alone is refused.
+	 */
+	private static final String METHOD_TO_AGGREGATE_LIST = 'toAggregateList';
+
+	/**
+	 * @description Name of the getFirstAggregate() method, shown when a read with bypassSharing() alone is refused.
+	 */
+	private static final String METHOD_GET_FIRST_AGGREGATE = 'getFirstAggregate';
+
+	/**
+	 * @description Name of the toQueryLocator() method, shown when a read with bypassSharing() alone is refused.
+	 */
+	private static final String METHOD_TO_QUERY_LOCATOR = 'toQueryLocator';
+
+	/**
+	 * @description Name of the toCursor() method, shown when a read with bypassSharing() alone is refused.
+	 */
+	private static final String METHOD_TO_CURSOR = 'toCursor';
+
+	/**
+	 * @description Name of the count() method, shown when a read with bypassSharing() alone is refused.
+	 */
+	private static final String METHOD_COUNT = 'count';
+
+	/**
+	 * @description Name of the getPage() method, shown when a read with bypassSharing() alone is refused.
+	 */
+	private static final String METHOD_GET_PAGE = 'getPage';
+
+	/**
+	 * @description Name of the getRandomItems() method, shown when a read with bypassSharing() alone is refused.
+	 */
+	private static final String METHOD_GET_RANDOM_ITEMS = 'getRandomItems';
+
+	/**
+	 * @description Finds the field in one item of a sort list, as the query reads it: the first word, then ASC or DESC if
+	 * written, then NULLS FIRST or NULLS LAST if written, in any letter case and with any spaces around the words. A
+	 * function written with spaces inside its brackets, such as toLabel( Status ), does not match, so it is not checked.
+	 */
+	private static final Pattern SORT_ITEM_FIELD_PATTERN = Pattern.compile('(?i)\\s*(\\S+?)(?:\\s+(?:ASC|DESC))?(?:\\s+NULLS\\s+(?:FIRST|LAST))?\\s*');
+
+	/**
 	 * @description Returns whether queries a subscriber can reach run in `AccessLevel.USER_MODE` by default, which
 	 * is the value of the `UserModeQueries_Enabled` feature flag. Every new `Builder.userModeEnabled` field starts
 	 * with this value. `UTIL_FeatureFlag` and `SEL_FeatureFlag.activeFlags` cache the flag.
@@ -169,6 +239,43 @@ global inherited sharing class QRY_Builder
 	global static void clearMocks()
 	{
 		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Makes every aggregate query on this object type return these rows instead of reading the database,
+	 * in your tests. Each map is one row: its keys are the aliases your code reads, its values what they hold. Pass
+	 * null to clear.
+	 *
+	 * An aggregate query is one with count(field, alias), count(fieldName), countDistinct(), sum(), avg(), min(), max()
+	 * or groupBy(). The count() that ends a query and returns a number is not one: like toList(), it reads record mocks
+	 * set with setMock. Read the rows with toAggregateList() or getFirstAggregate(). The rows come back in the order you
+	 * gave them; only the query's limit is applied to them. Aliases are matched without regard to case. Rows set here
+	 * replace any set earlier for the type, as setMock replaces records; TST_Mock.registerAggregateRows adds to them
+	 * instead. clearMocks() removes them too.
+	 *
+	 * @param sObjectType The object type whose aggregate queries the rows answer.
+	 * @param rows The rows to return, in this order, or null to remove the rows set for the type.
+	 *
+	 * @throws IllegalArgumentException When sObjectType is null.
+	 *
+	 * @since 1.10
+	 *
+	 * @example
+	 * ```apex
+	 * QRY_Builder.setAggregateMock(Account.SObjectType, new List<Map<String, Object>>
+	 * {
+	 *     new Map<String, Object> {'total' => 3, 'Industry' => 'Energy'}
+	 * });
+	 * QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Account.SObjectType)
+	 *     .count(Account.Id, 'total')
+	 *     .groupBy(Account.Industry)
+	 *     .getFirstAggregate();
+	 * Integer total = row.getInteger('total');
+	 * ```
+	 */
+	global static void setAggregateMock(SObjectType sObjectType, List<Map<String, Object>> rows)
+	{
+		QRY_Engine.setAggregateMock(sObjectType, rows);
 	}
 
 	/**
@@ -412,7 +519,7 @@ global inherited sharing class QRY_Builder
 		global Database.PaginationCursor cursor;
 
 		/**
-		 * @description Default constructor for QueryPage.
+		 * @description Starts an empty first page: no records, a total of 0, page number 1 and 0 deleted records.
 		 */
 		public QueryPage()
 		{
@@ -427,24 +534,41 @@ global inherited sharing class QRY_Builder
 	 * @description Typed wrapper around AggregateResult for convenient value access.
 	 * Provides typed accessors that eliminate the need for manual casting from Object.
 	 *
+	 * In a test, a row can also hold the values of a row registered with TST_Mock.registerAggregateRows or
+	 * QRY_Builder.setAggregateMock. Such a row answers as a real row does: an alias is matched without regard to
+	 * case, and reading an alias the row does not hold throws IllegalArgumentException. Its number getters also
+	 * accept a whole number written as an Integer, a Long or a Decimal.
+	 *
 	 * @since 1.0
 	 *
 	 * @example
 	 * ```apex
 	 * QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Account.SObjectType)
-	 *     .count('Id')
-	 *     .groupBy('Industry')
+	 *     .count(Account.Id, 'total')
+	 *     .groupBy(Account.Industry)
 	 *     .toAggregateList()[0];
-	 * Integer total = row.getInteger('expr0');
+	 * Integer total = row.getInteger('total');
 	 * String industry = row.getString('Industry');
 	 * ```
 	 */
 	global inherited sharing class AggregateRow
 	{
 		/**
-		 * @description The underlying AggregateResult.
+		 * @description The underlying AggregateResult. It is null when the row holds the values of a registered row.
 		 */
 		private final AggregateResult result;
+
+		/**
+		 * @description The values of a registered row, keyed by alias in lower case so that an alias is matched without
+		 * regard to case. It is null when the row wraps an AggregateResult.
+		 */
+		private final Map<String, Object> valueByAlias;
+
+		/**
+		 * @description The aliases of a registered row as the test wrote them. The error for an alias the row does not
+		 * hold lists them.
+		 */
+		private final List<String> registeredAliases;
 
 		/**
 		 * @description Constructs an AggregateRow wrapping an AggregateResult.
@@ -453,7 +577,77 @@ global inherited sharing class QRY_Builder
 		 */
 		public AggregateRow(AggregateResult aggregateResult)
 		{
-			this.result = aggregateResult;
+			result = aggregateResult;
+		}
+
+		/**
+		 * @description Constructs an AggregateRow from a row a test registered. The values are copied, so a later change
+		 * to the registered map does not change this row. Each alias is stored in lower case, so it is matched without
+		 * regard to case, as on a real row.
+		 *
+		 * @param values The row's values, keyed by alias. Null makes a row that holds no alias.
+		 *
+		 * @throws IllegalArgumentException When two aliases differ only in case, such as Total and total. A real
+		 * AggregateResult cannot hold both, because a query cannot use the same alias twice. The error shows when the
+		 * row is read, in toAggregateList() or getFirstAggregate(), not when it is registered; by then a queued answer
+		 * that held the row has been used up.
+		 */
+		public AggregateRow(Map<String, Object> values)
+		{
+			valueByAlias = new Map<String, Object>();
+			registeredAliases = new List<String>();
+			Map<String, String> registeredAliasByKey = new Map<String, String>();
+			for(String alias : values?.keySet() ?? new Set<String>())
+			{
+				String key = alias?.toLowerCase();
+				if(registeredAliasByKey.containsKey(key))
+				{
+					throw new IllegalArgumentException(String.format(AGGREGATE_ALIASES_DIFFER_ONLY_IN_CASE_MESSAGE, new List<String> {registeredAliasByKey.get(key), alias}));
+				}
+				registeredAliasByKey.put(key, alias);
+				valueByAlias.put(key, values.get(alias));
+				registeredAliases.add(alias);
+			}
+		}
+
+		/**
+		 * @description Returns the value held under an alias. A real row answers through AggregateResult.get. A
+		 * registered row matches the alias without regard to case, and returns null for an alias that holds null.
+		 *
+		 * @param alias The aggregate alias or field name
+		 *
+		 * @return The raw value
+		 *
+		 * @throws IllegalArgumentException When the row is a registered row that does not hold the alias. A real
+		 * AggregateResult throws on an unknown alias too.
+		 */
+		private Object readValue(String alias)
+		{
+			if(result != null)
+			{
+				return result.get(alias);
+			}
+			String key = alias?.toLowerCase();
+			if(!valueByAlias.containsKey(key))
+			{
+				throw new IllegalArgumentException(String.format(AGGREGATE_ALIAS_NOT_SET_MESSAGE, new List<String> {alias, String.join(registeredAliases, ', ')}));
+			}
+			return valueByAlias.get(key);
+		}
+
+		/**
+		 * @description Tells whether a value from a registered row is a whole number that the number getters convert. A
+		 * value from a real row is never converted, so the getters keep the casts a real row has always had. A number
+		 * with a fraction, such as 2.5, is not converted either: the getter then casts it and throws the same
+		 * TypeException a real row throws.
+		 *
+		 * @param value The value read under an alias.
+		 *
+		 * @return True when the row is a registered row and the value is a whole number.
+		 */
+		private Boolean isConvertibleNumber(Object value)
+		{
+			return result == null && value instanceof Decimal && ((Decimal)value).stripTrailingZeros().scale() <= 0;
 		}
 
 		/**
@@ -467,16 +661,20 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * Object value = row.get('expr0');
+		 * QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 *     .sum(Opportunity.Amount, 'total')
+		 *     .getFirstAggregate();
+		 * Object value = row.get('total');
 		 * ```
 		 */
 		global Object get(String alias)
 		{
-			return result.get(alias);
+			return readValue(alias);
 		}
 
 		/**
-		 * @description Gets a Decimal value by alias.
+		 * @description Reads a number with decimals, such as the SUM or AVG of an amount. Returns null when the row holds null
+		 * under the alias.
 		 *
 		 * @param alias The aggregate alias or field name
 		 *
@@ -486,16 +684,21 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * Decimal total = row.getDecimal('expr0');
+		 * QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 *     .sum(Opportunity.Amount, 'total')
+		 *     .getFirstAggregate();
+		 * Decimal total = row.getDecimal('total');
 		 * ```
 		 */
 		global Decimal getDecimal(String alias)
 		{
-			return (Decimal)result.get(alias);
+			return (Decimal)readValue(alias);
 		}
 
 		/**
-		 * @description Gets an Integer value by alias.
+		 * @description Reads a whole number, such as a COUNT. A row that a test registered with TST_Mock.registerAggregateRows
+		 * may hold the number as a Long or a Decimal; a whole number held either way is converted to an Integer, and a number
+		 * with a fraction, such as 2.5, throws a TypeException. Returns null when the row holds null under the alias.
 		 *
 		 * @param alias The aggregate alias or field name
 		 *
@@ -505,16 +708,21 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * Integer count = row.getInteger('expr0');
+		 * QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 *     .count(Opportunity.Id, 'total')
+		 *     .getFirstAggregate();
+		 * Integer count = row.getInteger('total');
 		 * ```
 		 */
 		global Integer getInteger(String alias)
 		{
-			return (Integer)result.get(alias);
+			Object value = readValue(alias);
+			return isConvertibleNumber(value) ? ((Decimal)value).intValue() : (Integer)value;
 		}
 
 		/**
-		 * @description Gets a String value by alias.
+		 * @description Reads a text value, such as a grouped text or picklist field. A grouped field with no alias is read by its
+		 * field name, such as 'Industry'. Returns null when the row holds null under the alias.
 		 *
 		 * @param alias The aggregate alias or field name
 		 *
@@ -529,11 +737,12 @@ global inherited sharing class QRY_Builder
 		 */
 		global String getString(String alias)
 		{
-			return (String)result.get(alias);
+			return (String)readValue(alias);
 		}
 
 		/**
-		 * @description Gets an Id value by alias.
+		 * @description Reads a record Id, such as a grouped lookup field. A grouped field with no alias is read by its field name,
+		 * such as 'AccountId'. Returns null when the row holds null under the alias.
 		 *
 		 * @param alias The aggregate alias or field name
 		 *
@@ -548,11 +757,12 @@ global inherited sharing class QRY_Builder
 		 */
 		global Id getId(String alias)
 		{
-			return (Id)result.get(alias);
+			return (Id)readValue(alias);
 		}
 
 		/**
-		 * @description Gets a Long value by alias.
+		 * @description Reads a whole number as a Long. A value held as an Integer, such as a COUNT, is returned as a Long too.
+		 * Returns null when the row holds null under the alias.
 		 *
 		 * @param alias The aggregate alias or field name
 		 *
@@ -562,12 +772,19 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * Long total = row.getLong('expr0');
+		 * QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 *     .count(Opportunity.Id, 'total')
+		 *     .getFirstAggregate();
+		 * Long total = row.getLong('total');
 		 * ```
 		 */
 		global Long getLong(String alias)
 		{
-			Object value = result.get(alias);
+			Object value = readValue(alias);
+			if(isConvertibleNumber(value))
+			{
+				return ((Decimal)value).longValue();
+			}
 			if(value instanceof Integer)
 			{
 				Integer integerValue = (Integer)value;
@@ -577,7 +794,8 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Gets a Date value by alias.
+		 * @description Reads a date, such as the MIN or MAX of a date field. Returns null when the row holds null under the
+		 * alias.
 		 *
 		 * @param alias The aggregate alias or field name
 		 *
@@ -587,12 +805,15 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * Date earliest = row.getDate('expr0');
+		 * QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 *     .min(Opportunity.CloseDate, 'earliest')
+		 *     .getFirstAggregate();
+		 * Date earliest = row.getDate('earliest');
 		 * ```
 		 */
 		global Date getDate(String alias)
 		{
-			return (Date)result.get(alias);
+			return (Date)readValue(alias);
 		}
 	}
 
@@ -614,38 +835,38 @@ global inherited sharing class QRY_Builder
 		private final String fieldName;
 
 		/**
-		 * @description Whether this is a HAVING condition.
+		 * @description True when the condition goes into the HAVING clause and tests an aggregate, such as SUM(Amount). False
+		 * when it goes into the WHERE clause and tests each record.
 		 */
 		private final Boolean isHaving;
 
 		/**
-		 * @description Constructs a ConditionBuilder.
-		 *
-		 * @param parent The parent Builder
-		 * @param field The field API name
-		 */
-		public ConditionBuilder(Builder parent, String field)
-		{
-			this(parent, field, false);
-		}
-
-		/**
-		 * @description Constructs a ConditionBuilder with HAVING support.
+		 * @description Starts a condition and checks its field text first, so a text that is not a field name fails at the
+		 * call that started the condition, before an operator is chosen. The field may be a field path such as
+		 * Account.Name, a date or distance function from QRY_Function, an aggregate such as SUM(Amount), or toLabel around
+		 * a field path. A blank text is not checked here: the condition refuses it when the operator is chosen.
 		 *
 		 * @param parent The parent Builder
 		 * @param field The field API name
 		 * @param isHavingCondition Whether this is a HAVING condition
+		 * @param methodName The builder method the developer called, such as condition or havingSumOf. The error message
+		 * names it.
+		 *
+		 * @throws IllegalArgumentException if the field text is not blank and is not a field name. The message does not
+		 * repeat the text.
 		 */
-		@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
-		public ConditionBuilder(Builder parent, String field, Boolean isHavingCondition)
+		@SuppressWarnings('PMD.AvoidBooleanMethodParameters,PMD.ExcessiveParameterList')
+		public ConditionBuilder(Builder parent, String field, Boolean isHavingCondition, String methodName)
 		{
+			QRY_Generator.validateConditionField(field, methodName);
 			parentBuilder = parent;
 			fieldName = field;
 			isHaving = isHavingCondition;
 		}
 
 		/**
-		 * @description Adds the condition to the query.
+		 * @description Hands the finished condition to the parent builder: to its HAVING conditions when isHaving is true, and
+		 * to its WHERE conditions otherwise.
 		 *
 		 * @param condition The condition to add
 		 */
@@ -662,28 +883,38 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Extracts field values from a list of SObjects.
+		 * @description Extracts field values from a list of SObjects. A null record always adds nothing. A record whose field
+		 * is blank adds a blank value only when keepBlankValues is true. The IN conditions leave blanks out, so a blank key
+		 * never matches a stored row whose field is blank too. The NOT IN conditions keep them, so rows whose field is blank
+		 * stay out of the result.
 		 *
 		 * @param records SObjects to extract values from
 		 * @param field The field to extract values from
+		 * @param keepBlankValues True to add a blank value for each record whose field is blank
 		 *
-		 * @return List of extracted values
+		 * @return List of extracted values; empty when no record gives a value
 		 */
-		private List<Object> extractFieldValues(List<SObject> records, SObjectField field)
+		private List<Object> extractFieldValues(List<SObject> records, SObjectField field, Boolean keepBlankValues)
 		{
 			List<Object> values = new List<Object>();
 			for(SObject record : records)
 			{
 				if(record != null)
 				{
-					values.add(record.get(field));
+					Object value = record.get(field);
+					if(value != null || keepBlankValues)
+					{
+						values.add(value);
+					}
 				}
 			}
 			return values;
 		}
 
 		/**
-		 * @description Adds an = condition.
+		 * @description Keeps the records whose field holds exactly this value. The value is passed to the query as a bind
+		 * variable, so you never escape quotes in text yourself. A null value keeps the records whose field is blank, as
+		 * isNull() does. To compare with a relative date such as today, pass a QRY_Condition.DateLiteral.
 		 *
 		 * @param value Value to compare against
 		 *
@@ -698,7 +929,7 @@ global inherited sharing class QRY_Builder
 		 *     .toList();
 		 * ```
 		 */
-		@SuppressWarnings('ApexEqualsHashCodeNotPaired')
+		@SuppressWarnings('ApexEqualsHashCodeNotPaired, PMD.OverrideBothEqualsAndHashcode')
 		global Builder equals(Object value)
 		{
 			add(new QRY_Condition.FieldCondition(fieldName, QRY_Condition.Operator.EQUALS, value));
@@ -706,7 +937,9 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a != condition.
+		 * @description Leaves out the records whose field holds exactly this value. The value is passed to the query as a bind
+		 * variable, so you never escape quotes in text yourself. A null value keeps the records whose field has a value, as
+		 * isNotNull() does.
 		 *
 		 * @param value Value to compare against
 		 *
@@ -772,7 +1005,9 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a > condition.
+		 * @description Keeps the records whose field is larger than this value; for a date or a time, later. The value is passed
+		 * to the query as a bind variable. After a having method such as havingSumOf, it compares the aggregate of each group
+		 * instead of each record.
 		 *
 		 * @param value Value to compare against
 		 *
@@ -794,7 +1029,9 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a >= condition.
+		 * @description Keeps the records whose field is equal to this value or larger; for a date or a time, the same or later.
+		 * The value is passed to the query as a bind variable. After a having method such as havingSumOf, it compares the
+		 * aggregate of each group instead of each record.
 		 *
 		 * @param value Value to compare against
 		 *
@@ -816,7 +1053,9 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a < condition.
+		 * @description Keeps the records whose field is smaller than this value; for a date or a time, earlier. The value is
+		 * passed to the query as a bind variable. After a having method such as havingSumOf, it compares the aggregate of each
+		 * group instead of each record.
 		 *
 		 * @param value Value to compare against
 		 *
@@ -838,7 +1077,9 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a <= condition.
+		 * @description Keeps the records whose field is equal to this value or smaller; for a date or a time, the same or
+		 * earlier. The value is passed to the query as a bind variable. After a having method such as havingSumOf, it compares
+		 * the aggregate of each group instead of each record.
 		 *
 		 * @param value Value to compare against
 		 *
@@ -860,7 +1101,9 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds an IN condition using a Set.
+		 * @description Keeps the records whose field holds any one of these values. A null or empty set adds a condition that is
+		 * never true, so this condition matches no record; the query still runs. The values are copied, so a later change to
+		 * the set does not change the query.
 		 *
 		 * @param values Values to include
 		 *
@@ -956,7 +1199,8 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds an IN condition by extracting field values from SObjects.
+		 * @description Adds an IN condition by extracting field values from SObjects. A record whose key field is blank is skipped,
+		 * so it never matches a row whose field is blank.
 		 *
 		 * @param records SObjects to extract values from
 		 * @param field The field to extract values from
@@ -979,7 +1223,7 @@ global inherited sharing class QRY_Builder
 				add(new QRY_Condition.FalseCondition());
 				return parentBuilder;
 			}
-			List<Object> values = extractFieldValues(records, field);
+			List<Object> values = extractFieldValues(records, field, false);
 			if(values.isEmpty())
 			{
 				add(new QRY_Condition.FalseCondition());
@@ -1114,14 +1358,15 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds an IN condition by extracting field values with strict handling.
+		 * @description Adds an IN condition by extracting field values with strict handling. A record whose key field is blank is
+		 * skipped, so it never matches a row whose field is blank.
 		 *
 		 * @param records SObjects to extract values from (must not be null or empty)
 		 * @param field The field to extract values from
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if records is null or empty
+		 * @throws IllegalArgumentException if records is null or empty, or no record has a value in the field
 		 *
 		 * @since 1.0
 		 *
@@ -1139,7 +1384,7 @@ global inherited sharing class QRY_Builder
 			{
 				throw new IllegalArgumentException('Records list cannot be null or empty');
 			}
-			List<Object> values = extractFieldValues(records, field);
+			List<Object> values = extractFieldValues(records, field, false);
 			if(values.isEmpty())
 			{
 				throw new IllegalArgumentException('Records list contains no valid records');
@@ -1149,7 +1394,9 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a NOT IN condition using a Set.
+		 * @description Leaves out the records whose field holds any one of these values. A null or empty set adds no condition,
+		 * so no record is left out; isIn() does the opposite and matches nothing. The values are copied, so a later change to
+		 * the set does not change the query.
 		 *
 		 * @param values Values to exclude
 		 *
@@ -1242,7 +1489,8 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a NOT IN condition by extracting field values from SObjects.
+		 * @description Adds a NOT IN condition by extracting field values from SObjects. A record whose key field is blank is
+		 * kept, so rows whose field is blank are left out of the result too.
 		 *
 		 * @param records SObjects to extract values from
 		 * @param field The field to extract values from
@@ -1265,7 +1513,7 @@ global inherited sharing class QRY_Builder
 			{
 				return parentBuilder;
 			}
-			List<Object> values = extractFieldValues(records, field);
+			List<Object> values = extractFieldValues(records, field, true);
 			if(values.isEmpty())
 			{
 				return parentBuilder;
@@ -1399,14 +1647,15 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a NOT IN condition by extracting field values with strict handling.
+		 * @description Adds a NOT IN condition by extracting field values with strict handling. A record whose key field is
+		 * blank is kept, so rows whose field is blank are left out of the result too.
 		 *
 		 * @param records SObjects to extract values from (must not be null or empty)
 		 * @param field The field to extract values from
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if records is null or empty
+		 * @throws IllegalArgumentException if records is null or empty, or every record in it is null
 		 *
 		 * @since 1.0
 		 *
@@ -1424,7 +1673,7 @@ global inherited sharing class QRY_Builder
 			{
 				throw new IllegalArgumentException('Records list cannot be null or empty');
 			}
-			List<Object> values = extractFieldValues(records, field);
+			List<Object> values = extractFieldValues(records, field, true);
 			if(values.isEmpty())
 			{
 				throw new IllegalArgumentException('Records list contains no valid records');
@@ -1434,7 +1683,7 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds an IS NULL condition.
+		 * @description Keeps the records whose field is blank. It writes "field = null" into the query, the same as equals(null).
 		 *
 		 * @return Builder for chaining
 		 *
@@ -1454,7 +1703,8 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds an IS NOT NULL condition.
+		 * @description Keeps the records whose field has a value. It writes "field != null" into the query, the same as
+		 * notEquals(null).
 		 *
 		 * @return Builder for chaining
 		 *
@@ -1800,30 +2050,36 @@ global inherited sharing class QRY_Builder
 		private final Builder parentBuilder;
 
 		/**
-		 * @description The data category group name.
+		 * @description The API name of the data category group to filter on, such as Geography__c. A query may hold only one
+		 * filter for each group.
 		 */
 		private final String groupName;
 
 		/**
-		 * @description Constructs a DataCategoryBuilder.
+		 * @description Holds the group until at, above, below or aboveOrBelow adds the filter to the parent builder.
+		 * withDataCategory checks that the group name is not blank before it calls this. The group name must be one name.
 		 *
 		 * @param parent The parent Builder
 		 * @param categoryGroup The data category group name
+		 *
+		 * @throws IllegalArgumentException if the group name is not blank and is not one name
 		 */
 		public DataCategoryBuilder(Builder parent, String categoryGroup)
 		{
-			this.parentBuilder = parent;
-			this.groupName = categoryGroup;
+			QRY_Generator.validateFieldPath(categoryGroup, 'DataCategoryBuilder');
+			parentBuilder = parent;
+			groupName = categoryGroup;
 		}
 
 		/**
 		 * @description Filters to the exact specified category.
+		 * Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 		 *
 		 * @param categoryName The category API name
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryName is blank
+		 * @throws IllegalArgumentException if categoryName is blank, or is not one name
 		 *
 		 * @since 1.0
 		 *
@@ -1834,17 +2090,18 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder at(String categoryName)
 		{
-			return addFilter(QRY_Generator.DataCategoryOperator.AT, categoryName);
+			return addFilter(QRY_Generator.DataCategoryOperator.AT, categoryName, 'at');
 		}
 
 		/**
 		 * @description Filters to any of the specified categories.
+		 * Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 		 *
 		 * @param categoryNames The category API names
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryNames is null or empty
+		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not one name
 		 *
 		 * @since 1.0
 		 *
@@ -1855,17 +2112,18 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder at(List<String> categoryNames)
 		{
-			return addFilter(QRY_Generator.DataCategoryOperator.AT, categoryNames);
+			return addFilter(QRY_Generator.DataCategoryOperator.AT, categoryNames, 'at');
 		}
 
 		/**
 		 * @description Filters to categories above the specified category in the hierarchy.
+		 * Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 		 *
 		 * @param categoryName The category API name
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryName is blank
+		 * @throws IllegalArgumentException if categoryName is blank, or is not one name
 		 *
 		 * @since 1.0
 		 *
@@ -1876,17 +2134,18 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder above(String categoryName)
 		{
-			return addFilter(QRY_Generator.DataCategoryOperator.ABOVE, categoryName);
+			return addFilter(QRY_Generator.DataCategoryOperator.ABOVE, categoryName, 'above');
 		}
 
 		/**
 		 * @description Filters to categories above any of the specified categories in the hierarchy.
+		 * Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 		 *
 		 * @param categoryNames The category API names
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryNames is null or empty
+		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not one name
 		 *
 		 * @since 1.0
 		 *
@@ -1897,17 +2156,18 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder above(List<String> categoryNames)
 		{
-			return addFilter(QRY_Generator.DataCategoryOperator.ABOVE, categoryNames);
+			return addFilter(QRY_Generator.DataCategoryOperator.ABOVE, categoryNames, 'above');
 		}
 
 		/**
 		 * @description Filters to categories below the specified category in the hierarchy.
+		 * Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 		 *
 		 * @param categoryName The category API name
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryName is blank
+		 * @throws IllegalArgumentException if categoryName is blank, or is not one name
 		 *
 		 * @since 1.0
 		 *
@@ -1918,17 +2178,18 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder below(String categoryName)
 		{
-			return addFilter(QRY_Generator.DataCategoryOperator.BELOW, categoryName);
+			return addFilter(QRY_Generator.DataCategoryOperator.BELOW, categoryName, 'below');
 		}
 
 		/**
 		 * @description Filters to categories below any of the specified categories in the hierarchy.
+		 * Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 		 *
 		 * @param categoryNames The category API names
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryNames is null or empty
+		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not one name
 		 *
 		 * @since 1.0
 		 *
@@ -1939,17 +2200,18 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder below(List<String> categoryNames)
 		{
-			return addFilter(QRY_Generator.DataCategoryOperator.BELOW, categoryNames);
+			return addFilter(QRY_Generator.DataCategoryOperator.BELOW, categoryNames, 'below');
 		}
 
 		/**
 		 * @description Filters to categories above or below the specified category in the hierarchy.
+		 * Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 		 *
 		 * @param categoryName The category API name
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryName is blank
+		 * @throws IllegalArgumentException if categoryName is blank, or is not one name
 		 *
 		 * @since 1.0
 		 *
@@ -1960,17 +2222,18 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder aboveOrBelow(String categoryName)
 		{
-			return addFilter(QRY_Generator.DataCategoryOperator.ABOVE_BELOW, categoryName);
+			return addFilter(QRY_Generator.DataCategoryOperator.ABOVE_BELOW, categoryName, 'aboveOrBelow');
 		}
 
 		/**
 		 * @description Filters to categories above or below any of the specified categories in the hierarchy.
+		 * Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 		 *
 		 * @param categoryNames The category API names
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryNames is null or empty
+		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not one name
 		 *
 		 * @since 1.0
 		 *
@@ -1981,7 +2244,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder aboveOrBelow(List<String> categoryNames)
 		{
-			return addFilter(QRY_Generator.DataCategoryOperator.ABOVE_BELOW, categoryNames);
+			return addFilter(QRY_Generator.DataCategoryOperator.ABOVE_BELOW, categoryNames, 'aboveOrBelow');
 		}
 
 		/**
@@ -1989,16 +2252,17 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @param operator The filtering operator
 		 * @param categoryName The category API name
+		 * @param methodName The builder method the developer called. The error message names it.
 		 *
 		 * @return Builder for chaining
 		 */
-		private Builder addFilter(QRY_Generator.DataCategoryOperator operator, String categoryName)
+		private Builder addFilter(QRY_Generator.DataCategoryOperator operator, String categoryName, String methodName)
 		{
 			if(String.isBlank(categoryName))
 			{
 				throw new IllegalArgumentException('Category name cannot be blank.');
 			}
-			return addFilter(operator, new List<String> {categoryName});
+			return addFilter(operator, new List<String> {categoryName}, methodName);
 		}
 
 		/**
@@ -2006,14 +2270,19 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @param operator The filtering operator
 		 * @param categoryNames The category API names
+		 * @param methodName The builder method the developer called. The error message names it.
 		 *
 		 * @return Builder for chaining
 		 */
-		private Builder addFilter(QRY_Generator.DataCategoryOperator operator, List<String> categoryNames)
+		private Builder addFilter(QRY_Generator.DataCategoryOperator operator, List<String> categoryNames, String methodName)
 		{
 			if(categoryNames == null || categoryNames.isEmpty())
 			{
 				throw new IllegalArgumentException('Category names list cannot be null or empty.');
+			}
+			for(String categoryName : categoryNames)
+			{
+				QRY_Generator.validateFieldPath(categoryName, methodName);
 			}
 			String key = groupName.toLowerCase();
 			if(parentBuilder.dataCategoryFilters.containsKey(key))
@@ -2089,6 +2358,14 @@ global inherited sharing class QRY_Builder
 		 */
 		@TestVisible
 		private Boolean sharingEnforced;
+
+		/**
+		 * @description True when the last sharing call was the audited bypassSharing(). withSharing(),
+		 * bypassSharingInternal() and withoutSecurity() set it back to false. When it is true and the read would
+		 * otherwise run in USER_MODE, the read runs in SYSTEM_MODE without sharing and keeps the user's object and
+		 * field checks in this class.
+		 */
+		private Boolean isAuditedSharingBypass = false;
 
 		/**
 		 * @description The bypass audit entries this builder will write for queries. The bypass audit records each
@@ -2348,7 +2625,8 @@ global inherited sharing class QRY_Builder
 		private Boolean useLiterals = false;
 
 		/**
-		 * @description Whether to suppress performance logging for this query.
+		 * @description True stops the query from writing a performance log entry, however long it takes.
+		 * suppressPerformanceLogging sets it; forcePerformanceLogging and logPerformanceIfSlowerThan clear it.
 		 */
 		@TestVisible
 		private Boolean suppressPerformanceLog = false;
@@ -2366,7 +2644,8 @@ global inherited sharing class QRY_Builder
 		private Integer performanceThresholdMs;
 
 		/**
-		 * @description The SObjectType being queried by this builder.
+		 * @description The object this builder reads, as passed to QRY_Builder.selectFrom. You can read it but not change it. It
+		 * is null on a builder made with the constructor that takes no arguments.
 		 *
 		 * @since 1.0
 		 *
@@ -2379,7 +2658,8 @@ global inherited sharing class QRY_Builder
 		global SObjectType objectType {get; private set;}
 
 		/**
-		 * @description Default constructor.
+		 * @description Creates a builder with no object to read: objectType stays null, and nothing can set it later. To build
+		 * a query you will run, use QRY_Builder.selectFrom or the constructor that takes an SObjectType.
 		 *
 		 * @since 1.0
 		 *
@@ -2395,7 +2675,8 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Constructor that sets the SObject type.
+		 * @description Creates a builder that reads the given object. QRY_Builder.selectFrom calls this constructor, so the two
+		 * give the same builder. A class that extends Builder calls it to set the object it reads.
 		 *
 		 * @param sObjectType The SObject to query
 		 *
@@ -2455,7 +2736,8 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a HAVING condition to the query.
+		 * @description Adds a condition to the HAVING clause, which tests the aggregate of each group. HAVING conditions are
+		 * always joined with AND.
 		 *
 		 * @param condition The condition to add
 		 */
@@ -2557,7 +2839,9 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Gets the effective fields for the query.
+		 * @description Works out the fields to select. It joins every field of the object when selectAllFields was called, the
+		 * default fields unless fields(), fieldSet() or onlyFields() turned them off, and every field added to the builder.
+		 * When all of these are empty it returns just Id.
 		 *
 		 * @return Set of field names
 		 */
@@ -2913,11 +3197,15 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds parent (related) fields to the selection.
+		 * @description Adds parent (related) fields to the selection. Each text must be one field path. Text that comes from a
+		 * page or a user must first be matched to a field through a list of fields you allow.
 		 *
-		 * @param parentFields List of field paths (e.g., 'Account.Name')
+		 * @param parentFields A list of field API names, such as Name or Account.Owner.Name
 		 *
 		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if a text in the list is not blank and is not one field path. Nothing is added
+		 * then.
 		 *
 		 * @since 1.0
 		 *
@@ -2932,17 +3220,24 @@ global inherited sharing class QRY_Builder
 		{
 			if(parentFields != null)
 			{
+				for(String parentField : parentFields)
+				{
+					QRY_Generator.validateFieldPath(parentField, 'relatedFields');
+				}
 				explicitFields.addAll(parentFields);
 			}
 			return this;
 		}
 
 		/**
-		 * @description Adds a single parent field.
+		 * @description Adds a single parent field. The text must be one field path. Text that comes from a page or a user
+		 * must first be matched to a field through a list of fields you allow.
 		 *
-		 * @param parentField Field path (e.g., 'Account.Owner.Name')
+		 * @param parentField A field API name, such as Name or Account.Owner.Name
 		 *
 		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not one field path
 		 *
 		 * @since 1.0
 		 *
@@ -2957,18 +3252,22 @@ global inherited sharing class QRY_Builder
 		{
 			if(String.isNotBlank(parentField))
 			{
+				QRY_Generator.validateFieldPath(parentField, 'relatedField');
 				explicitFields.add(parentField);
 			}
 			return this;
 		}
 
 		/**
-		 * @description Adds a child subquery (child relationship query).
+		 * @description Adds a child subquery (child relationship query). The relationship name must be one name. Text that
+		 * comes from a page or a user must first be matched to a relationship through a list of names you allow.
 		 *
 		 * @param childQuery Configured Builder for the child object
 		 * @param relationshipName The child relationship API name (e.g., 'Contacts')
 		 *
 		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if the relationship name is not blank and is not one name
 		 *
 		 * @since 1.0
 		 *
@@ -2985,6 +3284,7 @@ global inherited sharing class QRY_Builder
 		{
 			if(childQuery != null && String.isNotBlank(relationshipName))
 			{
+				QRY_Generator.validateFieldPath(relationshipName, 'subselect');
 				childQuery.childRelationshipName = relationshipName;
 				childQueries.add(childQuery);
 			}
@@ -2992,11 +3292,15 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a GROUP BY clause.
+		 * @description Adds a GROUP BY clause. The text is kept as given. It may be one field or several joined by commas, and
+		 * each may be a date function from QRY_Function. Text that comes from a page or a user must first be matched to a field
+		 * through a list of fields you allow.
 		 *
-		 * @param groupField The field to group by
+		 * @param groupField A field API name, such as Name or Account.Owner.Name, or a list such as Name, Industry
 		 *
 		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not a list of field names or date functions
 		 *
 		 * @since 1.0
 		 *
@@ -3011,6 +3315,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder groupBy(String groupField)
 		{
+			QRY_Generator.validateGroupList(groupField, 'groupBy');
 			groupByFields.add(groupField);
 			return this;
 		}
@@ -3137,11 +3442,14 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a GROUPING(field) expression to the SELECT clause by field name.
+		 * @description Adds a GROUPING(field) expression to the SELECT clause by field name. Text that comes from a page or a
+		 * user must first be matched to a field through a list of fields you allow.
 		 *
-		 * @param fieldName The field API name to wrap in GROUPING()
+		 * @param fieldName A field API name, such as Name or Account.Owner.Name, or a date function from QRY_Function
 		 *
 		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not a field name or a date function
 		 *
 		 * @since 1.0
 		 *
@@ -3152,6 +3460,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder grouping(String fieldName)
 		{
+			QRY_Generator.validateFieldExpression(fieldName, 'grouping');
 			explicitFields.add('GROUPING(' + fieldName + ')');
 			return this;
 		}
@@ -3167,10 +3476,11 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
 		 *     .groupBy(Opportunity.StageName)
 		 *     .sum(Opportunity.Amount)
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Decimal firstStageTotal = rows[0].getDecimal('sum_Amount');
 		 * ```
 		 */
 		global Builder sum(SObjectField field)
@@ -3253,11 +3563,14 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Applies a COUNT aggregate function.
+		 * @description Applies a COUNT aggregate function. Text that comes from a page or a user must first be matched to a
+		 * field through a list of fields you allow.
 		 *
-		 * @param fieldName The field to count (or null for COUNT())
+		 * @param fieldName A field API name, such as Name or Account.Owner.Name (or null for COUNT())
 		 *
 		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not one field path
 		 *
 		 * @since 1.0
 		 *
@@ -3271,6 +3584,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder count(String fieldName)
 		{
+			QRY_Generator.validateFieldPath(fieldName, 'count');
 			aggregateType = QRY_Generator.Aggregate.COUNT;
 			aggregateField = fieldName;
 			return this;
@@ -3302,11 +3616,14 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Applies a COUNT_DISTINCT aggregate function.
+		 * @description Applies a COUNT_DISTINCT aggregate function. Text that comes from a page or a user must first be
+		 * matched to a field through a list of fields you allow.
 		 *
-		 * @param fieldName The field name to count distinct values
+		 * @param fieldName A field API name, such as Name or Account.Owner.Name
 		 *
 		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not one field path
 		 *
 		 * @since 1.0
 		 *
@@ -3320,6 +3637,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder countDistinct(String fieldName)
 		{
+			QRY_Generator.validateFieldPath(fieldName, 'countDistinct');
 			aggregateType = QRY_Generator.Aggregate.COUNT_DISTINCT;
 			aggregateField = fieldName;
 			return this;
@@ -3526,7 +3844,7 @@ global inherited sharing class QRY_Builder
 		global ConditionBuilder havingSumOf(SObjectField field)
 		{
 			String aggField = QRY_Generator.formatAggregate(QRY_Generator.Aggregate.SUM, UTIL_SObjectDescribe.getCachedFieldName(field));
-			return new ConditionBuilder(this, aggField, true);
+			return new ConditionBuilder(this, aggField, true, 'havingSumOf');
 		}
 
 		/**
@@ -3550,7 +3868,7 @@ global inherited sharing class QRY_Builder
 		global ConditionBuilder havingAvgOf(SObjectField field)
 		{
 			String aggField = QRY_Generator.formatAggregate(QRY_Generator.Aggregate.AVG, UTIL_SObjectDescribe.getCachedFieldName(field));
-			return new ConditionBuilder(this, aggField, true);
+			return new ConditionBuilder(this, aggField, true, 'havingAvgOf');
 		}
 
 		/**
@@ -3574,7 +3892,7 @@ global inherited sharing class QRY_Builder
 		global ConditionBuilder havingMinOf(SObjectField field)
 		{
 			String aggField = QRY_Generator.formatAggregate(QRY_Generator.Aggregate.MIN, UTIL_SObjectDescribe.getCachedFieldName(field));
-			return new ConditionBuilder(this, aggField, true);
+			return new ConditionBuilder(this, aggField, true, 'havingMinOf');
 		}
 
 		/**
@@ -3598,7 +3916,7 @@ global inherited sharing class QRY_Builder
 		global ConditionBuilder havingMaxOf(SObjectField field)
 		{
 			String aggField = QRY_Generator.formatAggregate(QRY_Generator.Aggregate.MAX, UTIL_SObjectDescribe.getCachedFieldName(field));
-			return new ConditionBuilder(this, aggField, true);
+			return new ConditionBuilder(this, aggField, true, 'havingMaxOf');
 		}
 
 		/**
@@ -3622,7 +3940,7 @@ global inherited sharing class QRY_Builder
 		global ConditionBuilder havingCountOf(SObjectField field)
 		{
 			String aggField = QRY_Generator.formatAggregate(QRY_Generator.Aggregate.COUNT, UTIL_SObjectDescribe.getCachedFieldName(field));
-			return new ConditionBuilder(this, aggField, true);
+			return new ConditionBuilder(this, aggField, true, 'havingCountOf');
 		}
 
 		/**
@@ -3644,7 +3962,7 @@ global inherited sharing class QRY_Builder
 		global ConditionBuilder havingCount()
 		{
 			String aggField = QRY_Generator.formatAggregate(QRY_Generator.Aggregate.COUNT, 'Id');
-			return new ConditionBuilder(this, aggField, true);
+			return new ConditionBuilder(this, aggField, true, 'havingCount');
 		}
 
 		/**
@@ -3665,15 +3983,19 @@ global inherited sharing class QRY_Builder
 		 */
 		global ConditionBuilder condition(SObjectField objectField)
 		{
-			return new ConditionBuilder(this, UTIL_SObjectDescribe.getCachedFieldName(objectField));
+			return new ConditionBuilder(this, UTIL_SObjectDescribe.getCachedFieldName(objectField), false, 'condition');
 		}
 
 		/**
-		 * @description Starts a WHERE condition on a field using its API name.
+		 * @description Starts a WHERE condition on a field using its API name. The text may also be a date or distance
+		 * function from QRY_Function, or toLabel around a field name. Text that comes from a page or a user must first be
+		 * matched to a field through a list of fields you allow.
 		 *
-		 * @param fieldName Field API name
+		 * @param fieldName A field API name, such as Name or Account.Owner.Name
 		 *
 		 * @return ConditionBuilder for specifying the operator
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not a field name
 		 *
 		 * @since 1.0
 		 *
@@ -3686,7 +4008,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global ConditionBuilder condition(String fieldName)
 		{
-			return new ConditionBuilder(this, fieldName);
+			return new ConditionBuilder(this, fieldName, false, 'condition');
 		}
 
 		/**
@@ -3713,11 +4035,15 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Starts an AND condition on a field using its API name.
+		 * @description Starts an AND condition on a field using its API name. The text may also be a date or distance
+		 * function from QRY_Function, or toLabel around a field name. Text that comes from a page or a user must first be
+		 * matched to a field through a list of fields you allow.
 		 *
-		 * @param fieldName Field API name
+		 * @param fieldName A field API name, such as Name or Account.Owner.Name
 		 *
 		 * @return ConditionBuilder for specifying the operator
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not a field name
 		 *
 		 * @since 1.0
 		 *
@@ -3733,7 +4059,7 @@ global inherited sharing class QRY_Builder
 		global ConditionBuilder andCondition(String fieldName)
 		{
 			nextIsOr = false;
-			return new ConditionBuilder(this, fieldName);
+			return new ConditionBuilder(this, fieldName, false, 'andCondition');
 		}
 
 		/**
@@ -3760,11 +4086,15 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Starts an OR condition on a field using its API name.
+		 * @description Starts an OR condition on a field using its API name. The text may also be a date or distance
+		 * function from QRY_Function, or toLabel around a field name. Text that comes from a page or a user must first be
+		 * matched to a field through a list of fields you allow.
 		 *
-		 * @param fieldName Field API name
+		 * @param fieldName A field API name, such as Name or Account.Owner.Name
 		 *
 		 * @return ConditionBuilder for specifying the operator
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not a field name
 		 *
 		 * @since 1.0
 		 *
@@ -3780,7 +4110,7 @@ global inherited sharing class QRY_Builder
 		global ConditionBuilder orCondition(String fieldName)
 		{
 			nextIsOr = true;
-			return new ConditionBuilder(this, fieldName);
+			return new ConditionBuilder(this, fieldName, false, 'orCondition');
 		}
 
 		/**
@@ -3804,7 +4134,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global virtual ConditionBuilder condition(QRY_Function functionField)
 		{
-			return new ConditionBuilder(this, functionField.toExpression());
+			return new ConditionBuilder(this, functionField.toExpression(), false, 'condition');
 		}
 
 		/**
@@ -3912,11 +4242,16 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds an ORDER BY clause (default ascending).
+		 * @description Adds an ORDER BY clause (default ascending). The text is written as given. It may be one sort item or
+		 * several joined by commas. A sort item is a field name or a date or distance function from QRY_Function, then ASC or
+		 * DESC if wanted, then NULLS FIRST or NULLS LAST if wanted, such as Name DESC NULLS LAST, CreatedDate. Text that comes
+		 * from a page or a user must first be matched to a field through a list of fields you allow.
 		 *
-		 * @param fieldName Field API name to sort by
+		 * @param fieldName A field API name, such as Name or Account.Owner.Name, or a list of sort items
 		 *
 		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not a list of sort items
 		 *
 		 * @since 1.0
 		 *
@@ -3930,6 +4265,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global Builder orderBy(String fieldName)
 		{
+			QRY_Generator.validateSortList(fieldName, 'orderBy');
 			orderByFields.add(new QRY_Generator.OrderBy(fieldName));
 			return this;
 		}
@@ -3988,12 +4324,17 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Adds an ORDER BY clause with a dynamic sort direction. Nulls placement
-		 * defaults to standard SOQL behavior (NULLS FIRST for ASC, NULLS LAST for DESC).
+		 * defaults to standard SOQL behavior (NULLS FIRST for ASC, NULLS LAST for DESC). The text may be a list of sort
+		 * items joined by commas, as for orderBy(String), but its last item must have no direction and no nulls order,
+		 * because this method adds them. Text that comes from a page or a user must first be matched to a field through a
+		 * list of fields you allow.
 		 *
-		 * @param fieldName Field API name to sort by
+		 * @param fieldName A field API name, such as Name or Account.Owner.Name
 		 * @param sortDescending When true, sorts DESCENDING; otherwise ASCENDING
 		 *
 		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not such a list
 		 *
 		 * @since 1.0
 		 *
@@ -4012,13 +4353,18 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds an ORDER BY clause with a dynamic sort direction and nulls placement.
+		 * @description Adds an ORDER BY clause with a dynamic sort direction and nulls placement. The text may be a list of
+		 * sort items joined by commas, as for orderBy(String), but its last item must have no direction and no nulls order,
+		 * because this method adds them. Text that comes from a page or a user must first be matched to a field through a
+		 * list of fields you allow.
 		 *
-		 * @param fieldName Field API name to sort by
+		 * @param fieldName A field API name, such as Name or Account.Owner.Name
 		 * @param sortDescending When true, sorts DESCENDING; otherwise ASCENDING
 		 * @param nullsLast When true, places nulls last; otherwise places nulls first
 		 *
 		 * @return Builder for chaining
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not such a list
 		 *
 		 * @since 1.0
 		 *
@@ -4034,6 +4380,7 @@ global inherited sharing class QRY_Builder
 		@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 		global Builder orderBy(String fieldName, Boolean sortDescending, Boolean nullsLast)
 		{
+			QRY_Generator.validateSortListBeforeDirection(fieldName, 'orderBy');
 			orderBy(fieldName);
 			return applyOrderByDirection(sortDescending, nullsLast);
 		}
@@ -4308,13 +4655,15 @@ global inherited sharing class QRY_Builder
 			userModeEnabled = false;
 			stripInaccessibleEnabled = false;
 			sharingEnforced = false;
+			isAuditedSharingBypass = false;
 			auditQueue.queueSecurityMode();
 			auditQueue.queueSharing();
 			return this;
 		}
 
 		/**
-		 * @description Runs the query in USER_MODE.
+		 * @description Runs the query in USER_MODE. With bypassSharing(), the read runs without record sharing but still
+		 * checks object and field permissions.
 		 *
 		 * @return Builder for chaining
 		 *
@@ -4421,11 +4770,33 @@ global inherited sharing class QRY_Builder
 		global Builder withSharing()
 		{
 			sharingEnforced = true;
+			isAuditedSharingBypass = false;
 			return this;
 		}
 
 		/**
-		 * @description Bypasses sharing rules using a `without sharing` proxy class.
+		 * @description Reads records whatever the record sharing, through a `without sharing` proxy class. The call is
+		 * recorded in the bypass audit when the query runs.
+		 *
+		 * Under user mode (the `UserModeQueries_Enabled` flag on, or withUserMode()) the running user's object and field
+		 * permissions still apply:
+		 * - a user who cannot read the object is refused with a QueryException;
+		 * - fields the user cannot read are removed from the rows, in parent fields and child rows too, and are not
+		 *   reported;
+		 * - a filter or a sort on a field of the queried object that the user cannot read is refused;
+		 * - a query inside isIn() or notIn(), and a child query added with subselect(), are checked the same way, each on
+		 *   its own object: the user must be able to read that object and the fields it filters or sorts on;
+		 * - toQueryLocator(), toCursor() and every total or group read (toAggregateList(), getFirstAggregate(), or a
+		 *   grouped query read as records) are refused, because their rows cannot be cleaned;
+		 * - getPage() returns a page with a null cursor, for the same reason.
+		 *
+		 * A filter in your own Evaluable, on a path through a parent such as `Parent__r.Email__c`, or inside a function
+		 * is not checked. Its rows can tell the user something about that field, so do not filter or sort on a field the
+		 * user cannot read that way.
+		 *
+		 * To read a locator, a cursor or totals without sharing, add withSystemMode(). withSystemMode() also turns off
+		 * the object and field permission checks for the read. With the `UserModeQueries_Enabled` flag off, a read runs
+		 * in system mode, so nothing is checked, as for any read.
 		 *
 		 * @return Builder for chaining
 		 *
@@ -4433,14 +4804,24 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
+		 * // Reads every open case, whoever owns it. Fields the user cannot read are removed from the rows.
+		 * List<Case> openCases = QRY_Builder.selectFrom(Case.SObjectType)
+		 *     .condition(Case.IsClosed).equals(false)
 		 *     .bypassSharing()
 		 *     .toList();
+		 * ```
+		 * ```apex
+		 * // A batch job's locator needs withSystemMode() too, which also turns off the field checks.
+		 * Database.QueryLocator locator = QRY_Builder.selectFrom(Case.SObjectType)
+		 *     .withSystemMode()
+		 *     .bypassSharing()
+		 *     .toQueryLocator();
 		 * ```
 		 */
 		global Builder bypassSharing()
 		{
 			bypassSharingInternal();
+			isAuditedSharingBypass = true;
 			auditQueue.queueSharing();
 			return this;
 		}
@@ -4465,6 +4846,7 @@ global inherited sharing class QRY_Builder
 		public Builder bypassSharingInternal()
 		{
 			sharingEnforced = false;
+			isAuditedSharingBypass = false;
 			return this;
 		}
 
@@ -4473,7 +4855,9 @@ global inherited sharing class QRY_Builder
 		 * withCache(UTIL_Cache.Scope.AUTO, ttlSeconds); a null one requests no caching. A user-mode read is kept
 		 * in memory for this transaction. A system-mode read that leaves the sharing setting to the
 		 * calling class is not cached, because the cache cannot tell one calling class's sharing from another's;
-		 * to cache a system-mode read, state the setting with withSharing() or bypassSharing().
+		 * to cache a system-mode read, state the setting with withSharing() or bypassSharing(). A read with
+		 * bypassSharing() alone under user mode is cached as a system-mode read, and the fields each running user cannot
+		 * read are removed from the rows when they are returned.
 		 *
 		 * @param ttlSeconds Time-to-live in seconds for Platform Cache; ignored in memory; null requests no caching
 		 *
@@ -4503,7 +4887,9 @@ global inherited sharing class QRY_Builder
 		 * durable storage that is safe for this read when it runs, Platform Cache for a system-mode read where a
 		 * partition keeps it, and memory for this transaction otherwise. A user-mode read is only ever kept in
 		 * memory for this transaction. A system-mode read whose sharing is left to the calling class is not cached;
-		 * state it with withSharing() or bypassSharing(). The last caching call on a builder wins.
+		 * state it with withSharing() or bypassSharing(). A read with bypassSharing() alone under user mode is cached
+		 * as a system-mode read, and the fields each running user cannot read are removed from the rows when they are
+		 * returned. The last caching call on a builder wins.
 		 *
 		 * @param scope Where results may be kept; null means no caching
 		 * @param ttlSeconds Time-to-live in seconds for Platform Cache; ignored in memory; null uses the default
@@ -4662,13 +5048,14 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Starts a WITH DATA CATEGORY filter for the specified data category group.
+		 * @description Starts a WITH DATA CATEGORY filter for the specified data category group. Text that comes from a page or
+		 * a user must first be matched to a group through a list of names you allow.
 		 *
-		 * @param groupName The data category group API name
+		 * @param groupName The data category group API name, such as Geography__c
 		 *
 		 * @return DataCategoryBuilder for operator selection
 		 *
-		 * @throws IllegalArgumentException if groupName is blank
+		 * @throws IllegalArgumentException if groupName is blank, or is not one name
 		 *
 		 * @since 1.0
 		 *
@@ -4688,11 +5075,14 @@ global inherited sharing class QRY_Builder
 			{
 				throw new IllegalArgumentException('Data category group name cannot be blank.');
 			}
+			QRY_Generator.validateFieldPath(groupName, 'withDataCategory');
 			return new DataCategoryBuilder(this, groupName);
 		}
 
 		/**
-		 * @description Suppresses performance logging for this query.
+		 * @description Stops this query from writing a performance log entry, even when it is slow. Use it for a query you
+		 * expect to be slow, so it does not fill the logs. The last of suppressPerformanceLogging, forcePerformanceLogging and
+		 * logPerformanceIfSlowerThan called on the builder is the one that applies.
 		 *
 		 * @return Builder for chaining
 		 *
@@ -4922,7 +5312,7 @@ global inherited sharing class QRY_Builder
 			parameters.objectType = objectType;
 			parameters.queryString = useLiterals ? generator.toSoql() : generator.toSoql(registry);
 			parameters.bindMap = useLiterals ? new Map<String, Object>() : registry.getMap();
-			parameters.userMode = userModeEnabled;
+			parameters.userMode = isUserModeRead();
 			parameters.enforceSharing = sharingEnforced;
 			parameters.limitCount = maxRecords;
 			parameters.cacheTTL = cacheTTL;
@@ -4935,9 +5325,229 @@ global inherited sharing class QRY_Builder
 			parameters.forcePerformanceLogging = forcePerformanceLog;
 			parameters.customPerformanceThresholdMs = performanceThresholdMs;
 			parameters.whereCondition = effectiveCondition;
-			parameters.orderByFields = this.orderByFields;
-			parameters.aggregateQuery = aggregateType != null || !aggregateSelections.isEmpty() || !groupByFields.isEmpty();
+			parameters.orderByFields = orderByFields;
+			parameters.aggregateQuery = isAggregateQuery();
 			return parameters;
+		}
+
+		/**
+		 * @description Checks whether this query is an aggregate query: one with aggregate functions or a GROUP BY.
+		 *
+		 * @return True when the query has an aggregate function or a GROUP BY.
+		 */
+		private Boolean isAggregateQuery()
+		{
+			return aggregateType != null || !aggregateSelections.isEmpty() || !groupByFields.isEmpty();
+		}
+
+		/**
+		 * @description Checks whether this read ignores record sharing but keeps the user's object and field checks. That
+		 * is the case when the last sharing call was the audited bypassSharing() and the read would otherwise run in
+		 * USER_MODE, because of the `UserModeQueries_Enabled` flag or withUserMode(). Such a read runs in SYSTEM_MODE
+		 * without sharing. Before it runs, the builder checks object read and the field names it holds, and afterwards it
+		 * removes the fields the user cannot read from the rows. After withSystemMode(), or with the flag off, the read
+		 * already skips those checks, so nothing changes.
+		 *
+		 * @return True when the read ignores record sharing and keeps the user's object and field checks.
+		 */
+		private Boolean shouldKeepChecksWithoutSharing()
+		{
+			return isAuditedSharingBypass && sharingEnforced == false && userModeEnabled;
+		}
+
+		/**
+		 * @description Checks whether the query runs in USER_MODE. It is the caller's own choice, except for a read that
+		 * ignores record sharing and keeps the checks in this class: that read runs in SYSTEM_MODE.
+		 *
+		 * @return True when the query runs in USER_MODE.
+		 */
+		private Boolean isUserModeRead()
+		{
+			return userModeEnabled && !shouldKeepChecksWithoutSharing();
+		}
+
+		/**
+		 * @description Refuses a read that ignores record sharing with bypassSharing() alone when it would show the
+		 * running user something user mode hides. It does nothing for any other read. The checks run in this order, before
+		 * any query and before any audit entry:
+		 * - the user cannot read the object;
+		 * - the read is toQueryLocator(), toCursor() or an aggregate query, whose rows the builder cannot clean;
+		 * - a filter or a sort uses a field of the queried object that the user cannot read;
+		 * - an inner query of the read, which is a query inside isIn() or notIn() or a child query added with
+		 * subselect(), reads an object the user cannot read, or filters or sorts on a field of its own object that the
+		 * user cannot read. A query inside isIn() or notIn() is also refused when it selects a field the user cannot
+		 * read, because the values of that field decide which rows come back. The inner queries of an inner query are
+		 * checked the same way.
+		 *
+		 * Only filters built from field names are checked, inside groups and NOT conditions too. A filter in another
+		 * kind of condition, such as your own Evaluable, is not checked.
+		 *
+		 * @param methodName The name of the method the caller called, shown in the message.
+		 *
+		 * @throws QueryException When the running user cannot read the object, or the object of an inner query.
+		 * @throws UTIL_Exceptions.IllegalStateException When the read is a locator, a cursor or an aggregate query, or when
+		 * a filter or sort uses a field the running user cannot read.
+		 */
+		private void refuseReadThatCannotKeepChecks(String methodName)
+		{
+			if(!shouldKeepChecksWithoutSharing())
+			{
+				return;
+			}
+
+			refuseObjectTheUserCannotRead(objectType);
+
+			if(methodName == METHOD_TO_QUERY_LOCATOR || methodName == METHOD_TO_CURSOR || isAggregateQuery())
+			{
+				throw new UTIL_Exceptions.IllegalStateException(String.format(System.Label.QueryBuilder_BypassSharingRead_NeedsSystemMode,
+						new List<String> {methodName}));
+			}
+
+			refuseFilterOrSortTheUserCannotRead();
+		}
+
+		/**
+		 * @description Refuses the read when the running user cannot read the object. It asks the platform each time,
+		 * so the answer is right inside System.runAs too.
+		 *
+		 * @param queriedType The object a query or an inner query reads.
+		 *
+		 * @throws QueryException When the running user cannot read the object.
+		 */
+		private void refuseObjectTheUserCannotRead(SObjectType queriedType)
+		{
+			if(!UTIL_SObjectDescribe.isObjectAccessible(queriedType))
+			{
+				throw new QueryException(String.format(System.Label.QueryBuilder_BypassSharingObject_NotReadable,
+						new List<String> {UTIL_SObjectDescribe.getObjectNameFromType(queriedType)}));
+			}
+		}
+
+		/**
+		 * @description Refuses the read when this query, or one of its inner queries, filters or sorts on a field the
+		 * running user cannot read. Each query is checked against its own object. The inner queries are the queries
+		 * inside isIn() and notIn() conditions, and the child queries added with subselect(); the object of each one
+		 * must be readable too.
+		 *
+		 * @throws QueryException When the running user cannot read the object of an inner query.
+		 * @throws UTIL_Exceptions.IllegalStateException When a filter or sort uses a field the running user cannot read.
+		 */
+		private void refuseFilterOrSortTheUserCannotRead()
+		{
+			Set<String> fieldNames = new Set<String>();
+			List<QRY_Generator> innerQueries = new List<QRY_Generator>();
+			collectConditionFieldNames(buildEffectiveCondition(), fieldNames, innerQueries);
+			for(QRY_Generator.OrderBy orderBy : orderByFields)
+			{
+				fieldNames.add(orderBy.getField());
+			}
+			refuseFieldTheUserCannotRead(objectType, fieldNames);
+			refuseInnerQueryTheUserCannotRead(innerQueries);
+
+			for(Builder childQuery : childQueries)
+			{
+				refuseObjectTheUserCannotRead(childQuery.objectType);
+				childQuery.refuseFilterOrSortTheUserCannotRead();
+			}
+		}
+
+		/**
+		 * @description Refuses the read when a query inside an isIn() or notIn() condition reads an object the running user
+		 * cannot read, or filters on or selects a field of that object the user cannot read. The selected field is checked
+		 * because its values decide which outer rows come back. A query found inside one of these queries is added to the
+		 * list and checked the same way.
+		 *
+		 * @param innerQueries The queries found inside isIn() and notIn() conditions. The list grows while it is read.
+		 *
+		 * @throws QueryException When the running user cannot read the object of one of the queries.
+		 * @throws UTIL_Exceptions.IllegalStateException When one of the queries filters on or selects a field the running
+		 * user cannot read.
+		 */
+		private void refuseInnerQueryTheUserCannotRead(List<QRY_Generator> innerQueries)
+		{
+			for(Integer index = 0; index < innerQueries.size(); index++)
+			{
+				QRY_Generator innerQuery = innerQueries[index];
+				SObjectType innerType = UTIL_SObjectDescribe.getSObjectTypeByName(innerQuery.getObjectName());
+				refuseObjectTheUserCannotRead(innerType);
+
+				Set<String> fieldNames = innerQuery.getSelectedFieldNames();
+				collectConditionFieldNames(innerQuery.getWhereCondition(), fieldNames, innerQueries);
+				refuseFieldTheUserCannotRead(innerType, fieldNames);
+			}
+		}
+
+		/**
+		 * @description Adds the field names of a condition to a list. It reads the field name of a condition on one field
+		 * or on a set of values, and looks inside groups of conditions and NOT conditions. It skips every other kind of
+		 * condition. When a condition compares a field with the values of another query, as isIn() and notIn() can, that
+		 * query is added to the list of inner queries.
+		 *
+		 * @param condition The condition to read; null adds nothing.
+		 * @param fieldNames The set the field names are added to.
+		 * @param innerQueries The list the queries inside isIn() and notIn() conditions are added to.
+		 */
+		private void collectConditionFieldNames(QRY_Condition.Evaluable condition, Set<String> fieldNames, List<QRY_Generator> innerQueries)
+		{
+			if(condition instanceof QRY_Condition.FieldCondition)
+			{
+				fieldNames.add(((QRY_Condition.FieldCondition)condition).field);
+			}
+			else if(condition instanceof QRY_Condition.SetCondition)
+			{
+				QRY_Condition.SetCondition setCondition = (QRY_Condition.SetCondition)condition;
+				fieldNames.add(setCondition.field);
+				if(setCondition.builder != null)
+				{
+					innerQueries.add(setCondition.builder);
+				}
+			}
+			else if(condition instanceof QRY_Condition.NotCondition)
+			{
+				collectConditionFieldNames(((QRY_Condition.NotCondition)condition).condition, fieldNames, innerQueries);
+			}
+			else if(condition instanceof QRY_Condition.ConditionGroup)
+			{
+				for(QRY_Condition.Evaluable member : ((QRY_Condition.ConditionGroup)condition).conditions)
+				{
+					collectConditionFieldNames(member, fieldNames, innerQueries);
+				}
+			}
+		}
+
+		/**
+		 * @description Refuses the read when one of the names is a field of the queried object that the running user
+		 * cannot read. Each name is read as the query reads it. A sort text may hold several items joined by commas:
+		 * each item is trimmed, and ASC, DESC, NULLS FIRST and NULLS LAST after the field are left out. A field written
+		 * after the name of the object and a dot, such as Account.Phone on an Account query, is the field itself, so the
+		 * object name is left out too. A name that is not a field of this object, such as a path through a parent or a
+		 * function, is skipped.
+		 *
+		 * @param queriedType The object the query reads.
+		 * @param fieldNames The field names and sort texts the query filters or sorts on.
+		 *
+		 * @throws UTIL_Exceptions.IllegalStateException When the running user cannot read one of the fields.
+		 */
+		private void refuseFieldTheUserCannotRead(SObjectType queriedType, Set<String> fieldNames)
+		{
+			UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(queriedType);
+			DescribeSObjectResult objectDescribe = describe.getDescribe();
+			String objectPrefix = objectDescribe.getName() + UTIL_String.DOT;
+			String localObjectPrefix = objectDescribe.getLocalName() + UTIL_String.DOT;
+			for(String fieldText : fieldNames)
+			{
+				for(String sortItem : (fieldText ?? UTIL_String.EMPTY).split(UTIL_String.COMMA))
+				{
+					Matcher itemMatcher = SORT_ITEM_FIELD_PATTERN.matcher(sortItem);
+					String fieldName = itemMatcher.matches() ? itemMatcher.group(1) : UTIL_String.EMPTY;
+					SObjectField field = describe.getField(fieldName.removeStartIgnoreCase(objectPrefix).removeStartIgnoreCase(localObjectPrefix));
+					if(field != null && !UTIL_SObjectDescribe.isFieldAccessible(field))
+					{
+						throw new UTIL_Exceptions.IllegalStateException(String.format(System.Label.QueryBuilder_BypassSharingField_NotReadable,
+								new List<String> {UTIL_SObjectDescribe.getCachedFieldName(field)}));
+					}
+				}
+			}
 		}
 
 		/**
@@ -4964,6 +5574,14 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return List<SObject> results
 		 *
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
+		 * object of a query inside isIn(), notIn() or subselect().
+		 * @throws UTIL_Exceptions.IllegalStateException In a test, when the query is an aggregate query and rows
+		 * registered with TST_Mock.registerAggregateRows answer it. Read an aggregate query with toAggregateList(). The
+		 * other methods that return records, such as getFirst(), getPage() and asMap(), throw in the same case.
+		 * @throws UTIL_Exceptions.IllegalStateException With bypassSharing() alone, under user mode, when the query is an
+		 * aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode().
+		 *
 		 * @since 1.0
 		 *
 		 * @example
@@ -4975,16 +5593,82 @@ global inherited sharing class QRY_Builder
 		 */
 		global List<SObject> toList()
 		{
-			QRY_BindRegistry registry = new QRY_BindRegistry();
-			QRY_Engine.QueryParameters params = buildParameters(registry);
-			QRY_Engine.QueryResult result = QRY_Engine.execute(params);
-			lastResultCached = result.isCached;
+			refuseReadThatCannotKeepChecks(METHOD_TO_LIST);
+			return readRecordList();
+		}
 
-			List<SObject> records = result.records;
-			if(stripInaccessibleEnabled && !records.isEmpty())
+		/**
+		 * @description Runs the query and returns its records, without the fields the running user cannot read when
+		 * that is asked for. toList() and the other record reads use it after their own check.
+		 *
+		 * @return The records of the query.
+		 */
+		private List<SObject> readRecordList()
+		{
+			return removeInaccessibleFields(readRecords(runQuery()));
+		}
+
+		/**
+		 * @description Runs the query through QRY_Engine.execute and notes whether the result came from the cache, for
+		 * isCached().
+		 *
+		 * @return The result of the query.
+		 */
+		private QRY_Engine.QueryResult runQuery()
+		{
+			QRY_BindRegistry registry = new QRY_BindRegistry();
+			QRY_Engine.QueryResult result = QRY_Engine.execute(buildParameters(registry));
+			lastResultCached = result.isCached;
+			return result;
+		}
+
+		/**
+		 * @description Returns the records of a query result. Every method of this class that reads records gets them
+		 * here. It refuses a result that registered aggregate rows answered: such a result holds no records, while a
+		 * live run of the same query would return AggregateResult rows, so returning nothing would hide the mistake.
+		 *
+		 * @param result The result of the query.
+		 *
+		 * @return The records of the result.
+		 *
+		 * @throws UTIL_Exceptions.IllegalStateException When registered aggregate rows answered the query. Read such a
+		 * query with toAggregateList() or getFirstAggregate().
+		 */
+		private List<SObject> readRecords(QRY_Engine.QueryResult result)
+		{
+			if(result.aggregateRows != null)
 			{
-				SObjectAccessDecision decision = Security.stripInaccessible(AccessType.READABLE, records);
-				records = decision.getRecords();
+				throw newRecordsReadFromAggregateMockException();
+			}
+			return result.records;
+		}
+
+		/**
+		 * @description Makes the error thrown when a record read meets an aggregate query that registered aggregate
+		 * rows answer. readRecords and getRandomItems both throw it, so the message is written once.
+		 *
+		 * @return The error, which names the object type and says to read the rows with toAggregateList().
+		 */
+		private UTIL_Exceptions.IllegalStateException newRecordsReadFromAggregateMockException()
+		{
+			return new UTIL_Exceptions.IllegalStateException(String.format(RECORDS_READ_FROM_AGGREGATE_MOCK_MESSAGE, new List<String> {String.valueOf(objectType)}));
+		}
+
+		/**
+		 * @description Removes the fields the running user cannot read from the records, when stripInaccessible()
+		 * is on, or when the read ignores record sharing with bypassSharing() alone and keeps the user's checks.
+		 * Otherwise it returns the records unchanged. It runs on every answer: the database, the cache or a test mock.
+		 * The caller's stripInaccessible() choice is not changed.
+		 *
+		 * @param records The records read by the query.
+		 *
+		 * @return The records, with unreadable fields removed when that is asked for.
+		 */
+		private List<SObject> removeInaccessibleFields(List<SObject> records)
+		{
+			if((stripInaccessibleEnabled || shouldKeepChecksWithoutSharing()) && !records.isEmpty())
+			{
+				return Security.stripInaccessible(AccessType.READABLE, records).getRecords();
 			}
 			return records;
 		}
@@ -4993,6 +5677,11 @@ global inherited sharing class QRY_Builder
 		 * @description Returns a Database.QueryLocator for batch processing.
 		 *
 		 * @return Database.QueryLocator
+		 *
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
+		 * object of a query inside isIn(), notIn() or subselect().
+		 * @throws UTIL_Exceptions.IllegalStateException With bypassSharing() alone, under user mode. A batch job reads
+		 * the rows later, so the fields the running user cannot read cannot be removed. Add withSystemMode().
 		 *
 		 * @since 1.0
 		 *
@@ -5005,6 +5694,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global Database.QueryLocator toQueryLocator()
 		{
+			refuseReadThatCannotKeepChecks(METHOD_TO_QUERY_LOCATOR);
 			QRY_BindRegistry registry = new QRY_BindRegistry();
 			QRY_Engine.QueryParameters params = buildParameters(registry);
 			return QRY_Engine.getQueryLocator(params);
@@ -5013,11 +5703,16 @@ global inherited sharing class QRY_Builder
 		/**
 		 * @description Returns a Database.Cursor for reading a large set of records in parts. The cursor is opened
 		 * with the sharing this builder was set up with, or with the caller's own sharing when none is set. So a cursor
-		 * built with bypassSharing() fetches every row the query matches, whatever the record sharing, on every later
+		 * built with withSystemMode() and bypassSharing() fetches every row the query matches, whatever the record sharing, on every later
 		 * fetch in this transaction or a later one. An exception registered through TST_Mock.throwsException() is
 		 * thrown from this call exactly as it is from every other method that runs the query.
 		 *
 		 * @return Database.Cursor
+		 *
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
+		 * object of a query inside isIn(), notIn() or subselect().
+		 * @throws UTIL_Exceptions.IllegalStateException With bypassSharing() alone, under user mode. The rows are fetched
+		 * later, so the fields the running user cannot read cannot be removed. Add withSystemMode().
 		 *
 		 * @since 1.0
 		 *
@@ -5030,6 +5725,7 @@ global inherited sharing class QRY_Builder
 		 */
 		global Database.Cursor toCursor()
 		{
+			refuseReadThatCannotKeepChecks(METHOD_TO_CURSOR);
 			QRY_BindRegistry registry = new QRY_BindRegistry();
 			QRY_Engine.QueryParameters params = buildParameters(registry);
 			return QRY_Engine.getCursor(params);
@@ -5060,28 +5756,61 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Executes an aggregate query and returns results as typed AggregateRow wrappers.
-		 * Use with aggregate methods like count(), sum(), avg(), min(), max() and groupBy().
+		 * Use with aggregate methods like count(field, alias), sum(), avg(), min(), max() and groupBy(). The count() that
+		 * ends a query and returns a number is not an aggregate read.
+		 *
+		 * In a test, rows registered with TST_Mock.registerAggregateRows or QRY_Builder.setAggregateMock answer the
+		 * query instead of the database.
 		 *
 		 * @return List of AggregateRow wrappers
+		 *
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
+		 * object of a query inside isIn(), notIn() or subselect().
+		 * @throws UTIL_Exceptions.IllegalStateException In a test, when record mocks are registered for the object type
+		 * but no aggregate rows are. Record mocks never answer an aggregate query. Also with bypassSharing() alone, under
+		 * user mode: totals and group values cannot have the fields the running user cannot read removed. Add
+		 * withSystemMode().
 		 *
 		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
 		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Account.SObjectType)
-		 *     .count('Id')
-		 *     .groupBy('Industry')
+		 *     .count(Account.Id, 'total')
+		 *     .groupBy(Account.Industry)
 		 *     .toAggregateList();
+		 * Map<String, Integer> totalByIndustry = new Map<String, Integer>();
 		 * for(QRY_Builder.AggregateRow row : rows)
 		 * {
-		 *     System.debug(row.getString('Industry') + ': ' + row.getInteger('expr0'));
+		 *     totalByIndustry.put(row.getString('Industry'), row.getInteger('total'));
 		 * }
 		 * ```
 		 */
 		global List<AggregateRow> toAggregateList()
 		{
+			refuseReadThatCannotKeepChecks(METHOD_TO_AGGREGATE_LIST);
+			return readAggregateRows();
+		}
+
+		/**
+		 * @description Runs the aggregate query and returns its rows as AggregateRow wrappers. toAggregateList() and
+		 * getFirstAggregate() use it after their own check.
+		 *
+		 * @return The rows of the aggregate query.
+		 */
+		private List<AggregateRow> readAggregateRows()
+		{
+			QRY_Engine.QueryResult result = runQuery();
 			List<AggregateRow> rows = new List<AggregateRow>();
-			for(SObject record : toList())
+			if(result.aggregateRows != null)
+			{
+				for(Map<String, Object> values : result.aggregateRows)
+				{
+					rows.add(new AggregateRow(values));
+				}
+				return rows;
+			}
+			for(SObject record : removeInaccessibleFields(readRecords(result)))
 			{
 				rows.add(new AggregateRow((AggregateResult)record));
 			}
@@ -5094,19 +5823,25 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Single AggregateRow or null if no results
 		 *
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
+		 * object of a query inside isIn(), notIn() or subselect().
+		 * @throws UTIL_Exceptions.IllegalStateException With bypassSharing() alone, under user mode: totals and group
+		 * values cannot have the fields the running user cannot read removed. Add withSystemMode().
+		 *
 		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
 		 * QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
-		 *     .sum('Amount')
+		 *     .sum(Opportunity.Amount, 'totalAmount')
 		 *     .getFirstAggregate();
-		 * Decimal totalAmount = row.getDecimal('expr0');
+		 * Decimal totalAmount = row.getDecimal('totalAmount');
 		 * ```
 		 */
 		global AggregateRow getFirstAggregate()
 		{
-			List<AggregateRow> rows = toAggregateList();
+			refuseReadThatCannotKeepChecks(METHOD_GET_FIRST_AGGREGATE);
+			List<AggregateRow> rows = readAggregateRows();
 			return rows.isEmpty() ? null : rows[0];
 		}
 
@@ -5138,9 +5873,19 @@ global inherited sharing class QRY_Builder
 		 *
 		 * When mocks are active, falls back to standard SOQL OFFSET (capped at 2,000).
 		 *
+		 * With stripInaccessible() on, the fields the running user cannot read are removed from the records, as in
+		 * toList().
+		 *
 		 * @param randomCount Maximum number of random records to return
 		 *
 		 * @return List of random SObjects
+		 *
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
+		 * object of a query inside isIn(), notIn() or subselect().
+		 * @throws UTIL_Exceptions.IllegalStateException In a test, when the query is an aggregate query and aggregate
+		 * rows are registered for the object type. Read such a query with toAggregateList(). Also with bypassSharing()
+		 * alone, under user mode, when the query is an aggregate query, or when it filters or sorts on a field the running
+		 * user cannot read. Add withSystemMode().
 		 *
 		 * @since 1.0
 		 *
@@ -5158,7 +5903,14 @@ global inherited sharing class QRY_Builder
 				return new List<SObject>();
 			}
 
-			Integer totalCount = count();
+			refuseReadThatCannotKeepChecks(METHOD_GET_RANDOM_ITEMS);
+
+			if(isAggregateQuery() && QRY_Engine.hasAggregateMock(objectType))
+			{
+				throw newRecordsReadFromAggregateMockException();
+			}
+
+			Integer totalCount = countMatchingRecords();
 			if(totalCount == 0)
 			{
 				return new List<SObject>();
@@ -5193,8 +5945,7 @@ global inherited sharing class QRY_Builder
 			params.pageSize = randomCount;
 			params.limitCount = null;
 
-			QRY_Engine.QueryResult result = QRY_Engine.execute(params);
-			return result.records;
+			return removeInaccessibleFields(readRecords(QRY_Engine.execute(params)));
 		}
 
 		/**
@@ -5214,7 +5965,7 @@ global inherited sharing class QRY_Builder
 			maxRecords = randomCount;
 			offsetCount = randomOffset;
 
-			List<SObject> results = toList();
+			List<SObject> results = readRecordList();
 
 			maxRecords = originalLimit;
 			offsetCount = originalOffset;
@@ -5227,6 +5978,11 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Integer count
 		 *
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
+		 * object of a query inside isIn(), notIn() or subselect().
+		 * @throws UTIL_Exceptions.IllegalStateException With bypassSharing() alone, under user mode, when the query is an
+		 * aggregate query, or when it filters on a field the running user cannot read. Add withSystemMode().
+		 *
 		 * @since 1.0
 		 *
 		 * @example
@@ -5237,6 +5993,18 @@ global inherited sharing class QRY_Builder
 		 * ```
 		 */
 		global Integer count()
+		{
+			refuseReadThatCannotKeepChecks(METHOD_COUNT);
+			return countMatchingRecords();
+		}
+
+		/**
+		 * @description Counts the records that match the query criteria. count() and getRandomItems use it after their
+		 * own check.
+		 *
+		 * @return The number of matching records.
+		 */
+		private Integer countMatchingRecords()
 		{
 			auditQueue.recordOperation(String.valueOf(objectType), UTIL_BypassAudit.OPERATION_QUERY, null);
 			auditQueue.flush();
@@ -5254,7 +6022,7 @@ global inherited sharing class QRY_Builder
 			params.objectType = objectType;
 			params.queryString = gen.toSoql(registry);
 			params.bindMap = registry.getMap();
-			params.userMode = userModeEnabled;
+			params.userMode = isUserModeRead();
 			params.enforceSharing = sharingEnforced;
 			params.suppressPerformanceLogging = suppressPerformanceLog;
 			params.forcePerformanceLogging = forcePerformanceLog;
@@ -5358,15 +6126,23 @@ global inherited sharing class QRY_Builder
 		 *
 		 * A page may hold at most 2,000 records, which is all a cursor will hand back in one fetch.
 		 *
+		 * With bypassSharing() alone, under user mode, the page has no cursor: `cursor` is null. Rows read later from
+		 * that cursor would keep the fields the user cannot read, so it is not handed back. `records`, `totalRecords`
+		 * and the paging flags stay correct. Ask for each later page with getPage().
+		 *
 		 * @param requestedPageNumber The page number to retrieve (1-based)
 		 * @param requestedPageSize Number of records per page, from 1 to 2000
 		 *
 		 * @return Page containing records and pagination metadata
 		 *
 		 * @throws IllegalArgumentException When the page number is below 1, or the page size is outside 1 to 2000
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
+		 * object of a query inside isIn(), notIn() or subselect().
 		 * @throws UTIL_Exceptions.IllegalStateException When the transaction has used up its cursors (about fifty
 		 * paged reads in one transaction that could not use a pagination cursor), and the requested page also starts
 		 * past the 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query.
+		 * Also with bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters or sorts
+		 * on a field the running user cannot read. Add withSystemMode().
 		 *
 		 * @since 1.0
 		 *
@@ -5388,6 +6164,7 @@ global inherited sharing class QRY_Builder
 			{
 				throw new IllegalArgumentException('Page size must be between 1 and ' + MAXIMUM_CURSOR_FETCH_ROWS + ' records.');
 			}
+			refuseReadThatCannotKeepChecks(METHOD_GET_PAGE);
 
 			QRY_BindRegistry registry = new QRY_BindRegistry();
 			QRY_Engine.QueryParameters params = buildParameters(registry);
@@ -5401,18 +6178,12 @@ global inherited sharing class QRY_Builder
 			QRY_Engine.QueryResult result = QRY_Engine.execute(params);
 
 			QueryPage page = new QueryPage();
-			page.records = result.records;
+			page.records = removeInaccessibleFields(readRecords(result));
 			page.totalRecords = result.totalRecords;
 			page.pageNumber = requestedPageNumber;
 			page.pageSize = requestedPageSize;
 			page.deletedRecords = result.deletedRecords;
-			page.cursor = result.cursor;
-
-			if(stripInaccessibleEnabled && !page.records.isEmpty())
-			{
-				SObjectAccessDecision decision = Security.stripInaccessible(AccessType.READABLE, page.records);
-				page.records = decision.getRecords();
-			}
+			page.cursor = shouldKeepChecksWithoutSharing() ? null : result.cursor;
 
 			return page;
 		}
@@ -5421,6 +6192,11 @@ global inherited sharing class QRY_Builder
 		 * @description Checks whether any records exist matching the query criteria.
 		 *
 		 * @return Boolean true if at least one record exists
+		 *
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
+		 * object of a query inside isIn(), notIn() or subselect().
+		 * @throws UTIL_Exceptions.IllegalStateException With bypassSharing() alone, under user mode, when the query is an
+		 * aggregate query, or when it filters on a field the running user cannot read. Add withSystemMode().
 		 *
 		 * @since 1.0
 		 *
@@ -5816,7 +6592,7 @@ global inherited sharing class QRY_Builder
 	private class ConditionEntry
 	{
 		/**
-		 * @description The condition.
+		 * @description One condition of the WHERE clause, joined to the conditions before it as isOr says.
 		 */
 		public QRY_Condition.Evaluable condition;
 
@@ -5826,7 +6602,8 @@ global inherited sharing class QRY_Builder
 		public Boolean isOr;
 
 		/**
-		 * @description Constructor.
+		 * @description Pairs a condition with how it joins the conditions before it: with OR when isOrCondition is true, which
+		 * orCondition asks for, and with AND otherwise.
 		 *
 		 * @param cond The condition
 		 * @param isOrCondition Whether this is an OR condition
@@ -5864,14 +6641,18 @@ global inherited sharing class QRY_Builder
 		public String alias;
 
 		/**
-		 * @description Constructor.
+		 * @description Holds the three values as given. The builder reads the field name from the field token and checks the
+		 * alias before it calls this. The field name is checked here too, so it must be one field path.
 		 *
 		 * @param aggregateFunction The aggregate function to apply
 		 * @param fieldName The describe-derived field API name
 		 * @param alias The validated result alias
+		 *
+		 * @throws IllegalArgumentException if the field name is not blank and is not one field path
 		 */
 		public AggregateSelection(QRY_Generator.Aggregate aggregateFunction, String fieldName, String alias)
 		{
+			QRY_Generator.validateFieldPath(fieldName, 'AggregateSelection');
 			this.aggregateFunction = aggregateFunction;
 			this.fieldName = fieldName;
 			this.alias = alias;
@@ -5885,7 +6666,8 @@ global inherited sharing class QRY_Builder
 	private class DataCategoryEntry
 	{
 		/**
-		 * @description The data category group name.
+		 * @description The API name of the data category group, as the caller wrote it. It goes into the query unchanged; the
+		 * builder keys its filters by this name in lower case.
 		 */
 		public String groupName;
 
@@ -5900,7 +6682,9 @@ global inherited sharing class QRY_Builder
 		public List<String> categoryNames;
 
 		/**
-		 * @description Constructor.
+		 * @description Holds the group, the operator and a copy of the categories. DataCategoryBuilder checks that the list of
+		 * categories is not empty and that the group has no filter yet before it calls this. The copy means that a name the
+		 * caller adds to the list after the check never reaches the query.
 		 *
 		 * @param categoryGroup The data category group name
 		 * @param op The filtering operator
@@ -5910,7 +6694,7 @@ global inherited sharing class QRY_Builder
 		{
 			groupName = categoryGroup;
 			operator = op;
-			categoryNames = categories;
+			categoryNames = categories.clone();
 		}
 	}
 }

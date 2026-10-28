@@ -17,7 +17,7 @@
  *
  * @group Query Infrastructure
  *
- * @date June 2026
+ * @date June 2026, October 2026
  *
  * @since 1.1
  *
@@ -63,6 +63,8 @@ global inherited sharing class QRY_Function
 	 * field renders one identical expression in WHERE and ORDER BY) and rendering the SOQL
 	 * DISTANCE(field, GEOLOCATION(lat,lon), 'unit') form. Each named factory passes its own hardcoded
 	 * unit, so the supplied literal is always one SOQL accepts and no runtime validation is needed.
+	 * Each number is written as plain digits, such as 0.0000001 and never 1E-7, because SOQL does not
+	 * read the exponent form. A null number is written as null.
 	 *
 	 * @param field The geolocation or compound address field to measure distance from.
 	 * @param latitude The latitude of the reference point.
@@ -71,7 +73,8 @@ global inherited sharing class QRY_Function
 	 */
 	private QRY_Function(SObjectField field, Decimal latitude, Decimal longitude, String unit)
 	{
-		this.expression = 'DISTANCE(' + UTIL_SObjectDescribe.getCachedFieldName(field) + ', GEOLOCATION(' + latitude + ',' + longitude + '), \'' + unit + '\')';
+		expression = 'DISTANCE(' + UTIL_SObjectDescribe.getCachedFieldName(field) + ', GEOLOCATION(' + latitude?.toPlainString() + ',' + longitude?.toPlainString()
+				+ '), \'' + unit + '\')';
 	}
 
 	/**

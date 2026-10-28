@@ -20,7 +20,7 @@
  *
  * @date February 2026, October 2026
  */
-@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessivePublicCount,PMD.ExcessiveClassLength')
+@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessivePublicCount,PMD.ExcessiveClassLength,PMD.NcssCount,PMD.NcssTypeCount')
 public inherited sharing class QRY_Generator
 {
 	/**
@@ -28,6 +28,118 @@ public inherited sharing class QRY_Generator
 	 */
 	@TestVisible
 	private static final String FIELD_SEPARATOR = UTIL_String.COMMA + UTIL_String.SPACE;
+
+	/**
+	 * @description The rule for a field path: a name that starts with a letter and holds only letters, digits and
+	 * underscores, such as Name or abc__Field__c. Names may be joined by dots to reach a parent record, such as
+	 * Account.Owner.Name. A space, comma, bracket or quote never matches, so the text cannot add to the query.
+	 */
+	private static final String FIELD_PATH_RULE = '[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)*';
+
+	/**
+	 * @description The rule for the opening round bracket of a function. Spaces may follow it, as in DISTANCE( Loc__c, ...).
+	 */
+	private static final String FUNCTION_OPEN_RULE = '\\(\\s*';
+
+	/**
+	 * @description The rule for the closing round bracket of a function. Spaces may come before it.
+	 */
+	private static final String FUNCTION_CLOSE_RULE = '\\s*\\)';
+
+	/**
+	 * @description The rule for convertTimezone around a field path, such as convertTimezone(CreatedDate). It is allowed
+	 * only inside a date function, where it makes the date function use the time zone of the running user.
+	 */
+	private static final String CONVERT_TIMEZONE_RULE = 'convertTimezone' + FUNCTION_OPEN_RULE + FIELD_PATH_RULE + FUNCTION_CLOSE_RULE;
+
+	/**
+	 * @description The rule for a date function around a field path, such as CALENDAR_YEAR(CreatedDate), or around
+	 * convertTimezone, such as HOUR_IN_DAY(convertTimezone(CreatedDate)). These are the date functions QRY_Function writes.
+	 */
+	private static final String DATE_FUNCTION_RULE = '(?:CALENDAR_MONTH|CALENDAR_QUARTER|CALENDAR_YEAR|DAY_IN_MONTH|DAY_IN_WEEK|DAY_IN_YEAR|DAY_ONLY'
+			+ '|FISCAL_MONTH|FISCAL_QUARTER|FISCAL_YEAR|HOUR_IN_DAY|WEEK_IN_MONTH|WEEK_IN_YEAR)' + FUNCTION_OPEN_RULE
+			+ '(?:' + FIELD_PATH_RULE + '|' + CONVERT_TIMEZONE_RULE + ')' + FUNCTION_CLOSE_RULE;
+
+	/**
+	 * @description The rule for one number of a distance point: an optional minus sign, digits, an optional decimal part
+	 * and an optional exponent such as E-7. The word null is also allowed, because a missing number is written as null.
+	 */
+	private static final String COORDINATE_RULE = '(?:-?[0-9]+(?:\\.[0-9]+)?(?:[Ee][+-]?[0-9]+)?|null)';
+
+	/**
+	 * @description The rule for the distance function QRY_Function writes: DISTANCE, then in round brackets a field path,
+	 * GEOLOCATION with two numbers in round brackets, and the unit 'mi' or 'km'. For example:
+	 * DISTANCE(Location__c, GEOLOCATION(37.77,-122.41), 'mi').
+	 */
+	private static final String DISTANCE_RULE = 'DISTANCE' + FUNCTION_OPEN_RULE + FIELD_PATH_RULE + ',\\s*GEOLOCATION' + FUNCTION_OPEN_RULE + COORDINATE_RULE + ',\\s*'
+			+ COORDINATE_RULE + FUNCTION_CLOSE_RULE + ',\\s*\'(?:mi|km)\'' + FUNCTION_CLOSE_RULE;
+
+	/**
+	 * @description The rule for a field expression: a field path, a date function or a distance function.
+	 */
+	private static final String FIELD_EXPRESSION_RULE = '(?:' + FIELD_PATH_RULE + '|' + DATE_FUNCTION_RULE + '|' + DISTANCE_RULE + ')';
+
+	/**
+	 * @description The rule for an aggregate around a field path, such as SUM(Amount) or COUNT(Id): the text the builder
+	 * writes for a HAVING condition and for a sort by count.
+	 */
+	private static final String AGGREGATE_RULE = '(?:COUNT|COUNT_DISTINCT|SUM|AVG|MIN|MAX)' + FUNCTION_OPEN_RULE + FIELD_PATH_RULE + FUNCTION_CLOSE_RULE;
+
+	/**
+	 * @description The rule for toLabel around a field path, such as toLabel(Status), which compares or sorts by the
+	 * translated label of a picklist value.
+	 */
+	private static final String TO_LABEL_RULE = 'toLabel' + FUNCTION_OPEN_RULE + FIELD_PATH_RULE + FUNCTION_CLOSE_RULE;
+
+	/**
+	 * @description The rule for the field side of a WHERE or HAVING condition: a field expression, an aggregate or toLabel.
+	 */
+	private static final String CONDITION_FIELD_RULE = '(?:' + FIELD_EXPRESSION_RULE + '|' + AGGREGATE_RULE + '|' + TO_LABEL_RULE + ')';
+
+	/**
+	 * @description The rule for one sort item: the field side of a condition, then ASC or DESC if wanted, then NULLS FIRST
+	 * or NULLS LAST if wanted.
+	 */
+	private static final String SORT_ITEM_RULE = CONDITION_FIELD_RULE + '(?:\\s+(?:ASC|DESC))?(?:\\s+NULLS\\s+(?:FIRST|LAST))?';
+
+	/**
+	 * @description Finds a whole text that is one field path. Letter case does not matter.
+	 */
+	private static final Pattern FIELD_PATH_PATTERN = Pattern.compile('(?i)' + FIELD_PATH_RULE);
+
+	/**
+	 * @description Finds a whole text that is one field expression, with spaces before or after it if wanted. It checks one
+	 * text and each item of a group list. Letter case does not matter.
+	 */
+	private static final Pattern FIELD_EXPRESSION_PATTERN = Pattern.compile('(?i)\\s*' + FIELD_EXPRESSION_RULE + '\\s*');
+
+	/**
+	 * @description Finds a whole text that is the field side of one condition, with spaces before or after it if wanted. It
+	 * checks one text and the last item of a sort list that gets its direction from the caller. Letter case does not matter.
+	 */
+	private static final Pattern CONDITION_FIELD_PATTERN = Pattern.compile('(?i)\\s*' + CONDITION_FIELD_RULE + '\\s*');
+
+	/**
+	 * @description Finds a whole text that is one sort item, with spaces before or after it if wanted. It checks each item of
+	 * a sort list. Letter case does not matter.
+	 */
+	private static final Pattern SORT_ITEM_PATTERN = Pattern.compile('(?i)\\s*' + SORT_ITEM_RULE + '\\s*');
+
+	/**
+	 * @description The longest field text the checks read, and the longest item of a list. A field path reaches at most five
+	 * parent records, and each name has at most 40 characters, plus a namespace prefix of up to 15 characters and a suffix
+	 * such as __c. That is about 370 characters; a function around the path, a direction and a nulls order add less than
+	 * 100 more. A longer text is refused before a pattern reads it, because a pattern that reads a very long text can stop
+	 * the whole transaction with an error no code can catch.
+	 */
+	private static final Integer MAXIMUM_FIELD_TEXT_LENGTH = 500;
+
+	/**
+	 * @description The longest sort list or group list the checks read: 16,000 characters, 32 times the longest item. ORDER
+	 * BY takes at most 32 fields, and a real item is under 470 characters (see the field text limit above), so 32 real items
+	 * and the commas between them fit. A longer list is refused before it is split into items.
+	 */
+	private static final Integer MAXIMUM_FIELD_LIST_LENGTH = 32 * MAXIMUM_FIELD_TEXT_LENGTH;
 
 	/**
 	 * @description Enumeration of supported SOQL Aggregate functions.
@@ -182,7 +294,8 @@ public inherited sharing class QRY_Generator
 	private Boolean includeAllFields = false;
 
 	/**
-	 * @description The aggregate function to use.
+	 * @description The single aggregate the query selects, such as COUNT or SUM, set by selectCount and the other aggregate
+	 * methods. When it is set, or an aliased aggregate is added, the SELECT clause lists aggregates instead of fields.
 	 */
 	private Aggregate aggregateFunction;
 
@@ -286,12 +399,14 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description The WHERE condition.
+	 * @description The one condition the WHERE clause holds; a group of conditions is one AndCondition or OrCondition. Null
+	 * means the query has no WHERE clause.
 	 */
 	private QRY_Condition.Evaluable whereCondition;
 
 	/**
-	 * @description The HAVING condition.
+	 * @description The one condition the HAVING clause holds, which tests the aggregate of each group. Null means the query
+	 * has no HAVING clause.
 	 */
 	private QRY_Condition.Evaluable havingCondition;
 
@@ -327,7 +442,8 @@ public inherited sharing class QRY_Generator
 	private Boolean cubeMode = false;
 
 	/**
-	 * @description The USING SCOPE value.
+	 * @description Which set of records the query reads, written after FROM as USING SCOPE. Null means the query has no
+	 * USING SCOPE clause.
 	 */
 	private Scope scopeValue;
 
@@ -343,7 +459,8 @@ public inherited sharing class QRY_Generator
 	private final Set<Object> selectFields = new Set<Object>();
 
 	/**
-	 * @description Default constructor.
+	 * @description Creates an empty generator with no object. Call fromObject before toSoql, which throws a
+	 * ConfigurationException when no object is set.
 	 */
 	@SuppressWarnings('PMD.EmptyStatementBlock')
 	public QRY_Generator()
@@ -458,7 +575,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Sets the object to query.
+	 * @description Sets the object for the FROM clause from its token, by reading its API name from the describe cache. It
+	 * replaces any object set earlier.
 	 *
 	 * @param objectType The SObjectType.
 	 *
@@ -471,15 +589,19 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Sets the object to query.
+	 * @description Sets the object for the FROM clause by API name, used exactly as given. It replaces any object set
+	 * earlier. toSoql throws a ConfigurationException when the name is blank.
 	 *
-	 * @param objectApiName The object API name.
+	 * @param objectApiName The object API name, or the name of a child relationship for an inner query.
 	 *
 	 * @return The current generator for method chaining.
+	 *
+	 * @throws IllegalArgumentException if the name is not blank and is not one name, or names joined by dots.
 	 */
 	public QRY_Generator fromObject(String objectApiName)
 	{
-		this.objectName = objectApiName;
+		validateFieldPath(objectApiName, 'fromObject');
+		objectName = objectApiName;
 		return this;
 	}
 
@@ -503,14 +625,18 @@ public inherited sharing class QRY_Generator
 	 * @param objectApiName The object API name.
 	 *
 	 * @return The current generator for method chaining.
+	 *
+	 * @throws IllegalArgumentException if the name is not blank and is not one name, or names joined by dots.
 	 */
 	public QRY_Generator fromX(String objectApiName)
 	{
+		validateFieldPath(objectApiName, 'fromX');
 		return fromObject(objectApiName);
 	}
 
 	/**
-	 * @description Sets the WHERE condition.
+	 * @description Replaces the WHERE condition; it does not add to it. To combine several conditions, pass one AndCondition
+	 * or OrCondition that holds them. Null removes the WHERE clause.
 	 *
 	 * @param condition The condition to apply.
 	 *
@@ -536,7 +662,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Sets the HAVING condition.
+	 * @description Replaces the HAVING condition; it does not add to it. To combine several conditions, pass one
+	 * AndCondition or OrCondition that holds them. Null removes the HAVING clause.
 	 *
 	 * @param condition The condition to apply.
 	 *
@@ -565,16 +692,20 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Adds a field to the GROUP BY clause. Call multiple times for multi-field grouping.
+	 * @description Adds a field to the GROUP BY clause. Call multiple times for multi-field grouping. The text is kept as
+	 * given, and a blank text is ignored.
 	 *
-	 * @param fieldName The field to group by.
+	 * @param fieldName The field to group by, or several field expressions joined by commas.
 	 *
 	 * @return The current generator for method chaining.
+	 *
+	 * @throws IllegalArgumentException if the text is not a list of field expressions (see validateGroupList).
 	 */
 	public QRY_Generator groupBy(String fieldName)
 	{
 		if(String.isNotBlank(fieldName))
 		{
+			validateGroupList(fieldName, 'groupBy');
 			groupByFields.add(fieldName);
 		}
 		return this;
@@ -610,18 +741,22 @@ public inherited sharing class QRY_Generator
 	 * @param fieldName The field to wrap in GROUPING().
 	 *
 	 * @return The current generator for method chaining.
+	 *
+	 * @throws IllegalArgumentException if the text is not one field expression (see validateFieldExpression).
 	 */
 	public QRY_Generator grouping(String fieldName)
 	{
 		if(String.isNotBlank(fieldName))
 		{
+			validateFieldExpression(fieldName, 'grouping');
 			selectFields.add('GROUPING(' + fieldName + ')');
 		}
 		return this;
 	}
 
 	/**
-	 * @description Sets the LIMIT.
+	 * @description Writes LIMIT and this number near the end of the query. Null removes the LIMIT. The number is not
+	 * checked.
 	 *
 	 * @param count The maximum records to return.
 	 *
@@ -634,7 +769,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Sets the OFFSET.
+	 * @description Writes OFFSET and this number after the LIMIT, so the query skips that many rows. Null removes the
+	 * OFFSET.
 	 *
 	 * @param count The number of records to skip.
 	 *
@@ -647,7 +783,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Sets the USING SCOPE.
+	 * @description Chooses which set of records the query reads, written right after FROM as USING SCOPE. It replaces any
+	 * scope set earlier, and null removes the clause.
 	 *
 	 * @param scope The scope to use.
 	 *
@@ -671,7 +808,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Adds a WITH DATA CATEGORY filter.
+	 * @description Adds a filter to the WITH DATA CATEGORY clause. Several filters are joined with AND, and a null filter is
+	 * ignored. toSoql throws a ConfigurationException when withSecurityEnforced was also called.
 	 *
 	 * @param filter The data category filter to add.
 	 *
@@ -740,8 +878,8 @@ public inherited sharing class QRY_Generator
 	 */
 	public QRY_Generator selectCount()
 	{
-		this.aggregateFunction = Aggregate.COUNT;
-		this.aggregateField = null;
+		aggregateFunction = Aggregate.COUNT;
+		aggregateField = null;
 		return this;
 	}
 
@@ -751,11 +889,14 @@ public inherited sharing class QRY_Generator
 	 * @param fieldName The field to count.
 	 *
 	 * @return The current generator for method chaining.
+	 *
+	 * @throws IllegalArgumentException if the name is not blank and is not one field path. A blank name gives COUNT().
 	 */
 	public QRY_Generator selectCount(String fieldName)
 	{
-		this.aggregateFunction = Aggregate.COUNT;
-		this.aggregateField = fieldName;
+		validateFieldPath(fieldName, 'selectCount');
+		aggregateFunction = Aggregate.COUNT;
+		aggregateField = fieldName;
 		return this;
 	}
 
@@ -765,11 +906,14 @@ public inherited sharing class QRY_Generator
 	 * @param fieldName The field to average.
 	 *
 	 * @return The current generator for method chaining.
+	 *
+	 * @throws IllegalArgumentException if the name is not blank and is not one field path. A blank name gives AVG().
 	 */
 	public QRY_Generator selectAvg(String fieldName)
 	{
-		this.aggregateFunction = Aggregate.AVG;
-		this.aggregateField = fieldName;
+		validateFieldPath(fieldName, 'selectAvg');
+		aggregateFunction = Aggregate.AVG;
+		aggregateField = fieldName;
 		return this;
 	}
 
@@ -779,11 +923,14 @@ public inherited sharing class QRY_Generator
 	 * @param fieldName The field to sum.
 	 *
 	 * @return The current generator for method chaining.
+	 *
+	 * @throws IllegalArgumentException if the name is not blank and is not one field path. A blank name gives SUM().
 	 */
 	public QRY_Generator selectSum(String fieldName)
 	{
-		this.aggregateFunction = Aggregate.SUM;
-		this.aggregateField = fieldName;
+		validateFieldPath(fieldName, 'selectSum');
+		aggregateFunction = Aggregate.SUM;
+		aggregateField = fieldName;
 		return this;
 	}
 
@@ -793,11 +940,14 @@ public inherited sharing class QRY_Generator
 	 * @param fieldName The field to find minimum.
 	 *
 	 * @return The current generator for method chaining.
+	 *
+	 * @throws IllegalArgumentException if the name is not blank and is not one field path. A blank name gives MIN().
 	 */
 	public QRY_Generator selectMin(String fieldName)
 	{
-		this.aggregateFunction = Aggregate.MIN;
-		this.aggregateField = fieldName;
+		validateFieldPath(fieldName, 'selectMin');
+		aggregateFunction = Aggregate.MIN;
+		aggregateField = fieldName;
 		return this;
 	}
 
@@ -807,11 +957,14 @@ public inherited sharing class QRY_Generator
 	 * @param fieldName The field to find maximum.
 	 *
 	 * @return The current generator for method chaining.
+	 *
+	 * @throws IllegalArgumentException if the name is not blank and is not one field path. A blank name gives MAX().
 	 */
 	public QRY_Generator selectMax(String fieldName)
 	{
-		this.aggregateFunction = Aggregate.MAX;
-		this.aggregateField = fieldName;
+		validateFieldPath(fieldName, 'selectMax');
+		aggregateFunction = Aggregate.MAX;
+		aggregateField = fieldName;
 		return this;
 	}
 
@@ -821,11 +974,14 @@ public inherited sharing class QRY_Generator
 	 * @param fieldName The field to count distinct values.
 	 *
 	 * @return The current generator for method chaining.
+	 *
+	 * @throws IllegalArgumentException if the name is not blank and is not one field path. A blank name gives COUNT_DISTINCT().
 	 */
 	public QRY_Generator selectCountDistinct(String fieldName)
 	{
-		this.aggregateFunction = Aggregate.COUNT_DISTINCT;
-		this.aggregateField = fieldName;
+		validateFieldPath(fieldName, 'selectCountDistinct');
+		aggregateFunction = Aggregate.COUNT_DISTINCT;
+		aggregateField = fieldName;
 		return this;
 	}
 
@@ -834,7 +990,7 @@ public inherited sharing class QRY_Generator
 	 * legacy aggregate (selectCount/selectSum/...), selections accumulate, so one query can fold several
 	 * aggregates (e.g. COUNT(Id) plus MIN and MAX of CreatedDate) and read each back by its alias. The
 	 * alias is validated as a bare identifier so a caller-supplied alias can never smuggle SOQL into the
-	 * clause; the field name is expected to be describe-derived by the caller.
+	 * clause. The field name must be one field path (see validateFieldPath) for the same reason.
 	 *
 	 * @param aggregate The aggregate function to apply.
 	 * @param fieldName The field to aggregate; must not be blank.
@@ -843,8 +999,8 @@ public inherited sharing class QRY_Generator
 	 *
 	 * @return This generator for chaining.
 	 *
-	 * @throws IllegalArgumentException if fieldName is blank, the alias is not a bare identifier, or the
-	 * alias duplicates an earlier aggregate selection.
+	 * @throws IllegalArgumentException if fieldName is blank or is not one field path, the alias is not a bare identifier,
+	 * or the alias duplicates an earlier aggregate selection.
 	 *
 	 * @example
 	 * ```apex
@@ -857,6 +1013,7 @@ public inherited sharing class QRY_Generator
 		{
 			throw new IllegalArgumentException('Aggregate selection requires a field name');
 		}
+		validateFieldPath(fieldName, 'selectAggregate');
 		String validatedAlias = validateSelectAlias(alias);
 		if(!usedSelectAliases.add(validatedAlias.toLowerCase()))
 		{
@@ -893,6 +1050,298 @@ public inherited sharing class QRY_Generator
 			throw new IllegalArgumentException('SELECT alias must be a bare identifier (a letter followed by letters, digits or underscores): ' + alias);
 		}
 		return normalizedAlias;
+	}
+
+	/**
+	 * @description Checks that a text is one field path: a field API name such as Name or abc__Field__c, or names joined by
+	 * dots that reach a parent record, such as Account.Owner.Name. It is used where the query needs a plain name: a COUNT
+	 * field, a parent field, a relationship name, an object name and a data category name. The text is trimmed first. A
+	 * blank text is given back trimmed and not checked, so each caller keeps its own rule for a blank name.
+	 *
+	 * @param fieldPath The text to check.
+	 * @param methodName The method that received the text. The error message names it.
+	 *
+	 * @return The text, trimmed.
+	 *
+	 * @throws IllegalArgumentException if the text is not one field path or is longer than 500 characters. The message does not repeat the text.
+	 *
+	 * @example
+	 * ```apex
+	 * String fieldPath = QRY_Generator.validateFieldPath('Account.Name', 'relatedField');
+	 * ```
+	 */
+	public static String validateFieldPath(String fieldPath, String methodName)
+	{
+		return matchWholeText(FIELD_PATH_PATTERN, fieldPath, methodName);
+	}
+
+	/**
+	 * @description Checks that a text is one field expression: a field path, a date function around a field path such as
+	 * CALENDAR_YEAR(CreatedDate) or around convertTimezone such as HOUR_IN_DAY(convertTimezone(CreatedDate)), or the
+	 * distance function QRY_Function writes, such as DISTANCE(Location__c, GEOLOCATION(37.77,-122.41), 'mi'). Spaces just
+	 * inside the round brackets are allowed. The text is trimmed first. A blank text is given back trimmed and not checked.
+	 *
+	 * @param fieldExpression The text to check.
+	 * @param methodName The method that received the text. The error message names it.
+	 *
+	 * @return The text, trimmed.
+	 *
+	 * @throws IllegalArgumentException if the text is not one field expression or is longer than 500 characters. The message does not repeat the text.
+	 *
+	 * @example
+	 * ```apex
+	 * String expression = QRY_Generator.validateFieldExpression('CALENDAR_YEAR(CreatedDate)', 'grouping');
+	 * ```
+	 */
+	public static String validateFieldExpression(String fieldExpression, String methodName)
+	{
+		return matchWholeText(FIELD_EXPRESSION_PATTERN, fieldExpression, methodName);
+	}
+
+	/**
+	 * @description Checks that a text can be the field side of a WHERE or HAVING condition: a field expression, an
+	 * aggregate around a field path such as SUM(Amount) or COUNT(Id), or toLabel around a field path such as
+	 * toLabel(Status). The text is trimmed first. A blank text is given back trimmed and not checked.
+	 *
+	 * @param conditionField The text to check.
+	 * @param methodName The method that received the text. The error message names it.
+	 *
+	 * @return The text, trimmed.
+	 *
+	 * @throws IllegalArgumentException if the text is none of these shapes or is longer than 500 characters. The message does not repeat the text.
+	 *
+	 * @example
+	 * ```apex
+	 * String field = QRY_Generator.validateConditionField('SUM(Amount)', 'havingSumOf');
+	 * ```
+	 */
+	public static String validateConditionField(String conditionField, String methodName)
+	{
+		return matchWholeText(CONDITION_FIELD_PATTERN, conditionField, methodName);
+	}
+
+	/**
+	 * @description Checks that a text is a list of sort items joined by commas, such as Name DESC NULLS LAST, CreatedDate.
+	 * Each item is the field side of a condition, then ASC or DESC if wanted, then NULLS FIRST or NULLS LAST if wanted.
+	 * Letter case and the number of spaces between words do not matter. The text is trimmed first. A blank text is given
+	 * back trimmed and not checked.
+	 *
+	 * @param sortList The text to check.
+	 * @param methodName The method that received the text. The error message names it.
+	 *
+	 * @return The text, trimmed.
+	 *
+	 * @throws IllegalArgumentException if the text is not such a list, is longer than 16,000 characters or has an item longer
+	 * than 500 characters. The message does not repeat the text.
+	 *
+	 * @example
+	 * ```apex
+	 * String sortList = QRY_Generator.validateSortList('Name DESC, CreatedDate', 'orderBy');
+	 * ```
+	 */
+	public static String validateSortList(String sortList, String methodName)
+	{
+		String trimmedText = sortList?.trim();
+		matchEveryListItem(SORT_ITEM_PATTERN, trimmedText, methodName);
+		return trimmedText;
+	}
+
+	/**
+	 * @description Checks a sort list for a method that adds the direction and the nulls order itself. It is the same as
+	 * validateSortList, except that the last item must have no direction and no nulls order, so the query never reads
+	 * DESC DESC. For example, Name DESC, Industry passes and Name DESC does not. The text is trimmed first. A blank text is
+	 * given back trimmed and not checked.
+	 *
+	 * @param sortList The text to check.
+	 * @param methodName The method that received the text. The error message names it.
+	 *
+	 * @return The text, trimmed.
+	 *
+	 * @throws IllegalArgumentException if the text is not such a list, is longer than 16,000 characters or has an item longer
+	 * than 500 characters. The message does not repeat the text.
+	 *
+	 * @example
+	 * ```apex
+	 * String sortList = QRY_Generator.validateSortListBeforeDirection('Name DESC, Industry', 'orderBy');
+	 * ```
+	 */
+	public static String validateSortListBeforeDirection(String sortList, String methodName)
+	{
+		String trimmedText = sortList?.trim();
+		List<String> items = matchEveryListItem(SORT_ITEM_PATTERN, trimmedText, methodName);
+		if(!items.isEmpty() && !isShortTextMatching(CONDITION_FIELD_PATTERN, items[items.size() - 1]))
+		{
+			throw newFieldNameNotAllowedException(methodName);
+		}
+		return trimmedText;
+	}
+
+	/**
+	 * @description Checks that a text is a list of field expressions joined by commas, such as Name, Industry, for a GROUP
+	 * BY clause. An aggregate or toLabel is not allowed here. The text is trimmed first. A blank text is given back trimmed
+	 * and not checked.
+	 *
+	 * @param groupList The text to check.
+	 * @param methodName The method that received the text. The error message names it.
+	 *
+	 * @return The text, trimmed.
+	 *
+	 * @throws IllegalArgumentException if the text is not such a list, is longer than 16,000 characters or has an item longer
+	 * than 500 characters. The message does not repeat the text.
+	 *
+	 * @example
+	 * ```apex
+	 * String groupList = QRY_Generator.validateGroupList('Name, Industry', 'groupBy');
+	 * ```
+	 */
+	public static String validateGroupList(String groupList, String methodName)
+	{
+		String trimmedText = groupList?.trim();
+		matchEveryListItem(FIELD_EXPRESSION_PATTERN, trimmedText, methodName);
+		return trimmedText;
+	}
+
+	/**
+	 * @description Checks that every field this query selects as text is one field path. A query used inside an IN or NOT IN
+	 * condition is written inside the outer WHERE clause, so its selected text must not be able to add to that clause. A
+	 * field given as a field token always passes, and an inner query in the select list is left to Salesforce, which refuses
+	 * it there.
+	 *
+	 * @param methodName The method or class that holds this query as an inner query. The error message names it.
+	 *
+	 * @throws IllegalArgumentException if a selected text is not one field path. The message does not repeat the text.
+	 *
+	 * @example
+	 * ```apex
+	 * new QRY_Generator().fromObject('Contact').addField('AccountId').validateSelectedFieldPaths('SetCondition');
+	 * ```
+	 */
+	public void validateSelectedFieldPaths(String methodName)
+	{
+		for(Object field : selectFields)
+		{
+			if(field instanceof String)
+			{
+				validateFieldPath((String)field, methodName);
+			}
+		}
+	}
+
+	/**
+	 * @description Trims a text and checks that the whole of it matches a rule. A blank text is given back trimmed and not
+	 * checked.
+	 *
+	 * @param rule The rule the whole text must match.
+	 * @param text The text to check.
+	 * @param methodName The method that received the text. The error message names it.
+	 *
+	 * @return The text, trimmed.
+	 *
+	 * @throws IllegalArgumentException if the text is longer than 500 characters or does not match the rule.
+	 */
+	private static String matchWholeText(Pattern rule, String text, String methodName)
+	{
+		String trimmedText = text?.trim();
+		if(String.isNotBlank(trimmedText) && !isShortTextMatching(rule, trimmedText))
+		{
+			throw newFieldNameNotAllowedException(methodName);
+		}
+		return trimmedText;
+	}
+
+	/**
+	 * @description Checks each item of a trimmed list of items joined by commas on its own, so that no pattern reads more
+	 * than one item. A comma inside round brackets, as in DISTANCE(Loc__c, GEOLOCATION(1,2), 'mi'), stays inside its item.
+	 * A blank text is not checked.
+	 *
+	 * @param itemRule The rule every item must match.
+	 * @param trimmedText The list to check, already trimmed.
+	 * @param methodName The method that received the text. The error message names it.
+	 *
+	 * @return The items of the list, in order, with their spaces. An empty list when the text is blank.
+	 *
+	 * @throws IllegalArgumentException if the text is longer than 16,000 characters, or an item is empty, is longer than 500
+	 * characters or does not match the rule.
+	 */
+	private static List<String> matchEveryListItem(Pattern itemRule, String trimmedText, String methodName)
+	{
+		if(String.isBlank(trimmedText))
+		{
+			return new List<String>();
+		}
+		if(trimmedText.length() > MAXIMUM_FIELD_LIST_LENGTH)
+		{
+			throw newFieldNameNotAllowedException(methodName);
+		}
+		List<String> items = splitListItems(trimmedText);
+		for(Integer index = 0; index < items.size(); index++)
+		{
+			if(!isShortTextMatching(itemRule, items[index]))
+			{
+				throw newFieldNameNotAllowedException(methodName);
+			}
+		}
+		return items;
+	}
+
+	/**
+	 * @description Splits a list at each comma that is not inside round brackets. The items keep their spaces. When the
+	 * brackets do not close, the rest of the text is one item, which then fails its rule.
+	 *
+	 * @param text The list to split.
+	 *
+	 * @return The items, in order. Two commas next to each other give an empty item.
+	 */
+	private static List<String> splitListItems(String text)
+	{
+		List<String> items = new List<String>();
+		Integer itemStart = 0;
+		Integer pieceStart = 0;
+		Integer openBrackets = 0;
+		for(String piece : text.split(UTIL_String.COMMA, -1))
+		{
+			Integer pieceEnd = pieceStart + piece.length();
+			openBrackets += piece.countMatches('(') - piece.countMatches(')');
+			if(openBrackets <= 0)
+			{
+				items.add(text.substring(itemStart, pieceEnd));
+				itemStart = pieceEnd + 1;
+				openBrackets = 0;
+			}
+			pieceStart = pieceEnd + 1;
+		}
+		if(itemStart <= text.length())
+		{
+			items.add(text.substring(itemStart));
+		}
+		return items;
+	}
+
+	/**
+	 * @description Checks that a text is no longer than 500 characters, not counting the spaces at its ends, and that the
+	 * whole of it matches a rule. The length is checked first, so a pattern never reads a long text.
+	 *
+	 * @param rule The rule the whole text must match.
+	 * @param text The text to check.
+	 *
+	 * @return True when the text is short enough and matches the rule.
+	 */
+	private static Boolean isShortTextMatching(Pattern rule, String text)
+	{
+		return text.trim().length() <= MAXIMUM_FIELD_TEXT_LENGTH && rule.matcher(text).matches();
+	}
+
+	/**
+	 * @description Builds the error for a field text the checks refuse. The message names the method and does not repeat
+	 * the text.
+	 *
+	 * @param methodName The method that received the text.
+	 *
+	 * @return The error to throw.
+	 */
+	private static IllegalArgumentException newFieldNameNotAllowedException(String methodName)
+	{
+		return new IllegalArgumentException(String.format(System.Label.QueryBuilder_FieldName_NotAllowed, new List<Object> {methodName}));
 	}
 
 	/**
@@ -964,6 +1413,49 @@ public inherited sharing class QRY_Generator
 	public QRY_BindRegistry getBindRegistry()
 	{
 		return bindRegistry;
+	}
+
+	/**
+	 * @description Returns the name written after FROM: the API name of the object, or the name of a child relationship
+	 * for a child query. QRY_Builder reads it to check that the running user may read the object of a query inside an
+	 * IN or NOT IN condition.
+	 *
+	 * @return The name written after FROM, or null when no object is set.
+	 */
+	public String getObjectName()
+	{
+		return objectName;
+	}
+
+	/**
+	 * @description Returns the one condition the WHERE clause holds. QRY_Builder reads it to check the fields that a
+	 * query inside an IN or NOT IN condition filters on.
+	 *
+	 * @return The WHERE condition, or null when the query has no WHERE clause.
+	 */
+	public QRY_Condition.Evaluable getWhereCondition()
+	{
+		return whereCondition;
+	}
+
+	/**
+	 * @description Returns the names of the fields the SELECT clause holds as text. QRY_Builder reads them to check the
+	 * field that a query inside an IN or NOT IN condition selects. A field added as a token and a child query are not
+	 * returned.
+	 *
+	 * @return The selected field names; an empty set when no field is selected as text.
+	 */
+	public Set<String> getSelectedFieldNames()
+	{
+		Set<String> fieldNames = new Set<String>();
+		for(Object field : selectFields)
+		{
+			if(field instanceof String)
+			{
+				fieldNames.add((String)field);
+			}
+		}
+		return fieldNames;
 	}
 
 	/**
@@ -1073,7 +1565,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Builds the SELECT clause.
+	 * @description Builds the list that follows SELECT. An aggregate query gets its aggregates instead of fields. A query with
+	 * no fields selects Id. Fields that differ only in case are listed once, and the list is sorted.
 	 *
 	 * @param registry Optional bind registry.
 	 * @param options The SOQL options for rendering conditions.
@@ -1110,7 +1603,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Converts a field object to string.
+	 * @description Turns one entry of the SELECT list into SOQL text. A name is used as it is, and a field token becomes its
+	 * API name. A child query is written in round brackets, with its values bound when a bind registry is given.
 	 *
 	 * @param field The field object.
 	 * @param registry Optional bind registry.
@@ -1195,7 +1689,7 @@ public inherited sharing class QRY_Generator
 
 	/**
 	 * @description Determines whether a GROUP BY expression is already in SELECT under an
-	 * explicit alias (i.e. a SELECT field of the form "<expression> <alias>"). When it is, echoing the
+	 * explicit alias (a SELECT field written as the expression, a space, then the alias). When it is, echoing the
 	 * bare GROUP BY expression into SELECT would duplicate it, because the pass that adds parenthesised fields
 	 * re-adds the aliased form. A plain grouped field with no separate aliased entry in the field list returns false,
 	 * so its GROUP BY echo is preserved unchanged.
@@ -1218,7 +1712,7 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Builds the USING SCOPE clause.
+	 * @description Writes USING SCOPE and the scope value, or returns an empty string when no scope is set.
 	 *
 	 * @return The USING SCOPE clause or empty string.
 	 */
@@ -1244,7 +1738,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Builds the WHERE clause.
+	 * @description Writes WHERE and the condition. Returns an empty string when there is no condition, or when it writes no
+	 * text, as an empty AndCondition does.
 	 *
 	 * @param registry Optional bind registry.
 	 * @param options The SOQL options for rendering conditions.
@@ -1268,7 +1763,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Builds the HAVING clause.
+	 * @description Writes HAVING and the condition. Returns an empty string when there is no condition, or when it writes no
+	 * text, as an empty AndCondition does.
 	 *
 	 * @param registry Optional bind registry.
 	 * @param options The SOQL options for rendering conditions.
@@ -1292,7 +1788,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Gets SOQL string from a condition.
+	 * @description Writes a condition as SOQL text. With a registry, a condition that supports bind variables stores its
+	 * values in the registry and refers to them by name. Without one, every value is written into the text.
 	 *
 	 * @param condition The condition.
 	 * @param registry Optional bind registry.
@@ -1310,7 +1807,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Builds the ORDER BY clause.
+	 * @description Writes ORDER BY and the sort fields in the order they were added, or returns an empty string when there
+	 * are none.
 	 *
 	 * @return The ORDER BY clause or empty string.
 	 */
@@ -1359,7 +1857,8 @@ public inherited sharing class QRY_Generator
 	}
 
 	/**
-	 * @description Builds the WITH DATA CATEGORY clause.
+	 * @description Writes WITH DATA CATEGORY and every filter, joined with AND, or returns an empty string when there are
+	 * none.
 	 *
 	 * @return The WITH DATA CATEGORY clause or empty string.
 	 */
@@ -1385,7 +1884,7 @@ public inherited sharing class QRY_Generator
 	public class OrderBy
 	{
 		/**
-		 * @description The field to order by.
+		 * @description The API name of the field to sort by, written into ORDER BY as given.
 		 */
 		private final String field;
 
@@ -1410,13 +1909,18 @@ public inherited sharing class QRY_Generator
 		private Boolean nullsSet = false;
 
 		/**
-		 * @description Constructor with field name.
+		 * @description Sorts by this field name, used as given. No direction and no place for blank values is written until a
+		 * setter asks for one, so SOQL's own default order applies. The text may also be a list of sort items (see
+		 * validateSortList), which is written as given.
 		 *
 		 * @param fieldName The field to order by.
+		 *
+		 * @throws IllegalArgumentException if the text is not blank and is not a list of sort items.
 		 */
 		public OrderBy(String fieldName)
 		{
-			this.field = fieldName;
+			validateSortList(fieldName, 'OrderBy');
+			field = fieldName;
 		}
 
 		/**
@@ -1426,11 +1930,11 @@ public inherited sharing class QRY_Generator
 		 */
 		public OrderBy(SObjectField objectField)
 		{
-			this.field = UTIL_SObjectDescribe.getCachedFieldName(objectField);
+			field = UTIL_SObjectDescribe.getCachedFieldName(objectField);
 		}
 
 		/**
-		 * @description Sets ascending order.
+		 * @description Writes ASC after the field, so the smallest or earliest value comes first. It replaces descending().
 		 *
 		 * @return This OrderBy for chaining.
 		 */
@@ -1442,7 +1946,7 @@ public inherited sharing class QRY_Generator
 		}
 
 		/**
-		 * @description Sets descending order.
+		 * @description Writes DESC after the field, so the largest or latest value comes first. It replaces ascending().
 		 *
 		 * @return This OrderBy for chaining.
 		 */
@@ -1454,7 +1958,7 @@ public inherited sharing class QRY_Generator
 		}
 
 		/**
-		 * @description Sets nulls first.
+		 * @description Writes NULLS FIRST, so records whose field is blank come first. It replaces nullsLast().
 		 *
 		 * @return This OrderBy for chaining.
 		 */
@@ -1466,7 +1970,7 @@ public inherited sharing class QRY_Generator
 		}
 
 		/**
-		 * @description Sets nulls last.
+		 * @description Writes NULLS LAST, so records whose field is blank come last. It replaces nullsFirst().
 		 *
 		 * @return This OrderBy for chaining.
 		 */
@@ -1527,12 +2031,12 @@ public inherited sharing class QRY_Generator
 	public class DataCategoryFilter
 	{
 		/**
-		 * @description The data category group name.
+		 * @description The API name of the data category group, written into the filter as given.
 		 */
 		private final String groupName;
 
 		/**
-		 * @description The filtering operator.
+		 * @description How the categories are matched: AT, ABOVE, BELOW, or ABOVE_BELOW, which is written as ABOVE_OR_BELOW.
 		 */
 		private final DataCategoryOperator operator;
 
@@ -1542,17 +2046,26 @@ public inherited sharing class QRY_Generator
 		private final List<String> categoryNames;
 
 		/**
-		 * @description Constructs a DataCategoryFilter.
+		 * @description Holds the values as given, after it checks that the group name and each category name is one name
+		 * (see validateFieldPath). It keeps its own copy of the category list, so a name the caller adds to the list later is
+		 * never written unchecked. One category is written on its own, and several are written in round brackets.
 		 *
 		 * @param groupName The data category group name.
 		 * @param operator The filtering operator.
 		 * @param categoryNames The category name(s).
+		 *
+		 * @throws IllegalArgumentException if the group name or a category name is not blank and is not one name.
 		 */
 		public DataCategoryFilter(String groupName, DataCategoryOperator operator, List<String> categoryNames)
 		{
+			validateFieldPath(groupName, 'DataCategoryFilter');
+			for(String categoryName : categoryNames ?? new List<String>())
+			{
+				validateFieldPath(categoryName, 'DataCategoryFilter');
+			}
 			this.groupName = groupName;
 			this.operator = operator;
-			this.categoryNames = categoryNames;
+			this.categoryNames = categoryNames?.clone();
 		}
 
 		/**
@@ -1574,7 +2087,7 @@ public inherited sharing class QRY_Generator
 		}
 
 		/**
-		 * @description Returns the group name for this filter.
+		 * @description Returns the API name of the data category group, as given to the constructor.
 		 *
 		 * @return The group name.
 		 */

@@ -4,7 +4,7 @@
  * Use these classes with QRY_Builder.addCondition() for compound conditions
  * that cannot be expressed with the fluent API alone (e.g., grouped OR conditions).
  *
- * **VISIBILITY**: `global` for subscriber access.
+ * **VISIBILITY**: `global` so your code can use it.
  * - Evaluable interface: base type for all conditions
  * - Operator enum and constants: comparison operators
  * - FieldCondition: field comparisons (=, !=, <, >, LIKE, etc.)
@@ -38,6 +38,63 @@ global inherited sharing class QRY_Condition
 	 * @description Default options used for SOQL generation.
 	 */
 	public static final SoqlOptions DEFAULT_OPTIONS = new SoqlOptions();
+
+	/**
+	 * @description The smallest number an Apex Integer can hold.
+	 */
+	private static final Decimal SMALLEST_INTEGER = -2147483648L;
+
+	/**
+	 * @description The largest number an Apex Integer can hold.
+	 */
+	private static final Decimal LARGEST_INTEGER = 2147483647;
+
+	/**
+	 * @description The kind name SetCondition gives every number, whatever its Apex type (Integer, Long, Double or Decimal),
+	 * so numbers of different types can share one bound list.
+	 */
+	private static final String NUMBER_KIND = 'Number';
+
+	/**
+	 * @description The class name a SetCondition gives in its error message when it refuses a text that is not a field
+	 * name, so the developer can see which part of the query refused it.
+	 */
+	private static final String SET_CONDITION_NAME = 'SetCondition';
+
+	/**
+	 * @description The word that joins the conditions of an AndCondition: every condition must match.
+	 */
+	private static final String AND_SEPARATOR = 'AND';
+
+	/**
+	 * @description The word that joins the conditions of an OrCondition: at least one condition must match.
+	 */
+	private static final String OR_SEPARATOR = 'OR';
+
+	/**
+	 * @description The kind name SetCondition gives every record. A list of records is bound as a list of SObject values and
+	 * matched by Id.
+	 */
+	private static final String RECORD_KIND = 'SObject';
+
+	/**
+	 * @description The Apex type names that SetCondition treats as one kind, NUMBER_KIND, when it decides whether a list
+	 * can be bound.
+	 */
+	private static final Set<String> NUMBER_TYPE_NAMES = new Set<String>
+	{
+			Integer.class.getName(), Long.class.getName(), Decimal.class.getName(), Double.class.getName()
+	};
+
+	/**
+	 * @description The Apex type names that SetCondition can bind as a list of that one type (Id, String, Date, Datetime or
+	 * Boolean). A list is bound only when all its non-blank values share one of these types. Numbers are not in this set:
+	 * see NUMBER_TYPE_NAMES.
+	 */
+	private static final Set<String> SINGLE_TYPE_BINDABLE_NAMES = new Set<String>
+	{
+			Id.class.getName(), String.class.getName(), Date.class.getName(), Datetime.class.getName(), Boolean.class.getName()
+	};
 
 	// Private operator shortcuts (workaround for Apex limitation: enum values cannot be referenced from instance methods of inner classes)
 	/**
@@ -177,7 +234,7 @@ global inherited sharing class QRY_Condition
 	global enum Operator
 	{
 		/**
-		 * @description Equal to (=)
+		 * @description The field holds exactly the given value (SOQL =). With a null value, the field is blank.
 		 */
 		EQUALS,
 		/**
@@ -185,11 +242,11 @@ global inherited sharing class QRY_Condition
 		 */
 		EXCLUDES,
 		/**
-		 * @description Greater than (>)
+		 * @description The field is larger than the given value (SOQL >); for a date or a time, later.
 		 */
 		GREATER_THAN,
 		/**
-		 * @description Greater than or equal to (>=)
+		 * @description The field is equal to the given value or larger (SOQL >=); for a date or a time, the same or later.
 		 */
 		GREATER_THAN_OR_EQUAL_TO,
 		/**
@@ -197,15 +254,16 @@ global inherited sharing class QRY_Condition
 		 */
 		INCLUDES,
 		/**
-		 * @description Value in set (IN)
+		 * @description The field holds any one of a list of values, or any value a subquery returns (SOQL IN). The name ends in
+		 * _X because IN is a reserved word in Apex.
 		 */
 		IN_X,
 		/**
-		 * @description Less than (<)
+		 * @description The field is smaller than the given value (SOQL <); for a date or a time, earlier.
 		 */
 		LESS_THAN,
 		/**
-		 * @description Less than or equal to (<=)
+		 * @description The field is equal to the given value or smaller (SOQL <=); for a date or a time, the same or earlier.
 		 */
 		LESS_THAN_OR_EQUAL_TO,
 		/**
@@ -213,11 +271,11 @@ global inherited sharing class QRY_Condition
 		 */
 		LIKE_X,
 		/**
-		 * @description Not equal to (!=)
+		 * @description The field does not hold the given value (SOQL !=). With a null value, the field has a value.
 		 */
 		NOT_EQUALS,
 		/**
-		 * @description Value not in set (NOT IN)
+		 * @description The field holds none of a list of values, or none of the values a subquery returns (SOQL NOT IN).
 		 */
 		NOT_IN
 	}
@@ -367,7 +425,8 @@ global inherited sharing class QRY_Condition
 		public String field {get; private set;}
 
 		/**
-		 * @description The operator for the condition.
+		 * @description How the field is compared with the value, such as EQUALS or LIKE_X. It is null until a constructor or a
+		 * method such as equals sets it.
 		 */
 		public Operator operator {get; private set;}
 
@@ -377,7 +436,8 @@ global inherited sharing class QRY_Condition
 		public Object value {get; private set;}
 
 		/**
-		 * @description Default constructor for FieldCondition.
+		 * @description Creates an empty condition with no field, operator or value. Set the field with field() and the
+		 * comparison with a method such as equals() before the condition is written into a query.
 		 */
 		@SuppressWarnings('PMD.EmptyStatementBlock')
 		public FieldCondition()
@@ -386,9 +446,13 @@ global inherited sharing class QRY_Condition
 
 		/**
 		 * @description Constructor for FieldCondition with a specified field. Pair with contains() to
-		 * complete the condition, or use the field-operator-value constructor for other comparisons.
+		 * complete the condition, or use the field-operator-value constructor for other comparisons. The field may also be a
+		 * date or distance function from QRY_Function, or toLabel around a field name. Text that comes from a page or a user
+		 * must first be matched to a field through a list of fields you allow.
 		 *
-		 * @param fieldName The field to apply the condition to.
+		 * @param fieldName A field API name, such as Name or Account.Owner.Name
+		 *
+		 * @throws IllegalArgumentException if the text is blank or is not a field name
 		 *
 		 * @since 1.3
 		 *
@@ -421,7 +485,8 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Constructor for FieldCondition with a specified field and value.
+		 * @description Builds an EQUALS condition: the field must hold exactly the value. A null value matches records whose
+		 * field is blank. A blank field name throws IllegalArgumentException.
 		 *
 		 * @param fieldName The field to apply the condition to.
 		 * @param fieldValue The value to compare against the field.
@@ -432,7 +497,8 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Constructor for FieldCondition with a specified field and value.
+		 * @description Builds an EQUALS condition from a field token: the field must hold exactly the value. A null value
+		 * matches records whose field is blank.
 		 *
 		 * @param objectField The field to apply the condition to.
 		 * @param fieldValue The value to compare against the field.
@@ -443,17 +509,25 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Constructor for FieldCondition with a specified field, operator, and value.
+		 * @description Builds a condition that compares one field with one value. The field name is trimmed, and a blank name
+		 * throws IllegalArgumentException. The operator must compare with a single value: IN_X, NOT_IN, INCLUDES and EXCLUDES
+		 * throw IllegalArgumentException. A null operator leaves the comparison unset, for contains() or containsLiteral() to
+		 * set next. When a QRY_Builder query runs, the value is passed as a bind variable, so you never escape quotes in text
+		 * yourself. The field may also be a date or distance function from QRY_Function, or toLabel around a field name. Text
+		 * that comes from a page or a user must first be matched to a field through a list of fields you allow.
 		 *
-		 * @param fieldName The field to apply the condition to.
+		 * @param fieldName A field API name, such as Name or Account.Owner.Name
 		 * @param fieldOperator The operator for the condition.
 		 * @param fieldValue The value to compare against the field.
+		 *
+		 * @throws IllegalArgumentException if the field text is blank or is not a field name, or the operator compares with
+		 * a list
 		 *
 		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
-		 * QRY_Condition.FieldCondition instance = new QRY_Condition.FieldCondition('myName', new Operator(), 'value');
+		 * QRY_Condition.FieldCondition instance = new QRY_Condition.FieldCondition('Name', QRY_Condition.Operator.EQUALS, 'Acme');
 		 * ```
 		 */
 		global FieldCondition(String fieldName, Operator fieldOperator, Object fieldValue)
@@ -466,7 +540,10 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Constructor for FieldCondition with a specified field, operator, and value.
+		 * @description Builds a condition that compares one field, given as a field token, with one value. The operator must
+		 * compare with a single value: IN_X, NOT_IN, INCLUDES and EXCLUDES throw IllegalArgumentException. A null operator
+		 * leaves the comparison unset, for contains() or containsLiteral() to set next. When a QRY_Builder query runs, the
+		 * value is passed as a bind variable, so you never escape quotes in text yourself.
 		 *
 		 * @param objectField The field to apply the condition to.
 		 * @param fieldOperator The operator for the condition.
@@ -476,7 +553,7 @@ global inherited sharing class QRY_Condition
 		 *
 		 * @example
 		 * ```apex
-		 * QRY_Condition.FieldCondition instance = new QRY_Condition.FieldCondition(Account.Name, new Operator(), 'value');
+		 * QRY_Condition.FieldCondition instance = new QRY_Condition.FieldCondition(Account.Name, QRY_Condition.Operator.EQUALS, 'Acme');
 		 * ```
 		 */
 		global FieldCondition(SObjectField objectField, Operator fieldOperator, Object fieldValue)
@@ -489,7 +566,8 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the field for the condition.
+		 * @description Sets the field from a field token, by reading its API name from the describe cache. It replaces any field
+		 * set earlier.
 		 *
 		 * @param objectField The SObjectField to use for the condition.
 		 *
@@ -501,7 +579,10 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the field for the condition.
+		 * @description Sets the field by API name, with spaces trimmed from both ends. It replaces any field set earlier. A
+		 * blank name throws IllegalArgumentException. So does a text that is not a field name: it must be a field path such
+		 * as Account.Name, a date or distance function from QRY_Function, an aggregate such as SUM(Amount), or toLabel around
+		 * a field path.
 		 *
 		 * @param fieldName The field to apply the condition to.
 		 *
@@ -513,7 +594,7 @@ global inherited sharing class QRY_Condition
 			{
 				throw new IllegalArgumentException('The field name provided is empty');
 			}
-			this.field = fieldName.trim();
+			field = QRY_Generator.validateConditionField(fieldName, 'FieldCondition');
 			return this;
 		}
 
@@ -661,7 +742,9 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the operator and value for the condition.
+		 * @description Stores the comparison and the value; every comparison method goes through it. An operator that takes a
+		 * list of values (IN_X, NOT_IN, INCLUDES or EXCLUDES) throws IllegalArgumentException, because SetCondition handles
+		 * those.
 		 *
 		 * @param fieldOperator The operator for the condition.
 		 * @param fieldValue The value to compare against the field.
@@ -789,7 +872,8 @@ global inherited sharing class QRY_Condition
 		public String field {get; private set;}
 
 		/**
-		 * @description The operator to be used in the condition.
+		 * @description How the field is compared with the values: IN_X, NOT_IN, INCLUDES or EXCLUDES. It is null until one is
+		 * set, and toSoql throws until it is.
 		 */
 		public Operator operator {get; private set;}
 
@@ -804,7 +888,8 @@ global inherited sharing class QRY_Condition
 		public QRY_Generator builder {get; private set;}
 
 		/**
-		 * @description Default constructor.
+		 * @description Creates an empty condition. Set the field with field() and the values with inX, notIn, includes or
+		 * excludes before calling toSoql, which throws until an operator is set.
 		 */
 		@SuppressWarnings('PMD.EmptyStatementBlock')
 		public SetCondition()
@@ -861,7 +946,9 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Constructor for SetCondition with a field name, operator, and set of values.
+		 * @description Builds the condition from a set. The set is copied into a list, so a later change to the set does not
+		 * change the condition. A blank field name, an empty set, or an operator other than IN_X, NOT_IN, INCLUDES or EXCLUDES
+		 * throws IllegalArgumentException.
 		 *
 		 * @param fieldName The field name for the condition.
 		 * @param fieldOperator The operator to apply.
@@ -887,7 +974,10 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the field for the condition.
+		 * @description Sets the field by API name, with spaces trimmed from both ends. It replaces any field set earlier. A
+		 * blank name throws IllegalArgumentException. So does a text that is not a field name: it must be a field path such
+		 * as Account.Name, a date or distance function from QRY_Function, an aggregate such as SUM(Amount), or toLabel around
+		 * a field path.
 		 *
 		 * @param fieldName The api name of the field.
 		 *
@@ -899,7 +989,7 @@ global inherited sharing class QRY_Condition
 			{
 				throw new IllegalArgumentException('Illegal argument: field is empty');
 			}
-			this.field = fieldName?.trim();
+			field = QRY_Generator.validateConditionField(fieldName, SET_CONDITION_NAME);
 			return this;
 		}
 
@@ -1000,7 +1090,8 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Method to set the operator for the condition with values.
+		 * @description Stores the values and the operator. A null or empty list throws IllegalArgumentException, so a condition
+		 * never runs with nothing to compare. So does an operator other than IN_X, NOT_IN, INCLUDES or EXCLUDES.
 		 *
 		 * @param fieldOperator The operator to use in the condition.
 		 * @param fieldValues The list of values to use.
@@ -1018,7 +1109,10 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Method to set the operator for the condition with a builder.
+		 * @description Stores a subquery as the source of the values, and the operator. A null subquery throws
+		 * IllegalArgumentException. So does an operator other than IN_X, NOT_IN, INCLUDES or EXCLUDES, and so does a
+		 * subquery that selects a text that is not one field path, because the subquery is written inside the outer WHERE
+		 * clause. The subquery is checked again when the query text is built, in case a field was added to it after this.
 		 *
 		 * @param fieldOperator The operator to use in the condition.
 		 * @param queryBuilder The builder to use.
@@ -1031,6 +1125,7 @@ global inherited sharing class QRY_Condition
 			{
 				throw new IllegalArgumentException('illegal argument: builder is null');
 			}
+			queryBuilder.validateSelectedFieldPaths(SET_CONDITION_NAME);
 			this.builder = queryBuilder;
 			return setOperator(fieldOperator);
 		}
@@ -1068,6 +1163,8 @@ global inherited sharing class QRY_Condition
 		 * @param options SOQL options to customize the output.
 		 *
 		 * @return The SOQL string representation of the condition.
+		 *
+		 * @throws IllegalArgumentException if the subquery now selects a text that is not one field path.
 		 */
 		public String toSoql(SoqlOptions options)
 		{
@@ -1087,6 +1184,7 @@ global inherited sharing class QRY_Condition
 			}
 			else
 			{
+				builder.validateSelectedFieldPaths(SET_CONDITION_NAME);
 				insideParams = builder.toSoql(DEFAULT_OPTIONS);
 			}
 
@@ -1112,6 +1210,8 @@ global inherited sharing class QRY_Condition
 		 * @param options The SOQL options for customization.
 		 *
 		 * @return A SOQL condition string with bind variable references.
+		 *
+		 * @throws IllegalArgumentException if the subquery now selects a text that is not one field path.
 		 */
 		public String toSoql(QRY_BindRegistry registry, SoqlOptions options)
 		{
@@ -1125,6 +1225,7 @@ global inherited sharing class QRY_Condition
 
 			if(builder != null)
 			{
+				builder.validateSelectedFieldPaths(SET_CONDITION_NAME);
 				String subQuery = builder.toSoql(registry, DEFAULT_OPTIONS);
 				return field + UTIL_String.SPACE + operatorToString(operator) + ' (' + subQuery + ')';
 			}
@@ -1143,7 +1244,11 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Determines if a collection can be safely bound in Database.queryWithBinds.
+		 * @description Determines if a collection can be safely bound in Database.queryWithBinds. A collection can be bound
+		 * when it has at least one non-blank value and all its non-blank values are of one kind: all Ids, all text, all
+		 * records, all dates, all Datetime values, all true or false values, or all numbers. Numbers of different Apex types
+		 * (Integer, Long, Double, Decimal) count as one kind. A list that mixes kinds, or holds only blanks, is written into
+		 * the query as literals instead.
 		 *
 		 * @param collection The collection to check for bindability.
 		 *
@@ -1151,9 +1256,7 @@ global inherited sharing class QRY_Condition
 		 */
 		private Boolean isBindableCollection(List<Object> collection)
 		{
-			Boolean hasId = false;
-			Boolean hasString = false;
-			Boolean hasSObject = false;
+			String foundKind = null;
 
 			for(Object element : collection)
 			{
@@ -1162,46 +1265,56 @@ global inherited sharing class QRY_Condition
 					continue;
 				}
 
-				if(element instanceof SObject)
-				{
-					hasSObject = true;
-				}
-				else
-				{
-					String typeName = UTIL_System.getRuntimeTypeName(element);
-					if('Id'.equalsIgnoreCase(typeName))
-					{
-						hasId = true;
-					}
-					else if('String'.equalsIgnoreCase(typeName))
-					{
-						hasString = true;
-					}
-					else
-					{
-						return false;
-					}
-				}
-
-				if(hasSObject && (hasId || hasString))
+				String elementKind = getBindableKind(element);
+				if(elementKind == null)
 				{
 					return false;
 				}
-				if(hasId && hasString)
+				if(foundKind != null && foundKind != elementKind)
 				{
 					return false;
 				}
+				foundKind = elementKind;
 			}
 
-			return hasId || hasString || hasSObject;
+			return foundKind != null;
 		}
 
 		/**
-		 * @description Casts a generic List<Object> to a strict List<Id>, List<String>, or List<SObject>.
-		 * Checks the list's runtime type first to avoid the Id/String ambiguity that occurs when
-		 * sampling individual elements (Apex `instanceof Id` returns true for any 15/18-char String).
+		 * @description Names the kind of a single non-blank value for binding. Every number gets the same kind, whatever its
+		 * Apex type.
 		 *
-		 * @param inputList The original list of values.
+		 * @param element The value to check. It must not be null.
+		 *
+		 * @return The kind name (Id, String, Date, Datetime, Boolean, Number or SObject), or null when the value cannot be
+		 * bound as part of a list.
+		 */
+		private String getBindableKind(Object element)
+		{
+			if(element instanceof SObject)
+			{
+				return RECORD_KIND;
+			}
+
+			String typeName = UTIL_System.getRuntimeTypeName(element);
+
+			if(NUMBER_TYPE_NAMES.contains(typeName))
+			{
+				return NUMBER_KIND;
+			}
+			return SINGLE_TYPE_BINDABLE_NAMES.contains(typeName) ? typeName : null;
+		}
+
+		/**
+		 * @description Copies a generic List<Object> into a list of one exact type, so the query can bind it. Checks the
+		 * list's runtime type first to avoid the Id/String ambiguity that occurs when sampling individual elements (Apex
+		 * `instanceof Id` returns true for any 15/18-char String). The first non-blank value decides the type:
+		 * List<SObject>, List<Id>, List<String>, List<Date>, List<Datetime> or List<Boolean>. A list of numbers becomes a
+		 * List<Integer> when every number is a whole number that fits in an Integer, and a List<Decimal> otherwise. This
+		 * matters because some query columns, such as COUNT() and CALENDAR_YEAR(), accept only a list of Integer values.
+		 * Blank values stay in the list as null.
+		 *
+		 * @param inputList The original list of values. isBindableCollection must have accepted it.
 		 *
 		 * @return The strictly typed list.
 		 */
@@ -1224,32 +1337,113 @@ global inherited sharing class QRY_Condition
 				}
 			}
 
-			if(sample instanceof SObject)
-			{
-				List<SObject> castList = new List<SObject>();
-				for(Object itemValue : inputList)
-				{
-					castList.add((SObject)itemValue);
-				}
-				return castList;
-			}
+			String kind = sample == null ? String.class.getName() : getBindableKind(sample);
 
-			if('Id'.equalsIgnoreCase(UTIL_System.getRuntimeTypeName(sample)))
+			if(kind == RECORD_KIND)
 			{
-				List<Id> castList = new List<Id>();
-				for(Object itemValue : inputList)
-				{
-					castList.add((Id)itemValue);
-				}
-				return castList;
+				return toTypedList(inputList, new List<SObject>());
 			}
+			if(kind == Id.class.getName())
+			{
+				return toTypedList(inputList, new List<Id>());
+			}
+			if(kind == Date.class.getName())
+			{
+				return toTypedList(inputList, new List<Date>());
+			}
+			if(kind == Datetime.class.getName())
+			{
+				return toTypedList(inputList, new List<Datetime>());
+			}
+			if(kind == Boolean.class.getName())
+			{
+				return toTypedList(inputList, new List<Boolean>());
+			}
+			if(kind == NUMBER_KIND)
+			{
+				return toNumberList(inputList);
+			}
+			return toTypedList(inputList, new List<String>());
+		}
 
-			List<String> castList = new List<String>();
+		/**
+		 * @description Adds every value of a generic list to an empty list of an exact type. Apex checks each value against
+		 * the target list's type as it is added.
+		 *
+		 * @param inputList The values to copy.
+		 * @param typedList An empty list of the exact type to fill.
+		 *
+		 * @return The filled typed list.
+		 */
+		private List<Object> toTypedList(List<Object> inputList, List<Object> typedList)
+		{
+			typedList.addAll(inputList);
+			return typedList;
+		}
+
+		/**
+		 * @description Copies a list of numbers into a List<Integer> when every non-blank number is a whole number that fits
+		 * in an Integer, and into a List<Decimal> otherwise.
+		 *
+		 * @param inputList The numbers to copy. Blank values stay in the list as null.
+		 *
+		 * @return A List<Integer> or a List<Decimal>.
+		 */
+		private Object toNumberList(List<Object> inputList)
+		{
+			Boolean allFitInteger = true;
+			List<Decimal> decimals = new List<Decimal>();
 			for(Object itemValue : inputList)
 			{
-				castList.add((String)itemValue);
+				decimals.add(toDecimal(itemValue));
+				allFitInteger = allFitInteger && (itemValue == null || isWholeNumberInIntegerRange(itemValue));
 			}
-			return castList;
+
+			if(!allFitInteger)
+			{
+				return decimals;
+			}
+
+			List<Integer> integers = new List<Integer>();
+			for(Decimal decimalValue : decimals)
+			{
+				integers.add(decimalValue?.intValue());
+			}
+			return integers;
+		}
+
+		/**
+		 * @description Checks whether a number is a whole number from -2147483648 to 2147483647, the range of an Apex
+		 * Integer. A number such as 3.0 counts as whole.
+		 *
+		 * @param value The number to check: an Integer, Long, Double or Decimal. It must not be null.
+		 *
+		 * @return True when the number can be stored in an Integer without losing anything.
+		 */
+		private Boolean isWholeNumberInIntegerRange(Object value)
+		{
+			Decimal decimalValue = toDecimal(value);
+			return decimalValue.stripTrailingZeros().scale() <= 0 && decimalValue >= SMALLEST_INTEGER && decimalValue <= LARGEST_INTEGER;
+		}
+
+		/**
+		 * @description Turns any Apex number into a Decimal with the same value.
+		 *
+		 * @param value An Integer, Long, Double or Decimal, or null.
+		 *
+		 * @return The value as a Decimal, or null when the value is null.
+		 */
+		private Decimal toDecimal(Object value)
+		{
+			if(value instanceof Integer)
+			{
+				return (Integer)value;
+			}
+			if(value instanceof Long)
+			{
+				return Decimal.valueOf((Long)value);
+			}
+			return (Decimal)value;
 		}
 	}
 
@@ -1259,7 +1453,7 @@ global inherited sharing class QRY_Condition
 	public abstract class ConditionGroup implements Nestable, BindAware
 	{
 		/**
-		 * @description The list of conditions in this group.
+		 * @description The conditions this group joins with its AND or OR, in the order they were added. add() leaves out a null condition.
 		 */
 		public List<Evaluable> conditions {get; private set;}
 
@@ -1269,18 +1463,25 @@ global inherited sharing class QRY_Condition
 		private final String separator;
 
 		/**
-		 * @description Constructor for initializing a new ConditionGroup.
+		 * @description Creates an empty group whose conditions are joined by AND or OR. The word may be in any letter case
+		 * and is written into the query as given. Any other text is refused, so that it cannot change the query.
 		 *
 		 * @param groupSeparator The separator (AND/OR) used to combine conditions.
+		 *
+		 * @throws IllegalArgumentException if the word is not AND or OR. The message does not repeat the text.
 		 */
 		public ConditionGroup(String groupSeparator)
 		{
-			this.separator = groupSeparator;
-			this.conditions = new List<Evaluable>();
+			if(!AND_SEPARATOR.equalsIgnoreCase(groupSeparator) && !OR_SEPARATOR.equalsIgnoreCase(groupSeparator))
+			{
+				throw new IllegalArgumentException(String.format(System.Label.QueryBuilder_ConditionSeparator_NotAllowed, new List<Object> {'ConditionGroup'}));
+			}
+			separator = groupSeparator;
+			conditions = new List<Evaluable>();
 		}
 
 		/**
-		 * @description Adds a new condition to the current group.
+		 * @description Adds a condition to the end of the group. A null condition is ignored.
 		 *
 		 * @param condition The condition to add.
 		 *
@@ -1431,7 +1632,7 @@ global inherited sharing class QRY_Condition
 		 */
 		global AndCondition()
 		{
-			super('AND');
+			super(AND_SEPARATOR);
 		}
 
 		/**
@@ -1482,7 +1683,7 @@ global inherited sharing class QRY_Condition
 		 */
 		global OrCondition()
 		{
-			super('OR');
+			super(OR_SEPARATOR);
 		}
 
 		/**
@@ -1518,7 +1719,8 @@ global inherited sharing class QRY_Condition
 		public Evaluable condition {get; private set;}
 
 		/**
-		 * @description Default constructor for NotCondition.
+		 * @description Creates a NOT condition with nothing to negate yet. Until add() sets a condition, it writes nothing into
+		 * the query.
 		 */
 		public NotCondition()
 		{
@@ -1677,9 +1879,13 @@ global inherited sharing class QRY_Condition
 		{
 			return String.valueOf(value).toUpperCase();
 		}
-		if(value instanceof Integer || value instanceof Long || value instanceof Decimal || value instanceof Double)
+		if(value instanceof Integer || value instanceof Long)
 		{
 			return String.valueOf(value);
+		}
+		if(value instanceof Decimal || value instanceof Double)
+		{
+			return ((Decimal)value).toPlainString();
 		}
 		if(value instanceof Date)
 		{
@@ -1800,7 +2006,8 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the date literal to YESTERDAY.
+		 * @description Matches the whole of the day before today, with the SOQL keyword YESTERDAY. Pass the result as a
+		 * condition value, for example to equals(). It replaces any date set earlier on this object.
 		 *
 		 * @return The DateLiteral instance for method chaining.
 		 *
@@ -1818,7 +2025,8 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the date literal to TODAY.
+		 * @description Matches the whole of today, with the SOQL keyword TODAY. Pass the result as a condition value, for
+		 * example to equals(). It replaces any date set earlier on this object.
 		 *
 		 * @return The DateLiteral instance for method chaining.
 		 *
@@ -1836,7 +2044,8 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the date literal to TOMORROW.
+		 * @description Matches the whole of the day after today, with the SOQL keyword TOMORROW. Pass the result as a condition
+		 * value, for example to equals(). It replaces any date set earlier on this object.
 		 *
 		 * @return The DateLiteral instance for method chaining.
 		 *
@@ -1854,7 +2063,9 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the date literal to a THIS_* value for the given unit.
+		 * @description Matches the current week, month, quarter, year, fiscal quarter or fiscal year, written as THIS_ and the
+		 * unit name, such as THIS_MONTH. DAY gives TODAY, because SOQL has no THIS_DAY. A null unit throws a
+		 * NullPointerException.
 		 *
 		 * @param unit The unit of time
 		 *
@@ -1879,7 +2090,8 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the date literal to LAST_90_DAYS.
+		 * @description Matches today and the 90 days before it, with the SOQL keyword LAST_90_DAYS. lastNDays(90)
+		 * writes the same keyword.
 		 *
 		 * @return The DateLiteral instance for method chaining.
 		 *
@@ -1896,7 +2108,8 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the date literal to NEXT_90_DAYS.
+		 * @description Matches the next 90 days, starting tomorrow, with the SOQL keyword NEXT_90_DAYS. nextNDays(90) writes the
+		 * same keyword.
 		 *
 		 * @return The DateLiteral instance for method chaining.
 		 *
@@ -1913,7 +2126,8 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the date literal to LAST_N_DAYS:n.
+		 * @description Matches today and the n days before it, written as LAST_N_DAYS:n (lastNDays(30) writes
+		 * LAST_N_DAYS:30). For 90 it writes LAST_90_DAYS. A negative number throws IllegalArgumentException.
 		 *
 		 * @param numberOfDays The number of days
 		 *
@@ -1932,7 +2146,8 @@ global inherited sharing class QRY_Condition
 		}
 
 		/**
-		 * @description Sets the date literal to NEXT_N_DAYS:n.
+		 * @description Matches the next n days, starting tomorrow, written as NEXT_N_DAYS:n (nextNDays(60) writes
+		 * NEXT_N_DAYS:60). For 90 it writes NEXT_90_DAYS. A negative number throws IllegalArgumentException.
 		 *
 		 * @param numberOfDays The number of days
 		 *

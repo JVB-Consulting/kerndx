@@ -3,8 +3,8 @@
  * @description Central registry and fluent builder for mock SObjects. Wraps QRY_Builder.setMock()
  * with lifecycle management, providing a single point of control for registering, retrieving, and
  * clearing mock records used in DML-free unit tests, and for setting a different answer for each query
- * with registerNext. The nested MockBuilder creates records with mock IDs and auto-registers them for
- * query interception.
+ * with registerNext. registerAggregateRows and registerNextAggregateRows answer aggregate queries. The nested
+ * MockBuilder creates records with mock IDs and auto-registers them for query interception.
  *
  * @see TST_Mock_TEST
  * @see TST_Builder
@@ -14,7 +14,7 @@
  *
  * @group Testing
  *
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -39,6 +39,19 @@ global inherited sharing class TST_Mock
 	 */
 	private static final String NEXT_ANSWER_RECORD_NULL_MESSAGE = 'The record for the next answer cannot be null; '
 			+ 'queue an empty list (registerNext(objectType, new List<SObject>())) for a query that finds nothing';
+
+	/**
+	 * @description Message thrown when null is passed to registerAggregateRows as the rows; it points the caller at
+	 * clear, which removes the rows registered for a type.
+	 */
+	private static final String AGGREGATE_ROWS_NULL_MESSAGE = 'The aggregate rows cannot be null; '
+			+ 'register an empty list for an aggregate query that finds nothing, or call clear(objectType) to remove the rows';
+
+	/**
+	 * @description Message thrown when a null row is passed to registerAggregateRows or registerNextAggregateRows.
+	 */
+	private static final String AGGREGATE_ROW_NULL_MESSAGE = 'The aggregate row cannot be null; '
+			+ 'register an empty list for an aggregate query that finds nothing';
 
 	/**
 	 * @description Registers a list of mock records for the specified SObject type. Appends to any
@@ -149,6 +162,141 @@ global inherited sharing class TST_Mock
 	}
 
 	/**
+	 * @description Registers rows that every aggregate query on this object type returns until cleared. Each map is
+	 * one row; its keys are the aliases your code reads.
+	 *
+	 * An aggregate query is one with count(field, alias), count(fieldName), countDistinct(), sum(), avg(), min(), max()
+	 * or groupBy(). The count() that ends a query and returns a number is not one: like toList(), it reads the records
+	 * registered with register. Read the rows with QRY_Builder.Builder.toAggregateList() or getFirstAggregate(). The
+	 * rows come back in the order you gave them; only the query's limit is applied to them, never its conditions or
+	 * its order. Aliases are matched without regard to case, and reading an alias the row does not hold throws, so a
+	 * spelling mistake shows at once. A number can be written as an Integer, a Long or a Decimal and read with any of
+	 * the number getters.
+	 *
+	 * Rows registered here are added after the rows registered earlier for the type, the way register adds records,
+	 * so one aggregate query returns them all, the first registered first. QRY_Builder.setAggregateMock replaces the
+	 * rows instead. Record mocks registered with register never answer an aggregate query: such a query throws until
+	 * aggregate rows are registered too. Reading a mocked aggregate query with toList() or any other record read
+	 * throws. clear() and clear(SObjectType) remove the rows.
+	 *
+	 * @param objectType The object type whose aggregate queries the rows answer.
+	 * @param rows The rows to add, in this order. May be empty; may not be null. An empty list adds no row, but when no
+	 * rows are registered yet for the type, it makes every aggregate query on the type find nothing. To remove the rows,
+	 * call clear(SObjectType).
+	 *
+	 * @throws IllegalArgumentException When objectType or rows is null.
+	 *
+	 * @since 1.10
+	 *
+	 * @example
+	 * ```apex
+	 * TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new List<Map<String, Object>>
+	 * {
+	 *     new Map<String, Object> {'total' => 3, 'Name' => 'A'},
+	 *     new Map<String, Object> {'total' => 2, 'Name' => 'B'}
+	 * });
+	 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+	 *     .count(Foobar__c.Id, 'total')
+	 *     .groupBy(Foobar__c.Name)
+	 *     .toAggregateList();
+	 * Assert.areEqual(3, rows[0].getInteger('total'), 'The first registered row comes first');
+	 * ```
+	 */
+	global static void registerAggregateRows(SObjectType objectType, List<Map<String, Object>> rows)
+	{
+		if(rows == null)
+		{
+			throw new IllegalArgumentException(AGGREGATE_ROWS_NULL_MESSAGE);
+		}
+		QRY_Engine.addAggregateMock(objectType, rows);
+	}
+
+	/**
+	 * @description Registers one row that every aggregate query on this object type returns until cleared. Its keys
+	 * are the aliases your code reads. The row is added after the rows registered earlier for the type. Use it for a
+	 * query read with getFirstAggregate(). See the list overload for how the rows are used.
+	 *
+	 * @param objectType The object type whose aggregate queries the row answers.
+	 * @param row The row to return. May not be null.
+	 *
+	 * @throws IllegalArgumentException When objectType or row is null.
+	 *
+	 * @since 1.10
+	 *
+	 * @example
+	 * ```apex
+	 * TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {'sum' => 10});
+	 * QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+	 *     .sum(Foobar__c.NumberInteger__c, 'sum')
+	 *     .getFirstAggregate();
+	 * Assert.areEqual(10, row.getDecimal('sum'), 'The registered row answers');
+	 * ```
+	 */
+	global static void registerAggregateRows(SObjectType objectType, Map<String, Object> row)
+	{
+		if(row == null)
+		{
+			throw new IllegalArgumentException(AGGREGATE_ROW_NULL_MESSAGE);
+		}
+		registerAggregateRows(objectType, new List<Map<String, Object>> {row});
+	}
+
+	/**
+	 * @description Registers rows that answer the next aggregate query on this object type once; answers are used in
+	 * the order you added them, before any registered rows.
+	 *
+	 * Call it once for each aggregate query you want to answer. When all of these answers are used up, the type goes
+	 * back to the rows registered with registerAggregateRows, or to the database when none are registered. An empty
+	 * list means the next aggregate query finds nothing. clear() and clear(SObjectType) remove the answers that are
+	 * left.
+	 *
+	 * @param objectType The object type to set the next aggregate answer for.
+	 * @param rows The rows the next aggregate query returns. May be empty; may not be null.
+	 *
+	 * @throws IllegalArgumentException When objectType or rows is null.
+	 *
+	 * @since 1.10
+	 *
+	 * @example
+	 * ```apex
+	 * TST_Mock.registerNextAggregateRows(Foobar__c.SObjectType, new List<Map<String, Object>>());
+	 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+	 *     .count(Foobar__c.Id, 'total')
+	 *     .toAggregateList();
+	 * Assert.isTrue(rows.isEmpty(), 'The empty answer makes the first aggregate query find nothing');
+	 * ```
+	 */
+	global static void registerNextAggregateRows(SObjectType objectType, List<Map<String, Object>> rows)
+	{
+		QRY_Engine.queueAggregateMock(objectType, rows);
+	}
+
+	/**
+	 * @description Registers one row that answers the next aggregate query on this object type once. See the list
+	 * overload for how these answers are used.
+	 *
+	 * @param objectType The object type to set the next aggregate answer for.
+	 * @param row The row the next aggregate query returns. May not be null.
+	 *
+	 * @throws IllegalArgumentException When objectType or row is null.
+	 *
+	 * @since 1.10
+	 *
+	 * @example
+	 * ```apex
+	 * TST_Mock.registerNextAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {'total' => 1});
+	 * ```
+	 */
+	global static void registerNextAggregateRows(SObjectType objectType, Map<String, Object> row)
+	{
+		if(row == null)
+		{
+			throw new IllegalArgumentException(AGGREGATE_ROW_NULL_MESSAGE);
+		}
+		registerNextAggregateRows(objectType, new List<Map<String, Object>> {row});
+	}
+
+	/**
 	 * @description Registers an Exception to be thrown on every query the framework runs against
 	 * the specified SObjectType, until it is cleared. Use for negative-path test coverage when a
 	 * caller needs to exercise a catch block around a SOQL call.
@@ -241,8 +389,8 @@ global inherited sharing class TST_Mock
 	}
 
 	/**
-	 * @description Removes every mock record, queued answer and exception registered for every SObject type, and
-	 * takes every type out of the QRY_Builder mock layer, so queries read the database again.
+	 * @description Removes every mock record, queued answer, exception and aggregate rows registered for every SObject
+	 * type, and takes every type out of the QRY_Builder mock layer, so queries read the database again.
 	 *
 	 * @since 1.0
 	 *
@@ -261,11 +409,12 @@ global inherited sharing class TST_Mock
 		MOCK_REGISTRY.clear();
 		QRY_Engine.clearMockQueues();
 		QRY_Engine.clearMockExceptions();
+		QRY_Engine.clearAggregateMocks();
 	}
 
 	/**
-	 * @description Removes the mock records, queued answers and exception registered for one SObject type, and
-	 * takes that type out of the QRY_Builder mock layer, so its queries read the database again.
+	 * @description Removes the mock records, queued answers, exception and aggregate rows registered for one SObject
+	 * type, and takes that type out of the QRY_Builder mock layer, so its queries read the database again.
 	 *
 	 * @param objectType The SObject type to clear mocks for.
 	 *
@@ -282,6 +431,7 @@ global inherited sharing class TST_Mock
 		QRY_Builder.setMock(objectType, null);
 		QRY_Engine.clearMockQueue(objectType);
 		QRY_Engine.clearMockException(objectType);
+		QRY_Engine.clearAggregateMock(objectType);
 	}
 
 	/**
@@ -501,7 +651,9 @@ global inherited sharing class TST_Mock
 		}
 
 		/**
-		 * @description Sets the Record Type for the mock records using the Record Type's DeveloperName.
+		 * @description Looks up the Record Type by its developer name on this object and puts its Id in the RecordTypeId
+		 * field of each mock record. A blank name is ignored. Throws IllegalArgumentException when the object has no
+		 * Record Type with that name.
 		 *
 		 * @param recordTypeDeveloperName The DeveloperName of the Record Type.
 		 *

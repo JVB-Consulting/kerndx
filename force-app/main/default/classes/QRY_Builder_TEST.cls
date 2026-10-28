@@ -12,7 +12,7 @@
  * @date February 2026, October 2026
  */
 @IsTest(seeAllData=false isParallel=false)
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.CognitiveComplexity')
 private class QRY_Builder_TEST
 {
 	/**
@@ -156,6 +156,11 @@ private class QRY_Builder_TEST
 	 */
 	private static final String SHARING_AUDIT_PREFIX = 'sharing:';
 	/**
+	 * @description Start of the name under which the audit record for a query that calls withSystemMode() is looked up.
+	 * The tests add the object name to it to find that record.
+	 */
+	private static final String SYSTEM_MODE_AUDIT_PREFIX = 'system-mode:';
+	/**
 	 * @description Name stamped on the Foobar__c rows seeded for the test that checks withoutSecurity.
 	 */
 	private static final String WAIVER_PROBE_NAME = 'Waiver probe';
@@ -169,6 +174,305 @@ private class QRY_Builder_TEST
 	 * them must still get this many back from every way of running the query.
 	 */
 	private static final Integer WAIVER_PROBE_ROWS = 3;
+	/**
+	 * @description Alias the aggregate mock tests give the count, and the key of the registered rows that holds it.
+	 */
+	private static final String MOCK_TOTAL_ALIAS = 'total';
+	/**
+	 * @description Total held by the registered aggregate rows. It differs from every real count in these tests, so
+	 * an answer from the registered rows is told apart from an answer from the database.
+	 */
+	private static final Integer MOCK_TOTAL = 4;
+	/**
+	 * @description Total held by the rows that a second setAggregateMock call sets. It differs from MOCK_TOTAL, so the
+	 * rows of the first call are told apart from the rows of the second.
+	 */
+	private static final Integer REPLACEMENT_MOCK_TOTAL = 9;
+	/**
+	 * @description Name of the read the error must point to when a mocked aggregate query is read as records.
+	 */
+	private static final String AGGREGATE_READ_HINT = 'toAggregateList';
+	/**
+	 * @description Name of the method the error must point to when an aggregate query finds record mocks only.
+	 */
+	private static final String REGISTER_AGGREGATE_ROWS_HINT = 'registerAggregateRows';
+	/**
+	 * @description The record reads that must refuse a mocked aggregate query. Each name is a method of
+	 * QRY_Builder.Builder; readMockedAggregateQueryAsRecords runs the one it is given.
+	 */
+	private static final List<String> RECORD_READS = new List<String> {'toList', 'getFirst', 'getPage', 'getRandomItems', 'asMap'};
+	/**
+	 * @description Page size the record-read test asks getPage for.
+	 */
+	private static final Integer MOCK_PAGE_SIZE = 10;
+	/**
+	 * @description Alias registered in mixed case, to prove an alias is matched without regard to case.
+	 */
+	private static final String MIXED_CASE_ALIAS = 'Count_Id';
+	/**
+	 * @description Alias read back in a test that never registered it.
+	 */
+	private static final String MISSPELT_ALIAS = 'totl';
+	/**
+	 * @description A value written over a registered row after it was read, to prove the row read earlier kept its own copy.
+	 */
+	private static final Integer CHANGED_TOTAL = 9;
+	/**
+	 * @description Key of the registered row that holds a whole number written as an Integer.
+	 */
+	private static final String INTEGER_KEY = 'a';
+	/**
+	 * @description Key of the registered row that holds a whole number written as a Decimal.
+	 */
+	private static final String DECIMAL_KEY = 'b';
+	/**
+	 * @description Key of the registered row that holds a whole number written as a Long.
+	 */
+	private static final String LONG_KEY = 'c';
+	/**
+	 * @description Value held under INTEGER_KEY.
+	 */
+	private static final Integer INTEGER_VALUE = 3;
+	/**
+	 * @description Value held under DECIMAL_KEY.
+	 */
+	private static final Decimal DECIMAL_VALUE = 2.0;
+	/**
+	 * @description Value held under LONG_KEY.
+	 */
+	private static final Long LONG_VALUE = 5L;
+	/**
+	 * @description Key of the registered row that holds a whole number written as a Double.
+	 */
+	private static final String DOUBLE_KEY = 'd';
+	/**
+	 * @description Value held under DOUBLE_KEY. It is declared as a Double, so the row really holds a Double.
+	 */
+	private static final Double DOUBLE_VALUE = 6.0;
+	/**
+	 * @description Key of the registered row that holds a number with a fraction.
+	 */
+	private static final String FRACTION_KEY = 'e';
+	/**
+	 * @description Value held under FRACTION_KEY. It is not a whole number, so getInteger must refuse it as a real
+	 * row does.
+	 */
+	private static final Decimal FRACTION_VALUE = 2.5;
+	/**
+	 * @description A TYPEOF field written as plain text. TYPEOF picks which parent fields to read by the type of
+	 * parent the Event points to: Phone and Industry for an Account, Amount for an Opportunity, and Name for any
+	 * other type.
+	 */
+	private static final String TYPEOF_CLAUSE = 'TYPEOF What WHEN Account THEN Phone, Industry WHEN Opportunity THEN Amount ELSE Name END';
+	/**
+	 * @description Phone number given to the Account that an Event points to, so a test can find it again on the
+	 * parent the query brings back.
+	 */
+	private static final String PARENT_PHONE = '555-0100';
+	/**
+	 * @description The industry given to each Account a test saves. Some orgs that install the package have their own
+	 * rule that an Account needs an industry, so a saved Account carries one.
+	 */
+	private static final String ACCOUNT_INDUSTRY = 'Technology';
+	/**
+	 * @description Length in minutes given to each Event the TYPEOF tests build. An Event that is not an all-day
+	 * event needs a length and a start time.
+	 */
+	private static final Integer EVENT_DURATION_MINUTES = 30;
+	/**
+	 * @description Name of the Custom Label that holds the message for a text the builder refuses where it expects a field
+	 * name. The message names the method that refused the text.
+	 */
+	private static final String FIELD_NAME_REFUSED_LABEL = 'QueryBuilder_FieldName_NotAllowed';
+	/**
+	 * @description A data category group name the data category tests use where the group name is valid.
+	 */
+	private static final String CATEGORY_GROUP = 'Geography__c';
+	/**
+	 * @description A data category name the data category tests use where the category name is valid.
+	 */
+	private static final String CATEGORY_NAME = 'USA__c';
+	/**
+	 * @description Name of the relationship from an Account to its Contacts, used to read the Contacts of each Account in
+	 * one query.
+	 */
+	private static final String CONTACTS_RELATIONSHIP = 'Contacts';
+	/**
+	 * @description Alias given to the sum that the aggregate selection tests build.
+	 */
+	private static final String SUM_ALIAS = 'total';
+	/**
+	 * @description Number of Foobar__c rows the tests about crafted field names save. One more row is saved and then
+	 * deleted where a test needs a deleted row.
+	 */
+	private static final Integer CRAFTED_TEXT_PROBE_ROWS = 3;
+	/**
+	 * @description A latitude that Apex writes with an exponent, 1E-7, when it turns the number into text.
+	 */
+	private static final Decimal LATITUDE_IN_EXPONENT_FORM = 0.0000001;
+	/**
+	 * @description A latitude that Apex writes with its trailing zeros, 45.000000000000, when it turns the number into text.
+	 */
+	private static final Decimal LATITUDE_WITH_TRAILING_ZEROS = 45.000000000000;
+	/**
+	 * @description The longitude the distance tests use with every latitude.
+	 */
+	private static final Decimal DISTANCE_LONGITUDE = 10;
+	/**
+	 * @description The distance, in miles, the distance tests compare with.
+	 */
+	private static final Integer DISTANCE_LIMIT_MILES = 5;
+	/**
+	 * @description The number of hours in a day. Every hour of the day is less than it, so a condition on it matches all rows.
+	 */
+	private static final Integer HOURS_IN_A_DAY = 24;
+	/**
+	 * @description The length of a very long crafted text. Without a length limit, a pattern that reads a text this long
+	 * stops the transaction with an error no code can catch.
+	 */
+	private static final Integer VERY_LONG_TEXT_LENGTH = 300000;
+	/**
+	 * @description The number of sort items in a long crafted sort list. Without a check of one item at a time, a pattern
+	 * that reads a list this long fails with a stack overflow.
+	 */
+	private static final Integer MANY_SORT_ITEMS = 300;
+	/**
+	 * @description The number of dotted names in a long crafted field path. Without a length limit, a pattern that reads a
+	 * path this long fails with a stack overflow.
+	 */
+	private static final Integer MANY_DOTTED_NAMES = 1000;
+	/**
+	 * @description The most fields an ORDER BY clause takes.
+	 */
+	private static final Integer MOST_SORT_ITEMS = 32;
+	/**
+	 * @description A field path that reaches five parent records, the most a query may reach: from a Foobar__c record to
+	 * the user who created it, that user's profile, and so on.
+	 */
+	private static final String FIVE_PARENT_PATH = 'CreatedBy.Profile.CreatedBy.Profile.CreatedBy.Name';
+	/**
+	 * @description The object permission the restricted user gets on Foobar__c in the sharing bypass tests: read only,
+	 * never View All, so record sharing still hides the rows the test administrator owns.
+	 */
+	private static final List<SObjectField> READ_PERMISSIONS = new List<SObjectField> {ObjectPermissions.PermissionsRead};
+	/**
+	 * @description A TYPEOF field written as plain text that reads the Name and the Phone of an Account parent, and
+	 * the Name of any other parent. Every user can read the Name of a record, so the sharing bypass test can show that
+	 * the parent came back while its Phone was removed.
+	 */
+	private static final String TYPEOF_ACCOUNT_NAME_AND_PHONE = 'TYPEOF What WHEN Account THEN Name, Phone ELSE Name END';
+	/**
+	 * @description The start of the name of the permission set that gives a test user read access to the Related To
+	 * field of an Event. A random ending keeps each name unique.
+	 */
+	private static final String EVENT_RELATED_TO_PERMISSION_SET_PREFIX = 'EventRelatedToRead';
+	/**
+	 * @description How many random letters and digits end the name of a permission set a test saves.
+	 */
+	private static final Integer PERMISSION_SET_NAME_RANDOM_LENGTH = 12;
+	/**
+	 * @description Alias given to the count of rows in each group that the sharing bypass tests read as totals.
+	 */
+	private static final String ROW_COUNT_ALIAS = 'rowCount';
+	/**
+	 * @description The name of the Foobar__c child relationship of the Lookup__c field, without the package namespace.
+	 * A test adds the namespace of the running code to it before it reads the child rows.
+	 */
+	private static final String CHILD_FOOBARS_RELATIONSHIP = 'Foobars__r';
+	/**
+	 * @description The name of the LoginFrequency__c child relationship of a User, through the User__c field, without the
+	 * package namespace. A test adds the namespace of the running code to it before it reads the child rows.
+	 */
+	private static final String CHILD_LOGIN_FREQUENCIES_RELATIONSHIP = 'AW_LoginFrequencies__r';
+	/**
+	 * @description The most rows the paged read of the sharing bypass tests asks for. One page holds the one seeded row.
+	 */
+	private static final Integer BYPASS_PAGE_SIZE = 10;
+	/**
+	 * @description The read terminal that returns the rows as a list. The refusal messages name it.
+	 */
+	private static final String TERMINAL_TO_LIST = 'toList';
+	/**
+	 * @description The read terminal that returns the number of rows.
+	 */
+	private static final String TERMINAL_COUNT = 'count';
+	/**
+	 * @description The read terminal that says whether any row matches.
+	 */
+	private static final String TERMINAL_EXISTS = 'exists';
+	/**
+	 * @description The read terminal that returns a query locator, which a batch job reads later. The refusal message names it.
+	 */
+	private static final String TERMINAL_TO_QUERY_LOCATOR = 'toQueryLocator';
+	/**
+	 * @description The read terminal that returns a cursor, which a later transaction can read. The refusal message names it.
+	 */
+	private static final String TERMINAL_TO_CURSOR = 'toCursor';
+	/**
+	 * @description The read terminal that returns the totals of a grouped query. The refusal message names it.
+	 */
+	private static final String TERMINAL_TO_AGGREGATE_LIST = 'toAggregateList';
+	/**
+	 * @description The read terminal that returns the first total of a grouped query. The refusal message names it.
+	 */
+	private static final String TERMINAL_GET_FIRST_AGGREGATE = 'getFirstAggregate';
+	/**
+	 * @description The read terminal that returns one page of rows. The refusal message names it.
+	 */
+	private static final String TERMINAL_GET_PAGE = 'getPage';
+	/**
+	 * @description The read terminal that returns rows picked at random. The refusal message names it.
+	 */
+	private static final String TERMINAL_GET_RANDOM_ITEMS = 'getRandomItems';
+	/**
+	 * @description The builder method that receives each crafted text, so a test can say which method had to refuse it.
+	 */
+	private static final Map<CraftedEntry, String> ENTRY_METHOD_NAMES = new Map<CraftedEntry, String>
+	{
+			CraftedEntry.CONDITION => 'condition',
+			CraftedEntry.CONDITION_WITHOUT_OPERATOR => 'condition',
+			CraftedEntry.AND_CONDITION => 'andCondition',
+			CraftedEntry.OR_CONDITION => 'orCondition',
+			CraftedEntry.ORDER_BY => 'orderBy',
+			CraftedEntry.ORDER_BY_DESCENDING => 'orderBy',
+			CraftedEntry.ORDER_BY_DESCENDING_NULLS_FIRST => 'orderBy',
+			CraftedEntry.GROUP_BY => 'groupBy',
+			CraftedEntry.COUNT => 'count',
+			CraftedEntry.COUNT_DISTINCT => 'countDistinct',
+			CraftedEntry.GROUPING => 'grouping',
+			CraftedEntry.DATA_CATEGORY_GROUP => 'withDataCategory',
+			CraftedEntry.DATA_CATEGORY_BUILDER => 'DataCategoryBuilder',
+			CraftedEntry.AT => 'at',
+			CraftedEntry.AT_LIST => 'at',
+			CraftedEntry.ABOVE => 'above',
+			CraftedEntry.ABOVE_LIST => 'above',
+			CraftedEntry.BELOW => 'below',
+			CraftedEntry.BELOW_LIST => 'below',
+			CraftedEntry.EITHER_SIDE => 'aboveOrBelow',
+			CraftedEntry.EITHER_SIDE_LIST => 'aboveOrBelow',
+			CraftedEntry.RELATED_FIELD => 'relatedField',
+			CraftedEntry.RELATED_FIELDS => 'relatedFields',
+			CraftedEntry.SUBSELECT => 'subselect',
+			CraftedEntry.IS_IN => 'SetCondition',
+			CraftedEntry.NOT_IN => 'SetCondition'
+	};
+	/**
+	 * @description The builder methods whose query cannot run on this org, because it has no objects that take data
+	 * categories. For these the tests read the query text only.
+	 */
+	private static final Set<CraftedEntry> TEXT_ONLY_ENTRIES = new Set<CraftedEntry>
+	{
+			CraftedEntry.DATA_CATEGORY_GROUP,
+			CraftedEntry.DATA_CATEGORY_BUILDER,
+			CraftedEntry.AT,
+			CraftedEntry.AT_LIST,
+			CraftedEntry.ABOVE,
+			CraftedEntry.ABOVE_LIST,
+			CraftedEntry.BELOW,
+			CraftedEntry.BELOW_LIST,
+			CraftedEntry.EITHER_SIDE,
+			CraftedEntry.EITHER_SIDE_LIST
+	};
 
 	/**
 	 * @description Rows the cross-transaction queueable fetch saw through its cursor; static so the in-test
@@ -2333,7 +2637,9 @@ private class QRY_Builder_TEST
 	}
 
 	/**
-	 * @description Tests that HAVING conditions work with aggregates.
+	 * @description Tests that HAVING conditions work with aggregates: havingCount writes the HAVING text COUNT(Id) > 0
+	 * exactly, and the query runs and returns the saved row's group. The builder writes this text itself and passes it on
+	 * as a field name, so the check on field names must accept it unchanged.
 	 */
 	@IsTest
 	private static void havingConditionsWorkWithAggregates()
@@ -2342,103 +2648,119 @@ private class QRY_Builder_TEST
 		{
 			TST_Factory.insertFoobar();
 
-			List<AggregateResult> results = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
 					.count(FIELD_ID)
 					.groupBy(Foobar__c.Name)
-					.havingCount().greaterThan(0)
-					.toList();
+					.havingCount().greaterThan(0);
+			List<AggregateResult> results = query.toList();
 
+			Assert.areEqual('(COUNT(' + FIELD_ID + ') > 0)', query.toSoql().substringAfter(' HAVING '), 'Expected the HAVING text to stay as it is');
 			Assert.isTrue(results.size() >= 1, 'Should return grouped results');
 		}
 	}
 
 	/**
-	 * @description Tests havingSumOf() method.
+	 * @description Tests that havingSumOf writes the HAVING text SUM(field name) > 0 exactly, and that the query runs and
+	 * returns the one group of the one saved row. The builder writes this text itself and passes it on as a field name, so the
+	 * check on field names must accept it unchanged.
 	 */
 	@IsTest
 	private static void havingSumOfWorks()
 	{
 		System.runAs(getTestAdmin())
 		{
-			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.NumberInteger__c, 1).build();
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
 					.sum(Foobar__c.NumberInteger__c)
 					.groupBy(Foobar__c.Picklist__c)
-					.havingSumOf(Foobar__c.NumberInteger__c).greaterThan(0)
-					.toSoql();
+					.havingSumOf(Foobar__c.NumberInteger__c).greaterThan(0);
 
-			Assert.isTrue(soql.containsIgnoreCase('HAVING'), 'Should contain HAVING clause');
+			Assert.areEqual('(SUM(' + FIELD_NUMBER_INTEGER + ') > 0)', query.toSoql().substringAfter(' HAVING '), 'Expected the HAVING text to stay as it is');
+			Assert.areEqual(1, query.toList().size(), 'Expected the query to run and return the one group');
 		}
 	}
 
 	/**
-	 * @description Tests havingAvgOf() method.
+	 * @description Tests that havingAvgOf writes the HAVING text AVG(field name) > 0 exactly, and that the query runs and
+	 * returns the one group of the one saved row. The builder writes this text itself and passes it on as a field name, so the
+	 * check on field names must accept it unchanged.
 	 */
 	@IsTest
 	private static void havingAvgOfWorks()
 	{
 		System.runAs(getTestAdmin())
 		{
-			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.NumberInteger__c, 1).build();
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
 					.avg(Foobar__c.NumberInteger__c)
 					.groupBy(Foobar__c.Picklist__c)
-					.havingAvgOf(Foobar__c.NumberInteger__c).greaterThan(0)
-					.toSoql();
+					.havingAvgOf(Foobar__c.NumberInteger__c).greaterThan(0);
 
-			Assert.isTrue(soql.containsIgnoreCase('HAVING'), 'Should contain HAVING clause');
+			Assert.areEqual('(AVG(' + FIELD_NUMBER_INTEGER + ') > 0)', query.toSoql().substringAfter(' HAVING '), 'Expected the HAVING text to stay as it is');
+			Assert.areEqual(1, query.toList().size(), 'Expected the query to run and return the one group');
 		}
 	}
 
 	/**
-	 * @description Tests havingMinOf() method.
+	 * @description Tests that havingMinOf writes the HAVING text MIN(field name) > 0 exactly, and that the query runs and
+	 * returns the one group of the one saved row. The builder writes this text itself and passes it on as a field name, so the
+	 * check on field names must accept it unchanged.
 	 */
 	@IsTest
 	private static void havingMinOfWorks()
 	{
 		System.runAs(getTestAdmin())
 		{
-			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.NumberInteger__c, 1).build();
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
 					.min(Foobar__c.NumberInteger__c)
 					.groupBy(Foobar__c.Picklist__c)
-					.havingMinOf(Foobar__c.NumberInteger__c).greaterThan(0)
-					.toSoql();
+					.havingMinOf(Foobar__c.NumberInteger__c).greaterThan(0);
 
-			Assert.isTrue(soql.containsIgnoreCase('HAVING'), 'Should contain HAVING clause');
+			Assert.areEqual('(MIN(' + FIELD_NUMBER_INTEGER + ') > 0)', query.toSoql().substringAfter(' HAVING '), 'Expected the HAVING text to stay as it is');
+			Assert.areEqual(1, query.toList().size(), 'Expected the query to run and return the one group');
 		}
 	}
 
 	/**
-	 * @description Tests havingMaxOf() method.
+	 * @description Tests that havingMaxOf writes the HAVING text MAX(field name) > 0 exactly, and that the query runs and
+	 * returns the one group of the one saved row. The builder writes this text itself and passes it on as a field name, so the
+	 * check on field names must accept it unchanged.
 	 */
 	@IsTest
 	private static void havingMaxOfWorks()
 	{
 		System.runAs(getTestAdmin())
 		{
-			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+			TST_Factory.getFoobarBuilder().withOverride(Foobar__c.NumberInteger__c, 1).build();
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
 					.max(Foobar__c.NumberInteger__c)
 					.groupBy(Foobar__c.Picklist__c)
-					.havingMaxOf(Foobar__c.NumberInteger__c).greaterThan(0)
-					.toSoql();
+					.havingMaxOf(Foobar__c.NumberInteger__c).greaterThan(0);
 
-			Assert.isTrue(soql.containsIgnoreCase('HAVING'), 'Should contain HAVING clause');
+			Assert.areEqual('(MAX(' + FIELD_NUMBER_INTEGER + ') > 0)', query.toSoql().substringAfter(' HAVING '), 'Expected the HAVING text to stay as it is');
+			Assert.areEqual(1, query.toList().size(), 'Expected the query to run and return the one group');
 		}
 	}
 
 	/**
-	 * @description Tests havingCountOf() method.
+	 * @description Tests that havingCountOf writes the HAVING text COUNT(Id) > 0 exactly, and that the query runs and
+	 * returns the one group of the one saved row. The builder writes this text itself and passes it on as a field name, so
+	 * the check on field names must accept it unchanged.
 	 */
 	@IsTest
 	private static void havingCountOfWorks()
 	{
 		System.runAs(getTestAdmin())
 		{
-			String soql = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+			TST_Factory.insertFoobar();
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
 					.count(FIELD_ID)
 					.groupBy(Foobar__c.Picklist__c)
-					.havingCountOf(Foobar__c.Id).greaterThan(0)
-					.toSoql();
+					.havingCountOf(Foobar__c.Id).greaterThan(0);
 
-			Assert.isTrue(soql.containsIgnoreCase('HAVING'), 'Should contain HAVING clause');
+			Assert.areEqual('(COUNT(' + FIELD_ID + ') > 0)', query.toSoql().substringAfter(' HAVING '), 'Expected the HAVING text to stay as it is');
+			Assert.areEqual(1, query.toList().size(), 'Expected the query to run and return the one group');
 		}
 	}
 
@@ -2475,26 +2797,30 @@ private class QRY_Builder_TEST
 
 	/**
 	 * @description Tests that orderByCount renders an aggregate ordering (ORDER BY COUNT(field) DESC/ASC),
-	 * the SOQL form for ranking grouped rows by size.
+	 * the SOQL form for ranking grouped rows by size, and that both queries run. The builder writes COUNT(Id) itself and
+	 * passes it on as a sort text, so the check on sort texts must accept it unchanged.
 	 */
 	@IsTest
 	private static void orderByCountRendersAggregateOrdering()
 	{
 		System.runAs(getTestAdmin())
 		{
-			String descending = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+			TST_Factory.insertFoobar();
+			QRY_Builder.Builder descendingQuery = QRY_Builder.selectFrom(Foobar__c.SObjectType)
 					.count(Foobar__c.Id, 'rowTotal')
 					.groupBy(Foobar__c.Picklist__c)
-					.orderByCount(Foobar__c.Id, true)
-					.toSoql();
-			String ascending = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.orderByCount(Foobar__c.Id, true);
+			QRY_Builder.Builder ascendingQuery = QRY_Builder.selectFrom(Foobar__c.SObjectType)
 					.count(Foobar__c.Id, 'rowTotal')
 					.groupBy(Foobar__c.Picklist__c)
-					.orderByCount(Foobar__c.Id, false)
-					.toSoql();
+					.orderByCount(Foobar__c.Id, false);
+			String descending = descendingQuery.toSoql();
+			String ascending = ascendingQuery.toSoql();
 
-			Assert.isTrue(descending.contains('ORDER BY COUNT(Id) DESC'), 'True should order by COUNT descending');
-			Assert.isTrue(ascending.contains('ORDER BY COUNT(Id) ASC'), 'False should order by COUNT ascending');
+			Assert.isTrue(descending.endsWith('ORDER BY COUNT(Id) DESC'), 'Expected true to sort by the count, largest first');
+			Assert.isTrue(ascending.endsWith('ORDER BY COUNT(Id) ASC'), 'Expected false to sort by the count, smallest first');
+			Assert.areEqual(1, descendingQuery.toList().size(), 'Expected the query sorted by the count, largest first, to run');
+			Assert.areEqual(1, ascendingQuery.toList().size(), 'Expected the query sorted by the count, smallest first, to run');
 		}
 	}
 
@@ -2732,55 +3058,76 @@ private class QRY_Builder_TEST
 	}
 
 	/**
-	 * @description Tests that semi-join subquery works with isIn().
+	 * @description Tests that semi-join subquery works with isIn(), and records its query text: an inner query that
+	 * selects one field name is written as Id IN (SELECT OwnerId FROM ...). The check on the inner query's selected
+	 * field must accept this text unchanged. Only the test admin owns a Foobar__c row, and a second user owns none, so
+	 * the query must return the test admin and nobody else.
 	 * Uses Foobar__c/User to avoid same-object subquery limitation.
 	 */
 	@IsTest
 	private static void semiJoinSubqueryWorks()
 	{
-		System.runAs(getTestAdmin())
+		TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		User owner = getTestAdmin();
+		System.runAs(owner)
 		{
 			TST_Factory.insertFoobar();
 
 			QRY_Builder.Builder subquery = QRY_Builder.selectFrom(Foobar__c.SObjectType)
 					.fields(new List<String> {'OwnerId'});
 
-			List<SObject> results = QRY_Builder.selectFrom(User.SObjectType)
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(User.SObjectType)
 					.fields(new List<String> {'Name'})
-					.condition(FIELD_ID).isIn(subquery)
-					.toList();
+					.condition(FIELD_ID).isIn(subquery);
+			List<SObject> results = query.toList();
 
-			Assert.isTrue(results.size() >= 1, 'Running user should own Foobar__c');
+			Assert.areEqual('SELECT Name FROM User WHERE Id IN (SELECT OwnerId FROM ' + OBJECT_NAME + ')', query.toSoql(), 'Expected the semi-join text to stay as it is');
+			Assert.areEqual(1, results.size(), 'Expected the semi-join to return only the user who owns the Foobar__c row');
+			Assert.areEqual(owner.Id, results[0].Id, 'Expected the semi-join to return the test admin, who owns the Foobar__c row');
 		}
 	}
 
 	/**
-	 * @description Tests that anti-join subquery works with notIn().
+	 * @description Tests that anti-join subquery works with notIn(). Only the test admin owns a Foobar__c row, and a
+	 * second user owns none. Of these two users, the query must return the second user and leave out the test admin.
 	 * Uses Foobar__c/User to avoid same-object subquery limitation.
 	 */
 	@IsTest
 	private static void antiJoinSubqueryWorks()
 	{
-		System.runAs(getTestAdmin())
+		User userWithoutRows = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		User owner = getTestAdmin();
+		System.runAs(owner)
 		{
 			TST_Factory.insertFoobar();
 
 			QRY_Builder.Builder subquery = QRY_Builder.selectFrom(Foobar__c.SObjectType)
 					.fields(new List<String> {'OwnerId'});
 
-			Integer totalActiveUsers = QRY_Builder.selectFrom(User.SObjectType)
-					.fields(new List<String> {'Name'})
-					.condition(User.IsActive).equals(true)
-					.toList()
-					.size();
-
-			List<SObject> results = QRY_Builder.selectFrom(User.SObjectType)
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(User.SObjectType)
 					.fields(new List<String> {'Name'})
 					.condition(FIELD_ID).notIn(subquery)
-					.condition(User.IsActive).equals(true)
-					.toList();
+					.condition(User.IsActive).equals(true);
+			List<SObject> results = query.toList();
 
-			Assert.isTrue(results.size() < totalActiveUsers, 'Anti-join should exclude Foobar__c owners');
+			Assert.areEqual
+					(
+							'SELECT Name FROM User WHERE (Id NOT IN (SELECT OwnerId FROM ' + OBJECT_NAME + ') AND IsActive = TRUE)',
+							query.toSoql(),
+							'Expected the anti-join text to stay as it is'
+					);
+			Set<Id> returnedSeededUserIds = new Set<Id>();
+			for(SObject row : results)
+			{
+				returnedSeededUserIds.add(row.Id);
+			}
+			returnedSeededUserIds.retainAll(new Set<Id> {owner.Id, userWithoutRows.Id});
+			Assert.areEqual
+					(
+							new Set<Id> {userWithoutRows.Id},
+							returnedSeededUserIds,
+							'Expected the anti-join to return the user who owns no Foobar__c row and to leave out the test admin'
+					);
 		}
 	}
 
@@ -3656,6 +4003,142 @@ private class QRY_Builder_TEST
 	}
 
 	/**
+	 * @description A TYPEOF field given to addField as text reaches the query exactly as it was written. The builder
+	 * does not change its words, its order or its case.
+	 */
+	@IsTest
+	private static void typeOfTextPathRendersTheClauseAsWritten()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String soql = QRY_Builder.selectFrom(Event.SObjectType)
+					.fields(new List<SObjectField> {Event.Id, Event.Subject})
+					.addField(TYPEOF_CLAUSE)
+					.toSoql();
+
+			Assert.isTrue(soql.contains(TYPEOF_CLAUSE), 'Expected the query to hold the TYPEOF field exactly as written, but got: ' + soql);
+		}
+	}
+
+	/**
+	 * @description A TYPEOF field read in user mode brings back the fields of the parent the Event points to. User
+	 * mode means the query runs with the running user's object and field permissions. One Event points to an Account
+	 * and one Event has no parent. Both come back. The parent of the first is an Account that carries its Phone
+	 * (readAccountPhone checks the parent's type). The second Event has no parent.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.KernNoStandardObjectInPackageTests')
+	private static void typeOfTextPathReadsParentFieldsInUserMode()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Account parentAccount = (Account)TST_Builder.of(Account.SObjectType)
+					.withOverride(Account.Phone, PARENT_PHONE)
+					.withOverride(Account.Industry, ACCOUNT_INDUSTRY)
+					.build();
+			Event linkedEvent = (Event)TST_Builder.of(Event.SObjectType)
+					.withOverride(Event.WhatId, parentAccount.Id)
+					.withOverride(Event.ActivityDateTime, Datetime.now())
+					.withOverride(Event.DurationInMinutes, EVENT_DURATION_MINUTES)
+					.build();
+			Event unlinkedEvent = (Event)TST_Builder.of(Event.SObjectType)
+					.withOverride(Event.ActivityDateTime, Datetime.now())
+					.withOverride(Event.DurationInMinutes, EVENT_DURATION_MINUTES)
+					.build();
+
+			List<SObject> rows = QRY_Builder.selectFrom(Event.SObjectType)
+					.fields(new List<SObjectField> {Event.Id, Event.Subject})
+					.addField(TYPEOF_CLAUSE)
+					.condition(Event.Id).isIn(new List<SObject> {linkedEvent, unlinkedEvent})
+					.withUserMode()
+					.toList();
+
+			Map<Id, SObject> rowsById = new Map<Id, SObject>(rows);
+			Assert.areEqual(new Set<Id> {linkedEvent.Id, unlinkedEvent.Id}, rowsById.keySet(), 'Expected the query to return both Events');
+
+			SObject parent = ((Event)rowsById.get(linkedEvent.Id)).What;
+			Assert.areEqual(PARENT_PHONE, readAccountPhone(parent), 'Expected the parent of the linked Event to be an Account that carries its Phone');
+			Assert.isNull(((Event)rowsById.get(unlinkedEvent.Id)).What, 'Expected the Event without a parent to come back with no parent');
+		}
+	}
+
+	/**
+	 * @description A TYPEOF query answered by a test mock returns the mock rows as they were registered. The mock
+	 * Event carries an Account as its parent, and the parent comes back with its Id and its Phone.
+	 */
+	@IsTest
+	private static void typeOfTextPathReturnsMockRowsUntouched()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Account parentAccount = (Account)TST_Builder.of(Account.SObjectType)
+					.withOverride(Account.Phone, PARENT_PHONE)
+					.withoutInsertion(true)
+					.build();
+			Event mockEvent = (Event)TST_Builder.of(Event.SObjectType)
+					.withOverride(Event.WhatId, parentAccount.Id)
+					.withOverride(Event.ActivityDateTime, Datetime.now())
+					.withOverride(Event.DurationInMinutes, EVENT_DURATION_MINUTES)
+					.withoutInsertion(true)
+					.build();
+			mockEvent.putSObject(UTIL_SObjectDescribe.getCachedFieldDescribe(Event.WhatId).getRelationshipName(), parentAccount);
+			TST_Mock.register(Event.SObjectType, mockEvent);
+
+			List<SObject> rows = QRY_Builder.selectFrom(Event.SObjectType)
+					.fields(new List<SObjectField> {Event.Id, Event.Subject})
+					.addField(TYPEOF_CLAUSE)
+					.withUserMode()
+					.toList();
+
+			Assert.areEqual(1, rows.size(), 'Expected the query to return the one mock Event');
+			Event row = (Event)rows[0];
+			Assert.areEqual(mockEvent.Id, row.Id, 'Expected the row to be the mock Event');
+			Assert.areEqual(parentAccount.Id, row.What?.Id, 'Expected the parent to come back with the Id it was registered with');
+			Assert.areEqual(PARENT_PHONE, readAccountPhone(row.What), 'Expected the mock Event to keep its Account parent and the parent Phone');
+		}
+	}
+
+	/**
+	 * @description A TYPEOF query with withCache is answered from the cache the second time it runs. The first read
+	 * goes to the database and isCached reports false. A result read in user mode is kept in memory for the rest of the
+	 * transaction, so the second read comes from that memory, not from Platform Cache. isCached reports true, and the
+	 * parent fields are still there.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.KernNoStandardObjectInPackageTests')
+	private static void typeOfTextPathIsServedFromTheCacheOnTheSecondRead()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Account parentAccount = (Account)TST_Builder.of(Account.SObjectType)
+					.withOverride(Account.Phone, PARENT_PHONE)
+					.withOverride(Account.Industry, ACCOUNT_INDUSTRY)
+					.build();
+			Event linkedEvent = (Event)TST_Builder.of(Event.SObjectType)
+					.withOverride(Event.WhatId, parentAccount.Id)
+					.withOverride(Event.ActivityDateTime, Datetime.now())
+					.withOverride(Event.DurationInMinutes, EVENT_DURATION_MINUTES)
+					.build();
+
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(Event.SObjectType)
+					.fields(new List<SObjectField> {Event.Id, Event.Subject})
+					.addField(TYPEOF_CLAUSE)
+					.condition(Event.Id).equals(linkedEvent.Id)
+					.withUserMode()
+					.withCache(CACHE_PROBE_TTL_SECONDS);
+
+			query.toList();
+			Boolean firstReadCached = query.isCached();
+			List<SObject> secondRows = query.toList();
+
+			Assert.isFalse(firstReadCached, 'Expected the first read to go to the database');
+			Assert.isTrue(query.isCached(), 'Expected the second read to come from the cache');
+			Assert.areEqual(1, secondRows.size(), 'Expected the cached read to return the one Event');
+			Assert.areEqual(PARENT_PHONE, readAccountPhone(((Event)secondRows[0]).What), 'Expected the cached row to keep its Account parent and the parent Phone');
+		}
+	}
+
+	/**
 	 * @description Tests selectAllFields method.
 	 */
 	@IsTest
@@ -3859,6 +4342,886 @@ private class QRY_Builder_TEST
 
 			Assert.areEqual(1, results.size(), 'Should return record with bypass sharing');
 		}
+	}
+
+	/**
+	 * @description With the UserModeQueries_Enabled flag off, a query with no mode call runs in system mode: no object or
+	 * field permission is checked. bypassSharing() alone then reads the row another user owns and keeps every field,
+	 * the hidden Email__c field included. A cursor and a query locator are not refused either, and each reaches the row.
+	 * When stripInaccessible() is added, the same read still removes the field the running user cannot read.
+	 */
+	@IsTest
+	private static void bypassSharingAloneWithTheQueryFlagOffKeepsEveryField()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true, false);
+
+		List<SObject> rows;
+		List<SObject> strippedRows;
+		Integer cursorRows;
+		Integer locatorRows;
+		System.runAs(restricted)
+		{
+			rows = newRowQuery(row.Id).addField(Foobar__c.Email__c).bypassSharing().toList();
+			strippedRows = newRowQuery(row.Id).addField(Foobar__c.Email__c).bypassSharing().stripInaccessible().toList();
+			cursorRows = countCursorRows(newRowQuery(row.Id).bypassSharing().toCursor());
+			locatorRows = countLocatorRows(newRowQuery(row.Id).bypassSharing().toQueryLocator());
+		}
+
+		Assert.areEqual(1, rows.size(), 'Expected the read to reach the row the test administrator owns');
+		Assert.areEqual(row.Email__c, rows[0].get(Foobar__c.Email__c), 'Expected the row to keep the email, because the flag is off and no field is checked');
+		Assert.areEqual(1, strippedRows.size(), 'Expected the read with stripInaccessible() to reach the row too');
+		Assert.isFalse(strippedRows[0].isSet(Foobar__c.Email__c), 'Expected stripInaccessible() to remove the email the user cannot read, even with the flag off');
+		Assert.areEqual(1, cursorRows, 'Expected the cursor to be opened and to reach the row');
+		Assert.areEqual(1, locatorRows, 'Expected the query locator to be opened and to reach the row');
+	}
+
+	/**
+	 * @description withSystemMode() with bypassSharing() turns off both the field checks and record sharing. The row
+	 * another user owns comes back with the hidden Email__c field. When stripInaccessible() is added, the same read
+	 * removes the field the running user cannot read.
+	 */
+	@IsTest
+	private static void systemModeWithBypassSharingKeepsEveryField()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		List<SObject> keptRows;
+		List<SObject> strippedRows;
+		System.runAs(restricted)
+		{
+			keptRows = newRowQuery(row.Id).addField(Foobar__c.Email__c).withSystemMode().bypassSharing().toList();
+			strippedRows = newRowQuery(row.Id).addField(Foobar__c.Email__c).withSystemMode().bypassSharing().stripInaccessible().toList();
+		}
+
+		Assert.areEqual(1, keptRows.size(), 'Expected the read to reach the row the test administrator owns');
+		Assert.areEqual(row.Email__c, keptRows[0].get(Foobar__c.Email__c), 'Expected the row to keep the email, because system mode checks no field');
+		Assert.areEqual(1, strippedRows.size(), 'Expected the read with stripInaccessible() to reach the row too');
+		Assert.isFalse(strippedRows[0].isSet(Foobar__c.Email__c), 'Expected stripInaccessible() to remove the email the user cannot read');
+	}
+
+	/**
+	 * @description bypassSharing() alone leaves exactly one audit entry for skipping record sharing, and none for system
+	 * mode. An audit entry is the log record the framework writes when a safety check is turned off. Under the default
+	 * user mode the read may run in system mode inside the framework to skip sharing, but the field checks stay, so
+	 * nothing about system mode is recorded.
+	 */
+	@IsTest
+	private static void bypassSharingAloneWritesOneSharingAuditEntry()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		Test.startTest();
+		newFoobarNameQuery().bypassSharing().toList();
+		Test.stopTest();
+
+		String objectName = String.valueOf(Foobar__c.SObjectType);
+		Assert.areEqual(1, countBypassAuditEntries(SHARING_AUDIT_PREFIX + objectName), 'Expected exactly one audit entry for skipping record sharing');
+		Assert.areEqual(0, countBypassAuditEntries(SYSTEM_MODE_AUDIT_PREFIX + objectName), 'Expected no audit entry for system mode, because no field check was turned off');
+		Assert.areEqual(0, countBypassAuditEntries(SECURITY_MODE_AUDIT_PREFIX + objectName), 'Expected no audit entry for turning off every check');
+	}
+
+	/**
+	 * @description withSharing() alone, under the default user mode, reads none of the rows another user owns. The
+	 * restricted user may read Foobar__c records, so the empty result comes from record sharing, not from a refusal.
+	 */
+	@IsTest
+	private static void withSharingAloneUnderUserModeReadsNoOtherOwnersRow()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		List<SObject> rows;
+		System.runAs(restricted)
+		{
+			rows = newRowQuery(row.Id).withSharing().toList();
+		}
+
+		Assert.areEqual(0, rows.size(), 'Expected record sharing to hide the row the test administrator owns');
+	}
+
+	/**
+	 * @description withSystemMode() with bypassSharing(), in either order, still opens a query locator and a cursor and
+	 * each reaches the row another user owns. A batch job reads a query locator later, and a later transaction can read
+	 * a cursor, so the framework cannot remove hidden fields from what they return. With system mode the caller has
+	 * already turned off the field checks, so these reads stay open. For the same reason a page read with getPage()
+	 * still hands back its pagination cursor.
+	 */
+	@IsTest
+	private static void systemModeWithBypassSharingStillOpensALocatorAndACursor()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		Integer locatorRowsSystemModeFirst;
+		Integer locatorRowsBypassFirst;
+		Integer cursorRowsSystemModeFirst;
+		Integer cursorRowsBypassFirst;
+		QRY_Builder.QueryPage page;
+		System.runAs(restricted)
+		{
+			locatorRowsSystemModeFirst = countLocatorRows(newRowQuery(row.Id).withSystemMode().bypassSharing().toQueryLocator());
+			locatorRowsBypassFirst = countLocatorRows(newRowQuery(row.Id).bypassSharing().withSystemMode().toQueryLocator());
+			cursorRowsSystemModeFirst = countCursorRows(newRowQuery(row.Id).withSystemMode().bypassSharing().toCursor());
+			cursorRowsBypassFirst = countCursorRows(newRowQuery(row.Id).bypassSharing().withSystemMode().toCursor());
+			page = newRowQuery(row.Id).withSystemMode().bypassSharing().getPage(1, BYPASS_PAGE_SIZE);
+		}
+
+		Assert.areEqual(1, page.records.size(), 'Expected the page to hold the row the test administrator owns');
+		Assert.isNotNull(page.cursor, 'Expected the page read in system mode to keep its pagination cursor');
+
+		Assert.areEqual(1, locatorRowsSystemModeFirst, 'Expected the query locator to reach the row when withSystemMode() comes first');
+		Assert.areEqual(1, locatorRowsBypassFirst, 'Expected the query locator to reach the row when bypassSharing() comes first');
+		Assert.areEqual(1, cursorRowsSystemModeFirst, 'Expected the cursor to return the row when withSystemMode() comes first');
+		Assert.areEqual(1, cursorRowsBypassFirst, 'Expected the cursor to return the row when bypassSharing() comes first');
+	}
+
+	/**
+	 * @description withSystemMode() with bypassSharing(), in either order, still reads totals of a grouped query. The
+	 * group of the row another user owns comes back from toAggregateList() and from getFirstAggregate(), with a count of
+	 * one.
+	 */
+	@IsTest
+	private static void systemModeWithBypassSharingStillReadsTotals()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		List<QRY_Builder.AggregateRow> groups = new List<QRY_Builder.AggregateRow>();
+		System.runAs(restricted)
+		{
+			groups.addAll(newGroupedQuery(row.Name).withSystemMode().bypassSharing().toAggregateList());
+			groups.addAll(newGroupedQuery(row.Name).bypassSharing().withSystemMode().toAggregateList());
+			groups.add(newGroupedQuery(row.Name).withSystemMode().bypassSharing().getFirstAggregate());
+			groups.add(newGroupedQuery(row.Name).bypassSharing().withSystemMode().getFirstAggregate());
+		}
+
+		Assert.areEqual(4, groups.size(), 'Expected one group from each of the four reads');
+		for(QRY_Builder.AggregateRow total : groups)
+		{
+			Assert.isNotNull(total, 'Expected getFirstAggregate() to return the group');
+			Assert.areEqual(row.Name, total.getString(FIELD_NAME), 'Expected the group of the row the test administrator owns');
+			Assert.areEqual(1, total.getInteger(ROW_COUNT_ALIAS), 'Expected the group to count the one row');
+		}
+	}
+
+	/**
+	 * @description bypassSharing() alone, under the default user mode, reads a row that another user owns. User mode
+	 * means the query runs with the running user's object and field permissions. The restricted user may read
+	 * Foobar__c records, but Foobar__c records are private and the test administrator owns the row, so only the bypass
+	 * can make it visible.
+	 */
+	@IsTest
+	private static void bypassSharingAloneReadsARowOwnedByAnotherUser()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		List<SObject> rows;
+		System.runAs(restricted)
+		{
+			rows = newRowQuery(row.Id).bypassSharing().toList();
+		}
+
+		Assert.areEqual(1, rows.size(), 'Expected bypassSharing() to read the row the test administrator owns');
+		Assert.areEqual(row.Id, rows[0].Id, 'Expected the row read to be the administrator\'s row');
+	}
+
+	/**
+	 * @description bypassSharing() alone reads the row another user owns, but removes the Email__c field, which the
+	 * running user cannot read. The field is selected on purpose. The same holds with and without stripInaccessible(),
+	 * because the bypass keeps the field checks of user mode.
+	 */
+	@IsTest
+	private static void bypassSharingAloneRemovesAFieldTheUserCannotRead()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		List<SObject> plainRows;
+		List<SObject> strippedRows;
+		System.runAs(restricted)
+		{
+			plainRows = newRowQuery(row.Id).addField(Foobar__c.Email__c).bypassSharing().toList();
+			strippedRows = newRowQuery(row.Id).addField(Foobar__c.Email__c).bypassSharing().stripInaccessible().toList();
+		}
+
+		for(List<SObject> rows : new List<List<SObject>> {plainRows, strippedRows})
+		{
+			Assert.areEqual(1, rows.size(), 'Expected the read to reach the row the test administrator owns');
+			Assert.areEqual(row.Name, rows[0].get(Foobar__c.Name), 'Expected the row to keep the name, which the user can read');
+			Assert.isFalse(rows[0].isSet(Foobar__c.Email__c), 'Expected the email, which the user cannot read, to be removed from the row');
+		}
+	}
+
+	/**
+	 * @description bypassSharing() alone counts the row another user owns: count() is one and exists() is true. A count
+	 * returns a number, so there is no field to remove.
+	 */
+	@IsTest
+	private static void bypassSharingAloneCountsRowsOwnedByAnotherUser()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		Integer rowCount;
+		Boolean rowExists;
+		System.runAs(restricted)
+		{
+			rowCount = newRowQuery(row.Id).bypassSharing().count();
+			rowExists = newRowQuery(row.Id).bypassSharing().exists();
+		}
+
+		Assert.areEqual(1, rowCount, 'Expected count() to include the row the test administrator owns');
+		Assert.isTrue(rowExists, 'Expected exists() to find the row the test administrator owns');
+	}
+
+	/**
+	 * @description bypassSharing() alone refuses toQueryLocator(), under the default user mode and under withUserMode().
+	 * A batch job reads a query locator later, so the framework cannot remove the fields the user cannot read from what
+	 * it returns. The refusal names the method and says to add withSystemMode(), and no query runs. A refused read also
+	 * writes no audit entry. An audit entry is the log record the framework writes when a safety check is turned off.
+	 */
+	@IsTest
+	private static void bypassSharingAloneRefusesAQueryLocator()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Test.startTest();
+		System.runAs(restricted)
+		{
+			for(QRY_Builder.Builder query : new List<QRY_Builder.Builder> {newRowQuery(row.Id).bypassSharing(), newRowQuery(row.Id).withUserMode().bypassSharing()})
+			{
+				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+				try
+				{
+					Object answer = runTerminal(query, TERMINAL_TO_QUERY_LOCATOR);
+					Assert.fail('Expected the query to be refused; it returned ' + describeAnswer(answer));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class, 'Expected the refusal. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
+					Assert.areEqual(buildBypassRefusalMessage(TERMINAL_TO_QUERY_LOCATOR), error.getMessage(), 'Expected the message to name toQueryLocator and say what to do');
+					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query');
+				}
+			}
+		}
+		Test.stopTest();
+
+		String objectName = String.valueOf(Foobar__c.SObjectType);
+		Assert.areEqual(0, countBypassAuditEntries(SHARING_AUDIT_PREFIX + objectName), 'Expected no audit entry for skipping record sharing, because the read was refused');
+		Assert.areEqual(0, countBypassAuditEntries(SYSTEM_MODE_AUDIT_PREFIX + objectName), 'Expected no audit entry for system mode, because the read was refused');
+	}
+
+	/**
+	 * @description bypassSharing() alone refuses toCursor(), under the default user mode and under withUserMode(). A
+	 * later transaction can read a cursor, so the framework cannot remove the fields the user cannot read from what it
+	 * returns. The refusal names the method and says to add withSystemMode(), and no query runs.
+	 */
+	@IsTest
+	private static void bypassSharingAloneRefusesACursor()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		System.runAs(restricted)
+		{
+			for(QRY_Builder.Builder query : new List<QRY_Builder.Builder> {newRowQuery(row.Id).bypassSharing(), newRowQuery(row.Id).withUserMode().bypassSharing()})
+			{
+				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+				try
+				{
+					Object answer = runTerminal(query, TERMINAL_TO_CURSOR);
+					Assert.fail('Expected the query to be refused; it returned ' + describeAnswer(answer));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class, 'Expected the refusal. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
+					Assert.areEqual(buildBypassRefusalMessage(TERMINAL_TO_CURSOR), error.getMessage(), 'Expected the message to name toCursor and say what to do');
+					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query');
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description bypassSharing() alone reads a page that holds the row another user owns, without the Email__c field
+	 * the user cannot read. getPage opens a cursor inside, but it removes the hidden fields from the rows it returns,
+	 * so it is not refused. It does not hand that cursor back, because rows read later from it would keep the hidden
+	 * field: the cursor is null, and the total and the paging values are still right.
+	 */
+	@IsTest
+	private static void bypassSharingAloneGetPageReadsAnotherUsersRowWithoutTheHiddenField()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		QRY_Builder.QueryPage page;
+		System.runAs(restricted)
+		{
+			page = newRowQuery(row.Id).addField(Foobar__c.Email__c).bypassSharing().getPage(1, BYPASS_PAGE_SIZE);
+		}
+
+		Assert.areEqual(1, page.records.size(), 'Expected the page to hold the row the test administrator owns');
+		Assert.areEqual(row.Id, page.records[0].Id, 'Expected the page to hold the administrator\'s row');
+		Assert.isFalse(page.records[0].isSet(Foobar__c.Email__c), 'Expected the email, which the user cannot read, to be removed from the row');
+		Assert.isNull(page.cursor, 'Expected no cursor, because rows read later from it would keep the hidden field');
+		Assert.areEqual(1, page.totalRecords, 'Expected the total to count the one row');
+		Assert.areEqual(1, page.pageNumber, 'Expected the page number asked for');
+		Assert.areEqual(BYPASS_PAGE_SIZE, page.pageSize, 'Expected the page size asked for');
+		Assert.areEqual(1, page.totalPages, 'Expected one page in total');
+		Assert.isFalse(page.hasMorePages, 'Expected no page after the only page');
+		Assert.isFalse(page.hasPriorPages, 'Expected no page before the first page');
+	}
+
+	/**
+	 * @description getRandomItems removes the fields the user cannot read when stripInaccessible() is on. The read runs
+	 * in system mode with sharing bypassed and selects Email__c, which the running user cannot read. The row comes back
+	 * without it.
+	 */
+	@IsTest
+	private static void getRandomItemsRemovesFieldsTheUserCannotRead()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		List<SObject> rows;
+		System.runAs(restricted)
+		{
+			rows = newRowQuery(row.Id).withSystemMode().bypassSharing().stripInaccessible().addField(Foobar__c.Email__c).getRandomItems(1);
+		}
+
+		Assert.areEqual(1, rows.size(), 'Expected getRandomItems to return the row the test administrator owns');
+		Assert.isFalse(rows[0].isSet(Foobar__c.Email__c), 'Expected stripInaccessible() to remove the email, which the user cannot read');
+	}
+
+	/**
+	 * @description bypassSharing() with an explicit withUserMode(), in either order, reads the row another user owns.
+	 * The order of the calls does not change the result.
+	 */
+	@IsTest
+	private static void bypassSharingWithExplicitUserModeReadsAnotherUsersRowInEitherOrder()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		List<SObject> userModeFirstRows;
+		List<SObject> bypassFirstRows;
+		System.runAs(restricted)
+		{
+			userModeFirstRows = newRowQuery(row.Id).withUserMode().bypassSharing().toList();
+			bypassFirstRows = newRowQuery(row.Id).bypassSharing().withUserMode().toList();
+		}
+
+		Assert.areEqual(1, userModeFirstRows.size(), 'Expected the read to reach the administrator\'s row when withUserMode() comes first');
+		Assert.areEqual(1, bypassFirstRows.size(), 'Expected the read to reach the administrator\'s row when bypassSharing() comes first');
+	}
+
+	/**
+	 * @description bypassSharing() alone removes a hidden field read through a parent. The child row selects the email
+	 * of its parent through the Lookup__c relationship. Both rows are owned by the test administrator. The child comes
+	 * back, and its parent carries no email value.
+	 */
+	@IsTest
+	private static void bypassSharingAloneRemovesAHiddenFieldReadThroughAParent()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c parent = insertRowOwnedByAdmin(null);
+		Foobar__c child = insertRowOwnedByAdmin(parent.Id);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		List<SObject> rows;
+		System.runAs(restricted)
+		{
+			rows = newRowQuery(child.Id).relatedField(buildParentEmailPath()).bypassSharing().toList();
+		}
+
+		Assert.areEqual(1, rows.size(), 'Expected the read to reach the child row the test administrator owns');
+		SObject parentRow = rows[0].getSObject(Foobar__c.Lookup__c);
+		Assert.isNotNull(parentRow, 'Expected the child to come back with its parent, because only the hidden field is removed');
+		Assert.areEqual(parent.Id, parentRow.Id, 'Expected the parent to be the row the child points to');
+		Assert.isFalse(parentRow.isSet(Foobar__c.Email__c), 'Expected the parent email, which the user cannot read, to be removed');
+	}
+
+	/**
+	 * @description bypassSharing() alone removes a hidden field inside a TYPEOF field. TYPEOF picks which parent fields
+	 * to read by the type of parent an Event points to, and it reaches the query as plain text. The user may read
+	 * Account records and every Account field except Phone, and may read the Related To field of an Event, which
+	 * points to the parent. An Event that points to an Account comes back with that Account as its parent. The
+	 * Account carries its Name, and no Phone.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.KernNoStandardObjectInPackageTests')
+	private static void bypassSharingAloneRemovesAHiddenFieldInATypeofBranch()
+	{
+		User restricted = TST_Factory.insertUserWithOneHiddenField
+				(
+						SEL_Profile.PROFILE_MINIMUM_ACCESS,
+						new List<SObjectType> {Account.SObjectType},
+						READ_PERMISSIONS,
+						Account.Phone
+				);
+		grantReadOnEventRelatedTo(restricted);
+		Account parentAccount;
+		Event linkedEvent;
+		System.runAs(getTestAdmin())
+		{
+			parentAccount = (Account)TST_Builder.of(Account.SObjectType)
+					.withOverride(Account.Name, UTIL_Random.randomName())
+					.withOverride(Account.Phone, PARENT_PHONE)
+					.withOverride(Account.Industry, ACCOUNT_INDUSTRY)
+					.build();
+			linkedEvent = (Event)TST_Builder.of(Event.SObjectType)
+					.withOverride(Event.WhatId, parentAccount.Id)
+					.withOverride(Event.ActivityDateTime, Datetime.now())
+					.withOverride(Event.DurationInMinutes, EVENT_DURATION_MINUTES)
+					.build();
+		}
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		List<SObject> rows;
+		System.runAs(restricted)
+		{
+			rows = QRY_Builder.selectFrom(Event.SObjectType)
+					.fields(new List<SObjectField> {Event.Id})
+					.addField(TYPEOF_ACCOUNT_NAME_AND_PHONE)
+					.condition(Event.Id).equals(linkedEvent.Id)
+					.bypassSharing()
+					.toList();
+		}
+
+		Assert.areEqual(1, rows.size(), 'Expected the read to reach the Event the test administrator owns');
+		SObject parent = ((Event)rows[0]).What;
+		Assert.isNotNull(parent, 'Expected the Event to come back with its parent, because the user may read the Related To field');
+		Assert.areEqual(parentAccount.Id, parent.Id, 'Expected the parent to be the Account the Event points to');
+		Assert.areEqual(parentAccount.Name, parent.get(Account.Name), 'Expected the parent to carry its Name, which every user can read');
+		Assert.isFalse(parent.isSet(Account.Phone), 'Expected the Account Phone, which the user cannot read, to be removed');
+	}
+
+	/**
+	 * @description bypassSharing() alone removes a hidden field from the rows of a child subquery. A subquery reads the
+	 * child rows of each row, here through the Lookup__c relationship, and selects Email__c. The child query filters
+	 * and sorts on Name, and the parent query keeps only rows whose owner is in a query inside isIn() on active
+	 * users. The user may read every field those filters and sorts use, so the read is not refused. The parent and its
+	 * child come back, and no child row carries an email.
+	 */
+	@IsTest
+	private static void bypassSharingAloneRemovesAHiddenFieldInAChildSubquery()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c parent = insertRowOwnedByAdmin(null);
+		Foobar__c child = insertRowOwnedByAdmin(parent.Id);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+		String childRelationship = UTIL_System.getManagedPackageNamespacePrefix() + CHILD_FOOBARS_RELATIONSHIP;
+
+		List<SObject> rows;
+		System.runAs(restricted)
+		{
+			QRY_Builder.Builder childQuery = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.fields(new List<SObjectField> {Foobar__c.Name, Foobar__c.Email__c})
+					.condition(Foobar__c.Name).equals(child.Name)
+					.orderBy(Foobar__c.Name);
+			QRY_Builder.Builder activeUsers = QRY_Builder.selectFrom(User.SObjectType)
+					.fields(new List<SObjectField> {User.Id})
+					.condition(User.IsActive).equals(true);
+			rows = newRowQuery(parent.Id).condition(Foobar__c.OwnerId).isIn(activeUsers).subselect(childQuery, childRelationship).bypassSharing().toList();
+		}
+
+		Assert.areEqual(1, rows.size(), 'Expected the read to reach the parent row the test administrator owns');
+		List<SObject> children = rows[0].getSObjects(childRelationship);
+		Assert.areEqual(1, children?.size(), 'Expected the parent to come back with its one child row');
+		Assert.areEqual(child.Id, children[0].Id, 'Expected the child row to be the administrator\'s child row');
+		Assert.isFalse(children[0].isSet(Foobar__c.Email__c), 'Expected the child email, which the user cannot read, to be removed');
+	}
+
+	/**
+	 * @description bypassSharing() alone refuses an aggregate read, under the default user mode and under withUserMode().
+	 * An aggregate read returns totals and group values, and the framework cannot remove a hidden field from those. The
+	 * refusal holds on every read of the same grouped query: toAggregateList(), getFirstAggregate(), toList(), count(),
+	 * exists(), getPage() and getRandomItems(). Each names its method, and no query runs. exists() is built on count(),
+	 * so its message names count.
+	 */
+	@IsTest
+	private static void bypassSharingAloneRefusesAnAggregateRead()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+		List<String> terminals = new List<String>
+		{
+				TERMINAL_TO_AGGREGATE_LIST, TERMINAL_GET_FIRST_AGGREGATE, TERMINAL_TO_LIST, TERMINAL_COUNT, TERMINAL_EXISTS, TERMINAL_GET_PAGE,
+				TERMINAL_GET_RANDOM_ITEMS
+		};
+
+		System.runAs(restricted)
+		{
+			for(Boolean explicitUserMode : new List<Boolean> {false, true})
+			{
+				for(String terminal : terminals)
+				{
+					QRY_Builder.Builder query = explicitUserMode ? newGroupedQuery(row.Name).withUserMode().bypassSharing() : newGroupedQuery(row.Name).bypassSharing();
+					String namedMethod = terminal == TERMINAL_EXISTS ? TERMINAL_COUNT : terminal;
+					Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+					try
+					{
+						Object answer = runTerminal(query, terminal);
+						Assert.fail('Expected the query to be refused on ' + terminal + '; it returned ' + describeAnswer(answer));
+					}
+					catch(Exception error)
+					{
+						Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class,
+								'Expected the refusal on ' + terminal + '. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
+						Assert.areEqual(buildBypassRefusalMessage(namedMethod), error.getMessage(), 'Expected the message to name ' + namedMethod + ' and say what to do');
+						Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read on ' + terminal + ' to run no query');
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description bypassSharing() alone refuses a user who cannot read the object at all. The Standard User profile gives
+	 * no access to Foobar__c. count(), exists() and toList() are each refused with the message that names the object,
+	 * and no query runs. Inner queries are checked the same way, for a user who may read Foobar__c and User but not
+	 * ApiIssue__c or LoginFrequency__c. A Foobar__c read whose owner must be in an ApiIssue__c query is refused with the
+	 * message that names ApiIssue__c. A User read with a child query on LoginFrequency__c is refused with the message
+	 * that names LoginFrequency__c.
+	 */
+	@IsTest
+	private static void bypassSharingAloneRefusesAUserWithoutObjectRead()
+	{
+		User noAccessUser = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+		String expectedMessage = String.format(System.Label.QueryBuilder_BypassSharingObject_NotReadable,
+				new List<Object> {UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType)});
+		String loginFrequencies = UTIL_System.getManagedPackageNamespacePrefix() + CHILD_LOGIN_FREQUENCIES_RELATIONSHIP;
+		Map<String, String> expectedMessagesByCase = new Map<String, String>
+		{
+				'query inside isIn' => String.format(System.Label.QueryBuilder_BypassSharingObject_NotReadable,
+						new List<Object> {UTIL_SObjectDescribe.getObjectNameFromType(ApiIssue__c.SObjectType)}),
+				'child query' => String.format(System.Label.QueryBuilder_BypassSharingObject_NotReadable,
+						new List<Object> {UTIL_SObjectDescribe.getObjectNameFromType(LoginFrequency__c.SObjectType)})
+		};
+
+		System.runAs(restricted)
+		{
+			Assert.isFalse(UTIL_SObjectDescribe.isObjectAccessible(ApiIssue__c.SObjectType), 'Expected the user to have no read on ApiIssue__c');
+			Assert.isFalse(UTIL_SObjectDescribe.isObjectAccessible(LoginFrequency__c.SObjectType), 'Expected the user to have no read on LoginFrequency__c');
+			Assert.isTrue(UTIL_SObjectDescribe.isObjectAccessible(User.SObjectType), 'Expected the user to be able to read User');
+			QRY_Builder.Builder issueCreators = QRY_Builder.selectFrom(ApiIssue__c.SObjectType).fields(new List<SObjectField> {ApiIssue__c.CreatedById});
+			QRY_Builder.Builder frequencies = QRY_Builder.selectFrom(LoginFrequency__c.SObjectType).fields(new List<SObjectField> {LoginFrequency__c.Id});
+			Map<String, QRY_Builder.Builder> queriesByCase = new Map<String, QRY_Builder.Builder>
+			{
+					'query inside isIn' => newRowQuery(row.Id).condition(Foobar__c.OwnerId).isIn(issueCreators).bypassSharing(),
+					'child query' => QRY_Builder.selectFrom(User.SObjectType)
+							.fields(new List<SObjectField> {User.Name})
+							.condition(User.Id).equals(UserInfo.getUserId())
+							.subselect(frequencies, loginFrequencies)
+							.bypassSharing()
+			};
+			for(String testCase : queriesByCase.keySet())
+			{
+				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+				try
+				{
+					Object answer = runTerminal(queriesByCase.get(testCase), TERMINAL_TO_LIST);
+					Assert.fail('Expected the query to be refused for the ' + testCase + '; it returned ' + describeAnswer(answer));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, QueryException.class,
+							'Expected the refusal for the ' + testCase + '. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
+					Assert.areEqual(expectedMessagesByCase.get(testCase), error.getMessage(), 'Expected the message to name the object of the ' + testCase);
+					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query, for the ' + testCase);
+				}
+			}
+		}
+
+		System.runAs(noAccessUser)
+		{
+			for(String terminal : new List<String> {TERMINAL_COUNT, TERMINAL_EXISTS, TERMINAL_TO_LIST})
+			{
+				QRY_Builder.Builder query = newRowQuery(row.Id).bypassSharing();
+				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+				try
+				{
+					Object answer = runTerminal(query, terminal);
+					Assert.fail('Expected the query to be refused on ' + terminal + '; it returned ' + describeAnswer(answer));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, QueryException.class, 'Expected the refusal on ' + terminal + '. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
+					Assert.areEqual(expectedMessage, error.getMessage(), 'Expected the message to name the object the user cannot read, on ' + terminal);
+					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read on ' + terminal + ' to run no query');
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description bypassSharing() alone refuses a filter on a field the user cannot read. The rows a filter returns tell
+	 * the user something about the field, even when the field is removed from the rows. The filter on Email__c is
+	 * refused on toList() and on count(), and also when it sits inside a group of conditions joined by OR, when it
+	 * matches a list of values with isIn(), when it sits inside a NOT condition, and when it is written as text after
+	 * the object name, such as Foobar__c.Email__c. A query inside isIn() and a child query added with subselect() are
+	 * checked the same way: a filter on Email__c in either one is refused too. A query inside isIn() is also refused
+	 * when it selects a field the user cannot read, because the values of that field decide which rows come back: a
+	 * User read whose Id must be in the User__c values of LoginFrequency__c is refused for a user who cannot read
+	 * User__c. The message names the field, and no query runs.
+	 */
+	@IsTest
+	private static void bypassSharingAloneRefusesAFilterOnAFieldTheUserCannotRead()
+	{
+		User restricted = insertRestrictedReader();
+		User cannotReadTrackedUser = TST_Factory.insertUserWithOneHiddenField(SEL_Profile.PROFILE_STANDARD_USER,
+				new List<SObjectType> {LoginFrequency__c.SObjectType}, READ_PERMISSIONS, LoginFrequency__c.User__c);
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+		String expectedMessage = buildFieldRefusalMessage(Foobar__c.Email__c);
+		String emailAfterObjectName = UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType) + UTIL_String.DOT
+				+ UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Email__c);
+		String childRelationship = UTIL_System.getManagedPackageNamespacePrefix() + CHILD_FOOBARS_RELATIONSHIP;
+
+		System.runAs(restricted)
+		{
+			QRY_Builder.Builder ownersOfTheEmail = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.fields(new List<SObjectField> {Foobar__c.OwnerId})
+					.condition(Foobar__c.Email__c).equals(row.Email__c);
+			QRY_Builder.Builder childrenWithTheEmail = newFoobarNameQuery().condition(Foobar__c.Email__c).equals(row.Email__c);
+			Map<String, QRY_Builder.Builder> queriesByCase = new Map<String, QRY_Builder.Builder>
+			{
+					'filter read with toList' => newFoobarNameQuery().condition(Foobar__c.Email__c).equals(row.Email__c).bypassSharing(),
+					'filter read with count' => newFoobarNameQuery().condition(Foobar__c.Email__c).equals(row.Email__c).bypassSharing(),
+					'filter inside an OR group' => newFoobarNameQuery().addCondition(newEmailOrNameGroup(row)).bypassSharing(),
+					'filter on a list of values' => newFoobarNameQuery().condition(Foobar__c.Email__c).isIn(new List<Object> {row.Email__c}).bypassSharing(),
+					'filter inside a NOT condition' => newFoobarNameQuery().addCondition(newNotEmailCondition(row)).bypassSharing(),
+					'filter written after the object name' => newFoobarNameQuery().condition(emailAfterObjectName).equals(row.Email__c).bypassSharing(),
+					'filter inside a query inside isIn' => QRY_Builder.selectFrom(User.SObjectType)
+							.fields(new List<SObjectField> {User.Name})
+							.condition(User.Id).isIn(ownersOfTheEmail)
+							.bypassSharing(),
+					'filter inside a child query' => newRowQuery(row.Id).subselect(childrenWithTheEmail, childRelationship).bypassSharing()
+			};
+			Map<String, String> terminalsByCase = new Map<String, String>
+			{
+					'filter read with toList' => TERMINAL_TO_LIST,
+					'filter read with count' => TERMINAL_COUNT,
+					'filter inside an OR group' => TERMINAL_TO_LIST,
+					'filter on a list of values' => TERMINAL_TO_LIST,
+					'filter inside a NOT condition' => TERMINAL_TO_LIST,
+					'filter written after the object name' => TERMINAL_TO_LIST,
+					'filter inside a query inside isIn' => TERMINAL_TO_LIST,
+					'filter inside a child query' => TERMINAL_TO_LIST
+			};
+			for(String testCase : queriesByCase.keySet())
+			{
+				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+				try
+				{
+					Object answer = runTerminal(queriesByCase.get(testCase), terminalsByCase.get(testCase));
+					Assert.fail('Expected the query to be refused for the ' + testCase + '; it returned ' + describeAnswer(answer));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class,
+							'Expected the refusal for the ' + testCase + '. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
+					Assert.areEqual(expectedMessage, error.getMessage(), 'Expected the message to name the field, for the ' + testCase);
+					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query, for the ' + testCase);
+				}
+			}
+		}
+
+		System.runAs(cannotReadTrackedUser)
+		{
+			Assert.isFalse(UTIL_SObjectDescribe.isFieldAccessible(LoginFrequency__c.User__c), 'Expected the user to have no read on User__c');
+			QRY_Builder.Builder trackedUsers = QRY_Builder.selectFrom(LoginFrequency__c.SObjectType).fields(new List<SObjectField> {LoginFrequency__c.User__c});
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(User.SObjectType)
+					.fields(new List<SObjectField> {User.Name})
+					.condition(User.Id).isIn(trackedUsers)
+					.bypassSharing();
+			Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+			try
+			{
+				Object answer = runTerminal(query, TERMINAL_TO_LIST);
+				Assert.fail('Expected the query to be refused for the field selected inside isIn(); it returned ' + describeAnswer(answer));
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class,
+						'Expected the refusal for the field selected inside isIn(). Actual: ' + error.getTypeName() + ': ' + error.getMessage());
+				Assert.areEqual(buildFieldRefusalMessage(LoginFrequency__c.User__c), error.getMessage(), 'Expected the message to name the field selected inside isIn()');
+				Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query, for the field selected inside isIn()');
+			}
+		}
+	}
+
+	/**
+	 * @description bypassSharing() alone refuses a sort on a field the user cannot read. The order of the rows tells the
+	 * user something about the field, even when the field is removed from the rows. The sort is refused when it is
+	 * given as a field token and when it is given as text in each way the query accepts: with spaces around it, with
+	 * a direction, as the second item of a list, with a direction and a place for blank values in lower case, and
+	 * after the object name, such as Foobar__c.Email__c. A sort on Email__c in a child query added with subselect()
+	 * is refused too. The message names the field, and no query runs.
+	 */
+	@IsTest
+	private static void bypassSharingAloneRefusesASortOnAFieldTheUserCannotRead()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+		String email = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Email__c);
+		String name = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Name);
+		String childRelationship = UTIL_System.getManagedPackageNamespacePrefix() + CHILD_FOOBARS_RELATIONSHIP;
+
+		System.runAs(restricted)
+		{
+			Map<String, QRY_Builder.Builder> queriesByCase = new Map<String, QRY_Builder.Builder>
+			{
+					'sort given as a field token' => newRowQuery(row.Id).orderBy(Foobar__c.Email__c).bypassSharing(),
+					'sort text with spaces around it' => newRowQuery(row.Id).orderBy('  ' + email + ' ').bypassSharing(),
+					'sort text with a direction' => newRowQuery(row.Id).orderBy(email + ' DESC').bypassSharing(),
+					'sort text as the second item of a list' => newRowQuery(row.Id).orderBy(name + ', ' + email).bypassSharing(),
+					'sort text with a direction and nulls last in lower case' => newRowQuery(row.Id).orderBy(email + '  desc   nulls last').bypassSharing(),
+					'sort text after the object name' => newRowQuery(row.Id)
+							.orderBy(UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType) + UTIL_String.DOT + email)
+							.bypassSharing(),
+					'sort inside a child query' => newRowQuery(row.Id).subselect(newFoobarNameQuery().orderBy(email + ' ASC'), childRelationship).bypassSharing()
+			};
+			for(String testCase : queriesByCase.keySet())
+			{
+				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+				try
+				{
+					Object answer = runTerminal(queriesByCase.get(testCase), TERMINAL_TO_LIST);
+					Assert.fail('Expected the query to be refused for the ' + testCase + '; it returned ' + describeAnswer(answer));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class,
+							'Expected the refusal for the ' + testCase + '. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
+					Assert.areEqual(buildFieldRefusalMessage(Foobar__c.Email__c), error.getMessage(), 'Expected the message to name the field, for the ' + testCase);
+					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query, for the ' + testCase);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description bypassSharing() alone refuses a grouping on a field the user cannot read. A grouping returns every
+	 * value of the field. The query is an aggregate read, so it is refused as every aggregate read is, before the field
+	 * names are checked: the message names toAggregateList and no query runs.
+	 */
+	@IsTest
+	private static void bypassSharingAloneRefusesAGroupingOnAFieldTheUserCannotRead()
+	{
+		User restricted = insertRestrictedReader();
+		insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		System.runAs(restricted)
+		{
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(Foobar__c.Id, ROW_COUNT_ALIAS)
+					.groupBy(Foobar__c.Email__c)
+					.bypassSharing();
+			Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+			try
+			{
+				Object answer = runTerminal(query, TERMINAL_TO_AGGREGATE_LIST);
+				Assert.fail('Expected the query to be refused; it returned ' + describeAnswer(answer));
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class, 'Expected the refusal. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
+				Assert.areEqual(buildBypassRefusalMessage(TERMINAL_TO_AGGREGATE_LIST), error.getMessage(), 'Expected the message for an aggregate read');
+				Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query');
+			}
+		}
+	}
+
+	/**
+	 * @description Records a known limit of bypassSharing() alone: a filter on a parent field the user cannot read still
+	 * runs. The framework checks only the names of fields that belong to the queried object, so it does not check a
+	 * relationship path such as Lookup__r.Email__c, or a condition written as plain text. The rows can therefore tell
+	 * the user something about such a field, and a developer must not filter on it under the bypass. Both reads here
+	 * filter on the parent's email, once as a path and once as plain text. Each returns the child row, without the
+	 * child's own email.
+	 */
+	@IsTest
+	private static void bypassSharingAloneStillFiltersThroughARelationshipPathTheUserCannotRead()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c parent = insertRowOwnedByAdmin(null);
+		Foobar__c child = insertRowOwnedByAdmin(parent.Id);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+		String parentEmailPath = buildParentEmailPath();
+		String filterText = parentEmailPath + ' = \'' + String.escapeSingleQuotes(parent.Email__c) + '\'';
+
+		List<SObject> pathRows;
+		List<SObject> textRows;
+		System.runAs(restricted)
+		{
+			pathRows = newRowQuery(child.Id).addField(Foobar__c.Email__c).andCondition(parentEmailPath).equals(parent.Email__c).bypassSharing().toList();
+			textRows = newRowQuery(child.Id).addField(Foobar__c.Email__c).addCondition(new TextFilter(filterText)).bypassSharing().toList();
+		}
+
+		for(List<SObject> rows : new List<List<SObject>> {pathRows, textRows})
+		{
+			Assert.areEqual(1, rows.size(), 'Expected the filter on the parent email to run and return the child row');
+			Assert.areEqual(child.Id, rows[0].Id, 'Expected the row to be the child row');
+			Assert.isFalse(rows[0].isSet(Foobar__c.Email__c), 'Expected the child email, which the user cannot read, to be removed');
+		}
+	}
+
+	/**
+	 * @description The last sharing call wins. bypassSharing() followed by withSharing() reads none of the rows another
+	 * user owns, and it is an ordinary read again: toQueryLocator() and toCursor() are not refused, and they also reach
+	 * no row of another owner. withSharing() followed by bypassSharing() reads the row.
+	 */
+	@IsTest
+	private static void bypassSharingThenWithSharingReadsNoOtherOwnersRow()
+	{
+		User restricted = insertRestrictedReader();
+		Foobar__c row = insertRowOwnedByAdmin(null);
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		List<SObject> sharingLastRows;
+		List<SObject> bypassLastRows;
+		Integer sharingLastLocatorRows;
+		Integer sharingLastCursorRows;
+		System.runAs(restricted)
+		{
+			sharingLastRows = newRowQuery(row.Id).bypassSharing().withSharing().toList();
+			bypassLastRows = newRowQuery(row.Id).withSharing().bypassSharing().toList();
+			sharingLastLocatorRows = countLocatorRows(newRowQuery(row.Id).bypassSharing().withSharing().toQueryLocator());
+			sharingLastCursorRows = countCursorRows(newRowQuery(row.Id).bypassSharing().withSharing().toCursor());
+		}
+
+		Assert.areEqual(0, sharingLastLocatorRows, 'Expected the query locator, with withSharing() last, to reach no row of another owner');
+		Assert.areEqual(0, sharingLastCursorRows, 'Expected the cursor, with withSharing() last, to return no row of another owner');
+		Assert.areEqual(0, sharingLastRows.size(), 'Expected withSharing(), called last, to hide the row the test administrator owns');
+		Assert.areEqual(1, bypassLastRows.size(), 'Expected bypassSharing(), called last, to read the row the test administrator owns');
 	}
 
 	/**
@@ -4741,7 +6104,8 @@ private class QRY_Builder_TEST
 	}
 
 	/**
-	 * @description Tests withDataCategory().at() with a single category.
+	 * @description Tests withDataCategory().at() with a single category, and records the whole query text, so that the
+	 * check on group and category names keeps a valid name unchanged.
 	 */
 	@IsTest
 	private static void withDataCategoryAtSingleFilter()
@@ -4752,12 +6116,13 @@ private class QRY_Builder_TEST
 					.withDataCategory('Geography__c').at('USA__c')
 					.toSoql();
 
-			Assert.isTrue(soql.contains('WITH DATA CATEGORY Geography__c AT USA__c'), 'Should contain single data category filter');
+			Assert.areEqual('SELECT Id FROM ' + OBJECT_NAME + ' WITH DATA CATEGORY Geography__c AT USA__c', soql, 'Expected the data category text to stay as it is');
 		}
 	}
 
 	/**
-	 * @description Tests withDataCategory().at() with multiple categories.
+	 * @description Tests withDataCategory().at() with multiple categories, and records the whole query text, so that the
+	 * check on group and category names keeps a list of valid names unchanged.
 	 */
 	@IsTest
 	private static void withDataCategoryAtMultipleCategories()
@@ -4768,7 +6133,12 @@ private class QRY_Builder_TEST
 					.withDataCategory('Geography__c').at(new List<String> {'USA__c', 'Canada__c'})
 					.toSoql();
 
-			Assert.isTrue(soql.contains('WITH DATA CATEGORY Geography__c AT (USA__c, Canada__c)'), 'Should contain parenthesized categories');
+			Assert.areEqual
+					(
+							'SELECT Id FROM ' + OBJECT_NAME + ' WITH DATA CATEGORY Geography__c AT (USA__c, Canada__c)',
+							soql,
+							'Expected the list of categories to stay as it is'
+					);
 		}
 	}
 
@@ -5481,6 +6851,337 @@ private class QRY_Builder_TEST
 	}
 
 	/**
+	 * @description Tests that QRY_Builder.setAggregateMock makes an aggregate query return the rows it was given, and
+	 * that setting null for the type removes them, so the next aggregate query reads the database again.
+	 */
+	@IsTest
+	private static void setAggregateMockAnswersAggregateQueries()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Factory.insertFoobar();
+			QRY_Builder.setAggregateMock(Foobar__c.SObjectType, new List<Map<String, Object>> {new Map<String, Object> {MOCK_TOTAL_ALIAS => MOCK_TOTAL}});
+
+			QRY_Builder.AggregateRow mockedRow = QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, MOCK_TOTAL_ALIAS).getFirstAggregate();
+			Assert.areEqual(MOCK_TOTAL, mockedRow.getInteger(MOCK_TOTAL_ALIAS), 'Expected the registered row to answer the aggregate query');
+
+			QRY_Builder.setAggregateMock(Foobar__c.SObjectType, null);
+
+			QRY_Builder.AggregateRow realRow = QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, MOCK_TOTAL_ALIAS).getFirstAggregate();
+			Assert.areEqual(1, realRow.getInteger(MOCK_TOTAL_ALIAS), 'Expected the database count of the one stored row once the mock is removed');
+		}
+	}
+
+	/**
+	 * @description Tests that a second QRY_Builder.setAggregateMock call replaces the rows set earlier for the type, as
+	 * setMock replaces records, so an aggregate query returns only the rows of the second call.
+	 * TST_Mock.registerAggregateRows adds to the rows instead.
+	 */
+	@IsTest
+	private static void setAggregateMockReplacesTheRowsSetEarlier()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Builder.setAggregateMock(Foobar__c.SObjectType, new List<Map<String, Object>> {new Map<String, Object> {MOCK_TOTAL_ALIAS => MOCK_TOTAL}});
+			QRY_Builder.setAggregateMock(Foobar__c.SObjectType, new List<Map<String, Object>> {new Map<String, Object> {MOCK_TOTAL_ALIAS => REPLACEMENT_MOCK_TOTAL}});
+
+			List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, MOCK_TOTAL_ALIAS).toAggregateList();
+
+			Assert.areEqual(1, rows.size(), 'Expected only the rows of the second call');
+			Assert.areEqual(REPLACEMENT_MOCK_TOTAL, rows[0].getInteger(MOCK_TOTAL_ALIAS), 'Expected the row of the second call to answer');
+		}
+	}
+
+	/**
+	 * @description Tests that every way of reading records refuses an aggregate query that registered rows answered,
+	 * and points to toAggregateList. A real run of the same query would return AggregateResult rows, so returning no
+	 * records would hide the mistake. No Foobar__c row is stored, so the table is empty: getRandomItems must refuse
+	 * the query before it counts the rows, or it would return an empty list without an error.
+	 */
+	@IsTest
+	private static void shouldThrowWhenAMockedAggregateQueryIsReadAsRecords()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Builder.setAggregateMock(Foobar__c.SObjectType, new List<Map<String, Object>> {new Map<String, Object> {MOCK_TOTAL_ALIAS => MOCK_TOTAL}});
+
+			for(String recordRead : RECORD_READS)
+			{
+				try
+				{
+					readMockedAggregateQueryAsRecords(recordRead);
+					Assert.fail('Expected ' + recordRead + ' to refuse a mocked aggregate query');
+				}
+				catch(Exception error)
+				{
+					String message = error.getMessage();
+					Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class, 'Expected ' + recordRead + ' to throw IllegalStateException: ' + message);
+					Assert.isTrue(message.contains(AGGREGATE_READ_HINT), 'Expected the error from ' + recordRead + ' to name toAggregateList: ' + message);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that getRandomItems still reads records for a query without aggregate functions, when
+	 * aggregate rows are registered for the same object type. Aggregate rows only answer aggregate queries, so this
+	 * query reads the one stored row from the database.
+	 */
+	@IsTest
+	private static void getRandomItemsReadsRecordsWhenOnlyAggregateRowsAreRegistered()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Foobar__c storedRow = TST_Factory.insertFoobar();
+			QRY_Builder.setAggregateMock(Foobar__c.SObjectType, new List<Map<String, Object>> {new Map<String, Object> {MOCK_TOTAL_ALIAS => MOCK_TOTAL}});
+
+			List<SObject> items = QRY_Builder.selectFrom(Foobar__c.SObjectType).getRandomItems(1);
+
+			Assert.areEqual(1, items.size(), 'Expected the row query to read the one stored row');
+			Assert.areEqual(storedRow.Id, items[0].Id, 'Expected the stored row to be returned');
+		}
+	}
+
+	/**
+	 * @description Tests that a registered row matches an alias without regard to case, as a real AggregateResult does,
+	 * and that a row already read keeps its own copy of the values when the registered map is changed afterwards.
+	 */
+	@IsTest
+	private static void aggregateRowMatchesAliasesWithoutRegardToCase()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Map<String, Object> registeredValues = new Map<String, Object> {MIXED_CASE_ALIAS => MOCK_TOTAL};
+
+			QRY_Builder.AggregateRow row = readMockedAggregateRow(registeredValues);
+			registeredValues.put(MIXED_CASE_ALIAS, CHANGED_TOTAL);
+
+			Assert.areEqual(MOCK_TOTAL, row.getInteger(MIXED_CASE_ALIAS.toLowerCase()), 'Expected the lower-case alias to read the registered value');
+			Assert.areEqual(MOCK_TOTAL, row.get(MIXED_CASE_ALIAS.toUpperCase()), 'Expected the upper-case alias to read the registered value');
+		}
+	}
+
+	/**
+	 * @description Tests that reading an alias the registered row does not hold throws IllegalArgumentException that
+	 * names the alias and the aliases the row does hold, as a real AggregateResult throws on an unknown alias. A null
+	 * would hide a spelling mistake in the test.
+	 */
+	@IsTest
+	private static void aggregateRowThrowsForAnAliasThatWasNotSet()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Builder.AggregateRow row = readMockedAggregateRow(new Map<String, Object> {MOCK_TOTAL_ALIAS => MOCK_TOTAL});
+
+			try
+			{
+				row.getInteger(MISSPELT_ALIAS);
+				Assert.fail('Expected an alias that was not set to be refused');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected IllegalArgumentException: ' + error.getMessage());
+				Assert.isTrue(error.getMessage().contains(MISSPELT_ALIAS), 'Expected the error to name the alias that was read: ' + error.getMessage());
+				Assert.isTrue(error.getMessage().contains(MOCK_TOTAL_ALIAS), 'Expected the error to name the alias that was set: ' + error.getMessage());
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that an alias registered with a null value reads as null from every getter, without an error,
+	 * as a real sum over no rows does.
+	 */
+	@IsTest
+	private static void aggregateRowReturnsNullForAKeyHoldingNull()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Builder.AggregateRow row = readMockedAggregateRow(new Map<String, Object> {MOCK_TOTAL_ALIAS => null});
+
+			Assert.isNull(row.get(MOCK_TOTAL_ALIAS), 'Expected get to return null');
+			Assert.isNull(row.getDecimal(MOCK_TOTAL_ALIAS), 'Expected getDecimal to return null');
+			Assert.isNull(row.getInteger(MOCK_TOTAL_ALIAS), 'Expected getInteger to return null');
+			Assert.isNull(row.getLong(MOCK_TOTAL_ALIAS), 'Expected getLong to return null');
+			Assert.isNull(row.getString(MOCK_TOTAL_ALIAS), 'Expected getString to return null');
+			Assert.isNull(row.getId(MOCK_TOTAL_ALIAS), 'Expected getId to return null');
+			Assert.isNull(row.getDate(MOCK_TOTAL_ALIAS), 'Expected getDate to return null');
+		}
+	}
+
+	/**
+	 * @description Tests that the number getters of a registered row convert a whole number between Integer, Long,
+	 * Double and Decimal, so a test may write a whole number in any of these types. A number with a fraction is not
+	 * cut down to a whole number: getInteger refuses it with a TypeException, as a real row does, and getDecimal reads
+	 * it unchanged. getDate accepts only a Date.
+	 */
+	@IsTest
+	private static void aggregateRowConvertsNumbersBetweenTypes()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Builder.AggregateRow row = readMockedAggregateRow(new Map<String, Object>
+			{
+					INTEGER_KEY => INTEGER_VALUE,
+					DECIMAL_KEY => DECIMAL_VALUE,
+					LONG_KEY => LONG_VALUE,
+					DOUBLE_KEY => DOUBLE_VALUE,
+					FRACTION_KEY => FRACTION_VALUE
+			});
+
+			Long integerValueAsLong = INTEGER_VALUE;
+
+			Assert.areEqual(Decimal.valueOf(INTEGER_VALUE), row.getDecimal(INTEGER_KEY), 'Expected an Integer to be read as a Decimal');
+			Assert.areEqual(DECIMAL_VALUE.intValue(), row.getInteger(DECIMAL_KEY), 'Expected a whole Decimal to be read as an Integer');
+			Assert.areEqual(integerValueAsLong, row.getLong(INTEGER_KEY), 'Expected an Integer to be read as a Long');
+			Assert.areEqual(LONG_VALUE.intValue(), row.getInteger(LONG_KEY), 'Expected a Long to be read as an Integer');
+			Assert.areEqual(DOUBLE_VALUE.intValue(), row.getInteger(DOUBLE_KEY), 'Expected a whole Double to be read as an Integer');
+			Assert.areEqual(DOUBLE_VALUE.longValue(), row.getLong(DOUBLE_KEY), 'Expected a whole Double to be read as a Long');
+			Assert.areEqual(Decimal.valueOf(DOUBLE_VALUE), row.getDecimal(DOUBLE_KEY), 'Expected a Double to be read as a Decimal');
+			Assert.areEqual(FRACTION_VALUE, row.getDecimal(FRACTION_KEY), 'Expected a number with a fraction to be read unchanged as a Decimal');
+			try
+			{
+				row.getInteger(FRACTION_KEY);
+				Assert.fail('Expected getInteger to refuse a number with a fraction');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, TypeException.class, 'Expected TypeException for a number with a fraction: ' + error.getMessage());
+			}
+			try
+			{
+				row.getDate(INTEGER_KEY);
+				Assert.fail('Expected getDate to refuse a number');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, TypeException.class, 'Expected TypeException: ' + error.getMessage());
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that getId on a registered row accepts only an Id. A number is refused with the same
+	 * TypeException a real row throws, as getDate refuses a number.
+	 */
+	@IsTest
+	private static void aggregateRowGetIdRefusesAValueThatIsNotAnId()
+	{
+		System.runAs(getTestAdmin())
+		{
+			QRY_Builder.AggregateRow row = readMockedAggregateRow(new Map<String, Object> {INTEGER_KEY => INTEGER_VALUE});
+
+			try
+			{
+				row.getId(INTEGER_KEY);
+				Assert.fail('Expected getId to refuse a number');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, TypeException.class, 'Expected TypeException: ' + error.getMessage());
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that a registered row with two aliases that differ only in case, such as Total and total, is
+	 * refused with an IllegalArgumentException that names both. A real aggregate row cannot hold both, because a query
+	 * cannot use the same alias twice. Keeping only one of the values would let a test pass that no real query could
+	 * produce.
+	 */
+	@IsTest
+	private static void aggregateRowRefusesAliasesThatDifferOnlyInCase()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String capitalisedAlias = MOCK_TOTAL_ALIAS.capitalize();
+
+			try
+			{
+				readMockedAggregateRow(new Map<String, Object> {capitalisedAlias => MOCK_TOTAL, MOCK_TOTAL_ALIAS => CHANGED_TOTAL});
+				Assert.fail('Expected a row with two aliases that differ only in case to be refused');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected IllegalArgumentException: ' + error.getMessage());
+				Assert.isTrue(error.getMessage().contains(capitalisedAlias), 'Expected the error to name the alias ' + capitalisedAlias + ': ' + error.getMessage());
+				Assert.isTrue(error.getMessage().contains(MOCK_TOTAL_ALIAS), 'Expected the error to name the alias ' + MOCK_TOTAL_ALIAS + ': ' + error.getMessage());
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that an aggregate query on a type that has record mocks but no aggregate rows throws
+	 * IllegalStateException that names TST_Mock.registerAggregateRows. Record mocks never answer an aggregate query.
+	 */
+	@IsTest
+	private static void shouldThrowWhenRecordMocksExistButNoAggregateRows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Mock.register(Foobar__c.SObjectType, TST_Factory.getFoobarBuilder().withoutInsertion(true).buildList());
+
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, MOCK_TOTAL_ALIAS).toAggregateList();
+				Assert.fail('Expected an aggregate query with record mocks only to be refused');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class, 'Expected IllegalStateException: ' + error.getMessage());
+				Assert.isTrue(error.getMessage().contains(REGISTER_AGGREGATE_ROWS_HINT), 'Expected the error to name registerAggregateRows: ' + error.getMessage());
+			}
+		}
+	}
+
+	/**
+	 * @description Runs a count grouped by name on Foobar__c and reads the result through the specified record read.
+	 * The tests call it after registering aggregate rows, so the read meets the mocked aggregate result.
+	 *
+	 * @param recordRead The name of the QRY_Builder.Builder method to read with, one of RECORD_READS.
+	 */
+	private static void readMockedAggregateQueryAsRecords(String recordRead)
+	{
+		QRY_Builder.Builder builder = QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, MOCK_TOTAL_ALIAS).groupBy(Foobar__c.Name);
+		switch on recordRead
+		{
+			when 'toList'
+			{
+				builder.toList();
+			}
+			when 'getFirst'
+			{
+				builder.getFirst();
+			}
+			when 'getPage'
+			{
+				builder.getPage(1, MOCK_PAGE_SIZE);
+			}
+			when 'getRandomItems'
+			{
+				builder.getRandomItems(1);
+			}
+			when else
+			{
+				builder.asMap();
+			}
+		}
+	}
+
+	/**
+	 * @description Registers one aggregate row for Foobar__c through QRY_Builder.setAggregateMock and reads it back
+	 * through getFirstAggregate.
+	 *
+	 * @param values The row to register: each key is an alias, each value what it holds.
+	 *
+	 * @return The row the aggregate query returned.
+	 */
+	private static QRY_Builder.AggregateRow readMockedAggregateRow(Map<String, Object> values)
+	{
+		QRY_Builder.setAggregateMock(Foobar__c.SObjectType, new List<Map<String, Object>> {values});
+		return QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, MOCK_TOTAL_ALIAS).getFirstAggregate();
+	}
+
+	/**
 	 * @description Tests that getFirstAggregate returns a single AggregateRow for scalar aggregates.
 	 */
 	@IsTest
@@ -5645,6 +7346,1283 @@ private class QRY_Builder_TEST
 	}
 
 	/**
+	 * @description Tests that isIn(records, field) matches rows on a Date key field. A source record whose key is blank does
+	 * not break the query, and it does not match a stored row whose Date is blank either.
+	 */
+	@IsTest
+	private static void isInRecordsMatchesDateKeyField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Date firstDate = Date.newInstance(2026, 3, 1);
+			Date secondDate = Date.newInstance(2026, 3, 2);
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Date__c, new List<Object> {firstDate, secondDate, Date.newInstance(2026, 3, 3), null});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Date__c, new List<Object> {firstDate, secondDate, null});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.Date__c).isIn(sources, Foobar__c.Date__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[0].Id, stored[1].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected the two rows whose Date matches a source record');
+		}
+	}
+
+	/**
+	 * @description Tests that notInSet(records, field) excludes rows on a Date key field.
+	 */
+	@IsTest
+	private static void notInSetRecordsExcludesDateKeyField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Date firstDate = Date.newInstance(2026, 3, 1);
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Date__c, new List<Object> {firstDate, Date.newInstance(2026, 3, 2)});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Date__c, new List<Object> {firstDate});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.Date__c).notInSet(sources, Foobar__c.Date__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[1].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected only the row whose Date is not in the source records');
+		}
+	}
+
+	/**
+	 * @description Tests that isIn(records, field) matches rows on a Datetime key field.
+	 */
+	@IsTest
+	private static void isInRecordsMatchesDatetimeKeyField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Datetime firstMoment = Datetime.newInstanceGmt(2026, 3, 1, 9, 30, 0);
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Datetime__c, new List<Object> {firstMoment, Datetime.newInstanceGmt(2026, 3, 1, 10, 30, 0)});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Datetime__c, new List<Object> {firstMoment});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.Datetime__c).isIn(sources, Foobar__c.Datetime__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[0].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected the row whose Datetime matches the source record');
+		}
+	}
+
+	/**
+	 * @description Tests that isIn(records, field) matches rows on an Integer-style number key field.
+	 */
+	@IsTest
+	private static void isInRecordsMatchesIntegerKeyField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.NumberInteger__c, new List<Object> {7, 8, 9});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.NumberInteger__c, new List<Object> {7, 9});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.NumberInteger__c).isIn(sources, Foobar__c.NumberInteger__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[0].Id, stored[2].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected the two rows whose number matches');
+		}
+	}
+
+	/**
+	 * @description Tests that isIn(records, field) matches rows on a Decimal key field holding a large whole number.
+	 */
+	@IsTest
+	private static void isInRecordsMatchesDecimalKeyField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Decimal largeValue = Decimal.valueOf('123456789012');
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.NumberDecimal__c, new List<Object> {largeValue, 5});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.NumberDecimal__c, new List<Object> {largeValue});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.NumberDecimal__c).isIn(sources, Foobar__c.NumberDecimal__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[0].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected the row whose Decimal matches');
+		}
+	}
+
+	/**
+	 * @description Tests that isIn(records, field) matches rows on a fractional key field holding a very small value, which
+	 * Apex renders in scientific notation when it turns the Decimal into text.
+	 */
+	@IsTest
+	private static void isInRecordsMatchesSmallFractionalKeyField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Decimal smallValue = Decimal.valueOf('0.000000001');
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Percent__c, new List<Object> {smallValue, 0.5});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Percent__c, new List<Object> {smallValue});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.Percent__c).isIn(sources, Foobar__c.Percent__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[0].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected the row whose small fractional value matches');
+		}
+	}
+
+	/**
+	 * @description Tests that isIn(records, field) matches rows on a checkbox key field.
+	 */
+	@IsTest
+	private static void isInRecordsMatchesBooleanKeyField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Checkbox__c, new List<Object> {true, false});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Checkbox__c, new List<Object> {true});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.Checkbox__c).isIn(sources, Foobar__c.Checkbox__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[0].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected only the row whose checkbox is ticked');
+		}
+	}
+
+	/**
+	 * @description Tests that whole numbers given as Decimal values, such as 7.0, match rows on a number field with no
+	 * decimal places.
+	 */
+	@IsTest
+	private static void isInValueListMatchesWholeDecimalsOnAnIntegerField()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.NumberInteger__c, new List<Object> {7, 8, 9});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.NumberInteger__c).isIn(new List<Object> {7.0, 9.0})
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[0].Id, stored[2].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected the rows holding 7 and 9');
+		}
+	}
+
+	/**
+	 * @description Tests that a list of counts after havingCountOf works whether the count is given as 2 or as 2.0. A count
+	 * column accepts only a bound list of Integer values, so both forms must be bound as Integer values.
+	 */
+	@IsTest
+	private static void havingCountListBindsAsIntegers()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Date sharedDate = Date.newInstance(2026, 3, 1);
+			Date singleDate = Date.newInstance(2026, 3, 2);
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Date__c, new List<Object> {sharedDate, sharedDate, singleDate});
+
+			List<QRY_Builder.AggregateRow> integerRows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(Foobar__c.Date__c)
+					.condition(Foobar__c.Id).isIn(stored)
+					.havingCountOf(Foobar__c.Id).isIn(new List<Object> {2})
+					.toAggregateList();
+			List<QRY_Builder.AggregateRow> wholeDecimalRows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(Foobar__c.Date__c)
+					.condition(Foobar__c.Id).isIn(stored)
+					.havingCountOf(Foobar__c.Id).isIn(new List<Object> {2.0})
+					.toAggregateList();
+
+			String dateAlias = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Date__c);
+			Assert.areEqual(1, integerRows.size(), 'Expected one group with two rows when the count is given as 2');
+			Assert.areEqual(sharedDate, integerRows[0].getDate(dateAlias), 'Expected the group of the shared date');
+			Assert.areEqual(1, wholeDecimalRows.size(), 'Expected one group with two rows when the count is given as 2.0');
+			Assert.areEqual(sharedDate, wholeDecimalRows[0].getDate(dateAlias), 'Expected the group of the shared date');
+		}
+	}
+
+	/**
+	 * @description Tests that a count list holding a number too large for an Integer makes the query fail with the
+	 * platform's QueryException.
+	 */
+	@IsTest
+	private static void havingCountListAboveIntegerRangeThrowsQueryException()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Long firstNumberAboveIntegerRange = 2147483648L;
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Date__c, new List<Object> {Date.newInstance(2026, 3, 1)});
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(Foobar__c.Date__c)
+					.condition(Foobar__c.Id).isIn(stored)
+					.havingCountOf(Foobar__c.Id).isIn(new List<Object> {firstNumberAboveIntegerRange});
+
+			try
+			{
+				query.toAggregateList();
+				Assert.fail('Expected a query error for a count above the Integer range');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, QueryException.class, 'Expected the platform query error: ' + error.getMessage());
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that a list of years compared with CALENDAR_YEAR of a date field returns the rows of that year. The
+	 * CALENDAR_YEAR column accepts only a bound list of Integer values.
+	 */
+	@IsTest
+	private static void calendarYearListBindsAsIntegers()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Date__c, new List<Object> {Date.newInstance(2026, 3, 1), Date.newInstance(2025, 3, 1)});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(QRY_Function.calendarYear(Foobar__c.Date__c)).isIn(new List<Object> {2026})
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[0].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected only the row dated in 2026');
+		}
+	}
+
+	/**
+	 * @description Tests that a list of whole numbers after havingSumOf finds the group whose sum is in the list, whether
+	 * the number is given as 7 or as 7.0. Both forms are bound as a list of Integer values, and a SUM column accepts that
+	 * list.
+	 */
+	@IsTest
+	private static void havingSumListOfWholeNumbersFindsTheMatchingGroup()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Date sharedDate = Date.newInstance(2026, 3, 1);
+			Date singleDate = Date.newInstance(2026, 3, 2);
+			List<Foobar__c> stored = new List<Foobar__c>
+			{
+					(Foobar__c)TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, sharedDate).withOverride(Foobar__c.NumberInteger__c, 3).build(),
+					(Foobar__c)TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, sharedDate).withOverride(Foobar__c.NumberInteger__c, 4).build(),
+					(Foobar__c)TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, singleDate).withOverride(Foobar__c.NumberInteger__c, 5).build()
+			};
+
+			List<QRY_Builder.AggregateRow> integerRows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(Foobar__c.Date__c)
+					.condition(Foobar__c.Id).isIn(stored)
+					.havingSumOf(Foobar__c.NumberInteger__c).isIn(new List<Object> {7})
+					.toAggregateList();
+			List<QRY_Builder.AggregateRow> wholeDecimalRows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(Foobar__c.Date__c)
+					.condition(Foobar__c.Id).isIn(stored)
+					.havingSumOf(Foobar__c.NumberInteger__c).isIn(new List<Object> {7.0})
+					.toAggregateList();
+
+			String dateAlias = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Date__c);
+			Assert.areEqual(1, integerRows.size(), 'Expected one group whose sum is 7 when the sum is given as 7');
+			Assert.areEqual(sharedDate, integerRows[0].getDate(dateAlias), 'Expected the group of the shared date');
+			Assert.areEqual(1, wholeDecimalRows.size(), 'Expected one group whose sum is 7 when the sum is given as 7.0');
+			Assert.areEqual(sharedDate, wholeDecimalRows[0].getDate(dateAlias), 'Expected the group of the shared date');
+		}
+	}
+
+	/**
+	 * @description Tests that isIn(records, field) matches nothing when every source record has a blank key, even though a
+	 * stored row also has a blank key.
+	 */
+	@IsTest
+	private static void isInRecordsWithOnlyBlankKeysMatchesNothing()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Date__c, new List<Object> {Date.newInstance(2026, 3, 1), null});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Date__c, new List<Object> {null});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.Date__c).isIn(sources, Foobar__c.Date__c)
+					.toList();
+
+			Assert.isTrue(matched.isEmpty(), 'Expected no rows when every source record has a blank key: ' + matched);
+		}
+	}
+
+	/**
+	 * @description Tests that notInSet(records, field) keeps a source record with a blank key: the row matching the other
+	 * source is left out, and so is the stored row whose field is blank.
+	 */
+	@IsTest
+	private static void notInSetRecordsWithABlankKeyLeavesOutBlankRows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Date firstDate = Date.newInstance(2026, 3, 1);
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Date__c, new List<Object> {firstDate, Date.newInstance(2026, 3, 2), null});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Date__c, new List<Object> {firstDate, null});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.Date__c).notInSet(sources, Foobar__c.Date__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[1].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected only the row with the second date');
+		}
+	}
+
+	/**
+	 * @description Tests that notInSet(records, field) still adds a NOT IN condition when every source record has a blank
+	 * key, so only the stored rows whose field has a value come back.
+	 */
+	@IsTest
+	private static void notInSetRecordsWithOnlyBlankKeysReturnsRowsWithAValue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Date__c, new List<Object> {Date.newInstance(2026, 3, 1), null});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Date__c, new List<Object> {null});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.Date__c).notInSet(sources, Foobar__c.Date__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[0].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected only the row whose date is set');
+		}
+	}
+
+	/**
+	 * @description Tests that isInStrict(records, field) ignores a source record with a blank key, in the same way as
+	 * isIn(records, field): it does not match the stored row whose key is blank.
+	 */
+	@IsTest
+	private static void isInStrictRecordsSkipsBlankKeys()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Date firstDate = Date.newInstance(2026, 3, 1);
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Date__c, new List<Object> {firstDate, null});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Date__c, new List<Object> {firstDate, null});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.Date__c).isInStrict(sources, Foobar__c.Date__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[0].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected only the row matching the first date');
+		}
+	}
+
+	/**
+	 * @description Tests that notInSetStrict(records, field) keeps a source record with a blank key, in the same way as
+	 * notInSet(records, field): the row matching the other source is left out, and so is the stored row whose field is
+	 * blank.
+	 */
+	@IsTest
+	private static void notInSetStrictRecordsWithABlankKeyLeavesOutBlankRows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Date firstDate = Date.newInstance(2026, 3, 1);
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Date__c, new List<Object> {firstDate, Date.newInstance(2026, 3, 2), null});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Date__c, new List<Object> {firstDate, null});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.Date__c).notInSetStrict(sources, Foobar__c.Date__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[1].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected only the row with the second date');
+		}
+	}
+
+	/**
+	 * @description Tests that isInStrict(records, field) throws an error when every source record has a blank key, because
+	 * no record gives a value to match.
+	 */
+	@IsTest
+	private static void isInStrictRecordsWithOnlyBlankKeysThrows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Date__c, new List<Object> {null, null});
+
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).condition(Foobar__c.Date__c).isInStrict(sources, Foobar__c.Date__c);
+				Assert.fail('Expected an IllegalArgumentException when every source record has a blank key');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException, got: ' + error);
+				Assert.areEqual('Records list contains no valid records', error.getMessage(), 'Expected the message that says no record has a value');
+			}
+		}
+	}
+
+	/**
+	 * @description Tests that notInSetStrict(records, field) does not throw when every source record has a blank key. It
+	 * adds a NOT IN condition over the blank keys, so only the stored rows whose field has a value come back.
+	 */
+	@IsTest
+	private static void notInSetStrictRecordsWithOnlyBlankKeysReturnsRowsWithAValue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> stored = insertFoobarsWith(Foobar__c.Date__c, new List<Object> {Date.newInstance(2026, 3, 1), null});
+			List<Foobar__c> sources = buildUnsavedFoobarsWith(Foobar__c.Date__c, new List<Object> {null, null});
+
+			List<Foobar__c> matched = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(stored)
+					.condition(Foobar__c.Date__c).notInSetStrict(sources, Foobar__c.Date__c)
+					.toList();
+
+			Assert.areEqual(new Set<Id> {stored[0].Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected only the row whose date is set');
+		}
+	}
+
+	/**
+	 * @description Tests that HAVING values reach the engine as bind variables: the query text carries a bind reference and
+	 * the value travels only in the bind map, so a value can never change the query's shape.
+	 */
+	@IsTest
+	private static void havingValuesAreBoundNotPasted()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String hostileValue = '0\' OR COUNT(Id) > \'0';
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(Foobar__c.Name)
+					.havingSumOf(Foobar__c.NumberInteger__c).greaterThan(5)
+					.havingCount().equals(hostileValue)
+					.havingCount().isIn(new List<Object> {'1', hostileValue});
+
+			QRY_Engine.QueryParameters parameters = query.buildParameters(new QRY_BindRegistry());
+
+			String havingClause = parameters.queryString.substringAfter('HAVING ');
+			String sumReference = 'SUM(' + UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.NumberInteger__c) + ') > :bv';
+			Assert.isTrue(havingClause.contains(sumReference), 'Expected the SUM value as a bind reference: ' + havingClause);
+			Assert.isFalse(parameters.queryString.contains('OR COUNT(Id)'), 'Expected the hostile value to stay out of the query text: ' + parameters.queryString);
+			Assert.isTrue(parameters.bindMap.values().contains(5), 'Expected the SUM value in the bind map');
+			Assert.isTrue(parameters.bindMap.values().contains(hostileValue), 'Expected the hostile value verbatim in the bind map');
+			Assert.isTrue(parameters.bindMap.values().contains(new List<String> {'1', hostileValue}), 'Expected the IN values bound as one text list');
+		}
+	}
+
+	/**
+	 * @description Tests that a list mixing an Id and text, which is written into the query as literals rather than bound,
+	 * keeps a hostile text value inside its quotes: it matches only the row whose Name is exactly that text.
+	 */
+	@IsTest
+	private static void mixedLiteralListKeepsHostileTextQuoted()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String hostileName = 'a\\\' OR Name != \'';
+			Foobar__c target = (Foobar__c)TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Name, hostileName).build();
+			Foobar__c bystander = (Foobar__c)TST_Factory.getFoobarBuilder().build();
+
+			QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.condition(Foobar__c.Id).isIn(new List<Foobar__c> {target, bystander})
+					.condition(Foobar__c.Name).isIn(new List<Object> {bystander.Id, hostileName});
+
+			String nameClause = query.buildParameters(new QRY_BindRegistry()).queryString.substringAfter('Name IN ');
+			String expectedLiterals = '(\'' + bystander.Id + '\',\'' + String.escapeSingleQuotes(hostileName) + '\')';
+			Assert.isTrue(nameClause.startsWith(expectedLiterals), 'Expected the mixed list as escaped literals: ' + nameClause);
+
+			List<Foobar__c> matched = query.toList();
+
+			Assert.areEqual(new Set<Id> {target.Id}, new Map<Id, Foobar__c>(matched).keySet(), 'Expected only the row whose Name is the hostile text');
+		}
+	}
+
+	/**
+	 * @description Tests that a HAVING condition with a bound number value runs and filters groups.
+	 */
+	@IsTest
+	private static void havingBoundValueFiltersGroups()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Date smallGroupDate = Date.newInstance(2026, 3, 1);
+			Date largeGroupDate = Date.newInstance(2026, 3, 2);
+			List<Foobar__c> stored = new List<Foobar__c>
+			{
+					(Foobar__c)TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, smallGroupDate).withOverride(Foobar__c.NumberInteger__c, 3).build(),
+					(Foobar__c)TST_Factory.getFoobarBuilder().withOverride(Foobar__c.Date__c, largeGroupDate).withOverride(Foobar__c.NumberInteger__c, 40).build()
+			};
+
+			List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.count(FIELD_ID)
+					.groupBy(Foobar__c.Date__c)
+					.condition(Foobar__c.Id).isIn(stored)
+					.havingSumOf(Foobar__c.NumberInteger__c).greaterThan(10)
+					.toAggregateList();
+
+			Assert.areEqual(1, rows.size(), 'Expected only the group whose SUM exceeds the bound value');
+			Assert.areEqual(largeGroupDate, rows[0].getDate(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Date__c)), 'Expected the group of the row holding 40');
+		}
+	}
+
+	/**
+	 * @description Inserts one Foobar__c per value, with the given field set to that value.
+	 *
+	 * @param field The field to set
+	 * @param values One value per record
+	 *
+	 * @return The inserted records, in the order of the values
+	 */
+	private static List<Foobar__c> insertFoobarsWith(SObjectField field, List<Object> values)
+	{
+		List<Foobar__c> records = new List<Foobar__c>();
+		for(Object value : values)
+		{
+			records.add((Foobar__c)TST_Factory.getFoobarBuilder().withOverride(field, value).build());
+		}
+		return records;
+	}
+
+	/**
+	 * @description Builds one uncommitted Foobar__c per value, with the given field set to that value.
+	 *
+	 * @param field The field to set
+	 * @param values One value per record
+	 *
+	 * @return The uncommitted records, in the order of the values
+	 */
+	private static List<Foobar__c> buildUnsavedFoobarsWith(SObjectField field, List<Object> values)
+	{
+		List<Foobar__c> records = new List<Foobar__c>();
+		for(Object value : values)
+		{
+			records.add((Foobar__c)TST_Factory.getFoobarBuilder().withOverride(field, value).withoutInsertion().build());
+		}
+		return records;
+	}
+
+	/**
+	 * @description Proves that every method that starts a condition refuses a text that is not a field name. Each text
+	 * would change which rows the query returns: one adds an OR that matches every row, one closes the group of
+	 * conditions and opens a new one (also in system mode with sharing bypassed), and one carries its own quoted value.
+	 * The query runs against real rows, so a text that is let through shows how many rows it returned. A refused text
+	 * must raise an IllegalArgumentException that names the method, and must leave the query text as it was. One case
+	 * calls condition without an operator, to prove the refusal comes at that call and not later. A very long dotted
+	 * path must get the same refusal, not a stack overflow. Two cases put a LIMIT or an OR around a date function on
+	 * convertTimezone, which is allowed on its own.
+	 */
+	@IsTest
+	private static void shouldRefuseCraftedTextInEveryConditionEntry()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> rows = seedFoobarRows(CRAFTED_TEXT_PROBE_ROWS);
+			String noMatch = UTIL_Random.randomUUID();
+			String widening = FIELD_ID + ' != null OR ' + FIELD_NAME;
+			String unclosedHourOfCreation = 'HOUR_IN_DAY(convertTimezone(' + UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.CreatedDate) + ')';
+
+			List<CraftedCase> cases = new List<CraftedCase>
+			{
+					new CraftedCase(CraftedEntry.CONDITION, 'a text that adds an OR matching every row', newFoobarNameQuery(), widening)
+							.withComparedValue(noMatch),
+					new CraftedCase(CraftedEntry.CONDITION_WITHOUT_OPERATOR, 'the text at the call itself, before an operator is chosen', newFoobarNameQuery(), widening),
+					new CraftedCase
+							(
+									CraftedEntry.CONDITION,
+									'a text that closes the group of conditions and opens a new one',
+									newFoobarNameQuery().condition(Foobar__c.Name).equals(rows[0].Name),
+									FIELD_ID + ' != null) OR (' + FIELD_NAME
+							)
+							.withComparedValue(rows[1].Name),
+					new CraftedCase
+							(
+									CraftedEntry.CONDITION,
+									'a text that closes the group of conditions, in system mode with sharing bypassed',
+									newFoobarNameQuery().withSystemMode().bypassSharing().condition(Foobar__c.Name).equals(rows[0].Name),
+									FIELD_ID + ' != null) OR (' + FIELD_ID + ' != null OR ' + FIELD_NAME
+							)
+							.withComparedValue(noMatch),
+					new CraftedCase
+							(
+									CraftedEntry.CONDITION,
+									'a text that carries its own quoted value',
+									newFoobarNameQuery(),
+									FIELD_NAME + ' = \'' + rows[1].Name + '\' OR ' + FIELD_NAME
+							)
+							.withComparedValue(noMatch),
+					new CraftedCase(CraftedEntry.AND_CONDITION, 'a text that adds an OR matching every row', newFoobarNameQuery(), widening)
+							.withComparedValue(noMatch),
+					new CraftedCase(CraftedEntry.OR_CONDITION, 'a text that adds an OR matching every row', newFoobarNameQuery(), widening)
+							.withComparedValue(noMatch),
+					new CraftedCase
+							(
+									CraftedEntry.CONDITION_WITHOUT_OPERATOR,
+									'a very long dotted field path that ends with ALL ROWS',
+									newFoobarNameQuery(),
+									'a.'.repeat(MANY_DOTTED_NAMES) + 'a ALL ROWS'
+							),
+					new CraftedCase(CraftedEntry.CONDITION, 'a LIMIT inside a date function around convertTimezone', newFoobarNameQuery(), unclosedHourOfCreation + ' LIMIT 1)')
+							.withComparedValue(noMatch),
+					new CraftedCase
+							(
+									CraftedEntry.CONDITION,
+									'an OR after a date function around convertTimezone',
+									newFoobarNameQuery(),
+									unclosedHourOfCreation + ') OR ' + FIELD_ID + ' != null'
+							)
+							.withComparedValue(noMatch)
+			};
+
+			for(CraftedCase craftedCase : cases)
+			{
+				String methodName = ENTRY_METHOD_NAMES.get(craftedCase.entry);
+				String soqlBefore = craftedCase.query.toSoql();
+				try
+				{
+					applyCraftedText(craftedCase);
+					Assert.fail('Expected ' + methodName + ' to refuse ' + craftedCase.caseName + '; ' + describeQueryRun(craftedCase));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for ' + craftedCase.caseName + ', got: ' + error);
+					Assert.areEqual(buildRefusalMessage(methodName), error.getMessage(), 'Expected the message to name ' + methodName + ' for ' + craftedCase.caseName);
+					Assert.areEqual(soqlBefore, craftedCase.query.toSoql(), 'Expected the refused text to leave the query unchanged for ' + craftedCase.caseName);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description Proves that the condition method refuses a text that is not a field name even when the test has
+	 * registered mock rows for the object. With mock rows, no query reaches the database: the rows are filtered in
+	 * memory. The check must still run, so that a mocked unit test also catches a text that would change the query.
+	 */
+	@IsTest
+	private static void shouldRefuseCraftedConditionTextEvenWhenTheQueryIsMocked()
+	{
+		System.runAs(getTestAdmin())
+		{
+			TST_Mock.register(Foobar__c.SObjectType, TST_Factory.getFoobarBuilder().withoutInsertion(true).withCount(CRAFTED_TEXT_PROBE_ROWS).buildList());
+			CraftedCase craftedCase = new CraftedCase
+					(
+							CraftedEntry.CONDITION,
+							'a text that adds an OR matching every mock row',
+							newFoobarNameQuery(),
+							FIELD_ID + ' != null OR ' + FIELD_NAME
+					)
+					.withComparedValue(UTIL_Random.randomUUID());
+			String soqlBefore = craftedCase.query.toSoql();
+
+			try
+			{
+				applyCraftedText(craftedCase);
+				Assert.fail('Expected condition to refuse ' + craftedCase.caseName + '; ' + describeQueryRun(craftedCase));
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for ' + craftedCase.caseName + ', got: ' + error);
+				Assert.areEqual(buildRefusalMessage('condition'), error.getMessage(), 'Expected the message to name condition');
+				Assert.areEqual(soqlBefore, craftedCase.query.toSoql(), 'Expected the refused text to leave the query unchanged');
+			}
+		}
+	}
+
+	/**
+	 * @description Proves that the three orderBy methods refuse a sort text that adds more than a sort order: ALL ROWS
+	 * (which also reads deleted rows, so one deleted row is saved), a LIMIT, or a LIMIT with an OFFSET. It also proves
+	 * that the two methods that add the direction themselves refuse a text whose last item already has a direction:
+	 * the query would read DESC DESC. A very long text and a long list of sort items must get the same refusal, not an
+	 * error no code can catch or a stack overflow. Each refused text must raise an IllegalArgumentException that names
+	 * orderBy and must leave the query text as it was.
+	 */
+	@IsTest
+	private static void shouldRefuseCraftedSortText()
+	{
+		System.runAs(getTestAdmin())
+		{
+			seedFoobarRowsWithOneDeleted();
+
+			List<CraftedCase> cases = new List<CraftedCase>
+			{
+					new CraftedCase(CraftedEntry.ORDER_BY, 'ALL ROWS, which also reads deleted rows', newFoobarNameQuery(), FIELD_NAME + ' ALL ROWS'),
+					new CraftedCase(CraftedEntry.ORDER_BY, 'a LIMIT clause', newFoobarNameQuery(), FIELD_NAME + ' LIMIT 1'),
+					new CraftedCase(CraftedEntry.ORDER_BY, 'a direction followed by LIMIT and OFFSET', newFoobarNameQuery(), FIELD_NAME + ' DESC LIMIT 1 OFFSET 1'),
+					new CraftedCase(CraftedEntry.ORDER_BY_DESCENDING, 'a LIMIT clause before the direction', newFoobarNameQuery(), FIELD_NAME + ' LIMIT 1'),
+					new CraftedCase(CraftedEntry.ORDER_BY_DESCENDING_NULLS_FIRST, 'a LIMIT clause before the direction', newFoobarNameQuery(), FIELD_NAME + ' LIMIT 1'),
+					new CraftedCase(CraftedEntry.ORDER_BY_DESCENDING, 'a sort item that already has a direction', newFoobarNameQuery(), FIELD_NAME + ' DESC'),
+					new CraftedCase(CraftedEntry.ORDER_BY, 'a very long text that ends with ALL ROWS', newFoobarNameQuery(), 'a'.repeat(VERY_LONG_TEXT_LENGTH) + ' ALL ROWS'),
+					new CraftedCase
+							(
+									CraftedEntry.ORDER_BY,
+									'a long list of sort items whose last item ends with ALL ROWS',
+									newFoobarNameQuery(),
+									(FIELD_NAME + ', ').repeat(MANY_SORT_ITEMS) + FIELD_NAME + ' ALL ROWS'
+							)
+			};
+
+			for(CraftedCase craftedCase : cases)
+			{
+				String methodName = ENTRY_METHOD_NAMES.get(craftedCase.entry);
+				String soqlBefore = craftedCase.query.toSoql();
+				try
+				{
+					applyCraftedText(craftedCase);
+					Assert.fail('Expected ' + methodName + ' to refuse ' + craftedCase.caseName + '; ' + describeQueryRun(craftedCase));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for ' + craftedCase.caseName + ', got: ' + error);
+					Assert.areEqual(buildRefusalMessage(methodName), error.getMessage(), 'Expected the message to name ' + methodName + ' for ' + craftedCase.caseName);
+					Assert.areEqual(soqlBefore, craftedCase.query.toSoql(), 'Expected the refused text to leave the query unchanged for ' + craftedCase.caseName);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description Proves that groupBy refuses a group text that adds more than field names: ALL ROWS (which also reads
+	 * deleted rows, so one deleted row is saved), an ORDER BY with a LIMIT, a list whose second item is not a field
+	 * name, and a LIMIT in a query that counts rows. In that last query the group text is also copied into the SELECT
+	 * list. Each refused text must raise an IllegalArgumentException that names groupBy and must leave the query text
+	 * as it was.
+	 */
+	@IsTest
+	private static void shouldRefuseCraftedGroupText()
+	{
+		System.runAs(getTestAdmin())
+		{
+			seedFoobarRowsWithOneDeleted();
+
+			List<CraftedCase> cases = new List<CraftedCase>
+			{
+					new CraftedCase(CraftedEntry.GROUP_BY, 'ALL ROWS, which also reads deleted rows', newFoobarNameQuery(), FIELD_NAME + ' ALL ROWS'),
+					new CraftedCase
+							(
+									CraftedEntry.GROUP_BY,
+									'an ORDER BY with a LIMIT',
+									newFoobarNameQuery(),
+									FIELD_NAME + ' ORDER BY ' + FIELD_NAME + ' DESC LIMIT 2'
+							),
+					new CraftedCase(CraftedEntry.GROUP_BY, 'a list whose second item is crafted', newFoobarNameQuery(), FIELD_NAME + ', ' + FIELD_ID + ' ALL ROWS'),
+					new CraftedCase
+							(
+									CraftedEntry.GROUP_BY,
+									'a LIMIT in a query that counts rows',
+									QRY_Builder.selectFrom(Foobar__c.SObjectType).count(FIELD_ID),
+									FIELD_NAME + ' LIMIT 1'
+							)
+			};
+
+			for(CraftedCase craftedCase : cases)
+			{
+				String methodName = ENTRY_METHOD_NAMES.get(craftedCase.entry);
+				String soqlBefore = craftedCase.query.toSoql();
+				try
+				{
+					applyCraftedText(craftedCase);
+					Assert.fail('Expected ' + methodName + ' to refuse ' + craftedCase.caseName + '; ' + describeQueryRun(craftedCase));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for ' + craftedCase.caseName + ', got: ' + error);
+					Assert.areEqual(buildRefusalMessage(methodName), error.getMessage(), 'Expected the message to name ' + methodName + ' for ' + craftedCase.caseName);
+					Assert.areEqual(soqlBefore, craftedCase.query.toSoql(), 'Expected the refused text to leave the query unchanged for ' + craftedCase.caseName);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description Proves that count, countDistinct and grouping refuse a text that is not a field name: one that
+	 * closes the function and adds a FROM clause, and one that adds ALL ROWS. The aggregate selection that the builder
+	 * keeps for an aliased sum must refuse the same texts when it is created. First, the test proves that a blank name
+	 * still gives COUNT() and runs, because a blank name is how a caller counts every row.
+	 */
+	@IsTest
+	private static void shouldRefuseCraftedAggregateFieldText()
+	{
+		System.runAs(getTestAdmin())
+		{
+			seedFoobarRows(CRAFTED_TEXT_PROBE_ROWS);
+			for(String blankName : new List<String> {null, UTIL_String.EMPTY})
+			{
+				QRY_Builder.Builder countQuery = QRY_Builder.selectFrom(Foobar__c.SObjectType).count(blankName);
+				Assert.areEqual('SELECT COUNT() FROM ' + OBJECT_NAME, countQuery.toSoql(), 'Expected a blank name to count every row');
+				Assert.areEqual(CRAFTED_TEXT_PROBE_ROWS, countQuery.count(), 'Expected the query that counts every row to run and count the saved rows');
+			}
+
+			Map<String, String> craftedTexts = new Map<String, String>
+			{
+					'a text that closes the function and adds a FROM clause' => FIELD_NAME + ') FROM ' + OBJECT_NAME + ' WHERE (' + FIELD_NAME,
+					'ALL ROWS' => FIELD_NAME + ' ALL ROWS'
+			};
+			List<CraftedCase> cases = new List<CraftedCase>();
+			for(String caseName : craftedTexts.keySet())
+			{
+				String craftedText = craftedTexts.get(caseName);
+				cases.add(new CraftedCase(CraftedEntry.COUNT, caseName, QRY_Builder.selectFrom(Foobar__c.SObjectType), craftedText));
+				cases.add(new CraftedCase(CraftedEntry.COUNT_DISTINCT, caseName, QRY_Builder.selectFrom(Foobar__c.SObjectType), craftedText));
+				cases.add(new CraftedCase(CraftedEntry.GROUPING, caseName, QRY_Builder.selectFrom(Foobar__c.SObjectType).groupBy(Foobar__c.Name).count(FIELD_ID), craftedText));
+			}
+
+			for(CraftedCase craftedCase : cases)
+			{
+				String methodName = ENTRY_METHOD_NAMES.get(craftedCase.entry);
+				String soqlBefore = craftedCase.query.toSoql();
+				try
+				{
+					applyCraftedText(craftedCase);
+					Assert.fail('Expected ' + methodName + ' to refuse ' + craftedCase.caseName + '; ' + describeQueryRun(craftedCase));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for ' + craftedCase.caseName + ', got: ' + error);
+					Assert.areEqual(buildRefusalMessage(methodName), error.getMessage(), 'Expected the message to name ' + methodName + ' for ' + craftedCase.caseName);
+					Assert.areEqual(soqlBefore, craftedCase.query.toSoql(), 'Expected the refused text to leave the query unchanged for ' + craftedCase.caseName);
+				}
+			}
+
+			for(String caseName : craftedTexts.keySet())
+			{
+				try
+				{
+					QRY_Builder.AggregateSelection selection = new QRY_Builder.AggregateSelection(QRY_Generator.Aggregate.SUM, craftedTexts.get(caseName), SUM_ALIAS);
+					Assert.fail('Expected AggregateSelection to refuse ' + caseName + '; it kept the field text ' + selection.fieldName);
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for ' + caseName + ', got: ' + error);
+					Assert.areEqual(buildRefusalMessage('AggregateSelection'), error.getMessage(), 'Expected the message to name AggregateSelection for ' + caseName);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description Proves that every data category method refuses a group name or a category name that adds more
+	 * than a name: withDataCategory and the public DataCategoryBuilder constructor for the group, and at, above,
+	 * below and aboveOrBelow, with one name and with a list, for the category. This org has no object that takes data
+	 * categories, so the test reads the query text only. Each refused name must raise an IllegalArgumentException that
+	 * names the method and must leave the query text as it was. Last, a crafted name added to the caller's list after the
+	 * list was checked, by at or by the generator's data category filter, must not reach the query.
+	 */
+	@IsTest
+	private static void shouldRefuseCraftedDataCategoryNames()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String craftedGroup = CATEGORY_GROUP + ' AT ' + CATEGORY_NAME + ' ORDER BY ' + FIELD_NAME + ' LIMIT 1 X';
+			String craftedCategory = CATEGORY_NAME + ' LIMIT 1';
+			String groupCase = 'a group name followed by a category and an ORDER BY';
+			String categoryCase = 'a category name followed by a LIMIT';
+
+			List<CraftedCase> cases = new List<CraftedCase>
+			{
+					new CraftedCase(CraftedEntry.DATA_CATEGORY_GROUP, groupCase, QRY_Builder.selectFrom(Foobar__c.SObjectType), craftedGroup),
+					new CraftedCase(CraftedEntry.DATA_CATEGORY_BUILDER, groupCase, QRY_Builder.selectFrom(Foobar__c.SObjectType), craftedGroup)
+			};
+			for(CraftedEntry entry : new List<CraftedEntry>
+			{
+					CraftedEntry.AT,
+					CraftedEntry.AT_LIST,
+					CraftedEntry.ABOVE,
+					CraftedEntry.ABOVE_LIST,
+					CraftedEntry.BELOW,
+					CraftedEntry.BELOW_LIST,
+					CraftedEntry.EITHER_SIDE,
+					CraftedEntry.EITHER_SIDE_LIST
+			})
+			{
+				cases.add(new CraftedCase(entry, categoryCase + ' (' + entry.name() + ')', QRY_Builder.selectFrom(Foobar__c.SObjectType), craftedCategory));
+			}
+
+			for(CraftedCase craftedCase : cases)
+			{
+				String methodName = ENTRY_METHOD_NAMES.get(craftedCase.entry);
+				String soqlBefore = craftedCase.query.toSoql();
+				try
+				{
+					applyCraftedText(craftedCase);
+					Assert.fail('Expected ' + methodName + ' to refuse ' + craftedCase.caseName + '; ' + describeQueryRun(craftedCase));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for ' + craftedCase.caseName + ', got: ' + error);
+					Assert.areEqual(buildRefusalMessage(methodName), error.getMessage(), 'Expected the message to name ' + methodName + ' for ' + craftedCase.caseName);
+					Assert.areEqual(soqlBefore, craftedCase.query.toSoql(), 'Expected the refused text to leave the query unchanged for ' + craftedCase.caseName);
+				}
+			}
+
+			List<String> builderNames = new List<String> {CATEGORY_NAME};
+			QRY_Builder.Builder listQuery = QRY_Builder.selectFrom(Foobar__c.SObjectType).withDataCategory(CATEGORY_GROUP).at(builderNames);
+			String listQueryBefore = listQuery.toSoql();
+			builderNames.add(craftedCategory);
+			Assert.areEqual(listQueryBefore, listQuery.toSoql(), 'Expected a category name added to the list after at to stay out of the query');
+
+			List<String> filterNames = new List<String> {CATEGORY_NAME};
+			QRY_Generator.DataCategoryFilter filter = new QRY_Generator.DataCategoryFilter(CATEGORY_GROUP, QRY_Generator.DataCategoryOperator.AT, filterNames);
+			filterNames.add(craftedCategory);
+			Assert.areEqual(CATEGORY_GROUP + ' AT ' + CATEGORY_NAME, filter.toSoql(), 'Expected a category name added to the list after the filter is made to stay out of it');
+		}
+	}
+
+	/**
+	 * @description Proves that relatedField and relatedFields refuse a parent field text that holds a second field, and
+	 * that subselect refuses a relationship name followed by a WHERE clause. Each refused text must raise an
+	 * IllegalArgumentException that names the method and must leave the query text as it was.
+	 */
+	@IsTest
+	private static void shouldRefuseCraftedRelatedFieldAndRelationshipName()
+	{
+		System.runAs(getTestAdmin())
+		{
+			seedFoobarRows(CRAFTED_TEXT_PROBE_ROWS);
+			String twoFields = 'Owner.Name, ' + FIELD_ID;
+			String accountQueryCase = 'a relationship name followed by a WHERE clause';
+
+			List<CraftedCase> cases = new List<CraftedCase>
+			{
+					new CraftedCase(CraftedEntry.RELATED_FIELD, 'a text that holds a second field', newFoobarNameQuery(), twoFields),
+					new CraftedCase(CraftedEntry.RELATED_FIELDS, 'a text that holds a second field', newFoobarNameQuery(), twoFields),
+					new CraftedCase
+							(
+									CraftedEntry.SUBSELECT,
+									accountQueryCase,
+									QRY_Builder.selectFrom(Account.SObjectType).fields(new List<SObjectField> {Account.Name}),
+									CONTACTS_RELATIONSHIP + ' WHERE ' + UTIL_SObjectDescribe.getCachedFieldName(Contact.LastName) + ' != null'
+							)
+			};
+
+			for(CraftedCase craftedCase : cases)
+			{
+				String methodName = ENTRY_METHOD_NAMES.get(craftedCase.entry);
+				String soqlBefore = craftedCase.query.toSoql();
+				try
+				{
+					applyCraftedText(craftedCase);
+					Assert.fail('Expected ' + methodName + ' to refuse ' + craftedCase.caseName + '; ' + describeQueryRun(craftedCase));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for ' + craftedCase.caseName + ', got: ' + error);
+					Assert.areEqual(buildRefusalMessage(methodName), error.getMessage(), 'Expected the message to name ' + methodName + ' for ' + craftedCase.caseName);
+					Assert.areEqual(soqlBefore, craftedCase.query.toSoql(), 'Expected the refused text to leave the query unchanged for ' + craftedCase.caseName);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description Proves that isIn and notIn refuse an inner query whose selected text is not one field name. The
+	 * inner query's select list is written inside the outer WHERE clause, so such a text can swap the filter the code
+	 * meant ("Accounts that have a Contact") for another one ("Accounts that have an Opportunity, whose owner also owns
+	 * a Contact"). Account A has a Contact; Account B has an Opportunity and no Contact. The refusal must come at the
+	 * isIn or notIn call itself, before any query runs: the check runs when the inner query is stored.
+	 */
+	@IsTest
+	private static void shouldRefuseCraftedSelectTextInASemiJoinSubquery()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<String> accountNames = seedAccountWithContactAndAccountWithOpportunity();
+			String ownerField = UTIL_SObjectDescribe.getCachedFieldName(Account.OwnerId);
+			String craftedSelect = UTIL_SObjectDescribe.getCachedFieldName(Contact.AccountId) + ' FROM ' + String.valueOf(Opportunity.SObjectType)
+					+ ') AND ' + ownerField + ' IN (SELECT ' + ownerField;
+
+			List<CraftedCase> cases = new List<CraftedCase>
+			{
+					new CraftedCase(CraftedEntry.IS_IN, 'a select text that swaps the inner query (A is expected)', newAccountQuery(accountNames), craftedSelect),
+					new CraftedCase(CraftedEntry.NOT_IN, 'a select text that swaps the inner query (B is expected)', newAccountQuery(accountNames), craftedSelect)
+			};
+
+			for(CraftedCase craftedCase : cases)
+			{
+				String methodName = ENTRY_METHOD_NAMES.get(craftedCase.entry);
+				String soqlBefore = craftedCase.query.toSoql();
+				try
+				{
+					applyCraftedText(craftedCase);
+					Assert.fail('Expected ' + methodName + ' to refuse ' + craftedCase.caseName + ' at the call itself; ' + describeQueryRun(craftedCase));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for ' + craftedCase.caseName + ', got: ' + error);
+					Assert.areEqual(buildRefusalMessage(methodName), error.getMessage(), 'Expected the message to name ' + methodName + ' for ' + craftedCase.caseName);
+					Assert.areEqual(soqlBefore, craftedCase.query.toSoql(), 'Expected the refused text to leave the query unchanged for ' + craftedCase.caseName);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description Records the query text the builder writes today for every field name shape that released code may
+	 * pass as text, and proves each query runs and returns the number of saved rows or groups it should. The shapes
+	 * are: a plain name, a name that can carry the package namespace, a parent field path one and two steps away, a name with spaces around it, a date function from
+	 * QRY_Function, a date function written as text, a sort text with a direction and a nulls order, a list of sort
+	 * items, a list of group fields, toLabel on a picklist, a date function around convertTimezone in a condition and in
+	 * GROUP BY, and a field path that reaches five parent records. With spaces around it, the name is trimmed in a
+	 * condition but kept as given in ORDER BY and GROUP BY. The text must not change when the builder starts to check
+	 * field names. A sort list of 32 items, the most ORDER BY takes, keeps its text too; it is not run. The toLabel case
+	 * in ORDER BY records that the platform refuses it today.
+	 */
+	@IsTest
+	private static void shouldKeepTheQueryTextForReleasedFieldNameShapes()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> rows = seedFoobarRows(CRAFTED_TEXT_PROBE_ROWS);
+			String value = rows[0].Name;
+			String createdDate = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.CreatedDate);
+			String padded = '  ' + FIELD_NAME + '  ';
+			String ownerName = 'Owner.Name';
+			String profileName = 'CreatedBy.Profile.Name';
+			Integer year = Datetime.now().yearGmt();
+			String picklistLabel = UTIL_SObjectDescribe.getCachedFieldDescribe(Foobar__c.Picklist__c).getPicklistValues()[0].getLabel();
+			String toLabelText = 'toLabel(' + FIELD_PICKLIST + ')';
+			String selectName = 'SELECT ' + FIELD_NAME + ' FROM ' + OBJECT_NAME;
+			String selectText = 'SELECT ' + FIELD_TEXT + ' FROM ' + OBJECT_NAME;
+			String countAndGroup = 'SELECT COUNT(Id) count_Id, ';
+			String quotedValue = ' = \'' + value + '\'';
+			String hourOfCreation = 'HOUR_IN_DAY(convertTimezone(' + createdDate + '))';
+
+			Map<String, QRY_Builder.Builder> queries = new Map<String, QRY_Builder.Builder>();
+			Map<String, String> expectedTexts = new Map<String, String>();
+
+			queries.put('a plain name in condition', newFoobarNameQuery().condition(FIELD_NAME).equals(value));
+			expectedTexts.put('a plain name in condition', selectName + ' WHERE ' + FIELD_NAME + quotedValue);
+			queries.put('a plain name in orderBy', newFoobarNameQuery().orderBy(FIELD_NAME));
+			expectedTexts.put('a plain name in orderBy', selectName + ' ORDER BY ' + FIELD_NAME);
+			queries.put('a plain name in groupBy', newFoobarNameQuery().groupBy(FIELD_NAME));
+			expectedTexts.put('a plain name in groupBy', selectName + ' GROUP BY ' + FIELD_NAME);
+
+			queries.put('a namespaced name in condition', newFoobarNameQuery().condition(FIELD_TEXT).equals(value));
+			expectedTexts.put('a namespaced name in condition', selectName + ' WHERE ' + FIELD_TEXT + quotedValue);
+			queries.put('a namespaced name in orderBy', newFoobarNameQuery().orderBy(FIELD_TEXT));
+			expectedTexts.put('a namespaced name in orderBy', selectName + ' ORDER BY ' + FIELD_TEXT);
+			queries.put('a namespaced name in groupBy', QRY_Builder.selectFrom(Foobar__c.SObjectType).fields(new List<SObjectField> {Foobar__c.Text__c}).groupBy(FIELD_TEXT));
+			expectedTexts.put('a namespaced name in groupBy', selectText + ' GROUP BY ' + FIELD_TEXT);
+
+			queries.put('a parent field path in condition', newFoobarNameQuery().condition(ownerName).equals(value));
+			expectedTexts.put('a parent field path in condition', selectName + ' WHERE ' + ownerName + quotedValue);
+			queries.put('a parent field path in orderBy', newFoobarNameQuery().orderBy(ownerName));
+			expectedTexts.put('a parent field path in orderBy', selectName + ' ORDER BY ' + ownerName);
+			queries.put('a two step parent field path in condition', newFoobarNameQuery().condition(profileName).equals(value));
+			expectedTexts.put('a two step parent field path in condition', selectName + ' WHERE ' + profileName + quotedValue);
+			queries.put('a two step parent field path in orderBy', newFoobarNameQuery().orderBy(profileName));
+			expectedTexts.put('a two step parent field path in orderBy', selectName + ' ORDER BY ' + profileName);
+
+			queries.put('a name with spaces around it in condition', newFoobarNameQuery().condition(padded).equals(value));
+			expectedTexts.put('a name with spaces around it in condition', selectName + ' WHERE ' + FIELD_NAME + quotedValue);
+			queries.put('a name with spaces around it in orderBy', newFoobarNameQuery().orderBy(padded));
+			expectedTexts.put('a name with spaces around it in orderBy', selectName + ' ORDER BY ' + padded);
+			queries.put('a name with spaces around it in groupBy', newFoobarNameQuery().groupBy(padded));
+			expectedTexts.put('a name with spaces around it in groupBy', selectName + ' GROUP BY ' + padded);
+
+			queries.put('a date function from QRY_Function in condition', newFoobarNameQuery().condition(QRY_Function.calendarYear(Foobar__c.CreatedDate)).equals(year));
+			expectedTexts.put('a date function from QRY_Function in condition', selectName + ' WHERE CALENDAR_YEAR(' + createdDate + ') = ' + year);
+			queries.put('a date function from QRY_Function in groupBy and orderBy', QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.groupBy(QRY_Function.dayOnly(Foobar__c.CreatedDate)).count(FIELD_ID).orderBy(QRY_Function.dayOnly(Foobar__c.CreatedDate)));
+			expectedTexts.put('a date function from QRY_Function in groupBy and orderBy', countAndGroup + 'DAY_ONLY(' + createdDate + ') FROM ' + OBJECT_NAME
+					+ ' GROUP BY DAY_ONLY(' + createdDate + ') ORDER BY DAY_ONLY(' + createdDate + ')');
+			queries.put('a date function from QRY_Function in groupBy', QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.groupBy(QRY_Function.calendarYear(Foobar__c.CreatedDate)).count(FIELD_ID));
+			expectedTexts.put('a date function from QRY_Function in groupBy', countAndGroup + 'CALENDAR_YEAR(' + createdDate + ') FROM ' + OBJECT_NAME
+					+ ' GROUP BY CALENDAR_YEAR(' + createdDate + ')');
+			queries.put('a date function written as text in condition', newFoobarNameQuery().condition('CALENDAR_YEAR(' + createdDate + ')').equals(year));
+			expectedTexts.put('a date function written as text in condition', selectName + ' WHERE CALENDAR_YEAR(' + createdDate + ') = ' + year);
+			queries.put('a date function written as text in groupBy', QRY_Builder.selectFrom(Foobar__c.SObjectType)
+					.groupBy('calendar_year(' + createdDate + ')').count(FIELD_ID));
+			expectedTexts.put('a date function written as text in groupBy', countAndGroup + 'calendar_year(' + createdDate + ') FROM ' + OBJECT_NAME
+					+ ' GROUP BY calendar_year(' + createdDate + ')');
+
+			queries.put('a sort text with a direction', newFoobarNameQuery().orderBy(FIELD_NAME + ' DESC'));
+			expectedTexts.put('a sort text with a direction', selectName + ' ORDER BY ' + FIELD_NAME + ' DESC');
+			queries.put('a sort text with a direction and a nulls order', newFoobarNameQuery().orderBy(FIELD_NAME + ' asc NULLS LAST'));
+			expectedTexts.put('a sort text with a direction and a nulls order', selectName + ' ORDER BY ' + FIELD_NAME + ' asc NULLS LAST');
+			queries.put('a list of sort items', newFoobarNameQuery().orderBy(FIELD_NAME + ' DESC, ' + createdDate));
+			expectedTexts.put('a list of sort items', selectName + ' ORDER BY ' + FIELD_NAME + ' DESC, ' + createdDate);
+			queries.put('a list of sort items before the direction', newFoobarNameQuery().orderBy(FIELD_NAME + ', ' + FIELD_TEXT, true));
+			expectedTexts.put('a list of sort items before the direction', selectName + ' ORDER BY ' + FIELD_NAME + ', ' + FIELD_TEXT + ' DESC NULLS LAST');
+			queries.put('a list of sort items before the direction and nulls order', newFoobarNameQuery().orderBy(FIELD_NAME + ' DESC, ' + FIELD_TEXT, false, true));
+			expectedTexts.put('a list of sort items before the direction and nulls order', selectName + ' ORDER BY ' + FIELD_NAME + ' DESC, ' + FIELD_TEXT + ' ASC NULLS LAST');
+
+			queries.put('a list of group fields', newFoobarNameQuery().groupBy(FIELD_NAME + ', ' + FIELD_TEXT));
+			expectedTexts.put('a list of group fields', selectName + ' GROUP BY ' + FIELD_NAME + ', ' + FIELD_TEXT);
+			queries.put('a list of group fields with a count', QRY_Builder.selectFrom(Foobar__c.SObjectType).groupBy(FIELD_NAME + ', ' + FIELD_TEXT).count(FIELD_ID));
+			expectedTexts.put('a list of group fields with a count', countAndGroup + FIELD_NAME + ', ' + FIELD_TEXT + ' FROM ' + OBJECT_NAME
+					+ ' GROUP BY ' + FIELD_NAME + ', ' + FIELD_TEXT);
+
+			queries.put('toLabel on a picklist in condition', newFoobarNameQuery().condition(toLabelText).equals(picklistLabel));
+			expectedTexts.put('toLabel on a picklist in condition', selectName + ' WHERE ' + toLabelText + ' = \'' + picklistLabel + '\'');
+
+			queries.put('a date function around convertTimezone in condition', newFoobarNameQuery().condition(hourOfCreation).lessThan(HOURS_IN_A_DAY));
+			expectedTexts.put('a date function around convertTimezone in condition', selectName + ' WHERE ' + hourOfCreation + ' < ' + HOURS_IN_A_DAY);
+			queries.put('a date function around convertTimezone in groupBy', QRY_Builder.selectFrom(Foobar__c.SObjectType).groupBy(hourOfCreation).count(FIELD_ID));
+			expectedTexts.put('a date function around convertTimezone in groupBy', countAndGroup + hourOfCreation + ' FROM ' + OBJECT_NAME + ' GROUP BY ' + hourOfCreation);
+			queries.put('a field path that reaches five parent records in condition', newFoobarNameQuery().condition(FIVE_PARENT_PATH).equals(value));
+			expectedTexts.put('a field path that reaches five parent records in condition', selectName + ' WHERE ' + FIVE_PARENT_PATH + quotedValue);
+
+			String picklistValue = UTIL_SObjectDescribe.getCachedFieldDescribe(Foobar__c.Picklist__c).getPicklistValues()[0].getValue();
+			Integer rowsWithTheLabel = 0;
+			for(Foobar__c row : rows)
+			{
+				rowsWithTheLabel += row.Picklist__c == picklistValue ? 1 : 0;
+			}
+
+			// While a test runs, a trigger gives every saved Foobar__c row the same Text__c value, so no row has the name as
+			// its Text__c value and all rows fall into one group.
+			Map<String, Integer> expectedRowCounts = new Map<String, Integer>
+			{
+					'a plain name in condition' => 1,
+					'a namespaced name in condition' => 0,
+					'a namespaced name in groupBy' => 1,
+					'a parent field path in condition' => 0,
+					'a two step parent field path in condition' => 0,
+					'a name with spaces around it in condition' => 1,
+					'a date function from QRY_Function in groupBy and orderBy' => 1,
+					'a date function from QRY_Function in groupBy' => 1,
+					'a date function written as text in groupBy' => 1,
+					'toLabel on a picklist in condition' => rowsWithTheLabel,
+					'a date function around convertTimezone in groupBy' => 1,
+					'a field path that reaches five parent records in condition' => 0
+			};
+
+			for(String caseName : queries.keySet())
+			{
+				QRY_Builder.Builder query = queries.get(caseName);
+				Integer expectedRowCount = expectedRowCounts.get(caseName) ?? CRAFTED_TEXT_PROBE_ROWS;
+				Assert.areEqual(expectedTexts.get(caseName), query.toSoql(), 'Expected the query text for ' + caseName + ' to stay as it is');
+				Assert.areEqual(expectedRowCount, query.toList().size(), 'Expected the query for ' + caseName + ' to run and return ' + expectedRowCount + ' rows');
+			}
+
+			String longestSortList = (FIVE_PARENT_PATH + ' DESC NULLS LAST, ').repeat(MOST_SORT_ITEMS - 1) + FIVE_PARENT_PATH + ' ASC NULLS FIRST';
+			Assert.areEqual
+					(
+							selectName + ' ORDER BY ' + longestSortList,
+							newFoobarNameQuery().orderBy(longestSortList).toSoql(),
+							'Expected the query text for a list of the most sort items ORDER BY takes to stay as it is'
+					);
+
+			QRY_Builder.Builder toLabelOrderQuery = newFoobarNameQuery().orderBy(toLabelText);
+			Assert.areEqual(selectName + ' ORDER BY ' + toLabelText, toLabelOrderQuery.toSoql(), 'Expected the query text for toLabel on a picklist in orderBy to stay as it is');
+			try
+			{
+				toLabelOrderQuery.toList();
+				Assert.fail('Expected the platform to refuse toLabel on a picklist in orderBy: ' + toLabelOrderQuery.toSoql());
+			}
+			catch(QueryException error)
+			{
+				Assert.isTrue(error.getMessage().contains('Invalid aggregate function'), 'Expected the platform to refuse toLabel here, got: ' + error.getMessage());
+			}
+		}
+	}
+
+	/**
+	 * @description Records the query text the builder writes for a distance from QRY_Function, for each way Apex writes
+	 * a number: with trailing zeros (45.000000000000) and with an exponent (1E-7), in a condition and in the sort order,
+	 * and proves the query runs. Salesforce does not read the exponent form, so a number such as 0.0000001 must be
+	 * written as plain digits. A latitude of null is written as null, and the platform refuses that query when it runs.
+	 * That refusal is kept: the builder does not refuse the null itself. Last, a distance typed by hand with spaces just
+	 * inside its round brackets keeps its text and runs.
+	 */
+	@IsTest
+	private static void shouldKeepTheQueryTextForDistanceCoordinatesInEveryNumberForm()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String address = UTIL_SObjectDescribe.getCachedFieldName(Account.BillingAddress);
+			String selectAccountName = 'SELECT ' + UTIL_SObjectDescribe.getCachedFieldName(Account.Name) + ' FROM ' + String.valueOf(Account.SObjectType);
+
+			QRY_Builder.Builder trailingZerosQuery = QRY_Builder.selectFrom(Account.SObjectType)
+					.fields(new List<SObjectField> {Account.Name})
+					.condition(QRY_Function.distanceInMiles(Account.BillingAddress, LATITUDE_WITH_TRAILING_ZEROS, DISTANCE_LONGITUDE)).lessThan(DISTANCE_LIMIT_MILES)
+					.orderBy(QRY_Function.distanceInMiles(Account.BillingAddress, LATITUDE_WITH_TRAILING_ZEROS, DISTANCE_LONGITUDE));
+			Assert.areEqual
+					(
+							selectAccountName + ' WHERE DISTANCE(' + address + ', GEOLOCATION(45.000000000000,10), \'mi\') < 5 ORDER BY DISTANCE('
+							+ address + ', GEOLOCATION(45.000000000000,10), \'mi\')',
+							trailingZerosQuery.toSoql(),
+							'Expected the trailing zeros to be written as Apex writes them'
+					);
+			Assert.areEqual(0, trailingZerosQuery.toList().size(), 'Expected the distance query with trailing zeros to run and find no accounts, because the test has none');
+
+			QRY_Builder.Builder nullQuery = QRY_Builder.selectFrom(Account.SObjectType)
+					.fields(new List<SObjectField> {Account.Name})
+					.condition(QRY_Function.distanceInMiles(Account.BillingAddress, null, DISTANCE_LONGITUDE)).lessThan(DISTANCE_LIMIT_MILES);
+			Assert.areEqual
+					(
+							selectAccountName + ' WHERE DISTANCE(' + address + ', GEOLOCATION(null,10), \'mi\') < 5',
+							nullQuery.toSoql(),
+							'Expected a null latitude to be written as null'
+					);
+			try
+			{
+				nullQuery.toList();
+				Assert.fail('Expected the platform to refuse a null latitude when the query runs');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, QueryException.class, 'Expected the platform QueryException for a null latitude, got: ' + error);
+			}
+
+			QRY_Builder.Builder exponentQuery = QRY_Builder.selectFrom(Account.SObjectType)
+					.fields(new List<SObjectField> {Account.Name})
+					.condition(QRY_Function.distanceInMiles(Account.BillingAddress, LATITUDE_IN_EXPONENT_FORM, DISTANCE_LONGITUDE)).lessThan(DISTANCE_LIMIT_MILES)
+					.orderBy(QRY_Function.distanceInMiles(Account.BillingAddress, LATITUDE_IN_EXPONENT_FORM, DISTANCE_LONGITUDE));
+			Assert.areEqual
+					(
+							selectAccountName + ' WHERE DISTANCE(' + address + ', GEOLOCATION(0.0000001,10), \'mi\') < 5 ORDER BY DISTANCE('
+							+ address + ', GEOLOCATION(0.0000001,10), \'mi\')',
+							exponentQuery.toSoql(),
+							'Expected a number that Apex writes with an exponent to be written as plain digits'
+					);
+			Assert.areEqual(0, exponentQuery.toList().size(), 'Expected the distance query with a very small latitude to run and find no accounts, because the test has none');
+
+			String spacedDistance = 'DISTANCE( ' + address + ', GEOLOCATION( ' + DISTANCE_LONGITUDE + ',' + DISTANCE_LONGITUDE + ' ), \'mi\' )';
+			QRY_Builder.Builder spacedQuery = QRY_Builder.selectFrom(Account.SObjectType)
+					.fields(new List<SObjectField> {Account.Name})
+					.condition(spacedDistance).lessThan(DISTANCE_LIMIT_MILES);
+			Assert.areEqual
+					(
+							selectAccountName + ' WHERE ' + spacedDistance + ' < ' + DISTANCE_LIMIT_MILES,
+							spacedQuery.toSoql(),
+							'Expected a distance typed by hand with spaces inside the brackets to keep its text'
+					);
+			Assert.areEqual(0, spacedQuery.toList().size(), 'Expected the distance query typed by hand with spaces inside the brackets to run and find no accounts');
+		}
+	}
+
+	/**
+	 * @description Reads the Phone of a parent record when the parent is an Account. A switch on type does not accept a
+	 * relationship field such as Event.What directly, so the parent comes in as an SObject.
+	 *
+	 * @param parent The parent record a TYPEOF query brought back, or null
+	 *
+	 * @return The Phone of the Account, or null when the parent is not an Account or is null
+	 */
+	private static String readAccountPhone(SObject parent)
+	{
+		String parentPhone;
+		switch on parent
+		{
+			when Account account
+			{
+				parentPhone = account.Phone;
+			}
+		}
+		return parentPhone;
+	}
+
+	/**
 	 * @description Retrieves the committed test admin user set up in @TestSetup for use with
 	 * System.runAs, so each test body runs with a fresh permission-evaluation context.
 	 *
@@ -5656,8 +8634,502 @@ private class QRY_Builder_TEST
 	}
 
 	/**
+	 * @description Gives a user read access to the Related To field of an Event, the field that points to the record
+	 * the Event is about. Event access does not come from an object permission, so a permission set cannot list the
+	 * Event object. It can still grant one of its fields. The method saves a permission set with that one field
+	 * permission and assigns it to the user.
+	 *
+	 * @param user The user who gets the access.
+	 */
+	@SuppressWarnings('PMD.KernNoStandardObjectInPackageTests')
+	private static void grantReadOnEventRelatedTo(User user)
+	{
+		String permissionSetName = EVENT_RELATED_TO_PERMISSION_SET_PREFIX + UTIL_Random.randomAlphanumeric(PERMISSION_SET_NAME_RANDOM_LENGTH);
+		SObjectType fieldPermissionsType = new FieldPermissions().getSObjectType();
+		String eventObjectName = UTIL_SObjectDescribe.getObjectNameFromType(Event.SObjectType);
+		System.runAs(new User(Id = UserInfo.getUserId()))
+		{
+			PermissionSet permissionSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
+					.withOptionalFields(new List<String>(UTIL_SObjectDescribe.getDescribe(PermissionSet.SObjectType).getCreatableRequiredFields()))
+					.withOverride(PermissionSet.Name, permissionSetName)
+					.withOverride(PermissionSet.Label, permissionSetName)
+					.build();
+			TST_Builder.of(fieldPermissionsType)
+					.withOptionalFields(new List<String>(UTIL_SObjectDescribe.getDescribe(fieldPermissionsType).getCreatableRequiredFields()))
+					.withOverrides(new Map<SObjectField, Object>
+					{
+							FieldPermissions.ParentId => permissionSet.Id,
+							FieldPermissions.SobjectType => eventObjectName,
+							FieldPermissions.Field => eventObjectName + '.' + UTIL_SObjectDescribe.getCachedFieldName(Event.WhatId),
+							FieldPermissions.PermissionsRead => true
+					})
+					.build();
+			TST_Factory.createPermissionSetAssignments(new List<User> {user}, permissionSet.Id);
+		}
+	}
+
+	/**
+	 * @description Saves a Standard User who may read Foobar__c records and every Foobar__c field except Email__c. The
+	 * Standard User profile gives no access to Foobar__c, so the user has only what this method grants. The user has no
+	 * View All, so record sharing hides the rows the test administrator owns.
+	 *
+	 * @return The saved user
+	 */
+	private static User insertRestrictedReader()
+	{
+		return TST_Factory.insertUserWithOneHiddenField(SEL_Profile.PROFILE_STANDARD_USER, new List<SObjectType> {Foobar__c.SObjectType}, READ_PERMISSIONS, Foobar__c.Email__c);
+	}
+
+	/**
+	 * @description Saves, as the test administrator, one Foobar__c row with a random name and a random email. The email
+	 * is in lower case, because the platform saves part of an email in lower case and a test compares the saved value
+	 * with the one it sent. Foobar__c records are private, so another user cannot see the row through record sharing.
+	 *
+	 * @param parentId The Id the Lookup__c field of the row points to, or null for a row with no parent
+	 *
+	 * @return The saved row
+	 */
+	private static Foobar__c insertRowOwnedByAdmin(Id parentId)
+	{
+		Foobar__c row;
+		System.runAs(getTestAdmin())
+		{
+			row = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, UTIL_Random.randomName())
+					.withOverride(Foobar__c.Email__c, UTIL_Random.randomEmail().toLowerCase())
+					.withOverride(Foobar__c.Lookup__c, parentId)
+					.build();
+		}
+		return row;
+	}
+
+	/**
+	 * @description Starts a Foobar__c query that selects the Name field and reads only the row with the given Id.
+	 *
+	 * @param rowId The Id of the row to read
+	 *
+	 * @return The new query
+	 */
+	private static QRY_Builder.Builder newRowQuery(Id rowId)
+	{
+		return newFoobarNameQuery().condition(Foobar__c.Id).equals(rowId);
+	}
+
+	/**
+	 * @description Starts a grouped Foobar__c query: one group for each name, with the count of rows in the group under
+	 * ROW_COUNT_ALIAS. It reads only the rows with the given name.
+	 *
+	 * @param name The name of the rows to count
+	 *
+	 * @return The new query
+	 */
+	private static QRY_Builder.Builder newGroupedQuery(String name)
+	{
+		return QRY_Builder.selectFrom(Foobar__c.SObjectType)
+				.count(Foobar__c.Id, ROW_COUNT_ALIAS)
+				.groupBy(Foobar__c.Name)
+				.condition(Foobar__c.Name).equals(name);
+	}
+
+	/**
+	 * @description Runs one read terminal of a query, chosen by its method name, and returns what it gave back.
+	 *
+	 * @param query The query to run
+	 * @param terminal The name of the terminal method to call, one of the TERMINAL constants
+	 *
+	 * @return The rows, number, Boolean, query locator, cursor, page or totals the terminal returned
+	 */
+	private static Object runTerminal(QRY_Builder.Builder query, String terminal)
+	{
+		if(terminal == TERMINAL_COUNT)
+		{
+			return query.count();
+		}
+		if(terminal == TERMINAL_EXISTS)
+		{
+			return query.exists();
+		}
+		if(terminal == TERMINAL_TO_QUERY_LOCATOR)
+		{
+			return query.toQueryLocator();
+		}
+		if(terminal == TERMINAL_TO_CURSOR)
+		{
+			return query.toCursor();
+		}
+		if(terminal == TERMINAL_TO_AGGREGATE_LIST)
+		{
+			return query.toAggregateList();
+		}
+		if(terminal == TERMINAL_GET_FIRST_AGGREGATE)
+		{
+			return query.getFirstAggregate();
+		}
+		if(terminal == TERMINAL_GET_PAGE)
+		{
+			return query.getPage(1, BYPASS_PAGE_SIZE);
+		}
+		if(terminal == TERMINAL_GET_RANDOM_ITEMS)
+		{
+			return query.getRandomItems(1);
+		}
+		return query.toList();
+	}
+
+	/**
+	 * @description Describes what a read terminal returned, for the message of a test that expected the read to be
+	 * refused. A list is described by its size.
+	 *
+	 * @param answer What the terminal returned
+	 *
+	 * @return A short description of the answer
+	 */
+	private static String describeAnswer(Object answer)
+	{
+		if(answer instanceof List<SObject>)
+		{
+			return ((List<SObject>)answer).size() + ' rows';
+		}
+		if(answer instanceof List<QRY_Builder.AggregateRow>)
+		{
+			return ((List<QRY_Builder.AggregateRow>)answer).size() + ' groups';
+		}
+		return String.valueOf(answer);
+	}
+
+	/**
+	 * @description Builds the message the builder gives when it refuses a read that cannot remove hidden fields and runs
+	 * with bypassSharing() alone.
+	 *
+	 * @param terminal The name of the terminal method the message must name
+	 *
+	 * @return The expected message
+	 */
+	private static String buildBypassRefusalMessage(String terminal)
+	{
+		return String.format(System.Label.QueryBuilder_BypassSharingRead_NeedsSystemMode, new List<Object> {terminal});
+	}
+
+	/**
+	 * @description Builds the message the builder gives when bypassSharing() alone would filter or sort on a field the
+	 * running user cannot read.
+	 *
+	 * @param field The field the message must name
+	 *
+	 * @return The expected message
+	 */
+	private static String buildFieldRefusalMessage(SObjectField field)
+	{
+		return String.format(System.Label.QueryBuilder_BypassSharingField_NotReadable, new List<Object> {UTIL_SObjectDescribe.getCachedFieldName(field)});
+	}
+
+	/**
+	 * @description Builds the path from a Foobar__c row to the email of its parent, through the Lookup__c relationship,
+	 * from the field tokens, so the path carries the package namespace where there is one.
+	 *
+	 * @return The path, such as Lookup__r.Email__c
+	 */
+	private static String buildParentEmailPath()
+	{
+		return UTIL_SObjectDescribe.getCachedFieldDescribe(Foobar__c.Lookup__c).getRelationshipName() + '.' + UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Email__c);
+	}
+
+	/**
+	 * @description Builds a group of two conditions joined by OR: the email of the row, or its name.
+	 *
+	 * @param row The row whose email and name the conditions match
+	 *
+	 * @return The group of conditions
+	 */
+	private static QRY_Condition.OrCondition newEmailOrNameGroup(Foobar__c row)
+	{
+		QRY_Condition.OrCondition emailOrName = new QRY_Condition.OrCondition();
+		emailOrName.add(new QRY_Condition.FieldCondition(Foobar__c.Email__c, QRY_Condition.Operator.EQUALS, row.Email__c));
+		emailOrName.add(new QRY_Condition.FieldCondition(Foobar__c.Name, QRY_Condition.Operator.EQUALS, row.Name));
+		return emailOrName;
+	}
+
+	/**
+	 * @description Builds a NOT condition around a filter on the row's email, so the filter keeps every row whose email
+	 * is not the row's own.
+	 *
+	 * @param row The row whose email the filter uses.
+	 *
+	 * @return The NOT condition.
+	 */
+	private static QRY_Condition.NotCondition newNotEmailCondition(Foobar__c row)
+	{
+		return new QRY_Condition.NotCondition(new QRY_Condition.FieldCondition(Foobar__c.Email__c, QRY_Condition.Operator.EQUALS, row.Email__c));
+	}
+
+	/**
+	 * @description Counts the bypass audit events written for a query (the query surface) whose target matches the given
+	 * value. The log merges events that are the same into one detail row, and keeps how many there were on a rollup
+	 * row. So this method adds up the count on each matching rollup row. Two events that are the same give 2, not 1.
+	 *
+	 * @param target The bypass audit target to count, for example sharing: followed by the object name
+	 *
+	 * @return The number of matching events
+	 */
+	private static Integer countBypassAuditEntries(String target)
+	{
+		String rollupBypassPrefix = TRG_PersistLogEntry.PREFIX_ROLLUP + LOG_Builder.RESERVED_FINGERPRINT_PREFIX;
+		Integer entryCount = 0;
+		for(LogEntry__c entry : new SEL_LogEntry().findAllOrderedByCreatedDateDesc())
+		{
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
+			if(entry.Fingerprint__c?.startsWith(rollupBypassPrefix) == true
+					&& target.equals(context?.get(UTIL_BypassAudit.CONTEXT_TARGET))
+					&& UTIL_BypassAudit.SURFACE_QUERY.equals(context?.get(UTIL_BypassAudit.CONTEXT_SURFACE)))
+			{
+				entryCount += entry.OccurrenceCount__c?.intValue() ?? 0;
+			}
+		}
+		return entryCount;
+	}
+
+	/**
+	 * @description Builds the message the builder gives when it refuses a text where it expects a field name. The
+	 * label is read by its name, with the package namespace, and the method name is put into it.
+	 *
+	 * @param methodName The method the message must name
+	 *
+	 * @return The expected message
+	 */
+	private static String buildRefusalMessage(String methodName)
+	{
+		return String.format(System.Label.get(UTIL_System.getManagedPackageNamespace(), FIELD_NAME_REFUSED_LABEL), new List<Object> {methodName});
+	}
+
+	/**
+	 * @description Starts a Foobar__c query that selects only the Name field.
+	 *
+	 * @return The new query
+	 */
+	private static QRY_Builder.Builder newFoobarNameQuery()
+	{
+		return QRY_Builder.selectFrom(Foobar__c.SObjectType).fields(new List<SObjectField> {Foobar__c.Name});
+	}
+
+	/**
+	 * @description Starts an Account query that selects the Name field and reads only the Accounts with the given names.
+	 *
+	 * @param accountNames The names of the Accounts the query may return
+	 *
+	 * @return The new query
+	 */
+	private static QRY_Builder.Builder newAccountQuery(List<String> accountNames)
+	{
+		return QRY_Builder.selectFrom(Account.SObjectType)
+				.fields(new List<SObjectField> {Account.Name})
+				.condition(Account.Name).isIn((List<Object>)accountNames);
+	}
+
+	/**
+	 * @description Saves Foobar__c rows, each with its own random name.
+	 *
+	 * @param rowCount How many rows to save
+	 *
+	 * @return The saved rows
+	 */
+	private static List<Foobar__c> seedFoobarRows(Integer rowCount)
+	{
+		List<Object> names = new List<Object>();
+		for(Integer index = 0; index < rowCount; index++)
+		{
+			names.add(UTIL_Random.randomUUID());
+		}
+		return TST_Factory.getFoobarBuilder().withCycle(Foobar__c.Name, names).withCount(rowCount).buildList();
+	}
+
+	/**
+	 * @description Saves the usual number of Foobar__c rows for the crafted text tests, plus one more row that is then
+	 * deleted. A query that also reads deleted rows returns one row more than a normal query.
+	 */
+	private static void seedFoobarRowsWithOneDeleted()
+	{
+		List<Foobar__c> rows = seedFoobarRows(CRAFTED_TEXT_PROBE_ROWS + 1);
+		DML_Builder.newTransaction().doDelete(rows[CRAFTED_TEXT_PROBE_ROWS]).execute();
+	}
+
+	/**
+	 * @description Saves Account A with one Contact, and Account B with one Opportunity and no Contact. The names start
+	 * with A or B so that a failure message shows which Account a query returned. Both Accounts carry a phone number
+	 * and an industry.
+	 *
+	 * @return The names of Account A and Account B, in that order
+	 */
+	@SuppressWarnings('PMD.KernNoStandardObjectInPackageTests')
+	private static List<String> seedAccountWithContactAndAccountWithOpportunity()
+	{
+		Account accountWithContact = (Account)TST_Builder.of(Account.SObjectType)
+				.withOverride(Account.Name, 'A ' + UTIL_Random.randomUUID())
+				.withOverride(Account.Phone, PARENT_PHONE)
+				.withOverride(Account.Industry, ACCOUNT_INDUSTRY)
+				.build();
+		Account accountWithOpportunity = (Account)TST_Builder.of(Account.SObjectType)
+				.withOverride(Account.Name, 'B ' + UTIL_Random.randomUUID())
+				.withOverride(Account.Phone, PARENT_PHONE)
+				.withOverride(Account.Industry, ACCOUNT_INDUSTRY)
+				.build();
+		TST_Builder.of(Contact.SObjectType).withOverride(Contact.AccountId, accountWithContact.Id).build();
+		TST_Builder.of(Opportunity.SObjectType).withOverride(Opportunity.AccountId, accountWithOpportunity.Id).build();
+		return new List<String> {accountWithContact.Name, accountWithOpportunity.Name};
+	}
+
+	/**
+	 * @description Passes the crafted text of a case to the builder method the case names, on the query of the case.
+	 *
+	 * @param craftedCase The case to apply
+	 */
+	private static void applyCraftedText(CraftedCase craftedCase)
+	{
+		QRY_Builder.Builder query = craftedCase.query;
+		String text = craftedCase.craftedText;
+		switch on craftedCase.entry
+		{
+			when CONDITION
+			{
+				query.condition(text).equals(craftedCase.comparedValue);
+			}
+			when CONDITION_WITHOUT_OPERATOR
+			{
+				query.condition(text);
+			}
+			when AND_CONDITION
+			{
+				query.andCondition(text).equals(craftedCase.comparedValue);
+			}
+			when OR_CONDITION
+			{
+				query.orCondition(text).equals(craftedCase.comparedValue);
+			}
+			when ORDER_BY
+			{
+				query.orderBy(text);
+			}
+			when ORDER_BY_DESCENDING
+			{
+				query.orderBy(text, true);
+			}
+			when ORDER_BY_DESCENDING_NULLS_FIRST
+			{
+				query.orderBy(text, true, false);
+			}
+			when GROUP_BY
+			{
+				query.groupBy(text);
+			}
+			when COUNT
+			{
+				query.count(text);
+			}
+			when COUNT_DISTINCT
+			{
+				query.countDistinct(text);
+			}
+			when GROUPING
+			{
+				query.grouping(text);
+			}
+			when DATA_CATEGORY_GROUP
+			{
+				query.withDataCategory(text).at(CATEGORY_NAME);
+			}
+			when DATA_CATEGORY_BUILDER
+			{
+				new QRY_Builder.DataCategoryBuilder(query, text).at(CATEGORY_NAME);
+			}
+			when AT
+			{
+				query.withDataCategory(CATEGORY_GROUP).at(text);
+			}
+			when AT_LIST
+			{
+				query.withDataCategory(CATEGORY_GROUP).at(new List<String> {text});
+			}
+			when ABOVE
+			{
+				query.withDataCategory(CATEGORY_GROUP).above(text);
+			}
+			when ABOVE_LIST
+			{
+				query.withDataCategory(CATEGORY_GROUP).above(new List<String> {text});
+			}
+			when BELOW
+			{
+				query.withDataCategory(CATEGORY_GROUP).below(text);
+			}
+			when BELOW_LIST
+			{
+				query.withDataCategory(CATEGORY_GROUP).below(new List<String> {text});
+			}
+			when EITHER_SIDE
+			{
+				query.withDataCategory(CATEGORY_GROUP).aboveOrBelow(text);
+			}
+			when EITHER_SIDE_LIST
+			{
+				query.withDataCategory(CATEGORY_GROUP).aboveOrBelow(new List<String> {text});
+			}
+			when RELATED_FIELD
+			{
+				query.relatedField(text);
+			}
+			when RELATED_FIELDS
+			{
+				query.relatedFields(new List<String> {text});
+			}
+			when SUBSELECT
+			{
+				query.subselect(QRY_Builder.selectFrom(Contact.SObjectType).fields(new List<SObjectField> {Contact.LastName}), text);
+			}
+			when IS_IN
+			{
+				query.condition(FIELD_ID).isIn(QRY_Builder.selectFrom(Contact.SObjectType).fields(new List<String> {text}));
+			}
+			when NOT_IN
+			{
+				query.condition(FIELD_ID).notIn(QRY_Builder.selectFrom(Contact.SObjectType).fields(new List<String> {text}));
+			}
+		}
+	}
+
+	/**
+	 * @description Says what happened after the builder accepted a crafted text: how many rows the query returned
+	 * and their names, with the query text, or the error the query raised. Where the query cannot run on this org, it
+	 * gives the query text only. It never raises an error itself, so that a test can put its answer in a failure
+	 * message.
+	 *
+	 * @param craftedCase The case whose query to run
+	 *
+	 * @return A sentence that says what the query did
+	 */
+	private static String describeQueryRun(CraftedCase craftedCase)
+	{
+		try
+		{
+			if(TEXT_ONLY_ENTRIES.contains(craftedCase.entry))
+			{
+				return 'the call was accepted and the query text is: ' + craftedCase.query.toSoql();
+			}
+			List<SObject> rows = craftedCase.query.toList();
+			List<String> rowNames = new List<String>();
+			for(SObject row : rows)
+			{
+				rowNames.add(String.valueOf(row.getPopulatedFieldsAsMap().get(FIELD_NAME)));
+			}
+			return 'the call was accepted, and the query ran and returned ' + rows.size() + ' rows ' + rowNames + ': ' + craftedCase.query.toSoql();
+		}
+		catch(Exception error)
+		{
+			return 'the call was accepted, and the query then failed with ' + error.getTypeName() + ': ' + error.getMessage();
+		}
+	}
+
+	/**
 	 * @description Tests that `withSystemMode` emits a `query` bypass audit entry recording
-	 * the system-mode target. Validates the framework-wide bypass audit floor — query reads
+	 * the system-mode target. Validates the framework-wide bypass audit floor: query reads
 	 * that opt out of USER_MODE-by-default leave a forensic trail.
 	 *
 	 * @see QRY_Builder.Builder.withSystemMode
@@ -5683,7 +9155,7 @@ private class QRY_Builder_TEST
 	 * @description Tests that `systemModeInternal` flips USER_MODE off WITHOUT enqueuing a
 	 * bypass audit entry. The framework-internal channel is the path used by `SEL_Base.query`
 	 * for `systemModeRequired() == true` selectors and by `UTIL_FeatureFlag` CMDT/setting
-	 * lookups — none of which are subscriber-facing bypasses, so they must not pollute the
+	 * lookups. None of these are subscriber-facing bypasses, so they must not pollute the
 	 * `BypassEvent` forensic trail. Without this contract, every framework-internal config
 	 * read would emit a noise audit entry on every operation.
 	 *
@@ -5734,7 +9206,7 @@ private class QRY_Builder_TEST
 	 * @description Tests that `bypassSharingInternal` disables the sharing proxy WITHOUT enqueuing
 	 * a bypass audit entry. The framework-internal channel is the path used by framework reads
 	 * that structurally require org-wide visibility (the health check's trusted-site probe, the
-	 * community-nickname uniqueness scan) — none of which are subscriber-facing bypasses, so they
+	 * community-nickname uniqueness scan). None of these are subscriber-facing bypasses, so they
 	 * must not pollute the `BypassEvent` forensic trail.
 	 *
 	 * @see QRY_Builder.Builder.bypassSharingInternal
@@ -6676,6 +10148,221 @@ private class QRY_Builder_TEST
 					.withSystemMode()
 					.condition(Foobar__c.Name).equals(CACHE_PROBE_NAME)
 					.withCache(UTIL_Cache.Scope.IN_TRANSACTION, null);
+		}
+	}
+
+	/**
+	 * @description A condition written the way your own code can write one: it gives the query its filter as plain text.
+	 * The builder cannot see which fields the text uses.
+	 */
+	private inherited sharing class TextFilter implements QRY_Condition.Evaluable
+	{
+		/**
+		 * @description The filter, as it is written into the WHERE clause.
+		 */
+		private final String filterText;
+
+		/**
+		 * @description Keeps the filter text.
+		 *
+		 * @param filterText The filter, as it is written into the WHERE clause
+		 */
+		public TextFilter(String filterText)
+		{
+			this.filterText = filterText;
+		}
+
+		/**
+		 * @description Returns the filter text unchanged.
+		 *
+		 * @return The filter text
+		 */
+		public String toSoql()
+		{
+			return filterText;
+		}
+
+		/**
+		 * @description Returns the filter text unchanged. The text is already written in full, so the options change
+		 * nothing.
+		 *
+		 * @param options The options for writing the query text
+		 *
+		 * @return The filter text
+		 */
+		public String toSoql(QRY_Condition.SoqlOptions options)
+		{
+			return filterText;
+		}
+	}
+
+	/**
+	 * @description The builder call that receives a crafted text in a test. Each value names one call; applyCraftedText
+	 * makes it.
+	 */
+	private enum CraftedEntry
+	{
+		/**
+		 * @description condition(text) followed by equals, with the value of the case.
+		 */
+		CONDITION,
+		/**
+		 * @description condition(text) alone, with no operator after it.
+		 */
+		CONDITION_WITHOUT_OPERATOR,
+		/**
+		 * @description andCondition(text) followed by equals, with the value of the case.
+		 */
+		AND_CONDITION,
+		/**
+		 * @description orCondition(text) followed by equals, with the value of the case.
+		 */
+		OR_CONDITION,
+		/**
+		 * @description orderBy(text), which writes the text as the sort order.
+		 */
+		ORDER_BY,
+		/**
+		 * @description orderBy(text, true), which adds DESC NULLS LAST after the text.
+		 */
+		ORDER_BY_DESCENDING,
+		/**
+		 * @description orderBy(text, true, false), which adds DESC NULLS FIRST after the text.
+		 */
+		ORDER_BY_DESCENDING_NULLS_FIRST,
+		/**
+		 * @description groupBy(text).
+		 */
+		GROUP_BY,
+		/**
+		 * @description count(text).
+		 */
+		COUNT,
+		/**
+		 * @description countDistinct(text).
+		 */
+		COUNT_DISTINCT,
+		/**
+		 * @description grouping(text).
+		 */
+		GROUPING,
+		/**
+		 * @description withDataCategory(text), followed by at with a valid category.
+		 */
+		DATA_CATEGORY_GROUP,
+		/**
+		 * @description The DataCategoryBuilder constructor with the text as the group, followed by at with a valid category.
+		 */
+		DATA_CATEGORY_BUILDER,
+		/**
+		 * @description at(text) after withDataCategory with a valid group.
+		 */
+		AT,
+		/**
+		 * @description at with a list that holds the text, after withDataCategory with a valid group.
+		 */
+		AT_LIST,
+		/**
+		 * @description above(text) after withDataCategory with a valid group.
+		 */
+		ABOVE,
+		/**
+		 * @description above with a list that holds the text, after withDataCategory with a valid group.
+		 */
+		ABOVE_LIST,
+		/**
+		 * @description below(text) after withDataCategory with a valid group.
+		 */
+		BELOW,
+		/**
+		 * @description below with a list that holds the text, after withDataCategory with a valid group.
+		 */
+		BELOW_LIST,
+		/**
+		 * @description aboveOrBelow(text) after withDataCategory with a valid group. It is not called ABOVE_OR_BELOW,
+		 * because Apex keeps that word for queries.
+		 */
+		EITHER_SIDE,
+		/**
+		 * @description aboveOrBelow with a list that holds the text, after withDataCategory with a valid group.
+		 */
+		EITHER_SIDE_LIST,
+		/**
+		 * @description relatedField(text).
+		 */
+		RELATED_FIELD,
+		/**
+		 * @description relatedFields with a list that holds the text.
+		 */
+		RELATED_FIELDS,
+		/**
+		 * @description subselect with a Contact query and the text as the relationship name.
+		 */
+		SUBSELECT,
+		/**
+		 * @description condition on Id followed by isIn with a Contact query whose only selected text is the text.
+		 */
+		IS_IN,
+		/**
+		 * @description condition on Id followed by notIn with a Contact query whose only selected text is the text.
+		 */
+		NOT_IN
+	}
+
+	/**
+	 * @description One crafted text for a test: the builder call that receives it, a short name for failure messages,
+	 * and the query it is given to. Each case has its own query, so one case cannot change another.
+	 */
+	private inherited sharing class CraftedCase
+	{
+		/**
+		 * @description The builder call that receives the text.
+		 */
+		public final CraftedEntry entry;
+		/**
+		 * @description A short description of the text, used in failure messages.
+		 */
+		public final String caseName;
+		/**
+		 * @description The query the text is given to. It may already hold valid parts, such as a first condition.
+		 */
+		public final QRY_Builder.Builder query;
+		/**
+		 * @description The text that is not a field name.
+		 */
+		public final String craftedText;
+		/**
+		 * @description The value a condition compares with, for the condition calls.
+		 */
+		public Object comparedValue;
+
+		/**
+		 * @description Creates a case.
+		 *
+		 * @param entry The builder call that receives the text
+		 * @param caseName A short description of the text
+		 * @param query The query the text is given to
+		 * @param craftedText The text that is not a field name
+		 */
+		public CraftedCase(CraftedEntry entry, String caseName, QRY_Builder.Builder query, String craftedText)
+		{
+			this.entry = entry;
+			this.caseName = caseName;
+			this.query = query;
+			this.craftedText = craftedText;
+		}
+
+		/**
+		 * @description Sets the value a condition compares with.
+		 *
+		 * @param value The value
+		 *
+		 * @return This case, so the call can be chained
+		 */
+		public CraftedCase withComparedValue(Object value)
+		{
+			comparedValue = value;
+			return this;
 		}
 	}
 }

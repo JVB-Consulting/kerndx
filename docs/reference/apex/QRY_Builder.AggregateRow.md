@@ -2,7 +2,7 @@
 title: "QRY_Builder.AggregateRow"
 type: class
 pageClass: reference
-description: "Typed wrapper around AggregateResult for convenient value access. Provides typed accessors that eliminate the need for manual casting from Object."
+description: "Typed wrapper around AggregateResult for convenient value access. Provides typed accessors that eliminate the need for manual casting from Object. In a test, a row can also hold the values of a row re"
 since: "1.0"
 category: apex
 ---
@@ -17,16 +17,16 @@ category: apex
 global inherited sharing class QRY_Builder.AggregateRow
 ```
 
-Typed wrapper around AggregateResult for convenient value access. Provides typed accessors that eliminate the need for manual casting from Object.
+Typed wrapper around AggregateResult for convenient value access. Provides typed accessors that eliminate the need for manual casting from Object. In a test, a row can also hold the values of a row registered with TST_Mock.registerAggregateRows or QRY_Builder.setAggregateMock. Such a row answers as a real row does: an alias is matched without regard to case, and reading an alias the row does not hold throws IllegalArgumentException. Its number getters also accept a whole number written as an Integer, a Long or a Decimal.
 
 **Example**
 
 ```apex
 QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Account.SObjectType)
-    .count('Id')
-    .groupBy('Industry')
+    .count(Account.Id, 'total')
+    .groupBy(Account.Industry)
     .toAggregateList()[0];
-Integer total = row.getInteger('expr0');
+Integer total = row.getInteger('total');
 String industry = row.getString('Industry');
 ```
 
@@ -39,12 +39,12 @@ String industry = row.getString('Industry');
 | Method | Description |
 |--------|-------------|
 | global [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [get](#get)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Gets a raw Object value by alias. |
-| global [Date](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_date.htm) [getDate](#getdate)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Gets a Date value by alias. |
-| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [getDecimal](#getdecimal)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Gets a Decimal value by alias. |
-| global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [getId](#getid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Gets an Id value by alias. |
-| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getInteger](#getinteger)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Gets an Integer value by alias. |
-| global [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm) [getLong](#getlong)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Gets a Long value by alias. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getString](#getstring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Gets a String value by alias. |
+| global [Date](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_date.htm) [getDate](#getdate)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Reads a date, such as the MIN or MAX of a date field. |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [getDecimal](#getdecimal)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Reads a number with decimals, such as the SUM or AVG of an amount. |
+| global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [getId](#getid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Reads a record Id, such as a grouped lookup field. |
+| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getInteger](#getinteger)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Reads a whole number, such as a COUNT. |
+| global [Long](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_long.htm) [getLong](#getlong)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Reads a whole number as a Long. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getString](#getstring)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) alias) | Reads a text value, such as a grouped text or picklist field. |
 
 ### get
 
@@ -67,7 +67,10 @@ Gets a raw Object value by alias.
 **Example**
 
 ```apex
-Object value = row.get('expr0');
+QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
+    .sum(Opportunity.Amount, 'total')
+    .getFirstAggregate();
+Object value = row.get('total');
 ```
 
 </div>
@@ -80,7 +83,8 @@ Object value = row.get('expr0');
 global Date getDate(String alias)
 ```
 
-Gets a Date value by alias.
+Reads a date, such as the MIN or MAX of a date field. Returns null when the row holds null under the
+alias.
 
 **Parameters**
 
@@ -93,7 +97,10 @@ Gets a Date value by alias.
 **Example**
 
 ```apex
-Date earliest = row.getDate('expr0');
+QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
+    .min(Opportunity.CloseDate, 'earliest')
+    .getFirstAggregate();
+Date earliest = row.getDate('earliest');
 ```
 
 </div>
@@ -106,7 +113,8 @@ Date earliest = row.getDate('expr0');
 global Decimal getDecimal(String alias)
 ```
 
-Gets a Decimal value by alias.
+Reads a number with decimals, such as the SUM or AVG of an amount. Returns null when the row holds null
+under the alias.
 
 **Parameters**
 
@@ -119,7 +127,10 @@ Gets a Decimal value by alias.
 **Example**
 
 ```apex
-Decimal total = row.getDecimal('expr0');
+QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
+    .sum(Opportunity.Amount, 'total')
+    .getFirstAggregate();
+Decimal total = row.getDecimal('total');
 ```
 
 </div>
@@ -132,7 +143,8 @@ Decimal total = row.getDecimal('expr0');
 global Id getId(String alias)
 ```
 
-Gets an Id value by alias.
+Reads a record Id, such as a grouped lookup field. A grouped field with no alias is read by its field name,
+such as 'AccountId'. Returns null when the row holds null under the alias.
 
 **Parameters**
 
@@ -158,7 +170,9 @@ Id accountId = row.getId('AccountId');
 global Integer getInteger(String alias)
 ```
 
-Gets an Integer value by alias.
+Reads a whole number, such as a COUNT. A row that a test registered with TST_Mock.registerAggregateRows
+may hold the number as a Long or a Decimal; a whole number held either way is converted to an Integer, and a number
+with a fraction, such as 2.5, throws a TypeException. Returns null when the row holds null under the alias.
 
 **Parameters**
 
@@ -171,7 +185,10 @@ Gets an Integer value by alias.
 **Example**
 
 ```apex
-Integer count = row.getInteger('expr0');
+QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
+    .count(Opportunity.Id, 'total')
+    .getFirstAggregate();
+Integer count = row.getInteger('total');
 ```
 
 </div>
@@ -184,7 +201,8 @@ Integer count = row.getInteger('expr0');
 global Long getLong(String alias)
 ```
 
-Gets a Long value by alias.
+Reads a whole number as a Long. A value held as an Integer, such as a COUNT, is returned as a Long too.
+Returns null when the row holds null under the alias.
 
 **Parameters**
 
@@ -197,7 +215,10 @@ Gets a Long value by alias.
 **Example**
 
 ```apex
-Long total = row.getLong('expr0');
+QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Opportunity.SObjectType)
+    .count(Opportunity.Id, 'total')
+    .getFirstAggregate();
+Long total = row.getLong('total');
 ```
 
 </div>
@@ -210,7 +231,8 @@ Long total = row.getLong('expr0');
 global String getString(String alias)
 ```
 
-Gets a String value by alias.
+Reads a text value, such as a grouped text or picklist field. A grouped field with no alias is read by its
+field name, such as 'Industry'. Returns null when the row holds null under the alias.
 
 **Parameters**
 

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Central registry and fluent builder for mock SObjects. Wraps QRY_Builder.setMock() with lifecycle management, providing a single point of control for registering, retrieving, and clearing mock records"
 author: "Jason Van Beukering"
 group: "Testing"
-date: "February 2026, September 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class TST_Mock
 ```
 
-Central registry and fluent builder for mock SObjects. Wraps QRY_Builder.setMock() with lifecycle management, providing a single point of control for registering, retrieving, and clearing mock records used in DML-free unit tests, and for setting a different answer for each query with registerNext. The nested MockBuilder creates records with mock IDs and auto-registers them for query interception.
+Central registry and fluent builder for mock SObjects. Wraps QRY_Builder.setMock() with lifecycle management, providing a single point of control for registering, retrieving, and clearing mock records used in DML-free unit tests, and for setting a different answer for each query with registerNext. registerAggregateRows and registerNextAggregateRows answer aggregate queries. The nested MockBuilder creates records with mock IDs and auto-registers them for query interception.
 
 **Example**
 
@@ -40,14 +40,18 @@ Foobar__c result = (Foobar__c)new SEL_Foobar().findById(mock.Id);
 
 | Method | Description |
 |--------|-------------|
-| global static void [clear](#clear)() | Removes every mock record, queued answer and exception registered for every SObject type, and takes every type out of the QRY_Builder mock layer, so queries read the database again. |
-| global static void [clear](#clear)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Removes the mock records, queued answers and exception registered for one SObject type, and takes that type out of the QRY_Builder mock layer, so its queries read the database again. |
+| global static void [clear](#clear)() | Removes every mock record, queued answer, exception and aggregate rows registered for every SObject type, and takes every type out of the QRY_Builder mock layer, so queries read the database again. |
+| global static void [clear](#clear)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Removes the mock records, queued answers, exception and aggregate rows registered for one SObject type, and takes that type out of the QRY_Builder mock layer, so its queries read the database again. |
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [get](#get)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Retrieves all mock records registered for the specified SObject type. |
 | global static [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [of](#of)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Creates a new MockBuilder for the specified SObject type. |
 | global static void [register](#register)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers a list of mock records for the specified SObject type. |
 | global static void [register](#register)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a single mock record for the specified SObject type. |
+| global static void [registerAggregateRows](#registeraggregaterows)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)>> rows) | Registers rows that every aggregate query on this object type returns until cleared. |
+| global static void [registerAggregateRows](#registeraggregaterows)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> row) | Registers one row that every aggregate query on this object type returns until cleared. |
 | global static void [registerNext](#registernext)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Sets the answer to the NEXT query the framework runs against the given SObject type: that one query, or count, returns exactly these records, and the answer is then used up. |
 | global static void [registerNext](#registernext)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Sets one record as the answer to the NEXT query the framework runs against the given SObject type. |
+| global static void [registerNextAggregateRows](#registernextaggregaterows)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)>> rows) | Registers rows that answer the next aggregate query on this object type once; answers are used in the order you added them, before any registered rows. |
+| global static void [registerNextAggregateRows](#registernextaggregaterows)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> row) | Registers one row that answers the next aggregate query on this object type once. |
 | global static void [throwsException](#throwsexception)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType) | Convenience overload that throws a generic QueryException for the given SObjectType. |
 | global static void [throwsException](#throwsexception)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) exceptionToThrow) | Registers an Exception to be thrown on every query the framework runs against the specified SObjectType, until it is cleared. |
 | global static void [throwsException](#throwsexception)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorMessage) | Convenience overload that throws a QueryException with the given message. |
@@ -60,8 +64,8 @@ Foobar__c result = (Foobar__c)new SEL_Foobar().findById(mock.Id);
 global static void clear()
 ```
 
-Removes every mock record, queued answer and exception registered for every SObject type, and
-takes every type out of the QRY_Builder mock layer, so queries read the database again.
+Removes every mock record, queued answer, exception and aggregate rows registered for every SObject
+type, and takes every type out of the QRY_Builder mock layer, so queries read the database again.
 
 **Example**
 
@@ -77,8 +81,8 @@ TST_Mock.clear();
 global static void clear(SObjectType objectType)
 ```
 
-Removes the mock records, queued answers and exception registered for one SObject type, and
-takes that type out of the QRY_Builder mock layer, so its queries read the database again.
+Removes the mock records, queued answers, exception and aggregate rows registered for one SObject
+type, and takes that type out of the QRY_Builder mock layer, so its queries read the database again.
 
 **Parameters**
 
@@ -205,6 +209,96 @@ TST_Mock.register(Foobar__c.SObjectType, mock);
 
 </div>
 
+### registerAggregateRows
+
+<div class="apex-member">
+
+```apex
+global static void registerAggregateRows(SObjectType objectType, List<Map<String, Object>> rows)
+```
+
+Registers rows that every aggregate query on this object type returns until cleared. Each map is
+one row; its keys are the aliases your code reads.
+
+An aggregate query is one with count(field, alias), count(fieldName), countDistinct(), sum(), avg(), min(), max()
+or groupBy(). The count() that ends a query and returns a number is not one: like toList(), it reads the records
+registered with register. Read the rows with QRY_Builder.Builder.toAggregateList() or getFirstAggregate(). The
+rows come back in the order you gave them; only the query's limit is applied to them, never its conditions or
+its order. Aliases are matched without regard to case, and reading an alias the row does not hold throws, so a
+spelling mistake shows at once. A number can be written as an Integer, a Long or a Decimal and read with any of
+the number getters.
+
+Rows registered here are added after the rows registered earlier for the type, the way register adds records,
+so one aggregate query returns them all, the first registered first. QRY_Builder.setAggregateMock replaces the
+rows instead. Record mocks registered with register never answer an aggregate query: such a query throws until
+aggregate rows are registered too. Reading a mocked aggregate query with toList() or any other record read
+throws. clear() and clear(SObjectType) remove the rows.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The object type whose aggregate queries the rows answer. |
+| `rows` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The rows to add, in this order. May be empty; may not be null. An empty list adds no row, but when no rows are registered yet for the type, it makes every aggregate query on the type find nothing. To remove the rows, call clear(SObjectType). |
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When objectType or rows is null. |
+
+**Example**
+
+```apex
+TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new List<Map<String, Object>>
+{
+    new Map<String, Object> {'total' => 3, 'Name' => 'A'},
+    new Map<String, Object> {'total' => 2, 'Name' => 'B'}
+});
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+    .count(Foobar__c.Id, 'total')
+    .groupBy(Foobar__c.Name)
+    .toAggregateList();
+Assert.areEqual(3, rows[0].getInteger('total'), 'The first registered row comes first');
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global static void registerAggregateRows(SObjectType objectType, Map<String, Object> row)
+```
+
+Registers one row that every aggregate query on this object type returns until cleared. Its keys
+are the aliases your code reads. The row is added after the rows registered earlier for the type. Use it for a
+query read with getFirstAggregate(). See the list overload for how the rows are used.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The object type whose aggregate queries the row answers. |
+| `row` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | The row to return. May not be null. |
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When objectType or row is null. |
+
+**Example**
+
+```apex
+TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {'sum' => 10});
+QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+    .sum(Foobar__c.NumberInteger__c, 'sum')
+    .getFirstAggregate();
+Assert.areEqual(10, row.getDecimal('sum'), 'The registered row answers');
+```
+
+</div>
+
 ### registerNext
 
 <div class="apex-member">
@@ -276,6 +370,77 @@ type. See the list overload for how queued answers are used.
 ```apex
 Foobar__c mock = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).build();
 TST_Mock.registerNext(Foobar__c.SObjectType, mock);
+```
+
+</div>
+
+### registerNextAggregateRows
+
+<div class="apex-member">
+
+```apex
+global static void registerNextAggregateRows(SObjectType objectType, List<Map<String, Object>> rows)
+```
+
+Registers rows that answer the next aggregate query on this object type once; answers are used in
+the order you added them, before any registered rows.
+
+Call it once for each aggregate query you want to answer. When all of these answers are used up, the type goes
+back to the rows registered with registerAggregateRows, or to the database when none are registered. An empty
+list means the next aggregate query finds nothing. clear() and clear(SObjectType) remove the answers that are
+left.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The object type to set the next aggregate answer for. |
+| `rows` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The rows the next aggregate query returns. May be empty; may not be null. |
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When objectType or rows is null. |
+
+**Example**
+
+```apex
+TST_Mock.registerNextAggregateRows(Foobar__c.SObjectType, new List<Map<String, Object>>());
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+    .count(Foobar__c.Id, 'total')
+    .toAggregateList();
+Assert.isTrue(rows.isEmpty(), 'The empty answer makes the first aggregate query find nothing');
+```
+
+</div>
+
+<div class="apex-member">
+
+```apex
+global static void registerNextAggregateRows(SObjectType objectType, Map<String, Object> row)
+```
+
+Registers one row that answers the next aggregate query on this object type once. See the list
+overload for how these answers are used.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The object type to set the next aggregate answer for. |
+| `row` | [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm) | The row the next aggregate query returns. May not be null. |
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When objectType or row is null. |
+
+**Example**
+
+```apex
+TST_Mock.registerNextAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {'total' => 1});
 ```
 
 </div>

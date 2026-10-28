@@ -124,6 +124,19 @@ public inherited sharing class QRY_Engine
 	private static final String QUEUED_ANSWER_NULL_MESSAGE = 'A queued mock answer cannot be null; queue an empty list for a query that finds nothing';
 
 	/**
+	 * @description Message thrown when null is passed to addAggregateMock as the rows; it points the caller at the
+	 * empty list, which adds no row.
+	 */
+	private static final String ADDED_AGGREGATE_ROWS_NULL_MESSAGE = 'The aggregate rows to add cannot be null; add an empty list to add no row';
+
+	/**
+	 * @description Message thrown when an aggregate query meets record mocks but no aggregate rows for its type.
+	 * The placeholder is the SObjectType.
+	 */
+	private static final String AGGREGATE_QUERY_WITHOUT_AGGREGATE_MOCK_MESSAGE = 'An aggregate query on {0} found record mocks but no aggregate rows. '
+			+ 'Record mocks never answer an aggregate query. Register the rows the query should return with TST_Mock.registerAggregateRows.';
+
+	/**
 	 * @description A value a test sets for the most rows pagination cursors may read. It is null in production, where
 	 * the limit always comes from UTIL_Limits.apexPaginationCursorRows().maximum() (100,000 at the time of writing).
 	 * That way the framework follows the governor limit instead of keeping its own copy, which could go out of date.
@@ -291,6 +304,23 @@ public inherited sharing class QRY_Engine
 	private static Map<SObjectType, List<List<SObject>>> mockQueueRegistry;
 
 	/**
+	 * @description The rows a test set, by SObjectType, to answer every aggregate query (a query with aggregate
+	 * functions or a GROUP BY) against that type. Each map is one row, keyed by the aliases the query selects. These
+	 * rows never answer a row query, and record mocks never answer an aggregate query. Filled by setAggregateMock and
+	 * addAggregateMock; emptied by clearAggregateMock, clearAggregateMocks or clearMocks. It stays `null` in
+	 * production, so an aggregate query costs only one null check here.
+	 */
+	private static Map<SObjectType, List<Map<String, Object>>> aggregateMockRegistry;
+
+	/**
+	 * @description A queue of aggregate answers for each SObjectType. Each answer is returned to exactly one aggregate
+	 * query against its type, in the order the answers were added, and is then removed. The queue is checked before
+	 * `aggregateMockRegistry`. Filled by queueAggregateMock; emptied by clearAggregateMock, clearAggregateMocks or
+	 * clearMocks. It stays `null` in production, so an aggregate query costs only one null check here.
+	 */
+	private static Map<SObjectType, List<List<Map<String, Object>>>> aggregateMockQueueRegistry;
+
+	/**
 	 * @description Returns how many pagination-cursor rows THIS transaction can still use. The governor limit
 	 * applies to the whole transaction and is shared by every pagination cursor opened in it. So a second paged read
 	 * has only what the first one left, not the full allowance.
@@ -389,6 +419,34 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
+	 * @description Lazy-initializer for `aggregateMockRegistry`. Allocates the backing map on first write.
+	 *
+	 * @return The initialized registry instance.
+	 */
+	private static Map<SObjectType, List<Map<String, Object>>> ensureAggregateMockRegistry()
+	{
+		if(aggregateMockRegistry == null)
+		{
+			aggregateMockRegistry = new Map<SObjectType, List<Map<String, Object>>>();
+		}
+		return aggregateMockRegistry;
+	}
+
+	/**
+	 * @description Lazy-initializer for `aggregateMockQueueRegistry`. Allocates the backing map on first write.
+	 *
+	 * @return The initialized registry instance.
+	 */
+	private static Map<SObjectType, List<List<Map<String, Object>>>> ensureAggregateMockQueueRegistry()
+	{
+		if(aggregateMockQueueRegistry == null)
+		{
+			aggregateMockQueueRegistry = new Map<SObjectType, List<List<Map<String, Object>>>>();
+		}
+		return aggregateMockQueueRegistry;
+	}
+
+	/**
 	 * @description Sets mock records for a specific SObjectType.
 	 *
 	 * @param objectType The SObjectType to mock.
@@ -427,8 +485,8 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Clears all registered mocks, mock context classes, mock exceptions and queued answers.
-	 * It skips the maps that were never created, so production callers pay only five null checks.
+	 * @description Clears all registered mocks, mock context classes, mock exceptions, queued answers and aggregate
+	 * answers. It skips the maps that were never created, so production callers pay only seven null checks.
 	 */
 	public static void clearMocks()
 	{
@@ -437,6 +495,7 @@ public inherited sharing class QRY_Engine
 		mockExceptionRegistry?.clear();
 		mockAggregateExceptionRegistry?.clear();
 		mockQueueRegistry?.clear();
+		clearAggregateMocks();
 	}
 
 	/**
@@ -560,6 +619,19 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
+	 * @description Checks whether at least one record answer is queued for the specified SObjectType, without taking
+	 * it. It never creates the map.
+	 *
+	 * @param objectType The SObjectType to check.
+	 *
+	 * @return True when a queued record answer is waiting for the type.
+	 */
+	private static Boolean hasQueuedMock(SObjectType objectType)
+	{
+		return mockQueueRegistry?.get(objectType)?.isEmpty() == false;
+	}
+
+	/**
 	 * @description Drops every queued answer for the specified SObjectType. Does nothing when the
 	 * map was never created.
 	 *
@@ -577,6 +649,134 @@ public inherited sharing class QRY_Engine
 	public static void clearMockQueues()
 	{
 		mockQueueRegistry?.clear();
+	}
+
+	/**
+	 * @description Sets the rows that answer every aggregate query (a query with aggregate functions or a GROUP BY)
+	 * against the specified SObjectType, until they are cleared. Each map is one row, keyed by the aliases the query
+	 * selects. Rows set here replace any set or added earlier for the type; addAggregateMock adds to them instead.
+	 * They never answer a row query.
+	 *
+	 * @param objectType The SObjectType whose aggregate queries the rows answer.
+	 * @param rows The rows to return, in this order. Null removes the rows set for the type.
+	 *
+	 * @throws IllegalArgumentException When objectType is null.
+	 */
+	public static void setAggregateMock(SObjectType objectType, List<Map<String, Object>> rows)
+	{
+		if(objectType == null)
+		{
+			throw new IllegalArgumentException('SObjectType cannot be null');
+		}
+		if(rows == null)
+		{
+			aggregateMockRegistry?.remove(objectType);
+		}
+		else
+		{
+			ensureAggregateMockRegistry().put(objectType, rows);
+		}
+	}
+
+	/**
+	 * @description Adds rows after the rows that already answer every aggregate query against the specified
+	 * SObjectType, the rows set with setAggregateMock or added here earlier. One aggregate query then returns all of
+	 * them, the first added first. The rows are kept in a new list, so a later change to the caller's list, or to a
+	 * list given to setAggregateMock before, does not change the rows that answer. An empty list adds nothing; when no
+	 * rows were set for the type yet, it makes every aggregate query against the type find nothing.
+	 *
+	 * @param objectType The SObjectType whose aggregate queries the rows answer.
+	 * @param rows The rows to add, in this order. May be empty; may not be null.
+	 *
+	 * @throws IllegalArgumentException When objectType or rows is null.
+	 */
+	public static void addAggregateMock(SObjectType objectType, List<Map<String, Object>> rows)
+	{
+		if(objectType == null)
+		{
+			throw new IllegalArgumentException('SObjectType cannot be null');
+		}
+		if(rows == null)
+		{
+			throw new IllegalArgumentException(ADDED_AGGREGATE_ROWS_NULL_MESSAGE);
+		}
+		Map<SObjectType, List<Map<String, Object>>> registry = ensureAggregateMockRegistry();
+		List<Map<String, Object>> combinedRows = new List<Map<String, Object>>();
+		if(registry.containsKey(objectType))
+		{
+			combinedRows.addAll(registry.get(objectType));
+		}
+		combinedRows.addAll(rows);
+		registry.put(objectType, combinedRows);
+	}
+
+	/**
+	 * @description Adds one answer to the queue of aggregate answers for the specified SObjectType: the next aggregate
+	 * query against the type returns exactly these rows, and the answer is then removed from the queue. Answers are
+	 * used in the order they were added, before the rows set with setAggregateMock. An empty list means the next
+	 * aggregate query finds nothing.
+	 *
+	 * @param objectType The SObjectType to set the next aggregate answer for.
+	 * @param rows The rows the next aggregate query returns. May be empty; may not be null.
+	 *
+	 * @throws IllegalArgumentException When objectType or rows is null.
+	 */
+	public static void queueAggregateMock(SObjectType objectType, List<Map<String, Object>> rows)
+	{
+		if(objectType == null)
+		{
+			throw new IllegalArgumentException('SObjectType cannot be null');
+		}
+		if(rows == null)
+		{
+			throw new IllegalArgumentException(QUEUED_ANSWER_NULL_MESSAGE);
+		}
+		Map<SObjectType, List<List<Map<String, Object>>>> registry = ensureAggregateMockQueueRegistry();
+		if(!registry.containsKey(objectType))
+		{
+			registry.put(objectType, new List<List<Map<String, Object>>>());
+		}
+		registry.get(objectType).add(rows);
+	}
+
+	/**
+	 * @description Removes and returns the next queued aggregate answer for the specified SObjectType, or null when
+	 * nothing is queued. It never creates the map.
+	 *
+	 * @param objectType The SObjectType whose next aggregate answer is taken.
+	 *
+	 * @return The next queued aggregate rows, or null when the queue is empty.
+	 */
+	private static List<Map<String, Object>> takeQueuedAggregateMock(SObjectType objectType)
+	{
+		List<List<Map<String, Object>>> queue = aggregateMockQueueRegistry?.get(objectType);
+		if(queue == null || queue.isEmpty())
+		{
+			return null;
+		}
+		return queue.remove(0);
+	}
+
+	/**
+	 * @description Removes every aggregate answer, the rows set with setAggregateMock and the queued ones, across
+	 * every SObjectType. clearMocks calls it. Does nothing when a map was never created.
+	 */
+	public static void clearAggregateMocks()
+	{
+		aggregateMockRegistry?.clear();
+		aggregateMockQueueRegistry?.clear();
+	}
+
+	/**
+	 * @description Removes the aggregate answers for the specified SObjectType: the rows set with setAggregateMock and
+	 * the queued ones. Other types keep theirs. Does nothing when a map was never created.
+	 *
+	 * @param objectType The SObjectType whose aggregate answers are removed.
+	 */
+	public static void clearAggregateMock(SObjectType objectType)
+	{
+		aggregateMockRegistry?.remove(objectType);
+		aggregateMockQueueRegistry?.remove(objectType);
 	}
 
 	/**
@@ -653,6 +853,20 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
+	 * @description Checks whether aggregate rows will answer the next aggregate query on a specific SObjectType: rows
+	 * set with setAggregateMock or added with addAggregateMock, or at least one queued aggregate answer. It only looks: it never takes a queued answer
+	 * and never creates a map.
+	 *
+	 * @param objectType The SObjectType to check.
+	 *
+	 * @return True when aggregate rows are registered for this type, standing or queued.
+	 */
+	public static Boolean hasAggregateMock(SObjectType objectType)
+	{
+		return aggregateMockRegistry?.containsKey(objectType) == true || aggregateMockQueueRegistry?.get(objectType)?.isEmpty() == false;
+	}
+
+	/**
 	 * @description Gets mock records for a specific SObjectType.
 	 *
 	 * @param objectType The SObjectType.
@@ -685,15 +899,44 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Executes a query and returns results.
+	 * @description Executes a query and returns results. A test can answer the query without the database. The answer
+	 * is chosen in this order:
+	 * 1. A registered exception is thrown.
+	 * 2. For an aggregate query, a queued aggregate answer, then the aggregate rows set with setAggregateMock or added
+	 *    with addAggregateMock. When
+	 *    neither exists but a record mock or a queued record answer does, the query throws, because record mocks never
+	 *    answer an aggregate query. The queued record answer is left for the next row query.
+	 * 3. For a row query, a queued record answer, then the records set with setMock.
+	 * 4. Otherwise the database answers.
 	 *
 	 * @param parameters The query parameters.
 	 *
 	 * @return Query result containing records and metadata.
+	 *
+	 * @throws UTIL_Exceptions.IllegalStateException When an aggregate query finds record mocks but no aggregate rows.
 	 */
 	public static QueryResult execute(QueryParameters parameters)
 	{
 		validateAndApplyMockException(parameters);
+
+		if(parameters.aggregateQuery == true)
+		{
+			List<Map<String, Object>> aggregateRows = takeQueuedAggregateMock(parameters.objectType);
+			if(aggregateRows == null)
+			{
+				aggregateRows = aggregateMockRegistry?.get(parameters.objectType);
+			}
+			if(aggregateRows != null)
+			{
+				return executeAggregateMock(parameters, aggregateRows);
+			}
+			if(hasMock(parameters.objectType) || hasQueuedMock(parameters.objectType))
+			{
+				String message = String.format(AGGREGATE_QUERY_WITHOUT_AGGREGATE_MOCK_MESSAGE, new List<String> {String.valueOf(parameters.objectType)});
+				throw new UTIL_Exceptions.IllegalStateException(message);
+			}
+			return executeQuery(parameters);
+		}
 
 		List<SObject> queuedAnswer = takeQueuedMock(parameters.objectType);
 		if(queuedAnswer != null)
@@ -709,7 +952,8 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Executes a count query.
+	 * @description Counts the matching records. In a test, a mock exception registered for the object is thrown first, and
+	 * registered mock records answer with their number, so no query runs. Otherwise one COUNT() query runs. Null parameters throw IllegalArgumentException.
 	 *
 	 * @param parameters The query parameters.
 	 *
@@ -880,6 +1124,33 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
+	 * @description Answers an aggregate query from registered aggregate rows. The rows come back in the order they were
+	 * registered and are never filtered, sorted or paged. Only the query's LIMIT applies: it keeps the first rows. The
+	 * result counts as mocked, holds no records, and its total is the number of rows returned. Each call returns a new
+	 * list, so a test that adds or removes a row in one result does not change the registered rows or the next result.
+	 *
+	 * @param parameters The query parameters.
+	 * @param rows The aggregate rows to return: the standing ones, or one queued answer.
+	 *
+	 * @return Query result with the aggregate rows in `aggregateRows`.
+	 */
+	private static QueryResult executeAggregateMock(QueryParameters parameters, List<Map<String, Object>> rows)
+	{
+		Integer rowsToReturn = parameters.limitCount != null && rows.size() > parameters.limitCount ? parameters.limitCount : rows.size();
+		List<Map<String, Object>> returnedRows = new List<Map<String, Object>>();
+		for(Integer index = 0; index < rowsToReturn; index++)
+		{
+			returnedRows.add(rows[index]);
+		}
+
+		QueryResult result = new QueryResult();
+		result.aggregateRows = returnedRows;
+		result.totalRecords = returnedRows.size();
+		result.isMocked = true;
+		return result;
+	}
+
+	/**
 	 * @description Filters mock records in memory using FormulaEval when conditions and a
 	 * context class are available. Falls back to returning all mocks when filtering cannot
 	 * be applied.
@@ -971,7 +1242,8 @@ public inherited sharing class QRY_Engine
 		private final List<QRY_Generator.OrderBy> orderByFields;
 
 		/**
-		 * @description Constructs a comparator for the given ORDER BY fields.
+		 * @description Keeps the ORDER BY fields in the order given. The first field decides the order, and each later field
+		 * only breaks ties.
 		 *
 		 * @param orderByFields The ORDER BY fields to sort by.
 		 */
@@ -1616,7 +1888,9 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Executes a count query.
+	 * @description Runs the COUNT() query against the database and records its time for the performance log. The sharing
+	 * setting picks who runs it: with sharing, without sharing, or the calling class when no setting is made. A count is
+	 * never read from or stored in the cache.
 	 *
 	 * @param parameters The query parameters.
 	 *
@@ -1775,7 +2049,8 @@ public inherited sharing class QRY_Engine
 	public class QueryParameters
 	{
 		/**
-		 * @description The SObjectType being queried.
+		 * @description The object the query reads. The engine uses it to find the mocks and mock exceptions a test registered
+		 * for that object, and to name the object in the performance log.
 		 */
 		public SObjectType objectType;
 
@@ -1790,7 +2065,8 @@ public inherited sharing class QRY_Engine
 		public Map<String, Object> bindMap;
 
 		/**
-		 * @description Whether to use USER_MODE.
+		 * @description True runs the query with AccessLevel.USER_MODE, so the running user's permissions apply; false runs it
+		 * with AccessLevel.SYSTEM_MODE. A cached user-mode result is kept in memory for this transaction only.
 		 */
 		public Boolean userMode = false;
 
@@ -1841,7 +2117,8 @@ public inherited sharing class QRY_Engine
 		public Integer offset;
 
 		/**
-		 * @description The limit count.
+		 * @description The most rows the query returns, or null for no limit. The engine uses it to cut registered mock rows to
+		 * the same number a real query would return.
 		 */
 		public Integer limitCount;
 
@@ -1856,7 +2133,8 @@ public inherited sharing class QRY_Engine
 		public UTIL_Cache.Scope cacheScope;
 
 		/**
-		 * @description Whether to bypass cache.
+		 * @description True skips reading the cache, so the query always runs. When caching is on, the fresh rows are still
+		 * stored for later reads.
 		 */
 		public Boolean bypassCache = false;
 
@@ -1893,7 +2171,8 @@ public inherited sharing class QRY_Engine
 		public Boolean includeAllRows = false;
 
 		/**
-		 * @description Whether to suppress performance logging for this query.
+		 * @description True stops this query from writing a performance log entry, however long it takes. It wins over
+		 * forcePerformanceLogging and customPerformanceThresholdMs.
 		 */
 		public Boolean suppressPerformanceLogging = false;
 
@@ -1924,7 +2203,8 @@ public inherited sharing class QRY_Engine
 	public class QueryResult
 	{
 		/**
-		 * @description The records returned.
+		 * @description The rows the query returned, or the rows of the current page for a paged read. It is empty when nothing
+		 * matched, and when registered aggregate rows answered the query.
 		 */
 		public List<SObject> records = new List<SObject>();
 
@@ -1942,6 +2222,13 @@ public inherited sharing class QRY_Engine
 		 * @description The PaginationCursor for cursor state pass-through.
 		 */
 		public Database.PaginationCursor cursor;
+
+		/**
+		 * @description The rows a test registered to answer an aggregate query (a query with aggregate functions or a
+		 * GROUP BY). Each map holds one row, keyed by the aliases the query selects. It is null unless such registered
+		 * rows answered the query; `records` is then empty.
+		 */
+		public List<Map<String, Object>> aggregateRows;
 
 		/**
 		 * @description Whether results came from mocks.
@@ -1982,7 +2269,8 @@ public inherited sharing class QRY_Engine
 	private with sharing class WithSharingExecutor
 	{
 		/**
-		 * @description Executes the query with sharing.
+		 * @description Runs the read inside this class, which is declared with sharing, so the running user's sharing rules
+		 * decide which records come back. It fills the given result.
 		 *
 		 * @param parameters The query parameters.
 		 * @param result The result to populate.
@@ -2044,7 +2332,8 @@ public inherited sharing class QRY_Engine
 	private without sharing class WithoutSharingExecutor
 	{
 		/**
-		 * @description Executes the query without sharing.
+		 * @description Runs the read inside this class, which is declared without sharing, so sharing rules do not limit which
+		 * records come back. It fills the given result.
 		 *
 		 * @param parameters The query parameters.
 		 * @param result The result to populate.

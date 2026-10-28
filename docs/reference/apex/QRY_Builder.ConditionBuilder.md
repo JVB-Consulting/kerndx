@@ -29,14 +29,14 @@ Fluent builder for field-level conditions (WHERE and HAVING).
 |--------|-------------|
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [contains](#contains)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a LIKE condition with wildcards on both sides (contains). |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [endsWith](#endswith)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a LIKE condition with wildcard at start (ends with). |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [equals](#equals)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Adds an = condition. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [equals](#equals)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Keeps the records whose field holds exactly this value. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [equals](#equals)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Adds an = condition comparing to an SObject's Id. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [excludes](#excludes)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an EXCLUDES condition for multi-picklist fields. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [excludes](#excludes)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an EXCLUDES condition for multi-picklist fields using a Set. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [excludesStrict](#excludesstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an EXCLUDES condition with strict empty list handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [excludesStrict](#excludesstrict)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an EXCLUDES condition with strict empty set handling. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [greaterThan](#greaterthan)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Adds a > condition. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [greaterThanOrEquals](#greaterthanorequals)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Adds a >= condition. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [greaterThan](#greaterthan)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Keeps the records whose field is larger than this value; for a date or a time, later. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [greaterThanOrEquals](#greaterthanorequals)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Keeps the records whose field is equal to this value or larger; for a date or a time, the same or later. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [includes](#includes)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an INCLUDES condition for multi-picklist fields. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [includes](#includes)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an INCLUDES condition for multi-picklist fields using a Set. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [includesStrict](#includesstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an INCLUDES condition with strict empty list handling. |
@@ -45,22 +45,22 @@ Fluent builder for field-level conditions (WHERE and HAVING).
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isIn](#isin)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Adds an IN condition using a List of SObjects. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isIn](#isin)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Adds an IN condition by extracting field values from SObjects. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isIn](#isin)([QRY_Builder.Builder](QRY_Builder.Builder.md) subquery) | Adds a semi-join IN condition using a subquery. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isIn](#isin)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an IN condition using a Set. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isIn](#isin)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Keeps the records whose field holds any one of these values. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isInStrict](#isinstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an IN condition with strict empty list handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isInStrict](#isinstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Adds an IN condition using SObjects with strict handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isInStrict](#isinstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Adds an IN condition by extracting field values with strict handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isInStrict](#isinstrict)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds an IN condition with strict empty set handling. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isNotNull](#isnotnull)() | Adds an IS NOT NULL condition. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isNull](#isnull)() | Adds an IS NULL condition. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [lessThan](#lessthan)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Adds a < condition. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [lessThanOrEquals](#lessthanorequals)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Adds a <= condition. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notEquals](#notequals)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Adds a != condition. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isNotNull](#isnotnull)() | Keeps the records whose field has a value. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [isNull](#isnull)() | Keeps the records whose field is blank. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [lessThan](#lessthan)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Keeps the records whose field is smaller than this value; for a date or a time, earlier. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [lessThanOrEquals](#lessthanorequals)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Keeps the records whose field is equal to this value or smaller; for a date or a time, the same or earlier. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notEquals](#notequals)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Leaves out the records whose field holds exactly this value. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notEquals](#notequals)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Adds a != condition comparing to an SObject's Id. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notIn](#notin)([QRY_Builder.Builder](QRY_Builder.Builder.md) subquery) | Adds an anti-join NOT IN condition using a subquery. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSet](#notinset)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds a NOT IN condition using a List. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSet](#notinset)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Adds a NOT IN condition using a List of SObjects. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSet](#notinset)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Adds a NOT IN condition by extracting field values from SObjects. |
-| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSet](#notinset)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds a NOT IN condition using a Set. |
+| global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSet](#notinset)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Leaves out the records whose field holds any one of these values. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSetStrict](#notinsetstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> values) | Adds a NOT IN condition with strict empty list handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSetStrict](#notinsetstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Adds a NOT IN condition using SObjects with strict handling. |
 | global [QRY_Builder.Builder](QRY_Builder.Builder.md) [notInSetStrict](#notinsetstrict)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) field) | Adds a NOT IN condition by extracting field values with strict handling. |
@@ -131,7 +131,9 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder equals(Object value)
 ```
 
-Adds an = condition.
+Keeps the records whose field holds exactly this value. The value is passed to the query as a bind
+variable, so you never escape quotes in text yourself. A null value keeps the records whose field is blank, as
+isNull() does. To compare with a relative date such as today, pass a QRY_Condition.DateLiteral.
 
 **Parameters**
 
@@ -309,7 +311,9 @@ List<Lead> leads = QRY_Builder.selectFrom(Lead.SObjectType)
 global QRY_Builder.Builder greaterThan(Object value)
 ```
 
-Adds a > condition.
+Keeps the records whose field is larger than this value; for a date or a time, later. The value is passed
+to the query as a bind variable. After a having method such as havingSumOf, it compares the aggregate of each group
+instead of each record.
 
 **Parameters**
 
@@ -337,7 +341,9 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder greaterThanOrEquals(Object value)
 ```
 
-Adds a >= condition.
+Keeps the records whose field is equal to this value or larger; for a date or a time, the same or later.
+The value is passed to the query as a bind variable. After a having method such as havingSumOf, it compares the
+aggregate of each group instead of each record.
 
 **Parameters**
 
@@ -542,7 +548,8 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
 global QRY_Builder.Builder isIn(List<SObject> records, SObjectField field)
 ```
 
-Adds an IN condition by extracting field values from SObjects.
+Adds an IN condition by extracting field values from SObjects. A record whose key field is blank is skipped,
+so it never matches a row whose field is blank.
 
 **Parameters**
 
@@ -598,7 +605,9 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder isIn(Set<Object> values)
 ```
 
-Adds an IN condition using a Set.
+Keeps the records whose field holds any one of these values. A null or empty set adds a condition that is
+never true, so this condition matches no record; the query still runs. The values are copied, so a later change to
+the set does not change the query.
 
 **Parameters**
 
@@ -693,7 +702,8 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
 global QRY_Builder.Builder isInStrict(List<SObject> records, SObjectField field)
 ```
 
-Adds an IN condition by extracting field values with strict handling.
+Adds an IN condition by extracting field values with strict handling. A record whose key field is blank is
+skipped, so it never matches a row whose field is blank.
 
 **Parameters**
 
@@ -708,7 +718,7 @@ Adds an IN condition by extracting field values with strict handling.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if records is null or empty |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if records is null or empty, or no record has a value in the field |
 
 **Example**
 
@@ -762,7 +772,8 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder isNotNull()
 ```
 
-Adds an IS NOT NULL condition.
+Keeps the records whose field has a value. It writes "field != null" into the query, the same as
+notEquals(null).
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
@@ -784,7 +795,7 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
 global QRY_Builder.Builder isNull()
 ```
 
-Adds an IS NULL condition.
+Keeps the records whose field is blank. It writes "field = null" into the query, the same as equals(null).
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
@@ -806,7 +817,9 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
 global QRY_Builder.Builder lessThan(Object value)
 ```
 
-Adds a < condition.
+Keeps the records whose field is smaller than this value; for a date or a time, earlier. The value is
+passed to the query as a bind variable. After a having method such as havingSumOf, it compares the aggregate of each
+group instead of each record.
 
 **Parameters**
 
@@ -834,7 +847,9 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder lessThanOrEquals(Object value)
 ```
 
-Adds a <= condition.
+Keeps the records whose field is equal to this value or smaller; for a date or a time, the same or
+earlier. The value is passed to the query as a bind variable. After a having method such as havingSumOf, it compares
+the aggregate of each group instead of each record.
 
 **Parameters**
 
@@ -862,7 +877,9 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder notEquals(Object value)
 ```
 
-Adds a != condition.
+Leaves out the records whose field holds exactly this value. The value is passed to the query as a bind
+variable, so you never escape quotes in text yourself. A null value keeps the records whose field has a value, as
+isNotNull() does.
 
 **Parameters**
 
@@ -1001,7 +1018,8 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
 global QRY_Builder.Builder notInSet(List<SObject> records, SObjectField field)
 ```
 
-Adds a NOT IN condition by extracting field values from SObjects.
+Adds a NOT IN condition by extracting field values from SObjects. A record whose key field is blank is
+kept, so rows whose field is blank are left out of the result too.
 
 **Parameters**
 
@@ -1029,7 +1047,9 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder notInSet(Set<Object> values)
 ```
 
-Adds a NOT IN condition using a Set.
+Leaves out the records whose field holds any one of these values. A null or empty set adds no condition,
+so no record is left out; isIn() does the opposite and matches nothing. The values are copied, so a later change to
+the set does not change the query.
 
 **Parameters**
 
@@ -1124,7 +1144,8 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
 global QRY_Builder.Builder notInSetStrict(List<SObject> records, SObjectField field)
 ```
 
-Adds a NOT IN condition by extracting field values with strict handling.
+Adds a NOT IN condition by extracting field values with strict handling. A record whose key field is
+blank is kept, so rows whose field is blank are left out of the result too.
 
 **Parameters**
 
@@ -1139,7 +1160,7 @@ Adds a NOT IN condition by extracting field values with strict handling.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if records is null or empty |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if records is null or empty, or every record in it is null |
 
 **Example**
 

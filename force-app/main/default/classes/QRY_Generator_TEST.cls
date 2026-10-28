@@ -26,6 +26,80 @@ private class QRY_Generator_TEST
 	private static final String FIELD_NAME = 'Name';
 
 	/**
+	 * @description Name of the Custom Label that holds the message for a text the generator refuses where it expects a
+	 * field name or an object name. The message names the method that refused the text.
+	 */
+	private static final String FIELD_NAME_REFUSED_LABEL = 'QueryBuilder_FieldName_NotAllowed';
+
+	/**
+	 * @description Alias given to the sum that the aggregate selection test builds.
+	 */
+	private static final String SUM_ALIAS = 'total';
+
+	/**
+	 * @description The longest field text, and the longest item of a list, that the field name checks read.
+	 */
+	private static final Integer LONGEST_FIELD_TEXT_LENGTH = 500;
+
+	/**
+	 * @description The longest sort list or group list that the field name checks read.
+	 */
+	private static final Integer LONGEST_FIELD_LIST_LENGTH = 16000;
+
+	/**
+	 * @description The most fields an ORDER BY clause takes.
+	 */
+	private static final Integer MOST_SORT_ITEMS = 32;
+
+	/**
+	 * @description The length of a very long crafted text. Without a length limit, a pattern that reads a text this long
+	 * stops the transaction with an error no code can catch.
+	 */
+	private static final Integer VERY_LONG_TEXT_LENGTH = 300000;
+
+	/**
+	 * @description The number of items in a long crafted list. Without a check of one item at a time, a pattern that reads
+	 * a list this long fails with a stack overflow.
+	 */
+	private static final Integer MANY_LIST_ITEMS = 300;
+
+	/**
+	 * @description The number of dotted names in a long crafted field path. Without a length limit, a pattern that reads a
+	 * path this long fails with a stack overflow.
+	 */
+	private static final Integer MANY_DOTTED_NAMES = 1000;
+
+	/**
+	 * @description A data category group name that the generator accepts.
+	 */
+	private static final String CATEGORY_GROUP = 'Geography__c';
+
+	/**
+	 * @description A data category name that the generator accepts.
+	 */
+	private static final String CATEGORY_NAME = 'USA__c';
+
+	/**
+	 * @description The generator method that receives each crafted text, so the test can say which method had to refuse it.
+	 */
+	private static final Map<GeneratorEntry, String> ENTRY_METHOD_NAMES = new Map<GeneratorEntry, String>
+	{
+			GeneratorEntry.FROM_OBJECT => 'fromObject',
+			GeneratorEntry.FROM_X => 'fromX',
+			GeneratorEntry.SELECT_COUNT => 'selectCount',
+			GeneratorEntry.SELECT_AVG => 'selectAvg',
+			GeneratorEntry.SELECT_SUM => 'selectSum',
+			GeneratorEntry.SELECT_MIN => 'selectMin',
+			GeneratorEntry.SELECT_MAX => 'selectMax',
+			GeneratorEntry.SELECT_COUNT_DISTINCT => 'selectCountDistinct',
+			GeneratorEntry.GROUPING => 'grouping',
+			GeneratorEntry.SELECT_AGGREGATE => 'selectAggregate',
+			GeneratorEntry.ORDER_BY => 'OrderBy',
+			GeneratorEntry.GROUP_BY => 'groupBy',
+			GeneratorEntry.DATA_CATEGORY_FILTER => 'DataCategoryFilter'
+	};
+
+	/**
 	 * @description Tests basic query generation with fields.
 	 */
 	@IsTest
@@ -1640,5 +1714,488 @@ private class QRY_Generator_TEST
 		String selectClause = generator.toSoql().substringBetween('SELECT ', ' FROM');
 
 		Assert.areEqual('COUNT(Id) count_Id, Industry, GROUPING(Industry)', selectClause, 'GROUPING() and its grouped field must both be emitted');
+	}
+
+	/**
+	 * @description Proves that every generator method that stores an object name, a field name or a data category name
+	 * as text refuses a text that adds more than a name: fromObject and fromX with a WHERE clause or ALL ROWS after the
+	 * object name; selectCount, selectAvg, selectSum, selectMin, selectMax, selectCountDistinct, grouping, selectAggregate,
+	 * the OrderBy constructor and groupBy with a text that closes the function and adds a FROM clause, or with ALL ROWS;
+	 * and the DataCategoryFilter constructor with a group name followed by more of the query, or a category name followed
+	 * by a LIMIT. The generator is called directly, not through QRY_Builder, so its own checks must refuse the text. Each
+	 * method is tried on its own, so a method that lets a text through fails the test under its own name. A refused text
+	 * must raise an IllegalArgumentException that names the method, and must leave the query text as it was. First, the
+	 * test proves that a blank name still gives COUNT(), because a blank name is how a caller counts every row.
+	 */
+	@IsTest
+	private static void shouldRefuseCraftedTextInTheGeneratorStoragePoints()
+	{
+		for(String blankName : new List<String> {null, UTIL_String.EMPTY})
+		{
+			Assert.areEqual
+					(
+							'SELECT COUNT() FROM ' + TEST_OBJECT,
+							new QRY_Generator().fromObject(TEST_OBJECT).selectCount(blankName).toSoql(),
+							'Expected a blank name to count every row'
+					);
+		}
+
+		Map<String, String> objectTexts = new Map<String, String>
+		{
+				'an object name followed by a WHERE clause' => TEST_OBJECT + ' WHERE ' + FIELD_NAME + ' != null',
+				'an object name followed by ALL ROWS' => TEST_OBJECT + ' ALL ROWS'
+		};
+		Map<String, String> fieldTexts = new Map<String, String>
+		{
+				'a text that closes the function and adds a FROM clause' => FIELD_NAME + ') FROM ' + TEST_OBJECT + ' WHERE (' + FIELD_NAME,
+				'ALL ROWS' => FIELD_NAME + ' ALL ROWS'
+		};
+		Map<String, String> dataCategoryTexts = new Map<String, String>
+		{
+				'a group name followed by a category and an ORDER BY' => CATEGORY_GROUP + ' AT ' + CATEGORY_NAME + ' ORDER BY ' + FIELD_NAME + ' LIMIT 1 X',
+				'a category name followed by a LIMIT' => CATEGORY_NAME + ' LIMIT 1'
+		};
+
+		for(GeneratorEntry entry : GeneratorEntry.values())
+		{
+			Map<String, String> craftedTexts = fieldTexts;
+			if(entry == GeneratorEntry.FROM_OBJECT || entry == GeneratorEntry.FROM_X)
+			{
+				craftedTexts = objectTexts;
+			}
+			else if(entry == GeneratorEntry.DATA_CATEGORY_FILTER)
+			{
+				craftedTexts = dataCategoryTexts;
+			}
+			String methodName = ENTRY_METHOD_NAMES.get(entry);
+			for(String caseName : craftedTexts.keySet())
+			{
+				QRY_Generator generator = new QRY_Generator().fromObject(TEST_OBJECT);
+				String textBefore = generator.toSoql();
+				try
+				{
+					applyCraftedText(generator, entry, craftedTexts.get(caseName));
+					Assert.fail('Expected ' + methodName + ' to refuse ' + caseName + '; the generator wrote: ' + describeRenderedText(generator));
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for ' + caseName + ', got: ' + error);
+					Assert.areEqual(buildRefusalMessage(methodName), error.getMessage(), 'Expected the message to name ' + methodName + ' for ' + caseName);
+					Assert.areEqual(textBefore, generator.toSoql(), 'Expected the refused text to leave the query unchanged for ' + caseName);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description Proves that each of the six field name checks accepts every text of the shape it allows, and gives the
+	 * text back trimmed. A field path is allowed by all six. A date or distance function is allowed by all but the field
+	 * path check, including each way Apex writes a number. An aggregate and toLabel are allowed on the field side of a
+	 * condition and in a sort list. Directions and nulls orders are allowed in a sort list, and the check used before a
+	 * direction is added allows them on every item but the last. Spaces just inside the round brackets of a function are
+	 * allowed, and so is a date function around convertTimezone. A field path of 500 characters, the longest the checks
+	 * read, is allowed by all six, and a list of 31 such paths and a sort list of 32 items by the list checks. A blank
+	 * text is given back for the caller to judge.
+	 */
+	@IsTest
+	private static void shouldAcceptEveryTextEachFieldNameCheckAllows()
+	{
+		String longestFieldPath = 'a.'.repeat((LONGEST_FIELD_TEXT_LENGTH - 2) / 2) + 'aa';
+		List<String> longestPaths = new List<String>();
+		while((longestPaths.size() + 1) * (LONGEST_FIELD_TEXT_LENGTH + 2) <= LONGEST_FIELD_LIST_LENGTH)
+		{
+			longestPaths.add(longestFieldPath);
+		}
+		List<String> fieldPaths = new List<String> {FIELD_NAME, 'abc__Field__c', 'abc__Parent__r.abc__Field__c', 'A1_b', 'What.Name', ' Name ', longestFieldPath};
+		List<String> fieldExpressions = new List<String>
+		{
+				'calendar_year(CreatedDate)',
+				'CALENDAR_YEAR( CreatedDate )',
+				'HOUR_IN_DAY(convertTimezone(CreatedDate))',
+				'day_only( CONVERTTIMEZONE( Owner.CreatedDate ) )',
+				'DISTANCE(abc__Loc__c, GEOLOCATION(37.7749,-122.4194), \'mi\')',
+				'DISTANCE(Loc__c, GEOLOCATION(1E-7,1E+12), \'km\')',
+				'DISTANCE(Loc__c, GEOLOCATION(45.000000000000,-122.418), \'mi\')',
+				'DISTANCE(Loc__c, GEOLOCATION(null,10), \'mi\')',
+				'DISTANCE( Loc__c, GEOLOCATION( 1, 1 ), \'mi\' )'
+		};
+		List<String> conditionFields = new List<String> {'SUM(Amount)', 'count(Id)', 'COUNT_DISTINCT(abc__Field__c)', 'toLabel(Status)', 'SUM( Amount )', 'toLabel( Status )'};
+		List<String> fieldLists = new List<String>
+		{
+				'HOUR_IN_DAY(convertTimezone(CreatedDate)), DISTANCE(Loc__c, GEOLOCATION(1,2), \'km\'), Name',
+				String.join(longestPaths, ', ')
+		};
+		List<String> sortLists = new List<String> {'Name desc nulls last, Id', (FIELD_NAME + ' DESC, ').repeat(MOST_SORT_ITEMS - 1) + FIELD_NAME};
+
+		Map<FieldNameCheck, List<String>> acceptedTexts = new Map<FieldNameCheck, List<String>>();
+		acceptedTexts.put(FieldNameCheck.FIELD_PATH, fieldPaths);
+		acceptedTexts.put(FieldNameCheck.FIELD_EXPRESSION, joinLists(new List<List<String>> {fieldPaths, fieldExpressions}));
+		acceptedTexts.put(FieldNameCheck.CONDITION_FIELD, joinLists(new List<List<String>> {fieldPaths, fieldExpressions, conditionFields}));
+		acceptedTexts.put
+				(
+						FieldNameCheck.SORT_LIST,
+						joinLists(new List<List<String>> {fieldPaths, fieldExpressions, conditionFields, fieldLists, sortLists, new List<String> {'COUNT(Id) DESC'}})
+				);
+		acceptedTexts.put
+				(
+						FieldNameCheck.SORT_LIST_BEFORE_DIRECTION,
+						joinLists
+								(
+										new List<List<String>>
+										{
+												fieldPaths, fieldExpressions, conditionFields, fieldLists, sortLists, new List<String> {'Name, Industry', 'Name DESC, Industry'}
+										}
+								)
+				);
+		acceptedTexts.put(FieldNameCheck.GROUP_LIST, joinLists(new List<List<String>> {fieldPaths, fieldExpressions, fieldLists, new List<String> {'Name, Industry'}}));
+
+		for(FieldNameCheck check : FieldNameCheck.values())
+		{
+			for(String acceptedText : acceptedTexts.get(check))
+			{
+				Assert.areEqual(acceptedText.trim(), runFieldNameCheck(check, acceptedText), 'Expected ' + check.name() + ' to accept and trim: ' + acceptedText);
+			}
+			Assert.isNull(runFieldNameCheck(check, null), 'Expected ' + check.name() + ' to give back a null text for the caller to judge');
+			Assert.areEqual(UTIL_String.EMPTY, runFieldNameCheck(check, '  '), 'Expected ' + check.name() + ' to give back a blank text trimmed, for the caller to judge');
+		}
+	}
+
+	/**
+	 * @description Proves that each of the six field name checks refuses every text that could add to the query or that
+	 * is not the shape it allows. The refused texts add a LIMIT, ALL ROWS or an OR, open or close a bracket or a quote,
+	 * start or end with a dot or a comma, start with a digit or an underscore, hide a LIMIT after a line break, carry a
+	 * wrong distance unit or a broken number, wrap more than a name in a function, or repeat a direction. They also put a
+	 * LIMIT or an OR around convertTimezone, use convertTimezone outside a date function, leave a list item empty, or are
+	 * longer than the checks read: one name of 501 characters, a very long path or text, a long list whose last item
+	 * ends with ALL ROWS, and a list of valid names that is longer than 16,000 characters. The field path
+	 * check also refuses a function, the group check refuses an aggregate and toLabel, and the check used before a
+	 * direction is added refuses a direction or nulls order on the last item. Each refusal must be an
+	 * IllegalArgumentException with the message that names the method.
+	 */
+	@IsTest
+	private static void shouldRefuseEveryTextEachFieldNameCheckDoesNotAllow()
+	{
+		List<String> craftedTexts = new List<String>
+		{
+				'Name LIMIT 1',
+				'Name ALL ROWS',
+				'Id != null OR Name',
+				'Name)',
+				'(Name',
+				'Name\'',
+				'Name,',
+				'.Name',
+				'Name.',
+				'A..B',
+				'1Name',
+				'_Name',
+				'Name\nLIMIT 1',
+				'DISTANCE(Loc__c, GEOLOCATION(1,1), \'mx\')',
+				'DISTANCE(Loc__c, GEOLOCATION(1E,1), \'mi\')',
+				'DISTANCE(Loc__c, GEOLOCATION(1e-7 OR 1,1), \'mi\')',
+				'DISTANCE(Loc__c, GEOLOCATION(nullx,1), \'mi\')',
+				'CALENDAR_YEAR(Name LIMIT 1)',
+				'SUM(Amount) FROM Account',
+				'SUM(Amount LIMIT 1)',
+				'COUNT()',
+				'Name DESC DESC',
+				'Name NULLS',
+				'HOUR_IN_DAY(convertTimezone(CreatedDate) LIMIT 1)',
+				'HOUR_IN_DAY(convertTimezone(CreatedDate)) OR Id != null',
+				'HOUR_IN_DAY(convertTimezone(convertTimezone(CreatedDate)))',
+				'convertTimezone(CreatedDate)',
+				'SUM( Amount LIMIT 1 )',
+				'Name,,Id',
+				'Name, , Id',
+				'a'.repeat(LONGEST_FIELD_TEXT_LENGTH + 1),
+				'a.'.repeat(MANY_DOTTED_NAMES) + 'a ALL ROWS',
+				'a'.repeat(VERY_LONG_TEXT_LENGTH) + ' ALL ROWS',
+				(FIELD_NAME + ', ').repeat(MANY_LIST_ITEMS) + FIELD_NAME + ' ALL ROWS',
+				(FIELD_NAME + ', ').repeat(LONGEST_FIELD_LIST_LENGTH / (FIELD_NAME.length() + 2) + 1) + FIELD_NAME
+		};
+		List<String> aggregateAndLabelTexts = new List<String> {'SUM(Amount)', 'toLabel(Status)'};
+
+		Map<FieldNameCheck, List<String>> refusedTexts = new Map<FieldNameCheck, List<String>>();
+		refusedTexts.put(FieldNameCheck.FIELD_PATH, joinLists(new List<List<String>> {craftedTexts, aggregateAndLabelTexts, new List<String> {'CALENDAR_YEAR(CreatedDate)'}}));
+		refusedTexts.put(FieldNameCheck.FIELD_EXPRESSION, joinLists(new List<List<String>> {craftedTexts, aggregateAndLabelTexts}));
+		refusedTexts.put(FieldNameCheck.CONDITION_FIELD, craftedTexts);
+		refusedTexts.put(FieldNameCheck.SORT_LIST, craftedTexts);
+		refusedTexts.put(FieldNameCheck.SORT_LIST_BEFORE_DIRECTION, joinLists(new List<List<String>> {craftedTexts, new List<String> {'Name DESC', 'Name, Industry NULLS LAST'}}));
+		refusedTexts.put(FieldNameCheck.GROUP_LIST, joinLists(new List<List<String>> {craftedTexts, aggregateAndLabelTexts}));
+
+		for(FieldNameCheck check : FieldNameCheck.values())
+		{
+			String methodName = check.name().toLowerCase();
+			for(String refusedText : refusedTexts.get(check))
+			{
+				try
+				{
+					String acceptedText = runFieldNameCheck(check, refusedText);
+					Assert.fail('Expected ' + check.name() + ' to refuse: ' + refusedText + '; it gave back: ' + acceptedText);
+				}
+				catch(Exception error)
+				{
+					Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException from ' + check.name() + ' for: ' + refusedText);
+					Assert.areEqual(buildRefusalMessage(methodName), error.getMessage(), 'Expected the message to name the method for ' + check.name() + ': ' + refusedText);
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description Builds the message the generator gives when it refuses a text. The label is read by its name, with the
+	 * package namespace, and the method name is put into it.
+	 *
+	 * @param methodName The method the message must name
+	 *
+	 * @return The expected message
+	 */
+	private static String buildRefusalMessage(String methodName)
+	{
+		return String.format(System.Label.get(UTIL_System.getManagedPackageNamespace(), FIELD_NAME_REFUSED_LABEL), new List<Object> {methodName});
+	}
+
+	/**
+	 * @description Puts several lists of texts into one new list, in order.
+	 *
+	 * @param lists The lists to put together
+	 *
+	 * @return One list that holds every text of every list
+	 */
+	private static List<String> joinLists(List<List<String>> lists)
+	{
+		List<String> joined = new List<String>();
+		for(List<String> texts : lists)
+		{
+			joined.addAll(texts);
+		}
+		return joined;
+	}
+
+	/**
+	 * @description Runs the field name check the value names on a text. The method name given to the check is the value's
+	 * name in lower case, so a test can find it in the message.
+	 *
+	 * @param check The field name check to run
+	 * @param text The text to check
+	 *
+	 * @return What the check gives back
+	 */
+	private static String runFieldNameCheck(FieldNameCheck check, String text)
+	{
+		String methodName = check.name().toLowerCase();
+		switch on check
+		{
+			when FIELD_PATH
+			{
+				return QRY_Generator.validateFieldPath(text, methodName);
+			}
+			when FIELD_EXPRESSION
+			{
+				return QRY_Generator.validateFieldExpression(text, methodName);
+			}
+			when CONDITION_FIELD
+			{
+				return QRY_Generator.validateConditionField(text, methodName);
+			}
+			when SORT_LIST
+			{
+				return QRY_Generator.validateSortList(text, methodName);
+			}
+			when SORT_LIST_BEFORE_DIRECTION
+			{
+				return QRY_Generator.validateSortListBeforeDirection(text, methodName);
+			}
+			when else
+			{
+				return QRY_Generator.validateGroupList(text, methodName);
+			}
+		}
+	}
+
+	/**
+	 * @description Passes a crafted text to the generator method the entry names. For DataCategoryFilter the text is tried
+	 * first as the group name, then as the only category name, each beside a valid name. It raises the refusal only when
+	 * both places refuse the text, so a check missing from either place fails the test.
+	 *
+	 * @param generator The generator to give the text to
+	 * @param entry The method that receives the text
+	 * @param craftedText The text that is not a name
+	 */
+	private static void applyCraftedText(QRY_Generator generator, GeneratorEntry entry, String craftedText)
+	{
+		switch on entry
+		{
+			when FROM_OBJECT
+			{
+				generator.fromObject(craftedText);
+			}
+			when FROM_X
+			{
+				generator.fromX(craftedText);
+			}
+			when SELECT_COUNT
+			{
+				generator.selectCount(craftedText);
+			}
+			when SELECT_AVG
+			{
+				generator.selectAvg(craftedText);
+			}
+			when SELECT_SUM
+			{
+				generator.selectSum(craftedText);
+			}
+			when SELECT_MIN
+			{
+				generator.selectMin(craftedText);
+			}
+			when SELECT_MAX
+			{
+				generator.selectMax(craftedText);
+			}
+			when SELECT_COUNT_DISTINCT
+			{
+				generator.selectCountDistinct(craftedText);
+			}
+			when GROUPING
+			{
+				generator.grouping(craftedText);
+			}
+			when SELECT_AGGREGATE
+			{
+				generator.selectAggregate(QRY_Generator.Aggregate.SUM, craftedText, SUM_ALIAS);
+			}
+			when ORDER_BY
+			{
+				new QRY_Generator.OrderBy(craftedText);
+			}
+			when GROUP_BY
+			{
+				generator.groupBy(craftedText);
+			}
+			when DATA_CATEGORY_FILTER
+			{
+				try
+				{
+					new QRY_Generator.DataCategoryFilter(craftedText, QRY_Generator.DataCategoryOperator.AT, new List<String> {CATEGORY_NAME});
+				}
+				catch(IllegalArgumentException groupNameRefused)
+				{
+					new QRY_Generator.DataCategoryFilter(CATEGORY_GROUP, QRY_Generator.DataCategoryOperator.AT, new List<String> {craftedText});
+				}
+			}
+		}
+	}
+
+	/**
+	 * @description Gives the query text a generator writes, or the error it raises while writing it. It never raises an
+	 * error itself, so that a test can put its answer in a failure message.
+	 *
+	 * @param generator The generator whose query text to write
+	 *
+	 * @return The query text, or a sentence that names the error
+	 */
+	private static String describeRenderedText(QRY_Generator generator)
+	{
+		try
+		{
+			return generator.toSoql();
+		}
+		catch(Exception error)
+		{
+			return 'no text, it failed with ' + error.getTypeName() + ': ' + error.getMessage();
+		}
+	}
+
+	/**
+	 * @description The generator method that receives a crafted text in the test. Each value names one method;
+	 * applyCraftedText calls it.
+	 */
+	private enum GeneratorEntry
+	{
+		/**
+		 * @description fromObject(text), which sets the object of the FROM clause.
+		 */
+		FROM_OBJECT,
+		/**
+		 * @description fromX(text), which also sets the object of the FROM clause.
+		 */
+		FROM_X,
+		/**
+		 * @description selectCount(text).
+		 */
+		SELECT_COUNT,
+		/**
+		 * @description selectAvg(text).
+		 */
+		SELECT_AVG,
+		/**
+		 * @description selectSum(text).
+		 */
+		SELECT_SUM,
+		/**
+		 * @description selectMin(text).
+		 */
+		SELECT_MIN,
+		/**
+		 * @description selectMax(text).
+		 */
+		SELECT_MAX,
+		/**
+		 * @description selectCountDistinct(text).
+		 */
+		SELECT_COUNT_DISTINCT,
+		/**
+		 * @description grouping(text), which adds GROUPING(text) to the SELECT clause.
+		 */
+		GROUPING,
+		/**
+		 * @description selectAggregate with SUM, the text as the field and a valid alias.
+		 */
+		SELECT_AGGREGATE,
+		/**
+		 * @description The OrderBy constructor that takes the text as a sort list.
+		 */
+		ORDER_BY,
+		/**
+		 * @description groupBy(text), which adds the text to the GROUP BY clause.
+		 */
+		GROUP_BY,
+		/**
+		 * @description The DataCategoryFilter constructor, with the text as the group name and then as a category name.
+		 */
+		DATA_CATEGORY_FILTER
+	}
+	/**
+	 * @description One of the six field name checks in QRY_Generator. Each value names the shape of text its check
+	 * allows; runFieldNameCheck calls it.
+	 */
+	private enum FieldNameCheck
+	{
+		/**
+		 * @description validateFieldPath: one name, or names joined by dots.
+		 */
+		FIELD_PATH,
+		/**
+		 * @description validateFieldExpression: a field path, or a date or distance function around one.
+		 */
+		FIELD_EXPRESSION,
+		/**
+		 * @description validateConditionField: a field expression, an aggregate or toLabel.
+		 */
+		CONDITION_FIELD,
+		/**
+		 * @description validateSortList: sort items joined by commas, each with a direction and a nulls order if wanted.
+		 */
+		SORT_LIST,
+		/**
+		 * @description validateSortListBeforeDirection: the same, but the last item has no direction and no nulls order.
+		 */
+		SORT_LIST_BEFORE_DIRECTION,
+		/**
+		 * @description validateGroupList: field expressions joined by commas.
+		 */
+		GROUP_LIST
 	}
 }

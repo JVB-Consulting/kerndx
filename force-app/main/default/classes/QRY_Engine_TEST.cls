@@ -11,7 +11,7 @@
  *
  * @date February 2026, October 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.NcssCount,PMD.CognitiveComplexity')
 @IsTest(seeAllData=false isParallel=true)
 private class QRY_Engine_TEST
 {
@@ -92,6 +92,52 @@ private class QRY_Engine_TEST
 	 * @description Alias of the count the aggregate cached-read test selects.
 	 */
 	private static final String TOTAL_ALIAS = 'total';
+
+	/**
+	 * @description The total held by the first registered aggregate row in the aggregate mock tests.
+	 */
+	private static final Integer FIRST_TOTAL = 3;
+
+	/**
+	 * @description The total held by the second registered aggregate row in the aggregate mock tests.
+	 */
+	private static final Integer SECOND_TOTAL = 5;
+
+	/**
+	 * @description The total held by the third registered aggregate row in the aggregate mock tests.
+	 */
+	private static final Integer THIRD_TOTAL = 8;
+
+	/**
+	 * @description The LIMIT the aggregate mock tests place on a query that has more registered rows than that.
+	 */
+	private static final Integer AGGREGATE_ROW_LIMIT = 2;
+
+	/**
+	 * @description The number of rows in an aggregate answer that holds one row.
+	 */
+	private static final Integer ONE_ROW = 1;
+
+	/**
+	 * @description The number of rows in an aggregate answer that holds two rows.
+	 */
+	private static final Integer TWO_ROWS = 2;
+
+	/**
+	 * @description The number of mock records the aggregate mock tests set with setMock, beside the aggregate rows.
+	 */
+	private static final Integer RECORD_MOCK_COUNT = 2;
+
+	/**
+	 * @description Text the refusal of an aggregate query that only record mocks could answer must carry: the name of
+	 * the method that registers aggregate rows.
+	 */
+	private static final String REGISTER_AGGREGATE_ROWS_HINT = 'registerAggregateRows';
+
+	/**
+	 * @description Message of the aggregate-only exception the precedence test registers.
+	 */
+	private static final String AGGREGATE_FAILURE_MESSAGE = 'Aggregate-only failure';
 
 	/**
 	 * @description Tests basic query execution.
@@ -1963,6 +2009,149 @@ private class QRY_Engine_TEST
 	}
 
 	/**
+	 * @description Tests that a cached read made with bypassSharing() alone is never served to another user's read that
+	 * keeps record sharing. Both users may read Foobar__c records but cannot see the row the test administrator owns.
+	 * The first user stores a bypassed read with the org-wide cache scope, and reads it again to show the stored result
+	 * exists. The second user runs the same query with withSharing() and the same scope. That read must go to the
+	 * database, not to the stored result, and must not see the administrator's row. This holds whether the org has
+	 * Platform Cache space or keeps the rows in memory, so the test needs no branch for it.
+	 */
+	@IsTest
+	private static void bypassedCachedReadIsNotServedToAnotherUsersEnforcedRead()
+	{
+		User firstUser = insertFoobarReader();
+		User secondUser = insertFoobarReader();
+		Foobar__c row;
+		System.runAs(new User(Id = UserInfo.getUserId()))
+		{
+			row = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, UTIL_Random.randomName())
+					.withOverride(Foobar__c.Email__c, UTIL_Random.randomEmail())
+					.build();
+		}
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		Boolean firstUserRepeatCached;
+		Boolean secondUserCached;
+		List<SObject> secondUserRows;
+
+		Test.startTest();
+		System.runAs(firstUser)
+		{
+			newOrgCachedRowRead(row.Id).bypassSharing().toList();
+			QRY_Builder.Builder repeat = newOrgCachedRowRead(row.Id).bypassSharing();
+			repeat.toList();
+			firstUserRepeatCached = repeat.isCached();
+		}
+		System.runAs(secondUser)
+		{
+			QRY_Builder.Builder enforced = newOrgCachedRowRead(row.Id).withSharing();
+			secondUserRows = enforced.toList();
+			secondUserCached = enforced.isCached();
+		}
+		Test.stopTest();
+
+		Assert.isTrue(firstUserRepeatCached, 'Expected the first user to be served the stored result, which shows the entry exists');
+		Assert.isFalse(secondUserCached, 'Expected the second user\'s read with withSharing() to go to the database, not to the bypassed result');
+		Assert.areEqual(0, secondUserRows.size(), 'Expected record sharing to hide the row the test administrator owns from the second user');
+	}
+
+	/**
+	 * @description Tests that a cached read made with bypassSharing() alone is shared between users, and that the
+	 * fields each user cannot read are removed from the rows that user gets. Neither user can see the row the test
+	 * administrator owns through record sharing. The first user may read Email__c and stores a bypassed read of the
+	 * row, with its Email__c, at the org-wide cache scope. The second user cannot read Email__c and runs the same
+	 * bypassed read at the same scope. The second read is served from the stored result, because a bypassed read is
+	 * the same for every user, but its row has no Email__c. The first user's row keeps the email. In an org with no
+	 * Platform Cache space set aside, the rows are kept in memory and the memory key holds the user, so the second
+	 * user's first read is a fresh read. The second user then reads again, and that read is served from memory, still
+	 * without Email__c.
+	 */
+	@IsTest
+	private static void bypassedCachedReadRemovesHiddenFieldsForEachUser()
+	{
+		Boolean hasCacheSpace = UTIL_Cache.isAllocated();
+		User emailReader = TST_Factory.insertUserWithOneHiddenField
+				(
+						SEL_Profile.PROFILE_STANDARD_USER,
+						new List<SObjectType> {Foobar__c.SObjectType},
+						new List<SObjectField> {ObjectPermissions.PermissionsRead},
+						Foobar__c.ExternalId__c
+				);
+		User restricted = insertFoobarReader();
+		Foobar__c row;
+		System.runAs(new User(Id = UserInfo.getUserId()))
+		{
+			row = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Name, UTIL_Random.randomName())
+					.withOverride(Foobar__c.Email__c, UTIL_Random.randomEmail().toLowerCase())
+					.build();
+		}
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+
+		List<SObject> emailReaderRows;
+		List<SObject> restrictedRows;
+		Boolean restrictedCached;
+
+		Test.startTest();
+		System.runAs(emailReader)
+		{
+			emailReaderRows = newOrgCachedRowRead(row.Id).addField(Foobar__c.Email__c).bypassSharing().toList();
+		}
+		System.runAs(restricted)
+		{
+			if(!hasCacheSpace)
+			{
+				newOrgCachedRowRead(row.Id).addField(Foobar__c.Email__c).bypassSharing().toList();
+			}
+			QRY_Builder.Builder shared = newOrgCachedRowRead(row.Id).addField(Foobar__c.Email__c).bypassSharing();
+			restrictedRows = shared.toList();
+			restrictedCached = shared.isCached();
+		}
+		Test.stopTest();
+
+		Assert.areEqual(1, emailReaderRows.size(), 'Expected the first user to read the row the test administrator owns');
+		Assert.areEqual(row.Email__c, emailReaderRows[0].get(Foobar__c.Email__c), 'Expected the first user, who may read Email__c, to get the email');
+		Assert.isTrue(restrictedCached, hasCacheSpace
+				? 'Expected the second user to be served the result the first user stored'
+				: 'Expected the second user\'s repeat read to be served from memory');
+		Assert.areEqual(1, restrictedRows.size(), 'Expected the second user to get the row from the stored result');
+		Assert.isFalse(restrictedRows[0].isSet(Foobar__c.Email__c), 'Expected the email, which the second user cannot read, to be removed');
+	}
+
+	/**
+	 * @description Saves a Standard User who may read Foobar__c records and every Foobar__c field except Email__c. The user
+	 * has no View All, so record sharing hides the rows another user owns.
+	 *
+	 * @return The saved user
+	 */
+	private static User insertFoobarReader()
+	{
+		return TST_Factory.insertUserWithOneHiddenField
+				(
+						SEL_Profile.PROFILE_STANDARD_USER,
+						new List<SObjectType> {Foobar__c.SObjectType},
+						new List<SObjectField> {ObjectPermissions.PermissionsRead},
+						Foobar__c.Email__c
+				);
+	}
+
+	/**
+	 * @description Starts a Foobar__c query that reads the Name of one row and keeps its result in the org-wide cache.
+	 *
+	 * @param rowId The Id of the row to read
+	 *
+	 * @return The new query
+	 */
+	private static QRY_Builder.Builder newOrgCachedRowRead(Id rowId)
+	{
+		return QRY_Builder.selectFrom(Foobar__c.SObjectType)
+				.fields(new List<SObjectField> {Foobar__c.Name})
+				.condition(Foobar__c.Id).equals(rowId)
+				.withCache(UTIL_Cache.Scope.ORG, CACHE_TIME_TO_LIVE_SECONDS);
+	}
+
+	/**
 	 * @description Builds a cached, system-mode read with sharing bypassed: the only kind of read whose key leaves the
 	 * running user out unless the query depends on that user.
 	 *
@@ -2604,6 +2793,40 @@ private class QRY_Engine_TEST
 	}
 
 	/**
+	 * @description Builds the parameters of an aggregate query that counts the rows of an object, with the count read
+	 * through the alias `total`.
+	 *
+	 * @param objectType The object the query counts.
+	 *
+	 * @return Query parameters marked as an aggregate query.
+	 */
+	private static QRY_Engine.QueryParameters newAggregateParameters(SObjectType objectType)
+	{
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = objectType;
+		parameters.queryString = 'SELECT COUNT(Id) ' + TOTAL_ALIAS + ' FROM ' + String.valueOf(objectType);
+		parameters.aggregateQuery = true;
+		return parameters;
+	}
+
+	/**
+	 * @description Builds aggregate mock rows, one row for each total, each keyed by the alias `total`.
+	 *
+	 * @param totals The total of each row, in the order the rows are returned.
+	 *
+	 * @return One map for each total.
+	 */
+	private static List<Map<String, Object>> newAggregateRows(List<Integer> totals)
+	{
+		List<Map<String, Object>> rows = new List<Map<String, Object>>();
+		for(Integer total : totals)
+		{
+			rows.add(new Map<String, Object> {TOTAL_ALIAS => total});
+		}
+		return rows;
+	}
+
+	/**
 	 * @description Creates mock Foobar__c records with specified Name and NumberInteger__c values.
 	 *
 	 * @param names The name values to assign to each mock record
@@ -2822,6 +3045,461 @@ private class QRY_Engine_TEST
 		catch(IllegalArgumentException error)
 		{
 			Assert.isTrue(error.getMessage().contains(TYPE_MISMATCH_HINT), 'The refusal names the mismatch: ' + error.getMessage());
+		}
+	}
+
+	/**
+	 * @description Tests that an aggregate query is answered from the aggregate rows a test registered. The rows come
+	 * back as they were registered, the result counts as mocked, and it holds no records.
+	 */
+	@IsTest
+	private static void shouldAnswerAnAggregateQueryFromRegisteredAggregateRows()
+	{
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL, SECOND_TOTAL}));
+
+		QRY_Engine.QueryResult result = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+
+		Assert.areEqual(TWO_ROWS, result.aggregateRows?.size(), 'Expected both registered aggregate rows to answer the query');
+		Assert.isTrue(result.isMocked, 'Expected the result to count as mocked');
+		Assert.isTrue(result.records.isEmpty(), 'Expected no records beside the aggregate rows');
+		Assert.areEqual(TWO_ROWS, result.totalRecords, 'Expected the total to count the aggregate rows');
+		Assert.areEqual(FIRST_TOTAL, result.aggregateRows?.get(0)?.get(TOTAL_ALIAS), 'Expected the first row to keep its value');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that queued aggregate rows answer exactly one aggregate query and are then used up, so the
+	 * next queries get the standing aggregate rows, again and again.
+	 */
+	@IsTest
+	private static void shouldServeTheNextAggregateAnswerOnceThenTheStandingRows()
+	{
+		QRY_Engine.queueAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {SECOND_TOTAL, THIRD_TOTAL}));
+
+		QRY_Engine.QueryResult first = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+		QRY_Engine.QueryResult second = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+		QRY_Engine.QueryResult third = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+
+		Assert.areEqual(ONE_ROW, first.aggregateRows?.size(), 'Expected the queued answer to serve the first query');
+		Assert.areEqual(FIRST_TOTAL, first.aggregateRows?.get(0)?.get(TOTAL_ALIAS), 'Expected the queued row in the first answer');
+		Assert.areEqual(TWO_ROWS, second.aggregateRows?.size(), 'Expected the standing rows to serve the second query');
+		Assert.areEqual(SECOND_TOTAL, second.aggregateRows?.get(0)?.get(TOTAL_ALIAS), 'Expected the standing rows in the second answer');
+		Assert.areEqual(TWO_ROWS, third.aggregateRows?.size(), 'Expected the standing rows to serve the third query as well');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that the query's LIMIT cuts the registered aggregate rows down, keeping the first ones in the
+	 * order they were registered, and that the total counts only the rows returned.
+	 */
+	@IsTest
+	private static void shouldApplyTheLimitToAggregateRows()
+	{
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL, SECOND_TOTAL, THIRD_TOTAL}));
+		QRY_Engine.QueryParameters parameters = newAggregateParameters(Foobar__c.SObjectType);
+		parameters.limitCount = AGGREGATE_ROW_LIMIT;
+
+		QRY_Engine.QueryResult result = QRY_Engine.execute(parameters);
+
+		Assert.areEqual(AGGREGATE_ROW_LIMIT, result.aggregateRows?.size(), 'Expected the limit to cut the aggregate rows');
+		Assert.areEqual(AGGREGATE_ROW_LIMIT, result.totalRecords, 'Expected the total to count only the rows returned');
+		Assert.areEqual(SECOND_TOTAL, result.aggregateRows?.get(1)?.get(TOTAL_ALIAS), 'Expected the rows kept in the order they were registered');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that record mocks never answer an aggregate query. With an empty record mock, a record mock
+	 * with records, or only a queued record answer, the aggregate query throws an error that names
+	 * TST_Mock.registerAggregateRows. The queued record answer is not used up: the next row query still gets it.
+	 */
+	@IsTest
+	private static void shouldThrowWhenOnlyRecordMocksExistForAnAggregateQuery()
+	{
+		QRY_Engine.setMock(Foobar__c.SObjectType, new List<SObject>());
+		assertAggregateQueryRefused('an empty record mock');
+		QRY_Engine.clearMocks();
+
+		QRY_Engine.setMock(Foobar__c.SObjectType, TST_Builder.of(Foobar__c.SObjectType).withCount(RECORD_MOCK_COUNT).withoutInsertion(true).buildList());
+		assertAggregateQueryRefused('a record mock with records');
+		QRY_Engine.clearMocks();
+
+		List<SObject> queued = TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).buildList();
+		QRY_Engine.queueMock(Foobar__c.SObjectType, queued);
+		assertAggregateQueryRefused('a queued record answer');
+
+		QRY_Engine.QueryParameters rowParameters = new QRY_Engine.QueryParameters();
+		rowParameters.objectType = Foobar__c.SObjectType;
+		rowParameters.queryString = 'SELECT Id FROM ' + OBJECT_NAME;
+		QRY_Engine.QueryResult rowResult = QRY_Engine.execute(rowParameters);
+
+		Assert.isTrue(rowResult.isMocked, 'Expected the row query to get the queued answer, which the aggregate query left in place');
+		Assert.areEqual(queued[0].Id, rowResult.records[0].Id, 'Expected the queued record in the row query answer');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that an exception registered for aggregate queries wins over registered aggregate rows. Once
+	 * the exception is cleared, the same rows answer, which proves they were registered all along.
+	 */
+	@IsTest
+	private static void shouldThrowTheAggregateExceptionMockBeforeAggregateRows()
+	{
+		QRY_Engine.setMockAggregateException(Foobar__c.SObjectType, new QueryException(AGGREGATE_FAILURE_MESSAGE));
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+
+		try
+		{
+			QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+			Assert.fail('Expected the registered aggregate exception to be thrown before the aggregate rows answer');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, QueryException.class, 'Expected the registered QueryException');
+			Assert.areEqual(AGGREGATE_FAILURE_MESSAGE, error.getMessage(), 'Expected the exact registered exception');
+		}
+
+		QRY_Engine.clearMockException(Foobar__c.SObjectType);
+		QRY_Engine.QueryResult result = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+
+		Assert.areEqual(ONE_ROW, result.aggregateRows?.size(), 'Expected the aggregate rows to answer once the exception is cleared');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that an aggregate query with no mock of any kind reads the database: the stored row is
+	 * counted, and the result holds the real aggregate result row, not mocked rows.
+	 */
+	@IsTest
+	private static void shouldReadTheDatabaseWhenNoMockOfAnyKindExistsForAnAggregateQuery()
+	{
+		TST_Factory.insertFoobar();
+
+		QRY_Engine.QueryResult result = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+
+		Assert.isNull(result.aggregateRows, 'Expected no mocked aggregate rows');
+		Assert.areEqual(ONE_ROW, result.records.size(), 'Expected the one real aggregate result row');
+		Assert.isFalse(result.isMocked, 'Expected the database to answer');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that registered aggregate rows never answer a row query on the same object: the row query
+	 * reads the stored row from the database. The row query also leaves queued aggregate rows in place, so the next
+	 * aggregate query still gets them.
+	 */
+	@IsTest
+	private static void shouldNotAnswerARowQueryFromAggregateRows()
+	{
+		Foobar__c stored = TST_Factory.insertFoobar();
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+		QRY_Engine.queueAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {SECOND_TOTAL}));
+
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id FROM ' + OBJECT_NAME;
+		QRY_Engine.QueryResult result = QRY_Engine.execute(parameters);
+
+		Assert.isNull(result.aggregateRows, 'Expected no aggregate rows on a row query');
+		Assert.isFalse(result.isMocked, 'Expected the database to answer the row query');
+		Assert.areEqual(stored.Id, result.records[0].Id, 'Expected the stored row');
+
+		QRY_Engine.QueryResult aggregateResult = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+
+		Assert.areEqual(ONE_ROW, aggregateResult.aggregateRows?.size(), 'Expected the queued aggregate rows to answer the next aggregate query');
+		Assert.areEqual(SECOND_TOTAL, aggregateResult.aggregateRows?.get(0)?.get(TOTAL_ALIAS), 'Expected the queued row, which the row query left in place');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that registered aggregate rows answer an aggregate query even when record mocks for the same
+	 * object exist too: a list set with setMock and a queued record answer. The record mocks do not cause an error, and
+	 * the queued record answer is not used up: the next row query still gets it.
+	 */
+	@IsTest
+	private static void shouldAnswerAnAggregateQueryFromRowsWhenRecordMocksAlsoExist()
+	{
+		QRY_Engine.setMock(Foobar__c.SObjectType, TST_Builder.of(Foobar__c.SObjectType).withCount(RECORD_MOCK_COUNT).withoutInsertion(true).buildList());
+		List<SObject> queued = TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).buildList();
+		QRY_Engine.queueMock(Foobar__c.SObjectType, queued);
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+
+		QRY_Engine.QueryResult aggregateResult = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+
+		Assert.areEqual(ONE_ROW, aggregateResult.aggregateRows?.size(), 'Expected the aggregate rows to answer the aggregate query');
+		Assert.areEqual(FIRST_TOTAL, aggregateResult.aggregateRows?.get(0)?.get(TOTAL_ALIAS), 'Expected the registered aggregate row');
+
+		QRY_Engine.QueryParameters rowParameters = new QRY_Engine.QueryParameters();
+		rowParameters.objectType = Foobar__c.SObjectType;
+		rowParameters.queryString = 'SELECT Id FROM ' + OBJECT_NAME;
+		QRY_Engine.QueryResult rowResult = QRY_Engine.execute(rowParameters);
+
+		Assert.isTrue(rowResult.isMocked, 'Expected the row query to get a mocked answer');
+		Assert.areEqual(queued[0].Id, rowResult.records[0].Id, 'Expected the queued record, which the aggregate query left in place');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that a queued aggregate answer wins over record mocks for the same object: a list set with
+	 * setMock and a queued record answer. The aggregate query uses up the queued aggregate answer and leaves the record
+	 * mocks as they were. The next row query gets the queued record answer, and the one after that gets the records set
+	 * with setMock.
+	 */
+	@IsTest
+	private static void shouldAnswerAnAggregateQueryFromAQueuedAnswerWhenRecordMocksAlsoExist()
+	{
+		List<SObject> standingRecords = TST_Builder.of(Foobar__c.SObjectType).withCount(RECORD_MOCK_COUNT).withoutInsertion(true).buildList();
+		QRY_Engine.setMock(Foobar__c.SObjectType, standingRecords);
+		List<SObject> queued = TST_Builder.of(Foobar__c.SObjectType).withoutInsertion(true).buildList();
+		QRY_Engine.queueMock(Foobar__c.SObjectType, queued);
+		QRY_Engine.queueAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+
+		QRY_Engine.QueryResult aggregateResult = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+
+		Assert.areEqual(ONE_ROW, aggregateResult.aggregateRows?.size(), 'Expected the queued aggregate answer to answer the aggregate query');
+		Assert.areEqual(FIRST_TOTAL, aggregateResult.aggregateRows?.get(0)?.get(TOTAL_ALIAS), 'Expected the queued aggregate row');
+		Assert.isFalse(QRY_Engine.hasAggregateMock(Foobar__c.SObjectType), 'Expected the queued aggregate answer to be used up');
+		Assert.areEqual(standingRecords, QRY_Engine.getMock(Foobar__c.SObjectType), 'Expected the records set with setMock to be left as they were');
+
+		QRY_Engine.QueryParameters rowParameters = new QRY_Engine.QueryParameters();
+		rowParameters.objectType = Foobar__c.SObjectType;
+		rowParameters.queryString = 'SELECT Id FROM ' + OBJECT_NAME;
+		QRY_Engine.QueryResult firstRowResult = QRY_Engine.execute(rowParameters);
+		QRY_Engine.QueryResult secondRowResult = QRY_Engine.execute(rowParameters);
+
+		Set<Id> queuedIds = new Map<Id, SObject>(queued).keySet();
+		Set<Id> standingIds = new Map<Id, SObject>(standingRecords).keySet();
+		Assert.areEqual(queuedIds, new Map<Id, SObject>(firstRowResult.records).keySet(), 'Expected the queued record answer, which the aggregate query left in place');
+		Assert.areEqual(standingIds, new Map<Id, SObject>(secondRowResult.records).keySet(), 'Expected the records set with setMock');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that each aggregate query answered from standing aggregate rows gets its own list. A test that
+	 * adds a row to one result does not change the next result, or the rows that are registered.
+	 */
+	@IsTest
+	private static void shouldReturnANewListOfAggregateRowsForEachQuery()
+	{
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL, SECOND_TOTAL}));
+
+		QRY_Engine.QueryResult first = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+		first.aggregateRows.add(new Map<String, Object> {TOTAL_ALIAS => THIRD_TOTAL});
+		QRY_Engine.QueryResult second = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+
+		Assert.areEqual(TWO_ROWS, second.aggregateRows?.size(), 'Expected the second result to hold only the two registered rows');
+		Assert.areEqual(TWO_ROWS, second.totalRecords, 'Expected the second total to count only the two registered rows');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that addAggregateMock puts its rows after the rows set earlier for the object, so one aggregate
+	 * query returns both sets, the first set first. The rows are kept in a new list: adding the rows leaves the list
+	 * given to setAggregateMock as it was, and a row added later to either caller's list does not answer the query.
+	 */
+	@IsTest
+	private static void shouldAddAggregateRowsAfterTheRowsSetEarlier()
+	{
+		List<Map<String, Object>> setRows = newAggregateRows(new List<Integer> {FIRST_TOTAL});
+		List<Map<String, Object>> addedRows = newAggregateRows(new List<Integer> {SECOND_TOTAL});
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, setRows);
+
+		QRY_Engine.addAggregateMock(Foobar__c.SObjectType, addedRows);
+
+		Assert.areEqual(ONE_ROW, setRows.size(), 'Expected adding rows to leave the list given to setAggregateMock as it was');
+		setRows.add(new Map<String, Object> {TOTAL_ALIAS => THIRD_TOTAL});
+		addedRows.add(new Map<String, Object> {TOTAL_ALIAS => THIRD_TOTAL});
+		QRY_Engine.QueryResult result = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+		Assert.areEqual(TWO_ROWS, result.aggregateRows?.size(), 'Expected the rows set first and the rows added, and no row added to a caller list later');
+		Assert.areEqual(FIRST_TOTAL, result.aggregateRows?.get(0)?.get(TOTAL_ALIAS), 'Expected the rows set first to come first');
+		Assert.areEqual(SECOND_TOTAL, result.aggregateRows?.get(1)?.get(TOTAL_ALIAS), 'Expected the added rows to come after them');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that addAggregateMock with an empty list, when no rows were set for the object, makes an
+	 * aggregate query find nothing instead of reading the database, and that a later empty list adds no row.
+	 */
+	@IsTest
+	private static void shouldAnswerWithNoRowsWhenAnEmptyListIsAddedFirst()
+	{
+		QRY_Engine.addAggregateMock(Foobar__c.SObjectType, new List<Map<String, Object>>());
+		QRY_Engine.QueryResult emptyResult = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+		Assert.isNotNull(emptyResult.aggregateRows, 'Expected the empty list to answer the query instead of the database');
+		Assert.isTrue(emptyResult.aggregateRows.isEmpty(), 'Expected the empty list to make the query find nothing');
+
+		QRY_Engine.addAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+		QRY_Engine.addAggregateMock(Foobar__c.SObjectType, new List<Map<String, Object>>());
+		QRY_Engine.QueryResult result = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+		Assert.areEqual(ONE_ROW, result.aggregateRows?.size(), 'Expected a later empty list to add no row and remove none');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that addAggregateMock refuses a null object type, and refuses null rows with a message that
+	 * points at the empty list.
+	 */
+	@IsTest
+	private static void shouldRefuseNullArgumentsWhenAddingAggregateRows()
+	{
+		try
+		{
+			QRY_Engine.addAggregateMock(null, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+			Assert.fail('Expected a null object type to be refused when adding aggregate rows');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for a null object type');
+			Assert.isTrue(error.getMessage().contains(NULL_TYPE_HINT), 'Expected the refusal to name the SObjectType: ' + error.getMessage());
+		}
+		try
+		{
+			QRY_Engine.addAggregateMock(Foobar__c.SObjectType, null);
+			Assert.fail('Expected null rows to be refused when adding aggregate rows');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for null rows');
+			Assert.isTrue(error.getMessage().contains(EMPTY_LIST_HINT), 'Expected the refusal to point at the empty list: ' + error.getMessage());
+		}
+		Assert.isFalse(QRY_Engine.hasAggregateMock(Foobar__c.SObjectType), 'Expected a refused call to register no rows');
+	}
+
+	/**
+	 * @description Tests every way of clearing aggregate rows: clearMocks, clearAggregateMocks, clearAggregateMock for
+	 * one object and setAggregateMock with null rows. After each, an aggregate query reads the database. Rows
+	 * registered for another object survive clearAggregateMock.
+	 */
+	@IsTest
+	private static void shouldClearAggregateMocksThroughEveryClearPath()
+	{
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+		QRY_Engine.queueAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {SECOND_TOTAL}));
+		QRY_Engine.clearMocks();
+		Assert.isNull(QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType)).aggregateRows, 'Expected clearMocks to clear the aggregate rows');
+
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+		QRY_Engine.queueAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {SECOND_TOTAL}));
+		QRY_Engine.clearAggregateMocks();
+		Assert.isNull(QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType)).aggregateRows, 'Expected clearAggregateMocks to clear the aggregate rows');
+
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+		QRY_Engine.queueAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {SECOND_TOTAL}));
+		QRY_Engine.setAggregateMock(Account.SObjectType, newAggregateRows(new List<Integer> {THIRD_TOTAL}));
+		QRY_Engine.clearAggregateMock(Foobar__c.SObjectType);
+		Assert.isNull(QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType)).aggregateRows, 'Expected clearAggregateMock to clear that object');
+		QRY_Engine.QueryResult otherObject = QRY_Engine.execute(newAggregateParameters(Account.SObjectType));
+		Assert.areEqual(THIRD_TOTAL, otherObject.aggregateRows?.get(0)?.get(TOTAL_ALIAS), 'Expected the other object to keep its aggregate rows');
+
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, null);
+		Assert.isNull(QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType)).aggregateRows, 'Expected null rows to clear the standing rows');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Tests that the aggregate mock setters refuse a null object type, and that queueing refuses null
+	 * rows with a message that points at the empty list.
+	 */
+	@IsTest
+	private static void shouldRefuseNullArgumentsOnTheAggregateMockSetters()
+	{
+		try
+		{
+			QRY_Engine.setAggregateMock(null, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+			Assert.fail('Expected a null object type to be refused when setting aggregate rows');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for a null object type');
+			Assert.isTrue(error.getMessage().contains(NULL_TYPE_HINT), 'Expected the refusal to name the SObjectType: ' + error.getMessage());
+		}
+
+		assertQueueAggregateMockRefused(null, newAggregateRows(new List<Integer> {FIRST_TOTAL}), NULL_TYPE_HINT);
+		assertQueueAggregateMockRefused(Foobar__c.SObjectType, null, EMPTY_LIST_HINT);
+	}
+
+	/**
+	 * @description Tests that hasAggregateMock says whether aggregate rows will answer an aggregate query on an object:
+	 * false with none, true with standing rows, true with only a queued answer, and false again once cleared. Looking
+	 * does not use up the queued answer: the next aggregate query still gets it.
+	 */
+	@IsTest
+	private static void shouldReportWhetherAnAggregateMockIsRegistered()
+	{
+		Assert.isFalse(QRY_Engine.hasAggregateMock(Foobar__c.SObjectType), 'Expected no aggregate mock before any is registered');
+
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+		Assert.isTrue(QRY_Engine.hasAggregateMock(Foobar__c.SObjectType), 'Expected standing aggregate rows to count as an aggregate mock');
+		QRY_Engine.clearAggregateMocks();
+
+		QRY_Engine.queueAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {SECOND_TOTAL}));
+		Assert.isTrue(QRY_Engine.hasAggregateMock(Foobar__c.SObjectType), 'Expected a queued aggregate answer to count as an aggregate mock');
+		QRY_Engine.QueryResult result = QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+		Assert.areEqual(SECOND_TOTAL, result.aggregateRows?.get(0)?.get(TOTAL_ALIAS), 'Expected the queued answer to be left in place by the check');
+
+		QRY_Engine.setAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {FIRST_TOTAL}));
+		QRY_Engine.queueAggregateMock(Foobar__c.SObjectType, newAggregateRows(new List<Integer> {SECOND_TOTAL}));
+		QRY_Engine.clearAggregateMock(Foobar__c.SObjectType);
+		Assert.isFalse(QRY_Engine.hasAggregateMock(Foobar__c.SObjectType), 'Expected no aggregate mock once cleared');
+
+		QRY_Engine.clearMocks();
+	}
+
+	/**
+	 * @description Runs an aggregate query on Foobar__c and checks that it is refused because only record mocks exist.
+	 * The error must be an IllegalStateException, and its message must name TST_Mock.registerAggregateRows, so the
+	 * developer knows how to fix the test.
+	 *
+	 * @param scenario Words that say which record mock the test registered, used in the assert messages.
+	 */
+	private static void assertAggregateQueryRefused(String scenario)
+	{
+		try
+		{
+			QRY_Engine.execute(newAggregateParameters(Foobar__c.SObjectType));
+			Assert.fail('Expected ' + scenario + ' to refuse the aggregate query');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class, 'Expected an IllegalStateException for ' + scenario);
+			Assert.isTrue(error.getMessage().contains(REGISTER_AGGREGATE_ROWS_HINT), 'Expected the message to name the fix: ' + error.getMessage());
+		}
+	}
+
+	/**
+	 * @description Queues aggregate rows with a null argument and checks that the call is refused with an
+	 * IllegalArgumentException whose message carries the given text.
+	 *
+	 * @param objectType The object to queue the rows for, or null to test a missing object type.
+	 * @param rows The rows to queue, or null to test missing rows.
+	 * @param expectedHint The text the refusal message must carry.
+	 */
+	private static void assertQueueAggregateMockRefused(SObjectType objectType, List<Map<String, Object>> rows, String expectedHint)
+	{
+		try
+		{
+			QRY_Engine.queueAggregateMock(objectType, rows);
+			String nullArgument = objectType == null ? 'a null object type' : 'null rows';
+			Assert.fail('Expected queueing aggregate rows with ' + nullArgument + ' to be refused');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an IllegalArgumentException for a null argument in the queue');
+			Assert.isTrue(error.getMessage().contains(expectedHint), 'Expected the refusal to carry the text ' + expectedHint + ': ' + error.getMessage());
 		}
 	}
 
