@@ -1,0 +1,22 @@
+{
+	"reason": "Framework components that extend LightningElement directly on purpose. kerndx/use-component-builder is a rule for subscriber components, so check 2.3e allows these and fails on any other component the rule reports. Add a component here only when it is framework infrastructure that ComponentBuilder cannot serve, and remove it when it moves to ComponentBuilder.",
+	"components": [
+		"jsonViewer",
+		"maskingRulePicker",
+		"modal",
+		"notice",
+		"orgLimits",
+		"scheduledJobClassPicker",
+		"streamingActions",
+		"streamingEventFilters",
+		"streamingEvents",
+		"streamingEventsHeader",
+		"streamingMonitor",
+		"streamingSidebar",
+		"streamingSubscriptions",
+		"streamingTimeline",
+		"streamingUsageFilters",
+		"streamingUsageMetrics",
+		"validationErrors"
+	]
+}

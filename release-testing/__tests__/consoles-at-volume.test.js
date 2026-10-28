@@ -2,7 +2,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const {STAGE_ORDER, loadStage, exitCodeFor, runStage, pinOrgAlias} = require('../scripts/consoles-at-volume');
+const {STAGE_ORDER, loadStage, exitCodeFor, runStage, pinOrgAlias, assertManifestBelongsToOrg} = require('../scripts/consoles-at-volume');
 const verify = require('../scripts/consoles-at-volume/verify');
 
 const BACKSTOP_PHRASE = 'Chain run transition refused by the backstop';
@@ -51,6 +51,19 @@ describe('the driver entry', () =>
 		const unset = {};
 		pinOrgAlias({alias: undefined}, unset);
 		expect(unset).toEqual({});
+	});
+
+	it('refuses a manifest from another alias without calling the org, and one whose alias now opens another org', () =>
+	{
+		const manifest = {runToken: 'abcdefab', org: {alias: 'KernSubscriber19', userId: '005A'}};
+		const salesforce = {runUserId: jest.fn(() => '005B')};
+		expect(() => assertManifestBelongsToOrg(manifest, {alias: 'KernSubscriber20', manifestPath: 'm.json'}, salesforce)).toThrow(/KernSubscriber19.*KernSubscriber20/);
+		expect(salesforce.runUserId).not.toHaveBeenCalled();
+		expect(() => assertManifestBelongsToOrg(manifest, {alias: 'KernSubscriber19', manifestPath: 'm.json'}, salesforce)).toThrow(/no longer exists/);
+		const gone = {runUserId: jest.fn(() => { throw new Error('No authorization information found for KernSubscriber19.\nmore'); })};
+		expect(() => assertManifestBelongsToOrg(manifest, {alias: 'KernSubscriber19'}, gone)).toThrow(/could not be reached \(No authorization information found for KernSubscriber19\.\)/);
+		const same = {runUserId: jest.fn(() => '005A')};
+		expect(() => assertManifestBelongsToOrg(manifest, {alias: 'KernSubscriber19'}, same)).not.toThrow();
 	});
 
 	it('resolves every stage and teardown to a module with a run function', () =>

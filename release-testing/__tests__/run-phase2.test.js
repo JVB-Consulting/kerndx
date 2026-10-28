@@ -1406,10 +1406,19 @@ describe('runScanner', () =>
 		'kerndx/no-console-log'
 	];
 
-	// An ESLint JSON report with one file that holds one problem for each rule named.
-	function eslintReport(ruleIds)
+	const ALLOWED_COMPONENTS = require('../runner/lightning-element-components.json').components;
+
+	// An ESLint JSON report with one file that holds one problem for each rule named, in the component named.
+	function eslintReport(ruleIds, component = 'component')
 	{
-		return JSON.stringify([{filePath: 'component.js', messages: ruleIds.map(ruleId => ({ruleId, severity: 2}))}]);
+		return JSON.stringify([{filePath: `/lwc/${component}/${component}.js`, messages: ruleIds.map(ruleId => ({ruleId, severity: 2}))}]);
+	}
+
+	// The framework scan as it reads when every allowed component extends LightningElement, plus the reports given.
+	function frameworkReport(...extraReports)
+	{
+		const allowed = ALLOWED_COMPONENTS.map(component => JSON.parse(eslintReport(['kerndx/use-component-builder'], component))[0]);
+		return JSON.stringify([...allowed, ...extraReports.flatMap(report => JSON.parse(report))]);
 	}
 
 	// ESLint ends with exit code 1 when it finds a problem: the report is on the error the command throws.
@@ -1453,7 +1462,7 @@ describe('runScanner', () =>
 
 	it('records every problem the fixture scan reports, though ESLint ends with exit code 1 when it finds one', async() =>
 	{
-		mockScans(eslintFoundProblems(FIXTURE_SCAN_PROBLEMS), eslintReport([]));
+		mockScans(eslintFoundProblems(FIXTURE_SCAN_PROBLEMS), frameworkReport());
 
 		const {eslint} = await runScanner();
 
@@ -1481,6 +1490,38 @@ describe('runScanner', () =>
 		const {eslint} = await runScanner();
 
 		expect(eslint.frameworkViolations).toBe(1);
+	});
+
+	it('allows the listed components to extend LightningElement and counts any other component', async() =>
+	{
+		mockScans(eslintReport([]), frameworkReport(eslintReport(['kerndx/use-component-builder'], 'newComponent')));
+
+		const {eslint} = await runScanner();
+
+		expect(eslint.frameworkViolations).toBe(1);
+		expect(eslint.notes).toBe('');
+	});
+
+	it('reads zero when only the listed components extend LightningElement', async() =>
+	{
+		mockScans(eslintReport([]), frameworkReport());
+
+		const {eslint} = await runScanner();
+
+		expect(eslint.frameworkViolations).toBe(0);
+		expect(eslint.notes).toBe('');
+	});
+
+	it('names a listed component the rule no longer reports, so the list can shrink', async() =>
+	{
+		const [movedComponent] = ALLOWED_COMPONENTS;
+		const stillReported = JSON.parse(frameworkReport()).filter(file => !file.filePath.includes(`/${movedComponent}/`));
+		mockScans(eslintReport([]), JSON.stringify(stillReported));
+
+		const {eslint} = await runScanner();
+
+		expect(eslint.frameworkViolations).toBe(0);
+		expect(eslint.notes).toContain(movedComponent);
 	});
 
 	it('records no count, and says why, when a scan cannot report', async() =>

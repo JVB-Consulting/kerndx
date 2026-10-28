@@ -130,7 +130,6 @@ export function findListedClassName(typedName, listedNames)
 	return prefixedNames.length === 1 ? prefixedNames[0] : name;
 }
 
-// eslint-disable-next-line kerndx/use-component-builder -- a plain form field with no toasts, Apex calls or navigation, as maskingRulePicker
 export default class ScheduledJobClassPicker extends LightningElement
 {
 	/**

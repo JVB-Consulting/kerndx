@@ -24,7 +24,7 @@
  * SEL_PlatformEventUsageMetric.maxRangeHuman / minRangeHuman.
  *
  * @author Jason van Beukering
- * @date March 2026, June 2026
+ * @date March 2026, October 2026
  */
 import {LightningElement, api} from 'lwc';
 import {formatCount} from 'c/utilityStreaming';
@@ -138,7 +138,6 @@ function formatLabel(template, value)
 
 // ── Component ────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingUsageFilters extends LightningElement
 {
 	// ── Internal State ───────────────────────────────────────────────────

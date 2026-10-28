@@ -3,7 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const {
-	createManifest, readManifest, writeManifest, recordStage, isStageDone, assertSameRun, describeManifest, newRunToken, letterOrdinal, mintVolumeId, KINDS,
+	createManifest, readManifest, writeManifest, recordStage, isStageDone, assertSameRun, describeForeignManifest, describeManifest, newRunToken, letterOrdinal, mintVolumeId, KINDS,
 	VOLUME_ID_SHAPE
 } = require('../scripts/consoles-at-volume/manifest');
 
@@ -59,6 +59,26 @@ describe('the manifest', () =>
 		expect(() => assertSameRun(manifest, {mode: 'staged', size: 0.5, alias: 'X'})).toThrow(/size/);
 		expect(() => assertSameRun(manifest, {mode: 'staged', size: 1, alias: 'Other'})).toThrow(/org/);
 		expect(() => assertSameRun(manifest, {mode: 'staged', size: 1, alias: 'X'})).not.toThrow();
+	});
+
+	it('refuses a manifest from another org by naming both orgs and asking for it to be archived, never deleted', () =>
+	{
+		const manifest = createManifest({mode: 'staged', size: 1, runToken: 'abcdefab', org: {alias: 'KernSubscriber19', namespacePrefix: '', userId: '005A'}, startedAt: STARTED_AT, shape: {}});
+		const message = describeForeignManifest(manifest, {alias: 'KernSubscriber20', manifestPath: 'tmp/m.json'});
+		expect(message).toContain('The manifest at tmp/m.json belongs to org KernSubscriber19, but this command targets org KernSubscriber20');
+		expect(message).toContain('Archive the manifest');
+		expect(message).toContain('manifest-abcdefab-KernSubscriber19.json');
+		expect(message).toContain('It is not deleted for you');
+		expect(() => assertSameRun(manifest, {mode: 'staged', size: 1, alias: 'KernSubscriber20'})).toThrow(/belongs to org KernSubscriber19.*targets org KernSubscriber20/);
+	});
+
+	it('refuses a manifest whose alias now opens another org, or whose org cannot be reached', () =>
+	{
+		const manifest = createManifest({mode: 'staged', size: 1, runToken: 'abcdefab', org: {alias: 'Sub', namespacePrefix: '', userId: '005A'}, startedAt: STARTED_AT, shape: {}});
+		expect(describeForeignManifest(manifest, {alias: 'Sub', userId: '005B'})).toContain('no longer exists');
+		expect(describeForeignManifest(manifest, {alias: 'Sub', unreachable: 'No authorization found'})).toContain('could not be reached (No authorization found)');
+		expect(describeForeignManifest(manifest, {alias: 'Sub', userId: '005A'})).toBeNull();
+		expect(describeForeignManifest(null, {alias: 'Sub'})).toBeNull();
 	});
 
 	it('reads a missing manifest as null', () =>

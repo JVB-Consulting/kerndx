@@ -111,7 +111,7 @@ try
 	}
 
 	// -----------------------------------------------------------------------
-	// Test 24e: Verify MockingEnabled is true on CMDT (auto-mock active)
+	// Test 24e: Verify MockingEnabled is true on CMDT (the box is ticked; mocking also needs Mock Selected APIs)
 	// -----------------------------------------------------------------------
 	{
 		kern__ApiSetting__mdt setting =
@@ -126,7 +126,8 @@ try
 				setting.kern__MockingEnabled__c == true,
 				'24e FAIL: MockingEnabled should be true for test environment'
 		);
-		System.debug('24e PASS: EchoSubscriber CMDT MockingEnabled=true — delegation auto-mock will activate');
+		System.debug('24e PASS: EchoSubscriber CMDT MockingEnabled=true: the box is ticked. It answers from mock data only for users '
+				+ 'the Mock Selected APIs feature flag is on for (or when Mock All APIs is on)');
 	}
 
 	System.debug('=== Section 24 COMPLETE: All delegation override baseline tests passed ===');

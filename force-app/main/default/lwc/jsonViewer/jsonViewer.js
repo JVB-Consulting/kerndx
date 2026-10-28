@@ -4,7 +4,7 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2020, February 2026
+ * @date February 2020, October 2026
  */
 
 import {api, LightningElement} from 'lwc';
@@ -54,7 +54,6 @@ function getTokenClassName(token)
 
 // ── Component ────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class JsonViewer extends LightningElement
 {
 	// ── Internal State ───────────────────────────────────────────────────
@@ -107,10 +106,9 @@ export default class JsonViewer extends LightningElement
 
 		if(container)
 		{
-			// eslint-disable-next-line @lwc/lwc/no-inner-html -- clear container before re-rendering syntax-highlighted JSON
-			container.innerHTML = '';
+			container.textContent = '';
 			// eslint-disable-next-line @lwc/lwc/no-inner-html -- inject pre-sanitized syntax-highlighted JSON markup
-			container.insertAdjacentHTML('afterbegin', this.renderedText);
+			container.insertAdjacentHTML('afterbegin', this.renderedText ?? '');
 		}
 	}
 

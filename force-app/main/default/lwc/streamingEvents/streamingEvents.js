@@ -18,7 +18,7 @@
  *   - Supports clearing and downloading events
  *   - Handles event selection and modal display
  *
- * @date March 2026, July 2026
+ * @date March 2026, October 2026
  */
 import {LightningElement, api, wire} from 'lwc';
 import {getRecord, getFieldValue} from 'lightning/uiRecordApi';
@@ -93,7 +93,6 @@ function matchesFilter(event, filters)
 
 // ── Component ────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingEvents extends LightningElement
 {
 	// ── Internal State ───────────────────────────────────────────────────

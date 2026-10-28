@@ -21,7 +21,7 @@
  *   afterTime: <epoch ms | undefined>
  * }
  *
- * @date March 2026, May 2026
+ * @date March 2026, October 2026
  */
 import {LightningElement, api} from 'lwc';
 import channelLabel from '@salesforce/label/c.EventMonitor_Filter_ChannelLabel';
@@ -54,7 +54,6 @@ function convertIsoToEpochMs(isoString)
 
 // ── Component ────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingEventFilters extends LightningElement
 {
 	// ── Internal State ───────────────────────────────────────────────────

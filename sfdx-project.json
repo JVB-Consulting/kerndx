@@ -9,6 +9,6 @@
   "sfdcLoginUrl": "https://login.salesforce.com",
   "sourceApiVersion": "68.0",
   "packageAliases": {
-    "Kern@1.9.0-4": "04tfj000000drajAAA"
+    "Kern@1.10.0-4": "04tfj000000fkuvAAA"
   }
 }

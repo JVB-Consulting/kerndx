@@ -53,27 +53,27 @@
 //
 // 1. Create a local override CMDT record (e.g., in a scratch org project or SFDX source):
 //
-//    File: customMetadata/kern__FeatureFlag.DisableAllOutboundAPIs.md-meta.xml
+//    File: customMetadata/kern__FeatureFlag.kern__DisableAllOutboundAPIs.md-meta.xml
 //    Change: <field>kern__IsEnabledByDefault__c</field> <value xsi:type="xsd:boolean">true</value>
 //
 // 2. Deploy the override to the subscriber org:
 //
-//    sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.DisableAllOutboundAPIs"
+//    sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.kern__DisableAllOutboundAPIs"
 //
 // 3. Re-run this script — test 8a should now return true.
 //
 // 4. To restore defaults, redeploy with IsEnabledByDefault=false:
 //
-//    sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.DisableAllOutboundAPIs"
+//    sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.kern__DisableAllOutboundAPIs"
 //
 // Alternatively, subscribers can assign a FeatureFlagStrategy__mdt (e.g., Custom Permission)
 // to enable the flag for specific users or profiles without changing the default.
 //
 // Example CMDT override commands for each flag:
-//   sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.DisableAllOutboundAPIs"
-//   sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.DisableAllInboundAPIs"
-//   sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.DisableAllAPIs"
-//   sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.MockAllAPIs"
+//   sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.kern__DisableAllOutboundAPIs"
+//   sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.kern__DisableAllInboundAPIs"
+//   sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.kern__DisableAllAPIs"
+//   sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -m "CustomMetadata:kern__FeatureFlag.kern__MockAllAPIs"
 {
 	System.debug('8e PASS: Toggling documentation verified (see comments above for CMDT redeployment commands)');
 }

@@ -32,7 +32,11 @@ export default tseslint.config(// Always use the recommended rule set
 		// The framework package itself necessarily extends LightningElement
 		// in its base components and uses console.error in module-scoped
 		// fallback functions. These rules are disabled here; subscribers
-		// should enable them in their own eslint config.
+		// should enable them in their own eslint config. Because they are off
+		// for the package's own components, those components carry no inline
+		// eslint-disable comments for them. Release check 2.3e turns
+		// use-component-builder on and allows only the components listed in
+		// release-testing/runner/lightning-element-components.json.
 		// {
 		//     plugins: { kerndx: kerndxPlugin },
 		//     files: ['**/*.js'], ignores: ['**/*.test.js'],
@@ -63,6 +67,20 @@ export default tseslint.config(// Always use the recommended rule set
 				kerndx: kerndxPlugin
 			}, files: ['**/*.js'], ignores: ['**/*.test.js'], rules: {
 				'kerndx/no-hardcoded-user-text': 'warn'
+			}
+		},
+
+		// Two components fetch one object at a time on purpose: a small pool of workers each
+		// awaits its next object inside a loop, so the work stays cancellable, shows progress
+		// for each object and never floods the server with calls. The await inside the loop
+		// is the design (startScan in dataMaskingAdvisor, startFetch in maskingInventoryExportDialog),
+		// so no-await-in-loop is off for these two files only. Any other await in a loop there needs its own reason.
+		{
+			files: [
+				'**/dataMaskingAdvisor/dataMaskingAdvisor.js',
+				'**/maskingInventoryExportDialog/maskingInventoryExportDialog.js'
+			], rules: {
+				'no-await-in-loop': 'off'
 			}
 		},
 

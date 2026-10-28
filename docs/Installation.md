@@ -78,12 +78,12 @@ This is the fastest way to start. You install the ready-built package straight i
 
 ### Install the package
 
-**Current SubscriberPackageVersionId (1.9.0-4):** `04tfj000000drajAAA`
+**Current SubscriberPackageVersionId (1.10.0-4):** `04tfj000000fkuvAAA`
 
 **One-click install** (in the browser, no CLI needed; Salesforce prompts you to log in on the page):
 
-<a href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000drajAAA"><img src="https://img.shields.io/badge/Install-Production-blue.svg?style=for-the-badge" alt="Install in Production" width="187" height="28"></a>
-<a href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000drajAAA"><img src="https://img.shields.io/badge/Install-Sandbox-orange.svg?style=for-the-badge" alt="Install in Sandbox" width="163" height="28"></a>
+<a href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000fkuvAAA"><img src="https://img.shields.io/badge/Install-Production-blue.svg?style=for-the-badge" alt="Install in Production" width="187" height="28"></a>
+<a href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000fkuvAAA"><img src="https://img.shields.io/badge/Install-Sandbox-orange.svg?style=for-the-badge" alt="Install in Sandbox" width="163" height="28"></a>
 
 The same buttons appear on every entry of the [Releases page](https://github.com/JVB-Consulting/kerndx/releases), so you can pick the release that matches the version you want to install.
 
@@ -97,7 +97,7 @@ When the install page asks who to install for, choose **Install for Admins Only*
 your sandbox:
 
 ```shell
-sf package install --package 04tfj000000drajAAA -o YourOrgAlias --wait 15 --no-prompt
+sf package install --package 04tfj000000fkuvAAA -o YourOrgAlias --wait 15 --no-prompt
 ```
 
 You should see `Successfully installed package` when the install finishes.

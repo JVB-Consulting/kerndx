@@ -13,7 +13,7 @@
  *
  * The component emits events to communicate user actions to parent components.
  *
- * @date March 2026, July 2026
+ * @date March 2026, October 2026
  */
 import {LightningElement} from 'lwc';
 import viewTable from '@salesforce/label/c.EventUsageMetrics_View_Table';
@@ -32,7 +32,6 @@ const VIEW_MODES = [
 
 // ── Component ────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingEventsHeader extends LightningElement
 {
 	// ── Internal State ───────────────────────────────────────────────────

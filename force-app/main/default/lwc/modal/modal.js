@@ -7,7 +7,7 @@
  *
  * @author Jason van Beukering
  *
- * @date March 2026, May 2026
+ * @date March 2026, October 2026
  */
 import {LightningElement, api} from 'lwc';
 
@@ -38,7 +38,6 @@ function buildClassString(base, ...conditionals)
 	return parts.join(' ');
 }
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class Modal extends LightningElement
 {
 	// ── @api Properties ──────────────────────────────────────────────────

@@ -247,7 +247,6 @@ function computeBarGeometry(paddedBuckets, visibleSeriesIndices, chartWidth)
 
 // ── Component ────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingUsageMetrics extends LightningElement
 {
 	// ── Internal State ───────────────────────────────────────────────────

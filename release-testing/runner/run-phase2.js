@@ -89,10 +89,14 @@ const REPOSITORY_ROOT = path.join(__dirname, '..', '..');
 const ESLINT_FIXTURES_DIRECTORY = path.join(REPOSITORY_ROOT, 'release-testing', 'scanner', 'lwc');
 const FRAMEWORK_COMPONENTS_DIRECTORY = path.join(REPOSITORY_ROOT, 'force-app', 'main', 'default', 'lwc');
 const COMPONENT_BUILDER_RULE = 'kerndx/use-component-builder';
+// The framework components allowed to extend LightningElement: 2.3e counts the rule's problems in any other component.
+const LIGHTNING_ELEMENT_COMPONENTS = new Set(require('./lightning-element-components.json').components);
 const ESLINT_FIXTURES_COMMAND = 'npx eslint "**/*.js" --format json';
 const FRAMEWORK_COMPONENTS_COMMAND = `npx eslint --rule "${COMPONENT_BUILDER_RULE}: error" "**/*.js" --ignore-pattern "**/*.test.js" --format json`;
 const ESLINT_TIMEOUT_MILLISECONDS = 180_000;
 const ESLINT_OUTPUT_MAXIMUM_BYTES = 64 * 1024 * 1024;
+// The RunLocalTests JSON carries every class's coverage lines and passed Node's 1 MB default on 1.10.0-2 (ENOBUFS).
+const TEST_RUN_OUTPUT_MAXIMUM_BYTES = 64 * 1024 * 1024;
 
 // Waits for work that happens outside this process. Sections stub this wait in their unit tests so it fires at once.
 function pause(milliseconds)
@@ -526,7 +530,7 @@ async function runTestClasses()
 	try
 	{
 		const output = execSync(`sf apex run test -o ${ORG_ALIAS} --test-level RunLocalTests --result-format json --code-coverage --json --wait 15`,
-				{encoding: 'utf8', timeout: 600_000});
+				{encoding: 'utf8', timeout: 600_000, maxBuffer: TEST_RUN_OUTPUT_MAXIMUM_BYTES});
 		const result = JSON.parse(output);
 		const {outcome, testsRan, failing, testRunCoverage} = result.result?.summary || {};
 		return {
@@ -570,10 +574,39 @@ function readEslintReport(command, directory)
 	return JSON.parse(output);
 }
 
-// Counts the problems in an ESLint report, or only the problems of one rule when a rule is named.
-function countEslintProblems(report, ruleId)
+// Counts the problems in an ESLint report.
+function countEslintProblems(report)
 {
-	return report.flatMap(file => file.messages).filter(message => !ruleId || message.ruleId === ruleId).length;
+	return report.flatMap(file => file.messages).length;
+}
+
+// The folder name of the component that holds an ESLint report's file.
+function componentOf(file)
+{
+	return path.basename(path.dirname(file.filePath));
+}
+
+// Counts the component-builder problems outside the allowed components, and names each allowed component the rule no
+// longer reports, so the list shrinks when a component moves to ComponentBuilder.
+function countFrameworkComponentProblems(report)
+{
+	const reportedComponents = new Set();
+	let violations = 0;
+	for(const file of report)
+	{
+		const problems = file.messages.filter(message => message.ruleId === COMPONENT_BUILDER_RULE).length;
+		if(problems === 0)
+		{
+			continue;
+		}
+		reportedComponents.add(componentOf(file));
+		if(!LIGHTNING_ELEMENT_COMPONENTS.has(componentOf(file)))
+		{
+			violations += problems;
+		}
+	}
+	const noLongerReported = [...LIGHTNING_ELEMENT_COMPONENTS].filter(component => !reportedComponents.has(component));
+	return {violations, noLongerReported};
 }
 
 // Records both ESLint counts. A scan that cannot report leaves its count empty and says why, never a false zero.
@@ -592,7 +625,13 @@ function runEslintScans()
 	try
 	{
 		const frameworkReport = readEslintReport(FRAMEWORK_COMPONENTS_COMMAND, FRAMEWORK_COMPONENTS_DIRECTORY);
-		eslintResult.frameworkViolations = countEslintProblems(frameworkReport, COMPONENT_BUILDER_RULE);
+		const {violations, noLongerReported} = countFrameworkComponentProblems(frameworkReport);
+		eslintResult.frameworkViolations = violations;
+		if(noLongerReported.length > 0)
+		{
+			failures.push('Allowed to extend LightningElement but no longer reported (remove from lightning-element-components.json): '
+					+ noLongerReported.join(', ') + '.');
+		}
 	}
 	catch(error)
 	{

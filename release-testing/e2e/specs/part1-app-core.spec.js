@@ -81,6 +81,11 @@ const WATCHDOG_CLASS_NAME = 'kern.SCHED_ChainWatchdog';
 const WATCHDOG_DEFAULT_CRON = '0 0 * * * ?';
 const WATCHDOG_DEFAULT_STALE_THRESHOLD_MINUTES = '30';
 const WATCHDOG_DEFAULT_BATCH_SIZE = '50';
+// The Health Check row that names the active API Settings with Mocking Enabled ticked (label
+// HealthCheck_SelectedApiMocking_CheckName). The subscriber org ships four such outgoing settings (API_GetPost,
+// EchoSubscriber, FastStart_OutboundAPI_DEMO, Recipe_CaseDelivery_SERVICE), so the row warns at every step of part1,
+// whatever the mocking flags are.
+const SELECTED_API_MOCKING_CHECK_NAME = 'Selected API Mocking';
 // V5: the label of the list view the package ships for calls whose status is Aborted (objects/ApiCall__c/listViews/Aborted).
 const ABORTED_LIST_VIEW = 'Aborted';
 
@@ -128,15 +133,19 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 			await expect(home.toolLaunchButton(key), `Tool card "${key}" should have a launch button`).toBeVisible();
 		}
 
-		// At this point the org warns on exactly two checks: Data Retention (no purge jobs) and
-		// Chain Watchdog (no recovery job — the beforeAll delete guarantees that warn baseline).
+		// At this point the org warns on exactly three checks: Data Retention (no purge jobs),
+		// Chain Watchdog (no recovery job — the beforeAll delete guarantees that warn baseline) and
+		// Selected API Mocking (the subscriber org's outgoing settings with Mocking Enabled ticked).
 		// Chain Abort Capability passes only because the beforeAll granted the runner the
-		// AsyncChainAbort permission set; a truly pristine org would show it as a third warning.
+		// AsyncChainAbort permission set; a truly pristine org would show it as a fourth warning.
 		const actionItems = await home.getHealthCheckActionItems();
-		expect(actionItems.length, 'Subscriber org at the part1 baseline should have exactly 2 health check warnings (Data Retention, Chain Watchdog)').toBe(2);
+		expect(actionItems.length, 'Subscriber org at the part1 baseline should have exactly 3 health check warnings '
+			+ '(Data Retention, Chain Watchdog, Selected API Mocking)').toBe(3);
 		const warningNames = actionItems.map(item => item.name);
 		expect(warningNames.some(name => name.includes('Data Retention')), 'Data Retention should warn on a fresh org').toBeTruthy();
 		expect(warningNames.some(name => name.includes(WATCHDOG_CHECK_NAME)), 'Chain Watchdog should warn on a fresh org').toBeTruthy();
+		expect(warningNames.some(name => name.includes(SELECTED_API_MOCKING_CHECK_NAME)),
+			'Selected API Mocking should warn: the subscriber org has outgoing settings with Mocking Enabled ticked').toBeTruthy();
 
 		const warnSectionVisible = await home.warnSection().isVisible();
 		expect(warnSectionVisible, 'Data Retention is a warn-tier check and must render inside the Review-recommended section').toBe(true);
@@ -196,7 +205,9 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		await home.refreshHealthCheck();
 
 		const partialItems = await home.getHealthCheckActionItems();
-		expect(partialItems.length, 'Only Data Retention and Chain Watchdog should warn with 1 of 4 objects configured').toBe(2);
+		expect(partialItems.length, 'Only Data Retention, Chain Watchdog and Selected API Mocking should warn with 1 of 4 objects configured').toBe(3);
+		expect(partialItems.some(item => item.name.includes(SELECTED_API_MOCKING_CHECK_NAME)),
+			'Selected API Mocking should still warn: purge jobs do not change it').toBeTruthy();
 		const retentionItem = partialItems.find(item => item.name.includes('Data Retention'));
 		expect(retentionItem, 'Data Retention should still warn with 1 of 4 objects configured').toBeTruthy();
 		expect(retentionItem.detail, 'Should not mention Log Entry after its purge job is created').not.toContain('Log Entry');
@@ -209,8 +220,11 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 		await home.refreshHealthCheck();
 
 		const remainingItems = await home.getHealthCheckActionItems();
-		expect(remainingItems.length, 'Only the Chain Watchdog warning should remain when all 4 purge jobs are configured').toBe(1);
-		expect(remainingItems[0].name, 'The remaining warning should be Chain Watchdog, proving Data Retention passes').toContain(WATCHDOG_CHECK_NAME);
+		expect(remainingItems.length, 'Only the Chain Watchdog and Selected API Mocking warnings should remain when all 4 purge jobs are configured').toBe(2);
+		const remainingNames = remainingItems.map(item => item.name);
+		expect(remainingNames.some(name => name.includes(WATCHDOG_CHECK_NAME)), 'Chain Watchdog should still warn').toBeTruthy();
+		expect(remainingNames.some(name => name.includes(SELECTED_API_MOCKING_CHECK_NAME)), 'Selected API Mocking should still warn').toBeTruthy();
+		expect(remainingNames.some(name => name.includes('Data Retention')), 'Data Retention should pass with all 4 purge jobs configured').toBeFalsy();
 
 		executeAnonymousApex('delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];');
 	});
@@ -236,8 +250,11 @@ test.describe.serial('Part 1: App Home & Core Pages', () =>
 
 		await home.refreshHealthCheck();
 		const remainingItems = await home.getHealthCheckActionItems();
-		expect(remainingItems.length, 'Only the Chain Watchdog warning should remain after apply').toBe(1);
-		expect(remainingItems[0].name, 'The remaining warning should be Chain Watchdog, proving Data Retention passes').toContain(WATCHDOG_CHECK_NAME);
+		expect(remainingItems.length, 'Only the Chain Watchdog and Selected API Mocking warnings should remain after apply').toBe(2);
+		const remainingNames = remainingItems.map(item => item.name);
+		expect(remainingNames.some(name => name.includes(WATCHDOG_CHECK_NAME)), 'Chain Watchdog should still warn after apply').toBeTruthy();
+		expect(remainingNames.some(name => name.includes(SELECTED_API_MOCKING_CHECK_NAME)), 'Selected API Mocking should still warn after apply').toBeTruthy();
+		expect(remainingNames.some(name => name.includes('Data Retention')), 'Data Retention should pass after apply').toBeFalsy();
 
 		executeAnonymousApex('delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = \'kern.SCHED_PurgeRecords\'];');
 	});

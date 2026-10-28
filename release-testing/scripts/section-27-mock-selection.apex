@@ -5,7 +5,10 @@
 // Prerequisites:
 //   - kern__ApiMock__mdt records deployed (7 records for SubscriberCreateAccount + EchoSubscriber)
 //   - kern__ApiSetting.SubscriberCreateAccount MockingEnabled__c = true (CMDT state: section27-mock-enabled)
-//   - kern__FeatureFlag.MockAllAPIs IsEnabledByDefault__c = true (CMDT state: section27-mock-enabled)
+//   - kern__FeatureFlag.kern__MockAllAPIs IsEnabledByDefault__c = true (CMDT state: section27-mock-enabled)
+//   - kern__FeatureFlag.kern__MockSelectedAPIs IsEnabledByDefault__c = true (CMDT state: section27-mock-enabled). The
+//     box on an API Setting picks the service, and this flag turns its mocking on: the box on its own mocks nothing.
+//     section27-mock-disabled sets it back to false.
 //   - REST_SubscriberApi, API_SubscriberCreateAccount, API_EchoSubscriber deployed
 //
 // Tests priority-based mock selection for both inbound and outbound API paths.

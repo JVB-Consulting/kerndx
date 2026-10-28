@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 import ERROR_TITLE from '@salesforce/label/c.ValidationErrors_ErrorTitle';
 import WARNING_TITLE from '@salesforce/label/c.ValidationErrors_WarningTitle';
@@ -108,14 +108,13 @@ function buildDisplayItem(error, severity, index, showFieldNames, showRuleNames)
  */
 function resolveListItemClass(severity, hasFieldLink)
 {
-	const baseClass = severity === SEVERITY_ERROR ? 'slds-text-color_inverse' : '';
+	const baseClass = severity === SEVERITY_ERROR ? 'slds-text-color_inverse error-text' : '';
 	return hasFieldLink ? `${baseClass} clickable-error`.trim() : baseClass;
 }
 
 // ── Component ────────────────────────────────────────────────────────────
 
 // noinspection JSUnusedGlobalSymbols - LWC framework uses these
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class ValidationErrors extends LightningElement
 {
 	// ── @api Properties ──────────────────────────────────────────────────

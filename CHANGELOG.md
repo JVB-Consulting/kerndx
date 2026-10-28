@@ -13,6 +13,65 @@ All notable changes to KernDX are recorded here. The format is based on [Keep a 
 
 ---
 
+## [1.10.0-4] — 2026-10-28
+
+**Subscriber package version id:** `04tfj000000fkuvAAA`
+
+1.10 closes two security gaps and makes several saves work that used to fail. Text passed where the query builder expects a field name can no longer change the query, and `bypassSharing()` now does what its description always said: it reads and saves records whatever their sharing, while the user's object and field permissions still apply. You can now mock one service at a time, outgoing or incoming, for chosen users only, and a test can hand an aggregate query the rows it returns. A chain started from a trigger inside a background job now runs, and create forms, the scheduled job editor and the chain monitor's Abort save what the user saw.
+
+### Security
+
+- **Text passed where the query builder expects a field name can no longer change the query.** The methods that take a field name as text for a condition, a sort or a grouping accept only a field name, a path through a lookup, a date or distance expression of the kind `kern.QRY_Function` writes, an aggregate or `toLabel()` where SOQL allows one, and in a sort the direction and null order. Other text throws an `IllegalArgumentException` before a query runs. A subquery passed to `isIn()` or `notIn()` may select only a field name or a relationship path.
+- **The masking text search no longer misses a secret in a long value.** Under a `JsonKey` rule, a value the search cannot read whole is saved as `[MASKING_FAILURE]` instead of as it is, and a `Regex` rule now hides a secret that 1.9 could leave unmasked. Records saved on 1.9.0-4 keep what they held, so review the records your masking rules cover.
+
+### Added
+
+- **Mock one service at a time.** Tick Mocking Enabled on a service's API Setting, then turn on the new Mock Selected APIs feature flag for the users who should get mock answers. For them the service answers from its API Mock records, outgoing or incoming; for everyone else it works for real. The flag record arrives active but switched off for everyone: Is Enabled By Default is unticked and it has no strategy records. A new last Health Check row, Selected API Mocking, lists the services with the box ticked and says whether they mock for you.
+- **`kern.API_Outbound.onCommitWorkStarting()`.** An outbound handler can now run code just before the framework saves a call's changes, as an inbound handler already could. Call `super.onCommitWorkStarting()` first, and make the work safe to run twice.
+- **Aggregate queries can be mocked in tests.** `kern.TST_Mock.registerAggregateRows`, `kern.TST_Mock.registerNextAggregateRows` and `kern.QRY_Builder.setAggregateMock` register the rows a count, total or grouped query returns, keyed by the aliases your code reads.
+- **A new code-scan rule, `KernJsonReadClassNeedsJsonAccess`,** flags a class the framework reads from JSON that has no `@JsonAccess`, so validation message merge fields never come back blank without a reason. `KernNoRawEmail`, `KernNoRawHttp` and `KernNoCoverageTheatre` now catch forms they missed.
+- **`searchLookup` and `sObjectLookup` accept `default-record-id`**, so a lookup can open with a record already chosen.
+- **The jobs that Health Check schedules now describe themselves.** When Health Check schedules a job (one that deletes old records, the chain watchdog, or one of the job runner's hourly checks), the job's row in Scheduled Jobs gets a plain description of what it does.
+- **A context class that cannot be read logs a warning** naming the class, instead of leaving a validation message's merge fields blank with no trace.
+
+### Changed
+
+Each change below has a row, with what to do, in the "Behaviour changes at a glance" table of the 1.10 release note.
+
+- **`bypassSharing()` ignores record sharing and keeps the user's object and field permissions.** On a query, on `kern.DML_Builder`, and with `kern.DML_Transaction.commitWork(false)`, in user mode, a read now finds records whatever their sharing and removes the fields the user cannot read, and a save leaves out the fields the user cannot create or edit, with one warning. A read or save the user has no object permission for is refused. In 1.9 these calls kept the user's own sharing. Code that must read or write a hidden field adds `withSystemMode()`.
+- **A locator, a cursor, or a read of totals or groups with `bypassSharing()` alone throws** `kern.UTIL_Exceptions.IllegalStateException` before any query runs, because Kern cannot remove hidden fields from them. A batch class whose start method returns such a locator fails as soon as it starts; add `withSystemMode()`. `getPage()` with `bypassSharing()` alone returns a null `page.cursor`.
+- **`suppressExceptions()` returns a failed result** when a save in user mode is refused for lack of the object permission, where it used to throw `System.TypeException`.
+- **An incoming service with Mocking Enabled ticked runs its own code** until Mock Selected APIs is on for the user the caller signs in as. If you rely on inbound mocking, turn the flag on for those callers straight after the upgrade.
+- **Record mocks never answer an aggregate query.** A test that registers only records for an object and runs an aggregate query on it now fails with a message that says what to register.
+- **A scheduled retry with exponential backoff waits twice as long each time**, up to 300 seconds, and **a call's Retries count adds up across runs.** A call that has used its whole retry budget ends Failed and Dead Lettered, so calls that were retrying in a loop stop on their next run.
+- **A list of numbers, dates or booleans in `isIn`, `isInStrict`, `notInSet` and `notInSetStrict` is passed as a bind variable**, so very large and very small numbers match ([#63](https://github.com/JVB-Consulting/kerndx/issues/63)). A list that holds a fraction now fails on a whole-number field.
+- **`isIn(records, field)` and `isInStrict(records, field)` skip a record whose key is blank**, so they no longer match blank rows.
+- **`kern.UTIL_SObjectDescribe.getRecordTypeByDeveloperName()` and `isRecordTypeAvailable()` match the developer name in any case.**
+- **A trigger action's entry formula runs its context class's `preLoad()`** once for each batch, so the formula sees what `preLoad()` loads. Its queries count towards the save's query limit, and an error it throws stops the save.
+- **A test that builds a permission set group with DML must call `Test.calculatePermissionSetGroup`** before it checks a custom permission, because Kern now reads the permission set Salesforce keeps for the group.
+- **A component that extends `ComponentBuilder` runs its teardown once** and closes its message channel subscriptions when it is removed. An override of `disconnectedCallback` calls `super.disconnectedCallback()` first.
+- **`paginatedTable` sends `pagechange`** when it moves back to the last page, and a selected row stays selected after a sort.
+- **`insertCharacterAtInterval` returns the text unchanged** for an interval that is not a whole number of 1 or more, and inserts a `$` separator as written.
+- **The Data Masking Advisor's Configuration health** no longer counts an object-wide target switched off together with its rule, and now counts a target left on while its rule is off.
+- **The help on a validation rule's error message, Mocking Enabled, Retries, the API Setting fields and the masking rule descriptions** now match what the code does. A new installation gets the new text; an upgraded org gets new field descriptions but keeps the old help text, and keeps its masking rule descriptions.
+
+### Fixed
+
+- A chain started from a trigger inside a Queueable job, your own or another package's, or inside a chain step's save, now starts. A launch that fails saves nothing, so no run is left stuck in Running ([#64](https://github.com/JVB-Consulting/kerndx/issues/64)).
+- A create form saves a checkbox the user never touched, an edit form's update saves, and a create form that copies a record saves a new record.
+- Saving a job in the scheduled job editor window that Health Check opens keeps its Execution Mode, Run Priority and Overlap Policy, and editing only a job's description leaves its platform scheduled job, and the user it runs as, alone.
+- The chain monitor's Abort stops only the run its confirmation named.
+- `kern.QRY_Function.distanceInMiles` and `distanceInKilometers` work with a very small or very large coordinate.
+- Kern's consoles and components behave as their guides describe: lookups, tables, the cron and scheduled job editors, the log console, the streaming monitor, the Data Masking Advisor, the API Test Harness, and Retry and Dismiss on an API issue.
+- `kerndx-pipeline init --check` writes nothing, and Code Analyzer runs get their arguments right on Windows.
+- The guides, the API reference and the help in Setup were checked against the code and corrected, including samples that did not compile.
+
+Backward-compatible: no global Apex member is removed or changed in signature. Added: `API_Outbound.onCommitWorkStarting()`; for tests, `QRY_Builder.setAggregateMock` and two forms each of `TST_Mock.registerAggregateRows` and `TST_Mock.registerNextAggregateRows`; and, for the package's own tests only, the class `UTIL_FormulaContext.FoobarBulkContext`. The metadata surface is additive, with one changed label value (the API Test Harness toggle's text when mocking is off): the Mock Selected APIs feature flag record, new Custom Labels, and the `Foobar__c.Formula__c` test field, with nothing removed or renamed. On the component side, both lookups now accept a `defaultRecordId` (`default-record-id`) property.
+
+**Upgrading from 1.9 or earlier?** If an incoming service of yours relies on Mocking Enabled, turn on Mock Selected APIs for its callers straight after the upgrade. Then run your tests: text the query builder now refuses, `bypassSharing()` reads that now throw, aggregate queries on record mocks and permission set groups built in a test show up there. Follow [Upgrading & compatibility in the 1.10 release notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.10.md#upgrading--compatibility).
+
+For the full tour and every upgrade note, see [Kern 1.10 Release Notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.10.md).
+
 ## [1.9.0-4] — 2026-10-21
 
 **Subscriber package version id:** `04tfj000000drajAAA`
@@ -303,3 +362,4 @@ Initial publicly-tagged release. Every framework module, every Strategic Guide, 
 [1.7.0-13]: https://github.com/JVB-Consulting/kerndx/tree/v1.7.0-13
 [1.8.0-11]: https://github.com/JVB-Consulting/kerndx/tree/v1.8.0-11
 [1.9.0-4]: https://github.com/JVB-Consulting/kerndx/tree/v1.9.0-4
+[1.10.0-4]: https://github.com/JVB-Consulting/kerndx/tree/v1.10.0-4

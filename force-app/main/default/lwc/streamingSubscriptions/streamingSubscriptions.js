@@ -9,12 +9,11 @@
  * event-streaming subscriptions. It exposes actions that allow a parent component
  * to unsubscribe from a single channel or unsubscribe from all channels.
  *
- * @date March 2026, May 2026
+ * @date March 2026, October 2026
  */
 import {LightningElement, api} from 'lwc';
 import subscriptionsHeading from '@salesforce/label/c.EventMonitor_Subscriptions_Heading';
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingSubscriptions extends LightningElement
 {
 	label = {

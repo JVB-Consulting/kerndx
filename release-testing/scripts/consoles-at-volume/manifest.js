@@ -181,10 +181,51 @@ function assertSameRun(manifest, {mode, size, alias})
 	{
 		throw new Error(`The manifest is a size ${manifest.size} run; this command asked for size ${size}. Run teardown or pick another output directory.`);
 	}
-	if(alias !== undefined && manifest.org && manifest.org.alias !== alias)
+	const foreign = describeForeignManifest(manifest, {alias});
+	if(foreign)
 	{
-		throw new Error(`The manifest is a run on org ${manifest.org.alias}; this command asked for org ${alias}. Pick another output directory.`);
+		throw new Error(foreign);
 	}
+}
+
+/**
+ * @description Why a manifest does not belong to the org a command targets, or null when it does. A manifest belongs
+ * to another org when it names another alias, or when it names this alias but recorded another run user: the alias
+ * was then pointed at a new org and the org the manifest was written on is gone. Teardown reads the manifest's ids,
+ * so running it against the wrong org fails or touches the wrong rows. The manifest is never deleted for the
+ * operator: it may hold a staged run on another org that is still alive and that a later teardown needs.
+ *
+ * @param {object|null} manifest The manifest on disk, or null when there is none.
+ * @param {object} target `{alias, userId, manifestPath, unreachable}`: the org the command targets, the id of the user
+ *                        it signs in as when known, where the manifest lives, and the reason the org could not be reached
+ *                        when that is why the user id is unknown.
+ *
+ * @returns {string|null}
+ */
+function describeForeignManifest(manifest, {alias, userId, manifestPath, unreachable})
+{
+	if(!manifest?.org || alias === undefined)
+	{
+		return null;
+	}
+	const recorded = manifest.org.alias;
+	const where = manifestPath ? ` at ${manifestPath}` : '';
+	const archive = `Archive the manifest before you go on: move it out of the way, for example to manifest-${manifest.runToken}-${recorded}.json in the same folder. `
+		+ `It is not deleted for you, because it may hold a staged run on org ${recorded} that a later teardown on that org needs.`;
+	if(recorded !== alias)
+	{
+		return `The manifest${where} belongs to org ${recorded}, but this command targets org ${alias} (SF_SUBSCRIBER_ORG_ALIAS or --org). ${archive}`;
+	}
+	if(unreachable)
+	{
+		return `The manifest${where} belongs to org ${recorded}, and that org could not be reached (${unreachable}); it may have been deleted. ${archive}`;
+	}
+	if(userId && manifest.org.userId && manifest.org.userId !== userId)
+	{
+		return `The manifest${where} belongs to an earlier org named ${recorded} (run user ${manifest.org.userId}), but the alias ${alias} now opens another org `
+			+ `(run user ${userId}); the org the manifest was written on no longer exists. ${archive}`;
+	}
+	return null;
 }
 
 /**
@@ -257,5 +298,6 @@ module.exports = {
 	recordStage,
 	isStageDone,
 	assertSameRun,
+	describeForeignManifest,
 	describeManifest
 };
