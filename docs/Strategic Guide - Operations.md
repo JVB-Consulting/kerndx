@@ -383,8 +383,8 @@ inert. The real costs of installing the full package are the namespace prefix on
 
 **Security & Compliance Posture:**
 
-- **Internal code scanning:** Every push to the public repository runs Code Analyzer's AppExchange rules and the ESLint rules. The KernDX PMD rules are run against the
-  package source before each release. See the [scanner checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning), and the
+- **Internal code scanning:** Every push to the public repository runs Code Analyzer's AppExchange rules and the ESLint rules. Before each release, the KernDX PMD rules
+  run against the package source. See the [scanner checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning), and the
   [Code Scanning Guide](Code%20Scanning%20-%20Guide.md) for the ruleset contents.
 - **Security posture and code quality:** Internal code-quality scans show 0 real-issue findings under the standard ruleset, and every security-category suppression carries a
   documented compensating-control rationale. On security posture: reads and writes both enforce the running user's permissions by default (FLS = field-level security, CRUD =
@@ -488,7 +488,7 @@ watch for, component by component.
 
 | Framework Component | Limit Consideration                                                                                                       |
 |---------------------|---------------------------------------------------------------------------------------------------------------------------|
-| `QRY_Builder`       | Bind variable parameterisation prevents SOQL injection. `.withCache()` reduces query count.                               |
+| `QRY_Builder`       | Values are sent as bind variables (beside the query text, never inside it) or escaped (quote marks made harmless). The condition, sort and group methods accept only a field name where they expect one. So a value, or a field name passed to those methods, cannot change the query. Field names you select are not checked: pass them as tokens or constants. `.withCache()` reduces query count. |
 | `LOG_Builder`       | Publishing `LogEntryEvent__e` draws on the hourly platform-event publishing allocation (250K/hour on Enterprise, Performance and Unlimited Editions; 50K/hour on Developer). The Apex-trigger persistence path does not consume the separate 24-hour delivery allocation; that allocation (50K/24hr on Performance and Unlimited, 25K on Enterprise, 10K on Developer, shared with record-change events / Change Data Capture) applies only to streaming subscribers, including KernDX's monitor components while they are open (see "Platform Event Allocations" in the Platform Events Developer Guide). Buffering reduces consumption. |
 | `API_Outbound`      | Callout limits (100/transaction, 120s timeout). Circuit breaker prevents wasted callouts to failing services.             |
 | `TRG_Dispatcher`    | One metadata query per transaction. Handlers share governor limits with trigger context.                                  |

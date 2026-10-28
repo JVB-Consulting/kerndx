@@ -75,8 +75,8 @@ kern.API_Dispatcher.processInboundService(API_CreateOrder.class.getName());
 
 ### Formatting
 
-**Apex:** Tabs (size 3), Allman bracing, 180-char line limit. Annotation attributes in camelCase with a lower-case first letter (`@IsTest(seeAllData=false isParallel=true)`,
-`@AuraEnabled(cacheable=true)`); the annotation name keeps its capital (`@IsTest`).
+**Apex:** Tabs (size 3), Allman bracing, 180-char line limit (each leading tab counts as four columns, as the IDE does). Annotation attributes in camelCase
+with a lower-case first letter (`@IsTest(seeAllData=false isParallel=true)`, `@AuraEnabled(cacheable=true)`); the annotation name keeps its capital (`@IsTest`).
 
 ```apex
 public with sharing class MyClass
@@ -186,8 +186,8 @@ Tags in order: `@description`, `@see`, `@author`, `@group`, `@date`, `@since`, `
 
 **Do NOT skip ApexDoc on overridden methods.** Every method needs at minimum `@description`. Constructors also need `@description`.
 
-**`@since`:** Required on ALL `global` members (classes, methods, properties). Format: `@since 1.0`. Not required on `public`/`private`. Subscribers rarely need `@since` — only on
-`REST_*` classes (the only subscriber class type that requires `global`).
+**`@since`:** Required on ALL `global` members (classes, methods, properties). Format: `@since 1.0`. Not required on `public`/`private`. Subscribers need `@since` only on their
+`global` classes: `REST_*`, plus any class the framework creates by name that is made `global`, `SCHED_*` included (see the Access rule below).
 
 **`@example`:** Must use ` ```apex ` code fences.
 
@@ -195,21 +195,21 @@ Tags in order: `@description`, `@see`, `@author`, `@group`, `@date`, `@since`, `
 
 ### Critical Rules
 
-| Rule                                         | Correct                                                                                  | Wrong                                                                                                                                                                                                                                                                                                         |
-|----------------------------------------------|------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| No inline SOQL                               | `kern.QRY_Builder.selectFrom(...)` or `new SEL_Cases()`                                  | `[SELECT ...]`                                                                                                                                                                                                                                                                                                |
-| No System.debug                              | `kern.LOG_Builder.build().info('msg').emitAt('Class.method')`                            | `System.debug(...)`                                                                                                                                                                                                                                                                                           |
-| No LightningElement                          | `extends ComponentBuilder('notification')`                                               | `extends LightningElement`                                                                                                                                                                                                                                                                                    |
-| No fflib layering pattern in subscriber code | `kern.QRY_Builder`, `kern.DML_Builder`, `extends kern.SEL_Base`, `extends kern.TRG_Base` | `fflib_SObjectSelector`, `fflib_SObjectDomain`, `fflib_Application`, `fflib_SObjectUnitOfWork`, `newQueryFactory()`. The framework's own `UTIL_SObjectDescribe` + `DML_Transaction` utilities are BSD-licensed from the same lineage (see `NOTICES.md`); subscriber code goes through `kern.*` not `fflib_*`. |
-| No abbreviations                             | `account`, `message`                                                                     | `acc`, `msg`                                                                                                                                                                                                                                                                                                  |
-| No Given/When/Then                           | Self-documenting code                                                                    | `// Given`, `// When`                                                                                                                                                                                                                                                                                         |
-| No test cleanup                              | SF resets static state between tests                                                     | Cleanup code in tests                                                                                                                                                                                                                                                                                         |
-| No hardcoded field names                     | `field.getDescribe().getName()`                                                          | String literal field names                                                                                                                                                                                                                                                                                    |
-| No section separators                        | Clean code                                                                               | `//====` banners                                                                                                                                                                                                                                                                                              |
-| No inline DML in tests                       | `kern.TST_Builder.of(SObjectType).build()`                                               | `insert new Account()`                                                                                                                                                                                                                                                                                        |
-| Use Assert.*                                 | `Assert.isTrue(result, 'msg')`                                                           | `System.assert(...)`                                                                                                                                                                                                                                                                                          |
-| Declare sharing                              | Always `with sharing`; `inherited sharing` only for `SCHED_*`                            | Missing sharing                                                                                                                                                                                                                                                                                               |
-| No unnecessary global                        | `public` everywhere; `global` only for `REST_*` and `SCHED_*`                            | `global` on handlers/selectors/services/flows                                                                                                                                                                                                                                                                 |
+| Rule                                         | Correct                                                                                                                                                                                                                | Wrong                                                                                                                                                                                                                                                                                                         |
+|----------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| No inline SOQL                               | `kern.QRY_Builder.selectFrom(...)` or `new SEL_Cases()`                                                                                                                                                                | `[SELECT ...]`                                                                                                                                                                                                                                                                                                |
+| No System.debug                              | `kern.LOG_Builder.build().info('msg').emitAt('Class.method')`                                                                                                                                                          | `System.debug(...)`                                                                                                                                                                                                                                                                                           |
+| No LightningElement                          | `extends ComponentBuilder('notification')`                                                                                                                                                                             | `extends LightningElement`                                                                                                                                                                                                                                                                                    |
+| No fflib layering pattern in subscriber code | `kern.QRY_Builder`, `kern.DML_Builder`, `extends kern.SEL_Base`, `extends kern.TRG_Base`                                                                                                                               | `fflib_SObjectSelector`, `fflib_SObjectDomain`, `fflib_Application`, `fflib_SObjectUnitOfWork`, `newQueryFactory()`. The framework's own `UTIL_SObjectDescribe` + `DML_Transaction` utilities are BSD-licensed from the same lineage (see `NOTICES.md`); subscriber code goes through `kern.*` not `fflib_*`. |
+| No abbreviations                             | `account`, `message`                                                                                                                                                                                                   | `acc`, `msg`                                                                                                                                                                                                                                                                                                  |
+| No Given/When/Then                           | Self-documenting code                                                                                                                                                                                                  | `// Given`, `// When`                                                                                                                                                                                                                                                                                         |
+| No test cleanup                              | SF resets static state between tests                                                                                                                                                                                   | Cleanup code in tests                                                                                                                                                                                                                                                                                         |
+| No hardcoded field names                     | `SObjectField` tokens or constants; `kern.UTIL_SObjectDescribe.getCachedFieldName(field)` when the name is needed as text; a field a page or a user picks goes through a `Map<String, SObjectField>` of allowed fields | String literal field names; a field name taken from a page or a user and passed to the query builder as text                                                                                                                                                                                                  |
+| No section separators                        | Clean code                                                                                                                                                                                                             | `//====` banners                                                                                                                                                                                                                                                                                              |
+| No inline DML in tests                       | `kern.TST_Builder.of(SObjectType).build()`                                                                                                                                                                             | `insert new Account()`                                                                                                                                                                                                                                                                                        |
+| Use Assert.*                                 | `Assert.isTrue(result, 'msg')`                                                                                                                                                                                         | `System.assert(...)`                                                                                                                                                                                                                                                                                          |
+| Declare sharing                              | Always `with sharing`; `inherited sharing` only for `SCHED_*`                                                                                                                                                          | Missing sharing                                                                                                                                                                                                                                                                                               |
+| No unnecessary global                        | `public`; `global` for `REST_*` and classes created by name (`SCHED_*` included)                                                                                                                                       | `global` on selectors/services/flows; a `public` trigger action, chain step or schedulable with no Type Resolver                                                                                                                                                                                              |
 
 ### Sharing & Access by Class Type (mandatory)
 
@@ -218,20 +218,33 @@ orgs.
 
 | Class Type               | Sharing                                                       | Access                                                         |
 |--------------------------|---------------------------------------------------------------|----------------------------------------------------------------|
-| `TRG_*` handlers         | `with sharing`                                                | `public`                                                       |
+| `TRG_*` handlers         | `with sharing`                                                | `global`, or `public` with a Type Resolver (created by name)   |
 | `SEL_*` selectors        | `with sharing` (subscriber) / `inherited sharing` (framework) | `public`                                                       |
-| `API_*` Inbound/Outbound | `with sharing`                                                | `public`                                                       |
+| `API_*` Inbound/Outbound | `with sharing`                                                | `global`, or `public` with a Type Resolver (created by name)   |
 | `REST_*` routing         | `with sharing`                                                | `global` — SF requires for `@RestResource`                     |
 | `SVC_*` services         | `with sharing`                                                | `public`                                                       |
 | `FLOW_*` invocables      | `with sharing`                                                | `public`                                                       |
-| `SCHED_*` schedulables   | `inherited sharing`                                           | `global` — framework uses `Type.newInstance()` cross-namespace |
+| `SCHED_*` schedulables   | `inherited sharing`                                           | `global`, or `public` with a Type Resolver (created by name)   |
 | `UTIL_*` utilities       | `with sharing`                                                | `public`                                                       |
 | `*_TEST` test classes    | (none)                                                        | `private`                                                      |
 
 **Sharing rule:** Always `with sharing`. Never `without sharing` unless explicitly justified.
 
-**Access rule:** Always `public`. Exceptions: `REST_*` classes (`global` required for `@RestResource`) and `SCHED_*` classes (`global` required for cross-namespace
-`Type.newInstance()`).
+**Access rule:** `public` by default. Exceptions:
+
+- `REST_*` classes: `global`, required for `@RestResource`.
+- Every class the framework creates from its name: trigger actions and post-trigger actions, async chain steps, scheduled jobs (`SCHED_*`
+  classes), inbound and outbound API
+  handlers, DTOs extending `kern.DTO_JsonBase` (read back from JSON by name), feature-flag strategy classes, formula evaluation contexts,
+  table data sources, search controllers and OmniCallable classes. Make the class `global`, or keep it `public` and set up a Type Resolver: a `global` class extending
+  `kern.UTIL_TypeResolver.BaseClassResolver`, registered in a `kern__ClassTypeResolver__mdt` record (the Kern home page health check provides the
+  code). With neither, the framework fails with `Unable to resolve type for class "<name>"`. See
+  [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
+- DTOs have a third option: override `getObjectType()` to return the DTO's own class, as the `DTOs - Guide.md` shows. An inner DTO such as
+  `DTO_Request` inside an `API_*` class needs one of the three on its own: a `public` inner class stays hidden even when its outer class
+  is `global`.
+
+Selectors, services, Flow invocables and utilities are called directly from your own code, so they stay `public`.
 
 ### PMD
 
@@ -313,13 +326,37 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 query; read back via `AggregateRow.get(alias)`; alias must be a bare identifier) | `.orderByCount(field, sortDescending)` (ORDER BY COUNT for top-N groups with `.withLimit()`) |
 `.havingSumOf()` / `.havingCount()` etc. | Terminal: `.toAggregateList()` → `List<QRY_Builder.AggregateRow>` (NOT `AggregateResult`)
 
+**Aggregate mocks (tests):** `kern.QRY_Builder.setAggregateMock(SObjectType, List<Map<String, Object>>)` (or `kern.TST_Mock.registerAggregateRows`, see Testing) makes
+`.toAggregateList()` / `.getFirstAggregate()` return the given rows; map keys are the aliases the code reads, so give every aggregate an explicit alias; only `LIMIT` applies;
+`null` clears the type. Record mocks never answer an aggregate read (it throws `kern.UTIL_Exceptions.IllegalStateException`), and a record read on a
+mocked aggregate query throws too.
+
+**TYPEOF (polymorphic parents):** `.addField('TYPEOF What WHEN Account THEN Phone WHEN Opportunity THEN Amount ELSE Name END')`. Read the parent with
+`SObject parent = event.What; switch on parent { when Account account { ... } when null { ... } when else { ... } }`, never a cast (an `ELSE` parent is a `Name` record). TYPEOF selects fields,
+never filters rows, and cannot be combined with aggregate functions.
+
 **Limit/Cache/Scope:** `.withLimit()` | `.withOffset()` | `.withCache(seconds)` | `.usingScope(QRY_Builder.Scope)` | `.forUpdate()` | `.allRows()`
 
 **Security:** `.withUserMode()` / `.withSystemMode()` | `.stripInaccessible()` | `.withSharing()` / `.bypassSharing()` | `.withoutSecurity()`
 
 > **Default access mode:** USER_MODE (CRUD, FLS, sharing enforced). Controlled by the `UserModeQueries_Enabled` feature flag (ships `IsEnabledByDefault__c = true`). Call
 `.withSystemMode()` per-query to bypass, or subclass `kern.SEL_Base` and override `systemModeRequired()` to return `true` to pin a selector's queries to SYSTEM_MODE regardless of
-> the flag.
+> the flag. Under USER_MODE: `.withSharing()` changes nothing on its own (USER_MODE always enforces sharing; after `.bypassSharing()` it cancels the bypass); `.stripInaccessible()` does not stop the platform refusing a
+> selected field the user cannot read (it strips only under `.withSystemMode()` or in a `.bypassSharing()` read); `.bypassSharing()` alone ignores sharing and
+> keeps the object and field checks: hidden fields are removed from the rows, an unreadable object or a `condition(...)`/`orderBy(...)` on a hidden field is
+> refused, and `toQueryLocator()`, `toCursor()` and aggregate reads are refused with `kern.UTIL_Exceptions.IllegalStateException` (add `.withSystemMode()`);
+> refusing an object the user cannot read throws a `QueryException`, and the other refusals throw `IllegalStateException`.
+> Only `.withSystemMode()`, `.bypassSharing()` and `.withoutSecurity()` write a bypass audit entry.
+
+**Field names:** pass fields as `SObjectField` tokens (`Account.Name`, checked when the code compiles) or constants, never as text built from input. Values are always bound
+(sent beside the query text) or escaped (quote marks made harmless). A method that takes a field name as text for a condition, a sort or a grouping accepts only a field API name,
+a path through a lookup (`Account.Owner.Name`), a date or distance expression of the kind `kern.QRY_Function` writes, or, where SOQL allows it, an aggregate such as `SUM(Amount)`
+or `toLabel()` around a field name; a sort item may end with `ASC` / `DESC` and `NULLS FIRST` / `NULLS LAST`, and `orderBy` / `groupBy` take a comma-joined list of those. Other
+text throws `IllegalArgumentException` before a query runs. The `String` form of `.orderBy(field, sortDescending)` takes a field name, or a list of sort items whose last
+item has no direction and no nulls order: write `.orderBy('Name', true)`, never `.orderBy('Name DESC', true)`, because the method adds the direction itself.
+The check does not test field access, so a field a page or a user picks is mapped through a list of allowed fields, above all in system mode, and the same holds
+for the select list (`.fields()`, `.addField()`): `.orderBy(ALLOWED_SORT_FIELDS.get(request.sortColumn) ?? Account.Name, request.sortDescending)` with
+`Map<String, SObjectField> ALLOWED_SORT_FIELDS`. A semi-join subquery passed to `.isIn(Builder)` / `.notIn(Builder)` selects exactly one field, by API name or parent path.
 
 **Terminal:** `.toList()` | `.getFirst()` | `.toQueryLocator()` | `.toCursor()` | `.toAggregateList()` | `.getFirstAggregate()` | `.getPage(page, size)` → `QueryPage` |
 `.getRandomItem()` / `.getRandomItems(n)` | `.count()` | `.exists()` | `.asMap()` | `.asMapById(field)` | `.asMapByString(field)` | `.asGroupedMapById(field)` |
@@ -343,7 +380,7 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 ### Compound Conditions
 
 ```apex
-QRY_Condition.OrCondition statusGroup = new kern.QRY_Condition.OrCondition();
+kern.QRY_Condition.OrCondition statusGroup = new kern.QRY_Condition.OrCondition();
 statusGroup.add(new kern.QRY_Condition.FieldCondition(Account.Status__c, kern.QRY_Condition.Operator.EQUALS, 'Active'));
 statusGroup.add(new kern.QRY_Condition.FieldCondition(Account.Status__c, kern.QRY_Condition.Operator.EQUALS, 'Pending'));
 
@@ -393,8 +430,9 @@ dials carry across the switch: `.allowPartial()`, the access mode (`.withUserMod
 
 > **Record sharing on the async leg: enforced unless you opt out.** The async job cannot inherit your class's sharing declaration (the work runs inside the
 framework's own job processor), so the framework pins the sharing context explicitly: the write runs **with record sharing enforced** by default, and
-`.bypassSharing()` is the deliberate opt-out that carries across the switch. Under the default USER_MODE the access mode itself also enforces sharing, so the
-dial only changes system-mode writes. The one remaining sync/async difference: a synchronous chain called without a bypass inherits the sharing context of
+`.bypassSharing()` is the deliberate opt-out that carries across the switch. Under the default USER_MODE the bypass ignores sharing in the job too and keeps
+the running user's object and field checks: fields the user cannot create or edit are left out of the save. The one remaining sync/async difference (in SYSTEM_MODE):
+a synchronous chain called without a bypass inherits the sharing context of
 the class that calls `.execute()`, while the async leg always enforces unless bypassed.
 
 ```apex
@@ -402,7 +440,9 @@ kern.DML_Builder.newTransaction().doInsert(accounts).async().withBatchSize(50).e
 ```
 
 > **Default access mode:** USER_MODE (CRUD, FLS, sharing enforced). Controlled by the `UserModeDml_Enabled` feature flag (ships `IsEnabledByDefault__c = true`). Call
-`.withSystemMode()` on the transaction to bypass (e.g. writes to framework-owned audit objects).
+`.withSystemMode()` on the transaction to bypass (e.g. writes to framework-owned audit objects). `.bypassSharing()` alone ignores record sharing and keeps
+> the object and field checks: a field the user cannot create or edit is left out of the save with one WARN log naming it, and a save without the object
+> permission is refused as USER_MODE refuses it. Only `.withSystemMode()` and `.bypassSharing()` write a bypass audit entry; `.withUserMode()` writes none.
 
 Register the parent with its own `.doInsert()`, before or after the child: the transaction orders the inserts from the relationships you registered and fills in the
 child's lookup Id.
@@ -649,7 +689,8 @@ Either surface: `.bypass(String, BypassType)` / `.isBypassed(String, BypassType)
 one call site for both sets, routed by `kern.TRG_Base.BypassType.OBJECT_NAME` or `.CLASS_NAME`. Parse a string into the enum with
 `kern.TRG_Base.resolveBypassType(String)`.
 Declarative: `TriggerSetting__mdt.BypassExecution__c`
-Audit: every `bypass*()` / `clear*Bypass()` call emits a `LogEntryEvent__e` with category `BypassEvent` — the runtime audit trail is always on. Set a free-text reason for the whole
+Audit: every `bypass*()` / `clear*Bypass()` call emits a `LogEntryEvent__e` with category `BypassEvent` — the runtime audit trail is on by default;
+the `BypassAudit_Enabled` feature flag turns it off. Set a free-text reason for the whole
 transaction via `kern.TRG_Base.setBypassReason(String)` and it attaches to every bypass emission that follows. (The underlying `BypassAction` enum and `resolveBypassAction(String)`
 resolver are framework-internal — `public`, not `global` — and drive the declarative `FLOW_BypassTrigger` invocable; subscribers do not call them directly.)
 
@@ -712,6 +753,9 @@ public with sharing class API_SendNotification extends kern.API_Outbound
 
 	private static final String ERROR_NO_EMAIL = 'Record does not have an email address';
 
+	/**
+	 * @description Sets the request and response DTOs and the body the mock returns.
+	 */
 	public override void configure()
 	{
 		super.configure();
@@ -720,6 +764,11 @@ public with sharing class API_SendNotification extends kern.API_Outbound
 		defaultMockBody = '{"messageId": "msg-12345"}';
 	}
 
+	/**
+	 * @description Adds the recipient to the inputs every call must carry.
+	 *
+	 * @return The names of the required inputs.
+	 */
 	public override Set<String> getRequiredInputs()
 	{
 		Set<String> requiredInputs = super.getRequiredInputs();
@@ -727,6 +776,11 @@ public with sharing class API_SendNotification extends kern.API_Outbound
 		return requiredInputs;
 	}
 
+	/**
+	 * @description Stops the call when the triggering Contact has no email address.
+	 *
+	 * @return The validation errors; an empty list when the call may go ahead.
+	 */
 	public override List<String> getValidationErrors()
 	{
 		List<String> errors = new List<String>();
@@ -746,6 +800,13 @@ public with sharing class API_SendNotification extends kern.API_Outbound
 		/** @description The recipient address. */
 		private String recipient;
 
+		/**
+		 * @description Fills the request from the triggering Contact.
+		 *
+		 * @param recordId The Id of the triggering record.
+		 *
+		 * @param params The call's input parameters.
+		 */
 		public override void populate(Id recordId, kern.DTO_NameValues params)
 		{
 			super.populate(recordId, params);
@@ -800,8 +861,11 @@ it never ticks the call's Permanent Failure box. Set `responsePayload` in `confi
 `kern__LogIssues__c` `true` on an inbound setting writes a `kern__ApiIssue__c` per failed request; set it `false` when the caller handles failures
 itself.
 
-Leave `kern__MockingEnabled__c` `false`. When it is `true`, an inbound service returns a mock response (a matching API Mock record, or a
-default body when none matches) instead of running its handler, so set it only while testing, never in production.
+Leave `kern__MockingEnabled__c` `false`. The box picks a service for mocking, inbound or outbound, and it takes effect only for users the
+`MockSelectedAPIs` feature flag is on for. For them an inbound service returns a mock response (a matching API Mock record, or a default
+body when none matches) instead of running its handler, and an outbound service answers a matching API Mock record or the handler's
+`defaultMockBody` instead of calling the real system (with neither, it fails with a configuration error). The box alone, or the flag alone,
+mocks nothing. Set it only while testing, never in production.
 
 DeveloperName (filename) should match class without `API_` prefix (e.g., `kern__ApiSetting.SendNotification`).
 
@@ -1131,6 +1195,16 @@ kern.TST_Mock.registerNext(Account.SObjectType, new List<SObject>()); // the nex
 // the read after that: registered records, else the database
 ```
 
+**Aggregate queries:** `kern.TST_Mock.registerAggregateRows(SObjectType, List<Map<String, Object>>)` (or one `Map` for `getFirstAggregate()`) answers every aggregate read
+on the type, and a second call adds rows (`QRY_Builder.setAggregateMock` replaces them); `registerNextAggregateRows` (same overloads) answers the next one only. Keys are the aliases (`count(Account.Id, 'total')` → `'total'`; default alias
+`<function>_<field API name>`, namespace prefix included); only `LIMIT` applies. Record mocks alone make an aggregate read throw: register aggregate rows (an empty list for
+"finds nothing"). The terminal `.count()` reads record mocks, never aggregate rows. A `null` list throws; drop rows with `clear()` / `clear(SObjectType)`.
+
+```apex
+kern.TST_Mock.registerAggregateRows(Account.SObjectType, new Map<String, Object>{ 'total' => 3 });
+Integer total = kern.QRY_Builder.selectFrom(Account.SObjectType).count(Account.Id, 'total').getFirstAggregate().getInteger('total');
+```
+
 ### TST_Factory
 
 `kern.TST_Factory.newFeatureFlag(flagName)` | `.newOutboundApiCall(service, recordId[, params])` | `.newInboundApiCall(service)` | `.newUser(profileName[, companyName])` |
@@ -1257,7 +1331,13 @@ sets `IsEnabledByDefault__c` (and, if strategies are attached, `ResultOnNoMatch_
 | `DisableAllOutboundAPIs`   | `false` | Disables outbound `kern.API_Outbound` calls only.                                                                                                                                                                |
 | `MockAllAPIs`              | `false` | Returns mock responses for every outbound call (tests + dry runs).                                                                                                                                               |
 | `MockAllInboundAPIs`       | `false` | Returns mock responses for every inbound call.                                                                                                                                                                   |
+| `MockSelectedAPIs`         | `false` | Returns mock responses, inbound and outbound, only for services whose `kern__ApiSetting__mdt` has `kern__MockingEnabled__c` ticked, for the users the flag is on for. Ships active with no strategies. In a test, `kern.TST_Factory.newFeatureFlag('MockSelectedAPIs')` turns it on. Never create a same-named flag record in your own namespace: it would decide the flag in place of the packaged one. |
 | `BypassApiRecordDeleteGuard` | `false` | Decides who may delete `ApiCall__c` / `ApiIssue__c` (UI, flow, Apex and `SCHED_PurgeRecords` alike). A built-in protected strategy turns it on for holders of the `DeleteApiRecords` custom permission (Kern Administrator). Widen it with a strategy per profile/permission set/user, or `ResultOnNoMatch__c = true` for everyone (`IsEnabledByDefault__c` is ignored, a strategy exists). Deactivated, it refuses every delete and Health Check warns. |
+| `AsyncChainAbort_Enabled`  | `false` | Gates the abort action in the Chain Monitor. A built-in protected strategy turns it on for holders of the `AbortAsyncChain` custom permission. Deactivate the record to switch it off. |
+| `AsyncChainKillSwitch_Enabled` | `false` | Gates the suspend and resume controls in the Chain Monitor. A built-in protected strategy turns it on for holders of the `ManageAsyncChainKillSwitch` custom permission. Deactivate the record to switch it off. |
+| `AsyncChainRedrive_Enabled` | `false` | Gates the re-drive actions in the Chain Monitor. A built-in protected strategy turns it on for holders of the `RedriveAsyncChain` custom permission. Deactivate the record to switch it off. |
+| `BypassAudit_Enabled`      | `true`  | Kill switch for the bypass audit: when `true`, every bypass call emits a log entry with category `BypassEvent`.                                                                                                      |
+| `ScheduledJobRunner`       | `true`  | Turns the shared job runner off without deleting anything: while disabled it still checks on schedule but starts no job, and every job on the runner waits.                                                      |
 | `TestFeatureFlag`          | `true`  | Example / smoke-test flag. Safe to leave as-is.                                                                                                                                                                  |
 
 ---
@@ -1345,12 +1425,18 @@ new kern.UTIL_AsyncChain.ApiStep(API_SendEmail.class)
 
 ## Schedulable Framework
 
-Subscriber schedulable classes must be `global inherited sharing` extending `kern.SCHED_Base`.
+Subscriber schedulable classes use `inherited sharing` and extend `kern.SCHED_Base`. The framework creates them by name, so make the class
+`global` (as below), or keep it `public` and set up a Type Resolver (see the Access rule under Sharing & Access by Class Type).
 
 ```apex
 @SuppressWarnings('PMD.AvoidGlobalModifier')
 global inherited sharing class SCHED_PurgeOldRecords extends kern.SCHED_Base
 {
+	/**
+	 * @description Declares the parameters an administrator sets on the scheduled job.
+	 *
+	 * @return The parameter definitions.
+	 */
 	public override List<kern.DTO_ScheduledParameterDefinition> getParameterDefinitions()
 	{
 		return new List<kern.DTO_ScheduledParameterDefinition>
@@ -1360,6 +1446,11 @@ global inherited sharing class SCHED_PurgeOldRecords extends kern.SCHED_Base
 		};
 	}
 
+	/**
+	 * @description Reads the parameters and runs the purge.
+	 *
+	 * @param context The context the platform passes to a scheduled job.
+	 */
 	public void execute(SchedulableContext context)
 	{
 		String objectName = getTextParameter('objectName');
@@ -1392,7 +1483,7 @@ never pass it to `System.abortJob`. The runner's own records name `kern.SCHED_Jo
 | 7  | `Boolean exceptionThrown`              | `Assert.fail` + `Assert.isInstanceOfType`                                   |
 | 8  | Namespace missing in subscriber        | `kern.QRY_Builder`, `kern.SEL_Base`, `kern.TRG_Base`                        |
 | 9  | `inherited sharing` in subscriber code | `with sharing` — except `SCHED_*` which uses `inherited sharing`            |
-| 10 | `global` on non-REST/SCHED classes     | `public` everywhere — only `REST_*` and `SCHED_*` need `global`             |
+| 10 | `global` on selectors, services, flows | `public`; `global` only for `REST_*` and classes created by name (`SCHED_*` too) |
 | 11 | Manual JSON.serialize in response      | Use `updateResponseDTO()` — framework serializes                            |
 | 12 | `[SELECT ...]` in test classes         | Use `kern.QRY_Builder` or `SEL_*` even in tests                             |
 | 13 | Missing `@SuppressWarnings` on tests   | `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` on test classes |
