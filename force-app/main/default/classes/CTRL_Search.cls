@@ -18,7 +18,8 @@ public inherited sharing class CTRL_Search implements IF_Search
 	 */
 	private static final Integer MAXIMUM_NUMBER_OF_RESULTS = 20;
 	/**
-	 * @description Record Id
+	 * @description The search parameter key for one record's id. When it holds an id, search ignores the search term and
+	 * the object name and reads that one record in user mode.
 	 */
 	@TestVisible
 	private static final String PARAMETER_RECORD_ID = 'recordId';
@@ -32,7 +33,8 @@ public inherited sharing class CTRL_Search implements IF_Search
 	 */
 	public static final String PARAMETER_OBJECT_NAME = 'objectName';
 	/**
-	 * @description Maximum number of results to return from search
+	 * @description The search parameter key for how many records a search by search term may return. When the key is
+	 * missing, search uses MAXIMUM_NUMBER_OF_RESULTS.
 	 */
 	@TestVisible
 	private static final String PARAMETER_MAXIMUM_NUMBER_OF_RESULTS = 'maximumNumberOfResults';

@@ -10,12 +10,13 @@
  *
  * @group Selectors
  *
- * @date March 2026, July 2026
+ * @date March 2026, October 2026
  */
 public inherited sharing class SEL_ApexClass extends SEL_Base
 {
 	/**
-	 * @description Constructs an ApexClass selector.
+	 * @description Reads the Apex classes in the org (ApexClass). Every query skips the running user's object and field permission checks (system mode). Creating the selector runs
+	 * no query.
 	 */
 	public SEL_ApexClass()
 	{

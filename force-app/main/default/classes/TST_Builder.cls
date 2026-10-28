@@ -1249,7 +1249,8 @@ global inherited sharing class TST_Builder
 	public interface Factory
 	{
 		/**
-		 * @description Gets the SObject manager.
+		 * @description Returns the manager that keeps the records this factory has built: the main records and the
+		 * parent records made for their lookups. The manager is also what saves them.
 		 *
 		 * @return The `Manager` instance.
 		 */
@@ -1264,7 +1265,9 @@ global inherited sharing class TST_Builder
 		 */
 		SObject getSObjectInstance(Map<String, Object> mapOfValuesOverride, Boolean doInsert);
 		/**
-		 * @description Gets a list of SObject instances.
+		 * @description Builds the given number of records from the default values and the overrides. When doInsert is
+		 * true, the records and the parent records they need are saved. When it is false, nothing is saved, and an
+		 * override for a field that a save cannot write is set in memory.
 		 *
 		 * @param mapOfValuesOverride Map of values to override.
 		 * @param doInsert Flag to insert the records.
@@ -1312,14 +1315,16 @@ global inherited sharing class TST_Builder
 	 * (which extends this class) to customize default value generation.
 	 *
 	 * @note Using a virtual class instead of an interface allows adding new methods in future
-	 * managed package versions without breaking existing subscriber implementations.
+	 * managed package versions without breaking the providers you have already written.
 	 *
 	 * @since 1.0
 	 */
 	global virtual class DefaultValueProvider
 	{
 		/**
-		 * @description Gets the default map of values for a given SObjectType.
+		 * @description Returns the value providers for the fields the builder fills on a new record. The builder calls
+		 * this once for each build, before it makes the records. It then sets every field named in the map on each
+		 * record, and asks that field's provider for the value of each record. This base version returns an empty map.
 		 *
 		 * @param sObjectType The SObjectType.
 		 * @param mapOfValuesOverride A map of override values.

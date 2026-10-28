@@ -14,7 +14,7 @@
 
 /**
  * @description Provides the default value generation logic for the SObjectBuilder.
- * Subscribers should extend THIS class to override default values or define
+ * Extend THIS class to override default values or define
  * custom required fields for SObjects.
  *
  * @see TST_Builder
@@ -708,7 +708,8 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	private class ListRelationshipFieldDefaultValue extends TST_Builder.DefaultFieldValueProvider
 	{
 		/**
-		 * @description A list of SObject values.
+		 * @description The records whose Ids are given out, one to each new record in turn. After the last record, the list
+		 * starts again from the first.
 		 */
 		private final List<SObject> objects;
 
@@ -753,7 +754,8 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	private class ListFieldDefaultValue extends TST_Builder.DefaultFieldValueProvider
 	{
 		/**
-		 * @description A list of field values.
+		 * @description The values given out, one to each new record in turn. After the last value, the list starts again
+		 * from the first.
 		 */
 		private final List<Object> values;
 
@@ -797,7 +799,7 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	private class RelationshipFieldDefaultValue extends TST_Builder.DefaultFieldValueProvider
 	{
 		/**
-		 * @description The SObject value.
+		 * @description The related record. Every new record gets its Id, which is null while the record has no Id.
 		 */
 		private final SObject value;
 
@@ -835,7 +837,8 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 		 */
 		private final UTIL_SObjectBuilderDefaultProvider defaultValueProvider;
 		/**
-		 * @description The field value.
+		 * @description The fixed value the test gave, or null when the value is generated from the field instead. In a text
+		 * value, each '[index]' is replaced by the number of the record being built.
 		 */
 		private final Object value;
 		/**
@@ -906,7 +909,10 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	public class AutoFieldDefaultValue extends TST_Builder.DefaultFieldValueProvider
 	{
 		/**
-		 * @description Default constructor
+		 * @description Creates a marker that asks for a generated value. Put it in the override map for a field, and the
+		 * builder generates a value for that field, or builds a related record for a lookup, as it does for a required
+		 * field. A lookup that can point to more than one object is skipped. TST_Builder.autoDefaultFieldValueProvider
+		 * holds one ready to use.
 		 */
 		@SuppressWarnings('PMD.EmptyStatementBlock')
 		public AutoFieldDefaultValue()
@@ -914,7 +920,8 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 		}
 
 		/**
-		 * @description Gets the value for a given record index.
+		 * @description Always returns null. The value is not meant to be used: when the builder finds this marker, it puts
+		 * a provider that generates the value in its place.
 		 *
 		 * @param recordIndex The index number (starting from 0) of the record being created.
 		 *
@@ -927,7 +934,8 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	}
 
 	/**
-	 * @description The default record type Id for the Account object.
+	 * @description The default Account record type, looked up on first use and then kept for the life of this provider.
+	 * When Person Accounts are on and the test gives no record type, new Accounts get this one.
 	 */
 	@TestVisible
 	private Id accountDefaultRecordTypeId
@@ -944,7 +952,9 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	}
 
 	/**
-	 * @description Gets the default map of values for a given SObjectType.
+	 * @description Returns a value provider for each field the builder fills on a new record of this type, keyed by
+	 * lower-case field path. Every override the test gives is kept. A value is also generated for each field that must
+	 * be filled: the required fields that are not marked optional, and the fields defineSObjectRequiredFields adds.
 	 *
 	 * @param sObjectType The SObjectType for which to generate the map of values.
 	 * @param mapOfValuesOverride A map of values that will override the auto-generated map.
@@ -1393,7 +1403,8 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	}
 
 	/**
-	 * @description Gets a defined set of optional fields for a given SObjectType.
+	 * @description Returns the fields defineSObjectOptionalFields lists for the object, as lower-case API names. When that
+	 * method returns null the set is empty, and null entries are left out.
 	 *
 	 * @param sObjectType The SObjectType for which to return the defined optional fields.
 	 *
@@ -1406,7 +1417,8 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	}
 
 	/**
-	 * @description Gets a defined set of required fields for a given SObjectType.
+	 * @description Returns the fields defineSObjectRequiredFields lists for the object, as lower-case API names. When that
+	 * method returns null the set is empty, and null entries are left out.
 	 *
 	 * @param sObjectType The SObjectType for which to return the defined required fields.
 	 *
@@ -1531,7 +1543,11 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	}
 
 	/**
-	 * @description Converts a map from Map<String, Object> to Map<String, DefaultFieldValueProvider>.
+	 * @description Turns the override map a test passes in into value providers. Each key becomes a lower-case path that
+	 * uses relationship names ('AccountId.ParentId.Name' becomes 'account.parent.name'). A nested map holds the fields of
+	 * a related record and is added under the longer path. A list gives one item to each new record in turn, except a
+	 * list of records for a field that is not a lookup, which is kept as one value. A provider is kept as given, and any
+	 * other value is used as it is. A null map gives an empty map, and a null key is skipped.
 	 *
 	 * @param currentSObjectType The SObjectType context for the current level of the map.
 	 * @param prefix The prefix (e.g., 'Contact.Account.').

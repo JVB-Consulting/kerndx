@@ -10,7 +10,7 @@
  *
  * @group Data Transfer Objects
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class DTO_InvocationResult
 {
@@ -30,7 +30,9 @@ public inherited sharing class DTO_InvocationResult
 	public String requestBody;
 
 	/**
-	 * @description The service class name.
+	 * @description The name of the service class that ran. For an outbound call it is the name the caller passed in.
+	 * For an inbound call it is copied from the call's ApiCall__c record, and stays null when no handler was found,
+	 * the handler made no record, or the call threw an error.
 	 */
 	public String serviceName;
 

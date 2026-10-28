@@ -378,7 +378,9 @@ public inherited sharing class CTRL_FieldSet implements IF_Search
 	}
 
 	/**
-	 * @description This method is used to get the field names from fieldSetMember
+	 * @description Collects each member's field path. For a lookup field it also adds the relationship name plus `.Name`
+	 * (for example `Owner.Name`), so a query on these names reads the related record's name too. Field describes come
+	 * from the request cache.
 	 *
 	 * @param members A List of fieldSetMembers
 	 *

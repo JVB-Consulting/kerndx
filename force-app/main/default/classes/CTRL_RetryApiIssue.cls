@@ -541,7 +541,8 @@ public inherited sharing class CTRL_RetryApiIssue
 		@AuraEnabled
 		public Boolean callSuccessful;
 		/**
-		 * @description error message
+		 * @description The text the user reads when the retry is refused or fails: a Custom Label, or the error text of the call
+		 * that failed. It is set only when callSuccessful is false.
 		 */
 		@AuraEnabled
 		public String errorMessage;

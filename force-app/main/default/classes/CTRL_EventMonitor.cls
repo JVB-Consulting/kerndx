@@ -462,13 +462,15 @@ public inherited sharing class CTRL_EventMonitor
 		public String label;
 
 		/**
-		 * @description The value for the combo box item.
+		 * @description The channel the item stands for: a push topic name, a streaming channel name without its `/u/`
+		 * prefix, or an event's API name. The label may add words for display; this value is never reworded.
 		 */
 		@AuraEnabled
 		public String value;
 
 		/**
-		 * @description Constructor for ComboBoxItem.
+		 * @description Sets the text the channel picker shows and the channel it stands for. Items sort by label, see
+		 * compareTo.
 		 *
 		 * @param label The display label.
 		 * @param value The corresponding value.
@@ -499,13 +501,15 @@ public inherited sharing class CTRL_EventMonitor
 	private class DTO_OrgLimitWrapper
 	{
 		/**
-		 * @description The name of the org limit.
+		 * @description The limit's name exactly as OrgLimit.getName() returns it; the controller does not turn it into a
+		 * label.
 		 */
 		@AuraEnabled
 		public String name;
 
 		/**
-		 * @description The current value of the org limit.
+		 * @description The limit's current value, from OrgLimit.getValue(). Never null: getOrgLimits leaves out any limit
+		 * whose value or maximum is null.
 		 */
 		@AuraEnabled
 		public Integer value;
@@ -517,9 +521,10 @@ public inherited sharing class CTRL_EventMonitor
 		public Integer max;
 
 		/**
-		 * @description Constructor for OrgLimitWrapper.
+		 * @description Copies the name, the current value and the maximum out of one OrgLimit into this wrapper's @AuraEnabled
+		 * fields, which getOrgLimits returns to the component.
 		 *
-		 * @param orgLimit The OrgLimit SObject to wrap.
+		 * @param orgLimit One limit from OrgLimits.getAll().
 		 */
 		public DTO_OrgLimitWrapper(OrgLimit orgLimit)
 		{

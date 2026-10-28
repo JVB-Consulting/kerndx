@@ -65,7 +65,7 @@ global abstract inherited sharing class SEL_Base implements IF_Queryable
 
 	/**
 	 * @description Core SObjectField tokens for this selector. Lazy-loaded from getCoreFields()
-	 * on first access. Subscribers can inspect a selector's field configuration via this property.
+	 * on first access. You can inspect a selector's field configuration via this property.
 	 *
 	 * @since 1.0
 	 *
@@ -73,7 +73,7 @@ global abstract inherited sharing class SEL_Base implements IF_Queryable
 	 * ```apex
 	 * SEL_Account selector = new SEL_Account();
 	 * List<SObjectField> accountFields = selector.fields;
-	 * System.debug('Selector includes ' + accountFields.size() + ' fields');
+	 * // accountFields holds the fields that SEL_Account.getFields() returns, for example [Account.Id, Account.Name]
 	 * ```
 	 */
 	global final List<SObjectField> fields
@@ -99,7 +99,7 @@ global abstract inherited sharing class SEL_Base implements IF_Queryable
 	 * ```apex
 	 * SEL_Account selector = new SEL_Account();
 	 * List<String> paths = selector.fieldPaths;
-	 * System.debug('Relationship paths: ' + paths); // e.g., ['Owner.Name', 'CreatedBy.Email']
+	 * // paths: ['Owner.Name', 'CreatedBy.Email']
 	 * ```
 	 */
 	global final List<String> fieldPaths
@@ -158,7 +158,7 @@ global abstract inherited sharing class SEL_Base implements IF_Queryable
 	 * read CMDT, framework-owned sObjects, or system-schema tables override this to return `true`
 	 * so they continue working when the running user lacks FLS/CRUD on those objects by design.
 	 *
-	 * Subscriber-reachable selectors should leave this at the default (`false`) so they inherit
+	 * Your own selectors should leave this at the default (`false`) so they inherit
 	 * the flag-driven default — secure-by-default when the flag is enabled.
 	 *
 	 * @return `true` when this selector's queries must run in SYSTEM_MODE.

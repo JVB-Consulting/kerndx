@@ -38,7 +38,7 @@ global inherited sharing class SEL_ApiIssue extends SEL_Base
 	public static final String DIRECTION_INBOUND = 'Inbound';
 
 	/**
-	 * @description Direction value indicating an outbound API issue.
+	 * @description The Direction__c value of an issue raised by a call this org made to another system.
 	 */
 	public static final String DIRECTION_OUTBOUND = 'Outbound';
 
@@ -93,7 +93,8 @@ global inherited sharing class SEL_ApiIssue extends SEL_Base
 			+ UTIL_String.DOT + UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.CreatedById);
 
 	/**
-	 * @description Constructs an ApiIssue selector.
+	 * @description Reads ApiIssue__c records: the issues raised for failed web service calls. Every query skips the running user's object and field permission checks (system
+	 * mode). Record sharing follows the class that calls the selector, unless a method says otherwise. Creating the selector runs no query.
 	 *
 	 * @since 1.0
 	 *

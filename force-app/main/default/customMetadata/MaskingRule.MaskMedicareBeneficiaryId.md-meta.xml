@@ -16,7 +16,7 @@
     </values>
     <values>
         <field>Description__c</field>
-        <value xsi:type="xsd:string">Redacts 11-character Medicare Beneficiary Identifiers per the CMS format (positional alpha/numeric constraints, excluded letters S L O I B Z). Ships with Block DML; review with your HIPAA compliance team before deactivating.</value>
+        <value xsi:type="xsd:string">Redacts 11-character Medicare Beneficiary Identifiers per the CMS format (positional alpha/numeric constraints, excluded letters S L O I B Z). Ships with Block DML; review with your HIPAA compliance team before activating it or changing Block DML.</value>
     </values>
     <values>
         <field>FailureAction__c</field>

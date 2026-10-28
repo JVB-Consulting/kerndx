@@ -9,12 +9,12 @@
  * original user's session may no longer be valid). The `grant` / `grantTemporary` insert path is
  * harder to justify: `UTIL_Sharing` is `global` and the target is a caller-specified parent
  * object's share table, not a framework-owned bookkeeping object, so silently elevating to
- * SYSTEM_MODE + `bypassSharing()` lets a low-privilege subscriber caller grant access to records
+ * SYSTEM_MODE + `bypassSharing()` lets a low-privilege caller in your org grant access to records
  * they have no native right to share. This is the same privilege-escalation shape that was
  * corrected for `UTIL_PurgeRecords` and `UTIL_BulkUpdates` — those utilities now inherit the
  * flag-driven default so the running user's FLS/CRUD applies. `UTIL_Sharing` should move to the
- * same posture for the grant path; the change is deferred because it would alter subscriber-visible
- * behaviour of a `global` API and needs release-note coordination.
+ * same default for the grant path; the change is deferred because it would change behaviour
+ * you can see in a `global` API and needs release-note coordination.
  *
  * Supports any SObject type that has a corresponding Share object (custom objects
  * with __Share and standard objects like AccountShare, CaseShare, etc.).
@@ -26,7 +26,7 @@
  *
  * @group Utilities
  *
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  *
  * @since 1.0
  *
@@ -158,7 +158,9 @@ global inherited sharing class UTIL_Sharing
 	}
 
 	/**
-	 * @description Validates parameters for the grant method.
+	 * @description Throws an IllegalArgumentException when the record list is null or empty, when no user or group is
+	 * given, or when the access level is not exactly 'Read', 'Edit' or 'All' (the check is case-sensitive). It changes
+	 * nothing.
 	 *
 	 * @param records The records to validate.
 	 * @param userOrGroupId The user or group ID to validate.
@@ -183,13 +185,14 @@ global inherited sharing class UTIL_Sharing
 	}
 
 	/**
-	 * @description Creates share records for the specified records and user/group.
+	 * @description Builds one share row for each record that has an Id, skipping null records and records without one, and
+	 * saves them all in one insert. The insert skips the running user's permission and sharing checks.
 	 *
 	 * @param records The records to share.
 	 * @param userOrGroupId The user or group to share with.
 	 * @param accessLevel The access level to grant.
 	 *
-	 * @return The list of share records to insert.
+	 * @return The share records, already inserted.
 	 */
 	private static List<SObject> createShareRecords(List<SObject> records, Id userOrGroupId, String accessLevel)
 	{

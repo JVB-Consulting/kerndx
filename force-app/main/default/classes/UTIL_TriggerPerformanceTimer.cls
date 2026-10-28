@@ -28,7 +28,7 @@
  *
  * @group Utilities
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  *
  * @example
  * ```apex
@@ -97,7 +97,8 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 	private Integer startDmlStatements;
 
 	/**
-	 * @description The trigger action class name.
+	 * @description Name of the trigger action being timed, set once by the constructor. It starts the performance log
+	 * message and, with the trigger operation, forms the location of the log entry.
 	 */
 	public final String actionClassName
 	{

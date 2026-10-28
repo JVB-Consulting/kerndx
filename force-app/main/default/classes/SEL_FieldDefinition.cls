@@ -20,7 +20,8 @@
 public inherited sharing class SEL_FieldDefinition extends SEL_Base
 {
 	/**
-	 * @description The path from a field definition to the API name of its object.
+	 * @description The path from a field definition to the API name of its object. Used to filter fields by object and to return the
+	 * object name with each field, so no second read is needed.
 	 */
 	private static final String PATH_ENTITY_QUALIFIED_API_NAME = 'EntityDefinition.QualifiedApiName';
 

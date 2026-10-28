@@ -23,7 +23,7 @@
  *
  * @group Utilities
  *
- * @date January 2025, May 2026
+ * @date January 2025, October 2026
  *
  * @since 1.0
  *
@@ -44,7 +44,8 @@ global inherited sharing class UTIL_SessionEncryption
 	private static final Integer KEY_EXPIRY_SECONDS = 28800;
 
 	/**
-	 * @description The cache key name.
+	 * @description Name under which the encryption key is kept in the platform cache. The cache is scoped to the user,
+	 * so each user has their own key under this one name.
 	 */
 	@TestVisible
 	private static final String CACHE_KEY_NAME = 'EncryptionKey';
@@ -125,10 +126,10 @@ global inherited sharing class UTIL_SessionEncryption
 	 * ```apex
 	 * String plainTextValue = 'Sensitive Data';
 	 * String encrypted = UTIL_SessionEncryption.encrypt(plainTextValue);
-	 * System.debug(encrypted); // Outputs: Base64-encoded encrypted string
+	 * // encrypted is three Base64 parts joined by colons, in the format shown above
 	 * String blankInput = '';
 	 * encrypted = UTIL_SessionEncryption.encrypt(blankInput);
-	 * System.debug(encrypted); // Outputs: ''
+	 * // encrypted is '': a blank input is returned unchanged
 	 * ```
 	 */
 	global static String encrypt(String plainTextValue)
@@ -187,14 +188,14 @@ global inherited sharing class UTIL_SessionEncryption
 	 * String plainTextValue = 'Sensitive Data';
 	 * String encrypted = UTIL_SessionEncryption.encrypt(plainTextValue);
 	 * String decrypted = UTIL_SessionEncryption.decrypt(encrypted);
-	 * System.debug(decrypted); // Outputs: Sensitive Data
+	 * // decrypted is 'Sensitive Data'
 	 * try
 	 * {
 	 * decrypted = UTIL_SessionEncryption.decrypt('InvalidBase64');
 	 * }
 	 * catch(IllegalArgumentException e)
 	 * {
-	 * System.debug('Invalid input: ' + e.getMessage());
+	 * LOG_Builder.build().error(e).emitAt('MyClass.myMethod');
 	 * }
 	 * ```
 	 */
@@ -249,7 +250,7 @@ global inherited sharing class UTIL_SessionEncryption
 	 * @example
 	 * ```apex
 	 * Blob encryptionKey = UTIL_SessionEncryption.getEncryptionKey();
-	 * System.debug(encryptionKey != null); // Outputs: true (if key exists in cache)
+	 * // encryptionKey is null when the cache holds no key for the current user yet
 	 * ```
 	 */
 	@TestVisible

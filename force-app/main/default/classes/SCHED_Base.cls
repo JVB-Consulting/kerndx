@@ -2,8 +2,8 @@
 /**
  * @description Abstract base class for scheduled jobs that support configurable parameters.
  * Implements IF_Schedulable, providing parameter storage, typed parameter resolution, and a default
- * empty parameter definition list. Subscribers extend this class, override `getParameterDefinitions()`
- * to declare their parameters, and implement `execute(SchedulableContext)` for job logic.
+ * empty parameter definition list. You extend this class, override `getParameterDefinitions()`
+ * to declare your parameters, and implement `execute(SchedulableContext)` for job logic.
  *
  * When `setParameterValues()` is called by the framework, the base class resolves raw string values
  * into typed values (String, Integer, Boolean) based on the DataType declared in `getParameterDefinitions()`,
@@ -19,7 +19,7 @@
  *
  * @group Schedulables
  *
- * @date March 2026, May 2026
+ * @date March 2026, October 2026
  *
  * @since 1.0
  *
@@ -122,7 +122,9 @@ global abstract inherited sharing class SCHED_Base implements IF_Schedulable
 	}
 
 	/**
-	 * @description Returns a TEXT parameter value.
+	 * @description Reads a parameter declared in getParameterDefinitions, from the job's saved settings or from its
+	 * default when the settings have no entry. Use it only for a TEXT parameter. A NUMERIC or FLAG parameter that
+	 * has a value throws a TypeException here; read those with getNumericParameter and getBooleanParameter.
 	 *
 	 * @param name The parameter name.
 	 *
@@ -136,7 +138,9 @@ global abstract inherited sharing class SCHED_Base implements IF_Schedulable
 	}
 
 	/**
-	 * @description Returns a NUMERIC parameter value.
+	 * @description Reads a NUMERIC parameter declared in getParameterDefinitions, from the job's saved settings or
+	 * from its default when the settings have no entry. The saved text is turned into a whole number; text that is
+	 * not made of digits only, such as a negative number or a decimal, gives null.
 	 *
 	 * @param name The parameter name.
 	 *
@@ -165,8 +169,10 @@ global abstract inherited sharing class SCHED_Base implements IF_Schedulable
 	}
 
 	/**
-	 * @description Resolves raw string attributes into typed values using the parameter definitions
-	 * from `getParameterDefinitions()`. Applies default values when the raw attribute is blank.
+	 * @description Turns the saved text values into typed values, using the parameter definitions from
+	 * `getParameterDefinitions()`. A default is used only when the saved values have no entry under the parameter's
+	 * name (the name must match exactly, case included). A saved blank value is kept, not replaced by the default:
+	 * it reads as blank text for TEXT, null for NUMERIC and false for FLAG.
 	 */
 	private void resolveParameters()
 	{

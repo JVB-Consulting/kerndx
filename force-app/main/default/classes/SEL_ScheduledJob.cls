@@ -22,7 +22,8 @@ public inherited sharing class SEL_ScheduledJob extends SEL_Base
 	private static Boolean simulateLockTimeout = false;
 
 	/**
-	 * @description Constructs a ScheduledJob selector.
+	 * @description Reads ScheduledJob__c records, the jobs the job runner starts on a schedule. Every query skips the running user's object and field permission checks (system
+	 * mode). Creating the selector runs no query.
 	 */
 	public SEL_ScheduledJob()
 	{

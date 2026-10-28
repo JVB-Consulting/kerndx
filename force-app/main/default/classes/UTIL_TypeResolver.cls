@@ -8,7 +8,7 @@
  *
  * @group Utilities
  *
- * @date March 2025, June 2026
+ * @date March 2025, October 2026
  *
  * @since 1.0
  *
@@ -55,8 +55,15 @@ global inherited sharing class UTIL_TypeResolver
 		 *
 		 * @example
 		 * ```apex
-		 * INT_ClassTypeResolver resolver = new UTIL_TypeResolver.PackageClassResolver();
-		 * Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
+		 * global with sharing class MyCompany_TypeResolver extends UTIL_TypeResolver.BaseClassResolver
+		 * {
+		 *     public override Type resolveType(String typeName)
+		 *     {
+		 *         return Type.forName(typeName) ?? nextResolver?.resolveType(typeName);
+		 *     }
+		 * }
+		 * UTIL_TypeResolver.INT_ClassTypeResolver resolver = new MyCompany_TypeResolver();
+		 * Type resolvedType = resolver.resolveType('MyCompany_Service');
 		 * ```
 		 */
 		Type resolveType(String typeName);
@@ -72,8 +79,8 @@ global inherited sharing class UTIL_TypeResolver
 		 *
 		 * @example
 		 * ```apex
-		 * INT_ClassTypeResolver resolver = new UTIL_TypeResolver.PackageClassResolver();
-		 * INT_ClassTypeResolver nextResolver = new CustomClassResolver();
+		 * UTIL_TypeResolver.INT_ClassTypeResolver resolver = new MyCompany_TypeResolver();
+		 * UTIL_TypeResolver.INT_ClassTypeResolver nextResolver = new MyCompany_OtherTypeResolver();
 		 * resolver.setNext(nextResolver);
 		 * ```
 		 */
@@ -102,7 +109,10 @@ global inherited sharing class UTIL_TypeResolver
 		global protected INT_ClassTypeResolver nextResolver;
 
 		/**
-		 * @description Resolves a Type object from a class name.
+		 * @description Override this in your own resolver. Return the Type of the named class when your code can find it.
+		 * Otherwise return nextResolver?.resolveType(typeName): nextResolver is null on the last resolver in the chain,
+		 * so that call gives null when no resolver finds the class. Do not throw: an exception stops the chain and
+		 * reaches the caller.
 		 *
 		 * @param typeName The name of the class to resolve.
 		 *
@@ -112,8 +122,15 @@ global inherited sharing class UTIL_TypeResolver
 		 *
 		 * @example
 		 * ```apex
-		 * BaseClassResolver resolver = new PackageClassResolver();
-		 * Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
+		 * global with sharing class MyCompany_TypeResolver extends UTIL_TypeResolver.BaseClassResolver
+		 * {
+		 *     public override Type resolveType(String typeName)
+		 *     {
+		 *         return Type.forName(typeName) ?? nextResolver?.resolveType(typeName);
+		 *     }
+		 * }
+		 * UTIL_TypeResolver.BaseClassResolver resolver = new MyCompany_TypeResolver();
+		 * Type resolvedType = resolver.resolveType('MyCompany_Service');
 		 * ```
 		 */
 		global abstract Type resolveType(String typeName);
@@ -172,8 +189,8 @@ global inherited sharing class UTIL_TypeResolver
 	 *
 	 * @example
 	 * ```apex
-	 * INT_ClassTypeResolver resolver = UTIL_TypeResolver.getClassResolver();
-	 * Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
+	 * UTIL_TypeResolver.INT_ClassTypeResolver resolver = UTIL_TypeResolver.getClassResolver();
+	 * Type resolvedType = resolver.resolveType('MyCompany_Service');
 	 * ```
 	 */
 	global static INT_ClassTypeResolver getClassResolver()

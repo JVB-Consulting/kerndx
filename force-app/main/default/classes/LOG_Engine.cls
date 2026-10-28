@@ -259,7 +259,8 @@ public inherited sharing class LOG_Engine
 		 */
 		FLOW,
 		/**
-		 * @description Trigger operations (logs from trigger actions)
+		 * @description A trigger action. Used when the framework logs how long a trigger action took; that log entry
+		 * carries the trigger details.
 		 */
 		TRIGGER_ACTION,
 		/**
@@ -1380,7 +1381,8 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Returns the current correlation ID.
+	 * @description Returns the tracking id that groups the log entries of related work. It is set by startCorrelation,
+	 * setCorrelationId or hydrateContext; the value is read as it is, nothing is generated here.
 	 *
 	 * @return String The current correlation ID or null
 	 */
@@ -1732,7 +1734,8 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Clears a specific global context key.
+	 * @description Removes one key from the global context, so log entries emitted later in this transaction no
+	 * longer carry it. Does nothing when the key is not there.
 	 *
 	 * @param key The key to remove
 	 */
@@ -1742,7 +1745,9 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Clears all global context.
+	 * @description Empties the global context, including values restored by hydrateContext, so log entries emitted
+	 * later in this transaction carry none of them. The operation context stack and the webservice context are
+	 * not touched.
 	 */
 	public static void clearAllGlobalContext()
 	{
@@ -1961,7 +1966,9 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Clears webservice context for a specific correlation ID.
+	 * @description Drops the service, endpoint and response details stored for one handler, so later log entries
+	 * under that correlation id no longer carry them. Call it when the handler is finished. Does nothing when no
+	 * details are stored for the id.
 	 *
 	 * @param correlationId The handler's correlation ID (null uses current correlation)
 	 */

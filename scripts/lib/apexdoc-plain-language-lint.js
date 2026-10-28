@@ -58,6 +58,25 @@ const PLAN_LANGUAGE = [
 ];
 
 /**
+ * An HTML tag in a comment: one of the listed tag names, opening, closing or self-closing, in any case, with or without
+ * attributes. ApexDoc is plain text. Only these names count, so a generic type (List, Set, Map, Iterable, Iterator,
+ * Batchable, Comparator) such as List<String>, Set<Em> or Map<Id, Account> and the words "a < b" are never a hit.
+ * Text inside backticks and lines inside a code fence are not read for it.
+ */
+const HTML_TAG = {
+	name: 'HTML tag; ApexDoc is plain text: a blank * line between paragraphs, "- " for a list item, backticks for code',
+	pattern: /<\/?(?:p|br|ul|ol|li|b|i|em|strong|code|pre|a|div|span)(?:\s+[\w-]+=(?:"[^"]*"|'[^']*'|[^<>\s"']*))*\s*\/?>/gi
+};
+
+/**
+ * The end of the text before a match when a generic type name sits right there, so the match is a type argument.
+ * Case-sensitive: the lower-case word "list" before a tag is prose.
+ */
+const GENERIC_TYPE_BEFORE = /\b(?:List|Set|Map|Iterable|Iterator|Batchable|Comparator)\s*$/;
+const CODE_FENCE = /^```/;
+const BACKTICK_SPAN = /`[^`]*`/g;
+
+/**
  * A line whose string literals are documentation too: an assertion's message, or a Jest case's name.
  */
 const ASSERTION_LINE = /\bAssert\.|\bSystem\.assert|\b(?:it|describe|test)\(/;
@@ -130,13 +149,53 @@ function commentLines(source)
 }
 
 /**
+ * Returns every HTML tag in the comment lines of a class or trigger, as hits in the shape findPlanLanguage reports.
+ * A line that starts with three backticks opens or closes a code fence, and the lines inside a fence are not read.
+ * A fence never runs past a code line: a gap in the comment line numbers closes it. Text inside backticks is not read.
+ */
+function findHtmlTags(comments)
+{
+	const hits = [];
+	let insideFence = false;
+	let previousLine = 0;
+	for(const comment of comments)
+	{
+		insideFence = insideFence && comment.line === previousLine + 1;
+		previousLine = comment.line;
+		const text = comment.text.replace(/^\*+\s?/, '').trim();
+		if(CODE_FENCE.test(text))
+		{
+			insideFence = !insideFence;
+			continue;
+		}
+		if(insideFence)
+		{
+			continue;
+		}
+		const prose = text.replace(BACKTICK_SPAN, '');
+		HTML_TAG.pattern.lastIndex = 0;
+		let match = HTML_TAG.pattern.exec(prose);
+		while(match !== null)
+		{
+			if(!GENERIC_TYPE_BEFORE.test(prose.slice(0, match.index)))
+			{
+				hits.push({line: comment.line, token: match[0], kind: HTML_TAG.name, where: 'comment', text});
+			}
+			match = HTML_TAG.pattern.exec(prose);
+		}
+	}
+	return hits;
+}
+
+/**
  * Returns every plan-vocabulary hit in the comments and the assertion messages of a source file: the line, the
  * matched token, what kind of token it is, where it sits (a comment or an assertion) and the text it sits in with
- * its leading stars removed. `isApex` is true for a class or trigger, false for a component module.
+ * its leading stars removed. `isApex` is true for a class or trigger, false for a component module. In a class or
+ * trigger an HTML tag in a comment is a hit too.
  */
 function findPlanLanguage(source, isApex = true)
 {
-	const hits = [];
+	const hits = isApex ? findHtmlTags(commentLines(source)) : [];
 	const places = [
 		...commentLines(source).map((comment) => ({...comment, where: 'comment'})),
 		...assertionLiterals(source).map((literal) => ({...literal, where: 'assertion'}))
@@ -276,11 +335,11 @@ function run(argumentList, io)
 	}
 	if(report.length > 0)
 	{
-		io.error(`Plan vocabulary, team slang or an em-dash in ${report.length} comment line(s) of ${scope}; say it in plain words `
+		io.error(`Plan vocabulary, team slang, an em-dash or an HTML tag in ${report.length} comment line(s) of ${scope}; say it in plain words `
 			+ `(docs/Code Conventions - Guide.md, section ApexDoc):\n  ${report.join('\n  ')}`);
 		return 1;
 	}
-	io.log(`No plan vocabulary, team slang or em-dash in the comments of ${scope} (${entries.length} file(s) read).`);
+	io.log(`No plan vocabulary, team slang, em-dash or HTML tag in the comments of ${scope} (${entries.length} file(s) read).`);
 	return 0;
 }
 

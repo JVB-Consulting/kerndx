@@ -4,12 +4,12 @@
  * `EventBus.ChangeEventHeader` to Flow as a strongly-typed input variable. The platform
  * header type is not Flow-addressable directly; this DTO mirrors its public fields with
  * the `@InvocableVariable` + `@AuraEnabled` annotations required for Flow Apex-defined
- * variables and invocable-action parameters. `global` is required so subscriber-namespace
- * flows can reference the type cross-namespace.
+ * variables and invocable-action parameters. `global` is required so flows in your org
+ * can reference the type from outside the package namespace.
  *
  * Stability contract: this is a stable additive subset of the platform header. New
  * platform header fields added in future Salesforce releases are added here as new
- * `@InvocableVariable` fields — never modified or removed — so existing subscriber
+ * `@InvocableVariable` fields, never modified or removed, so your existing
  * flows remain compatible.
  *
  * @see EventBus.ChangeEventHeader
@@ -19,7 +19,7 @@
  *
  * @group Data Transfer Objects
  *
- * @date May 2026, September 2026
+ * @date May 2026, October 2026
  *
  * @since 1.1
  *

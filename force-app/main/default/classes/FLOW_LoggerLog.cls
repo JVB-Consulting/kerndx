@@ -9,7 +9,7 @@
  *
  * @group Logging
  *
- * @date December 2025, September 2026
+ * @date December 2025, October 2026
  *
  * @since 1.0
  *
@@ -133,7 +133,8 @@ global inherited sharing class FLOW_LoggerLog
 		global String correlationId;
 
 		/**
-		 * @description Log message
+		 * @description The text of the log entry. It is saved with "[Flow] " in front of it, so entries written from
+		 * a Flow are easy to tell apart from entries written by Apex.
 		 *
 		 * @since 1.0
 		 *

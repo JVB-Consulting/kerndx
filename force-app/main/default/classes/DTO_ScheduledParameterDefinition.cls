@@ -14,7 +14,7 @@
  *
  * @group Schedulables
  *
- * @date March 2026, May 2026
+ * @date March 2026, October 2026
  *
  * @since 1.0
  *
@@ -247,7 +247,8 @@ global inherited sharing class DTO_ScheduledParameterDefinition extends DTO_Json
 	}
 
 	/**
-	 * @description Sets the default value for this parameter.
+	 * @description Sets the value the job uses when its saved settings have no entry for this parameter. Give it as
+	 * text, in the same form a saved value takes: for a NUMERIC parameter use digits only, or the job reads null.
 	 *
 	 * @param defaultValue The default value as a string.
 	 *

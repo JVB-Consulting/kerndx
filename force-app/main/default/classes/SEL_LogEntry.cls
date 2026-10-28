@@ -147,7 +147,8 @@ public inherited sharing class SEL_LogEntry extends SEL_Base
 	public static final String ORIGIN_MIXED = 'MIXED';
 
 	/**
-	 * @description Constructs a Log Entry selector.
+	 * @description Reads LogEntry__c records, the log the framework writes. Every query skips the running user's object and field permission checks (system mode). Record sharing
+	 * follows the class that calls the selector, unless a method says otherwise. Creating the selector runs no query.
 	 *
 	 * @example
 	 * ```apex

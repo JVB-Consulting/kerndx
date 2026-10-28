@@ -10,7 +10,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -24,7 +24,9 @@
 global inherited sharing class SEL_OrgWideEmailAddress extends SEL_Base
 {
 	/**
-	 * @description Constructs an OrgWideEmailAddress selector.
+	 * @description Reads OrgWideEmailAddress records, the organisation-wide email addresses set up in the org. Every query
+	 * skips the running user's object and field permission checks (system mode). Record sharing follows the class
+	 * that calls the selector. Creating the selector runs no query.
 	 *
 	 * @since 1.0
 	 *

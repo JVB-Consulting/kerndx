@@ -10,7 +10,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_FieldSetGroup extends SEL_Base
 {
@@ -30,7 +30,8 @@ public inherited sharing class SEL_FieldSetGroup extends SEL_Base
 	public static final String OBJECT_NAME = FieldSetGroup__mdt.SObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).name;
 
 	/**
-	 * @description Constructs a FieldSetGroup selector.
+	 * @description Reads the FieldSetGroup__mdt custom metadata records that group field sets. Every query skips the running user's object and field permission checks (system
+	 * mode). Creating the selector runs no query.
 	 */
 	public SEL_FieldSetGroup()
 	{

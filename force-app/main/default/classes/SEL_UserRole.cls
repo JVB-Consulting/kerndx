@@ -10,7 +10,7 @@
  *
  * @group Selectors
  *
- * @date October 2024, May 2026
+ * @date October 2024, October 2026
  *
  * @since 1.0
  *
@@ -24,7 +24,8 @@
 global inherited sharing class SEL_UserRole extends SEL_Base
 {
 	/**
-	 * @description Constructs a UserRole selector.
+	 * @description Reads UserRole records, the roles of the org's role hierarchy. Every query skips the running user's object and field permission checks (system mode). Record
+	 * sharing follows the class that calls the selector. Creating the selector runs no query.
 	 *
 	 * @since 1.0
 	 *

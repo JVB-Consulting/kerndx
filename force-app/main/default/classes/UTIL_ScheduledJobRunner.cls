@@ -774,7 +774,8 @@ public inherited sharing class UTIL_ScheduledJobRunner
 		}
 
 		/**
-		 * @description The id of this run.
+		 * @description Returns the job id of the queued run that is executing the job, not the id of a scheduled job. So a
+		 * job must not pass it to System.abortJob to stop its schedule.
 		 *
 		 * @return The run's AsyncApexJob id.
 		 */

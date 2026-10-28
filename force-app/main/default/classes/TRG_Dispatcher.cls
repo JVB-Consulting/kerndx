@@ -788,7 +788,10 @@ global inherited sharing class TRG_Dispatcher
 		private final String fingerprint;
 
 		/**
-		 * @description Creates a stack frame for the given action type and fingerprint.
+		 * @description Made for each action the dispatcher reaches, and pushed onto the stack before the checks that
+		 * decide whether the action runs. The frame is taken off again when that step ends, whether the action ran,
+		 * was skipped or threw. While on the stack, it lets inRecursion see that the same action is already running
+		 * further up.
 		 *
 		 * @param actionType The resolved Apex type of the trigger action class.
 		 * @param fingerprint The TriggerAction__mdt DeveloperName for `Configurable` actions, otherwise null.

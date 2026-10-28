@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>ErrorMessage__c</fullName>
-    <description>The error message displayed when validation fails. Supports merge fields using {!FieldName} syntax referencing context class properties. Use Custom Labels with {$Label.LabelName} for internationalization.</description>
+    <description>Message shown when the rule fails. Merge fields such as {!PropertyName} or {!newRecord.Name} are filled from your context class. If you write your own context class, put @JsonAccess(serializable='always') on it, or its merge fields stay blank. Custom Labels are not resolved. To show a label, add a property to the context class that returns System.Label.YourLabel.</description>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <inlineHelpText>Error message shown on failure. Supports merge fields: {!newRecord.Name}, {!Context.PropertyName}, {$Label.CustomLabel}</inlineHelpText>
+    <inlineHelpText>Message shown when the rule fails. Merge fields such as {!PropertyName} or {!newRecord.Name} are filled from your context class. If you write your own context class, put @JsonAccess(serializable='always') on it, or its merge fields stay blank. Custom Labels are not resolved. To show a label, add a property to the context class that returns System.Label.YourLabel.</inlineHelpText>
     <label>Error Message</label>
     <length>4000</length>
     <type>LongTextArea</type>

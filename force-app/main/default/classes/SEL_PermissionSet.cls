@@ -10,7 +10,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -29,7 +29,8 @@ global inherited sharing class SEL_PermissionSet extends SEL_Base
 	public static final String ADMIN_PERMISSION_SET_API_NAME = 'Administrator';
 
 	/**
-	 * @description API name of the Read Only Permission Set.
+	 * @description The name of the package's ReadOnly permission set. It lets a user read Foobar__c records and fields but not create,
+	 * edit or delete them, so tests use it to check field-level security.
 	 */
 	@TestVisible
 	private static final String READ_ONLY_PERMISSION_SET_API_NAME = 'ReadOnly';

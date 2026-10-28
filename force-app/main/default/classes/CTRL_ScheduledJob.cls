@@ -252,7 +252,8 @@ public inherited sharing class CTRL_ScheduledJob
 	public class DTO_JobRunnerState
 	{
 		/**
-		 * @description Whether a runner is active.
+		 * @description True when at least one of the job runner's records still owns a scheduled job that will fire. Copied
+		 * from the job runner status the Health Check reads.
 		 */
 		@AuraEnabled
 		public Boolean isActive;

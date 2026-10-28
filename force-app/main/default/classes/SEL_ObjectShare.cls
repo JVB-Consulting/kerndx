@@ -9,7 +9,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_ObjectShare
 {
@@ -135,8 +135,8 @@ public inherited sharing class SEL_ObjectShare
 
 		/**
 		 * @description Will initialise all the relevant information for the Share object related to the given object api name.
-		 * <p/>
-		 * https:///developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_associated_objects_share.htm
+		 *
+		 * https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_associated_objects_share.htm
 		 *
 		 * @param objectType Type of an SObject that has a related share object
 		 */

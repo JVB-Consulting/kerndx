@@ -1600,7 +1600,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 		private final MatchProvenance provenance;
 
 		/**
-		 * @description Constructs a rule match.
+		 * @description Stores the rule and how it matched, with no checks. A failed match passes `null` and `NONE`, as the
+		 * shared NO_MATCH value does.
 		 *
 		 * @param rule The matched rule, or `null` when nothing matched.
 		 * @param provenance How the rule matched (or `NONE`).
@@ -2971,7 +2972,7 @@ public inherited sharing class CTRL_MaskingAdvisor
 	public class DTO_FlaggedField
 	{
 		/**
-		 * @description API name of the flagged field.
+		 * @description The flagged field's API name with its case kept, copied from the advisor's field row.
 		 */
 		@AuraEnabled
 		public String fieldApiName;
@@ -3058,7 +3059,7 @@ public inherited sharing class CTRL_MaskingAdvisor
 	public class DTO_FieldInventoryRow
 	{
 		/**
-		 * @description API name of the field.
+		 * @description The field's API name with its case kept, copied from the advisor's field row.
 		 */
 		@AuraEnabled
 		public String fieldApiName;
@@ -3295,13 +3296,14 @@ public inherited sharing class CTRL_MaskingAdvisor
 	public class DTO_FieldRow
 	{
 		/**
-		 * @description Field API name.
+		 * @description The field's API name with its case kept. The advisor lowercases it only to look up the field's
+		 * classification and its existing targets.
 		 */
 		@AuraEnabled
 		public String apiName;
 
 		/**
-		 * @description Field label.
+		 * @description The field's label, taken from the field's describe information.
 		 */
 		@AuraEnabled
 		public String label;
@@ -3609,7 +3611,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 	public class DTO_GenerationRequest
 	{
 		/**
-		 * @description Targets to create.
+		 * @description The targets the administrator chose. Each one becomes a masking target custom metadata file in the
+		 * bundle and a member of its package.xml. A null list is read as empty.
 		 */
 		@AuraEnabled
 		public List<DTO_TargetDecision> targets;

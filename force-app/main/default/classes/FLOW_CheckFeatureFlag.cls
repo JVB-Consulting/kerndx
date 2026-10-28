@@ -11,7 +11,7 @@
  *
  * @group Feature Flags
  *
- * @date November 2025, May 2026
+ * @date November 2025, October 2026
  *
  * @since 1.0
  *
@@ -27,9 +27,9 @@ global inherited sharing class FLOW_CheckFeatureFlag
 	/**
 	 * @description Returns if the specified feature flag is enabled for the current user.
 	 *
-	 * @param flagNames A list containing a single DTO_Request with the feature flag's API name.
+	 * @param flagNames The API names of the feature flags to check, one per Flow interview.
 	 *
-	 * @return A list containing whether flags provided are enabled or not
+	 * @return One Boolean for each name, in the same order: true when that flag is enabled for the current user.
 	 *
 	 * @since 1.0
 	 *

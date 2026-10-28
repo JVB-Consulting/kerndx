@@ -130,7 +130,7 @@ public inherited sharing class SEL_FeatureFlag extends SEL_Base
 	 * @description Returns all active flags with their active strategies. Single point of truth
 	 * for the {@link #activeFlags} cache — invoked once per transaction on cold cache.
 	 *
-	 * <p><b>Why hand-rolled SOQL + raw `Database.query` instead of `QRY_Builder` / `query`:</b>
+	 * Why hand-rolled SOQL + raw `Database.query` instead of `QRY_Builder` / `query`:
 	 * this method sits on the feature-flag bootstrap path. Constructing a `QRY_Builder.Builder`
 	 * runs its field initializer `userModeEnabled = QRY_Builder.userModeQueriesEnabled()`, which
 	 * resolves the `UserModeQueries_Enabled` flag via `UTIL_FeatureFlag.isEnabled(...)`, which
@@ -141,11 +141,11 @@ public inherited sharing class SEL_FeatureFlag extends SEL_Base
 	 * subscribers typically grant running users no CRUD on `kern__FeatureFlag__mdt`, so a
 	 * USER_MODE read would return empty and silently disable every flag.
 	 *
-	 * <p><b>Why no ORDER BY in the strategy subselect:</b> Salesforce Known Issue W-8877088 —
+	 * Why no ORDER BY in the strategy subselect: Salesforce Known Issue W-8877088.
 	 * ORDER BY in a CMDT parent-child subselect silently drops child records. Strategies are
 	 * sorted in Apex by `UTIL_FeatureFlag.sortByOrder()` after the query returns.
 	 *
-	 * <p><b>Why the bare `'FeatureFlagStrategies__r'` literal is namespace-safe:</b> the
+	 * Why the bare `'FeatureFlagStrategies__r'` literal is namespace-safe: the
 	 * dynamic-SOQL parser auto-prefixes identifiers (objects, fields, relationship names) with
 	 * the running package's namespace at runtime, the same way static SOQL does. The `kern__`
 	 * prefix is applied for us in subscriber orgs without any string manipulation here. Same

@@ -10,7 +10,7 @@
  *
  * @group Selectors
  *
- * @date November 2025, May 2026
+ * @date November 2025, October 2026
  */
 public inherited sharing class SEL_StreamingChannel extends SEL_Base
 {
@@ -20,7 +20,7 @@ public inherited sharing class SEL_StreamingChannel extends SEL_Base
 	public static final String GENERIC_EVENT_NAME_PREFIX = '/u/';
 
 	/**
-	 * @description Constructs a StreamingChannel selector.
+	 * @description Reads StreamingChannel records. Every query skips the running user's object and field permission checks (system mode). Creating the selector runs no query.
 	 */
 	public SEL_StreamingChannel()
 	{

@@ -126,7 +126,8 @@ public inherited sharing class UTIL_QueryPerformanceTimer extends UTIL_StopWatch
 	}
 
 	/**
-	 * @description Creates a query performance timer with the specified operation name and class method.
+	 * @description Creates a timer that is not running yet: call start() just before the query and stop() just after it.
+	 * The two names are not checked; they only label the performance log entry.
 	 *
 	 * @param operationName Name of the query operation being timed (used in log message)
 	 * @param classMethod The class.method context for the log entry (e.g., 'SEL_Account/findById')

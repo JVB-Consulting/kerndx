@@ -62,7 +62,7 @@ global inherited sharing class UTIL_Random
 	 * @example
 	 * ```apex
 	 * Boolean randomBool = UTIL_Random.nextBoolean();
-	 * System.debug(randomBool); // Outputs: true or false
+	 * // randomBool is true or false, each about half of the time
 	 * ```
 	 */
 	global static Boolean nextBoolean()
@@ -93,7 +93,7 @@ global inherited sharing class UTIL_Random
 	 * @example
 	 * ```apex
 	 * Integer randomInt = UTIL_Random.nextInteger(100);
-	 * System.debug(randomInt); // Outputs: e.g., 42
+	 * // randomInt is a whole number from 0 to 100, for example 42
 	 * ```
 	 */
 	global static Integer nextInteger(Integer upperBound)
@@ -114,7 +114,7 @@ global inherited sharing class UTIL_Random
 	 * @example
 	 * ```apex
 	 * Integer randomInt = UTIL_Random.nextInteger(10, 20);
-	 * System.debug(randomInt); // Outputs: e.g., 15
+	 * // randomInt is a whole number from 10 to 20, for example 15
 	 * ```
 	 */
 	global static Integer nextInteger(Integer lowerBound, Integer upperBound)
@@ -159,7 +159,7 @@ global inherited sharing class UTIL_Random
 	 * @example
 	 * ```apex
 	 * String randomString = UTIL_Random.random(10);
-	 * System.debug(randomString); // Outputs: e.g., "Kj#9mP$2vQ"
+	 * // randomString has 10 printable characters, for example 'Kj#9mP$2vQ'
 	 * ```
 	 */
 	global static String random(Integer length)
@@ -179,7 +179,7 @@ global inherited sharing class UTIL_Random
 	 * @example
 	 * ```apex
 	 * String randomAlpha = UTIL_Random.randomAlphabetic(6);
-	 * System.debug(randomAlpha); // Outputs: e.g., "KjmPqR"
+	 * // randomAlpha has 6 letters, for example 'KjmPqR'
 	 * ```
 	 */
 	global static String randomAlphabetic(Integer length)
@@ -199,7 +199,7 @@ global inherited sharing class UTIL_Random
 	 * @example
 	 * ```apex
 	 * String randomAlphanumeric = UTIL_Random.randomAlphanumeric(8);
-	 * System.debug(randomAlphanumeric); // Outputs: e.g., "Kj9mP2vQ"
+	 * // randomAlphanumeric has 8 letters and digits, for example 'Kj9mP2vQ'
 	 * ```
 	 */
 	global static String randomAlphanumeric(Integer length)
@@ -219,7 +219,7 @@ global inherited sharing class UTIL_Random
 	 * @example
 	 * ```apex
 	 * String randomNum = UTIL_Random.randomNumeric(5);
-	 * System.debug(randomNum); // Outputs: e.g., "39281"
+	 * // randomNum has 5 digits, for example '39281'
 	 * ```
 	 */
 	global static String randomNumeric(Integer length)
@@ -240,7 +240,7 @@ global inherited sharing class UTIL_Random
 	 * @example
 	 * ```apex
 	 * String randomCustom = UTIL_Random.random(5, 'ABC');
-	 * System.debug(randomCustom); // Outputs: e.g., "ABCCB"
+	 * // randomCustom has 5 characters taken from 'ABC', for example 'ABCCB'
 	 * ```
 	 */
 	global static String random(Integer length, String characterSet)
@@ -331,7 +331,7 @@ global inherited sharing class UTIL_Random
 	 * @example
 	 * ```apex
 	 * String uuid = UTIL_Random.randomUUID();
-	 * System.debug(uuid); // Outputs: e.g., "550e8400-e29b-41d4-a716-446655440000"
+	 * // uuid is new on every call, for example '550e8400-e29b-41d4-a716-446655440000'
 	 * ```
 	 */
 	global static String randomUUID()
@@ -353,7 +353,7 @@ global inherited sharing class UTIL_Random
 	 * @example
 	 * ```apex
 	 * Id mockId = UTIL_Random.randomId(Account.SObjectType);
-	 * System.debug(mockId); // Outputs: e.g., "00100000000lACzAAM"
+	 * // mockId starts with '00100000000': the Account key prefix '001', then eight zeros
 	 * ```
 	 */
 	global static Id randomId(SObjectType sObjectType)
@@ -378,7 +378,7 @@ global inherited sharing class UTIL_Random
 	 * @example
 	 * ```apex
 	 * Integer randomInt = UTIL_Random.randomInteger(100);
-	 * System.debug(randomInt); // Outputs: e.g., 42
+	 * // randomInt is a whole number from 0 to 100, for example 42
 	 * ```
 	 */
 	global static Integer randomInteger(Integer upperBound)

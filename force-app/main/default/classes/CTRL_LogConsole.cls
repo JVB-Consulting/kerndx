@@ -2727,7 +2727,8 @@ public with sharing class CTRL_LogConsole
 	public class DTO_LogProblemPage
 	{
 		/**
-		 * @description The problems on this page.
+		 * @description This page's slice of the full, sorted problem list, filled by paginate. Empty when the page number
+		 * is past the last page.
 		 */
 		@AuraEnabled
 		public List<DTO_LogProblem> records;
@@ -2977,7 +2978,8 @@ public with sharing class CTRL_LogConsole
 	public class DTO_LogEntryPage
 	{
 		/**
-		 * @description The entries on this page.
+		 * @description One summary row for each log entry on this page, in the requested sort order (newest first when no
+		 * order is asked for). A row carries its chain's name when a chain run shares the entry's correlation id.
 		 */
 		@AuraEnabled
 		public List<DTO_LogEntrySummary> records;
@@ -3634,7 +3636,8 @@ public with sharing class CTRL_LogConsole
 		public Long used;
 
 		/**
-		 * @description The limit's maximum.
+		 * @description The highest amount this limit allows, read from the entry's saved limits text and cut to a whole number.
+		 * A line whose maximum is missing or not above zero gets no bar.
 		 */
 		@AuraEnabled
 		public Long maximum;
@@ -3738,13 +3741,13 @@ public with sharing class CTRL_LogConsole
 		public Id executionId;
 
 		/**
-		 * @description The chain name.
+		 * @description The name the run's chain was given, copied from the run's ChainName__c field.
 		 */
 		@AuraEnabled
 		public String chainName;
 
 		/**
-		 * @description The chain number.
+		 * @description The run's number, read from the run record's Name field.
 		 */
 		@AuraEnabled
 		public String chainNumber;

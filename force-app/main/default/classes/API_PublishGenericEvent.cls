@@ -9,12 +9,13 @@
  *
  * @group Web Services
  *
- * @date November 2025, May 2026
+ * @date November 2025, October 2026
  */
 public inherited sharing class API_PublishGenericEvent extends API_CallCurrentOrg
 {
 	/**
-	 * @description The string payload to publish.
+	 * @description The name of the call parameter that holds the text to publish. The handler lists it as a required
+	 * input and copies its value into the pushed event.
 	 */
 	public static final String REQUIRED_PARAMETER_PAYLOAD = 'payload';
 
@@ -96,7 +97,8 @@ public inherited sharing class API_PublishGenericEvent extends API_CallCurrentOr
 	public class DTO_PushEvent
 	{
 		/**
-		 * @description The generic event payload
+		 * @description The text from the payload parameter, sent unchanged. It is the only value in each pushed
+		 * event.
 		 */
 		private String payload;
 	}

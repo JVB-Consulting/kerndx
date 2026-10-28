@@ -20,9 +20,9 @@
 public inherited sharing class SEL_AsyncApexJob extends SEL_Base
 {
 	/**
-	 * @description Every status the platform gives an AsyncApexJob. Each member name matches the status value the
-	 * platform writes and SOQL expects, so name() is the value on the wire; the mixed-case member names are therefore
-	 * load-bearing, hence the FieldNamingConventions suppression.
+	 * @description The AsyncApexJob statuses this selector filters on. All of them are live statuses: the job is waiting or
+	 * running. Each member name matches the status value the platform writes and SOQL expects, so name() is the value sent in
+	 * the query; that is why the names keep their mixed case and the FieldNamingConventions rule is suppressed.
 	 */
 	@SuppressWarnings('PMD.FieldNamingConventions')
 	public enum AsyncApexJobStatus
@@ -42,19 +42,7 @@ public inherited sharing class SEL_AsyncApexJob extends SEL_Base
 		/**
 		 * @description Held in the flex queue, waiting for capacity.
 		 */
-		Holding,
-		/**
-		 * @description Finished its work.
-		 */
-		Completed,
-		/**
-		 * @description Ended in an unhandled failure.
-		 */
-		Failed,
-		/**
-		 * @description Stopped before finishing, by an abort.
-		 */
-		Aborted
+		Holding
 	}
 
 	/**
@@ -88,7 +76,8 @@ public inherited sharing class SEL_AsyncApexJob extends SEL_Base
 	private static final String FIELD_APEX_CLASS_NAMESPACE_PREFIX = 'ApexClass.NamespacePrefix';
 
 	/**
-	 * @description Constructs an AsyncApexJob selector.
+	 * @description Reads the platform's async job records (AsyncApexJob). Every query skips the running user's object and field permission checks (system mode). Creating the
+	 * selector runs no query.
 	 */
 	public SEL_AsyncApexJob()
 	{

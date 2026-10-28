@@ -67,7 +67,7 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	public static final String STATUS_COMPLETED = 'Completed';
 
 	/**
-	 * @description Status indicating the API call failed.
+	 * @description The Status__c value of a call that ended in an error and will not be retried automatically.
 	 */
 	public static final String STATUS_FAILED = 'Failed';
 
@@ -82,7 +82,7 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	public static final String STATUS_QUEUED = 'Queued';
 
 	/**
-	 * @description Status indicating the API call is set for retry.
+	 * @description The Status__c value of a call that failed and waits for an automatic retry at the time in NextRetry__c.
 	 */
 	public static final String STATUS_RETRY = 'Retry';
 
@@ -92,12 +92,12 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	public static final String STATUS_RETRYING = 'Retrying';
 
 	/**
-	 * @description Type indicating an inbound API call.
+	 * @description The Direction__c value of a call another system made into this org.
 	 */
 	public static final String TYPE_INBOUND = 'Inbound';
 
 	/**
-	 * @description Type indicating an outbound API call.
+	 * @description The Direction__c value of a call this org made to another system.
 	 */
 	public static final String TYPE_OUTBOUND = 'Outbound';
 
@@ -140,7 +140,8 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	private static final List<String> OPEN_STATUSES = new List<String> {STATUS_BATCHED, STATUS_PROCESSING, STATUS_QUEUED, STATUS_RETRY, STATUS_RETRYING};
 
 	/**
-	 * @description Constructs a new SEL_ApiCall selector instance.
+	 * @description Reads ApiCall__c records: the record kept for each web service call, inbound or outbound. Every query skips the running user's object and field permission
+	 * checks (system mode). Record sharing follows the class that calls the selector, unless a method says otherwise. Creating the selector runs no query.
 	 *
 	 * @since 1.0
 	 *

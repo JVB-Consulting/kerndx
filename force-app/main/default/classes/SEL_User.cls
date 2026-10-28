@@ -88,7 +88,7 @@ global virtual inherited sharing class SEL_User extends SEL_Base
 	 * ```apex
 	 * SEL_User selector = new SEL_User();
 	 * List<SObjectField> userFields = selector.getFields();
-	 * System.debug('User selector has ' + userFields.size() + ' core fields');
+	 * // userFields includes User.Username, User.Email and User.ProfileId
 	 * ```
 	 */
 	global virtual override List<SObjectField> getFields()
@@ -133,7 +133,7 @@ global virtual inherited sharing class SEL_User extends SEL_Base
 	 * ```apex
 	 * SEL_User selector = new SEL_User();
 	 * List<String> paths = selector.getFieldPaths();
-	 * System.debug('Relationship paths: ' + paths); // ['Profile.Name']
+	 * // paths: ['Profile.Name']
 	 * ```
 	 */
 	global virtual override List<String> getFieldPaths()
@@ -246,7 +246,9 @@ global virtual inherited sharing class SEL_User extends SEL_Base
 	}
 
 	/**
-	 * @description Builds a query for active users with the specified profile name.
+	 * @description Adds two filters to this selector's default query: the user is active, and the user's profile has the given name.
+	 * The profile is found with a sub-query that runs in system mode, so it skips the running user's permission checks.
+	 * Runs no query itself; the caller runs the returned builder.
 	 *
 	 * @param profileName The name of the profile to filter by.
 	 *
@@ -305,7 +307,9 @@ global virtual inherited sharing class SEL_User extends SEL_Base
 	}
 
 	/**
-	 * @description Builds a query for active users with a specific profile and permission set or group.
+	 * @description Takes the query from buildActiveByProfileQuery and keeps only users who have a
+	 * permission set assignment whose PermissionSet.Name equals permissionSetOrGroupName. The assignments are found with a
+	 * sub-query that runs in system mode. Runs no query itself; the caller runs the returned builder.
 	 *
 	 * @param profileName The name of the profile to filter by.
 	 * @param permissionSetOrGroupName The name of the permission set or group to filter by.

@@ -43,11 +43,11 @@
  * ```apex
  * public class RateLimitStrategy implements UTIL_Retry.Strategy
  * {
- *     public Boolean shouldRetry(UTIL_Retry.Context ctx)
+ *     public Boolean shouldRetry(UTIL_Retry.Context context)
  *     {
  *         return context.getRetryCount() < 3;
  *     }
- *     public Integer calculateBackoff(UTIL_Retry.Context ctx)
+ *     public Integer calculateBackoff(UTIL_Retry.Context context)
  *     {
  *         // Custom logic based on rate limit headers
  *         return 60; // Wait 1 minute for rate limit
@@ -76,7 +76,8 @@ global inherited sharing class UTIL_Retry
 	private static final Integer DEFAULT_MAX_RETRIES = 3;
 
 	/**
-	 * @description Default exponential multiplier
+	 * @description How much the wait grows with each retry in exponential mode, when withExponentialMultiplier is not
+	 * called: 2, so each wait is double the one before, up to the maximum backoff.
 	 */
 	private static final Decimal DEFAULT_EXPONENTIAL_MULTIPLIER = 2.0;
 
@@ -104,7 +105,8 @@ global inherited sharing class UTIL_Retry
 		Integer getRetryCount();
 
 		/**
-		 * @description Gets the datetime of the last retry attempt
+		 * @description Returns the time given to withLastAttemptTime, or null when none was given. The strategies this
+		 * class creates do not use it. Read it in your own Strategy when the time of the last attempt matters.
 		 *
 		 * @return The last attempt time, or null if not set
 		 *
@@ -389,7 +391,9 @@ global inherited sharing class UTIL_Retry
 	}
 
 	/**
-	 * @description Creates a new retry context with the specified retry count.
+	 * @description Starts the context a strategy reads to decide whether to retry and how long to wait. A null or
+	 * negative count is treated as 0. Add the time of the last attempt and any data of your own, such as the caught
+	 * exception, with withLastAttemptTime and withCustomData.
 	 *
 	 * @param retryCount The current retry attempt number (0 = first attempt, 1 = first retry, etc.)
 	 *
@@ -420,7 +424,7 @@ global inherited sharing class UTIL_Retry
 	 * authentication failures that won't recover via retry.
 	 *
 	 * Wrapping (rather than adding setters to the `Strategy` interface) keeps the contract
-	 * for subscriber Strategy implementations unchanged.
+	 * for your own Strategy implementations unchanged.
 	 *
 	 * @param base The base retry strategy to wrap.
 	 * @param exceptionTypes Set of exception types that should NEVER be retried.
@@ -656,7 +660,8 @@ global inherited sharing class UTIL_Retry
 	private class DefaultContext implements Context
 	{
 		/**
-		 * @description Datetime of the last retry attempt
+		 * @description The time set by withLastAttemptTime, or null until it is called. No strategy in this class reads
+		 * it; it is kept for custom strategies.
 		 */
 		private Datetime lastAttempt;
 
@@ -701,7 +706,7 @@ global inherited sharing class UTIL_Retry
 		}
 
 		/**
-		 * @description Gets the datetime of the last retry attempt
+		 * @description Returns the time set by withLastAttemptTime, or null when it was never set.
 		 *
 		 * @return The last attempt time, or null if not set
 		 */

@@ -10,7 +10,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -25,7 +25,7 @@
 global inherited sharing class SEL_ContentVersion extends SEL_Base
 {
 	/**
-	 * @description File extension for text files.
+	 * @description The ending of a plain text file name, with its dot: '.txt'.
 	 */
 	public static final String TEXT_FILE_EXTENSION = '.txt';
 
@@ -41,7 +41,8 @@ global inherited sharing class SEL_ContentVersion extends SEL_Base
 	}
 
 	/**
-	 * @description Constructs a new SEL_ContentVersion selector instance.
+	 * @description Reads ContentVersion records, the versions of files stored in the org. Every query skips the running user's object and field permission checks (system mode).
+	 * Record sharing follows the class that calls the selector. Creating the selector runs no query.
 	 *
 	 * @since 1.0
 	 *

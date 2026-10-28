@@ -386,7 +386,8 @@ public inherited sharing class SEL_MaskingRule extends SEL_Base
 	}
 
 	/**
-	 * @description Constructs a MaskingRule selector.
+	 * @description Reads the MaskingRule__mdt custom metadata records. Every query skips the running user's object and field permission checks (system mode). Creating the selector
+	 * runs no query.
 	 */
 	public SEL_MaskingRule()
 	{

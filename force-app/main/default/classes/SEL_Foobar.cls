@@ -10,7 +10,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -162,7 +162,8 @@ global inherited sharing class SEL_Foobar extends SEL_Base
 	public static final String RT_DEFAULT = 'DefaultFoobar';
 
 	/**
-	 * @description Constructs a Foobar selector.
+	 * @description Reads Foobar__c records, the framework's test data object. Every query skips the running user's object and field permission checks (system mode). Creating the
+	 * selector runs no query.
 	 *
 	 * @example
 	 * ```apex

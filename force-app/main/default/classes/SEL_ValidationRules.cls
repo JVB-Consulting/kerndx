@@ -13,7 +13,7 @@
  *
  * @group Validation
  *
- * @date January 2026, June 2026
+ * @date January 2026, October 2026
  */
 public inherited sharing class SEL_ValidationRules
 {
@@ -358,7 +358,8 @@ public inherited sharing class SEL_ValidationRules
 	}
 
 	/**
-	 * @description Gets or creates the operation map for an object.
+	 * @description Returns the cached rules of one object, keyed by trigger operation name. When the object has no entry yet, adds an empty
+	 * one to the cache and returns it.
 	 *
 	 * @param objectApiName The object API name
 	 *
@@ -486,7 +487,7 @@ public inherited sharing class SEL_ValidationRules
 	}
 
 	/**
-	 * @description Adds a value to a set if it's not blank.
+	 * @description Adds the value to the set. Does nothing when the value is null, empty or only spaces.
 	 *
 	 * @param targetSet The set to add to
 	 * @param value The value to add

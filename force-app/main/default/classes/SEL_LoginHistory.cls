@@ -10,12 +10,13 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_LoginHistory extends SEL_Base
 {
 	/**
-	 * @description Constructs a LoginHistory selector.
+	 * @description Reads the platform's login history (LoginHistory). Every query skips the running user's object and field permission checks (system mode). Creating the selector
+	 * runs no query.
 	 */
 	public SEL_LoginHistory()
 	{

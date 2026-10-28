@@ -13,7 +13,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class UTIL_Set
@@ -29,7 +29,7 @@ public inherited sharing class UTIL_Set
 	 * ```apex
 	 * Set<Object> inputSet = new Set<Object>{'0013X00000M8HkqQAF', 'string'};
 	 * Set<Id> result = UTIL_Set.extractIds(inputSet);
-	 * System.debug(result); // Outputs: {0013X00000M8HkqQAF}
+	 * // result: {0013X00000M8HkqQAF}
 	 * ```
 	 */
 	public static Set<Id> extractIds(Set<Object> objectSet)
@@ -60,7 +60,7 @@ public inherited sharing class UTIL_Set
 	 * ```apex
 	 * Set<Id> inputSet = new Set<Id>{'0013X00000M8HkqQAF'};
 	 * Set<Object> result = UTIL_Set.idToObject(inputSet);
-	 * System.debug(result); // Outputs: {0013X00000M8HkqQAF}
+	 * // result: {0013X00000M8HkqQAF}
 	 * ```
 	 */
 	public static Set<Object> idToObject(Set<Id> idSet)
@@ -88,7 +88,7 @@ public inherited sharing class UTIL_Set
 	 * ```apex
 	 * Set<String> inputSet = new Set<String>{'example', 'test'};
 	 * Set<Object> result = UTIL_Set.stringToObject(inputSet);
-	 * System.debug(result); // Outputs: {example, test}
+	 * // result: {example, test}
 	 * ```
 	 */
 	public static Set<Object> stringToObject(Set<String> stringSet)
@@ -116,7 +116,7 @@ public inherited sharing class UTIL_Set
 	 * ```apex
 	 * Set<String> inputSet = new Set<String>{'example', 'test'};
 	 * List<String> result = UTIL_Set.toList(inputSet);
-	 * System.debug(result); // Outputs: [example, test]
+	 * // result: [example, test]
 	 * ```
 	 */
 	public static List<String> toList(Set<String> stringSet)
@@ -147,7 +147,7 @@ public inherited sharing class UTIL_Set
 	 * ```apex
 	 * List<String> inputList = new List<String>{'example', 'example', 'test'};
 	 * Set<String> result = UTIL_Set.toSet(inputList);
-	 * System.debug(result); // Outputs: {example, test}
+	 * // result: {example, test}
 	 * ```
 	 */
 	public static Set<String> toSet(List<String> stringList)
@@ -178,7 +178,7 @@ public inherited sharing class UTIL_Set
 	 * ```apex
 	 * Set<String> inputSet = new Set<String>{'Example', 'TEST'};
 	 * Set<String> result = UTIL_Set.lowerCase(inputSet);
-	 * System.debug(result); // Outputs: {example, test}
+	 * // result: {example, test}
 	 * ```
 	 */
 	public static Set<String> lowerCase(Set<String> stringSet)

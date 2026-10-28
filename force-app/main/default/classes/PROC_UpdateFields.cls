@@ -12,7 +12,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -38,7 +38,8 @@ global inherited sharing class PROC_UpdateFields implements IF_Async.Processable
 	global enum FieldUpdateMethod
 	{
 		/**
-		 * @description Replaces the field value with the provided value.
+		 * @description The new value is written as it is and the current value is not kept, so a null value clears
+		 * the field. This is the default.
 		 */
 		REPLACE,
 
@@ -194,9 +195,9 @@ global inherited sharing class PROC_UpdateFields implements IF_Async.Processable
 		 * @description Explicit `AccessLevel` for the bulk update commit, or `null` to inherit the
 		 * flag-driven default resolved by `DML_SharingProxy.defaultAccessLevel()`. Framework utilities
 		 * that own their lifecycle (e.g. `UTIL_BulkUpdates`) set this to `AccessLevel.SYSTEM_MODE`
-		 * explicitly so the bulk commit is not gated on the invoking user's FLS. Subscribers calling
-		 * `PROC_UpdateFields` directly may pass `AccessLevel.USER_MODE` to enforce their secure-by-default
-		 * opt-in.
+		 * explicitly so the bulk commit is not gated on the invoking user's FLS. When your code calls
+		 * `PROC_UpdateFields` directly, you may pass `AccessLevel.USER_MODE` to enforce the running user's
+		 * permissions.
 		 *
 		 * @since 1.0
 		 *

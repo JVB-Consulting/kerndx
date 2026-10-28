@@ -4,7 +4,7 @@
  * This class implements all trigger interfaces and automatically executes validation rules
  * configured via ValidationRuleGroup__mdt and ValidationRule__mdt for the current trigger context.
  *
- * **Subscriber Org Setup:**
+ * **Setup in your org:**
  * 1. Create TriggerSetting__mdt for your object (if not already exists)
  * 2. Create TriggerAction__mdt pointing to `kern.TRG_ExecuteValidationRules`
  * 3. Configure ValidationRuleGroup__mdt linked to your TriggerSetting
@@ -18,7 +18,7 @@
  *
  * @group Validation
  *
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  *
  * @since 1.0
  *
@@ -45,7 +45,9 @@ global inherited sharing class TRG_ExecuteValidationRules extends TRG_Base imple
 				IF_Trigger.AfterUndelete
 {
 	/**
-	 * @description Executes validation rules before new records are inserted.
+	 * @description Checks the new records against the Before Insert validation rules set up for their
+	 * object. A failed rule of Error severity stops the save and shows its message on the record. A failed Warning
+	 * rule, or a rule with Shadow Mode turned on, is only logged.
 	 *
 	 * @param newRecords The list of new records to validate
 	 *
@@ -62,8 +64,9 @@ global inherited sharing class TRG_ExecuteValidationRules extends TRG_Base imple
 	}
 
 	/**
-	 * @description Executes validation rules after new records are inserted.
-	 * Typically used for warning-only validations that log but don't block.
+	 * @description Checks the saved records against the After Insert validation rules set up for their object.
+	 * A failed rule of Error severity rolls the save back and shows its message on the record. A failed Warning
+	 * rule, or a rule with Shadow Mode turned on, is only logged.
 	 *
 	 * @param newRecords The list of newly inserted records
 	 *
@@ -80,7 +83,9 @@ global inherited sharing class TRG_ExecuteValidationRules extends TRG_Base imple
 	}
 
 	/**
-	 * @description Executes validation rules before records are updated.
+	 * @description Checks the changed records against the Before Update validation rules set up for their
+	 * object. A failed rule of Error severity stops the save and shows its message on the record. A failed Warning
+	 * rule, or a rule with Shadow Mode turned on, is only logged.
 	 *
 	 * @param newRecords The list of records with new values
 	 * @param oldRecords The list of records with old values
@@ -98,8 +103,9 @@ global inherited sharing class TRG_ExecuteValidationRules extends TRG_Base imple
 	}
 
 	/**
-	 * @description Executes validation rules after records are updated.
-	 * Typically used for warning-only validations that log but don't block.
+	 * @description Checks the saved records against the After Update validation rules set up for their object.
+	 * A failed rule of Error severity rolls the save back and shows its message on the record. A failed Warning
+	 * rule, or a rule with Shadow Mode turned on, is only logged.
 	 *
 	 * @param newRecords The list of records with new values
 	 * @param oldRecords The list of records with old values
@@ -117,7 +123,9 @@ global inherited sharing class TRG_ExecuteValidationRules extends TRG_Base imple
 	}
 
 	/**
-	 * @description Executes validation rules before records are deleted.
+	 * @description Checks the records about to be deleted against the Before Delete validation rules set up for their
+	 * object. A failed rule of Error severity stops the delete and shows its message on the record. A failed Warning
+	 * rule, or a rule with Shadow Mode turned on, is only logged.
 	 *
 	 * @param oldRecords The list of records to be deleted
 	 *
@@ -134,8 +142,9 @@ global inherited sharing class TRG_ExecuteValidationRules extends TRG_Base imple
 	}
 
 	/**
-	 * @description Executes validation rules after records are deleted.
-	 * Typically used for warning-only validations that log but don't block.
+	 * @description Checks the deleted records against the After Delete validation rules set up for their object.
+	 * A failed rule of Error severity rolls the delete back and shows its message on the record. A failed Warning
+	 * rule, or a rule with Shadow Mode turned on, is only logged.
 	 *
 	 * @param oldRecords The list of deleted records
 	 *
@@ -152,8 +161,9 @@ global inherited sharing class TRG_ExecuteValidationRules extends TRG_Base imple
 	}
 
 	/**
-	 * @description Executes validation rules after records are undeleted.
-	 * Typically used for warning-only validations that log but don't block.
+	 * @description Checks the restored records against the After Undelete validation rules set up for their object.
+	 * A failed rule of Error severity rolls the restore back and shows its message on the record. A failed Warning
+	 * rule, or a rule with Shadow Mode turned on, is only logged.
 	 *
 	 * @param newRecords The list of undeleted records
 	 *

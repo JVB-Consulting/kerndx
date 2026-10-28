@@ -10,12 +10,12 @@
  *
  * @group Selectors
  *
- * @date November 2025, May 2026
+ * @date November 2025, October 2026
  */
 public inherited sharing class SEL_PushTopic extends SEL_Base
 {
 	/**
-	 * @description Constructs a PushTopic selector.
+	 * @description Reads PushTopic records. Every query skips the running user's object and field permission checks (system mode). Creating the selector runs no query.
 	 */
 	public SEL_PushTopic()
 	{

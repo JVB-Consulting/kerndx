@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description A base Data Transfer Object (DTO) class for storing JSON content, providing utility
- * methods for serialization, deserialization, and transformation of DTOs. Supports
- * pretty-print formatting for JSON content.
+ * @description An empty base class for Data Transfer Objects (DTOs). A DTO is a small class that holds the
+ * fields you move in or out of your org. This class only declares the methods; on their own they do nothing:
+ * serialize() returns an empty string, deserialize() returns the same instance, and populate() and transform()
+ * change nothing. Your subclass overrides the methods it needs. For DTOs that convert to and from JSON,
+ * extend DTO_JsonBase instead.
  *
  * @see DTO_Base_TEST
  *
@@ -10,15 +12,22 @@
  *
  * @group Data Transfer Objects
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
  * @example
  * ```apex
- * DTO_Base dto = new DTO_Base();
- * String json = dto.serialize();
- * dto.populate(recordId, new DTO_NameValues());
+ * public class DTO_AccountSummary extends DTO_Base
+ * {
+ *     public String accountName;
+ *     public override void populate(Id recordId)
+ *     {
+ *         accountName = 'Name read for ' + recordId;
+ *     }
+ * }
+ * DTO_AccountSummary summary = new DTO_AccountSummary();
+ * summary.populate(recordId, new DTO_NameValues());
  * ```
  */
 @SuppressWarnings('PMD.AvoidGlobalModifier')
@@ -60,10 +69,10 @@ global inherited sharing virtual class DTO_Base
 	}
 
 	/**
-	 * @description Serializes the current DTO object to a JSON string. This method provides a
-	 * string representation of the DTO for storage or transfer.
+	 * @description Returns the DTO as a string. In this base class it returns an empty string;
+	 * override it in your subclass, or extend DTO_JsonBase, to get JSON.
 	 *
-	 * @return A serialized JSON string representing the DTO.
+	 * @return An empty string in this base class.
 	 *
 	 * @since 1.0
 	 *
@@ -78,12 +87,12 @@ global inherited sharing virtual class DTO_Base
 	}
 
 	/**
-	 * @description Deserializes a JSON string and populates a new instance of `DTO_Base` with
-	 * the deserialized data, enabling conversion from JSON format back into a DTO.
+	 * @description Turns a string back into a DTO. In this base class it ignores the string and
+	 * returns the same instance; override it in your subclass, or extend DTO_JsonBase, to read JSON.
 	 *
-	 * @param dtoString A JSON-formatted string that can be converted to a DTO.
+	 * @param dtoString The string to read. This base class does not read it.
 	 *
-	 * @return A `DTO_Base` instance populated with data from the provided JSON string.
+	 * @return The same instance, unchanged, in this base class.
 	 *
 	 * @since 1.0
 	 *

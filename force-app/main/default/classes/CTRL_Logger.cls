@@ -9,7 +9,7 @@
  *
  * @group Logging
  *
- * @date December 2025, September 2026
+ * @date December 2025, October 2026
  *
  * @example
  * ```javascript
@@ -232,7 +232,8 @@ public inherited sharing class CTRL_Logger
 		@AuraEnabled
 		public LoggingLevel level;
 		/**
-		 * @description Log message
+		 * @description The text the component logged. persistLogs passes it unchanged to the log builder at the entry's level,
+		 * and any level other than ERROR, WARN or DEBUG is logged as INFO.
 		 */
 		@AuraEnabled
 		public String message;

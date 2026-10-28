@@ -36,27 +36,28 @@ global inherited sharing class DML_Builder
 	global enum DatabaseOperation
 	{
 		/**
-		 * @description Insert operation.
+		 * @description Create records that are not in the database yet.
 		 */
 		DML_INSERT,
 
 		/**
-		 * @description Update operation.
+		 * @description Save changes to records that already exist. Each record is found by its Id.
 		 */
 		DML_UPDATE,
 
 		/**
-		 * @description Delete operation.
+		 * @description Remove records that already exist, found by their Id. DML_UNDELETE can bring them back.
 		 */
 		DML_DELETE,
 
 		/**
-		 * @description Upsert operation.
+		 * @description Create each record that does not exist yet and update each one that does.
+		 * Records are matched by Id, or by an external ID field when one is given.
 		 */
 		DML_UPSERT,
 
 		/**
-		 * @description Undelete operation.
+		 * @description Bring back records that were deleted, found by their Id.
 		 */
 		DML_UNDELETE
 	}
@@ -106,6 +107,14 @@ global inherited sharing class DML_Builder
 	 */
 	@TestVisible
 	private Boolean isBypassSharing = false;
+
+	/**
+	 * @description Whether the last call that ignores record sharing was the audited `bypassSharing()`. Only then may
+	 * a save that would run in user mode switch to system mode with the user's object and field permissions kept.
+	 * `bypassSharingInternal()` and `withSharingEnforcement(...)` clear it, so the framework's own sharing bypass never
+	 * makes that switch.
+	 */
+	private Boolean isAuditedSharingBypass = false;
 
 	/**
 	 * @description A record sharing choice that only the framework sets. It is null whenever the save runs in the
@@ -514,7 +523,19 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
-	 * @description Bypasses sharing rules for DML operations.
+	 * @description Ignores record sharing for this save, so the running user can save records that other users own
+	 * and that the user cannot see. What else is checked depends on the access mode:
+	 * - In user mode (the default while the `UserModeDml_Enabled` flag is on, or after `withUserMode()`), the running
+	 *   user's object and field permissions still apply. A field the user cannot create or edit is left out of the
+	 *   save, with no error, and the save logs one warning that names the object and the field. A save the user has
+	 *   no object permission for, an upsert on an external Id field the user cannot read or edit, and a save that
+	 *   would leave out the field that links a record to its parent are refused as user mode refuses them. A record
+	 *   that names its parent only by an external Id the user cannot read is refused by Salesforce, with a message
+	 *   that does not name the field.
+	 * - With `withSystemMode()`, in either order, the object and field permissions are not checked either.
+	 * - With the `UserModeDml_Enabled` flag off, a save with no access mode runs in system mode, so nothing is
+	 *   checked, as for any save.
+	 * The choice is recorded in the bypass audit when the save runs.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -522,15 +543,23 @@ global inherited sharing class DML_Builder
 	 *
 	 * @example
 	 * ```apex
+	 * // Ignores record sharing; the running user's object and field permissions still apply.
 	 * DML_Builder.newTransaction()
 	 *     .doUpdate(records)
+	 *     .bypassSharing()
+	 *     .execute();
+	 * // Ignores record sharing and the running user's object and field permissions.
+	 * DML_Builder.newTransaction()
+	 *     .doUpdate(records)
+	 *     .withSystemMode()
 	 *     .bypassSharing()
 	 *     .execute();
 	 * ```
 	 */
 	global DML_Builder bypassSharing()
 	{
-		this.isBypassSharing = true;
+		isBypassSharing = true;
+		isAuditedSharingBypass = true;
 		auditQueue.queueSharing();
 		return this;
 	}
@@ -557,6 +586,7 @@ global inherited sharing class DML_Builder
 	public DML_Builder bypassSharingInternal()
 	{
 		isBypassSharing = true;
+		isAuditedSharingBypass = false;
 		return this;
 	}
 
@@ -576,14 +606,16 @@ global inherited sharing class DML_Builder
 	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 	public DML_Builder withSharingEnforcement(Boolean enforceSharing)
 	{
-		this.sharingEnforcementOverride = enforceSharing;
+		sharingEnforcementOverride = enforceSharing;
+		isAuditedSharingBypass = false;
 		return this;
 	}
 
 	/**
 	 * @description Forces `AccessLevel.USER_MODE` on every DML operation in this transaction,
 	 * whatever the `UserModeDml_Enabled` feature flag says. Use it when a flow that serves your users must check
-	 * object and field access (CRUD/FLS), even in orgs where an admin has turned the flag off.
+	 * object and field access (CRUD/FLS), even in orgs where an admin has turned the flag off. With
+	 * `bypassSharing()`, the save ignores record sharing but still checks the object and field permissions.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -592,7 +624,7 @@ global inherited sharing class DML_Builder
 	 * @example
 	 * ```apex
 	 * DML_Builder.newTransaction()
-	 *     .doInsert(accountFromSubscriberUI)
+	 *     .doInsert(accountFromUserInput)
 	 *     .withUserMode()
 	 *     .execute();
 	 * ```
@@ -657,7 +689,8 @@ global inherited sharing class DML_Builder
 	/**
 	 * @description Returns the `AccessLevel` that will be applied when `execute()` runs. When
 	 * `.withUserMode()` or `.withSystemMode()` was called, returns that value. Otherwise returns
-	 * the default that the `UserModeDml_Enabled` flag sets. Only tests call it, to check the choice.
+	 * the default that the `UserModeDml_Enabled` flag sets. execute() and async() use it to decide record sharing and
+	 * how a refused save is reported, and tests call it to check the choice.
 	 *
 	 * @return The effective `AccessLevel` for this transaction.
 	 */
@@ -670,7 +703,8 @@ global inherited sharing class DML_Builder
 	/**
 	 * @description Turns off LOG_Builder error logging for DML failures. This covers the entry for each failed row
 	 * of a partial save. It also covers the single ERROR entry the transaction writes when a save fails completely,
-	 * or when partial mode catches an exception thrown during the save.
+	 * or when partial mode catches an exception thrown during the save. It also turns off the warning that
+	 * bypassSharing() logs in user mode when it leaves out fields the user cannot create or edit.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -798,7 +832,9 @@ global inherited sharing class DML_Builder
 	/**
 	 * @description Stops a DmlException from being thrown again in all-or-nothing mode. The failure shows on the
 	 * returned TransactionResult instead of reaching the caller as an exception. The save's single ERROR entry,
-	 * written in DML_Transaction.commitWork, still records it unless suppressLogging() is also set.
+	 * written in DML_Transaction.commitWork, still records it unless suppressLogging() is also set. In user mode, a
+	 * save refused because the running user lacks the object permission it needs also returns a failed result
+	 * instead of throwing.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -956,19 +992,86 @@ global inherited sharing class DML_Builder
 
 		try
 		{
-			Boolean enforceSharing = sharingEnforcementOverride ?? (isBypassSharing ? false : null);
-			dmlTransaction.commitWork(enforceSharing);
+			dmlTransaction.commitWork(resolveSharingForCommit());
 		}
 		catch(DmlException error)
 		{
 			if(isSuppressExceptions)
 			{
-				return new TransactionResult(error);
+				return new TransactionResult(error, null);
+			}
+			throw error;
+		}
+		catch(TypeException error)
+		{
+			Integer refusedRecords = isSuppressExceptions && DML_SharingProxy.matchesAccessLevel(resolvedAccessLevel(), System.AccessLevel.USER_MODE)
+					? countRecordsRefusedByObjectPermission()
+					: 0;
+			if(refusedRecords > 0)
+			{
+				return new TransactionResult(error, refusedRecords);
 			}
 			throw error;
 		}
 
 		return new TransactionResult(dmlTransaction);
+	}
+
+	/**
+	 * @description Decides the record sharing value passed to DML_Transaction.commitWork:
+	 * - The value a framework job set with withSharingEnforcement, when it set one.
+	 * - False after bypassSharing(). In user mode, commitWork then ignores record sharing and keeps the running
+	 *   user's object and field permissions.
+	 * - After bypassSharingInternal(): false in system mode; null (the sharing of the calling class) in user mode,
+	 *   which applies the running user's record sharing anyway. So the framework's own bypass never makes the
+	 *   switch that bypassSharing() makes.
+	 * - Null otherwise.
+	 *
+	 * @return True to enforce record sharing, false to ignore it, null to use the sharing of the calling class.
+	 */
+	private Boolean resolveSharingForCommit()
+	{
+		if(sharingEnforcementOverride != null)
+		{
+			return sharingEnforcementOverride;
+		}
+		if(!isBypassSharing)
+		{
+			return null;
+		}
+		return isAuditedSharingBypass || DML_SharingProxy.matchesAccessLevel(resolvedAccessLevel(), System.AccessLevel.SYSTEM_MODE) ? false : null;
+	}
+
+	/**
+	 * @description Counts the records of every registered operation whose object the running user lacks the object
+	 * permission for: create for an insert, edit for an update, both for an upsert, delete for a delete, and delete
+	 * and undelete for an undelete. execute() calls it only after a save threw a TypeException, which is how user mode
+	 * refuses a save without the object permission. A count above zero means the save was refused for that reason,
+	 * because the platform checks the object permission before any trigger runs.
+	 *
+	 * @return The number of records the running user may not save for want of an object permission.
+	 */
+	private Integer countRecordsRefusedByObjectPermission()
+	{
+		Map<String, Boolean> permissionByOperationAndType = new Map<String, Boolean>();
+		Integer refusedRecords = 0;
+		for(DTO_Operation operation : operations)
+		{
+			for(SObject record : operation.records ?? new List<SObject>())
+			{
+				SObjectType objectType = record.getSObjectType();
+				String key = operation.operationType.name() + '|' + objectType;
+				if(!permissionByOperationAndType.containsKey(key))
+				{
+					permissionByOperationAndType.put(key, DML_SharingProxy.hasObjectPermission(operation.operationType, objectType));
+				}
+				if(!permissionByOperationAndType.get(key))
+				{
+					refusedRecords++;
+				}
+			}
+		}
+		return refusedRecords;
 	}
 
 	/**
@@ -1050,9 +1153,11 @@ global inherited sharing class DML_Builder
 		private final AccessLevel accessLevel;
 
 		/**
-		 * @description Whether `.bypassSharing()` was called on the parent builder. It is passed to
-		 * `PROC_ExecuteDML`, so the choice to ignore sharing, already recorded in the bypass audit, still applies
-		 * when the job runs. Without it the job enforces record sharing by default.
+		 * @description Whether the job is asked to ignore record sharing. It is true after `.bypassSharing()` on the
+		 * parent builder, so the choice to ignore sharing, already recorded in the bypass audit, still applies when
+		 * the job runs. It is also true after the framework's own `bypassSharingInternal()`, but only when the parent
+		 * builder resolves to system mode when the job is queued. In user mode that bypass changes nothing, and asking
+		 * the job for it would make the job ignore sharing. Otherwise the job enforces record sharing.
 		 */
 		private final Boolean isBypassSharing;
 
@@ -1081,12 +1186,13 @@ global inherited sharing class DML_Builder
 		 */
 		private DML_AsyncBuilder(DML_Builder parent)
 		{
-			this.operations = parent.operations;
-			this.isPartial = parent.isPartial;
-			this.accessLevel = parent.accessLevel;
-			this.isBypassSharing = parent.isBypassSharing;
-			this.expectedRefusalStatusCodes = parent.expectedRefusalStatusCodes;
-			this.retriesOnLock = parent.retriesOnLock;
+			operations = parent.operations;
+			isPartial = parent.isPartial;
+			accessLevel = parent.accessLevel;
+			isBypassSharing = parent.isBypassSharing
+					&& (parent.isAuditedSharingBypass || DML_SharingProxy.matchesAccessLevel(parent.resolvedAccessLevel(), System.AccessLevel.SYSTEM_MODE));
+			expectedRefusalStatusCodes = parent.expectedRefusalStatusCodes;
+			retriesOnLock = parent.retriesOnLock;
 		}
 
 		/**
@@ -1215,14 +1321,17 @@ global inherited sharing class DML_Builder
 		private final List<Database.UndeleteResult> undeleteResults;
 
 		/**
-		 * @description Whether a DmlException occurred that was suppressed.
+		 * @description The exception suppressExceptions() turned into this failed result, or null when the save ran:
+		 * a DmlException, or the TypeException user mode throws for a missing object permission.
 		 */
-		private final Boolean hasDmlException;
+		private final Exception suppressedException;
 
 		/**
-		 * @description The DmlException that occurred, if any.
+		 * @description How many records failed when suppressedException is a TypeException: the number of records the
+		 * running user lacked the object permission for. It is null for a DmlException, whose own count of failed rows
+		 * is read only when getFailureCount() asks for it.
 		 */
-		private final DmlException dmlException;
+		private final Integer suppressedFailureCount;
 
 		/**
 		 * @description Constructs an empty success TransactionResult for no-op transactions.
@@ -1234,8 +1343,8 @@ global inherited sharing class DML_Builder
 			this.upsertResults = new List<Database.UpsertResult>();
 			this.deleteResults = new List<Database.DeleteResult>();
 			this.undeleteResults = new List<Database.UndeleteResult>();
-			this.hasDmlException = false;
-			this.dmlException = null;
+			suppressedException = null;
+			suppressedFailureCount = 0;
 		}
 
 		/**
@@ -1250,24 +1359,25 @@ global inherited sharing class DML_Builder
 			this.upsertResults = dmlTransaction.getUpsertResults();
 			this.deleteResults = dmlTransaction.getDeleteResults();
 			this.undeleteResults = dmlTransaction.getUndeleteResults();
-			this.hasDmlException = false;
-			this.dmlException = null;
+			suppressedException = null;
+			suppressedFailureCount = 0;
 		}
 
 		/**
-		 * @description Constructs a failure TransactionResult from a caught DmlException.
+		 * @description Constructs a failure TransactionResult from an exception that suppressExceptions() caught.
 		 *
-		 * @param error The DmlException that caused the failure.
+		 * @param error The exception that caused the failure.
+		 * @param failureCount How many records failed, or null to read the count from the DmlException when it is asked for.
 		 */
-		private TransactionResult(DmlException error)
+		private TransactionResult(Exception error, Integer failureCount)
 		{
 			this.insertResults = new List<Database.SaveResult>();
 			this.updateResults = new List<Database.SaveResult>();
 			this.upsertResults = new List<Database.UpsertResult>();
 			this.deleteResults = new List<Database.DeleteResult>();
 			this.undeleteResults = new List<Database.UndeleteResult>();
-			this.hasDmlException = true;
-			this.dmlException = error;
+			suppressedException = error;
+			suppressedFailureCount = failureCount;
 		}
 
 		/**
@@ -1287,7 +1397,7 @@ global inherited sharing class DML_Builder
 		 */
 		global Boolean isSuccess()
 		{
-			if(hasDmlException)
+			if(suppressedException != null)
 			{
 				return false;
 			}
@@ -1388,7 +1498,7 @@ global inherited sharing class DML_Builder
 		 */
 		global Integer getSuccessCount()
 		{
-			if(hasDmlException)
+			if(suppressedException != null)
 			{
 				return 0;
 			}
@@ -1446,9 +1556,9 @@ global inherited sharing class DML_Builder
 		 */
 		global Integer getFailureCount()
 		{
-			if(hasDmlException)
+			if(suppressedException != null)
 			{
-				return dmlException.getNumDml();
+				return suppressedFailureCount ?? ((DmlException)suppressedException).getNumDml();
 			}
 
 			Integer count = 0;
@@ -1497,7 +1607,8 @@ global inherited sharing class DML_Builder
 	private class DTO_Operation
 	{
 		/**
-		 * @description The type of DML operation.
+		 * @description The kind of change to run: insert, update, delete, upsert or undelete. All records of one
+		 * operation get the same kind of change.
 		 */
 		private final DatabaseOperation operationType;
 

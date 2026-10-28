@@ -238,6 +238,13 @@ global virtual inherited sharing class DML_Transaction
 	private Integer statementsStillPlanned = 0;
 
 	/**
+	 * @description For the update and the undelete, the extra statement counted in statementsStillPlanned because
+	 * DML_SharingProxy.PermissionKeepingProxy may split that statement in two: 1 or 0. The step that runs the
+	 * statement takes this off statementsStillPlanned together with the statement itself.
+	 */
+	private final Map<OperationType, Integer> statementsAddedBySplitByKind = new Map<OperationType, Integer>();
+
+	/**
 	 * @description Relationships registered via registerDirty (update with relationship).
 	 */
 	private final List<DTO_Relationship> registeredDirtyRelationships;
@@ -698,7 +705,8 @@ global virtual inherited sharing class DML_Transaction
 	 * @description Sets whether to turn off LOG_Builder error logging for DML failures. When it is on, failed rows
 	 * in a partial save are not logged, and neither is a failed save. That covers the ERROR entry an all-or-nothing
 	 * save writes after it rolls back, just before it throws the exception again. It also covers the ERROR entry a
-	 * partial save writes when it catches an exception thrown during the save and carries on.
+	 * partial save writes when it catches an exception thrown during the save and carries on. It also covers the
+	 * warning `commitWork(false)` logs in user mode when it leaves out fields the user cannot create or edit.
 	 *
 	 * @param suppress True to suppress logging, false to allow logging (default).
 	 *
@@ -798,15 +806,34 @@ global virtual inherited sharing class DML_Transaction
 	 * kept in memory for reuse) before its first statement and again when it ends, whatever the outcome. So a read
 	 * after a save never gets rows from before the save, or from a save that was rolled back.
 	 *
-	 * @param enforceSharing If true, enforces sharing; if false, bypasses sharing; if null, inherits sharing.
+	 * @param enforceSharing If true, the running user's record sharing is enforced. If null, the sharing of the
+	 * calling class applies. If false, record sharing is ignored. In user mode (no access level set while the
+	 * `UserModeDml_Enabled` flag is on, or `setAccessLevel(AccessLevel.USER_MODE)`), false still keeps the running
+	 * user's object and field permissions. A field the user cannot create or edit is left out of the save and logged
+	 * as a warning, with no error. A save the user has no object permission for, an upsert on an external Id field the
+	 * user cannot read or edit, and a save that would leave out the field that links a record to its parent are
+	 * refused as user mode refuses them. A record that names its parent only by an external Id the user cannot read is
+	 * refused by Salesforce, with a message that does not name the field. These checks use only the running user's own
+	 * permissions. When user mode is set with a permission set, through
+	 * `setAccessLevel(AccessLevel.USER_MODE.withPermissionSetId(permissionSetId))`, a field that only the permission
+	 * set lets the user edit is still left out. A refused save is sent with that access level, so the platform takes
+	 * the permission set into account when it decides. That save runs in user mode, so it also applies record
+	 * sharing. In system mode, set through `setAccessLevel(AccessLevel.SYSTEM_MODE)` or by turning the flag off, false
+	 * waives those permission checks too.
 	 *
 	 * @since 1.0
 	 *
 	 * @example
 	 * ```apex
 	 * DML_Transaction dmlTransaction = new DML_Transaction();
-	 * dmlTransaction.doInsert(new Account(Name = 'Test'));
+	 * dmlTransaction.doUpdate(recordOwnedByAnotherUser);
+	 * // Ignores record sharing; the running user's object and field permissions still apply.
 	 * dmlTransaction.commitWork(false);
+	 * DML_Transaction systemTransaction = new DML_Transaction();
+	 * systemTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+	 * systemTransaction.doUpdate(recordOwnedByAnotherUser);
+	 * // Ignores record sharing and the running user's object and field permissions.
+	 * systemTransaction.commitWork(false);
 	 * ```
 	 */
 	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
@@ -817,13 +844,15 @@ global virtual inherited sharing class DML_Transaction
 		rowsStillRefused = 0;
 		retryStoppedBy = null;
 		RegistrationSnapshot snapshot = retriesOnLock > 0 && !allowPartial ? new RegistrationSnapshot(this) : null;
+		Boolean keepsUserPermissions = enforceSharing == false
+				&& DML_SharingProxy.matchesAccessLevel(accessLevel ?? DML_SharingProxy.defaultAccessLevel(), System.AccessLevel.USER_MODE);
 
 		while(true)
 		{
-			statementsStillPlanned = countPlannedStatements();
+			statementsStillPlanned = countPlannedStatements(keepsUserPermissions);
 			try
 			{
-				commitAttempt(enforceSharing);
+				commitAttempt(enforceSharing, keepsUserPermissions);
 				break;
 			}
 			catch(RetryAttemptException signal)
@@ -851,8 +880,12 @@ global virtual inherited sharing class DML_Transaction
 	 * values before the save, and a read of a parent has its roll-up totals before they were updated.
 	 *
 	 * @param enforceSharing If true, enforces sharing; if false, bypasses sharing; if null, inherits sharing.
+	 * @param keepsUserPermissions True when the save ignores record sharing but would otherwise run in user mode. The
+	 * statements then go through DML_SharingProxy.PermissionKeepingProxy, which saves in system mode and keeps the
+	 * running user's object and field permissions.
 	 */
-	private void commitAttempt(Boolean enforceSharing)
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+	private void commitAttempt(Boolean enforceSharing, Boolean keepsUserPermissions)
 	{
 		// A write can change any cached read (roll-ups, formulas, parent fields, cascades, sharing), and trigger
 		// actions fire inside the write, so the query cache is emptied before anything reaches the database.
@@ -878,6 +911,10 @@ global virtual inherited sharing class DML_Transaction
 								: DML_SharingProxy.SharingType.BYPASS;
 
 				DML_SharingProxy.DatabaseProxy databaseProxy = DML_SharingProxy.getSharingProxy(shareType);
+				if(keepsUserPermissions)
+				{
+					databaseProxy = newPermissionKeepingProxy(databaseProxy);
+				}
 
 				performUndeletes(databaseProxy);
 				performInserts(databaseProxy);
@@ -922,6 +959,33 @@ global virtual inherited sharing class DML_Transaction
 			QRY_Engine.clearQueryResultMemoryCache();
 			onCommitWorkFinished(wasSuccessful);
 		}
+	}
+
+	/**
+	 * @description Puts a proxy that keeps the running user's object and field permissions around the given proxy, and
+	 * tells it which records wait for a parent's Id: the children registered with a parent, for insert and update. The
+	 * new proxy refuses a statement that would leave such a field out, because the child would then be saved with no
+	 * parent and no error. It also tells the new proxy whether logging is turned off, so it logs no warning then.
+	 *
+	 * @param innerProxy The proxy that runs each statement.
+	 *
+	 * @return The proxy every statement of this attempt goes through, a retried statement included.
+	 */
+	private DML_SharingProxy.PermissionKeepingProxy newPermissionKeepingProxy(DML_SharingProxy.DatabaseProxy innerProxy)
+	{
+		DML_SharingProxy.PermissionKeepingProxy proxy = new DML_SharingProxy.PermissionKeepingProxy(innerProxy, suppressLogging);
+		for(List<DTO_Relationship> relationships : parentToChildRelationshipsMap.values())
+		{
+			for(DTO_Relationship relationship : relationships)
+			{
+				proxy.addParentLink(relationship.childRecord, relationship.relationshipField);
+			}
+		}
+		for(DTO_Relationship relationship : registeredDirtyRelationships)
+		{
+			proxy.addParentLink(relationship.childRecord, relationship.relationshipField);
+		}
+		return proxy;
 	}
 
 	/**
@@ -1071,45 +1135,80 @@ global virtual inherited sharing class DML_Transaction
 	/**
 	 * @description Counts the DML statements the save will run: one for all undeletes, one for each inserted type,
 	 * one for each upserted type, one for all updates, and one for each deleted type. The update count includes the
-	 * update the save adds midway when a record looks up to a parent of its own type. A partial-mode retry round
-	 * keeps this many statements free.
+	 * update the save adds midway when a record looks up to a parent of its own type. When the statements go through
+	 * DML_SharingProxy.PermissionKeepingProxy and a partial save is allowed, the update or the undelete of records of
+	 * more than one object may be split in two: one statement for the objects the user may save, and one for the
+	 * objects the user may not. Each such statement counts as two (see countStatementsAddedBySplit). A partial-mode
+	 * retry round keeps this many statements free.
+	 *
+	 * @param keepsUserPermissions True when the statements go through DML_SharingProxy.PermissionKeepingProxy.
 	 *
 	 * @return The statements still to be issued by the perform steps.
 	 */
-	private Integer countPlannedStatements()
+	private Integer countPlannedStatements(Boolean keepsUserPermissions)
 	{
+		Set<SObjectType> selfReferencingChildTypes = getSelfReferencingChildTypes();
 		Integer planned = 0;
 		for(OperationType kind : allObjectsToCommit.keySet())
 		{
 			planned += kind == OperationType.DML_UNDELETE || kind == OperationType.DML_UPDATE ? 1 : allObjectsToCommit.get(kind).size();
 		}
-		if(!allObjectsToCommit.containsKey(OperationType.DML_UPDATE) && hasSelfReferencingChild())
+		if(!allObjectsToCommit.containsKey(OperationType.DML_UPDATE) && !selfReferencingChildTypes.isEmpty())
 		{
 			planned++;
 		}
-		return planned;
+		statementsAddedBySplitByKind.clear();
+		statementsAddedBySplitByKind.put(OperationType.DML_UNDELETE, countStatementsAddedBySplit(OperationType.DML_UNDELETE, new Set<SObjectType>(), keepsUserPermissions));
+		statementsAddedBySplitByKind.put(OperationType.DML_UPDATE, countStatementsAddedBySplit(OperationType.DML_UPDATE, selfReferencingChildTypes, keepsUserPermissions));
+		return planned + statementsAddedBySplitByKind.get(OperationType.DML_UNDELETE) + statementsAddedBySplitByKind.get(OperationType.DML_UPDATE);
 	}
 
 	/**
-	 * @description Whether a registered child relationship points to a parent of the child's own type. In that case
-	 * the step that fills in parent Ids adds an update for the child midway through the save, and that statement
-	 * must be counted.
+	 * @description Counts the extra statement that DML_SharingProxy.PermissionKeepingProxy may add to the one
+	 * statement that holds every update, or every undelete. The proxy splits that statement in two when a partial
+	 * save is allowed and the user may save the records of some of its objects but not of others. Which objects the
+	 * proxy refuses is known only during the save, so any such statement with records of more than one object counts
+	 * one more.
 	 *
-	 * @return True when any registered child shares its parent's type.
+	 * @param kind The update or the undelete.
+	 * @param typesAddedMidway The objects whose records the save adds to the statement midway, or an empty set.
+	 * @param keepsUserPermissions True when the statements go through DML_SharingProxy.PermissionKeepingProxy.
+	 *
+	 * @return 1 when the statement may be split in two; 0 otherwise.
 	 */
-	private Boolean hasSelfReferencingChild()
+	private Integer countStatementsAddedBySplit(OperationType kind, Set<SObjectType> typesAddedMidway, Boolean keepsUserPermissions)
 	{
+		if(!keepsUserPermissions || !allowPartial)
+		{
+			return 0;
+		}
+		Set<SObjectType> statementTypes = new Set<SObjectType>(typesAddedMidway);
+		statementTypes.addAll(allObjectsToCommit.get(kind)?.keySet() ?? new Set<SObjectType>());
+		return statementTypes.size() > 1 ? 1 : 0;
+	}
+
+	/**
+	 * @description Finds the objects of the registered children that point to a parent of their own type. For such
+	 * a child the step that fills in parent Ids adds an update midway through the save, and that statement must be
+	 * counted.
+	 *
+	 * @return The objects of the children that share their parent's type, or an empty set.
+	 */
+	private Set<SObjectType> getSelfReferencingChildTypes()
+	{
+		Set<SObjectType> childTypes = new Set<SObjectType>();
 		for(List<DTO_Relationship> relationships : parentToChildRelationshipsMap.values())
 		{
 			for(DTO_Relationship relationship : relationships)
 			{
-				if(relationship.childRecord.getSObjectType() == relationship.parentRecord.getSObjectType())
+				SObjectType childType = relationship.childRecord.getSObjectType();
+				if(childType == relationship.parentRecord.getSObjectType())
 				{
-					return true;
+					childTypes.add(childType);
 				}
 			}
 		}
-		return false;
+		return childTypes;
 	}
 
 	/**
@@ -1655,7 +1754,7 @@ global virtual inherited sharing class DML_Transaction
 			if(!recordsToUndelete.isEmpty())
 			{
 				List<Database.UndeleteResult> results = databaseProxy.doUndelete(recordsToUndelete, !allowPartial, accessLevel);
-				statementsStillPlanned--;
+				statementsStillPlanned -= 1 + (statementsAddedBySplitByKind.get(OperationType.DML_UNDELETE) ?? 0);
 				Map<Integer, Object> retried = retryLockRefusedRows(OperationType.DML_UNDELETE, recordsToUndelete, results, databaseProxy);
 				for(Integer index : retried.keySet())
 				{
@@ -1779,7 +1878,7 @@ global virtual inherited sharing class DML_Transaction
 			if(!recordsToUpdate.isEmpty())
 			{
 				List<Database.SaveResult> results = databaseProxy.doUpdate(recordsToUpdate, !allowPartial, accessLevel);
-				statementsStillPlanned--;
+				statementsStillPlanned -= 1 + (statementsAddedBySplitByKind.get(OperationType.DML_UPDATE) ?? 0);
 				Map<Integer, Object> retried = retryLockRefusedRows(OperationType.DML_UPDATE, recordsToUpdate, results, databaseProxy);
 				for(Integer index : retried.keySet())
 				{
@@ -2034,12 +2133,14 @@ global virtual inherited sharing class DML_Transaction
 	private class DTO_Relationship
 	{
 		/**
-		 * @description The child SObject in the relationship.
+		 * @description The record whose relationship field gets the parent's Id once the parent is saved. The
+		 * transaction writes the Id into this same record object, not into a copy.
 		 */
 		private final SObject childRecord;
 
 		/**
-		 * @description The parent SObject in the relationship.
+		 * @description The record the child points to. Its Id is read after it is saved. When partial success is
+		 * allowed and the parent has no Id, the child's relationship field is left as it is.
 		 */
 		private final SObject parentRecord;
 

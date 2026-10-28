@@ -6,7 +6,7 @@
  *
  * @group Testing
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -370,7 +370,9 @@ global inherited sharing class API_OutboundTestHelper
 	}
 
 	/**
-	 * @description Tests an aborted API call with parameter names.
+	 * @description Runs one outbound call for the service in a unit test and checks that the call was aborted. Each
+	 * parameter name gets a random number as its value. It calls Test.startTest and Test.stopTest itself, so do not
+	 * wrap it in them.
 	 *
 	 * @param serviceName The name of the web service handler
 	 * @param recordId id of the triggering object (optional)

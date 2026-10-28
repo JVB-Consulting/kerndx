@@ -11,7 +11,7 @@
  *
  * @group Schedulables
  *
- * @date September 2026
+ * @date September 2026, October 2026
  */
 public inherited sharing class SEL_CronTrigger extends SEL_Base
 {
@@ -92,7 +92,8 @@ public inherited sharing class SEL_CronTrigger extends SEL_Base
 	private static final String FIELD_JOB_TYPE = 'CronJobDetail.JobType';
 
 	/**
-	 * @description Constructs a CronTrigger selector.
+	 * @description Reads the platform's record of every scheduled job (CronTrigger). Every query skips the running user's object and field permission checks (system mode).
+	 * Creating the selector runs no query.
 	 */
 	public SEL_CronTrigger()
 	{

@@ -39,7 +39,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -54,7 +54,8 @@
 global inherited sharing class UTIL_SObjectDescribe
 {
 	/**
-	 * @description The SObjectType this instance describes.
+	 * @description The object this instance describes, set once when the instance is created. The full describe of the
+	 * object is loaded from it only when it is first needed.
 	 */
 	private final SObjectType objectType;
 
@@ -127,6 +128,28 @@ global inherited sharing class UTIL_SObjectDescribe
 				describe = objectType.getDescribe(SObjectDescribeOptions.DEFERRED);
 			}
 			return describe;
+		}
+		set;
+	}
+
+	/**
+	 * @description Lazy-loaded map of record type information, keyed by the developer name in lower case.
+	 * Built once, on first read, from the record types of this SObject. The platform map is case sensitive,
+	 * so this one lets a developer name be found whatever its case.
+	 */
+	private final Map<String, RecordTypeInfo> recordTypeInfosByLowerCaseDeveloperName
+	{
+		get
+		{
+			if(recordTypeInfosByLowerCaseDeveloperName == null)
+			{
+				recordTypeInfosByLowerCaseDeveloperName = new Map<String, RecordTypeInfo>();
+				for(RecordTypeInfo info : describe.getRecordTypeInfos())
+				{
+					recordTypeInfosByLowerCaseDeveloperName.put(info.getDeveloperName().toLowerCase(), info);
+				}
+			}
+			return recordTypeInfosByLowerCaseDeveloperName;
 		}
 		set;
 	}
@@ -368,7 +391,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * @example
 	 * ```apex
 	 * String fieldName = UTIL_SObjectDescribe.getCachedFieldDescribe(Account.Name)?.getName();
-	 * System.debug(fieldName); // Outputs: Name
+	 * // fieldName is 'Name'
 	 * ```
 	 */
 	global static DescribeFieldResult getCachedFieldDescribe(SObjectField field)
@@ -403,7 +426,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * @example
 	 * ```apex
 	 * String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Account.Name);
-	 * System.debug(fieldName); // Outputs: Name
+	 * // fieldName is 'Name'
 	 * ```
 	 */
 	global static String getCachedFieldName(SObjectField field)
@@ -433,7 +456,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 	 * SObjectType objType = describe.getSObjectType();
-	 * System.debug(objType); // Outputs: Account
+	 * // objType is Account.SObjectType
 	 * ```
 	 */
 	global SObjectType getSObjectType()
@@ -454,7 +477,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
 	 * SObjectField field = describe.getField('LastName');
-	 * System.debug(field.getDescribe().getLabel()); // Outputs: Last Name
+	 * // field is Contact.LastName
 	 * ```
 	 */
 	global SObjectField getField(String name)
@@ -476,7 +499,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
 	 * SObjectField field = describe.getField('Account', false);
-	 * System.debug(field?.getDescribe().name); // Outputs: AccountId
+	 * // field is Contact.AccountId: no field is named 'Account', so 'AccountId' is tried next
 	 * ```
 	 */
 	global SObjectField getField(String fieldName, Boolean implyNamespace)
@@ -510,7 +533,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 	 * DescribeFieldResult fieldDescribe = describe.getFieldDescribe('Name');
-	 * System.debug(fieldDescribe.getLabel()); // Outputs: Account Name
+	 * // fieldDescribe describes Account.Name, so fieldDescribe.getName() is 'Name'
 	 * ```
 	 */
 	global DescribeFieldResult getFieldDescribe(String fieldName)
@@ -535,7 +558,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 	 * DescribeFieldResult fieldDescribe = describe.getFieldDescribe(Account.Name);
-	 * System.debug(fieldDescribe.getLabel()); // Outputs: Account Name
+	 * // fieldDescribe describes Account.Name, so fieldDescribe.getName() is 'Name'
 	 * ```
 	 */
 	global DescribeFieldResult getFieldDescribe(SObjectField field)
@@ -559,7 +582,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 	 * String fieldName = describe.getFieldName(Account.Name);
-	 * System.debug(fieldName); // Outputs: Name
+	 * // fieldName is 'Name'
 	 * ```
 	 */
 	global String getFieldName(SObjectField field)
@@ -578,7 +601,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 	 * SObjectField nameField = describe.getNameField();
-	 * System.debug(nameField.getDescribe().name); // Outputs: Name
+	 * // nameField is Account.Name
 	 * ```
 	 */
 	global SObjectField getNameField()
@@ -609,7 +632,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 	 * DescribeSObjectResult result = describe.getDescribe();
-	 * System.debug(result.getLabel()); // Outputs: Account
+	 * // result describes Account, so result.getName() is 'Account'
 	 * ```
 	 */
 	global DescribeSObjectResult getDescribe()
@@ -628,7 +651,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 	 * Map<String, SObjectField> fieldMap = describe.getFieldsMap();
-	 * System.debug(fieldMap.keySet().size()); // Outputs: Number of fields on Account
+	 * // fieldMap holds one entry for each field on Account
 	 * ```
 	 */
 	global Map<String, SObjectField> getFieldsMap()
@@ -647,7 +670,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 	 * UTIL_SObjectDescribe.FieldsMap fields = describe.getFields();
-	 * System.debug(fields.get('Name')?.getDescribe().getLabel()); // Outputs: Name
+	 * // fields.get('Name') is Account.Name
 	 * ```
 	 */
 	global FieldsMap getFields()
@@ -666,7 +689,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 	 * Map<String, FieldSet> fieldSets = describe.getFieldSetsMap();
-	 * System.debug(fieldSets.keySet()); // Outputs: Set of field set names
+	 * // fieldSets holds one entry for each field set on Account, and is empty when Account has none
 	 * ```
 	 */
 	global Map<String, FieldSet> getFieldSetsMap()
@@ -771,27 +794,27 @@ global inherited sharing class UTIL_SObjectDescribe
 	}
 
 	/**
-	 * @description Builds display metadata — field label, DisplayType enum name, and (for lookups) the
-	 * related object's API name — for a specific list of fields, optionally restricted to a set of
+	 * @description Builds display metadata (field label, DisplayType enum name, and for lookups the
+	 * related object's API name) for a specific list of fields, optionally restricted to a set of
 	 * `DisplayType`s and optionally excluding system-managed read-only fields. When `allowedTypes` is
 	 * non-null, a field whose type is not in the set is skipped *before* its DTO (and, for a lookup, its
 	 * related-object describe) is built, so a caller that only handles certain field types never pays to
-	 * construct — then discard — metadata for the rest. When `excludeSystemManagedFields` is true, formula
-	 * and roll-up summary fields (`isCalculated`) and auto-number fields (`isAutoNumber`) are skipped too —
-	 * fields Salesforce computes or assigns under the hood and that no caller can write. Field-level
+	 * build and then discard metadata for the rest. When `excludeSystemManagedFields` is true, formula
+	 * and roll-up summary fields (`isCalculated`) and auto-number fields (`isAutoNumber`) are skipped too:
+	 * Salesforce computes or assigns these fields itself, and no caller can write them. Field-level
 	 * security is deliberately NOT consulted, so the result does not vary with the running user's edit
 	 * permissions. Shared internally by the package's Lightning controllers; not part of the global API
 	 * surface.
 	 *
 	 * @param objectName The SObject API name.
-	 * @param fieldList The field API names to inspect.
+	 * @param fields The field API names to inspect.
 	 * @param allowedTypes The `DisplayType`s to include, or `null` to include every field.
 	 * @param excludeSystemManagedFields When true, skip formula / roll-up / auto-number system-managed
 	 * read-only fields.
 	 *
 	 * @return Map keyed by field API name to its display metadata, or `null` when `objectName` is blank.
 	 */
-	public static Map<String, DTO_FieldInformation> getFieldInformation(String objectName, List<String> fieldList, Set<DisplayType> allowedTypes, Boolean excludeSystemManagedFields)
+	public static Map<String, DTO_FieldInformation> getFieldInformation(String objectName, List<String> fields, Set<DisplayType> allowedTypes, Boolean excludeSystemManagedFields)
 	{
 		if(String.isBlank(objectName))
 		{
@@ -801,7 +824,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		Map<String, SObjectField> fieldTokensByName = getDescribe(objectName).getFieldsMap();
 		Map<String, DTO_FieldInformation> result = new Map<String, DTO_FieldInformation>();
 
-		for(String apiName : fieldList)
+		for(String apiName : fields)
 		{
 			SObjectField token = fieldTokensByName.get(apiName.toLowerCase());
 
@@ -908,7 +931,9 @@ global inherited sharing class UTIL_SObjectDescribe
 	}
 
 	/**
-	 * @description Returns the field metadata for a specific field by name.
+	 * @description Returns a light summary of one field: its name, type and relationship. The name is not case-sensitive.
+	 * The first call builds the summary of every field on the object at once; later calls read it from memory. A blank
+	 * name, or a name the object does not have, gives null.
 	 *
 	 * @param fieldName The API name of the field (case-insensitive).
 	 *
@@ -929,7 +954,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * @example
 	 * ```apex
 	 * Map<String, SObjectType> globalDescribe = UTIL_SObjectDescribe.getRawGlobalDescribe();
-	 * System.debug(globalDescribe.containsKey('Account')); // Outputs: true
+	 * // globalDescribe holds one entry for each object in the org, Account included
 	 * ```
 	 */
 	global static Map<String, SObjectType> getRawGlobalDescribe()
@@ -947,7 +972,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * @example
 	 * ```apex
 	 * UTIL_SObjectDescribe.GlobalDescribeMap globalDescribe = UTIL_SObjectDescribe.getGlobalDescribe();
-	 * System.debug(globalDescribe.get('Account')?.getDescribe().getLabel()); // Outputs: Account
+	 * // globalDescribe.get('Account') is Account.SObjectType
 	 * ```
 	 */
 	global static GlobalDescribeMap getGlobalDescribe()
@@ -963,7 +988,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * @example
 	 * ```apex
 	 * UTIL_SObjectDescribe.flushCache();
-	 * System.debug(UTIL_SObjectDescribe.getDescribe('Account')); // Forces new describe instance
+	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account'); // builds a new describe, not the cached one
 	 * ```
 	 */
 	global static void flushCache()
@@ -983,7 +1008,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * @example
 	 * ```apex
 	 * Boolean isPersonAccountEnabled = UTIL_SObjectDescribe.isPersonAccountEnabled();
-	 * System.debug(isPersonAccountEnabled); // Outputs: true or false based on org configuration
+	 * // isPersonAccountEnabled is true only when Account has the IsPersonAccount field
 	 * ```
 	 */
 	global static Boolean isPersonAccountEnabled()
@@ -1003,7 +1028,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * @example
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
-	 * System.debug(describe.getSObjectType()); // Outputs: Account
+	 * // describe.getSObjectType() is Account.SObjectType
 	 * ```
 	 */
 	global static UTIL_SObjectDescribe getDescribe(String sObjectName)
@@ -1037,7 +1062,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * @example
 	 * ```apex
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(Account.SObjectType);
-	 * System.debug(describe.getDescribe().name); // Outputs: Account
+	 * // describe.getDescribe().getName() is 'Account'
 	 * ```
 	 */
 	global static UTIL_SObjectDescribe getDescribe(SObjectType objectType)
@@ -1074,7 +1099,102 @@ global inherited sharing class UTIL_SObjectDescribe
 	 */
 	public static Boolean isObjectAccessible(SObjectType objectType)
 	{
-		return objectType != null && objectType.getDescribe().isAccessible();
+		return objectType?.getDescribe().isAccessible() ?? false;
+	}
+
+	/**
+	 * @description Whether the user the code runs as may create records of the given object. It asks the platform
+	 * again on every call, like isObjectAccessible, because a stored describe answers for the user who first asked
+	 * for it. That is the wrong answer inside System.runAs, or when one transaction acts for more than one user.
+	 *
+	 * @param objectType The object to check.
+	 *
+	 * @return True when the running user may create records of the object; false for a null type.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean canCreate = UTIL_SObjectDescribe.isObjectCreateable(Account.SObjectType);
+	 * ```
+	 */
+	public static Boolean isObjectCreateable(SObjectType objectType)
+	{
+		return objectType?.getDescribe().isCreateable() ?? false;
+	}
+
+	/**
+	 * @description Whether the user the code runs as may edit records of the given object. It asks the platform again
+	 * on every call, like isObjectAccessible, because a stored describe answers for the user who first asked for it.
+	 *
+	 * @param objectType The object to check.
+	 *
+	 * @return True when the running user may edit records of the object; false for a null type.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean canEdit = UTIL_SObjectDescribe.isObjectUpdateable(Account.SObjectType);
+	 * ```
+	 */
+	public static Boolean isObjectUpdateable(SObjectType objectType)
+	{
+		return objectType?.getDescribe().isUpdateable() ?? false;
+	}
+
+	/**
+	 * @description Whether the user the code runs as may delete records of the given object. It asks the platform
+	 * again on every call, like isObjectAccessible, because a stored describe answers for the user who first asked
+	 * for it.
+	 *
+	 * @param objectType The object to check.
+	 *
+	 * @return True when the running user may delete records of the object; false for a null type.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean canDelete = UTIL_SObjectDescribe.isObjectDeletable(Account.SObjectType);
+	 * ```
+	 */
+	public static Boolean isObjectDeletable(SObjectType objectType)
+	{
+		return objectType?.getDescribe().isDeletable() ?? false;
+	}
+
+	/**
+	 * @description Whether the user the code runs as may undelete records of the given object, which means bringing
+	 * a deleted record back from the recycle bin. It asks the platform again on every call, like isObjectAccessible,
+	 * because a stored describe answers for the user who first asked for it.
+	 *
+	 * @param objectType The object to check.
+	 *
+	 * @return True when the running user may undelete records of the object; false for a null type.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean canUndelete = UTIL_SObjectDescribe.isObjectUndeletable(Account.SObjectType);
+	 * ```
+	 */
+	public static Boolean isObjectUndeletable(SObjectType objectType)
+	{
+		return objectType?.getDescribe().isUndeletable() ?? false;
+	}
+
+	/**
+	 * @description Whether the user the code runs as may read the given field. It asks the platform again on every
+	 * call. The stored field describes of this class (getCachedFieldDescribe and the rest) answer for the user who
+	 * first described the object, so they can give the wrong answer inside System.runAs. Use this method when the
+	 * answer decides what a user may see.
+	 *
+	 * @param field The field to check.
+	 *
+	 * @return True when the running user may read the field; false for a null field.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean canRead = UTIL_SObjectDescribe.isFieldAccessible(Account.Phone);
+	 * ```
+	 */
+	public static Boolean isFieldAccessible(SObjectField field)
+	{
+		return field?.getDescribe().isAccessible() ?? false;
 	}
 
 	/**
@@ -1090,7 +1210,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * DescribeSObjectResult result = Account.SObjectType.getDescribe();
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(result);
-	 * System.debug(describe.getSObjectType()); // Outputs: Account
+	 * // describe.getSObjectType() is Account.SObjectType
 	 * ```
 	 */
 	global static UTIL_SObjectDescribe getDescribe(DescribeSObjectResult describeResult)
@@ -1119,7 +1239,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * ```apex
 	 * Account acc = new Account();
 	 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(acc);
-	 * System.debug(describe.getNameField().getDescribe().name); // Outputs: Name
+	 * // describe.getNameField() is Account.Name
 	 * ```
 	 */
 	global static UTIL_SObjectDescribe getDescribe(SObject instance)
@@ -1284,7 +1404,8 @@ global inherited sharing class UTIL_SObjectDescribe
 	}
 
 	/**
-	 * @description Retrieves the Id of a record type for an SObject by its developer name.
+	 * @description Retrieves the Id of a record type for an SObject by its developer name. The developer
+	 * name is matched without regard to case.
 	 *
 	 * @param objectType The SObject type.
 	 * @param recordTypeName The developer name of the record type.
@@ -1308,8 +1429,9 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * running user for the given SObject. A record type is available only when it exists, is active, and
 	 * is assigned to the running user's profile or a permission set. Check this before stamping a
 	 * RecordTypeId so an insert does not fail with INVALID_CROSS_REFERENCE_KEY when the type is not
-	 * assigned to the running user — for example a packaged record type that a subscriber has not
-	 * assigned to the profile the code runs under.
+	 * assigned to the running user. For example: a packaged record type that you have not
+	 * assigned to the profile the code runs under in your org. The developer name is matched without
+	 * regard to case.
 	 *
 	 * @param objectType The SObject type.
 	 * @param recordTypeName The developer name of the record type.
@@ -1330,11 +1452,13 @@ global inherited sharing class UTIL_SObjectDescribe
 	{
 		RecordTypeInfo recordTypeInfo = getRecordTypeInfo(objectType, recordTypeName);
 
-		return recordTypeInfo != null && recordTypeInfo.isAvailable();
+		return recordTypeInfo?.isAvailable() ?? false;
 	}
 
 	/**
-	 * @description Retrieves the record type information for an SObject by its developer name.
+	 * @description Retrieves the record type information for an SObject by its developer name. The name is
+	 * matched without regard to case, because Salesforce does not allow two developer names that differ only
+	 * in case. The lookup map is built once for each SObject type and reused.
 	 *
 	 * @param objectType The SObject type.
 	 * @param recordTypeName The developer name of the record type.
@@ -1344,7 +1468,7 @@ global inherited sharing class UTIL_SObjectDescribe
 	private static RecordTypeInfo getRecordTypeInfo(SObjectType objectType, String recordTypeName)
 	{
 		return objectType != null && String.isNotBlank(recordTypeName) ?
-				UTIL_SObjectDescribe.getDescribe(objectType).getDescribe().recordTypeInfosByDeveloperName.get(recordTypeName) : null;
+				UTIL_SObjectDescribe.getDescribe(objectType).recordTypeInfosByLowerCaseDeveloperName.get(recordTypeName.toLowerCase()) : null;
 	}
 
 	/**
@@ -2068,7 +2192,8 @@ global inherited sharing class UTIL_SObjectDescribe
 		protected Map<String, Object> values;
 
 		/**
-		 * @description Constructs a new NamespacedAttributeMap with the given values map.
+		 * @description Reads the package namespace once and keeps it, so a lookup can try a name with the namespace prefix
+		 * first and then without it. The given map is used as it is, not copied.
 		 *
 		 * @param values The map of attribute names to values.
 		 */
@@ -2113,7 +2238,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * ```apex
 		 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 		 * Boolean hasField = describe.getFields().containsKey('Name');
-		 * System.debug(hasField); // Outputs: true
+		 * // hasField is true
 		 * ```
 		 */
 		public virtual Boolean containsKey(String name)
@@ -2133,7 +2258,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * ```apex
 		 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 		 * Boolean hasField = describe.getFields().containsKey('Name', false);
-		 * System.debug(hasField); // Outputs: true or false based on namespace
+		 * // hasField is true: 'Name' is looked up as given, without the namespace prefix
 		 * ```
 		 */
 		public virtual Boolean containsKey(String name, Boolean implyNamespace)
@@ -2158,7 +2283,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * ```apex
 		 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 		 * Integer fieldCount = describe.getFields().size();
-		 * System.debug(fieldCount); // Outputs: Number of fields on Account
+		 * // fieldCount is the number of fields on Account
 		 * ```
 		 */
 		public virtual Integer size()
@@ -2175,7 +2300,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * ```apex
 		 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 		 * Set<String> fieldNames = describe.getFields().keySet();
-		 * System.debug(fieldNames); // Outputs: Set of field API names
+		 * // fieldNames holds the key of each field on Account, namespace prefixes included
 		 * ```
 		 */
 		public virtual Set<String> keySet()
@@ -2194,7 +2319,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * ```apex
 		 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 		 * Set<String> fieldNames = describe.getFields().keySet(true);
-		 * System.debug(fieldNames); // Outputs: Set of field names without namespace
+		 * // fieldNames holds the same keys, with this package's namespace prefix taken off
 		 * ```
 		 */
 		public virtual Set<String> keySet(Boolean implyNamespace)
@@ -2338,7 +2463,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * ```apex
 		 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
 		 * SObjectField field = describe.getFields().get('Email');
-		 * System.debug(field?.getDescribe().getLabel()); // Outputs: Email
+		 * // field is Contact.Email
 		 * ```
 		 */
 		global SObjectField get(String name)
@@ -2359,8 +2484,8 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * @example
 		 * ```apex
 		 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
-		 * SObjectField field = describe.getFields().get('Account', false);
-		 * System.debug(field?.getDescribe().name); // Outputs: AccountId
+		 * SObjectField field = describe.getFields().get('AccountId', false);
+		 * // field is Contact.AccountId
 		 * ```
 		 */
 		global SObjectField get(String name, Boolean implyNamespace)
@@ -2369,7 +2494,8 @@ global inherited sharing class UTIL_SObjectDescribe
 		}
 
 		/**
-		 * @description Returns the list of `SObjectField` values in the map.
+		 * @description Returns a token for every field on the object, whatever its namespace. To find one field by name,
+		 * use get or containsKey instead.
 		 *
 		 * @return A list of `SObjectField` instances.
 		 *
@@ -2379,7 +2505,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * ```apex
 		 * UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 		 * List<SObjectField> fields = describe.getFields().values();
-		 * System.debug(fields.size()); // Outputs: Number of fields on Account
+		 * // fields holds one token for each field on Account
 		 * ```
 		 */
 		global List<SObjectField> values()
@@ -2511,7 +2637,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * ```apex
 		 * UTIL_SObjectDescribe.GlobalDescribeMap globalDescribe = UTIL_SObjectDescribe.getGlobalDescribe();
 		 * SObjectType objType = globalDescribe.get('Account');
-		 * System.debug(objType?.getDescribe().getLabel()); // Outputs: Account
+		 * // objType is Account.SObjectType
 		 * ```
 		 */
 		global SObjectType get(String name)
@@ -2533,7 +2659,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * ```apex
 		 * UTIL_SObjectDescribe.GlobalDescribeMap globalDescribe = UTIL_SObjectDescribe.getGlobalDescribe();
 		 * SObjectType objType = globalDescribe.get('Account', false);
-		 * System.debug(objType?.getDescribe().name); // Outputs: Account
+		 * // objType is Account.SObjectType
 		 * ```
 		 */
 		global SObjectType get(String name, Boolean implyNamespace)
@@ -2542,7 +2668,8 @@ global inherited sharing class UTIL_SObjectDescribe
 		}
 
 		/**
-		 * @description Returns the list of `SObjectType` values in the global describe map.
+		 * @description Returns a token for every object in the org, whatever its namespace. To find one object by name,
+		 * use get or containsKey instead.
 		 *
 		 * @return A list of `SObjectType` instances.
 		 *
@@ -2552,7 +2679,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 * ```apex
 		 * UTIL_SObjectDescribe.GlobalDescribeMap globalDescribe = UTIL_SObjectDescribe.getGlobalDescribe();
 		 * List<SObjectType> objTypes = globalDescribe.values();
-		 * System.debug(objTypes.size()); // Outputs: Number of SObject types
+		 * // objTypes holds one token for each object in the org
 		 * ```
 		 */
 		global List<SObjectType> values()

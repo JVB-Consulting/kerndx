@@ -14,7 +14,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class CTRL_ApiTestHarness
 {
@@ -364,7 +364,7 @@ public inherited sharing class CTRL_ApiTestHarness
 		public String errorMessages;
 
 		/**
-		 * @description The service class name.
+		 * @description The name of the service the harness ran, as the inbound or outbound invoker reports it back.
 		 */
 		@AuraEnabled
 		public String serviceName;

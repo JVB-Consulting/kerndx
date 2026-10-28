@@ -11,7 +11,7 @@
  *
  * @group Schedulables
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_ScheduleSetting
 {
@@ -31,11 +31,11 @@ public inherited sharing class SEL_ScheduleSetting
 	 * ScheduleSetting__c scheduleSetting = SEL_ScheduleSetting.getScheduleSetting('DailySchedule');
 	 * if(scheduleSetting != null)
 	 * {
-	 *     System.debug('Found Schedule Setting: ' + scheduleSetting.Name);
+	 *     // scheduleSetting.Name is 'DailySchedule'
 	 * }
 	 * else
 	 * {
-	 *     System.debug('Schedule Setting not found');
+	 *     // No Schedule Setting is named 'DailySchedule'
 	 * }
 	 * ```
 	 */

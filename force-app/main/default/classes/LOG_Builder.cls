@@ -68,7 +68,7 @@
  *     .toList();
  * ```
  *
- * The same applies to subscriber reports, dashboards, cleanup scripts, and audit queries. See
+ * The same applies to your reports, dashboards, cleanup scripts, and audit queries. See
  * the section "Querying Log Entries" in the Logging Developer Guide for full examples.
  *
  * @see LoggingLevel
@@ -149,7 +149,7 @@ global inherited sharing class LOG_Builder
 	 * if(hasErrors)
 	 * {
 	 * 	// Handle the fact that some records failed
-	 * 	System.debug('Some account insertions failed - check logs for details');
+	 * 	// The failed rows are already logged: tell the caller or retry here
 	 * }
 	 * ```
 	 */
@@ -337,7 +337,8 @@ global inherited sharing class LOG_Builder
 	}
 
 	/**
-	 * @description Clears a specific global context key.
+	 * @description Removes one value that setGlobalContext added, so log entries emitted later in this transaction no
+	 * longer carry it. Does nothing when no value is stored under the key.
 	 *
 	 * @param key The key to remove
 	 *
@@ -354,7 +355,8 @@ global inherited sharing class LOG_Builder
 	}
 
 	/**
-	 * @description Clears all global context values.
+	 * @description Removes every global context value at once, so log entries emitted later in this transaction carry
+	 * none of them. Use it when one piece of work ends and the next one should start with no shared context.
 	 *
 	 * @since 1.0
 	 *
@@ -684,7 +686,8 @@ global inherited sharing class LOG_Builder
 		private LoggingLevel logLevel = LoggingLevel.DEBUG;
 
 		/**
-		 * @description The exception to log.
+		 * @description The exception given to error(Exception), or null when none was given. The entry is logged
+		 * from this exception, unless it is an audit entry or carries a list of messages: those take priority.
 		 */
 		private Exception error;
 

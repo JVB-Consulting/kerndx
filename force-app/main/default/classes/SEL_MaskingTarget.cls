@@ -225,7 +225,8 @@ public inherited sharing class SEL_MaskingTarget extends SEL_Base
 	}
 
 	/**
-	 * @description Constructs a MaskingTarget selector.
+	 * @description Reads the MaskingTarget__mdt custom metadata records. Every query skips the running user's object and field permission checks (system mode). Creating the
+	 * selector runs no query and fills no cache.
 	 */
 	public SEL_MaskingTarget()
 	{

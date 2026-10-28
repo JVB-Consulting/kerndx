@@ -104,7 +104,8 @@ public inherited sharing class SEL_PlatformEventUsageMetric extends SEL_Base
 	private static Boolean timeSegmentAvailableOverride;
 
 	/**
-	 * @description Constructs a PlatformEventUsageMetric selector.
+	 * @description Reads the platform's usage counts for platform events (PlatformEventUsageMetric). Every query skips the running user's object and field permission checks
+	 * (system mode). Creating the selector runs no query.
 	 */
 	public SEL_PlatformEventUsageMetric()
 	{

@@ -10,7 +10,7 @@
  *
  * @group Data Transfer Objects
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -181,7 +181,8 @@ global virtual class DTO_BaseTable extends DTO_JsonBase
 	global inherited sharing class DTO_Column
 	{
 		/**
-		 * @description Column Label
+		 * @description The text shown in the column header. It is stored as given, with no translation, so pass
+		 * a Custom Label value when the header must be translated.
 		 */
 		@AuraEnabled
 		public String label;
@@ -191,7 +192,8 @@ global virtual class DTO_BaseTable extends DTO_JsonBase
 		@AuraEnabled
 		public String fieldName;
 		/**
-		 * @description Column type
+		 * @description The kind of data the column shows, such as 'text', 'number' or 'currency'. It is passed on
+		 * as given, with no check, so use a type the lightning-datatable component accepts.
 		 */
 		@AuraEnabled
 		public String type;

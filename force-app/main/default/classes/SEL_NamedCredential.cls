@@ -10,12 +10,13 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_NamedCredential extends SEL_Base
 {
 	/**
-	 * @description Constructs a NamedCredential selector.
+	 * @description Reads the org's named credentials (NamedCredential). Every query skips the running user's object and field permission checks (system mode). Creating the
+	 * selector runs no query.
 	 */
 	public SEL_NamedCredential()
 	{

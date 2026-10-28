@@ -38,7 +38,8 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	public static final String STATUS_COMPLETED = 'Completed';
 
 	/**
-	 * @description Status indicating the chain execution failed.
+	 * @description The Status__c value of a run that stopped with an error, for example because a step failed or its job crashed. A user can
+	 * retry a Failed run by hand.
 	 */
 	public static final String STATUS_FAILED = 'Failed';
 
@@ -111,7 +112,8 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 	};
 
 	/**
-	 * @description Constructs a new SEL_AsyncChainExecution selector instance.
+	 * @description Reads AsyncChainExecution__c records, one for each run of a chain. Every query skips the running user's object and field permission checks (system mode).
+	 * Creating the selector runs no query.
 	 *
 	 * @since 1.0
 	 *

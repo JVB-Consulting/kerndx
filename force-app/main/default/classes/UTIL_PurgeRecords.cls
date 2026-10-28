@@ -7,7 +7,7 @@
  * All entry points inherit the flag-driven default `AccessLevel` resolved by
  * `DML_SharingProxy.defaultAccessLevel()` — under the secure-by-default posture this is
  * `USER_MODE`, so the invoking user must have delete CRUD on the target object for the purge to
- * succeed. This is deliberate: `UTIL_PurgeRecords` is `global`, so any subscriber Apex caller can
+ * succeed. This is deliberate: `UTIL_PurgeRecords` is `global`, so any Apex caller in your org can
  * reach it, and silently elevating to SYSTEM_MODE would let a low-privilege user destructively
  * delete records they have no native right to delete. Integrations that genuinely need admin-mandate
  * semantics (for example, cleanup utilities behind a custom permission gate) should construct a
@@ -81,7 +81,7 @@ global inherited sharing class UTIL_PurgeRecords
 	 * @example
 	 * ```apex
 	 * UTIL_PurgeRecords.deleteAllRecords('Contact', true);
-	 * System.debug('All Contact records deleted atomically');
+	 * // An asynchronous job now deletes the Contact records, so they are not gone yet when this line runs.
 	 * ```
 	 */
 	global static void deleteAllRecords(String objectApiName, Boolean isAtomic)
@@ -136,7 +136,7 @@ global inherited sharing class UTIL_PurgeRecords
 	 * @example
 	 * ```apex
 	 * UTIL_PurgeRecords.deleteAllRecords('Lead', false, 200);
-	 * System.debug('All Lead records deleted in batches of 200');
+	 * // An asynchronous job now deletes the Lead records, 200 records in each batch.
 	 * ```
 	 */
 	global static void deleteAllRecords(String objectApiName, Boolean isAtomic, Integer batchSize)
@@ -170,7 +170,7 @@ global inherited sharing class UTIL_PurgeRecords
 	 * @example
 	 * ```apex
 	 * UTIL_PurgeRecords.deleteOlderThanNDays('Task', 30);
-	 * System.debug('Deleted Task records older than 30 days');
+	 * // An asynchronous job now deletes the Task records created more than 30 days ago.
 	 * ```
 	 */
 	global static void deleteOlderThanNDays(String objectApiName, Integer daysThreshold)
@@ -250,7 +250,7 @@ global inherited sharing class UTIL_PurgeRecords
 	 * @example
 	 * ```apex
 	 * UTIL_PurgeRecords.deleteOlderThanNDays('Opportunity', 'CloseDate', 180, false, 100);
-	 * System.debug('Deleted Opportunity records older than 180 days in batches of 100');
+	 * // An asynchronous job now deletes the Opportunity records whose CloseDate is more than 180 days ago, 100 records in each batch.
 	 * ```
 	 */
 	@SuppressWarnings('PMD.ExcessiveParameterList,PMD.GlobalMethodParameterCap')

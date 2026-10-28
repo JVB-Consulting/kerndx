@@ -10,7 +10,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_ApiMock extends SEL_Base
 {
@@ -20,7 +20,8 @@ public inherited sharing class SEL_ApiMock extends SEL_Base
 	private static final String PATH_API_SETTING_DEVELOPER_NAME = ApiMock__mdt.ApiSetting__c.getDescribe().getRelationshipName() + '.DeveloperName';
 
 	/**
-	 * @description Constructs an ApiMock selector.
+	 * @description Reads the ApiMock__mdt custom metadata records that hold mock responses for web services. Every query skips the running user's object and field permission
+	 * checks (system mode). Creating the selector runs no query.
 	 */
 	public SEL_ApiMock()
 	{

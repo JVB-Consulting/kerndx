@@ -109,7 +109,7 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 	 * @description Constructs a DML processor with an explicit `AccessLevel`. Use this constructor when the
 	 * async save must use one access mode, whatever the `UserModeDml_Enabled` flag says. Framework utilities that
 	 * manage their own records pass `AccessLevel.SYSTEM_MODE`. `DML_Builder.async()` passes the access level the
-	 * caller chose, so a subscriber's `.withUserMode()` still applies when the job runs later.
+	 * caller chose, so your `.withUserMode()` still applies when the job runs later.
 	 *
 	 * @param operation The DML operation to perform (DML_INSERT, DML_UPDATE, DML_DELETE, DML_UPSERT, DML_UNDELETE).
 	 * @param allOrNothing If true, the entire transaction rolls back on any failure; if false, allows partial success.

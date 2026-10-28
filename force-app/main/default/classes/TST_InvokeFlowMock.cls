@@ -6,7 +6,7 @@
  * short-circuits against, bypassing the platform `Flow.Interview` API entirely. Mirrors
  * the fluent shape of `API_MockFactory` so the patterns transfer one-to-one.
  *
- * Subscriber-facing global surface (locked at v1.0):
+ * The global methods you use in your tests (unchanged since v1.0):
  * - `forFlow(String)` — entry point returning a `MockBuilder`
  * - `MockBuilder.succeed() / .fail(String) / .withOutputRecord(SObject) / .withOutputRecords(List<SObject>) / .throwOnStart(Exception) / .register()`
  * - `clear()`, `assertInvoked(name, count)`, `assertNotInvoked(name)`, `wasInvoked(name)`
@@ -22,7 +22,7 @@
  *
  * @group Triggers
  *
- * @date April 2026, May 2026
+ * @date April 2026, October 2026
  *
  * @since 1.0
  *
@@ -175,8 +175,8 @@ global inherited sharing class TST_InvokeFlowMock
 	 * @description Returns the `record` SObject the mocked flow received on its most recent
 	 * invocation, or null when the flow has not been invoked.
 	 *
-	 * Mirrors `API_MockFactory.lastRequestContains` — lets subscribers verify the flow saw
-	 * the input they expected (typically: an upstream Apex action's mutation) without
+	 * Mirrors `API_MockFactory.lastRequestContains`: lets you verify the flow saw
+	 * the input you expected (typically: an upstream Apex action's mutation) without
 	 * inspecting the trigger record's final state. The returned SObject is the in-memory
 	 * reference passed into the flow input map; mutating it after retrieval is undefined.
 	 *
@@ -478,7 +478,8 @@ global inherited sharing class TST_InvokeFlowMock
 	global class MockBuilder
 	{
 		/**
-		 * @description The flow name for this mock.
+		 * @description The flow API name as the test gave it. register() files the mock under this name, trimmed and in
+		 * lower case, so the case and spaces around the name do not matter.
 		 */
 		private final String flowName;
 
@@ -488,7 +489,8 @@ global inherited sharing class TST_InvokeFlowMock
 		private final MockResult result;
 
 		/**
-		 * @description Constructs a builder for the given flow.
+		 * @description Starts a builder whose result is a success until succeed or fail says otherwise. Tests get one
+		 * from forFlow, which first refuses a blank flow name.
 		 *
 		 * @param flowName The flow API name
 		 */
@@ -571,7 +573,7 @@ global inherited sharing class TST_InvokeFlowMock
 		 * routing that depends on it) without deploying a deliberately-broken flow XML.
 		 *
 		 * Marks this mock as a failure (`success = false`); the supplied exception's
-		 * `getMessage()` is what the trigger framework records and surfaces to subscribers.
+		 * `getMessage()` is the error message the trigger framework records.
 		 *
 		 * @param toThrow The exception the trigger framework will throw on the test author's behalf
 		 *

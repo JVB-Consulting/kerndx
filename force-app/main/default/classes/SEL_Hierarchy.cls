@@ -223,7 +223,7 @@ global inherited sharing class SEL_Hierarchy
 		 *     .findUltimateParents(accountIds);
 		 * for(Id accountId : accountIds)
 		 * {
-		 *     System.debug('Ultimate parent: ' + ultimateParents.get(accountId));
+		 *     Id ultimateParentId = ultimateParents.get(accountId); // the top account above accountId, or accountId itself
 		 * }
 		 * ```
 		 */
@@ -342,7 +342,7 @@ global inherited sharing class SEL_Hierarchy
 		 * for(Id accountId : accountIds)
 		 * {
 		 *     List<SObject> ancestors = ancestorsByRecord.get(accountId);
-		 *     System.debug('Ancestors for ' + accountId + ': ' + ancestors);
+		 *     // ancestors: the direct parent first, the top account last
 		 * }
 		 * ```
 		 */

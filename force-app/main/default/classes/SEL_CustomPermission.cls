@@ -10,31 +10,29 @@
  * As a framework package, the framework assumes most custom permissions will be created by subscribers.
  * The hasLocalPermission() method checks permissions in the subscriber's namespace (NamespacePrefix = null).
  *
- * HOW IT WORKS (SCOPED EVALUATION):
- * 1. Find the CustomPermission record by DeveloperName and NamespacePrefix
- * 2. Query user's PermissionSetAssignment records, separating:
- *    - Direct Permission Sets (not part of a group)
- *    - Permission Set Group assignments
- * 3. Expand Permission Set Groups to get component Permission Sets, identifying which are Muting
- * 4. Query SetupEntityAccess to find which Permission Sets grant this permission
- * 5. Evaluate with scoped muting logic:
- *    - Direct grants: If any direct Permission Set grants → TRUE
- *    - Group grants: For each Permission Set Group, if a non-muting component grants AND no muting component revokes → TRUE
- *    - Otherwise → FALSE
+ * HOW IT WORKS:
+ * 1. Find the CustomPermission record by DeveloperName and NamespacePrefix.
+ * 2. Read the PermissionSetId of every PermissionSetAssignment of the user.
+ * 3. Read SetupEntityAccess to find the permission sets that hold this permission.
+ * 4. The user has the permission when one of their permission sets is among them. Otherwise the answer is false.
  *
- * MUTING PERMISSION SET HANDLING:
- * Muting Permission Sets within a Permission Set Group can revoke specific permissions. A mute in Group A
- * does NOT block a valid grant from Group B. The evaluation is scoped per-group.
+ * PERMISSION SET GROUPS:
+ * When a user is assigned a permission set group, the assignment's PermissionSetId is the group's summary permission set. This is
+ * a permission set (Type 'Group') that Salesforce builds for each group. It holds the permissions the group really grants: the
+ * permissions of its permission sets, minus the ones its muting permission set takes away. So a group assignment is checked in
+ * the same way as a permission set assigned on its own. While Salesforce is still recalculating a group, its summary
+ * permission set can be out of date for a short time, and the answer this class gives follows it. A mute in one group does not
+ * take away a permission that another group, or a permission set assigned on its own, grants.
  *
  * PERFORMANCE OPTIMIZATIONS:
- * - User assignment data is cached per transaction
+ * - The permission sets assigned to each user are cached per transaction
  * - CustomPermission IDs are cached by name+namespace
  * - SetupEntityAccess results are cached by permission ID
  * - Final permission check results are cached by user+permission+namespace
  *
  * @see CustomPermission
  * @see SetupEntityAccess
- * @see PermissionSetGroupComponent
+ * @see PermissionSetAssignment
  * @see SEL_PermissionSetAssignment
  * @see SEL_CustomPermission_TEST
  * @see FeatureManagement
@@ -55,11 +53,6 @@ public inherited sharing class SEL_CustomPermission
 	private static final String FRAMEWORK_TEST_PERMISSION = 'FrameworkTestPermission';
 
 	/**
-	 * @description Permission Set Type value for Muting Permission Sets.
-	 */
-	private static final String PERMISSION_SET_TYPE_MUTING = 'Group';
-
-	/**
 	 * @description Cache: Final permission check results.
 	 * Key format: "userId:permissionName:namespace"
 	 * Populated on first check, persists for transaction duration only.
@@ -68,12 +61,13 @@ public inherited sharing class SEL_CustomPermission
 	private static final Map<String, Boolean> PERMISSION_RESULT_CACHE = new Map<String, Boolean>();
 
 	/**
-	 * @description Cache: User's assignment data including direct sets and Permission Set Group components.
-	 * Key = UserId, Value = UserAssignmentData containing structured assignment information.
+	 * @description Cache: the Ids of the permission sets assigned to each user. For a permission set group assignment this is the
+	 * group's summary permission set.
+	 * Key = UserId, Value = Set of PermissionSet.Id
 	 * Populated on first access per user, persists for transaction duration only.
 	 */
 	@TestVisible
-	private static final Map<Id, UserAssignmentData> USER_ASSIGNMENT_CACHE = new Map<Id, UserAssignmentData>();
+	private static final Map<Id, Set<Id>> ASSIGNED_PERMISSION_SET_CACHE = new Map<Id, Set<Id>>();
 
 	/**
 	 * @description Cache: CustomPermission.Id by DeveloperName and NamespacePrefix.
@@ -90,51 +84,6 @@ public inherited sharing class SEL_CustomPermission
 	 */
 	@TestVisible
 	private static final Map<Id, Set<Id>> PERMISSION_SET_CACHE = new Map<Id, Set<Id>>();
-
-	/**
-	 * @description Encapsulates a user's permission set assignment data for scoped evaluation.
-	 * Optimized for minimal heap usage - no redundant data storage.
-	 */
-	@TestVisible
-	private class UserAssignmentData
-	{
-		/**
-		 * @description Permission Sets assigned directly to the user (not via Permission Set Group).
-		 */
-		public Set<Id> directPermissionSetIds = new Set<Id>();
-
-		/**
-		 * @description Map of Permission Set Group ID to its component data.
-		 */
-		public Map<Id, PermissionSetGroupComponentData> permissionSetGroupComponents = new Map<Id, PermissionSetGroupComponentData>();
-
-		/**
-		 * @description Returns true if the user has any permission set assignments.
-		 *
-		 * @return True if user has direct assignments or Permission Set Group assignments
-		 */
-		public Boolean hasAssignments()
-		{
-			return !directPermissionSetIds.isEmpty() || !permissionSetGroupComponents.isEmpty();
-		}
-	}
-
-	/**
-	 * @description Component data for a single Permission Set Group.
-	 */
-	@TestVisible
-	private class PermissionSetGroupComponentData
-	{
-		/**
-		 * @description Non-muting (regular) Permission Set IDs in this group.
-		 */
-		public Set<Id> regularComponentIds = new Set<Id>();
-
-		/**
-		 * @description Muting Permission Set IDs in this group.
-		 */
-		public Set<Id> mutingComponentIds = new Set<Id>();
-	}
 
 	/**
 	 * @description Checks if a user has a LOCAL (subscriber-created) custom permission.
@@ -242,7 +191,8 @@ public inherited sharing class SEL_CustomPermission
 	}
 
 	/**
-	 * @description Builds a cache key for permission result caching.
+	 * @description Joins the user Id, the permission name and the namespace with colons. Both names are made lower case, so the result
+	 * cache ignores case. A null namespace counts as an empty one.
 	 *
 	 * @param userId The user ID
 	 * @param permissionName The permission DeveloperName
@@ -256,7 +206,8 @@ public inherited sharing class SEL_CustomPermission
 	}
 
 	/**
-	 * @description Builds a cache key for permission ID caching.
+	 * @description Joins the permission name and the namespace with a colon. Both are made lower case, so the cache of permission Ids
+	 * ignores case. A null namespace counts as an empty one.
 	 *
 	 * @param permissionName The permission DeveloperName
 	 * @param namespace The namespace prefix (can be null)
@@ -269,16 +220,13 @@ public inherited sharing class SEL_CustomPermission
 	}
 
 	/**
-	 * @description Performs the SOQL-based permission check with scoped muting evaluation.
+	 * @description Reads the database to check whether the user has the permission.
 	 *
-	 * Algorithm:
-	 * 1. Get the CustomPermission ID
-	 * 2. Get user's assignment data (direct sets and Permission Set Group components with muting info)
-	 * 3. Get all Permission Sets that grant this permission
-	 * 4. Evaluate with scoped logic:
-	 *    - If any direct Permission Set grants → TRUE
-	 *    - For each Permission Set Group: if non-muting grants AND no muting revokes → TRUE
-	 *    - Otherwise → FALSE
+	 * Steps:
+	 * 1. Get the CustomPermission Id. When there is no such permission, the answer is false.
+	 * 2. Get the permission sets assigned to the user. A permission set group counts through its summary permission set.
+	 * 3. Get the permission sets that hold the permission.
+	 * 4. The answer is true when one permission set is in both lists.
 	 *
 	 * @param userId The user to check
 	 * @param permissionApiName The DeveloperName of the custom permission
@@ -286,7 +234,6 @@ public inherited sharing class SEL_CustomPermission
 	 *
 	 * @return True if user has the permission
 	 */
-	@SuppressWarnings('PMD.CognitiveComplexity')
 	private static Boolean checkPermissionViaSOQL(Id userId, String permissionApiName, String namespacePrefix)
 	{
 		Id permissionId = getCustomPermissionId(permissionApiName, namespacePrefix);
@@ -296,85 +243,14 @@ public inherited sharing class SEL_CustomPermission
 			return false;
 		}
 
-		UserAssignmentData assignmentData = getUserAssignmentData(userId);
+		Set<Id> assignedPermissionSetIds = getAssignedPermissionSetIds(userId);
 
-		if(!assignmentData.hasAssignments())
+		if(assignedPermissionSetIds.isEmpty())
 		{
 			return false;
 		}
 
-		Set<Id> grantingPermissionSetIds = getPermissionSetsWithPermission(permissionId);
-
-		if(grantingPermissionSetIds.isEmpty())
-		{
-			return false;
-		}
-
-		// Check direct Permission Set grants
-		if(hasDirectGrant(assignmentData.directPermissionSetIds, grantingPermissionSetIds))
-		{
-			return true;
-		}
-
-		// Check Permission Set Group grants with scoped muting evaluation
-		return hasPermissionSetGroupGrant(assignmentData.permissionSetGroupComponents, grantingPermissionSetIds);
-	}
-
-	/**
-	 * @description Checks if any direct Permission Set grants the permission.
-	 *
-	 * @param directPermissionSetIds The user's directly assigned Permission Set IDs
-	 * @param grantingPermissionSetIds The Permission Set IDs that grant the target permission
-	 *
-	 * @return True if any direct Permission Set grants the permission
-	 */
-	private static Boolean hasDirectGrant(Set<Id> directPermissionSetIds, Set<Id> grantingPermissionSetIds)
-	{
-		for(Id directPermissionSetId : directPermissionSetIds)
-		{
-			if(grantingPermissionSetIds.contains(directPermissionSetId))
-			{
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	/**
-	 * @description Checks if any Permission Set Group grants the permission (with scoped muting).
-	 *
-	 * For each Permission Set Group, checks if a non-muting component grants AND no muting component revokes.
-	 * Muting is scoped per-Permission Set Group - a mute in Group A doesn't block a grant from Group B.
-	 *
-	 * @param permissionSetGroupComponents Map of Permission Set Group ID to component data (regular and muting sets)
-	 * @param grantingPermissionSetIds The Permission Set IDs that grant the target permission
-	 *
-	 * @return True if any Permission Set Group grants the permission without being muted
-	 */
-	@TestVisible
-	private static Boolean hasPermissionSetGroupGrant(Map<Id, PermissionSetGroupComponentData> permissionSetGroupComponents, Set<Id> grantingPermissionSetIds)
-	{
-		for(Id permissionSetGroupId : permissionSetGroupComponents.keySet())
-		{
-			PermissionSetGroupComponentData componentData = permissionSetGroupComponents.get(permissionSetGroupId);
-
-			Boolean hasGrant = hasIntersection(componentData.regularComponentIds, grantingPermissionSetIds);
-
-			if(!hasGrant)
-			{
-				continue;
-			}
-
-			Boolean hasMute = hasIntersection(componentData.mutingComponentIds, grantingPermissionSetIds);
-
-			if(hasGrant && !hasMute)
-			{
-				return true;
-			}
-		}
-
-		return false;
+		return hasIntersection(assignedPermissionSetIds, getPermissionSetsWithPermission(permissionId));
 	}
 
 	/**
@@ -399,108 +275,31 @@ public inherited sharing class SEL_CustomPermission
 	}
 
 	/**
-	 * @description Gets structured assignment data for a user including direct sets and Permission Set Group components.
+	 * @description Gets the Ids of the permission sets assigned to a user, read from PermissionSetAssignment.PermissionSetId.
 	 *
-	 * This method queries PermissionSetAssignment to separate direct assignments from Permission Set Group assignments,
-	 * then expands Permission Set Groups to get component Permission Sets with muting information.
+	 * A permission set assigned on its own gives its own Id. A permission set group gives the Id of the group's summary permission
+	 * set, which holds what the group really grants, with mutes already applied.
 	 *
 	 * Results are cached per user for the transaction duration.
 	 *
-	 * @param userId The user to get assignment data for
+	 * @param userId The user to read the assignments of
 	 *
-	 * @return UserAssignmentData containing direct sets and Permission Set Group component maps
+	 * @return The assigned permission set Ids. The set is empty when the user has no assignments.
 	 */
-	@TestVisible
-	private static UserAssignmentData getUserAssignmentData(Id userId)
+	private static Set<Id> getAssignedPermissionSetIds(Id userId)
 	{
-		if(USER_ASSIGNMENT_CACHE.containsKey(userId))
+		if(!ASSIGNED_PERMISSION_SET_CACHE.containsKey(userId))
 		{
-			return USER_ASSIGNMENT_CACHE.get(userId);
+			Set<Object> permissionSetIds = QRY_Builder.selectFrom(PermissionSetAssignment.SObjectType)
+					.systemModeInternal()
+					.fields(new List<SObjectField> {PermissionSetAssignment.PermissionSetId})
+					.condition(PermissionSetAssignment.AssigneeId).equals(userId)
+					.asValueSet(PermissionSetAssignment.PermissionSetId);
+
+			ASSIGNED_PERMISSION_SET_CACHE.put(userId, UTIL_Set.extractIds(permissionSetIds));
 		}
 
-		UserAssignmentData assignmentData = new UserAssignmentData();
-		Set<Id> permissionSetGroupIds = new Set<Id>();
-
-		// Step 1: Query user's permission set assignments
-		List<PermissionSetAssignment> assignments = QRY_Builder.selectFrom(PermissionSetAssignment.SObjectType)
-				.systemModeInternal()
-				.fields(new List<SObjectField>
-				{
-						PermissionSetAssignment.PermissionSetId,
-						PermissionSetAssignment.PermissionSetGroupId
-				})
-				.condition(PermissionSetAssignment.AssigneeId).equals(userId)
-				.toList();
-
-		for(PermissionSetAssignment assignment : assignments)
-		{
-			// Collect direct permission set assignments (PermissionSetGroupId is null)
-			if(assignment.PermissionSetGroupId == null && assignment.PermissionSetId != null)
-			{
-				assignmentData.directPermissionSetIds.add(assignment.PermissionSetId);
-			}
-
-			// Collect permission set group assignments for expansion
-			if(assignment.PermissionSetGroupId != null)
-			{
-				permissionSetGroupIds.add(assignment.PermissionSetGroupId);
-			}
-		}
-
-		// Step 2: Expand Permission Set Groups to get components with muting info
-		if(!permissionSetGroupIds.isEmpty())
-		{
-			expandPermissionSetGroups(permissionSetGroupIds, assignmentData);
-		}
-
-		USER_ASSIGNMENT_CACHE.put(userId, assignmentData);
-		return assignmentData;
-	}
-
-	/**
-	 * @description Expands Permission Set Groups to get component Permission Sets with muting identification.
-	 *
-	 * @param permissionSetGroupIds The Permission Set Group IDs to expand
-	 * @param assignmentData The assignment data to populate with Permission Set Group component information
-	 */
-	private static void expandPermissionSetGroups(Set<Id> permissionSetGroupIds, UserAssignmentData assignmentData)
-	{
-		// Query Permission Set Group components with PermissionSet.Type to identify muting permission sets
-		List<PermissionSetGroupComponent> components = QRY_Builder.selectFrom(PermissionSetGroupComponent.SObjectType)
-				.systemModeInternal()
-				.fields(new List<String>
-				{
-						'PermissionSetId',
-						'PermissionSetGroupId',
-						'PermissionSet.Type'
-				})
-				.condition(PermissionSetGroupComponent.PermissionSetGroupId).isIn(new List<Id>(permissionSetGroupIds))
-				.toList();
-
-		for(PermissionSetGroupComponent component : components)
-		{
-			Id permissionSetGroupId = component.PermissionSetGroupId;
-			Id permissionSetId = component.PermissionSetId;
-			String permissionSetType = component.PermissionSet?.Type;
-
-			// Initialize Permission Set Group component data if not exists
-			if(!assignmentData.permissionSetGroupComponents.containsKey(permissionSetGroupId))
-			{
-				assignmentData.permissionSetGroupComponents.put(permissionSetGroupId, new PermissionSetGroupComponentData());
-			}
-
-			PermissionSetGroupComponentData componentData = assignmentData.permissionSetGroupComponents.get(permissionSetGroupId);
-
-			// Categorize as muting or regular
-			if(permissionSetType == PERMISSION_SET_TYPE_MUTING)
-			{
-				componentData.mutingComponentIds.add(permissionSetId);
-			}
-			else
-			{
-				componentData.regularComponentIds.add(permissionSetId);
-			}
-		}
+		return ASSIGNED_PERMISSION_SET_CACHE.get(userId);
 	}
 
 	/**
@@ -567,7 +366,7 @@ public inherited sharing class SEL_CustomPermission
 					.condition(SetupEntityAccess.SetupEntityId).equals(permissionId)
 					.asValueSet(SetupEntityAccess.ParentId);
 
-			PERMISSION_SET_CACHE.put(permissionId, UTIL_Set.extractIds(parentIds) ?? new Set<Id>());
+			PERMISSION_SET_CACHE.put(permissionId, UTIL_Set.extractIds(parentIds));
 		}
 
 		return PERMISSION_SET_CACHE.get(permissionId);

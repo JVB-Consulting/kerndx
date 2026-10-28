@@ -117,7 +117,8 @@ public inherited sharing class TST_BuilderInternal
 		private final SObjectManager objectManager;
 
 		/**
-		 * @description Constructor for the SObjectFactory.
+		 * @description Reads the object's field details once and starts an empty manager that will keep every record this
+		 * factory builds. Throws IllegalArgumentException when the object type is null.
 		 *
 		 * @param objectType The main SObject type to be instantiated.
 		 */
@@ -402,7 +403,10 @@ public inherited sharing class TST_BuilderInternal
 		}
 
 		/**
-		 * @description Gets a related SObject instance for a given SObject type and relationship name.
+		 * @description Makes an empty parent record for one lookup field. The name can be the field name (AccountId) or
+		 * the relationship name (Account). When the lookup can point to more than one object, the first one is used.
+		 * The record is not saved; it gets a made-up Id only when the build asked for made-up Ids. Throws SObjectException
+		 * when the field does not exist or is not a lookup.
 		 *
 		 * @param sObjectType The SObject type to which the generated SObject is related.
 		 * @param relationshipName The relationship name that links the SObject type and the instance to be generated.
@@ -470,7 +474,9 @@ public inherited sharing class TST_BuilderInternal
 		}
 
 		/**
-		 * @description Gets the field value from the map of values for a given record index and fully qualified field name.
+		 * @description Asks the field's value provider for the value of one record. Throws SObjectException when the map
+		 * has no provider for the field. When the provider fails, its own exception is thrown again, with the field name
+		 * and the record index added to the message.
 		 *
 		 * @param mapOfValues A map of values with the key as the field name.
 		 * @param fullyQualifiedFieldName A fully qualified field name (e.g., 'Contact.Account.Name').
@@ -826,7 +832,8 @@ public inherited sharing class TST_BuilderInternal
 		private final UTIL_SObjectDescribe objectDescribe;
 
 		/**
-		 * @description A list of the main SObject instances.
+		 * @description The records the build was asked for, in the order they were built. Parent records made for
+		 * lookups are not in this list; objectsByIndexAndPath keeps them.
 		 */
 		@TestVisible
 		private List<SObject> mainObjects = new List<SObject>();
@@ -850,7 +857,8 @@ public inherited sharing class TST_BuilderInternal
 		private Map<Integer, Map<String, Map<String, Object>>> readOnlyOverrides = new Map<Integer, Map<String, Map<String, Object>>>();
 
 		/**
-		 * @description Constructor for the SObjectManager.
+		 * @description Starts an empty manager for one object. Its saves run in system mode, so they skip the running
+		 * user's object and field permission checks.
 		 *
 		 * @param objectDescribe The object describe for the main object.
 		 */

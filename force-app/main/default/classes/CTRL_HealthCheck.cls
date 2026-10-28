@@ -5,7 +5,8 @@
  * setup after install (Platform Cache) is in place, suggests how long to keep the records of the
  * framework's data objects, reports how the org's data masking is set up, schedules the chain
  * watchdog with one click, and manages the job runner: switching it on, repairing it and switching
- * it off, its status card and its three health check rows.
+ * it off, its status card and its three health check rows. A last row tells the user viewing the page which services
+ * answer from mock data for them.
  *
  * @see CTRL_HealthCheck_TEST
  * @see UTIL_ScheduledJobRunner
@@ -140,6 +141,22 @@ public inherited sharing class CTRL_HealthCheck
 	private static final Integer PRIORITY_JOB_RUNNER_CAPACITY = 52;
 
 	/**
+	 * @description Display name for the health check reporting which services answer from mock data for the user viewing
+	 * the page.
+	 */
+	private static final String CHECK_SELECTED_API_MOCKING = System.Label.HealthCheck_SelectedApiMocking_CheckName;
+
+	/**
+	 * @description Display priority for the selected API mocking health check: last, after the job-runner capacity row.
+	 */
+	private static final Integer PRIORITY_SELECTED_API_MOCKING = 53;
+
+	/**
+	 * @description How the selected API mocking row joins the labels of the ticked API settings in its detail.
+	 */
+	private static final String SETTING_LABEL_SEPARATOR = ', ';
+
+	/**
 	 * @description How many Scheduled Apex rows the capacity row warns from: the org holds a hundred slots in all.
 	 */
 	private static final Integer SCHEDULED_APEX_SLOT_WARN_FROM = 80;
@@ -160,7 +177,8 @@ public inherited sharing class CTRL_HealthCheck
 	private static final String RUNNER_CRON_TEMPLATE = '0 {0} * * * ?';
 
 	/**
-	 * @description Status value indicating a health check passed.
+	 * @description The status code for a check that found nothing to fix. It is a fixed code, not a translated label;
+	 * the check's detail text carries the words the administrator reads.
 	 */
 	@TestVisible
 	private static final String STATUS_PASS = 'Pass';
@@ -172,7 +190,9 @@ public inherited sharing class CTRL_HealthCheck
 	private static final String STATUS_WARN = 'Warn';
 
 	/**
-	 * @description Status value indicating a health check failed.
+	 * @description The status code for a problem the administrator must act on, set for example when Organisation Cache has
+	 * no capacity allocated. The Health Check card lists these results first, under its Action required heading. It is a
+	 * fixed code, not a translated label.
 	 */
 	@TestVisible
 	private static final String STATUS_FAIL = 'Fail';
@@ -366,7 +386,8 @@ public inherited sharing class CTRL_HealthCheck
 				checkChainWatchdog(state),
 				checkJobRunner(state),
 				checkOrphanedJobRunnerRecords(state),
-				checkJobRunnerCapacity(state)
+				checkJobRunnerCapacity(state),
+				checkSelectedApiMocking()
 		};
 	}
 
@@ -477,7 +498,8 @@ public inherited sharing class CTRL_HealthCheck
 					CronExpression__c = String.isBlank(proposal.cronExpression) ? recommendation.cronExpression : proposal.cronExpression,
 					IsActive__c = true,
 					Timezone__c = runningUserTimezone,
-					Parameters__c = jobParameters.serialize()
+					Parameters__c = jobParameters.serialize(),
+					Description__c = describePurgeJob(targetType, recommendation)
 			));
 		}
 
@@ -487,6 +509,31 @@ public inherited sharing class CTRL_HealthCheck
 		}
 
 		return DML_Builder.newTransaction().withSystemMode().doInsert(jobsToInsert).execute().getInsertedIds();
+	}
+
+	/**
+	 * @description Builds the description of a purge job in the administrator's words: which records it deletes, and
+	 * how old they must be. When the recommendation names a date field, the age is counted from that field; otherwise
+	 * it is counted from the date each record was created.
+	 *
+	 * @param targetType The object the job purges.
+	 * @param recommendation The retention recommendation for that object.
+	 *
+	 * @return The description to save on the scheduled job.
+	 */
+	private static String describePurgeJob(SObjectType targetType, RetentionRecommendation recommendation)
+	{
+		String objectLabel = UTIL_SObjectDescribe.getDescribe(targetType).getDescribe().getLabelPlural();
+
+		if(recommendation.dateField == null)
+		{
+			return String.format(System.Label.HealthCheck_DataRetention_JobDescription, new List<Object> {objectLabel, String.valueOf(recommendation.retentionDays)});
+		}
+
+		String dateFieldLabel = UTIL_SObjectDescribe.getCachedFieldDescribe(recommendation.dateField).getLabel();
+
+		return String.format(System.Label.HealthCheck_DataRetention_JobDescriptionWithDateField,
+				new List<Object> {objectLabel, dateFieldLabel, String.valueOf(recommendation.retentionDays)});
 	}
 
 	/**
@@ -1095,6 +1142,7 @@ public inherited sharing class CTRL_HealthCheck
 						IsActive__c = true,
 						Timezone__c = UserInfo.getTimeZone().getID(),
 						Parameters__c = jobParameters.serialize(),
+						Description__c = String.format(System.Label.HealthCheck_ChainWatchdog_JobDescription, new List<Object> {WATCHDOG_DEFAULT_STALE_THRESHOLD_MINUTES}),
 						ExecutionMode__c = ridesTheRunner
 								? UTIL_ScheduledJobRunner.EXECUTION_MODE_JOB_RUNNER
 								: UTIL_ScheduledJobRunner.EXECUTION_MODE_OWN_SCHEDULED_JOB
@@ -1279,7 +1327,8 @@ public inherited sharing class CTRL_HealthCheck
 						CronExpression__c = String.format(RUNNER_CRON_TEMPLATE, new List<Object> {mark}),
 						IsActive__c = true,
 						Timezone__c = UserInfo.getTimeZone().getID(),
-						ExecutionMode__c = UTIL_ScheduledJobRunner.EXECUTION_MODE_OWN_SCHEDULED_JOB
+						ExecutionMode__c = UTIL_ScheduledJobRunner.EXECUTION_MODE_OWN_SCHEDULED_JOB,
+						Description__c = String.format(System.Label.HealthCheck_JobRunnerRecordDescription, new List<Object> {String.valueOf(mark)})
 				));
 			}
 
@@ -1635,6 +1684,55 @@ public inherited sharing class CTRL_HealthCheck
 	}
 
 	/**
+	 * @description Tells the user viewing the page which services answer from mock data for them. It reads the active
+	 * API settings that have Mocking Enabled ticked once, and checks three feature flags for the viewer only: Mock
+	 * Selected APIs, Mock All APIs and Mock All Inbound APIs. It passes only when no setting is ticked and both Mock All
+	 * flags are off. Otherwise it warns. When settings are ticked, the detail first names them by label and says whether
+	 * Mock Selected APIs makes them answer from mock data for the viewer. When that flag is off and a Mock All flag is on,
+	 * it says the box alone does not mock them, so it never says they call the real system. Then it adds one sentence for
+	 * each Mock All flag that is on. Each service call checks the flags for the user it runs as, so another user can get another answer.
+	 * The row has no action button, because the page has no dialog that would help here.
+	 *
+	 * @return The check result.
+	 */
+	private static DTO_HealthCheckResult checkSelectedApiMocking()
+	{
+		DTO_HealthCheckResult result = newResult(CHECK_SELECTED_API_MOCKING, PRIORITY_SELECTED_API_MOCKING);
+		List<String> tickedLabels = new List<String>();
+		for(ApiSetting__mdt setting : new SEL_ApiSetting().findActiveWithMockingEnabled())
+		{
+			tickedLabels.add(setting.MasterLabel);
+		}
+
+		Boolean isMockAllApisOn = UTIL_FeatureFlag.isEnabled(API_Base.FLAG_MOCK_ALL_APIS);
+		Boolean isMockAllInboundApisOn = UTIL_FeatureFlag.isEnabled(API_Inbound.FLAG_MOCK_ALL_INBOUND_APIS);
+		List<String> sentences = new List<String>();
+		if(!tickedLabels.isEmpty())
+		{
+			String tickedSentence = System.Label.HealthCheck_SelectedApiMocking_FlagOnForYou;
+			if(!UTIL_FeatureFlag.isEnabled(API_Base.FLAG_MOCK_SELECTED_APIS))
+			{
+				tickedSentence = isMockAllApisOn || isMockAllInboundApisOn
+						? System.Label.HealthCheck_SelectedApiMocking_FlagOffForYouWithMockAll
+						: System.Label.HealthCheck_SelectedApiMocking_FlagOffForYou;
+			}
+			sentences.add(String.format(tickedSentence, new List<Object> {String.join(tickedLabels, SETTING_LABEL_SEPARATOR)}));
+		}
+		if(isMockAllApisOn)
+		{
+			sentences.add(System.Label.HealthCheck_SelectedApiMocking_MockAllApisOnForYou);
+		}
+		if(isMockAllInboundApisOn)
+		{
+			sentences.add(System.Label.HealthCheck_SelectedApiMocking_MockAllInboundApisOnForYou);
+		}
+
+		return sentences.isEmpty()
+				? pass(result, System.Label.HealthCheck_SelectedApiMocking_NoneTicked)
+				: warn(result, String.join(sentences, UTIL_String.SPACE));
+	}
+
+	/**
 	 * @description Starts a health check result with its display name and priority, ready for its status.
 	 *
 	 * @param name The display name.
@@ -1819,7 +1917,8 @@ public inherited sharing class CTRL_HealthCheck
 	public class DTO_JobRunnerStatus
 	{
 		/**
-		 * @description Whether a job runner is active.
+		 * @description True when at least one of the runner's records still owns a scheduled job that will fire; false
+		 * otherwise.
 		 */
 		@AuraEnabled public Boolean isActive;
 
@@ -1900,7 +1999,7 @@ public inherited sharing class CTRL_HealthCheck
 	public class DTO_HealthCheckResult
 	{
 		/**
-		 * @description The name of the health check.
+		 * @description The check's display name, read from a Custom Label.
 		 */
 		@AuraEnabled
 		public String name;
@@ -2103,7 +2202,8 @@ public inherited sharing class CTRL_HealthCheck
 		}
 
 		/**
-		 * @description Constructs a RetentionRecommendation.
+		 * @description Stores the recommendation as given. Pass a date field when the recommended purge job should measure a
+		 * record's age by that field; pass null to keep the CreatedDate default.
 		 *
 		 * @param retentionDays Retention window in days
 		 * @param cronExpression Default cron expression

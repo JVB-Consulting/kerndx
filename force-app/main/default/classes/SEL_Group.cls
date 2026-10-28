@@ -11,7 +11,7 @@
  *
  * @group Selectors
  *
- * @date October 2024, May 2026
+ * @date October 2024, October 2026
  *
  * @since 1.0
  *
@@ -31,7 +31,8 @@ global inherited sharing class SEL_Group extends SEL_Base
 	private static final String RELATIONSHIP_MEMBERS = 'GroupMembers';
 
 	/**
-	 * @description Constructs a new SEL_Group selector instance.
+	 * @description Reads Group records, such as public groups, queues and role groups. Every query skips the running user's object and field permission checks (system mode).
+	 * Record sharing follows the class that calls the selector. Creating the selector runs no query.
 	 *
 	 * @since 1.0
 	 *

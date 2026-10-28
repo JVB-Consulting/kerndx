@@ -9,7 +9,7 @@
  * `DML_SharingProxy.defaultAccessLevel()` — under the secure-by-default posture this is
  * `USER_MODE`, so the invoking user must have CRUD and FLS on the target object and fields for the
  * bulk update to succeed. This is deliberate: `UTIL_BulkUpdates` is `global`, and silently elevating
- * to SYSTEM_MODE would let a low-privilege subscriber Apex caller mutate records and fields they
+ * to SYSTEM_MODE would let a low-privilege Apex caller in your org mutate records and fields they
  * have no native right to edit. Integrations that genuinely need admin-mandate semantics should
  * construct a `PROC_UpdateFields` directly with `DTO_Parameters.accessLevel = AccessLevel.SYSTEM_MODE`
  * behind a caller-side permission check; the framework declines to make that elevation implicit.
@@ -21,7 +21,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

@@ -56,7 +56,8 @@ public inherited sharing class CTRL_ChainMonitorTypes
 	public inherited sharing class DTO_LaunchOrigin
 	{
 		/**
-		 * @description The `LaunchKind`.
+		 * @description Which of the four cases applies: a chain launch, an action launch, a restart, or the run that
+		 * started the action. The controller copies the value's name onto the console DTOs as text.
 		 */
 		public LaunchKind launchKind;
 
@@ -131,7 +132,8 @@ public inherited sharing class CTRL_ChainMonitorTypes
 	public inherited sharing class DTO_ChainPage
 	{
 		/**
-		 * @description The chain summary records for the current page.
+		 * @description One summary row for each run on this page, in the order of the requested sort. An empty list when
+		 * no run matches the filters.
 		 */
 		@AuraEnabled
 		public List<DTO_ChainSummary> records;
@@ -173,13 +175,14 @@ public inherited sharing class CTRL_ChainMonitorTypes
 		public Id executionId;
 
 		/**
-		 * @description The chain name.
+		 * @description The name the run's chain was given, copied from the run's ChainName__c field.
 		 */
 		@AuraEnabled
 		public String chainName;
 
 		/**
-		 * @description The current chain status.
+		 * @description The run's status when the page was read: the value stored in its Status__c field, not a display
+		 * label.
 		 */
 		@AuraEnabled
 		public String status;
@@ -258,13 +261,14 @@ public inherited sharing class CTRL_ChainMonitorTypes
 		public Id executionId;
 
 		/**
-		 * @description The chain name.
+		 * @description The name the run's chain was given, copied from the run's ChainName__c field.
 		 */
 		@AuraEnabled
 		public String chainName;
 
 		/**
-		 * @description The current chain status.
+		 * @description The run's status when the detail was read: the value stored in its Status__c field, not a display
+		 * label.
 		 */
 		@AuraEnabled
 		public String status;
@@ -441,7 +445,8 @@ public inherited sharing class CTRL_ChainMonitorTypes
 		public Boolean success;
 
 		/**
-		 * @description Whether this step continues on error.
+		 * @description True when the step's entry in the run's step log sets its continue-on-error flag to true; false in every
+		 * other case, so it is never null.
 		 */
 		@AuraEnabled
 		public Boolean continueOnError;
@@ -582,7 +587,7 @@ public inherited sharing class CTRL_ChainMonitorTypes
 		public Datetime timestamp;
 
 		/**
-		 * @description The entry's log level.
+		 * @description The level the entry was logged at, copied as stored from its LogLevel__c field.
 		 */
 		@AuraEnabled
 		public String logLevel;

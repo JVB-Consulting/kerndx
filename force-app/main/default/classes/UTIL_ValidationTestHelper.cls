@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
  * @description Reusable utility class for testing validation rules.
- * This is NOT a test class itself but provides assertion methods for subscriber test classes
+ * This is NOT a test class itself but provides assertion methods for your test classes
  * and the framework's own test classes to verify validation rule behavior.
  *
  * The class validates records in-memory using the validation framework and provides
@@ -14,7 +14,7 @@
  *
  * @group Testing
  *
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  *
  * @since 1.0
  *
@@ -197,7 +197,8 @@ global inherited sharing class UTIL_ValidationTestHelper
 	}
 
 	/**
-	 * @description Validates a single record and returns the result.
+	 * @description Runs the validation rules on one record in memory; nothing is saved. When the rules give no result for
+	 * the record, it returns a new result with no errors, so the caller never gets null.
 	 *
 	 * @param record The new record to validate
 	 * @param oldRecord The old record (may be null)
@@ -216,7 +217,8 @@ global inherited sharing class UTIL_ValidationTestHelper
 	}
 
 	/**
-	 * @description Finds a validation error by rule DeveloperName.
+	 * @description Returns the first error raised by the named rule. The name is compared without regard to upper or
+	 * lower case. Returns null when that rule raised no error on the record.
 	 *
 	 * @param validationResult The validation result to search
 	 * @param ruleDeveloperName The rule DeveloperName to find

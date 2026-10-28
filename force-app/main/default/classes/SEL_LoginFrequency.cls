@@ -10,7 +10,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_LoginFrequency extends SEL_Base
 {
@@ -20,7 +20,8 @@ public inherited sharing class SEL_LoginFrequency extends SEL_Base
 	public static final String FIELD_USERID_WITH_LOGIN_YEAR_AND_MONTH = LoginFrequency__c.CompositeKey__c.getDescribe().name;
 
 	/**
-	 * @description Constructs a LoginFrequency selector.
+	 * @description Reads LoginFrequency__c records, used to track how often users log in. Every query skips the running user's object and field permission checks (system mode).
+	 * Creating the selector runs no query.
 	 */
 	public SEL_LoginFrequency()
 	{
