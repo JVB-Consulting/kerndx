@@ -32,7 +32,8 @@ test('renderPmdRuleset with empty config renders defaults byte-identical to chec
 	const rendered = renderPmdRuleset({});
 	const checkedIn = fs.readFileSync(CHECKED_IN_XML, 'utf-8');
 	assert.equal(rendered, checkedIn,
-			'Rendered output drifted from scanner/subscriber-naming-pmd-ruleset.xml. ' + 'Either the template changed without updating the checked-in XML, or the '
+			'Rendered output drifted from scanner/subscriber-naming-pmd-ruleset.xml. '
+			+ 'Either the template changed without updating the checked-in XML, or the '
 			+ 'checked-in XML was hand-edited. Regenerate via the renderer.');
 });
 
@@ -117,7 +118,7 @@ test('renderPmdRuleset with custom brands includes them in XPath', () =>
 		}
 	});
 	assert.match(rendered, /\(\(AAA\|BBB\|CCC\)_\)\?/);
-	assert.match(rendered, /Brands:  AAA, BBB, CCC/);
+	assert.match(rendered, /Brands: {2}AAA, BBB, CCC/);
 });
 
 test('renderPmdRuleset with empty brands array omits brand segment from XPath', () =>
@@ -127,7 +128,7 @@ test('renderPmdRuleset with empty brands array omits brand segment from XPath', 
 			brands: []
 		}
 	});
-	assert.match(rendered, /Brands:  \(none\)/);
+	assert.match(rendered, /Brands: {2}\(none\)/);
 	assert.doesNotMatch(rendered, /\(ACM\|BTA\)/);
 	const apexClassRegexMatch = rendered.match(/'\^([^']+)'/);
 	assert.ok(apexClassRegexMatch, 'expected to find Apex class XPath regex');
@@ -146,7 +147,7 @@ test('renderPmdRuleset with custom apex_layers includes them in XPath', () =>
 		}
 	});
 	assert.match(rendered, /\(CTL\|SRV\|REPO\)_/);
-	assert.match(rendered, /Layer:   CTL, SRV, REPO/);
+	assert.match(rendered, /Layer: {3}CTL, SRV, REPO/);
 });
 
 test('renderPmdRuleset with custom length_limit appears in error message and XPath', () =>
@@ -177,8 +178,8 @@ test('renderPmdRuleset with full custom config renders all overrides', () =>
 		}
 	});
 	assert.match(rendered, /Domains: INV, WMS/);
-	assert.match(rendered, /Brands:  ACME/);
-	assert.match(rendered, /Layers:  CTL, SRV/);
+	assert.match(rendered, /Brands: {2}ACME/);
+	assert.match(rendered, /Layers: {2}CTL, SRV/);
 	assert.match(rendered, /exceeds the 50-character limit/);
 	assert.match(rendered, /\^\(INV\|WMS\)_\(\(ACME\)_\)\?\(CTL\|SRV\)_/);
 });

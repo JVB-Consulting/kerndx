@@ -3,7 +3,7 @@
  * @description Pure functions for parsing, building, and describing Salesforce cron expressions.
  *              Supports the 7-field Salesforce format: Seconds Minutes Hours DayOfMonth Month DayOfWeek [Year]
  *
- * @date March 2026, September 2026
+ * @date March 2026, October 2026
  */
 import {
 	MODE_PRESET, MODE_ADVANCED, MODE_CUSTOM, DEFAULT_CRON_EXPRESSION, NUMBER_TO_DAY_NAME
@@ -27,6 +27,9 @@ import DESC_EVERY_N_MINUTES from '@salesforce/label/c.CronExpressionEditor_DescE
 import DESC_EVERY_N_MINUTES_ON_RUNNER from '@salesforce/label/c.CronExpressionEditor_DescEveryNMinutesOnRunner';
 import DESC_FIRST_CHECK_ON_OR_AFTER from '@salesforce/label/c.CronExpressionEditor_DescFirstCheckOnOrAfter';
 import DESC_HOURLY from '@salesforce/label/c.CronExpressionEditor_DescHourly';
+import DESC_MINUTE_OF_EVERY_HOUR from '@salesforce/label/c.CronExpressionEditor_DescMinuteOfEveryHour';
+import DESC_MINUTE_INTERVALS from '@salesforce/label/c.CronExpressionEditor_DescMinuteIntervals';
+import DESC_MINUTE_INTERVALS_FROM_TO from '@salesforce/label/c.CronExpressionEditor_DescMinuteIntervalsFromTo';
 import DESC_DAILY from '@salesforce/label/c.CronExpressionEditor_DescDaily';
 import DESC_DAILY_IN_MONTH from '@salesforce/label/c.CronExpressionEditor_DescDailyInMonth';
 import DESC_NTH_WEEKDAY from '@salesforce/label/c.CronExpressionEditor_DescNthWeekday';
@@ -37,6 +40,7 @@ import DESC_DAY_LIST from '@salesforce/label/c.CronExpressionEditor_DescDayList'
 import DESC_LAST_DAY from '@salesforce/label/c.CronExpressionEditor_DescLastDay';
 import DESC_LAST_WEEKDAY_OF_MONTH from '@salesforce/label/c.CronExpressionEditor_DescLastWeekdayOfMonth';
 import DESC_IN_MONTH_SUFFIX from '@salesforce/label/c.CronExpressionEditor_DescInMonthSuffix';
+import DESC_IN_YEAR_SUFFIX from '@salesforce/label/c.CronExpressionEditor_DescInYearSuffix';
 import DESC_NEAREST_WEEKDAY from '@salesforce/label/c.CronExpressionEditor_DescNearestWeekday';
 import DESC_MONTHLY_ON_DAY from '@salesforce/label/c.CronExpressionEditor_DescMonthlyOnDay';
 import VAL_SECONDS from '@salesforce/label/c.CronExpressionEditor_ValSeconds';
@@ -62,13 +66,20 @@ import VAL_STRUCTURE from '@salesforce/label/c.CronExpressionEditor_ValStructure
 
 /**
  * @description How the editor reads an expression when the caller says nothing: its own mode, where a
- *              scheduled job runs at most once an hour and no job runner is checking for due jobs.
+ *              scheduled job runs at most once an hour and no job runner is checking for due jobs, and a year that
+ *              has already passed is refused.
  */
-const OWN_MODE_OPTIONS = Object.freeze({jobRunnerMode: false, activeCheckIntervalMinutes: null});
+const OWN_MODE_OPTIONS = Object.freeze({jobRunnerMode: false, activeCheckIntervalMinutes: null, ignorePastYear: false});
+
+/** @description Hours on a 12-hour clock: the hour number that starts the PM half of the day, and the label of hour zero. */
+const HOURS_ON_TWELVE_HOUR_CLOCK = 12;
+
+/** @description The last minute of an hour, used to find the last run of a minute interval. */
+const LAST_MINUTE_OF_HOUR = 59;
 
 /**
  * @description Fills in the reading options a caller left out, so every function below can read them plainly.
- * @param {Object} [options] - Caller options: jobRunnerMode, activeCheckIntervalMinutes
+ * @param {Object} [options] - Caller options: jobRunnerMode, activeCheckIntervalMinutes, ignorePastYear
  * @returns {Object} The options with every value filled in
  */
 function resolveOptions(options)
@@ -118,7 +129,8 @@ function normaliseDayToken(token)
 }
 
 /**
- * @description Normalises a comma-separated or range day-of-week value to day names.
+ * @description Normalises a day-of-week value to upper-case day names. The value is split at each comma first and
+ *              then at each hyphen, so a list that holds a range, such as 2-4,6, becomes MON-WED,FRI.
  */
 function normaliseDayOfWeek(value)
 {
@@ -127,18 +139,7 @@ function normaliseDayOfWeek(value)
 		return value;
 	}
 
-	if(value.includes('-'))
-	{
-		let parts = value.split('-');
-		return parts.map(normaliseDayToken).join('-');
-	}
-
-	if(value.includes(','))
-	{
-		return value.split(',').map(normaliseDayToken).join(',');
-	}
-
-	return normaliseDayToken(value);
+	return value.toUpperCase().split(',').map((token) => token.split('-').map(normaliseDayToken).join('-')).join(',');
 }
 
 /**
@@ -157,14 +158,14 @@ function isSingleNumber(value)
  */
 export function splitCronExpression(expression)
 {
-	let trimmed = expression.trim();
+	const trimmed = expression.trim();
 
 	if(trimmed === '')
 	{
 		return null;
 	}
 
-	let parts = trimmed.split(/\s+/);
+	const parts = trimmed.split(/\s+/);
 
 	if(parts.length < 6 || parts.length > 7)
 	{
@@ -175,16 +176,12 @@ export function splitCronExpression(expression)
 }
 
 /**
- * @description Extracts the day list from a day-of-week value, expanding ranges as needed.
+ * @description Extracts the day list from a day-of-week value, expanding each range in the list, so MON-WED,FRI
+ *              gives MON, TUE, WED and FRI.
  */
 function parseDayList(dayOfWeek)
 {
-	if(dayOfWeek.includes('-'))
-	{
-		return expandDayRange(dayOfWeek);
-	}
-
-	return dayOfWeek.split(',');
+	return dayOfWeek.split(',').flatMap((token) => (token.includes('-') ? expandDayRange(token) : [token]));
 }
 
 /**
@@ -231,15 +228,15 @@ function matchPreset(parts, options)
 		return null;
 	}
 
-	let [seconds, minutes, hours, dayOfMonth, month, dayOfWeek] = parts;
+	const [seconds, minutes, hours, dayOfMonth, month, dayOfWeek] = parts;
 
 	if(seconds !== '0' || month !== '*')
 	{
 		return null;
 	}
 
-	let normalisedMinutes = options.jobRunnerMode && /^0\/\d+$/.test(minutes) ? '*/' + minutes.substring(2) : minutes;
-	let fields = {minutes: normalisedMinutes, hours, dayOfMonth, month, dayOfWeek: normaliseDayOfWeek(dayOfWeek)};
+	const normalisedMinutes = options.jobRunnerMode && /^0\/\d+$/.test(minutes) ? '*/' + minutes.substring(2) : minutes;
+	const fields = {minutes: normalisedMinutes, hours, dayOfMonth, month, dayOfWeek: normaliseDayOfWeek(dayOfWeek)};
 
 	for(const matcher of PRESET_MATCHERS)
 	{
@@ -258,23 +255,26 @@ function matchPreset(parts, options)
 }
 
 /**
- * @description Expands a day range like MON-FRI into an array of day names.
+ * @description Expands a day range like MON-FRI into an array of day names. A range whose last day comes before its
+ *              first day in the week, such as FRI-MON, runs on past Saturday: Friday, Saturday, Sunday and Monday.
  */
 function expandDayRange(range)
 {
-	let [start, end] = range.split('-');
-	let startIndex = DAY_NAMES_ORDERED.indexOf(start);
-	let endIndex = DAY_NAMES_ORDERED.indexOf(end);
+	const [start, end] = range.split('-');
+	const startIndex = DAY_NAMES_ORDERED.indexOf(start);
+	const endIndex = DAY_NAMES_ORDERED.indexOf(end);
 
 	if(startIndex === -1 || endIndex === -1)
 	{
 		return [range];
 	}
 
-	let result = [];
-	for(let i = startIndex; i <= endIndex; i++)
+	const dayCount = DAY_NAMES_ORDERED.length;
+	const daysAfterStart = (endIndex - startIndex + dayCount) % dayCount;
+	const result = [];
+	for(let offset = 0; offset <= daysAfterStart; offset++)
 	{
-		result.push(DAY_NAMES_ORDERED[i]);
+		result.push(DAY_NAMES_ORDERED[(startIndex + offset) % dayCount]);
 	}
 	return result;
 }
@@ -288,14 +288,14 @@ function expandDayRange(range)
  */
 export function parseCronExpression(expression, options)
 {
-	let resolved = resolveOptions(options);
+	const resolved = resolveOptions(options);
 
 	if(!expression || typeof expression !== 'string')
 	{
 		return {mode: MODE_PRESET, preset: {frequency: 'daily', hour: '12', minute: '0'}, isValid: true};
 	}
 
-	let parts = splitCronExpression(expression);
+	const parts = splitCronExpression(expression);
 
 	if(!parts)
 	{
@@ -306,7 +306,7 @@ export function parseCronExpression(expression, options)
 		return {mode: MODE_CUSTOM, raw: expression, isValid: false};
 	}
 
-	let presetResult = matchPreset(parts, resolved);
+	const presetResult = matchPreset(parts, resolved);
 	if(presetResult)
 	{
 		return presetResult;
@@ -360,7 +360,7 @@ function buildPresetExpression(preset)
 			return `0 ${preset.minute || '0'} ${preset.hour || '12'} * * ?`;
 		case 'weekly':
 		{
-			let days = preset.daysOfWeek && preset.daysOfWeek.length > 0 ? preset.daysOfWeek.join(',') : 'MON';
+			const days = preset.daysOfWeek && preset.daysOfWeek.length > 0 ? preset.daysOfWeek.join(',') : 'MON';
 			return `0 ${preset.minute || '0'} ${preset.hour || '9'} ? * ${days}`;
 		}
 		case 'monthly':
@@ -375,13 +375,13 @@ function buildPresetExpression(preset)
  */
 function buildAdvancedExpression(advanced)
 {
-	let seconds = advanced.seconds || '0';
-	let minutes = advanced.minutes || '0';
-	let hours = advanced.hours || '0';
-	let dayOfMonth = advanced.dayOfMonth || '*';
-	let month = advanced.month || '*';
-	let dayOfWeek = advanced.dayOfWeek || '?';
-	let year = advanced.year || '';
+	const seconds = advanced.seconds || '0';
+	const minutes = advanced.minutes || '0';
+	const hours = advanced.hours || '0';
+	const dayOfMonth = advanced.dayOfMonth || '*';
+	const month = advanced.month || '*';
+	const dayOfWeek = advanced.dayOfWeek || '?';
+	const year = advanced.year || '';
 
 	let expression = `${seconds} ${minutes} ${hours} ${dayOfMonth} ${month} ${dayOfWeek}`;
 
@@ -398,11 +398,11 @@ function buildAdvancedExpression(advanced)
  */
 function formatTime(hours, minutes)
 {
-	let hourNum = parseInt(hours, 10);
-	let minuteNum = parseInt(minutes, 10);
-	let period = hourNum < 12 ? 'AM' : 'PM';
-	let displayHour = hourNum % 12 || 12;
-	let displayMinute = String(minuteNum).padStart(2, '0');
+	const hourNum = parseInt(hours, 10);
+	const minuteNum = parseInt(minutes, 10);
+	const period = hourNum < HOURS_ON_TWELVE_HOUR_CLOCK ? 'AM' : 'PM';
+	const displayHour = hourNum % HOURS_ON_TWELVE_HOUR_CLOCK || HOURS_ON_TWELVE_HOUR_CLOCK;
+	const displayMinute = String(minuteNum).padStart(2, '0');
 
 	return `${displayHour}:${displayMinute} ${period}`;
 }
@@ -412,7 +412,7 @@ function formatTime(hours, minutes)
  */
 function describeDayList(days)
 {
-	let fullNames = days.map((day) => DAY_FULL_NAMES[day] || day);
+	const fullNames = days.map((day) => DAY_FULL_NAMES[day] || day);
 
 	if(fullNames.length === 1)
 	{
@@ -469,11 +469,16 @@ function describeTimeBasedPattern(hours, minutes, dayOfMonth, month, dayOfWeek, 
 		return expression;
 	}
 
-	let minuteNum = parseInt(minutes, 10);
+	const minuteNum = parseInt(minutes, 10);
 
 	if(hours === '*')
 	{
-		return describeHourlyPattern(minuteNum);
+		if(isEveryDayOfEveryMonth(dayOfMonth, month, dayOfWeek))
+		{
+			return describeHourlyPattern(minuteNum);
+		}
+
+		return describeDaysPattern(formatTemplateString(DESC_MINUTE_OF_EVERY_HOUR, [minuteNum]), dayOfMonth, month, dayOfWeek);
 	}
 
 	if(!isSingleNumber(hours))
@@ -481,24 +486,82 @@ function describeTimeBasedPattern(hours, minutes, dayOfMonth, month, dayOfWeek, 
 		return expression;
 	}
 
-	let time = formatTime(hours, minutes);
+	return describeDaysPattern(formatTime(hours, minutes), dayOfMonth, month, dayOfWeek);
+}
 
+/**
+ * @description Whether the day of month, month and day of week fields all allow every value, so the job runs on every day.
+ */
+function isEveryDayOfEveryMonth(dayOfMonth, month, dayOfWeek)
+{
+	return isWildcard(dayOfMonth) && isWildcard(dayOfWeek) && month === '*';
+}
+
+/**
+ * @description Adds the days a job runs on to a description of when it runs during the day.
+ *              The time text is placed after "at" in the day text, for example "Every Monday at 9:00 AM".
+ *              Only a valid expression reaches it, so exactly one of the day of month and the day of week is ?.
+ * @param {string} time - When the job runs during the day, for example "9:00 AM" or "minute 30 of every hour"
+ * @param {string} dayOfMonth - The day of month field
+ * @param {string} month - The month field
+ * @param {string} dayOfWeek - The day of week field, with day names in upper case
+ * @returns {string} The full description
+ */
+function describeDaysPattern(time, dayOfMonth, month, dayOfWeek)
+{
 	if(dayOfMonth === '?' && !isWildcard(dayOfWeek))
 	{
 		return describeDayOfWeekPattern(dayOfWeek, time);
 	}
 
-	if(!isWildcard(dayOfMonth) && isWildcard(dayOfWeek))
+	if(!isWildcard(dayOfMonth))
 	{
 		return describeDayOfMonthPattern(dayOfMonth, time, month);
 	}
 
-	if(isWildcard(dayOfMonth) && isWildcard(dayOfWeek))
+	return describeDailyPattern(time, month);
+}
+
+/**
+ * @description Describes a job that runs every few minutes, with the hours and the days it runs on.
+ *              The hours field can be every hour (*), one hour such as 9, or a range of hours such as 9-17.
+ * @param {number} interval - How many minutes pass between two runs
+ * @param {string} hours - The hours field
+ * @param {string} dayOfMonth - The day of month field
+ * @param {string} month - The month field
+ * @param {string} dayOfWeek - The day of week field, with day names in upper case
+ * @param {string} expression - The whole expression, returned when this cannot describe it
+ * @returns {string} The description, or the raw expression when the hours field has a shape this cannot describe
+ */
+function describeMinuteIntervalPattern(interval, hours, dayOfMonth, month, dayOfWeek, expression)
+{
+	if(hours === '*')
 	{
-		return describeDailyPattern(time, month);
+		if(isEveryDayOfEveryMonth(dayOfMonth, month, dayOfWeek))
+		{
+			return formatTemplateString(DESC_EVERY_N_MINUTES, [interval]);
+		}
+
+		return describeDaysPattern(formatTemplateString(DESC_MINUTE_INTERVALS, [interval]), dayOfMonth, month, dayOfWeek);
 	}
 
-	return expression;
+	const hourRange = hours.split('-');
+
+	if(hourRange.length > 2 || !hourRange.every(isSingleNumber))
+	{
+		return expression;
+	}
+
+	const firstHour = hourRange[0];
+	const lastHour = hourRange[hourRange.length - 1];
+	const lastMinute = Math.floor(LAST_MINUTE_OF_HOUR / interval) * interval;
+	const time = formatTemplateString(DESC_MINUTE_INTERVALS_FROM_TO, [
+		interval,
+		formatTime(firstHour, 0),
+		formatTime(lastHour, lastMinute)
+	]);
+
+	return describeDaysPattern(time, dayOfMonth, month, dayOfWeek);
 }
 
 /**
@@ -514,48 +577,69 @@ function isOffCheckInterval(minutes, checkInterval)
  * @param {string} expression - The cron expression to describe
  * @param {Object} [options] - jobRunnerMode true describes what the job runner will do, and
  *                             activeCheckIntervalMinutes says how often the active runner checks for due jobs
- * @returns {string} Human-readable description, or the raw expression if unparseable
+ * @returns {string} Human-readable description. A blank or non-text value gives an empty text. An expression that cannot be read, or that
+ *                   validation refuses, comes back as it was written. A year that has already passed is not a refusal here, so
+ *                   such an expression is still described.
  */
 export function describeCronExpression(expression, options)
 {
-	let resolved = resolveOptions(options);
+	const resolved = resolveOptions(options);
 
 	if(!expression || typeof expression !== 'string')
 	{
 		return '';
 	}
 
-	let parts = splitCronExpression(expression);
+	const parts = splitCronExpression(expression);
 
 	if(!parts)
 	{
 		return expression.trim() === '' ? '' : expression;
 	}
 
-	let [seconds, minutes, hours, dayOfMonth, month, dayOfWeek] = parts;
-	dayOfWeek = normaliseDayOfWeek(dayOfWeek);
+	// An expression that validation refuses is shown as it is, beside the validation error, and never described.
+	// A year that has passed does not stop the description: that rule only keeps a new save from using such a year.
+	if(!validateCronExpression(expression, {...resolved, ignorePastYear: true}).isValid)
+	{
+		return expression;
+	}
+
+	const [seconds, minutes, hours, dayOfMonth, month, dayOfWeekToken, year] = parts;
+	const dayOfWeek = normaliseDayOfWeek(dayOfWeekToken);
+	// The leading space is added here, not in the label: Salesforce strips leading and trailing spaces from Custom Label values.
+	const yearSuffix = year ? ' ' + formatTemplateString(DESC_IN_YEAR_SUFFIX, [year]) : '';
 
 	if(seconds !== '0')
 	{
 		return expression;
 	}
 
+	// Validation accepts a minute step only on the job runner, so only a job runner expression reaches this branch.
 	if(minutes.startsWith('*/') || /^0\/\d+$/.test(minutes))
 	{
-		if(!resolved.jobRunnerMode)
+		const interval = parseInt(minutes.substring(2), 10);
+		const checkInterval = resolved.activeCheckIntervalMinutes ? Math.max(interval, resolved.activeCheckIntervalMinutes) : interval;
+		let described = describeMinuteIntervalPattern(checkInterval, hours, dayOfMonth, month, dayOfWeek, expression);
+
+		if(described === expression)
 		{
 			return expression;
 		}
 
-		let interval = parseInt(minutes.substring(2), 10);
-		let checkInterval = resolved.activeCheckIntervalMinutes ? Math.max(interval, resolved.activeCheckIntervalMinutes) : interval;
-		let described = formatTemplateString(DESC_EVERY_N_MINUTES, [checkInterval]);
+		described += yearSuffix;
 		return resolved.activeCheckIntervalMinutes ? formatTemplateString(DESC_EVERY_N_MINUTES_ON_RUNNER, [described]) : described;
 	}
 
 	let description = describeTimeBasedPattern(hours, minutes, dayOfMonth, month, dayOfWeek, expression);
 
-	if(resolved.jobRunnerMode && isOffCheckInterval(minutes, resolved.activeCheckIntervalMinutes) && description !== expression)
+	if(description === expression)
+	{
+		return expression;
+	}
+
+	description += yearSuffix;
+
+	if(resolved.jobRunnerMode && isOffCheckInterval(minutes, resolved.activeCheckIntervalMinutes))
 	{
 		return description + '. ' + DESC_FIRST_CHECK_ON_OR_AFTER;
 	}
@@ -564,18 +648,18 @@ export function describeCronExpression(expression, options)
 }
 
 /**
- * @description Describes a day-of-week cron pattern.
+ * @description Describes a day-of-week cron pattern. Only a valid expression reaches it, so the occurrence after # is
+ *              1 to 5 and the day before L is a day of the week.
  */
 function describeDayOfWeekPattern(dayOfWeek, time)
 {
 	if(dayOfWeek.includes('#'))
 	{
-		let [day, occurrence] = dayOfWeek.split('#');
-		let normalisedDay = normaliseDayToken(day);
-		let dayName = DAY_FULL_NAMES[normalisedDay] || normalisedDay;
-		let ordinal = ORDINAL_NAMES[occurrence] || `#${occurrence}`;
+		const [day, occurrence] = dayOfWeek.split('#');
+		const normalisedDay = normaliseDayToken(day);
+		const dayName = DAY_FULL_NAMES[normalisedDay] || normalisedDay;
 		return formatTemplateString(DESC_NTH_WEEKDAY, [
-			ordinal,
+			ORDINAL_NAMES[occurrence],
 			dayName,
 			time
 		]);
@@ -583,23 +667,29 @@ function describeDayOfWeekPattern(dayOfWeek, time)
 
 	if(dayOfWeek.endsWith('L'))
 	{
-		let day = normaliseDayToken(dayOfWeek.slice(0, -1));
-		let dayName = DAY_FULL_NAMES[day] || day;
 		return formatTemplateString(DESC_LAST_WEEKDAY, [
-			dayName,
+			DAY_FULL_NAMES[normaliseDayToken(dayOfWeek.slice(0, -1))],
+			time
+		]);
+	}
+
+	if(dayOfWeek.includes(','))
+	{
+		return formatTemplateString(DESC_DAY_LIST, [
+			describeDayList(parseDayList(dayOfWeek)),
 			time
 		]);
 	}
 
 	if(dayOfWeek.includes('-'))
 	{
-		let [start, end] = dayOfWeek.split('-');
+		const [start, end] = dayOfWeek.split('-');
 		if(start === 'MON' && end === 'FRI')
 		{
 			return formatTemplateString(DESC_WEEKDAYS, [time]);
 		}
-		let startName = DAY_FULL_NAMES[start] || start;
-		let endName = DAY_FULL_NAMES[end] || end;
+		const startName = DAY_FULL_NAMES[start] || start;
+		const endName = DAY_FULL_NAMES[end] || end;
 		return formatTemplateString(DESC_DAY_RANGE, [
 			startName,
 			endName,
@@ -607,9 +697,8 @@ function describeDayOfWeekPattern(dayOfWeek, time)
 		]);
 	}
 
-	let days = dayOfWeek.includes(',') ? dayOfWeek.split(',') : [dayOfWeek];
 	return formatTemplateString(DESC_DAY_LIST, [
-		describeDayList(days),
+		describeDayList([dayOfWeek]),
 		time
 	]);
 }
@@ -622,7 +711,7 @@ const CRON_FIELD_PATTERNS = {
 		pattern: /^(\*|\?|L|LW|\d{1,2}W?|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,-]\d{1,2})+)$/, message: VAL_DAY_OF_MONTH, min: 1, max: 31
 	},
 	month: {
-		pattern: /^(\*|\d{1,2}|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC|[\dA-Z]{1,3}([,-][\dA-Z]{1,3})+)$/, message: VAL_MONTH, min: 1, max: 12
+		pattern: /^(\*|\d{1,2}|[A-Z]{3}|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|[\dA-Z]{1,3}([,-][\dA-Z]{1,3})+)$/, message: VAL_MONTH, min: 1, max: 12
 	},
 	dayOfWeek: {pattern: /^(\*|\?|\d(L|#\d)?|[A-Za-z]{3}(L|#\d)?|[\dA-Za-z]{1,3}([,-][\dA-Za-z]{1,3})*)$/, message: VAL_DAY_OF_WEEK, min: 1, max: 7},
 	year: {pattern: /^(\d{4})?$/, message: VAL_YEAR, min: 1970, max: 2099, isPastAware: true}
@@ -636,19 +725,58 @@ const JOB_RUNNER_MINUTES_PATTERN = {
 	pattern: /^(\*|\d{1,2}|\*\/\d{1,2}|\d{1,2}\/\d{1,2}|\d{1,2}([,-]\d{1,2})+)$/, message: VAL_MINUTES_JOB_RUNNER, min: 0, max: 59
 };
 
+const MONTH_NAME_TO_NUMBER = {
+	'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6, 'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
+};
+
 /**
- * @description Validates the semantic correctness of a cron field value after regex passes.
- *              Checks step values, list element ranges, reversed ranges, and # occurrences.
+ * @description Whether a part of a month value is a name that is not a month, such as XYZ in JAN,XYZ.
  * @param {string} fieldName - The field name
- * @param {string} value - The value to validate
+ * @param {string} part - One value of a list, or one end of a range, in upper case
+ * @returns {boolean} True when the field is the month field and the part is a name not in the month list
+ */
+function isUnknownMonthName(fieldName, part)
+{
+	return fieldName === 'month' && /^[A-Z]+$/.test(part) && !MONTH_NAME_TO_NUMBER[part];
+}
+
+/**
+ * @description Checks the day before the L in the day-of-week field. A day followed by L means the last such day of
+ *              the month, so 6L and FRIL both mean the last Friday. The day must be one day of the week: a number
+ *              from 1 to 7, or a day name such as FRI.
+ * @param {string} day - The value without its final L, in upper case
  * @param {Object} field - The field definition with min/max
  * @returns {string|null} Error message or null if valid
  */
-function validateFieldSemantics(fieldName, value, field)
+function validateLastDayOfWeek(day, field)
 {
-	if(field.isPastAware && /^\d{4}$/.test(value))
+	if(/^\d+$/.test(day))
 	{
-		let year = parseInt(value, 10);
+		const dayNumber = parseInt(day, 10);
+		return dayNumber < field.min || dayNumber > field.max ? formatTemplateString(VAL_OUT_OF_RANGE, [
+			dayNumber,
+			field.min,
+			field.max
+		]) : null;
+	}
+
+	return DAY_NAMES_ORDERED.includes(day) ? null : field.message;
+}
+
+/**
+ * @description Validates the semantic correctness of a cron field value after regex passes.
+ *              Checks step values, list element ranges, reversed ranges, month names, a day before L, and # occurrences.
+ * @param {string} fieldName - The field name
+ * @param {string} value - The value to validate
+ * @param {Object} field - The field definition with min/max
+ * @param {boolean} [ignorePastYear] - True skips the rule that refuses a year before the current year
+ * @returns {string|null} Error message or null if valid
+ */
+function validateFieldSemantics(fieldName, value, field, ignorePastYear)
+{
+	if(!ignorePastYear && field.isPastAware && /^\d{4}$/.test(value))
+	{
+		const year = parseInt(value, 10);
 		if(year < new Date().getFullYear())
 		{
 			return formatTemplateString(VAL_YEAR_IN_PAST, [year]);
@@ -660,14 +788,14 @@ function validateFieldSemantics(fieldName, value, field)
 		return null;
 	}
 
-	if(value.length > 1 && value.endsWith('L'))
+	if(fieldName === 'dayOfWeek' && value.endsWith('L'))
 	{
-		return null;
+		return validateLastDayOfWeek(value.slice(0, -1), field);
 	}
 
 	if(/^\d+W$/.test(value))
 	{
-		let digit = parseInt(value.slice(0, -1), 10);
+		const digit = parseInt(value.slice(0, -1), 10);
 		if(digit < field.min || digit > field.max)
 		{
 			return formatTemplateString(VAL_OUT_OF_RANGE, [
@@ -681,13 +809,13 @@ function validateFieldSemantics(fieldName, value, field)
 
 	if(value.includes('#'))
 	{
-		let [dayPart, occurrencePart] = value.split('#');
-		let dayNum = parseInt(dayPart, 10);
+		const [dayPart, occurrencePart] = value.split('#');
+		const dayNum = parseInt(dayPart, 10);
 		if(!isNaN(dayNum) && (dayNum < 1 || dayNum > 7))
 		{
 			return VAL_HASH_DAY;
 		}
-		let occurrence = parseInt(occurrencePart, 10);
+		const occurrence = parseInt(occurrencePart, 10);
 		if(isNaN(occurrence) || occurrence < 1 || occurrence > 5)
 		{
 			return VAL_HASH_OCCURRENCE;
@@ -697,8 +825,8 @@ function validateFieldSemantics(fieldName, value, field)
 
 	if(value.includes('/'))
 	{
-		let [base, step] = value.split('/');
-		let stepNum = parseInt(step, 10);
+		const [base, step] = value.split('/');
+		const stepNum = parseInt(step, 10);
 		if(isNaN(stepNum) || stepNum < 1)
 		{
 			return VAL_STEP_MIN;
@@ -712,7 +840,7 @@ function validateFieldSemantics(fieldName, value, field)
 		}
 		if(base !== '*' && /^\d+$/.test(base))
 		{
-			let baseNum = parseInt(base, 10);
+			const baseNum = parseInt(base, 10);
 			if(baseNum < field.min || baseNum > field.max)
 			{
 				return formatTemplateString(VAL_BASE_OUT_OF_RANGE, [
@@ -725,16 +853,21 @@ function validateFieldSemantics(fieldName, value, field)
 		return null;
 	}
 
-	let tokens = value.split(',');
-	for(let token of tokens)
+	const tokens = value.split(',');
+	for(const token of tokens)
 	{
+		if(token.split('-').some((part) => isUnknownMonthName(fieldName, part)))
+		{
+			return field.message;
+		}
+
 		if(token.includes('-'))
 		{
-			let [startStr, endStr] = token.split('-');
+			const [startStr, endStr] = token.split('-');
 			if(/^\d+$/.test(startStr) && /^\d+$/.test(endStr))
 			{
-				let start = parseInt(startStr, 10);
-				let end = parseInt(endStr, 10);
+				const start = parseInt(startStr, 10);
+				const end = parseInt(endStr, 10);
 				if(start < field.min || start > field.max)
 				{
 					return formatTemplateString(VAL_OUT_OF_RANGE, [
@@ -762,7 +895,7 @@ function validateFieldSemantics(fieldName, value, field)
 		}
 		else if(/^\d+$/.test(token))
 		{
-			let num = parseInt(token, 10);
+			const num = parseInt(token, 10);
 			if(num < field.min || num > field.max)
 			{
 				return formatTemplateString(VAL_OUT_OF_RANGE, [
@@ -781,29 +914,33 @@ function validateFieldSemantics(fieldName, value, field)
  * @description Validates a single cron field value against its expected pattern.
  * @param {string} fieldName - The field name (minutes, hours, dayOfMonth, month, dayOfWeek, year)
  * @param {string} value - The value to validate
- * @param {Object} [options] - jobRunnerMode true reads the minutes field the way the job runner does
+ * @param {Object} [options] - jobRunnerMode true reads the minutes field the way the job runner does,
+ *                             and ignorePastYear true accepts a year that has already passed
  * @returns {Object} Result with isValid boolean and errorMessage string
  */
 export function validateCronField(fieldName, value, options)
 {
-	let field = fieldName === 'minutes' && resolveOptions(options).jobRunnerMode ? JOB_RUNNER_MINUTES_PATTERN : CRON_FIELD_PATTERNS[fieldName];
+	const resolved = resolveOptions(options);
+	const field = fieldName === 'minutes' && resolved.jobRunnerMode ? JOB_RUNNER_MINUTES_PATTERN : CRON_FIELD_PATTERNS[fieldName];
 
 	if(!field)
 	{
 		return {isValid: true, errorMessage: ''};
 	}
 
-	let isValid = field.pattern.test(value || '');
+	// Month and day names are read in any case, as Salesforce reads them: jan is JAN.
+	const checkedValue = fieldName === 'month' || fieldName === 'dayOfWeek' ? (value || '').toUpperCase() : value || '';
+	let isValid = field.pattern.test(checkedValue);
 
-	if(isValid && field.min !== undefined && /^\d+$/.test(value))
+	if(isValid && field.min !== undefined && /^\d+$/.test(checkedValue))
 	{
-		let num = parseInt(value, 10);
+		const num = parseInt(checkedValue, 10);
 		isValid = num >= field.min && num <= field.max;
 	}
 
 	if(isValid && field.min !== undefined)
 	{
-		let semanticError = validateFieldSemantics(fieldName, value || '', field);
+		const semanticError = validateFieldSemantics(fieldName, checkedValue, field, resolved.ignorePastYear);
 		if(semanticError)
 		{
 			return {isValid: false, errorMessage: semanticError};
@@ -812,10 +949,6 @@ export function validateCronField(fieldName, value, options)
 
 	return {isValid, errorMessage: isValid ? '' : field.message};
 }
-
-const MONTH_NAME_TO_NUMBER = {
-	'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6, 'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
-};
 
 const MAX_DAYS_PER_MONTH = {
 	2: 29, 4: 30, 6: 30, 9: 30, 11: 30
@@ -833,7 +966,7 @@ function resolveMonthNumber(value)
 		return null;
 	}
 
-	let monthNum = MONTH_NAME_TO_NUMBER[value.toUpperCase()];
+	const monthNum = MONTH_NAME_TO_NUMBER[value.toUpperCase()];
 
 	if(monthNum)
 	{
@@ -860,12 +993,12 @@ function resolveMaxDay(value)
 		return null;
 	}
 
-	let dayValue = value.endsWith('W') ? value.slice(0, -1) : value;
-	let days = dayValue.split(',').flatMap((token) =>
+	const dayValue = value.endsWith('W') ? value.slice(0, -1) : value;
+	const days = dayValue.split(',').flatMap((token) =>
 	{
 		if(token.includes('-'))
 		{
-			let [start, end] = token.split('-');
+			const [start, end] = token.split('-');
 			return [
 				parseInt(start, 10),
 				parseInt(end, 10)
@@ -885,20 +1018,20 @@ function resolveMaxDay(value)
  */
 function validateDayMonthCombination(dayOfMonth, month)
 {
-	let monthNum = resolveMonthNumber(month);
-	let maxDay = resolveMaxDay(dayOfMonth);
+	const monthNum = resolveMonthNumber(month);
+	const maxDay = resolveMaxDay(dayOfMonth);
 
 	if(monthNum === null || maxDay === null)
 	{
 		return null;
 	}
 
-	let monthLimit = MAX_DAYS_PER_MONTH[monthNum];
+	const monthLimit = MAX_DAYS_PER_MONTH[monthNum];
 
 	if(monthLimit !== undefined && maxDay > monthLimit)
 	{
-		let monthNames = Object.keys(MONTH_NAME_TO_NUMBER);
-		let monthName = monthNames[monthNum - 1] || `month ${monthNum}`;
+		const monthNames = Object.keys(MONTH_NAME_TO_NUMBER);
+		const monthName = monthNames[monthNum - 1] || `month ${monthNum}`;
 		return formatTemplateString(VAL_DAY_NOT_IN_MONTH, [
 			maxDay,
 			monthName,
@@ -917,9 +1050,9 @@ function validateDayMonthCombination(dayOfMonth, month)
  */
 function validateCronCrossFields(parts)
 {
-	let dayOfMonth = parts[3];
-	let month = parts[4];
-	let dayOfWeek = parts[5];
+	const dayOfMonth = parts[3];
+	const month = parts[4];
+	const dayOfWeek = parts[5];
 
 	if(dayOfMonth === '?' && dayOfWeek === '?')
 	{
@@ -931,7 +1064,7 @@ function validateCronCrossFields(parts)
 		return VAL_NEITHER_QUESTION;
 	}
 
-	let dayMonthError = validateDayMonthCombination(dayOfMonth, month);
+	const dayMonthError = validateDayMonthCombination(dayOfMonth, month);
 	if(dayMonthError)
 	{
 		return dayMonthError;
@@ -943,18 +1076,19 @@ function validateCronCrossFields(parts)
 /**
  * @description Validates a complete cron expression including structural, per-field, and cross-field rules.
  * @param {string} expression - The cron expression to validate
- * @param {Object} [options] - jobRunnerMode true reads the minutes field the way the job runner does
+ * @param {Object} [options] - jobRunnerMode true reads the minutes field the way the job runner does,
+ *                             and ignorePastYear true accepts a year that has already passed
  * @returns {Object} Result with isValid boolean and errorMessage string
  */
 export function validateCronExpression(expression, options)
 {
-	let parts = splitCronExpression(expression || '');
+	const parts = splitCronExpression(expression || '');
 	if(!parts || !parts.every((part) => part.length > 0))
 	{
 		return {isValid: false, errorMessage: VAL_STRUCTURE};
 	}
 
-	let fieldNames = [
+	const fieldNames = [
 		'seconds',
 		'minutes',
 		'hours',
@@ -965,14 +1099,14 @@ export function validateCronExpression(expression, options)
 	];
 	for(let i = 0; i < parts.length; i++)
 	{
-		let result = validateCronField(fieldNames[i], parts[i], options);
+		const result = validateCronField(fieldNames[i], parts[i], options);
 		if(!result.isValid)
 		{
 			return {isValid: false, errorMessage: `${fieldNames[i]}: ${result.errorMessage}`};
 		}
 	}
 
-	let crossFieldError = validateCronCrossFields(parts);
+	const crossFieldError = validateCronCrossFields(parts);
 	if(crossFieldError)
 	{
 		return {isValid: false, errorMessage: crossFieldError};
@@ -988,7 +1122,7 @@ function describeDayOfMonthPattern(dayOfMonth, time, month)
 {
 	// The leading space is added here, not in the label: Salesforce strips leading/trailing
 	// whitespace from Custom Label values, so DescInMonthSuffix stores 'in month {0}'.
-	let monthSuffix = month === '*' ? '' : ' ' + formatTemplateString(DESC_IN_MONTH_SUFFIX, [month]);
+	const monthSuffix = month === '*' ? '' : ' ' + formatTemplateString(DESC_IN_MONTH_SUFFIX, [month]);
 
 	if(dayOfMonth === 'L')
 	{
@@ -1002,7 +1136,7 @@ function describeDayOfMonthPattern(dayOfMonth, time, month)
 
 	if(dayOfMonth.endsWith('W'))
 	{
-		let day = dayOfMonth.slice(0, -1);
+		const day = dayOfMonth.slice(0, -1);
 		return formatTemplateString(DESC_NEAREST_WEEKDAY, [
 			day,
 			monthSuffix,

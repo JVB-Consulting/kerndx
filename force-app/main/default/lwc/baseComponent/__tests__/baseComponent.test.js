@@ -4,7 +4,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, August 2026
+ * @date December 2025, October 2026
  */
 
 		// Create mock functions that can be tracked
@@ -546,6 +546,16 @@ describe('baseComponent', () =>
 			expect(mockDebug).toHaveBeenCalledWith('Object test', expect.objectContaining({value: {nested: {data: 'test'}}}));
 		});
 
+		it('logs the value as it is, instead of failing, when it cannot be turned into JSON', () =>
+		{
+			const circular = {name: 'loop'};
+			circular.self = circular;
+
+			element.consoleLog('Circular value', circular);
+
+			expect(mockDebug).toHaveBeenCalledWith('Circular value', {value: circular});
+		});
+
 		it('should not bypass proxy when bypassProxy is false', () =>
 		{
 			const testObj = {data: 'test'};
@@ -665,6 +675,40 @@ describe('baseComponent', () =>
 			{
 				document.body.removeChild(element);
 			}).not.toThrow();
+		});
+
+		it('runs each teardown operation only once when the component is added to the page again and removed again', () =>
+		{
+			const teardownFn = jest.fn();
+			element.addTearDownOperation(teardownFn);
+
+			document.body.removeChild(element);
+			document.body.appendChild(element);
+			document.body.removeChild(element);
+
+			expect(teardownFn).toHaveBeenCalledTimes(1);
+		});
+
+		it('clears the active message subscriptions after the teardown operations when the component is removed', () =>
+		{
+			const order = [];
+			element.addTearDownOperation(() => order.push('teardown'));
+			element.addActiveSubscription({id: 'sub1'});
+			element.clearSubscriptions = jest.fn(() => order.push('clearSubscriptions'));
+
+			document.body.removeChild(element);
+
+			expect(order).toEqual([
+				'teardown',
+				'clearSubscriptions'
+			]);
+		});
+
+		it('does not ask the message module to clear subscriptions when there are none', () =>
+		{
+			document.body.removeChild(element);
+
+			expect(mockError).not.toHaveBeenCalledWith(CLEAR_SUBSCRIPTIONS_UNINITIALISED_ERROR);
 		});
 	});
 

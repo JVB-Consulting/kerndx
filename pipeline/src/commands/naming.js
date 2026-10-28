@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 'use strict';
 const fs = require('node:fs');
-const path = require('node:path');
 const {spawnSync} = require('node:child_process');
 const pc = require('picocolors');
 const {resolveDiffBase} = require('../lib/diff-base.js');

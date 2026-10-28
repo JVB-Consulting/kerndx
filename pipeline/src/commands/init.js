@@ -115,13 +115,24 @@ async function collectAnswers(sessionOpts = {})
 	}
 }
 
-function writeFileWithDirs(filePath, content)
+// In check mode (`init --check`) nothing is written: each writer prints the path it would write instead.
+function reportWouldWrite(filePath)
 {
+	console.log(`  would write ${filePath}`);
+}
+
+function writeFileWithDirs(filePath, content, check = false)
+{
+	if(check)
+	{
+		reportWouldWrite(filePath);
+		return;
+	}
 	fs.mkdirSync(path.dirname(filePath), {recursive: true});
 	fs.writeFileSync(filePath, content);
 }
 
-function appendHuskyHook()
+function appendHuskyHook({check = false} = {})
 {
 	const hookPath = '.husky/pre-push';
 	if(fs.existsSync(hookPath))
@@ -132,17 +143,31 @@ function appendHuskyHook()
 			return {mode: 'already-installed', content: existing};
 		}
 		const appended = existing.replace(/\s*$/, '\n') + `\n${HUSKY_MARKER}\n${HUSKY_LINE}\n`;
-		fs.writeFileSync(hookPath, appended, {mode: 0o755});
+		if(check)
+		{
+			reportWouldWrite(hookPath);
+		}
+		else
+		{
+			fs.writeFileSync(hookPath, appended, {mode: 0o755});
+		}
 		return {mode: 'appended', content: appended};
 	}
 	const tmplPath = path.join(TEMPLATES_DIR, 'husky', 'pre-push.eta');
 	const tmpl = renderTemplate(tmplPath, {});
-	fs.mkdirSync('.husky', {recursive: true});
-	fs.writeFileSync(hookPath, tmpl, {mode: 0o755});
+	if(check)
+	{
+		reportWouldWrite(hookPath);
+	}
+	else
+	{
+		fs.mkdirSync('.husky', {recursive: true});
+		fs.writeFileSync(hookPath, tmpl, {mode: 0o755});
+	}
 	return {mode: 'created', content: tmpl};
 }
 
-function scaffoldCodeAnalyzerYml(usesFramework = true)
+function scaffoldCodeAnalyzerYml(usesFramework = true, {check = false} = {})
 {
 	const target = 'code-analyzer.yml';
 	if(fs.existsSync(target))
@@ -151,11 +176,18 @@ function scaffoldCodeAnalyzerYml(usesFramework = true)
 	}
 	const tmplPath = path.join(TEMPLATES_DIR, 'code-analyzer.yml.eta');
 	const rendered = renderTemplate(tmplPath, {usesFramework});
-	fs.writeFileSync(target, rendered);
+	if(check)
+	{
+		reportWouldWrite(target);
+	}
+	else
+	{
+		fs.writeFileSync(target, rendered);
+	}
 	return {mode: 'created', path: target, content: rendered, ruleset: usesFramework ? 'kerndx-pmd-ruleset.xml' : 'kerndx-hygiene-ruleset.xml'};
 }
 
-function rerenderSubscriberNamingRuleset(configRecord, {shippedXmlPath} = {})
+function rerenderSubscriberNamingRuleset(configRecord, {shippedXmlPath, check = false} = {})
 {
 	const shippedXml = shippedXmlPath || path.resolve(__dirname, '..', '..', '..', 'scanner', 'subscriber-naming-pmd-ruleset.xml');
 	if(!fs.existsSync(shippedXml))
@@ -168,11 +200,18 @@ function rerenderSubscriberNamingRuleset(configRecord, {shippedXmlPath} = {})
 	{
 		return {mode: 'unchanged', path: shippedXml};
 	}
-	fs.writeFileSync(shippedXml, rendered);
+	if(check)
+	{
+		reportWouldWrite(shippedXml);
+	}
+	else
+	{
+		fs.writeFileSync(shippedXml, rendered);
+	}
 	return {mode: 'rerendered', path: shippedXml, content: rendered};
 }
 
-async function runInit({answers = null, interactive = true} = {})
+async function runInit({answers = null, interactive = true, check = false} = {})
 {
 	if(!answers && interactive)
 	{
@@ -210,11 +249,11 @@ async function runInit({answers = null, interactive = true} = {})
 	}
 
 	const configYaml = yaml.dump(configRecord);
-	writeFileWithDirs('.kerndx/config.yml', configYaml);
+	writeFileWithDirs('.kerndx/config.yml', configYaml, check);
 	filesWritten['.kerndx/config.yml'] = hashContent(configYaml);
 
-	const codeAnalyzerResult = scaffoldCodeAnalyzerYml(usesFramework);
-	const pmdRulesetResult = rerenderSubscriberNamingRuleset(configRecord);
+	const codeAnalyzerResult = scaffoldCodeAnalyzerYml(usesFramework, {check});
+	const pmdRulesetResult = rerenderSubscriberNamingRuleset(configRecord, {check});
 	if(pmdRulesetResult.mode === 'rerendered')
 	{
 		filesWritten[pmdRulesetResult.path] = hashContent(pmdRulesetResult.content);
@@ -266,7 +305,7 @@ async function runInit({answers = null, interactive = true} = {})
 		const tmplPath = path.join(TEMPLATES_DIR, 'workflows', WORKFLOW_TEMPLATES[name]);
 		const rendered = renderTemplate(tmplPath, workflowData, {views: path.dirname(tmplPath)});
 		const out = `.github/workflows/${name}.yml`;
-		writeFileWithDirs(out, rendered);
+		writeFileWithDirs(out, rendered, check);
 		filesWritten[out] = hashContent(rendered);
 	}
 
@@ -295,12 +334,12 @@ async function runInit({answers = null, interactive = true} = {})
 		}
 		const tmplPath = path.join(TEMPLATES_DIR, 'rulesets', `${name}.json.eta`);
 		const rendered = renderTemplate(tmplPath, workflowData, {views: path.dirname(tmplPath)});
-		writeFileWithDirs(out, rendered);
+		writeFileWithDirs(out, rendered, check);
 		filesWritten[out] = hashContent(rendered);
 		rulesetsWritten.push(out);
 	}
 
-	const huskyResult = appendHuskyHook();
+	const huskyResult = appendHuskyHook({check});
 	if(huskyResult.mode !== 'already-installed')
 	{
 		filesWritten['.husky/pre-push'] = hashContent(huskyResult.content);
@@ -309,7 +348,14 @@ async function runInit({answers = null, interactive = true} = {})
 	const manifest = {
 		version: require('../../package.json').version, scaffolded_at: new Date().toISOString(), files: filesWritten
 	};
-	writeFileWithDirs('.kerndx/manifest.json', JSON.stringify(manifest, null, 2));
+	writeFileWithDirs('.kerndx/manifest.json', JSON.stringify(manifest, null, 2), check);
+
+	if(check)
+	{
+		// The "would write" lines above are the whole answer; the summary and next steps below describe files that do not exist yet.
+		console.log(pc.green('\nCheck only: no files were written. The paths above are the files init would write.'));
+		return;
+	}
 
 	console.log(pc.green('\nScaffold complete.'));
 	if(codeAnalyzerResult.mode === 'created')

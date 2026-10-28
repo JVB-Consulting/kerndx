@@ -4,12 +4,6 @@
 	width : 100%;
 }
 
-/*noinspection CssUnusedSymbol*/
-.slds-modal__content
-{
-	overflow : auto !important;
-}
-
 .required-field:before
 {
 	color   : #FF0000;

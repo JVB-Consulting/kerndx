@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for paginatedTable LWC component
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
 import {createElement} from 'lwc';
 // Import directly from source to bypass jest.config.js moduleNameMapper mock
@@ -126,6 +126,27 @@ describe('c-paginated-table', () =>
 			}
 		};
 	};
+
+	/**
+	 * Makes the stub table report only the selected rows it shows on the current page,
+	 * as lightning-datatable does: a selected row that moved to another page is not reported.
+	 */
+	const mockDatatableVisibleSelection = (datatable) =>
+	{
+		let selectedRowKeys = [];
+		Object.defineProperty(datatable, 'selectedRows', {
+			get: () =>
+			{
+				const visibleRowKeys = (datatable.data || []).map((row) => row.Id);
+				return selectedRowKeys.filter((rowKey) => visibleRowKeys.includes(rowKey));
+			}, set: (value) =>
+			{
+				selectedRowKeys = [...value];
+			}, configurable: true
+		});
+	};
+
+	const findPageText = (element) => element.shadowRoot.querySelector('lightning-layout-item:nth-child(2)');
 
 	describe('initialization', () =>
 	{
@@ -701,6 +722,78 @@ describe('c-paginated-table', () =>
 			expect(totalSelected).toContain('003');
 		});
 
+		it('keeps a selected row when a sort moves it to another page', async() =>
+		{
+			const element = createComponent({resultsPerPage: 2});
+			await flushPromises();
+
+			const datatable = element.shadowRoot.querySelector('lightning-datatable');
+			mockDatatableVisibleSelection(datatable);
+
+			datatable.selectedRows = ['001'];
+			datatable.dispatchEvent(new CustomEvent('rowselection'));
+			await flushPromises();
+
+			// A descending sort by name moves Account A from the first page to the last page.
+			datatable.dispatchEvent(new CustomEvent('sort', {detail: {fieldName: 'Name', sortDirection: 'desc'}}));
+			await flushPromises();
+
+			datatable.selectedRows = ['004'];
+			datatable.dispatchEvent(new CustomEvent('rowselection'));
+			await flushPromises();
+
+			expect(element.totalSelectedRowIds).toEqual([
+				'001',
+				'004'
+			]);
+		});
+
+		it('drops a row the user clears on the current page and keeps the rows from other pages', async() =>
+		{
+			const element = createComponent({resultsPerPage: 2});
+			await flushPromises();
+
+			const rowSelectionHandler = jest.fn();
+			element.addEventListener('rowselection', rowSelectionHandler);
+
+			const datatable = element.shadowRoot.querySelector('lightning-datatable');
+			mockDatatableVisibleSelection(datatable);
+
+			datatable.selectedRows = [
+				'001',
+				'002'
+			];
+			datatable.dispatchEvent(new CustomEvent('rowselection'));
+			await flushPromises();
+
+			findButtonByLabel(element, 'Next').click();
+			await flushPromises();
+
+			datatable.selectedRows = ['003'];
+			datatable.dispatchEvent(new CustomEvent('rowselection'));
+			await flushPromises();
+
+			findButtonByLabel(element, 'Previous').click();
+			await flushPromises();
+
+			datatable.selectedRows = ['002'];
+			datatable.dispatchEvent(new CustomEvent('rowselection'));
+			await flushPromises();
+
+			expect(element.totalSelectedRowIds).toEqual([
+				'002',
+				'003'
+			]);
+			expect(rowSelectionHandler).toHaveBeenLastCalledWith(expect.objectContaining({
+				detail: {
+					rows: [
+						'002',
+						'003'
+					]
+				}
+			}));
+		});
+
 		it('handles empty selection', async() =>
 		{
 			const element = createComponent({resultsPerPage: 2});
@@ -739,6 +832,111 @@ describe('c-paginated-table', () =>
 			// Pagination should be hidden now
 			const pagination = element.shadowRoot.querySelector('lightning-layout');
 			expect(pagination).toBeNull();
+		});
+	});
+
+	describe('page stays within the rows', () =>
+	{
+		it('moves back to the last page when the rows shrink below the current page', async() =>
+		{
+			const element = createComponent({resultsPerPage: 2});
+			await flushPromises();
+
+			findButtonByLabel(element, 'Next').click();
+			await flushPromises();
+			findButtonByLabel(element, 'Next').click();
+			await flushPromises();
+
+			element.rows = mockRows.slice(0, 3);
+			await flushPromises();
+			await flushPromises();
+
+			expect(findPageText(element).textContent).toContain('Page 2 of 2');
+			const datatable = element.shadowRoot.querySelector('lightning-datatable');
+			expect(datatable.data.map((row) => row.Id)).toEqual(['003']);
+		});
+
+		it('tells the parent once about the new page when the rows shrink below the current page', async() =>
+		{
+			const element = createComponent({resultsPerPage: 2});
+			await flushPromises();
+
+			findButtonByLabel(element, 'Next').click();
+			await flushPromises();
+			findButtonByLabel(element, 'Next').click();
+			await flushPromises();
+			expect(findPageText(element).textContent).toContain('Page 3 of 3');
+
+			const pageChangeHandler = jest.fn();
+			element.addEventListener('pagechange', pageChangeHandler);
+			const remainingRows = mockRows.slice(0, 2);
+			element.rows = remainingRows;
+			await flushPromises();
+			await flushPromises();
+
+			expect(pageChangeHandler).toHaveBeenCalledTimes(1);
+			expect(pageChangeHandler.mock.calls[0][0].detail).toEqual({pageNumber: 1});
+
+			element.rows = [...remainingRows];
+			await flushPromises();
+			await flushPromises();
+
+			const datatable = element.shadowRoot.querySelector('lightning-datatable');
+			expect(datatable.data.map((row) => row.Id)).toEqual(['001', '002']);
+			expect(pageChangeHandler).toHaveBeenCalledTimes(1);
+		});
+
+		it('moves back to the last page when the page size grows', async() =>
+		{
+			const element = createComponent({resultsPerPage: 2});
+			await flushPromises();
+
+			findButtonByLabel(element, 'Next').click();
+			await flushPromises();
+			findButtonByLabel(element, 'Next').click();
+			await flushPromises();
+
+			element.resultsPerPage = 3;
+			await flushPromises();
+			await flushPromises();
+
+			expect(findPageText(element).textContent).toContain('Page 2 of 2');
+		});
+
+		it('goes back to the first page when there are no rows', async() =>
+		{
+			const element = createComponent({resultsPerPage: 2});
+			await flushPromises();
+
+			findButtonByLabel(element, 'Next').click();
+			await flushPromises();
+			findButtonByLabel(element, 'Next').click();
+			await flushPromises();
+
+			element.rows = [];
+			await flushPromises();
+			await flushPromises();
+
+			element.rows = mockRows;
+			await flushPromises();
+			await flushPromises();
+
+			expect(findPageText(element).textContent).toContain('Page 1 of 3');
+		});
+
+		it('keeps the current page when it still exists', async() =>
+		{
+			const element = createComponent({resultsPerPage: 2});
+			await flushPromises();
+
+			findButtonByLabel(element, 'Next').click();
+			await flushPromises();
+
+			element.rows = mockRows.slice(0, 4);
+			await flushPromises();
+			await flushPromises();
+
+			expect(findPageText(element).textContent).toContain('Page 2 of 2');
 		});
 	});
 

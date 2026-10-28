@@ -279,24 +279,19 @@ function parseArgs(argv)
 				index += 1;
 				break;
 			case '--org':
-				if(!argv[index + 1])
-				{
-					options.errors.push('--org requires a value');
-					index += 1;
-				}
-				else
+				if(argv[index + 1])
 				{
 					options.org = argv[index + 1];
 					index += 2;
 				}
-				break;
-			case '--wait':
-				if(!argv[index + 1])
+				else
 				{
-					options.errors.push('--wait requires a value (minutes)');
+					options.errors.push('--org requires a value');
 					index += 1;
 				}
-				else
+				break;
+			case '--wait':
+				if(argv[index + 1])
 				{
 					const minutes = Number(argv[index + 1]);
 					if(!Number.isFinite(minutes) || minutes <= 0)
@@ -309,6 +304,11 @@ function parseArgs(argv)
 						options.waitMinutes = minutes;
 						index += 2;
 					}
+				}
+				else
+				{
+					options.errors.push('--wait requires a value (minutes)');
+					index += 1;
 				}
 				break;
 			case '--format':
@@ -543,8 +543,49 @@ function settleVerdict(evaluation, apexResult, lwcResult, options, deps)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @description Walks every class and every LWC file in the baseline and fails
- * on any regression. Intended for pre-release or CI runs, not per-commit.
+ * @description Lists the Apex classes `--full` checks: every class the baseline holds, and every class in this
+ * source tree except test classes, interfaces and enums. A new class the baseline does not hold yet is checked
+ * against the floor, so a new class at 0% fails. When no test touches the new class, the org returns no coverage
+ * row for it, and the gate fails it as missing. An interface or an enum has no lines to cover and never gets a
+ * row, so it is left out by reading its source. A class the org reports that is not in this source tree is left out.
+ *
+ * @param {Object} baseline - Committed baseline snapshot.
+ * @param {Object} deps
+ * @return {Array<string>} The class names, sorted.
+ */
+function listFullApexTargets(baseline, deps)
+{
+	const classesDirectory = path.join(deps.cwd, CLASSES_RELATIVE_PATH);
+	const sourceClasses = listAllApexSourceClasses(deps)
+	.filter(className => !declaresInterfaceOrEnum(deps.readFile(path.join(classesDirectory, `${className}.cls`)), className));
+	return [...new Set([...Object.keys(baseline.apex?.classes || {}), ...sourceClasses])].sort();
+}
+
+/**
+ * @description Tells whether an Apex source file declares an interface or an enum at the top level. Neither has
+ * lines to cover. It drops comments, string literals and annotations, then looks for `interface <name>` or `enum <name>`, where
+ * the name is the file's own type name. An inner type cannot share the file's name, so the word "interface" left
+ * in an annotation argument or a comment never makes a class read as an interface.
+ *
+ * @param {string} source - The text of the `.cls` file.
+ * @param {string} className - The file's type name, the file name without `.cls`.
+ * @return {boolean} True when the file declares an interface or an enum of that name.
+ */
+function declaresInterfaceOrEnum(source, className)
+{
+	const code = String(source || '')
+	.replace(/\/\*[\s\S]*?\*\//g, ' ')
+	.replace(/\/\/[^\n]*/g, ' ')
+	.replace(/'(?:\\.|[^'\\\n])*'/g, ' ')
+	.replace(/@\w+(\s*\([^)]*\))?/g, ' ');
+	const escapedName = className.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return new RegExp(`\\b(interface|enum)\\s+${escapedName}\\b`, 'i').test(code);
+}
+
+/**
+ * @description Walks every class in the baseline or in source, and every LWC
+ * file in the baseline, and fails on any regression or floor breach. Intended
+ * for pre-release or CI runs, not per-commit.
  *
  * @param {Object} options
  * @param {Object} deps
@@ -567,7 +608,7 @@ function runFull(options, deps)
 	const lwcResult = runFullLwc(deps);
 
 	const evaluation = lib.evaluateThresholds({
-		apexResult: apexResult.coverage, lwcResult, baseline, apexTargets: Object.keys(baseline.apex && baseline.apex.classes || {}), lwcTargets: listBaselineComponents(baseline)
+		apexResult: apexResult.coverage, lwcResult, baseline, apexTargets: listFullApexTargets(baseline, deps), lwcTargets: listBaselineComponents(baseline)
 	});
 
 	return settleVerdict(evaluation, apexResult, lwcResult, options, deps);
@@ -752,8 +793,8 @@ function measureApex(classes, options, deps)
 	const testClasses = testSuitesFor(classes);
 	const raw = executeApexTests(testClasses, options, deps);
 	const parsed = lib.parseApexCoverage(raw);
-	const exemptCounts = gatherExemptLineCounts(classes, deps);
-	const adjusted = lib.applyApexExemptions(parsed, exemptCounts);
+	const exemptLines = gatherExemptLineNumbers(classes, deps);
+	const adjusted = lib.applyApexExemptions(parsed, exemptLines);
 	return {coverage: adjusted};
 }
 
@@ -785,7 +826,7 @@ function runFullApex(options, deps)
 	}
 	const executedRunId = executedRun.runId;
 	deps.logger.info(`querying ApexCodeCoverageAggregate from ${options.org}…`);
-	const coverageRows = queryToolingApi('SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered FROM ApexCodeCoverageAggregate', options, deps);
+	const coverageRows = queryToolingApi('SELECT ApexClassOrTrigger.Name, NumLinesCovered, NumLinesUncovered, Coverage FROM ApexCodeCoverageAggregate', options, deps);
 	const parsed = normaliseAggregateRows(coverageRows);
 	const reconciled = reconcileFlakyAggregateClasses(parsed, options, deps);
 	// The run the gate reports on is resolved before any repair run: a repair is a newer, smaller run, and
@@ -793,8 +834,8 @@ function runFullApex(options, deps)
 	const testStatus = queryLatestTestRunStatus(options, deps, executedRunId);
 	const repaired = repairTestClassesWithoutCoverageRows(reconciled, options, deps);
 	const allClasses = listAllApexSourceClasses(deps);
-	const exemptCounts = gatherExemptLineCounts(allClasses, deps);
-	const adjusted = lib.applyApexExemptions(repaired, exemptCounts);
+	const exemptLines = gatherExemptLineNumbers(allClasses, deps);
+	const adjusted = lib.applyApexExemptions(repaired, exemptLines);
 	adjusted.testsPassed = testStatus.testsPassed;
 	adjusted.testFailures = testStatus.testFailures;
 	adjusted.wallClockSeconds = testStatus.wallClockSeconds;
@@ -1142,7 +1183,7 @@ function parseDetachedRunId(result)
 	{
 		parsed = JSON.parse((result && result.stdout) || '');
 	}
-	catch(error)
+	catch
 	{
 		return null;
 	}
@@ -1341,7 +1382,9 @@ function queryToolingApi(soql, options, deps)
 
 /**
  * @description Converts `ApexCodeCoverageAggregate` rows to the same shape
- * that `lib.parseApexCoverage` emits.
+ * that `lib.parseApexCoverage` emits, keeping the uncovered line numbers from
+ * the row's `Coverage` field when the row carries it (an exemption is applied
+ * only to a line listed there).
  *
  * @param {Array<Object>} rows
  * @return {{classes: Object<string, Object>}}
@@ -1361,7 +1404,7 @@ function normaliseAggregateRows(rows)
 		const uncovered = Number(row.NumLinesUncovered) || 0;
 		const total = covered + uncovered;
 		const percentage = total === 0 ? 100 : Number(((covered / total) * 100).toFixed(1));
-		classes[name] = {percentage, coveredLines: covered, uncoveredLines: uncovered};
+		classes[name] = lib.withUncoveredLineNumbers({percentage, coveredLines: covered, uncoveredLines: uncovered}, row.Coverage?.uncoveredLines);
 	}
 	return {classes};
 }
@@ -1769,17 +1812,18 @@ function loadJestSummary(deps)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @description Walks the named apex classes, reads each `.cls` file, counts
- * valid `// kern-coverage-exempt:` comments, and fails hard on invalid
- * comments (short reason, blocklist hit, empty reason).
+ * @description Walks the named apex classes, reads each `.cls` file, lists the
+ * line each valid `// kern-coverage-exempt:` comment marks, and fails hard on
+ * invalid comments (short reason, blocklist hit, empty reason). A comment with
+ * no code line below it marks nothing.
  *
  * @param {Array<string>} classes
  * @param {Object} deps
- * @return {Object<string, number>}
+ * @return {Object<string, Array<number>>} `{className: [marked line number]}` for every class whose file exists.
  */
-function gatherExemptLineCounts(classes, deps)
+function gatherExemptLineNumbers(classes, deps)
 {
-	const counts = {};
+	const markedLines = {};
 	const failures = [];
 	for(const className of classes)
 	{
@@ -1790,19 +1834,19 @@ function gatherExemptLineCounts(classes, deps)
 		}
 		const source = deps.readFile(filePath);
 		const comments = lib.parseCoverageExemptComments(source);
-		let valid = 0;
+		const lines = [];
 		for(const comment of comments)
 		{
 			if(comment.reasonValid)
 			{
-				valid += 1;
+				lines.push(comment.markedLineNumbers.length > 1 ? comment.markedLineNumbers : comment.targetLineNumber);
 			}
 			else
 			{
 				failures.push(`${className}.cls:${comment.lineNumber} kern-coverage-exempt failed policy (${comment.failures.join(', ')}): "${comment.reason}"`);
 			}
 		}
-		counts[className] = valid;
+		markedLines[className] = lines.filter(line => line !== null);
 	}
 	if(failures.length > 0)
 	{
@@ -1810,7 +1854,7 @@ function gatherExemptLineCounts(classes, deps)
 		error.code = 'EXEMPT_POLICY_VIOLATION';
 		throw error;
 	}
-	return counts;
+	return markedLines;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1966,7 +2010,7 @@ module.exports = {
 	startDetachedTestRun,
 	pollTestRunUntilTerminal,
 	loadJestSummary,
-	gatherExemptLineCounts,
+	gatherExemptLineNumbers,
 	listAllApexSourceClasses,
 	findTestSetupClasses,
 	listBaselineComponents,

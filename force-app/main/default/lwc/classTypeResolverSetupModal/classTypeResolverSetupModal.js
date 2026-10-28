@@ -44,6 +44,12 @@ export default class ClassTypeResolverSetupModal extends LightningModal
 	testCopyIcon = ICON_COPY;
 	copyErrorMessage = null;
 
+	/** @description The timer that turns the resolver copy icon back after a copy. */
+	_resolverCopyIconTimeout;
+
+	/** @description The timer that turns the test copy icon back after a copy. */
+	_testCopyIconTimeout;
+
 	labels = {
 		title: MODAL_TITLE,
 		purpose: MODAL_PURPOSE,
@@ -218,6 +224,16 @@ private class ${name}_TEST
 		anchor.click();
 		document.body.removeChild(anchor);
 		URL.revokeObjectURL(url);
+	}
+
+	/**
+	 * @description Stops the timers that turn the copy icons back, so a timer never fires after the modal is closed.
+	 */
+	disconnectedCallback()
+	{
+		super.disconnectedCallback?.();
+		clearTimeout(this._resolverCopyIconTimeout);
+		clearTimeout(this._testCopyIconTimeout);
 	}
 
 	resetCopyIcon(property)

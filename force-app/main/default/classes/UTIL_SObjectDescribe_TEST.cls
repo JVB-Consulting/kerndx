@@ -37,7 +37,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(seeAllData=false isParallel=true)
@@ -98,6 +98,20 @@ private class UTIL_SObjectDescribe_TEST
 	 * @description Assertion message for value equality checks
 	 */
 	private static final String MSG_VALUE_EQUALITY = 'Values should match expected';
+	/**
+	 * @description The object permission that lets a user read Foobar__c records and nothing more.
+	 */
+	private static final List<SObjectField> READ_ONLY_PERMISSIONS = new List<SObjectField> {ObjectPermissions.PermissionsRead};
+	/**
+	 * @description The object permissions that let a user read, create, edit and delete Foobar__c records.
+	 */
+	private static final List<SObjectField> FULL_PERMISSIONS = new List<SObjectField>
+	{
+			ObjectPermissions.PermissionsRead,
+			ObjectPermissions.PermissionsCreate,
+			ObjectPermissions.PermissionsEdit,
+			ObjectPermissions.PermissionsDelete
+	};
 	/**
 	 * @description Tests various ways of getting a Foobar__c describe
 	 *
@@ -1060,20 +1074,33 @@ private class UTIL_SObjectDescribe_TEST
 	}
 
 	/**
-	 * @description Tests getRecordTypeByDeveloperName returns null for invalid name
+	 * @description Tests getRecordTypeByDeveloperName returns null for invalid name, a null SObject type or a
+	 * null name. Also tests the developer name is matched without regard to case: lower case and upper case
+	 * names find the same record type as the exact name.
 	 *
 	 * @see UTIL_SObjectDescribe.getRecordTypeByDeveloperName
 	 */
 	@IsTest
-	private static void getRecordTypeByDeveloperNameReturnsNullForInvalidName()
+	private static void getRecordTypeByDeveloperNameIgnoresCaseAndReturnsNullForInvalidInput()
 	{
+		Id exactCaseId = UTIL_SObjectDescribe.getRecordTypeByDeveloperName(Foobar__c.SObjectType, SEL_Foobar.RT_DEFAULT);
+
 		Test.startTest();
 
 		Id recordTypeId = UTIL_SObjectDescribe.getRecordTypeByDeveloperName(Account.SObjectType, 'NonExistentRecordType');
+		Id nullTypeId = UTIL_SObjectDescribe.getRecordTypeByDeveloperName(null, RT_MASTER);
+		Id nullNameId = UTIL_SObjectDescribe.getRecordTypeByDeveloperName(Foobar__c.SObjectType, null);
+		Id lowerCaseId = UTIL_SObjectDescribe.getRecordTypeByDeveloperName(Foobar__c.SObjectType, SEL_Foobar.RT_DEFAULT.toLowerCase());
+		Id upperCaseId = UTIL_SObjectDescribe.getRecordTypeByDeveloperName(Foobar__c.SObjectType, SEL_Foobar.RT_DEFAULT.toUpperCase());
 
 		Test.stopTest();
 
-		Assert.isNull(recordTypeId, MSG_NULL_RESULT);
+		Assert.isNull(recordTypeId, 'Expected no record type for an unknown developer name');
+		Assert.isNull(nullTypeId, 'Expected no record type for a null SObject type');
+		Assert.isNull(nullNameId, 'Expected no record type for a null developer name');
+		Assert.isNotNull(exactCaseId, 'Expected the exact developer name to find the record type');
+		Assert.areEqual(exactCaseId, lowerCaseId, 'Expected a lower case developer name to find the same record type');
+		Assert.areEqual(exactCaseId, upperCaseId, 'Expected an upper case developer name to find the same record type');
 	}
 
 	/**
@@ -1081,20 +1108,38 @@ private class UTIL_SObjectDescribe_TEST
 	 * available to the running user. Asserts against the master record type, which is available to every
 	 * user in any org, so the test holds in both the unmanaged dev org and a managed subscriber install —
 	 * a packaged custom record type's visibility does not propagate to subscriber profiles/permission
-	 * sets, so its availability to the test-running user cannot be assumed.
+	 * sets, so its availability to the test-running user cannot be assumed. Also tests the developer name is
+	 * matched without regard to case, that many repeated lookups with mixed case all find it, and that a
+	 * blank name is not available.
 	 *
 	 * @see UTIL_SObjectDescribe.isRecordTypeAvailable
 	 */
 	@IsTest
 	private static void isRecordTypeAvailableReturnsTrueForAvailableRecordType()
 	{
+		Integer lookupCount = 50;
+
 		Test.startTest();
 
 		Boolean available = UTIL_SObjectDescribe.isRecordTypeAvailable(Foobar__c.SObjectType, RT_MASTER);
+		Boolean lowerCaseAvailable = UTIL_SObjectDescribe.isRecordTypeAvailable(Foobar__c.SObjectType, RT_MASTER.toLowerCase());
+		Boolean upperCaseAvailable = UTIL_SObjectDescribe.isRecordTypeAvailable(Foobar__c.SObjectType, RT_MASTER.toUpperCase());
+		Boolean blankNameAvailable = UTIL_SObjectDescribe.isRecordTypeAvailable(Foobar__c.SObjectType, ' ');
+
+		Integer availableCount = 0;
+		for(Integer index = 0; index < lookupCount; index++)
+		{
+			String developerName = Math.mod(index, 2) == 0 ? RT_MASTER.toLowerCase() : RT_MASTER.toUpperCase();
+			availableCount += UTIL_SObjectDescribe.isRecordTypeAvailable(Foobar__c.SObjectType, developerName) ? 1 : 0;
+		}
 
 		Test.stopTest();
 
-		Assert.isTrue(available, 'the master record type is available to every user, so it should report available');
+		Assert.isTrue(available, 'Expected the master record type to be available to every user');
+		Assert.isTrue(lowerCaseAvailable, 'Expected a lower case developer name to find the record type and report it available');
+		Assert.isTrue(upperCaseAvailable, 'Expected an upper case developer name to find the record type and report it available');
+		Assert.isFalse(blankNameAvailable, 'Expected a blank developer name to find no record type, so it is not available');
+		Assert.areEqual(lookupCount, availableCount, 'Expected every repeated lookup to find the record type and report it available');
 	}
 
 	/**
@@ -1535,5 +1580,158 @@ private class UTIL_SObjectDescribe_TEST
 	{
 		Assert.isTrue(UTIL_SObjectDescribe.isObjectAccessible(Account.SObjectType), 'The running test context can read a standard object');
 		Assert.isFalse(UTIL_SObjectDescribe.isObjectAccessible(null), 'A null type resolves false instead of throwing');
+	}
+
+	/**
+	 * @description Tests that isObjectCreateable answers for the user the code runs as. A user who may only read
+	 * Foobar__c gets false. A user who may also create it gets true in the same test, so the answer is not kept from
+	 * one user to the next. A null type gives false instead of an error.
+	 *
+	 * @see UTIL_SObjectDescribe.isObjectCreateable
+	 */
+	@IsTest
+	private static void shouldAnswerObjectCreateAccessForTheRunningUser()
+	{
+		User readOnlyUser = insertFoobarUser(READ_ONLY_PERMISSIONS);
+		User fullAccessUser = insertFoobarUser(FULL_PERMISSIONS);
+
+		System.runAs(readOnlyUser)
+		{
+			Assert.isFalse(UTIL_SObjectDescribe.isObjectCreateable(Foobar__c.SObjectType), 'Expected false for a user who may only read the object');
+		}
+		System.runAs(fullAccessUser)
+		{
+			Assert.isTrue(UTIL_SObjectDescribe.isObjectCreateable(Foobar__c.SObjectType), 'Expected true for a user who may create the object');
+		}
+		Assert.isFalse(UTIL_SObjectDescribe.isObjectCreateable(null), 'Expected false for a null type');
+	}
+
+	/**
+	 * @description Tests that isObjectUpdateable answers for the user the code runs as. A user who may only read
+	 * Foobar__c gets false. A user who may also edit it gets true in the same test, so the answer is not kept from
+	 * one user to the next. A null type gives false instead of an error.
+	 *
+	 * @see UTIL_SObjectDescribe.isObjectUpdateable
+	 */
+	@IsTest
+	private static void shouldAnswerObjectEditAccessForTheRunningUser()
+	{
+		User readOnlyUser = insertFoobarUser(READ_ONLY_PERMISSIONS);
+		User fullAccessUser = insertFoobarUser(FULL_PERMISSIONS);
+
+		System.runAs(readOnlyUser)
+		{
+			Assert.isFalse(UTIL_SObjectDescribe.isObjectUpdateable(Foobar__c.SObjectType), 'Expected false for a user who may only read the object');
+		}
+		System.runAs(fullAccessUser)
+		{
+			Assert.isTrue(UTIL_SObjectDescribe.isObjectUpdateable(Foobar__c.SObjectType), 'Expected true for a user who may edit the object');
+		}
+		Assert.isFalse(UTIL_SObjectDescribe.isObjectUpdateable(null), 'Expected false for a null type');
+	}
+
+	/**
+	 * @description Tests that isObjectDeletable answers for the user the code runs as. A user who may only read
+	 * Foobar__c gets false. A user who may also delete it gets true in the same test, so the answer is not kept from
+	 * one user to the next. A null type gives false instead of an error.
+	 *
+	 * @see UTIL_SObjectDescribe.isObjectDeletable
+	 */
+	@IsTest
+	private static void shouldAnswerObjectDeleteAccessForTheRunningUser()
+	{
+		User readOnlyUser = insertFoobarUser(READ_ONLY_PERMISSIONS);
+		User fullAccessUser = insertFoobarUser(FULL_PERMISSIONS);
+
+		System.runAs(readOnlyUser)
+		{
+			Assert.isFalse(UTIL_SObjectDescribe.isObjectDeletable(Foobar__c.SObjectType), 'Expected false for a user who may only read the object');
+		}
+		System.runAs(fullAccessUser)
+		{
+			Assert.isTrue(UTIL_SObjectDescribe.isObjectDeletable(Foobar__c.SObjectType), 'Expected true for a user who may delete the object');
+		}
+		Assert.isFalse(UTIL_SObjectDescribe.isObjectDeletable(null), 'Expected false for a null type');
+	}
+
+	/**
+	 * @description Tests that isObjectUndeletable answers for the user the code runs as. Undelete means bringing a
+	 * deleted record back from the recycle bin, and needs the delete permission. A user who may only read Foobar__c
+	 * gets false. A user who may also delete it gets true in the same test, so the answer is not kept from one user to
+	 * the next. A null type gives false instead of an error.
+	 *
+	 * @see UTIL_SObjectDescribe.isObjectUndeletable
+	 */
+	@IsTest
+	private static void shouldAnswerObjectUndeleteAccessForTheRunningUser()
+	{
+		User readOnlyUser = insertFoobarUser(READ_ONLY_PERMISSIONS);
+		User fullAccessUser = insertFoobarUser(FULL_PERMISSIONS);
+
+		System.runAs(readOnlyUser)
+		{
+			Assert.isFalse(UTIL_SObjectDescribe.isObjectUndeletable(Foobar__c.SObjectType), 'Expected false for a user who may only read the object');
+		}
+		System.runAs(fullAccessUser)
+		{
+			Assert.isTrue(UTIL_SObjectDescribe.isObjectUndeletable(Foobar__c.SObjectType), 'Expected true for a user who may delete the object');
+		}
+		Assert.isFalse(UTIL_SObjectDescribe.isObjectUndeletable(null), 'Expected false for a null type');
+	}
+
+	/**
+	 * @description Tests that isFieldAccessible answers for the user the code runs as. An administrator can read
+	 * Foobar__c.Email__c. A user whose permission set leaves that one field out cannot, but can still read the Name
+	 * field and Text__c, a field the permission set grants. The administrator is asked before and after that user,
+	 * so the test shows the answer is not kept from one user to the next. A null field gives false instead of an
+	 * error.
+	 *
+	 * @see UTIL_SObjectDescribe.isFieldAccessible
+	 */
+	@IsTest
+	private static void shouldAnswerFieldReadAccessForTheRunningUser()
+	{
+		User administrator = TST_Factory.newUserWithPermissionSet
+				(
+						SEL_Profile.PROFILE_SYSTEM_ADMIN,
+						UTIL_Random.randomName(),
+						SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME
+				);
+		User hiddenFieldUser = insertFoobarUser(READ_ONLY_PERMISSIONS);
+
+		System.runAs(administrator)
+		{
+			Assert.isTrue(UTIL_SObjectDescribe.isFieldAccessible(Foobar__c.Email__c), 'Expected an administrator to read the field');
+		}
+		System.runAs(hiddenFieldUser)
+		{
+			Assert.isFalse(UTIL_SObjectDescribe.isFieldAccessible(Foobar__c.Email__c), 'Expected false for the field the permission set leaves out');
+			Assert.isTrue(UTIL_SObjectDescribe.isFieldAccessible(Foobar__c.Name), 'Expected true for the Name field of an object the user can read');
+			Assert.isTrue(UTIL_SObjectDescribe.isFieldAccessible(Foobar__c.Text__c), 'Expected true for a field the permission set grants');
+		}
+		System.runAs(administrator)
+		{
+			Assert.isTrue(UTIL_SObjectDescribe.isFieldAccessible(Foobar__c.Email__c), 'Expected the administrator to still read the field after the other user');
+		}
+		Assert.isFalse(UTIL_SObjectDescribe.isFieldAccessible(null), 'Expected false for a null field');
+	}
+
+	/**
+	 * @description Saves a Standard User who has the given object permissions on Foobar__c and can read and edit every
+	 * field of it except Email__c.
+	 *
+	 * @param permissionFields The object permission fields to turn on, for example ObjectPermissions.PermissionsRead.
+	 *
+	 * @return The saved user.
+	 */
+	private static User insertFoobarUser(List<SObjectField> permissionFields)
+	{
+		return TST_Factory.insertUserWithOneHiddenField
+				(
+						SEL_Profile.PROFILE_STANDARD_USER,
+						new List<SObjectType> {Foobar__c.SObjectType},
+						permissionFields,
+						Foobar__c.Email__c
+				);
 	}
 }

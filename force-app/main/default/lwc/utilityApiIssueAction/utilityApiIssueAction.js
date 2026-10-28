@@ -30,7 +30,8 @@ import {notifyRecordUpdateAvailable} from 'lightning/uiRecordApi';
 
 /**
  * @description Runs an action on the API issue record a quick action is open on. When the action works, the record
- *              is refreshed and the success toast is shown. When it does not work, the reason from the Apex method is
+ *              is refreshed and the success toast is shown. If the refresh fails, the error is logged and the success
+ *              toast still shows, because the action itself worked. When it does not work, the reason from the Apex method is
  *              shown, or the failure text when there is no reason. When the call throws, the error is logged and its
  *              detail is shown, or the unexpected error text when it has no detail. The action is always closed at
  *              the end.
@@ -47,7 +48,16 @@ export async function runApiIssueAction(quickAction, action)
 
 		if(result.callSuccessful)
 		{
-			await notifyRecordUpdateAvailable([{recordId: quickAction.recordId}]);
+			// The action already worked on the server. A failed refresh is logged, and the success toast still shows,
+			// so the user is not told to run the action again.
+			try
+			{
+				await notifyRecordUpdateAvailable([{recordId: quickAction.recordId}]);
+			}
+			catch(refreshError)
+			{
+				quickAction.consoleError(refreshError, action.errorSource);
+			}
 			quickAction.showSuccessToast(action.successMessage);
 		}
 		else

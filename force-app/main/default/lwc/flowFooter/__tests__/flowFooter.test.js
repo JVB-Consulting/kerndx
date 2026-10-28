@@ -2,64 +2,26 @@
 /**
  * @description Jest unit tests for flowFooter LWC component
  * @author Jason van Beukering
- * @date December 2025, July 2026
+ * @date December 2025, October 2026
  */
 
 import {createElement} from 'lwc';
 import LwcFlowFooter, {BACK_NAVIGATION_EVENT, NEXT_NAVIGATION_EVENT} from 'c/flowFooter';
+// The shared componentBuilder mock (mapped in jest.config.js) records each framework call the footer makes.
+// noinspection JSUnresolvedReference - mock helpers are provided by the c/componentBuilder jest mock at run time
+import {
+	mockAddMessageChannelSubscription,
+	mockClearSubscriptions,
+	mockDispatchFlowBackEvent,
+	mockDispatchFlowFinishEvent,
+	mockDispatchFlowNextEvent,
+	mockPublishLightningMessage
+} from 'c/componentBuilder';
 
 // Custom Label mocks — values byte-equal the real CustomLabels entries so the
 // default-title assertions exercise the shipped text.
 jest.mock('@salesforce/label/c.FlowFooter_BackButton', () => ({default: 'Back'}), {virtual: true});
 jest.mock('@salesforce/label/c.FlowFooter_NextButton', () => ({default: 'Next'}), {virtual: true});
-
-// Track message channel subscriptions
-let mockSubscriptions = [];
-let mockPublishedMessages = [];
-let mockClearedSubscriptionCount = 0;
-
-// Mock ComponentBuilder to return a class with required functionality
-jest.mock('c/componentBuilder', () => ({
-	ComponentBuilder: jest.fn().mockImplementation(() =>
-	{
-		// Return a mock LightningElement-like class
-		const {LightningElement} = require('lwc');
-		return class extends LightningElement
-		{
-			addMessageChannelSubscription(channel, handler)
-			{
-				mockSubscriptions.push({channel, handler});
-			}
-
-			publishLightningMessage(channel, message)
-			{
-				mockPublishedMessages.push({channel, message});
-			}
-
-			clearSubscriptions()
-			{
-				mockClearedSubscriptionCount += 1;
-				mockSubscriptions = [];
-				return mockSubscriptions.length;
-			}
-
-			dispatchFlowBackEvent()
-			{
-				this.dispatchEvent(new CustomEvent('flowback'));
-			}
-
-			dispatchFlowNextEvent()
-			{
-				this.dispatchEvent(new CustomEvent('flownext'));
-			}
-
-			dispatchFlowFinishEvent()
-			{
-				this.dispatchEvent(new CustomEvent('flowfinish'));
-			}
-		};
-	})
-}), {virtual: true});
 
 // Mock the message channel import
 jest.mock('@salesforce/messageChannel/Navigation__c', () => ({
@@ -70,12 +32,8 @@ describe('c-flow-footer', () =>
 {
 	let element;
 
-	beforeEach(() =>
-	{
-		mockSubscriptions = [];
-		mockPublishedMessages = [];
-		mockClearedSubscriptionCount = 0;
-	});
+	// The handler the footer registered on the Navigation channel, as the shared mock received it.
+	const registeredNavigationHandler = () => mockAddMessageChannelSubscription.mock.calls[0][1];
 
 	afterEach(() =>
 	{
@@ -210,6 +168,23 @@ describe('c-flow-footer', () =>
 
 			expect(element.isNextButtonDisabled).toBe(true);
 		});
+
+		it('keeps the Next button disabled when the parent sets is-next-button-disabled before the footer is added to the page', async() =>
+		{
+			await createComponent({isNextButtonDisabled: true});
+
+			const nextButton = element.shadowRoot.querySelectorAll('lightning-button')[1];
+			expect(nextButton.disabled).toBe(true);
+			expect(element.isNextButtonDisabled).toBe(true);
+		});
+
+		it('keeps the Next button enabled when the parent sets is-next-button-disabled to false, even with disableNext set', async() =>
+		{
+			await createComponent({disableNext: true, isNextButtonDisabled: false});
+
+			const nextButton = element.shadowRoot.querySelectorAll('lightning-button')[1];
+			expect(nextButton.disabled).toBe(false);
+		});
 	});
 
 	describe('@api nextTitle and previousTitle', () =>
@@ -239,25 +214,23 @@ describe('c-flow-footer', () =>
 		{
 			await createComponent();
 
-			expect(mockSubscriptions.length).toBe(1);
-			expect(mockSubscriptions[0].channel).toBe('NavigationChannel');
+			expect(mockAddMessageChannelSubscription).toHaveBeenCalledTimes(1);
+			expect(mockAddMessageChannelSubscription.mock.calls[0][0]).toBe('NavigationChannel');
 		});
 
 		it('should publish isReady message on connect', async() =>
 		{
 			await createComponent();
 
-			expect(mockPublishedMessages.length).toBe(1);
-			expect(mockPublishedMessages[0].message).toEqual({isReady: true});
+			expect(mockPublishLightningMessage).toHaveBeenCalledTimes(1);
+			expect(mockPublishLightningMessage).toHaveBeenCalledWith('NavigationChannel', {isReady: true});
 		});
 
 		it('should update nextDisabled when message received with disableNext', async() =>
 		{
 			await createComponent({disableNext: false});
 
-			// Simulate message channel message
-			const handler = mockSubscriptions[0].handler;
-			handler({disableNext: true});
+			registeredNavigationHandler()({disableNext: true});
 			await Promise.resolve();
 
 			expect(element.isNextButtonDisabled).toBe(true);
@@ -267,9 +240,7 @@ describe('c-flow-footer', () =>
 		{
 			await createComponent({disableNext: false});
 
-			// Simulate message without disableNext
-			const handler = mockSubscriptions[0].handler;
-			handler({someOtherProperty: true});
+			registeredNavigationHandler()({someOtherProperty: true});
 			await Promise.resolve();
 
 			expect(element.isNextButtonDisabled).toBe(false);
@@ -281,11 +252,23 @@ describe('c-flow-footer', () =>
 		it('should clear the Navigation message channel subscription when removed from the DOM', async() =>
 		{
 			await createComponent();
-			expect(mockClearedSubscriptionCount).toBe(0);
+			expect(mockClearSubscriptions).not.toHaveBeenCalled();
 
 			document.body.removeChild(element);
 
-			expect(mockClearedSubscriptionCount).toBe(1);
+			expect(mockClearSubscriptions).toHaveBeenCalledTimes(1);
+		});
+
+		it('runs the base teardown when disconnected, and still clears the subscription', async() =>
+		{
+			await createComponent();
+			const tearDownOperation = jest.fn();
+			element.addTearDownOperation(tearDownOperation);
+
+			document.body.removeChild(element);
+
+			expect(tearDownOperation).toHaveBeenCalledTimes(1);
+			expect(mockClearSubscriptions).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -313,28 +296,24 @@ describe('c-flow-footer', () =>
 		{
 			await createComponent({isChildComponent: false, overridePreviousToFinish: false});
 
-			const flowBackHandler = jest.fn();
-			element.addEventListener('flowback', flowBackHandler);
-
 			const backButton = element.shadowRoot.querySelectorAll('lightning-button')[0];
 			backButton.click();
 			await Promise.resolve();
 
-			expect(flowBackHandler).toHaveBeenCalledTimes(1);
+			expect(mockDispatchFlowBackEvent).toHaveBeenCalledTimes(1);
+			expect(mockDispatchFlowFinishEvent).not.toHaveBeenCalled();
 		});
 
 		it('should dispatch flowfinish event when overridePreviousToFinish is true', async() =>
 		{
 			await createComponent({isChildComponent: false, overridePreviousToFinish: true});
 
-			const flowFinishHandler = jest.fn();
-			element.addEventListener('flowfinish', flowFinishHandler);
-
 			const backButton = element.shadowRoot.querySelectorAll('lightning-button')[0];
 			backButton.click();
 			await Promise.resolve();
 
-			expect(flowFinishHandler).toHaveBeenCalledTimes(1);
+			expect(mockDispatchFlowFinishEvent).toHaveBeenCalledTimes(1);
+			expect(mockDispatchFlowBackEvent).not.toHaveBeenCalled();
 		});
 	});
 
@@ -362,28 +341,24 @@ describe('c-flow-footer', () =>
 		{
 			await createComponent({isChildComponent: false, overrideNextToFinish: false});
 
-			const flowNextHandler = jest.fn();
-			element.addEventListener('flownext', flowNextHandler);
-
 			const nextButton = element.shadowRoot.querySelectorAll('lightning-button')[1];
 			nextButton.click();
 			await Promise.resolve();
 
-			expect(flowNextHandler).toHaveBeenCalledTimes(1);
+			expect(mockDispatchFlowNextEvent).toHaveBeenCalledTimes(1);
+			expect(mockDispatchFlowFinishEvent).not.toHaveBeenCalled();
 		});
 
 		it('should dispatch flowfinish event when overrideNextToFinish is true', async() =>
 		{
 			await createComponent({isChildComponent: false, overrideNextToFinish: true});
 
-			const flowFinishHandler = jest.fn();
-			element.addEventListener('flowfinish', flowFinishHandler);
-
 			const nextButton = element.shadowRoot.querySelectorAll('lightning-button')[1];
 			nextButton.click();
 			await Promise.resolve();
 
-			expect(flowFinishHandler).toHaveBeenCalledTimes(1);
+			expect(mockDispatchFlowFinishEvent).toHaveBeenCalledTimes(1);
+			expect(mockDispatchFlowNextEvent).not.toHaveBeenCalled();
 		});
 	});
 

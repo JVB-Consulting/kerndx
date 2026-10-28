@@ -8,7 +8,7 @@
  *
  * @group Testing
  *
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(seeAllData=false isParallel=true)
@@ -28,6 +28,53 @@ private class TST_Mock_TEST
 	 * @description Text the refusal of a record of another type must carry.
 	 */
 	private static final String TYPE_MISMATCH_HINT = 'type mismatch';
+
+	/**
+	 * @description Alias the aggregate tests give the count, and the key of the registered rows that holds it.
+	 */
+	private static final String TOTAL_ALIAS = 'total';
+
+	/**
+	 * @description Alias the aggregate tests give the sum, and the key of the registered row that holds it.
+	 */
+	private static final String SUM_ALIAS = 'sum';
+
+	/**
+	 * @description Total held by the first registered aggregate row, or by the first next answer.
+	 */
+	private static final Integer FIRST_GROUP_TOTAL = 3;
+
+	/**
+	 * @description Total held by the second registered aggregate row, or by the second next answer.
+	 */
+	private static final Integer SECOND_GROUP_TOTAL = 2;
+
+	/**
+	 * @description Total held by the rows registered with registerAggregateRows. It differs from every real count in
+	 * these tests, so a registered row that should have been cleared is told apart from the database answer.
+	 */
+	private static final Integer REGISTERED_TOTAL = 7;
+
+	/**
+	 * @description Sum held by the one registered row of the getFirstAggregate test.
+	 */
+	private static final Integer REGISTERED_SUM = 10;
+
+	/**
+	 * @description Number of record mocks the count test registers. It differs from the one aggregate row registered
+	 * beside them, so a count that read the aggregate rows would show.
+	 */
+	private static final Integer RECORD_MOCK_COUNT = 2;
+
+	/**
+	 * @description Name held by the first registered aggregate row.
+	 */
+	private static final String FIRST_GROUP_NAME = 'A';
+
+	/**
+	 * @description Name held by the second registered aggregate row.
+	 */
+	private static final String SECOND_GROUP_NAME = 'B';
 
 	/**
 	 * @description Tests that registering a single record makes it retrievable.
@@ -697,6 +744,199 @@ private class TST_Mock_TEST
 	}
 
 	/**
+	 * @description Tests that the rows registered with registerAggregateRows answer a grouped count, in the order they
+	 * were registered, and that each value is read back under the alias it was registered with.
+	 */
+	@IsTest
+	private static void shouldReturnRegisteredAggregateRows()
+	{
+		TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new List<Map<String, Object>>
+		{
+				new Map<String, Object> {TOTAL_ALIAS => FIRST_GROUP_TOTAL, SEL_Foobar.FIELD_NAME => FIRST_GROUP_NAME},
+				new Map<String, Object> {TOTAL_ALIAS => SECOND_GROUP_TOTAL, SEL_Foobar.FIELD_NAME => SECOND_GROUP_NAME}
+		});
+
+		List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+				.count(Foobar__c.Id, TOTAL_ALIAS)
+				.groupBy(Foobar__c.Name)
+				.toAggregateList();
+
+		Assert.areEqual(2, rows.size(), 'Expected one row for each registered map');
+		Assert.areEqual(FIRST_GROUP_TOTAL, rows[0].getInteger(TOTAL_ALIAS), 'Expected the first row to hold the first registered total');
+		Assert.areEqual(FIRST_GROUP_NAME, rows[0].getString(SEL_Foobar.FIELD_NAME), 'Expected the first row to hold the first registered name');
+		Assert.areEqual(SECOND_GROUP_TOTAL, rows[1].getInteger(TOTAL_ALIAS), 'Expected the second row to hold the second registered total');
+		Assert.areEqual(SECOND_GROUP_NAME, rows[1].getString(SEL_Foobar.FIELD_NAME), 'Expected the second row to hold the second registered name');
+	}
+
+	/**
+	 * @description Tests that the one-row overload of registerAggregateRows answers getFirstAggregate, and that a whole
+	 * number registered for a sum can be read as a Decimal, as a real sum row allows.
+	 */
+	@IsTest
+	private static void shouldReturnTheSingleRegisteredAggregateRowFromGetFirstAggregate()
+	{
+		TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {SUM_ALIAS => REGISTERED_SUM});
+
+		QRY_Builder.AggregateRow row = QRY_Builder.selectFrom(Foobar__c.SObjectType)
+				.sum(Foobar__c.NumberInteger__c, SUM_ALIAS)
+				.getFirstAggregate();
+
+		Assert.isNotNull(row, 'Expected the registered row to answer getFirstAggregate');
+		Assert.areEqual(Decimal.valueOf(REGISTERED_SUM), row.getDecimal(SUM_ALIAS), 'Expected the whole number to be read as the same Decimal');
+	}
+
+	/**
+	 * @description Tests that rows set with registerNextAggregateRows each answer one aggregate query, in the order they
+	 * were added and before the rows set with registerAggregateRows. Once they are used up, the registered rows answer
+	 * every query.
+	 */
+	@IsTest
+	private static void shouldServeTheNextAggregateRowsOnceThenTheRegisteredRows()
+	{
+		TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {TOTAL_ALIAS => REGISTERED_TOTAL});
+		TST_Mock.registerNextAggregateRows(Foobar__c.SObjectType, new List<Map<String, Object>> {new Map<String, Object> {TOTAL_ALIAS => FIRST_GROUP_TOTAL}});
+		TST_Mock.registerNextAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {TOTAL_ALIAS => SECOND_GROUP_TOTAL});
+
+		Assert.areEqual(FIRST_GROUP_TOTAL, readFoobarTotal(), 'Expected the first query to get the first next answer');
+		Assert.areEqual(SECOND_GROUP_TOTAL, readFoobarTotal(), 'Expected the second query to get the second next answer');
+		Assert.areEqual(REGISTERED_TOTAL, readFoobarTotal(), 'Expected the registered rows once the next answers are used up');
+		Assert.areEqual(REGISTERED_TOTAL, readFoobarTotal(), 'Expected the registered rows to keep answering');
+	}
+
+	/**
+	 * @description Tests that a second call to registerAggregateRows adds its rows after the rows registered earlier for
+	 * the type, the way register adds records. One aggregate query returns both sets, the first registered first.
+	 */
+	@IsTest
+	private static void shouldAddAggregateRowsToTheRowsRegisteredEarlier()
+	{
+		TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new List<Map<String, Object>> {new Map<String, Object> {TOTAL_ALIAS => FIRST_GROUP_TOTAL}});
+		TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {TOTAL_ALIAS => SECOND_GROUP_TOTAL});
+
+		List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, TOTAL_ALIAS).toAggregateList();
+
+		Assert.areEqual(2, rows.size(), 'Expected the rows of both calls');
+		Assert.areEqual(FIRST_GROUP_TOTAL, rows[0].getInteger(TOTAL_ALIAS), 'Expected the rows registered first to come first');
+		Assert.areEqual(SECOND_GROUP_TOTAL, rows[1].getInteger(TOTAL_ALIAS), 'Expected the rows registered second to come after them');
+	}
+
+	/**
+	 * @description Tests that QRY_Builder.setAggregateMock replaces the rows that TST_Mock.registerAggregateRows registered
+	 * earlier for the type, so only the rows set last answer.
+	 */
+	@IsTest
+	private static void shouldReplaceRegisteredAggregateRowsWhenSetAggregateMockFollows()
+	{
+		TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {TOTAL_ALIAS => FIRST_GROUP_TOTAL});
+		QRY_Builder.setAggregateMock(Foobar__c.SObjectType, new List<Map<String, Object>> {new Map<String, Object> {TOTAL_ALIAS => SECOND_GROUP_TOTAL}});
+
+		List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, TOTAL_ALIAS).toAggregateList();
+
+		Assert.areEqual(1, rows.size(), 'Expected only the rows set last');
+		Assert.areEqual(SECOND_GROUP_TOTAL, rows[0].getInteger(TOTAL_ALIAS), 'Expected the rows set with setAggregateMock to replace the registered ones');
+	}
+
+	/**
+	 * @description Tests that the count() that ends a query counts the record mocks and never the aggregate rows, when
+	 * both are registered for the same type. An aggregate query on the same type still reads the aggregate row.
+	 */
+	@IsTest
+	private static void shouldCountRecordMocksAndNeverAggregateRows()
+	{
+		TST_Mock.register(Foobar__c.SObjectType, TST_Builder.of(Foobar__c.SObjectType).withCount(RECORD_MOCK_COUNT).withoutInsertion(true).buildList());
+		TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {TOTAL_ALIAS => REGISTERED_TOTAL});
+
+		Integer recordCount = QRY_Builder.selectFrom(Foobar__c.SObjectType).count();
+		List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, TOTAL_ALIAS).toAggregateList();
+
+		Assert.areEqual(RECORD_MOCK_COUNT, recordCount, 'Expected count() to count the record mocks, not the aggregate row');
+		Assert.areEqual(1, rows.size(), 'Expected the aggregate query to read the one aggregate row');
+		Assert.areEqual(REGISTERED_TOTAL, rows[0].getInteger(TOTAL_ALIAS), 'Expected the aggregate row to hold the registered total');
+	}
+
+	/**
+	 * @description Tests that clear() removes the aggregate rows of every type, the registered ones and the next answers,
+	 * so aggregate queries read the database again. The registered totals differ from the real counts, so a row left
+	 * behind would show.
+	 */
+	@IsTest
+	private static void shouldClearAggregateRowsOnClear()
+	{
+		TST_Factory.insertFoobar();
+		TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {TOTAL_ALIAS => REGISTERED_TOTAL});
+		TST_Mock.registerNextAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {TOTAL_ALIAS => FIRST_GROUP_TOTAL});
+		TST_Mock.registerAggregateRows(Account.SObjectType, new Map<String, Object> {TOTAL_ALIAS => SECOND_GROUP_TOTAL});
+
+		TST_Mock.clear();
+
+		Assert.areEqual(1, readFoobarTotal(), 'Expected the Foobar count to come from the one stored row');
+		QRY_Builder.AggregateRow accountRow = QRY_Builder.selectFrom(Account.SObjectType).count(Account.Id, TOTAL_ALIAS).getFirstAggregate();
+		Assert.areEqual(0, accountRow.getInteger(TOTAL_ALIAS), 'Expected the Account count to come from the database, which holds no account');
+	}
+
+	/**
+	 * @description Tests that clear(SObjectType) removes the aggregate rows of that type only: the cleared type reads the
+	 * database again, and the rows registered for another type still answer.
+	 */
+	@IsTest
+	private static void shouldClearOnlyThatTypesAggregateRows()
+	{
+		TST_Factory.insertFoobar();
+		TST_Mock.registerAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {TOTAL_ALIAS => REGISTERED_TOTAL});
+		TST_Mock.registerNextAggregateRows(Foobar__c.SObjectType, new Map<String, Object> {TOTAL_ALIAS => FIRST_GROUP_TOTAL});
+		TST_Mock.registerAggregateRows(Account.SObjectType, new Map<String, Object> {TOTAL_ALIAS => SECOND_GROUP_TOTAL});
+
+		TST_Mock.clear(Foobar__c.SObjectType);
+
+		Assert.areEqual(1, readFoobarTotal(), 'Expected the Foobar count to come from the one stored row');
+		List<QRY_Builder.AggregateRow> accountRows = QRY_Builder.selectFrom(Account.SObjectType).count(Account.Id, TOTAL_ALIAS).toAggregateList();
+		Assert.areEqual(1, accountRows.size(), 'Expected the Account rows to still answer');
+		Assert.areEqual(SECOND_GROUP_TOTAL, accountRows[0].getInteger(TOTAL_ALIAS), 'Expected the registered Account total');
+	}
+
+	/**
+	 * @description Tests that null rows, or a null row, are refused with IllegalArgumentException by registerAggregateRows
+	 * and by the one-row overload of registerNextAggregateRows, and that the error points at the empty list. A silent
+	 * null would leave the test reading something other than what it meant to register.
+	 */
+	@IsTest
+	private static void shouldRefuseNullAggregateRows()
+	{
+		List<Map<String, Object>> nullRows = null;
+		Map<String, Object> nullRow = null;
+		try
+		{
+			TST_Mock.registerAggregateRows(Foobar__c.SObjectType, nullRows);
+			Assert.fail('Expected null rows to be refused');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected IllegalArgumentException for null rows: ' + error.getMessage());
+			Assert.isTrue(error.getMessage().contains(EMPTY_LIST_HINT), 'Expected the refusal to point at the empty list: ' + error.getMessage());
+		}
+		try
+		{
+			TST_Mock.registerAggregateRows(Foobar__c.SObjectType, nullRow);
+			Assert.fail('Expected a null row to be refused');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected IllegalArgumentException for a null row: ' + error.getMessage());
+			Assert.isTrue(error.getMessage().contains(EMPTY_LIST_HINT), 'Expected the refusal to point at the empty list: ' + error.getMessage());
+		}
+		try
+		{
+			TST_Mock.registerNextAggregateRows(Foobar__c.SObjectType, nullRow);
+			Assert.fail('Expected a null next row to be refused');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected IllegalArgumentException for a null next row: ' + error.getMessage());
+			Assert.isTrue(error.getMessage().contains(EMPTY_LIST_HINT), 'Expected the refusal to point at the empty list: ' + error.getMessage());
+		}
+	}
+
+	/**
 	 * @description Tests that a registered exception fires before any queued answer and consumes nothing: once
 	 * the exception alone is cleared, the queued answer serves.
 	 */
@@ -834,5 +1074,16 @@ private class TST_Mock_TEST
 		Assert.isTrue(TST_Mock.get(Foobar__c.SObjectType).isEmpty(), 'get returns registered records only, never queued answers');
 
 		TST_Mock.clear();
+	}
+
+	/**
+	 * @description Counts the Foobar__c rows through an aggregate query and returns the total, read under TOTAL_ALIAS.
+	 * A registered aggregate row answers the query when there is one; otherwise the database does.
+	 *
+	 * @return The total the aggregate query returned.
+	 */
+	private static Integer readFoobarTotal()
+	{
+		return QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, TOTAL_ALIAS).getFirstAggregate().getInteger(TOTAL_ALIAS);
 	}
 }

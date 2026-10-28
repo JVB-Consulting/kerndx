@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date March 2026, September 2026
+ * @date March 2026, October 2026
  */
 import {api, wire} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
@@ -133,6 +133,14 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 	parameterDefinitions;
 
 	/**
+	 * @description Counts the requests for parameter definitions, so an answer for a class the record no longer
+	 *              shows can be recognised and ignored.
+	 *
+	 * @type {number}
+	 */
+	parameterRequestNumber = 0;
+
+	/**
 	 * @description Whether a job runner is active, how often it checks for due jobs, and whether the running
 	 *              user may start a run from this page.
 	 *
@@ -221,7 +229,7 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 
 	get viewTimezoneLabel()
 	{
-		let timezone = this.viewTimezone;
+		const timezone = this.viewTimezone;
 
 		if(!timezone)
 		{
@@ -233,10 +241,10 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 
 	get viewCronDescription()
 	{
-		let description = describeCronExpression(this.viewCronExpression, {
+		const description = describeCronExpression(this.viewCronExpression, {
 			jobRunnerMode: isOnJobRunner(this.record), activeCheckIntervalMinutes: this.jobRunnerState.isActive ? this.jobRunnerState.checkIntervalMinutes : null
 		});
-		let timezone = this.viewTimezoneLabel;
+		const timezone = this.viewTimezoneLabel;
 
 		if(timezone)
 		{
@@ -278,7 +286,7 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 			return [];
 		}
 
-		let attributeMap = parseAttributes(this.viewParameters);
+		const attributeMap = parseAttributes(this.viewParameters);
 		return this.parameterDefinitions.map((parameter) => ({
 			name: parameter.name, label: parameter.label, value: attributeMap[parameter.name] || parameter.defaultValue || '', dataType: parameter.dataType
 		}));
@@ -359,7 +367,7 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 	 */
 	get viewLastRunReason()
 	{
-		let reason = getFieldValue(this.record, LAST_RUN_REASON_FIELD);
+		const reason = getFieldValue(this.record, LAST_RUN_REASON_FIELD);
 
 		if(!reason)
 		{
@@ -391,7 +399,7 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 	 */
 	get outcomeBadgeClass()
 	{
-		let outcome = getFieldValue(this.record, LAST_RUN_OUTCOME_FIELD);
+		const outcome = getFieldValue(this.record, LAST_RUN_OUTCOME_FIELD);
 
 		if(outcome === OUTCOME_SUCCEEDED)
 		{
@@ -419,7 +427,7 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 	 */
 	get showLastRunLog()
 	{
-		let outcome = getFieldValue(this.record, LAST_RUN_OUTCOME_FIELD);
+		const outcome = getFieldValue(this.record, LAST_RUN_OUTCOME_FIELD);
 
 		return outcome === OUTCOME_FAILED || outcome === OUTCOME_PARKED;
 	}
@@ -441,7 +449,7 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 		{
 			this.record = data;
 			this.loadErrorMessage = '';
-			let currentClassName = getFieldValue(data, CLASS_NAME_FIELD);
+			const currentClassName = getFieldValue(data, CLASS_NAME_FIELD);
 
 			if(currentClassName && currentClassName !== this._lastLoadedClassName)
 			{
@@ -490,7 +498,7 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 	 */
 	async handleRunNow()
 	{
-		let runJobId = await this.callControllerMethod(runNow, {recordId: this.recordId});
+		const runJobId = await this.callControllerMethod(runNow, {recordId: this.recordId});
 
 		if(runJobId)
 		{
@@ -508,7 +516,7 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 	 */
 	async handleViewLastRunLog()
 	{
-		let logEntryId = await this.callControllerMethod(findLastRunLogEntryId, {recordId: this.recordId});
+		const logEntryId = await this.callControllerMethod(findLastRunLogEntryId, {recordId: this.recordId});
 
 		if(logEntryId)
 		{
@@ -524,16 +532,44 @@ export default class ScheduledJobDetail extends ComponentBuilder('notification',
 		this.showErrorToast(LOG_ENTRY_NOT_FOUND);
 	}
 
+	/**
+	 * @description Reads the parameters the class declares. When the record changes to another class before the
+	 *              answer comes back, the older answer is ignored, success or failure, so the rows and any error
+	 *              always belong to the class shown last.
+	 *
+	 * @param {string} className The class name on the record.
+	 *
+	 * @return {Promise<void>} Resolves once the answer has been used or ignored.
+	 */
 	async loadParameterDefinitions(className)
 	{
+		this.parameterRequestNumber += 1;
+		const requestNumber = this.parameterRequestNumber;
+		let definitions;
+		let isLoadFailed = false;
+		let loadError;
+
 		try
 		{
-			this.parameterDefinitions = await this.callControllerMethod(getParameterDefinitions, {className});
+			definitions = await this.callControllerMethod(getParameterDefinitions, {className});
 		}
 		catch(error)
 		{
-			this.parameterDefinitions = null;
-			this.showErrorToast(reduceErrors(error) || LOAD_PARAMETERS_FAILED);
+			definitions = null;
+			isLoadFailed = true;
+			loadError = error;
+		}
+
+		if(requestNumber !== this.parameterRequestNumber)
+		{
+			return;
+		}
+
+		this.parameterDefinitions = definitions;
+
+		if(isLoadFailed)
+		{
+			this.showErrorToast(reduceErrors(loadError) || LOAD_PARAMETERS_FAILED);
 		}
 	}
 

@@ -8,7 +8,7 @@
  *
  * @see CTRL_FieldSet
  *
- * @date January 2022, July 2026
+ * @date January 2022, October 2026
  */
 import getObjectNameFromId from '@salesforce/apex/CTRL_FieldSet.getObjectNameFromId';
 import searchFieldSets from '@salesforce/apex/CTRL_FieldSet.search';
@@ -331,8 +331,8 @@ function validateFieldElement(element)
 /**
  * @description Resolves the validation state for a field based on its current value
  * and display configuration (required, custom validator). When a validator is present,
- * the error message is always populated (for `setCustomValidity`) while the invalid flag
- * tracks whether the validator actually rejected the value.
+ * it decides whether the field is invalid. The error message is empty when the field is
+ * valid, so `setCustomValidity` clears an error an earlier check left on the input.
  * @param {*} currentValue - The current field value
  * @param {Field} displayField - The display field configuration
  * @returns {{errorMessage: string, isInvalid: boolean}}
@@ -354,7 +354,7 @@ function resolveValidationError(currentValue, displayField)
 		isInvalid = !displayField.validator(currentValue);
 	}
 
-	return {errorMessage, isInvalid};
+	return {errorMessage: isInvalid ? errorMessage : '', isInvalid};
 }
 
 // ── Component ────────────────────────────────────────────────────────────
@@ -552,7 +552,7 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 		{
 			displayFieldList = this.fieldSetResult.map(({fieldLabel, fieldAPIName, fieldValue, isRequired}) =>
 			{
-				let field = new Field();
+				const field = new Field();
 				field.fieldLabel = fieldLabel;
 				field.fieldName = fieldAPIName;
 				field.fieldValue = fieldValue;
@@ -588,13 +588,22 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	}
 
 	/**
-	 * @description Generates record object
+	 * @description Generates record object. An edit form sends the record id, so the update knows which record to
+	 * change. A create form sends no Id key, even when it was given a record id to copy, because the copy is a new record.
 	 * @returns {RecordInputRepresentation|{fields: {}}}
 	 */
 	get recordInputForCreate()
 	{
-		let recordInputForCreate = this.recordDefaults ? generateRecordInputForCreate(this.recordDefaults.record, this.recordDefaults.objectInfos[this.objectName]) : {fields: {}};
-		recordInputForCreate.fields.Id = this.isUpdateMode ? null : this.recordId;
+		const recordInputForCreate = this.recordDefaults ? generateRecordInputForCreate(this.recordDefaults.record, this.recordDefaults.objectInfos[this.objectName])
+				: {fields: {}};
+		if(this.isUpdateMode)
+		{
+			recordInputForCreate.fields.Id = this.recordId;
+		}
+		else
+		{
+			delete recordInputForCreate.fields.Id;
+		}
 		return recordInputForCreate;
 	}
 
@@ -679,6 +688,11 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 		return this.template.querySelectorAll('.input-field');
 	}
 
+	get checkboxFields()
+	{
+		return this.template.querySelectorAll('.checkbox-field');
+	}
+
 	get picklistFields()
 	{
 		return this.template.querySelectorAll('.picklist-field');
@@ -711,7 +725,7 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 		.filter(field => this.isFieldValid(field.fieldName))
 		.map(field =>
 		{
-			let populatedField = new Field();
+			const populatedField = new Field();
 			populatedField.fieldType = resolveFieldType(field, this.getFieldType.bind(this));
 			populatedField.isRequired = Boolean(field.isRequired);
 			populatedField.fieldName = (field.fieldName || '').trim();
@@ -756,9 +770,8 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	{
 		if(this.fieldSetApiName)
 		{
-			let wireResponse = this.handleWireResponse(result);
-			let wireResponseByObjectName = wireResponse[this.objectName];
-			this.fieldSetResult = wireResponseByObjectName[this.fieldSetApiName];
+			// A read that failed, or one not answered yet, gives nothing; the form then waits with no fields instead of failing.
+			this.fieldSetResult = this.handleWireResponse(result)?.[this.objectName]?.[this.fieldSetApiName];
 			this.reportInvalidFieldWarnings();
 		}
 	}
@@ -869,7 +882,7 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 		const hasDefaultValue = Boolean(defaultValue);
 		return values.map(({value, label}) =>
 		{
-			let picklistValue = new PicklistValue();
+			const picklistValue = new PicklistValue();
 			picklistValue.value = value;
 			picklistValue.label = label;
 			picklistValue.isDefault = hasDefaultValue && (defaultValue === value);
@@ -892,8 +905,8 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	@api validateForm()
 	{
 		let isValid = true;
-		let validationErrors = [];
-		let formOutput = this.generateRecord();
+		const validationErrors = [];
+		const formOutput = this.generateRecord();
 
 		this.displayFieldList.forEach(displayField =>
 		{
@@ -934,18 +947,37 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	//noinspection FunctionWithMultipleLoopsJS
 	/**
 	 * @description Create New Object that is ready for insert via uiRecordApi.createRecord.
-	 * An explicit falsy field value (0, false, '') survives into the generated record;
-	 * only null/undefined fall back to the existing record value, then to an empty string.
+	 * Each field takes the first value it has, in this order:
+	 * 1. the value set on the field in `fields`; an explicit 0, false or '' is kept;
+	 * 2. the value on the existing record, when the form edits a record;
+	 * 3. an empty string.
+	 * A checkbox field is sent as true or false, never as an empty string: when neither of the first two gives it a
+	 * value, it is sent as the form shows it (the value the form loaded for it, or false), so the record saves what the
+	 * user saw. A value the user typed or picked in the form replaces all of these.
 	 *
 	 * @see RecordInputRepresentation {for object structure}
 	 * @returns {RecordInputRepresentation}
 	 */
 	@api generateRecord()
 	{
-		let defaultRecord = this.recordInputForCreate;
-		this.fields.forEach(({fieldName, fieldValue}) => (defaultRecord.fields[fieldName] = fieldValue ?? this.existingRecord?.[fieldName] ?? EMPTY));
+		const defaultRecord = this.recordInputForCreate;
+		const displayFieldByName = new Map(this.displayFieldList.map(displayField => [
+			displayField.fieldName,
+			displayField
+		]));
+		this.fields.forEach(({fieldName, fieldValue}) =>
+		{
+			const displayField = displayFieldByName.get(fieldName);
+			const configuredValue = fieldValue ?? this.existingRecord?.[fieldName];
+			defaultRecord.fields[fieldName] = displayField?.fieldType === BOOLEAN_FIELD_TYPE ? Boolean(configuredValue ?? displayField.fieldValue) : configuredValue ?? EMPTY;
+		});
 		Object.keys(this.formValueMap)
 		.forEach(key => (defaultRecord.fields[key] = this.formValueMap[key]));
+		if(!this.isUpdateMode)
+		{
+			// A create sends no Id, even when the field list names it.
+			delete defaultRecord.fields.Id;
+		}
 		return defaultRecord;
 	}
 
@@ -955,8 +987,8 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	 */
 	@api createRecordForApex()
 	{
-		let defaultRecord = this.generateRecord();
-		let apexRecord = defaultRecord.fields;
+		const defaultRecord = this.generateRecord();
+		const apexRecord = defaultRecord.fields;
 		apexRecord.sobjectType = this.objectName;
 		return apexRecord;
 	}
@@ -974,7 +1006,7 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	insertRecord()
 	{
 		this.awaitingRecordOperation = true;
-		let record = this.generateRecord();
+		const record = this.generateRecord();
 		return this.callControllerMethod(createRecord, record)
 		.then(createResult =>
 		{
@@ -1069,11 +1101,12 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	}
 
 	/**
-	 * @description Clears all form fields
+	 * @description Clears all form fields, and takes the tick off every checkbox
 	 */
 	clearFormFields()
 	{
 		this.inputFields.forEach(element => (element.value = ''));
+		this.checkboxFields.forEach(element => (element.checked = false));
 	}
 
 	/**
@@ -1107,13 +1140,33 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	}
 
 	/**
-	 * @description Saves Lookup values on change
+	 * @description Saves a checkbox value on change. A checkbox reports its state in
+	 * `detail.checked`, not in `detail.value`, so it needs its own handler.
+	 * @param {CustomEvent} event Change event with `detail.checked` and `target.dataset.id`
+	 */
+	handleCheckboxChange(event)
+	{
+		const {detail: {checked}, target: {dataset: {id}}} = event;
+		this.formValueMap[id] = checked;
+		this.dispatchValueChangedEvent();
+	}
+
+	/**
+	 * @description Saves Lookup values on change. A lookup also reports the record the form gave it, once it has
+	 * loaded that record. Nothing changed then, so the form sends no `valuechanged` for it. Every later report is a
+	 * change the user made, and sends one.
 	 * @param {CustomEvent} event Value-select event with `detail.elementName` and `detail.selectedId`
 	 */
 	handleLookupValueSelect(event)
 	{
 		const {detail: {elementName, selectedId}} = event;
+		const isFirstReport = !(elementName in this.formValueMap);
+		const loadedValue = this.displayFieldList.find(displayField => displayField.fieldName === elementName)?.fieldValue;
 		this.formValueMap[elementName] = selectedId;
+		if(isFirstReport && selectedId && selectedId === loadedValue)
+		{
+			return;
+		}
 		this.dispatchValueChangedEvent();
 	}
 

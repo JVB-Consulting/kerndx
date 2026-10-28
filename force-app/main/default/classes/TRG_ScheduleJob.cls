@@ -15,7 +15,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
@@ -31,14 +31,16 @@ public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
 	public static Boolean allowRunnerRecordManagement = false;
 
 	/**
-	 * @description The fields an administrator edits. An update that changes none of them (a framework write of the run
-	 * fields, or a write that changes nothing) is a no-op for the trigger.
+	 * @description The fields that change what a job runs, when it runs or how it runs. An update that changes none of them
+	 * changes nothing for the trigger. That covers an edit of only the description and a framework write of the run fields.
+	 * The description is left out on purpose. Saving an own-mode job again stops its platform job and schedules a new one
+	 * owned by the user who saves, so a description edit would make the job run as that user.
 	 */
-	private static final List<SObjectField> ADMINISTRATOR_FIELDS = new List<SObjectField>
+	private static final List<SObjectField> JOB_BEHAVIOUR_FIELDS = new List<SObjectField>
 	{
-			ScheduledJob__c.SchedulerName__c, ScheduledJob__c.ClassName__c, ScheduledJob__c.CronExpression__c, ScheduledJob__c.Description__c,
-			ScheduledJob__c.IsActive__c, ScheduledJob__c.Parameters__c, ScheduledJob__c.Timezone__c, ScheduledJob__c.ExecutionMode__c,
-			ScheduledJob__c.RunPriority__c, ScheduledJob__c.OverlapPolicy__c
+			ScheduledJob__c.SchedulerName__c, ScheduledJob__c.ClassName__c, ScheduledJob__c.CronExpression__c, ScheduledJob__c.IsActive__c,
+			ScheduledJob__c.Parameters__c, ScheduledJob__c.Timezone__c, ScheduledJob__c.ExecutionMode__c, ScheduledJob__c.RunPriority__c,
+			ScheduledJob__c.OverlapPolicy__c
 	};
 
 	/**
@@ -72,9 +74,8 @@ public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
 	}
 
 	/**
-	 * @description Handles logic before updating `ScheduledJob__c` records. A write that changes only framework-owned
-	 * fields is ignored. The two lists are index-aligned, so each record is paired with its own previous state by
-	 * position.
+	 * @description Handles logic before updating `ScheduledJob__c` records. A write that changes only framework-owned fields or the
+	 * description is ignored. The two lists are index-aligned, so each record is paired with its own previous state by position.
 	 *
 	 * @param newRecords The updated `ScheduledJob__c` records.
 	 * @param oldRecords The previous state of the `ScheduledJob__c` records.
@@ -104,7 +105,8 @@ public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
 	 * @description Routes one record: runner records are Health Check's, framework writes of a job-runner record's run
 	 * fields are ignored, job-runner records are seeded, own-mode records are scheduled or stopped as before. The runner
 	 * guard comes first because the runner's own records receive no framework writes, so nothing may reach them ahead of
-	 * it: the no-op check exists for the run fields of the records the runner checks.
+	 * it: the no-op check exists for the run fields of the records the runner checks and for description edits. An edit of
+	 * only a runner record's description is therefore still refused outside Health Check.
 	 *
 	 * @param scheduler The record as it is being saved.
 	 * @param previous The record before the save, or null on insert.
@@ -117,7 +119,7 @@ public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
 			return;
 		}
 
-		if(previous != null && !anyChanged(scheduler, previous, ADMINISTRATOR_FIELDS))
+		if(previous != null && !anyChanged(scheduler, previous, JOB_BEHAVIOUR_FIELDS))
 		{
 			return;
 		}

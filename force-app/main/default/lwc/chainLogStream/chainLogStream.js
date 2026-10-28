@@ -56,6 +56,7 @@ export default class ChainLogStream extends ComponentBuilder('controller', 'noti
 	namespacePrefix = '';
 	collapsedOverride = null;
 	liveEntryCounter = 0;
+	isErrorListenerRegistered = false;
 
 	label = {
 		streamTitle, streamEmpty, streamCaveat, streamDisconnected, lastEvent: streamLastEvent
@@ -137,11 +138,21 @@ export default class ChainLogStream extends ComponentBuilder('controller', 'noti
 		this.collapsedOverride = !this.isCollapsed;
 	}
 
+	/**
+	 * @description Subscribes to the log event channel, and gives the streaming library an error listener the
+	 * first time only. The library has no way to remove a listener, so giving it one on every connect would
+	 * add another listener each time the component is connected again.
+	 */
 	connectedCallback()
 	{
 		this.connectionGeneration++;
 		// noinspection JSIgnoredPromiseFromCall
 		this.subscribeToEvents(this.connectionGeneration);
+		if(this.isErrorListenerRegistered)
+		{
+			return;
+		}
+		this.isErrorListenerRegistered = true;
 		onError(() =>
 		{
 			// The empApi error callback is the only signal the feed broke; entries still record
@@ -150,8 +161,12 @@ export default class ChainLogStream extends ComponentBuilder('controller', 'noti
 		});
 	}
 
+	/**
+	 * @description Runs the base component's teardown first, then stops listening to the log event channel.
+	 */
 	disconnectedCallback()
 	{
+		super.disconnectedCallback();
 		// Advancing the generation invalidates any subscribe still in flight from the connection
 		// being torn down; a plain disconnected flag cannot, because an immediate reconnect
 		// resets it and lets the stale run register a second, orphaned subscription.
@@ -208,8 +223,9 @@ export default class ChainLogStream extends ComponentBuilder('controller', 'noti
 		{
 			return;
 		}
+		this.liveEntryCounter += 1;
 		const entry = this.buildEntry(payload.CreatedDate, payload[`${this.namespacePrefix}${LOG_LEVEL_FIELD_NAME}`],
-				payload[`${this.namespacePrefix}${SHORT_MESSAGE_FIELD_NAME}`] ?? payload[`${this.namespacePrefix}${MESSAGE_FIELD_NAME}`], `live-${++this.liveEntryCounter}`);
+				payload[`${this.namespacePrefix}${SHORT_MESSAGE_FIELD_NAME}`] ?? payload[`${this.namespacePrefix}${MESSAGE_FIELD_NAME}`], `live-${this.liveEntryCounter}`);
 		if(this.isDuplicateOfSeed(entry))
 		{
 			return;

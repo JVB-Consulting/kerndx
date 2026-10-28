@@ -8,7 +8,7 @@
  *              global slot so the fallback-stub function expression is evaluated.
  *
  * @author Jason van Beukering
- * @date December 2025, April 2026
+ * @date December 2025, October 2026
  */
 
 /*
@@ -283,6 +283,23 @@ describe('c-view-record', () =>
 					'FieldSet2'
 				]);
 				expect(result.activeSections).toEqual(['FieldSet1']);
+			});
+
+			it('fieldSetsAndActiveSections removes spaces around each name and drops empty entries', () =>
+			{
+				const context = createMockContext();
+				context.fieldSetGroup = {
+					FieldSetApiNames__c: 'Section_A, Section_B', DefaultActiveSections__c: ' Section_A ,, '
+				};
+				context.fieldApiNamesField = {fieldApiName: 'FieldSetApiNames__c'};
+				context.activeSectionsField = {fieldApiName: 'DefaultActiveSections__c'};
+				const descriptor = Object.getOwnPropertyDescriptor(prototype, 'fieldSetsAndActiveSections');
+				const result = descriptor.get.call(context);
+				expect(result.fieldSetApiNames).toEqual([
+					'Section_A',
+					'Section_B'
+				]);
+				expect(result.activeSections).toEqual(['Section_A']);
 			});
 
 			it('fieldSetsAndActiveSections returns empty arrays when the metadata field values are blank', () =>

@@ -91,6 +91,19 @@ describe('c-chain-log-stream', () =>
 		expect(subscribe).toHaveBeenCalledWith('/event/kern__LogEntryEvent__e', -1, expect.any(Function));
 	});
 
+	it('runs a teardown registered through the base when disconnected, and still unsubscribes from empApi', async() =>
+	{
+		const element = await createComponent();
+		const operation = jest.fn();
+		element.addTearDownOperation(operation);
+
+		document.body.removeChild(element);
+		await Promise.resolve();
+
+		expect(operation).toHaveBeenCalledTimes(1);
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
 	it('unsubscribes on disconnected callback, with the acknowledgement the platform requires', async() =>
 	{
 		const element = await createComponent();
@@ -279,6 +292,22 @@ describe('c-chain-log-stream', () =>
 		expect(element.shadowRoot.querySelector('[data-testid="log-stream-disconnected"]').textContent)
 		.toBe('Live stream disconnected. Entries still record; refresh to catch up.');
 		expect(element.shadowRoot.querySelector('[data-testid="log-stream-caveat"]')).toBeFalsy();
+	});
+
+	it('gives the streaming library one error listener when the component is connected twice, and one error still shows the notice', async() =>
+	{
+		const element = await createComponent();
+		document.body.removeChild(element);
+		document.body.appendChild(element);
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(onError).toHaveBeenCalledTimes(1);
+
+		onError.mock.calls[0][0]({error: 'stream broke'});
+		await Promise.resolve();
+
+		expect(element.shadowRoot.querySelector('[data-testid="log-stream-disconnected"]')).toBeTruthy();
 	});
 
 	it('flips the disconnected notice and logs when the subscribe itself fails', async() =>

@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: BUSL-1.1 */
 /* Custom styles for validation errors component */
 
-.slds-text-color_inverse
+.error-text
 {
 	color : #FFFFFF;
 }
 
-.slds-list_dotted li
+.message-list li
 {
 	margin-left : 1rem;
 }

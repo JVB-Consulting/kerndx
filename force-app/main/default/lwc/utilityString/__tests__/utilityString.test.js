@@ -4,7 +4,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
 import {
 	formatTemplateString, convertToSentenceCase, insertCharacterAtInterval, formatStringToCurrency, CAPITAL_LETTERS, LOWER_CASE_LETTERS, DIGITS, EMPTY, SPACE, COMMA, SEMI_COLON,
@@ -309,6 +309,29 @@ describe('insertCharacterAtInterval', () =>
 		{
 			const result = insertCharacterAtInterval('ABC', 1, '-');
 			expect(result).toBe('A-B-C');
+		});
+	});
+
+	describe('untrusted arguments', () =>
+	{
+		it.each([
+			['whole match', '$&'], ['dollar', '$$'], ['numbered group', '$1'], ['text before the match', '$`']
+		])('should insert the %s separator unchanged', (_patternName, separator) =>
+		{
+			const result = insertCharacterAtInterval('ABCD', 2, separator);
+			expect(result).toBe(`AB${separator}CD`);
+		});
+
+		it('should accept an interval given as a numeric string', () =>
+		{
+			const result = insertCharacterAtInterval('ABCDEF', '2', '-');
+			expect(result).toBe('AB-CD-EF');
+		});
+
+		it.each([0, -2, 1.5, Number.NaN, '1}|(.*', 'abc', ' 2 ', '2.0', '0x4', [3], Object(3), true, null, undefined])('should return the source unchanged for interval %p', interval =>
+		{
+			const result = insertCharacterAtInterval('ABCDEF', interval, '-');
+			expect(result).toBe('ABCDEF');
 		});
 	});
 });

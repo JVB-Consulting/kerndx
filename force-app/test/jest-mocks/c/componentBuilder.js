@@ -3,8 +3,12 @@
  * @description Global Jest mock for componentBuilder LWC module.
  *              This mock is used by all tests that import components using ComponentBuilder.
  *              It provides mock functions that can be spied on to verify component behavior.
+ *              It also carries the base teardown contract: `addTearDownOperation` registers an
+ *              operation, and `disconnectedCallback` runs every registered operation in order and
+ *              then empties the list, as the real base component does. Both are prototype methods,
+ *              so a component's own `disconnectedCallback` still runs and can chain to this one.
  */
-import {LightningElement} from 'lwc';
+import {api, LightningElement} from 'lwc';
 
 // Export constants matching the real module
 export const ALL_MODULES = 'all';
@@ -50,6 +54,7 @@ export const mockGenerateUrl = jest.fn().mockResolvedValue('/mock-url');
 export const mockPublishLightningMessage = jest.fn();
 export const mockSubscribeToMessageChannel = jest.fn();
 export const mockAddMessageChannelSubscription = jest.fn();
+export const mockClearSubscriptions = jest.fn();
 
 // Mock flow navigation functions
 export const mockDispatchFlowNextEvent = jest.fn();
@@ -94,11 +99,37 @@ export const ComponentBuilder = (...functionalityToInitialise) =>
 		publishLightningMessage = mockPublishLightningMessage;
 		subscribeToMessageChannel = mockSubscribeToMessageChannel;
 		addMessageChannelSubscription = mockAddMessageChannelSubscription;
+		clearSubscriptions = mockClearSubscriptions;
 
 		// Flow navigation methods
 		dispatchFlowNextEvent = mockDispatchFlowNextEvent;
 		dispatchFlowBackEvent = mockDispatchFlowBackEvent;
 		dispatchFlowFinishEvent = mockDispatchFlowFinishEvent;
+
+		// Teardown operations registered through addTearDownOperation
+		tearDown = [];
+
+		/**
+		 * @description Adds an operation to run when the component is removed from the DOM.
+		 * @param {function(): void} operation Teardown function to register
+		 */
+		@api addTearDownOperation(operation)
+		{
+			this.tearDown.push(operation);
+		}
+
+		/**
+		 * @description Runs every registered teardown operation in order, then empties the list.
+		 */
+		disconnectedCallback()
+		{
+			for(const operation of this.tearDown)
+			{
+				operation();
+			}
+
+			this.tearDown = [];
+		}
 	};
 };
 

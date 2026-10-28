@@ -29,6 +29,11 @@ const dispatchedToasts = (context) => context.dispatchEvent.mock.calls.map(([eve
 
 registerScheduledJobFormMocks();
 
+// The job runner fields the modal reads beside the shared form's fields, named the way the tests program getFieldValue.
+jest.mock('@salesforce/schema/ScheduledJob__c.ExecutionMode__c', () => ({default: 'ScheduledJob__c.ExecutionMode__c'}), {virtual: true});
+jest.mock('@salesforce/schema/ScheduledJob__c.RunPriority__c', () => ({default: 'ScheduledJob__c.RunPriority__c'}), {virtual: true});
+jest.mock('@salesforce/schema/ScheduledJob__c.OverlapPolicy__c', () => ({default: 'ScheduledJob__c.OverlapPolicy__c'}), {virtual: true});
+
 describe('c-scheduled-job-editor-modal', () =>
 {
 	const ScheduledJobEditorModal = require('c/scheduledJobEditorModal').default;
@@ -161,6 +166,31 @@ describe('c-scheduled-job-editor-modal', () =>
 				let context = createMockContext({errorMessage: 'stale error'});
 				prototype.wiredRecord.call(context, {data: {fields: {}}});
 				expect(context.errorMessage).toBe('');
+				expect(context.jobRunnerSettings).toEqual({executionMode: null, runPriority: null, overlapPolicy: null});
+			});
+
+			it('keeps the job runner fields of the loaded record and sends them back unchanged on save', async() =>
+			{
+				const savedRunPriority = 4;
+				const savedFields = {
+					'ScheduledJob__c.ExecutionMode__c': 'JobRunner', 'ScheduledJob__c.RunPriority__c': savedRunPriority, 'ScheduledJob__c.OverlapPolicy__c': 'Allow'
+				};
+				getFieldValue.mockImplementation((record, field) => savedFields[field] ?? null);
+				let context = createMockContext();
+				prototype.wiredRecord.call(context, {data: {fields: {}}});
+
+				expect(context.jobRunnerSettings).toEqual({executionMode: 'JobRunner', runPriority: savedRunPriority, overlapPolicy: 'Allow'});
+				expect(getGetter('isJobRunnerMode').call(context)).toBe(true);
+
+				saveRecord.mockResolvedValue('a00000000000001');
+				await saveFrom(prototype, createMockContext, {jobRunnerSettings: context.jobRunnerSettings});
+				let request = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
+				expect(request).toEqual(expect.objectContaining({executionMode: 'JobRunner', runPriority: savedRunPriority, overlapPolicy: 'Allow'}));
+			});
+
+			it('is not in job runner mode for a record that keeps its own scheduled job', () =>
+			{
+				expect(getGetter('isJobRunnerMode').call(createMockContext({jobRunnerSettings: {executionMode: 'OwnScheduledJob'}}))).toBe(false);
 			});
 		});
 
@@ -183,6 +213,20 @@ describe('c-scheduled-job-editor-modal', () =>
 				let context = createMockContext({isClassNameLocked: true});
 				await prototype.loadParameterDefinitions.call(context, 'BadClassName');
 				expect(context.errorMessage).toBe(classNameNotSchedulable('BadClassName'));
+			});
+
+			it('leaves the modal error alone when a later request replaced this one', async() =>
+			{
+				let context = createMockContext({isClassNameLocked: true, errorMessage: 'kept'});
+				// A newer request starts while this one waits for its answer.
+				getParameterDefinitions.mockImplementation(() =>
+				{
+					context.parameterRequestNumber += 1;
+					return Promise.reject(new Error('Not found'));
+				});
+				let result = await prototype.loadParameterDefinitions.call(context, 'SCHED_PurgeRecords');
+				expect(result).toBeNull();
+				expect(context.errorMessage).toBe('kept');
 			});
 
 			it('clears the inline error when definitions load successfully', async() =>
@@ -564,6 +608,41 @@ describe('c-scheduled-job-editor-modal', () =>
 			await flushPromises();
 
 			expect(element.shadowRoot.querySelector('[data-testid="inline-error"]')).toBeNull();
+		});
+	});
+
+	describe('an existing job runner record', () =>
+	{
+		it('opens a stepped expression the job runner accepts with the cron editor valid and Save enabled', async() =>
+		{
+			const RUNNER_EXPRESSION = '0 */15 * * * ?';
+			const savedFields = {
+				'ScheduledJob__c.SchedulerName__c': 'Runner job',
+				'ScheduledJob__c.ClassName__c': 'SCHED_Test',
+				'ScheduledJob__c.CronExpression__c': RUNNER_EXPRESSION,
+				'ScheduledJob__c.ExecutionMode__c': 'JobRunner'
+			};
+			getFieldValue.mockImplementation((record, field) => savedFields[field] ?? null);
+			getSchedulableClasses.mockResolvedValue(['SCHED_Test']);
+			getUserTimezone.mockResolvedValue('UTC');
+			getParameterDefinitions.mockResolvedValue([]);
+			let element = mountModal({recordId: 'a00000000000001'});
+			await flushPromises();
+
+			uiRecordApi.getRecord.emit({fields: {}});
+			await flushPromises();
+
+			let cronEditor = element.shadowRoot.querySelector('c-cron-expression-editor');
+			expect(cronEditor.jobRunnerMode).toBe(true);
+			expect(cronEditor.cronExpression).toBe(RUNNER_EXPRESSION);
+			expect(cronEditor.isValid).toBe(true);
+			expect(element.shadowRoot.querySelector('[data-testid="save-button"]').disabled).toBe(false);
+
+			// Switching the editor to custom mode keeps the expression and makes the editor report its validity again.
+			cronEditor.shadowRoot.querySelector('[data-testid="cron-mode"]').dispatchEvent(new CustomEvent('change', {detail: {value: 'custom'}}));
+			await flushPromises();
+
+			expect(element.shadowRoot.querySelector('[data-testid="save-button"]').disabled).toBe(false);
 		});
 	});
 

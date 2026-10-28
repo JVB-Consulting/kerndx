@@ -58,6 +58,9 @@ jest.mock('@salesforce/label/c.CronExpressionEditor_DayListTwo', () => ({default
 jest.mock('@salesforce/label/c.CronExpressionEditor_DayListConjunction', () => ({default: ', and {0}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescEveryNMinutes', () => ({default: 'Every {0} minutes'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescHourly', () => ({default: 'Every hour at minute {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescMinuteOfEveryHour', () => ({default: 'minute {0} of every hour'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescMinuteIntervals', () => ({default: '{0}-minute intervals'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescMinuteIntervalsFromTo', () => ({default: '{0}-minute intervals from {1} to {2}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescDaily', () => ({default: 'Every day at {0}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescDailyInMonth', () => ({default: 'Every day in month {0} at {1}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescNthWeekday', () => ({default: '{0} {1} of every month at {2}'}), {virtual: true});
@@ -68,6 +71,7 @@ jest.mock('@salesforce/label/c.CronExpressionEditor_DescDayList', () => ({defaul
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescLastDay', () => ({default: 'Last day of every month at {0}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescLastWeekdayOfMonth', () => ({default: 'Last weekday of every month at {0}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescInMonthSuffix', () => ({default: 'in month {0}'}), {virtual: true});
+jest.mock('@salesforce/label/c.CronExpressionEditor_DescInYearSuffix', () => ({default: 'in {0}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescNearestWeekday', () => ({default: 'Nearest weekday to day {0} of every month{1} at {2}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_DescMonthlyOnDay', () => ({default: 'Monthly on day {0}{1} at {2}'}), {virtual: true});
 jest.mock('@salesforce/label/c.CronExpressionEditor_ValSeconds', () => ({default: 'Enter 0-59'}), {virtual: true});
@@ -589,10 +593,57 @@ describe('cronParser', () =>
 				.toBe('Every day at 9:17 AM. Runs at the first job runner check on or after each scheduled time');
 				expect(describeCronExpression('0 15 9 * * ?', {jobRunnerMode: true, activeCheckIntervalMinutes: 15})).toBe('Every day at 9:15 AM');
 			});
+
+			it('names the interval, the hour range and the weekdays on the job runner', () =>
+			{
+				expect(describeCronExpression('0 */15 9-17 ? * MON-FRI', JOB_RUNNER_OPTIONS))
+				.toBe('Every weekday (Monday through Friday) at 15-minute intervals from 9:00 AM to 5:45 PM');
+				expect(describeCronExpression('0 */15 9-17 ? * MON-FRI', {jobRunnerMode: true, activeCheckIntervalMinutes: 15}))
+				.toBe('Every weekday (Monday through Friday) at 15-minute intervals from 9:00 AM to 5:45 PM on this job runner');
+			});
+
+			it('names a single hour and the days of the month on the job runner', () =>
+			{
+				expect(describeCronExpression('0 */10 9 * * ?', JOB_RUNNER_OPTIONS)).toBe('Every day at 10-minute intervals from 9:00 AM to 9:50 AM');
+				expect(describeCronExpression('0 0/30 8 L * ?', JOB_RUNNER_OPTIONS)).toBe('Last day of every month at 30-minute intervals from 8:00 AM to 8:30 AM');
+			});
+
+			it('shows the raw expression when the step is zero, which validation refuses', () =>
+			{
+				expect(describeCronExpression('0 */0 9 * * ?', JOB_RUNNER_OPTIONS)).toBe('0 */0 9 * * ?');
+				expect(describeCronExpression('0 */0 * * * ?', JOB_RUNNER_OPTIONS)).toBe('0 */0 * * * ?');
+			});
+
+			it('names the weekday when the interval runs in every hour on the job runner', () =>
+			{
+				expect(describeCronExpression('0 */5 * ? * MON', JOB_RUNNER_OPTIONS)).toBe('Every Monday at 5-minute intervals');
+			});
+
+			it('returns the expression when the hours or days have a shape it cannot describe', () =>
+			{
+				expect(describeCronExpression('0 */15 9,17 * * ?', JOB_RUNNER_OPTIONS)).toBe('0 */15 9,17 * * ?');
+				expect(describeCronExpression('0 */15 */2 * * ?', JOB_RUNNER_OPTIONS)).toBe('0 */15 */2 * * ?');
+				expect(describeCronExpression('0 */15 * 5 * MON', {jobRunnerMode: true, activeCheckIntervalMinutes: 15})).toBe('0 */15 * 5 * MON');
+			});
 		});
 
 		describe('hourly pattern', () =>
 		{
+			it('describes the minute and the weekday when the job runs every hour on one day', () =>
+			{
+				expect(describeCronExpression('0 30 * ? * MON')).toBe('Every Monday at minute 30 of every hour');
+			});
+
+			it('describes the minute and the month when the job runs every hour in one month', () =>
+			{
+				expect(describeCronExpression('0 30 * * 3 ?')).toBe('Every day in month 3 at minute 30 of every hour');
+			});
+
+			it('describes the minute and the day of the month when the job runs every hour on one day of the month', () =>
+			{
+				expect(describeCronExpression('0 0 * 15 * ?')).toBe('Monthly on day 15 at minute 0 of every hour');
+			});
+
 			it('describes hourly at minute 30', () =>
 			{
 				expect(describeCronExpression('0 30 * * * ?')).toBe('Every hour at minute 30');
@@ -715,9 +766,25 @@ describe('cronParser', () =>
 				expect(describeCronExpression('0 0 9 ? * XYZ#1')).toBe('First XYZ of every month at 9:00 AM');
 			});
 
-			it('describes hash with unrecognised ordinal', () =>
+			it('shows the expression as it is for an occurrence past the fifth, which validation refuses', () =>
 			{
-				expect(describeCronExpression('0 0 9 ? * FRI#6')).toBe('#6 Friday of every month at 9:00 AM');
+				expect(describeCronExpression('0 0 9 ? * FRI#6')).toBe('0 0 9 ? * FRI#6');
+			});
+
+			it('describes an expression whose year has passed, while validation still refuses that year', () =>
+			{
+				let lastYear = new Date().getFullYear() - 1;
+				let expression = `0 0 9 ? * MON ${lastYear}`;
+
+				expect(describeCronExpression(expression)).toBe(`Every Monday at 9:00 AM in ${lastYear}`);
+				expect(validateCronExpression(expression).isValid).toBe(false);
+			});
+
+			it('shows an expression refused for another reason as it is, even when its year has passed', () =>
+			{
+				let expression = `0 0 9 ? XYZ MON ${new Date().getFullYear() - 1}`;
+
+				expect(describeCronExpression(expression)).toBe(expression);
 			});
 
 			it('describes numeric day-of-week with hash', () =>
@@ -748,9 +815,9 @@ describe('cronParser', () =>
 				expect(describeCronExpression('0 30 8 ? * 2L')).toBe('Last Monday of every month at 8:30 AM');
 			});
 
-			it('describes last day-of-week with unrecognised token', () =>
+			it('shows the expression as it is for L after a name that is not a day, which validation refuses', () =>
 			{
-				expect(describeCronExpression('0 0 9 ? * XYZL')).toBe('Last XYZ of every month at 9:00 AM');
+				expect(describeCronExpression('0 0 9 ? * XYZL')).toBe('0 0 9 ? * XYZL');
 			});
 		});
 
@@ -1398,6 +1465,188 @@ describe('cronParser', () =>
 				let result = validateCronExpression('0 0 12 * * ? 2026');
 				expect(result.isValid).toBe(true);
 			});
+		});
+	});
+
+	describe('day lists that mix a range and single days', () =>
+	{
+		it('reads every day of a list that starts with a range', () =>
+		{
+			let result = parseCronExpression('0 0 9 ? * MON-WED,FRI');
+			expect(result.preset).toEqual({
+				frequency: 'weekly',
+				hour: '9',
+				minute: '0',
+				daysOfWeek: [
+					'MON',
+					'TUE',
+					'WED',
+					'FRI'
+				]
+			});
+		});
+
+		it('reads every day of a numbered list that starts with a range', () =>
+		{
+			let result = parseCronExpression('0 0 9 ? * 2-4,6');
+			expect(result.preset.daysOfWeek).toEqual([
+				'MON',
+				'TUE',
+				'WED',
+				'FRI'
+			]);
+		});
+
+		it('names every day of a list that mixes a range and single days', () =>
+		{
+			expect(describeCronExpression('0 0 9 ? * MON-WED,FRI')).toBe('Every Monday, Tuesday, Wednesday, and Friday at 9:00 AM');
+		});
+	});
+
+	describe('a day range that runs past Saturday', () =>
+	{
+		it('reads the days from the first day, past Saturday, to the last day', () =>
+		{
+			let result = parseCronExpression('0 0 9 ? * FRI-MON');
+			expect(result.preset.daysOfWeek).toEqual([
+				'FRI',
+				'SAT',
+				'SUN',
+				'MON'
+			]);
+		});
+
+		it('builds the same expression days again, not Monday alone', () =>
+		{
+			let result = parseCronExpression('0 0 9 ? * FRI-MON');
+			expect(buildCronExpression('preset', result.preset)).toBe('0 0 9 ? * FRI,SAT,SUN,MON');
+		});
+	});
+
+	describe('the last-day-of-the-week mark L', () =>
+	{
+		it('accepts a day of the week followed by L', () =>
+		{
+			expect(validateCronField('dayOfWeek', 'FRIL').isValid).toBe(true);
+			expect(validateCronField('dayOfWeek', 'fril').isValid).toBe(true);
+			expect(validateCronField('dayOfWeek', '6L').isValid).toBe(true);
+		});
+
+		it('refuses L after a number that is not a day of the week', () =>
+		{
+			let result = validateCronField('dayOfWeek', '9L');
+			expect(result.isValid).toBe(false);
+			expect(result.errorMessage).toBe('Value 9 is out of range (1-7)');
+		});
+
+		it('refuses L after a name that is not a day of the week', () =>
+		{
+			let result = validateCronField('dayOfWeek', 'XYZL');
+			expect(result.isValid).toBe(false);
+			expect(result.errorMessage).toBe('Enter 1-7, SUN-SAT, ?, L, or # patterns');
+		});
+
+		it('checks every value of a month list that ends in L', () =>
+		{
+			let result = validateCronField('month', '13,JUL');
+			expect(result.isValid).toBe(false);
+			expect(result.errorMessage).toBe('Value 13 is out of range (1-12)');
+		});
+
+		it('does not describe a last day of the week that validation refuses', () =>
+		{
+			expect(validateCronExpression('0 0 9 ? * 9L').isValid).toBe(false);
+			expect(describeCronExpression('0 0 9 ? * 9L')).toBe('0 0 9 ? * 9L');
+			expect(describeCronExpression('0 0 9 ? * XYZL')).toBe('0 0 9 ? * XYZL');
+		});
+	});
+
+	describe('the month field', () =>
+	{
+		it('accepts a step of months', () =>
+		{
+			expect(validateCronField('month', '*/3').isValid).toBe(true);
+			expect(validateCronField('month', '1/3').isValid).toBe(true);
+			expect(validateCronExpression('0 0 12 1 */3 ?').isValid).toBe(true);
+		});
+
+		it('refuses a step larger than twelve months', () =>
+		{
+			let result = validateCronField('month', '*/13');
+			expect(result.isValid).toBe(false);
+			expect(result.errorMessage).toBe('Step value 13 exceeds maximum 12');
+		});
+
+		it('accepts month names in small letters', () =>
+		{
+			expect(validateCronField('month', 'jan').isValid).toBe(true);
+			expect(validateCronField('month', 'jan-mar').isValid).toBe(true);
+			expect(validateCronField('month', 'Jan,Jul').isValid).toBe(true);
+		});
+
+		it('refuses a name that is not a month', () =>
+		{
+			let result = validateCronField('month', 'JAN,XYZ');
+			expect(result.isValid).toBe(false);
+			expect(result.errorMessage).toBe('Enter 1-12, *, JAN-DEC, or comma/range lists');
+		});
+
+		it('does not describe a month list that validation refuses', () =>
+		{
+			expect(describeCronExpression('0 0 12 * JAN,XYZ ?')).toBe('0 0 12 * JAN,XYZ ?');
+		});
+	});
+
+	describe('the year field', () =>
+	{
+		it('adds the year to the description', () =>
+		{
+			expect(describeCronExpression('0 0 9 ? * MON 2099')).toBe('Every Monday at 9:00 AM in 2099');
+			expect(describeCronExpression('0 */15 9-17 ? * MON-FRI 2099', {jobRunnerMode: true, activeCheckIntervalMinutes: 15}))
+			.toBe('Every weekday (Monday through Friday) at 15-minute intervals from 9:00 AM to 5:45 PM in 2099 on this job runner');
+		});
+
+		it('puts the year before the note about the first job runner check', () =>
+		{
+			expect(describeCronExpression('0 17 9 * * ? 2099', {jobRunnerMode: true, activeCheckIntervalMinutes: 15}))
+			.toBe('Every day at 9:17 AM in 2099. Runs at the first job runner check on or after each scheduled time');
+		});
+
+		it('does not describe a year that validation refuses for being out of range', () =>
+		{
+			expect(validateCronExpression('0 0 9 ? * MON 1969', {ignorePastYear: true}).isValid).toBe(false);
+			expect(describeCronExpression('0 0 9 ? * MON 1969')).toBe('0 0 9 ? * MON 1969');
+		});
+
+		it('describes a year that has passed, because only a new save refuses it', () =>
+		{
+			expect(validateCronExpression('0 0 9 ? * MON 1999').isValid).toBe(false);
+			expect(validateCronExpression('0 0 9 ? * MON 1999', {ignorePastYear: true}).isValid).toBe(true);
+			expect(describeCronExpression('0 0 9 ? * MON 1999')).toBe('Every Monday at 9:00 AM in 1999');
+		});
+	});
+
+	describe('a valid expression with a shape the description cannot put in words', () =>
+	{
+		it('shows the expression as it is for a list of minutes on the job runner', () =>
+		{
+			expect(validateCronExpression('0 0,30 9 * * ?', JOB_RUNNER_OPTIONS).isValid).toBe(true);
+			expect(describeCronExpression('0 0,30 9 * * ?', JOB_RUNNER_OPTIONS)).toBe('0 0,30 9 * * ?');
+		});
+
+		it('shows the expression as it is for a range of hours at one minute', () =>
+		{
+			expect(validateCronExpression('0 0 9-17 * * ?').isValid).toBe(true);
+			expect(describeCronExpression('0 0 9-17 * * ? 2099')).toBe('0 0 9-17 * * ? 2099');
+		});
+	});
+
+	describe('an hour range that ends before it starts', () =>
+	{
+		it('does not describe an hour range that validation refuses', () =>
+		{
+			expect(validateCronExpression('0 */15 17-9 * * ?', JOB_RUNNER_OPTIONS).isValid).toBe(false);
+			expect(describeCronExpression('0 */15 17-9 * * ?', JOB_RUNNER_OPTIONS)).toBe('0 */15 17-9 * * ?');
 		});
 	});
 });

@@ -237,6 +237,50 @@ describe.each(HOSTS)('the scheduled job form through $tagName', (host) =>
 				expect(classFieldOf(element).errorMessage).toBe(classNameNotSchedulable('SCHED_NoSuchClass'));
 				expect(saveButtonOf(element).disabled).toBe(true);
 			});
+
+			it('shows the parameters of the class picked last when the answer for an earlier class arrives later', async() =>
+			{
+				const FIRST_CLASS_NAME = 'SCHED_FirstClass';
+				const SECOND_CLASS_NAME = 'SCHED_SecondClass';
+				let answerFirstClass;
+				getParameterDefinitions.mockImplementationOnce(() => new Promise((resolve) =>
+				{
+					answerFirstClass = resolve;
+				}));
+				getParameterDefinitions.mockResolvedValueOnce([{name: 'secondParameter', label: 'Second parameter', dataType: 'TEXT', isRequired: false}]);
+				let element = await mountReadyToSave();
+
+				classFieldOf(element).dispatchEvent(new CustomEvent('classchange', {detail: {value: FIRST_CLASS_NAME}}));
+				classFieldOf(element).dispatchEvent(new CustomEvent('classchange', {detail: {value: SECOND_CLASS_NAME}}));
+				await flushPromises();
+				answerFirstClass([{name: 'firstParameter', label: 'First parameter', dataType: 'TEXT', isRequired: false}]);
+				await flushPromises();
+
+				expect(element.shadowRoot.querySelector('[data-testid="param-secondParameter"]')).not.toBeNull();
+				expect(element.shadowRoot.querySelector('[data-testid="param-firstParameter"]')).toBeNull();
+				expect(classFieldOf(element).errorMessage).toBe('');
+			});
+
+			it('keeps the class picked last accepted when an earlier class is refused later', async() =>
+			{
+				let refuseFirstClass;
+				getParameterDefinitions.mockImplementationOnce(() => new Promise((resolve, reject) =>
+				{
+					refuseFirstClass = reject;
+				}));
+				getParameterDefinitions.mockResolvedValueOnce([{name: 'secondParameter', label: 'Second parameter', dataType: 'TEXT', isRequired: false}]);
+				let element = await mountReadyToSave();
+
+				classFieldOf(element).dispatchEvent(new CustomEvent('classchange', {detail: {value: 'SCHED_NoSuchClass'}}));
+				classFieldOf(element).dispatchEvent(new CustomEvent('classchange', {detail: {value: 'SCHED_SecondClass'}}));
+				await flushPromises();
+				refuseFirstClass(new Error('Unable to resolve type for class "SCHED_NoSuchClass".'));
+				await flushPromises();
+
+				expect(element.shadowRoot.querySelector('[data-testid="param-secondParameter"]')).not.toBeNull();
+				expect(classFieldOf(element).errorMessage).toBe('');
+				expect(saveButtonOf(element).disabled).toBe(false);
+			});
 		});
 	});
 

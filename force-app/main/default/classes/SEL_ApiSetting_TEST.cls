@@ -20,6 +20,41 @@ private class SEL_ApiSetting_TEST
 	private static final String SERVICE_WITH_NO_SETTING = 'ServiceWithNoSetting';
 
 	/**
+	 * @description The label of an active incoming setting with Mocking Enabled ticked. It sorts first by label.
+	 */
+	private static final String TICKED_INBOUND_LABEL = 'Alpha Incoming Service';
+
+	/**
+	 * @description The label of an active outgoing setting with Mocking Enabled ticked. It sorts second by label.
+	 */
+	private static final String TICKED_OUTBOUND_LABEL = 'Bravo Outgoing Service';
+
+	/**
+	 * @description The text that follows a field name in the query when the field must be true.
+	 */
+	private static final String EQUALS_TRUE = ' = TRUE';
+
+	/**
+	 * @description The query condition that keeps only active settings.
+	 */
+	private static final String ACTIVE_CONDITION = UTIL_SObjectDescribe.getCachedFieldName(ApiSetting__mdt.IsActive__c) + EQUALS_TRUE;
+
+	/**
+	 * @description The query condition that keeps only settings with Mocking Enabled ticked.
+	 */
+	private static final String MOCKING_ENABLED_CONDITION = UTIL_SObjectDescribe.getCachedFieldName(ApiSetting__mdt.MockingEnabled__c) + EQUALS_TRUE;
+
+	/**
+	 * @description The URL path the incoming setting answers on.
+	 */
+	private static final String INBOUND_ENDPOINT_PATH = '/selected-mocking/*';
+
+	/**
+	 * @description The routing priority of the incoming setting.
+	 */
+	private static final Integer INBOUND_ROUTE_PRIORITY = 100;
+
+	/**
 	 * @description Tests that findByClassName returns null for non-existent class.
 	 */
 	@IsTest
@@ -50,6 +85,35 @@ private class SEL_ApiSetting_TEST
 		List<ApiSetting__mdt> results = new SEL_ApiSetting().findActiveByDirection(SEL_ApiSetting.DIRECTION_OUTBOUND);
 
 		Assert.isNotNull(results, 'Should return a non-null list');
+	}
+
+	/**
+	 * @description Tests that the finder returns the active settings that have Mocking Enabled ticked, from both
+	 * directions, sorted by label, and that its query keeps only active settings with the box ticked. The settings are
+	 * added out of label order, so the sort is proven too. The two conditions are read from the query, because mock
+	 * custom metadata records are not filtered in memory: an inactive or unticked mock setting would come back anyway.
+	 */
+	@IsTest
+	private static void shouldQueryOnlyActiveSettingsWithMockingEnabledInLabelOrder()
+	{
+		String className = SEL_ApiSetting_TEST.class.getName();
+		TST_Factory.newOutboundApiSetting(className, new Map<SObjectField, Object>
+		{
+				ApiSetting__mdt.MasterLabel => TICKED_OUTBOUND_LABEL, ApiSetting__mdt.MockingEnabled__c => true
+		});
+		TST_Factory.newInboundApiSetting(className, INBOUND_ENDPOINT_PATH, INBOUND_ROUTE_PRIORITY, new Map<SObjectField, Object>
+		{
+				ApiSetting__mdt.MasterLabel => TICKED_INBOUND_LABEL, ApiSetting__mdt.MockingEnabled__c => true
+		});
+
+		List<ApiSetting__mdt> found = new SEL_ApiSetting().findActiveWithMockingEnabled();
+		String soql = new SEL_ApiSetting().buildActiveWithMockingEnabledRead().toSoql();
+
+		Assert.areEqual(2, found.size(), 'Expected the two active settings with Mocking Enabled ticked, got ' + found);
+		Assert.areEqual(TICKED_INBOUND_LABEL, found[0].MasterLabel, 'Expected the incoming setting first, by label');
+		Assert.areEqual(TICKED_OUTBOUND_LABEL, found[1].MasterLabel, 'Expected the outgoing setting second, by label');
+		Assert.isTrue(soql.contains(ACTIVE_CONDITION), 'Expected the query to keep only active settings: ' + soql);
+		Assert.isTrue(soql.contains(MOCKING_ENABLED_CONDITION), 'Expected the query to keep only settings with Mocking Enabled ticked: ' + soql);
 	}
 
 	/**

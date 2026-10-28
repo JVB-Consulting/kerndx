@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: BUSL-1.1 */
-.slds-timeline__item_expandable
+.step-item
 {
 	padding-bottom : 0.5rem;
 	padding-left   : 0.25rem;
 	position       : relative;
 }
 
-.slds-timeline__item_expandable::before
+.step-item::before
 {
 	background-color : var(--slds-g-color-border-base-1, #C9C9C9);
 	content          : "";
@@ -17,12 +17,12 @@
 	width            : 0.125rem;
 }
 
-.slds-timeline__item_last::before
+.step-item_last::before
 {
 	display : none;
 }
 
-.slds-timeline__icon
+.step-icon
 {
 	z-index : 1;
 }
@@ -94,14 +94,14 @@
 
 .popover-grid dt
 {
-	color       : var(--slds-g-color-on-inverse-1, #FFFFFF);
+	color       : var(--slds-g-color-on-surface-inverse-1, #FFFFFF);
 	font-size   : 0.6875rem;
 	font-weight : 700;
 }
 
 .popover-grid dd
 {
-	color      : var(--slds-g-color-on-inverse-1, #FFFFFF);
+	color      : var(--slds-g-color-on-surface-inverse-1, #FFFFFF);
 	font-size  : 0.6875rem;
 	word-break : break-word;
 }

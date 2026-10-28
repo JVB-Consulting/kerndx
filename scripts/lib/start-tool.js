@@ -11,14 +11,25 @@
 const {spawn, spawnSync} = require('child_process');
 
 /**
- * @description Quotes one argument for Command Prompt: only when it holds a space or a character the prompt would
- *              interpret; an inner double quote is escaped for the program that receives it.
+ * @description Quotes one argument for a .cmd tool started through Command Prompt, only when it is empty or holds a
+ *              space or a character the prompt would interpret. The quoting is for the program the .cmd file starts:
+ *              an inner double quote is escaped, and the backslashes before it or at the end are doubled. Then every
+ *              character the prompt interprets is escaped with a caret twice over, because the line is read twice,
+ *              once by `cmd /c` and once more when the .cmd file passes it on with %*, so neither reading can see a
+ *              quote, an `&` or a `%NAME%`.
  * @param {string} argument - One argument.
  * @returns {string} The argument as it goes on the command line.
  */
 function quoteForCommandPrompt(argument)
 {
-	return /[\s"&|<>^()]/.test(argument) ? `"${argument.replace(/"/g, '\\"')}"` : argument;
+	if(argument !== '' && !/[\s"&|<>^()%!]/.test(argument))
+	{
+		return argument;
+	}
+	// Two reads hold for a .cmd file that passes %* straight to its program, as npm's shims for sf, npm and npx do; a
+	// .cmd that hands %* to a second .cmd, or a tool that is an .exe, is read a different number of times.
+	const quoted = `"${argument.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\*)$/, '$1$1')}"`;
+	return quoted.replace(/[()%!^"<>&|]/g, '^$&').replace(/[()%!^"<>&|]/g, '^$&');
 }
 
 /**
@@ -36,7 +47,8 @@ function describeStart(tool, args, options)
 		return {command: tool, commandArguments: args, commandOptions: options};
 	}
 	const environment = options.env || process.env;
-	const commandLine = [tool, ...args].map(quoteForCommandPrompt).join(' ');
+	// The prompt reads the tool's own name once, so it takes plain quotes; only the arguments are read twice.
+	const commandLine = [/[\s()%!^<>&|]/.test(tool) ? `"${tool}"` : tool, ...args.map(quoteForCommandPrompt)].join(' ');
 	return {
 		command: environment.ComSpec || process.env.ComSpec || 'cmd.exe',
 		commandArguments: ['/d', '/s', '/c', `"${commandLine}"`],

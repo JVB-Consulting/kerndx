@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 'use strict';
 
-function build(adapterConfig, _branches)
+function build(adapterConfig)
 {
 	const compiled = adapterConfig.patterns.map(p => ({
 		re: new RegExp(p.match), action: p.action, label: p.label

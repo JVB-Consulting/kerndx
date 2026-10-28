@@ -21,7 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const preparePackageBuild = require('./prepare-package-build');
 const {getDevOrgAlias} = require('./dev-org-config');
-const {startToolStreaming} = require('./lib/start-tool');
+const {startTool, startToolStreaming} = require('./lib/start-tool');
 
 // ============================================================================
 // Configuration
@@ -84,24 +84,30 @@ function parseArgs()
 		extraArgs: []
 	};
 
-	for(let i = 0; i < args.length; i++)
+	let index = 0;
+	while(index < args.length)
 	{
-		switch(args[i])
+		const arg = args[index];
+		index++;
+		switch(arg)
 		{
 			case '--dev-org':
 			case '-o':
-				options.devOrg = args[++i];
+				options.devOrg = args[index];
+				index++;
 				break;
 			case '--wait':
 			case '-w':
-				options.wait = parseInt(args[++i], 10);
+				options.wait = parseInt(args[index], 10);
+				index++;
 				break;
 			case '--skip-validation':
 				options.skipValidation = true;
 				break;
 			case '--installation-key':
 			case '-k':
-				options.installationKey = args[++i];
+				options.installationKey = args[index];
+				index++;
 				break;
 			case '--dry-run':
 				options.dryRun = true;
@@ -114,14 +120,15 @@ function parseArgs()
 				break;
 			case '--package':
 			case '-p':
-				options.packageAlias = args[++i];
+				options.packageAlias = args[index];
+				index++;
 				break;
 			case '--help':
 			case '-h':
 				options.help = true;
 				break;
 			default:
-				options.extraArgs.push(args[i]);
+				options.extraArgs.push(arg);
 		}
 	}
 
@@ -251,6 +258,8 @@ function revertChanges(verbose)
 /**
  * @description Deploys custom metadata and LWC meta files to the dev org to ensure
  * the org reflects committed state rather than accidentally deployed build artifacts.
+ * sf is started without a shell, so an org alias with a space or a shell character
+ * arrives as one argument. Throws when sf cannot start or exits with a failure.
  * @param {boolean} verbose - Whether to show detailed output.
  */
 function resyncOrgMetadata(verbose)
@@ -271,11 +280,22 @@ function resyncOrgMetadata(verbose)
 		logInfo('Deploying committed metadata to org...');
 	}
 
-	execSync(`sf ${metadataArgs.join(' ')}`, {encoding: 'utf8', stdio: verbose ? 'inherit' : 'pipe'});
+	const result = startTool('sf', metadataArgs, {encoding: 'utf8', stdio: verbose ? 'inherit' : 'pipe'});
+	if(result.error)
+	{
+		throw result.error;
+	}
+	if(result.status !== 0)
+	{
+		const reason = result.status === null ? `was stopped by signal ${result.signal}` : `exited with code ${result.status}`;
+		const errorOutput = typeof result.stderr === 'string' ? result.stderr.trim() : '';
+		throw new Error(`sf project deploy start ${reason}${errorOutput ? `: ${errorOutput}` : ''}`);
+	}
 }
 
 /**
- * @description Executes a command and streams output in real-time.
+ * @description Executes a command and streams output in real-time. A command stopped by a
+ * signal has no exit code; it counts as a failure (code 1), never as a success.
  * @param {string} command - The command to execute.
  * @param {string[]} args - Command arguments.
  * @returns {Promise<{code: number, output: string}>} Exit code and captured output.
@@ -307,9 +327,13 @@ function runCommand(command, args)
 			output += text;
 		});
 
-		proc.on('close', (code) =>
+		proc.on('close', (code, signal) =>
 		{
-			resolve({code: code || 0, output});
+			if(code === null)
+			{
+				logError(`${command} was stopped by signal ${signal}`);
+			}
+			resolve({code: code ?? 1, output});
 		});
 
 		proc.on('error', (err) =>
@@ -382,7 +406,6 @@ async function main()
 
 	const totalSteps = options.dryRun ? 1 : 4;
 	let currentStep = 0;
-	let prefixesApplied = false;
 
 	// Check for uncommitted changes
 	try
@@ -402,17 +425,29 @@ async function main()
 	setupSignalHandlers(options.verbose, options.noResync);
 
 	// Step 1: Apply namespace prefixes
-	logStep(++currentStep, totalSteps, 'Applying namespace prefixes...');
+	currentStep++;
+	logStep(currentStep, totalSteps, 'Applying namespace prefixes...');
 
 	let prefixResult;
 	try
 	{
 		prefixResult = applyNamespacePrefixes(options);
-		prefixesApplied = true;
 	}
 	catch(error)
 	{
+		// The prefix pass edits force-app/ in place, so a failure part-way leaves it half-prefixed. Put the
+		// tree back before leaving: process.exit never reaches the top-level catch or the signal handlers.
 		logError(`Failed to apply namespace prefixes: ${error.message}`);
+		try
+		{
+			revertChanges(options.verbose);
+			logInfo('force-app/ reverted to the committed state');
+		}
+		catch(revertError)
+		{
+			logError(`Failed to revert changes: ${revertError.message}`);
+			logError('Manual revert required: git checkout -- force-app/');
+		}
 		process.exit(1);
 	}
 
@@ -430,18 +465,19 @@ async function main()
 	let buildFailed = false;
 	try
 	{
-		logStep(++currentStep, totalSteps, 'Creating package version...');
+		currentStep++;
+		logStep(currentStep, totalSteps, 'Creating package version...');
 		const buildResult = await createPackageVersion(options);
 		console.log('');
 
-		if(buildResult.code !== 0)
+		if(buildResult.code === 0)
 		{
-			logError('Package version creation failed');
-			buildFailed = true;
+			logSuccess('Package version created');
 		}
 		else
 		{
-			logSuccess('Package version created');
+			logError('Package version creation failed');
+			buildFailed = true;
 		}
 	}
 	catch(error)
@@ -456,18 +492,18 @@ async function main()
 	// Subscriber clones of the source release don't ship update-package-refs.js
 	// (it's a kern-maintainer-only tool that rewrites internal CHANGELOG +
 	// Installation.md), so skip the step quietly when the module isn't present.
-	if(!buildFailed)
+	if(buildFailed)
+	{
+		// Build failed; skip the step number to keep the displayed count honest.
+		currentStep++;
+	}
+	else
 	{
 		const updatePackageRefsPath = path.join(__dirname, 'update-package-refs.js');
-		if(!fs.existsSync(updatePackageRefsPath))
+		currentStep++;
+		logStep(currentStep, totalSteps, 'Updating doc references to new package version...');
+		if(fs.existsSync(updatePackageRefsPath))
 		{
-			logStep(++currentStep, totalSteps, 'Updating doc references to new package version...');
-			console.log('  (skipped — update-package-refs.js not present; this is a subscriber/release install)');
-			console.log('');
-		}
-		else
-		{
-			logStep(++currentStep, totalSteps, 'Updating doc references to new package version...');
 			try
 			{
 				const updatePackageRefs = require('./update-package-refs');
@@ -489,15 +525,16 @@ async function main()
 			}
 			console.log('');
 		}
-	}
-	else
-	{
-		// Build failed; skip the step number to keep the displayed count honest.
-		currentStep++;
+		else
+		{
+			console.log('  (skipped — update-package-refs.js not present; this is a subscriber/release install)');
+			console.log('');
+		}
 	}
 
 	// Step 4: Revert changes and resync org (always runs)
-	logStep(++currentStep, totalSteps, 'Reverting changes and resyncing org...');
+	currentStep++;
+	logStep(currentStep, totalSteps, 'Reverting changes and resyncing org...');
 
 	try
 	{

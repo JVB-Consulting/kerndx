@@ -10,6 +10,14 @@ pipeline package adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- The bundle's files are now in the same order on every machine (sorted by character code, not by the machine's language setting), so
+  two builds from the same files give the same SHA-256. A bundle rebuilt from an earlier release's files has a different SHA-256 from the
+  one that shipped; the files inside are the same.
+
 ## [v0.5.0] — 2026-10-12
 
 **Distribution:** `KernDX-1.8.0-11-pipeline.zip`. Ships as `pipeline-v0.5.0` with Kern 1.8.0-11.

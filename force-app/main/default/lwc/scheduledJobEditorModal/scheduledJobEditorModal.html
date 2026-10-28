@@ -35,7 +35,7 @@
 
 			<div class="slds-var-m-top_medium">
 				<h3 class="slds-text-heading_small slds-var-m-bottom_small">{scheduleHeading}</h3>
-				<c-cron-expression-editor oncronchange={handleCronChange} value={cronExpression}></c-cron-expression-editor>
+				<c-cron-expression-editor job-runner-mode={isJobRunnerMode} oncronchange={handleCronChange} value={cronExpression}></c-cron-expression-editor>
 			</div>
 
 			<template lwc:if={hasParameterDefinitions}>

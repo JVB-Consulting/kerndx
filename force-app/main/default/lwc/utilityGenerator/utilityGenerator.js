@@ -5,15 +5,16 @@
  *
  * @author Jason van Beukering
  *
- * @date June 2021, March 2026
+ * @date June 2021, October 2026
  */
 
 /**
- * @description Yields sequential integers starting from `start`. Stops at `max` when provided;
- * continues indefinitely when `max` is null.
+ * @description Yields sequential integers starting from `start`. Stops at `max` when `max` is a finite number,
+ * also one with a fraction: `counter(0, 3.5)` gives 0, 1, 2 and 3. Goes on without end when `max` is null,
+ * left out, not a number, or infinite.
  *
  * @param {number} [start=0] - First value in the sequence
- * @param {number|null} [max=null] - Upper bound (null for unbounded)
+ * @param {number|null} [max=null] - Upper bound (null for no bound)
  * @param {boolean} [inclusive=false] - When true, the `max` value itself is yielded
  * @yields {number} The next integer in the sequence
  * @returns {Generator<number, null, void>}
@@ -24,7 +25,7 @@
  */
 export function* counter(start = 0, max = null, inclusive = false)
 {
-	const hasLimit = Number.isInteger(max);
+	const hasLimit = Number.isFinite(max);
 	const withinBound = inclusive ? (current) => current <= max : (current) => current < max;
 
 	let current = start;

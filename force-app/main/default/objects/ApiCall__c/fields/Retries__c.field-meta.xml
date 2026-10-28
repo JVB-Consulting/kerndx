@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Retries__c</fullName>
     <defaultValue>0</defaultValue>
-    <description>The number of scheduled retry attempts for this web service call. Pre-incremented when a retry is scheduled (not when it executes), so a retry that has been scheduled but not yet run is reflected in the count. Maximum retries configured in the API Setting record.</description>
+    <description>Every retry of this call: the ones sent again at once in the same transaction and the ones scheduled for later, added up across runs. A scheduled retry is counted when it is scheduled. When the count reaches Max Retries the call is not retried again.</description>
     <externalId>false</externalId>
-    <inlineHelpText>Counts scheduled retries (incremented when a retry is scheduled, not when it runs). Maximum is configured in the API Setting record.</inlineHelpText>
+    <inlineHelpText>Every retry of this call: the ones sent again at once in the same transaction and the ones scheduled for later, added up across runs. A scheduled retry is counted when it is scheduled. When the count reaches Max Retries the call is not retried again.</inlineHelpText>
     <label>Retries</label>
     <precision>2</precision>
     <required>false</required>

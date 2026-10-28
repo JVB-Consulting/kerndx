@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for jsonViewer LWC component
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
 
 import {createElement} from 'lwc';
@@ -72,6 +72,15 @@ describe('c-json-viewer', () =>
 			const preElement = element.shadowRoot.querySelector('.renderedElement');
 			expect(preElement).toBeTruthy();
 			expect(preElement.tagName.toLowerCase()).toBe('pre');
+		});
+
+		it('shows nothing, not the word "undefined", when it is placed on the page with no JSON', async() =>
+		{
+			element = createElement('c-json-viewer', {is: LwcJSONViewer});
+			document.body.appendChild(element);
+			await Promise.resolve();
+
+			expect(element.shadowRoot.querySelector('.renderedElement').textContent).toBe('');
 		});
 
 		it('should render JSON content into pre element', async() =>

@@ -3,7 +3,7 @@
  * @description Constants and option arrays for the cron expression editor.
  *              All values constrained to what Salesforce System.schedule() accepts.
  *
- * @date March 2026, September 2026
+ * @date March 2026, October 2026
  */
 import FREQ_EVERY_N_MINUTES from '@salesforce/label/c.CronExpressionEditor_FreqEveryNMinutes';
 import FREQ_HOURLY from '@salesforce/label/c.CronExpressionEditor_FreqHourly';
@@ -60,8 +60,8 @@ const HOURS_IN_HALF_DAY = 12;
 
 export const HOURS_OPTIONS = Array.from({length: 24}, (_, index) =>
 {
-	let period = index < HOURS_IN_HALF_DAY ? 'AM' : 'PM';
-	let displayHour = index % HOURS_IN_HALF_DAY || HOURS_IN_HALF_DAY;
+	const period = index < HOURS_IN_HALF_DAY ? 'AM' : 'PM';
+	const displayHour = index % HOURS_IN_HALF_DAY || HOURS_IN_HALF_DAY;
 	return {label: `${displayHour}:00 ${period}`, value: String(index)};
 });
 
@@ -72,7 +72,7 @@ export const MINUTES_OPTIONS = Array.from({length: 60}, (_, index) =>
 
 export const DAY_OF_MONTH_OPTIONS = Array.from({length: 31}, (_, index) =>
 {
-	let day = index + 1;
+	const day = index + 1;
 	return {label: String(day), value: String(day)};
 });
 

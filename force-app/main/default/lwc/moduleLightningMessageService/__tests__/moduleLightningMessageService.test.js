@@ -4,7 +4,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, July 2026
+ * @date December 2025, October 2026
  */
 
 // Import from the shared mock
@@ -15,6 +15,8 @@ import {
 import initialiseLightningMessageModule, {
 	subscribeToMessageChannel, initialiseSubscriptionService, publishMessage, initialisePublishService
 } from 'c/moduleLightningMessageService';
+import BaseComponent from 'c/baseComponent';
+import {createElement} from 'lwc';
 
 describe('moduleLightningMessageService', () =>
 {
@@ -218,6 +220,22 @@ describe('moduleLightningMessageService', () =>
 				mockComponent.clearSubscriptions();
 
 				expect(mockComponent.clearActiveSubscriptions).toHaveBeenCalled();
+			});
+
+			it('unsubscribes each active subscription when the component is removed from the page', () =>
+			{
+				const element = createElement('c-base-component', {is: BaseComponent});
+				document.body.appendChild(element);
+				initialiseSubscriptionService(element);
+				element.addActiveSubscription({id: 'first'});
+				element.addActiveSubscription({id: 'second'});
+
+				document.body.removeChild(element);
+
+				expect(unsubscribe).toHaveBeenCalledTimes(2);
+				expect(unsubscribe).toHaveBeenCalledWith({id: 'first'});
+				expect(unsubscribe).toHaveBeenCalledWith({id: 'second'});
+				expect(element.activeSubscriptions).toEqual([]);
 			});
 
 			it('should return the number of remaining subscriptions', () =>

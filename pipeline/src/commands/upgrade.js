@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 'use strict';
 const fs = require('node:fs');
-const path = require('node:path');
 const pc = require('picocolors');
 const {runInit} = require('./init.js');
 const {loadConfig} = require('../lib/config-loader.js');

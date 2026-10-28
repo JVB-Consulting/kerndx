@@ -67,7 +67,8 @@ const BANNED_FORMS = [
 /**
  * @description Splits a guide into its fenced blocks, its prose lines and its headings, reading a fence's whole
  *              info string in lower case, so a lookalike language such as shell-session is seen whole and Shell
- *              reads as shell. Windows line endings read as Unix ones.
+ *              reads as shell. Windows line endings read as Unix ones. A fence that is never closed still makes a
+ *              block, which runs to the end of the guide and is marked unclosed, so the checks report it.
  * @param {string} content - The guide's markdown.
  * @returns {{lines: string[], blocks: object[], prose: object[], headings: object[]}} The parts, each line numbered from 1.
  */
@@ -106,6 +107,12 @@ function parseDocument(content)
 			continue;
 		}
 		open.body.push(line);
+	}
+	if(open !== null)
+	{
+		open.endLine = lines.length;
+		open.unclosed = true;
+		blocks.push(open);
 	}
 	return {lines, blocks, prose, headings};
 }
@@ -166,6 +173,10 @@ function checkBlocks(document, surface, allowList, issue)
 	document.blocks.forEach((block, index) =>
 	{
 		const language = block.language;
+		if(block.unclosed)
+		{
+			issue(block.startLine, 'step-shape/fence', 'this fence is never closed, so the rest of the guide reads as part of the block; close it with ```');
+		}
 		if(language === 'powershell')
 		{
 			issue(block.startLine, 'step-shape/powershell', 'PowerShell is tested, never promised: rewrite this block as a portable shell block, or as a Windows and macOS pair');

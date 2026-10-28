@@ -176,7 +176,7 @@ const SECRET_PATTERNS = [
 		id: 'salesforce-consumer-secret',
 		label: 'OAuth consumer/client secret assignment',
 		tier: 'advisory',
-		regex: /(?:consumer[_-]?secret|client[_-]?secret)\s*[:=]\s*(["']?)([A-Za-z0-9+/=_.\-]{16,})/gi
+		regex: /(?:consumer[_-]?secret|client[_-]?secret)\s*[:=]\s*(["']?)([A-Za-z0-9+/=_.-]{16,})/gi
 	},
 	{
 		id: 'sf-credential-env-assignment',
@@ -184,7 +184,7 @@ const SECRET_PATTERNS = [
 		tier: 'advisory', // Only genuinely secret-bearing env names — org alias / instance URL /
 		// username / id names (SF_ORG_ALIAS, SF_ORG_URL, SF_ORG_ID, …) are public
 		// metadata and are deliberately NOT listed.
-		regex: /\b(?:SFDX_AUTH_URL|SF_ACCESS_TOKEN|SFDX_ACCESS_TOKEN|SECURITY_TOKEN|SF_ORG_PASSWORD|SF_ORG_SECRET)\b\s*[:=]\s*(["']?)([A-Za-z0-9+/=_.\-]{12,})/g
+		regex: /\b(?:SFDX_AUTH_URL|SF_ACCESS_TOKEN|SFDX_ACCESS_TOKEN|SECURITY_TOKEN|SF_ORG_PASSWORD|SF_ORG_SECRET)\b\s*[:=]\s*(["']?)([A-Za-z0-9+/=_.-]{12,})/g
 	},
 	// ---- Tier 2: proximity-anchored (advisory; block in secret context) ----
 	{

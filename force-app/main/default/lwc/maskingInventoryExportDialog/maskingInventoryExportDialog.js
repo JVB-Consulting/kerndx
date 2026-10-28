@@ -17,7 +17,7 @@
  * per-object calls. Previewing changes nothing in the org.
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, October 2026
  */
 import {api} from 'lwc';
 import LightningModal from 'lightning/modal';
@@ -595,7 +595,6 @@ export default class MaskingInventoryExportDialog extends LightningModal
 				cursor += 1;
 				try
 				{
-					// eslint-disable-next-line no-await-in-loop -- deliberate pacing: sequential fetches report per-object progress without flooding Apex
 					const inventory = await getRegulatedFieldInventory({objectApiName: apiName});
 					(inventory?.rows || []).forEach((row) => rows.push({...row, objectApiName: inventory.objectApiName}));
 				}

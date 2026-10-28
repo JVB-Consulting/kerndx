@@ -9,8 +9,8 @@
 						<lightning-icon alternative-text="Error" icon-name="utility:error" size="small" variant="inverse"></lightning-icon>
 					</div>
 					<div class="slds-media__body">
-						<h2 class="slds-text-heading_small slds-text-color_inverse">{errorTitle}</h2>
-						<ul class="slds-list_dotted slds-var-m-top_x-small">
+						<h2 class="slds-text-heading_small slds-text-color_inverse error-text">{errorTitle}</h2>
+						<ul class="slds-list_dotted slds-var-m-top_x-small message-list">
 							<template for:each={displayErrors} for:item="error">
 								<li class={error.listItemClass} data-field-name={error.fieldName} key={error.key} onclick={handleErrorClick}>{error.message}</li>
 							</template>
@@ -29,7 +29,7 @@
 					</div>
 					<div class="slds-media__body">
 						<h2 class="slds-text-heading_small">{warningTitle}</h2>
-						<ul class="slds-list_dotted slds-var-m-top_x-small">
+						<ul class="slds-list_dotted slds-var-m-top_x-small message-list">
 							<template for:each={displayWarnings} for:item="warning">
 								<li class={warning.listItemClass} data-field-name={warning.fieldName} key={warning.key} onclick={handleErrorClick}>{warning.message}</li>
 							</template>

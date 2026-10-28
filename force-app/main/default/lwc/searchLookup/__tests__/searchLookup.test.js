@@ -7,7 +7,7 @@
  *              requirements, these tests verify module structure and static analysis.
  *
  * @author Jason van Beukering
- * @date December 2025, July 2026
+ * @date December 2025, October 2026
  */
 
 // Mock dependencies
@@ -287,6 +287,35 @@ describe('c-search-lookup', () =>
 				element.preselectedRecord = {Id: '001', Name: 'Same Id Different Name'};
 				// Preselected was already set with same Id, so it should not update
 				expect(element.preselectedRecord.Name).toBe('First');
+			});
+
+			it('renders the pill for a record a parent passes before the first render, and keeps the search box hidden', async() =>
+			{
+				// LWC sets public properties before the first render, so a parent that binds preselected-record at
+				// mount reaches the setter while the template has no input container yet.
+				const {createElement} = require('lwc');
+				const element = createElement('c-search-lookup', {is: LwcSearchLookup});
+				element.preselectedRecord = {Id: '001', Name: 'Acme'};
+				document.body.appendChild(element);
+				await Promise.resolve();
+
+				expect(element.preselectedRecord).toEqual({Id: '001', Name: 'Acme'});
+				expect(element.shadowRoot.querySelector('.pillDiv').classList.contains('slds-show')).toBe(true);
+				expect(element.shadowRoot.querySelector('.searchBoxWrapper').classList.contains('slds-hide')).toBe(true);
+				expect(element.shadowRoot.querySelector('.pillDiv input').value).toBe('Acme');
+			});
+
+			it('renders the search box when the record passed before the first render was cleared again before it', async() =>
+			{
+				const {createElement} = require('lwc');
+				const element = createElement('c-search-lookup', {is: LwcSearchLookup});
+				element.preselectedRecord = {Id: '001', Name: 'Acme'};
+				element.preselectedRecord = null;
+				document.body.appendChild(element);
+				await Promise.resolve();
+
+				expect(element.shadowRoot.querySelector('.pillDiv').classList.contains('slds-hide')).toBe(true);
+				expect(element.shadowRoot.querySelector('.searchBoxWrapper').classList.contains('slds-show')).toBe(true);
 			});
 		});
 

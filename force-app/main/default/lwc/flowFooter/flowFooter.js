@@ -10,7 +10,7 @@
  *
  * @author Jason van Beukering
  *
- * @date March 2026, July 2026
+ * @date March 2026, October 2026
  */
 import BACK_BUTTON from '@salesforce/label/c.FlowFooter_BackButton';
 import NEXT_BUTTON from '@salesforce/label/c.FlowFooter_NextButton';
@@ -114,9 +114,14 @@ export default class FlowFooter extends ComponentBuilder('lightning-message', 'f
 
 	// ── Lifecycle ────────────────────────────────────────────────────────
 
+	/**
+	 * @description Sets the starting state of the Next button and listens for navigation messages. A value the
+	 * parent already passed through `isNextButtonDisabled` before the footer was added to the page is kept;
+	 * `disableNext` only applies when no such value was passed.
+	 */
 	connectedCallback()
 	{
-		this.nextButtonDisabledState = this.disableNext;
+		this.nextButtonDisabledState ??= this.disableNext;
 		this.addMessageChannelSubscription(MC_NAV, (message) =>
 		{
 			if('disableNext' in message)
@@ -129,11 +134,12 @@ export default class FlowFooter extends ComponentBuilder('lightning-message', 'f
 	}
 
 	/**
-	 * @description Releases the Navigation message channel subscription so a footer removed
-	 * from the DOM no longer holds a live handler for page-session navigation messages.
+	 * @description Runs the base component's teardown first, then releases the Navigation message channel
+	 * subscription so a footer removed from the DOM no longer holds a live handler for page-session navigation messages.
 	 */
 	disconnectedCallback()
 	{
+		super.disconnectedCallback();
 		this.clearSubscriptions();
 	}
 

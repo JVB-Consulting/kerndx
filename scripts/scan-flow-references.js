@@ -34,7 +34,7 @@
  *   node scripts/scan-flow-references.js
  *   node scripts/scan-flow-references.js --org SomeOtherAlias
  *
- * Exits 0 on clean, 1 on any violation.
+ * Exits 0 on clean, 1 on any violation, 2 when --org has no alias after it.
  */
 
 'use strict';
@@ -59,14 +59,28 @@ const UPDATE_EVENTS = new Set([
 ]);
 const DEFAULT_ORG = getDevOrgAlias();
 
+/**
+ * @description Reads the command-line options. `--org` takes the org alias that follows it; a missing alias, or a
+ *              flag where the alias should be, is an error, so a scan never runs against the default org by mistake.
+ * @param {string[]} argv the arguments after the script path
+ * @return {{org: string}} the options
+ */
 function parseCliOptions(argv)
 {
 	const options = {org: DEFAULT_ORG};
-	for(let index = 0; index < argv.length; index++)
+	let index = 0;
+	while(index < argv.length)
 	{
-		if(argv[index] === '--org' && argv[index + 1])
+		const argument = argv[index];
+		index++;
+		if(argument === '--org')
 		{
-			options.org = argv[index + 1];
+			const value = argv[index];
+			if(!value || value.startsWith('--'))
+			{
+				throw new Error(`--org needs an org alias after it, for example --org ${DEFAULT_ORG}`);
+			}
+			options.org = value;
 			index++;
 		}
 	}
@@ -196,7 +210,8 @@ function runSoql(query, options)
 	{
 		const detail = (run.stderr || run.stdout || run.error?.message || `sf exited ${run.status}`).trim();
 		throw new Error(
-				`Failed to run 'sf data query' against org '${options.org}'. Verify 'sf' is on PATH, the org alias resolves, and the user is authenticated. Underlying error: ${detail}`);
+				`Failed to run 'sf data query' against org '${options.org}'. Verify 'sf' is on PATH, the org alias resolves, and the user is authenticated. `
+				+ `Underlying error: ${detail}`);
 	}
 	const stdout = run.stdout;
 	let parsed;
@@ -204,7 +219,7 @@ function runSoql(query, options)
 	{
 		parsed = JSON.parse(stdout);
 	}
-	catch(parseError)
+	catch
 	{
 		throw new Error(`SF CLI returned a response that was not valid JSON for query: ${query}\nResponse: ${stdout}`);
 	}
@@ -225,7 +240,9 @@ function runProbeSentinel(options, deps)
 	{
 		return {
 			ok: false,
-			message: 'Scanner cannot see any flows in the dev org. Either (a) the running user is missing the \'Manage Flow\' user permission (assign it via the Kern Administrator permset, a sysadmin profile, or a custom permset that grants Manage Flow), or (b) the dev org has no flows deployed. Re-run after granting permissions or deploying flows.'
+			message: 'Scanner cannot see any flows in the dev org. Either (a) the running user is missing the \'Manage Flow\' user permission '
+				+ '(assign it via the Kern Administrator permset, a sysadmin profile, or a custom permset that grants Manage Flow), '
+				+ 'or (b) the dev org has no flows deployed. Re-run after granting permissions or deploying flows.'
 		};
 	}
 	return {ok: true};
@@ -271,21 +288,23 @@ function validateVariableContract(record, flow, version, sobjectType)
 	if(!recordVariable)
 	{
 		errors.push(
-				`TriggerAction '${record.cmdtName}': flow '${record.flowName}' is missing required variable 'record: ${sobjectType}' (in/out). Either fix the flow declaration or correct the CMDT row's FlowName__c.`);
+				`TriggerAction '${record.cmdtName}': flow '${record.flowName}' is missing required variable 'record: ${sobjectType}' (in/out). `
+				+ `Either fix the flow declaration or correct the CMDT row's FlowName__c.`);
 		return errors;
 	}
 	const recordType = recordVariable.objectType || recordVariable.dataType;
 	if(recordVariable.dataType !== 'SObject' || recordVariable.objectType !== sobjectType)
 	{
 		errors.push(
-				`TriggerAction '${record.cmdtName}': flow '${record.flowName}' variable 'record' has type '${recordVariable.dataType}/${recordType}' but TriggerSetting requires '${sobjectType}'.`);
+				`TriggerAction '${record.cmdtName}': flow '${record.flowName}' variable 'record' has type '${recordVariable.dataType}/${recordType}' `
+				+ `but TriggerSetting requires '${sobjectType}'.`);
 		return errors;
 	}
 	if(!recordVariable.isInput || !recordVariable.isOutput)
 	{
 		errors.push(
-				`TriggerAction '${record.cmdtName}': flow '${record.flowName}' variable 'record' must be both input and output (isInput=true, isOutput=true). Found isInput=${Boolean(
-						recordVariable.isInput)}, isOutput=${Boolean(recordVariable.isOutput)}.`);
+				`TriggerAction '${record.cmdtName}': flow '${record.flowName}' variable 'record' must be both input and output (isInput=true, isOutput=true). `
+				+ `Found isInput=${Boolean(recordVariable.isInput)}, isOutput=${Boolean(recordVariable.isOutput)}.`);
 	}
 	if(UPDATE_EVENTS.has(record.event))
 	{
@@ -293,7 +312,8 @@ function validateVariableContract(record, flow, version, sobjectType)
 		if(!priorVariable || priorVariable.dataType !== 'SObject' || priorVariable.objectType !== sobjectType || !priorVariable.isInput)
 		{
 			errors.push(
-					`TriggerAction '${record.cmdtName}': flow '${record.flowName}' is missing required variable 'recordPrior: ${sobjectType}' (input). Update-context flow actions must accept the prior record snapshot.`);
+					`TriggerAction '${record.cmdtName}': flow '${record.flowName}' is missing required variable 'recordPrior: ${sobjectType}' (input). `
+					+ 'Update-context flow actions must accept the prior record snapshot.');
 		}
 	}
 	return errors;
@@ -338,7 +358,8 @@ function scan(options, deps)
 		if(sobjectType && sobjectType.endsWith('ChangeEvent') && record.failureAction === 'BlockDml')
 		{
 			errors.push(
-					`TriggerAction '${record.cmdtName}': flow '${record.flowName}' targets a Change Event entity, where BlockDml is not supported (a committed change cannot be rolled back). Set FailureAction__c to LogAndContinue.`);
+					`TriggerAction '${record.cmdtName}': flow '${record.flowName}' targets a Change Event entity, where BlockDml is not supported `
+					+ '(a committed change cannot be rolled back). Set FailureAction__c to LogAndContinue.');
 			continue;
 		}
 		const flow = flowsByName[record.flowName];
@@ -359,7 +380,8 @@ function scan(options, deps)
 		if(!sobjectType)
 		{
 			errors.push(
-					`TriggerAction '${record.cmdtName}': cannot resolve TriggerSetting '${record.triggerSetting}' to an SObjectType. Verify the TriggerSetting CMDT record exists and declares SObjectType__c or ObjectApiNameOverride__c.`);
+					`TriggerAction '${record.cmdtName}': cannot resolve TriggerSetting '${record.triggerSetting}' to an SObjectType. `
+					+ 'Verify the TriggerSetting CMDT record exists and declares SObjectType__c or ObjectApiNameOverride__c.');
 			continue;
 		}
 		activeFlowsNeedingMetadata.push({record, flow, sobjectType});
@@ -381,7 +403,8 @@ function scan(options, deps)
 		if(!version)
 		{
 			errors.push(
-					`TriggerAction '${record.cmdtName}': could not load metadata for flow '${record.flowName}' (active version ${flow.ActiveVersionId}). The Tooling API returned no rows; verify the CI user has Manage Flow.`);
+					`TriggerAction '${record.cmdtName}': could not load metadata for flow '${record.flowName}' (active version ${flow.ActiveVersionId}). `
+					+ 'The Tooling API returned no rows; verify the CI user has Manage Flow.');
 			continue;
 		}
 		errors.push(...validateVariableContract(record, flow, version, sobjectType));
@@ -391,7 +414,16 @@ function scan(options, deps)
 
 function main()
 {
-	const options = parseCliOptions(process.argv.slice(2));
+	let options;
+	try
+	{
+		options = parseCliOptions(process.argv.slice(2));
+	}
+	catch(error)
+	{
+		console.error(`✗ ${error.message}`);
+		process.exit(2);
+	}
 	const result = scan(options);
 	if(result.ok)
 	{
@@ -404,7 +436,8 @@ function main()
 		console.error(`  - ${message}`);
 	}
 	console.error(
-			'\nEvery TriggerAction__mdt row with FlowName__c populated must point at an active flow that declares the required variable contract. This protects subscribers from runtime System.UnexpectedException errors that abort the entire trigger transaction.');
+			'\nEvery TriggerAction__mdt row with FlowName__c populated must point at an active flow that declares the required variable contract. '
+			+ 'This protects subscribers from runtime System.UnexpectedException errors that abort the entire trigger transaction.');
 	process.exit(1);
 }
 

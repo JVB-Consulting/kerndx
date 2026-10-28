@@ -19,6 +19,8 @@
  *    - Database.queryWithBinds(
  *    - Database.getQueryLocator(
  *    - Database.countQuery(
+ *    - Database.getQueryLocatorWithBinds(
+ *    - Database.countQueryWithBinds(
  *    - Search.query(
  *    - Search.find(
  *    …must include `AccessLevel` inside the argument list (either literal
@@ -74,6 +76,10 @@ const RAW_QUERY_PATTERNS = [
 	{re: /Database\.queryWithBinds\s*\(/g, kind: 'Database.queryWithBinds'},
 	{re: /Database\.getQueryLocator\s*\(/g, kind: 'Database.getQueryLocator'},
 	{re: /Database\.countQuery\s*\(/g, kind: 'Database.countQuery'},
+	{re: /Database\.getQueryLocatorWithBinds\s*\(/g, kind: 'Database.getQueryLocatorWithBinds'},
+	{re: /Database\.countQueryWithBinds\s*\(/g, kind: 'Database.countQueryWithBinds'},
+	{re: /Database\.getCursor\s*\(/g, kind: 'Database.getCursor'},
+	{re: /Database\.getCursorWithBinds\s*\(/g, kind: 'Database.getCursorWithBinds'},
 	{re: /Search\.query\s*\(/g, kind: 'Search.query'},
 	{re: /Search\.find\s*\(/g, kind: 'Search.find'}
 ];
@@ -82,10 +88,14 @@ const ACCESS_LEVEL_ARG_PATTERN = /\bAccessLevel\b/;
 
 function stripCommentsAndStrings(source)
 {
-	return source
-	.replace(/\/\*[\s\S]*?\*\//g, (match) => ' '.repeat(match.length))
-	.replace(/\/\/[^\n]*/g, (match) => ' '.repeat(match.length))
-	.replace(/'(?:\\.|[^'\\])*'/g, (match) => '\'' + ' '.repeat(match.length - 2) + '\'');
+	return source.replace(/'(?:\\.|[^'\\\n])*'|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (match) =>
+	{
+		if(match.startsWith('\''))
+		{
+			return '\'' + ' '.repeat(match.length - 2) + '\'';
+		}
+		return match.replace(/[^\n]/g, ' ');
+	});
 }
 
 function findLineNumber(source, charIndex)

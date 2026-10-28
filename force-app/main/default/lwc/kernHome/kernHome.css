@@ -20,7 +20,7 @@
 }
 
 /* Flex-item margins never collapse: zero this so the header/body gap stays at lightning-card's 12 px instead of stacking to 24. */
-.tool-card .slds-card__body
+.tool-card .tool-card-content
 {
 	display        : flex;
 	flex           : 1 1 auto;

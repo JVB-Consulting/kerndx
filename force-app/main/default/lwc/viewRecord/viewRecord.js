@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  */
 import getFieldSetByDeveloperName from '@salesforce/apex/CTRL_FieldSet.findByDeveloperName';
 import getDefaultActiveSectionsField from '@salesforce/apex/CTRL_FieldSet.getDefaultActiveSectionsField';
@@ -17,8 +17,9 @@ import {api, wire} from 'lwc';
 
 /**
  * @description Splits a comma-separated field value from a metadata record into a
- * trimmed string array. Returns an empty array when the descriptor is falsy or the
- * field value is blank.
+ * trimmed string array. Spaces around each name are removed and empty entries are
+ * dropped, so 'Section_A, Section_B' gives two names. Returns an empty array when the
+ * descriptor is falsy or the field value is blank.
  * @param {Object} fieldSetGroup - The metadata record containing field values
  * @param {Object} fieldDescriptor - Descriptor with `fieldApiName` pointing to the field
  * @returns {string[]} Array of trimmed values
@@ -26,7 +27,7 @@ import {api, wire} from 'lwc';
 function extractCommaSeparated(fieldSetGroup, fieldDescriptor)
 {
 	const fieldValue = fieldDescriptor ? fieldSetGroup[fieldDescriptor.fieldApiName] : null;
-	return fieldValue ? fieldValue.split(',') : [];
+	return fieldValue ? fieldValue.split(',').map(entry => entry.trim()).filter(entry => entry.length > 0) : [];
 }
 
 export default class ViewRecord extends ComponentBuilder('controller')

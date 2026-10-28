@@ -93,6 +93,11 @@ private class CTRL_HealthCheck_TEST
 	private static final Integer FIFTEEN_MINUTES = 15;
 
 	/**
+	 * @description The number of minutes in an hour: the job runner places one record at each check interval inside it.
+	 */
+	private static final Integer MINUTES_PER_HOUR = 60;
+
+	/**
 	 * @description A check interval of thirty minutes, which costs two of the org's scheduled-job slots.
 	 */
 	private static final Integer THIRTY_MINUTES = 30;
@@ -171,6 +176,31 @@ private class CTRL_HealthCheck_TEST
 	private static final Integer ONE_JOB_LEFT_WAITING = 1;
 
 	/**
+	 * @description The label of a ticked API Setting that sorts first by label. It is added second, so the row must sort.
+	 */
+	private static final String FIRST_TICKED_SETTING_LABEL = 'Alpha Mocked Service';
+
+	/**
+	 * @description The label of a ticked API Setting that sorts second by label. It is added first.
+	 */
+	private static final String SECOND_TICKED_SETTING_LABEL = 'Bravo Mocked Service';
+
+	/**
+	 * @description How the selected API mocking row joins the labels of the ticked settings in its detail.
+	 */
+	private static final String SETTING_LABEL_SEPARATOR = ', ';
+
+	/**
+	 * @description The display priority of the selected API mocking row: just after the job-runner capacity row.
+	 */
+	private static final Integer SELECTED_API_MOCKING_PRIORITY = 53;
+
+	/**
+	 * @description The position of the selected API mocking row in the results: the twelfth and last row.
+	 */
+	private static final Integer SELECTED_API_MOCKING_POSITION = 11;
+
+	/**
 	 * @description Users for the job-runner tests: an administrator who holds Kern Job Runner Management, one who holds the
 	 * framework's Administrator permission set on a standard profile and so reaches the framework's records without the
 	 * job-runner permission, exactly as a subscriber's Kern administrator does, and an inactive user who stands in for an
@@ -197,7 +227,7 @@ private class CTRL_HealthCheck_TEST
 	{
 		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
 
-		Assert.areEqual(11, results.size(), 'Expected eleven health check results');
+		Assert.areEqual(12, results.size(), 'Expected twelve health check results');
 	}
 
 	/**
@@ -1255,8 +1285,8 @@ private class CTRL_HealthCheck_TEST
 
 	/**
 	 * @description Verifies scheduleChainWatchdog creates one active watchdog ScheduledJob__c carrying
-	 * the chosen cron, the running user's timezone, and the recommended parameters serialized as
-	 * name-value text. The AsyncApexJob mock is seeded empty so an ambient watchdog schedule in the org
+	 * the chosen cron, the running user's timezone, a description of what it checks, and the recommended
+	 * parameters serialized as name-value text. The AsyncApexJob mock is seeded empty so an ambient watchdog schedule in the org
 	 * (platform job rows are visible to tests) can never trip the skip guard, and the ScheduledJob__c
 	 * trigger is bypassed so the insert does not System.schedule for real, mirroring the retention
 	 * apply tests.
@@ -1278,6 +1308,8 @@ private class CTRL_HealthCheck_TEST
 		Assert.areEqual(CUSTOM_WATCHDOG_CRON, createdJob.CronExpression__c, 'the chosen cron wins over the hourly default');
 		Assert.isTrue(createdJob.IsActive__c, 'the job is created active');
 		Assert.areEqual(UserInfo.getTimeZone().getID(), createdJob.Timezone__c, 'the timezone defaults to the running user so the cron fires at the intended local time');
+		Assert.areEqual(String.format(System.Label.HealthCheck_ChainWatchdog_JobDescription, new List<Object> {RECOMMENDED_STALE_THRESHOLD_MINUTES}),
+				createdJob.Description__c, 'Expected the description to say what the watchdog looks for and the stale threshold it uses');
 
 		DTO_NameValues parameters = (DTO_NameValues)new DTO_NameValues().deserialize(createdJob.Parameters__c);
 		Assert.areEqual(RECOMMENDED_STALE_THRESHOLD_MINUTES, parameters.get(SCHED_ChainWatchdog.PARAMETER_STALE_THRESHOLD_MINUTES), 'the parameters carry the stale threshold');
@@ -1458,6 +1490,7 @@ private class CTRL_HealthCheck_TEST
 	 * Keying the chain purge on CompletedAt__c is what makes it safe: Stalled and Running rows
 	 * carry a null CompletedAt__c until a terminal path (the code that marks a chain Completed,
 	 * Failed or Aborted) stamps it, so the purge can never delete a chain that has not finished.
+	 * Each job's description names the records it deletes and their age in days, and the chain job's also names the date field.
 	 */
 	@IsTest
 	private static void shouldKeyAsyncChainPurgeOnCompletedAtDateField()
@@ -1472,21 +1505,35 @@ private class CTRL_HealthCheck_TEST
 
 		String chainObjectName = UTIL_SObjectDescribe.getObjectNameFromType(AsyncChainExecution__c.SObjectType);
 		String completedAtFieldName = UTIL_SObjectDescribe.getCachedFieldName(AsyncChainExecution__c.CompletedAt__c);
+		String completedAtFieldLabel = UTIL_SObjectDescribe.getCachedFieldDescribe(AsyncChainExecution__c.CompletedAt__c).getLabel();
+		Map<String, CTRL_HealthCheck.DTO_RetentionProposal> proposalByObjectName = new Map<String, CTRL_HealthCheck.DTO_RetentionProposal>();
+		for(CTRL_HealthCheck.DTO_RetentionProposal proposal : proposals)
+		{
+			proposalByObjectName.put(proposal.objectApiName, proposal);
+		}
 		Integer chainJobCount = 0;
 		List<ScheduledJob__c> createdJobs = new SEL_ScheduledJob().findById(new Set<Id>(insertedIds));
 		for(ScheduledJob__c job : createdJobs)
 		{
 			DTO_NameValues parameters = (DTO_NameValues)new DTO_NameValues().deserialize(job.Parameters__c);
+			CTRL_HealthCheck.DTO_RetentionProposal proposal = proposalByObjectName.get(parameters.get(SCHED_PurgeRecords.REQUIRED_PARAMETER_OBJECT_NAME));
+			String objectPluralLabel = UTIL_SObjectDescribe.getDescribe(proposal.objectApiName).getDescribe().getLabelPlural();
+			String retentionDays = String.valueOf(proposal.retentionDays);
 			if(chainObjectName.equals(parameters.get(SCHED_PurgeRecords.REQUIRED_PARAMETER_OBJECT_NAME)))
 			{
 				chainJobCount++;
 				Assert.areEqual(completedAtFieldName, parameters.get(SCHED_PurgeRecords.OPTIONAL_PARAMETER_DATE_FIELD_NAME),
 						'The async-chain purge job must key on CompletedAt__c so non-terminal chains are never purged');
+				Assert.areEqual(String.format(System.Label.HealthCheck_DataRetention_JobDescriptionWithDateField,
+						new List<Object> {objectPluralLabel, completedAtFieldLabel, retentionDays}), job.Description__c,
+						'Expected the chain purge description to name the object, the date field and the age in days');
 			}
 			else
 			{
 				Assert.isNull(parameters.get(SCHED_PurgeRecords.OPTIONAL_PARAMETER_DATE_FIELD_NAME),
 						'Insert-once framework objects keep the CreatedDate default');
+				Assert.areEqual(String.format(System.Label.HealthCheck_DataRetention_JobDescription, new List<Object> {objectPluralLabel, retentionDays}),
+						job.Description__c, 'Expected the purge description to name the object and the age in days');
 			}
 		}
 		Assert.areEqual(1, chainJobCount, 'Exactly one proposal targets AsyncChainExecution__c');
@@ -2135,7 +2182,8 @@ private class CTRL_HealthCheck_TEST
 	 * @description Verifies Activate creates one runner record per minute mark, each naming the runner's own schedulable,
 	 * active, in its own mode and owning a scheduled job of its own, in the activator's time zone, and that the status it
 	 * answers names the activator and the slot cost. Also checks two more things the action must do: the trigger's
-	 * Health Check allowance is put back afterwards, and the runner-management lock's setting row exists.
+	 * Health Check allowance is put back afterwards, and the runner-management lock's setting row exists. Each record's
+	 * description says which minute of the hour it runs at.
 	 */
 	@IsTest
 	private static void activateCreatesOneRunnerRecordPerMinuteMarkOwnedByTheActivator()
@@ -2156,6 +2204,12 @@ private class CTRL_HealthCheck_TEST
 			Assert.isNotNull(lockRow, 'Activate took the runner-management lock, which creates the setting row, read before any job the action scheduled could run');
 			List<ScheduledJob__c> runners = new SEL_ScheduledJob().findRunnerRecords();
 			Assert.areEqual(4, runners.size(), 'four runner records');
+			Map<String, String> expectedDescriptionByName = new Map<String, String>();
+			for(Integer mark = 0; mark < MINUTES_PER_HOUR; mark += FIFTEEN_MINUTES)
+			{
+				String name = String.format(System.Label.HealthCheck_JobRunnerRecordName, new List<Object> {String.valueOf(mark).leftPad(2, '0')});
+				expectedDescriptionByName.put(name, String.format(System.Label.HealthCheck_JobRunnerRecordDescription, new List<Object> {String.valueOf(mark)}));
+			}
 			Set<String> names = new Set<String>();
 			for(ScheduledJob__c runner : runners)
 			{
@@ -2165,6 +2219,8 @@ private class CTRL_HealthCheck_TEST
 				Assert.isNotNull(runner.ScheduledJobId__c, 'each owns a scheduled job');
 				Assert.isFalse(UTIL_ScheduledJobRunner.isJobRunnerMode(runner), 'each is in its own mode');
 				Assert.areEqual(UserInfo.getTimeZone().getID(), runner.Timezone__c, 'each carries the activator time zone so no minute shift applies');
+				Assert.areEqual(expectedDescriptionByName.get(runner.SchedulerName__c), runner.Description__c,
+						'Expected each runner record to describe itself as a regular check at its own minute of the hour');
 			}
 			Assert.areEqual(new Set<String> {'Job runner :00', 'Job runner :15', 'Job runner :30', 'Job runner :45'},
 					names, 'named by minute mark');
@@ -2542,6 +2598,192 @@ private class CTRL_HealthCheck_TEST
 			}
 		}
 		return activatedAt;
+	}
+
+	/**
+	 * @description Verifies that the selected API mocking row is the last row and passes when no active API Setting has
+	 * Mocking Enabled ticked and both flags that mock every service are off for the viewer. The settings read finds no
+	 * records, so the org's own settings cannot change the answer. The row has no action button, because the page would
+	 * open the wrong dialog for it.
+	 */
+	@IsTest
+	private static void shouldPassSelectedApiMockingWhenNoSettingHasMockingEnabled()
+	{
+		registerMockingFlags(false, false, false);
+		TST_Mock.registerNext(ApiSetting__mdt.SObjectType, new List<SObject>());
+
+		CTRL_HealthCheck.DTO_HealthCheckResult mocking = CTRL_HealthCheck.runHealthChecks()[SELECTED_API_MOCKING_POSITION];
+
+		Assert.areEqual(System.Label.HealthCheck_SelectedApiMocking_CheckName, mocking.name, 'Expected the selected API mocking row last');
+		Assert.areEqual(SELECTED_API_MOCKING_PRIORITY, mocking.priority, 'Expected the row to sort just after the job-runner capacity row');
+		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, mocking.status, 'Expected a pass when no setting is ticked and no mock-all flag is on');
+		Assert.areEqual(System.Label.HealthCheck_SelectedApiMocking_NoneTicked, mocking.detail, 'Expected the detail to say no setting is ticked');
+		Assert.isNull(mocking.actionLabel, 'Expected no action button on the row');
+	}
+
+	/**
+	 * @description Verifies that the row warns, and names the ticked settings in label order, when the Mock Selected APIs
+	 * flag is off for the viewer: for the viewer those services call the real system. The flag is registered as off, so
+	 * the flag record deployed in the org cannot change the answer.
+	 */
+	@IsTest
+	private static void shouldWarnThatTickedServicesCallTheRealSystemWhenTheFlagIsOffForTheViewer()
+	{
+		registerMockingFlags(false, false, false);
+		registerTickedSettings();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult mocking = runSelectedApiMockingCheck();
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, mocking.status, 'Expected a warning when a setting is ticked');
+		Assert.areEqual(String.format(System.Label.HealthCheck_SelectedApiMocking_FlagOffForYou, new List<Object> {joinTickedSettingLabels()}),
+				mocking.detail, 'Expected the flag-off sentence with both labels in label order, got ' + mocking.detail);
+		Assert.isNull(mocking.actionLabel, 'Expected no action button on the row');
+	}
+
+	/**
+	 * @description Verifies that the row warns, and names the ticked settings in label order, when the Mock Selected APIs
+	 * flag is on for the viewer: for the viewer those services answer from mock data.
+	 */
+	@IsTest
+	private static void shouldWarnThatTickedServicesAnswerMockDataWhenTheFlagIsOnForTheViewer()
+	{
+		registerMockingFlags(true, false, false);
+		registerTickedSettings();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult mocking = runSelectedApiMockingCheck();
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, mocking.status, 'Expected a warning when a setting is ticked');
+		Assert.areEqual(String.format(System.Label.HealthCheck_SelectedApiMocking_FlagOnForYou, new List<Object> {joinTickedSettingLabels()}),
+				mocking.detail, 'Expected the flag-on sentence with both labels in label order, got ' + mocking.detail);
+		Assert.isNull(mocking.actionLabel, 'Expected no action button on the row');
+	}
+
+	/**
+	 * @description Verifies that the row warns when the Mock All APIs flag is on for the viewer, even with no setting
+	 * ticked: for the viewer every outgoing service answers from mock data.
+	 */
+	@IsTest
+	private static void shouldWarnThatEveryOutgoingServiceAnswersMockDataWhenMockAllApisIsOnForTheViewer()
+	{
+		registerMockingFlags(false, true, false);
+		TST_Mock.registerNext(ApiSetting__mdt.SObjectType, new List<SObject>());
+
+		CTRL_HealthCheck.DTO_HealthCheckResult mocking = runSelectedApiMockingCheck();
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, mocking.status, 'Expected a warning when Mock All APIs is on for the viewer');
+		Assert.areEqual(System.Label.HealthCheck_SelectedApiMocking_MockAllApisOnForYou, mocking.detail,
+				'Expected only the Mock All APIs sentence, got ' + mocking.detail);
+		Assert.isNull(mocking.actionLabel, 'Expected no action button on the row');
+	}
+
+	/**
+	 * @description Verifies that the row warns when the Mock All Inbound APIs flag is on for the viewer, even with no
+	 * setting ticked: every incoming service answers mock data to requests signed in as the viewer.
+	 */
+	@IsTest
+	private static void shouldWarnThatEveryIncomingServiceAnswersMockDataWhenMockAllInboundApisIsOnForTheViewer()
+	{
+		registerMockingFlags(false, false, true);
+		TST_Mock.registerNext(ApiSetting__mdt.SObjectType, new List<SObject>());
+
+		CTRL_HealthCheck.DTO_HealthCheckResult mocking = runSelectedApiMockingCheck();
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, mocking.status, 'Expected a warning when Mock All Inbound APIs is on for the viewer');
+		Assert.areEqual(System.Label.HealthCheck_SelectedApiMocking_MockAllInboundApisOnForYou, mocking.detail,
+				'Expected only the Mock All Inbound APIs sentence, got ' + mocking.detail);
+		Assert.isNull(mocking.actionLabel, 'Expected no action button on the row');
+	}
+
+	/**
+	 * @description Verifies that, with settings ticked and Mock Selected APIs off for the viewer, the row does not say the
+	 * services call the real system when Mock All APIs is on for the viewer. It says the box alone does not mock them, then
+	 * adds the Mock All APIs sentence.
+	 */
+	@IsTest
+	private static void shouldSayTheBoxDoesNotMockTickedServicesWhenOnlyMockAllApisIsOnForTheViewer()
+	{
+		registerMockingFlags(false, true, false);
+		registerTickedSettings();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult mocking = runSelectedApiMockingCheck();
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, mocking.status, 'Expected a warning when a setting is ticked');
+		Assert.areEqual(String.format(System.Label.HealthCheck_SelectedApiMocking_FlagOffForYouWithMockAll, new List<Object> {joinTickedSettingLabels()})
+				+ UTIL_String.SPACE + System.Label.HealthCheck_SelectedApiMocking_MockAllApisOnForYou,
+				mocking.detail, 'Expected the box sentence then the Mock All APIs sentence, got ' + mocking.detail);
+		Assert.isNull(mocking.actionLabel, 'Expected no action button on the row');
+	}
+
+	/**
+	 * @description Verifies that, with settings ticked and Mock Selected APIs off for the viewer, the detail lists the box
+	 * sentence, the Mock All APIs sentence and the Mock All Inbound APIs sentence in that order, joined by a space.
+	 */
+	@IsTest
+	private static void shouldListEverySentenceInOrderWhenBothMockAllFlagsAreOnForTheViewer()
+	{
+		registerMockingFlags(false, true, true);
+		registerTickedSettings();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult mocking = runSelectedApiMockingCheck();
+
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, mocking.status, 'Expected a warning when a setting is ticked');
+		Assert.areEqual(String.format(System.Label.HealthCheck_SelectedApiMocking_FlagOffForYouWithMockAll, new List<Object> {joinTickedSettingLabels()})
+				+ UTIL_String.SPACE + System.Label.HealthCheck_SelectedApiMocking_MockAllApisOnForYou
+				+ UTIL_String.SPACE + System.Label.HealthCheck_SelectedApiMocking_MockAllInboundApisOnForYou,
+				mocking.detail, 'Expected the three sentences in order, got ' + mocking.detail);
+		Assert.isNull(mocking.actionLabel, 'Expected no action button on the row');
+	}
+
+	/**
+	 * @description Registers the three mocking flags the selected API mocking row reads, each on or off for the user
+	 * running the test. Every flag is registered, so the flag records deployed in the org cannot change the answer.
+	 *
+	 * @param isMockSelectedApisOn Whether Mock Selected APIs is on.
+	 * @param isMockAllApisOn Whether Mock All APIs is on.
+	 * @param isMockAllInboundApisOn Whether Mock All Inbound APIs is on.
+	 */
+	private static void registerMockingFlags(Boolean isMockSelectedApisOn, Boolean isMockAllApisOn, Boolean isMockAllInboundApisOn)
+	{
+		TST_Factory.newFeatureFlag(API_Base.FLAG_MOCK_SELECTED_APIS, true, isMockSelectedApisOn);
+		TST_Factory.newFeatureFlag(API_Base.FLAG_MOCK_ALL_APIS, true, isMockAllApisOn);
+		TST_Factory.newFeatureFlag(API_Inbound.FLAG_MOCK_ALL_INBOUND_APIS, true, isMockAllInboundApisOn);
+	}
+
+	/**
+	 * @description Registers two active API Settings with Mocking Enabled ticked, the second label first, so only a
+	 * sorted read names them in label order.
+	 */
+	private static void registerTickedSettings()
+	{
+		String className = CTRL_HealthCheck_TEST.class.getName();
+		TST_Factory.newOutboundApiSetting(className, new Map<SObjectField, Object>
+		{
+				ApiSetting__mdt.MasterLabel => SECOND_TICKED_SETTING_LABEL, ApiSetting__mdt.MockingEnabled__c => true
+		});
+		TST_Factory.newOutboundApiSetting(className, new Map<SObjectField, Object>
+		{
+				ApiSetting__mdt.MasterLabel => FIRST_TICKED_SETTING_LABEL, ApiSetting__mdt.MockingEnabled__c => true
+		});
+	}
+
+	/**
+	 * @description The labels of the two ticked settings as the row writes them: in label order, joined by a comma.
+	 *
+	 * @return The joined labels.
+	 */
+	private static String joinTickedSettingLabels()
+	{
+		return FIRST_TICKED_SETTING_LABEL + SETTING_LABEL_SEPARATOR + SECOND_TICKED_SETTING_LABEL;
+	}
+
+	/**
+	 * @description Runs every health check and returns the selected API mocking row.
+	 *
+	 * @return The selected API mocking row.
+	 */
+	private static CTRL_HealthCheck.DTO_HealthCheckResult runSelectedApiMockingCheck()
+	{
+		return resultNamed(CTRL_HealthCheck.runHealthChecks(), System.Label.HealthCheck_SelectedApiMocking_CheckName);
 	}
 
 	/**

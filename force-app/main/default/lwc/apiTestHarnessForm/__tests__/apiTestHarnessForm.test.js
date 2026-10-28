@@ -7,6 +7,7 @@
 
 import {createElement} from 'lwc';
 import ApiTestHarnessForm from 'c/apiTestHarnessForm';
+import {mockCallControllerMethod, mockNavigate, mockShowErrorToast, mockShowSuccessToast, mockShowWarningToast} from 'c/componentBuilder';
 import getServices from '@salesforce/apex/CTRL_ApiTestHarness.getServices';
 import describeService from '@salesforce/apex/CTRL_ApiTestHarness.describeService';
 import invokeOutbound from '@salesforce/apex/CTRL_ApiTestHarness.invokeOutbound';
@@ -14,12 +15,6 @@ import invokeInbound from '@salesforce/apex/CTRL_ApiTestHarness.invokeInbound';
 
 const EMPTY_DESCRIPTION = {inputs: [], requiresTriggeringRecord: false};
 const DEFAULT_ROUTING = {services: [], description: EMPTY_DESCRIPTION, result: null, describeRejects: false};
-
-const mockCallControllerMethod = jest.fn();
-const mockShowSuccessToast = jest.fn();
-const mockShowWarningToast = jest.fn();
-const mockShowErrorToast = jest.fn();
-const mockNavigate = jest.fn();
 
 /**
  * Returns the parsed request payload from the most recent call to the given Apex method.
@@ -41,44 +36,6 @@ jest.mock('@salesforce/apex/CTRL_ApiTestHarness.getServices', () => ({default: j
 jest.mock('@salesforce/apex/CTRL_ApiTestHarness.describeService', () => ({default: jest.fn()}), {virtual: true});
 jest.mock('@salesforce/apex/CTRL_ApiTestHarness.invokeOutbound', () => ({default: jest.fn()}), {virtual: true});
 jest.mock('@salesforce/apex/CTRL_ApiTestHarness.invokeInbound', () => ({default: jest.fn()}), {virtual: true});
-
-jest.mock('c/componentBuilder', () => ({
-	ComponentBuilder: jest.fn().mockImplementation(() =>
-	{
-		const {LightningElement} = require('lwc');
-		return class extends LightningElement
-		{
-			callControllerMethod(...args)
-			{
-				return mockCallControllerMethod(...args);
-			}
-
-			showSuccessToast(...args)
-			{
-				mockShowSuccessToast(...args);
-			}
-
-			showErrorToast(...args)
-			{
-				mockShowErrorToast(...args);
-			}
-
-			showInfoToast()
-			{
-			}
-
-			showWarningToast(...args)
-			{
-				mockShowWarningToast(...args);
-			}
-
-			navigate(...args)
-			{
-				mockNavigate(...args);
-			}
-		};
-	})
-}), {virtual: true});
 
 jest.mock('c/jsonViewer', () =>
 {
@@ -1411,6 +1368,60 @@ describe('c-api-test-harness-form', () =>
 		expect(afterTimeout.iconName).toBe('utility:copy_to_clipboard');
 	});
 
+	it('clears the timer that resets the copied icon when the form is removed before it fires', async() =>
+	{
+		jest.useFakeTimers();
+		Object.assign(navigator, {clipboard: {writeText: jest.fn().mockResolvedValue(undefined)}});
+
+		const element = await selectServiceAndExecute({
+			isSuccess: true, executionTimeMs: 10, serviceName: 'API_Test', status: 'Completed'
+		});
+
+		element.shadowRoot.querySelector('[data-id="copySummary"]').click();
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(jest.getTimerCount()).toBe(1);
+
+		document.body.removeChild(element);
+
+		expect(jest.getTimerCount()).toBe(0);
+		jest.useRealTimers();
+	});
+
+	it('keeps the services of the direction chosen last when the list for an earlier direction arrives after it', async() =>
+	{
+		const outboundServices = [{label: 'Outbound service', value: 'API_Outbound'}];
+		const inboundServices = [{label: 'Inbound service', value: 'API_Inbound'}];
+		const element = await createComponent();
+		await Promise.resolve();
+
+		const resolveServicesByDirection = new Map();
+		mockCallControllerMethod.mockImplementation((method, parameters) =>
+		{
+			if(method === getServices)
+			{
+				return new Promise((resolve) =>
+				{
+					resolveServicesByDirection.set(parameters.direction, resolve);
+				});
+			}
+			return Promise.resolve(null);
+		});
+
+		const radioGroup = element.shadowRoot.querySelector('lightning-radio-group');
+		radioGroup.dispatchEvent(new CustomEvent('change', {detail: {value: 'Inbound'}}));
+		radioGroup.dispatchEvent(new CustomEvent('change', {detail: {value: 'Outbound'}}));
+
+		resolveServicesByDirection.get('Outbound')(outboundServices);
+		await Promise.resolve();
+		await Promise.resolve();
+		resolveServicesByDirection.get('Inbound')(inboundServices);
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(element.shadowRoot.querySelector('[data-testid="harness-service"]').options).toEqual(outboundServices);
+	});
+
 	const PWND_DESCRIPTION = {inputs: [{name: 'password', isRequired: true}], requiresTriggeringRecord: false};
 	const RECORD_DESCRIPTION = {inputs: [], requiresTriggeringRecord: true};
 	const VALID_RECORD_ID = '001000000000001AAA';
@@ -1744,21 +1755,21 @@ describe('c-api-test-harness-form', () =>
 
 	it('accents an aborted result and not a completed one', async() =>
 	{
-		let element = await selectServiceAndExecute({isSuccess: false, status: 'Aborted', executionTimeMs: 10, errorMessages: 'x'});
-		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_warning')).toBe(true);
+		const abortedElement = await selectServiceAndExecute({isSuccess: false, status: 'Aborted', executionTimeMs: 10, errorMessages: 'x'});
+		expect(abortedElement.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_warning')).toBe(true);
 
-		element = await selectServiceAndExecute({isSuccess: true, statusCode: 200, status: 'Completed', executionTimeMs: 10});
-		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_warning')).toBe(false);
-		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_error')).toBe(false);
+		const completedElement = await selectServiceAndExecute({isSuccess: true, statusCode: 200, status: 'Completed', executionTimeMs: 10});
+		expect(completedElement.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_warning')).toBe(false);
+		expect(completedElement.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_error')).toBe(false);
 	});
 
 	it('accents a failed result whether the failure carries a status code or not', async() =>
 	{
-		let element = await selectServiceAndExecute({isSuccess: false, status: 'Failed', executionTimeMs: 10, errorMessages: 'boom'});
-		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_error')).toBe(true);
+		const failedElement = await selectServiceAndExecute({isSuccess: false, status: 'Failed', executionTimeMs: 10, errorMessages: 'boom'});
+		expect(failedElement.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_error')).toBe(true);
 
-		element = await selectServiceAndExecute({isSuccess: true, statusCode: 503, status: 'Completed', executionTimeMs: 10});
-		expect(element.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_error')).toBe(true);
+		const serverErrorElement = await selectServiceAndExecute({isSuccess: true, statusCode: 503, status: 'Completed', executionTimeMs: 10});
+		expect(serverErrorElement.shadowRoot.querySelector('[data-testid="result-card"]').classList.contains('result-card_error')).toBe(true);
 	});
 
 	it('takes the screen-reader text of the always-rendered icons from Custom Labels', async() =>

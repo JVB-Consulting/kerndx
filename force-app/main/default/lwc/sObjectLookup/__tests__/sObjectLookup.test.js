@@ -8,16 +8,22 @@
  *              global slot so the fallback-stub function expression is evaluated.
  *
  * @author Jason van Beukering
- * @date December 2025, April 2026
+ * @date December 2025, October 2026
  */
 
 jest.mock('@salesforce/messageChannel/Component__c', () => ({
 	default: {}
 }), {virtual: true});
 
-jest.mock('lightning/uiObjectInfoApi', () => ({
-	getObjectInfo: jest.fn()
-}), {virtual: true});
+jest.mock('lightning/uiObjectInfoApi', () =>
+{
+	const {createTestWireAdapter} = require('@salesforce/sfdx-lwc-jest');
+	return {getObjectInfo: createTestWireAdapter(jest.fn())};
+}, {virtual: true});
+
+import {createApexTestWireAdapter} from '@salesforce/sfdx-lwc-jest';
+
+const DEFAULT_RECORD_ID = '001000000000123';
 
 describe('c-s-object-lookup', () =>
 {
@@ -25,7 +31,7 @@ describe('c-s-object-lookup', () =>
 
 	beforeAll(() =>
 	{
-		search = jest.fn();
+		search = createApexTestWireAdapter(jest.fn());
 		global.__lwcJestMock_search = search;
 	});
 
@@ -246,6 +252,18 @@ describe('c-s-object-lookup', () =>
 				expect(callGetter(context, 'icon')).toBe('standard:account');
 			});
 
+			it('icon never makes up a standard icon for a custom object while its object information is still loading', () =>
+			{
+				const context = createMockContext();
+				context.objectInfo = undefined;
+				context.objectApiName = 'Invoice__c';
+				context.iconName = null;
+				expect(callGetter(context, 'icon')).toBe('');
+
+				context.iconName = 'custom:custom51';
+				expect(callGetter(context, 'icon')).toBe('custom:custom51');
+			});
+
 			it('icon returns empty string instead of throwing while objectApiName is not yet provided', () =>
 			{
 				const context = createMockContext();
@@ -379,6 +397,24 @@ describe('c-s-object-lookup', () =>
 
 			expect(typeof LwcSObjectLookupFresh).toBe('function');
 			expect(typeof LwcSObjectLookupFresh.prototype.render).toBe('function');
+		});
+
+		it('shows the record pill when the parent sets the default record id before the first render', async() =>
+		{
+			const {createElement} = require('lwc');
+			const LwcSObjectLookup = require('c/sObjectLookup').default;
+			const element = createElement('c-s-object-lookup', {is: LwcSObjectLookup});
+			element.objectApiName = 'Account';
+			element.defaultRecordId = DEFAULT_RECORD_ID;
+			document.body.appendChild(element);
+			await Promise.resolve();
+
+			expect(search.getLastConfig().searchParameters.recordId).toBe(DEFAULT_RECORD_ID);
+
+			search.emit({Id: DEFAULT_RECORD_ID, Name: 'Acme'}, (config) => config.searchParameters && config.searchParameters.recordId === DEFAULT_RECORD_ID);
+			await Promise.resolve();
+
+			expect(element.shadowRoot.querySelector('.pillDiv').classList.contains('slds-show')).toBe(true);
 		});
 	});
 });

@@ -22,6 +22,8 @@ jest.mock('@salesforce/messageChannel/Component__c', () => ({
 }), {virtual: true});
 
 const DEBOUNCE_DELAY = 300;
+const DEFAULT_RECORD_ID = '001000000000123';
+const ENTER_KEY_CODE = 13;
 
 describe('c-base-lookup', () =>
 {
@@ -304,14 +306,6 @@ describe('c-base-lookup', () =>
 
 		describe('getters', () =>
 		{
-			it('defaultRecordId returns preselectedRecordId', () =>
-			{
-				const context = createMockContext();
-				context.preselectedRecordId = '001000000000001';
-				const result = callGetter(context, 'defaultRecordId');
-				expect(result).toBe('001000000000001');
-			});
-
 			it('fieldLabelClass returns required class when isRequired is true', () =>
 			{
 				const context = createMockContext();
@@ -494,20 +488,6 @@ describe('c-base-lookup', () =>
 
 		describe('setters', () =>
 		{
-			it('defaultRecordId sets preselectedRecordId', () =>
-			{
-				const context = createMockContext();
-				callSetter(context, 'defaultRecordId', '001000000000001');
-				expect(context.preselectedRecordId).toBe('001000000000001');
-			});
-
-			it('defaultRecordId sets null when value is falsy', () =>
-			{
-				const context = createMockContext();
-				callSetter(context, 'defaultRecordId', '');
-				expect(context.preselectedRecordId).toBe(null);
-			});
-
 			it('selectedRecord calls handleSelectRecordHelper when record is set', () =>
 			{
 				const context = createMockContext();
@@ -527,10 +507,29 @@ describe('c-base-lookup', () =>
 				context.dispatchSearchTermChangedEvent = jest.fn();
 				context.dispatchValueSelectEvent = jest.fn();
 				context.publishValueSelectMessage = jest.fn();
-				bindDescriptor(context, 'defaultRecordId');
+				context.preselectedRecordId = '001000000000001';
 				callSetter(context, 'selectedRecord', null);
+				expect(context.preselectedRecordId).toBeNull();
 				expect(context.clearLookupUI).toHaveBeenCalled();
 				expect(context.dispatchSearchTermChangedEvent).toHaveBeenCalled();
+			});
+
+			it('selectedRecord leaves no pill waiting to be shown when a record given before the first render is cleared again', () =>
+			{
+				const context = createMockContext();
+				context.template.querySelector = jest.fn(() => null);
+				bindDescriptor(context, 'lookupInputContainerClassList');
+				context.handleSelectRecordHelper = prototype.handleSelectRecordHelper.bind(context);
+				context.clearLookupUI = prototype.clearLookupUI.bind(context);
+				context.dispatchSearchTermChangedEvent = jest.fn();
+				context.dispatchValueSelectEvent = jest.fn();
+				context.publishValueSelectMessage = jest.fn();
+
+				callSetter(context, 'selectedRecord', {Id: '001'});
+				expect(context.isSelectionRenderPending).toBe(true);
+				callSetter(context, 'selectedRecord', null);
+
+				expect(context.isSelectionRenderPending).toBe(false);
 			});
 		});
 
@@ -592,7 +591,6 @@ describe('c-base-lookup', () =>
 				context.dispatchSearchTermChangedEvent = jest.fn();
 				context.dispatchValueSelectEvent = jest.fn();
 				context.publishValueSelectMessage = jest.fn();
-				bindDescriptor(context, 'defaultRecordId');
 				bindDescriptor(context, 'selectedRecord');
 				prototype.clearLookup.call(context);
 				expect(context.searchTerm).toBe('');
@@ -698,10 +696,44 @@ describe('c-base-lookup', () =>
 			it('handleSelectRecordHelper updates DOM elements', () =>
 			{
 				const context = createMockContext();
+				bindDescriptor(context, 'lookupInputContainerClassList');
 				prototype.handleSelectRecordHelper.call(context);
 				expect(context.template.querySelector).toHaveBeenCalledWith('.lookupInputContainer');
 				expect(context.template.querySelector).toHaveBeenCalledWith('.searchBoxWrapper');
 				expect(context.template.querySelector).toHaveBeenCalledWith('.pillDiv');
+				expect(context.isSelectionRenderPending).toBe(false);
+			});
+
+			it('handleSelectRecordHelper leaves the work to the first render when the template has no input container yet', () =>
+			{
+				const context = createMockContext();
+				context.template.querySelector = jest.fn(() => null);
+				bindDescriptor(context, 'lookupInputContainerClassList');
+				prototype.handleSelectRecordHelper.call(context);
+				expect(context.isSelectionRenderPending).toBe(true);
+				expect(context.template.querySelector).toHaveBeenCalledTimes(1);
+			});
+
+			it('renderedCallback shows the pill for a record selected before the first render, once', () =>
+			{
+				const context = createMockContext();
+				context.isSelectionRenderPending = true;
+				context.record = {Id: '001'};
+				context.handleSelectRecordHelper = jest.fn();
+				prototype.renderedCallback.call(context);
+				expect(context.handleSelectRecordHelper).toHaveBeenCalledTimes(1);
+			});
+
+			it('renderedCallback does nothing when no selection is pending, or the pending record was cleared again', () =>
+			{
+				const context = createMockContext();
+				context.handleSelectRecordHelper = jest.fn();
+				context.record = {Id: '001'};
+				prototype.renderedCallback.call(context);
+				context.isSelectionRenderPending = true;
+				context.record = null;
+				prototype.renderedCallback.call(context);
+				expect(context.handleSelectRecordHelper).not.toHaveBeenCalled();
 			});
 
 			it('handleKeyDown handles ESCAPE key', () =>
@@ -952,6 +984,23 @@ describe('c-base-lookup', () =>
 				const result = callGetter(context, 'filteredSearchResults');
 				expect(result).toHaveLength(1);
 				expect(result[0]).toBe(matchingRecord);
+			});
+
+			it('filteredSearchResults matches a number field by its digits instead of failing', () =>
+			{
+				const context = createMockContext();
+				const numberedRecord = {Id: '001', Name: 'Acme', AnnualRevenue: 4200};
+				context.searchResults = [
+					numberedRecord,
+					{Id: '002', Name: 'Beta', AnnualRevenue: null}
+				];
+				context.searchTerm = '42';
+				context.displayFields = [
+					'Name',
+					'AnnualRevenue'
+				];
+				const result = callGetter(context, 'filteredSearchResults');
+				expect(result).toEqual([numberedRecord]);
 			});
 
 			it('hasRecords reflects whether any option matches the search term', () =>
@@ -1279,6 +1328,7 @@ describe('c-base-lookup', () =>
 			it('chains the framework teardown when disconnecting', () =>
 			{
 				const parentPrototype = Object.getPrototypeOf(prototype);
+				const originalDisconnectedCallback = parentPrototype.disconnectedCallback;
 				const parentDisconnectedCallback = jest.fn();
 				parentPrototype.disconnectedCallback = parentDisconnectedCallback;
 				try
@@ -1289,7 +1339,7 @@ describe('c-base-lookup', () =>
 				}
 				finally
 				{
-					delete parentPrototype.disconnectedCallback;
+					parentPrototype.disconnectedCallback = originalDisconnectedCallback;
 				}
 			});
 		});
@@ -1371,6 +1421,31 @@ describe('c-base-lookup', () =>
 			element.searchOptions = null;
 
 			expect(element.searchOptions).toEqual([]);
+		});
+
+		it('takes a default record id from the parent before the first render and forgets it when the lookup is cleared', () =>
+		{
+			const {createElement} = require('lwc');
+			const LwcBaseLookup = require('c/baseLookup').default;
+			const element = createElement('c-base-lookup', {is: LwcBaseLookup});
+			element.defaultRecordId = DEFAULT_RECORD_ID;
+			document.body.appendChild(element);
+
+			expect(element.defaultRecordId).toBe(DEFAULT_RECORD_ID);
+
+			element.clearLookup();
+
+			expect(element.defaultRecordId).toBeNull();
+		});
+
+		it('stores null when the parent sets an empty default record id', () =>
+		{
+			const {createElement} = require('lwc');
+			const LwcBaseLookup = require('c/baseLookup').default;
+			const element = createElement('c-base-lookup', {is: LwcBaseLookup});
+			element.defaultRecordId = '';
+
+			expect(element.defaultRecordId).toBeNull();
 		});
 	});
 
@@ -1471,6 +1546,25 @@ describe('c-base-lookup', () =>
 			jest.advanceTimersByTime(DEBOUNCE_DELAY);
 
 			expect(searchTermChangedHandler).not.toHaveBeenCalled();
+		});
+
+		it('ignores Enter when no option is focused, so no value is selected or cleared', async() =>
+		{
+			const element = mountLookup();
+			element.searchOptions = [
+				{Id: '001', Name: 'Alpha'},
+				{Id: '002', Name: 'Beta'}
+			];
+			await Promise.resolve();
+			const valueSelectHandler = jest.fn();
+			element.addEventListener('valueselect', valueSelectHandler);
+
+			const enterKeyEvent = new CustomEvent('keydown');
+			Object.defineProperty(enterKeyEvent, 'keyCode', {value: ENTER_KEY_CODE});
+			element.shadowRoot.querySelector('lightning-input').dispatchEvent(enterKeyEvent);
+			await Promise.resolve();
+
+			expect(valueSelectHandler).not.toHaveBeenCalled();
 		});
 	});
 });

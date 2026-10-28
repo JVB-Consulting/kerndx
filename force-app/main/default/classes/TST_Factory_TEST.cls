@@ -10,7 +10,7 @@
  *
  * @date September 2025, October 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.KernNoStandardObjectInPackageTests')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.KernNoStandardObjectInPackageTests')
 @IsTest(seeAllData=false isParallel=false)
 private class TST_Factory_TEST
 {
@@ -347,6 +347,167 @@ private class TST_Factory_TEST
 						new SEL_PermissionSetAssignment().isAssigned(SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME, testUser.Id),
 						'The assignment saved after an ordinary record should exist'
 				);
+	}
+
+	/**
+	 * @description Tests that insertUserWithOneHiddenField saves a user who can read Foobar__c and every one of its
+	 * fields that can carry a field permission, except the one field that was left out. The user can also edit each
+	 * of those fields that a user can set: every field except a formula, an auto number and a field made of parts,
+	 * such as a geolocation field. The list of fields to check comes from the org's field definitions, which list
+	 * every field of the object whoever reads them. So the check does not depend on what the user who runs the tests
+	 * can see or edit. A read in user mode that names the left out field must fail. The test also proves the user has
+	 * no View All on the object: Foobar__c records are private, so a record the test owns must stay invisible to the
+	 * user. Later tests rely on this user to check that a read or a save keeps field permissions.
+	 *
+	 * @see TST_Factory.insertUserWithOneHiddenField
+	 */
+	@IsTest
+	private static void insertUserWithOneHiddenFieldShouldHideOnlyThatField()
+	{
+		User hiddenFieldUser = TST_Factory.insertUserWithOneHiddenField
+				(
+						SEL_Profile.PROFILE_STANDARD_USER,
+						new List<SObjectType> {Foobar__c.SObjectType},
+						new List<SObjectField> {ObjectPermissions.PermissionsRead, ObjectPermissions.PermissionsEdit},
+						Foobar__c.Email__c
+				);
+		TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Name, UTIL_Random.randomName()).build();
+		List<SObjectField> grantedFields = getFieldsThatCarryAFieldPermission(Foobar__c.SObjectType);
+		Assert.isTrue(grantedFields.contains(Foobar__c.Email__c), 'Expected the field definitions to list the hidden field Email__c');
+		grantedFields.remove(grantedFields.indexOf(Foobar__c.Email__c));
+		List<SObjectField> editableFields = new List<SObjectField>();
+
+		for(SObjectField grantedField : grantedFields)
+		{
+			DescribeFieldResult fieldDescribe = UTIL_SObjectDescribe.getCachedFieldDescribe(grantedField);
+
+			if(!fieldDescribe.isCalculated() && !fieldDescribe.isAutoNumber() && fieldDescribe.getType() != DisplayType.LOCATION)
+			{
+				editableFields.add(grantedField);
+			}
+		}
+
+		Assert.isTrue(editableFields.contains(Foobar__c.Text__c), 'Expected the field definitions to list Text__c as a field a user can set');
+
+		System.runAs(hiddenFieldUser)
+		{
+			Assert.isTrue(UTIL_SObjectDescribe.isObjectAccessible(Foobar__c.SObjectType), 'Expected the user to read Foobar__c');
+
+			for(SObjectField grantedField : grantedFields)
+			{
+				Assert.isTrue(UTIL_SObjectDescribe.isFieldAccessible(grantedField), 'Expected the user to read ' + grantedField);
+			}
+
+			for(SObjectField editableField : editableFields)
+			{
+				Assert.isTrue(editableField.getDescribe().isUpdateable(), 'Expected the user to edit ' + editableField);
+			}
+
+			Assert.isFalse(UTIL_SObjectDescribe.isFieldAccessible(Foobar__c.Email__c), 'Expected the user not to read the field that was left out');
+
+			List<SObject> visibleRecords = QRY_Builder.selectFrom(Foobar__c.SObjectType).addField(Foobar__c.Text__c).withUserMode().toList();
+			Assert.isTrue(visibleRecords.isEmpty(), 'Expected the record the test owns to stay hidden, as the user has no View All');
+
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).addField(Foobar__c.Email__c).withUserMode().toList();
+				Assert.fail('Expected a user mode read of the hidden field to fail');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, QueryException.class, 'Expected a query error for the hidden field, got ' + error.getTypeName());
+			}
+		}
+	}
+
+	/**
+	 * @description Lists the fields of an object that can carry a field permission, taken from the org's field
+	 * definitions. Field definitions list every field of the object whoever reads them. A field with no Apex token,
+	 * such as UserRecordAccessId, is skipped, and so are the parts of a compound field, such as the latitude of a
+	 * geolocation field.
+	 *
+	 * @param objectType The object whose fields to list
+	 *
+	 * @return The fields that can carry a field permission
+	 */
+	private static List<SObjectField> getFieldsThatCarryAFieldPermission(SObjectType objectType)
+	{
+		UTIL_SObjectDescribe objectDescribe = UTIL_SObjectDescribe.getDescribe(objectType);
+		List<SObjectField> fields = new List<SObjectField>();
+
+		for(FieldDefinition definition : new SEL_FieldDefinition().findByEntity(UTIL_SObjectDescribe.getObjectNameFromType(objectType)))
+		{
+			DescribeFieldResult fieldDescribe = UTIL_SObjectDescribe.getCachedFieldDescribe(objectDescribe.getField(definition.QualifiedApiName));
+
+			if(fieldDescribe?.isPermissionable() == true && fieldDescribe.getCompoundFieldName() == null)
+			{
+				fields.add(fieldDescribe.getSObjectField());
+			}
+		}
+
+		return fields;
+	}
+
+	/**
+	 * @description Tests that insertUserWithOneHiddenField also works on Account, a standard object. Account has
+	 * address fields made of parts (street, city and so on), which the permission rows must skip, and standard fields
+	 * that no user can edit, which get a row with edit on it that the platform accepts and that leaves the field read
+	 * only. The user is on the Minimum Access
+	 * profile, which gives no access to Account fields. The user can read a granted field and a part of the billing
+	 * address. A read in user mode that names them must run without throwing an error: user mode refuses a read of a
+	 * field the user cannot see. The user cannot read Phone, the field that was left out.
+	 *
+	 * @see TST_Factory.insertUserWithOneHiddenField
+	 */
+	@IsTest
+	private static void insertUserWithOneHiddenFieldShouldWorkOnAccount()
+	{
+		User hiddenFieldUser = TST_Factory.insertUserWithOneHiddenField
+				(
+						SEL_Profile.PROFILE_MINIMUM_ACCESS,
+						new List<SObjectType> {Account.SObjectType},
+						new List<SObjectField> {ObjectPermissions.PermissionsRead},
+						Account.Phone
+				);
+
+		System.runAs(hiddenFieldUser)
+		{
+			Assert.isTrue(UTIL_SObjectDescribe.isObjectAccessible(Account.SObjectType), 'Expected the user to read Account');
+			Assert.isTrue(UTIL_SObjectDescribe.isFieldAccessible(Account.AccountNumber), 'Expected the user to read a field the permission set grants');
+			Assert.isTrue(UTIL_SObjectDescribe.isFieldAccessible(Account.BillingCity), 'Expected the user to read a part of the billing address');
+			Assert.isFalse(UTIL_SObjectDescribe.isFieldAccessible(Account.Phone), 'Expected the user not to read the field that was left out');
+
+			QRY_Builder.selectFrom(Account.SObjectType).addField(Account.AccountNumber).addField(Account.BillingCity).withUserMode().toList();
+		}
+	}
+
+	/**
+	 * @description Tests that insertUserWithOneHiddenField refuses View All and Modify All. Either one would let the
+	 * user see every record, so a test built on this user could no longer check record sharing.
+	 *
+	 * @see TST_Factory.insertUserWithOneHiddenField
+	 */
+	@IsTest
+	private static void insertUserWithOneHiddenFieldShouldRefuseViewAllAndModifyAll()
+	{
+		for(SObjectField permission : new List<SObjectField> {ObjectPermissions.PermissionsViewAllRecords, ObjectPermissions.PermissionsModifyAllRecords})
+		{
+			try
+			{
+				TST_Factory.insertUserWithOneHiddenField
+						(
+								SEL_Profile.PROFILE_STANDARD_USER,
+								new List<SObjectType> {Foobar__c.SObjectType},
+								new List<SObjectField> {ObjectPermissions.PermissionsRead, permission},
+								Foobar__c.Email__c
+						);
+				Assert.fail('Expected the helper to refuse ' + permission);
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, IllegalArgumentException.class, 'Expected an argument error, got ' + error.getTypeName());
+			}
+		}
 	}
 
 	/**

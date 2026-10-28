@@ -4,9 +4,35 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
 import {counter, arrayGenerator} from 'c/utilityGenerator';
+
+/** @description The most values a test reads from a counter, so a counter that never stops fails the test instead of hanging it. */
+const MOST_VALUES_READ = 10;
+
+/** @description A max with a fraction, for a counter that leaves the max out. */
+const MAX_WITH_FRACTION = 3.5;
+
+/** @description A max with a fraction, for a counter that includes the max. */
+const INCLUDED_MAX_WITH_FRACTION = 2.5;
+
+/**
+ * @description Reads the values a generator gives, up to a fixed number.
+ * @param {Generator} generator - The generator to read.
+ * @returns {Array<*>} The values read, at most MOST_VALUES_READ of them.
+ */
+function readValues(generator)
+{
+	const values = [];
+	let step = generator.next();
+	while(!step.done && values.length < MOST_VALUES_READ)
+	{
+		values.push(step.value);
+		step = generator.next();
+	}
+	return values;
+}
 
 describe('counter', () =>
 {
@@ -105,14 +131,40 @@ describe('counter', () =>
 			expect(final.value).toBe(null);
 		});
 
-		it('should treat non-integer maxValue as no limit', () =>
+		it('stops below a max that has a fraction', () =>
 		{
-			const gen = counter(0, 3.5);
+			expect(readValues(counter(0, MAX_WITH_FRACTION))).toEqual([
+				0,
+				1,
+				2,
+				3
+			]);
+		});
+
+		it('stops below a max that has a fraction when the max is included', () =>
+		{
+			expect(readValues(counter(0, INCLUDED_MAX_WITH_FRACTION, true))).toEqual([
+				0,
+				1,
+				2
+			]);
+		});
+
+		it.each([
+			[
+				'not a number',
+				Number.NaN
+			],
+			[
+				'infinity',
+				Number.POSITIVE_INFINITY
+			]
+		])('counts without end when the max is %s', (maxKind, max) =>
+		{
+			const gen = counter(0, max);
 			expect(gen.next().value).toBe(0);
 			expect(gen.next().value).toBe(1);
-			expect(gen.next().value).toBe(2);
-			expect(gen.next().value).toBe(3);
-			expect(gen.next().value).toBe(4); // continues past 3.5
+			expect(gen.next().done).toBe(false);
 		});
 	});
 });

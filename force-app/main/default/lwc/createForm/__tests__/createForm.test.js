@@ -7,7 +7,7 @@
  *              these tests verify module structure, exports, and static analysis.
  *
  * @author Jason van Beukering
- * @date December 2025, July 2026
+ * @date December 2025, October 2026
  */
 
 // Custom Label mocks — values byte-equal the real CustomLabels entries so value
@@ -596,15 +596,16 @@ describe('c-create-form', () =>
 				context.recordDefaults = {
 					record: {fields: {}}, objectInfos: {Account: {}}
 				};
+				// A create form given a record id copies that record. The copy is a new record, so it carries no Id.
 				context.isUpdateMode = false;
-				context.recordId = null;
+				context.recordId = '001000000000001';
 				Object.defineProperty(context, 'objectName', {get: () => 'Account'});
 				const result = callGetter(context, 'recordInputForCreate');
 				expect(generateRecordInputForCreate).toHaveBeenCalled();
-				expect(result.fields.Id).toBeNull();
+				expect(result.fields).not.toHaveProperty('Id');
 			});
 
-			it('recordInputForCreate returns empty fields when recordDefaults is null', () =>
+			it('recordInputForCreate carries the record id on an edit form, so the update knows which record to change', () =>
 			{
 				const context = createMockContext();
 				context.recordDefaults = null;
@@ -612,7 +613,7 @@ describe('c-create-form', () =>
 				context.recordId = '001000000000001';
 				const result = callGetter(context, 'recordInputForCreate');
 				expect(result.fields).toBeDefined();
-				expect(result.fields.Id).toBeNull();
+				expect(result.fields.Id).toBe('001000000000001');
 			});
 
 			it('fieldApiNameList maps fields to field names', () =>
@@ -785,13 +786,16 @@ describe('c-create-form', () =>
 				expect(result).toBe(mockElement);
 			});
 
-			it('clearFormFields clears values of input fields', () =>
+			it('clearFormFields clears values of input fields and unticks checkboxes', () =>
 			{
 				const context = createMockContext();
 				const mockInput = {value: 'test'};
+				const mockCheckbox = {checked: true};
 				Object.defineProperty(context, 'inputFields', {get: () => [mockInput]});
+				Object.defineProperty(context, 'checkboxFields', {get: () => [mockCheckbox]});
 				prototype.clearFormFields.call(context);
 				expect(mockInput.value).toBe('');
+				expect(mockCheckbox.checked).toBe(false);
 			});
 
 			it('clearPicklistFields resets picklist values', () =>
@@ -848,10 +852,41 @@ describe('c-create-form', () =>
 				context.fields = [{fieldName: 'Name', fieldValue: 'Test'}];
 				context.formValueMap = {Industry: 'Tech'};
 				context.existingRecord = null;
+				context.displayFieldList = [];
 				Object.defineProperty(context, 'recordInputForCreate', {get: () => ({fields: {}})});
 				const result = prototype.generateRecord.call(context);
 				expect(result.fields.Name).toBe('Test');
 				expect(result.fields.Industry).toBe('Tech');
+			});
+
+			it('generateRecord leaves out Id on a create form even when the field list names Id', () =>
+			{
+				const context = createMockContext();
+				context.isUpdateMode = false;
+				context.fields = [
+					{fieldName: 'Name', fieldValue: 'Test'},
+					{fieldName: 'Id', fieldValue: '001000000000001AAA'}
+				];
+				context.formValueMap = {};
+				context.existingRecord = null;
+				context.displayFieldList = [];
+				Object.defineProperty(context, 'recordInputForCreate', {get: () => ({fields: {}})});
+				const result = prototype.generateRecord.call(context);
+				expect(result.fields.Name).toBe('Test');
+				expect('Id' in result.fields).toBe(false);
+			});
+
+			it('generateRecord keeps the Id of the record on an update form', () =>
+			{
+				const context = createMockContext();
+				context.isUpdateMode = true;
+				context.fields = [{fieldName: 'Name', fieldValue: 'Test'}];
+				context.formValueMap = {};
+				context.existingRecord = null;
+				context.displayFieldList = [];
+				Object.defineProperty(context, 'recordInputForCreate', {get: () => ({fields: {Id: '001000000000001AAA'}})});
+				const result = prototype.generateRecord.call(context);
+				expect(result.fields.Id).toBe('001000000000001AAA');
 			});
 
 			it('generateRecord uses existingRecord only when fieldValue is nullish', () =>
@@ -860,6 +895,7 @@ describe('c-create-form', () =>
 				context.fields = [{fieldName: 'Name'}];
 				context.formValueMap = {};
 				context.existingRecord = {Name: 'Existing Value'};
+				context.displayFieldList = [];
 				Object.defineProperty(context, 'recordInputForCreate', {get: () => ({fields: {}})});
 				const result = prototype.generateRecord.call(context);
 				expect(result.fields.Name).toBe('Existing Value');
@@ -954,6 +990,23 @@ describe('c-create-form', () =>
 				expect(context.fieldSetResult).toEqual([
 					{fieldLabel: 'Name', fieldAPIName: 'Name', fieldValue: '', isRequired: true}
 				]);
+			});
+
+			it('fetchFieldset leaves the field list empty, without an error, when the read returns nothing or lacks the object or the field set', () =>
+			{
+				const context = createMockContext();
+				context.fieldSetApiName = 'TestFieldSet';
+				Object.defineProperty(context, 'objectName', {get: () => 'Account'});
+				[
+					undefined,
+					{},
+					{Account: {}}
+				].forEach((answer) =>
+				{
+					context.handleWireResponse = jest.fn(() => answer);
+					prototype.fetchFieldset.call(context, {data: answer});
+					expect(context.fieldSetResult).toBeUndefined();
+				});
 			});
 
 			it('fetchFieldset does nothing when fieldSetApiName is not set', () =>
@@ -1688,9 +1741,32 @@ describe('c-create-form', () =>
 				});
 				const result = prototype.validateForm.call(context);
 				expect(result.isValid).toBe(true);
-				// errorMessage is always set when validator exists (to DEFAULT_VALIDATION_ERROR),
-				// so setCustomValidity is called with the message even when valid
-				expect(mockElement.setCustomValidity).toHaveBeenCalledWith('Validation Failed');
+				expect(mockElement.setCustomValidity).toHaveBeenCalledWith('');
+				expect(mockElement.setCustomValidity).not.toHaveBeenCalledWith('Validation Failed');
+			});
+
+			it('keeps a field with a passing validator valid when the form is checked a second time', () =>
+			{
+				const context = createMockContext();
+				const customValidity = {message: ''};
+				const inputElement = {
+					reportValidity: jest.fn(() => customValidity.message === ''), setCustomValidity: jest.fn((message) =>
+					{
+						customValidity.message = message;
+					})
+				};
+				context.generateRecord = jest.fn(() => ({fields: {Name: 'Valid'}}));
+				context.getInputElementByDataId = jest.fn(() => inputElement);
+				Object.defineProperty(context, 'displayFieldList', {
+					get: () => [{fieldName: 'Name', isRequired: false, validator: (value) => value.length > 0}]
+				});
+
+				const firstResult = prototype.validateForm.call(context);
+				const secondResult = prototype.validateForm.call(context);
+
+				expect(firstResult.isValid).toBe(true);
+				expect(secondResult.isValid).toBe(true);
+				expect(inputElement.reportValidity).toHaveBeenCalledTimes(2);
 			});
 
 			it('validates field with custom validator that fails', () =>
@@ -1773,10 +1849,30 @@ describe('c-create-form', () =>
 			{
 				const context = createMockContext();
 				context.formValueMap = {};
+				context.displayFieldList = [];
 				context.dispatchValueChangedEvent = jest.fn();
 				prototype.handleLookupValueSelect.call(context, {detail: {elementName: 'AccountId', selectedId: '001000000000001'}});
 				expect(context.formValueMap.AccountId).toBe('001000000000001');
 				expect(context.dispatchValueChangedEvent).toHaveBeenCalledTimes(1);
+			});
+
+			it('handleLookupValueSelect sends no valuechanged when the lookup only finishes loading the record the form gave it', () =>
+			{
+				const loadedAccountId = '001000000000001';
+				const otherAccountId = '001000000000002';
+				const context = createMockContext();
+				context.formValueMap = {};
+				context.displayFieldList = [{fieldName: 'AccountId', fieldValue: loadedAccountId}];
+				context.dispatchValueChangedEvent = jest.fn();
+
+				prototype.handleLookupValueSelect.call(context, {detail: {elementName: 'AccountId', selectedId: loadedAccountId}});
+				expect(context.dispatchValueChangedEvent).not.toHaveBeenCalled();
+
+				// The user clears the lookup, then picks another record. Both are changes.
+				prototype.handleLookupValueSelect.call(context, {detail: {elementName: 'AccountId', selectedId: undefined}});
+				prototype.handleLookupValueSelect.call(context, {detail: {elementName: 'AccountId', selectedId: otherAccountId}});
+				expect(context.dispatchValueChangedEvent).toHaveBeenCalledTimes(2);
+				expect(context.formValueMap.AccountId).toBe(otherAccountId);
 			});
 
 			it('dispatchCancelEvent dispatches a cancel CustomEvent', () =>
@@ -2039,7 +2135,7 @@ describe('c-create-form', () =>
 		it('uses existingRecord fallback when fieldValue is missing', () =>
 		{
 			const context = {
-				fields: [{fieldName: 'Phone', fieldValue: null}], formValueMap: {}, existingRecord: {Phone: '555-1212'}
+				displayFieldList: [], fields: [{fieldName: 'Phone', fieldValue: null}], formValueMap: {}, existingRecord: {Phone: '555-1212'}
 			};
 			Object.defineProperty(context, 'recordInputForCreate', {get: () => ({fields: {}})});
 			const result = prototype.generateRecord.call(context);
@@ -2049,7 +2145,7 @@ describe('c-create-form', () =>
 		it('uses EMPTY string when neither fieldValue nor existingRecord has the value', () =>
 		{
 			const context = {
-				fields: [{fieldName: 'Industry', fieldValue: null}], formValueMap: {}, existingRecord: {Industry: null}
+				displayFieldList: [], fields: [{fieldName: 'Industry', fieldValue: null}], formValueMap: {}, existingRecord: {Industry: null}
 			};
 			Object.defineProperty(context, 'recordInputForCreate', {get: () => ({fields: {}})});
 			const result = prototype.generateRecord.call(context);
@@ -2059,7 +2155,7 @@ describe('c-create-form', () =>
 		it('uses EMPTY string when existingRecord is null', () =>
 		{
 			const context = {
-				fields: [{fieldName: 'Industry', fieldValue: null}], formValueMap: {}, existingRecord: null
+				displayFieldList: [], fields: [{fieldName: 'Industry', fieldValue: null}], formValueMap: {}, existingRecord: null
 			};
 			Object.defineProperty(context, 'recordInputForCreate', {get: () => ({fields: {}})});
 			const result = prototype.generateRecord.call(context);
@@ -2080,7 +2176,7 @@ describe('c-create-form', () =>
 
 		const generateWith = (fields, existingRecord) =>
 		{
-			const context = {fields, formValueMap: {}, existingRecord};
+			const context = {fields, formValueMap: {}, existingRecord, displayFieldList: []};
 			Object.defineProperty(context, 'recordInputForCreate', {get: () => ({fields: {}})});
 			return prototype.generateRecord.call(context);
 		};
@@ -2113,6 +2209,245 @@ describe('c-create-form', () =>
 		{
 			const result = generateWith([{fieldName: 'IsActive'}], {IsActive: false});
 			expect(result.fields.IsActive).toBe(false);
+		});
+	});
+
+	describe('checkbox fields', () =>
+	{
+		const CHECKBOX_FIELD_NAME = 'IsActive';
+		const CHECKBOX_FIELD_LABEL = 'Active';
+
+		afterEach(() =>
+		{
+			while(document.body.firstChild)
+			{
+				document.body.removeChild(document.body.firstChild);
+			}
+		});
+
+		/*
+		 * The form only shows fields once the object information has loaded. A throwaway
+		 * subclass supplies the field list directly, so the test can render the template
+		 * without the wire adapters. The optional settings let a test give the form a create
+		 * default for the field (createDefaults), an existing record, as an edit form has
+		 * (existingRecord), a field type other than checkbox (fieldType), and edit mode
+		 * (isUpdateMode).
+		 */
+		const mountFormWithCheckbox = (isRequired, fieldValue = true, {createDefaults, existingRecord, fieldType, isUpdateMode = false} = {}) =>
+		{
+			const {createElement} = require('lwc');
+			const {default: LwcCreateForm, Field, BOOLEAN_FIELD_TYPE} = require('c/createForm');
+			const checkboxField = new Field();
+			checkboxField.fieldName = CHECKBOX_FIELD_NAME;
+			checkboxField.fieldLabel = CHECKBOX_FIELD_LABEL;
+			checkboxField.fieldType = fieldType ?? BOOLEAN_FIELD_TYPE;
+			checkboxField.fieldValue = fieldValue;
+			checkboxField.isRequired = isRequired;
+
+			class CheckboxCreateForm extends LwcCreateForm
+			{
+				connectedCallback()
+				{
+					super.connectedCallback();
+					if(existingRecord)
+					{
+						this.existingRecord = existingRecord;
+					}
+				}
+
+				get displayFieldList()
+				{
+					return [checkboxField];
+				}
+
+				get recordInputForCreate()
+				{
+					return createDefaults ? {fields: {...createDefaults}} : super.recordInputForCreate;
+				}
+			}
+
+			const element = createElement('c-create-form-checkbox', {is: CheckboxCreateForm});
+			element.fields = [{fieldName: CHECKBOX_FIELD_NAME}];
+			element.isUpdateMode = isUpdateMode;
+			document.body.appendChild(element);
+			return element;
+		};
+
+		it('shows a checkbox for a true or false field, ticked from the field value', async() =>
+		{
+			const element = mountFormWithCheckbox(true);
+			await Promise.resolve();
+
+			const checkbox = element.shadowRoot.querySelector(`lightning-input[data-id="${CHECKBOX_FIELD_NAME}"]`);
+			expect(checkbox).not.toBeNull();
+			expect(checkbox.type).toBe('checkbox');
+			expect(checkbox.checked).toBe(true);
+			expect(checkbox.label).toBe(CHECKBOX_FIELD_LABEL);
+			expect(checkbox.name).toBe(CHECKBOX_FIELD_NAME);
+			expect(checkbox.required).toBe(true);
+		});
+
+		it('saves the checked state in the form value when the user changes the checkbox', async() =>
+		{
+			const element = mountFormWithCheckbox(false);
+			await Promise.resolve();
+			const valueChangedHandler = jest.fn();
+			element.addEventListener('valuechanged', valueChangedHandler);
+
+			const checkbox = element.shadowRoot.querySelector(`lightning-input[data-id="${CHECKBOX_FIELD_NAME}"]`);
+			checkbox.dispatchEvent(new CustomEvent('change', {detail: {checked: false}}));
+
+			expect(valueChangedHandler).toHaveBeenCalledTimes(1);
+			expect(valueChangedHandler.mock.calls[0][0].detail.fields[CHECKBOX_FIELD_NAME]).toBe(false);
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe(false);
+		});
+
+		/*
+		 * A field set reports a checkbox as required only when the admin marks it Required in the
+		 * field set; the field's own definition never makes it required there. So an unticked
+		 * checkbox the admin left optional is a valid answer, and one the admin marked Required
+		 * must be ticked before the form is valid.
+		 */
+		const validateMountedCheckboxForm = async(isRequired) =>
+		{
+			const element = mountFormWithCheckbox(isRequired, false);
+			await Promise.resolve();
+			const checkbox = element.shadowRoot.querySelector(`lightning-input[data-id="${CHECKBOX_FIELD_NAME}"]`);
+			checkbox.dispatchEvent(new CustomEvent('change', {detail: {checked: false}}));
+			checkbox.reportValidity = jest.fn(() => true);
+			checkbox.setCustomValidity = jest.fn();
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe(false);
+			return {result: element.validateForm(), checkbox};
+		};
+
+		it('accepts an unticked checkbox that the field set leaves optional', async() =>
+		{
+			const {result, checkbox} = await validateMountedCheckboxForm(false);
+
+			expect(result.isValid).toBe(true);
+			expect(checkbox.setCustomValidity).toHaveBeenCalledWith('');
+		});
+
+		it('rejects an unticked checkbox that the field set marks required', async() =>
+		{
+			const {result, checkbox} = await validateMountedCheckboxForm(true);
+
+			expect(result.isValid).toBe(false);
+			expect(checkbox.setCustomValidity).toHaveBeenCalledWith(expect.stringMatching(/\S/));
+		});
+
+		/*
+		 * A checkbox the user never clicks must still be sent as true or false. Salesforce
+		 * refuses an empty string for a checkbox field, so the record would not save.
+		 */
+		it('sends false for an untouched checkbox on a create form that loaded no value', async() =>
+		{
+			const element = mountFormWithCheckbox(false, '');
+			await Promise.resolve();
+
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe(false);
+		});
+
+		it('sends false for an untouched checkbox whose loaded value is false', async() =>
+		{
+			const element = mountFormWithCheckbox(false, false);
+			await Promise.resolve();
+
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe(false);
+		});
+
+		/*
+		 * The form does not show Salesforce's create defaults, so an untouched field saves what the
+		 * form shows: a checkbox the form shows unticked saves false, and a blank text field stays
+		 * blank, even when the object gives the field a different default.
+		 */
+		it('sends what the form shows for an untouched checkbox, not a create default it never showed', async() =>
+		{
+			const element = mountFormWithCheckbox(false, '', {createDefaults: {[CHECKBOX_FIELD_NAME]: true}});
+			await Promise.resolve();
+
+			const checkbox = element.shadowRoot.querySelector(`lightning-input[data-id="${CHECKBOX_FIELD_NAME}"]`);
+			expect(checkbox.checked).toBeFalsy();
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe(false);
+		});
+
+		it('sends true for an untouched checkbox the form shows ticked', async() =>
+		{
+			const element = mountFormWithCheckbox(false, true);
+			await Promise.resolve();
+
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe(true);
+		});
+
+		it('leaves a blank field blank on a create form even when the object has a create default', async() =>
+		{
+			const {TEXT_FIELD_TYPE} = require('c/createForm');
+			const element = mountFormWithCheckbox(false, '', {fieldType: TEXT_FIELD_TYPE, createDefaults: {[CHECKBOX_FIELD_NAME]: 'Default text'}});
+			await Promise.resolve();
+
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe('');
+		});
+
+		it('sends the existing record value for an untouched checkbox on an edit form', async() =>
+		{
+			const element = mountFormWithCheckbox(false, '', {existingRecord: {[CHECKBOX_FIELD_NAME]: true}, isUpdateMode: true});
+			await Promise.resolve();
+
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe(true);
+		});
+
+		it('leaves a blank field blank on an edit form even when the object has a create default', async() =>
+		{
+			const {TEXT_FIELD_TYPE} = require('c/createForm');
+			const element = mountFormWithCheckbox(false, '', {
+				fieldType: TEXT_FIELD_TYPE, isUpdateMode: true, existingRecord: {}, createDefaults: {[CHECKBOX_FIELD_NAME]: 'Default text'}
+			});
+			await Promise.resolve();
+
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe('');
+		});
+
+		it('sends no Id key when a create form that was given a record id to copy is saved', async() =>
+		{
+			const {createRecord} = require('lightning/uiRecordApi');
+			createRecord.mockClear();
+			createRecord.mockResolvedValueOnce({id: '001000000000002'});
+			const element = mountFormWithCheckbox(false, true);
+			element.recordId = '001000000000001';
+			element.isSaveMode = true;
+			element.callControllerMethod = (controllerMethod, parameters) => controllerMethod(parameters);
+			await Promise.resolve();
+
+			element.shadowRoot.querySelector(`lightning-input[data-id="${CHECKBOX_FIELD_NAME}"]`).reportValidity = () => true;
+			const saveButton = [...element.shadowRoot.querySelectorAll('lightning-button')].find(button => button.label === 'Save');
+			saveButton.click();
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			expect(createRecord).toHaveBeenCalledTimes(1);
+			expect(createRecord.mock.calls[0][0].fields).not.toHaveProperty('Id');
+		});
+
+		it('takes the tick off a ticked checkbox when the form is cleared', async() =>
+		{
+			const element = mountFormWithCheckbox(false, true);
+			await Promise.resolve();
+			const checkbox = element.shadowRoot.querySelector(`lightning-input[data-id="${CHECKBOX_FIELD_NAME}"]`);
+			expect(checkbox.checked).toBe(true);
+
+			element.clearForm();
+
+			expect(checkbox.checked).toBe(false);
+		});
+
+		it('sends true when the user ticks a checkbox that loaded as false', async() =>
+		{
+			const element = mountFormWithCheckbox(false, false);
+			await Promise.resolve();
+
+			const checkbox = element.shadowRoot.querySelector(`lightning-input[data-id="${CHECKBOX_FIELD_NAME}"]`);
+			checkbox.dispatchEvent(new CustomEvent('change', {detail: {checked: true}}));
+
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe(true);
 		});
 	});
 });

@@ -9,7 +9,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, August 2026
+ * @date December 2025, October 2026
  *
  * @group Logging
  *
@@ -215,7 +215,7 @@ function flush()
 	persistLogs({entriesJson: JSON.stringify(snapshot)})
 	.catch((persistError) =>
 	{
-		console.error('[utilityLogger] Server persistence failed:', persistError); // eslint-disable-line kerndx/no-console-log -- module-scoped flush(); no `this` binding for consoleError()
+		console.error('[utilityLogger] Server persistence failed:', persistError);
 		console.group('[utilityLogger] Buffered entries:');
 		for(const entry of snapshot)
 		{

@@ -840,7 +840,7 @@ describe('c-cron-expression-editor', () =>
 					advancedYear: ''
 				});
 				context.showWarningToast = jest.fn();
-				prototype.handleModeChange.call(context, {detail: {value: 'preset'}});
+				prototype.handleModeChange.call(context, {detail: {value: 'preset'}, target: {value: 'preset'}});
 				expect(context.showWarningToast).toHaveBeenCalledTimes(1);
 				expect(context.dispatchEvent).not.toHaveBeenCalled();
 				await Promise.resolve();
@@ -1179,14 +1179,16 @@ describe('c-cron-expression-editor', () =>
 			expect(getter.call(context)).toContain('Step value must be at least 1');
 		});
 
-		it('handleModeChange bounces mode through null on rejected preset switch', async() =>
+		it('handleModeChange keeps the mode and moves the mode buttons back on a rejected preset switch', async() =>
 		{
 			let context = createValidationContext({
 				advancedSeconds: '0', advancedMinutes: '0', advancedHours: '17', advancedDayOfMonth: 'LW', advancedMonth: '*', advancedDayOfWeek: '?', advancedYear: ''
 			});
 			context.showWarningToast = jest.fn();
-			prototype.handleModeChange.call(context, {detail: {value: 'preset'}});
-			expect(context.mode).toBeNull();
+			let modeButtons = {value: 'preset'};
+			prototype.handleModeChange.call(context, {detail: {value: 'preset'}, target: modeButtons});
+			expect(context.mode).toBe('advanced');
+			expect(modeButtons.value).toBe('advanced');
 			await Promise.resolve();
 			expect(context.mode).toBe('advanced');
 		});
@@ -1436,6 +1438,30 @@ describe('c-cron-expression-editor', () =>
 			expect(radioGroup).toBeTruthy();
 		});
 
+		it('keeps showing the advanced expression while it refuses a switch to preset', async() =>
+		{
+			const ADVANCED_ONLY_EXPRESSION = '0 0 17 LW * ?';
+			const CronExpressionEditor = require('c/cronExpressionEditor').default;
+			let element = createElement('c-cron-expression-editor', {is: CronExpressionEditor});
+			element.value = ADVANCED_ONLY_EXPRESSION;
+			document.body.appendChild(element);
+			await Promise.resolve();
+
+			let modeButtons = element.shadowRoot.querySelector('[data-testid="cron-mode"]');
+			modeButtons.value = 'preset';
+			modeButtons.dispatchEvent(new CustomEvent('change', {detail: {value: 'preset'}}));
+
+			// Every render in between must still show the advanced fields and the same expression.
+			await Promise.resolve();
+			expect(element.shadowRoot.querySelector('.expression').textContent).toBe(ADVANCED_ONLY_EXPRESSION);
+			expect(element.shadowRoot.querySelector('lightning-input[data-testid="cron-custom-input"]')).toBeNull();
+			expect(modeButtons.value).toBe('advanced');
+			await Promise.resolve();
+			expect(element.shadowRoot.querySelector('.expression').textContent).toBe(ADVANCED_ONLY_EXPRESSION);
+			// The six advanced fields (minutes, hours, day of month, month, day of week and year) are still on the page.
+			expect(element.shadowRoot.querySelectorAll('lightning-input')).toHaveLength(6);
+		});
+
 		it('sets value and parses to correct mode', async() =>
 		{
 			const CronExpressionEditor = require('c/cronExpressionEditor').default;
@@ -1482,6 +1508,58 @@ describe('c-cron-expression-editor', () =>
 			let minutesInput = [...element.shadowRoot.querySelectorAll('lightning-input')].find((field) => field.name === 'minutes');
 			expect(minutesInput.value).toBe('*/15');
 			expect(element.cronExpression).toBe('0 */15 * * * ?');
+		});
+
+		it('sends cronchange with the new validity when the runner flag changes', async() =>
+		{
+			const RUNNER_ONLY_EXPRESSION = '0 */15 * * * ?';
+			const CronExpressionEditor = require('c/cronExpressionEditor').default;
+			let element = createElement('c-cron-expression-editor', {is: CronExpressionEditor});
+			element.jobRunnerMode = true;
+			element.value = RUNNER_ONLY_EXPRESSION;
+			let changeEvents = [];
+			element.addEventListener('cronchange', (event) => changeEvents.push(event.detail));
+			document.body.appendChild(element);
+
+			await Promise.resolve();
+
+			expect(changeEvents).toEqual([{value: RUNNER_ONLY_EXPRESSION, isValid: true}]);
+
+			element.jobRunnerMode = false;
+			await Promise.resolve();
+
+			expect(changeEvents).toHaveLength(2);
+			expect(changeEvents[1]).toEqual({value: RUNNER_ONLY_EXPRESSION, isValid: false});
+
+			element.jobRunnerMode = false;
+			await Promise.resolve();
+
+			expect(changeEvents).toHaveLength(2);
+
+			element.jobRunnerMode = true;
+			await Promise.resolve();
+
+			expect(changeEvents).toHaveLength(3);
+			expect(changeEvents[2]).toEqual({value: RUNNER_ONLY_EXPRESSION, isValid: true});
+		});
+
+		it('sends the new value with the new validity when the runner flag and the value change together', async() =>
+		{
+			const RUNNER_ONLY_EXPRESSION = '0 */15 * * * ?';
+			const CronExpressionEditor = require('c/cronExpressionEditor').default;
+			let element = createElement('c-cron-expression-editor', {is: CronExpressionEditor});
+			let changeEvents = [];
+			element.addEventListener('cronchange', (event) => changeEvents.push(event.detail));
+			document.body.appendChild(element);
+
+			await Promise.resolve();
+
+			element.jobRunnerMode = true;
+			element.value = RUNNER_ONLY_EXPRESSION;
+			await Promise.resolve();
+
+			expect(changeEvents).toHaveLength(2);
+			expect(changeEvents[1]).toEqual({value: RUNNER_ONLY_EXPRESSION, isValid: true});
 		});
 
 		it('isValid returns true for valid 6-field expression', async() =>

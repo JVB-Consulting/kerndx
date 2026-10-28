@@ -9,24 +9,24 @@ button
 	border-top-width    : 0;
 }
 
-button.slds-is-closed
+button.sidebar-toggle_closed
 {
 	border-width : 0;
 }
 
-button.slds-is-open:hover
+button.sidebar-toggle_open:hover
 {
 	background-color : #F4F6FE;
 }
 
-button.slds-is-closed:hover
+button.sidebar-toggle_closed:hover
 {
 	background-color          : #0070D2;
 	border-bottom-left-radius : 0.25rem;
 	border-top-left-radius    : 0.25rem;
 }
 
-button.slds-is-closed:hover svg
+button.sidebar-toggle_closed:hover svg
 {
 	fill : #FFFFFF;
 }

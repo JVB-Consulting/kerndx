@@ -179,7 +179,7 @@ describe('c-utility-api-issue-action', () =>
 		expectClosedOnce(quickAction);
 	});
 
-	it('logs the error and still closes the action when the record refresh fails', async() =>
+	it('still shows the success toast, logs the error and closes the action when the action worked but the record refresh fails', async() =>
 	{
 		const refreshError = new Error(SERVER_ERROR_MESSAGE);
 		notifyRecordUpdateAvailable.mockRejectedValueOnce(refreshError);
@@ -187,9 +187,9 @@ describe('c-utility-api-issue-action', () =>
 
 		await runApiIssueAction(quickAction, createAction(jest.fn().mockResolvedValue({callSuccessful: true})));
 
-		expect(quickAction.showSuccessToast).not.toHaveBeenCalled();
+		expect(quickAction.showSuccessToast).toHaveBeenCalledWith(SUCCESS_MESSAGE);
+		expect(quickAction.showErrorToast).not.toHaveBeenCalled();
 		expect(quickAction.consoleError).toHaveBeenCalledWith(refreshError, ERROR_SOURCE);
-		expect(quickAction.showErrorToast).toHaveBeenCalledWith(SERVER_ERROR_MESSAGE);
 		expectClosedOnce(quickAction);
 	});
 });

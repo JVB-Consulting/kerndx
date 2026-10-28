@@ -50,6 +50,12 @@ private class UTIL_ValidationRule_TEST
 	private static final String FOOBAR_CONTEXT_CLASS = UTIL_FormulaContext.FoobarContext.class.getName();
 
 	/**
+	 * @description The annotation a context class needs so the framework can read it for merge fields. The warning for an
+	 * unreadable context class must name it.
+	 */
+	private static final String JSON_ACCESS_ANNOTATION = '@JsonAccess(serializable=\'always\')';
+
+	/**
 	 * @description Static tracking variables for TestBulkValidationContext.
 	 * Must be at top level since inner classes cannot have static fields.
 	 */
@@ -991,98 +997,99 @@ private class UTIL_ValidationRule_TEST
 	}
 
 	/**
-	 * @description Tests getMergeFieldValue returns value for simple field path.
+	 * @description Tests that a merge field whose path passes through a null value comes back empty.
 	 */
 	@IsTest
-	private static void shouldGetMergeFieldValueForSimplePath()
-	{
-		TestContext context = new TestContext();
-		context.name = 'SimpleValue';
-
-		Test.startTest();
-		String result = UTIL_ValidationRule.getMergeFieldValue(context, 'name');
-		Test.stopTest();
-
-		Assert.areEqual('SimpleValue', result, 'Should return simple field value');
-	}
-
-	/**
-	 * @description Tests getMergeFieldValue returns value for nested field path.
-	 */
-	@IsTest
-	private static void shouldGetMergeFieldValueForNestedPath()
-	{
-		TestContext context = new TestContext();
-		context.nested = new TestNestedContext();
-		context.nested.childName = 'NestedValue';
-
-		Test.startTest();
-		String result = UTIL_ValidationRule.getMergeFieldValue(context, 'nested.childName');
-		Test.stopTest();
-
-		Assert.areEqual('NestedValue', result, 'Should return nested field value');
-	}
-
-	/**
-	 * @description Tests getMergeFieldValue returns empty string for null path segment.
-	 */
-	@IsTest
-	private static void shouldGetMergeFieldValueReturnsEmptyForNullPath()
+	private static void shouldProcessMergeFieldsReturnsEmptyForNullPath()
 	{
 		TestContext context = new TestContext();
 		context.nested = null;
 
 		Test.startTest();
-		String result = UTIL_ValidationRule.getMergeFieldValue(context, 'nested.childName');
+		String result = UTIL_ValidationRule.processMergeFields('[{!nested.childName}]', context);
 		Test.stopTest();
 
-		Assert.areEqual(UTIL_String.EMPTY, result, 'Should return empty for null path segment');
+		Assert.areEqual('[]', result, 'Expected an empty value for a path that passes through a null value');
 	}
 
 	/**
-	 * @description Tests getMergeFieldValue returns empty string for non-existent field.
+	 * @description Tests that a merge field naming a property the context does not have, and a merge field whose value is
+	 * null, both come back empty, and that neither writes a warning to the log. Only a context that cannot be turned into
+	 * JSON writes a warning.
 	 */
 	@IsTest
-	private static void shouldGetMergeFieldValueReturnsEmptyForNonExistentField()
+	private static void shouldProcessMergeFieldsReturnsEmptyWithoutWarningForMissingPathAndNullValue()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		TestContext context = new TestContext();
+		context.name = null;
+
+		Test.startTest();
+		String result = UTIL_ValidationRule.processMergeFields('[{!nonExistent}][{!name}]', context);
+		Test.stopTest();
+
+		Assert.areEqual('[][]', result, 'Expected an empty value for a missing property and for a null value');
+		Assert.areEqual(0, new SEL_LogEntry().findByLogLevel(LOG_Engine.LEVEL_WARN).size(),
+				'Expected no warning in the log for a missing property or a null value');
+	}
+
+	/**
+	 * @description Tests that a merge field whose path goes on past a plain value comes back empty.
+	 */
+	@IsTest
+	private static void shouldProcessMergeFieldsReturnsEmptyForInvalidPath()
 	{
 		TestContext context = new TestContext();
 		context.name = 'Test';
 
 		Test.startTest();
-		String result = UTIL_ValidationRule.getMergeFieldValue(context, 'nonExistent');
+		String result = UTIL_ValidationRule.processMergeFields('[{!name.invalid.path}]', context);
 		Test.stopTest();
 
-		Assert.areEqual(UTIL_String.EMPTY, result, 'Should return empty for non-existent field');
+		Assert.areEqual('[]', result, 'Expected an empty value for a path that goes on past a plain value');
 	}
 
 	/**
-	 * @description Tests getMergeFieldValue returns empty string for invalid path.
+	 * @description Tests that a context that is a plain value, not an object with properties, gives an empty merge field.
 	 */
 	@IsTest
-	private static void shouldGetMergeFieldValueReturnsEmptyForInvalidPath()
+	private static void shouldProcessMergeFieldsHandlesNonObjectContext()
 	{
-		TestContext context = new TestContext();
+		Test.startTest();
+		String result = UTIL_ValidationRule.processMergeFields('[{!anyPath}]', 123);
+		Test.stopTest();
+
+		Assert.areEqual('[]', result, 'Expected an empty value when the context is a plain number');
+	}
+
+	/**
+	 * @description Tests that a context class the framework cannot turn into JSON gives empty merge fields and writes one
+	 * warning to the log. The warning names the class and the @JsonAccess annotation it needs. A second merge field in the
+	 * same message, and a second message for another record in the same transaction, add no second warning.
+	 */
+	@IsTest
+	private static void shouldProcessMergeFieldsWarnsOnceWhenContextCannotBeTurnedIntoJson()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		TestUnreadableContext context = new TestUnreadableContext();
 		context.name = 'Test';
+		context.namePattern = Pattern.compile(context.name);
+		String contextClassName = TestUnreadableContext.class.getName();
 
 		Test.startTest();
-		String result = UTIL_ValidationRule.getMergeFieldValue(context, 'name.invalid.path');
+		String firstResult = UTIL_ValidationRule.processMergeFields('[{!name}][{!nested.childName}]', context);
+		String secondResult = UTIL_ValidationRule.processMergeFields('[{!name}]', context);
 		Test.stopTest();
 
-		Assert.areEqual(UTIL_String.EMPTY, result, 'Should return empty for invalid path');
-	}
+		Assert.areEqual('[][]', firstResult, 'Expected empty merge fields when the context cannot be turned into JSON');
+		Assert.areEqual('[]', secondResult, 'Expected an empty merge field for the second record too');
 
-	/**
-	 * @description Tests getMergeFieldValue handles non-object context gracefully.
-	 * Passing a primitive causes a ClassCastException when casting to Map, which should be caught.
-	 */
-	@IsTest
-	private static void shouldGetMergeFieldValueHandlesNonObjectContext()
-	{
-		Test.startTest();
-		String result = UTIL_ValidationRule.getMergeFieldValue(123, 'anyPath');
-		Test.stopTest();
-
-		Assert.areEqual(UTIL_String.EMPTY, result, 'Should return empty for non-object context');
+		List<LogEntry__c> warnings = new SEL_LogEntry().findByLogLevel(LOG_Engine.LEVEL_WARN);
+		Assert.areEqual(1, warnings.size(), 'Expected exactly one warning for the context class in this transaction');
+		Assert.isTrue(warnings[0].Message__c.contains(contextClassName), 'Expected the warning to name the context class');
+		Assert.isTrue(warnings[0].Message__c.contains(JSON_ACCESS_ANNOTATION), 'Expected the warning to name the annotation the class needs');
 	}
 
 	/**
@@ -2885,6 +2892,22 @@ private class UTIL_ValidationRule_TEST
 		 * @description Nested context for testing field path navigation.
 		 */
 		public TestNestedContext nested;
+	}
+
+	/**
+	 * @description Context class that cannot be turned into JSON in any org, because it holds a Pattern. It stands in for a
+	 * context class from another namespace that has no @JsonAccess annotation, which fails in the same way.
+	 */
+	public class TestUnreadableContext
+	{
+		/**
+		 * @description Name field that a merge field asks for.
+		 */
+		public String name;
+		/**
+		 * @description A compiled pattern, which JSON cannot hold, so turning this class into JSON fails.
+		 */
+		public Pattern namePattern;
 	}
 
 	/**

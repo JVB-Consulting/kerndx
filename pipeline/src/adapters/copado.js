@@ -16,7 +16,7 @@
 // already been scanned at the feature-branch stage by the prior PR, so a re-scan at the
 // promotion stage is redundant.
 
-function build(_adapterConfig, _branches)
+function build()
 {
 	const promotionRe = /^promotion\/.+-DeployTo.+$/;
 	return {

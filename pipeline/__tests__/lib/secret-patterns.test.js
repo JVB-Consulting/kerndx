@@ -26,16 +26,24 @@ const {
 // ---- Synthetic positive fixtures (no stopwords) -------------------------
 
 const FX = {
-	authUrl: 'force://3MVG9SemV5D80oBfABCdefGHIjkl:1955279925675241719:5Aep' + '861TSESlnP65BVjJ8E0L0RfQ5kQ8aQ.aBcDeFgH@acme-dev-ed.my.salesforce.com', // kerndx-secret-allow — synthetic fixture
-	authUrlEmptyCred: 'force://::5Aep' + '861TSESlnP65BVjJ8E0L0RfQ5kQ8aQ.aBcDeFgHiJ@acme-dev-ed.my.salesforce.com', // kerndx-secret-allow — synthetic fixture
-	accessToken: '00D5f000000abcd!' + 'aB3xQ9zP'.repeat(12),       // 15-char org id + '!' + 96 token chars
-	refreshToken: '5Aep' + '861TSESlnP65BVjJ8E0L0RfQ5kQ8aQ.aBcDeFgHiJkLmNoPqR', // kerndx-secret-allow — synthetic fixture
+	authUrl: 'force://3MVG9SemV5D80oBfABCdefGHIjkl:1955279925675241719:5Aep'
+		+ '861TSESlnP65BVjJ8E0L0RfQ5kQ8aQ.aBcDeFgH@acme-dev-ed.my.salesforce.com', // kerndx-secret-allow — synthetic fixture
+	authUrlEmptyCred: 'force://::5Aep'
+		+ '861TSESlnP65BVjJ8E0L0RfQ5kQ8aQ.aBcDeFgHiJ@acme-dev-ed.my.salesforce.com', // kerndx-secret-allow — synthetic fixture
+	accessToken: '00D5f000000abcd!'
+		+ 'aB3xQ9zP'.repeat(12),       // 15-char org id + '!' + 96 token chars
+	refreshToken: '5Aep'
+		+ '861TSESlnP65BVjJ8E0L0RfQ5kQ8aQ.aBcDeFgHiJkLmNoPqR', // kerndx-secret-allow — synthetic fixture
 	privateKey: '-----BEGIN RSA PRIVATE KEY-----',                 // kerndx-secret-allow — synthetic fixture
 	awsKey: 'AKIAZ7Q2W3E4R5T6Y7U2',                              // synthetic AKIA + 16 base32 chars (NOT the reserved …EXAMPLE key) — kerndx-secret-allow
-	githubToken: 'ghp_' + 'a1B2c3D4e5f6G7h8I9j0kLmNoPqRsTuVwXyZ',     // ghp_ + 36
-	githubPat: 'github_pat_' + '1A'.repeat(40),
-	slackToken: 'xoxb-' + '1234567890-1234567890-aBcDeFgHiJkLmNoPqRsTuVwX', // kerndx-secret-allow — synthetic fixture
-	googleKey: 'AIza' + 'A1b2C3d4E5f6G7h8I9j0KlMnOpQrStUvWxY',        // AIza + 35
+	githubToken: 'ghp_'
+		+ 'a1B2c3D4e5f6G7h8I9j0kLmNoPqRsTuVwXyZ',     // ghp_ + 36
+	githubPat: 'github_pat_'
+		+ '1A'.repeat(40),
+	slackToken: 'xoxb-'
+		+ '1234567890-1234567890-aBcDeFgHiJkLmNoPqRsTuVwX', // kerndx-secret-allow — synthetic fixture
+	googleKey: 'AIza'
+		+ 'A1b2C3d4E5f6G7h8I9j0KlMnOpQrStUvWxY',        // AIza + 35
 	consumerSecretAssign: 'client_secret: aB3xQ9zPVconsumerSecretValue64charsLong0000000000000000abcd',
 	envAssign: 'SF_ACCESS_TOKEN=aB3xQ9zPliteralTokenValue123456',
 	jwt: 'eyJhbGciOiJSUzI1NiJ9.eyJpc3MiOiIzTVZHOWZ.aBcDeF1234567890signatureSeg',
@@ -57,11 +65,6 @@ const NEG = {
 	envVarRef: 'SFDX_AUTH_URL: $SFDX_AUTH_URL',
 	docPlaceholder: 'force://<clientId>:<clientSecret>:<refreshToken>@<instanceUrl>'
 };
-
-function ruleIds(findings)
-{
-	return findings.map(f => f.ruleId);
-}
 
 function hasRule(findings, id)
 {

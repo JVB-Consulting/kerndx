@@ -12,14 +12,25 @@ const {spawnSync} = require('node:child_process');
 const SPAWN_OPTS = {encoding: 'utf-8'};
 
 /**
- * @description Quotes one argument the way Command Prompt needs it: only when it holds a space or a character the
- *              prompt would otherwise interpret; an inner double quote is escaped for the program that receives it.
+ * @description Quotes one argument for sf.cmd started through Command Prompt, only when it is empty or holds a space
+ *              or a character the prompt would interpret. The quoting is for the program sf.cmd starts: an inner
+ *              double quote is escaped, and the backslashes before it or at the end are doubled. Then every character
+ *              the prompt interprets is escaped with a caret twice over, because the line is read twice, once by
+ *              `cmd /c` and once more when sf.cmd passes it on with %*, so neither reading can see a quote, an `&` or
+ *              a `%NAME%`.
  * @param {string} argument - One argument.
  * @returns {string} The argument as it goes on the command line.
  */
 function quoteForCommandPrompt(argument)
 {
-	return /[\s"&|<>^()]/.test(argument) ? `"${argument.replace(/"/g, '\\"')}"` : argument;
+	if(argument !== '' && !/[\s"&|<>^()%!]/.test(argument))
+	{
+		return argument;
+	}
+	// Two reads hold for a .cmd file that passes %* straight to its program, as npm's shims for sf, npm and npx do; a
+	// .cmd that hands %* to a second .cmd, or a tool that is an .exe, is read a different number of times.
+	const quoted = `"${argument.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\*)$/, '$1$1')}"`;
+	return quoted.replace(/[()%!^"<>&|]/g, '^$&').replace(/[()%!^"<>&|]/g, '^$&');
 }
 
 /**
@@ -35,7 +46,7 @@ function startSf(args, options)
 	{
 		return spawnSync('sf', args, options);
 	}
-	const commandLine = ['sf', ...args].map(quoteForCommandPrompt).join(' ');
+	const commandLine = ['sf', ...args.map(quoteForCommandPrompt)].join(' ');
 	return spawnSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `"${commandLine}"`], {...options, windowsVerbatimArguments: true});
 }
 

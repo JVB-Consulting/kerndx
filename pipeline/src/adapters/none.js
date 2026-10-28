@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 'use strict';
 
-function build(_adapterConfig, _branches)
+function build()
 {
 	return {
-		name: 'none', classifyHeadRef(_headRef)
+		name: 'none', classifyHeadRef()
 		{
 			return {action: 'full-scan', label: 'normal'};
 		}

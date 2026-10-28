@@ -3,7 +3,7 @@
  * @description Jest unit tests for scheduledJobDetail LWC component.
  *
  * @author Jason van Beukering
- * @date March 2026, September 2026
+ * @date March 2026, October 2026
  */
 import {createElement} from 'lwc';
 import LOADING_LABEL from '@salesforce/label/c.ScheduledJobDetail_Loading';
@@ -177,6 +177,7 @@ describe('c-scheduled-job-detail', () =>
 				recordId: 'a00000000000001',
 				record: null,
 				parameterDefinitions: null,
+				parameterRequestNumber: 0,
 				loadErrorMessage: '',
 				_lastLoadedClassName: undefined,
 				showSuccessToast: jest.fn(),
@@ -673,6 +674,67 @@ describe('c-scheduled-job-detail', () =>
 				context.callControllerMethod = jest.fn().mockRejectedValue(new Error('Not found'));
 				await prototype.loadParameterDefinitions.call(context, 'BadClassName');
 				expect(context.showErrorToast).toHaveBeenCalledWith(LOAD_PARAMETERS_FAILED);
+			});
+
+			/**
+			 * Builds a context whose record wire runs the real loading method, and whose controller
+			 * call returns one promise per call that the test settles by hand.
+			 */
+			const createContextWithPendingAnswers = () =>
+			{
+				let pendingAnswers = [];
+				let context = createMockContext();
+				context.loadParameterDefinitions = prototype.loadParameterDefinitions;
+				context.callControllerMethod = jest.fn(() => new Promise((resolve, reject) =>
+				{
+					pendingAnswers.push({resolve, reject});
+				}));
+				return {context, pendingAnswers};
+			};
+
+			it('ignores a late answer for the class shown before the current one', async() =>
+			{
+				let firstDefinitions = [{name: 'firstParameter', label: 'First Parameter', dataType: 'TEXT'}];
+				let secondDefinitions = [{name: 'secondParameter', label: 'Second Parameter', dataType: 'TEXT'}];
+				let {context, pendingAnswers} = createContextWithPendingAnswers();
+
+				getFieldValue.mockReturnValue('SCHED_FirstJob');
+				prototype.wiredRecord.call(context, {data: {fields: {}}});
+				getFieldValue.mockReturnValue('SCHED_SecondJob');
+				prototype.wiredRecord.call(context, {data: {fields: {}}});
+
+				pendingAnswers[1].resolve(secondDefinitions);
+				await Promise.resolve();
+				await Promise.resolve();
+				pendingAnswers[0].resolve(firstDefinitions);
+				await Promise.resolve();
+				await Promise.resolve();
+
+				expect(context.callControllerMethod).toHaveBeenNthCalledWith(1, expect.anything(), {className: 'SCHED_FirstJob'});
+				expect(context.callControllerMethod).toHaveBeenNthCalledWith(2, expect.anything(), {className: 'SCHED_SecondJob'});
+				expect(context.parameterDefinitions).toEqual(secondDefinitions);
+				expect(context.showErrorToast).not.toHaveBeenCalled();
+			});
+
+			it('shows no error for a late failure for the class shown before the current one', async() =>
+			{
+				let secondDefinitions = [{name: 'secondParameter', label: 'Second Parameter', dataType: 'TEXT'}];
+				let {context, pendingAnswers} = createContextWithPendingAnswers();
+
+				getFieldValue.mockReturnValue('SCHED_FirstJob');
+				prototype.wiredRecord.call(context, {data: {fields: {}}});
+				getFieldValue.mockReturnValue('SCHED_SecondJob');
+				prototype.wiredRecord.call(context, {data: {fields: {}}});
+
+				pendingAnswers[1].resolve(secondDefinitions);
+				await Promise.resolve();
+				await Promise.resolve();
+				pendingAnswers[0].reject(new Error('Not found'));
+				await Promise.resolve();
+				await Promise.resolve();
+
+				expect(context.parameterDefinitions).toEqual(secondDefinitions);
+				expect(context.showErrorToast).not.toHaveBeenCalled();
 			});
 		});
 

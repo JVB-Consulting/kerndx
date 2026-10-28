@@ -32,6 +32,10 @@
 							<lightning-input class="input-field" data-id={field.fieldName} label={field.fieldLabel} onchange={handleFieldChange} required={field.isRequired}
 											 type="datetime" value={field.fieldValue}></lightning-input>
 						</template>
+						<template if:true={field.isBoolean}>
+							<lightning-input checked={field.fieldValue} class="checkbox-field" data-id={field.fieldName} label={field.fieldLabel} name={field.fieldName}
+											 onchange={handleCheckboxChange} required={field.isRequired} type="checkbox"></lightning-input>
+						</template>
 						<template if:true={field.isPicklist}>
 							<lightning-combobox class="picklist-field" data-id={field.fieldName} label={field.fieldLabel} name={field.fieldName} onchange={handleFieldChange}
 												options={field.displayPicklistOptions} required={field.isRequired} value={field.displaySelectedPicklistValue}></lightning-combobox>

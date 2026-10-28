@@ -107,6 +107,11 @@ private class TRG_ScheduleJob_TEST
 	private static final String REQUIRED_PARAMETER_VALUE = 'value1';
 
 	/**
+	 * @description A run priority for a job, used to edit a job without changing which code it runs.
+	 */
+	private static final Integer EDITED_RUN_PRIORITY = 5;
+
+	/**
 	 * @description The same parameter value in different letter case, the edit Apex's own string equality cannot see.
 	 */
 	private static final String REQUIRED_PARAMETER_VALUE_IN_OTHER_CASE = 'Value1';
@@ -823,8 +828,8 @@ private class TRG_ScheduleJob_TEST
 	}
 
 	/**
-	 * @description Tests that a user without the permission may still edit a job that is on the runner, but not change
-	 * which code it runs.
+	 * @description Tests that a user without the permission may still edit a job that is on the runner (here its run
+	 * priority, which still reaches the permission check), but not change which code it runs.
 	 */
 	@IsTest
 	private static void changingClassOrParametersOfAJobRunnerRecordNeedsThePermissionButOtherEditsDoNot()
@@ -838,7 +843,7 @@ private class TRG_ScheduleJob_TEST
 
 		System.runAs(getStandardUserWithoutJobRunnerPermission())
 		{
-			record.Description__c = 'a description edit needs no permission';
+			record.RunPriority__c = EDITED_RUN_PRIORITY;
 			DML_Builder.newTransaction().doUpdate(record).execute();
 
 			record.ClassName__c = AttributeScheduler.class.getName();
@@ -998,6 +1003,48 @@ private class TRG_ScheduleJob_TEST
 			ScheduledJob__c after = (ScheduledJob__c)new SEL_ScheduledJob().findById(ownMode.Id);
 			Assert.isNotNull(after.ScheduledJobId__c, 'still scheduled');
 			Assert.areNotEqual(cronTriggerBefore, after.ScheduledJobId__c, 'a cron edit re-schedules exactly as before this plan');
+		}
+	}
+
+	/**
+	 * @description Tests that editing only the description of an active own-mode record leaves its platform job alone.
+	 * A second administrator makes the edit, so the test can prove the job still belongs to the user who scheduled it
+	 * and was not aborted and scheduled again as the editor.
+	 */
+	@IsTest
+	private static void aDescriptionOnlyEditOfAnOwnModeRecordKeepsItsPlatformJob()
+	{
+		User schedulingUser = getTestAdmin();
+		ScheduledJob__c ownMode;
+
+		System.runAs(schedulingUser)
+		{
+			ownMode = TST_Factory.insertScheduledJob(PlainSchedulable.class.getName());
+		}
+
+		System.runAs(getManagingAdmin())
+		{
+			Test.startTest();
+
+			ownMode = (ScheduledJob__c)new SEL_ScheduledJob().findById(ownMode.Id);
+			String cronTriggerBefore = ownMode.ScheduledJobId__c;
+			Assert.isNotNull(cronTriggerBefore, 'Expected the active own-mode record to own a platform job before the edit');
+
+			ownMode.Description__c = UTIL_Random.randomName();
+			DML_Builder.newTransaction().doUpdate(ownMode).execute();
+
+			Test.stopTest();
+
+			ScheduledJob__c after = (ScheduledJob__c)new SEL_ScheduledJob().findById(ownMode.Id);
+			Assert.areEqual(ownMode.Description__c, after.Description__c, 'Expected the new description to be saved');
+			Assert.areEqual(cronTriggerBefore, after.ScheduledJobId__c, 'Expected a description-only edit to keep the same platform job id');
+
+			CronTrigger platformJob = (CronTrigger)QRY_Builder.selectFrom(CronTrigger.SObjectType)
+					.fields(new List<SObjectField> {CronTrigger.OwnerId})
+					.condition('Id').equals(cronTriggerBefore)
+					.getFirst();
+			Assert.isNotNull(platformJob, 'Expected the platform job to still exist, not aborted by a description-only edit');
+			Assert.areEqual(schedulingUser.Id, platformJob.OwnerId, 'Expected the platform job to still belong to the user who scheduled it, not to the editor');
 		}
 	}
 

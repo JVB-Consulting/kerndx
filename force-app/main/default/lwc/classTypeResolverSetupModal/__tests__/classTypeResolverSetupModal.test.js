@@ -88,6 +88,28 @@ describe('c-class-type-resolver-setup-modal', () =>
 
 			document.body.removeChild(element);
 		});
+
+		it.each([
+			'copy-resolver',
+			'copy-test'
+		])('clears the timer that resets the %s icon when the modal is removed before it fires', async(buttonTestId) =>
+		{
+			jest.useFakeTimers();
+			const {createElement} = require('lwc');
+			const element = createElement('c-class-type-resolver-setup-modal', {is: ClassTypeResolverSetupModal});
+			document.body.appendChild(element);
+			await Promise.resolve();
+
+			element.shadowRoot.querySelector(`[data-testid="${buttonTestId}"]`).click();
+			await Promise.resolve();
+			await Promise.resolve();
+			expect(jest.getTimerCount()).toBe(1);
+
+			document.body.removeChild(element);
+
+			expect(jest.getTimerCount()).toBe(0);
+			jest.useRealTimers();
+		});
 	});
 
 	describe('resolverClassCode getter', () =>

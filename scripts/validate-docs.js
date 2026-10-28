@@ -19,12 +19,20 @@
 
 const fs = require('fs');
 const path = require('path');
-const {execSync, spawnSync} = require('child_process');
-const os = require('os');
+const {spawnSync} = require('child_process');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants & Configuration
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** The most characters of a failed deploy or anonymous Apex output that the Fast Start gate prints. */
+const MAXIMUM_LOGGED_OUTPUT_LENGTH = 2000;
+
+/** The width the Fast Start gate summary pads each topic name to. */
+const TOPIC_COLUMN_WIDTH = 20;
+
+/** The endings of a custom Salesforce API name (field, metadata type, event, relationship, big object, external object). */
+const CUSTOM_API_NAME_SUFFIXES = ['__c', '__mdt', '__e', '__r', '__b', '__x'];
 
 /**
  * @description The guide file names the distribution manifest's blacklist keeps under `docs/`: the guides that never
@@ -300,7 +308,7 @@ const MEMBER_REF_PATTERN = /(?:\bkern\.)?\b([A-Z]{2,}[A-Z0-9]*_[A-Za-z]\w*(?:\.[
 // scripts alone. Keep the three patterns in step with their source.
 const GLOBAL_TYPE_PATTERN = /^\s*(?:@\w+(?:\([^)]*\))?\s+)*global\s+(?:(?:virtual|abstract|with sharing|without sharing|inherited sharing)\s+)*(class|interface|enum)\s+(\w+)/i;
 const GLOBAL_MEMBER_PATTERN =
-	/^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:global|webservice)\s+(?:(?:static|virtual|abstract|override|final|transient|protected)\s+)*[\w.<>,\s\[\]]+?\s(\w+)\s*[({=;]/i;
+	/^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:global|webservice)\s+(?:(?:static|virtual|abstract|override|final|transient|protected)\s+)*[\w.<>,\s[\]]+?\s(\w+)\s*[({=;]/i;
 const GLOBAL_CONSTRUCTOR_PATTERN = /^\s*(?:@\w+(?:\([^)]*\))?\s+)*global\s+(\w+)\s*\(/i;
 
 /** Any top-level or inner type declaration, whatever its visibility. */
@@ -405,7 +413,7 @@ function parseHeadings(content)
 		const line = lines[i];
 		const lineNum = i + 1;
 
-		if(/^```/.test(line))
+		if(/^[ \t]*```/.test(line))
 		{
 			inCodeBlock = !inCodeBlock;
 			continue;
@@ -443,7 +451,7 @@ function parseTocEntries(content)
 		const line = lines[i];
 		const lineNum = i + 1;
 
-		if(/^```/.test(line))
+		if(/^[ \t]*```/.test(line))
 		{
 			inCodeBlock = !inCodeBlock;
 			continue;
@@ -467,7 +475,7 @@ function parseTocEntries(content)
 				break;
 			}
 
-			const linkMatch = line.match(/\[([^\]]+)\]\(#([^)]+)\)/);
+			const linkMatch = line.match(/\[([^\]]+)]\(#([^)]+)\)/);
 			if(linkMatch)
 			{
 				entries.push({
@@ -496,7 +504,7 @@ function parseLinks(content)
 		const line = lines[i];
 		const lineNum = i + 1;
 
-		if(/^```/.test(line))
+		if(/^[ \t]*```/.test(line))
 		{
 			inCodeBlock = !inCodeBlock;
 			continue;
@@ -507,7 +515,7 @@ function parseLinks(content)
 			continue;
 		}
 
-		const linkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
+		const linkRegex = /\[([^\]]*)]\(([^)]+)\)/g;
 		let match;
 		while((match = linkRegex.exec(line)) !== null)
 		{
@@ -515,7 +523,7 @@ function parseLinks(content)
 		}
 		// A badge is an image inside a link, `[![alt](image)](target)`; the pattern above sees only the image, so the
 		// link around it is read here.
-		const badgeRegex = /\[!\[([^\]]*)\]\([^)]*\)\]\(([^)]+)\)/g;
+		const badgeRegex = /\[!\[([^\]]*)]\([^)]*\)]\(([^)]+)\)/g;
 		while((match = badgeRegex.exec(line)) !== null)
 		{
 			links.push({text: match[1], href: match[2], line: lineNum});
@@ -526,32 +534,50 @@ function parseLinks(content)
 }
 
 /**
- * Converts a heading to a GitHub-compatible anchor slug
+ * Converts a heading to the anchor GitHub gives it. The rule is the one in the `github-slugger` package (version 2.0.0),
+ * which GitHub's own anchors follow: lower-case the text, drop every character that is not a letter, a mark, a decimal
+ * digit, a joining character such as `_`, a hyphen or a space, then turn each space into a hyphen. Letters from every
+ * alphabet stay (`Größe` gives `größe`), and a hyphen at either end stays too. When the anchor is already taken, the
+ * slugger adds `-1`, `-2` and so on to the first form, and keeps counting until it finds an anchor nobody has.
  * @param {string} heading - Heading text
- * @param {Map<string, number>} [slugCounts] - Tracks duplicate slugs for disambiguation
+ * @param {Map<string, number>} [slugCounts] - The anchors already taken on the page, each with how many times its first form was repeated
  * @returns {string} Anchor slug
  */
 function githubSlug(heading, slugCounts)
 {
 	let slug = heading
 	.toLowerCase()
-	.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+	.replace(/\[([^\]]*)]\([^)]*\)/g, '$1')
 	.replace(/<[^>]+>/g, '')
-	.replace(/[^\w\s-]/g, '')
-	.replace(/\s/g, '-')
-	.replace(/^-|-$/g, '');
+	.replace(/[^\p{Alphabetic}\p{M}\p{Nd}\p{Pc} -]/gu, '')
+	.replace(/ /g, '-');
 
 	if(slugCounts)
 	{
-		const count = slugCounts.get(slug) || 0;
-		slugCounts.set(slug, count + 1);
-		if(count > 0)
+		const firstForm = slug;
+		while(slugCounts.has(slug))
 		{
-			slug = `${slug}-${count}`;
+			const repeats = slugCounts.get(firstForm) + 1;
+			slugCounts.set(firstForm, repeats);
+			slug = `${firstForm}-${repeats}`;
 		}
+		slugCounts.set(slug, 0);
 	}
 
 	return slug;
+}
+
+/**
+ * Gives each heading the anchor GitHub gives it. GitHub numbers repeated anchors across every heading on the page,
+ * whatever its level: the first `Overview` is `#overview`, the next is `#overview-1`, then `#overview-2`. So the
+ * numbering must count every heading, even the ones a table of contents leaves out (such as the H1 title).
+ * @param {Array<{level: number, text: string}>} headings - Every heading on the page, in page order
+ * @returns {Array<{level: number, text: string, slug: string}>} Copies of the headings, each with its anchor in `slug`
+ */
+function addHeadingSlugs(headings)
+{
+	const slugCounts = new Map();
+	return headings.map(heading => ({...heading, slug: githubSlug(heading.text, slugCounts)}));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -736,11 +762,12 @@ function checkLinks(content, filePath, fsModule = fs)
 			continue;
 		}
 
-		let targetPath = (inPublicRepository ? link.href.slice(PUBLIC_REPOSITORY_FILE_PREFIX.length) : link.href).split('#')[0];
-		targetPath = decodeURIComponent(targetPath);
-		const resolved = inPublicRepository ? path.resolve(REPOSITORY_ROOT, targetPath) : path.resolve(fileDir, targetPath);
+		// A path with a stray `%` cannot be decoded, so no file can match it: it is reported as broken.
+		const targetPath = decodeLinkPart((inPublicRepository ? link.href.slice(PUBLIC_REPOSITORY_FILE_PREFIX.length) : link.href).split('#')[0]);
+		const baseFolder = inPublicRepository ? REPOSITORY_ROOT : fileDir;
+		const resolved = targetPath === null ? null : path.resolve(baseFolder, targetPath);
 
-		if(!fsModule.existsSync(resolved))
+		if(resolved === null || !fsModule.existsSync(resolved))
 		{
 			issues.push({
 				file: filePath, line: link.line, severity: 'error', check: 'link', message: `Broken link: ${link.href}`
@@ -749,7 +776,7 @@ function checkLinks(content, filePath, fsModule = fs)
 		}
 
 		const anchor = link.href.includes('#') ? link.href.slice(link.href.indexOf('#') + 1) : '';
-		if(anchor && resolved.endsWith('.md') && !findHeadingSlugs(fsModule.readFileSync(resolved, 'utf-8')).has(decodeURIComponent(anchor)))
+		if(anchor && resolved.endsWith('.md') && !findHeadingSlugs(fsModule.readFileSync(resolved, 'utf-8')).has(decodeLinkPart(anchor)))
 		{
 			issues.push({
 				file: filePath, line: link.line, severity: 'error', check: 'link', message: `Broken anchor: ${link.href} (no heading in ${targetPath} has that anchor)`
@@ -758,6 +785,25 @@ function checkLinks(content, filePath, fsModule = fs)
 	}
 
 	return issues;
+}
+
+/**
+ * Decodes the `%20`-style escapes in a link's path or anchor.
+ * @param {string} text - The path or anchor as the link writes it
+ * @returns {(string|null)} The decoded text, or null when a `%` is not followed by a valid escape (such as `100%.md`)
+ */
+function decodeLinkPart(text)
+{
+	let decoded = null;
+	try
+	{
+		decoded = decodeURIComponent(text);
+	}
+	catch
+	{
+		// A malformed escape leaves the result null.
+	}
+	return decoded;
 }
 
 /**
@@ -951,7 +997,7 @@ function checkToc(content, filePath)
 	const headings = parseHeadings(content);
 	const tocEntries = parseTocEntries(content);
 
-	const contentHeadings = headings.filter(h => h.level >= 2 && h.level <= 4 && h.text !== 'Table of Contents');
+	const contentHeadings = addHeadingSlugs(headings).filter(h => h.level >= 2 && h.level <= 4 && h.text !== 'Table of Contents');
 
 	let firstH2Found = false;
 	for(const heading of contentHeadings)
@@ -981,12 +1027,10 @@ function checkToc(content, filePath)
 		return issues;
 	}
 
-	const slugCounts = new Map();
 	const headingSlugs = new Map();
 	for(const heading of contentHeadings)
 	{
-		const slug = githubSlug(heading.text, slugCounts);
-		headingSlugs.set(slug, heading);
+		headingSlugs.set(heading.slug, heading);
 	}
 
 	const tocAnchors = new Set();
@@ -1232,7 +1276,7 @@ function checkClassReferences(content, filePath, classIndex, globalIndex = null)
 
 	const record = (ref, qualified, line) =>
 	{
-		if(ref.endsWith('__c') || ref.endsWith('__mdt') || ref.endsWith('__e') || ref.endsWith('__r') || ref.endsWith('__b') || ref.endsWith('__x'))
+		if(CUSTOM_API_NAME_SUFFIXES.some(suffix => ref.endsWith(suffix)))
 		{
 			return;
 		}
@@ -1944,7 +1988,7 @@ function buildClassIndex(classesDir, referenceDir, fsModule = fs)
 function extractHeadingText(heading)
 {
 	return heading
-	.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+	.replace(/\[([^\]]*)]\([^)]*\)/g, '$1')
 	.replace(/\*\*([^*]+)\*\*/g, '$1')
 	.replace(/\*([^*]+)\*/g, '$1')
 	.replace(/`/g, '');
@@ -1963,21 +2007,19 @@ function shouldExcludeH4(text)
 	{
 		return true;
 	}
-	if(/^Step\s+\d/i.test(text))
-	{
-		return true;
-	}
-	return false;
+	return /^Step\s+\d/i.test(text);
 }
 
 /**
  * Generates a standardised TOC from headings: numbered H2, indented H3/H4
- * @param {Array<{level: number, text: string}>} headings - Parsed headings (H2-H4, excluding TOC heading)
+ * @param {Array<{level: number, text: string, slug: string}>} headings - Parsed headings (H2-H4, excluding TOC heading), each
+ *        with its anchor in `slug` from addHeadingSlugs. GitHub numbers a repeated heading across every heading on the page,
+ *        so the anchors are worked out over the whole page first; they cannot be worked out from these headings alone.
  * @returns {{lines: string[], h4Removed: number}}
+ * @throws {Error} When a heading has no `slug`
  */
 function generateToc(headings)
 {
-	const slugCounts = new Map();
 	const tocLines = [];
 	let h2Counter = 0;
 	let h4Removed = 0;
@@ -1986,7 +2028,11 @@ function generateToc(headings)
 	for(const heading of headings)
 	{
 		const cleanText = extractHeadingText(heading.text);
-		const slug = githubSlug(heading.text, slugCounts);
+		const slug = heading.slug;
+		if(slug === undefined)
+		{
+			throw new Error(`generateToc needs the anchor of "${heading.text}" in its slug; work the anchors out with addHeadingSlugs`);
+		}
 
 		if(heading.level === 2)
 		{
@@ -2052,7 +2098,7 @@ function rewriteToc(content, headings)
 		tocEndLine = lines.length;
 	}
 
-	const contentHeadings = headings.filter(h => h.level >= 2 && h.level <= 4 && h.text !== 'Table of Contents');
+	const contentHeadings = addHeadingSlugs(headings).filter(h => h.level >= 2 && h.level <= 4 && h.text !== 'Table of Contents');
 	const {lines: tocLines, h4Removed} = generateToc(contentHeadings);
 
 	const beforeToc = lines.slice(0, tocStartLine + 1);
@@ -2191,7 +2237,7 @@ function loadSourcePackageScripts(repoRoot, fsModule)
 		const pkg = JSON.parse(fsModule.readFileSync(pkgPath, 'utf8'));
 		return new Set(Object.keys(pkg.scripts || {}));
 	}
-	catch(_e)
+	catch
 	{
 		return null;
 	}
@@ -2249,7 +2295,7 @@ function findUnresolvedClaims(content, treeRoot, fsModule, allowlist)
 				continue;
 			}
 		}
-		catch(_e)
+		catch
 		{ /* invalid encoding */
 		}
 		if(!claim.ref.includes('/') && fileIndex.has(claim.ref))
@@ -2318,31 +2364,35 @@ const STEP_PATH_FENCE = /^force-app\/main\/default\/(?:classes|triggers)\/([A-Za
 function stripInlineApexComment(line)
 {
 	let inString = false;
-	for(let i = 0; i < line.length; i++)
+	let i = 0;
+	while(i < line.length)
 	{
 		const c = line[i];
 		if(inString)
 		{
 			if(c === '\\')
 			{
-				i++;
+				i += 2;
 				continue;
 			}
 			if(c === '\'')
 			{
 				inString = false;
 			}
+			i++;
 			continue;
 		}
 		if(c === '\'')
 		{
 			inString = true;
+			i++;
 			continue;
 		}
 		if(c === '/' && line[i + 1] === '/')
 		{
 			return line.slice(0, i);
 		}
+		i++;
 	}
 	return line;
 }
@@ -2612,13 +2662,17 @@ function checkReleaseStatus(repoRoot, fsModule = fs)
 	if(newest && fsModule.existsSync(claudePath))
 	{
 		const named = releaseStatus.readReleasedLineFromClaude(fsModule.readFileSync(claudePath, 'utf8'));
-		if(!named)
+		if(named)
+		{
+			if(named.version !== newest.version)
+			{
+				error('CLAUDE.md', named.line, `**Package status:** names ${named.version} as the released line, `
+					+ `but the newest released version in ${releaseStatus.RECORD_RELATIVE_PATH} is ${newest.version}`);
+			}
+		}
+		else
 		{
 			error('CLAUDE.md', 1, `has no "**Package status:** Kern X.Y.Z-N is the released line" sentence; the newest released version is ${newest.version}`);
-		}
-		else if(named.version !== newest.version)
-		{
-			error('CLAUDE.md', named.line, `**Package status:** names ${named.version} as the released line, but the newest released version in ${releaseStatus.RECORD_RELATIVE_PATH} is ${newest.version}`);
 		}
 	}
 	return issues;
@@ -2652,8 +2706,21 @@ class DocsValidator
 	}
 
 	/**
+	 * Lists the files named on the command line that do not exist, such as a misspelled name. getFiles leaves them out,
+	 * so validate and fixTocs report each one; otherwise a misspelled name would read as "0 errors in 0 files".
+	 * @returns {Array<{name: string, path: string}>} Each missing file as it was named, and its absolute path
+	 */
+	findMissingFiles()
+	{
+		return (this.config.overrideFiles || [])
+		.map(name => ({name, path: path.resolve(name)}))
+		.filter(file => !this.fs.existsSync(file.path));
+	}
+
+	/**
 	 * Resolves the list of files to validate.
-	 * If overrideFiles is set, returns those files directly (bypasses discovery).
+	 * If overrideFiles is set, returns those files directly (bypasses discovery); a named file that does not exist is left
+	 * out here and reported by findMissingFiles.
 	 * @returns {string[]} Absolute file paths
 	 */
 	getFiles()
@@ -2760,6 +2827,16 @@ class DocsValidator
 
 			allIssues = allIssues.concat(fileIssues);
 		}
+
+		const missingFileIssues = [];
+		for(const missing of this.findMissingFiles())
+		{
+			const issue = {file: missing.path, line: 1, severity: 'error', check: 'missing-file', message: `File not found: ${missing.name}`};
+			missingFileIssues.push(issue);
+			this.log.file(missing.name);
+			this.log.issue(issue.line, issue.severity, issue.check, issue.message);
+		}
+		allIssues = allIssues.concat(missingFileIssues);
 
 		const stepShapeIo = {
 			exists: relative => this.fs.existsSync(path.join(repoRoot, relative)),
@@ -2873,10 +2950,16 @@ class DocsValidator
 
 	/**
 	 * Standardises TOCs across all target files
-	 * @returns {{filesChanged: number, totalH4Removed: number}}
+	 * @returns {{filesChanged: number, totalH4Removed: number, missingFiles: string[]}} The counts, and the absolute path of
+	 *          each named file that does not exist
 	 */
 	fixTocs()
 	{
+		const missingFiles = this.findMissingFiles();
+		for(const missing of missingFiles)
+		{
+			this.log.error(`File not found: ${missing.name}`);
+		}
 		const allFiles = this.getFiles();
 		const fixExclude = this.config.fixTocExcludePattern;
 		const files = allFiles.filter(f => !fixExclude || !fixExclude.test(path.basename(f)));
@@ -2909,7 +2992,7 @@ class DocsValidator
 		this.log.info('');
 		this.log.success(`Done: ${filesChanged} files updated, ${totalH4Removed} H4 entries removed`);
 
-		return {filesChanged, totalH4Removed};
+		return {filesChanged, totalH4Removed, missingFiles: missingFiles.map(missing => missing.path)};
 	}
 
 	/**
@@ -3231,10 +3314,14 @@ function fastStartGateDoc(topic, options, log)
 	const validator = new DocsValidator({overrideFiles: [docPath], silent: true});
 	const structural = validator.validate();
 	const structuralErrors = structural.summary.errors;
-	if(structuralErrors > 0 && !options.allowStructuralWarnings)
+	const structuralWarnings = structural.summary.warnings;
+	// Errors always fail. Warnings fail only with --strict-structural, which turns allowStructuralWarnings off.
+	const failsOnWarnings = structuralWarnings > 0 && !options.allowStructuralWarnings;
+	if(structuralErrors > 0 || failsOnWarnings)
 	{
-		log.error(`Structural check failed: ${structuralErrors} error(s)`);
-		for(const issue of structural.issues.filter(i => i.severity === 'error'))
+		log.error(`Structural check failed: ${structuralErrors} error(s), ${structuralWarnings} warning(s)`);
+		const failingSeverities = failsOnWarnings ? ['error', 'warning'] : ['error'];
+		for(const issue of structural.issues.filter(i => failingSeverities.includes(i.severity)))
 		{
 			log.issue(issue.line, issue.severity, issue.check, issue.message);
 		}
@@ -3254,7 +3341,7 @@ function fastStartGateDoc(topic, options, log)
 	if(!deploy.success)
 	{
 		log.error('Deploy failed:');
-		log.error(deploy.output.slice(0, 2000));
+		log.error(deploy.output.slice(0, MAXIMUM_LOGGED_OUTPUT_LENGTH));
 		return {exitCode: 2, topic, reason: 'deploy', output: deploy.output};
 	}
 	log.success('Deploy succeeded.');
@@ -3281,7 +3368,7 @@ function fastStartGateDoc(topic, options, log)
 	if(anon.ran && !anon.success)
 	{
 		log.error('Tier 1 anonymous Apex failed:');
-		log.error(anon.output.slice(0, 2000));
+		log.error(anon.output.slice(0, MAXIMUM_LOGGED_OUTPUT_LENGTH));
 		return {exitCode: 3, topic, reason: 'anon-apex', anon};
 	}
 	if(anon.ran)
@@ -3320,8 +3407,12 @@ function fastStartGateMulti(topics, options, log)
 	for(const r of results)
 	{
 		const marker = r.exitCode === 0 ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m';
-		const detail = r.exitCode === 0 ? (r.test ? `${r.test.testsPassed} pass · ${r.test.coveragePct.toFixed(1)}% coverage` : `deploy-only (no _TEST by design)`) : `${r.reason}`;
-		console.log(`  ${marker} ${r.topic.padEnd(20)} ${detail}`);
+		let detail = `${r.reason}`;
+		if(r.exitCode === 0)
+		{
+			detail = r.test ? `${r.test.testsPassed} pass · ${r.test.coveragePct.toFixed(1)}% coverage` : `deploy-only (no _TEST by design)`;
+		}
+		console.log(`  ${marker} ${r.topic.padEnd(TOPIC_COLUMN_WIDTH)} ${detail}`);
 	}
 
 	return {exitCode: worstExit, results};
@@ -3403,7 +3494,11 @@ function main()
 	if(flags.includes('--fix-toc'))
 	{
 		const validator = new DocsValidator(options);
-		validator.fixTocs();
+		const {missingFiles} = validator.fixTocs();
+		if(missingFiles.length > 0)
+		{
+			process.exit(1);
+		}
 		return;
 	}
 
@@ -3446,6 +3541,7 @@ module.exports = {
 	parseTocEntries,
 	parseLinks,
 	githubSlug,
+	addHeadingSlugs,
 	extractHeadingText,
 	shouldExcludeH4,
 	generateToc,

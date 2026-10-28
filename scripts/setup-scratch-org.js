@@ -38,17 +38,23 @@ function parseArgs()
 		alias: CONFIG.DEFAULT_ALIAS, days: CONFIG.DEFAULT_DURATION, skipTests: false, open: false, help: false
 	};
 
-	for(let i = 0; i < args.length; i++)
+	let index = 0;
+	while(index < args.length)
 	{
-		switch(args[i])
+		const position = index;
+		const arg = args[index];
+		index++;
+		switch(arg)
 		{
 			case '--alias':
 			case '-a':
-				options.alias = args[++i];
+				options.alias = args[index];
+				index++;
 				break;
 			case '--days':
 			case '-d':
-				options.days = parseInt(args[++i], 10);
+				options.days = parseInt(args[index], 10);
+				index++;
 				break;
 			case '--skip-tests':
 				options.skipTests = true;
@@ -63,9 +69,9 @@ function parseArgs()
 				break;
 			default:
 				// Allow positional alias as first arg for convenience
-				if(i === 0 && !args[i].startsWith('-'))
+				if(position === 0 && !arg.startsWith('-'))
 				{
-					options.alias = args[i];
+					options.alias = arg;
 				}
 		}
 	}
@@ -133,7 +139,8 @@ function logInfo(message)
 // ============================================================================
 
 /**
- * @description Executes a command and streams output in real-time.
+ * @description Executes a command and streams output in real-time. A command stopped by a
+ * signal has no exit code; it counts as a failure (code 1), never as a success.
  * @param {string} command - The command to execute.
  * @param {string[]} args - Command arguments.
  * @returns {Promise<{code: number, output: string}>} Exit code and captured output.
@@ -165,9 +172,13 @@ function runCommand(command, args)
 			output += text;
 		});
 
-		proc.on('close', (code) =>
+		proc.on('close', (code, signal) =>
 		{
-			resolve({code: code || 0, output});
+			if(code === null)
+			{
+				logError(`${command} was stopped by signal ${signal}`);
+			}
+			resolve({code: code ?? 1, output});
 		});
 
 		proc.on('error', (err) =>
@@ -302,7 +313,8 @@ async function main()
 	}
 
 	// Step 1: Create scratch org
-	logStep(++currentStep, totalSteps, 'Creating scratch org...');
+	currentStep++;
+	logStep(currentStep, totalSteps, 'Creating scratch org...');
 	const orgCreated = await createScratchOrg(options.alias, options.days);
 	if(!orgCreated)
 	{
@@ -313,7 +325,8 @@ async function main()
 	console.log('');
 
 	// Step 2: Deploy source
-	logStep(++currentStep, totalSteps, 'Deploying source...');
+	currentStep++;
+	logStep(currentStep, totalSteps, 'Deploying source...');
 	const deployed = await deploySource(options.alias);
 	if(!deployed)
 	{
@@ -327,7 +340,8 @@ async function main()
 	let testsPassed = true;
 	if(!options.skipTests)
 	{
-		logStep(++currentStep, totalSteps, 'Running tests...');
+		currentStep++;
+		logStep(currentStep, totalSteps, 'Running tests...');
 		testsPassed = await runTests(options.alias);
 		console.log('');
 	}

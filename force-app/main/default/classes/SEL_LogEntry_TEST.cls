@@ -1573,13 +1573,13 @@ private class SEL_LogEntry_TEST
 		Test.startTest();
 		Integer windowed = new SEL_LogEntry().countFoldableRowsInWindow(criteria, new List<String> {LOG_Engine.LEVEL_ERROR});
 		Integer lowerOnly = new SEL_LogEntry().countFoldableRowsInWindow(lowerBoundOnly, new List<String> {LOG_Engine.LEVEL_ERROR});
-		Integer unwindowed = new SEL_LogEntry().countFoldableRowsInWindow(new SEL_LogEntry.BrowseCriteria(), new List<String> {LOG_Engine.LEVEL_ERROR});
+		Integer countWithoutWindow = new SEL_LogEntry().countFoldableRowsInWindow(new SEL_LogEntry.BrowseCriteria(), new List<String> {LOG_Engine.LEVEL_ERROR});
 		Test.stopTest();
 
 		Assert.areEqual(2, windowed, 'Only the two rows inside both bounds should be counted');
 		Assert.areEqual(6, lowerOnly,
 				'Dropping only the upper bound must readmit the four rows created now, proving windowEnd, not windowStart, is what excluded them');
-		Assert.areEqual(9, unwindowed, 'With no window at all the count should span every foldable row, proving both bounds narrowed it');
+		Assert.areEqual(9, countWithoutWindow, 'With no window at all the count should span every foldable row, proving both bounds narrowed it');
 	}
 
 	/**

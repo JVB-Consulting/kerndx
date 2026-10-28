@@ -43,7 +43,8 @@ function headingLines(content)
 
 /**
  * @description The line range a scope names: from a heading to another, optionally only after a third, earlier one
- *              (for a heading text the guide repeats). Exact heading texts, without the `#` marks.
+ *              (for a heading text the guide repeats). Exact heading texts, without the `#` marks. The end heading is
+ *              looked for only below the line the range starts on, so it can share its text with the start heading.
  * @param {Array<{text: string, line: number}>} headings - The guide's headings.
  * @param {string} guide - For the error message.
  * @param {{fromHeading?: string, untilHeading?: string, afterHeading?: string}} scope - The range.
@@ -62,8 +63,9 @@ function rangeOf(headings, guide, scope)
 	};
 	const after = scope.afterHeading ? find(scope.afterHeading, 1).line : 1;
 	const from = scope.fromHeading ? find(scope.fromHeading, after) : null;
-	const until = scope.untilHeading ? find(scope.untilHeading, from ? from.line : after) : null;
-	return {firstLine: from ? from.line : after, lastLine: until ? until.line : Infinity};
+	const firstLine = from ? from.line : after;
+	const until = scope.untilHeading ? find(scope.untilHeading, firstLine + 1) : null;
+	return {firstLine, lastLine: until ? until.line : Infinity};
 }
 
 /**

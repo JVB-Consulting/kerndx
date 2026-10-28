@@ -137,8 +137,8 @@ function parseApexCoverage(sfPayload)
 		{
 			continue;
 		}
-		const covered = toInt(entry.numLinesCovered !== undefined ? entry.numLinesCovered : entry.totalCovered);
-		const totalLines = toInt(entry.totalLines !== undefined ? entry.totalLines : (covered + toInt(entry.numLinesUncovered)));
+		const covered = toInt(entry.numLinesCovered === undefined ? entry.totalCovered : entry.numLinesCovered);
+		const totalLines = toInt(entry.totalLines === undefined ? (covered + toInt(entry.numLinesUncovered)) : entry.totalLines);
 		const uncovered = Math.max(0, totalLines - covered);
 		let percentage = coercePercentage(entry.percentage);
 		if(!percentage)
@@ -149,7 +149,7 @@ function parseApexCoverage(sfPayload)
 		{
 			percentage = Number(((covered / totalLines) * 100).toFixed(1));
 		}
-		classes[name] = {percentage, coveredLines: covered, uncoveredLines: uncovered};
+		classes[name] = withUncoveredLineNumbers({percentage, coveredLines: covered, uncoveredLines: uncovered}, readUncoveredLineNumbers(entry));
 	}
 
 	const summary = root.summary || {};
@@ -165,20 +165,75 @@ function parseApexCoverage(sfPayload)
 }
 
 /**
- * @description Reapplies the exemption policy to a class's coverage, subtracting
- * the documented exempt lines from *both* covered and total denominators so the
- * reported percentage rises to 100% only when every non-exempt line is covered.
+ * @description Reads the uncovered line numbers from one coverage entry of an `sf apex run test` result. The
+ * `codecoverage` shape lists them in `uncoveredLines`; the `coverage.coverage` shape maps each line number to 1
+ * (covered) or 0 (not covered) in `lines`.
+ *
+ * @param {Object} entry - One raw coverage entry.
+ * @return {Array<number>|null} The line numbers, or null when the entry does not say which lines were missed.
+ */
+function readUncoveredLineNumbers(entry)
+{
+	if(Array.isArray(entry.uncoveredLines))
+	{
+		return entry.uncoveredLines;
+	}
+	if(entry.lines && typeof entry.lines === 'object')
+	{
+		return Object.entries(entry.lines).filter(([, hits]) => Number(hits) === 0).map(([line]) => Number(line));
+	}
+	return null;
+}
+
+/**
+ * @description Adds the sorted, distinct uncovered line numbers to a class entry. An entry whose source did not
+ * say which lines were missed gets no list at all, so no exemption can be applied to it by guesswork.
+ *
+ * @param {Object} entry - A class entry: `{percentage, coveredLines, uncoveredLines}`.
+ * @param {Array<number>|null} lineNumbers - The uncovered line numbers, or null when they are not known.
+ * @return {Object} The entry, with `uncoveredLineNumbers` when the line numbers are known.
+ */
+function withUncoveredLineNumbers(entry, lineNumbers)
+{
+	if(!Array.isArray(lineNumbers))
+	{
+		return entry;
+	}
+	const sorted = [...new Set(lineNumbers.map(Number))].sort((left, right) => left - right);
+	return {...entry, uncoveredLineNumbers: sorted};
+}
+
+/**
+ * @description Reapplies the exemption policy to a class's coverage. Each valid exempt comment marks one line;
+ * a marked line is taken out of both the uncovered count and the total only when the run reports that exact line
+ * as uncovered. A marked line a test covers takes nothing away, so it can never hide a different uncovered line.
+ * A class whose coverage does not list its uncovered line numbers gets no exemption at all. The percentage
+ * rises to 100% only when every line that is not exempt is covered.
  *
  * @param {Object} apexCoverage - Output of `parseApexCoverage()`.
- * @param {Object<string, number>} exemptLineCounts - `{className: exemptLineCount}`.
+ * @param {Object<string, Array<number|Array<number>>>} exemptLinesByClass - `{className: [marked line of each valid exempt comment]}`.
+ *     An entry may be one line number, or a list of line numbers when the comment marks a `catch` line and its brace line.
+ *     An entry takes away at most one uncovered line, whichever line of the list the run reports.
  * @return {Object} New coverage object with adjusted percentages and `exemptLines` counts.
  */
-function applyApexExemptions(apexCoverage, exemptLineCounts)
+function applyApexExemptions(apexCoverage, exemptLinesByClass)
 {
 	const adjusted = {classes: {}};
 	for(const [className, entry] of Object.entries(apexCoverage.classes))
 	{
-		const exemptLines = toInt(exemptLineCounts[className] || 0);
+		const markedEntries = Array.isArray(exemptLinesByClass[className]) ? exemptLinesByClass[className] : [];
+		const uncoveredLineNumbers = new Set(entry.uncoveredLineNumbers || []);
+		const usedLines = new Set();
+		let exemptLines = 0;
+		for(const markedEntry of markedEntries)
+		{
+			const hitLine = [].concat(markedEntry).find(line => uncoveredLineNumbers.has(line) && !usedLines.has(line));
+			if(hitLine !== undefined)
+			{
+				usedLines.add(hitLine);
+				exemptLines += 1;
+			}
+		}
 		const totalLines = entry.coveredLines + entry.uncoveredLines;
 		const adjustedTotal = Math.max(0, totalLines - exemptLines);
 		const adjustedUncovered = Math.max(0, entry.uncoveredLines - exemptLines);
@@ -202,7 +257,8 @@ function applyApexExemptions(apexCoverage, exemptLineCounts)
  * `RunLocalTests` (coverage-record write contention loses rollup entries).
  *
  * @param {Array<{Coverage: {coveredLines: Array<number>, uncoveredLines: Array<number>}}>} rows
- * @return {{percentage: number, coveredLines: number, uncoveredLines: number}}
+ * @return {{percentage: number, coveredLines: number, uncoveredLines: number, uncoveredLineNumbers: Array<number>}} The
+ *     counts, and the lines no row covers.
  */
 function unionCoverageFromRows(rows)
 {
@@ -220,18 +276,12 @@ function unionCoverageFromRows(rows)
 			mentionedUncovered.add(line);
 		}
 	}
-	let uncoveredCount = 0;
-	for(const line of mentionedUncovered)
-	{
-		if(!covered.has(line))
-		{
-			uncoveredCount++;
-		}
-	}
+	const neverCovered = [...mentionedUncovered].filter(line => !covered.has(line)).sort((left, right) => left - right);
+	const uncoveredCount = neverCovered.length;
 	const coveredCount = covered.size;
 	const total = coveredCount + uncoveredCount;
 	const percentage = total === 0 ? 100 : Number(((coveredCount / total) * 100).toFixed(1));
-	return {percentage, coveredLines: coveredCount, uncoveredLines: uncoveredCount};
+	return {percentage, coveredLines: coveredCount, uncoveredLines: uncoveredCount, uncoveredLineNumbers: neverCovered};
 }
 
 /**
@@ -241,6 +291,9 @@ function unionCoverageFromRows(rows)
  * percentage, so a genuinely-uncovered line can never be masked by stale or
  * partial per-test rows. Absorbs the parallel-run rollup artifact where the
  * aggregate under-reports classes whose per-test rows are in fact complete.
+ * On a tie, the union also replaces an aggregate row that lists no uncovered
+ * line numbers (an empty or missing list) and counts the same lines: the figure is the same, and the
+ * union's line list lets the class's exempt comments apply.
  *
  * @param {{classes: Object<string, Object>}} aggregateCoverage - Output of `normaliseAggregateRows()`.
  * @param {Object<string, Array<Object>>} perTestRowsByClass - `{className: ApexCodeCoverage rows}`.
@@ -253,7 +306,10 @@ function reconcileAggregateWithPerTestRows(aggregateCoverage, perTestRowsByClass
 	{
 		const union = unionCoverageFromRows(rows);
 		const current = classes[className];
-		if(!current || union.percentage > current.percentage)
+		const currentListsNoLines = !Array.isArray(current?.uncoveredLineNumbers) || current.uncoveredLineNumbers.length === 0;
+		const countsSameLines = union.coveredLines + union.uncoveredLines === (current?.coveredLines ?? 0) + (current?.uncoveredLines ?? 0);
+		const isTieThatAddsLineNumbers = union.percentage === current?.percentage && currentListsNoLines && countsSameLines;
+		if(!current || union.percentage > current.percentage || isTieThatAddsLineNumbers)
 		{
 			classes[className] = union;
 		}
@@ -311,7 +367,10 @@ function computeIstanbulPercentages(entry)
 		statements: pct(statements.covered, statements.total),
 		branches: pct(branches.covered, branches.total),
 		functions: pct(functions.covered, functions.total),
-		lines: pct(lines.covered, lines.total)
+		lines: pct(lines.covered, lines.total),
+		// The raw counts, so a floor is checked on the real ratio: the rounded percentage reads 95.0 for
+		// 189 of 199 statements (94.97%), which is under the 95% floor.
+		counts: {statements, branches, functions, lines}
 	};
 }
 
@@ -430,10 +489,71 @@ function parseJestCoverageSummary(summary, repoRoot)
 		}
 		const relative = toRepoRelative(key, repoRoot);
 		files[relative] = {
-			statements: toPct(value.statements), branches: toPct(value.branches), functions: toPct(value.functions), lines: toPct(value.lines)
+			statements: toPct(value.statements),
+			branches: toPct(value.branches),
+			functions: toPct(value.functions),
+			lines: toPct(value.lines),
+			counts: {
+				statements: toCounts(value.statements), branches: toCounts(value.branches), functions: toCounts(value.functions), lines: toCounts(value.lines)
+			}
 		};
 	}
 	return {files};
+}
+
+/**
+ * @description Reads the covered and total counts of a Jest coverage-summary metric (`{total, covered, pct}`).
+ *
+ * @param {Object} metric - The metric block.
+ * @return {{covered: number, total: number}|null} The counts, or null when the block has none.
+ */
+function toCounts(metric)
+{
+	if(!metric || !Number.isFinite(Number(metric.total)) || !Number.isFinite(Number(metric.covered)))
+	{
+		return null;
+	}
+	return {covered: Number(metric.covered), total: Number(metric.total)};
+}
+
+/**
+ * @description Decides whether a measurement is under a floor on its real ratio when the counts are known
+ * (`covered * 100 < floor * total`, exact in integers), and on the rounded percentage otherwise. The rounded
+ * figure is for display: 189 of 199 statements reads 95.0 and is under the 95% floor, and an Apex class of
+ * 2,000 lines with one uncovered line reads 100.0 and is under the 100% floor.
+ *
+ * @param {{covered: number, total: number}|null|undefined} counts - The covered and total counts, when known.
+ * @param {number} percentage - The rounded percentage.
+ * @param {number} floor - The floor, in percent.
+ * @return {boolean} True when the measurement is under the floor.
+ */
+function isBelowFloor(counts, percentage, floor)
+{
+	if(counts && counts.total > 0)
+	{
+		return counts.covered * 100 < floor * counts.total;
+	}
+	return percentage < floor;
+}
+
+/**
+ * @description Decides whether a measurement fell below its baseline. When both sides carry counts the real
+ * ratios are compared (cross-multiplied, exact in integers); otherwise the rounded percentages are, as the
+ * baseline stores them.
+ *
+ * @param {{covered: number, total: number}|null|undefined} counts - The current counts, when known.
+ * @param {number} percentage - The current rounded percentage.
+ * @param {{covered: number, total: number}|null|undefined} baselineCounts - The baseline counts, when known.
+ * @param {number} baselinePercentage - The baseline percentage.
+ * @return {boolean} True when the measurement is below the baseline.
+ */
+function isBelowBaseline(counts, percentage, baselineCounts, baselinePercentage)
+{
+	if(counts && baselineCounts && counts.total > 0 && baselineCounts.total > 0)
+	{
+		return counts.covered * baselineCounts.total < baselineCounts.covered * counts.total;
+	}
+	return percentage < baselinePercentage;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -442,11 +562,13 @@ function parseJestCoverageSummary(summary, repoRoot)
 
 /**
  * @description Scans source text for `// kern-coverage-exempt:` comments.
- * Returns one entry per comment with the 1-indexed line number, reason text,
- * and a validation verdict against the policy blocklist.
+ * Returns one entry per comment with the 1-indexed line number, the line it
+ * marks (see `findMarkedLineNumber`), reason text, and a validation verdict
+ * against the policy blocklist.
  *
  * @param {string} source - The source file contents.
- * @return {Array<{lineNumber: number, reason: string, reasonValid: boolean, failures: Array<string>}>}
+ * @return {Array<{lineNumber: number, targetLineNumber: number|null, markedLineNumbers: Array<number>, reason: string, reasonValid: boolean,
+ *     failures: Array<string>}>}
  */
 function parseCoverageExemptComments(source)
 {
@@ -458,7 +580,8 @@ function parseCoverageExemptComments(source)
  * the same validation.
  *
  * @param {string} source - The source file contents.
- * @return {Array<{lineNumber: number, reason: string, reasonValid: boolean, failures: Array<string>}>}
+ * @return {Array<{lineNumber: number, targetLineNumber: number|null, markedLineNumbers: Array<number>, reason: string, reasonValid: boolean,
+ *     failures: Array<string>}>}
  */
 function parseTestSetupExemptComments(source)
 {
@@ -522,11 +645,13 @@ function evaluateThresholds(args)
 		evaluateApexClass(className, apexResult, baseline, outcome);
 	}
 
+	const componentsWithoutData = new Set();
 	for(const component of lwcTargets || [])
 	{
 		const matches = findLwcFilesForComponent(lwcResult, component);
 		if(matches.length === 0)
 		{
+			componentsWithoutData.add(component);
 			outcome.violations.push({kind: 'lwc_missing', target: component, detail: 'no coverage data returned for component path'});
 			continue;
 		}
@@ -536,7 +661,36 @@ function evaluateThresholds(args)
 		}
 	}
 
+	// A baseline file the Jest report no longer holds (no test loads it any more) is not in `matches`, so the
+	// loop above never looks at it; without this it passed instead of reading as 0%.
+	const baselineFiles = (baseline && baseline.lwc && baseline.lwc.files) || {};
+	const reportedFiles = (lwcResult && lwcResult.files) || {};
+	const targetSet = new Set(lwcTargets || []);
+	for(const filePath of Object.keys(baselineFiles))
+	{
+		const component = componentOfLwcFile(filePath);
+		if(!component || !targetSet.has(component) || componentsWithoutData.has(component) || reportedFiles[filePath])
+		{
+			continue;
+		}
+		outcome.violations.push({
+			kind: 'lwc_missing', target: filePath, detail: 'the baseline holds this file but the Jest report does not: no test loads it any more, so it reads as 0%'
+		});
+	}
+
 	return {pass: outcome.violations.length === 0, ...outcome};
+}
+
+/**
+ * @description Reads the component folder name from a repo-relative Lightning web component file path.
+ *
+ * @param {string} filePath - The file path, such as `force-app/main/default/lwc/bar/bar.js`.
+ * @return {string|null} The component folder name, or null when the path is not under an `lwc/` folder.
+ */
+function componentOfLwcFile(filePath)
+{
+	const match = filePath.match(/\/lwc\/([^/]+)\//);
+	return match ? match[1] : null;
 }
 
 /**
@@ -560,7 +714,8 @@ function evaluateApexClass(className, apexResult, baseline, outcome)
 	}
 	const priorPct = pickBaselinePercentage(baseline, 'apex', className);
 	outcome.measurements.push({kind: 'apex', target: className, current: current.percentage, baseline: priorPct});
-	if(current.percentage < APEX_FLOOR)
+	const counts = apexLineCounts(current);
+	if(isBelowFloor(counts, current.percentage, APEX_FLOOR))
 	{
 		outcome.violations.push({kind: 'apex_below_floor', target: className, current: current.percentage, floor: APEX_FLOOR});
 	}
@@ -568,10 +723,26 @@ function evaluateApexClass(className, apexResult, baseline, outcome)
 	{
 		outcome.notes.push({kind: 'apex_unbaselined', target: className});
 	}
-	else if(current.percentage < priorPct)
+	else if(isBelowBaseline(counts, current.percentage, apexLineCounts(baseline.apex.classes[className]), priorPct))
 	{
 		outcome.violations.push({kind: 'apex_regression', target: className, current: current.percentage, baseline: priorPct});
 	}
+}
+
+/**
+ * @description Reads an Apex coverage entry's covered and total line counts, when it carries them.
+ *
+ * @param {Object} entry - A class entry: `{percentage, coveredLines, uncoveredLines}`.
+ * @return {{covered: number, total: number}|null} The counts, or null when the entry has none.
+ */
+function apexLineCounts(entry)
+{
+	if(!Number.isFinite(Number(entry.coveredLines)) || !Number.isFinite(Number(entry.uncoveredLines)))
+	{
+		return null;
+	}
+	const covered = Number(entry.coveredLines);
+	return {covered, total: covered + Number(entry.uncoveredLines)};
 }
 
 /**
@@ -595,14 +766,17 @@ function evaluateLwcFile(filePath, coverage, baseline, outcome)
 		current: {statements: coverage.statements, branches: coverage.branches},
 		baseline: {statements: priorStatements, branches: priorBranches}
 	});
-	if(coverage.statements < LWC_STATEMENTS_FLOOR)
+	const counts = coverage.counts || {};
+	if(isBelowFloor(counts.statements, coverage.statements, LWC_STATEMENTS_FLOOR))
 	{
 		outcome.violations.push({kind: 'lwc_statements_below_floor', target: filePath, current: coverage.statements, floor: LWC_STATEMENTS_FLOOR});
 	}
-	if(coverage.branches < LWC_BRANCHES_FLOOR)
+	if(isBelowFloor(counts.branches, coverage.branches, LWC_BRANCHES_FLOOR))
 	{
 		outcome.violations.push({kind: 'lwc_branches_below_floor', target: filePath, current: coverage.branches, floor: LWC_BRANCHES_FLOOR});
 	}
+	// The baseline stores rounded percentages only, so the regression check stays on rounded figures: a raw
+	// ratio against a rounded baseline would report a regression that never happened.
 	if(priorStatements === null && priorBranches === null)
 	{
 		outcome.notes.push({kind: 'lwc_unbaselined', target: filePath});
@@ -750,7 +924,8 @@ function formatPmdXml(violations, options)
 		{
 			const priority = violationPriority(violation);
 			const message = xmlEscape(describeViolation(violation));
-			lines.push('\t\t<violation beginline="0" endline="0" begincolumn="0" endcolumn="0" ' + `rule="${xmlEscape(PMD_RULE_NAME)}" ruleset="${xmlEscape(PMD_RULESET_NAME)}" `
+			lines.push('\t\t<violation beginline="0" endline="0" begincolumn="0" endcolumn="0" '
+					+ `rule="${xmlEscape(PMD_RULE_NAME)}" ruleset="${xmlEscape(PMD_RULESET_NAME)}" `
 					+ `priority="${priority}">${message}</violation>`);
 		}
 		lines.push('\t</file>');
@@ -1202,7 +1377,8 @@ function componentLabel(filePath)
  *
  * @param {string} source - Source text.
  * @param {RegExp} pattern - The line-level regex to match.
- * @return {Array<{lineNumber: number, reason: string, reasonValid: boolean, failures: Array<string>}>}
+ * @return {Array<{lineNumber: number, targetLineNumber: number|null, markedLineNumbers: Array<number>, reason: string,
+ *     reasonValid: boolean, failures: Array<string>}>}
  */
 function parseExemptComments(source, pattern)
 {
@@ -1222,10 +1398,59 @@ function parseExemptComments(source, pattern)
 		const reason = (match[1] || '').trim();
 		const {valid, failures} = validateExemptReason(reason);
 		results.push({
-			lineNumber: index + 1, reason, reasonValid: valid, failures
+			lineNumber: index + 1, targetLineNumber: findMarkedLineNumber(lines, index), markedLineNumbers: findMarkedLineNumbers(lines, index),
+			reason, reasonValid: valid, failures
 		});
 	}
 	return results;
+}
+
+/**
+ * @description Finds the code line an exempt comment marks. When code comes before the comment on the same line,
+ * that line is marked. Otherwise the comment sits above the line it marks, as the exemption policy asks: the mark
+ * is the first line below it that is neither blank nor a comment, so a reason that carries on over more comment
+ * lines still marks the code under it.
+ *
+ * @param {Array<string>} lines - The source split into lines.
+ * @param {number} commentIndex - The 0-based index of the line holding the comment.
+ * @return {number|null} The 1-based number of the marked line, or null when only blank or comment lines follow.
+ */
+function findMarkedLineNumber(lines, commentIndex)
+{
+	const codeBeforeComment = lines[commentIndex].slice(0, lines[commentIndex].indexOf('//')).trim();
+	if(codeBeforeComment.length > 0)
+	{
+		return commentIndex + 1;
+	}
+	for(let index = commentIndex + 1; index < lines.length; index += 1)
+	{
+		const text = lines[index].trim();
+		if(text.length > 0 && !/^(\/\/|\/\*|\*)/.test(text))
+		{
+			return index + 1;
+		}
+	}
+	return null;
+}
+
+/**
+ * @description Lists the lines an exempt comment stands for. This is the marked line, plus the line right after it when
+ * that line holds only an opening brace. Salesforce reports the brace line, not the `catch(...)` line, as the line of a
+ * `catch` block. No other line is added, and a comment still takes away at most one uncovered line.
+ *
+ * @param {Array<string>} lines - The source split into lines.
+ * @param {number} commentIndex - The 0-based index of the line holding the comment.
+ * @return {Array<number>} The 1-based line numbers, or an empty list when the comment marks no line.
+ */
+function findMarkedLineNumbers(lines, commentIndex)
+{
+	const markedLine = findMarkedLineNumber(lines, commentIndex);
+	if(markedLine === null)
+	{
+		return [];
+	}
+	const nextText = markedLine < lines.length ? lines[markedLine].trim() : '';
+	return nextText === '{' ? [markedLine, markedLine + 1] : [markedLine];
 }
 
 /**
@@ -1261,6 +1486,7 @@ module.exports = {
 	safeParseJson,
 	parseApexCoverage,
 	applyApexExemptions,
+	withUncoveredLineNumbers,
 	unionCoverageFromRows,
 	reconcileAggregateWithPerTestRows,
 	parseJestCoverageFinal,
@@ -1269,6 +1495,8 @@ module.exports = {
 	parseTestSetupExemptComments,
 	validateExemptReason,
 	evaluateThresholds,
+	isBelowFloor,
+	isBelowBaseline,
 	formatSummaryLine,
 	formatViolationsReport,
 	formatNotesReport,

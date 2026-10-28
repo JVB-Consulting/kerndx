@@ -14,7 +14,7 @@ cli.command('init')
 	const {runInit} = require('../src/commands/init.js');
 	try
 	{
-		await runInit({interactive: true});
+		await runInit({interactive: true, check: Boolean(opts.check)});
 		process.exit(0);
 	}
 	catch(e)

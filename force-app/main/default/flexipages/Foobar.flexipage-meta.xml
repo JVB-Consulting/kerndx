@@ -260,6 +260,16 @@
                 <identifier>RecordLookup_cField</identifier>
             </fieldInstance>
         </itemInstances>
+        <itemInstances>
+            <fieldInstance>
+                <fieldInstanceProperties>
+                    <name>uiBehavior</name>
+                    <value>readonly</value>
+                </fieldInstanceProperties>
+                <fieldItem>Record.Formula__c</fieldItem>
+                <identifier>RecordFormula_cField</identifier>
+            </fieldInstance>
+        </itemInstances>
         <name>Facet-6f03a89a-f62d-469b-aa7e-4753001712af</name>
         <type>Facet</type>
     </flexiPageRegions>

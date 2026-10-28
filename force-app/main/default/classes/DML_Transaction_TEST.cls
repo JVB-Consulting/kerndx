@@ -98,6 +98,39 @@ private class DML_Transaction_TEST
 	private static final String OVERLONG_EXTERNAL_ID = 'x'.repeat(60);
 
 	/**
+	 * @description The email on a row the running user owns, saved before a user with fewer rights tries to change it.
+	 */
+	private static final String SEEDED_EMAIL = 'seeded-by-owner@kerndx.test.invalid';
+
+	/**
+	 * @description The email a user with fewer rights tries to save on a row another user owns.
+	 */
+	private static final String CHANGED_EMAIL = 'changed-by-restricted-user@kerndx.test.invalid';
+
+	/**
+	 * @description The phone number given to each Account a test saves. Some orgs that install the package have their
+	 * own rule that an Account needs a phone number or a website, so a saved Account carries one.
+	 */
+	private static final String ACCOUNT_PHONE = '555-0100';
+
+	/**
+	 * @description The industry given to each Account a test saves. Some orgs that install the package have their own
+	 * rule that an Account needs an industry, so a saved Account carries one.
+	 */
+	private static final String ACCOUNT_INDUSTRY = 'Technology';
+
+	/**
+	 * @description Object permissions that let a user read and edit records.
+	 */
+	private static final List<SObjectField> READ_EDIT_PERMISSIONS = new List<SObjectField> {ObjectPermissions.PermissionsRead, ObjectPermissions.PermissionsEdit};
+
+	/**
+	 * @description The status code the platform gives in user mode when a save sets a field the user cannot create or
+	 * edit.
+	 */
+	private static final StatusCode USER_MODE_REFUSAL_STATUS = StatusCode.CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY;
+
+	/**
 	 * @description Message the deliberately-throwing hook subclasses raise in the swallow tests and the empty-commit test.
 	 */
 	private static final String HOOK_FAILURE_MESSAGE = 'Deliberate hook failure for the swallow tests';
@@ -132,6 +165,12 @@ private class DML_Transaction_TEST
 	 * @description A remaining budget below anything a first attempt can consume, so the headroom guard must stop the loop.
 	 */
 	private static final Integer NO_HEADROOM = 1;
+
+	/**
+	 * @description A remaining budget of two statements: exactly what an update of records of two objects may need
+	 * when the proxy that keeps the user's permissions splits it in two. The headroom guard must then keep both free.
+	 */
+	private static final Integer HEADROOM_FOR_A_SPLIT_UPDATE = 2;
 
 	/**
 	 * @description No DML rows left at all, so the partial-mode guard must stop the rounds: one row left would still
@@ -1519,6 +1558,307 @@ private class DML_Transaction_TEST
 	}
 
 	/**
+	 * @description With the UserModeDml_Enabled flag off, a transaction with no access level runs in system mode, which
+	 * skips the user's object and field permissions. commitWork(false) then saves every field on a row another user owns,
+	 * the field the user cannot see included, because the org turned those checks off for every save.
+	 */
+	@IsTest
+	private static void commitWorkFalseWithTheDmlFlagOffSavesEveryField()
+	{
+		User restricted = insertRestrictedUser();
+		Foobar__c row = insertRowOwnedByRunningUser();
+		String changedName = UTIL_Random.randomName();
+		TST_Factory.newFeatureFlag(DML_SharingProxy.FLAG_USER_MODE_DML, true, false);
+
+		System.runAs(restricted)
+		{
+			DML_Transaction dmlTransaction = new DML_Transaction();
+			dmlTransaction.doUpdate(newChangeOf(row.Id, changedName, CHANGED_EMAIL));
+			dmlTransaction.commitWork(false);
+		}
+
+		Foobar__c found = readFoobarWithoutSharing(row.Id);
+		Assert.areEqual(changedName, found.Name, 'Expected the new name to be saved');
+		Assert.areEqual(CHANGED_EMAIL, found.Email__c, 'Expected the hidden field to be saved, because the flag turns field checks off');
+	}
+
+	/**
+	 * @description commitWork(false) ignores record sharing when the transaction runs in user mode, both when no access
+	 * level is set and the flag gives user mode, and when user mode is set on the transaction. It still keeps the user's
+	 * field permissions. Each commit changes the name of a row another user owns, and the field the user cannot edit
+	 * keeps its old value.
+	 */
+	@IsTest
+	private static void commitWorkFalseUnderUserModeUpdatesARecordOwnedByAnotherUser()
+	{
+		User restricted = insertRestrictedUser();
+		Foobar__c row = insertRowOwnedByRunningUser();
+		String nameWithFlagDefault = UTIL_Random.randomName();
+		String nameWithUserModeSet = UTIL_Random.randomName();
+		TST_Factory.newFeatureFlag(DML_SharingProxy.FLAG_USER_MODE_DML, true);
+
+		System.runAs(restricted)
+		{
+			DML_Transaction dmlTransaction = new DML_Transaction();
+			dmlTransaction.doUpdate(newChangeOf(row.Id, nameWithFlagDefault, CHANGED_EMAIL));
+			dmlTransaction.commitWork(false);
+		}
+		Foobar__c afterFlagDefault = readFoobarWithoutSharing(row.Id);
+		Assert.areEqual(nameWithFlagDefault, afterFlagDefault.Name, 'Expected the commit with no access level to save the new name');
+		Assert.areEqual(SEEDED_EMAIL, afterFlagDefault.Email__c, 'Expected the commit with no access level to leave out the field the user cannot edit');
+
+		System.runAs(restricted)
+		{
+			DML_Transaction dmlTransaction = new DML_Transaction();
+			dmlTransaction.setAccessLevel(AccessLevel.USER_MODE);
+			dmlTransaction.doUpdate(newChangeOf(row.Id, nameWithUserModeSet, CHANGED_EMAIL));
+			dmlTransaction.commitWork(false);
+		}
+		Foobar__c afterUserModeSet = readFoobarWithoutSharing(row.Id);
+		Assert.areEqual(nameWithUserModeSet, afterUserModeSet.Name, 'Expected the commit in user mode to save the new name');
+		Assert.areEqual(SEEDED_EMAIL, afterUserModeSet.Email__c, 'Expected the commit in user mode to leave out the field the user cannot edit');
+	}
+
+	/**
+	 * @description commitWork(false) in user mode keeps leaving out the field the user cannot edit when a partial save
+	 * sends rows again after a row lock. A row lock is the platform refusing a row because another process holds the
+	 * record. A stand-in database layer refuses one of two rows once with a lock, and the save sends that row again in a
+	 * second statement. Both rows belong to another user, so the second statement must also ignore record sharing. Both
+	 * rows get their new names, and the hidden field keeps its old value on both.
+	 */
+	@IsTest
+	private static void commitWorkFalseKeepsTheStripWhenAPartialSaveRetriesALockedRow()
+	{
+		User restricted = insertRestrictedUser();
+		Foobar__c lockedRow = insertRowOwnedByRunningUser();
+		Foobar__c freeRow = insertRowOwnedByRunningUser();
+		String lockedRowName = UTIL_Random.randomName();
+		String freeRowName = UTIL_Random.randomName();
+		TST_Factory.newFeatureFlag(DML_SharingProxy.FLAG_USER_MODE_DML, true);
+		List<Database.SaveResult> results;
+
+		System.runAs(restricted)
+		{
+			DML_Transaction dmlTransaction = new DML_Transaction();
+			dmlTransaction.setAllowPartial(true);
+			dmlTransaction.setRetryOnLock(1);
+			dmlTransaction.doUpdate(new List<SObject> {newChangeOf(lockedRow.Id, lockedRowName, CHANGED_EMAIL), newChangeOf(freeRow.Id, freeRowName, CHANGED_EMAIL)});
+			DML_SharingProxy.sharingProxyForTest = new RefusingRowsProxy(new Map<String, Integer> {lockedRowName => 1});
+			try
+			{
+				Test.startTest();
+				dmlTransaction.commitWork(false);
+				Test.stopTest();
+			}
+			finally
+			{
+				DML_SharingProxy.sharingProxyForTest = null;
+			}
+			results = dmlTransaction.getUpdateResults();
+		}
+
+		Assert.areEqual(2, results.size(), 'Expected one result per row');
+		Assert.isTrue(results[0].isSuccess(), 'Expected the locked row to be saved by the second statement. Actual errors: ' + results[0].getErrors());
+		Assert.isTrue(results[1].isSuccess(), 'Expected the free row to be saved. Actual errors: ' + results[1].getErrors());
+		Foobar__c lockedFound = readFoobarWithoutSharing(lockedRow.Id);
+		Foobar__c freeFound = readFoobarWithoutSharing(freeRow.Id);
+		Assert.areEqual(lockedRowName, lockedFound.Name, 'Expected the locked row to get its new name');
+		Assert.areEqual(SEEDED_EMAIL, lockedFound.Email__c, 'Expected the locked row to keep the old value of the field the user cannot edit');
+		Assert.areEqual(freeRowName, freeFound.Name, 'Expected the free row to get its new name');
+		Assert.areEqual(SEEDED_EMAIL, freeFound.Email__c, 'Expected the free row to keep the old value of the field the user cannot edit');
+	}
+
+	/**
+	 * @description commitWork(false) in user mode refuses an update registered with a parent when the user cannot edit
+	 * the field that links the record to the parent. The save fills that field from the parent's Id, so leaving it out
+	 * would save the change with no link and no error. The platform refuses the save as user mode refuses it, with a
+	 * DmlException naming the parent field, and the row keeps its name and has no parent.
+	 */
+	@IsTest
+	private static void commitWorkFalseRefusesAnUpdateWhoseParentFieldTheUserCannotEdit()
+	{
+		User restricted = insertRestrictedUser(Foobar__c.Lookup__c);
+		Foobar__c row = insertRowOwnedByRunningUser();
+		Foobar__c parentRow = insertRowOwnedByRunningUser();
+		TST_Factory.newFeatureFlag(DML_SharingProxy.FLAG_USER_MODE_DML, true);
+
+		try
+		{
+			System.runAs(restricted)
+			{
+				DML_Transaction dmlTransaction = new DML_Transaction();
+				dmlTransaction.doUpdate(newNameChangeOf(row.Id, UTIL_Random.randomName()), Foobar__c.Lookup__c, parentRow);
+				dmlTransaction.commitWork(false);
+			}
+			Assert.fail('Expected the save to be refused; it went through without the parent field the user cannot edit');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, DmlException.class, 'Expected the refusal user mode gives. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
+			DmlException refusal = (DmlException)error;
+			Assert.areEqual(USER_MODE_REFUSAL_STATUS, refusal.getDmlType(0), 'Expected the status code user mode gives. Actual message: ' + refusal.getMessage());
+			Assert.isTrue(refusal.getDmlFieldNames(0).contains(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Lookup__c)), 'Expected the refusal to name the parent field');
+		}
+
+		Foobar__c found = readFoobarWithParentWithoutSharing(row.Id);
+		Assert.areEqual(row.Name, found.Name, 'Expected the row to keep its name');
+		Assert.isNull(found.Lookup__c, 'Expected the row to have no parent');
+	}
+
+	/**
+	 * @description commitWork(false) in user mode saves an update registered with a parent when the user can edit the
+	 * field that links the record to the parent. The row belongs to another user. It gets its new name and its parent,
+	 * and the field the user cannot edit keeps its old value.
+	 */
+	@IsTest
+	private static void commitWorkFalseSavesAnUpdateWhoseParentFieldTheUserCanEdit()
+	{
+		User restricted = insertRestrictedUser();
+		Foobar__c row = insertRowOwnedByRunningUser();
+		Foobar__c parentRow = insertRowOwnedByRunningUser();
+		String changedName = UTIL_Random.randomName();
+		TST_Factory.newFeatureFlag(DML_SharingProxy.FLAG_USER_MODE_DML, true);
+
+		System.runAs(restricted)
+		{
+			DML_Transaction dmlTransaction = new DML_Transaction();
+			dmlTransaction.doUpdate(newChangeOf(row.Id, changedName, CHANGED_EMAIL), Foobar__c.Lookup__c, parentRow);
+			dmlTransaction.commitWork(false);
+		}
+
+		Foobar__c found = readFoobarWithParentWithoutSharing(row.Id);
+		Assert.areEqual(changedName, found.Name, 'Expected the row to get its new name');
+		Assert.areEqual(parentRow.Id, found.Lookup__c, 'Expected the row to be linked to its parent');
+		Assert.areEqual(SEEDED_EMAIL, found.Email__c, 'Expected the field the user cannot edit to keep its old value');
+	}
+
+	/**
+	 * @description Saves a Standard User who may read and edit Foobar__c and can read and edit every Foobar__c field
+	 * except Email__c. The Standard User profile gives no access to Foobar__c, so the user has exactly these permissions.
+	 *
+	 * @return The saved user
+	 */
+	private static User insertRestrictedUser()
+	{
+		return insertRestrictedUser(Foobar__c.Email__c);
+	}
+
+	/**
+	 * @description Saves a Standard User who may read and edit Foobar__c and can read and edit every Foobar__c field
+	 * except the given one. The Standard User profile gives no access to Foobar__c, so the user has exactly these
+	 * permissions.
+	 *
+	 * @param hiddenField The one Foobar__c field the user can neither read nor edit
+	 *
+	 * @return The saved user
+	 */
+	private static User insertRestrictedUser(SObjectField hiddenField)
+	{
+		return TST_Factory.insertUserWithOneHiddenField
+				(
+						SEL_Profile.PROFILE_STANDARD_USER,
+						new List<SObjectType> {Foobar__c.SObjectType},
+						READ_EDIT_PERMISSIONS,
+						hiddenField
+				);
+	}
+
+	/**
+	 * @description Saves a System Administrator who has the package's Administrator permission set, so the user can
+	 * read, create and edit every Foobar__c field. The user who runs the tests may have no access to those fields in a
+	 * new org.
+	 *
+	 * @return The saved user
+	 */
+	private static User insertAdministrator()
+	{
+		return TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_SYSTEM_ADMIN, UTIL_Random.randomName(), SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
+	}
+
+	/**
+	 * @description Builds an unsaved change to an existing Foobar__c row that holds only the Id and the name.
+	 *
+	 * @param recordId The Id of the row to change
+	 * @param name The new name
+	 *
+	 * @return The change, ready to save
+	 */
+	private static Foobar__c newNameChangeOf(Id recordId, String name)
+	{
+		Foobar__c change = (Foobar__c)Foobar__c.SObjectType.newSObject(recordId);
+		change.Name = name;
+		return change;
+	}
+
+	/**
+	 * @description Reads one Foobar__c row as the running user, in system mode and without record sharing, with its name,
+	 * its email and its parent.
+	 *
+	 * @param recordId The Id of the row to read
+	 *
+	 * @return The row, or null when no row with that Id exists
+	 */
+	private static Foobar__c readFoobarWithParentWithoutSharing(Id recordId)
+	{
+		return (Foobar__c)QRY_Builder.selectFrom(Foobar__c.SObjectType)
+				.fields(new List<SObjectField> {Foobar__c.Name, Foobar__c.Email__c, Foobar__c.Lookup__c})
+				.condition(Foobar__c.Id).equals(recordId)
+				.withSystemMode()
+				.bypassSharing()
+				.getFirst();
+	}
+
+	/**
+	 * @description Saves, as the running user, one Foobar__c row with a random name and the seeded email. Foobar__c
+	 * records are private, so another user cannot see the row through record sharing.
+	 *
+	 * @return The saved row
+	 */
+	private static Foobar__c insertRowOwnedByRunningUser()
+	{
+		return (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Name, UTIL_Random.randomName())
+				.withOverride(Foobar__c.Email__c, SEEDED_EMAIL)
+				.build();
+	}
+
+	/**
+	 * @description Builds an unsaved change to an existing Foobar__c row. It holds only the Id, the name and the email,
+	 * so the save carries no field the test did not mean to change.
+	 *
+	 * @param recordId The Id of the row to change
+	 * @param name The new name
+	 * @param email The new email
+	 *
+	 * @return The change, ready to save
+	 */
+	private static Foobar__c newChangeOf(Id recordId, String name, String email)
+	{
+		Foobar__c change = (Foobar__c)Foobar__c.SObjectType.newSObject(recordId);
+		change.Name = name;
+		change.Email__c = email;
+		return change;
+	}
+
+	/**
+	 * @description Reads one Foobar__c row as the running user, in system mode and without record sharing, so the read
+	 * sees every field whatever the user who saved it could see.
+	 *
+	 * @param recordId The Id of the row to read
+	 *
+	 * @return The row, or null when no row with that Id exists
+	 */
+	private static Foobar__c readFoobarWithoutSharing(Id recordId)
+	{
+		return (Foobar__c)QRY_Builder.selectFrom(Foobar__c.SObjectType)
+				.fields(new List<SObjectField> {Foobar__c.Name, Foobar__c.Email__c})
+				.condition(Foobar__c.Id).equals(recordId)
+				.withSystemMode()
+				.bypassSharing()
+				.getFirst();
+	}
+
+	/**
 	 * @description Commits the given transaction inside startTest/stopTest, asserting it throws a
 	 * DmlException.
 	 *
@@ -2312,47 +2652,83 @@ private class DML_Transaction_TEST
 	}
 
 	/**
-	 * @description Tests that the partial-mode guard keeps the statements the rest of the commit needs: with one
-	 * statement left and an update still to run, no round runs, the refused row stays refused, the update still
-	 * runs, and the summary names headroom.
+	 * @description Tests that the partial-mode guard keeps the statements the rest of the commit needs. The save
+	 * ignores record sharing in user mode, so its statements go through the proxy that keeps the user's object and
+	 * field permissions. That proxy may split an update of records of two objects into two statements, so the guard
+	 * keeps two statements free for it. With two statements left and that update still to run, no round runs, the
+	 * refused row stays refused, the update still runs, and the summary names headroom.
+	 *
+	 * The save runs as an administrator who can create and edit every Foobar__c field. In user mode the proxy leaves
+	 * out the fields the user cannot create or edit, and logs a warning about them. Here that warning would be a second
+	 * WARN entry that has nothing to do with the retry. An org's own rules on Account can log warnings of their own
+	 * when the Account is saved, so the test counts only the entries that record a stopped retry.
 	 *
 	 * @see DML_Transaction.setRetryOnLock
 	 */
 	@IsTest
+	@SuppressWarnings('PMD.KernNoStandardObjectInPackageTests')
 	private static void commitWorkShouldStopPartialRoundsWhenHeadroomIsGone()
 	{
 		captureLogEntries();
 		Foobar__c refused = TST_Factory.newFoobarWithName('refused');
-		Foobar__c existing = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
-		existing.Name = UTIL_Random.randomName();
 		DML_Transaction dmlTransaction = new DML_Transaction();
-		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
-		dmlTransaction.setAllowPartial(true);
-		dmlTransaction.setRetryOnLock(2);
-		dmlTransaction.doInsert(refused);
-		dmlTransaction.doUpdate(existing);
-		DML_SharingProxy.sharingProxyForTest = new RefusingRowsProxy(new Map<String, Integer> {'refused' => 1});
-		DML_Transaction.remainingDmlStatementsForTest = NO_HEADROOM;
 
-		try
+		System.runAs(insertAdministrator())
 		{
-			Test.startTest();
-			dmlTransaction.commitWork();
-			Test.stopTest();
-		}
-		finally
-		{
-			DML_SharingProxy.sharingProxyForTest = null;
-			DML_Transaction.remainingDmlStatementsForTest = null;
+			Account existingAccount = (Account)TST_Builder.of(Account.SObjectType)
+					.withOverride(Account.Phone, ACCOUNT_PHONE)
+					.withOverride(Account.Industry, ACCOUNT_INDUSTRY)
+					.build();
+			Account accountChange = (Account)Account.SObjectType.newSObject(existingAccount.Id);
+			accountChange.Name = UTIL_Random.randomName();
+			Foobar__c existing = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+			Foobar__c foobarChange = (Foobar__c)Foobar__c.SObjectType.newSObject(existing.Id);
+			foobarChange.Name = UTIL_Random.randomName();
+			dmlTransaction.setAccessLevel(AccessLevel.USER_MODE);
+			dmlTransaction.setAllowPartial(true);
+			dmlTransaction.setRetryOnLock(2);
+			dmlTransaction.doInsert(refused);
+			dmlTransaction.doUpdate(accountChange);
+			dmlTransaction.doUpdate(foobarChange);
+			DML_SharingProxy.sharingProxyForTest = new RefusingRowsProxy(new Map<String, Integer> {'refused' => 1});
+			DML_Transaction.remainingDmlStatementsForTest = HEADROOM_FOR_A_SPLIT_UPDATE;
+
+			try
+			{
+				Test.startTest();
+				dmlTransaction.commitWork(false);
+				Test.stopTest();
+			}
+			finally
+			{
+				DML_SharingProxy.sharingProxyForTest = null;
+				DML_Transaction.remainingDmlStatementsForTest = null;
+			}
 		}
 
 		Assert.isFalse(dmlTransaction.getInsertResults()[0].isSuccess(), 'No round should have run');
 		Assert.isNull(refused.Id, 'The refused row should carry no Id');
-		Assert.isTrue(dmlTransaction.getUpdateResults()[0].isSuccess(), 'The statement the guard reserved should still have run');
-		List<LogEntry__c> warnings = new SEL_LogEntry().findByLogLevel(LOG_Engine.LEVEL_WARN);
-		Assert.areEqual(1, warnings.size(), 'One WARN entry should record the stopped retry');
-		Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(warnings[0]);
-		Assert.areEqual(DML_Transaction.RETRY_STOPPED_BY_HEADROOM, context.get(DML_Transaction.CONTEXT_KEY_RETRY_STOPPED_BY), 'Headroom should be what stopped the rounds');
+		Assert.areEqual(2, dmlTransaction.getUpdateResults().size(), 'The update should have a result for each of its two records');
+		for(Database.SaveResult updateResult : dmlTransaction.getUpdateResults())
+		{
+			Assert.isTrue(updateResult.isSuccess(), 'The statements the guard reserved should still have run. Errors: ' + updateResult.getErrors());
+		}
+		List<Map<String, Object>> stoppedRetryContexts = new List<Map<String, Object>>();
+		for(LogEntry__c warning : new SEL_LogEntry().findByLogLevel(LOG_Engine.LEVEL_WARN))
+		{
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(warning);
+			if(context?.containsKey(DML_Transaction.CONTEXT_KEY_RETRY_STOPPED_BY) == true)
+			{
+				stoppedRetryContexts.add(context);
+			}
+		}
+		Assert.areEqual(1, stoppedRetryContexts.size(), 'One WARN entry should record the stopped retry; the org\'s own Account rules may log others');
+		Assert.areEqual
+				(
+						DML_Transaction.RETRY_STOPPED_BY_HEADROOM,
+						stoppedRetryContexts[0].get(DML_Transaction.CONTEXT_KEY_RETRY_STOPPED_BY),
+						'Headroom should be what stopped the rounds'
+				);
 	}
 
 	/**

@@ -172,6 +172,7 @@ export function createFormContext(prototype, overrides = {})
 		isSaving: false,
 		userTimezone: '',
 		lastLoadedClassName: undefined,
+		parameterRequestNumber: 0,
 		applyRecord: prototype.applyRecord,
 		buildSaveRequest: prototype.buildSaveRequest,
 		completeSave: prototype.completeSave,

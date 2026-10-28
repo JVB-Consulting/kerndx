@@ -6,7 +6,7 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 import {ComponentBuilder} from 'c/componentBuilder';
 import {formatTemplateString} from 'c/utilityString';
@@ -103,6 +103,8 @@ import ALTERNATIVE_TEXT_COPY_ERRORS from '@salesforce/label/c.ApiTestHarness_Alt
 import ALTERNATIVE_TEXT_NO_RESPONSE from '@salesforce/label/c.ApiTestHarness_AlternativeText_NoResponse';
 
 const COPY_RESET_DELAY = 1500;
+/** The first HTTP status code that counts as an error (client and server errors start here). */
+const FIRST_ERROR_STATUS_CODE = 400;
 const EMPTY_DESCRIPTION = Object.freeze({inputs: [], requiresTriggeringRecord: false});
 const RECORD_ID_PATTERN = /^[a-zA-Z0-9]{15}([a-zA-Z0-9]{3})?$/;
 
@@ -138,6 +140,14 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 
 	_nextRowId = 1;
 	_describeRequestNumber = 0;
+	_servicesRequestNumber = 0;
+
+	/**
+	 * @description The timer that clears the copied mark on a copy button after a short delay.
+	 * It is cleared when a new copy starts and when the component is removed.
+	 * @type {number}
+	 */
+	_copyResetTimeout;
 
 	/** @description Template-bound Custom Labels for the harness form and result panel. */
 	labels = {
@@ -418,7 +428,7 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 	{
 		const statusCode = this.result?.statusCode;
 
-		if(statusCode != null && statusCode >= 400)
+		if(statusCode != null && statusCode >= FIRST_ERROR_STATUS_CODE)
 		{
 			return SEVERITY_ERROR;
 		}
@@ -549,8 +559,13 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		});
 	}
 
+	/**
+	 * @description Loads the services, and registers the clean-up that stops the copy-icon timer when the form is
+	 * removed, so the timer never fires on a form that is gone.
+	 */
 	async connectedCallback()
 	{
+		this.addTearDownOperation(() => clearTimeout(this._copyResetTimeout));
 		await this.loadServices();
 	}
 
@@ -623,7 +638,7 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		this.mockingEnabled = event.target.checked;
 	}
 
-	handleReset()
+	async handleReset()
 	{
 		this.direction = 'Outbound';
 		this.selectedService = '';
@@ -635,12 +650,24 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 		this.resultKey = 0;
 		this.copiedButtonId = null;
 		this.clearServiceDescription();
-		this.loadServices();
+		await this.loadServices();
 	}
 
+	/**
+	 * @description Loads the services for the chosen direction. When the user changes direction again before the
+	 * list arrives, the older list is dropped, so the options always belong to the direction the form shows.
+	 */
 	async loadServices()
 	{
-		this.serviceOptions = await this.callControllerMethod(getServices, {direction: this.direction}) || [];
+		this._servicesRequestNumber += 1;
+
+		const requestNumber = this._servicesRequestNumber;
+		const services = await this.callControllerMethod(getServices, {direction: this.direction});
+
+		if(this._servicesRequestNumber === requestNumber)
+		{
+			this.serviceOptions = services || [];
+		}
 	}
 
 	/**
@@ -907,7 +934,7 @@ export default class ApiTestHarnessForm extends ComponentBuilder('controller', '
 
 	formatDuration(value)
 	{
-		return value != null ? value + 'ms' : '\u2014';
+		return value == null ? '\u2014' : value + 'ms';
 	}
 
 	async copyToClipboard(text, successMessage, buttonId)

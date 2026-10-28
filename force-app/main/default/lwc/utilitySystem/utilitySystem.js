@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date June 2021, August 2026
+ * @date June 2021, October 2026
  */
 import utilityLogger from 'c/utilityLogger';
 
@@ -249,7 +249,6 @@ export async function copyToClipBoard(text)
 
 		try
 		{
-			// eslint-disable-next-line no-restricted-properties
 			const didCopy = document.execCommand('copy');
 			if(!didCopy)
 			{

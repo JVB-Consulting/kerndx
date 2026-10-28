@@ -51,6 +51,9 @@ const CONFIG = {
 		'fieldSetApiName'
 	],
 
+	// FlexiPage properties whose value is an object name: only a custom object (ending __c) gets the prefix there
+	FLEXIPAGE_OBJECT_NAME_PROPERTIES: ['objectApiName'],
+
 	// FlexiPage properties with embedded object references (key=value format)
 	FLEXIPAGE_EMBEDDED_OBJECT_PROPERTIES: ['controllerSearchParameters'],
 
@@ -85,10 +88,9 @@ const CONFIG = {
 /**
  * @description Checks if a class name needs a namespace prefix.
  * @param {string} value - The class name to check.
- * @param {string} namespace - The namespace to check for.
  * @returns {boolean} True if prefix is needed.
  */
-function needsClassPrefix(value, namespace)
+function needsClassPrefix(value)
 {
 	if(!value || typeof value !== 'string')
 	{
@@ -100,11 +102,7 @@ function needsClassPrefix(value, namespace)
 		return false;
 	}
 	// Is an object reference (contains double underscore)
-	if(value.includes('__'))
-	{
-		return false;
-	}
-	return true;
+	return !value.includes('__');
 }
 
 /**
@@ -131,11 +129,7 @@ function needsObjectPrefix(value, namespace)
 	}
 	// Check if it's already namespaced (has __ before the __c)
 	const withoutSuffix = value.slice(0, -3);
-	if(withoutSuffix.includes('__'))
-	{
-		return false;
-	}
-	return true;
+	return !withoutSuffix.includes('__');
 }
 
 /**
@@ -157,11 +151,7 @@ function needsApiNamePrefix(value, namespace)
 		return false;
 	}
 	// Already contains __ (some other namespace or custom suffix)
-	if(value.includes('__'))
-	{
-		return false;
-	}
-	return true;
+	return !value.includes('__');
 }
 
 /**
@@ -172,7 +162,7 @@ function needsApiNamePrefix(value, namespace)
  */
 function addClassNamespace(value, namespace)
 {
-	if(!needsClassPrefix(value, namespace))
+	if(!needsClassPrefix(value))
 	{
 		return value;
 	}
@@ -252,7 +242,7 @@ function transformCustomMetadataContent(content, namespace, fields)
 
 		result = result.replace(regex, (match, prefix, className, suffix) =>
 		{
-			if(needsClassPrefix(className, namespace))
+			if(needsClassPrefix(className))
 			{
 				const newClassName = addClassNamespace(className, namespace);
 				changes.push(`${field}: ${className} -> ${newClassName}`);
@@ -302,8 +292,9 @@ function transformFlexiPageContent(content, namespace, propertyNames, embeddedPr
 				changes.push(`${propertyName}: ${value} -> ${newValue}`);
 				return prefix + newValue + suffix;
 			}
-			// Check for API name (fieldset names, etc.)
-			if(!value.endsWith('__c') && needsApiNamePrefix(value, namespace))
+			// Check for API name (fieldset names, etc.). A property that names an object never gets this prefix: a
+			// standard object such as Account has no namespace.
+			if(!value.endsWith('__c') && !CONFIG.FLEXIPAGE_OBJECT_NAME_PROPERTIES.includes(propertyName) && needsApiNamePrefix(value, namespace))
 			{
 				const newValue = addApiNamespace(value, namespace);
 				changes.push(`${propertyName}: ${value} -> ${newValue}`);
@@ -345,6 +336,19 @@ function transformFlexiPageContent(content, namespace, propertyNames, embeddedPr
 }
 
 /**
+ * @description Changes the name inside a piece of a comma list and keeps the spaces around it as they were, so
+ * `Person, Audit` becomes `ns__Person, ns__Audit` and never `ns__ Audit`.
+ * @param {string} text - One piece of the list, perhaps with spaces before or after the name.
+ * @param {function(string): string} change - Gets the name without the spaces and returns the new name.
+ * @returns {string} The new name with the original spaces around it.
+ */
+function replaceKeepingSpaces(text, change)
+{
+	const [, before, name, after] = text.match(/^(\s*)(.*?)(\s*)$/s);
+	return name.length === 0 ? text : `${before}${change(name)}${after}`;
+}
+
+/**
  * @description Transforms custom metadata API name reference fields.
  * Handles fieldset names, named credentials, and other API names that need Namespace__ prefix.
  * @param {string} content - The XML content.
@@ -364,7 +368,8 @@ function transformCustomMetadataObjectFields(content, namespace, fields)
 
 		result = result.replace(regex, (match, prefix, value, suffix) =>
 		{
-			// Handle comma-separated values (like FieldSetApiNames__c)
+			// Handle comma-separated values (like FieldSetApiNames__c). A name is read without the spaces around it,
+			// and the spaces are put back as they were.
 			const parts = value.split(',');
 			let modified = false;
 			const newParts = parts.map(part =>
@@ -372,22 +377,21 @@ function transformCustomMetadataObjectFields(content, namespace, fields)
 				// Handle colon-separated mappings (like MappingList__c: fieldName:ApiName__c)
 				if(part.includes(':'))
 				{
-					const [key, apiName] = part.split(':');
+					const [key, apiNameWithSpaces] = part.split(':');
 					// API names in mappings that end with __c are objects
-					if(apiName.endsWith('__c') && needsObjectPrefix(apiName, namespace))
+					const mapped = replaceKeepingSpaces(apiNameWithSpaces, apiName =>
+						(apiName.endsWith('__c') && needsObjectPrefix(apiName, namespace) ? addObjectNamespace(apiName, namespace) : apiName));
+					if(mapped === apiNameWithSpaces)
 					{
-						modified = true;
-						return `${key}:${addObjectNamespace(apiName, namespace)}`;
+						return part;
 					}
-					return part;
+					modified = true;
+					return `${key}:${mapped}`;
 				}
 				// Simple value - treat as API name needing Namespace__ prefix
-				if(needsApiNamePrefix(part, namespace))
-				{
-					modified = true;
-					return addApiNamespace(part, namespace);
-				}
-				return part;
+				const prefixed = replaceKeepingSpaces(part, apiName => addApiNamespace(apiName, namespace));
+				modified = modified || prefixed !== part;
+				return prefixed;
 			});
 
 			if(modified)
@@ -416,7 +420,7 @@ function transformLwcMetaContent(content, namespace)
 
 	// Pattern to match: type="apex://ClassName" or type="apex://Namespace.ClassName" or type="apex://ClassName[]"
 	// Captures both namespaced and non-namespaced class names for idempotency checking
-	const regex = /(type="apex:\/\/)([A-Za-z][A-Za-z0-9_.]*[A-Za-z0-9_])(\[\])?(")/g;
+	const regex = /(type="apex:\/\/)([A-Za-z][A-Za-z0-9_.]*[A-Za-z0-9_])(\[])?(")/g;
 
 	result = result.replace(regex, (match, prefix, className, arraySuffix, quote) =>
 	{
@@ -676,7 +680,7 @@ function getGitVersion(filePath)
 			]
 		});
 	}
-	catch(e)
+	catch
 	{
 		return null;
 	}

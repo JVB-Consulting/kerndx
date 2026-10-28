@@ -9,7 +9,7 @@
  *
  * @author Jason van Beukering
  *
- * @date December 2025, August 2026
+ * @date December 2025, October 2026
  */
 import utilityLogger from 'c/utilityLogger';
 import {formatTemplateString} from 'c/utilityString';
@@ -448,13 +448,23 @@ export default class BaseComponent extends NavigationMixin(LightningElement)
 	}
 
 	/**
-	 * @description Executes all registered teardown operations when the component is removed from the DOM.
+	 * @description Executes all registered teardown operations when the component is removed from the DOM,
+	 * then empties the list, so a component that is added to the page again does not run them twice. After
+	 * that it ends every active message subscription through the message module, so a removed component
+	 * stops receiving messages.
 	 */
 	disconnectedCallback()
 	{
 		for(const operation of this.tearDown)
 		{
 			operation();
+		}
+
+		this.tearDown = [];
+
+		if(this.activeMessageSubscriptions.length > 0)
+		{
+			this.clearSubscriptions();
 		}
 	}
 
@@ -464,7 +474,8 @@ export default class BaseComponent extends NavigationMixin(LightningElement)
 	 * @description Logs a value with optional Locker Service proxy bypass. Complex objects are
 	 * round-tripped through JSON to strip framework proxies and reveal actual data. Only an
 	 * absent value (null/undefined) logs the description alone — legitimate falsy values such
-	 * as `0`, `false`, and `''` are logged as values.
+	 * as `0`, `false`, and `''` are logged as values. A value that cannot be turned into JSON (one that refers to
+	 * itself, or holds a BigInt) is logged as it is.
 	 *
 	 * @param {string} description Label for the log entry
 	 * @param {*} value Object or value to log
@@ -478,7 +489,18 @@ export default class BaseComponent extends NavigationMixin(LightningElement)
 			return;
 		}
 
-		const resolved = (typeof value === 'object' && bypassProxy) ? JSON.parse(JSON.stringify(value)) : value;
+		let resolved = value;
+		if(typeof value === 'object' && bypassProxy)
+		{
+			try
+			{
+				resolved = JSON.parse(JSON.stringify(value));
+			}
+			catch
+			{
+				// The value refers to itself or holds a BigInt, so it stays as it is.
+			}
+		}
 		utilityLogger.debug(description, {value: resolved});
 	}
 

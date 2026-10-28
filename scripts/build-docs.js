@@ -35,18 +35,21 @@ const {getDevOrgAlias} = require('./dev-org-config');
 // Configuration
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** The repository's root folder. Every path below starts from it, so the build works from any working folder. */
+const REPOSITORY_ROOT = path.resolve(__dirname, '..');
+
 const DEFAULT_CONFIG = {
 	/** ApexDoc HTML output directory */
-	apexdocDir: './apexdoc',
+	apexdocDir: path.resolve(REPOSITORY_ROOT, 'apexdoc'),
 
 	/** Markdown reference output directory */
-	referenceDir: './docs/reference',
+	referenceDir: path.resolve(REPOSITORY_ROOT, 'docs', 'reference'),
 
 	/** Where the previous reference pages wait while a conversion runs, so a failed one can put them back */
-	referenceBackupDir: './docs/reference.previous',
+	referenceBackupDir: path.resolve(REPOSITORY_ROOT, 'docs', 'reference.previous'),
 
 	/** Path to the SFDX project file */
-	projectFile: './sfdx-project.json',
+	projectFile: path.resolve(REPOSITORY_ROOT, 'sfdx-project.json'),
 
 	/** Salesforce org alias for username resolution */
 	orgAlias: getDevOrgAlias(),
@@ -371,7 +374,8 @@ class DocsBuilder
 			this.log.info(`  Found ${htmlFiles.length} HTML files`);
 
 			const startTime = Date.now();
-			const child = this.spawnFn('node', [this.config.converterScript], {
+			// The Node running this build, so the converter never picks up another `node` on the PATH.
+			const child = this.spawnFn(process.execPath, [this.config.converterScript], {
 				stdio: 'inherit', cwd: process.cwd()
 			});
 

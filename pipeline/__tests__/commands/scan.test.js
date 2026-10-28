@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {execFileSync} = require('node:child_process');
-const {scanCommand, resolveChangedFiles, scanPatternsFor, resolveSeverityThreshold, CI_SEVERITY_THRESHOLD} = require('../../src/commands/scan.js');
+const {scanCommand, scanPatternsFor, resolveSeverityThreshold, CI_SEVERITY_THRESHOLD} = require('../../src/commands/scan.js');
 
 test('scan --ci scans the full workspace when no diff base can be resolved', async() =>
 {

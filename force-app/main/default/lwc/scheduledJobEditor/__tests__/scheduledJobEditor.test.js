@@ -399,7 +399,8 @@ describe('c-scheduled-job-editor', () =>
 					runPriority: '',
 					overlapPolicy: 'Skip',
 					jobRunnerState: {isActive: false, checkIntervalMinutes: null, canManage: false},
-					nextRunPreview: '', ...overrides
+					nextRunPreview: '',
+					nextRunPreviewRequest: 0, ...overrides
 				});
 			};
 
@@ -532,6 +533,47 @@ describe('c-scheduled-job-editor', () =>
 				Object.defineProperty(failing, 'isJobRunnerMode', {get: () => true});
 				await prototype.refreshNextRunPreview.call(failing);
 				expect(failing.nextRunPreview).toBe('');
+			});
+
+			it('keeps the answer for the latest expression when an earlier answer arrives last', async() =>
+			{
+				const EARLIER_NEXT_RUN = '2026-09-11T14:15:00.000Z';
+				const LATER_NEXT_RUN = '2026-09-11T15:00:00.000Z';
+				let answerEarlierRequest;
+				previewNextRun.mockReturnValueOnce(new Promise((resolve) =>
+				{
+					answerEarlierRequest = resolve;
+				}));
+				previewNextRun.mockResolvedValueOnce(LATER_NEXT_RUN);
+				let context = createRunnerContext({cronExpression: '0 */15 * * * ?', cronIsValid: true, userTimezone: 'UTC'});
+				Object.defineProperty(context, 'isJobRunnerMode', {get: () => true});
+
+				let earlierRefresh = prototype.refreshNextRunPreview.call(context);
+				context.cronExpression = '0 0 * * * ?';
+				await prototype.refreshNextRunPreview.call(context);
+				answerEarlierRequest(EARLIER_NEXT_RUN);
+				await earlierRefresh;
+
+				expect(context.nextRunPreview).toBe(LATER_NEXT_RUN);
+			});
+
+			it('drops an answer that arrives after the expression became one with no preview', async() =>
+			{
+				let answerEarlierRequest;
+				previewNextRun.mockReturnValueOnce(new Promise((resolve) =>
+				{
+					answerEarlierRequest = resolve;
+				}));
+				let context = createRunnerContext({cronExpression: '0 */15 * * * ?', cronIsValid: true, userTimezone: 'UTC'});
+				Object.defineProperty(context, 'isJobRunnerMode', {get: () => true});
+
+				let earlierRefresh = prototype.refreshNextRunPreview.call(context);
+				context.cronIsValid = false;
+				await prototype.refreshNextRunPreview.call(context);
+				answerEarlierRequest('2026-09-11T14:15:00.000Z');
+				await earlierRefresh;
+
+				expect(context.nextRunPreview).toBe('');
 			});
 
 			it('blanks the preview when the controller answers with nothing', async() =>

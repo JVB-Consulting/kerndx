@@ -10,7 +10,7 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  */
 import INVALID_PAGE_SIZE_HEADING from '@salesforce/label/c.PaginatedTable_InvalidPageSizeHeading';
 import INVALID_PAGE_SIZE_MESSAGE from '@salesforce/label/c.PaginatedTable_InvalidPageSizeMessage';
@@ -82,12 +82,6 @@ export default class PaginatedTable extends ComponentBuilder('notification', 'li
 
 	// ── Internal State ───────────────────────────────────────────────────
 
-	/**
-	 * @description Map of page numbers to arrays of selected row IDs for that page.
-	 * @type {Object<number, string[]>}
-	 */
-	pageSelectionMap = {};
-
 	/** @description Current 1-based page number. */
 	page = 1;
 
@@ -141,7 +135,7 @@ export default class PaginatedTable extends ComponentBuilder('notification', 'li
 
 	get dataTable()
 	{
-		let dataTable = this.template.querySelector('lightning-datatable');
+		const dataTable = this.template.querySelector('lightning-datatable');
 		if(!dataTable)
 		{
 			// Developer-only invariant: fires when a parent composes the table wrongly and
@@ -265,6 +259,25 @@ export default class PaginatedTable extends ComponentBuilder('notification', 'li
 	renderedCallback()
 	{
 		this.handleInvalidResultsPerPage();
+		this.keepPageWithinRange();
+	}
+
+	/**
+	 * @description Moves back to the last page when the rows or the page size change and the current page
+	 * no longer exists, so the table never shows "Page 5 of 2" with no rows. With no rows it goes back to the
+	 * first page. Runs after render, like the invalid page size check, so the render itself changes nothing.
+	 * When it moves the page, it sends one 'pagechange' event so a parent that tracks the page number stays
+	 * in step. The page is then within range, so the next render sends nothing.
+	 */
+	keepPageWithinRange()
+	{
+		const lastPage = Math.max(this.totalPages, 1);
+
+		if(this.isValidResultsPerPage && this.page > lastPage)
+		{
+			this.page = lastPage;
+			this.dispatchPageChangeEvent();
+		}
 	}
 
 	/**
@@ -345,16 +358,19 @@ export default class PaginatedTable extends ComponentBuilder('notification', 'li
 	// ── Row Selection ────────────────────────────────────────────────────
 
 	/**
-	 * @description Handles selection of rows across all pages. Saves the current page's
-	 * selections and rebuilds the flattened aggregation from all pages.
+	 * @description Handles selection of rows across all pages. The selection is kept by row key, not by page,
+	 * so a selected row stays selected when a sort moves it to another page. Rows shown on the current page
+	 * take the table's current selection; selected rows on other pages are kept as they are.
 	 */
 	selectRows()
 	{
-		this.pageSelectionMap[this.page] = [...this.selectedTableRows];
-
-		const allRows = Object.values(this.pageSelectionMap)
-		.filter(Boolean)
-		.flat();
+		const visibleRowKeys = new Set(this.displayRows.map((row) => row[this.keyField]));
+		const selectedRowKeys = new Set(this.selectedTableRows);
+		const keptRows = this.aggregatedSelections.filter((rowKey) => !visibleRowKeys.has(rowKey) || selectedRowKeys.has(rowKey));
+		const allRows = [
+			...keptRows,
+			...[...selectedRowKeys].filter((rowKey) => !keptRows.includes(rowKey))
+		];
 
 		this.aggregatedSelections = [...allRows];
 		this.dispatchEvent(new CustomEvent('rowselection', {detail: {rows: allRows}}));

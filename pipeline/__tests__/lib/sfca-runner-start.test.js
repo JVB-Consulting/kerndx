@@ -118,8 +118,16 @@ test('checkSfPresent is false when no sf is on the PATH', () =>
 test('quoteForCommandPrompt quotes only what Command Prompt would otherwise split or interpret', () =>
 {
 	assert.equal(quoteForCommandPrompt('plain'), 'plain');
-	assert.equal(quoteForCommandPrompt('with space'), '"with space"');
-	assert.equal(quoteForCommandPrompt('a&b'), '"a&b"');
-	assert.equal(quoteForCommandPrompt('say "hi"'), '"say \\"hi\\""');
+	assert.equal(quoteForCommandPrompt('with space'), '^^^"with space^^^"');
+	assert.equal(quoteForCommandPrompt('a&b'), '^^^"a^^^&b^^^"');
+	assert.equal(quoteForCommandPrompt('say "hi"'), '^^^"say \\^^^"hi\\^^^"^^^"');
 	assert.equal(quoteForCommandPrompt('force-app/**/*.cls'), 'force-app/**/*.cls');
+});
+
+test('quoteForCommandPrompt escapes the four shapes a plain quote gets wrong', () =>
+{
+	assert.equal(quoteForCommandPrompt('a"b&c'), '^^^"a\\^^^"b^^^&c^^^"');
+	assert.equal(quoteForCommandPrompt('C:\\my dir\\'), '^^^"C:\\my dir\\\\^^^"');
+	assert.equal(quoteForCommandPrompt(''), '^^^"^^^"');
+	assert.equal(quoteForCommandPrompt('%NAME%'), '^^^"^^^%NAME^^^%^^^"');
 });

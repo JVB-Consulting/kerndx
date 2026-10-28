@@ -3,7 +3,7 @@
  * @description Reusable cron expression editor component with preset, advanced, and custom modes.
  *              Supports Salesforce 7-field cron syntax. Designed for embedding in any context.
  *
- * @date March 2026, September 2026
+ * @date March 2026, October 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
@@ -100,6 +100,9 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 	/** @description Backing field for jobRunnerMode. */
 	_jobRunnerMode = false;
 
+	/** @description Whether the editor has been put on the page, so a change event now reaches the parent. */
+	hasConnected = false;
+
 	/**
 	 * @description Whether the record this editor edits runs on the job runner. On the runner Kern reads the expression
 	 *              itself, so the minutes field may carry steps, lists and ranges and the Every N Minutes preset is offered.
@@ -112,12 +115,21 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 
 	set jobRunnerMode(value)
 	{
-		let wasOnRunner = this._jobRunnerMode;
+		const wasOnRunner = this._jobRunnerMode;
 		this._jobRunnerMode = value === true;
 
 		if(wasOnRunner && !this._jobRunnerMode && this.mode === MODE_PRESET && this.presetFrequency === 'everyNMinutes')
 		{
 			this.parseAndPopulate(this.buildCurrentExpression());
+		}
+
+		// The same expression can be valid on the runner and not valid in own mode, so the parent hears the new
+		// validity. The event waits for the parent to finish setting properties: a parent that sets this flag and a
+		// new value together must get the new value back, not the old one. Before the editor is on the page,
+		// connectedCallback sends the first event instead.
+		if(this.hasConnected && wasOnRunner !== this._jobRunnerMode)
+		{
+			Promise.resolve().then(() => this.dispatchChangeEvent());
 		}
 	}
 
@@ -153,7 +165,7 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 	 */
 	get minuteIntervals()
 	{
-		let checkInterval = this.parserOptions.activeCheckIntervalMinutes;
+		const checkInterval = this.parserOptions.activeCheckIntervalMinutes;
 
 		if(!checkInterval)
 		{
@@ -169,7 +181,7 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 	 */
 	get presetFrequencies()
 	{
-		let offersIntervals = this._jobRunnerMode && (this.minuteIntervals.length > 0 || this.presetFrequency === 'everyNMinutes');
+		const offersIntervals = this._jobRunnerMode && (this.minuteIntervals.length > 0 || this.presetFrequency === 'everyNMinutes');
 		return offersIntervals ? PRESET_FREQUENCIES : PRESET_FREQUENCIES.filter((option) => option.value !== 'everyNMinutes');
 	}
 
@@ -284,12 +296,13 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 
 	connectedCallback()
 	{
+		this.hasConnected = true;
 		this.dispatchChangeEvent();
 	}
 
 	parseAndPopulate(expression)
 	{
-		let result = parseCronExpression(expression, this.parserOptions);
+		const result = parseCronExpression(expression, this.parserOptions);
 		this.mode = result.mode;
 
 		if(result.mode === MODE_PRESET && result.preset)
@@ -360,8 +373,8 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 
 	handleModeChange(event)
 	{
-		let currentExpression = this.buildCurrentExpression();
-		let targetMode = event.detail.value;
+		const currentExpression = this.buildCurrentExpression();
+		const targetMode = event.detail.value;
 
 		if(targetMode === MODE_CUSTOM)
 		{
@@ -369,7 +382,7 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 		}
 		else if(targetMode === MODE_ADVANCED)
 		{
-			let parts = splitCronExpression(currentExpression);
+			const parts = splitCronExpression(currentExpression);
 			if(parts)
 			{
 				this.advancedSeconds = parts[0];
@@ -383,17 +396,13 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 		}
 		else if(targetMode === MODE_PRESET)
 		{
-			let result = parseCronExpression(currentExpression, this.parserOptions);
+			const result = parseCronExpression(currentExpression, this.parserOptions);
 			if(!result.preset)
 			{
 				this.showWarningToast(PRESET_MODE_UNREPRESENTABLE);
-				let currentMode = this.mode;
-				this.mode = null;
-				// eslint-disable-next-line @lwc/lwc/no-async-operation
-				Promise.resolve().then(() =>
-				{
-					this.mode = currentMode;
-				});
+				// The mode buttons already show the refused choice. The mode itself never changed, so setting it again
+				// would not redraw them: the buttons are moved back directly, and the fields and the preview stay as they are.
+				event.target.value = this.mode;
 				return;
 			}
 
@@ -413,8 +422,8 @@ export default class CronExpressionEditor extends ComponentBuilder('notification
 			this.presetDaysOfWeek = ['MON'];
 		}
 
-		let checkInterval = this.parserOptions.activeCheckIntervalMinutes;
-		let reachableIntervals = MINUTE_INTERVALS.filter((option) => Number(option.value) % checkInterval === 0);
+		const checkInterval = this.parserOptions.activeCheckIntervalMinutes;
+		const reachableIntervals = MINUTE_INTERVALS.filter((option) => Number(option.value) % checkInterval === 0);
 
 		// A job opens on five minutes, which a runner checking every fifteen never reaches, so choosing Every N
 		// Minutes moves the interval to the first one that runner's check can actually hit.

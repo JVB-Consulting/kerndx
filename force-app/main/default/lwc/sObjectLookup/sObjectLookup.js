@@ -7,7 +7,7 @@
  *
  * @author Jason van Beukering
  *
- * @date October 2022, July 2026
+ * @date October 2022, October 2026
  */
 import search from '@salesforce/apex/CTRL_Search.search';
 import BaseLookup from 'c/baseLookup';
@@ -47,12 +47,13 @@ export default class SObjectLookup extends BaseLookup
 	 * @description Resolves the SLDS icon for the lookup results. Custom objects use the
 	 * explicitly set `iconName` (or empty string); standard objects derive the icon from
 	 * the object API name (e.g., `standard:account`). While the object API name has not
-	 * been provided yet, resolves to an empty string so rendering never throws.
+	 * been provided yet, resolves to an empty string so rendering never throws. Until the object metadata arrives, a
+	 * name with two underscores in it (`Invoice__c`) is treated as a custom object, so no made-up standard icon is shown.
 	 * @returns {string}
 	 */
 	get icon()
 	{
-		const isCustomObject = this.objectInfo?.custom;
+		const isCustomObject = this.objectInfo?.custom ?? this.objectApiName?.includes('__');
 		if(isCustomObject)
 		{
 			return this.iconName || '';

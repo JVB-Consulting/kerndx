@@ -6,7 +6,8 @@
  * - hasLocalPermission() for subscriber-created permissions
  * - hasPackagePermission() for managed package permissions
  * - hasPermission() for explicit namespace control
- * - Scoped Permission Set Group evaluation with muting support
+ * - Permission set group assignments, which count through the group's summary permission set, including a group that mutes
+ *   the permission
  * - Multi-level caching behavior
  *
  * @see SEL_CustomPermission
@@ -15,7 +16,7 @@
  *
  * @group Selectors
  *
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)
@@ -37,6 +38,26 @@ private class SEL_CustomPermission_TEST
 	private static final String TEST_NAMESPACE = 'TestNamespace';
 
 	/**
+	 * @description DeveloperName of the mocked local custom permission.
+	 */
+	private static final String MOCK_PERMISSION_NAME = 'Mock_Permission';
+
+	/**
+	 * @description PermissionSet.Type of the summary permission set that the platform builds for each permission set group.
+	 */
+	private static final String PERMISSION_SET_TYPE_GROUP = 'Group';
+
+	/**
+	 * @description PermissionSet.Type of a permission set that an admin creates.
+	 */
+	private static final String PERMISSION_SET_TYPE_REGULAR = 'Regular';
+
+	/**
+	 * @description Relationship name on PermissionSetGroupComponent that points at the component's permission set.
+	 */
+	private static final String RELATIONSHIP_PERMISSION_SET = 'PermissionSet';
+
+	/**
 	 * @description Sets up a standard user with a known FederationIdentifier for use in all tests.
 	 */
 	@TestSetup
@@ -44,7 +65,7 @@ private class SEL_CustomPermission_TEST
 	{
 		User newUser = TST_Factory.newUser(SEL_Profile.PROFILE_STANDARD_USER);
 		newUser.FederationIdentifier = TEST_FEDERATION_ID;
-		insert newUser;
+		TST_Factory.insertUsers(new List<User> {newUser});
 	}
 
 	/**
@@ -105,8 +126,7 @@ private class SEL_CustomPermission_TEST
 	private static void hasPackagePermissionChecksDifferentUsers()
 	{
 		User testUser1 = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
-		User testUser2 = TST_Factory.newUser(SEL_Profile.PROFILE_STANDARD_USER);
-		insert testUser2;
+		User testUser2 = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
 
 		Test.startTest();
 
@@ -329,26 +349,64 @@ private class SEL_CustomPermission_TEST
 	}
 
 	/**
-	 * @description Tests that user assignment cache is populated with assignment data.
+	 * @description Tests that the cache of assigned permission sets gets an entry for the user, and that the entry is not empty
+	 * for a user who has a permission set assigned.
 	 *
-	 * @see SEL_CustomPermission.getUserAssignmentData
+	 * @see SEL_CustomPermission.hasPackagePermission
 	 */
 	@IsTest
-	private static void userAssignmentCacheIsPersisted()
+	private static void assignedPermissionSetCacheIsPersisted()
 	{
 		User testUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
 		TST_Factory.createPermissionSetAssignments(new List<User> {testUser}, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
 
 		Test.startTest();
 
-		SEL_CustomPermission.USER_ASSIGNMENT_CACHE.clear();
+		SEL_CustomPermission.ASSIGNED_PERMISSION_SET_CACHE.clear();
 		SEL_CustomPermission.hasPackagePermission(testUser.Id, SEL_CustomPermission.FRAMEWORK_TEST_PERMISSION);
 
-		Boolean cacheHasKey = SEL_CustomPermission.USER_ASSIGNMENT_CACHE.containsKey(testUser.Id);
+		Set<Id> cachedPermissionSetIds = SEL_CustomPermission.ASSIGNED_PERMISSION_SET_CACHE.get(testUser.Id);
 
 		Test.stopTest();
 
-		Assert.isTrue(cacheHasKey, 'User assignment cache should have entry');
+		Assert.isNotNull(cachedPermissionSetIds, 'Expected the cache of assigned permission sets to have an entry for the user');
+		Assert.isFalse(cachedPermissionSetIds.isEmpty(), 'Expected the cached entry to hold the user permission sets');
+	}
+
+	/**
+	 * @description Proves that the permission sets assigned to a user are read once per transaction and then reused for another
+	 * permission check. The second check uses another namespace, so it has its own result cache key. Before it runs, the mocked
+	 * assignments are replaced with none. It can only answer true when it reuses the assignments cached by the first check.
+	 *
+	 * @see SEL_CustomPermission.hasPermission
+	 */
+	@IsTest
+	private static void assignedPermissionSetsAreReusedForAnotherCheck()
+	{
+		User testUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		CustomPermission mockPermission = newMockPermission();
+		PermissionSet mockPermissionSet = newMockPermissionSet(PERMISSION_SET_TYPE_REGULAR);
+
+		QRY_Builder.setMock(CustomPermission.SObjectType, new List<CustomPermission> {mockPermission});
+		QRY_Builder.setMock(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment>
+		{
+				createMockDirectAssignment(mockPermissionSet.Id, testUser.Id)
+		});
+		QRY_Builder.setMock(SetupEntityAccess.SObjectType, new List<SetupEntityAccess> {newMockAccess(mockPermissionSet.Id, mockPermission.Id)});
+
+		Test.startTest();
+
+		clearAllCaches();
+		Boolean localAnswer = SEL_CustomPermission.hasLocalPermission(testUser.Id, MOCK_PERMISSION_NAME);
+
+		QRY_Builder.setMock(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment>());
+		Boolean namespacedAnswer = SEL_CustomPermission.hasPermission(testUser.Id, MOCK_PERMISSION_NAME, TEST_NAMESPACE);
+
+		Test.stopTest();
+
+		QRY_Builder.clearMocks();
+		Assert.isTrue(localAnswer, 'Expected true: the permission set assigned on its own holds the permission');
+		Assert.isTrue(namespacedAnswer, 'Expected true: the second check reuses the assigned permission sets cached by the first check');
 	}
 
 	/**
@@ -365,7 +423,7 @@ private class SEL_CustomPermission_TEST
 
 		SEL_CustomPermission.PERMISSION_RESULT_CACHE.clear();
 		SEL_CustomPermission.PERMISSION_ID_CACHE.clear();
-		SEL_CustomPermission.USER_ASSIGNMENT_CACHE.clear();
+		SEL_CustomPermission.ASSIGNED_PERMISSION_SET_CACHE.clear();
 		SEL_CustomPermission.PERMISSION_SET_CACHE.clear();
 
 		Boolean result1 = SEL_CustomPermission.hasLocalPermission(testUser.Id, NON_EXISTENT_PERMISSION);
@@ -379,28 +437,6 @@ private class SEL_CustomPermission_TEST
 		Assert.isFalse(result1, 'First call should return false');
 		Assert.isFalse(result2, 'Second call should return false');
 		Assert.areEqual(queriesAfterFirst, queriesAfterSecond, 'Second call should use cache and make no additional queries');
-	}
-
-	/**
-	 * @description Tests that getUserAssignmentData includes directly assigned permission sets.
-	 *
-	 * @see SEL_CustomPermission.getUserAssignmentData
-	 */
-	@IsTest
-	private static void getUserAssignmentDataIncludesDirectAssignments()
-	{
-		User testUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
-		TST_Factory.createPermissionSetAssignments(new List<User> {testUser}, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
-
-		Test.startTest();
-
-		SEL_CustomPermission.USER_ASSIGNMENT_CACHE.clear();
-		SEL_CustomPermission.UserAssignmentData assignmentData = SEL_CustomPermission.getUserAssignmentData(testUser.Id);
-
-		Test.stopTest();
-
-		Assert.isFalse(assignmentData.directPermissionSetIds.isEmpty(), 'Direct permission set IDs should include assignments');
-		Assert.isTrue(assignmentData.hasAssignments(), 'hasAssignments should return true');
 	}
 
 	/**
@@ -424,30 +460,6 @@ private class SEL_CustomPermission_TEST
 		Test.stopTest();
 
 		Assert.isTrue(cachePopulated, 'Permission set cache should be populated after checking permission');
-	}
-
-	/**
-	 * @description Tests that getUserAssignmentData returns properly initialized data for standard user.
-	 * Note: Every user has profile-based permission set assignments, so hasAssignments() returns true.
-	 *
-	 * @see SEL_CustomPermission.getUserAssignmentData
-	 */
-	@IsTest
-	private static void getUserAssignmentDataReturnsInitializedData()
-	{
-		User testUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
-
-		Test.startTest();
-
-		SEL_CustomPermission.USER_ASSIGNMENT_CACHE.clear();
-		SEL_CustomPermission.UserAssignmentData assignmentData = SEL_CustomPermission.getUserAssignmentData(testUser.Id);
-
-		Test.stopTest();
-
-		Assert.isNotNull(assignmentData, 'Should return assignment data object (not null)');
-		Assert.isNotNull(assignmentData.directPermissionSetIds, 'Direct permission set IDs should be initialized');
-		Assert.isNotNull(assignmentData.permissionSetGroupComponents, 'Permission Set Group components map should be initialized');
-		Assert.isTrue(assignmentData.hasAssignments(), 'Standard user has profile-based permission set assignments');
 	}
 
 	/**
@@ -510,7 +522,7 @@ private class SEL_CustomPermission_TEST
 
 	/**
 	 * @description Tests that direct permission set grant is correctly evaluated.
-	 * This exercises the Step 4A path in checkPermissionViaSOQL.
+	 * The admin permission set is assigned on its own and holds the framework test permission.
 	 *
 	 * @see SEL_CustomPermission.checkPermissionViaSOQL
 	 */
@@ -564,7 +576,7 @@ private class SEL_CustomPermission_TEST
 
 		// Mock CustomPermission to return a valid permission
 		CustomPermission mockPermission = (CustomPermission)TST_Builder.of(CustomPermission.SObjectType)
-				.withOverride(CustomPermission.DeveloperName, 'Mock_Permission')
+				.withOverride(CustomPermission.DeveloperName, MOCK_PERMISSION_NAME)
 				.withoutInsertion(true)
 				.build();
 		QRY_Builder.setMock(CustomPermission.SObjectType, new List<CustomPermission> {mockPermission});
@@ -575,7 +587,7 @@ private class SEL_CustomPermission_TEST
 		Test.startTest();
 
 		clearAllCaches();
-		Boolean hasPermission = SEL_CustomPermission.hasLocalPermission(testUser.Id, 'Mock_Permission');
+		Boolean hasPermission = SEL_CustomPermission.hasLocalPermission(testUser.Id, MOCK_PERMISSION_NAME);
 
 		Test.stopTest();
 
@@ -601,7 +613,7 @@ private class SEL_CustomPermission_TEST
 
 		// Mock CustomPermission
 		CustomPermission mockPermission = (CustomPermission)TST_Builder.of(CustomPermission.SObjectType)
-				.withOverride(CustomPermission.DeveloperName, 'Mock_Permission')
+				.withOverride(CustomPermission.DeveloperName, MOCK_PERMISSION_NAME)
 				.withoutInsertion(true)
 				.build();
 		QRY_Builder.setMock(CustomPermission.SObjectType, new List<CustomPermission> {mockPermission});
@@ -616,7 +628,7 @@ private class SEL_CustomPermission_TEST
 		Test.startTest();
 
 		clearAllCaches();
-		Boolean hasPermission = SEL_CustomPermission.hasLocalPermission(testUser.Id, 'Mock_Permission');
+		Boolean hasPermission = SEL_CustomPermission.hasLocalPermission(testUser.Id, MOCK_PERMISSION_NAME);
 
 		Test.stopTest();
 
@@ -625,320 +637,175 @@ private class SEL_CustomPermission_TEST
 	}
 
 	/**
-	 * @description Tests that Permission Set Group grant is evaluated correctly when regular component grants permission.
-	 * Uses mocked query results to simulate Permission Set Group with granting component.
+	 * @description Proves that a group which mutes the permission does not grant it. The platform leaves a muted permission off the
+	 * group's summary permission set (the permission set Salesforce builds to hold what the group really grants). The group's
+	 * component rows are mocked as the platform returns them: a regular permission set that holds the permission, and a muting
+	 * permission set whose Id has the muting key prefix and whose PermissionSet lookup is empty. Both hold the permission, but the
+	 * summary permission set does not, so the answer must be false.
 	 *
-	 * @see SEL_CustomPermission.hasPermissionSetGroupGrant
+	 * @see SEL_CustomPermission.hasLocalPermission
 	 */
 	@IsTest
-	private static void permissionSetGroupGrantIsEvaluatedWhenRegularComponentGrants()
+	private static void groupAssignmentDeniesWhenGroupMutesPermission()
 	{
 		User testUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		CustomPermission mockPermission = newMockPermission();
+		PermissionSetGroup mockGroup = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType).withoutInsertion(true).build();
+		PermissionSet summaryPermissionSet = newMockPermissionSet(PERMISSION_SET_TYPE_GROUP);
+		PermissionSet grantingPermissionSet = newMockPermissionSet(PERMISSION_SET_TYPE_REGULAR);
+		MutingPermissionSet mutingPermissionSet = (MutingPermissionSet)TST_Builder.of(MutingPermissionSet.SObjectType).withoutInsertion(true).build();
 
-		// Create mock records with generated IDs
-		PermissionSetGroup mockPermissionSetGroup = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType)
+		PermissionSetGroupComponent grantingComponent = (PermissionSetGroupComponent)TST_Builder.of(PermissionSetGroupComponent.SObjectType)
+				.withOverride(PermissionSetGroupComponent.PermissionSetGroupId, mockGroup.Id)
+				.withOverride(PermissionSetGroupComponent.PermissionSetId, grantingPermissionSet.Id)
+				.withOverrides(new Map<String, Object> {RELATIONSHIP_PERMISSION_SET => grantingPermissionSet})
 				.withoutInsertion(true)
 				.build();
-		PermissionSet mockPermissionSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
-				.withoutInsertion(true)
-				.build();
-		CustomPermission mockPermission = (CustomPermission)TST_Builder.of(CustomPermission.SObjectType)
-				.withOverride(CustomPermission.DeveloperName, 'Mock_Permission')
+		PermissionSetGroupComponent mutingComponent = (PermissionSetGroupComponent)TST_Builder.of(PermissionSetGroupComponent.SObjectType)
+				.withOverride(PermissionSetGroupComponent.PermissionSetGroupId, mockGroup.Id)
+				.withOverride(PermissionSetGroupComponent.PermissionSetId, mutingPermissionSet.Id)
 				.withoutInsertion(true)
 				.build();
 
 		QRY_Builder.setMock(CustomPermission.SObjectType, new List<CustomPermission> {mockPermission});
-
-		// Mock PermissionSetAssignment with Permission Set Group assignment (PermissionSetGroupId populated)
-		PermissionSetAssignment mockAssignment = createMockGroupAssignment(mockPermissionSetGroup.Id, testUser.Id);
-		QRY_Builder.setMock(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment> {mockAssignment});
-
-		// Mock PermissionSetGroupComponent with regular (non-muting) permission set
-		PermissionSetGroupComponent mockComponent = (PermissionSetGroupComponent)TST_Builder.of(PermissionSetGroupComponent.SObjectType)
-				.withOverride(PermissionSetGroupComponent.PermissionSetGroupId, mockPermissionSetGroup.Id)
-				.withOverride(PermissionSetGroupComponent.PermissionSetId, mockPermissionSet.Id)
-				.withoutInsertion(true)
-				.build();
-		QRY_Builder.setMock(PermissionSetGroupComponent.SObjectType, new List<PermissionSetGroupComponent> {mockComponent});
-
-		// Mock SetupEntityAccess showing the permission set grants the permission
-		SetupEntityAccess mockAccess = (SetupEntityAccess)TST_Builder.of(SetupEntityAccess.SObjectType)
-				.withOverride(SetupEntityAccess.ParentId, mockPermissionSet.Id)
-				.withOverride(SetupEntityAccess.SetupEntityId, mockPermission.Id)
-				.withoutInsertion(true)
-				.build();
-		QRY_Builder.setMock(SetupEntityAccess.SObjectType, new List<SetupEntityAccess> {mockAccess});
+		QRY_Builder.setMock(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment>
+		{
+				createMockGroupAssignment(mockGroup.Id, summaryPermissionSet.Id, testUser.Id)
+		});
+		QRY_Builder.setMock(PermissionSetGroupComponent.SObjectType, new List<PermissionSetGroupComponent> {grantingComponent, mutingComponent});
+		QRY_Builder.setMock(SetupEntityAccess.SObjectType, new List<SetupEntityAccess>
+		{
+				newMockAccess(grantingPermissionSet.Id, mockPermission.Id),
+				newMockAccess(mutingPermissionSet.Id, mockPermission.Id)
+		});
 
 		Test.startTest();
 
 		clearAllCaches();
-		Boolean hasPermission = SEL_CustomPermission.hasLocalPermission(testUser.Id, 'Mock_Permission');
+		Boolean hasPermission = SEL_CustomPermission.hasLocalPermission(testUser.Id, MOCK_PERMISSION_NAME);
 
 		Test.stopTest();
 
 		QRY_Builder.clearMocks();
-		Assert.isTrue(hasPermission, 'Should return true when Permission Set Group regular component grants permission');
+		Assert.isFalse(hasPermission, 'Expected false: the group mutes the permission, so its summary permission set does not hold it');
 	}
 
 	/**
-	 * @description Tests that Permission Set Group grant is blocked when muting component revokes permission.
-	 * Uses direct method testing with constructed data to cover the muting logic.
+	 * @description Proves that a group grants the permission when the group's summary permission set holds it. A group assignment
+	 * points at that summary permission set, so it counts the same way as a permission set assigned on its own.
 	 *
-	 * @see SEL_CustomPermission.hasPermissionSetGroupGrant
+	 * @see SEL_CustomPermission.hasLocalPermission
 	 */
 	@IsTest
-	private static void permissionSetGroupGrantIsBlockedByMutingComponent()
-	{
-		// Create mock records with generated IDs
-		PermissionSetGroup mockPermissionSetGroup = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType)
-				.withoutInsertion(true)
-				.build();
-		PermissionSet mockRegularPermSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
-				.withoutInsertion(true)
-				.build();
-		PermissionSet mockMutingPermSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
-				.withoutInsertion(true)
-				.build();
-
-		Test.startTest();
-
-		// Directly test hasPermissionSetGroupGrant with constructed data to cover the muting logic
-		Map<Id, SEL_CustomPermission.PermissionSetGroupComponentData> permissionSetGroupComponents = new Map<Id, SEL_CustomPermission.PermissionSetGroupComponentData>();
-		SEL_CustomPermission.PermissionSetGroupComponentData componentData = new SEL_CustomPermission.PermissionSetGroupComponentData();
-		componentData.regularComponentIds.add(mockRegularPermSet.Id);
-		componentData.mutingComponentIds.add(mockMutingPermSet.Id);
-		permissionSetGroupComponents.put(mockPermissionSetGroup.Id, componentData);
-
-		// Both regular and muting permission sets grant the permission
-		Set<Id> grantingPermissionSetIds = new Set<Id> {mockRegularPermSet.Id, mockMutingPermSet.Id};
-
-		Boolean hasPermissionSetGroupGrant = SEL_CustomPermission.hasPermissionSetGroupGrant(permissionSetGroupComponents, grantingPermissionSetIds);
-
-		Test.stopTest();
-
-		Assert.isFalse(hasPermissionSetGroupGrant, 'Should return false when muting component blocks the grant');
-	}
-
-	/**
-	 * @description Tests scoped muting - a mute in Permission Set Group A should not block a grant from Permission Set Group B.
-	 * Uses direct method testing with constructed data.
-	 *
-	 * @see SEL_CustomPermission.hasPermissionSetGroupGrant
-	 */
-	@IsTest
-	private static void scopedMutingAllowsGrantFromDifferentPermissionSetGroup()
-	{
-		// Create mock records with generated IDs
-		PermissionSetGroup mockPermissionSetGroupA = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType)
-				.withoutInsertion(true)
-				.build();
-		PermissionSetGroup mockPermissionSetGroupB = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType)
-				.withoutInsertion(true)
-				.build();
-		PermissionSet mockRegularPermSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
-				.withoutInsertion(true)
-				.build();
-		PermissionSet mockMutingPermSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
-				.withoutInsertion(true)
-				.build();
-		PermissionSet mockGrantingPermSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
-				.withoutInsertion(true)
-				.build();
-
-		Test.startTest();
-
-		// Construct Permission Set Group component data:
-		// Permission Set Group A: has regular component that grants, AND muting component that mutes (blocked)
-		// Permission Set Group B: has regular component that grants, NO muting (should succeed)
-		Map<Id, SEL_CustomPermission.PermissionSetGroupComponentData> permissionSetGroupComponents = new Map<Id, SEL_CustomPermission.PermissionSetGroupComponentData>();
-
-		// Permission Set Group A - has grant AND mute (blocked)
-		SEL_CustomPermission.PermissionSetGroupComponentData componentDataA = new SEL_CustomPermission.PermissionSetGroupComponentData();
-		componentDataA.regularComponentIds.add(mockRegularPermSet.Id);
-		componentDataA.mutingComponentIds.add(mockMutingPermSet.Id);
-		permissionSetGroupComponents.put(mockPermissionSetGroupA.Id, componentDataA);
-
-		// Permission Set Group B - has grant only (should succeed)
-		SEL_CustomPermission.PermissionSetGroupComponentData componentDataB = new SEL_CustomPermission.PermissionSetGroupComponentData();
-		componentDataB.regularComponentIds.add(mockGrantingPermSet.Id);
-		permissionSetGroupComponents.put(mockPermissionSetGroupB.Id, componentDataB);
-
-		// The permission is granted by regular, muting, and granting permission sets
-		Set<Id> grantingPermissionSetIds = new Set<Id> {mockRegularPermSet.Id, mockMutingPermSet.Id, mockGrantingPermSet.Id};
-
-		Boolean hasPermissionSetGroupGrant = SEL_CustomPermission.hasPermissionSetGroupGrant(permissionSetGroupComponents, grantingPermissionSetIds);
-
-		Test.stopTest();
-
-		Assert.isTrue(hasPermissionSetGroupGrant, 'Should return true - mute in Permission Set Group A should not block grant from Permission Set Group B');
-	}
-
-	/**
-	 * @description Tests that hasPermissionSetGroupGrant returns false when no Permission Set Group components grant the permission.
-	 * Uses direct method testing with constructed data.
-	 *
-	 * @see SEL_CustomPermission.hasPermissionSetGroupGrant
-	 */
-	@IsTest
-	private static void hasPermissionSetGroupGrantReturnsFalseWhenNoComponentsGrant()
-	{
-		// Create mock records with generated IDs
-		PermissionSetGroup mockPermissionSetGroup = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType)
-				.withoutInsertion(true)
-				.build();
-		PermissionSet mockComponentPermSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
-				.withoutInsertion(true)
-				.build();
-		PermissionSet mockGrantingPermSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
-				.withoutInsertion(true)
-				.build();
-
-		Test.startTest();
-
-		// Permission Set Group has a component, but it doesn't grant the permission
-		Map<Id, SEL_CustomPermission.PermissionSetGroupComponentData> permissionSetGroupComponents = new Map<Id, SEL_CustomPermission.PermissionSetGroupComponentData>();
-		SEL_CustomPermission.PermissionSetGroupComponentData componentData = new SEL_CustomPermission.PermissionSetGroupComponentData();
-		componentData.regularComponentIds.add(mockComponentPermSet.Id);
-		permissionSetGroupComponents.put(mockPermissionSetGroup.Id, componentData);
-
-		// The granting permission set is different from the component
-		Set<Id> grantingPermissionSetIds = new Set<Id> {mockGrantingPermSet.Id};
-
-		Boolean hasPermissionSetGroupGrant = SEL_CustomPermission.hasPermissionSetGroupGrant(permissionSetGroupComponents, grantingPermissionSetIds);
-
-		Test.stopTest();
-
-		Assert.isFalse(hasPermissionSetGroupGrant, 'Should return false when Permission Set Group components do not grant the permission');
-	}
-
-	/**
-	 * @description Tests that PermissionSetGroupComponentData fields are properly initialized and used.
-	 * Covers the regularComponentIds and mutingComponentIds field initialization.
-	 *
-	 * @see SEL_CustomPermission.PermissionSetGroupComponentData
-	 */
-	@IsTest
-	private static void permissionSetGroupComponentDataFieldsAreInitialized()
-	{
-		Test.startTest();
-
-		SEL_CustomPermission.PermissionSetGroupComponentData componentData = new SEL_CustomPermission.PermissionSetGroupComponentData();
-
-		Test.stopTest();
-
-		Assert.isNotNull(componentData.regularComponentIds, 'regularComponentIds should be initialized');
-		Assert.isNotNull(componentData.mutingComponentIds, 'mutingComponentIds should be initialized');
-		Assert.isTrue(componentData.regularComponentIds.isEmpty(), 'regularComponentIds should be empty initially');
-		Assert.isTrue(componentData.mutingComponentIds.isEmpty(), 'mutingComponentIds should be empty initially');
-	}
-
-	/**
-	 * @description Tests that getUserAssignmentData returns cached data on second call.
-	 * Covers the cache hit path in getUserAssignmentData.
-	 *
-	 * @see SEL_CustomPermission.getUserAssignmentData
-	 */
-	@IsTest
-	private static void getUserAssignmentDataReturnsCachedData()
+	private static void groupAssignmentGrantsWhenGroupSummaryHoldsPermission()
 	{
 		User testUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
-
-		// Create mock PermissionSet with generated ID
-		PermissionSet mockPermissionSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
-				.withoutInsertion(true)
-				.build();
-
-		// Mock PermissionSetAssignment
-		PermissionSetAssignment mockAssignment = createMockDirectAssignment(mockPermissionSet.Id, testUser.Id);
-		QRY_Builder.setMock(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment> {mockAssignment});
+		mockGroupAssignmentThatHoldsPermission(testUser);
 
 		Test.startTest();
 
 		clearAllCaches();
-
-		// First call - populates cache
-		SEL_CustomPermission.UserAssignmentData firstResult = SEL_CustomPermission.getUserAssignmentData(testUser.Id);
-
-		// Second call - should return cached data (covers line 435)
-		SEL_CustomPermission.UserAssignmentData secondResult = SEL_CustomPermission.getUserAssignmentData(testUser.Id);
+		Boolean hasPermission = SEL_CustomPermission.hasLocalPermission(testUser.Id, MOCK_PERMISSION_NAME);
 
 		Test.stopTest();
 
 		QRY_Builder.clearMocks();
-		Assert.areEqual(firstResult, secondResult, 'Second call should return same cached instance');
+		Assert.isTrue(hasPermission, 'Expected true: the group summary permission set holds the permission');
 	}
 
 	/**
-	 * @description Tests that expandPermissionSetGroups correctly identifies muting permission sets.
-	 * Uses TST_Builder relationship mocking to set PermissionSet.Type field.
-	 * Covers the muting branch in expandPermissionSetGroups (line 512).
+	 * @description Proves that a mute in one group does not take the permission away when a second group grants it. The user has
+	 * two group assignments. The first group's summary permission set does not hold the permission, the second one does.
 	 *
-	 * @see SEL_CustomPermission.expandPermissionSetGroups
+	 * @see SEL_CustomPermission.hasLocalPermission
 	 */
 	@IsTest
-	private static void expandPermissionSetGroupsIdentifiesMutingPermissionSets()
+	private static void groupThatMutesPermissionDoesNotBlockAnotherGroupThatGrantsIt()
 	{
 		User testUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
-
-		// Create mock Permission Set Group and CustomPermission
-		PermissionSetGroup mockPermissionSetGroup = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType)
-				.withoutInsertion(true)
-				.build();
-		CustomPermission mockPermission = (CustomPermission)TST_Builder.of(CustomPermission.SObjectType)
-				.withOverride(CustomPermission.DeveloperName, 'Mock_Permission')
-				.withoutInsertion(true)
-				.build();
-
-		// Create a mock PermissionSet with Type = 'Group' (muting indicator)
-		PermissionSet mockMutingPermSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
-				.withOverride(PermissionSet.Type, 'Group')
-				.withoutInsertion(true)
-				.build();
+		CustomPermission mockPermission = newMockPermission();
+		PermissionSetGroup mutingGroup = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType).withoutInsertion(true).build();
+		PermissionSetGroup grantingGroup = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType).withoutInsertion(true).build();
+		PermissionSet mutingGroupSummary = newMockPermissionSet(PERMISSION_SET_TYPE_GROUP);
+		PermissionSet grantingGroupSummary = newMockPermissionSet(PERMISSION_SET_TYPE_GROUP);
 
 		QRY_Builder.setMock(CustomPermission.SObjectType, new List<CustomPermission> {mockPermission});
-
-		// Mock PermissionSetAssignment with Permission Set Group assignment
-		PermissionSetAssignment mockAssignment = createMockGroupAssignment(mockPermissionSetGroup.Id, testUser.Id);
-		QRY_Builder.setMock(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment> {mockAssignment});
-
-		// Mock PermissionSetGroupComponent with muting permission set
-		// Pass the PermissionSet as a relationship value to populate PermissionSet.Type
-		PermissionSetGroupComponent mockMutingComponent = (PermissionSetGroupComponent)TST_Builder.of(PermissionSetGroupComponent.SObjectType)
-				.withOverride(PermissionSetGroupComponent.PermissionSetGroupId, mockPermissionSetGroup.Id)
-				.withOverride(PermissionSetGroupComponent.PermissionSetId, mockMutingPermSet.Id)
-				.withOverrides(new Map<String, Object> {'PermissionSet' => mockMutingPermSet})
-				.withoutInsertion(true)
-				.build();
-		QRY_Builder.setMock(PermissionSetGroupComponent.SObjectType, new List<PermissionSetGroupComponent> {mockMutingComponent});
-
-		// Mock SetupEntityAccess - the muting permission set grants the permission
-		SetupEntityAccess mockAccess = (SetupEntityAccess)TST_Builder.of(SetupEntityAccess.SObjectType)
-				.withOverride(SetupEntityAccess.ParentId, mockMutingPermSet.Id)
-				.withOverride(SetupEntityAccess.SetupEntityId, mockPermission.Id)
-				.withoutInsertion(true)
-				.build();
-		QRY_Builder.setMock(SetupEntityAccess.SObjectType, new List<SetupEntityAccess> {mockAccess});
+		QRY_Builder.setMock(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment>
+		{
+				createMockGroupAssignment(mutingGroup.Id, mutingGroupSummary.Id, testUser.Id),
+				createMockGroupAssignment(grantingGroup.Id, grantingGroupSummary.Id, testUser.Id)
+		});
+		QRY_Builder.setMock(SetupEntityAccess.SObjectType, new List<SetupEntityAccess> {newMockAccess(grantingGroupSummary.Id, mockPermission.Id)});
 
 		Test.startTest();
 
 		clearAllCaches();
-
-		// Call hasLocalPermission which will run the full code path including expandPermissionSetGroups
-		// The permission check should return false because the only component is a muting set
-		Boolean hasPermission = SEL_CustomPermission.hasLocalPermission(testUser.Id, 'Mock_Permission');
-
-		// Verify the cache contains the expected muting data
-		SEL_CustomPermission.UserAssignmentData cachedData = SEL_CustomPermission.USER_ASSIGNMENT_CACHE.get(testUser.Id);
+		Boolean hasPermission = SEL_CustomPermission.hasLocalPermission(testUser.Id, MOCK_PERMISSION_NAME);
 
 		Test.stopTest();
 
 		QRY_Builder.clearMocks();
-		Assert.isFalse(hasPermission, 'Should return false - only muting component present, no regular grant');
-		Assert.isTrue(cachedData.permissionSetGroupComponents.containsKey(mockPermissionSetGroup.Id), 'Permission Set Group should be in cache');
+		Assert.isTrue(hasPermission, 'Expected true: the second group grants the permission, and the first group mute applies only to itself');
+	}
 
-		SEL_CustomPermission.PermissionSetGroupComponentData componentData = cachedData.permissionSetGroupComponents.get(mockPermissionSetGroup.Id);
-		Assert.isTrue(componentData.mutingComponentIds.contains(mockMutingPermSet.Id), 'Muting permission set should be identified');
-		Assert.isTrue(componentData.regularComponentIds.isEmpty(), 'No regular components expected');
+	/**
+	 * @description Proves that the answer for a group assignment is kept for the rest of the transaction. After the first call the
+	 * mocked rows are removed, so a second call that read the database again would answer false. The second call must give the
+	 * same answer and run no further query.
+	 *
+	 * @see SEL_CustomPermission.hasLocalPermission
+	 */
+	@IsTest
+	private static void groupAssignmentAnswerIsCachedForSecondCall()
+	{
+		User testUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		mockGroupAssignmentThatHoldsPermission(testUser);
+
+		Test.startTest();
+
+		clearAllCaches();
+		Boolean firstAnswer = SEL_CustomPermission.hasLocalPermission(testUser.Id, MOCK_PERMISSION_NAME);
+		Integer queriesAfterFirst = UTIL_Limits.soqlQueries().used();
+
+		QRY_Builder.clearMocks();
+		Boolean secondAnswer = SEL_CustomPermission.hasLocalPermission(testUser.Id, MOCK_PERMISSION_NAME);
+		Integer queriesAfterSecond = UTIL_Limits.soqlQueries().used();
+
+		Test.stopTest();
+
+		Assert.isTrue(firstAnswer, 'Expected true: the group summary permission set holds the permission');
+		Assert.isTrue(secondAnswer, 'Expected true from the cache on the second call');
+		Assert.areEqual(queriesAfterFirst, queriesAfterSecond, 'Expected the second call to run no further query');
+	}
+
+	/**
+	 * @description Proves the group path against real records, with no mocked query. The test saves a permission set group whose
+	 * only permission set is the Administrator permission set, which holds the framework test permission. It asks Salesforce to
+	 * build the group's summary permission set, assigns the group to the user, and then checks the permission through the database.
+	 *
+	 * @see SEL_CustomPermission.hasPackagePermission
+	 */
+	@IsTest
+	private static void realGroupAssignmentGrantsPermissionHeldByItsPermissionSet()
+	{
+		User testUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		PermissionSet adminPermissionSet = new SEL_PermissionSet().findByName(SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
+		PermissionSetGroup permissionSetGroup = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType).build();
+		TST_Builder.of(PermissionSetGroupComponent.SObjectType)
+				.withOverride(PermissionSetGroupComponent.PermissionSetGroupId, permissionSetGroup.Id)
+				.withOverride(PermissionSetGroupComponent.PermissionSetId, adminPermissionSet.Id)
+				.build();
+		Test.calculatePermissionSetGroup(permissionSetGroup.Id);
+		TST_Factory.createPermissionSetAssignments(new List<User> {testUser}, permissionSetGroup.Id);
+
+		Test.startTest();
+
+		clearAllCaches();
+		Boolean hasPermission = SEL_CustomPermission.hasPackagePermission(testUser.Id, SEL_CustomPermission.FRAMEWORK_TEST_PERMISSION);
+
+		Test.stopTest();
+
+		Assert.isTrue(hasPermission, 'Expected true: the group summary permission set holds the permission of the Administrator permission set');
 	}
 
 	/**
@@ -947,9 +814,30 @@ private class SEL_CustomPermission_TEST
 	private static void clearAllCaches()
 	{
 		SEL_CustomPermission.PERMISSION_RESULT_CACHE.clear();
-		SEL_CustomPermission.USER_ASSIGNMENT_CACHE.clear();
+		SEL_CustomPermission.ASSIGNED_PERMISSION_SET_CACHE.clear();
 		SEL_CustomPermission.PERMISSION_ID_CACHE.clear();
 		SEL_CustomPermission.PERMISSION_SET_CACHE.clear();
+	}
+
+	/**
+	 * @description Registers mocked query answers for a user who is assigned one permission set group whose summary permission set
+	 * holds the mocked local permission. It mocks the permission, the group assignment and the row that says the summary permission
+	 * set holds the permission. It checks nothing itself.
+	 *
+	 * @param testUser The user who gets the mocked group assignment
+	 */
+	private static void mockGroupAssignmentThatHoldsPermission(User testUser)
+	{
+		CustomPermission mockPermission = newMockPermission();
+		PermissionSetGroup mockGroup = (PermissionSetGroup)TST_Builder.of(PermissionSetGroup.SObjectType).withoutInsertion(true).build();
+		PermissionSet summaryPermissionSet = newMockPermissionSet(PERMISSION_SET_TYPE_GROUP);
+
+		QRY_Builder.setMock(CustomPermission.SObjectType, new List<CustomPermission> {mockPermission});
+		QRY_Builder.setMock(PermissionSetAssignment.SObjectType, new List<PermissionSetAssignment>
+		{
+				createMockGroupAssignment(mockGroup.Id, summaryPermissionSet.Id, testUser.Id)
+		});
+		QRY_Builder.setMock(SetupEntityAccess.SObjectType, new List<SetupEntityAccess> {newMockAccess(summaryPermissionSet.Id, mockPermission.Id)});
 	}
 
 	/**
@@ -970,18 +858,66 @@ private class SEL_CustomPermission_TEST
 	}
 
 	/**
-	 * @description Creates a mock PermissionSetAssignment for a Permission Set Group assignment.
+	 * @description Creates a mock PermissionSetAssignment for a permission set group, shaped as the platform stores it: the group Id
+	 * is set, and the permission set Id is the group's summary permission set.
 	 *
 	 * @param permissionSetGroupId The ID of the Permission Set Group to assign
+	 * @param summaryPermissionSetId The ID of the group's summary permission set (Type 'Group')
 	 * @param userId The ID of the user to assign to
 	 *
 	 * @return A mock PermissionSetAssignment record with a generated ID
 	 */
-	private static PermissionSetAssignment createMockGroupAssignment(Id permissionSetGroupId, Id userId)
+	private static PermissionSetAssignment createMockGroupAssignment(Id permissionSetGroupId, Id summaryPermissionSetId, Id userId)
 	{
 		return (PermissionSetAssignment)TST_Builder.of(PermissionSetAssignment.SObjectType)
 				.withOverride(PermissionSetAssignment.PermissionSetGroupId, permissionSetGroupId)
+				.withOverride(PermissionSetAssignment.PermissionSetId, summaryPermissionSetId)
 				.withOverride(PermissionSetAssignment.AssigneeId, userId)
+				.withoutInsertion(true)
+				.build();
+	}
+
+	/**
+	 * @description Creates a mock local custom permission named MOCK_PERMISSION_NAME, with a generated Id.
+	 *
+	 * @return A mock CustomPermission record
+	 */
+	private static CustomPermission newMockPermission()
+	{
+		return (CustomPermission)TST_Builder.of(CustomPermission.SObjectType)
+				.withOverride(CustomPermission.DeveloperName, MOCK_PERMISSION_NAME)
+				.withoutInsertion(true)
+				.build();
+	}
+
+	/**
+	 * @description Creates a mock permission set of the given type, with a generated Id.
+	 *
+	 * @param permissionSetType The PermissionSet.Type value, for example 'Regular' or 'Group'
+	 *
+	 * @return A mock PermissionSet record
+	 */
+	private static PermissionSet newMockPermissionSet(String permissionSetType)
+	{
+		return (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
+				.withOverride(PermissionSet.Type, permissionSetType)
+				.withoutInsertion(true)
+				.build();
+	}
+
+	/**
+	 * @description Creates a mock SetupEntityAccess row that says a permission set holds a custom permission.
+	 *
+	 * @param parentId The Id of the permission set (or muting permission set) that holds the permission
+	 * @param permissionId The Id of the custom permission
+	 *
+	 * @return A mock SetupEntityAccess record
+	 */
+	private static SetupEntityAccess newMockAccess(Id parentId, Id permissionId)
+	{
+		return (SetupEntityAccess)TST_Builder.of(SetupEntityAccess.SObjectType)
+				.withOverride(SetupEntityAccess.ParentId, parentId)
+				.withOverride(SetupEntityAccess.SetupEntityId, permissionId)
 				.withoutInsertion(true)
 				.build();
 	}

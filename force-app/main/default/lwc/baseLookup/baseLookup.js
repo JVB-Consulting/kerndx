@@ -61,6 +61,12 @@ const KEY_HANDLERS = new Map([
 		(context, event) =>
 		{
 			event.preventDefault();
+			// With no option focused there is nothing to select. Choosing nothing here would clear
+			// the field and tell the parent the user removed the value.
+			if(context.currentFocusedSearchOption === NO_FOCUSED_OPTION)
+			{
+				return;
+			}
 			context.selectedRecord = context.filteredSearchResults[context.currentFocusedSearchOption];
 		}
 	],
@@ -177,6 +183,7 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	isSearchLoading = false;
 	record;
 	preselectedRecordId;
+	isSelectionRenderPending = false;
 	delayTimeout;
 	currentFocusedSearchOption = NO_FOCUSED_OPTION;
 	valueSelectEventParams = {};
@@ -233,13 +240,14 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 
 	// ── Computed Properties ──────────────────────────────────────────────
 
-	get defaultRecordId()
+	@api get defaultRecordId()
 	{
 		return this.preselectedRecordId;
 	}
 
 	/**
-	 * @description Record Id passed in to preselect lookup field
+	 * @description Record Id passed in to preselect lookup field. A parent sets it through the
+	 * `default-record-id` attribute, for example to show the saved value on an edit form.
 	 */
 	set defaultRecordId(value)
 	{
@@ -289,12 +297,12 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	 * @description Raw search results that match the current search term across the
 	 * configured display fields, in the order the dropdown renders them. Keyboard
 	 * navigation and Enter selection index into this list so they always track what
-	 * is visible.
+	 * is visible. A number or a true/false value is matched by its text, so `42` matches `4200`.
 	 * @returns {[]}
 	 */
 	get filteredSearchResults()
 	{
-		return this.searchResults.filter(item => this.displayFields.some(displayField => (item[displayField] || '').toLowerCase().includes(this.searchTerm.toLowerCase())));
+		return this.searchResults.filter(item => this.displayFields.some(displayField => String(item[displayField] ?? '').toLowerCase().includes(this.searchTerm.toLowerCase())));
 	}
 
 	/**
@@ -308,7 +316,7 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	{
 		return this.filteredSearchResults.map(item =>
 		{
-			let option = {...item};
+			const option = {...item};
 			option.label = this.generateRecordLabel(option);
 			option.resultIdentifier = this.getResultIdentifier(option);
 			return option;
@@ -344,7 +352,7 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 		}
 		else
 		{
-			this.defaultRecordId = null;
+			this.preselectedRecordId = null;
 			this.clearLookupUI();
 			this.dispatchSearchTermChangedEvent();
 		}
@@ -450,6 +458,7 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	clearLookupUI()
 	{
 		this.isSearchLoading = false;
+		this.isSelectionRenderPending = false;
 		toggleElementVisibility(this.template, '.searchBoxWrapper', true);
 		toggleElementVisibility(this.template, '.pillDiv', false);
 	}
@@ -512,13 +521,35 @@ export default class BaseLookup extends ComponentBuilder('controller', 'lightnin
 	}
 
 	/**
-	 * @description Updates DOM to show the selected record pill and hide the search input.
+	 * @description Updates DOM to show the selected record pill and hide the search input. A parent can pass a
+	 * record before the first render (the framework sets public properties before it renders), when the input
+	 * container is not in the DOM yet; the work then waits for the first renderedCallback.
 	 */
 	handleSelectRecordHelper()
 	{
-		this.template.querySelector('.lookupInputContainer').classList.remove('slds-is-open');
+		const containerClassList = this.lookupInputContainerClassList;
+		if(!containerClassList)
+		{
+			this.isSelectionRenderPending = true;
+			return;
+		}
+		this.isSelectionRenderPending = false;
+		containerClassList.remove('slds-is-open');
 		toggleElementVisibility(this.template, '.searchBoxWrapper', false);
 		toggleElementVisibility(this.template, '.pillDiv', true);
+	}
+
+	/**
+	 * @description Shows the pill for a record that was selected before the template existed, once it does. A
+	 * record cleared again before the first render leaves the template in its default state, search box shown.
+	 */
+	renderedCallback()
+	{
+		super.renderedCallback?.();
+		if(this.isSelectionRenderPending && this.record)
+		{
+			this.handleSelectRecordHelper();
+		}
 	}
 
 	// ── Keyboard Handling ────────────────────────────────────────────────

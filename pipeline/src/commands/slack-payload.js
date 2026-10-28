@@ -152,7 +152,7 @@ function groupRows(rows)
 	const result = [];
 	for(const entry of map.values())
 	{
-		const uniq = [...new Set(entry.lines.filter(l => l && /^\d+$/.test(l)))].sort((a, b) => parseInt(a) - parseInt(b));
+		const uniq = [...new Set(entry.lines.filter(l => l && /^\d+$/.test(l)))].sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
 		let lineStr;
 		if(uniq.length === 0)
 		{
@@ -250,8 +250,8 @@ function buildSlackPayload(opts)
 		const pool = blocking.length > 0 ? blocking : rawRows;
 		pool.sort((a, b) =>
 		{
-			const sa = /^\d+$/.test(a.sev) ? parseInt(a.sev) : 99;
-			const sb = /^\d+$/.test(b.sev) ? parseInt(b.sev) : 99;
+			const sa = /^\d+$/.test(a.sev) ? parseInt(a.sev, 10) : 99;
+			const sb = /^\d+$/.test(b.sev) ? parseInt(b.sev, 10) : 99;
 			if(sa !== sb)
 			{
 				return sa - sb;
@@ -323,8 +323,8 @@ function buildSlackPayload(opts)
 	const blockingGrouped = groupRows(rawRows.filter(r => r.sev === '1' || r.sev === '2'));
 	blockingGrouped.sort((a, b) =>
 	{
-		const sa = /^\d+$/.test(a.sev) ? parseInt(a.sev) : 99;
-		const sb = /^\d+$/.test(b.sev) ? parseInt(b.sev) : 99;
+		const sa = /^\d+$/.test(a.sev) ? parseInt(a.sev, 10) : 99;
+		const sb = /^\d+$/.test(b.sev) ? parseInt(b.sev, 10) : 99;
 		if(sa !== sb)
 		{
 			return sa - sb;

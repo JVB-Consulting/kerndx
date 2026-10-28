@@ -7,7 +7,7 @@
  *
  * @author Jason van Beukering
  *
- * @date July 2026, September 2026
+ * @date July 2026, October 2026
  */
 import LOCALE from '@salesforce/i18n/locale';
 import TIME_ZONE from '@salesforce/i18n/timeZone';
@@ -51,7 +51,7 @@ export function parseAttributes(attributeString)
 
 	try
 	{
-		let parsed = JSON.parse(attributeString);
+		const parsed = JSON.parse(attributeString);
 		return parsed.nameValueMap || {};
 	}
 	catch

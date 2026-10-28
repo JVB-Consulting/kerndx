@@ -45,7 +45,10 @@ const NPM_RUN_RE = /\bnpm run ([a-z0-9:_-]+)/g;
 // Subscriber Domain_[Brand_]Layer_Name pattern — tutorial-example Apex class
 // references (subscriber creates these), not files that should ship in the
 // release artifact. Same shape used in scanner/subscriber-naming-pmd-ruleset.xml.
-const SUBSCRIBER_APEX_RE = /^(SLS|ORD|PRD|SVC|SUB|MKT|CMN)_([A-Z]{2,5}_)?(SEL|TRG|FLOW|SVC|BATCH|SCHED|API|REST|DTO|CTRL|UTIL|LOG|IF|QRY|DML|MAP|TST)_[A-Z][A-Za-z0-9]*(_TEST)?\.(cls|trigger)$/;
+const SUBSCRIBER_APEX_RE = new RegExp(
+	/^(SLS|ORD|PRD|SVC|SUB|MKT|CMN)_([A-Z]{2,5}_)?/.source
+	+ /(SEL|TRG|FLOW|SVC|BATCH|SCHED|API|REST|DTO|CTRL|UTIL|LOG|IF|QRY|DML|MAP|TST)_[A-Z][A-Za-z0-9]*(_TEST)?\.(cls|trigger)$/.source
+);
 // FastStart_*_DEMO.cls — Fast Start example class refs (subscriber-side).
 const FAST_START_RE = /^FastStart_[A-Z][A-Za-z0-9]+_(DEMO|TEST|DEMO_TEST)\.(cls|trigger)$/;
 // Generic Apex class refs ending in .cls/.trigger without prefix — usually
@@ -102,11 +105,7 @@ function shouldSkipPathRef(ref, topDirs)
 		return true;
 	}
 	const firstSeg = ref.split('/')[0];
-	if(!topDirs.has(firstSeg))
-	{
-		return true;
-	}
-	return false;
+	return !topDirs.has(firstSeg);
 }
 
 function shouldSkipFilenameRef(ref)
@@ -143,11 +142,7 @@ function shouldSkipFilenameRef(ref)
 	{
 		return true;
 	}
-	if(SUFFIX_CONVENTION_RE.test(ref))
-	{
-		return true;
-	}
-	return false;
+	return SUFFIX_CONVENTION_RE.test(ref);
 }
 
 // Extract candidate refs from one line. Does NOT apply skip rules — the
@@ -191,24 +186,22 @@ function extractNpmScriptsFromLine(line)
 }
 
 /**
- * Walk markdown content line-by-line and emit candidate claims.
+ * Walk markdown content line-by-line and emit candidate claims. An `npm run X` is emitted from inside code fences
+ * and from prose alike; path and file name claims come from prose only.
  *
  * @param {string} content - Markdown content.
  * @param {object} [options]
  * @param {Set<string>} [options.topDirs] - Allowed top-level dirs (defaults to DEFAULT_TOP_DIRS).
- * @param {boolean} [options.skipNpmScriptsInFences=false] - If true, only emit `npm run X` from inside ```bash code blocks (set false to also catch inline prose).
  * @returns {Array<{type: 'path'|'filename'|'npm-script', ref: string, line: number}>}
  *   Candidate claims with apply-skip-rules NOT yet applied.
  *   Caller must filter using applySkipRules() (or its own logic).
  */
 function extractClaims(content, options)
 {
-	options = options || {};
-	const topDirs = options.topDirs || DEFAULT_TOP_DIRS;
+	const topDirs = options?.topDirs || DEFAULT_TOP_DIRS;
 	const claims = [];
 	const lines = content.split('\n');
 	let inFence = false;
-	let fenceLang = '';
 
 	for(let i = 0; i < lines.length; i++)
 	{
@@ -217,16 +210,7 @@ function extractClaims(content, options)
 		const fenceMatch = line.match(/^```(\w*)/);
 		if(fenceMatch)
 		{
-			if(!inFence)
-			{
-				inFence = true;
-				fenceLang = fenceMatch[1].toLowerCase();
-			}
-			else
-			{
-				inFence = false;
-				fenceLang = '';
-			}
+			inFence = !inFence;
 			continue;
 		}
 
@@ -260,11 +244,12 @@ function extractClaims(content, options)
 	return claims;
 }
 
-// Glob-style pattern: * matches any non-slash chars; ** matches any chars.
+// Glob-style pattern: * matches any non-slash chars; ** matches any chars. Every other character, ? included,
+// matches only itself.
 function matchesGlobPattern(ref, pattern)
 {
 	// Escape regex metacharacters including * (we re-introduce * meaning below)
-	const escaped = pattern.replace(/[.+*^${}()|[\]\\]/g, '\\$&');
+	const escaped = pattern.replace(/[.+?*^${}()|[\]\\]/g, '\\$&');
 	const regex = escaped.replace(/\\\*\\\*/g, '.*').replace(/\\\*/g, '[^/]*');
 	return new RegExp('^' + regex + '$').test(ref);
 }

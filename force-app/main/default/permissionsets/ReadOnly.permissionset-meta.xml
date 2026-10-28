@@ -33,6 +33,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>Foobar__c.Formula__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>Foobar__c.Geolocation__c</field>
         <readable>true</readable>
     </fieldPermissions>

@@ -96,7 +96,7 @@ export default class ChainStepTimeline extends ComponentBuilder('controller', 'n
 				statusLabel: mapping.label,
 				hasError: Boolean(step.errorMessage),
 				hasDuration: Boolean(step.durationLabel),
-				itemClass: 'slds-timeline__item_expandable' + (index === lastIndex ? ' slds-timeline__item_last' : ''),
+				itemClass: 'slds-timeline__item_expandable step-item' + (index === lastIndex ? ' slds-timeline__item_last step-item_last' : ''),
 				hasManualRetryMarker: step.manuallyRetried === true,
 				manualRetryMarkerText: step.manualRetryAfterLabel ? formatTemplateString(MANUAL_RETRY_MARKER_AFTER, [step.manualRetryAfterLabel]) : MANUAL_RETRY_MARKER
 			};

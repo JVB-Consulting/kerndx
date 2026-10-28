@@ -129,6 +129,19 @@ describe('c-chain-monitor', () =>
 		expect(subscribe).toHaveBeenCalledWith('/event/kern__LogEntryEvent__e', -1, expect.any(Function));
 	});
 
+	it('runs a teardown registered through the base when disconnected, and still unsubscribes from empApi', async() =>
+	{
+		const element = await createComponent();
+		const operation = jest.fn();
+		element.addTearDownOperation(operation);
+
+		document.body.removeChild(element);
+		await Promise.resolve();
+
+		expect(operation).toHaveBeenCalledTimes(1);
+		expect(unsubscribe).toHaveBeenCalledTimes(1);
+	});
+
 	it('should unsubscribe from empApi on disconnected callback, with the acknowledgement the platform requires', async() =>
 	{
 		const element = await createComponent();
@@ -720,8 +733,8 @@ describe('c-chain-monitor', () =>
 
 		it('toasts the labelled failure when a confirmed sweep answers nothing at all', async() =>
 		{
-			// callControllerMethod resolves undefined on failure; it has already shown the raw
-			// error in a toast. The labelled toast tells the operator what to do about it.
+			// callControllerMethod resolves undefined on failure. The sweep calls it silent, so the
+			// labelled toast is the only one, and it tells the operator what to do.
 			stubOperationsState(MOCK_ENABLED_STATE, undefined);
 			const element = await createComponent();
 			mockChainActionConfirmModalOpen.mockResolvedValueOnce({action: 'confirm'});
@@ -730,6 +743,30 @@ describe('c-chain-monitor', () =>
 			await flushOperationHandler();
 
 			expect(mockShowSuccessToast).not.toHaveBeenCalled();
+			expect(mockShowErrorToast).toHaveBeenCalledWith('The action could not be completed. Refresh and try again.');
+		});
+
+		it('shows one error toast, not two, when the confirmed sweep fails on the server', async() =>
+		{
+			// The stub follows the real call helper: a failed call resolves undefined and shows its
+			// own error toast, unless the caller asks it to stay silent.
+			const helperErrorToast = jest.fn();
+			const element = await createComponent();
+			mockCallControllerMethod.mockImplementation((controller, params, options) =>
+			{
+				const isSweep = controller === clearStalledChains;
+				if(isSweep && options?.silent !== true)
+				{
+					helperErrorToast('Server error');
+				}
+				return Promise.resolve(isSweep ? undefined : MOCK_ENABLED_STATE);
+			});
+			mockChainActionConfirmModalOpen.mockResolvedValueOnce({action: 'confirm'});
+
+			operationsElement(element, 'clear-stalled-action').dispatchEvent(new CustomEvent('click'));
+			await flushOperationHandler();
+
+			expect(helperErrorToast.mock.calls.length + mockShowErrorToast.mock.calls.length).toBe(1);
 			expect(mockShowErrorToast).toHaveBeenCalledWith('The action could not be completed. Refresh and try again.');
 		});
 

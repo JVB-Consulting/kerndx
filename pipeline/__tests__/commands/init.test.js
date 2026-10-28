@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {runInit, rerenderSubscriberNamingRuleset} = require('../../src/commands/init.js');
 
-test('runInit writes config + workflows + manifest + husky', async(t) =>
+test('runInit writes config + workflows + manifest + husky', async() =>
 {
 	const originalCwd = process.cwd();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-e2e-'));
@@ -51,7 +51,7 @@ test('runInit writes config + workflows + manifest + husky', async(t) =>
 	}
 });
 
-test('runInit writes every opted-in workflow, the auto-assign reviewer workflow included', async(t) =>
+test('runInit writes every opted-in workflow, the auto-assign reviewer workflow included', async() =>
 {
 	// Regression: the config key is auto_assign_reviewer but the template is
 	// auto-assign, so a plain underscore-to-dash mapping dropped the opt-in
@@ -110,7 +110,7 @@ test('runInit writes every opted-in workflow, the auto-assign reviewer workflow 
 	}
 });
 
-test('runInit leaves every opt-in workflow out when the answer is no', async(t) =>
+test('runInit leaves every opt-in workflow out when the answer is no', async() =>
 {
 	const originalCwd = process.cwd();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-opt-outs-'));
@@ -148,7 +148,7 @@ test('runInit leaves every opt-in workflow out when the answer is no', async(t) 
 	}
 });
 
-test('runInit persists slack config under notifications.slack when enabled', async(t) =>
+test('runInit persists slack config under notifications.slack when enabled', async() =>
 {
 	// Regression L12: prior init did not write slack to configRecord. On next
 	// `upgrade --force`, upgrade loaded config (missing slack), re-ran init
@@ -182,7 +182,7 @@ test('runInit persists slack config under notifications.slack when enabled', asy
 	}
 });
 
-test('runInit omits notifications.slack when slack disabled', async(t) =>
+test('runInit omits notifications.slack when slack disabled', async() =>
 {
 	const originalCwd = process.cwd();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-no-slack-'));
@@ -209,7 +209,7 @@ test('runInit omits notifications.slack when slack disabled', async(t) =>
 	}
 });
 
-test('runInit scaffolds code-analyzer.yml referencing bundled rulesets', async(t) =>
+test('runInit scaffolds code-analyzer.yml referencing bundled rulesets', async() =>
 {
 	const originalCwd = process.cwd();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-codeanalyzer-'));
@@ -238,7 +238,7 @@ test('runInit scaffolds code-analyzer.yml referencing bundled rulesets', async(t
 	}
 });
 
-test('runInit renders the ingress branch-protection ruleset its next-steps reference', async(t) =>
+test('runInit renders the ingress branch-protection ruleset its next-steps reference', async() =>
 {
 	const originalCwd = process.cwd();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-rulesets-'));
@@ -276,7 +276,7 @@ test('runInit renders the ingress branch-protection ruleset its next-steps refer
 	}
 });
 
-test('runInit renders the release-gate ruleset when release branches exist and naming is enforced', async(t) =>
+test('runInit renders the release-gate ruleset when release branches exist and naming is enforced', async() =>
 {
 	const originalCwd = process.cwd();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-rulesets-release-'));
@@ -312,7 +312,7 @@ test('runInit renders the release-gate ruleset when release branches exist and n
 	}
 });
 
-test('runInit honours the explicit release-branch answer and preserves hand-authored rulesets', async(t) =>
+test('runInit honours the explicit release-branch answer and preserves hand-authored rulesets', async() =>
 {
 	const originalCwd = process.cwd();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-rulesets-explicit-'));
@@ -347,7 +347,7 @@ test('runInit honours the explicit release-branch answer and preserves hand-auth
 	}
 });
 
-test('runInit scaffolds the hygiene ruleset when the repo does not use the framework', async(t) =>
+test('runInit scaffolds the hygiene ruleset when the repo does not use the framework', async() =>
 {
 	const originalCwd = process.cwd();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-codeanalyzer-hygiene-'));
@@ -379,7 +379,7 @@ test('runInit scaffolds the hygiene ruleset when the repo does not use the frame
 	}
 });
 
-test('runInit preserves existing code-analyzer.yml (does not overwrite)', async(t) =>
+test('runInit preserves existing code-analyzer.yml (does not overwrite)', async() =>
 {
 	const originalCwd = process.cwd();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-codeanalyzer-preserve-'));
@@ -445,7 +445,7 @@ test('rerenderSubscriberNamingRuleset skips gracefully when shipped XML absent',
 	assert.equal(result.mode, 'skipped');
 });
 
-test('runInit safely appends to existing husky hook', async(t) =>
+test('runInit safely appends to existing husky hook', async() =>
 {
 	const originalCwd = process.cwd();
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-husky-'));
@@ -473,4 +473,114 @@ test('runInit safely appends to existing husky hook', async(t) =>
 	{
 		process.chdir(originalCwd);
 	}
+});
+
+// Runs fn while collecting every console.log line, and returns the lines.
+async function captureLog(fn)
+{
+	const lines = [];
+	const originalLog = console.log;
+	console.log = (...parts) => lines.push(parts.join(' '));
+	try
+	{
+		await fn();
+	}
+	finally
+	{
+		console.log = originalLog;
+	}
+	return lines;
+}
+
+test('runInit in check mode writes no file and lists every path it would write', async() =>
+{
+	const originalCwd = process.cwd();
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-check-'));
+	try
+	{
+		process.chdir(dir);
+		const answers = {
+			package_dirs: ['force-app/main/default'],
+			ci_adapter: {name: 'none'},
+			branches: {main: 'main', ingress: ['main'], protected: ['main', 'release'], release: ['release']},
+			naming: {enabled: true},
+			slack: {enabled: false},
+			workflows: {runs_on: 'ubuntu-latest', auto_assign_reviewer: true}
+		};
+
+		const lines = await captureLog(() => runInit({answers, interactive: false, check: true}));
+
+		assert.deepEqual(fs.readdirSync(dir), []);
+		for(const expected of [
+			'.kerndx/config.yml',
+			'code-analyzer.yml',
+			'.github/workflows/sfca-quality-gate.yml',
+			'.github/workflows/secret-scan.yml',
+			'.github/workflows/naming-validation.yml',
+			'.github/workflows/auto-assign.yml',
+			'.kerndx/rulesets/ingress-gate.json',
+			'.kerndx/rulesets/release-gate.json',
+			'.husky/pre-push',
+			'.kerndx/manifest.json'
+		])
+		{
+			assert.ok(lines.includes(`  would write ${expected}`), `expected the check to list ${expected}`);
+		}
+		assert.ok(lines.some(line => line.includes('Check only: no files were written.')));
+		assert.ok(!lines.some(line => line.includes('Scaffold complete.')));
+	}
+	finally
+	{
+		process.chdir(originalCwd);
+	}
+});
+
+test('runInit in check mode leaves an existing husky hook as it was', async() =>
+{
+	const originalCwd = process.cwd();
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'init-check-husky-'));
+	try
+	{
+		process.chdir(dir);
+		fs.mkdirSync('.husky');
+		const hookBefore = '#!/usr/bin/env sh\nnpm run lint\n';
+		fs.writeFileSync('.husky/pre-push', hookBefore, {mode: 0o755});
+		const answers = {
+			package_dirs: ['force-app/main/default'],
+			ci_adapter: {name: 'none'},
+			branches: {main: 'main', ingress: ['main'], protected: ['main']},
+			naming: {enabled: false},
+			slack: {enabled: false},
+			workflows: {}
+		};
+
+		const lines = await captureLog(() => runInit({answers, interactive: false, check: true}));
+
+		assert.equal(fs.readFileSync('.husky/pre-push', 'utf-8'), hookBefore);
+		assert.deepEqual(fs.readdirSync(dir), ['.husky']);
+		assert.ok(lines.includes('  would write .husky/pre-push'));
+	}
+	finally
+	{
+		process.chdir(originalCwd);
+	}
+});
+
+test('rerenderSubscriberNamingRuleset in check mode reports the XML it would rewrite and leaves it unchanged', async() =>
+{
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pmd-rerender-check-'));
+	const xml = path.join(dir, 'subscriber-naming-pmd-ruleset.xml');
+	const {renderPmdRuleset} = require('../../src/lib/render-pmd-ruleset.js');
+	const before = renderPmdRuleset({});
+	fs.writeFileSync(xml, before);
+
+	let result;
+	const lines = await captureLog(() =>
+	{
+		result = rerenderSubscriberNamingRuleset({naming: {domains: ['INV']}}, {shippedXmlPath: xml, check: true});
+	});
+
+	assert.equal(result.mode, 'rerendered');
+	assert.equal(fs.readFileSync(xml, 'utf-8'), before);
+	assert.deepEqual(lines, [`  would write ${xml}`]);
 });

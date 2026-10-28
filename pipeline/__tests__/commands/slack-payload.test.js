@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const {
-	parseRow, parseCsv, encodeForSlack, stripSlackMarkup, classifyEngine, truncMid, groupRows, buildSlackPayload, slackPayload
+	parseRow, parseCsv, encodeForSlack, stripSlackMarkup, classifyEngine, truncMid, groupRows, slackPayload
 } = require('../../src/commands/slack-payload.js');
 
 const FIXTURE_CSV = path.join(__dirname, '../fixtures/sfca-violations.csv');

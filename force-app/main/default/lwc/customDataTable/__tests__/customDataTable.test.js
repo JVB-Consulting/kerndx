@@ -2,13 +2,28 @@
 /**
  * @description Jest unit tests for customDataTable LWC component
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
 import {createElement} from 'lwc';
 import LwcCustomDataTable from 'c/customDataTable';
 
+/** The built-in column types as the class holds them before any table is created. */
+const customTypesAtModuleLoad = {...LwcCustomDataTable.customTypes};
+
 describe('c-custom-data-table', () =>
 {
+	it('holds the built-in column types before the first table is created', () =>
+	{
+		// lightning-datatable reads the column types when a table is created, before it is added to the page.
+		expect(Object.keys(customTypesAtModuleLoad)).toEqual([
+			'richText',
+			'image',
+			'iconColumn',
+			'progressColumn'
+		]);
+		expect(customTypesAtModuleLoad.image.typeAttributes).toEqual(['imgUrl']);
+	});
+
 	afterEach(() =>
 	{
 		while(document.body.firstChild)
