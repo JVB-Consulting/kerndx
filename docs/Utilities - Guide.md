@@ -56,7 +56,7 @@ Date nextBusinessDay = UTIL_Date.addBusinessDays(Date.today(), 5);
 Boolean isWeekend = UTIL_Date.isWeekend(Date.today());
 
 // Collection operations
-List<List<SObject>> chunks = UTIL_List.partition(largeList, 200);
+List<List<Object>> chunks = UTIL_List.partition(largeList, 200);
 accounts.sort(new RevenueComparator()); // see "Sorting" below for the Comparator<SObject> pattern
 ```
 
@@ -89,7 +89,6 @@ For deeper coverage, continue reading the sections below.
         - [Date Formatting](#date-formatting)
         - [Cron Expressions](#cron-expressions)
 11. [Character Utilities](#character-utilities)
-    - [UTIL_Character](#util_character)
 12. [Collection Utilities](#collection-utilities)
     - [UTIL_List](#util_list)
     - [UTIL_Map](#util_map)
@@ -108,7 +107,7 @@ For deeper coverage, continue reading the sections below.
         - [Check Email Deliverability](#check-email-deliverability)
         - [Send Email](#send-email)
         - [Working with Attachments](#working-with-attachments)
-    - [UTIL_StopWatch](#util_stopwatch)
+    - [Timing Your Code](#timing-your-code)
     - [UTIL_FormulaFilter](#util_formulafilter)
     - [UTIL_BulkUpdates](#util_bulkupdates)
     - [UTIL_PurgeRecords](#util_purgerecords)
@@ -241,9 +240,10 @@ For deeper coverage, continue reading the sections below.
 
 The utility classes here are stateless helpers: you call them by name (for example `UTIL_String.abbreviate(...)`), they transform the data you pass in, and they hand back a result.
 
-> **Responsibilities:** Utility classes are stateless helpers. They perform transformations, validations, and calculations on data passed to
-> them. They do not perform DML, query data, or manage state. If a utility grows beyond pure transformation, it likely belongs in a service
-> class or framework component.
+> **Responsibilities:** The basic helpers (such as `UTIL_String`, `UTIL_Date` and `UTIL_List`) are stateless. They perform transformations,
+> validations, and calculations on data passed to them. They do not perform DML, query data, or manage state. A few utilities do more:
+> `UTIL_BulkUpdates` and `UTIL_PurgeRecords` change records, `UTIL_Email` sends email, and `UTIL_Cache` keeps values in the platform cache.
+> If a utility of your own grows beyond pure transformation, it likely belongs in a service class or framework component.
 
 **What's Covered:**
 
@@ -273,7 +273,7 @@ The utility classes here are stateless helpers: you call them by name (for examp
 
 To make the right ones easy to find, the utilities split into two groups by how much they do for you.
 
-The first group is the everyday helpers: simple, do-one-thing methods you call and forget. These are the **Basic Utilities** for strings, dates, collections, and the like: `UTIL_String`, `UTIL_Date`, `UTIL_List`, `UTIL_Map`, `UTIL_Set` (internal), `UTIL_Character` (internal), `UTIL_System`, `UTIL_Exceptions`, `UTIL_JsonPath`, `UTIL_Email`, `UTIL_StopWatch`, `UTIL_FormulaFilter`, `UTIL_BulkUpdates`, and `UTIL_PurgeRecords`.
+The first group is the everyday helpers: simple, do-one-thing methods you call and forget. These are the **Basic Utilities** for strings, dates, collections, and the like: `UTIL_String`, `UTIL_Date`, `UTIL_List`, `UTIL_Map`, `UTIL_Set` (internal), `UTIL_System`, `UTIL_Exceptions`, `UTIL_JsonPath`, `UTIL_Email`, `UTIL_FormulaFilter`, `UTIL_BulkUpdates`, and `UTIL_PurgeRecords`.
 
 The second group does more behind the scenes, and some of these remember state between calls or are driven by configuration records. These are the **Advanced Utilities**: `UTIL_Retry` (retry strategies), `UTIL_CircuitBreaker` (fault tolerance), `UTIL_Cache` (platform cache), `UTIL_TypeResolver` (dynamic type resolution), `UTIL_Random` (random data generation), `MAP_SObject` (in-memory indexing), `UTIL_SObjectDescribe` (metadata introspection), `UTIL_FeatureFlag` (feature flags), `LOG_Builder` (logging), `SVC_Omnistudio` (Omnistudio integration), and Flow invocable methods.
 
@@ -309,7 +309,7 @@ String abbreviated = UTIL_String.abbreviate('Now is the time for all good men', 
 
 // Abbreviate to fit an SObject field (uses field's maximum length)
 String truncated = UTIL_String.abbreviate(longErrorMessage, LogEntry__c.Message__c);
-// Result: String truncated to fit the Message__c field (32768 chars)
+// Result: String truncated to fit the Message__c field (131,072 chars)
 
 ```
 
@@ -429,21 +429,16 @@ String cron = UTIL_Date.getCronExpression(Datetime.newInstance(2025, 9, 5, 15, 3
 
 ## Character Utilities
 
-### `UTIL_Character`
-
-`UTIL_Character` handles single-character checks and conversions. The framework uses it internally to build `UTIL_String` and `UTIL_Random`.
-
-> **Internal class:** `UTIL_Character` is a framework-internal helper (declared `public`, not `global`). The examples below show what it does; for your own code, the character checks you need are available through `UTIL_String`.
+The framework's own character helpers are internal, so you do not call them from your code. For single-character checks and
+conversions, the standard Apex [`String`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
+methods do the job:
 
 ```apex
 // Check if whitespace
-Boolean isWhitespace = UTIL_Character.isWhitespace(' ');  // true
+Boolean isWhitespace = ' '.isWhitespace();  // true
 
 // Convert ASCII value to character
-String character = UTIL_Character.toChar(65);  // 'A'
-
-// Validate single-character string
-UTIL_Character.validateChar('A');  // no exception
+String character = String.fromCharArray(new List<Integer>{65});  // 'A'
 ```
 
 ---
@@ -462,7 +457,7 @@ Boolean empty = UTIL_List.isEmpty(myList);
 Boolean notEmpty = UTIL_List.isNotEmpty(myList);
 
 // Partition list into chunks
-List<List<SObject>> batches = UTIL_List.partition(records, 200);
+List<List<Object>> batches = UTIL_List.partition(records, 200);
 ```
 
 > **Sorting:** To sort SObjects by a field, use Salesforce's built-in `Comparator<SObject>` interface and call `List.sort(comparator)` (the [Sorting](#sorting) section below shows the pattern). The framework's own list-sorting helpers are internal plumbing; the platform-native approach is the one to use in your code.
@@ -512,11 +507,11 @@ Managed-package code often needs to answer questions about its own environment: 
 #### Type Resolution
 
 ```apex
-// Get Type from class name (subscriber-first resolution via chain of responsibility)
-Type myType = UTIL_System.getTypeForClassName('TRG_SetFoobarDefaults');
+// Get Type from class name (each registered resolver gets a turn to find the class)
+Type myType = UTIL_System.getTypeForClassName('TRG_AccountSetDefaults');
 
 // Get Type with expected interface validation
-Type handlerType = UTIL_System.getTypeForClassName('TRG_SetFoobarDefaults', IF_Trigger.BeforeInsert.class);
+Type handlerType = UTIL_System.getTypeForClassName('TRG_AccountSetDefaults', IF_Trigger.BeforeInsert.class);
 
 // Get runtime type name for an instance
 String typeName = UTIL_System.getRuntimeTypeName(new Account());
@@ -533,7 +528,7 @@ String namespace = UTIL_System.getManagedPackageNamespace();
 String prefix = UTIL_System.getManagedPackageNamespacePrefix('__');
 
 // Get namespace for a specific class
-String classNamespace = UTIL_System.getClassNamespace('TRG_SetFoobarDefaults');
+String classNamespace = UTIL_System.getClassNamespace('TRG_AccountSetDefaults');
 
 // Get namespace prefix with delimiter (e.g., 'kern.')
 String nsPrefix = UTIL_System.getNamespacePrefix('kern', '.');
@@ -684,9 +679,9 @@ UTIL_Email.sendEmail(
 );
 ```
 
-### `UTIL_StopWatch`
+### Timing Your Code
 
-To know how long a piece of code took, so you can spot what's slow, use the built-in timers. `UTIL_StopWatch` is the framework-internal base class behind the three built-in performance timers (`UTIL_PerformanceTimer`, `UTIL_QueryPerformanceTimer`, `UTIL_TriggerPerformanceTimer`). It is internal plumbing (declared `public`, not `global`), so you don't instantiate it yourself.
+To know how long a piece of code took, so you can spot what's slow, use the built-in timing. The framework's own timers are internal, so you don't create them yourself.
 
 You get most timing for free: setting `TriggerSetting__mdt.EnablePerformanceLogging__c` times trigger actions, `ApiSetting__mdt` times API calls, and `UTIL_AsyncChain.ChainContext` carries timing through chain steps.
 
@@ -756,7 +751,7 @@ UTIL_PurgeRecords.deleteAllRecords('LogEntry__c', false, 200);
 UTIL_PurgeRecords.deleteOlderThanNDays('LogEntry__c', 90);
 
 // Delete records older than N days using a custom date field
-UTIL_PurgeRecords.deleteOlderThanNDays('LogEntry__c', 'EventDate__c', 365);
+UTIL_PurgeRecords.deleteOlderThanNDays('YourObject__c', 'YourDateField__c', 365);
 ```
 
 ### [`UTIL_Limits`](reference/apex/UTIL_Limits.md)
@@ -851,9 +846,9 @@ To keep frequently-read data (configuration, picklist values, a computed result)
 
 **Key Components:**
 
-1. **[`UTIL_Cache.Store`](reference/apex/UTIL_Cache.Store.md) Interface** - Core cache contract with put, get, contains, remove, and clear methods
+1. **[`UTIL_Cache.Store`](reference/apex/UTIL_Cache.Store.md) Interface** - Core cache contract with put, get, contains, remove, and removeAll methods
 2. **[`UTIL_Cache.OperationResult`](reference/apex/UTIL_Cache.OperationResult.md)** - Detailed result object with success status and operation metadata
-3. **[`UTIL_Cache.Status`](reference/apex/UTIL_Cache.Status.md) Enum** - Status codes for cache operations (SUCCESS, TTL_INVALID, WRITE_FAILURE, etc.)
+3. **[`UTIL_Cache.Status`](reference/apex/UTIL_Cache.Status.md) Enum** - Status codes for cache operations (READ_SUCCESS, WRITE_SUCCESS, REMOVE_SUCCESS, CACHE_MISS, CACHE_UNAVAILABLE, READ_FAILURE, WRITE_FAILURE, REMOVE_FAILURE)
 4. **Automatic Compression** - ZIP compression for payloads >4KB (80-90% space savings)
 5. **Cache Type Abstraction** - Session, Org, Auto (durable Session→Org dispatch), and In-Transaction (per-request in-memory tier via the `inTransaction()` factory or the opt-in
    graceful `autoWithTransactionFallback()` composite)
@@ -1141,23 +1136,9 @@ cache.put('Accounts', accounts, 3600); // Automatically compressed to ~10-20KB
 
 #### Compression Algorithm
 
-Location: `UTIL_Cache.cls` (lines 332-356)
-
-```apex
-// Internal implementation (simplified)
-private static Blob compressData(String jsonString)
-{
-	Compression.ZipWriter zipWriter = new Compression.ZipWriter();
-	zipWriter.addEntry('data.json', Blob.valueOf(jsonString));
-	return zipWriter.getArchive();
-}
-
-private static String decompressData(Blob compressedData)
-{
-	Compression.ZipReader zipReader = new Compression.ZipReader(compressedData);
-	return zipReader.extract('data.json').toString();
-}
-```
+The cache writes a large value into a ZIP archive with Salesforce's `Compression.ZipWriter`, and reads it back with
+`Compression.ZipReader`. This happens inside the framework: you do not call it, and your code always gets back the
+original value.
 
 #### When Compression Occurs
 
@@ -1317,15 +1298,9 @@ While compression is transparent, you can monitor its effectiveness:
 String serialized = JSON.serialize(myObject);
 Integer originalSize = serialized.length();
 
-// After retrieving from cache (check wrapper metadata in tests)
-// In production, compression details are abstracted away
+// Compression details are handled inside the framework and are not visible to your code
 UTIL_Cache.Store cache = UTIL_Cache.org();
 cache.put('MyKey', myObject, 3600);
-
-// The DTO_CacheEntry wrapper tracks:
-// - isCompressed: Boolean flag
-// - originalSize: Size before compression
-// - data: Blob (if compressed) or String (if not)
 ```
 
 ---
@@ -1631,7 +1606,7 @@ point of view, and there is no signal telling you another transaction overwrote 
 ```apex
 // ✅ GOOD - SOQL FOR UPDATE is the only Salesforce-native atomic-increment primitive.
 //
-// Pre-requisites in your subscriber org (NOT shipped with KernDX):
+// Pre-requisites in your org (NOT shipped with KernDX):
 //   1. Create a custom object: RateCounter__c
 //   2. Add a Number field: Value__c (length 18, scale 0)
 //   3. Seed the counter row at admin / install time (one row per counter name) so the
@@ -1649,7 +1624,7 @@ public static Integer atomicIncrement(String counterName)
 
 	if(counter == null)
 	{
-		throw new IllegalStateException(
+		throw new UTIL_Exceptions.IllegalStateException(
 			'RateCounter__c row "' + counterName + '" must be seeded before increment');
 	}
 
@@ -1738,7 +1713,7 @@ Sometimes your code only knows a class by its name as a string (perhaps the name
 
 - **[`INT_ClassTypeResolver`](reference/apex/UTIL_TypeResolver.INT_ClassTypeResolver.md)** - Global interface you implement to add your own resolver
 - **[`BaseClassResolver`](reference/apex/UTIL_TypeResolver.BaseClassResolver.md)** - Abstract base class your resolver extends; it links resolvers into a chain where each one gets a turn
-- **`PackageClassResolver`** - The default resolver, which handles managed-package classes and namespaces
+- **Default resolver** - Built into the framework; it handles managed-package classes and namespaces
 - **Custom Metadata Configuration** - [`ClassTypeResolver__mdt`](reference/metadata/ClassTypeResolver__mdt.md), the configuration record you create to register your own resolver
 
 **How It Works:**
@@ -1755,9 +1730,9 @@ Resolution runs through a chain: each resolver gets a turn to find the class, an
 
 ```apex
 // Resolve a class type by name using the default resolver chain
-// Resolve a standard class
+// Resolve one of your own classes
 UTIL_TypeResolver.INT_ClassTypeResolver resolver = UTIL_TypeResolver.getClassResolver();
-Type myClassType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
+Type myClassType = resolver.resolveType('TRG_AccountSetDefaults');
 
 if(myClassType != null)
 {
@@ -1772,7 +1747,7 @@ If you keep Apex classes in your own namespace and want the framework to resolve
 
 ```apex
 /**
- * @description Subscriber org resolver implementation
+ * @description Resolver implementation for your org
  *
  * @see UTIL_TypeResolver
  *
@@ -1879,7 +1854,7 @@ private class ACME_ClassTypeResolver_TEST
 
 ### Architecture
 
-When you need throwaway data (a random name, a fake record ID, a unique identifier) for a test or a quick prototype, [`UTIL_Random`](reference/apex/UTIL_Random.md) generates it. It offers two modes: cryptographically secure randomness for things like real unique IDs, and seeded pseudo-randomness that produces the same sequence every run so your tests stay repeatable.
+When you need throwaway data (a random name, a fake record ID, a unique identifier) for a test or a quick prototype, [`UTIL_Random`](reference/apex/UTIL_Random.md) generates it. Its random values come from the platform's `Math.random()`, so they are different on every run. For real unique IDs, `randomUUID()` uses the platform's cryptographically secure `UUID.randomUUID()`.
 
 **Key Features:**
 
@@ -2042,7 +2017,7 @@ MAP_SObject (Industry level)
 
 ```apex
 // Index 10,000 accounts by 3 fields
-MAP_SObject index = new MAP_SObject(new List<String>{'Industry', 'Country', 'Type'});
+MAP_SObject index = new MAP_SObject(new List<String>{'Industry', 'BillingCountry', 'Type'});
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.addFields(new List<SObjectField>{Account.Id, Account.Name, Account.Industry, Account.BillingCountry, Account.Type})
 	.withLimit(10000)
@@ -2065,44 +2040,24 @@ List<SObject> results = index.getAll(new Map<String, Object>
 
 **Key Serialization Strategy:**
 
-The utility uses pluggable **serializers** to control how field values are converted to map keys:
+The utility turns each field value into a text map key in one of two ways. This happens inside the framework; you choose
+the way, not the code:
 
-**1. Case-Sensitive (Default):**
-
-```apex
-private class StringValueOfSerializer implements SerializerInterface
-{
-	public String serialize(Object objectToSerialize)
-	{
-		return String.valueOf(objectToSerialize);
-	}
-}
-```
-
-**2. Case-Insensitive:**
-
-```apex
-private class ToLowerCaseSerializer implements SerializerInterface
-{
-	public String serialize(Object objectToSerialize)
-	{
-		return objectToSerialize == null ? null : String.valueOf(objectToSerialize).toLowerCase();
-	}
-}
-```
+1. **Case-Sensitive (Default):** the key is the value as text, unchanged (`String.valueOf(value)`).
+2. **Case-Insensitive:** the key is the value as text in lower case. A null value stays null.
 
 **How It Works:**
 
 ```apex
 // Case-sensitive index (default)
 MAP_SObject index1 = new MAP_SObject('Name');
-index1.put(new Contact(Name='John Doe')); // Key: 'John Doe'
+index1.put(new Account(Name='John Doe')); // Key: 'John Doe'
 index1.get('john doe'); // Returns null (case mismatch)
 
 // Case-insensitive index
 MAP_SObject index2 = new MAP_SObject('Name').caseInsensitive();
-index2.put(new Contact(Name='John Doe')); // Key: 'john doe' (lowercased)
-index2.get('JOHN DOE'); // Returns contact (lookup key lowercased to 'john doe' → match!)
+index2.put(new Account(Name='John Doe')); // Key: 'john doe' (lowercased)
+index2.get('JOHN DOE'); // Returns account (lookup key lowercased to 'john doe' → match!)
 ```
 
 **Memory Impact:**
@@ -2117,7 +2072,7 @@ index2.get('JOHN DOE'); // Returns contact (lookup key lowercased to 'john doe' 
 
 ```apex
 MAP_SObject index = new MAP_SObject('Name');
-index.put(new Contact(Name='Test'));
+index.put(new Account(Name='Test'));
 index.caseInsensitive(); // ❌ Throws exception: cannot change after data added
 ```
 
@@ -2411,7 +2366,7 @@ if(fieldSets.containsKey('QuickView'))
 
 	// Build query using QRY_Builder with FieldSet fields
 	List<Account> results = QRY_Builder.selectFrom(Account.SObjectType)
-		.fieldSet('QuickViewFields')  // FieldSet name
+		.fieldSet('QuickView')  // FieldSet name
 		.toList();
 	// e.g., results.size() = 10
 }
@@ -2578,46 +2533,42 @@ if(!validationErrors.isEmpty())
 **Building Dynamic SOQL:**
 
 ```apex
-// Build type-safe dynamic SOQL using describe metadata
+// Build a dynamic query from describe metadata, then run it with QRY_Builder
 public with sharing class DynamicQueryBuilder
 {
-	public static String buildQueryForObject(String objectName, String filterField, Object filterValue)
+	public static List<SObject> queryObject(String objectName, String filterField, Object filterValue)
 	{
 		UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(objectName);
 
 		// Get all queryable fields
-		List<String> fieldNames = new List<String>();
+		List<SObjectField> fields = new List<SObjectField>();
 		for(SObjectField field : describe.getFields().values())
 		{
-			DescribeFieldResult fieldDesc = field.getDescribe();
+			DescribeFieldResult fieldDesc = UTIL_SObjectDescribe.getCachedFieldDescribe(field);
 			if(fieldDesc.isAccessible() && fieldDesc.isFilterable())
 			{
-				fieldNames.add(fieldDesc.getName());
+				fields.add(field);
 			}
 		}
 
 		// Build query
-		String query = 'SELECT ' + String.join(fieldNames, ', ');
-		query += ' FROM ' + describe.getDescribe().getName();
+		QRY_Builder.Builder query = QRY_Builder.selectFrom(describe.getSObjectType())
+			.fields(fields);
 
 		// Add filter if provided
-		if(String.isNotBlank(filterField) && filterValue != null)
+		SObjectField filter = String.isNotBlank(filterField) ? describe.getField(filterField) : null;
+		if(filter != null && filterValue != null)
 		{
-			SObjectField field = describe.getField(filterField);
-			if(field != null)
-			{
-				query += ' WHERE ' + filterField + ' = :filterValue';
-			}
+			query.condition(filter).equals(filterValue);
 		}
 
-		return query;
+		return query.toList();
 	}
 }
 
 // Usage
-String query = DynamicQueryBuilder.buildQueryForObject('Account', 'Industry', 'Technology');
-// e.g., query = 'SELECT Name, Industry, ... FROM Account WHERE Industry = :filterValue'
-List<SObject> results = Database.query(query);
+List<SObject> results = DynamicQueryBuilder.queryObject('Account', 'Industry', 'Technology');
+// e.g., runs SELECT Name, Industry, ... FROM Account WHERE Industry = 'Technology'
 ```
 
 ### Best Practices
@@ -2894,6 +2845,7 @@ When a Flow needs to send a templated email (with custom merge values, an org-wi
 
 ```apex
 // Send templated emails from Flow with custom merge fields
+FLOW_SendEmail.DTO_Request emailRequest = new FLOW_SendEmail.DTO_Request();
 emailRequest.templateUniqueName = 'Customer_Welcome_Email';
 emailRequest.orgWideEmailAddress = 'noreply@company.com';
 emailRequest.whatId = opportunityId;
@@ -3018,6 +2970,8 @@ Below the Health Check, the Home tab provides quick-launch cards for the framewo
 
 ## Anti-Patterns
 
+An anti-pattern is a common risky mistake. These are the ones to avoid with the utilities, and what to do instead.
+
 | Anti-Pattern                                                            | Why It's Wrong                                                         | Instead                                                                              |
 |-------------------------------------------------------------------------|------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
 | Writing custom string manipulation instead of using `UTIL_String`       | Duplicates framework functionality and increases test burden           | Use `UTIL_String` for abbreviation, padding, splitting, joining, and validation      |
@@ -3034,12 +2988,12 @@ Below the Health Check, the Home tab provides quick-launch cards for the framewo
 
 1. Register custom resolvers via custom metadata so the framework can find the classes in your own namespace
 2. Always check for null before instantiating resolved types
-3. Use chain of responsibility for multi-namespace environments
+3. In an org with several namespaces, link several resolvers so each one gets a turn to find the class (the chain of responsibility pattern)
 4. Document supported class name formats in resolver implementations
 
 ### Random Data Generation
 
-1. Use seeded random for deterministic unit tests
+1. Random values change on every run, so set the fields your test asserts on yourself
 2. Use cryptographically secure UUID for production unique identifiers
 3. Don't use random data generation in production business logic
 4. Document random data characteristics in test class comments
@@ -3079,7 +3033,7 @@ Below the Health Check, the Home tab provides quick-launch cards for the framewo
 3. Associate record IDs when logging relates to specific data
 4. Never log sensitive data (passwords, tokens, PII)
 5. Use batch logging for related messages
-6. Enable test mode only when debugging tests
+6. In tests, log entries are discarded by default; set `LOG_Builder.ignoreTestMode = true` only when you need to keep them to debug a test
 
 ### Omnistudio Integration
 
@@ -3143,7 +3097,7 @@ and recovers after the reset timeout.
 
 - **[DML - Guide](DML%20-%20Guide.md)** - Database operations and permissions
 - **[Async Processing - Guide](Async%20Processing%20-%20Guide.md)** - Async processing utilities
-- **[Web Services - Guide](Web%20Services%20-%20Guide.md)** - API integrations (includes `UTIL_HttpClient` fluent HTTP client)
+- **[Web Services - Guide](Web%20Services%20-%20Guide.md)** - API integrations (includes `UTIL_HttpClient`, the HTTP client you configure with short chained calls before one call sends the request)
 - **[Selectors - Guide](Selectors%20-%20Guide.md)** - SOQL query utilities
 - **[Security - Guide](Security%20-%20Guide.md)** - Security and encryption patterns
 - **[Logging - Guide](Logging%20-%20Guide.md)** - Logging framework details

@@ -2,10 +2,10 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>ClassName__c</fullName>
     <caseSensitive>false</caseSensitive>
-    <description>The fully qualified name of the API handler class</description>
+    <description>The name of the Apex class that handles this service, such as API_Handler or MyNamespace.API_Handler. When an incoming request is routed by its path, a name without a namespace takes the namespace of this setting record.</description>
     <externalId>false</externalId>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <inlineHelpText>The fully qualified Apex class name of the API handler</inlineHelpText>
+    <inlineHelpText>The Apex class name of the API handler. For an incoming route, a name without a namespace takes the namespace of this setting record.</inlineHelpText>
     <label>Class Name</label>
     <length>100</length>
     <required>false</required>

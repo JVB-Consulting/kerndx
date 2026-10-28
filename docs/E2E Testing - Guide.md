@@ -50,9 +50,9 @@ Think of an end-to-end test as a robot stand-in for one of your users. It opens 
 
 ## Quick start
 
-The fastest way in is the companion [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md), which gets three tests passing in about 25 minutes. In short, the path is:
+The fastest way in is the companion [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md), which gets three tests passing in about 20 minutes. In short, the path is:
 
-1. Create an `e2e/` folder beside your `force-app/` source and install Playwright (see [How do I set up the project?](#how-do-i-set-up-the-project)).
+1. Install Playwright and use the ready-made suite in the `release-testing/e2e` folder of the framework repository you cloned, as the Fast Start does. To build your own suite instead, create an `e2e/` folder beside your `force-app/` source (see [How do I set up the project?](#how-do-i-set-up-the-project)).
 2. Point the suite at your org by its alias and let global setup log in for you once (see [Authentication](#authentication)).
 3. Write your first spec using the navigation and wait helpers, so the test waits for Lightning to settle instead of guessing (see [Helper Library Reference](#helper-library-reference)).
 
@@ -203,7 +203,7 @@ That broader view is the point. For Salesforce apps, E2E tests catch problems un
 │  │ --url-only   │    │ URL auth     │    state.json  │
 │  └─────────────┘    └──────────────┘                │
 ├─────────────────────────────────────────────────────┤
-│  Specs (serial, single worker)                      │
+│  Specs (two workers, shared-data specs serial)      │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
 │  │ login    │  │ record   │  │ trigger  │          │
 │  │ .spec.js │  │ .spec.js │  │ .spec.js │          │
@@ -225,7 +225,7 @@ That broader view is the point. For Salesforce apps, E2E tests catch problems un
 | Layer            | Purpose                                                                    |
 |------------------|----------------------------------------------------------------------------|
 | **Global setup** | Authenticates once, saves session cookies to `.auth/<org alias>/state.json`            |
-| **Specs**        | Test files that run serially in a single browser worker                    |
+| **Specs**        | Test files. Specs that share no records run side by side on two workers. Specs that change the same records run one at a time |
 | **Helpers**      | Reusable functions for auth, CLI, navigation, waiting, and selectors       |
 | **Browser**      | Chromium renders Lightning pages, Playwright interacts with the DOM        |
 | **sf CLI**       | Executes SOQL queries, anonymous Apex, and record CRUD outside the browser |
@@ -234,7 +234,7 @@ That broader view is the point. For Salesforce apps, E2E tests catch problems un
 
 A few choices shape how this setup runs. Knowing the reasoning saves you from "fixing" something that is deliberate.
 
-1. **Run tests one at a time, in a single browser.** Every test shares one `sid` login cookie. If two browser sessions reuse that cookie at once, Salesforce hands out conflicting security tokens (CSRF and Aura): one session's page load quietly cancels the other's token. The result is "Page Expired" errors and tests that log themselves out at random. Running serially in a single worker avoids all of that.
+1. **Run specs that change the same records one at a time.** Two spec files that create and clean up the same records race each other: one file's cleanup deletes a record the other is still waiting for. The shipped `release-testing/e2e/playwright.config.js` puts those specs in a project with a single worker, and runs the specs that share no records side by side on two workers. Every test reuses the one `sid` login cookie saved by global setup, so you log in once however the work is spread.
 
 2. **Log in with a one-time frontdoor URL, not a stored password.** `sf org open --url-only` generates a short-lived URL that signs you in through Salesforce's frontdoor.jsp endpoint. Nothing sensitive sits in the test code.
 
@@ -260,8 +260,11 @@ my-project/
     global-setup.js             Authentication setup
     package.json                Node.js dependencies
     .auth/                      Session state (gitignored)
-      state.json
+      <org alias>/              One folder for each org alias
+        state.json
+        instance.json
     helpers/                    Reusable helper modules
+      auth-paths.js
       sf-auth.js
       sf-cli.js
       sf-navigation.js
@@ -308,9 +311,9 @@ module.exports = defineConfig({
 	globalSetup: path.join(__dirname, 'global-setup.js'),
 	timeout: 120_000,
 	expect: {timeout: 15_000},
-	fullyParallel: false,
-	workers: 1,
-	retries: 0,
+	fullyParallel: true,
+	workers: 2,
+	retries: 1,
 	reporter: 'list',
 	use: {
 		browserName: 'chromium',
@@ -336,9 +339,9 @@ module.exports = defineConfig({
 | `globalSetup`       | `global-setup.js`     | Runs authentication before any tests                                                         |
 | `timeout`           | `120_000`             | Lightning pages can take 30-60s on first load                                                |
 | `expect.timeout`    | `15_000`              | [Assertions](https://playwright.dev/docs/test-assertions) need time for Lightning re-renders |
-| `fullyParallel`     | `false`               | Shared session cookie causes CSRF token conflicts in parallel                                |
-| `workers`           | `1`                   | Single browser context, single authenticated session                                         |
-| `retries`           | `0`                   | Retries mask real issues; fix flakiness in helpers instead                                   |
+| `fullyParallel`     | `true`                | Specs that share no records run side by side. Put specs that change the same records in their own project with `fullyParallel: false` and `workers: 1`, as the shipped `release-testing/e2e/playwright.config.js` does |
+| `workers`           | `2`                   | Two browsers at once, both reusing the one session saved by global setup                     |
+| `retries`           | `1`                   | A failed test runs once more. Playwright reports a test that passes only on the retry as flaky, so you still see it |
 | `reporter`          | `'list'`              | Simple output; add `'html'` for detailed reports                                             |
 | `storageState`      | `.auth/<org alias>/state.json`    | Session cookies saved by global setup                                                        |
 | `viewport`          | `1920x1080`           | Full desktop layout; Lightning responsive breakpoints matter                                 |
@@ -566,11 +569,13 @@ await dismissToast(page);
 **Solution:** Use navigation helpers that wait for Lightning-specific indicators:
 
 ```javascript
-const {navigateToRecord, navigateToApp} = require('../helpers/sf-navigation');
+const {navigateToApp, waitForPageLoad} = require('../helpers/sf-navigation');
+const {getInstanceUrl} = require('../helpers/sf-auth');
 
-await navigateToRecord(page, recordId);
+await page.goto(`${getInstanceUrl()}/lightning/r/${recordId}/view`);
+await waitForPageLoad(page);
 
-await navigateToApp(page, 'kern__Kern');
+await navigateToApp(page, 'Kern');
 ```
 
 These helpers wait for `one-app-nav-bar` (navigation loaded) and page-specific indicators (record layout,
@@ -604,8 +609,9 @@ await expect(rows.first()).toBeVisible();
 
 ```javascript
 const {waitForRecordPage} = require('../helpers/wait-helpers');
+const {getInstanceUrl} = require('../helpers/sf-auth');
 
-await navigateToRecord(page, recordId);
+await page.goto(`${getInstanceUrl()}/lightning/r/${recordId}/view`);
 await waitForRecordPage(page);
 
 await expect(page.getByText('Account Name')).toBeVisible();
@@ -693,7 +699,7 @@ await reauthenticate(page);
 - Gets a fresh frontdoor URL
 - Navigates the page to the frontdoor URL
 - Waits for redirect away from `/secur/frontdoor.jsp`
-- Waits 2 seconds for session stabilization
+- Waits up to 30 seconds for the page to finish loading, then up to 15 seconds for the Lightning navigation bar to appear. If either does not happen in time, it carries on without an error
 
 **`ensureAuthenticated(page)`**
 
@@ -788,7 +794,6 @@ Lightning page navigation with authentication checks.
 |-------------------------|-----------------------------------|------------------------------------|
 | `navigateToApp`         | `(page, appDeveloperName) → void` | Navigate to a Lightning app        |
 | `navigateToAppItem`     | `(page, itemName) → void`         | Navigate to an object list view    |
-| `navigateToRecord`      | `(page, recordId) → void`         | Navigate to a record page          |
 | `clickNavTab`           | `(page, tabName) → void`          | Click a navigation tab by title    |
 | `navigateToSetup`       | `(page, setupPath) → void`        | Navigate to a setup page           |
 | `waitForLightningReady` | `(page) → void`                   | Wait for Lightning nav bar to load |
@@ -800,7 +805,7 @@ Lightning page navigation with authentication checks.
 ```javascript
 const {navigateToApp} = require('../helpers/sf-navigation');
 
-await navigateToApp(page, 'kern__Kern');
+await navigateToApp(page, 'Kern');
 
 await navigateToApp(page, 'standard__LightningService');
 ```
@@ -808,17 +813,21 @@ await navigateToApp(page, 'standard__LightningService');
 - Calls `ensureAuthenticated()` first
 - Navigates to `/lightning/app/${appDeveloperName}`
 - Waits for Lightning nav bar via `waitForLightningReady()`
-- For managed package apps, use `namespace__AppName` format
+- For the Kern app, pass `'Kern'`. The helper turns it into the app's real path (`kern__Console` in your org, `c__Console` in an org that holds the source without a namespace). Any other name is used as the path unchanged, so for another managed package app use the `namespace__AppDeveloperName` format
 
-**`navigateToRecord(page, recordId)`**
+**Opening a record page**
+
+There is no record helper. Go to the record URL yourself, then wait for the page:
 
 ```javascript
-const {navigateToRecord} = require('../helpers/sf-navigation');
-await navigateToRecord(page, '001xx000003DGb0AAG');
+const {waitForPageLoad} = require('../helpers/sf-navigation');
+const {getInstanceUrl} = require('../helpers/sf-auth');
+
+await page.goto(`${getInstanceUrl()}/lightning/r/001xx000003DGb0AAG/view`);
+await waitForPageLoad(page);
 ```
 
-- Navigates to `/lightning/r/${recordId}/view`
-- Waits for page content via `waitForPageLoad()`
+- `waitForPageLoad()` waits for the page content (record layout, list view and similar) to attach
 - Works with any SObject type, because the record ID determines the page layout
 
 **`clickNavTab(page, tabName)`**
@@ -999,7 +1008,7 @@ module.exports = ListViewPage;
 ### Example: Record Page
 
 ```javascript
-const {navigateToRecord} = require('../helpers/sf-navigation');
+const {getInstanceUrl} = require('../helpers/sf-auth');
 const {waitForRecordPage} = require('../helpers/wait-helpers');
 const {RECORD_TAB} = require('../helpers/sf-selectors');
 
@@ -1012,7 +1021,7 @@ class RecordPage
 
 	async navigate(recordId)
 	{
-		await navigateToRecord(this.page, recordId);
+		await this.page.goto(`${getInstanceUrl()}/lightning/r/${recordId}/view`);
 		await waitForRecordPage(this.page);
 	}
 
@@ -1088,7 +1097,7 @@ Create a record via CLI, verify its fields render on the record page:
 ```javascript
 const {test, expect} = require('@playwright/test');
 const {createRecord, deleteRecord} = require('../helpers/sf-cli');
-const {navigateToRecord} = require('../helpers/sf-navigation');
+const {getInstanceUrl} = require('../helpers/sf-auth');
 const {waitForRecordPage} = require('../helpers/wait-helpers');
 
 test.describe.serial('Account Record Page', () =>
@@ -1105,7 +1114,7 @@ test.describe.serial('Account Record Page', () =>
 		const result = createRecord('Account', {Name: 'Acme Corp', Industry: 'Technology', Phone: '555-0100'});
 		accountId = result.id;
 
-		await navigateToRecord(page, accountId);
+		await page.goto(`${getInstanceUrl()}/lightning/r/${accountId}/view`);
 		await waitForRecordPage(page);
 
 		await expect(page.getByText('Acme Corp').first()).toBeVisible({timeout: 15_000});
@@ -1135,7 +1144,7 @@ test('should set defaults via trigger action', async ({page}) =>
 	expect(records.length).toBeGreaterThan(0);
 	expect(records[0].Industry).toBe('Technology');
 
-	await navigateToRecord(page, records[0].Id);
+	await page.goto(`${getInstanceUrl()}/lightning/r/${records[0].Id}/view`);
 	await waitForRecordPage(page);
 	await expect(page.getByText('Technology').first()).toBeVisible({timeout: 15_000});
 });
@@ -1151,7 +1160,7 @@ Verify that validation rules show error messages in the UI:
 test('should show validation error on save', async ({page}) =>
 {
 	const result = createRecord('Account', {Name: 'Validation Test'});
-	await navigateToRecord(page, result.id);
+	await page.goto(`${getInstanceUrl()}/lightning/r/${result.id}/view`);
 	await waitForRecordPage(page);
 
 	await page.locator('button[name="Edit"]').click();
@@ -1184,7 +1193,7 @@ Navigate to a record page and verify related list content:
 ```javascript
 test('should show related contacts', async ({page}) =>
 {
-	await navigateToRecord(page, accountId);
+	await page.goto(`${getInstanceUrl()}/lightning/r/${accountId}/view`);
 	await waitForRecordPage(page);
 
 	const relatedTab = page.locator('lightning-tab-bar li a').filter({hasText: 'Related'});
@@ -1201,7 +1210,7 @@ Interact with a custom LWC component on a Lightning page:
 ```javascript
 test('should interact with custom component', async ({page}) =>
 {
-	await navigateToApp(page, 'kern__Kern');
+	await navigateToApp(page, 'Kern');
 	await waitForSpinnerGone(page);
 
 	const component = page.locator('kern-health-check');
@@ -1270,7 +1279,7 @@ test('should display log entry in Kern app', async ({page}) =>
 		return logs.length > 0 ? logs[0] : null;
 	}, {interval: 3000, timeout: 30_000, message: 'Log entry not created'});
 
-	await navigateToRecord(page, log.Id);
+	await page.goto(`${getInstanceUrl()}/lightning/r/${log.Id}/view`);
 	await waitForRecordPage(page);
 	await expect(page.getByText('E2E Playwright Verification').first()).toBeVisible({timeout: 15_000});
 });
@@ -1301,7 +1310,7 @@ test('should log API call record', async ({page}) =>
 	expect(calls.length).toBeGreaterThan(0);
 	expect(calls[0].kern__Status__c).toBe('Completed');
 
-	await navigateToRecord(page, calls[0].Id);
+	await page.goto(`${getInstanceUrl()}/lightning/r/${calls[0].Id}/view`);
 	await waitForRecordPage(page);
 	await expect(page.getByText('Service Name')).toBeVisible({timeout: 15_000});
 });
@@ -1319,7 +1328,7 @@ const {waitForSpinnerGone, pollUntil} = require('../helpers/wait-helpers');
 
 async function openStreamingMonitor(page)
 {
-	await navigateToApp(page, 'kern__Kern');
+	await navigateToApp(page, 'Kern');
 	await page.locator('[data-testid="kern-home-root"] lightning-button[data-key="streamingMonitor"]').click();
 	await waitForSpinnerGone(page);
 }
@@ -1525,22 +1534,20 @@ test.afterAll(async () =>
 Deploy Custom Metadata Type records or other metadata before tests:
 
 ```javascript
-deployMetadata('force-app/main/default/customMetadata');
+deployMetadata('../force-app/main/default/customMetadata');
 ```
 
 ### Custom Metadata States
 
-Toggle metadata-driven features by deploying updated records:
+Toggle metadata-driven features by deploying updated records. Keep each state in a folder of Custom Metadata records that you create (for example `e2e-states/trigger-action-off/customMetadata`, listed as a package directory in your `sfdx-project.json`), and deploy the one the test needs before it runs:
 
 ```javascript
-executeAnonymousApex(`
-	kern.TRG_Base.bypassAction('TRG_AccountSetDefaults');
-`);
+deployMetadata('../e2e-states/trigger-action-off/customMetadata');
 
-executeAnonymousApex(`
-	kern.TRG_Base.clearActionBypass('TRG_AccountSetDefaults');
-`);
+deployMetadata('../force-app/main/default/customMetadata');
 ```
+
+A bypass set in anonymous Apex lasts only for that one Apex run, so it has no effect on what the browser test sees. Change the records instead.
 
 ---
 
@@ -1634,6 +1641,8 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      SF_SUBSCRIBER_ORG_ALIAS: e2e-org
     steps:
       - uses: actions/checkout@v4
 
@@ -1673,7 +1682,7 @@ For ephemeral test environments, create a scratch org per CI run:
 ```yaml
       - name: Create scratch org
         run: |
-          sf org create scratch -f config/project-scratch-def.json -a ${SF_SUBSCRIBER_ORG_ALIAS} -v DevHub -y 1 --wait 10
+          sf org create scratch -f config/project-scratch-def.json -a ${SF_SUBSCRIBER_ORG_ALIAS} -v DevHub -y 1 --wait 10 --no-namespace
           sf package install -o $SF_SUBSCRIBER_ORG_ALIAS --package 04t... --wait 15 --no-prompt
 
       - name: Run E2E tests
@@ -1736,15 +1745,13 @@ Artifacts include screenshots, videos (for failures), and trace files.
 **Don't:**
 
 - Don't lean on `page.waitForTimeout()` as your main wait strategy; use the helper functions instead
-- Don't use parallel workers with a shared session: the CSRF token conflicts cause flakiness
-- Don't retry flaky tests; fix the root cause in the wait logic
+- Don't run specs that change the same records on parallel workers: one spec's cleanup can delete a record the other is still waiting for
+- Don't rely on the retry to hide a flaky test; fix the root cause in the wait logic
 - Don't hardcode record IDs; create records in setup and reference them by variable
 - Don't rely on CSS class names, because SLDS classes change between Salesforce releases
 - Don't test Salesforce platform behaviour; focus on your custom features
 
-**Scaling beyond serial execution:** Running one test at a time works well until the suite gets large. A typical serial suite hits a ceiling around 100+ tests, which is roughly a 30 minute feedback loop at about 20 seconds per test. The reason you cannot simply run them in parallel is the shared `sid` session cookie: parallel workers reusing the one cookie generate conflicting CSRF and Aura security tokens.
-
-The way around it is to give each worker its own login. Authenticate several distinct Salesforce users, then assign each one to a separate Playwright worker with its own `storageState` file. Now every worker has an independent session cookie, so the cross-worker token conflicts disappear. The cost is setup: you have to provision dedicated test users with the right profiles and permission sets.
+**Scaling further:** Two workers sharing one login suit the shipped suite. To run many more workers, or to run tests as different users, give each worker its own login: authenticate several distinct Salesforce users, then assign each one to a separate Playwright worker with its own `storageState` file. The cost is setup: you have to provision dedicated test users with the right profiles and permission sets.
 
 ---
 
@@ -1786,7 +1793,7 @@ The way around it is to give each worker its own login. Authenticate several dis
 
 | Document                                                                | Description                                           |
 |-------------------------------------------------------------------------|-------------------------------------------------------|
-| [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)         | Quick setup guide: get 3 tests passing in 25 minutes  |
+| [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)         | Quick setup guide: get 3 tests passing in 20 minutes  |
 | [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) | Build trigger actions to test E2E                     |
 | [Fast Start - Logging](Fast%20Start%20-%20Logging.md)                   | Application logging to verify in Kern app             |
 | [LWC - Guide](LWC%20-%20Guide.md)                                       | Build LWC components to test E2E                      |

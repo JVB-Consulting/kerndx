@@ -12,7 +12,7 @@ navOrder: 92
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A subscriber Apex service, its `_TEST` class with 100% coverage, and a working
+**What you'll build:** An Apex service of your own, its `_TEST` class with 100% coverage, and a working
 deployment and test run against your scratch org. The Tier 3 section shows how Playwright slots in on top.
 
 **Success looks like:** `Outcome Passed, Tests Ran 3, Pass Rate 100%` from the Apex test runner and,
@@ -61,7 +61,7 @@ work?" The other asks "does the screen the user sees work?" KernDX covers both, 
 
 | Layer                        | What It Tests                               | Tool                  |
 |------------------------------|---------------------------------------------|-----------------------|
-| **Apex subscriber tests**    | Business logic deployed to a subscriber org | `sf apex run test`    |
+| **Apex tests in your org**   | Business logic deployed to your org         | `sf apex run test`    |
 | **Playwright browser tests** | Lightning UI rendered in a real browser     | `npx playwright test` |
 
 This Fast Start focuses on the Apex layer first, because that is where most teams start: write a class,
@@ -135,7 +135,7 @@ Pass Rate            100%
 > too). Ignore that number here. What matters is the `Passed` outcome and 100% coverage on `FastStart_E2E_DEMO`
 > itself.
 
-If you see `Pass Rate 100%`, you've just proven the full subscriber test cycle works, from source to a
+If you see `Pass Rate 100%`, you've just proven the full test cycle in your org works, from source to a
 green run, without writing a line of code.
 
 Something went wrong? See [Common Issues](#tier-1-the-demo-classes).
@@ -347,7 +347,7 @@ green, it logs into Lightning, navigates to a record, and checks that the UI loo
 > CLI commands, wait strategies, and Lightning selectors are pre-written and documented there.
 
 To run the existing browser-test suite against your org, you need just four commands. The browser tests need Node.js
-22 or later; the Apex tiers above do not. Like Tier 1, these commands run from your copy of the framework's repository
+22 (not 23 or later); the Apex tiers above do not. Like Tier 1, these commands run from your copy of the framework's repository
 (the public repository you cloned): its top folder holds `release-testing/subscriber/classes` and the `test:e2e`
 script.
 
@@ -429,9 +429,9 @@ Specs that share no state are not held back like that: the suite runs them side 
 spec reuses one `sid` session cookie saved by global setup (a one-time login step), so you log in once however
 the work is spread.
 
-> **CI/CD:** Store `SFDX_AUTH_URL` as a repository secret, authenticate the CLI to your subscriber org
-> with the configured subscriber alias before invoking `npm run test:e2e`, and install Chromium with
-> `--with-deps` on Linux runners. Full GitHub Actions example in the runbook.
+> **CI/CD:** Store `SFDX_AUTH_URL` as a repository secret. Before you run `npm run test:e2e`, log the CLI in to your
+> org with the alias set in `SF_SUBSCRIBER_ORG_ALIAS`. On Linux runners, install Chromium with `--with-deps`.
+> The [E2E Testing Guide](E2E%20Testing%20-%20Guide.md#github-actions-workflow) has a full GitHub Actions example.
 
 Something went wrong? See [Common Issues](#tier-3-the-browser-tests).
 
@@ -527,7 +527,7 @@ Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?templ
 
 | Concept                                   | What It Does                                                                     |
 |-------------------------------------------|----------------------------------------------------------------------------------|
-| **Subscriber `_TEST` class**              | Deploys alongside production code; proves coverage before release                |
+| **Your own `_TEST` class**                | Deploys alongside production code; proves coverage before release                |
 | **`--code-coverage --synchronous`**       | Forces coverage report inline in the same CLI run                                |
 | **`release-testing/subscriber/classes/`** | Pre-built demo classes you copy, deploy, and run                                 |
 | **Playwright global setup**               | Authenticates once via frontdoor URL, reuses session across all specs            |

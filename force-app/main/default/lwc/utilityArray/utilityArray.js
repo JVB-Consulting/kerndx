@@ -5,13 +5,15 @@
  *
  * @author Jason van Beukering
  *
- * @date June 2021, March 2026
+ * @date June 2021, October 2026
  */
 
 /**
  * @description Groups an array of objects by a key field into a lookup object.
  * When multiple objects share the same key, they are collected into an array.
- * Objects missing the key field are placed in an `undefined` bucket.
+ * Objects missing the key field are placed in a list under the key `undefined` (the text "undefined").
+ * This list is always there, empty when no object misses the field. An object whose key field holds
+ * `undefined` or the text `'undefined'` goes into it too.
  *
  * @param {Object[]} items - Source array of objects
  * @param {string} keyField - Property name whose value becomes the lookup key

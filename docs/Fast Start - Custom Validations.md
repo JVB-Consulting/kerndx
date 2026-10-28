@@ -327,7 +327,7 @@ configuration, so this test has no code of yours to cover.
 > **`assertRuleFails` / `assertRulePasses` evaluate the *deployed* rule by DeveloperName.** The rule must
 > be deployed and active (`kern__BypassExecution__c = false`, as in Tier 1). They evaluate the formula
 > directly and need no trigger file in place. `kern.TST_Builder.of(...).withoutInsertion()` builds a record
-> in memory (with a fake Id) so nothing is written to the database.
+> in memory (with no Id) so nothing is written to the database. Use `withoutInsertion(true)` if you need mock Ids.
 
 > **Test against your deployed rule.** Create the rule as a record in your org (Step 1), then assert against it with
 > `kern.UTIL_ValidationTestHelper.assertRuleFails` / `assertRulePasses`: both are `global` and callable
@@ -343,7 +343,7 @@ Something went wrong? See [Common Issues, Step 3](#step-3-write-and-run-the-test
 | `validate(record)`                               | Evaluates ALL active rules for the object in memory and returns a `ValidationResult` |
 | `assertRuleFails(record, ruleName)`              | Asserts one deployed, active rule fires (nothing saved, no trigger)          |
 | `assertRulePasses(record, ruleName)`             | Asserts one deployed, active rule is satisfied                               |
-| `withoutInsertion()`                             | Builds a record in memory with a fake Id (no database write)                |
+| `withoutInsertion()`                             | Builds a record in memory with no Id (no database write)                    |
 | Formula returns `true` = fails                   | `ISBLANK(newRecord.Description)` fires when Description is blank             |
 | `ISPICKVAL()` for picklists                      | `ISPICKVAL(newRecord.Industry, "Technology")`: use this, not `=`, for picklist values |
 
@@ -528,8 +528,9 @@ in, the wrong folder)? Those are answered once, in
 
 #### The form will not save
 
-The Validation Rule Group form needs **Trigger Operations**, **Trigger Setting** and **Trigger Timing** before it
-saves, and the Validation Rule form needs **Validation Rule Group**. Fill in every value in the tables, then save
+The Validation Rule Group form needs **Description**, **Trigger Operations**, **Trigger Setting** and **Trigger
+Timing** before it saves. The Validation Rule form needs **Validation Rule Group**, **Description**, **Error
+Message**, **Rule Formula** and **Severity**. Fill in every value in the tables, then save
 again. Create the records in order, parent first (Step 1.1, then 1.2, then 1.3), so that each lookup can find its
 parent.
 
@@ -610,7 +611,7 @@ Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?templ
 | `UTIL_ValidationTestHelper.assertRuleFails(record, ruleName)`  | Asserts one rule fires (nothing saved)                      |
 | `UTIL_ValidationTestHelper.assertRulePasses(record, ruleName)` | Asserts one rule is satisfied                               |
 | `UTIL_ValidationRule.bypassObject('Account')`                  | Bypasses all Account rules (takes a String)                 |
-| `TST_Builder.of(type).withoutInsertion()`                      | Builds an in-memory record (fake Id) for in-memory rule evaluation |
+| `TST_Builder.of(type).withoutInsertion()`                      | Builds an in-memory record (no Id) for in-memory rule evaluation   |
 | `TRG_ExecuteValidationRules`                                   | Built-in trigger action that enforces rules on save         |
 
 **Key patterns:**

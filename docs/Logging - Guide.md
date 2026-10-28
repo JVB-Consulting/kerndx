@@ -6,7 +6,6 @@ navOrder: 18
 
 **Framework:** KernDX
 **Package Type:** Managed Package
-**API Version:** 68.0
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
@@ -15,7 +14,7 @@ navOrder: 18
 **Target Audience:**
 
 - **Developers** - Implementing logging across Apex, LWC, and Flows
-- **Architects** - Designing observability and traceability patterns
+- **Architects** - Designing observability (seeing what your code actually did in production, as a searchable, kept record) and traceability patterns
 - **DevOps** - Monitoring and debugging production systems
 
 ---
@@ -60,43 +59,44 @@ Think of it as a flight recorder for your code. Every action leaves a timestampe
 2. [Mental model](#mental-model)
 3. [Use this when](#use-this-when)
 4. [Don't use this when](#dont-use-this-when)
-5. [Quick Start](#quick-start)
+5. [Quick Navigation](#quick-navigation)
+6. [Quick Start](#quick-start)
     - [Apex - Log an Error](#apex---log-an-error)
     - [LWC - Log with Correlation](#lwc---log-with-correlation)
     - [Flow - Correlated Logging](#flow---correlated-logging)
-6. [What is it, and where is it already wired in?](#what-is-it-and-where-is-it-already-wired-in)
-7. [How does it work?](#how-does-it-work)
-8. [Apex Logging (LOG_Builder)](#apex-logging-log_builder)
+7. [What is it, and where is it already wired in?](#what-is-it-and-where-is-it-already-wired-in)
+8. [How does it work?](#how-does-it-work)
+9. [Apex Logging (LOG_Builder)](#apex-logging-log_builder)
     - [Log Levels](#log-levels)
     - [Exception Logging](#exception-logging)
     - [DML Error Logging](#dml-error-logging)
     - [Batch Logging](#batch-logging)
     - [Log Grouping & Flood Control](#log-grouping--flood-control)
     - [Logging Inside Platform Event & Change Event Triggers](#logging-inside-platform-event--change-event-triggers)
-9. [Correlation Tracking](#correlation-tracking)
+10. [Correlation Tracking](#correlation-tracking)
     - [Starting Correlation](#starting-correlation)
     - [Async Context Propagation](#async-context-propagation)
     - [External Correlation](#external-correlation)
-10. [Structured Context](#structured-context)
+11. [Structured Context](#structured-context)
     - [Global Context](#global-context)
     - [Operation Context Stack](#operation-context-stack)
-11. [Performance Logging](#performance-logging)
+12. [Performance Logging](#performance-logging)
     - [What Gets Automatically Timed](#what-gets-automatically-timed)
     - [Custom Timing in Your Own Code](#custom-timing-in-your-own-code)
     - [Performance Configuration](#performance-configuration)
-12. [Log Buffering](#log-buffering)
-13. [LWC Client-Side Logging](#lwc-client-side-logging)
+13. [Log Buffering](#log-buffering)
+14. [LWC Client-Side Logging](#lwc-client-side-logging)
     - [LWC Setup](#lwc-setup)
     - [LWC Basic Usage](#lwc-basic-usage)
     - [LWC Correlation](#lwc-correlation)
     - [LWC Performance Timing](#lwc-performance-timing)
     - [Server Persistence](#server-persistence)
     - [Console Fallback](#console-fallback)
-14. [Flow Logging (FLOW_LoggerStart, FLOW_LoggerLog, FLOW_LoggerEnd)](#flow-logging-flow_loggerstart-flow_loggerlog-flow_loggerend)
+15. [Flow Logging (FLOW_LoggerStart, FLOW_LoggerLog, FLOW_LoggerEnd)](#flow-logging-flow_loggerstart-flow_loggerlog-flow_loggerend)
     - [Flow Simple Logging](#flow-simple-logging)
     - [Flow Bookend Pattern](#flow-bookend-pattern)
-15. [Testing](#testing)
-16. [The Log Console](#the-log-console)
+16. [Testing](#testing)
+17. [The Log Console](#the-log-console)
     - [Where It Lives](#where-it-lives)
     - [The Two Views](#the-two-views)
     - [Problem Grouping](#problem-grouping)
@@ -107,30 +107,30 @@ Think of it as a flight recorder for your code. Every action leaves a timestampe
     - [The Whole Action](#the-whole-action)
     - [To and From the Chain Monitor](#to-and-from-the-chain-monitor)
     - [What the Log Console Does Not Do](#what-the-log-console-does-not-do)
-17. [Querying Log Entries](#querying-log-entries)
+18. [Querying Log Entries](#querying-log-entries)
     - [Why](#why)
     - [Right vs wrong](#right-vs-wrong)
     - [Reports and dashboards](#reports-and-dashboards)
     - [Cleanup scripts](#cleanup-scripts)
     - [Sharing considerations](#sharing-considerations)
-18. [How do I configure this?](#how-do-i-configure-this)
+19. [How do I configure this?](#how-do-i-configure-this)
     - [LogSetting__c Fields](#logsetting__c-fields)
     - [TriggerSetting__mdt Fields (Trigger Performance)](#triggersetting__mdt-fields-trigger-performance)
     - [TriggerAction__mdt Fields (Action-Level Control)](#triggeraction__mdt-fields-action-level-control)
-19. [Anti-Patterns](#anti-patterns)
-20. [Best Practices](#best-practices)
+20. [Anti-Patterns](#anti-patterns)
+21. [Best Practices](#best-practices)
     - [Always Include Context](#always-include-context)
     - [Use Appropriate Log Levels](#use-appropriate-log-levels)
     - [Never Log Sensitive Data](#never-log-sensitive-data)
     - [Use Correlation for Async Operations](#use-correlation-for-async-operations)
     - [Clean Up Context](#clean-up-context)
     - [Enable Performance Logging for Critical Operations](#enable-performance-logging-for-critical-operations)
-21. [Troubleshooting](#troubleshooting)
+22. [Troubleshooting](#troubleshooting)
     - [Logs Not Appearing](#logs-not-appearing)
     - [Missing Correlation](#missing-correlation)
     - [Performance Logs Missing](#performance-logs-missing)
     - [Context Not Appearing](#context-not-appearing)
-22. [Related Documentation](#related-documentation)
+23. [Related Documentation](#related-documentation)
 
 </details>
 
@@ -195,7 +195,7 @@ export default class MyComponent extends ComponentBuilder('notification')
 ### Flow - Correlated Logging
 
 ```text
-Start Logger (flowName) → Log Message (correlationId, message) → End Logger (correlationId)
+Start Flow Correlation (flowName) → Log Flow Event (correlationId, message) → End Flow Correlation (correlationId)
 ```
 
 For deeper coverage, continue reading the sections below.
@@ -207,7 +207,7 @@ For deeper coverage, continue reading the sections below.
 > **What it does and does not do:** This framework only records diagnostic and operational data to `LogEntry__c`. It does not enforce business rules, write to your business
 > objects, or change how your code runs. Its single job is to give you a kept, searchable record of what happened.
 
-The framework is 4 `LOG_*` classes plus 1 platform event (`LogEntryEvent__e`), and it works the same way from Apex, LWC, and Flow. You do not have to add logging everywhere yourself: it is already built into all 14 API outbound services, every trigger handler, and the async processing framework, so those parts of the framework log for you.
+The framework is 2 `LOG_*` classes plus 1 platform event (`LogEntryEvent__e`), and it works the same way from Apex, LWC, and Flow. You do not have to add logging everywhere yourself: it is already built into every outbound service, every trigger handler, and the async processing framework, so those parts of the framework log for you.
 
 **What you get:**
 
@@ -552,9 +552,9 @@ public void processAccount(Account account)
 
 ### Operation Context Stack
 
-As your code runs, the framework automatically records which operation produced each log: the trigger action, the API call, the async chain step. It does this at every dispatcher
-entry point, so the context is filled in for you without any work on your part. `TRG_Dispatcher` adds it around each trigger action, `API_Dispatcher` around each inbound and outbound
-call, and `UTIL_AsyncChain` around each chain step. You do not manage this yourself; the framework keeps it accurate behind the scenes.
+As your code runs, the framework automatically records which operation produced each log: the trigger action or the API call. It does this each time it hands work
+to your code, so the context is filled in for you without any work on your part. `TRG_Dispatcher` adds it around each trigger action, and `API_Dispatcher` around each inbound and
+outbound call. You do not manage this yourself; the framework keeps it accurate behind the scenes.
 
 When you want to attach your own context to a single log entry, the positive path is `.withContext(key, value)`, which adds the pair right on that entry:
 
@@ -589,7 +589,8 @@ object name, and the record count. This tells you which trigger actions are taki
 **API operation performance.** Outbound and inbound API calls that go through the web services framework are timed for you, capturing the HTTP method, the endpoint, and the response
 status, so you can see which integrations are slow.
 
-All of this performance logging is off by default and only fires once an operation crosses a threshold. You turn it on and set the thresholds in `LogSetting__c` (see
+These timers are on by default, and each one writes a log only when an operation runs longer than its threshold. Only data-masking timing is off by default. You
+turn each timer on or off and set the thresholds in `LogSetting__c` (see
 [Performance Configuration](#performance-configuration) below).
 
 ### Custom Timing in Your Own Code
@@ -672,10 +673,13 @@ public void processBulkRecords(List<SObject> records)
 
 	try
 	{
+		Integer processedCount = 0;
+
 		for(SObject record : records)
 		{
 			LOG_Builder.build().debug('Processing: ' + record.Id).emitAt('BulkProcessor.process');
 			processRecord(record);
+			processedCount++;
 
 			// Optionally flush periodically to avoid memory issues
 			if(Math.mod(processedCount, 100) == 0)
@@ -903,7 +907,7 @@ Entries written by this action carry the origin Flow. Their source is the class 
 When you want every log from a flow tied together (so you can see the whole run as one story), use the bookend pattern: one action to start, one to log each message, and one to end.
 You start the correlation once, pass the returned ID into each log along the way, and close it out at the end. Entries from these three actions carry the origin Flow; the start and end entries name the Flow as their source, and each logged message names the Flow as its source when you fill in its Flow Name input; left blank, it names the step you give it in the Flow Step input, or `action` when that is blank too. The three invocable actions are:
 
-**1. [`FLOW_LoggerStart`](reference/apex/FLOW_LoggerStart.md)** - Begin correlation
+**1. [`FLOW_LoggerStart`](reference/apex/FLOW_LoggerStart.md)** - Begin correlation (shown in Flow Builder as **Start Flow Correlation**)
 
 | Input                          | Description                            |
 |--------------------------------|----------------------------------------|
@@ -915,7 +919,7 @@ You start the correlation once, pass the returned ID into each log along the way
 |-----------------|--------------------------|
 | `correlationId` | Generated correlation ID |
 
-**2. [`FLOW_LoggerLog`](reference/apex/FLOW_LoggerLog.md)** - Log messages
+**2. [`FLOW_LoggerLog`](reference/apex/FLOW_LoggerLog.md)** - Log messages (shown in Flow Builder as **Log Flow Event**)
 
 | Input                          | Description                                                                 |
 |--------------------------------|-----------------------------------------------------------------------------|
@@ -927,7 +931,7 @@ You start the correlation once, pass the returned ID into each log along the way
 | `recordId` (Optional)          | Associated record                                                           |
 | `additionalContext` (Optional) | Extra context to store with the entry                                       |
 
-**3. [`FLOW_LoggerEnd`](reference/apex/FLOW_LoggerEnd.md)** - End correlation
+**3. [`FLOW_LoggerEnd`](reference/apex/FLOW_LoggerEnd.md)** - End correlation (shown in Flow Builder as **End Flow Correlation**)
 
 | Input                      | Description                                  |
 |----------------------------|----------------------------------------------|
@@ -940,7 +944,7 @@ You start the correlation once, pass the returned ID into each log along the way
 
 ```text
 +----------------------------------------+
-|  Start Flow Logger                     |
+|  Start Flow Correlation                |
 |  flowName: "Account Approval Flow"     |
 |  recordId: {!$Record.Id}              |
 |  -> Store correlationId in {!varCorr}  |
@@ -948,7 +952,7 @@ You start the correlation once, pass the returned ID into each log along the way
                     |
                     v
 +----------------------------------------+
-|  Log Flow Message                      |
+|  Log Flow Event                        |
 |  correlationId: {!varCorr}             |
 |  message: "Approval request created"   |
 |  logLevel: "INFO"                      |
@@ -972,7 +976,7 @@ You start the correlation once, pass the returned ID into each log along the way
                    |
                    v
 +----------------------------------------+
-|  End Flow Logger                       |
+|  End Flow Correlation                  |
 |  correlationId: {!varCorr}             |
 |  flowName: "Account Approval Flow"     |
 |  success: {!varApproved}               |
@@ -1418,7 +1422,7 @@ queries), **filter by `UserId__c`, NOT by `CreatedById`**. Filtering by `Created
 
 ### Why
 
-Remember that logs are saved asynchronously: `LOG_Builder.emit()` publishes a `LogEntryEvent__e` Platform Event, and `TRG_PersistLogEntry` (a Platform Event subscriber trigger)
+Remember that logs are saved asynchronously: `LOG_Builder.emit()` publishes a `LogEntryEvent__e` Platform Event, and the framework's trigger action that saves log entries (run by the `TRG_LogEntryEvent` trigger)
 inserts the `LogEntry__c` row. Salesforce runs Platform Event triggers as the **Automated Process** user (for example `autoproc@<orgid>`), no matter who fired the event. So every saved
 `LogEntry__c.CreatedById` is the Automated Process user, never the person whose code logged the message.
 
@@ -1635,12 +1639,12 @@ time your own code as well, measure it and log the duration as context, as [Cust
 
 1. **Check enable flags**: Verify `EnablePerformanceLogging__c` is true
 2. **Check threshold**: Operation may be faster than threshold
-3. **Check timer API**: Ensure `stop()` is called (not `stopSilent()`)
+3. **Check your own timing**: The framework times only its own operations. For your own code, measure the duration yourself and add it with `.withContext(key, value)`
 
 ### Context Not Appearing
 
 1. **Check setGlobalContext()**: Verify called before logging
-2. **Check push/pop balance**: Ensure `popOperationContext()` matches pushes
+2. **Check clear calls**: Ensure no `clearGlobalContext(key)` or `clearAllGlobalContext()` call removed the key before you logged. For a single entry, use `.withContext(key, value)`
 3. **Check MaxContextDataSize__c**: Large context may be truncated
 
 ---
@@ -1653,8 +1657,3 @@ time your own code as well, measure it and log the duration as context, as [Cust
 - [Web Services - Guide](Web%20Services%20-%20Guide.md) - Automatic API logging
 - [Triggers - Guide](Triggers%20-%20Guide.md) - Trigger action logging
 - [Fast Start - Logging](Fast%20Start%20-%20Logging.md) - Quick-start primer for logging
-
----
-
-**Last Updated:** July 2026
-**Guide Version:** 2.2

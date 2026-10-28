@@ -304,26 +304,26 @@ Turning on every rule at once in an existing codebase floods you with violations
 
 ### Priority tiers
 
-The rules are not all equally urgent, so the 27 KernDX-authored PMD rules that fire on your own code are grouped into three priority levels. Fix the most important first and add the rest over time:
+The rules are not all equally urgent, so the 28 KernDX-authored PMD rules that fire on your own code are grouped into three priority levels. Fix the most important first and add the rest over time:
 
 | Tier          | Priority | Count | Approach                                                             |
 |---------------|----------|-------|----------------------------------------------------------------------|
 | Blockers      | 1        | 4     | Fix immediately: these bypass core framework patterns                |
-| Should Fix    | 3        | 12    | Fix in the current sprint: leaving them makes code harder to maintain |
+| Should Fix    | 3        | 13    | Fix in the current sprint: leaving them makes code harder to maintain |
 | Informational | 5        | 11    | Fix opportunistically: good practice, no immediate action required   |
 
 **Recommended adoption path:** Start with Priority 1 (triggers and SOQL). Once clean, enable Priority 3. Add Priority 5 when the team is comfortable with the framework.
 
 ### PMD rule reference
 
-The 27 KernDX-authored PMD rules, every one of which can fire on your own code:
+The 28 KernDX-authored PMD rules, every one of which can fire on your own code:
 
 | Rule                               | What It Blocks                                                                         | Use Instead                                                                                     | Priority |
 |------------------------------------|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|----------|
 | `KernTriggerMustDelegate`          | Logic in trigger body, or no dispatcher call at all                                    | `new TRG_Dispatcher().run()`                                                                    | 1        |
 | `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()`                                                     | Selector or [`QRY_Builder`](reference/apex/QRY_Builder.md)                                      | 1        |
 | `KernNoCoverageTheatre`            | Test methods with no assertions                                                        | Real `Assert.*` calls that exercise the behaviour                                               | 1        |
-| `KernCoverageExemptRequiresReason` | `@CoverageExempt` without a justification comment                                      | Add an inline `// Coverage-exempt because …` explanation                                        | 1        |
+| `KernCoverageExemptRequiresReason` | Every `@SuppressWarnings('PMD.KernNoCoverageTheatre')`, flagged for review             | A comment above it citing a specific platform limitation; a reviewer confirms it                | 1        |
 | `KernNoDirectDML`                  | `insert`/`update`/`delete`/`upsert`, `Database.*` DML                                  | [`DML_Builder`](reference/apex/DML_Builder.md)                                                  | 3        |
 | `KernNoSystemDebug`                | `System.debug()`                                                                       | [`LOG_Builder`](reference/apex/LOG_Builder.md)                                                  | 3        |
 | `KernNoRawHttp`                    | `new HttpRequest()`, `new Http()`                                                      | [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md)                                          | 3        |
@@ -336,13 +336,14 @@ The 27 KernDX-authored PMD rules, every one of which can fire on your own code:
 | `KernRestResourceNaming`           | `@RestResource` on non-`REST_*` class                                                  | `REST_*` + `API_Dispatcher`                                                                     | 3        |
 | `KernNoInlineDmlInTests`           | `insert`/`update`/`delete` inside `@IsTest` methods                                    | [`TST_Builder`](reference/apex/TST_Builder.md) / [`DML_Builder`](reference/apex/DML_Builder.md) | 3        |
 | `KernInvocableClassNeedsNoArgConstructor` | `@InvocableVariable` classes whose only constructors take arguments (Flow cannot create them at run time) | An explicit public no-arg constructor alongside the others                                      | 3        |
+| `KernJsonReadClassNeedsJsonAccess` | A `kern.DTO_JsonBase` subclass or formula evaluation context without `@JsonAccess`     | `@JsonAccess(serializable='always' deserializable='always')` (DTO) or `@JsonAccess(serializable='always')` (context) | 3        |
 | `KernNoLegacyAssert`               | `System.assert*()`                                                                     | `Assert.*`                                                                                      | 5        |
 | `KernUseTestBuilder`               | `new Account(Name = ...)` in tests                                                     | [`TST_Builder`](reference/apex/TST_Builder.md)                                                  | 5        |
 | `KernNoRawCache`                   | `Cache.Org.*`, `Cache.Session.*`                                                       | `UTIL_Cache`                                                                                    | 5        |
 | `KernNoRawDescribe`                | `Schema.getGlobalDescribe()`                                                           | `UTIL_SObjectDescribe`                                                                          | 5        |
 | `KernNoRawTypeForName`             | `Type.forName()`                                                                       | `UTIL_System.getTypeForClassName()`                                                             | 5        |
 | `KernNoRawEnqueueJob`              | `System.enqueueJob()`                                                                  | `UTIL_AsynchronousJobLauncher`                                                                  | 5        |
-| `KernNoRawCrypto`                  | `Crypto.*`                                                                             | `UTIL_Crypto`                                                                                   | 5        |
+| `KernNoRawCrypto`                  | `Crypto.*`                                                                             | `UTIL_Crypto` in-namespace, or one reviewed crypto utility of your own                          | 5        |
 | `KernLimitsThroughWrapper`         | `Limits.get*()` outside `UTIL_Limits` and its test class                               | `UTIL_Limits`, for example `UTIL_Limits.soqlQueries().used()`                                   | 5        |
 | `KernNoRawFeatureManagement`       | `FeatureManagement.checkPermission()`                                                  | `UTIL_FeatureFlag.isEnabled()`                                                                  | 5        |
 | `KernNoBooleanExceptionThrown`     | `Boolean exceptionThrown = false; try { ... } catch (...) { exceptionThrown = true; }` | `Assert.fail(...)` + `Assert.isInstanceOfType(...)`                                             | 5        |
@@ -517,7 +518,7 @@ Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?templ
 
 | Concept                    | What It Does                                                                                                                                                                        |
 |----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kerndx-pmd-ruleset.xml`   | 27 KernDX-authored PMD rules enforcing framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.)                                                                 |
+| `kerndx-pmd-ruleset.xml`   | 28 KernDX-authored PMD rules enforcing framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.)                                                                 |
 | `kerndx-hygiene-ruleset.xml` | Framework-agnostic tier: the six rules that need no KernDX framework (test quality, security-bypass review, Flow-invocable constructors), for repos that do not use the KernDX framework     |
 | `eslint-plugin-kerndx`     | 7 ESLint rules enforcing LWC and test conventions: extend the shared component base class, no `console.log`, consistent naming, a reason on every coverage exemption, no assertion-less tests, no mutating a fixture shared across tests, and no hardcoded user-facing text |
 | `combined-pmd-ruleset.xml` | Single-file reference for tools that only accept one ruleset (IntelliJ)                                                                                                             |

@@ -280,14 +280,14 @@ The framework sits between your business logic and the things that consume your 
 
 The key building blocks are:
 
-- **`DTO_Base`**: the abstract foundation. It provides `serialize()`, `deserialize()`, `populate()`, `transform()`, `equals()`, and `hashCode()`.
+- **`DTO_Base`**: the virtual base class everything builds on. It provides `serialize()`, `deserialize()`, `populate()`, `transform()`, `equals()`, and `hashCode()`.
 - **`DTO_JsonBase`**: the JSON-specific class. It adds readable (pretty-printed) JSON output and JsonPath integration for reading fields by path.
 - **Built-in DTOs** ready to use: `DTO_NameValues` (key-value parameters), `DTO_BaseTable` (Lightning datatable), `DTO_PickList` (picklist metadata), and `DTO_ChangeEventHeader` (the change-event header from Change Data Capture).
 
 ### DTO Class Hierarchy
 
 ```text
-DTO_Base (Abstract base class)
+DTO_Base (Virtual base class)
 +-- DTO_JsonBase (JSON serialization)
     +-- DTO_NameValues (Key-value collections)
     +-- DTO_BaseTable (Lightning datatable structure)
@@ -305,10 +305,10 @@ Standalone DTOs (no inheritance):
 
 ### [`DTO_Base`](reference/apex/DTO_Base.md) - Foundation
 
-Every DTO needs the same core behaviour: turn into a string, parse back from a string, load itself from a record, and compare equal to another DTO with the same content. [`DTO_Base`](reference/apex/DTO_Base.md) is the abstract base that gives all DTOs this behaviour:
+Every DTO needs the same core behaviour: turn into a string, parse back from a string, load itself from a record, and compare equal to another DTO with the same content. [`DTO_Base`](reference/apex/DTO_Base.md) is the virtual base class that gives all DTOs this behaviour:
 
 ```apex
-global abstract class DTO_Base
+global inherited sharing virtual class DTO_Base
 {
 	global virtual String serialize()
 	global virtual DTO_Base deserialize(String dtoString)
@@ -322,13 +322,13 @@ global abstract class DTO_Base
 
 **Key Methods:**
 
-| Method                    | Purpose                      | Override Required   |
-|---------------------------|------------------------------|---------------------|
-| `serialize()`             | Convert DTO to string format | Yes (in subclasses) |
-| `deserialize()`           | Parse string to DTO          | Yes (in subclasses) |
-| `populate(Id)`            | Load DTO from record ID      | Optional            |
-| `transform()`             | Convert between DTO types    | Optional            |
-| `equals()` / `hashCode()` | Support collections          | No (implemented)    |
+| Method                    | Purpose                      | Override Required                     |
+|---------------------------|------------------------------|---------------------------------------|
+| `serialize()`             | Convert DTO to string format | No (`DTO_JsonBase` implements it)     |
+| `deserialize()`           | Parse string to DTO          | No (`DTO_JsonBase` implements it)     |
+| `populate(Id)`            | Load DTO from record ID      | Optional                              |
+| `transform()`             | Convert between DTO types    | Optional                              |
+| `equals()` / `hashCode()` | Support collections          | No (implemented)                      |
 
 **Example: Using equals() in Collections**
 
@@ -360,6 +360,7 @@ When your data needs to travel as JSON, which is almost always the case for APIs
 **Example: Basic JSON DTO**
 
 ```apex
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_Person extends DTO_JsonBase
 {
 	public String firstName;
@@ -401,7 +402,7 @@ String firstName = path.findNode('firstName').getStringValue();
 
 **Important: Override getObjectType() for Private Classes**
 
-When the framework parses JSON back into your DTO, it needs to know which class to build. For a `global` or `public` class it can work that out on its own. For a `private` class it cannot, so you tell it: if your DTO class is `private` or not `global`, you **must** override `getObjectType()` to name the class:
+When the framework parses JSON back into your DTO, it needs to know which class to build. For a `global` class it can work that out on its own. For a `public` class it can only do so when you register a Type Resolver (see [Type Resolution](#type-resolution-critical-requirement-in-your-org)). For a `private` class it cannot, so you tell it: if your DTO class is `private`, or `public` with no Type Resolver registered, you **must** override `getObjectType()` to name the class:
 
 ```apex
 // Private DTO class
@@ -417,7 +418,7 @@ private class DTO_InternalData extends DTO_JsonBase
 }
 ```
 
-For `global` or `public` classes you can skip this override, because the framework resolves the type automatically.
+For a `global` class, or a `public` class covered by a registered Type Resolver, you can skip this override, because the framework then finds the type on its own.
 
 ---
 
@@ -594,7 +595,7 @@ public static void demonstrateNameValues()
 /**
  * @description Build table data for LWC datatable
  */
-@AuraEnabled
+@AuraEnabled(cacheable=true)
 public static DTO_BaseTable getAccountTable()
 {
 	DTO_BaseTable table = new DTO_BaseTable();
@@ -694,12 +695,14 @@ export default class AccountTable extends ComponentBuilder('controller')
 ```html
 <!-- accountTable.html -->
 <template>
-    <lightning-datatable
-        key-field="name"
-        data={tableData.rows}
-        columns={tableData.columns}
-        hide-checkbox-column>
-    </lightning-datatable>
+    <template if:true={tableData}>
+        <lightning-datatable
+            key-field="name"
+            data={tableData.rows}
+            columns={tableData.columns}
+            hide-checkbox-column>
+        </lightning-datatable>
+    </template>
 </template>
 ```
 
@@ -856,7 +859,8 @@ When the framework parses JSON back into a DTO, it has to build an instance of t
 **Without one of these, you will hit runtime errors like this:**
 
 ```text
-System.JSONException: Type cannot be deserialized as it is not globally visible - DTO_CustomerRequest
+System.IllegalArgumentException: Unable to resolve type for class "DTO_CustomerRequest".
+To deserialize this DTO you must implement the virtual method "getObjectType()", or make the DTO class global
 ```
 
 #### Type Resolution Option 3: Custom Type Resolver (RECOMMENDED)
@@ -876,7 +880,7 @@ Rather than override `getObjectType()` in every DTO or make all your classes glo
 
 ```apex
 /**
- * @description Custom type resolver for subscriber org DTOs
+ * @description Custom type resolver for the DTOs in your org
  *
  * @see UTIL_TypeResolver
  */
@@ -1153,7 +1157,7 @@ public class DTO_Account extends DTO_JsonBase
 	 *
 	 * @param recordId The Account record ID
 	 */
-	global override void populate(Id recordId)
+	public override void populate(Id recordId)
 	{
 		populate(recordId, null);
 	}
@@ -1164,7 +1168,7 @@ public class DTO_Account extends DTO_JsonBase
 	 * @param recordId The Account record ID
 	 * @param dtoRequestParameters Optional parameters controlling population behavior
 	 */
-	global override void populate(Id recordId, DTO_NameValues dtoRequestParameters)
+	public override void populate(Id recordId, DTO_NameValues dtoRequestParameters)
 	{
 		// CORRECT: Use SEL_* selector pattern
 		Account account = (Account)new SEL_Accounts().findById(recordId);
@@ -1227,6 +1231,7 @@ Sometimes the shape your code uses internally is not the shape an outside system
 /**
  * @description Internal Account DTO
  */
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_AccountInternal extends DTO_JsonBase
 {
 	public String name;
@@ -1242,6 +1247,7 @@ public class DTO_AccountInternal extends DTO_JsonBase
 /**
  * @description External API Account DTO
  */
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_AccountExternal extends DTO_JsonBase
 {
 	public String companyName;
@@ -1251,7 +1257,7 @@ public class DTO_AccountExternal extends DTO_JsonBase
 	/**
 	 * @description Transform internal DTO to external format
 	 */
-	global override void transform(DTO_Base dtoBase)
+	public override void transform(DTO_Base dtoBase)
 	{
 		if(dtoBase instanceof DTO_AccountInternal)
 		{
@@ -1634,7 +1640,7 @@ export default class CustomerDashboard extends ComponentBuilder('controller')
 
 **Never pass a complex DTO directly as an `@AuraEnabled` method parameter.** Here is why it breaks. LWC wraps reactive objects in a Proxy before serializing them. When the target type is a DTO that extends `DTO_JsonBase` (or any class with nested collections), Aura's parameter deserializer rejects that Proxy wrapper. The call then fails at runtime with messages such as "Unable to deserialize to specified type" or "cannot be deserialized from non-object type".
 
-The pattern that works: accept a `String requestJson` parameter on the controller, then deserialize it with `JSON.deserialize(...)` inside the method. The client stringifies the DTO before calling. This is the pattern used throughout the framework (see `CTRL_ScheduledJob.saveRecord`).
+The pattern that works: accept a `String requestJson` parameter on the controller, then deserialize it with `JSON.deserialize(...)` inside the method. The client stringifies the DTO before calling. This is the pattern used throughout the framework.
 
 ```apex
 // CORRECT — accept String, deserialize server-side
@@ -1763,20 +1769,20 @@ private static void shouldSerializeAndDeserializeSuccessfully()
 
 **Testing populate() with TST_Mock:**
 
-When your DTO's `populate()` method reads records through a selector, you can test it without inserting any data. Register the record you expect with `TST_Mock`, then call `populate()` and assert on the result:
+When your DTO's `populate()` method reads records through a selector, you can test it without inserting any data. Register the record you expect with `TST_Mock`, then call `populate()` and assert on the result. This example tests the `DTO_Account` class from [Implementing populate() Methods](#implementing-populate-methods):
 
 ```apex
 @IsTest
 private static void shouldPopulateFromRecord()
 {
-	Foobar__c mock = (Foobar__c)TST_Mock.of(Foobar__c.SObjectType)
-		.withOverride(Foobar__c.Email__c, 'test@example.com')
+	Account mock = (Account)TST_Mock.of(Account.SObjectType)
+		.withOverride(Account.Name, 'Acme Corp')
 		.build();
 
-	DTO_Request dto = new DTO_Request();
+	DTO_Account dto = new DTO_Account();
 	dto.populate(mock.Id, null);
 
-	Assert.areEqual('test@example.com', dto.email, 'Email should be populated from record');
+	Assert.areEqual('Acme Corp', dto.accountName, 'Account name should be populated from record');
 
 	TST_Mock.clear();
 }
@@ -1812,12 +1818,12 @@ These are the common mistakes that bite people when working with DTOs, what goes
 
 | Anti-Pattern                                                  | Why It's Wrong                                                                                                                     | Instead                                                                                                                                                   |
 |---------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Missing `@JsonAccess` on DTOs in subscriber orgs              | Serialization fails at runtime with a security error in managed package context                                                    | Always add `@JsonAccess(serializable='always' deserializable='always')` on every DTO extending a framework base class                                     |
+| Missing `@JsonAccess` on DTOs in your org                     | Serialisation fails at runtime with a security error in managed package context                                                    | Always add `@JsonAccess(serializable='always' deserializable='always')` on every DTO extending a framework base class                                     |
 | Business logic inside `populate()`                            | Makes the DTO untestable in isolation and violates single responsibility                                                           | Keep `populate()` limited to data mapping; move logic to service classes or trigger actions                                                               |
-| Skipping type resolver registration in subscriber orgs        | Deserialization fails with `TypeException` because the managed package cannot resolve subscriber class names                       | Register a `ClassTypeResolver__mdt` record or implement a custom `UTIL_TypeResolver`                                                                      |
+| Skipping type resolver registration in your org               | Deserialisation fails with `IllegalArgumentException` because the managed package cannot resolve your class names                  | Register a `ClassTypeResolver__mdt` record or implement a custom `UTIL_TypeResolver`                                                                      |
 | Using raw `Map<String, Object>` instead of typed DTOs         | No compile-time safety, hard to refactor, error-prone key access                                                                   | Create a DTO class extending `DTO_JsonBase` for structured data                                                                                           |
 | Null-unsafe access to DTO properties                          | Causes `NullPointerException` at runtime when optional fields are missing                                                          | Use null checks or default values before accessing optional DTO properties                                                                                |
-| Passing a complex DTO directly as an `@AuraEnabled` parameter | LWC Proxy-wraps the object and Aura cannot deserialize it into the DTO type, so the call fails with "Unable to deserialize to specified type" | Accept `String requestJson` on the controller, call `JSON.deserialize(...)` server-side; stringify in the LWC caller (see `CTRL_ScheduledJob.saveRecord`) |
+| Passing a complex DTO directly as an `@AuraEnabled` parameter | LWC Proxy-wraps the object and Aura cannot deserialize it into the DTO type, so the call fails with "Unable to deserialize to specified type" | Accept `String requestJson` on the controller, call `JSON.deserialize(...)` server-side; stringify in the LWC caller |
 
 ---
 
@@ -1829,6 +1835,7 @@ A short checklist of habits that keep DTOs easy to read, test, and maintain. Eac
 
 ```apex
 // GOOD: JSON API
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_ApiRequest extends DTO_JsonBase { }
 ```
 
@@ -1852,13 +1859,25 @@ private class DTO_InternalData extends DTO_JsonBase
 **Option B: Register custom type resolver (recommended for 10+ DTOs):**
 
 ```apex
-// BETTER for many DTOs - no getObjectType() needed!
+// BETTER for many DTOs - no getObjectType() needed in your public DTOs
 // Just register CustomDTOTypeResolver in ClassTypeResolver__mdt
 
+@JsonAccess(serializable='always' deserializable='always')
+public class DTO_ExternalData extends DTO_JsonBase
+{
+	public String data;
+	// No getObjectType() method needed - the registered resolver finds this class
+}
+
+// A private class still needs its own getObjectType() override
 private class DTO_InternalData extends DTO_JsonBase
 {
 	public String data;
-	// No getObjectType() method needed - resolved automatically!
+
+	protected override Type getObjectType()
+	{
+		return DTO_InternalData.class;
+	}
 }
 ```
 
@@ -1870,6 +1889,7 @@ For a DTO field to be readable from a Lightning Web Component, mark it with [`@A
 
 ```apex
 // GOOD
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_Data extends DTO_JsonBase
 {
 	@AuraEnabled
@@ -1881,6 +1901,7 @@ public class DTO_Data extends DTO_JsonBase
 
 ```apex
 // GOOD
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_Order extends DTO_JsonBase
 {
 	public List<DTO_OrderItem> lineItems;
@@ -1906,9 +1927,11 @@ this.industry = account.Industry.toUpperCase(); // Null pointer risk
 
 ```apex
 // GOOD
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_CustomerOrderRequest extends DTO_JsonBase { }
 
 // BAD
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_Data extends DTO_JsonBase { } // Vague
 ```
 
@@ -1918,6 +1941,7 @@ public class DTO_Data extends DTO_JsonBase { } // Vague
 /**
  * @description Customer order request DTO for external order management system
  */
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_CustomerOrderRequest extends DTO_JsonBase
 {
 	/**
@@ -1948,6 +1972,7 @@ public override List<String> getValidationErrors()
 
 ```apex
 // GOOD: Focused DTO
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_AccountBasic extends DTO_JsonBase
 {
 	public String name;
@@ -1955,6 +1980,7 @@ public class DTO_AccountBasic extends DTO_JsonBase
 }
 
 // BAD: Over-complicated
+@JsonAccess(serializable='always' deserializable='always')
 public class DTO_Everything extends DTO_JsonBase
 {
 	// Too many unrelated fields
@@ -1981,7 +2007,10 @@ System.JSONException: Type cannot be deserialized as it is not globally visible 
 
 **Solution:**
 Add `@JsonAccess(serializable='always' deserializable='always')` to your DTO class. See the full WRONG/CORRECT example in
-[Type Resolution: CRITICAL Requirement in Your Org](#type-resolution-critical-requirement-in-your-org).
+[Creating JSON DTOs](#creating-json-dtos).
+
+If the message is `Unable to resolve type for class` instead, the cause is different: the framework cannot find
+your class. See [Type Resolution: CRITICAL Requirement in Your Org](#type-resolution-critical-requirement-in-your-org).
 
 **Why this is required:**
 When your code extends a managed package class (for example `YourNamespace.DTO_JsonBase`) and the package's code then tries to serialize or deserialize your class, Salesforce security requires you to grant explicit permission with the `@JsonAccess` annotation. Without it, the operation fails with a security error.
@@ -2039,7 +2068,7 @@ public String fieldName;
 
 | Class                                                | Purpose                    | Extends      |
 |------------------------------------------------------|----------------------------|--------------|
-| [`DTO_Base`](reference/apex/DTO_Base.md)             | Abstract base for all DTOs | -            |
+| [`DTO_Base`](reference/apex/DTO_Base.md)             | Virtual base for all DTOs  | -            |
 | [`DTO_JsonBase`](reference/apex/DTO_JsonBase.md)     | JSON serialization         | DTO_Base     |
 | [`DTO_NameValues`](reference/apex/DTO_NameValues.md) | Key-value collections      | DTO_JsonBase |
 | [`DTO_BaseTable`](reference/apex/DTO_BaseTable.md)   | Lightning datatable        | DTO_JsonBase |

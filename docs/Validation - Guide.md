@@ -122,10 +122,9 @@ For deeper coverage, continue reading the sections below.
         - [Querying Shadow Violations](#querying-shadow-violations)
     - [Severity Levels](#severity-levels)
     - [Multi-Language Support](#multi-language-support)
-        - [Example Setup](#example-setup)
 16. [Anti-Patterns](#anti-patterns)
 17. [Best Practices](#best-practices)
-    - [Subscriber-shipped demo rules](#subscriber-shipped-demo-rules)
+    - [Demo rules you ship in your own package](#demo-rules-you-ship-in-your-own-package)
     - [Bulk Data Load Considerations](#bulk-data-load-considerations)
         - [Bypass Options for Bulk Loads](#bypass-options-for-bulk-loads)
 18. [Troubleshooting](#troubleshooting)
@@ -317,7 +316,7 @@ You only touch a few of these directly: the two metadata types when you author r
 | [`UTIL_ValidationRule.ValidationResult`](reference/apex/UTIL_ValidationRule.ValidationResult.md)                   | Inner Class     | Result object containing errors and validity status         |
 | [`UTIL_ValidationRule.ValidationError`](reference/apex/UTIL_ValidationRule.ValidationError.md)                     | Inner Class     | Error details with @AuraEnabled for LWC                     |
 | [`UTIL_ValidationRule.INT_BulkValidationContext`](reference/apex/UTIL_ValidationRule.INT_BulkValidationContext.md) | Interface       | Interface for bulk query optimisation                       |
-| [`UTIL_ValidationTestHelper`](reference/apex/UTIL_ValidationTestHelper.md)                                         | Apex Class      | Global test utility for subscriber orgs                     |
+| [`UTIL_ValidationTestHelper`](reference/apex/UTIL_ValidationTestHelper.md)                                         | Apex Class      | Global test utility you can call from your own tests        |
 | `SEL_ValidationRules`                                                                                              | Apex Class      | Internal selector with rule caching                         |
 | [`TRG_ExecuteValidationRules`](reference/apex/TRG_ExecuteValidationRules.md)                                       | Apex Class      | Pre-built trigger action                                    |
 | [`FLOW_ExecuteValidationRules`](reference/apex/FLOW_ExecuteValidationRules.md)                                     | Apex Class      | Flow invocable action                                       |
@@ -436,7 +435,7 @@ A rule is the individual check: the formula, the message, where to show the erro
 | ErrorMessage__c        | Long Text                              | Yes      | Message shown when validation fails                      |
 | ErrorDisplayField__c   | Text                                   | No       | API name of field to attach error to                     |
 | Severity__c            | Picklist                               | Yes      | `Error` (blocks save) or `Warning` (logs only)           |
-| Order__c               | Number                                 | No       | Global execution order across all groups (lower = first) |
+| Order__c               | Number                                 | Yes      | Global execution order across all groups (lower = first). Defaults to 10 |
 | Description__c         | Long Text                              | Yes      | Business purpose of this rule                            |
 | ContextClassName__c    | Text                                   | No       | Override context class for this rule                     |
 | ShadowMode__c          | Checkbox                               | No       | Log but don't block (testing mode)                       |
@@ -472,12 +471,21 @@ For the common standard objects, the framework already provides a context class 
 
 ### Creating Custom Context Classes
 
-When you validate a custom object, or you need data the built-in context does not provide, you write your own context class. It implements the framework's interface and exposes the records (and any extra values) your formula needs:
+When you validate a custom object, or you need data the built-in context does not provide, you write your own context class. It implements the framework's interface and exposes the records (and any extra values) your formula needs.
+
+Put `@JsonAccess(serializable='always')` on every context class you write. The framework fills the merge fields in an
+error message by turning your context class into JSON, and Salesforce only lets the installed package do that when
+your class allows it with this annotation. Without it, every merge field that reads your class comes back blank, and
+the framework logs a warning that names the class. The built-in context classes already work and need nothing from
+you. The scan rule
+[`KernJsonReadClassNeedsJsonAccess`](Code%20Scanning%20-%20Guide.md#kernjsonreadclassneedsjsonaccess) flags a
+context class that is missing the annotation.
 
 ```apex
 /**
  * @description Context class for CustomObject__c validation rules.
  */
+@JsonAccess(serializable='always')
 global inherited sharing class VAL_CustomObjectContext
 	implements UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
 {
@@ -516,6 +524,7 @@ When a rule needs related data, the naive approach (query inside the per-record 
  * @description Bulk context for Account validation with Contact data.
  * Demonstrates efficient cross-object validation.
  */
+@JsonAccess(serializable='always')
 global inherited sharing class VAL_AccountWithContactsContext
 	implements UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext,
 	UTIL_ValidationRule.INT_BulkValidationContext
@@ -563,7 +572,7 @@ global inherited sharing class VAL_AccountWithContactsContext
 		{
 			contactCountByAccountId.put(
 				(Id)result.get('AccountId'),
-				(Integer)result.get('count_Id')
+				(Integer)result.get('expr0')
 			);
 		}
 	}
@@ -675,6 +684,10 @@ Account {!newRecord.Name} requires at least one contact before converting to Cus
 - `{!oldRecord.FieldName}`: a field on the record's previous version
 - `{!CustomProperty}`: a value your context class computed
 
+If you wrote the context class yourself, it needs `@JsonAccess(serializable='always')`, or these merge fields come
+back blank (see [Creating Custom Context Classes](#creating-custom-context-classes)). Both fields and properties with
+a getter are filled in.
+
 ---
 
 ## How do I connect it to a Flow?
@@ -780,11 +793,24 @@ Turning off a safety check should never be silent. So every time you call `bypas
 Each call publishes a `LogEntryEvent__e` with category `BypassEvent`. The entry records `surface = 'validation'`, the action (`BYPASS`, `CLEAR`, or `CLEAR_ALL`), the target with a scope prefix (`object:`, `group:`, or `rule:`), and an optional reason you set with `kern.TRG_Base.setBypassReason(String)`, which applies to every bypass in the transaction. Trigger, query, and DML bypasses write to the same channel, so you query every bypass across the framework the same way.
 
 ```apex
-List<LogEntry__c> validationBypasses = QRY_Builder.selectFrom(LogEntry__c.SObjectType)
-	.condition(LogEntry__c.ContextData__c).contains('"category":"BypassEvent"')
-	.andCondition(LogEntry__c.ContextData__c).contains('"surface":"validation"')
+List<LogEntry__c> warnEntries = QRY_Builder.selectFrom(LogEntry__c.SObjectType)
+	.addFields(new List<SObjectField>{LogEntry__c.ShortMessage__c, LogEntry__c.ContextData__c, LogEntry__c.CreatedDate})
+	.condition(LogEntry__c.LogLevel__c).equals('WARN')
 	.orderBy(LogEntry__c.CreatedDate).descending()
 	.toList();
+
+// ContextData__c is a long text field, and SOQL cannot filter on it. Check the category and surface in Apex.
+// The context is stored as pretty-printed JSON, so remove the whitespace before matching.
+List<LogEntry__c> validationBypasses = new List<LogEntry__c>();
+for(LogEntry__c entry : warnEntries)
+{
+	String context = entry.ContextData__c == null ? '' : entry.ContextData__c.deleteWhitespace();
+	if(context.contains('"category":"BypassEvent"')
+		&& context.contains('"surface":"validation"'))
+	{
+		validationBypasses.add(entry);
+	}
+}
 ```
 
 The `BypassAudit_Enabled` `FeatureFlag__mdt` is a master off-switch you can flip without a deployment (a kill-switch), and it is on by default. If the volume of audit entries is too high in a particular environment, you can turn the recording off there with a `FeatureFlagStrategy__mdt` override.
@@ -979,36 +1005,17 @@ Not every data problem should stop a save. A rule's severity decides whether a f
 
 ### Multi-Language Support
 
-When your users speak more than one language, the error message should appear in each user's own language. To get that, do not type the message straight into the rule. Instead, put it in a [Custom Label](https://help.salesforce.com/s/articleView?id=sf.cl_about.htm&language=en_US&type=5) and reference the label with `{$Label.LabelName}`:
+The framework shows the text in `ErrorMessage__c` as you wrote it. The only parts it replaces are merge fields such as
+`{!ContactCount}`, which it fills from the context class. It does not look up Custom Labels, so a `{$Label.LabelName}`
+reference appears on screen exactly as typed, and a `{!$Label.LabelName}` merge field comes back blank. It also does not apply
+[Translation Workbench](https://help.salesforce.com/s/articleView?id=sf.workbench_overview.htm&language=en_US&type=5)
+translations of the `ErrorMessage__c` field.
 
-```text
-ErrorMessage__c: {$Label.VAL_Account_Email_Required}
-```
-
-**Why a Custom Label rather than a typed-in message:**
-
-- One label can be reused across many rules
-- Translations go through the normal Salesforce workflow (Setup, then [Translation Workbench](https://help.salesforce.com/s/articleView?id=sf.workbench_overview.htm&language=en_US&type=5))
-- The label ships and versions with your application
-- It is the standard Salesforce way to translate text
-
-**Important:** The framework does not use `toLabel()` in metadata queries. Direct translations on the `ErrorMessage__c` field via Translation Workbench will **not** be applied at
-runtime. Always use Custom Labels for multi-language orgs.
-
-#### Example Setup
-
-1. Create a Custom Label:
-    - **Name:** `VAL_Account_Email_Required`
-    - **Value:** `Email address is required for all accounts.`
-
-2. Add translations in Setup, under Translation Workbench
-
-3. Reference in your validation rule:
-   ```
-   ErrorMessage__c: {$Label.VAL_Account_Email_Required}
-   ```
-
-The framework will resolve the Custom Label at runtime using the user's language preference.
+Each rule record holds one message. So if your org uses one language, write the message in that language in `ErrorMessage__c`.
+If your users work in several languages, add a property to your context class that returns a Custom Label
+(`System.Label.YourLabel`) and put `{!YourProperty}` in `ErrorMessage__c`. The merge field is filled from the context
+class, so each user sees the label in their own language. As with every merge field, this works only when your context
+class has `@JsonAccess(serializable='always')`. Without it, the property comes back blank.
 
 ---
 
@@ -1020,7 +1027,7 @@ These are the common mistakes (anti-patterns) people make with this framework, w
 |------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Using the framework for simple required-field checks       | Adds unnecessary overhead for validations that standard required fields or validation rules handle natively | Use standard validation rules for simple `ISBLANK()` checks; reserve the framework for cross-object or complex logic                                                   |
 | Embedding complex formula logic in `RuleFormula__c` fields | Long formulas are hard to debug, maintain, and test                                                         | Use custom context classes to pre-compute values, then reference them with simple formulas                                                                             |
-| Ignoring bulk context in custom context classes            | Queries inside `preLoad()` run per-record, causing SOQL limit exceptions in bulk operations                 | Use the `BulkContext` pattern to query once for all records, then cache results                                                                                        |
+| Ignoring bulk context in custom context classes            | Queries inside `setContext()` run once per record, causing SOQL limit exceptions in bulk operations         | Implement `INT_BulkValidationContext` and query once for all records in `preLoad()`, which runs once per batch, then cache results                                     |
 | Not providing bypass mechanisms for data loads             | Bulk data loads fail or run slowly due to unnecessary validation                                            | Use `FLOW_BypassValidation`, `BypassExecution__c`, or one of the `UTIL_ValidationRule.bypassObject()` / `.bypassGroup()` / `.bypassRule()` runtime APIs for migrations |
 | Skipping shadow mode testing for new rules                 | Rules go live with unexpected failures or false positives                                                   | Enable `ShadowMode__c` on new rules first to log violations without blocking records                                                                                   |
 
@@ -1052,18 +1059,15 @@ These are the common mistakes (anti-patterns) people make with this framework, w
 
 10. **Monitor performance:** check LogEntry__c for slow validation rules
 
-11. **Use Custom Labels for multi-language:** reference translated messages with the `{$Label.LabelName}` syntax
+11. **Use UTIL_ValidationTestHelper:** lean on the test helper for clean, focused validation tests
 
-12. **Use UTIL_ValidationTestHelper:** lean on the test helper for clean, focused validation tests
-
-### Subscriber-shipped demo rules
+### Demo rules you ship in your own package
 
 If you ship a demo or sample validation rule inside your own managed package, set `BypassExecution__c = true`
 on the `ValidationRule__mdt` record before you package it. The people who install your package then switch the
 rule on themselves by clearing that flag in their configuration UI. The reason to ship it off by default: an
 always-on sample rule would fire on every record insert, including in unrelated tests in the installer's org,
-which is rarely what they want. The framework's own sample rule follows this convention. It ships with
-`BypassExecution__c = true` and runs only once someone explicitly opts in.
+which is rarely what they want.
 
 ### Bulk Data Load Considerations
 
@@ -1109,7 +1113,7 @@ When a rule does not behave as expected, the cause is usually one of a handful o
 
 - Verify class name is fully qualified (include namespace if needed)
 - Ensure class implements [`UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext`](reference/apex/UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext.md)
-- Check class is `global` or `public`
+- Check the class is `global`, or `public` with a Type Resolver set up (see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver))
 
 **"SOQL limit exceeded"**
 
@@ -1152,12 +1156,12 @@ TRG_ExecuteValidationRules (BEFORE_INSERT) completed in 450ms
   +-- VAL_AccountWithContactsContext validation completed in 380ms (Rules: 5, Records: 200)
 ```
 
-To pull up the slowest validations, query the `PERFORMANCE` log entries, ordered by how long they took:
+To pull up the slowest validations, query the performance log entries (they are logged at the `DEBUG` level), ordered by how long they took:
 
 ```apex
 List<LogEntry__c> validationLogs = QRY_Builder.selectFrom(LogEntry__c.SObjectType)
 	.fields(new List<SObjectField>{LogEntry__c.Message__c, LogEntry__c.DurationMs__c, LogEntry__c.ContextData__c})
-	.condition(LogEntry__c.LogLevel__c).equals('PERFORMANCE')
+	.condition(LogEntry__c.LogLevel__c).equals('DEBUG')
 	.andCondition(LogEntry__c.ClassMethod__c).contains('UTIL_ValidationRule/processRulesForContext')
 	.orderBy(LogEntry__c.DurationMs__c).descending()
 	.withLimit(50)

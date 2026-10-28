@@ -138,6 +138,7 @@ describe the work once; the dispatcher decides how to move it.
         - [Example: Create a Purge Job via UI](#example-create-a-purge-job-via-ui)
         - [Common Cron Expressions](#common-cron-expressions)
         - [Timezone Awareness](#timezone-awareness)
+    - [Running many jobs on one job runner](#running-many-jobs-on-one-job-runner)
     - [Built-in Schedulers](#built-in-schedulers)
     - [Creating Custom Configurable Schedulers](#creating-custom-configurable-schedulers)
 17. [Transaction Correlation in Async Operations](#transaction-correlation-in-async-operations)
@@ -255,7 +256,7 @@ The framework is made up of six pieces that work together:
 
 1. **[`UTIL_AsynchronousJobLauncher`](reference/apex/UTIL_AsynchronousJobLauncher.md)** is the entry point: one place to launch async jobs, with the right strategy chosen for you.
 2. **[`IF_Async.Processable`](reference/apex/IF_Async.Processable.md)** is the interface where you put your processing logic.
-3. **`UTIL_AdaptiveAsynchronousProcessor`** is the engine that picks Queueable, Batch, or synchronous execution based on data volume. The framework drives it for you.
+3. **`UTIL_AdaptiveAsynchronousProcessor`** is the engine that picks parallel Queueables, chained Queueables or Batch Apex, based on data volume and the free Queueable slots. The framework drives it for you.
 4. **[`UTIL_AsyncChain`](reference/apex/UTIL_AsyncChain.md)** runs multi-step workflows that share data, track progress, and have error and completion handlers, including a built-in [`ApiStep`](reference/apex/UTIL_AsyncChain.ApiStep.md) web service bridge.
 5. **[`IF_Schedulable`](reference/apex/IF_Schedulable.md)** is the interface for configurable scheduled jobs that accept parameters, managed through [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) records.
 6. **`CTRL_ChainMonitor`** powers the real-time Chain Monitor UI (4 LWC components: `chainMonitor`, `chainMonitorList`, `chainMonitorDetail`, `chainStepTimeline`), with live updates,
@@ -287,12 +288,12 @@ direct route that gives it to you.
 
 | You need                                                                         | Use                                                                                                                                                                    | See                                                                       |
 |----------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| **Parallel Queueables** (multiple jobs running concurrently)                     | `UTIL_AsynchronousJobLauncher.process()` auto-selects `PARALLEL_QUEUEABLES` when the 10-concurrent platform limit allows.                                              | [Execution Strategy Comparison](#execution-strategy-comparison)           |
+| **Parallel Queueables** (multiple jobs running concurrently)                     | `UTIL_AsynchronousJobLauncher.process()` auto-selects `PARALLEL_QUEUEABLES` when the per-transaction Queueable limit allows.                                           | [Execution Strategy Comparison](#execution-strategy-comparison)           |
 | **Direct `System.enqueueJob()`** for an independent Queueable                    | Works unchanged. Nothing intercepts `enqueueJob`. You freely write `implements Queueable` and enqueue independently of any chain.                            | [Queueable Pattern with Correlation](#queueable-pattern-with-correlation) |
 | **Native `Database.Batchable` / `Database.Stateful`**                            | Write your own batch class as you always would. There is no mandatory base class. The framework's `IF_Async.Processable` interface is optional.                                 | [When to Use OOTB Batch/Queueable](#when-to-use-ootb-batchqueueable)      |
 | **Change Data Capture / Platform Event triggers**                                | You write `trigger MyTrigger on Account__ChangeEvent` directly. Framework code calls `EventBus.publishWithAccessLevel()` without wrapping your triggers. | —                                                                         |
 | **Force a specific execution strategy** instead of letting the dispatcher choose | `IF_Async.AsynchronousExecutionStrategy` enum exposes `PARALLEL_QUEUEABLES`, `CHAINABLE`, `BATCH`; pass the one you want to the launcher.                                           | [Execution Strategy Comparison](#execution-strategy-comparison)           |
-| **10-concurrent-limit awareness for adaptive degradation**                       | The adaptive processor reads `UTIL_Limits.queueableJobs().remaining()` and steps down PARALLEL → CHAINABLE → BATCH automatically as slots run low.                                        | [Execution Strategy Flow](#execution-strategy-flow)                       |
+| **Per-transaction Queueable limit awareness for adaptive degradation**           | The adaptive processor reads `UTIL_Limits.queueableJobs().remaining()` and steps down PARALLEL → CHAINABLE → BATCH automatically as slots run low.                                        | [Execution Strategy Flow](#execution-strategy-flow)                       |
 
 A reminder on scope: `UTIL_AsyncChain` is for one specific pattern, sequenced steps that depend on each other and share
 context across transactions. It is the wrong tool for parallel work, but that does not mean parallel work is unavailable.
@@ -478,9 +479,12 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.condition(Account.Industry).equals('Technology')
 	.toList();
 Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, new AccountProcessor());
-// Small dataset -> PARALLEL_QUEUEABLES (fastest)
-// Medium dataset -> CHAINABLE queueables
-// Large dataset -> BATCH Apex
+// From any context: no free Queueable slot, or (for a query) no query room left -> BATCH Apex
+// From an async job (Queueable, Batch, future) with a slot free -> CHAINABLE queueables
+// From synchronous code with a slot free:
+//   More items than limitAtWhichToBatch -> BATCH Apex
+//   Items fit the free Queueable slots -> PARALLEL_QUEUEABLES (fastest)
+//   Too few free slots for the items -> CHAINABLE queueables
 ```
 
 **Key Differences:**
@@ -525,14 +529,24 @@ Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, new AccountProcessor()
 |  |   |   +---------------------------------------------------------+ |  |      |
 |  |   |   |              STRATEGY SELECTION (AUTO mode)              | |  |      |
 |  |   |   |                                                         | |  |      |
-|  |   |   |   Items <= 50 ----------> PARALLEL_QUEUEABLES           | |  |      |
-|  |   |   |   (and slots available)   (Fastest - concurrent)        | |  |      |
+|  |   |   |   No Queueable slot free ----> BATCH                    | |  |      |
+|  |   |   |   or, for a query, no query     (Batch Apex)            | |  |      |
+|  |   |   |   room left                                             | |  |      |
 |  |   |   |                                                         | |  |      |
-|  |   |   |   Items <= threshold ---> CHAINABLE                     | |  |      |
-|  |   |   |   (limited slots)         (Sequential queueables)       | |  |      |
+|  |   |   |   Already in an async job ----> CHAINABLE               | |  |      |
+|  |   |   |   (Queueable, Batch, future)    (Sequential queueables) | |  |      |
 |  |   |   |                                                         | |  |      |
-|  |   |   |   Items > threshold ----> BATCH                        | |  |      |
-|  |   |   |   (or query-based)        (Batch Apex)                  | |  |      |
+|  |   |   |   Synchronous, items > -------> BATCH                   | |  |      |
+|  |   |   |   limitAtWhichToBatch           (Batch Apex)            | |  |      |
+|  |   |   |                                                         | |  |      |
+|  |   |   |   Synchronous, items <= ------> PARALLEL_QUEUEABLES     | |  |      |
+|  |   |   |   limitAtWhichToBatch, and      (Fastest - concurrent)  | |  |      |
+|  |   |   |   enough free Queueable slots                           | |  |      |
+|  |   |   |   for items / queueableJobSize                          | |  |      |
+|  |   |   |                                                         | |  |      |
+|  |   |   |   Synchronous, items <= ------> CHAINABLE               | |  |      |
+|  |   |   |   limitAtWhichToBatch, but      (Sequential queueables) | |  |      |
+|  |   |   |   too few free slots                                    | |  |      |
 |  |   |   +---------------------------------------------------------+ |  |      |
 |  |   +----------------------------------------------------------------+  |      |
 |  |                                                                        |      |
@@ -1593,8 +1607,8 @@ log follows, so a delivery hiccup never changes the chain's result.
 
 **Performance logging** happens automatically through `UTIL_PerformanceTimer`. Each step is timed, and if a step runs
 longer than the threshold in `LogSetting__c.PerformanceThresholdMs__c`, the framework writes a structured performance log
-showing the CPU, heap, SOQL, and DML it used. There is nothing to configure by hand: just enable
-`LogSetting__c.EnablePerformanceLogging__c`.
+showing the CPU, heap, SOQL, and DML it used. There is nothing to configure by hand:
+`LogSetting__c.EnablePerformanceLogging__c` is on by default; adjust the threshold if you need to.
 
 **Non-fatal failure tracking:** When `continueOnError` steps fail, their failure summaries are added to
 `ErrorMessage__c` on the execution record (for example, "Non-fatal step failures: CleanupStep: Timeout; OptionalStep:
@@ -2447,7 +2461,7 @@ altogether) until you Repair it; the Job Runner row in Health Check says so.
 
 #### Putting a job on the runner
 
-Edit the job's record and set Execution mode to Job runner. You need the Manage Job Runner permission (the Job Runner
+Edit the job's record and set Execution mode to Job runner. You need the Manage Job Runner permission (the Kern Job Runner
 Management permission set) to do so, because jobs on the runner run as the user who activated it (see below). A job on the runner
 keeps its class, parameters, time zone and description; two fields join them:
 
@@ -2780,7 +2794,7 @@ One gap to plan around: this configuration-only recipe has no status filter, so 
 
 | Attribute             | Required | Default | Description                                        |
 |-----------------------|----------|---------|----------------------------------------------------|
-| `profileNames`        | **Yes**  | -       | Pipe-separated profile names (e.g., `Standard User |Chatter User`) |
+| `profileNames`        | **Yes**  | -       | Pipe-separated profile names (e.g., `Standard User\|Chatter Free User`) |
 | `minimumNumberOfDays` | No       | 180     | Days since last login                              |
 | `batchSize`           | No       | 2000    | Records per batch transaction                      |
 | `allOrNothing`        | No       | false   | If true, rollback batch on any error               |
@@ -3067,7 +3081,7 @@ the job runs. A job that processes an in-memory list instead of a query is not a
 
 **Key Takeaways:**
 
-1. **Use the framework.** Don't build custom Batch or Queueable jobs from scratch.
+1. **Use the framework.** Prefer the launcher for reusable processing. Write a native Batch or Queueable job where [How to opt out](#how-to-opt-out) applies.
 2. **Let AUTO decide.** The framework picks the execution strategy for you.
 3. **Schedule declaratively.** Use [`ScheduledJob__c`](reference/objects/ScheduledJob__c.md) records for production jobs.
 4. **Correlation is automatic** in chains and the web service framework; wire it up by hand for custom async using [`LOG_Builder`](reference/apex/LOG_Builder.md).

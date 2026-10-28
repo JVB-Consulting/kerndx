@@ -337,7 +337,7 @@ force-app/main/default/classes/TRG_AccountSetDefaults_TEST.cls
  * @description Tests for TRG_AccountSetDefaults.
  *
  * Invokes the handler directly (unit-style) -- the supported pattern for testing a trigger
- * action in a subscriber org. This exercises the handler logic with no framework metadata setup.
+ * action in your org. This exercises the handler logic with no framework metadata setup.
  *
  * @see TRG_AccountSetDefaults
  *

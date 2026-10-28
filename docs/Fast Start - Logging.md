@@ -429,7 +429,8 @@ private class SVC_OrderProcessor_TEST
 ```
 
 > **About the query filter:** Tests must filter `kern__LogEntry__c` by `kern__UserId__c`, not by
-> `CreatedById`. The platform trigger that persists log entries (`TRG_PersistLogEntry`) runs as the
+> `CreatedById`. The trigger action that saves log entries (`TRG_PersistLogEntry`, run by the `TRG_LogEntryEvent`
+> trigger) runs as the
 > Automated Process user, so a `CreatedById` filter returns zero rows. The `kern__UserId__c` field, by
 > contrast, holds the ID of the user who emitted the log.
 
@@ -695,7 +696,7 @@ contains a `password` or card number: the persisted `LogEntry__c.Message__c` wil
 Fourteen more rules (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone, AWS access key,
 URL basic auth, authorization header, private IPv4, postal address, free text, international phone) ship as inactive templates.
 To switch one on, flip `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt`
-record wiring the rule to the fields that need it. (A fourth active rule, `MaskJwt`, redacts JSON Web Tokens
+record wiring the rule to the fields that need it. (A third active rule, `MaskJwt`, redacts JSON Web Tokens
 on API call records and API issues, not on log entries.)
 
 > **Wiring gotcha.** Wiring a rule to a field doesn't guarantee it fires: a rule carries two optional
@@ -770,7 +771,8 @@ A test you write yourself asserts on log entries and its query returns zero rows
 three things that must all be in place, as [Testing with logs](#testing-with-logs) explains:
 
 - Logs are suppressed in test context. Set `kern.LOG_Builder.ignoreTestMode = true` before logging.
-- The platform events must be delivered. Call `Test.getEventBus().deliver()` after emitting and before asserting.
+- The platform events must be delivered before you assert. Call `Test.getEventBus().deliver()` after emitting, or assert
+  after `Test.stopTest()`.
 - The query must filter by `kern__UserId__c`, not `CreatedById`. Use
   `kern__LogEntry__c.kern__UserId__c = UserInfo.getUserId()`. `TRG_PersistLogEntry` runs as the Automated Process
   user, so `CreatedById` never matches the running user.
@@ -809,7 +811,7 @@ Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?templ
 
 | Concept                                         | What it does                                                         |
 |-------------------------------------------------|----------------------------------------------------------------------|
-| `kern.LOG_Builder.build()`                      | Creates a fluent log entry builder                                   |
+| `kern.LOG_Builder.build()`                      | Starts a log entry you configure with short chained calls            |
 | `.info()` / `.warn()` / `.error()` / `.debug()` | Sets the log level                                                   |
 | `.at('Class.method')`                           | Records where the log came from                                      |
 | `.forRecord(Id)`                                | Links the log entry to a specific record                             |
