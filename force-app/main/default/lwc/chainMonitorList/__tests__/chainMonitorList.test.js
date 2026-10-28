@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for chainMonitorList LWC component
  * @author Jason van Beukering
- * @date April 2026, September 2026
+ * @date April 2026, October 2026
  */
 
 // The page-position label carries {0}/{1} placeholders; mocking it to the real template value
@@ -461,6 +461,37 @@ describe('c-chain-monitor-list', () =>
 		await element.refresh();
 
 		expect(mockCallControllerMethod).toHaveBeenCalled();
+	});
+
+	it('should keep the newer rows when an older refresh answers after a newer one', async() =>
+	{
+		const element = await createComponent();
+
+		let resolveOlderRequest;
+		let resolveNewerRequest;
+		mockCallControllerMethod
+			.mockImplementationOnce(() => new Promise((resolve) =>
+			{
+				resolveOlderRequest = resolve;
+			}))
+			.mockImplementationOnce(() => new Promise((resolve) =>
+			{
+				resolveNewerRequest = resolve;
+			}));
+
+		const olderRefresh = element.refresh();
+		const newerRefresh = element.refresh();
+
+		resolveNewerRequest(MOCK_PAGE_2);
+		await newerRefresh;
+		resolveOlderRequest(MOCK_DURATION_PAGE);
+		await olderRefresh;
+		await Promise.resolve();
+
+		const datatable = element.shadowRoot.querySelector('lightning-datatable');
+		expect(datatable.data.map((row) => row.executionId)).toEqual(['id-2']);
+		const pageText = element.shadowRoot.querySelector('.slds-align-middle');
+		expect(pageText.textContent).toBe('Page 2 of 2');
 	});
 
 	it('should show page label', async() =>
@@ -996,6 +1027,18 @@ describe('c-chain-monitor-list at a compact width', () =>
 		expect(headers(element)).toHaveLength(3);
 
 		document.body.removeChild(element);
+		expect(compactMedia.removeEventListener).toHaveBeenCalledTimes(1);
+	});
+
+	it('runs a teardown registered through the base when disconnected, and still stops listening to the width', async() =>
+	{
+		const element = await createList();
+		const operation = jest.fn();
+		element.addTearDownOperation(operation);
+
+		document.body.removeChild(element);
+
+		expect(operation).toHaveBeenCalledTimes(1);
 		expect(compactMedia.removeEventListener).toHaveBeenCalledTimes(1);
 	});
 

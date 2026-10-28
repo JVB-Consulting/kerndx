@@ -219,6 +219,80 @@ describe('c-streaming-timeline', () =>
 			expect(Number(second.getAttribute('cy'))).toBeCloseTo(253.3, 1);
 		});
 
+		it('leaves events without a timestamp out of the time range, so the other dots keep their place', async() =>
+		{
+			const eventWithoutTimestamp = {id: 'evt-no-time', channel: '/event/TestEvent__e', timestamp: null, timeLabel: '', payload: '{}'};
+			const timedOnlyPositions = circles(await createComponent()).map((circle) => circle.getAttribute('cx'));
+			const element = await createComponent({
+				events: [
+					eventWithoutTimestamp,
+					...mockEvents,
+					{...eventWithoutTimestamp, id: 'evt-no-time-2'}
+				]
+			});
+
+			const timedPositions = circles(element).map((circle) => circle.getAttribute('cx'));
+			expect(timedPositions).toEqual(timedOnlyPositions);
+		});
+
+		it('draws no dot for an event without a timestamp and keeps the click index of the others', async() =>
+		{
+			const eventWithoutTimestamp = {id: 'evt-no-time', channel: '/event/TestEvent__e', timestamp: null, timeLabel: '', payload: '{}'};
+			const element = await createComponent({
+				events: [
+					eventWithoutTimestamp,
+					...mockEvents
+				]
+			});
+
+			const dots = circles(element);
+			expect(dots).toHaveLength(mockEvents.length);
+			dots.forEach((dot) =>
+			{
+				expect(Number.isFinite(Number(dot.getAttribute('cx')))).toBe(true);
+			});
+			expect(dots.map((dot) => dot.dataset.index)).toEqual([
+				'1',
+				'2'
+			]);
+		});
+
+		it('uses the current time as the range when no event has a timestamp', async() =>
+		{
+			const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(EVENT_TWO_TIMESTAMP);
+			try
+			{
+				const element = await createComponent({events: [{id: 'evt-no-time', channel: '/event/TestEvent__e', timestamp: null, timeLabel: '', payload: '{}'}]});
+
+				const ticks = xTickTexts(element);
+				expect(ticks).toHaveLength(1);
+				expect(Number(ticks[0].getAttribute('x'))).toBeCloseTo(MARGIN_LEFT + INNER_WIDTH / 2, 1);
+			}
+			finally
+			{
+				nowSpy.mockRestore();
+			}
+		});
+
+		it('checks timestamps a few times per dot, not once per event for every dot', async() =>
+		{
+			const eventCount = 500;
+			const manyEvents = Array.from({length: eventCount},
+					(unused, index) => ({id: `evt-${index}`, channel: '/event/TestEvent__e', timestamp: EVENT_ONE_TIMESTAMP + index * 1000, timeLabel: '', payload: '{}'}));
+			const finiteSpy = jest.spyOn(Number, 'isFinite');
+			try
+			{
+				const element = await createComponent({events: manyEvents});
+
+				expect(circles(element)).toHaveLength(eventCount);
+				expect(finiteSpy.mock.calls.length).toBeLessThan(eventCount * 5);
+			}
+			finally
+			{
+				finiteSpy.mockRestore();
+			}
+		});
+
 		it('renders a single event at the horizontal midpoint of the chart area', async() =>
 		{
 			const element = await createComponent({events: [mockEvents[0]], channels: mockChannels});

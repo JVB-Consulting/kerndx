@@ -169,7 +169,6 @@ function generateTimeTicks(domainStart, domainEnd, targetCount)
 
 // ── Component ────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingTimeline extends LightningElement
 {
 	// ── @api Properties ──────────────────────────────────────────────────
@@ -230,12 +229,14 @@ export default class StreamingTimeline extends LightningElement
 	/**
 	 * @description Time domain spanning first to last event, padded by a 10% span margin on each
 	 * side. A single-event (zero-span) domain carries no margin; its dot renders at the midpoint.
+	 * Events without a timestamp are left out, so one of them cannot stretch the range back to 1970.
+	 * If no event has a timestamp, the range is the current time.
 	 * @returns {{start: number, end: number}}
 	 */
 	get timeDomain()
 	{
-		const first = this.events[0].timestamp;
-		const last = this.events[this.events.length - 1].timestamp;
+		const first = this.events.find((datum) => Number.isFinite(datum.timestamp))?.timestamp ?? Date.now();
+		const last = this.events.findLast((datum) => Number.isFinite(datum.timestamp))?.timestamp ?? first;
 		const margin = (last - first) * TIME_MARGIN_RATIO;
 		return {start: first - margin, end: last + margin};
 	}
@@ -260,21 +261,32 @@ export default class StreamingTimeline extends LightningElement
 		return probeFormat.includes('PM') || probeFormat.includes('AM');
 	}
 
-	/** @description Circle render models, one per event. @returns {Array<Object>} */
+	/**
+	 * @description Circle render models, one per event that has a timestamp. An event without a timestamp has no place
+	 * on the time axis, so it gets no dot. Each dot keeps the index of its event in the full list.
+	 * @returns {Array<Object>}
+	 */
 	get circles()
 	{
 		const layout = this.channelLayout;
-		return this.events.map((datum, index) =>
+		const domain = this.timeDomain;
+		return this.events.flatMap((datum, index) =>
 		{
+			if(!Number.isFinite(datum.timestamp))
+			{
+				return [];
+			}
 			const bandIndex = this.channelList.indexOf(datum.channel);
-			return {
-				key: datum.id ?? index,
-				index,
-				cx: roundCoordinate(this.xPosition(datum.timestamp)),
-				cy: bandIndex === -1 ? 0 : roundCoordinate(layout.positions[bandIndex]),
-				r: CIRCLE_RADIUS,
-				className: this.getChannelColorClass(datum.channel)
-			};
+			return [
+				{
+					key: datum.id ?? index,
+					index,
+					cx: roundCoordinate(this.xPosition(datum.timestamp, domain)),
+					cy: bandIndex === -1 ? 0 : roundCoordinate(layout.positions[bandIndex]),
+					r: CIRCLE_RADIUS,
+					className: this.getChannelColorClass(datum.channel)
+				}
+			];
 		});
 	}
 
@@ -283,15 +295,15 @@ export default class StreamingTimeline extends LightningElement
 	{
 		const usesTwelveHour = this.usesTwelveHour;
 		const domain = this.timeDomain;
-		let previousDateString = null;
+		const previousTick = {dateString: null};
 		return generateTimeTicks(domain.start, domain.end, X_TICK_TARGET_COUNT).map((timestamp) =>
 		{
 			const tickDate = new Date(timestamp);
-			const formatted = formatAxisTick(tickDate, previousDateString, this.userTimezone, DISPLAY_LOCALE, usesTwelveHour);
-			previousDateString = formatted.dateString;
+			const formatted = formatAxisTick(tickDate, previousTick.dateString, this.userTimezone, DISPLAY_LOCALE, usesTwelveHour);
+			previousTick.dateString = formatted.dateString;
 			return {
 				key: timestamp,
-				x: roundCoordinate(this.xPosition(timestamp)),
+				x: roundCoordinate(this.xPosition(timestamp, domain)),
 				y: CHART_HEIGHT - MARGINS.bottom + X_TICK_BASELINE_OFFSET,
 				label: formatted.label,
 				className: isMidnightBoundary(tickDate, this.userTimezone) ? 'axis-label major-tick' : 'axis-label'
@@ -425,11 +437,11 @@ export default class StreamingTimeline extends LightningElement
 	 * @description Maps a timestamp to its x pixel position inside the chart area. A zero-span
 	 * domain resolves to the midpoint.
 	 * @param {number} timestamp - The event timestamp in epoch ms.
+	 * @param {{start: number, end: number}} domain - The time range, read once by the caller.
 	 * @returns {number} The x coordinate in SVG pixels.
 	 */
-	xPosition(timestamp)
+	xPosition(timestamp, domain)
 	{
-		const domain = this.timeDomain;
 		const innerWidth = this._chartWidth - MARGINS.left - MARGINS.right;
 		if(domain.end === domain.start)
 		{

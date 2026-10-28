@@ -6,7 +6,7 @@
 /**
  * @description Jest unit tests for streamingSidebar LWC component
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
 
 import {createElement} from 'lwc';
@@ -178,7 +178,7 @@ describe('c-streaming-sidebar', () =>
 			expect(navigateHandler.mock.calls[0][0].detail).toBe('subscriptions');
 		});
 
-		it('should not dispatch navigate event when selecting same item twice', async() =>
+		it('should not dispatch navigate event when selecting the item the parent already shows', async() =>
 		{
 			const navigateHandler = jest.fn();
 			element.addEventListener('navigate', navigateHandler);
@@ -186,12 +186,16 @@ describe('c-streaming-sidebar', () =>
 			const navigation = element.shadowRoot.querySelector('lightning-vertical-navigation');
 
 			navigation.dispatchEvent(new CustomEvent('select', {
-				detail: {name: 'monitor'}
+				detail: {name: 'subscribe'}
 			}));
 			await Promise.resolve();
 
+			// The parent answers the navigate event by showing the chosen view.
+			element.selectedItem = 'subscribe';
+			await Promise.resolve();
+
 			navigation.dispatchEvent(new CustomEvent('select', {
-				detail: {name: 'monitor'}
+				detail: {name: 'subscribe'}
 			}));
 			await Promise.resolve();
 
@@ -205,7 +209,7 @@ describe('c-streaming-sidebar', () =>
 
 			const navigation = element.shadowRoot.querySelector('lightning-vertical-navigation');
 
-			navigation.dispatchEvent(new CustomEvent('select', {detail: {name: 'monitor'}}));
+			navigation.dispatchEvent(new CustomEvent('select', {detail: {name: 'register'}}));
 			await Promise.resolve();
 
 			navigation.dispatchEvent(new CustomEvent('select', {detail: {name: 'subscribe'}}));
@@ -215,9 +219,32 @@ describe('c-streaming-sidebar', () =>
 			await Promise.resolve();
 
 			expect(navigateHandler).toHaveBeenCalledTimes(3);
-			expect(navigateHandler.mock.calls[0][0].detail).toBe('monitor');
+			expect(navigateHandler.mock.calls[0][0].detail).toBe('register');
 			expect(navigateHandler.mock.calls[1][0].detail).toBe('subscribe');
 			expect(navigateHandler.mock.calls[2][0].detail).toBe('publish');
+		});
+
+		it('should dispatch navigate again for an item clicked before, once the parent has moved to another view', async() =>
+		{
+			const navigateHandler = jest.fn();
+			element.addEventListener('navigate', navigateHandler);
+
+			const navigation = element.shadowRoot.querySelector('lightning-vertical-navigation');
+
+			navigation.dispatchEvent(new CustomEvent('select', {detail: {name: 'publish'}}));
+			await Promise.resolve();
+			element.selectedItem = 'publish';
+			await Promise.resolve();
+
+			// After a publish the parent shows the monitor on its own.
+			element.selectedItem = 'monitor';
+			await Promise.resolve();
+
+			navigation.dispatchEvent(new CustomEvent('select', {detail: {name: 'publish'}}));
+			await Promise.resolve();
+
+			expect(navigateHandler).toHaveBeenCalledTimes(2);
+			expect(navigateHandler.mock.calls[1][0].detail).toBe('publish');
 		});
 	});
 

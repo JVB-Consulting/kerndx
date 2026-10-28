@@ -6,7 +6,7 @@
 /**
  * @description Jest unit tests for streamingMonitor LWC component
  * @author Jason van Beukering
- * @date December 2025, July 2026
+ * @date December 2025, October 2026
  */
 import {createElement} from 'lwc';
 import LwcStreamingMonitor from 'c/streamingMonitor';
@@ -410,6 +410,142 @@ describe('c-streaming-monitor', () =>
 			document.body.removeChild(element);
 
 			expect(jest.getTimerCount()).toBe(0);
+		});
+	});
+
+	describe('reconnect, teardown and failed loads', () =>
+	{
+		const serverError = {channel: '/meta/connect', error: '500::Internal server error'};
+		const textReplayId = '12345';
+
+		/**
+		 * Sends an error to every error listener the component has registered, as the streaming
+		 * library does: it keeps every listener it was given and calls each one.
+		 */
+		const sendErrorToEveryListener = (error) => mockOnError.mock.calls.forEach(([listener]) => listener(error));
+
+		const countErrorToasts = () => require('lightning/platformShowToastEvent').ShowToastEvent.mock.calls.filter(([config]) => config.variant === 'error').length;
+
+		it('shows one error toast for one error after the component is connected twice', async() =>
+		{
+			const element = await createInitializedComponent();
+			document.body.removeChild(element);
+			document.body.appendChild(element);
+			await flushPromises();
+			await flushPromises();
+
+			sendErrorToEveryListener(serverError);
+
+			expect(countErrorToasts()).toBe(1);
+		});
+
+		it('shows no error toast for an error that arrives after the component is removed', async() =>
+		{
+			const element = await createInitializedComponent();
+			document.body.removeChild(element);
+
+			sendErrorToEveryListener(serverError);
+
+			expect(countErrorToasts()).toBe(0);
+		});
+
+		it('shows no success toast when the component is removed', async() =>
+		{
+			const {ShowToastEvent} = require('lightning/platformShowToastEvent');
+			const element = await createInitializedComponent();
+			ShowToastEvent.mockClear();
+
+			document.body.removeChild(element);
+
+			expect(ShowToastEvent).not.toHaveBeenCalled();
+		});
+
+		it('still unsubscribes from every channel when the component is removed', async() =>
+		{
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'subscribe');
+			element.shadowRoot.querySelector('c-streaming-actions').dispatchEvent(new CustomEvent('subscribe', {
+				detail: {channel: '/topic/TestTopic', replayId: -1}
+			}));
+			await flushPromises();
+
+			document.body.removeChild(element);
+
+			expect(mockUnsubscribe).toHaveBeenCalledWith(expect.objectContaining({channel: '/topic/TestTopic'}), expect.any(Function));
+		});
+
+		it('stops showing the loading spinner when the channels cannot be loaded', async() =>
+		{
+			mockGetAllEventChannels.mockRejectedValue(new Error('Channel load failed'));
+
+			const element = await createInitializedComponent();
+
+			expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
+		});
+
+		it('subscribes with a number when the subscribe form sends the replay id as text', async() =>
+		{
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'subscribe');
+
+			element.shadowRoot.querySelector('c-streaming-actions').dispatchEvent(new CustomEvent('subscribe', {
+				detail: {channel: '/topic/TestTopic', replayId: textReplayId}
+			}));
+			await flushPromises();
+
+			expect(mockSubscribe).toHaveBeenCalledWith('/topic/TestTopic', Number(textReplayId), expect.any(Function));
+		});
+
+		it('subscribes with a number when the subscribe all form sends the replay id as text', async() =>
+		{
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'subscribeAll');
+
+			element.shadowRoot.querySelector('c-streaming-actions').dispatchEvent(new CustomEvent('subscribeall', {
+				detail: {filter: 'PushTopicEvent', replayId: '-2'}
+			}));
+			await flushPromises();
+
+			expect(mockSubscribe).toHaveBeenCalledWith('/topic/TestTopic', -2, expect.any(Function));
+		});
+
+		it('passes a replay id that is not a number to the streaming library unchanged', async() =>
+		{
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'subscribe');
+
+			element.shadowRoot.querySelector('c-streaming-actions').dispatchEvent(new CustomEvent('subscribe', {
+				detail: {channel: '/topic/TestTopic', replayId: undefined}
+			}));
+			await flushPromises();
+
+			expect(mockSubscribe).toHaveBeenCalledWith('/topic/TestTopic', undefined, expect.any(Function));
+		});
+
+		it.each([
+			[
+				'text that is not a number',
+				'latest'
+			],
+			[
+				'empty text',
+				''
+			],
+			[
+				'no value',
+				null
+			]
+		])('passes a replay id of %s to the streaming library unchanged', async(description, replayId) =>
+		{
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'subscribe');
+
+			element.shadowRoot.querySelector('c-streaming-actions').dispatchEvent(new CustomEvent('subscribe', {
+				detail: {channel: '/topic/TestTopic', replayId}
+			}));
+			await flushPromises();
+
+			expect(mockSubscribe).toHaveBeenCalledWith('/topic/TestTopic', replayId, expect.any(Function));
 		});
 	});
 
@@ -1012,6 +1148,38 @@ describe('c-streaming-monitor', () =>
 			expect(toastHandler).toHaveBeenCalled();
 		});
 
+		it.each([
+			[
+				'all',
+				['/data/ChangeEvents']
+			],
+			[
+				'custom',
+				[]
+			],
+			[
+				'PushTopicEvent',
+				[]
+			]
+		])('subscribes only to the channels that need no load, and logs no failure, for the %s filter after the channels failed to load', async(filter, expectedChannels) =>
+		{
+			const utilityLogger = require('c/utilityLogger').default;
+			mockGetAllEventChannels.mockRejectedValue(new Error('Channel load failed'));
+
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'subscribeAll');
+
+			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
+			actionsComponent.dispatchEvent(new CustomEvent('subscribeall', {
+				detail: {replayId: -1, filter}
+			}));
+			await flushPromises();
+
+			const subscribedChannels = mockSubscribe.mock.calls.map((call) => call[0]);
+			expect(subscribedChannels).toEqual(expectedChannels);
+			expect(utilityLogger.error).not.toHaveBeenCalledWith('Failed to subscribe to all channels', expect.anything());
+		});
+
 		it('handleSubscribeAll handles error', async() =>
 		{
 			const utilityLogger = require('c/utilityLogger').default;
@@ -1027,7 +1195,123 @@ describe('c-streaming-monitor', () =>
 			}));
 			await flushPromises();
 
-			expect(utilityLogger.error).toHaveBeenCalledWith('Failed to subscribe to all channels', expect.any(Error));
+			expect(utilityLogger.error).toHaveBeenCalledWith('Failed to subscribe to channel', {channel: expect.any(String), error: expect.any(Error)});
+		});
+
+		it('stays on the subscribe form and shows the error toast when every channel fails to subscribe', async() =>
+		{
+			mockSubscribe.mockImplementation(() => Promise.reject(new Error('Subscribe failed')));
+
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'subscribeAll');
+
+			const toastHandler = jest.fn();
+			element.addEventListener('ShowToastEvent', toastHandler);
+
+			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
+			actionsComponent.dispatchEvent(new CustomEvent('subscribeall', {
+				detail: {replayId: -1, filter: 'all'}, bubbles: true, composed: true
+			}));
+			await flushPromises();
+
+			const errorToasts = toastHandler.mock.calls.map((call) => call[0]).filter((toast) => toast.variant === 'error');
+			expect(errorToasts).toHaveLength(1);
+			const remainingActions = element.shadowRoot.querySelector('c-streaming-actions');
+			expect(remainingActions).not.toBeNull();
+			expect(remainingActions.action).toBe('subscribeAll');
+		});
+
+		it('keeps the channels that did subscribe when another channel fails, and shows an error naming the failed one', async() =>
+		{
+			const failingChannel = '/u/TestChannel';
+			const workingChannel = '/topic/TestTopic';
+			mockSubscribe.mockImplementation((channel, replayId) =>
+			{
+				if(channel === failingChannel)
+				{
+					return Promise.reject(new Error('Subscribe failed'));
+				}
+				return Promise.resolve({channel, replayId});
+			});
+
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'subscribeAll');
+
+			const toastHandler = jest.fn();
+			element.addEventListener('ShowToastEvent', toastHandler);
+
+			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
+			actionsComponent.dispatchEvent(new CustomEvent('subscribeall', {
+				detail: {replayId: -1, filter: 'all'}, bubbles: true, composed: true
+			}));
+			await flushPromises();
+
+			expect(mockSubscribe).toHaveBeenCalledWith(failingChannel, -1, expect.any(Function));
+			const errorToasts = toastHandler.mock.calls.map((call) => call[0]).filter((toast) => toast.variant === 'error');
+			expect(errorToasts).toHaveLength(1);
+			expect(errorToasts[0].message).toContain(failingChannel);
+			expect(errorToasts[0].message).not.toContain(workingChannel);
+
+			// The working subscription was recorded, so unsubscribing everything reaches it, and never the failed one.
+			const subscriptionsComponent = element.shadowRoot.querySelector('c-streaming-subscriptions');
+			subscriptionsComponent.dispatchEvent(new CustomEvent('unsubscribeall'));
+			await flushPromises();
+
+			const unsubscribedChannels = mockUnsubscribe.mock.calls.map((call) => call[0].channel);
+			expect(unsubscribedChannels).toContain(workingChannel);
+			expect(unsubscribedChannels).not.toContain(failingChannel);
+		});
+
+		it('logs the error and shows no success message when the subscribe call throws before it returns a promise', async() =>
+		{
+			const utilityLogger = require('c/utilityLogger').default;
+			const thrownError = new Error('Streaming API is not ready');
+			mockSubscribe.mockImplementation(() =>
+			{
+				throw thrownError;
+			});
+
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'subscribeAll');
+
+			const toastHandler = jest.fn();
+			element.addEventListener('ShowToastEvent', toastHandler);
+
+			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
+			actionsComponent.dispatchEvent(new CustomEvent('subscribeall', {
+				detail: {replayId: -1, filter: 'PushTopicEvent'}, bubbles: true, composed: true
+			}));
+			await flushPromises();
+
+			expect(utilityLogger.error).toHaveBeenCalledWith('Failed to subscribe to all channels', thrownError);
+			expect(toastHandler).not.toHaveBeenCalled();
+		});
+
+		it('shows an error and records nothing when subscribing to a single channel fails', async() =>
+		{
+			const utilityLogger = require('c/utilityLogger').default;
+			const channel = '/topic/TestTopic';
+			mockSubscribe.mockRejectedValueOnce(new Error('Subscribe failed'));
+
+			const element = await createInitializedComponent();
+			await navigateToView(element, 'subscribe');
+
+			const toastHandler = jest.fn();
+			element.addEventListener('ShowToastEvent', toastHandler);
+
+			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
+			actionsComponent.dispatchEvent(new CustomEvent('subscribe', {detail: {channel, replayId: -1}}));
+			await flushPromises();
+
+			expect(utilityLogger.error).toHaveBeenCalledWith('Failed to subscribe to channel', {channel, error: expect.any(Error)});
+			expect(toastHandler).toHaveBeenCalledTimes(1);
+			expect(toastHandler.mock.calls[0][0].variant).toBe('error');
+			expect(toastHandler.mock.calls[0][0].message).toContain(channel);
+
+			// Nothing was recorded, so a second try is not refused as a duplicate and reaches the subscribe call again.
+			actionsComponent.dispatchEvent(new CustomEvent('subscribe', {detail: {channel, replayId: -1}}));
+			await flushPromises();
+			expect(mockSubscribe).toHaveBeenCalledTimes(2);
 		});
 	});
 

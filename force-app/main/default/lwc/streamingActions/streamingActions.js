@@ -15,7 +15,7 @@
  *   - `publish`         — Publish a payload to a specified event
  *   - `register`        — Register to receive specific event types
  *
- * @date March 2026, June 2026
+ * @date March 2026, October 2026
  **/
 import {LightningElement, api} from 'lwc';
 import {
@@ -141,7 +141,7 @@ function validateJsonPayload(element, value, eventType)
 		}
 		element.setCustomValidity('');
 	}
-	catch(error /* eslint-disable-line no-unused-vars */)
+	catch
 	{
 		element.setCustomValidity(VALIDATION_INVALID_JSON);
 	}
@@ -149,7 +149,6 @@ function validateJsonPayload(element, value, eventType)
 
 // ── Component ────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingActions extends LightningElement
 {
 	// ── @api Properties ──────────────────────────────────────────────────
@@ -515,7 +514,9 @@ export default class StreamingActions extends LightningElement
 	}
 
 	/**
-	 * @description Dispatches a `subscribe all` event with filter and replayId details.
+	 * @description Dispatches a `subscribe all` event with filter and replayId details. The replay id is sent as the
+	 * text the form holds (for example '-1'), because a component that listens for this event may expect text.
+	 * The streaming monitor turns it into a number before it subscribes.
 	 **/
 	handleSubscribeAll()
 	{
@@ -555,6 +556,7 @@ export default class StreamingActions extends LightningElement
 
 	/**
 	 * @description Dispatches a `subscribe` event with channel and replayId details.
+	 * The replay id is sent as text, as for the `subscribe all` event.
 	 * Resets subscription form fields after submission.
 	 **/
 	handleSubscribe(event)
@@ -586,18 +588,23 @@ export default class StreamingActions extends LightningElement
 
 	/**
 	 * @description Updates publish event name, calculates publish channel, and fetches blank payload for platform events.
+	 * The blank payload is used only if the same event is still selected when it arrives. If the user picked another
+	 * event in the meantime, the late payload is ignored, so it cannot replace the payload of the newer choice.
 	 **/
 	async handlePubEventNameChange(event)
 	{
-		this.publishEventName = event.detail.value;
-		this.publishChannel = getChannelPrefix(this.pubEventType) + this.publishEventName;
+		const eventName = event.detail.value;
+		this.publishEventName = eventName;
+		this.publishChannel = getChannelPrefix(this.pubEventType) + eventName;
 		if(this.pubEventType === EVT_PLATFORM_EVENT)
 		{
 			try
 			{
-				const blankEvent = await getBlankPlatformEvent({
-					eventName: this.publishEventName
-				});
+				const blankEvent = await getBlankPlatformEvent({eventName});
+				if(eventName !== this.publishEventName)
+				{
+					return;
+				}
 				this.publishPayload = JSON.stringify(blankEvent, null, 2);
 			}
 			catch(error)

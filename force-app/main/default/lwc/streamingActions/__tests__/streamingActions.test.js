@@ -6,7 +6,7 @@
 /**
  * @description Jest unit tests for streamingActions LWC component
  * @author Jason van Beukering
- * @date December 2025, June 2026
+ * @date December 2025, October 2026
  */
 import {createElement} from 'lwc';
 import LwcActions from 'c/streamingActions';
@@ -1171,6 +1171,48 @@ describe('c-streaming-actions', () =>
 
 				expect(utilityLogger.error).toHaveBeenCalledWith('Failed to load blank platform event', expect.any(Error));
 			}
+		});
+
+		it('keeps the payload of the event chosen last when the payload of an earlier choice arrives later', async() =>
+		{
+			const getInitialisedEvent = require('@salesforce/apex/CTRL_EventMonitor.getInitialisedEvent').default;
+			const firstEventName = 'FirstEvent__e';
+			const secondEventName = 'SecondEvent__e';
+			const firstPayload = {FirstField__c: ''};
+			const secondPayload = {SecondField__c: ''};
+			const channelsWithTwoEvents = {
+				...mockChannels, PlatformEvent: [
+					{label: 'First Event', value: firstEventName},
+					{label: 'Second Event', value: secondEventName}
+				]
+			};
+			let resolveFirstPayload;
+			let resolveSecondPayload;
+			getInitialisedEvent.mockImplementationOnce(() => new Promise((resolve) =>
+			{
+				resolveFirstPayload = resolve;
+			}));
+			getInitialisedEvent.mockImplementationOnce(() => new Promise((resolve) =>
+			{
+				resolveSecondPayload = resolve;
+			}));
+
+			const element = createComponent({action: 'publish', channels: channelsWithTwoEvents});
+			await flushPromises();
+			simulateComboboxChange(element.shadowRoot.querySelector('lightning-combobox'), 'PlatformEvent');
+			await flushPromises();
+
+			const eventNameCombobox = element.shadowRoot.querySelectorAll('lightning-combobox')[1];
+			simulateComboboxChange(eventNameCombobox, firstEventName);
+			simulateComboboxChange(eventNameCombobox, secondEventName);
+
+			resolveSecondPayload(secondPayload);
+			await flushPromises();
+			resolveFirstPayload(firstPayload);
+			await flushPromises();
+
+			const textarea = element.shadowRoot.querySelector('lightning-textarea');
+			expect(textarea.value).toBe(JSON.stringify(secondPayload, null, 2));
 		});
 
 		it('shows no events placeholder when type has empty channels', async() =>

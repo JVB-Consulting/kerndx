@@ -12,7 +12,7 @@
  * Handles subscribing, publishing, tracking events,
  * UI navigation, error handling and rendering logic.
  *
- * @date March 2026, July 2026
+ * @date March 2026, October 2026
  */
 import {LightningElement, track} from 'lwc';
 import {
@@ -116,9 +116,23 @@ function classifyStreamingError(error, isErrorSuppressed)
 	return {showToast: true, errorMessage: defaultMessage};
 }
 
+/**
+ * @description Turns a replay id into the number the streaming library expects. The subscribe forms send the
+ * replay id as text (for example '-1'). A value that is empty or is not a number is returned unchanged, so the
+ * streaming library still decides what to do with it.
+ *
+ * @param {string|number} replayId - The replay id from the subscribe form.
+ * @returns {string|number} The replay id as a number, or the value unchanged when it is not a number.
+ */
+function toReplayIdNumber(replayId)
+{
+	const isBlank = replayId === null || replayId === undefined || String(replayId).trim() === '';
+	const replayIdNumber = Number(replayId);
+	return !isBlank && Number.isFinite(replayIdNumber) ? replayIdNumber : replayId;
+}
+
 // ── Component ────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingMonitor extends LightningElement
 {
 	// ── Internal State ───────────────────────────────────────────────────
@@ -149,6 +163,17 @@ export default class StreamingMonitor extends LightningElement
 	 * listener reference that connect added.
 	 */
 	boundHandleWindowResize = this.handleWindowResize.bind(this);
+
+	/**
+	 * @description True once this component has given its error listener to the streaming library. The library
+	 * has no way to remove a listener, so the component gives it only once, even when it is connected again.
+	 */
+	isErrorListenerRegistered = false;
+
+	/**
+	 * @description True while the component is on the page. Errors that arrive while it is removed are ignored.
+	 */
+	isComponentConnected = false;
 
 	// ── Computed Properties ──────────────────────────────────────────────
 
@@ -185,14 +210,26 @@ export default class StreamingMonitor extends LightningElement
 	// ── Lifecycle ────────────────────────────────────────────────────────
 
 	/**
-	 * @description Initializes EMP API, registers the error handler,
-	 * binds the resize listener and loads channels.
+	 * @description Initializes EMP API, registers the error handler once,
+	 * binds the resize listener and loads channels. If the channels cannot be loaded,
+	 * the list of channels is set to empty, so the loading spinner stops.
 	 */
 	async connectedCallback()
 	{
+		this.isComponentConnected = true;
 		setDebugFlag(true);
 
-		onError((error) => this.handleStreamingError(error));
+		if(!this.isErrorListenerRegistered)
+		{
+			this.isErrorListenerRegistered = true;
+			onError((error) =>
+			{
+				if(this.isComponentConnected)
+				{
+					this.handleStreamingError(error);
+				}
+			});
+		}
 
 		// Attached synchronously, before the channel round trip, so a teardown while the
 		// load is in flight still finds the listener registered and removes it — attaching
@@ -206,17 +243,19 @@ export default class StreamingMonitor extends LightningElement
 		catch(error)
 		{
 			utilityLogger.error('Failed to retrieve streaming channels', error);
+			this.channels = {};
 		}
 	}
 
 	/**
 	 * @description Cleanup on component removal.
-	 * Unsubscribes from all channels, removes the resize listener,
+	 * Unsubscribes from all channels without showing a toast, removes the resize listener,
 	 * and clears any pending debounce and error-suppression timers.
 	 */
 	disconnectedCallback()
 	{
-		this.handleUnsubscribeAll();
+		this.isComponentConnected = false;
+		this.unsubscribeFromAllChannels();
 		window.removeEventListener('resize', this.boundHandleWindowResize);
 		clearTimeout(this.resizeDebounceTimer);
 		clearTimeout(this.subscribeErrorSuppressionTimer);
@@ -251,12 +290,12 @@ export default class StreamingMonitor extends LightningElement
 	 *
 	 * @param {CustomEvent} event - Contains new view name.
 	 */
-	handleNavigate(event)
+	async handleNavigate(event)
 	{
 		this.view = event.detail;
 		if(ACTION_VIEWS.has(this.view))
 		{
-			this.refreshChannels();
+			await this.refreshChannels();
 		}
 	}
 
@@ -339,12 +378,24 @@ export default class StreamingMonitor extends LightningElement
 
 			this.suppressSubscribeErrorsTemporarily();
 
-			const subscriptions = await this.subscribeToChannels(channels, replayId);
+			const {subscriptions, failedChannels} = await this.subscribeToChannels(channels, replayId);
 
+			// The channels that did subscribe are kept even when others failed, so they can still be
+			// unsubscribed and are torn down with the component.
 			this.saveSubscriptions(subscriptions);
 
-			this.notify(TOAST_VARIANT.SUCCESS, SUBSCRIBED_ALL_TITLE, SUBSCRIBED_ALL_BODY);
-			this.view = VIEW_MODES.MONITOR;
+			if(failedChannels.length > 0)
+			{
+				this.notifySubscribeFailure(failedChannels);
+			}
+			else
+			{
+				this.notify(TOAST_VARIANT.SUCCESS, SUBSCRIBED_ALL_TITLE, SUBSCRIBED_ALL_BODY);
+			}
+			if(subscriptions.length > 0)
+			{
+				this.view = VIEW_MODES.MONITOR;
+			}
 		}
 		catch(error)
 		{
@@ -367,10 +418,20 @@ export default class StreamingMonitor extends LightningElement
 			return;
 		}
 
-		const subscription = await subscribe(channel, replayId, (streamingEvent) =>
+		let subscription;
+		try
 		{
-			this.handleStreamingEvent(streamingEvent);
-		});
+			subscription = await subscribe(channel, toReplayIdNumber(replayId), (streamingEvent) =>
+			{
+				this.handleStreamingEvent(streamingEvent);
+			});
+		}
+		catch(error)
+		{
+			utilityLogger.error('Failed to subscribe to channel', {channel, error});
+			this.notifySubscribeFailure([channel]);
+			return;
+		}
 		this.notify(TOAST_VARIANT.SUCCESS, SUBSCRIBED_ONE_TITLE, subscription.channel);
 		this.saveSubscription(subscription);
 		this.view = VIEW_MODES.MONITOR;
@@ -418,9 +479,19 @@ export default class StreamingMonitor extends LightningElement
 	}
 
 	/**
-	 * @description Unsubscribes from all active channels.
+	 * @description Unsubscribes from all active channels when the user asks, and shows a success toast.
 	 */
 	handleUnsubscribeAll()
+	{
+		this.unsubscribeFromAllChannels();
+		this.notify(TOAST_VARIANT.SUCCESS, UNSUBSCRIBED_ALL_TITLE, UNSUBSCRIBED_ALL_BODY);
+	}
+
+	/**
+	 * @description Clears the shown events and unsubscribes from all active channels, without a toast.
+	 * The button handler and the component teardown both use it.
+	 */
+	unsubscribeFromAllChannels()
 	{
 		if(!this.cachedEventsComponent)
 		{
@@ -443,8 +514,6 @@ export default class StreamingMonitor extends LightningElement
 			});
 		});
 		this.subscriptions = [];
-
-		this.notify(TOAST_VARIANT.SUCCESS, UNSUBSCRIBED_ALL_TITLE, UNSUBSCRIBED_ALL_BODY);
 	}
 
 	/**
@@ -545,7 +614,7 @@ export default class StreamingMonitor extends LightningElement
 			return [CHANNEL_ALL_CDC];
 		}
 
-		return this.channels[typeName].map((c) => getChannelPrefix(typeName) + c.value);
+		return (this.channels[typeName] ?? []).map((c) => getChannelPrefix(typeName) + c.value);
 	}
 
 	/**
@@ -559,7 +628,7 @@ export default class StreamingMonitor extends LightningElement
 		const typeName = type.value;
 		const prefix = getChannelPrefix(typeName);
 
-		return this.channels[typeName]
+		return (this.channels[typeName] ?? [])
 		.filter((c) => isCustomChannel(typeName, c.value))
 		.map((c) => prefix + c.value);
 	}
@@ -574,7 +643,7 @@ export default class StreamingMonitor extends LightningElement
 	{
 		const prefix = getChannelPrefix(typeName);
 
-		return this.channels[typeName].map((c) => prefix + c.value);
+		return (this.channels[typeName] ?? []).map((c) => prefix + c.value);
 	}
 
 	/**
@@ -605,14 +674,42 @@ export default class StreamingMonitor extends LightningElement
 	 * @description Calls EMP API subscribe for multiple channels.
 	 *
 	 * @param {Array<string>} channels - Channels to subscribe to.
-	 * @param {string} replayId - Replay ID for the subscription.
-	 * @returns {Promise<Array>} Array of subscription objects.
+	 * @param {string|number} replayId - Replay ID for the subscription, as text or as a number.
+	 * @returns {Promise<{subscriptions: Array<Object>, failedChannels: Array<string>}>} The subscriptions that were made,
+	 * and the names of the channels that could not be subscribed to. One failure does not lose the others.
 	 */
-	subscribeToChannels(channels, replayId)
+	async subscribeToChannels(channels, replayId)
 	{
-		const subscribePromises = channels.map((channel) => subscribe(channel, replayId, (evt) => this.handleStreamingEvent(evt)));
+		const replayIdNumber = toReplayIdNumber(replayId);
+		const subscribePromises = channels.map((channel) => subscribe(channel, replayIdNumber, (evt) => this.handleStreamingEvent(evt)));
 
-		return Promise.all(subscribePromises);
+		const results = await Promise.allSettled(subscribePromises);
+		const subscriptions = [];
+		const failedChannels = [];
+		results.forEach((result, index) =>
+		{
+			if(result.status === 'fulfilled')
+			{
+				subscriptions.push(result.value);
+			}
+			else
+			{
+				utilityLogger.error('Failed to subscribe to channel', {channel: channels[index], error: result.reason});
+				failedChannels.push(channels[index]);
+			}
+		});
+		return {subscriptions, failedChannels};
+	}
+
+	/**
+	 * @description Shows an error toast that names the channels that could not be subscribed to and points to the
+	 * developer console for the reason.
+	 *
+	 * @param {Array<string>} failedChannels - The channels whose subscribe call failed.
+	 */
+	notifySubscribeFailure(failedChannels)
+	{
+		this.notify(TOAST_VARIANT.ERROR, ERROR_STREAMING_TITLE, `${failedChannels.join(', ')} - ${ERROR_SEE_DEV_CONSOLE}`);
 	}
 
 	/**

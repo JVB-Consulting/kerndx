@@ -5,7 +5,7 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, September 2026
+ * @date April 2026, October 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
@@ -202,6 +202,8 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 	// a deep link, cleared by the pill; a change reloads from page one once the list has loaded at all.
 	scopedRoot = null;
 	hasLoadedOnce = false;
+	// Counts the list requests; an answer is taken only while its request is the newest (see loadData).
+	loadSequence = 0;
 	// Whether the viewport is at the compact width (1280 and below). Read from matchMedia when the browser has it; jsdom
 	// does not, and the list then keeps the full column set.
 	isCompactWidth = false;
@@ -380,18 +382,21 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 	}
 
 	/**
-	 * @description Stops following the viewport when the list leaves the page, so the listener added on connect does
-	 * not outlive it.
+	 * @description Runs the base component's teardown first, then stops following the viewport when the list leaves
+	 * the page, so the listener added on connect does not outlive it.
 	 */
 	// noinspection JSUnusedGlobalSymbols - LWC framework lifecycle hook
 	disconnectedCallback()
 	{
+		super.disconnectedCallback();
 		this.compactMediaQuery?.removeEventListener('change', this.handleCompactWidthChange);
 	}
 
 	async loadData()
 	{
 		this.hasLoadedOnce = true;
+		this.loadSequence++;
+		const requestSequence = this.loadSequence;
 		// Nothing can match an empty set of statuses, so the list says so rather than sending the empty
 		// set as "no status filter", which returns every chain and looks exactly like every status
 		// ticked, leaving nothing on screen to tell the two apart.
@@ -402,6 +407,8 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 			this.totalPages = 0;
 			this.hasMorePages = false;
 			this.selectExecution(null);
+			// A request still in flight is now outdated and will not clear the spinner itself.
+			this.isLoading = false;
 			return;
 		}
 
@@ -418,6 +425,14 @@ export default class ChainMonitorList extends ComponentBuilder('controller', 'no
 		};
 
 		const data = await this.callControllerMethod(getChainExecutions, {requestJson: JSON.stringify(request)});
+
+		// Only the newest request wins. The container refreshes the list on every log event, so a refresh sent
+		// with an older filter, sort or page can answer last; written as it lands, it would show rows the
+		// current filter excludes and move the selection to one of them. The newer request clears the spinner.
+		if(requestSequence !== this.loadSequence)
+		{
+			return;
+		}
 		if(data?.records)
 		{
 			this.records = data.records.map((record) =>

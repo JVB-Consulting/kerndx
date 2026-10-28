@@ -9,7 +9,7 @@
  * It controls visibility of the sidebar and dispatches navigation
  * and toggle events to the parent component.
  *
- * @date March 2026, May 2026, July 2026
+ * @date March 2026, October 2026
  */
 import {LightningElement, api} from 'lwc';
 import NAV_ORG_LIMITS from '@salesforce/label/c.OrgLimits_CardTitle';
@@ -23,13 +23,11 @@ import NAV_REGISTER from '@salesforce/label/c.StreamingSidebar_NavRegister';
 import SECTION_DASHBOARDS from '@salesforce/label/c.StreamingSidebar_SectionDashboards';
 import EVENT_USAGE_METRICS from '@salesforce/label/c.EventUsageMetrics_CardTitle';
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class StreamingSidebar extends LightningElement
 {
 	// ── Internal State ───────────────────────────────────────────────────
 
 	isSidebarVisible = true;
-	lastSelectedItem;
 
 	/**
 	 * @description Static label strings the template renders, grouped so the markup reads `{labels.x}`.
@@ -108,7 +106,8 @@ export default class StreamingSidebar extends LightningElement
 	 */
 	get toggleButtonClasses()
 	{
-		return `slds-button slds-button_icon slds-button_icon slds-split-view__toggle-button slds-is-${this.isSidebarVisible ? 'open' : 'closed'}`;
+		return `slds-button slds-button_icon slds-button_icon slds-split-view__toggle-button slds-is-${this.isSidebarVisible ? 'open'
+				: 'closed'} sidebar-toggle_${this.isSidebarVisible ? 'open' : 'closed'}`;
 	}
 
 	// ── Event Handlers ───────────────────────────────────────────────────
@@ -129,22 +128,24 @@ export default class StreamingSidebar extends LightningElement
 
 	/**
 	 * @description Handles user selection from the sidebar navigation menu.
-	 * If the selected item differs from the current active item,
-	 * emits a 'navigate' event to the parent component with the
-	 * selected menu name.
+	 * If the selected item differs from the item the parent shows now
+	 * (`selectedItem`), emits a 'navigate' event to the parent component
+	 * with the selected menu name. The check uses the parent's value, not
+	 * the last click, because the parent can move to another view on its
+	 * own (after a publish it shows the monitor), and a click on the
+	 * earlier item must then navigate again.
 	 *
 	 * @param {CustomEvent} event - The selection event from the menu item.
 	 */
 	handleMenuSelect(event)
 	{
 		const selection = event.detail.name;
-		if(selection !== this.lastSelectedItem)
+		if(selection !== this.selectedItem)
 		{
 			const navigateEvent = new CustomEvent('navigate', {
 				detail: selection
 			});
 			this.dispatchEvent(navigateEvent);
-			this.lastSelectedItem = selection;
 		}
 	}
 }
