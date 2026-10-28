@@ -117,9 +117,12 @@ global inherited sharing class UTIL_FormulaFilter
 
 	/**
 	 * @description Filters the given lists of new and old SObjects based on the entry criteria formula.
-	 * 
+	 *
 	 * This method evaluates the entry criteria formula for each record in the `triggerNew` and `triggerOld`.
 	 * If the formula evaluates to true for a record, it is included in the filtered lists.
+	 *
+	 * When the context class also implements UTIL_ValidationRule.INT_BulkValidationContext, its preLoad method runs once per
+	 * call when there is at least one record, before any record is checked; on a delete it gets the deleted records first and null second.
 	 *
 	 * _NOTE: Make sure that if both the old and new records lists are not null they are the same size_
 	 *
@@ -156,6 +159,11 @@ global inherited sharing class UTIL_FormulaFilter
 
 		Integer numberOfRecords = (newRecords?.size() ?? oldRecords?.size()) ?? 0;
 
+		if(numberOfRecords > 0)
+		{
+			runPreLoad(evaluationContext, oldRecords, newRecords);
+		}
+
 		for(Integer i = 0; i < numberOfRecords; i++)
 		{
 			SObject newRecord = newRecords?.get(i);
@@ -178,6 +186,31 @@ global inherited sharing class UTIL_FormulaFilter
 		}
 
 		return dtoFilterResults;
+	}
+
+	/**
+	 * @description Calls preLoad once when the context class also implements UTIL_ValidationRule.INT_BulkValidationContext,
+	 * passing the records the same way the validation rules do: the new records first, or the deleted records on a delete.
+	 *
+	 * @param evaluationContext The context instance that checks every record
+	 * @param oldRecords The old records, or null on an insert or an undelete
+	 * @param newRecords The new records, or null on a delete
+	 */
+	private static void runPreLoad(INT_SObjectFormulaEvaluationContext evaluationContext, List<SObject> oldRecords, List<SObject> newRecords)
+	{
+		if(evaluationContext instanceof UTIL_ValidationRule.INT_BulkValidationContext)
+		{
+			UTIL_ValidationRule.INT_BulkValidationContext bulkContext = (UTIL_ValidationRule.INT_BulkValidationContext)evaluationContext;
+
+			if(newRecords == null)
+			{
+				bulkContext.preLoad(oldRecords, null);
+			}
+			else
+			{
+				bulkContext.preLoad(newRecords, oldRecords);
+			}
+		}
 	}
 
 	/**
@@ -205,7 +238,9 @@ global inherited sharing class UTIL_FormulaFilter
 	global inherited sharing class DTO_FilterResults
 	{
 		/**
-		 * @description The filtered list of new SObjects.
+		 * @description The old versions of the records that matched the formula, in the order you passed them. When the
+		 * filter has no formula or no context class, it is the old list you passed in, unchanged. It is never null: an
+		 * empty list is returned instead.
 		 *
 		 * @since 1.0
 		 *
@@ -229,7 +264,9 @@ global inherited sharing class UTIL_FormulaFilter
 		}
 
 		/**
-		 * @description The filtered list of old SObjects.
+		 * @description The new versions of the records that matched the formula, in the order you passed them. When the
+		 * filter has no formula or no context class, it is the new list you passed in, unchanged. It is never null: an
+		 * empty list is returned instead.
 		 *
 		 * @since 1.0
 		 *
@@ -305,13 +342,15 @@ global inherited sharing class UTIL_FormulaFilter
 	}
 
 	/**
-	 * @description Creates a new instance of a formula evaluation context.
+	 * @description Finds the context class by name through UTIL_System.getTypeForClassName, so a class in your namespace
+	 * is found, and creates it with its no-argument constructor. A name that matches no class throws
+	 * IllegalArgumentException.
 	 *
 	 * @param contextClassName The fully qualified class name of the context
 	 *
 	 * @return New instance of the context class
 	 *
-	 * @throws TypeException If the class cannot be found or instantiated
+	 * @throws TypeException If the class does not implement INT_SObjectFormulaEvaluationContext
 	 *
 	 * @example
 	 * ```apex

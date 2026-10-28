@@ -73,6 +73,11 @@ public inherited sharing class TRG_SetDefaults extends TRG_Base implements IF_Tr
 }
 ```
 
+> **`global` or `public`?** The framework runs your action class by its name, so it must be able to see the class. Declare
+> the class `global`, or keep it `public` and set up a Type Resolver (it tells the framework where to find your own
+> classes). The samples in this guide use `public` to stay short. See
+> [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
+
 For deeper coverage, continue reading the sections below.
 
 ---
@@ -96,7 +101,6 @@ For deeper coverage, continue reading the sections below.
         - [When to Use KernDX Trigger Action Framework](#when-to-use-kerndx-trigger-action-framework)
         - [When to Use OOTB Trigger Patterns](#when-to-use-ootb-trigger-patterns)
         - [Example Comparison](#example-comparison)
-    - [Legacy Handler Pattern](#legacy-handler-pattern)
 8. [What are the moving parts?](#what-are-the-moving-parts)
     - [Core Classes](#core-classes)
         - [TRG_Base](#trg_base)
@@ -120,10 +124,10 @@ For deeper coverage, continue reading the sections below.
         - [Event__c (Required)](#event__c-required)
         - [TriggerSetting__c (Required)](#triggersetting__c-required)
         - [Order__c (Required)](#order__c-required)
-        - [AllowRecursion__c (Developer Controlled)](#allowrecursion__c-developer-controlled)
-        - [AllowNonSelfInitiated__c (Developer Controlled)](#allownonselfinitiated__c-developer-controlled)
+        - [AllowRecursion__c (Subscriber Controlled)](#allowrecursion__c-subscriber-controlled)
+        - [AllowNonSelfInitiated__c (Subscriber Controlled)](#allownonselfinitiated__c-subscriber-controlled)
         - [BypassExecution__c (Subscriber Controlled)](#bypassexecution__c-subscriber-controlled-1)
-        - [Entry Criteria Fields (Developer Controlled)](#entry-criteria-fields-developer-controlled)
+        - [Entry Criteria Fields (Subscriber Controlled)](#entry-criteria-fields-subscriber-controlled)
         - [Description__c (Required)](#description__c-required)
 10. [Flow as a Trigger Action](#flow-as-a-trigger-action)
     - [Which user's permissions does the flow run with?](#which-users-permissions-does-the-flow-run-with)
@@ -195,6 +199,7 @@ For deeper coverage, continue reading the sections below.
     - [Audit Trail Pattern](#audit-trail-pattern)
 18. [Testing](#testing)
     - [Testing Individual Actions](#testing-individual-actions)
+    - [Testing an Action Without DML](#testing-an-action-without-dml)
     - [Testing with Bypass](#testing-with-bypass)
     - [Testing Action Coordination](#testing-action-coordination)
     - [Testing Multiple Actions in Order](#testing-multiple-actions-in-order)
@@ -253,7 +258,7 @@ The goal is to keep trigger logic small, testable, and easy to change without re
 - **An off-switch with no deployment.** Disable an action at runtime during a load or an incident, then switch it back on.
 - **The same logic on more than one object.** Point a single action class at several objects through configuration.
 
-> **Trigger Framework Scope:** 7 `TRG_*` handler classes and 7 one-line trigger files that hand control to the framework (`TRG_ApiCall`, `TRG_ApiIssue`,
+> **Trigger Framework Scope:** 10 `TRG_*` trigger action classes and 7 one-line trigger files that hand control to the framework (`TRG_ApiCall`, `TRG_ApiIssue`,
 `TRG_AsyncChainExecution`, `TRG_BatchApexErrorEvent`, `TRG_Foobar`, `TRG_LogEntryEvent`, `TRG_ScheduledJob`). All of it is driven by `TriggerSetting__mdt`
 > and `TriggerAction__mdt` custom metadata. It supports object-level and action-level bypass, entry criteria formulas, ordered execution, and an audit trail on every
 > programmatic bypass call.
@@ -511,12 +516,6 @@ public inherited sharing class TRG_AccountPopulateNumber extends TRG_Base
 
 ---
 
-### Legacy Handler Pattern
-
-If you see older `TRH_*` handler classes in the package, they are kept only so existing code keeps working. They have been replaced by the Trigger Action Framework, so write all new logic with the `TRG_*` pattern.
-
----
-
 ## What are the moving parts?
 
 ### Core Classes
@@ -646,7 +645,7 @@ One record per piece of logic. Each row points at an action (an Apex class or a 
 |------------------------------------|-------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `ApexClassName__c`                 | Text(100)                                 | Fully qualified Apex class name. Set this for Apex actions; leave blank for flow actions (the framework dispatches to its built-in flow runner when `FlowName__c` is populated).                                                      |
 | `FlowName__c`                      | Text(80)                                  | Bare flow API name for flow-based actions. Leave blank for Apex actions.                                                                                                                                                              |
-| `FailureAction__c`                 | Picklist                                  | How the dispatcher handles uncaught errors raised by the action. `LogAndContinue` (default) emits a log entry and lets DML proceed; `BlockDml` calls `record.addError(...)` to halt the save. Applies to Apex and flow actions alike. |
+| `FailureAction__c`                 | Picklist                                  | How the dispatcher handles uncaught errors raised by the action. `LogAndContinue` (default) emits a log entry and lets DML proceed. `BlockDml` halts the save. For an Apex action, the dispatcher logs the error and throws it again, so the whole DML rolls back. For a flow action, it calls `record.addError(...)` on the record whose flow failed. |
 | `Event__c`                         | Picklist (Required)                       | [Trigger event](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers_order_of_execution.htm): Before Insert, After Insert, Before Update, After Update, Before Delete, After Delete, After Undelete |
 | `TriggerSetting__c`                | MetadataRelationship(TriggerSetting__mdt) | Link to the parent TriggerSetting for the target SObject                                                                                                                                                                              |
 | `Order__c`                         | Number(4,0)                               | Execution order (lower = earlier)                                                                                                                                                                                                     |
@@ -678,7 +677,7 @@ Each field below is tagged with who can change it: **(Subscriber Controlled)** m
 #### SObjectType__c (Required)
 
 **Purpose:** Identifies which SObject this setting applies to via
-a [MetadataRelationship](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_class_System_TriggerOperation.htm) to `EntityDefinition`.
+a MetadataRelationship (a custom metadata relationship field) to `EntityDefinition`.
 
 **Format:** Select the SObject from the EntityDefinition lookup (e.g., `Account`, `Contact`, `Foobar__c`).
 
@@ -719,7 +718,7 @@ Bypass Execution: true
 
 **When to Use:**
 
-- Emergency kill switches for trigger logic
+- Emergency kill switches for trigger logic (a master off-switch you can flip in an incident without a deployment)
 - Targeted bypass for specific user groups via Feature Flag strategies
 - Data migration processes with controlled bypass
 
@@ -759,7 +758,7 @@ Required Feature Flag: Enable_Account_Validation
 
 **Purpose:** Enable performance logging for all trigger actions on this object.
 
-**Default:** `false`
+**Default:** `true`
 
 **When to Use:**
 
@@ -835,7 +834,7 @@ is committed.
 **Format:**
 
 - Unmanaged: `TRG_SetExternalReference`
-- Managed: `namespace__TRG_SetExternalReference` or `namespace.TRG_SetExternalReference`
+- Managed: `namespace.TRG_SetExternalReference`
 
 **Validation:**
 
@@ -917,7 +916,7 @@ Order 40: TRG_CreateRelatedRecords (final operations)
 Order: 10
 ```
 
-#### AllowRecursion__c (Developer Controlled)
+#### AllowRecursion__c (Subscriber Controlled)
 
 **Purpose:** Controls whether action can execute recursively.
 
@@ -941,7 +940,7 @@ Order: 10
 Allow Recursion: false
 ```
 
-#### AllowNonSelfInitiated__c (Developer Controlled)
+#### AllowNonSelfInitiated__c (Subscriber Controlled)
 
 **Purpose:** Controls whether action executes when called from another trigger.
 
@@ -981,7 +980,7 @@ Allow Non Self-Initiated: true
 Bypass Execution: true
 ```
 
-#### Entry Criteria Fields (Developer Controlled)
+#### Entry Criteria Fields (Subscriber Controlled)
 
 **EntryCriteriaFormula__c**
 
@@ -995,6 +994,11 @@ Bypass Execution: true
 2. Sets newRecord/oldRecord properties
 3. Evaluates formula using FormulaEval
 4. Only records where formula = true are passed to action
+
+If your context class also implements `kern.UTIL_ValidationRule.INT_BulkValidationContext`, its `preLoad()` method runs before the formula
+is checked, as it does for validation rules. It runs once for each trigger action that uses it, on each batch of records. Each of those runs
+counts its queries towards the save's query limit (100 queries in a normal save), so check what yours queries. If `preLoad()` throws an
+error, the save stops with that error, whatever the action's `FailureAction__c` says, as it does when the formula itself is wrong.
 
 **Example:**
 
@@ -1211,7 +1215,7 @@ policy.
 | Strategy                   | Behaviour on action error                                                                                                                                      | Recommended for                                                                                                                                                                 |
 |----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `LogAndContinue` (default) | Emits a `LogEntryEvent__e` via `LOG_Builder` with `LogLevel__c = ERROR`, the action identity, the record id, and the original error message. **DML proceeds.** | Orchestration, derived-field population, notifications, supplemental logging: anything where a single action's failure should be visible but should not block the user's save. |
-| `BlockDml`                 | Calls `record.addError(formattedMessage)` to block DML. Surfaces the error to the user.                                                                        | Validation actions where the trigger should reject records that fail the action's checks.                                                                                       |
+| `BlockDml`                 | Apex action: logs the error, then throws it again, so the whole DML rolls back. Flow action: calls `record.addError(formattedMessage)` on the record whose flow failed. Either way the error reaches the user. | Validation actions where the trigger should reject records that fail the action's checks.                                                                                       |
 
 The formatted error message for flow actions has the shape:
 
@@ -1232,7 +1236,7 @@ history for the same record.
 The framework starts one flow interview per record, synchronously, inside the trigger. That sounds expensive for a
 200-record data load, but Salesforce batches flow element execution across the interviews in a transaction: when the
 same flow runs for many records, a Get Records element issues one query in total, not one per record, and the same
-batching applies to Create and Update elements. Measured against the shipped package in a subscriber org, query and
+batching applies to Create and Update elements. Measured against the shipped package installed in an org, query and
 DML statement counts stayed constant whether a save carried 1, 10, or 100 records.
 
 Two practical rules follow:
@@ -1279,7 +1283,7 @@ existing `LogLevelThreshold__c` precedent on the same custom setting):
 
 | Value                  | Success path                                                                                                           | Error path                                                                 | When to use                                                                                                                       |
 |------------------------|------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
-| `Off`                  | No emission                                                                                                            | No emission                                                                | Integration-only orgs where audit volume is excessive and external observability already covers the path.                         |
+| `Off`                  | No emission                                                                                                            | No emission                                                                | Integration-only orgs where audit volume is excessive and external observability (seeing what your code actually did in production, a searchable, kept record) already covers the path. |
 | `ErrorsOnly` (default) | No emission                                                                                                            | One entry per failed record (with `RecordId__c` set, queryable per-record) | Production default: bounded volume, with a kept record of every failure.                                                          |
 | `AlwaysOn`             | One per-batch summary entry per dispatch (record ids serialised into `ContextData__c.recordIds`, `RecordId__c = null`) | One entry per failed record                                                | High-regulation orgs where every flow trigger run must be evidenced. Heavy DML multiplies entry volume, so measure before flipping. |
 
@@ -1488,6 +1492,8 @@ To change data from a post-action, use an **asynchronous** path instead: enqueue
 publish a Platform Event. These are the supported ways to write data from a post-action, and they do not trip the guard.
 
 ### Intended uses and anti-patterns
+
+An anti-pattern is a common risky mistake. The right column lists the jobs that do not belong in a post-trigger action.
 
 | Good fit (use a post-trigger action)                                        | Poor fit (use a normal trigger action instead)                 |
 |-----------------------------------------------------------------------------|----------------------------------------------------------------|
@@ -1762,7 +1768,7 @@ public inherited sharing class TRG_CascadePhoneUpdate extends TRG_Base implement
 			// Query and update contacts using QRY_Builder
 			List<Contact> contactsToUpdate = QRY_Builder.selectFrom(Contact.SObjectType)
 				.addFields(new List<SObjectField>{Contact.Id, Contact.AccountId, Contact.Phone})
-				.condition(Contact.AccountId).isIn(accountIdToNewPhone.keySet())
+				.condition(Contact.AccountId).isIn(new List<Id>(accountIdToNewPhone.keySet()))
 				.toList();
 
 			for(Contact contact : contactsToUpdate)
@@ -1954,7 +1960,7 @@ public inherited sharing class SEL_Contacts extends SEL_Base
 List<Contact> contacts = new SEL_Contacts().findByAccountIds(new Map<Id, Account>(newAccounts).keySet());
 ```
 
-The first action to call `findByAccountIds` runs the query; every later call in the same transaction with the same Ids gets its own copy of the rows from memory. (This selector reads in user mode, the default while the `UserModeQueries_Enabled` feature flag is on. With the flag switched off its reads run in system mode, and because `findByAccountIds` does not state its sharing, they are not cached. A selector that reads in system mode caches only in methods that state their sharing with `withSharing()` or `bypassSharing()`.) The actions stay independent: none of them needs to know which one runs first, an action can be switched off without breaking the others, and each can be tested on its own.
+The first action to call `findByAccountIds` runs the query; every later call in the same transaction with the same Ids gets its own copy of the rows from memory. (This selector reads in user mode. User mode enforces the current user's read and write permissions and record sharing, and system mode skips all of those checks. User mode is the default while the `UserModeQueries_Enabled` feature flag is on. With the flag switched off its reads run in system mode, and because `findByAccountIds` does not state its sharing, they are not cached. A selector that reads in system mode caches only in methods that state their sharing with `withSharing()` or `bypassSharing()`.) The actions stay independent: none of them needs to know which one runs first, an action can be switched off without breaking the others, and each can be tested on its own.
 
 A write through `DML_Builder` between two actions empties the cache, so the next read queries again and sees the write. The [Selectors Guide](Selectors%20-%20Guide.md#caching-queries) covers the scopes, what empties the cache and which reads are never kept.
 
@@ -2036,7 +2042,7 @@ public inherited sharing class TRG_CacheAccountContacts extends TRG_Base impleme
 		// Query all contacts for these accounts
 		List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
 			.addFields(new List<SObjectField>{Contact.Id, Contact.AccountId, Contact.FirstName, Contact.LastName, Contact.Email, Contact.Phone, Contact.Title})
-			.condition(Contact.AccountId).isIn(accountIds)
+			.condition(Contact.AccountId).isIn(new List<Id>(accountIds))
 			.toList();
 
 		// Build cache map
@@ -2175,7 +2181,8 @@ public inherited sharing class TRG_UpdateAccountContactSummary extends TRG_Base 
 Label: Cache Account Contacts
 Developer Name: Account_CacheContacts
 Apex Class Name: TRG_CacheAccountContacts
-Before Update: Account_Trigger_Setting
+Event: Before Update
+Trigger Setting: Account
 Order: 10
 Description: Queries and caches Contact data for use by later actions
 ```
@@ -2186,7 +2193,8 @@ Description: Queries and caches Contact data for use by later actions
 Label: Validate Premium Account Contacts
 Developer Name: Account_ValidatePremiumContacts
 Apex Class Name: TRG_ValidatePremiumAccountContacts
-Before Update: Account_Trigger_Setting
+Event: Before Update
+Trigger Setting: Account
 Order: 20
 Description: Validates premium accounts have at least one contact using cached data
 ```
@@ -2197,7 +2205,8 @@ Description: Validates premium accounts have at least one contact using cached d
 Label: Update Account Contact Summary
 Developer Name: Account_UpdateContactSummary
 Apex Class Name: TRG_UpdateAccountContactSummary
-Before Update: Account_Trigger_Setting
+Event: Before Update
+Trigger Setting: Account
 Order: 30
 Description: Updates NumberOfContacts__c and PrimaryContactName__c using cached data
 ```
@@ -2436,7 +2445,8 @@ Order 30: TRG_UpdateAccountSummary (different action)
 
 ```text
 All actions:
-  Before Update: Case_Trigger_Setting
+  Event: Before Update
+  Trigger Setting: Case
   Allow Recursion: false (prevent infinite loops)
 
 TRG_CacheQuestionData:
@@ -2510,7 +2520,7 @@ public inherited sharing class TRG_UpdateAccountFromContact extends TRG_Base imp
 
 		List<Account> accountsToUpdate = QRY_Builder.selectFrom(Account.SObjectType)
 			.addFields(new List<SObjectField>{Account.Id, Account.LastContactUpdateDate__c})
-			.condition(Account.Id).isIn(accountIds)
+			.condition(Account.Id).isIn(new List<Id>(accountIds))
 			.toList();
 
 		for(Account account : accountsToUpdate)
@@ -2587,7 +2597,7 @@ of who bypassed which actions and why.
 
 ```text
 TriggerSetting__mdt:
-  Object API Name: Account
+  SObject Type: Account
   Bypass Execution: true
 ```
 
@@ -2679,12 +2689,23 @@ The `TRG_Base.BypassType` enum is available to your own code, so you can name a 
 literal. To query the audit log:
 
 ```apex
-List<LogEntry__c> bypassEvents = QRY_Builder.selectFrom(LogEntry__c.SObjectType)
+List<LogEntry__c> warnEntries = QRY_Builder.selectFrom(LogEntry__c.SObjectType)
 	.addFields(new List<String>{'ShortMessage__c', 'ContextData__c', 'CreatedById', 'CreatedDate'})
-	.condition('ContextData__c').contains('"category":"BypassEvent"')
+	.condition('LogLevel__c').equals('WARN')
 	.orderBy('CreatedDate').descending()
 	.withLimit(100)
 	.toList();
+
+// ContextData__c is a long text field, and SOQL cannot filter on it. Check the category in Apex.
+// The context is stored as pretty-printed JSON, so remove the whitespace before matching.
+List<LogEntry__c> bypassEvents = new List<LogEntry__c>();
+for(LogEntry__c entry : warnEntries)
+{
+	if(entry.ContextData__c != null && entry.ContextData__c.deleteWhitespace().contains('"category":"BypassEvent"'))
+	{
+		bypassEvents.add(entry);
+	}
+}
 ```
 
 **Why this matters:** bypasses weaken security and automation guarantees. The audit trail answers "which user
@@ -2785,9 +2806,9 @@ Custom Permissions are not referenced directly in these fields. To use permissio
 //   IsEnabledByDefault__c: false (disabled for most users)
 //
 // FeatureFlagStrategy__mdt:
-//   Strategy: Permission Set Group
-//   TargetValue: 'Beta_Testers'
-//   IsEnabled: true
+//   Type__c: Permission Set Group
+//   Target__c: 'Beta_Testers'
+//   IsActive__c: true
 
 // Step 2: Configure TriggerAction__mdt
 // RequiredFeatureFlag__c: 'Enable_New_Account_Validation'
@@ -2822,9 +2843,9 @@ Custom Permissions are not referenced directly in these fields. To use permissio
 //   IsActive__c: true
 //
 // FeatureFlagStrategy__mdt:
-//   Strategy: Profile
-//   TargetValue: 'Premium_User_Profile'
-//   IsEnabled: true
+//   Type__c: Profile
+//   Target__c: 'Premium_User_Profile'
+//   IsActive__c: true
 
 // Step 2: Configure TriggerAction__mdt
 // RequiredFeatureFlag__c: 'Enable_Premium_Validation'
@@ -3174,7 +3195,7 @@ public inherited sharing class TRG_CascadePhoneToContacts extends TRG_Base imple
 			// Query contacts using QRY_Builder
 			List<Contact> contactsToUpdate = QRY_Builder.selectFrom(Contact.SObjectType)
 				.addFields(new List<SObjectField>{Contact.Id, Contact.AccountId, Contact.Phone})
-				.condition(Contact.AccountId).isIn(accountIdToNewPhone.keySet())
+				.condition(Contact.AccountId).isIn(new List<Id>(accountIdToNewPhone.keySet()))
 				.toList();
 
 			// Update phones
@@ -3514,10 +3535,11 @@ When enabled, the framework:
 
 ```text
 LogEntry__c:
-  ShortMessage__c: "Trigger Performance: TRG_AccountValidateName"
-  Message__c: "Action: TRG_AccountValidateName | Operation: BEFORE_INSERT | Object: Account | Records: 200 | Duration: 1523ms"
-  LogLevel__c: "INFO"
-  ContextData__c: {"operationType":"TRIGGER_ACTION","actionName":"TRG_AccountValidateName","triggerOperation":"BEFORE_INSERT","objectName":"Account","recordCount":200,...}
+  ShortMessage__c: "TRG_AccountValidateName (BEFORE_INSERT) completed in 1523ms"
+  Message__c: "CPU: 1490ms, Heap: 48000 bytes, SOQL: 1, DML: 0, Records: 200"
+  ClassMethod__c: "TRG_AccountValidateName/before_insert"
+  LogLevel__c: "DEBUG"
+  ContextData__c: {"contextData" : {"_operationType" : "TRIGGER_ACTION", "actionClassName" : "TRG_AccountValidateName", "triggerOperation" : "BEFORE_INSERT", "objectName" : "Account", "recordCount" : "200", ...}}
 ```
 
 ### Configuration Hierarchy
@@ -3612,7 +3634,7 @@ The [TRG_Dispatcher](reference/apex/TRG_Dispatcher.md) class uses `UTIL_TriggerP
 // Find slow trigger actions in the last 24 hours
 List<LogEntry__c> slowTriggers = QRY_Builder.selectFrom(LogEntry__c.SObjectType)
 	.addFields(new List<String>{'ShortMessage__c', 'Message__c', 'DurationMs__c', 'ContextData__c', 'CreatedDate'})
-	.condition('ShortMessage__c').contains('Trigger Performance:')
+	.condition('ShortMessage__c').contains(' completed in ')
 	.andCondition('CreatedDate').greaterThanOrEquals(System.now().addDays(-1))
 	.orderBy('DurationMs__c').descending()
 	.withLimit(50)
@@ -3628,8 +3650,8 @@ for(LogEntry__c log : slowTriggers)
 
 Create a report on `LogEntry__c` with:
 
-- Filter: `ShortMessage__c` contains "Trigger Performance"
-- Group by: `ShortMessage__c` (action name)
+- Filter: `ShortMessage__c` contains "completed in" and `LogLevel__c` equals "DEBUG"
+- Group by: `ClassMethod__c` (action class and trigger operation, such as `TRG_AccountValidateName/before_insert`)
 - Summarise: `AVG(DurationMs__c)`, `MAX(DurationMs__c)`, `COUNT(Id)`
 
 **Best Practices:**
@@ -3691,8 +3713,8 @@ These are the common mistakes that make trigger logic hard to maintain. Each row
 3. **Prefer `inherited sharing` on action classes** - Use `inherited sharing` unless your action has a specific requirement for `with sharing`
    or `without sharing`. This respects the calling context and avoids unexpected permission issues.
 
-4. **Always set `AllowRecursion__c` deliberately** - Default to `false` for most actions to prevent infinite loops. Only enable recursion for
-   actions that must re-execute when their own changes trigger the object again (e.g., cascade updates).
+4. **Always set `AllowRecursion__c` deliberately** - The field defaults to `true`, which suits most actions. Set it to `false` for actions whose
+   own changes can fire the same trigger again (e.g., cascade updates that write to related records), so they cannot loop.
 
 5. **Use entry criteria to reduce processing** - Configure `EntryCriteriaFormula__c` on `TriggerAction__mdt` to skip actions when records do
    not meet conditions. This avoids unnecessary class instantiation and execution for irrelevant records.
@@ -3703,8 +3725,8 @@ These are the common mistakes that make trigger logic hard to maintain. Each row
 7. **Do not bypass triggers in production without a plan** - Use `BypassExecution__c` or `BypassFeatureFlag__c` sparingly. Document why a bypass
    exists and who should have it. Prefer Feature Flag-based bypasses over metadata checkboxes so that only targeted users skip trigger logic.
 
-8. **Test actions in isolation** - Each trigger action should have its own test class that configures the required `TriggerSetting__mdt` and
-   `TriggerAction__mdt` via `TST_Factory`, inserts records via `TST_Builder`, and asserts the expected outcome.
+8. **Test actions in isolation** - Each trigger action should have its own test class that builds records with `TST_Builder`, calls the
+   action's method directly, and asserts the expected outcome. You do not need any `TriggerSetting__mdt` or `TriggerAction__mdt` setup.
 
 ---
 
@@ -3890,7 +3912,7 @@ public inherited sharing class TRG_CacheContacts extends TRG_Base
 {
 	private static Map<Id, List<Contact>> cache;
 
-	public void beforeUpdate(List<Account> accounts)
+	public void beforeUpdate(List<Account> newAccounts, List<Account> oldAccounts)
 	{
 		// Query once, cache
 	}
@@ -3903,9 +3925,12 @@ public inherited sharing class TRG_CacheContacts extends TRG_Base
 
 public inherited sharing class TRG_Action1 extends TRG_Base
 {
-	public void beforeUpdate(List<Account> accounts)
+	public void beforeUpdate(List<Account> newAccounts, List<Account> oldAccounts)
 	{
-		List<Contact> contacts = TRG_CacheContacts.getCached(account.Id); // No query!
+		for(Account account : newAccounts)
+		{
+			List<Contact> contacts = TRG_CacheContacts.getCached(account.Id); // No query!
+		}
 	}
 }
 ```
@@ -3939,20 +3964,6 @@ DML_Builder.newTransaction().doInsert(tasks).execute();
 **Solutions:**
 
 1. Set `AllowRecursion__c = false` in metadata
-
-2. Add static flag:
-
-```apex
-private static Boolean hasExecuted = false;
-
-public void afterUpdate(List<Account> accounts)
-{
-	if(hasExecuted) return;
-	hasExecuted = true;
-
-	// ... logic that might cause recursion
-}
-```
 
 #### Issue: Type Exception
 

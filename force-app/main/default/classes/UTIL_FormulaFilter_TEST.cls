@@ -105,6 +105,46 @@ private class UTIL_FormulaFilter_TEST
 	private static final String VALID_FORMULA_SOME = 'newRecord.' + SEL_Foobar.FIELD_CHECK_BOX + ' = TRUE && oldRecord.' + SEL_Foobar.FIELD_INTEGER + ' > 0';
 
 	/**
+	 * @description Name of the test context class that also loads data for the whole batch in its preLoad method. Only
+	 * preLoad fills the values its formulas read, so a formula on it tells the test whether, how often and with what
+	 * preLoad ran.
+	 */
+	private static final String BULK_CONTEXT_CLASS_NAME = UTIL_FormulaContext.FoobarBulkContext.class.getName();
+
+	/**
+	 * @description The fewest records a batch test passes to the filter. It is more than one, so a test can tell one
+	 * preLoad call per batch from one per record.
+	 */
+	private static final Integer MINIMUM_BATCH_SIZE = 2;
+
+	/**
+	 * @description The number of queries the test context class runs in its preLoad method, and so the number a whole
+	 * batch may use.
+	 */
+	private static final Integer QUERIES_PER_BATCH = 1;
+
+	/**
+	 * @description The number of queries a call may use when preLoad must not run.
+	 */
+	private static final Integer NO_QUERIES = 0;
+
+	/**
+	 * @description The API name of the Name field on Foobar__c. The formulas compare it with the name preLoad saw on the
+	 * first record of its first list.
+	 */
+	private static final String FIELD_NAME = String.valueOf(Foobar__c.Name);
+
+	/**
+	 * @description The formula name of the record after the save.
+	 */
+	private static final String NEW_RECORD_VARIABLE = 'newRecord';
+
+	/**
+	 * @description The formula name of the record before the save.
+	 */
+	private static final String OLD_RECORD_VARIABLE = 'oldRecord';
+
+	/**
 	 * @description Tests that an invalid formula throws a FormulaValidationException.
 	 *
 	 * @see UTIL_FormulaFilter.filter
@@ -710,5 +750,165 @@ private class UTIL_FormulaFilter_TEST
 		}
 
 		Test.stopTest();
+	}
+
+	/**
+	 * @description Builds a formula on the bulk test context class that is true only when preLoad ran exactly once, got a
+	 * first list of the given size whose first record has the same name as the record the formula checks, and got a null
+	 * second list or not, as given.
+	 *
+	 * @param batchSize The number of records preLoad must have found in its first list.
+	 * @param recordVariable The record whose name the first record of the first list must share: newRecord or oldRecord.
+	 * @param secondListWasNull True when preLoad must have been given null as its second list.
+	 *
+	 * @return The formula text.
+	 */
+	private static String buildPreLoadFormula(Integer batchSize, String recordVariable, Boolean secondListWasNull)
+	{
+		return 'preLoadRunCount = 1 && firstListSize = ' + batchSize + ' && firstRecordName = ' + recordVariable + '.' + FIELD_NAME
+				+ ' && secondListWasNull = ' + (secondListWasNull ? 'TRUE' : 'FALSE');
+	}
+
+	/**
+	 * @description Makes new Foobar__c records in memory that all share one random name, so a formula can tell which list
+	 * preLoad got first.
+	 *
+	 * @param numberOfRecords How many records to make.
+	 *
+	 * @return The records, not saved.
+	 */
+	private static List<Foobar__c> newFoobarsWithOneName(Integer numberOfRecords)
+	{
+		List<Foobar__c> foobars = TST_Factory.newFoobars(numberOfRecords);
+		String sharedName = UTIL_Random.randomUUID();
+
+		for(Foobar__c foobar : foobars)
+		{
+			foobar.Name = sharedName;
+		}
+
+		return foobars;
+	}
+
+	/**
+	 * @description Tests that on an update the filter calls preLoad once for the whole batch, new records first, so a
+	 * formula that reads the values preLoad fills keeps every record.
+	 *
+	 * @see UTIL_FormulaFilter.filter
+	 */
+	@IsTest
+	private static void bulkContextPreLoadRunsOnceOnUpdate()
+	{
+		Integer batchSize = UTIL_Random.nextInteger(MINIMUM_BATCH_SIZE, LARGE_RECORD_COUNT);
+		List<Foobar__c> oldRecords = newFoobarsWithOneName(batchSize);
+		List<Foobar__c> newRecords = newFoobarsWithOneName(batchSize);
+		String formula = buildPreLoadFormula(batchSize, NEW_RECORD_VARIABLE, false);
+		UTIL_FormulaFilter filter = new UTIL_FormulaFilter(null, BULK_CONTEXT_CLASS_NAME, formula);
+
+		Test.startTest();
+
+		UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(oldRecords, newRecords);
+
+		Test.stopTest();
+
+		Assert.areEqual(batchSize, results.newRecords.size(), 'Expected every new record to pass: preLoad should run once, new records first');
+		Assert.areEqual(batchSize, results.oldRecords.size(), 'Expected every old record to pass: preLoad should run once, new records first');
+	}
+
+	/**
+	 * @description Tests that on an insert, when there are no old records, the filter calls preLoad once with the new
+	 * records first and null second, so a formula that reads the values preLoad fills keeps every record.
+	 *
+	 * @see UTIL_FormulaFilter.filter
+	 */
+	@IsTest
+	private static void bulkContextPreLoadRunsOnceOnInsert()
+	{
+		Integer batchSize = UTIL_Random.nextInteger(MINIMUM_BATCH_SIZE, LARGE_RECORD_COUNT);
+		List<Foobar__c> newRecords = newFoobarsWithOneName(batchSize);
+		String formula = buildPreLoadFormula(batchSize, NEW_RECORD_VARIABLE, true);
+		UTIL_FormulaFilter filter = new UTIL_FormulaFilter(null, BULK_CONTEXT_CLASS_NAME, formula);
+
+		Test.startTest();
+
+		UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(null, newRecords);
+
+		Test.stopTest();
+
+		Assert.areEqual(batchSize, results.newRecords.size(), 'Expected every new record to pass: preLoad should run once, with no old records');
+	}
+
+	/**
+	 * @description Tests that on a delete, when there are no new records, the filter calls preLoad once with the deleted
+	 * records first and null second, as validation rules do, so a formula that reads the values preLoad fills keeps every
+	 * record.
+	 *
+	 * @see UTIL_FormulaFilter.filter
+	 */
+	@IsTest
+	private static void bulkContextPreLoadGetsDeletedRecordsFirstOnDelete()
+	{
+		Integer batchSize = UTIL_Random.nextInteger(MINIMUM_BATCH_SIZE, LARGE_RECORD_COUNT);
+		List<Foobar__c> deletedRecords = newFoobarsWithOneName(batchSize);
+		String formula = buildPreLoadFormula(batchSize, OLD_RECORD_VARIABLE, true);
+		UTIL_FormulaFilter filter = new UTIL_FormulaFilter(null, BULK_CONTEXT_CLASS_NAME, formula);
+
+		Test.startTest();
+
+		UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(deletedRecords, null);
+
+		Test.stopTest();
+
+		Assert.areEqual(batchSize, results.oldRecords.size(), 'Expected every deleted record to pass: preLoad should get them first, null second');
+	}
+
+	/**
+	 * @description Tests that the filter does not call preLoad when there are no records to check, so the call runs no
+	 * query.
+	 *
+	 * @see UTIL_FormulaFilter.filter
+	 */
+	@IsTest
+	private static void bulkContextPreLoadSkippedForEmptyBatch()
+	{
+		String formula = buildPreLoadFormula(0, NEW_RECORD_VARIABLE, false);
+		UTIL_FormulaFilter filter = new UTIL_FormulaFilter(null, BULK_CONTEXT_CLASS_NAME, formula);
+
+		Test.startTest();
+
+		Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+		UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(new List<Foobar__c>(), new List<Foobar__c>());
+		Integer queriesUsed = UTIL_Limits.soqlQueries().used() - queriesBefore;
+
+		Test.stopTest();
+
+		Assert.isTrue(results.newRecords.isEmpty(), 'Expected no records back from an empty batch');
+		Assert.areEqual(NO_QUERIES, queriesUsed, 'Expected no query, because preLoad should not run when there are no records');
+	}
+
+	/**
+	 * @description Tests that a batch of several records uses the queries of one preLoad call, not one per record.
+	 *
+	 * @see UTIL_FormulaFilter.filter
+	 */
+	@IsTest
+	private static void bulkContextPreLoadQueriesOncePerBatch()
+	{
+		Integer batchSize = UTIL_Random.nextInteger(MINIMUM_BATCH_SIZE, LARGE_RECORD_COUNT);
+		List<Foobar__c> oldRecords = newFoobarsWithOneName(batchSize);
+		List<Foobar__c> newRecords = newFoobarsWithOneName(batchSize);
+		String formula = buildPreLoadFormula(batchSize, NEW_RECORD_VARIABLE, false);
+		UTIL_FormulaFilter filter = new UTIL_FormulaFilter(null, BULK_CONTEXT_CLASS_NAME, formula);
+
+		Test.startTest();
+
+		Integer queriesBefore = UTIL_Limits.soqlQueries().used();
+		UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(oldRecords, newRecords);
+		Integer queriesUsed = UTIL_Limits.soqlQueries().used() - queriesBefore;
+
+		Test.stopTest();
+
+		Assert.areEqual(batchSize, results.newRecords.size(), 'Expected every new record to pass: preLoad should run once for the batch');
+		Assert.areEqual(QUERIES_PER_BATCH, queriesUsed, 'Expected the batch to use the queries of one preLoad call, not one per record');
 	}
 }

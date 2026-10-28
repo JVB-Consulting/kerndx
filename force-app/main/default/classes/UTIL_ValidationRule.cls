@@ -54,7 +54,7 @@
  *
  * @group Validation
  *
- * @date January 2026, June 2026
+ * @date January 2026, October 2026
  *
  * @since 1.0
  *
@@ -119,6 +119,12 @@ global inherited sharing class UTIL_ValidationRule
 	 */
 	private static final Map<String, UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext> CONTEXT_CACHE =
 			new Map<String, UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext>();
+
+	/**
+	 * @description Names of the context classes that could not be turned into JSON and have already been reported in the
+	 * log in this transaction. It keeps the warning to one per class, however many merge fields and records there are.
+	 */
+	private static final Set<String> UNREADABLE_CONTEXT_CLASSES_WARNED = new Set<String>();
 
 	/**
 	 * @description Types of validation bypasses available. Used internally for Flow integration.
@@ -228,7 +234,8 @@ global inherited sharing class UTIL_ValidationRule
 		}
 
 		/**
-		 * @description Constructs a new ValidationResult for the given record.
+		 * @description Starts the result of one record with no errors, so isValid is true until an error with Error
+		 * severity, outside shadow mode, is added to errors.
 		 *
 		 * @param recordIndex The index in the trigger list
 		 * @param recordId The record ID (may be null for before insert)
@@ -399,7 +406,9 @@ global inherited sharing class UTIL_ValidationRule
 		global Id recordId;
 
 		/**
-		 * @description True if this error is from a rule in shadow mode.
+		 * @description True when the rule that failed runs in shadow mode: watch-only, so the failure is logged but the save
+		 * is not blocked, whatever the severity. It is copied from the rule's Shadow Mode setting, and is false when the
+		 * error is built with the constructor.
 		 *
 		 * @since 1.0
 		 *
@@ -425,7 +434,8 @@ global inherited sharing class UTIL_ValidationRule
 		global String groupName;
 
 		/**
-		 * @description Constructs a new ValidationError.
+		 * @description Builds an error outside shadow mode, so an error with Error severity blocks the save. Set recordIndex,
+		 * recordId, groupName and shadowMode on their fields after it is built.
 		 *
 		 * @param ruleName The rule DeveloperName
 		 * @param message The error message
@@ -450,7 +460,8 @@ global inherited sharing class UTIL_ValidationRule
 	}
 
 	/**
-	 * @description Optional interface for bulk-optimized validation contexts.
+	 * @description Optional interface for context classes that load data once per batch. Validation rules and trigger action entry formulas
+	 * call preLoad() once before checking the records.
 	 * Implement this in addition to INT_SObjectFormulaEvaluationContext when your
 	 * context class needs to query related data.
 	 *
@@ -494,8 +505,8 @@ global inherited sharing class UTIL_ValidationRule
 		 * @description Called once per batch before the record loop.
 		 * Use this to perform bulk queries and cache results.
 		 *
-		 * @param newRecords The list of new records (Trigger.new)
-		 * @param oldRecords The list of old records (Trigger.old), may be null for insert
+		 * @param newRecords The new records, or the deleted records on a delete.
+		 * @param oldRecords The old records, or null on an insert, an undelete or a delete.
 		 *
 		 * @since 1.0
 		 */
@@ -533,7 +544,10 @@ global inherited sharing class UTIL_ValidationRule
 	}
 
 	/**
-	 * @description Bypasses all validation rules in the specified group.
+	 * @description Turns off every rule in one validation rule group for the rest of the transaction, or until
+	 * clearBypass or clearAllBypasses is called. The name must match the group's DeveloperName exactly, including
+	 * case. A blank name does nothing. Each bypass is recorded as an audit log entry while the BypassAudit_Enabled
+	 * feature flag is on, as it is by default.
 	 *
 	 * @param groupDeveloperName The DeveloperName of the ValidationRuleGroup__mdt to bypass
 	 *
@@ -554,7 +568,9 @@ global inherited sharing class UTIL_ValidationRule
 	}
 
 	/**
-	 * @description Bypasses a specific validation rule.
+	 * @description Turns off one validation rule for the rest of the transaction, or until clearBypass or
+	 * clearAllBypasses is called. The name must match the rule's DeveloperName exactly, including case. A blank name does
+	 * nothing. Each bypass is recorded as an audit log entry while the BypassAudit_Enabled feature flag is on, as it is by default.
 	 *
 	 * @param ruleDeveloperName The DeveloperName of the ValidationRule__mdt to bypass
 	 *
@@ -778,7 +794,7 @@ global inherited sharing class UTIL_ValidationRule
 	 * `getErrors()`. Field-level addError (`record.addError(field, message)`, used when
 	 * `kern__ErrorDisplayField__c` is set) is per-field unique and does NOT coalesce.
 	 *
-	 * Subscribers that want to see ALL violations on a record should consult the framework's
+	 * If you want to see ALL violations on a record, consult the framework's
 	 * own `ValidationResult.errors` collection, which preserves every violation regardless of
 	 * page vs field scope. The `Database.SaveResult.getErrors()` collection should be treated
 	 * as a "save blocked" / "save succeeded" boolean, not as a complete error inventory.
@@ -859,7 +875,8 @@ global inherited sharing class UTIL_ValidationRule
 			{
 				// Log error and skip rule if no context can be resolved
 				LOG_Builder.build()
-						.error('Validation rule "' + ruleWrapper.rule.DeveloperName + '" has no context class and object "' + objectApiName + '" has no built-in context. Rule skipped.')
+						.error('Validation rule "' + ruleWrapper.rule.DeveloperName + '" has no context class and object "' + objectApiName
+								+ '" has no built-in context. Rule skipped.')
 						.withSummary('Missing context class for validation rule')
 						.at(UTIL_ValidationRule.class.getName() + '/groupRulesByContext')
 						.emit();
@@ -906,7 +923,10 @@ global inherited sharing class UTIL_ValidationRule
 	}
 
 	/**
-	 * @description Processes validation rules for a specific context class.
+	 * @description Runs every rule that shares one context class against each record and adds the failures to that
+	 * record's result. When the context class cannot be created, it logs an error and skips these rules, so they block
+	 * nothing. A bulk context gets preLoad once before the records. Rules that are bypassed, or whose conditions say not
+	 * to run, are skipped. In a group set to fail fast, the first failing rule stops the remaining rules for that record.
 	 *
 	 * @param contextClassName The context class name
 	 * @param ruleWrappers The rules using this context
@@ -984,7 +1004,9 @@ global inherited sharing class UTIL_ValidationRule
 	}
 
 	/**
-	 * @description Gets or creates a context instance for the given class name.
+	 * @description Returns the one context instance kept for this class name in the transaction, creating it on first
+	 * use. When the class cannot be found or created, it logs the error and returns null; nothing is kept, so the next
+	 * call tries again.
 	 *
 	 * @param contextClassName The fully qualified class name
 	 *
@@ -1161,8 +1183,10 @@ global inherited sharing class UTIL_ValidationRule
 	}
 
 	/**
-	 * @description Processes merge fields in error messages.
-	 * Supports {!PropertyName} syntax for context properties.
+	 * @description Fills the merge fields in an error message. A merge field is written {!PropertyName} or
+	 * {!path.to.Property} and names a property of the context. The context is turned into JSON once per message, and each
+	 * merge field reads its value from that JSON. If the context cannot be turned into JSON, every merge field in the
+	 * message is left empty and one warning is written to the log for that context class; the method never throws.
 	 *
 	 * @param template The message template with merge fields
 	 * @param context The context object to pull values from
@@ -1180,11 +1204,19 @@ global inherited sharing class UTIL_ValidationRule
 		Matcher matcher = MERGE_FIELD_PATTERN.matcher(template);
 
 		String result = template;
+		Object contextValues;
+		Boolean contextRead = false;
 
 		while(matcher.find())
 		{
+			if(!contextRead)
+			{
+				contextValues = readContextValues(context);
+				contextRead = true;
+			}
+
 			String fieldPath = matcher.group(1);
-			String replacement = getMergeFieldValue(context, fieldPath);
+			String replacement = getMergeFieldValue(contextValues, fieldPath);
 			result = result.replace('{!' + fieldPath + '}', replacement);
 		}
 
@@ -1192,50 +1224,85 @@ global inherited sharing class UTIL_ValidationRule
 	}
 
 	/**
-	 * @description Gets the value of a merge field from a context object.
+	 * @description Turns the context into JSON and reads it back as plain maps and values, so merge fields can look up
+	 * properties by name. A context class from another namespace can only be turned into JSON if it carries the
+	 * annotation @JsonAccess(serializable='always'). When turning the context into JSON fails, the method writes a warning
+	 * to the log, once per context class in a transaction, and returns null, so every merge field stays empty.
 	 *
 	 * @param context The context object
+	 *
+	 * @return The context as maps and values, or null when it cannot be turned into JSON
+	 */
+	private static Object readContextValues(Object context)
+	{
+		String contextJson;
+
+		try
+		{
+			contextJson = JSON.serialize(context);
+		}
+		catch(Exception error)
+		{
+			warnContextClassCannotBeRead(context, error);
+			return null;
+		}
+
+		return JSON.deserializeUntyped(contextJson);
+	}
+
+	/**
+	 * @description Writes a warning to the log that merge fields stay empty because the context class cannot be turned into
+	 * JSON. The warning names the class, quotes the platform's error, and says to add @JsonAccess(serializable='always') if
+	 * the class is yours (the usual cause, when the class is in another namespace). It is written only the first
+	 * time a class fails in a transaction, so a message with many merge fields, or a save of many records, gives one warning.
+	 *
+	 * @param context The context object that could not be turned into JSON
+	 * @param error The error raised while turning it into JSON
+	 */
+	private static void warnContextClassCannotBeRead(Object context, Exception error)
+	{
+		String contextClassName = UTIL_System.getRuntimeTypeName(context);
+
+		if(!UNREADABLE_CONTEXT_CLASSES_WARNED.add(contextClassName))
+		{
+			return;
+		}
+
+		String message = 'Merge fields in validation error messages stay empty, because the context class ' + contextClassName
+				+ ' cannot be turned into JSON (' + error.getMessage() + '). If the class is yours, add @JsonAccess(serializable=\'always\') to it.';
+
+		LOG_Builder.build()
+				.warn(message)
+				.withSummary('A validation context class cannot be read, so its merge fields are empty')
+				.at(UTIL_ValidationRule.class.getName() + '/processMergeFields')
+				.emit();
+	}
+
+	/**
+	 * @description Follows the dotted path through the context values, one name at a time, to fill a merge field in an
+	 * error message. The names must match the JSON keys exactly, including case. A path that leads nowhere, a null value,
+	 * or context values that could not be read give an empty text; it never throws.
+	 *
+	 * @param contextValues The context as maps and values, or null when it could not be read
 	 * @param fieldPath The field path (e.g., 'newRecord.Name')
 	 *
 	 * @return The string value of the field
 	 */
-	@TestVisible
-	private static String getMergeFieldValue(Object context, String fieldPath)
+	private static String getMergeFieldValue(Object contextValues, String fieldPath)
 	{
-		try
+		Object currentValue = contextValues;
+
+		for(String part : fieldPath.split('\\.'))
 		{
-			// Use JSON serialization and parsing to access properties dynamically
-			String contextJson = JSON.serialize(context);
-			Map<String, Object> contextMap = (Map<String, Object>)JSON.deserializeUntyped(contextJson);
-
-			// Navigate the field path
-
-			List<String> pathParts = fieldPath.split('\\.');
-			Object currentValue = contextMap;
-
-			for(String part : pathParts)
+			if(!(currentValue instanceof Map<String, Object>))
 			{
-				if(currentValue == null)
-				{
-					return UTIL_String.EMPTY;
-				}
-
-				if(currentValue instanceof Map<String, Object>)
-				{
-					currentValue = ((Map<String, Object>)currentValue).get(part);
-				}
-				else
-				{
-					return UTIL_String.EMPTY;
-				}
+				return UTIL_String.EMPTY;
 			}
 
-			return currentValue != null ? String.valueOf(currentValue) : UTIL_String.EMPTY;
+			currentValue = ((Map<String, Object>)currentValue).get(part);
 		}
-		catch(Exception e)
-		{
-			return UTIL_String.EMPTY;
-		}
+
+		return currentValue != null ? String.valueOf(currentValue) : UTIL_String.EMPTY;
 	}
 
 	/**

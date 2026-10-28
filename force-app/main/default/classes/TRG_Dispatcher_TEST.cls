@@ -158,6 +158,37 @@ private class TRG_Dispatcher_TEST
 	 * the original exception again, so the save is stopped.
 	 */
 	private static final String FAILURE_BLOCK_DML = 'BlockDml';
+	/**
+	 * @description Full name of the inner class TestRecordCapturingAction, set as the action class when a test needs to
+	 * see which records passed an entry formula on a real save.
+	 */
+	private static final String TEST_RECORD_CAPTURING_ACTION = TRG_Dispatcher_TEST.class.getName() + '.TestRecordCapturingAction';
+	/**
+	 * @description Full name of the test context class that has a preLoad() method. An entry formula on this class can
+	 * read which lists preLoad() was given.
+	 */
+	private static final String BULK_CONTEXT_CLASS_NAME = UTIL_FormulaContext.FoobarBulkContext.class.getName();
+	/**
+	 * @description API name of the Foobar__c Name field, as an entry formula reads it on a record.
+	 */
+	private static final String FIELD_FOOBAR_NAME = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Name);
+	/**
+	 * @description The formula name of the record before the save. On a delete it holds the deleted record.
+	 */
+	private static final String OLD_RECORD_VARIABLE = 'oldRecord';
+	/**
+	 * @description The formula name of the record after the save. On an undelete it holds the restored record.
+	 */
+	private static final String NEW_RECORD_VARIABLE = 'newRecord';
+	/**
+	 * @description The fewest records the entry formula tests save in one batch. Two or more, so the tests can tell one
+	 * call of preLoad() for the whole batch from one call per record.
+	 */
+	private static final Integer MINIMUM_BATCH_SIZE = 2;
+	/**
+	 * @description The most records the entry formula tests save in one batch.
+	 */
+	private static final Integer MAXIMUM_BATCH_SIZE = 10;
 
 	/**
 	 * @description The one Foobar__c record most tests give the dispatcher as the trigger's new or old records.
@@ -226,6 +257,11 @@ private class TRG_Dispatcher_TEST
 	 * action ran, and so a log entry was produced for the dispatcher to handle.
 	 */
 	private static Boolean wasLoggingActionCalled = false;
+	/**
+	 * @description Every record TestRecordCapturingAction was given. A test reads it to see which records passed the
+	 * entry formula.
+	 */
+	private static final List<SObject> RECORDS_RECEIVED_BY_CAPTURING_ACTION = new List<SObject>();
 
 	/**
 	 * @description Per-DeveloperName tally of `setConfig` invocations on `TestConfigurable`,
@@ -944,6 +980,116 @@ private class TRG_Dispatcher_TEST
 		Test.stopTest();
 
 		Assert.isTrue(wasBeforeInsertCalled, 'Self-initiated action should still execute');
+	}
+
+	/**
+	 * @description Tests that on a real delete the dispatcher calls preLoad() of the entry formula's context class once
+	 * for the whole batch, with the deleted records first and null second. The formula is true only in that case, so the
+	 * before delete action gets every deleted record.
+	 *
+	 * @see TRG_Dispatcher
+	 * @see UTIL_FormulaFilter.filter
+	 */
+	@IsTest
+	private static void entryFormulaContextGetsDeletedRecordsFirstOnRealDelete()
+	{
+		Integer batchSize = UTIL_Random.nextInteger(MINIMUM_BATCH_SIZE, MAXIMUM_BATCH_SIZE);
+		registerRecordCapturingAction(TriggerOperation.BEFORE_DELETE, buildPreLoadFormula(batchSize, OLD_RECORD_VARIABLE));
+		List<SObject> foobars = insertFoobarsWithOneName(batchSize);
+
+		Test.startTest();
+
+		DML_Builder.newTransaction().doDelete(foobars).execute();
+
+		Test.stopTest();
+
+		assertCapturingActionReceived(foobars, 'Expected the action to get every deleted record: preLoad() should get the deleted records first and null second');
+	}
+
+	/**
+	 * @description Tests that on a real undelete the dispatcher calls preLoad() of the entry formula's context class once
+	 * for the whole batch, with the restored records first (an undelete has no old records, so the second list is always
+	 * null). The formula is true only in that case, so the after undelete action gets every restored record.
+	 *
+	 * @see TRG_Dispatcher
+	 * @see UTIL_FormulaFilter.filter
+	 */
+	@IsTest
+	private static void entryFormulaContextGetsRestoredRecordsFirstOnRealUndelete()
+	{
+		Integer batchSize = UTIL_Random.nextInteger(MINIMUM_BATCH_SIZE, MAXIMUM_BATCH_SIZE);
+		registerRecordCapturingAction(TriggerOperation.AFTER_UNDELETE, buildPreLoadFormula(batchSize, NEW_RECORD_VARIABLE));
+		List<SObject> foobars = insertFoobarsWithOneName(batchSize);
+		DML_Builder.newTransaction().doDelete(foobars).execute();
+
+		Test.startTest();
+
+		DML_Builder.newTransaction().doUndelete(foobars).execute();
+
+		Test.stopTest();
+
+		assertCapturingActionReceived(foobars, 'Expected the action to get every restored record: preLoad() should get the restored records first and null second');
+	}
+
+	/**
+	 * @description Builds an entry formula on the test context class that is true only when preLoad() ran once, got a
+	 * first list of the given size whose first record has the same name as the record the formula checks, and got null
+	 * as its second list.
+	 *
+	 * @param batchSize The number of records preLoad() must have found in its first list.
+	 * @param recordVariable The record whose name the first record of the first list must share: newRecord or oldRecord.
+	 *
+	 * @return The formula text.
+	 */
+	private static String buildPreLoadFormula(Integer batchSize, String recordVariable)
+	{
+		return 'preLoadRunCount = 1 && firstListSize = ' + batchSize + ' && firstRecordName = ' + recordVariable + '.' + FIELD_FOOBAR_NAME
+				+ ' && secondListWasNull = TRUE';
+	}
+
+	/**
+	 * @description Makes the trigger framework see one Foobar__c action for this test: TestRecordCapturingAction on the
+	 * given step, with the given entry formula on the test context class. Call it before the first save of the test,
+	 * because the framework reads its actions once per test.
+	 *
+	 * @param operation The trigger step the action answers.
+	 * @param entryFormula The entry formula a record must pass to reach the action.
+	 */
+	private static void registerRecordCapturingAction(TriggerOperation operation, String entryFormula)
+	{
+		TriggerAction__mdt triggerAction = TST_Factory.newTriggerActionForContext(TEST_RECORD_CAPTURING_ACTION, TRIGGER_SETTING, operation);
+		triggerAction.EntryCriteriaFormula__c = entryFormula;
+		triggerAction.EntryCriteriaContextClassName__c = BULK_CONTEXT_CLASS_NAME;
+
+		TST_Mock.register(TriggerSetting__mdt.SObjectType, TST_Factory.newTriggerSettingWithActions(TRIGGER_SETTING, new List<TriggerAction__mdt> {triggerAction}));
+	}
+
+	/**
+	 * @description Saves new Foobar__c records that all share one random name, so the entry formula can tell which list
+	 * preLoad() got first.
+	 *
+	 * @param numberOfRecords How many records to save.
+	 *
+	 * @return The saved records.
+	 */
+	private static List<SObject> insertFoobarsWithOneName(Integer numberOfRecords)
+	{
+		return TST_Builder.of(Foobar__c.SObjectType)
+				.withCount(numberOfRecords)
+				.withOverride(Foobar__c.Name, UTIL_Random.randomUUID())
+				.buildList();
+	}
+
+	/**
+	 * @description Checks that TestRecordCapturingAction was given exactly the expected records, compared by Id.
+	 *
+	 * @param expectedRecords The records the action should have been given.
+	 * @param assertionMessage The message shown when the records differ.
+	 */
+	private static void assertCapturingActionReceived(List<SObject> expectedRecords, String assertionMessage)
+	{
+		Set<Id> receivedIds = new Map<Id, SObject>(RECORDS_RECEIVED_BY_CAPTURING_ACTION).keySet();
+		Assert.areEqual(new Map<Id, SObject>(expectedRecords).keySet(), receivedIds, assertionMessage);
 	}
 
 	/**
@@ -2076,6 +2222,34 @@ private class TRG_Dispatcher_TEST
 		public void afterUndelete(List<SObject> triggerNew)
 		{
 			TRG_Dispatcher_TEST.wasAfterUndeleteCalled = true;
+		}
+	}
+
+	/**
+	 * @description Action for the entry formula tests. It keeps every record the dispatcher gives it, so a test can see
+	 * which records passed the entry formula. It answers the before delete and the after undelete steps.
+	 */
+	@SuppressWarnings('ApexUnusedDeclaration')
+	public class TestRecordCapturingAction implements IF_Trigger.BeforeDelete, IF_Trigger.AfterUndelete
+	{
+		/**
+		 * @description Keeps the records about to be deleted that passed the entry formula.
+		 *
+		 * @param triggerOld The records about to be deleted that passed the entry formula.
+		 */
+		public void beforeDelete(List<SObject> triggerOld)
+		{
+			RECORDS_RECEIVED_BY_CAPTURING_ACTION.addAll(triggerOld);
+		}
+
+		/**
+		 * @description Keeps the restored records that passed the entry formula.
+		 *
+		 * @param triggerNew The restored records that passed the entry formula.
+		 */
+		public void afterUndelete(List<SObject> triggerNew)
+		{
+			RECORDS_RECEIVED_BY_CAPTURING_ACTION.addAll(triggerNew);
 		}
 	}
 

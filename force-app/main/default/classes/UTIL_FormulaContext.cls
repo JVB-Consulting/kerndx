@@ -19,12 +19,12 @@
  *
  * Inner classes are GLOBAL because Salesforce `FormulaEval.FormulaInstance.evaluate()`
  * requires runtime access to context properties. The `global` visibility ensures
- * cross-namespace access when the managed package evaluates formulas in subscriber orgs.
+ * cross-namespace access when the managed package evaluates formulas in your org.
  *
  * **Why global visibility is required:**
  * 1. Member variables must be accessible by FormulaEval at runtime
  * 2. For managed packages, `global` guarantees visibility across all scenarios
- * 3. Subscriber org context classes must also use `global` for the same reason
+ * 3. Context classes you write in your org must also use `global` for the same reason
  *
  * @see UTIL_FormulaFilter
  * @see UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
@@ -34,7 +34,7 @@
  *
  * @group Utilities
  *
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  *
  * @since 1.0
  *
@@ -691,7 +691,7 @@ global inherited sharing class UTIL_FormulaContext
 	 *
 	 * Provides typed access to Foobar__c records in formula evaluations.
 	 * This context class enables comprehensive testing of formula evaluation
-	 * functionality within the managed package without requiring subscriber-created classes.
+	 * functionality, so the package can test itself without any class from your org.
 	 *
 	 * Auto-detected by Trigger Action Framework when `EntryCriteriaContextClassName__c` is blank.
 	 * Can also be used directly in custom Apex for testing purposes.
@@ -755,6 +755,149 @@ global inherited sharing class UTIL_FormulaContext
 		{
 			this.oldRecord = (Foobar__c)oldSObject;
 			this.newRecord = (Foobar__c)newSObject;
+		}
+	}
+
+	/**
+	 * @description For testing only. This class exists only so the framework's own tests can check that the preLoad() method of a
+	 * context class runs before an entry formula or a validation rule is checked. It is not meant for your formulas or your
+	 * validation rules. Its preLoad() runs a query each time it is called, so naming it in a trigger action or a validation
+	 * rule would cost one query each time they run.
+	 *
+	 * A context class is the class that gives a formula its values. This one works on Foobar__c, the package's own test object.
+	 * Like FoobarContext, it gives the formula the record before and after the save. It also has properties that only preLoad()
+	 * fills, so a formula can tell whether preLoad() ran, how many times, and which lists it was given.
+	 *
+	 * **Formula Variable Names:** `oldRecord`, `newRecord`, `preLoadRunCount`, `firstListSize`, `firstRecordName`,
+	 * `secondListWasNull`, `savedFoobarCount`
+	 *
+	 * @see UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
+	 * @see UTIL_ValidationRule.INT_BulkValidationContext
+	 * @see UTIL_FormulaContext.FoobarContext
+	 *
+	 * @since 1.10
+	 *
+	 * @example
+	 * ```apex
+	 * // For the framework's own tests only. This formula is true only when preLoad() ran once and got a list of three records:
+	 * // preLoadRunCount = 1 && firstListSize = 3 && NOT(secondListWasNull)
+	 * UTIL_FormulaFilter filter = new UTIL_FormulaFilter(null, UTIL_FormulaContext.FoobarBulkContext.class.getName(), formula);
+	 * UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(oldFoobars, newFoobars);
+	 * ```
+	 */
+	global inherited sharing class FoobarBulkContext implements UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext, UTIL_ValidationRule.INT_BulkValidationContext
+	{
+		/**
+		 * @description The Foobar__c record before the save. It is null on an insert.
+		 *
+		 * @since 1.10
+		 *
+		 * @example
+		 * ```apex
+		 * Foobar__c value = instance.oldRecord;
+		 * ```
+		 */
+		global Foobar__c oldRecord;
+
+		/**
+		 * @description The Foobar__c record after the save. It is null on a delete.
+		 *
+		 * @since 1.10
+		 *
+		 * @example
+		 * ```apex
+		 * Foobar__c value = instance.newRecord;
+		 * ```
+		 */
+		global Foobar__c newRecord;
+
+		/**
+		 * @description How many times preLoad() ran since this class was created. It stays zero when preLoad() never ran.
+		 *
+		 * @since 1.10
+		 *
+		 * @example
+		 * ```apex
+		 * Integer value = instance.preLoadRunCount;
+		 * ```
+		 */
+		global Integer preLoadRunCount = 0;
+
+		/**
+		 * @description How many records were in the first list that preLoad() was given. It stays zero when preLoad() never ran.
+		 *
+		 * @since 1.10
+		 *
+		 * @example
+		 * ```apex
+		 * Integer value = instance.firstListSize;
+		 * ```
+		 */
+		global Integer firstListSize = 0;
+
+		/**
+		 * @description The name of the first record in the first list that preLoad() was given. It stays null when preLoad() never
+		 * ran or the list was empty.
+		 *
+		 * @since 1.10
+		 *
+		 * @example
+		 * ```apex
+		 * String value = instance.firstRecordName;
+		 * ```
+		 */
+		global String firstRecordName;
+
+		/**
+		 * @description True when the second list that preLoad() was given was null. It stays false when preLoad() never ran.
+		 *
+		 * @since 1.10
+		 *
+		 * @example
+		 * ```apex
+		 * Boolean value = instance.secondListWasNull;
+		 * ```
+		 */
+		global Boolean secondListWasNull = false;
+
+		/**
+		 * @description How many Foobar__c records exist in the org and the running user can see when preLoad() last ran. preLoad() reads it with one query,
+		 * so a test can count the queries a save uses. It stays zero when preLoad() never ran.
+		 *
+		 * @since 1.10
+		 *
+		 * @example
+		 * ```apex
+		 * Integer value = instance.savedFoobarCount;
+		 * ```
+		 */
+		global Integer savedFoobarCount = 0;
+
+		/**
+		 * @description Keeps what it was given in the properties above so a formula can read them, and runs one query to count the Foobar__c records.
+		 *
+		 * @param newRecords The first list: the new records, or the deleted records on a delete.
+		 * @param oldRecords The second list: the old records, or null on an insert, an undelete or a delete.
+		 */
+		public void preLoad(List<SObject> newRecords, List<SObject> oldRecords)
+		{
+			preLoadRunCount++;
+			firstListSize = newRecords?.size() ?? 0;
+			firstRecordName = firstListSize > 0 ? (String)newRecords[0].get(Foobar__c.Name) : null;
+			secondListWasNull = oldRecords == null;
+			savedFoobarCount = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().count();
+		}
+
+		/**
+		 * @description Sets the formula evaluation context with typed Foobar__c records.
+		 *
+		 * @param oldSObject The Foobar__c record before the save.
+		 * @param newSObject The Foobar__c record after the save.
+		 */
+		public void setContext(SObject oldSObject, SObject newSObject)
+		{
+			oldRecord = (Foobar__c)oldSObject;
+			newRecord = (Foobar__c)newSObject;
 		}
 	}
 }
