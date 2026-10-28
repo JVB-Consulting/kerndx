@@ -149,7 +149,9 @@ global inherited sharing class UTIL_Limits
 	};
 
 	/**
-	 * @description Returns a LimitCheck for aggregate queries.
+	 * @description Tracks the child subqueries run inside SOQL queries in this transaction, which the platform calls
+	 * aggregate queries. Each parent-to-child subquery counts once, against a limit separate from the SOQL query limit;
+	 * COUNT and GROUP BY queries are not what it counts.
 	 *
 	 * @return LimitCheck scoped to aggregate queries
 	 *
@@ -185,7 +187,8 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for DML rows.
+	 * @description Tracks the records written in this transaction by insert, update, upsert, delete and undelete, added
+	 * up across all statements. Check it before a large save to avoid going over the limit.
 	 *
 	 * @return LimitCheck scoped to DML rows
 	 *
@@ -197,7 +200,8 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for DML statements.
+	 * @description Tracks the database write statements issued in this transaction. One statement that saves 200 records
+	 * counts once.
 	 *
 	 * @return LimitCheck scoped to DML statements
 	 *
@@ -209,7 +213,8 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for email invocations.
+	 * @description Tracks the calls that send email from Apex in this transaction. One call that sends several messages
+	 * counts once.
 	 *
 	 * @return LimitCheck scoped to email invocations
 	 *
@@ -221,7 +226,8 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for future calls.
+	 * @description Tracks the future methods (code marked to run later, in the background) that this transaction has asked
+	 * the platform to run.
 	 *
 	 * @return LimitCheck scoped to future calls
 	 *
@@ -245,7 +251,8 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for mobile push Apex calls.
+	 * @description Tracks the Apex calls that send mobile push notifications in this transaction. One call that reaches
+	 * many devices counts once.
 	 *
 	 * @return LimitCheck scoped to mobile push Apex calls
 	 *
@@ -269,7 +276,8 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for SOQL queries.
+	 * @description Tracks the SOQL queries issued in this transaction. A query counts once, however many records it
+	 * returns; use soqlQueryRows to track the records.
 	 *
 	 * @return LimitCheck scoped to SOQL queries
 	 *
@@ -281,7 +289,7 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for SOQL query rows.
+	 * @description Tracks the records returned by SOQL queries in this transaction, added up across all queries.
 	 *
 	 * @return LimitCheck scoped to SOQL query rows
 	 *
@@ -293,7 +301,8 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for SOQL query locator rows.
+	 * @description Tracks the records returned through query locators in this transaction. A query locator is the query
+	 * form that batch jobs and paged lists use to read large sets of records.
 	 *
 	 * @return LimitCheck scoped to SOQL query locator rows
 	 *
@@ -305,7 +314,8 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for queueable jobs.
+	 * @description Tracks the Queueable jobs (background jobs) this transaction has added to the queue. Check isExhausted
+	 * before you add another one.
 	 *
 	 * @return LimitCheck scoped to queueable jobs
 	 *
@@ -317,7 +327,8 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for SOSL queries.
+	 * @description Tracks the SOSL searches issued in this transaction. A SOSL search is a text search across several
+	 * objects at once.
 	 *
 	 * @return LimitCheck scoped to SOSL queries
 	 *
@@ -342,7 +353,8 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for rows returned by Apex cursors.
+	 * @description Tracks the rows read through Apex cursors, as the platform reports them. To track how many cursors were
+	 * created, use apexCursors.
 	 *
 	 * @return LimitCheck scoped to Apex cursor rows
 	 *
@@ -367,7 +379,8 @@ global inherited sharing class UTIL_Limits
 	}
 
 	/**
-	 * @description Returns a LimitCheck for rows returned by Apex pagination cursors.
+	 * @description Tracks the rows read through Apex pagination cursors (the cursor kind built for paging a list on
+	 * screen), as the platform reports them. To track how many were created, use apexPaginationCursors.
 	 *
 	 * @return LimitCheck scoped to Apex pagination cursor rows
 	 *

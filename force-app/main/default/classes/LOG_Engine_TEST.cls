@@ -125,21 +125,6 @@ private class LOG_Engine_TEST
 	private static Boolean hasWrittenNestedEntry = false;
 
 	/**
-	 * @description The JSON key carrying the row count of a serialised child relationship.
-	 */
-	private static final String JSON_TOTAL_SIZE = 'totalSize';
-
-	/**
-	 * @description The JSON key that marks a serialised child relationship as complete.
-	 */
-	private static final String JSON_DONE = 'done';
-
-	/**
-	 * @description The JSON key holding the rows of a serialised child relationship.
-	 */
-	private static final String JSON_RECORDS = 'records';
-
-	/**
 	 * @description The JSON field name of a context document's correlation id.
 	 */
 	private static final String DOCUMENT_CORRELATION_FIELD = 'correlationId';
@@ -931,36 +916,10 @@ private class LOG_Engine_TEST
 		TriggerAction__mdt persistAction = TST_Factory.newTriggerActionForContext(PERSIST_ACTION_CLASS, setting, TriggerOperation.AFTER_INSERT);
 		TriggerAction__mdt nestedEntryAction = TST_Factory.newTriggerActionForContext(NESTED_ENTRY_ACTION_CLASS, setting, TriggerOperation.AFTER_INSERT);
 
-		Map<String, Object> nestedEntryFields = new Map<String, Object>(nestedEntryAction.getPopulatedFieldsAsMap());
-		nestedEntryFields.put(UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.Order__c), NESTED_ENTRY_ACTION_ORDER);
-		nestedEntryFields.put(UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.DeveloperName), NESTED_ENTRY_ACTION_NAME);
-
-		Map<String, Object> settingFields = new Map<String, Object>(setting.getPopulatedFieldsAsMap());
-		settingFields.put(triggerActionRelationshipName(), new Map<String, Object>
-		{
-				JSON_TOTAL_SIZE => 2,
-				JSON_DONE => true,
-				JSON_RECORDS => new List<Object> {persistAction.getPopulatedFieldsAsMap(), nestedEntryFields}
-		});
-		TST_Mock.register(TriggerSetting__mdt.SObjectType, (TriggerSetting__mdt)JSON.deserialize(JSON.serialize(settingFields), TriggerSetting__mdt.class));
-	}
-
-	/**
-	 * @description The relationship name from a trigger setting to its actions, read from the describe so the test
-	 * holds in a namespaced org too; the raw describe is the independent oracle a test may use.
-	 *
-	 * @return The child relationship name, such as `TriggerActions__r`.
-	 */
-	private static String triggerActionRelationshipName()
-	{
-		for(Schema.ChildRelationship relationship : TriggerSetting__mdt.SObjectType.getDescribe(SObjectDescribeOptions.DEFERRED).getChildRelationships())
-		{
-			if(relationship.getChildSObject() == TriggerAction__mdt.SObjectType)
-			{
-				return relationship.getRelationshipName();
-			}
-		}
-		throw new IllegalArgumentException('TriggerSetting__mdt has no child relationship to TriggerAction__mdt');
+		nestedEntryAction.Order__c = NESTED_ENTRY_ACTION_ORDER;
+		nestedEntryAction.DeveloperName = NESTED_ENTRY_ACTION_NAME;
+		TST_Mock.register(TriggerSetting__mdt.SObjectType,
+				TST_Factory.newTriggerSettingWithActions(setting, new List<TriggerAction__mdt> {persistAction, nestedEntryAction}));
 	}
 
 	/**
@@ -3575,10 +3534,25 @@ private class LOG_Engine_TEST
 	 */
 	private enum NestedEmitStage
 	{
+		/**
+		 * @description The test trigger action is registered.
+		 */
 		REGISTER_TEST_ACTION,
+		/**
+		 * @description The first log entry is written.
+		 */
 		EMIT_FIRST_ENTRY,
+		/**
+		 * @description The log events are delivered, which runs the test trigger action.
+		 */
 		DELIVER_EVENTS,
+		/**
+		 * @description The first log entry is read back.
+		 */
 		READ_FIRST_ENTRY,
+		/**
+		 * @description The entry written during delivery is read back.
+		 */
 		READ_NESTED_ENTRY
 	}
 

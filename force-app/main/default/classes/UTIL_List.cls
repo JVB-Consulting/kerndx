@@ -15,7 +15,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *
@@ -39,7 +39,7 @@ global inherited sharing class UTIL_List
 	 * ```apex
 	 * List<Object> inputs = new List<Object>{'Hello', 123, 'World'};
 	 * List<String> strings = UTIL_List.filterStrings(inputs);
-	 * System.debug(strings); // Outputs: ['Hello', 'World']
+	 * // strings: ('Hello', 'World')
 	 * ```
 	 */
 	public static List<String> filterStrings(List<Object> objects)
@@ -71,7 +71,7 @@ global inherited sharing class UTIL_List
 	 * ```apex
 	 * List<Object> emptyList = new List<Object>();
 	 * Boolean isEmpty = UTIL_List.isEmpty(emptyList);
-	 * System.debug(isEmpty); // Outputs: true
+	 * // isEmpty is true
 	 * ```
 	 */
 	global static Boolean isEmpty(List<Object> items)
@@ -96,7 +96,7 @@ global inherited sharing class UTIL_List
 	 * ```apex
 	 * List<Object> numbers = new List<Object>{1, 2};
 	 * Boolean isNotEmpty = UTIL_List.isNotEmpty(numbers);
-	 * System.debug(isNotEmpty); // Outputs: true
+	 * // isNotEmpty is true
 	 * ```
 	 */
 	global static Boolean isNotEmpty(List<Object> items)
@@ -117,7 +117,7 @@ global inherited sharing class UTIL_List
 	 * List<Account> accounts = new List<Account>{new Account(Name='B'), new Account(Name='A')};
 	 * UTIL_Comparators.SObjectComparator comp = new UTIL_Comparators.SObjectFieldComparator('Name', true);
 	 * List<Account> sorted = UTIL_List.sort(accounts, comp);
-	 * System.debug(sorted[0].Name); // Outputs: 'A'
+	 * // sorted[0].Name is 'A'
 	 * ```
 	 */
 	public static List<SObject> sort(List<SObject> records, UTIL_Comparators.SObjectComparator comparator)
@@ -142,7 +142,7 @@ global inherited sharing class UTIL_List
 	 * List<Object> stack = new List<Object>();
 	 * UTIL_List.push(stack, 'first');
 	 * UTIL_List.push(stack, 'second');
-	 * System.debug(stack); // Outputs: ['first', 'second']
+	 * // stack: ('first', 'second')
 	 * ```
 	 */
 	public static void push(List<Object> stack, Object element)
@@ -161,8 +161,8 @@ global inherited sharing class UTIL_List
 	 * ```apex
 	 * List<Object> stack = new List<Object>{'first', 'second'};
 	 * Object popped = UTIL_List.pop(stack);
-	 * System.debug(popped); // Outputs: 'second'
-	 * System.debug(stack); // Outputs: ['first']
+	 * // popped is 'second'
+	 * // stack: ('first')
 	 * ```
 	 */
 	public static Object pop(List<Object> stack)
@@ -185,8 +185,8 @@ global inherited sharing class UTIL_List
 	 * ```apex
 	 * List<Object> stack = new List<Object>{'first', 'second'};
 	 * Object top = UTIL_List.peek(stack);
-	 * System.debug(top); // Outputs: 'second'
-	 * System.debug(stack.size()); // Outputs: 2 (unchanged)
+	 * // top is 'second'
+	 * // stack.size() is still 2: the list is not changed
 	 * ```
 	 */
 	public static Object peek(List<Object> stack)
@@ -206,7 +206,7 @@ global inherited sharing class UTIL_List
 	 * ```apex
 	 * List<Object> stack = new List<Object>{'first', 'second', 'third'};
 	 * Object element = UTIL_List.peekAt(stack, 1);
-	 * System.debug(element); // Outputs: 'second'
+	 * // element is 'second'
 	 * ```
 	 */
 	public static Object peekAt(List<Object> stack, Integer index)
@@ -229,7 +229,7 @@ global inherited sharing class UTIL_List
 	 * ```apex
 	 * List<Object> stack = new List<Object>{'first', 'second', 'third'};
 	 * Object bottom = UTIL_List.peekFirst(stack);
-	 * System.debug(bottom); // Outputs: 'first'
+	 * // bottom is 'first'
 	 * ```
 	 */
 	public static Object peekFirst(List<Object> stack)

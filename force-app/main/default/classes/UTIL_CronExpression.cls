@@ -1195,7 +1195,7 @@ public inherited sharing class UTIL_CronExpression
 	private class LocalFields
 	{
 		/**
-		 * @description The local date.
+		 * @description The calendar date in the zone. Near midnight it can differ from the UTC date of the same instant.
 		 */
 		Date day;
 
@@ -1237,7 +1237,8 @@ public inherited sharing class UTIL_CronExpression
 		Boolean hoursUnconstrained = false;
 
 		/**
-		 * @description The month values.
+		 * @description The months the expression allows, from 1 (January) to 12 (December). Month names such as JAN are
+		 * stored as their numbers.
 		 */
 		Set<Integer> months;
 
@@ -1247,12 +1248,14 @@ public inherited sharing class UTIL_CronExpression
 		Set<Integer> years;
 
 		/**
-		 * @description The day-of-month rule.
+		 * @description The rule read from the fourth field, the day of the month. Exactly one of the two day rules is `?`:
+		 * the parser refuses an expression where both are `?` or neither is.
 		 */
 		DayRule dayOfMonth;
 
 		/**
-		 * @description The day-of-week rule.
+		 * @description The rule read from the sixth field, the day of the week, where 1 is Sunday and 7 is Saturday. A date
+		 * must match both day rules; the one that is `?` matches every date.
 		 */
 		DayRule dayOfWeek;
 

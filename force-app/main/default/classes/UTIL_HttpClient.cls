@@ -6,9 +6,10 @@
  *
  * Supports two usage modes:
  * - Ad-hoc mode: Direct HTTP calls via get()/post()/put()/del()/patch() entry points
- * - Delegation mode: Subscriber handlers via useHandler() entry point
+ * - Delegation mode: your own handler classes via useHandler() entry point
  *
  * @see UTIL_HttpClient_TEST
+ * @see UTIL_HttpClientRetryTiming_TEST
  *
  * @author Jason van Beukering
  *
@@ -84,22 +85,30 @@ global inherited sharing class UTIL_HttpClient
 	private static final String KEY_TIMEOUT_MS = KEY_PREFIX + 'timeoutMs';
 
 	/**
-	 * @description Parameter key for maximum retry attempts.
+	 * @description Parameter key for maximum retry attempts. It is the input name API_Outbound reads for the call's
+	 * maximum number of retries.
 	 */
 	@TestVisible
-	private static final String KEY_MAX_RETRIES = KEY_PREFIX + 'maxRetries';
+	private static final String KEY_MAX_RETRIES = API_Outbound.INPUT_MAXIMUM_RETRIES;
 
 	/**
-	 * @description Parameter key for backoff seconds between retries.
+	 * @description Parameter key for backoff seconds between retries. It is the input name API_Outbound reads for the
+	 * call's base wait.
 	 */
 	@TestVisible
-	private static final String KEY_BACKOFF_SECONDS = KEY_PREFIX + 'backoffSeconds';
+	private static final String KEY_BACKOFF_SECONDS = API_Outbound.INPUT_BASE_BACKOFF_SECONDS;
 
 	/**
-	 * @description Parameter key for exponential backoff flag.
+	 * @description Parameter key for exponential backoff flag. It is the input name API_Outbound.createRetryStrategy reads.
 	 */
 	@TestVisible
-	private static final String KEY_EXPONENTIAL_BACKOFF = KEY_PREFIX + 'exponentialBackoff';
+	private static final String KEY_EXPONENTIAL_BACKOFF = API_Outbound.INPUT_EXPONENTIAL_BACKOFF;
+
+	/**
+	 * @description The internal inputs that carry the caller's retry values. A handler called through useHandler gets
+	 * them and saves them with its call, so its retry decision uses them on every run.
+	 */
+	private static final Set<String> RETRY_VALUE_KEYS = new Set<String> {KEY_MAX_RETRIES, KEY_BACKOFF_SECONDS, KEY_EXPONENTIAL_BACKOFF};
 
 	/**
 	 * @description Parameter key for circuit breaker enabled flag.
@@ -216,10 +225,10 @@ global inherited sharing class UTIL_HttpClient
 		 *
 		 * **Caveat — delegation mode:** the underlying `KEY_SKIP_RETRY` flag that distinguishes
 		 * `LOG_FAILURE` from `RETRY_THEN_LOG` is consumed only by `DefaultOutboundHandler.sendRequest`'s
-		 * synchronous retry loop. When the request is delegated to a subscriber-supplied handler
-		 * via `useHandler(HandlerClass.class)`, the subscriber handler decides its own retry
+		 * synchronous retry loop. When the request is delegated to your own handler
+		 * via `useHandler(HandlerClass.class)`, your handler decides its own retry
 		 * behaviour and the `LOG_FAILURE` / `RETRY_THEN_LOG` distinction is observationally
-		 * identical from the framework's side. Subscribers shipping their own handlers should
+		 * identical from the framework's side. If you write your own handlers, they should
 		 * read the `KEY_SKIP_RETRY` parameter from the inbound DTO_NameValues if they want to
 		 * honour the caller's "don't retry" intent.
 		 */
@@ -227,8 +236,8 @@ global inherited sharing class UTIL_HttpClient
 		/**
 		 * @description Retry the request, then log a failure record if all retries are exhausted.
 		 *
-		 * In delegation mode (subscriber-supplied handler via `useHandler`), retry behaviour is
-		 * the subscriber handler's responsibility — see `LOG_FAILURE` for the contract caveat.
+		 * In delegation mode (your own handler via `useHandler`), retry behaviour is
+		 * your handler's responsibility. See `LOG_FAILURE` for the contract caveat.
 		 */
 		RETRY_THEN_LOG
 	}
@@ -254,7 +263,8 @@ global inherited sharing class UTIL_HttpClient
 	}
 
 	/**
-	 * @description Creates a GET request for the specified credential and path.
+	 * @description Starts a request that reads data. Nothing is sent until you call send() on the builder. The path is
+	 * added to the credential's endpoint, and it can hold {name} placeholders that pathParam fills in.
 	 *
 	 * @param credential The Named Credential or ApiCredential__mdt DeveloperName
 	 * @param path The URL path to append to the endpoint
@@ -276,7 +286,10 @@ global inherited sharing class UTIL_HttpClient
 	}
 
 	/**
-	 * @description Creates a POST request for the specified credential and path.
+	 * @description Starts a request that sends new data, usually with body(...). Nothing is sent until you call send() on
+	 * the builder. With retries turned on and no retryOn list, a POST that carries no idempotency key (the key you give
+	 * withIdempotencyKey so the other system can recognise a repeat) is not sent again after a 500, 502 or 504, because
+	 * the other system may already have acted on it.
 	 *
 	 * @param credential The Named Credential or ApiCredential__mdt DeveloperName
 	 * @param path The URL path to append to the endpoint
@@ -298,7 +311,9 @@ global inherited sharing class UTIL_HttpClient
 	}
 
 	/**
-	 * @description Creates a PUT request for the specified credential and path.
+	 * @description Starts a request that replaces a resource, usually with body(...). Nothing is sent until you call send()
+	 * on the builder. With retries turned on and no retryOn list, a PUT counts as safe to repeat, so it is sent again
+	 * after a 500, 502 or 504.
 	 *
 	 * @param credential The Named Credential or ApiCredential__mdt DeveloperName
 	 * @param path The URL path to append to the endpoint
@@ -343,7 +358,10 @@ global inherited sharing class UTIL_HttpClient
 	}
 
 	/**
-	 * @description Creates a PATCH request for the specified credential and path.
+	 * @description Starts a request that changes part of a resource, usually with body(...). Nothing is sent until you call
+	 * send() on the builder. With retries turned on and no retryOn list, a PATCH that carries no idempotency key (the key
+	 * you give withIdempotencyKey so the other system can recognise a repeat) is not sent again after a 500, 502 or 504,
+	 * because the other system may already have acted on it.
 	 *
 	 * @param credential The Named Credential or ApiCredential__mdt DeveloperName
 	 * @param path The URL path to append to the endpoint
@@ -366,7 +384,9 @@ global inherited sharing class UTIL_HttpClient
 	}
 
 	/**
-	 * @description Creates a delegation mode request for the specified subscriber handler.
+	 * @description Creates a delegation mode request for the specified handler class of your own. Your handler's inputs also
+	 * carry three names that start with two underscores, holding the retry values of withRetry and withExponentialBackoff;
+	 * leave them in place, the framework reads them on every run.
 	 *
 	 * @param handlerType The API_Outbound subclass Type to delegate to
 	 *
@@ -719,6 +739,11 @@ global inherited sharing class UTIL_HttpClient
 		 * stops the loop so the scheduled retry decision ends the call Failed. A throw from the send escapes the loop, so a
 		 * callout that got no response is never re-sent in the transaction and is decided by the scheduled retry.
 		 *
+		 * The call's retry count (Retries__c) adds up across runs. A stored call that runs again has already used some of
+		 * its retries, so this loop re-sends only what is left of the budget: the maximum number of retries minus the
+		 * retries already counted on the call, and never more than three. When nothing is left, the request is sent once
+		 * and not again. Each re-send adds one to the count.
+		 *
 		 * @param requestObj The HTTP request to send
 		 */
 		public override void sendRequest(HttpRequest requestObj)
@@ -726,11 +751,9 @@ global inherited sharing class UTIL_HttpClient
 			String maxRetriesValue = inputs.get(KEY_MAX_RETRIES);
 			String skipRetryValue = inputs.get(KEY_SKIP_RETRY);
 
-			Integer maxAttempts = Math.min
-					(
-							1 + (maxRetriesValue != null ? Integer.valueOf(maxRetriesValue) : 0),
-							1 + MAX_SYNCHRONOUS_RETRIES
-					);
+			Integer retriesAlreadyCounted = (apiCall.Retries__c ?? 0).intValue();
+			Integer retriesLeft = (maxRetriesValue != null ? Integer.valueOf(maxRetriesValue) : 0) - retriesAlreadyCounted;
+			Integer maxAttempts = 1 + Math.max(0, Math.min(retriesLeft, MAX_SYNCHRONOUS_RETRIES));
 			Set<Integer> codes = getRetryableStatusCodes();
 			Boolean hasCallerNamedCodes = inputs.get(KEY_RETRYABLE_CODES) != null;
 			Boolean isSkipRetry = 'true'.equalsIgnoreCase(skipRetryValue);
@@ -768,12 +791,13 @@ global inherited sharing class UTIL_HttpClient
 
 			if(retriesPerformed > 0)
 			{
-				apiCall.Retries__c = retriesPerformed;
+				apiCall.Retries__c = retriesAlreadyCounted + retriesPerformed;
 			}
 		}
 
 		/**
-		 * @description Returns the HTTP response.
+		 * @description In delegation mode (a call made through useHandler) it hands back the response the delegate handler
+		 * received, because that handler makes the callout; otherwise it hands back this handler's own response.
 		 *
 		 * @return The response, or delegate's response in delegation mode
 		 */
@@ -904,6 +928,11 @@ global inherited sharing class UTIL_HttpClient
 		 * and reaches the dispatcher's error path for this handler, which keeps the exception for the retry decision and
 		 * runs its own guard, so the call still ends with a status.
 		 *
+		 * The handler gets the caller's own parameters. Of the client's internal inputs (their names start with two
+		 * underscores), it gets only the retry values of withRetry and withExponentialBackoff: the maximum number of
+		 * retries, the base wait and the exponential backoff choice. Those inputs are saved with the call, so the handler's
+		 * retry decision reads them on this run and on every scheduled retry, in place of its service setting.
+		 *
 		 * @param apiCallRecord The API call to process
 		 */
 		private void processSubscriberHandler(ApiCall__c apiCallRecord)
@@ -937,7 +966,7 @@ global inherited sharing class UTIL_HttpClient
 			DTO_NameValues subscriberInputs = new DTO_NameValues();
 			for(String key : inputs.names)
 			{
-				if(!key.startsWith(KEY_PREFIX))
+				if(!key.startsWith(KEY_PREFIX) || RETRY_VALUE_KEYS.contains(key))
 				{
 					subscriberInputs.add(key, inputs.get(key));
 				}
@@ -1096,7 +1125,8 @@ global inherited sharing class UTIL_HttpClient
 		private String urlPath;
 
 		/**
-		 * @description The HTTP method for this request.
+		 * @description Starts as POST for a request built from a credential, and as null for one built with useHandler.
+		 * buildApiCall stores it with the call's inputs only when it is not null.
 		 */
 		private API_Base.HttpMethod httpMethod;
 
@@ -1151,7 +1181,9 @@ global inherited sharing class UTIL_HttpClient
 		private Integer backoffSeconds = 0;
 
 		/**
-		 * @description Whether to use exponential backoff.
+		 * @description Set to true only by withExponentialBackoff, and never set back to false. When true, buildApiCall
+		 * stores it with the call's inputs, and API_Outbound.createRetryStrategy reads it back: each scheduled retry then
+		 * waits twice as long as the one before. A handler given to useHandler gets it too.
 		 */
 		private Boolean exponentialBackoff = false;
 
@@ -1166,7 +1198,8 @@ global inherited sharing class UTIL_HttpClient
 		private FailureAction failureAction;
 
 		/**
-		 * @description Whether to use a circuit breaker.
+		 * @description Set to true by either withCircuitBreaker method, and never set back to false. When true, buildApiCall
+		 * stores it with the call's inputs, and the call's settings then turn the breaker on (see buildAndApplySettings).
 		 */
 		private Boolean useCircuitBreaker = false;
 
@@ -1301,7 +1334,8 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Sets the URL path for the request.
+		 * @description Replaces the path given before, including the one given to get, post, put, del or patch. The path is
+		 * added to the credential's endpoint, and it can hold {name} placeholders that pathParam fills in.
 		 *
 		 * @param urlPath The URL path to append
 		 *
@@ -1323,7 +1357,8 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Sets the HTTP method for the request.
+		 * @description Replaces the HTTP method that get, post, put, del or patch chose. On a request built from a credential,
+		 * passing null sends the request as POST.
 		 *
 		 * @param httpMethod The HTTP method enum value
 		 *
@@ -1481,7 +1516,9 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Sets the request timeout in milliseconds.
+		 * @description Sets how long, in milliseconds, to wait for the external system to answer. Without this call, or with
+		 * null, the framework's default of 120,000 milliseconds (two minutes) applies. On a request built with useHandler,
+		 * the handler's own timeout applies instead.
 		 *
 		 * @param milliseconds The timeout value
 		 *
@@ -1541,6 +1578,12 @@ global inherited sharing class UTIL_HttpClient
 		 * choose the codes yourself, use retryOn: a status you name there is sent again whatever the method, a POST or
 		 * PATCH without a key included, so name a 500, 502 or 504 only when sending the request twice is safe.
 		 *
+		 * Through useHandler, your handler gets the same waits and the same maximum you pass here, on every run, unless it
+		 * overrides createRetryStrategy; then its own strategy decides. A scheduled retry runs from the handler class alone,
+		 * so it needs an API Setting record for the handler, with its API Credential and Endpoint Path filled in: the retry
+		 * takes its credential and path from that record, not from the request. Without the record, the first run sends
+		 * the request, but the retry it schedules ends Aborted instead of being sent.
+		 *
 		 * @param maxRetries The maximum number of retry attempts
 		 * @param backoffSeconds The backoff period in seconds
 		 *
@@ -1563,7 +1606,23 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Enables synchronous retry with exponential backoff.
+		 * @description Retries a failed request, and makes each scheduled retry wait twice as long as the one before.
+		 *
+		 * Retries in the same transaction are sent again at once, because Apex cannot wait. A retry that is scheduled for
+		 * later waits the base backoff the first time, then twice as long each time after that, up to 300 seconds. For a
+		 * base of 2 seconds the waits are 2, 4, 8, 16 seconds and so on.
+		 *
+		 * Every retry already made counts towards the doubling, including the ones sent again at once in the transaction.
+		 * So a retry scheduled after three re-sends in the transaction waits 16 seconds. The count adds up across runs,
+		 * and the call never makes more retries in total than maxRetries. When you also call withCircuitBreaker and the
+		 * circuit is open, the wait is at least the circuit's time-out.
+		 *
+		 * Through useHandler, your handler gets the same waits and the same maximum you pass here, on every run, unless it
+		 * overrides createRetryStrategy; then its own strategy decides. A scheduled retry runs from the handler class alone,
+		 * so it needs an API Setting record for the handler, with its API Credential and Endpoint Path filled in: the retry
+		 * takes its credential and path from that record, not from the request. Without the record, the first run sends
+		 * the request, but the retry it schedules ends Aborted instead of being sent.
+		 * withRetry keeps the default waits: the base, then the base times the number of retries already made.
 		 *
 		 * @param maxRetries The maximum number of retry attempts
 		 * @param baseBackoffSeconds The base backoff period in seconds
@@ -1788,7 +1847,7 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Adds a request parameter for subscriber handler mode.
+		 * @description Adds a request parameter for delegation mode, where your own handler class sends the request.
 		 *
 		 * @param name The parameter name
 		 * @param value The parameter value
@@ -1811,7 +1870,7 @@ global inherited sharing class UTIL_HttpClient
 		}
 
 		/**
-		 * @description Adds multiple request parameters for subscriber handler mode.
+		 * @description Adds multiple request parameters for delegation mode, where your own handler class sends the request.
 		 *
 		 * @param parameters Map of parameter names to values
 		 *

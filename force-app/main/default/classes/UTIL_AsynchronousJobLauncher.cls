@@ -32,8 +32,11 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 
 	/**
 	 * @description Starts an adaptive asynchronous job with automatic execution strategy selection.
-	 * The framework automatically chooses between Queueable and Batch Apex based on the number of items
-	 * and available governor limits, optimizing for performance.
+	 * The framework chooses between Queueable and Batch Apex for you. If the code already runs inside an
+	 * asynchronous job (a Queueable, Batch or future method), it starts a chain of Queueables, whatever the
+	 * number of items. Otherwise, more items than the batch threshold run as Batch Apex, and a number of items
+	 * equal to or below the threshold runs as Queueables. When no Queueable job can be added in this
+	 * transaction, it uses Batch Apex.
 	 *
 	 * @param items The Items to process
 	 * @param processor An instance of a class that implements Processable.
@@ -48,7 +51,7 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 	 * List<Account> accounts = [SELECT Id, Name FROM Account LIMIT 100];
 	 * IF_Async.Processable processor = new MyAccountProcessor();
 	 * Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, processor);
-	 * System.debug('Job started with ID: ' + jobId);
+	 * // jobId is the Id of the job that was started
 	 * ```
 	 */
 	global static Id process(List<Object> items, IF_Async.Processable processor)
@@ -74,7 +77,7 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 	 * List<Contact> contacts = [SELECT Id, Email FROM Contact WHERE Email != null LIMIT 500];
 	 * IF_Async.Processable processor = new EmailValidationProcessor();
 	 * Id jobId = UTIL_AsynchronousJobLauncher.process(contacts, processor, 50);
-	 * System.debug('Processing 500 contacts in batches of 50. Job ID: ' + jobId);
+	 * // Up to 500 contacts are processed 50 at a time; jobId is the Id of the job that was started
 	 * ```
 	 */
 	global static Id process(List<Object> items, IF_Async.Processable processor, Integer jobSize)
@@ -110,7 +113,7 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 	 *     .withExecutionStrategy(IF_Async.AsynchronousExecutionStrategy.BATCH);
 	 * IF_Async.Processable processor = new OpportunityProcessor();
 	 * Id jobId = UTIL_AsynchronousJobLauncher.process(request, processor);
-	 * System.debug('Advanced processing started with Job ID: ' + jobId);
+	 * // jobId is the Id of the job that was started
 	 * ```
 	 */
 	global static Id process(DTO_AsynchronousJobRequest request, IF_Async.Processable processor)
@@ -214,7 +217,10 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 		global List<Object> itemsToProcess {get; private set;}
 
 		/**
-		 * @description The record count threshold at which the framework switches from Queueable to Batch Apex.
+		 * @description The batch threshold. When the framework chooses the job type, more items than this number run as
+		 * Batch Apex; a number of items equal to or below it runs as Queueables. Inside a running asynchronous job the
+		 * framework starts a chain of Queueables whatever the number of items. When no Queueable job can be added, it
+		 * uses Batch Apex.
 		 *
 		 * @since 1.0
 		 *
@@ -369,9 +375,12 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 		}
 
 		/**
-		 * @description Sets the threshold at which processing switches from Queueable to Batch Apex.
+		 * @description Sets the batch threshold used when the framework chooses the job type. More items than this
+		 * number run as Batch Apex; a number of items equal to it or below it still runs as Queueables. Inside a running
+		 * asynchronous job the framework starts a chain of Queueables whatever the number of items, and when no
+		 * Queueable job can be added it uses Batch Apex.
 		 *
-		 * @param threshold The number of items that will trigger Batch Apex execution.
+		 * @param threshold The highest number of items that still runs as Queueables.
 		 *
 		 * @return The AsynchronousJobRequest instance for method chaining.
 		 *
@@ -491,7 +500,8 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 		private final Integer remainingMinutes;
 
 		/**
-		 * @description Constructs a delayed dispatch handler.
+		 * @description Holds the work for one step of the wait. A null remainingMinutes counts as 0, so the handler starts
+		 * the processing the first time it runs.
 		 *
 		 * @param request The request containing items and configuration.
 		 * @param processor The processor to execute when delay expires.

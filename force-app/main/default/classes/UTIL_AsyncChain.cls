@@ -281,6 +281,30 @@ global inherited sharing class UTIL_AsyncChain
 			+ 'Launch the chain before adding that job, or from a step of its own.';
 
 	/**
+	 * @description Refusal raised when a launch from inside a queueable job that is not a chain job finds the job's one
+	 * queueable enqueue already used, checked before anything is written so no run record is left Running with no job
+	 * behind it: {0} the chain name.
+	 *
+	 * @since 1.10
+	 */
+	private static final String LAUNCHING_JOB_ENQUEUE_ALREADY_USED_MESSAGE =
+			'Chain {0} cannot be launched from here: the running queueable job has already added its one queueable job. '
+			+ 'Launch the chain before adding that job, or from a job of its own.';
+
+	/**
+	 * @description Refusal raised when a launch from inside a queueable job that is not a chain job finds no spare
+	 * queueable stack level for the chain's first hop: {0} the chain name, {1} the depth the running job sits at, {2}
+	 * the maximum its line of jobs (the jobs started one from another) was given. A job inside such a line cannot set
+	 * a maximum of its own, so the chain's first hop must fit under the one the line has.
+	 *
+	 * @since 1.10
+	 */
+	private static final String LAUNCHING_JOB_STACK_DEPTH_EXHAUSTED_MESSAGE =
+			'Chain {0} cannot be launched from here: the running job sits at queueable stack depth {1} of a maximum of {2}, '
+			+ 'leaving no level for the new chain\'s first step. Raise maximumQueueableStackDepth on the job that runs this '
+			+ 'code, or launch the chain from outside it.';
+
+	/**
 	 * @description Reserved context key for persisting the previous step result across async transactions.
 	 */
 	private static final String PREVIOUS_RESULT_KEY = '__previousStepResult';
@@ -1105,7 +1129,9 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		/**
-		 * @description Whether the chain failed.
+		 * @description True only for the Failed status. An Aborted chain returns false, so use isTerminal to learn whether
+		 * the chain has ended for any reason. A Stalled chain also returns false: it has not ended, it is waiting for
+		 * recovery. errorMessage holds the reason for the failure.
 		 *
 		 * @return true when the status is Failed.
 		 *
@@ -2117,8 +2143,11 @@ global inherited sharing class UTIL_AsyncChain
 
 		/**
 		 * @description AsyncOptions controlling queueable stack depth. When null, the framework creates a default with
-		 * maximumQueueableStackDepth = steps.size() + 1 + MAXIMUM_NESTING_DEPTH, counted from the launching job's depth
-		 * inside a chain, so the chains a step launches have room for their first hops.
+		 * maximumQueueableStackDepth = steps.size() + 1 + MAXIMUM_NESTING_DEPTH, so the chains a step launches have room
+		 * for their first hops. Inside a queueable job the count starts from the depth that job runs at, when the
+		 * platform lets the framework read it. A launch inside a job whose line of jobs already has a maximum queues its
+		 * first hop without options, under that maximum; these options then apply from the second hop on. A delay set
+		 * on the caller's own options is not applied to that first hop; withDelayMinutes is the way to delay it.
 		 */
 		private AsyncOptions asyncOptions;
 
@@ -2504,8 +2533,8 @@ global inherited sharing class UTIL_AsyncChain
 		 * **Failure-path handler is a separate registration.** To run a step on failure, register
 		 * an error handler via `.onError(...)`. The two handlers are mutually exclusive at runtime:
 		 * exactly one of them fires per chain (success → onComplete, failure → onError), and
-		 * neither fires if the chain is aborted by the framework kill switch. Subscribers needing
-		 * "always-runs" cleanup (e.g. release a row lock, close a session) should put the cleanup
+		 * neither fires if the chain is aborted by the framework kill switch. If you need
+		 * "always-runs" cleanup (e.g. release a row lock, close a session), put the cleanup
 		 * inside the final step's `work()` body and use `continueOnError = true` on the step
 		 * before it, so the final step runs regardless of upstream failures.
 		 *
@@ -2574,10 +2603,20 @@ global inherited sharing class UTIL_AsyncChain
 		 * A run may be launched from inside a step, or from a completion or error handler, of another chain. Then it is
 		 * recorded with that run's id as the id it was launched under. It sits one level below that run (chains may nest
 		 * at most five levels deep). The launching run and step remember it, so a retry of that step gets the same run
-		 * back instead of a second one. A job started from inside a running job takes over that job's maximum queueable
-		 * stack depth and cannot set its own. So the first step of a chain launched this way runs under the launching
-		 * chain's maximum. The framework's default maximum leaves room for that. A launch that would find no room, or
-		 * would nest too deep, is refused before anything is written. One chain may be launched per step or handler.
+		 * back instead of a second one. One chain may be launched per step or handler.
+		 *
+		 * A run may also be launched from inside any other queueable job. A job started from inside a running job whose
+		 * line of jobs (the jobs started one from another) already has a maximum queueable stack depth takes over that
+		 * maximum and cannot set its own. So the first step of a chain launched there runs under the launching line's
+		 * maximum: the launching chain's, or the one the other job was queued with. The framework's default maximum
+		 * leaves room for that inside a chain. A launch that would find no room, would nest too deep, or comes from a job
+		 * that has already added its one queueable job, is refused before anything is written. Inside a trigger fired by
+		 * a save that a queueable job makes, the platform does not let the framework read the depth of the running job.
+		 * The job may be a chain step or any other job. A job queued from there starts a new line of jobs, so the chain sets its own
+		 * maximum as a launch outside any job does. A chain launched this way from a step's trigger is still recorded as
+		 * launched under the step's run and remembered by that step. If the platform refuses the
+		 * chain's first job anyway, the run record is deleted and the platform's exception reaches the caller, so no
+		 * Running run is ever left without a job.
 		 *
 		 * @param correlationId The correlation ID to attach to all log entries for this chain.
 		 *
@@ -2591,7 +2630,8 @@ global inherited sharing class UTIL_AsyncChain
 		 * handler of another chain and would nest deeper than five levels, find no spare queueable stack level for
 		 * its first step, follow another launch from the same step or handler in the same transaction, follow a
 		 * queueable job that step or handler already added, or start a different chain from a step or handler that
-		 * launched one before.
+		 * launched one before; or if the launch runs inside another queueable job that has already added its one
+		 * queueable job, or whose line of jobs has no spare queueable stack level for the first step.
 		 *
 		 * @since 1.0
 		 *
@@ -2619,16 +2659,15 @@ global inherited sharing class UTIL_AsyncChain
 			executed = true;
 
 			Boolean launchedInsideChainJob = runningStep != null;
-			Boolean launchedInsideQueueable = launchedInsideChainJob || System.isQueueable();
+			Id rememberedChildId = launchedInsideChainJob ? refuseASecondLaunchThenFindRememberedChildId() : null;
+			if(rememberedChildId != null)
+			{
+				return rememberLaunch(rememberedChildId);
+			}
+			QueueableLineage lineage = readLineage(launchedInsideChainJob);
 			if(launchedInsideChainJob)
 			{
-				refuseWhenTheStepAlreadyLaunched();
-				Id rememberedChildId = deduplicationKey == null ? findRememberedChildId() : null;
-				if(rememberedChildId != null)
-				{
-					return rememberLaunch(rememberedChildId);
-				}
-				refuseWhenThereIsNoRoomForTheChild();
+				refuseWhenThereIsNoRoomForTheChild(lineage);
 			}
 
 			String launchCorrelationId = String.isNotBlank(LOG_Builder.correlationId) ? LOG_Builder.correlationId : null;
@@ -2662,27 +2701,126 @@ global inherited sharing class UTIL_AsyncChain
 			}
 			execution.ActiveDeduplicationKey__c = deduplicationKey;
 			execution.DeclaredDeduplicationKey__c = deduplicationKey;
+			if(!launchedInsideChainJob)
+			{
+				refuseWhenTheLaunchingJobHasNoRoom(lineage);
+			}
 			String activeRunId = insertGuardedByDeduplicationKey(execution);
 			if(activeRunId != null)
 			{
 				return rememberLaunch(activeRunId);
 			}
+
+			AsyncOptions options = asyncOptions ?? buildDefaultOptions(lineage.currentDepth);
+			ChainExecutor executor = new ChainExecutor(execution.Id, 0, maxSteps, maxContextSize, errorHandler, completionHandler, options, execution.RunKey__c);
+			Boolean borrowsTheLaunchingMaximum = launchedInsideChainJob ? lineage.isReadable : lineage.hasMaximum();
+			stampExecutorJobId(execution, enqueueFirstExecutor(execution, executor, options, borrowsTheLaunchingMaximum));
 			announceLaunch(chainName, correlationId, launchCorrelationId, execution.Id);
 
-			AsyncOptions options = asyncOptions != null ? asyncOptions : new AsyncOptions();
-			if(asyncOptions == null)
-			{
-				options.maximumQueueableStackDepth = defaultMaximumStackDepth(launchedInsideQueueable);
-			}
-
-			ChainExecutor executor = new ChainExecutor(execution.Id, 0, maxSteps, maxContextSize, errorHandler, completionHandler, options, execution.RunKey__c);
-
-			Id executorJobId = launchedInsideChainJob
-					? enqueueFirstExecutorInsideChainJob(executor)
-					: System.enqueueJob(executor, buildFirstEnqueueOptions(options, firstStepDelayMinutes));
-			stampExecutorJobId(execution, executorJobId);
-
 			return rememberLaunch(execution.Id);
+		}
+
+		/**
+		 * @description Queues the chain's first executor. A launch that borrows the maximum of the line of jobs it runs
+		 * in is queued without options (see enqueueFirstExecutorUnderTheLaunchingMaximum). Any other launch is queued
+		 * with a copy of the executor's options (see buildFirstEnqueueOptions). When the platform refuses the job, the run
+		 * record just inserted is deleted and the platform's exception is thrown again unchanged. So a caller that catches
+		 * the exception and goes on never keeps a Running run that has no job. The delete costs a DML statement only on
+		 * that failure, so a launch that works spends nothing extra.
+		 *
+		 * @param execution The run record just inserted.
+		 * @param executor The first executor.
+		 * @param options The options the executor carries for the chain (the caller's own or the framework default).
+		 * @param borrowsTheLaunchingMaximum True when the launching line of jobs already has a maximum queueable stack
+		 * depth, which the platform does not let a job inside it change.
+		 *
+		 * @return The enqueued job's id.
+		 *
+		 * @throws Exception The platform's own refusal of the job, after the run record is deleted.
+		 *
+		 * @since 1.10
+		 */
+		private Id enqueueFirstExecutor(AsyncChainExecution__c execution, ChainExecutor executor, AsyncOptions options, Boolean borrowsTheLaunchingMaximum)
+		{
+			try
+			{
+				return borrowsTheLaunchingMaximum
+						? enqueueFirstExecutorUnderTheLaunchingMaximum(executor)
+						: System.enqueueJob(executor, buildFirstEnqueueOptions(options, firstStepDelayMinutes));
+			}
+			catch(Exception enqueueError)
+			{
+				DML_Builder.newTransaction().systemModeInternal().doDelete(execution).execute();
+				throw enqueueError;
+			}
+		}
+
+		/**
+		 * @description Reads what the line of queueable jobs (the jobs started one from another) this launch runs in
+		 * looks like. This is the only place a launch asks the platform for its queueable stack depth. A launch inside a
+		 * chain job asks only after it has checked for a child the step already launched, so a retried step that gets
+		 * that child back does not ask the platform at all.
+		 *
+		 * A launch outside a chain job and outside any queueable job has no line: depth 0 and no maximum, and nothing is
+		 * read. Any other launch asks the platform for the depth and the maximum. A launch inside a chain job asks
+		 * without checking System.isQueueable() first, because a chain's steps and handlers always run inside a
+		 * queueable job.
+		 *
+		 * Inside a trigger fired by a save that a queueable job makes, the platform refuses to answer, although the code
+		 * runs inside that job. A job queued from there starts a new line of jobs at depth 1, whatever line the running
+		 * job is in. So a line that cannot be read is treated as no line at all: depth 0 and no maximum, the same as a
+		 * launch outside any job.
+		 *
+		 * @param launchedInsideChainJob True when the launch runs inside a step or handler of another chain.
+		 *
+		 * @return The line of jobs this launch runs in.
+		 *
+		 * @since 1.10
+		 */
+		private QueueableLineage readLineage(Boolean launchedInsideChainJob)
+		{
+			if(!launchedInsideChainJob && !System.isQueueable())
+			{
+				return new QueueableLineage(false, true, 0, null);
+			}
+			try
+			{
+				Integer maximumDepth = System.AsyncInfo.hasMaxStackDepth() ? System.AsyncInfo.getMaximumQueueableStackDepth() : null;
+				return new QueueableLineage(true, true, System.AsyncInfo.getCurrentQueueableStackDepth(), maximumDepth);
+			}
+			catch(AsyncException unreadableLineage)
+			{
+				return new QueueableLineage(true, false, 0, null);
+			}
+		}
+
+		/**
+		 * @description Refuses, before anything is written, a launch from inside a queueable job that is not a chain job
+		 * and could not run: one from a job that has already added its one queueable job, and one whose line of jobs has
+		 * a maximum queueable stack depth and no spare level for the chain's first hop. A launch inside a chain job is
+		 * checked by refuseWhenThereIsNoRoomForTheChild instead, and a launch outside any queueable job is not checked.
+		 *
+		 * @param lineage The line of jobs the launch runs in.
+		 *
+		 * @throws UTIL_Exceptions.IllegalStateException The refusal, naming the chain and the reason.
+		 *
+		 * @since 1.10
+		 */
+		private void refuseWhenTheLaunchingJobHasNoRoom(QueueableLineage lineage)
+		{
+			if(!lineage.isInsideQueueable)
+			{
+				return;
+			}
+			if(UTIL_Limits.queueableJobs().isExhausted())
+			{
+				throw new UTIL_Exceptions.IllegalStateException(String.format(LAUNCHING_JOB_ENQUEUE_ALREADY_USED_MESSAGE, new List<String> {chainName}));
+			}
+			if(lineage.hasMaximum() && lineage.currentDepth + 1 > lineage.maximumDepth)
+			{
+				throw new UTIL_Exceptions.IllegalStateException(String.format(LAUNCHING_JOB_STACK_DEPTH_EXHAUSTED_MESSAGE,
+						new List<String> {chainName, String.valueOf(lineage.currentDepth), String.valueOf(lineage.maximumDepth)}));
+			}
 		}
 
 		/**
@@ -2709,6 +2847,23 @@ global inherited sharing class UTIL_AsyncChain
 						+ ' per step reserved for runtime step results). Shorten step names or split the work into multiple chains.');
 			}
 			return serializedStepList;
+		}
+
+		/**
+		 * @description Runs the first checks on a launch from inside a step or handler of another chain. A second launch
+		 * from the same step or handler in this transaction is refused. Then a launch with no deduplication key of its
+		 * own looks for the chain the step or handler launched before (see findRememberedChildId). A launch with its own
+		 * key does not look.
+		 *
+		 * @return The id of the chain the step or handler launched before, or null when there is none to return.
+		 *
+		 * @throws UTIL_Exceptions.IllegalStateException When the step or handler already launched a chain in this
+		 * transaction, or when the chain it launched before is a different chain.
+		 */
+		private Id refuseASecondLaunchThenFindRememberedChildId()
+		{
+			refuseWhenTheStepAlreadyLaunched();
+			return deduplicationKey == null ? findRememberedChildId() : null;
 		}
 
 		/**
@@ -2795,14 +2950,16 @@ global inherited sharing class UTIL_AsyncChain
 		 * that would nest too deep, one whose line of jobs has no spare queueable stack level for the child's first hop, and
 		 * one from a job that has already added its one queueable job.
 		 *
+		 * @param lineage The line of jobs the launch runs in.
+		 *
 		 * @throws UTIL_Exceptions.IllegalStateException The refusal, naming the chain and the reason.
 		 *
 		 * @since 1.8
 		 */
-		private void refuseWhenThereIsNoRoomForTheChild()
+		private void refuseWhenThereIsNoRoomForTheChild(QueueableLineage lineage)
 		{
 			refuseWhenNestingTooDeep();
-			refuseWhenNoStackLevelIsSpare();
+			refuseWhenNoStackLevelIsSpare(lineage);
 			refuseWhenTheEnqueueIsAlreadyUsed();
 		}
 
@@ -2866,26 +3023,22 @@ global inherited sharing class UTIL_AsyncChain
 		/**
 		 * @description Refuses a launch from inside a chain job whose line of jobs has a maximum queueable stack depth and
 		 * no spare level for the child's first hop, before anything is written. Otherwise the platform would refuse the enqueue after
-		 * the run record was inserted, leaving a Running record with no job behind it.
+		 * the run record was inserted, leaving a Running record with no job behind it. A line with no maximum is not
+		 * checked. That is also the case when the platform does not let the framework read the line, as in a trigger
+		 * fired by the step's own save: the child then starts a new line of jobs, so the step's line needs no room.
+		 *
+		 * @param lineage The line of jobs the launch runs in.
 		 *
 		 * @throws UTIL_Exceptions.IllegalStateException Naming the chain, the launching run, the depth and the maximum.
 		 *
 		 * @since 1.8
 		 */
-		private void refuseWhenNoStackLevelIsSpare()
+		private void refuseWhenNoStackLevelIsSpare(QueueableLineage lineage)
 		{
-			if(!System.AsyncInfo.hasMaxStackDepth())
-			{
-				// kern-coverage-exempt: reached only when a caller's AsyncOptions set no maximum;
-				// a test that sets this up leaves a child with no job, so a release-testing check proves it
-				return;
-			}
-			Integer currentDepth = System.AsyncInfo.getCurrentQueueableStackDepth();
-			Integer maximumDepth = System.AsyncInfo.getMaximumQueueableStackDepth();
-			if(currentDepth + 1 > maximumDepth)
+			if(lineage.hasMaximum() && lineage.currentDepth + 1 > lineage.maximumDepth)
 			{
 				throw new UTIL_Exceptions.IllegalStateException(String.format(STACK_DEPTH_EXHAUSTED_MESSAGE,
-						new List<String> {chainName, runningStep.executionId, String.valueOf(currentDepth), String.valueOf(maximumDepth)}));
+						new List<String> {chainName, runningStep.executionId, String.valueOf(lineage.currentDepth), String.valueOf(lineage.maximumDepth)}));
 			}
 		}
 
@@ -2895,25 +3048,45 @@ global inherited sharing class UTIL_AsyncChain
 		 * room for the first hops of the chains its steps launch. Inside a queued job the count starts from the depth the
 		 * launching job runs at, because the platform's counter continues from it.
 		 *
-		 * @param launchedInsideQueueable Whether this launch runs inside any Queueable: a step or handler of another chain, or a job on the job runner.
+		 * @param launchDepth The queueable stack depth the launching job runs at: 0 outside any queueable job, or when
+		 * the platform does not let the framework read it.
 		 *
 		 * @return The default maximum.
 		 *
 		 * @since 1.8
 		 */
-		private Integer defaultMaximumStackDepth(Boolean launchedInsideQueueable)
+		private Integer defaultMaximumStackDepth(Integer launchDepth)
 		{
-			Integer launchDepth = launchedInsideQueueable ? System.AsyncInfo.getCurrentQueueableStackDepth() : 0;
 			return launchDepth + steps.size() + 1 + MAXIMUM_NESTING_DEPTH;
 		}
 
 		/**
-		 * @description Queues the first executor of a chain launched from inside a chain job. The platform refuses a
-		 * maximum queueable stack depth set from inside a running job whose line of jobs already has one. So this hop is
-		 * queued without options and uses the launching line's maximum. The executor's own options, which its Finalizer
-		 * uses from the second hop on, carry the depth the rest of the chain needs. A requested delay goes through the
-		 * delay overload, which the platform accepts inside a job. A caller's duplicateSignature is not applied to this
-		 * hop.
+		 * @description Builds the options a chain runs under when the caller gave none: a new instance with only the
+		 * framework's default maximum queueable stack depth (see defaultMaximumStackDepth).
+		 *
+		 * @param launchDepth The queueable stack depth the launching job runs at: 0 outside any queueable job, or when
+		 * the platform does not let the framework read it.
+		 *
+		 * @return The default options.
+		 *
+		 * @since 1.10
+		 */
+		private AsyncOptions buildDefaultOptions(Integer launchDepth)
+		{
+			AsyncOptions defaultOptions = new AsyncOptions();
+			defaultOptions.maximumQueueableStackDepth = defaultMaximumStackDepth(launchDepth);
+			return defaultOptions;
+		}
+
+		/**
+		 * @description Queues the first executor of a chain launched inside a line of jobs that already has a maximum
+		 * queueable stack depth: from a chain job, or from any other queueable job queued with a maximum. The platform
+		 * refuses a maximum set from inside a running job whose line of jobs already has one. So this hop is queued
+		 * without options and uses the launching line's maximum. A caller's own maximum is not applied to this hop. The
+		 * executor's own options, which its Finalizer uses from the second hop on, carry the depth the rest of the chain
+		 * needs. A requested delay goes through the delay overload, which the platform accepts inside a job. A caller's
+		 * duplicateSignature is not applied to this hop. A delay set on the caller's own options (minimumQueueableDelayInMinutes)
+		 * is not applied to it either; withDelayMinutes is the way to delay it.
 		 *
 		 * @param executor The first executor.
 		 *
@@ -2921,7 +3094,7 @@ global inherited sharing class UTIL_AsyncChain
 		 *
 		 * @since 1.8
 		 */
-		private Id enqueueFirstExecutorInsideChainJob(ChainExecutor executor)
+		private Id enqueueFirstExecutorUnderTheLaunchingMaximum(ChainExecutor executor)
 		{
 			return firstStepDelayMinutes != null && firstStepDelayMinutes > 0
 					? System.enqueueJob(executor, firstStepDelayMinutes)
@@ -3100,6 +3273,63 @@ global inherited sharing class UTIL_AsyncChain
 			firstEnqueueOptions.minimumQueueableDelayInMinutes = firstStepDelayMinutes;
 		}
 		return firstEnqueueOptions;
+	}
+
+	/**
+	 * @description What the line of queueable jobs (the jobs started one from another) looks like to a chain launch:
+	 * whether the launch runs inside a queueable job, whether the platform let the framework read the line, the depth
+	 * the running job sits at, and the maximum the line was given. A line the platform does not let the framework read
+	 * looks like no line at all: depth 0 and no maximum.
+	 */
+	private class QueueableLineage
+	{
+		/**
+		 * @description True when the launch runs inside a queueable job.
+		 */
+		private final Boolean isInsideQueueable;
+
+		/**
+		 * @description True when the platform answered the framework's questions about the line, or when there was nothing
+		 * to ask. False inside a trigger fired by a save that a queueable job makes, where a job queued from there starts
+		 * a new line of jobs.
+		 */
+		private final Boolean isReadable;
+
+		/**
+		 * @description The queueable stack depth the launching job runs at, or 0 outside a job or when it cannot be read.
+		 */
+		private final Integer currentDepth;
+
+		/**
+		 * @description The maximum queueable stack depth of the line, or null when the line has none or it cannot be read.
+		 */
+		private final Integer maximumDepth;
+
+		/**
+		 * @description Creates the description of a line of jobs.
+		 *
+		 * @param isInsideQueueable True when the launch runs inside a queueable job.
+		 * @param isReadable True when the platform answered the questions about the line.
+		 * @param currentDepth The depth the launching job runs at.
+		 * @param maximumDepth The line's maximum, or null when it has none.
+		 */
+		private QueueableLineage(Boolean isInsideQueueable, Boolean isReadable, Integer currentDepth, Integer maximumDepth)
+		{
+			this.isInsideQueueable = isInsideQueueable;
+			this.isReadable = isReadable;
+			this.currentDepth = currentDepth;
+			this.maximumDepth = maximumDepth;
+		}
+
+		/**
+		 * @description Whether the line already has a maximum queueable stack depth, which a job inside it cannot change.
+		 *
+		 * @return True when the line has a maximum.
+		 */
+		private Boolean hasMaximum()
+		{
+			return maximumDepth != null;
+		}
 	}
 
 	/**
@@ -3995,7 +4225,8 @@ global inherited sharing class UTIL_AsyncChain
 		 */
 		FAILED_CONTINUED,
 		/**
-		 * @description The step failed and the chain stopped at it.
+		 * @description The step recorded a failure and was not added with continueOnError, so the chain did not go past it.
+		 * A step that the watchdog refused to run again is RECOVERY_REFUSED instead.
 		 */
 		FAILED_STOPPED,
 		/**
@@ -4134,7 +4365,8 @@ global inherited sharing class UTIL_AsyncChain
 		private HandlerExecutor pendingHandler;
 
 		/**
-		 * @description Constructs a new ChainExecutor for the given chain execution.
+		 * @description Only keeps the values. Nothing is checked, read or written until the platform runs execute. One
+		 * executor runs the one step at currentStepIndex; the step after it gets an executor of its own.
 		 *
 		 * @param chainExecutionId The ID of the AsyncChainExecution__c record.
 		 * @param currentStepIndex The zero-based index of the step to execute.
@@ -5043,12 +5275,13 @@ global inherited sharing class UTIL_AsyncChain
 		private final String capturedRunKey;
 
 		/**
-		 * @description Constructs a HandlerExecutor.
+		 * @description Only keeps the values. Nothing is read or written until the platform runs execute. The handler then
+		 * acts only while the execution record still stores capturedRunKey; with any other key it only logs that it skipped.
 		 *
 		 * @param executionId The chain execution record ID.
 		 * @param context The chain context to pass to the handler.
 		 * @param handlerDefinition The handler step definition.
-		 * @param expectedStatus The status to set if the handler succeeds.
+		 * @param expectedStatus The status the run had when this handler was queued: Completed, Failed or Stalled.
 		 * @param originalErrorMessage The original error message (for error handlers), null for completion handlers.
 		 * @param capturedRunKey The run key captured at enqueue time, or null for a run started by a package version without run keys.
 		 */
@@ -6045,7 +6278,9 @@ global inherited sharing class UTIL_AsyncChain
 	}
 
 	/**
-	 * @description Builds the refusal outcome of an operator action.
+	 * @description Used by retryChainFromFailedStep and restartChainFromStart when the action does not go ahead: its own
+	 * fresh check refused, or the save was refused. It only builds the outcome and writes nothing. resultId stays null,
+	 * and CTRL_ChainMonitor turns the code into an error with a label.
 	 *
 	 * @param refusalCode The availability code the action refused on when it checked again on a fresh read.
 	 *
@@ -6059,7 +6294,8 @@ global inherited sharing class UTIL_AsyncChain
 	}
 
 	/**
-	 * @description Builds the success outcome of an operator action.
+	 * @description Used once the action has run. resultId is the retried run for a retry, or the new copy for a restart.
+	 * refusalCode stays null, which is how the caller knows the action ran.
 	 *
 	 * @param resultId The record the caller should surface after the action.
 	 *
@@ -7632,7 +7868,8 @@ global inherited sharing class UTIL_AsyncChain
 		private Id launchedRunId;
 
 		/**
-		 * @description The chain name of that run.
+		 * @description The chain name of the run in launchedRunId, set at the same time. It is used only to name that run
+		 * in the error that refuses a second launch from the same step or handler.
 		 */
 		private String launchedChainName;
 

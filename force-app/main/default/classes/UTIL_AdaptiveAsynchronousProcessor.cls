@@ -15,7 +15,7 @@
  *
  * @group Async Processing
  *
- * @date September 2025, September 2026
+ * @date September 2025, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
@@ -130,7 +130,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	 * String jobId = processor.run();
 	 * AsyncApexJob job = [SELECT Status, NumberOfErrors, JobItemsProcessed, TotalJobItems
 	 * FROM AsyncApexJob WHERE Id = :jobId];
-	 * System.debug('Job Status: ' + job.Status);
+	 * // job.Status tells you how far the job has come, for example 'Processing' or 'Completed'
 	 * ```
 	 */
 	private Id asyncJobId {get; set;}
@@ -735,7 +735,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	private class QueueableToBatchableContext implements Database.BatchableContext
 	{
 		/**
-		 * @description The job ID of the Queueable job.
+		 * @description Copied from the Queueable context when the adapter is built, and never changed after that.
 		 */
 		private final Id jobId;
 
@@ -750,7 +750,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 		}
 
 		/**
-		 * @description Returns the job ID of the Queueable job.
+		 * @description Gives the finish logic the Id of the running Queueable job, where a batch would give its own job Id.
 		 *
 		 * @return The job ID.
 		 */
@@ -872,7 +872,8 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 		public AsyncOptions asyncOptions {get; set;}
 
 		/**
-		 * @description Default constructor for DTO_ProcessSettings.
+		 * @description Creates settings with nothing set. The batch threshold, the batch size and the execution strategy
+		 * fill in their defaults the first time they are read; the other settings stay null until you set them.
 		 */
 		@SuppressWarnings('PMD.EmptyStatementBlock')
 		public DTO_ProcessSettings()

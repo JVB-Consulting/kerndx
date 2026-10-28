@@ -12,7 +12,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.NcssMethodCount')
 public inherited sharing class UTIL_Character
@@ -27,7 +27,7 @@ public inherited sharing class UTIL_Character
 	 * @example
 	 * ```apex
 	 * String charValue = UTIL_Character.toChar(65);
-	 * System.debug(charValue); // Outputs: A
+	 * // charValue is 'A'
 	 * ```
 	 */
 	public static String toChar(Integer asciiValue)
@@ -47,7 +47,7 @@ public inherited sharing class UTIL_Character
 	 * @example
 	 * ```apex
 	 * Boolean isWhitespace = UTIL_Character.isWhitespace(' ');
-	 * System.debug(isWhitespace); // Outputs: true
+	 * // isWhitespace is true
 	 * ```
 	 */
 	public static Boolean isWhitespace(String inputChar)
@@ -65,7 +65,7 @@ public inherited sharing class UTIL_Character
 	 *
 	 * @param inputChar The character to validate.
 	 *
-	 * @throws IllegalArgumentException If the input is null or not a single character.
+	 * @throws IllegalArgumentException If the input is not exactly one character long. A null input does not throw.
 	 *
 	 * @example
 	 * ```apex
@@ -75,7 +75,7 @@ public inherited sharing class UTIL_Character
 	 * }
 	 * catch(IllegalArgumentException e)
 	 * {
-	 * 	System.debug('Invalid input: ' + e.getMessage());
+	 * 	LOG_Builder.build().error(e).emitAt('MyClass.checkInput');
 	 * }
 	 * ```
 	 */

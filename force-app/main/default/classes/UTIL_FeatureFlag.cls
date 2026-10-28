@@ -16,7 +16,7 @@
  * The first `isEnabled(...)` call per transaction loads every active flag and its active strategies in
  * one CMDT query (`SEL_FeatureFlag.activeFlags` static cache); subsequent calls reuse that cache. Most
  * strategy types then add 1 SOQL per evaluation: Profile, Public Group, Permission Set Group, and unprefixed
- * (subscriber-local) Custom Permission. A Hierarchical Custom Setting, a List Custom Setting or a Custom Metadata
+ * (your org's own) Custom Permission. A Hierarchical Custom Setting, a List Custom Setting or a Custom Metadata
  * record is read once per transaction (per setting and user for the hierarchy): the rows are kept in memory
  * until a framework write empties the query cache, so a loop that checks the same flag pays one query, not one per pass.
  * Code that flips a setting and checks the flag again in the same transaction writes the setting through
@@ -154,7 +154,9 @@ global inherited sharing class UTIL_FeatureFlag
 	global interface INT_UserAwareFeatureFlagStrategy extends INT_FeatureFlagStrategy
 	{
 		/**
-		 * @description Evaluates the strategy for a specific user.
+		 * @description The framework calls this only when it checks a flag for a user who is not the running user, through
+		 * UTIL_FeatureFlag.isEnabled with a user Id or a username. For the running user it calls isEnabled instead. Read
+		 * the user's details from userId, never from UserInfo.
 		 *
 		 * @param flag The parent Feature Flag custom metadata record
 		 * @param strategyToEvaluate The specific strategy record being evaluated
@@ -362,7 +364,7 @@ global inherited sharing class UTIL_FeatureFlag
 	 * Boolean enabled = UTIL_FeatureFlag.isEnabled('Premium_Feature', 'john.doe@company.com');
 	 * if(enabled)
 	 * {
-	 *     System.debug('Feature is enabled for this user');
+	 *     // Show the premium feature to this user
 	 * }
 	 * ```
 	 */

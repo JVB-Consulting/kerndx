@@ -7,7 +7,7 @@
  *
  * Key Features:
  * - **Framework Safe**: Defaults to UTIL_Cache.getPlatformCacheName() for internal package usage.
- * - **Subscriber Ready**: Supports custom partitions via .withPartition().
+ * - **Your Own Partitions**: Supports custom partitions in your org via .withPartition().
  * - **Governor Friendly**: Uses putAll and getAll to minimize cache commits/reads.
  * - **Bulk Optimized**: getAll() uses native Platform Cache bulk retrieval for optimal performance.
  * - **Graceful Failure**: Silently handles missing partitions or cache unavailability.
@@ -207,7 +207,7 @@ global inherited sharing class UTIL_Cache
 		/**
 		 * @description Auto-select dispatch: Session first, fallback to Org. **Durable-only** —
 		 * this scope does not silently fall back to per-transaction storage when Platform Cache
-		 * is unallocated. Subscribers that want graceful degradation use the
+		 * is unallocated. If you want graceful degradation, use the
 		 * autoWithTransactionFallback() factory instead.
 		 */
 		AUTO,
@@ -349,7 +349,9 @@ global inherited sharing class UTIL_Cache
 		global Integer keysFound;
 
 		/**
-		 * @description Constructor for success result
+		 * @description Creates a result with no error message, as the cache records after an operation that worked. The
+		 * values are kept exactly as given. To record a failure and its reason, use the constructor that also takes an
+		 * error message.
 		 *
 		 * @param success Whether operation succeeded
 		 * @param status Operation status
@@ -653,7 +655,8 @@ global inherited sharing class UTIL_Cache
 		Boolean contains(String key);
 
 		/**
-		 * @description Removes a value from cache
+		 * @description Takes the key and its value out of the cache this store uses. A blank key changes nothing and returns
+		 * false. The call does not throw when the cache cannot be reached.
 		 *
 		 * @param key The cache key
 		 *
@@ -737,7 +740,7 @@ global inherited sharing class UTIL_Cache
 	 * put/get operations return false / null and OperationResult reports Status.CACHE_UNAVAILABLE
 	 * — the failure is loud and visible. This factory does NOT silently fall back to
 	 * per-transaction in-memory storage. Use this factory when durability matters (security
-	 * keys, distributed counters, cross-transaction state). UTIL_SessionEncryption is the
+	 * keys, cross-transaction state). UTIL_SessionEncryption is the
 	 * canonical durability-required caller.
 	 *
 	 * For graceful degradation to per-transaction memory when Platform Cache is missing, use
@@ -803,8 +806,8 @@ global inherited sharing class UTIL_Cache
 	}
 
 	/**
-	 * @description Convenience factory for custom partition (subscriber orgs).
-	 * "Easy Button" for subscribers to use their local partitions.
+	 * @description Convenience factory for a cache partition of your own.
+	 * Use it to store values in a partition you created in your org.
 	 *
 	 * @param partitionName Fully qualified partition name (e.g., 'local.MyPartition')
 	 *
@@ -813,10 +816,10 @@ global inherited sharing class UTIL_Cache
 	 * @since 1.0
 	 *
 	 * @example
-	 * Subscriber org using custom partition:
+	 * Using a partition you created in your org:
 	 * ```apex
 	 * UTIL_Cache.Store cache = UTIL_Cache.partition('local.MyPartition');
-	 * cache.put('subscriberData', myData);
+	 * cache.put('myData', myData);
 	 * ```
 	 */
 	global static Store partition(String partitionName)
@@ -869,8 +872,8 @@ global inherited sharing class UTIL_Cache
 	 * - When neither Platform Cache scope is allocated: the call succeeds via IN_TRANSACTION
 	 *   scope. OperationResult.cacheTypeUsed reports the actual scope used (IN_TRANSACTION
 	 *   when the fallback fired) so callers can detect the degraded path.
-	 * - Durability-critical callers (security keys, distributed state, cross-transaction
-	 *   counters) MUST use auto() — not this factory — so the loud failure signal stays loud
+	 * - Durability-critical callers (security keys, distributed state) MUST use auto(), not
+	 *   this factory, so the loud failure signal stays loud
 	 *   when Platform Cache is missing.
 	 *
 	 * @return Store with Session → Org → Transaction fallback chain
@@ -910,7 +913,7 @@ global inherited sharing class UTIL_Cache
 	 * }
 	 * else
 	 * {
-	 *     System.debug('Platform Cache not configured');
+	 *     // No Platform Cache: compute the value again when you need it
 	 * }
 	 * ```
 	 */
@@ -933,11 +936,11 @@ global inherited sharing class UTIL_Cache
 	 * ```apex
 	 * if(UTIL_Cache.isAvailable(UTIL_Cache.Scope.SESSION))
 	 * {
-	 *     System.debug('Session cache is available');
+	 *     // Session cache can be used
 	 * }
 	 * if(UTIL_Cache.isAvailable(UTIL_Cache.Scope.ORG))
 	 * {
-	 *     System.debug('Org cache is available');
+	 *     // Org cache can be used
 	 * }
 	 * ```
 	 */
@@ -964,7 +967,7 @@ global inherited sharing class UTIL_Cache
 	 * ```apex
 	 * if(UTIL_Cache.isAllocated())
 	 * {
-	 *     System.debug('Platform Cache is functional');
+	 *     // Org cache or session cache can store and return a value
 	 * }
 	 * ```
 	 */
@@ -985,7 +988,7 @@ global inherited sharing class UTIL_Cache
 	 * ```apex
 	 * if(UTIL_Cache.isOrgAllocated())
 	 * {
-	 *     System.debug('Organisation Cache is functional');
+	 *     // Org cache can store and return a value
 	 * }
 	 * ```
 	 */
@@ -1006,7 +1009,7 @@ global inherited sharing class UTIL_Cache
 	 * ```apex
 	 * if(UTIL_Cache.isSessionAllocated())
 	 * {
-	 *     System.debug('Session Cache is functional');
+	 *     // Session cache can store and return a value
 	 * }
 	 * ```
 	 */
@@ -1038,7 +1041,8 @@ global inherited sharing class UTIL_Cache
 	}
 
 	/**
-	 * @description Cache configuration class
+	 * @description The choices one cache handle works with: which cache scope to use, which partition, and whether keys
+	 * are kept apart per user. Each handle has its own copy.
 	 */
 	@TestVisible
 	private class CacheConfiguration
@@ -1049,7 +1053,8 @@ global inherited sharing class UTIL_Cache
 		public Scope preferredScope;
 
 		/**
-		 * @description Partition name
+		 * @description The Platform Cache partition to read and write, written as namespace.name. It starts as the
+		 * framework's own partition; withPartition replaces it only when given a value that is not blank.
 		 */
 		public String partitionName;
 
@@ -1059,7 +1064,8 @@ global inherited sharing class UTIL_Cache
 		public Boolean useUserScope;
 
 		/**
-		 * @description Default constructor
+		 * @description Starts with the default choices: the AUTO scope (session cache first, then org cache), the
+		 * framework's own partition from getPlatformCacheName, and keys shared by all users.
 		 */
 		public CacheConfiguration()
 		{
@@ -1077,7 +1083,8 @@ global inherited sharing class UTIL_Cache
 	private class DefaultCache implements Store
 	{
 		/**
-		 * @description Configuration for this cache instance
+		 * @description The choices every read and write of this handle uses. withScope, withPartition and withUserScope
+		 * change it in place and return the same handle.
 		 */
 		@TestVisible
 		private CacheConfiguration configuration;
@@ -1282,7 +1289,7 @@ global inherited sharing class UTIL_Cache
 		 * String accountName = (String)cache.get('accountName');
 		 * if(accountName != null)
 		 * {
-		 *     System.debug('Found cached account: ' + accountName);
+		 *     // accountName holds the cached value
 		 * }
 		 * ```
 		 */
@@ -1342,7 +1349,9 @@ global inherited sharing class UTIL_Cache
 		}
 
 		/**
-		 * @description Removes a value from cache
+		 * @description Takes the key out of each cache scope this handle uses (session, org, or both). A blank key changes
+		 * nothing and returns false. True means at least one scope ran the remove without an error; it does not say whether
+		 * the key was there.
 		 *
 		 * @param key The cache key
 		 *
@@ -1454,7 +1463,7 @@ global inherited sharing class UTIL_Cache
 		 * Map<String, Object> results = cache.getAll(requestedKeys);
 		 * for(String key : results.keySet())
 		 * {
-		 *     System.debug(key + ': ' + results.get(key));
+		 *     Object cachedValue = results.get(key); // only keys found in the cache are in results
 		 * }
 		 * ```
 		 */
@@ -1570,8 +1579,8 @@ global inherited sharing class UTIL_Cache
 		 * UTIL_Cache.OperationResult result = cache.getLastOperationResult();
 		 * if(!result.success)
 		 * {
-		 *     System.debug('Cache operation failed: ' + result.status);
-		 *     System.debug('Error: ' + result.errorMessage);
+		 *     LOG_Builder.build().warn('Cache operation failed: ' + result.status + ', ' + result.errorMessage)
+		 *         .emitAt('MyClass.cacheValue');
 		 * }
 		 * ```
 		 */
@@ -1890,7 +1899,9 @@ global inherited sharing class UTIL_Cache
 		}
 
 		/**
-		 * @description Removes keys from the specified cache type
+		 * @description Takes each key out of one cache scope and records the outcome as the last operation result. It never
+		 * throws: when the partition cannot be reached or the remove fails, it returns false. True does not say whether the
+		 * keys were there.
 		 *
 		 * @param cacheType The cache type to use (SESSION or ORG)
 		 * @param keys Set of scoped keys to remove

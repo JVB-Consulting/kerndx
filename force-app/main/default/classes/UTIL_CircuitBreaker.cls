@@ -21,7 +21,7 @@
  * - HALF_OPEN: Testing if service has recovered, limited requests allowed through
  *
  * State Transitions:
- * - CLOSED → OPEN: When failure count exceeds threshold
+ * - CLOSED → OPEN: When failure count reaches the threshold
  * - OPEN → HALF_OPEN: After timeout period expires
  * - HALF_OPEN → CLOSED: When success count indicates recovery
  * - HALF_OPEN → OPEN: When failures continue
@@ -189,7 +189,9 @@ global inherited sharing class UTIL_CircuitBreaker
 		global String circuitId;
 
 		/**
-		 * @description Current state of the circuit
+		 * @description The state of the circuit when the metrics were read. CLOSED lets every request through, OPEN refuses
+		 * them, and HALF_OPEN lets a few trial requests through. An OPEN circuit whose timeout has passed is shown as
+		 * HALF_OPEN, because reading the metrics moves it on first.
 		 *
 		 * @since 1.0
 		 *
@@ -201,7 +203,9 @@ global inherited sharing class UTIL_CircuitBreaker
 		global State state;
 
 		/**
-		 * @description Current failure count
+		 * @description The failures recorded while the circuit was CLOSED. A success while CLOSED sets it back to zero, and
+		 * so does closing the circuit. The circuit opens when this count reaches the failure threshold; opening it does
+		 * not reset the count.
 		 *
 		 * @since 1.0
 		 *
@@ -225,7 +229,9 @@ global inherited sharing class UTIL_CircuitBreaker
 		global Integer consecutiveSuccesses;
 
 		/**
-		 * @description Time of last failure
+		 * @description The time the circuit last opened: after too many failures, after a failed trial request, or through
+		 * forceOpen. A failure that leaves the circuit CLOSED does not set it. Null when no opening is on record. The
+		 * timeout before an OPEN circuit lets trial requests through is counted from this time.
 		 *
 		 * @since 1.0
 		 *
@@ -297,7 +303,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		void recordFailure();
 
 		/**
-		 * @description Gets the current state of the circuit breaker
+		 * @description Before it answers, it moves an OPEN circuit to HALF_OPEN when the timeout has passed, and saves that
+		 * change. It does not use up a trial request; allowRequest and execute do.
 		 *
 		 * @return The current circuit state
 		 *
@@ -424,7 +431,7 @@ global inherited sharing class UTIL_CircuitBreaker
 		 *     DTO_CustomerResponse response = (DTO_CustomerResponse)breaker.execute(
 		 *         new GetCustomerDataProvider(customerId)
 		 *     );
-		 *     System.debug('Customer Name: ' + response.name);
+		 *     String customerName = response.name;
 		 * }
 		 * catch(UTIL_CircuitBreaker.OpenException e)
 		 * {
@@ -623,12 +630,14 @@ global inherited sharing class UTIL_CircuitBreaker
 	public class CircuitState
 	{
 		/**
-		 * @description Current state of the circuit breaker
+		 * @description Where the circuit stands. A state that loadState creates, when nothing is cached, starts CLOSED.
+		 * After that, only transitionToClosed, transitionToOpen and transitionToHalfOpen change it.
 		 */
 		private State state;
 
 		/**
-		 * @description Time of last failure
+		 * @description Set to now each time the circuit opens (see transitionToOpen). A failure that leaves the circuit
+		 * CLOSED does not set it. The timeout that moves an OPEN circuit to HALF_OPEN is counted from this time.
 		 */
 		private Datetime lastFailureTime;
 
@@ -644,7 +653,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		private Integer consecutiveSuccesses;
 
 		/**
-		 * @description Current failure count
+		 * @description Failures recorded while the circuit is CLOSED. It goes back to zero on a success while CLOSED and
+		 * when the circuit closes. The circuit opens when it reaches the failure threshold.
 		 */
 		private Integer failureCount;
 
@@ -669,12 +679,15 @@ global inherited sharing class UTIL_CircuitBreaker
 		private final String circuitId;
 
 		/**
-		 * @description Configuration for this circuit breaker
+		 * @description The thresholds and the timeout this breaker uses. A null configuration given to the constructor is
+		 * replaced by the defaults. The with methods change it for this instance only; it is not saved to the cache.
 		 */
 		private final CircuitConfiguration configuration;
 
 		/**
-		 * @description Current state of the circuit breaker
+		 * @description Read from the org Platform Cache under the circuit's identifier when the breaker is created, or a
+		 * new CLOSED state when nothing is cached. Every change is saved back to the cache, so a breaker for the same
+		 * circuit created later reads it, until the cache entry expires.
 		 */
 		private final CircuitState currentState;
 
@@ -791,7 +804,8 @@ global inherited sharing class UTIL_CircuitBreaker
 		}
 
 		/**
-		 * @description Gets the current state of the circuit breaker
+		 * @description Runs updateStateIfNeeded first, so an OPEN circuit whose timeout has passed is moved to HALF_OPEN and
+		 * saved before the state is returned. It does not use up a trial request.
 		 *
 		 * @return The current circuit state
 		 */
@@ -956,7 +970,7 @@ global inherited sharing class UTIL_CircuitBreaker
 		 *     DTO_CustomerResponse response = (DTO_CustomerResponse)breaker.execute(
 		 *         new GetCustomerDataProvider(customerId)
 		 *     );
-		 *     System.debug('Customer Name: ' + response.name);
+		 *     String customerName = response.name;
 		 * }
 		 * catch(UTIL_CircuitBreaker.OpenException e)
 		 * {

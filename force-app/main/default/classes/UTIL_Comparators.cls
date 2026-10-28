@@ -14,7 +14,7 @@
  *
  * @group Utilities
  *
- * @date 2012, June 2026
+ * @date 2012, October 2026
  */
 @SuppressWarnings('PMD.ExcessivePublicCount,PMD.CognitiveComplexity,PMD.AvoidBooleanMethodParameters')
 public inherited sharing class UTIL_Comparators
@@ -190,7 +190,7 @@ public inherited sharing class UTIL_Comparators
 		 * List<Object> numbers = new List<Object>{3, 1, 2};
 		 * UTIL_Comparators.PrimitiveComparator comparator = new UTIL_Comparators.PrimitiveComparator(true);
 		 * List<Object> sorted = UTIL_List.sort(numbers, comparator);
-		 * System.debug(sorted); // Outputs: [1, 2, 3]
+		 * // sorted: (1, 2, 3)
 		 * ```
 		 */
 		@SuppressWarnings('ApexUnnecessaryCast,PMD.CyclomaticComplexity')
@@ -432,7 +432,8 @@ public inherited sharing class UTIL_Comparators
 		private final PrimitiveComparator comparator;
 
 		/**
-		 * @description The field name to sort by.
+		 * @description The API name of the field read from each record with SObject.get. When it is blank, compare throws
+		 * IllegalArgumentException as soon as it compares two records that are both not null.
 		 */
 		private final String sortFieldName;
 
@@ -450,7 +451,8 @@ public inherited sharing class UTIL_Comparators
 		}
 
 		/**
-		 * @description Constructor with specified sort field.
+		 * @description Sorts by the given field in ascending order. The field name is not checked here; a blank name makes
+		 * compare throw IllegalArgumentException later.
 		 *
 		 * @param sortFieldName The field name to sort by.
 		 *
@@ -498,7 +500,7 @@ public inherited sharing class UTIL_Comparators
 		 * List<Account> accounts = [SELECT Name FROM Account LIMIT 3];
 		 * UTIL_Comparators.SObjectFieldComparator comparator = new UTIL_Comparators.SObjectFieldComparator('Name', true);
 		 * List<SObject> sorted = UTIL_List.sort(accounts, comparator);
-		 * System.debug(sorted); // Outputs: Accounts sorted by Name
+		 * // sorted holds the accounts by Name, A to Z
 		 * ```
 		 */
 		@SuppressWarnings('PMD.CognitiveComplexity')
@@ -547,7 +549,7 @@ public inherited sharing class UTIL_Comparators
 		 * List<Account> accounts = [SELECT Name FROM Account LIMIT 3];
 		 * UTIL_Comparators.SObjectFieldComparator comparator = new UTIL_Comparators.SObjectFieldComparator();
 		 * List<SObject> sorted = comparator.sortSObjects(accounts);
-		 * System.debug(sorted); // Outputs: Accounts sorted by Name
+		 * // sorted holds the accounts by Name, A to Z
 		 * ```
 		 */
 		public List<SObject> sortSObjects(List<SObject> sObjectList)
@@ -568,7 +570,7 @@ public inherited sharing class UTIL_Comparators
 		 * List<Account> accounts = [SELECT Name FROM Account LIMIT 3];
 		 * UTIL_Comparators.SObjectFieldComparator comparator = new UTIL_Comparators.SObjectFieldComparator();
 		 * List<SObject> sorted = comparator.sortSObjects(accounts, 'Name');
-		 * System.debug(sorted); // Outputs: Accounts sorted by Name
+		 * // sorted holds the accounts by Name, A to Z
 		 * ```
 		 */
 		public List<SObject> sortSObjects(List<SObject> sObjectList, String sortFieldName)
@@ -589,7 +591,7 @@ public inherited sharing class UTIL_Comparators
 		 * List<Account> accounts = [SELECT Name FROM Account LIMIT 3];
 		 * UTIL_Comparators.SObjectFieldComparator comparator = new UTIL_Comparators.SObjectFieldComparator();
 		 * List<SObject> sorted = comparator.sortSObjects(accounts, false);
-		 * System.debug(sorted); // Outputs: Accounts sorted by Name in descending order
+		 * // sorted holds the accounts by Name, Z to A
 		 * ```
 		 */
 		public List<SObject> sortSObjects(List<SObject> sObjectList, Boolean isSortAscending)
@@ -611,7 +613,7 @@ public inherited sharing class UTIL_Comparators
 		 * List<Account> accounts = [SELECT Name FROM Account LIMIT 3];
 		 * UTIL_Comparators.SObjectFieldComparator comparator = new UTIL_Comparators.SObjectFieldComparator();
 		 * List<SObject> sorted = comparator.sortSObjects(accounts, 'Name', true);
-		 * System.debug(sorted); // Outputs: Accounts sorted by Name in ascending order
+		 * // sorted holds the accounts by Name, A to Z
 		 * ```
 		 */
 		public List<SObject> sortSObjects(List<SObject> sObjectList, String sortFieldName, Boolean isSortAscending)

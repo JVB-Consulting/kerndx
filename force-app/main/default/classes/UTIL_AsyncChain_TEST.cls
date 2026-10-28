@@ -47,12 +47,31 @@ private class UTIL_AsyncChain_TEST
 	private static final Integer DEEP_CHAIN_STEP_COUNT = 7;
 
 	/**
+	 * @description The step count that gives a chain launched from a plain job a second step, so the chain's second job is queued too.
+	 */
+	private static final Integer TWO_STEPS = 2;
+
+	/**
 	 * @description Queueable stack depth that the caller passes, for the tests that check the first queued job copies the
 	 * caller's options. It is chosen to differ from any default the framework works out in these tests (step count plus
 	 * one plus the levels kept for nested chains). So a depth seen on the built options can only have come from the
 	 * caller's object.
 	 */
 	private static final Integer CUSTOM_STACK_DEPTH = 5;
+
+	/**
+	 * @description Queueable stack depth that a trigger passes to the chain it launches, in the test that checks the chain runs
+	 * under the caller's maximum. It is not 5, the platform default, and not 7, the framework default for that chain. So the
+	 * depth the chain saves can only have come from the caller's options.
+	 */
+	private static final Integer CALLER_MAXIMUM_STACK_DEPTH = 9;
+
+	/**
+	 * @description The framework default maximum for the one-step chain that a trigger launches with no options, when the
+	 * launch starts a new line of jobs at depth 0. It is made up of 0 for the launch depth, 1 for the one step, 1 for the first
+	 * hop, and 5 for the levels the framework keeps for nested chains.
+	 */
+	private static final Integer DEFAULT_TRIGGER_CHAIN_STACK_DEPTH = 7;
 
 	/**
 	 * @description A first-step delay inside the platform range of 0 to 10, passed to the helper that copies the options
@@ -318,6 +337,64 @@ private class UTIL_AsyncChain_TEST
 	 * test already ran all its queued jobs and the chain finished. Anything else means the launch itself was refused.
 	 */
 	private static final Set<String> ACCEPTED_LAUNCH_STATUSES = new Set<String> {SEL_AsyncChainExecution.STATUS_RUNNING, SEL_AsyncChainExecution.STATUS_COMPLETED};
+
+	/**
+	 * @description The exception a launch from inside RefusedLaunchQueueable raised, so the test that runs that job can
+	 * check the refusal. Null when the launch was not refused.
+	 */
+	private static Exception launchRefusalFromQueueable;
+
+	/**
+	 * @description Correlation id a launch that is meant to be refused runs under. The tests look for a run record with
+	 * this id to prove the refusal saved none.
+	 */
+	private static final String REFUSED_LAUNCH_CORRELATION_ID = UTIL_Random.randomUUID();
+
+	/**
+	 * @description Maximum stack depth for a Queueable whose line of jobs has no level left: the Queueable itself runs at
+	 * depth 1, so a chain it launches has no room for its first job.
+	 */
+	private static final Integer FULL_LINE_STACK_DEPTH = 1;
+
+	/**
+	 * @description Part of the refusal for a launch whose line of jobs has no spare stack level.
+	 */
+	private static final String STACK_DEPTH_REFUSAL_FRAGMENT = 'queueable stack depth';
+
+	/**
+	 * @description Part of the refusal for a launch from a job that has already added its one queueable job.
+	 */
+	private static final String ENQUEUE_USED_REFUSAL_FRAGMENT = 'already added its one queueable job';
+
+	/**
+	 * @description Execution id of the chain ChainLaunchingTriggerAction launched from the Foobar__c trigger, so the test
+	 * can read the run record that launch produced. Null when the launch did not happen or was refused.
+	 */
+	private static String chainLaunchedFromTrigger;
+
+	/**
+	 * @description The exception the launch from ChainLaunchingTriggerAction raised, so the test can show the launch was
+	 * not refused. Null when the launch worked.
+	 */
+	private static Exception launchRefusalFromTrigger;
+
+	/**
+	 * @description The options ChainLaunchingTriggerAction gives the chain it launches. Null, the default, launches the
+	 * chain with no options of its own.
+	 */
+	private static AsyncOptions triggerLaunchOptions;
+
+	/**
+	 * @description The context key under which MaximumStackDepthRecordingStep saves the maximum queueable stack depth
+	 * of the job it runs in.
+	 */
+	private static final String MAXIMUM_STACK_DEPTH_KEY = 'maximumStackDepth';
+
+	/**
+	 * @description The full name of the test trigger action that launches a chain after a Foobar__c record is inserted.
+	 * The trigger framework creates the action from this name.
+	 */
+	private static final String CHAIN_LAUNCHING_TRIGGER_ACTION_CLASS = ChainLaunchingTriggerAction.class.getName();
 
 	/**
 	 * @description Creates a test admin user of its own, so System.runAs in each test starts with fresh permission
@@ -3636,6 +3713,171 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
+	 * @description A chain launched from inside a Queueable that was queued with its own maximum stack depth is
+	 * accepted. The platform does not let a job inside such a line of jobs set a new maximum. So the chain's first job
+	 * is queued without options and runs under the maximum the line already has, and the run carries its job id. The chain
+	 * has two steps, so this also proves the second job: it is queued with options that carry a maximum, while the line
+	 * of jobs already has a different maximum, and the platform accepts it (a refused job would leave the run Stalled).
+	 */
+	@IsTest
+	private static void shouldAcceptAChainLaunchedFromInsideAQueueableThatHasAMaximumDepth()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			System.enqueueJob(new ChainLaunchingQueueable(TWO_STEPS), createAsyncOptions(CUSTOM_STACK_DEPTH));
+			Test.stopTest();
+
+			Assert.isNotNull(chainLaunchedFromQueueable, 'Expected the chain to be launched from inside the Queueable');
+			AsyncChainExecution__c launched = queryExecution(chainLaunchedFromQueueable);
+			Assert.isTrue(ACCEPTED_LAUNCH_STATUSES.contains(launched.Status__c), 'Expected the launch to be accepted: ' + launched.Status__c + ' ' + launched.ErrorMessage__c);
+			Assert.isNotNull(launched.CurrentJobId__c, 'Expected the first job to be queued and its job id saved on the run');
+		}
+	}
+
+	/**
+	 * @description A launch from inside a Queueable whose line of jobs is already at its maximum stack depth is refused
+	 * before the run record is saved. The chain's first job could never be queued, so no Running run is left without a job.
+	 */
+	@IsTest
+	private static void shouldRefuseALaunchFromAQueueableWithNoSpareStackLevel()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			System.enqueueJob(new RefusedLaunchQueueable(null), createAsyncOptions(FULL_LINE_STACK_DEPTH));
+			Test.stopTest();
+
+			Assert.isInstanceOfType(launchRefusalFromQueueable, UTIL_Exceptions.IllegalStateException.class, 'Expected the launch to be refused: ' + launchRefusalFromQueueable);
+			Assert.isTrue(launchRefusalFromQueueable.getMessage().contains(STACK_DEPTH_REFUSAL_FRAGMENT), 'Expected the refusal to name the stack depth: '
+					+ launchRefusalFromQueueable.getMessage());
+			Assert.isNull(new SEL_AsyncChainExecution().findByCorrelationId(REFUSED_LAUNCH_CORRELATION_ID), 'Expected no run record for the refused launch');
+		}
+	}
+
+	/**
+	 * @description A launch from inside a Queueable that already added its one queueable job is refused before the run
+	 * record is saved. The platform would refuse the chain's first job, so the refusal comes first and leaves no run behind.
+	 */
+	@IsTest
+	private static void shouldRefuseALaunchFromAQueueableThatAlreadyAddedItsJob()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			Test.startTest();
+			System.enqueueJob(new RefusedLaunchQueueable(new IdleJob()));
+			Test.stopTest();
+
+			Assert.isInstanceOfType(launchRefusalFromQueueable, UTIL_Exceptions.IllegalStateException.class, 'Expected the launch to be refused: ' + launchRefusalFromQueueable);
+			Assert.isTrue(launchRefusalFromQueueable.getMessage().contains(ENQUEUE_USED_REFUSAL_FRAGMENT), 'Expected the refusal to name the used job: '
+					+ launchRefusalFromQueueable.getMessage());
+			Assert.isNull(new SEL_AsyncChainExecution().findByCorrelationId(REFUSED_LAUNCH_CORRELATION_ID), 'Expected no run record for the refused launch');
+		}
+	}
+
+	/**
+	 * @description A chain step inserts a record, and the record's trigger launches a second chain with no options. Inside
+	 * a trigger fired by a queueable job's own save, the platform refuses to tell the framework the job's queueable stack
+	 * depth. A job queued from there starts a new line of jobs (the jobs started one from another) at depth 1. So the
+	 * launch must not ask for the depth of the step's line: the child chain starts, is recorded as launched under the
+	 * step's run, gets its first job, and runs to the end.
+	 */
+	@IsTest
+	private static void shouldStartAChainLaunchedFromATriggerFiredByAChainStep()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AsyncChainExecution__c child = runAChainWhoseStepTriggerLaunchesAChain();
+			Assert.isNotNull(child.CurrentJobId__c, 'Expected the first job of the chain launched from the trigger to be queued');
+			Assert.areEqual(DEFAULT_TRIGGER_CHAIN_STACK_DEPTH, parseContextData(child).get(MAXIMUM_STACK_DEPTH_KEY),
+					'Expected the chain to run under the framework default maximum for a new line of jobs');
+		}
+	}
+
+	/**
+	 * @description A chain step inserts a record, and the record's trigger launches a second chain with options of its
+	 * own. Inside that trigger the platform refuses to tell the framework the step job's queueable stack depth, and a
+	 * job queued from there starts a new line of jobs. So the child chain does not run under the maximum of the step's
+	 * line: its first job is queued with the caller's options and runs under the caller's maximum. The child still sits
+	 * one level below the step's run and runs to the end.
+	 */
+	@IsTest
+	private static void shouldUseTheCallersOptionsForAChainLaunchedFromATriggerFiredByAChainStep()
+	{
+		System.runAs(getTestAdmin())
+		{
+			triggerLaunchOptions = createAsyncOptions(CALLER_MAXIMUM_STACK_DEPTH);
+
+			AsyncChainExecution__c child = runAChainWhoseStepTriggerLaunchesAChain();
+			Assert.areEqual(CALLER_MAXIMUM_STACK_DEPTH, parseContextData(child).get(MAXIMUM_STACK_DEPTH_KEY), 'Expected the chain to run under the caller\'s maximum stack depth');
+		}
+	}
+
+	/**
+	 * @description A plain queueable job, not a chain job, inserts a record, and the record's trigger launches a chain
+	 * with no options. Inside that trigger the platform refuses to tell the framework the job's queueable stack depth.
+	 * The launch then counts from depth 0, as the platform does for a job queued from there, and the chain starts and
+	 * runs to the end.
+	 */
+	@IsTest
+	private static void shouldStartAChainLaunchedFromATriggerFiredByAQueueable()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			registerFoobarTriggerWithChainLaunchingAction();
+
+			Test.startTest();
+			System.enqueueJob(new RecordInsertingQueueable());
+			Test.stopTest();
+
+			Assert.isNull(launchRefusalFromTrigger, 'Expected the launch from the trigger to be accepted: ' + launchRefusalFromTrigger);
+			Assert.isNotNull(chainLaunchedFromTrigger, 'Expected the trigger to launch the chain');
+			AsyncChainExecution__c launched = queryExecution(chainLaunchedFromTrigger);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, launched.Status__c, 'Expected the chain launched from the trigger to complete: ' + launched.ErrorMessage__c);
+			Assert.isNotNull(launched.CurrentJobId__c, 'Expected the first job of the chain launched from the trigger to be queued');
+		}
+	}
+
+	/**
+	 * @description When the platform refuses the chain's first job after the run record was saved, the record is removed
+	 * and the platform's own exception reaches the caller. Here the platform refuses a second job with the same duplicate
+	 * signature. A caller that catches the exception and goes on must not keep a Running run that has no job.
+	 */
+	@IsTest
+	private static void shouldLeaveNoRunWhenThePlatformRefusesTheFirstJob()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncOptions options = createAsyncOptions(CUSTOM_STACK_DEPTH);
+			options.duplicateSignature = QueueableDuplicateSignature.builder().addId(UserInfo.getUserId()).build();
+
+			Test.startTest();
+			String acceptedExecutionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).withAsyncOptions(options).execute();
+			try
+			{
+				UTIL_AsyncChain.newChain(CHILD_CHAIN_NAME).then(new SuccessStep()).withAsyncOptions(options).execute(REFUSED_LAUNCH_CORRELATION_ID);
+				Assert.fail('Expected the platform to refuse a second job with the same duplicate signature');
+			}
+			catch(Exception refusal)
+			{
+				Assert.isInstanceOfType(refusal, DuplicateMessageException.class, 'Expected the platform exception itself to reach the caller: ' + refusal);
+			}
+			Test.stopTest();
+
+			Assert.isNull(new SEL_AsyncChainExecution().findByCorrelationId(REFUSED_LAUNCH_CORRELATION_ID), 'Expected no run record for the refused launch');
+			Assert.isNotNull(queryExecution(acceptedExecutionId).CurrentJobId__c, 'Expected the first launch to keep its run and its job');
+		}
+	}
+
+	/**
 	 * @description A completion handler runs inside the chain's jobs and may launch one chain the way a step does: the
 	 * child is keyed by the run and the handler, launched under the run's id with the action as its root.
 	 */
@@ -5082,6 +5324,49 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
+	 * @description Mocks the Foobar__c trigger's setting with one after insert action, ChainLaunchingTriggerAction, so
+	 * every Foobar__c record saved in the test launches a chain from the trigger. The action uses no feature flag.
+	 */
+	private static void registerFoobarTriggerWithChainLaunchingAction()
+	{
+		String objectName = TRG_Base.resolveSObjectName(new List<SObject> {new Foobar__c()}, null);
+		TriggerSetting__mdt setting = TST_Factory.newTriggerSetting(objectName, new Map<SObjectField, Object> {TriggerSetting__mdt.ObjectApiNameOverride__c => objectName});
+		TriggerAction__mdt launchingAction = TST_Factory.newTriggerActionForContext(CHAIN_LAUNCHING_TRIGGER_ACTION_CLASS, setting, TriggerOperation.AFTER_INSERT);
+		TST_Mock.register(TriggerSetting__mdt.SObjectType, TST_Factory.newTriggerSettingWithActions(setting, new List<TriggerAction__mdt> {launchingAction}));
+	}
+
+	/**
+	 * @description Runs a one-step chain whose step inserts a Foobar__c record, so the record's trigger launches a second
+	 * chain with the options in triggerLaunchOptions. Checks that the launch was accepted and that both chains completed.
+	 * Checks too that the second chain is recorded as launched under the first chain's run, sits one level below it, and
+	 * is remembered by the step that launched it.
+	 *
+	 * @return The run record of the chain launched from the trigger.
+	 */
+	private static AsyncChainExecution__c runAChainWhoseStepTriggerLaunchesAChain()
+	{
+		setupEnabledFeatureFlag();
+		registerFoobarTriggerWithChainLaunchingAction();
+		LOG_Builder.startCorrelation();
+
+		Test.startTest();
+		String parentExecutionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new RecordInsertingStep()).execute();
+		Test.stopTest();
+
+		Assert.isNull(launchRefusalFromTrigger, 'Expected the launch from the trigger to be accepted: ' + launchRefusalFromTrigger);
+		Assert.isNotNull(chainLaunchedFromTrigger, 'Expected the trigger to launch the chain');
+		AsyncChainExecution__c parent = queryExecution(parentExecutionId);
+		Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, parent.Status__c, 'Expected the inserting step to complete: ' + parent.ErrorMessage__c);
+		AsyncChainExecution__c child = queryExecution(chainLaunchedFromTrigger);
+		Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, child.Status__c, 'Expected the chain launched from the trigger to complete: ' + child.ErrorMessage__c);
+		Assert.areEqual(parent.CorrelationId__c, child.LaunchCorrelationId__c, 'Expected the chain to be recorded as launched under the step\'s run');
+		Assert.areEqual(1, parseContextData(child).get(NESTING_DEPTH_KEY_NAME), 'Expected the chain to sit one level below the step\'s run');
+		Assert.areEqual(parentExecutionId + FIRST_STEP_LAUNCH_KEY_SUFFIX, child.DeclaredDeduplicationKey__c,
+				'Expected the chain to be remembered by the step that launched it');
+		return child;
+	}
+
+	/**
 	 * @description Sets up the feature flag cache to indicate the AsyncChain feature is enabled.
 	 */
 	private static void setupEnabledFeatureFlag()
@@ -5390,13 +5675,174 @@ private class UTIL_AsyncChain_TEST
 	public class ChainLaunchingQueueable implements Queueable
 	{
 		/**
-		 * @description Launches a one-step chain and records its execution id, so the test can read the run record.
+		 * @description How many steps the launched chain gets: one or two.
+		 */
+		private final Integer stepCount;
+
+		/**
+		 * @description Creates the job so that it launches a one-step chain.
+		 */
+		public ChainLaunchingQueueable()
+		{
+			stepCount = 1;
+		}
+
+		/**
+		 * @description Creates the job and says how many steps the launched chain gets.
+		 *
+		 * @param stepCount 1 to launch a one-step chain, 2 to launch a two-step chain.
+		 */
+		public ChainLaunchingQueueable(Integer stepCount)
+		{
+			this.stepCount = stepCount;
+		}
+
+		/**
+		 * @description Launches the chain and records its execution id, so the test can read the run record. The chain has
+		 * one step, or two when the job was created with the two-step choice.
 		 *
 		 * @param context The platform's job context.
 		 */
 		public void execute(QueueableContext context)
 		{
-			chainLaunchedFromQueueable = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).execute();
+			UTIL_AsyncChain.ChainBuilder builder = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep());
+			if(stepCount == TWO_STEPS)
+			{
+				builder = builder.then(new SuccessStep());
+			}
+			chainLaunchedFromQueueable = builder.execute();
+		}
+	}
+
+	/**
+	 * @description A plain Queueable (not a chain step) that launches a chain the framework is expected to refuse, and
+	 * keeps the refusal so the test can check it. It can first add a job of its own, which uses up its one queueable job.
+	 * It attaches no Finalizer: a fixture has nothing to record after it runs.
+	 */
+	@SuppressWarnings('PMD.QueueableWithoutFinalizer')
+	public class RefusedLaunchQueueable implements Queueable
+	{
+		/**
+		 * @description The job this job adds before it launches the chain, or null to add none.
+		 */
+		private final Queueable jobToAddFirst;
+
+		/**
+		 * @description Creates the job.
+		 *
+		 * @param jobToAddFirst The job to add before the launch, or null to add none.
+		 */
+		public RefusedLaunchQueueable(Queueable jobToAddFirst)
+		{
+			this.jobToAddFirst = jobToAddFirst;
+		}
+
+		/**
+		 * @description Adds its own job when it has one, then launches a one-step chain under REFUSED_LAUNCH_CORRELATION_ID
+		 * and keeps the exception the launch raised.
+		 *
+		 * @param context The platform's job context.
+		 */
+		public void execute(QueueableContext context)
+		{
+			if(jobToAddFirst != null)
+			{
+				// In a test the platform refuses a job queued from inside a job unless it carries a maximum stack depth.
+				System.enqueueJob(jobToAddFirst, createAsyncOptions(CUSTOM_STACK_DEPTH));
+			}
+			try
+			{
+				UTIL_AsyncChain.newChain(TEST_CHAIN_NAME).then(new SuccessStep()).execute(REFUSED_LAUNCH_CORRELATION_ID);
+			}
+			catch(Exception refusal)
+			{
+				launchRefusalFromQueueable = refusal;
+			}
+		}
+	}
+
+	/**
+	 * @description Step that inserts one Foobar__c record, so the record's trigger runs inside the chain job.
+	 */
+	public class RecordInsertingStep extends UTIL_AsyncChain.ChainStep
+	{
+		/**
+		 * @description Inserts one Foobar__c record and succeeds.
+		 *
+		 * @param context The shared chain context.
+		 *
+		 * @return A succeeded result.
+		 */
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			TST_Builder.of(Foobar__c.SObjectType).build();
+			return UTIL_AsyncChain.succeeded('Inserted a record');
+		}
+	}
+
+	/**
+	 * @description A plain Queueable (not a chain step) that inserts one Foobar__c record, so the record's trigger runs
+	 * inside a queueable job that is not a chain job. It attaches no Finalizer: a fixture has nothing to record after it runs.
+	 */
+	@SuppressWarnings('PMD.QueueableWithoutFinalizer')
+	public class RecordInsertingQueueable implements Queueable
+	{
+		/**
+		 * @description Inserts one Foobar__c record.
+		 *
+		 * @param context The platform's job context.
+		 */
+		public void execute(QueueableContext context)
+		{
+			TST_Builder.of(Foobar__c.SObjectType).build();
+		}
+	}
+
+	/**
+	 * @description Step that saves the maximum queueable stack depth of the job it runs in to the chain context, under
+	 * MAXIMUM_STACK_DEPTH_KEY, so a test can see which maximum the chain ran under. It saves null when the job has none.
+	 */
+	public class MaximumStackDepthRecordingStep extends UTIL_AsyncChain.ChainStep
+	{
+		/**
+		 * @description Saves the job's maximum queueable stack depth and succeeds.
+		 *
+		 * @param context The shared chain context.
+		 *
+		 * @return A succeeded result.
+		 */
+		public override UTIL_AsyncChain.StepResult work(UTIL_AsyncChain.ChainContext context)
+		{
+			context.put(MAXIMUM_STACK_DEPTH_KEY, System.AsyncInfo.hasMaxStackDepth() ? System.AsyncInfo.getMaximumQueueableStackDepth() : null);
+			return UTIL_AsyncChain.succeeded('Saved the maximum stack depth');
+		}
+	}
+
+	/**
+	 * @description Test trigger action that launches a one-step chain after Foobar__c records are inserted, with the
+	 * options in triggerLaunchOptions (none when it is null). The chain's step saves the maximum stack depth it runs
+	 * under. The action keeps the launched run's id, or the exception the launch raised, so the test can check the launch.
+	 */
+	public class ChainLaunchingTriggerAction implements IF_Trigger.AfterInsert
+	{
+		/**
+		 * @description Launches a one-step chain and keeps its execution id, or keeps the exception the launch raised.
+		 *
+		 * @param triggerNew The inserted records; unused.
+		 */
+		public void afterInsert(List<SObject> triggerNew)
+		{
+			try
+			{
+				chainLaunchedFromTrigger = UTIL_AsyncChain.newChain(CHILD_CHAIN_NAME)
+						.then(new MaximumStackDepthRecordingStep())
+						.withAsyncOptions(triggerLaunchOptions)
+						.execute();
+			}
+			catch(Exception refusal)
+			{
+				launchRefusalFromTrigger = refusal;
+			}
 		}
 	}
 
