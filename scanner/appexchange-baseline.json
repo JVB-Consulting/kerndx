@@ -33,7 +33,7 @@
 			"file": "force-app/main/default/lwc/streamingMonitor/__tests__/streamingMonitor.test.js",
 			"message": "Avoid setting both Lightning Web component bubbles and composed=true at the same time.",
 			"lineHash": "e864471d7e356b41",
-			"count": 11
+			"count": 14
 		},
 		{
 			"rule": "AvoidUnauthorizedApiSessionIdInVisualforce",

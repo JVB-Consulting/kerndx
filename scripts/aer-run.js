@@ -36,8 +36,10 @@
  *              --out <file> sets where the result is written; --work <folder> sets the working folder
  *              (default tmp/aer-run).
  *
- *              Exit codes: 0 done (gate passed), 1 the gate failed, 2 the run could not start (this includes a run
- *              with no aer licence; a dry run with no licence exits 0).
+ *              Exit codes: 0 done (gate passed), 1 the gate failed, 2 the run could not start or did not finish (this
+ *              includes a run with no aer licence, an aer test run that could not start, was stopped, or ended with a
+ *              non-zero exit code without a failed test, and an error in the script; a dry run with no licence exits
+ *              0). A run that does not finish writes no record.
  *
  * @author Kern Framework
  * @date October 2026
@@ -270,9 +272,11 @@ function parseArguments(argv)
 {
 	const options = {dryRun: false, permissionSet: null, gate: null, source: null, out: null, work: null};
 	const valued = {'-p': 'permissionSet', '--gate': 'gate', '--source': 'source', '--out': 'out', '--work': 'work'};
-	for(let index = 0; index < argv.length; index++)
+	let index = 0;
+	while(index < argv.length)
 	{
 		const argument = argv[index];
+		index++;
 		if(argument === '--dry-run')
 		{
 			options.dryRun = true;
@@ -283,7 +287,7 @@ function parseArguments(argv)
 		{
 			throw new Error(`Unknown option: ${argument}`);
 		}
-		const value = argv[index + 1];
+		const value = argv[index];
 		if(value === undefined)
 		{
 			throw new Error(`${argument} needs a value`);
@@ -303,7 +307,11 @@ function parseArguments(argv)
  */
 function plural(count, word)
 {
-	return `${count} ${word}${count === 1 ? '' : (word.endsWith('s') ? 'es' : 's')}`;
+	if(count === 1)
+	{
+		return `${count} ${word}`;
+	}
+	return `${count} ${word}${word.endsWith('s') ? 'es' : 's'}`;
 }
 
 /**
@@ -326,7 +334,8 @@ async function hasAerLicence(runAer, folder)
  * @description Starts one aer run of every test in force-app and reads its result rows.
  *
  * @param {object} settings runAer, source, work, permissionSet
- * @return {Promise<Array<{testName: string, passed: boolean, errorMessage: string}>>}
+ * @return {Promise<{rows: Array<{testName: string, passed: boolean, errorMessage: string}>, code: ?number, error?: Error}>}
+ * the result rows, aer's exit code (null when aer was stopped before it ended) and the error when it could not start
  */
 async function runOneAerTest({runAer, source, work, permissionSet})
 {
@@ -338,7 +347,33 @@ async function runOneAerTest({runAer, source, work, permissionSet})
 	}
 	const result = await runAer(args, {cwd: source});
 	fs.writeFileSync(path.join(work, 'run.log'), result.output);
-	return fs.existsSync(jsonFile) ? parseResultRows(fs.readFileSync(jsonFile, 'utf8')) : [];
+	const rows = fs.existsSync(jsonFile) ? parseResultRows(fs.readFileSync(jsonFile, 'utf8')) : [];
+	return {rows, code: result.code, error: result.error};
+}
+
+/**
+ * @description Says why an aer test run did not finish, or gives null when it did. aer ends with a non-zero exit
+ * code when a test fails, so a non-zero code together with a failed test is a finished run. A run that could not
+ * start, a run stopped before it ended (no exit code), and a non-zero exit code with no failed test did not finish.
+ *
+ * @param {{rows: Array<{passed: boolean}>, code: ?number, error?: Error}} result the result of runOneAerTest
+ * @return {?string} the reason, or null when the run finished
+ */
+function describeUnfinishedRun({rows, code, error})
+{
+	if(error)
+	{
+		return `aer could not start it (${error.message})`;
+	}
+	if(code === null)
+	{
+		return 'aer was stopped before it ended, so it gave no exit code';
+	}
+	if(code !== 0 && rows.every(row => row.passed))
+	{
+		return `it ended with exit code ${code} and reported no failed test`;
+	}
+	return null;
 }
 
 /**
@@ -348,18 +383,18 @@ async function runOneAerTest({runAer, source, work, permissionSet})
  *
  * @param {number} methodCount the number of test methods found, for the progress log and the warning
  * @param {object} settings runAer, source, work, permissionSet, log, warn
- * @return {Promise<Array<{testName: string, passed: boolean, errorMessage: string}>>}
+ * @return {Promise<{rows: Array<{testName: string, passed: boolean, errorMessage: string}>, code: ?number, error?: Error}>}
  */
 async function runWholeSuite(methodCount, settings)
 {
 	settings.log(`Running all ${plural(methodCount, 'test method')} in one aer run.`);
-	const rows = await runOneAerTest(settings);
-	settings.log(`The run finished: aer reported ${plural(rows.length, 'result')}.`);
-	if(rows.length < methodCount)
+	const result = await runOneAerTest(settings);
+	settings.log(`The run finished: aer reported ${plural(result.rows.length, 'result')}.`);
+	if(result.rows.length < methodCount)
 	{
-		settings.warn(`aer reported results for ${rows.length} of ${methodCount} test methods: the aer licence may not be in force. Check it with \`aer license show\`.`);
+		settings.warn(`aer reported results for ${result.rows.length} of ${methodCount} test methods: the aer licence may not be in force. Check it with \`aer license show\`.`);
 	}
-	return rows;
+	return result;
 }
 
 /**
@@ -465,8 +500,19 @@ async function run(argv, dependencies)
 		return 0;
 	}
 	const commit = readCommit();
-	// A gate run checks the tests only; the release names the figure a record run publishes.
-	const release = options.gate ? null : readRelease(tree || REPOSITORY_ROOT);
+	// A gate run names the release too, so the record it writes can be published; a release that cannot be read never stops it.
+	let release = null;
+	try
+	{
+		release = readRelease(tree || REPOSITORY_ROOT);
+	}
+	catch(error)
+	{
+		if(!options.gate)
+		{
+			throw error;
+		}
+	}
 	if(!options.gate && !release)
 	{
 		log('No release found: no release tag points at the commit, and sfdx-project.json has no version line or released alias. The record leaves it empty.');
@@ -474,8 +520,17 @@ async function run(argv, dependencies)
 
 	const started = now();
 	const settings = {runAer, source: tree, work, permissionSet: options.permissionSet, log, warn};
-	const rows = await runWholeSuite(methodCount, settings);
+	const result = await runWholeSuite(methodCount, settings);
 	const durationSeconds = (now() - started) / 1000;
+	// A run that did not finish writes no record: the record run's file is the published figure, and a gate run must
+	// not pass on a part of the suite.
+	const unfinished = describeUnfinishedRun(result);
+	if(unfinished)
+	{
+		log(`aer did not finish the test run: ${unfinished}. See ${path.join(work, 'run.log')}. No record was written.`);
+		return 2;
+	}
+	const rows = result.rows;
 
 	const baselineFile = options.gate || DEFAULT_BASELINE;
 	const baseline = readBaseline(baselineFile);
@@ -502,8 +557,12 @@ function runAerProcess(args, {cwd})
 	{
 		const child = spawn('aer', args, {cwd});
 		let output = '';
-		child.stdout.on('data', chunk => output += chunk);
-		child.stderr.on('data', chunk => output += chunk);
+		const collect = chunk =>
+		{
+			output += chunk;
+		};
+		child.stdout.on('data', collect);
+		child.stderr.on('data', collect);
 		child.on('error', error => resolve({code: null, output, error}));
 		child.on('close', code => resolve({code, output}));
 	});
@@ -537,6 +596,27 @@ function prepareCommitTree(folder)
 	return folder;
 }
 
+/**
+ * @description Runs the script from the command line and sets the process exit code. An error the run throws, such
+ * as a release that cannot be read in a record run, is printed to the error output and ends the process with exit
+ * code 2, never 0.
+ *
+ * @param {string[]} argv
+ * @param {object} dependencies as for run, plus error, which prints a message to the error output
+ * @return {Promise<void>}
+ */
+function runFromCommandLine(argv, dependencies)
+{
+	return run(argv, dependencies).then(code =>
+	{
+		process.exitCode = code;
+	}, error =>
+	{
+		dependencies.error(`aer-run.js stopped: ${error.message}`);
+		process.exitCode = 2;
+	});
+}
+
 module.exports = {
 	LICENCE_NEEDED_MESSAGE,
 	discoverTestClasses,
@@ -547,21 +627,21 @@ module.exports = {
 	readBaseline,
 	describeRelease,
 	parseArguments,
-	run
+	run,
+	runFromCommandLine
 };
 
+/* istanbul ignore next: script-entry handler; runFromCommandLine holds the behaviour and is tested */
 if(require.main === module)
 {
-	run(process.argv.slice(2), {
+	runFromCommandLine(process.argv.slice(2), {
 		runAer: runAerProcess,
 		readCommit: () => execFileSync('git', ['rev-parse', 'HEAD'], {cwd: REPOSITORY_ROOT, encoding: 'utf8'}).trim(),
 		readRelease: readReleaseOfCommit,
 		prepareSource: prepareCommitTree,
 		now: () => new Date(),
 		log: message => console.log(message),
-		warn: message => console.warn(`WARNING ${message}`)
-	}).then(code =>
-	{
-		process.exitCode = code;
+		warn: message => console.warn(`WARNING ${message}`),
+		error: message => console.error(message)
 	});
 }

@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version-file: ".nvmrc"
 
@@ -78,7 +78,7 @@ jobs:
 
       - name: Keep the scan result
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: appexchange-scan
           path: ${{ runner.temp }}/appexchange-scan/appexchange-scan.json
@@ -133,7 +133,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version-file: ".nvmrc"
 
@@ -166,7 +166,7 @@ jobs:
 
       - name: Keep the run result
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: aer-run
           path: |
@@ -216,7 +216,7 @@ jobs:
           echo "Squash-merge gate PASS — no merge commits in PR range $BASE_SHA..$HEAD_SHA"
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version-file: ".nvmrc"
 
@@ -258,6 +258,17 @@ jobs:
         # docs:validate` chains on is a release-time check, run by the release
         # build + clone checks — not gated per dev push.
         run: node scripts/validate-docs.js
+
+      - name: Install PMD
+        # The PMD rule suite in test:scripts fails in CI when pmd is not on PATH, instead of skipping
+        # every rule case. Pinned to the version the scanner rulesets are validated on, checksum-verified.
+        if: hashFiles('scanner/__tests__/pmd-rules.test.js') != ''
+        run: |
+          set -eu
+          curl -fsSL -o "$RUNNER_TEMP/pmd.zip" https://github.com/pmd/pmd/releases/download/pmd_releases%2F7.27.0/pmd-dist-7.27.0-bin.zip
+          echo "4ae396ffaf2b0d3ef0b73a10b2925e77066f73d57a4ce9078c60e7302bcddec9  $RUNNER_TEMP/pmd.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/pmd.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/pmd-bin-7.27.0/bin" >> "$GITHUB_PATH"
 
       - name: Run script tests
         id: scripts
@@ -308,6 +319,16 @@ jobs:
         # components) and its surfaced backlog was cleared to zero.
         run: npm run lint
 
+      - name: Run access-mode scan
+        id: scan
+        # Every production query and save must name its access mode, because a
+        # query that names none follows the UserModeQueries_Enabled flag. Wired
+        # into CI on 2026-10-28, when the 1.10 Windows proof was the first run to
+        # catch a test-only context class that named none. Only the access-mode
+        # half of `npm run scan`: scan:flow-references queries a development org,
+        # and this job has none.
+        run: npm run scan:access-modes
+
       - name: Explain failure
         # Turn the generic "All jobs have failed" email into something
         # actionable: name the check that bit and the exact local repro command.
@@ -353,6 +374,11 @@ jobs:
             matched=1
             echo "::error title=Component lint failed::eslint reported errors in force-app/main/default/lwc. Reproduce locally: npm run lint"
             echo "- ❌ **Component lint** — reproduce: \`npm run lint\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.scan.outcome }}" = "failure" ]; then
+            matched=1
+            echo "::error title=Access-mode scan failed::A production query or save names no access mode. Reproduce locally: npm run scan:access-modes"
+            echo "- ❌ **Access-mode scan** — reproduce: \`npm run scan:access-modes\`" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "$matched" = "0" ]; then
             # Failure came from an earlier step (dependency install or the

@@ -2,6 +2,14 @@
 	"excluded": [
 		{"script": "build-package", "reason": "needs a Dev Hub login", "provenBy": "the release runbook's package build (Phase 1.1) on the Mac"},
 		{
+			"script": "scan", "reason": "runs scan:flow-references, which queries the development org with sf data query",
+			"provenBy": "nothing runs it automatically: the maintainer runs it by hand against the development org"
+		},
+		{
+			"script": "scan:flow-references", "reason": "queries the development org with sf data query",
+			"provenBy": "nothing runs it automatically: the maintainer runs it by hand against the development org"
+		},
+		{
 			"script": "prepare-build", "reason": "rewrites force-app in place and needs a clean tree",
 			"provenBy": "prepare-build:dry runs here, and the package build runs the real transform"
 		},
