@@ -8,7 +8,7 @@
  *
  * @author Jason van Beukering
  *
- * @date July 2026, September 2026
+ * @date July 2026, October 2026
  */
 import {wire} from 'lwc';
 import {CurrentPageReference} from 'lightning/navigation';
@@ -151,6 +151,8 @@ const DEFAULT_LEVELS = [
 	'WARN'
 ];
 const DEFAULT_WINDOW_MINUTES = 1440;
+// How many milliseconds one minute lasts.
+const MILLISECONDS_PER_MINUTE = 60000;
 const DEFAULT_PAGE_SIZE = 50;
 // The page sizes a reader can choose; the engine caps a page at 2,000, far above.
 const PAGE_SIZE_OPTIONS = [
@@ -344,7 +346,7 @@ function levelListText(levels)
 	{
 		return new Intl.ListFormat(LANGUAGE, {style: 'long', type: 'conjunction'}).format(levels);
 	}
-	catch(unsupported /* eslint-disable-line no-unused-vars */)
+	catch
 	{
 		return levels.join(LEVEL_LIST_FALLBACK_SEPARATOR);
 	}
@@ -360,7 +362,7 @@ function countText(value)
 	{
 		return new Intl.NumberFormat(LANGUAGE).format(value);
 	}
-	catch(unsupported /* eslint-disable-line no-unused-vars */)
+	catch
 	{
 		return String(value);
 	}
@@ -788,11 +790,15 @@ export default class LogConsole extends ComponentBuilder('controller', 'notifica
 	// Grouped the same way the ribbon's own number beside it is grouped: the banner used to print a bare
 	// 3985 next to a formatted 3,985 and leave the reader to work out that the two were the same count.
 
-	// interpolated with a number that is not one. Absent when nothing is pinned or the count never arrived.
+	// interpolated with a number that is not one. Absent when nothing is pinned, the count never arrived, or the list read failed.
 	get occurrencesReconciliation()
 	{
 		const counted = this.sourceFilter?.occurrenceCount;
-		return !this.isProblemsView && counted > 0 ? occurrencesReconciliation.replace('{0}', countText(counted)).replace('{1}', countText(this.totalCount)) : null;
+		if(this.isProblemsView || this.listLoadFailed || !(counted > 0))
+		{
+			return null;
+		}
+		return occurrencesReconciliation.replace('{0}', countText(counted)).replace('{1}', countText(this.totalCount));
 	}
 
 	// Says how a drilled problem's occurrence count and the entries listed under it relate. The two numbers
@@ -1922,9 +1928,13 @@ export default class LogConsole extends ComponentBuilder('controller', 'notifica
 		}
 	}
 
+	/**
+	 * @description Runs the base component's teardown first, then stops the pending search and the viewport listener.
+	 */
 	// noinspection JSUnusedGlobalSymbols - LWC framework lifecycle hook
 	disconnectedCallback()
 	{
+		super.disconnectedCallback();
 		window.clearTimeout(this.searchDebounceTimer);
 		this.compactMediaQuery?.removeEventListener('change', this.handleCompactWidthChange);
 	}
@@ -1974,7 +1984,8 @@ export default class LogConsole extends ComponentBuilder('controller', 'notifica
 		// still be offering to run that search, on a term that no longer exists.
 		this.derivedStatus = null;
 		this.derivedLevelScope = [];
-		const sequence = ++this.requestSequence;
+		this.requestSequence += 1;
+		const sequence = this.requestSequence;
 		const request = this.buildRequest();
 		await Promise.all([
 			this.loadList(request, sequence),
@@ -2024,7 +2035,12 @@ export default class LogConsole extends ComponentBuilder('controller', 'notifica
 		}
 		else
 		{
+			// No page arrived, so no count arrived either. The counts of the page before must not stay behind.
 			this.records = [];
+			this.totalCount = 0;
+			this.totalPages = 0;
+			this.hasMorePages = false;
+			this.pageNumber = 1;
 			this.capped = false;
 			this.derivedStatus = null;
 			this.derivedLevelScope = [];
@@ -2174,8 +2190,14 @@ export default class LogConsole extends ComponentBuilder('controller', 'notifica
 		// rather than the clicked object: the datatable hands back its own row, and the loaded list is what the
 		// drawer's count and span should agree with; a key no longer listed keeps the clicked row, which is all
 		// there is.
+		if(!detail)
+		{
+			// The read failed and has already said so. Take the highlight off too, so the reader can select the row again to retry.
+			this.clearSelection();
+			return;
+		}
 		this.openedRow = this.selectedRecord ?? row;
-		this.selectedDetail = detail || null;
+		this.selectedDetail = detail;
 		this.selectedTrace = trace ? trace.entries || [] : [];
 		this.selectedTraceTruncated = trace ? trace.truncated === true : false;
 		this.pendingDrawerFocus = true;
@@ -2219,7 +2241,8 @@ export default class LogConsole extends ComponentBuilder('controller', 'notifica
 		}
 		if(this.focusedDetailCache.has(entryId))
 		{
-			this.selectedFocusedDetail = this.focusedDetailCache.get(entryId);
+			// A fresh copy: the drawer may have cleared its focus card, and the same object again is no change, so it would stay on loading.
+			this.selectedFocusedDetail = {...this.focusedDetailCache.get(entryId)};
 			return;
 		}
 		const detail = await this.callControllerMethod(getLogEntryDetail, {entryId});
@@ -2281,6 +2304,8 @@ export default class LogConsole extends ComponentBuilder('controller', 'notifica
 			this.sortField = this.isProblemsView ? PROBLEM_SORT_FIELD : ENTRY_SORT_FIELD;
 			this.sortedByColumn = this.sortField;
 			this.sortAscending = false;
+			// Each view has its own counts, in a different shape. Until the new view's counts arrive, the ribbon shows none.
+			this.summary = null;
 			// noinspection JSIgnoredPromiseFromCall
 			this.resetAndReload();
 		}
@@ -2449,7 +2474,7 @@ export default class LogConsole extends ComponentBuilder('controller', 'notifica
 	seedCustomRangeDefaults()
 	{
 		const now = new Date();
-		this.seedCustomRangeInputs(new Date(now.getTime() - DEFAULT_WINDOW_MINUTES * 60000), now);
+		this.seedCustomRangeInputs(new Date(now.getTime() - DEFAULT_WINDOW_MINUTES * MILLISECONDS_PER_MINUTE), now);
 	}
 
 	// Writes an absolute instant pair back into the four From/To display inputs, in the viewer's time zone.

@@ -123,10 +123,11 @@ sf api request rest /services/data -o DevHub
 ```
 
 The last entry is the newest version the pool compiles. When it lists the version `sfdx-project.json` declares as
-`sourceApiVersion`, one build carries the whole cycle:
+`sourceApiVersion`, one build carries the whole cycle. It is the build that gets promoted, so it is validated (a version
+built with `--skip-validation` cannot be promoted):
 
 ```bash
-node scripts/build-package.js --skip-validation
+node scripts/build-package.js
 ```
 
 Note the `SubscriberPackageVersionId` (04t...) from the output.
@@ -261,10 +262,15 @@ production build, both legs run again from the default definition.
 Chain Monitor Read Only permission set, created and assigned while the org is still on the released version. Make it
 now, before the second install, or that check cannot be run without repeating the leg.
 
-Also between the two installs, run section 84i. It saves one inbound call while the org is still on the released
-version, for a request sent without an Idempotency-Key: a released 1.8 saves such a call with no key and no hash of its
-body. Section 84j runs it again after the upgrade. Assign the Kern Administrator set to the administrator, deploy only
-the one test service, its setting, and the org's class resolver with its record (the released version finds a class of
+**Sections 84i and 84j run only on a leg that starts on 1.8.0-11.** A leg that starts on 1.9 or later (the 1.10 leg
+starts on 1.9.0-4) skips both, and the results file records them as skipped for that reason. They test how a call that
+1.8 saved is handled after the upgrade, and only a 1.8 org saves such a call: from 1.9 on, a request without an
+Idempotency-Key is saved with a hash of its body and writes an issue, so 84i fails on a 1.9 org, as it should.
+
+On a leg that starts on 1.8.0-11, also between the two installs, run section 84i. It saves one inbound call while the
+org is still on 1.8.0-11, for a request sent without an Idempotency-Key: 1.8 saves such a call with no key and no hash
+of its body. Section 84j runs it again after the upgrade. Assign the Kern Administrator set to the administrator,
+deploy only the one test service, its setting, and the org's class resolver with its record (the released version finds a class of
 the org only through that resolver; the 1.4 deploy later replaces all of them with the same files), and run the script:
 
 ```bash
@@ -284,18 +290,21 @@ It must print `SECTION84 PASS` for 84i-1 and 84i-2, then a `SECTION84 PENDING 84
 Keep that line: 84j needs its time and call id. When 84i fails,
 it deletes its own rows; fix the cause and run it again before installing the candidate. Skip 84j only if 84i cannot pass.
 
+Before you upgrade, do the before-the-upgrade step of item 3 in "Owed at 1.10 release testing" (section 2.1): Mock Selected APIs on the upgrade leg.
+
 ```bash
 sf package install -o KernUpgradeSubscriber --package <candidate 04t> --wait 15 --no-prompt
 ```
 
-Then deploy the test artifacts (1.4), and run at minimum on
-the upgraded org: `RunLocalTests`, the cache check at the end of 1.4, and the delta-focused sections and
-e2e parts covering the release's new surface (they double as proof the upgrade delivered the new CMDT
-records, permission sets, and labels). Record the outcome as the upgrade-leg block in the versioned
-results file. Mind the DevHub's active-scratch-org limit — free a superseded org first if creation
-fails with `LIMIT_EXCEEDED`.
+Before 1.4, send the after-the-upgrade request of item 3 in "Owed at 1.10 release testing": the 1.4 deploy unticks the
+box that request depends on. Then deploy the test artifacts (1.4), and run at minimum on the upgraded org:
+`RunLocalTests`, the cache check at the end of 1.4, and the delta-focused sections and e2e parts covering the release's
+new surface (they double as proof the upgrade delivered the new CMDT records, permission sets, and labels). Record the
+outcome as the upgrade-leg block in the versioned results file. Mind the DevHub's active-scratch-org limit — free a
+superseded org first if creation fails with `LIMIT_EXCEEDED`.
 
-From 1.9 on, on the upgraded org, run section 84j with the command 84i printed, after the 1.4 deploy (it needs the
+On a leg that started on 1.8.0-11 and ran 84i, on the upgraded org, run section 84j with the command 84i printed
+(a leg that started on 1.9 or later skips 84j, as it skipped 84i), after the 1.4 deploy (it needs the
 upgraded package and the 1.4 test service) and before sections 84g and 84h, or after 84h has deleted its rows: 84j
 counts every row of the same test service since 84i started, so it must not run while 84g's rows are there. It saves an
 Open issue by hand on the call 1.8 saved, runs it again through Retry Selected's Flow action, and waits up to three
@@ -513,7 +522,7 @@ counts in the order they run: the launch script first, then its verify script (7
 | 37  | `release-testing/scripts/section-37-masking-min-input-length.apex`            | Masking `MinInputLength__c` short-circuit + successor-floor probe — sub-13 values skip pattern eval; a 13-digit Luhn-valid card redacts via `MaskPaymentCard` (the old rule's floor of 15 would have skipped it)                                                                                                                          | runner | 3/3      |
 | 38  | `release-testing/scripts/section-38-masking-transactionid-preservation.apex`  | Regression guard for the original parent-transaction-ID false-redaction bug (Luhn checksum gate)                                                                                                                                                                                                                                          | runner | 3/3      |
 | 39  | `release-testing/scripts/section-39-masking-type-filter-warn.apex`            | Explicit-field `MaskingTarget__mdt` dropped by type filter emits a one-time warn LogEntry (P12)                                                                                                                                                                                                                                           | runner | 1/1 |
-| 40  | `release-testing/scripts/section-40-masking-inactive-rule-validation.apex`    | Every shipped masking rule's `Pattern__c` compiles + matches a curated positive + negative sample (active + inactive). The first line reports 18 rules, 3 active and 15 inactive on a fresh install (`MaskCreditCard` ships inactive); the summary ends with `15 inactive rules`                                                          | by hand | 45/45    |
+| 40  | `release-testing/scripts/section-40-masking-inactive-rule-validation.apex`    | Every shipped masking rule's `Pattern__c` compiles + matches a curated positive + negative sample (active + inactive), and the three whole-value rules (`MaskAddress`, `MaskFreeText`, `MaskPhoneInternational`) mask their sample to the rule's token. The first line reports 18 rules, 3 active and 15 inactive on a fresh install (`MaskCreditCard` ships inactive); 18 PASS lines and no SKIP line; the summary reads `57 passed, 0 failed; 15 inactive rules` | by hand | 57/57    |
 | 41  | `release-testing/scripts/section-41-flow-action-subscriber.apex`              | Cross-namespace `kern__TRG_InvokeFlow` dispatch — flow runs, output applied, LogAndContinue, recursion-identity, mock harness, variable contract                                                                                                                                                                                          | runner | 6/6      |
 | 42  | `release-testing/scripts/section-42-flow-action-blockdml.apex`                | `FailureAction__c = BlockDml` halts DML when bound flow throws (requires `section-flow-blockdml-active` fixture before; restore via `section-flow-blockdml-default`)                                                                                                                                                                      | runner | 1/1      |
 | 43  | `release-testing/scripts/section-43-flow-action-feature-flag.apex`            | `RequiredFeatureFlag__c` gating disables flow action when flag is off (requires `section-flow-flag-disabled` fixture before; restore via `section-flow-flag-default`)                                                                                                                                                                     | runner | 1/1      |
@@ -524,9 +533,9 @@ counts in the order they run: the launch script first, then its verify script (7
 | 47  | `release-testing/scripts/section-47-load-validation-bulk.apex`                | Load test — `UTIL_ValidationRule.executeForTrigger()` bulk: high-row validation group evaluation (emits `PERF_ROW`)                                                                                                                                                                                                                       | by hand | 1/1      |
 | 48  | `release-testing/scripts/section-48-load-async-chain-ser.apex`                | Load test — `UTIL_AsyncChain` context serialization launch: enqueues a multi-step chain with large shared context (emits `PERF_ROW`)                                                                                                                                                                                                      | by hand | 1/1      |
 | 48b | `release-testing/scripts/section-48b-load-async-chain-ser-verify.apex`        | Verify — chain from section 48 completed successfully (query `AsyncApexJob`)                                                                                                                                                                                                                                                              | by hand | 1/1      |
-| 49  | `release-testing/scripts/section-49-load-async-launcher.apex`                 | Load test — `UTIL_AsynchronousJobLauncher` Queueable/Batch: enqueues multiple async jobs in burst (emits `PERF_ROW`)                                                                                                                                                                                                                      | by hand | 1/1      |
+| 49  | `release-testing/scripts/section-49-load-async-launcher.apex`                 | Load test — `UTIL_AsynchronousJobLauncher` Queueable/Batch: enqueues multiple async jobs in burst (emits `PERF_ROW`); three PASS lines: Queueable side, Batch side, handoff                                                                                                                                                                | by hand | 3/3      |
 | 49b | `release-testing/scripts/section-49b-load-async-launcher-verify.apex`         | Verify — async jobs from section 49 completed successfully                                                                                                                                                                                                                                                                                | by hand | 1/1      |
-| 50  | `release-testing/scripts/section-50-load-logger-pe-quota.apex`                | Load test — Logger platform event quota: emits ≥150 `LogEntryEvent__e` in one transaction using `LOG_Builder.scope()` (emits `PERF_ROW`)                                                                                                                                                                                                  | by hand | 1/1      |
+| 50  | `release-testing/scripts/section-50-load-logger-pe-quota.apex`                | Load test — Logger platform event quota: emits ≥150 `LogEntryEvent__e` in one transaction using `LOG_Builder.scope()` (emits `PERF_ROW`); three PASS lines: emit, emitter, handoff                                                                                                                                                         | by hand | 3/3      |
 | 50b | `release-testing/scripts/section-50b-load-logger-pe-quota-verify.apex`        | Verify — `LogEntry__c` records from section 50 persisted (polls with delay), and the 50 entries `SubscriberLogVolumeEmitter` wrote in the same transaction persisted too (`50b-emitter`). Its check that the current user raised no API issue today needs the cleanups of 84 and 86 to have run first | by hand | 2/2      |
 | 51  | `release-testing/scripts/section-51-load-callout-storm.js`                    | Load test — `UTIL_HttpClient` callout storm: parallel HTTP via Node.js against `REST_LoadProbe` (emits `PERF_ROW`)                                                                                                                                                                                                                        | by hand | 8/8      |
 | 52  | `release-testing/scripts/section-52-edge-dml-builder.apex`                    | Edge cases — `DML_Builder`: partial-save flag, parent-child chain, mixed DML types, error aggregation                                                                                                                                                                                                                                     | runner | 8/8 |
@@ -575,8 +584,8 @@ counts in the order they run: the launch script first, then its verify script (7
 | 84d | `release-testing/scripts/section-84d-bulk-retry-development-org.apex` | The development-org rehearsal. Section 84d starts the bulk retry through the per-service `CTRL_RetryApiIssue.scheduleBulkRetry(service, delay)`, which is not global, so it runs on the development org; on the subscriber org the same background job is started through the global Flow action `kern.FLOW_RetryApiIssues.retryApiIssues`, which section 86 runs at volume. 84d seeds three Open issues, one marked External System May Have Acted, and schedules the bulk retry; verify 84e 30 seconds later: both unmarked issues sent as one batch with none refused for pending work, the marked issue skipped and the skip logged; then deletes and proves by query; then the 84 log cleanup 30 seconds later | by hand | 1/1 + 3/3 |
 | 84g | `node release-testing/scripts/section-84g-inbound-issue-live.js` | An inbound request that fails, then succeeds when the caller sends it again, over real REST calls to `API_RetryLiveOnHold` (it fails while an Account named "RetryLive hold" exists, the script creates and deletes it). Every request is sent by the running user, because an Idempotency-Key belongs to the user who sent it: a keyed request that failed and its retry with the same body link (Previous Attempt) and resolve the issue; a corrected body with the same key resolves the issue and links to nothing, and the first body sent again is answered 409; deleting a call whose issue is Open is refused with the `DeleteApiCall_OpenIssue` label; a request without a key fails, and the global Flow action `kern.FLOW_RetryApiIssues.retryApiIssues` queues its replay (Launch). Prints `SECTION84 PENDING` and the 84h command with the ids. When a check fails it starts no replay and deletes its own rows, issues first. Needs Kern Administrator on the running user, `API_RetryLiveOnHold`, `REST_RetryLiveOnHold` and `kern__ApiSetting.RetryLiveOnHold` | by hand | 7/7 |
 | 84h | `node release-testing/scripts/section-84h-inbound-replay-live-verify.js` with the arguments 84g printed | Verify, at least 60 seconds after 84g: the replay made one Completed call that holds the body of the failed call and links to it (Previous Attempt), the replayed issue is Resolved and the replay wrote no issue; then checks it finds exactly the calls and issues 84g listed plus the replay's call (a missing or extra row is a FAIL and nothing is deleted), deletes the issues before the calls, then the log entries, and proves it by query. Prints `SECTION84 PENDING`, deletes nothing and exits with code 2 while the replay's job runs (run it again 30 seconds later) | by hand | 3/3 |
-| 84i | `node release-testing/scripts/section-84i-keyless-inbound-call-before-upgrade.js` | Upgrade leg only (1.3b), between the two installs, while the org is on the released version: a request without an Idempotency-Key sent to `API_RetryLiveOnHold` while it is on hold fails, and exactly one Failed call is saved with no key, no hash of its body and the body whole; no issue is written. Prints `SECTION84 PENDING` and the 84j command with the time and the call id. When a check fails it deletes its own rows. Needs Kern Administrator on the running user, and only `API_RetryLiveOnHold`, `REST_RetryLiveOnHold` and `kern__ApiSetting.RetryLiveOnHold` deployed before the upgrade | by hand | 2/2 |
-| 84j | `node release-testing/scripts/section-84j-keyless-inbound-replay-after-upgrade.js` with the arguments 84i printed | Upgrade leg only (1.3b), after the upgrade and the 1.4 deploy, not while 84g's rows are there: saves an Open inbound issue by hand on the call 84i saved (no copy of the request) and runs it through the global Flow action `kern.FLOW_RetryApiIssues.retryApiIssues`; the job Completed, the replay made one Completed call that holds the body of the call 1.8 saved and links to it (Previous Attempt), the issue is Resolved and the replay wrote no issue; then checks it finds exactly those calls and that issue (a missing or extra row is a FAIL and nothing is deleted), deletes the issue before the calls, then the log entries and any hold Account, and proves it by query. Waits up to three minutes for the job; while it still runs, prints `SECTION84 PENDING` with a command to run 30 seconds later, deletes nothing and exits with code 2 | by hand | 5/5 |
+| 84i | `node release-testing/scripts/section-84i-keyless-inbound-call-before-upgrade.js` | Upgrade leg that starts on 1.8.0-11 only (1.3b; a leg starting on 1.9 or later skips it), between the two installs, while the org is on the released version: a request without an Idempotency-Key sent to `API_RetryLiveOnHold` while it is on hold fails, and exactly one Failed call is saved with no key, no hash of its body and the body whole; no issue is written. Prints `SECTION84 PENDING` and the 84j command with the time and the call id. When a check fails it deletes its own rows. Needs Kern Administrator on the running user, and only `API_RetryLiveOnHold`, `REST_RetryLiveOnHold` and `kern__ApiSetting.RetryLiveOnHold` deployed before the upgrade | by hand | 2/2 |
+| 84j | `node release-testing/scripts/section-84j-keyless-inbound-replay-after-upgrade.js` with the arguments 84i printed | Upgrade leg that starts on 1.8.0-11 only (1.3b; a leg starting on 1.9 or later skips it), after the upgrade and the 1.4 deploy, not while 84g's rows are there: saves an Open inbound issue by hand on the call 84i saved (no copy of the request) and runs it through the global Flow action `kern.FLOW_RetryApiIssues.retryApiIssues`; the job Completed, the replay made one Completed call that holds the body of the call 1.8 saved and links to it (Previous Attempt), the issue is Resolved and the replay wrote no issue; then checks it finds exactly those calls and that issue (a missing or extra row is a FAIL and nothing is deleted), deletes the issue before the calls, then the log entries and any hold Account, and proves it by query. Waits up to three minutes for the job; while it still runs, prints `SECTION84 PENDING` with a command to run 30 seconds later, deletes nothing and exits with code 2 | by hand | 5/5 |
 | 85  | `release-testing/scripts/section-85-sharing-defaults.apex` | The sharing default of the four framework objects: API Issue, Log Entry, API Call and Async Chain Execution all read Private on a fresh install (one check, `85a`). Phase 1.3 runs it as shipped; on the upgrade leg (1.3b) a person edits the constant `EXPECTED_API_ISSUE_AND_LOG_ENTRY_DEFAULT` at the top of the script and runs it twice (see 1.3b). The runner runs it as shipped on the fresh-install org | runner | 1/1 |
 | 86  | `release-testing/scripts/section-86-bulk-retry-at-volume.apex` | Bulk retry at volume on the subscriber org, through the global Flow action `kern.FLOW_RetryApiIssues.retryApiIssues`: seeds 450 Open issues (outbound at a Named Credential that does not exist, some marked External System May Have Acted, some whose call is still in progress, and inbound issues of `API_SubscriberCreateAccount`, each linked to a Failed inbound call that holds its request and the SHA-256 hex of its body, as a failed request leaves them) and presses the action once (Launch). Run first. Needs Kern Administrator on the running user, the `RetryLive` handlers and settings of section 84 and no Named Credential `RetryLiveDoesNotExist`, `SubscriberCreateAccount` active with Retry Issues on and Mocking Enabled off (section 27 turns it on and back off), no active masking rule that changes the inbound bodies (76b turns MaskPhoneUS on, 76c off), the RetryOutboundApiCall flow active, and no `RetryLive` rows left from section 84 | by hand | 2/2 |
 | 86b | `release-testing/scripts/section-86b-bulk-retry-at-volume-verify.apex` | Verify, at least 3 minutes after 86: one call per request, each ended Failed with its one retry spent; the issues held back and the ones whose call is in progress stay Open, with the "still in progress" warnings adding up to 10; the 14 Queueables Completed, nothing deferred, no call refused before it left the org. Prints `SECTION86 PENDING` and deletes nothing while a job runs or a call waits for its retry (run it again 30 seconds later); prints the section 86 `PERF_ROW` lines; then deletes the outbound leg | by hand | 7/7 |
@@ -609,8 +618,20 @@ Must run AFTER sections 4-6 (setup assigns `StrictValidationAccess` which adds s
 **Section 26 note:** 7 PASS total (26a-26g). Tests 26f-26g query LogEntry__c for async platform event data — run AFTER sections 16-20
 to ensure log entries exist. If 26f shows "No correlated entries found", wait a few seconds and re-run.
 **Section 27 note:** Requires CMDT state changes: deploy `section27-mock-enabled` (sets `MockingEnabled__c = true` on
-SubscriberCreateAccount and `IsEnabledByDefault__c = true` on MockAllAPIs), run script, then deploy `section27-mock-disabled`
-to restore defaults.
+SubscriberCreateAccount and `IsEnabledByDefault__c = true` on MockAllAPIs and on MockSelectedAPIs), run script, then deploy
+`section27-mock-disabled` to restore defaults (all three back to false). Mocking Enabled on an API Setting only picks the
+service: it answers from mock data when Mock Selected APIs is also on for the running user, in both directions, so the
+inbound tests of section 27 need the flag on. Every fixture file for a packaged flag is named `kern__FeatureFlag.kern__<flag>`
+(the section 27, `mock-all-apis-*` and `section35-flags-*` states), so a deploy changes the packaged record. A file named
+without the second `kern__` creates a record of the same name in the subscriber's own namespace instead. The flag index keeps
+one record per name and the last one read wins, so that copy would decide the flag in place of the packaged one. An org that
+ran these states before the files were renamed may hold such copies. To delete them, save copies of the two fixture files
+under their old names (the record names `kern__FeatureFlag.MockSelectedAPIs` and `kern__FeatureFlag.MockAllAPIs`, each with the
+metadata file ending), in a
+scratch project, and run `sf project delete source -o <alias> -m CustomMetadata:kern__FeatureFlag.MockSelectedAPIs -m
+CustomMetadata:kern__FeatureFlag.MockAllAPIs --no-prompt` from it (the command deletes those local copies too; add the two
+`UserModeDml_Enabled` and `UserModeQueries_Enabled` names the same way for section 35). Only the section 27 states change
+the packaged Mock Selected APIs record's Enabled By Default, and `section27-mock-disabled` sets it back.
 **Section 33 note:** Requires a Knowledge-enabled subscriber scratch org. See [Knowledge Org Setup](#knowledge-org-setup)
 below. Run `section-33-knowledge-setup.apex` first to create and publish test articles, then assign data categories
 to articles before running the test script.
@@ -874,7 +895,7 @@ Administrator permission set grants the field read-only because it is framework-
 rests on the installing administrator's own field access. Grant it for the run, or seed the cursor another way:
 it is not a product failure.
 
-**Section 83 note (the consoles at volume, PLAN-175):** one command loads the org in five stages (preflight,
+**Section 83 note (the consoles at volume):** one command loads the org in five stages (preflight,
 launch, drain, operate, verify) and records each in `tmp/consoles-at-volume/manifest.json`; running the command
 again skips the stages the manifest records as done, except verify, which always runs again. Run it after the
 Phase 1.4 artifacts and after `seed-log-volume.mjs`, in its own window: staged mode first (about twenty minutes),
@@ -989,6 +1010,71 @@ the watchdog's own log entries for the rows it acted on.
 **Owed at 1.8 release testing (recorded 2026-09-26):** section 83 and the journeys V147 to V153 were written and
 rehearsed on the development org against no-namespace copies of the step classes; the first 1.8 cycle is the
 first run against the installed package.
+
+**Owed at 1.10 release testing (recorded 2026-10-23), all before the 1.10 mirror sync:**
+1. `SubscriberOutboundRetry_TEST` proves that outbound and inbound handlers can override `onCommitWorkStarting()` (board
+   row 126): `shouldRunTheHandlersCommitHooksOncePerAttempt` and `shouldRunTheInboundHandlersCommitWorkStartingOverrideOnce`
+   must pass in `RunLocalTests`. The class does not compile while either hook is hidden from subscribers, so a deploy error
+   on it means the widening did not reach the package, not a flaky test.
+2. The LWC guide's custom datatable subclass example (board row 148, section "Your Own Column Types" in
+   `docs/LWC - Guide.md`) has never run in a namespaced org. Build the guide's `myRecordTable` component, its
+   `statusBadge` HTML cell template and one column definition as written, in the fresh-install subscriber org against the installed
+   package, put it on a page with one `statusBadge` column and one built-in column, and confirm both cells render. If the
+   example needs any change to work, correct the guide before the sync and record the change on row 148.
+3. Mock Selected APIs on the upgrade leg (1.3b). In 1.10 a service with Mocking Enabled ticked on its API Setting
+   answers from mock data only when the Mock Selected APIs feature flag is on for the running user, in both directions.
+   On the org upgraded from the last released version, check each of these, and stop the release if one fails:
+   - The packaged `kern__FeatureFlag.kern__MockSelectedAPIs` record arrived Active, with Enabled By Default off and no
+     strategy. If it arrived with Enabled By Default on, outgoing services mock without anyone turning the flag on; if
+     it arrived inactive, the upgrade step below cannot work until the record is activated. Either way, raise it before
+     going on.
+   - An outgoing service with the box ticked (`API_GetPost` or `EchoSubscriber`) calls the real system after the
+     upgrade, as it did before, until the flag is turned on; with the flag on, its new call has Mocked Response ticked.
+   - An incoming service with the box ticked answers from mock data before the upgrade and runs its own code after it,
+     until the flag is turned on for the caller's user; with the flag on, it answers from mock data again. This is the
+     behaviour change the 1.10 release note states. No incoming setting ships ticked, so before the upgrade, while the
+     org is still on the released version, tick it with `SF_SUBSCRIBER_ORG_ALIAS=KernUpgradeSubscriber node
+     release-testing/runner/cmdt-deployer.js upgrade-inbound-mocking-ticked` (it deploys the one
+     `kern__ApiSetting.SubscriberCreateAccount` file and no flag file), and send one request to `REST_SubscriberApi`.
+     After the upgrade, send the same request again before the 1.4 deploy and confirm it runs the service's own code:
+     1.4 deploys the subscriber's own `kern__ApiSetting.SubscriberCreateAccount` file, which unticks the box, so a
+     request sent after it runs the service's own code whatever the flag says and proves nothing. Tick it again with
+     `upgrade-inbound-mocking-ticked` after 1.4 for the flag-on check. Untick it after the last check below that needs
+     it ticked (the Health Check row) with `SF_SUBSCRIBER_ORG_ALIAS=KernUpgradeSubscriber node
+     release-testing/runner/cmdt-deployer.js upgrade-inbound-mocking-unticked`.
+   - The Health Check's Selected API Mocking row warns and names the ticked settings by label, and says whether the
+     flag is on for you.
+   - Read the description and help text of Mocking Enabled on API Setting in Setup. Record whether the 1.10 text reached
+     the upgraded org (the description reaches the upgraded org; the help text does not, measured on the 1.10.0-1 beta
+     over 1.9.0-4). The release note says what this check finds.
+   - Build the Custom Handler strategy example from the 1.10 guide as written, attach it to Mock Selected APIs, and
+     confirm it decides the flag. Send one incoming request and confirm the strategy sees the user the caller signs in
+     as, as the Health Check text says. If either needs a change, correct the guide or the label before the sync.
+   - No FeatureFlag record named MockSelectedAPIs exists in the subscriber's own namespace (see the section 27 note).
+   - `SubscriberSelectedMocking_TEST` passes on both legs, run in the `section27-mock-disabled` state.
+4. `SubscriberQueryGuideExamples_TEST` proves the 1.10 Selectors guide's examples for aggregate-query mocks, TYPEOF and
+   blank record keys as a customer writes them, with the `kern.` prefix. It must pass in `RunLocalTests` on both
+   legs. A compile error on it means a name the guide uses is not `global`, or its signature differs from the guide:
+   correct the guide (or raise the framework gap) before the sync, not the test. A failed assertion means the code does not do
+   what the guide says: correct the guide or the code before the sync.
+5. The masking text search on long values (board row 138, recorded 2026-10-26): in the namespaced run of the classes 1.10
+   changed (1.1), `UTIL_String_TEST` and `UTIL_FrameworkMasker_TEST` pass in full, including the six long-value tests whose names
+   start `shouldNotReturnASecret`, `shouldMarkAPair`, `shouldMaskAMatchThatStarts` and `shouldMatchOneReplaceAll`. A failure in one
+   of them stops the release.
+6. `bypassSharing()` ignores record sharing and keeps field permissions (board row 141, recorded 2026-10-26):
+   `sf apex run test -o $SF_SUBSCRIBER_ORG_ALIAS -t Recipe_BypassSharingFieldAccess_TEST --result-format human -w 10` passes
+   all 5 tests on both legs. A Standard User with a test-only permission set (read and edit on `kern__Foobar__c` and its
+   Text field, nothing on its Email field) reads and saves a private record an administrator owns: the read returns it
+   without Email, a cursor and a filter on Email are refused with `kern.UTIL_Exceptions.IllegalStateException`, and a save
+   through `kern.DML_Builder` or `kern.DML_Transaction.commitWork(false)` saves Text and leaves Email out. It needs the
+   shipped defaults (`UserModeQueries_Enabled` and `UserModeDml_Enabled` on, `kern__Foobar__c` Private), the package
+   installed for administrators only, and a free Salesforce licence seat (each test creates one Standard User). A failed setup check
+   ("Expected record sharing to hide the record", "Expected the user to have no read access") points at the org, not the
+   package. Any other failure stops the release.
+7. The query builder's field-name check under a namespace (recorded 2026-10-27): in the namespaced run of the classes 1.10
+   changed (1.1), `QRY_Builder_TEST.shouldKeepTheQueryTextForReleasedFieldNameShapes` passes. Its cases include a field name
+   that carries the package namespace in a condition, a sort and a grouping, and parent field paths, so it proves the check
+   accepts every name shape a namespaced org writes. A failure in it stops the release.
 
 **Section 67-70 notes (post-trigger actions):** Serial CMDT-state-fixture sections (model: sections 42/43)
 gated behind `RequiredFeatureFlag__c = EnablePostActionReleaseTest`, which ships OFF so the release-test
@@ -1198,7 +1284,7 @@ Capture the raw log file path if you intend to update baselines (see `release-te
 **Pending 1.6.0 sections (registered before scripting; author the section scripts with the 1.6.0
 runbook pass):**
 
-- **Active-run deduplication (PLAN-125 / WP4, registered 2026-07-21):** in the subscriber org,
+- **Active-run deduplication (registered 2026-07-21):** in the subscriber org,
   observe the three deduplication invariants from the subscriber side —
   1. a double-start with the same `withDeduplicationKey` value yields ONE run, and the second
      `execute()` returns the SAME `AsyncChainExecution__c` Id as the first (active-run guard);
@@ -1209,7 +1295,7 @@ runbook pass):**
   Model: a launch + verify split if the terminal-release leg needs async settling (sections 48-50
   pattern); otherwise a single orchestrated script.
 
-- **Guaranteed terminal-log emission (PLAN-126 / WP5, registered 2026-07-22):** in the subscriber
+- **Guaranteed terminal-log emission (registered 2026-07-22):** in the subscriber
   org, observe that every chain now leaves exactly one terminal `kern__LogEntry__c` —
   1. a chain that COMPLETES leaves one INFO entry whose `kern__ClassMethod__c` ends
      `handleChainCompletion` (or `ChainBuilder.execute` for a zero-step chain) and whose
@@ -1217,15 +1303,15 @@ runbook pass):**
      `LogSetting__c.IsEnabled__c` is true and `LogLevelThreshold__c` is at or below INFO;
   2. a chain that FAILS leaves one ERROR entry (`...handleStepFailure`) that appears at ANY
      threshold — set `LogLevelThreshold__c = WARN` and confirm the completion entry is ABSENT
-     while the failure entry still appears (the D2/D3 threshold contract);
+     while the failure entry still appears (the threshold contract);
   3. the terminal write itself always commits regardless of the signal (best-effort).
-  CAVEAT: hold the exact-delivery assertions under DML-heavy transactions until PLAN-121 **F9**
-  (silent-loss investigation) resolves — script the healthy-transaction cases first.
+  CAVEAT: hold the exact-delivery assertions under DML-heavy transactions until the silent-loss
+  investigation resolves — script the healthy-transaction cases first.
 
 **Pending 1.7.0 sections (registered before scripting; author the section scripts with the 1.7.0
 runbook pass):**
 
-- **Composition-pattern proof suites (PLAN-142, registered 2026-08-10):** the five `Recipe_*` suites
+- **Composition-pattern proof suites (registered 2026-08-10):** the five `Recipe_*` suites
   (`Recipe_ChainCircuitBreaker_DEMO_TEST`, `Recipe_ApprovalHandOff_DEMO_TEST`,
   `Recipe_ScheduledChain_DEMO_TEST`, `Recipe_CaseDelivery_SERVICE_TEST`,
   `Recipe_CommittedDelivery_DEMO_TEST`) ride the standard 1.4 artifact deploy (their classes, the
@@ -1234,7 +1320,7 @@ runbook pass):**
   the ApiStep subscriber-handler resolution fix (`02152683`), first proven 12/12 on the third 1.7
   beta.
 
-- **Operator re-drive actions (PLAN-138, registered 2026-08-09):** in the subscriber org, with a
+- **Operator re-drive actions (registered 2026-08-09):** in the subscriber org, with a
   user holding **Kern Async Chain Redrive** + **Kern Async Chain Monitor Read Only**, observe —
   1. **Retry from failed step:** a Failed chain whose failed step answers `true` from `isIdempotent()`
      offers Retry; completed steps do not re-run; the run keeps its record and `CorrelationId__c`;
@@ -1359,6 +1445,210 @@ a blank launch id means the handler's transaction ran without the run's logging 
 parent `Failed` on "Cannot reset Maximum Queueable Stack Depth", means the launch passed a depth from inside a job. The
 probe leaves its six runs and their log rows in the org.
 
+### Chain launch from a trigger inside a Queueable
+
+Proves, in the subscriber org, that a chain started by a Kern trigger action fired by a queueable job's save starts
+and completes. The probe checks three kinds of job: a job of another managed package, the subscriber's own job, and
+a chain step. The trigger action starts the chain with `execute()` and no `AsyncOptions`, and is set to Log and
+Continue, as in the subscriber org where the fault was found. The cause is a platform rule: code that runs in a
+trigger fired inside a running queueable job may not ask the platform how deep the job's line of jobs is
+(`System.AsyncInfo`). The platform throws `System.AsyncException`, although `System.isQueueable()` is true. The rule
+holds for every queueable job, not only for another package's. The probe still uses another package because that is
+the shape seen in the subscriber org; the other two cases have the same cause. On 1.9.0-4 the launch asked, so the
+logged error either left a `Running` run with no job or stopped the launch before the run was saved. No Apex test can
+stage this; it needs a real queueable job and a real trigger.
+
+The other package is a small fixture, **Queued Marker Writer** (namespace `kerndxqa`, compiled at API 56.0, source in
+`release-testing/fixtures/foreign-queueable-package/`). It holds the object Queued Marker (`kerndxqa__QueuedMarker__c`,
+Name only) and the global queueable job `kerndxqa.QueuedMarkerWriter`, whose `enqueueMarker(String)` queues a job that
+saves one marker with that name. Beta 1.0.0-1: `04tfj000000eptRAAQ` (package `0Hofj0000004s3RCAQ`, built 2026-10-25).
+The subscriber side is in `release-testing/fixtures/foreign-queueable-subscriber/`, apart from
+`release-testing/subscriber/` because it names the fixture's object and would break the 1.4 deploy in an org without
+the fixture: the trigger `TRG_QueuedMarker`, the trigger action `QueuedMarkerChainLauncher` (After Insert, Log and
+Continue; it starts a two-step chain named after the saved marker) with its `kern__TriggerSetting` and
+`kern__TriggerAction` records, `SubscriberQueuedMarkerWriter`, the subscriber's own queueable job that saves a marker
+the same way, and `QueuedMarkerWriterStep`, a chain step that saves the marker `ChainStepChain`. Both fixture folders
+stay in the internal repository and are not published: they serve only this probe.
+
+Setup, after 1.3 and the 1.4 artifacts (the trigger action is found through the 1.4 `CustomTypeResolver` and its
+`kern__ClassTypeResolver.CurrentOrgResolver` record):
+
+```bash
+sf package install -o $SF_SUBSCRIBER_ORG_ALIAS --package 04tfj000000eptRAAQ --wait 15 --no-prompt
+cd release-testing/fixtures/foreign-queueable-subscriber && sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -d force-app --ignore-conflicts
+cd <repo-root>
+```
+
+Run:
+
+```bash
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/foreign-queueable-chain-launch.apex
+sleep 60
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/foreign-queueable-chain-launch-verify.apex > tmp/foreign-queueable-verify.log 2>&1
+grep USER_DEBUG tmp/foreign-queueable-verify.log
+```
+
+The first script starts three jobs, one for each case, and each saved marker's trigger starts the chain of the same
+name:
+
+1. The fixture's job saves the marker `OtherPackageQueueableChain`.
+2. The subscriber's job saves `SubscriberQueueableChain`.
+3. The two-step chain `ChainStepParentChain` starts; its first step, `QueuedMarkerWriterStep`, saves `ChainStepChain`,
+   so the chain `ChainStepChain` is started from inside the parent chain's job.
+
+Expected from 1.10 on: three `foreign-queueable-verify PASS` lines. For cases 1 and 2, the newest run of the chain is
+`Completed` with 2 completed steps, and no run of either chain is `Running` without a job id. For case 3, the newest
+`ChainStepParentChain` run is `Completed` with 2 steps, and the newest `ChainStepChain` run is `Completed` with 2
+steps, with a `kern__LaunchCorrelationId__c` equal to the parent's `kern__CorrelationId__c` and a
+`kern__DeclaredDeduplicationKey__c` of the parent's record id followed by `:0` (the key a step's child gets, as in the
+nested chain launch probe above).
+
+What a wrong result means:
+
+- A `WAIT` line means the jobs have not finished. Wait a minute and run the verify script again. It is safe to rerun
+  in the same org, because only the runs of this attempt count.
+- A run `Running` with 0 completed steps and a blank job id, and an ERROR Log Entry from `TRG_Dispatcher` with
+  `System.AsyncException` "getCurrentQueueableStackDepth is not allowed outside a Queueable of Finalizer execution":
+  the build does not have the fix, or the platform now refuses another `AsyncInfo` read. Stop the release and raise it.
+- "no run found" for case 1 or 2, with an ERROR Log Entry from `TRG_Dispatcher`: the launch was refused and its run
+  deleted, so no run was left behind, but the chain did not start. The platform refused the first job itself. Raise it.
+- `FAIL` for `OtherPackageQueueableChain` only: the other package's job (its namespace or its older API version)
+  changes the result. Raise it.
+- Case 3 "no child run found" with the parent `Completed`, and an ERROR Log Entry from `TRG_Dispatcher` with
+  `System.AsyncException` "hasMaxStackDepth is not allowed outside a Queueable of Finalizer execution": the launch
+  from inside the chain step was refused before its run was saved. The build does not have the fix. Stop the release
+  and raise it.
+- Case 3 with a child run that is `Completed` but has a blank or different launch id, or a different key: the child
+  started but is not linked to the chain whose step saved the marker. Raise it.
+- Case 3 with the parent not `Completed`: the step's save failed, or the parent stopped because of the launch inside
+  it. Read the parent's `kern__ErrorMessage__c` and raise it.
+- "no run found" and no ERROR Log Entry: the trigger action did not run. A failed fixture job whose status reads
+  `Unable to resolve type for class "QueuedMarkerChainLauncher"` means the 1.4 `CustomTypeResolver` is missing.
+
+Measured on 1.9.0-4, org `KernForeignQueueable`:
+
+- Cases 1 and 2 (2026-10-25): both `FAIL`. Both runs were `Running` with 0 of 2 steps and a blank job id, both
+  queueable jobs `Completed`, and each left one ERROR Log Entry from `TRG_Dispatcher.dispatchAction`,
+  `System.AsyncException`, "getCurrentQueueableStackDepth is not allowed outside a Queueable of Finalizer execution".
+  In the same org, the same chain started directly in a subscriber job's `execute` (no trigger) completed, and that job
+  read its depth as 1; a plain trigger on Account fired inside a subscriber job was refused the same read.
+- Case 3 (2026-10-25, parent run `a03QL000022J7DJYA0`): the launch inside the step was refused before the run was
+  saved, with one ERROR Log Entry from `TRG_Dispatcher.dispatchAction`, "hasMaxStackDepth is not allowed outside a
+  Queueable of Finalizer execution". The marker was saved, no child run exists, and the parent chain is `Completed`
+  with 2 steps.
+- The three cases together through the scripts (2026-10-26 01:50 UTC, parent run `a03QL000022ISBTYA4`): three `FAIL`
+  lines, the same three ERROR Log Entries, and all three markers saved:
+
+```text
+foreign-queueable-verify FAIL: OtherPackageQueueableChain: newest run Running with 0 completed step(s), job id null, error null; runs Running without a job: 2
+foreign-queueable-verify FAIL: SubscriberQueueableChain: newest run Running with 0 completed step(s), job id null, error null; runs Running without a job: 2
+foreign-queueable-verify FAIL: ChainStepChain: no child run found; parent Completed with 2 completed step(s)
+```
+
+So the refusal belongs to trigger code inside any queueable job, a chain's own job included, not only to another
+package's job.
+
+The probe leaves its markers, runs and log rows in the org. To rebuild the fixture (a beta never upgrades, so install
+the new version in a fresh org and record its 04t here):
+
+```bash
+cd release-testing/fixtures/foreign-queueable-package
+sf package version create --package "Queued Marker Writer" --skip-validation --installation-key-bypass -v DevHub --wait 30
+cd <repo-root>
+```
+
+The package already exists in the Dev Hub. Only a Dev Hub without it first needs
+`sf package create --name "Queued Marker Writer" --package-type Managed --path force-app -v DevHub`, run from the same
+folder. Both commands write their ids into that folder's `sfdx-project.json`.
+
+### Custom permission muted in a permission set group
+
+Proves, once per release in the subscriber org, that Kern gives the same answer as Salesforce when you ask whether
+another user holds a custom permission that a permission set group grants and then mutes. A muting permission set
+inside a group takes a permission away from the group, even though a permission set in the group grants it. The
+check runs as the administrator and asks about a second user, through the global method
+`kern.UTIL_FeatureFlag.isEnabled(flagName, userId)`. It uses the packaged flag `AsyncChainAbort_Enabled`, whose one
+strategy is the custom permission `core.AbortAsyncChain` (the packaged permission `kern__AbortAsyncChain`, Abort Async
+Chain). For a user other than the running one, Kern answers by reading the user's permission set assignments. This
+step checks that answer in a real subscriber org, under the `kern` namespace, with a group whose permissions
+Salesforce has calculated.
+
+The fixture is in `release-testing/fixtures/custom-permission-group/`. It holds three components, all release testing
+only:
+
+- the permission set `CustomPermissionGroupProbeGrant`, which grants `kern__AbortAsyncChain`;
+- the muting permission set `CustomPermissionGroupProbeMute`, which mutes `kern__AbortAsyncChain`;
+- the permission set group `CustomPermissionGroupProbe`, which holds both.
+
+The script `release-testing/scripts/custom-permission-group-probe.apex` creates the second user: a Standard User
+named `custom-permission-probe.<org id>@example.com`. The script gives that user the group. It needs one free
+Salesforce licence seat, and an org where the package was installed for administrators only (1.3's install command).
+Installed for all users, the Standard User profile holds the permission itself, and the script stops with a `SETUP`
+line.
+
+Setup, after 1.3:
+
+```bash
+cd release-testing/fixtures/custom-permission-group && sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -d force-app --ignore-conflicts
+cd <repo-root>
+sf data query -o $SF_SUBSCRIBER_ORG_ALIAS -q "SELECT DeveloperName, Status FROM PermissionSetGroup WHERE DeveloperName = 'CustomPermissionGroupProbe'"
+```
+
+Salesforce works out what a group grants after each change to the group. Run the query every 30 seconds until
+`Status` reads `Updated`. This usually takes less than a minute. If it still reads `Outdated` or `Updating` after
+10 minutes, open Setup, Permission Set Groups, and recalculate the group there. `Failed` means the group could not
+be worked out: read the error on the group's page in Setup.
+
+Run 1, with the muting set in the group:
+
+```bash
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/custom-permission-group-probe.apex > tmp/custom-permission-group-probe.log 2>&1
+grep USER_DEBUG tmp/custom-permission-group-probe.log
+```
+
+Expected: one line that starts with `custom-permission-group-probe PASS: muting set in the group: true; expected from the group: false; Kern answers:
+false`. The expected value is the rule for a muting set: a muted permission is not granted. On this result the script
+takes the muting set out of the group, and Salesforce works out the group again.
+
+Run 2, once the group can grant the permission: run the same query until `Status` reads `Updated` again, and wait at
+least one minute after run 1. Then run the same two commands again. Expected: one line that starts with
+`custom-permission-group-probe PASS: muting set in the group: false; expected from the group: true; Kern answers:
+true`. On this result the script takes the group away from the user and makes the user inactive.
+
+What a wrong result means:
+
+- `WAIT`: the group status is not `Updated` yet. Wait 30 seconds and run the script again.
+- `SETUP`: the org is not ready for the check, and the line says what is missing: the fixture is not deployed, the
+  flag `AsyncChainAbort_Enabled` is inactive or has a strategy added in this org, or the Standard User profile holds the
+  permission. Correct the org and run the script again. This is not a result about Kern.
+- `FAIL` in run 1, `Kern answers: true`: Kern says the user holds a permission that the group mutes, and Salesforce
+  does not give it to the user. First confirm the mute in Setup. Open Permission Set Groups, Custom Permission Group
+  Probe, Muting Permission Set, Custom Permissions: Abort Async Chain must be muted. If it is muted, Kern's answer
+  differs from Salesforce's: stop the release and raise it. The script changes nothing on a `FAIL`, so the group and
+  the user stay as they were, for the investigation.
+- `FAIL` in run 2, `Kern answers: false`: Kern says the user lacks a permission that the group now grants. If run 2
+  started less than a minute after run 1, wait one more minute and run it again. If it still fails, Kern's answer
+  differs from Salesforce's: stop the release and raise it.
+- A platform licence error on the user insert: no Salesforce licence seat is free. Make another release-testing user
+  inactive and run the script again.
+
+To run the check again from the start, deploy the fixture again (this puts the muting set back in the group), wait
+for `Updated`, and run the script. It makes the same user active again.
+
+Clean-up, after run 2 passed (the script has already taken the group from the user, and a group that is still
+assigned cannot be deleted):
+
+```bash
+cd release-testing/fixtures/custom-permission-group && sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS --manifest clean-up/package.xml --pre-destructive-changes clean-up/destructiveChangesPre.xml --post-destructive-changes clean-up/destructiveChangesPost.xml
+cd <repo-root>
+```
+
+After a `FAIL`, when the investigation is done, first take the group from the user in Setup (Users, Custom Permission
+Probe, Permission Set Group Assignments, Edit Assignments), then run the clean-up deploy.
+
+The deploy deletes the group first and then the muting set and the permission set, and leaves the fixture's files in
+place. Salesforce does not delete users, so the inactive user stays in the org. In a scratch org that does not matter.
+
 ### Run a single load test in isolation
 
 ```bash
@@ -1376,20 +1666,20 @@ Run all subscriber test classes:
 sf apex run test -o $SF_SUBSCRIBER_ORG_ALIAS --test-level RunLocalTests --result-format human --code-coverage
 ```
 
-**Expected:** all subscriber test classes pass at 100% org-wide coverage. `Tests Ran` should read 282 or a little
+**Expected:** all subscriber test classes pass at 100% org-wide coverage. `Tests Ran` should read 289 or a little
 more: the list below counts test methods in the tree, and the platform also counts setup rows. Earlier this
 cycle: `SubscriberPlatformEventAccessLevel_TEST` — 4 tests covering the v67 SYSTEM_MODE always-emit + USER_MODE
 publish-enforcement platform-event AccessLevel guards (the runtime-enforcement layer the anonymous-Apex sections
 16/65 cannot reach). Kern 1.1 reconciliation: 180 tests / 0 failures / 97% org-wide coverage.
 
-Test classes deployed in `release-testing/subscriber/classes/` (54 classes, 282 test methods, counted from the tree on
-2026-10-11; the number after each name is its test methods):
+Test classes deployed in `release-testing/subscriber/classes/` (56 classes, 289 test methods, counted from the tree on
+2026-10-23; the number after each name is its test methods):
 
 | Area | Classes |
 |---|---|
-| Framework surface | `SubscriberApi18Surface_TEST` 13, `SubscriberApiRecordDeleteGuard_TEST` 3, `SubscriberAsyncDml_TEST` 3, `SubscriberBulkRetry_TEST` 5, `SubscriberChainSteps_TEST` 45, `SubscriberHttpClient_TEST` 8, `SubscriberMockPatterns_TEST` 27, `SubscriberMockSelection_TEST` 2, `SubscriberOutboundRetry_TEST` 19, `SubscriberPlatformEventAccessLevel_TEST` 4, `SubscriberResilience_TEST` 8, `SubscriberSecureByDefault_TEST` 8, `SubscriberWhoWroteIt_TEST` 1, `Subscriber_DmlEdges_TEST` 3, `Subscriber_FlowLoggerRecordId_TEST` 2, `Subscriber_QryEdges_TEST` 10, `Subscriber_TriggerActionTiebreak_TEST` 1, `Subscriber_TypeResolver_TEST` 4, `CustomTypeResolver_TEST` 8 |
+| Framework surface | `SubscriberApi18Surface_TEST` 13, `SubscriberApiRecordDeleteGuard_TEST` 3, `SubscriberAsyncDml_TEST` 3, `SubscriberBulkRetry_TEST` 5, `SubscriberChainSteps_TEST` 45, `SubscriberHttpClient_TEST` 8, `SubscriberInboundIssue_TEST` 2, `SubscriberMockPatterns_TEST` 27, `SubscriberMockSelection_TEST` 2, `SubscriberOutboundRetry_TEST` 20, `SubscriberPlatformEventAccessLevel_TEST` 4, `SubscriberResilience_TEST` 8, `SubscriberSecureByDefault_TEST` 8, `SubscriberSelectedMocking_TEST` 4, `SubscriberWhoWroteIt_TEST` 1, `Subscriber_DmlEdges_TEST` 3, `Subscriber_FlowLoggerRecordId_TEST` 2, `Subscriber_QryEdges_TEST` 10, `Subscriber_TriggerActionTiebreak_TEST` 1, `Subscriber_TypeResolver_TEST` 4, `CustomTypeResolver_TEST` 8 |
 | Sample application | `AccountArchiveProcessor_TEST` 2, `API_ContactFormSubmit_TEST` 3, `API_GetPost_TEST` 4, `CTRL_SubscriberLwcTest_TEST` 4, `REST_ContactForm_TEST` 1, `SCHED_SubscriberJob_TEST` 4, `SVC_AccountOnboarding_TEST` 3, `SVC_AccountValidator_TEST` 4, `SVC_ContactDirectory_TEST` 3, `SVC_PricingCalculator_TEST` 2, `SVC_ResilientSync_TEST` 2, `TRG_AccountHandlers_TEST` 2, `TRG_InvokeFlow_SUBTEST` 5, `UTIL_AccountClassifier_TEST` 5, `VAL_AccountRules_TEST` 5 |
-| Fast Starts and recipes | `FastStart_AsyncChain_DEMO_TEST` 2, `FastStart_Cache_DEMO_TEST` 4, `FastStart_DML_DEMO_TEST` 3, `FastStart_E2E_DEMO_TEST` 3, `FastStart_FeatureFlag_DEMO_TEST` 2, `FastStart_InboundAPI_DEMO_TEST` 2, `FastStart_Logging_DEMO_TEST` 2, `FastStart_MockException_DEMO_TEST` 5, `FastStart_OutboundAPI_DEMO_TEST` 4, `FastStart_QueryMapTerminals_DEMO_TEST` 4, `FastStart_ScheduledJob_DEMO_TEST` 3, `FastStart_Selectors_DEMO_TEST` 4, `FastStart_TestData_DEMO_TEST` 4, `FastStart_TriggerAction_DEMO_TEST` 2, `FastStart_Validation_DEMO_TEST` 2, `Recipe_ApprovalHandOff_DEMO_TEST` 2, `Recipe_CaseDelivery_SERVICE_TEST` 1, `Recipe_ChainCircuitBreaker_DEMO_TEST` 4, `Recipe_CommittedDelivery_DEMO_TEST` 3, `Recipe_ScheduledChain_DEMO_TEST` 3 |
+| Fast Starts and recipes | `FastStart_AsyncChain_DEMO_TEST` 2, `FastStart_Cache_DEMO_TEST` 4, `FastStart_DML_DEMO_TEST` 3, `FastStart_E2E_DEMO_TEST` 3, `FastStart_FeatureFlag_DEMO_TEST` 2, `FastStart_InboundAPI_DEMO_TEST` 2, `FastStart_Logging_DEMO_TEST` 2, `FastStart_MockException_DEMO_TEST` 5, `FastStart_OutboundAPI_DEMO_TEST` 4, `FastStart_QueryMapTerminals_DEMO_TEST` 4, `FastStart_ScheduledJob_DEMO_TEST` 3, `FastStart_Selectors_DEMO_TEST` 4, `FastStart_TestData_DEMO_TEST` 4, `FastStart_TriggerAction_DEMO_TEST` 2, `FastStart_Validation_DEMO_TEST` 2, `Recipe_ApprovalHandOff_DEMO_TEST` 2, `Recipe_BypassSharingFieldAccess_TEST` 5, `Recipe_CaseDelivery_SERVICE_TEST` 1, `Recipe_ChainCircuitBreaker_DEMO_TEST` 4, `Recipe_CommittedDelivery_DEMO_TEST` 3, `Recipe_ScheduledChain_DEMO_TEST` 3 |
 
 New in the 1.8 cycle: `SubscriberApiRecordDeleteGuard_TEST` (3: a resolver's Delete refused, an administrator's
 allowed, a resolver's purge deletes nothing and warns once), `SubscriberApi18Surface_TEST` (13: the members added to
@@ -1399,7 +1689,7 @@ the global API in 1.8, and a hidden record read only when record sharing is bypa
 to a user without the permission, an issue of a service that does not accept retries stays open, an inbound issue
 replayed and resolved), `Subscriber_QryEdges_TEST` +2, `Subscriber_DmlEdges_TEST` +1, `SubscriberHttpClient_TEST` +1.
 
-Three preconditions these tests need, all met by the Phase 1 steps as written:
+Four preconditions these tests need, all met by the Phase 1 steps as written:
 
 - **The package installed for administrators only** (1.3's install command). Installed for all users, the Standard User
   profile holds the framework's permissions and the refusal tests of `SubscriberApiRecordDeleteGuard_TEST` and
@@ -1408,6 +1698,14 @@ Three preconditions these tests need, all met by the Phase 1 steps as written:
   `SubscriberApi18Surface_TEST` fail.
 - **Free licence seats.** `SubscriberApi18Surface_TEST` creates five Standard Users across two tests; an org with no
   free Salesforce licence seats fails those two tests with the platform's licence error.
+- **The three mocking flags off** (Mock Selected APIs, Mock All APIs and Mock All Inbound APIs, all off as shipped).
+  `SubscriberSelectedMocking_TEST` (4: an outgoing and an incoming service with Mocking Enabled ticked mock nothing
+  while Mock Selected APIs is off, and answer from mock data once it is on) reads the org's own Mock Selected APIs
+  record in its flag-off tests, because a subscriber test cannot register a flag as off. Run it only in the
+  `section27-mock-disabled` state, and outside the Mock All APIs windows of sections 31, 55, 60 and 63: never between
+  section 27's enabled state and its restore. Each test first checks the three flags and fails with the message "Mock
+  Selected APIs, Mock All APIs or Mock All Inbound APIs is on for the running user: run this class outside section 27's
+  enabled state".
 
 ### 2.2b Managed Package Test Execution (subscriber context)
 
@@ -1644,8 +1942,10 @@ Run the ESLint rule against all framework LWC source to verify no components byp
 cd force-app/main/default/lwc && npx eslint --rule "kerndx/use-component-builder: error" "**/*.js" --ignore-pattern "**/*.test.js"
 ```
 
-**Expected:** 0 `kerndx/use-component-builder` errors. Framework infrastructure components (streaming monitor, notice, validationErrors) have
-justified `// eslint-disable-next-line` suppressions. Any new component extending `LightningElement` without suppression is a violation.
+**Expected:** `kerndx/use-component-builder` errors only in the framework components listed in
+`release-testing/runner/lightning-element-components.json` (17 on 1.10), which extend `LightningElement` on purpose and carry no
+inline disable. An error in any other component is a violation; the runner records that count as `eslint.frameworkViolations`
+(expected 0) and names any listed component the rule no longer reports, so it can come off the list.
 
 #### 2.3f GitHub Code Quality Review (JS/TS)
 
@@ -2143,9 +2443,26 @@ capture is non-empty.
 
 ## Phase 4.6 — The Windows proof (after promotion, before the mirror sync)
 
+**First, before promotion day: a fresh throwaway org and its login secret.** The real-Windows stage below signs in to a
+throwaway scratch org through the repository secret `THROWAWAY_ORG_SFDX_AUTH_URL`. A scratch org lives 30 days, so the
+org and the secret are recreated for every release, and the login has expired on release day before (1.9, 1.10). The
+maintainer does this step, because it writes a login into a repository secret, and does it while release testing
+runs, so that it never holds up the sync. It needs a free scratch-org slot on the Dev Hub (the Dev Hub allows three):
+delete a finished release-testing org first if all three are in use. Create the org from the definition Phase 1 uses
+(the preview one inside a preview window), then hand its login to the secret without the value ever touching a file:
+
+```bash
+sf org create scratch -f config/project-scratch-def.json -a throwaway -v DevHub -y 30 --wait 15 --no-namespace
+sf org auth show-sfdx-auth-url -o throwaway --json | jq -r .result.sfdxAuthUrl | gh secret set THROWAWAY_ORG_SFDX_AUTH_URL
+```
+
 Two workflow runs, both started by hand from this repository, both green before the mirror sync. They cost Windows
-runner minutes (billed double), which is why neither runs on push here. Both stages run only in this private
-repository: the mirror carries neither the throwaway org's secret nor the workflows' dispatch.
+runner minutes (billed double), which is why neither starts on a push here; a push here starts at most the light
+depth, and only when a terminal block in a shipped guide, or a tool a reader runs, changed. The real-Windows stage
+runs only in this private repository: the mirror carries neither the throwaway org's secret nor its workflow. The
+heavy proof also runs on the public repository, where its minutes are free: the mirror's `ci.yml` starts it after every
+push to `main`, so a mirror commit that lacks a Windows fix from source shows red there until the next sync carries
+the fix.
 
 **The heavy proof.** Every shipped npm script that needs no org, the pipeline's own tests, the pipeline bundle build,
 Path 3 of the install guide run for real with the real CLI, then the light proof (the guides' commands in every
@@ -2170,15 +2487,6 @@ gh run watch
 
 Green means: the journey passed and the shapes table shows no `NOT REACHED` and no `DEAD ROW`. Record both run ids
 in the Phase 4 result file.
-
-The throwaway org is a scratch org, so it lives 30 days and is recreated for each release, and the secret with it.
-Create it from the definition Phase 1 uses (the preview one inside a preview window), then hand its login to the
-repository secret without the value ever touching a file:
-
-```bash
-sf org create scratch -f config/project-scratch-def.json -a throwaway -v DevHub -y 30 --wait 15 --no-namespace
-sf org auth show-sfdx-auth-url -o throwaway --json | jq -r .result.sfdxAuthUrl | gh secret set THROWAWAY_ORG_SFDX_AUTH_URL
-```
 
 `sf org display` prints the auth URL as `[REDACTED]`; only `sf org auth show-sfdx-auth-url` gives it. When the login
 step fails, the org is gone (expired, or its secret revoked) and the step after it says so in the log and the job

@@ -207,7 +207,7 @@
 				</template>
 
 				<template lwc:if={hasLoadedFields}>
-					<!-- Configuration-health banner (collapsed by default): inactive object-wide rules + dead field targets. -->
+					<!-- Configuration-health banner (collapsed by default): inactive object-wide rules, dead field targets, and targets that are on while their rule is off. -->
 					<template lwc:if={hasHealthFindings}>
 						<div class="dma-health slds-m-top_small" data-testid="health-banner">
 							<div class="dma-coverage__head">
@@ -226,6 +226,16 @@
 										<ul class="dma-health__list">
 											<template for:each={healthDeadFieldDetails} for:item="detail">
 												<li class="dma-health__line" data-testid="health-dead-detail" key={detail.key}>{detail.text}</li>
+											</template>
+										</ul>
+									</template>
+									<template lwc:if={healthRuleOffObjectWideDetail}>
+										<p class="dma-health__line" data-testid="health-rule-off-object-wide-detail">{healthRuleOffObjectWideDetail}</p>
+									</template>
+									<template lwc:if={hasFieldTargetsWithRuleOff}>
+										<ul class="dma-health__list">
+											<template for:each={healthRuleOffFieldDetails} for:item="detail">
+												<li class="dma-health__line" data-testid="health-rule-off-detail" key={detail.key}>{detail.text}</li>
 											</template>
 										</ul>
 									</template>

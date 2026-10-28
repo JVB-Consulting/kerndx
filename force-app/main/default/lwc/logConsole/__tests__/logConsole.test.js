@@ -2,7 +2,7 @@
 /**
  * @description Jest unit tests for logConsole LWC container
  * @author Jason van Beukering
- * @date June 2026, September 2026
+ * @date June 2026, October 2026
  */
 import {createElement} from 'lwc';
 import LogConsole from 'c/logConsole';
@@ -564,6 +564,22 @@ describe('c-log-console', () =>
 
 			expect(mockCallControllerMethod.mock.calls.some((call) => call[0] === getEntrySummary)).toBe(true);
 			expect(mockCallControllerMethod.mock.calls.some((call) => call[0] === getLogSummary)).toBe(false);
+		});
+
+		it('shows no ribbon cards while the other view\'s counts are still loading', async() =>
+		{
+			const element = await createComponent();
+			expect(element.shadowRoot.querySelectorAll('[data-testid="summary-card"]').length).toBeGreaterThan(0);
+			// The entries counts never arrive in this test. Until they do, the problems counts must not be drawn as entries cards.
+			const pageAnswer = mockCallControllerMethod.getMockImplementation();
+			mockCallControllerMethod.mockImplementation((apexFn, params) => (apexFn === getEntrySummary ? new Promise(() =>
+			{
+			}) : pageAnswer(apexFn, params)));
+
+			buttonByLabel(element, 'Individual entries').dispatchEvent(new CustomEvent('click'));
+			await flushAll();
+
+			expect(element.shadowRoot.querySelectorAll('[data-testid="summary-card"]')).toHaveLength(0);
 		});
 
 		it('does not reload when the already-active view is clicked', async() =>
@@ -2948,6 +2964,17 @@ describe('c-log-console', () =>
 			expect(table(element).data.length).toBe(2);
 		});
 
+		it('takes the highlight off a row whose detail does not load, so the reader can select it again', async() =>
+		{
+			const element = await createComponent();
+			mockCallControllerMethod.mockImplementation((apexFn) => Promise.resolve(apexFn === getLogEntryDetail ? undefined : {entries: MOCK_TRACE, truncated: false}));
+
+			await selectRow(element, '001p1');
+
+			expect(element.shadowRoot.querySelector('[data-testid="detail-panel"]')).toBeNull();
+			expect(table(element).selectedRows).toEqual([]);
+		});
+
 		it('empties the timeline when the next selected entry has no correlated trace', async() =>
 		{
 			const element = await createComponent();
@@ -3022,6 +3049,29 @@ describe('c-log-console', () =>
 			await flushAll();
 
 			expect(mockCallControllerMethod.mock.calls.filter((call) => call[0] === getLogEntryDetail).length).toBe(afterFirst);
+		});
+
+		it('shows the loaded focus card when a hop is focused again after the opened entry was focused in between', async() =>
+		{
+			const element = await createComponent();
+			await selectRow(element, '001p1');
+			const defaultAnswer = mockCallControllerMethod.getMockImplementation();
+			const hopDetail = {id: '001p0', message: 'begin', stackTrace: 'Class.OrderService.begin', contextJson: ''};
+			mockCallControllerMethod.mockImplementation(
+					(apexFn, params) => (apexFn === getLogEntryDetail && params.entryId === '001p0' ? Promise.resolve(hopDetail) : defaultAnswer(apexFn, params)));
+			const drawer = element.shadowRoot.querySelector('c-log-console-detail');
+			const timelineEntry = (entryId) => Array.from(drawer.shadowRoot.querySelectorAll('[data-testid="timeline-entry"]')).find((entry) => entry.dataset.entryId === entryId);
+
+			timelineEntry('001p0').click();
+			await flushAll();
+			expect(drawer.shadowRoot.querySelector('[data-testid="focus-stack"]').textContent).toContain('Class.OrderService.begin');
+			timelineEntry('001p1').click();
+			await flushAll();
+			timelineEntry('001p0').click();
+			await flushAll();
+
+			expect(drawer.shadowRoot.querySelector('[data-testid="focus-loading"]')).toBeNull();
+			expect(drawer.shadowRoot.querySelector('[data-testid="focus-stack"]').textContent).toContain('Class.OrderService.begin');
 		});
 
 		it('surfaces a load-failed sentinel when the focused hop detail does not load', async() =>
@@ -3196,6 +3246,24 @@ describe('c-log-console', () =>
 			const note = element.shadowRoot.querySelector('[data-testid="occurrences-reconciliation"]');
 			expect(note.textContent).toContain('1,284');
 			expect(note.textContent).toContain(String(MOCK_ENTRY_PAGE.totalCount));
+		});
+
+		it('drops the count of entries on file when the next read of the list fails', async() =>
+		{
+			const element = await createComponent();
+			await selectRow(element, '001p1');
+			element.shadowRoot.querySelector('c-log-console-detail').dispatchEvent(new CustomEvent('viewoccurrences', {detail: {searchTerm: 'AcctHandler'}}));
+			await flushAll();
+			expect(element.shadowRoot.querySelector('[data-testid="occurrences-reconciliation"]')).not.toBeNull();
+
+			// The list read fails. The sentence must not go on quoting the count of the list that was on screen before.
+			const pageAnswer = mockCallControllerMethod.getMockImplementation();
+			mockCallControllerMethod.mockImplementation((apexFn, params) => (apexFn === getLogEntries ? Promise.resolve(undefined) : pageAnswer(apexFn, params)));
+			buttonByLabel(element, 'Refresh').dispatchEvent(new CustomEvent('click'));
+			await flushAll();
+
+			expect(element.shadowRoot.querySelector('[data-testid="list-load-failed"]')).not.toBeNull();
+			expect(element.shadowRoot.querySelector('[data-testid="occurrences-reconciliation"]')).toBeNull();
 		});
 
 		it('clears the pinned source and reloads when its pill is removed', async() =>
@@ -3464,7 +3532,11 @@ describe('c-log-console', () =>
 				{
 					return new Promise((resolve) => resolvers.push(() => resolve({...MOCK_DETAIL, shortMessage: 'STALE GROUPED'})));
 				}
-				return Promise.resolve(apexFn === getLogProblems ? derivedPage : apexFn === getLogSummary ? MOCK_SUMMARY : MOCK_DETAIL);
+				if(apexFn === getLogProblems)
+				{
+					return Promise.resolve(derivedPage);
+				}
+				return Promise.resolve(apexFn === getLogSummary ? MOCK_SUMMARY : MOCK_DETAIL);
 			});
 			const element = await createComponent();
 
@@ -3605,7 +3677,11 @@ describe('c-log-console', () =>
 				{
 					return new Promise((resolve) => (releaseGrouped = () => resolve({...MOCK_DETAIL, shortMessage: 'GROUPED'})));
 				}
-				return Promise.resolve(apexFn === getLogProblems ? derivedPage : apexFn === getLogSummary ? MOCK_SUMMARY : MOCK_DETAIL);
+				if(apexFn === getLogProblems)
+				{
+					return Promise.resolve(derivedPage);
+				}
+				return Promise.resolve(apexFn === getLogSummary ? MOCK_SUMMARY : MOCK_DETAIL);
 			});
 			const element = await createComponent();
 			await selectFullRow(element, table(element).data[1]);
@@ -3639,7 +3715,11 @@ describe('c-log-console', () =>
 				{
 					return new Promise((resolve) => (releaseGrouped = () => resolve({...MOCK_DETAIL, shortMessage: 'GROUPED'})));
 				}
-				return Promise.resolve(apexFn === getLogProblems ? derivedPage : apexFn === getLogSummary ? MOCK_SUMMARY : MOCK_DETAIL);
+				if(apexFn === getLogProblems)
+				{
+					return Promise.resolve(derivedPage);
+				}
+				return Promise.resolve(apexFn === getLogSummary ? MOCK_SUMMARY : MOCK_DETAIL);
 			});
 			const element = await createComponent();
 			await selectFullRow(element, table(element).data[1]);
@@ -3860,11 +3940,11 @@ describe('c-log-console whole action', () =>
 
 		await openActionByDeepLink(element, {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '2000'});
 
-		let request = lastRequestFor(getLogEntries);
-		expect(request.rootCorrelationId).toBe(ACTION_ID);
-		expect(request.executionEvents).toEqual([]);
-		expect(request.classMethod).toBeNull();
-		expect(request.correlationId).toBeNull();
+		const firstActionRequest = lastRequestFor(getLogEntries);
+		expect(firstActionRequest.rootCorrelationId).toBe(ACTION_ID);
+		expect(firstActionRequest.executionEvents).toEqual([]);
+		expect(firstActionRequest.classMethod).toBeNull();
+		expect(firstActionRequest.correlationId).toBeNull();
 		expect(element.shadowRoot.querySelector('.filter-combobox').value).toBe('');
 		expect(query(element, 'source-filter-pill')).toBeNull();
 		expect(query(element, 'correlation-pill')).toBeNull();
@@ -3876,8 +3956,8 @@ describe('c-log-console whole action', () =>
 
 		await openActionByDeepLink(element, {c__rootCorrelationId: ACTION_ID, c__viewLogsAt: '3000'});
 
-		request = lastRequestFor(getLogEntries);
-		expect(request.correlationId).toBeNull();
+		const nextActionRequest = lastRequestFor(getLogEntries);
+		expect(nextActionRequest.correlationId).toBeNull();
 		expect(query(element, 'correlation-pill')).toBeNull();
 	});
 
@@ -3929,17 +4009,17 @@ describe('c-log-console whole action', () =>
 		queryAll(element, 'action-chain-chip')[1].click();
 		await flushAll();
 
-		let request = lastRequestFor(getLogEntries);
-		expect(request.correlationId).toBe('run-b');
-		expect(request.rootCorrelationId).toBe(ACTION_ID);
-		expect(request.pageNumber).toBe(1);
+		const pinnedRequest = lastRequestFor(getLogEntries);
+		expect(pinnedRequest.correlationId).toBe('run-b');
+		expect(pinnedRequest.rootCorrelationId).toBe(ACTION_ID);
+		expect(pinnedRequest.pageNumber).toBe(1);
 		expect(query(element, 'correlation-pill').label).toBe('Chain: Ledger · CHAIN-00215');
 
 		query(element, 'correlation-pill').dispatchEvent(new CustomEvent('remove'));
 		await flushAll();
-		request = lastRequestFor(getLogEntries);
-		expect(request.correlationId).toBeNull();
-		expect(request.rootCorrelationId).toBe(ACTION_ID);
+		const unpinnedRequest = lastRequestFor(getLogEntries);
+		expect(unpinnedRequest.correlationId).toBeNull();
+		expect(unpinnedRequest.rootCorrelationId).toBe(ACTION_ID);
 	});
 
 	it('opens the chains in the Chain Monitor with the action and a stamp only', async() =>
@@ -3988,14 +4068,14 @@ describe('c-log-console whole action', () =>
 		query(element, 'action-pill').dispatchEvent(new CustomEvent('remove'));
 		await flushAll();
 
-		let request = lastRequestFor(getLogEntries);
-		expect(request.rootCorrelationId).toBeNull();
-		expect(request.levels).toEqual([
+		const rangeRequest = lastRequestFor(getLogEntries);
+		expect(rangeRequest.rootCorrelationId).toBeNull();
+		expect(rangeRequest.levels).toEqual([
 			'ERROR',
 			'WARN'
 		]);
-		expect(request.sortAscending).toBe(false);
-		expect(request.customStart).not.toBeNull();
+		expect(rangeRequest.sortAscending).toBe(false);
+		expect(rangeRequest.customStart).not.toBeNull();
 		expect(query(element, 'action-range-note')).toBeTruthy();
 		expect(query(element, 'action-banner')).toBeNull();
 
@@ -4003,9 +4083,9 @@ describe('c-log-console whole action', () =>
 		await flushAll();
 		// Still the entries view: Clear all empties the filters, and the view is the reader's own choice, so the
 		// list it reloads is the entries list the action was opened on.
-		request = lastRequestFor(getLogEntries);
-		expect(request.customStart).toBeNull();
-		expect(request.windowMinutes).toBe(DEFAULT_WINDOW_MINUTES);
+		const clearedRequest = lastRequestFor(getLogEntries);
+		expect(clearedRequest.customStart).toBeNull();
+		expect(clearedRequest.windowMinutes).toBe(DEFAULT_WINDOW_MINUTES);
 		expect(query(element, 'action-range-note')).toBeNull();
 	});
 
@@ -4873,6 +4953,18 @@ describe('c-log-console list', () =>
 		await entriesView(bare);
 		await selectRow(bare, '001e1');
 		expect(columnFieldNames(bare)).toHaveLength(7);
+	});
+
+	it('runs a teardown registered through the base when disconnected, and still stops listening to the width', async() =>
+	{
+		const element = await createComponent();
+		const operation = jest.fn();
+		element.addTearDownOperation(operation);
+
+		document.body.removeChild(element);
+
+		expect(operation).toHaveBeenCalledTimes(1);
+		expect(compactMedia.removeEventListener).toHaveBeenCalledTimes(1);
 	});
 });
 

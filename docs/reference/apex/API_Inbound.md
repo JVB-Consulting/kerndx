@@ -239,6 +239,8 @@ global override virtual void onSuccess()
 ```
 
 Registers database changes after a successful call.
+Records you register here are saved in system mode, so the running user's object and field permissions are not checked.
+To save with the user's permissions, use `DML_Builder.newTransaction().withUserMode()` in its own transaction.
 Simulates an error for testing if `returnErrorResponse` is set.
 
 **Example**

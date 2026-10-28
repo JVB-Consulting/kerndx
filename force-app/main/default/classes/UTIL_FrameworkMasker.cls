@@ -346,8 +346,8 @@ public inherited sharing class UTIL_FrameworkMasker
 	 * that runs longer than five seconds counts toward a limit the platform sets on long-running requests at the same
 	 * time, and new requests are refused once that limit is reached. So in a synchronous transaction a longer value goes
 	 * through the quick text search for `"key":"value"` pairs instead (see `UTIL_String.maskJsonKeysViaRegex`). That
-	 * search hides every plain value under a matching key. When a matching key holds an object or a list, it puts
-	 * `FAILURE_MARKER` in place of the whole value: the value loses its detail, but nothing secret is saved. A Queueable,
+	 * search hides every plain value under a matching key. When a matching key holds an object or a list, or the search
+	 * cannot read a pair whole, it puts `FAILURE_MARKER` in place of the whole value: the value loses its detail, but nothing secret is saved. A Queueable,
 	 * Batch, future or Scheduled job reads the value as JSON at any length.
 	 */
 	public static final Integer SYNCHRONOUS_JSON_TEXT_PASS_LINE = 196608;
@@ -1895,18 +1895,18 @@ public inherited sharing class UTIL_FrameworkMasker
 	 * second one below: that method never sends a value to the text search because of its length or the kind of
 	 * transaction. So a rule gives the same result here and in that method, except for a value longer than
 	 * `SYNCHRONOUS_JSON_TEXT_PASS_LINE` in a synchronous transaction, which only this method reads with the text search.
-	 * <ol>
-	 *   <li>A value without the outline of a JSON object or list (see `UTIL_String.hasJsonObjectOrArrayShape`) goes
-	 *       through the rules one at a time, each with its text search for `"key":"value"` pairs. This includes a value
-	 *       that starts like JSON but has more text after its end; the text search keeps it masked or marked.</li>
-	 *   <li>In a synchronous transaction, a value longer than `SYNCHRONOUS_JSON_TEXT_PASS_LINE` goes through the
-	 *       rules one at a time, each with the quick text search (see `shouldTakeJsonTextPass`). Reading it as JSON
-	 *       would take too long while the user or the API client waits.</li>
-	 *   <li>A value with more opening brackets than `UTIL_String.JSON_STRUCTURE_LINE` is read one token at a time
-	 *       (see `applyJsonKeyRulesAsStream`).</li>
-	 *   <li>Any other value is read once as a whole tree, and every rule walks that tree (see
-	 *       `applyJsonKeyRulesToTree`).</li>
-	 * </ol>
+	 *
+	 * - A value without the outline of a JSON object or list (see `UTIL_String.hasJsonObjectOrArrayShape`) goes
+	 *   through the rules one at a time, each with its text search for `"key":"value"` pairs. This includes a value
+	 *   that starts like JSON but has more text after its end; the text search keeps it masked or marked.
+	 * - In a synchronous transaction, a value longer than `SYNCHRONOUS_JSON_TEXT_PASS_LINE` goes through the
+	 *   rules one at a time, each with the quick text search (see `shouldTakeJsonTextPass`). Reading it as JSON
+	 *   would take too long while the user or the API client waits.
+	 * - A value with more opening brackets than `UTIL_String.JSON_STRUCTURE_LINE` is read one token at a time
+	 *   (see `applyJsonKeyRulesAsStream`).
+	 * - Any other value is read once as a whole tree, and every rule walks that tree (see
+	 *   `applyJsonKeyRulesToTree`).
+	 *
 	 * On both JSON paths a rule skips the value when no key name it matches can be in the text (see
 	 * `UTIL_String.canHoldMatchingJsonKey`). A Write Failure Marker rule whose pattern cannot compile does not run: the
 	 * value gets `FAILURE_MARKER` instead (see `markValueOfBrokenPatternRule`). Once the value holds the marker, the later

@@ -244,7 +244,7 @@ The mode decides *how* a rule recognises a sensitive value, so picking the right
 |--------------|----------------------------------------------------------------------------------------------------------------------------|
 | `Regex`      | A standard regular expression. Matched substrings are replaced. Honours the rule's `CaseSensitive__c` flag.                 |
 | `CreditCard` | A regex **plus** a Luhn (mod-10) checksum, so only matches that are valid card numbers get redacted. A 16-digit order number survives. |
-| `JsonKey`    | Treats the value as JSON and redacts the value under each matching **key**, recursing into nested objects. Text that is not JSON goes to a text search for `"key":"value"` pairs (see [How does a JSON-key rule read a value?](#how-does-a-json-key-rule-read-a-value)). JSON stored as text inside another JSON value is not walked. |
+| `JsonKey`    | Treats the value as JSON and redacts the value under each matching **key**, recursing into nested objects. Text that is not JSON goes to a text search for `"key":"value"` pairs (see [How does a JSON-key rule read a value?](#how-does-a-json-key-rule-read-a-value)). The rule does not look inside JSON that is stored as text in another JSON value. |
 | `ExactMatch` | The pattern is matched as a literal substring (no regex metacharacters).                                                    |
 
 An unrecognised mode does nothing at all: the value passes through unchanged.
@@ -279,6 +279,8 @@ A few limits of the text search are worth knowing:
   a Windows path written as `"C:\path": 1`.
 - **Very long keys.** The search reads long values in overlapping pieces. A key written longer than 512 characters (escapes count as written) can be missed where
   one piece ends and the next begins.
+- **Values the search cannot read whole.** When the search cannot read a key together with its whole value, it cannot tell what the value holds, so the
+  whole field gets `[MASKING_FAILURE]`. This can happen to a value that holds no secret too. Nothing secret is stored.
 - **Key patterns with an open-ended or large repeat.** A key pattern with a repeat that has no upper limit, such as `.*secret.*`, can take so many steps on text full
   of quotes that the platform stops the save. A repeat whose upper count has three or more digits, such as `{1,100}`, is treated the same way, because the search
   cannot tell how many steps it takes. So the text search does not run with such a pattern: every value that goes to the text search and holds a quote gets
@@ -364,6 +366,7 @@ When you create or tune a rule, these are the fields you set. Each `MaskingRule_
 | `MinInputLength__c`        | The engine skips inputs shorter than this length before running the rule (e.g. `MaskPaymentCard` uses `13`). Blank = no floor. |
 | `ApplicableFieldTypes__c`  | A semicolon list (`STRING;TEXTAREA;URL;EMAIL;PHONE;ENCRYPTEDSTRING`) limiting which field types the rule fires on. Blank = all text-shaped types. |
 | `Description__c`           | Free-text description shown in the Advisor.                                                                                  |
+| `Category__c`              | Optional short category label (up to 40 characters) shown beside the rule in the Advisor. Shipped rules use Contact, Personal, Payment, Health, Credentials, Financial, Identity or Network; reuse one, or enter your own. |
 | `Replaces__c`              | On a shipped replacement rule: the developer name of the older rule it replaces. While both rules still carry their original shipped values, the newer rule does the work wherever both are wired to the same object. Managed by the package, so leave it blank on your own rules. |
 | `ReplacesFingerprint__c`   | Fingerprint of the replaced rule's original shipped values. Any customisation you make to the older rule keeps it running. Managed by the package. |
 | `ShippedFingerprint__c`    | Fingerprint of this rule's own shipped values. Customising the replacement rule turns the takeover off, so both rules then run. Managed by the package. |
@@ -495,7 +498,7 @@ Set these limits with your stakeholders up front so no one expects a control mas
 - **It is write-time, not retroactive.** Masking changes the record in the `before` window, just before it is saved. It never scans or rewrites rows already in the
   database. Existing data stays as it is until the record is next inserted or updated.
 - **It is destructive.** The masked value overwrites the field. The original plaintext is not kept anywhere, and there is no reverse mapping back to it.
-- **It only applies to text-shaped fields:** Text, Text Area, Long Text Area, URL, Email, Phone, and Encrypted Text. Numbers, dates, checkboxes, picklists,
+- **It only applies to text-shaped fields:** Text, Text Area, Long Text Area, Rich Text Area, URL, Email, Phone, and Encrypted Text. Numbers, dates, checkboxes, picklists,
   lookups, and formula or read-only fields cannot be masked.
 - **A `BlockDml` rule aborts the whole save.** If a `BlockDml` rule cannot redact a value, it throws `MaskingBlockedException` and the insert or update fails. That is by
   design, so an unmaskable secret never lands.
@@ -668,7 +671,7 @@ You test masking the way it actually runs: by checking the resulting behaviour, 
 @IsTest
 static void maskingIsEnabledByDefault()
 {
-    System.Assert.isTrue(kern.UTIL_FeatureFlag.isEnabled('MaskingFramework_Enabled'));
+    Assert.isTrue(kern.UTIL_FeatureFlag.isEnabled('MaskingFramework_Enabled'), 'Masking should be enabled by default');
 }
 ```
 
@@ -682,7 +685,7 @@ static void blockDmlRuleStopsTheInsert()
     try
     {
         insert recordThatTripsABlockDmlRule;
-        System.Assert.fail('Expected MaskingBlockedException');
+        Assert.fail('Expected MaskingBlockedException');
     }
     catch (kern.UTIL_Exceptions.MaskingBlockedException e)
     {

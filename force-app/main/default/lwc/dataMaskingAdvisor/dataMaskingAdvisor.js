@@ -123,6 +123,11 @@ import HEALTH_SUMMARY_DEAD_PLURAL from '@salesforce/label/c.DataMaskingAdvisor_H
 import HEALTH_DETAIL_OBJECT_WIDE_SINGULAR from '@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Detail_ObjectWideInactive_Singular';
 import HEALTH_DETAIL_OBJECT_WIDE_PLURAL from '@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Detail_ObjectWideInactive_Plural';
 import HEALTH_DETAIL_DEAD_FIELD_TARGET from '@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Detail_DeadFieldTarget';
+import HEALTH_SUMMARY_RULE_OFF_SINGULAR from '@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Summary_RuleOff_Singular';
+import HEALTH_SUMMARY_RULE_OFF_PLURAL from '@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Summary_RuleOff_Plural';
+import HEALTH_DETAIL_RULE_OFF_OBJECT_WIDE_SINGULAR from '@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Detail_RuleOffObjectWide_Singular';
+import HEALTH_DETAIL_RULE_OFF_OBJECT_WIDE_PLURAL from '@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Detail_RuleOffObjectWide_Plural';
+import HEALTH_DETAIL_RULE_OFF_FIELD_TARGET from '@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Detail_RuleOffFieldTarget';
 import NO_CHANGES_QUEUED_NOTE from '@salesforce/label/c.DataMaskingAdvisor_NoChangesQueued_Note';
 import COVERAGE_SCAN_HEADING from '@salesforce/label/c.DataMaskingAdvisor_CoverageScan_Heading';
 import COVERAGE_SCAN_INTRO from '@salesforce/label/c.DataMaskingAdvisor_CoverageScan_Intro';
@@ -221,6 +226,12 @@ const MAX_DEVELOPER_NAME_LENGTH = 40;
 // to the same name and one target would be silently dropped from the bundle; a short hash suffix keyed on
 // the full field+rule pair keeps each generated target unique.
 const DEVELOPER_NAME_HASH_LENGTH = 6;
+// The short hash of a string multiplies the running value by this prime for each character.
+const HASH_MULTIPLIER = 31;
+// The short hash stays below this prime (the largest 32-bit signed integer), so it never grows past the safe-integer range.
+const HASH_MODULUS = 2147483647;
+// The short hash is written in base 36: digits and lower-case letters.
+const HASH_RADIX = 36;
 // Per-instance cache for the two expensive derived walks (the decorated field list and the export diff),
 // keyed by the identity of every state reference they read. It lives at module scope, keyed by the
 // component instance, so caching during a getter never writes reactive component state mid-render.
@@ -338,6 +349,13 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	 * @type {boolean}
 	 */
 	hasFieldLoadError = false;
+
+	/**
+	 * @description Counts the object picks. A describe answer is used only while its pick is still the newest,
+	 * so a slow answer for an object the admin already left does not fill the screen.
+	 * @type {number}
+	 */
+	objectSelectionSequence = 0;
 
 	/**
 	 * @description Whether the Needs-review card is expanded (open by default).
@@ -955,13 +973,39 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	}
 
 	/**
-	 * @description The inactive object-wide targets on the selected object (masking nothing) — the
-	 * configuration-health input.
+	 * @description The inactive object-wide targets on the selected object: the unticked chips in the
+	 * object-wide banner, where an administrator can re-enable them.
 	 * @returns {Array<Object>}
 	 */
 	get inactiveObjectWideRules()
 	{
 		return this.objectWideRules.filter((rule) => rule.isActive === false);
+	}
+
+	/**
+	 * @description The configuration-health input: the inactive object-wide targets whose rule is still
+	 * on, so the rule is configured across every field of the object but masks nothing until the target
+	 * is re-enabled. A target switched off together with its rule (as the package ships the older card
+	 * rule and its four targets) is not a finding: nothing is configured to mask, and the object-wide
+	 * banner still shows the pair unticked and marked superseded. A target whose rule could not be
+	 * resolved keeps counting, as before.
+	 * @returns {Array<Object>}
+	 */
+	get objectWideTargetsMaskingNothing()
+	{
+		return this.inactiveObjectWideRules.filter((rule) => rule.ruleIsActive !== false);
+	}
+
+	/**
+	 * @description The configuration-health input: the object-wide targets that are on while their rule is
+	 * off. Such a target masks nothing, because a rule that is off never runs. The object-wide banner still
+	 * counts it as active, since that banner reads only the target's own switch. A target whose rule could
+	 * not be resolved is not counted here.
+	 * @returns {Array<Object>}
+	 */
+	get objectWideTargetsWithRuleOff()
+	{
+		return this.objectWideRules.filter((rule) => rule.isActive === true && rule.ruleIsActive === false);
 	}
 
 	/**
@@ -1060,13 +1104,45 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	}
 
 	/**
-	 * @description Whether the configuration-health banner has any findings (inactive object-wide rules or
-	 * dead field targets).
+	 * @description The field-level targets across the object that are on while their rule is off, so they
+	 * mask nothing. A target switched off together with its rule is not here: it already counts as a field
+	 * target masking nothing. A target whose rule could not be resolved is not counted here either.
+	 * @returns {Array<Object>}
+	 */
+	get fieldTargetsWithRuleOff()
+	{
+		const targets = [];
+		this.fieldRows.forEach((row) =>
+		{
+			(row.appliedRules || []).forEach((applied) =>
+			{
+				if(applied.isActive === true && applied.ruleIsActive === false)
+				{
+					targets.push({key: row.apiName + '|' + applied.ruleDeveloperName, fieldLabel: row.label, ruleLabel: applied.ruleLabel});
+				}
+			});
+		});
+		return targets;
+	}
+
+	/**
+	 * @description Whether the configuration-health banner has any findings: object-wide targets masking
+	 * nothing, dead field targets, or targets that are on while their rule is off.
 	 * @returns {boolean}
 	 */
 	get hasHealthFindings()
 	{
-		return this.inactiveObjectWideRules.length > 0 || this.deadFieldTargets.length > 0;
+		return this.objectWideTargetsMaskingNothing.length > 0 || this.deadFieldTargets.length > 0 || this.objectWideTargetsWithRuleOff.length > 0
+				|| this.fieldTargetsWithRuleOff.length > 0;
+	}
+
+	/**
+	 * @description Whether the object has any field-level targets that are on while their rule is off.
+	 * @returns {boolean}
+	 */
+	get hasFieldTargetsWithRuleOff()
+	{
+		return this.fieldTargetsWithRuleOff.length > 0;
 	}
 
 	/**
@@ -1091,13 +1167,15 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 
 	/**
 	 * @description The configuration-health banner heading — "Configuration health — N object-wide rules
-	 * inactive · M field targets masking nothing".
+	 * inactive · M field targets masking nothing · K targets whose rule is off". The last count adds the
+	 * object-wide and the field-level targets that are on while their rule is off. A part with a count of
+	 * zero is left out.
 	 * @returns {string}
 	 */
 	get healthBannerHeading()
 	{
 		const parts = [];
-		const inactiveCount = this.inactiveObjectWideRules.length;
+		const inactiveCount = this.objectWideTargetsMaskingNothing.length;
 		if(inactiveCount === 1)
 		{
 			parts.push(HEALTH_SUMMARY_OBJECT_WIDE_SINGULAR);
@@ -1114,6 +1192,15 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 		else if(deadCount > 1)
 		{
 			parts.push(HEALTH_SUMMARY_DEAD_PLURAL.replace('{0}', String(deadCount)));
+		}
+		const ruleOffCount = this.objectWideTargetsWithRuleOff.length + this.fieldTargetsWithRuleOff.length;
+		if(ruleOffCount === 1)
+		{
+			parts.push(HEALTH_SUMMARY_RULE_OFF_SINGULAR);
+		}
+		else if(ruleOffCount > 1)
+		{
+			parts.push(HEALTH_SUMMARY_RULE_OFF_PLURAL.replace('{0}', String(ruleOffCount)));
 		}
 		return this.labels.healthHeading + ' — ' + parts.join(' · ');
 	}
@@ -1133,7 +1220,7 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	 */
 	get healthObjectWideDetail()
 	{
-		const count = this.inactiveObjectWideRules.length;
+		const count = this.objectWideTargetsMaskingNothing.length;
 		if(count === 0)
 		{
 			return null;
@@ -1148,6 +1235,33 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	get healthDeadFieldDetails()
 	{
 		return this.deadFieldTargets.map((target) => ({key: target.key, text: HEALTH_DETAIL_DEAD_FIELD_TARGET.replace('{0}', target.ruleLabel)}));
+	}
+
+	/**
+	 * @description The detail line for object-wide targets that are on while their rule is off, singular or
+	 * plural; null when there are none.
+	 * @returns {string}
+	 */
+	get healthRuleOffObjectWideDetail()
+	{
+		const count = this.objectWideTargetsWithRuleOff.length;
+		if(count === 0)
+		{
+			return null;
+		}
+		return count === 1 ? HEALTH_DETAIL_RULE_OFF_OBJECT_WIDE_SINGULAR : HEALTH_DETAIL_RULE_OFF_OBJECT_WIDE_PLURAL.replace('{0}', String(count));
+	}
+
+	/**
+	 * @description One detail line per field-level target that is on while its rule is off, naming the rule
+	 * and the field.
+	 * @returns {Array<Object>}
+	 */
+	get healthRuleOffFieldDetails()
+	{
+		return this.fieldTargetsWithRuleOff.map((target) => ({
+			key: target.key, text: HEALTH_DETAIL_RULE_OFF_FIELD_TARGET.replace('{0}', target.ruleLabel).replace('{1}', target.fieldLabel)
+		}));
 	}
 
 	/**
@@ -1622,7 +1736,6 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 				let assessment;
 				try
 				{
-					// eslint-disable-next-line no-await-in-loop -- deliberate pacing: objects are assessed sequentially so the scan stays cancellable and reports per-object progress
 					assessment = await this.callControllerMethod(assessObjectCoverage, {objectApiName: candidate.Id});
 				}
 				catch
@@ -1652,8 +1765,12 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	 */
 	async handleScanRowClick(event)
 	{
-		await this.handleObjectChange({detail: {selectedId: event.currentTarget.dataset.apiName}});
-		this.fromScan = true;
+		const requestSequence = await this.handleObjectChange({detail: {selectedId: event.currentTarget.dataset.apiName}});
+		// A slow answer for this object must not mark an object the admin picked later as coming from the scan.
+		if(requestSequence === this.objectSelectionSequence)
+		{
+			this.fromScan = true;
+		}
 	}
 
 	/**
@@ -1763,12 +1880,13 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	}
 
 	/**
-	 * @description Loads the selectable objects into the picker options ({Id, Name}).
+	 * @description Loads the selectable objects into the picker options ({Id, Name}). The framework swallows a
+	 * controller failure (returns undefined), so a failed load leaves the list empty and the landing still renders.
 	 */
 	async loadObjects()
 	{
 		const objects = await this.callControllerMethod(listObjects);
-		this.objectOptions = objects.map((option) => ({Id: option.apiName, Name: option.label, isCustom: option.isCustom, namespacePrefix: option.namespacePrefix}));
+		this.objectOptions = (objects ?? []).map((option) => ({Id: option.apiName, Name: option.label, isCustom: option.isCustom, namespacePrefix: option.namespacePrefix}));
 	}
 
 	/**
@@ -1782,8 +1900,7 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 		{
 			const findings = await this.callControllerMethod(getDeadConfigurations);
 			this.deadConfigFindings = (findings ?? []).map((finding) => ({
-				...finding,
-				key: finding.issueCode + ':' + (finding.targetDeveloperName ?? finding.ruleDeveloperName)
+				...finding, key: finding.issueCode + ':' + (finding.targetDeveloperName ?? finding.ruleDeveloperName)
 			}));
 		}
 		catch
@@ -1828,10 +1945,14 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	 * inventory row): resets the prior object's per-object and desired-state maps, then describes the newly
 	 * selected object (or clears the rows when the selection is cleared back to the landing).
 	 * @param {Object} event The selection change ({detail: {selectedId}}).
+	 * @returns {Promise<number>} The number of this pick. A caller compares it with the current pick number to
+	 * tell whether a later pick replaced this one while it waited.
 	 */
 	async handleObjectChange(event)
 	{
 		const objectApiName = event.detail.selectedId;
+		this.objectSelectionSequence++;
+		const requestSequence = this.objectSelectionSequence;
 		this.selectedObject = objectApiName;
 		this.fromScan = false;
 		this.hasFieldLoadError = false;
@@ -1854,21 +1975,30 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 		{
 			this.fieldRows = [];
 			this.hasLoadedFields = false;
-			return;
+			return requestSequence;
 		}
 		this.isLoading = true;
 		await this.describeSelectedObject();
-		this.isLoading = false;
+		// An older pick leaves the spinner to the newer pick that replaced it, unless that newer pick went back to the landing.
+		if(requestSequence === this.objectSelectionSequence || !this.selectedObject)
+		{
+			this.isLoading = false;
+		}
+		return requestSequence;
 	}
 
 	/**
 	 * @description Re-runs the org-wide reads (objects, dead configurations, posture, inventory) and, when
 	 * an object is selected, re-describes it — preserving the session draft by restoring it after the
 	 * re-describe, the same order handleObjectChange uses. The desired-state maps are deliberately not reset
-	 * (unlike an object change) so the admin's in-progress edits survive a refresh.
+	 * (unlike an object change) so the admin's in-progress edits survive a refresh. When the admin picks
+	 * another object while the refresh runs, the refresh leaves the spinner to that pick, whose own answer is
+	 * still on its way. A pick that went back to the landing never shows the spinner itself, so the refresh
+	 * still turns it off then.
 	 */
 	async handleRefresh()
 	{
+		const requestSequence = this.objectSelectionSequence;
 		this.isLoading = true;
 		await this.loadObjects();
 		await this.loadDeadConfigurations();
@@ -1878,19 +2008,29 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 		{
 			await this.describeSelectedObject();
 		}
-		this.isLoading = false;
+		if(requestSequence === this.objectSelectionSequence || !this.selectedObject)
+		{
+			this.isLoading = false;
+		}
 	}
 
 	/**
 	 * @description Describes the selected object and restores its session draft. Used by both the object
 	 * picker (after it resets the prior object's state) and the refresh button (which preserves the current
-	 * state). A controller failure clears the rows and raises the load-error banner.
+	 * state). A controller failure clears the rows, hides the fields shown before and raises the
+	 * load-error banner. An answer that arrives after the admin picked another object, or went back to the
+	 * landing, is ignored, so it cannot overwrite the screen that is now showing.
 	 */
 	async describeSelectedObject()
 	{
+		const requestSequence = this.objectSelectionSequence;
 		try
 		{
 			const analysis = await this.callControllerMethod(describeFields, {objectApiName: this.selectedObject});
+			if(requestSequence !== this.objectSelectionSequence)
+			{
+				return;
+			}
 			this.fieldRows = analysis.fields;
 			this.objectWideRules = analysis.objectWideRules || [];
 			this.newRuleSetupUrl = analysis.newRuleSetupUrl || null;
@@ -1901,8 +2041,12 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 		}
 		catch
 		{
-			this.fieldRows = [];
-			this.hasFieldLoadError = true;
+			if(requestSequence === this.objectSelectionSequence)
+			{
+				this.fieldRows = [];
+				this.hasLoadedFields = false;
+				this.hasFieldLoadError = true;
+			}
 		}
 	}
 
@@ -2511,7 +2655,48 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 				}
 			}
 		});
-		return {targets, rulesToActivate: [...activate]};
+		return {targets: this.withUniqueCreatedNames(targets), rulesToActivate: [...activate]};
+	}
+
+	/**
+	 * @description Makes sure no new target shares its developer name with another target. Punctuation in a
+	 * name becomes `_`, so two different field and rule pairs can end up with the same name, and a new name can
+	 * also match a target that already exists. Two records with one name means one of them is lost on deploy.
+	 * A new target whose name is shared gets the short hash suffix of its field and rule pair. A name nobody
+	 * else uses stays as it is, so the name of a target that already exists never changes. It checks only the
+	 * targets already on the selected object, so a name used on another object, or on a field the analysis
+	 * leaves out, can still collide.
+	 * @param {Array<Object>} targets The tagged diff targets. New targets carry the add verb.
+	 * @returns {Array<Object>} The same targets, where every shared name of a new target is made unique.
+	 */
+	withUniqueCreatedNames(targets)
+	{
+		const existingNames = new Set(this.existingTargetDeveloperNames());
+		const createdNameCounts = new Map();
+		targets.filter((target) => target.verb === VERB_ADD).forEach((target) =>
+		{
+			createdNameCounts.set(target.developerName, (createdNameCounts.get(target.developerName) || 0) + 1);
+		});
+		return targets.map((target) =>
+		{
+			const isShared = createdNameCounts.get(target.developerName) > 1 || existingNames.has(target.developerName);
+			const needsUniqueName = target.verb === VERB_ADD && isShared;
+			return needsUniqueName ? {...target, developerName: this.withHashSuffix(target.developerName, target.field, target.ruleDeveloperName)} : target;
+		});
+	}
+
+	/**
+	 * @description The developer names of the masking targets that already exist on the selected object,
+	 * on its fields and object-wide.
+	 * @returns {Array<string>}
+	 */
+	existingTargetDeveloperNames()
+	{
+		const fieldTargets = this.decoratedRows.flatMap((row) => row.appliedRules || []);
+		return [
+			...fieldTargets,
+			...this.objectWideRules
+		].map((target) => target.targetDeveloperName);
 	}
 
 	/**
@@ -2682,7 +2867,8 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	 * verbatim; an over-long name is truncated and gets a short hash suffix keyed on the field+rule pair so
 	 * two long fields (or two rules on one field) sharing a prefix never collide onto one name (which would
 	 * silently drop a target from the bundle). The result always starts with a letter, carries only single
-	 * underscores, and never ends in one.
+	 * underscores, and never ends in one. A short name that another target also uses gets the same suffix
+	 * later, in withUniqueCreatedNames.
 	 * @param {string} fieldApiName The field api name (blank for an object-wide target).
 	 * @param {string} ruleDeveloperName The rule developer name.
 	 * @returns {string}
@@ -2703,8 +2889,21 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 		{
 			return composite;
 		}
+		return this.withHashSuffix(composite, fieldApiName, ruleDeveloperName);
+	}
+
+	/**
+	 * @description Adds the short hash of a field and rule pair to the end of a developer name, cutting the
+	 * name first so the result stays within the 40-character limit. The cut never leaves a doubled underscore.
+	 * @param {string} developerName The name to make unique.
+	 * @param {string} fieldApiName The field api name (blank for an object-wide target).
+	 * @param {string} ruleDeveloperName The rule developer name.
+	 * @returns {string}
+	 */
+	withHashSuffix(developerName, fieldApiName, ruleDeveloperName)
+	{
 		const suffix = '_' + this.shortHash(fieldApiName + '|' + ruleDeveloperName);
-		return composite.substring(0, MAX_DEVELOPER_NAME_LENGTH - suffix.length).replace(/_+$/, '') + suffix;
+		return developerName.substring(0, MAX_DEVELOPER_NAME_LENGTH - suffix.length).replace(/_+$/, '') + suffix;
 	}
 
 	/**
@@ -2719,9 +2918,9 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 		let hash = 0;
 		for(let index = 0; index < value.length; index += 1)
 		{
-			hash = (hash * 31 + value.charCodeAt(index)) % 2147483647;
+			hash = (hash * HASH_MULTIPLIER + value.charCodeAt(index)) % HASH_MODULUS;
 		}
-		return hash.toString(36).slice(0, DEVELOPER_NAME_HASH_LENGTH);
+		return hash.toString(HASH_RADIX).slice(0, DEVELOPER_NAME_HASH_LENGTH);
 	}
 
 	/**
@@ -2743,7 +2942,8 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 	/**
 	 * @description Opens the Review dialog for the row whose badge was clicked, seeded with the row's
 	 * current (effective) classification, signal band, type, and reason, and applies the chosen level on
-	 * Apply. Focus returns to the clicked badge on close (when the row has not re-sectioned away under it).
+	 * Apply when it differs from the field's current level. Focus returns to the clicked badge on close (when
+	 * the row has not re-sectioned away under it).
 	 * @param {Event} event The badge click, carrying the field api name in its dataset.
 	 */
 	async handleReview(event)
@@ -2766,8 +2966,9 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 			fieldType: row.type,
 			reason: row.dialogReason
 		});
-		// Cancel resolves null and the header dismiss resolves undefined — both are "no change".
-		if(result)
+		// Cancel resolves null and the header dismiss resolves undefined. Both mean "no change". Apply with the
+		// level the field already has is no change too: it records nothing and shows no message.
+		if(result && result.level !== row.sensitivityLevel)
 		{
 			this.applyOverride(row, result.level);
 		}
@@ -3018,7 +3219,8 @@ export default class DataMaskingAdvisor extends ComponentBuilder('controller', '
 		// A low-confidence match that lands in Other carries the low-confidence tag in place of the generic
 		// reason line, so the field reads as a weak positive signal rather than "no signal at all".
 		const isLowConfidenceMatch = lowConfidence && section === SECTION_OTHER;
-		const otherReason = isLowConfidenceMatch ? OTHER_LOW_CONFIDENCE_TAG : (row.likelyMiss ? OTHER_REASON_TYPE_SUGGESTS : OTHER_REASON_NO_SIGNAL);
+		const missReason = row.likelyMiss ? OTHER_REASON_TYPE_SUGGESTS : OTHER_REASON_NO_SIGNAL;
+		const otherReason = isLowConfidenceMatch ? OTHER_LOW_CONFIDENCE_TAG : missReason;
 		const objectWideContextChips = this.objectWideContextChipsFor(row);
 		const fieldChips = this.fieldChipsFor(row);
 		return {

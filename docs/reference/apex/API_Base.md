@@ -160,7 +160,7 @@ global virtual List<String> getValidationErrors()
 ```
 
 Determines if the web service request should be aborted. Returns a list of validation error messages.
-Subscribers override this to add custom validation. Framework validation is handled internally
+Override this to add your own validation. Framework validation is handled internally
 by performValidation() — no super call needed.
 
 **Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A list of error messages. Empty list means validation passed.
@@ -270,6 +270,8 @@ global virtual void onSuccess()
 ```
 
 Registers database changes after a successful call.
+Records you register here are saved in system mode, so the running user's object and field permissions are not checked.
+To save with the user's permissions, use `DML_Builder.newTransaction().withUserMode()` in its own transaction.
 
 **Example**
 

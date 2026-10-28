@@ -9,7 +9,7 @@
  *              with the global lightning/modal mock (whose close() is a shared jest.fn).
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, October 2026
  */
 import {createElement} from 'lwc';
 import {mockClose} from 'lightning/modal';
@@ -357,6 +357,56 @@ describe('c-masking-rule-detail', () =>
 			await runTest(element, 'x');
 
 			expect(textOf(element, 'test-message')).toContain('Couldn\'t preview');
+		});
+
+		it('shows only the newest test when an older test answers last', async() =>
+		{
+			let answerFirstTest;
+			let answerSecondTest;
+			previewWithRule
+			.mockReturnValueOnce(new Promise(resolve =>
+			{
+				answerFirstTest = resolve;
+			}))
+			.mockReturnValueOnce(new Promise(resolve =>
+			{
+				answerSecondTest = resolve;
+			}));
+			const element = createDetail();
+			await flush();
+
+			await runTest(element, '4111 1111 1111 1111');
+			await runTest(element, '5500 0000 0000 0004');
+			answerSecondTest({maskedValue: '•••• 0004', failedRuleDeveloperNames: [], expectsJsonInput: false});
+			await flush();
+			answerFirstTest({maskedValue: '•••• 1111', failedRuleDeveloperNames: [], expectsJsonInput: false});
+			await flush();
+
+			expect(textOf(element, 'test-masked')).toContain('5500 0000 0000 0004');
+			expect(textOf(element, 'test-masked')).toContain('•••• 0004');
+			expect(textOf(element, 'test-masked')).not.toContain('•••• 1111');
+		});
+
+		it('pairs the masked result with the value that was tested, not a value typed later', async() =>
+		{
+			let answerTest;
+			previewWithRule.mockReturnValueOnce(new Promise(resolve =>
+			{
+				answerTest = resolve;
+			}));
+			const element = createDetail();
+			await flush();
+
+			await runTest(element, '4111 1111 1111 1111');
+			const input = element.shadowRoot.querySelector('[data-testid="test-input"]');
+			input.value = 'typed later';
+			input.dispatchEvent(new CustomEvent('change'));
+			await flush();
+			answerTest({maskedValue: '•••• 1111', failedRuleDeveloperNames: [], expectsJsonInput: false});
+			await flush();
+
+			expect(textOf(element, 'test-masked')).toContain('4111 1111 1111 1111');
+			expect(textOf(element, 'test-masked')).not.toContain('typed later');
 		});
 
 		it('prompts and does not call the controller for an empty value', async() =>

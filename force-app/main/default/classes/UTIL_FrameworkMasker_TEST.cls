@@ -582,6 +582,66 @@ private class UTIL_FrameworkMasker_TEST
 	private static final Integer KEY_CHARACTERS_AFTER_THE_PIECE_END = 4;
 
 	/**
+	 * @description How many spaces sit between a secret key and its colon, or between the colon and the secret, in the
+	 * tests of a very long run of spaces. The text search reads at most 262,144 characters from the start of a key in one
+	 * try, so 270,000 spaces run past the end of what it reads.
+	 */
+	private static final Integer SPACES_PAST_THE_PAIR_READ_LENGTH = 270000;
+
+	/**
+	 * @description How many spaces sit between a secret key and its colon, or between the colon and the secret, in the
+	 * test of a long run of spaces that the text search can still read. The text search reads at most 262,144 characters
+	 * from the start of a key in one try, so the whole pair fits in what it reads. The value is still longer than
+	 * `UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE`, so it takes the text search.
+	 */
+	private static final Integer SPACES_BELOW_THE_PAIR_READ_LENGTH = 200000;
+
+	/**
+	 * @description The secret text in the tests of a long run of spaces around a colon.
+	 */
+	private static final String PASSWORD_VALUE = 'hunter2';
+
+	/**
+	 * @description A rule pattern with two alternatives that can overlap: a `secret=` pair up to its `&`, or any six
+	 * digits in a row. The digits inside the pair are part of the longer first match.
+	 */
+	private static final String OVERLAPPING_ALTERNATIVES_PATTERN = 'secret=[^&]*&|[0-9]{6}';
+
+	/**
+	 * @description A pair that the first alternative of `OVERLAPPING_ALTERNATIVES_PATTERN` matches whole. It holds nine
+	 * digits in a row, which the second alternative also matches.
+	 */
+	private static final String SECRET_PAIR = 'secret=abc123456789xyz&';
+
+	/**
+	 * @description The start of the secret in `SECRET_PAIR`. When it is left in the result, part of the pair was not hidden.
+	 */
+	private static final String SECRET_PAIR_START = 'abc';
+
+	/**
+	 * @description The text written in place of each match of `OVERLAPPING_ALTERNATIVES_PATTERN`.
+	 */
+	private static final String PAIR_REPLACEMENT = '[X]';
+
+	/**
+	 * @description How many characters before the end of the first piece of the pattern search `SECRET_PAIR` starts. The
+	 * piece end then cuts the pair after `secret=abc123456789x`, so a whole run of six digits lies inside the piece.
+	 */
+	private static final Integer PAIR_START_BEFORE_THE_PIECE_END = 20;
+
+	/**
+	 * @description The length of the value in the test of a pair cut by the end of a piece of the pattern search. The
+	 * value takes three pieces.
+	 */
+	private static final Integer THREE_PIECE_VALUE_LENGTH = 300000;
+
+	/**
+	 * @description How many characters of a masked text an assertion message shows, so a failed test says what was left
+	 * in clear.
+	 */
+	private static final Integer MESSAGE_WINDOW_LENGTH = 40;
+
+	/**
 	 * @description The masking result the Queueable of the running test produced.
 	 */
 	private static UTIL_FrameworkMasker.MaskingResult resultMaskedInQueueable;
@@ -1932,6 +1992,101 @@ private class UTIL_FrameworkMasker_TEST
 			Assert.isFalse(result.hadErrors, 'Expected the rule to finish without an error');
 			Assert.isFalse(maskedText.contains('hunter'), 'Expected no secret left in clear');
 			Assert.isTrue(maskedText.contains(quotedKey + ':"' + PASSWORD_REPLACEMENT + '"'), 'Expected the value replaced and the key kept as written');
+		}
+	}
+
+	/**
+	 * @description In a synchronous transaction, a JSON value with 270,000 spaces between a secret key and its colon takes
+	 * the quick text search. The text search reads at most 262,144 characters from the start of a key in one try, so it
+	 * cannot see where the pair ends. It cannot tell what the pair holds, so the whole value gets the failure marker.
+	 * Nothing of the secret is returned.
+	 */
+	@IsTest
+	private static void shouldNotReturnASecretWhenSpacesBeforeItsColonRunPastTheReadLength()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerShippedSecretKeysRuleOnApiCallRequest();
+			String value = '{"password"' + UTIL_String.SPACE.repeat(SPACES_PAST_THE_PAIR_READ_LENGTH) + ':"' + PASSWORD_VALUE + '"}';
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).maskAndReturnWholeText(value);
+
+			assertSecretMarked(result);
+		}
+	}
+
+	/**
+	 * @description In a synchronous transaction, a JSON value with 270,000 spaces between the colon of a secret key and
+	 * its secret takes the quick text search. The text search reads at most 262,144 characters from the start of a key in
+	 * one try, so it cannot see where the pair ends. It cannot tell what the pair holds, so the whole value gets the
+	 * failure marker. Nothing of the secret is returned.
+	 */
+	@IsTest
+	private static void shouldNotReturnASecretWhenSpacesAfterItsColonRunPastTheReadLength()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerShippedSecretKeysRuleOnApiCallRequest();
+			String value = '{"password":' + UTIL_String.SPACE.repeat(SPACES_PAST_THE_PAIR_READ_LENGTH) + '"' + PASSWORD_VALUE + '"}';
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).maskAndReturnWholeText(value);
+
+			assertSecretMarked(result);
+		}
+	}
+
+	/**
+	 * @description In a synchronous transaction, a JSON value with 200,000 spaces before or after the colon of a secret key
+	 * takes the quick text search. The whole pair fits in what the search reads from the key in one try, so the secret is
+	 * replaced and the spaces are kept. The result holds the same JSON value as `UTIL_String.maskJsonKeys` gives when it
+	 * reads the value as JSON.
+	 */
+	@IsTest
+	private static void shouldMaskASecretWhenSpacesAroundItsColonStayBelowTheReadLength()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt secretRule = registerShippedSecretKeysRuleOnApiCallRequest();
+			String spaces = UTIL_String.SPACE.repeat(SPACES_BELOW_THE_PAIR_READ_LENGTH);
+			String secret = '"' + PASSWORD_VALUE + '"';
+			String maskedSecret = '"' + secretRule.Replacement__c + '"';
+
+			for(String value : new List<String> {'{"password"' + spaces + ':' + secret + '}', '{"password":' + spaces + secret + '}'})
+			{
+				UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).maskAndReturnWholeText(value);
+
+				String maskedText = result.uncutMaskedValue ?? result.maskedValue;
+				String readAsJson = UTIL_String.maskJsonKeys(value, secretRule.Pattern__c, secretRule.Replacement__c, secretRule.CaseSensitive__c == true);
+				Assert.isFalse(result.hadErrors, 'Expected the rule to finish without an error');
+				Assert.areEqual(value.replace(secret, maskedSecret), maskedText, 'Expected the secret replaced and the spaces kept');
+				Assert.areEqual(JSON.deserializeUntyped(readAsJson), JSON.deserializeUntyped(maskedText), 'Expected the same JSON value as maskJsonKeys gives');
+			}
+		}
+	}
+
+	/**
+	 * @description A subscriber Regex rule has two alternatives that can overlap: a `secret=` pair up to its `&`, or six
+	 * digits in a row. In a value of 300,000 characters, a pair starts 20 characters before the end of the first piece of
+	 * the pattern search, so the piece end cuts the pair, but six of its digits lie inside the piece. The whole pair is
+	 * still replaced, as one `replaceAll` over the whole value gives. Replacing only the digits would leave the start and
+	 * the end of the pair in clear. One `replaceAll` over 300,000 characters stops at the platform limit for one search,
+	 * so the test runs it over the pair alone: the spaces around the pair never match, so the result is the same.
+	 */
+	@IsTest
+	private static void shouldMaskAMatchThatStartsJustBeforeAPieceEnd()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_REGEX, OVERLAPPING_ALTERNATIVES_PATTERN, PAIR_REPLACEMENT, null);
+			Integer pairStart = UTIL_String.PATTERN_SEARCH_PIECE_LENGTH - PAIR_START_BEFORE_THE_PIECE_END;
+			String value = UTIL_String.SPACE.repeat(pairStart) + SECRET_PAIR + UTIL_String.SPACE.repeat(THREE_PIECE_VALUE_LENGTH - pairStart - SECRET_PAIR.length());
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.Text__c).maskAndReturnWholeText(value);
+
+			String maskedText = result.uncutMaskedValue ?? result.maskedValue;
+			String expected = value.replace(SECRET_PAIR, Pattern.compile(OVERLAPPING_ALTERNATIVES_PATTERN).matcher(SECRET_PAIR).replaceAll(PAIR_REPLACEMENT));
+			Assert.isFalse(maskedText.contains(SECRET_PAIR_START), 'Expected the whole pair hidden, found ' + maskedText.mid(pairStart, MESSAGE_WINDOW_LENGTH));
+			Assert.areEqual(expected, maskedText, 'Expected the same text as one replaceAll over the whole value');
 		}
 	}
 
@@ -5675,6 +5830,20 @@ private class UTIL_FrameworkMasker_TEST
 	private static String buildObjectUnderASecretKey(Integer length)
 	{
 		return OBJECT_UNDER_A_SECRET_KEY_HEAD + PADDING_CHARACTER.repeat(length - OBJECT_UNDER_A_SECRET_KEY_HEAD.length() - PADDED_OBJECT_TAIL.length()) + PADDED_OBJECT_TAIL;
+	}
+
+	/**
+	 * @description Checks that a value with a long run of spaces around the colon of a secret key got the failure marker,
+	 * and that nothing of the secret is in the masked text. A masked text longer than the field is read from
+	 * `uncutMaskedValue`, and the end of it is shown in the message when the secret is found.
+	 *
+	 * @param result The masking result to check
+	 */
+	private static void assertSecretMarked(UTIL_FrameworkMasker.MaskingResult result)
+	{
+		String maskedText = result.uncutMaskedValue ?? result.maskedValue;
+		Assert.isFalse(maskedText.contains(PASSWORD_VALUE), 'Expected no secret left in clear, found ' + maskedText.right(MESSAGE_WINDOW_LENGTH));
+		Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the failure marker in place of the whole value');
 	}
 
 	/**

@@ -477,6 +477,101 @@ private class UTIL_String_TEST
 	private static final Integer KEY_CHARACTERS_AFTER_THE_PIECE_END = 4;
 
 	/**
+	 * @description How many spaces sit between a secret key and its colon, or between the colon and the secret, in the
+	 * tests of a very long run of spaces. The text search reads at most 262,144 characters from the start of a key in one
+	 * try, so 270,000 spaces run past the end of what it reads.
+	 */
+	private static final Integer SPACES_PAST_THE_PAIR_READ_LENGTH = 270000;
+
+	/**
+	 * @description The secret text in the tests of a very long run of spaces around a colon.
+	 */
+	private static final String PASSWORD_VALUE = 'hunter2';
+
+	/**
+	 * @description The length of a value that ends in the spaces after a secret key, with no colon. It is a little longer
+	 * than one piece of the text search, so the key and its spaces cross the end of the first piece, and the read of the
+	 * pair reaches the real end of the value.
+	 */
+	private static final Integer VALUE_ENDING_IN_SPACES_LENGTH = 20000;
+
+	/**
+	 * @description A rule pattern with two alternatives that can overlap: a `secret=` pair up to its `&`, or any six
+	 * digits in a row. The digits inside the pair are part of the longer first match.
+	 */
+	private static final String OVERLAPPING_ALTERNATIVES_PATTERN = 'secret=[^&]*&|[0-9]{6}';
+
+	/**
+	 * @description The first alternative of `OVERLAPPING_ALTERNATIVES_PATTERN` alone: a `secret=` pair up to its `&`.
+	 */
+	private static final String SINGLE_ALTERNATIVE_PATTERN = 'secret=[^&]*&';
+
+	/**
+	 * @description A pair that the first alternative of `OVERLAPPING_ALTERNATIVES_PATTERN` matches whole. It holds nine
+	 * digits in a row, which the second alternative also matches.
+	 */
+	private static final String SECRET_PAIR = 'secret=abc123456789xyz&';
+
+	/**
+	 * @description The start of the secret in `SECRET_PAIR`. When it is left in the result, part of the pair was not hidden.
+	 */
+	private static final String SECRET_PAIR_START = 'abc';
+
+	/**
+	 * @description The text written in place of each match of the overlapping and single alternative patterns.
+	 */
+	private static final String PAIR_REPLACEMENT = '[X]';
+
+	/**
+	 * @description How many characters before the end of the first piece of the pattern search `SECRET_PAIR` starts. The
+	 * piece end then cuts the pair after `secret=abc123456789x`, so a whole run of six digits lies inside the piece.
+	 */
+	private static final Integer PAIR_START_BEFORE_THE_PIECE_END = 20;
+
+	/**
+	 * @description How many characters follow the first piece of the pattern search in the test that moves `SECRET_PAIR`
+	 * across the end of that piece. The value then takes two pieces and is short enough to search many times.
+	 */
+	private static final Integer CHARACTERS_AFTER_THE_FIRST_PIECE = 4000;
+
+	/**
+	 * @description The earliest place of `SECRET_PAIR`, counted in characters before the end of the first piece of the
+	 * pattern search, in the test that moves the pair across that end.
+	 */
+	private static final Integer FIRST_PAIR_START_BEFORE_THE_PIECE_END = 40;
+
+	/**
+	 * @description The latest place of `SECRET_PAIR`, counted in characters after the end of the first piece of the
+	 * pattern search, in the test that moves the pair across that end.
+	 */
+	private static final Integer LAST_PAIR_START_AFTER_THE_PIECE_END = 8;
+
+	/**
+	 * @description Six digits in a row, which the second alternative of `OVERLAPPING_ALTERNATIVES_PATTERN` matches whole.
+	 * The test that moves `SECRET_PAIR` across the end of a piece writes them a little before the pair, so the search keeps
+	 * a match in the shared part of two pieces before it reaches the pair.
+	 */
+	private static final String DIGIT_RUN = '000000';
+
+	/**
+	 * @description How many characters before the start of `SECRET_PAIR` the test writes `DIGIT_RUN`. The digits then lie
+	 * in the shared part of the first two pieces at every place of the pair, with spaces between them and the pair.
+	 */
+	private static final Integer DIGIT_RUN_START_BEFORE_THE_PAIR = 100;
+
+	/**
+	 * @description How many characters of a result around `SECRET_PAIR` an assertion message shows, so a failed test
+	 * says what was left in clear.
+	 */
+	private static final Integer MESSAGE_WINDOW_LENGTH = 40;
+
+	/**
+	 * @description A plain letter that fills the rest of a long value after a pair. It holds no quote, space or colon, so
+	 * the text search finds nothing in it.
+	 */
+	private static final String FILLER_LETTER = 'n';
+
+	/**
 	 * @description Verifies that abbreviate with two arguments truncates strings correctly.
 	 */
 	@IsTest
@@ -1587,6 +1682,76 @@ private class UTIL_String_TEST
 		String result = UTIL_String.maskWithRegex(before + VALID_VISA_16 + after, DIGIT_RUN_PATTERN, DIGIT_RUN_REPLACEMENT, true);
 
 		Assert.areEqual(before + '<' + VALID_VISA_16 + '>' + after, result, 'Expected the whole number in the replacement');
+	}
+
+	/**
+	 * @description A rule has two alternatives that can overlap: a `secret=` pair up to its `&`, or six digits in a row.
+	 * A pair starts 20 characters before the end of the first piece of a 300,000 character value, so the piece end cuts
+	 * the pair, but six of its digits lie inside the piece. The whole pair is still replaced once, as one `replaceAll`
+	 * over the whole value gives. Replacing only the digits would leave the start and the end of the pair in clear. One
+	 * `replaceAll` over 300,000 characters stops at the platform limit for one search, so the test runs it over the pair
+	 * alone: the spaces around the pair never match, so the result is the same.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldMatchOneReplaceAllWhenACutMatchHidesAnEarlierStart()
+	{
+		Integer pairStart = UTIL_String.PATTERN_SEARCH_PIECE_LENGTH - PAIR_START_BEFORE_THE_PIECE_END;
+		String value = buildValueWithSecretPairAt(pairStart, THREE_PIECE_VALUE_LENGTH);
+
+		String result = UTIL_String.maskWithRegex(value, OVERLAPPING_ALTERNATIVES_PATTERN, PAIR_REPLACEMENT, true);
+
+		Assert.isFalse(result.contains(SECRET_PAIR_START), 'Expected the whole pair hidden, found ' + result.mid(pairStart, MESSAGE_WINDOW_LENGTH));
+		Assert.areEqual(value.replace(SECRET_PAIR, replaceAllWithOverlappingAlternatives(SECRET_PAIR)), result, 'Expected the same text as one replaceAll gives');
+	}
+
+	/**
+	 * @description A pair that the overlapping alternatives rule matches is placed at every position from 40 characters
+	 * before to 8 characters after the end of the first piece of the pattern search. The value is just long enough to take
+	 * two pieces. At every position the result is the same text that one `replaceAll` over the whole value gives, so no
+	 * part of the pair is left in clear wherever the piece end cuts it. Six digits 100 characters before the pair, in the
+	 * part the two pieces share, are also replaced exactly once.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldMatchOneReplaceAllAtEveryOffsetAroundAPieceEnd()
+	{
+		Integer valueLength = UTIL_String.PATTERN_SEARCH_PIECE_LENGTH + CHARACTERS_AFTER_THE_FIRST_PIECE;
+
+		for(Integer offset = -FIRST_PAIR_START_BEFORE_THE_PIECE_END; offset <= LAST_PAIR_START_AFTER_THE_PIECE_END; offset++)
+		{
+			Integer pairStart = UTIL_String.PATTERN_SEARCH_PIECE_LENGTH + offset;
+			Integer digitRunStart = pairStart - DIGIT_RUN_START_BEFORE_THE_PAIR;
+			String pairValue = buildValueWithSecretPairAt(pairStart, valueLength);
+			String value = pairValue.left(digitRunStart) + DIGIT_RUN + pairValue.substring(digitRunStart + DIGIT_RUN.length());
+
+			String result = UTIL_String.maskWithRegex(value, OVERLAPPING_ALTERNATIVES_PATTERN, PAIR_REPLACEMENT, true);
+
+			String position = ' with the pair ' + offset + ' characters from the piece end';
+			Assert.isFalse(result.contains(SECRET_PAIR_START), 'Expected the whole pair hidden' + position + ', found ' + result.mid(pairStart, MESSAGE_WINDOW_LENGTH));
+			Assert.areEqual(replaceAllWithOverlappingAlternatives(value), result, 'Expected the same text as one replaceAll' + position);
+		}
+	}
+
+	/**
+	 * @description A rule with one alternative, a `secret=` pair up to its `&`, is used on a pair that the end of the first
+	 * piece of the pattern search cuts. The search of the first piece cannot finish the match, and the next piece finds it
+	 * whole. The pair is replaced exactly once, as one `replaceAll` over the whole value gives.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldMaskAMatchCutAtAPieceEndOnceWithASingleAlternative()
+	{
+		String value = buildValueWithSecretPairAt(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH - PAIR_START_BEFORE_THE_PIECE_END, THREE_PIECE_VALUE_LENGTH);
+		String expected = Pattern.compile(SINGLE_ALTERNATIVE_PATTERN).matcher(value).replaceAll(PAIR_REPLACEMENT);
+
+		String result = UTIL_String.maskWithRegex(value, SINGLE_ALTERNATIVE_PATTERN, PAIR_REPLACEMENT, true);
+
+		Assert.areEqual(1, result.countMatches(PAIR_REPLACEMENT), 'Expected the pair replaced exactly once');
+		Assert.areEqual(expected, result, 'Expected the same text as one replaceAll over the whole value');
 	}
 
 	/**
@@ -2994,6 +3159,66 @@ private class UTIL_String_TEST
 	}
 
 	/**
+	 * @description A secret key with 270,000 spaces before its colon, or 270,000 spaces between its colon and its secret,
+	 * gets the failure marker in place of the whole value. The text search reads at most 262,144 characters from the start
+	 * of a key in one try, so it cannot see where such a pair ends. It cannot tell what the pair holds, so it hides the
+	 * whole value. Nothing of the secret is returned.
+	 *
+	 * @see UTIL_String.maskJsonKeysViaRegex
+	 */
+	@IsTest
+	private static void shouldMarkAPairWhoseSpacesRunPastTheReadLength()
+	{
+		String spaces = UTIL_String.SPACE.repeat(SPACES_PAST_THE_PAIR_READ_LENGTH);
+		String secret = '"' + PASSWORD_VALUE + '"}';
+
+		for(String value : new List<String> {'{"password"' + spaces + ':' + secret, '{"password":' + spaces + secret})
+		{
+			String result = UTIL_String.maskJsonKeysViaRegex(value, SECRET_KEY_PATTERN, SECRET_REPLACEMENT, false);
+
+			Assert.isFalse(result.contains(PASSWORD_VALUE), 'Expected no secret left in clear, found ' + result.right(MESSAGE_WINDOW_LENGTH));
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result, 'Expected the failure marker in place of the whole value');
+		}
+	}
+
+	/**
+	 * @description A secret key is followed by spaces that cross the end of the first piece of the text search and run to
+	 * the end of the value. No colon follows the key, so there is no pair. The read of the key reaches the real end of the
+	 * value, so the search knows that nothing more can follow. The value comes back unchanged, without the failure marker.
+	 *
+	 * @see UTIL_String.maskJsonKeysViaRegex
+	 */
+	@IsTest
+	private static void shouldLeaveAKeyWithoutAColonAtTheEndOfTheValueAlone()
+	{
+		String head = buildTextWithPairNearThePieceEnd('"password"');
+		String value = head + UTIL_String.SPACE.repeat(VALUE_ENDING_IN_SPACES_LENGTH - head.length());
+
+		String result = UTIL_String.maskJsonKeysViaRegex(value, SECRET_KEY_PATTERN, SECRET_REPLACEMENT, false);
+
+		Assert.areEqual(value, result, 'Expected the value unchanged, with no failure marker');
+	}
+
+	/**
+	 * @description An ordinary key, `name`, is followed by spaces that cross the end of the first piece of the text
+	 * search, and then by a colon and a value. The value is 300,000 characters long, so more of it follows the longest
+	 * stretch the search reads from the key. The secret-keys rule does not match `name`, so the read of the key fails at
+	 * once, long before the end of what it may read. The value comes back unchanged, without the failure marker.
+	 *
+	 * @see UTIL_String.maskJsonKeysViaRegex
+	 */
+	@IsTest
+	private static void shouldLeaveAnOrdinaryKeyBeforeLongSpacesAlone()
+	{
+		String head = buildTextWithPairNearThePieceEnd('"name"' + UTIL_String.SPACE.repeat(SPACES_ACROSS_THE_PIECE_END) + ': "x"');
+		String value = head + FILLER_LETTER.repeat(THREE_PIECE_VALUE_LENGTH - head.length());
+
+		String result = UTIL_String.maskJsonKeysViaRegex(value, SECRET_KEY_PATTERN, SECRET_REPLACEMENT, false);
+
+		Assert.areEqual(value, result, 'Expected the value unchanged, with no failure marker');
+	}
+
+	/**
 	 * @description A full-length wall of quotes holds no key. The text search returns the very same text and finishes,
 	 * and never an empty text.
 	 *
@@ -3464,8 +3689,8 @@ private class UTIL_String_TEST
 	@IsTest
 	private static void shouldStillCheckTheChecksumUnderTheBudget()
 	{
-		String input = String.join(new List<String>{ VALID_VISA_16, INVALID_LUHN_16, VALID_MC_16, INVALID_TRANSACTION_ID_16, INVALID_LUHN_16 }, NUMBER_SEPARATOR);
-		String expected = String.join(new List<String>{ CARD_REPLACEMENT, INVALID_LUHN_16, CARD_REPLACEMENT, INVALID_TRANSACTION_ID_16, INVALID_LUHN_16 }, NUMBER_SEPARATOR);
+		String input = String.join(new List<String> {VALID_VISA_16, INVALID_LUHN_16, VALID_MC_16, INVALID_TRANSACTION_ID_16, INVALID_LUHN_16}, NUMBER_SEPARATOR);
+		String expected = String.join(new List<String> {CARD_REPLACEMENT, INVALID_LUHN_16, CARD_REPLACEMENT, INVALID_TRANSACTION_ID_16, INVALID_LUHN_16}, NUMBER_SEPARATOR);
 
 		String output = UTIL_String.maskWithLuhnValidatedRegex(input, PAYMENT_CARD_PATTERN, CARD_REPLACEMENT, false);
 
@@ -3545,7 +3770,7 @@ private class UTIL_String_TEST
 	@IsTest
 	private static void shouldLeaveAValueWhoseOnlyMatchesFailTheChecksumUnderTheBudgetUnchanged()
 	{
-		String input = 'ids ' + String.join(new List<String>{ INVALID_LUHN_16, INVALID_TRANSACTION_ID_16, INVALID_LUHN_16 }, NUMBER_SEPARATOR) + ' end';
+		String input = 'ids ' + String.join(new List<String> {INVALID_LUHN_16, INVALID_TRANSACTION_ID_16, INVALID_LUHN_16}, NUMBER_SEPARATOR) + ' end';
 
 		Assert.areEqual(input, UTIL_String.maskWithLuhnValidatedRegex(input, PAYMENT_CARD_PATTERN, CARD_REPLACEMENT, false), 'Expected the value to come back unchanged');
 	}
@@ -3720,6 +3945,32 @@ private class UTIL_String_TEST
 		MaskingRule__mdt rule = MaskingRule__mdt.getInstance(ruleName);
 		String caseFlag = rule.CaseSensitive__c == true ? UTIL_String.EMPTY : '(?i)';
 		return Pattern.compile(caseFlag + rule.Pattern__c).matcher(value).replaceAll(rule.Replacement__c ?? UTIL_String.EMPTY);
+	}
+
+	/**
+	 * @description Builds a value of spaces with `SECRET_PAIR` written at one place in it.
+	 *
+	 * @param pairStart Where the pair starts in the value
+	 * @param valueLength How long the value is
+	 *
+	 * @return The value
+	 */
+	private static String buildValueWithSecretPairAt(Integer pairStart, Integer valueLength)
+	{
+		return UTIL_String.SPACE.repeat(pairStart) + SECRET_PAIR + UTIL_String.SPACE.repeat(valueLength - pairStart - SECRET_PAIR.length());
+	}
+
+	/**
+	 * @description Masks a value with one `replaceAll` over the whole value, with `OVERLAPPING_ALTERNATIVES_PATTERN` and
+	 * `PAIR_REPLACEMENT`. The tests compare `maskWithRegex` with this result.
+	 *
+	 * @param value The value to mask
+	 *
+	 * @return The masked value
+	 */
+	private static String replaceAllWithOverlappingAlternatives(String value)
+	{
+		return Pattern.compile(OVERLAPPING_ALTERNATIVES_PATTERN).matcher(value).replaceAll(PAIR_REPLACEMENT);
 	}
 
 	/**

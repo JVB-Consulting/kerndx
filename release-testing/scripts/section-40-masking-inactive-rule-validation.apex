@@ -15,6 +15,10 @@
 // validation path, inputs are key strings rather than payload strings.
 // CreditCard mode: the pattern is a regex PLUS post-match Luhn validation; we
 // only validate the regex here, the Luhn path is covered by section 38.
+//
+// Expected result on a fresh install: 18 PASS lines and no SKIP or FAIL line; the
+// summary reads "57 passed, 0 failed; 15 inactive rules" (three checks per rule,
+// plus a masked-output check for MaskAddress, MaskFreeText and MaskPhoneInternational).
 
 Integer passCount = 0;
 Integer failCount = 0;
@@ -97,6 +101,28 @@ Map<String, Map<String, String>> curatedSamples = new Map<String, Map<String, St
 				// 13-19 digit run, so the negative must be shorter than 13 digits.
 				'positive' => '4111111111111111',
 				'negative' => '123456789012'
+		},
+		// The three whole-value rules: the pattern (?s).+ matches any value of one
+		// character or more, line breaks included, so the only value it leaves alone is
+		// the empty one. Each also checks the masked output: the whole value becomes
+		// the rule's fixed token.
+		'MaskAddress' => new Map<String, String>
+		{
+				'positive' => '221B Baker Street, London NW1 6XE',
+				'negative' => '',
+				'masked' => '[ADDRESS_REDACTED]'
+		},
+		'MaskFreeText' => new Map<String, String>
+		{
+				'positive' => 'Patient called about the invoice.\nPlease ring back after 5 pm.',
+				'negative' => '',
+				'masked' => '[TEXT_REDACTED]'
+		},
+		'MaskPhoneInternational' => new Map<String, String>
+		{
+				'positive' => '+44 20 7946 0958',
+				'negative' => '',
+				'masked' => '[PHONE_REDACTED]'
 		}
 };
 
@@ -106,8 +132,10 @@ List<kern__MaskingRule__mdt> rules =
 				kern__Pattern__c,
 				kern__Mode__c,
 				kern__IsActive__c,
-				kern__CaseSensitive__c
+				kern__CaseSensitive__c,
+				kern__Replacement__c
 		FROM kern__MaskingRule__mdt
+		WHERE NamespacePrefix = 'kern'
 		ORDER BY DeveloperName
 ];
 
@@ -159,11 +187,27 @@ for(kern__MaskingRule__mdt rule : rules)
 	Boolean passPositive = caseAwarePattern.matcher(positive).find();
 	Boolean passNegativeExcluded = !caseAwarePattern.matcher(negative).find();
 
+	// The masked output, for a rule whose sample names one: the value masked as the
+	// package masks a Regex rule (the pattern, with (?i) in front when the rule is not
+	// case-sensitive, and every match replaced by Replacement__c).
+	String expectedMasked = samples.get('masked');
+	String maskedText = '';
+	Boolean passMasked = true;
+	if(expectedMasked != null)
+	{
+		Pattern maskingPattern = System.Pattern.compile(casesensitive ? pattern : '(?i)' + pattern);
+		String masked = maskingPattern.matcher(samples.get('positive')).replaceAll(rule.kern__Replacement__c == null ? '' : rule.kern__Replacement__c);
+		passMasked = masked == expectedMasked;
+		maskedText = ' masked=' + passMasked + ' (' + masked + ')';
+		passCount += passMasked ? 1 : 0;
+		failCount += passMasked ? 0 : 1;
+	}
+
 	System.debug
 			(
-					(passCompiles && passPositive && passNegativeExcluded ? 'PASS: ' : 'FAIL: ') +
+					(passCompiles && passPositive && passNegativeExcluded && passMasked ? 'PASS: ' : 'FAIL: ') +
 					ruleName + ' (' + mode + ', active=' + rule.kern__IsActive__c + ') — compile=' + passCompiles
-					+ ' positive=' + passPositive + ' negative=' + passNegativeExcluded
+					+ ' positive=' + passPositive + ' negative=' + passNegativeExcluded + maskedText
 			);
 
 	passCount += (passCompiles ? 1 : 0) + (passPositive ? 1 : 0) + (passNegativeExcluded ? 1 : 0);

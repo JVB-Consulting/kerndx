@@ -112,7 +112,8 @@ global inherited sharing class UTIL_String
 	private static final String ELLIPSIS = '...';
 
 	/**
-	 * @description Length of the ellipsis string.
+	 * @description Number of characters the ellipsis takes (3). The abbreviate methods take it off the maximum width to
+	 * find how much of the text still fits beside the ellipsis.
 	 */
 	private static final Integer ELLIPSIS_LENGTH = ELLIPSIS.length();
 
@@ -122,12 +123,14 @@ global inherited sharing class UTIL_String
 	private static final Integer MIN_ABBREVIATION_WIDTH = ELLIPSIS_LENGTH + 1;
 
 	/**
-	 * @description Default percentage of a string to mask.
+	 * @description Share of the text that maskString hides when the caller gives no percentage: about two thirds (66.66
+	 * percent).
 	 */
 	private static final Double DEFAULT_MASK_PERCENTAGE = 66.66;
 
 	/**
-	 * @description Default character used for masking.
+	 * @description Character that maskString writes in place of each hidden character when the caller gives no mask
+	 * character.
 	 */
 	private static final String DEFAULT_MASK_CHARACTER = 'x';
 
@@ -141,7 +144,7 @@ global inherited sharing class UTIL_String
 	 * place 7 holds the value for 7. A doubled digit above 9 counts as its two digits added together, so 7 doubled is 14 and
 	 * counts as 5.
 	 */
-	private static final List<Integer> DOUBLED_DIGIT_VALUES = new List<Integer>{ 0, 2, 4, 6, 8, 1, 3, 5, 7, 9 };
+	private static final List<Integer> DOUBLED_DIGIT_VALUES = new List<Integer> {0, 2, 4, 6, 8, 1, 3, 5, 7, 9};
 
 	/**
 	 * @description How many numbers `maskWithLuhnValidatedRegex` checks with the Luhn check in one value. The pattern finds
@@ -240,27 +243,26 @@ global inherited sharing class UTIL_String
 	 * pieces. Each piece starts this many characters before the end of the piece before it. So a key name of up to this
 	 * length that crosses the end of one piece lies whole inside the next piece, and the search finds it there. The longest
 	 * key name the shipped secret-keys rule matches has 13 characters.
-	 * <p>What this does not cover: a key name longer than this that crosses the end of a piece can be missed. The search
-	 * then finds no key name, and the rule skips the value, so the value under that key is not replaced.</p>
+	 *
+	 * What this does not cover: a key name longer than this that crosses the end of a piece can be missed. The search
+	 * then finds no key name, and the rule skips the value, so the value under that key is not replaced.
 	 */
 	public static final Integer KEY_SEARCH_PIECE_OVERLAP = 64;
 
 	/**
 	 * @description Finds the parts of a key pattern that make the key name search of `canHoldMatchingJsonKey` unsafe.
 	 * The text search for `"key":"value"` pairs does not run with such a pattern either (see `maskJsonKeysViaRegex`).
-	 * <ul>
-	 *   <li>A `^` or `$` left inside the pattern, a backslash anchor or word boundary (`\b`, `\B`, `\A`, `\z`, `\Z`,
-	 *       `\G`), and a look-ahead or look-behind group. Each of them can match a key name on its own but fail on the
-	 *       same name inside the whole text, because they look at what comes before or after the name.</li>
-	 *   <li>A repeat with no upper limit: `*`, `+` or `{n,}`. Searched over a long piece of text, such a pattern (for
-	 *       example `.*secret.*`) tries a match from every place to every later place. The number of steps grows with the
-	 *       square of the piece length and ends the transaction.</li>
-	 *   <li>A repeat whose upper count has three digits or more, such as `{0,99999}`, `{100}` or the `{1,100}` in
-	 *       `^x_[a-z0-9]{1,100}$`. The check does not work out how many steps such a repeat can take (a repeat inside
-	 *       another repeat multiplies them), so it treats every large count as unsafe. This applies to the text search
-	 *       too: a value that holds a quote then gets `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole value.
-	 *       No key name needs a count that large.</li>
-	 * </ul>
+	 * - A `^` or `$` left inside the pattern, a backslash anchor or word boundary (`\b`, `\B`, `\A`, `\z`, `\Z`,
+	 *   `\G`), and a look-ahead or look-behind group. Each of them can match a key name on its own but fail on the
+	 *   same name inside the whole text, because they look at what comes before or after the name.
+	 * - A repeat with no upper limit: `*`, `+` or `{n,}`. Searched over a long piece of text, such a pattern (for
+	 *   example `.*secret.*`) tries a match from every place to every later place. The number of steps grows with the
+	 *   square of the piece length and ends the transaction.
+	 * - A repeat whose upper count has three digits or more, such as `{0,99999}`, `{100}` or the `{1,100}` in
+	 *   `^x_[a-z0-9]{1,100}$`. The check does not work out how many steps such a repeat can take (a repeat inside
+	 *   another repeat multiplies them), so it treats every large count as unsafe. This applies to the text search
+	 *   too: a value that holds a quote then gets `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole value.
+	 *   No key name needs a count that large.
 	 * The check does not look at a backslash before a character. So an escaped `\*` or `\+`, which matches only that
 	 * character, counts as a repeat too. That is on the safe side: such a pattern only loses the quick key name search,
 	 * and the text search does not run with it.
@@ -287,11 +289,13 @@ global inherited sharing class UTIL_String
 	 * pairs searches it in pieces. Each piece starts this many characters before the end of the piece before it. So a
 	 * key in quotes, with its colon, of up to this length that crosses the end of one piece lies whole inside the next
 	 * piece, and the search finds it there.
-	 * <p>A key can be written with JSON escapes, where six characters stand for one letter: a backslash, the letter u
+	 *
+	 * A key can be written with JSON escapes, where six characters stand for one letter: a backslash, the letter u
 	 * and four hexadecimal digits. Some programs write every letter outside plain English this way. So a key name of up to about
-	 * 84 letters still fits, even with every letter written as an escape. Each piece reads about 3% of its text twice.</p>
-	 * <p>What this does not cover: a key written longer than this length can be missed where one piece ends and the next
-	 * begins, and then its value is not replaced.</p>
+	 * 84 letters still fits, even with every letter written as an escape. Each piece reads about 3% of its text twice.
+	 *
+	 * What this does not cover: a key written longer than this length can be missed where one piece ends and the next
+	 * begins, and then its value is not replaced.
 	 */
 	public static final Integer JSON_TEXT_SEARCH_PIECE_OVERLAP = 512;
 
@@ -300,28 +304,30 @@ global inherited sharing class UTIL_String
 	 * reads a pair again over the rest of the value (see `JsonTextSearch.readPairAt`). One match over a long text ends the
 	 * transaction with a platform error that no code can catch. Escapes cost more than plain text: a run of plain
 	 * letters is read in one go, but each escape (a backslash and the character after it) is read on its own.
-	 * <p>Measured with one match in a synchronous transaction: it finished over 900,000 plain letters and ended the
+	 *
+	 * Measured with one match in a synchronous transaction: it finished over 900,000 plain letters and ended the
 	 * transaction at 1,000,000. Over escaped quotes (a backslash and a quote, again and again) it finished at 650,000
 	 * characters and ended the transaction at 675,000. Over a letter and an escaped quote taking turns, the text that
 	 * costs the most for each character, it finished at 585,000 characters and ended the transaction at 600,000. This
-	 * length is less than half of the lowest of these, to leave a wide margin.</p>
-	 * <p>A secret text longer than this has no closing quote inside what is read, so the search cannot hide it safely,
-	 * and the whole value gets the failure marker instead.</p>
+	 * length is less than half of the lowest of these, to leave a wide margin.
+	 *
+	 * A secret text longer than this has no closing quote inside what is read, so the search cannot hide it safely,
+	 * and the whole value gets the failure marker instead. The same happens whenever a read reaches this length and more
+	 * of the value follows, such as spaces around the colon of a key that are longer than this, or a lone quote with no
+	 * closing quote within this length; a value that holds no secret can then get the marker too.
 	 */
 	private static final Integer JSON_TEXT_PAIR_READ_LENGTH = 262144;
 
 	/**
 	 * @description The start of the pattern of the text search for `"key":"value"` pairs: the case flag (`__FLAG__`), the
 	 * key in quotes, and the colon with any spaces around it. The key is read in one of two ways:
-	 * <ul>
-	 *   <li>As it is written: the key pattern of the rule (`__KEY__`) matches the text between the quotes.</li>
-	 *   <li>As a key written with JSON escapes, in the named group `escapedKey`: any text between the quotes that holds
-	 *       at least one backslash, read as JSON reads a text. For example, the letter a of `password` can be written
-	 *       as a backslash, the letter u and the hexadecimal digits 0061. The search then checks the name the key stands for
-	 *       (see `JsonTextSearch.isEscapedKeyMatching`). The opening quote of such a key must not follow a backslash,
-	 *       because a quote after a backslash is part of a text and never starts a key. This also keeps the search
-	 *       quick on a text full of escaped quotes: each try reads only to the next quote that ends a text.</li>
-	 * </ul>
+	 * - As it is written: the key pattern of the rule (`__KEY__`) matches the text between the quotes.
+	 * - As a key written with JSON escapes, in the named group `escapedKey`: any text between the quotes that holds
+	 *   at least one backslash, read as JSON reads a text. For example, the letter a of `password` can be written
+	 *   as a backslash, the letter u and the hexadecimal digits 0061. The search then checks the name the key stands for
+	 *   (see `JsonTextSearch.isEscapedKeyMatching`). The opening quote of such a key must not follow a backslash,
+	 *   because a quote after a backslash is part of a text and never starts a key. This also keeps the search
+	 *   quick on a text full of escaped quotes: each try reads only to the next quote that ends a text.
 	 * Spaces are read possessively: once read, they are never given back, so a long run of spaces costs one step.
 	 */
 	private static final String JSON_TEXT_KEY_TEMPLATE = '__FLAG__(?:"(?:__KEY__)|(?<!\\\\)"(?<escapedKey>[^"\\\\]*+(?:\\\\[\\s\\S][^"\\\\]*+)++))"\\s*+:\\s*+';
@@ -329,15 +335,13 @@ global inherited sharing class UTIL_String
 	/**
 	 * @description The end of the pattern of the text search for `"key":"value"` pairs: the value after the colon, in one
 	 * of two named groups.
-	 * <ul>
-	 *   <li>`scalar`: one whole JSON text, number, `true`, `false` or `null`, followed by a space, a comma, a closing
-	 *       brace or bracket, or the end of the text. A text is read as JSON reads it: ordinary characters, or a
-	 *       backslash and the character after it, up to the closing quote. A run of ordinary characters is read in one
-	 *       go, but each escape is read on its own, so a long text full of escapes costs more (see
-	 *       `JSON_TEXT_PAIR_READ_LENGTH`).</li>
-	 *   <li>`other`: any other character after the colon, or the end of the text. This is an object, a list, a text
-	 *       without its closing quote, or a word without quotes.</li>
-	 * </ul>
+	 * - `scalar`: one whole JSON text, number, `true`, `false` or `null`, followed by a space, a comma, a closing
+	 *   brace or bracket, or the end of the text. A text is read as JSON reads it: ordinary characters, or a
+	 *   backslash and the character after it, up to the closing quote. A run of ordinary characters is read in one
+	 *   go, but each escape is read on its own, so a long text full of escapes costs more (see
+	 *   `JSON_TEXT_PAIR_READ_LENGTH`).
+	 * - `other`: any other character after the colon, or the end of the text. This is an object, a list, a text
+	 *   without its closing quote, or a word without quotes.
 	 */
 	private static final String JSON_TEXT_VALUE_PATTERN =
 			'(?:(?<scalar>"(?:[^"\\\\]++|\\\\[\\s\\S])*+"|-?\\d++(?:\\.\\d++)?+(?:[eE][+-]?+\\d++)?+|true|false|null)(?=[\\s,}\\]]|$)|(?<other>[\\s\\S]|$))';
@@ -349,20 +353,17 @@ global inherited sharing class UTIL_String
 	private static final Pattern SPACES_AND_COLONS = Pattern.compile('[\\s:]*+');
 
 	/**
-	 * @description <p>Abbreviates a String using ellipses. This will turn
-	 * "Now is the time for all good men" into "Now is the time for..."</p>
-	 * <p/>
-	 * <p>Specifically:</p>
-	 * <ul>
-	 *   <li>If the number of characters in {@code input} is less than or equal to
-	 *       {@code maxWidth}, return {@code input}.</li>
-	 *   <li>Else abbreviate it to {@code (substring(input, 0, max-3) + "...")}.</li>
-	 *   <li>If {@code maxWidth} is less than {@code 4}, throw an
-	 *       {@code IllegalArgumentException}.</li>
-	 *   <li>In no case will it return a String of length greater than
-	 *       {@code maxWidth}.</li>
-	 * </ul>
-	 * <p/>
+	 * @description Abbreviates a String using ellipses. This will turn
+	 * "Now is the time for all good men" into "Now is the time for..."
+	 *
+	 * Specifically:
+	 * - If the number of characters in {@code input} is less than or equal to
+	 *   {@code maxWidth}, return {@code input}.
+	 * - Else abbreviate it to {@code (substring(input, 0, max-3) + "...")}.
+	 * - If {@code maxWidth} is less than {@code 4}, throw an
+	 *   {@code IllegalArgumentException}.
+	 * - In no case will it return a String of length greater than
+	 *   {@code maxWidth}.
 	 *
 	 * @param input the String to check, may be null
 	 * @param maxWidth maximum length of result String, must be at least 4
@@ -390,8 +391,8 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Abbreviates a String using ellipses. This will turn
-	 * "Now is the time for all good men" into "...is the time for..."</p>
+	 * @description Abbreviates a String using ellipses. This will turn
+	 * "Now is the time for all good men" into "...is the time for..."
 	 *
 	 * Works like String.abbreviate, but allows you to specify
 	 * a "left edge" offset.  Note that this left edge is not necessarily going to
@@ -572,13 +573,12 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Joins the elements of the provided array into a single String
-	 * containing the provided list of elements.</p>
-	 * <p/>
-	 * <p>No delimiter is added before or after the list.
+	 * @description Joins the elements of the provided array into a single String
+	 * containing the provided list of elements.
+	 *
+	 * No delimiter is added before or after the list.
 	 * Null objects or empty strings within the array are represented by
-	 * empty strings.</p>
-	 * <p/>
+	 * empty strings.
 	 *
 	 * @param objectArray the array of values to join together, may be null
 	 * @param separator the separator character to use
@@ -629,12 +629,11 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Joins the elements of the provided {@code Iterator} into
-	 * a single String containing the provided elements.</p>
-	 * <p/>
-	 * <p>No delimiter is added before or after the list.
-	 * A {@code null} separator is the same as an empty String ("").</p>
-	 * <p/>
+	 * @description Joins the elements of the provided {@code Iterator} into
+	 * a single String containing the provided elements.
+	 *
+	 * No delimiter is added before or after the list.
+	 * A {@code null} separator is the same as an empty String ("").
 	 *
 	 * @param stringSet the {@code Iterator} of values to join together, may be null
 	 * @param separator the separator character to use, null treated as ""
@@ -656,15 +655,14 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Joins the elements of the provided {@code Set} into a single String in
+	 * @description Joins the elements of the provided {@code Set} into a single String in
 	 * ascending order, so a message or log line that lists the members of a set reads the same
-	 * on every run.</p>
-	 * <p/>
-	 * <p>A Set has no documented iteration order, so {@code join(Set<String>, String)} renders
+	 * on every run.
+	 *
+	 * A Set has no documented iteration order, so {@code join(Set<String>, String)} renders
 	 * whatever order the platform hands back; use this method wherever the rendering must be
 	 * stable, for example a validation message that names every offending value. A {@code null}
-	 * separator is the same as an empty String ("").</p>
-	 * <p/>
+	 * separator is the same as an empty String ("").
 	 *
 	 * @param values the {@code Set} of values to join together, may be null
 	 * @param separator the separator character to use, null treated as ""
@@ -693,12 +691,11 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Gets the leftmost {@code length} characters of a String.</p>
-	 * <p/>
-	 * <p>If {@code length} characters are not available, or the
+	 * @description Gets the leftmost {@code length} characters of a String.
+	 *
+	 * If {@code length} characters are not available, or the
 	 * String is {@code null}, the String will be returned without
-	 * an exception. An empty String is returned if length is negative.</p>
-	 * <p/>
+	 * an exception. An empty String is returned if length is negative.
 	 *
 	 * @param input the String to get the leftmost characters from, may be null
 	 * @param length the length of the required String
@@ -760,13 +757,12 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Removes a substring only if it is at the beginning of a source string,
-	 * otherwise returns the source string.</p>
-	 * <p/>
-	 * <p>A {@code null} source string will return {@code null}.
+	 * @description Removes a substring only if it is at the beginning of a source string,
+	 * otherwise returns the source string.
+	 *
+	 * A {@code null} source string will return {@code null}.
 	 * An empty ("") source string will return the empty string.
-	 * A {@code null} search string will return the source string.</p>
-	 * <p/>
+	 * A {@code null} search string will return the source string.
 	 *
 	 * @param input the source String to search, may be null
 	 * @param remove the String to search for and remove, may be null
@@ -806,10 +802,9 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Replaces all occurrences of a String within another String.</p>
-	 * <p/>
-	 * <p>A {@code null} reference passed to this method is a no-op.</p>
-	 * <p/>
+	 * @description Replaces all occurrences of a String within another String.
+	 *
+	 * A {@code null} reference passed to this method is a no-op.
 	 *
 	 * @param text text to search and replace in, may be null
 	 * @param searchString the String to search for, may be null
@@ -911,16 +906,15 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Splits the provided text into an array, using whitespace as the
+	 * @description Splits the provided text into an array, using whitespace as the
 	 * separator.
-	 * Whitespace is defined by {@link UTIL_Character.isWhitespace}.</p>
-	 * <p/>
-	 * <p>The separator is not included in the returned String array.
+	 * Whitespace means a space, a tab, a new line (\n), a carriage return (\r) or a form feed (\f).
+	 *
+	 * The separator is not included in the returned String array.
 	 * Adjacent separators are treated as one separator.
-	 * For more control over the split use the StrTokenizer class.</p>
-	 * <p/>
-	 * <p>A {@code null} input String returns {@code null}.</p>
-	 * <p/>
+	 * For more control over the split use the StrTokenizer class.
+	 *
+	 * A {@code null} input String returns {@code null}.
 	 *
 	 * @param input the String to parse, may be null
 	 *
@@ -943,16 +937,15 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Splits the provided text into an array, separators specified.
-	 * This is an alternative to using StringTokenizer.</p>
-	 * <p/>
-	 * <p>The separator is not included in the returned String array.
+	 * @description Splits the provided text into an array, separators specified.
+	 * This is an alternative to using StringTokenizer.
+	 *
+	 * The separator is not included in the returned String array.
 	 * Adjacent separators are treated as one separator.
-	 * For more control over the split use the StrTokenizer class.</p>
-	 * <p/>
-	 * <p>A {@code null} input String returns {@code null}.
-	 * A {@code null} separatorChars splits on whitespace.</p>
-	 * <p/>
+	 * For more control over the split use the StrTokenizer class.
+	 *
+	 * A {@code null} input String returns {@code null}.
+	 * A {@code null} separatorChars splits on whitespace.
 	 *
 	 * @param input the String to parse, may be null
 	 * @param separatorChars the characters used as the delimiters,
@@ -978,19 +971,18 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Splits the provided text into an array with a maximum length,
-	 * separators specified.</p>
-	 * <p/>
-	 * <p>The separator is not included in the returned String array.
-	 * Adjacent separators are treated as one separator.</p>
-	 * <p/>
-	 * <p>A {@code null} input String returns {@code null}.
-	 * A {@code null} separatorChars splits on whitespace.</p>
-	 * <p/>
-	 * <p>If more than {@code max} delimited substrings are found, the last
+	 * @description Splits the provided text into an array with a maximum length,
+	 * separators specified.
+	 *
+	 * The separator is not included in the returned String array.
+	 * Adjacent separators are treated as one separator.
+	 *
+	 * A {@code null} input String returns {@code null}.
+	 * A {@code null} separatorChars splits on whitespace.
+	 *
+	 * If more than {@code max} delimited substrings are found, the last
 	 * returned string includes all characters after the first {@code max - 1}
-	 * returned strings (including separator characters).</p>
-	 * <p/>
+	 * returned strings (including separator characters).
 	 *
 	 * @param input the String to parse, may be null
 	 * @param separatorChars the characters used as the delimiters,
@@ -1083,14 +1075,13 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Splits the provided text into an array, separator string specified.</p>
-	 * <p/>
-	 * <p>The separator(s) will not be included in the returned String array.
-	 * Adjacent separators are treated as one separator.</p>
-	 * <p/>
-	 * <p>A {@code null} input String returns {@code null}.
-	 * A {@code null} separator splits on whitespace.</p>
-	 * <p/>
+	 * @description Splits the provided text into an array, separator string specified.
+	 *
+	 * The separator(s) will not be included in the returned String array.
+	 * Adjacent separators are treated as one separator.
+	 *
+	 * A {@code null} input String returns {@code null}.
+	 * A {@code null} separator splits on whitespace.
 	 *
 	 * @param input the String to parse, may be null
 	 * @param separator String containing the String to be used as a delimiter,
@@ -1159,14 +1150,13 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Gets a substring from the specified String avoiding exceptions.</p>
-	 * <p/>
-	 * <p>A negative start position can be used to start {@code n}
-	 * characters from the end of the String.</p>
-	 * <p/>
-	 * <p>A {@code null} String will return {@code null}.
-	 * An empty ("") String will return "".</p>
-	 * <p/>
+	 * @description Gets a substring from the specified String avoiding exceptions.
+	 *
+	 * A negative start position can be used to start {@code n}
+	 * characters from the end of the String.
+	 *
+	 * A {@code null} String will return {@code null}.
+	 * An empty ("") String will return "".
 	 *
 	 * @param input the String to get the substring from, may be null
 	 * @param startIndex the position to start from, negative means
@@ -1210,20 +1200,19 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Gets a substring from the specified String avoiding exceptions.</p>
-	 * <p/>
-	 * <p>A negative start position can be used to start/end {@code n}
-	 * characters from the end of the String.</p>
-	 * <p/>
-	 * <p>The returned substring starts with the character in the {@code start}
+	 * @description Gets a substring from the specified String avoiding exceptions.
+	 *
+	 * A negative start position can be used to start/end {@code n}
+	 * characters from the end of the String.
+	 *
+	 * The returned substring starts with the character in the {@code start}
 	 * position and ends before the {@code end} position. All position counting is
 	 * zero-based -- i.e., to start at the beginning of the string use
 	 * {@code start = 0}. Negative start and end positions can be used to
-	 * specify offsets relative to the end of the String.</p>
-	 * <p/>
-	 * <p>If {@code start} is not strictly to the left of {@code end}, ""
-	 * is returned.</p>
-	 * <p/>
+	 * specify offsets relative to the end of the String.
+	 *
+	 * If {@code start} is not strictly to the left of {@code end}, ""
+	 * is returned.
 	 *
 	 * @param input the String to get the substring from, may be null
 	 * @param startIndex the position to start from, negative means
@@ -1284,13 +1273,12 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description <p>Gets the String that is nested in between two Strings.
-	 * Only the first match is returned.</p>
-	 * <p/>
-	 * <p>A {@code null} input String returns {@code null}.
+	 * @description Gets the String that is nested in between two Strings.
+	 * Only the first match is returned.
+	 *
+	 * A {@code null} input String returns {@code null}.
 	 * A {@code null} open/close returns {@code null} (no match).
-	 * An empty ("") open and close returns an empty string.</p>
-	 * <p/>
+	 * An empty ("") open and close returns an empty string.
 	 *
 	 * @param input the String containing the substring, may be null
 	 * @param open the String before the substring, may be null
@@ -1395,7 +1383,10 @@ global inherited sharing class UTIL_String
 	}
 
 	/**
-	 * @description Masks a string
+	 * @description Hides the middle of the text and keeps its start and end. The number of hidden characters is the given
+	 * percentage of the length, rounded up. Each one is replaced by maskCharacter. The characters that stay visible are
+	 * split evenly between the start and the end, and when the split is uneven the end keeps one more. A blank text, or a
+	 * text shorter than minimumStringLength, is returned unchanged.
 	 *
 	 * @param sensitiveString The string to mask
 	 * @param maskCharacter The character to be used for masking
@@ -1557,17 +1548,19 @@ global inherited sharing class UTIL_String
 	 * @description Finds every match of a pattern in a value longer than `PATTERN_SEARCH_PIECE_LENGTH`, for
 	 * `maskWithRegex`. It keeps where each match starts and ends in the value, and the text that replaces it. The value is
 	 * built again once, at the end.
-	 * <p>The value is searched in pieces of `PATTERN_SEARCH_PIECE_LENGTH` characters. Each piece starts
+	 *
+	 * The value is searched in pieces of `PATTERN_SEARCH_PIECE_LENGTH` characters. Each piece starts
 	 * `PATTERN_SEARCH_PIECE_OVERLAP` characters before the end of the piece before it, and the last piece ends at the end
 	 * of the value. Each piece gets a matcher of its own, because the platform adds up the steps of every search made with
 	 * one matcher. The matcher reads the whole value but looks for matches only inside its piece (a region). A look-behind
 	 * or a look-ahead in the pattern still sees the characters just outside the piece, and `^` and `$` match only at the
-	 * real start and end of the value, not at the ends of a piece.</p>
+	 * real start and end of the value, not at the ends of a piece.
 	 */
 	private inherited sharing class PatternSearch
 	{
 		/**
-		 * @description The value that is searched.
+		 * @description The whole value, as the caller gave it. It is never changed: every piece is searched inside it, and
+		 * the masked value is built from it at the end, or it is returned as it is when nothing matched.
 		 */
 		private final String input;
 
@@ -1649,11 +1642,15 @@ global inherited sharing class UTIL_String
 
 		/**
 		 * @description Searches one piece of the value, from `resumeAt` on, and keeps the matches it finds.
-		 * <p>The end of a piece is not the end of the value. The matcher says when a match may depend on the text after the
+		 *
+		 * The end of a piece is not the end of the value. The matcher says when a match may depend on the text after the
 		 * piece: `hitEnd()` is true when the search looked at the end of the piece. Such a match, when it starts in the
-		 * part the next piece also holds, is left for the next piece, which sees the text after it. Such a match that
-		 * starts earlier is kept, and when it runs to the end of the piece, the next piece joins a match that starts
-		 * right where it ends (see `keepMatch`).</p>
+		 * part the next piece also holds, is left for the next piece, which sees the text after it. The search of this
+		 * piece then stops, and the next piece starts where that shared part starts, or after the last match kept, when
+		 * that is later. It does not start at the match itself: the search may have passed over an earlier start only
+		 * because the piece ended there, and the next piece must try that start again with the text after it in view.
+		 * A match cut by the end of the piece that starts earlier is kept, and when it runs to the end of the piece, the
+		 * next piece joins a match that starts right where it ends (see `keepMatch`).
 		 *
 		 * @param pieceStart Where the piece starts in the value
 		 * @param pieceEnd Where the piece ends in the value (the place just after its last character)
@@ -1672,8 +1669,7 @@ global inherited sharing class UTIL_String
 
 				if(isCutByPieceEnd && matchStart >= nextPieceStart)
 				{
-					resumeAt = matchStart;
-					return;
+					break;
 				}
 
 				keepMatch(matcher, matchStart, matchEnd);
@@ -1741,14 +1737,12 @@ global inherited sharing class UTIL_String
 	 * @description A replacement read into its parts, so that the text for each match is the text `replaceAll` writes
 	 * for it. The platform matcher has no method that writes the replacement for one match, so the replacement is read
 	 * here, with the same rules `replaceAll` uses:
-	 * <ul>
-	 *   <li>A backslash writes the character after it as it is. `\$` writes a dollar sign.</li>
-	 *   <li>A dollar sign and a group number write the text of that group. The number takes as many digits as still make
-	 *       a group the pattern has: with eleven groups, `$11` is group 11 and `$12` is group 1 followed by the digit
-	 *       2.</li>
-	 *   <li>A dollar sign and a name in braces, such as `${name}`, write the text of the group with that name.</li>
-	 *   <li>A group that took no part in the match writes nothing.</li>
-	 * </ul>
+	 * - A backslash writes the character after it as it is. `\$` writes a dollar sign.
+	 * - A dollar sign and a group number write the text of that group. The number takes as many digits as still make
+	 *   a group the pattern has: with eleven groups, `$11` is group 11 and `$12` is group 1 followed by the digit
+	 *   2.
+	 * - A dollar sign and a name in braces, such as `${name}`, write the text of the group with that name.
+	 * - A group that took no part in the match writes nothing.
 	 * A replacement that `replaceAll` refuses, such as one that names a group the pattern does not have, is refused
 	 * here with the same `StringException`.
 	 */
@@ -2027,7 +2021,8 @@ global inherited sharing class UTIL_String
 	private inherited sharing class CardNumberSearch
 	{
 		/**
-		 * @description The value that is searched.
+		 * @description The whole value, as the caller gave it. It is never changed: it is searched for card numbers, and
+		 * the masked value is built from it at the end, or it is returned as it is when no number is replaced.
 		 */
 		private final String input;
 
@@ -2305,17 +2300,15 @@ global inherited sharing class UTIL_String
 	 * steps for a JsonKey rule, with one exception: in a synchronous transaction, the engine sends a value longer than
 	 * `UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE` straight to the text search (see `maskJsonKeysViaRegex`),
 	 * and this method does not. For every other value, this method and the engine give the same result. The steps:
-	 * <ol>
-	 *   <li>A value that does not start with `{` and end with `}`, or start with `[` and end with `]`, is not a JSON
-	 *       object or list. It goes to a text search for `"key":"value"` pairs (see `hasJsonObjectOrArrayShape`).</li>
-	 *   <li>A value in which no key name of the pattern can appear is returned as it is, without reading it as JSON
-	 *       (see `canHoldMatchingJsonKey`).</li>
-	 *   <li>A value with at most `JSON_STRUCTURE_LINE` opening brackets is read as a whole tree and walked. The walk
-	 *       stops 50 levels deep.</li>
-	 *   <li>A value with more opening brackets is read one token at a time (see `maskJsonKeysStreaming`), at any
-	 *       depth.</li>
-	 *   <li>A value that the JSON reader refuses goes to the text search.</li>
-	 * </ol>
+	 * - A value that does not start with `{` and end with `}`, or start with `[` and end with `]`, is not a JSON
+	 *   object or list. It goes to a text search for `"key":"value"` pairs (see `hasJsonObjectOrArrayShape`).
+	 * - A value in which no key name of the pattern can appear is returned as it is, without reading it as JSON
+	 *   (see `canHoldMatchingJsonKey`).
+	 * - A value with at most `JSON_STRUCTURE_LINE` opening brackets is read as a whole tree and walked. The walk
+	 *   stops 50 levels deep.
+	 * - A value with more opening brackets is read one token at a time (see `maskJsonKeysStreaming`), at any
+	 *   depth.
+	 * - A value that the JSON reader refuses goes to the text search.
 	 * When no key matched, the method returns the input string itself, byte for byte. The text search replaces every
 	 * plain value under a matching key: a text, a number, `true`, `false` or `null`. When a matching key holds a value
 	 * it cannot hide safely, such as an object or a text with no closing quote, the method returns
@@ -2327,7 +2320,9 @@ global inherited sharing class UTIL_String
 	 * @param caseSensitive When false, the key regex is wrapped with `(?i)`
 	 *
 	 * @return The input with matching values redacted, `UTIL_FrameworkMasker.FAILURE_MARKER` when the text search meets a
-	 * value it cannot hide safely, or the input itself when no key matched
+	 * value it cannot hide safely, or the input itself when no key matched; the marker is also written when the search reads a
+	 * pair again from a quote (see `JsonTextSearch.readPairAt`), reaches `JSON_TEXT_PAIR_READ_LENGTH` characters before the pair
+	 * ends, and more of the value follows; such a quote need not start a secret
 	 *
 	 * @throws IllegalArgumentException When the value goes to the text search and the key pattern is blank
 	 */
@@ -2402,29 +2397,30 @@ global inherited sharing class UTIL_String
 	/**
 	 * @description Checks, without reading the value as JSON, whether a JSON value can hold a key name that the key
 	 * pattern matches. It returns false only when that is certain, and then the JsonKey rule can skip the value.
-	 * <p>Why the answer false is safe: in a JSON text without a backslash, every key name is written exactly as it
+	 *
+	 * Why the answer false is safe: in a JSON text without a backslash, every key name is written exactly as it
 	 * reads, between quotes. So when the pattern matches a key name, the same pattern without its `^` at the start and `$`
 	 * at the end finds that name in the raw text. The search ignores upper and lower case, so it finds every name a
-	 * rule that cares about case would match too.</p>
-	 * <p>It returns true, so the rule runs, in these cases:</p>
-	 * <ul>
-	 *   <li>The text holds a backslash. A key name can then be written with an escape, for example `password` with
-	 *       its letter a written as a backslash, the letter u and the hexadecimal digits 0061. The raw text then does not show
-	 *       the name as it reads.</li>
-	 *   <li>The pattern holds another `^` or `$`, a backslash anchor or word boundary, or a look-ahead or look-behind
-	 *       group (see `KEY_SEARCH_UNSAFE_PARTS`). Such a pattern can match a key name alone and fail on it inside the
-	 *       text.</li>
-	 *   <li>The pattern holds a repeat with no upper limit (`*`, `+` or `{n,}`). Searching for it over a long text can
-	 *       take so many steps that the transaction ends.</li>
-	 *   <li>The pattern holds a repeat with an upper count of three digits or more. The check does not work out how many
-	 *       steps such a repeat can take, so it treats it as unsafe too.</li>
-	 *   <li>The pattern is blank, or without its `^` and `$` does not compile. The rule then runs and reports its own
-	 *       failure.</li>
-	 *   <li>The search finds a match.</li>
-	 * </ul>
-	 * <p>The search runs over pieces of `KEY_SEARCH_PIECE_LENGTH` characters, because one search over a whole long value
+	 * rule that cares about case would match too.
+	 *
+	 * It returns true, so the rule runs, in these cases:
+	 * - The text holds a backslash. A key name can then be written with an escape, for example `password` with
+	 *   its letter a written as a backslash, the letter u and the hexadecimal digits 0061. The raw text then does not show
+	 *   the name as it reads.
+	 * - The pattern holds another `^` or `$`, a backslash anchor or word boundary, or a look-ahead or look-behind
+	 *   group (see `KEY_SEARCH_UNSAFE_PARTS`). Such a pattern can match a key name alone and fail on it inside the
+	 *   text.
+	 * - The pattern holds a repeat with no upper limit (`*`, `+` or `{n,}`). Searching for it over a long text can
+	 *   take so many steps that the transaction ends.
+	 * - The pattern holds a repeat with an upper count of three digits or more. The check does not work out how many
+	 *   steps such a repeat can take, so it treats it as unsafe too.
+	 * - The pattern is blank, or without its `^` and `$` does not compile. The rule then runs and reports its own
+	 *   failure.
+	 * - The search finds a match.
+	 *
+	 * The search runs over pieces of `KEY_SEARCH_PIECE_LENGTH` characters, because one search over a whole long value
 	 * can end the transaction. Two pieces in a row share `KEY_SEARCH_PIECE_OVERLAP` characters, so a key name that crosses
-	 * the end of one piece lies whole inside the next one. This holds for every key name up to that length.</p>
+	 * the end of one piece lies whole inside the next one. This holds for every key name up to that length.
 	 *
 	 * @param input The JSON value to search
 	 * @param keyRegex The key pattern of the rule, usually anchored with `^` and `$`
@@ -2483,14 +2479,12 @@ global inherited sharing class UTIL_String
 	 * @description Redacts values stored under JSON keys matching the pattern, reading the JSON text one token at a time
 	 * instead of as a whole tree. The reader and the writer keep no nesting of their own, so a value nested thousands of
 	 * levels deep is read to the end, and a key is found at any depth.
-	 * <ul>
-	 *   <li>Every token is copied to the output as it comes, except the value of a key the pattern matches.</li>
-	 *   <li>That value is replaced by the replacement, whatever it is: a text, a number, true, false, null, or a whole
-	 *       object or list with everything in it. A null replacement is written as JSON null.</li>
-	 *   <li>Keys keep their order, and a key written twice stays twice; each copy is checked.</li>
-	 *   <li>Numbers are written again from their value: `1.00` stays `1.00`, but `1e5` is written as `1E+5`, the same
-	 *       number.</li>
-	 * </ul>
+	 * - Every token is copied to the output as it comes, except the value of a key the pattern matches.
+	 * - That value is replaced by the replacement, whatever it is: a text, a number, true, false, null, or a whole
+	 *   object or list with everything in it. A null replacement is written as JSON null.
+	 * - Keys keep their order, and a key written twice stays twice; each copy is checked.
+	 * - Numbers are written again from their value: `1.00` stays `1.00`, but `1e5` is written as `1E+5`, the same
+	 *   number.
 	 * When no key matched, `maskedText` is the input string itself, byte for byte. To apply several rules to one value,
 	 * call this once per rule, in rule order, each time on the output of the call before.
 	 *
@@ -2749,15 +2743,13 @@ global inherited sharing class UTIL_String
 	 * or list, or that the JSON reader refuses. It looks for a key in quotes that the key pattern matches, then a colon,
 	 * then the value. Spaces and line breaks are allowed on both sides of the colon. For each matching key, one of two
 	 * things happens:
-	 * <ul>
-	 *   <li>The value is one whole JSON text, number, `true`, `false` or `null`, followed by a comma, a closing brace or
-	 *       bracket, a space or the end of the value. The value is replaced by the replacement, written in quotes. A
-	 *       text can hold escaped quotes, such as `"ab\"cd"`, and is replaced whole.</li>
-	 *   <li>The value is anything else: an object, a list, a text with no closing quote, or a word without quotes such
-	 *       as `hunter2`. The search cannot tell where such a value ends, so it cannot hide it safely. The method then
-	 *       returns `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole input, and the masking saves the marker
-	 *       instead of the value.</li>
-	 * </ul>
+	 * - The value is one whole JSON text, number, `true`, `false` or `null`, followed by a comma, a closing brace or
+	 *   bracket, a space or the end of the value. The value is replaced by the replacement, written in quotes. A
+	 *   text can hold escaped quotes, such as `"ab\"cd"`, and is replaced whole.
+	 * - The value is anything else: an object, a list, a text with no closing quote, or a word without quotes such
+	 *   as `hunter2`. The search cannot tell where such a value ends, so it cannot hide it safely. The method then
+	 *   returns `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole input, and the masking saves the marker
+	 *   instead of the value.
 	 * A key written with JSON escapes, such as `pass\"word` for `pass"word`, or `password` with its letter a written as
 	 * a backslash, the letter u and the hexadecimal digits 0061, is read as JSON reads it, and the key pattern is checked
 	 * against the name it stands for. A key with a backslash that JSON cannot read has no name to check, so the method
@@ -2767,14 +2759,15 @@ global inherited sharing class UTIL_String
 	 * The masking engine also calls this method directly for a JSON value longer than
 	 * `UTIL_FrameworkMasker.SYNCHRONOUS_JSON_TEXT_PASS_LINE` in a synchronous transaction, because this search is much
 	 * quicker than reading the value as JSON.
-	 * <p>Some key patterns are not safe for this search (see `KEY_SEARCH_UNSAFE_PARTS`). The main case is a repeat with
+	 *
+	 * Some key patterns are not safe for this search (see `KEY_SEARCH_UNSAFE_PARTS`). The main case is a repeat with
 	 * no upper limit, such as `.*secret.*`. The search tries the pattern at every quote in the text, and such a pattern
 	 * then reads to the end of the line each time. On a text full of quotes this ends the transaction with an error that
 	 * no code can catch, already at about 1,000 characters. So the method does not search with such a pattern. A repeat
 	 * with an upper count of three digits or more, such as `^x_[a-z0-9]{1,100}$`, is treated the same way, because the
 	 * check does not work out how many steps it can take. A value that holds a quote, and so could hold a key, gets
 	 * `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole value. Nothing secret is saved, and the marker shows the admin that the rule needs a narrower pattern, such as
-	 * `^(secret|client_secret)$`. A value without a quote is returned as it is.</p>
+	 * `^(secret|client_secret)$`. A value without a quote is returned as it is.
 	 *
 	 * @param input The value to search
 	 * @param keyRegex The key pattern of the rule, usually anchored with `^` and `$`
@@ -2783,7 +2776,9 @@ global inherited sharing class UTIL_String
 	 *
 	 * @return The input with every matched value replaced, `UTIL_FrameworkMasker.FAILURE_MARKER` when a matching key holds
 	 * a value that cannot be replaced safely or the key pattern is not safe for the search, or the input itself when no
-	 * key matched
+	 * key matched; the marker is also written when the search reads a pair again from a quote (see
+	 * `JsonTextSearch.readPairAt`), reaches `JSON_TEXT_PAIR_READ_LENGTH` characters before the pair ends, and more of the value
+	 * follows; such a quote need not start a secret
 	 *
 	 * @throws IllegalArgumentException When the key pattern is blank. The masking records the rule as failed.
 	 *
@@ -2843,16 +2838,20 @@ global inherited sharing class UTIL_String
 	/**
 	 * @description Finds the values that `maskJsonKeysViaRegex` replaces in one value, and keeps where each one starts and
 	 * ends in the value. The value is rebuilt once, at the end.
-	 * <p>A value longer than `JSON_TEXT_SEARCH_PIECE_LENGTH` is searched in pieces. Each piece gets its own matcher, and
+	 *
+	 * A value longer than `JSON_TEXT_SEARCH_PIECE_LENGTH` is searched in pieces. Each piece gets its own matcher, and
 	 * each piece starts `JSON_TEXT_SEARCH_PIECE_OVERLAP` characters before the end of the piece before it. The end of a
 	 * piece is not the end of the value, so a pair found at the end of a piece can be cut short. For such a pair, the
 	 * search reads the key once more with a new matcher over the rest of the value, up to `JSON_TEXT_PAIR_READ_LENGTH`
-	 * characters. That one try stays far below the length at which one match ends the transaction.</p>
+	 * characters. That one try stays far below the length at which one match ends the transaction. When that read
+	 * reaches its limit before the pair ends, and more of the value follows, the search cannot tell what the pair holds,
+	 * so the whole value gets the failure marker.
 	 */
 	private inherited sharing class JsonTextSearch
 	{
 		/**
-		 * @description The value that is searched.
+		 * @description The whole JSON text, as the caller gave it. It is never changed: it is searched for matching keys,
+		 * and the masked text is built from it at the end, or it is returned as it is when no value is replaced.
 		 */
 		private final String input;
 
@@ -2944,16 +2943,17 @@ global inherited sharing class UTIL_String
 
 		/**
 		 * @description Searches one piece of the value, from `resumeAt` on, and keeps the pairs it finds.
-		 * <p>The matcher says when a pair it found may be cut short: `hitEnd()` is true when the search looked at the end
+		 *
+		 * The matcher says when a pair it found may be cut short: `hitEnd()` is true when the search looked at the end
 		 * of the piece. In a piece that is not the last one, such a pair is read again over the whole rest of the value
 		 * (see `readPairAt`). After the search, a piece that is not the last one is also checked for a key whose spaces
-		 * run past its end (see `readKeyBeforeSpacesAtPieceEnd`).</p>
+		 * run past its end (see `readKeyBeforeSpacesAtPieceEnd`).
 		 *
-		 * <p>The matcher reads the whole value, limited to the piece. A look-behind or look-ahead in the pattern still sees
+		 * The matcher reads the whole value, limited to the piece. A look-behind or look-ahead in the pattern still sees
 		 * the text outside the piece. So it sees the character before the piece: a quote at the start of the piece that
 		 * follows a backslash is not read as the start of a key. And the check after a value sees the real next character,
 		 * even when it lies after the end of the piece. A match itself never runs past the end of the piece, and a `$` in
-		 * the pattern matches there, so a pair cut at the end of the piece is read again as said above.</p>
+		 * the pattern matches there, so a pair cut at the end of the piece is read again as said above.
 		 *
 		 * @param piece The text of the piece
 		 * @param pieceStart Where the piece starts in the value
@@ -2986,10 +2986,15 @@ global inherited sharing class UTIL_String
 
 		/**
 		 * @description Reads the pair that starts at one place, with a new matcher over the rest of the value, and keeps
-		 * or marks it (see `keepPair`). When no pair starts at that place, nothing changes. The matcher tries this one
-		 * place only. It reads at most `JSON_TEXT_PAIR_READ_LENGTH` characters, so one match cannot end the transaction,
-		 * and a text value with no closing quote inside them is read as a value that cannot be hidden safely. The
-		 * matcher still sees the character after what it reads, and treats only the real end of the value as its end.
+		 * or marks it (see `keepPair`). The matcher tries this one place only. It reads at most
+		 * `JSON_TEXT_PAIR_READ_LENGTH` characters, so one match cannot end the transaction, and a text value with no
+		 * closing quote inside them is read as a value that cannot be hidden safely. The matcher still sees the character
+		 * after what it reads, and treats only the real end of the value as its end.
+		 *
+		 * Nothing changes when the read fails before the end of what it may read, or when it reaches the real end of the
+		 * value. The whole value gets the failure marker when the read reaches the end of what it may read and more of the
+		 * value follows, for example when the spaces around the colon of a key are longer than the read: the search cannot
+		 * tell what the text holds, as for a text value with no closing quote.
 		 *
 		 * @param keyStart Where the key starts in the value: the place of its opening quote
 		 */
@@ -3001,6 +3006,10 @@ global inherited sharing class UTIL_String
 			if(pairMatcher.lookingAt())
 			{
 				keepPair(pairMatcher, 0);
+			}
+			else if(pairMatcher.hitEnd() && readEnd < input.length())
+			{
+				hasUnboundedValue = true;
 			}
 		}
 
@@ -3074,9 +3083,10 @@ global inherited sharing class UTIL_String
 		 * @description Finds a pair that the search of a piece cannot see because the spaces after its key run past the end
 		 * of the piece. The next piece starts `JSON_TEXT_SEARCH_PIECE_OVERLAP` characters before the end of this one, so
 		 * it does not see a key that starts before that.
-		 * <p>Such a key ends just before a run of spaces, line breaks and colons that reaches the end of the piece. So the
+		 *
+		 * Such a key ends just before a run of spaces, line breaks and colons that reaches the end of the piece. So the
 		 * run is found first, reading the piece backwards. Then each quote just before the run, in a stretch of
-		 * `JSON_TEXT_SEARCH_PIECE_OVERLAP` characters, is tried as the start of a pair (see `readPairAt`).</p>
+		 * `JSON_TEXT_SEARCH_PIECE_OVERLAP` characters, is tried as the start of a pair (see `readPairAt`).
 		 *
 		 * @param piece The text of the piece
 		 * @param pieceStart Where the piece starts in the value
@@ -3290,7 +3300,8 @@ global inherited sharing class UTIL_String
 		private String delimiter = COMMA;
 
 		/**
-		 * @description Default constructor.
+		 * @description Starts an empty builder. Items are joined with a comma and no prefix until setDelimiter or
+		 * setItemPrefix changes that.
 		 *
 		 * @example
 		 * ```apex
@@ -3328,7 +3339,7 @@ global inherited sharing class UTIL_String
 		}
 
 		/**
-		 * @description Adds a list of string values.
+		 * @description Appends every value of the list, in list order, after the items already in the builder.
 		 *
 		 * @param values A list of strings to append to the builder.
 		 */
@@ -3347,7 +3358,7 @@ global inherited sharing class UTIL_String
 		 * UTIL_String.DelimitedListBuilder builder = new UTIL_String.DelimitedListBuilder();
 		 * builder.setItemPrefix('*');
 		 * builder.add(new List<String>{'Item1', 'Item2'});
-		 * System.debug(builder.toString()); // Output: '*Item1,*Item2'
+		 * // builder.toString() is '*Item1,*Item2'
 		 * ```
 		 */
 		public void setItemPrefix(String itemPrefix)

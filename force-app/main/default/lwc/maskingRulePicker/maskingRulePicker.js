@@ -14,7 +14,7 @@
  * debounced so a large option set never re-renders on every keystroke.
  *
  * @author Jason van Beukering
- * @date May 2026, June 2026
+ * @date May 2026, October 2026
  */
 import {api, LightningElement} from 'lwc';
 import RULE_PICKER_LABEL from '@salesforce/label/c.DataMaskingAdvisor_RulePicker_Label';
@@ -127,7 +127,6 @@ function optionDomId(value)
 	return `${LISTBOX_ID}-opt-${String(value).replace(/[^A-Za-z0-9_-]/g, '_')}`;
 }
 
-// eslint-disable-next-line kerndx/use-component-builder -- framework component extends LightningElement directly (no ComponentBuilder wrapper needed for this layer)
 export default class MaskingRulePicker extends LightningElement
 {
 	/**
@@ -324,12 +323,13 @@ export default class MaskingRulePicker extends LightningElement
 
 	/**
 	 * @description Commits a selection: updates the value, resets the input text + menu, and emits
-	 * `rulechange`.
+	 * `rulechange`. It also cancels a filter that is still waiting, so the typed term cannot come back later.
 	 * @param {string} value - The chosen rule DeveloperName.
 	 * @fires MaskingRulePicker#rulechange
 	 */
 	commitSelection(value)
 	{
+		clearTimeout(this.filterTimeout);
 		this._value = value;
 		this.syncSearchTermToSelection();
 		this.isOpen = false;
@@ -369,10 +369,11 @@ export default class MaskingRulePicker extends LightningElement
 
 	/**
 	 * @description Closes the menu and restores the input text to the current selection so a
-	 * half-typed filter does not linger.
+	 * half-typed filter does not linger. A filter that is still waiting is cancelled for the same reason.
 	 */
 	closeMenu()
 	{
+		clearTimeout(this.filterTimeout);
 		this.isOpen = false;
 		this.activeIndex = NO_ACTIVE_OPTION;
 		this.syncSearchTermToSelection();

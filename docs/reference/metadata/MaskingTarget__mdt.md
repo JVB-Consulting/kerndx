@@ -2,7 +2,7 @@
 title: "MaskingTarget__mdt"
 type: sobject
 pageClass: reference
-description: "Applies a Masking Rule to a specific field on a specific object. Each record says \"use this rule on this field\". Pick the object first, then the Field picklist filters to fields on that object. Crea"
+description: "Applies a Masking Rule to a specific field on a specific object. Each record says \"use this rule on this field\". Pick the object first, then the Field picklist filters to fields on that object. Create"
 category: metadata
 ---
 
@@ -28,7 +28,7 @@ Applies a Masking Rule to a specific field on a specific object. Each record say
 
 | Field | Description |
 |-------|-------------|
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [CallerClass__c](#callerclass__c) | Optional. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [CallerClass__c](#callerclass__c) | Leave this blank to apply the target to every caller. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [Field__c](#field__c) | The field on the chosen object to mask. |
 | global [FieldDefinition](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_fielddefinition.htm) [Field__r](#field__r) | The field on the chosen object to mask. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [IsActive__c](#isactive__c) | Controls whether this wiring is in effect. |
@@ -43,7 +43,7 @@ Applies a Masking Rule to a specific field on a specific object. Each record say
 global String CallerClass__c
 ```
 
-Optional. Leave blank to apply the rule whenever the field is masked. Set to an Apex class name (e.g. API_SendEmail) to restrict the rule to calls from that class only — useful when you want a rule to apply only in the context of one API service or integration and not everywhere that field is used.
+Leave this blank to apply the target to every caller. Set it to the handler class that an API setting names, spelled the same way, to limit the target to that service's API calls and API issues. A target with a class name here never masks any other object, and never masks log entries.
 
 **Field Attributes:**
 

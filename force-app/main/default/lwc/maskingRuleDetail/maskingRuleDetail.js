@@ -15,7 +15,7 @@
  * no checkbox, so its `wantActive` echoes the seed unchanged.
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, October 2026
  */
 import {api} from 'lwc';
 import LightningModal from 'lightning/modal';
@@ -178,6 +178,13 @@ export default class MaskingRuleDetail extends LightningModal
 	 * @type {{showMasked: boolean, before: string, after: string, message: string}}
 	 */
 	preview = {showMasked: false, before: '', after: '', message: ''};
+
+	/**
+	 * @description Counts the tests the admin has run. Each test keeps its own number, and only the newest
+	 * test may show its answer, so a slow older answer cannot replace a newer one.
+	 * @type {number}
+	 */
+	testSequence = 0;
 
 	/**
 	 * @description Static label strings for the template.
@@ -352,25 +359,34 @@ export default class MaskingRuleDetail extends LightningModal
 	/**
 	 * @description Runs the sample value against the rule and renders the result: a masked before→after, a
 	 * no-change note, a JSON-payload hint, or a failure note. An empty value just prompts. The preview is a
-	 * read-only computation — it never writes to the org.
+	 * read-only computation: it never writes to the org. The result is shown beside the value that was
+	 * tested, and only the newest test shows its result.
 	 */
 	async handleRunTest()
 	{
-		if(!this.testValue)
+		this.testSequence += 1;
+		const requestSequence = this.testSequence;
+		const testedValue = this.testValue;
+		if(!testedValue)
 		{
 			this.preview = {showMasked: false, before: '', after: '', message: TEST_PROMPT};
 			return;
 		}
+		let preview;
 		try
 		{
 			const result = await previewWithRule({
-				objectApiName: this.objectApiName, fieldApiName: this.fieldApiName, ruleDeveloperName: this.ruleDeveloperName, value: this.testValue
+				objectApiName: this.objectApiName, fieldApiName: this.fieldApiName, ruleDeveloperName: this.ruleDeveloperName, value: testedValue
 			});
-			this.preview = this.toPreview(result);
+			preview = this.toPreview(result, testedValue);
 		}
-		catch(error)
+		catch
 		{
-			this.preview = {showMasked: false, before: '', after: '', message: TEST_FAILED};
+			preview = {showMasked: false, before: '', after: '', message: TEST_FAILED};
+		}
+		if(requestSequence === this.testSequence)
+		{
+			this.preview = preview;
 		}
 	}
 
@@ -379,17 +395,18 @@ export default class MaskingRuleDetail extends LightningModal
 	 * a failure note; a changed value is a masked before→after; an unchanged JSON-keyed rule hints for a
 	 * JSON payload; any other unchanged value is a no-change note.
 	 * @param {Object} result The preview DTO from the controller.
+	 * @param {string} testedValue The sample value that was sent to the controller.
 	 * @returns {{showMasked: boolean, before: string, after: string, message: string}}
 	 */
-	toPreview(result)
+	toPreview(result, testedValue)
 	{
 		if(!result || (result.failedRuleDeveloperNames && result.failedRuleDeveloperNames.length > 0))
 		{
 			return {showMasked: false, before: '', after: '', message: TEST_FAILED};
 		}
-		if(result.maskedValue !== this.testValue)
+		if(result.maskedValue !== testedValue)
 		{
-			return {showMasked: true, before: this.testValue, after: result.maskedValue, message: ''};
+			return {showMasked: true, before: testedValue, after: result.maskedValue, message: ''};
 		}
 		if(result.expectsJsonInput === true)
 		{

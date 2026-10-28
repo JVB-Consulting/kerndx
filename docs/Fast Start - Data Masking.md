@@ -104,7 +104,7 @@ reached the database.
 
 ### Confirm masking is on
 
-You can check the master switch from anywhere: subscriber Apex, anonymous Apex, or a test.
+You can check the master switch from anywhere: your own Apex, anonymous Apex, or a test.
 
 **In Salesforce**, in the same Execute Anonymous window, run:
 
@@ -275,7 +275,7 @@ sf project retrieve start -o YourOrgAlias -m "CustomMetadata:kern__MaskingTarget
 You should see one file created under `force-app/main/default/customMetadata`, named after the record.
 
 A blank `kern__Field__c` is an **object-wide wildcard**: the SSN rule scans every text field on `Contact` (Text, Text Area, Long Text
-Area, URL, Email, Phone and Encrypted Text), whoever saves the record, so the note's SSN is caught wherever it lands in ordinary text.
+Area, Rich Text Area, URL, Email, Phone and Encrypted Text), whoever saves the record, so the note's SSN is caught wherever it lands in ordinary text.
 A unique field or an external id is never touched by a wildcard, because rewriting a key breaks it, and neither is a formula, roll-up
 summary or auto-number field, because the platform works out those values and there is nothing to rewrite. If you do want a rule on
 a key field, name that field explicitly in `kern__Field__c`: an explicit target is treated as your deliberate choice
@@ -322,7 +322,7 @@ Something went wrong? See [Common Issues, Step 4](#step-4-verify-the-redaction-1
 ### Rule modes
 
 A masking rule (`kern__MaskingRule__mdt`) matches in one of four modes. KernDX ships 18 rules: 3 active, and 15
-dormant ones you activate by wiring a target to them. (One dormant rule is the original `kern__MaskCreditCard`, which
+dormant ones you activate by ticking the rule's **Active** box and wiring a target to them. (One dormant rule is the original `kern__MaskCreditCard`, which
 `kern__MaskPaymentCard` replaces. It ships switched off with its four targets; switch all five on or off together.)
 
 | Mode         | What it matches                                                                                      |
@@ -369,9 +369,8 @@ kern.TST_Mock.register(
 );
 ```
 
-This lets a test exercise a rule against one of the **framework's own objects** (`ApiCall__c`, `LogEntryEvent__e`,
-and the like), which already ship with a trigger and a Trigger Setting: insert the record and the mocked target
-fires. It does **not** unlock *your own* object. A mock target satisfies one gate, but the masking pass also needs
+This lets a test run a rule against a **framework object** that already ships with a trigger and a Trigger
+Setting with **Apply Masking** ticked, such as `ApiCall__c`. Insert the record and the mocked target fires. It does **not** unlock *your own* object. A mock target satisfies one gate, but the masking pass also needs
 the object to have a real trigger and a Trigger Setting, and neither can be conjured in a test. So for masking on
 your own object the trustworthy proof is the **deploy-and-verify of Step 4 against a sandbox**. Treat that as the
 gate before you promote the configuration.
@@ -495,7 +494,7 @@ Knowing the boundaries keeps you from using masking where a different control be
   [Shield Platform Encryption](Security%20-%20Guide.md#data-masking) when you need the value back.
 - **It is not access control.** A masked field is still visible to anyone with field-level security to read it.
   Masking changes the stored *value*, not *who can see it*. Use Field-Level Security and sharing for that.
-- **It covers text-shaped fields only:** Text, Text Area, Long Text Area, URL, Email, Phone, and Encrypted Text.
+- **It covers text-shaped fields only:** Text, Text Area, Long Text Area, Rich Text Area, URL, Email, Phone, and Encrypted Text.
   Numbers, dates, checkboxes, picklists, and lookups cannot be masked.
 
 ---

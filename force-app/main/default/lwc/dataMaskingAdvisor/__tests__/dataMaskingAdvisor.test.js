@@ -84,9 +84,10 @@ jest.mock('c/maskingAddRuleMenu', () => ({
 
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_CardTitle', () => ({default: 'Data Masking Advisor'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_RefreshAltText', () => ({default: 'Refresh masking analysis'}), {virtual: true});
-jest.mock('@salesforce/label/c.DataMaskingAdvisor_ScopeBanner_Body',
-		() => ({default: 'Masking redacts sensitive values as they flow through framework paths — debug logs, outbound API callouts, async jobs, and platform events. It does not encrypt data at rest or change what is stored on your records.'}),
-		{virtual: true});
+jest.mock('@salesforce/label/c.DataMaskingAdvisor_ScopeBanner_Body', () => ({
+	default: 'Masking redacts sensitive values as they flow through framework paths — debug logs, outbound API callouts, async jobs, and platform events. '
+			+ 'It does not encrypt data at rest or change what is stored on your records.'
+}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_DeadConfigBanner_Heading', () => ({default: 'Configuration health'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_DeadConfigBanner_Summary_Singular', () => ({default: '1 active masking target is currently masking nothing.'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_DeadConfigBanner_Summary_Plural', () => ({default: '{0} active masking targets are currently masking nothing.'}),
@@ -209,19 +210,29 @@ jest.mock('@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Detail_ObjectWide
 		{virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Detail_DeadFieldTarget', () => ({default: 'Field-level rule {0} on this object is masking nothing.'}),
 		{virtual: true});
+jest.mock('@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Summary_RuleOff_Singular', () => ({default: '1 target whose rule is off'}), {virtual: true});
+jest.mock('@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Summary_RuleOff_Plural', () => ({default: '{0} targets whose rule is off'}), {virtual: true});
+jest.mock('@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Detail_RuleOffObjectWide_Singular',
+		() => ({default: '1 object-wide target is on, but its rule is off, so it masks nothing.'}), {virtual: true});
+jest.mock('@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Detail_RuleOffObjectWide_Plural',
+		() => ({default: '{0} object-wide targets are on, but their rule is off, so they mask nothing.'}), {virtual: true});
+jest.mock('@salesforce/label/c.DataMaskingAdvisor_HealthBanner_Detail_RuleOffFieldTarget',
+		() => ({default: 'The field-level target for rule {0} on {1} is on, but that rule is off, so it masks nothing.'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_NoChangesQueued_Note',
 		() => ({default: 'No changes queued. Tick a candidate to add masking, or untick an existing rule to disable it.'}), {virtual: true});
 
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_CoverageScan_Heading', () => ({default: 'Custom objects without masking'}), {virtual: true});
-jest.mock('@salesforce/label/c.DataMaskingAdvisor_CoverageScan_Intro',
-		() => ({default: 'Your own custom objects can hold the same kind of sensitive data the framework masks by default — emails, phone numbers, free-text bodies — but masking only covers them once you configure it.'}),
-		{virtual: true});
+jest.mock('@salesforce/label/c.DataMaskingAdvisor_CoverageScan_Intro', () => ({
+	default: 'Your own custom objects can hold the same kind of sensitive data the framework masks by default — emails, phone numbers, free-text bodies — '
+			+ 'but masking only covers them once you configure it.'
+}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_CoverageScan_PopulationNote', () => ({default: 'You have {0} custom objects of your own.'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_CoverageScan_PopulationNote_ManagedClause',
 		() => ({default: '{0} more come from managed packages — they belong to the package vendor and are excluded unless you opt in below.'}), {virtual: true});
-jest.mock('@salesforce/label/c.DataMaskingAdvisor_CoverageScan_HowItWorks',
-		() => ({default: 'The scan runs the advisor’s field analysis on each object, a few at a time, and lists the ones with likely-sensitive fields and no masking. You can cancel at any point and keep what was found. Nothing changes in your org.'}),
-		{virtual: true});
+jest.mock('@salesforce/label/c.DataMaskingAdvisor_CoverageScan_HowItWorks', () => ({
+	default: 'The scan runs the advisor’s field analysis on each object, a few at a time, and lists the ones with likely-sensitive fields and no masking. '
+			+ 'You can cancel at any point and keep what was found. Nothing changes in your org.'
+}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_CoverageScan_IncludeManaged_Label', () => ({default: 'Include managed-package objects ({0} from installed packages)'}),
 		{virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_CoverageScan_ScanButton', () => ({default: 'Scan {0} custom objects'}), {virtual: true});
@@ -265,9 +276,7 @@ const MOCK_DEAD_CONFIG = [
 
 // A card rule finding: it names a rule, not a target, so it has no targetDeveloperName.
 const MOCK_CARD_RULE_FINDING = {
-	ruleDeveloperName: 'MaskCreditCard',
-	issueCode: 'OLDER_CARD_RULE_WOULD_RUN',
-	message: 'Masking rule "MaskCreditCard" is the older card number rule, and it still runs.'
+	ruleDeveloperName: 'MaskCreditCard', issueCode: 'OLDER_CARD_RULE_WOULD_RUN', message: 'Masking rule "MaskCreditCard" is the older card number rule, and it still runs.'
 };
 
 const NEW_RULE_SETUP_URL = '/lightning/setup/CustomMetadata/page?address=%2Fm08%2Fe%3FsObjectName%3DMaskingRule__mdt';
@@ -495,6 +504,77 @@ const MOCK_ANALYSIS_ONE_INACTIVE_OW = {
 			recommendedRuleIsActive: true,
 			sensitivityLevel: 'Sensitive',
 			matchStrength: 'Strong'
+		})
+	]
+};
+
+// The older card rule and its target switched off together, as 1.9 ships them:
+// the target is off AND its rule is off, and the rule is superseded. Nothing is configured to mask, so the
+// health banner has no object-wide finding; the banner chip still shows the pair unticked and superseded.
+const CARD_SUPERSEDED_ANNOTATION = 'Superseded by Mask Payment Card Numbers. Rebind those objects first.';
+const MOCK_ANALYSIS_RULE_AND_TARGET_OFF_TOGETHER = {
+	classificationAvailable: true,
+	newRuleSetupUrl: NEW_RULE_SETUP_URL,
+	rules: MOCK_RULE_CATALOGUE.map((rule) => (rule.developerName === 'Mask_Card' ? {...rule, isActive: false, supersededByLabel: CARD_SUPERSEDED_ANNOTATION} : rule)),
+	objectWideRules: [
+		{
+			targetDeveloperName: 'OW_Card',
+			ruleDeveloperName: 'Mask_Card',
+			ruleLabel: 'Mask Credit Card',
+			isActive: false,
+			ruleIsActive: false,
+			callerClass: '',
+			supersededByLabel: CARD_SUPERSEDED_ANNOTATION
+		}
+	],
+	fields: [field({apiName: 'Notes__c', label: 'Notes', type: 'TEXTAREA'})]
+};
+
+// One target switched off on its own (its rule is still on) beside the switched-off pair above: only the
+// lone target is a finding, so the health summary counts exactly one.
+const MOCK_ANALYSIS_ONE_TARGET_OFF_BESIDE_PAIR_OFF = {
+	...MOCK_ANALYSIS_RULE_AND_TARGET_OFF_TOGETHER, objectWideRules: [
+		...MOCK_ANALYSIS_RULE_AND_TARGET_OFF_TOGETHER.objectWideRules,
+		{targetDeveloperName: 'OW_Secret', ruleDeveloperName: 'Mask_Secret', ruleLabel: 'Mask Secret Keys', isActive: false, ruleIsActive: true, callerClass: ''}
+	]
+};
+
+// A target that is on while its rule is off masks nothing. These fixtures give one such target object-wide,
+// one at field level, and one of each.
+const OBJECT_WIDE_TARGET_ON_RULE_OFF = {
+	targetDeveloperName: 'OW_Secret', ruleDeveloperName: 'Mask_Secret', ruleLabel: 'Mask Secret Keys', isActive: true, ruleIsActive: false, callerClass: ''
+};
+const FIELD_WITH_TARGET_ON_RULE_OFF = field({
+	apiName: 'SSN__c', label: 'SSN', type: 'STRING', isClassified: true, sensitivityLevel: 'Sensitive', matchStrength: 'Strong', appliedRules: [
+		{targetDeveloperName: 'T_SSN', ruleDeveloperName: 'Mask_SSN', ruleLabel: 'Mask SSN', isActive: true, ruleIsActive: false, callerClass: ''}
+	]
+});
+const MOCK_ANALYSIS_OBJECT_WIDE_TARGET_ON_RULE_OFF = {
+	classificationAvailable: true,
+	newRuleSetupUrl: NEW_RULE_SETUP_URL,
+	rules: MOCK_RULE_CATALOGUE.map((rule) => (rule.developerName === 'Mask_Secret' ? {...rule, isActive: false} : rule)),
+	objectWideRules: [OBJECT_WIDE_TARGET_ON_RULE_OFF],
+	fields: [field({apiName: 'Notes__c', label: 'Notes', type: 'TEXTAREA'})]
+};
+const MOCK_ANALYSIS_FIELD_TARGET_ON_RULE_OFF = {
+	classificationAvailable: true,
+	newRuleSetupUrl: NEW_RULE_SETUP_URL,
+	rules: MOCK_RULE_CATALOGUE.map((rule) => (rule.developerName === 'Mask_SSN' ? {...rule, isActive: false} : rule)),
+	objectWideRules: [],
+	fields: [FIELD_WITH_TARGET_ON_RULE_OFF]
+};
+const MOCK_ANALYSIS_BOTH_TARGETS_ON_RULE_OFF = {
+	...MOCK_ANALYSIS_FIELD_TARGET_ON_RULE_OFF, objectWideRules: [OBJECT_WIDE_TARGET_ON_RULE_OFF]
+};
+
+// Targets switched off together with their rules, object-wide and at field level. The field target still counts
+// as a field target masking nothing, so the banner shows, but neither target counts as on with its rule off.
+const MOCK_ANALYSIS_TARGETS_AND_RULES_OFF_TOGETHER = {
+	...MOCK_ANALYSIS_RULE_AND_TARGET_OFF_TOGETHER, fields: [
+		field({
+			apiName: 'SSN__c', label: 'SSN', type: 'STRING', isClassified: true, sensitivityLevel: 'Sensitive', matchStrength: 'Strong', appliedRules: [
+				{targetDeveloperName: 'T_SSN', ruleDeveloperName: 'Mask_SSN', ruleLabel: 'Mask SSN', isActive: false, ruleIsActive: false, callerClass: ''}
+			]
 		})
 	]
 };
@@ -759,6 +839,27 @@ function configureApex({
 	});
 }
 
+// Answers the controller the way configureApex does, except for the Apex methods in the handlers map, which
+// get the answer their own handler returns (a value or a promise).
+function answerWith(handlers, options = {})
+{
+	configureApex(options);
+	const defaultAnswer = mockCallControllerMethod.getMockImplementation();
+	mockCallControllerMethod.mockImplementation(async(apexFn, params) => (handlers.has(apexFn) ? handlers.get(apexFn)(params) : defaultAnswer(apexFn, params)));
+}
+
+// A promise the test resolves or rejects by hand, to control when a slow controller answer arrives.
+function deferredAnswer()
+{
+	const deferred = {};
+	deferred.promise = new Promise((resolve, reject) =>
+	{
+		deferred.resolve = resolve;
+		deferred.reject = reject;
+	});
+	return deferred;
+}
+
 // Flushes the microtask queue a few times so an awaited Apex mock resolves and LWC re-renders.
 async function flush()
 {
@@ -977,7 +1078,12 @@ describe('c-data-masking-advisor — dead-config banner', () =>
 
 	it('counts only the targets that mask nothing in the summary when card rule findings are also shown', async() =>
 	{
-		const element = await createAdvisor({dead: [MOCK_DEAD_CONFIG[0], MOCK_CARD_RULE_FINDING]});
+		const element = await createAdvisor({
+			dead: [
+				MOCK_DEAD_CONFIG[0],
+				MOCK_CARD_RULE_FINDING
+			]
+		});
 		expect(element.shadowRoot.querySelectorAll('[data-testid="dead-config-item"]')).toHaveLength(2);
 		expect(element.shadowRoot.querySelector('[data-testid="dead-config-summary"]').textContent).toBe('1 active masking target is currently masking nothing.');
 	});
@@ -1012,6 +1118,27 @@ describe('c-data-masking-advisor — dead-config banner', () =>
 		await flush();
 		expect(element.shadowRoot.querySelector('[data-testid="dead-config-banner"]')).toBeNull();
 		expect(element.shadowRoot.querySelector('[data-testid="add-object-button"]')).not.toBeNull();
+	});
+
+	it('stops loading and shows the landing with no spinner when the object list fails to load', async() =>
+	{
+		// The framework answers a failed call with undefined after it shows its own error toast.
+		answerWith(new Map([
+			[
+				listObjects,
+				() => undefined
+			]
+		]));
+		const element = createElement('c-data-masking-advisor', {is: DataMaskingAdvisor});
+		document.body.appendChild(element);
+		await flush();
+		await flush();
+		await flush();
+		await flush();
+		await flush();
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
+		expect(element.shadowRoot.querySelector('[data-testid="add-object-button"]')).not.toBeNull();
+		expect(mockCallControllerMethod).toHaveBeenCalledWith(getOrgPostureInventory);
 	});
 });
 
@@ -1080,6 +1207,255 @@ describe('c-data-masking-advisor — object selection → describeFields', () =>
 		await flush();
 		await selectObject(element, 'Account');
 		expect(element.shadowRoot.querySelector('[data-testid="coverage-advisor-error"]')).not.toBeNull();
+	});
+
+	// Proves the reset on the landing: every pick passes through "All objects", which already clears the old fields.
+	// The refresh test below is the one that proves the change in the catch block.
+	it('hides the previous object\'s fields and shows only the error when the next object fails to load', async() =>
+	{
+		const describeAccountOnly = (params) =>
+		{
+			if(params.objectApiName === 'Contact')
+			{
+				throw new Error('describe failed');
+			}
+			return MOCK_ANALYSIS_MIXED;
+		};
+		answerWith(new Map([
+			[
+				describeFields,
+				describeAccountOnly
+			]
+		]));
+		const element = createElement('c-data-masking-advisor', {is: DataMaskingAdvisor});
+		document.body.appendChild(element);
+		await flush();
+		await flush();
+		await selectObject(element, 'Account');
+		expect(element.shadowRoot.querySelector('[data-testid="summary-strip"]')).not.toBeNull();
+		await selectObject(element, 'Contact');
+		expect(element.shadowRoot.querySelector('[data-testid="coverage-advisor-error"]')).not.toBeNull();
+		expect(element.shadowRoot.querySelector('[data-testid="summary-strip"]')).toBeNull();
+		expect(rowByApi(element, 'SSN__c')).toBeUndefined();
+	});
+
+	it('hides the object\'s fields and shows only the error when a refresh of the open object fails to load', async() =>
+	{
+		const describeState = {isFailing: false};
+		const describeUntilFailing = () =>
+		{
+			if(describeState.isFailing)
+			{
+				throw new Error('describe failed');
+			}
+			return MOCK_ANALYSIS_MIXED;
+		};
+		answerWith(new Map([
+			[
+				describeFields,
+				describeUntilFailing
+			]
+		]));
+		const element = createElement('c-data-masking-advisor', {is: DataMaskingAdvisor});
+		document.body.appendChild(element);
+		await flush();
+		await flush();
+		await selectObject(element, 'Account');
+		expect(element.shadowRoot.querySelector('[data-testid="summary-strip"]')).not.toBeNull();
+		describeState.isFailing = true;
+		element.shadowRoot.querySelector('[data-testid="refresh-button"]').click();
+		await flush();
+		await flush();
+		await flush();
+		await flush();
+		await flush();
+		await flush();
+		await flush();
+		await flush();
+		expect(element.shadowRoot.querySelector('[data-testid="coverage-advisor-error"]')).not.toBeNull();
+		expect(element.shadowRoot.querySelector('[data-testid="summary-strip"]')).toBeNull();
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
+	});
+});
+
+describe('c-data-masking-advisor: a new pick or refresh before the last answer arrives', () =>
+{
+	afterEach(cleanup);
+
+	// Answers describeFields for Account with a slow promise the test settles by hand, and for every other
+	// object straight away with a one-field analysis (Bare__c).
+	async function createAdvisorWithSlowAccount(slowAccount)
+	{
+		answerWith(new Map([
+			[
+				describeFields,
+				(params) => (params.objectApiName === 'Account' ? slowAccount.promise : MOCK_ANALYSIS_MINIMAL)
+			]
+		]));
+		const element = createElement('c-data-masking-advisor', {is: DataMaskingAdvisor});
+		document.body.appendChild(element);
+		await flush();
+		await flush();
+		return element;
+	}
+
+	it('keeps the newer object\'s fields when the older object\'s answer arrives last', async() =>
+	{
+		const slowAccount = deferredAnswer();
+		const element = await createAdvisorWithSlowAccount(slowAccount);
+		await selectObject(element, 'Account');
+		await selectObject(element, 'Contact');
+		expect(rowByApi(element, 'Bare__c')).toBeDefined();
+		slowAccount.resolve(MOCK_ANALYSIS_MIXED);
+		await flush();
+		await flush();
+		expect(rowByApi(element, 'Bare__c')).toBeDefined();
+		expect(rowByApi(element, 'SSN__c')).toBeUndefined();
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
+	});
+
+	it('stays on the landing with no fields and no spinner when an object\'s answer arrives after going back', async() =>
+	{
+		const slowAccount = deferredAnswer();
+		const element = await createAdvisorWithSlowAccount(slowAccount);
+		await selectObject(element, 'Account');
+		element.shadowRoot.querySelector('[data-testid="back-to-all-objects"]').click();
+		await flush();
+		slowAccount.resolve(MOCK_ANALYSIS_MIXED);
+		await flush();
+		await flush();
+		expect(element.shadowRoot.querySelector('[data-testid="posture-summary"]')).not.toBeNull();
+		expect(element.shadowRoot.querySelector('[data-testid="summary-strip"]')).toBeNull();
+		expect(rowByApi(element, 'SSN__c')).toBeUndefined();
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
+	});
+
+	it('shows no error for an older object whose load fails after the admin picked another object', async() =>
+	{
+		const slowAccount = deferredAnswer();
+		const element = await createAdvisorWithSlowAccount(slowAccount);
+		await selectObject(element, 'Account');
+		await selectObject(element, 'Contact');
+		slowAccount.reject(new Error('describe failed'));
+		await flush();
+		await flush();
+		expect(element.shadowRoot.querySelector('[data-testid="coverage-advisor-error"]')).toBeNull();
+		expect(rowByApi(element, 'Bare__c')).toBeDefined();
+	});
+
+	it('keeps the spinner on for a newer pick when an earlier refresh answers first', async() =>
+	{
+		// The first describe answers straight away; every later one waits for the test to settle it.
+		const pendingDescribes = [];
+		let describeCount = 0;
+		const describeFirstAtOnce = () =>
+		{
+			describeCount += 1;
+			if(describeCount === 1)
+			{
+				return MOCK_ANALYSIS_MIXED;
+			}
+			const pending = deferredAnswer();
+			pendingDescribes.push(pending);
+			return pending.promise;
+		};
+		answerWith(new Map([
+			[
+				describeFields,
+				describeFirstAtOnce
+			]
+		]));
+		const element = createElement('c-data-masking-advisor', {is: DataMaskingAdvisor});
+		document.body.appendChild(element);
+		await flush();
+		await flush();
+		await selectObject(element, 'Account');
+
+		element.shadowRoot.querySelector('[data-testid="refresh-button"]').click();
+		// One macrotask lets the refresh finish its org-wide reads and reach the describe that waits.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(pendingDescribes).toHaveLength(1);
+
+		await selectObject(element, 'Contact');
+		expect(pendingDescribes).toHaveLength(2);
+
+		pendingDescribes[0].resolve(MOCK_ANALYSIS_MIXED);
+		await flush();
+		await flush();
+		expect(element.shadowRoot.querySelector('lightning-spinner')).not.toBeNull();
+
+		pendingDescribes[1].resolve(MOCK_ANALYSIS_MINIMAL);
+		await flush();
+		await flush();
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
+		expect(rowByApi(element, 'Bare__c')).toBeDefined();
+		expect(rowByApi(element, 'SSN__c')).toBeUndefined();
+	});
+
+	it('turns the spinner off when the admin goes back to the landing while a refresh runs', async() =>
+	{
+		const slowRefresh = deferredAnswer();
+		let describeCount = 0;
+		const describeSecondSlowly = () =>
+		{
+			describeCount += 1;
+			return describeCount === 1 ? MOCK_ANALYSIS_MIXED : slowRefresh.promise;
+		};
+		answerWith(new Map([
+			[
+				describeFields,
+				describeSecondSlowly
+			]
+		]));
+		const element = createElement('c-data-masking-advisor', {is: DataMaskingAdvisor});
+		document.body.appendChild(element);
+		await flush();
+		await flush();
+		await selectObject(element, 'Account');
+
+		element.shadowRoot.querySelector('[data-testid="refresh-button"]').click();
+		// One macrotask lets the refresh finish its org-wide reads and reach the describe that waits.
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(describeCount).toBe(2);
+		element.shadowRoot.querySelector('[data-testid="back-to-all-objects"]').click();
+		await flush();
+		expect(element.shadowRoot.querySelector('lightning-spinner')).not.toBeNull();
+
+		slowRefresh.resolve(MOCK_ANALYSIS_MIXED);
+		await flush();
+		await flush();
+		expect(element.shadowRoot.querySelector('lightning-spinner')).toBeNull();
+		expect(element.shadowRoot.querySelector('[data-testid="posture-summary"]')).not.toBeNull();
+	});
+});
+
+describe('c-data-masking-advisor: a pick from the scan, then another pick before it loads', () =>
+{
+	afterEach(cleanup);
+
+	it('does not mark a later object as coming from the scan when the scan pick answers last', async() =>
+	{
+		const slowFeedback = deferredAnswer();
+		const describeSlowFeedback = (params) => (params.objectApiName === 'CustomerFeedback__c' ? slowFeedback.promise : MOCK_ANALYSIS_MINIMAL);
+		answerWith(new Map([
+			[
+				describeFields,
+				describeSlowFeedback
+			]
+		]), {objects: MOCK_SCAN_OBJECTS});
+		const element = createElement('c-data-masking-advisor', {is: DataMaskingAdvisor});
+		document.body.appendChild(element);
+		await flush();
+		await flush();
+		await runScan(element);
+		coverageRows(element).find((row) => row.dataset.apiName === 'CustomerFeedback__c').click();
+		await flush();
+		await selectObject(element, 'Account');
+		slowFeedback.resolve(MOCK_ANALYSIS_MIXED);
+		await flush();
+		await flush();
+		expect(rowByApi(element, 'Bare__c')).toBeDefined();
+		expect(element.shadowRoot.querySelector('[data-testid="coverage-provenance"]')).toBeNull();
 	});
 });
 
@@ -1469,7 +1845,146 @@ describe('c-data-masking-advisor — configuration-health banner', () =>
 		expect(element.shadowRoot.querySelector('[data-testid="health-object-wide-detail"]')).toBeNull();
 		expect(element.shadowRoot.querySelectorAll('[data-testid="health-dead-detail"]')).toHaveLength(1);
 	});
+
+	it('does NOT count an object-wide target switched off together with its rule, while the banner still shows the pair unticked and superseded', async() =>
+	{
+		const element = await createAdvisor({analysis: MOCK_ANALYSIS_RULE_AND_TARGET_OFF_TOGETHER});
+		await selectMixed(element);
+		expect(element.shadowRoot.querySelector('[data-testid="health-banner"]')).toBeNull();
+
+		expandObjectWideBanner(element);
+		await flush();
+		const chip = objectWideChip(element, 'Mask_Card');
+		expect(chip).not.toBeNull();
+		expect(chip.dataset.desired).toBe('false');
+		expect(chip.querySelector('[data-testid="chip-superseded-flag"]')).not.toBeNull();
+	});
+
+	it('still counts an object-wide target switched off on its own while its rule is on', async() =>
+	{
+		const element = await createAdvisor({analysis: MOCK_ANALYSIS_ONE_TARGET_OFF_BESIDE_PAIR_OFF});
+		await selectMixed(element);
+		expect(textOf(element, 'health-banner-heading')).toContain('1 object-wide rule inactive');
+		expect(textOf(element, 'health-banner-heading')).not.toContain('2 object-wide rules inactive');
+		element.shadowRoot.querySelector('[data-testid="health-banner-toggle"]').click();
+		await flush();
+		expect(textOf(element, 'health-object-wide-detail')).toContain('1 object-wide rule is configured');
+
+		// Both inactive targets stay in the object-wide banner as unticked chips.
+		expandObjectWideBanner(element);
+		await flush();
+		expect(objectWideChip(element, 'Mask_Card')).not.toBeNull();
+		expect(objectWideChip(element, 'Mask_Secret')).not.toBeNull();
+	});
+
+	it('counts an object-wide target that is on while its rule is off, with a detail line', async() =>
+	{
+		const element = await createAdvisor({analysis: MOCK_ANALYSIS_OBJECT_WIDE_TARGET_ON_RULE_OFF});
+		await selectMixed(element);
+		expect(textOf(element, 'health-banner-heading')).toContain('1 target whose rule is off');
+		element.shadowRoot.querySelector('[data-testid="health-banner-toggle"]').click();
+		await flush();
+		expect(textOf(element, 'health-rule-off-object-wide-detail')).toBe('1 object-wide target is on, but its rule is off, so it masks nothing.');
+		expect(element.shadowRoot.querySelector('[data-testid="health-rule-off-detail"]')).toBeNull();
+
+		// The object-wide banner heading reads the target's own switch only, so it still counts this target as an
+		// active rule. The health banner above is where the rule being off shows.
+		expect(textOf(element, 'object-wide-banner-heading')).toBe('Account is masked object-wide by 1 active rule');
+	});
+
+	it('counts a field target that is on while its rule is off, naming the rule and the field', async() =>
+	{
+		const element = await createAdvisor({analysis: MOCK_ANALYSIS_FIELD_TARGET_ON_RULE_OFF});
+		await selectMixed(element);
+		const heading = textOf(element, 'health-banner-heading');
+		expect(heading).toContain('1 target whose rule is off');
+		expect(heading).not.toContain('masking nothing');
+		element.shadowRoot.querySelector('[data-testid="health-banner-toggle"]').click();
+		await flush();
+		expect(element.shadowRoot.querySelector('[data-testid="health-rule-off-object-wide-detail"]')).toBeNull();
+		const details = element.shadowRoot.querySelectorAll('[data-testid="health-rule-off-detail"]');
+		expect(details).toHaveLength(1);
+		expect(details[0].textContent).toBe('The field-level target for rule Mask SSN on SSN is on, but that rule is off, so it masks nothing.');
+	});
+
+	it('adds an object-wide and a field target whose rule is off into one plural count', async() =>
+	{
+		const element = await createAdvisor({analysis: MOCK_ANALYSIS_BOTH_TARGETS_ON_RULE_OFF});
+		await selectMixed(element);
+		expect(textOf(element, 'health-banner-heading')).toContain('2 targets whose rule is off');
+		element.shadowRoot.querySelector('[data-testid="health-banner-toggle"]').click();
+		await flush();
+		expect(textOf(element, 'health-rule-off-object-wide-detail')).toBe('1 object-wide target is on, but its rule is off, so it masks nothing.');
+		expect(element.shadowRoot.querySelectorAll('[data-testid="health-rule-off-detail"]')).toHaveLength(1);
+	});
+
+	it('uses the plural object-wide line when several object-wide targets are on while their rule is off', async() =>
+	{
+		const secondTarget = {...OBJECT_WIDE_TARGET_ON_RULE_OFF, targetDeveloperName: 'OW_Card', ruleDeveloperName: 'Mask_Card', ruleLabel: 'Mask Credit Card'};
+		const element = await createAdvisor({
+			analysis: {
+				...MOCK_ANALYSIS_OBJECT_WIDE_TARGET_ON_RULE_OFF, objectWideRules: [
+					OBJECT_WIDE_TARGET_ON_RULE_OFF,
+					secondTarget
+				]
+			}
+		});
+		await selectMixed(element);
+		expect(textOf(element, 'health-banner-heading')).toContain('2 targets whose rule is off');
+		element.shadowRoot.querySelector('[data-testid="health-banner-toggle"]').click();
+		await flush();
+		expect(textOf(element, 'health-rule-off-object-wide-detail')).toBe('2 object-wide targets are on, but their rule is off, so they mask nothing.');
+	});
+
+	it('does NOT count a target switched off together with its rule as a target whose rule is off', async() =>
+	{
+		const element = await createAdvisor({analysis: MOCK_ANALYSIS_TARGETS_AND_RULES_OFF_TOGETHER});
+		await selectMixed(element);
+		const heading = textOf(element, 'health-banner-heading');
+		expect(heading).toContain('1 field target masking nothing');
+		expect(heading).not.toContain('whose rule is off');
+		element.shadowRoot.querySelector('[data-testid="health-banner-toggle"]').click();
+		await flush();
+		expect(element.shadowRoot.querySelector('[data-testid="health-rule-off-object-wide-detail"]')).toBeNull();
+		expect(element.shadowRoot.querySelector('[data-testid="health-rule-off-detail"]')).toBeNull();
+	});
 });
+
+// The longest developer name a custom metadata record may have.
+const MAX_DEVELOPER_NAME_LENGTH = 40;
+
+// A field the advisor recommends masking with Mask_SSN, so its candidate is ticked and exports as a new target.
+function ssnCandidate(apiName, overrides = {})
+{
+	return field({
+		apiName,
+		label: apiName,
+		type: 'STRING',
+		isClassified: true,
+		recommendedRuleDeveloperName: 'Mask_SSN',
+		recommendedRuleLabel: 'Mask SSN',
+		recommendedRuleIsActive: true,
+		sensitivityLevel: 'Sensitive',
+		matchStrength: 'Strong', ...overrides
+	});
+}
+
+// Opens Account with the given analysis, presses Export, and returns the targets sent to the controller.
+async function exportedTargets(analysis)
+{
+	const captured = [];
+	const element = await createAdvisor({
+		analysis, generate: (params) =>
+		{
+			captured.push(JSON.parse(params.requestJson));
+			return STUB_BUNDLE;
+		}
+	});
+	await selectMixed(element);
+	element.shadowRoot.querySelector('[data-testid="export-package-button"]').click();
+	await flush();
+	return captured[0].targets;
+}
 
 describe('c-data-masking-advisor — export package (diff)', () =>
 {
@@ -1509,6 +2024,47 @@ describe('c-data-masking-advisor — export package (diff)', () =>
 		expect(create.isActive).toBe(true);
 		expect(create.field).toBe('SSN__c');
 		expect(create.developerName).toBe('Mask_Account_SSN_Mask_SSN');
+	});
+
+	// acme__Phone__c (a field from the acme namespace) and acme_Phone__c (a local field) both reduce to acme_Phone.
+	// SSN__c shares its name with nothing.
+	it('gives two new targets different names when their fields reduce to the same name part', async() =>
+	{
+		const targets = await exportedTargets({
+			classificationAvailable: true, newRuleSetupUrl: NEW_RULE_SETUP_URL, rules: MOCK_RULE_CATALOGUE, objectWideRules: [], fields: [
+				ssnCandidate('acme__Phone__c'),
+				ssnCandidate('acme_Phone__c'),
+				ssnCandidate('SSN__c')
+			]
+		});
+		const names = targets.map((target) => target.developerName);
+		expect(targets.map((target) => target.field)).toEqual([
+			'acme__Phone__c',
+			'acme_Phone__c',
+			'SSN__c'
+		]);
+		expect(new Set(names).size).toBe(3);
+		names.forEach((name) =>
+		{
+			expect(name.length).toBeLessThanOrEqual(MAX_DEVELOPER_NAME_LENGTH);
+			expect(name).toMatch(/^[A-Za-z][A-Za-z0-9]*(_[A-Za-z0-9]+)*$/);
+		});
+		expect(targets.find((target) => target.field === 'SSN__c').developerName).toBe('Mask_Account_SSN_Mask_SSN');
+	});
+
+	it('gives a new target a different name when its usual name belongs to a target that already exists', async() =>
+	{
+		const existingTarget = {targetDeveloperName: 'Mask_Account_acme_Tax_Mask_SSN', ruleDeveloperName: 'Mask_SSN', ruleLabel: 'Mask SSN', isActive: true, callerClass: ''};
+		const targets = await exportedTargets({
+			classificationAvailable: true, newRuleSetupUrl: NEW_RULE_SETUP_URL, rules: MOCK_RULE_CATALOGUE, objectWideRules: [], fields: [
+				ssnCandidate('acme__Tax__c', {appliedRules: [existingTarget]}),
+				ssnCandidate('acme_Tax__c')
+			]
+		});
+		expect(targets).toHaveLength(1);
+		expect(targets[0].field).toBe('acme_Tax__c');
+		expect(targets[0].developerName).not.toBe('Mask_Account_acme_Tax_Mask_SSN');
+		expect(targets[0].developerName).toMatch(/^Mask_Account_acme_Tax_Mask_SSN_[a-z0-9]+$/);
 	});
 
 	it('emits a disable decision carrying the existing developer name + caller class when an active chip is unticked', async() =>
@@ -1831,13 +2387,32 @@ describe('c-data-masking-advisor — reclassify override + revert', () =>
 	it('promotes a Ready row (with a recommendation) and keeps it Ready with an "added manually" marker', async() =>
 	{
 		mockMaskingReviewDialogOpen.mockResolvedValue({level: 'Sensitive'});
+		const element = await createAdvisor({analysis: MOCK_ANALYSIS_DORMANT});
+		await selectMixed(element);
+		// Gap__c is Possibly sensitive with a recommended rule, so Sensitive is a real change of level.
+		rowByApi(element, 'Gap__c').querySelector('[data-testid="sensitivity-badge"]').click();
+		await flush();
+		const row = rowByApi(element, 'Gap__c');
+		expect(row.dataset.testid).toBe('field-row');
+		expect(row.querySelector('[data-testid="override-marker"]').textContent).toContain('Added manually');
+		expect(mockShowSuccessToast).toHaveBeenCalledWith('Gap added to the masking package.');
+	});
+
+	it('changes nothing and shows no message when Apply keeps the level the field already has', async() =>
+	{
+		mockMaskingReviewDialogOpen.mockResolvedValue({level: 'Sensitive'});
 		const element = await createAdvisor();
 		await selectMixed(element);
+		// Email is already Sensitive. The admin unticks its candidate, then applies Sensitive again.
+		toggleChip(fieldChip(element, 'Email', 'Mask_Generic'));
+		await flush();
 		rowByApi(element, 'Email').querySelector('[data-testid="sensitivity-badge"]').click();
 		await flush();
 		const row = rowByApi(element, 'Email');
 		expect(row.dataset.testid).toBe('field-row');
-		expect(row.querySelector('[data-testid="override-marker"]').textContent).toContain('Added manually');
+		expect(row.querySelector('[data-testid="override-marker"]')).toBeNull();
+		expect(fieldChip(element, 'Email', 'Mask_Generic').dataset.desired).toBe('false');
+		expect(mockShowSuccessToast).not.toHaveBeenCalled();
 	});
 });
 
@@ -2277,12 +2852,11 @@ describe('c-data-masking-advisor — supersession annotations', () =>
 	{
 		// The controller annotates the catalogue option AND the applied rows from the same map — the
 		// fixture mirrors that. The chip reads its OWN applied row (never another namespace's catalogue twin).
+		const annotateApplied = (applied) => (applied.ruleDeveloperName === 'Mask_SSN' ? {...applied, supersededByLabel: SSN_ANNOTATION} : applied);
 		const analysis = {
 			...MOCK_ANALYSIS_MIXED,
 			rules: MOCK_RULE_CATALOGUE.map((rule) => (rule.developerName === 'Mask_SSN' ? {...rule, supersededByLabel: SSN_ANNOTATION} : rule)),
-			fields: MOCK_ANALYSIS_MIXED.fields.map((row) => (row.apiName === 'SSN__c' ? {
-				...row, appliedRules: row.appliedRules.map((applied) => (applied.ruleDeveloperName === 'Mask_SSN' ? {...applied, supersededByLabel: SSN_ANNOTATION} : applied))
-			} : row))
+			fields: MOCK_ANALYSIS_MIXED.fields.map((row) => (row.apiName === 'SSN__c' ? {...row, appliedRules: row.appliedRules.map(annotateApplied)} : row))
 		};
 		const element = await createAdvisor({analysis});
 		await selectMixed(element);

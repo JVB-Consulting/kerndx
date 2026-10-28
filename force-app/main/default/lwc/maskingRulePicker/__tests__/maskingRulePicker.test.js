@@ -12,7 +12,7 @@
  *              500-option scale check.
  *
  * @author Jason van Beukering
- * @date May 2026, June 2026
+ * @date May 2026, October 2026
  */
 import {createElement} from 'lwc';
 import MaskingRulePicker, {FILTER_DELAY} from 'c/maskingRulePicker';
@@ -627,6 +627,47 @@ describe('c-masking-rule-picker', () =>
 			await flush();
 
 			expect(input.getAttribute('aria-expanded')).toBe('false');
+			expect(optionsOf(element)).toHaveLength(3);
+		});
+	});
+
+	describe('a filter still waiting when the user chooses or closes', () =>
+	{
+		it('keeps the chosen rule in the input when the wait ends after a choice', async() =>
+		{
+			jest.useFakeTimers();
+			const element = createPicker();
+			await flush();
+			const input = comboboxOf(element);
+
+			input.value = 'cre';
+			input.dispatchEvent(new CustomEvent('input'));
+			await flush();
+			chooseOption(optionsOf(element)[1]);
+			await flush();
+
+			jest.advanceTimersByTime(FILTER_DELAY);
+			await flush();
+			expect(input.value).toBe('Mask Credit Card Numbers');
+			expect(optionsOf(element)).toHaveLength(3);
+		});
+
+		it('keeps the selected rule in the input when the wait ends after the menu closes', async() =>
+		{
+			jest.useFakeTimers();
+			const element = createPicker({value: 'MaskEmail'});
+			await flush();
+			const input = comboboxOf(element);
+
+			input.value = 'cre';
+			input.dispatchEvent(new CustomEvent('input'));
+			await flush();
+			element.shadowRoot.querySelector('.rulepick').dispatchEvent(new CustomEvent('focusout'));
+			await flush();
+
+			jest.advanceTimersByTime(FILTER_DELAY);
+			await flush();
+			expect(input.value).toBe('Mask Email Addresses');
 			expect(optionsOf(element)).toHaveLength(3);
 		});
 	});
