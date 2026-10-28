@@ -2,12 +2,13 @@
 /**
  * @description Datatable that supports custom row types. Extends `LightningDatatable`
  * and registers a set of built-in column types (richText, image, iconColumn,
- * progressColumn) on connect, merging any additional types passed via the `@api types`
- * property.
+ * progressColumn) when the module loads, and again on connect, merging any additional
+ * types passed via the `@api types` property. The merge reaches tables created later on the
+ * page, not the table that passed the types.
  *
  * @author Jason van Beukering
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 import LightningDatatable from 'lightning/datatable';
 import {api} from 'lwc';
@@ -46,7 +47,7 @@ class CustomRowType
 }
 
 /**
- * @description Built-in column types registered automatically when the component connects.
+ * @description Built-in column types registered automatically when the module loads and when a table connects.
  * @type {CustomRowType[]}
  */
 const BUILT_IN_COLUMN_TYPES = [
@@ -59,21 +60,42 @@ const BUILT_IN_COLUMN_TYPES = [
 	new CustomRowType('progressColumn', progressColumn, ['value'])
 ];
 
+/**
+ * @description Turns a list of column types into the map that `LightningDatatable` reads, keyed by type name.
+ * @param {CustomRowType[]} columnTypes - The column types to turn into map entries
+ * @returns {Object<string, {template: Object, typeAttributes: string[]}>} The column types keyed by name
+ */
+function toCustomTypeMap(columnTypes)
+{
+	return Object.fromEntries(columnTypes.map((columnType) => [
+		columnType.name,
+		{template: columnType.template, typeAttributes: columnType.typeAttributes ?? columnType.attributes}
+	]));
+}
+
 export default class CustomDataTable extends LightningDatatable
 {
 	//noinspection JSUnusedGlobalSymbols
-	static customTypes = {};
+	/**
+	 * @description The column types the table can show. The built-in types are added when the module loads,
+	 * because `LightningDatatable` reads this map when a table is created, before it is added to the page.
+	 */
+	static customTypes = toCustomTypeMap(BUILT_IN_COLUMN_TYPES);
 
 	/**
-	 * @description Additional custom row types supplied by the consumer. Merged with
-	 * built-in types during `connectedCallback`.
+	 * @description More column types from the component that uses this table. They are added to the shared
+	 * static `customTypes` map when the table connects. By then `LightningDatatable` has already copied that map
+	 * for this table, so these types reach tables created later on the page, not this one. To give a table its
+	 * own column types, extend this component with a subclass that declares its own static `customTypes`
+	 * (see `customDataTable` in `LWC - Guide.md`).
 	 * @type {CustomRowType[]}
 	 */
 	@api types = [];
 
 	/**
-	 * @description Registers both built-in and consumer-supplied column types into
-	 * the static `customTypes` map consumed by the LightningDatatable framework.
+	 * @description Adds the built-in column types and the types passed through `types` to the shared static
+	 * `customTypes` map. `LightningDatatable` copied that map when this table was created, before this runs,
+	 * so the change does not reach this table. It reaches only tables created later on the page.
 	 */
 	connectedCallback()
 	{
@@ -82,9 +104,6 @@ export default class CustomDataTable extends LightningDatatable
 			...this.types
 		];
 
-		Object.assign(CustomDataTable.customTypes, Object.fromEntries(allTypes.map((columnType) => [
-			columnType.name,
-			{template: columnType.template, typeAttributes: columnType.typeAttributes ?? columnType.attributes}
-		])));
+		Object.assign(CustomDataTable.customTypes, toCustomTypeMap(allTypes));
 	}
 }
