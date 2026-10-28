@@ -45,17 +45,39 @@ function countRuleHits(output, ruleName)
 	return lines.length;
 }
 
+// The CSV report's columns: Problem, Package, File, Priority, Line, Description, Rule set, Rule.
+function parseCsvRow(line)
+{
+	return line.slice(1, -1).split('","');
+}
+
+function ruleHitLines(output, ruleName)
+{
+	return output.split(/\r?\n/)
+		.filter(line => line.endsWith(`"${ruleName}"`))
+		.map(line => Number(parseCsvRow(line)[4]))
+		.sort((first, second) => first - second);
+}
+
+function ruleMessages(output, ruleName)
+{
+	return [...new Set(output.split(/\r?\n/)
+		.filter(line => line.endsWith(`"${ruleName}"`))
+		.map(line => parseCsvRow(line)[5]))];
+}
+
 const describeIfPmd = pmdAvailable() ? describe : describe.skip;
 
 describeIfPmd('kerndx-pmd-ruleset', () =>
 {
 	describe('KernNoCoverageTheatre', () =>
 	{
-		it('fires on the positive fixture (all four theatre patterns)', () =>
+		it('fires once per theatre pattern: empty catch, Boolean flag, no assertion, and Assert.isNotNull after build', () =>
 		{
 			const output = runPmd('KernNoCoverageTheatre-positive.cls');
-			const hits = countRuleHits(output, 'KernNoCoverageTheatre');
-			expect(hits).toBeGreaterThanOrEqual(4);
+			// Line 6 is the empty-catch method (no assertion either), 12 its empty catch, 20 the Boolean flag,
+			// 33 the method with no assertion and 43 the Assert.isNotNull right after TST_Builder.build().
+			expect(ruleHitLines(output, 'KernNoCoverageTheatre')).toEqual([6, 12, 20, 33, 43]);
 		});
 
 		it('is silent on the negative fixture', () =>
@@ -107,6 +129,14 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 		{
 			const output = runPmd('KernNoBooleanExceptionThrown-positive.cls');
 			expect(countRuleHits(output, 'KernNoBooleanExceptionThrown')).toBe(3);
+		});
+
+		it('prints the Assert.fail sample with its quotes', () =>
+		{
+			const output = runPmd('KernNoBooleanExceptionThrown-positive.cls');
+			expect(ruleMessages(output, 'KernNoBooleanExceptionThrown')).toEqual([
+				expect.stringContaining('Put Assert.fail(\'Should throw ...\') inside the try')
+			]);
 		});
 
 		it('is silent on Assert.fail + isInstanceOfType, a bare must-not-throw call, and locals reassigned inside the catch', () =>
@@ -243,6 +273,76 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 		});
 	});
 
+	// One positive fixture with every hit line listed, and one or more negative fixtures that must stay silent.
+	describe.each([
+		['KernNoInlineSOQL', [6, 7, 8, 9, 10, 11], ['negative']],
+		['KernNoDirectDML', [6, 7, 8, 9, 10, 11, 12, 13, 14], ['negative']],
+		['KernNoSystemDebug', [6, 7, 8], ['negative']],
+		['KernNoRawHttp', [6, 7, 8, 9, 10], ['negative']],
+		['KernUseSchedulerBase', [2, 9], ['negative']],
+		['KernNoRawSchedule', [6, 7], ['negative']],
+		['KernNoRawEventPublish', [6, 7], ['negative']],
+		['KernUseTestBuilder', [8, 9, 17], ['negative', 'negative-production']],
+		['KernNoRawCache', [6, 7, 8], ['negative']],
+		['KernNoRawDescribe', [6, 7, 8], ['negative']],
+		['KernNoRawTypeForName', [6, 7], ['negative']],
+		['KernNoRawEnqueueJob', [6, 7], ['negative']],
+		['KernNoRawEmail', [6, 7, 8, 9, 10], ['negative']],
+		['KernNoRawHttpMock', [5, 13], ['negative']],
+		['KernNoRawRestContext', [8, 9], ['negative']],
+		['KernNoRawFeatureManagement', [6, 7, 8, 9], ['negative']],
+		['KernNoRawCrypto', [6, 7, 8], ['negative']],
+		['KernJsonReadClassNeedsJsonAccess', [2, 7, 13, 19, 24, 30], ['negative']]
+	])('%s', (ruleName, expectedLines, negativeFixtures) =>
+	{
+		it(`fires on exactly lines ${expectedLines.join(', ')} of the positive fixture`, () =>
+		{
+			const output = runPmd(`${ruleName}-positive.cls`);
+			expect(ruleHitLines(output, ruleName)).toEqual(expectedLines);
+		});
+
+		it.each(negativeFixtures)('is silent on the %s fixture', (suffix) =>
+		{
+			const output = runPmd(`${ruleName}-${suffix}.cls`);
+			expect(countRuleHits(output, ruleName)).toBe(0);
+		});
+	});
+
+	describe('KernJsonReadClassNeedsJsonAccess through a base class in the same file', () =>
+	{
+		it('fires on each class that reaches the framework type through a local base, by simple or Outer.Name, up to three levels', () =>
+		{
+			const output = runPmd('KernJsonReadClassNeedsJsonAccess-positive-local-chain.cls');
+			expect(ruleHitLines(output, 'KernJsonReadClassNeedsJsonAccess')).toEqual([11, 23, 28, 40]);
+		});
+
+		it('is silent on annotated local chains, plain local chains, and a base of the same name in another namespace', () =>
+		{
+			const output = runPmd('KernJsonReadClassNeedsJsonAccess-negative-local-chain.cls');
+			expect(countRuleHits(output, 'KernJsonReadClassNeedsJsonAccess')).toBe(0);
+		});
+	});
+
+	describe('rule messages', () =>
+	{
+		// PMD formats each message with java.text.MessageFormat, which drops a lone single quote; the rulesets
+		// write each quote as two so the sample code in the message prints as written.
+		it.each([
+			['KernJsonReadClassNeedsJsonAccess-positive.cls', 'KernJsonReadClassNeedsJsonAccess', '@JsonAccess(serializable=\'always\' deserializable=\'always\')'],
+			['KernCoverageExemptRequiresReason-positive.cls', 'KernCoverageExemptRequiresReason', '@SuppressWarnings(\'PMD.KernNoCoverageTheatre\')'],
+			['KernSecurityBypassCallSite-positive.cls', 'KernSecurityBypassCallSite', '@SuppressWarnings(\'PMD.KernSecurityBypassCallSite\')']
+		])('%s prints %s with its quotes', (fixture, ruleName, sample) =>
+		{
+			const output = runPmd(fixture);
+			const messages = ruleMessages(output, ruleName);
+			expect(messages.length).toBeGreaterThan(0);
+			for(const message of messages)
+			{
+				expect(message).toContain(sample);
+			}
+		});
+	});
+
 	describe('subset tiers', () =>
 	{
 		const allRules = [...fs.readFileSync(RULESET, 'utf8').matchAll(/<rule name="(Kern[^"]+)"/g)].map((m) => m[1]);
@@ -289,6 +389,20 @@ describeIfPmd('kerndx-pmd-ruleset', () =>
 // ref land silently.
 describe('ruleset invariants (no pmd required)', () =>
 {
+	// A CI job that lacks pmd would otherwise report this whole suite green having run none of the rule cases.
+	it('has pmd on PATH whenever it runs in CI', () =>
+	{
+		const skippedInCi = Boolean(process.env.CI) && !pmdAvailable();
+		expect(skippedInCi).toBe(false);
+	});
+
+	// Every rule the full ruleset defines has a positive fixture, so a rule cannot ship with no case at all.
+	it.each([...fs.readFileSync(RULESET, 'utf8').matchAll(/<rule name="(Kern[^"]+)"/g)].map((match) => match[1]))('%s has a positive fixture', (ruleName) =>
+	{
+		const fixtures = fs.readdirSync(FIXTURES).filter((file) => file.startsWith(`${ruleName}-positive`));
+		expect(fixtures.length).toBeGreaterThan(0);
+	});
+
 	it.each(Object.keys(TIERS))('%s tier output is byte-identical to a fresh extraction from the full ruleset', (tierName) =>
 	{
 		const tier = TIERS[tierName];

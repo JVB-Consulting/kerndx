@@ -51,7 +51,7 @@ Think of the scanner as a spell-checker for your code, but one that knows your h
 
 ## Quick start
 
-If you just want a first scan running, start with the short walkthrough in **Fast Start - Code Scanning.md**. The three commands below run each checker once over `force-app`: the first checks your Apex (PMD, through Salesforce Code Analyzer v5), the second your LWC JavaScript (ESLint), and the third your Flow and Custom Object names (a Node script).
+If you just want a first scan running, start with the short walkthrough in [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md). The three commands below run each checker once over `force-app`: the first checks your Apex (PMD, through Salesforce Code Analyzer v5), the second your LWC JavaScript (ESLint), and the third your Flow and Custom Object names (a Node script).
 
 ```shell
 sf code-analyzer run --config-file code-analyzer.yml --target force-app/ --view detail
@@ -92,6 +92,7 @@ This guide is the full reference behind those commands: every rule, every way to
         - [KernRestResourceNaming](#kernrestresourcenaming)
         - [KernNoInlineDmlInTests](#kernnoinlinedmlintests)
         - [KernInvocableClassNeedsNoArgConstructor](#kerninvocableclassneedsnoargconstructor)
+        - [KernJsonReadClassNeedsJsonAccess](#kernjsonreadclassneedsjsonaccess)
     - [Priority 5 Informational](#priority-5-informational)
         - [KernNoLegacyAssert](#kernnolegacyassert)
         - [KernUseTestBuilder](#kernusetestbuilder)
@@ -194,7 +195,7 @@ Each of the three checkers reads a different kind of file, using the tool best s
 |  (Apex classes & triggers)       |     |  (LWC JavaScript)                |     |  (Flows & Custom Objects)        |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
 |  kerndx-pmd-ruleset.xml         |     |  eslint-plugin-kerndx/           |     |  validate-naming.js              |
-|  27 rules, PMD >= 7.19.0         |     |  7 ESLint rules                  |     |  Node.js script, org-specific    |
+|  28 rules, PMD >= 7.19.0         |     |  7 ESLint rules                  |     |  Node.js script, org-specific    |
 |  Framework anti-patterns         |     |  ComponentBuilder, console,      |     |  Flow & Custom Object naming     |
 |  Priority 1/3/5 tiers            |     |  component naming                |     |  Configurable domains/brands     |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
@@ -220,7 +221,7 @@ your `code-analyzer.yml`; leave it off everywhere else.
 
 | File                                | Scope                             | Purpose                                                                                                                                                                        |
 |-------------------------------------|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `kerndx-pmd-ruleset.xml`            | Any KernDX org                    | 27 KernDX-authored XPath rules enforcing framework anti-patterns (inline SOQL, direct DML, System.debug, coverage theatre, inline DML in tests, etc.)                                          |
+| `kerndx-pmd-ruleset.xml`            | Any KernDX org                    | 28 KernDX-authored XPath rules enforcing framework anti-patterns (inline SOQL, direct DML, System.debug, coverage theatre, inline DML in tests, etc.)                                          |
 | `kerndx-hygiene-ruleset.xml`        | Any Salesforce org (no framework needed) | Framework-agnostic tier: the six rules (test quality, security-bypass review, Flow-invocable constructors) that do not require the KernDX framework. `kerndx init` scaffolds this one when the repo does not use the framework. |
 | `subscriber-naming-pmd-ruleset.xml` | Your org (example)                | Apex class naming (`Domain_[Brand_]Layer_Name`), trigger naming (`TRG_ObjectName`), 40-char limit                                                                              |
 | `combined-pmd-ruleset.xml`          | Both (single-file reference)      | Includes both PMD rulesets via `<rule ref="..."/>`, for tools that accept only one ruleset file                                                                              |
@@ -231,7 +232,7 @@ your `code-analyzer.yml`; leave it off everywhere else.
 
 ## PMD Rule Reference
 
-This section is the lookup table for every Apex rule: what it flags, why, and what to write instead. All 27 PMD rules live in `scanner/kerndx-pmd-ruleset.xml`, and every one is KernDX-authored: under the hood each one is an XPath expression that scans the parsed form of your Apex (the abstract syntax tree, or AST) for a common risky mistake, targeting the PMD 7 engine. The rules are sorted into three priority tiers so you know which ones to fix first.
+This section is the lookup table for every Apex rule: what it flags, why, and what to write instead. All 28 PMD rules live in `scanner/kerndx-pmd-ruleset.xml`, and every one is KernDX-authored: under the hood each one is an XPath expression that scans the parsed form of your Apex (the abstract syntax tree, or AST) for a common risky mistake, targeting the PMD 7 engine. The rules are sorted into three priority tiers so you know which ones to fix first.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
 
@@ -356,23 +357,21 @@ private static void shouldSetDefaultIndustry()
 
 #### KernCoverageExemptRequiresReason
 
-Sometimes a line genuinely cannot be tested (for example, a platform restriction makes it impossible to reach). You mark such a line with a `// kern-coverage-exempt:` comment, which removes it from the coverage count. Because that lets a line escape the coverage gate, this rule insists the comment explain exactly why, citing a specific platform limitation. Empty, very short (under 15 characters), or hand-wavy reasons (`tricky`, `hard to test`, `TODO`, `FIXME`, `later`, `hack`, `XXX`) are blocked, so the escape hatch can't be used to quietly dodge a test you simply didn't write.
+Sometimes a test genuinely cannot check its result in a way `KernNoCoverageTheatre` recognises (for example, a platform restriction means the result cannot be read back), and you switch that rule off for the method with `@SuppressWarnings('PMD.KernNoCoverageTheatre')`. Because that silences a Priority 1 quality rule, this rule flags every such suppression so a reviewer looks at it. The scanner cannot read `//` comments, so it cannot judge your reason for you. The reviewer confirms two things. First, a comment just above the annotation explains why the exemption is legitimate, citing a specific platform limitation (not `tricky`, `hard to test`, `TODO`, `FIXME` or `hack`). Second, the suppression covers only the one method that needs it, not the whole class.
 
 ```apex
-// VIOLATION -- no reason
-// kern-coverage-exempt:
-throw new UnreachableException();
+// FLAGGED -- no explanation, so the reviewer rejects it
+@SuppressWarnings('PMD.KernNoCoverageTheatre')
+private static void shouldEmitEvent() { ... }
 
-// VIOLATION -- hand-wavy reason
-// kern-coverage-exempt: hard to test
-throw new UnreachableException();
-
-// CORRECT -- cites a specific platform limitation
-// kern-coverage-exempt: Apex cannot construct Database.QueryLocator directly; tested via live Batchable in IT harness
-throw new UnreachableException();
+// FLAGGED -- the reviewer accepts it, because the comment cites the platform limitation
+// Platform event delivery is async; Test.stopTest + CURRENT_RUN
+// query is the only verification available.
+@SuppressWarnings('PMD.KernNoCoverageTheatre')
+private static void shouldEmitPlatformEvent() { ... }
 ```
 
-The matching ESLint rule `kerndx/no-coverage-exempt-without-reason` enforces the same policy on LWC `// kern-coverage-exempt:` comments.
+The matching ESLint rule `kerndx/no-coverage-exempt-without-reason` covers LWC code, where comments can be read. In LWC you mark a line that genuinely cannot be tested with a `// kern-coverage-exempt:` comment, which removes it from the coverage count. The ESLint rule blocks that comment when its reason is empty, shorter than 15 characters, or a hand-wavy phrase (`tricky`, `hard to test`, `TODO`, `FIXME`, `later`, `hack`, `XXX`), so it cannot be used to quietly dodge a test you simply didn't write.
 
 ### Priority 3 Should Fix
 
@@ -461,14 +460,14 @@ global inherited sharing class SCHED_MyJob extends SCHED_Base
 
 #### KernNoRawSchedule
 
-**You want to:** start a scheduled job through the framework so it can be monitored and configured. A direct `System.schedule()` call sidesteps that. Use `SCHED_Base` together with `ScheduledJob__c` custom metadata records instead: scheduling is then driven by configuration, supports monitoring, and lets you pass parameters without touching code.
+**You want to:** start a scheduled job through the framework so it can be monitored and configured. A direct `System.schedule()` call sidesteps that. Use `SCHED_Base` together with `ScheduledJob__c` records (a custom object) instead: scheduling is then driven by configuration, supports monitoring, and lets you pass parameters without touching code.
 
 ```apex
 // VIOLATION
 System.schedule('Nightly Sync', '0 0 0 * * ?', new MyScheduledJob());
 
-// CORRECT -- configure via ScheduledJob__c metadata record
-// The framework handles scheduling based on metadata configuration
+// CORRECT -- configure via a ScheduledJob__c record
+// The framework handles scheduling based on that record
 ```
 
 #### KernNoRawEventPublish
@@ -630,6 +629,32 @@ public class Request
    {
       this.recordId = recordId;
    }
+}
+```
+
+#### KernJsonReadClassNeedsJsonAccess
+
+**You want to:** see your own data in the framework's messages and formulas, not blanks. The framework can read your DTOs (data transfer objects: small classes that carry fields and convert to and from JSON) and your formula evaluation contexts by turning them into JSON from inside its own namespace. Salesforce allows that only when your class says so with `@JsonAccess`. Without it, the conversion fails quietly: merge fields that read the class can come back blank, and nothing reports an error. This rule catches the missing annotation before it ships.
+
+It flags a class, inner classes included, that:
+
+- extends `kern.DTO_JsonBase` without `@JsonAccess(serializable='always' deserializable='always')`;
+- implements `kern.UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext` without `@JsonAccess(serializable='always')`.
+
+Each inner class needs its own annotation. The rule also checks a class that reaches either type through a base class of yours in the same file, up to three levels down. It reads one file at a time, so it cannot follow a base class that lives in another file: annotate those subclasses as well.
+
+```apex
+// VIOLATION -- the framework reads this class as empty
+public with sharing class DTO_Order extends kern.DTO_JsonBase
+{
+   public String orderNumber;
+}
+
+// CORRECT
+@JsonAccess(serializable='always' deserializable='always')
+public with sharing class DTO_Order extends kern.DTO_JsonBase
+{
+   public String orderNumber;
 }
 ```
 
@@ -800,7 +825,7 @@ catch(Exception error)
 
 #### KernSecurityBypassCallSite
 
-Sometimes you have a legitimate reason to turn a safety check off on purpose. KernDX supports that with a small set of deliberate opt-outs: on `QRY_Builder` and `DML_Builder`, `withSystemMode()` (run with object and field permission checks skipped, instead of with the current user's permissions enforced; record sharing is unaffected and keeps following the calling class), `bypassSharing()`, and `withoutSecurity()`; on `UTIL_ValidationRule`, `bypassObject()`, `bypassGroup()`, and `bypassRule()`; and on `TRG_Base`, `bypassAction()`. Each is a valid, supported call. Each is also a spot where the framework's default protections are deliberately switched off, so a reviewer should be able to see every one of them.
+Sometimes you have a legitimate reason to turn a safety check off on purpose. KernDX supports that with a small set of deliberate opt-outs: on `QRY_Builder` and `DML_Builder`, `withSystemMode()` (run with object and field permission checks skipped, instead of with the current user's permissions enforced; record sharing is unaffected and keeps following the calling class) and `bypassSharing()`; on `QRY_Builder` only, `withoutSecurity()`; on `UTIL_ValidationRule`, `bypassObject()`, `bypassGroup()`, and `bypassRule()`; and on `TRG_Base`, `bypassAction()`. Each is a valid, supported call. Each is also a spot where the framework's default protections are deliberately switched off, so a reviewer should be able to see every one of them.
 
 This rule is an **inventory, not a violation**. It flags each opt-out call site so that a pull request adding a *new* one shows up in review. To acknowledge an expected one, add `@SuppressWarnings('PMD.KernSecurityBypassCallSite')` or an inline `// NOPMD` comment with the reason. That suppression comment becomes the permanent, reviewable record that the opt-out was intended.
 
@@ -812,14 +837,14 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 ### PMD Rule Summary Table
 
 <details>
-<summary>All 27 PMD rules that can fire on your code, at a glance: what each detects, what to use instead, and its priority</summary>
+<summary>All 28 PMD rules that can fire on your code, at a glance: what each detects, what to use instead, and its priority</summary>
 
 | Rule                               | Detects                                                                                         | Use Instead                                                     | Priority |
 |------------------------------------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|----------|
 | `KernTriggerMustDelegate`          | Logic in trigger body, or no dispatcher call at all                                             | `new TRG_Dispatcher().run()`                                    | 1        |
 | `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()`                                                              | Selector or [QRY_Builder](reference/apex/QRY_Builder.md)        | 1        |
 | `KernNoCoverageTheatre`            | Assertion-less tests, empty catches, `Boolean exceptionThrown`, tautological `Assert.isNotNull` | Assert on observable behaviour                                  | 1        |
-| `KernCoverageExemptRequiresReason` | Empty, short, or hand-wavy `// kern-coverage-exempt:` reasons                                   | Cite a specific platform limitation                             | 1        |
+| `KernCoverageExemptRequiresReason` | Every `@SuppressWarnings('PMD.KernNoCoverageTheatre')`, flagged for review                      | A comment above it citing a specific platform limitation        | 1        |
 | `KernNoDirectDML`                  | `insert`/`update`/`delete`, `Database.*` DML                                                    | [DML_Builder](reference/apex/DML_Builder.md)                    | 3        |
 | `KernNoSystemDebug`                | `System.debug()`                                                                                | [LOG_Builder](reference/apex/LOG_Builder.md)                    | 3        |
 | `KernNoRawHttp`                    | `new HttpRequest()`, `new Http()`                                                               | [UTIL_HttpClient](reference/apex/UTIL_HttpClient.md)            | 3        |
@@ -832,6 +857,7 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 | `KernRestResourceNaming`           | `@RestResource` on non-`REST_*` class                                                           | `REST_*` + `API_Dispatcher`                                     | 3        |
 | `KernNoInlineDmlInTests`           | Raw `insert`/`update`/`delete` inside `@IsTest` classes                                         | `TST_Builder` or `DML_Builder`                                  | 3        |
 | `KernInvocableClassNeedsNoArgConstructor` | `@InvocableVariable` classes without a visible no-arg constructor                        | An explicit public no-arg constructor                           | 3        |
+| `KernJsonReadClassNeedsJsonAccess` | A `kern.DTO_JsonBase` subclass or formula evaluation context without `@JsonAccess`              | `@JsonAccess(serializable='always' deserializable='always')` (DTO) or `@JsonAccess(serializable='always')` (context) | 3        |
 | `KernNoLegacyAssert`               | `System.assert*()`                                                                              | `Assert.*`                                                      | 5        |
 | `KernUseTestBuilder`               | `new Account(Name = ...)` in tests                                                              | `TST_Builder`                                                   | 5        |
 | `KernNoRawCache`                   | `Cache.Org.*`, `Cache.Session.*`                                                                | `UTIL_Cache`                                                    | 5        |
@@ -878,11 +904,12 @@ export default class MyComponent extends Base
 
 // CORRECT
 import {ComponentBuilder} from 'kern/componentBuilder';
+import saveAccount from '@salesforce/apex/AccountController.saveAccount';
 export default class MyComponent extends ComponentBuilder('notification', 'controller')
 {
    async handleSave()
    {
-      await this.callControllerMethod('saveAccount', {account: this.account});
+      await this.callControllerMethod(saveAccount, {account: this.account});
       this.showSuccessToast('Saved');
    }
 }
@@ -973,7 +1000,7 @@ Worth knowing before you turn the rule on: with no options at all it reports not
 
 ### kerndx/no-coverage-exempt-without-reason
 
-This is the JavaScript version of the PMD `KernCoverageExemptRequiresReason` rule, applying the same policy to LWC. A `// kern-coverage-exempt:` comment removes a line from the coverage count, so the comment must say exactly why, citing a specific platform limitation. Empty, very short (under 15 characters), or hand-wavy reasons are blocked.
+This is the JavaScript companion of the PMD `KernCoverageExemptRequiresReason` rule. Unlike PMD, ESLint can read comments, so it checks the reason itself. A `// kern-coverage-exempt:` comment removes a line from the coverage count, so the comment must say exactly why, citing a specific platform limitation. Empty, very short (under 15 characters), or hand-wavy reasons are blocked.
 
 **What the rule detects:**
 
@@ -1342,7 +1369,7 @@ console.error('Integration error');
 
 The naming validator has no inline suppression comment. You handle exceptions one of three ways instead:
 
-1. **Widen the rules.** Edit the configuration arrays in `validate-naming.js` to accept more patterns.
+1. **Widen the rules.** Add the extra values to the `naming` block of your `.kerndx/config.yml` (see [How do I adapt it to my org?](#how-do-i-adapt-it-to-my-org)); nothing in `scanner/` needs editing.
 2. **Skip a path.** Change the script's directory-walking logic to exclude specific paths.
 3. **Filter the output.** In CI, pipe the output through a `grep` exclusion for known exceptions.
 
@@ -1578,7 +1605,7 @@ Turn on the Priority 1 rules first: `KernTriggerMustDelegate`, `KernNoInlineSOQL
 - Refactor existing triggers to use `TRG_Dispatcher`.
 - Move inline SOQL into selectors or `QRY_Builder`.
 - Add real assertions to any test flagged as coverage-theatre. Replace empty catches and `Boolean exceptionThrown` patterns with `Assert.fail` plus `Assert.isInstanceOfType`.
-- Review every `// kern-coverage-exempt:` comment, and rewrite any hand-wavy reason to cite a specific platform limitation.
+- Review every `@SuppressWarnings('PMD.KernNoCoverageTheatre')` (Apex) and every `// kern-coverage-exempt:` comment (LWC), and rewrite any hand-wavy reason to cite a specific platform limitation.
 
 **Expected effort:** High for initial migration (trigger refactoring), low ongoing.
 
@@ -1594,9 +1621,9 @@ Once the blockers are clear, add the Priority 3 rules and start moving raw platf
 | `System.debug()`             | `LOG_Builder.build()...emitAt()`           | [Logging - Guide](Logging%20-%20Guide.md)                     |
 | `new HttpRequest()`          | `UTIL_HttpClient.post()`                   | [Web Services - Guide](Web%20Services%20-%20Guide.md)         |
 | `implements Schedulable`     | `extends SCHED_Base`                       | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) |
-| `System.schedule()`          | `ScheduledJob__c` metadata                 | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) |
+| `System.schedule()`          | `ScheduledJob__c` records                  | [Async Processing - Guide](Async%20Processing%20-%20Guide.md) |
 | `EventBus.publish()`         | `LOG_Builder` / framework events           | [Logging - Guide](Logging%20-%20Guide.md)                     |
-| `implements HttpCalloutMock` | `API_MockFactory`                          | [E2E Testing - Guide](E2E%20Testing%20-%20Guide.md)           |
+| `implements HttpCalloutMock` | `API_MockFactory`                          | [Web Services - Guide](Web%20Services%20-%20Guide.md#mock-mode-and-api_mockfactory) |
 | `RestContext.request`        | `API_Inbound` properties                   | [Web Services - Guide](Web%20Services%20-%20Guide.md)         |
 | `Messaging.sendEmail()`      | `UTIL_Email`                               | [Utilities - Guide](Utilities%20-%20Guide.md)                 |
 
@@ -1654,7 +1681,7 @@ net.sourceforge.pmd.lang.rule.xpath.XPathRule
 
 | Document                                                      | Description                                                    |
 |---------------------------------------------------------------|----------------------------------------------------------------|
-| **Fast Start - Code Scanning.md**                             | Quick-start walkthrough for first scan setup                   |
+| [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md) | Quick-start walkthrough for first scan setup                   |
 | [Triggers - Guide](Triggers%20-%20Guide.md)                   | Trigger framework and `TRG_Dispatcher` patterns                |
 | [Selectors - Guide](Selectors%20-%20Guide.md)                 | `SEL_*` selectors and `QRY_Builder` usage                      |
 | [DML - Guide](DML%20-%20Guide.md)                             | `DML_Builder` transactional DML patterns                       |

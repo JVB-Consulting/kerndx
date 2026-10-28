@@ -223,9 +223,12 @@
          <property name="xpath">
             <value>
 <![CDATA[
-//NewObjectExpression[@Type = 'HttpRequest']
-|
-//NewObjectExpression[@Type = 'Http']
+//NewObjectExpression[
+   lower-case(@Type) = 'httprequest'
+   or lower-case(@Type) = 'system.httprequest'
+   or lower-case(@Type) = 'http'
+   or lower-case(@Type) = 'system.http'
+]
 |
 //MethodCallExpression[
    lower-case(@FullMethodName) = 'webservicecallout.invoke'
@@ -532,7 +535,10 @@
          <property name="xpath">
             <value>
 <![CDATA[
-//NewObjectExpression[@Type = 'SingleEmailMessage']
+//NewObjectExpression[
+   lower-case(@Type) = 'singleemailmessage'
+   or lower-case(@Type) = 'messaging.singleemailmessage'
+]
 |
 //MethodCallExpression[
    lower-case(@FullMethodName) = 'messaging.sendemail'
@@ -854,13 +860,15 @@
    ]
 |
 (: Pattern 4 — Assert.isNotNull(var) where var was declared from :)
-(: (SObject)TST_Builder.of(...).build() in the preceding statement. :)
+(: (SObject)TST_Builder.of(...).build() in the preceding statement. The :)
+(: sibling step runs from the ExpressionStatement, not the call inside it, :)
+(: which has no siblings. :)
 //Method[ModifierNode/Annotation[lower-case(@Name) = 'istest']]
    //ExpressionStatement[
       MethodCallExpression[
-         @FullMethodName = 'Assert.isNotNull'
+         lower-case(@FullMethodName) = 'assert.isnotnull'
          and VariableExpression[1]/@Image =
-            preceding-sibling::VariableDeclarationStatements[1]
+            ../preceding-sibling::*[1][self::VariableDeclarationStatements]
                /VariableDeclaration[
                   .//MethodCallExpression[@MethodName = 'build']
                   and .//ReferenceExpression[@Image = 'TST_Builder']
@@ -889,7 +897,7 @@
         ================================================================ -->
    <rule name="KernCoverageExemptRequiresReason"
          language="apex"
-         message="@SuppressWarnings('PMD.KernNoCoverageTheatre') blocks a priority-1 quality rule. Add a comment above the annotation explaining why the exemption is legitimate, and narrow the suppression to the specific method."
+         message="@SuppressWarnings(''PMD.KernNoCoverageTheatre'') blocks a priority-1 quality rule. Add a comment above the annotation explaining why the exemption is legitimate, and narrow the suppression to the specific method."
          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
       <description>
          Coverage-theatre suppressions are high-impact and must be
@@ -1033,7 +1041,7 @@
         ================================================================ -->
    <rule name="KernNoBooleanExceptionThrown"
          language="apex"
-         message="A test must not rely on a variable set inside catch to detect that an exception was thrown (Boolean flag, captured Exception, Assert.isNull/isNotNull on it). Put Assert.fail('Should throw ...') inside the try after the call and assert the type inside the catch with Assert.isInstanceOfType(error, ExceptionClass.class, ...)."
+         message="A test must not rely on a variable set inside catch to detect that an exception was thrown (Boolean flag, captured Exception, Assert.isNull/isNotNull on it). Put Assert.fail(''Should throw ...'') inside the try after the call and assert the type inside the catch with Assert.isInstanceOfType(error, ExceptionClass.class, ...)."
          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
       <description>
          The exception-sentinel family is forbidden by docs/Code Conventions - Guide.md
@@ -1103,7 +1111,7 @@
         ================================================================ -->
    <rule name="KernSecurityBypassCallSite"
          language="apex"
-         message="Security bypass call site — confirm this is intentional and reviewed. Acknowledge with @SuppressWarnings('PMD.KernSecurityBypassCallSite') or // NOPMD with a reason."
+         message="Security bypass call site — confirm this is intentional and reviewed. Acknowledge with @SuppressWarnings(''PMD.KernSecurityBypassCallSite'') or // NOPMD with a reason."
          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
       <description>
          Flags KernDX security-bypass call sites: QRY_Builder/DML_Builder
@@ -1175,6 +1183,99 @@
       and @Arity = 0
       and ModifierNode[@Public = true() or @Global = true()]
    ])
+]
+]]>
+            </value>
+         </property>
+      </properties>
+   </rule>
+
+   <!-- ================================================================
+        KERN-JSONACCESS: KernJsonReadClassNeedsJsonAccess (Priority 3 —
+        Should Fix)
+        A class the framework can read through JSON.serialize from its
+        own namespace must allow it with @JsonAccess, or the
+        cross-namespace serialize throws and merge fields that read it
+        can come back blank, with no error (proven for validation-rule
+        context classes, backlog 1.10 row 143). Flags a class, inner
+        classes included, that extends a namespace-qualified
+        DTO_JsonBase (kern.DTO_JsonBase) without
+        @JsonAccess(serializable='always' deserializable='always'), or
+        implements a namespace-qualified
+        UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext without
+        serializable='always', directly or through a base class in the
+        same file (three levels). Only the qualified forms match: the
+        framework's own classes name both unqualified and share the
+        package namespace, so they need no annotation and never fire.
+        ================================================================ -->
+   <rule name="KernJsonReadClassNeedsJsonAccess"
+         language="apex"
+         message="Class is read by the KernDX framework through JSON but lacks @JsonAccess. Add @JsonAccess(serializable=''always'' deserializable=''always'') to a kern.DTO_JsonBase subclass, or @JsonAccess(serializable=''always'') to a formula evaluation context; without it every field reads blank."
+         class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+      <description>
+         The KernDX framework can read your DTOs and formula evaluation
+         contexts by serializing them with JSON.serialize from its own
+         namespace. Apex blocks that unless the class says it allows it
+         with @JsonAccess. Without the annotation the serialize throws,
+         and merge fields that read the class can come back blank, with
+         no error and no log.
+
+         The rule flags:
+         - a class extending kern.DTO_JsonBase without
+           @JsonAccess(serializable='always' deserializable='always');
+         - a class implementing
+           kern.UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
+           without @JsonAccess(serializable='always').
+
+         Inner classes are checked on their own annotation. A class that
+         reaches either type through a base class of yours in the same
+         file, up to three levels down, is checked too. PMD reads one
+         file at a time, so a base class in another file is not
+         followed: annotate those subclasses as well.
+
+         Example of compliant code:
+
+         @JsonAccess(serializable='always' deserializable='always')
+         public with sharing class DTO_Order extends kern.DTO_JsonBase
+         {
+            public String orderNumber;
+         }
+      </description>
+      <priority>3</priority>
+      <properties>
+         <property name="xpath">
+            <value>
+<![CDATA[
+(: A class is a DTO (or a context) when it names the qualified framework type itself, :)
+(: or extends a class in the same file that is one, up to three levels down. A local :)
+(: base is named either by its simple name or as Outer.Name, Outer being the file's :)
+(: top-level class; PMD sees one file at a time, so a base in another file is not followed. :)
+let $top := lower-case((//UserClass)[1]/@SimpleName),
+    $dto0 := //UserClass[ends-with(lower-case(@SuperClassName), '.dto_jsonbase')],
+    $dto1 := //UserClass[lower-case(@SuperClassName) = (for $base in $dto0 return (lower-case($base/@SimpleName), concat($top, '.', lower-case($base/@SimpleName))))],
+    $dto2 := //UserClass[lower-case(@SuperClassName) = (for $base in $dto1 return (lower-case($base/@SimpleName), concat($top, '.', lower-case($base/@SimpleName))))],
+    $dto3 := //UserClass[lower-case(@SuperClassName) = (for $base in $dto2 return (lower-case($base/@SimpleName), concat($top, '.', lower-case($base/@SimpleName))))],
+    $context0 := //UserClass[contains(lower-case(string-join(@InterfaceNames, ',')), '.util_formulafilter.int_sobjectformulaevaluationcontext')],
+    $context1 := //UserClass[lower-case(@SuperClassName) = (for $base in $context0 return (lower-case($base/@SimpleName), concat($top, '.', lower-case($base/@SimpleName))))],
+    $context2 := //UserClass[lower-case(@SuperClassName) = (for $base in $context1 return (lower-case($base/@SimpleName), concat($top, '.', lower-case($base/@SimpleName))))],
+    $context3 := //UserClass[lower-case(@SuperClassName) = (for $base in $context2 return (lower-case($base/@SimpleName), concat($top, '.', lower-case($base/@SimpleName))))]
+return //UserClass[
+   (
+      exists(. intersect ($dto0 | $dto1 | $dto2 | $dto3))
+      and not(ModifierNode/Annotation[
+         lower-case(@Name) = 'jsonaccess'
+         and AnnotationParameter[lower-case(@Name) = 'serializable' and lower-case(@Value) = 'always']
+         and AnnotationParameter[lower-case(@Name) = 'deserializable' and lower-case(@Value) = 'always']
+      ])
+   )
+   or
+   (
+      exists(. intersect ($context0 | $context1 | $context2 | $context3))
+      and not(ModifierNode/Annotation[
+         lower-case(@Name) = 'jsonaccess'
+         and AnnotationParameter[lower-case(@Name) = 'serializable' and lower-case(@Value) = 'always']
+      ])
+   )
 ]
 ]]>
             </value>

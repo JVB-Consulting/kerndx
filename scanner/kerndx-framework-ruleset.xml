@@ -254,13 +254,15 @@
    ]
 |
 (: Pattern 4 — Assert.isNotNull(var) where var was declared from :)
-(: (SObject)TST_Builder.of(...).build() in the preceding statement. :)
+(: (SObject)TST_Builder.of(...).build() in the preceding statement. The :)
+(: sibling step runs from the ExpressionStatement, not the call inside it, :)
+(: which has no siblings. :)
 //Method[ModifierNode/Annotation[lower-case(@Name) = 'istest']]
    //ExpressionStatement[
       MethodCallExpression[
-         @FullMethodName = 'Assert.isNotNull'
+         lower-case(@FullMethodName) = 'assert.isnotnull'
          and VariableExpression[1]/@Image =
-            preceding-sibling::VariableDeclarationStatements[1]
+            ../preceding-sibling::*[1][self::VariableDeclarationStatements]
                /VariableDeclaration[
                   .//MethodCallExpression[@MethodName = 'build']
                   and .//ReferenceExpression[@Image = 'TST_Builder']
@@ -275,7 +277,7 @@
 
    <rule name="KernNoBooleanExceptionThrown"
          language="apex"
-         message="A test must not rely on a variable set inside catch to detect that an exception was thrown (Boolean flag, captured Exception, Assert.isNull/isNotNull on it). Put Assert.fail('Should throw ...') inside the try after the call and assert the type inside the catch with Assert.isInstanceOfType(error, ExceptionClass.class, ...)."
+         message="A test must not rely on a variable set inside catch to detect that an exception was thrown (Boolean flag, captured Exception, Assert.isNull/isNotNull on it). Put Assert.fail(''Should throw ...'') inside the try after the call and assert the type inside the catch with Assert.isInstanceOfType(error, ExceptionClass.class, ...)."
          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
       <description>
          The exception-sentinel family is forbidden by docs/Code Conventions - Guide.md
@@ -337,7 +339,7 @@
 
    <rule name="KernCoverageExemptRequiresReason"
          language="apex"
-         message="@SuppressWarnings('PMD.KernNoCoverageTheatre') blocks a priority-1 quality rule. Add a comment above the annotation explaining why the exemption is legitimate, and narrow the suppression to the specific method."
+         message="@SuppressWarnings(''PMD.KernNoCoverageTheatre'') blocks a priority-1 quality rule. Add a comment above the annotation explaining why the exemption is legitimate, and narrow the suppression to the specific method."
          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
       <description>
          Coverage-theatre suppressions are high-impact and must be

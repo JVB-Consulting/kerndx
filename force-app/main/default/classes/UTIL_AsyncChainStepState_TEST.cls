@@ -14,6 +14,7 @@
  *
  * @date October 2026
  */
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)
 private class UTIL_AsyncChainStepState_TEST
 {

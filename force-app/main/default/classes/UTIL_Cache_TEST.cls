@@ -12,7 +12,7 @@
  * @date December 2025, October 2026
  */
 @IsTest(seeAllData=false isParallel=true)
-@SuppressWarnings('PMD.CyclomaticComplexity,PMD.ApexUnitTestClassShouldHaveRunAs,PMD.NcssTypeCount')
+@SuppressWarnings('PMD.CyclomaticComplexity,PMD.ApexUnitTestClassShouldHaveRunAs,PMD.NcssTypeCount,PMD.NcssCount,PMD.CognitiveComplexity')
 private class UTIL_Cache_TEST
 {
 	/**
