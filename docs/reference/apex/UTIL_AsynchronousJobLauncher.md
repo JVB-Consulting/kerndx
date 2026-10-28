@@ -53,8 +53,11 @@ global static Id process(List<Object> items, IF_Async.Processable processor)
 ```
 
 Starts an adaptive asynchronous job with automatic execution strategy selection.
-The framework automatically chooses between Queueable and Batch Apex based on the number of items
-and available governor limits, optimizing for performance.
+The framework chooses between Queueable and Batch Apex for you. If the code already runs inside an
+asynchronous job (a Queueable, Batch or future method), it starts a chain of Queueables, whatever the
+number of items. Otherwise, more items than the batch threshold run as Batch Apex, and a number of items
+equal to or below the threshold runs as Queueables. When no Queueable job can be added in this
+transaction, it uses Batch Apex.
 
 **Parameters**
 
@@ -72,7 +75,7 @@ and available governor limits, optimizing for performance.
 List<Account> accounts = [SELECT Id, Name FROM Account LIMIT 100];
 IF_Async.Processable processor = new MyAccountProcessor();
 Id jobId = UTIL_AsynchronousJobLauncher.process(accounts, processor);
-System.debug('Job started with ID: ' + jobId);
+// jobId is the Id of the job that was started
 ```
 
 </div>
@@ -103,7 +106,7 @@ The job size controls how many records are processed in each batch execution or 
 List<Contact> contacts = [SELECT Id, Email FROM Contact WHERE Email != null LIMIT 500];
 IF_Async.Processable processor = new EmailValidationProcessor();
 Id jobId = UTIL_AsynchronousJobLauncher.process(contacts, processor, 50);
-System.debug('Processing 500 contacts in batches of 50. Job ID: ' + jobId);
+// Up to 500 contacts are processed 50 at a time; jobId is the Id of the job that was started
 ```
 
 </div>
@@ -138,7 +141,7 @@ DTO_AsynchronousJobRequest request = new DTO_AsynchronousJobRequest(opportunitie
     .withExecutionStrategy(IF_Async.AsynchronousExecutionStrategy.BATCH);
 IF_Async.Processable processor = new OpportunityProcessor();
 Id jobId = UTIL_AsynchronousJobLauncher.process(request, processor);
-System.debug('Advanced processing started with Job ID: ' + jobId);
+// jobId is the Id of the job that was started
 ```
 
 </div>

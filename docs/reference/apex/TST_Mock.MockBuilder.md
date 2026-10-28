@@ -47,7 +47,7 @@ Fluent builder wrapper that delegates to TST_Builder.Builder for record construc
 | global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withOverride](#withoverride)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) value) | Sets a single field value override using a String field name. |
 | global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withOverrides](#withoverrides)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> fieldOverrides) | Sets field value overrides for the mock records. |
 | global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withOverrides](#withoverrides)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Sets field value overrides using String field names. |
-| global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withRecordType](#withrecordtype)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) recordTypeDeveloperName) | Sets the Record Type for the mock records using the Record Type's DeveloperName. |
+| global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withRecordType](#withrecordtype)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) recordTypeDeveloperName) | Looks up the Record Type by its developer name on this object and puts its Id in the RecordTypeId field of each mock record. |
 
 ### build
 
@@ -616,7 +616,9 @@ TST_Mock.of(Foobar__c.SObjectType)
 global TST_Mock.MockBuilder withRecordType(String recordTypeDeveloperName)
 ```
 
-Sets the Record Type for the mock records using the Record Type's DeveloperName.
+Looks up the Record Type by its developer name on this object and puts its Id in the RecordTypeId
+field of each mock record. A blank name is ignored. Throws IllegalArgumentException when the object has no
+Record Type with that name.
 
 **Parameters**
 

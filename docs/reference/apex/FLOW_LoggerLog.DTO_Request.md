@@ -32,7 +32,7 @@ Input parameters for logging a Flow event.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [flowName](#flowname) | The name of the Flow this event belongs to. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [flowStep](#flowstep) | Current step/screen name for context |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [logLevel](#loglevel) | The log level: Debug, Info, Warning, or Error (stored as DEBUG, INFO, WARN, or ERROR). |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [message](#message) | Log message |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [message](#message) | The text of the log entry. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [recordId](#recordid) | Optional record to associate with this log entry. |
 
 ### additionalContext
@@ -125,7 +125,8 @@ String value = instance.logLevel;
 
 **Type:** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)
 
-Log message
+The text of the log entry. It is saved with "[Flow] " in front of it, so entries written from
+a Flow are easy to tell apart from entries written by Apex.
 
 **Example**
 

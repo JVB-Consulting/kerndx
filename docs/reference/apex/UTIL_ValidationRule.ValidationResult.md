@@ -80,7 +80,7 @@ List<ValidationError> result = instance.getErrorsBySeverity('Error');
 
 | Constructor | Description |
 |-------------|-------------|
-| global [ValidationResult](#constructors)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Constructs a new ValidationResult for the given record. |
+| global [ValidationResult](#constructors)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordIndex, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Starts the result of one record with no errors, so isValid is true until an error with Error severity, outside shadow mode, is added to errors. |
 
 ### ValidationResult(Integer recordIndex, Id recordId)
 
@@ -90,7 +90,8 @@ List<ValidationError> result = instance.getErrorsBySeverity('Error');
 global ValidationResult(Integer recordIndex, Id recordId)
 ```
 
-Constructs a new ValidationResult for the given record.
+Starts the result of one record with no errors, so isValid is true until an error with Error
+severity, outside shadow mode, is added to errors.
 
 **Parameters**
 

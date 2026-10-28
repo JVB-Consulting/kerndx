@@ -44,7 +44,7 @@ global AUTO
 
 Auto-select dispatch: Session first, fallback to Org. Durable-only —
 this scope does not silently fall back to per-transaction storage when Platform Cache
-is unallocated. Subscribers that want graceful degradation use the
+is unallocated. If you want graceful degradation, use the
 autoWithTransactionFallback() factory instead.
 
 ### IN_TRANSACTION

@@ -50,11 +50,11 @@ Example 3: Custom strategy implementation
 ```apex
 public class RateLimitStrategy implements UTIL_Retry.Strategy
 {
-    public Boolean shouldRetry(UTIL_Retry.Context ctx)
+    public Boolean shouldRetry(UTIL_Retry.Context context)
     {
         return context.getRetryCount() < 3;
     }
-    public Integer calculateBackoff(UTIL_Retry.Context ctx)
+    public Integer calculateBackoff(UTIL_Retry.Context context)
     {
         // Custom logic based on rate limit headers
         return 60; // Wait 1 minute for rate limit
@@ -74,7 +74,7 @@ public class RateLimitStrategy implements UTIL_Retry.Strategy
 | global static [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [dontRetryOnException](#dontretryonexception)([UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) base, [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm)> exceptionTypes) | Wraps an existing strategy with an exception-type denylist. |
 | global static [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [exponential](#exponential)() | Returns a standard exponential backoff strategy. |
 | global static [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [linear](#linear)() | Returns a standard linear backoff strategy. |
-| global static [UTIL_Retry.Context](UTIL_Retry.Context.md) [newContext](#newcontext)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) retryCount) | Creates a new retry context with the specified retry count. |
+| global static [UTIL_Retry.Context](UTIL_Retry.Context.md) [newContext](#newcontext)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) retryCount) | Starts the context a strategy reads to decide whether to retry and how long to wait. |
 | global static [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) [retryOnlyOnException](#retryonlyonexception)([UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) base, [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm)> exceptionTypes) | Wraps an existing strategy with an exception-type allowlist. |
 
 ### dontRetryOnException
@@ -95,7 +95,7 @@ list each concrete type explicitly. Use for "never retry on these errors" cases 
 authentication failures that won't recover via retry.
 
 Wrapping (rather than adding setters to the `Strategy` interface) keeps the contract
-for subscriber Strategy implementations unchanged.
+for your own Strategy implementations unchanged.
 
 **Parameters**
 
@@ -173,7 +173,9 @@ UTIL_Retry.Strategy strategy = UTIL_Retry.linear()
 global static UTIL_Retry.Context newContext(Integer retryCount)
 ```
 
-Creates a new retry context with the specified retry count.
+Starts the context a strategy reads to decide whether to retry and how long to wait. A null or
+negative count is treated as 0. Add the time of the last attempt and any data of your own, such as the caught
+exception, with withLastAttemptTime and withCustomData.
 
 **Parameters**
 

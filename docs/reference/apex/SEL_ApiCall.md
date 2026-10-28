@@ -230,7 +230,7 @@ List<SObjectField> result = instance.getFields();
 
 | Constructor | Description |
 |-------------|-------------|
-| global [SEL_ApiCall](#constructors)() | Constructs a new SEL_ApiCall selector instance. |
+| global [SEL_ApiCall](#constructors)() | Reads ApiCall__c records: the record kept for each web service call, inbound or outbound. |
 
 ### SEL_ApiCall()
 
@@ -240,7 +240,8 @@ List<SObjectField> result = instance.getFields();
 global SEL_ApiCall()
 ```
 
-Constructs a new SEL_ApiCall selector instance.
+Reads ApiCall__c records: the record kept for each web service call, inbound or outbound. Every query skips the running user's object and field permission
+checks (system mode). Record sharing follows the class that calls the selector, unless a method says otherwise. Creating the selector runs no query.
 
 **Example**
 

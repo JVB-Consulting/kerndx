@@ -28,7 +28,7 @@ It is laid out around the three jobs you came to do:
 - **Troubleshoot** a failure, down to the step that broke.
 - **Develop and onboard**: schedule work, wire up a new org, and roll features out.
 
-You enter through the home page. It shows a readiness banner (a quick check that the org is configured correctly) above a set of launch cards for the interactive tools, and the app's tabs give you the underlying records: your API calls, logs, scheduled jobs, and async runs.
+You enter through the home page. It shows a readiness banner (a quick check that the org is configured correctly) above a set of launch cards for the interactive tools, and the app's tabs give you the underlying records: your API calls, log entries, scheduled jobs, and async runs.
 
 ## Use this when
 - **You want to monitor your own integrations and jobs.** Watch API calls, platform events, Change Data Capture, and async chains as they happen, check what is consuming your org limits, and review the logs and call history, without standing up your own streaming client or stitching together list views.
@@ -64,7 +64,7 @@ Open the **Kern** app and you land on **Kern Home**. It is the front door to eve
 - **A readiness banner across the top** that checks whether the org is configured correctly (covered next).
 - **Launch cards** under an **Administration Tools** heading (the same name as this guide), one for each interactive tool: the API Test Harness, the Streaming Event Monitor, the Chain Monitor, the Data Masking Advisor, and the Log Console.
 
-The app's navigation bar gives you the records behind the tools: API Calls, Logs, Scheduled Jobs, API Issues, Async Chain Executions, and a login summary, alongside Reports and Dashboards.
+The app's navigation bar gives you the records behind the tools: API Calls, Log Entries, Scheduled Jobs, API Issues, Async Chain Executions, and Login Frequencies (a login summary), alongside Reports and Dashboards.
 
 One thing worth knowing: the five tools are launched from the home cards, not pinned as their own tabs. Kern Home is the intended way in. (They are also listed in the App Launcher if you prefer to search for one by name.)
 
@@ -78,7 +78,7 @@ One thing worth knowing: the five tools are launched from the home cards, not pi
 
 Before you rely on the framework, you want to know it is wired up properly. The readiness banner on Kern Home runs a short series of checks the moment the page loads and sorts the results into three groups: **Action required** for anything failing, **Review recommended** for things worth a look, and **Passing** for everything already in good shape. When all of it passes, the banner collapses to a single "all systems operational" line.
 
-The checks cover the configuration KernDX depends on: the platform cache it uses for state and retries, the class that points the framework at your Apex, a data-retention schedule that stops the framework's own logs and call records growing without limit, your data-masking coverage, whether the chain-abort capability is enabled and granted, whether the stalled-chain recovery job (the Chain Watchdog) is scheduled, and, once you use it, the job runner, which brings three readings of its own: **Job Runner** (whether it is checking for due jobs on schedule, with all its scheduled jobs in place, and whether the user it runs as is still active), **Jobs Waiting for the Job Runner** (whether a job is set to run on a runner that is not there) and **Job Runner Capacity** (how many of the org's scheduled-job slots are in use, and, while a runner is active, whether its last check started every job that was due).
+The checks cover the configuration KernDX depends on: the platform cache it uses for state and retries, the class that points the framework at your Apex, a data-retention schedule that stops the framework's own logs and call records growing without limit, your data-masking coverage, whether the chain-abort capability is enabled and granted, whether the stalled-chain recovery job (the Chain Watchdog) is scheduled, and, once you use it, the job runner, which brings three readings of its own: **Job Runner** (whether it is checking for due jobs on schedule, with all its scheduled jobs in place, and whether the user it runs as is still active), **Jobs Waiting for the Job Runner** (whether a job is set to run on a runner that is not there) and **Job Runner Capacity** (how many of the org's scheduled-job slots are in use, and, while a runner is active, whether its last check started every job that was due). The last check, **Selected API Mocking**, lists the active API Settings that have Mocking Enabled ticked and says whether those services answer mock data for you.
 
 Many of the warnings can be fixed right there. Where a check is flagged because nothing is purging old framework records, for example, one action schedules the recommended clean-up jobs for you and the row flips to Passing without leaving the page. The Chain Watchdog row works the same way: one click schedules the recovery job with the recommended defaults.
 
@@ -131,10 +131,10 @@ Two readings sit alongside the event timeline in the same tool:
 
 The live tools are for watching; the tabs in the navigation bar are where the history is kept. Four are worth knowing:
 
-- **Logs** record what your code did, one row per logged event, each carrying a correlation ID (one tracking ID that follows a single user action across triggers, queries, callouts, and jobs), a duration, and an occurrence count for repeated events. The tab keeps the raw rows; when you want to browse or diagnose them, open the [Log Console](#log-console) instead, which groups repeats into problems and lays a whole correlated run out on one timeline. See the [Logging Guide](Logging%20-%20Guide.md#apex-logging-log_builder) for how to write to the log from your own Apex.
+- **Log Entries** record what your code did, one row per logged event, each carrying a correlation ID (one tracking ID that follows a single user action across triggers, queries, callouts, and jobs), a duration, and an occurrence count for repeated events. The tab keeps the raw rows; when you want to browse or diagnose them, open the [Log Console](#log-console) instead, which groups repeats into problems and lays a whole correlated run out on one timeline. See the [Logging Guide](Logging%20-%20Guide.md#apex-logging-log_builder) for how to write to the log from your own Apex.
 - **API Calls** keep every inbound and outbound call with its request, response, status, and timing. Ready-made list views narrow the noise: *Today's Calls*, *Today's Failed Calls*, *Dead Letters*, and more.
 - **Async Chain Executions** record each multi-step async run: its status, how many steps finished, and how long it took. This is the history behind the Chain Monitor.
-- **Login summary** rolls up logins per user per month, a convenience for developers and ops. For the authoritative record of who signed in and when, use Salesforce's own Login History.
+- **Login Frequencies** roll up logins per user per month, a convenience for developers and ops. For the authoritative record of who signed in and when, use Salesforce's own Login History.
 
 <StillShot src="/stills/log-entry.jpg" caption="A log entry record showing its correlation ID, duration, and occurrence count.">
 

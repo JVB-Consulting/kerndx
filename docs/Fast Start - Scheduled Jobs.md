@@ -117,9 +117,9 @@ force-app/main/default/classes/FastStart_ScheduledJob_DEMO.cls
 ```
 
 > **Why `global`?** The framework finds `FastStart_ScheduledJob_DEMO` by name at runtime, and marking it `global` lets
-> it do that with no extra setup. If you prefer `public with sharing`, you'll instead point the framework
-> at your classes with a Type Resolver class (how it finds the Apex classes in your namespace: you tell it
-> where to look). The Kern home page health check provides the code, or see
+> it do that with no extra setup. A `public` class works too, once your org registers a Type Resolver class
+> (how the framework finds the Apex classes in your namespace: you tell it where to look). The Kern home page
+> health check provides the code, or see
 > [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
 
 ```apex
@@ -537,7 +537,7 @@ class is deployed to this org, and that it implements Schedulable.` The causes y
 
 - The name is misspelt. Any letter case works, but every letter must be there.
 - Step 1's deploy did not succeed. Run it again and check it prints `Status: Succeeded`.
-- The class is not `global` on the managed package (see the "Why `global`?" note in Step 1).
+- The class is `public` and your org has no Type Resolver (see the "Why `global`?" note in Step 1).
 - The class declares a constructor. Remove it.
 - The class does not extend `kern.SCHED_Base`, which is what makes it schedulable.
 

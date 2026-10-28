@@ -252,65 +252,85 @@ force-app/main/default/classes/FastStart_TestData_DEMO_TEST.cls
 
 ```apex
 /**
- * @description Unit tests for FastStart_TestData_DEMO.
- * Demonstrates TST_Builder (real DML), TST_Mock (DML-free), and cycling values.
+ * @description Unit tests for FastStart_TestData_DEMO. They show TST_Builder saving real records, and TST_Mock answering a
+ * query with records that are never saved to the database.
  *
  * @see FastStart_TestData_DEMO
  *
  * @author your.name@company.com
  *
- * @group Utilities
+ * @group Fast Start Demos
  *
- * @date May 2026
+ * @date May 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)
 private class FastStart_TestData_DEMO_TEST
 {
-	/** @description Industry value used in insert-based tests. */
+	/**
+	 * @description Industry value used across insert-based tests.
+	 */
 	private static final String INDUSTRY_TECH = 'Technology';
 
-	/** @description Industry value used in mock-based tests. */
+	/**
+	 * @description Industry value used for the mock-based count test.
+	 */
 	private static final String INDUSTRY_FINANCE = 'Finance';
 
-	/** @description Industry that should yield no results. */
-	private static final String INDUSTRY_OTHER = 'Education';
-
-	/** @description Verifies that 5 inserted accounts are counted correctly. */
+	/**
+	 * @description Verifies that TST_Builder inserts records that are visible to a real SOQL count.
+	 * Demonstrates: .withOverride() + .withCount() + .buildList() with a real DML insert.
+	 */
 	@IsTest
 	private static void shouldCountRealInsertedAccounts()
 	{
+		kern.UTIL_ValidationRule.bypassObject('Account');
 		kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Industry, INDUSTRY_TECH)
-			.withCount(5)
-			.buildList();
+				.withOverride(Account.Industry, INDUSTRY_TECH)
+				.withCount(5)
+				.buildList();
 
 		Integer result = FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_TECH);
 
 		Assert.areEqual(5, result, 'Count should match the 5 inserted Technology accounts');
 	}
 
-	/** @description Verifies cycling values produce the expected mix of industries. */
+	/**
+	 * @description Verifies that TST_Builder bulk-inserts records with cycling values and that
+	 * each build() call produces a persisted record with a real Id.
+	 * Demonstrates: .withCycle() + .withCount() + .buildList() return values.
+	 */
 	@IsTest
 	private static void shouldBuildListWithCyclingIndustryValues()
 	{
+		kern.UTIL_ValidationRule.bypassObject('Account');
 		List<SObject> records = kern.TST_Builder.of(Account.SObjectType)
-			.withCycle(Account.Industry, new List<Object>{ INDUSTRY_TECH, INDUSTRY_FINANCE })
-			.withCount(4)
-			.buildList();
+				.withCycle(Account.Industry, new List<Object> {INDUSTRY_TECH, INDUSTRY_FINANCE})
+				.withCount(4)
+				.buildList();
 
 		Assert.areEqual(4, records.size(), 'buildList should return 4 records');
+
+		for(SObject record : records)
+		{
+			Assert.isNotNull(record.Id, 'Each record should have a real database Id after buildList()');
+		}
+
 		Assert.areEqual(2, FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_TECH), 'Should have 2 Technology accounts');
 		Assert.areEqual(2, FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_FINANCE), 'Should have 2 Finance accounts');
 	}
 
-	/** @description Verifies TST_Mock registers a record without DML so QRY_Builder returns it. */
+	/**
+	 * @description Verifies that TST_Mock registers a Finance account without DML so that the
+	 * QRY_Builder-backed count returns 1 without touching the database.
+	 * Shows that TST_Mock.of().withOverride().build() registers the mock record by itself, with no extra call.
+	 */
 	@IsTest
 	private static void shouldCountMockedAccountWithoutDml()
 	{
 		kern.TST_Mock.of(Account.SObjectType)
-			.withOverride(Account.Industry, INDUSTRY_FINANCE)
-			.build();
+				.withOverride(Account.Industry, INDUSTRY_FINANCE)
+				.build();
 
 		Integer result = FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_FINANCE);
 
@@ -322,13 +342,13 @@ private class FastStart_TestData_DEMO_TEST
 	private static void shouldReturnZeroWhenNoMatchingAccounts()
 	{
 		kern.TST_Builder.of(Account.SObjectType)
-			.withOverride(Account.Industry, INDUSTRY_TECH)
-			.withoutInsertion()
-			.build();
+				.withOverride(Account.Industry, INDUSTRY_TECH)
+				.withoutInsertion()
+				.build();
 
-		Integer result = FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_OTHER);
+		Integer result = FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_TECH);
 
-		Assert.areEqual(0, result, 'In-memory record should not affect the database count for a different industry');
+		Assert.areEqual(0, result, 'An in-memory record is not saved, so the database count should be 0');
 	}
 }
 ```
@@ -599,7 +619,10 @@ records in Setup, or pull them into your project and deploy them. See
 Setup and pull them into your project.
 
 Once the metadata is in place, the action or validation fires through the normal trigger path, so your
-test simply builds a record and asserts the resulting behaviour.
+test simply builds a record and asserts the resulting behaviour. This example uses the
+`TRG_AccountSetDefaults` action from [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md), which
+fills in a blank Description. A change made before the record is saved (a before-insert change) is not copied back to the record in your test, so the test
+reads the saved record again.
 
 **In your editor**, in a test class:
 
@@ -607,8 +630,16 @@ test simply builds a record and asserts the resulting behaviour.
 @IsTest
 private static void shouldFireTriggerAction()
 {
-	Account record = (Account)kern.TST_Builder.of(Account.SObjectType).build();
-	Assert.isNotNull(record.Id, 'Record should be inserted and the trigger action should have fired');
+	Account record = (Account)kern.TST_Builder.of(Account.SObjectType)
+		.withOverride(Account.Description, null)
+		.build();
+
+	Account saved = (Account)kern.QRY_Builder.selectFrom(Account.SObjectType)
+		.fields(new List<SObjectField>{ Account.Description })
+		.condition(Account.Id).equals(record.Id)
+		.getFirst();
+
+	Assert.isNotNull(saved.Description, 'The trigger action should fill in a blank Description');
 }
 ```
 

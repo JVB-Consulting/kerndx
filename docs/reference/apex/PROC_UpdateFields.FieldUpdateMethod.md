@@ -28,7 +28,7 @@ Enum defining methods for updating SObject fields.
 | Class | Description |
 |-------|-------------|
 | [PREFIX](#prefix) | Prepends the provided value to the current field value. |
-| [REPLACE](#replace) | Replaces the field value with the provided value. |
+| [REPLACE](#replace) | The new value is written as it is and the current value is not kept, so a null value clears the field. |
 | [SUFFIX](#suffix) | Appends the provided value to the current field value. |
 
 ---
@@ -49,7 +49,8 @@ Prepends the provided value to the current field value.
 global REPLACE
 ```
 
-Replaces the field value with the provided value.
+The new value is written as it is and the current value is not kept, so a null value clears
+the field. This is the default.
 
 ### SUFFIX
 

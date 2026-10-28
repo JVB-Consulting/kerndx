@@ -38,13 +38,13 @@
 
 ## Overview
 
-This reference contains **274 documented items** across the following categories:
+This reference contains **275 documented items** across the following categories:
 
 | Category | Items | Description | Browse |
 |----------|-------|-------------|--------|
-| **Custom Metadata Types** | 15 | Configuration and settings metadata | [Browse All](metadata/index.md) |
-| **Apex Classes** | 247 | Core Apex classes, utilities, and services | [Browse All](apex/index.md) |
+| **Apex Classes** | 248 | Core Apex classes, utilities, and services | [Browse All](apex/index.md) |
 | **Custom Objects** | 11 | Custom SObjects in the package | [Browse All](objects/index.md) |
+| **Custom Metadata Types** | 15 | Configuration and settings metadata | [Browse All](metadata/index.md) |
 | **Platform Events** | 1 | Asynchronous event definitions | [Browse All](events/index.md) |
 
 ---
@@ -141,7 +141,7 @@ REST integration framework with automatic retry, circuit breaking, and queue-bas
 | [API_MockFactory](apex/API_MockFactory.md) | Central factory for mock response management. |
 | [API_MockTestHelper](apex/API_MockTestHelper.md) | Test helper for API mock verification. |
 | [DTO_JsonBase](apex/DTO_JsonBase.md) | A Data Transfer Object (DTO) base class for JSON serialization and deserialization, providing a framework for transfo... |
-| [FLOW_CallApi](apex/FLOW_CallApi.md) | Invokes web service calls synchronously, allowing for integration with external systems from Salesforce using Lightni... |
+| [FLOW_CallApi](apex/FLOW_CallApi.md) | Invokes web service calls synchronously, allowing for integration with external systems from Salesforce using Flow. |
 | [FLOW_CallApiAsync](apex/FLOW_CallApiAsync.md) | Asynchronously invokes web service calls, allowing large or delayed API callouts to be processed outside of immediate... |
 | [FLOW_RetryApiIssues](apex/FLOW_RetryApiIssues.md) | Runs the failed calls of the API issues you select again, in one background job: from the Retry Selected action on th... |
 | [REST_Echo](apex/REST_Echo.md) | REST Endpoint wrapper class for the inbound echo test service. |
@@ -158,7 +158,7 @@ Base classes for JSON and XML serialization. All DTOs extend `DTO_JsonBase` and 
 
 | Class | Description |
 |-------|-------------|
-| [DTO_Base](apex/DTO_Base.md) | A base Data Transfer Object (DTO) class for storing JSON content, providing utility methods for serialization, deseri... |
+| [DTO_Base](apex/DTO_Base.md) | An empty base class for Data Transfer Objects (DTOs). |
 | [DTO_NameValues](apex/DTO_NameValues.md) | Class for managing and transferring key-value pairs, represented as names and values, between classes. |
 | [DTO_BaseTable](apex/DTO_BaseTable.md) | A Data Transfer Object (DTO) class that structures webservice handler responses into a common table format, providing... |
 | [DTO_ChangeEventHeader](apex/DTO_ChangeEventHeader.md) | A Data Transfer Object (DTO) exposing the supported subset of EventBus.ChangeEventHeader to Flow as a strongly-typed ... |
@@ -278,7 +278,7 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | Class | Description |
 |-------|-------------|
 | [TST_Builder](apex/TST_Builder.md) | An advanced factory for creating and inserting SObject records for Apex tests. |
-| [TST_Factory](apex/TST_Factory.md) | Factory class for generating test data, permission set assignments, share records, metadata updates, and failure logs... |
+| [TST_Factory](apex/TST_Factory.md) | Factory class that builds test data for your unit tests. |
 | [TST_Mock](apex/TST_Mock.md) | Central registry and fluent builder for mock SObjects. |
 | [API_InboundTestHelper](apex/API_InboundTestHelper.md) | Class has base methods that can be used to assist with testing inbound service calls |
 | [API_OutboundTestHelper](apex/API_OutboundTestHelper.md) | Class has base methods that can be used to test an outbound service. |
@@ -396,6 +396,7 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | [UTIL_FormulaContext.CaseContext](apex/UTIL_FormulaContext.CaseContext.md) | Formula evaluation context for Case object. |
 | [UTIL_FormulaContext.ContactContext](apex/UTIL_FormulaContext.ContactContext.md) | Formula evaluation context for Contact object. |
 | [UTIL_FormulaContext.EventContext](apex/UTIL_FormulaContext.EventContext.md) | Formula evaluation context for Event object. |
+| [UTIL_FormulaContext.FoobarBulkContext](apex/UTIL_FormulaContext.FoobarBulkContext.md) | For testing only. |
 | [UTIL_FormulaContext.FoobarContext](apex/UTIL_FormulaContext.FoobarContext.md) | Formula evaluation context for Foobar__c test object. |
 | [UTIL_FormulaContext.LeadContext](apex/UTIL_FormulaContext.LeadContext.md) | Formula evaluation context for Lead object. |
 | [UTIL_FormulaContext.OpportunityContext](apex/UTIL_FormulaContext.OpportunityContext.md) | Formula evaluation context for Opportunity object. |
@@ -414,7 +415,7 @@ Test data factories, mock builders, and test helpers. Use `TST_Builder` for reco
 | [UTIL_SObjectDescribe.GlobalDescribeMap](apex/UTIL_SObjectDescribe.GlobalDescribeMap.md) | A subclass of NamespacedAttributeMap for handling global describe data returned by getGlobalDescribe. |
 | [UTIL_TypeResolver.BaseClassResolver](apex/UTIL_TypeResolver.BaseClassResolver.md) | Abstract base class for implementing custom type resolvers, typically registered via custom metadata. |
 | [UTIL_TypeResolver.INT_ClassTypeResolver](apex/UTIL_TypeResolver.INT_ClassTypeResolver.md) | Interface for resolving Type objects from class names and chaining resolvers. |
-| [UTIL_ValidationRule.INT_BulkValidationContext](apex/UTIL_ValidationRule.INT_BulkValidationContext.md) | Optional interface for bulk-optimized validation contexts. |
+| [UTIL_ValidationRule.INT_BulkValidationContext](apex/UTIL_ValidationRule.INT_BulkValidationContext.md) | Optional interface for context classes that load data once per batch. |
 | [UTIL_ValidationRule.ValidationError](apex/UTIL_ValidationRule.ValidationError.md) | Represents a single validation error or warning. |
 | [UTIL_ValidationRule.ValidationResult](apex/UTIL_ValidationRule.ValidationResult.md) | Result of validating a single record. |
 

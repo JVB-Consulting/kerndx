@@ -147,7 +147,7 @@ global PROC_ExecuteDML(DML_Builder.DatabaseOperation operation, Boolean allOrNot
 Constructs a DML processor with an explicit `AccessLevel`. Use this constructor when the
 async save must use one access mode, whatever the `UserModeDml_Enabled` flag says. Framework utilities that
 manage their own records pass `AccessLevel.SYSTEM_MODE`. `DML_Builder.async()` passes the access level the
-caller chose, so a subscriber's `.withUserMode()` still applies when the job runs later.
+caller chose, so your `.withUserMode()` still applies when the job runs later.
 
 **Parameters**
 

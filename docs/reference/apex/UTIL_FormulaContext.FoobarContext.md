@@ -19,7 +19,7 @@ global inherited sharing class UTIL_FormulaContext.FoobarContext implements UTIL
 
 **Implements:** [UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext](UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext.md)
 
-Formula evaluation context for Foobar__c test object. Provides typed access to Foobar__c records in formula evaluations. This context class enables comprehensive testing of formula evaluation functionality within the managed package without requiring subscriber-created classes. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank. Can also be used directly in custom Apex for testing purposes. Formula Variable Names: oldRecord, newRecord
+Formula evaluation context for Foobar__c test object. Provides typed access to Foobar__c records in formula evaluations. This context class enables comprehensive testing of formula evaluation functionality, so the package can test itself without any class from your org. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank. Can also be used directly in custom Apex for testing purposes. Formula Variable Names: oldRecord, newRecord
 
 **Example**
 

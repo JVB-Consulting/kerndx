@@ -240,7 +240,7 @@ features* are what make the difference in the comparison:
   boundary (behind a permission set that ships assigned to nobody, whose holder also needs administrator access to read chain data).
 - **Utilities.** Decisive features: 39 utility helpers; null-safe by default; masking helpers that combine with the Data Masking engine.
 - **Health & Self-Diagnostics.** KernDX is one of the few Apex frameworks surveyed that ships a health-check capability. `revenant` ships one too (the System Doctor panel of its
-  workflow dashboard), and the two are level on this piece. Decisive features: an eleven-dimension self-diagnostic with actionable results.
+  workflow dashboard), and the two are level on this piece. Decisive features: a self-check of twelve things, with results you can act on.
 - **CI / Tooling.** Decisive features: [PMD scanner rules](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning) + an ESLint plugin + Node scanners; a coverage gate enforcing 100% Apex per-file and 95% LWC statements /
   95% LWC branches; the `kerndx-pipeline` distribution drops 10 GitHub Actions workflow templates into your repo (including `sfca-quality-gate`, which runs `sf code-analyzer run`
   against `force-app/**`, and a secret-scanning gate that blocks committed credentials) plus 2 branch-rule templates + 6 CI-tool adapters, all via `kerndx init`.

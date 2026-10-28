@@ -122,7 +122,7 @@ List<SObjectField> result = instance.getFields();
 
 | Constructor | Description |
 |-------------|-------------|
-| global [SEL_ApiIssue](#constructors)() | Constructs an ApiIssue selector. |
+| global [SEL_ApiIssue](#constructors)() | Reads ApiIssue__c records: the issues raised for failed web service calls. |
 
 ### SEL_ApiIssue()
 
@@ -132,7 +132,8 @@ List<SObjectField> result = instance.getFields();
 global SEL_ApiIssue()
 ```
 
-Constructs an ApiIssue selector.
+Reads ApiIssue__c records: the issues raised for failed web service calls. Every query skips the running user's object and field permission checks (system
+mode). Record sharing follows the class that calls the selector, unless a method says otherwise. Creating the selector runs no query.
 
 **Example**
 

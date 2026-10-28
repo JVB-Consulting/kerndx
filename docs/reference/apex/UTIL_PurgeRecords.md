@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class UTIL_PurgeRecords
 ```
 
-Provides utility methods for purging records from Salesforce objects using adaptive async processing. Automatically selects between Queueable and Batch execution based on data volume and governor limits. Supports deleting all records or records older than a specified number of days. All entry points inherit the flag-driven default AccessLevel resolved by DML_SharingProxy.defaultAccessLevel() — under the secure-by-default posture this is USER_MODE, so the invoking user must have delete CRUD on the target object for the purge to succeed. This is deliberate: UTIL_PurgeRecords is global, so any subscriber Apex caller can reach it, and silently elevating to SYSTEM_MODE would let a low-privilege user destructively delete records they have no native right to delete. Integrations that genuinely need admin-mandate semantics (for example, cleanup utilities behind a custom permission gate) should construct a PROC_ExecuteDML(operation, allOrNothing, AccessLevel.SYSTEM_MODE) explicitly and pair it with a caller-side permission check; the framework declines to make that elevation implicit. API calls and API issues can be deleted only by a user the BypassApiRecordDeleteGuard feature flag is on for. A built-in rule turns the flag on for every holder of the Delete API Records permission, which the Kern Administrator permission set grants, and your org can widen it to more users. A purge of either, run by anyone else, deletes nothing, starts no job and logs one warning that says so. Schedule such a purge as a user the flag is on for. A purge of API calls leaves out every call that still has an open API issue, because such a call is never deleted, not even by an administrator. The purge reads as the user who runs it, so it leaves out such a call only when that user can read every open issue. The Kern Administrator permission set gives this access. When the user cannot see the open issue of a call, the delete guard refuses that call, one call at a time, and logs each refusal. A user who cannot read API issues is told so in one warning, and the purge of API calls does not start. A call that is left out is purged by a later run, once its issue is resolved or dismissed.
+Provides utility methods for purging records from Salesforce objects using adaptive async processing. Automatically selects between Queueable and Batch execution based on data volume and governor limits. Supports deleting all records or records older than a specified number of days. All entry points inherit the flag-driven default AccessLevel resolved by DML_SharingProxy.defaultAccessLevel() — under the secure-by-default posture this is USER_MODE, so the invoking user must have delete CRUD on the target object for the purge to succeed. This is deliberate: UTIL_PurgeRecords is global, so any Apex caller in your org can reach it, and silently elevating to SYSTEM_MODE would let a low-privilege user destructively delete records they have no native right to delete. Integrations that genuinely need admin-mandate semantics (for example, cleanup utilities behind a custom permission gate) should construct a PROC_ExecuteDML(operation, allOrNothing, AccessLevel.SYSTEM_MODE) explicitly and pair it with a caller-side permission check; the framework declines to make that elevation implicit. API calls and API issues can be deleted only by a user the BypassApiRecordDeleteGuard feature flag is on for. A built-in rule turns the flag on for every holder of the Delete API Records permission, which the Kern Administrator permission set grants, and your org can widen it to more users. A purge of either, run by anyone else, deletes nothing, starts no job and logs one warning that says so. Schedule such a purge as a user the flag is on for. A purge of API calls leaves out every call that still has an open API issue, because such a call is never deleted, not even by an administrator. The purge reads as the user who runs it, so it leaves out such a call only when that user can read every open issue. The Kern Administrator permission set gives this access. When the user cannot see the open issue of a call, the delete guard refuses that call, one call at a time, and logs each refusal. A user who cannot read API issues is told so in one warning, and the purge of API calls does not start. A call that is left out is purged by a later run, once its issue is resolved or dismissed.
 
 **Example**
 
@@ -139,7 +139,7 @@ Deletes all records of the specified SObject type with specified atomicity.
 
 ```apex
 UTIL_PurgeRecords.deleteAllRecords('Contact', true);
-System.debug('All Contact records deleted atomically');
+// An asynchronous job now deletes the Contact records, so they are not gone yet when this line runs.
 ```
 
 </div>
@@ -164,7 +164,7 @@ Deletes all records of the specified SObject type with customizable atomicity an
 
 ```apex
 UTIL_PurgeRecords.deleteAllRecords('Lead', false, 200);
-System.debug('All Lead records deleted in batches of 200');
+// An asynchronous job now deletes the Lead records, 200 records in each batch.
 ```
 
 </div>
@@ -215,7 +215,7 @@ using CreatedDate as the default date field.
 
 ```apex
 UTIL_PurgeRecords.deleteOlderThanNDays('Task', 30);
-System.debug('Deleted Task records older than 30 days');
+// An asynchronous job now deletes the Task records created more than 30 days ago.
 ```
 
 </div>
@@ -291,7 +291,7 @@ Deletes records older than the specified number of days with customizable date f
 
 ```apex
 UTIL_PurgeRecords.deleteOlderThanNDays('Opportunity', 'CloseDate', 180, false, 100);
-System.debug('Deleted Opportunity records older than 180 days in batches of 100');
+// An asynchronous job now deletes the Opportunity records whose CloseDate is more than 180 days ago, 100 records in each batch.
 ```
 
 </div>

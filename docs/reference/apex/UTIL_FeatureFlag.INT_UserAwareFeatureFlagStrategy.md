@@ -47,7 +47,7 @@ public class MY_Region_Strategy implements UTIL_FeatureFlag.INT_UserAwareFeature
 
 | Method | Description |
 |--------|-------------|
-| global abstract [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isEnabledForUser](#isenabledforuser)([FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) flag, [FeatureFlagStrategy__mdt](../metadata/FeatureFlagStrategy__mdt.md) strategyToEvaluate, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) userId) | Evaluates the strategy for a specific user. |
+| global abstract [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isEnabledForUser](#isenabledforuser)([FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) flag, [FeatureFlagStrategy__mdt](../metadata/FeatureFlagStrategy__mdt.md) strategyToEvaluate, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) userId) | The framework calls this only when it checks a flag for a user who is not the running user, through UTIL_FeatureFlag.isEnabled with a user Id or a username. |
 
 ### isEnabledForUser
 
@@ -57,7 +57,9 @@ public class MY_Region_Strategy implements UTIL_FeatureFlag.INT_UserAwareFeature
 global abstract Boolean isEnabledForUser(FeatureFlag__mdt flag, FeatureFlagStrategy__mdt strategyToEvaluate, Id userId)
 ```
 
-Evaluates the strategy for a specific user.
+The framework calls this only when it checks a flag for a user who is not the running user, through
+UTIL_FeatureFlag.isEnabled with a user Id or a username. For the running user it calls isEnabled instead. Read
+the user's details from userId, never from UserInfo.
 
 **Parameters**
 

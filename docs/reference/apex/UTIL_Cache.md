@@ -28,7 +28,7 @@ Key Features:
 
     - **Framework Safe**: Defaults to UTIL_Cache.getPlatformCacheName() for internal package usage.
 
-    - **Subscriber Ready**: Supports custom partitions via .withPartition().
+    - **Your Own Partitions**: Supports custom partitions in your org via .withPartition().
 
     - **Governor Friendly**: Uses putAll and getAll to minimize cache commits/reads.
 
@@ -87,7 +87,7 @@ Object cached = cache.get('configKey');
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isOrgAllocated](#isorgallocated)() | Checks whether the Organisation cache scope has capacity allocated by performing a put/get round-trip probe. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isSessionAllocated](#issessionallocated)() | Checks whether the Session cache scope has capacity allocated by performing a put/get round-trip probe. |
 | global static [UTIL_Cache.Store](UTIL_Cache.Store.md) [org](#org)() | Convenience factory for Org cache with default partition. |
-| global static [UTIL_Cache.Store](UTIL_Cache.Store.md) [partition](#partition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) partitionName) | Convenience factory for custom partition (subscriber orgs). |
+| global static [UTIL_Cache.Store](UTIL_Cache.Store.md) [partition](#partition)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) partitionName) | Convenience factory for a cache partition of your own. |
 | global static [UTIL_Cache.Store](UTIL_Cache.Store.md) [session](#session)() | Convenience factory for Session cache with default partition. |
 
 ### auto
@@ -105,7 +105,7 @@ Defaults to the Framework partition defined in UTIL_System.
 put/get operations return false / null and OperationResult reports Status.CACHE_UNAVAILABLE
 — the failure is loud and visible. This factory does NOT silently fall back to
 per-transaction in-memory storage. Use this factory when durability matters (security
-keys, distributed counters, cross-transaction state). UTIL_SessionEncryption is the
+keys, cross-transaction state). UTIL_SessionEncryption is the
 canonical durability-required caller.
 
 For graceful degradation to per-transaction memory when Platform Cache is missing, use
@@ -148,8 +148,8 @@ Behavior:
 scope. OperationResult.cacheTypeUsed reports the actual scope used (IN_TRANSACTION
 when the fallback fired) so callers can detect the degraded path.
 
-- Durability-critical callers (security keys, distributed state, cross-transaction
-counters) MUST use auto() — not this factory — so the loud failure signal stays loud
+- Durability-critical callers (security keys, distributed state) MUST use auto(), not
+this factory, so the loud failure signal stays loud
 when Platform Cache is missing.
 
 **Returns** [UTIL_Cache.Store](UTIL_Cache.Store.md) — Store with Session → Org → Transaction fallback chain
@@ -250,7 +250,7 @@ This approach avoids the AUTO mode fallback issue where Session put reports succ
 ```apex
 if(UTIL_Cache.isAllocated())
 {
-    System.debug('Platform Cache is functional');
+    // Org cache or session cache can store and return a value
 }
 ```
 
@@ -280,7 +280,7 @@ if(UTIL_Cache.isAvailable())
 }
 else
 {
-    System.debug('Platform Cache not configured');
+    // No Platform Cache: compute the value again when you need it
 }
 ```
 
@@ -309,11 +309,11 @@ Check if a specific cache type is available:
 ```apex
 if(UTIL_Cache.isAvailable(UTIL_Cache.Scope.SESSION))
 {
-    System.debug('Session cache is available');
+    // Session cache can be used
 }
 if(UTIL_Cache.isAvailable(UTIL_Cache.Scope.ORG))
 {
-    System.debug('Org cache is available');
+    // Org cache can be used
 }
 ```
 
@@ -337,7 +337,7 @@ a put/get round-trip probe.
 ```apex
 if(UTIL_Cache.isOrgAllocated())
 {
-    System.debug('Organisation Cache is functional');
+    // Org cache can store and return a value
 }
 ```
 
@@ -361,7 +361,7 @@ a put/get round-trip probe.
 ```apex
 if(UTIL_Cache.isSessionAllocated())
 {
-    System.debug('Session Cache is functional');
+    // Session cache can store and return a value
 }
 ```
 
@@ -399,8 +399,8 @@ cache.put('globalConfig', myConfigObject);
 global static UTIL_Cache.Store partition(String partitionName)
 ```
 
-Convenience factory for custom partition (subscriber orgs).
-"Easy Button" for subscribers to use their local partitions.
+Convenience factory for a cache partition of your own.
+Use it to store values in a partition you created in your org.
 
 **Parameters**
 
@@ -412,11 +412,11 @@ Convenience factory for custom partition (subscriber orgs).
 
 **Example**
 
-Subscriber org using custom partition:
+Using a partition you created in your org:
 
 ```apex
 UTIL_Cache.Store cache = UTIL_Cache.partition('local.MyPartition');
-cache.put('subscriberData', myData);
+cache.put('myData', myData);
 ```
 
 </div>

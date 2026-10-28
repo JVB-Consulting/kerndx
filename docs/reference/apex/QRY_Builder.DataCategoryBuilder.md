@@ -56,6 +56,7 @@ global QRY_Builder.Builder above(List<String> categoryNames)
 ```
 
 Filters to categories above any of the specified categories in the hierarchy.
+Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 
 **Parameters**
 
@@ -69,7 +70,7 @@ Filters to categories above any of the specified categories in the hierarchy.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not one name |
 
 **Example**
 
@@ -86,6 +87,7 @@ global QRY_Builder.Builder above(String categoryName)
 ```
 
 Filters to categories above the specified category in the hierarchy.
+Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 
 **Parameters**
 
@@ -99,7 +101,7 @@ Filters to categories above the specified category in the hierarchy.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not one name |
 
 **Example**
 
@@ -118,6 +120,7 @@ global QRY_Builder.Builder aboveOrBelow(List<String> categoryNames)
 ```
 
 Filters to categories above or below any of the specified categories in the hierarchy.
+Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 
 **Parameters**
 
@@ -131,7 +134,7 @@ Filters to categories above or below any of the specified categories in the hier
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not one name |
 
 **Example**
 
@@ -148,6 +151,7 @@ global QRY_Builder.Builder aboveOrBelow(String categoryName)
 ```
 
 Filters to categories above or below the specified category in the hierarchy.
+Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 
 **Parameters**
 
@@ -161,7 +165,7 @@ Filters to categories above or below the specified category in the hierarchy.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not one name |
 
 **Example**
 
@@ -180,6 +184,7 @@ global QRY_Builder.Builder at(List<String> categoryNames)
 ```
 
 Filters to any of the specified categories.
+Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 
 **Parameters**
 
@@ -193,7 +198,7 @@ Filters to any of the specified categories.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not one name |
 
 **Example**
 
@@ -210,6 +215,7 @@ global QRY_Builder.Builder at(String categoryName)
 ```
 
 Filters to the exact specified category.
+Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 
 **Parameters**
 
@@ -223,7 +229,7 @@ Filters to the exact specified category.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not one name |
 
 **Example**
 
@@ -242,6 +248,7 @@ global QRY_Builder.Builder below(List<String> categoryNames)
 ```
 
 Filters to categories below any of the specified categories in the hierarchy.
+Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 
 **Parameters**
 
@@ -255,7 +262,7 @@ Filters to categories below any of the specified categories in the hierarchy.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not one name |
 
 **Example**
 
@@ -272,6 +279,7 @@ global QRY_Builder.Builder below(String categoryName)
 ```
 
 Filters to categories below the specified category in the hierarchy.
+Text that comes from a page or a user must first be matched to a category through a list of names you allow.
 
 **Parameters**
 
@@ -285,7 +293,7 @@ Filters to categories below the specified category in the hierarchy.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not one name |
 
 **Example**
 

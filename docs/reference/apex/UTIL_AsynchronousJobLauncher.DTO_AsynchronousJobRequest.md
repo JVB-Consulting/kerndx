@@ -31,7 +31,7 @@ Request object for initiating an asynchronous process.
 | global [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) [withBatchSize](#withbatchsize)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) size) | Sets the batch job size for Batch Apex execution. |
 | global [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) [withDelayMinutes](#withdelayminutes)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) minutes) | Sets the delay in minutes before processing starts. |
 | global [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) [withExecutionStrategy](#withexecutionstrategy)([IF_Async.AsynchronousExecutionStrategy](IF_Async.AsynchronousExecutionStrategy.md) strategy) | Sets the execution strategy for determine what job type to use |
-| global [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) [withLimitAtWhichToBatch](#withlimitatwhichtobatch)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) threshold) | Sets the threshold at which processing switches from Queueable to Batch Apex. |
+| global [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) [withLimitAtWhichToBatch](#withlimitatwhichtobatch)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) threshold) | Sets the batch threshold used when the framework chooses the job type. |
 | global [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) [withQueueableJobSize](#withqueueablejobsize)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) size) | Sets the chunk size for Queueable execution. |
 
 ### withAsyncOptions
@@ -162,13 +162,16 @@ DTO_AsynchronousJobRequest result = instance.withExecutionStrategy(new IF_Async.
 global UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest withLimitAtWhichToBatch(Integer threshold)
 ```
 
-Sets the threshold at which processing switches from Queueable to Batch Apex.
+Sets the batch threshold used when the framework chooses the job type. More items than this
+number run as Batch Apex; a number of items equal to it or below it still runs as Queueables. Inside a running
+asynchronous job the framework starts a chain of Queueables whatever the number of items, and when no
+Queueable job can be added it uses Batch Apex.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `threshold` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of items that will trigger Batch Apex execution. |
+| `threshold` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The highest number of items that still runs as Queueables. |
 
 **Returns** [UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest](UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest.md) — The AsynchronousJobRequest instance for method chaining.
 
@@ -276,7 +279,7 @@ UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest instance = new UTIL_Asyn
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [delayMinutes](#delayminutes) | The delay in minutes before processing starts. |
 | global [IF_Async.AsynchronousExecutionStrategy](IF_Async.AsynchronousExecutionStrategy.md) [executionStrategy](#executionstrategy) | The execution strategy for queueable processing. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> [itemsToProcess](#itemstoprocess) | The list of objects to process. |
-| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [limitAtWhichToBatch](#limitatwhichtobatch) | The record count threshold at which the framework switches from Queueable to Batch Apex. |
+| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [limitAtWhichToBatch](#limitatwhichtobatch) | The batch threshold. |
 | global [IF_Queryable](IF_Queryable.md) [queryable](#queryable) | The queryable used for query-based jobs. |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [queueableJobSize](#queueablejobsize) | The number of records to process in each Queueable job transaction. |
 
@@ -341,7 +344,10 @@ global Integer limitAtWhichToBatch
 
 **Type:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)
 
-The record count threshold at which the framework switches from Queueable to Batch Apex.
+The batch threshold. When the framework chooses the job type, more items than this number run as
+Batch Apex; a number of items equal to or below it runs as Queueables. Inside a running asynchronous job the
+framework starts a chain of Queueables whatever the number of items. When no Queueable job can be added, it
+uses Batch Apex.
 
 ### queryable
 

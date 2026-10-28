@@ -35,7 +35,7 @@ Integer done = status.completedSteps;
 
 | Method | Description |
 |--------|-------------|
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isFailed](#isfailed)() | Whether the chain failed. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isFailed](#isfailed)() | True only for the Failed status. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isRunning](#isrunning)() | Whether the chain is currently running. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isTerminal](#isterminal)() | Whether the chain has reached a terminal state, from which it will not move on: Completed, Failed or Aborted, or any row with a completion timestamp. |
 
@@ -47,7 +47,9 @@ Integer done = status.completedSteps;
 global Boolean isFailed()
 ```
 
-Whether the chain failed.
+True only for the Failed status. An Aborted chain returns false, so use isTerminal to learn whether
+the chain has ended for any reason. A Stalled chain also returns false: it has not ended, it is waiting for
+recovery. errorMessage holds the reason for the failure.
 
 **Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — true when the status is Failed.
 

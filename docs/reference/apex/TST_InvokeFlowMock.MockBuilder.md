@@ -115,7 +115,7 @@ flow. Lets test authors drive the runtime-error catch path (the framework's
 routing that depends on it) without deploying a deliberately-broken flow XML.
 
 Marks this mock as a failure (`success = false`); the supplied exception's
-`getMessage()` is what the trigger framework records and surfaces to subscribers.
+`getMessage()` is the error message the trigger framework records.
 
 **Parameters**
 

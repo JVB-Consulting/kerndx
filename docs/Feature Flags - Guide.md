@@ -543,8 +543,8 @@ You can branch a Flow on a feature flag the same way your Apex does, with no cod
 
 1. In Flow Builder, add an **Action** element.
 2. Search for **Is Feature Flag Enabled** and select it.
-3. Set the **featureFlagName** input to your flag's API Name (for example, `New_Pricing_Engine`).
-4. Add a **Decision** element after the action and branch on the action's `isEnabled` output equal to
+3. Set the **flagNames** input to your flag's API Name (for example, `New_Pricing_Engine`).
+4. Add a **Decision** element after the action. Branch on the action's own output value (a true/false value) being equal to
    `{!$GlobalConstant.True}`.
 
 > The action's API name is `FLOW_CheckFeatureFlag`; the label shown in Flow Builder is **Is Feature Flag
@@ -610,12 +610,16 @@ Two terms appear in the table below. A flag that runs in **USER_MODE** enforces 
 | `AsyncChainKillSwitch_Enabled`                                        | Governs the Chain Monitor's suspend and resume control, enabled per user through the Kern Async Chain Kill Switch permission set. Deactivate the record to hide it for everyone. | `false` |
 | `DisableAllAPIs` / `DisableAllInboundAPIs` / `DisableAllOutboundAPIs` | Runtime kill switches for the web-services framework.                                                                            | `false` |
 | `MockAllAPIs` / `MockAllInboundAPIs`                                  | Test-mode toggles for the web-services framework.                                                                                | `false` |
+| `MockSelectedAPIs`                                                    | Test-mode toggle for one service at a time: services whose API Setting has Mocking Enabled ticked answer mock data, outgoing and incoming, for the users this flag is on for. See [Declarative Mock Mode](Web%20Services%20-%20Guide.md#declarative-mock-mode). | `false` |
+| `ScheduledJobRunner`                                                  | Turns the job runner off without deleting anything. While it is off, the runner still checks on schedule but starts no job; every job on the runner waits until you turn it on again. | `true`  |
+| `BypassAudit_Enabled`                                                 | Master off-switch for the record the framework keeps whenever a safety check is turned off. `true` writes a log entry each time a trigger, query, save or validation check is bypassed; `false` stops writing them. | `true`  |
+| `BypassApiRecordDeleteGuard`                                          | Decides who may delete API call and API issue records. A shipped strategy record turns it on for users with the Delete API Records custom permission. Deactivate the record to refuse every delete. | `false` |
 
 </details>
 
 For the three Chain Monitor action flags, `false` in the Default column is the answer a user gets without the matching permission set: each flag ships active and resolves per user from that permission set, so the capability is off until you grant it. The `AsyncChain` flag works differently: it resolves through a shipped strategy record pointing at the `AsyncChainRuntimeSwitch__c` hierarchy setting, which is what the Chain Monitor's Suspend and Resume actions write. No setting record means chains run; see [Kill Switch](Async%20Processing%20-%20Guide.md#kill-switch) in the Async Processing Guide for the full resolution order and the per-user override pattern.
 
-To roll one back in an emergency, untick `IsActive__c` on the `FeatureFlag__mdt` record in Setup. Deactivating the record is the off-switch that works for every flag above, and an upgrade never overwrites the edit. Two edits to avoid on the flags that carry strategy records (`AsyncChain`, `DisableAllAPIs`, and the three Chain Monitor action flags):
+To roll one back in an emergency, untick `IsActive__c` on the `FeatureFlag__mdt` record in Setup. Deactivating the record is the off-switch that works for every flag above, and an upgrade never overwrites the edit. Two edits to avoid on the flags that carry strategy records (`AsyncChain`, `DisableAllAPIs`, `BypassApiRecordDeleteGuard`, and the three Chain Monitor action flags):
 
 - `IsEnabledByDefault__c` is consulted only when a flag has no active strategies, so on these flags editing it changes nothing. If you ever switched a flag off that way, re-check it after an upgrade, because a newly shipped strategy stops consulting the field.
 - On `AsyncChain`, `ResultOnNoMatch__c = false` leaves chains off whenever no `AsyncChainRuntimeSwitch__c` record exists, and chains then look disabled for no obvious reason.

@@ -8,7 +8,7 @@
  *
  * @group Services
  *
- * @date February 2026
+ * @date February 2026, October 2026
  */
 @IsTest(isParallel=false)
 private class SVC_ContactDirectory_TEST
@@ -53,23 +53,21 @@ private class SVC_ContactDirectory_TEST
 				.build();
 
 		User minimumAccessUser = buildMinimumAccessUser();
-		Boolean rejected = false;
 
 		System.runAs(minimumAccessUser)
 		{
 			try
 			{
 				new SVC_ContactDirectory().findByLastName('Reader');
+				Assert.fail('USER_MODE must reject a user without Contact access');
 			}
 			catch(Exception error)
 			{
-				rejected = true;
+				Assert.isInstanceOfType(error, QueryException.class,
+						'USER_MODE must reject a user without Contact access, proving the framework enforces '
+						+ 'the running user\'s permissions, not the admin\'s');
 			}
 		}
-
-		Assert.isTrue(rejected,
-				'USER_MODE must reject a user without Contact access — proving the framework enforces '
-				+ 'the running user\'s permissions, not the admin\'s');
 	}
 
 	/**

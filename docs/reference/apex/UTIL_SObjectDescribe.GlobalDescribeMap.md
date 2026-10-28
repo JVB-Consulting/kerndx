@@ -34,7 +34,7 @@ A subclass of NamespacedAttributeMap for handling global describe data returned 
 | global override [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [keySet](#keyset)() | Returns the key set of the map with namespace handling disabled by default. |
 | global override [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [keySet](#keyset)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) implyNamespace) | Returns the key set of the map with optional namespace handling. |
 | global override [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [size](#size)() | Returns the number of entries in the map. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)> [values](#values)() | Returns the list of SObjectType values in the global describe map. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm)> [values](#values)() | Returns a token for every object in the org, whatever its namespace. |
 
 ### containsKey
 
@@ -110,7 +110,7 @@ Retrieves an `SObjectType` by name with namespace handling enabled by default.
 ```apex
 UTIL_SObjectDescribe.GlobalDescribeMap globalDescribe = UTIL_SObjectDescribe.getGlobalDescribe();
 SObjectType objType = globalDescribe.get('Account');
-System.debug(objType?.getDescribe().getLabel()); // Outputs: Account
+// objType is Account.SObjectType
 ```
 
 </div>
@@ -137,7 +137,7 @@ Retrieves an `SObjectType` by name with optional namespace handling.
 ```apex
 UTIL_SObjectDescribe.GlobalDescribeMap globalDescribe = UTIL_SObjectDescribe.getGlobalDescribe();
 SObjectType objType = globalDescribe.get('Account', false);
-System.debug(objType?.getDescribe().name); // Outputs: Account
+// objType is Account.SObjectType
 ```
 
 </div>
@@ -214,7 +214,8 @@ Integer result = instance.size();
 global List<SObjectType> values()
 ```
 
-Returns the list of `SObjectType` values in the global describe map.
+Returns a token for every object in the org, whatever its namespace. To find one object by name,
+use get or containsKey instead.
 
 **Returns** [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) — A list of `SObjectType` instances.
 
@@ -223,7 +224,7 @@ Returns the list of `SObjectType` values in the global describe map.
 ```apex
 UTIL_SObjectDescribe.GlobalDescribeMap globalDescribe = UTIL_SObjectDescribe.getGlobalDescribe();
 List<SObjectType> objTypes = globalDescribe.values();
-System.debug(objTypes.size()); // Outputs: Number of SObject types
+// objTypes holds one token for each object in the org
 ```
 
 </div>

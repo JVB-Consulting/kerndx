@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class UTIL_HttpClient
 ```
 
-Fluent HTTP client facade over the API_Dispatcher pipeline. Provides zero-boilerplate callouts with automatic retry, circuit breaker, failure logging, performance timing, sensitive data masking, and ApiCall__c lifecycle management, all routed through API_Dispatcher.execute(). Supports two usage modes: Ad-hoc mode: Direct HTTP calls via get()/post()/put()/del()/patch() entry points Delegation mode: Subscriber handlers via useHandler() entry point
+Fluent HTTP client facade over the API_Dispatcher pipeline. Provides zero-boilerplate callouts with automatic retry, circuit breaker, failure logging, performance timing, sensitive data masking, and ApiCall__c lifecycle management, all routed through API_Dispatcher.execute(). Supports two usage modes: Ad-hoc mode: Direct HTTP calls via get()/post()/put()/del()/patch() entry points Delegation mode: your own handler classes via useHandler() entry point
 
 **Example**
 
@@ -40,11 +40,11 @@ HttpResponse response = UTIL_HttpClient.post('PaymentGateway', '/charges')
 | Method | Description |
 |--------|-------------|
 | global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [del](#del)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) credential, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) path) | Creates a DELETE request for the specified credential and path. |
-| global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [get](#get)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) credential, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) path) | Creates a GET request for the specified credential and path. |
-| global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [patch](#patch)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) credential, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) path) | Creates a PATCH request for the specified credential and path. |
-| global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [post](#post)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) credential, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) path) | Creates a POST request for the specified credential and path. |
-| global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [put](#put)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) credential, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) path) | Creates a PUT request for the specified credential and path. |
-| global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [useHandler](#usehandler)([Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) handlerType) | Creates a delegation mode request for the specified subscriber handler. |
+| global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [get](#get)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) credential, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) path) | Starts a request that reads data. |
+| global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [patch](#patch)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) credential, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) path) | Starts a request that changes part of a resource, usually with body(...). |
+| global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [post](#post)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) credential, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) path) | Starts a request that sends new data, usually with body(...). |
+| global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [put](#put)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) credential, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) path) | Starts a request that replaces a resource, usually with body(...). |
+| global static [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [useHandler](#usehandler)([Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) handlerType) | Creates a delegation mode request for the specified handler class of your own. |
 
 ### del
 
@@ -83,7 +83,8 @@ HttpResponse response = UTIL_HttpClient.del('CRM', '/contacts/{id}')
 global static UTIL_HttpClient.RequestBuilder get(String credential, String path)
 ```
 
-Creates a GET request for the specified credential and path.
+Starts a request that reads data. Nothing is sent until you call send() on the builder. The path is
+added to the credential's endpoint, and it can hold {name} placeholders that pathParam fills in.
 
 **Parameters**
 
@@ -112,7 +113,10 @@ HttpResponse response = UTIL_HttpClient.get('CRM', '/accounts/{id}')
 global static UTIL_HttpClient.RequestBuilder patch(String credential, String path)
 ```
 
-Creates a PATCH request for the specified credential and path.
+Starts a request that changes part of a resource, usually with body(...). Nothing is sent until you call
+send() on the builder. With retries turned on and no retryOn list, a PATCH that carries no idempotency key (the key
+you give withIdempotencyKey so the other system can recognise a repeat) is not sent again after a 500, 502 or 504,
+because the other system may already have acted on it.
 
 **Parameters**
 
@@ -142,7 +146,10 @@ HttpResponse response = UTIL_HttpClient.patch('CRM', '/contacts/{id}')
 global static UTIL_HttpClient.RequestBuilder post(String credential, String path)
 ```
 
-Creates a POST request for the specified credential and path.
+Starts a request that sends new data, usually with body(...). Nothing is sent until you call send() on
+the builder. With retries turned on and no retryOn list, a POST that carries no idempotency key (the key you give
+withIdempotencyKey so the other system can recognise a repeat) is not sent again after a 500, 502 or 504, because
+the other system may already have acted on it.
 
 **Parameters**
 
@@ -171,7 +178,9 @@ HttpResponse response = UTIL_HttpClient.post('EmailService', '/send')
 global static UTIL_HttpClient.RequestBuilder put(String credential, String path)
 ```
 
-Creates a PUT request for the specified credential and path.
+Starts a request that replaces a resource, usually with body(...). Nothing is sent until you call send()
+on the builder. With retries turned on and no retryOn list, a PUT counts as safe to repeat, so it is sent again
+after a 500, 502 or 504.
 
 **Parameters**
 
@@ -201,7 +210,9 @@ HttpResponse response = UTIL_HttpClient.put('CRM', '/contacts/{id}')
 global static UTIL_HttpClient.RequestBuilder useHandler(Type handlerType)
 ```
 
-Creates a delegation mode request for the specified subscriber handler.
+Creates a delegation mode request for the specified handler class of your own. Your handler's inputs also
+carry three names that start with two underscores, holding the retry values of withRetry and withExponentialBackoff;
+leave them in place, the framework reads them on every run.
 
 **Parameters**
 

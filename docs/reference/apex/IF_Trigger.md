@@ -5,7 +5,7 @@ pageClass: reference
 description: "Contracts for metadata-driven trigger action handlers. Each nested interface corresponds to a Salesforce trigger event and defines the callback signature that handler classes must implement. Handlers "
 author: "Jason Van Beukering"
 group: "Triggers"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

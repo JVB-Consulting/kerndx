@@ -751,11 +751,14 @@ and logs the result.
 **In Salesforce**, to try it, run this in the Execute Anonymous window:
 
 ```apex
+kern.DTO_NameValues parameters = new kern.DTO_NameValues();
+parameters.add('postId', '1');
+
 kern__ApiCall__c queueItem = new kern__ApiCall__c(
 	kern__ServiceName__c = API_GetPost.class.getName(),
 	kern__Direction__c = 'Outbound',
 	kern__Status__c = 'Queued',
-	kern__RequestParameters__c = '{"postId":"1"}'
+	kern__RequestParameters__c = parameters.serialize()
 );
 
 kern.DML_Builder.newTransaction().doInsert(queueItem).execute();

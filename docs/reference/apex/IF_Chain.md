@@ -2,10 +2,10 @@
 title: "IF_Chain"
 type: class
 pageClass: reference
-description: "A container for shared global interfaces used by the async chain orchestration framework. Subscribers implement these interfaces to define chain step logic and conditional branching."
+description: "A container for shared global interfaces used by the async chain orchestration framework. You implement these interfaces to define chain step logic and conditional branching."
 author: "Jason Van Beukering"
 group: "Async"
-date: "April 2026, May 2026"
+date: "April 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class IF_Chain
 ```
 
-A container for shared global interfaces used by the async chain orchestration framework. Subscribers implement these interfaces to define chain step logic and conditional branching.
+A container for shared global interfaces used by the async chain orchestration framework. You implement these interfaces to define chain step logic and conditional branching.
 
 **Example**
 

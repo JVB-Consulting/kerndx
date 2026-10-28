@@ -73,7 +73,7 @@ QRY_Builder.selectFrom(LogEntry__c.SObjectType)
 
 ```
 
-The same applies to subscriber reports, dashboards, cleanup scripts, and audit queries. See
+The same applies to your reports, dashboards, cleanup scripts, and audit queries. See
 the section "Querying Log Entries" in the Logging Developer Guide for full examples.
 
 **Example**
@@ -94,8 +94,8 @@ LOG_Builder.build().info('Processing complete').emitAt('MyClass.myMethod');
 | Method | Description |
 |--------|-------------|
 | global static [LOG_Builder.LogEntry](LOG_Builder.LogEntry.md) [build](#build)() | Creates a new fluent log entry builder for constructing rich contextual log entries. |
-| global static void [clearAllGlobalContext](#clearallglobalcontext)() | Clears all global context values. |
-| global static void [clearGlobalContext](#clearglobalcontext)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key) | Clears a specific global context key. |
+| global static void [clearAllGlobalContext](#clearallglobalcontext)() | Removes every global context value at once, so log entries emitted later in this transaction carry none of them. |
+| global static void [clearGlobalContext](#clearglobalcontext)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) key) | Removes one value that setGlobalContext added, so log entries emitted later in this transaction no longer carry it. |
 | global static [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [errorDMLOperationResults](#errordmloperationresults)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> operationResults, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) classMethod) | Analyzes DML operation results and logs any errors encountered during database operations. |
 | global static void [flushBuffer](#flushbuffer)() | Manually flushes buffered logs without resuming. |
 | global static void [hydrateContext](#hydratecontext)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serializedContext) | Restores logging context in async jobs. |
@@ -142,7 +142,8 @@ LOG_Builder.build()
 global static void clearAllGlobalContext()
 ```
 
-Clears all global context values.
+Removes every global context value at once, so log entries emitted later in this transaction carry
+none of them. Use it when one piece of work ends and the next one should start with no shared context.
 
 **Example**
 
@@ -160,7 +161,8 @@ LOG_Builder.clearAllGlobalContext();
 global static void clearGlobalContext(String key)
 ```
 
-Clears a specific global context key.
+Removes one value that setGlobalContext added, so log entries emitted later in this transaction no
+longer carry it. Does nothing when no value is stored under the key.
 
 **Parameters**
 
@@ -205,7 +207,7 @@ Boolean hasErrors = LOG_Builder.errorDMLOperationResults(results, 'AccountServic
 if(hasErrors)
 {
 	// Handle the fact that some records failed
-	System.debug('Some account insertions failed - check logs for details');
+	// The failed rows are already logged: tell the caller or retry here
 }
 ```
 

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Processor for bulk field updates using the adaptive async framework. Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution. Supports REPLACE, PREFIX, and "
 author: "Jason Van Beukering"
 group: "Bulk DML"
-date: "February 2026, August 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

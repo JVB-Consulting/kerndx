@@ -27,7 +27,7 @@ Result of a cache operation with detailed status information
 
 | Constructor | Description |
 |-------------|-------------|
-| global [OperationResult](#constructors)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) success, [UTIL_Cache.Status](UTIL_Cache.Status.md) status, [UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheTypeUsed) | Constructor for success result |
+| global [OperationResult](#constructors)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) success, [UTIL_Cache.Status](UTIL_Cache.Status.md) status, [UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheTypeUsed) | Creates a result with no error message, as the cache records after an operation that worked. |
 | global [OperationResult](#constructors)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) success, [UTIL_Cache.Status](UTIL_Cache.Status.md) status, [UTIL_Cache.Scope](UTIL_Cache.Scope.md) cacheTypeAttempted, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) errorMessage) | Constructor for failure result |
 
 ### OperationResult(Boolean success, UTIL_Cache.Status status, UTIL_Cache.Scope cacheTypeUsed)
@@ -38,7 +38,9 @@ Result of a cache operation with detailed status information
 global OperationResult(Boolean success, UTIL_Cache.Status status, UTIL_Cache.Scope cacheTypeUsed)
 ```
 
-Constructor for success result
+Creates a result with no error message, as the cache records after an operation that worked. The
+values are kept exactly as given. To record a failure and its reason, use the constructor that also takes an
+error message.
 
 **Parameters**
 

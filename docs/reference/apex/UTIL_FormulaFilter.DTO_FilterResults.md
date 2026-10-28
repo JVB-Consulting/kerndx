@@ -29,8 +29,8 @@ Inner class representing the result of the filter method.
 
 | Property | Description |
 |----------|-------------|
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [newRecords](#newrecords) | The filtered list of old SObjects. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [oldRecords](#oldrecords) | The filtered list of new SObjects. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [newRecords](#newrecords) | The new versions of the records that matched the formula, in the order you passed them. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [oldRecords](#oldrecords) | The old versions of the records that matched the formula, in the order you passed them. |
 
 ### newRecords
 
@@ -40,7 +40,9 @@ global List<SObject> newRecords
 
 **Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
 
-The filtered list of old SObjects.
+The new versions of the records that matched the formula, in the order you passed them. When the
+filter has no formula or no context class, it is the new list you passed in, unchanged. It is never null: an
+empty list is returned instead.
 
 ### oldRecords
 
@@ -50,5 +52,7 @@ global List<SObject> oldRecords
 
 **Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
 
-The filtered list of new SObjects.
+The old versions of the records that matched the formula, in the order you passed them. When the
+filter has no formula or no context class, it is the old list you passed in, unchanged. It is never null: an
+empty list is returned instead.
 

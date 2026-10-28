@@ -19,7 +19,7 @@ global virtual class TST_Builder.DefaultValueProvider
 
 **Known Derived Types:** [UTIL_SObjectBuilderDefaultProvider](UTIL_SObjectBuilderDefaultProvider.md)
 
-Base class for default value providers. Extend 'UTIL_SObjectBuilderDefaultProvider' (which extends this class) to customize default value generation. @note Using a virtual class instead of an interface allows adding new methods in future managed package versions without breaking existing subscriber implementations.
+Base class for default value providers. Extend 'UTIL_SObjectBuilderDefaultProvider' (which extends this class) to customize default value generation. @note Using a virtual class instead of an interface allows adding new methods in future managed package versions without breaking the providers you have already written.
 
 </div>
 
@@ -29,7 +29,7 @@ Base class for default value providers. Extend 'UTIL_SObjectBuilderDefaultProvid
 
 | Method | Description |
 |--------|-------------|
-| global virtual [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [TST_Builder.DefaultFieldValueProvider](TST_Builder.DefaultFieldValueProvider.md)> [getDefaultMapOfValues](#getdefaultmapofvalues)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> mapOfValuesOverride) | Gets the default map of values for a given SObjectType. |
+| global virtual [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [TST_Builder.DefaultFieldValueProvider](TST_Builder.DefaultFieldValueProvider.md)> [getDefaultMapOfValues](#getdefaultmapofvalues)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) sObjectType, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> mapOfValuesOverride) | Returns the value providers for the fields the builder fills on a new record. |
 
 ### getDefaultMapOfValues
 
@@ -39,7 +39,9 @@ Base class for default value providers. Extend 'UTIL_SObjectBuilderDefaultProvid
 global virtual Map<String, TST_Builder.DefaultFieldValueProvider> getDefaultMapOfValues(SObjectType sObjectType, Map<String, Object> mapOfValuesOverride)
 ```
 
-Gets the default map of values for a given SObjectType.
+Returns the value providers for the fields the builder fills on a new record. The builder calls
+this once for each build, before it makes the records. It then sets every field named in the map on each
+record, and asks that field's provider for the value of each record. This base version returns an empty map.
 
 **Parameters**
 

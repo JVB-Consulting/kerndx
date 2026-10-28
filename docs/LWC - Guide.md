@@ -162,10 +162,10 @@ For any other custom component, extend `ComponentBuilder` even with a single fea
         - [cronExpressionEditor](#cronexpressioneditor)
     - [Component Availability Summary](#component-availability-summary)
     - [Complete Component Inventory](#complete-component-inventory)
-        - [Utility Modules (8 components)](#utility-modules-8-components)
+        - [Utility Modules (9 components)](#utility-modules-9-components)
         - [Base Architecture (8 components)](#base-architecture-8-components)
-        - [Subscriber-Usable Components (15 components)](#subscriber-usable-components-15-components)
-        - [Internal UI Components (12 components)](#internal-ui-components-12-components)
+        - [Components You Can Use (15 components)](#components-you-can-use-15-components)
+        - [Internal UI Components (15 components)](#internal-ui-components-15-components)
         - [Streaming Monitor Internals (9 components)](#streaming-monitor-internals-9-components)
         - [Chain Monitor (7 components)](#chain-monitor-7-components)
         - [Log Console (4 components)](#log-console-4-components)
@@ -197,12 +197,13 @@ Here is the whole idea in one example. To build a custom component, extend `Comp
 
 ```javascript
 import {ComponentBuilder} from 'kern/componentBuilder';
+import saveRecord from '@salesforce/apex/MyController.saveRecord';
 
 export default class MyComponent extends ComponentBuilder('notification', 'controller')
 {
 	async handleSave()
 	{
-		const result = await this.callControllerMethod('saveRecord', {record: this.record});
+		const result = await this.callControllerMethod(saveRecord, {record: this.record});
 		this.showSuccessToast('Record saved successfully');
 	}
 }
@@ -225,8 +226,8 @@ The pieces of this part of KernDX are: helper functions for common operations (l
 
 > **What components are for, and what they are not for:** Components handle the screen: what the user sees and clicks. They should not hold business logic. Your Apex controllers and trigger actions own that. So keep components thin: call a server method with `callControllerMethod()` and display what comes back.
 
-> **What's in this part of KernDX:** 74 components, made up of 8 helper-function modules, the base-component architecture, Flow screen components, page components, form components,
-> data masking advisor components, log console components, and admin components. Every one is covered by tests: 75 Jest test files holding ~3,000 test cases (~45K lines of test code) at 100% coverage. So you can build on this layer without worrying that an upgrade will quietly break it.
+> **What's in this part of KernDX:** components made up of helper-function modules, the base-component architecture, Flow screen components, page components, form components,
+> data masking advisor components, log console components, and admin components. Every one is covered by Jest tests at 100% coverage. The current component and test counts are in [Strategic Guide - Metrics](Strategic%20Guide%20-%20Metrics.md#lwc-components). So you can build on this layer without worrying that an upgrade will quietly break it.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
 
@@ -241,8 +242,8 @@ The pieces of this part of KernDX are: helper functions for common operations (l
 |                         KERN LWC ARCHITECTURE                           |
 +-------------------------------------------------------------------------+
 |                                                                         |
-|  SUBSCRIBER-USABLE COMPONENTS                                           |
-|  ============================                                           |
+|  COMPONENTS YOU CAN USE                                                 |
+|  ======================                                                 |
 |                                                                         |
 |  +-------------------+  +-------------------+  +-------------------+    |
 |  |  UTILITY MODULES  |  |  FLOW COMPONENTS  |  |  PAGE COMPONENTS  |    |
@@ -371,7 +372,7 @@ This part of KernDX is organised into three groups, each solving a different nee
 
 2. **A base class for building your own components.** Rather than re-wiring toasts, Apex calls, and navigation in every component, you extend one base class that already has them. `ComponentBuilder(...)` is a factory: you list the features you want (notification, navigation, controller, lightning-message, flow-navigation) and it hands back a base class with exactly those mixed in. Your component extends that result instead of extending `LightningElement` directly. The [Base Component Architecture](#base-component-architecture) section explains the full system.
 
-3. **Pre-built components you can use as-is.** For common patterns there is already a finished component: Flow screen components (`flowFooter`, `jsonViewer`), page components (`streamingMonitor`, `searchLookup`, `scheduledJobDetail`), form components (`createForm`, `sObjectLookup`), and scheduling components (`scheduledJobEditor`, `scheduledJobEditorModal`, `cronExpressionEditor`). So a common screen often needs no new code at all.
+3. **Pre-built components you can use as-is.** For common patterns there is already a finished component: Flow screen components (`flowFooter`, `jsonViewer`), page components (`streamingMonitor`, `searchLookup`, `scheduledJobDetail`), and form components (`createForm`, `sObjectLookup`). So a common screen often needs no new code at all.
 
 All components use Allman bracing, tabs for indentation, single quotes, and follow the conventions defined in
 [`docs/Code Conventions - Guide.md`](./Code%20Conventions%20-%20Guide.md). Every component requires a `.js-meta.xml` file with `apiVersion` 68.0.
@@ -427,7 +428,7 @@ info('Account loaded', {
 When one user action triggers several log entries, on the client and then on the server, a correlation ID ties them together so you can read them as a single trail. Here is how to start and end one by hand.
 
 ```javascript
-import {startCorrelation, endCorrelation, getCorrelationId, info} from 'kern/utilityLogger';
+import {startCorrelation, endCorrelation, getCorrelationId, info, error} from 'kern/utilityLogger';
 
 // Manual correlation management
 async handleSave()
@@ -910,6 +911,7 @@ import {ComponentBuilder} from 'kern/componentBuilder';
 
 ```javascript
 import {ComponentBuilder} from 'kern/componentBuilder';
+import getAccounts from '@salesforce/apex/AccountController.getAccounts';
 
 // Include specific modules
 export default class MyComponent extends ComponentBuilder('notification', 'controller')
@@ -920,7 +922,8 @@ export default class MyComponent extends ComponentBuilder('notification', 'contr
 	{
 		try
 		{
-			const result = await this.callControllerMethod('getAccounts', {});
+			// isThrow makes a failed call throw, so the catch below runs; silent skips the generic error toast
+			const result = await this.callControllerMethod(getAccounts, {}, {isThrow: true, silent: true});
 			this.showSuccessToast('Accounts loaded');
 		}
 		catch (error)
@@ -1000,12 +1003,12 @@ Each module is a separate JavaScript file that exports an initialiser function:
 
 | File                              | Export                                        | Purpose                                                                           |
 |-----------------------------------|-----------------------------------------------|-----------------------------------------------------------------------------------|
-| `c/moduleNotification`            | `initialiseNotificationModule(component)`     | Adds toast methods                                                                |
-| `c/moduleNavigation`              | `initialiseNavigationModule(component)`       | Adds navigation methods                                                           |
-| `c/moduleLightningMessageService` | `initialiseLightningMessageModule(component)` | Adds LMS methods                                                                  |
-| `c/moduleController`              | `initialiseControllerModule(component)`       | Adds Apex call methods                                                            |
-| `c/moduleFlowNavigation`          | `initialiseFlowNavigationModule(component)`   | Adds Flow event methods                                                           |
-| `c/componentExtender` (internal)  | `componentExtender(component, ...modules)`    | Orchestrates module loading (used by `ComponentBuilder`; do not import directly) |
+| `kern/moduleNotification`            | `initialiseNotificationModule(component)`     | Adds toast methods                                                                |
+| `kern/moduleNavigation`              | `initialiseNavigationModule(component)`       | Adds navigation methods                                                           |
+| `kern/moduleLightningMessageService` | `initialiseLightningMessageModule(component)` | Adds LMS methods                                                                  |
+| `kern/moduleController`              | `initialiseControllerModule(component)`       | Adds Apex call methods                                                            |
+| `kern/moduleFlowNavigation`          | `initialiseFlowNavigationModule(component)`   | Adds Flow event methods                                                           |
+| `kern/componentExtender` (internal)  | `componentExtender(component, ...modules)`    | Orchestrates module loading (used by `ComponentBuilder`; do not import directly) |
 
 #### Why This Pattern?
 
@@ -1031,9 +1034,10 @@ Why build it this way rather than one giant base class? Four reasons, each with 
 
 > **For a rare edge case only:** almost always you list your modules up front in `ComponentBuilder(...)` and you are done. The pattern below is for the unusual case where a module has to be added later, after the component is already built, based on a runtime condition.
 
-If you genuinely need to add a module after construction, you can do so like this:
+The sample below imports `componentExtender`, the internal piece that `ComponentBuilder` is built on. It is exposed, but it is internal: it is not meant to be imported directly, and it may change without notice. Prefer listing the module up front in `ComponentBuilder(...)`, even if some instances never use it. The sample only shows what happens inside the framework:
 
 ```javascript
+// Internal: shown for explanation only, not for use in your own components
 import {componentExtender} from 'kern/componentExtender';
 
 connectedCallback()
@@ -1063,12 +1067,12 @@ this.showErrorToast('Operation failed');
 this.showWarningToast('Please review');
 this.showInfoToast('Processing...');
 
-// Custom notification
-this.customNotification('Custom Title', 'Custom message', 'success', 'dismissable');
+// Custom notification: (title, message, variant, messageData, mode)
+this.customNotification('Custom Title', 'Custom message', 'success', [], 'dismissible');
 
-// Factory for complex notifications
-const notify = this.customNotificationFactory();
-notify('Title', 'Message', 'error', 'sticky');
+// Factory for complex notifications: (variant, mode) returns (message, title, messageData)
+const notify = this.customNotificationFactory('error', 'sticky');
+notify('Message', 'Title');
 ```
 
 #### Navigation Methods
@@ -1100,19 +1104,17 @@ this.clearSubscriptions();
 #### Controller Methods
 
 ```javascript
-// Call Apex method
-const result = await this.callControllerMethod('getAccountData', {
+// Call Apex method (getAccountData is imported from '@salesforce/apex/AccountController.getAccountData')
+// On failure it logs, shows an error toast and returns undefined; pass {isThrow: true} as a third argument to make it throw instead
+const result = await this.callControllerMethod(getAccountData, {
 	accountId: this.recordId
 });
 
-// Handle wire response
+// Handle wire response: returns the data, or undefined after logging and showing the error
 @wire(getRecord, {recordId: '$recordId', fields: FIELDS})
 wiredRecord(result)
 {
-	this.handleWireResponse(result, (data) =>
-	{
-		this.account = data;
-	});
+	this.account = this.handleWireResponse(result);
 }
 ```
 
@@ -1318,9 +1320,9 @@ and `scheduledJobEditorModal` for inline editing. The editor embeds `cronExpress
 
 ### healthCheck - Post-Install Diagnostics
 
-After installing KernDX, a few things need to be set up correctly (caches, retention jobs). This component runs 11 checks and tells you what is healthy, what needs attention, and what to do about it, with one-click fixes where possible. Drop it on a Home Page so the status is visible at a glance.
+After installing KernDX, a few things need to be set up correctly (caches, retention jobs). This component runs 12 checks and tells you what is healthy, what needs attention, and what to do about it, with one-click fixes where possible. Drop it on a Home Page or an App Page so the status is visible at a glance.
 
-**Targets:** `lightning__HomePage`
+**Targets:** `lightning__AppPage`, `lightning__HomePage`
 
 **Checks:**
 
@@ -1335,11 +1337,15 @@ After installing KernDX, a few things need to be set up correctly (caches, reten
    to schedule their purge as such a user. If a purge of either is already set up but runs as a user the flag is off for, the check
    warns and names it, because that purge deletes nothing; reschedule it as a user who holds the Delete API Records permission. If
    the flag record is deactivated, nobody can delete them, so the check warns that every purge of them deletes nothing.
-5. **Data Masking**: masking posture across the org's configured targets. Warns on dead configuration (an active target pointing at an inactive or missing rule) or when almost
+5. **Masking Configuration**: masking posture across the org's configured targets. Warns on dead configuration (an active target pointing at an inactive or missing rule) or when almost
    nothing is masked yet; the warning's action opens the [Data Masking Advisor](Data%20Masking%20-%20Guide.md#the-data-masking-advisor)
-6. **Custom Object Coverage**: how much of your own custom data carries masking (Warn when sensitive custom objects are left unmasked; the action opens the Data Masking Advisor)
+6. **Masking Coverage (Custom Objects)**: how much of your own custom data carries masking (Warn when sensitive custom objects are left unmasked; the action opens the Data Masking Advisor)
 7. **Chain Abort Capability**: whether the Chain Monitor's abort action is enabled and granted to at least one user (Warn when the flag is deactivated, when any profile beyond System Administrator holds the abort permission, usually the footprint of an All Users install, or when nobody holds the Kern Async Chain Abort permission set)
 8. **Chain Watchdog**: whether the stalled-chain recovery job (`SCHED_ChainWatchdog`) is scheduled (Warn when it is not, with a one-click **Schedule Chain Watchdog** action that creates the hourly job with the recommended defaults, plus a **Customize schedule →** link for full control)
+9. **Job Runner**: whether the job runner (the set of scheduled jobs that checks for due Scheduled Job records) is active, complete and checking on time (Fail when its set of jobs is incomplete, when it has stopped checking, or when the user who turned it on is no longer active; Warn when its last check is late; passes when no job runner is set up)
+10. **Jobs Waiting for the Job Runner**: whether jobs are set to run on the job runner while no job runner is active (Fail when any are, because they will never run)
+11. **Job Runner Capacity**: how many of the org's 100 scheduled-job slots are in use, and whether the job runner's last check started every job that was due (Warn from 80 slots in use or when a due job was left waiting; Fail from 90 slots)
+12. **Selected API Mocking**: every active API Setting with Mocking Enabled ticked, and whether those services answer mock data for you (Warn while any active API Setting has the box ticked, or while Mock All APIs or Mock All Inbound APIs is on for you; no action button)
 
 **Features:**
 
@@ -1349,8 +1355,9 @@ After installing KernDX, a few things need to be set up correctly (caches, reten
 - Headline pluralises correctly ("1 warning" vs "2 warnings")
 - **Setup action** on Class Type Resolver opens a modal with a code generator
 - **Data Retention** renders two buttons side-by-side:
-    - **Apply Recommended Retention** opens a confirmation modal listing the four purge jobs to create (90-day retention, batch size 2000, `CreatedDate` field, inactive by
-      default). Confirming creates all four `ScheduledJob__c` records in a single transaction.
+    - **Apply Recommended Retention** opens a confirmation modal listing the four purge jobs to create (90-day retention, or 180 days for API issues; batch size 2000;
+      age measured on `CreatedDate`, or on `CompletedAt__c` for async chain executions; created active). Confirming creates all four `ScheduledJob__c` records in a single
+      transaction.
     - **Customize each job →** expands the Data Retention row into a full-width block with a "customizing N jobs" headline, a back-to-apply link, a help paragraph, and a sub-row
       per unconfigured framework object. Each sub-row shows record count (singular/plural correct, locale-formatted), the retention in days, and a **Set up** button that opens
       `scheduledJobEditorModal` prefilled with the object's defaults and the Class Name field read-only. After saving a sub-row, the list auto-refreshes and drops the configured
@@ -1422,10 +1429,10 @@ A lookup field for finding records of any object by searching one of its fields.
 |------------------|--------|-----------------------------------|
 | `objectApiName`  | String | API name of the SObject to search |
 | `displayFields`  | Array  | Fields to display in results      |
-| `searchTerm`     | String | Current search term               |
-| `recordId`       | String | Selected record ID                |
-| `selectedRecord` | Object | Full selected record              |
 | `iconName`       | String | Icon to display                   |
+| `elementName`    | String | Name sent back in the event, so you can tell lookups apart |
+
+The full list of properties is in the [sObjectLookup reference](#sobjectlookup). When the user picks a record, the component fires `valueselect`; the event detail carries `selectedId`, `elementName` and `isRequired`.
 
 **Usage:**
 
@@ -1433,7 +1440,7 @@ A lookup field for finding records of any object by searching one of its fields.
 <c-s-object-lookup
     object-api-name="Account"
     display-fields={displayFields}
-    onrecordselect={handleRecordSelect}>
+    onvalueselect={handleRecordSelect}>
 </c-s-object-lookup>
 ```
 
@@ -1452,7 +1459,7 @@ These are the building blocks KernDX uses inside its own components. You don't p
 | `baseLookup`                  | Base class for lookup components                               |
 | `viewRecord`                  | Read-only record display                                       |
 | `applyRetentionModal`         | Confirmation modal for applying recommended retention jobs     |
-| `classTypeResolverSetupModal` | Guided setup modal for subscriber Class Type Resolver          |
+| `classTypeResolverSetupModal` | Guided setup modal for your org's Class Type Resolver          |
 | `kernHome`                    | Developer control room (Kern Home) card layout                 |
 | `scheduledJobEditor`          | ScheduledJob__c editor form (action override via Aura wrapper) |
 | `scheduledJobEditorModal`     | Modal dialog for creating/editing ScheduledJob__c records      |
@@ -1621,7 +1628,7 @@ When you test a component, you usually don't want it to really call KernDX loggi
 **Mock utilityLogger:**
 
 ```javascript
-jest.mock('c/utilityLogger', () => ({
+jest.mock('kern/utilityLogger', () => ({
 	__esModule: true,
 	default: {
 		debug: jest.fn(),
@@ -1647,7 +1654,7 @@ jest.mock('c/utilityLogger', () => ({
 **Mock utilityString:**
 
 ```javascript
-jest.mock('c/utilityString', () => ({
+jest.mock('kern/utilityString', () => ({
 	formatTemplateString: jest.fn((template, values) => template),
 	convertToSentenceCase: jest.fn(str => str),
 	CAPITAL_LETTERS: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
@@ -1660,15 +1667,21 @@ jest.mock('c/utilityString', () => ({
 **Mock componentBuilder:**
 
 ```javascript
-jest.mock('c/componentBuilder', () => ({
+// Assign the stubs in the constructor, not as class fields: class fields make the LWC compiler
+// add a helper that Jest's mock hoisting rejects.
+jest.mock('kern/componentBuilder', () => ({
 	ComponentBuilder: jest.fn().mockImplementation(() =>
 	{
 		const {LightningElement} = require('lwc');
 		return class extends LightningElement
 		{
-			showSuccessToast = jest.fn();
-			showErrorToast = jest.fn();
-			callControllerMethod = jest.fn().mockResolvedValue({});
+			constructor()
+			{
+				super();
+				this.showSuccessToast = jest.fn();
+				this.showErrorToast = jest.fn();
+				this.callControllerMethod = jest.fn().mockResolvedValue({});
+			}
 		};
 	})
 }), {virtual: true});
@@ -1792,7 +1805,7 @@ catch (error)
 
 The `notification` module's `showErrorToast` accepts either a string (passed
 through unchanged) or an Apex / UI API error object (auto-normalised through
-`c/utilitySystem.reduceErrors`). Import `reduceErrors` directly only when you
+`kern/utilitySystem.reduceErrors`). Import `reduceErrors` directly only when you
 need the normalised string outside the toast pipeline.
 
 ### Clean Up Subscriptions
@@ -2017,9 +2030,9 @@ public with sharing class MyController implements IF_Search
 
 #### healthCheck
 
-**Purpose:** Post-install diagnostics with 11 health checks and actionable warnings
+**Purpose:** Post-install diagnostics with 12 health checks and actionable warnings
 
-**Where to Use:** Home Pages
+**Where to Use:** App Pages, Home Pages
 
 | Property | Type | Required | Default | Description                               |
 |----------|------|----------|---------|-------------------------------------------|
@@ -2027,7 +2040,7 @@ public with sharing class MyController implements IF_Search
 
 **Features:**
 
-- 11 checks: Org Cache, Session Cache, Class Type Resolver, Data Retention, Masking Configuration, Masking Coverage (Custom Objects), Chain Abort Capability, Chain Watchdog, Job Runner, Jobs Waiting for the Job Runner, Job Runner Capacity
+- 12 checks: Org Cache, Session Cache, Class Type Resolver, Data Retention, Masking Configuration, Masking Coverage (Custom Objects), Chain Abort Capability, Chain Watchdog, Job Runner, Jobs Waiting for the Job Runner, Job Runner Capacity, Selected API Mocking
 - Two-section layout: Action required (fail items) rendered above Review recommended (warn items); all-pass state collapses to a slim green banner
 - Validates resolver classes extend `BaseClassResolver`, and warns if a class exists but is incompatible
 - Setup button on resolver warnings opens a code generator modal
@@ -2069,7 +2082,6 @@ You can't drag these onto a page in Lightning App Builder. Instead, you use them
 | `readOnly`        | Boolean  | No       | false    | Make lookup read-only                      |
 | `displayFormat`   | String   | No       | -        | Custom display format for results          |
 | `idField`         | String   | No       | 'Id'     | Field to use as unique identifier          |
-| `defaultRecordId` | String   | No       | -        | Pre-select record by ID                    |
 | `elementName`     | String   | No       | -        | Component name for event identification    |
 
 **Events:**
@@ -2118,7 +2130,6 @@ You can't drag these onto a page in Lightning App Builder. Instead, you use them
 
 - `selectedTableRows` - Get/set currently visible selected rows
 - `totalSelectedRowIds` - Get all selected row IDs across pages
-- `clearLookup()` - Clear selection
 
 ---
 
@@ -2136,9 +2147,9 @@ You can't drag these onto a page in Lightning App Builder. Instead, you use them
 </c-custom-data-table>
 ```
 
-| Property | Type  | Required | Default | Description                               |
-|----------|-------|----------|---------|-------------------------------------------|
-| `types`  | Array | No       | []      | Additional custom column type definitions |
+| Property | Type  | Required | Default | Description                                                                                                                                                        |
+|----------|-------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `types`  | Array | No       | []      | Additional custom column type definitions. A table does not see the types it passes itself; they reach only tables created after it. See **Your Own Column Types** |
 
 **Built-in Custom Column Types:**
 
@@ -2162,13 +2173,70 @@ const columns = [
 ];
 ```
 
+**Your Own Column Types:**
+
+The `types` property adds your column types to one map that every `customDataTable` in the app shares, until the page reloads.
+The platform datatable copies that map when it creates a table, before your properties reach the table.
+So a table never sees the types it passes in `types` itself. They reach only tables created after it, on any page, until the page reloads.
+
+To give a table its own column types every time, create a small component that extends `customDataTable`
+and declares its own `static customTypes` map.
+Your component has only its JavaScript file, its meta file and the cell templates; it has no HTML file of its own, because the datatable supplies the table template.
+Each entry in the map is one column type, keyed by the name
+you use as `type` in a column definition. Each entry has:
+
+- `template`: the HTML template that draws the cell, imported from your component's folder.
+- `typeAttributes`: the names of the values your column definition passes to the template.
+- `standardCellLayout: true` (optional): keeps the standard cell padding, so the cell lines up with the other columns.
+
+Your map takes the place of the built-in one for this table. To keep the built-in types as well, copy them in first with `...CustomDataTable.customTypes`.
+
+```javascript
+import CustomDataTable from 'kern/customDataTable';
+import statusBadge from './statusBadge.html';
+import recordLink from './recordLink.html';
+
+export default class MyRecordTable extends CustomDataTable
+{
+	static customTypes = {
+		...CustomDataTable.customTypes,
+		statusBadge: {template: statusBadge, standardCellLayout: true, typeAttributes: ['status']},
+		recordLink: {template: recordLink, standardCellLayout: true, typeAttributes: ['recordUrl', 'label']}
+	};
+}
+```
+
+A cell template reads the cell's own value as `{value}` and each name in `typeAttributes` as `{typeAttributes.<name>}`.
+The map above imports two templates, so your component's folder holds both:
+
+```html
+<!-- statusBadge.html -->
+<template>
+	<span class="slds-badge">{typeAttributes.status}</span>
+</template>
+
+<!-- recordLink.html -->
+<template>
+	<a href={typeAttributes.recordUrl}>{typeAttributes.label}</a>
+</template>
+```
+
+Use your component (here `c-my-record-table`) in place of `kern-custom-data-table`, and name the type and its values in the column
+definition:
+
+```javascript
+{label: 'Status', fieldName: 'Status__c', type: 'statusBadge', typeAttributes: {status: {fieldName: 'Status__c'}}}
+```
+
 ---
 
 #### cronExpressionEditor
 
 **Purpose:** Reusable Salesforce cron expression editor with preset, advanced, and custom modes
 
-**Usage:**
+> **Internal:** this component is not exposed, so you cannot use it in your own components. It is described here because the scheduled job editors embed it, and you see it when you create or edit a scheduled job.
+
+**Usage (inside KernDX):**
 
 ```html
 <c-cron-expression-editor value={expression} oncronchange={handleChange}></c-cron-expression-editor>
@@ -2203,12 +2271,6 @@ and Friday at 9:30 AM").
 - `constants.js`: option arrays and mode constants
 - `cronParser.js`: pure functions: `parseCronExpression()`, `buildCronExpression()`, `describeCronExpression()`
 
-**Subscriber Usage (with namespace prefix):**
-
-```html
-<namespace-cron-expression-editor value={expression} oncronchange={handleChange}></namespace-cron-expression-editor>
-```
-
 ---
 
 ### Component Availability Summary
@@ -2223,9 +2285,8 @@ and Friday at 9:30 AM").
 | sObjectLookup        |      -      |    -     |      -      |     -     |    Yes    |
 | paginatedTable       |      -      |    -     |      -      |     -     |    Yes    |
 | customDataTable      |      -      |    -     |      -      |     -     |    Yes    |
-| cronExpressionEditor |      -      |    -     |      -      |     -     |    Yes    |
 | scheduledJobDetail   |      -      |    -     |     Yes     |     -     |     -     |
-| healthCheck          |      -      |    -     |      -      |    Yes    |     -     |
+| healthCheck          |      -      |   Yes    |      -      |    Yes    |     -     |
 | chainMonitor         |      -      |   Yes    |      -      |     -     |     -     |
 | chainStepTimeline    |      -      |    -     |     Yes     |     -     |     -     |
 | logConsole           |      -      |   Yes    |      -      |     -     |     -     |
@@ -2236,12 +2297,12 @@ and Friday at 9:30 AM").
 
 ### Complete Component Inventory
 
-All 74 LWC components in the KernDX framework with their category, exposure status, and test coverage.
+Every LWC component in the KernDX framework with its category, exposure status, and test coverage. The total count is in [Strategic Guide - Metrics](Strategic%20Guide%20-%20Metrics.md#lwc-components).
 
 <details>
-<summary>Expand the full 74-component inventory</summary>
+<summary>Expand the full component inventory</summary>
 
-#### Utility Modules (8 components)
+#### Utility Modules (9 components)
 
 | Component          | Exposed | Jest Tests | Purpose                                     |
 |--------------------|:-------:|:----------:|---------------------------------------------|
@@ -2253,21 +2314,24 @@ All 74 LWC components in the KernDX framework with their category, exposure stat
 | `utilityGenerator` |    -    |    Yes     | Counter and array generators                |
 | `utilityStreaming` |    -    |    Yes     | Streaming constants and helpers             |
 | `utilityScheduledJob` |    -    |    Yes     | Shared timezone-name and parameter-parsing helpers for the ScheduledJob__c components |
+| `utilityApiIssueAction` |    -    |    Yes     | Shared helper that runs an action (such as Retry or Dismiss) on an API issue from a quick action |
 
 #### Base Architecture (8 components)
 
 | Component                       | Exposed | Jest Tests | Purpose                                                          |
 |---------------------------------|:-------:|:----------:|------------------------------------------------------------------|
-| `baseComponent` (internal)      |    -    |    Yes     | Base class with modular functionality                            |
-| `componentBuilder`              |    -    |    Yes     | Factory for creating extended base classes (**the only public API**) |
-| `componentExtender` (internal)  |    -    |    Yes     | Module initialiser for baseComponent                             |
-| `moduleController`              |    -    |    Yes     | Apex controller integration module                               |
-| `moduleNavigation`              |    -    |    Yes     | Page navigation module                                           |
-| `moduleNotification`            |    -    |    Yes     | Toast notification module                                        |
-| `moduleLightningMessageService` |    -    |    Yes     | LMS publish/subscribe module                                     |
-| `moduleFlowNavigation`          |    -    |    Yes     | Flow navigation events module                                    |
+| `baseComponent` (internal)      |   Yes   |    Yes     | Base class with modular functionality (exposed, but internal)    |
+| `componentBuilder`              |   Yes   |    Yes     | Factory for creating extended base classes (**the only public API**) |
+| `componentExtender` (internal)  |   Yes   |    Yes     | Module initialiser for baseComponent (exposed, but internal)     |
+| `moduleController`              |   Yes   |    Yes     | Apex controller integration module (exposed, but internal)       |
+| `moduleNavigation`              |   Yes   |    Yes     | Page navigation module (exposed, but internal)                   |
+| `moduleNotification`            |   Yes   |    Yes     | Toast notification module (exposed, but internal)                |
+| `moduleLightningMessageService` |   Yes   |    Yes     | LMS publish/subscribe module (exposed, but internal)             |
+| `moduleFlowNavigation`          |   Yes   |    Yes     | Flow navigation events module (exposed, but internal)            |
 
-#### Subscriber-Usable Components (15 components)
+"Exposed, but internal" means the module can be imported from `kern/`, but you are not meant to use it directly: `ComponentBuilder` loads it for you.
+
+#### Components You Can Use (15 components)
 
 | Component              | Exposed | Jest Tests | Purpose                                                           |
 |------------------------|:-------:|:----------:|-------------------------------------------------------------------|
@@ -2281,13 +2345,13 @@ All 74 LWC components in the KernDX framework with their category, exposure stat
 | `customDataTable`      |   Yes   |    Yes     | Datatable with custom types                                       |
 | `streamingActions`     |   Yes   |    Yes     | Streaming subscribe/publish UI                                    |
 | `retryApiIssue`        |   Yes   |    Yes     | Retry failed API issues                                           |
+| `dismissApiIssue`      |   Yes   |    Yes     | Mark an API issue resolved without running its request again      |
 | `validationErrors`     |   Yes   |    Yes     | Display validation rule errors                                    |
-| `cronExpressionEditor` |    -    |    Yes     | Reusable cron expression editor (preset/advanced/custom)          |
 | `scheduledJobDetail`   |   Yes   |    Yes     | View-only record page component for ScheduledJob__c records       |
 | `healthCheck`          |   Yes   |    Yes     | Post-install diagnostics with resolver code generator             |
 | `featureFlag`          |   Yes   |    Yes     | Cacheable bridge to `UTIL_FeatureFlag.isEnabled()` for the UI      |
 
-#### Internal UI Components (12 components)
+#### Internal UI Components (15 components)
 
 | Component                     | Exposed | Jest Tests | Purpose                                                        |
 |-------------------------------|:-------:|:----------:|----------------------------------------------------------------|
@@ -2296,10 +2360,13 @@ All 74 LWC components in the KernDX framework with their category, exposure stat
 | `baseLookup`                  |    -    |    Yes     | Base lookup component                                          |
 | `viewRecord`                  |    -    |    Yes     | Read-only record display                                       |
 | `applyRetentionModal`         |    -    |    Yes     | Confirmation modal for applying recommended retention jobs     |
-| `classTypeResolverSetupModal` |    -    |    Yes     | Guided setup modal for subscriber Class Type Resolver          |
+| `classTypeResolverSetupModal` |    -    |    Yes     | Guided setup modal for your org's Class Type Resolver          |
 | `kernHome`                    |   Yes   |    Yes     | Kern Home developer control room card layout                   |
 | `scheduledJobEditor`          |    -    |    Yes     | ScheduledJob__c editor form (action override via Aura wrapper) |
 | `scheduledJobEditorModal`     |    -    |    Yes     | Modal dialog for creating/editing ScheduledJob__c records      |
+| `scheduledJobEditorForm`      |    -    |    Yes     | The form the two ScheduledJob__c editors share                 |
+| `scheduledJobClassPicker`     |    -    |    Yes     | Class Name field of the scheduled job editors; suggests the org's schedulable classes |
+| `cronExpressionEditor`        |    -    |    Yes     | Reusable cron expression editor (preset/advanced/custom), embedded in the scheduled job editors |
 | `scheduleChainWatchdogModal`  |    -    |    Yes     | Confirmation modal for the Health Check's one-click Chain Watchdog scheduling |
 | `jobRunnerCard`               |    -    |    Yes     | Job runner card on the Health Check readiness banner       |
 | `activateJobRunnerModal`      |    -    |    Yes     | Modal dialog that picks how often the job runner checks for due jobs |
@@ -2376,19 +2443,15 @@ The console and dialogs behind the **Data Masking Advisor** (see [Security Guide
 
 | Category            | Components | With Jest Tests | Coverage |
 |---------------------|:----------:|:---------------:|:--------:|
-| Utility Modules     |     8      |        8        |   100%   |
+| Utility Modules     |     9      |        9        |   100%   |
 | Base Architecture   |     8      |        8        |   100%   |
-| Subscriber-Usable   |     15     |       15        |   100%   |
-| Internal UI         |     12     |       12        |   100%   |
+| You Can Use         |     15     |       15        |   100%   |
+| Internal UI         |     15     |       15        |   100%   |
 | Streaming Internals |     9      |        9        |   100%   |
 | Chain Monitor       |     7      |        7        |   100%   |
 | Log Console         |     4      |        3        |   100%   |
 | Data Masking Advisor |    10     |       10        |   100%   |
 | Demo Components     |     1      |        1        |   100%   |
-| **TOTAL**           |   **74**   |     **73**      | **100%** |
+| **TOTAL**           | [Metrics](Strategic%20Guide%20-%20Metrics.md#lwc-components) | All but `logConsoleContext` | **100%** |
 
 > **Note:** Every LWC component is held at 100% Jest coverage (`logConsoleContext` is covered through the other Log Console components' test suites rather than a dedicated test file). To check it, run the coverage command in [Jest Test Setup](#jest-test-setup).
-
----
-
-*Last Updated: July 2026*

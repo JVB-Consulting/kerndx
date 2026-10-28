@@ -554,7 +554,7 @@ regardless of the `UserModeQueries_Enabled` feature flag. Framework-internal sel
 read CMDT, framework-owned sObjects, or system-schema tables override this to return `true`
 so they continue working when the running user lacks FLS/CRUD on those objects by design.
 
-Subscriber-reachable selectors should leave this at the default (`false`) so they inherit
+Your own selectors should leave this at the default (`false`) so they inherit
 the flag-driven default — secure-by-default when the flag is enabled.
 
 **Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — `true` when this selector's queries must run in SYSTEM_MODE.
@@ -681,7 +681,7 @@ global final List<SObjectField> fields
 **Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
 
 Core SObjectField tokens for this selector. Lazy-loaded from getCoreFields()
-on first access. Subscribers can inspect a selector's field configuration via this property.
+on first access. You can inspect a selector's field configuration via this property.
 
 ### query
 

@@ -494,7 +494,7 @@ Returns relationship field paths for User queries.
 ```apex
 SEL_User selector = new SEL_User();
 List<String> paths = selector.getFieldPaths();
-System.debug('Relationship paths: ' + paths); // ['Profile.Name']
+// paths: ['Profile.Name']
 ```
 
 </div>
@@ -516,7 +516,7 @@ Returns the core SObjectField tokens for User queries.
 ```apex
 SEL_User selector = new SEL_User();
 List<SObjectField> userFields = selector.getFields();
-System.debug('User selector has ' + userFields.size() + ' core fields');
+// userFields includes User.Username, User.Email and User.ProfileId
 ```
 
 </div>

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Selector for Salesforce Group objects. Provides query methods for group lookup and recursive group membership resolution including role-based groups, role hierarchies, and nested group membership."
 author: "Jason Van Beukering"
 group: "Selectors"
-date: "October 2024, May 2026"
+date: "October 2024, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -161,7 +161,7 @@ Boolean result = instance.userIsInGroup(recordId, 'myName');
 
 | Constructor | Description |
 |-------------|-------------|
-| global [SEL_Group](#constructors)() | Constructs a new SEL_Group selector instance. |
+| global [SEL_Group](#constructors)() | Reads Group records, such as public groups, queues and role groups. |
 
 ### SEL_Group()
 
@@ -171,7 +171,8 @@ Boolean result = instance.userIsInGroup(recordId, 'myName');
 global SEL_Group()
 ```
 
-Constructs a new SEL_Group selector instance.
+Reads Group records, such as public groups, queues and role groups. Every query skips the running user's object and field permission checks (system mode).
+Record sharing follows the class that calls the selector. Creating the selector runs no query.
 
 **Example**
 

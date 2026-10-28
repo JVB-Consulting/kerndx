@@ -79,7 +79,7 @@ Produces a random boolean by mapping a binary integer result to true or false.
 
 ```apex
 Boolean randomBool = UTIL_Random.nextBoolean();
-System.debug(randomBool); // Outputs: true or false
+// randomBool is true or false, each about half of the time
 ```
 
 </div>
@@ -106,7 +106,7 @@ Produces a random integer from zero up to the given ceiling.
 
 ```apex
 Integer randomInt = UTIL_Random.nextInteger(100);
-System.debug(randomInt); // Outputs: e.g., 42
+// randomInt is a whole number from 0 to 100, for example 42
 ```
 
 </div>
@@ -132,7 +132,7 @@ Produces a random integer between the specified floor and ceiling, both inclusiv
 
 ```apex
 Integer randomInt = UTIL_Random.nextInteger(10, 20);
-System.debug(randomInt); // Outputs: e.g., 15
+// randomInt is a whole number from 10 to 20, for example 15
 ```
 
 </div>
@@ -159,7 +159,7 @@ Builds a random string of the requested length from the printable ASCII characte
 
 ```apex
 String randomString = UTIL_Random.random(10);
-System.debug(randomString); // Outputs: e.g., "Kj#9mP$2vQ"
+// randomString has 10 printable characters, for example 'Kj#9mP$2vQ'
 ```
 
 </div>
@@ -185,7 +185,7 @@ Builds a random string of the requested length by sampling from the supplied cha
 
 ```apex
 String randomCustom = UTIL_Random.random(5, 'ABC');
-System.debug(randomCustom); // Outputs: e.g., "ABCCB"
+// randomCustom has 5 characters taken from 'ABC', for example 'ABCCB'
 ```
 
 </div>
@@ -212,7 +212,7 @@ Builds a random string of the requested length using only Latin letters (a-z, A-
 
 ```apex
 String randomAlpha = UTIL_Random.randomAlphabetic(6);
-System.debug(randomAlpha); // Outputs: e.g., "KjmPqR"
+// randomAlpha has 6 letters, for example 'KjmPqR'
 ```
 
 </div>
@@ -239,7 +239,7 @@ Builds a random string of the requested length using Latin letters and decimal d
 
 ```apex
 String randomAlphanumeric = UTIL_Random.randomAlphanumeric(8);
-System.debug(randomAlphanumeric); // Outputs: e.g., "Kj9mP2vQ"
+// randomAlphanumeric has 8 letters and digits, for example 'Kj9mP2vQ'
 ```
 
 </div>
@@ -421,7 +421,7 @@ Constructs a mock 18-character Salesforce ID based on the key prefix of the supp
 
 ```apex
 Id mockId = UTIL_Random.randomId(Account.SObjectType);
-System.debug(mockId); // Outputs: e.g., "00100000000lACzAAM"
+// mockId starts with '00100000000': the Account key prefix '001', then eight zeros
 ```
 
 </div>
@@ -466,7 +466,7 @@ Produces a random non-negative integer up to the specified ceiling.
 
 ```apex
 Integer randomInt = UTIL_Random.randomInteger(100);
-System.debug(randomInt); // Outputs: e.g., 42
+// randomInt is a whole number from 0 to 100, for example 42
 ```
 
 </div>
@@ -559,7 +559,7 @@ Builds a random string of the requested length using only decimal digit characte
 
 ```apex
 String randomNum = UTIL_Random.randomNumeric(5);
-System.debug(randomNum); // Outputs: e.g., "39281"
+// randomNum has 5 digits, for example '39281'
 ```
 
 </div>
@@ -600,7 +600,7 @@ Produces a universally unique identifier in the standard 8-4-4-4-12 hexadecimal 
 
 ```apex
 String uuid = UTIL_Random.randomUUID();
-System.debug(uuid); // Outputs: e.g., "550e8400-e29b-41d4-a716-446655440000"
+// uuid is new on every call, for example '550e8400-e29b-41d4-a716-446655440000'
 ```
 
 </div>

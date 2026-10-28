@@ -2,7 +2,7 @@
 title: "UTIL_ValidationRule.INT_BulkValidationContext"
 type: class
 pageClass: reference
-description: "Optional interface for bulk-optimized validation contexts. Implement this in addition to INT_SObjectFormulaEvaluationContext when your context class needs to query related data. The preLoad() method i"
+description: "Optional interface for context classes that load data once per batch. Validation rules and trigger action entry formulas call preLoad() once before checking the records. Implement this in addition to "
 since: "1.0"
 category: apex
 ---
@@ -17,7 +17,9 @@ category: apex
 global interface UTIL_ValidationRule.INT_BulkValidationContext
 ```
 
-Optional interface for bulk-optimized validation contexts. Implement this in addition to INT_SObjectFormulaEvaluationContext when your context class needs to query related data. The preLoad() method is called once per batch of records BEFORE the record loop, allowing you to perform bulk queries and cache results for use in setContext().
+**Known Derived Types:** [UTIL_FormulaContext.FoobarBulkContext](UTIL_FormulaContext.FoobarBulkContext.md)
+
+Optional interface for context classes that load data once per batch. Validation rules and trigger action entry formulas call preLoad() once before checking the records. Implement this in addition to INT_SObjectFormulaEvaluationContext when your context class needs to query related data. The preLoad() method is called once per batch of records BEFORE the record loop, allowing you to perform bulk queries and cache results for use in setContext().
 
 **Example**
 
@@ -74,8 +76,8 @@ Use this to perform bulk queries and cache results.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The list of new records (Trigger.new) |
-| `oldRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The list of old records (Trigger.old), may be null for insert |
+| `newRecords` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The new records, or the deleted records on a delete. |
+| `oldRecords` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The old records, or null on an insert, an undelete or a delete. |
 
 </div>
 

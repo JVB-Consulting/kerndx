@@ -5,7 +5,7 @@ pageClass: reference
 description: "A Data Transfer Object (DTO) class that structures webservice handler responses into a common table format, providing column and row handling for a unified data view. Supports functionality for dynami"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

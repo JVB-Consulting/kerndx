@@ -5,7 +5,7 @@ pageClass: reference
 description: "Test mock harness for TRG_InvokeFlow-dispatched flows. Lets test authors register canned flow responses that TRG_InvokeFlow.invokeSingle short-circuits against, bypassing the platform Flow.Interview A"
 author: "Jason Van Beukering"
 group: "Triggers"
-date: "April 2026, May 2026"
+date: "April 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class TST_InvokeFlowMock
 ```
 
-Test mock harness for TRG_InvokeFlow-dispatched flows. Lets test authors register canned flow responses that TRG_InvokeFlow.invokeSingle short-circuits against, bypassing the platform Flow.Interview API entirely. Mirrors the fluent shape of API_MockFactory so the patterns transfer one-to-one. Subscriber-facing global surface (locked at v1.0): forFlow(String) — entry point returning a MockBuilder MockBuilder.succeed() / .fail(String) / .withOutputRecord(SObject) / .withOutputRecords(List<SObject>) / .throwOnStart(Exception) / .register() clear(), assertInvoked(name, count), assertNotInvoked(name), wasInvoked(name) getLastInputRecord(name), getLastInputPriorRecord(name) — verify the flow saw upstream Apex mutations Framework-internal surface (used by TRG_InvokeFlow): isMocked(name), getMockResult(name), recordInvocation(name, record, priorRecord)
+Test mock harness for TRG_InvokeFlow-dispatched flows. Lets test authors register canned flow responses that TRG_InvokeFlow.invokeSingle short-circuits against, bypassing the platform Flow.Interview API entirely. Mirrors the fluent shape of API_MockFactory so the patterns transfer one-to-one. The global methods you use in your tests (unchanged since v1.0): forFlow(String) — entry point returning a MockBuilder MockBuilder.succeed() / .fail(String) / .withOutputRecord(SObject) / .withOutputRecords(List<SObject>) / .throwOnStart(Exception) / .register() clear(), assertInvoked(name, count), assertNotInvoked(name), wasInvoked(name) getLastInputRecord(name), getLastInputPriorRecord(name) — verify the flow saw upstream Apex mutations Framework-internal surface (used by TRG_InvokeFlow): isMocked(name), getMockResult(name), recordInvocation(name, record, priorRecord)
 
 **Example**
 
@@ -220,8 +220,8 @@ global static SObject getLastInputRecord(String flowName)
 Returns the `record` SObject the mocked flow received on its most recent
 invocation, or null when the flow has not been invoked.
 
-Mirrors `API_MockFactory.lastRequestContains` — lets subscribers verify the flow saw
-the input they expected (typically: an upstream Apex action's mutation) without
+Mirrors `API_MockFactory.lastRequestContains`: lets you verify the flow saw
+the input you expected (typically: an upstream Apex action's mutation) without
 inspecting the trigger record's final state. The returned SObject is the in-memory
 reference passed into the flow input map; mutating it after retrieval is undefined.
 

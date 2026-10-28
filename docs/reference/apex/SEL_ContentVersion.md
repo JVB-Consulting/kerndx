@@ -5,7 +5,7 @@ pageClass: reference
 description: "Selector for the ContentVersion object. Provides query methods for retrieving content versions by publishing location, content document, and workspace folders."
 author: "Jason Van Beukering"
 group: "Selectors"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -169,7 +169,7 @@ List<SObjectField> result = instance.getFields();
 
 | Constructor | Description |
 |-------------|-------------|
-| global [SEL_ContentVersion](#constructors)() | Constructs a new SEL_ContentVersion selector instance. |
+| global [SEL_ContentVersion](#constructors)() | Reads ContentVersion records, the versions of files stored in the org. |
 
 ### SEL_ContentVersion()
 
@@ -179,7 +179,8 @@ List<SObjectField> result = instance.getFields();
 global SEL_ContentVersion()
 ```
 
-Constructs a new SEL_ContentVersion selector instance.
+Reads ContentVersion records, the versions of files stored in the org. Every query skips the running user's object and field permission checks (system mode).
+Record sharing follows the class that calls the selector. Creating the selector runs no query.
 
 **Example**
 

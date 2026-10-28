@@ -56,8 +56,15 @@ exception-safety contract on the interface ApexDoc.
 **Example**
 
 ```apex
-INT_ClassTypeResolver resolver = new UTIL_TypeResolver.PackageClassResolver();
-Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
+global with sharing class MyCompany_TypeResolver extends UTIL_TypeResolver.BaseClassResolver
+{
+    public override Type resolveType(String typeName)
+    {
+        return Type.forName(typeName) ?? nextResolver?.resolveType(typeName);
+    }
+}
+UTIL_TypeResolver.INT_ClassTypeResolver resolver = new MyCompany_TypeResolver();
+Type resolvedType = resolver.resolveType('MyCompany_Service');
 ```
 
 </div>
@@ -83,8 +90,8 @@ Sets the next resolver in the chain.
 **Example**
 
 ```apex
-INT_ClassTypeResolver resolver = new UTIL_TypeResolver.PackageClassResolver();
-INT_ClassTypeResolver nextResolver = new CustomClassResolver();
+UTIL_TypeResolver.INT_ClassTypeResolver resolver = new MyCompany_TypeResolver();
+UTIL_TypeResolver.INT_ClassTypeResolver nextResolver = new MyCompany_OtherTypeResolver();
 resolver.setNext(nextResolver);
 ```
 

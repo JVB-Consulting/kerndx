@@ -66,16 +66,19 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.toList();
 ```
 
-If you need sharing enforced but not field-level security (a query running in SYSTEM_MODE), use the sharing controls instead:
+In user mode, a query that selects a field the user cannot read is refused with an error. If you would rather get the rows back with that field removed, run the query in system mode (SYSTEM_MODE, which turns off the object and field permission checks), keep record sharing with `withSharing()`, and remove the hidden fields with `stripInaccessible()`:
 
 ```apex
 // Enforce sharing and strip inaccessible fields
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<String>{'Name', 'Industry'})
+	.withSystemMode()
 	.withSharing()
 	.stripInaccessible()
 	.toList();
 ```
+
+In system mode the query itself skips the object permission check, so use this form only where the user may read the object.
 
 For more detail, keep reading the sections below.
 
@@ -151,7 +154,7 @@ For more detail, keep reading the sections below.
         - [Inherited Sharing Classes](#inherited-sharing-classes)
     - [Extending Sharing Control](#extending-sharing-control)
         - [Creating Custom Selectors with Sharing Control](#creating-custom-selectors-with-sharing-control)
-        - [Adding New Sharing Modes](#adding-new-sharing-modes)
+        - [Specialised Sharing Needs](#specialised-sharing-needs)
     - [Testing Sharing Behavior](#testing-sharing-behavior)
         - [Testing with Different Users](#testing-with-different-users)
         - [Verifying Sharing Enforcement](#verifying-sharing-enforcement)
@@ -301,9 +304,9 @@ Four ideas shape how KernDX handles security. Each one exists to prevent a commo
 
 The security framework works in layers. You turn each one on independently and combine them as a feature needs:
 
-1. **Object and field permissions (CRUD/FLS).** `QRY_Builder.withUserMode()` enforces object permissions and field-level security right inside the query; `QRY_Builder.stripInaccessible()` quietly drops fields the user cannot read from the results.
+1. **Object and field permissions (CRUD/FLS).** `QRY_Builder.withUserMode()` enforces object permissions and field-level security right inside the query: a query that selects a field the user cannot read is refused. `QRY_Builder.stripInaccessible()` quietly drops fields the user cannot read from the results of a query that runs in system mode or with `bypassSharing()`.
 2. **Record sharing.** `DML_Builder` and `QRY_Builder` decide at run time whether a query or save respects sharing rules (`with sharing`), ignores them (`without sharing`), or follows whatever the caller chose (`inherited sharing`). They do this through a small "proxy" class, explained below.
-3. **Query security options.** On a query, `QRY_Builder` offers `withUserMode()` (enforce object permissions, field security, and sharing at the database), `stripInaccessible()` (remove unreadable fields after the query), and `withSharing()` / `bypassSharing()` (control sharing for a query that runs without full permission enforcement).
+3. **Query security options.** On a query, `QRY_Builder` offers `withUserMode()` (enforce object permissions, field security, and sharing at the database), `stripInaccessible()` (remove unreadable fields after a query in system mode), `bypassSharing()` (ignore record sharing while the user's object and field permissions still apply), and `withSharing()` (enforce sharing on a query that runs in system mode).
 4. **Data protection.** `UTIL_SessionEncryption` encrypts sensitive values with AES-256 and manages the key for you.
 
 The layers do not depend on one another: you can enforce field security without enforcing sharing, or control sharing without checking object permissions. The starting point matters most: **every query and save your own code can reach runs with the current user's permissions and sharing enforced by default** (`AccessLevel.USER_MODE`). So a developer who does nothing special still gets the safe behaviour. The one exception is records an API service registers in `onSuccess()`: they are saved in system mode (see [onSuccess()](Web%20Services%20-%20Guide.md#onsuccess)).
@@ -323,7 +326,7 @@ The safe behaviour is on automatically. You step outside it only when you choose
 So a developer who writes a normal query gets the protected behaviour without thinking about it. Two configuration records (`FeatureFlag__mdt`) drive this default:
 
 - `FeatureFlag.UserModeQueries_Enabled` controls `QRY_Builder` / `SEL_Base.query`.
-- `FeatureFlag.UserModeDml_Enabled` controls `DML_Builder` / `DML_SharingProxy.defaultAccessLevel`.
+- `FeatureFlag.UserModeDml_Enabled` controls `DML_Builder` and the access mode every framework save uses by default.
 
 Both ship turned on (`IsEnabledByDefault__c = true`).
 
@@ -363,7 +366,12 @@ The `systemModeRequired()` hook on `SEL_Base` is `global virtual`, so you can ov
 
 Go to Setup, then Custom Metadata Types, then FeatureFlag, edit `UserModeQueries_Enabled`, set `IsEnabledByDefault__c = false`, and save. The next transaction picks it up, and every query your code can reach reverts to `SYSTEM_MODE`. The same applies to `UserModeDml_Enabled`. This is a lever for incidents, not a routine setting.
 
-**Bypass audit trail (across the whole framework).** Whenever a safety check is turned off, KernDX records what was bypassed and why, so a later review can see it. This covers every bypass call: on triggers (`TRG_Base.bypass*`), on queries (`QRY_Builder.withSystemMode` / `bypassSharing` / `withoutSecurity`), on saves (`DML_Builder.withSystemMode` / `bypassSharing`), and on validations (`UTIL_ValidationRule.bypassObject` / `bypassGroup` / `bypassRule`). Each one writes a `LogEntryEvent__e` record with category `BypassEvent`, capturing the user, the action, the surface, the target, and an optional reason you set with `TRG_Base.setBypassReason(String)`, which applies to every bypass in the transaction. The `BypassAudit_Enabled` feature flag (`FeatureFlag__mdt`) is the master off-switch for this audit; it ships on, and you can disable it through a `FeatureFlagStrategy__mdt` override. To read the audit trail back, query with `SEL_LogEntry.query.condition(LogEntry__c.ContextData__c).contains('"category":"BypassEvent"')`.
+**Bypass audit trail (across the whole framework).** Whenever a safety check is turned off, KernDX records what was bypassed and why, so a later review can see it. This covers every bypass call: on triggers (`TRG_Base.bypass*`), on queries (`QRY_Builder.withSystemMode` / `bypassSharing` / `withoutSecurity`), on saves (`DML_Builder.withSystemMode` / `bypassSharing`), and on validations (`UTIL_ValidationRule.bypassObject` / `bypassGroup` / `bypassRule`). `withUserMode()`, `withSharing()` and `stripInaccessible()` turn no check off, so they write no entry. Each bypass call writes a `LogEntryEvent__e` record with category `BypassEvent`, capturing the user, the action, the surface, the target, and an optional reason you set with `TRG_Base.setBypassReason(String)`, which applies to every bypass in the transaction. The `BypassAudit_Enabled` feature flag (`FeatureFlag__mdt`) is the master off-switch for this audit; it ships on, and you can disable it through a `FeatureFlagStrategy__mdt` override.
+
+To read the audit trail back, open the [Log Console](Logging%20-%20Guide.md#the-log-console). Its **Problem summary** view groups the
+bypass audit for you, as warnings whose short message reads like `BYPASS sharing:Account (query)` (the action, the target and the
+surface). The `BypassEvent` category sits in each entry's context data (`ContextData__c`). That is a long text field, and a SOQL filter
+cannot use it, so look in the console rather than writing a query.
 
 ---
 
@@ -375,9 +383,8 @@ Sometimes the secure default is not what you want, and you need to step outside 
 |------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | **`AccessLevel.USER_MODE` for one transaction**                  | `DML_Builder.withUserMode()` / `QRY_Builder.withUserMode()`. Explicitly overrides the flag-driven default.                                       | [Per-Transaction DML Control](#per-transaction-dml-control), [Per-Query Sharing Control](#per-query-sharing-control) |
 | **`AccessLevel.SYSTEM_MODE`** (privileged framework code)        | `.withSystemMode()` on either builder. Skips object and field permission checks for that one operation.                                          | [AccessLevel Selection](#accesslevel-selection)                                                                      |
-| **Bypass sharing rules for an isolated calculation**             | `.bypassSharing()` routes through the `without sharing` proxy. Or write your own `without sharing` class: the framework never intercepts those.   | [Without Sharing Classes](#without-sharing-classes)                                                                  |
+| **Bypass sharing rules for an isolated calculation**             | `.bypassSharing()` routes through the `without sharing` proxy; in user mode the user's object and field permissions still apply. Or write your own `without sharing` class: the framework never intercepts those. | [Without Sharing Classes](#without-sharing-classes)                                                                  |
 | **Inherit sharing from the caller**                              | The default for framework classes. The caller's sharing context flows through unchanged.                                                         | [Inherited Sharing Classes](#inherited-sharing-classes)                                                              |
-| **Custom sharing modes** beyond BYPASS / ENFORCE / INHERITED     | Extend `DML_SharingProxy.DatabaseProxy` (a virtual class).                                                                                       | [Adding New Sharing Modes](#adding-new-sharing-modes)                                                                |
 | **Org-wide off-switch** for the USER_MODE rollout                | The `UserModeDml_Enabled` feature flag. Flip it in metadata; it takes effect on the next transaction.                                            | [Org-Wide Access Mode Kill-Switches](#org-wide-access-mode-kill-switches)                                            |
 | **Direct `Database.insert(records, allOrNothing, AccessLevel)`** | Works unchanged. Nothing intercepts raw platform DML.                                                                                            | —                                                                                                                    |
 
@@ -548,7 +555,7 @@ update account;
 // Day 2: Cache expires or org is refreshed
 // THIS WILL FAIL - Key is gone forever:
 String decrypted = UTIL_SessionEncryption.decrypt(account.EncryptedToken__c);
-// Exception: Cache.CacheException: Unable to decrypt - key not found
+// Exception: IllegalArgumentException: No encryption key found
 ```
 
 **Recommendation:** For any data that must be decrypted beyond an 8-hour window,
@@ -1021,16 +1028,21 @@ global inherited sharing class DML_Builder
 
 #### Per-Transaction Sharing Control
 
-`DML_Builder` gives you one sharing override in code: `.bypassSharing()`. If you do not call it, the transaction follows the caller's sharing context through the `inherited sharing` helper.
+`DML_Builder` gives you one sharing override in code: `.bypassSharing()`. In system mode, if you do not call it, the transaction follows the caller's sharing context through the `inherited sharing` helper.
 
 | Builder Method     | Proxy Used                | Effect                                                                                                                                                   |
 |--------------------|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
 | *(default)*        | `inherited sharing` proxy | The proxy inherits the caller's sharing context, and under the shipped `UserModeDml_Enabled` default the save runs in user mode, where the platform enforces record sharing |
-| `.bypassSharing()` | `without sharing` proxy   | The proxy stops enforcing sharing rules                                                                                                                  |
+| `.bypassSharing()` | `without sharing` proxy   | The proxy stops enforcing sharing rules. In user mode the user's object and field permissions still apply                                               |
 
 There is no `.withSharing()` method on `DML_Builder`. To enforce sharing on a save, call the transaction from a `with sharing` class (or from one whose `inherited sharing` caller is itself `with sharing`). To enforce object and field permissions as well, add `.withUserMode()` (see [Safe by Default](#safe-by-default)).
 
-One thing to know before you reach for `.bypassSharing()`: the sharing dial and the access mode are separate settings, and under the shipped defaults the save still runs in user mode, where the platform enforces record sharing on its own. A save that genuinely has to reach every record needs `.bypassSharing()` and `.withSystemMode()` together.
+One thing to know before you reach for `.bypassSharing()`: the sharing dial and the access mode are separate settings. Under the shipped defaults the save runs in user mode, and `.bypassSharing()` alone ignores record sharing but keeps the user's object and field permissions:
+
+- A field the user cannot create (on an insert) or edit (on an update) is left out of the save, without an error. One warning in the log names the object and the fields, never their values.
+- A save the user has no object permission for is refused, as user mode refuses it. Two more saves are refused: an upsert that matches on a key field the user cannot read or cannot edit, and a save that would leave out the lookup field you registered with its parent record.
+
+A save that must also write fields the user cannot edit needs `.bypassSharing()` and `.withSystemMode()` together. `.withSystemMode()` turns off the object and field permission checks as well.
 
 #### How the Proxy Pattern Works
 
@@ -1039,20 +1051,20 @@ KernDX keeps a small helper class for each sharing mode (on `DML_SharingProxy`),
 | Builder Method                   | Proxy Class (internal)                         | Sharing Declaration | Effect                        |
 |----------------------------------|------------------------------------------------|---------------------|-------------------------------|
 | `.bypassSharing()`               | `DML_SharingProxy.DatabaseProxyWithoutSharing` | `without sharing`   | DML ignores sharing rules     |
-| *(default, with sharing caller)* | `DML_SharingProxy.DatabaseProxyWithSharing`    | `with sharing`      | DML respects sharing rules    |
-| *(default, inherited caller)*    | `DML_SharingProxy.DatabaseProxy`               | `inherited sharing` | DML inherits caller's context |
+| *(default, any caller)*          | `DML_SharingProxy.DatabaseProxy`               | `inherited sharing` | DML inherits caller's context: sharing rules apply when the caller is `with sharing` |
+| *(only when sharing is enforced explicitly, as the framework does for a save inside a background job)* | `DML_SharingProxy.DatabaseProxyWithSharing`    | `with sharing`      | DML respects sharing rules    |
 
 **Why this matters:**
 
 In plain Apex, the class declaration fixes the sharing behaviour when you compile, and you cannot change it at run time. The helper-class approach gets around that by handing the save to a class that already has the sharing mode you want.
 
-**What this buys you:** the helper layer can override the caller's sharing context when you need it to. Even if your code lives in a `without sharing` class, running a save from inside a dedicated `with sharing` class that calls `DML_Builder.newTransaction()...execute()` will run through the `with sharing` helper. The reverse also works: `.bypassSharing()` on the builder deliberately picks the `without sharing` helper. Add `.withUserMode()` to enforce object and field permissions at the database as well.
+**What this buys you:** In system mode the save follows the sharing of the class that calls the builder (user mode, the default, always enforces the running user's sharing). Even if most of your code lives in a `without sharing` class, running a save from inside a dedicated `with sharing` class that calls `DML_Builder.newTransaction()...execute()` respects sharing rules, because the `inherited sharing` helper takes that class's `with sharing` context. The reverse also works: `.bypassSharing()` on the builder deliberately picks the `without sharing` helper. Add `.withUserMode()` to enforce object and field permissions at the database as well. `.withUserMode()` keeps the object and field checks even if the `UserModeDml_Enabled` flag is switched off.
 
 #### AccessLevel Selection
 
 Every `DML_Builder` transaction settles on an access level (`AccessLevel`) the moment `.execute()` runs:
 
-1. `.withUserMode()` forces `AccessLevel.USER_MODE` (object permissions, field security, and sharing all enforced).
+1. `.withUserMode()` forces `AccessLevel.USER_MODE` (object permissions, field security, and sharing all enforced; with `.bypassSharing()`, sharing is ignored and the permissions still apply).
 2. `.withSystemMode()` forces `AccessLevel.SYSTEM_MODE` (object and field permission checks skipped; sharing still controlled by the helper class).
 3. If you call neither, the `UserModeDml_Enabled` feature flag decides. It ships `true`, so USER_MODE is used; if someone flips it to `false` in metadata, SYSTEM_MODE is used.
 
@@ -1090,17 +1102,17 @@ Just as with saves, [`QRY_Builder`](reference/apex/QRY_Builder.md) uses helper c
 
 | Sharing Method     | Effect                                                                                  |
 |--------------------|-------------------------------------------------------------------------------------------|
-| *(default)*        | The query runs inline, so it inherits the calling class's sharing context                   |
-| `.withSharing()`   | The query is handed to a `with sharing` executor, so sharing rules are enforced             |
-| `.bypassSharing()` | The query is handed to a `without sharing` executor, so sharing rules are bypassed          |
+| *(default)*        | In user mode (the shipped default) record sharing is always enforced. In system mode the query runs inline, so it inherits the calling class's sharing context |
+| `.withSharing()`   | The query is handed to a `with sharing` executor, so sharing rules are enforced. This changes something only in system mode: user mode enforces sharing anyway |
+| `.bypassSharing()` | The query is handed to a `without sharing` executor, so sharing rules are bypassed. In user mode the user's object and field permissions still apply |
 
 **Three choices:**
 
 The sharing methods give you three distinct behaviours:
 
-- **Default (no method called).** Follows the calling class's own sharing declaration. If your class is `with sharing`, the query enforces sharing; if `without sharing`, it bypasses.
-- **`.withSharing()`.** Always enforces sharing, whatever the caller's context. Use this for user-facing features.
-- **`.bypassSharing()`.** Always bypasses sharing, whatever the caller's context. Use this for system operations.
+- **Default (no method called).** In user mode, the query always enforces sharing. In system mode, it follows the calling class's own sharing declaration: if your class is `with sharing`, the query enforces sharing; if `without sharing`, it bypasses.
+- **`.withSharing()`.** Always enforces sharing, whatever the caller's context. In user mode it changes nothing on its own, because user mode enforces sharing already. It matters in two cases: after `bypassSharing()`, where it cancels the bypass, and on a query that also calls `.withSystemMode()`.
+- **`.bypassSharing()`.** Always bypasses sharing, whatever the caller's context. Use this for system operations. In user mode the read still checks the user's object and field permissions: see [USER_MODE vs Sharing Proxy](#user_mode-vs-sharing-proxy).
 
 So the same query can run in different security contexts without you editing the query itself.
 
@@ -1137,9 +1149,9 @@ For about 95% of queries, [`QRY_Builder`](reference/apex/QRY_Builder.md) (the fl
 | Method                | Effect                                                                                                                        | When to Use                                                                                 |
 |-----------------------|-------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
 | `withUserMode()`      | Runs in USER_MODE (enforces CRUD, FLS, sharing at DB level)                                                                   | User-facing code requiring full security                                                    |
-| `stripInaccessible()` | Removes inaccessible fields from results post-query                                                                           | When null values for inaccessible fields are problematic                                    |
-| `withSharing()`       | Uses `with sharing` proxy class                                                                                               | Enforce sharing in SYSTEM_MODE queries                                                      |
-| `bypassSharing()`     | Uses `without sharing` proxy class                                                                                            | Bypass sharing in SYSTEM_MODE (use with caution)                                            |
+| `stripInaccessible()` | Removes inaccessible fields from results after the query runs, in SYSTEM_MODE. In USER_MODE, the platform refuses a query that selects a field the user cannot read | When you want the rows back without the hidden fields, rather than an error |
+| `withSharing()`       | Uses `with sharing` proxy class                                                                                               | Enforce sharing in SYSTEM_MODE queries (USER_MODE enforces sharing anyway)                  |
+| `bypassSharing()`     | Uses `without sharing` proxy class. In USER_MODE the object and field checks still apply and hidden fields are removed        | Read records whatever their sharing (use with caution)                                      |
 | `withoutSecurity()`   | Waives object and field checks AND record sharing in one call (SYSTEM_MODE plus the sharing bypass); ignores the flag default | System-level reads that must span every record; audited as both a mode and a sharing bypass |
 
 ##### Default Behaviour
@@ -1148,7 +1160,19 @@ By default, every query your code can reach runs in **USER_MODE** with **inherit
 
 ##### USER_MODE vs Sharing Proxy
 
-When you use `withUserMode()`, sharing is enforced at the database whatever your `withSharing()` / `bypassSharing()` settings say. Those sharing methods only take effect in SYSTEM_MODE.
+In USER_MODE (the default, or `withUserMode()`), the database always enforces record sharing. So in USER_MODE, `withSharing()` changes nothing on its own. After `bypassSharing()`, it cancels the bypass. Otherwise it matters only in SYSTEM_MODE.
+
+`bypassSharing()` works in both modes. In USER_MODE it ignores record sharing and keeps the user's object and field permissions:
+
+- Fields the user cannot read are removed from the rows: from each record, from parent fields, from child rows, and from rows taken from the query cache.
+- The read is refused before any query runs, with a `QueryException`, when the user cannot read the object (or the object of a child query, or of a query inside `isIn()` or `notIn()`).
+- The read is refused before any query runs, with `UTIL_Exceptions.IllegalStateException`, when a filter or a sort you build with the builder (`condition(...)`, `orderBy(...)`) uses a field the user cannot read. The rows such a filter lets through would show something about that field.
+- `toQueryLocator()`, `toCursor()`, `toAggregateList()`, `getFirstAggregate()` and any read of a grouped query (`count()` included) are refused with `UTIL_Exceptions.IllegalStateException`, because KernDX cannot remove hidden fields from them. Add `withSystemMode()` to such a read.
+- `getPage()` returns the page without hidden fields and with `page.cursor` set to null. Ask for each later page with `getPage()`.
+
+Some filters are not checked: a field inside a function (such as `CALENDAR_YEAR(CloseDate)`), a field reached through a parent (such as `Account.Owner.Email`), and a filter you write in your own `QRY_Condition.Evaluable`. Their rows can still show something about a field the user cannot read, so do not filter or sort on such a field that way with `bypassSharing()`.
+
+With `withSystemMode()`, in either order, `bypassSharing()` ignores sharing and the object and field checks are off too.
 
 ##### Code Examples
 
@@ -1171,9 +1195,10 @@ List<Account> internalAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.withSystemMode()
 	.toList();
 
-// Strip inaccessible fields from results
+// Strip inaccessible fields from results (SYSTEM_MODE: in USER_MODE a hidden field refuses the query)
 List<Account> secureAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<String>{'Name', 'AnnualRevenue'})
+	.withSystemMode()
 	.stripInaccessible()
 	.toList();
 
@@ -1184,17 +1209,24 @@ List<Account> sharedAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.withSharing()
 	.toList();
 
-// Bypass sharing via proxy class (SYSTEM_MODE only)
+// Bypass sharing via proxy class, USER_MODE: object and field checks kept, hidden fields removed
+List<Account> everyAccount = QRY_Builder.selectFrom(Account.SObjectType)
+	.fields(new List<String>{'Name', 'Industry'})
+	.bypassSharing()
+	.toList();
+
+// Bypass sharing via proxy class in SYSTEM_MODE: no object or field checks either
 List<Account> allAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<String>{'Name', 'Industry'})
 	.withSystemMode()
 	.bypassSharing()
 	.toList();
 
-// Combine options as needed
-List<Account> fullSecurityAccounts = QRY_Builder.selectFrom(Account.SObjectType)
+// Combine options as needed: system mode, sharing enforced, hidden fields removed instead of refusing the query
+List<Account> strippedSharedAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<String>{'Name', 'AnnualRevenue'})
-	.withUserMode()
+	.withSystemMode()
+	.withSharing()
 	.stripInaccessible()
 	.toList();
 ```
@@ -1241,7 +1273,8 @@ DML_Builder.newTransaction()
 	.withSystemMode()
 	.execute();
 
-// Sharing bypass (runs through without-sharing proxy)
+// Sharing bypass (runs through without-sharing proxy); in USER_MODE the
+// object and field checks still apply and fields the user cannot edit are left out
 DML_Builder.newTransaction()
 	.doUpdate(records)
 	.bypassSharing()
@@ -1281,7 +1314,7 @@ List<Account> allAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 // Waive every security check on this builder in one call
 // (SYSTEM_MODE with record sharing bypassed, audited as both; opts out of USER_MODE even when the flag is true)
-List<Account> allAccounts = QRY_Builder.selectFrom(Account.SObjectType)
+List<Account> unsecuredAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<String>{'Id', 'Name', 'Industry'})
 	.withoutSecurity()
 	.toList();
@@ -1292,7 +1325,7 @@ List<Account> allAccounts = QRY_Builder.selectFrom(Account.SObjectType)
 [`DML_Builder`](reference/apex/DML_Builder.md) lets you control sharing for a whole transaction with `.bypassSharing()`:
 
 ```apex
-// Bypass sharing for the entire transaction
+// Bypass sharing for the entire transaction (object and field checks still apply in USER_MODE)
 DML_Builder.newTransaction()
 	.doInsert(account)
 	.doInsert(contact, Contact.AccountId, account)
@@ -1418,9 +1451,9 @@ public inherited sharing class SEL_CustomObject extends SEL_Base
 }
 ```
 
-#### Adding New Sharing Modes
+#### Specialised Sharing Needs
 
-You can extend the helper-class approach by adding your own classes with different behaviour. That said, the three built-in modes (BYPASS, ENFORCE, INHERITED) cover the usual cases, so you rarely need to.
+The three built-in modes (BYPASS, ENFORCE, INHERITED) are fixed, and you cannot add a mode of your own. They cover the usual cases.
 
 For specialised needs, consider these:
 
@@ -1441,12 +1474,11 @@ Write a wrapper method that sets both sharing and field/object security in one p
 ```apex
 public static List<Account> findByIdSecure(Id accountId)
 {
-	// Enforce both sharing AND FLS using USER_MODE + stripInaccessible
+	// Enforce both sharing AND FLS using USER_MODE (a field the user cannot read makes the query throw)
 	return QRY_Builder.selectFrom(Account.SObjectType)
 		.fields(new List<String>{'Id', 'Name'})
 		.condition(Account.Id).equals(accountId)
 		.withUserMode()
-		.stripInaccessible()
 		.toList();
 }
 ```
@@ -1508,7 +1540,7 @@ private static void shouldBypassSharingWhenConfigured()
 
 	System.runAs(restrictedUser)
 	{
-		// Query with sharing bypassed
+		// Query with sharing bypassed; the user still needs read access to Account
 		List<Account> results = QRY_Builder.selectFrom(Account.SObjectType)
 			.fields(new List<String>{'Name'})
 			.condition(Account.Id).equals(privateAccount.Id)
@@ -1545,12 +1577,12 @@ Field-level security controls which fields a user can read or change. You have t
 
 Adding `.withUserMode()` to a [`QRY_Builder`](reference/apex/QRY_Builder.md) query runs it in `AccessLevel.USER_MODE`, which enforces both field security and object permissions inside the SOQL itself:
 
-- **Field security:** fields the user cannot read are stripped from the results automatically.
+- **Field security:** if the query selects, filters or sorts on a field the user cannot read, the query throws an exception.
 - **Object permissions:** if the user lacks Read access to the object, the query throws an exception.
-- **Cache turned off:** caching is disabled automatically while security is enforced, which stops results leaking between users with different access.
+- **Cache kept to one transaction:** if you ask for the results to be cached, a user-mode read is kept in memory for the current transaction only, never in the shared platform cache. This stops results leaking between users with different access. The exception is a read that also calls `.bypassSharing()`. Its rows do not depend on the user's sharing, so it may be kept in the shared platform cache, and the fields each user cannot read are removed when the rows are handed to that user.
 
 ```apex
-// If user lacks FLS access to AnnualRevenue, it's stripped from results
+// If user lacks FLS access to AnnualRevenue, query throws exception
 // If user lacks CRUD Read on Account, query throws exception
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<String>{'Name', 'AnnualRevenue', 'Industry'})
@@ -1560,13 +1592,19 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 **Option 2: Strip unreadable fields after the query with `stripInaccessible()`.**
 
+Use this when you want the rows back without the hidden fields, rather than an error. The strip needs a query in system mode: in user mode the platform refuses the query before the strip can run. System mode does not check the object permission, and its record sharing follows the calling class unless you also call `.withSharing()`:
+
 ```apex
 // Strip inaccessible fields after query execution
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<String>{'Name', 'AnnualRevenue', 'Industry'})
+	.withSystemMode()
+	.withSharing()
 	.stripInaccessible()
 	.toList();
 ```
+
+A read with `.bypassSharing()` in user mode removes the hidden fields on its own (see [USER_MODE vs Sharing Proxy](#user_mode-vs-sharing-proxy)).
 
 #### Object-Level Security (CRUD)
 
@@ -1607,7 +1645,7 @@ Salesforce's [`AccessLevel`](https://developer.salesforce.com/docs/atlas.en-us.a
 
 | Mode                      | FLS/CRUD | Sharing                                                                         | When Used                                                                                                                   |
 |---------------------------|----------|---------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| `AccessLevel.USER_MODE`   | Enforced | Enforced (runs through the user's sharing)                                      | The **secure default** for the queries and saves your code can reach (shipped package behaviour)                            |
+| `AccessLevel.USER_MODE`   | Enforced | Enforced (runs through the user's sharing). With `.bypassSharing()`, sharing is ignored and the object and field checks still apply | The **secure default** for the queries and saves your code can reach (shipped package behaviour)                            |
 | `AccessLevel.SYSTEM_MODE` | Bypassed | Controlled by the helper class (class declaration / `.withSharing()` / `.bypassSharing()`) | Framework-internal reads, custom-metadata readers, log and orchestration writes. Opt in with `.withSystemMode()` or `systemModeRequired()` |
 
 By default, the `QRY_Builder` and `DML_Builder` calls your code can reach run in `USER_MODE`. SYSTEM_MODE is reserved for framework-internal operations and a few narrow, documented opt-outs. Framework-internal selectors override `SEL_Base.systemModeRequired()` to return `true`; individual calls use `.withSystemMode()`. The org-wide flip on `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled` is an emergency off-switch only (see [Safe by Default](#safe-by-default)). For how the sharing helper classes layer on top of `AccessLevel.SYSTEM_MODE`, see [Record Sharing > AccessLevel Selection](#accesslevel-selection).
@@ -1719,7 +1757,7 @@ public without sharing class BATCH_ProcessAllAccounts implements Database.Batcha
 }
 ```
 
-> `without sharing` on the class plus `.withSystemMode().bypassSharing()` on each builder call makes the bypass explicit at every layer. Prefer this to a single flag set at the top of the transaction: the explicit chaining shows up in code review and leaves a record at the exact call site.
+> The query needs `.withSystemMode()` here: `toQueryLocator()` with `.bypassSharing()` alone is refused, because KernDX cannot remove hidden fields from rows the platform fetches later. `without sharing` on the class plus `.withSystemMode().bypassSharing()` on each builder call makes the bypass explicit at every layer. Prefer this to a single flag set at the top of the transaction: the explicit chaining shows up in code review and leaves a record at the exact call site.
 
 #### Trigger Actions
 
@@ -1730,7 +1768,7 @@ A trigger action should use `inherited sharing` so it follows whatever context t
 ```apex
 public inherited sharing class TRG_AccountSetDefaults extends TRG_Base implements IF_Trigger.BeforeInsert
 {
-	public override void beforeInsert(List<SObject> newRecords)
+	public void beforeInsert(List<SObject> newRecords)
 	{
 		// inherited sharing - trigger runs in the caller's sharing context.
 		// This handler mutates in-memory only (no DML) so no access-mode decisions are needed.
@@ -1760,7 +1798,7 @@ LOG_Builder.build().error(exception).emitAt('MyClass.myMethod');
 
 #### When to Bypass Sharing
 
-Bypass sharing with `.withSystemMode().bypassSharing()` on the relevant `QRY_Builder` / `DML_Builder` call, and record why with `TRG_Base.setBypassReason(String)`. Typical cases:
+Bypass sharing with `.bypassSharing()` on the relevant `QRY_Builder` / `DML_Builder` call, and record why with `TRG_Base.setBypassReason(String)`. In user mode the user's object and field permissions still apply: a read removes the fields the user cannot read, and a save leaves out the fields the user cannot edit. When the code must also reach fields the user cannot read or edit, or must return a query locator, a cursor or totals, use `.withSystemMode().bypassSharing()`, which turns off the object and field checks too. Typical cases:
 
 | Scenario                | Example                                                 |
 |-------------------------|---------------------------------------------------------|
@@ -1787,10 +1825,14 @@ Enforce object permissions, field security, and sharing with `.withUserMode()` o
 
 #### Cache Security
 
-When security is enforced, the framework turns caching off for you:
+When you ask for a query's results to be cached, the framework decides where they may be kept from the query's security settings:
+
+- A user-mode read is cached in memory for the current transaction only. It never goes into the shared platform cache, so another user never receives it.
+- A system-mode read that only inherits the caller's sharing (no explicit sharing choice) is not cached at all.
+- A read with `.bypassSharing()` in user mode may be kept in the shared platform cache, because its rows do not depend on the user's sharing. The fields each user cannot read are removed when the rows are handed to that user.
 
 ```apex
-// Caching disabled when using withUserMode() - prevents data leakage across users
+// A user-mode read: if you also call .withCache(...), the result is kept for this transaction only, so it never reaches another user
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<String>{'Name'})
 	.withUserMode()
@@ -1937,7 +1979,7 @@ You test security by checking two things: that a permission check throws the rig
 @IsTest
 private static void shouldEnforceCrudWithUserMode()
 {
-	User restrictedUser = TST_Factory.newUser('Standard User');
+	User restrictedUser = TST_Factory.newUser('Minimum Access - Salesforce');
 
 	System.runAs(restrictedUser)
 	{
@@ -1951,7 +1993,7 @@ private static void shouldEnforceCrudWithUserMode()
 		}
 		catch(Exception error)
 		{
-			Assert.isNotNull(error.getMessage(), 'Error message should be set');
+			Assert.isInstanceOfType(error, QueryException.class, 'A user without Account read access should get a QueryException');
 		}
 	}
 }
@@ -2008,10 +2050,10 @@ If you are evaluating what the framework controls rather than writing the code, 
 |----------------------------------|---------------------------|------------------------------------------------------------------|----------------------------------------------------------------|
 | CRUD/FLS enforcement             | Query-level enforcement   | `QRY_Builder.withUserMode()`                                     | Enforces CRUD and FLS at database level                        |
 | CRUD/FLS enforcement             | DML-level enforcement     | `DML_Builder.withUserMode()`                                     | Enforces CRUD and FLS on DML transactions                      |
-| Post-query FLS strip             | Field removal after query | `QRY_Builder.stripInaccessible()`                                | Removes inaccessible fields from results                       |
+| Post-query FLS strip             | Field removal after query | `QRY_Builder.stripInaccessible()`                                | Removes inaccessible fields from results of a SYSTEM_MODE query. In USER_MODE, the query fails if it selects a hidden field |
 | Session encryption               | Runtime data protection   | `UTIL_SessionEncryption.encrypt()` / `.decrypt()`                | AES-256 with automatic key management                          |
 | Query sharing enforcement        | Per-query control         | `.withSharing()` / `.bypassSharing()` / `.withUserMode()`        | Applied on `QRY_Builder` queries                               |
-| DML sharing enforcement          | Per-transaction control   | `DML_Builder.newTransaction().bypassSharing()`                   | Applied on DML transactions                                    |
+| DML sharing enforcement          | Per-transaction control   | `DML_Builder.newTransaction().bypassSharing()`                   | Applied on DML transactions; in USER_MODE the object and field checks still apply |
 | Selector-wide SYSTEM_MODE lock   | Selector-level override   | `SEL_Base.systemModeRequired()` override                         | Framework-internal selectors opt out of USER_MODE default      |
 | Org-wide access mode kill-switch | Custom metadata flag      | `FeatureFlag.UserModeQueries_Enabled` / `UserModeDml_Enabled`    | Emergency rollback only: flips all queries and DML to SYSTEM_MODE |
 | Bypass audit trail               | Platform event            | `TRG_Base.bypass*()` + `LogEntryEvent__e` category `BypassEvent` | Attach reason via `TRG_Base.setBypassReason(String)`           |
@@ -2204,7 +2246,7 @@ public inherited sharing class SecureDataAccess
 {
 	public static List<Account> getAccounts()
 	{
-		// This query respects the calling context's sharing rules
+		// USER_MODE (the default) enforces the user's sharing; in SYSTEM_MODE the query follows the calling context's sharing rules
 		return QRY_Builder.selectFrom(Account.SObjectType)
 			.fields(new List<String>{'Id', 'Name'})
 			.toList();
@@ -2222,7 +2264,7 @@ public inherited sharing class MyUtility
 {
 	public static void processRecords(List<SObject> records)
 	{
-		// Sharing determined by caller's context
+		// USER_MODE (the default) enforces the user's sharing; in SYSTEM_MODE sharing is determined by caller's context
 		DML_Builder.newTransaction().doUpdate(records).execute();
 	}
 }
@@ -2262,7 +2304,6 @@ For user-facing features, enforce both sharing and field/object permissions toge
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<String>{'Id', 'Name', 'Industry'})
 	.withUserMode()
-	.stripInaccessible()
 	.toList();
 ```
 
@@ -2311,7 +2352,7 @@ A lookup section for when you already know what you want and just need the exact
 
 **Key Management:**
 
-- Algorithm: AES256 with SHA-256 digest
+- Algorithm: AES256 with an HMAC-SHA256 tamper check
 - Key Storage: Platform cache (session cache preferred, org cache fallback)
 - Key Expiry: 8 hours (28,800 seconds)
 - Automatic rotation: Yes
@@ -2347,11 +2388,23 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 
 **Secure Query Pattern (Strip Inaccessible, preserves partial results):**
 
+The strip needs SYSTEM_MODE, which does not check the object permission. In USER_MODE, the query fails if it selects a hidden field.
+
 ```apex
 List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<String>{'Name', 'AnnualRevenue'})
-	.withUserMode()
+	.withSystemMode()
+	.withSharing()
 	.stripInaccessible()
+	.toList();
+```
+
+**Sharing-Bypass Query Pattern (object and field permissions kept):**
+
+```apex
+List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
+	.fields(new List<String>{'Name', 'AnnualRevenue'})
+	.bypassSharing()
 	.toList();
 ```
 
@@ -2364,7 +2417,16 @@ DML_Builder.newTransaction()
 	.execute();
 ```
 
-**Sharing-Bypass DML Pattern (system operations only):**
+**Sharing-Bypass DML Pattern (object and field permissions kept; fields the user cannot create or edit are left out):**
+
+```apex
+DML_Builder.newTransaction()
+	.doInsert(accountList)
+	.bypassSharing()
+	.execute();
+```
+
+**Sharing-Bypass DML Pattern with no permission checks (system operations only):**
 
 ```apex
 DML_Builder.newTransaction()

@@ -67,6 +67,7 @@ public with sharing class API_SendEmail extends API_Outbound
 | global virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getWebServiceEndPoint](#getwebserviceendpoint)() | Constructs and returns the full URL endpoint for the web service, resolving Named Credentials and appending the API path. |
 | global virtual [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasArrayResponse](#hasarrayresponse)() | Checks if the JSON response is in the form of an array without a key. |
 | global override [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isDisabled](#isdisabled)() | Checks whether the API has been disabled for the current user by verifying custom settings or feature switches. |
+| global override virtual void [onCommitWorkStarting](#oncommitworkstarting)() | Performs actions before the framework saves the call's changes to the database. |
 | global virtual void [parseResponse](#parseresponse)() | Called if request is successful; override to consume response. |
 | global virtual void [prepareRequest](#preparerequest)() | Prepares the outbound request by querying Salesforce data and populating the request DTO. |
 | global virtual void [setHeaders](#setheaders)() | Sets the HTTP headers for the request. |
@@ -153,6 +154,15 @@ or throw UTIL_Exceptions.PermanentFailureException. Any other throw ends the cal
 log.
 The framework decides first, from where the failure happened. The strategy is asked only about a failure the
 framework may retry.
+
+The default strategy reads the service setting: Retry Backoff Seconds is the base wait, and Max Retry Count is the
+number of retries. A call made through UTIL_HttpClient with withRetry or withExponentialBackoff uses the number of
+retries passed there, and the base wait when one was passed, instead of the setting's values, on every run. It waits the base before the first scheduled retry,
+and then the base times the number of retries already made. A call made with withExponentialBackoff gets a
+different wait: the base before the first retry, then twice as long each time, up to 300 seconds. For a base of 30
+seconds that is 30, 60, 120, 240 and then 300 seconds. The retries already made count, including the ones sent
+again at once in the same transaction. This also holds for your handler when it is called through
+UTIL_HttpClient.useHandler, unless your handler overrides this method: then your strategy decides.
 
 **Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — Configured instance
 
@@ -558,6 +568,31 @@ Checks whether the API has been disabled for the current user by verifying custo
 global override Boolean isDisabled()
 {
     return super.isDisabled() || customDisableCheck();
+}
+```
+
+</div>
+
+### onCommitWorkStarting
+
+<div class="apex-member">
+
+```apex
+global override virtual void onCommitWorkStarting()
+```
+
+Performs actions before the framework saves the call's changes to the database. It runs once for each
+attempt of the save: an attempt the platform refused for a row lock is tried again once, and this method runs again
+for the new attempt. So write what you add here so that it is safe to run more than once. Always call
+super.onCommitWorkStarting() first: it prepares the save and the logging for the call.
+
+**Example**
+
+```apex
+global override void onCommitWorkStarting()
+{
+    super.onCommitWorkStarting();
+    // work to do before the save
 }
 ```
 

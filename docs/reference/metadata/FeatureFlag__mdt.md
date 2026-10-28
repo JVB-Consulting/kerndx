@@ -44,7 +44,7 @@ This object is the master record for a single feature flag. It acts as the paren
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[TriggerSetting__mdt](../metadata/TriggerSetting__mdt.md)> [RequiredTriggerSettings__r](#requiredtriggersettings__r) | Reciprocal relationship for TriggerSetting__mdt.RequiredFeatureFlag__c. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ValidationRuleGroup__mdt](../metadata/ValidationRuleGroup__mdt.md)> [RequiredValidationRuleGroups__r](#requiredvalidationrulegroups__r) | Reciprocal relationship for ValidationRuleGroup__mdt.RequiredFeatureFlag__c. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[ValidationRule__mdt](../metadata/ValidationRule__mdt.md)> [RequiredValidationRules__r](#requiredvalidationrules__r) | Reciprocal relationship for ValidationRule__mdt.RequiredFeatureFlag__c. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ResultOnNoMatch__c](#resultonnomatch__c) | The fallback result to use if strategies exist, but none of them return true. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ResultOnNoMatch__c](#resultonnomatch__c) | The fallback result. |
 
 ### BypassApiSettings__r
 
@@ -201,7 +201,7 @@ Reciprocal relationship for **`ValidationRule__mdt.RequiredFeatureFlag__c`** .
 global Boolean ResultOnNoMatch__c
 ```
 
-The fallback result to use if strategies *exist*, but *none* of them return true. If true, the flag is ON. If false (default), the flag is OFF. This field is *only* used if at least one strategy exists and all strategies fail to match.
+The fallback result. Used only when strategies exist and none of them applies to the user being checked. If true, the flag is ON. If false (default), the flag is OFF.
 
 **Field Attributes:**
 

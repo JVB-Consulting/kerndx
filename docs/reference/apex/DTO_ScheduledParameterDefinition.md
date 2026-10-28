@@ -5,7 +5,7 @@ pageClass: reference
 description: "A Data Transfer Object describing a single parameter definition supported by a scheduled job class. Used by classes implementing IF_Schedulable to declare their configurable parameters via getParamete"
 author: "Jason Van Beukering"
 group: "Schedulables"
-date: "March 2026, May 2026"
+date: "March 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -47,7 +47,7 @@ DTO_ScheduledParameterDefinition.of('profileNames')
 | global static [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) [of](#of)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Creates a new TEXT parameter definition with a label derived from the API name. |
 | global static [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) [of](#of)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) label) | Creates a new TEXT parameter definition with an explicit label. |
 | global [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) [required](#required)() | Marks this parameter as required. |
-| global [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) [withDefault](#withdefault)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) defaultValue) | Sets the default value for this parameter. |
+| global [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) [withDefault](#withdefault)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) defaultValue) | Sets the value the job uses when its saved settings have no entry for this parameter. |
 | global [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md) [withDescription](#withdescription)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) description) | Sets the help text description for this parameter. |
 
 ### asBoolean
@@ -174,7 +174,8 @@ DTO_ScheduledParameterDefinition.of('objectName', 'Object Name').required()
 global DTO_ScheduledParameterDefinition withDefault(String defaultValue)
 ```
 
-Sets the default value for this parameter.
+Sets the value the job uses when its saved settings have no entry for this parameter. Give it as
+text, in the same form a saved value takes: for a NUMERIC parameter use digits only, or the job reads null.
 
 **Parameters**
 

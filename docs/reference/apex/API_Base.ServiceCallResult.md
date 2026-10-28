@@ -34,7 +34,7 @@ Boolean success = result.isSuccess;
 
 | Property | Description |
 |----------|-------------|
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasFailed](#hasfailed) | Indicates if the service call failed. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [hasFailed](#hasfailed) | True when the call's status is FAILED. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isAborted](#isaborted) | Indicates if the service call was aborted. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [isSuccess](#issuccess) | Indicates if the service call completed successfully. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [statusText](#statustext) | Text representation of the service status. |
@@ -47,7 +47,8 @@ global Boolean hasFailed
 
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
-Indicates if the service call failed.
+True when the call's status is FAILED. Setting it to true marks the status FAILED; setting it
+to false leaves the status as it is.
 
 ### isAborted
 
@@ -126,7 +127,7 @@ Indicates the response was successfully received from the remote
 endpoint but parseResponse() failed (typically a JSON deserialization error
 or unexpected payload shape). When true the transport itself succeeded — the
 status code and body are populated — but responsePayload is unreliable.
-Subscribers branch on this to distinguish parse failure from transport failure
+Check this flag in your code to tell a parse failure from a transport failure
 without inspecting errors[] strings.
 
 ### requestBody

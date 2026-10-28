@@ -2,7 +2,7 @@
 title: "UTIL_SObjectBuilderDefaultProvider"
 type: class
 pageClass: reference
-description: "Provides the default value generation logic for the SObjectBuilder. Subscribers should extend THIS class to override default values or define custom required fields for SObjects."
+description: "Provides the default value generation logic for the SObjectBuilder. Extend THIS class to override default values or define custom required fields for SObjects."
 author: "Jason Van Beukering"
 group: "Testing"
 date: "November 2025, October 2026"
@@ -22,7 +22,7 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 
 **Extends:** [TST_Builder.DefaultValueProvider](TST_Builder.DefaultValueProvider.md)
 
-Provides the default value generation logic for the SObjectBuilder. Subscribers should extend THIS class to override default values or define custom required fields for SObjects.
+Provides the default value generation logic for the SObjectBuilder. Extend THIS class to override default values or define custom required fields for SObjects.
 
 **Example**
 

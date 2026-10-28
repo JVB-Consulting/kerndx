@@ -5,7 +5,7 @@ pageClass: reference
 description: "Abstract base class for scheduled jobs that support configurable parameters. Implements IF_Schedulable, providing parameter storage, typed parameter resolution, and a default empty parameter definitio"
 author: "Jason Van Beukering"
 group: "Schedulables"
-date: "March 2026, May 2026"
+date: "March 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -24,7 +24,7 @@ global abstract inherited sharing class SCHED_Base implements IF_Schedulable
 
 **Known Derived Types:** [SCHED_ChainWatchdog](SCHED_ChainWatchdog.md), [SCHED_DeactivateUsers](SCHED_DeactivateUsers.md), [SCHED_JobRunner](SCHED_JobRunner.md), [SCHED_PurgeRecords](SCHED_PurgeRecords.md), [IF_Schedulable.getParameterDefinitions()](IF_Schedulable.md#getparameterdefinitions), [IF_Schedulable.setParameterValues(DTO_NameValues)](IF_Schedulable.md#setparametervalues)
 
-Abstract base class for scheduled jobs that support configurable parameters. Implements IF_Schedulable, providing parameter storage, typed parameter resolution, and a default empty parameter definition list. Subscribers extend this class, override getParameterDefinitions() to declare their parameters, and implement execute(SchedulableContext) for job logic. When setParameterValues() is called by the framework, the base class resolves raw string values into typed values (String, Integer, Boolean) based on the DataType declared in getParameterDefinitions(), applying default values where configured. Subclasses read typed values via getTextParameter(), getNumericParameter(), and getBooleanParameter().
+Abstract base class for scheduled jobs that support configurable parameters. Implements IF_Schedulable, providing parameter storage, typed parameter resolution, and a default empty parameter definition list. You extend this class, override getParameterDefinitions() to declare your parameters, and implement execute(SchedulableContext) for job logic. When setParameterValues() is called by the framework, the base class resolves raw string values into typed values (String, Integer, Boolean) based on the DataType declared in getParameterDefinitions(), applying default values where configured. Subclasses read typed values via getTextParameter(), getNumericParameter(), and getBooleanParameter().
 
 **Example**
 
@@ -58,9 +58,9 @@ global class SCHED_MyJob extends SCHED_Base
 | Method | Description |
 |--------|-------------|
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [getBooleanParameter](#getbooleanparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Returns a FLAG (boolean) parameter value. |
-| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getNumericParameter](#getnumericparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Returns a NUMERIC parameter value. |
+| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getNumericParameter](#getnumericparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Reads a NUMERIC parameter declared in getParameterDefinitions, from the job's saved settings or from its default when the settings have no entry. |
 | global virtual [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md)> [getParameterDefinitions](#getparameterdefinitions)() | Returns the parameter definitions supported by this scheduled job. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getTextParameter](#gettextparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Returns a TEXT parameter value. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [getTextParameter](#gettextparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name) | Reads a parameter declared in getParameterDefinitions, from the job's saved settings or from its default when the settings have no entry. |
 | global void [setParameterValues](#setparametervalues)([DTO_NameValues](DTO_NameValues.md) parameterValues) | Stores the provided parameter values. |
 
 ### getBooleanParameter
@@ -91,7 +91,9 @@ Returns a FLAG (boolean) parameter value.
 global Integer getNumericParameter(String name)
 ```
 
-Returns a NUMERIC parameter value.
+Reads a NUMERIC parameter declared in getParameterDefinitions, from the job's saved settings or
+from its default when the settings have no entry. The saved text is turned into a whole number; text that is
+not made of digits only, such as a negative number or a decimal, gives null.
 
 **Parameters**
 
@@ -140,7 +142,9 @@ public override List<DTO_ScheduledParameterDefinition> getParameterDefinitions()
 global String getTextParameter(String name)
 ```
 
-Returns a TEXT parameter value.
+Reads a parameter declared in getParameterDefinitions, from the job's saved settings or from its
+default when the settings have no entry. Use it only for a TEXT parameter. A NUMERIC or FLAG parameter that
+has a value throws a TypeException here; read those with getNumericParameter and getBooleanParameter.
 
 **Parameters**
 

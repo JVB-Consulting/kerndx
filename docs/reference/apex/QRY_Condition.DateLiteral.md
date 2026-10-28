@@ -44,16 +44,16 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 |--------|-------------|
 | global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [last](#last)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) numberOfUnits, [QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md) unit) | Sets the date literal to LAST_N_*:n. |
 | global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [last](#last)([QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md) unit) | Sets the date literal to LAST_* for a given unit (e.g., LAST_QUARTER). |
-| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [last90Days](#last90days)() | Sets the date literal to LAST_90_DAYS. |
-| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [lastNDays](#lastndays)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) numberOfDays) | Sets the date literal to LAST_N_DAYS:n. |
+| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [last90Days](#last90days)() | Matches today and the 90 days before it, with the SOQL keyword LAST_90_DAYS. |
+| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [lastNDays](#lastndays)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) numberOfDays) | Matches today and the n days before it, written as LAST_N_DAYS:n (lastNDays(30) writes LAST_N_DAYS:30). |
 | global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [next](#next)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) numberOfUnits, [QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md) unit) | Sets the date literal to NEXT_N_*:n. |
 | global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [next](#next)([QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md) unit) | Sets the date literal to NEXT_* for a given unit (e.g., NEXT_QUARTER). |
-| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [next90Days](#next90days)() | Sets the date literal to NEXT_90_DAYS. |
-| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [nextNDays](#nextndays)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) numberOfDays) | Sets the date literal to NEXT_N_DAYS:n. |
-| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [thisUnit](#thisunit)([QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md) unit) | Sets the date literal to a THIS_* value for the given unit. |
-| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [today](#today)() | Sets the date literal to TODAY. |
-| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [tomorrow](#tomorrow)() | Sets the date literal to TOMORROW. |
-| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [yesterday](#yesterday)() | Sets the date literal to YESTERDAY. |
+| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [next90Days](#next90days)() | Matches the next 90 days, starting tomorrow, with the SOQL keyword NEXT_90_DAYS. |
+| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [nextNDays](#nextndays)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) numberOfDays) | Matches the next n days, starting tomorrow, written as NEXT_N_DAYS:n (nextNDays(60) writes NEXT_N_DAYS:60). |
+| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [thisUnit](#thisunit)([QRY_Condition.UnitOfTime](QRY_Condition.UnitOfTime.md) unit) | Matches the current week, month, quarter, year, fiscal quarter or fiscal year, written as THIS_ and the unit name, such as THIS_MONTH. |
+| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [today](#today)() | Matches the whole of today, with the SOQL keyword TODAY. |
+| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [tomorrow](#tomorrow)() | Matches the whole of the day after today, with the SOQL keyword TOMORROW. |
+| global [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) [yesterday](#yesterday)() | Matches the whole of the day before today, with the SOQL keyword YESTERDAY. |
 
 ### last
 
@@ -114,7 +114,8 @@ new QRY_Condition.DateLiteral().last(QRY_Condition.UnitOfTime.QUARTER)
 global QRY_Condition.DateLiteral last90Days()
 ```
 
-Sets the date literal to LAST_90_DAYS.
+Matches today and the 90 days before it, with the SOQL keyword LAST_90_DAYS. lastNDays(90)
+writes the same keyword.
 
 **Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
@@ -134,7 +135,8 @@ new QRY_Condition.DateLiteral().last90Days()
 global QRY_Condition.DateLiteral lastNDays(Integer numberOfDays)
 ```
 
-Sets the date literal to LAST_N_DAYS:n.
+Matches today and the n days before it, written as LAST_N_DAYS:n (lastNDays(30) writes
+LAST_N_DAYS:30). For 90 it writes LAST_90_DAYS. A negative number throws IllegalArgumentException.
 
 **Parameters**
 
@@ -211,7 +213,8 @@ new QRY_Condition.DateLiteral().next(QRY_Condition.UnitOfTime.QUARTER)
 global QRY_Condition.DateLiteral next90Days()
 ```
 
-Sets the date literal to NEXT_90_DAYS.
+Matches the next 90 days, starting tomorrow, with the SOQL keyword NEXT_90_DAYS. nextNDays(90) writes the
+same keyword.
 
 **Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
@@ -231,7 +234,8 @@ new QRY_Condition.DateLiteral().next90Days()
 global QRY_Condition.DateLiteral nextNDays(Integer numberOfDays)
 ```
 
-Sets the date literal to NEXT_N_DAYS:n.
+Matches the next n days, starting tomorrow, written as NEXT_N_DAYS:n (nextNDays(60) writes
+NEXT_N_DAYS:60). For 90 it writes NEXT_90_DAYS. A negative number throws IllegalArgumentException.
 
 **Parameters**
 
@@ -257,7 +261,9 @@ new QRY_Condition.DateLiteral().nextNDays(60)
 global QRY_Condition.DateLiteral thisUnit(QRY_Condition.UnitOfTime unit)
 ```
 
-Sets the date literal to a THIS_* value for the given unit.
+Matches the current week, month, quarter, year, fiscal quarter or fiscal year, written as THIS_ and the
+unit name, such as THIS_MONTH. DAY gives TODAY, because SOQL has no THIS_DAY. A null unit throws a
+NullPointerException.
 
 **Parameters**
 
@@ -284,7 +290,8 @@ new QRY_Condition.DateLiteral().thisUnit(QRY_Condition.UnitOfTime.DAY)  // retur
 global QRY_Condition.DateLiteral today()
 ```
 
-Sets the date literal to TODAY.
+Matches the whole of today, with the SOQL keyword TODAY. Pass the result as a condition value, for
+example to equals(). It replaces any date set earlier on this object.
 
 **Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
@@ -304,7 +311,8 @@ new QRY_Condition.DateLiteral().today()
 global QRY_Condition.DateLiteral tomorrow()
 ```
 
-Sets the date literal to TOMORROW.
+Matches the whole of the day after today, with the SOQL keyword TOMORROW. Pass the result as a condition
+value, for example to equals(). It replaces any date set earlier on this object.
 
 **Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 
@@ -324,7 +332,8 @@ new QRY_Condition.DateLiteral().tomorrow()
 global QRY_Condition.DateLiteral yesterday()
 ```
 
-Sets the date literal to YESTERDAY.
+Matches the whole of the day before today, with the SOQL keyword YESTERDAY. Pass the result as a
+condition value, for example to equals(). It replaces any date set earlier on this object.
 
 **Returns** [QRY_Condition.DateLiteral](QRY_Condition.DateLiteral.md) — The DateLiteral instance for method chaining.
 

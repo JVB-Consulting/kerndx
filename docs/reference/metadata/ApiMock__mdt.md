@@ -2,7 +2,7 @@
 title: "ApiMock__mdt"
 type: sobject
 pageClass: reference
-description: "Configures mock response scenarios for API services. Supports dynamic response interpolation, request body pattern matching, and fault simulation for both inbound and outbound APIs."
+description: "Configures mock response scenarios for API services. Supports dynamic response interpolation, request body pattern matching, and fault simulation for both inbound and outbound APIs. A record answers o"
 category: metadata
 ---
 
@@ -18,7 +18,7 @@ global class ApiMock__mdt extends SObject
 
 **Extends:** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)
 
-Configures mock response scenarios for API services. Supports dynamic response interpolation, request body pattern matching, and fault simulation for both inbound and outbound APIs.
+Configures mock response scenarios for API services. Supports dynamic response interpolation, request body pattern matching, and fault simulation for both inbound and outbound APIs. A record answers only while mocking is on for its service: in the API Test Harness or a test, under Mock All APIs or Mock All Inbound APIs, or when the service's API Setting has Mocking Enabled ticked and Mock Selected APIs is on for the user.
 
 </div>
 

@@ -22,8 +22,9 @@ no `WITH USER_MODE` clauses to remember.
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 **What you'll build:** A service class that reads and writes records through the framework. It gets CRUD and
-FLS enforced against the running user by default, and it strips fields the user can't see out of untrusted
-query results, all without writing a single `Security.stripInaccessible()` call.
+FLS enforced against the running user by default, all without writing a single `Security.stripInaccessible()`
+call or `WITH USER_MODE` clause. Along the way, you also see how to get the rows back without the fields the user
+can't see, instead of an error.
 
 **Success looks like:** Your queries and DML respect the running user's permissions automatically, a
 lower-permission user can't read or write fields they lack access to, and your test class has 100% coverage.
@@ -155,12 +156,19 @@ USER_MODE throws when a query touches a field the user can't read. Sometimes you
 unreadable fields and keep going, for example when you query a generous field list but only need whatever the
 user is actually allowed to see. Chain `.stripInaccessible()`.
 
+The strip runs after the query returns, so the query itself must not be refused first. In USER_MODE, the platform
+refuses the query before the strip can run. So this read uses `.withSystemMode()` to run in SYSTEM_MODE, and
+`.withSharing()` to keep record sharing. SYSTEM_MODE does not check the object permission, so use this form only for an
+object the user may read.
+
 **In Salesforce**, in the same Execute Anonymous window, run:
 
 ```apex
 // Returns rows with inaccessible fields removed (set to null) instead of throwing.
 List<Account> stripped = kern.QRY_Builder.selectFrom(Account.SObjectType)
 		.fields(new List<SObjectField> {Account.Name, Account.AnnualRevenue})
+		.withSystemMode()
+		.withSharing()
 		.stripInaccessible()
 		.withLimit(5)
 		.toList();
@@ -238,19 +246,18 @@ force-app/main/default/classes/SVC_ContactDirectory.cls
 public with sharing class SVC_ContactDirectory
 {
 	/**
-	 * @description Returns Contacts whose last name matches, with any fields the running user
-	 * cannot read stripped from the results rather than throwing.
+	 * @description Returns Contacts whose last name matches. Runs in USER_MODE by default, so a user
+	 * who cannot read Contacts, or one of the selected fields, gets a QueryException.
 	 *
 	 * @param lastName The last name to filter by.
 	 *
-	 * @return Contacts the running user is allowed to see, with inaccessible fields removed.
+	 * @return Contacts the running user is allowed to see.
 	 */
 	public List<Contact> findByLastName(String lastName)
 	{
 		return kern.QRY_Builder.selectFrom(Contact.SObjectType)
 				.fields(new List<SObjectField> {Contact.FirstName, Contact.LastName, Contact.Email})
 				.condition(Contact.LastName).equals(lastName)
-				.stripInaccessible()
 				.toList();
 	}
 
@@ -320,8 +327,8 @@ Jane Directory
 
 - **`kern.QRY_Builder.selectFrom(...)`**: the query runs in USER_MODE by default, so CRUD, FLS, and sharing are
   enforced against the running user with no extra method call.
-- **`.stripInaccessible()`**: removes fields the user can't read from the returned rows (post-query), so the
-  read degrades gracefully instead of throwing on an inaccessible field.
+- **A field the user can't read**: the query throws a `QueryException` rather than return it. If you would
+  rather get the rows back without that field, see [Strip Inaccessible Fields](#strip-inaccessible-fields).
 - **`kern.DML_Builder.newTransaction()...execute()`**: the insert runs in USER_MODE by default, so the create
   is checked against the user's object and field permissions.
 - **No security boilerplate**: you never wrote `WITH USER_MODE`, `Security.stripInaccessible(...)`, or a
@@ -358,7 +365,7 @@ force-app/main/default/classes/SVC_ContactDirectory_TEST.cls
  *
  * @group Services
  *
- * @date February 2026
+ * @date February 2026, October 2026
  */
 @IsTest(isParallel=false)
 private class SVC_ContactDirectory_TEST
@@ -403,23 +410,21 @@ private class SVC_ContactDirectory_TEST
 				.build();
 
 		User minimumAccessUser = buildMinimumAccessUser();
-		Boolean rejected = false;
 
 		System.runAs(minimumAccessUser)
 		{
 			try
 			{
 				new SVC_ContactDirectory().findByLastName('Reader');
+				Assert.fail('USER_MODE must reject a user without Contact access');
 			}
 			catch(Exception error)
 			{
-				rejected = true;
+				Assert.isInstanceOfType(error, QueryException.class,
+						'USER_MODE must reject a user without Contact access, proving the framework enforces '
+						+ 'the running user\'s permissions, not the admin\'s');
 			}
 		}
-
-		Assert.isTrue(rejected,
-				'USER_MODE must reject a user without Contact access — proving the framework enforces '
-				+ 'the running user\'s permissions, not the admin\'s');
 	}
 
 	/**
@@ -468,7 +473,7 @@ line `Outcome` reads `Passed`, and the coverage table shows `SVC_ContactDirector
 
 > **About the annotations:** This class uses `@IsTest(isParallel=false)` because `buildMinimumAccessUser()`
 > inserts a `User`, and Salesforce blocks DML on setup objects like `User` inside *parallel* test runs. Most
-> test classes should prefer `@IsTest(isParallel=true)` for faster runs. Use `IsParallel=false` only
+> test classes should prefer `@IsTest(isParallel=true)` for faster runs. Use `isParallel=false` only
 > when a test does setup-object DML, as this one does. `SeeAllData` defaults to `false`, so we omit it. The
 > `System.runAs()` block in the third test is the right habit for security code: it verifies the framework
 > enforces the *running user's* permissions, which is the entire point of USER_MODE. (The
@@ -502,9 +507,19 @@ List<Account> userMode = kern.QRY_Builder.selectFrom(Account.SObjectType)
 		.toList();
 
 // Strip inaccessible fields from the results instead of throwing
+// (SYSTEM_MODE with sharing kept: in USER_MODE a hidden field refuses the query)
 List<Account> stripped = kern.QRY_Builder.selectFrom(Account.SObjectType)
 		.fields(new List<SObjectField> {Account.Name, Account.AnnualRevenue})
+		.withSystemMode()
+		.withSharing()
 		.stripInaccessible()
+		.withLimit(5)
+		.toList();
+
+// Read records whatever their sharing; the user's object and field permissions still apply
+List<Account> everyAccount = kern.QRY_Builder.selectFrom(Account.SObjectType)
+		.fields(new List<SObjectField> {Account.Name, Account.AnnualRevenue})
+		.bypassSharing()
 		.withLimit(5)
 		.toList();
 ```
@@ -515,14 +530,20 @@ The full menu of query security methods:
 |------------------------|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
 | *(none, the default)*  | USER_MODE: CRUD, FLS, and sharing enforced against the running user                                 | Every query your users reach                                     |
 | `.withUserMode()`      | Forces USER_MODE even if the org-wide kill switch has been flipped off                              | Belt-and-braces enforcement on a critical user-facing read       |
-| `.stripInaccessible()` | Removes fields the user can't read from results (post-query) instead of throwing                    | When you'd rather drop unreadable fields than fail the query     |
+| `.stripInaccessible()` | Removes fields the user can't read from results (post-query) instead of throwing, in SYSTEM_MODE. In USER_MODE a selected field the user can't read still makes the query fail | When you'd rather drop unreadable fields than fail the query (with `.withSystemMode()`) |
 | `.withSystemMode()`    | Forces SYSTEM_MODE: bypasses CRUD/FLS for this query only                                           | Framework-internal reads (configuration, framework-owned tables) |
-| `.withSharing()`       | Uses a `with sharing` proxy (only has effect in SYSTEM_MODE)                                        | Enforce sharing on a SYSTEM_MODE query                           |
-| `.bypassSharing()`     | Uses a `without sharing` proxy (only has effect in SYSTEM_MODE)                                     | Bypass sharing on a SYSTEM_MODE query (use with caution)         |
+| `.withSharing()`       | Uses a `with sharing` proxy (only has effect in SYSTEM_MODE: USER_MODE enforces sharing anyway)     | Enforce sharing on a SYSTEM_MODE query                           |
+| `.bypassSharing()`     | Uses a `without sharing` proxy. In USER_MODE the user's object and field permissions still apply: fields the user can't read are removed from the rows | Read records whatever their sharing (use with caution) |
 | `.withoutSecurity()`   | Waives object and field checks and record sharing in one call (SYSTEM_MODE plus the sharing bypass) | System-level reads that must span every record                   |
 
-> **`withUserMode()` wins over the sharing proxy.** Under USER_MODE, sharing is enforced at the database level
-> regardless of `.withSharing()` or `.bypassSharing()`. Those two proxy methods only take effect in SYSTEM_MODE.
+> **What the sharing methods do in USER_MODE.** USER_MODE always enforces sharing, so `.withSharing()` changes
+> nothing there on its own. After `.bypassSharing()`, it cancels the bypass. Otherwise it matters only in SYSTEM_MODE.
+>
+> `.bypassSharing()` ignores sharing in both modes. In USER_MODE it keeps the user's object and field permissions.
+> A user who can't read the object is refused. A filter or sort you build on a field the user can't read is refused
+> too. So are `toQueryLocator()`, `toCursor()` and reads of totals or groups, because KernDX can't remove hidden
+> fields from them. For such a read, add `.withSystemMode()`. Note that this also turns off the object and field
+> checks. The [Security Guide](Security%20-%20Guide.md#user_mode-vs-sharing-proxy) lists every rule.
 
 Something went wrong? See [Common Issues, Query Security Methods](#query-security-methods-1).
 
@@ -535,7 +556,7 @@ Something went wrong? See [Common Issues, Query Security Methods](#query-securit
 | *(none, the default)* | USER_MODE: object permissions, field-level security, and record sharing all enforced against the running user | Every write your users reach                                |
 | `.withUserMode()`   | Forces USER_MODE even if the org-wide kill switch has been flipped off | Belt-and-braces enforcement on a critical user-facing write |
 | `.withSystemMode()` | Forces SYSTEM_MODE: bypasses CRUD/FLS for this transaction only        | Framework-owned writes (logs, orchestration rows)           |
-| `.bypassSharing()`  | Routes through a `without sharing` proxy (sharing only; not CRUD/FLS)  | Isolated calculations that must ignore record-level sharing |
+| `.bypassSharing()`  | Routes through a `without sharing` proxy (sharing only; not CRUD/FLS). In USER_MODE, fields the user can't create or edit are left out of the save | Isolated calculations that must ignore record-level sharing |
 
 **In your editor**, in your own Apex, where `accountFromUi` and `orchestrationRecord` are the records you are saving:
 
@@ -557,7 +578,10 @@ kern.DML_Builder.newTransaction()
 > **There is no write-side `stripInaccessible()`.** Stripping inaccessible fields is a read concept. To make an
 > untrusted write respect the user's field permissions, rely on the USER_MODE default (or `.withUserMode()`).
 > It rejects writes to fields the running user can't update, which is the correct behaviour for a write.
-> `.bypassSharing()` affects sharing only; it does **not** turn off USER_MODE's CRUD/FLS enforcement.
+> `.bypassSharing()` affects sharing only; it does **not** turn off USER_MODE's CRUD/FLS enforcement. With it, if the
+> user can't create or edit a field, the save leaves that field out without an error, and one warning in the log
+> names the field. If the user lacks the object permission this save needs (create, edit, delete or undelete), the save is
+> still refused.
 
 Something went wrong? See [Common Issues, DML Security Methods](#dml-security-methods-1).
 
@@ -647,8 +671,9 @@ in, the wrong folder)? Those are answered once, in
 #### A lower-permission user's query fails on a field they cannot read
 
 This is USER_MODE, the default, doing its job: it enforces field-level security (FLS) and stops the query rather than
-return a field the user may not read. Chain `.stripInaccessible()` to drop the field instead of failing, or grant the
-user read access to the field.
+return a field the user may not read. Chain `.withSystemMode()`, `.withSharing()` and `.stripInaccessible()` to drop
+the field instead of failing (see [Strip Inaccessible Fields](#strip-inaccessible-fields)), or grant the user read
+access to the field.
 
 ### Secure DML by Default
 
@@ -682,8 +707,10 @@ with a `Minimum Access - Salesforce` user, as the third test in Step 3 does.
 
 #### `.withSharing()` or `.bypassSharing()` seems to do nothing on a query
 
-Those two proxy methods only take effect in SYSTEM_MODE. Chain `.withSystemMode()` first, or rely on USER_MODE, which
-already enforces sharing.
+USER_MODE already enforces sharing, so `.withSharing()` changes nothing there on its own. (After `.bypassSharing()`,
+it cancels the bypass.) Otherwise it takes effect only after `.withSystemMode()`. `.bypassSharing()` works in USER_MODE too, but the user's object and field permissions still
+apply: a field the user can't read is removed from the rows. If the code must read that
+field, add `.withSystemMode()`, which also turns off the object and field checks.
 
 ### DML Security Methods
 
@@ -717,7 +744,7 @@ After completing this guide, you understand **secure-by-default data access** in
 | Concept                    | What It Does                                                                          |
 |----------------------------|---------------------------------------------------------------------------------------|
 | **USER_MODE default**      | Every `kern.QRY_Builder` query and `kern.DML_Builder` write enforces CRUD/FLS/sharing |
-| **`.stripInaccessible()`** | Removes fields the user can't read from query results instead of throwing             |
+| **`.stripInaccessible()`** | Removes fields the user can't read from query results instead of throwing, in SYSTEM_MODE |
 | **`.withSystemMode()`**    | Per-call opt-out for framework-internal reads/writes (bypasses CRUD/FLS)              |
 | **`systemModeRequired()`** | Per-selector opt-out so framework-internal selectors always run SYSTEM_MODE           |
 | **Kill-switch flags**      | `UserModeQueries_Enabled` and `UserModeDml_Enabled`, for emergency org-wide rollback only |
@@ -725,7 +752,8 @@ After completing this guide, you understand **secure-by-default data access** in
 **Key patterns:**
 
 - **Write nothing for the common case:** USER_MODE is the default, so secure reads and writes need no extra code.
-- **`.stripInaccessible()` for graceful reads:** drop unreadable fields instead of failing the query.
+- **`.stripInaccessible()` for graceful reads:** with `.withSystemMode()`, drop unreadable fields instead of failing
+  the query.
 - **`System.runAs()` in tests:** prove enforcement with a lower-permission user, because admins mask it.
 - **Opt out locally, not globally:** `.withSystemMode()` per call or `systemModeRequired()` per selector, and
   reserve the kill-switch flags for emergencies.

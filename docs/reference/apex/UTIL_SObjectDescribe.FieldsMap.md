@@ -34,7 +34,7 @@ A subclass of NamespacedAttributeMap for handling field maps returned by Describ
 | global override [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [keySet](#keyset)() | Returns the key set of the map with namespace handling disabled by default. |
 | global override [Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> [keySet](#keyset)([Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) implyNamespace) | Returns the key set of the map with optional namespace handling. |
 | global override [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [size](#size)() | Returns the number of entries in the map. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [values](#values)() | Returns the list of SObjectField values in the map. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm)> [values](#values)() | Returns a token for every field on the object, whatever its namespace. |
 
 ### containsKey
 
@@ -110,7 +110,7 @@ Retrieves an `SObjectField` by name with namespace handling enabled by default.
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
 SObjectField field = describe.getFields().get('Email');
-System.debug(field?.getDescribe().getLabel()); // Outputs: Email
+// field is Contact.Email
 ```
 
 </div>
@@ -136,8 +136,8 @@ Retrieves an `SObjectField` by name with optional namespace handling.
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
-SObjectField field = describe.getFields().get('Account', false);
-System.debug(field?.getDescribe().name); // Outputs: AccountId
+SObjectField field = describe.getFields().get('AccountId', false);
+// field is Contact.AccountId
 ```
 
 </div>
@@ -214,7 +214,8 @@ Integer result = instance.size();
 global List<SObjectField> values()
 ```
 
-Returns the list of `SObjectField` values in the map.
+Returns a token for every field on the object, whatever its namespace. To find one field by name,
+use get or containsKey instead.
 
 **Returns** [SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) — A list of `SObjectField` instances.
 
@@ -223,7 +224,7 @@ Returns the list of `SObjectField` values in the map.
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 List<SObjectField> fields = describe.getFields().values();
-System.debug(fields.size()); // Outputs: Number of fields on Account
+// fields holds one token for each field on Account
 ```
 
 </div>

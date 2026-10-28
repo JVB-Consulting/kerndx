@@ -5,7 +5,7 @@ pageClass: reference
 description: "Pre-built trigger action that executes formula-driven validation rules. This class implements all trigger interfaces and automatically executes validation rules configured via ValidationRuleGroup__mdt"
 author: "Jason Van Beukering"
 group: "Validation"
-date: "January 2026, May 2026"
+date: "January 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -26,7 +26,7 @@ global inherited sharing class TRG_ExecuteValidationRules extends TRG_Base imple
 
 **Known Derived Types:** [IF_Trigger.AfterDelete.afterDelete(List<SObject>)](IF_Trigger.AfterDelete.md#afterdelete), [IF_Trigger.AfterInsert.afterInsert(List<SObject>)](IF_Trigger.AfterInsert.md#afterinsert), [IF_Trigger.AfterUndelete.afterUndelete(List<SObject>)](IF_Trigger.AfterUndelete.md#afterundelete), [IF_Trigger.AfterUpdate.afterUpdate(List<SObject>,List<SObject>)](IF_Trigger.AfterUpdate.md#afterupdate), [IF_Trigger.BeforeDelete.beforeDelete(List<SObject>)](IF_Trigger.BeforeDelete.md#beforedelete), [IF_Trigger.BeforeInsert.beforeInsert(List<SObject>)](IF_Trigger.BeforeInsert.md#beforeinsert), [IF_Trigger.BeforeUpdate.beforeUpdate(List<SObject>,List<SObject>)](IF_Trigger.BeforeUpdate.md#beforeupdate)
 
-Pre-built trigger action that executes formula-driven validation rules. This class implements all trigger interfaces and automatically executes validation rules configured via ValidationRuleGroup__mdt and ValidationRule__mdt for the current trigger context. Subscriber Org Setup: Create TriggerSetting__mdt for your object (if not already exists) Create TriggerAction__mdt pointing to kern.TRG_ExecuteValidationRules Configure ValidationRuleGroup__mdt linked to your TriggerSetting Create ValidationRule__mdt records with formulas and error messages
+Pre-built trigger action that executes formula-driven validation rules. This class implements all trigger interfaces and automatically executes validation rules configured via ValidationRuleGroup__mdt and ValidationRule__mdt for the current trigger context. Setup in your org: Create TriggerSetting__mdt for your object (if not already exists) Create TriggerAction__mdt pointing to kern.TRG_ExecuteValidationRules Configure ValidationRuleGroup__mdt linked to your TriggerSetting Create ValidationRule__mdt records with formulas and error messages
 
 **Example**
 
@@ -51,13 +51,13 @@ Description__c: Executes formula-driven validation rules for Account records
 
 | Method | Description |
 |--------|-------------|
-| global void [afterDelete](#afterdelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords) | Executes validation rules after records are deleted. |
-| global void [afterInsert](#afterinsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords) | Executes validation rules after new records are inserted. |
-| global void [afterUndelete](#afterundelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords) | Executes validation rules after records are undeleted. |
-| global void [afterUpdate](#afterupdate)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords) | Executes validation rules after records are updated. |
-| global void [beforeDelete](#beforedelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords) | Executes validation rules before records are deleted. |
-| global void [beforeInsert](#beforeinsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords) | Executes validation rules before new records are inserted. |
-| global void [beforeUpdate](#beforeupdate)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords) | Executes validation rules before records are updated. |
+| global void [afterDelete](#afterdelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords) | Checks the deleted records against the After Delete validation rules set up for their object. |
+| global void [afterInsert](#afterinsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords) | Checks the saved records against the After Insert validation rules set up for their object. |
+| global void [afterUndelete](#afterundelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords) | Checks the restored records against the After Undelete validation rules set up for their object. |
+| global void [afterUpdate](#afterupdate)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords) | Checks the saved records against the After Update validation rules set up for their object. |
+| global void [beforeDelete](#beforedelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords) | Checks the records about to be deleted against the Before Delete validation rules set up for their object. |
+| global void [beforeInsert](#beforeinsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords) | Checks the new records against the Before Insert validation rules set up for their object. |
+| global void [beforeUpdate](#beforeupdate)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords) | Checks the changed records against the Before Update validation rules set up for their object. |
 
 ### afterDelete
 
@@ -67,8 +67,9 @@ Description__c: Executes formula-driven validation rules for Account records
 global void afterDelete(List<SObject> oldRecords)
 ```
 
-Executes validation rules after records are deleted.
-Typically used for warning-only validations that log but don't block.
+Checks the deleted records against the After Delete validation rules set up for their object.
+A failed rule of Error severity rolls the delete back and shows its message on the record. A failed Warning
+rule, or a rule with Shadow Mode turned on, is only logged.
 
 **Parameters**
 
@@ -92,8 +93,9 @@ instance.afterDelete(records);
 global void afterInsert(List<SObject> newRecords)
 ```
 
-Executes validation rules after new records are inserted.
-Typically used for warning-only validations that log but don't block.
+Checks the saved records against the After Insert validation rules set up for their object.
+A failed rule of Error severity rolls the save back and shows its message on the record. A failed Warning
+rule, or a rule with Shadow Mode turned on, is only logged.
 
 **Parameters**
 
@@ -117,8 +119,9 @@ instance.afterInsert(records);
 global void afterUndelete(List<SObject> newRecords)
 ```
 
-Executes validation rules after records are undeleted.
-Typically used for warning-only validations that log but don't block.
+Checks the restored records against the After Undelete validation rules set up for their object.
+A failed rule of Error severity rolls the restore back and shows its message on the record. A failed Warning
+rule, or a rule with Shadow Mode turned on, is only logged.
 
 **Parameters**
 
@@ -142,8 +145,9 @@ instance.afterUndelete(records);
 global void afterUpdate(List<SObject> newRecords, List<SObject> oldRecords)
 ```
 
-Executes validation rules after records are updated.
-Typically used for warning-only validations that log but don't block.
+Checks the saved records against the After Update validation rules set up for their object.
+A failed rule of Error severity rolls the save back and shows its message on the record. A failed Warning
+rule, or a rule with Shadow Mode turned on, is only logged.
 
 **Parameters**
 
@@ -168,7 +172,9 @@ instance.afterUpdate(records, records);
 global void beforeDelete(List<SObject> oldRecords)
 ```
 
-Executes validation rules before records are deleted.
+Checks the records about to be deleted against the Before Delete validation rules set up for their
+object. A failed rule of Error severity stops the delete and shows its message on the record. A failed Warning
+rule, or a rule with Shadow Mode turned on, is only logged.
 
 **Parameters**
 
@@ -192,7 +198,9 @@ instance.beforeDelete(records);
 global void beforeInsert(List<SObject> newRecords)
 ```
 
-Executes validation rules before new records are inserted.
+Checks the new records against the Before Insert validation rules set up for their
+object. A failed rule of Error severity stops the save and shows its message on the record. A failed Warning
+rule, or a rule with Shadow Mode turned on, is only logged.
 
 **Parameters**
 
@@ -216,7 +224,9 @@ instance.beforeInsert(records);
 global void beforeUpdate(List<SObject> newRecords, List<SObject> oldRecords)
 ```
 
-Executes validation rules before records are updated.
+Checks the changed records against the Before Update validation rules set up for their
+object. A failed rule of Error severity stops the save and shows its message on the record. A failed Warning
+rule, or a rule with Shadow Mode turned on, is only logged.
 
 **Parameters**
 

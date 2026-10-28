@@ -24,7 +24,7 @@ Condition infrastructure for building complex SOQL WHERE clauses.
 Use these classes with QRY_Builder.addCondition() for compound conditions
 that cannot be expressed with the fluent API alone (e.g., grouped OR conditions).
 
-**VISIBILITY**: `global` for subscriber access.
+**VISIBILITY**: `global` so your code can use it.
 
     - Evaluable interface: base type for all conditions
 

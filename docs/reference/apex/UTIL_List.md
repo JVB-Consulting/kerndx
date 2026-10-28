@@ -5,7 +5,7 @@ pageClass: reference
 description: "Various list utilities for manipulating lists of objects and SObjects. This class provides methods for converting, transforming, sorting, and partitioning lists, as well as utility methods for checkin"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -64,7 +64,7 @@ Checks if an object array is empty or null.
 ```apex
 List<Object> emptyList = new List<Object>();
 Boolean isEmpty = UTIL_List.isEmpty(emptyList);
-System.debug(isEmpty); // Outputs: true
+// isEmpty is true
 ```
 
 </div>
@@ -92,7 +92,7 @@ Checks if an object array is not empty.
 ```apex
 List<Object> numbers = new List<Object>{1, 2};
 Boolean isNotEmpty = UTIL_List.isNotEmpty(numbers);
-System.debug(isNotEmpty); // Outputs: true
+// isNotEmpty is true
 ```
 
 </div>

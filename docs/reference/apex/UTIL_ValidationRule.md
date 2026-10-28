@@ -5,7 +5,7 @@ pageClass: reference
 description: "Formula-driven declarative validation framework for advanced validation scenarios that standard Salesforce validation rules cannot handle. This framework enables: Cross-object validation requiring que"
 author: "Jason Van Beukering"
 group: "Validation"
-date: "January 2026, June 2026"
+date: "January 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -80,9 +80,9 @@ finally
 | Method | Description |
 |--------|-------------|
 | global static void [applyErrors](#applyerrors)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[UTIL_ValidationRule.ValidationResult](UTIL_ValidationRule.ValidationResult.md)> results) | Applies validation errors to the trigger records. |
-| global static void [bypassGroup](#bypassgroup)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) groupDeveloperName) | Bypasses all validation rules in the specified group. |
+| global static void [bypassGroup](#bypassgroup)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) groupDeveloperName) | Turns off every rule in one validation rule group for the rest of the transaction, or until clearBypass or clearAllBypasses is called. |
 | global static void [bypassObject](#bypassobject)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) objectApiName) | Bypasses all validation rules for the specified object. |
-| global static void [bypassRule](#bypassrule)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) ruleDeveloperName) | Bypasses a specific validation rule. |
+| global static void [bypassRule](#bypassrule)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) ruleDeveloperName) | Turns off one validation rule for the rest of the transaction, or until clearBypass or clearAllBypasses is called. |
 | global static void [clearAllBypasses](#clearallbypasses)() | Clears all bypasses for the current transaction. |
 | global static void [clearBypass](#clearbypass)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) identifier) | Clears a specific bypass (object, group, or rule). |
 | global static void [executeForTrigger](#executefortrigger)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> newRecords, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> oldRecords, [TriggerOperation](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_enum_System_TriggerOperation.htm) operation) | Executes validation rules for the current trigger context. |
@@ -109,7 +109,7 @@ page-level addError is to COALESCE multiple calls on the same record into a SING
 `getErrors()`. Field-level addError (`record.addError(field, message)`, used when
 `kern__ErrorDisplayField__c` is set) is per-field unique and does NOT coalesce.
 
-Subscribers that want to see ALL violations on a record should consult the framework's
+If you want to see ALL violations on a record, consult the framework's
 own `ValidationResult.errors` collection, which preserves every violation regardless of
 page vs field scope. The `Database.SaveResult.getErrors()` collection should be treated
 as a "save blocked" / "save succeeded" boolean, not as a complete error inventory.
@@ -141,7 +141,10 @@ UTIL_ValidationRule.applyErrors(records, new List<ValidationResult>());
 global static void bypassGroup(String groupDeveloperName)
 ```
 
-Bypasses all validation rules in the specified group.
+Turns off every rule in one validation rule group for the rest of the transaction, or until
+clearBypass or clearAllBypasses is called. The name must match the group's DeveloperName exactly, including
+case. A blank name does nothing. Each bypass is recorded as an audit log entry while the BypassAudit_Enabled
+feature flag is on, as it is by default.
 
 **Parameters**
 
@@ -198,7 +201,9 @@ finally
 global static void bypassRule(String ruleDeveloperName)
 ```
 
-Bypasses a specific validation rule.
+Turns off one validation rule for the rest of the transaction, or until clearBypass or
+clearAllBypasses is called. The name must match the rule's DeveloperName exactly, including case. A blank name does
+nothing. Each bypass is recorded as an audit log entry while the BypassAudit_Enabled feature flag is on, as it is by default.
 
 **Parameters**
 
@@ -345,7 +350,7 @@ List<ValidationResult> result = UTIL_ValidationRule.validate(records, records, T
 
 | Class | Description |
 |-------|-------------|
-| [INT_BulkValidationContext](UTIL_ValidationRule.INT_BulkValidationContext.md) | Optional interface for bulk-optimized validation contexts. |
+| [INT_BulkValidationContext](UTIL_ValidationRule.INT_BulkValidationContext.md) | Optional interface for context classes that load data once per batch. |
 | [ValidationError](UTIL_ValidationRule.ValidationError.md) | Represents a single validation error or warning. |
 | [ValidationResult](UTIL_ValidationRule.ValidationResult.md) | Result of validating a single record. |
 

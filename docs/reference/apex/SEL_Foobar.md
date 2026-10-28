@@ -5,7 +5,7 @@ pageClass: reference
 description: "Selector for the Foobar__c SObject. Provides query methods and field/metadata constants for the framework's test data object."
 author: "Jason Van Beukering"
 group: "Selectors"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

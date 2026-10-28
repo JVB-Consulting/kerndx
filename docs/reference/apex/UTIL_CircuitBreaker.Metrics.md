@@ -29,9 +29,9 @@ Public class containing circuit breaker metrics
 |-------|-------------|
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [circuitId](#circuitid) | The circuit identifier |
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [consecutiveSuccesses](#consecutivesuccesses) | Current consecutive success count |
-| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [failureCount](#failurecount) | Current failure count |
-| global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [lastFailureTime](#lastfailuretime) | Time of last failure |
-| global [UTIL_CircuitBreaker.State](UTIL_CircuitBreaker.State.md) [state](#state) | Current state of the circuit |
+| global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [failureCount](#failurecount) | The failures recorded while the circuit was CLOSED. |
+| global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [lastFailureTime](#lastfailuretime) | The time the circuit last opened: after too many failures, after a failed trial request, or through forceOpen. |
+| global [UTIL_CircuitBreaker.State](UTIL_CircuitBreaker.State.md) [state](#state) | The state of the circuit when the metrics were read. |
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [stateChangedTime](#statechangedtime) | Time when the state last changed. |
 
 ### circuitId
@@ -74,7 +74,9 @@ global Integer failureCount
 
 **Type:** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)
 
-Current failure count
+The failures recorded while the circuit was CLOSED. A success while CLOSED sets it back to zero, and
+so does closing the circuit. The circuit opens when this count reaches the failure threshold; opening it does
+not reset the count.
 
 **Example**
 
@@ -90,7 +92,9 @@ global Datetime lastFailureTime
 
 **Type:** [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm)
 
-Time of last failure
+The time the circuit last opened: after too many failures, after a failed trial request, or through
+forceOpen. A failure that leaves the circuit CLOSED does not set it. Null when no opening is on record. The
+timeout before an OPEN circuit lets trial requests through is counted from this time.
 
 **Example**
 
@@ -106,7 +110,9 @@ global UTIL_CircuitBreaker.State state
 
 **Type:** [UTIL_CircuitBreaker.State](UTIL_CircuitBreaker.State.md)
 
-Current state of the circuit
+The state of the circuit when the metrics were read. CLOSED lets every request through, OPEN refuses
+them, and HALF_OPEN lets a few trial requests through. An OPEN circuit whose timeout has passed is shown as
+HALF_OPEN, because reading the metrics moves it on first.
 
 **Example**
 

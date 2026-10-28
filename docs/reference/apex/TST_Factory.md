@@ -2,7 +2,7 @@
 title: "TST_Factory"
 type: class
 pageClass: reference
-description: "Factory class for generating test data, permission set assignments, share records, metadata updates, and failure logs across Salesforce objects. Optimized for unit tests and integration processes, pro"
+description: "Factory class that builds test data for your unit tests. It has helpers for: users (new or inserted, with or without a permission set), permission set assignments, feature flag records, API call recor"
 author: "Jason Van Beukering"
 group: "Testing"
 date: "February 2026, October 2026"
@@ -20,7 +20,7 @@ category: apex
 global without sharing class TST_Factory
 ```
 
-Factory class for generating test data, permission set assignments, share records, metadata updates, and failure logs across Salesforce objects. Optimized for unit tests and integration processes, providing methods to create records with random data and configure system settings such as API toggles, triggers, and scheduled jobs.
+Factory class that builds test data for your unit tests. It has helpers for: users (new or inserted, with or without a permission set), permission set assignments, feature flag records, API call records (inbound and outbound), API setting records (inbound and outbound), and content versions (files).
 
 **Example**
 
@@ -284,7 +284,7 @@ Creates an uncommitted ApiCall__c record for a web service call.
 ```apex
 ApiCall__c apiCall = TST_Factory.newApiCall();
 insert apiCall;
-System.debug('API Call Id: ' + apiCall.Id);
+Assert.isNotNull(apiCall.Id, 'Expected the call record to be saved');
 ```
 
 </div>
@@ -310,7 +310,7 @@ Creates an uncommitted ApiCall__c record with a specified service name.
 ```apex
 ApiCall__c apiCall = TST_Factory.newApiCall('MyService');
 insert apiCall;
-System.debug('API Call Service: ' + apiCall.ServiceName__c);
+Assert.areEqual('MyService', apiCall.ServiceName__c, 'Expected the given service name');
 ```
 
 </div>
@@ -341,7 +341,7 @@ Creates an uncommitted ContentVersion record from file data.
 Account account = (Account)TST_Builder.of(Account.SObjectType).build();
 ContentVersion version = TST_Factory.newContentVersion(account.Id, 'test.pdf', Blob.valueOf('Test data'));
 insert version;
-System.debug('ContentVersion Title: ' + version.Title);
+Assert.areEqual('test.pdf', version.Title, 'Expected the file name to be the title');
 ```
 
 </div>
@@ -396,7 +396,7 @@ Creates an uncommitted ApiCall__c record for an inbound web service call.
 ```apex
 ApiCall__c inboundApiCall = TST_Factory.newInboundApiCall('InboundService');
 insert inboundApiCall;
-System.debug('Inbound API Call Id: ' + inboundApiCall.Id);
+Assert.isNotNull(inboundApiCall.Id, 'Expected the inbound call record to be saved');
 ```
 
 </div>
@@ -481,7 +481,7 @@ field overrides, registered with TST_Mock for query interception.
 ```apex
 ApiSetting__mdt setting = TST_Factory.newInboundApiSetting('API_Echo', '/echo/*', 100, new Map<SObjectField, Object>
 {
-    ApiSetting__mdt.MockingEnabled__c => true
+    ApiSetting__mdt.LogIssues__c => true
 });
 ```
 
@@ -510,7 +510,7 @@ Creates an uncommitted ApiCall__c record for an outbound web service call.
 ```apex
 ApiCall__c outboundApiCall = TST_Factory.newOutboundApiCall('OutboundService');
 insert outboundApiCall;
-System.debug('Outbound API Call Id: ' + outboundApiCall.Id);
+Assert.isNotNull(outboundApiCall.Id, 'Expected the outbound call record to be saved');
 ```
 
 </div>
@@ -538,7 +538,7 @@ Creates an uncommitted ApiCall__c record for an outbound web service call with a
 Account account = (Account)TST_Builder.of(Account.SObjectType).build();
 ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id);
 insert apiCall;
-System.debug('API Call Id: ' + apiCall.Id);
+Assert.isNotNull(apiCall.Id, 'Expected the call record to be saved');
 ```
 
 </div>
@@ -571,7 +571,7 @@ Map<String, String> params = new Map<String, String>
 };
 ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id, params);
 insert apiCall;
-System.debug('API Call Id: ' + apiCall.Id);
+Assert.isNotNull(apiCall.Id, 'Expected the call record to be saved');
 ```
 
 </div>
@@ -601,7 +601,7 @@ Creates an uncommitted ApiCall__c record for an outbound web service call with a
 Account account = (Account)TST_Builder.of(Account.SObjectType).build();
 ApiCall__c apiCall = TST_Factory.newOutboundApiCall('OutboundService', account.Id, 'key', 'value');
 insert apiCall;
-System.debug('API Call Id: ' + apiCall.Id);
+Assert.isNotNull(apiCall.Id, 'Expected the call record to be saved');
 ```
 
 </div>
@@ -658,7 +658,7 @@ Creates a single uncommitted User record with the specified profile.
 ```apex
 User testUser = TST_Factory.newUser('System Administrator');
 insert testUser;
-System.debug('User Email: ' + testUser.Email);
+Assert.isNotNull(testUser.Id, 'Expected the user to be saved');
 ```
 
 </div>
@@ -725,7 +725,7 @@ List<User> mockUsers = TST_Factory.newUsers('Standard User', 5);
 insert mockUsers;
 for (User u : mockUsers)
 {
-System.debug('User Email: ' + u.Email);
+Assert.isNotNull(u.Id, 'Expected each user to be saved');
 }
 ```
 

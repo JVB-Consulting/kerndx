@@ -5,7 +5,7 @@ pageClass: reference
 description: "Typed SOQL function expressions for use in the query builder's SELECT, GROUP BY, WHERE and ORDER BY clauses: the date-part functions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) and the geoloca"
 author: "Jason Van Beukering"
 group: "Query Infrastructure"
-date: "June 2026"
+date: "June 2026, October 2026"
 since: "1.1"
 category: apex
 ---

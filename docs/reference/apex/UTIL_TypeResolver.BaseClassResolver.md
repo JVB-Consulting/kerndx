@@ -33,7 +33,7 @@ Abstract base class for implementing custom type resolvers, typically registered
 
 | Method | Description |
 |--------|-------------|
-| global abstract [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) [resolveType](#resolvetype)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) typeName) | Resolves a Type object from a class name. |
+| global abstract [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) [resolveType](#resolvetype)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) typeName) | Override this in your own resolver. |
 
 ### resolveType
 
@@ -43,7 +43,10 @@ Abstract base class for implementing custom type resolvers, typically registered
 global abstract Type resolveType(String typeName)
 ```
 
-Resolves a Type object from a class name.
+Override this in your own resolver. Return the Type of the named class when your code can find it.
+Otherwise return nextResolver?.resolveType(typeName): nextResolver is null on the last resolver in the chain,
+so that call gives null when no resolver finds the class. Do not throw: an exception stops the chain and
+reaches the caller.
 
 **Parameters**
 
@@ -56,8 +59,15 @@ Resolves a Type object from a class name.
 **Example**
 
 ```apex
-BaseClassResolver resolver = new PackageClassResolver();
-Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
+global with sharing class MyCompany_TypeResolver extends UTIL_TypeResolver.BaseClassResolver
+{
+    public override Type resolveType(String typeName)
+    {
+        return Type.forName(typeName) ?? nextResolver?.resolveType(typeName);
+    }
+}
+UTIL_TypeResolver.BaseClassResolver resolver = new MyCompany_TypeResolver();
+Type resolvedType = resolver.resolveType('MyCompany_Service');
 ```
 
 </div>

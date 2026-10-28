@@ -5,7 +5,7 @@ pageClass: reference
 description: "Utility class containing type resolution components for resolving Apex class types."
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "March 2025, June 2026"
+date: "March 2025, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -54,8 +54,8 @@ Retrieves the configured resolver chain with the package resolver as the first l
 **Example**
 
 ```apex
-INT_ClassTypeResolver resolver = UTIL_TypeResolver.getClassResolver();
-Type resolvedType = resolver.resolveType('UTIL_TypeResolver_TEST.MyPackagePrivateClass');
+UTIL_TypeResolver.INT_ClassTypeResolver resolver = UTIL_TypeResolver.getClassResolver();
+Type resolvedType = resolver.resolveType('MyCompany_Service');
 ```
 
 </div>

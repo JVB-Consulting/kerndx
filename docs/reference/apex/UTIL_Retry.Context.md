@@ -29,7 +29,7 @@ Interface defining the retry context. Contains information about the current ret
 |--------|-------------|
 | global abstract [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getBaseBackoff](#getbasebackoff)() | Gets the configured base backoff in seconds |
 | global abstract [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [getCustomData](#getcustomdata)() | Gets custom data for use with custom retry strategies |
-| global abstract [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [getLastAttemptTime](#getlastattempttime)() | Gets the datetime of the last retry attempt |
+| global abstract [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [getLastAttemptTime](#getlastattempttime)() | Returns the time given to withLastAttemptTime, or null when none was given. |
 | global abstract [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getMaxBackoff](#getmaxbackoff)() | Gets the configured maximum backoff in seconds |
 | global abstract [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [getRetryCount](#getretrycount)() | Gets the current retry attempt number (0 = first attempt, 1 = first retry, etc.) |
 | global abstract [UTIL_Retry.Context](UTIL_Retry.Context.md) [withCustomData](#withcustomdata)([Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) data) | Sets custom data for use with custom retry strategies (fluent API) |
@@ -89,7 +89,8 @@ Object customData = ctx.getCustomData();
 global abstract Datetime getLastAttemptTime()
 ```
 
-Gets the datetime of the last retry attempt
+Returns the time given to withLastAttemptTime, or null when none was given. The strategies this
+class creates do not use it. Read it in your own Strategy when the time of the last attempt matters.
 
 **Returns** [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) — The last attempt time, or null if not set
 

@@ -2,10 +2,10 @@
 title: "FLOW_CallApi"
 type: class
 pageClass: reference
-description: "Invokes web service calls synchronously, allowing for integration with external systems from Salesforce using Lightning Flow or Process Builder. Receives a list of requests, sends them to their respec"
+description: "Invokes web service calls synchronously, allowing for integration with external systems from Salesforce using Flow. Receives a list of requests, sends them to their respective endpoints, and returns r"
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class FLOW_CallApi
 ```
 
-Invokes web service calls synchronously, allowing for integration with external systems from Salesforce using Lightning Flow or Process Builder. Receives a list of requests, sends them to their respective endpoints, and returns responses as structured data.
+Invokes web service calls synchronously, allowing for integration with external systems from Salesforce using Flow. Receives a list of requests, sends them to their respective endpoints, and returns responses as structured data.
 
 **Example**
 

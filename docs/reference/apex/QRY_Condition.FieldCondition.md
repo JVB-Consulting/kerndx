@@ -116,9 +116,9 @@ userSearch.add(new QRY_Condition.FieldCondition(Account.Website).containsLiteral
 | Constructor | Description |
 |-------------|-------------|
 | global [FieldCondition](#constructors)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField) | Constructor for FieldCondition with a specified SObjectField. |
-| global [FieldCondition](#constructors)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField, [QRY_Condition.Operator](QRY_Condition.Operator.md) fieldOperator, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) fieldValue) | Constructor for FieldCondition with a specified field, operator, and value. |
+| global [FieldCondition](#constructors)([SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm) objectField, [QRY_Condition.Operator](QRY_Condition.Operator.md) fieldOperator, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) fieldValue) | Builds a condition that compares one field, given as a field token, with one value. |
 | global [FieldCondition](#constructors)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName) | Constructor for FieldCondition with a specified field. |
-| global [FieldCondition](#constructors)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [QRY_Condition.Operator](QRY_Condition.Operator.md) fieldOperator, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) fieldValue) | Constructor for FieldCondition with a specified field, operator, and value. |
+| global [FieldCondition](#constructors)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [QRY_Condition.Operator](QRY_Condition.Operator.md) fieldOperator, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) fieldValue) | Builds a condition that compares one field with one value. |
 
 ### FieldCondition(SObjectField objectField)
 
@@ -153,7 +153,10 @@ QRY_Condition.Evaluable condition = new QRY_Condition.FieldCondition(Account.Nam
 global FieldCondition(SObjectField objectField, QRY_Condition.Operator fieldOperator, Object fieldValue)
 ```
 
-Constructor for FieldCondition with a specified field, operator, and value.
+Builds a condition that compares one field, given as a field token, with one value. The operator must
+compare with a single value: IN_X, NOT_IN, INCLUDES and EXCLUDES throw IllegalArgumentException. A null operator
+leaves the comparison unset, for contains() or containsLiteral() to set next. When a QRY_Builder query runs, the
+value is passed as a bind variable, so you never escape quotes in text yourself.
 
 **Parameters**
 
@@ -166,7 +169,7 @@ Constructor for FieldCondition with a specified field, operator, and value.
 **Example**
 
 ```apex
-QRY_Condition.FieldCondition instance = new QRY_Condition.FieldCondition(Account.Name, new Operator(), 'value');
+QRY_Condition.FieldCondition instance = new QRY_Condition.FieldCondition(Account.Name, QRY_Condition.Operator.EQUALS, 'Acme');
 ```
 
 </div>
@@ -180,13 +183,21 @@ global FieldCondition(String fieldName)
 ```
 
 Constructor for FieldCondition with a specified field. Pair with contains() to
-complete the condition, or use the field-operator-value constructor for other comparisons.
+complete the condition, or use the field-operator-value constructor for other comparisons. The field may also be a
+date or distance function from QRY_Function, or toLabel around a field name. Text that comes from a page or a user
+must first be matched to a field through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The field to apply the condition to. |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name |
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is blank or is not a field name |
 
 **Example**
 
@@ -204,20 +215,31 @@ QRY_Condition.Evaluable condition = new QRY_Condition.FieldCondition('Name').con
 global FieldCondition(String fieldName, QRY_Condition.Operator fieldOperator, Object fieldValue)
 ```
 
-Constructor for FieldCondition with a specified field, operator, and value.
+Builds a condition that compares one field with one value. The field name is trimmed, and a blank name
+throws IllegalArgumentException. The operator must compare with a single value: IN_X, NOT_IN, INCLUDES and EXCLUDES
+throw IllegalArgumentException. A null operator leaves the comparison unset, for contains() or containsLiteral() to
+set next. When a QRY_Builder query runs, the value is passed as a bind variable, so you never escape quotes in text
+yourself. The field may also be a date or distance function from QRY_Function, or toLabel around a field name. Text
+that comes from a page or a user must first be matched to a field through a list of fields you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The field to apply the condition to. |
+| `fieldName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A field API name, such as Name or Account.Owner.Name |
 | `fieldOperator` | [QRY_Condition.Operator](QRY_Condition.Operator.md) | The operator for the condition. |
 | `fieldValue` | [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) | The value to compare against the field. |
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the field text is blank or is not a field name, or the operator compares with a list |
 
 **Example**
 
 ```apex
-QRY_Condition.FieldCondition instance = new QRY_Condition.FieldCondition('myName', new Operator(), 'value');
+QRY_Condition.FieldCondition instance = new QRY_Condition.FieldCondition('Name', QRY_Condition.Operator.EQUALS, 'Acme');
 ```
 
 </div>

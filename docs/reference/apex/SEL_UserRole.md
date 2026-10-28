@@ -5,7 +5,7 @@ pageClass: reference
 description: "Selector for the UserRole SObject. Provides query methods for retrieving user roles and traversing the role hierarchy."
 author: "Jason Van Beukering"
 group: "Selectors"
-date: "October 2024, May 2026"
+date: "October 2024, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -96,7 +96,7 @@ List<SObjectField> result = instance.getFields();
 
 | Constructor | Description |
 |-------------|-------------|
-| global [SEL_UserRole](#constructors)() | Constructs a UserRole selector. |
+| global [SEL_UserRole](#constructors)() | Reads UserRole records, the roles of the org's role hierarchy. |
 
 ### SEL_UserRole()
 
@@ -106,7 +106,8 @@ List<SObjectField> result = instance.getFields();
 global SEL_UserRole()
 ```
 
-Constructs a UserRole selector.
+Reads UserRole records, the roles of the org's role hierarchy. Every query skips the running user's object and field permission checks (system mode). Record
+sharing follows the class that calls the selector. Creating the selector runs no query.
 
 **Example**
 

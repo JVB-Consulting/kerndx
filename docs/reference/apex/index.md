@@ -2,7 +2,7 @@
 
 > Core Apex classes, utilities, and services
 
-**247 items** in this category.
+**248 items** in this category.
 
 ---
 
@@ -10,7 +10,7 @@
 
 | Name | Description |
 |------|-------------|
-| [IF_Chain](IF_Chain.md) | A container for shared global interfaces used by the async chain orchestration framework. Subscriber |
+| [IF_Chain](IF_Chain.md) | A container for shared global interfaces used by the async chain orchestration framework. You implem |
 | [SCHED_ChainWatchdog](SCHED_ChainWatchdog.md) | A scheduled job that finds async chains stuck with no recent activity and marks them Stalled, firing |
 | [UTIL_AsyncChain](UTIL_AsyncChain.md) | Lightweight async chain runner for sequencing jobs with shared state, error handling, and progress t |
 
@@ -49,7 +49,7 @@
 
 | Name | Description |
 |------|-------------|
-| [DTO_Base](DTO_Base.md) | A base Data Transfer Object (DTO) class for storing JSON content, providing utility methods for seri |
+| [DTO_Base](DTO_Base.md) | An empty base class for Data Transfer Objects (DTOs). A DTO is a small class that holds the fields y |
 | [DTO_BaseTable](DTO_BaseTable.md) | A Data Transfer Object (DTO) class that structures webservice handler responses into a common table  |
 | [DTO_ChangeEventHeader](DTO_ChangeEventHeader.md) | A Data Transfer Object (DTO) exposing the supported subset of EventBus.ChangeEventHeader to Flow as  |
 | [DTO_FlowValidationError](DTO_FlowValidationError.md) | Represents a single validation error or warning for Flow display. Contains details about the validat |
@@ -147,9 +147,9 @@
 | [API_InboundTestHelper](API_InboundTestHelper.md) | Class has base methods that can be used to assist with testing inbound service calls |
 | [API_OutboundTestHelper](API_OutboundTestHelper.md) | Class has base methods that can be used to test an outbound service. |
 | [TST_Builder](TST_Builder.md) | An advanced factory for creating and inserting SObject records for Apex tests. This class provides a |
-| [TST_Factory](TST_Factory.md) | Factory class for generating test data, permission set assignments, share records, metadata updates, |
+| [TST_Factory](TST_Factory.md) | Factory class that builds test data for your unit tests. It has helpers for: users (new or inserted, |
 | [TST_Mock](TST_Mock.md) | Central registry and fluent builder for mock SObjects. Wraps QRY_Builder.setMock() with lifecycle ma |
-| [UTIL_SObjectBuilderDefaultProvider](UTIL_SObjectBuilderDefaultProvider.md) | Provides the default value generation logic for the SObjectBuilder. Subscribers should extend THIS c |
+| [UTIL_SObjectBuilderDefaultProvider](UTIL_SObjectBuilderDefaultProvider.md) | Provides the default value generation logic for the SObjectBuilder. Extend THIS class to override de |
 | [UTIL_ValidationTestHelper](UTIL_ValidationTestHelper.md) | Reusable utility class for testing validation rules. This is NOT a test class itself but provides as |
 
 ## Triggers
@@ -336,6 +336,7 @@
 | [UTIL_FormulaContext.CaseContext](UTIL_FormulaContext.CaseContext.md) | Formula evaluation context for Case object. Provides typed access to Case records in formula evaluat |
 | [UTIL_FormulaContext.ContactContext](UTIL_FormulaContext.ContactContext.md) | Formula evaluation context for Contact object. Provides typed access to Contact records in formula e |
 | [UTIL_FormulaContext.EventContext](UTIL_FormulaContext.EventContext.md) | Formula evaluation context for Event object. Provides typed access to Event records in formula evalu |
+| [UTIL_FormulaContext.FoobarBulkContext](UTIL_FormulaContext.FoobarBulkContext.md) | For testing only. This class exists only so the framework's own tests can check that the preLoad() m |
 | [UTIL_FormulaContext.FoobarContext](UTIL_FormulaContext.FoobarContext.md) | Formula evaluation context for Foobar__c test object. Provides typed access to Foobar__c records in  |
 | [UTIL_FormulaContext.LeadContext](UTIL_FormulaContext.LeadContext.md) | Formula evaluation context for Lead object. Provides typed access to Lead records in formula evaluat |
 | [UTIL_FormulaContext.OpportunityContext](UTIL_FormulaContext.OpportunityContext.md) | Formula evaluation context for Opportunity object. Provides typed access to Opportunity records in f |
@@ -354,7 +355,7 @@
 | [UTIL_SObjectDescribe.GlobalDescribeMap](UTIL_SObjectDescribe.GlobalDescribeMap.md) | A subclass of NamespacedAttributeMap for handling global describe data returned by getGlobalDescribe |
 | [UTIL_TypeResolver.BaseClassResolver](UTIL_TypeResolver.BaseClassResolver.md) | Abstract base class for implementing custom type resolvers, typically registered via custom metadata |
 | [UTIL_TypeResolver.INT_ClassTypeResolver](UTIL_TypeResolver.INT_ClassTypeResolver.md) | Interface for resolving Type objects from class names and chaining resolvers. Custom resolvers must  |
-| [UTIL_ValidationRule.INT_BulkValidationContext](UTIL_ValidationRule.INT_BulkValidationContext.md) | Optional interface for bulk-optimized validation contexts. Implement this in addition to INT_SObject |
+| [UTIL_ValidationRule.INT_BulkValidationContext](UTIL_ValidationRule.INT_BulkValidationContext.md) | Optional interface for context classes that load data once per batch. Validation rules and trigger a |
 | [UTIL_ValidationRule.ValidationError](UTIL_ValidationRule.ValidationError.md) | Represents a single validation error or warning. |
 | [UTIL_ValidationRule.ValidationResult](UTIL_ValidationRule.ValidationResult.md) | Result of validating a single record. Contains all validation errors/warnings for that record. |
 

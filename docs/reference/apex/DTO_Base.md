@@ -2,10 +2,10 @@
 title: "DTO_Base"
 type: class
 pageClass: reference
-description: "A base Data Transfer Object (DTO) class for storing JSON content, providing utility methods for serialization, deserialization, and transformation of DTOs. Supports pretty-print formatting for JSON co"
+description: "An empty base class for Data Transfer Objects (DTOs). A DTO is a small class that holds the fields you move in or out of your org. This class only declares the methods; on their own they do nothing: s"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -22,14 +22,21 @@ category: apex
 
 **Known Derived Types:** [DTO_BaseTable](DTO_BaseTable.md), [DTO_JsonBase](DTO_JsonBase.md), [DTO_NameValues](DTO_NameValues.md), [DTO_ScheduledParameterDefinition](DTO_ScheduledParameterDefinition.md)
 
-A base Data Transfer Object (DTO) class for storing JSON content, providing utility methods for serialization, deserialization, and transformation of DTOs. Supports pretty-print formatting for JSON content.
+An empty base class for Data Transfer Objects (DTOs). A DTO is a small class that holds the fields you move in or out of your org. This class only declares the methods; on their own they do nothing: serialize() returns an empty string, deserialize() returns the same instance, and populate() and transform() change nothing. Your subclass overrides the methods it needs. For DTOs that convert to and from JSON, extend DTO_JsonBase instead.
 
 **Example**
 
 ```apex
-DTO_Base dto = new DTO_Base();
-String json = dto.serialize();
-dto.populate(recordId, new DTO_NameValues());
+public class DTO_AccountSummary extends DTO_Base
+{
+    public String accountName;
+    public override void populate(Id recordId)
+    {
+        accountName = 'Name read for ' + recordId;
+    }
+}
+DTO_AccountSummary summary = new DTO_AccountSummary();
+summary.populate(recordId, new DTO_NameValues());
 ```
 
 </div>
@@ -40,10 +47,10 @@ dto.populate(recordId, new DTO_NameValues());
 
 | Method | Description |
 |--------|-------------|
-| global virtual [DTO_Base](DTO_Base.md) [deserialize](#deserialize)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) dtoString) | Deserializes a JSON string and populates a new instance of DTO_Base with the deserialized data, enabling conversion from JSON format back into a DTO. |
+| global virtual [DTO_Base](DTO_Base.md) [deserialize](#deserialize)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) dtoString) | Turns a string back into a DTO. |
 | global virtual void [populate](#populate)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Populates the current DTO instance using the specified triggering object ID. |
 | global virtual void [populate](#populate)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId, [DTO_NameValues](DTO_NameValues.md) dtoRequestParameters) | Populates the current DTO instance using the specified triggering object ID and additional request parameters. |
-| global virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [serialize](#serialize)() | Serializes the current DTO object to a JSON string. |
+| global virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [serialize](#serialize)() | Returns the DTO as a string. |
 | global virtual void [transform](#transform)([DTO_Base](DTO_Base.md) dtoBase) | Transforms the current DTO using another DTO as input. |
 
 ### deserialize
@@ -54,16 +61,16 @@ dto.populate(recordId, new DTO_NameValues());
 global virtual DTO_Base deserialize(String dtoString)
 ```
 
-Deserializes a JSON string and populates a new instance of `DTO_Base` with
-the deserialized data, enabling conversion from JSON format back into a DTO.
+Turns a string back into a DTO. In this base class it ignores the string and
+returns the same instance; override it in your subclass, or extend DTO_JsonBase, to read JSON.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `dtoString` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | A JSON-formatted string that can be converted to a DTO. |
+| `dtoString` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The string to read. This base class does not read it. |
 
-**Returns** [DTO_Base](DTO_Base.md) — A `DTO_Base` instance populated with data from the provided JSON string.
+**Returns** [DTO_Base](DTO_Base.md) — The same instance, unchanged, in this base class.
 
 **Example**
 
@@ -130,10 +137,10 @@ instance.populate(recordId, new DTO_NameValues());
 global virtual String serialize()
 ```
 
-Serializes the current DTO object to a JSON string. This method provides a
-string representation of the DTO for storage or transfer.
+Returns the DTO as a string. In this base class it returns an empty string;
+override it in your subclass, or extend DTO_JsonBase, to get JSON.
 
-**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — A serialized JSON string representing the DTO.
+**Returns** [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) — An empty string in this base class.
 
 **Example**
 

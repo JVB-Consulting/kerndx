@@ -8,7 +8,7 @@ navOrder: 38
 
 **What this is:** A way to switch features on and off in a live org by editing a configuration record, with no deployment and no code change. You can flip a feature for everyone, or target it by user, profile, permission, or group. **Why it exists:** Shipping a risky change behind a flag lets you turn it on for a few people first, watch how it behaves, and roll it back instantly if something goes wrong. **Who should follow this:** developers building features they want to release gradually, plus admins and tech leads who manage rollouts. **When to use it:** any time you want to release code one audience at a time, or keep a master off-switch ready for an incident.
 
-**When the built-in option is enough:** if you only need to gate behaviour on a single Custom Permission or a Custom Setting, plain Apex (`FeatureManagement.checkPermissionUsingId`, or reading the setting directly) does that without a framework. Use feature flags when you want one named switch you can re-target across permission, profile, group, and setting strategies, toggle without a deploy, and check the same way from Apex, Flow, and LWC.
+**When the built-in option is enough:** if you only need to gate behaviour on a single Custom Permission or a Custom Setting, plain Apex (`FeatureManagement.checkPermission`, or reading the setting directly) does that without a framework. Use feature flags when you want one named switch you can re-target across permission, profile, group, and setting strategies, toggle without a deploy, and check the same way from Apex, Flow, and LWC.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
@@ -427,12 +427,13 @@ The framework reads them directly from Apex to control how it behaves across you
 
 | Flag                                                                  | Purpose                                                                                                                                                                                            | Default | Emergency Rollback                                                       |
 |-----------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|--------------------------------------------------------------------------|
-| `UserModeQueries_Enabled`                                             | Controls the default `AccessLevel` on `QRY_Builder` / `SEL_Base.query`. `true` → USER_MODE (CRUD/FLS/sharing enforced); `false` → SYSTEM_MODE.                                                     | `true`  | Setup → CMDT → FeatureFlag → edit → set `IsEnabledByDefault__c = false`. |
+| `UserModeQueries_Enabled`                                             | Controls the default `AccessLevel` on `QRY_Builder` / `SEL_Base.query`. `true` → USER_MODE (CRUD/FLS/sharing enforced); `false` → SYSTEM_MODE.                                                     | `true`  | Setup → CMDT → FeatureFlag → set `IsEnabledByDefault__c` to `false`.     |
 | `UserModeDml_Enabled`                                                 | Controls the default `AccessLevel` on `DML_Builder.newTransaction()` operations. Same true/false semantics as above.                                                                               | `true`  | Same metadata flip path.                                                 |
 | `MaskingFramework_Enabled`                                            | Kill-switch for the data-masking framework (`MaskingTarget__mdt` / `MaskingRule__mdt`). `true` → rules are applied before `LogEntryEvent__e` publishes; `false` → pipeline skips masking entirely. | `true`  | Same metadata flip path.                                                 |
 | `AsyncChain`                                                          | Kill-switch for `UTIL_AsyncChain` orchestration. `true` → chains run; `false` → running chains stop at their next step boundary and new chains stop at once. Resolved from the `AsyncChainRuntimeSwitch__c` hierarchy setting, not from the flag record. | `true`  | Setup → Custom Settings → Async Chain Runtime Switch → Manage → untick `ChainsEnabled__c`. |
-| `DisableAllInboundAPIs` / `DisableAllOutboundAPIs` / `DisableAllAPIs` | Runtime kill-switches for the web-service framework.                                                                                                                                               | `false` | Same metadata flip path.                                                 |
+| `DisableAllInboundAPIs` / `DisableAllOutboundAPIs` / `DisableAllAPIs` | Runtime kill-switches for the web-service framework.                                                                                                                                               | `false` | These switches are off by default, so in an incident you turn them on. For `DisableAllInboundAPIs` or `DisableAllOutboundAPIs`, tick `IsEnabledByDefault__c` (leave `IsActive__c` ticked). For `DisableAllAPIs`, go to Setup, Custom Settings, API Runtime Switch, Manage, and tick `DisableAllApis__c` (see the note below). Untick the box again to restore. |
 | `MockAllAPIs` / `MockAllInboundAPIs`                                  | Test-mode toggles used by `API_MockFactory`.                                                                                                                                                       | `false` | Same metadata flip path.                                                 |
+| `MockSelectedAPIs`                                                    | Test-mode toggle for chosen services. For the users this flag is on for, each service whose API Setting has Mocking Enabled ticked answers with mock data, outgoing and incoming.                    | `false` | Same metadata flip path: untick `IsEnabledByDefault__c`, or switch off the strategy records you added. |
 
 > On `AsyncChain` and `DisableAllAPIs` the answer comes from a shipped strategy record rather than from the flag itself, so editing `IsEnabledByDefault__c` on those two changes nothing.
 > Flip them through their hierarchy custom settings instead: `AsyncChainRuntimeSwitch__c.ChainsEnabled__c` and `ApiRuntimeSwitch__c.DisableAllApis__c`.
@@ -462,8 +463,10 @@ Custom Permission strategy to the `NewPricingEngine` flag you created in Step 1.
 
 Despite its name, the `Permission Set Group` strategy matches a permission set *or* a permission set group, whichever the user is assigned. Use a permission set's API name or a permission set group's developer name as the target.
 
-> **SOQL cost:** each `isEnabled(...)` call usually runs one query (SOQL) behind the scenes. Two cases avoid that query: a namespaced or `core.` Custom Permission check for the running user, and the no-strategy
-> `IsEnabledByDefault__c` fast path. One query per call is fine for everyday synchronous code, but it adds up
+> **SOQL cost:** the first `isEnabled(...)` call in a transaction runs one query (SOQL) that loads every active flag and its strategies. Later calls reuse that result. After that, the cost
+> depends on the strategy. A strategy that checks a profile, public group, permission set, or Custom Permission without a namespace runs one query on every call. A Custom Setting or Custom
+> Metadata target is read once and kept for the transaction. Three cases need no framework query: a namespaced or `core.` Custom Permission check for the running user, a strategy with a blank target or a custom handler (only
+> your handler runs), and the no-strategy `IsEnabledByDefault__c` fast path. One query per call is fine for everyday synchronous code, but it adds up
 > inside record loops, batches, and scheduled jobs. If you call flags in tight loops, or read several flags off the same Custom
 > Setting, see [Feature Flags - Guide, Performance and SOQL Cost](Feature%20Flags%20-%20Guide.md#performance-and-soql-cost) for the per-strategy
 > cost table, the pattern for reading a flag once and reusing the result, and a `getInstance()`-based custom handler that avoids the query for Custom Setting strategies.
@@ -639,9 +642,9 @@ The full evaluation flow:
 ```text
 1. IsActive = false?           → return false (kill switch)
 2. No strategies defined?      → return IsEnabledByDefault
-3. Strategies exist:
+3. Strategies exist (checked in Order__c order; the first definitive result wins):
    - First strategy match true → return true
-   - Any strategy match false  → return false
+   - First strategy match false → return false
    - No strategy matches       → return ResultOnNoMatch
 ```
 
@@ -677,12 +680,12 @@ Use the **Is Feature Flag Enabled** invocable action to check flags in Flows:
 2. Add an **Action** element
 3. In the Action search box, type **Is Feature Flag Enabled** and select it
 4. Set the **Label** to `Check Pricing Engine Flag`
-5. Set the **featureFlagName** input to the text value `NewPricingEngine`
+5. Set the **flagNames** input to the text value `NewPricingEngine`
 6. Click **Done**
 7. Add a **Decision** element after the action:
     - **Label:** `Is Flag Enabled?`
     - **Outcome 1 Label:** `Flag Enabled`
-    - **Condition:** `{!Check_Pricing_Engine_Flag.isEnabled}` **Equals** `{!$GlobalConstant.True}`
+    - **Condition:** `{!Check_Pricing_Engine_Flag}` (the action's own true/false output) **Equals** `{!$GlobalConstant.True}`
     - **Default Outcome Label:** `Flag Disabled`
 8. Add different logic in each branch (e.g., different screens or assignments)
 9. **Save** and **Activate** the Flow
@@ -711,7 +714,14 @@ export default class MyComponent extends ComponentBuilder('notification')
 
 	async connectedCallback()
 	{
-		this.checkoutEnabled = await isFlagEnabled('NewPricingEngine');
+		try
+		{
+			this.checkoutEnabled = await isFlagEnabled('NewPricingEngine');
+		}
+		catch(error)
+		{
+			this.checkoutEnabled = false;
+		}
 	}
 }
 ```
@@ -739,6 +749,7 @@ earlier, and they specifically control the web services framework:
 | `DisableAllOutboundAPIs` | Disable outbound API calls             |
 | `MockAllAPIs`            | Return mock responses for all APIs     |
 | `MockAllInboundAPIs`     | Return mock responses for inbound APIs |
+| `MockSelectedAPIs`       | Return mock responses only for the APIs whose API Setting has Mocking Enabled ticked, inbound and outbound |
 
 These work with the web services framework automatically, with no code needed.
 

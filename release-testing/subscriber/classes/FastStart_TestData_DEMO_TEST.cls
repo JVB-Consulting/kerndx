@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 /**
- * @description Unit tests for FastStart_TestData_DEMO. Demonstrates TST_Builder (real DML),
- * TST_Mock (DML-free query interception), and TST_Factory.newUser() patterns in a subscriber org.
+ * @description Unit tests for FastStart_TestData_DEMO. They show TST_Builder saving real records, and TST_Mock answering a
+ * query with records that are never saved to the database.
  *
  * @see FastStart_TestData_DEMO
  *
@@ -9,7 +9,7 @@
  *
  * @group Fast Start Demos
  *
- * @date May 2026
+ * @date May 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)
@@ -24,11 +24,6 @@ private class FastStart_TestData_DEMO_TEST
 	 * @description Industry value used for the mock-based count test.
 	 */
 	private static final String INDUSTRY_FINANCE = 'Finance';
-
-	/**
-	 * @description Industry value that should return zero results.
-	 */
-	private static final String INDUSTRY_OTHER = 'Education';
 
 	/**
 	 * @description Verifies that TST_Builder inserts records that are visible to a real SOQL count.
@@ -76,7 +71,7 @@ private class FastStart_TestData_DEMO_TEST
 	/**
 	 * @description Verifies that TST_Mock registers a Finance account without DML so that the
 	 * QRY_Builder-backed count returns 1 without touching the database.
-	 * Demonstrates: TST_Mock.of().withOverride().build() auto-registration semantics.
+	 * Shows that TST_Mock.of().withOverride().build() registers the mock record by itself, with no extra call.
 	 */
 	@IsTest
 	private static void shouldCountMockedAccountWithoutDml()
@@ -90,10 +85,7 @@ private class FastStart_TestData_DEMO_TEST
 		Assert.areEqual(1, result, 'Mock-registered Finance account should be returned by QRY_Builder count');
 	}
 
-	/**
-	 * @description Verifies that a count for an industry with no records (real or mocked) returns zero.
-	 * Demonstrates: TST_Builder.withoutInsertion() for in-memory records that do not affect counts.
-	 */
+	/** @description Verifies an in-memory record does not affect the database count. */
 	@IsTest
 	private static void shouldReturnZeroWhenNoMatchingAccounts()
 	{
@@ -102,8 +94,8 @@ private class FastStart_TestData_DEMO_TEST
 				.withoutInsertion()
 				.build();
 
-		Integer result = FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_OTHER);
+		Integer result = FastStart_TestData_DEMO.countAccountsByIndustry(INDUSTRY_TECH);
 
-		Assert.areEqual(0, result, 'In-memory record should not affect the database count for a different industry');
+		Assert.areEqual(0, result, 'An in-memory record is not saved, so the database count should be 0');
 	}
 }

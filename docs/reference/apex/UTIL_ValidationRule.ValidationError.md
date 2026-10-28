@@ -27,7 +27,7 @@ Represents a single validation error or warning.
 
 | Constructor | Description |
 |-------------|-------------|
-| global [ValidationError](#constructors)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) ruleName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) severity) | Constructs a new ValidationError. |
+| global [ValidationError](#constructors)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) ruleName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) message, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) severity) | Builds an error outside shadow mode, so an error with Error severity blocks the save. |
 
 ### ValidationError(String ruleName, String message, String fieldName, String severity)
 
@@ -37,7 +37,8 @@ Represents a single validation error or warning.
 global ValidationError(String ruleName, String message, String fieldName, String severity)
 ```
 
-Constructs a new ValidationError.
+Builds an error outside shadow mode, so an error with Error severity blocks the save. Set recordIndex,
+recordId, groupName and shadowMode on their fields after it is built.
 
 **Parameters**
 
@@ -67,7 +68,7 @@ UTIL_ValidationRule.ValidationError instance = new UTIL_ValidationRule.Validatio
 | global [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) [recordIndex](#recordindex) | The record index in the trigger list (for before insert). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ruleName](#rulename) | The DeveloperName of the validation rule that failed. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [severity](#severity) | The severity ('Error' or 'Warning'). |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [shadowMode](#shadowmode) | True if this error is from a rule in shadow mode. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [shadowMode](#shadowmode) | True when the rule that failed runs in shadow mode: watch-only, so the failure is logged but the save is not blocked, whatever the severity. |
 
 ### fieldName
 
@@ -189,7 +190,9 @@ String value = instance.severity;
 
 **Type:** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm)
 
-True if this error is from a rule in shadow mode.
+True when the rule that failed runs in shadow mode: watch-only, so the failure is logged but the save
+is not blocked, whatever the severity. It is copied from the rule's Shadow Mode setting, and is false when the
+error is built with the constructor.
 
 **Example**
 

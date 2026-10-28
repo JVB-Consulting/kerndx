@@ -5,7 +5,7 @@ pageClass: reference
 description: "Utility class providing bi-directional encryption and decryption capabilities with automatic key management and expiry. This class uses AES256 encryption combined with HMAC-SHA256 (Encrypt-then-MAC) t"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "January 2025, May 2026"
+date: "January 2025, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -92,14 +92,14 @@ Verifies the HMAC before attempting decryption to ensure integrity.
 String plainTextValue = 'Sensitive Data';
 String encrypted = UTIL_SessionEncryption.encrypt(plainTextValue);
 String decrypted = UTIL_SessionEncryption.decrypt(encrypted);
-System.debug(decrypted); // Outputs: Sensitive Data
+// decrypted is 'Sensitive Data'
 try
 {
 decrypted = UTIL_SessionEncryption.decrypt('InvalidBase64');
 }
 catch(IllegalArgumentException e)
 {
-System.debug('Invalid input: ' + e.getMessage());
+LOG_Builder.build().error(e).emitAt('MyClass.myMethod');
 }
 ```
 
@@ -137,10 +137,10 @@ Format: Base64(IV) : Base64(Cipher) : Base64(HMAC)
 ```apex
 String plainTextValue = 'Sensitive Data';
 String encrypted = UTIL_SessionEncryption.encrypt(plainTextValue);
-System.debug(encrypted); // Outputs: Base64-encoded encrypted string
+// encrypted is three Base64 parts joined by colons, in the format shown above
 String blankInput = '';
 encrypted = UTIL_SessionEncryption.encrypt(blankInput);
-System.debug(encrypted); // Outputs: ''
+// encrypted is '': a blank input is returned unchanged
 ```
 
 </div>

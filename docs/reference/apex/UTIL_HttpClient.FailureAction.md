@@ -52,10 +52,10 @@ Log an ApiIssue__c record without retrying.
 
 Caveat — delegation mode: the underlying KEY_SKIP_RETRY flag that distinguishes
 LOG_FAILURE from RETRY_THEN_LOG is consumed only by DefaultOutboundHandler.sendRequest's
-synchronous retry loop. When the request is delegated to a subscriber-supplied handler
-via useHandler(HandlerClass.class), the subscriber handler decides its own retry
+synchronous retry loop. When the request is delegated to your own handler
+via useHandler(HandlerClass.class), your handler decides its own retry
 behaviour and the LOG_FAILURE / RETRY_THEN_LOG distinction is observationally
-identical from the framework's side. Subscribers shipping their own handlers should
+identical from the framework's side. If you write your own handlers, they should
 read the KEY_SKIP_RETRY parameter from the inbound DTO_NameValues if they want to
 honour the caller's "don't retry" intent.
 
@@ -67,6 +67,6 @@ global RETRY_THEN_LOG
 
 Retry the request, then log a failure record if all retries are exhausted.
 
-In delegation mode (subscriber-supplied handler via useHandler), retry behaviour is
-the subscriber handler's responsibility — see LOG_FAILURE for the contract caveat.
+In delegation mode (your own handler via useHandler), retry behaviour is
+your handler's responsibility. See LOG_FAILURE for the contract caveat.
 

@@ -5,7 +5,7 @@ pageClass: reference
 description: "A Data Transfer Object (DTO) base class for JSON serialization and deserialization, providing a framework for transforming JSON data into structured objects and vice versa. Inherited by other DTO clas"
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -34,6 +34,10 @@ public class DTO_Invoice extends DTO_JsonBase
 {
     public String invoiceId;
     public String status;
+    protected override Type getObjectType()
+    {
+        return DTO_Invoice.class;
+    }
 }
 ```
 
@@ -46,7 +50,7 @@ public class DTO_Invoice extends DTO_JsonBase
 | Method | Description |
 |--------|-------------|
 | global override virtual [DTO_Base](DTO_Base.md) [deserialize](#deserialize)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) dtoString) | Deserializes a JSON string into an instance of the current DTO class. |
-| global virtual [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) [getObjectType](#getobjecttype)() | Retrieves the type of the current DTO, used when deserializing JSON data back into an instance of the specific class. |
+| global virtual [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) [getObjectType](#getobjecttype)() | Returns the type of the current DTO. |
 | global override virtual [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [serialize](#serialize)() | Serializes the current DTO instance into a JSON string, omitting null values to create a compact JSON representation. |
 
 ### deserialize
@@ -87,8 +91,10 @@ DTO_Base result = instance.deserialize('value');
 global virtual Type getObjectType()
 ```
 
-Retrieves the type of the current DTO, used when deserializing JSON data back into an instance of the specific class.
-Implementing this method in descendant classes is required only if the class is private; to properly deserialize.
+Returns the type of the current DTO. It is used when JSON is turned back into an instance of your class.
+By default the package looks up your class by its name. It can find the class only when the class is global, or when you
+have registered a type resolver (a class that tells the framework where to find the Apex classes in your namespace).
+If neither is true, override this method in your DTO and return its type.
 
 **Returns** [Type](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_type.htm) — The class type of the DTO.
 
@@ -96,12 +102,18 @@ Implementing this method in descendant classes is required only if the class is 
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the current class name can't be resolved to a Type (due to the class not being publicly visible) |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the package cannot find your class by its name and you did not override this method |
 
 **Example**
 
 ```apex
-Type result = instance.getObjectType();
+public class DTO_Invoice extends DTO_JsonBase
+{
+    protected override Type getObjectType()
+    {
+        return DTO_Invoice.class;
+    }
+}
 ```
 
 </div>

@@ -74,7 +74,8 @@ where your org's alias goes: the name you gave it when you logged in.
 ## Tier 1: See It Work (~2 minutes)
 
 The fastest way to see the value is a query you can run right now, with nothing to set up first. Use
-[`QRY_Builder`](reference/apex/QRY_Builder.md), the fluent query builder, directly from anonymous Apex. No
+[`QRY_Builder`](reference/apex/QRY_Builder.md) directly from anonymous Apex: you describe the query with short chained calls,
+then one call runs it and returns the records. No
 custom classes needed.
 
 ### Query Records
@@ -191,7 +192,7 @@ force-app/main/default/classes/SEL_Accounts.cls
  *
  * @date February 2026
  */
-// Subscriber selectors default to `with sharing` — the safest default. Framework-internal selectors
+// Your own selectors default to `with sharing` — the safest default. Framework-internal selectors
 // inside the kern namespace use `inherited sharing` to follow the caller's sharing context.
 public with sharing class SEL_Accounts extends kern.SEL_Base
 {
@@ -644,7 +645,7 @@ List<Account> defaultQuery = kern.QRY_Builder.selectFrom(Account.SObjectType)
 	.toList();
 System.debug('Default (USER_MODE): ' + defaultQuery.size() + ' accounts');
 
-// Explicit SYSTEM_MODE opt-out (framework-internal use; rare in subscriber code)
+// Explicit SYSTEM_MODE opt-out (framework-internal use; rare in your own code)
 List<Account> allAccounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<SObjectField>{ Account.Name })
 	.withSystemMode()
@@ -652,9 +653,12 @@ List<Account> allAccounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 	.toList();
 System.debug('SYSTEM_MODE (bypass): ' + allAccounts.size() + ' accounts');
 
-// Strip inaccessible -- removes fields the user can't see (post-query, complements USER_MODE)
+// Strip inaccessible -- removes fields the user can't see (post-query). It needs SYSTEM_MODE:
+// in USER_MODE a field the user can't read makes the query fail before the strip runs
 List<Account> stripped = kern.QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<SObjectField>{ Account.Name, Account.Phone })
+	.withSystemMode()
+	.withSharing()
 	.stripInaccessible()
 	.withLimit(5)
 	.toList();
@@ -667,11 +671,13 @@ System.debug('Strip inaccessible: ' + stripped.size() + ' accounts');
 > reserved for framework-internal reads that must bypass the running user's permissions, such as audit tables
 > and configuration metadata. If a selector genuinely must run in SYSTEM_MODE, subclass `kern.SEL_Base` and
 > override `systemModeRequired()` to return `true`. That keeps the opt-out in one selector rather than
-> scattered across call sites.
+> scattered across call sites. The strip example above uses `.withSystemMode()` only so the strip can run. In system mode the query itself skips
+> the object permission check, so use this form only where the user may read the object.
 >
-> **Kill switch:** if you need to turn this off org-wide during an incident without a deployment, deploy an org
-> override of `kern__FeatureFlag.UserModeQueries_Enabled` with `IsEnabledByDefault__c = false` to fall back to
-> SYSTEM_MODE framework-wide. Use it for emergencies only, while the offending code is being fixed.
+> **Kill switch:** if you need to turn this off org-wide during an incident without a code deployment, set
+> `IsEnabledByDefault__c` to `false` on the `FeatureFlag.UserModeQueries_Enabled` record (a `kern__FeatureFlag__mdt`
+> record in your org). You can do this in Setup or with a metadata deploy. The framework then falls back to SYSTEM_MODE
+> for every query. Use it for emergencies only, while the offending code is being fixed.
 
 ### Compound Conditions
 
@@ -710,7 +716,7 @@ To filter on a moving date range (records from today, or the last several days) 
 ```apex
 List<Account> recentAccounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 	.fields(new List<SObjectField>{ Account.Name })
-	.condition(Account.CreatedDate).greaterThan(
+	.condition(Account.CreatedDate).equals(
 		new kern.QRY_Condition.DateLiteral().lastNDays(30)
 	)
 	.toList();

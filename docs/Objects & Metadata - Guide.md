@@ -155,7 +155,7 @@ For deeper coverage, continue reading the sections below.
 
 These records hold configuration, logs, and operational data only. They do not contain business logic: that lives in the Apex classes documented in the other guides.
 
-> **Package Data Model:** 11 custom objects, 15 custom metadata types, 67 pre-built metadata records, and 1 platform event.
+> **Package Data Model:** 11 custom objects, 15 custom metadata types, a set of pre-built metadata records ([counted in Metrics](Strategic%20Guide%20-%20Metrics.md#metadata-configured-no-code-required)), and 1 platform event.
 > These objects underpin the Logging, Trigger, Web Service, Feature Flag, Async, and Validation frameworks.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
@@ -250,16 +250,15 @@ See also: [Logging - Guide](Logging%20-%20Guide.md),
 
 ```text
 +-----------------------------------------------------------------+
-|  LOG_Builder (Apex Code)              UTIL_PerformanceTimer     |
+|  LOG_Builder (Apex Code)                                        |
 |                                                                 |
-|  Logging Methods:        Context Methods:       Performance:    |
-|  .info()                 .startCorrelation()   .start()         |
-|  .warn()                 .setCorrelationId()   .stop()          |
-|  .error()                .setGlobalContext()   .stopSilent()    |
+|  Logging Methods:        Context Methods:       Buffering:      |
+|  .info()                 .startCorrelation()   .suspendSaving() |
+|  .warn()                 .setCorrelationId()   .resumeSaving()  |
+|  .error()                .setGlobalContext()                    |
 |  .debug()                .clearGlobalContext()                  |
-|                          .serializeContext()   Buffering:        |
-|                          .hydrateContext()     .suspendSaving()  |
-|                                                .resumeSaving()  |
+|                          .serializeContext()                    |
+|                          .hydrateContext()                      |
 +-----------------+-----------------------------------------------+
                   | publishes
                   v
@@ -324,13 +323,13 @@ See also: [Logging - Guide](Logging%20-%20Guide.md),
 | `Limits__c`              | Long Text Area(1024)  | JSON snapshot of Salesforce governor limits at the time the event was logged              |
 | `LineNumber__c`          | Number(8,0)           | Source code line number where the exception occurred                                      |
 | `LogLevel__c`            | Picklist              | Logging level: DEBUG, INFO, WARN, ERROR                                                   |
-| `Message__c`             | Long Text Area(32768) | The actual log message                                                                    |
+| `Message__c`             | Long Text Area(131072) | The actual log message                                                                   |
 | `ParentTransactionId__c` | Text(36)              | Parent transaction ID for hierarchical transaction tracking                               |
 | `RecordId__c`            | Text(18)              | Optional record ID this log is associated with                                            |
 | `RecordLink__c`          | Formula(Text)         | Hyperlink to the associated record                                                        |
 | `ClassMethod__c`         | Text(100)             | Source of log message (ClassName.MethodName)                                              |
 | `ShortMessage__c`        | Text(255)             | Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses                |
-| `StackTrace__c`          | Long Text Area(32768) | Stack trace information if applicable                                                     |
+| `StackTrace__c`          | Long Text Area(4096)  | Stack trace information if applicable                                                     |
 | `TransactionId__c`       | Text(36)              | Unique transaction ID for grouping logs within a single execution                         |
 | `UserId__c`              | Text(18)              | The user ID who triggered this log                                                        |
 | `UserLink__c`            | Formula(Text)         | Hyperlink to the user who produced this log                                               |
@@ -364,7 +363,7 @@ LOG_Builder.build().info('Processing started').emitAt('MyClass.myMethod');
 
 | Field                    | Type                 | Description                                                                               |
 |--------------------------|----------------------|-------------------------------------------------------------------------------------------|
-| `ContextData__c`         | Long Text Area(5000) | Structured context data as JSON                                                           |
+| `ContextData__c`         | Long Text Area(32768) | Structured context data as JSON                                                          |
 | `CorrelationId__c`       | Text(36)             | Correlation ID linking related log entries                                                |
 | `RootCorrelationId__c`   | Text(36)             | The tracking ID of the action the entry belongs to, persisted to the log entry's field of the same name |
 | `DurationMs__c`          | Number(18,0)         | Duration in milliseconds for timed operations                                             |
@@ -374,15 +373,16 @@ LOG_Builder.build().info('Processing started').emitAt('MyClass.myMethod');
 | `Source__c`              | Text(100)            | The class, Flow or component that wrote the entry, as a plain name                                        |
 | `Limits__c`              | Long Text Area(1024) | JSON snapshot of Salesforce governor limits at the time the event was logged              |
 | `LineNumber__c`          | Number(8,0)          | Source code line number where the exception occurred                                      |
-| `LogLevel__c`            | Text(20)             | Logging level (DEBUG, INFO, WARN, ERROR)                                                  |
-| `Message__c`             | Long Text Area(5000) | Log message                                                                               |
+| `LogLevel__c`            | Text(10)             | Logging level (DEBUG, INFO, WARN, ERROR)                                                  |
+| `Message__c`             | Long Text Area(131072) | Log message                                                                             |
 | `ParentTransactionId__c` | Text(36)             | Parent transaction ID for hierarchical tracking                                           |
 | `RecordId__c`            | Text(18)             | Optional record ID                                                                        |
 | `ClassMethod__c`         | Text(100)            | Source (ClassName.MethodName)                                                             |
 | `ShortMessage__c`        | Text(255)            | Brief summary of the log message, safe for SOQL WHERE and GROUP BY clauses                |
-| `StackTrace__c`          | Long Text Area(5000) | Stack trace                                                                               |
+| `StackTrace__c`          | Long Text Area(4096) | Stack trace                                                                               |
 | `TransactionId__c`       | Text(36)             | Unique transaction ID                                                                     |
 | `UserId__c`              | Text(18)             | The user ID who triggered this event                                                      |
+| `Fingerprint__c`         | Text(216)            | Grouping key carried to the log entry, where repeated events with the same key are counted instead of stored one by one |
 
 **Usage**:
 
@@ -397,7 +397,7 @@ LOG_Builder.build().info('Processing started').emitAt('MyClass.myMethod');
 ##### [LogSetting__c](reference/objects/LogSetting__c.md) (Hierarchy Custom Setting)
 
 **Description**: Controls logging thresholds and performance logging configuration. As a hierarchy custom setting, values can be set at org-default, profile, or user level.
-Code-level defaults are provided by `LOG_Engine.getLogSetting()`.
+When no record exists, the framework uses built-in default values.
 
 **Fields**:
 
@@ -409,11 +409,16 @@ Code-level defaults are provided by `LOG_Engine.getLogSetting()`.
 | `EnableQueryPerformanceLogging__c`      | Checkbox     | Enable query performance logging                                   |
 | `EnableTriggerPerformanceLogging__c`    | Checkbox     | Enable trigger action performance logging                          |
 | `EnableValidationPerformanceLogging__c` | Checkbox     | Enable validation context performance logging                      |
-| `MaxContextDataSize__c`                 | Number(6,0)  | Maximum size of context data to log (bytes)                        |
-| `PerformanceThresholdMs__c`             | Number(10,0) | Webservice performance threshold (ms, Default: 10000 = 10 seconds) |
-| `QueryPerformanceThresholdMs__c`        | Number(10,0) | Query performance threshold (ms, Default: 1000 = 1 second)         |
-| `TriggerPerformanceThresholdMs__c`      | Number(10,0) | Trigger action performance threshold (ms)                          |
-| `ValidationPerformanceThresholdMs__c`   | Number(10,0) | Validation context performance threshold (ms)                      |
+| `MaxContextDataSize__c`                 | Number(18,0) | Maximum size of context data to log (bytes)                        |
+| `PerformanceThresholdMs__c`             | Number(18,0) | Webservice performance threshold (ms, Default: 10000 = 10 seconds) |
+| `QueryPerformanceThresholdMs__c`        | Number(18,0) | Query performance threshold (ms, Default: 1000 = 1 second)         |
+| `TriggerPerformanceThresholdMs__c`      | Number(18,0) | Trigger action performance threshold (ms)                          |
+| `ValidationPerformanceThresholdMs__c`   | Number(18,0) | Validation context performance threshold (ms)                      |
+| `ClassFilter__c`                        | Text(255)    | Comma-separated class name patterns; only entries from matching classes are kept. A trailing `*` is a wildcard. Blank means every class |
+| `SuppressClassMethod__c`                | Text(255)    | Comma-separated class name patterns whose entries are dropped, even when `ClassFilter__c` lets them through. A trailing `*` is a wildcard. Blank means none |
+| `EnableFlowActionLogging__c`            | Text(40)     | How often flow trigger actions write log entries: `Off`, `ErrorsOnly` or `AlwaysOn` (Default: `ErrorsOnly`) |
+| `EnableMaskerPerformanceLogging__c`     | Checkbox     | Log data masking time for a trigger batch that takes longer than `MaskerPerformanceThresholdMs__c` (Default: off) |
+| `MaskerPerformanceThresholdMs__c`       | Number(18,0) | Data masking performance threshold (ms, Default: 100)              |
 | `ProblemGroupingDisabled__c`            | Checkbox     | Tick to stop the Log Console grouping repeated errors on its own (Default: unticked, so grouping is on) |
 | `ProblemGroupingLogLevels__c`           | Text(255)    | Which log levels the console may group, separated by semicolons or commas (Default: `ERROR;WARN`) |
 | `ProblemGroupingMinimumOccurrences__c`  | Number(4,0)  | How many repeats an error needs inside the window you are viewing before it is listed as a problem (Default: 2) |
@@ -450,7 +455,7 @@ LogSetting__c (Org Default):
 - EnableQueryPerformanceLogging__c: true
 - QueryPerformanceThresholdMs__c: 1000 (log queries > 1s)
 
-Defaults are provided code-level by LOG_Engine.getLogSetting() when no custom setting record exists.
+The framework uses built-in default values when no custom setting record exists.
 ```
 
 ---
@@ -484,7 +489,6 @@ See also: [Triggers - Guide](Triggers%20-%20Guide.md),
 | TriggerSetting__mdt |<-----------|   Account SObject   |
 | - SObjectType       |             +---------------------+
 | - BypassExecution   |
-| - RequiredPerm      |
 +----------+----------+
            | 1:N (per context)
            v
@@ -495,7 +499,6 @@ See also: [Triggers - Guide](Triggers%20-%20Guide.md),
 | - Event__c          |--+
 | - TriggerSetting__c |  | (picklist + lookup)
 | - BypassExecution   |  |
-| - RequiredPerm      |  |
 +----------+----------+  |
            |              |
            | instantiates |
@@ -525,7 +528,7 @@ See also: [Triggers - Guide](Triggers%20-%20Guide.md),
 | `BypassFeatureFlag__c`        | MetadataRelationship(FeatureFlag__mdt)            | Feature Flag that bypasses triggers when enabled             |
 | `RequiredFeatureFlag__c`      | MetadataRelationship(FeatureFlag__mdt)            | Feature Flag required for triggers to execute                |
 | `EnablePerformanceLogging__c` | Checkbox                                          | Master switch for performance logging on this object         |
-| `PerformanceThresholdMs__c`   | Number(10,0)                                      | Object-level performance threshold (ms)                      |
+| `PerformanceThresholdMs__c`   | Number(8,0)                                       | Object-level performance threshold (ms)                      |
 | `ApplyMasking__c`             | Checkbox                                          | Run the data masking pass on this object before insert/update (Default: true; uncheck to opt out) |
 | `ObjectApiNameOverride__c`    | Text(255)                                         | Optional override of `SObjectType__c` at dispatch, used to register a CDC entity (e.g. `Foobar__ChangeEvent`) |
 
@@ -534,7 +537,7 @@ See also: [Triggers - Guide](Triggers%20-%20Guide.md),
 - Parent of `TriggerAction__mdt` via `TriggerSetting__c` (child relationship: `TriggerActions__r`)
 - Parent of `ValidationRuleGroup__mdt` via `TriggerSetting__c` (child relationship: `ValidationRuleGroups__r`)
 
-**Pre-built records (6 shipped):** framework settings for objects the package itself triggers on (`LogEntryEvent__e`, `ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, etc.).
+**Pre-built records ([count in Metrics](Strategic%20Guide%20-%20Metrics.md#metadata-configured-no-code-required)):** framework settings for objects the package itself triggers on (`LogEntryEvent__e`, `ApiCall__c`, `ApiIssue__c`, `AsyncChainExecution__c`, etc.).
 You add your own `TriggerSetting__mdt` records for your objects.
 
 **Usage**:
@@ -557,7 +560,7 @@ Create one TriggerSetting__mdt record per SObject:
 
 | Field                              | Type                                                 | Description                                                                                                          |
 |------------------------------------|------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| `ApexClassName__c`                 | Text(100) (Required)                                 | Fully qualified action class name                                                                                    |
+| `ApexClassName__c`                 | Text(100)                                            | Fully qualified action class name. Set this or `FlowName__c`, never both                                                                                    |
 | `Description__c`                   | Long Text Area                                       | Action description                                                                                                   |
 | `Event__c`                         | Picklist (Required)                                  | Trigger event: Before Insert, After Insert, Before Update, After Update, Before Delete, After Delete, After Undelete |
 | `TriggerSetting__c`                | MetadataRelationship(TriggerSetting__mdt) (Required) | Link to the parent TriggerSetting for the target SObject                                                             |
@@ -572,6 +575,8 @@ Create one TriggerSetting__mdt record per SObject:
 | `ForcePerformanceLogging__c`       | Checkbox                                             | Always log performance for this action                                                                               |
 | `SuppressPerformanceLogging__c`    | Checkbox                                             | Never log performance for this action                                                                                |
 | `PerformanceThresholdMs__c`        | Number(8,0)                                          | Log if duration exceeds threshold (ms)                                                                               |
+| `FailureAction__c`                 | Picklist                                             | On an error: Log and Continue (the default, where the save goes on) or Block DML (the save stops and the error is shown to the user) |
+| `FlowName__c`                      | Text(80)                                             | API name of an active auto-launched flow to run as this action. Set this or `ApexClassName__c`, never both |
 
 </details>
 
@@ -579,7 +584,7 @@ Create one TriggerSetting__mdt record per SObject:
 
 - MetadataRelationship to `TriggerSetting__mdt` via `TriggerSetting__c` (child relationship: `TriggerActions__r`)
 
-**Pre-built records (6 shipped):** framework actions on framework-owned objects (e.g., `TRG_LogEntryEvent_AfterInsert`, retry orchestration on `ApiIssue__c`). You add your
+**Pre-built records ([count in Metrics](Strategic%20Guide%20-%20Metrics.md#metadata-configured-no-code-required)):** framework actions on framework-owned objects (e.g., `PersistLogEntry_AfterInsert`, which saves log entries, and `GuardApiIssueDeletion_BeforeDelete`, which guards `ApiIssue__c` records against deletion). You add your
 own `TriggerAction__mdt` records to wire up your handler classes.
 
 **Usage**:
@@ -798,6 +803,9 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 | `ErrorMessages__c`       | Long Text Area(32768)  | Errors encountered during processing                                                              |
 | `IdempotencyKey__c`      | Text(255)              | Idempotency key for duplicate detection: if the same request arrives twice, the first result is returned again rather than re-run (External ID) |
 | `IsIdempotencyHit__c`    | Checkbox               | True if the response was returned from a previous call with the same idempotency key, not re-run (Default: false) |
+| `IdempotencyKeyBodyHash__c` | Text(64)            | A fingerprint (SHA-256 hex digest) of the request body as it was received, kept for every incoming request that reaches a handler. A later request with the same key but another body is refused (HTTP 409). Empty for outgoing calls |
+| `IsPermanentFailure__c`  | Checkbox               | Ticked when running the same request again cannot help, so Retry will not run it (Default: false)  |
+| `PreviousAttempt__c`     | Lookup(ApiCall__c)     | The earlier call that this call is a retry or a replay of                                         |
 | `IsMockedResponse__c`    | Checkbox               | True if response is mocked (Default: false)                                                       |
 | `DeadLettered__c`        | Formula(Checkbox)      | True once retries are exhausted or the call is manually set aside (dead-lettered) for inspection rather than retried again |
 | `ManualDeadLetter__c`    | Checkbox               | Admin override to permanently dead-letter a failed call (Default: false)                          |
@@ -884,7 +892,7 @@ See also: [Web Services - Guide](Web%20Services%20-%20Guide.md),
 | `RetryIssues__c`                    | Checkbox              | Whether the Retry action on an API issue and the bulk retry may send a failed outgoing call again (Default: false). A failed incoming request is replayed whatever this says. Automatic retries are governed by Max Retry Count and Retry Backoff |
 | `ResolveIssues__c`                  | Checkbox              | Whether to resolve failures (Default: false)                                                                                                                                                          |
 | `IdempotencyEnabled__c`             | Checkbox              | Inbound: duplicate requests with the same Idempotency-Key return the cached response. Outbound: a SHA-256 key of endpoint, parameters and body is sent as the Idempotency-Key header (Default: false) |
-| `MockingEnabled__c`                 | Checkbox              | Enable mock responses from ApiMock__mdt records (Default: false)                                                                                                                                      |
+| `MockingEnabled__c`                 | Checkbox              | Picks this service for mocking, outgoing or incoming. It answers from its ApiMock__mdt records only for users the `MockSelectedAPIs` feature flag is on for. With the flag off, the box changes nothing (Default: false) |
 | `ApiCredential__c`                  | Metadata Relationship | Link to credential configuration                                                                                                                                                                      |
 | `CircuitBreakerEnabled__c`          | Checkbox              | Turn on the circuit breaker: after repeated failures the framework stops calling a failing system for a cool-off, then resumes                                                                        |
 | `CircuitBreakerFailureThreshold__c` | Number(3,0)           | Consecutive failures before opening circuit (Default: 10)                                                                                                                                             |
@@ -961,8 +969,8 @@ and outbound APIs.
 | `IsRegex__c`                 | Checkbox                         | Treat match pattern as regex instead of simple contains        |
 | `StatusCode__c`              | Number(3,0)                      | HTTP status code to return                                     |
 | `Priority__c`                | Number                           | Match priority for this mock                                   |
-| `DelayMs__c`                 | Number(6,0)                      | Simulated latency in milliseconds                              |
-| `FailureRate__c`             | Number(5,2)                      | Percentage of requests that return a simulated failure (0-100) |
+| `DelayMs__c`                 | Number(5,0)                      | Simulated latency in milliseconds                              |
+| `FailureRate__c`             | Percent(3,0)                     | Percentage of requests that return a simulated failure (0-100) |
 | `ResponseHeaders__c`         | Long Text Area(131072)           | JSON object of response headers                                |
 
 **Relationships**:
@@ -994,10 +1002,11 @@ Example Mock Configuration:
 | `Mode__c`                 | Picklist       | `Regex`, `JsonKey` (label "JSON by Key"), `ExactMatch`, or `CreditCard` (the pattern match plus a Luhn checksum)                                                                               |
 | `Pattern__c`              | Long Text Area | Regex pattern, JSON key regex, or literal string (depending on `Mode__c`)                                                                                                                      |
 | `Replacement__c`          | Text(255)      | Replacement text (e.g., `[REDACTED]`)                                                                                                                                                          |
-| `CaseSensitive__c`        | Checkbox       | Toggle case-insensitive matching (Default: false)                                                                                                                                              |
+| `CaseSensitive__c`        | Checkbox       | Tick to match the exact case of the pattern; leave unticked for case-insensitive matching (Default: false)                                                                                     |
 | `FailureAction__c`        | Picklist       | `LogAndContinue`, `WriteFailureMarker`, or `BlockDml` when a pattern throws                                                                                                                    |
 | `MinInputLength__c`       | Number         | Optional minimum input length: the rule is skipped for shorter values, so short fields cost nothing to check                                                                                   |
 | `ApplicableFieldTypes__c` | Text           | Optional semicolon-delimited `System.DisplayType.name()` list (e.g., `STRING;TEXTAREA;ENCRYPTEDSTRING`) restricting the rule to specific field types; blank applies to every text-shaped field |
+| `Category__c`             | Text(40)       | Optional short category label shown beside the rule in the Data Masking Advisor (shipped rules use Contact, Personal, Payment, Health, Credentials, Financial, Identity or Network)              |
 | `IsActive__c`             | Checkbox       | Enable/disable rule globally                                                                                                                                                                   |
 | `Order__c`                | Number(4,0)    | Rule application order                                                                                                                                                                         |
 | `Replaces__c`             | Text(40)       | On a shipped replacement rule: the developer name of the older rule it replaces. While both still carry their shipped values, the newer rule does the work wherever both are wired. Managed by the package |
@@ -1095,14 +1104,14 @@ See also: [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)
 | `IsActive__c`           | Checkbox  | Master on/off switch (Default: false)                      |
 | `Description__c`        | Text Area | Description of the feature                                 |
 | `IsEnabledByDefault__c` | Checkbox  | Default value for the flag if no strategies are defined    |
-| `ResultOnNoMatch__c`    | Picklist  | Fallback result when strategies exist but none return true |
+| `ResultOnNoMatch__c`    | Checkbox  | Fallback result when strategies exist but none return true (Default: false, so the flag is off) |
 
 **Relationships**:
 
 - Parent of `FeatureFlagStrategy__mdt` (1:N)
 
-**Pre-built records (13 shipped):** framework flags including `UserModeQueries_Enabled` and `UserModeDml_Enabled` (the master off-switches for the framework's safe-by-default security behaviour, both default `true`, so the safe behaviour is on automatically),
-plus `DisableAllAPIs`, `MockAllInboundAPIs`, the async chain kill switch, and the flags behind the Chain Monitor's operator actions. You add your own feature flags alongside these.
+**Pre-built records ([count in Metrics](Strategic%20Guide%20-%20Metrics.md#metadata-configured-no-code-required)):** framework flags including `UserModeQueries_Enabled` and `UserModeDml_Enabled` (the master off-switches for the framework's safe-by-default security behaviour, both default `true`, so the safe behaviour is on automatically),
+plus `DisableAllAPIs`, `MockAllInboundAPIs`, `MockSelectedAPIs`, the async chain kill switch, and the flags behind the Chain Monitor's operator actions. You add your own feature flags alongside these.
 
 **Usage**:
 
@@ -1136,22 +1145,23 @@ if(isEnabled)
 
 - Metadata relationship to `FeatureFlag__mdt` (parent)
 
-**Pre-built records (5 shipped):** strategies attached to framework flags. Three of them decide a Chain Monitor action by custom permission, and one points the async chain kill switch at a hierarchy custom setting. You add your own strategies, either onto framework flags or onto your own flags.
+**Pre-built records ([count in Metrics](Strategic%20Guide%20-%20Metrics.md#metadata-configured-no-code-required)):** strategies attached to framework flags. Three of them decide a Chain Monitor action by custom permission, and one points the async chain kill switch at a hierarchy custom setting. You add your own strategies, either onto framework flags or onto your own flags.
 
 **Usage**:
 
 ```text
 Example Strategy Configuration:
-1. Enable for specific user:
-   - Type__c: User
-   - Target__c: 005000000000001AAA
+1. Enable for users who hold a custom permission:
+   - Type__c: Custom Permission
+   - Target__c: Advanced_Reporting_Access
 
 2. Enable for System Administrators:
    - Type__c: Profile
-   - Target__c: 00e00000000001AAA
+   - Target__c: System Administrator
 
-3. Enable globally:
-   - Type__c: Global
+3. Enable for users assigned a permission set group:
+   - Type__c: Permission Set Group
+   - Target__c: Reporting_Power_Users
 ```
 
 ##### [ApiRuntimeSwitch__c](reference/objects/ApiRuntimeSwitch__c.md) (Hierarchy Custom Setting)
@@ -1164,8 +1174,9 @@ Example Strategy Configuration:
 |---------------------|----------|-----------------------------------------------------------|
 | `DisableAllApis__c` | Checkbox | Disables all APIs, both inbound and outbound (Default: false) |
 
-For granular per-service control, use `ApiSetting__mdt.IsActive__c`. For feature-flag-driven disable/mock, use `UTIL_FeatureFlag` with the `DisableAllAPIs` or `MockAllInboundAPIs`
-feature flags.
+For granular per-service control, use `ApiSetting__mdt.IsActive__c`. For feature-flag-driven disable/mock, use `UTIL_FeatureFlag` with the `DisableAllAPIs`, `MockAllAPIs` or `MockAllInboundAPIs`
+feature flags. To mock one service at a time, tick `ApiSetting__mdt.MockingEnabled__c` and turn on the `MockSelectedAPIs` feature flag for
+the users who should get mock answers.
 
 **Usage**:
 
@@ -1278,9 +1289,10 @@ Example Configuration:
 | Field               | Type                   | Description                                                                                                                                                  |
 |---------------------|------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `IsActive__c`       | Checkbox               | Whether scheduled job is active                                                                                                                              |
-| `SchedulerName__c`  | Text                   | User-friendly name for this scheduled job                                                                                                                    |
-| `ClassName__c`      | Text(255) (Required)   | Schedulable class name                                                                                                                                       |
+| `SchedulerName__c`  | Text(40) (Required)    | User-friendly name for this scheduled job                                                                                                                    |
+| `ClassName__c`      | Text(100) (Required)   | Schedulable class name                                                                                                                                       |
 | `CronExpression__c` | Text(255) (Required)   | Cron expression for scheduling                                                                                                                               |
+| `Timezone__c`       | Text(100)              | Time zone (for example `Africa/Johannesburg`) of the user who wrote the cron expression. Set automatically when the cron expression is created or changed     |
 | `Description__c`    | Text Area              | Description of scheduled job                                                                                                                                 |
 | `Parameters__c`     | Long Text Area(131072) | JSON-serialised `DTO_NameValues` containing name/value pairs passed to the scheduled class                                                                   |
 | `ScheduledJobId__c` | Text(18)               | Salesforce CronTrigger ID                                                                                                                                    |
@@ -1420,7 +1432,7 @@ Used with [`UTIL_TypeResolver`](reference/apex/UTIL_TypeResolver.md).
 | `ClassName__c` | Text(100) (Unique) | Subscriber Controlled | Fully qualified class name implementing `UTIL_TypeResolver.INT_ClassTypeResolver` |
 | `Order__c`     | Number(2,0)        | Subscriber Controlled | Execution priority: resolvers run in ascending order (lowest first)               |
 
-**How it works**: The framework loads every `ClassTypeResolver__mdt` record in `Order__c` order, creates each resolver class, and links them in a chain (via `setNext()`). The built-in `PackageClassResolver` runs first (it looks in your namespace before the package's), then hands off to your custom
+**How it works**: The framework loads every `ClassTypeResolver__mdt` record in `Order__c` order, creates each resolver class, and links them in a chain. The framework's own built-in resolver runs first (it looks in your namespace before the package's), then hands off to your custom
 resolvers in turn. The first one to return a class wins.
 
 **Example.** You don't have to write this by hand. The Kern app's Health Check generates this class and a matching test for you (Class Type Resolver row, then **Setup**);
@@ -1457,8 +1469,8 @@ global with sharing class ACME_ClassTypeResolver extends kern.UTIL_TypeResolver.
 
 | Field                      | Type                 | Description                                               |
 |----------------------------|----------------------|-----------------------------------------------------------|
-| `FieldSetApiNames__c`      | Text Area (Required) | Comma-separated list of field set API names               |
-| `DefaultActiveSections__c` | Text Area            | Comma-separated list of section names expanded by default |
+| `FieldSetApiNames__c`      | Long Text Area       | Comma-separated list of field set API names               |
+| `DefaultActiveSections__c` | Long Text Area       | Comma-separated list of section names expanded by default |
 
 **Usage**:
 
@@ -1479,9 +1491,9 @@ Example Configuration:
 |-----------------------|-------------------------|----------------------------------------------------|
 | `User__c`             | Lookup(User) (Required) | The user whose login activity is tracked           |
 | `LoginYear__c`        | Number(4,0)             | Calendar year                                      |
-| `LoginMonth__c`       | Number(2,0)             | Calendar month (1-12)                              |
+| `LoginMonth__c`       | Number(4,0)             | Calendar month (1-12)                              |
 | `TotalLoginCount__c`  | Number(10,0)            | Total number of login events for the month         |
-| `UniqueLoginCount__c` | Number(10,0)            | Number of distinct days the user logged in         |
+| `UniqueLoginCount__c` | Number(4,0)             | Number of distinct days the user logged in         |
 | `CompositeKey__c`     | Text (Unique)           | Composite key combining User ID, year, and month   |
 | `ReportingDate__c`    | Formula(Date)           | First day of login month/year for report filtering |
 
@@ -1513,7 +1525,7 @@ LOGGING FRAMEWORK
 
 TRIGGER ACTION FRAMEWORK
 +- TriggerSetting__mdt <- TriggerAction__mdt
-+- Runtime Control: ApiRuntimeSwitch__c, UTIL_FeatureFlag
++- Runtime Control: BypassExecution__c, UTIL_FeatureFlag
 +- Used by: Web Service orchestration
 +- Logging: LOG_Builder -> LogEntry__c
 
@@ -1576,7 +1588,7 @@ You want a trigger to validate records and log anything it rejects. Write the ha
 
 ```apex
 // 1. Create Trigger Action class
-public class TRG_AccountValidator extends TRG_Base
+public inherited sharing class TRG_AccountValidator extends TRG_Base
 	implements IF_Trigger.BeforeInsert
 {
 	public void beforeInsert(List<Account> newAccounts)
@@ -1663,11 +1675,11 @@ if(isAdvancedReportingEnabled)
 // 3. Configure strategies in FeatureFlagStrategy__mdt:
 //    Strategy 1: Enable for System Admins
 //    - Type__c: Profile
-//    - Target__c: 00e000000000001AAA
+//    - Target__c: System Administrator
 //
-//    Strategy 2: Enable for specific power users
-//    - Type__c: User
-//    - Target__c: 005000000000001AAA
+//    Strategy 2: Enable for power users who hold a custom permission
+//    - Type__c: Custom Permission
+//    - Target__c: Advanced_Reporting_Access
 ```
 
 ---
@@ -1763,10 +1775,10 @@ These are common mistakes (anti-patterns) when working with the framework's obje
 
 - **[Triggers - Guide](Triggers%20-%20Guide.md)** - `TriggerSetting__mdt` and `TriggerAction__mdt` configuration patterns
 - **[Validation - Guide](Validation%20-%20Guide.md)** - `ValidationRuleGroup__mdt` and `ValidationRule__mdt` configuration patterns
-- **[Web Services - Guide](Web%20Services%20-%20Guide.md)** - `ApiSetting__mdt`, `ApiCredential__mdt`, `ApiMock__mdt`, and `ApiCall__c` usage
+- **[Web Services - Guide](Web%20Services%20-%20Guide.md)** - `ApiSetting__mdt`, `ApiCredential__mdt`, `ApiMock__mdt`, and `ApiCall__c` usage, plus `ApiRuntimeSwitch__c`, the master off-switches for APIs that you can flip without a deployment
 - **[Async Processing - Guide](Async%20Processing%20-%20Guide.md)** - `ScheduledJob__c`, `AsynchronousJobSetting__mdt`, and `AsyncChainExecution__c` configuration
-- **[Logging - Guide](Logging%20-%20Guide.md)** - `LogEntry__c`, `LogEntryEvent__e`, and log filter metadata
-- **[Security - Guide](Security%20-%20Guide.md)** - `ApiRuntimeSwitch__c` for runtime API kill switches
+- **[Logging - Guide](Logging%20-%20Guide.md)** - `LogEntry__c`, `LogEntryEvent__e`, and the `LogSetting__c` custom setting (log levels, class filters, performance logging)
+- **[Security - Guide](Security%20-%20Guide.md)** - the `UserModeQueries_Enabled` and `UserModeDml_Enabled` feature flags that switch the safe access mode on or off org-wide
 - **[Utilities - Guide](Utilities%20-%20Guide.md)** - `UTIL_FeatureFlag` for `FeatureFlag__mdt` consumption
 
 ---
@@ -1808,7 +1820,7 @@ erDiagram
         text RootCorrelationId__c
         number DurationMs__c
         text ExceptionType__c
-        text ExecutionEvent__c
+        picklist ExecutionEvent__c
         longtext Limits__c
         number LineNumber__c
         picklist LogLevel__c
@@ -1928,7 +1940,7 @@ erDiagram
         number TotalDurationMs__c
         text TraceId__c
         text TriggeringRecordId__c
-        url TriggeringRecordUrl__c
+        text TriggeringRecordUrl__c
         url URL__c
     }
 
@@ -1954,7 +1966,7 @@ erDiagram
         text Description__c
         checkbox IsActive__c
         checkbox IsEnabledByDefault__c
-        picklist ResultOnNoMatch__c
+        checkbox ResultOnNoMatch__c
     }
 
     FeatureFlagStrategy__mdt {
@@ -2070,7 +2082,7 @@ erDiagram
         checkbox IsActive__c
         picklist Mode__c
         longtext Pattern__c
-        longtext Replacement__c
+        text Replacement__c
         checkbox CaseSensitive__c
         picklist FailureAction__c
         number Order__c

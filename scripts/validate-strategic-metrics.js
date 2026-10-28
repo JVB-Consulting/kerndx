@@ -399,7 +399,7 @@ function computeExpected(repoRoot)
 				{
 					continue;
 				}
-				if(trimmed.includes('(') || trimmed.includes('class '))
+				if(trimmed.includes('(') || trimmed.includes('class ') || line === trimmed)
 				{
 					continue;
 				}
@@ -874,6 +874,14 @@ function findRecordedFigureDrift(repoRoot, content)
 	return drift;
 }
 
+/**
+ * @description Compares each count the Metrics guide states with the count taken from the source tree. A metric with
+ * no row in the guide is a violation too (claimed 'no row', line 0), so a row that is renamed or deleted cannot pass.
+ *
+ * @param {string} repoRoot
+ * @param {string} [metricsFile] the Metrics guide to read
+ * @return {{violations: Array<object>, expected: object, claims: Map, inlineCounts: Array<object>}}
+ */
 function validate(repoRoot, metricsFile = path.join(repoRoot, METRICS_FILE_RELATIVE))
 {
 	const expected = computeExpected(repoRoot);
@@ -885,6 +893,7 @@ function validate(repoRoot, metricsFile = path.join(repoRoot, METRICS_FILE_RELAT
 	{
 		if(!claims.has(key))
 		{
+			violations.push({key, line: 0, claimed: 'no row', expected: expectedValue});
 			continue;
 		}
 		const {value: claimed, line} = claims.get(key);

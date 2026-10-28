@@ -51,7 +51,7 @@ and it supplies valid values for the rest so the record saves.
 ## Don't use this when
 
 - a single throwaway record in one test is all you need: a plain `new Account(...)` then `insert` is simpler and familiar to everyone (Salesforce has no built-in test-data factory, so this is the standard approach)
-- you need an `AggregateResult`: it has no public constructor and cannot be built or mocked, so insert real records and run the real aggregate query instead
+- you need an `AggregateResult` object itself: it has no public constructor and cannot be built. For an aggregate query you run through `kern.QRY_Builder`, register the rows it returns instead (see [Mocking an aggregate query](Selectors%20-%20Guide.md#mocking-an-aggregate-query))
 
 ---
 
@@ -168,7 +168,7 @@ framework gets in the way.
 | **A plain record with no auto-population**                                | `new Account(Name = 'X')` then `insert` (standard Apex, no wrapper).                               | —                                                         |
 | **One field that the builder shouldn't default**                          | `withOptionalField(field)` to skip a required field, or build the record by hand.                  | [Marking Fields Optional](#marking-fields-optional)       |
 | **DML-free query interception (records flow through `kern.QRY_Builder`)** | `kern.TST_Mock` (same chained build calls as `TST_Builder`, auto-registers for query mocking).     | [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md) |
-| **Aggregate-query test data**                                             | Insert real records via `TST_Builder`. `AggregateResult` cannot be mocked (platform limitation).   | [Anti-Patterns](#anti-patterns)                           |
+| **Aggregate-query test data**                                             | `kern.TST_Mock.registerAggregateRows` hands the query the rows it returns, so nothing is inserted. | [Mocking an aggregate query](Selectors%20-%20Guide.md#mocking-an-aggregate-query) |
 | **Custom default values for a field type**                                | Extend `kern.UTIL_SObjectBuilderDefaultProvider` and assign `kern.TST_Builder.defaultValueProvider`. | [Extending the Defaults](#extending-the-defaults)         |
 
 The builder saves you time; it does not lock you in. Use it when its features earn their keep, and
@@ -199,8 +199,8 @@ The layer has two classes that work together:
    three ways of saving (or not saving) the record.
 2. **[`TST_Factory`](reference/apex/TST_Factory.md)** is a convenience layer on top. It offers ready-made
    builders for records nearly every test needs (users, permission set assignments, feature flags),
-   plus helpers for the framework's own configuration records (trigger settings, validation rules,
-   custom metadata).
+   plus builders for API call records, API settings and content versions. Trigger settings and
+   validation rules are not built by the factory: you deploy them as XML.
 
 > **Scope:** This guide is the deep reference for the test-data layer. There is also a way to feed
 > in-memory records to a query without touching the database, so `kern.QRY_Builder` returns them as
@@ -304,7 +304,7 @@ single throwaway record in one test, a plain `new` expression is perfectly fine.
 chained calls, then one call builds the record (and saves it, unless you ask it not to). It fills in
 the fields Salesforce requires for you.
 
-**When to Use:** For building records in any test. One caveat in a subscriber org: if you have added
+**When to Use:** For building records in any test. One caveat in your org: if you have added
 custom validation rules, a record may need extra `withOverride()` calls to satisfy them, beyond the
 Salesforce-required fields the builder already fills in.
 
@@ -333,11 +333,11 @@ Salesforce-required fields the builder already fills in.
 ### Layer 2: [TST_Factory](reference/apex/TST_Factory.md)
 
 **Purpose:** Skip the repeated setup. These are ready-made builders for the records nearly every
-test needs, plus helpers for the framework's own configuration records.
+test needs: users, permission set assignments, feature flags, API call records, API settings and
+content versions.
 
 **When to Use:** When a record needs the same setup across many tests (a `User` on a given profile, a
-permission set assignment, an active feature flag), or when you need to wire up framework
-configuration (trigger settings, validation rules) for a test.
+permission set assignment, an active feature flag).
 
 **Methods you can call:**
 
@@ -474,7 +474,7 @@ Account account = (Account)kern.TST_Builder.of(Account.SObjectType)
 		.build();
 ```
 
-> In a subscriber org a packaged record type may not be assigned to the running profile. If a build
+> In your org a packaged record type may not be assigned to the running profile. If a build
 > fails with `INVALID_CROSS_REFERENCE_KEY` on `RecordTypeId`, confirm the record type is available
 > to the running user, or pass a blank developer name to fall back to the master record type.
 
@@ -707,7 +707,7 @@ choose a profile whose licence has seats to spare; otherwise the platform report
 when the factory saves the user.
 
 `insertUser(profileName, companyName)` also sets the company name, a simple way to find the user again
-from another test method with `kern.SEL_User.findByCompanyName`. `insertUsers(profileName, count)`
+from another test method with `new kern.SEL_User().findByCompanyName(companyName)`. `insertUsers(profileName, count)`
 saves a batch. When your org's User rules need more than the factory sets, or the user needs a role,
 build the user with `newUser`, set the fields yourself, and let the factory save it:
 
@@ -793,15 +793,26 @@ org, so a test simply builds a record and asserts on the resulting trigger or va
 > [Trigger Actions Fast Start](Fast%20Start%20-%20Trigger%20Actions.md) and
 > [Custom Validations Fast Start](Fast%20Start%20-%20Custom%20Validations.md) for that pattern.
 
-Once the trigger action metadata is deployed, a test builds a record and asserts that the action
-fired:
+Once the trigger action metadata is deployed, a test builds a record and asserts on a field the
+action sets. This example uses the `TRG_AccountSetDefaults` action from the
+[Trigger Actions Fast Start](Fast%20Start%20-%20Trigger%20Actions.md), which fills in a blank
+Description when an Account is created. A before-insert change is not copied back to the record in
+your test, so the test reads the saved record again:
 
 ```apex
 @IsTest
 private static void shouldFireTriggerAction()
 {
-	Account account = (Account)kern.TST_Builder.of(Account.SObjectType).build();
-	Assert.isNotNull(account.Id, 'Record inserted and trigger action should have fired');
+	Account account = (Account)kern.TST_Builder.of(Account.SObjectType)
+			.withOverride(Account.Description, null)
+			.build();
+
+	Account saved = (Account)kern.QRY_Builder.selectFrom(Account.SObjectType)
+			.fields(new List<SObjectField>{ Account.Description })
+			.condition(Account.Id).equals(account.Id)
+			.getFirst();
+
+	Assert.isNotNull(saved.Description, 'The trigger action should fill in a blank Description');
 }
 ```
 
@@ -816,18 +827,36 @@ Place the records under `force-app/main/default/customMetadata/`, one file per r
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata">
+<CustomMetadata xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
     <label>Mask Contact Email</label>
+    <protected>false</protected>
+    <values>
+        <field>kern__CallerClass__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__Field__c</field>
+        <value xsi:nil="true"/>
+    </values>
+    <values>
+        <field>kern__IsActive__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
+    <values>
+        <field>kern__Rule__c</field>
+        <value xsi:type="xsd:string">kern__MaskEmail</value>
+    </values>
     <values>
         <field>kern__SObjectType__c</field>
         <value xsi:type="xsd:string">Contact</value>
     </values>
-    <values>
-        <field>kern__Rule__c</field>
-        <value xsi:type="xsd:string">kern__Mask_Email</value>
-    </values>
 </CustomMetadata>
 ```
+
+A blank `kern__Field__c` applies the rule to every text field on `Contact`. Masking runs inside the
+framework's trigger, so `Contact` also needs the one-line trigger that hands control to the
+framework, and a `kern__TriggerSetting__mdt` record with `kern__ApplyMasking__c` checked. The
+[Data Masking - Guide](Data%20Masking%20-%20Guide.md) explains both steps.
 
 Once the records are deployed, a test builds a record normally and asserts on the masked behaviour:
 
@@ -1029,7 +1058,7 @@ row names a capability, the method that provides it, and anything worth knowing 
 | Build without DML                 | `withoutInsertion()`                           | No Id; fastest path                                                |
 | Build without DML, with an Id     | `withoutInsertion(true)`                       | Valid mock Id for `Id != null` logic and query mocking             |
 | Parent-child graphs               | `withChildren(...)`                            | Single Unit of Work on insert; in-memory linkage without insert    |
-| Record types                      | `withRecordType(developerName)`                | Falls back to master when the packaged type is unavailable         |
+| Record types                      | `withRecordType(developerName)`                | An unknown name throws. A blank name keeps the master record type  |
 | Common records (users, flags)     | `TST_Factory` methods                          | Centralises repeated setup                                         |
 | Framework metadata for tests      | Deploy `CustomMetadata` records via XML        | Sets up trigger and validation behaviour for your tests           |
 | Customise auto-populated defaults | Extend `UTIL_SObjectBuilderDefaultProvider`    | Per-transaction; reset between test methods                        |
@@ -1046,7 +1075,7 @@ causes and the safer approach to use instead.
 | Calling `build()` inside a loop                            | One DML statement per iteration, which hits governor limits fast                        | `withCount(n).buildList()` (a single DML statement)                     |
 | Setting every required field by hand                       | Verbose and brittle; renamed required fields break silently                              | Override only what the test asserts on; let the builder fill the rest   |
 | Using `withoutInsertion(true)` when no Id is needed        | Generates a mock Id the test never uses, adding noise                                    | `withoutInsertion()` (no argument) for pure in-memory logic tests       |
-| Trying to mock aggregate queries                           | `AggregateResult` has no public constructor, so it cannot be instantiated                | Insert real records via `TST_Builder`, then run the aggregate query     |
+| Building an `AggregateResult` by hand                      | `AggregateResult` has no public constructor, so it cannot be instantiated                | `kern.TST_Mock.registerAggregateRows`, then read with `toAggregateList()` |
 | Forgetting `IsParallel=true` removal when inserting `User` | Salesforce forbids `User` DML in parallel tests                                          | Remove `IsParallel=true` from the class header for user-inserting tests |
 | Hardcoding field names as strings in hand-written tests    | Breaks silently when fields are renamed or deleted                                       | Use `SObjectField` token overloads (`withOverride(Account.Name, …)`)    |
 
@@ -1115,5 +1144,5 @@ methods. You do not need manual cleanup between methods for the test-data layer.
 - [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md) - Build-and-test walkthrough, plus `TST_Mock` for DML-free query interception
 - [Selectors - Guide](Selectors%20-%20Guide.md) - Querying records and mocking query results in tests
 - [DML - Guide](DML%20-%20Guide.md) - DML operations and Unit of Work transactions
-- [Triggers - Guide](Triggers%20-%20Guide.md) - Trigger actions tested with factory-built metadata
-- [Validation - Guide](Validation%20-%20Guide.md) - Validation rules tested with factory-built metadata
+- [Triggers - Guide](Triggers%20-%20Guide.md) - Trigger actions and how to test them
+- [Validation - Guide](Validation%20-%20Guide.md) - Validation rules and how to test them

@@ -5,7 +5,7 @@ pageClass: reference
 description: "A semi-intelligent wrapper for standard Apex Schema methods, providing internal caching to avoid hitting describe limits and helper methods for handling relationship field names and namespaces."
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, August 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -128,7 +128,7 @@ Clears the cache of global describe and SObject describe instances to free heap 
 
 ```apex
 UTIL_SObjectDescribe.flushCache();
-System.debug(UTIL_SObjectDescribe.getDescribe('Account')); // Forces new describe instance
+UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account'); // builds a new describe, not the cached one
 ```
 
 </div>
@@ -232,7 +232,7 @@ without needing to know the parent SObjectType.
 
 ```apex
 String fieldName = UTIL_SObjectDescribe.getCachedFieldDescribe(Account.Name)?.getName();
-System.debug(fieldName); // Outputs: Name
+// fieldName is 'Name'
 ```
 
 </div>
@@ -261,7 +261,7 @@ need the field name and don't require the full DescribeFieldResult.
 
 ```apex
 String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Account.Name);
-System.debug(fieldName); // Outputs: Name
+// fieldName is 'Name'
 ```
 
 </div>
@@ -409,7 +409,7 @@ Retrieves the raw `DescribeSObjectResult` for the described object.
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 DescribeSObjectResult result = describe.getDescribe();
-System.debug(result.getLabel()); // Outputs: Account
+// result describes Account, so result.getName() is 'Account'
 ```
 
 </div>
@@ -435,7 +435,7 @@ Retrieves a cached `UTIL_SObjectDescribe` instance for the specified `DescribeSO
 ```apex
 DescribeSObjectResult result = Account.SObjectType.getDescribe();
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(result);
-System.debug(describe.getSObjectType()); // Outputs: Account
+// describe.getSObjectType() is Account.SObjectType
 ```
 
 </div>
@@ -461,7 +461,7 @@ Retrieves a cached `UTIL_SObjectDescribe` instance for the specified SObject ins
 ```apex
 Account acc = new Account();
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(acc);
-System.debug(describe.getNameField().getDescribe().name); // Outputs: Name
+// describe.getNameField() is Account.Name
 ```
 
 </div>
@@ -486,7 +486,7 @@ Retrieves a cached `UTIL_SObjectDescribe` instance for the specified SObject typ
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(Account.SObjectType);
-System.debug(describe.getDescribe().name); // Outputs: Account
+// describe.getDescribe().getName() is 'Account'
 ```
 
 </div>
@@ -511,7 +511,7 @@ Retrieves a cached `UTIL_SObjectDescribe` instance for the specified SObject nam
 
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
-System.debug(describe.getSObjectType()); // Outputs: Account
+// describe.getSObjectType() is Account.SObjectType
 ```
 
 </div>
@@ -539,7 +539,7 @@ Retrieves an `SObjectField` by name, with namespace handling enabled by default.
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
 SObjectField field = describe.getField('LastName');
-System.debug(field.getDescribe().getLabel()); // Outputs: Last Name
+// field is Contact.LastName
 ```
 
 </div>
@@ -566,7 +566,7 @@ Retrieves an `SObjectField` by name, handling relationship notation (e.g., 'Acco
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Contact');
 SObjectField field = describe.getField('Account', false);
-System.debug(field?.getDescribe().name); // Outputs: AccountId
+// field is Contact.AccountId: no field is named 'Account', so 'AccountId' is tried next
 ```
 
 </div>
@@ -597,7 +597,7 @@ static-based lookups share the same global cache.
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 DescribeFieldResult fieldDescribe = describe.getFieldDescribe(Account.Name);
-System.debug(fieldDescribe.getLabel()); // Outputs: Account Name
+// fieldDescribe describes Account.Name, so fieldDescribe.getName() is 'Name'
 ```
 
 </div>
@@ -625,7 +625,7 @@ as it caches the describe result after the first call.
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 DescribeFieldResult fieldDescribe = describe.getFieldDescribe('Name');
-System.debug(fieldDescribe.getLabel()); // Outputs: Account Name
+// fieldDescribe describes Account.Name, so fieldDescribe.getName() is 'Name'
 ```
 
 </div>
@@ -655,7 +655,7 @@ static-based lookups share the same global cache.
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 String fieldName = describe.getFieldName(Account.Name);
-System.debug(fieldName); // Outputs: Name
+// fieldName is 'Name'
 ```
 
 </div>
@@ -677,7 +677,7 @@ Retrieves a wrapped map of fields with namespace handling for the described obje
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 UTIL_SObjectDescribe.FieldsMap fields = describe.getFields();
-System.debug(fields.get('Name')?.getDescribe().getLabel()); // Outputs: Name
+// fields.get('Name') is Account.Name
 ```
 
 </div>
@@ -699,7 +699,7 @@ Retrieves a map of field set names to `FieldSet` objects for the described objec
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 Map<String, FieldSet> fieldSets = describe.getFieldSetsMap();
-System.debug(fieldSets.keySet()); // Outputs: Set of field set names
+// fieldSets holds one entry for each field set on Account, and is empty when Account has none
 ```
 
 </div>
@@ -721,7 +721,7 @@ Retrieves a map of field API names to `SObjectField` instances. Use `getFields()
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 Map<String, SObjectField> fieldMap = describe.getFieldsMap();
-System.debug(fieldMap.keySet().size()); // Outputs: Number of fields on Account
+// fieldMap holds one entry for each field on Account
 ```
 
 </div>
@@ -742,7 +742,7 @@ Retrieves a wrapped map of global `SObjectType` names to `SObjectType` instances
 
 ```apex
 UTIL_SObjectDescribe.GlobalDescribeMap globalDescribe = UTIL_SObjectDescribe.getGlobalDescribe();
-System.debug(globalDescribe.get('Account')?.getDescribe().getLabel()); // Outputs: Account
+// globalDescribe.get('Account') is Account.SObjectType
 ```
 
 </div>
@@ -764,7 +764,7 @@ Retrieves the name field of the SObject (where `isNameField()` is true).
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 SObjectField nameField = describe.getNameField();
-System.debug(nameField.getDescribe().name); // Outputs: Name
+// nameField is Account.Name
 ```
 
 </div>
@@ -1100,7 +1100,7 @@ Retrieves a cached map of global `SObjectType` names to `SObjectType` instances.
 
 ```apex
 Map<String, SObjectType> globalDescribe = UTIL_SObjectDescribe.getRawGlobalDescribe();
-System.debug(globalDescribe.containsKey('Account')); // Outputs: true
+// globalDescribe holds one entry for each object in the org, Account included
 ```
 
 </div>
@@ -1113,7 +1113,8 @@ System.debug(globalDescribe.containsKey('Account')); // Outputs: true
 global static Id getRecordTypeByDeveloperName(SObjectType objectType, String recordTypeName)
 ```
 
-Retrieves the Id of a record type for an SObject by its developer name.
+Retrieves the Id of a record type for an SObject by its developer name. The developer
+name is matched without regard to case.
 
 **Parameters**
 
@@ -1176,7 +1177,7 @@ Returns the `SObjectType` this instance is based on, useful for retrieving metad
 ```apex
 UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe('Account');
 SObjectType objType = describe.getSObjectType();
-System.debug(objType); // Outputs: Account
+// objType is Account.SObjectType
 ```
 
 </div>
@@ -1249,7 +1250,7 @@ Determines whether Person Accounts are enabled by checking for the `isPersonAcco
 
 ```apex
 Boolean isPersonAccountEnabled = UTIL_SObjectDescribe.isPersonAccountEnabled();
-System.debug(isPersonAccountEnabled); // Outputs: true or false based on org configuration
+// isPersonAccountEnabled is true only when Account has the IsPersonAccount field
 ```
 
 </div>
@@ -1266,8 +1267,9 @@ Reports whether a record type, identified by its developer name, is available to
 running user for the given SObject. A record type is available only when it exists, is active, and
 is assigned to the running user's profile or a permission set. Check this before stamping a
 RecordTypeId so an insert does not fail with INVALID_CROSS_REFERENCE_KEY when the type is not
-assigned to the running user — for example a packaged record type that a subscriber has not
-assigned to the profile the code runs under.
+assigned to the running user. For example: a packaged record type that you have not
+assigned to the profile the code runs under in your org. The developer name is matched without
+regard to case.
 
 **Parameters**
 

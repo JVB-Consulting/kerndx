@@ -38,27 +38,27 @@ UTIL_Limits.cpuTime().remaining();
 
 | Method | Description |
 |--------|-------------|
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [aggregateQueries](#aggregatequeries)() | Returns a LimitCheck for aggregate queries. |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [apexCursorRows](#apexcursorrows)() | Returns a LimitCheck for rows returned by Apex cursors. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [aggregateQueries](#aggregatequeries)() | Tracks the child subqueries run inside SOQL queries in this transaction, which the platform calls aggregate queries. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [apexCursorRows](#apexcursorrows)() | Tracks the rows read through Apex cursors, as the platform reports them. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [apexCursors](#apexcursors)() | Returns a LimitCheck for Apex cursors created. |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [apexPaginationCursorRows](#apexpaginationcursorrows)() | Returns a LimitCheck for rows returned by Apex pagination cursors. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [apexPaginationCursorRows](#apexpaginationcursorrows)() | Tracks the rows read through Apex pagination cursors (the cursor kind built for paging a list on screen), as the platform reports them. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [apexPaginationCursors](#apexpaginationcursors)() | Returns a LimitCheck for Apex pagination cursors created. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [callouts](#callouts)() | Returns a LimitCheck for HTTP callouts. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [cpuTime](#cputime)() | Returns a LimitCheck for CPU time (milliseconds). |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [dmlRows](#dmlrows)() | Returns a LimitCheck for DML rows. |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [dmlStatements](#dmlstatements)() | Returns a LimitCheck for DML statements. |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [emailInvocations](#emailinvocations)() | Returns a LimitCheck for email invocations. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [dmlRows](#dmlrows)() | Tracks the records written in this transaction by insert, update, upsert, delete and undelete, added up across all statements. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [dmlStatements](#dmlstatements)() | Tracks the database write statements issued in this transaction. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [emailInvocations](#emailinvocations)() | Tracks the calls that send email from Apex in this transaction. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [fetchCallsOnApexCursor](#fetchcallsonapexcursor)() | Returns a LimitCheck for fetch calls made on Apex cursors. |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [futureCalls](#futurecalls)() | Returns a LimitCheck for future calls. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [futureCalls](#futurecalls)() | Tracks the future methods (code marked to run later, in the background) that this transaction has asked the platform to run. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [heapSize](#heapsize)() | Returns a LimitCheck for heap size (bytes). |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [mobilePushApexCalls](#mobilepushapexcalls)() | Returns a LimitCheck for mobile push Apex calls. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [mobilePushApexCalls](#mobilepushapexcalls)() | Tracks the Apex calls that send mobile push notifications in this transaction. |
 | global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [publishImmediateDml](#publishimmediatedml)() | Returns a LimitCheck for publish immediate DML operations. |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [queueableJobs](#queueablejobs)() | Returns a LimitCheck for queueable jobs. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [queueableJobs](#queueablejobs)() | Tracks the Queueable jobs (background jobs) this transaction has added to the queue. |
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md)> [snapshot](#snapshot)() | Returns a LimitCheck for every governor limit type. |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soqlQueries](#soqlqueries)() | Returns a LimitCheck for SOQL queries. |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soqlQueryLocatorRows](#soqlquerylocatorrows)() | Returns a LimitCheck for SOQL query locator rows. |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soqlQueryRows](#soqlqueryrows)() | Returns a LimitCheck for SOQL query rows. |
-| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soslQueries](#soslqueries)() | Returns a LimitCheck for SOSL queries. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soqlQueries](#soqlqueries)() | Tracks the SOQL queries issued in this transaction. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soqlQueryLocatorRows](#soqlquerylocatorrows)() | Tracks the records returned through query locators in this transaction. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soqlQueryRows](#soqlqueryrows)() | Tracks the records returned by SOQL queries in this transaction, added up across all queries. |
+| global static [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) [soslQueries](#soslqueries)() | Tracks the SOSL searches issued in this transaction. |
 | global static [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [toDebugString](#todebugstring)() | Returns a human-readable summary of all governor limits in the format "Label: used of maximum". |
 
 ### aggregateQueries
@@ -69,7 +69,9 @@ UTIL_Limits.cpuTime().remaining();
 global static UTIL_Limits.LimitCheck aggregateQueries()
 ```
 
-Returns a LimitCheck for aggregate queries.
+Tracks the child subqueries run inside SOQL queries in this transaction, which the platform calls
+aggregate queries. Each parent-to-child subquery counts once, against a limit separate from the SOQL query limit;
+COUNT and GROUP BY queries are not what it counts.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to aggregate queries
 
@@ -83,7 +85,8 @@ Returns a LimitCheck for aggregate queries.
 global static UTIL_Limits.LimitCheck apexCursorRows()
 ```
 
-Returns a LimitCheck for rows returned by Apex cursors.
+Tracks the rows read through Apex cursors, as the platform reports them. To track how many cursors were
+created, use apexCursors.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to Apex cursor rows
 
@@ -112,7 +115,8 @@ over a trailing 24-hour period, unlike the transaction-scoped limits in this cla
 global static UTIL_Limits.LimitCheck apexPaginationCursorRows()
 ```
 
-Returns a LimitCheck for rows returned by Apex pagination cursors.
+Tracks the rows read through Apex pagination cursors (the cursor kind built for paging a list on
+screen), as the platform reports them. To track how many were created, use apexPaginationCursors.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to Apex pagination cursor rows
 
@@ -169,7 +173,8 @@ Returns a LimitCheck for CPU time (milliseconds).
 global static UTIL_Limits.LimitCheck dmlRows()
 ```
 
-Returns a LimitCheck for DML rows.
+Tracks the records written in this transaction by insert, update, upsert, delete and undelete, added
+up across all statements. Check it before a large save to avoid going over the limit.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to DML rows
 
@@ -183,7 +188,8 @@ Returns a LimitCheck for DML rows.
 global static UTIL_Limits.LimitCheck dmlStatements()
 ```
 
-Returns a LimitCheck for DML statements.
+Tracks the database write statements issued in this transaction. One statement that saves 200 records
+counts once.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to DML statements
 
@@ -197,7 +203,8 @@ Returns a LimitCheck for DML statements.
 global static UTIL_Limits.LimitCheck emailInvocations()
 ```
 
-Returns a LimitCheck for email invocations.
+Tracks the calls that send email from Apex in this transaction. One call that sends several messages
+counts once.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to email invocations
 
@@ -225,7 +232,8 @@ Returns a LimitCheck for fetch calls made on Apex cursors.
 global static UTIL_Limits.LimitCheck futureCalls()
 ```
 
-Returns a LimitCheck for future calls.
+Tracks the future methods (code marked to run later, in the background) that this transaction has asked
+the platform to run.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to future calls
 
@@ -253,7 +261,8 @@ Returns a LimitCheck for heap size (bytes).
 global static UTIL_Limits.LimitCheck mobilePushApexCalls()
 ```
 
-Returns a LimitCheck for mobile push Apex calls.
+Tracks the Apex calls that send mobile push notifications in this transaction. One call that reaches
+many devices counts once.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to mobile push Apex calls
 
@@ -281,7 +290,8 @@ Returns a LimitCheck for publish immediate DML operations.
 global static UTIL_Limits.LimitCheck queueableJobs()
 ```
 
-Returns a LimitCheck for queueable jobs.
+Tracks the Queueable jobs (background jobs) this transaction has added to the queue. Check isExhausted
+before you add another one.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to queueable jobs
 
@@ -315,7 +325,8 @@ List<UTIL_Limits.LimitCheck> allLimits = UTIL_Limits.snapshot();
 global static UTIL_Limits.LimitCheck soqlQueries()
 ```
 
-Returns a LimitCheck for SOQL queries.
+Tracks the SOQL queries issued in this transaction. A query counts once, however many records it
+returns; use soqlQueryRows to track the records.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to SOQL queries
 
@@ -329,7 +340,8 @@ Returns a LimitCheck for SOQL queries.
 global static UTIL_Limits.LimitCheck soqlQueryLocatorRows()
 ```
 
-Returns a LimitCheck for SOQL query locator rows.
+Tracks the records returned through query locators in this transaction. A query locator is the query
+form that batch jobs and paged lists use to read large sets of records.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to SOQL query locator rows
 
@@ -343,7 +355,7 @@ Returns a LimitCheck for SOQL query locator rows.
 global static UTIL_Limits.LimitCheck soqlQueryRows()
 ```
 
-Returns a LimitCheck for SOQL query rows.
+Tracks the records returned by SOQL queries in this transaction, added up across all queries.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to SOQL query rows
 
@@ -357,7 +369,8 @@ Returns a LimitCheck for SOQL query rows.
 global static UTIL_Limits.LimitCheck soslQueries()
 ```
 
-Returns a LimitCheck for SOSL queries.
+Tracks the SOSL searches issued in this transaction. A SOSL search is a text search across several
+objects at once.
 
 **Returns** [UTIL_Limits.LimitCheck](UTIL_Limits.LimitCheck.md) — LimitCheck scoped to SOSL queries
 

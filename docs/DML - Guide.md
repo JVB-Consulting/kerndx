@@ -51,7 +51,7 @@ Think of it as a removals firm for your records. You hand over the boxes (the re
 
 ## Quick Start
 
-For everyday inserts, updates, and deletes, call `DML_Builder`. When several related records must save together as one unit, use `DML_Transaction`.
+For everyday inserts, updates, and deletes, call `DML_Builder`. When several related records must save together as one unit, start one transaction with `kern.DML_Builder.newTransaction()`.
 
 > **Step-by-step walkthrough:** [Fast Start - DML](Fast%20Start%20-%20DML.md) covers implementation,
 > testing, and common pitfalls.
@@ -72,11 +72,11 @@ DML_Builder.newTransaction().doInsert(accounts).execute();
 
 ```apex
 Account account = new Account(Name = 'Acme Corp');
-Contact contact = new Contact(FirstName = 'Jane', LastName = 'Doe');
+Contact newContact = new Contact(FirstName = 'Jane', LastName = 'Doe');
 
 DML_Builder.newTransaction()
 	.doInsert(account)
-	.doInsert(contact, Contact.AccountId, account)
+	.doInsert(newContact, Contact.AccountId, account)
 	.execute();
 ```
 
@@ -91,9 +91,9 @@ You are never locked in. The framework is opt-in, and for every common case the 
 | You need                                                              | Use                                                                                                                                                                                                                                                               | See                                                                                   |
 |-----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
 | **Partial-success DML** (`Database.insert(records, false)` semantics) | `DML_Builder.allowPartial()`. Failed rows surface as `Database.SaveResult` errors while the rest commit.                                                                                                                                                         | [Anti-Patterns](#anti-patterns), [Capability Matrix](#capability-matrix-for-analysts) |
-| **>10K rows in one logical transaction**                              | `DML_Builder.async()` streams operations through queueables/batches. The access mode you chose travels with the job, and so does `.bypassSharing()`; without it the job enforces record sharing. The platform throws a catchable pre-flight exception that names `.async()` as the fix when a synchronous save would exceed `UTIL_Limits.dmlRows().maximum()`. | [Bulk Utilities → Batch Processing](#batch-processing)                                |
+| **>10K rows in one logical transaction**                              | `DML_Builder.async()` streams operations through queueables/batches. The access mode you chose travels with the job, and so does `.bypassSharing()`; without it the job enforces record sharing. The framework throws `kern.UTIL_Exceptions.IllegalStateException` before saving, with a message that names `.async()` as the fix, when a synchronous save would exceed `UTIL_Limits.dmlRows().maximum()`. | [Bulk Utilities → Batch Processing](#batch-processing)                                |
 | **Per-transaction `AccessLevel` override**                            | `.withUserMode()` for explicit USER_MODE, `.withSystemMode()` for SYSTEM_MODE. Either overrides the flag-driven default.                                                                                                                                                | [Access Mode (USER_MODE / SYSTEM_MODE)](#access-mode-user_mode--system_mode)          |
-| **Bypass sharing for one operation**                                  | `.bypassSharing()` routes through the `without sharing` proxy for that transaction only.                                                                                                                                                                          | [Bypass vs Enforce vs Inherited](#bypass-vs-enforce-vs-inherited)                     |
+| **Bypass sharing for one operation**                                  | `.bypassSharing()` routes through the `without sharing` proxy for that transaction only. In USER_MODE the user's object and field permissions still apply: fields the user cannot create or edit are left out of the save.                                       | [Bypass vs Enforce vs Inherited](#bypass-vs-enforce-vs-inherited)                     |
 | **Inspect platform `SaveResult` / `UpsertResult` errors directly**    | `TransactionResult.getErrors()` returns the underlying platform errors after `.execute()`.                                                                                                                                                                        | [Anti-Patterns](#anti-patterns)                                                       |
 | **Skip the framework entirely for one edge case**                     | `Database.insert(records, false, AccessLevel.SYSTEM_MODE)` works unmodified, because nothing intercepts raw platform DML.                                                                                                                                                | —                                                                                     |
 
@@ -186,7 +186,7 @@ Use the framework for the 95% common case, and use one of these options (or raw 
     - [Create Fresh Transactions](#create-fresh-transactions)
     - [Document DML Operations](#document-dml-operations)
     - [Use All-or-Nothing Appropriately](#use-all-or-nothing-appropriately)
-    - [Reset Sharing After Operations](#reset-sharing-after-operations)
+    - [Set Sharing per Operation](#set-sharing-per-operation)
     - [Use Purge Utilities for Cleanup](#use-purge-utilities-for-cleanup)
 20. [Related Documentation](#related-documentation)
 
@@ -227,9 +227,9 @@ A few helpers round out the toolkit:
 - **`UTIL_PurgeRecords`** deletes records in bulk for cleanup.
 - **`UTIL_BulkUpdates`** applies the same field change across many records at once.
 
-> **DML Framework Scope:** 6 DML classes providing transactional Unit of Work, bulk operations, sharing control, and partial success handling.
-> The test data factory (`TST_Builder`, `TST_Factory`, `TST_Mock`) spans 10 utility classes used across 165 test classes and ~3,359 Apex
-> test methods (see [Metrics](Strategic%20Guide%20-%20Metrics.md)).
+> **DML Framework Scope:** DML classes providing transactional Unit of Work, bulk operations, sharing control, and partial success handling.
+> The test data factory (`TST_Builder`, `TST_Factory`, `TST_Mock`) is used across the framework's own test classes
+> (see [Metrics](Strategic%20Guide%20-%20Metrics.md) for the counts).
 
 > **Responsibilities:** The DML framework manages database writes (insert, update, delete, upsert, undelete) with transactional integrity,
 > sharing control, and error handling. It does not query data (use selectors for that), and it does not contain business logic.
@@ -274,7 +274,7 @@ A few helpers round out the toolkit:
 |                                  v                                       |
 |  +-------------------------------------------------------------------+   |
 |  |  Layer 2: DML_Builder (Standardized DML)                          |   |
-|  |  - Fluent API: newTransaction().doInsert().execute()              |   |
+|  |  - Chained calls: newTransaction().doInsert().execute()           |   |
 |  |  - Partial success (.allowPartial()) or all-or-nothing           |   |
 |  |  - TransactionResult with error inspection                        |   |
 |  +-------------------------------+-----------------------------------+   |
@@ -364,7 +364,7 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 
 - A safe default that's on automatically: USER_MODE enforces FLS (field-level security), CRUD (object create/read/update/delete permissions), and sharing, governed by the `FeatureFlag.UserModeDml_Enabled` record
 - `.withUserMode()` / `.withSystemMode()` to pick the security level explicitly
-- `.bypassSharing()` to route a write through a `without sharing` path (in SYSTEM_MODE)
+- `.bypassSharing()` to route a write through a `without sharing` path. In USER_MODE the user's object and field permissions still apply; add `.withSystemMode()` to turn those checks off too
 - Per-operation control through short chained method calls
 - [AccessLevel.SYSTEM_MODE](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_enforce_usermode.htm) support
 
@@ -374,7 +374,8 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 // Default (USER_MODE): CRUD + FLS + sharing all enforced at the database level
 DML_Builder.newTransaction().doInsert(accounts).execute();
 
-// Bypass sharing for system operations (routes through `without sharing` proxy)
+// Bypass sharing for system operations (routes through `without sharing` proxy;
+// object and field permissions still apply, and fields the user cannot create are left out)
 DML_Builder.newTransaction().doInsert(accounts).bypassSharing().execute();
 
 // Framework-internal writes (e.g., log rows) — bypass CRUD/FLS
@@ -430,13 +431,13 @@ Call `DML_Builder.newTransaction()` to start a transaction, then chain on the op
 ```apex
 // Basic transactional DML for creating related records
 Account account = new Account(Name = 'Acme Corporation', Industry = 'Technology');
-Contact contact = new Contact(FirstName = 'John', LastName = 'Doe', Email = 'john.doe@acme.com');
-Opportunity opportunity = new Opportunity(Name = 'Big Deal', StageName = 'Prospecting', CloseDate = Date.today().addDays(30));
+Contact newContact = new Contact(FirstName = 'John', LastName = 'Doe', Email = 'john.doe@acme.com');
+Opportunity newOpportunity = new Opportunity(Name = 'Big Deal', StageName = 'Prospecting', CloseDate = Date.today().addDays(30));
 
 DML_Builder.newTransaction()
 	.doInsert(account)
-	.doInsert(contact, Contact.AccountId, account)
-	.doInsert(opportunity, Opportunity.AccountId, account)
+	.doInsert(newContact, Contact.AccountId, account)
+	.doInsert(newOpportunity, Opportunity.AccountId, account)
 	.execute();
 ```
 
@@ -454,14 +455,14 @@ Account account2 = new Account(Name = 'Account 2');
 Contact contact1 = new Contact(LastName = 'Smith');
 Contact contact2 = new Contact(LastName = 'Jones');
 
-Opportunity opportunity = new Opportunity(Name = 'Deal', StageName = 'Closed Won', CloseDate = Date.today());
+Opportunity newOpportunity = new Opportunity(Name = 'Deal', StageName = 'Closed Won', CloseDate = Date.today());
 
 DML_Builder.newTransaction()
 	.doInsert(account1)
 	.doInsert(account2)
 	.doInsert(contact1, Contact.AccountId, account1)
 	.doInsert(contact2, Contact.AccountId, account2)
-	.doInsert(opportunity, Opportunity.AccountId, account1)
+	.doInsert(newOpportunity, Opportunity.AccountId, account1)
 	.execute();
 ```
 
@@ -478,7 +479,7 @@ Account account = new Account(Name = 'Parent Account');
 Contact contact1 = new Contact(FirstName = 'John', LastName = 'Doe');
 Contact contact2 = new Contact(FirstName = 'Jane', LastName = 'Smith');
 
-Opportunity opportunity = new Opportunity(
+Opportunity newOpportunity = new Opportunity(
 	Name = 'Big Opportunity',
 	StageName = 'Prospecting',
 	CloseDate = Date.today().addDays(60)
@@ -488,7 +489,7 @@ DML_Builder.newTransaction()
 	.doInsert(account)
 	.doInsert(contact1, Contact.AccountId, account)
 	.doInsert(contact2, Contact.AccountId, account)
-	.doInsert(opportunity, Opportunity.AccountId, account)
+	.doInsert(newOpportunity, Opportunity.AccountId, account)
 	.execute();
 ```
 
@@ -500,10 +501,10 @@ An [upsert](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apex
 
 ```apex
 // Upsert using external ID field for matching
-Account account = new Account(Name = 'Acme Corp', ExternalId__c = 'EXT-001');
+Account newAccount = new Account(Name = 'Acme Corp', ExternalId__c = 'EXT-001');
 
 DML_Builder.newTransaction()
-	.doUpsert(account, Account.ExternalId__c)
+	.doUpsert(newAccount, Account.ExternalId__c)
 	.execute(); // Inserts new record or updates existing record matching ExternalId__c
 ```
 
@@ -527,29 +528,29 @@ DML_Builder.newTransaction()
 
 ```apex
 // Upsert parent with related child inserts
-Account account = new Account(Name = 'Parent Account', ExternalId__c = 'EXT-PARENT');
-Contact contact = new Contact(FirstName = 'John', LastName = 'Doe');
+Account newAccount = new Account(Name = 'Parent Account', ExternalId__c = 'EXT-PARENT');
+Contact newContact = new Contact(FirstName = 'John', LastName = 'Doe');
 
 DML_Builder.newTransaction()
-	.doUpsert(account, Account.ExternalId__c)
-	.doInsert(contact, Contact.AccountId, account)
+	.doUpsert(newAccount, Account.ExternalId__c)
+	.doInsert(newContact, Contact.AccountId, newAccount)
 	.execute();
 ```
 
 > **Important:** All records of the same SObjectType within a single transaction must use the same external ID field. Attempting to register records with different external ID
-> fields for the same SObjectType throws an `IllegalStateException`.
+> fields for the same SObjectType throws a `kern.UTIL_Exceptions.IllegalStateException`.
 
 **Example - Conflicting External ID Fields (Invalid):**
 
 ```apex
-// This will throw an IllegalStateException
+// This will throw a kern.UTIL_Exceptions.IllegalStateException
 Account account1 = new Account(Name = 'Account 1', ExternalId__c = 'EXT-001');
 Account account2 = new Account(Name = 'Account 2', AlternateExternalId__c = 'ALT-001');
 
 DML_Builder.newTransaction()
 	.doUpsert(account1, Account.ExternalId__c)
-	.doUpsert(account2, Account.AlternateExternalId__c) // Throws IllegalStateException!
-	.execute();
+	.doUpsert(account2, Account.AlternateExternalId__c)
+	.execute(); // Throws kern.UTIL_Exceptions.IllegalStateException!
 
 // Error: Cannot use different external ID fields for the same SObjectType in a single transaction
 ```
@@ -824,7 +825,7 @@ if(!deletedAccounts.isEmpty())
 
 ### Context-Driven Sharing
 
-By default, a `DML_Builder` chain follows the sharing rules of the class that called it. You set that at the class level: `with sharing` for user-facing code, `without sharing` for system maintenance. When you need finer control for one write, the per-call methods (`.bypassSharing()`, `.withUserMode()`, `.withSystemMode()`) override the default, and each override is recorded so the decision can be audited later.
+By default, a `DML_Builder` chain runs in USER_MODE, where the platform always enforces the running user's record sharing. In SYSTEM_MODE the chain follows the sharing rules of the class that called it. You set that at the class level: `with sharing` for user-facing code, `without sharing` for system maintenance. When you need finer control for one write, the per-call methods (`.bypassSharing()`, `.withUserMode()`, `.withSystemMode()`) override the default. The framework records each use of `.withSystemMode()` and `.bypassSharing()`, so you can audit the decision later. `.withUserMode()` turns no check off, so it is not recorded.
 
 **Example:**
 
@@ -854,7 +855,8 @@ public without sharing class SystemBatchProcess implements Database.Batchable<SO
 {
 	public void execute(Database.BatchableContext context, List<SObject> scope)
 	{
-		// Bypass sharing for system operations
+		// Bypass sharing for system operations; in USER_MODE the running user's
+		// object and field permissions still apply
 		DML_Builder.newTransaction()
 			.doUpdate(scope)
 			.bypassSharing()
@@ -866,6 +868,13 @@ public without sharing class SystemBatchProcess implements Database.Batchable<SO
 ### Operation-Level Sharing
 
 By default `DML_Builder` runs in `AccessLevel.USER_MODE`, so object permissions, field permissions, and sharing are all enforced at the database level. To loosen that for a specific write: use `.bypassSharing()` to ignore record sharing (routing through a `without sharing` path), or `.withSystemMode()` to skip the permission checks entirely for framework-internal writes.
+
+`.bypassSharing()` alone keeps the running user's object and field permissions:
+
+- A field the user cannot create (on an insert) or edit (on an update) is left out of the save, without an error. One warning in the log names the object and the fields, never their values. Formula fields, auto-number fields and the system fields Salesforce fills in itself are left out without a warning. With `.suppressLogging()` no warning is written.
+- A save the user has no object permission for (create, edit, delete or undelete) is refused, as user mode refuses it. Two more saves are refused: an upsert that matches on a key field the user cannot read or cannot edit, and a save that would leave out a lookup field you registered with its parent record. In an all-or-nothing save you get the same error user mode gives. Under `.allowPartial()` you get an error on each refused row instead.
+
+To save a field the user cannot edit, add `.withSystemMode()` as well. It turns off the object and field permission checks too.
 
 ### Access Mode (USER_MODE / SYSTEM_MODE)
 
@@ -887,18 +896,18 @@ DML_Builder.newTransaction()
 	.execute();
 ```
 
-**Emergency kill-switch (a master off-switch you can flip in an incident without a deployment of code):** set `FeatureFlag.UserModeDml_Enabled.IsEnabledByDefault__c` to `false` with a metadata deploy. It takes effect on the next transaction, and from then on every call that doesn't explicitly use `.withUserMode()` or `.withSystemMode()` reverts to `AccessLevel.SYSTEM_MODE`. See [Security Guide, Safe by Default](Security%20-%20Guide.md#safe-by-default).
+**Emergency kill-switch (a master off-switch you can flip in an incident without a deployment of code):** set `IsEnabledByDefault__c` to `false` on the `FeatureFlag.UserModeDml_Enabled` record (a `kern__FeatureFlag__mdt` record in your org), in Setup or with a metadata deploy. It takes effect on the next transaction, and from then on every call that doesn't explicitly use `.withUserMode()` or `.withSystemMode()` reverts to `AccessLevel.SYSTEM_MODE`. See [Security Guide, Safe by Default](Security%20-%20Guide.md#safe-by-default).
 
 **Example:**
 
 ```apex
 // Operation-level sharing control
 Account account = new Account(Name = 'Test Account');
-Contact contact = new Contact(FirstName = 'Test', LastName = 'User');
+Contact newContact = new Contact(FirstName = 'Test', LastName = 'User');
 
 DML_Builder.newTransaction()
 	.doInsert(account)
-	.doInsert(contact, Contact.AccountId, account)
+	.doInsert(newContact, Contact.AccountId, account)
 	.execute();
 ```
 
@@ -912,7 +921,8 @@ There are three ways sharing can apply to a write: bypass it, enforce it, or inh
 // Sharing mode examples
 List<Account> accounts = new List<Account>{new Account(Name = 'Test')};
 
-// BYPASS: Routes DML through the `without sharing` proxy (sharing rules ignored)
+// BYPASS: Routes DML through the `without sharing` proxy (sharing rules ignored;
+// in USER_MODE the object and field permissions still apply)
 DML_Builder.newTransaction()
 	.doInsert(accounts)
 	.bypassSharing()
@@ -2120,14 +2130,14 @@ What the data layer can control, and the exact method or record that controls it
 | Transactional DML                | Unit of Work pattern              | `DML_Builder.newTransaction()`                        | Commits all changes atomically                                                      |
 | USER_MODE default                | Database-level access enforcement | `DML_Builder` (default)                               | CRUD + FLS + sharing enforced; shipped via `FeatureFlag.UserModeDml_Enabled = true` |
 | USER_MODE / SYSTEM_MODE (per-op) | Access-mode override              | `.withUserMode()` / `.withSystemMode()`               | Explicit per-transaction override of the flag-driven default                        |
-| Access-mode kill-switch          | Metadata-only emergency rollback  | `FeatureFlag.UserModeDml_Enabled`                     | Flip `IsEnabledByDefault__c = false` to revert all DML to SYSTEM_MODE               |
-| Sharing enforcement (per-op)     | Proxy class routing               | `.bypassSharing()`                                    | Routes through `without sharing` proxy (only meaningful in SYSTEM_MODE)             |
+| Access-mode kill-switch          | Metadata-only emergency rollback  | `FeatureFlag.UserModeDml_Enabled`                     | Set `IsEnabledByDefault__c` to `false` on this `kern__FeatureFlag__mdt` record, in Setup or with a metadata deploy, to revert all DML to SYSTEM_MODE |
+| Sharing enforcement (per-op)     | Proxy class routing               | `.bypassSharing()`                                    | Routes through `without sharing` proxy; in USER_MODE the object and field checks still apply and fields the user cannot write are left out |
 | Async DML keeps your security choices | Access mode and sharing propagation | `.async().execute()`                             | The access mode and `.bypassSharing()` both travel with the job; without a bypass the job enforces record sharing |
 | Partial success                  | Error handling                    | `.allowPartial()`                                     | Continues on individual record failures                                             |
 | Expected refusals                | Error handling                    | `.expectRefusal(StatusCode)`                          | A declared refusal logs at WARN instead of ERROR in partial mode; the result is unchanged; the declaration travels with `.async()` |
 | Retry on row lock                | Error handling                    | `.withRetryOnLock()` / `.withRetryOnLock(retries)`    | A commit refused because another transaction holds a row is tried again, up to 5 more times; the whole commit in all-or-nothing mode, the refused rows in partial mode; travels with `.async()` |
 | Object permission checking       | Flow invocable                    | `FLOW_CheckObjectPermissions`                         | Validates CRUD before DML in Flows                                                  |
-| Field-level security             | Query-level enforcement           | `QRY_Builder.withUserMode()` / `.stripInaccessible()` | FLS enforcement at the query level                                                  |
+| Field-level security             | Query-level enforcement           | `QRY_Builder.withUserMode()` / `.stripInaccessible()` | FLS enforcement at the query level (`.stripInaccessible()` removes hidden fields in SYSTEM_MODE) |
 | Parent-child chaining            | Relationship linking              | `.doInsert(child, field, parent)`                     | Auto-sets lookup after parent insert                                                |
 
 </details>
@@ -2144,7 +2154,7 @@ Common mistakes when writing data by hand, and what to do instead.
 | Anti-Pattern                                | Why It's Wrong                                                                 | Instead                                                                     |
 |---------------------------------------------|--------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
 | Raw `insert`/`update`/`delete` statements   | Bypasses sharing enforcement, error handling, and framework consistency        | Use `DML_Builder.newTransaction().doInsert(records).execute()`              |
-| Separate DML calls for related objects      | If the second DML fails, the first stays committed, with no way to roll it back | Use `DML_Transaction` (Unit of Work) to commit all changes atomically       |
+| Separate DML calls for related objects      | If the second DML fails, the first stays committed, with no way to roll it back | Use `kern.DML_Builder.newTransaction()` (Unit of Work) to commit all changes atomically |
 | DML inside a loop                           | Hits governor limits on bulk operations                                        | Collect records into a list, then perform a single bulk DML call            |
 | Ignoring `Database.SaveResult` errors       | Silent failures corrupt data and hide bugs                                     | Use `.allowPartial()` with `DML_Builder` and log failures via `LOG_Builder`; declare the refusals you expect with `.expectRefusal()` so they log at WARN |
 | Hand-rolled retry loops around the builder  | The loop has to clear rolled-back Ids, restore what the commit consumed and watch the DML limits, and it hides the retry from the log | Use `.withRetryOnLock()`; it does all of that and writes one WARN entry per retried commit |
@@ -2165,11 +2175,11 @@ When you save several related objects, register them in one `DML_Builder.newTran
 ```apex
 // Use DML_Builder for related objects to maintain transactional integrity
 Account account = new Account(Name = 'Test');
-Contact contact = new Contact(LastName = 'Doe');
+Contact newContact = new Contact(LastName = 'Doe');
 
 DML_Builder.newTransaction()
 	.doInsert(account)
-	.doInsert(contact, Contact.AccountId, account)
+	.doInsert(newContact, Contact.AccountId, account)
 	.execute();
 ```
 
@@ -2398,11 +2408,17 @@ Give every DML method clear ApexDoc, so the next person knows what it does and h
  * ```apex
  * Account account = createAccountWithContacts('Acme Corp', new List<String>{'Smith', 'Jones'});
  * ```
-
-*/
+ */
 public static Account createAccountWithContacts(String accountName, List<String> contactNames)
 {
-// Implementation
+	Account newAccount = new Account(Name = accountName);
+	DML_Builder builder = DML_Builder.newTransaction().doInsert(newAccount);
+	for(String contactName : contactNames)
+	{
+		builder.doInsert(new Contact(LastName = contactName), Contact.AccountId, newAccount);
+	}
+	builder.execute();
+	return newAccount;
 }
 
 ```
@@ -2420,7 +2436,7 @@ DML_Builder.newTransaction().doInsert(records).execute();
 DML_Builder.newTransaction().doInsert(records).allowPartial().execute();
 ```
 
-### **Reset Sharing After Operations**
+### **Set Sharing per Operation**
 
 Set sharing per operation rather than flipping a shared, global setting, so one write can't accidentally change the behaviour of another.
 

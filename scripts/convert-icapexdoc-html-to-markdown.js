@@ -29,6 +29,11 @@ const cheerio = require('cheerio');
 const MAX_SUMMARY_LENGTH = 150;
 const TRUNCATED_SUMMARY_LENGTH = 147;
 
+/** The longest description (in characters) that the master index shows for an item before it is cut short. */
+const MAX_INDEX_DESCRIPTION_LENGTH = 120;
+/** How many characters of a long index description are kept, leaving room for the three dots that end it. */
+const TRUNCATED_INDEX_DESCRIPTION_LENGTH = 117;
+
 const APEX_MODIFIERS = [
 	'global',
 	'public',
@@ -173,12 +178,13 @@ function extractExampleFromHtml(divHtml)
 
 		// Extract language and code
 		const language = match[1] || 'apex';
+		// `&amp;` is decoded last, so an escaped entity such as `&amp;lt;` becomes `&lt;` and is not decoded twice.
 		const code = match[2]
 		.replace(/&quot;/g, '"')
-		.replace(/&amp;/g, '&')
 		.replace(/&lt;/g, '<')
 		.replace(/&gt;/g, '>')
 		.replace(/&#39;/g, '\'')
+		.replace(/&amp;/g, '&')
 		.trim();
 
 		parts.push('```' + language + '\n' + code + '\n```');
@@ -471,16 +477,17 @@ function htmlToMarkdown(text, preserveStructure = false)
 		.replace(/<\/?li[^>]*>/gi, ' ');
 	}
 
+	// `&amp;` is decoded last, so an escaped entity such as `&amp;lt;` becomes `&lt;` and is not decoded twice.
 	result = result
 	.replace(/<[^>]+>/g, ' ')
 	.replace(/&nbsp;/g, ' ')
 	.replace(/&quot;/g, '"')
-	.replace(/&amp;/g, '&')
 	.replace(/&lt;/g, '<')
 	.replace(/&gt;/g, '>')
 	.replace(/&#39;/g, '\'')
 	.replace(/&ndash;/g, '-')
-	.replace(/&mdash;/g, '—');
+	.replace(/&mdash;/g, '—')
+	.replace(/&amp;/g, '&');
 
 	if(preserveStructure)
 	{
@@ -724,11 +731,11 @@ function extractMetadata(cheerioApi, filePath)
 				.replace(/<b>([^<]*)<\/b>/gi, '**$1**')
 				.replace(/<[^>]+>/g, '')
 				.replace(/&nbsp;/g, ' ')
-				.replace(/&amp;/g, '&')
 				.replace(/&lt;/g, '<')
 				.replace(/&gt;/g, '>')
 				.replace(/&quot;/g, '"')
 				.replace(/&#39;/g, '\'')
+				.replace(/&amp;/g, '&')
 				.replace(/\n{3,}/g, '\n\n')
 				.trim();
 			}
@@ -763,11 +770,11 @@ function extractMetadata(cheerioApi, filePath)
 					.replace(/<b>([^<]*)<\/b>/gi, '**$1**')
 					.replace(/<[^>]+>/g, '')
 					.replace(/&nbsp;/g, ' ')
-					.replace(/&amp;/g, '&')
 					.replace(/&lt;/g, '<')
 					.replace(/&gt;/g, '>')
 					.replace(/&quot;/g, '"')
 					.replace(/&#39;/g, '\'')
+					.replace(/&amp;/g, '&')
 					.replace(/\n{3,}/g, '\n\n')
 					.trim();
 				}
@@ -1499,6 +1506,23 @@ function extractCallableDetails(cheerioApi, cleanName, selector)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Turn a value into a double-quoted YAML string the docs site's YAML reader can load. Backslashes and double quotes
+ * are escaped, and each control character (such as a tab or a line break) becomes one space, so the words on either side
+ * stay apart.
+ * @param {*} value - The value to write
+ * @returns {string} The value in double quotes, safe to place after `key: `
+ */
+function toYamlString(value)
+{
+	const text = String(value)
+	// eslint-disable-next-line no-control-regex -- the point is to replace control characters with a space
+	.replace(/[\u0000-\u001F\u007F]/g, ' ')
+	.replace(/\\/g, '\\\\')
+	.replace(/"/g, '\\"');
+	return `"${text}"`;
+}
+
+/**
  * Generate YAML front matter
  * @param {Object} metadata - Metadata object
  * @param {string} formattedAuthor - Formatted author name
@@ -1507,7 +1531,7 @@ function extractCallableDetails(cheerioApi, cleanName, selector)
 function generateFrontMatter(metadata, formattedAuthor)
 {
 	let md = '---\n';
-	md += `title: "${metadata.title}"\n`;
+	md += `title: ${toYamlString(metadata.title)}\n`;
 	md += `type: ${metadata.docType}\n`;
 	// Scope the reference-only card / heading-accent styling: VitePress applies
 	// `frontmatter.pageClass` as a class on the doc container, so the theme CSS
@@ -1515,24 +1539,26 @@ function generateFrontMatter(metadata, formattedAuthor)
 	md += 'pageClass: reference\n';
 	if(metadata.description)
 	{
-		const escapedDesc = metadata.description.replace(/"/g, '\\"').replace(/\n/g, ' ').substring(0, 200);
-		md += `description: "${escapedDesc}"\n`;
+		// Cut the text before escaping it, so the cut can never split an escape in two, and cut by character rather
+		// than by UTF-16 unit, so it cannot split an emoji in half either.
+		const shortDescription = Array.from(metadata.description.replace(/\n/g, ' ')).slice(0, 200).join('');
+		md += `description: ${toYamlString(shortDescription)}\n`;
 	}
 	if(formattedAuthor)
 	{
-		md += `author: "${formattedAuthor}"\n`;
+		md += `author: ${toYamlString(formattedAuthor)}\n`;
 	}
 	if(metadata.group)
 	{
-		md += `group: "${metadata.group}"\n`;
+		md += `group: ${toYamlString(metadata.group)}\n`;
 	}
 	if(metadata.date)
 	{
-		md += `date: "${metadata.date}"\n`;
+		md += `date: ${toYamlString(metadata.date)}\n`;
 	}
 	if(metadata.since)
 	{
-		md += `since: "${metadata.since}"\n`;
+		md += `since: ${toYamlString(metadata.since)}\n`;
 	}
 	md += `category: ${metadata.category}\n`;
 	md += '---\n\n';
@@ -1588,7 +1614,7 @@ function generateHeader(metadata, signatureInfo)
 	// Implements
 	if(signatureInfo.implementsInfo && signatureInfo.implementsInfo.length > 0)
 	{
-		const impls = signatureInfo.implementsInfo.map(impl => impl.href ? `[${impl.name}](${impl.href})` : impl.name);
+		const impls = signatureInfo.implementsInfo.map(impl => (impl.href ? `[${impl.name}](${impl.href})` : impl.name));
 		md += `**Implements:** ${impls.join(', ')}\n\n`;
 	}
 
@@ -1596,7 +1622,7 @@ function generateHeader(metadata, signatureInfo)
 	if(metadata.derivedTypes.length > 0)
 	{
 		md += '**Known Derived Types:** ';
-		md += metadata.derivedTypes.map(d => d.href ? `[${d.text}](${d.href})` : d.text).join(', ') + '\n\n';
+		md += metadata.derivedTypes.map(d => (d.href ? `[${d.text}](${d.href})` : d.text)).join(', ') + '\n\n';
 	}
 
 	// Description
@@ -1615,7 +1641,7 @@ function generateHeader(metadata, signatureInfo)
 	if(metadata.seeAlso.length > 0)
 	{
 		md += '**See Also:** ';
-		md += metadata.seeAlso.map(s => s.href ? `[${s.text}](${s.href})` : s.text).join(', ') + '\n\n';
+		md += metadata.seeAlso.map(s => (s.href ? `[${s.text}](${s.href})` : s.text)).join(', ') + '\n\n';
 	}
 
 	md += '</div>\n\n';
@@ -1802,7 +1828,7 @@ function generatePropertyDetails(propertyDetails)
 		}
 		if(p.seeAlso.length > 0)
 		{
-			md += '**See Also:** ' + p.seeAlso.map(s => s.href ? `[${s.text}](${s.href})` : s.text).join(', ') + '\n\n';
+			md += '**See Also:** ' + p.seeAlso.map(s => (s.href ? `[${s.text}](${s.href})` : s.text)).join(', ') + '\n\n';
 		}
 	});
 
@@ -1840,7 +1866,7 @@ function generateEnumValueDetails(enumConstantDetails)
 		}
 		if(e.seeAlso && e.seeAlso.length > 0)
 		{
-			md += '**See Also:** ' + e.seeAlso.map(s => s.href ? `[${s.text}](${s.href})` : s.text).join(', ') + '\n\n';
+			md += '**See Also:** ' + e.seeAlso.map(s => (s.href ? `[${s.text}](${s.href})` : s.text)).join(', ') + '\n\n';
 		}
 	});
 
@@ -1963,7 +1989,7 @@ function renderMethodOverload(m)
 
 	if(m.seeAlso.length > 0)
 	{
-		md += '**See Also** ' + m.seeAlso.map(s => s.href ? `[${s.text}](${s.href})` : s.text).join(', ') + '\n\n';
+		md += '**See Also** ' + m.seeAlso.map(s => (s.href ? `[${s.text}](${s.href})` : s.text)).join(', ') + '\n\n';
 	}
 
 	return wrapApexMember(md);
@@ -2100,7 +2126,7 @@ function generateFieldDetails(fieldDetails, membersSummary)
 		}
 		if(f.seeAlso.length > 0)
 		{
-			md += '**See Also:** ' + f.seeAlso.map(s => s.href ? `[${s.text}](${s.href})` : s.text).join(', ') + '\n\n';
+			md += '**See Also:** ' + f.seeAlso.map(s => (s.href ? `[${s.text}](${s.href})` : s.text)).join(', ') + '\n\n';
 		}
 	});
 
@@ -2312,7 +2338,8 @@ function convertFile(filePath)
 		{
 			if(m.description)
 			{
-				let summary = htmlToMarkdown(m.description);
+				// The description is Markdown already; converting it again would read `Map<Id, SObject>` as a tag and drop it.
+				let summary = m.description.replace(/\s+/g, ' ').trim();
 				const sentenceEnd = summary.match(/[.!?](\s|$)/);
 				if(sentenceEnd)
 				{
@@ -2508,7 +2535,8 @@ const FRAMEWORK_AREAS = [
 	{
 		group: 'Selectors',
 		title: 'Selectors',
-		description: 'Object-specific query classes that extend `SEL_Base`. Define default fields and provide type-safe record retrieval via `findById()`, `findByField()`, and custom query methods.',
+		description: 'Object-specific query classes that extend `SEL_Base`. Define default fields and provide type-safe record retrieval via '
+			+ '`findById()`, `findByField()`, and custom query methods.',
 		highlights: ['SEL_Base']
 	},
 	{
@@ -2523,7 +2551,8 @@ const FRAMEWORK_AREAS = [
 	{
 		group: 'Triggers',
 		title: 'Trigger Framework',
-		description: 'Metadata-driven trigger dispatch. Configure trigger actions via `TriggerAction__mdt` custom metadata. Extend `TRG_Base` and implement `IF_Trigger` event interfaces.',
+		description: 'Metadata-driven trigger dispatch. Configure trigger actions via `TriggerAction__mdt` custom metadata. '
+			+ 'Extend `TRG_Base` and implement `IF_Trigger` event interfaces.',
 		highlights: [
 			'TRG_Dispatcher',
 			'TRG_Base',
@@ -2857,7 +2886,16 @@ function generateMasterIndex(categories, masterIndexPath)
 		}
 
 		md += `## ${section.title}\n\n`;
-		md += `| ${section.key === 'events' ? 'Event' : section.key === 'metadata' ? 'Metadata' : 'Object'} | Description |\n`;
+		let nameColumn = 'Object';
+		if(section.key === 'events')
+		{
+			nameColumn = 'Event';
+		}
+		else if(section.key === 'metadata')
+		{
+			nameColumn = 'Metadata';
+		}
+		md += `| ${nameColumn} | Description |\n`;
 		md += '|--------|-------------|\n';
 		items.sort((a, b) => a.cleanName.localeCompare(b.cleanName)).forEach(item =>
 		{
@@ -2887,9 +2925,9 @@ function truncateDescription(desc)
 	// Take first sentence
 	const sentenceEnd = desc.match(/[.!?](\s|$)/);
 	let result = sentenceEnd ? desc.substring(0, sentenceEnd.index + 1) : desc;
-	if(result.length > 120)
+	if(result.length > MAX_INDEX_DESCRIPTION_LENGTH)
 	{
-		result = result.substring(0, 117) + '...';
+		result = result.substring(0, TRUNCATED_INDEX_DESCRIPTION_LENGTH) + '...';
 	}
 	return result;
 }
@@ -2898,8 +2936,25 @@ function truncateDescription(desc)
 // Main Execution
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Only run if executed directly (not imported)
-if(require.main === module)
+/**
+ * Build a glob pattern from a folder and a pattern. Glob reads a backslash as an escape character, so the Windows
+ * backslashes in the folder path are turned into forward slashes first.
+ * @param {string} directory - The folder to search, written with the platform's separator
+ * @param {string} pattern - The pattern to match inside the folder, such as `*.html`
+ * @param {string} [separator] - The platform's path separator; defaults to `path.sep`
+ * @returns {string} The pattern, written with forward slashes only
+ */
+function toGlobPattern(directory, pattern, separator = path.sep)
+{
+	return `${directory.split(separator).join('/')}/${pattern}`;
+}
+
+/**
+ * Convert every IcApexDoc HTML page into Markdown and write the indexes.
+ * @returns {number} The exit code: 0 when every page converted, 1 when the input is missing, no page was found or converted,
+ *          or any page failed to convert
+ */
+function runConverter()
 {
 	console.log('╔════════════════════════════════════════════════════════════╗');
 	console.log('║   IcApexDoc → Enterprise Markdown Converter v3.21.0       ║');
@@ -2909,7 +2964,21 @@ if(require.main === module)
 	{
 		console.error(`❌ Input not found: ${CONFIG.inputDir}`);
 		console.log('   Run IcApexDoc in IntelliJ first.');
-		process.exit(1);
+		return 1;
+	}
+
+	// glob lists files in the order the disk gives them; sorting makes every run convert, log and index the pages the same way.
+	const htmlFiles = glob.sync(toGlobPattern(CONFIG.inputDir, '*.html'))
+	.filter(f => !CONFIG.skipFiles.includes(path.basename(f)))
+	.filter(f => !CONFIG.skipPatterns.some(p => p.test(path.basename(f))))
+	.sort();
+
+	console.log(`📂 Found ${htmlFiles.length} HTML files\n`);
+
+	if(htmlFiles.length === 0)
+	{
+		console.error(`❌ No HTML page found in ${CONFIG.inputDir}, so ${CONFIG.outputDir} was left unchanged and no index.md was written.`);
+		return 1;
 	}
 
 	// Clean up output directory
@@ -2917,27 +2986,22 @@ if(require.main === module)
 	{
 		console.log('🧹 Cleaning output directory...');
 
-		const legacyIndexFiles = glob.sync(path.join(CONFIG.outputDir, '**/_index.md'));
+		const legacyIndexFiles = glob.sync(toGlobPattern(CONFIG.outputDir, '**/_index.md'));
 		legacyIndexFiles.forEach(f =>
 		{
 			fs.unlinkSync(f);
 			console.log(`  Removed legacy: ${path.relative(CONFIG.outputDir, f)}`);
 		});
 
-		const existingMdFiles = glob.sync(path.join(CONFIG.outputDir, '**/*.md'));
+		const existingMdFiles = glob.sync(toGlobPattern(CONFIG.outputDir, '**/*.md'));
 		existingMdFiles.forEach(f => fs.unlinkSync(f));
 		console.log(`  Removed ${existingMdFiles.length} existing .md files\n`);
 	}
 
-	const htmlFiles = glob.sync(path.join(CONFIG.inputDir, '*.html'))
-	.filter(f => !CONFIG.skipFiles.includes(path.basename(f)))
-	.filter(f => !CONFIG.skipPatterns.some(p => p.test(path.basename(f))));
-
-	console.log(`📂 Found ${htmlFiles.length} HTML files\n`);
 	console.log('Converting...\n');
 
 	const results = [];
-	let errorCount = 0;
+	const failedPages = [];
 
 	htmlFiles.forEach(file =>
 	{
@@ -2952,22 +3016,39 @@ if(require.main === module)
 		catch(err)
 		{
 			console.error(`  ❌ ${path.basename(file)}: ${err.message}`);
-			errorCount++;
+			failedPages.push(path.basename(file));
 		}
 	});
 
-	console.log('\nGenerating indexes...\n');
-	generateIndexes(results);
+	if(results.length > 0)
+	{
+		console.log('\nGenerating indexes...\n');
+		generateIndexes(results);
+	}
 
 	console.log('\n╔════════════════════════════════════════════════════════════╗');
 	console.log(`║   ✨ Complete: ${results.length} files converted                        ║`);
-	if(errorCount > 0)
-	{
-		console.log(`║   ⚠️  ${errorCount} errors encountered                                  ║`);
-	}
 	console.log('╚════════════════════════════════════════════════════════════╝\n');
 
 	console.log(`Output: ${CONFIG.outputDir}/`);
+
+	if(failedPages.length > 0)
+	{
+		console.error(`❌ ${failedPages.length} page(s) failed to convert, so their reference pages are missing: ${failedPages.join(', ')}`);
+		return 1;
+	}
+	if(results.length === 0)
+	{
+		console.error(`❌ None of the ${htmlFiles.length} HTML pages held a page to convert, so no index.md was written.`);
+		return 1;
+	}
+	return 0;
+}
+
+// Only run if executed directly (not imported)
+if(require.main === module)
+{
+	process.exitCode = runConverter();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3003,6 +3084,7 @@ module.exports = {
 	extractMemberDetailsWithExample,
 	extractTypeWithLink, // Markdown generation
 	generateFrontMatter,
+	toYamlString,
 	generateHeader,
 	generateMembersSummary,
 	generatePropertyDetailsMd: generatePropertyDetails,
@@ -3015,7 +3097,9 @@ module.exports = {
 	generateSObjectFieldDetailsMd: generateSObjectFieldDetails, // Main functions
 	convertFile,
 	generateIndexes,
-	generateMasterIndex, // Constants
+	generateMasterIndex,
+	toGlobPattern,
+	runConverter, // Constants
 	CONFIG,
 	APEX_MODIFIERS,
 	MAX_SUMMARY_LENGTH,

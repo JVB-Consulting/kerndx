@@ -2,10 +2,10 @@
 title: "UTIL_ValidationTestHelper"
 type: class
 pageClass: reference
-description: "Reusable utility class for testing validation rules. This is NOT a test class itself but provides assertion methods for subscriber test classes and the framework's own test classes to verify validatio"
+description: "Reusable utility class for testing validation rules. This is NOT a test class itself but provides assertion methods for your test classes and the framework's own test classes to verify validation rule"
 author: "Jason Van Beukering"
 group: "Testing"
-date: "January 2026, May 2026"
+date: "January 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class UTIL_ValidationTestHelper
 ```
 
-Reusable utility class for testing validation rules. This is NOT a test class itself but provides assertion methods for subscriber test classes and the framework's own test classes to verify validation rule behavior. The class validates records in-memory using the validation framework and provides focused assertions for specific rule failures or passes.
+Reusable utility class for testing validation rules. This is NOT a test class itself but provides assertion methods for your test classes and the framework's own test classes to verify validation rule behavior. The class validates records in-memory using the validation framework and provides focused assertions for specific rule failures or passes.
 
 **Example**
 

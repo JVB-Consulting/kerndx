@@ -45,7 +45,7 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 |--------|-------------|
 | global [DML_Builder](DML_Builder.md) [allowPartial](#allowpartial)() | Enables partial success mode. |
 | global [DML_Builder.DML_AsyncBuilder](DML_Builder.DML_AsyncBuilder.md) [async](#async)() | Switches to asynchronous mode. |
-| global [DML_Builder](DML_Builder.md) [bypassSharing](#bypasssharing)() | Bypasses sharing rules for DML operations. |
+| global [DML_Builder](DML_Builder.md) [bypassSharing](#bypasssharing)() | Ignores record sharing for this save, so the running user can save records that other users own and that the user cannot see. |
 | global [DML_Builder](DML_Builder.md) [doDelete](#dodelete)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for deletion. |
 | global [DML_Builder](DML_Builder.md) [doDelete](#dodelete)([SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a single record for deletion. |
 | global [DML_Builder](DML_Builder.md) [doInsert](#doinsert)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Registers multiple records for insertion. |
@@ -136,15 +136,38 @@ DML_Builder.newTransaction()
 global DML_Builder bypassSharing()
 ```
 
-Bypasses sharing rules for DML operations.
+Ignores record sharing for this save, so the running user can save records that other users own
+and that the user cannot see. What else is checked depends on the access mode:
+
+- In user mode (the default while the `UserModeDml_Enabled` flag is on, or after `withUserMode()`), the running
+user's object and field permissions still apply. A field the user cannot create or edit is left out of the
+save, with no error, and the save logs one warning that names the object and the field. A save the user has
+no object permission for, an upsert on an external Id field the user cannot read or edit, and a save that
+would leave out the field that links a record to its parent are refused as user mode refuses them. A record
+that names its parent only by an external Id the user cannot read is refused by Salesforce, with a message
+that does not name the field.
+
+- With `withSystemMode()`, in either order, the object and field permissions are not checked either.
+
+- With the `UserModeDml_Enabled` flag off, a save with no access mode runs in system mode, so nothing is
+checked, as for any save.
+
+The choice is recorded in the bypass audit when the save runs.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
 **Example**
 
 ```apex
+// Ignores record sharing; the running user's object and field permissions still apply.
 DML_Builder.newTransaction()
     .doUpdate(records)
+    .bypassSharing()
+    .execute();
+// Ignores record sharing and the running user's object and field permissions.
+DML_Builder.newTransaction()
+    .doUpdate(records)
+    .withSystemMode()
     .bypassSharing()
     .execute();
 ```
@@ -601,7 +624,9 @@ global DML_Builder suppressExceptions()
 
 Stops a DmlException from being thrown again in all-or-nothing mode. The failure shows on the
 returned TransactionResult instead of reaching the caller as an exception. The save's single ERROR entry,
-written in DML_Transaction.commitWork, still records it unless suppressLogging() is also set.
+written in DML_Transaction.commitWork, still records it unless suppressLogging() is also set. In user mode, a
+save refused because the running user lacks the object permission it needs also returns a failed result
+instead of throwing.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
@@ -626,7 +651,8 @@ global DML_Builder suppressLogging()
 
 Turns off LOG_Builder error logging for DML failures. This covers the entry for each failed row
 of a partial save. It also covers the single ERROR entry the transaction writes when a save fails completely,
-or when partial mode catches an exception thrown during the save.
+or when partial mode catches an exception thrown during the save. It also turns off the warning that
+bypassSharing() logs in user mode when it leaves out fields the user cannot create or edit.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
@@ -751,7 +777,8 @@ global DML_Builder withUserMode()
 
 Forces `AccessLevel.USER_MODE` on every DML operation in this transaction,
 whatever the `UserModeDml_Enabled` feature flag says. Use it when a flow that serves your users must check
-object and field access (CRUD/FLS), even in orgs where an admin has turned the flag off.
+object and field access (CRUD/FLS), even in orgs where an admin has turned the flag off. With
+`bypassSharing()`, the save ignores record sharing but still checks the object and field permissions.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
@@ -759,7 +786,7 @@ object and field access (CRUD/FLS), even in orgs where an admin has turned the f
 
 ```apex
 DML_Builder.newTransaction()
-    .doInsert(accountFromSubscriberUI)
+    .doInsert(accountFromUserInput)
     .withUserMode()
     .execute();
 ```

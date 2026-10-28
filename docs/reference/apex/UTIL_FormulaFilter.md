@@ -54,6 +54,9 @@ Filters the given lists of new and old SObjects based on the entry criteria form
 This method evaluates the entry criteria formula for each record in the `triggerNew` and `triggerOld`.
 If the formula evaluates to true for a record, it is included in the filtered lists.
 
+When the context class also implements UTIL_ValidationRule.INT_BulkValidationContext, its preLoad method runs once per
+call when there is at least one record, before any record is checked; on a delete it gets the deleted records first and null second.
+
 *NOTE: Make sure that if both the old and new records lists are not null they are the same size*
 
 **Parameters**

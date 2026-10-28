@@ -204,7 +204,7 @@ framework normalises Apex, Lightning Data Service, and UI API error shapes into 
 
 ### The namespace gotcha
 
-This is the single most common mistake when building KernDX components in a subscriber org. **The base class
+This is the single most common mistake when building KernDX components in your org. **The base class
 lives in the managed package, so you import it from the `kern/` namespace, not `c/`.**
 
 **In your editor**, at the top of your component's JavaScript file:
@@ -213,7 +213,7 @@ lives in the managed package, so you import it from the `kern/` namespace, not `
 // CORRECT — the managed package owns the module
 import {ComponentBuilder} from 'kern/componentBuilder';
 
-// WRONG in a subscriber org — c/ resolves to your own namespace, not KernDX's
+// WRONG in your org — c/ resolves to your own namespace, not KernDX's
 import {ComponentBuilder} from 'c/componentBuilder';
 ```
 
@@ -396,7 +396,7 @@ export default class AccountCard extends ComponentBuilder('notification', 'contr
 	{
 		try
 		{
-			this.account = await this.callControllerMethod(getAccount, {accountId: this.recordId});
+			this.account = await this.callControllerMethod(getAccount, {accountId: this.recordId}, {isThrow: true, silent: true});
 		}
 		catch(error)
 		{
@@ -449,8 +449,11 @@ force-app/main/default/lwc/accountCard/accountCard.js-meta.xml
 - `extends ComponentBuilder('notification', 'controller')`: gives the component toast helpers AND
   `callControllerMethod()`
 - `import {ComponentBuilder} from 'kern/componentBuilder'`: the base class comes from the managed package
-- `this.callControllerMethod(getAccount, {accountId: this.recordId})`: calls the `@AuraEnabled` Apex method,
-  passing parameters by name, with framework error handling built in
+- `this.callControllerMethod(getAccount, {accountId: this.recordId}, {isThrow: true, silent: true})`: calls the
+  `@AuraEnabled` Apex method, passing parameters by name, with framework error handling built in. By default, a failed
+  call is logged, shows a generic error toast and returns `undefined` without throwing, so a `catch` never runs.
+  `isThrow: true` makes it throw, so your `catch` runs. `silent: true` skips the generic toast, so the user sees
+  only yours
 - `this.showErrorToast(LOAD_FAILED)`: raises an error toast using a Custom Label, not a hardcoded string
 - `this.consoleError(error, 'accountCard.connectedCallback')`: logs the error through the framework
 
@@ -721,6 +724,8 @@ this.consoleError(error, 'accountCard.connectedCallback');
 
 The base class also handles teardown for you: register cleanup work with `this.addTearDownOperation(fn)` and
 the framework runs every registered operation in `disconnectedCallback()` for you.
+Each operation runs once and is then forgotten. So register it in `connectedCallback()`: that way, a component
+that is removed and added back to the page registers its cleanup again.
 
 ### Client-side logging
 
@@ -781,7 +786,7 @@ Lightning App Builder or Flow Builder with no code:
 | `searchLookup`       | Search lookup backed by a custom controller or the `IF_Search` interface | Flow Screens, App Pages, Home Pages, Record Pages |
 | `createForm`         | Dynamic create / edit / clone form driven by a Field Set                 | Flow Screens, App Pages, Home Pages, Record Pages |
 | `scheduledJobDetail` | View-only detail for `ScheduledJob__c` records                           | Record Pages (ScheduledJob__c)                    |
-| `healthCheck`        | Post-install diagnostics (cache, retention jobs)                         | Home Pages                                        |
+| `healthCheck`        | Post-install diagnostics (cache, retention jobs)                         | App Pages, Home Pages                             |
 | `flowFooter`         | Standardised Back / Next footer for Flow screens                         | Flow Screens                                      |
 | `jsonViewer`         | Read-only JSON viewer with syntax highlighting                           | Flow Screens                                      |
 

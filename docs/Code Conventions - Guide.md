@@ -16,11 +16,13 @@ Subscribers may have custom namespaces, additional class prefixes, and different
 
 1. Ask for namespace if not specified
 2. Apply stated prefix conventions (e.g., `ACME_SEL_*`)
-3. Use `Namespace.ClassName` format (e.g., `ClientNS.QRY_Builder`)
+3. Use `Namespace.ClassName` format: `kern.QRY_Builder` against the installed managed package; a client namespace (e.g., `ClientNS.QRY_Builder`)
+   applies only after the source was renamed with `bin/swap-namespace.js`
 
 ## Critical Rules
 
-- **100% test coverage** — Apex and LWC (enforced locally by scripts/evaluate-coverage.js; scanner rules catch coverage-theatre anti-patterns)
+- **Test coverage floors** — Apex 100% per file; LWC 95% statements and 95% branches per file
+  (enforced locally by scripts/evaluate-coverage.js; scanner rules catch coverage-theatre anti-patterns)
 - **Declare sharing** — `with sharing`, `inherited sharing`, or `without sharing` explicitly. *Rationale: Apex's implicit-sharing default silently elevates privileges, which is
   invisible at the call site; an explicit modifier forces an authorial choice every reviewer can see.*
 - **Least-privilege sharing** — Default `with sharing` for subscriber code (including subscriber selectors that extend `kern.SEL_Base`). Framework-internal selectors and utilities
@@ -36,7 +38,7 @@ Subscribers may have custom namespaces, additional class prefixes, and different
   across modules and break grep/IDE jumps for AI tools.*
 - **NO `// Given/When/Then/Cleanup` comments**
 - **NO test cleanup code** — SF resets static state between tests
-- **NO hardcoded field API names** — Use `SObjectField.getDescribe().getName()`
+- **NO hardcoded field API names** — Use `UTIL_SObjectDescribe.getCachedFieldName(SObjectField)` (never a raw `getDescribe()`)
 - **Name semantically-meaningful literals** — When a literal's meaning is not self-evident, or it repeats, lift it into a named `static final` constant whose name explains intent (a `CUSTOM_METADATA_SUFFIX` constant not a bare `'__mdt'`; reuse the rule-name constants the masking-rule selector already declares rather than re-typing rule names). Reuse an existing constant before adding one. Keep a new
   constant local to its owning class (`@TestVisible` so tests can read it) until a second consumer genuinely exists — don't pre-promote to a shared utility — and when it is shared,
   give it a domain-appropriate home (an SObject/metadata constant belongs with describe/selector utilities, never a generic string helper). *Judgment, not blanket:* a self-evident
@@ -88,7 +90,7 @@ Subscribers may have custom namespaces, additional class prefixes, and different
 **Apex:**
 
 - **Tabs (size 3)** — *Rationale: tabs let each contributor render leading indentation at their preferred visible width without changing the bytes on disk; size 3 matches the
-  framework's own source so subscriber and kern code visually align in diffs.*
+  framework's own source so subscriber and kern code visually align in diffs.* The 180-column limit below counts each leading tab as four columns, as the IDE does.
 - **Allman bracing** — *Rationale: opening brace on its own line keeps block boundaries scannable when lines wrap near the 180-char limit; matches the framework's own source so
   subscriber code reads consistently with `kern.*` internals in the same diff.*
 - **180 char lines** — *Rationale: long-name-friendly (Salesforce identifiers — `kern__SubscriberPackageVersionId__c`, ApexDoc tag clusters — get unreadable when wrapped at 80)
@@ -120,7 +122,7 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 
 ## ApexDoc
 
-**Class:** `@description`, `@see`, `@author`, `@group`, `@date`, `@since`, `@example` (blank line between each tag)
+**Class:** `@description`, `@see`, `@author`, `@group`, `@date`, `@since`, `@example` (blank line between tags of different kinds; repeated tags of the same kind, such as two `@throws` or two `@see`, sit on consecutive lines with no blank line between them, as the IDE formatter writes them)
 **Method (REQUIRED):** `@description`, `@param` (each), `@return` (if non-void), `@throws`, `@since` (on a `global` member), `@example` (never `@date` — that is a class-level tag)
 **Properties:** All require `@description`
 **Enums:** `@description` on the enum itself and on every value, one value per line (`global`, `public`, `private` and test enums alike). The value's description says what the value means: the state, kind or choice it stands for, in plain words. It does not name the methods that set or read the value (those are documented on the methods), and a description that restates the name ("The DML rows limit") does not count. *Rationale: an enum value is the smallest named decision in the code; a subscriber or an AI agent reading the source cold meets `AT_SEND` or `HALF_OPEN` with nothing else to go on, and a list of the values in the enum-level description is not read at the point of use.*
@@ -128,6 +130,7 @@ List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 **`@since` (every `global` member: class, inner class, enum, interface, interface method, method, constructor, property, field, constant):** REQUIRED, naming the package version that introduced the member, written once and never refreshed. Format: `@since 1.0`; order: after `@throws` (or `@return`) and before `@example`. Optional on `public`/`private`/`protected` members. The tag is the source record of when a member arrived; the reference pages do not display it, the versioned documentation answers "does this exist in my version". `npm run docs:validate` fails on a `global` member without one.
 **`@date` (class declarations ONLY — never on methods or properties):** `Month Year` or `Month Year, Month Year` (created, modified — at most two values; refresh the second on edit)
 **`@example`:** Must use ```` ```apex ```` code fences with valid Apex
+**Plain text, no HTML:** never an HTML tag (`<p>`, `<br>`, `<ul>`, `<li>`, `<b>`, `<code>` and the like) in ApexDoc. A blank ` *` line separates paragraphs, `- ` starts a list item, and code goes in backticks or an `@example` fence. `node scripts/check-apexdoc-plain-language.js` reports a tag outside backticks and fences.
 
 **ApexDoc on a `global` member is subscriber-facing documentation — every framework member it names
 must itself be `global`.** The block is published verbatim to `docs/reference/apex/` and ships, so an
@@ -242,7 +245,9 @@ trigger TRG_ObjectName on ObjectName__c (before insert, before update)
 **Metadata:** `TriggerAction__mdt` — `TriggerSetting__c` (→`TriggerSetting__mdt`) + `Event__c` picklist. `TriggerSetting__mdt` uses `SObjectType__c` (→`EntityDefinition`). Record
 naming: `ClassName_Event`.
 
-**triggerOldMap:** Lazy-loaded `Map<Id, SObject>` on `TRG_Base` — `triggerOldMap.get(newRecord.Id)`.
+**Old records:** pair each new record with its old version from the handler's own parameter: `Map<Id, SObject> oldRecordsById = new Map<Id, SObject>(oldRecords);`
+then `oldRecordsById.get(newRecord.Id)`. The lazy-loaded `triggerOldMap` on `TRG_Base` is null outside a live trigger, so a handler invoked directly (as in the test pattern
+below) must not rely on it.
 
 **Bypass:** Object: `TRG_Base.bypass(SObjectType)/.isBypassed()/.clearBypass()/.clearAllBypasses()` (also String overloads) | Action:
 `.bypassAction(name)/.isActionBypassed()/.clearActionBypass()/.clearAllActionBypasses()` | Flow: `FLOW_BypassTrigger` | Declarative: `TriggerSetting__mdt.BypassExecution__c`
@@ -273,8 +278,9 @@ private class TRG_SetFoobarDefaults_TEST
 Extend `SEL_Base`, define default fields. Custom query methods use `query` property (NOT `QRY_Builder.selectFrom()`). `query` returns a fresh `QRY_Builder.Builder` pre-configured
 with SObjectType and default fields.
 
-**Namespace prefix:** subscriber code MUST reference framework classes with the `kern.` prefix (e.g. `extends kern.SEL_Base`). Examples in this guide use the prefix to match what
-subscriber code looks like in production. Framework-internal code (everything under `force-app/` of this repository) omits the prefix because it is in the same namespace.
+**Namespace prefix:** subscriber code MUST reference framework classes with the `kern.` prefix (e.g. `extends kern.SEL_Base`). Most examples in this guide are written as framework
+source and carry no prefix; add `kern.` when you write the same code outside the package.
+Framework-internal code (everything under `force-app/` of this repository) omits the prefix because it is in the same namespace.
 
 ```apex
 // Subscriber selectors default to `with sharing` — the safest default. Framework-internal selectors
@@ -327,7 +333,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 `.notIn(Builder)` only for anti-join subqueries.
 **Pagination:** `.getPage(page, size)` → `QueryPage` (`.records`/`.totalRecords`/`.hasMorePages`/`.deletedRecords`/`.cursor`)
 
-**Security** (default USER_MODE via the `UserModeQueries_Enabled` flag, + inherited sharing): `.withUserMode()` (USER_MODE, enforces CRUD/FLS/sharing) | `.stripInaccessible()` (post-query) | `.withSharing()`/`.bypassSharing()` (picks the sharing proxy, independent of the access mode; under the USER_MODE default the platform enforces record sharing regardless, so an effective bypass is `bypassSharing()` + a system-mode dial) | `.withoutSecurity()` (full waiver: SYSTEM_MODE + record sharing bypassed, in one call)
+**Security** (default USER_MODE via the `UserModeQueries_Enabled` flag, + inherited sharing): `.withUserMode()` (USER_MODE, enforces CRUD/FLS/sharing) | `.stripInaccessible()` (post-query; strips only in SYSTEM_MODE or a `bypassSharing()` read: under plain USER_MODE the platform still refuses a selected field the user cannot read) | `.withSharing()` (the `with sharing` proxy; changes nothing under USER_MODE, which always enforces sharing) | `.bypassSharing()` (ignores record sharing; under USER_MODE it keeps the object and field checks: hidden fields are removed, an unreadable object or a builder filter or sort on a hidden field is refused, and `toQueryLocator()`/`toCursor()`/aggregate reads are refused; add `.withSystemMode()` to drop the checks too) | `.withoutSecurity()` (full waiver: SYSTEM_MODE + record sharing bypassed, in one call)
 
 **Data Category:** `.withDataCategory(groupName)` → `DataCategoryBuilder` with `.at()`/`.above()`/`.below()`/`.aboveOrBelow()` — each with `(String)` and `(List<String>)`
 overloads. Mutually exclusive with `WITH SECURITY_ENFORCED` — use `.withUserMode()` for security enforcement with data category queries. One filter per group.
@@ -351,7 +357,8 @@ returns `void`, not a `TransactionResult`. Chain it last: `.doUpdate(records).as
 
 ## Flow Invocables
 
-`global inherited sharing class FLOW_*` with `@InvocableMethod` + nested `DTO_Request`/`DTO_Response`.
+`global inherited sharing class FLOW_*` with `@InvocableMethod` + nested `DTO_Request`/`DTO_Response`. These rules are for framework classes in `force-app/`;
+subscriber invocables are `public with sharing` (see the Flow Invocables rules in `AI Agent Instructions.md`).
 
 ```apex
 @SuppressWarnings('PMD.AvoidGlobalModifier')
@@ -401,7 +408,7 @@ Async logging via `LogEntryEvent__e`. **Never `System.debug()`.**
 ```apex
 LOG_Builder.build().error(e).emitAt('MyClass.myMethod');
 LOG_Builder.build().info('Done').emitAt('MyClass.myMethod');
-LOG_Builder.build().error('Failed').at('Svc.charge').forRecord(id).withContext('amt', amount).emit();
+LOG_Builder.build().error('Failed').at('PaymentService.charge').forRecord(id).withContext('amount', amount).emit();
 LOG_Builder.LogScope scope = LOG_Builder.scope(); /* ... */ scope.close();
 ```
 
@@ -427,7 +434,8 @@ UTIL_HttpClient.post('EmailService', '/send').body(payload).timeout(30000)
 
 ## Inbound Web Services
 
-Two-class: `REST_*` (routing, `global inherited sharing`) + `API_*` (implementation, `public with sharing`, extends `API_Inbound`).
+Two-class: `REST_*` (routing, `global inherited sharing`) + `API_*` (implementation, `public with sharing`, extends `API_Inbound`). The `global inherited sharing`
+rule is for framework classes in `force-app/`; a subscriber `REST_*` class is `global with sharing` (see Inbound Web Services in `AI Agent Instructions.md`).
 
 ```apex
 @RestResource(urlMapping='/v1/invoices/*')
@@ -445,8 +453,7 @@ global inherited sharing class REST_Invoices
 
 - **`onSuccess()`** — DML via inherited `doInsert()`/`doUpdate()`/`doDelete()` (NOT `DML_Builder`)
 - **`updateResponseDTO()`** — runs after commit, populate response DTO from `result.isSuccess`
-- Request DTOs: `@JsonAccess(deserializable='always')`, `public` props
-- Response DTOs: `@JsonAccess(serializable='always')`, `public` props
+- Request and Response DTOs: `@JsonAccess(serializable='always' deserializable='always')`, `public` props
 
 ## DTOs
 
@@ -580,8 +587,8 @@ API_OutboundTestHelper.assertCallSuccessful(serviceName, recordId, parameters)
 API_OutboundTestHelper.assertCallSuccessful(serviceName, recordId)
 API_OutboundTestHelper.assertCallAborted(serviceName, recordId, parameters)
 API_OutboundTestHelper.assertCallAborted(serviceName, recordId)
-// Outbound (queue item overloads)
-API_OutboundTestHelper.assertCallSuccessful/assertCallFailed/assertCallAborted(queueItems)
+// Outbound (API call record overloads)
+API_OutboundTestHelper.assertCallSuccessful/assertCallFailed/assertCallAborted(apiCalls)
 
 // Inbound
 API_InboundTestHelper.setupRestContext([dtoRequest[, headers]])
@@ -618,7 +625,7 @@ Abort: `API_InboundTestHelper.assertCallAborted(SERVICE_NAME, new DTO_Request(),
 
 ### SEL_Foobar Field Constants
 
-`FIELD_INTEGER`/`FIELD_TEXT`/`FIELD_EMAIL`/`FIELD_PHONE`/`FIELD_PICKLIST`/`FIELD_DATE`/`FIELD_DATETIME`/`FIELD_DECIMAL`/`FIELD_CURRENCY`/`FIELD_PERCENT`/`FIELD_CHECKBOX`/`FIELD_URL`/`FIELD_LOOKUP`
+`FIELD_NAME`/`FIELD_INTEGER`/`FIELD_TEXT`/`FIELD_EMAIL`/`FIELD_PHONE`/`FIELD_PICKLIST`/`FIELD_DATE`/`FIELD_DATETIME`/`FIELD_DECIMAL`/`FIELD_CURRENCY`/`FIELD_PERCENT`/`FIELD_CHECK_BOX`/`FIELD_URL`/`FIELD_LOOKUP`/`FIELD_GEOLOCATION`
 
 ## LWC
 
@@ -645,22 +652,14 @@ export default class MyComponent extends ComponentBuilder('notification', 'contr
 
 **Jest — DOM-based:**
 
+Never write `jest.mock('c/...')` or `jest.mock('lightning/...')`: once an earlier suite in the same jest worker loads the real module, the mock silently stops
+intercepting (`{virtual: true}` does not fix it). Use a `moduleNameMapper` file mock, assert the shape a stub dispatches, or `jest.spyOn` the real imported instance.
+`jest.config.js` already maps `c/componentBuilder` to `force-app/test/jest-mocks/c/componentBuilder.js`, which exports the mock functions:
+
 ```javascript
-jest.mock('c/componentBuilder', () => ({
-	ComponentBuilder: jest.fn().mockImplementation(() =>
-	{
-		const {LightningElement} = require('lwc');
-		return class extends LightningElement
-		{
-			showSuccessToast = jest.fn();
-			showErrorToast = jest.fn();
-			showInfoToast = jest.fn();
-			showWarningToast = jest.fn();
-			callControllerMethod = jest.fn().mockResolvedValue({});
-		};
-	})
-}), {virtual: true});
+import {mockCallControllerMethod, mockShowSuccessToast} from 'c/componentBuilder';
 // createElement → Object.assign(element, props) → document.body.appendChild → await Promise.resolve()
+// expect(mockShowSuccessToast).toHaveBeenCalled();
 ```
 
 **Jest — prototype-based (headless quick actions):**
@@ -686,7 +685,7 @@ const createMockContext = (overrides = {}) =>
 
 `UTIL_Exceptions` (IllegalState/Configuration/NotFoundException) | `UTIL_Cache` (durable `auto()` Session→Org, opt-in `inTransaction()` per-request memoization, opt-in
 `autoWithTransactionFallback()` Session→Org→Transaction graceful degradation reporting `cacheTypeUsed = Scope.IN_TRANSACTION` on the fallback path — `inTransaction` /
-`IN_TRANSACTION` because `transaction` is on Apex's reserved-words list) | `UTIL_CircuitBreaker` | `UTIL_Retry` (linear/exponential) | `UTIL_FeatureFlag.isEnabled(flagName)` (Apex) / `c/featureFlag.isFlagEnabled(flagName)` (LWC bridge via `CTRL_FeatureFlag`) | `UTIL_BypassAudit.emit(surface, action, target, extras)` / `setBypassReason(reason)` (framework-wide bypass audit) | `UTIL_TypeResolver` (subscriber-first) | `UTIL_String`/`Date`/`Number`/`Set`/`List`/`Map`/`SObject`/`Email`/`Random`/`Security` |
+`IN_TRANSACTION` because `transaction` is on Apex's reserved-words list) | `UTIL_CircuitBreaker` | `UTIL_Retry` (linear/exponential) | `UTIL_FeatureFlag.isEnabled(flagName)` (Apex) / `c/featureFlag.isFlagEnabled(flagName)` (LWC bridge via `CTRL_FeatureFlag`) | `UTIL_BypassAudit.emit(surface, action, target, extras)` / `setBypassReason(reason)` (framework-wide bypass audit; framework-internal, `public`) | `UTIL_TypeResolver` (subscriber-first) | `UTIL_String`/`Date`/`List`/`Map`/`SObject`/`Email`/`Random` | `UTIL_Set` (framework-internal, `public`) |
 `UTIL_SObjectDescribe` (request-cached describe wrapper — `getDescribe(sobjectType)`, `.getField(name)` namespace-aware default, `.getFieldDescribe(name)` returns cached
 `DescribeFieldResult` with `isUpdateable`/`isCreateable`; static `getCachedFieldDescribe(SObjectField)` / `getCachedFieldName(SObjectField)` for token-keyed lookups) |
 `UTIL_Limits` (the only way to read a governor limit, in production and test code alike: `UTIL_Limits.dmlStatements().used()`, `.maximum()`, `.remaining()`,
@@ -708,9 +707,11 @@ UTIL_AsyncChain.newChain('DataMigration')
 ```
 
 **IF_Chain.Step:** `StepResult work(ChainContext context)` — implement this interface or extend `ChainStep` (abstract, adds `stepName` property).
-**ChainBuilder:** `.then(step)`/`.then(step, continueOnError)`/`.withInitialContext(key, value)`/`.withMaxSteps(n)`/`.withAsyncOptions(opts)`/`.onError(step)`/`.onComplete(step)`/`.execute()`/`.execute(correlationId)`
+**ChainBuilder:** `.then(step)`/`.then(step, continueOnError)`/`.withInitialContext(key, value)`/`.withMaxSteps(n)`/`.withMaxContextSize(n)`/`.withDelayMinutes(n)`/
+`.withDeduplicationKey(key)`/`.allowRestart()`/`.withAsyncOptions(opts)`/`.onError(step)`/`.onComplete(step)`/`.execute()`/`.execute(correlationId)`
 **ChainContext:** `.put(key, value)`/`.get(key)`/`.getAs(key, Type)`/`.has(key)`/`.getChainExecutionId()`/`.getCorrelationId()`/`.getPreviousStepResult()`/`.getCurrentStepIndex()`/`.idempotencyKey()`/`.idempotencyKey(recordId)`/`.idempotencyKey(grain)`
-**StepResult:** `UTIL_AsyncChain.succeeded()`/`.succeeded(msg)`/`.succeeded(msg, data)`/`.failed(msg)`/`.failed(exception)` — properties: `success`, `message`, `data`, `error`
+**StepResult:** `UTIL_AsyncChain.succeeded()`/`.succeeded(msg)`/`.succeeded(msg, data)`/`.failed(msg)`/`.failed(exception)`/`.failedPermanently(msg)`/`.failedPermanently(exception)`
+— properties: `success`, `message`, `data`, `error`, `permanentFailure`
 **ApiStep:** Wraps `API_Outbound` handler as a chain step.
 `new UTIL_AsyncChain.ApiStep(API_SendEmail.class).credential('Gateway').withParameter(k, v).withParameterFrom(param, contextKey).triggeringRecord(id).triggeringRecordFrom(contextKey)`
 **Status:** `UTIL_AsyncChain.getStatus(chainExecutionId)` → `Map<String, Object>` (executionId, chainName, status, totalSteps, completedSteps, errorMessage)
@@ -740,11 +741,13 @@ These rules are for contributors who change `UTIL_AsyncChain` itself, not for co
 
 ## Schedulable Framework
 
-`global inherited sharing class SCHED_* extends SCHED_Base` implementing `IF_Schedulable`. `IF_Schedulable` extends `Schedulable` with `getParameterDefinitions()` and
+`inherited sharing class SCHED_* extends SCHED_Base` implementing `IF_Schedulable`. The framework creates a schedulable from its name, so the
+class is `global`, or `public` with a Type Resolver, as for every other class created by name. `IF_Schedulable` extends `Schedulable` with `getParameterDefinitions()` and
 `setParameterValues(DTO_NameValues)`.
 
 ```apex
-global class SCHED_PurgeOldRecords extends SCHED_Base
+@SuppressWarnings('PMD.AvoidGlobalModifier')
+global inherited sharing class SCHED_PurgeOldRecords extends SCHED_Base
 {
 	public override List<DTO_ScheduledParameterDefinition> getParameterDefinitions()
 	{

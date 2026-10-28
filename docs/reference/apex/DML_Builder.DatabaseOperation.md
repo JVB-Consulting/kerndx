@@ -27,11 +27,11 @@ Enum to specify the type of DML operation for external use.
 
 | Class | Description |
 |-------|-------------|
-| [DML_DELETE](#dml_delete) | Delete operation. |
-| [DML_INSERT](#dml_insert) | Insert operation. |
-| [DML_UNDELETE](#dml_undelete) | Undelete operation. |
-| [DML_UPDATE](#dml_update) | Update operation. |
-| [DML_UPSERT](#dml_upsert) | Upsert operation. |
+| [DML_DELETE](#dml_delete) | Remove records that already exist, found by their Id. |
+| [DML_INSERT](#dml_insert) | Create records that are not in the database yet. |
+| [DML_UNDELETE](#dml_undelete) | Bring back records that were deleted, found by their Id. |
+| [DML_UPDATE](#dml_update) | Save changes to records that already exist. |
+| [DML_UPSERT](#dml_upsert) | Create each record that does not exist yet and update each one that does. |
 
 ---
 
@@ -43,7 +43,7 @@ Enum to specify the type of DML operation for external use.
 global DML_DELETE
 ```
 
-Delete operation.
+Remove records that already exist, found by their Id. DML_UNDELETE can bring them back.
 
 ### DML_INSERT
 
@@ -51,7 +51,7 @@ Delete operation.
 global DML_INSERT
 ```
 
-Insert operation.
+Create records that are not in the database yet.
 
 ### DML_UNDELETE
 
@@ -59,7 +59,7 @@ Insert operation.
 global DML_UNDELETE
 ```
 
-Undelete operation.
+Bring back records that were deleted, found by their Id.
 
 ### DML_UPDATE
 
@@ -67,7 +67,7 @@ Undelete operation.
 global DML_UPDATE
 ```
 
-Update operation.
+Save changes to records that already exist. Each record is found by its Id.
 
 ### DML_UPSERT
 
@@ -75,5 +75,6 @@ Update operation.
 global DML_UPSERT
 ```
 
-Upsert operation.
+Create each record that does not exist yet and update each one that does.
+Records are matched by Id, or by an external ID field when one is given.
 

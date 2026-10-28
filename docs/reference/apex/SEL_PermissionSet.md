@@ -5,7 +5,7 @@ pageClass: reference
 description: "Selector for the PermissionSet SObject. Provides default field configuration and query methods for PermissionSet records, including namespace-aware lookup."
 author: "Jason Van Beukering"
 group: "Selectors"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

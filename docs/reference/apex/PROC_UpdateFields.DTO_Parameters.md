@@ -44,9 +44,9 @@ global AccessLevel accessLevel
 Explicit AccessLevel for the bulk update commit, or null to inherit the
 flag-driven default resolved by DML_SharingProxy.defaultAccessLevel(). Framework utilities
 that own their lifecycle (e.g. UTIL_BulkUpdates) set this to AccessLevel.SYSTEM_MODE
-explicitly so the bulk commit is not gated on the invoking user's FLS. Subscribers calling
-PROC_UpdateFields directly may pass AccessLevel.USER_MODE to enforce their secure-by-default
-opt-in.
+explicitly so the bulk commit is not gated on the invoking user's FLS. When your code calls
+PROC_UpdateFields directly, you may pass AccessLevel.USER_MODE to enforce the running user's
+permissions.
 
 **Example**
 

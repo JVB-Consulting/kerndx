@@ -582,7 +582,10 @@ These are situational patterns. See the [DML Guide](DML%20-%20Guide.md) for deta
 enforced, rather than skipping those checks (the alternative, `SYSTEM_MODE`). In practice that means CRUD (object create/read/update/delete permissions) and FLS (field-level security)
 are both checked against the running user, and sharing rules are honoured. This safe default is controlled by the `UserModeDml_Enabled` feature flag, which ships set to `true`.
 You can override it on a single call with `.withSystemMode()` (which skips the CRUD and FLS checks), or be explicit and pass `.withUserMode()` even when the flag is on.
-`.bypassSharing()` affects sharing only: it does NOT turn off the CRUD and FLS enforcement that USER_MODE provides.
+`.bypassSharing()` affects sharing only: it does NOT turn off the CRUD and FLS enforcement that USER_MODE provides. If the user cannot create or edit a field, the save
+leaves that field out without an error, and one warning in the log names it. If the user lacks the object permission this save needs (create, edit, delete or
+undelete), the save is refused.
+To save such a field, add `.withSystemMode()` too.
 See [Security Guide: Safe by Default](Security%20-%20Guide.md#safe-by-default).
 
 **In your editor**, in your own Apex, where `records` is the list of records you are saving:
@@ -746,7 +749,3 @@ After completing this guide, you understand the **DML builder pattern** in KernD
 - [Code Scanning (catch DML anti-patterns)](Fast%20Start%20-%20Code%20Scanning.md)
 - [Complete DML Guide](DML%20-%20Guide.md)
 - [DML_Builder Reference](reference/apex/DML_Builder.md)
-
-> **Drift guard:** `FastStart_DML_DEMO` + `FastStart_DML_DEMO_TEST` in `release-testing/subscriber/classes/`
-> are the companion classes for this guide. Deploy and run `FastStart_DML_DEMO_TEST` against a subscriber
-> scratch org to confirm the parent-child auto-link and partial-success patterns work end-to-end.

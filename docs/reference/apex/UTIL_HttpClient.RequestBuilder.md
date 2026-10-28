@@ -45,9 +45,9 @@ Map<String, Object> result = UTIL_HttpClient.get('MyService', '/status')
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [header](#header)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a single header to the request. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [headers](#headers)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> headerMap) | Adds multiple headers to the request. |
 | global [API_Outbound](API_Outbound.md) [invoke](#invoke)() | Executes in delegation mode and returns the delegate handler instance. |
-| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [method](#method)([API_Base.HttpMethod](API_Base.HttpMethod.md) httpMethod) | Sets the HTTP method for the request. |
+| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [method](#method)([API_Base.HttpMethod](API_Base.HttpMethod.md) httpMethod) | Replaces the HTTP method that get, post, put, del or patch chose. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [onFailure](#onfailure)([UTIL_HttpClient.FailureAction](UTIL_HttpClient.FailureAction.md) action) | Sets the failure handling strategy. |
-| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [path](#path)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) urlPath) | Sets the URL path for the request. |
+| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [path](#path)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) urlPath) | Replaces the path given before, including the one given to get, post, put, del or patch. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [pathParam](#pathparam)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Replaces a {name} placeholder in the URL path with a value. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [queryParam](#queryparam)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a query parameter to the request URL. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [replaceRequestToken](#replacerequesttoken)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) searchToken, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) replaceToken) | Registers a single request body replacement token. |
@@ -57,15 +57,15 @@ Map<String, Object> result = UTIL_HttpClient.get('MyService', '/status')
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [retryOn](#retryon)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm)> statusCodes) | Chooses which HTTP status codes are worth another attempt. |
 | global [HttpResponse](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_restful_http_httpresponse.htm) [send](#send)() | Executes the HTTP request and returns the raw HttpResponse. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [skipLogging](#skiplogging)() | Skips ApiCall__c persistence for this request. |
-| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [timeout](#timeout)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) milliseconds) | Sets the request timeout in milliseconds. |
+| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [timeout](#timeout)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) milliseconds) | Sets how long, in milliseconds, to wait for the external system to answer. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withCircuitBreaker](#withcircuitbreaker)() | Enables circuit breaker protection under the service's own breaker: the credential's breaker for a call built from a credential, the handler's breaker for a call made through useHandler(...). |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withCircuitBreaker](#withcircuitbreaker)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) circuitName) | Enables circuit breaker protection under a breaker you name. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withCorrelationId](#withcorrelationid)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) correlationId) | Keeps a correlation id with the call. |
-| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withExponentialBackoff](#withexponentialbackoff)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maxRetries, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) baseBackoffSeconds) | Enables synchronous retry with exponential backoff. |
+| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withExponentialBackoff](#withexponentialbackoff)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maxRetries, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) baseBackoffSeconds) | Retries a failed request, and makes each scheduled retry wait twice as long as the one before. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withIdempotencyKey](#withidempotencykey)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) idempotencyKey) | Sets an explicit idempotency key for duplicate detection. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withMockResponse](#withmockresponse)([API_MockFactory.MockResponse](API_MockFactory.MockResponse.md) mockResponse) | Sets a mock response to inject at framework level, overriding the handler's own mock. |
-| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withParameter](#withparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a request parameter for subscriber handler mode. |
-| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withParameters](#withparameters)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> parameters) | Adds multiple request parameters for subscriber handler mode. |
+| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withParameter](#withparameter)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) name, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) value) | Adds a request parameter for delegation mode, where your own handler class sends the request. |
+| global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withParameters](#withparameters)([Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> parameters) | Adds multiple request parameters for delegation mode, where your own handler class sends the request. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withRetry](#withretry)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maxRetries) | Enables synchronous retry with the specified maximum attempts. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withRetry](#withretry)([Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) maxRetries, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) backoffSeconds) | Enables synchronous retry with a linear backoff. |
 | global [UTIL_HttpClient.RequestBuilder](UTIL_HttpClient.RequestBuilder.md) [withTriggeringRecord](#withtriggeringrecord)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Links this callout to a triggering business record. |
@@ -309,7 +309,8 @@ API_SendEmail.DTO_Response dto = (API_SendEmail.DTO_Response)handler.responsePay
 global UTIL_HttpClient.RequestBuilder method(API_Base.HttpMethod httpMethod)
 ```
 
-Sets the HTTP method for the request.
+Replaces the HTTP method that get, post, put, del or patch chose. On a request built from a credential,
+passing null sends the request as POST.
 
 **Parameters**
 
@@ -365,7 +366,8 @@ UTIL_HttpClient.post('MyService', '/send')
 global UTIL_HttpClient.RequestBuilder path(String urlPath)
 ```
 
-Sets the URL path for the request.
+Replaces the path given before, including the one given to get, post, put, del or patch. The path is
+added to the credential's endpoint, and it can hold {name} placeholders that pathParam fills in.
 
 **Parameters**
 
@@ -664,7 +666,9 @@ UTIL_HttpClient.get('MyService', '/healthCheck')
 global UTIL_HttpClient.RequestBuilder timeout(Integer milliseconds)
 ```
 
-Sets the request timeout in milliseconds.
+Sets how long, in milliseconds, to wait for the external system to answer. Without this call, or with
+null, the framework's default of 120,000 milliseconds (two minutes) applies. On a request built with useHandler,
+the handler's own timeout applies instead.
 
 **Parameters**
 
@@ -778,7 +782,23 @@ UTIL_HttpClient.post('MyService', '/send')
 global UTIL_HttpClient.RequestBuilder withExponentialBackoff(Integer maxRetries, Integer baseBackoffSeconds)
 ```
 
-Enables synchronous retry with exponential backoff.
+Retries a failed request, and makes each scheduled retry wait twice as long as the one before.
+
+Retries in the same transaction are sent again at once, because Apex cannot wait. A retry that is scheduled for
+later waits the base backoff the first time, then twice as long each time after that, up to 300 seconds. For a
+base of 2 seconds the waits are 2, 4, 8, 16 seconds and so on.
+
+Every retry already made counts towards the doubling, including the ones sent again at once in the transaction.
+So a retry scheduled after three re-sends in the transaction waits 16 seconds. The count adds up across runs,
+and the call never makes more retries in total than maxRetries. When you also call withCircuitBreaker and the
+circuit is open, the wait is at least the circuit's time-out.
+
+Through useHandler, your handler gets the same waits and the same maximum you pass here, on every run, unless it
+overrides createRetryStrategy; then its own strategy decides. A scheduled retry runs from the handler class alone,
+so it needs an API Setting record for the handler, with its API Credential and Endpoint Path filled in: the retry
+takes its credential and path from that record, not from the request. Without the record, the first run sends
+the request, but the retry it schedules ends Aborted instead of being sent.
+withRetry keeps the default waits: the base, then the base times the number of retries already made.
 
 **Parameters**
 
@@ -869,7 +889,7 @@ UTIL_HttpClient.post('MyService', '/send')
 global UTIL_HttpClient.RequestBuilder withParameter(String name, String value)
 ```
 
-Adds a request parameter for subscriber handler mode.
+Adds a request parameter for delegation mode, where your own handler class sends the request.
 
 **Parameters**
 
@@ -898,7 +918,7 @@ UTIL_HttpClient.useHandler(API_SendEmail.class)
 global UTIL_HttpClient.RequestBuilder withParameters(Map<String, String> parameters)
 ```
 
-Adds multiple request parameters for subscriber handler mode.
+Adds multiple request parameters for delegation mode, where your own handler class sends the request.
 
 **Parameters**
 
@@ -968,6 +988,12 @@ PATCH without a key is not sent again after those three, because the external sy
 call ends Failed with a line that says so. A 425 or 429 means "slow down", so it waits for the later retry. To
 choose the codes yourself, use retryOn: a status you name there is sent again whatever the method, a POST or
 PATCH without a key included, so name a 500, 502 or 504 only when sending the request twice is safe.
+
+Through useHandler, your handler gets the same waits and the same maximum you pass here, on every run, unless it
+overrides createRetryStrategy; then its own strategy decides. A scheduled retry runs from the handler class alone,
+so it needs an API Setting record for the handler, with its API Credential and Endpoint Path filled in: the retry
+takes its credential and path from that record, not from the request. Without the record, the first run sends
+the request, but the retry it schedules ends Aborted instead of being sent.
 
 **Parameters**
 

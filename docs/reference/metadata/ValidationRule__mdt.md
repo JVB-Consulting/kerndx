@@ -34,7 +34,7 @@ Defines an individual validation rule with a formula-based condition, error mess
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ContextClassName__c](#contextclassname__c) | Overrides the group-level context class for this specific rule. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Description__c](#description__c) | Detailed description of what this validation rule checks. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ErrorDisplayField__c](#errordisplayfield__c) | Optional. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ErrorMessage__c](#errormessage__c) | The error message displayed when validation fails. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ErrorMessage__c](#errormessage__c) | Message shown when the rule fails. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Order__c](#order__c) | Execution order relative to other rules in the same group. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [RequiredFeatureFlag__c](#requiredfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [RequiredFeatureFlag__r](#requiredfeatureflag__r) | Optional. |
@@ -145,7 +145,7 @@ Optional. API name of the field where the error message should be displayed. If 
 global String ErrorMessage__c
 ```
 
-The error message displayed when validation fails. Supports merge fields using {!FieldName} syntax referencing context class properties. Use Custom Labels with {$Label.LabelName} for internationalization.
+Message shown when the rule fails. Merge fields such as {!PropertyName} or {!newRecord.Name} are filled from your context class. If you write your own context class, put @JsonAccess(serializable='always') on it, or its merge fields stay blank. Custom Labels are not resolved. To show a label, add a property to the context class that returns System.Label.YourLabel.
 
 **Field Attributes:**
 

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Container for pre-built formula evaluation context classes for standard Salesforce objects.  This class provides typed context implementations for Salesforce's `FormulaEval` namespace, enabling dynami"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "January 2026, May 2026"
+date: "January 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -44,7 +44,7 @@ in any scenario requiring formula evaluation, including but not limited to:
 
 Inner classes are GLOBAL because Salesforce `FormulaEval.FormulaInstance.evaluate()`
 requires runtime access to context properties. The `global` visibility ensures
-cross-namespace access when the managed package evaluates formulas in subscriber orgs.
+cross-namespace access when the managed package evaluates formulas in your org.
 
 **Why global visibility is required:**
 
@@ -52,7 +52,7 @@ cross-namespace access when the managed package evaluates formulas in subscriber
 
     - For managed packages, `global` guarantees visibility across all scenarios
 
-    - Subscriber org context classes must also use `global` for the same reason
+    - Context classes you write in your org must also use `global` for the same reason
 
 **Example**
 
@@ -83,6 +83,7 @@ Boolean matches = (Boolean)formula.evaluate(context);
 | [CaseContext](UTIL_FormulaContext.CaseContext.md) | Formula evaluation context for Case object. |
 | [ContactContext](UTIL_FormulaContext.ContactContext.md) | Formula evaluation context for Contact object. |
 | [EventContext](UTIL_FormulaContext.EventContext.md) | Formula evaluation context for Event object. |
+| [FoobarBulkContext](UTIL_FormulaContext.FoobarBulkContext.md) | For testing only. |
 | [FoobarContext](UTIL_FormulaContext.FoobarContext.md) | Formula evaluation context for Foobar__c test object. |
 | [LeadContext](UTIL_FormulaContext.LeadContext.md) | Formula evaluation context for Lead object. |
 | [OpportunityContext](UTIL_FormulaContext.OpportunityContext.md) | Formula evaluation context for Opportunity object. |

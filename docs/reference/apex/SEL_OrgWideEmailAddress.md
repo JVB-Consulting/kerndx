@@ -5,7 +5,7 @@ pageClass: reference
 description: "Selector for the OrgWideEmailAddress SObject. Provides query methods for retrieving organization-wide email addresses configured in Salesforce."
 author: "Jason Van Beukering"
 group: "Selectors"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -116,7 +116,7 @@ OrgWideEmailAddress randomEmail = new SEL_OrgWideEmailAddress().getRandomItem();
 
 | Constructor | Description |
 |-------------|-------------|
-| global [SEL_OrgWideEmailAddress](#constructors)() | Constructs an OrgWideEmailAddress selector. |
+| global [SEL_OrgWideEmailAddress](#constructors)() | Reads OrgWideEmailAddress records, the organisation-wide email addresses set up in the org. |
 
 ### SEL_OrgWideEmailAddress()
 
@@ -126,7 +126,9 @@ OrgWideEmailAddress randomEmail = new SEL_OrgWideEmailAddress().getRandomItem();
 global SEL_OrgWideEmailAddress()
 ```
 
-Constructs an OrgWideEmailAddress selector.
+Reads OrgWideEmailAddress records, the organisation-wide email addresses set up in the org. Every query
+skips the running user's object and field permission checks (system mode). Record sharing follows the class
+that calls the selector. Creating the selector runs no query.
 
 **Example**
 

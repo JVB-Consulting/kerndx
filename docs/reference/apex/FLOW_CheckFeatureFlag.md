@@ -5,7 +5,7 @@ pageClass: reference
 description: "This class is used in Flows to check whether a specific feature flag is enabled. It provides a method that can be invoked from a flow to determine if a feature is active for the current user based on "
 author: "Jason Van Beukering"
 group: "Feature Flags"
-date: "November 2025, May 2026"
+date: "November 2025, October 2026"
 since: "1.0"
 category: apex
 ---
@@ -55,9 +55,9 @@ Returns if the specified feature flag is enabled for the current user.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `flagNames` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | A list containing a single DTO_Request with the feature flag's API name. |
+| `flagNames` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The API names of the feature flags to check, one per Flow interview. |
 
-**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — A list containing whether flags provided are enabled or not
+**Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — One Boolean for each name, in the same order: true when that flag is enabled for the current user.
 
 **Example**
 

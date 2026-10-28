@@ -126,7 +126,7 @@ Map<Id, List<SObject>> ancestorsByRecord = SEL_Hierarchy.forField(Account.Parent
 for(Id accountId : accountIds)
 {
     List<SObject> ancestors = ancestorsByRecord.get(accountId);
-    System.debug('Ancestors for ' + accountId + ': ' + ancestors);
+    // ancestors: the direct parent first, the top account last
 }
 ```
 
@@ -250,7 +250,7 @@ Map<Id, Id> ultimateParents = SEL_Hierarchy.forField(Account.ParentId)
     .findUltimateParents(accountIds);
 for(Id accountId : accountIds)
 {
-    System.debug('Ultimate parent: ' + ultimateParents.get(accountId));
+    Id ultimateParentId = ultimateParents.get(accountId); // the top account above accountId, or accountId itself
 }
 ```
 

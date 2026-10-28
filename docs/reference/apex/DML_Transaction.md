@@ -109,14 +109,20 @@ after a save never gets rows from before the save, or from a save that was rolle
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `enforceSharing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | If true, enforces sharing; if false, bypasses sharing; if null, inherits sharing. |
+| `enforceSharing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | If true, the running user's record sharing is enforced. If null, the sharing of the calling class applies. If false, record sharing is ignored. In user mode (no access level set while the UserModeDml_Enabled flag is on, or setAccessLevel(AccessLevel.USER_MODE)), false still keeps the running user's object and field permissions. A field the user cannot create or edit is left out of the save and logged as a warning, with no error. A save the user has no object permission for, an upsert on an external Id field the user cannot read or edit, and a save that would leave out the field that links a record to its parent are refused as user mode refuses them. A record that names its parent only by an external Id the user cannot read is refused by Salesforce, with a message that does not name the field. These checks use only the running user's own permissions. When user mode is set with a permission set, through setAccessLevel(AccessLevel.USER_MODE.withPermissionSetId(permissionSetId)), a field that only the permission set lets the user edit is still left out. A refused save is sent with that access level, so the platform takes the permission set into account when it decides. That save runs in user mode, so it also applies record sharing. In system mode, set through setAccessLevel(AccessLevel.SYSTEM_MODE) or by turning the flag off, false waives those permission checks too. |
 
 **Example**
 
 ```apex
 DML_Transaction dmlTransaction = new DML_Transaction();
-dmlTransaction.doInsert(new Account(Name = 'Test'));
+dmlTransaction.doUpdate(recordOwnedByAnotherUser);
+// Ignores record sharing; the running user's object and field permissions still apply.
 dmlTransaction.commitWork(false);
+DML_Transaction systemTransaction = new DML_Transaction();
+systemTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+systemTransaction.doUpdate(recordOwnedByAnotherUser);
+// Ignores record sharing and the running user's object and field permissions.
+systemTransaction.commitWork(false);
 ```
 
 </div>
@@ -732,7 +738,8 @@ global void setSuppressLogging(Boolean suppress)
 Sets whether to turn off LOG_Builder error logging for DML failures. When it is on, failed rows
 in a partial save are not logged, and neither is a failed save. That covers the ERROR entry an all-or-nothing
 save writes after it rolls back, just before it throws the exception again. It also covers the ERROR entry a
-partial save writes when it catches an exception thrown during the save and carries on.
+partial save writes when it catches an exception thrown during the save and carries on. It also covers the
+warning `commitWork(false)` logs in user mode when it leaves out fields the user cannot create or edit.
 
 **Parameters**
 

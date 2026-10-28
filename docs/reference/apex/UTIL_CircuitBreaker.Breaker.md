@@ -32,7 +32,7 @@ Interface for circuit breaker operations. This interface defines the contract fo
 | global abstract [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) [execute](#execute)([UTIL_CircuitBreaker.Provider](UTIL_CircuitBreaker.Provider.md) action) | Executes an action within the circuit breaker context (with return value) This overload allows actions to return data, eliminating the need for member variables to capture API responses. |
 | global abstract void [forceOpen](#forceopen)() | Manually forces the circuit breaker to OPEN state (use with caution) |
 | global abstract [UTIL_CircuitBreaker.Metrics](UTIL_CircuitBreaker.Metrics.md) [getMetrics](#getmetrics)() | Gets detailed metrics about the circuit breaker |
-| global abstract [UTIL_CircuitBreaker.State](UTIL_CircuitBreaker.State.md) [getState](#getstate)() | Gets the current state of the circuit breaker |
+| global abstract [UTIL_CircuitBreaker.State](UTIL_CircuitBreaker.State.md) [getState](#getstate)() | Before it answers, it moves an OPEN circuit to HALF_OPEN when the timeout has passed, and saves that change. |
 | global abstract void [recordFailure](#recordfailure)() | Records a failed request |
 | global abstract void [recordSuccess](#recordsuccess)() | Records a successful request |
 | global abstract void [reset](#reset)() | Manually resets the circuit breaker to CLOSED state (use with caution) |
@@ -136,7 +136,7 @@ try
     DTO_CustomerResponse response = (DTO_CustomerResponse)breaker.execute(
         new GetCustomerDataProvider(customerId)
     );
-    System.debug('Customer Name: ' + response.name);
+    String customerName = response.name;
 }
 catch(UTIL_CircuitBreaker.OpenException e)
 {
@@ -181,7 +181,8 @@ Gets detailed metrics about the circuit breaker
 global abstract UTIL_CircuitBreaker.State getState()
 ```
 
-Gets the current state of the circuit breaker
+Before it answers, it moves an OPEN circuit to HALF_OPEN when the timeout has passed, and saves that
+change. It does not use up a trial request; allowRequest and execute do.
 
 **Returns** [UTIL_CircuitBreaker.State](UTIL_CircuitBreaker.State.md) — The current circuit state
 
