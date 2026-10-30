@@ -14,7 +14,9 @@ on:
   workflow_dispatch:
     inputs:
       depth:
-        description: light proves the guides' commands and Path 2; heavy also runs every shipped npm script, the pipeline's tests, the bundle build and Path 3 for real, on a fresh copy of the tree
+        description: >-
+          light proves the guides' commands and Path 2; heavy also runs every shipped npm script,
+          the pipeline's tests, the bundle build and Path 3 for real, on a fresh copy of the tree
         type: choice
         options: [light, heavy]
         default: light
@@ -49,7 +51,13 @@ jobs:
         run: git config --global user.name "windows proof" && git config --global user.email "windows-proof@example.invalid"
 
       - name: Lay this checkout's tools over the public tree
-        run: node -e "const fs=require('fs');const t=process.argv[1];fs.cpSync('bin',t+'/bin',{recursive:true});for(const f of ['build-package.js','prepare-package-build.js'])fs.copyFileSync('scripts/'+f,t+'/scripts/'+f);fs.mkdirSync(t+'/scripts/lib',{recursive:true});fs.copyFileSync('scripts/lib/start-tool.js',t+'/scripts/lib/start-tool.js')" "%RUNNER_TEMP%\public-tree"
+        run: >-
+          node -e "const fs=require('fs');
+          const t=process.argv[1];
+          fs.cpSync('bin',t+'/bin',{recursive:true});
+          for(const f of ['build-package.js','prepare-package-build.js'])fs.copyFileSync('scripts/'+f,t+'/scripts/'+f);
+          fs.mkdirSync(t+'/scripts/lib',{recursive:true});
+          fs.copyFileSync('scripts/lib/start-tool.js',t+'/scripts/lib/start-tool.js')" "%RUNNER_TEMP%\public-tree"
 
       - name: Commit the tools under test, so the tree is clean
         run: git -C "%RUNNER_TEMP%\public-tree" add -A && git -C "%RUNNER_TEMP%\public-tree" commit -q -m "tools under test" --allow-empty
@@ -96,17 +104,26 @@ jobs:
 
       - name: Heavy - a project for Path 3, with the bundle under the guide's own file name
         if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
-        run: mkdir "%RUNNER_TEMP%\path3" && copy "tmp\dist\KernDX-${{ steps.version.outputs.version }}-pipeline.zip" "%RUNNER_TEMP%\path3\KernDX-YourVersion-pipeline.zip" && copy sfdx-project.json "%RUNNER_TEMP%\path3\sfdx-project.json"
+        run: >-
+          mkdir "%RUNNER_TEMP%\path3" &&
+          copy "tmp\dist\KernDX-${{ steps.version.outputs.version }}-pipeline.zip" "%RUNNER_TEMP%\path3\KernDX-YourVersion-pipeline.zip" &&
+          copy sfdx-project.json "%RUNNER_TEMP%\path3\sfdx-project.json"
 
       - name: Heavy - Path 3's install steps, as printed, for real
         if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
         run: node scripts/run-docs-commands.js --real --scope installation-path-3-install --working-directory "%RUNNER_TEMP%\path3"
 
-      - name: Heavy - init, answered as a reader would, without the prompts
+      # The answers are the pipeline README's own example file, and the command is the one the README prints for Command Prompt.
+      - name: Heavy - init, answered from a file as a reader would, without the prompts
         if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
         working-directory: ${{ runner.temp }}\path3
-        run: |
-          node -e "require('./.kerndx-pipeline/pipeline/src/commands/init.js').runInit({answers: {package_dirs: ['force-app/main/default'], framework_package: true, ci_adapter: {name: 'none'}, branches: {main: 'main', ingress: ['main'], protected: ['main'], release: []}, slack: {enabled: false}}}).then(() => console.log('init done'))"
+        env:
+          KERNDX_ANSWERS: >-
+            {"package_dirs": ["force-app/main/default"], "framework_package": true, "ci_adapter": {"name": "none"},
+            "branches": {"main": "main", "ingress": ["main"], "protected": ["main"], "release": []}, "slack": {"enabled": false}}
+        run: >-
+          node -e "require('fs').writeFileSync('kerndx-answers.json', process.env.KERNDX_ANSWERS)"
+          && node .kerndx-pipeline\bin\kerndx init --answers-file kerndx-answers.json
 
       - name: Heavy - the real Salesforce CLI, installed from nothing
         if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
@@ -124,11 +141,16 @@ jobs:
       - name: Heavy - doctor still passes after the upgrade
         if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') != ''
         working-directory: ${{ runner.temp }}\path3
-        run: node .kerndx-pipeline/bin/kerndx doctor > "%RUNNER_TEMP%\doctor-after.log" & type "%RUNNER_TEMP%\doctor-after.log" & findstr /c:"All checks pass." "%RUNNER_TEMP%\doctor-after.log"
+        run: >-
+          node .kerndx-pipeline/bin/kerndx doctor > "%RUNNER_TEMP%\doctor-after.log" &
+          type "%RUNNER_TEMP%\doctor-after.log" &
+          findstr /c:"All checks pass." "%RUNNER_TEMP%\doctor-after.log"
 
       - name: Heavy - Path 3 for real is left to the repository that carries the bundle build tool
         if: inputs.depth == 'heavy' && hashFiles('scripts/build-distribution.js') == ''
-        run: '>>%GITHUB_STEP_SUMMARY% echo Path 3 for real needs the bundle build tool, which this tree does not carry; it is proven by the heavy run in the repository that has it.'
+        run: >-
+          >>%GITHUB_STEP_SUMMARY% echo Path 3 for real needs the bundle build tool,
+          which this tree does not carry; it is proven by the heavy run in the repository that has it.
 
       - name: Heavy - the first-run claims - ver works in Command Prompt
         if: inputs.depth == 'heavy'
@@ -227,7 +249,8 @@ jobs:
         shell: pwsh
         run: |
           $file = Get-ChildItem "$env:RUNNER_TEMP\locked-file\force-app\main\default\classes\*.cls" | Select-Object -First 1
-          $holder = Start-Process pwsh -PassThru -ArgumentList '-NoProfile', '-Command', "`$handle = [System.IO.File]::Open('$($file.FullName)', 'Open', 'Read', 'None'); Start-Sleep -Seconds 120"
+          $holder = Start-Process pwsh -PassThru -ArgumentList '-NoProfile', '-Command',
+            "`$handle = [System.IO.File]::Open('$($file.FullName)', 'Open', 'Read', 'None'); Start-Sleep -Seconds 120"
           $holder.Id | Set-Content "$env:RUNNER_TEMP\locked-file-holder.txt"
           Start-Sleep -Seconds 5
 
@@ -251,7 +274,13 @@ jobs:
         run: git -C "%RUNNER_TEMP%\public-tree" config --get core.autocrlf && git -C "%RUNNER_TEMP%\crlf" config --get core.autocrlf
 
       - name: Windows line endings - lay this checkout's tools over it
-        run: node -e "const fs=require('fs');const t=process.argv[1];fs.cpSync('bin',t+'/bin',{recursive:true});for(const f of ['build-package.js','prepare-package-build.js'])fs.copyFileSync('scripts/'+f,t+'/scripts/'+f);fs.mkdirSync(t+'/scripts/lib',{recursive:true});fs.copyFileSync('scripts/lib/start-tool.js',t+'/scripts/lib/start-tool.js')" "%RUNNER_TEMP%\crlf"
+        run: >-
+          node -e "const fs=require('fs');
+          const t=process.argv[1];
+          fs.cpSync('bin',t+'/bin',{recursive:true});
+          for(const f of ['build-package.js','prepare-package-build.js'])fs.copyFileSync('scripts/'+f,t+'/scripts/'+f);
+          fs.mkdirSync(t+'/scripts/lib',{recursive:true});
+          fs.copyFileSync('scripts/lib/start-tool.js',t+'/scripts/lib/start-tool.js')" "%RUNNER_TEMP%\crlf"
 
       - name: Windows line endings - swap
         working-directory: ${{ runner.temp }}\crlf
@@ -275,7 +304,11 @@ jobs:
 
       - name: The shipped tools' own tests, on Windows
         if: hashFiles('jest.scripts.config.js') != ''
-        run: npx sfdx-lwc-jest -- --config jest.scripts.config.js --testPathPattern "(terminal-blocks|stand-in-tools|run-docs-commands|swap-namespace|prepare-package-build|start-tool|run-shipped-npm-scripts|write-shipped-package-json|report-command-shapes|package-scripts-portable|kerndx-command-spelling)"
+        env:
+          SHIPPED_TOOLS_TEST_PATTERN: "(terminal-blocks|stand-in-tools|run-docs-commands|swap-namespace|prepare-package-build\
+            |start-tool|run-shipped-npm-scripts|write-shipped-package-json|report-command-shapes\
+            |package-scripts-portable|kerndx-command-spelling)"
+        run: npx sfdx-lwc-jest -- --config jest.scripts.config.js --testPathPattern "%SHIPPED_TOOLS_TEST_PATTERN%"
 
       - name: The pipeline starts the real sf.cmd, proven with a stand-in
         run: node --test pipeline/__tests__/lib/sfca-runner-start.test.js
