@@ -114,6 +114,7 @@ This guide is the full reference behind those commands: every rule, every way to
     - [kerndx/no-hardcoded-user-text](#kerndxno-hardcoded-user-text)
     - [kerndx/no-jest-theatre](#kerndxno-jest-theatre)
     - [kerndx/no-mutating-shared-fixture](#kerndxno-mutating-shared-fixture)
+    - [kerndx/no-jest-mock-component-module](#kerndxno-jest-mock-component-module)
     - [ESLint Setup](#eslint-setup)
 6. [Naming Validator (Flows & Custom Objects)](#naming-validator-flows--custom-objects)
     - [How do I configure it?](#how-do-i-configure-it)
@@ -195,7 +196,7 @@ Each of the three checkers reads a different kind of file, using the tool best s
 |  (Apex classes & triggers)       |     |  (LWC JavaScript)                |     |  (Flows & Custom Objects)        |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
 |  kerndx-pmd-ruleset.xml         |     |  eslint-plugin-kerndx/           |     |  validate-naming.js              |
-|  28 rules, PMD >= 7.19.0         |     |  7 ESLint rules                  |     |  Node.js script, org-specific    |
+|  28 rules, PMD >= 7.19.0         |     |  8 ESLint rules                  |     |  Node.js script, org-specific    |
 |  Framework anti-patterns         |     |  ComponentBuilder, console,      |     |  Flow & Custom Object naming     |
 |  Priority 1/3/5 tiers            |     |  component naming                |     |  Configurable domains/brands     |
 +----------------------------------+     +----------------------------------+     +----------------------------------+
@@ -225,7 +226,7 @@ your `code-analyzer.yml`; leave it off everywhere else.
 | `kerndx-hygiene-ruleset.xml`        | Any Salesforce org (no framework needed) | Framework-agnostic tier: the six rules (test quality, security-bypass review, Flow-invocable constructors) that do not require the KernDX framework. `kerndx init` scaffolds this one when the repo does not use the framework. |
 | `subscriber-naming-pmd-ruleset.xml` | Your org (example)                | Apex class naming (`Domain_[Brand_]Layer_Name`), trigger naming (`TRG_ObjectName`), 40-char limit                                                                              |
 | `combined-pmd-ruleset.xml`          | Both (single-file reference)      | Includes both PMD rulesets via `<rule ref="..."/>`, for tools that accept only one ruleset file                                                                              |
-| `eslint-plugin-kerndx/`             | Any KernDX org                    | 7 ESLint rules: ComponentBuilder usage, console.log blocking, LWC component naming, coverage-exempt justification, jest-theatre prevention, shared-fixture mutation prevention, hardcoded display-text detection |
+| `eslint-plugin-kerndx/`             | Any KernDX org                    | 8 ESLint rules: ComponentBuilder usage, console.log blocking, LWC component naming, coverage-exempt justification, jest-theatre prevention, shared-fixture mutation prevention, hardcoded display-text detection, Jest mocks of `c/` and `lightning/` modules |
 | `validate-naming.js`                | Org-specific                      | Flow and Custom Object naming validation, with configurable domains, brands, and flow types                                                                                       |
 
 ---
@@ -876,7 +877,7 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 
 ## ESLint Rules (LWC)
 
-PMD reads Apex but not JavaScript, so the checks for Lightning Web Components (LWC) live in a separate ESLint plugin, `eslint-plugin-kerndx`. It enforces the same kinds of framework and naming conventions on the JavaScript side. The plugin contains seven rules.
+PMD reads Apex but not JavaScript, so the checks for Lightning Web Components (LWC) live in a separate ESLint plugin, `eslint-plugin-kerndx`. It enforces the same kinds of framework and naming conventions on the JavaScript side. The plugin contains eight rules.
 
 ### kerndx/use-component-builder
 
@@ -1130,6 +1131,39 @@ describe('c-my-component', () =>
         element = createElement('c-my-component', {is: MyComponent});
         document.body.appendChild(element);
     });
+});
+```
+
+### kerndx/no-jest-mock-component-module
+
+**The problem this prevents:** a test calls `jest.mock('c/<name>')` or `jest.mock('lightning/<name>')` to replace a component or a base module with a fake one. Only the sfdx-lwc-jest resolver (the part of the Salesforce Jest setup that finds `c/` and `lightning/` modules) knows where these modules live, and that makes the fake fragile. Jest runs several test files one after another in the same worker. Once an earlier file loads the real module, Jest finds it under a different name, and your mock no longer replaces it. Often nothing fails: the test keeps passing, but it now checks a fake that your component never calls. Sometimes it fails only when the test files run in a certain order. Adding `{virtual: true}` does not fix this.
+
+**The fix:** use one of these patterns, which keep working whatever order the test files run in:
+
+- Call `jest.spyOn(...)` on the real object your test imports.
+- Assert what the sfdx-lwc-jest stub received, for example the event it dispatched.
+- Add a `moduleNameMapper` entry to your Jest configuration that points the module at a mock file.
+
+**What the rule detects:** a `jest.mock(...)` call whose first argument starts with `c/` or `lightning/`, written as a string or as a template literal with no `${...}` parts. It reports the call with or without a factory function and with or without options. Relative paths (such as `'../spinner.html'`), npm packages and `@salesforce/...` modules mock normally, so the rule does not report them.
+
+It applies only to files ending in `.test.js` or under `__tests__/`.
+
+When you turn this rule on in your own project, start it at the `warn` level. Your existing tests may use this pattern, and a warning flags them without failing the lint run. Fix those tests, then raise the rule to `error` if you want it to fail the run.
+
+```javascript
+// VIOLATION -- the mock can silently stop replacing the module
+jest.mock('c/utilityLogger', () => ({default: {error: jest.fn()}}), {virtual: true});
+
+// CORRECT -- spy on the real imported object
+import utilityLogger from 'c/utilityLogger';
+
+it('logs the save failure', async () =>
+{
+    const errorSpy = jest.spyOn(utilityLogger, 'error');
+    const element = createElement('c-my-component', {is: MyComponent});
+    document.body.appendChild(element);
+    await element.handleSave();
+    expect(errorSpy).toHaveBeenCalled();
 });
 ```
 
@@ -1404,7 +1438,7 @@ If you also use org-specific naming rules:
 
 Violations now appear inline as squiggly underlines while you type. Hover over one to see the rule name and message. The Apex PMD extension supports more than one ruleset out of the box.
 
-**ESLint (LWC):** Install the **ESLint** extension. Because the configuration already lives in `eslint.config.mjs`, violations from the four rules the shipped config activates (`kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text`, `kerndx/no-jest-theatre`, and `kerndx/no-mutating-shared-fixture`) appear inline automatically, with nothing else to set up. The three `ComponentBuilder`-model rules (`kerndx/use-component-builder`, `kerndx/no-console-log`, `kerndx/enforce-component-naming`) join them once you uncomment their block in that config, with one caveat: `kerndx/enforce-component-naming` reports nothing until you also give it a `domains` option.
+**ESLint (LWC):** Install the **ESLint** extension. Because the configuration already lives in `eslint.config.mjs`, violations from the five rules the shipped config activates (`kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text`, `kerndx/no-jest-theatre`, `kerndx/no-mutating-shared-fixture`, and `kerndx/no-jest-mock-component-module`) appear inline automatically, with nothing else to set up. The three `ComponentBuilder`-model rules (`kerndx/use-component-builder`, `kerndx/no-console-log`, `kerndx/enforce-component-naming`) join them once you uncomment their block in that config, with one caveat: `kerndx/enforce-component-naming` reports nothing until you also give it a `domains` option.
 
 ### IntelliJ / Illuminated Cloud
 

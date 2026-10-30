@@ -250,9 +250,11 @@ Something went wrong? See [Common Issues, Step 3](#step-3-intellij--illuminated-
 The same idea applies to your Lightning Web Components (LWC), checked by the ESLint plugin `eslint-plugin-kerndx`,
 which your KernDX pipeline bundle unpacks into `.kerndx-pipeline/scanner/eslint-plugin-kerndx`.
 
-Four of these rules catch problems in any project, so turn them on first in your project's ESLint configuration file:
+Five of these rules catch problems in any project, so turn them on first in your project's ESLint configuration file:
 `kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text` (at the `warn` level, so it flags without
-failing the run), `kerndx/no-jest-theatre`, and `kerndx/no-mutating-shared-fixture`. In a clone of the KernDX source
+failing the run), `kerndx/no-jest-theatre`, `kerndx/no-mutating-shared-fixture`, and
+`kerndx/no-jest-mock-component-module` (also at the `warn` level, because your existing tests may use the pattern it
+reports; fix them, then raise it to `error` if you want). In a clone of the KernDX source
 repository they are **active by default**.
 
 Three more rules push you toward the KernDX component model: `kerndx/use-component-builder`, `kerndx/no-console-log`,
@@ -358,6 +360,7 @@ The 28 KernDX-authored PMD rules, every one of which can fire on your own code:
 | `kerndx/enforce-component-naming`          | LWC folders without domain prefix                            | `domain[Brand]FeatureVariant`                    |
 | `kerndx/no-jest-theatre`                   | Assertion-less Jest tests, hollow `createElement` assertions | Real `expect(...)` calls that exercise behaviour |
 | `kerndx/no-mutating-shared-fixture`        | Mutation of a `beforeAll(...)` fixture across tests          | Rebuild per-test state in `beforeEach(...)`      |
+| `kerndx/no-jest-mock-component-module`     | `jest.mock(...)` of a `c/` or `lightning/` module            | `jest.spyOn`, stub values, or `moduleNameMapper` |
 | `kerndx/no-coverage-exempt-without-reason` | `kern-coverage-exempt` comments without justification        | Add a substantive platform-limitation reason     |
 | `kerndx/no-hardcoded-user-text`            | Hardcoded user-facing text in toasts, errors, and template bindings | Import the text from a Custom Label (`@salesforce/label/c.X`) |
 
@@ -520,7 +523,7 @@ Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?templ
 |----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `kerndx-pmd-ruleset.xml`   | 28 KernDX-authored PMD rules enforcing framework conventions (triggers, queries, DML, logging, HTTP, coverage hygiene, etc.)                                                                 |
 | `kerndx-hygiene-ruleset.xml` | Framework-agnostic tier: the six rules that need no KernDX framework (test quality, security-bypass review, Flow-invocable constructors), for repos that do not use the KernDX framework     |
-| `eslint-plugin-kerndx`     | 7 ESLint rules enforcing LWC and test conventions: extend the shared component base class, no `console.log`, consistent naming, a reason on every coverage exemption, no assertion-less tests, no mutating a fixture shared across tests, and no hardcoded user-facing text |
+| `eslint-plugin-kerndx`     | 8 ESLint rules enforcing LWC and test conventions: extend the shared component base class, no `console.log`, consistent naming, a reason on every coverage exemption, no assertion-less tests, no mutating a fixture shared across tests, no hardcoded user-facing text, and no `jest.mock` of a `c/` or `lightning/` module |
 | `combined-pmd-ruleset.xml` | Single-file reference for tools that only accept one ruleset (IntelliJ)                                                                                                             |
 | Priority tiers (1/3/5)     | A staged adoption order: start with blockers, expand to should-fix, then informational                                                                                              |
 | `@SuppressWarnings`        | Per-class or per-method opt-out with justification                                                                                                                                  |

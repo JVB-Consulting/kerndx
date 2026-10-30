@@ -205,6 +205,8 @@ The `eslint-plugin-kerndx` plugin enforces framework and naming conventions in L
 | `kerndx/enforce-component-naming`          | LWC folder names without domain prefix                                                               | `domain[Brand]FeatureVariant` (e.g. `ordReturnWizard`)                                    |
 | `kerndx/no-jest-theatre`                   | Assertion-less Jest `it`/`test` blocks, hollow `expect(createElement(...)).toBeTruthy()` smoke tests | Query the rendered DOM and assert on the visible outcome                                  |
 | `kerndx/no-mutating-shared-fixture`        | `beforeAll` that calls `createElement` while `it` blocks mutate its shared state                     | Create a fresh element per test in `beforeEach`, or scope mutation to a dedicated fixture |
+| `kerndx/no-jest-mock-component-module`     | `jest.mock(...)` of a `c/` or `lightning/` module in Jest tests                                      | `jest.spyOn` on the real import, assert the stub's received values, or a `moduleNameMapper` mock file |
+| `kerndx/no-hardcoded-user-text`            | Hardcoded text in toasts, thrown errors and multi-word display strings                               | A Custom Label (`import x from '@salesforce/label/c.X'`)                                  |
 | `kerndx/no-coverage-exempt-without-reason` | `// kern-coverage-exempt:` in `.js` files with empty/short/blocklisted reason                        | Document a concrete, testable reason ≥15 chars (mirrors the Apex rule)                    |
 
 ### Setup

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // @ts-check
 
 import globals from 'globals';
@@ -89,7 +89,7 @@ export default tseslint.config(// Always use the recommended rule set
 			plugins: {
 				kerndx: kerndxPlugin
 			}, files: ['**/*.test.js'], rules: {
-				'kerndx/no-jest-theatre': 'error', 'kerndx/no-mutating-shared-fixture': 'error'
+				'kerndx/no-jest-theatre': 'error', 'kerndx/no-mutating-shared-fixture': 'error', 'kerndx/no-jest-mock-component-module': 'error'
 			}
 		},
 
