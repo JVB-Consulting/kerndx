@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber-side stress tests for framework resilience patterns: circuit breaker
  * state transitions, retry backoff calculations, and ad-hoc retry with mocked failures.

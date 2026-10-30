@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Paginated Lightning Datatable with cross-page row selection tracking,
  * column sorting delegation, and configurable results-per-page validation.

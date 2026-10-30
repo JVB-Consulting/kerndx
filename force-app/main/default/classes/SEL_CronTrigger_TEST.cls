@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for SEL_CronTrigger, the selector behind the Job Runner Running, Job Runner Integrity and
  * slot dimensions. Runs serially: the real-path tests schedule a job, and System.schedule performs DML on CronJobDetail,

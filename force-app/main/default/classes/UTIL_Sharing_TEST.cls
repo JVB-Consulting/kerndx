@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for UTIL_Sharing.
  * Tests both permanent and temporary sharing functionality.
@@ -9,7 +9,7 @@
  *
  * @group Utilities
  *
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)

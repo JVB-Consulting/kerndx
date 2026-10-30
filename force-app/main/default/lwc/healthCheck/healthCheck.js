@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Displays post-install health check results with pass/warn/fail status,
  * action buttons, and passing chips. Automatically runs checks on load and supports refresh.
  *
  * @author Jason van Beukering
  *
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  */
 import {ComponentBuilder} from 'c/componentBuilder';
 import LightningConfirm from 'lightning/confirm';

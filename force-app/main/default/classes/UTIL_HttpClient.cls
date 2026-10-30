@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Fluent HTTP client facade over the API_Dispatcher pipeline. Provides zero-boilerplate callouts
  * with automatic retry, circuit breaker, failure logging, performance timing, sensitive data masking,
@@ -385,8 +385,8 @@ global inherited sharing class UTIL_HttpClient
 
 	/**
 	 * @description Creates a delegation mode request for the specified handler class of your own. Your handler's inputs also
-	 * carry three names that start with two underscores, holding the retry values of withRetry and withExponentialBackoff;
-	 * leave them in place, the framework reads them on every run.
+	 * carry three keys that hold the retry values of withRetry and withExponentialBackoff: `__exponentialBackoff`,
+	 * `__maxRetries` and `__backoffSeconds`. Leave them in place, the framework reads them on every run.
 	 *
 	 * @param handlerType The API_Outbound subclass Type to delegate to
 	 *

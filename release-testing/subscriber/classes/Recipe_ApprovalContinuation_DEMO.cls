@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Pause-for-approval composition pattern, second leg: the invocable a
  * record-triggered flow calls when the human approves, starting the continuation chain for the

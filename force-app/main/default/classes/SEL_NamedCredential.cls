@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the NamedCredential SObject. Provides query methods for retrieving
  * named credentials by developer name, with namespace-aware parsing.

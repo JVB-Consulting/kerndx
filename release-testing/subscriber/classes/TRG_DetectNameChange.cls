@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Trigger action that leaves a record of every Account rename: a completed Task whose subject shows the
  * old name and the new one. Runs after update.

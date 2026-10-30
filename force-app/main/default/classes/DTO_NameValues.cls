@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Class for managing and transferring key-value pairs, represented as names and values, between classes.
  * Provides functionalities to store, retrieve, and manipulate these name-value pairs.

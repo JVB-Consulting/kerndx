@@ -5,7 +5,7 @@ pageClass: reference
 description: "Provides methods for querying and evaluating user access permissions on Salesforce objects. Simplifies permission checks by exposing operations such as read or create access for single or multiple use"
 author: "Jason Van Beukering"
 group: "Selectors"
-date: "February 2026, June 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Namespace resolution for specs that run against both the managed subscriber org
 // ('kern__' / 'kern.') and the no-namespace unmanaged org ('' / ''). Mirrors the
 // masking-advisor page object's Tooling-API probe, shared so page objects and

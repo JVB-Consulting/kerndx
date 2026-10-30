@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 /**
  * Usage-metrics robustness probe — drives hostile interaction patterns against the deployed

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for SEL_ValidationRules selector.
  *
@@ -8,7 +8,7 @@
  *
  * @group Validation
  *
- * @date January 2026, September 2026
+ * @date January 2026, October 2026
  */
 @IsTest
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')

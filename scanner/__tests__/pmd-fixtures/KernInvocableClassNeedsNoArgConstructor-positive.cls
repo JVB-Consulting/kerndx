@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Scanner test input that KernInvocableClassNeedsNoArgConstructor must report twice: once for the outer
  * class, which has only a constructor with a parameter, and once for the inner class, whose no-arg constructor is

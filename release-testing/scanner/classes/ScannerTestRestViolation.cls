@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Deliberate violation — @RestResource class not named REST_*.
  * Used to validate KernRestResourceNaming rule.

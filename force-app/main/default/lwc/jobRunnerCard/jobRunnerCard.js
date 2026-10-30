@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The job runner card Health Check renders beneath the readiness banner: whether the runner is
  *              active, how often it checks for due jobs and at what slot cost, who its jobs run as, the slot
@@ -7,7 +7,7 @@
  *
  * @author Jason van Beukering
  *
- * @date September 2026
+ * @date September 2026, October 2026
  */
 import {api} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: BUSL-1.1 */
+/* SPDX-License-Identifier: Apache-2.0 */
 /*
  * The stand-in for a log number a grouped problem cannot have. Muted so it reads as "not applicable"
  * rather than as content, and never underlined, so it is not mistaken for the link its neighbours are.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Guarded synthesizer for <meta name="description">. Returns a clean string, or
 // null when the result would be an unusable fragment (< 30 chars) — never a
 // templated/duplicate string.

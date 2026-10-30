@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests the behavior of the [API_Base] class, covering ServiceCallResult properties,
  * WebserviceStatus enum behavior, and base-class validation logic.

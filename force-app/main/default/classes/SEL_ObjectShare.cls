@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Utility class for working with SObject Share records generically across all SObject types.
  * Provides metadata about share objects and creates share record instances.

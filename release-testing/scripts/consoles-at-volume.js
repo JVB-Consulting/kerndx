@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Loads an org for the consoles-at-volume proof: preflight, launch, drain, operate, verify, each a
 // subcommand and each resumable from the manifest; `run` does the five in order; `teardown` is separate and optional.
 //   SF_SUBSCRIBER_ORG_ALIAS=<your org alias> node release-testing/scripts/consoles-at-volume.js run --mode staged

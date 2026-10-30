@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description REST endpoint for circuit breaker load testing. Accepts failure/success probes,
  * checks circuit breaker state via Platform Cache, and returns metrics. Designed to be hit

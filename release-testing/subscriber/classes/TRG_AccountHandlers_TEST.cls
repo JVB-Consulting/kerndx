@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for Account trigger handlers: TRG_ValidateAccountName,
  * TRG_StampAccountSource (beforeUpdate), and TRG_DetectNameChange (afterUpdate).

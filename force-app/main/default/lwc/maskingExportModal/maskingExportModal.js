@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Export-package dialog for the Data Masking Advisor, built on lightning/modal
  * (LightningModal) so the chrome and the WCAG focus-trap come from the platform. It presents the export as
@@ -15,7 +15,7 @@
  * download".
  *
  * @author Jason van Beukering
- * @date June 2026, August 2026
+ * @date June 2026, October 2026
  */
 import {api} from 'lwc';
 import LightningModal from 'lightning/modal';

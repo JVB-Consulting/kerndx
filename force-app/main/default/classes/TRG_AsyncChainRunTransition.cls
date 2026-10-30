@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Refuses a change to a chain run that the engine would never make. Runs before every insert and every
  * update of AsyncChainExecution__c.

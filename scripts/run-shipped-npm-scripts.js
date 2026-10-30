@@ -1,21 +1,27 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Runs every npm script the shipped package.json offers a reader, on this machine, except the ones a
  *              register row excuses with a reason and what proves them instead. A script is in by default, so a new
  *              one is proven on Windows before a reader meets it. The shipped set is the working directory's own
  *              package.json, so the tree it runs in must carry the package.json a reader gets. The scripts the
- *              register's changesFiles names rewrite that tree, so they run after every other script.
- *              Usage: node scripts/run-shipped-npm-scripts.js --working-directory <tree> [--register <file>] [--list]
+ *              register's changesFiles names rewrite that tree, so they run after every other script. A failing
+ *              script's whole output goes to a file of its own in the output folder, whose path is printed beside
+ *              the last lines; on GitHub Actions the whole output is also printed in a folded group of the log.
+ *              Usage: node scripts/run-shipped-npm-scripts.js --working-directory <tree> [--register <file>]
+ *              [--output-directory <folder>] [--list]
  */
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const {spawnSync} = require('child_process');
 
 const DEFAULT_REGISTER = path.join(__dirname, 'shipped-npm-scripts-register.json');
+const DEFAULT_OUTPUT_DIRECTORY = path.join(os.tmpdir(), 'shipped-npm-scripts-output');
 const OUTPUT_LIMIT = 64 * 1024 * 1024;
 const TAIL_LINES = 15;
+const USAGE = 'Usage: node scripts/run-shipped-npm-scripts.js --working-directory <tree> [--register <file>] [--output-directory <folder>] [--list]';
 
 /**
  * @description The shipped package.json as an object: the working directory's own.
@@ -79,7 +85,8 @@ function plannedScripts(scripts, register)
  *              array meets a shell here.
  * @param {string} name - The script name.
  * @param {string} workingDirectory - The tree.
- * @returns {{name: string, status: number, seconds: number, tail: string}} What happened.
+ * @returns {{name: string, status: number, seconds: number, output: string, tail: string}} What happened, with the
+ *          script's whole output and its last lines.
  */
 function runScript(name, workingDirectory)
 {
@@ -87,9 +94,25 @@ function runScript(name, workingDirectory)
 	const result = spawnSync(`npm run ${name}`, {cwd: workingDirectory, encoding: 'utf8', shell: true, maxBuffer: OUTPUT_LIMIT});
 	const output = `${result.stdout || ''}${result.stderr || ''}${result.error ? result.error.message : ''}`;
 	return {
-		name, status: result.status === null ? 1 : result.status, seconds: Math.round((Date.now() - started) / 1000),
+		name, status: result.status === null ? 1 : result.status, seconds: Math.round((Date.now() - started) / 1000), output,
 		tail: output.trim().split('\n').slice(-TAIL_LINES).join('\n')
 	};
+}
+
+/**
+ * @description Writes a script's whole output to a file of its own in the output folder, creating the folder when it
+ *              is missing. A script name can hold characters a Windows file name cannot (test:unit), so each character
+ *              other than a letter, a digit, a dot, a dash or an underscore becomes a dash in the file name.
+ * @param {{name: string, output: string}} result - The run.
+ * @param {string} outputDirectory - The folder the file goes in.
+ * @returns {string} The file's path.
+ */
+function writeOutput(result, outputDirectory)
+{
+	fs.mkdirSync(outputDirectory, {recursive: true});
+	const file = path.join(outputDirectory, `${result.name.replace(/[^A-Za-z0-9._-]/g, '-')}.log`);
+	fs.writeFileSync(file, result.output);
+	return file;
 }
 
 /**
@@ -129,9 +152,10 @@ function main(argv)
 	const workingDirectory = valueOf('--working-directory');
 	if(!workingDirectory)
 	{
-		console.error('Usage: node scripts/run-shipped-npm-scripts.js --working-directory <tree> [--register <file>] [--list]');
+		console.error(USAGE);
 		return 2;
 	}
+	const outputDirectory = path.resolve(valueOf('--output-directory') || DEFAULT_OUTPUT_DIRECTORY);
 	const register = JSON.parse(fs.readFileSync(valueOf('--register') || DEFAULT_REGISTER, 'utf8'));
 	const planned = plannedScripts(shippedScripts(workingDirectory), register);
 	if(argv.includes('--list'))
@@ -148,13 +172,20 @@ function main(argv)
 		if(result.status !== 0)
 		{
 			result.tail.split('\n').forEach(line => console.log(`  ${line}`));
+			console.log(`  The whole output is in ${writeOutput(result, outputDirectory)}`);
+			if(process.env.GITHUB_ACTIONS === 'true')
+			{
+				console.log(`::group::The whole output of ${name}`);
+				console.log(result.output);
+				console.log('::endgroup::');
+			}
 		}
 	}
 	writeSummary(results, register.excluded || [], register.changesFiles || []);
 	return results.some(result => result.status !== 0) ? 1 : 0;
 }
 
-module.exports = {DEFAULT_REGISTER, shippedPackage, shippedScripts, plannedScripts, runScript, main};
+module.exports = {DEFAULT_REGISTER, DEFAULT_OUTPUT_DIRECTORY, shippedPackage, shippedScripts, plannedScripts, runScript, writeOutput, main};
 
 if(require.main === module)
 {

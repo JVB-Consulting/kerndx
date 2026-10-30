@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Subscriber org alias — single source of truth for the test subscriber org.
 // Export SF_SUBSCRIBER_ORG_ALIAS before invoking any release-testing runner.
 module.exports = {

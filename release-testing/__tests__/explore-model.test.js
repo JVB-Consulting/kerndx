@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 jest.mock('../e2e/helpers/sf-cli', () => ({runApexScript: jest.fn(), soqlQuery: jest.fn()}));
 jest.mock('../e2e/helpers/sf-namespace', () => ({namespacePrefix: () => '', apexNamespacePrefix: () => '', fillNamespaceTokens: (source) => source}));
 const {HistoryTape, consoleEntry, monitorEntry, samePins, expectedRowCount, freshSession, openedActionSession} = require('../e2e/explore/model');

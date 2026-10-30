@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Utility for timezone-aware cron expression handling. Shifts cron expression hours
  * (and minutes for half-hour timezones) from one timezone to another so that System.schedule()

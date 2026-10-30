@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the utilityApiIssueAction module, which runs an action on an API issue record for
  *              the Retry and Dismiss quick actions.
@@ -14,15 +14,7 @@ import {notifyRecordUpdateAvailable} from 'lightning/uiRecordApi';
 // the sfdx-lwc-jest stub already makes notifyRecordUpdateAvailable a Jest mock function. A jest.mock of such a module
 // stops working once another suite in the same Jest worker has loaded the real one.
 
-jest.mock('lightning/actions', () => ({
-	CloseActionScreenEvent: class CloseActionScreenEvent extends CustomEvent
-	{
-		constructor()
-		{
-			super('close');
-		}
-	}
-}), {virtual: true});
+// lightning/actions comes from its moduleNameMapper mock in jest.config.js: CloseActionScreenEvent is a close event.
 
 /** @description The id of the API issue record the quick action is open on. */
 const RECORD_ID = 'a00000000000001';

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A with-sharing batch whose only job is to count the rows its locator delivers. Built with or
  * without the sharing bypass so the same class proves both directions. Lives as its own class because only a

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Confirmation dialogue for the Data Masking Advisor "Generate bundle" flow. Appears only
  *              when the staged bundle would activate one or more dormant masking rules. Lists each

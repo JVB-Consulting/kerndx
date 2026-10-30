@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Invokes inbound API requests programmatically with Safe Mode support.
  * Routes requests through the inbound API pipeline without external HTTP traffic.

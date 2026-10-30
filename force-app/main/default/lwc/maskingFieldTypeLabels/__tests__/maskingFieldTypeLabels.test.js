@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the maskingFieldTypeLabels shared helper — friendlyFieldTypes maps a
  *              masking rule's upper-cased field-type literals to friendly display names, comma-joined, with
  *              an empty list reading "Any text field" and an unknown literal falling back to itself.
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, October 2026
  */
 import {friendlyFieldType, friendlyFieldTypes} from 'c/maskingFieldTypeLabels';
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the maskingInventoryExportDialog LWC — the regulated-field inventory
  *              export dialog built on lightning/modal (LightningModal). The base modal supplies the chrome +
@@ -11,7 +11,7 @@
  *              per-object Apex; opening the dialog and previewing a scope change nothing in the org.
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, October 2026
  */
 import {createElement} from 'lwc';
 import {mockClose} from 'lightning/modal';

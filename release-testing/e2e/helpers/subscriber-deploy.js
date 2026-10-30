@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Puts subscriber Apex from release-testing/subscriber/classes/ on an org that holds the framework with no
 // namespace, by stripping the package namespace from a copy and deploying the copy as a metadata bundle. The two
 // literals below are spelled in the forms bin/swap-namespace.js rewrites, so a swapped tree strips its own namespace.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for UTIL_FormulaContext inner classes.
  * Tests ONLY that context classes correctly cast and assign old/new records.

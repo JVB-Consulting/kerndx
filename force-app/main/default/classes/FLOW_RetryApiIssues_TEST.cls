@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for the Retry API Issues Flow action: the single request guard, the permission refusal, the message
  * for each outcome and the retry the job performs, including a call written with global members only, as a subscriber writes it.

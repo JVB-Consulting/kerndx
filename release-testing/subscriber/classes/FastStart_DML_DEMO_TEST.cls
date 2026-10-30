@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for FastStart_DML_DEMO. Validates the parent-child auto-link pattern
  * and partial-success mode at 100% coverage.

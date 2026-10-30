@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Part 3 of the exploration: the checks run after every step, and the seed's own totals checked before
 // the first one.
 'use strict';

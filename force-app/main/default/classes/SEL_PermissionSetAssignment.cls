@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the PermissionSetAssignment SObject. Provides methods for checking
  * permission set and permission set group assignments for users.
@@ -10,7 +10,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_PermissionSetAssignment extends SEL_Base
 {

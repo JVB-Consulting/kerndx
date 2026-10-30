@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Provides static methods to check if a feature is enabled.
  * It reads Custom Metadata records to determine if a feature should be active for the current user

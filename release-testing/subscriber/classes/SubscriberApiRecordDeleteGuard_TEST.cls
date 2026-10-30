@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber-side proof of the delete guard on API issues, through the global surface. API calls and API
  * issues are the history of every call to and from other systems, so only a user the BypassApiRecordDeleteGuard feature

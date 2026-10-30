@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description List panel showing filtered, sorted, and paginated async chain executions.
  * Supports status filtering and row selection to drive the detail panel.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Counts Account records by Industry. Used as a minimal real class so that
  * FastStart_TestData_DEMO_TEST has a production method to exercise with TST_Builder and TST_Mock.

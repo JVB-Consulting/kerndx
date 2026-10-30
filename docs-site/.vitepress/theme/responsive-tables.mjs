@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // markdown-it plugin: tag every table-body <td> with data-label="<column header>".
 // On narrow viewports the theme CSS uses these labels to collapse wide tables into
 // labeled stacked cards (each row a card, each cell prefixed by its column name)

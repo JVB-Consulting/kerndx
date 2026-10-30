@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tabbed detail pane for a single Log Console entry. Presentational and self-contained: it
  * renders the supplied opened-entry `DTO_LogEntryDetail` across Overview / Stack trace / Context tabs, and
@@ -12,7 +12,7 @@
  *
  * @author Jason van Beukering
  *
- * @date July 2026, September 2026
+ * @date July 2026, October 2026
  */
 import {api} from 'lwc';
 import LOCALE from '@salesforce/i18n/locale';

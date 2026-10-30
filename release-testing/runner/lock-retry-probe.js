@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Lock-retry probe: proves the DML builder's retry-on-lock dial against a real row lock, which no
  * Apex test can produce because every transaction a test starts shares the test's own lock. One transaction

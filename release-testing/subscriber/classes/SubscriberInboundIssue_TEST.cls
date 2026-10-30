@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Proves, on a subscriber org and through the global API only, what an inbound service writes when a request
  * fails. Every request goes to the REST endpoint REST_SubscriberApi.createAccount(), as a caller's request would. When

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the scheduledJobEditorModal LWC component: what the modal adds to the shared
  *              scheduled job form. The form itself is tested through this modal in scheduledJobEditorForm's suite.
@@ -29,10 +29,32 @@ const dispatchedToasts = (context) => context.dispatchEvent.mock.calls.map(([eve
 
 registerScheduledJobFormMocks();
 
-// The job runner fields the modal reads beside the shared form's fields, named the way the tests program getFieldValue.
-jest.mock('@salesforce/schema/ScheduledJob__c.ExecutionMode__c', () => ({default: 'ScheduledJob__c.ExecutionMode__c'}), {virtual: true});
-jest.mock('@salesforce/schema/ScheduledJob__c.RunPriority__c', () => ({default: 'ScheduledJob__c.RunPriority__c'}), {virtual: true});
-jest.mock('@salesforce/schema/ScheduledJob__c.OverlapPolicy__c', () => ({default: 'ScheduledJob__c.OverlapPolicy__c'}), {virtual: true});
+// The job runner fields the modal reads beside the shared form's fields. Each is shaped the way the platform hands a field
+// to a component, with its object name and its field name, because the modal looks for the field name in the loaded record.
+jest.mock('@salesforce/schema/ScheduledJob__c.ExecutionMode__c', () => ({default: {objectApiName: 'ScheduledJob__c', fieldApiName: 'ExecutionMode__c'}}), {virtual: true});
+jest.mock('@salesforce/schema/ScheduledJob__c.RunPriority__c', () => ({default: {objectApiName: 'ScheduledJob__c', fieldApiName: 'RunPriority__c'}}), {virtual: true});
+jest.mock('@salesforce/schema/ScheduledJob__c.OverlapPolicy__c', () => ({default: {objectApiName: 'ScheduledJob__c', fieldApiName: 'OverlapPolicy__c'}}), {virtual: true});
+
+/**
+ * @description The name the tests program getFieldValue with: the shared form's fields are plain names such as
+ *              ScheduledJob__c.SchedulerName__c, and a job runner field is its object name and field name joined the same way.
+ *
+ * @param {string|Object} field The field getFieldValue was asked for.
+ *
+ * @return {string} The field's full name.
+ */
+const fullFieldName = (field) => (typeof field === 'string' ? field : `${field.objectApiName}.${field.fieldApiName}`);
+
+/**
+ * @description Answers as the real getFieldValue does: undefined for a field the record did not return, and the value
+ *              (which may be null) for a field it did.
+ *
+ * @param {Object} savedFields The values of the fields the record returned, by full field name.
+ * @param {string|Object} field The field getFieldValue was asked for.
+ *
+ * @return {*} The field's value, or undefined when the record did not return the field.
+ */
+const readSavedField = (savedFields, field) => savedFields[fullFieldName(field)];
 
 describe('c-scheduled-job-editor-modal', () =>
 {
@@ -59,7 +81,7 @@ describe('c-scheduled-job-editor-modal', () =>
 		return element;
 	};
 
-	// A spy on the real module's export, not jest.mock('c/utilitySystem'): such a mock stops intercepting once another
+	// A spy on the real module's export, not a jest.mock of c/utilitySystem: such a mock stops intercepting once another
 	// suite in the same worker has loaded the real module, while a spy replaces the export the component itself calls.
 	beforeEach(() =>
 	{
@@ -162,11 +184,11 @@ describe('c-scheduled-job-editor-modal', () =>
 
 			it('clears the inline error when record data arrives', () =>
 			{
-				getFieldValue.mockReturnValue(null);
+				getFieldValue.mockReturnValue(undefined);
 				let context = createMockContext({errorMessage: 'stale error'});
 				prototype.wiredRecord.call(context, {data: {fields: {}}});
 				expect(context.errorMessage).toBe('');
-				expect(context.jobRunnerSettings).toEqual({executionMode: null, runPriority: null, overlapPolicy: null});
+				expect(context.jobRunnerSettings).toEqual({});
 			});
 
 			it('keeps the job runner fields of the loaded record and sends them back unchanged on save', async() =>
@@ -175,9 +197,11 @@ describe('c-scheduled-job-editor-modal', () =>
 				const savedFields = {
 					'ScheduledJob__c.ExecutionMode__c': 'JobRunner', 'ScheduledJob__c.RunPriority__c': savedRunPriority, 'ScheduledJob__c.OverlapPolicy__c': 'Allow'
 				};
-				getFieldValue.mockImplementation((record, field) => savedFields[field] ?? null);
+				getFieldValue.mockImplementation((record, field) => readSavedField(savedFields, field));
 				let context = createMockContext();
-				prototype.wiredRecord.call(context, {data: {fields: {}}});
+				prototype.wiredRecord.call(context, {
+					data: {fields: {ExecutionMode__c: {value: 'JobRunner'}, RunPriority__c: {value: savedRunPriority}, OverlapPolicy__c: {value: 'Allow'}}}
+				});
 
 				expect(context.jobRunnerSettings).toEqual({executionMode: 'JobRunner', runPriority: savedRunPriority, overlapPolicy: 'Allow'});
 				expect(getGetter('isJobRunnerMode').call(context)).toBe(true);
@@ -186,6 +210,41 @@ describe('c-scheduled-job-editor-modal', () =>
 				await saveFrom(prototype, createMockContext, {jobRunnerSettings: context.jobRunnerSettings});
 				let request = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
 				expect(request).toEqual(expect.objectContaining({executionMode: 'JobRunner', runPriority: savedRunPriority, overlapPolicy: 'Allow'}));
+			});
+
+			it('sends none of the job runner settings when the user cannot read the job runner fields, and shows no load error', async() =>
+			{
+				// A user who cannot read a field gets a record without it: the optional fields are left out, not refused.
+				const savedFields = {'ScheduledJob__c.SchedulerName__c': 'Runner job', 'ScheduledJob__c.ClassName__c': 'SCHED_Test'};
+				getFieldValue.mockImplementation((record, field) => readSavedField(savedFields, field));
+				let context = createMockContext({errorMessage: 'stale error'});
+				prototype.wiredRecord.call(context, {data: {fields: {SchedulerName__c: {value: 'Runner job'}, ClassName__c: {value: 'SCHED_Test'}}}});
+
+				expect(context.errorMessage).toBe('');
+				expect(getGetter('isJobRunnerMode').call(context)).toBe(false);
+
+				saveRecord.mockResolvedValue('a00000000000001');
+				await saveFrom(prototype, createMockContext, {jobRunnerSettings: context.jobRunnerSettings});
+				let request = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
+				expect(request).not.toHaveProperty('executionMode');
+				expect(request).not.toHaveProperty('runPriority');
+				expect(request).not.toHaveProperty('overlapPolicy');
+			});
+
+			it('sends a job runner field the record holds with no value as null', async() =>
+			{
+				const savedFields = {'ScheduledJob__c.ExecutionMode__c': 'JobRunner', 'ScheduledJob__c.RunPriority__c': null, 'ScheduledJob__c.OverlapPolicy__c': 'Allow'};
+				getFieldValue.mockImplementation((record, field) => readSavedField(savedFields, field));
+				let context = createMockContext();
+				prototype.wiredRecord.call(context, {
+					data: {fields: {ExecutionMode__c: {value: 'JobRunner'}, RunPriority__c: {value: null}, OverlapPolicy__c: {value: 'Allow'}}}
+				});
+
+				saveRecord.mockResolvedValue('a00000000000001');
+				await saveFrom(prototype, createMockContext, {jobRunnerSettings: context.jobRunnerSettings});
+				let request = JSON.parse(saveRecord.mock.calls[0][0].requestJson);
+				expect(request).toHaveProperty('runPriority', null);
+				expect(request).toEqual(expect.objectContaining({executionMode: 'JobRunner', overlapPolicy: 'Allow'}));
 			});
 
 			it('is not in job runner mode for a record that keeps its own scheduled job', () =>
@@ -622,14 +681,14 @@ describe('c-scheduled-job-editor-modal', () =>
 				'ScheduledJob__c.CronExpression__c': RUNNER_EXPRESSION,
 				'ScheduledJob__c.ExecutionMode__c': 'JobRunner'
 			};
-			getFieldValue.mockImplementation((record, field) => savedFields[field] ?? null);
+			getFieldValue.mockImplementation((record, field) => readSavedField(savedFields, field));
 			getSchedulableClasses.mockResolvedValue(['SCHED_Test']);
 			getUserTimezone.mockResolvedValue('UTC');
 			getParameterDefinitions.mockResolvedValue([]);
 			let element = mountModal({recordId: 'a00000000000001'});
 			await flushPromises();
 
-			uiRecordApi.getRecord.emit({fields: {}});
+			uiRecordApi.getRecord.emit({fields: {ExecutionMode__c: {value: 'JobRunner'}}});
 			await flushPromises();
 
 			let cronEditor = element.shadowRoot.querySelector('c-cron-expression-editor');

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A stopwatch that times data-masking runs and writes a performance log entry when a run is slow.
  * It works like `UTIL_TriggerPerformanceTimer`, `UTIL_QueryPerformanceTimer` and `UTIL_PerformanceTimer`: it

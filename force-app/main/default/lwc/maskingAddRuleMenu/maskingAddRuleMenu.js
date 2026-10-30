@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Add-rule menu for the Data Masking Advisor, built on lightning/modal (LightningModal). It
  * lists the masking rules an admin can add to a field (type-matching rules not already present) or to an
@@ -11,7 +11,7 @@
  * the platform header dismiss both close with `null` / `undefined`, which the caller treats as "no change".
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, October 2026
  */
 import {api} from 'lwc';
 import LightningModal from 'lightning/modal';

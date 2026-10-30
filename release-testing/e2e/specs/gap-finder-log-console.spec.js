@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Log Console prototype gap-finder (AGENTS.md lever 2): proves every `data-spec-id` frozen in the
 // two validated Log Console prototypes round-trips into the DEPLOYED Log Console with matching
 // visible text. The prototypes are the spec (internal design artifacts; a checkout without them

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Provides date and datetime helper operations such as business day arithmetic, weekday/weekend checks, ISO 8601 serialization, cron generation, and date formatting.
  *
@@ -8,7 +8,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

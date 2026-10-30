@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for `UTIL_BypassAudit`. They check that the bypass audit helper writes
  * `LogEntry__c` rows with the expected context shape, includes the reason set for the transaction,

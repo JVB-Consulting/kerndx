@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Drift-guard demo class for `kern.TST_Mock.throwsException()`
  * subscriber-facing surface. Demonstrates a `try` / `catch` against `kern.QRY_Builder`

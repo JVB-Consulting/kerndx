@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Builds the VitePress sidebar from the page list. Pure; no filesystem access.
 
 const PREFIX_GROUPS = [

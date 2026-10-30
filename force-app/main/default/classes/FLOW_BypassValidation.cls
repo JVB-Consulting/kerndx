@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Flow invocable action to bypass validation rules for the current transaction.
  * Use this before DML operations in Flow to temporarily disable validation rules.

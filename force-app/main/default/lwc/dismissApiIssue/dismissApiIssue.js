@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Headless quick action that marks an API issue resolved without running its request again. Use it when
  *              the request cannot be run again (it failed in a way a new run cannot fix, or its call is gone), or when

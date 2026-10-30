@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Invokes web service calls synchronously,
  * allowing for integration with external systems from Salesforce using Flow.

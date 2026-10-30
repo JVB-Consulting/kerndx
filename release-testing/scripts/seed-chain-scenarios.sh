@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: BUSL-1.1
+# SPDX-License-Identifier: Apache-2.0
 #
 # Chain Monitor REALISM seed — runs seed-chain-scenarios.apex as a series of spaced batches.
 #

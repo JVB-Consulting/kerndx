@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for `CTRL_FeatureFlag` — verifies the LWC bridge resolves to a concrete
  * Boolean for known feature-flag state and preserves the `cacheable=true` annotation that the
@@ -12,7 +12,7 @@
  *
  * @group Feature Flags
  *
- * @date May 2026
+ * @date May 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)

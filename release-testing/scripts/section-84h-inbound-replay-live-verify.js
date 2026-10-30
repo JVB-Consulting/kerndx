@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Section 84h: the replay section 84g started, checked once it has run, then the rows of both sections deleted
  *

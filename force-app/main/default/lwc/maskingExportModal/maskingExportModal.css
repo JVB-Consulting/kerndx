@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: BUSL-1.1 */
+/* SPDX-License-Identifier: Apache-2.0 */
 /* Export-package dialog body content. The modal chrome (header, footer, backdrop, focus-trap) is supplied
    by lightning/modal; these rules style only the slotted content, using the advisor's SLDS-light palette
    (teal masked-value accent, brand blue for the add verb). */

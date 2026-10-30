@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description REST endpoint for creating Accounts, mapped to /subscriber/accounts. It holds no logic of its own: it
  * hands each request to the framework, which runs API_SubscriberCreateAccount. The platform requires a REST resource

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Template-only component that renders an SLDS media object container
  * with an info icon for displaying inline notice messages. All content is provided

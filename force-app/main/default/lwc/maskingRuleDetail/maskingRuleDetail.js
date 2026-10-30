@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Rule-detail popup for the Data Masking Advisor, built on lightning/modal
  * (LightningModal) so the modal chrome and the WCAG focus-trap come from the platform. It explains a

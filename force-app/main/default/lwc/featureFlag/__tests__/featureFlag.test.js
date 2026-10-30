@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the featureFlag LWC utility module — verifies the
  * bridge forwards the flagName to `CTRL_FeatureFlag.isEnabled` and propagates the
@@ -12,7 +12,7 @@
  *
  * @author Jason van Beukering
  *
- * @date May 2026
+ * @date May 2026, October 2026
  */
 
 const APEX_GLOBAL_KEY = '__lwcJestMock_isEnabled';

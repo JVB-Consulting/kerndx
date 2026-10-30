@@ -5,7 +5,7 @@ pageClass: reference
 description: "Provides an invocable entry point for sending emails via Salesforce Flow with advanced capabilities. Supports: Hybrid execution (Direct Apex or delegating to a secondary Flow). Custom Merge Fields (re"
 author: "Jason Van Beukering"
 group: "Email"
-date: "February 2026, September 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

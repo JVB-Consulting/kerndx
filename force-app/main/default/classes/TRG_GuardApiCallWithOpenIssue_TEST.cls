@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for TRG_GuardApiCallWithOpenIssue, the trigger action that refuses the delete of an API call that
  * still has an open API issue. It refuses every user: a holder of the Delete API Records permission, and a System

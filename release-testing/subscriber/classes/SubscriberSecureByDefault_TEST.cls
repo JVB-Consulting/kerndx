@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber proof that secure-by-default enforcement is real. These tests
  * use `System.runAs` (only available in @IsTest context) to impersonate a Standard User who has

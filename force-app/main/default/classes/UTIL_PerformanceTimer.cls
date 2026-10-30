@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Timer that extends UTIL_StopWatch with automatic governor-limit tracking and
  * threshold-based performance logging. When `stop()` is called the elapsed duration is

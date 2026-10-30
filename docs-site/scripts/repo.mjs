@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Canonical GitHub repository URL for the docs site's "back to repo" nav link
 // (the VitePress GitHub social icon). Defaults to the production mirror; the docs
 // workflow derives it per-repo from the GitHub Actions context

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Build preparation script for Kern managed package.
  * Adds namespace prefixes to source files for managed package builds.

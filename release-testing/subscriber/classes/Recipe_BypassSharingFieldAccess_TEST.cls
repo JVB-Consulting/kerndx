@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Proof, from a class outside the package, that bypassSharing() ignores record sharing and nothing else.
  * Record sharing decides which records a user may see. Field permissions decide which fields of a record the user may

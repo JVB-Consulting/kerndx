@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-test post-trigger action whose CMDT row is gated by the
  * `TST_PostActionEntryDenies` entry criteria (which always returns false). Because the

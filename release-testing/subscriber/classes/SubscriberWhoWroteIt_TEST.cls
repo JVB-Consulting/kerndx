@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Proves, in an org where the framework is an installed package, that an entry written with no location
  * names the subscriber class that wrote it. The framework's own frames on the call stack are hidden there, so the top

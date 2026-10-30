@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {navigateToSetupPage} = require('../helpers/sf-navigation');
 const {waitForSpinnerGone} = require('../helpers/wait-helpers');
 

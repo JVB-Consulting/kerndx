@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Deliberate subscriber naming violation — has domain prefix but double-layer
  * (SVC is domain AND layer here, SEL is layer, so SVC_SEL_ looks valid but is actually

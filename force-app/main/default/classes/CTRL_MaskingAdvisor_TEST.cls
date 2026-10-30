@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for CTRL_MaskingAdvisor: the dead-configuration check, the object and field
  * coverage analysis (native classification, with name-based guessing when there is none), the masking

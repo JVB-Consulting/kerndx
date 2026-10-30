@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 import {defineAsyncComponent, h} from 'vue';
 import DefaultTheme from 'vitepress/theme';
 import './custom.css';

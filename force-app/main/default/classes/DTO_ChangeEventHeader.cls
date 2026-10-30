@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A Data Transfer Object (DTO) exposing the supported subset of
  * `EventBus.ChangeEventHeader` to Flow as a strongly-typed input variable. The platform

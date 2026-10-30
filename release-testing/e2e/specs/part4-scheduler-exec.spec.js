@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {test, expect} = require('@playwright/test');
 const ScheduledJobsPage = require('../pages/scheduled-jobs.page');
 const {navigateToApp, navigateToAppItem} = require('../helpers/sf-navigation');

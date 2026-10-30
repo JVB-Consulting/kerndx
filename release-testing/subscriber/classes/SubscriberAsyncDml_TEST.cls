@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests DML_Builder.async() from subscriber code. Verifies that async DML
  * insert, bulk insert, and batch size configuration work through the managed package.

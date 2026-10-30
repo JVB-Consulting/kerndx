@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for healthCheck LWC component
  * @author Jason van Beukering
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  */
 import {createElement} from 'lwc';
 import HealthCheck from 'c/healthCheck';
@@ -34,7 +34,7 @@ function runHealthChecksAdapter()
 
 /**
  * The six dialogs the component opens are the real modules, imported above, with their static
- * `open` replaced by a mock. A `jest.mock('c/...')` or `jest.mock('lightning/...')` of these
+ * `open` replaced by a mock. A `jest.mock` of these `c/` or `lightning/`
  * modules is not reliable in this repo: once another suite in the same jest worker has loaded
  * the real module, the mock silently stops intercepting and the component opens the real dialog
  * while the test asserts on a mock that saw nothing (the 24 failures of 2026-09-19). A mock set on

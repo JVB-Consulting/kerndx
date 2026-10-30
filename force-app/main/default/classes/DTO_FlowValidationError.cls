@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Represents a single validation error or warning for Flow display.
  * Contains details about the validation rule that failed, the error message,
@@ -14,7 +14,7 @@
  *
  * @group Data Transfer Objects
  *
- * @date January 2026, August 2026
+ * @date January 2026, October 2026
  *
  * @since 1.0
  *

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-testing fixture: holds a row lock for a while so a second transaction can be refused and
  * retry. Selects the row FOR UPDATE, then spins until the hold elapses; the lock lasts until this transaction ends.

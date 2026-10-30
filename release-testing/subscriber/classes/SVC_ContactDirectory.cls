@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Contact directory service. Reads and creates Contacts through the framework,
  * inheriting USER_MODE so CRUD and field-level security are enforced against the running user.

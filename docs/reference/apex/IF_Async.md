@@ -5,7 +5,7 @@ pageClass: reference
 description: "A container for shared global interfaces used by the asynchronous framework."
 author: "Jason Van Beukering"
 group: "Async Processing"
-date: "September 2025, May 2026"
+date: "September 2025, October 2026"
 since: "1.0"
 category: apex
 ---

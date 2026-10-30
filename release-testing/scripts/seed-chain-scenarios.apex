@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 //
 // Chain Monitor REALISM seed — one batch of realistic async-chain scenarios.
 //

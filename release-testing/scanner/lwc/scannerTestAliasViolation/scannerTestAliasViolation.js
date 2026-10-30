@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Deliberate violation — imports LightningElement with an alias to test
  * that the scanner catches aliased imports, not just the literal name.

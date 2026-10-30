@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The shipped Custom Label values, read straight from source metadata.
 //
 // Both prototype gap-finders (gap-finder-chain-monitor.js and specs/gap-finder-log-console.spec.js)

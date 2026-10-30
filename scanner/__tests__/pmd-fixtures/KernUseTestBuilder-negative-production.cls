@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 public with sharing class KernUseTestBuilder_NegativeProduction
 {
 	public static Account buildAccount()

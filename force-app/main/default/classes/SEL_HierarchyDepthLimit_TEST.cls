@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for the depth limit of SEL_Hierarchy: every search stops at the limit set by withMaxDepth (20 by
  * default), throws a HierarchyException when records are still to resolve there, and still succeeds for a hierarchy exactly as

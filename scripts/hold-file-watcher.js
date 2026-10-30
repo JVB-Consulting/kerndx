@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Holds a recursive file watcher on a folder until it is killed, the way an editor with the project open
  *              does, and keeps a status file saying which process it is and how many file events it has been handed,

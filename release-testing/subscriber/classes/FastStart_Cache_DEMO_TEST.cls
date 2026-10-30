@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for FastStart_Cache_DEMO. Validates the per-transaction memoization
  * pattern (`kern.UTIL_Cache.inTransaction()`) and the graceful-fallback composite

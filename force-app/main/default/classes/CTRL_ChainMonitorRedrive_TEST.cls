@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Re-drive and kill-switch gate tests for CTRL_ChainMonitor (the permission,
  * capability-flag, suspension, and missing-row gates on the operator action endpoints), separated

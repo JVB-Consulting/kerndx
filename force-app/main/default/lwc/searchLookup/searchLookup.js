@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description LWC component that performs record searches using a configurable
  * controller implementing the IF_Search interface. Extends BaseLookup with
@@ -6,7 +6,7 @@
  *
  * @author Jason van Beukering
  *
- * @date October 2022, July 2026
+ * @date October 2022, October 2026
  */
 import executeSearchController from '@salesforce/apex/CTRL_ExecuteSearch.executeSearchController';
 import BaseLookup, {DELAY} from 'c/baseLookup';

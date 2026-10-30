@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unified result of an API invocation, used by both outbound and inbound invokers.
  * Consolidates shared fields (response, headers, timing) with direction-specific fields

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Says, in words a person can act on, why the org the journeys point at cannot be used. The command line
 // answers a question about a deleted scratch org without complaint, so a run pointed at one used to die
 // later, inside the browser sign-in, with nothing that named the org or the variable that chooses it.

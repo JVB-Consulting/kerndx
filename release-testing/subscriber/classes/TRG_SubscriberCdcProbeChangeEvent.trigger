@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-testing harness trigger. Subscribes to the Change Data Capture event for the
  * harness-owned SubscriberCdcProbe__c object and routes the change-event records through the

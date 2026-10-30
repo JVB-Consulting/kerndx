@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Controller Class used by the retry component(s). Supports both outbound
  * retry (re-executes the API call) and inbound replay (runs the request the call kept again), and the dismiss action,

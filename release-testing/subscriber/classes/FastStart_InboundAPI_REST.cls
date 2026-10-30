@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description REST endpoint for the Fast Start inbound API demonstration.
  *              Receives POST requests and delegates to FastStart_InboundAPI_DEMO for processing.

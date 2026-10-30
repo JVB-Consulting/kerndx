@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The checks a load needs before it starts, each named in the manifest with what it found.
 const {deployStrippedSubscriberClasses} = require('../../e2e/helpers/subscriber-deploy');
 const {fillNamespaceTokens} = require('../../e2e/helpers/sf-namespace');

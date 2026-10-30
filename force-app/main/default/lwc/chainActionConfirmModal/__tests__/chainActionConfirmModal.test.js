@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for chainActionConfirmModal LWC component. Prototype harness per
  *              chainAbortModal.test.js: handler shapes are asserted on the class prototype and
@@ -6,7 +6,7 @@
  *              covered by the Playwright leg.
  *
  * @author Jason van Beukering
- * @date August 2026
+ * @date August 2026, October 2026
  */
 
 describe('c-chain-action-confirm-modal', () =>

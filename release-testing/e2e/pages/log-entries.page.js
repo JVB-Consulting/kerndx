@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {expect} = require('@playwright/test');
 const {clickNavTab} = require('../helpers/sf-navigation');
 const {waitForListView, waitForRecordPage} = require('../helpers/wait-helpers');

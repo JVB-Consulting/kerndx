@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Demonstrates the KernDX selector pattern for the Account object.
  * Extends kern.SEL_Base to inherit findById, findByField, count, exists, and more.

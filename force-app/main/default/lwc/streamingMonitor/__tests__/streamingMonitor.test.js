@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) Philippe Ozil (CC0-1.0 — rights waived)
 // Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor)
 // Modifications copyright (c) 2026 JVB Consulting
@@ -14,6 +14,13 @@ import PUBLISH_ERROR_BODY from '@salesforce/label/c.EventMonitor_Publish_ErrorBo
 import PUBLISH_ERROR_TITLE from '@salesforce/label/c.EventMonitor_Publish_ErrorTitle';
 import PUBLISH_SUCCESS_BODY from '@salesforce/label/c.EventMonitor_Publish_SuccessBody';
 import PUBLISH_SUCCESS_TITLE from '@salesforce/label/c.EventMonitor_Publish_SuccessTitle';
+import utilityLogger from 'c/utilityLogger';
+import * as empApi from 'lightning/empApi';
+import * as utilityStreaming from 'c/utilityStreaming';
+
+// Watch the real normalizeEvent, which still runs. A spy on the real export, not a jest.mock of c/utilityStreaming:
+// such a mock stops intercepting once another suite in the same worker has loaded the real module.
+jest.spyOn(utilityStreaming, 'normalizeEvent');
 
 // Restore the real English values for the labels these tests value-assert (the default
 // sfdx-lwc-jest stub resolves each to the bare string 'c.<Name>'). The two templated labels keep
@@ -25,30 +32,16 @@ jest.mock('@salesforce/label/c.EventMonitor_Error_SubscribeCdcInactive', () => (
 		{virtual: true});
 jest.mock('@salesforce/label/c.EventMonitor_AlreadySubscribed_Body', () => ({default: 'Already subscribed to channel {0}'}), {virtual: true});
 
-// Mock EMP API
-const mockSubscribe = jest.fn();
-const mockUnsubscribe = jest.fn();
-const mockOnError = jest.fn();
-const mockSetDebugFlag = jest.fn();
-
-jest.mock('lightning/empApi', () => ({
-	subscribe: (...args) => mockSubscribe(...args),
-	unsubscribe: (...args) => mockUnsubscribe(...args),
-	onError: (...args) => mockOnError(...args),
-	setDebugFlag: (...args) => mockSetDebugFlag(...args)
-}), {virtual: true});
-
-// Mock ShowToastEvent
-jest.mock('lightning/platformShowToastEvent', () => ({
-	ShowToastEvent: jest.fn().mockImplementation((config) =>
-	{
-		const event = new CustomEvent('ShowToastEvent', {detail: config});
-		event.title = config.title;
-		event.message = config.message;
-		event.variant = config.variant;
-		return event;
-	})
-}), {virtual: true});
+// lightning/empApi and lightning/platformShowToastEvent are the sfdx-lwc-jest stubs. A jest.mock of a lightning/ module
+// stops intercepting once another suite in the same worker has loaded it. The empApi stub's functions are jest.fn, which
+// the tests program and watch. Each toast is the stub's ShowToastEvent, whose detail holds the toast; every component the
+// tests create records the toasts it dispatches, even after it is removed from the page.
+const mockSubscribe = empApi.subscribe;
+const mockUnsubscribe = empApi.unsubscribe;
+const mockOnError = empApi.onError;
+const mockSetDebugFlag = empApi.setDebugFlag;
+const SHOW_TOAST_EVENT_NAME = 'lightning__showtoast';
+const dispatchedToasts = [];
 
 // Mock Apex controllers
 const mockGetAllEventChannels = jest.fn();
@@ -62,55 +55,18 @@ jest.mock('@salesforce/apex/CTRL_EventMonitor.publishStreamingEvent', () => ({
 	default: (...args) => mockPublishStreamingEvent(...args)
 }), {virtual: true});
 
-// Mock utilityStreaming
-jest.mock('c/utilityStreaming', () => ({
-	EVENT_TYPES: [
-		{label: 'PushTopic event', value: 'PushTopicEvent', channelPrefix: '/topic/'},
-		{label: 'Generic event', value: 'GenericEvent', channelPrefix: '/u/'},
-		{label: 'Change Data Capture event', value: 'ChangeDataCaptureEvent', channelPrefix: '/data/'}
-	],
-	EVT_PUSH_TOPIC: 'PushTopicEvent',
-	EVT_GENERIC: 'GenericEvent',
-	EVT_STD_PLATFORM_EVENT: 'StdPlatformEvent',
-	EVT_PLATFORM_EVENT: 'PlatformEvent',
-	EVT_CDC: 'ChangeDataCaptureEvent',
-	EVT_CUSTOM_CHANNEL_CDC: 'CustomChannelCDC',
-	EVT_CUSTOM_CHANNEL_PE: 'CustomChannelPE',
-	EVT_MONITORING: 'Monitoring',
-	CHANNEL_ALL_CDC: '/data/ChangeEvents',
-	FILTER_ALL: 'all',
-	FILTER_CUSTOM: 'custom',
-	isCDCChannel: jest.fn((channel) => channel && channel.startsWith('/data/')),
-	isCustomChannel: jest.fn(() => true),
-	getChannelPrefix: jest.fn((eventType) =>
-	{
-		const prefixes = {
-			PushTopicEvent: '/topic/', GenericEvent: '/u/', ChangeDataCaptureEvent: '/data/', CustomChannelCDC: '/data/', CustomChannelPE: '/event/'
-		};
-		return prefixes[eventType] || '/event/';
-	}),
-	normalizeEvent: jest.fn((event) => ({
-		id: `${event.channel}-${Date.now()}`,
-		channel: event.channel,
-		replayId: event.data?.event?.replayId,
-		timestamp: Date.now(),
-		type: 'Event',
-		payload: JSON.stringify(event.data?.payload || {})
-	})),
-	channelSort: jest.fn((a, b) =>
-	{
-		const channelA = (a?.channel || '').toLowerCase();
-		const channelB = (b?.channel || '').toLowerCase();
-		return channelA.localeCompare(channelB);
-	})
-}), {virtual: true});
-
-// Mock utilityLogger
-jest.mock('c/utilityLogger', () => ({
-	__esModule: true, default: {
-		error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn()
-	}
-}), {virtual: true});
+// Silence the real logger and watch its calls: spies on the one shared logger object, not a jest.mock of
+// c/utilityLogger. Such a mock stops intercepting once another suite in the same worker has loaded the real module,
+// while a spy sees every call whichever suite ran first. The spies do nothing, so no log is really sent.
+for(const level of [
+	'error',
+	'warn',
+	'info',
+	'debug'
+])
+{
+	jest.spyOn(utilityLogger, level).mockImplementation(() => undefined);
+}
 
 const mockChannels = {
 	PushTopicEvent: [{label: 'TestTopic', value: 'TestTopic'}],
@@ -125,6 +81,7 @@ describe('c-streaming-monitor', () =>
 {
 	beforeEach(() =>
 	{
+		dispatchedToasts.length = 0;
 		mockGetAllEventChannels.mockResolvedValue(mockChannels);
 		mockSubscribe.mockImplementation((channel, replayId) => Promise.resolve({channel, replayId}));
 		mockUnsubscribe.mockImplementation((subscription, callback) =>
@@ -154,6 +111,7 @@ describe('c-streaming-monitor', () =>
 	const createComponent = () =>
 	{
 		const element = createElement('c-streaming-monitor', {is: LwcStreamingMonitor});
+		element.addEventListener(SHOW_TOAST_EVENT_NAME, (event) => dispatchedToasts.push(event.detail));
 		document.body.appendChild(element);
 		return element;
 	};
@@ -224,7 +182,6 @@ describe('c-streaming-monitor', () =>
 	{
 		it('handles streaming API errors', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 
 			await createInitializedComponent();
 
@@ -241,7 +198,6 @@ describe('c-streaming-monitor', () =>
 
 		it('handles security policy errors', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 
 			await createInitializedComponent();
 
@@ -256,7 +212,6 @@ describe('c-streaming-monitor', () =>
 
 		it('handles generic errors without subscription', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 
 			await createInitializedComponent();
 
@@ -275,7 +230,7 @@ describe('c-streaming-monitor', () =>
 
 			const toastHandler = jest.fn();
 			const element = document.body.querySelector('c-streaming-monitor');
-			element.addEventListener('ShowToastEvent', toastHandler);
+			element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
 
 			const errorHandler = mockOnError.mock.calls[0][0];
 
@@ -424,7 +379,7 @@ describe('c-streaming-monitor', () =>
 		 */
 		const sendErrorToEveryListener = (error) => mockOnError.mock.calls.forEach(([listener]) => listener(error));
 
-		const countErrorToasts = () => require('lightning/platformShowToastEvent').ShowToastEvent.mock.calls.filter(([config]) => config.variant === 'error').length;
+		const countErrorToasts = () => dispatchedToasts.filter((toast) => toast.variant === 'error').length;
 
 		it('shows one error toast for one error after the component is connected twice', async() =>
 		{
@@ -451,13 +406,12 @@ describe('c-streaming-monitor', () =>
 
 		it('shows no success toast when the component is removed', async() =>
 		{
-			const {ShowToastEvent} = require('lightning/platformShowToastEvent');
 			const element = await createInitializedComponent();
-			ShowToastEvent.mockClear();
+			dispatchedToasts.length = 0;
 
 			document.body.removeChild(element);
 
-			expect(ShowToastEvent).not.toHaveBeenCalled();
+			expect(dispatchedToasts).toEqual([]);
 		});
 
 		it('still unsubscribes from every channel when the component is removed', async() =>
@@ -690,7 +644,7 @@ describe('c-streaming-monitor', () =>
 			const element = await createInitializedComponent();
 
 			const toastHandler = jest.fn();
-			element.addEventListener('ShowToastEvent', toastHandler);
+			element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
 
 			// Trigger an error to call notify
 			const errorHandler = mockOnError.mock.calls[0][0];
@@ -779,7 +733,6 @@ describe('c-streaming-monitor', () =>
 
 		it('handleUnsubscribe handles failed unsubscribe', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 
 			const element = await createInitializedComponent();
 
@@ -831,7 +784,6 @@ describe('c-streaming-monitor', () =>
 
 		it('handleUnsubscribeAll handles failed unsubscribe', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 
 			const element = await createInitializedComponent();
 
@@ -972,7 +924,6 @@ describe('c-streaming-monitor', () =>
 
 		it('handles channel refresh error gracefully', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 
 			const element = await createInitializedComponent();
 			mockGetAllEventChannels.mockRejectedValueOnce(new Error('Refresh failed'));
@@ -1017,7 +968,7 @@ describe('c-streaming-monitor', () =>
 
 			// Try to subscribe again
 			const toastHandler = jest.fn();
-			element.addEventListener('ShowToastEvent', toastHandler);
+			element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
 
 			actionsComponent.dispatchEvent(new CustomEvent('subscribe', {
 				detail: {channel: '/topic/TestTopic', replayId: -1}
@@ -1026,7 +977,7 @@ describe('c-streaming-monitor', () =>
 
 			// Should show error toast for duplicate, with the channel interpolated into the label body
 			expect(mockSubscribe).toHaveBeenCalledTimes(1);
-			expect(toastHandler.mock.calls[0][0].message).toBe('Already subscribed to channel /topic/TestTopic');
+			expect(toastHandler.mock.calls[0][0].detail.message).toBe('Already subscribed to channel /topic/TestTopic');
 		});
 
 		it('handleSubscribeAll subscribes to all channels with filter all', async() =>
@@ -1137,7 +1088,7 @@ describe('c-streaming-monitor', () =>
 
 			// Try to subscribe again (should warn about no channels)
 			const toastHandler = jest.fn();
-			element.addEventListener('ShowToastEvent', toastHandler);
+			element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
 
 			actionsComponent.dispatchEvent(new CustomEvent('subscribeall', {
 				detail: {replayId: -1, filter: 'PushTopicEvent'}, bubbles: true, composed: true
@@ -1163,7 +1114,6 @@ describe('c-streaming-monitor', () =>
 			]
 		])('subscribes only to the channels that need no load, and logs no failure, for the %s filter after the channels failed to load', async(filter, expectedChannels) =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 			mockGetAllEventChannels.mockRejectedValue(new Error('Channel load failed'));
 
 			const element = await createInitializedComponent();
@@ -1182,7 +1132,6 @@ describe('c-streaming-monitor', () =>
 
 		it('handleSubscribeAll handles error', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 			mockSubscribe.mockRejectedValueOnce(new Error('Subscribe failed'));
 
 			const element = await createInitializedComponent();
@@ -1206,7 +1155,7 @@ describe('c-streaming-monitor', () =>
 			await navigateToView(element, 'subscribeAll');
 
 			const toastHandler = jest.fn();
-			element.addEventListener('ShowToastEvent', toastHandler);
+			element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
 
 			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
 			actionsComponent.dispatchEvent(new CustomEvent('subscribeall', {
@@ -1214,7 +1163,7 @@ describe('c-streaming-monitor', () =>
 			}));
 			await flushPromises();
 
-			const errorToasts = toastHandler.mock.calls.map((call) => call[0]).filter((toast) => toast.variant === 'error');
+			const errorToasts = toastHandler.mock.calls.map((call) => call[0].detail).filter((toast) => toast.variant === 'error');
 			expect(errorToasts).toHaveLength(1);
 			const remainingActions = element.shadowRoot.querySelector('c-streaming-actions');
 			expect(remainingActions).not.toBeNull();
@@ -1238,7 +1187,7 @@ describe('c-streaming-monitor', () =>
 			await navigateToView(element, 'subscribeAll');
 
 			const toastHandler = jest.fn();
-			element.addEventListener('ShowToastEvent', toastHandler);
+			element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
 
 			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
 			actionsComponent.dispatchEvent(new CustomEvent('subscribeall', {
@@ -1247,7 +1196,7 @@ describe('c-streaming-monitor', () =>
 			await flushPromises();
 
 			expect(mockSubscribe).toHaveBeenCalledWith(failingChannel, -1, expect.any(Function));
-			const errorToasts = toastHandler.mock.calls.map((call) => call[0]).filter((toast) => toast.variant === 'error');
+			const errorToasts = toastHandler.mock.calls.map((call) => call[0].detail).filter((toast) => toast.variant === 'error');
 			expect(errorToasts).toHaveLength(1);
 			expect(errorToasts[0].message).toContain(failingChannel);
 			expect(errorToasts[0].message).not.toContain(workingChannel);
@@ -1264,7 +1213,6 @@ describe('c-streaming-monitor', () =>
 
 		it('logs the error and shows no success message when the subscribe call throws before it returns a promise', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 			const thrownError = new Error('Streaming API is not ready');
 			mockSubscribe.mockImplementation(() =>
 			{
@@ -1275,7 +1223,7 @@ describe('c-streaming-monitor', () =>
 			await navigateToView(element, 'subscribeAll');
 
 			const toastHandler = jest.fn();
-			element.addEventListener('ShowToastEvent', toastHandler);
+			element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
 
 			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
 			actionsComponent.dispatchEvent(new CustomEvent('subscribeall', {
@@ -1289,7 +1237,6 @@ describe('c-streaming-monitor', () =>
 
 		it('shows an error and records nothing when subscribing to a single channel fails', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 			const channel = '/topic/TestTopic';
 			mockSubscribe.mockRejectedValueOnce(new Error('Subscribe failed'));
 
@@ -1297,7 +1244,7 @@ describe('c-streaming-monitor', () =>
 			await navigateToView(element, 'subscribe');
 
 			const toastHandler = jest.fn();
-			element.addEventListener('ShowToastEvent', toastHandler);
+			element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
 
 			const actionsComponent = element.shadowRoot.querySelector('c-streaming-actions');
 			actionsComponent.dispatchEvent(new CustomEvent('subscribe', {detail: {channel, replayId: -1}}));
@@ -1305,8 +1252,8 @@ describe('c-streaming-monitor', () =>
 
 			expect(utilityLogger.error).toHaveBeenCalledWith('Failed to subscribe to channel', {channel, error: expect.any(Error)});
 			expect(toastHandler).toHaveBeenCalledTimes(1);
-			expect(toastHandler.mock.calls[0][0].variant).toBe('error');
-			expect(toastHandler.mock.calls[0][0].message).toContain(channel);
+			expect(toastHandler.mock.calls[0][0].detail.variant).toBe('error');
+			expect(toastHandler.mock.calls[0][0].detail.message).toContain(channel);
 
 			// Nothing was recorded, so a second try is not refused as a duplicate and reaches the subscribe call again.
 			actionsComponent.dispatchEvent(new CustomEvent('subscribe', {detail: {channel, replayId: -1}}));
@@ -1336,7 +1283,6 @@ describe('c-streaming-monitor', () =>
 
 		it('handlePublish handles publish error', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 			mockPublishStreamingEvent.mockRejectedValueOnce(new Error('Publish failed'));
 
 			const element = await createInitializedComponent();
@@ -1402,7 +1348,6 @@ describe('c-streaming-monitor', () =>
 	{
 		it('logs error when channel loading fails in connectedCallback', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 
 			mockGetAllEventChannels.mockRejectedValueOnce(new Error('Network error'));
 
@@ -1415,7 +1360,6 @@ describe('c-streaming-monitor', () =>
 
 		it('handleStreamingError removes faulty subscription from tracked list', async() =>
 		{
-			const utilityLogger = require('c/utilityLogger').default;
 
 			const element = await createInitializedComponent();
 
@@ -1484,7 +1428,7 @@ describe('c-streaming-monitor', () =>
 			await flushPromises();
 
 			const toastHandler = jest.fn();
-			element.addEventListener('ShowToastEvent', toastHandler);
+			element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
 
 			// Get the error handler callback
 			const errorHandler = mockOnError.mock.calls[0][0];
@@ -1496,7 +1440,7 @@ describe('c-streaming-monitor', () =>
 			await flushPromises();
 
 			expect(toastHandler).toHaveBeenCalled();
-			expect(toastHandler.mock.calls[0][0].message).toBe('Failed to subscribe to /data/AccountChangeEvent. Is the Change Data Capture event active?');
+			expect(toastHandler.mock.calls[0][0].detail.message).toBe('Failed to subscribe to /data/AccountChangeEvent. Is the Change Data Capture event active?');
 		});
 	});
 
@@ -1507,7 +1451,7 @@ describe('c-streaming-monitor', () =>
 			const element = await createInitializedComponent();
 
 			const toastHandler = jest.fn();
-			element.addEventListener('ShowToastEvent', toastHandler);
+			element.addEventListener(SHOW_TOAST_EVENT_NAME, toastHandler);
 
 			// Get the error handler callback
 			const errorHandler = mockOnError.mock.calls[0][0];
@@ -1524,17 +1468,15 @@ describe('c-streaming-monitor', () =>
 	describe('toast titles', () =>
 	{
 		/**
-		 * Returns the most recent ShowToastEvent config matching the given variant.
+		 * Returns the most recent dispatched toast matching the given variant.
 		 */
 		function getLastToastByVariant(variant)
 		{
-			const {ShowToastEvent} = require('lightning/platformShowToastEvent');
-			const calls = ShowToastEvent.mock.calls;
-			for(let i = calls.length - 1; i >= 0; i--)
+			for(let i = dispatchedToasts.length - 1; i >= 0; i--)
 			{
-				if(calls[i][0].variant === variant)
+				if(dispatchedToasts[i].variant === variant)
 				{
-					return calls[i][0];
+					return dispatchedToasts[i];
 				}
 			}
 			return null;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Trigger on ApiIssue__c. Fires the configured trigger actions for data masking
  * before insert and update so sensitive payload fragments captured in the diagnostic record

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Invocable method to get all the picklist values for a particular object for a given record type.
  * Delegates to UTIL_SObjectDescribe for ConnectApi retrieval and transformation.
@@ -13,7 +13,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

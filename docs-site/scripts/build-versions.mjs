@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Multi-version docs build + assembly. Builds the latest tree at the
 // root, then every frozen docs-versions/<X.Y>/ line under /X.Y/, into one dist/:
 //

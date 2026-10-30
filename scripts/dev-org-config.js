@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Dev org alias — single source of truth for the KernDX dev org.
 // Export KERN_DEV_ORG before invoking any script that resolves a dev org alias.
 module.exports = {

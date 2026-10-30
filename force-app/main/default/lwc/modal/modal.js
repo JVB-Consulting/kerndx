@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description LWC component that implements a fully reusable SLDS modal dialog.
  * Provides programmatic show/hide methods, ESC-key accessibility, dynamic slot

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Checks that each script the release note asks an administrator to run has a copy in the pack that matches it byte for
 // byte. The pack runs its copy on the release-testing org, so a copy that drifted from the note proves a script nobody
 // will run. For each pair it finds the apex block under the note's heading, compares it with the pack's file, prints one

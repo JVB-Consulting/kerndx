@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for SEL_PostTriggerAction. Verifies ordered retrieval, null-Order
  * handling, the test override for rows, and the SOQL fall-through when no override is set.

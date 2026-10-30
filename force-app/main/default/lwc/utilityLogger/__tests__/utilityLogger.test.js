@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for utilityLogger LWC utility module
  *
  * @author Jason van Beukering
  *
- * @date December 2025, August 2026
+ * @date December 2025, October 2026
  */
 
 		// Mock the Apex method - create a trackable function

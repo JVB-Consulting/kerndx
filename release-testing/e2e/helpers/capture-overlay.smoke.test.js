@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {chromium} = require('@playwright/test');

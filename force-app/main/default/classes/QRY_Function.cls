@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Typed SOQL function expressions for use in the query builder's SELECT, GROUP BY, WHERE
  * and ORDER BY clauses: the date-part functions (CALENDAR_MONTH, DAY_IN_MONTH, FISCAL_QUARTER, ...) and

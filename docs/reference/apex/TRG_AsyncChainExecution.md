@@ -4,7 +4,7 @@ type: trigger
 pageClass: reference
 description: "Trigger on AsyncChainExecution__c. Fires the configured trigger actions for data masking before insert and update so context data, step logs, and error messages persisted across the chain's Queueable "
 author: "Jason Van Beukering"
-date: "April 2026, May 2026"
+date: "April 2026, October 2026"
 category: apex
 ---
 

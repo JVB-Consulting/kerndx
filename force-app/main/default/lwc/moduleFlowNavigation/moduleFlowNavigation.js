@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Flow Navigation module for the ComponentBuilder framework. Provides
  * dispatch methods for flow screen navigation events (next, back, finish).
  *
  * @author Jason van Beukering
  *
- * @date February 2022, May 2026
+ * @date February 2022, October 2026
  */
 import {FlowNavigationBackEvent, FlowNavigationFinishEvent, FlowNavigationNextEvent} from 'lightning/flowSupport';
 

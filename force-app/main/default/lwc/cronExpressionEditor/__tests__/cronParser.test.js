@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for cronParser pure functions.
  *              Tests parseCronExpression, buildCronExpression, and describeCronExpression.
@@ -412,11 +412,11 @@ describe('cronParser', () =>
 
 		describe('day range edge cases', () =>
 		{
-			it('handles invalid day range tokens gracefully', () =>
+			it('does not load a range of names that are not days into the weekly preset', () =>
 			{
 				let result = parseCronExpression('0 0 9 ? * XYZ-ABC');
-				expect(result.mode).toBe('preset');
-				expect(result.preset.frequency).toBe('weekly');
+				expect(result.mode).toBe('advanced');
+				expect(result.advanced.dayOfWeek).toBe('XYZ-ABC');
 			});
 		});
 	});
@@ -695,9 +695,9 @@ describe('cronParser', () =>
 				expect(describeCronExpression('0 0 9 ? * TUE-THU')).toBe('Every Tuesday through Thursday at 9:00 AM');
 			});
 
-			it('describes range with unrecognised day tokens', () =>
+			it('shows the expression as it is for a range of names that are not days, which validation refuses', () =>
 			{
-				expect(describeCronExpression('0 0 9 ? * XYZ-ABC')).toBe('Every XYZ through ABC at 9:00 AM');
+				expect(describeCronExpression('0 0 9 ? * XYZ-ABC')).toBe('0 0 9 ? * XYZ-ABC');
 			});
 
 			it('describes single day', () =>
@@ -715,9 +715,9 @@ describe('cronParser', () =>
 				expect(describeCronExpression('0 0 9 ? * 2')).toBe('Every Monday at 9:00 AM');
 			});
 
-			it('describes single unrecognised day token', () =>
+			it('shows the expression as it is for a single name that is not a day, which validation refuses', () =>
 			{
-				expect(describeCronExpression('0 0 9 ? * XYZ')).toBe('Every XYZ at 9:00 AM');
+				expect(describeCronExpression('0 0 9 ? * XYZ')).toBe('0 0 9 ? * XYZ');
 			});
 		});
 
@@ -761,9 +761,9 @@ describe('cronParser', () =>
 				expect(describeCronExpression('0 0 12 ? * WED#3')).toBe('Third Wednesday of every month at 12:00 PM');
 			});
 
-			it('describes hash with unrecognised day token', () =>
+			it('shows the expression as it is for a name before # that is not a day, which validation refuses', () =>
 			{
-				expect(describeCronExpression('0 0 9 ? * XYZ#1')).toBe('First XYZ of every month at 9:00 AM');
+				expect(describeCronExpression('0 0 9 ? * XYZ#1')).toBe('0 0 9 ? * XYZ#1');
 			});
 
 			it('shows the expression as it is for an occurrence past the fifth, which validation refuses', () =>
@@ -1142,6 +1142,13 @@ describe('cronParser', () =>
 			it('accepts MON#5', () =>
 			{
 				expect(validateCronField('dayOfWeek', 'MON#5').isValid).toBe(true);
+			});
+
+			it('rejects 8#1 (a day number outside 1 to 7 before #)', () =>
+			{
+				let result = validateCronField('dayOfWeek', '8#1');
+				expect(result.isValid).toBe(false);
+				expect(result.errorMessage).toBe('Day in # expression must be 1-7');
 			});
 		});
 
@@ -1558,6 +1565,45 @@ describe('cronParser', () =>
 			expect(validateCronExpression('0 0 9 ? * 9L').isValid).toBe(false);
 			expect(describeCronExpression('0 0 9 ? * 9L')).toBe('0 0 9 ? * 9L');
 			expect(describeCronExpression('0 0 9 ? * XYZL')).toBe('0 0 9 ? * XYZL');
+		});
+	});
+
+	describe('a name in the day of the week field', () =>
+	{
+		const DAY_OF_WEEK_MESSAGE = 'Enter 1-7, SUN-SAT, ?, L, or # patterns';
+
+		it.each([
+			'XYZ',
+			'MON,XYZ',
+			'XYZ-ABC',
+			'XYZ#1'
+		])('refuses %s, because it holds a name that is not a day', (value) =>
+		{
+			let result = validateCronField('dayOfWeek', value);
+			expect(result.isValid).toBe(false);
+			expect(result.errorMessage).toBe(DAY_OF_WEEK_MESSAGE);
+		});
+
+		it.each([
+			'MON',
+			'mon',
+			'MON,FRI',
+			'MON-FRI',
+			'FRI-MON',
+			'2#1',
+			'FRI#3'
+		])('accepts %s', (value) =>
+		{
+			expect(validateCronField('dayOfWeek', value).isValid).toBe(true);
+		});
+
+		it('does not load a day range written in numbers that ends before it starts, which validation refuses, into the weekly preset', () =>
+		{
+			expect(validateCronField('dayOfWeek', '6-2').isValid).toBe(false);
+
+			let result = parseCronExpression('0 0 9 ? * 6-2');
+			expect(result.mode).toBe('advanced');
+			expect(result.advanced.dayOfWeek).toBe('6-2');
 		});
 	});
 

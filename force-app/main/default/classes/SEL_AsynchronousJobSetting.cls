@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Provides methods to retrieve asynchronous job configuration settings from the `AsynchronousJobSetting__mdt` custom metadata type.
  * The class supports configurable batch sizes for different async classes, enabling dynamic processing based on
@@ -11,7 +11,7 @@
  *
  * @group Schedulables
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_AsynchronousJobSetting
 {

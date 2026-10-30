@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber-side fixture for `Subscriber_TypeResolver_TEST.cls`. Implements
  * `kern.UTIL_TypeResolver.INT_ClassTypeResolver` directly (so the chain can construct it via

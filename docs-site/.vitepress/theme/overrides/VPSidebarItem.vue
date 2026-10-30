@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <script setup lang="ts">
 // OVERRIDE of VitePress 1.6.4's default-theme VPSidebarItem, aliased in .vitepress/config.mjs.
 //

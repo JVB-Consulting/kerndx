@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for SEL_Hierarchy - validates hierarchy traversal and update functionality. The depth limit and
  * records that point at each other in a circle are tested in SEL_HierarchyDepthLimit_TEST.

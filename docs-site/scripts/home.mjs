@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 import path from 'node:path';
 
 const REPO_BLOB = 'https://github.com/JVB-Consulting/kerndx/blob/main';

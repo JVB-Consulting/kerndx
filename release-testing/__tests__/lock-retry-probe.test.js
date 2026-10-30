@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The lock-retry probe drives a real org, so nothing here lets it: the CLI and the file system are
  * both mocked. The tests pin what the probe reads from its command line, which script it hands the org, and the

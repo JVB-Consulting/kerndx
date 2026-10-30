@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A scheduled job that deletes records from a specified Salesforce object based on age or all records, configurable via attributes.
  *
@@ -10,7 +10,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

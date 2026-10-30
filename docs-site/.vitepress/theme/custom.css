@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: BUSL-1.1 */
+/* SPDX-License-Identifier: Apache-2.0 */
 /* Wide technical tables scroll within their own container on narrow viewports,
    so the page body itself never overflows (mobile-first indexing). VitePress 1.6.4
    renders tables as a bare <table> with no wrapping <div>, so the scroll container has

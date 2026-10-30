@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Provides an invocable method for logging messages at specified levels (DEBUG, INFO, WARN, ERROR) from Salesforce flows.
  * Allows control over log levels and additional details such as short messages and associated record IDs.
@@ -11,7 +11,7 @@
  *
  * @group Logging
  *
- * @date September 2025, September 2026
+ * @date September 2025, October 2026
  *
  * @since 1.0
  *

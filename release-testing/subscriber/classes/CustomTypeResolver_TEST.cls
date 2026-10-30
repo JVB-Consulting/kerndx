@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Proves that CustomTypeResolver finds a class however its name is written, and hands a name it cannot find
  * to the next resolver. Every class name comes from the class itself, never from typed-out text, so each test follows the

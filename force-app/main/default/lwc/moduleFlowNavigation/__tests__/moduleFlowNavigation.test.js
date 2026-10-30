@@ -1,23 +1,14 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for moduleFlowNavigation LWC module
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
 
-// Mock the lightning/flowSupport events - use class constructors
-jest.mock('lightning/flowSupport', () => ({
-	FlowNavigationNextEvent: class MockFlowNavigationNextEvent
-	{
-	}, FlowNavigationBackEvent: class MockFlowNavigationBackEvent
-	{
-	}, FlowNavigationFinishEvent: class MockFlowNavigationFinishEvent
-	{
-	}
-}), {virtual: true});
-
+// lightning/flowSupport comes from its moduleNameMapper mock in jest.config.js, which defines the three event classes.
+import {FlowNavigationBackEvent, FlowNavigationFinishEvent, FlowNavigationNextEvent} from 'lightning/flowSupport';
 import initialiseFlowNavigationModule, {
 	initialiseDispatchFlowNextEventMethod, initialiseDispatchFlowBackEventMethod, initialiseDispatchFlowFinishEventMethod
 } from 'c/moduleFlowNavigation';
@@ -50,7 +41,7 @@ describe('moduleFlowNavigation', () =>
 			expect(mockComponent.dispatchEvent).toHaveBeenCalledTimes(1);
 			// Verify the event type passed to dispatchEvent
 			const dispatchedEvent = mockComponent.dispatchEvent.mock.calls[0][0];
-			expect(dispatchedEvent.constructor.name).toBe('MockFlowNavigationNextEvent');
+			expect(dispatchedEvent).toBeInstanceOf(FlowNavigationNextEvent);
 		});
 	});
 
@@ -69,7 +60,7 @@ describe('moduleFlowNavigation', () =>
 
 			expect(mockComponent.dispatchEvent).toHaveBeenCalledTimes(1);
 			const dispatchedEvent = mockComponent.dispatchEvent.mock.calls[0][0];
-			expect(dispatchedEvent.constructor.name).toBe('MockFlowNavigationBackEvent');
+			expect(dispatchedEvent).toBeInstanceOf(FlowNavigationBackEvent);
 		});
 	});
 
@@ -88,7 +79,7 @@ describe('moduleFlowNavigation', () =>
 
 			expect(mockComponent.dispatchEvent).toHaveBeenCalledTimes(1);
 			const dispatchedEvent = mockComponent.dispatchEvent.mock.calls[0][0];
-			expect(dispatchedEvent.constructor.name).toBe('MockFlowNavigationFinishEvent');
+			expect(dispatchedEvent).toBeInstanceOf(FlowNavigationFinishEvent);
 		});
 	});
 

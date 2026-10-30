@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Provides methods for querying and evaluating user access permissions on Salesforce objects.
  * Simplifies permission checks by exposing operations such as read or create access for single or
@@ -11,7 +11,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

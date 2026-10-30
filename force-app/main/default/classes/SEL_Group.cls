@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for Salesforce Group objects. Provides query methods for group lookup
  * and recursive group membership resolution including role-based groups, role hierarchies,
@@ -233,10 +233,10 @@ global inherited sharing class SEL_Group extends SEL_Base
 
 		for(SObjectField field : getFields())
 		{
-			fieldNames.add(field.getDescribe().getName());
+			fieldNames.add(UTIL_SObjectDescribe.getCachedFieldName(field));
 		}
 
-		String memberField = GroupMember.UserOrGroupId.getDescribe().name;
+		String memberField = UTIL_SObjectDescribe.getCachedFieldName(GroupMember.UserOrGroupId);
 
 		String soql = 'SELECT ' + String.join(fieldNames, ', ') +
 				', (SELECT ' + memberField + ' FROM ' + RELATIONSHIP_MEMBERS + ')' +

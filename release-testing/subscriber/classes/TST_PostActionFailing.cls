@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-test post-trigger action that throws an unhandled exception from
  * `execute()` to exercise the `FailureAction__c` policy. With `LogAndContinue` the framework

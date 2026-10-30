@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Provides query methods for ValidationRuleGroup__mdt and ValidationRule__mdt custom metadata.
  * Handles loading validation rule groups and their child rules based on object and trigger context.

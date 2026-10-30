@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for FastStart_E2E_DEMO. Validates the processData method at 100%
  * coverage across the standard, blank-input, and whitespace-only paths.

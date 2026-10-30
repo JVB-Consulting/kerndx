@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-test batch job that fails in every `execute()` call, to prove the framework logs a batch failure
  * the platform reports. The class opts into failure events (`Database.RaisesPlatformEvents`), so each failed

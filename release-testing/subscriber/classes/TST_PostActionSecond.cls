@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-test post-trigger action ordered AFTER `TST_PostActionRecorder`
  * (higher `Order__c`). Records into the shared ledger so section scripts can assert the

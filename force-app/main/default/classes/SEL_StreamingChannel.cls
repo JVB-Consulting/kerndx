@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the StreamingChannel SObject. Provides query methods for
  * retrieving streaming channels by name, with automatic generic channel prefix handling.

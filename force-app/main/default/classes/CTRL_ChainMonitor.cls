@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Controller for the Chain Monitor LWC components. It reads chain executions with filters, sorting and
  * pages, and it returns each chain's steps already parsed. The LWC components receive data ready to show, and never

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Presses the operator actions on real rows through the Chain Monitor, flips the kill switch for one batch, makes
 // the dead-job stalls, schedules the watchdog for the run and lays down the stall rows the probe's answer allows.
 const fs = require('fs');

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The "＋ Add object" grouped search dialog for the Data Masking Advisor, built on
  * lightning/modal (LightningModal) so the chrome and the WCAG focus-trap come from the platform. It
@@ -14,7 +14,7 @@
  * The caller hands the resolved api name to its existing per-object describe path.
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, October 2026
  */
 import {api} from 'lwc';
 import LightningModal from 'lightning/modal';

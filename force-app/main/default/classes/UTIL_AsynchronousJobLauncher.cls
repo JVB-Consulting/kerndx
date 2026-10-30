@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Provides a simplified, static entry point for running complex asynchronous jobs
  * using the UTIL_AdaptiveAsynchronousProcessor engine.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 /**
  * @description The job runner: the values a ScheduledJob__c record uses to opt in, and the helpers that read them.

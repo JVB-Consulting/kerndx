@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 /**
  * Org-limits gap-finder — verifies every `data-spec-id` in the validated org-limits redesign

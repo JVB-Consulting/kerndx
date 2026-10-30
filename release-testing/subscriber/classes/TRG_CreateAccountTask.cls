@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Trigger action that creates a follow-up Task for every new Account, so that someone reviews it. Runs
  * after insert, when the Account has its Id and the Task can point at it.

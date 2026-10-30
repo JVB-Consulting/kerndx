@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The data shapes that CTRL_ChainMonitor sends to and receives from the Chain Monitor's LWC components:
  * the list request, the page, the summary row, the detail, the step, the header controls, the sweep counts and the

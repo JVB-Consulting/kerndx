@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Common component to display desired fields of a record. Takes in the Record Id, and uses FieldSetGroup__mdt configuration
  * to determine grouping of different sections (uses an accordion per section), and which section(s) are active by default.

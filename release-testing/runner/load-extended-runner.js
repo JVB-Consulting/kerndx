@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 const {execSync} = require('child_process');
 const {getSubscriberOrgAlias} = require('./subscriber-config');

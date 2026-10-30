@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description SVC_Omnistudio is a factory class that implements the `Callable` interface
  * and is designed to instantiate and execute operations on specific classes based on a provided class name.

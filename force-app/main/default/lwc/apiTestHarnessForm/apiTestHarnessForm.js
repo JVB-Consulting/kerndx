@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description API Test Harness form component for testing inbound and outbound API calls
  * with Safe Mode and Mocking control. Renders as a full-page two-column layout on the

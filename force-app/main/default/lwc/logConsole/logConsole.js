@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Log Console container. Owns the filter state, the two list views
  * (distinct problems and flat entries), the scope summary, the pager and row

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Pattern matching utility for mock selection and route matching.
  *
@@ -8,7 +8,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class API_MockMatcher
 {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A Data Transfer Object (DTO) representing a single picklist and all associated values.
  * This class is typically used to retrieve and manage picklist values dynamically, often
@@ -11,7 +11,7 @@
  *
  * @group Data Transfer Objects
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

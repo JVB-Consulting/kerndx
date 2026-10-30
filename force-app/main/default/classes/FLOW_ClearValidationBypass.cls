@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Flow invocable action to clear validation rule bypasses for the current transaction.
  * Use this after DML operations in Flow to explicitly clear bypasses set by FLOW_BypassValidation.
@@ -14,7 +14,7 @@
  *
  * @group Validation
  *
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  *
  * @since 1.0
  *

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A fake database layer that lets a test watch the retry after a row lock. A row lock is the
  * platform refusing a save because another process holds the record. This class takes the place of the real
@@ -24,11 +24,11 @@
 public inherited sharing class DML_ThrowingLockProxy_TEST extends DML_SharingProxy.DatabaseProxy
 {
 	/**
-	 * @description The message of the platform's row-lock refusal, in the platform's own format. The framework spots a
-	 * lock refusal by the status code in this message, because a DmlException built in a test carries no rows.
+	 * @description A row-lock refusal message for tests. The framework spots a lock refusal by the status code in this
+	 * message. It names the status code the framework retries on, and leaves out the platform's row phrase, because a
+	 * DmlException built in a test carries no rows and asking it for them ends the transaction.
 	 */
-	public static final String LOCK_REFUSAL_MESSAGE = 'Update failed. First exception on row 0; first error: UNABLE_TO_LOCK_ROW, '
-			+ 'unable to obtain exclusive access to this record';
+	public static final String LOCK_REFUSAL_MESSAGE = 'Update failed. UNABLE_TO_LOCK_ROW, unable to obtain exclusive access to this record';
 
 	/**
 	 * @description Statements still to let through before the refusals start.

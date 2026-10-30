@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Platform utilities for LWC — error reduction, comparator factory,
  * clipboard operations, object flattening, and property definition.

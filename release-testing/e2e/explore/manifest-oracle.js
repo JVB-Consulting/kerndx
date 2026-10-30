@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The oracle of a volume walk: the manifest says what to count, the database says how many, at check time (I5).
 'use strict';
 

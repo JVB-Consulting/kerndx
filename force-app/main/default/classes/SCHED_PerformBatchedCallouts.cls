@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The `SCHED_PerformBatchedCallouts` class is a scheduled job responsible for processing
  * batched API calls that are queued for outbound processing. This class retrieves a list of queued API calls,

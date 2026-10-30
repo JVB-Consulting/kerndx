@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Provides utility methods for purging records from Salesforce objects using adaptive async processing.
  * Automatically selects between Queueable and Batch execution based on data volume and governor limits.

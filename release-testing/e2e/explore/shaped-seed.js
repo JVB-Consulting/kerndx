@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Part 1 of the exploration: the shaped seed, its teardown, and the row oracle read from the database.
 'use strict';
 

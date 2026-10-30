@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description REST endpoint for callout-storm load testing. Accepts a POST with a failRate parameter
  * (0-100) that controls the probability of an outbound failure simulation. Used by section-51 of the

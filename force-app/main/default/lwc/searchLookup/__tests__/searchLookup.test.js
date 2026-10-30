@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for searchLookup LWC component.
  *
@@ -17,14 +17,6 @@ jest.mock('@salesforce/apex/CTRL_ExecuteSearch.executeSearchController', () => (
 
 jest.mock('@salesforce/messageChannel/Component__c', () => ({
 	default: {}
-}), {virtual: true});
-
-jest.mock('c/utilitySystem', () => ({
-	setPropertyOnObject: jest.fn((obj, key, value) =>
-	{
-		obj[key] = value;
-		return obj;
-	})
 }), {virtual: true});
 
 const DEBOUNCE_DELAY = 300;

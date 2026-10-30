@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <!-- Before/after code comparison for the KernDX landing tour. The two code panes are
      filled from named slots so the snippets are authored as real ```apex fences in
      home.md — VitePress renders them through the site's shiki Apex theme + Copy button.

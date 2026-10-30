@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Constants and option arrays for the cron expression editor.
  *              All values constrained to what Salesforce System.schedule() accepts.

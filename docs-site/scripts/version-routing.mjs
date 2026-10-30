@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Pure version-switch routing helpers — no DOM, no fetch, no VitePress imports — so the
 // switcher's path logic unit-tests under `node --test` like the rest of docs-site/scripts.
 // The VersionSwitcher.vue shell supplies the live location and the fetched route set; these

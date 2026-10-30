@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Confirmation dialogue for the Health Check "Schedule Chain Watchdog" one-click flow.
  *              States what the one active scheduled job will do, offers a schedule picklist with the

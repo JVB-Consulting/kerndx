@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Base class for custom lookup components. Provides search term debouncing,
  * keyboard navigation, result filtering/display, selected record management, message

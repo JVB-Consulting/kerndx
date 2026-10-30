@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Outbound call to an echo service, about the smallest outbound handler there is: it inherits everything
  * from kern.API_Outbound and only says that it needs no triggering record and what a mocked call answers. The release

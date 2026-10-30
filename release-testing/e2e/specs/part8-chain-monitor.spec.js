@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const fs = require('fs');
 const path = require('path');
 const {test, expect} = require('@playwright/test');

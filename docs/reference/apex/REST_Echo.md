@@ -5,7 +5,7 @@ pageClass: reference
 description: "REST Endpoint wrapper class for the inbound echo test service. This class serves as a RESTFUL endpoint that listens for POST requests to the /echo/* URL mapping. The echo method processes incoming req"
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

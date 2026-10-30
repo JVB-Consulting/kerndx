@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for DML_Builder.
  *
@@ -133,6 +133,12 @@ private class DML_Builder_TEST
 	{
 			Foobar__c.IsDeleted, Foobar__c.LastActivityDate, Foobar__c.LastViewedDate, Foobar__c.LastReferencedDate
 	};
+
+	/**
+	 * @description The message of a save refusal built in Apex code, as a subscriber's own code could throw it. It does not carry
+	 * the platform's row phrase, so the framework knows the exception holds no rows.
+	 */
+	private static final String APEX_BUILT_REFUSAL_MESSAGE = 'A trigger refused the save';
 
 	/**
 	 * @description The Foobar__c field whose value Salesforce works out itself: a formula field. No user can write it.
@@ -759,6 +765,35 @@ private class DML_Builder_TEST
 			Assert.isTrue(result.isSuccess(), 'The commit should succeed on its third attempt');
 			Assert.areEqual(1, result.getInsertedIds().size(), 'The row should be inserted once');
 			Assert.isNotNull(new SEL_Foobar().findById(record.Id), 'The row should exist');
+		}
+	}
+
+	/**
+	 * @description A save refused by a DmlException built in Apex code, which holds no failed rows, counts every record in the save
+	 * as failed, because the whole save was rolled back. Asking such an exception for its rows would end the transaction.
+	 */
+	@IsTest
+	private static void getFailureCountShouldCountEveryRecordWhenTheRefusalHoldsNoRows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> records = new List<Foobar__c> {TST_Factory.newFoobar(), TST_Factory.newFoobar()};
+			DML_SharingProxy.sharingProxyForTest = new DML_ThrowingLockProxy_TEST(1, APEX_BUILT_REFUSAL_MESSAGE);
+			DML_Builder.TransactionResult result;
+
+			try
+			{
+				Test.startTest();
+				result = DML_Builder.newTransaction().withSystemMode().doInsert(records).suppressExceptions().execute();
+				Test.stopTest();
+			}
+			finally
+			{
+				DML_SharingProxy.sharingProxyForTest = null;
+			}
+
+			Assert.isFalse(result.isSuccess(), 'Expected the refused save to report a failure');
+			Assert.areEqual(records.size(), result.getFailureCount(), 'Expected every record in the refused save to count as failed');
 		}
 	}
 

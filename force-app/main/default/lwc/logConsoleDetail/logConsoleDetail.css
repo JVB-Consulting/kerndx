@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: BUSL-1.1 */
+/* SPDX-License-Identifier: Apache-2.0 */
 /*
  * Log Console detail pane. Colour is the one allowed colour axis: the severity badge
  * (keyed off the level value) and the governor-limit bar bands (green/amber/red). The

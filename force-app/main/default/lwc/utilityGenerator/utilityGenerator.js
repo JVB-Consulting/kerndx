@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description JavaScript generator utilities for LWC — sequential counters and
  * bidirectional array iterators.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for SEL_User.
  *
@@ -8,7 +8,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity')
 @IsTest(seeAllData=false isParallel=false)

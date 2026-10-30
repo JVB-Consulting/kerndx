@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <script setup>
 import {ref, onMounted, onBeforeUnmount, nextTick} from 'vue';
 import {withBase} from 'vitepress';

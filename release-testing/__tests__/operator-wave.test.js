@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {
 	candidateQuery, waitForStatuses, waitUntilNoneRunning, pressOnRun, flipKillSwitch, run, launchWave, layDownStartedStepStalls, makeDeadJobStalls
 } = require('../scripts/consoles-at-volume/operator-wave');

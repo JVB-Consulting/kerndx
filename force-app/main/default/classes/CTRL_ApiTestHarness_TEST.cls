@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for CTRL_ApiTestHarness. Verifies service discovery,
  * outbound invocation, and inbound invocation through the controller.
@@ -9,7 +9,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)

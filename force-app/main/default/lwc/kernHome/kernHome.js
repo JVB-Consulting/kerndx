@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Kern developer control room. Displays health check banner and launch cards
  * for API Test Harness, Streaming Event Monitor, Chain Monitor, Data Masking Advisor, and
@@ -6,7 +6,7 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, August 2026
+ * @date April 2026, October 2026
  */
 import {ComponentBuilder} from 'c/componentBuilder';
 import {formatTemplateString} from 'c/utilityString';

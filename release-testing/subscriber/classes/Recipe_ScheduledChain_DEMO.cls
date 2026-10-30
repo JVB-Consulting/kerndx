@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Recurring-chain composition pattern: a schedulable whose execute() starts an
  * async chain, driven declaratively by a ScheduledJob__c record, with the deduplication key

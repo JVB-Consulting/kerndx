@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A scheduled job that takes parameters, used to prove the framework's scheduler from code outside the
  * package. It declares three parameters, is handed their values before it runs, and records what it was handed in static

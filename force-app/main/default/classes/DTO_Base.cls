@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description An empty base class for Data Transfer Objects (DTOs). A DTO is a small class that holds the
  * fields you move in or out of your org. This class only declares the methods; on their own they do nothing:

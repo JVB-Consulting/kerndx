@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: BUSL-1.1 */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 /* Zebra-stripe the dormant-rule rows so a multi-rule activation list stays scannable. */
 .generate-bundle-modal__rule-table tbody tr:nth-of-type(even)

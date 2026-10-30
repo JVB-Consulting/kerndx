@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) Philippe Ozil (CC0-1.0 — rights waived)
 // Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor)
 // Modifications copyright (c) 2026 JVB Consulting
@@ -17,19 +17,27 @@ import TIME_ZONE from '@salesforce/i18n/timeZone';
 import COUNT_NO_DATA from '@salesforce/label/c.EventUsageMetrics_CountBadge_NoData';
 import COUNT_SHOWING_ALL from '@salesforce/label/c.EventUsageMetrics_CountBadge_ShowingAll';
 import COUNT_SHOWING_FILTERED from '@salesforce/label/c.EventUsageMetrics_CountBadge_ShowingFiltered';
+import utilityLogger from 'c/utilityLogger';
+import * as utilityStreaming from 'c/utilityStreaming';
 
-jest.mock('c/utilityStreaming', () => ({
-	getCompactTimeLabel: jest.fn((time, segment) => `c:${segment}:${time instanceof Date ? time.getTime() : time}`),
-	formatCount: jest.fn((value) => (value == null ? '' : String(value))),
-	toTitleCase: jest.fn(
-			(value) => (typeof value === 'string' ? value.replace(/[-_]/g, ' ').replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) : ''))
-}), {virtual: true});
+// Watch the two real utilityStreaming functions this suite asserts on; each spy still runs the real code. Spies on the
+// real exports, not a jest.mock of c/utilityStreaming: such a mock stops intercepting once another suite in the same
+// worker has loaded the real module.
+jest.spyOn(utilityStreaming, 'getCompactTimeLabel');
+jest.spyOn(utilityStreaming, 'toTitleCase');
 
-jest.mock('c/utilityLogger', () => ({
-	__esModule: true, default: {
-		error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn()
-	}
-}), {virtual: true});
+// Silence the real logger and watch its calls: spies on the one shared logger object, not a jest.mock of
+// c/utilityLogger. Such a mock stops intercepting once another suite in the same worker has loaded the real module,
+// while a spy sees every call whichever suite ran first. The spies do nothing, so no log is really sent.
+for(const level of [
+	'error',
+	'warn',
+	'info',
+	'debug'
+])
+{
+	jest.spyOn(utilityLogger, level).mockImplementation(() => undefined);
+}
 
 // The @lwc/jest-transformer rewrites each `import x from '@salesforce/apex/...'` into a catch-block
 // fallback `x = global.__lwcJestMock_<name> || function <name>(){}`. Pre-seeding those globals with
@@ -202,7 +210,6 @@ describe('c-streaming-usage-metrics', () =>
 
 	it('shows the error state and logs when the fetch rejects, then clears it and refetches on Retry', async() =>
 	{
-		const utilityLogger = require('c/utilityLogger').default;
 		getEventUsageMetrics.mockRejectedValueOnce(new Error('boom'));
 		const element = await createComponent();
 
@@ -290,7 +297,6 @@ describe('c-streaming-usage-metrics', () =>
 
 	it('defaults the enhanced-usage flag to false and logs when the probe rejects', async() =>
 	{
-		const utilityLogger = require('c/utilityLogger').default;
 		isEnhancedUsageMetricEnabled.mockRejectedValueOnce(new Error('probe down'));
 		const element = await createComponent();
 
@@ -466,7 +472,6 @@ describe('c-streaming-usage-metrics', () =>
 
 	it('ignores a stale rejection that arrives after a newer search has already succeeded', async() =>
 	{
-		const utilityLogger = require('c/utilityLogger').default;
 		const element = await createComponent();
 
 		let rejectStale;
@@ -698,7 +703,6 @@ describe('c-streaming-usage-metrics', () =>
 
 	it('drops a fetch rejection that arrives after the component is disconnected', async() =>
 	{
-		const utilityLogger = require('c/utilityLogger').default;
 		const element = await createComponent();
 
 		let rejectInFlight;

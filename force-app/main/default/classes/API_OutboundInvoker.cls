@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Invokes outbound API requests programmatically with Safe Mode and mocking support.
  * Wraps the API pipeline to enable the test harness controller to execute outbound calls

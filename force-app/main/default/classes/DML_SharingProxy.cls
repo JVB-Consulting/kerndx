@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Sharing proxy for DML operations. Delegates actual DML to inner classes that declare
  * specific sharing contexts (with sharing, without sharing, or inherited sharing).

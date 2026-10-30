@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber-side proof of the outbound retry classification through the real call path: a callout that got
  * no answer retries on a GET and fails at once on an unkeyed POST, a handler's own exception fails at once unless its type

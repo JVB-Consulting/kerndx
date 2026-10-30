@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Rewrites raw-HTML <details><summary>Title</summary> … </details> blocks into
 // VitePress ::: details Title … ::: containers (built-in; renders inner markdown).
 // Source files keep their <details> (GitHub renders them); this applies only to src/.

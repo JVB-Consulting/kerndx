@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-test invocable that the subscriber CDC recorder Flow calls, handing it
  * the typed kern.DTO_ChangeEventHeader the framework injected. Persists one

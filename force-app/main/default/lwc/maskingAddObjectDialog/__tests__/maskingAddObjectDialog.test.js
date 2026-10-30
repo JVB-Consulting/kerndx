@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the maskingAddObjectDialog LWC — the "＋ Add object" grouped search
  *              dialog built on lightning/modal (LightningModal). The base modal supplies the chrome +
@@ -12,7 +12,7 @@
  *              lightning/modal mock (whose close() is a shared jest.fn).
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, October 2026
  */
 import {createElement} from 'lwc';
 import {mockClose} from 'lightning/modal';

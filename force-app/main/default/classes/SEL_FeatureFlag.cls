@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the FeatureFlag__mdt custom metadata type. Provides access to feature flag
  * definitions and their associated active strategies sorted by evaluation order.

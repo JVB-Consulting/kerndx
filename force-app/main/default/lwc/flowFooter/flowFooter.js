@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Common flow footer component for screen flows. Can be used directly on a
  * flow screen or extended within a parent LWC for custom navigation logic. Subscribes to

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Original KernDX component, not derived from any third-party source. The idea of surfacing org
 // limits alongside the streaming view appears in Philippe Ozil's streaming-monitor (CC0-1.0), but
 // this is a clean-room rebuild that shares no code with it: that component draws a D3.js bar chart into

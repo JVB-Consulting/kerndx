@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for the bulk retry of selected API issues: every test schedules through
  * CTRL_RetryApiIssue.scheduleBulkRetryOfIssues inside Test.startTest() and Test.stopTest(), so the job runs as the platform

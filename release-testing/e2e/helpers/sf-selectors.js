@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const TOAST = 'div.toastContainer lightning-primitive-icon, div.forceToastMessage';
 const TOAST_SUCCESS = 'div.toastContainer.slds-notify_container lightning-icon .slds-icon-utility-success';
 const TOAST_ERROR = 'div.toastContainer.slds-notify_container lightning-icon .slds-icon-utility-error';

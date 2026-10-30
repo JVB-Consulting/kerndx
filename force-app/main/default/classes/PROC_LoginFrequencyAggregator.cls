@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Processor that aggregates LoginHistory into per-user, per-month LoginFrequency__c records
  * tracking total login count and unique login day count. Designed for use with the adaptive async framework
@@ -13,7 +13,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class PROC_LoginFrequencyAggregator implements IF_Async.Processable, IF_Async.Finishable
 {

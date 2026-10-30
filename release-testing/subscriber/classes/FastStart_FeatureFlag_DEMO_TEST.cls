@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for FastStart_FeatureFlag_DEMO. Validates both the legacy and new
  * pricing branches at 100% coverage using the in-memory flag seeding API.

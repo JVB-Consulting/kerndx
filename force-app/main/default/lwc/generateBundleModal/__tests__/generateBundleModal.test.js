@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for generateBundleModal LWC component.
  *
  * @author Jason van Beukering
- * @date May 2026, June 2026
+ * @date May 2026, October 2026
  */
 import {createElement} from 'lwc';
 import GenerateBundleModal from 'c/generateBundleModal';

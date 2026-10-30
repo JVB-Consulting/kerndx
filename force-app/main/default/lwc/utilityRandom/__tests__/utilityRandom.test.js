@@ -1,19 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for utilityRandom LWC utility module
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
-
-// Mock utilityString constants
-jest.mock('c/utilityString', () =>
-{
-	return {
-		__esModule: true, CAPITAL_LETTERS: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', LOWER_CASE_LETTERS: 'abcdefghijklmnopqrstuvwxyz', DIGITS: '0123456789'
-	};
-}, {virtual: true});
 
 import {getRandomNumericString, getRandomAlphaString, getRandomAlphaNumericString, generateUUID} from 'c/utilityRandom';
 

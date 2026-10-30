@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description API to check if a password has been compromised using the [Pwned Passwords](https://haveibeenpwned.com/API/v3#PwnedPasswords) free service.
  * This class extends API_Outbound to perform HTTP GET requests to the Pwned Passwords API, checking if a password's SHA-1 hash appears in their dataset.
@@ -9,7 +9,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class API_GetPwndPasswords extends API_Outbound
 {

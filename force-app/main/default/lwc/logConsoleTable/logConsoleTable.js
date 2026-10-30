@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Datatable for the Log Console list views. Extends `LightningDatatable`
  * to register four isolated custom cell types: `logLevel` renders a severity badge
@@ -11,7 +11,7 @@
  *
  * @author Jason van Beukering
  *
- * @date June 2026, September 2026
+ * @date June 2026, October 2026
  */
 import LightningDatatable from 'lightning/datatable';
 import levelBadge from './levelBadge.html';

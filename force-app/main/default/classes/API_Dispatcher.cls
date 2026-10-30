@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Factory class for orchestrating the execution of web service handlers.
  * Manages the lifecycle of API calls, including handler initiation, error handling, and change commitment.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Answers one question before a tool installs a package into an org, deploys to it or deletes it: is the
  *              org it was handed the development org? The development org holds the framework deployed from source

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Post-build static audit of the generated site (.vitepress/dist). Catches classes of
 // defect the VitePress strict build gate does not: in-page anchors that point at a
 // heading id that does not exist on the target page, duplicate <meta name="description">

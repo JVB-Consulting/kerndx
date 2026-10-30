@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the User SObject. Provides default field configuration
  * and query methods for User records, including retrieval by ID, role, profile, or other fields,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Part 2 of the exploration: the state model. The history tape, the console's own session state, and
 // the rows a pinned state should be showing.
 'use strict';

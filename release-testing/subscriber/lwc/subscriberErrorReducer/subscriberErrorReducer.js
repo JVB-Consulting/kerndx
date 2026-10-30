@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Drift-guard subscriber LWC for `kern/utilitySystem.reduceErrors` + the
  * `showErrorToast(errorObject)` integration on `kern/moduleNotification`. Confirms that:

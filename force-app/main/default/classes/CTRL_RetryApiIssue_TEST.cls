@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test Class for CTRL_RetryApiIssue. The class size and complexity warnings are turned off on purpose, as in
  * the other large test classes: the tests of the Retry, resolve, dismiss and replay actions share their helpers here.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Calls a flaky dependency the resilient way: retry, backoff, and a circuit breaker
  * are wired straight into the framework's HTTP client. The framework retries transient failures,

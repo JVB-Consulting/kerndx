@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {clickNavTab} = require('../helpers/sf-navigation');
 const {waitForListView, waitForRecordPage} = require('../helpers/wait-helpers');
 const {getInstanceUrl} = require('../helpers/sf-auth');

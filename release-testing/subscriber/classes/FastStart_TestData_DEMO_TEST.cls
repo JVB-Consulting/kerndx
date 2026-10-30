@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for FastStart_TestData_DEMO. They show TST_Builder saving real records, and TST_Mock answering a
  * query with records that are never saved to the database.

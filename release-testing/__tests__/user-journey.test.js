@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 jest.mock('@playwright/test', () => ({expect: jest.fn()}));
 
 const {expect: playwrightExpect} = require('@playwright/test');

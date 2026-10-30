@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-testing outbound handler that sends a POST to a Named Credential that does not exist, so every send
  * fails at the send point with the platform's own refusal. Its setting turns on Idempotency Enabled, so every attempt

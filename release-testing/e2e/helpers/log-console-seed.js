@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The Log Console's shaped seed: one story told by two anonymous-Apex scripts, run in this order. Anonymous Apex
 // refuses a script over 32,000 characters, so the whole-action rows live in a second script. The first script's
 // clear also removes the second script's rows, so the order matters: the first always runs first.

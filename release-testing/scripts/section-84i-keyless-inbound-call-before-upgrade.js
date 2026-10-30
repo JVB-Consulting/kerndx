@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Section 84i: an inbound request without an Idempotency-Key, failed while the org is still on the released 1.8.0-11
  *

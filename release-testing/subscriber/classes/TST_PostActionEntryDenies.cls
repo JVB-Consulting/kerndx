@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-test post-action entry criteria that always denies. Referenced from a
  * `PostTriggerAction__mdt` row's `EntryCriteriaContextClassName__c` to prove the framework

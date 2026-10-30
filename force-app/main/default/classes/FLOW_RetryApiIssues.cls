@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Runs the failed calls of the API issues you select again, in one background job: from the Retry Selected
  * action on the API Issues list, from your own flow, or from Apex. The issues that are still open are handed to the job.

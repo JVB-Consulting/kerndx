@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Trigger action that refuses a new Account whose name contains the word BLOCKED. It shows how a trigger
  * action rejects a record: an error added before insert stops that record from being saved.

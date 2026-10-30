@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Ends a logging correlation for a Flow.
  * Use this at the end of a Flow to log completion status.
@@ -9,7 +9,7 @@
  *
  * @group Logging
  *
- * @date December 2025, September 2026
+ * @date December 2025, October 2026
  *
  * @since 1.0
  *

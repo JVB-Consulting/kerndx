@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests the methods in [UTIL_System] for namespace, type resolution, and platform utility functions.
  *
@@ -8,7 +8,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.CognitiveComplexity,PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)

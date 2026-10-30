@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for UTIL_ScheduledJobRunner: the job runner's constants and the helpers that read how a
  * scheduled job record opts in and who may change that.

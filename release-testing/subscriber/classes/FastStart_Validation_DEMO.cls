@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Demonstrates KernDX custom validation rules in the subscriber namespace.
  *              Wraps a DML_Builder insert so that deployed ValidationRule__mdt records

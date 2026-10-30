@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber-namespace test class proving cross-namespace dispatch
  * of `kern.TRG_InvokeFlow` and the `kern.TST_InvokeFlowMock` harness.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-test post-trigger action that records each invocation into a
  * transaction-scoped static ledger and emits a KernDX log entry. Drives the Phase-2

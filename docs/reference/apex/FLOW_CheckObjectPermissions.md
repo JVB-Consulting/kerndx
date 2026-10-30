@@ -5,7 +5,7 @@ pageClass: reference
 description: "Will check what the current user's object permissions are"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

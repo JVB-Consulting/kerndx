@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Data Access Layer for managing self-referencing hierarchical relationships.
  * Provides methods to traverse hierarchies, find ultimate parents (root ancestors), and propagate

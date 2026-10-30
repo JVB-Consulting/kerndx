@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Fluent interface for inspecting Salesforce governor limits. Provides named factory methods
  * per limit type for IDE discoverability and a LimitCheck builder for threshold and exhaustion checks.

@@ -1,15 +1,10 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for applyRetentionModal LWC component.
  *
  * @author Jason van Beukering
- * @date April 2026, May 2026
+ * @date April 2026, October 2026
  */
-jest.mock('lightning/modal', () =>
-{
-	const lwc = require('lwc');
-	return {__esModule: true, default: lwc.LightningElement};
-}, {virtual: true});
 
 jest.mock('@salesforce/label/c.HealthCheck_DataRetention_ScheduleOptions', () => ({
 	default: 'Nightly 2:00 AM=0 0 2 * * ?|Nightly 1:00 AM=0 0 1 * * ?|Weekly Sunday 2:00 AM=0 0 2 ? * SUN|Monthly 1st at 2:00 AM=0 0 2 1 * ?'

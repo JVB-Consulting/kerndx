@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for SEL_Profile selector.
  *
@@ -8,7 +8,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')

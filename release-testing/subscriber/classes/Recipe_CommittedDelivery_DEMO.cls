@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Transactional-outbox composition pattern: an after-update trigger action detects
  * the closed transition and starts ONE delivery chain per trigger invocation, one ApiStep per

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Destructive confirmation dialogue for aborting an async chain execution. The caller
  *              passes pre-interpolated strings for the title, body, and button labels, and the

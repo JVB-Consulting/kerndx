@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Shared display mapping for the Log Console: the execution context (Quiddity) a request ran
  * under, the origin choices the Origin filter offers, the label each stored origin shows under, and the
@@ -9,7 +9,7 @@
  *
  * @author Jason van Beukering
  *
- * @date June 2026, September 2026
+ * @date June 2026, October 2026
  */
 import contextBatchApex from '@salesforce/label/c.LogConsole_ContextBatchApex';
 import contextQueueable from '@salesforce/label/c.LogConsole_ContextQueueable';

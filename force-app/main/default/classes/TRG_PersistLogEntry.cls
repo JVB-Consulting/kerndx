@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Owns persistence of log events to the `LogEntry__c` object. Wired as the trigger
  * action on the `LogEntryEvent__e` platform event (`afterInsert`), and also exposes `persist` as a

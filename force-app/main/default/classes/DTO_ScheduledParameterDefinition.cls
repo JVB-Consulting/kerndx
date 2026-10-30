@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A Data Transfer Object describing a single parameter definition supported by a scheduled job class.
  * Used by classes implementing IF_Schedulable to declare their configurable parameters via

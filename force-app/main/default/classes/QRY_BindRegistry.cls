@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Registry for managing SOQL bind variables.
  * Generates unique bind variable names and collects their values for use with Database.queryWithBinds().
@@ -15,7 +15,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class QRY_BindRegistry
 {

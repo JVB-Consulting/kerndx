@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Removes a run's rows by its manifest and proves nothing survives. Never a runbook step: a release org is discarded;
 // this is for the development org, before a re-run.
 const {fillNamespaceTokens} = require('../../e2e/helpers/sf-namespace');

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the orgLimits LWC card-grid redesign. Exercises the
  * worst-first ordering, the 70/90 colour bands, the cosmetic name prettify, client-side search and

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-testing inbound handler that a test can put on hold. While an Account named RetryLive hold
  * exists, the handler fails every request on purpose. When no such Account exists, it answers status 200 with the body

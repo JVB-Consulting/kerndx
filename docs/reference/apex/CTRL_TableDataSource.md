@@ -5,7 +5,7 @@ pageClass: reference
 description: "Controller class responsible for managing the instantiation of a data source class that supports the table data source interface. This controller allows fetching table data from dynamically specified "
 author: "Jason Van Beukering"
 group: "Controllers"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

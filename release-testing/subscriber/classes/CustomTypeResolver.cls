@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Finds Apex classes by name on behalf of the framework. Code inside the installed package cannot look up
  * a class that lives in this org's own code, so the framework asks a resolver class that lives here to do the lookup.

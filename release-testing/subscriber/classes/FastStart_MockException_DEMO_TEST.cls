@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for FastStart_MockException_DEMO. Exercises the catch path of
  * `safeCountAccountsByIndustry` via the three `kern.TST_Mock.throwsException` overloads and

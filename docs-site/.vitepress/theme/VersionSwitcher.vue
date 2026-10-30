@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <script setup>
 import {ref, computed, nextTick, onMounted, onBeforeUnmount} from 'vue';
 import versions from '../versions.generated.mjs';

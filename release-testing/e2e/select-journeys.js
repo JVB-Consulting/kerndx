@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Runs the journeys a change needs: the map names the source each spec part proves; the changed files come from git.
 //   npm run test:e2e:changed -- --since origin/HEAD [--dry-run]
 // origin/HEAD, the default, is the remote's default branch, which git sets on every clone.

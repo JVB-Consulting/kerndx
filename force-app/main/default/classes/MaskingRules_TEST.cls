@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for the ready-made `MaskingRule__mdt` records shipped with the
  * package. Each test loads a rule by DeveloperName, applies its pattern, replacement and mode to

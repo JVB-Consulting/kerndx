@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The org-truth verdict for an Apex test run. The `sf apex run test` wrapper is trusted for
  * one thing only, the id of the run it started: once its wait expires the wrapper carries nothing else,

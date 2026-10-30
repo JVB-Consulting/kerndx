@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) Philippe Ozil (CC0-1.0 — rights waived)
 // Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor)
 // Modifications copyright (c) 2026 JVB Consulting
@@ -16,7 +16,7 @@ import viewTimeline from '@salesforce/label/c.EventMonitor_View_Timeline';
  * @description Column definitions for the events data table.
  * @type {Array<Object>}
  *
- * @date March 2026, May 2026
+ * @date March 2026, October 2026
  */
 export const TABLE_COLUMNS = [
 	{

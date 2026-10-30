@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Dialogue for the Health Check "Activate" action on the job runner. Asks the one
  *              question activation needs (how often the runner checks for due jobs, with the slot cost

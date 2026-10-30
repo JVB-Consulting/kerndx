@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {test, expect} = require('@playwright/test');
 const {navigateToApp, waitForPageLoad} = require('../helpers/sf-navigation');
 const {getInstanceUrl} = require('../helpers/sf-auth');

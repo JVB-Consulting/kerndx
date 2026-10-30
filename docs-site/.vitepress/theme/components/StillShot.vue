@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <!--
   A guide screenshot with a caption beneath it and a click-to-expand lightbox — the still-image
   counterpart of HeroLoop, so screenshots and walkthrough videos behave the same way. The inline

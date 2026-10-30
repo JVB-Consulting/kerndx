@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for TRG_AsyncChainRunTransition, the trigger action that blocks a save of a chain run the engine
  * would never make. Each test calls the action directly on rows built in memory, never inserted, and reads the result

@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // @ts-nocheck
 /**
  * @description Jest unit tests for utilitySystem LWC utility module
  *
  * @author Jason van Beukering
  *
- * @date December 2025, August 2026
+ * @date December 2025, October 2026
  */
 import {reduceErrors, sortBy, copyToClipBoard, flattenObject, setPropertyOnObject} from 'c/utilitySystem';
 

@@ -1,9 +1,9 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the kernHome composite LWC.
  *
  * @author Jason van Beukering
- * @date April 2026, August 2026
+ * @date April 2026, October 2026
  */
 import {createElement} from 'lwc';
 import KernHome from 'c/kernHome';

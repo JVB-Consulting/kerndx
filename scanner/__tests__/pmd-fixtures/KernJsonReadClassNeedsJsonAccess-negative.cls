@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 @JsonAccess(serializable='always' deserializable='always')
 public with sharing class KernJsonReadClassNeedsJsonAccess_Negative extends kern.DTO_JsonBase
 {

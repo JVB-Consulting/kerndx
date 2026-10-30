@@ -5,7 +5,7 @@ pageClass: reference
 description: "DTO class for name-value pairs, used in invocable methods for data mapping, such as merge fields or configuration settings. Designed for flexibility in flows, Aura components, or Apex logic, supportin"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
-date: "September 2025, May 2026"
+date: "September 2025, October 2026"
 since: "1.0"
 category: apex
 ---

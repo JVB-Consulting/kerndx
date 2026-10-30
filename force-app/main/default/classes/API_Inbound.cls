@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Base class for all inbound REST API web service calls.
  * Provides foundational functionality for handling incoming HTTP requests,

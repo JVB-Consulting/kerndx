@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class to check behavior of SCHED_ChainWatchdog
  *
@@ -8,7 +8,7 @@
  *
  * @group Async
  *
- * @date July 2026
+ * @date July 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)

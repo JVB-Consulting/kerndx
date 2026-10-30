@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // What sections 84c, 84g and 84h share: the org's session for REST calls, the queries on one service's calls, issues
 // and log entries, the delete that removes issues before their calls, and the PASS and FAIL lines each check prints.
 const {execFileSync} = require('child_process');

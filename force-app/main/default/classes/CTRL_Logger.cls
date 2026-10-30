@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Controller for receiving and persisting logs from LWC components.
  * Supports correlation IDs to link LWC logs with server-side operations.

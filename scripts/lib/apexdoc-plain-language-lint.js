@@ -1,9 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 //
 // The plain-language lint behind scripts/check-apexdoc-plain-language.js: finds plan vocabulary in the comments of
-// Apex classes, triggers and LWC modules. A plan code (I3, D11, SAR-1, BUG-008, PLAN-182), a reference to "the spec"
-// or a word that belongs to the planning record ("cell", "pinned", "projection", "resting state", "witness",
-// "losing writer") is never documentation: whoever installs or maintains the package has not read the plan. Nor is
+// Apex classes, triggers and LWC modules, and in the text the package ships in its metadata files (label values,
+// field descriptions and help text, and the descriptions of custom metadata records). A plan code (I3, D11, SAR-1,
+// BUG-008, PLAN-182), a reference to "the spec" or a word that belongs to the planning record ("cell", "pinned",
+// "projection", "resting state", "witness", "losing writer") is never documentation: whoever installs or maintains
+// the package has not read the plan. Nor is
 // a word of the team's own slang ("zombie", "sidecar", "latch", "knob", "hand-off") or an em-dash used as prose
 // punctuation. The rule lives in docs/Code Conventions - Guide.md (section ApexDoc, "Plain language, never the plan's words").
 //
@@ -15,16 +17,20 @@ const {execFileSync} = require('child_process');
 const {readdirSync, readFileSync, statSync} = require('fs');
 const path = require('path');
 
-const CHECKED_EXTENSIONS = ['.cls', '.trigger', '.js'];
+const CHECKED_EXTENSIONS = ['.cls', '.trigger', '.js', '.xml'];
+const METADATA_EXTENSION = '.xml';
 const CHECKED_PREFIX = 'force-app/';
 const SKIPPED_DIRECTORIES = new Set(['staticresources', 'node_modules']);
 
+const EM_DASH_KIND = 'em-dash in prose; use a full stop, a comma or a colon';
+
 /**
- * The patterns a comment or an assertion message may not carry. Each entry names what it catches, for the report
- * line. Codes are matched with their case; words are matched whole and without regard to case. "cell" and "pin" are
- * read in Apex only: in a component they are the words of a table or of the Log Console's pinned filters. An em-dash
- * is a hit in a comment, an assertion message or a Jest case name; a string literal on any other code line is data and
- * is never read.
+ * The patterns a comment, an assertion message or the text of a metadata file may not carry. Each entry names what it
+ * catches, for the report line. Codes are matched with their case; words are matched whole and without regard to case.
+ * "cell" and "pin" are read in Apex only: in a component or a metadata file they are the words of a table or of the Log
+ * Console's pinned filters. An em-dash is a hit in a comment, an assertion message or a Jest case name; a string
+ * literal on any other code line is data and is never read. "Kill switch" is the released name of a feature, so it is
+ * allowed in the label and the master label of a metadata file (skipInMetadataNames) and reported everywhere else.
  */
 const PLAN_LANGUAGE = [
 	{name: 'plan code', pattern: /\b(?:I|D)\d{1,2}\b(?!\.js)/g, apexOnly: false},
@@ -54,7 +60,14 @@ const PLAN_LANGUAGE = [
 	{name: 'jargon word', pattern: /\b[Tt]ier[- ]A\b/g, apexOnly: false},
 	{name: 'jargon word', pattern: /\bhand-?offs?\b/gi, apexOnly: false},
 	{name: 'jargon word', pattern: /\bunkeyed\b/gi, apexOnly: false},
-	{name: 'em-dash in prose; use a full stop, a comma or a colon', pattern: /—/g, apexOnly: false}
+	{name: 'jargon word', pattern: /\bline of jobs\b/gi, apexOnly: false},
+	{name: 'jargon word', pattern: /\b(?:is not|must be) one name\b/gi, apexOnly: false},
+	{name: 'jargon word', pattern: /\bone field path\b/gi, apexOnly: false},
+	{name: 'jargon word', pattern: /\bnames? that start with two underscores\b/gi, apexOnly: false},
+	{name: 'jargon word', pattern: /\bloud failure signal\b/gi, apexOnly: false},
+	{name: 'jargon word', pattern: /\bquery interception\b/gi, apexOnly: false},
+	{name: 'jargon word', pattern: /\bkill[- ]switch(?:es)?\b/gi, apexOnly: false, skipInMetadataNames: true},
+	{name: EM_DASH_KIND, pattern: /—/g, apexOnly: false}
 ];
 
 /**
@@ -81,6 +94,41 @@ const BACKTICK_SPAN = /`[^`]*`/g;
  */
 const ASSERTION_LINE = /\bAssert\.|\bSystem\.assert|\b(?:it|describe|test)\(/;
 const STRING_LITERAL = /'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)"|`((?:\\.|[^`\\])*)`/g;
+
+/**
+ * The elements of a metadata file whose text the package ships to the people who use it, in any metadata file.
+ * The opening tag may carry attributes; a tag that closes itself holds no text and is never matched.
+ */
+const SHIPPED_TEXT_ELEMENT = /<(description|inlineHelpText|label|shortDescription|masterLabel)(?:\s[^>]*?)?(?<!\/)>([\s\S]*?)<\/\1>/g;
+
+/**
+ * The elements that hold the name of a thing: its label and its master label.
+ */
+const NAME_ELEMENTS = new Set(['label', 'masterLabel']);
+
+/**
+ * The value of a custom label, read only in a labels file.
+ */
+const LABEL_VALUE = /<(value)(?:\s[^>]*?)?(?<!\/)>([\s\S]*?)<\/\1>/g;
+const LABELS_FILE_SUFFIX = '.labels-meta.xml';
+
+/**
+ * The value of a custom metadata record's Description__c field, read only in a record file. The value must follow the
+ * field name directly, so an empty value that closes itself never reaches the value of the next field.
+ */
+const RECORD_DESCRIPTION_VALUE = /<field>Description__c<\/field>\s*<(value)(?:\s[^>]*?)?(?<!\/)>([\s\S]*?)<\/\1>/g;
+const RECORD_FILE_SUFFIX = '.md-meta.xml';
+
+/**
+ * The headings of the report, in the order they print, and the kinds of hit each one gathers.
+ */
+const REPORT_HEADINGS = [
+	{heading: 'Plan vocabulary', kinds: ['plan code', 'spec reference', 'plan word']},
+	{heading: 'Team slang', kinds: ['jargon word']},
+	{heading: 'Abbreviation', kinds: ['abbreviation']},
+	{heading: 'Em-dash', kinds: [EM_DASH_KIND]},
+	{heading: 'HTML tag', kinds: [HTML_TAG.name]}
+];
 
 /**
  * A diff hunk header: the first line of the new file's part of the hunk, and how many lines it has (one when absent).
@@ -195,16 +243,82 @@ function findHtmlTags(comments)
  */
 function findPlanLanguage(source, isApex = true)
 {
-	const hits = isApex ? findHtmlTags(commentLines(source)) : [];
 	const places = [
 		...commentLines(source).map((comment) => ({...comment, where: 'comment'})),
 		...assertionLiterals(source).map((literal) => ({...literal, where: 'assertion'}))
 	];
+	return findInPlaces(places, isApex, isApex ? findHtmlTags(commentLines(source)) : []);
+}
+
+/**
+ * Replaces the XML entities a metadata file may carry with the characters they stand for, so an em-dash written as
+ * &#8212; is read as an em-dash. The ampersand is decoded last, so "&amp;lt;" becomes "&lt;" and goes no further.
+ */
+function decodeEntities(text)
+{
+	return text.replace(/&#8212;|&#x2014;|&mdash;/gi, '—').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, '\'')
+		.replace(/&amp;/g, '&');
+}
+
+/**
+ * Returns the text a metadata file ships, one entry per line with its one-based line number: the content of every
+ * description, help text, label, short description and master label element, the value of a custom label in a labels
+ * file, and the value of the Description__c field in a custom metadata record file. Element names and attributes are
+ * never returned, and a text that spans several lines gives one entry for each of its lines.
+ */
+function metadataTextLines(source, file)
+{
+	const patterns = [SHIPPED_TEXT_ELEMENT];
+	if(file.endsWith(LABELS_FILE_SUFFIX))
+	{
+		patterns.push(LABEL_VALUE);
+	}
+	if(file.endsWith(RECORD_FILE_SUFFIX))
+	{
+		patterns.push(RECORD_DESCRIPTION_VALUE);
+	}
+	const texts = [];
+	for(const pattern of patterns)
+	{
+		pattern.lastIndex = 0;
+		let match = pattern.exec(source);
+		while(match !== null)
+		{
+			const contentStart = match.index + match[0].length - match[2].length - `</${match[1]}>`.length;
+			const firstLine = source.slice(0, contentStart).split('\n').length;
+			const element = match[1];
+			const textLines = match[2].split('\n');
+			for(let offset = 0; offset < textLines.length; offset++)
+			{
+				texts.push({line: firstLine + offset, text: decodeEntities(textLines[offset].replace(/\r$/, '')), element});
+			}
+			match = pattern.exec(source);
+		}
+	}
+	return texts;
+}
+
+/**
+ * Returns every plan-vocabulary hit in the text a metadata file ships, in the shape findPlanLanguage reports, with
+ * "metadata text" as the place. The text is read as a component's comments are: the words that only Apex may not
+ * carry are allowed, and HTML tags are not looked for.
+ */
+function findPlanLanguageInMetadata(source, file)
+{
+	return findInPlaces(metadataTextLines(source, file).map((text) => ({...text, where: 'metadata text'})), false, []);
+}
+
+/**
+ * Adds to `hits` every plan-vocabulary hit in the given places ({line, text, where}) and returns them sorted by line.
+ * The words that only Apex may not carry are skipped when `isApex` is false.
+ */
+function findInPlaces(places, isApex, hits)
+{
 	for(const place of places)
 	{
-		for(const {name, pattern, apexOnly} of PLAN_LANGUAGE)
+		for(const {name, pattern, apexOnly, skipInMetadataNames} of PLAN_LANGUAGE)
 		{
-			if(apexOnly && !isApex)
+			if((apexOnly && !isApex) || (skipInMetadataNames && NAME_ELEMENTS.has(place.element)))
 			{
 				continue;
 			}
@@ -221,7 +335,7 @@ function findPlanLanguage(source, isApex = true)
 }
 
 /**
- * True for a repository-relative path the lint reads: a class, trigger or module under force-app.
+ * True for a repository-relative path the lint reads: a class, trigger, module or metadata file under force-app.
  */
 function isChecked(file)
 {
@@ -299,7 +413,7 @@ function allFiles(directory, repositoryRoot, fileSystem)
 }
 
 /**
- * Runs the lint for a command line and returns the exit code: 1 when any checked comment carries plan vocabulary,
+ * Runs the lint for a command line and returns the exit code: 1 when any checked comment or metadata text carries plan vocabulary,
  * 0 otherwise. With --all every line of every file is read. Without it, only the lines added or changed since the
  * base reference are read (every line of an untracked file), and one line says how many hits on unchanged lines were
  * left out. `io` carries listModified(baseReference), which returns {file, lines} entries, listAll(),
@@ -311,21 +425,23 @@ function run(argumentList, io)
 	const baseIndex = argumentList.indexOf('--base');
 	const baseReference = baseIndex >= 0 ? argumentList[baseIndex + 1] : 'HEAD';
 	const entries = everything ? io.listAll().map((file) => ({file, lines: null})) : io.listModified(baseReference);
-	const scope = everything ? 'every force-app class, trigger and module' : `the changed lines of the files modified against ${baseReference}`;
+	const scope = everything ? 'every force-app class, trigger, module and metadata file' : `the changed lines of the files modified against ${baseReference}`;
 
 	const report = [];
 	let leftOut = 0;
 	for(const {file, lines} of entries)
 	{
-		const isApex = path.extname(file) !== '.js';
-		for(const hit of findPlanLanguage(io.readFile(file), isApex))
+		const extension = path.extname(file);
+		const source = io.readFile(file);
+		const hits = extension === METADATA_EXTENSION ? findPlanLanguageInMetadata(source, file) : findPlanLanguage(source, extension !== '.js');
+		for(const hit of hits)
 		{
 			if(lines !== null && !lines.has(hit.line))
 			{
 				leftOut++;
 				continue;
 			}
-			report.push(`${file}:${hit.line}: ${hit.kind} "${hit.token}" in ${hit.where} :: ${hit.text}`);
+			report.push({kind: hit.kind, text: `${file}:${hit.line}: ${hit.kind} "${hit.token}" in ${hit.where} :: ${hit.text}`});
 		}
 	}
 	if(!everything)
@@ -335,12 +451,30 @@ function run(argumentList, io)
 	}
 	if(report.length > 0)
 	{
-		io.error(`Plan vocabulary, team slang, an em-dash or an HTML tag in ${report.length} comment line(s) of ${scope}; say it in plain words `
-			+ `(docs/Code Conventions - Guide.md, section ApexDoc):\n  ${report.join('\n  ')}`);
+		io.error(`Plan vocabulary, team slang, an abbreviation, an em-dash or an HTML tag: ${report.length} hit(s) in the comments and metadata text of ${scope}; `
+			+ `say it in plain words (docs/Code Conventions - Guide.md, section ApexDoc):${reportSections(report)}`);
 		return 1;
 	}
-	io.log(`No plan vocabulary, team slang, em-dash or HTML tag in the comments of ${scope} (${entries.length} file(s) read).`);
+	io.log(`No plan vocabulary, team slang, abbreviation, em-dash or HTML tag in the comments and metadata text of ${scope} (${entries.length} file(s) read).`);
 	return 0;
+}
+
+/**
+ * The report's body: one heading for each kind of hit found, in the order of REPORT_HEADINGS, each naming its own
+ * count and followed by its own lines. A kind with no hit prints no heading.
+ */
+function reportSections(report)
+{
+	let sections = '';
+	for(const {heading, kinds} of REPORT_HEADINGS)
+	{
+		const lines = report.filter((entry) => kinds.includes(entry.kind)).map((entry) => entry.text);
+		if(lines.length > 0)
+		{
+			sections += `\n${heading}: ${lines.length} hit(s)\n  ${lines.join('\n  ')}`;
+		}
+	}
+	return sections;
 }
 
 /**
@@ -358,4 +492,7 @@ function repositoryInputs(repositoryRoot)
 	};
 }
 
-module.exports = {CHECKED_PREFIX, PLAN_LANGUAGE, allFiles, assertionLiterals, commentLines, findPlanLanguage, isChecked, modifiedFiles, repositoryInputs, run};
+module.exports = {
+	CHECKED_PREFIX, PLAN_LANGUAGE, allFiles, assertionLiterals, commentLines, findPlanLanguage, findPlanLanguageInMetadata, isChecked, modifiedFiles,
+	repositoryInputs, run
+};

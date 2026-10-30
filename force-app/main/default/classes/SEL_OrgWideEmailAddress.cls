@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the OrgWideEmailAddress SObject. Provides query methods for
  * retrieving organization-wide email addresses configured in Salesforce.

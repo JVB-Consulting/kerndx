@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) Philippe Ozil (CC0-1.0 — rights waived)
 // Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor)
 // Modifications copyright (c) 2026 JVB Consulting
@@ -10,59 +10,20 @@
  */
 import {createElement} from 'lwc';
 import LwcActions from 'c/streamingActions';
+import utilityLogger from 'c/utilityLogger';
 
-// Mock utilityStreaming
-jest.mock('c/utilityStreaming', () => ({
-	EVT_PUSH_TOPIC: 'PushTopicEvent',
-	EVT_GENERIC: 'GenericEvent',
-	EVT_STD_PLATFORM_EVENT: 'StandardPlatformEvent',
-	EVT_PLATFORM_EVENT: 'PlatformEvent',
-	EVT_CDC: 'ChangeDataCaptureEvent',
-	EVT_CUSTOM_CHANNEL_CDC: 'CustomChannelCDC',
-	EVT_CUSTOM_CHANNEL_PE: 'CustomChannelPE',
-	EVT_MONITORING: 'MonitoringEvent',
-	FILTER_ALL: 'all',
-	FILTER_CUSTOM: 'custom',
-	EVENT_TYPES: [
-		{label: 'PushTopic event', value: 'PushTopicEvent', channelPrefix: '/topic/'},
-		{label: 'Generic event', value: 'GenericEvent', channelPrefix: '/u/'},
-		{label: 'Standard Platform event', value: 'StandardPlatformEvent', channelPrefix: '/event/'},
-		{label: 'Custom Platform event', value: 'PlatformEvent', channelPrefix: '/event/'},
-		{label: 'Change Data Capture event', value: 'ChangeDataCaptureEvent', channelPrefix: '/data/'},
-		{label: 'Custom Channel - Platform event', value: 'CustomChannelPE', channelPrefix: '/event/'},
-		{label: 'Custom Channel - Change event', value: 'CustomChannelCDC', channelPrefix: '/data/'},
-		{label: 'Monitoring event', value: 'MonitoringEvent', channelPrefix: '/event/'}
-	],
-	PUBLISHABLE_EVENT_TYPES: [
-		{label: 'Generic event', value: 'GenericEvent', channelPrefix: '/u/'},
-		{label: 'Custom Platform event', value: 'PlatformEvent', channelPrefix: '/event/'}
-	],
-	getChannelPrefix: jest.fn((eventType) =>
-	{
-		const prefixes = {
-			PushTopicEvent: '/topic/',
-			GenericEvent: '/u/',
-			StandardPlatformEvent: '/event/',
-			PlatformEvent: '/event/',
-			ChangeDataCaptureEvent: '/data/',
-			CustomChannelCDC: '/data/',
-			CustomChannelPE: '/event/',
-			MonitoringEvent: '/event/'
-		};
-		if(!prefixes[eventType])
-		{
-			throw new Error(`Unsupported event type ${eventType}`);
-		}
-		return prefixes[eventType];
-	})
-}), {virtual: true});
-
-// Mock utilityLogger - must be defined inline due to jest.mock hoisting
-jest.mock('c/utilityLogger', () => ({
-	__esModule: true, default: {
-		error: jest.fn()
-	}
-}), {virtual: true});
+// Silence the real logger and watch its calls: spies on the one shared logger object, not a jest.mock of
+// c/utilityLogger. Such a mock stops intercepting once another suite in the same worker has loaded the real module,
+// while a spy sees every call whichever suite ran first. The spies do nothing, so no log is really sent.
+for(const level of [
+	'error',
+	'warn',
+	'info',
+	'debug'
+])
+{
+	jest.spyOn(utilityLogger, level).mockImplementation(() => undefined);
+}
 
 // Mock Apex controller
 jest.mock('@salesforce/apex/CTRL_EventMonitor.getInitialisedEvent', () => ({default: jest.fn().mockResolvedValue({Field1__c: '', Field2__c: ''})}), {virtual: true});
@@ -72,6 +33,8 @@ jest.mock('@salesforce/apex/CTRL_EventMonitor.getInitialisedEvent', () => ({defa
 // its {0} form so the real formatTemplateString interpolation is verified end-to-end, and the
 // rich-text registration/notice labels keep their inline anchor markup so the link assertions can
 // check the rendered hrefs.
+// The real c/utilityStreaming names each event type with a label; the empty-channels placeholder below reads this one.
+jest.mock('@salesforce/label/c.EventMonitor_EventType_CustomPlatform', () => ({default: 'Custom Platform event'}), {virtual: true});
 jest.mock('@salesforce/label/c.EventMonitor_RegisterSourceTitle', () => ({default: 'Register a streaming event source'}), {virtual: true});
 jest.mock('@salesforce/label/c.EventMonitor_SubscribeChannelTitle', () => ({default: 'Subscribe to a channel'}), {virtual: true});
 jest.mock('@salesforce/label/c.EventMonitor_SubscribeAllTitle', () => ({default: 'Subscribe to multiple streaming channels'}), {virtual: true});
@@ -1150,7 +1113,6 @@ describe('c-streaming-actions', () =>
 		{
 			// Get reference to the mock
 			const getInitialisedEvent = require('@salesforce/apex/CTRL_EventMonitor.getInitialisedEvent').default;
-			const utilityLogger = require('c/utilityLogger').default;
 
 			// Make the Apex call reject
 			getInitialisedEvent.mockRejectedValueOnce(new Error('Apex error'));

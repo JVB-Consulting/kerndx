@@ -1,24 +1,19 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for classTypeResolverSetupModal LWC component.
  *
  * @author Jason van Beukering
  * @date April 2026, October 2026
  */
-jest.mock('lightning/modal', () =>
-{
-	const lwc = require('lwc');
-	return {__esModule: true, default: lwc.LightningElement};
-}, {virtual: true});
+import * as utilitySystem from 'c/utilitySystem';
 
 jest.mock('@salesforce/label/c.ClassTypeResolverModal_SetupStep3', () => ({default: 'Register the resolver: set Class Name to {0}.'}), {virtual: true});
 jest.mock('@salesforce/label/c.ClassTypeResolverModal_CopyFailed',
 		() => ({default: 'Couldn\'t copy to the clipboard. Select the code and copy it manually, or use the download button.'}), {virtual: true});
 
-const mockCopyToClipBoard = jest.fn().mockResolvedValue(undefined);
-jest.mock('c/utilitySystem', () => ({
-	copyToClipBoard: (...args) => mockCopyToClipBoard(...args)
-}));
+// A spy on the real module's export, not a jest.mock of c/utilitySystem: such a mock stops intercepting once another
+// suite in the same worker has loaded the real module, while a spy replaces the export the component itself calls.
+const mockCopyToClipBoard = jest.spyOn(utilitySystem, 'copyToClipBoard').mockResolvedValue(undefined);
 
 describe('c-class-type-resolver-setup-modal', () =>
 {

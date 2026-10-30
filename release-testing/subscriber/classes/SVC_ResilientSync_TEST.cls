@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Throwaway verification of the Fast Start - Resilience snippet. NOT part of the
  * committed e2e suite — retry/circuit-breaker regression already lives in SubscriberResilience_TEST

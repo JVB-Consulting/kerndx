@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for `PostTriggerAction__mdt` rows. Provides the rows, in order,
  * to the hook the dispatcher runs when the outermost trigger finishes. Unit tests can also supply their own rows

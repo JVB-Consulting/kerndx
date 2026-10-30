@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Drift-guard demo class for UTIL_Cache transaction-scope additions.
  * Demonstrates the two subscriber-facing factories:

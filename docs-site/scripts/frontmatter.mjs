@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Minimal frontmatter splitter for the flat, scalar frontmatter used in docs/.
 // Avoids a dependency; handles string/number/boolean scalars and quoted strings.
 export function parseFrontmatter(md) {

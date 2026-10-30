@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Standalone form component for creating and editing ScheduledJob__c records.
  *              Used as the content of an Aura action override for the New and Edit standard buttons.

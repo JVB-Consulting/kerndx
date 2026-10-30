@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the FieldDefinition SObject. Reads native Data Classification
  * (`SecurityClassification` / `ComplianceGroup`) per field for a single SObject so the Data Masking

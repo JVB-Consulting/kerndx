@@ -5,7 +5,7 @@ pageClass: reference
 description: "The job runner's scheduled job. Health Check schedules this class once per chosen minute mark (one to twelve times an hour); each time the platform fires it, it runs one check, which starts every job "
 author: "Jason Van Beukering"
 group: "Schedulables"
-date: "September 2026"
+date: "September 2026, October 2026"
 since: "1.8"
 category: apex
 ---

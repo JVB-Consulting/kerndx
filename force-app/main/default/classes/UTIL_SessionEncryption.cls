@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Utility class providing bi-directional encryption and decryption capabilities with automatic key management and expiry.
  * This class uses AES256 encryption combined with HMAC-SHA256 (Encrypt-then-MAC) to ensure both

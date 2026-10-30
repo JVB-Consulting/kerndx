@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for apiTestHarnessForm LWC component
  * @author Jason van Beukering
@@ -36,16 +36,6 @@ jest.mock('@salesforce/apex/CTRL_ApiTestHarness.getServices', () => ({default: j
 jest.mock('@salesforce/apex/CTRL_ApiTestHarness.describeService', () => ({default: jest.fn()}), {virtual: true});
 jest.mock('@salesforce/apex/CTRL_ApiTestHarness.invokeOutbound', () => ({default: jest.fn()}), {virtual: true});
 jest.mock('@salesforce/apex/CTRL_ApiTestHarness.invokeInbound', () => ({default: jest.fn()}), {virtual: true});
-
-jest.mock('c/jsonViewer', () =>
-{
-	const {LightningElement} = require('lwc');
-	return {
-		__esModule: true, default: class extends LightningElement
-		{
-		}
-	};
-}, {virtual: true});
 
 // Restore the real English values for every bundle label (the default sfdx-lwc-jest stub resolves
 // each to the bare string 'c.<Name>'), so value assertions stay byte-faithful to the shipped

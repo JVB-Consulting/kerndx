@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for UTIL_Cache
  * Verifies single/bulk operations, scoping, and configuration for framework/subscriber scenarios.

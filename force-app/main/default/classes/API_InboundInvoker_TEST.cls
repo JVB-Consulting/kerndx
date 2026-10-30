@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for API_InboundInvoker. Verifies invocation of inbound API
  * requests with and without Safe Mode, replay from failure records, and error handling.

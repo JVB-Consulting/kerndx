@@ -1,32 +1,35 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the logConsoleDetail timeline drawer.
  * @author Jason van Beukering
- * @date July 2026, September 2026
+ * @date July 2026, October 2026
  */
 import {createElement} from 'lwc';
 import LogConsoleDetail from 'c/logConsoleDetail';
-import {copyToClipBoard} from 'c/utilitySystem';
+import * as utilitySystem from 'c/utilitySystem';
 // noinspection JSUnresolvedReference - mock helpers are provided by the c/componentBuilder jest mock at run time
 import {mockShowErrorToast, mockShowSuccessToast} from 'c/componentBuilder';
 
-jest.mock('c/utilitySystem', () => ({copyToClipBoard: jest.fn(() => Promise.resolve())}));
+// A spy on the real module's export, not a jest.mock of c/utilitySystem: such a mock stops intercepting once another
+// suite in the same worker has loaded the real module, while a spy replaces the export the component itself calls.
+const copyToClipBoard = jest.spyOn(utilitySystem, 'copyToClipBoard').mockResolvedValue(undefined);
 
-jest.mock('c/logConsoleContext', () => ({
-	CONTEXT_LABEL_BY_VALUE: {
-		AURA: 'Aura / LWC',
-		SYNCHRONOUS: 'Synchronous',
-		QUEUEABLE: 'Queueable',
-		TRANSACTION_FINALIZER_QUEUEABLE: 'Queueable finalizer',
-		BATCH_APEX: 'Batch Apex',
-		REST: 'REST API',
-		SCHEDULED: 'Scheduled',
-		ANONYMOUS: 'Anonymous Apex',
-		FUTURE: 'Future'
-	}, ORIGIN_LABEL_BY_VALUE: {
-		FRAMEWORK: 'Framework', APEX: 'Apex', FLOW: 'Flow', COMPONENT: 'Component', MIXED: 'Mixed'
-	}
-}));
+// The real c/logConsoleContext builds its context and origin names from these labels, so they carry the shipped
+// English values instead of the bare 'c.<Name>' the default label stub gives.
+jest.mock('@salesforce/label/c.LogConsole_ContextBatchApex', () => ({default: 'Batch Apex'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ContextQueueable', () => ({default: 'Queueable'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ContextQueueableFinalizer', () => ({default: 'Queueable finalizer'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ContextScheduled', () => ({default: 'Scheduled'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ContextFuture', () => ({default: 'Future'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ContextAura', () => ({default: 'Aura / LWC'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ContextRest', () => ({default: 'REST API'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ContextSynchronous', () => ({default: 'Synchronous'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_ContextAnonymous', () => ({default: 'Anonymous Apex'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginFramework', () => ({default: 'Framework'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginApex', () => ({default: 'Apex'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginFlow', () => ({default: 'Flow'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginComponent', () => ({default: 'Component'}), {virtual: true});
+jest.mock('@salesforce/label/c.LogConsole_OriginMixed', () => ({default: 'Mixed'}), {virtual: true});
 
 jest.mock('@salesforce/label/c.LogConsole_TabOverview', () => ({default: 'Overview'}), {virtual: true});
 jest.mock('@salesforce/label/c.LogConsole_TabStackTrace', () => ({default: 'Stack trace'}), {virtual: true});

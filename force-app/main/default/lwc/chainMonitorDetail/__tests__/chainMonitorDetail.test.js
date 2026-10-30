@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for chainMonitorDetail LWC component
  * @author Jason van Beukering
@@ -15,20 +15,26 @@ import {createElement} from 'lwc';
 import {mockCallControllerMethod, mockNavigate, mockShowErrorToast, mockShowSuccessToast, mockShowWarningToast} from 'c/componentBuilder';
 import ChainAbortModal from 'c/chainAbortModal';
 import ChainActionConfirmModal from 'c/chainActionConfirmModal';
+import * as utilitySystem from 'c/utilitySystem';
 import getChainLogEntries from '@salesforce/apex/CTRL_ChainMonitor.getChainLogEntries';
 import abortChain from '@salesforce/apex/CTRL_ChainMonitor.abortChain';
+import retryChainFromFailedStep from '@salesforce/apex/CTRL_ChainMonitor.retryChainFromFailedStep';
 
-// Spy-on-real: the static open lives on the real module (lightning/modal resolves to the repo's
-// moduleNameMapper mock), so the interception survives the resolver-cache flip that silently
-// defeats a jest.mock('c/...') of the same module (see moduleController.test.js).
-const mockChainAbortModalOpen = jest.spyOn(ChainAbortModal, 'open').mockResolvedValue({action: 'cancel'});
-const mockChainActionConfirmModalOpen = jest.spyOn(ChainActionConfirmModal, 'open').mockResolvedValue({action: 'cancel'});
+let mockChainAbortModalOpen;
+let mockChainActionConfirmModalOpen;
 
-const mockCopyToClipBoard = jest.fn().mockResolvedValue(undefined);
+// Each dialog class gets its own open mock. A spy would return the one open mock that every dialog
+// class inherits from the lightning/modal test mock, so the tests could not tell which dialog opened.
+function replaceOpenWithMock(dialogClass, resolvedValue)
+{
+	const open = jest.fn().mockResolvedValue(resolvedValue);
+	Object.defineProperty(dialogClass, 'open', {value: open, configurable: true, writable: true});
+	return open;
+}
 
-jest.mock('c/utilitySystem', () => ({
-	copyToClipBoard: (...args) => mockCopyToClipBoard(...args)
-}));
+// copyToClipBoard is the real c/utilitySystem export, so this spy survives the resolver-cache flip
+// that silently defeats a jest.mock of a c/ module (see moduleController.test.js).
+const mockCopyToClipBoard = jest.spyOn(utilitySystem, 'copyToClipBoard').mockResolvedValue(undefined);
 
 jest.mock('@salesforce/label/c.ChainMonitor_ViewLogsAction', () => ({default: 'View logs'}), {virtual: true});
 jest.mock('@salesforce/label/c.ChainMonitor_CopyAction', () => ({default: 'Copy action ID'}), {virtual: true});
@@ -167,14 +173,16 @@ describe('c-chain-monitor-detail', () =>
 
 	beforeEach(() =>
 	{
-		// Re-arm the shared static-open spies each test (moduleController.test.js lifecycle); per-case
-		// overrides use mockResolvedValueOnce and are consumed within their own test.
-		mockChainAbortModalOpen.mockResolvedValue({action: 'cancel'});
-		mockChainActionConfirmModalOpen.mockResolvedValue({action: 'cancel'});
+		// Give each dialog a fresh open mock each test; per-case overrides use
+		// mockResolvedValueOnce and are consumed within their own test.
+		mockChainAbortModalOpen = replaceOpenWithMock(ChainAbortModal, {action: 'cancel'});
+		mockChainActionConfirmModalOpen = replaceOpenWithMock(ChainActionConfirmModal, {action: 'cancel'});
 	});
 
 	afterEach(() =>
 	{
+		delete ChainAbortModal.open;
+		delete ChainActionConfirmModal.open;
 		while(document.body.firstChild)
 		{
 			document.body.removeChild(document.body.firstChild);
@@ -903,6 +911,7 @@ describe('c-chain-monitor-detail', () =>
 				body: 'TestChain has completed 2/5 steps. No further steps start, and the chain cannot be resumed. A step already running is not interrupted, so a hung step keeps '
 						+ 'the chain from stopping until it ends.', confirmLabel: 'Abort chain', cancelLabel: 'Cancel'
 			});
+			expect(mockChainActionConfirmModalOpen).not.toHaveBeenCalled();
 			expect(mockCallControllerMethod).toHaveBeenCalledWith(abortChain, {executionId: 'a00000000000001AAA'});
 			expect(element.shadowRoot.querySelector('[data-testid="status-badge"]').label).toBe('Aborted');
 			expect(element.shadowRoot.querySelector('[data-testid="abort-button"]')).toBeFalsy();
@@ -920,6 +929,7 @@ describe('c-chain-monitor-detail', () =>
 			await flushAbortHandler();
 
 			expect(mockChainAbortModalOpen).toHaveBeenCalledTimes(1);
+			expect(mockChainActionConfirmModalOpen).not.toHaveBeenCalled();
 			expect(mockCallControllerMethod).not.toHaveBeenCalled();
 		});
 
@@ -932,6 +942,8 @@ describe('c-chain-monitor-detail', () =>
 			element.shadowRoot.querySelector('[data-testid="abort-button"]').dispatchEvent(new CustomEvent('click'));
 			await flushAbortHandler();
 
+			expect(mockChainAbortModalOpen).toHaveBeenCalledTimes(1);
+			expect(mockChainActionConfirmModalOpen).not.toHaveBeenCalled();
 			expect(mockCallControllerMethod).not.toHaveBeenCalled();
 		});
 
@@ -947,7 +959,9 @@ describe('c-chain-monitor-detail', () =>
 			element.shadowRoot.querySelector('[data-testid="abort-button"]').dispatchEvent(new CustomEvent('click'));
 			await flushAbortHandler();
 
-			expect(mockCallControllerMethod).toHaveBeenCalledWith(expect.anything(), {executionId: 'a00000000000001AAA'});
+			expect(mockChainAbortModalOpen).toHaveBeenCalledTimes(1);
+			expect(mockChainActionConfirmModalOpen).not.toHaveBeenCalled();
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(abortChain, {executionId: 'a00000000000001AAA'});
 			expect(abortHandler).not.toHaveBeenCalled();
 			expect(mockShowSuccessToast).not.toHaveBeenCalled();
 			expect(element.shadowRoot.querySelector('[data-testid="status-badge"]').label).toBe('Running');
@@ -1135,6 +1149,7 @@ describe('c-chain-monitor-detail', () =>
 				cancelLabel: 'Cancel',
 				confirmVariant: 'brand'
 			});
+			expect(mockChainAbortModalOpen).not.toHaveBeenCalled();
 			expect(mockCallControllerMethod).toHaveBeenCalledWith(expect.anything(), {executionId: 'a00000000000001AAA'});
 			expect(element.shadowRoot.querySelector('[data-testid="status-badge"]').label).toBe('Running');
 			expect(retryHandler).toHaveBeenCalledTimes(1);
@@ -1171,6 +1186,7 @@ describe('c-chain-monitor-detail', () =>
 				cancelLabel: 'Cancel',
 				confirmVariant: 'brand'
 			});
+			expect(mockChainAbortModalOpen).not.toHaveBeenCalled();
 			expect(element.executionId).toBe(CLONE_ID);
 			expect(restartHandler).toHaveBeenCalledTimes(1);
 			expect(restartHandler.mock.calls[0][0].detail).toEqual({executionId: CLONE_ID});
@@ -1186,6 +1202,7 @@ describe('c-chain-monitor-detail', () =>
 			await flushActionHandler();
 
 			expect(mockChainActionConfirmModalOpen).toHaveBeenCalledTimes(1);
+			expect(mockChainAbortModalOpen).not.toHaveBeenCalled();
 			expect(mockCallControllerMethod).not.toHaveBeenCalled();
 		});
 
@@ -1201,6 +1218,9 @@ describe('c-chain-monitor-detail', () =>
 			actionButton(element, 'retry-action').dispatchEvent(new CustomEvent('click'));
 			await flushActionHandler();
 
+			expect(mockChainActionConfirmModalOpen).toHaveBeenCalledTimes(1);
+			expect(mockChainAbortModalOpen).not.toHaveBeenCalled();
+			expect(mockCallControllerMethod).toHaveBeenCalledWith(retryChainFromFailedStep, {executionId: 'a00000000000001AAA'});
 			expect(retryHandler).not.toHaveBeenCalled();
 			expect(mockShowSuccessToast).not.toHaveBeenCalled();
 			expect(element.shadowRoot.querySelector('[data-testid="status-badge"]').label).toBe('Failed');

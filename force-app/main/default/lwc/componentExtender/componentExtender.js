@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Module activation engine for the ComponentBuilder framework. Maps module
  * identifiers to their initialiser functions and wires them onto a BaseComponent instance.
  *
  * @author Jason van Beukering
  *
- * @date February 2022, May 2026
+ * @date February 2022, October 2026
  */
 // noinspection JSUnusedGlobalSymbols
 

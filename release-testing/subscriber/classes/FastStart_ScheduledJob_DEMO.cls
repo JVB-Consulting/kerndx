@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A scheduled job for the Fast Start - Scheduled Jobs guide. A ScheduledJob__c record runs it on a
  * schedule, on a scheduled job of its own or on the job runner. Its one parameter, Fail on purpose, makes a run throw,

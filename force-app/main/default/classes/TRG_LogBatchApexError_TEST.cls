@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for the TRG_LogBatchApexError trigger action. Runs serially because it waits for the platform
  * to deliver the failure event a real batch job raises.
@@ -9,7 +9,7 @@
  *
  * @group Triggers
  *
- * @date September 2026
+ * @date September 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)

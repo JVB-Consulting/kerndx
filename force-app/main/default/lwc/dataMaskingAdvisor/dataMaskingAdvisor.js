@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Data Masking Advisor coverage area: object picker, configuration-health and
  *              object-wide-coverage banners, a heuristic-only-mode notice, a summary strip, and the

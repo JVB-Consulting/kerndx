@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Checks that a step's state has one answer. A step entry can carry five runtime markers: success,
  * continueOnError, recoveryRefused, started and attempt. Every combination of them goes through

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {clickNavTab} = require('../helpers/sf-navigation');
 const {waitForSpinnerGone} = require('../helpers/wait-helpers');
 const {ELEMENT_WAIT_MILLISECONDS} = require('../helpers/wait-times');

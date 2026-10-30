@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the FeatureFlagStrategy__mdt custom metadata type. Provides default
  * field configuration, strategy type constants, and query capabilities for feature flag strategies.
@@ -10,7 +10,7 @@
  *
  * @group Feature Flags
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_FeatureFlagStrategy extends SEL_Base
 {

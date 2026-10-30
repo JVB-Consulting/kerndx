@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 import {LightningElement} from 'lwc';
 import {formatTemplateString, COMMA, SPACE, convertToSentenceCase, insertCharacterAtInterval} from 'kern/utilityString';
 import {reduceErrors, sortBy, flattenObject} from 'kern/utilitySystem';

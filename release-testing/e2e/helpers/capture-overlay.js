@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Capture-time motion polish: a synthetic cursor, click ripple, and zoom-to-region overlay
 // injected into the page so silent hero-loop recordings read clearly. Headless Playwright
 // draws no real cursor, so we render one. Injected via addInitScript so it survives Lightning

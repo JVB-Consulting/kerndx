@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {test, expect} = require('@playwright/test');
 const StreamingMonitorPage = require('../pages/streaming-monitor.page');
 const {navigateToApp} = require('../helpers/sf-navigation');

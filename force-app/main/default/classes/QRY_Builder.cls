@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Modern fluent query builder - the primary entry point for constructing and executing SOQL queries.
  * Provides a clean, type-safe API for building queries with support for conditions, ordering, pagination, caching,
@@ -2057,12 +2057,13 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Holds the group until at, above, below or aboveOrBelow adds the filter to the parent builder.
-		 * withDataCategory checks that the group name is not blank before it calls this. The group name must be one name.
+		 * withDataCategory checks that the group name is not blank before it calls this. The group name must be a single
+		 * API name, such as Name.
 		 *
 		 * @param parent The parent Builder
 		 * @param categoryGroup The data category group name
 		 *
-		 * @throws IllegalArgumentException if the group name is not blank and is not one name
+		 * @throws IllegalArgumentException if the group name is not blank and is not a single API name, such as Name
 		 */
 		public DataCategoryBuilder(Builder parent, String categoryGroup)
 		{
@@ -2079,7 +2080,7 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryName is blank, or is not one name
+		 * @throws IllegalArgumentException if categoryName is blank, or is not a single API name, such as Name
 		 *
 		 * @since 1.0
 		 *
@@ -2101,7 +2102,7 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not one name
+		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not a single API name, such as Name
 		 *
 		 * @since 1.0
 		 *
@@ -2123,7 +2124,7 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryName is blank, or is not one name
+		 * @throws IllegalArgumentException if categoryName is blank, or is not a single API name, such as Name
 		 *
 		 * @since 1.0
 		 *
@@ -2145,7 +2146,7 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not one name
+		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not a single API name, such as Name
 		 *
 		 * @since 1.0
 		 *
@@ -2167,7 +2168,7 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryName is blank, or is not one name
+		 * @throws IllegalArgumentException if categoryName is blank, or is not a single API name, such as Name
 		 *
 		 * @since 1.0
 		 *
@@ -2189,7 +2190,7 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not one name
+		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not a single API name, such as Name
 		 *
 		 * @since 1.0
 		 *
@@ -2211,7 +2212,7 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryName is blank, or is not one name
+		 * @throws IllegalArgumentException if categoryName is blank, or is not a single API name, such as Name
 		 *
 		 * @since 1.0
 		 *
@@ -2233,7 +2234,7 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not one name
+		 * @throws IllegalArgumentException if categoryNames is null or empty, or a name in it is not blank and is not a single API name, such as Name
 		 *
 		 * @since 1.0
 		 *
@@ -3197,15 +3198,16 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds parent (related) fields to the selection. Each text must be one field path. Text that comes from a
-		 * page or a user must first be matched to a field through a list of fields you allow.
+		 * @description Adds parent (related) fields to the selection. Each text must be a field name or a path through
+		 * parent records, such as Account.Owner.Name. Text that comes from a page or a user must first be matched to a
+		 * field through a list of fields you allow.
 		 *
 		 * @param parentFields A list of field API names, such as Name or Account.Owner.Name
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if a text in the list is not blank and is not one field path. Nothing is added
-		 * then.
+		 * @throws IllegalArgumentException if a text in the list is not blank and is not a field name or a path through
+		 * parent records, such as Account.Owner.Name. Nothing is added then.
 		 *
 		 * @since 1.0
 		 *
@@ -3230,14 +3232,15 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a single parent field. The text must be one field path. Text that comes from a page or a user
-		 * must first be matched to a field through a list of fields you allow.
+		 * @description Adds a single parent field. The text must be a field name or a path through parent records, such as
+		 * Account.Owner.Name. Text that comes from a page or a user must first be matched to a field through a list of
+		 * fields you allow.
 		 *
 		 * @param parentField A field API name, such as Name or Account.Owner.Name
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if the text is not blank and is not one field path
+		 * @throws IllegalArgumentException if the text is not blank and is not a field name or a path through parent records, such as Account.Owner.Name
 		 *
 		 * @since 1.0
 		 *
@@ -3259,15 +3262,16 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a child subquery (child relationship query). The relationship name must be one name. Text that
-		 * comes from a page or a user must first be matched to a relationship through a list of names you allow.
+		 * @description Adds a child subquery (child relationship query). The relationship name must be a single API name,
+		 * such as Contacts. Text that comes from a page or a user must first be matched to a relationship through a list
+		 * of names you allow.
 		 *
 		 * @param childQuery Configured Builder for the child object
 		 * @param relationshipName The child relationship API name (e.g., 'Contacts')
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if the relationship name is not blank and is not one name
+		 * @throws IllegalArgumentException if the relationship name is not blank and is not a single API name, such as Contacts
 		 *
 		 * @since 1.0
 		 *
@@ -3306,10 +3310,11 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Account.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Account.SObjectType)
 		 *     .groupBy('Industry')
 		 *     .count('Id')
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Integer firstIndustryCount = rows[0].getInteger('count_Id');
 		 * ```
 		 
 		 */
@@ -3501,10 +3506,11 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
 		 *     .groupBy(Opportunity.StageName)
 		 *     .avg(Opportunity.Amount)
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Decimal firstStageAverage = rows[0].getDecimal('avg_Amount');
 		 * ```
 		 */
 		global Builder avg(SObjectField field)
@@ -3525,10 +3531,11 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
 		 *     .groupBy(Opportunity.StageName)
 		 *     .min(Opportunity.CloseDate)
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Date firstStageEarliestCloseDate = rows[0].getDate('min_CloseDate');
 		 * ```
 		 */
 		global Builder min(SObjectField field)
@@ -3549,10 +3556,11 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
 		 *     .groupBy(Opportunity.StageName)
 		 *     .max(Opportunity.Amount)
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Decimal firstStageLargest = rows[0].getDecimal('max_Amount');
 		 * ```
 		 */
 		global Builder max(SObjectField field)
@@ -3570,16 +3578,17 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if the text is not blank and is not one field path
+		 * @throws IllegalArgumentException if the text is not blank and is not a field name or a path through parent records, such as Account.Owner.Name
 		 *
 		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Account.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Account.SObjectType)
 		 *     .groupBy(Account.Industry)
 		 *     .count('Id')
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Integer firstIndustryCount = rows[0].getInteger('count_Id');
 		 * ```
 		 */
 		global Builder count(String fieldName)
@@ -3601,10 +3610,11 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Contact.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Contact.SObjectType)
 		 *     .groupBy(Contact.AccountId)
 		 *     .countDistinct(Contact.Email)
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Integer firstAccountEmailCount = rows[0].getInteger('count_distinct_Email');
 		 * ```
 		 
 		 */
@@ -3623,16 +3633,17 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if the text is not blank and is not one field path
+		 * @throws IllegalArgumentException if the text is not blank and is not a field name or a path through parent records, such as Account.Owner.Name
 		 *
 		 * @since 1.0
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Contact.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Contact.SObjectType)
 		 *     .groupBy(Contact.AccountId)
 		 *     .countDistinct('Email')
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Integer firstAccountEmailCount = rows[0].getInteger('count_distinct_Email');
 		 * ```
 		 */
 		global Builder countDistinct(String fieldName)
@@ -3834,11 +3845,12 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
 		 *     .groupBy(Opportunity.AccountId)
 		 *     .sum(Opportunity.Amount)
 		 *     .havingSumOf(Opportunity.Amount).greaterThan(100000)
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Decimal firstAccountTotal = rows[0].getDecimal('sum_Amount');
 		 * ```
 		 */
 		global ConditionBuilder havingSumOf(SObjectField field)
@@ -3858,11 +3870,12 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
 		 *     .groupBy(Opportunity.AccountId)
 		 *     .avg(Opportunity.Amount)
 		 *     .havingAvgOf(Opportunity.Amount).greaterThan(50000)
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Decimal firstAccountAverage = rows[0].getDecimal('avg_Amount');
 		 * ```
 		 */
 		global ConditionBuilder havingAvgOf(SObjectField field)
@@ -3882,11 +3895,12 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
 		 *     .groupBy(Opportunity.AccountId)
 		 *     .min(Opportunity.Amount)
 		 *     .havingMinOf(Opportunity.Amount).greaterThan(1000)
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Decimal firstAccountSmallest = rows[0].getDecimal('min_Amount');
 		 * ```
 		 */
 		global ConditionBuilder havingMinOf(SObjectField field)
@@ -3906,11 +3920,12 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
 		 *     .groupBy(Opportunity.AccountId)
 		 *     .max(Opportunity.Amount)
 		 *     .havingMaxOf(Opportunity.Amount).lessThan(1000000)
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Decimal firstAccountLargest = rows[0].getDecimal('max_Amount');
 		 * ```
 		 */
 		global ConditionBuilder havingMaxOf(SObjectField field)
@@ -3930,11 +3945,12 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Contact.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Contact.SObjectType)
 		 *     .groupBy(Contact.AccountId)
 		 *     .count('Id')
 		 *     .havingCountOf(Contact.Id).greaterThan(10)
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Integer firstAccountContactCount = rows[0].getInteger('count_Id');
 		 * ```
 		 */
 		global ConditionBuilder havingCountOf(SObjectField field)
@@ -3952,11 +3968,12 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @example
 		 * ```apex
-		 * List<AggregateResult> results = QRY_Builder.selectFrom(Contact.SObjectType)
+		 * List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Contact.SObjectType)
 		 *     .groupBy(Contact.AccountId)
 		 *     .count('Id')
 		 *     .havingCount().greaterThan(5)
-		 *     .toList();
+		 *     .toAggregateList();
+		 * Integer firstAccountContactCount = rows[0].getInteger('count_Id');
 		 * ```
 		 */
 		global ConditionBuilder havingCount()
@@ -5055,7 +5072,7 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return DataCategoryBuilder for operator selection
 		 *
-		 * @throws IllegalArgumentException if groupName is blank, or is not one name
+		 * @throws IllegalArgumentException if groupName is blank, or is not a single API name, such as Name
 		 *
 		 * @since 1.0
 		 *
@@ -6642,13 +6659,14 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Holds the three values as given. The builder reads the field name from the field token and checks the
-		 * alias before it calls this. The field name is checked here too, so it must be one field path.
+		 * alias before it calls this. The field name is checked here too, so it must be a field name or a path through
+		 * parent records, such as Account.Owner.Name.
 		 *
 		 * @param aggregateFunction The aggregate function to apply
 		 * @param fieldName The describe-derived field API name
 		 * @param alias The validated result alias
 		 *
-		 * @throws IllegalArgumentException if the field name is not blank and is not one field path
+		 * @throws IllegalArgumentException if the field name is not blank and is not a field name or a path through parent records, such as Account.Owner.Name
 		 */
 		public AggregateSelection(QRY_Generator.Aggregate aggregateFunction, String fieldName, String alias)
 		{

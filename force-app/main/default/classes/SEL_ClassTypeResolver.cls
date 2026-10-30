@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the ClassTypeResolver__mdt custom metadata type. Provides query methods
  * for resolving class type overrides.

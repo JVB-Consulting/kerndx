@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Runs the commands a guide prints, exactly as printed, in every terminal this machine has, inside a
  *              copy of a working tree made once per scope and put back with git between terminals, with stand-ins

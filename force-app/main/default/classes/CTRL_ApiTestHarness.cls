@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Controller for the API Test Harness LWC. Provides service discovery
  * and invocation methods for testing inbound and outbound APIs with Safe Mode

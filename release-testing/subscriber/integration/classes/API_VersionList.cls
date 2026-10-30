@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A handler with a canned answer and no credential of its own, used by the integration probe to show
  * that a handler run through the fluent client's delegation entry point makes its real call outside a unit test.

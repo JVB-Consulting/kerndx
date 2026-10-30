@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the MaskingTarget__mdt custom metadata type. Loads every masking target
  * together with every masking rule once per transaction, grouped by SObject type token so callers can

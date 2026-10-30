@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // An engine-written tree as the exemplar the staged fill clones: a root with two children, each with two leaves
 // (fan-out 2, depth 2), with the entries the engine writes: a launch entry per run under the launcher's correlation,
 // a narrating entry per leaf under its own, one failure entry. Shared by the synthesized-rows and launch tests.

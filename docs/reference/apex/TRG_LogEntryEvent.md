@@ -4,7 +4,7 @@ type: trigger
 pageClass: reference
 description: "Log entry event trigger for handling log events"
 author: "Jason Van Beukering"
-date: "2020, February 2026"
+date: "2020, October 2026"
 category: apex
 ---
 

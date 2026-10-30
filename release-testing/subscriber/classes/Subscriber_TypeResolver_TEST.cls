@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber proof for `UTIL_TypeResolver` edge scenarios deferred from
  * `release-testing/scripts/section-62-edge-type-resolver.apex` (the extended-load spec §6.15, Task 1.16).

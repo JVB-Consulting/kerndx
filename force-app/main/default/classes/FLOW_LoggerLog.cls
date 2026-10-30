@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Logs an event within a Flow with correlation support.
  * Use this to log messages, warnings, or errors during Flow execution.

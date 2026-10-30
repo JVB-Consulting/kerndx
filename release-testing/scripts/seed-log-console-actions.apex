@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 //
 // Log Console e2e seed fixture, second part: the whole-action rows. Runs right after seed-log-console.apex,
 // which lays down the rest of the story. The two are split because anonymous Apex refuses a script over

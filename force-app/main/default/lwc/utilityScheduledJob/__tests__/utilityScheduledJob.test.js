@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the utilityScheduledJob LWC utility module.
  *
  * @author Jason van Beukering
  *
- * @date July 2026, September 2026
+ * @date July 2026, October 2026
  */
 // The reader's Salesforce locale and time zone, pinned so the rendering assertions below prove the
 // formatter honours them rather than the machine's own browser defaults.

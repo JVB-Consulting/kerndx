@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Navigation module for the ComponentBuilder framework. Provides record page
  * redirection and URL generation via the Lightning NavigationMixin.
  *
  * @author Jason van Beukering
  *
- * @date February 2022, May 2026
+ * @date February 2022, October 2026
  */
 
 		// ── Constants ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

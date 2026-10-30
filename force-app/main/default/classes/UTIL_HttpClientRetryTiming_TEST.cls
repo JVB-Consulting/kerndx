@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for how long a failed outbound call waits before its scheduled retry, and for how its retry count
  * (Retries__c) adds up across runs. A scheduled retry is a later attempt the framework plans by setting the call to

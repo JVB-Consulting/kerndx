@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for sObjectLookup LWC component.
  *
@@ -15,11 +15,8 @@ jest.mock('@salesforce/messageChannel/Component__c', () => ({
 	default: {}
 }), {virtual: true});
 
-jest.mock('lightning/uiObjectInfoApi', () =>
-{
-	const {createTestWireAdapter} = require('@salesforce/sfdx-lwc-jest');
-	return {getObjectInfo: createTestWireAdapter(jest.fn())};
-}, {virtual: true});
+// lightning/uiObjectInfoApi is the sfdx-lwc-jest stub, whose getObjectInfo is already a test wire adapter. A jest.mock
+// of a lightning/ module stops intercepting once another suite in the same worker has loaded it.
 
 import {createApexTestWireAdapter} from '@salesforce/sfdx-lwc-jest';
 

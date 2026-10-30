@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Badge-as-reclassify Review dialog for the Data Masking Advisor, built on
  * lightning/modal (LightningModal) so the modal chrome and the WCAG focus-trap come from the
@@ -12,7 +12,7 @@
  * any non-`{level}` result as "no change".
  *
  * @author Jason van Beukering
- * @date May 2026, June 2026
+ * @date May 2026, October 2026
  */
 import {api} from 'lwc';
 import LightningModal from 'lightning/modal';

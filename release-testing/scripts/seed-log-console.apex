@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 //
 // SIZE CEILING: anonymous Apex refuses a script over 32,000 characters, and release-testing/__tests__ fails any
 // script over 31,000. The whole-action rows (the checkout click, the nightly job, the legacy action) therefore

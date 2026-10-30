@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {getInstanceUrl, ensureAuthenticated} = require('../helpers/sf-auth');
 const {soqlQuery} = require('../helpers/sf-cli');
 const {clickNavTab, waitForPageLoad} = require('../helpers/sf-navigation');

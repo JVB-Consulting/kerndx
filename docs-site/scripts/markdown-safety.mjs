@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Escapes stray < / > in PROSE so Apex generics (List<SObject>, <Id>, Map<String,Object>)
 // are not parsed as Vue/HTML tags ("Element is missing end tag"). Also neutralizes Vue
 // mustache interpolation ({{ x }}) outside fenced code, where Vue would otherwise evaluate

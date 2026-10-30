@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: BUSL-1.1 */
+/* SPDX-License-Identifier: Apache-2.0 */
 /* Per-field masking-rule picker. Self-contained SLDS-light theme matching the locked advisor
    prototype's .rulepick design. Shadow DOM does not inherit the host page's CSS custom
    properties, so the prototype token values are inlined here. */

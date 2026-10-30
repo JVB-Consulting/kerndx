@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Cryptographic helpers for hashing, key generation and authenticated encryption.
  * Supports MD5, SHA-1 (uppercase) and SHA-256 (lowercase) digests plus AES-256/HMAC-SHA256
@@ -10,7 +10,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class UTIL_Crypto
 {

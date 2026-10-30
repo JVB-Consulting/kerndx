@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Hero-loop capture spec (the `capture` Playwright project records always-on WebM). Each test
 // choreographs ONE admin tool's key flow with deliberate-but-tight pacing + motion polish. NOT a
 // pass/fail gate — the recorded video is the deliverable. Determinism comes from the demo seed +

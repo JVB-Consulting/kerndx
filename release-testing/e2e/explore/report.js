@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Part 6 of the exploration: the findings ledger. It numbers the findings, counts a repeat instead of
 // recording it again, takes the screenshots, and writes the findings table.
 'use strict';

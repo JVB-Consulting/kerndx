@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // One rule for everything that writes release-testing results: `results/current-run.json` is the record of a
 // release-testing cycle, and only a run against an org that has the package installed may write it. Such an org gives
 // the package a namespace prefix; a development org that holds the source with no namespace does not. The journeys

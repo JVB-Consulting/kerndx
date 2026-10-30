@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber proof for `QRY_Builder` `runAs` scenarios deferred from
  * `release-testing/scripts/section-53-edge-qry-builder.apex` (the extended-load spec §6.15, Task 1.15) plus

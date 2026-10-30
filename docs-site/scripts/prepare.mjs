@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 import {readFile, writeFile, mkdir, rm, readdir, cp} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import path from 'node:path';

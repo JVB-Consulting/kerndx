@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A Data Transfer Object (DTO) base class for JSON serialization and deserialization,
  * providing a framework for transforming JSON data into structured objects and vice versa.

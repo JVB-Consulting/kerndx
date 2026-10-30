@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber-side proof that the global members added in 1.8 can be reached and used from a class outside
  * the package. A member that compiles inside the package can still be hidden from, or unusable by, a subscriber class;

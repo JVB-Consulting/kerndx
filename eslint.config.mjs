@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // ESLint 8.57 selects its flat configuration when this file exists at the project root, so the LWC lint runs from
 // every terminal without an environment variable. The LWC configuration lives beside the components; the block
 // below adds the Node tooling overrides for the release-testing harness.

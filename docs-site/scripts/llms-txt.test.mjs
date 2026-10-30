@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Hard gates for the hand-authored llms.txt (docs-site/assets/llms.txt):
 //   resolve gate      — every absolute docs-site link resolves to a real page slug
 //   completeness gate — every Fast Start / module Guide page is linked or exempted

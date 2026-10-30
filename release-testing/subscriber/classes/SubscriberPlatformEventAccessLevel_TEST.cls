@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber proof of the Summer '26 (API 67) platform-event AccessLevel contract that
  * the framework's logging and event-monitoring paths depend on. These tests use `System.runAs`

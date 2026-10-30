@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Aura-enabled controller for the scheduledJobEditor LWC. Provides parameter definitions
  * for scheduled job classes and handles record persistence.
@@ -34,6 +34,21 @@ public inherited sharing class CTRL_ScheduledJob
 	 * @description How many log entries the last-run lookup reads: only the newest one is offered.
 	 */
 	private static final Integer NEWEST_LOG_ENTRY_ROW_LIMIT = 1;
+
+	/**
+	 * @description The name of the execution mode value in the JSON save request, in lower case. The request is matched without regard to case.
+	 */
+	private static final String KEY_EXECUTION_MODE = 'executionmode';
+
+	/**
+	 * @description The name of the run priority value in the JSON save request, in lower case. The request is matched without regard to case.
+	 */
+	private static final String KEY_RUN_PRIORITY = 'runpriority';
+
+	/**
+	 * @description The name of the overlap policy value in the JSON save request, in lower case. The request is matched without regard to case.
+	 */
+	private static final String KEY_OVERLAP_POLICY = 'overlappolicy';
 
 	/**
 	 * @description Lazy-loaded list of Schedulable class names, kept in org Platform Cache for eight hours.
@@ -130,7 +145,13 @@ public inherited sharing class CTRL_ScheduledJob
 	 * when recordId is null; updates the existing record otherwise. Accepts a JSON string because LWC
 	 * does not support inner class or Map deserialization for @AuraEnabled parameters.
 	 *
-	 * @param requestJson JSON-serialized SaveRequest containing all field values.
+	 * The three job runner settings (execution mode, run priority and overlap policy) follow one more rule. An update
+	 * leaves a setting the request does not name as it is, so a user who cannot read a setting, and so does not send
+	 * it, does not change it. A setting the request names with no value is cleared: the run priority becomes blank, and
+	 * the execution mode and the overlap policy take their defaults. A new record always gets the defaults for the
+	 * settings the request does not name: its own scheduled job, and overlap policy Skip.
+	 *
+	 * @param requestJson JSON-serialized SaveRequest containing the field values.
 	 *
 	 * @return The saved record ID.
 	 */
@@ -138,6 +159,14 @@ public inherited sharing class CTRL_ScheduledJob
 	public static Id saveRecord(String requestJson)
 	{
 		SaveRequest request = (SaveRequest)JSON.deserialize(requestJson, SaveRequest.class);
+		Set<String> sentKeysInLowerCase = new Set<String>();
+
+		for(String sentKey : ((Map<String, Object>)JSON.deserializeUntyped(requestJson)).keySet())
+		{
+			sentKeysInLowerCase.add(sentKey.toLowerCase());
+		}
+
+		Boolean isNewRecord = request.recordId == null;
 		ScheduledJob__c record = new ScheduledJob__c();
 
 		record.ClassName__c = request.className;
@@ -150,9 +179,21 @@ public inherited sharing class CTRL_ScheduledJob
 		record.Timezone__c = String.isNotBlank(request.timezone)
 				? request.timezone
 				: UserInfo.getTimeZone().getID();
-		record.ExecutionMode__c = String.isBlank(request.executionMode) ? UTIL_ScheduledJobRunner.EXECUTION_MODE_OWN_SCHEDULED_JOB : request.executionMode;
-		record.RunPriority__c = request.runPriority;
-		record.OverlapPolicy__c = String.isBlank(request.overlapPolicy) ? UTIL_ScheduledJobRunner.OVERLAP_POLICY_SKIP : request.overlapPolicy;
+
+		if(isNewRecord || sentKeysInLowerCase.contains(KEY_EXECUTION_MODE))
+		{
+			record.ExecutionMode__c = String.isBlank(request.executionMode) ? UTIL_ScheduledJobRunner.EXECUTION_MODE_OWN_SCHEDULED_JOB : request.executionMode;
+		}
+
+		if(isNewRecord || sentKeysInLowerCase.contains(KEY_RUN_PRIORITY))
+		{
+			record.RunPriority__c = request.runPriority;
+		}
+
+		if(isNewRecord || sentKeysInLowerCase.contains(KEY_OVERLAP_POLICY))
+		{
+			record.OverlapPolicy__c = String.isBlank(request.overlapPolicy) ? UTIL_ScheduledJobRunner.OVERLAP_POLICY_SKIP : request.overlapPolicy;
+		}
 
 		DML_Builder.newTransaction().systemModeInternal().doUpsert(record).execute();
 

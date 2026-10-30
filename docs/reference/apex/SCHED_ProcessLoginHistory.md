@@ -5,7 +5,7 @@ pageClass: reference
 description: "Scheduled job that runs daily to process login history data. Launches PROC_LoginFrequencyAggregator via the adaptive async framework using Batch Apex. Batch is required because finish() updates Schedu"
 author: "Jason Van Beukering"
 group: "Schedulables"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

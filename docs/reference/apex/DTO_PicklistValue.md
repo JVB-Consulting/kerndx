@@ -5,7 +5,7 @@ pageClass: reference
 description: "A Data Transfer Object (DTO) representing a single picklist value. This object includes details about the picklist value's display label, API name, and any dependency constraints if the picklist is a "
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

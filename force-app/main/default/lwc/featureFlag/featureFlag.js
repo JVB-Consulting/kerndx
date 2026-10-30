@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @file featureFlag.js
  * @module c/featureFlag
@@ -10,7 +10,7 @@
  *
  * @author Jason van Beukering
  *
- * @date May 2026
+ * @date May 2026, October 2026
  *
  * @group Feature Flags
  *

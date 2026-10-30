@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-testing REST endpoint for API_RetryLiveInbound, the inbound handler whose error handling throws.
  *

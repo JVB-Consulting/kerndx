@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for QRY_Builder adapter class.
  * Verifies the QRY_Builder API correctly delegates to the underlying UTIL_Query infrastructure.

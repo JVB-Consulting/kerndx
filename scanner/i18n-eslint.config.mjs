@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Isolated flat config for the i18n gate (`npm run lint:i18n`).
 //
 // It enables ONLY `kerndx/no-hardcoded-user-text` so the gate's green/red signal

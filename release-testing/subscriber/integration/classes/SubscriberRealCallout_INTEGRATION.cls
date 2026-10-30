@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The static analyser's Apex parser predates the IntegrationTest annotation and reports it as non-existent.
 /**
  * @description Proves that a callout made through the framework from inside an Apex integration test reaches the

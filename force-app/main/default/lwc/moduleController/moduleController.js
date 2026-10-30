@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Controller module for the ComponentBuilder framework. Provides Apex controller
  * method invocation with automatic error handling and wire response extraction.
  *
  * @author Jason van Beukering
  *
- * @date February 2022, August 2026
+ * @date February 2022, October 2026
  */
 import ERROR_TITLE_LABEL from '@salesforce/label/c.ModuleNotification_ErrorTitle';
 import FAILED_CONTROLLER_CALL_LABEL from '@salesforce/label/c.ModuleController_FailedControllerCall';

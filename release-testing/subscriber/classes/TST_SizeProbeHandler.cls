@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-test processing logic for a batch the framework launches, to prove the batch size comes from the
  * `kern__AsynchronousJobSetting__mdt` record named after this class. That record sets 75, a size that does not divide

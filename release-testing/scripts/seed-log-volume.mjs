@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 /**
  * Log Console VOLUME seed — 120,000 back-dated `LogEntry__c` rows with a realistic shape.

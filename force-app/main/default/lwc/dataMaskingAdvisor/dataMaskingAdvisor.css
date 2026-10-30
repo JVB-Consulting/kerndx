@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: BUSL-1.1 */
+/* SPDX-License-Identifier: Apache-2.0 */
 /* SLDS-light surface palette + render-token vocabulary for the field rows. The host custom
    properties seed the colours; the badge / signal-band / chip classes consume them so the sensitivity
    cell renders a coloured pill + a signal-strength meter and the masking cell renders checkbox rule

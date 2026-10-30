@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test Class for SCHED_ProcessLoginHistory
  *
@@ -8,7 +8,7 @@
  *
  * @group Schedulables
  *
- * @date February 2026, August 2026
+ * @date February 2026, October 2026
  */
 @IsTest(seeAllData=false isParallel=false)
 private class SCHED_ProcessLoginHistory_TEST

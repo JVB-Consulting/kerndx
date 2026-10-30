@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Steps the journeys that sign a second user in share: the first password change, and cleanup steps that never hide
 // the journey's own failure.
 const {expect} = require('@playwright/test');

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description This class is used in Flows to check whether a specific feature flag is enabled.
  * It provides a method that can be invoked from a flow to determine if a feature is active

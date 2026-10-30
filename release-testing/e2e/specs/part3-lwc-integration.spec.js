@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {test, expect} = require('@playwright/test');
 const SubscriberLwcTestPage = require('../pages/subscriber-lwc-test.page');
 const {soqlQuery, executeAnonymousApex, deleteRecord} = require('../helpers/sf-cli');

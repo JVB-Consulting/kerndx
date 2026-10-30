@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Trigger action that marks the Accounts it has handled by setting AccountSource to "Subscriber Trigger".
  * One class handles two events: every insert, and any update that changes the Account's name.

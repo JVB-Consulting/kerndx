@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {SPINNER, TOAST, TOAST_MESSAGE} = require('./sf-selectors');
 const {ELEMENT_WAIT_MILLISECONDS} = require('./wait-times');
 

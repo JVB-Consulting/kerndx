@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description An example Trigger Action class that acts on the "Foobar" Object and used to test the trigger action framework
  *

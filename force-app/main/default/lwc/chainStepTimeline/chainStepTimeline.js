@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Step timeline visualisation for async chain executions. Displays each step
  * with status, duration, and error details in a vertical timeline layout.

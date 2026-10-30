@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 // Builds the social-share + structured-data head entries layered on top of the
 // per-page canonical / OG / Twitter meta in .vitepress/config.mjs. Kept as a
@@ -7,6 +7,9 @@
 // only through a full VitePress build.
 
 export const OG_IMAGE = 'og-image.png';
+// What the share card says, for screen readers on the sites that show it. Keep it in step with the words on the card
+// (standards/social-preview-card.html renders both this image and the GitHub one).
+export const OG_IMAGE_ALT = 'KernDX. Core frameworks, testing and CI/CD for Salesforce teams. Open source under Apache 2.0.';
 const IMAGE_WIDTH = '1280';
 const IMAGE_HEIGHT = '640';
 const SITE_NAME = 'KernDX';
@@ -64,7 +67,9 @@ export function seoHeadEntries({title, description, url, hostname, isHome})
 		['meta', {property: 'og:image', content: image}],
 		['meta', {property: 'og:image:width', content: IMAGE_WIDTH}],
 		['meta', {property: 'og:image:height', content: IMAGE_HEIGHT}],
+		['meta', {property: 'og:image:alt', content: OG_IMAGE_ALT}],
 		['meta', {name: 'twitter:image', content: image}],
+		['meta', {name: 'twitter:image:alt', content: OG_IMAGE_ALT}],
 		['script', {type: 'application/ld+json'}, JSON.stringify(structuredData)]
 	];
 }

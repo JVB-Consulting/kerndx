@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 import {ComponentBuilder} from 'kern/componentBuilder';
 import echo from '@salesforce/apex/CTRL_SubscriberLwcTest.echo';
 import failOnPurpose from '@salesforce/apex/CTRL_SubscriberLwcTest.failOnPurpose';

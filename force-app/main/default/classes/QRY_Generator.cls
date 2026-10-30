@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Internal SOQL string generator for the QRY_Builder framework.
  * Provides fluent API for building SOQL query strings with support for all standard clauses,

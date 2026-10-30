@@ -5,7 +5,7 @@ pageClass: reference
 description: "A scheduled job that finds async chains stuck with no recent activity and marks them Stalled, firing each chain's persisted onError notification once per stall. A chain goes silently stuck when the pl"
 author: "Jason Van Beukering"
 group: "Async"
-date: "July 2026"
+date: "July 2026, October 2026"
 since: "1.6"
 category: apex
 ---

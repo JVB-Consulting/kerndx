@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for the outbound client's outcome contract: the synthetic response, retry parking and credential redaction.
  * An "unkeyed" POST is a POST sent without an Idempotency-Key header. With no key, the external system cannot tell a

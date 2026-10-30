@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Circuit-breaker composition pattern: a launch point gates chain starts on
  * kern.UTIL_CircuitBreaker state, and the chain's completion and failure handlers record

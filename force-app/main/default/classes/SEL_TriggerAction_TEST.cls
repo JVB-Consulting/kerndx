@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for SEL_TriggerAction. Tests feature flag integration with trigger action
  * bypass and required feature flag fields.

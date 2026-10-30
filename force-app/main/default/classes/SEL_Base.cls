@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Abstract base class for all selectors. Provides lazy-loaded field management
  * and IF_Queryable implementation. Subclasses define their SObjectType and core fields;

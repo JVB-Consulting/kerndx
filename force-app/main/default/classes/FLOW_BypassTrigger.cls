@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Flow invocable action to manage trigger bypasses. Supports bypassing a specific
  * trigger action or object, clearing a specific bypass, and clearing all bypasses in a single action.
@@ -11,7 +11,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the maskingExportModal LWC — the Export-package dialog built on
  *              lightning/modal (LightningModal). The base modal supplies the chrome + focus-trap; this
@@ -11,22 +11,25 @@
  *              with the global lightning/modal mock (whose close() is a shared jest.fn).
  *
  * @author Jason van Beukering
- * @date June 2026, August 2026
+ * @date June 2026, October 2026
  */
 import {createElement} from 'lwc';
 import {mockClose} from 'lightning/modal';
 import MaskingExportModal from 'c/maskingExportModal';
+import utilityLogger from 'c/utilityLogger';
 
-// Mock utilityLogger so the copy path (via c/utilitySystem.copyToClipBoard) never reaches the real
-// module-singleton logger or its Apex persistence stub.
-jest.mock('c/utilityLogger', () =>
+// Silence the real logger so the copy path (via c/utilitySystem.copyToClipBoard) never reaches the module-singleton
+// logger's buffer or its Apex persistence stub. Spies on the one shared logger object, not a jest.mock of
+// c/utilityLogger: such a mock stops intercepting once another suite in the same worker has loaded the real module.
+for(const level of [
+	'error',
+	'warn',
+	'info',
+	'debug'
+])
 {
-	return {
-		__esModule: true, default: {
-			debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn()
-		}
-	};
-}, {virtual: true});
+	jest.spyOn(utilityLogger, level).mockImplementation(() => undefined);
+}
 
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_ExportModal_Title', () => ({default: 'Export masking package'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_ExportModal_Download', () => ({default: 'Download package'}), {virtual: true});

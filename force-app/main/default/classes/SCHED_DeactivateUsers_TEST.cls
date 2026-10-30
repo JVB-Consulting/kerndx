@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests the behavior of the SCHED_DeactivateUsers schedulable class, which deactivates users based on specified profile names and inactivity duration.
  *

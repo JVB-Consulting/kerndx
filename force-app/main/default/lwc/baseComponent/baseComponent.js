@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Base class for the KernDX LWC component framework. Provides event dispatching,
  * structured logging, lifecycle management, and stub methods for optional modules (notification,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 //
 // Log Console e2e teardown - deletes every row seeded by seed-log-console.apex, seed-log-console-actions.apex AND
 // seed-log-console-bulk.apex.

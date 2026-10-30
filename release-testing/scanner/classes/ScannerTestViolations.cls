@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Deliberate violations of every KernDX PMD rule. Used to validate the scanner
  * ruleset catches all anti-patterns. Each method triggers exactly one rule.

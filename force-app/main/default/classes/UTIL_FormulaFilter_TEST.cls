@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests the behavior of the UTIL_FormulaFilter class, which filters SObject records based on a formula expression.
  *

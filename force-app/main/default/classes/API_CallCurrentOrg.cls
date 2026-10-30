@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Base API class for all handlers that call the current Org standard APIs.
  * Uses session-ID-based authentication and resolves the org base URL dynamically
@@ -10,7 +10,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

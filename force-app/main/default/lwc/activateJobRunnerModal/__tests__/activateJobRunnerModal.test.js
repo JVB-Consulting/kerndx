@@ -1,15 +1,10 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for activateJobRunnerModal LWC component.
  *
  * @author Jason van Beukering
- * @date September 2026
+ * @date September 2026, October 2026
  */
-jest.mock('lightning/modal', () =>
-{
-	const lwc = require('lwc');
-	return {__esModule: true, default: lwc.LightningElement};
-}, {virtual: true});
 
 jest.mock('@salesforce/label/c.HealthCheck_JobRunner_CheckFrequencyOptions', () => ({
 	default: 'Every hour (1 slot)=60|Every 30 minutes (2 slots)=30|Every 15 minutes (4 slots)=15|Every 10 minutes (6 slots)=10|Every 5 minutes (12 slots)=5'

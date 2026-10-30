@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Factory that produces a BaseComponent subclass wired with the requested
  * module capabilities. Accepts one or more module identifiers and returns a class
@@ -6,7 +6,7 @@
  *
  * @author Jason van Beukering
  *
- * @date February 2022, May 2026
+ * @date February 2022, October 2026
  */
 import BaseComponent from 'c/baseComponent';
 import {activateModules} from 'c/componentExtender';

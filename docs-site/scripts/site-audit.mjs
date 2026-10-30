@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Accessibility gate. Builds nothing; serves `vitepress preview` over the existing dist and runs
 // axe-core against a representative page set in BOTH colour schemes. Exits non-zero on any
 // violation that is not a recorded, dated exception. Run after `npm run build`.

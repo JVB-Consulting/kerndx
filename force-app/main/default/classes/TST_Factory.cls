@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Factory class that builds test data for your unit tests.
  *
@@ -961,7 +961,7 @@ global without sharing class TST_Factory
 	}
 
 	/**
-	 * @description Creates a mock outbound ApiSetting__mdt record via TST_Mock for query interception.
+	 * @description Creates a mock outbound ApiSetting__mdt record via TST_Mock so that a query in the test returns it.
 	 * The setting defaults to active and Outbound direction; overrides can replace any field value
 	 * including IsActive__c. Pass null when no overrides are needed.
 	 *
@@ -1005,7 +1005,7 @@ global without sharing class TST_Factory
 
 	/**
 	 * @description Creates a mock inbound ApiSetting__mdt record with a custom priority, registered
-	 * with TST_Mock for query interception.
+	 * with TST_Mock so that a query in the test returns it.
 	 *
 	 * @param className The API handler class name
 	 * @param endpointPath The URL path pattern for routing (e.g., '/echo/*')
@@ -1027,7 +1027,7 @@ global without sharing class TST_Factory
 
 	/**
 	 * @description Creates a mock inbound ApiSetting__mdt record with a custom priority and additional
-	 * field overrides, registered with TST_Mock for query interception.
+	 * field overrides, registered with TST_Mock so that a query in the test returns it.
 	 *
 	 * @param className The API handler class name
 	 * @param endpointPath The URL path pattern for routing (e.g., '/echo/*')
@@ -1064,7 +1064,7 @@ global without sharing class TST_Factory
 
 	/**
 	 * @description Creates a mock ApiSetting__mdt record with common defaults (ClassName, Direction, IsActive)
-	 * and optional field overrides, registered with TST_Mock for query interception.
+	 * and optional field overrides, registered with TST_Mock so that a query in the test returns it.
 	 *
 	 * @param className The API handler class name
 	 * @param direction The API direction (use SEL_ApiSetting.DIRECTION_OUTBOUND or DIRECTION_INBOUND)
@@ -1083,7 +1083,7 @@ global without sharing class TST_Factory
 	}
 
 	/**
-	 * @description Creates a mock ApiMock__mdt record via TST_Mock for query interception.
+	 * @description Creates a mock ApiMock__mdt record via TST_Mock so that a query in the test returns it.
 	 * The mock defaults to active with priority 100, status 200, and no pattern (catch-all).
 	 * Overrides can replace any field value including IsActive__c and Priority__c.
 	 *
@@ -1140,6 +1140,28 @@ global without sharing class TST_Factory
 	}
 
 	/**
+	 * @description Turns a feature flag off for the rest of the test, whatever its deployed record says.
+	 * `UTIL_FeatureFlag.isEnabled(flagName)` returns `false` after this call, also for a flag your org ships on and for a flag
+	 * with strategies: the copy of the flag the test reads has none. Use it to test the code a flag turns off.
+	 *
+	 * @param flagName The developer name of the feature flag to turn off.
+	 *
+	 * @return The flag record the test now reads, with Enabled By Default unticked.
+	 *
+	 * @since 1.11
+	 *
+	 * @example
+	 * ```apex
+	 * TST_Factory.newDisabledFeatureFlag('MyFeatureFlag');
+	 * Assert.isFalse(UTIL_FeatureFlag.isEnabled('MyFeatureFlag'), 'Expected the flag to be off in this test');
+	 * ```
+	 */
+	global static FeatureFlag__mdt newDisabledFeatureFlag(String flagName)
+	{
+		return newFeatureFlag(flagName, true, false);
+	}
+
+	/**
 	 * @description Builds an in-memory `FeatureFlag__mdt` record for `flagName`, optionally
 	 * registering it in `SEL_FeatureFlag.activeFlags` with `IsEnabledByDefault__c = true`.
 	 * When `registerAsActive = false`, the returned record can be used to populate a
@@ -1164,6 +1186,7 @@ global without sharing class TST_Factory
 	 * registration and enabled-state control. Register+disabled is the combination tests use
 	 * to explicitly override a subscriber-shipped flag's default (e.g., to assert "when flag X
 	 * is disabled" behaviour regardless of the CMDT record's `IsEnabledByDefault__c` value).
+	 * `newDisabledFeatureFlag` is the public way to register a flag as off.
 	 *
 	 * @param flagName The developer name of the feature flag.
 	 * @param registerAsActive When true, puts the record into `SEL_FeatureFlag.activeFlags`.

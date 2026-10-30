@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Refuses the delete of an API call that still has an open API issue. Runs before every delete of
  * ApiCall__c, after the permission check (TRG_GuardApiRecordDeletion) and before the action that deletes the call's files,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for CTRL_Logger.
  *
@@ -8,7 +8,7 @@
  *
  * @group Logging
  *
- * @date December 2025, September 2026
+ * @date December 2025, October 2026
  */
 @IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -56,6 +56,11 @@ private class CTRL_Logger_TEST
 	 * bridge is reading it.
 	 */
 	private static final String MALFORMED_CONTEXT_JSON = '{not valid json';
+
+	/**
+	 * @description The message of a client entry sent without a correlation ID.
+	 */
+	private static final String NO_CORRELATION_MESSAGE = 'No correlation message';
 
 	/**
 	 * @description Resets logger state for test isolation.
@@ -257,27 +262,29 @@ private class CTRL_Logger_TEST
 	}
 
 	/**
-	 * @description Tests that persistLogs handles logs without correlation ID.
+	 * @description Tests that persistLogs still writes an entry the component sent without a correlation ID (the tracking
+	 * ID that links the entries of one user action), and does not replace the correlation ID already in place.
 	 */
 	@IsTest
 	private static void shouldHandleLogsWithoutCorrelationId()
 	{
-		// Setup
 		LOG_Builder.ignoreTestMode = true;
 		TST_Factory.setupLoggerForTest();
+		String correlationIdBefore = LOG_Builder.startCorrelation();
 
 		List<CTRL_Logger.DTO_ClientLogEntry> entries = new List<CTRL_Logger.DTO_ClientLogEntry>
 		{
-				createEntry(LoggingLevel.INFO, 'No correlation message', null)
+				createEntry(LoggingLevel.INFO, NO_CORRELATION_MESSAGE, null)
 		};
 
-		// Execute - should process without throwing
 		Test.startTest();
 		CTRL_Logger.persistLogs(JSON.serialize(entries));
 		Test.stopTest();
 
-		// Verify - method completed without exceptions
-		Assert.isTrue(true, 'Should process logs without correlation ID');
+		LogEntry__c row = new SEL_LogEntry().findByMethod(LOG_Engine.OperationType.LWC.name() + '/' + CTRL_Logger.UNKNOWN_SOURCE);
+		Assert.isNotNull(row, 'Expected the entry without a correlation ID to be written to the log');
+		Assert.areEqual(NO_CORRELATION_MESSAGE, row.Message__c, 'Expected the log entry to carry the message the component sent');
+		Assert.areEqual(correlationIdBefore, LOG_Engine.getCorrelationId(), 'Expected an entry without a correlation ID to leave the current one in place');
 	}
 
 	/**

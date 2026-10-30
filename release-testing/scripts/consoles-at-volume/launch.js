@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Sends the engine share of the load to the org, batch by batch, draining between batches, recording every id.
 const {fillNamespaceTokens} = require('../../e2e/helpers/sf-namespace');
 const {recordStage, mintVolumeId, KINDS} = require('./manifest');

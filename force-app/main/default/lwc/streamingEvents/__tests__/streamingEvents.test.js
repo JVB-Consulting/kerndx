@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) Philippe Ozil (CC0-1.0 — rights waived)
 // Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor)
 // Modifications copyright (c) 2026 JVB Consulting
@@ -6,11 +6,18 @@
 /**
  * @description Jest unit tests for streamingEvents LWC component
  * @author Jason van Beukering
- * @date December 2025, July 2026
+ * @date December 2025, October 2026
  */
 import {createElement} from 'lwc';
 import LwcEvents from 'c/streamingEvents';
 import {getRecord} from 'lightning/uiRecordApi';
+import * as utilityStreaming from 'c/utilityStreaming';
+
+// Watch the two real utilityStreaming functions this suite asserts on; each spy still runs the real code, so the
+// real streamingTimeline child keeps the full utilityStreaming surface. Spies on the real exports, not a jest.mock of
+// c/utilityStreaming: such a mock stops intercepting once another suite in the same worker has loaded the real module.
+jest.spyOn(utilityStreaming, 'timestampSort');
+jest.spyOn(utilityStreaming, 'getTimeLabel');
 
 // Mock User Id
 jest.mock('@salesforce/user/Id', () => ({default: '005000000000001AAA'}), {virtual: true});
@@ -26,16 +33,6 @@ jest.mock('@salesforce/schema/User.LocaleSidKey', () => ({default: 'User.LocaleS
 jest.mock('@salesforce/label/c.EventMonitor_StreamingMonitorTitle', () => ({default: 'Streaming Monitor'}), {virtual: true});
 jest.mock('@salesforce/label/c.EventMonitor_CountBadge_Showing', () => ({default: 'Showing {0} events'}), {virtual: true});
 jest.mock('@salesforce/label/c.EventMonitor_CountBadge_ShowingFiltered', () => ({default: 'Showing {0} of {1} events'}), {virtual: true});
-
-// Mock utilityStreaming — the real streamingTimeline child consumes the full utilityStreaming
-// surface, so the mock wraps the actual module and only spies the functions this suite asserts on.
-jest.mock('c/utilityStreaming', () =>
-{
-	const actual = jest.requireActual('c/utilityStreaming');
-	return {
-		...actual, timestampSort: jest.fn(actual.timestampSort), getTimeLabel: jest.fn(actual.getTimeLabel)
-	};
-}, {virtual: true});
 
 const mockEvent1 = {
 	id: 'evt-1', channel: '/event/TestEvent__e', timestamp: 1735380600000, type: 'PlatformEvent', replayId: '12345', payload: '{"field1":"value1"}'

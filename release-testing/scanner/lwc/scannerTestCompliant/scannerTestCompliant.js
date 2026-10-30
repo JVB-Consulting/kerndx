@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Compliant component — extends ComponentBuilder instead of LightningElement.
  * Used by release-testing scanner validation (RUNBOOK §2.3d).

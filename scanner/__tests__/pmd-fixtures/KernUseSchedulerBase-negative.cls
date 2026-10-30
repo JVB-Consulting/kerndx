@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 public with sharing class KernUseSchedulerBase_Negative extends kern.SCHED_Base
 {
 	public override void execute()

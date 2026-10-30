@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for ConnectApi-dependent methods in UTIL_SObjectDescribe.
  * Separated from UTIL_SObjectDescribe_TEST because ConnectApi requires SeeAllData=true.
@@ -9,7 +9,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @IsTest(seeAllData=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ApexUnitTestShouldNotUseSeeAllDataTrue')

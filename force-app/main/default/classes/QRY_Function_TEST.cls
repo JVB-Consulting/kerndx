@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for QRY_Function. Verifies each date-function factory renders the correct
  * SOQL token wrapping the resolved field name, and that the field name is resolved once so SELECT and
@@ -10,7 +10,7 @@
  *
  * @group Query Infrastructure
  *
- * @date June 2026
+ * @date June 2026, October 2026
  */
 @IsTest(seeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')

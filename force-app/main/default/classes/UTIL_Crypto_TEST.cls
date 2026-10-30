@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Validates UTIL_Crypto digest, key-generation and authenticated-encryption behaviour.
  *
@@ -8,7 +8,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')

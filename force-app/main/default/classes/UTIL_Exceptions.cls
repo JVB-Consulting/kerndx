@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Centralised container for framework-specific exception types.
  * Groups related exception classes under a single outer class to minimise top-level file count

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A class of the subscriber's own that writes one log entry without naming where it was written. The
  * logger then works out the writer from the top of the call stack: in an org where the framework is an installed

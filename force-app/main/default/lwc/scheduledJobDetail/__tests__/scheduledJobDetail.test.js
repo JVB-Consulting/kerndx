@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for scheduledJobDetail LWC component.
  *
@@ -11,10 +11,13 @@ import LOAD_FAILED_LABEL from '@salesforce/label/c.ScheduledJobDetail_LoadFailed
 import LOAD_PARAMETERS_FAILED from '@salesforce/label/c.ScheduledJob_LoadParameterDefinitionsFailed';
 import ACTIVE_STATUS from '@salesforce/label/c.ScheduledJob_Active';
 import INACTIVE_STATUS from '@salesforce/label/c.ScheduledJob_Inactive';
+import * as cronParser from '../../cronExpressionEditor/cronParser';
+import * as utilitySystem from 'c/utilitySystem';
+import * as uiRecordApi from 'lightning/uiRecordApi';
 
-jest.mock('lightning/uiRecordApi', () => ({
-	getRecord: jest.fn(), getFieldValue: jest.fn(), getFieldDisplayValue: jest.fn(), notifyRecordUpdateAvailable: jest.fn().mockResolvedValue()
-}), {virtual: true});
+// lightning/uiRecordApi is the sfdx-lwc-jest stub: getRecord is a test wire adapter and getFieldValue,
+// getFieldDisplayValue and notifyRecordUpdateAvailable are jest.fn, which the tests program and watch. A jest.mock of
+// a lightning/ module stops intercepting once another suite in the same worker has loaded it.
 
 jest.mock('@salesforce/schema/ScheduledJob__c.SchedulerName__c', () => ({default: 'ScheduledJob__c.SchedulerName__c'}), {virtual: true});
 jest.mock('@salesforce/schema/ScheduledJob__c.ClassName__c', () => ({default: 'ScheduledJob__c.ClassName__c'}), {virtual: true});
@@ -53,16 +56,22 @@ jest.mock('@salesforce/label/c.ScheduledJobDetail_NoRunYet', () => ({default: 'N
 jest.mock('@salesforce/label/c.ScheduledJobDetail_ViewLog', () => ({default: 'View log'}), {virtual: true});
 jest.mock('@salesforce/label/c.ScheduledJobDetail_LogEntryNotFound', () => ({default: 'The log entry for this run is no longer available.'}), {virtual: true});
 
-jest.mock('c/cronExpressionEditor', () => ({
-	describeCronExpression: jest.fn().mockReturnValue('Every day at noon')
-}), {virtual: true});
-
-jest.mock('c/utilitySystem', () => ({
-	reduceErrors: jest.fn().mockReturnValue('mock error detail')
-}), {virtual: true});
+// Spies on the real exports, not a jest.mock of c/cronExpressionEditor or c/utilitySystem: such a mock stops intercepting
+// once another suite in the same worker has loaded the real module, while a spy replaces the export the component calls.
+// c/cronExpressionEditor passes describeCronExpression through from its cronParser file, so the spy sits there.
+jest.spyOn(cronParser, 'describeCronExpression').mockReturnValue('Every day at noon');
+jest.spyOn(utilitySystem, 'reduceErrors').mockReturnValue('mock error detail');
 
 describe('c-scheduled-job-detail', () =>
 {
+	// The stub's getFieldValue and getFieldDisplayValue read a real record; these tests program each answer, so every
+	// test starts with none.
+	beforeEach(() =>
+	{
+		uiRecordApi.getFieldValue.mockReset();
+		uiRecordApi.getFieldDisplayValue.mockReset();
+	});
+
 	afterEach(() =>
 	{
 		while(document.body.firstChild)

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Compliant class that should produce ZERO KernDX violations.
  * Uses all framework patterns correctly.

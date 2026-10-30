@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The form the two ScheduledJob__c editors share: the record-page editor and the modal that Health
  *              Check opens. The two editors build on different base classes (ComponentBuilder and LightningModal),

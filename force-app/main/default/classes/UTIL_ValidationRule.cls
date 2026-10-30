@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Formula-driven declarative validation framework for advanced validation scenarios
  * that standard Salesforce validation rules cannot handle.
@@ -705,11 +705,6 @@ global inherited sharing class UTIL_ValidationRule
 	 */
 	global static void executeForTrigger(List<SObject> newRecords, List<SObject> oldRecords, TriggerOperation operation)
 	{
-		if(newRecords == null || newRecords.isEmpty())
-		{
-			return;
-		}
-
 		List<ValidationResult> results = validate(newRecords, oldRecords, operation);
 		applyErrors(newRecords, results);
 	}

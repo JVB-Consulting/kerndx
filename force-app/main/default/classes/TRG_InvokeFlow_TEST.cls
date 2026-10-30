@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Smoke tests for the `TRG_InvokeFlow` implementation. Covers the
  * primary integration paths; the broader test matrix (7 contexts x 2 failure

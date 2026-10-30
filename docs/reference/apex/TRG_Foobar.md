@@ -4,7 +4,7 @@ type: trigger
 pageClass: reference
 description: "Example trigger demonstrating the Trigger Action framework"
 author: "Jason Van Beukering"
-date: "2019, February 2026"
+date: "2019, October 2026"
 category: apex
 ---
 

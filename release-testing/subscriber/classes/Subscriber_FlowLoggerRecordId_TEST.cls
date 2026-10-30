@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber proof for the 1.2 record-id input on the Flow logging action
  * (kern.FLOW_LoggerLog). The action's DTO_Request gains a recordId @InvocableVariable; when

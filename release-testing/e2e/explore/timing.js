@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Every server read timed in the browser from request to response, every console open timed to a rendered list,
 // each kind judged at the 75th percentile against the performance budgets (spec D2: 3 s to a settled list, 1 s per
 // read), under the sample protocol below: one context, no login timed, cold opens apart, five samples or more.

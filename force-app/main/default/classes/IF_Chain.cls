@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A container for shared global interfaces used by the async chain orchestration framework.
  * You implement these interfaces to define chain step logic and conditional branching.

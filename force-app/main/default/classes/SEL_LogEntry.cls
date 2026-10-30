@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the LogEntry__c SObject. Provides query methods for
  * retrieving log records by class method, logging level, and other criteria,

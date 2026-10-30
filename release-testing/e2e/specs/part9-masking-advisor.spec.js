@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {test, expect} = require('@playwright/test');
 const MaskingAdvisorPage = require('../pages/masking-advisor.page');
 const KernHomePage = require('../pages/kern-home.page');

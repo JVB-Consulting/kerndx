@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests the behaviour of related DAL class
  *
@@ -23,6 +23,11 @@ private class TST_Factory_TEST
 	 * @description The name of the feature flag that tells every inbound web service to answer with a mock.
 	 */
 	private static final String MOCK_ALL_INBOUND_APIS_FLAG = 'MockAllInboundAPIs';
+
+	/**
+	 * @description The name of a feature flag that a test turns on and then off again.
+	 */
+	private static final String FLAG_TURNED_OFF_IN_TEST = 'FlagTurnedOffInTest';
 
 	/**
 	 * @description A field the factory never sets, used to prove a caller-shaped user is saved as shaped.
@@ -941,6 +946,24 @@ private class TST_Factory_TEST
 		Assert.isTrue(flag.IsActive__c, 'Flag should be active');
 		Assert.isTrue(flag.IsEnabledByDefault__c, 'Flag should be enabled by default');
 		Assert.isTrue(UTIL_FeatureFlag.isEnabled(flagName), 'Flag should be queryable via UTIL_FeatureFlag');
+	}
+
+	/**
+	 * @description A flag the test turned on reads as off once newDisabledFeatureFlag turns it off, and the record returned has
+	 * Enabled By Default unticked.
+	 *
+	 * @see TST_Factory.newDisabledFeatureFlag
+	 */
+	@IsTest
+	private static void newDisabledFeatureFlagShouldTurnTheFlagOff()
+	{
+		TST_Factory.newFeatureFlag(FLAG_TURNED_OFF_IN_TEST);
+		Assert.isTrue(UTIL_FeatureFlag.isEnabled(FLAG_TURNED_OFF_IN_TEST), 'Expected the flag to be on before it is turned off');
+
+		FeatureFlag__mdt flag = TST_Factory.newDisabledFeatureFlag(FLAG_TURNED_OFF_IN_TEST);
+
+		Assert.isFalse(UTIL_FeatureFlag.isEnabled(FLAG_TURNED_OFF_IN_TEST), 'Expected the flag to be off after newDisabledFeatureFlag');
+		Assert.isFalse(flag.IsEnabledByDefault__c, 'Expected the returned record to have Enabled By Default unticked');
 	}
 
 	/**

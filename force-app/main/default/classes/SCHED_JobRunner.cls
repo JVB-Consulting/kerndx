@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The job runner's scheduled job. Health Check schedules this class once per chosen minute mark (one
  * to twelve times an hour); each time the platform fires it, it runs one check, which starts every job whose record is
@@ -14,7 +14,7 @@
  *
  * @group Schedulables
  *
- * @date September 2026
+ * @date September 2026, October 2026
  *
  * @since 1.8
  *

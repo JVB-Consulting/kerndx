@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the retryApiIssue headless quick action. The toasts, the record refresh, the closing
  *              and the error logging belong to c/utilityApiIssueAction and are proved in its own suite. This suite proves
@@ -9,15 +9,7 @@
  * @date May 2026, October 2026
  */
 
-jest.mock('lightning/actions', () => ({
-	CloseActionScreenEvent: class CloseActionScreenEvent extends CustomEvent
-	{
-		constructor()
-		{
-			super('close');
-		}
-	}
-}), {virtual: true});
+// lightning/actions comes from its moduleNameMapper mock in jest.config.js: CloseActionScreenEvent is a close event.
 
 // c/utilityApiIssueAction is not mocked: the action runs the real module, which is only watched with a spy. A
 // jest.mock of a c/* module stops working once another suite in the same Jest worker has loaded the real module.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Headless quick action that runs a failed API call again from its API issue record. For a call your org
  *              made, it sends the request again; for a call your org received, it replays the request and keeps its changes.

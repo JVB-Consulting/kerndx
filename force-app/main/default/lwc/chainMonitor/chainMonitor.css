@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: BUSL-1.1 */
+/* SPDX-License-Identifier: Apache-2.0 */
 /* Why a header action is greyed out, read as a plain run of lines rather than a bulleted list: the
    markers would read as a set of choices, and these are statements about the buttons above them.
    The spacing lives here rather than on SLDS padding utilities because the list reset in this same

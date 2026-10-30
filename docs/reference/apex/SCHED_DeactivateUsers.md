@@ -5,7 +5,7 @@ pageClass: reference
 description: "Scheduled job to automatically deactivate users who haven't logged in for a specified number of days. Configurable with parameters such as profile names, minimum inactivity days, batch size, and trans"
 author: "Jason Van Beukering"
 group: "Bulk DML"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

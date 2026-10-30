@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Random value generation utilities for LWC — numeric, alphabetic,
  * alphanumeric strings and UUID v4.
  *
  * @author Jason van Beukering
  *
- * @date June 2021, March 2026
+ * @date June 2021, October 2026
  */
 import {CAPITAL_LETTERS, DIGITS, LOWER_CASE_LETTERS} from 'c/utilityString';
 

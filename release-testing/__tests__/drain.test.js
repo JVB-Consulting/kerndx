@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {
 	readQueueDepth, isDrained, jobsPerMinute, peakDepth, drainQueue, runningRunsQuery, run, DRAIN_THRESHOLDS, POLL_RETRY_ATTEMPTS
 } = require('../scripts/consoles-at-volume/drain');

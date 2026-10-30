@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the dataMaskingAdvisor LWC coverage area. Covers object selection via
  *              the "＋ Add object" grouped dialog (and "← All objects" back to the landing),
@@ -16,6 +16,12 @@
 import {createElement} from 'lwc';
 import {CurrentPageReference} from 'lightning/navigation';
 import DataMaskingAdvisor from 'c/dataMaskingAdvisor';
+import MaskingReviewDialog from 'c/maskingReviewDialog';
+import MaskingExportModal from 'c/maskingExportModal';
+import MaskingAddObjectDialog from 'c/maskingAddObjectDialog';
+import MaskingInventoryExportDialog from 'c/maskingInventoryExportDialog';
+import MaskingRuleDetail from 'c/maskingRuleDetail';
+import MaskingAddRuleMenu from 'c/maskingAddRuleMenu';
 import {mockCallControllerMethod, mockShowSuccessToast, mockShowWarningToast, mockNavigate} from 'c/componentBuilder';
 import listObjects from '@salesforce/apex/CTRL_MaskingAdvisor.listObjects';
 import getDeadConfigurations from '@salesforce/apex/CTRL_MaskingAdvisor.getDeadConfigurations';
@@ -35,52 +41,70 @@ jest.mock('@salesforce/apex/CTRL_MaskingAdvisor.assessObjectCoverage', () => ({d
 
 jest.mock('@salesforce/messageChannel/Component__c', () => ({default: {}}), {virtual: true});
 
-// The reclassify Review dialog is opened programmatically (LightningModal.open). Stub it with a
-// resolvable spy so a test can drive the Apply ({level}) / Cancel (null) result per the dialog's
-// resolution contract, without pulling the real dialog's label tree into this suite.
-const mockMaskingReviewDialogOpen = jest.fn().mockResolvedValue(null);
-jest.mock('c/maskingReviewDialog', () => ({
-	__esModule: true, default: {open: (...args) => mockMaskingReviewDialogOpen(...args)}
-}), {virtual: true});
+// Each dialog below is opened programmatically (LightningModal.open). Each test gives every dialog class its own
+// open mock, not a jest.mock of its c/ module: such a mock stops intercepting once another suite in the same worker has
+// loaded the real module, while the component calls the open on the real class it imported. A plain jest.spyOn would
+// not do: open is inherited from the lightning/modal file mock, where it is already a jest.fn, so jest.spyOn hands back
+// that one shared function for all six dialogs. Each own mock is removed after each test, which brings the inherited
+// open back.
+//
+// The reclassify Review dialog: a test drives the Apply ({level}) / Cancel (null) result per the dialog's resolution
+// contract.
+let mockMaskingReviewDialogOpen;
 
-// The Export-package confirm dialog is opened programmatically too. Stub it with a resolvable spy so a
-// test can drive its resolution contract (Download {action:'download'} / Cancel null / dismiss undefined)
-// without pulling the real modal's label tree into this suite.
-const mockMaskingExportModalOpen = jest.fn().mockResolvedValue(null);
-jest.mock('c/maskingExportModal', () => ({
-	__esModule: true, default: {open: (...args) => mockMaskingExportModalOpen(...args)}
-}), {virtual: true});
+// The Export-package confirm dialog: a test drives its resolution contract (Download {action:'download'} / Cancel
+// null / dismiss undefined).
+let mockMaskingExportModalOpen;
 
-// The "＋ Add object" grouped search dialog is opened programmatically (LightningModal.open). Stub it with a
-// resolvable spy so a test can drive its resolution contract (picked api name / null on Close) and assert
-// the universe + scan + masked-set props it receives, without pulling the real dialog's label tree in.
-const mockMaskingAddObjectDialogOpen = jest.fn().mockResolvedValue(null);
-jest.mock('c/maskingAddObjectDialog', () => ({
-	__esModule: true, default: {open: (...args) => mockMaskingAddObjectDialogOpen(...args)}
-}), {virtual: true});
+// The "＋ Add object" grouped search dialog: a test drives its resolution contract (picked api name / null on Close)
+// and asserts the universe + scan + masked-set props it receives.
+let mockMaskingAddObjectDialogOpen;
 
-// The regulated-field inventory export dialog is opened programmatically (LightningModal.open). Stub it with
-// a resolvable spy so a test can assert the scope-source props it receives without pulling the real dialog's
-// label tree (or its per-object Apex fetch) into this suite.
-const mockMaskingInventoryExportDialogOpen = jest.fn().mockResolvedValue(null);
-jest.mock('c/maskingInventoryExportDialog', () => ({
-	__esModule: true, default: {open: (...args) => mockMaskingInventoryExportDialogOpen(...args)}
-}), {virtual: true});
+// The regulated-field inventory export dialog: a test asserts the scope-source props it receives.
+let mockMaskingInventoryExportDialogOpen;
 
-// The rule-detail popup is opened programmatically (LightningModal.open). Stub it with a resolvable spy so
-// a test can drive its resolution contract ({wantActive} from Done / {wantActive, action:'manageSetup'} /
-// undefined on dismiss) without pulling the real popup's label tree into this suite.
-const mockMaskingRuleDetailOpen = jest.fn().mockResolvedValue(undefined);
-jest.mock('c/maskingRuleDetail', () => ({
-	__esModule: true, default: {open: (...args) => mockMaskingRuleDetailOpen(...args)}
-}), {virtual: true});
+// The rule-detail popup: a test drives its resolution contract ({wantActive} from Done /
+// {wantActive, action:'manageSetup'} / undefined on dismiss).
+let mockMaskingRuleDetailOpen;
 
-// The add-rule menu is opened programmatically too. Stub it so a test can drive its resolution contract
-// ({pickedRuleDeveloperName} / {action:'createRule'} / undefined) without its label tree.
-const mockMaskingAddRuleMenuOpen = jest.fn().mockResolvedValue(undefined);
-jest.mock('c/maskingAddRuleMenu', () => ({
-	__esModule: true, default: {open: (...args) => mockMaskingAddRuleMenuOpen(...args)}
-}), {virtual: true});
+// The add-rule menu: a test drives its resolution contract ({pickedRuleDeveloperName} / {action:'createRule'} /
+// undefined).
+let mockMaskingAddRuleMenuOpen;
+
+/**
+ * Gives a dialog class its own open mock that resolves to the given value, so each dialog records its own calls.
+ */
+function replaceOpenWithMock(dialogClass, resolvedValue)
+{
+	const open = jest.fn().mockResolvedValue(resolvedValue);
+	Object.defineProperty(dialogClass, 'open', {value: open, configurable: true, writable: true});
+	return open;
+}
+
+beforeEach(() =>
+{
+	mockMaskingReviewDialogOpen = replaceOpenWithMock(MaskingReviewDialog, null);
+	mockMaskingExportModalOpen = replaceOpenWithMock(MaskingExportModal, null);
+	mockMaskingAddObjectDialogOpen = replaceOpenWithMock(MaskingAddObjectDialog, null);
+	mockMaskingInventoryExportDialogOpen = replaceOpenWithMock(MaskingInventoryExportDialog, null);
+	mockMaskingRuleDetailOpen = replaceOpenWithMock(MaskingRuleDetail, undefined);
+	mockMaskingAddRuleMenuOpen = replaceOpenWithMock(MaskingAddRuleMenu, undefined);
+});
+
+afterEach(() =>
+{
+	for(const dialogClass of [
+		MaskingReviewDialog,
+		MaskingExportModal,
+		MaskingAddObjectDialog,
+		MaskingInventoryExportDialog,
+		MaskingRuleDetail,
+		MaskingAddRuleMenu
+	])
+	{
+		delete dialogClass.open;
+	}
+});
 
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_CardTitle', () => ({default: 'Data Masking Advisor'}), {virtual: true});
 jest.mock('@salesforce/label/c.DataMaskingAdvisor_RefreshAltText', () => ({default: 'Refresh masking analysis'}), {virtual: true});
@@ -3024,6 +3048,37 @@ describe('c-data-masking-advisor — add-rule menus', () =>
 		expect(chip).not.toBeUndefined();
 		expect(chip.dataset.origin).toBe('candidate');
 		expect(chip.dataset.desired).toBe('true');
+	});
+
+	it('adds a picked rule beside the field\'s own recommended rule', async() =>
+	{
+		mockMaskingAddRuleMenuOpen.mockResolvedValueOnce({pickedRuleDeveloperName: 'Mask_Phone'});
+		const element = await createAdvisor();
+		await selectMixed(element);
+
+		rowByApi(element, 'Email').querySelector('[data-testid="add-rule"]').click();
+		await flush();
+
+		const candidateRules = Array.from(rowByApi(element, 'Email').querySelectorAll('[data-testid="field-chip"]'))
+		.filter((chip) => chip.dataset.origin === 'candidate')
+		.map((chip) => chip.dataset.rule);
+		expect(candidateRules).toEqual([
+			'Mask_Generic',
+			'Mask_Phone'
+		]);
+	});
+
+	it('shows a picked rule only once when it is already the field\'s recommended rule', async() =>
+	{
+		mockMaskingAddRuleMenuOpen.mockResolvedValueOnce({pickedRuleDeveloperName: 'Mask_Generic'});
+		const element = await createAdvisor();
+		await selectMixed(element);
+
+		rowByApi(element, 'Email').querySelector('[data-testid="add-rule"]').click();
+		await flush();
+
+		const genericChips = Array.from(rowByApi(element, 'Email').querySelectorAll('[data-testid="field-chip"]')).filter((chip) => chip.dataset.rule === 'Mask_Generic');
+		expect(genericChips).toHaveLength(1);
 	});
 
 	it('opens the object-wide add-rule menu with rules not already applied object-wide (C4)', async() =>

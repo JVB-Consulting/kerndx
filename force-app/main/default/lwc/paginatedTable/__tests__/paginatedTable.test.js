@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for paginatedTable LWC component
  * @author Jason van Beukering
@@ -22,43 +22,6 @@ jest.mock('@salesforce/label/c.PaginatedTable_Previous', () => ({default: 'Previ
 // Mock message channel
 jest.mock('@salesforce/messageChannel/Component__c', () => ({
 	default: {}
-}), {virtual: true});
-
-// Mock utilityString - implementation must be inline due to Jest hoisting
-jest.mock('c/utilityString', () => ({
-	formatTemplateString: jest.fn((template, values) =>
-	{
-		let result = template || '';
-		if(values)
-		{
-			for(let i = 0; i < values.length; i++)
-			{
-				result = result.replace(`{${i}}`, values[i]);
-			}
-		}
-		return result;
-	})
-}), {virtual: true});
-
-// Mock utilitySystem - implementation must be inline due to Jest hoisting
-jest.mock('c/utilitySystem', () => ({
-	sortBy: jest.fn((field, direction) => (a, b) =>
-	{
-		if(!field)
-		{
-			return 0;
-		}
-		const dir = direction > 0 ? 1 : -1;
-		if(a[field] < b[field])
-		{
-			return -1 * dir;
-		}
-		if(a[field] > b[field])
-		{
-			return 1 * dir;
-		}
-		return 0;
-	})
 }), {virtual: true});
 
 const mockRows = [
@@ -882,7 +845,10 @@ describe('c-paginated-table', () =>
 			await flushPromises();
 
 			const datatable = element.shadowRoot.querySelector('lightning-datatable');
-			expect(datatable.data.map((row) => row.Id)).toEqual(['001', '002']);
+			expect(datatable.data.map((row) => row.Id)).toEqual([
+				'001',
+				'002'
+			]);
 			expect(pageChangeHandler).toHaveBeenCalledTimes(1);
 		});
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for the SEL_Group selector.
  *
@@ -8,7 +8,7 @@
  *
  * @group Selectors
  *
- * @date October 2024, May 2026
+ * @date October 2024, October 2026
  */
 @IsTest(seeAllData=false isParallel=false)
 private class SEL_Group_TEST

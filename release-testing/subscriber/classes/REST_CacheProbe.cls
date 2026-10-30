@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description REST endpoint for parallel cache-contention load testing. Maintains a shared
  * counter in the org platform cache that can be incremented, read, and reset via HTTP verbs.

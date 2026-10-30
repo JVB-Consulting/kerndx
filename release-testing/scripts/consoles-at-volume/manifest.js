@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The one record of a load run: what was asked, what each stage did, every id later stages and the exploration need.
 const fs = require('fs');
 const path = require('path');

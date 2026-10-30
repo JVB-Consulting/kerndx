@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Modal dialog for creating and editing ScheduledJob__c records. Extends LightningModal
  *              to provide a standard Salesforce modal experience with fixed header/footer and scrollable
@@ -24,26 +24,25 @@ import CREATED from '@salesforce/label/c.ScheduledJob_Created';
 import SAVED from '@salesforce/label/c.ScheduledJob_Saved';
 
 /**
- * @description The fields the modal reads: the shared form's fields and the job runner fields. The modal does not edit
- *              the job runner fields; it reads them so the cron editor checks the expression the way the record runs, and
- *              so a save sends them back unchanged.
+ * @description The job runner fields the modal reads beside the shared form's fields, keyed by their names in the save
+ *              request. The modal does not edit them; it reads them so the cron editor checks the expression the way the
+ *              record runs, and so a save sends them back unchanged. They are optional: a user who cannot read one gets the
+ *              record without it, and no load error.
  */
-const FIELDS = [
-	...SCHEDULED_JOB_FORM_FIELDS,
-	EXECUTION_MODE_FIELD,
-	RUN_PRIORITY_FIELD,
-	OVERLAP_POLICY_FIELD
-];
+const JOB_RUNNER_FIELDS = {
+	executionMode: EXECUTION_MODE_FIELD, runPriority: RUN_PRIORITY_FIELD, overlapPolicy: OVERLAP_POLICY_FIELD
+};
 
 export default class ScheduledJobEditorModal extends ScheduledJobEditorForm(LightningModal)
 {
 	/**
-	 * @description The job runner fields of the record being edited, as loaded. Null values for a new record, which the
-	 *              server saves as a job with its own scheduled job.
+	 * @description The job runner fields of the record being edited, as loaded. It holds a value only for a field the
+	 *              loaded record carries, so a save sends only those; the server keeps a field the save does not send as it
+	 *              is. Empty for a new record, which the server saves as a job with its own scheduled job.
 	 *
 	 * @type {Object}
 	 */
-	jobRunnerSettings = {executionMode: null, runPriority: null, overlapPolicy: null};
+	jobRunnerSettings = {};
 
 	/**
 	 * @description The ScheduledJob__c record to edit; when omitted, the modal creates one. The shared form declares
@@ -156,16 +155,33 @@ export default class ScheduledJobEditorModal extends ScheduledJobEditorForm(Ligh
 		return this.jobRunnerSettings.executionMode === EXECUTION_MODE_JOB_RUNNER_VALUE;
 	}
 
-	@wire(getRecord, {recordId: '$recordId', fields: FIELDS}) wiredRecord({data, error})
+	@wire(getRecord, {
+		recordId: '$recordId',
+		fields: SCHEDULED_JOB_FORM_FIELDS,
+		optionalFields: [
+			EXECUTION_MODE_FIELD,
+			RUN_PRIORITY_FIELD,
+			OVERLAP_POLICY_FIELD
+		]
+	}) wiredRecord({data, error})
 	{
 		if(data)
 		{
 			this.applyRecord(data);
-			this.jobRunnerSettings = {
-				executionMode: getFieldValue(data, EXECUTION_MODE_FIELD) ?? null,
-				runPriority: getFieldValue(data, RUN_PRIORITY_FIELD) ?? null,
-				overlapPolicy: getFieldValue(data, OVERLAP_POLICY_FIELD) ?? null
-			};
+
+			const settings = {};
+
+			for(const [requestKey, field] of Object.entries(JOB_RUNNER_FIELDS))
+			{
+				const fieldValue = getFieldValue(data, field);
+
+				if(fieldValue !== undefined)
+				{
+					settings[requestKey] = fieldValue ?? null;
+				}
+			}
+
+			this.jobRunnerSettings = settings;
 			this.errorMessage = '';
 		}
 
@@ -208,7 +224,7 @@ export default class ScheduledJobEditorModal extends ScheduledJobEditorForm(Ligh
 
 	/**
 	 * @description Adds the record's job runner fields to the shared save request unchanged, so saving from the modal
-	 *              does not move a job off the job runner.
+	 *              does not move a job off the job runner. A field the user cannot read is left out of the request.
 	 *
 	 * @return {Object} The save request.
 	 */

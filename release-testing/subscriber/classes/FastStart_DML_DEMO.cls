@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Drift-guard demo class for the Fast Start - DML guide. Demonstrates the core
  * DML_Builder patterns: parent-child auto-link and partial-success mode.

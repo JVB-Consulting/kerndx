@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Finds the terminal blocks in a guide (the blocks a reader pastes into a terminal), splits them into
  *              command lines and names each command's shape. Shared by the docs command runner and by the check

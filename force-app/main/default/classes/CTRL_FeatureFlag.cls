@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description LWC bridge to `UTIL_FeatureFlag.isEnabled(String)` for the running user. Exposes
  * a single `@AuraEnabled(cacheable=true)` method so subscriber LWCs can branch on feature flag

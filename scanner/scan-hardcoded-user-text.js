@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @fileoverview The i18n gate: report every hardcoded subscriber-visible
  *               string across LWC `.js`, `.html`, and `.js-meta.xml`.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Starts a tool a reader has installed with npm (sf, npm, npx) the way each system needs: shell-free
  *              where the tool is a program, through Command Prompt where it is a .cmd file, which Node will not start

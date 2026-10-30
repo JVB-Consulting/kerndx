@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for {@link FastStart_OutboundAPI_DEMO}. Validates the happy path,
  * the missing-parameter abort path, the non-numeric-parameter abort path, and the error-mock

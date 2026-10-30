@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Deliberate subscriber name-length violation — exceeds 40-character limit.
  * Used to validate SubscriberApexNameLength PMD rule.

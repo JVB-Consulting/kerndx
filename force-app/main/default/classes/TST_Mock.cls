@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Central registry and fluent builder for mock SObjects. Wraps QRY_Builder.setMock()
  * with lifecycle management, providing a single point of control for registering, retrieving, and
  * clearing mock records used in DML-free unit tests, and for setting a different answer for each query
  * with registerNext. registerAggregateRows and registerNextAggregateRows answer aggregate queries. The nested
- * MockBuilder creates records with mock IDs and auto-registers them for query interception.
+ * MockBuilder creates records with mock IDs and registers them on its own, so that a query in the test returns them.
  *
  * @see TST_Mock_TEST
  * @see TST_Builder
@@ -437,7 +437,7 @@ global inherited sharing class TST_Mock
 	/**
 	 * @description Creates a new MockBuilder for the specified SObject type. Records built via
 	 * the returned builder are automatically created with mock IDs (no DML) and registered
-	 * with TST_Mock for query interception.
+	 * with TST_Mock, so that a query in the test returns them.
 	 *
 	 * @param objectType The SObject type to build mock records for.
 	 *
@@ -936,8 +936,8 @@ global inherited sharing class TST_Mock
 		}
 
 		/**
-		 * @description Builds a single mock record with a mock ID and registers it with TST_Mock
-		 * for query interception.
+		 * @description Builds a single mock record with a mock ID and registers it with TST_Mock,
+		 * so that a query in the test returns it.
 		 *
 		 * @return The built mock SObject record.
 		 *
@@ -956,8 +956,8 @@ global inherited sharing class TST_Mock
 		}
 
 		/**
-		 * @description Builds a list of mock records with mock IDs and registers them with TST_Mock
-		 * for query interception.
+		 * @description Builds a list of mock records with mock IDs and registers them with TST_Mock,
+		 * so that a query in the test returns them.
 		 *
 		 * @return The list of built mock SObject records.
 		 *

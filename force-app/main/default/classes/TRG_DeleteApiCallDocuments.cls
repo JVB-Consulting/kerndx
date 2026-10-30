@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description An action that will delete an linked content documents to the API call being deleted
  *
@@ -8,7 +8,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('ApexUnusedDeclaration,RedundantSuppression')
 public inherited sharing class TRG_DeleteApiCallDocuments extends TRG_Base implements IF_Trigger.BeforeDelete

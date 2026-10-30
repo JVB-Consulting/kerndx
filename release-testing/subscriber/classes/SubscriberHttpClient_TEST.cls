@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests UTIL_HttpClient ad-hoc mode from subscriber code. Verifies static factory
  * methods (get/post/put/del/patch), builder chaining, and response deserialization using

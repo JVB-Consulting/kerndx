@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Compares the sf command shapes the shipped guides print with the shapes the real-org journey ran. A
  *              shape neither reached nor excused with a proof fails the report; a skip row for a shape no guide prints

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the maskingAddRuleMenu LWC — the add-rule menu built on
  *              lightning/modal (LightningModal). It lists the masking rules addable to a field or
@@ -8,7 +8,7 @@
  *              (whose close() is a shared jest.fn).
  *
  * @author Jason van Beukering
- * @date June 2026
+ * @date June 2026, October 2026
  */
 import {createElement} from 'lwc';
 import {mockClose} from 'lightning/modal';

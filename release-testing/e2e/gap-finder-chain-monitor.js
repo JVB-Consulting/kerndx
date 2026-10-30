@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Chain Monitor mockup gap-finder (AGENTS.md lever 2): proves every data-spec-id frozen at the
 // operator-actions mockup sign-off round-trips into the DEPLOYED Chain Monitor with matching visible text.
 //

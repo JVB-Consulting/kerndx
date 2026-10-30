@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Abort-capability tests for CTRL_ChainMonitor — availability-reason resolution and the
  * abortChain gate — separated from CTRL_ChainMonitor_TEST because these need @TestSetup users and

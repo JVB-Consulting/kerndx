@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description View-only record page component for ScheduledJob__c records. Displays job configuration
  *              with embedded cron expression descriptions and dynamic parameter tables.

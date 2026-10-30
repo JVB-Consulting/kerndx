@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for Flow Logger invocable classes:
  * FLOW_LoggerStart, FLOW_LoggerLog, FLOW_LoggerEnd.
@@ -9,7 +9,7 @@
  *
  * @group Logging
  *
- * @date December 2025, September 2026
+ * @date December 2025, October 2026
  */
 @IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Shows, from code outside the package, the framework's ways of standing in for data and callouts in a
  * test: mock records with kern.TST_Mock, test data with kern.TST_Builder, prepared HTTP answers with

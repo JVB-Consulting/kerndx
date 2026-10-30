@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Per-file coverage harness for Apex + LWC. Measures the coverage
  * of a named subset of files, compares it to `scripts/coverage-baseline.json`,
@@ -96,6 +96,18 @@ const PRIMARY_TEST_SUITE_OVERRIDES = {
  * broadly empty aggregate would otherwise turn the repair into a second full run inside one wait.
  */
 const REPAIR_RUN_MAXIMUM_TEST_CLASSES = 10;
+
+/**
+ * @description How long the repair run waits for a test class the org already has queued or running, in milliseconds.
+ * The usual cause is the gate's own earlier run, which ends within minutes.
+ */
+const REPAIR_RUN_BUSY_WAIT_MILLISECONDS = 300000;
+
+/** @description How often the repair run asks the org again whether a busy test class is done, in milliseconds. */
+const REPAIR_RUN_BUSY_POLL_MILLISECONDS = 30000;
+
+/** @description The error name Salesforce gives when it refuses a test run because the test class is already queued or running. */
+const ALREADY_IN_PROCESS_ERROR = 'ALREADY_IN_PROCESS';
 
 /** @description Repo-relative path to Jest's raw istanbul coverage output. */
 const JEST_COVERAGE_SUMMARY_PATH = 'coverage/coverage-final.json';
@@ -1037,7 +1049,9 @@ function classesBelowFloor(coverage)
  * resolved by the caller before this runs, so the repair run never becomes the run a verdict is decided from.
  * Rows carry no run id, so a test class that wrote rows for the class in an earlier run and none in this one
  * reads as healthy here. Every class is asked about before the re-run set is capped: asking is one query per
- * class, and capping first would re-run an arbitrary subset.
+ * class, and capping first would re-run an arbitrary subset. Before the re-run, a test class the org already has
+ * queued or running is waited for (see `testClassesTheOrgIsNotRunning`), because Salesforce refuses to run a test
+ * class twice at once.
  *
  * @param {{classes: Object<string, Object>}} coverage - Reconciled coverage.
  * @param {Object} options
@@ -1059,15 +1073,153 @@ function repairTestClassesWithoutCoverageRows(coverage, options, deps)
 	}
 	const capNote = allRowless.length > rowless.length ? ` (the first ${rowless.length} of ${allRowless.length})` : '';
 	deps.logger.info(`${allRowless.length} test class(es) left no coverage rows for a class below the floor; re-running with coverage${capNote}: ${rowless.join(', ')}`);
+	const runnable = testClassesTheOrgIsNotRunning(rowless, options, deps);
+	if(runnable.length > 0)
+	{
+		runRepairTests(runnable, options, deps);
+	}
+	return reconcileFlakyAggregateClasses(coverage, options, deps);
+}
+
+/**
+ * @description The test classes the repair run may start now. Salesforce refuses to run a test class it already
+ * has queued or running, so this asks the test queue first. A busy class is asked about again every
+ * `REPAIR_RUN_BUSY_POLL_MILLISECONDS`, for up to `REPAIR_RUN_BUSY_WAIT_MILLISECONDS`. A class still busy after
+ * that is left out and named in one warning; the gate then uses the coverage the org already holds for it.
+ * If the first read of the queue fails, nothing is known to be busy and every class is returned. A later read
+ * that fails is retried at the next poll.
+ *
+ * @param {Array<string>} testClasses - The test classes chosen for the repair run.
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {Array<string>} The test classes not busy, in the order given.
+ */
+function testClassesTheOrgIsNotRunning(testClasses, options, deps)
+{
+	const waitMinutes = REPAIR_RUN_BUSY_WAIT_MILLISECONDS / 60000;
+	const maximumPolls = REPAIR_RUN_BUSY_WAIT_MILLISECONDS / REPAIR_RUN_BUSY_POLL_MILLISECONDS;
+	let busy;
 	try
 	{
-		executeApexTests(rowless, options, deps);
+		busy = readBusyTestClasses(testClasses, options, deps);
 	}
 	catch(error)
 	{
-		deps.logger.warn(`the repair run of ${rowless.join(', ')} produced no result (${error.code || error.name}: ${error.message}); evaluating what the org holds`);
+		deps.logger.warn(`could not read the test queue before the repair run (${error.code || error.name}: ${error.message}); re-running without waiting`);
+		return testClasses;
 	}
-	return reconcileFlakyAggregateClasses(coverage, options, deps);
+	if(busy.length > 0)
+	{
+		deps.logger.info(`the org already has ${busy.join(', ')} queued or running; waiting up to ${waitMinutes} minutes for them to finish`);
+	}
+	for(let poll = 0; busy.length > 0 && poll < maximumPolls; poll++)
+	{
+		deps.sleepMilliseconds(REPAIR_RUN_BUSY_POLL_MILLISECONDS);
+		try
+		{
+			busy = readBusyTestClasses(busy, options, deps);
+		}
+		catch(error)
+		{
+			deps.logger.warn(`a read of the test queue failed; asking again in ${REPAIR_RUN_BUSY_POLL_MILLISECONDS / 1000}s: ${error.message}`);
+		}
+	}
+	if(busy.length > 0)
+	{
+		deps.logger.warn(`left out of the repair run, because the org still had them queued or running after ${waitMinutes} minutes: ${busy.join(', ')}; `
+			+ 'the verdict uses the coverage the org already holds for them');
+	}
+	return testClasses.filter(name => !busy.includes(name));
+}
+
+/**
+ * @description Asks the org which of the given test classes it has waiting or running now: their
+ * `ApexTestQueueItem` rows in any status of `QUEUE_ITEM_IN_FLIGHT_STATUSES`, from any test run. One query.
+ *
+ * @param {Array<string>} testClasses
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {Array<string>} The busy test classes, in the order given.
+ */
+function readBusyTestClasses(testClasses, options, deps)
+{
+	const names = testClasses.map(name => `'${String(name).replace(/'/g, "\\'")}'`).join(', ');
+	const statuses = QUEUE_ITEM_IN_FLIGHT_STATUSES.map(status => `'${status}'`).join(', ');
+	const rows = queryToolingApi(
+		`SELECT ApexClass.Name, Status FROM ApexTestQueueItem WHERE ApexClass.Name IN (${names}) AND ApexClass.NamespacePrefix = null AND Status IN (${statuses})`,
+		options, deps
+	);
+	const busyNames = new Set(rows
+	.filter(row => QUEUE_ITEM_IN_FLIGHT_STATUSES.includes(row.Status) && row.ApexClass && row.ApexClass.Name)
+	.map(row => row.ApexClass.Name));
+	return testClasses.filter(name => busyNames.has(name));
+}
+
+/**
+ * @description Runs the repair tests and reads how the run ended. The CLI's JSON is captured, not shown, so its exit
+ * status and error can be read. Three outcomes, each logged: the org refused the run because a test class is
+ * already queued or running (`ALREADY_IN_PROCESS`), so the verdict uses the coverage the org already holds; the
+ * run failed with another error, named with its code; or the run finished and its result file is read. The repair
+ * is best effort, so no outcome stops the gate.
+ *
+ * @param {Array<string>} testClasses
+ * @param {Object} options
+ * @param {Object} deps
+ * @return {void}
+ */
+function runRepairTests(testClasses, options, deps)
+{
+	const outputDir = apexOutputDir(deps);
+	const names = testClasses.join(', ');
+	deps.logger.info(`running apex tests: ${names}`);
+	const result = deps.runner('sf', [...apexTestRunArguments(testClasses, options, outputDir), '--json'], {inherit: false}) || {};
+	if(result.status !== 0)
+	{
+		const envelope = parseJsonOrNull(result.stdout);
+		const refused = envelope
+			? [envelope.name, envelope.code].includes(ALREADY_IN_PROCESS_ERROR) || String(envelope.message || '').startsWith(ALREADY_IN_PROCESS_ERROR)
+			: String(result.stderr || '').includes(ALREADY_IN_PROCESS_ERROR);
+		if(refused)
+		{
+			deps.logger.info(`the org refused the repair run of ${names} with ${ALREADY_IN_PROCESS_ERROR}, because a test class is already queued or running; `
+				+ 'the verdict uses the coverage the org already holds');
+			return;
+		}
+		if(envelope && envelope.name)
+		{
+			const code = envelope.code || 'not given';
+			deps.logger.warn(`the repair run of ${names} failed (exit ${result.status}, ${envelope.name}, code ${code}: ${envelope.message || 'no message'}); `
+				+ 'evaluating what the org holds');
+			return;
+		}
+	}
+	try
+	{
+		readApexResultFile(outputDir, deps);
+	}
+	catch(error)
+	{
+		deps.logger.warn(`the repair run of ${names} produced no result (${error.code || error.name}: ${error.message}); evaluating what the org holds`);
+	}
+}
+
+/**
+ * @description Parses a CLI's JSON output, or gives null when the output is empty or not JSON. For output that may be an
+ * error envelope or nothing at all; output that must be JSON goes through `lib.safeParseJson`, which throws.
+ *
+ * @param {string} text
+ * @return {Object|null}
+ */
+function parseJsonOrNull(text)
+{
+	try
+	{
+		return text ? JSON.parse(text) : null;
+	}
+	catch
+	{
+		return null;
+	}
 }
 
 /**
@@ -1596,6 +1748,22 @@ function deployApexClasses(classes, options, deps)
 function executeApexTests(testClasses, options, deps)
 {
 	const outputDir = apexOutputDir(deps);
+	deps.logger.info(`running apex tests: ${testClasses.join(', ')}`);
+	deps.runner('sf', apexTestRunArguments(testClasses, options, outputDir), {inherit: true});
+	return readApexResultFile(outputDir, deps);
+}
+
+/**
+ * @description The `sf apex run test` arguments for the given test classes: with coverage, a JSON result format,
+ * the `--wait` budget (15 minutes unless `--wait` says otherwise) and the output folder the result file is read from.
+ *
+ * @param {Array<string>} testClasses
+ * @param {Object} options
+ * @param {string} outputDir
+ * @return {Array<string>}
+ */
+function apexTestRunArguments(testClasses, options, outputDir)
+{
 	const waitMinutes = options.waitMinutes || 15;
 	const args = [
 		'apex',
@@ -1615,9 +1783,7 @@ function executeApexTests(testClasses, options, deps)
 	{
 		args.push('-t', name);
 	}
-	deps.logger.info(`running apex tests: ${testClasses.join(', ')}`);
-	deps.runner('sf', args, {inherit: true});
-	return readApexResultFile(outputDir, deps);
+	return args;
 }
 
 /**

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Validates the behavior of UTIL_Date utility operations including ISO 8601 conversions, weekend and weekday detection, business day arithmetic,
  * cron expression generation, and date formatting.
@@ -9,7 +9,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, June 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)

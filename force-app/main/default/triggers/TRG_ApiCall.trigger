@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Trigger on ApiCall__c. Fires the configured trigger actions for data masking before
  * insert and update, and before a delete the action that refuses the delete to every user the Bypass API

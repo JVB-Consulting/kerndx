@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Deliberate subscriber naming violation — class name lacks Domain_Layer_ prefix.
  * Used to validate SubscriberApexClassNaming PMD rule.

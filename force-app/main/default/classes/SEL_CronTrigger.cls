@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the CronTrigger system table: the platform's record of every scheduled job. The job runner's
  * Health Check dimensions read it to know whether the runner's own scheduled jobs are still there and who owns them,

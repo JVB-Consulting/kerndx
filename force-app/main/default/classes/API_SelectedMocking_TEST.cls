@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests the rule that decides when one picked service answers mock data, for outgoing calls and for
  * incoming requests. An administrator picks a service by ticking Mocking Enabled on its API Setting. The Mock Selected

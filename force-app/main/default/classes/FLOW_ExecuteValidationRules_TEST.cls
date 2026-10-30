@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for FLOW_ExecuteValidationRules invocable action.
  * Verifies that the invocable correctly executes validation rules and returns results. Every test that reaches the

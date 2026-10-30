@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for SubscriberChainSteps, which exercise async chain orchestration
  * from subscriber context with real DML, API callouts, and context manipulation.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Console controller for the Log Console — turns the flood-controlled LogEntry__c table
  * into a place to find problems (a distinct "this error x N occurrences" fold) and inspect them (a

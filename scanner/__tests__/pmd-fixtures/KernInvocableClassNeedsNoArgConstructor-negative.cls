@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Scanner test input that KernInvocableClassNeedsNoArgConstructor must NOT report. Both classes here can
  * be created by Flow at run time: the outer one declares a public constructor with no parameters next to its other

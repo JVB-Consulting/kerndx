@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The verdict helper's orchestration against a scripted `sf` CLI: it waits for a run
  * already in flight, launches, resolves its own run by id rather than the newest run on the org, polls

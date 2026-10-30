@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Chain step fixtures for the Chain Monitor operator-action e2e specs on the
  * no-namespace development org. The subscriber release-testing leg uses SubscriberChainSteps

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Apex controller for subscriber LWC integration tests.
  *              Provides AuraEnabled methods to verify cross-namespace controller calls.

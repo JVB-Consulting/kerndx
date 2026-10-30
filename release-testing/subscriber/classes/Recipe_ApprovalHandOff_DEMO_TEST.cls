@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Proof tests for the pause-for-approval composition pattern: two independent
  * chain runs joined by the waiting record, with the continuation started through the

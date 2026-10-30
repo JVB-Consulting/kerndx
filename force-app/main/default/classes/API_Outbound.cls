@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Base class for all outbound web service calls. Extends API_Base to provide functionality
  * for making HTTP callouts, handling responses, managing retries, and token replacements.

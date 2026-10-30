@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 jest.mock('../e2e/helpers/subscriber-deploy', () => ({deployStrippedSubscriberClasses: jest.fn(() => ({result: {status: 'Succeeded'}}))}));
 const {run, projectStorageMegabytes} = require('../scripts/consoles-at-volume/preflight');
 const {scaleShape} = require('../scripts/consoles-at-volume/shapes');

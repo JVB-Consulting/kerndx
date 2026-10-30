@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Runs an action on an API issue record for a headless quick action, such as the Retry and Dismiss
  *              actions. It calls the Apex method, shows a toast with the result, refreshes the record when the action

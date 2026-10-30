@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 @RestResource(UrlMapping='/routed/*')
 global with sharing class REST_KernNoRawRestContextNegative
 {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Staged mode's volume: the engine's own rows, cloned. After the engine share drains, the rows and forensic entries
 // under the engine actions are read back and re-keyed under new ids, new times and new actions, then written through
 // the Bulk API. Nothing here knows the shape of a step log, a failure message or a category: what the engine wrote is

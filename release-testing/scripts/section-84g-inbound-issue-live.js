@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Section 84g: an inbound request that fails, then succeeds when the caller sends it again, over real REST calls
  *

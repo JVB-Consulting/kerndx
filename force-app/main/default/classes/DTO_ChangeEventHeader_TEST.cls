@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for DTO_ChangeEventHeader. Exercises the full copy-constructor
  * mapping from EventBus.ChangeEventHeader to the Flow-accessible DTO, plus the no-arg
@@ -10,7 +10,7 @@
  *
  * @group Data Transfer Objects
  *
- * @date May 2026
+ * @date May 2026, October 2026
  */
 @IsTest(seeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')

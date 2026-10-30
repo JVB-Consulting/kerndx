@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Proves, on a subscriber org and through the global API only, when a service answers from mock data
  * because its API Setting has Mocking Enabled ticked. The box picks the service, and the Mock Selected APIs feature flag

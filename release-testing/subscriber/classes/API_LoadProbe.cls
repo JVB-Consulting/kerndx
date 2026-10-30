@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Inbound API handler for the load probe endpoint. Parses a {@code failRate} integer
  * (0-100) from the request body, delegates an outbound call to {@link API_LoadProbeOutbound}

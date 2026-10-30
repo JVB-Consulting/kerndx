@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for the SEL_AsyncApexJob selector. Proves the real query path against a live
  * AsyncApexJob row once, and the scheduled-Apex finder against real System.schedule registrations;

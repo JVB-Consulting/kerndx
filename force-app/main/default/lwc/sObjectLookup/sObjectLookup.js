@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Lookup element that can search for any SObject by specified field name.
  * Extends `BaseLookup` with SObject-specific features: object metadata fetching via

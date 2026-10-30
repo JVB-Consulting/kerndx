@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Class has base methods that can be used to assist with testing inbound service calls
  *
@@ -8,7 +8,7 @@
  *
  * @group Testing
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

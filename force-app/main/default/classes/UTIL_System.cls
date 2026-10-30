@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Namespace, type resolution, and platform utility methods. Provides runtime introspection
  * for managed package namespace detection, class type resolution, API version retrieval,

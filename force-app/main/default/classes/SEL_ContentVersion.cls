@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the ContentVersion object. Provides query methods for retrieving
  * content versions by publishing location, content document, and workspace folders.

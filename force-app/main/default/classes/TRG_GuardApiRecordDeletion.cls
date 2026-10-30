@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Refuses the delete of an API call or an API issue. Runs before every delete of ApiCall__c and ApiIssue__c,
  * ahead of the other delete actions on those objects, for every user the BypassApiRecordDeleteGuard feature flag is off

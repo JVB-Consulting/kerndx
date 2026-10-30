@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the maskingReviewDialog LWC — the badge-as-reclassify Review
  *              dialog built on lightning/modal (LightningModal). The base modal supplies the
@@ -9,7 +9,7 @@
  *              (whose close() is a shared jest.fn).
  *
  * @author Jason van Beukering
- * @date May 2026, June 2026
+ * @date May 2026, October 2026
  */
 import {createElement} from 'lwc';
 import {mockClose} from 'lightning/modal';

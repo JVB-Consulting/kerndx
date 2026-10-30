@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test mock harness for `TRG_InvokeFlow`-dispatched flows.
  *
@@ -6,11 +6,11 @@
  * short-circuits against, bypassing the platform `Flow.Interview` API entirely. Mirrors
  * the fluent shape of `API_MockFactory` so the patterns transfer one-to-one.
  *
- * The global methods you use in your tests (unchanged since v1.0):
- * - `forFlow(String)` — entry point returning a `MockBuilder`
+ * The global methods you use in your tests:
+ * - `forFlow(String)`: the starting point, which returns a `MockBuilder`
  * - `MockBuilder.succeed() / .fail(String) / .withOutputRecord(SObject) / .withOutputRecords(List<SObject>) / .throwOnStart(Exception) / .register()`
  * - `clear()`, `assertInvoked(name, count)`, `assertNotInvoked(name)`, `wasInvoked(name)`
- * - `getLastInputRecord(name)`, `getLastInputPriorRecord(name)` — verify the flow saw upstream Apex mutations
+ * - `getLastInputRecord(name)`, `getLastInputPriorRecord(name)`: check that the flow saw the changes Apex made before it ran
  *
  * Framework-internal surface (used by `TRG_InvokeFlow`):
  * - `isMocked(name)`, `getMockResult(name)`, `recordInvocation(name, record, priorRecord)`
@@ -231,7 +231,7 @@ global inherited sharing class TST_InvokeFlowMock
 	 * triggers do not inject a header).
 	 *
 	 * Returned as `Object` (rather than `DTO_ChangeEventHeader`) to keep this mock's
-	 * compile-time surface decoupled from the CDC header type — callers cast at the
+	 * compile-time surface apart from the change event header type; callers cast at the
 	 * call site:
 	 *
 	 * ```apex
@@ -284,7 +284,7 @@ global inherited sharing class TST_InvokeFlowMock
 	 * @description Records that a mocked flow was invoked, capturing the input variables
 	 * the flow received so subscriber tests can verify them via `getLastInputRecord` /
 	 * `getLastInputPriorRecord`. Delegates to the 4-arg overload with a null `header`
-	 * — used by non-CDC dispatches (standard/custom-object trigger contexts).
+	 * (used when the flow is started from a standard or custom object trigger, not a change event).
 	 *
 	 * @param flowName The flow API name that was invoked
 	 * @param record The `record` input variable the flow received
@@ -297,7 +297,7 @@ global inherited sharing class TST_InvokeFlowMock
 
 	/**
 	 * @description Records that a mocked flow was invoked, capturing the input variables
-	 * the flow received — including the optional Change Event header. Used by
+	 * the flow received, including the optional change event header. Used by
 	 * `TRG_InvokeFlow.invokeSingle` to track CDC dispatches that inject a typed `header`
 	 * variable into the flow input map. Returns the captured header via
 	 * `getLastInputHeader(flowName)` so subscriber tests can verify the flow received the
@@ -373,7 +373,7 @@ global inherited sharing class TST_InvokeFlowMock
 	 *
 	 * Holds the `record` and `recordPrior` SObjects the trigger framework passed to the
 	 * flow input map, exposed to subscriber tests via `getLastInputRecord` /
-	 * `getLastInputPriorRecord`. Internal — subscribers should not construct or mutate
+	 * `getLastInputPriorRecord`. Internal: subscribers should not construct or change
 	 * `MockInvocation` directly.
 	 */
 	private class MockInvocation
@@ -448,7 +448,7 @@ global inherited sharing class TST_InvokeFlowMock
 		/**
 		 * @description When non-null, the trigger framework throws this exception at the
 		 * point in `invokeSingle` where a real `Flow.Interview.start()` call would have
-		 * raised — letting tests drive the runtime-error catch block via mock registration
+		 * raised, so tests can reach the runtime-error catch block by registering a mock
 		 * without deploying a deliberately-broken flow XML.
 		 */
 		public Exception exceptionToThrow;
@@ -503,7 +503,7 @@ global inherited sharing class TST_InvokeFlowMock
 		/**
 		 * @description Declares this mock returns a successful flow result.
 		 *
-		 * Default state — call is optional but improves readability.
+		 * The default state: the call is optional, but it makes the test easier to read.
 		 *
 		 * @return This builder for chaining
 		 *

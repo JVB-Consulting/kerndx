@@ -5,7 +5,7 @@ pageClass: reference
 description: "Interface for any object that can execute a query. Implemented by QRY_Builder.Builder and SEL_Base. Allows polymorphic query execution across framework components such as batch jobs, async processors,"
 author: "Jason Van Beukering"
 group: "Query Infrastructure"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

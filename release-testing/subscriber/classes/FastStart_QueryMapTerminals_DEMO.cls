@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Drift-guard demo class for keyed-map terminals on
  * `kern.QRY_Builder.Builder`. Demonstrates the four new terminal methods (each with an

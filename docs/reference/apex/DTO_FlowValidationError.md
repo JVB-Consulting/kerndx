@@ -5,7 +5,7 @@ pageClass: reference
 description: "Represents a single validation error or warning for Flow display. Contains details about the validation rule that failed, the error message, and metadata for field-level error presentation in Flow scr"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
-date: "January 2026, August 2026"
+date: "January 2026, October 2026"
 since: "1.0"
 category: apex
 ---

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for SEL_FieldDefinition selector. Self-contained: exercises every path
  * without relying on a consumer's tests. The tests do not run in parallel, because one of them creates a user to run

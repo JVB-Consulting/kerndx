@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Shared field-type label helper for the Data Masking Advisor LWCs. Maps a masking rule's
  *              upper-cased field-type literals (MaskingRule__mdt.ApplicableFieldTypes__c) to friendly
@@ -8,7 +8,7 @@
  *
  * @author Jason van Beukering
  *
- * @date June 2026
+ * @date June 2026, October 2026
  */
 import FIELD_TYPE_TEXT from '@salesforce/label/c.DataMaskingAdvisor_FieldType_Text';
 import FIELD_TYPE_LONG_TEXT from '@salesforce/label/c.DataMaskingAdvisor_FieldType_LongText';

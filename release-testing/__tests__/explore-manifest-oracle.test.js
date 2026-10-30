@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const mockSoql = jest.fn();
 jest.mock('../e2e/helpers/sf-cli', () => ({soqlQuery: (...args) => mockSoql(...args), runApexScript: jest.fn(), executeAnonymousApex: jest.fn()}));
 const soql = mockSoql;

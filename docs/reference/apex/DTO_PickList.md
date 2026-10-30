@@ -5,7 +5,7 @@ pageClass: reference
 description: "A Data Transfer Object (DTO) representing a single picklist and all associated values. This class is typically used to retrieve and manage picklist values dynamically, often for use in invocable actio"
 author: "Jason Van Beukering"
 group: "Data Transfer Objects"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

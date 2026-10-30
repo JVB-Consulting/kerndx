@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Proof tests for the outbox pattern's delivery service, and the D5 idempotency
  * probe: prepareRequest() stamps a record-grain key on the call record, and a pre-set key

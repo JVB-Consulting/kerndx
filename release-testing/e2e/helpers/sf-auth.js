@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {execSync} = require('child_process');
 const fs = require('fs');
 const {getSubscriberOrgAlias} = require('../../runner/subscriber-config');

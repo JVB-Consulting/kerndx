@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for FastStart_ScheduledJob_DEMO: a record schedules it and its run does not fail, the switch makes
  * a run fail with the message its log entry shows, and the editor gets one switch, off by default.

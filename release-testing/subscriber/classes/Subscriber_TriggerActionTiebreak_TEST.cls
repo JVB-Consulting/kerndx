@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber proof for the 1.2 deterministic trigger-action tiebreak. When two
  * trigger actions share an Order__c value, the framework sequences them by Order__c first and

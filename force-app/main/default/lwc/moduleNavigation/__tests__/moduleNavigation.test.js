@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for moduleNavigation LWC module
  *
  * @author Jason van Beukering
  *
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
 import initialiseNavigationModule, {
 	STANDARD_RECORD_PAGE_PAGE_REFERENCE_TYPE, VIEW_ACTION_NAME, getStandardRecordPageReference, initialiseRedirectToRecordPage, initialiseGenerateRecordPageURL

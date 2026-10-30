@@ -5,7 +5,7 @@ pageClass: reference
 description: "Test helper for API mock verification. Provides assertion methods that delegate to API_MockFactory verification API with descriptive error messages."
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

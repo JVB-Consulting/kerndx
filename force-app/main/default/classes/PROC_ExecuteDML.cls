@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Processor for generic DML operations using the adaptive async framework.
  * Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution.

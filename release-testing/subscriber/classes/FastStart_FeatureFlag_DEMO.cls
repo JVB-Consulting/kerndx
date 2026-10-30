@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Drift-guard demo class for the Fast Start - Feature Flags guide. Demonstrates
  * the core flag-check pattern: branching on a feature flag to switch between legacy and new

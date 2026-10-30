@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A Data Transfer Object (DTO) class that structures webservice handler responses
  * into a common table format, providing column and row handling for a unified data view.

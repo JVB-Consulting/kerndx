@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Answers one question for the ci job: between two commits, did a terminal block in a shipped guide,
  *              or a tool a reader runs, change? Only then is the Windows workflow worth its minutes.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A container for shared global interfaces used by the asynchronous framework.
  *
@@ -6,7 +6,7 @@
  *
  * @group Async Processing
  *
- * @date September 2025, May 2026
+ * @date September 2025, October 2026
  *
  * @since 1.0
  *

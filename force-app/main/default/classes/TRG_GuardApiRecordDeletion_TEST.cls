@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for TRG_GuardApiRecordDeletion, the trigger action that refuses the delete of an API call or an
  * API issue. The trigger framework runs it only for a user the BypassApiRecordDeleteGuard feature flag is off for, and a

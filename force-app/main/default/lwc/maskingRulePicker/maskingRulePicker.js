@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Custom, searchable ARIA 1.2 combobox/listbox used as the per-field masking-rule
  * dropdown in the Data Masking Advisor. Unlike `lightning-combobox`, it supports type-ahead

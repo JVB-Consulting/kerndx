@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 const { jestConfig } = require('@salesforce/sfdx-lwc-jest/config');
 
@@ -12,6 +12,7 @@ module.exports = {
     roots: ['<rootDir>/force-app'],
     moduleNameMapper: {
         ...jestConfig.moduleNameMapper,
+        '^lightning/actions$': '<rootDir>/force-app/test/jest-mocks/lightning/actions.js',
         '^lightning/flowSupport$': '<rootDir>/force-app/test/jest-mocks/lightning/flowSupport.js',
         '^lightning/modal$': '<rootDir>/force-app/test/jest-mocks/lightning/modal.js',
         '^c/componentBuilder$': '<rootDir>/force-app/test/jest-mocks/c/componentBuilder.js',

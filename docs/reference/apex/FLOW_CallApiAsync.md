@@ -5,7 +5,7 @@ pageClass: reference
 description: "Asynchronously invokes web service calls, allowing large or delayed API callouts to be processed outside of immediate flows or triggers. Leverages the adaptive asynchronous processor to manage API req"
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

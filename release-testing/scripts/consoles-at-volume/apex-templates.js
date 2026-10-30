@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Every piece of anonymous Apex the driver sends is a .apex file under templates/, readable and lintable as Apex in
 // the IDE; this module fills the tokens a file names in its header comment and refuses to send a script with a
 // token left unfilled. The two namespace tokens stay for the caller, which fills them from the org's probe.

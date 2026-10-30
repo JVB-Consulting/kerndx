@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Shared helpers for the ScheduledJob__c editor, editor-modal and detail components and the
  *              job runner card: resolves a human-readable timezone name from an IANA sid key, parses a

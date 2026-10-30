@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const namespace = {prefix: 'kern__'};
 jest.mock('../e2e/helpers/sf-namespace', () => ({namespacePrefix: () => namespace.prefix}));
 const {skipUnlessPackaged, INSTALLED_PACKAGE_ONLY_KINDS} = require('../e2e/helpers/skip-guard');

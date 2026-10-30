@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Validates instantiation and message propagation for each UTIL_Exceptions exception type.
  *

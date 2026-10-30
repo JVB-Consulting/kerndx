@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Trigger action that gives a new Account a Description when none was entered. Runs before insert, so the
  * value is saved with the record and no second save is needed.

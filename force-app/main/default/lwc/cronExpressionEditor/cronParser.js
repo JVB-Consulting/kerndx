@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Pure functions for parsing, building, and describing Salesforce cron expressions.
  *              Supports the 7-field Salesforce format: Seconds Minutes Hours DayOfMonth Month DayOfWeek [Year]
@@ -187,7 +187,8 @@ function parseDayList(dayOfWeek)
 /**
  * @description Matcher definitions for mapping parsed cron fields to preset configurations.
  *              Each entry specifies a match predicate and a factory that builds the preset result.
- *              A matcher marked jobRunnerOnly is skipped unless the record runs on the job runner.
+ *              A matcher marked jobRunnerOnly is skipped unless the record runs on the job runner. The weekly preset takes
+ *              only a day field the validator accepts.
  */
 const PRESET_MATCHERS = [
 	{
@@ -206,7 +207,7 @@ const PRESET_MATCHERS = [
 	},
 	{
 		match: (fields) => isSingleNumber(fields.minutes) && isSingleNumber(fields.hours) && fields.dayOfMonth === '?' && !isWildcard(fields.dayOfWeek)
-				&& !fields.dayOfWeek.includes('#') && !fields.dayOfWeek.endsWith('L'),
+				&& !fields.dayOfWeek.includes('#') && !fields.dayOfWeek.endsWith('L') && validateCronField('dayOfWeek', fields.enteredDayOfWeek).isValid,
 		build: (fields) => ({frequency: 'weekly', hour: fields.hours, minute: fields.minutes, daysOfWeek: parseDayList(fields.dayOfWeek)})
 	},
 	{
@@ -236,7 +237,9 @@ function matchPreset(parts, options)
 	}
 
 	const normalisedMinutes = options.jobRunnerMode && /^0\/\d+$/.test(minutes) ? '*/' + minutes.substring(2) : minutes;
-	const fields = {minutes: normalisedMinutes, hours, dayOfMonth, month, dayOfWeek: normaliseDayOfWeek(dayOfWeek)};
+	// The weekly preset checks the day field as entered: once numbers become names, a range the validator refuses,
+	// such as 6-2, reads as FRI-MON, which runs on past Saturday.
+	const fields = {minutes: normalisedMinutes, hours, dayOfMonth, month, dayOfWeek: normaliseDayOfWeek(dayOfWeek), enteredDayOfWeek: dayOfWeek};
 
 	for(const matcher of PRESET_MATCHERS)
 	{
@@ -256,19 +259,15 @@ function matchPreset(parts, options)
 
 /**
  * @description Expands a day range like MON-FRI into an array of day names. A range whose last day comes before its
- *              first day in the week, such as FRI-MON, runs on past Saturday: Friday, Saturday, Sunday and Monday.
+ *              first day in the week, such as FRI-MON, runs on past Saturday: Friday, Saturday, Sunday and Monday. Only a
+ *              day field the validator accepts reaches it, through the weekly preset or the description, so both ends are
+ *              day names.
  */
 function expandDayRange(range)
 {
 	const [start, end] = range.split('-');
 	const startIndex = DAY_NAMES_ORDERED.indexOf(start);
 	const endIndex = DAY_NAMES_ORDERED.indexOf(end);
-
-	if(startIndex === -1 || endIndex === -1)
-	{
-		return [range];
-	}
-
 	const dayCount = DAY_NAMES_ORDERED.length;
 	const daysAfterStart = (endIndex - startIndex + dayCount) % dayCount;
 	const result = [];
@@ -408,11 +407,12 @@ function formatTime(hours, minutes)
 }
 
 /**
- * @description Describes a list of day names in human-readable format.
+ * @description Describes a list of day names in human-readable format. Only a valid expression is described, so every
+ *              entry is a day name.
  */
 function describeDayList(days)
 {
-	const fullNames = days.map((day) => DAY_FULL_NAMES[day] || day);
+	const fullNames = days.map((day) => DAY_FULL_NAMES[day]);
 
 	if(fullNames.length === 1)
 	{
@@ -649,7 +649,7 @@ export function describeCronExpression(expression, options)
 
 /**
  * @description Describes a day-of-week cron pattern. Only a valid expression reaches it, so the occurrence after # is
- *              1 to 5 and the day before L is a day of the week.
+ *              1 to 5, and every day in the field, including the day before # or L, is a day of the week.
  */
 function describeDayOfWeekPattern(dayOfWeek, time)
 {
@@ -657,7 +657,7 @@ function describeDayOfWeekPattern(dayOfWeek, time)
 	{
 		const [day, occurrence] = dayOfWeek.split('#');
 		const normalisedDay = normaliseDayToken(day);
-		const dayName = DAY_FULL_NAMES[normalisedDay] || normalisedDay;
+		const dayName = DAY_FULL_NAMES[normalisedDay];
 		return formatTemplateString(DESC_NTH_WEEKDAY, [
 			ORDINAL_NAMES[occurrence],
 			dayName,
@@ -688,8 +688,8 @@ function describeDayOfWeekPattern(dayOfWeek, time)
 		{
 			return formatTemplateString(DESC_WEEKDAYS, [time]);
 		}
-		const startName = DAY_FULL_NAMES[start] || start;
-		const endName = DAY_FULL_NAMES[end] || end;
+		const startName = DAY_FULL_NAMES[start];
+		const endName = DAY_FULL_NAMES[end];
 		return formatTemplateString(DESC_DAY_RANGE, [
 			startName,
 			endName,
@@ -741,6 +741,17 @@ function isUnknownMonthName(fieldName, part)
 }
 
 /**
+ * @description Whether a part of a day-of-week value is a name that is not a day, such as XYZ in MON,XYZ or XYZ#1.
+ * @param {string} fieldName - The field name
+ * @param {string} part - One value of a list, one end of a range, or the day before #, in upper case
+ * @returns {boolean} True when the field is the day-of-week field and the part is a name not in the day list
+ */
+function isUnknownDayName(fieldName, part)
+{
+	return fieldName === 'dayOfWeek' && /^[A-Z]+$/.test(part) && !DAY_NAMES_ORDERED.includes(part);
+}
+
+/**
  * @description Checks the day before the L in the day-of-week field. A day followed by L means the last such day of
  *              the month, so 6L and FRIL both mean the last Friday. The day must be one day of the week: a number
  *              from 1 to 7, or a day name such as FRI.
@@ -765,7 +776,7 @@ function validateLastDayOfWeek(day, field)
 
 /**
  * @description Validates the semantic correctness of a cron field value after regex passes.
- *              Checks step values, list element ranges, reversed ranges, month names, a day before L, and # occurrences.
+ *              Checks step values, list element ranges, reversed ranges, month names, day names, a day before L, and # occurrences.
  * @param {string} fieldName - The field name
  * @param {string} value - The value to validate
  * @param {Object} field - The field definition with min/max
@@ -810,6 +821,10 @@ function validateFieldSemantics(fieldName, value, field, ignorePastYear)
 	if(value.includes('#'))
 	{
 		const [dayPart, occurrencePart] = value.split('#');
+		if(isUnknownDayName(fieldName, dayPart))
+		{
+			return field.message;
+		}
 		const dayNum = parseInt(dayPart, 10);
 		if(!isNaN(dayNum) && (dayNum < 1 || dayNum > 7))
 		{
@@ -856,7 +871,7 @@ function validateFieldSemantics(fieldName, value, field, ignorePastYear)
 	const tokens = value.split(',');
 	for(const token of tokens)
 	{
-		if(token.split('-').some((part) => isUnknownMonthName(fieldName, part)))
+		if(token.split('-').some((part) => isUnknownMonthName(fieldName, part) || isUnknownDayName(fieldName, part)))
 		{
 			return field.message;
 		}

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Aura-enabled controller that exposes SObject metadata (fields, record types)
  * for dynamic form rendering in Lightning components.
@@ -9,7 +9,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class CTRL_SObjectInformation
 {

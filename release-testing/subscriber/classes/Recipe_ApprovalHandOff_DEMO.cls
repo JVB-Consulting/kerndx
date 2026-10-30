@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Pause-for-approval composition pattern, first leg: the chain ends at the human
  * gate, and the waiting record is the durable state AND the join between the legs. Each leg

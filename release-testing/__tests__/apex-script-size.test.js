@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Anonymous Apex refuses a script over 32,000 characters with "Script too large", and the refusal is a compile error,
 // so the script fails on every org. Each script the release tests send keeps a margin under that ceiling, because the
 // namespace rewrite and the next fixture both add characters.

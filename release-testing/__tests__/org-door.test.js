@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const os = require('os');
 const {runCommand, createOrgDoor} = require('../scripts/consoles-at-volume/org-door');
 

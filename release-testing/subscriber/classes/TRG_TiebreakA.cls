@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tied Before Insert trigger action for the 1.2 deterministic-ordering proof.
  * Wired to the CMDT TriggerAction whose DeveloperName is Account_Tiebreak_B; records marker

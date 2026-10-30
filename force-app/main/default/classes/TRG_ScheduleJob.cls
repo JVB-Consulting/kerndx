@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Manages scheduling and termination of Apex jobs based on the `ScheduledJob__c` custom object.
  * Handles job creation, updates, and deletion with support for configurable attributes and cron expressions.

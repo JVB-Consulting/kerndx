@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests behaviour that belongs directly to `API_Outbound`, specifically the
  * framework-validation branches that are difficult to reach through subclass test helpers
@@ -140,7 +140,7 @@ public class API_Outbound_TEST
 	 * the platform's lock status code, which is what the commit retry reads, and leaves out the phrase the platform puts
 	 * in front of row errors, because an exception built in a test carries no rows to read.
 	 */
-	private static final String ROWLESS_LOCK_REFUSAL = 'UNABLE_TO_LOCK_ROW, unable to obtain exclusive access to this record';
+	private static final String ROWLESS_LOCK_REFUSAL = DML_ThrowingLockProxy_TEST.LOCK_REFUSAL_MESSAGE;
 
 	/**
 	 * @description An email value the platform refuses, so saving a record that carries it fails with a row error.

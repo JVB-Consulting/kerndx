@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Outbound API handler for the load probe callout-storm test. Accepts a {@code failRate}
  * parameter (0-100) and simulates failures at the specified probability using

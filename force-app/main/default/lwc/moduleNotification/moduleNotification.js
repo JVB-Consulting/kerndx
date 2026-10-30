@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Notification module for the ComponentBuilder framework. Provides toast
  * notifications with variant-specific convenience methods and a curried factory pattern.
  *
  * @author Jason van Beukering
  *
- * @date February 2022, May 2026
+ * @date February 2022, October 2026
  */
 import ERROR_TITLE_LABEL from '@salesforce/label/c.ModuleNotification_ErrorTitle';
 import INFO_TITLE_LABEL from '@salesforce/label/c.ModuleNotification_InfoTitle';

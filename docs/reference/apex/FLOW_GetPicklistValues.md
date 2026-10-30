@@ -5,7 +5,7 @@ pageClass: reference
 description: "Invocable method to get all the picklist values for a particular object for a given record type. Delegates to UTIL_SObjectDescribe for ConnectApi retrieval and transformation. Caches responses in org "
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

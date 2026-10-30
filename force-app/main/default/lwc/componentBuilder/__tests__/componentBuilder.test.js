@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for componentBuilder LWC module.
  *
@@ -14,7 +14,7 @@
  *              possible, so tests verify class structure and prototype properties.
  *
  * @author Jason van Beukering
- * @date December 2025, May 2026
+ * @date December 2025, October 2026
  */
 import {
 	ComponentBuilder, ALL_MODULES, INVALID_INITIALISATION_ERROR, mockShowErrorToast, mockShowWarningToast, mockShowInfoToast, mockShowSuccessToast, mockCustomNotification,

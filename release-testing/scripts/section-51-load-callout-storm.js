@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Section 51 (extended-load Phase 2): Load Test — UTIL_HttpClient callout storm
  *

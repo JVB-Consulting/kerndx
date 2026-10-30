@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Proof tests for the circuit-breaker composition pattern: a closed breaker lets
  * the chain run, handler-recorded outcomes are observable on the shared circuit, and an open

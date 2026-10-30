@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Guided setup modal for creating a Class Type Resolver Apex class.
  * Presents generated code with copy and download actions.

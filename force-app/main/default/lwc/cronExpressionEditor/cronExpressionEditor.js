@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Reusable cron expression editor component with preset, advanced, and custom modes.
  *              Supports Salesforce 7-field cron syntax. Designed for embedding in any context.

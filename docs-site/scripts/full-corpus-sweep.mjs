@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Full-corpus render gate. Generalises the render smoke-test to EVERY built route:
 // builds nothing itself (run after `npm run build`), serves `vitepress preview`, and
 // drives Chromium over all routes via a worker pool. Hard-fails (exit 1) on any route

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Sitemap <lastmod> helpers.
 //
 // Each page's <lastmod> is the git last-commit DATE (YYYY-MM-DD) of its SOURCE file.

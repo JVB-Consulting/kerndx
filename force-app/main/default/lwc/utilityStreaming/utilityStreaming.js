@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (c) Philippe Ozil (CC0-1.0 — rights waived)
 // Adapted from streaming-monitor (https://github.com/pozil/streaming-monitor)
 // Modifications copyright (c) 2026 JVB Consulting
@@ -9,7 +9,7 @@
  *
  * @author Jason van Beukering
  *
- * @date March 2026, July 2026
+ * @date March 2026, October 2026
  */
 
 import {formatTemplateString} from 'c/utilityString';

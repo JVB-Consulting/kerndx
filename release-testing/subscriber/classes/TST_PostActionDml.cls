@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-test post-trigger action that performs SYNCHRONOUS DML inside
  * `execute()`, deliberately violating the framework no-DML contract. The framework's no-DML

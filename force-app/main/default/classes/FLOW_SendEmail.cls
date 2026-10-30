@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Provides an invocable entry point for sending emails via Salesforce Flow with advanced capabilities.
  * Supports:
@@ -13,7 +13,7 @@
  *
  * @group Email
  *
- * @date February 2026, September 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

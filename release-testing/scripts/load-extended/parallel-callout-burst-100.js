@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Extended Load (the extended-load spec §9.3): Pre-tag-only — parallel callout burst at 100×.
  *

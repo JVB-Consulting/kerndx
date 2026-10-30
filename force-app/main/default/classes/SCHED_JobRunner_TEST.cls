@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for SCHED_JobRunner: the runner's schedulable declares no parameters and hands its execute to
  * one check for due jobs.

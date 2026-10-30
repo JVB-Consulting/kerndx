@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Confirmation dialogue for the Health Check "Apply Recommended Retention" flow.
  *              Shows each proposed ScheduledJob__c with an inline schedule picklist and closes

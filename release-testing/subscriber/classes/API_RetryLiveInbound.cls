@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-testing inbound handler whose processing throws and whose own error handling throws too. The
  * framework must still answer the caller: status 500, with both messages in the body, and the call record ends Failed.

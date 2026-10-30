@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for createForm LWC component.
  *
@@ -43,21 +43,9 @@ jest.mock('@salesforce/apex/CTRL_SObjectInformation.getSObjectAllFieldsInformati
 	default: jest.fn()
 }), {virtual: true});
 
-jest.mock('lightning/uiObjectInfoApi', () => ({
-	getPicklistValuesByRecordType: jest.fn(), getObjectInfo: jest.fn()
-}), {virtual: true});
-
-jest.mock('lightning/uiRecordApi', () => ({
-	createRecord: jest.fn(), generateRecordInputForCreate: jest.fn(), getRecordCreateDefaults: jest.fn(), updateRecord: jest.fn()
-}), {virtual: true});
-
-// Mock child component to prevent template resolution issues
-jest.mock('c/sObjectLookup', () =>
-{
-	return {
-		default: jest.fn()
-	};
-}, {virtual: true});
+// lightning/uiObjectInfoApi and lightning/uiRecordApi are the sfdx-lwc-jest stubs: their wire adapters are test wire
+// adapters and createRecord, updateRecord and generateRecordInputForCreate are jest.fn, which the tests program and
+// watch. A jest.mock of a lightning/ module stops intercepting once another suite in the same worker has loaded it.
 
 describe('c-create-form', () =>
 {
@@ -789,31 +777,38 @@ describe('c-create-form', () =>
 			it('clearFormFields clears values of input fields and unticks checkboxes', () =>
 			{
 				const context = createMockContext();
-				const mockInput = {value: 'test'};
-				const mockCheckbox = {checked: true};
+				const mockInput = {value: 'test', dataset: {id: 'Name'}};
+				const mockCheckbox = {checked: true, dataset: {id: 'IsActive'}};
+				context.formValueMap = {Name: 'test', IsActive: true};
 				Object.defineProperty(context, 'inputFields', {get: () => [mockInput]});
 				Object.defineProperty(context, 'checkboxFields', {get: () => [mockCheckbox]});
 				prototype.clearFormFields.call(context);
 				expect(mockInput.value).toBe('');
 				expect(mockCheckbox.checked).toBe(false);
+				expect(context.formValueMap.Name).toBe('');
+				expect(context.formValueMap.IsActive).toBe(false);
 			});
 
-			it('clearPicklistFields resets picklist values', () =>
+			it('clearPicklistFields resets picklist values and the stored value', () =>
 			{
 				const context = createMockContext();
-				const mockPicklist = {value: 'Selected'};
+				const mockPicklist = {value: 'A', dataset: {id: 'Stage'}};
+				context.formValueMap = {Stage: 'A'};
 				Object.defineProperty(context, 'picklistFields', {get: () => [mockPicklist]});
 				prototype.clearPicklistFields.call(context);
 				expect(mockPicklist.value).toBeUndefined();
+				expect(context.formValueMap.Stage).toBe('');
 			});
 
-			it('clearLookupFields calls clearLookup on each lookup', () =>
+			it('clearLookupFields calls clearLookup on each lookup and clears the stored value', () =>
 			{
 				const context = createMockContext();
-				const mockLookup = {clearLookup: jest.fn()};
+				const mockLookup = {elementName: 'AccountId', clearLookup: jest.fn()};
+				context.formValueMap = {AccountId: '001000000000001'};
 				Object.defineProperty(context, 'lookupFields', {get: () => [mockLookup]});
 				prototype.clearLookupFields.call(context);
-				expect(mockLookup.clearLookup).toHaveBeenCalled();
+				expect(mockLookup.clearLookup).toHaveBeenCalledTimes(1);
+				expect(context.formValueMap.AccountId).toBe('');
 			});
 
 			it('getPicklistValues returns empty array when no picklist data', () =>
@@ -2437,6 +2432,33 @@ describe('c-create-form', () =>
 			element.clearForm();
 
 			expect(checkbox.checked).toBe(false);
+		});
+
+		it('saves false for a checkbox the user ticked and the form then cleared', async() =>
+		{
+			const element = mountFormWithCheckbox(false, false);
+			await Promise.resolve();
+
+			const checkbox = element.shadowRoot.querySelector(`lightning-input[data-id="${CHECKBOX_FIELD_NAME}"]`);
+			checkbox.dispatchEvent(new CustomEvent('change', {detail: {checked: true}}));
+			element.clearForm();
+
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe(false);
+		});
+
+		it('saves a blank for a text field the user typed in and the form then cleared', async() =>
+		{
+			const {TEXT_FIELD_TYPE} = require('c/createForm');
+			const typedText = 'Typed text';
+			const element = mountFormWithCheckbox(false, '', {fieldType: TEXT_FIELD_TYPE});
+			await Promise.resolve();
+
+			const input = element.shadowRoot.querySelector(`.input-field[data-id="${CHECKBOX_FIELD_NAME}"]`);
+			input.dispatchEvent(new CustomEvent('change', {detail: {value: typedText}}));
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe(typedText);
+			element.clearForm();
+
+			expect(element.generateRecord().fields[CHECKBOX_FIELD_NAME]).toBe('');
 		});
 
 		it('sends true when the user ticks a checkbox that loaded as false', async() =>

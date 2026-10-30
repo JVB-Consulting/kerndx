@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: BUSL-1.1 */
+/* SPDX-License-Identifier: Apache-2.0 */
 /*
  * Log Console container. Colour is confined to the severity axis (the per-level summary
  * cards and the table's severity badges) and the limit bars in the detail pane; every

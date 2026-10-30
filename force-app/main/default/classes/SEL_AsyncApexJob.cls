@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the AsyncApexJob system table. Provides the reads that tell whether an
  * async job is still live. They select as few fields as possible: getFields() declares only Status, and the query

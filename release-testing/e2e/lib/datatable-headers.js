@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // One reader for a lightning-datatable's column labels, shared by the page objects whose checks
 // compare a whole column set exactly rather than searching the header text for one word (the Chain
 // Monitor's list and the Log Console's list, both of which drop columns at narrow widths).

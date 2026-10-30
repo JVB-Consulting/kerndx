@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Lightweight async chain runner for sequencing jobs with shared state, error handling,
  * and progress tracking. Delegates to existing async and logging infrastructure. Each step runs in a queueable
@@ -230,9 +230,9 @@ global inherited sharing class UTIL_AsyncChain
 	/**
 	 * @description Refusal raised when a launch from inside a chain job finds no spare queueable stack level for the
 	 * child's first hop: {0} the chain name, {1} the launching run's record id, {2} the depth the launching job runs
-	 * at, {3} the maximum allowed for its line of jobs (the jobs started one from another). A job started from inside
-	 * a running job takes over that line's maximum and cannot set its own. So the child's first hop must fit under
-	 * the launcher's maximum. The framework's default leaves room for that; a caller's own AsyncOptions may not.
+	 * at, {3} the maximum allowed for its group of jobs (the jobs queued one from another, from the same first job). A
+	 * job started from inside a running job takes over that group's maximum and cannot set its own. So the child's
+	 * first hop must fit under the launcher's maximum. The framework's default leaves room for that; a caller's own AsyncOptions may not.
 	 *
 	 * @since 1.8
 	 */
@@ -294,8 +294,8 @@ global inherited sharing class UTIL_AsyncChain
 	/**
 	 * @description Refusal raised when a launch from inside a queueable job that is not a chain job finds no spare
 	 * queueable stack level for the chain's first hop: {0} the chain name, {1} the depth the running job sits at, {2}
-	 * the maximum its line of jobs (the jobs started one from another) was given. A job inside such a line cannot set
-	 * a maximum of its own, so the chain's first hop must fit under the one the line has.
+	 * the maximum its group of jobs (the jobs queued one from another, from the same first job) was given. A job inside
+	 * such a group cannot set a maximum of its own, so the chain's first hop must fit under the one the group has.
 	 *
 	 * @since 1.10
 	 */
@@ -1406,7 +1406,7 @@ global inherited sharing class UTIL_AsyncChain
 		 * The backoff delay applies only when the retried attempt is queued. It happens exactly once, on
 		 * the retry itself, and the steps after a successful retry run with no added delay. A chain that
 		 * has retried also has more room in the queueable stack depth for the rest of its run. Each retry
-		 * really adds one job to the line of jobs, so the extra depth stays available to the hops that
+		 * really adds one more job to the jobs queued one from another, so the extra depth stays available to the hops that
 		 * follow.
 		 *
 		 * @return The retry strategy for this step, or null (the default) for no retry.
@@ -2145,7 +2145,8 @@ global inherited sharing class UTIL_AsyncChain
 		 * @description AsyncOptions controlling queueable stack depth. When null, the framework creates a default with
 		 * maximumQueueableStackDepth = steps.size() + 1 + MAXIMUM_NESTING_DEPTH, so the chains a step launches have room
 		 * for their first hops. Inside a queueable job the count starts from the depth that job runs at, when the
-		 * platform lets the framework read it. A launch inside a job whose line of jobs already has a maximum queues its
+		 * platform lets the framework read it. A launch inside a job whose group of jobs (the jobs queued one from another,
+		 * from the same first job) already has a maximum queues its
 		 * first hop without options, under that maximum; these options then apply from the second hop on. A delay set
 		 * on the caller's own options is not applied to that first hop; withDelayMinutes is the way to delay it.
 		 */
@@ -2606,13 +2607,13 @@ global inherited sharing class UTIL_AsyncChain
 		 * back instead of a second one. One chain may be launched per step or handler.
 		 *
 		 * A run may also be launched from inside any other queueable job. A job started from inside a running job whose
-		 * line of jobs (the jobs started one from another) already has a maximum queueable stack depth takes over that
-		 * maximum and cannot set its own. So the first step of a chain launched there runs under the launching line's
-		 * maximum: the launching chain's, or the one the other job was queued with. The framework's default maximum
+		 * group of jobs (the jobs queued one from another, from the same first job) already has a maximum queueable stack
+		 * depth takes over that maximum and cannot set its own. So the first step of a chain launched there runs under the
+		 * launching group's maximum: the launching chain's, or the one the other job was queued with. The framework's default maximum
 		 * leaves room for that inside a chain. A launch that would find no room, would nest too deep, or comes from a job
 		 * that has already added its one queueable job, is refused before anything is written. Inside a trigger fired by
 		 * a save that a queueable job makes, the platform does not let the framework read the depth of the running job.
-		 * The job may be a chain step or any other job. A job queued from there starts a new line of jobs, so the chain sets its own
+		 * The job may be a chain step or any other job. A job queued from there starts a new group of jobs, so the chain sets its own
 		 * maximum as a launch outside any job does. A chain launched this way from a step's trigger is still recorded as
 		 * launched under the step's run and remembered by that step. If the platform refuses the
 		 * chain's first job anyway, the run record is deleted and the platform's exception reaches the caller, so no
@@ -2631,7 +2632,7 @@ global inherited sharing class UTIL_AsyncChain
 		 * its first step, follow another launch from the same step or handler in the same transaction, follow a
 		 * queueable job that step or handler already added, or start a different chain from a step or handler that
 		 * launched one before; or if the launch runs inside another queueable job that has already added its one
-		 * queueable job, or whose line of jobs has no spare queueable stack level for the first step.
+		 * queueable job, or whose group of jobs has no spare queueable stack level for the first step.
 		 *
 		 * @since 1.0
 		 *
@@ -2721,8 +2722,9 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		/**
-		 * @description Queues the chain's first executor. A launch that borrows the maximum of the line of jobs it runs
-		 * in is queued without options (see enqueueFirstExecutorUnderTheLaunchingMaximum). Any other launch is queued
+		 * @description Queues the chain's first executor. A launch inside a group of jobs (the jobs queued one from another,
+		 * from the same first job) that already has a maximum uses that maximum: it is queued without options (see
+		 * enqueueFirstExecutorUnderTheLaunchingMaximum). Any other launch is queued
 		 * with a copy of the executor's options (see buildFirstEnqueueOptions). When the platform refuses the job, the run
 		 * record just inserted is deleted and the platform's exception is thrown again unchanged. So a caller that catches
 		 * the exception and goes on never keeps a Running run that has no job. The delete costs a DML statement only on
@@ -2731,7 +2733,7 @@ global inherited sharing class UTIL_AsyncChain
 		 * @param execution The run record just inserted.
 		 * @param executor The first executor.
 		 * @param options The options the executor carries for the chain (the caller's own or the framework default).
-		 * @param borrowsTheLaunchingMaximum True when the launching line of jobs already has a maximum queueable stack
+		 * @param borrowsTheLaunchingMaximum True when the launching group of jobs already has a maximum queueable stack
 		 * depth, which the platform does not let a job inside it change.
 		 *
 		 * @return The enqueued job's id.
@@ -2756,24 +2758,24 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		/**
-		 * @description Reads what the line of queueable jobs (the jobs started one from another) this launch runs in
-		 * looks like. This is the only place a launch asks the platform for its queueable stack depth. A launch inside a
-		 * chain job asks only after it has checked for a child the step already launched, so a retried step that gets
-		 * that child back does not ask the platform at all.
+		 * @description Reads what the group of queueable jobs this launch runs in looks like. The group is the jobs queued
+		 * one from another, from the same first job. This is the only place a launch asks the platform for its queueable
+		 * stack depth. A launch inside a chain job asks only after it has checked for a child the step already launched,
+		 * so a retried step that gets that child back does not ask the platform at all.
 		 *
-		 * A launch outside a chain job and outside any queueable job has no line: depth 0 and no maximum, and nothing is
-		 * read. Any other launch asks the platform for the depth and the maximum. A launch inside a chain job asks
+		 * A launch outside a chain job and outside any queueable job has no group: depth 0 and no maximum, and nothing
+		 * is read. Any other launch asks the platform for the depth and the maximum. A launch inside a chain job asks
 		 * without checking System.isQueueable() first, because a chain's steps and handlers always run inside a
 		 * queueable job.
 		 *
 		 * Inside a trigger fired by a save that a queueable job makes, the platform refuses to answer, although the code
-		 * runs inside that job. A job queued from there starts a new line of jobs at depth 1, whatever line the running
-		 * job is in. So a line that cannot be read is treated as no line at all: depth 0 and no maximum, the same as a
+		 * runs inside that job. A job queued from there starts a new group of jobs at depth 1, whatever group the running
+		 * job is in. So a group that cannot be read is treated as no group at all: depth 0 and no maximum, the same as a
 		 * launch outside any job.
 		 *
 		 * @param launchedInsideChainJob True when the launch runs inside a step or handler of another chain.
 		 *
-		 * @return The line of jobs this launch runs in.
+		 * @return The group of jobs this launch runs in.
 		 *
 		 * @since 1.10
 		 */
@@ -2796,11 +2798,11 @@ global inherited sharing class UTIL_AsyncChain
 
 		/**
 		 * @description Refuses, before anything is written, a launch from inside a queueable job that is not a chain job
-		 * and could not run: one from a job that has already added its one queueable job, and one whose line of jobs has
+		 * and could not run: one from a job that has already added its one queueable job, and one whose group of jobs has
 		 * a maximum queueable stack depth and no spare level for the chain's first hop. A launch inside a chain job is
 		 * checked by refuseWhenThereIsNoRoomForTheChild instead, and a launch outside any queueable job is not checked.
 		 *
-		 * @param lineage The line of jobs the launch runs in.
+		 * @param lineage The group of jobs the launch runs in.
 		 *
 		 * @throws UTIL_Exceptions.IllegalStateException The refusal, naming the chain and the reason.
 		 *
@@ -2947,10 +2949,10 @@ global inherited sharing class UTIL_AsyncChain
 
 		/**
 		 * @description Refuses, before anything is written, a launch from inside a chain job that could not run: one
-		 * that would nest too deep, one whose line of jobs has no spare queueable stack level for the child's first hop, and
+		 * that would nest too deep, one whose group of jobs has no spare queueable stack level for the child's first hop, and
 		 * one from a job that has already added its one queueable job.
 		 *
-		 * @param lineage The line of jobs the launch runs in.
+		 * @param lineage The group of jobs the launch runs in.
 		 *
 		 * @throws UTIL_Exceptions.IllegalStateException The refusal, naming the chain and the reason.
 		 *
@@ -3021,13 +3023,13 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		/**
-		 * @description Refuses a launch from inside a chain job whose line of jobs has a maximum queueable stack depth and
+		 * @description Refuses a launch from inside a chain job whose group of jobs has a maximum queueable stack depth and
 		 * no spare level for the child's first hop, before anything is written. Otherwise the platform would refuse the enqueue after
-		 * the run record was inserted, leaving a Running record with no job behind it. A line with no maximum is not
-		 * checked. That is also the case when the platform does not let the framework read the line, as in a trigger
-		 * fired by the step's own save: the child then starts a new line of jobs, so the step's line needs no room.
+		 * the run record was inserted, leaving a Running record with no job behind it. A group with no maximum is not
+		 * checked. That is also the case when the platform does not let the framework read the group, as in a trigger
+		 * fired by the step's own save: the child then starts a new group of jobs, so the step's group needs no room.
 		 *
-		 * @param lineage The line of jobs the launch runs in.
+		 * @param lineage The group of jobs the launch runs in.
 		 *
 		 * @throws UTIL_Exceptions.IllegalStateException Naming the chain, the launching run, the depth and the maximum.
 		 *
@@ -3079,10 +3081,10 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		/**
-		 * @description Queues the first executor of a chain launched inside a line of jobs that already has a maximum
+		 * @description Queues the first executor of a chain launched inside a group of jobs that already has a maximum
 		 * queueable stack depth: from a chain job, or from any other queueable job queued with a maximum. The platform
-		 * refuses a maximum set from inside a running job whose line of jobs already has one. So this hop is queued
-		 * without options and uses the launching line's maximum. A caller's own maximum is not applied to this hop. The
+		 * refuses a maximum set from inside a running job whose group of jobs already has one. So this hop is queued
+		 * without options and uses the launching group's maximum. A caller's own maximum is not applied to this hop. The
 		 * executor's own options, which its Finalizer uses from the second hop on, carry the depth the rest of the chain
 		 * needs. A requested delay goes through the delay overload, which the platform accepts inside a job. A caller's
 		 * duplicateSignature is not applied to this hop. A delay set on the caller's own options (minimumQueueableDelayInMinutes)
@@ -3276,10 +3278,10 @@ global inherited sharing class UTIL_AsyncChain
 	}
 
 	/**
-	 * @description What the line of queueable jobs (the jobs started one from another) looks like to a chain launch:
-	 * whether the launch runs inside a queueable job, whether the platform let the framework read the line, the depth
-	 * the running job sits at, and the maximum the line was given. A line the platform does not let the framework read
-	 * looks like no line at all: depth 0 and no maximum.
+	 * @description What the group of queueable jobs looks like to a chain launch. The group is the jobs queued one from
+	 * another, from the same first job. This class holds whether the launch runs inside a queueable job, whether the
+	 * platform let the framework read the group, the depth the running job sits at, and the maximum the group was
+	 * given. A group the platform does not let the framework read looks like no group at all: depth 0 and no maximum.
 	 */
 	private class QueueableLineage
 	{
@@ -3289,9 +3291,9 @@ global inherited sharing class UTIL_AsyncChain
 		private final Boolean isInsideQueueable;
 
 		/**
-		 * @description True when the platform answered the framework's questions about the line, or when there was nothing
+		 * @description True when the platform answered the framework's questions about the group, or when there was nothing
 		 * to ask. False inside a trigger fired by a save that a queueable job makes, where a job queued from there starts
-		 * a new line of jobs.
+		 * a new group of jobs.
 		 */
 		private final Boolean isReadable;
 
@@ -3301,17 +3303,17 @@ global inherited sharing class UTIL_AsyncChain
 		private final Integer currentDepth;
 
 		/**
-		 * @description The maximum queueable stack depth of the line, or null when the line has none or it cannot be read.
+		 * @description The maximum queueable stack depth of the group, or null when the group has none or it cannot be read.
 		 */
 		private final Integer maximumDepth;
 
 		/**
-		 * @description Creates the description of a line of jobs.
+		 * @description Creates the description of a group of jobs.
 		 *
 		 * @param isInsideQueueable True when the launch runs inside a queueable job.
-		 * @param isReadable True when the platform answered the questions about the line.
+		 * @param isReadable True when the platform answered the questions about the group.
 		 * @param currentDepth The depth the launching job runs at.
-		 * @param maximumDepth The line's maximum, or null when it has none.
+		 * @param maximumDepth The group's maximum, or null when it has none.
 		 */
 		private QueueableLineage(Boolean isInsideQueueable, Boolean isReadable, Integer currentDepth, Integer maximumDepth)
 		{
@@ -3322,9 +3324,9 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		/**
-		 * @description Whether the line already has a maximum queueable stack depth, which a job inside it cannot change.
+		 * @description Whether the group already has a maximum queueable stack depth, which a job inside it cannot change.
 		 *
-		 * @return True when the line has a maximum.
+		 * @return True when the group has a maximum.
 		 */
 		private Boolean hasMaximum()
 		{

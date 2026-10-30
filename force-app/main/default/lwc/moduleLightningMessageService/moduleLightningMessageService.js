@@ -1,11 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Lightning Message Service module for the ComponentBuilder framework.
  * Provides publish/subscribe messaging with automatic subscription lifecycle management.
  *
  * @author Jason van Beukering
  *
- * @date February 2022, July 2026
+ * @date February 2022, October 2026
  */
 import {APPLICATION_SCOPE, publish, subscribe, unsubscribe} from 'lightning/messageService';
 

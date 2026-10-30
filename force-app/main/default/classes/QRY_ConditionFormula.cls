@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Translates QRY_Condition.Evaluable trees into FormulaEval-compatible
  * expression strings. Used by the mock filtering system to evaluate query conditions
@@ -16,7 +16,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class QRY_ConditionFormula

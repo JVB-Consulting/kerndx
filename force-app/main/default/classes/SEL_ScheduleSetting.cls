@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The SEL_ScheduleSetting class provides methods for retrieving ScheduleSetting__c
  * records based on specified criteria. It enables streamlined access to scheduling configurations

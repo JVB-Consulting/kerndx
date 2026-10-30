@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-testing class that writes many log entries in one transaction and names no location for any of
  * them. The framework then works out who wrote each entry from the call stack: the origin (APEX for code outside the

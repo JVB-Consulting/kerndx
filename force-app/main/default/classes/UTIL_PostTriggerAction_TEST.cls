@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for `UTIL_PostTriggerAction`. Covers the three gating filters
  * (feature flags, optional `TriggerSetting__c` scope, Apex entry-criteria evaluator),

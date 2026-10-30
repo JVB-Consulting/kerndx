@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description An interface for a Schedulable class that can declare the parameters it supports
  * and receive validated parameter values at scheduling time. Enables dynamic form rendering
@@ -17,7 +17,7 @@
  *
  * @group Schedulables
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

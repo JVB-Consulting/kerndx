@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Base class for all API web service calls (outbound and inbound).
  * Provides common functionality for HTTP request handling, error management, and data persistence.
@@ -116,14 +116,6 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	 * the handler registered runs again; the callout the handler made is never sent again by this retry.
 	 */
 	private static final Integer COMMIT_RETRIES_ON_LOCK = 1;
-
-	/**
-	 * @description The phrase the platform puts in the message of every DmlException it raises for refused rows. A
-	 * DmlException built in code (throw new DmlException('...')) carries no row errors, and asking it for them ends the
-	 * transaction with an error no catch block receives, so the row errors are read only from an exception whose message
-	 * carries this phrase.
-	 */
-	private static final String DML_ROW_ERRORS_PHRASE = 'First exception on row';
 
 	/**
 	 * @description True when the last attempt of the current commit failed. Each attempt sets it to false when it
@@ -1302,7 +1294,7 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	private static List<String> extractErrorMessages(Exception exceptionThrown)
 	{
 		List<String> messages = new List<String>();
-		if(exceptionThrown instanceof DmlException && exceptionThrown.getMessage()?.contains(DML_ROW_ERRORS_PHRASE) == true)
+		if(exceptionThrown instanceof DmlException && exceptionThrown.getMessage()?.contains(DML_Builder.DML_ROW_ERRORS_PHRASE) == true)
 		{
 			DmlException dmlError = (DmlException)exceptionThrown;
 			for(Integer i = 0, rowCount = dmlError.getNumDml(); i < rowCount; i++)

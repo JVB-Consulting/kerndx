@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the REAL componentBuilder LWC module implementation.
  *
@@ -9,7 +9,7 @@
  *              that redirects c/componentBuilder to the mock.
  *
  * @author Jason van Beukering
- * @date January 2026, May 2026
+ * @date January 2026, October 2026
  */
 
 // Mock the dependencies before importing the real componentBuilder

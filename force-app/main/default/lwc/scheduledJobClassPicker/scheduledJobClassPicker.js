@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The Class Name field of the scheduled job editors. It suggests the org's schedulable classes as you
  *              type, and it also takes a name the list does not show: the list is kept for up to eight hours, so a

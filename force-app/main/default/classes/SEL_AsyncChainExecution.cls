@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the AsyncChainExecution__c object. Each record is one run of a chain. The class reads runs
  * for the Chain Monitor, for status checks and by correlation id (the id that ties a run to its log entries). The

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Proves, on an org that installs the package, that the Selectors guide's examples for aggregate-query mocks,
  * TYPEOF parents and blank record keys compile and behave as the guide says. Each test carries one example as the guide

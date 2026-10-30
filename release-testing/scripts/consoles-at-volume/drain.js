@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Waits for the org's queueable backlog to drain between batches and measures how fast the engine's jobs complete.
 // The thresholds are the seed wrapper's (seed-chain-scenarios.sh): delayed chains sit in Holding for their whole
 // delay, so Holding is counted against its own ceiling and never blocks the gate on its own.

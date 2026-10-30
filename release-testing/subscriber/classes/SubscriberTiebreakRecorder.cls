@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test-only recorder for the 1.2 deterministic trigger-action tiebreak proof.
  * The two tied Before Insert actions (TRG_TiebreakZ and TRG_TiebreakA) append their marker to

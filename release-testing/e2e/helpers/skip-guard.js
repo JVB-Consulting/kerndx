@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // For journeys that prove behaviour only the installed package has. On the development org they are skipped with
 // the reason; on the subscriber pass, the proof of record, they run. RUNBOOK Phase 3 lists the journeys that use it.
 const {namespacePrefix} = require('./sf-namespace');

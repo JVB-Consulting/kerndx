@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for baseComponent LWC
  *
@@ -7,45 +7,11 @@
  * @date December 2025, October 2026
  */
 
-		// Create mock functions that can be tracked
-const mockDebug = jest.fn();
-const mockInfo = jest.fn();
-const mockWarn = jest.fn();
-const mockError = jest.fn();
-
-// Mock utilityLogger - use inline object to avoid hoisting issues
-jest.mock('c/utilityLogger', () => ({
-	__esModule: true, default: {
-		debug: (...args) => mockDebug(...args), info: (...args) => mockInfo(...args), warn: (...args) => mockWarn(...args), error: (...args) => mockError(...args)
-	}
-}), {virtual: true});
-
-// Mock utilityString
-jest.mock('c/utilityString', () => ({
-	formatTemplateString: jest.fn((template, substitutes) =>
-	{
-		let result = template || '';
-		for(let i = 0; i < substitutes.length; i++)
-		{
-			result = result.replace(`{${i}}`, substitutes[i]);
-		}
-		return result;
-	})
-}), {virtual: true});
-
-// Mock utilitySystem
-jest.mock('c/utilitySystem', () => ({
-	setPropertyOnObject: jest.fn((obj, key, value) =>
-	{
-		obj[key] = value;
-		return obj;
-	})
-}), {virtual: true});
-
 // Mock spinner.html
 jest.mock('../spinner.html', () => ({}), {virtual: true});
 
 import {createElement} from 'lwc';
+import utilityLogger from 'c/utilityLogger';
 import BaseComponent from 'c/baseComponent';
 
 // Import exported constants for testing
@@ -56,6 +22,13 @@ import {
 	HANDLE_WIRE_RESPONSE_UNINITIALISED_ERROR, FLOW_NAVIGATION_NEXT_EVENT_UNINITIALISED_ERROR, FLOW_NAVIGATION_BACK_EVENT_UNINITIALISED_ERROR,
 	FLOW_NAVIGATION_FINISH_EVENT_UNINITIALISED_ERROR
 } from 'c/baseComponent';
+
+// Spy on the real logger the component imports, instead of replacing the module with a jest.mock of c/utilityLogger.
+// A jest.mock of a c/ module stops intercepting when an earlier suite in the same worker loaded the real module:
+// the component then calls the real logger and every call count here reads zero. A spy sits on the one shared
+// logger object, so it sees each call whichever suite ran first. The spies do nothing, so no log is really sent.
+const mockDebug = jest.spyOn(utilityLogger, 'debug').mockImplementation(() => undefined);
+const mockError = jest.spyOn(utilityLogger, 'error').mockImplementation(() => undefined);
 
 describe('baseComponent', () =>
 {

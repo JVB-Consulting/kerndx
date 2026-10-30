@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Portions adapted from streaming-monitor (https://github.com/pozil/streaming-monitor),
 // Copyright (c) Philippe Ozil (CC0-1.0 — rights waived): the streaming channel-discovery query
 // methods getAllStandardPlatformEvents, getAllCustomPlatformEvents and getAllChangeCaptureEvents
@@ -14,7 +14,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, July 2026
+ * @date February 2026, October 2026
  */
 public inherited sharing class SEL_EntityDefinition extends SEL_Base
 {

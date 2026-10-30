@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the scheduledJobClassPicker LWC component: what it suggests, the name it emits for a
  *              picked or typed class, the keyboard, and the error under the field.

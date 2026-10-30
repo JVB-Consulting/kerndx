@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the ApiCall__c object. Provides query methods for
  * service call management, status tracking, and assertion utilities for test verification.

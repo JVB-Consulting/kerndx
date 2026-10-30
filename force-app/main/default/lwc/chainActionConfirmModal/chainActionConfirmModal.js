@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Generic confirmation dialogue for the Chain Monitor's operator actions (retry,
  *              restart, clear stalled, suspend, resume). The caller passes pre-interpolated

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber-side fixture Schedulable that drives the sustained-logger-pe-flood
  * extended load test. Each cron fire is a fresh transaction so heap, CPU, DML, and SOQL

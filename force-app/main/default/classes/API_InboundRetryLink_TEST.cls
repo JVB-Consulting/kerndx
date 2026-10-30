@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests what an inbound request does with the earlier calls of the same request. Two calls are of the same
  * request when the same user sent them to the same service with the same Idempotency-Key. When another person runs an

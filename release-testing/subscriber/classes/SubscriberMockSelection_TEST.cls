@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests mock selection integration through the outbound delegation pipeline.
  * Verifies catch-all CMDT mock resolution and in-memory mock precedence via

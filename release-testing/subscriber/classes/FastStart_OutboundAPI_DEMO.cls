@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Drift-guard demo for the Fast Start - Outbound APIs guide. Fetches a single post from
  * JSONPlaceholder by ID, demonstrating the core outbound handler pattern: typed DTOs, parameter

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Tier-1 render gate. Builds, serves `vitepress preview`, drives Chromium via
 // @playwright/test's chromium (NOT the Playwright MCP). Exits non-zero on failure.
 import {chromium} from '@playwright/test';

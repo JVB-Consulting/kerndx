@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Section 84j: an issue on the call 1.8 saved without a key, run again through Retry Selected after the upgrade
  *

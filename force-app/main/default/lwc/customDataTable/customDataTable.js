@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Datatable that supports custom row types. Extends `LightningDatatable`
  * and registers a set of built-in column types (richText, image, iconColumn,

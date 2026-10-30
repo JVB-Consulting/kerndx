@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for UTIL_ValidationRule and related validation framework classes.
  * Tests validation rule execution, bypass hierarchy, shadow mode, logging, and Flow integration.
@@ -54,6 +54,53 @@ private class UTIL_ValidationRule_TEST
 	 * unreadable context class must name it.
 	 */
 	private static final String JSON_ACCESS_ANNOTATION = '@JsonAccess(serializable=\'always\')';
+
+	/**
+	 * @description The error message of the test rule that every record fails. Tests look for it on the record or in the
+	 * result to prove the rule ran.
+	 */
+	private static final String ALWAYS_FAILING_RULE_MESSAGE = 'Every record fails this rule';
+
+	/**
+	 * @description The name of the rule a shadow mode test reports. Shadow mode means the rule only writes to the log and
+	 * never stops the save.
+	 */
+	private static final String SHADOW_RULE_NAME = 'ShadowRule';
+
+	/**
+	 * @description The message of the rule a shadow mode test reports.
+	 */
+	private static final String SHADOW_RULE_MESSAGE = 'Shadow error message';
+
+	/**
+	 * @description The text that starts the short log message of every shadow mode violation.
+	 */
+	private static final String SHADOW_LOG_TAG = '[SHADOW]';
+
+	/**
+	 * @description The name of the rule a warning test reports. A warning is written to the log and never stops the save.
+	 */
+	private static final String WARNING_RULE_NAME = 'WarningRule';
+
+	/**
+	 * @description The message of the rule a warning test reports.
+	 */
+	private static final String WARNING_RULE_MESSAGE = 'Warning message';
+
+	/**
+	 * @description The name of the record field a field-level error is shown on.
+	 */
+	private static final String ERROR_FIELD_NAME = 'Name';
+
+	/**
+	 * @description Where the framework records a shadow mode violation in the log.
+	 */
+	private static final String SHADOW_LOG_METHOD = UTIL_ValidationRule.class.getName() + '/logShadowViolation';
+
+	/**
+	 * @description Where the framework records a warning in the log.
+	 */
+	private static final String WARNING_LOG_METHOD = UTIL_ValidationRule.class.getName() + '/executeForTrigger';
 
 	/**
 	 * @description Static tracking variables for TestBulkValidationContext.
@@ -452,236 +499,259 @@ private class UTIL_ValidationRule_TEST
 	}
 
 	/**
-	 * @description Tests that applyErrors handles null input without throwing exception.
+	 * @description Tests that applyErrors does nothing when the records or the results are missing. A record handed in
+	 * without results gets no error, and results handed in without records keep their error.
 	 */
 	@IsTest
-	private static void shouldHandleNullRecordsInApplyErrors()
-	{
-		Test.startTest();
-		UTIL_ValidationRule.applyErrors(null, null);
-		UTIL_ValidationRule.applyErrors(new List<Foobar__c>(), null);
-		UTIL_ValidationRule.applyErrors(null, new List<UTIL_ValidationRule.ValidationResult>());
-		Test.stopTest();
-
-		Assert.isTrue(true, 'Should not throw exception for null inputs');
-	}
-
-	/**
-	 * @description Tests that applyErrors handles empty results without throwing exception.
-	 */
-	@IsTest
-	private static void shouldHandleEmptyResultsInApplyErrors()
+	private static void shouldLeaveInputsUnchangedWhenApplyErrorsGetsNullInput()
 	{
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		UTIL_ValidationRule.ValidationResult result = new UTIL_ValidationRule.ValidationResult(0, null);
+		UTIL_ValidationRule.ValidationResult result = newResultWithError(0, newBlockingError(null));
 
 		Test.startTest();
-		UTIL_ValidationRule.applyErrors(new List<Foobar__c> {record}, new List<UTIL_ValidationRule.ValidationResult> {result});
+		UTIL_ValidationRule.applyErrors(null, null);
+		UTIL_ValidationRule.applyErrors(new List<Foobar__c> {record}, null);
+		UTIL_ValidationRule.applyErrors(null, new List<UTIL_ValidationRule.ValidationResult> {result});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should not throw exception for empty results');
+		Assert.isFalse(record.hasErrors(), 'Expected no error on a record handed in without results');
+		Assert.areEqual(1, result.errors.size(), 'Expected the results handed in without records to keep their one error');
 	}
 
 	/**
-	 * @description Tests that applyErrors logs shadow mode errors without blocking the record.
+	 * @description Tests that applyErrors skips a result that has no errors and still applies the error of the next
+	 * result. The first record passed every rule, so it keeps no error. The second record failed a rule, so it gets the
+	 * error.
+	 */
+	@IsTest
+	private static void shouldSkipResultsWithoutErrorsInApplyErrors()
+	{
+		List<Foobar__c> records = TST_Factory.newFoobars(2);
+		UTIL_ValidationRule.ValidationResult passedResult = new UTIL_ValidationRule.ValidationResult(0, null);
+		UTIL_ValidationRule.ValidationResult failedResult = newResultWithError(1, newBlockingError(null));
+
+		Test.startTest();
+		UTIL_ValidationRule.applyErrors(records, new List<UTIL_ValidationRule.ValidationResult> {passedResult, failedResult});
+		Test.stopTest();
+
+		Assert.isFalse(records[0].hasErrors(), 'Expected no error on the record whose result has no errors');
+		Assert.areEqual(1, records[1].getErrors().size(), 'Expected one error on the record whose result has an error');
+		Assert.areEqual(ALWAYS_FAILING_RULE_MESSAGE, records[1].getErrors()[0].getMessage(), 'Expected the error to carry the rule message');
+	}
+
+	/**
+	 * @description Tests that applyErrors writes a shadow mode error to the log as one warning and does not put an
+	 * error on the record, so the save is not stopped.
 	 */
 	@IsTest
 	private static void shouldApplyErrorsWithShadowMode()
 	{
 		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		UTIL_ValidationRule.ValidationResult result = new UTIL_ValidationRule.ValidationResult(0, null);
-		UTIL_ValidationRule.ValidationError error = new UTIL_ValidationRule.ValidationError
-				(
-						'ShadowRule',
-						'Shadow error message',
-						null,
-						UTIL_ValidationRule.SEVERITY_ERROR
-				);
-		error.shadowMode = true;
-		error.recordIndex = 0;
-		result.errors.add(error);
+		UTIL_ValidationRule.ValidationResult result = newResultWithError(0, newShadowError());
 
 		Test.startTest();
 		UTIL_ValidationRule.applyErrors(new List<Foobar__c> {record}, new List<UTIL_ValidationRule.ValidationResult> {result});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Shadow mode errors should log but not block');
+		List<LogEntry__c> entries = new SEL_LogEntry().findAllByMethod(SHADOW_LOG_METHOD);
+		Assert.isFalse(record.hasErrors(), 'Expected no error on the record, because a shadow mode error never stops the save');
+		Assert.areEqual(1, entries.size(), 'Expected one log entry for the shadow mode error');
+		Assert.areEqual(LOG_Engine.LEVEL_WARN, entries[0].LogLevel__c, 'Expected the shadow mode error to be logged as a warning');
 	}
 
 	/**
-	 * @description Tests that applyErrors logs warning errors without blocking the record.
+	 * @description Tests that applyErrors writes a warning rule to the log as one warning and does not put an error on
+	 * the record, so the save is not stopped.
 	 */
 	@IsTest
 	private static void shouldApplyErrorsWithWarnings()
 	{
 		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		UTIL_ValidationRule.ValidationResult result = new UTIL_ValidationRule.ValidationResult(0, null);
-		UTIL_ValidationRule.ValidationError warning = new UTIL_ValidationRule.ValidationError
-				(
-						'WarningRule',
-						'Warning message',
-						null,
-						UTIL_ValidationRule.SEVERITY_WARNING
-				);
-		warning.recordIndex = 0;
-		result.errors.add(warning);
+		UTIL_ValidationRule.ValidationResult result = newResultWithError(0, newWarningError());
 
 		Test.startTest();
 		UTIL_ValidationRule.applyErrors(new List<Foobar__c> {record}, new List<UTIL_ValidationRule.ValidationResult> {result});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Warning errors should log but not block');
+		List<LogEntry__c> entries = new SEL_LogEntry().findAllByMethod(WARNING_LOG_METHOD);
+		Assert.isFalse(record.hasErrors(), 'Expected no error on the record, because a warning never stops the save');
+		Assert.areEqual(1, entries.size(), 'Expected one log entry for the warning');
+		Assert.areEqual(LOG_Engine.LEVEL_WARN, entries[0].LogLevel__c, 'Expected the warning to be logged as a warning');
 	}
 
 	/**
-	 * @description Tests that executeForTrigger handles null records without throwing exception.
+	 * @description Tests that executeForTrigger returns quietly when it gets no new records (null), even while a rule that
+	 * every record fails is in place. The old record handed in beside them gets no error.
 	 */
 	@IsTest
 	private static void shouldHandleNullInExecuteForTrigger()
 	{
+		useRuleThatEveryRecordFails(TriggerOperation.BEFORE_UPDATE);
+		Foobar__c oldRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
+
 		Test.startTest();
-		UTIL_ValidationRule.executeForTrigger(null, null, TriggerOperation.BEFORE_INSERT);
+		UTIL_ValidationRule.executeForTrigger(null, new List<Foobar__c> {oldRecord}, TriggerOperation.BEFORE_UPDATE);
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should not throw exception');
+		Assert.isFalse(oldRecord.hasErrors(), 'Expected no error on the old record when there are no new records');
 	}
 
 	/**
-	 * @description Tests that executeForTrigger handles empty records without throwing exception.
+	 * @description Tests that executeForTrigger returns quietly for an empty list of records, even while a rule that every
+	 * record fails is in place. The list stays empty.
 	 */
 	@IsTest
 	private static void shouldHandleEmptyInExecuteForTrigger()
 	{
+		useRuleThatEveryRecordFails(TriggerOperation.BEFORE_INSERT);
+		List<Foobar__c> records = new List<Foobar__c>();
+
 		Test.startTest();
-		UTIL_ValidationRule.executeForTrigger(new List<Foobar__c>(), null, TriggerOperation.BEFORE_INSERT);
+		UTIL_ValidationRule.executeForTrigger(records, null, TriggerOperation.BEFORE_INSERT);
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should not throw exception');
+		Assert.isTrue(records.isEmpty(), 'Expected the empty list of records to stay empty');
 	}
 
 	/**
-	 * @description Tests TRG_ExecuteValidationRules.beforeInsert trigger action interface.
+	 * @description Tests that the trigger action's before insert step runs the before insert rules and puts the error of
+	 * a failing rule on the record.
 	 */
 	@IsTest
 	private static void shouldExecuteBeforeInsertTriggerAction()
 	{
+		useRuleThatEveryRecordFails(TriggerOperation.BEFORE_INSERT);
 		TRG_ExecuteValidationRules action = new TRG_ExecuteValidationRules();
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		List<Foobar__c> records = new List<Foobar__c> {record};
 
 		Test.startTest();
-		action.beforeInsert(records);
+		action.beforeInsert(new List<Foobar__c> {record});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should execute without exception');
+		Assert.areEqual(1, record.getErrors().size(), 'Expected the failing rule to put one error on the record');
+		Assert.areEqual(ALWAYS_FAILING_RULE_MESSAGE, record.getErrors()[0].getMessage(), 'Expected the error to carry the rule message');
 	}
 
 	/**
-	 * @description Tests TRG_ExecuteValidationRules.afterInsert trigger action interface.
+	 * @description Tests that the trigger action's after insert step runs the after insert rules and puts the error of a
+	 * failing rule on the record.
 	 */
 	@IsTest
 	private static void shouldExecuteAfterInsertTriggerAction()
 	{
+		useRuleThatEveryRecordFails(TriggerOperation.AFTER_INSERT);
 		TRG_ExecuteValidationRules action = new TRG_ExecuteValidationRules();
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		List<Foobar__c> records = new List<Foobar__c> {record};
 
 		Test.startTest();
-		action.afterInsert(records);
+		action.afterInsert(new List<Foobar__c> {record});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should execute without exception');
+		Assert.areEqual(1, record.getErrors().size(), 'Expected the failing rule to put one error on the record');
+		Assert.areEqual(ALWAYS_FAILING_RULE_MESSAGE, record.getErrors()[0].getMessage(), 'Expected the error to carry the rule message');
 	}
 
 	/**
-	 * @description Tests TRG_ExecuteValidationRules.beforeUpdate trigger action interface.
+	 * @description Tests that the trigger action's before update step runs the before update rules and puts the error of
+	 * a failing rule on the new record, not on the old one.
 	 */
 	@IsTest
 	private static void shouldExecuteBeforeUpdateTriggerAction()
 	{
+		useRuleThatEveryRecordFails(TriggerOperation.BEFORE_UPDATE);
 		TRG_ExecuteValidationRules action = new TRG_ExecuteValidationRules();
 		Foobar__c newRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
 		Foobar__c oldRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		List<Foobar__c> newRecords = new List<Foobar__c> {newRecord};
-		List<Foobar__c> oldRecords = new List<Foobar__c> {oldRecord};
 
 		Test.startTest();
-		action.beforeUpdate(newRecords, oldRecords);
+		action.beforeUpdate(new List<Foobar__c> {newRecord}, new List<Foobar__c> {oldRecord});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should execute without exception');
+		Assert.areEqual(1, newRecord.getErrors().size(), 'Expected the failing rule to put one error on the new record');
+		Assert.areEqual(ALWAYS_FAILING_RULE_MESSAGE, newRecord.getErrors()[0].getMessage(), 'Expected the error to carry the rule message');
+		Assert.isFalse(oldRecord.hasErrors(), 'Expected no error on the old record');
 	}
 
 	/**
-	 * @description Tests TRG_ExecuteValidationRules.afterUpdate trigger action interface.
+	 * @description Tests that the trigger action's after update step runs the after update rules and puts the error of a
+	 * failing rule on the new record, not on the old one.
 	 */
 	@IsTest
 	private static void shouldExecuteAfterUpdateTriggerAction()
 	{
+		useRuleThatEveryRecordFails(TriggerOperation.AFTER_UPDATE);
 		TRG_ExecuteValidationRules action = new TRG_ExecuteValidationRules();
 		Foobar__c newRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
 		Foobar__c oldRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		List<Foobar__c> newRecords = new List<Foobar__c> {newRecord};
-		List<Foobar__c> oldRecords = new List<Foobar__c> {oldRecord};
 
 		Test.startTest();
-		action.afterUpdate(newRecords, oldRecords);
+		action.afterUpdate(new List<Foobar__c> {newRecord}, new List<Foobar__c> {oldRecord});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should execute without exception');
+		Assert.areEqual(1, newRecord.getErrors().size(), 'Expected the failing rule to put one error on the new record');
+		Assert.areEqual(ALWAYS_FAILING_RULE_MESSAGE, newRecord.getErrors()[0].getMessage(), 'Expected the error to carry the rule message');
+		Assert.isFalse(oldRecord.hasErrors(), 'Expected no error on the old record');
 	}
 
 	/**
-	 * @description Tests TRG_ExecuteValidationRules.beforeDelete trigger action interface.
+	 * @description Tests that the trigger action's before delete step runs the before delete rules and puts the error of
+	 * a failing rule on the record being deleted.
 	 */
 	@IsTest
 	private static void shouldExecuteBeforeDeleteTriggerAction()
 	{
+		useRuleThatEveryRecordFails(TriggerOperation.BEFORE_DELETE);
 		TRG_ExecuteValidationRules action = new TRG_ExecuteValidationRules();
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		List<Foobar__c> records = new List<Foobar__c> {record};
 
 		Test.startTest();
-		action.beforeDelete(records);
+		action.beforeDelete(new List<Foobar__c> {record});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should execute without exception');
+		Assert.areEqual(1, record.getErrors().size(), 'Expected the failing rule to put one error on the record');
+		Assert.areEqual(ALWAYS_FAILING_RULE_MESSAGE, record.getErrors()[0].getMessage(), 'Expected the error to carry the rule message');
 	}
 
 	/**
-	 * @description Tests TRG_ExecuteValidationRules.afterDelete trigger action interface.
+	 * @description Tests that the trigger action's after delete step runs the after delete rules and puts the error of a
+	 * failing rule on the deleted record.
 	 */
 	@IsTest
 	private static void shouldExecuteAfterDeleteTriggerAction()
 	{
+		useRuleThatEveryRecordFails(TriggerOperation.AFTER_DELETE);
 		TRG_ExecuteValidationRules action = new TRG_ExecuteValidationRules();
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		List<Foobar__c> records = new List<Foobar__c> {record};
 
 		Test.startTest();
-		action.afterDelete(records);
+		action.afterDelete(new List<Foobar__c> {record});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should execute without exception');
+		Assert.areEqual(1, record.getErrors().size(), 'Expected the failing rule to put one error on the record');
+		Assert.areEqual(ALWAYS_FAILING_RULE_MESSAGE, record.getErrors()[0].getMessage(), 'Expected the error to carry the rule message');
 	}
 
 	/**
-	 * @description Tests TRG_ExecuteValidationRules.afterUndelete trigger action interface.
+	 * @description Tests that the trigger action's after undelete step runs the after undelete rules and puts the error of
+	 * a failing rule on the restored record.
 	 */
 	@IsTest
 	private static void shouldExecuteAfterUndeleteTriggerAction()
 	{
+		useRuleThatEveryRecordFails(TriggerOperation.AFTER_UNDELETE);
 		TRG_ExecuteValidationRules action = new TRG_ExecuteValidationRules();
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		List<Foobar__c> records = new List<Foobar__c> {record};
 
 		Test.startTest();
-		action.afterUndelete(records);
+		action.afterUndelete(new List<Foobar__c> {record});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should execute without exception');
+		Assert.areEqual(1, record.getErrors().size(), 'Expected the failing rule to put one error on the record');
+		Assert.areEqual(ALWAYS_FAILING_RULE_MESSAGE, record.getErrors()[0].getMessage(), 'Expected the error to carry the rule message');
 	}
 
 	/**
@@ -750,35 +820,39 @@ private class UTIL_ValidationRule_TEST
 	}
 
 	/**
-	 * @description Tests that all valid TriggerOperation enum values are parsed correctly.
+	 * @description Tests that the Flow action reads every trigger context name and runs the rules of that context. Each
+	 * context has its own failing rule whose message is the context name, so the message that comes back shows which
+	 * rules ran. A blank context runs the before insert rules.
 	 */
 	@IsTest
 	private static void shouldParseAllTriggerOperationEnumValues()
 	{
+		useRulesThatEveryRecordFailsNamedForTheirOperation(TriggerOperation.values());
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		List<String> validContexts = new List<String>
+		Map<String, String> expectedMessageByContext = new Map<String, String>();
+		for(TriggerOperation operation : TriggerOperation.values())
 		{
-				'BEFORE_INSERT',
-				'BEFORE_UPDATE',
-				'BEFORE_DELETE',
-				'AFTER_INSERT',
-				'AFTER_UPDATE',
-				'AFTER_DELETE',
-				'AFTER_UNDELETE',
-				UTIL_String.EMPTY
-		};
+			expectedMessageByContext.put(operation.name(), operation.name());
+		}
+		expectedMessageByContext.put(UTIL_String.EMPTY, TriggerOperation.BEFORE_INSERT.name());
+		Map<String, FLOW_ExecuteValidationRules.DTO_Response> responseByContext = new Map<String, FLOW_ExecuteValidationRules.DTO_Response>();
 
 		Test.startTest();
-		for(String context : validContexts)
+		for(String context : expectedMessageByContext.keySet())
 		{
 			FLOW_ExecuteValidationRules.DTO_Request request = new FLOW_ExecuteValidationRules.DTO_Request();
 			request.records = new List<SObject> {record};
 			request.triggerContext = context;
-			FLOW_ExecuteValidationRules.execute(new List<FLOW_ExecuteValidationRules.DTO_Request> {request});
+			responseByContext.put(context, FLOW_ExecuteValidationRules.execute(new List<FLOW_ExecuteValidationRules.DTO_Request> {request})[0]);
 		}
 		Test.stopTest();
 
-		Assert.isTrue(true, 'All trigger operations should parse without exception');
+		for(String context : expectedMessageByContext.keySet())
+		{
+			Assert.isTrue(responseByContext.get(context).hasErrors, 'Expected the failing rule to report an error for the context "' + context + '"');
+			Assert.areEqual(expectedMessageByContext.get(context), responseByContext.get(context).errorMessage,
+					'Expected the rule of the right trigger context to run for the context "' + context + '"');
+		}
 	}
 
 	/**
@@ -839,20 +913,24 @@ private class UTIL_ValidationRule_TEST
 	}
 
 	/**
-	 * @description Tests that empty name in bypass invocable does not throw exception.
+	 * @description Tests that the Flow bypass action ignores an empty name. Sent first in the same call, it neither fails
+	 * nor stops the real name after it from being bypassed.
 	 */
 	@IsTest
-	private static void shouldHandleEmptyNameInBypassInvocable()
+	private static void shouldIgnoreEmptyNameInBypassInvocable()
 	{
-		FLOW_BypassValidation.DTO_Request request = new FLOW_BypassValidation.DTO_Request();
-		request.bypassType = UTIL_ValidationRule.VALIDATION_BYPASS_TYPE.OBJECT_NAME.name();
-		request.name = UTIL_String.EMPTY;
+		FLOW_BypassValidation.DTO_Request objectRequest = new FLOW_BypassValidation.DTO_Request();
+		objectRequest.bypassType = UTIL_ValidationRule.VALIDATION_BYPASS_TYPE.OBJECT_NAME.name();
+		objectRequest.name = TEST_OBJECT_NAME;
+		FLOW_BypassValidation.DTO_Request emptyRequest = new FLOW_BypassValidation.DTO_Request();
+		emptyRequest.bypassType = UTIL_ValidationRule.VALIDATION_BYPASS_TYPE.OBJECT_NAME.name();
+		emptyRequest.name = UTIL_String.EMPTY;
 
 		Test.startTest();
-		FLOW_BypassValidation.bypass(new List<FLOW_BypassValidation.DTO_Request> {request});
+		FLOW_BypassValidation.bypass(new List<FLOW_BypassValidation.DTO_Request> {emptyRequest, objectRequest});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should not throw exception');
+		Assert.isTrue(UTIL_ValidationRule.isBypassed(TEST_OBJECT_NAME), 'Expected the real name after the empty one to be bypassed');
 	}
 
 	/**
@@ -1093,96 +1171,86 @@ private class UTIL_ValidationRule_TEST
 	}
 
 	/**
-	 * @description Tests applyErrorToRecord applies field-level error to record.
+	 * @description Tests that applyErrors shows an error whose rule names a field on that field of the record.
 	 */
 	@IsTest
 	private static void shouldApplyErrorToRecordWithFieldName()
 	{
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		UTIL_ValidationRule.ValidationError error = new UTIL_ValidationRule.ValidationError
-				(
-						TEST_RULE_NAME,
-						'Field error message',
-						'Name',
-						UTIL_ValidationRule.SEVERITY_ERROR
-				);
+		UTIL_ValidationRule.ValidationResult result = newResultWithError(0, newBlockingError(ERROR_FIELD_NAME));
 
 		Test.startTest();
-		UTIL_ValidationRule.applyErrorToRecord(record, error);
+		UTIL_ValidationRule.applyErrors(new List<Foobar__c> {record}, new List<UTIL_ValidationRule.ValidationResult> {result});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should apply field-level error');
+		Assert.areEqual(1, record.getErrors().size(), 'Expected one error on the record');
+		Assert.areEqual(ALWAYS_FAILING_RULE_MESSAGE, record.getErrors()[0].getMessage(), 'Expected the error to carry the rule message');
+		Assert.areEqual(new List<String> {ERROR_FIELD_NAME}, record.getErrors()[0].getFields(), 'Expected the error to be shown on the named field');
 	}
 
 	/**
-	 * @description Tests applyErrorToRecord applies page-level error to record.
+	 * @description Tests that applyErrors shows an error whose rule names no field on the record as a whole, not on a field.
 	 */
 	@IsTest
 	private static void shouldApplyErrorToRecordWithoutFieldName()
 	{
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		UTIL_ValidationRule.ValidationError error = new UTIL_ValidationRule.ValidationError
-				(
-						TEST_RULE_NAME,
-						'Page-level error message',
-						null,
-						UTIL_ValidationRule.SEVERITY_ERROR
-				);
+		UTIL_ValidationRule.ValidationResult result = newResultWithError(0, newBlockingError(null));
 
 		Test.startTest();
-		UTIL_ValidationRule.applyErrorToRecord(record, error);
+		UTIL_ValidationRule.applyErrors(new List<Foobar__c> {record}, new List<UTIL_ValidationRule.ValidationResult> {result});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Should apply page-level error');
+		Assert.areEqual(1, record.getErrors().size(), 'Expected one error on the record');
+		Assert.areEqual(ALWAYS_FAILING_RULE_MESSAGE, record.getErrors()[0].getMessage(), 'Expected the error to carry the rule message');
+		Assert.isTrue(record.getErrors()[0].getFields().isEmpty(), 'Expected the error to be shown on the record as a whole');
 	}
 
 	/**
-	 * @description Tests logShadowViolation logs shadow mode errors.
+	 * @description Tests that the log entry of a shadow mode error names the rule, the type of record and the error
+	 * message, so a reader can find the rule that would have stopped the save.
 	 */
 	@IsTest
 	private static void shouldLogShadowViolation()
 	{
 		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		UTIL_ValidationRule.ValidationError error = new UTIL_ValidationRule.ValidationError
-				(
-						'ShadowRule',
-						'Shadow violation message',
-						null,
-						UTIL_ValidationRule.SEVERITY_ERROR
-				);
-		error.recordIndex = 0;
-		error.shadowMode = true;
+		UTIL_ValidationRule.ValidationResult result = newResultWithError(0, newShadowError());
 
 		Test.startTest();
-		UTIL_ValidationRule.logShadowViolation(error, record);
+		UTIL_ValidationRule.applyErrors(new List<Foobar__c> {record}, new List<UTIL_ValidationRule.ValidationResult> {result});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Shadow violation should be logged');
+		List<LogEntry__c> entries = new SEL_LogEntry().findAllByMethod(SHADOW_LOG_METHOD);
+		Assert.areEqual(1, entries.size(), 'Expected one log entry for the shadow mode error');
+		Assert.isTrue(entries[0].Message__c.contains(SHADOW_RULE_NAME), 'Expected the log entry to name the rule');
+		Assert.isTrue(entries[0].Message__c.contains(UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType)),
+				'Expected the log entry to name the type of record');
+		Assert.isTrue(entries[0].Message__c.contains(SHADOW_RULE_MESSAGE), 'Expected the log entry to carry the error message');
 	}
 
 	/**
-	 * @description Tests logWarning logs warning validation errors.
+	 * @description Tests that the log entry of a warning names the rule, the type of record and the warning message.
 	 */
 	@IsTest
 	private static void shouldLogWarning()
 	{
 		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		UTIL_ValidationRule.ValidationError warning = new UTIL_ValidationRule.ValidationError
-				(
-						'WarningRule',
-						'Warning message',
-						null,
-						UTIL_ValidationRule.SEVERITY_WARNING
-				);
-		warning.recordIndex = 0;
+		UTIL_ValidationRule.ValidationResult result = newResultWithError(0, newWarningError());
 
 		Test.startTest();
-		UTIL_ValidationRule.logWarning(warning, record);
+		UTIL_ValidationRule.applyErrors(new List<Foobar__c> {record}, new List<UTIL_ValidationRule.ValidationResult> {result});
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Warning should be logged');
+		List<LogEntry__c> entries = new SEL_LogEntry().findAllByMethod(WARNING_LOG_METHOD);
+		Assert.areEqual(1, entries.size(), 'Expected one log entry for the warning');
+		Assert.isTrue(entries[0].Message__c.contains(WARNING_RULE_NAME), 'Expected the log entry to name the rule');
+		Assert.isTrue(entries[0].Message__c.contains(UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType)),
+				'Expected the log entry to name the type of record');
+		Assert.isTrue(entries[0].Message__c.contains(WARNING_RULE_MESSAGE), 'Expected the log entry to carry the warning message');
 	}
 
 	/**
@@ -1201,25 +1269,32 @@ private class UTIL_ValidationRule_TEST
 	}
 
 	/**
-	 * @description Tests validation against all trigger operations without exception.
+	 * @description Tests that validate runs only the rules of the trigger operation it is given. Each operation has its own
+	 * failing rule whose message is the operation name, so each result must carry exactly the message of its own operation.
 	 */
 	@IsTest
 	private static void shouldValidateMultipleTriggerOperations()
 	{
+		useRulesThatEveryRecordFailsNamedForTheirOperation(TriggerOperation.values());
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
 		List<Foobar__c> records = new List<Foobar__c> {record};
+		Map<TriggerOperation, List<UTIL_ValidationRule.ValidationResult>> resultsByOperation =
+				new Map<TriggerOperation, List<UTIL_ValidationRule.ValidationResult>>();
 
 		Test.startTest();
-		UTIL_ValidationRule.validate(records, null, TriggerOperation.BEFORE_INSERT);
-		UTIL_ValidationRule.validate(records, records, TriggerOperation.BEFORE_UPDATE);
-		UTIL_ValidationRule.validate(records, null, TriggerOperation.AFTER_INSERT);
-		UTIL_ValidationRule.validate(records, records, TriggerOperation.AFTER_UPDATE);
-		UTIL_ValidationRule.validate(records, null, TriggerOperation.BEFORE_DELETE);
-		UTIL_ValidationRule.validate(records, null, TriggerOperation.AFTER_DELETE);
-		UTIL_ValidationRule.validate(records, null, TriggerOperation.AFTER_UNDELETE);
+		for(TriggerOperation operation : TriggerOperation.values())
+		{
+			resultsByOperation.put(operation, UTIL_ValidationRule.validate(records, records, operation));
+		}
 		Test.stopTest();
 
-		Assert.isTrue(true, 'All trigger operations should validate without exception');
+		for(TriggerOperation operation : TriggerOperation.values())
+		{
+			List<UTIL_ValidationRule.ValidationResult> results = resultsByOperation.get(operation);
+			Assert.areEqual(1, results.size(), 'Expected one result for the operation ' + operation.name());
+			Assert.areEqual(1, results[0].errors.size(), 'Expected one error for the operation ' + operation.name());
+			Assert.areEqual(operation.name(), results[0].errors[0].message, 'Expected only the rule of the operation ' + operation.name() + ' to run');
+		}
 	}
 
 	/**
@@ -2279,6 +2354,115 @@ private class UTIL_ValidationRule_TEST
 	}
 
 	/**
+	 * @description Makes the framework find one rule that every record fails, for one trigger operation on Foobar__c. The
+	 * rule is handed to the rule reader in memory, so no custom metadata record is needed.
+	 *
+	 * @param operation The trigger operation the rule applies to.
+	 */
+	private static void useRuleThatEveryRecordFails(TriggerOperation operation)
+	{
+		useFailingRules(new Map<TriggerOperation, String> {operation => ALWAYS_FAILING_RULE_MESSAGE});
+	}
+
+	/**
+	 * @description Makes the framework find, for each given trigger operation on Foobar__c, one rule that every record
+	 * fails. The message of each rule is the name of its operation, so a test can see which rule ran.
+	 *
+	 * @param operations The trigger operations that each get their own failing rule.
+	 */
+	private static void useRulesThatEveryRecordFailsNamedForTheirOperation(List<TriggerOperation> operations)
+	{
+		Map<TriggerOperation, String> messageByOperation = new Map<TriggerOperation, String>();
+		for(TriggerOperation operation : operations)
+		{
+			messageByOperation.put(operation, operation.name());
+		}
+		useFailingRules(messageByOperation);
+	}
+
+	/**
+	 * @description Hands the rule reader one rule for each trigger operation on Foobar__c. Every record fails each rule,
+	 * and each rule reports the message given for its operation.
+	 *
+	 * @param messageByOperation The error message of the rule, for each trigger operation.
+	 */
+	private static void useFailingRules(Map<TriggerOperation, String> messageByOperation)
+	{
+		TriggerSetting__mdt triggerSetting = TST_Factory.newTriggerSetting(SEL_Foobar.OBJECT_NAME);
+		ValidationRuleGroup__mdt ruleGroup = TST_Factory.newValidationRuleGroup(triggerSetting, FOOBAR_CONTEXT_CLASS);
+		Map<String, List<SEL_ValidationRules.ValidationRuleWithGroup>> rulesByOperation = new Map<String, List<SEL_ValidationRules.ValidationRuleWithGroup>>();
+
+		for(TriggerOperation operation : messageByOperation.keySet())
+		{
+			ValidationRule__mdt rule = TST_Factory.newValidationRule
+					(
+							new Map<SObjectField, Object>
+							{
+									ValidationRule__mdt.RuleFormula__c => String.valueOf(true),
+									ValidationRule__mdt.ErrorMessage__c => messageByOperation.get(operation)
+							}
+					);
+			rulesByOperation.put(operation.name(), new List<SEL_ValidationRules.ValidationRuleWithGroup> {new SEL_ValidationRules.ValidationRuleWithGroup(rule, ruleGroup)});
+		}
+
+		SEL_ValidationRules.testCacheOverride = new Map<String, Map<String, List<SEL_ValidationRules.ValidationRuleWithGroup>>>
+		{
+				SEL_Foobar.OBJECT_NAME => rulesByOperation
+		};
+	}
+
+	/**
+	 * @description Builds the result of one record that carries one error.
+	 *
+	 * @param recordIndex The position of the record in the list being validated.
+	 * @param error The error the result carries.
+	 *
+	 * @return The result with its one error.
+	 */
+	private static UTIL_ValidationRule.ValidationResult newResultWithError(Integer recordIndex, UTIL_ValidationRule.ValidationError error)
+	{
+		UTIL_ValidationRule.ValidationResult result = new UTIL_ValidationRule.ValidationResult(recordIndex, null);
+		error.recordIndex = recordIndex;
+		result.errors.add(error);
+		return result;
+	}
+
+	/**
+	 * @description Builds an error that stops the save, with the message of the rule every record fails.
+	 *
+	 * @param fieldName The field to show the error on, or null to show it on the record as a whole.
+	 *
+	 * @return The error.
+	 */
+	private static UTIL_ValidationRule.ValidationError newBlockingError(String fieldName)
+	{
+		return new UTIL_ValidationRule.ValidationError(TEST_RULE_NAME, ALWAYS_FAILING_RULE_MESSAGE, fieldName, UTIL_ValidationRule.SEVERITY_ERROR);
+	}
+
+	/**
+	 * @description Builds a shadow mode error: an error that is only written to the log and never stops the save.
+	 *
+	 * @return The error.
+	 */
+	private static UTIL_ValidationRule.ValidationError newShadowError()
+	{
+		UTIL_ValidationRule.ValidationError error =
+				new UTIL_ValidationRule.ValidationError(SHADOW_RULE_NAME, SHADOW_RULE_MESSAGE, null, UTIL_ValidationRule.SEVERITY_ERROR);
+		error.shadowMode = true;
+		return error;
+	}
+
+	/**
+	 * @description Builds a warning: an error that is written to the log and never stops the save.
+	 *
+	 * @return The error.
+	 */
+	private static UTIL_ValidationRule.ValidationError newWarningError()
+	{
+		return new UTIL_ValidationRule.ValidationError(WARNING_RULE_NAME, WARNING_RULE_MESSAGE, null, UTIL_ValidationRule.SEVERITY_WARNING);
+	}
+
+	/**
 	 * @description Tests that Fail Fast execution strategy stops processing after first error per record.
 	 * When a rule fails, subsequent rules in the group are skipped for that record.
 	 */
@@ -2380,31 +2564,25 @@ private class UTIL_ValidationRule_TEST
 	}
 
 	/**
-	 * @description Tests that shadow violation log message includes the error message.
-	 * The short message should be in format: "[SHADOW] Rule_Name: Error message text..."
+	 * @description Tests that the short message of a shadow mode log entry reads "[SHADOW] rule name: error message", so the
+	 * rule and its message show in a list of log entries without opening one.
 	 */
 	@IsTest
 	private static void shouldLogShadowViolationWithErrorMessage()
 	{
 		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
 		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
-		UTIL_ValidationRule.ValidationError error = new UTIL_ValidationRule.ValidationError
-				(
-						'ShadowRule',
-						'This is the error message that should appear in the short log',
-						null,
-						UTIL_ValidationRule.SEVERITY_ERROR
-				);
-		error.recordIndex = 0;
-		error.shadowMode = true;
+		UTIL_ValidationRule.ValidationResult result = newResultWithError(0, newShadowError());
 
 		Test.startTest();
-		UTIL_ValidationRule.logShadowViolation(error, record);
+		UTIL_ValidationRule.applyErrors(new List<Foobar__c> {record}, new List<UTIL_ValidationRule.ValidationResult> {result});
 		Test.stopTest();
 
-		// The implementation now includes error message in short message format:
-		// "[SHADOW] ShadowRule: This is the error message..."
-		Assert.isTrue(true, 'Shadow violation should include error message in log');
+		List<LogEntry__c> entries = new SEL_LogEntry().findAllByMethod(SHADOW_LOG_METHOD);
+		Assert.areEqual(1, entries.size(), 'Expected one log entry for the shadow mode error');
+		Assert.areEqual(SHADOW_LOG_TAG + ' ' + SHADOW_RULE_NAME + ': ' + SHADOW_RULE_MESSAGE, entries[0].ShortMessage__c,
+				'Expected the short message to name the rule and carry the error message');
 	}
 
 	/**

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the ApexClass SObject. Provides type-safe querying and
  * Schedulable interface resolution for all Apex classes in the org.

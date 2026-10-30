@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Internal processor for asynchronous execution, automatically switching between Queueable and Batchable contexts.
  * This class is a self-contained engine that processes data based on logic provided via the Processable interface.

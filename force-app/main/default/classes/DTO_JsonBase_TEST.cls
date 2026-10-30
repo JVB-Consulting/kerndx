@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests the behaviour of `DTO_JsonBase` — JSON serialise / deserialise helpers
  * and the `getObjectType()` runtime-type resolution that drives them.
@@ -9,7 +9,7 @@
  *
  * @group Data Transfer Objects
  *
- * @date April 2026, May 2026
+ * @date April 2026, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)

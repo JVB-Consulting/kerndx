@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-testing outbound handler that sends a GET to a Named Credential that does not exist, so every send
  * fails at the send point with the platform's own refusal. A GET is safe to repeat, so the failed call is scheduled for a

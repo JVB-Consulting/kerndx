@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Writes an audit entry each time code turns a framework bypass on or off. A bypass switches off one
  * framework check: a trigger, query sharing or security, a DML security mode, or a validation rule. A trigger or

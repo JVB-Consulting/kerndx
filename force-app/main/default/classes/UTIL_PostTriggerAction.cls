@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Runs `PostTriggerAction__mdt`-configured post-trigger actions at the
  * outermost dispatch unwind, in `Order__c` ascending. Each row is gated through three
@@ -34,7 +34,7 @@
  *
  * @group Triggers
  *
- * @date May 2026, September 2026
+ * @date May 2026, October 2026
  *
  * @since 1.1
  */

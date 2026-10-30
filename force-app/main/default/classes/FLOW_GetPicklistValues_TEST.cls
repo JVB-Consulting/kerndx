@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests the invocable action for retrieving picklist values via ConnectApi.
  * SeeAllData=true is required because ConnectApi methods are not supported in data-siloed tests.
@@ -9,7 +9,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  */
 @IsTest(seeAllData=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ApexUnitTestShouldNotUseSeeAllDataTrue')

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Factory for retry strategies with nested interface definitions.
  * Provides a clean API for creating and configuring retry strategies with exponential or linear backoff.

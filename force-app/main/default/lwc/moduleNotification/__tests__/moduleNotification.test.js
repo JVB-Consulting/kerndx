@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for moduleNotification LWC module
  *
  * @author Jason van Beukering
  *
- * @date December 2025, June 2026
+ * @date December 2025, October 2026
  */
 
 // Custom Label mocks — values byte-equal the real CustomLabels entries so the
@@ -14,34 +14,23 @@ jest.mock('@salesforce/label/c.ModuleNotification_InfoTitle', () => ({default: '
 jest.mock('@salesforce/label/c.ModuleNotification_SuccessTitle', () => ({default: 'Success'}), {virtual: true});
 jest.mock('@salesforce/label/c.ModuleNotification_WarningTitle', () => ({default: 'Warning'}), {virtual: true});
 
-// Mock ShowToastEvent
+// The toast each test reads is the detail of the real ShowToastEvent (the sfdx-lwc-jest stub) that the module hands to
+// the component's dispatchEvent. A jest.mock of lightning/platformShowToastEvent would stop intercepting once another
+// suite in the same worker, or the real c/utilitySystem loaded below, has loaded the real module.
+const SHOW_TOAST_EVENT_NAME = 'lightning__showtoast';
 const mockShowToastEventInstances = [];
-jest.mock('lightning/platformShowToastEvent', () => ({
-	ShowToastEvent: class MockShowToastEvent
-	{
-		constructor(config)
-		{
-			this.title = config.title;
-			this.message = config.message;
-			this.variant = config.variant;
-			this.messageData = config.messageData;
-			this.mode = config.mode;
-			mockShowToastEventInstances.push(this);
-		}
-	}
-}), {virtual: true});
 
-// Mock c/utilitySystem — verifies that moduleNotification invokes reduceErrors only for
-// object-shaped inputs. The actual reduceErrors implementation is covered by utilitySystem.test.js.
-const mockReduceErrors = jest.fn((errors) => 'reduced: ' + JSON.stringify(errors));
-jest.mock('c/utilitySystem', () => ({
-	reduceErrors: (errors) => mockReduceErrors(errors)
-}), {virtual: true});
-
+import * as utilitySystem from 'c/utilitySystem';
 import initialiseNotificationModule, {
 	initialiseCustomNotification, initialiseCustomNotificationFactory, initializeShowInfoToast, initializeShowWarningToast, initializeShowSuccessToast, initializeShowErrorToast,
 	INFO_NOTIFICATION_TITLE, WARNING_NOTIFICATION_TITLE, SUCCESS_NOTIFICATION_TITLE, ERROR_NOTIFICATION_TITLE
 } from 'c/moduleNotification';
+
+// Spy on the real c/utilitySystem export: it verifies that moduleNotification invokes reduceErrors only for
+// object-shaped inputs. The actual reduceErrors implementation is covered by utilitySystem.test.js. A spy, not a
+// jest.mock of the module: such a mock stops intercepting once another suite in the same worker has loaded the
+// real module, while a spy replaces the export the module itself calls.
+const mockReduceErrors = jest.spyOn(utilitySystem, 'reduceErrors').mockImplementation((errors) => 'reduced: ' + JSON.stringify(errors));
 
 describe('moduleNotification', () =>
 {
@@ -52,7 +41,14 @@ describe('moduleNotification', () =>
 		jest.clearAllMocks();
 		mockShowToastEventInstances.length = 0;
 		mockComponent = {
-			dispatchEvent: jest.fn().mockReturnValue(true)
+			dispatchEvent: jest.fn((event) =>
+			{
+				if(event.type === SHOW_TOAST_EVENT_NAME)
+				{
+					mockShowToastEventInstances.push(event.detail);
+				}
+				return true;
+			})
 		};
 	});
 

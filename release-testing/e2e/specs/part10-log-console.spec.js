@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 //
 // Part 10: Log Console (V106-V113, plus the V122-V126 scripted matrix from the Log Console review:
 // OFFSET-proof deep scroll, sort persistence across a filter change, phone-width ribbon + drawer,

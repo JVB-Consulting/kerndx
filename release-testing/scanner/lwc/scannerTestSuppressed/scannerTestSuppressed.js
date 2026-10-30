@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Suppressed component — extends LightningElement with justified eslint-disable.
  * Used by release-testing scanner validation (RUNBOOK §2.3d).

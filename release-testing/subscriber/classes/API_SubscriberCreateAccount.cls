@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Inbound service that creates an Account from a JSON request. REST_SubscriberApi receives the HTTP POST
  * and hands it to the framework, which runs this class: it checks the request, inserts the Account and fills in the

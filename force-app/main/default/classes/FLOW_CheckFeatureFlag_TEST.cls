@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Will test the behaviour of FLOW_CheckFeatureFlag.
  * This test validates that the invocable action correctly processes the list of
@@ -10,7 +10,7 @@
  *
  * @group Feature Flags
  *
- * @date November 2025, May 2026
+ * @date November 2025, October 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false)

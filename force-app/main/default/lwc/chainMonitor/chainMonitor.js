@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Full-page async chain execution monitor with split-panel list and detail views.
  * Subscribes to LogEntryEvent__e for real-time status updates and automatic refresh, and lands

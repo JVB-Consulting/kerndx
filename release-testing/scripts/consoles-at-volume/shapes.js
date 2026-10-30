@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The shape table of the consoles-at-volume load. The candidate shape is the spec's (section 2.1); what the platform
 // measured is the probe's, read from probe-report.json beside this file and never guessed: the
 // driver refuses to run without it. A remembered platform limit is not a measured one.

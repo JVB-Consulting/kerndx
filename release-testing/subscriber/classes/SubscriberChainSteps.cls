@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Chain step implementations for subscriber integration testing.
  * Exercises the UTIL_AsyncChain API from subscriber context with real DML,

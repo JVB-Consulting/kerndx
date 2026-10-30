@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Fluent DML API for building and running database operations: you set it up by chaining
  * method calls. A static method, newTransaction(), starts a transaction. Chained methods add operations and
@@ -66,6 +66,13 @@ global inherited sharing class DML_Builder
 	 * @description Message of the IllegalArgumentException a null expectRefusal() argument raises.
 	 */
 	private static final String ERROR_EXPECTED_REFUSAL_STATUS_CODE_REQUIRED = 'expectRefusal() requires a status code';
+
+	/**
+	 * @description The phrase the platform puts in the message of every DmlException it raises for refused rows. A DmlException
+	 * built in Apex code carries no rows, and asking it for them ends the transaction with an error no catch block receives, so
+	 * the rows are read only for an exception whose message carries this phrase.
+	 */
+	public static final String DML_ROW_ERRORS_PHRASE = 'First exception on row';
 
 	/**
 	 * @description The retries withRetryOnLock() applies when no count is given.
@@ -535,7 +542,7 @@ global inherited sharing class DML_Builder
 	 * - With `withSystemMode()`, in either order, the object and field permissions are not checked either.
 	 * - With the `UserModeDml_Enabled` flag off, a save with no access mode runs in system mode, so nothing is
 	 *   checked, as for any save.
-	 * The choice is recorded in the bypass audit when the save runs.
+	 * When the save runs, the framework's bypass audit records it: log entries, one for each kind of record saved, that say this save ignored record sharing.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -639,7 +646,7 @@ global inherited sharing class DML_Builder
 	 * @description Forces `AccessLevel.SYSTEM_MODE` on every DML operation in this transaction.
 	 * Use it when code must write objects that the running user is not meant to have object or field access
 	 * (CRUD/FLS) to, such as logs, records that track background work, or other objects the framework owns.
-	 * The choice is recorded in the bypass audit when the save runs.
+	 * When the save runs, the framework's bypass audit records it: log entries, one for each kind of record saved, that say this save skipped object and field permissions.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -998,7 +1005,7 @@ global inherited sharing class DML_Builder
 		{
 			if(isSuppressExceptions)
 			{
-				return new TransactionResult(error, null);
+				return new TransactionResult(error, countFailedRecords(error, totalRows));
 			}
 			throw error;
 		}
@@ -1040,6 +1047,21 @@ global inherited sharing class DML_Builder
 			return null;
 		}
 		return isAuditedSharingBypass || DML_SharingProxy.matchesAccessLevel(resolvedAccessLevel(), System.AccessLevel.SYSTEM_MODE) ? false : null;
+	}
+
+	/**
+	 * @description How many records failed in a save that ended in a DmlException. An exception the platform raised counts its
+	 * failed rows. One built in Apex code carries no rows; then every record in the save counts as failed, because the whole save
+	 * was rolled back.
+	 *
+	 * @param error The exception the save ended in.
+	 * @param recordsInSave How many records the save held.
+	 *
+	 * @return The number of records that failed.
+	 */
+	private static Integer countFailedRecords(DmlException error, Integer recordsInSave)
+	{
+		return error.getMessage()?.contains(DML_ROW_ERRORS_PHRASE) == true ? error.getNumDml() : recordsInSave;
 	}
 
 	/**
@@ -1327,9 +1349,10 @@ global inherited sharing class DML_Builder
 		private final Exception suppressedException;
 
 		/**
-		 * @description How many records failed when suppressedException is a TypeException: the number of records the
-		 * running user lacked the object permission for. It is null for a DmlException, whose own count of failed rows
-		 * is read only when getFailureCount() asks for it.
+		 * @description How many records failed in the save that suppressExceptions() turned into this failed result. The count is
+		 * read when the exception is caught. For a TypeException it is the number of records the running user lacked the object
+		 * permission for. For a DmlException it is the failed rows the platform reported, or every record in the save when the
+		 * exception holds no rows.
 		 */
 		private final Integer suppressedFailureCount;
 
@@ -1367,7 +1390,7 @@ global inherited sharing class DML_Builder
 		 * @description Constructs a failure TransactionResult from an exception that suppressExceptions() caught.
 		 *
 		 * @param error The exception that caused the failure.
-		 * @param failureCount How many records failed, or null to read the count from the DmlException when it is asked for.
+		 * @param failureCount How many records failed, counted when the exception was caught.
 		 */
 		private TransactionResult(Exception error, Integer failureCount)
 		{
@@ -1543,7 +1566,8 @@ global inherited sharing class DML_Builder
 		}
 
 		/**
-		 * @description Returns the count of failed DML operations across all operation types.
+		 * @description Returns the count of failed DML operations across all operation types. For a save that
+		 * `suppressExceptions()` turned into a failed result, every record counts as failed when the exception holds no row details.
 		 *
 		 * @return Number of failed operations.
 		 *
@@ -1558,7 +1582,7 @@ global inherited sharing class DML_Builder
 		{
 			if(suppressedException != null)
 			{
-				return suppressedFailureCount ?? ((DmlException)suppressedException).getNumDml();
+				return suppressedFailureCount;
 			}
 
 			Integer count = 0;

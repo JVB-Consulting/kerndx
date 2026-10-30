@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Measures elapsed wall-clock time. Provides the foundational timing API that
  * specialised performance timers build on.

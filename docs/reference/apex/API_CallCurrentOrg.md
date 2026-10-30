@@ -5,7 +5,7 @@ pageClass: reference
 description: "Base API class for all handlers that call the current Org standard APIs. Uses session-ID-based authentication and resolves the org base URL dynamically via URL.getOrgDomainURL(). A call to your own or"
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, September 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

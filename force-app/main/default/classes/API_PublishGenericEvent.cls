@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description This handler publishes a generic streaming event to a StreamingChannel
  * via the Salesforce REST API.

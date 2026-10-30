@@ -5,7 +5,7 @@ pageClass: reference
 description: "Generic Interface for Table data sources"
 author: "Jason Van Beukering"
 group: "Controllers"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

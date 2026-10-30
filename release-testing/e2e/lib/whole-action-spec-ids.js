@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The whole-action prototype of 2026-09-07 (the Log Console whole-action design) draws BOTH
 // consoles on one page, so its data-spec-id inventory is partitioned here: the Log Console gap-finder owns one half,
 // the Chain Monitor gap-finder the other, and a guard proves the two halves cover the inventory exactly, so a new id

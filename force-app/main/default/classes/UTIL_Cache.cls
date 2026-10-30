@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 
 /**
  * @description Factory for Platform Cache instances with nested interface pattern.
@@ -873,8 +873,8 @@ global inherited sharing class UTIL_Cache
 	 *   scope. OperationResult.cacheTypeUsed reports the actual scope used (IN_TRANSACTION
 	 *   when the fallback fired) so callers can detect the degraded path.
 	 * - Durability-critical callers (security keys, distributed state) MUST use auto(), not
-	 *   this factory, so the loud failure signal stays loud
-	 *   when Platform Cache is missing.
+	 *   this factory, so a missing Platform Cache still makes them fail instead of quietly falling back to the
+	 *   transaction cache.
 	 *
 	 * @return Store with Session → Org → Transaction fallback chain
 	 *
@@ -1893,7 +1893,7 @@ global inherited sharing class UTIL_Cache
 			}
 			catch(Exception error)
 			{
-				// Safe to suppress
+				// A cache partition that cannot be read counts as a miss, so the caller reads the value from its source.
 			}
 			return false;
 		}
@@ -1961,7 +1961,7 @@ global inherited sharing class UTIL_Cache
 			}
 			catch(Exception error)
 			{
-				// Safe to suppress
+				// A partition that cannot be reached counts as unavailable, so the caller does not use it.
 			}
 			return false;
 		}

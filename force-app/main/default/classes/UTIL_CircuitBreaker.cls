@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Factory for creating circuit breaker instances to prevent cascading failures
  * and provide fast failure when external services are unavailable.

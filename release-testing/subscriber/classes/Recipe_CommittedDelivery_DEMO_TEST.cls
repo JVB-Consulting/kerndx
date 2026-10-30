@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Proof tests for the transactional-outbox composition pattern. Stage B artifact:
  * the action class uses retryOn (1.7 surface), so this suite runs at the beta install, not on

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Abstract base class for scheduled jobs that support configurable parameters.
  * Implements IF_Schedulable, providing parameter storage, typed parameter resolution, and a default

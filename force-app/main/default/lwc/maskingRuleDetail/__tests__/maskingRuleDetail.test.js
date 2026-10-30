@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the maskingRuleDetail LWC — the rule-detail popup built on
  *              lightning/modal (LightningModal). It explains a masking rule (what it masks, applicable

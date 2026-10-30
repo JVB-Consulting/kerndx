@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for FLOW_BypassValidation invocable action.
  * Verifies that each request switches off the kind of validation it names (an object, a rule group or a single rule),

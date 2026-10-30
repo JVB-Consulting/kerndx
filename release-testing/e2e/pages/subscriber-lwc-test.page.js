@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {waitForLightningReady} = require('../helpers/sf-navigation');
 const {ensureAuthenticated, getInstanceUrl} = require('../helpers/sf-auth');
 const {waitForSpinnerGone} = require('../helpers/wait-helpers');

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the PermissionSetGroup SObject. Provides default field configuration
  * and query methods for PermissionSetGroup records. In test context, automatically recalculates
@@ -11,7 +11,7 @@
  *
  * @group Selectors
  *
- * @date February 2026, May 2026
+ * @date February 2026, October 2026
  *
  * @since 1.0
  *

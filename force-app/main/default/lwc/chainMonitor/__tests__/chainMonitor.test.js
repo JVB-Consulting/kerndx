@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for chainMonitor container LWC component
  * @author Jason van Beukering
@@ -55,22 +55,29 @@ import getNamespacePrefix from '@salesforce/apex/CTRL_ChainMonitor.getNamespaceP
 import clearStalledChains from '@salesforce/apex/CTRL_ChainMonitor.clearStalledChains';
 import CHAIN_MONITOR_TITLE from '@salesforce/label/c.ChainMonitor_Title';
 
-// Spy-on-real: the static open lives on the real module (lightning/modal resolves to the repo's
-// moduleNameMapper mock), so the interception survives the resolver-cache flip that silently
-// defeats a jest.mock('c/...') of the same module (see moduleController.test.js).
-const mockChainActionConfirmModalOpen = jest.spyOn(ChainActionConfirmModal, 'open').mockResolvedValue({action: 'cancel'});
+let mockChainActionConfirmModalOpen;
+
+// The dialog class gets its own open mock. A spy would return the one open mock that every dialog
+// class inherits from the lightning/modal test mock, so calls from different dialogs would mix.
+function replaceOpenWithMock(dialogClass, resolvedValue)
+{
+	const open = jest.fn().mockResolvedValue(resolvedValue);
+	Object.defineProperty(dialogClass, 'open', {value: open, configurable: true, writable: true});
+	return open;
+}
 
 describe('c-chain-monitor', () =>
 {
 	beforeEach(() =>
 	{
-		// Re-arm the shared static-open spy each test; per-case overrides use
+		// Give the dialog a fresh open mock each test; per-case overrides use
 		// mockResolvedValueOnce and are consumed within their own test.
-		mockChainActionConfirmModalOpen.mockResolvedValue({action: 'cancel'});
+		mockChainActionConfirmModalOpen = replaceOpenWithMock(ChainActionConfirmModal, {action: 'cancel'});
 	});
 
 	afterEach(() =>
 	{
+		delete ChainActionConfirmModal.open;
 		while(document.body.firstChild)
 		{
 			document.body.removeChild(document.body.firstChild);

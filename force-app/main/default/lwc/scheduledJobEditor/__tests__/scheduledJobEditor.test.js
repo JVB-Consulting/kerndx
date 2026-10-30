@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the scheduledJobEditor LWC component: what the record-page editor adds to the
  *              shared scheduled job form. The form itself is tested through this editor in scheduledJobEditorForm's suite.
@@ -11,60 +11,19 @@ import CREATED from '@salesforce/label/c.ScheduledJob_Created';
 import SAVED from '@salesforce/label/c.ScheduledJob_Saved';
 import SAVE_FAILED from '@salesforce/label/c.ScheduledJob_SaveFailed';
 import * as utilitySystem from 'c/utilitySystem';
+// noinspection JSUnresolvedReference - mock helpers are provided by the c/componentBuilder jest mock at run time
+import {mockRedirectToRecordPage, mockShowErrorToast, mockShowSuccessToast} from 'c/componentBuilder';
 import * as uiRecordApi from 'lightning/uiRecordApi';
 import {
 	createFormContext, findPropertyDescriptor, flushPromises, readBundleTemplate, registerScheduledJobFormMocks, saveFrom
 } from '../../scheduledJobEditorForm/__tests__/fixtures/editorFormTestSupport';
 
-const mockShowSuccessToast = jest.fn();
-const mockShowErrorToast = jest.fn();
-const mockShowInfoToast = jest.fn();
-const mockShowWarningToast = jest.fn();
-const mockCallControllerMethod = jest.fn().mockResolvedValue({});
-const mockRedirectToRecordPage = jest.fn();
-
-// c/componentBuilder is the one c/* module mocked here: jest.config.js maps it to its global mock, so the mock's id does
-// not depend on the resolver cache and the mock keeps intercepting whatever ran earlier in the worker. The other modules
-// use patterns that keep working whatever ran first: lightning/uiRecordApi is the sfdx-lwc-jest stub (getFieldValue and notifyRecordUpdateAvailable
-// are jest.fn), c/utilitySystem's reduceErrors is spied on below, and c/cronExpressionEditor renders for real.
-jest.mock('c/componentBuilder', () => ({
-	ComponentBuilder: jest.fn().mockImplementation(() =>
-	{
-		const {LightningElement} = require('lwc');
-		return class extends LightningElement
-		{
-			showSuccessToast(...args)
-			{
-				mockShowSuccessToast(...args);
-			}
-
-			showErrorToast(...args)
-			{
-				mockShowErrorToast(...args);
-			}
-
-			showInfoToast(...args)
-			{
-				mockShowInfoToast(...args);
-			}
-
-			showWarningToast(...args)
-			{
-				mockShowWarningToast(...args);
-			}
-
-			callControllerMethod(...args)
-			{
-				return mockCallControllerMethod(...args);
-			}
-
-			redirectToRecordPage(...args)
-			{
-				mockRedirectToRecordPage(...args);
-			}
-		};
-	})
-}), {virtual: true});
+// No c/* module is jest.mock'd here: such a mock is keyed by the raw specifier, and once another suite in the same worker
+// has loaded the real module the component's import resolves to another id, so the mock silently stops intercepting.
+// c/componentBuilder comes from its moduleNameMapper mock in jest.config.js, whose toast and redirectToRecordPage mocks
+// the tests watch. The other modules use patterns that keep working whatever ran first: lightning/uiRecordApi is the
+// sfdx-lwc-jest stub (getFieldValue and notifyRecordUpdateAvailable are jest.fn), c/utilitySystem's reduceErrors is spied
+// on below, and c/cronExpressionEditor renders for real.
 
 jest.mock('@salesforce/schema/ScheduledJob__c.ExecutionMode__c', () => ({default: 'ScheduledJob__c.ExecutionMode__c'}), {virtual: true});
 jest.mock('@salesforce/schema/ScheduledJob__c.RunPriority__c', () => ({default: 'ScheduledJob__c.RunPriority__c'}), {virtual: true});
@@ -128,7 +87,7 @@ describe('c-scheduled-job-editor', () =>
 		return element;
 	};
 
-	// A spy on the real module's export, not jest.mock('c/utilitySystem'): such a mock stops intercepting once another
+	// A spy on the real module's export, not a jest.mock of c/utilitySystem: such a mock stops intercepting once another
 	// suite in the same worker has loaded the real module, while a spy replaces the export the component itself calls.
 	beforeEach(() =>
 	{

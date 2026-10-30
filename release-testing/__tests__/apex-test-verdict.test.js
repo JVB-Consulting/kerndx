@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The org-truth verdict for an Apex test run: the run's outcome is read from
  * ApexTestRunResult and ApexTestResult on the org, never from the CLI wrapper's JSON, because the

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Writes one ERROR log entry for each batch job failure the platform reports. A batch class that opts into
  * failure events (it implements `Database.RaisesPlatformEvents`, as the framework's own batch processor does) makes the
@@ -23,7 +23,7 @@
  *
  * @group Triggers
  *
- * @date September 2026
+ * @date September 2026, October 2026
  */
 public inherited sharing class TRG_LogBatchApexError extends TRG_Base implements IF_Trigger.AfterInsert
 {

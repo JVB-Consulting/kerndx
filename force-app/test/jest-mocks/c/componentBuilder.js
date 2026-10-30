@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Global Jest mock for componentBuilder LWC module.
  *              This mock is used by all tests that import components using ComponentBuilder.
@@ -49,6 +49,7 @@ export const mockHandleWireResponse = jest.fn((response) =>
 // Mock navigation functions
 export const mockNavigate = jest.fn();
 export const mockGenerateUrl = jest.fn().mockResolvedValue('/mock-url');
+export const mockRedirectToRecordPage = jest.fn();
 
 // Mock lightning message service functions
 export const mockPublishLightningMessage = jest.fn();
@@ -94,6 +95,7 @@ export const ComponentBuilder = (...functionalityToInitialise) =>
 		// Navigation methods
 		navigate = mockNavigate;
 		generateUrl = mockGenerateUrl;
+		redirectToRecordPage = mockRedirectToRecordPage;
 
 		// Lightning message service methods
 		publishLightningMessage = mockPublishLightningMessage;

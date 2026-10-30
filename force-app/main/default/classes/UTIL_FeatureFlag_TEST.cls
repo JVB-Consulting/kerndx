@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Test class for UTIL_FeatureFlag. Validates all strategy types, fallback behaviors,
  * error handling, value comparison logic, and Subscriber-First custom permission parsing.

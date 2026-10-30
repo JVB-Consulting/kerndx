@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Selector for the Foobar__c SObject. Provides query methods and field/metadata
  * constants for the framework's test data object.

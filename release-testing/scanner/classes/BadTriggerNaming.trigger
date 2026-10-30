@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Deliberate subscriber trigger naming violation — not prefixed with TRG_.
  * Used to validate SubscriberTriggerNaming PMD rule.

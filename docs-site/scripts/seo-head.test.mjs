@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buildStructuredData, seoHeadEntries, OG_IMAGE} from './seo-head.mjs';
+import {buildStructuredData, seoHeadEntries, OG_IMAGE, OG_IMAGE_ALT} from './seo-head.mjs';
 
 const HOST = 'https://docs.jvb-consulting.io';
 
@@ -47,6 +47,19 @@ test('seoHeadEntries includes an absolute-https og:image + dimensions + twitter:
 	assert.ok(entries.some((e) => e[1].property === 'og:image:width'));
 	assert.ok(entries.some((e) => e[1].property === 'og:image:height'));
 	assert.ok(entries.some((e) => e[0] === 'meta' && e[1].name === 'twitter:image' && e[1].content === `${HOST}/${OG_IMAGE}`));
+});
+
+test('seoHeadEntries describes the share image for screen readers, in the words the image shows', () =>
+{
+	const entries = seoHeadEntries({title: 'KernDX', url: `${HOST}/`, hostname: HOST, isHome: true});
+	const ogAlt = entries.find((e) => e[0] === 'meta' && e[1].property === 'og:image:alt');
+	const twitterAlt = entries.find((e) => e[0] === 'meta' && e[1].name === 'twitter:image:alt');
+	assert.ok(ogAlt, 'og:image:alt is present');
+	assert.ok(twitterAlt, 'twitter:image:alt is present');
+	assert.equal(twitterAlt[1].content, ogAlt[1].content);
+	assert.equal(ogAlt[1].content, OG_IMAGE_ALT);
+	assert.match(OG_IMAGE_ALT, /Core frameworks, testing and CI\/CD for Salesforce teams\./);
+	assert.match(OG_IMAGE_ALT, /Open source under Apache 2\.0/);
 });
 
 test('seoHeadEntries adds og:site_name, og:locale, and a parseable JSON-LD script', () =>

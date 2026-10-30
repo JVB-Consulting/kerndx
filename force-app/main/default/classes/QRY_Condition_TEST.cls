@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit tests for QRY_Condition.
  * Tests all condition classes: FieldCondition, SetCondition, AndCondition, OrCondition, NotCondition, DateLiteral, UnitOfTime.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A stopwatch for timing database queries with automatic performance logging.
  * Extends UTIL_StopWatch to add query-specific performance logging with fluent API control.

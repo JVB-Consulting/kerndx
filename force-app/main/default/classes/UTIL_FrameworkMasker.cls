@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Runs data masking. Reads `MaskingRule__mdt` and `MaskingTarget__mdt` to find which rules
  * apply to which fields, hands the string changes to the `UTIL_String` masking helpers, and respects the

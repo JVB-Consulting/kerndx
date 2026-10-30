@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The single URL rule for the whole site: slug = slugify(relative path), per segment.
 // Relative paths are POSIX, relative to the docs/ root (e.g. "reference/apex/UTIL_SObject.md").
 

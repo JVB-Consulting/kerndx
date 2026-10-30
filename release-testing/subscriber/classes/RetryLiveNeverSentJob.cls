@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-testing queueable that makes an outbound call the org refuses before it leaves, because a save
  * earlier in the same transaction left work pending. Given no record, it inserts a Foobar first (a save in a Queueable);

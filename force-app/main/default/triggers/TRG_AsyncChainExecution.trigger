@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Trigger on AsyncChainExecution__c. Fires the configured trigger actions for
  * data masking before insert and update so context data, step logs, and error messages
@@ -8,7 +8,7 @@
  *
  * @author Jason van Beukering
  *
- * @date April 2026, May 2026
+ * @date April 2026, October 2026
  */
 trigger TRG_AsyncChainExecution on AsyncChainExecution__c (before insert, before update)
 {

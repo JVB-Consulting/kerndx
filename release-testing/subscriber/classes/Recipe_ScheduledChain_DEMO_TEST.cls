@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Proof tests for the recurring-chain composition pattern: the ScheduledJob__c
  * record schedules the class through the packaged trigger, the schedulable's typed parameter

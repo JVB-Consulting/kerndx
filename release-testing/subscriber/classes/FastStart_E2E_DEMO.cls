@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Demo class for the Fast Start - E2E Testing guide. Provides a simple
  * data-processing method that subscriber Apex tests can exercise without any DML or SObject

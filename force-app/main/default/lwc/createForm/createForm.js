@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Creates an SObject form to Create/Clone/Edit an SObject. Supports both
  * field set-based and manual field configuration, picklist value management, lookup
@@ -1101,29 +1101,44 @@ export default class CreateForm extends ComponentBuilder('notification', 'contro
 	}
 
 	/**
-	 * @description Clears all form fields, and takes the tick off every checkbox
+	 * @description Clears every text field and takes the tick off every checkbox. The value the form would save is cleared too, so a cleared form saves a blank or false.
 	 */
 	clearFormFields()
 	{
-		this.inputFields.forEach(element => (element.value = ''));
-		this.checkboxFields.forEach(element => (element.checked = false));
+		this.inputFields.forEach(element =>
+		{
+			element.value = EMPTY;
+			this.formValueMap[element.dataset.id] = EMPTY;
+		});
+		this.checkboxFields.forEach(element =>
+		{
+			element.checked = false;
+			this.formValueMap[element.dataset.id] = false;
+		});
 	}
 
 	/**
-	 * @description Clears all picklist fields
+	 * @description Clears every picklist field. The value the form would save is cleared too, so a cleared form saves a blank.
 	 */
 	clearPicklistFields()
 	{
-		this.picklistFields.forEach(element => (element.value = undefined));
+		this.picklistFields.forEach(element =>
+		{
+			element.value = undefined;
+			this.formValueMap[element.dataset.id] = EMPTY;
+		});
 	}
 
 	/**
-	 * @description Clears all lookup fields
+	 * @description Clears every lookup field. The value the form would save is cleared too, so a cleared form saves a blank.
 	 */
 	clearLookupFields()
 	{
-		//noinspection JSUnresolvedFunction
-		this.lookupFields.forEach(element => (element.clearLookup()));
+		this.lookupFields.forEach(element =>
+		{
+			element.clearLookup();
+			this.formValueMap[element.elementName] = EMPTY;
+		});
 	}
 
 	// ── Event Handlers ───────────────────────────────────────────────────

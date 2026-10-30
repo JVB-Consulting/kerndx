@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber-side proof of Retry Selected through the global surface: the Retry API Issues flow action, called
  * by a Standard User who holds only the Kern API Issue Resolver permission set, queues the open issues it is given and

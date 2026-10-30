@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Jest unit tests for the scheduledJobEditorForm LWC module, run through both editors built on it: the
  *              record-page editor and the modal. What only one editor does (where its errors show, what follows a

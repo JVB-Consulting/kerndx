@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Subscriber proof for `DML_Builder` `runAs` scenarios deferred from
  * `release-testing/scripts/section-52-edge-dml-builder.apex` (the extended-load spec §6.15, Task 1.14).

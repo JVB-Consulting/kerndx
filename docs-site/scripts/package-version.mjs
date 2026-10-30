@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Resolve the highest released package version + its subscriber id from a parsed
 // sfdx-project.json. The docs site feeds these into the public-README synthesizer so the
 // home page shows real install commands (version + 04t) instead of placeholders.

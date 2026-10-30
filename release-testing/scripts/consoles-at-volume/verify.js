@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Reconciles the manifest against the database: one claim per count the load promised, one PASS or FAIL line each.
 const {recordStage, KINDS} = require('./manifest');
 

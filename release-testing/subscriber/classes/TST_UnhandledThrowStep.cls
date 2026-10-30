@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Release-test asynchronous step that throws an unhandled exception from `execute()` to
  * exercise the framework's queueable error-surfacing path. When this step is run through

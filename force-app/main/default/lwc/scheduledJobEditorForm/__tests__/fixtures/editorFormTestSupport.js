@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Support shared by the Jest suites of the scheduled job form and of the two editors built on it. It
  *              lives under __tests__/fixtures, the folder the Jest configuration leaves out of the test run, so it

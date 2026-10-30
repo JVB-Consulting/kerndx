@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Fast Start demonstration of inbound API handling. Receives a contact
  *              creation request from an external system, validates the email field,

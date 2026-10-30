@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <!-- A passive "you're on an older version" notice. It renders ONLY on a frozen (non-latest)
      version tree, so the reader of /1.1/ docs knows they're not on the current version and can
      jump to it. On the latest tree it renders nothing. Mounted in the layout-top slot so it

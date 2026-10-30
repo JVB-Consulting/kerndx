@@ -5,7 +5,7 @@ pageClass: reference
 description: "SObject runtime operations — filtering, field extraction, list-to-map conversion, and dot-notation field value retrieval."
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, May 2026"
+date: "February 2026, October 2026"
 since: "1.0"
 category: apex
 ---

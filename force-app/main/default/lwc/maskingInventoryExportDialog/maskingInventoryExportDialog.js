@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The regulated-field inventory export dialog for the Data Masking Advisor, built on
  * lightning/modal (LightningModal) so the chrome and the WCAG focus-trap come from the platform. The

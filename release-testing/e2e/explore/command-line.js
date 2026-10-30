@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The exploration's command line: the seed, the session and step counts, the phases, and the volume
 // options (the manifest, the output folder and the two timing budgets).
 'use strict';

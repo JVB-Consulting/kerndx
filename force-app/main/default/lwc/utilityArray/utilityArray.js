@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Collection utilities for LWC — grouping, lookup, and filtering operations
  * on arrays of plain objects.

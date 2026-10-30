@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The driver's one door to the org: every `sf` call goes through here, with the command runner injectable for tests.
 const {execFileSync} = require('child_process');
 const fs = require('fs');

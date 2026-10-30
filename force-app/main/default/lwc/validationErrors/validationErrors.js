@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Component for displaying validation errors and warnings from the Validation Framework.
  * Use in Screen Flows after calling FLOW_ExecuteValidationRules to display user-friendly error messages.

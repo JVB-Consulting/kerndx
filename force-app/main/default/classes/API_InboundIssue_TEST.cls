@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests the issue records that failed inbound requests write. A request that fails while it is handled, or
  * that its checks refuse, writes one open inbound issue when its setting has Log Issues on. The issue links to the call

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description DTO class for name-value pairs, used in invocable methods for data mapping, such as merge fields or configuration settings.
  *
@@ -10,7 +10,7 @@
  *
  * @group Data Transfer Objects
  *
- * @date September 2025, May 2026
+ * @date September 2025, October 2026
  *
  * @since 1.0
  *

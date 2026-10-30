@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Log entry event trigger for handling log events
  *
  * @author Jason van Beukering
  *
- * @date 2020, February 2026
+ * @date 2020, October 2026
  */
 trigger TRG_LogEntryEvent on LogEntryEvent__e (after insert)
 {

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description A scheduled job that finds async chains stuck with no recent activity and marks them
  * Stalled, firing each chain's persisted onError notification once per stall. A chain goes silently
@@ -15,7 +15,7 @@
  *
  * @group Async
  *
- * @date July 2026
+ * @date July 2026, October 2026
  *
  * @since 1.6
  *

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description The rolling performance baselines the load sections feed. Every test here pins what the tool
  * already does, line for line of its output, so the tool can be reshaped without its behaviour moving. The

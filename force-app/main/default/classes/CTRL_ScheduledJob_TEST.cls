@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Tests for CTRL_ScheduledJob controller methods.
  *
@@ -25,14 +25,48 @@ private class CTRL_ScheduledJob_TEST
 	private static final String RESTRICTED_USER_COMPANY = 'CTRL_ScheduledJob_TEST-restricted';
 
 	/**
+	 * @description Company name identifying the user who holds no job runner permission. A package install writes the
+	 * Manage Job Runner permission into the System Administrator profile. So this user is on the Standard User profile,
+	 * which the default install leaves without that permission.
+	 */
+	private static final String UNPERMITTED_USER_COMPANY = 'CTRL_ScheduledJob_TEST-unpermitted';
+
+	/**
+	 * @description The schedule of the jobs the job runner setting tests save: every day at noon.
+	 */
+	private static final String NOON_EVERY_DAY = '0 0 12 * * ?';
+
+	/**
+	 * @description The name of the run priority value in the JSON request the editors send.
+	 */
+	private static final String RUN_PRIORITY_KEY = 'runPriority';
+
+	/**
+	 * @description The run priority stored on the job runner record before the tests save it.
+	 */
+	private static final Decimal STORED_RUN_PRIORITY = 5;
+
+	/**
+	 * @description The name of the run priority value written with a capital first letter, as a caller may send it.
+	 */
+	private static final String RUN_PRIORITY_KEY_WITH_CAPITAL_LETTER = 'RunPriority';
+
+	/**
+	 * @description The run priority the tests save over the stored one.
+	 */
+	private static final Decimal CHANGED_RUN_PRIORITY = 7;
+
+	/**
 	 * @description Inserts the administrator who holds the Kern Job Runner Management permission set, read back by
-	 * getManagingAdmin, and the user without access to the log entry object, read back by getRestrictedUser.
+	 * getManagingAdmin, the user without access to the log entry object, read back by getRestrictedUser, and the
+	 * standard user without the job runner permission, read back by getUnpermittedUser.
 	 */
 	@TestSetup
 	private static void setupUsers()
 	{
 		TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_SYSTEM_ADMIN, MANAGING_ADMIN_COMPANY, UTIL_ScheduledJobRunner.JOB_RUNNER_MANAGEMENT_PERMISSION_SET_NAME);
 		TST_Factory.insertUser(SEL_Profile.PROFILE_MINIMUM_ACCESS, RESTRICTED_USER_COMPANY);
+		TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_STANDARD_USER, UNPERMITTED_USER_COMPANY, SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME);
 	}
 
 	/**
@@ -53,6 +87,16 @@ private class CTRL_ScheduledJob_TEST
 	private static User getRestrictedUser()
 	{
 		return new SEL_User().findByCompanyName(RESTRICTED_USER_COMPANY);
+	}
+
+	/**
+	 * @description Reads back the standard user who holds no job runner permission.
+	 *
+	 * @return The user without the job runner permission.
+	 */
+	private static User getUnpermittedUser()
+	{
+		return new SEL_User().findByCompanyName(UNPERMITTED_USER_COMPANY);
 	}
 
 	/**
@@ -426,6 +470,120 @@ private class CTRL_ScheduledJob_TEST
 	}
 
 	/**
+	 * @description Tests that saving an existing job with a request that names none of the job runner settings leaves
+	 * all three as they are, so a user who cannot read them does not move the job off the job runner.
+	 */
+	@IsTest
+	private static void saveRecordKeepsTheJobRunnerSettingsAnUpdateDoesNotName()
+	{
+		System.runAs(getManagingAdmin())
+		{
+			ScheduledJob__c existingRecord = insertJobRunnerRecord();
+
+			Id savedId = CTRL_ScheduledJob.saveRecord(JSON.serialize(newRequestWithoutJobRunnerSettings(existingRecord.Id)));
+
+			ScheduledJob__c saved = (ScheduledJob__c)new SEL_ScheduledJob().findById(savedId);
+			Assert.areEqual(UTIL_ScheduledJobRunner.EXECUTION_MODE_JOB_RUNNER, saved.ExecutionMode__c, 'Expected the job to stay on the job runner');
+			Assert.areEqual(STORED_RUN_PRIORITY, saved.RunPriority__c, 'Expected the run priority to stay as it was');
+			Assert.areEqual(UTIL_ScheduledJobRunner.OVERLAP_POLICY_ALLOW, saved.OverlapPolicy__c, 'Expected the overlap policy to stay as it was');
+		}
+	}
+
+	/**
+	 * @description Tests that saving an existing job with a request that names the run priority in another letter case
+	 * (a capital R) still writes it, as a new job's save does.
+	 */
+	@IsTest
+	private static void saveRecordWritesTheRunPriorityAnUpdateNamesInAnotherLetterCase()
+	{
+		System.runAs(getManagingAdmin())
+		{
+			ScheduledJob__c existingRecord = insertJobRunnerRecord();
+			Map<String, Object> request = newRequestWithoutJobRunnerSettings(existingRecord.Id);
+			request.put(RUN_PRIORITY_KEY_WITH_CAPITAL_LETTER, CHANGED_RUN_PRIORITY);
+
+			Id savedId = CTRL_ScheduledJob.saveRecord(JSON.serialize(request));
+
+			ScheduledJob__c saved = (ScheduledJob__c)new SEL_ScheduledJob().findById(savedId);
+			Assert.areEqual(CHANGED_RUN_PRIORITY, saved.RunPriority__c, 'Expected the run priority to be written');
+		}
+	}
+
+	/**
+	 * @description Tests that a user without the job runner permission can save an existing job runner job with a request
+	 * that names none of the job runner settings, and that the job stays on the job runner with its settings.
+	 */
+	@IsTest
+	private static void saveRecordKeepsTheJobRunnerSettingsForAUserWithoutTheJobRunnerPermission()
+	{
+		ScheduledJob__c existingRecord;
+		Id savedId;
+
+		System.runAs(getManagingAdmin())
+		{
+			existingRecord = insertJobRunnerRecord();
+		}
+
+		User unpermittedUser = getUnpermittedUser();
+		Assert.isFalse
+				(
+						SEL_CustomPermission.hasPackagePermission(unpermittedUser.Id, UTIL_ScheduledJobRunner.MANAGE_JOB_RUNNER_CUSTOM_PERMISSION_NAME),
+						'This org grants ' +
+						UTIL_ScheduledJobRunner.MANAGE_JOB_RUNNER_CUSTOM_PERMISSION_NAME +
+						' to the Standard User profile (an all-users package install), so no user without it exists to save as; ' +
+						'run this suite in an org installed for admins only'
+				);
+
+		System.runAs(unpermittedUser)
+		{
+			Assert.isFalse(UTIL_ScheduledJobRunner.hasManagePermission(), 'Expected the Standard User to hold no job runner manage permission');
+			savedId = CTRL_ScheduledJob.saveRecord(JSON.serialize(newRequestWithoutJobRunnerSettings(existingRecord.Id)));
+		}
+
+		ScheduledJob__c saved = (ScheduledJob__c)new SEL_ScheduledJob().findById(savedId);
+		Assert.areEqual(UTIL_ScheduledJobRunner.EXECUTION_MODE_JOB_RUNNER, saved.ExecutionMode__c, 'Expected the job to stay on the job runner');
+		Assert.areEqual(STORED_RUN_PRIORITY, saved.RunPriority__c, 'Expected the run priority to stay as it was');
+		Assert.areEqual(UTIL_ScheduledJobRunner.OVERLAP_POLICY_ALLOW, saved.OverlapPolicy__c, 'Expected the overlap policy to stay as it was');
+	}
+
+	/**
+	 * @description Tests that saving an existing job with a request that names the run priority with no value clears
+	 * the run priority, and leaves the two job runner settings the request does not name as they are.
+	 */
+	@IsTest
+	private static void saveRecordClearsTheRunPriorityAnUpdateSendsWithNoValue()
+	{
+		System.runAs(getManagingAdmin())
+		{
+			ScheduledJob__c existingRecord = insertJobRunnerRecord();
+			Map<String, Object> request = newRequestWithoutJobRunnerSettings(existingRecord.Id);
+			request.put(RUN_PRIORITY_KEY, null);
+
+			Id savedId = CTRL_ScheduledJob.saveRecord(JSON.serialize(request));
+
+			ScheduledJob__c saved = (ScheduledJob__c)new SEL_ScheduledJob().findById(savedId);
+			Assert.isNull(saved.RunPriority__c, 'Expected a run priority sent with no value to be cleared');
+			Assert.areEqual(UTIL_ScheduledJobRunner.EXECUTION_MODE_JOB_RUNNER, saved.ExecutionMode__c, 'Expected the job to stay on the job runner');
+			Assert.areEqual(UTIL_ScheduledJobRunner.OVERLAP_POLICY_ALLOW, saved.OverlapPolicy__c, 'Expected the overlap policy to stay as it was');
+		}
+	}
+
+	/**
+	 * @description Tests that a new job saved with a request that names none of the job runner settings gets the
+	 * defaults: it runs as its own scheduled job, with overlap policy Skip and no run priority.
+	 */
+	@IsTest
+	private static void saveRecordGivesANewJobTheDefaultJobRunnerSettings()
+	{
+		Id savedId = CTRL_ScheduledJob.saveRecord(JSON.serialize(newRequestWithoutJobRunnerSettings(null)));
+
+		ScheduledJob__c saved = (ScheduledJob__c)new SEL_ScheduledJob().findById(savedId);
+		Assert.areEqual(UTIL_ScheduledJobRunner.EXECUTION_MODE_OWN_SCHEDULED_JOB, saved.ExecutionMode__c, 'Expected a new job to run as its own scheduled job');
+		Assert.areEqual(UTIL_ScheduledJobRunner.OVERLAP_POLICY_SKIP, saved.OverlapPolicy__c, 'Expected a new job to have overlap policy Skip');
+		Assert.isNull(saved.RunPriority__c, 'Expected a new job to have no run priority');
+	}
+
+	/**
 	 * @description Tests that previewNextRun uses the same evaluator as the job runner's check and returns null for
 	 * an invalid or a never-firing expression.
 	 */
@@ -519,5 +677,42 @@ private class CTRL_ScheduledJob_TEST
 		{
 			Assert.isNull(CTRL_ScheduledJob.findLastRunLogEntryId(recordId), 'a user who cannot read log entries is offered nothing to open');
 		}
+	}
+
+	/**
+	 * @description Inserts an inactive job that runs on the job runner, with run priority 5 and overlap policy Allow.
+	 *
+	 * @return The inserted job.
+	 */
+	private static ScheduledJob__c insertJobRunnerRecord()
+	{
+		return (ScheduledJob__c)TST_Builder.of(ScheduledJob__c.SObjectType)
+				.withOverride(ScheduledJob__c.SchedulerName__c, UTIL_Random.randomName())
+				.withOverride(ScheduledJob__c.ClassName__c, PlainSchedulable.class.getName())
+				.withOverride(ScheduledJob__c.CronExpression__c, NOON_EVERY_DAY)
+				.withOverride(ScheduledJob__c.IsActive__c, false)
+				.withOverride(ScheduledJob__c.ExecutionMode__c, UTIL_ScheduledJobRunner.EXECUTION_MODE_JOB_RUNNER)
+				.withOverride(ScheduledJob__c.RunPriority__c, STORED_RUN_PRIORITY)
+				.withOverride(ScheduledJob__c.OverlapPolicy__c, UTIL_ScheduledJobRunner.OVERLAP_POLICY_ALLOW)
+				.build();
+	}
+
+	/**
+	 * @description Builds the request a save sends when it names only the job's name, class and schedule (and the
+	 * record id, for an existing job), and none of the three job runner settings.
+	 *
+	 * @param recordId The job to update, or null to insert a new one.
+	 *
+	 * @return The request as a map of names to values.
+	 */
+	private static Map<String, Object> newRequestWithoutJobRunnerSettings(Id recordId)
+	{
+		CTRL_ScheduledJob.SaveRequest request = new CTRL_ScheduledJob.SaveRequest();
+		request.recordId = recordId;
+		request.schedulerName = UTIL_Random.randomName();
+		request.className = PlainSchedulable.class.getName();
+		request.cronExpression = NOON_EVERY_DAY;
+
+		return (Map<String, Object>)JSON.deserializeUntyped(JSON.serialize(request, true));
 	}
 }

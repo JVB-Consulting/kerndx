@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Live activity stream for one chain execution: seeds the recent persisted log
  * entries for the chain, then appends matching LogEntryEvent__e deliveries live. Entries render

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Unit test class for the FLOW_SendEmail class, verifying email sending and activity logging functionality.
  * Tests email sending with various inputs (e.g., User Id, email address, valid/invalid target objects) and ensures merge fields are correctly replaced.

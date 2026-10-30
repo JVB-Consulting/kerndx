@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Controller for the Data Masking Advisor console. Surfaces problems in the org's
  * data-masking configuration so administrators can correct them before sensitive data is exposed.
