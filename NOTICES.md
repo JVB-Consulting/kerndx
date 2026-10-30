@@ -1,13 +1,27 @@
+KernDX
+
+Copyright 2026 JVB Consulting
+
+KernDX is licensed under the Apache License, Version 2.0; see the `LICENSE` file.
+
+*End of the NOTICE statement. The block above is the KernDX NOTICE statement
+(Apache License 2.0, §4(d)), the part you reproduce when you share KernDX.
+What follows is the inventory of third-party files, each with its own
+notice requirements.*
+
+---
+
 # Third-Party Notices
 
-KernDX includes source code derived from third-party open-source projects.
+KernDX includes source code derived from third-party open-source projects,
+and one third-party library shipped as published, with its licence notice added at the top.
 This file enumerates those upstream projects, their licenses, and copyright
 holders, per Apache License 2.0 §4 (a–d), the MIT License attribution
-requirement, and the BSD 3-Clause attribution requirement, plus voluntary
-attribution for CC0-1.0 derivatives where the upstream license imposes no
-requirement. The root `LICENSE` excludes these files from the Business
-Source License by referring to this file, and each derived source file also
-carries an SPDX-License-Identifier header.
+requirement, the BSD 3-Clause attribution requirement, and the ISC License
+attribution requirement, plus voluntary attribution for CC0-1.0 derivatives
+where the upstream license imposes no requirement. Each of these files keeps
+its upstream license, and each derived source file also carries an
+SPDX-License-Identifier header.
 
 For each upstream project below: the project name, its canonical URL, its
 license, the copyright holder(s) we can establish from the upstream source
@@ -21,19 +35,20 @@ Full license texts are shipped at:
     (downloaded from <https://www.apache.org/licenses/LICENSE-2.0.txt>)
   - `LICENSES/MIT.txt` — canonical MIT License (Expat form)
   - `LICENSES/BSD-3-Clause.txt` — canonical BSD 3-Clause License
+  - `LICENSES/ISC.txt` — the ISC License as published by d3
+    (downloaded from <https://raw.githubusercontent.com/d3/d3/v7.9.0/LICENSE>)
 
-The Business Source License 1.1 text is in the root `LICENSE` file. Its
-Licensed Work parameter excludes the pipeline tooling under `pipeline/`
-(MIT, see `pipeline/LICENSE`) and the Apache-2.0 / MIT / BSD-3-Clause
-derivative files listed below.
+The Apache License 2.0 text under which the rest of KernDX is licensed is in
+the root `LICENSE` file. The pipeline tooling under `pipeline/` is under the
+MIT License (see `pipeline/LICENSE`), and so is the ESLint plugin under
+`scanner/eslint-plugin-kerndx/` (see `scanner/eslint-plugin-kerndx/LICENSE`).
 
-The Business Source License 1.1 under which the rest of KernDX is licensed
-does **not** apply to the Apache-2.0, MIT, and BSD-3-Clause files enumerated
-below; each of those remains under its upstream license. The CC0-1.0
-derivative files are public-domain dedications upstream and have been
-relicensed under BSL 1.1 alongside the rest of KernDX (CC0-1.0 permits
-this); they are listed here for transparency and author credit, not
-because their licensing diverges from the framework default.
+The Apache-2.0, MIT, BSD-3-Clause, and ISC files enumerated below each
+remain under their upstream license and keep their upstream notices. The
+CC0-1.0 derivative files are public-domain dedications upstream and have
+been relicensed under the Apache License 2.0 alongside the rest of KernDX
+(CC0-1.0 permits this); they are listed here for transparency and author
+credit, not because their licensing diverges from the framework default.
 
 ---
 
@@ -161,7 +176,7 @@ because their licensing diverges from the framework default.
   `LICENSES/BSD-3-Clause.txt` (also available at
   [opensource.org/licenses/BSD-3-Clause](https://opensource.org/licenses/BSD-3-Clause)).
   BSD 3-Clause is not unilaterally relicensable, so these files remain
-  under BSD 3-Clause rather than the framework-default BSL 1.1.
+  under BSD 3-Clause rather than the framework-default Apache 2.0.
 - **Copyright holder:** Copyright (c), FinancialForce.com, inc (since renamed
   Certinia). Preserved verbatim in each derived file's header per the BSD
   3-Clause attribution requirement.
@@ -186,6 +201,40 @@ because their licensing diverges from the framework default.
 
 ---
 
+## ISC License derivatives
+
+### d3 (by Mike Bostock)
+
+- **Upstream URL:** [github.com/d3/d3](https://github.com/d3/d3) (version
+  v7.9.0; license at [github.com/d3/d3/blob/v7.9.0/LICENSE](https://github.com/d3/d3/blob/v7.9.0/LICENSE),
+  read 2026-10-29).
+- **License:** ISC License: full text, with its copyright line, at
+  `LICENSES/ISC.txt` (a byte copy of the upstream `LICENSE` file).
+- **Copyright holder:** Copyright 2010-2023 Mike Bostock (the minified file
+  keeps this line in its first comment, and the comment KernDX adds above it
+  carries the full ISC text).
+- **Upstream NOTICE file:** None: verified 2026-10-29 that the upstream
+  repo ships no `NOTICE` file at tag `v7.9.0` (HTTP 404 on
+  `https://raw.githubusercontent.com/d3/d3/v7.9.0/NOTICE`). The ISC License
+  requires only that the copyright notice and the permission notice appear
+  in all copies.
+- **Changes made:** A comment at the top of the file holding the ISC
+  copyright and permission notice, so every installed copy carries it. The
+  upstream minified build below it is unchanged.
+- **Why it is still in the package:** KernDX no longer uses d3. It stays in
+  the package only until Salesforce enables its removal: removing a
+  component from a released second-generation package needs a Partner
+  Support case, and deleting the file from source first breaks every
+  package build. The change that deletes `d3.js` deletes this entry and
+  `LICENSES/ISC.txt` with it.
+- **Shipped KernDX files (1, under `force-app/main/default/staticresources/`):**
+
+  | File | Companion test |
+  |------|----------------|
+  | `d3.js` | — |
+
+---
+
 ## Public Domain (CC0-1.0) derivatives
 
 ### streaming-monitor (by Philippe Ozil)
@@ -196,8 +245,8 @@ because their licensing diverges from the framework default.
   [creativecommons.org/publicdomain/zero/1.0](https://creativecommons.org/publicdomain/zero/1.0/)).
   CC0-1.0 is a public-domain dedication that waives all copyright and
   related rights. The kern derivative files are therefore relicensed under
-  the Business Source License 1.1 alongside the rest of KernDX and are
-  **not** excluded from the root `LICENSE` file.
+  the Apache License 2.0 alongside the rest of KernDX and are covered by
+  the root `LICENSE` file.
 - **Original author:** Philippe Ozil (Salesforce). His original tool is free
   on the AppExchange (listing `a0N3A00000FYEEWUA5`). CC0-1.0 explicitly waives
   the right to require attribution, so none of the credit below is a licence
@@ -225,7 +274,7 @@ because their licensing diverges from the framework default.
   | `streamingUsageMetrics/` | 4 (1 .js + 1 .html + 1 .css + 1 test) |
   | `utilityStreaming/` | 2 (1 .js + 1 test) |
 
-  Each file's header carries `SPDX-License-Identifier: BUSL-1.1` (the
+  Each file's header carries `SPDX-License-Identifier: Apache-2.0` (the
   kern-relicensed identifier), the upstream credit line, the "Adapted
   from streaming-monitor" attribution, and the modifications copyright.
 
@@ -241,7 +290,7 @@ because their licensing diverges from the framework default.
   | `CTRL_EventMonitor_TEST.cls` | Full — companion test, structured after his `StreamingMonitorControllerTest`. |
   | `SEL_EntityDefinition.cls` | Partial — only the streaming channel-discovery query methods (`getAllStandardPlatformEvents`, `getAllCustomPlatformEvents`, `getAllChangeCaptureEvents`) derive from his controller's inline SOQL; the masking and framework selector methods are original KernDX work. Its header scopes the credit accordingly. |
 
-  As with the LWC components, each carries `SPDX-License-Identifier: BUSL-1.1`
+  As with the LWC components, each carries `SPDX-License-Identifier: Apache-2.0`
   and an upstream credit line.
 
 ---
@@ -254,12 +303,12 @@ because their licensing diverges from the framework default.
   lines). Its output is the source-of-truth for this file's enumeration.
   If a new derivative file is added, the audit surfaces it; this file is
   updated to match before the next sync.
-- This file is the only list of the derived files: the root `LICENSE`
-  refers to it rather than repeating the list, so the two cannot drift
-  apart. It carries the upstream URLs and citations you can use to follow
-  each file back to its original source.
+- This file is the only list of the derived files, so there is no second
+  list to drift from it. It carries the upstream URLs and citations you
+  can use to follow each file back to its original source.
 - A build-time mirror gate enforces that every staged source
   file carries an SPDX identifier matching one of the expected tags
-  (`BUSL-1.1`, `MIT`, `Apache-2.0`, `BSD-3-Clause`); the excluded files
-  enumerated here are the only Apache-2.0 / MIT / BSD-3-Clause files in the
-  framework source tree outside of `pipeline/`.
+  (`Apache-2.0`, `MIT`, `BSD-3-Clause`); the files enumerated here are the
+  only MIT / BSD-3-Clause files, and the only files under an upstream
+  Apache-2.0 license, in the framework source tree outside of `pipeline/`
+  and `scanner/eslint-plugin-kerndx/`.

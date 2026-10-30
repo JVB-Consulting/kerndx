@@ -10,7 +10,7 @@
     </relationships>
     <versions>
         <version>
-            <number>2</number>
+            <number>3</number>
             <pathOnClient>KernLogo.png</pathOnClient>
         </version>
     </versions>

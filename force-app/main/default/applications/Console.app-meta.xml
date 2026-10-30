@@ -3,10 +3,10 @@
     <brand>
         <headerColor>#9F7851</headerColor>
         <logo>KernLogo</logo>
-        <logoVersion>2</logoVersion>
+        <logoVersion>3</logoVersion>
         <shouldOverrideOrgTheme>true</shouldOverrideOrgTheme>
     </brand>
-    <description>Monitor API calls, review logs, manage scheduled jobs, and configure the Kern framework.</description>
+    <description>Monitor API calls, review logs, manage scheduled jobs, and configure KernDX.</description>
     <formFactors>Small</formFactors>
     <formFactors>Large</formFactors>
     <isNavAutoTempTabsDisabled>false</isNavAutoTempTabsDisabled>

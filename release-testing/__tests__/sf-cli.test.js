@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 jest.mock('child_process', () => ({
 	execSync: jest.fn(), exec: jest.fn()
 }));
@@ -189,7 +189,7 @@ describe('runApexScript', () =>
 
 		it('puts the compile error the command line printed into the thrown error, naming the script and the org', () =>
 		{
-			const tooLarge = commandFailure('Error (1): Compilation failed at Line 1 column 1 with the error:\nScript too large: // SPDX-License-Identifier: BUSL-1.1\n');
+			const tooLarge = commandFailure('Error (1): Compilation failed at Line 1 column 1 with the error:\nScript too large: // SPDX-License-Identifier: Apache-2.0\n');
 			execSync.mockImplementation(() =>
 			{
 				throw tooLarge;

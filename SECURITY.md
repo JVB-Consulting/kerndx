@@ -93,7 +93,8 @@ Everything under `release-testing/` runs in a throwaway scratch org during a rel
 
 ### A vendored library
 
-The `d3` static resource is an unmodified copy of D3 under its own ISC licence. Nothing in the package loads it any more.
+The `d3` static resource is a copy of D3 v7.9.0 under its own ISC licence; the one change is the ISC licence
+notice added as a comment at the top of the file. Nothing in the package loads it any more.
 
 ## Recognition
 

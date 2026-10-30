@@ -1,7 +1,7 @@
 {
-  "capturedAt": "2026-10-27T17:13:18.044Z",
+  "capturedAt": "2026-10-30T11:00:11.107Z",
   "apex": {
-    "totalWallClockSeconds": 37.046,
+    "totalWallClockSeconds": 2048.262,
     "testSetupClasses": [
       "API_Dispatcher_TEST",
       "API_GetPwndPasswords_TEST",
@@ -232,7 +232,7 @@
       },
       "CTRL_ScheduledJob": {
         "percentage": 100,
-        "coveredLines": 67,
+        "coveredLines": 75,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -250,7 +250,7 @@
       },
       "DML_Builder": {
         "percentage": 100,
-        "coveredLines": 357,
+        "coveredLines": 359,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -988,7 +988,7 @@
       },
       "TST_Factory": {
         "percentage": 100,
-        "coveredLines": 635,
+        "coveredLines": 637,
         "uncoveredLines": 0,
         "exemptLines": 1
       },
@@ -1270,7 +1270,7 @@
       },
       "UTIL_ValidationRule": {
         "percentage": 100,
-        "coveredLines": 317,
+        "coveredLines": 315,
         "uncoveredLines": 0,
         "exemptLines": 0
       },
@@ -1394,10 +1394,10 @@
         "lines": 100
       },
       "force-app/main/default/lwc/cronExpressionEditor/cronParser.js": {
-        "statements": 98.2,
-        "branches": 98,
+        "statements": 98.5,
+        "branches": 98.3,
         "functions": 100,
-        "lines": 98.2
+        "lines": 98.5
       },
       "force-app/main/default/lwc/customDataTable/customDataTable.js": {
         "statements": 100,
