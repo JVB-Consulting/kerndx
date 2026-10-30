@@ -1,4 +1,4 @@
-<!-- SPDX-License-Identifier: BUSL-1.1 -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 <!-- KernDX home-page landing tour. Rendered from home.md (layout:page) inside
      the real VitePress frame (navbar, search, theme toggle, left sidebar). Styling uses the
      site's --vp-c-* tokens so it inherits the bronze brand + light/dark. The side-by-side
@@ -34,11 +34,11 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 			<div class="kl-wrap">
 				<div class="kl-badges">
 					<span class="kl-badge brand" data-spec-id="badge-version">{{ landing.version }}</span>
-					<span class="kl-badge" data-spec-id="badge-license">BSL 1.1 → Apache 2.0</span>
+					<span class="kl-badge" data-spec-id="badge-license">Apache 2.0</span>
 					<span class="kl-badge" data-spec-id="badge-api">API {{ landing.apiVersion }}</span>
 				</div>
 				<h1 data-spec-id="hero-headline">Every Salesforce framework your team keeps rebuilding, in one Apex &amp; LWC library.</h1>
-				<p class="kl-sub" data-spec-id="hero-subline">Spend your team on the features that move the business, not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, with public source on GitHub.</p>
+				<p class="kl-sub" data-spec-id="hero-subline">Spend your team on the features that move the business, not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, open source on GitHub.</p>
 				<p class="kl-depth" data-spec-id="hero-depth">You write the line you expect. You get the depth you didn't: security by default, with logging, performance, and traceability built in.</p>
 				<p class="kl-durability" data-spec-id="hero-durability">Built to stay consistent after years of changes and dozens of contributors.</p>
 				<div class="kl-cta-row">
@@ -86,7 +86,7 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 				<p class="kl-headline">An accelerator you own, not a product you rent.</p>
 				<div class="kl-origin" data-spec-id="origin-story">
 					<p>Most enterprise Salesforce orgs spend three to five years rebuilding the same foundations: selectors, trigger handling, logging, web services, async, masking, and field-level security (FLS) enforcement. They take on tech debt at every layer. KernDX is the integrated package those teams would have built with the budget and design discipline upfront: one library of frameworks for Apex and Lightning Web Components (LWC), plus the onboarding docs, continuous-integration (CI) tooling, and enforced defaults (permissions on by default, audit-logged bypasses, a coverage gate run on every release) that keep those guarantees true after a dozen contributors. The aim is to skip the rebuild cycle, not pay to rent your way around it.</p>
-					<p data-spec-id="origin-ownership">And the architecture stays yours. The source is public (BSL 1.1 today, converting to Apache 2.0 on a fixed schedule), so you can read it, fork it, deploy it unmanaged, or repackage it under your own namespace. No black box and no lock-in: if you ever move off the managed package, the framework stays in your org as your code, not a vendor's.</p>
+					<p data-spec-id="origin-ownership">And the architecture stays yours. The source is public under the Apache License 2.0, so you can read it, fork it, deploy it unmanaged, or repackage it under your own namespace. No black box and no lock-in: if you ever move off the managed package, the framework stays in your org as your code, not a vendor's.</p>
 				</div>
 			</div>
 		</section>
@@ -137,7 +137,7 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 				<p class="kl-headline">Your AI assistant gets the standards before it writes.</p>
 				<p class="kl-lead">KernDX ships its AI context as plain files in the public repo, with nothing to install, so Claude, Cursor, Copilot, or Gemini generate Apex and LWC that follow the framework (the naming, the secure defaults, the audited-bypass rule) instead of inventing their own.</p>
 				<div class="kl-agentic">
-					<p class="kl-def" data-spec-id="agentic-definition">KernDX is a library of Salesforce frameworks for Apex and LWC, with public source. It is one managed package (namespace <code>kern</code>, API {{ landing.apiVersion }}). It covers trigger handling, secure queries and saves, structured logging, background-job orchestration, scheduled jobs on a shared job runner, inbound and outbound REST, no-code feature flags and validation, and write-time data masking, plus the CI tooling (PMD rulesets, an ESLint plugin, secret scanning, and coverage gates).</p>
+					<p class="kl-def" data-spec-id="agentic-definition">KernDX is a library of Salesforce frameworks for Apex and LWC, open source under the Apache License 2.0. It is one managed package (namespace <code>kern</code>, API {{ landing.apiVersion }}). It covers trigger handling, secure queries and saves, structured logging, background-job orchestration, scheduled jobs on a shared job runner, inbound and outbound REST, no-code feature flags and validation, and write-time data masking, plus the CI tooling (PMD rulesets, an ESLint plugin, secret scanning, and coverage gates).</p>
 					<div class="kl-usage" data-spec-id="agentic-usage">
 						<p class="kl-usage-title">What ships, and how to wire it up</p>
 						<ol>
@@ -158,7 +158,7 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="ideas-worth-taking">Ideas worth taking</h2>
 				<p class="kl-headline">Worth reading even if you never adopt KernDX.</p>
-				<p class="kl-lead">These are design decisions, not feature names, so take the ideas with you. Each links to the guide that explains the thinking. The source is public (BSL 1.1, becoming Apache 2.0).</p>
+				<p class="kl-lead">These are design decisions, not feature names, so take the ideas with you. Each links to the guide that explains the thinking. The source is public under the Apache License 2.0.</p>
 				<div class="kl-cards">
 					<a class="kl-card" :href="resolve('/fast-start-inbound-apis#idempotency')" data-spec-id="steal-idempotency"><h3>Why a &lsquo;safe to retry&rsquo; key isn't enough</h3><p>If a retry shows up carrying different data than the first try, KernDX rejects it instead of replaying the old result, so a changed request can't silently overwrite the original.</p><span class="go">Read the decision →</span></a>
 					<a class="kl-card" :href="resolve('/logging-guide#logging-inside-platform-event-change-event-triggers')" data-spec-id="steal-self-trigger-log"><h3>Why a logging tool must avoid logging about itself</h3><p>When the thing recording events is itself event-driven, naively logging its own activity loops forever. KernDX detects that case and writes the record directly.</p><span class="go">Read the decision →</span></a>

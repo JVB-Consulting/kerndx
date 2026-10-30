@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class TST_InvokeFlowMock
 ```
 
-Test mock harness for TRG_InvokeFlow-dispatched flows. Lets test authors register canned flow responses that TRG_InvokeFlow.invokeSingle short-circuits against, bypassing the platform Flow.Interview API entirely. Mirrors the fluent shape of API_MockFactory so the patterns transfer one-to-one. The global methods you use in your tests (unchanged since v1.0): forFlow(String) — entry point returning a MockBuilder MockBuilder.succeed() / .fail(String) / .withOutputRecord(SObject) / .withOutputRecords(List<SObject>) / .throwOnStart(Exception) / .register() clear(), assertInvoked(name, count), assertNotInvoked(name), wasInvoked(name) getLastInputRecord(name), getLastInputPriorRecord(name) — verify the flow saw upstream Apex mutations Framework-internal surface (used by TRG_InvokeFlow): isMocked(name), getMockResult(name), recordInvocation(name, record, priorRecord)
+Test mock harness for TRG_InvokeFlow-dispatched flows. Lets test authors register canned flow responses that TRG_InvokeFlow.invokeSingle short-circuits against, bypassing the platform Flow.Interview API entirely. Mirrors the fluent shape of API_MockFactory so the patterns transfer one-to-one. The global methods you use in your tests: forFlow(String): the starting point, which returns a MockBuilder MockBuilder.succeed() / .fail(String) / .withOutputRecord(SObject) / .withOutputRecords(List<SObject>) / .throwOnStart(Exception) / .register() clear(), assertInvoked(name, count), assertNotInvoked(name), wasInvoked(name) getLastInputRecord(name), getLastInputPriorRecord(name): check that the flow saw the changes Apex made before it ran Framework-internal surface (used by TRG_InvokeFlow): isMocked(name), getMockResult(name), recordInvocation(name, record, priorRecord)
 
 **Example**
 
@@ -160,7 +160,7 @@ or when the dispatch was not a Change Event context (standard / custom-object
 triggers do not inject a header).
 
 Returned as `Object` (rather than `DTO_ChangeEventHeader`) to keep this mock's
-compile-time surface decoupled from the CDC header type — callers cast at the
+compile-time surface apart from the change event header type; callers cast at the
 call site:
 
 `DTO_ChangeEventHeader header =

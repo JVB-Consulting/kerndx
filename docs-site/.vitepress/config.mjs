@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 import {fileURLToPath} from 'node:url';
 import {defineConfig} from 'vitepress';
 import {MermaidMarkdown} from 'vitepress-plugin-mermaid';
@@ -277,7 +277,7 @@ export default defineConfig({
 		if (!desc)
 		{
 			desc = (resolvedTitle && !isHome)
-				? `${resolvedTitle} — KernDX, a source-available Salesforce Apex and LWC framework.`
+				? `${resolvedTitle} — KernDX, an open-source library of Salesforce frameworks for Apex and LWC.`
 				: 'A complete Salesforce Apex + LWC framework and library suite.';
 		}
 		else if (isReference && resolvedTitle && !desc.includes(resolvedTitle))

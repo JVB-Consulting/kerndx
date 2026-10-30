@@ -70,7 +70,7 @@ Text that comes from a page or a user must first be matched to a category throug
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not one name |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not a single API name, such as Name |
 
 **Example**
 
@@ -101,7 +101,7 @@ Text that comes from a page or a user must first be matched to a category throug
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not one name |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not a single API name, such as Name |
 
 **Example**
 
@@ -134,7 +134,7 @@ Text that comes from a page or a user must first be matched to a category throug
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not one name |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not a single API name, such as Name |
 
 **Example**
 
@@ -165,7 +165,7 @@ Text that comes from a page or a user must first be matched to a category throug
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not one name |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not a single API name, such as Name |
 
 **Example**
 
@@ -198,7 +198,7 @@ Text that comes from a page or a user must first be matched to a category throug
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not one name |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not a single API name, such as Name |
 
 **Example**
 
@@ -229,7 +229,7 @@ Text that comes from a page or a user must first be matched to a category throug
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not one name |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not a single API name, such as Name |
 
 **Example**
 
@@ -262,7 +262,7 @@ Text that comes from a page or a user must first be matched to a category throug
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not one name |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryNames is null or empty, or a name in it is not blank and is not a single API name, such as Name |
 
 **Example**
 
@@ -293,7 +293,7 @@ Text that comes from a page or a user must first be matched to a category throug
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not one name |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if categoryName is blank, or is not a single API name, such as Name |
 
 **Example**
 

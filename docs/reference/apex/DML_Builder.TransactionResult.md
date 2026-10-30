@@ -61,7 +61,8 @@ List<Database.Error> errors = result.getErrors();
 global Integer getFailureCount()
 ```
 
-Returns the count of failed DML operations across all operation types.
+Returns the count of failed DML operations across all operation types. For a save that
+`suppressExceptions()` turned into a failed result, every record counts as failed when the exception holds no row details.
 
 **Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — Number of failed operations.
 

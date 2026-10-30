@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 'use strict';
 
 /**
@@ -132,6 +132,15 @@ function findInlineCountViolations(repoRoot)
 function formatInlineCount(v)
 {
 	return `${v.file}:${v.line} [${v.figure}] "${v.text}": state this count only in the Metrics guide and point at it here`;
+}
+
+/**
+ * True for a test class among the subscriber classes the release tests deploy: a file ending `_TEST.cls`, or
+ * `_SUBTEST.cls` for a test that only runs in a subscriber org.
+ */
+function isSubscriberTestClass(fileName)
+{
+	return fileName.endsWith('_TEST.cls') || fileName.endsWith('_SUBTEST.cls');
 }
 
 function countFiles(dir, predicate)
@@ -375,8 +384,8 @@ function computeExpected(repoRoot)
 	const referenceTotal = apexReference + metadataReference + objectsReference + eventsReference;
 	const totalDocFiles = developerGuides + fastStartGuides + strategicGuidesShipped;
 
-	const subscriberApexProduction = countFiles(releaseTestingClassesDir, f => f.endsWith('.cls') && !f.endsWith('_TEST.cls'));
-	const subscriberApexTest = countFiles(releaseTestingClassesDir, f => f.endsWith('_TEST.cls'));
+	const subscriberApexProduction = countFiles(releaseTestingClassesDir, f => f.endsWith('.cls') && !isSubscriberTestClass(f));
+	const subscriberApexTest = countFiles(releaseTestingClassesDir, isSubscriberTestClass);
 	const subscriberTestMethods = (function()
 	{
 		if(!fs.existsSync(releaseTestingClassesDir))
@@ -386,7 +395,7 @@ function computeExpected(repoRoot)
 		let count = 0;
 		for(const entry of fs.readdirSync(releaseTestingClassesDir))
 		{
-			if(!entry.endsWith('_TEST.cls'))
+			if(!isSubscriberTestClass(entry))
 			{
 				continue;
 			}
@@ -808,10 +817,45 @@ function countFailures(record, category)
 
 const LOCAL_TEST_RUN_RECORD = path.join('verify-results', 'aer-run.json');
 
+const RELEASE_RECORD = path.join('release-testing', 'released-versions.json');
+
+/**
+ * @description The versions the release record lists as promoted. The promote script adds a version to the record on
+ * the day it is promoted, while its own version line is still the one being built, so highestReleasedVersion does not
+ * count it yet. The public copy has no release record and reads an empty list.
+ *
+ * @param {string} repoRoot
+ * @return {Array<string>} for example ["1.10.0-4", "1.11.0-1"]
+ */
+function readPromotedVersions(repoRoot)
+{
+	const recordFile = path.join(repoRoot, RELEASE_RECORD);
+	return fs.existsSync(recordFile) ? JSON.parse(fs.readFileSync(recordFile, 'utf-8')).map(entry => entry.version).filter(Boolean) : [];
+}
+
+/**
+ * @description The newest package build, read from sfdx-project.json: the highest `Kern@X.Y.Z-N` alias, released or
+ * not. A "Latest packaged version" row marked "(validated build)" names this build until the promote script marks it
+ * released.
+ *
+ * @param {object} project the parsed sfdx-project.json
+ * @return {?string} for example "1.11.0-1", or null when the project has no versioned alias
+ */
+function highestAlias(project)
+{
+	return Object.keys(project.packageAliases || {})
+	.map(alias => alias.match(/@(\d+\.\d+\.\d+-\d+)$/)?.[1])
+	.filter(Boolean)
+	.sort(compareVersions)
+	.pop() ?? null;
+}
+
 /**
  * @description Compares the figures the Metrics guide copies from recorded sources: the local test run section
- * against verify-results/aer-run.json, and the "Latest packaged version" row against sfdx-project.json. A section
- * with no record, or a record with no section, is drift too.
+ * against verify-results/aer-run.json, and every "Latest packaged version" row against sfdx-project.json and
+ * release-testing/released-versions.json. A row marked "(validated build)" must name the newest build, and one that is
+ * not released yet; any other row must name the latest released version. A section with no record, or a record with
+ * no section, is drift too.
  *
  * @param {string} repoRoot
  * @param {string} content the Metrics guide
@@ -860,15 +904,25 @@ function findRecordedFigureDrift(repoRoot, content)
 	}
 
 	const projectFile = path.join(repoRoot, 'sfdx-project.json');
-	const versionRow = content.split('\n')
-	.map((text, index) => ({match: text.match(/^\|\s*Latest packaged version\s*\|\s*(\d+\.\d+\.\d+-\d+)/i), line: index + 1}))
-	.find(entry => entry.match);
-	if(versionRow && fs.existsSync(projectFile))
+	const versionRows = content.split('\n')
+	.map((text, index) => ({match: text.match(/^\|\s*Latest packaged version\s*\|\s*(\d+\.\d+\.\d+-\d+)( \(validated build\))?/), line: index + 1}))
+	.filter(entry => entry.match);
+	if(versionRows.length && fs.existsSync(projectFile))
 	{
-		const released = highestReleasedVersion(JSON.parse(fs.readFileSync(projectFile, 'utf-8')));
-		if(versionRow.match[1] !== released)
+		const project = JSON.parse(fs.readFileSync(projectFile, 'utf-8'));
+		const released = [highestReleasedVersion(project), ...readPromotedVersions(repoRoot)].filter(Boolean).sort(compareVersions).pop() ?? null;
+		for(const versionRow of versionRows)
 		{
-			drift.push({key: 'latestPackagedVersion', line: versionRow.line, claimed: versionRow.match[1], expected: released});
+			const claimed = versionRow.match[1];
+			const expected = versionRow.match[2] ? highestAlias(project) : released;
+			if(claimed !== expected)
+			{
+				drift.push({key: 'latestPackagedVersion', line: versionRow.line, claimed, expected});
+			}
+			else if(versionRow.match[2] && released && compareVersions(claimed, released) <= 0)
+			{
+				drift.push({key: 'latestPackagedVersion', line: versionRow.line, claimed: `${claimed} (validated build)`, expected: `${claimed} (released)`});
+			}
 		}
 	}
 	return drift;

@@ -79,7 +79,7 @@ at once). Do not expect retry timing finer than a minute.
 The backoff delay applies only when the retried attempt is queued. It happens exactly once, on
 the retry itself, and the steps after a successful retry run with no added delay. A chain that
 has retried also has more room in the queueable stack depth for the rest of its run. Each retry
-really adds one job to the line of jobs, so the extra depth stays available to the hops that
+really adds one more job to the jobs queued one from another, so the extra depth stays available to the hops that
 follow.
 
 **Returns** [UTIL_Retry.Strategy](UTIL_Retry.Strategy.md) — The retry strategy for this step, or null (the default) for no retry.

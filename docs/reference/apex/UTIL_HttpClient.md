@@ -211,8 +211,8 @@ global static UTIL_HttpClient.RequestBuilder useHandler(Type handlerType)
 ```
 
 Creates a delegation mode request for the specified handler class of your own. Your handler's inputs also
-carry three names that start with two underscores, holding the retry values of withRetry and withExponentialBackoff;
-leave them in place, the framework reads them on every run.
+carry three keys that hold the retry values of withRetry and withExponentialBackoff: `__exponentialBackoff`,
+`__maxRetries` and `__backoffSeconds`. Leave them in place, the framework reads them on every run.
 
 **Parameters**
 

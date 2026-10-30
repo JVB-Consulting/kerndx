@@ -2,7 +2,7 @@
 title: "UTIL_Sharing"
 type: class
 pageClass: reference
-description: "Utility class for managing SObject record sharing. Provides methods for both permanent and time-bound (temporary) sharing. Known access-mode consistency issue (tracked as a known issue). Share-record "
+description: "Utility class for managing SObject record sharing. Provides methods for both permanent and time-bound (temporary) sharing. How share records are saved. Every save of a share record runs with .withSyst"
 author: "Jason Van Beukering"
 group: "Utilities"
 date: "January 2026, October 2026"
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class UTIL_Sharing
 ```
 
-Utility class for managing SObject record sharing. Provides methods for both permanent and time-bound (temporary) sharing. Known access-mode consistency issue (tracked as a known issue). Share-record DML is currently hard-coded to .withSystemMode().bypassSharing(). The time-bound revocation queueable legitimately needs SYSTEM_MODE as a cleanup fallback (it runs hours after grant, so the original user's session may no longer be valid). The grant / grantTemporary insert path is harder to justify: UTIL_Sharing is global and the target is a caller-specified parent object's share table, not a framework-owned bookkeeping object, so silently elevating to SYSTEM_MODE + bypassSharing() lets a low-privilege caller in your org grant access to records they have no native right to share. This is the same privilege-escalation shape that was corrected for UTIL_PurgeRecords and UTIL_BulkUpdates — those utilities now inherit the flag-driven default so the running user's FLS/CRUD applies. UTIL_Sharing should move to the same default for the grant path; the change is deferred because it would change behaviour you can see in a global API and needs release-note coordination. Supports any SObject type that has a corresponding Share object (custom objects with __Share and standard objects like AccountShare, CaseShare, etc.).
+Utility class for managing SObject record sharing. Provides methods for both permanent and time-bound (temporary) sharing. How share records are saved. Every save of a share record runs with .withSystemMode().bypassSharing(). This holds on both paths: the grant path (grant and grantTemporary) and the revoke path. System mode means the save skips the running user's object and field permissions, and bypassSharing() means it also skips their record sharing. The revoke path needs this. A time-bound share is removed by a queued job that runs hours after the grant, when the session of the user who granted it may no longer be valid. On the grant path, the target is the share table of a parent object the caller chooses, not a record the framework owns. So a caller with few permissions in your org can grant access to records they could not share themselves. UTIL_PurgeRecords and UTIL_BulkUpdates work differently: they save with the access the User Mode DML feature flag selects, which by default is the running user's object and field permissions. Supports any SObject type that has a corresponding Share object (custom objects with __Share and standard objects like AccountShare, CaseShare, etc.).
 
 **Example**
 

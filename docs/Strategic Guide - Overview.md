@@ -58,7 +58,7 @@ by querying the audit log, instead of hunting through the codebase. More on the 
 | **API version** | 68.0 |
 | **Build status** | v1.0 packaged (first validated build; testing-hardened against 100% per-file Apex coverage, 95% LWC, and an extensive subscriber e2e harness) |
 | **Licensing fees** | Zero |
-| **Licence** | Source publicly available under BSL 1.1 (relicenses to Apache 2.0 after a four-year change date) |
+| **Licence** | Open source under the Apache License 2.0 |
 
 - First validated build packaged; subsequent releases tracked in the Metrics doc (linked below)
 - Single contributor at the snapshot date
@@ -169,7 +169,7 @@ Beyond those comparisons, every core capability KernDX claims is shipped, docume
 
 **Capability and adoption activity are reported separately, and on purpose.** This guide keeps two questions apart: *what does each framework do* (its capability coverage) and *how active is each framework* (its commits, contributors, tagged releases, days since last release, and outside citations). The activity track is reported on its own and never decides which framework covers more. KernDX's current contributor, commit, tag, and package-version counts live in the [Metrics](Strategic%20Guide%20-%20Metrics.md) doc, which is the authoritative source. Some frameworks have a longer track record than KernDX, including [`rflib`](https://github.com/j-fischer/rflib), [`apex-fluently-soql`](https://github.com/beyond-the-cloud-dev/soql-lib) and [`apex-fluently-dml`](https://github.com/beyond-the-cloud-dev/dml-lib), yet cover fewer capabilities. So choosing KernDX is a different decision from choosing `rflib` or `fflib`: weigh capability coverage and track record independently, because they don't move together.
 
-**KernDX is an accelerator you can own, not a product you rent.** There are no licensing fees, and the source is publicly available under the Business Source License 1.1 (which automatically relicenses to the permissive Apache 2.0 after a four-year change date). You have three documented ways to walk away from the managed package without losing the framework: keep using the managed package, deploy it as source from the public repository, or repackage it under your own namespace using the tooling KernDX ships. KernDX is one of the few Apex frameworks that documents that repackage-under-your-own-namespace path as a first-class exit; the full analysis is in [Packaging, Distribution & Exit Strategy](Strategic%20Guide%20-%20Operations.md#packaging-distribution--exit-strategy).
+**KernDX is an accelerator you can own, not a product you rent.** There are no licensing fees, and KernDX is open source under the Apache License 2.0, a permissive licence that lets you use the code for anything. You have three documented ways to walk away from the managed package without losing the framework: keep using the managed package, deploy it as source from the public repository, or repackage it under your own namespace using the tooling KernDX ships. KernDX is one of the few Apex frameworks that documents that repackage-under-your-own-namespace path as a first-class exit; the full analysis is in [Packaging, Distribution & Exit Strategy](Strategic%20Guide%20-%20Operations.md#packaging-distribution--exit-strategy).
 
 **How to read this document.** If a comparison looks wrong or out of date relative to a linked library's current state, please open an issue in this repository.
 
@@ -185,8 +185,8 @@ either all at once or one piece at a time.
 |---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Package Type**          | Managed Package (2GP)                                                                                                                                                                                                                                                                                      |
 | **API Version**           | 68.0 (`sourceApiVersion` per `sfdx-project.json`)                                                                                                                                                                                                                                                          |
-| **Licence**               | Business Source License 1.1: source-available, four-year clock to Apache 2.0                                                                                                                                                                                                                              |
-| **Status**                | First validated build shipped and packaged, testing-hardened (100% per-file Apex coverage gate + 95% LWC + subscriber e2e harness); publicly released under BSL 1.1 and promoted for production install, in active use at one known external client engagement at the snapshot date, with no named external production deployments yet and public adoption still early |
+| **Licence**               | Apache License 2.0: open source, approved by the Open Source Initiative (OSI), with a patent grant                                                                                                                                                                                                       |
+| **Status**                | First validated build shipped and packaged, testing-hardened (100% per-file Apex coverage gate + 95% LWC + subscriber e2e harness); publicly released under the Apache License 2.0 and promoted for production install, in active use at one known external client engagement at the snapshot date, with no named external production deployments yet and public adoption still early |
 | **Coverage gate**         | 100% Apex per-file + 95% LWC statements + 95% LWC branches enforced by `scripts/evaluate-coverage.js` at every release build                                                                                                                                                                               |
 | **Latest packaged build** | See [Metrics — Activity Snapshot](Strategic%20Guide%20-%20Metrics.md#activity-snapshot) for the current build identifier                                                                                                                                                                                   |
 
@@ -194,7 +194,7 @@ For current Apex class counts, LWC bundle counts, commit and package-version cou
 surface method counts, documentation page counts), see the [Metrics](Strategic%20Guide%20-%20Metrics.md) doc, which is the authoritative source. Other guides link here rather than
 carrying their own snapshot counts.
 
-KernDX source is publicly available under BSL 1.1 on the project repository (and relicenses to Apache 2.0 after a four-year change date). You can keep using the managed package,
+KernDX is open source under the Apache License 2.0, and the source is on the public project repository. You can keep using the managed package,
 deploy it as source from the public repository, or repackage it under your own namespace using the repackaging tooling and `Unmanaged.zip` artifact KernDX ships: three documented
 exit paths, not just source-on-GitHub. Consulting engagements include direct source delivery and handover support.
 
@@ -313,7 +313,7 @@ library:
 pull requests rather than by a new release cadence), and roughly 2,294 days since its last release. It remains the
 canonical implementation of the Application factory pattern. If you already run `fflib` and need that pattern, keep it; if you have no Domain-layer requirement, you don't need it.
 
-> **Exit strategy.** KernDX transfers at $0 in licence cost. The source is publicly available under BSL 1.1, so you own access to the framework from day one. Three documented ways out: keep using the managed package (zero effort), deploy it as source from the public repository, or repackage it under your own namespace using the tooling KernDX ships. See [Packaging, Distribution & Exit Strategy](Strategic%20Guide%20-%20Operations.md#packaging-distribution--exit-strategy) for the full analysis.
+> **Exit strategy.** KernDX transfers at $0 in licence cost. KernDX is open source under the Apache License 2.0, so you own access to the framework from day one. Three documented ways out: keep using the managed package (zero effort), deploy it as source from the public repository, or repackage it under your own namespace using the tooling KernDX ships. See [Packaging, Distribution & Exit Strategy](Strategic%20Guide%20-%20Operations.md#packaging-distribution--exit-strategy) for the full analysis.
 
 #### How the frameworks we compared break down
 

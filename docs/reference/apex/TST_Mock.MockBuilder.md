@@ -27,8 +27,8 @@ Fluent builder wrapper that delegates to TST_Builder.Builder for record construc
 
 | Method | Description |
 |--------|-------------|
-| global [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [build](#build)() | Builds a single mock record with a mock ID and registers it with TST_Mock for query interception. |
-| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [buildList](#buildlist)() | Builds a list of mock records with mock IDs and registers them with TST_Mock for query interception. |
+| global [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) [build](#build)() | Builds a single mock record with a mock ID and registers it with TST_Mock, so that a query in the test returns it. |
+| global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> [buildList](#buildlist)() | Builds a list of mock records with mock IDs and registers them with TST_Mock, so that a query in the test returns them. |
 | global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withChildren](#withchildren)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) childType, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) count) | Adds child records to the parent mock without field overrides. |
 | global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withChildren](#withchildren)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) childType, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) count, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Adds child records to the parent mock using SObjectField token overrides. |
 | global [TST_Mock.MockBuilder](TST_Mock.MockBuilder.md) [withChildren](#withchildren)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) childType, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) count, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Adds child records to the parent mock using String field name overrides. |
@@ -57,8 +57,8 @@ Fluent builder wrapper that delegates to TST_Builder.Builder for record construc
 global SObject build()
 ```
 
-Builds a single mock record with a mock ID and registers it with TST_Mock
-for query interception.
+Builds a single mock record with a mock ID and registers it with TST_Mock,
+so that a query in the test returns it.
 
 **Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The built mock SObject record.
 
@@ -78,8 +78,8 @@ Foobar__c mock = (Foobar__c)TST_Mock.of(Foobar__c.SObjectType).build();
 global List<SObject> buildList()
 ```
 
-Builds a list of mock records with mock IDs and registers them with TST_Mock
-for query interception.
+Builds a list of mock records with mock IDs and registers them with TST_Mock,
+so that a query in the test returns them.
 
 **Returns** [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) — The list of built mock SObject records.
 

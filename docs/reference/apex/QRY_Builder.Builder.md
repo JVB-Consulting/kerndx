@@ -958,10 +958,11 @@ Applies an AVG aggregate function.
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
     .groupBy(Opportunity.StageName)
     .avg(Opportunity.Amount)
-    .toList();
+    .toAggregateList();
+Decimal firstStageAverage = rows[0].getDecimal('avg_Amount');
 ```
 
 </div>
@@ -1235,15 +1236,16 @@ field through a list of fields you allow.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not one field path |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not a field name or a path through parent records, such as Account.Owner.Name |
 
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Account.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Account.SObjectType)
     .groupBy(Account.Industry)
     .count('Id')
-    .toList();
+    .toAggregateList();
+Integer firstIndustryCount = rows[0].getInteger('count_Id');
 ```
 
 </div>
@@ -1269,10 +1271,11 @@ Applies a COUNT_DISTINCT aggregate function.
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Contact.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Contact.SObjectType)
     .groupBy(Contact.AccountId)
     .countDistinct(Contact.Email)
-    .toList();
+    .toAggregateList();
+Integer firstAccountEmailCount = rows[0].getInteger('count_distinct_Email');
 ```
 
 </div>
@@ -1330,15 +1333,16 @@ matched to a field through a list of fields you allow.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not one field path |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not a field name or a path through parent records, such as Account.Owner.Name |
 
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Contact.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Contact.SObjectType)
     .groupBy(Contact.AccountId)
     .countDistinct('Email')
-    .toList();
+    .toAggregateList();
+Integer firstAccountEmailCount = rows[0].getInteger('count_distinct_Email');
 ```
 
 </div>
@@ -1891,10 +1895,11 @@ through a list of fields you allow.
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Account.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Account.SObjectType)
     .groupBy('Industry')
     .count('Id')
-    .toList();
+    .toAggregateList();
+Integer firstIndustryCount = rows[0].getInteger('count_Id');
 ```
 
 </div>
@@ -1983,11 +1988,12 @@ Starts a HAVING condition on the AVG of a field.
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
     .groupBy(Opportunity.AccountId)
     .avg(Opportunity.Amount)
     .havingAvgOf(Opportunity.Amount).greaterThan(50000)
-    .toList();
+    .toAggregateList();
+Decimal firstAccountAverage = rows[0].getDecimal('avg_Amount');
 ```
 
 </div>
@@ -2007,11 +2013,12 @@ Starts a HAVING condition on the global COUNT().
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Contact.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Contact.SObjectType)
     .groupBy(Contact.AccountId)
     .count('Id')
     .havingCount().greaterThan(5)
-    .toList();
+    .toAggregateList();
+Integer firstAccountContactCount = rows[0].getInteger('count_Id');
 ```
 
 </div>
@@ -2037,11 +2044,12 @@ Starts a HAVING condition on the COUNT of a field.
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Contact.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Contact.SObjectType)
     .groupBy(Contact.AccountId)
     .count('Id')
     .havingCountOf(Contact.Id).greaterThan(10)
-    .toList();
+    .toAggregateList();
+Integer firstAccountContactCount = rows[0].getInteger('count_Id');
 ```
 
 </div>
@@ -2067,11 +2075,12 @@ Starts a HAVING condition on the MAX of a field.
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
     .groupBy(Opportunity.AccountId)
     .max(Opportunity.Amount)
     .havingMaxOf(Opportunity.Amount).lessThan(1000000)
-    .toList();
+    .toAggregateList();
+Decimal firstAccountLargest = rows[0].getDecimal('max_Amount');
 ```
 
 </div>
@@ -2097,11 +2106,12 @@ Starts a HAVING condition on the MIN of a field.
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
     .groupBy(Opportunity.AccountId)
     .min(Opportunity.Amount)
     .havingMinOf(Opportunity.Amount).greaterThan(1000)
-    .toList();
+    .toAggregateList();
+Decimal firstAccountSmallest = rows[0].getDecimal('min_Amount');
 ```
 
 </div>
@@ -2127,11 +2137,12 @@ Starts a HAVING condition on the SUM of a field.
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
     .groupBy(Opportunity.AccountId)
     .sum(Opportunity.Amount)
     .havingSumOf(Opportunity.Amount).greaterThan(100000)
-    .toList();
+    .toAggregateList();
+Decimal firstAccountTotal = rows[0].getDecimal('sum_Amount');
 ```
 
 </div>
@@ -2208,10 +2219,11 @@ Applies a MAX aggregate function.
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
     .groupBy(Opportunity.StageName)
     .max(Opportunity.Amount)
-    .toList();
+    .toAggregateList();
+Decimal firstStageLargest = rows[0].getDecimal('max_Amount');
 ```
 
 </div>
@@ -2269,10 +2281,11 @@ Applies a MIN aggregate function.
 **Example**
 
 ```apex
-List<AggregateResult> results = QRY_Builder.selectFrom(Opportunity.SObjectType)
+List<QRY_Builder.AggregateRow> rows = QRY_Builder.selectFrom(Opportunity.SObjectType)
     .groupBy(Opportunity.StageName)
     .min(Opportunity.CloseDate)
-    .toList();
+    .toAggregateList();
+Date firstStageEarliestCloseDate = rows[0].getDate('min_CloseDate');
 ```
 
 </div>
@@ -2742,8 +2755,9 @@ List<QRY_Builder.AggregateRow> topSources = QRY_Builder.selectFrom(Opportunity.S
 global QRY_Builder.Builder relatedField(String parentField)
 ```
 
-Adds a single parent field. The text must be one field path. Text that comes from a page or a user
-must first be matched to a field through a list of fields you allow.
+Adds a single parent field. The text must be a field name or a path through parent records, such as
+Account.Owner.Name. Text that comes from a page or a user must first be matched to a field through a list of
+fields you allow.
 
 **Parameters**
 
@@ -2757,7 +2771,7 @@ must first be matched to a field through a list of fields you allow.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not one field path |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the text is not blank and is not a field name or a path through parent records, such as Account.Owner.Name |
 
 **Example**
 
@@ -2777,8 +2791,9 @@ List<Contact> contacts = QRY_Builder.selectFrom(Contact.SObjectType)
 global QRY_Builder.Builder relatedFields(List<String> parentFields)
 ```
 
-Adds parent (related) fields to the selection. Each text must be one field path. Text that comes from a
-page or a user must first be matched to a field through a list of fields you allow.
+Adds parent (related) fields to the selection. Each text must be a field name or a path through
+parent records, such as Account.Owner.Name. Text that comes from a page or a user must first be matched to a
+field through a list of fields you allow.
 
 **Parameters**
 
@@ -2792,7 +2807,7 @@ page or a user must first be matched to a field through a list of fields you all
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if a text in the list is not blank and is not one field path. Nothing is added then. |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if a text in the list is not blank and is not a field name or a path through parent records, such as Account.Owner.Name. Nothing is added then. |
 
 **Example**
 
@@ -2882,8 +2897,9 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder subselect(QRY_Builder.Builder childQuery, String relationshipName)
 ```
 
-Adds a child subquery (child relationship query). The relationship name must be one name. Text that
-comes from a page or a user must first be matched to a relationship through a list of names you allow.
+Adds a child subquery (child relationship query). The relationship name must be a single API name,
+such as Contacts. Text that comes from a page or a user must first be matched to a relationship through a list
+of names you allow.
 
 **Parameters**
 
@@ -2898,7 +2914,7 @@ comes from a page or a user must first be matched to a relationship through a li
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the relationship name is not blank and is not one name |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the relationship name is not blank and is not a single API name, such as Contacts |
 
 **Example**
 
@@ -3274,7 +3290,7 @@ a user must first be matched to a group through a list of names you allow.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if groupName is blank, or is not one name |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if groupName is blank, or is not a single API name, such as Name |
 
 **Example**
 

@@ -152,7 +152,7 @@ that does not name the field.
 - With the `UserModeDml_Enabled` flag off, a save with no access mode runs in system mode, so nothing is
 checked, as for any save.
 
-The choice is recorded in the bypass audit when the save runs.
+When the save runs, the framework's bypass audit records it: log entries, one for each kind of record saved, that say this save ignored record sharing.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
@@ -752,7 +752,7 @@ global DML_Builder withSystemMode()
 Forces `AccessLevel.SYSTEM_MODE` on every DML operation in this transaction.
 Use it when code must write objects that the running user is not meant to have object or field access
 (CRUD/FLS) to, such as logs, records that track background work, or other objects the framework owns.
-The choice is recorded in the bypass audit when the save runs.
+When the save runs, the framework's bypass audit records it: log entries, one for each kind of record saved, that say this save skipped object and field permissions.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 

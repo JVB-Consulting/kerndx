@@ -149,8 +149,8 @@ scope. OperationResult.cacheTypeUsed reports the actual scope used (IN_TRANSACTI
 when the fallback fired) so callers can detect the degraded path.
 
 - Durability-critical callers (security keys, distributed state) MUST use auto(), not
-this factory, so the loud failure signal stays loud
-when Platform Cache is missing.
+this factory, so a missing Platform Cache still makes them fail instead of quietly falling back to the
+transaction cache.
 
 **Returns** [UTIL_Cache.Store](UTIL_Cache.Store.md) — Store with Session → Org → Transaction fallback chain
 

@@ -173,7 +173,8 @@ package after the preview build repeats the preview build and the phases it touc
 Between the platform's general-availability cutover and the pool's move, neither build works: `release: preview` is
 refused for a package version and the pool cannot compile the newer API yet. Wait for the probe to list the version.
 
-Before either build, on a clean tree: the drift audit (`org-source-drift-audit` skill), the coverage-baseline recapture
+Before either build, on a clean tree: the development org recreated from `master` (created with `--no-namespace`, then
+a deploy of `force-app`; it replaces the drift audit), the coverage-baseline recapture
 (`npm run coverage:gate -- --fix-baseline`, which also adds every bundle and class new since the last capture), and, for
 the first build of a new line, `versionNumber` and `versionName` in `sfdx-project.json` opened to the new line in a
 commit of their own (the 1.7 line: `16ae60d6`). Keep `ancestorVersion` at `HIGHEST` and never pass
@@ -576,7 +577,7 @@ counts in the order they run: the launch script first, then its verify script (7
 | 80  | `release-testing/scripts/section-80-job-runner-concurrency.apex`              | Job runner concurrency: one due job, then two job runner checks launched at the very same instant from the shell; the row is claimed once, exactly one run is started, and the second check exits without starting anything (seed 80 + verify 80b)                                                                                       | by hand | 1/1 + 2/2|
 | 81  | `release-testing/scripts/section-81-watchdog-and-recipe-on-runner.apex`       | The watchdog and a subscriber recipe both run from the job runner instead of owning a scheduled job each: the watchdog marks a stuck chain Stalled and the recipe starts its chain, neither holding a scheduled-job slot (seed 81 + verify 81b)                                                                                          | by hand | 4/4 + 3/3|
 | 82  | `release-testing/scripts/section-82-job-runner-at-volume.apex`                | The job runner at volume: with more jobs due than one check may start, the check starts them in run-priority order up to its per-check limit, leaves the rest untouched, warns once, and the next check picks the rest up (seed 82 + verify 82b + catch-up 82c)                                                                          | by hand | 1/1 + 4/4 + 2/2|
-| 83  | `node release-testing/scripts/consoles-at-volume.js run --mode staged`, then `--mode full` (teardown between, see the note) | The consoles at volume: the chain engine loads the org with more than 3,300 runs (one action of 2,028 runs nested three levels deep, 200 small actions, the operator wave pressed through the Chain Monitor, dead-job stalls the scheduled watchdog re-drives when their step is safe to repeat and ends Failed when it is not, and in a release cycle 250 started-step rows it must end Failed); staged mode in about twenty minutes, then full mode in about an hour; verify prints one line per claim and the drain rate; see "Section 83 note" | by hand | every claim PASS, both modes |
+| 83  | `node release-testing/scripts/consoles-at-volume.js run --mode staged`, then `--mode full` (teardown between, see the note) | The consoles at volume: the chain engine loads the org with more than 3,300 runs (one action of 2,028 runs nested three levels deep, 200 small actions, the operator wave pressed through the Chain Monitor, dead-job stalls the scheduled watchdog re-drives when their step is safe to repeat and ends Failed when it is not, and in a release cycle 250 started-step rows it must end Failed); staged mode in about twenty minutes, then full mode in about an hour; verify prints one line per claim and the drain rate; the manifest and logs land in `tmp/consoles-at-volume/<your org alias>/`; see "Section 83 note" | by hand | every claim PASS, both modes |
 | 84  | `release-testing/scripts/section-84-outbound-retry-live.apex` | Outbound retry classification live: three handlers at a Named Credential that does not exist (GET, unkeyed POST, keyed POST); the GET and keyed POST rest at Retry with a time, the unkeyed POST fails at once with the labelled issue; a callout refused after a save rests at Retry unmarked, with no retry left it ends Failed unmarked; a half-open circuit starts a new round of trials; queues the Queueable and after-a-delete refusals (Launch). None of these Named Credentials may exist on the org: `RetryLiveDoesNotExist`, `RetryLiveNeverSentSave`, `RetryLiveNeverSentNoBudget`, `RetryLiveNeverSentQueueable`, `RetryLiveNeverSentDelete`, `RetryLiveSeparateCounts`. 84 and 86 share the `RetryLive` rows: run one after the other, never interleaved | by hand | 5/5 |
 | 84b | `release-testing/scripts/section-84b-outbound-retry-live-verify.apex` | Verify, at least 90 seconds later: the two scheduled rows ended Failed with one retry spent, the queued refusals rest at Retry unmarked with no breaker failure, nothing rests at Retry without a time, the breaker counted every callout that left the org; 84f-1: two breaker names on one credential keep separate failure counts; 84f-2: an open circuit with retry budget left rests at Retry with the circuit's wait and one retry counted; then resets the breakers, deletes every RetryLive call, issue, log entry and Foobar and proves by query that no call, issue or Foobar is left (prints SECTION84 PENDING and is run again 30 seconds later while a retry or job is still running). 84f-1 and 84f-2 print a PASS line and skip when no org cache is allocated | by hand | 7/7 |
 | 84  | `release-testing/scripts/section-84-outbound-retry-live-log-cleanup.apex` | 30 seconds after 84b (and after 84e on the development org): deletes the RetryLive log entries, which land after each script's transaction ends (a breaker reset writes one), and proves by query that none is left | by hand | 1/1 |
@@ -896,8 +897,11 @@ rests on the installing administrator's own field access. Grant it for the run, 
 it is not a product failure.
 
 **Section 83 note (the consoles at volume):** one command loads the org in five stages (preflight,
-launch, drain, operate, verify) and records each in `tmp/consoles-at-volume/manifest.json`; running the command
-again skips the stages the manifest records as done, except verify, which always runs again. Run it after the
+launch, drain, operate, verify) and records each in `tmp/consoles-at-volume/<your org alias>/manifest.json`; running the command
+again skips the stages the manifest records as done, except verify, which always runs again. Each org gets its own
+folder, named after its alias, so a load on one org never reads another org's manifest. A flat
+`tmp/consoles-at-volume/manifest.json` left by an earlier release is no longer read: move it into the org's folder
+once (or archive it) before the first run. Run it after the
 Phase 1.4 artifacts and after `seed-log-volume.mjs`, in its own window: staged mode first (about twenty minutes),
 where the engine runs one of the thirteen roots, twelve of the 200 small actions and a smaller operator wave, and
 the rest of the rows are copied from what the engine wrote. When every claim reads PASS, tear the staged load down
@@ -909,14 +913,14 @@ any re-run in a different mode, never the last step. A release cycle's full run 
 ```shell
 node release-testing/scripts/consoles-at-volume.js run --mode staged
 node release-testing/scripts/consoles-at-volume.js teardown --mode staged
-node release-testing/scripts/consoles-at-volume.js run --mode full --stalled-started 250 > tmp/consoles-at-volume/full-run.log 2>&1
+node release-testing/scripts/consoles-at-volume.js run --mode full --stalled-started 250 > tmp/consoles-at-volume/<your org alias>/full-run.log 2>&1
 ```
 
 **`--org <alias>`** points the whole run at an org other than the runbook's subscriber org: the queries, the class
 deploy the preflight makes on an org without the package, and the browser that presses the Chain Monitor's buttons.
 Without it, every part uses `SF_SUBSCRIBER_ORG_ALIAS`.
 
-The full run writes its output to `tmp/consoles-at-volume/full-run.log` (the folder the staged run created) and
+The full run writes its output to `tmp/consoles-at-volume/<your org alias>/full-run.log` (the folder the staged run created) and
 keeps its exit code, so read the log for the claim lines when the command ends.
 
 What preflight checks. The run user needs the AsyncChainRedrive, AsyncChainAbort and AsyncChainKillSwitch
@@ -970,7 +974,7 @@ time, read from its log entries. The platform keeps no record of one sweep's wal
 rows from the full run's log, the same way it reads the other sections' rows:
 
 ```shell
-node release-testing/runner/perf-history.js --logfile tmp/consoles-at-volume/full-run.log --package-version <the installed version>
+node release-testing/runner/perf-history.js --logfile tmp/consoles-at-volume/<your org alias>/full-run.log --package-version <the installed version>
 ```
 
 On the development org, which has no package, `--development-org` in place of `--package-version` files the rows
@@ -1002,10 +1006,12 @@ verify can read a log entry before it lands: re-run verify once before treating 
 product failure.
 
 After the full run, the loaded org stays for the exploration at volume (Phase 3) and the consoles' hero capture
-(Phase 4.5, step 5), both of which run on it before Phase 3's battery. Phase 3 then replaces it with a staged
-load of its own (see "Exploration at volume"). Teardown after the full run is not a step of this runbook; if it
-is ever needed, it is `node release-testing/scripts/consoles-at-volume.js teardown --mode full`. Teardown also removes
-the watchdog's own log entries for the rows it acted on.
+(Phase 4.5, step 5), both of which run on it before Phase 3's battery. When both are done, and before the battery,
+tear the full load down: `node release-testing/scripts/consoles-at-volume.js teardown --mode full`. The load keeps the
+chain watchdog scheduled (twelve "Consoles At Volume Watchdog" jobs, one every five minutes), so a battery started over
+it fails part 1's baseline (V1 counts two Health Check warnings, not three) and runs the sweeps beside the scheduler
+and job runner journeys (1.11, 2026-10-30). Teardown also removes the watchdog's own log entries for the rows it acted
+on. Phase 3 then lays a staged load of its own (see "Exploration at volume").
 
 **Owed at 1.8 release testing (recorded 2026-09-26):** section 83 and the journeys V147 to V153 were written and
 rehearsed on the development org against no-namespace copies of the step classes; the first 1.8 cycle is the
@@ -1666,20 +1672,29 @@ Run all subscriber test classes:
 sf apex run test -o $SF_SUBSCRIBER_ORG_ALIAS --test-level RunLocalTests --result-format human --code-coverage
 ```
 
-**Expected:** all subscriber test classes pass at 100% org-wide coverage. `Tests Ran` should read 289 or a little
+**Expected:** all subscriber test classes pass. Org-wide coverage is not a gate here: in a subscriber org it measures only
+the support classes deployed for release testing, never the package's own code, which the package build measures. `Tests Ran` should read 307 or a little
 more: the list below counts test methods in the tree, and the platform also counts setup rows. Earlier this
 cycle: `SubscriberPlatformEventAccessLevel_TEST` — 4 tests covering the v67 SYSTEM_MODE always-emit + USER_MODE
 publish-enforcement platform-event AccessLevel guards (the runtime-enforcement layer the anonymous-Apex sections
 16/65 cannot reach). Kern 1.1 reconciliation: 180 tests / 0 failures / 97% org-wide coverage.
 
-Test classes deployed in `release-testing/subscriber/classes/` (56 classes, 289 test methods, counted from the tree on
-2026-10-23; the number after each name is its test methods):
+Test classes deployed in `release-testing/subscriber/classes/` (59 classes, 307 test methods, counted from the tree on
+2026-10-29; the number after each name is its test methods):
 
 | Area | Classes |
 |---|---|
-| Framework surface | `SubscriberApi18Surface_TEST` 13, `SubscriberApiRecordDeleteGuard_TEST` 3, `SubscriberAsyncDml_TEST` 3, `SubscriberBulkRetry_TEST` 5, `SubscriberChainSteps_TEST` 45, `SubscriberHttpClient_TEST` 8, `SubscriberInboundIssue_TEST` 2, `SubscriberMockPatterns_TEST` 27, `SubscriberMockSelection_TEST` 2, `SubscriberOutboundRetry_TEST` 20, `SubscriberPlatformEventAccessLevel_TEST` 4, `SubscriberResilience_TEST` 8, `SubscriberSecureByDefault_TEST` 8, `SubscriberSelectedMocking_TEST` 4, `SubscriberWhoWroteIt_TEST` 1, `Subscriber_DmlEdges_TEST` 3, `Subscriber_FlowLoggerRecordId_TEST` 2, `Subscriber_QryEdges_TEST` 10, `Subscriber_TriggerActionTiebreak_TEST` 1, `Subscriber_TypeResolver_TEST` 4, `CustomTypeResolver_TEST` 8 |
+| Framework surface | `SubscriberApi18Surface_TEST` 13, `SubscriberApiRecordDeleteGuard_TEST` 3, `SubscriberAsyncDml_TEST` 3, `SubscriberBulkRetry_TEST` 5, `SubscriberChainSteps_TEST` 45, `SubscriberDisabledFeatureFlag_TEST` 1, `SubscriberHttpClient_TEST` 8, `SubscriberInboundIssue_TEST` 2, `SubscriberMockPatterns_TEST` 27, `SubscriberMockSelection_TEST` 2, `SubscriberOutboundRetry_TEST` 20, `SubscriberPlatformEventAccessLevel_TEST` 4, `SubscriberQueryGuideExamples_TEST` 12, `SubscriberResilience_TEST` 8, `SubscriberSecureByDefault_TEST` 8, `SubscriberSelectedMocking_TEST` 4, `SubscriberWhoWroteIt_TEST` 1, `Subscriber_DmlEdges_TEST` 3, `Subscriber_FlowLoggerRecordId_TEST` 2, `Subscriber_QryEdges_TEST` 10, `Subscriber_TriggerActionTiebreak_TEST` 1, `Subscriber_TypeResolver_TEST` 4, `CustomTypeResolver_TEST` 8 |
 | Sample application | `AccountArchiveProcessor_TEST` 2, `API_ContactFormSubmit_TEST` 3, `API_GetPost_TEST` 4, `CTRL_SubscriberLwcTest_TEST` 4, `REST_ContactForm_TEST` 1, `SCHED_SubscriberJob_TEST` 4, `SVC_AccountOnboarding_TEST` 3, `SVC_AccountValidator_TEST` 4, `SVC_ContactDirectory_TEST` 3, `SVC_PricingCalculator_TEST` 2, `SVC_ResilientSync_TEST` 2, `TRG_AccountHandlers_TEST` 2, `TRG_InvokeFlow_SUBTEST` 5, `UTIL_AccountClassifier_TEST` 5, `VAL_AccountRules_TEST` 5 |
 | Fast Starts and recipes | `FastStart_AsyncChain_DEMO_TEST` 2, `FastStart_Cache_DEMO_TEST` 4, `FastStart_DML_DEMO_TEST` 3, `FastStart_E2E_DEMO_TEST` 3, `FastStart_FeatureFlag_DEMO_TEST` 2, `FastStart_InboundAPI_DEMO_TEST` 2, `FastStart_Logging_DEMO_TEST` 2, `FastStart_MockException_DEMO_TEST` 5, `FastStart_OutboundAPI_DEMO_TEST` 4, `FastStart_QueryMapTerminals_DEMO_TEST` 4, `FastStart_ScheduledJob_DEMO_TEST` 3, `FastStart_Selectors_DEMO_TEST` 4, `FastStart_TestData_DEMO_TEST` 4, `FastStart_TriggerAction_DEMO_TEST` 2, `FastStart_Validation_DEMO_TEST` 2, `Recipe_ApprovalHandOff_DEMO_TEST` 2, `Recipe_BypassSharingFieldAccess_TEST` 5, `Recipe_CaseDelivery_SERVICE_TEST` 1, `Recipe_ChainCircuitBreaker_DEMO_TEST` 4, `Recipe_CommittedDelivery_DEMO_TEST` 3, `Recipe_ScheduledChain_DEMO_TEST` 3 |
+
+New in the 1.11 cycle: `SubscriberDisabledFeatureFlag_TEST` (1: `kern.TST_Factory.newDisabledFeatureFlag` turns off
+`EnableSubscriberFlowAction`, a flag this org deploys on). It needs the flag on when the run starts, so run section 2.2
+after section 43 has restored it with `section-flow-flag-default`. The 1.11 run also covers sections 44, 61 and 76, which
+now follow the 1.9 masking defaults, and section 27, which switches mocking off again even when its script fails. Section
+83 and part 12 write under the folder named for your org alias. Open the scheduled job editor window once as a user whose
+permission set predates 1.10 and cannot read Execution Mode, Run Priority or Overlap Policy: it opens, and saving keeps
+those three values.
 
 New in the 1.8 cycle: `SubscriberApiRecordDeleteGuard_TEST` (3: a resolver's Delete refused, an administrator's
 allowed, a resolver's purge deletes nothing and warns once), `SubscriberApi18Surface_TEST` (13: the members added to
@@ -2055,7 +2070,7 @@ tears down the load whose entries are gone and lays a staged load of its own, so
 not survive it. Walk both consoles against the full load:
 
 ```shell
-node release-testing/e2e/explore-consoles.js --manifest tmp/consoles-at-volume/manifest.json
+node release-testing/e2e/explore-consoles.js --manifest tmp/consoles-at-volume/<your org alias>/manifest.json
 ```
 
 The walk covers both consoles against the load the manifest describes. On the Chain Monitor: the unscoped and
@@ -2071,12 +2086,21 @@ judged at the 75th percentile against 1 second per read and 3 seconds per open (
 
 On the subscriber org, the findings (`exploration-findings.md`), the `screenshots` folder, `timings.json` and a
 copy of the manifest land under `release-testing/results/<version>/consoles-at-volume/`, where `<version>` is the
-last `Kern@` alias in `sfdx-project.json`; commit them with the results file. On the development org they land
-under `tmp/consoles-at-volume/exploration/`, and `--output-directory <folder>` sends them elsewhere. The command
+Kern version the org has installed (`1.10.0-4` for an installed `1.10.0.4`); commit them with the results file. On the development org they land
+under `tmp/consoles-at-volume/<your org alias>/exploration/`, and `--output-directory <folder>` sends them elsewhere. The command
 exits 1 while any reportable finding stands (observations alone do not count) or the walk was cut short, so this
 step stays red until the maintainer rules on each finding: fix it, park it to the board, or accept it.
 
-Part 12 lays its own staged load inside the battery, about twenty minutes of its `beforeAll`: it waits for the
+When the walk and the consoles' hero capture are done, tear the full load down before the battery, and confirm no
+watchdog job of the load is left (the count must be 0):
+
+```shell
+node release-testing/scripts/consoles-at-volume.js teardown --mode full
+sf data query -o "$SF_SUBSCRIBER_ORG_ALIAS" -q "SELECT COUNT() FROM CronTrigger WHERE CronJobDetail.Name LIKE 'Consoles At Volume Watchdog%' AND State != 'DELETED'"
+```
+
+Part 12 lays its own staged load inside the battery, about twenty minutes of its `beforeAll`, in the load folder of
+the org the journeys signed in to (`tmp/consoles-at-volume/<your org alias>/`): it waits for the
 framework's batches to finish, tears down a verified load that has lost its chain rows or its log entries (part
 1 purges every log entry), and runs the driver in staged mode, reusing a verified staged load that is still whole.
 Run on its own through `npm run test:e2e:part12`, part 12 reseeds: Playwright runs the parts it depends on first,
@@ -2106,7 +2130,7 @@ and V142 (part10) runs but skips its Framework-origin branch there and says so i
 | `part9-masking-advisor.spec.js`    | V90-V98           | Data Masking Advisor: landing, add-object flow, rule detail, export, health-check masking posture                                                                                               |
 | `part10-log-console.spec.js`       | V106-V113, V122-V137, V142, V143, V144, V154 | Log Console: launcher tile + namespaced tab, ribbon summary + severity filter, date ranges (needs audit back-dating), endless scroll, sorting, debounced search incl. SOSL body leg, Chain Monitor cross-links, detail drawer + chain-gated timeline, origin badge, exact source pin, Origin filter, Framework attribution in a managed install; the Source column's writer and sort and the detail drawer's icons and copy button names |
 | `part11-job-runner.spec.js`        | V139-V141, V155, V157 | Job runner: Activate every 15 minutes, Deactivate flags a waiting job, Repair; a job on the runner shows its effective cadence, runs at a tick and records the outcome; Run now keeps the cursor and refuses under Skip while the previous run is live; a Standard User holding only the Job Runner Management set creates, schedules and runs a job but cannot delete it or edit its platform job id; the Scheduled Jobs Fast Start's screen steps as written: a record schedules the demo class, it moves onto the runner, Run now succeeds, a failed run's View log, switch off |
-| `part12-consoles-at-volume.spec.js` | V147-V153 | The consoles at volume on the staged load: a page turn loses and repeats no row among chains started in the same second; the scoped list, the banner and the database agree on the 2,000-run action; a run three levels down and a restart clone read correctly; a retry pressed on a real failed run; the console pager past page 7 at page size 100; both deep links |
+| `part12-consoles-at-volume.spec.js` | V147-V153 | The consoles at volume on the staged load, read from the load folder of the org the journeys signed in to: a page turn loses and repeats no row among chains started in the same second; the scoped list, the banner and the database agree on the 2,000-run action; a run three levels down and a restart clone read correctly; a retry pressed on a real failed run; the console pager past page 7 at page size 100; both deep links |
 
 **Expected:** 131/131 tests passing (the `test(` blocks across the twelve part specs, counted 2026-10-11: part1 15,
 part2 7, part3 4, part4 6, part5 9, part6 10, part7 8, part8 23, part9 9, part10 28, part11 5, part12 7). Part11 needs
@@ -2275,9 +2299,9 @@ browser-tested; the actions' runtime behaviour is covered by Phase 2 sections 17
 
 ### Debugging Failures
 
-1. **Screenshot:** `release-testing/test-results/<test-name>/test-failed-1.png`
-2. **Video:** `release-testing/test-results/<test-name>/video.webm`
-3. **Trace:** `npx playwright show-trace release-testing/test-results/<test-name>/trace.zip`
+1. **Screenshot:** `release-testing/test-results/<org alias>/<test-name>/test-failed-1.png`
+2. **Video:** `release-testing/test-results/<org alias>/<test-name>/video.webm`
+3. **Trace:** `npx playwright show-trace release-testing/test-results/<org alias>/<test-name>/trace.zip`
 4. **Headed mode:** `npm run test:e2e:headed` to watch the browser in real time
 5. **Debug mode:** `npm run test:e2e:debug` for Playwright Inspector with step-through
 
@@ -2419,19 +2443,19 @@ cell empty; the cell is cleared whenever the asset is re-captured.
 
 | Asset | What the frame shows | Source paths to diff (under `force-app/main/default/` unless noted) | Reviewed through |
 | --- | --- | --- | --- |
-| `stills/kern-home.jpg` | Kern Home tile page + readiness banner | `lwc/kernHome`, `lwc/healthCheck`, `classes/CTRL_HealthCheck.cls` | |
-| `stills/org-limits.jpg` | Org limits panel | `lwc/orgLimits` | |
-| `stills/event-usage.jpg` | Streaming monitor shell, Event Usage panel (the controller's usage methods) | `lwc/streamingUsageMetrics`, `lwc/streamingUsageFilters`, `lwc/streamingMonitor`, `lwc/streamingSidebar`, `lwc/streamingSubscriptions`, `lwc/notice`, `classes/CTRL_EventMonitor.cls` | |
-| `stills/async-timeline.jpg` | `AsyncChainExecution__c` record page (highlights + Step Timeline) | `lwc/chainStepTimeline`, `flexipages/AsyncChainExecution*`, `layouts/AsyncChainExecution*`, `objects/AsyncChainExecution__c/compactLayouts/*` | |
-| `stills/api-calls-picker.jpg`, `stills/api-issues-queue.jpg`, `stills/log-entry.jpg` | Record pages / list views (standard components only; the objects' list views, layouts and flexipages) | `objects/ApiCall__c`, `objects/ApiIssue__c`, `objects/LogEntry__c`, `layouts/ApiCall__c*`, `layouts/ApiIssue__c*`, `layouts/LogEntry__c*`, `flexipages/ApiCall.*`, `flexipages/ApiIssue.*`, `flexipages/LogEntry.*`, `lwc/retryApiIssue` | |
-| `recordings/health-check.*` | Readiness banner, apply-retention flow | `lwc/healthCheck`, `lwc/kernHome`, `lwc/applyRetentionModal`, `lwc/scheduleChainWatchdogModal`, `classes/CTRL_HealthCheck.cls` | |
-| `recordings/chain-monitor.*` | Chain Monitor, open-a-failed-run flow | `lwc/chainMonitor`, `lwc/chainMonitorDetail`, `lwc/chainMonitorList`, `lwc/chainStepTimeline`, `lwc/chainAbortModal`, `classes/CTRL_ChainMonitor.cls` | |
-| `recordings/streaming-monitor.*` | Subscribe → publish → arrive flow (every streaming bundle) | `lwc/streaming*`, `lwc/utilityStreaming`, `classes/CTRL_EventMonitor.cls` | |
-| `recordings/api-harness.*` | Outbound + inbound harness run | `lwc/apiTestHarnessForm`, `lwc/jsonViewer`, `classes/CTRL_ApiTestHarness.cls` | |
-| `recordings/log-console.*` | Grouped problems → filter → correlation timeline | `lwc/logConsole`, `lwc/logConsoleContext`, `lwc/logConsoleDetail`, `lwc/logConsoleTable`, `lwc/jsonViewer`, `classes/CTRL_LogConsole.cls` | |
-| `recordings/masking-advisor.*` | Scan → drill-into-an-object flow (every masking bundle) | `lwc/dataMaskingAdvisor`, `lwc/masking*`, `classes/CTRL_MaskingAdvisor.cls` | |
-| `recordings/scheduled-jobs.*` | Cron builder flow (plain-English schedule, invalid-time rejection) | `lwc/scheduledJobEditor`, `lwc/scheduledJobEditorModal`, `lwc/scheduledJobDetail`, `lwc/cronExpressionEditor`, `lwc/utilityScheduledJob`, `classes/CTRL_ScheduledJob.cls` | |
-| `recordings/class-type-resolver.*` | Setup helper opened from the readiness banner (with its host page) | `lwc/classTypeResolverSetupModal`, `lwc/kernHome`, `lwc/healthCheck` | |
+| `stills/kern-home.jpg` | Kern Home tile page + readiness banner | `lwc/kernHome`, `lwc/healthCheck`, `classes/CTRL_HealthCheck.cls` | `cb68bfcb` |
+| `stills/org-limits.jpg` | Org limits panel | `lwc/orgLimits` | `cb68bfcb` |
+| `stills/event-usage.jpg` | Streaming monitor shell, Event Usage panel (the controller's usage methods) | `lwc/streamingUsageMetrics`, `lwc/streamingUsageFilters`, `lwc/streamingMonitor`, `lwc/streamingSidebar`, `lwc/streamingSubscriptions`, `lwc/notice`, `classes/CTRL_EventMonitor.cls` | `cb68bfcb` |
+| `stills/async-timeline.jpg` | `AsyncChainExecution__c` record page (highlights + Step Timeline) | `lwc/chainStepTimeline`, `flexipages/AsyncChainExecution*`, `layouts/AsyncChainExecution*`, `objects/AsyncChainExecution__c/compactLayouts/*` | `cb68bfcb` |
+| `stills/api-calls-picker.jpg`, `stills/api-issues-queue.jpg`, `stills/log-entry.jpg` | Record pages / list views (standard components only; the objects' list views, layouts and flexipages) | `objects/ApiCall__c`, `objects/ApiIssue__c`, `objects/LogEntry__c`, `layouts/ApiCall__c*`, `layouts/ApiIssue__c*`, `layouts/LogEntry__c*`, `flexipages/ApiCall.*`, `flexipages/ApiIssue.*`, `flexipages/LogEntry.*`, `lwc/retryApiIssue` | `a0ac31bf` |
+| `recordings/health-check.*` | Readiness banner, apply-retention flow | `lwc/healthCheck`, `lwc/kernHome`, `lwc/applyRetentionModal`, `lwc/scheduleChainWatchdogModal`, `classes/CTRL_HealthCheck.cls` | `cb68bfcb` |
+| `recordings/chain-monitor.*` | Chain Monitor, open-a-failed-run flow | `lwc/chainMonitor`, `lwc/chainMonitorDetail`, `lwc/chainMonitorList`, `lwc/chainStepTimeline`, `lwc/chainAbortModal`, `classes/CTRL_ChainMonitor.cls` | `cb68bfcb` |
+| `recordings/streaming-monitor.*` | Subscribe → publish → arrive flow (every streaming bundle) | `lwc/streaming*`, `lwc/utilityStreaming`, `classes/CTRL_EventMonitor.cls` | `cb68bfcb` |
+| `recordings/api-harness.*` | Outbound + inbound harness run | `lwc/apiTestHarnessForm`, `lwc/jsonViewer`, `classes/CTRL_ApiTestHarness.cls` | `cb68bfcb` |
+| `recordings/log-console.*` | Grouped problems → filter → correlation timeline | `lwc/logConsole`, `lwc/logConsoleContext`, `lwc/logConsoleDetail`, `lwc/logConsoleTable`, `lwc/jsonViewer`, `classes/CTRL_LogConsole.cls` | `cb68bfcb` |
+| `recordings/masking-advisor.*` | Scan → drill-into-an-object flow (every masking bundle) | `lwc/dataMaskingAdvisor`, `lwc/masking*`, `classes/CTRL_MaskingAdvisor.cls` | `cb68bfcb` |
+| `recordings/scheduled-jobs.*` | Cron builder flow (plain-English schedule, invalid-time rejection) | `lwc/scheduledJobEditor`, `lwc/scheduledJobEditorModal`, `lwc/scheduledJobDetail`, `lwc/cronExpressionEditor`, `lwc/utilityScheduledJob`, `classes/CTRL_ScheduledJob.cls` | `d917f6ee` |
+| `recordings/class-type-resolver.*` | Setup helper opened from the readiness banner (with its host page) | `lwc/classTypeResolverSetupModal`, `lwc/kernHome`, `lwc/healthCheck` | `cb68bfcb` |
 
 `*-poster.jpg` files are the first frame of their loop — they go stale with the recording and are
 re-captured together with it. Shared plumbing bundles (`componentBuilder`, `baseComponent`,

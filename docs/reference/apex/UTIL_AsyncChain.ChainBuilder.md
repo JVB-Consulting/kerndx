@@ -136,13 +136,13 @@ at most five levels deep). The launching run and step remember it, so a retry of
 back instead of a second one. One chain may be launched per step or handler.
 
 A run may also be launched from inside any other queueable job. A job started from inside a running job whose
-line of jobs (the jobs started one from another) already has a maximum queueable stack depth takes over that
-maximum and cannot set its own. So the first step of a chain launched there runs under the launching line's
-maximum: the launching chain's, or the one the other job was queued with. The framework's default maximum
+group of jobs (the jobs queued one from another, from the same first job) already has a maximum queueable stack
+depth takes over that maximum and cannot set its own. So the first step of a chain launched there runs under the
+launching group's maximum: the launching chain's, or the one the other job was queued with. The framework's default maximum
 leaves room for that inside a chain. A launch that would find no room, would nest too deep, or comes from a job
 that has already added its one queueable job, is refused before anything is written. Inside a trigger fired by
 a save that a queueable job makes, the platform does not let the framework read the depth of the running job.
-The job may be a chain step or any other job. A job queued from there starts a new line of jobs, so the chain sets its own
+The job may be a chain step or any other job. A job queued from there starts a new group of jobs, so the chain sets its own
 maximum as a launch outside any job does. A chain launched this way from a step's trigger is still recorded as
 launched under the step's run and remembered by that step. If the platform refuses the
 chain's first job anyway, the run record is deleted and the platform's exception reaches the caller, so no
@@ -160,7 +160,7 @@ Running run is ever left without a job.
 
 | Exception | Description |
 |-----------|-------------|
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve (a chain that cannot persist its step list intact for its whole life must fail at definition time, never by silently truncating the persisted JSON); or if the supplied correlation ID is already attached to another chain run, since a run owns its correlation exclusively; or if the launch runs inside a step or handler of another chain and would nest deeper than five levels, find no spare queueable stack level for its first step, follow another launch from the same step or handler in the same transaction, follow a queueable job that step or handler already added, or start a different chain from a step or handler that launched one before; or if the launch runs inside another queueable job that has already added its one queueable job, or whose line of jobs has no spare queueable stack level for the first step. |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | If the serialized step list exceeds the StepLog__c field capacity less the per-step runtime reserve (a chain that cannot persist its step list intact for its whole life must fail at definition time, never by silently truncating the persisted JSON); or if the supplied correlation ID is already attached to another chain run, since a run owns its correlation exclusively; or if the launch runs inside a step or handler of another chain and would nest deeper than five levels, find no spare queueable stack level for its first step, follow another launch from the same step or handler in the same transaction, follow a queueable job that step or handler already added, or start a different chain from a step or handler that launched one before; or if the launch runs inside another queueable job that has already added its one queueable job, or whose group of jobs has no spare queueable stack level for the first step. |
 
 **Example**
 

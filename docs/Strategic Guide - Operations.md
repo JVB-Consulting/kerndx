@@ -79,9 +79,8 @@ review the release notes, test in a sandbox, and promote it when you are ready. 
 ### Exit Strategy: $0 License Cost
 
 A fair question before you adopt any framework is: what does it cost to leave, and who controls the code if the relationship ends? With KernDX the answer is that you own what you
-deploy, and there are no licensing fees under BSL 1.1. The source is available, you can change it, and you can deploy it yourself. You can self-install from the public repository under
-the BSL 1.1 license, or receive the source directly through a consulting engagement. After a four-year change date, the source automatically switches to the Apache 2.0 license, one of
-the most permissive open-source licences there is.
+deploy, and there are no licensing fees. KernDX is open source under the Apache License 2.0, one of the most permissive open-source licences there is: you can use it for anything,
+change it, and deploy it yourself. You can self-install from the public repository, or receive the source directly through a consulting engagement.
 
 You have **three ways to take ownership of the framework**, from doing nothing to running it entirely under your own name:
 
@@ -93,7 +92,7 @@ You have **three ways to take ownership of the framework**, from doing nothing t
 2. **Deploy as unlocked package or direct source** (moderate effort)
     - Get the source from the public repository, or have it delivered directly if you are on a consulting engagement
     - Deploy without a namespace prefix, which removes the package namespace entirely
-    - Full freedom to customise under the BSL 1.1 license
+    - Full freedom to customise under the Apache License 2.0
     - Effort: 2-4 hours
 
 3. **Repackage under your own namespace** (source delivered as `Unmanaged.zip`; you own the metadata)
@@ -298,14 +297,14 @@ trigger, query, logging, DML, and feature-flag modules all have well-supported a
 
 ## Post-Handover Support Model
 
-The KernDX source is publicly available under the BSL 1.1 license. Whether you self-install from the public repository or receive the source directly through a consulting
+The KernDX source is open source under the Apache License 2.0. Whether you self-install from the public repository or receive the source directly through a consulting
 engagement, you can fork it and maintain it yourself. The honest question to ask before adopting is this: when a deep infrastructure bug surfaces eighteen months from now, what does
 the support conversation actually look like? There are three engagement tiers, and you should choose one (and record the choice as an Architecture Decision Record) before you sign a
 consulting agreement, or, if you self-installed, before your first P1 production incident fires.
 
 **Tier 1: Self-Maintenance (default, no cost).** *How feasible self-maintenance is comes from internal scenario modelling; it has not been benchmarked against a real external
 take-over.* Here, your own team fixes framework bugs in place, using the materials in the public repository (and also delivered at handover for consulting-engagement orgs). Those
-materials are the full source under the BSL 1.1 license, 21 guides, 17 Fast Starts, [API reference pages](Strategic%20Guide%20-%20Metrics.md#documentation), 100% per-file Apex test coverage that acts as a safety net against
+materials are the full source under the Apache License 2.0, 21 guides, 17 Fast Starts, [API reference pages](Strategic%20Guide%20-%20Metrics.md#documentation), 100% per-file Apex test coverage that acts as a safety net against
 regressions, and an AI-context bundle (`AGENTS.md`, `docs/Code Conventions - Guide.md`, and the AI Agent Instructions reference, about 20K tokens in total) that documents the
 conventions, patterns, and design rationale. Once those context files are loaded, a developer new to the framework can diagnose a deep infrastructure bug using an AI coding tool
 such as Claude Code, Cursor, Cline, or Agentforce Vibes. Two things make this realistic: every module lives behind a single name prefix (`TRG_*`, `QRY_*`, `DML_*`, `LOG_*`,
@@ -392,7 +391,7 @@ inert. The real costs of installing the full package are the namespace prefix on
   shipped; every time a safety check is bypassed the framework writes a structured audit event; and the repository ships a top-level `SECURITY.md` reporting channel. One nuance
   remains: per-SObject masking is opt-in for custom objects, and the Data Masking Advisor surfaces the custom objects that need it. This is a matter of discoverability, not a gap
   in runtime enforcement.
-- **Licence:** BSL 1.1 today, switching to Apache 2.0 after the 4-year change date. There are no third-party dependencies beyond the Salesforce platform itself.
+- **Licence:** Apache License 2.0, an open-source licence approved by the Open Source Initiative (OSI). There are no third-party dependencies beyond the Salesforce platform itself.
 - **Production usage:** Deployed on internal delivery engagements, and in active use at one known external client engagement. There are no named external production deployments yet.
   KernDX is NOT AppExchange-listed and has NOT been through AppExchange security review (see the note below).
 

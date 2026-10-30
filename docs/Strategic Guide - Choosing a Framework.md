@@ -42,9 +42,8 @@ If your team is asking *"why KernDX instead of the framework we already know?"*,
 
 Two honest notes up front, stated once:
 
-- **Licensing.** KernDX is licensed under BSL 1.1. The source is public, so you can read, modify, and deploy it. BSL is not an OSI-approved licence until it converts to Apache
-  2.0 four years after release. Teams with a strict "OSI-approved at install time" procurement rule should weigh that, and organisations with a formal open-source-governance
-  process should validate BSL alignment with their procurement requirements.
+- **Licensing.** KernDX is open source under the Apache License 2.0, a licence approved by the Open Source Initiative (OSI). You can read, change, and deploy the source, and
+  use it for anything, including inside products you sell.
 - **Maintainer model.** KernDX is currently maintained by a single primary developer, with an issues-only contribution model. One maintainer carrying most of the work is common across the Apex
   ecosystem rather than unique to KernDX. The `fflib` family is among the few examples of genuinely distributed maintainership.
 
@@ -181,9 +180,8 @@ DML, outbound, async, security, and masking.
 **The library.** `taf` ("Trigger Actions Framework") is a single-capability trigger framework that uses metadata-driven registration. It scopes to triggers only. Licence: Apache 2.0.
 
 **Where it wins.** Little over KernDX on capability. `taf` is level with KernDX on switching individual trigger actions on and off: each action can require, or be skipped by, a custom permission, checked for the running user every time the trigger runs. KernDX covers everything `taf` does, including Change Data Capture dispatch and post-trigger finalizers, and adds bypass
-auditing, a stable order for actions that share an order value, per-action performance logging, a coverage gate, fuller documentation, and the other framework areas. There are two honest cases for `taf`. First, you already run it and want triggers
-only, so a migration isn't worth the churn. Second, the licence case, which is narrow: if you are an ISV reselling a paid competing framework, `taf`'s Apache 2.0 licence matters to you. (Under BSL 1.1, ordinary teams and the consultants
-deploying for them keep full production-use rights, and it converts to Apache 2.0 four years after publication.)
+auditing, a stable order for actions that share an order value, per-action performance logging, a coverage gate, fuller documentation, and the other framework areas. There is one honest case for `taf`: you already run it and want triggers
+only, so a migration isn't worth the churn. (Licence does not separate them: both are under the Apache License 2.0.)
 
 **The KernDX divergence.** `taf` bypasses run unaudited: no log, no platform event, no signal. You cannot plug your own registration logic into it, and it ships no coverage
 gate. KernDX emits an audit entry on every bypass and covers the capability areas beyond triggers. Both frameworks dispatch trigger actions on Change Data Capture events (with the
@@ -197,15 +195,14 @@ one.
 **Migration complexity: Low–Medium.** The metadata-driven registration concepts map closely.
 
 > **Pick:** KernDX. `taf` is a well-regarded focused trigger framework (KernDX's own trigger layer evolved from it), but KernDX covers everything it does and more. Keep `taf`
-> only if you're already invested and want triggers alone (or for the narrow paid-competing-framework licence case), accepting unaudited bypasses on the trigger layer.
+> only if you're already invested and want triggers alone, accepting unaudited bypasses on the trigger layer.
 
 ### vs. apex-libra
 
 **The library.** `apex-libra` is a multi-capability framework covering trigger registration, DML, logging, resilience, security, testing, and utilities. Of the frameworks here, it is the closest single-package
 alternative to KernDX by breadth. Licence: MIT.
 
-**Where it wins.** Your primary need is its functional / lambda utility surface (`IFunction` / `IConsumer` / `IPredicate`), which KernDX does not ship. (A permissive licence rarely
-decides the choice on its own: BSL 1.1 grants you and the consultants deploying for you full production-use rights.)
+**Where it wins.** Your primary need is its functional / lambda utility surface (`IFunction` / `IConsumer` / `IPredicate`), which KernDX does not ship. (Licence does not decide the choice: KernDX is under the Apache License 2.0, also a permissive open-source licence.)
 
 **The KernDX divergence.** `apex-libra` defaults to *system mode* on DML writes, so you override per call to enforce FLS/CRUD on writes. Its bypasses are unaudited, it ships no
 recursion-suppression mechanism, and it has no inbound REST, outbound HTTP, data masking, health check, or LWC framework. KernDX defaults to user mode on reads and writes, audits
@@ -266,8 +263,7 @@ logging is not wired into a trigger/query/DML bypass-audit or async status signa
 the highest cadence. Licence: MIT across the family.
 
 **Where it wins.** You want a single capability without a bundled framework footprint, or you prefer a specific library's DSL ergonomics (for example, `apex-fluently-dml`'s record-builder
-relationship syntax over KernDX's call-site registration; both resolve multi-level dependency graphs). (A permissive licence
-rarely decides the choice on its own: BSL 1.1 grants you and the consultants deploying for you full production-use rights.)
+relationship syntax over KernDX's call-site registration; both resolve multi-level dependency graphs). (Licence does not decide the choice: KernDX is under the Apache License 2.0, also a permissive open-source licence.)
 
 **The KernDX divergence.** Access control is delegated and unaudited across the family. `apex-fluently-soql`'s executor is sealed (you can't subclass to extend the builder),
 `apex-fluently-dml` ships no async DML path, and `apex-fluently-httpmock` is mock-only with no production callout path. Adopt several pieces and you get no shared bypass-audit or
@@ -279,8 +275,7 @@ requirement.
 **Migration complexity: Low–Medium per library.** Each DSL surface can be swapped independently.
 
 > **Pick:** KernDX for integrated guarantees. Adopt an individual Apex Fluently library when you need exactly one capability without a bundled framework, or you specifically prefer
-> its DSL, accepting developer-managed access control on that surface. (A permissive licence rarely decides the choice on its own: BSL 1.1 grants you and the consultants deploying
-> for you full production-use rights.)
+> its DSL, accepting developer-managed access control on that surface. (Licence does not decide the choice: KernDX is under the Apache License 2.0, also a permissive open-source licence.)
 
 ### vs. fflib-mocks
 
@@ -303,7 +298,7 @@ assertions: a different and complementary surface.
 
 **The library.** [`sf-bedrock`](https://github.com/force-creators/sf-bedrock) is a multi-capability Apex foundation library organised as sixteen single-purpose modules, including async work queues, scheduling, platform-event relay, platform caching, feature flags, selectors, a DML wrapper, an inbound REST gateway, test data, a trigger-handler base, and a governor-limit gate, plus an operations-console Lightning app. It distributes as an unlocked package, with documentation hosted at sfbedrock.com. Licence: MPL-2.0 (Mozilla Public License 2.0). Activity at its snapshot: 187 commits and 2 tags, all since its first commit on 2026-06-02, one of the two shortest recorded histories of the frameworks compared here (only `revenant`, in the specialty table below, started later). The capability notes below are read from that published source, not from its age.
 
-**Where it wins.** Two of its modules cover ground KernDX does not, and both are genuine wins. The governor-limit gate (`Limiter`) answers "is this limit still under my threshold?" in one Apex call, across both per-transaction limits and org-wide daily limits such as daily async executions and daily platform events; KernDX's `UTIL_Limits` ships the same per-transaction checks but no Apex check for org-wide daily limits, which KernDX shows on its monitoring screens instead. The durable platform-event relay (`EventRelay`) stores platform-event or generic payloads as work records and drains them in first-in-first-out lanes through retryable publisher and handler classes, with a per-item status you can inspect, retry, or delete; KernDX ships no general-purpose durable event relay. Its async operations console is also wider: eight monitoring views over its work queue with retry and delete row actions. KernDX's Chain Monitor is a single console instead, a searchable, filterable, sortable list of chain runs beside a per-execution detail panel carrying a step-by-step timeline, a timing breakdown, error detail, and a permission-gated stop action. KernDX goes deeper per execution, and `sf-bedrock` spans more views and lets an operator retry a failed row straight from the console, which KernDX does not offer at all. (A permissive licence rarely decides the choice on its own: BSL 1.1 grants you and the consultants deploying for you full production-use rights.)
+**Where it wins.** Two of its modules cover ground KernDX does not, and both are genuine wins. The governor-limit gate (`Limiter`) answers "is this limit still under my threshold?" in one Apex call, across both per-transaction limits and org-wide daily limits such as daily async executions and daily platform events; KernDX's `UTIL_Limits` ships the same per-transaction checks but no Apex check for org-wide daily limits, which KernDX shows on its monitoring screens instead. The durable platform-event relay (`EventRelay`) stores platform-event or generic payloads as work records and drains them in first-in-first-out lanes through retryable publisher and handler classes, with a per-item status you can inspect, retry, or delete; KernDX ships no general-purpose durable event relay. Its async operations console is also wider: eight monitoring views over its work queue with retry and delete row actions. KernDX's Chain Monitor is a single console instead, a searchable, filterable, sortable list of chain runs beside a per-execution detail panel carrying a step-by-step timeline, a timing breakdown, error detail, and a permission-gated stop action. KernDX goes deeper per execution, and `sf-bedrock` spans more views and lets an operator retry a failed row straight from the console, which KernDX does not offer at all. (Licence does not decide the choice: both are open-source licences.)
 
 **The KernDX divergence.** `sf-bedrock` ships no permission enforcement in its packaged library: reads run through `Database.query` and writes through bare DML statements, with no field- or object-permission checks and no user-mode option, so there is no bypass to record. Its trigger layer is a virtual handler base class only, with no configuration-driven registration, no recursion control, no bypass mechanism, and no record of what ran; its feature flags are org-wide only, with no per-user scoping and no swappable resolution rules; and its chain steps cannot pass state to the next step, with no off-switch for the chain engine. It ships no logging framework, no query builder, no outbound HTTP framework, no data masking, no CI scanner suite, and no published coverage report; its health view is a console that shows scheduled-job state and error counts, with no next step to fix a problem and no checks on caching, permissions, or setup; its inbound REST gateway stops at basic routing (no DTO layer, validation hooks, call record, or paired test harness); and its test scaffolding is narrower: a data builder that defaults to a single record with no parent-child auto-wiring, query mocking opted into per call site, and no outbound, inbound, or Flow test helpers. KernDX covers all of those areas with security enforced by default and an audit entry on every bypass.
 
@@ -359,7 +354,6 @@ Capability fit is only half the decision. Organisational fit is the other half. 
 **Prefer specialised libraries when:**
 
 - **Existing investment.** You have deep existing investment in one (for example, established `fflib` domains) and no reason to move it.
-- **OSI-at-install procurement.** Strict procurement requires an OSI-approved licence at install time (KernDX is BSL 1.1 until its Apache 2.0 conversion).
 - **Single narrow need.** You need exactly one narrow capability and nothing else.
 - **Mature in-house standards.** You already operate mature internal patterns and governance controls and want to add a single focused library to fill one gap.
 

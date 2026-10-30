@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class TST_Mock
 ```
 
-Central registry and fluent builder for mock SObjects. Wraps QRY_Builder.setMock() with lifecycle management, providing a single point of control for registering, retrieving, and clearing mock records used in DML-free unit tests, and for setting a different answer for each query with registerNext. registerAggregateRows and registerNextAggregateRows answer aggregate queries. The nested MockBuilder creates records with mock IDs and auto-registers them for query interception.
+Central registry and fluent builder for mock SObjects. Wraps QRY_Builder.setMock() with lifecycle management, providing a single point of control for registering, retrieving, and clearing mock records used in DML-free unit tests, and for setting a different answer for each query with registerNext. registerAggregateRows and registerNextAggregateRows answer aggregate queries. The nested MockBuilder creates records with mock IDs and registers them on its own, so that a query in the test returns them.
 
 **Example**
 
@@ -134,7 +134,7 @@ global static TST_Mock.MockBuilder of(SObjectType objectType)
 
 Creates a new MockBuilder for the specified SObject type. Records built via
 the returned builder are automatically created with mock IDs (no DML) and registered
-with TST_Mock for query interception.
+with TST_Mock, so that a query in the test returns them.
 
 **Parameters**
 

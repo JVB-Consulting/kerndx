@@ -45,16 +45,17 @@ User testUser = TST_Factory.insertUser('Standard User');
 | global static [ApiCall__c](../objects/ApiCall__c.md) [newApiCall](#newapicall)() | Creates an uncommitted ApiCall__c record for a web service call. |
 | global static [ApiCall__c](../objects/ApiCall__c.md) [newApiCall](#newapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Creates an uncommitted ApiCall__c record with a specified service name. |
 | global static [ContentVersion](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_contentversion.htm) [newContentVersion](#newcontentversion)([Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) linkToObjectId, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fileName, [Blob](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_blob.htm) body) | Creates an uncommitted ContentVersion record from file data. |
+| global static [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [newDisabledFeatureFlag](#newdisabledfeatureflag)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flagName) | Turns a feature flag off for the rest of the test, whatever its deployed record says. |
 | global static [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [newFeatureFlag](#newfeatureflag)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) flagName) | Activates a feature flag for testing by injecting it into the selector cache. |
 | global static [ApiCall__c](../objects/ApiCall__c.md) [newInboundApiCall](#newinboundapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Creates an uncommitted ApiCall__c record for an inbound web service call. |
 | global static [ApiSetting__mdt](../metadata/ApiSetting__mdt.md) [newInboundApiSetting](#newinboundapisetting)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) endpointPath) | Creates a mock inbound ApiSetting__mdt record via TST_Mock for test routing. |
-| global static [ApiSetting__mdt](../metadata/ApiSetting__mdt.md) [newInboundApiSetting](#newinboundapisetting)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) endpointPath, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) priority) | Creates a mock inbound ApiSetting__mdt record with a custom priority, registered with TST_Mock for query interception. |
-| global static [ApiSetting__mdt](../metadata/ApiSetting__mdt.md) [newInboundApiSetting](#newinboundapisetting)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) endpointPath, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) priority, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Creates a mock inbound ApiSetting__mdt record with a custom priority and additional field overrides, registered with TST_Mock for query interception. |
+| global static [ApiSetting__mdt](../metadata/ApiSetting__mdt.md) [newInboundApiSetting](#newinboundapisetting)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) endpointPath, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) priority) | Creates a mock inbound ApiSetting__mdt record with a custom priority, registered with TST_Mock so that a query in the test returns it. |
+| global static [ApiSetting__mdt](../metadata/ApiSetting__mdt.md) [newInboundApiSetting](#newinboundapisetting)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) endpointPath, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) priority, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Creates a mock inbound ApiSetting__mdt record with a custom priority and additional field overrides, registered with TST_Mock so that a query in the test returns it. |
 | global static [ApiCall__c](../objects/ApiCall__c.md) [newOutboundApiCall](#newoutboundapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName) | Creates an uncommitted ApiCall__c record for an outbound web service call. |
 | global static [ApiCall__c](../objects/ApiCall__c.md) [newOutboundApiCall](#newoutboundapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId) | Creates an uncommitted ApiCall__c record for an outbound web service call with a triggering object. |
 | global static [ApiCall__c](../objects/ApiCall__c.md) [newOutboundApiCall](#newoutboundapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> requestParameters) | Creates an uncommitted ApiCall__c record for an outbound web service call with parameters. |
 | global static [ApiCall__c](../objects/ApiCall__c.md) [newOutboundApiCall](#newoutboundapicall)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) serviceName, [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) recordId, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parameterName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) parameterValue) | Creates an uncommitted ApiCall__c record for an outbound web service call with a single parameter. |
-| global static [ApiSetting__mdt](../metadata/ApiSetting__mdt.md) [newOutboundApiSetting](#newoutboundapisetting)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Creates a mock outbound ApiSetting__mdt record via TST_Mock for query interception. |
+| global static [ApiSetting__mdt](../metadata/ApiSetting__mdt.md) [newOutboundApiSetting](#newoutboundapisetting)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) className, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[SObjectField](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectField.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> overrides) | Creates a mock outbound ApiSetting__mdt record via TST_Mock so that a query in the test returns it. |
 | global static [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) [newUser](#newuser)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName) | Creates a single uncommitted User record with the specified profile. |
 | global static [User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm) [newUser](#newuser)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) companyName) | Creates an uncommitted User record with a custom company name. |
 | global static [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[User](https://developer.salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_user.htm)> [newUsers](#newusers)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) profileName, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) numberOfUsers) | Creates a list of uncommitted User records with the specified profile. |
@@ -346,6 +347,35 @@ Assert.areEqual('test.pdf', version.Title, 'Expected the file name to be the tit
 
 </div>
 
+### newDisabledFeatureFlag
+
+<div class="apex-member">
+
+```apex
+global static FeatureFlag__mdt newDisabledFeatureFlag(String flagName)
+```
+
+Turns a feature flag off for the rest of the test, whatever its deployed record says.
+`UTIL_FeatureFlag.isEnabled(flagName)` returns `false` after this call, also for a flag your org ships on and for a flag
+with strategies: the copy of the flag the test reads has none. Use it to test the code a flag turns off.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `flagName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The developer name of the feature flag to turn off. |
+
+**Returns** [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) — The flag record the test now reads, with Enabled By Default unticked.
+
+**Example**
+
+```apex
+TST_Factory.newDisabledFeatureFlag('MyFeatureFlag');
+Assert.isFalse(UTIL_FeatureFlag.isEnabled('MyFeatureFlag'), 'Expected the flag to be off in this test');
+```
+
+</div>
+
 ### newFeatureFlag
 
 <div class="apex-member">
@@ -436,7 +466,7 @@ global static ApiSetting__mdt newInboundApiSetting(String className, String endp
 ```
 
 Creates a mock inbound ApiSetting__mdt record with a custom priority, registered
-with TST_Mock for query interception.
+with TST_Mock so that a query in the test returns it.
 
 **Parameters**
 
@@ -463,7 +493,7 @@ global static ApiSetting__mdt newInboundApiSetting(String className, String endp
 ```
 
 Creates a mock inbound ApiSetting__mdt record with a custom priority and additional
-field overrides, registered with TST_Mock for query interception.
+field overrides, registered with TST_Mock so that a query in the test returns it.
 
 **Parameters**
 
@@ -614,7 +644,7 @@ Assert.isNotNull(apiCall.Id, 'Expected the call record to be saved');
 global static ApiSetting__mdt newOutboundApiSetting(String className, Map<SObjectField, Object> overrides)
 ```
 
-Creates a mock outbound ApiSetting__mdt record via TST_Mock for query interception.
+Creates a mock outbound ApiSetting__mdt record via TST_Mock so that a query in the test returns it.
 The setting defaults to active and Outbound direction; overrides can replace any field value
 including IsActive__c. Pass null when no overrides are needed.
 

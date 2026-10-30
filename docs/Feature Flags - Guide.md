@@ -718,7 +718,23 @@ private static void shouldUseLegacyPathWhenFlagDisabled()
 }
 ```
 
-If you previously created a real `FeatureFlag__mdt` record in the org with the same name, deactivate or delete it. Otherwise it is visible in tests and the "disabled" assertion fails. `newFeatureFlag(...)` is the right way to control flag state in a test, so do not deploy `FeatureFlag__mdt` records as part of your test setup.
+A flag your org ships on is different: its active record is visible in tests, so leaving the flag unseeded still reads it as on. Call `kern.TST_Factory.newDisabledFeatureFlag(String flagName)` to turn it off for the rest of the test, whatever the record says:
+
+```apex
+@IsTest
+private static void shouldUseLegacyPathWhenShippedFlagIsTurnedOff()
+{
+	kern.TST_Factory.newDisabledFeatureFlag('New_Pricing_Engine');
+
+	Test.startTest();
+	Decimal result = new PricingService().calculate(100);
+	Test.stopTest();
+
+	Assert.areEqual(105, result, 'Legacy pricing path should apply when the flag is turned off');
+}
+```
+
+To test the off path of a flag your org ships on, use `newDisabledFeatureFlag(...)`. Do not deactivate or delete the real record for the test. `newFeatureFlag(...)` and `newDisabledFeatureFlag(...)` are the right way to control flag state in a test, so do not deploy `FeatureFlag__mdt` records as part of your test setup.
 
 ### Testing a Custom Handler
 
