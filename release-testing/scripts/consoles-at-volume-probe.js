@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The consoles-at-volume probe: one root fanned out three deep on the harness org, sampled every
 // fifteen seconds; a one-off watchdog sweep with a two-minute threshold at the widest point; a chain whose first
-// step spends the transaction's enqueue. Prints and writes tmp/consoles-at-volume/probe-report.md, and the record
+// step spends the transaction's enqueue. Prints and writes tmp/consoles-at-volume/<org alias>/probe-report.md, and the record
 // the shape table reads, release-testing/scripts/consoles-at-volume/probe-report.json.
 //
 //   SF_SUBSCRIBER_ORG_ALIAS=<your org alias> node release-testing/scripts/consoles-at-volume-probe.js [--target-depth 3] [--busy-milliseconds 1500] [--minutes 30]
@@ -16,8 +16,9 @@ const {deployStrippedSubscriberClasses} = require('../e2e/helpers/subscriber-dep
 const {createOrgDoor} = require('./consoles-at-volume/org-door');
 const {drainQueue, jobsPerMinute, peakDepth, DRAIN_THRESHOLDS} = require('./consoles-at-volume/drain');
 const {renderTemplate} = require('./consoles-at-volume/apex-templates');
+const {outputDirectoryFor} = require('./consoles-at-volume/command-line');
 
-const OUTPUT_DIRECTORY = path.join(__dirname, '..', '..', 'tmp', 'consoles-at-volume');
+const OUTPUT_DIRECTORY = outputDirectoryFor(getSubscriberOrgAlias());
 const REPORT_PATH = path.join(OUTPUT_DIRECTORY, 'probe-report.md');
 const JSON_REPORT_PATH = path.join(__dirname, 'consoles-at-volume', 'probe-report.json');
 // The id alphabet: hexadecimal letters only (SubscriberChainSteps.VOLUME_ID_ALPHABET), eight of them per token.

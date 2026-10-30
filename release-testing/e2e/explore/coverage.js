@@ -1,9 +1,8 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The volume walk: every screen and control of both consoles, each step timed and its count checked against the
 // oracle. Nothing is asserted; a disagreement is a finding and the walk goes on.
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const {
 	MONITOR_PAGE_SIZE, REPOSITORY_ROOT, OUTPUT_DIRECTORY, VOLUME_OUTPUT_DIRECTORY, ALL_LEVELS, ACTION_OPENING_LEVELS, RANGE_PRESETS, MINUTE_MILLISECONDS,
@@ -21,30 +20,16 @@ const {isReleaseTarget} = require('../../runner/release-target');
 const {renderTemplate} = require('../../scripts/consoles-at-volume/apex-templates');
 const {mintVolumeId, KINDS} = require('../../scripts/consoles-at-volume/manifest');
 
-const PACKAGE_ALIAS_PREFIX = 'Kern@';
 const RELEASE_RESULTS_FOLDER = ['release-testing', 'results'];
 const VOLUME_RESULTS_FOLDER = 'consoles-at-volume';
 const NO_FAILED_CANDIDATE = 'no Failed candidate left to read';
 const DRAWER_CLOSE_TIMEOUT_MILLISECONDS = 30_000;
 
 /**
- * @description The package version the release results are filed under: the last packageAliases key that starts
- *              with Kern@ in sfdx-project.json, its text after the @.
- * @param {string} projectPath The sfdx-project.json to read, the repository's by default.
- * @returns {string|null} The version, or null when no alias is there.
- */
-function readPackageVersion(projectPath = path.join(REPOSITORY_ROOT, 'sfdx-project.json'))
-{
-	const project = JSON.parse(fs.readFileSync(projectPath, 'utf8'));
-	const aliases = Object.keys(project.packageAliases || {}).filter((alias) => alias.startsWith(PACKAGE_ALIAS_PREFIX));
-	return aliases.length > 0 ? aliases[aliases.length - 1].slice(PACKAGE_ALIAS_PREFIX.length) : null;
-}
-
-/**
  * @description The exploration's output folder: the one given; else the release results for the version when
- *              the org is a release target and a manifest is set; else the development folder for a manifest run;
+ *              the org is a release target and a manifest is set; else the run's own org folder for a manifest run;
  *              else where the explorer puts the shaped run.
- * @param {Object} choice The manifest path, the org's namespace prefix, the package version and any folder given.
+ * @param {Object} choice The manifest path, the org's namespace prefix, the Kern version installed in the org and any folder given.
  * @returns {string} The folder.
  */
 function resolveOutputDirectory({manifest, namespacePrefix: prefix, version, outputDirectory})
@@ -55,6 +40,10 @@ function resolveOutputDirectory({manifest, namespacePrefix: prefix, version, out
 	}
 	if(manifest && isReleaseTarget(prefix))
 	{
+		if(!version)
+		{
+			throw new Error('Could not read the Kern version installed in the org; pass --output-directory');
+		}
 		return path.join(REPOSITORY_ROOT, ...RELEASE_RESULTS_FOLDER, version, VOLUME_RESULTS_FOLDER);
 	}
 	return manifest ? VOLUME_OUTPUT_DIRECTORY : OUTPUT_DIRECTORY;
@@ -1194,7 +1183,6 @@ module.exports = {
 	restoreViewport,
 	timeDrawerOpen,
 	resolveOutputDirectory,
-	readPackageVersion,
 	STATUSES,
 	SORT_COLUMNS
 };

@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {defineConfig} = require('@playwright/test');
 const path = require('path');
-const {authPathsFor} = require('./helpers/auth-paths');
+const {authPathsFor, testResultsDirectoryFor} = require('./helpers/auth-paths');
 
 const sharedUse = {
 	browserName: 'chromium',
@@ -64,7 +64,7 @@ module.exports = defineConfig({
 	testDir: path.join(__dirname, 'specs'), globalSetup: path.join(__dirname, 'global-setup.js'), timeout: 120_000, expect: {timeout: 15_000}, workers: 2, reporter: [
 		['list'],
 		[path.join(__dirname, 'helpers', 'reporter.js')]
-	], outputDir: path.join(__dirname, '..', 'test-results'), projects: [
+	], outputDir: testResultsDirectoryFor(), projects: [
 		{
 			name: 'scheduler-serial', testMatch: schedulerSerialMatch, fullyParallel: false, workers: 1, retries: 1, use: sharedUse
 		},

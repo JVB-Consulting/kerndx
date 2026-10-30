@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Adversarial exploration of the two consoles' pinned state and their narrow widths, and their walk at volume.
 //
 // This is not a fixed journey. It drives the Log Console and the Chain Monitor through sequences a
@@ -17,7 +17,8 @@
 // moves exactly. Findings land in tmp/plan166/exploration-findings.md with screenshots beside them
 // in tmp/plan166/exploration/; the process exits 1 when there is at least one finding, 0 otherwise.
 // With --manifest <path> (the volume driver's manifest) the volume phase walks the load that manifest
-// describes instead, with no seed of its own, and writes under tmp/consoles-at-volume/exploration/.
+// describes instead, with no seed of its own, and writes under tmp/consoles-at-volume/<org alias>/exploration/ (on a
+// release org, under the release results for the installed version).
 //
 // The parts, each a module under explore/:
 //   constants.js        the paths, the console's keys and defaults, the widths, the allowances
@@ -55,7 +56,9 @@ const {createFindingsLedger, outputPaths} = require('./explore/report');
 const {parseArguments} = require('./explore/command-line');
 const {attachTiming, reportTimingBreaches, writeTimings} = require('./explore/timing');
 const {readManifestOracle} = require('./explore/manifest-oracle');
-const {walkMonitor, walkConsole, walkDeepLinks, resolveOutputDirectory, readPackageVersion} = require('./explore/coverage');
+const {walkMonitor, walkConsole, walkDeepLinks, resolveOutputDirectory} = require('./explore/coverage');
+const {detectInstalledVersion} = require('../runner/run-all');
+const {isReleaseTarget} = require('../runner/release-target');
 
 // The controller methods each read travels under: counted for the probes, timed for the budgets.
 const WATCHED_CONTROLLER_METHODS = [...COUNTED_CONTROLLER_METHODS, ...MONITOR_CONTROLLER_METHODS];
@@ -80,15 +83,18 @@ function readOptions()
 }
 
 /**
- * @description Where this run writes: the folder the output resolver names (I3: the release results by
- *              version on a release org, the development folder otherwise), or the shaped run's fixed paths.
+ * @description Where this run writes: the folder the output resolver names (the release results under the Kern
+ *              version the org has installed on a release org, the org's own development folder otherwise), or the
+ *              shaped run's fixed paths.
  * @param {Object} options The parsed options.
  * @returns {Object} The folder, the screenshot folder, the findings path and the timings path.
  */
 function resolveOutputs(options)
 {
+	const prefix = namespacePrefix();
+	const versionNeeded = !options.outputDirectory && options.manifest && isReleaseTarget(prefix);
 	const directory = resolveOutputDirectory({
-		manifest: options.manifest, namespacePrefix: namespacePrefix(), version: readPackageVersion(), outputDirectory: options.outputDirectory
+		manifest: options.manifest, namespacePrefix: prefix, version: versionNeeded ? detectInstalledVersion()?.version ?? null : null, outputDirectory: options.outputDirectory
 	});
 	if(directory === OUTPUT_DIRECTORY)
 	{

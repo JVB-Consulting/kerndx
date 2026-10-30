@@ -181,6 +181,7 @@ try
 	List<kern__MaskingTarget__mdt> targets =
 	[
 			SELECT DeveloperName,
+					NamespacePrefix,
 					kern__IsActive__c,
 					kern__Field__c,
 					kern__SObjectType__c,
@@ -226,16 +227,18 @@ try
 			'76c: baseline must show exactly 10 active object-wide targets (PaymentCard + Secret per shipped object, '
 			+ 'plus Jwt on ApiCall and ApiIssue). Got: ' + objectWideCount);
 
+	// Only the package's own Card targets are counted, so a subscriber target of the same shape cannot change the count.
 	Integer inactiveLegacyCardTargets = 0;
 	for(kern__MaskingTarget__mdt target : targets)
 	{
-		if(target.DeveloperName.endsWith('_All_Card') && target.kern__IsActive__c != true)
+		if(target.NamespacePrefix == 'kern' && target.DeveloperName.endsWith('_All_Card') && target.kern__IsActive__c != true)
 		{
 			inactiveLegacyCardTargets++;
 		}
 	}
 	Assert.areEqual(4, inactiveLegacyCardTargets,
-			'76c: the four legacy Card targets (one per shipped object) must ship, and ship inactive. Got: ' + inactiveLegacyCardTargets);
+			'76c: the four legacy Card targets of the package (one per shipped object) must ship, and ship inactive. Got: '
+			+ inactiveLegacyCardTargets);
 	Assert.areEqual(1, fieldLevelCount,
 			'76c: baseline must show exactly 1 active field-level target (harness TestTypeFilterWarnOnApiCallUrl). Got: ' + fieldLevelCount);
 	Assert.areEqual(0, deadCount,

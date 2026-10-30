@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Part 12: the consoles at volume. Seeded by the volume driver in staged mode; the seed is
 // reused when its manifest and rows are present. Every journey reads thousands of rows, never one, and every count
 // it asserts is read from the database as it runs.
@@ -13,13 +13,15 @@ const {getInstanceUrl} = require('../helpers/sf-auth');
 const {waitForSpinnerGone, waitForToastMessage} = require('../helpers/wait-helpers');
 const {readManifest, writeManifest, describeForeignManifest} = require('../../scripts/consoles-at-volume/manifest');
 const {getSubscriberOrgAlias} = require('../../runner/subscriber-config');
+const {outputDirectoryFor} = require('../../scripts/consoles-at-volume/command-line');
 const {countRuns, countEntries, runKeys, findRun, field} = require('../explore/manifest-oracle');
 const {collectPageKeys, findRepeatsAndLosses, readPageLabel, pagesFor} = require('../explore/coverage');
 const {addressKeys} = require('../explore/checks');
 const {labelValues, STATE_KEY_CHAIN, STATE_KEY_WINDOW_START, STATE_KEY_WINDOW_END} = require('../explore/constants');
 
 const DRIVER = path.join(__dirname, '..', '..', 'scripts', 'consoles-at-volume.js');
-const OUTPUT_DIRECTORY = path.join(__dirname, '..', '..', '..', 'tmp', 'consoles-at-volume');
+// The load folder of the org this run signed in to, so a run against another org never reads or tears down this load.
+const OUTPUT_DIRECTORY = outputDirectoryFor(getSubscriberOrgAlias());
 const MANIFEST_PATH = path.join(OUTPUT_DIRECTORY, 'manifest.json');
 const SEED_TIMEOUT_MILLISECONDS = 25 * 60_000;
 // The walk turns every page of the load's runs, about 170 at the monitor's page size.

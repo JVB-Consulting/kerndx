@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const fs = require('fs');
 const path = require('path');
 const {buildClaims, evaluateClaim, evidenceClasses, readAggregates, run} = require('../scripts/consoles-at-volume/verify');
@@ -216,6 +216,55 @@ describe('buildClaims', () =>
 			expect(performanceRows.map((row) => row.metric)).toEqual(['runs', 'backstopRefusals', 'lockRefusals']);
 			expect(performanceRows.every((row) => typeof row.value === 'number')).toBe(true);
 		}
+	});
+});
+
+describe('the lock refusal count', () =>
+{
+	const COMMIT_CLASS_METHOD = 'DML_Transaction.commitWork';
+	const LOCK_CLAIM = 'lock refusals counted';
+
+	it('reads the namespaced fields and both spellings of the save\'s class name on an org where the package has a namespace', () =>
+	{
+		const claim = buildClaims(manifest(), 'kern__').find((candidate) => candidate.name === LOCK_CLAIM);
+		expect(claim.soql).toContain('FROM kern__LogEntry__c');
+		expect(claim.soql).toContain('kern__ClassMethod__c IN (\'DML_Transaction.commitWork\', \'kern.DML_Transaction.commitWork\')');
+		expect(claim.soql).toContain('kern__ExceptionType__c = \'System.DmlException\'');
+		expect(claim.soql).toContain('kern__ShortMessage__c LIKE \'%UNABLE_TO_LOCK_ROW%\'');
+		expect(claim).toMatchObject({expected: 0, compare: 'atLeast'});
+	});
+
+	it('reads only the class name with no namespace on an org where the package has none', () =>
+	{
+		const claim = buildClaims(manifest(), '').find((candidate) => candidate.name === LOCK_CLAIM);
+		expect(claim.soql).toContain(`ClassMethod__c IN ('${COMMIT_CLASS_METHOD}') AND ExceptionType__c = 'System.DmlException'`);
+		expect(claim.soql).not.toContain('kern');
+	});
+
+	it('prints the backstop and lock refusal counts the org answered on one verify line', async() =>
+	{
+		const withoutWave = {...manifest(), synthesized: {stalledRows: ['x', 'y'], chainRows: 0}, stages: {}};
+		withoutWave.operatorWave.deadJobStalls = [];
+		const backstopRefusals = 3;
+		const lockRefusals = 7;
+		const salesforce = {
+			query: jest.fn((soql) =>
+			{
+				if(soql.includes('UNABLE_TO_LOCK_ROW'))
+				{
+					return {records: [], totalSize: lockRefusals};
+				}
+				if(soql.includes('LIKE \'Chain run transition refused by the backstop%\''))
+				{
+					return {records: [], totalSize: backstopRefusals};
+				}
+				return {records: [], totalSize: 0};
+			})
+		};
+		const lines = [];
+		const result = await run({manifest: withoutWave, salesforce, log: (line) => lines.push(line), sleep: async() => {}, now: () => 0});
+		expect(lines).toContain(`verify: ${backstopRefusals} backstop refusals, ${lockRefusals} lock refusals`);
+		expect(result.stages.verify.counts).toEqual({backstopRefusals, lockRefusals});
 	});
 });
 

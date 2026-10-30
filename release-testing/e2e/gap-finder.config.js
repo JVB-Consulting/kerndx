@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Playwright config for the prototype gap-finders (AGENTS.md lever 2).
 //
 // Deliberately SEPARATE from playwright.config.js: the gap-finders are parity gates against a
@@ -14,7 +14,7 @@
 // from the previous session's module cache.
 const {defineConfig} = require('@playwright/test');
 const path = require('path');
-const {authPathsFor} = require('./helpers/auth-paths');
+const {authPathsFor, testResultsDirectoryFor} = require('./helpers/auth-paths');
 
 module.exports = defineConfig({
 	// The gap-finders live in specs/ because jest.config.js ignores that directory: a `.spec.js` at
@@ -33,7 +33,7 @@ module.exports = defineConfig({
 	reporter: [['list']],
 	// Inside the already-ignored release-testing/test-results/ tree, so a failed run's traces and
 	// screenshots never show up as untracked files.
-	outputDir: path.join(__dirname, '..', 'test-results', 'gap-finder'),
+	outputDir: path.join(testResultsDirectoryFor(), 'gap-finder'),
 	use: {
 		browserName: 'chromium',
 		headless: true,

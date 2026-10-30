@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 jest.mock('child_process', () => ({execSync: jest.fn()}));
 
 // The one query run-all makes through the journeys' helper: which namespace the org gives the package.
@@ -18,7 +18,7 @@ const {namespacePrefix} = require('../e2e/helpers/sf-namespace');
 const {compile} = require('../runner/result-compiler');
 const {RECORDED_RESULTS_PATH, ReleaseTargetError} = require('../runner/release-target');
 
-const {main, reportFailure, resolveVersion} = require('../runner/run-all');
+const {main, reportFailure, resolveVersion, readInstalledKernVersion} = require('../runner/run-all');
 
 const VERSION = '1.7.0-13';
 const SUBSCRIBER_PACKAGE_VERSION_ID = '04t5f000000AbCdEAA';
@@ -158,6 +158,29 @@ describe('run-all', () =>
 			});
 
 			expect(resolveVersion(undefined)).toStrictEqual({version: FALLBACK_VERSION, subscriberPackageVersionId: undefined});
+		});
+	});
+
+	describe('readInstalledKernVersion', () =>
+	{
+		it('turns the Kern row of the installed package list into the version the results are filed under', () =>
+		{
+			const output = JSON.stringify({
+				result: [
+					{SubscriberPackageName: 'Other', SubscriberPackageNamespace: 'other', SubscriberPackageVersionNumber: '3.2.1.9'},
+					{SubscriberPackageName: 'Kern', SubscriberPackageNamespace: 'kern', SubscriberPackageVersionNumber: '1.10.0.4'}
+				]
+			});
+
+			expect(readInstalledKernVersion(output)).toBe('1.10.0-4');
+		});
+
+		it('answers null when the org has no Kern package installed', () =>
+		{
+			const output = JSON.stringify({result: [{SubscriberPackageName: 'Other', SubscriberPackageNamespace: 'other', SubscriberPackageVersionNumber: '3.2.1.9'}]});
+
+			expect(readInstalledKernVersion(output)).toBeNull();
+			expect(readInstalledKernVersion(JSON.stringify({result: []}))).toBeNull();
 		});
 	});
 

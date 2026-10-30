@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Turns the raw always-on WebM captures into committed hero-loop assets in TWO formats —
 // VP9 WebM (primary) + H.264 MP4 (iOS Safari / older-browser fallback) — plus a poster. Strips
 // audio, normalizes to 30 fps. Quality-first: warn over the preferred size, FAIL over the hard
@@ -6,6 +6,7 @@
 const {execFileSync} = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const {testResultsDirectoryFor} = require('../e2e/helpers/auth-paths');
 
 const PREFERRED_BYTES = 2 * 1024 * 1024; // 2 MB — warn if a clip is larger
 const MAX_CLIP_BYTES = 3 * 1024 * 1024;  // 3 MB — hard fail
@@ -36,7 +37,7 @@ const TOOLS = [
 ];
 
 const ROOT = path.join(__dirname, '..', '..');
-const RAW_DIR = path.join(ROOT, 'release-testing', 'test-results');
+const RAW_DIR = testResultsDirectoryFor();
 const OUT_DIR = path.join(ROOT, 'docs-site', 'assets', 'recordings');
 
 function preflightFfmpeg()
@@ -51,17 +52,17 @@ function preflightFfmpeg()
 	}
 }
 
-function findRawWebm(title)
+function findRawWebm(title, rawDirectory = RAW_DIR)
 {
-	if(!fs.existsSync(RAW_DIR))
+	if(!fs.existsSync(rawDirectory))
 	{
 		return null;
 	}
-	const dirs = fs.readdirSync(RAW_DIR, {withFileTypes: true})
+	const dirs = fs.readdirSync(rawDirectory, {withFileTypes: true})
 		.filter(d => d.isDirectory() && d.name.includes(title) && d.name.includes('capture'));
 	for(const d of dirs)
 	{
-		const v = path.join(RAW_DIR, d.name, 'video.webm');
+		const v = path.join(rawDirectory, d.name, 'video.webm');
 		if(fs.existsSync(v))
 		{
 			return v;
@@ -190,4 +191,4 @@ if(require.main === module)
 	processAll(process.argv.slice(2));
 }
 
-module.exports = {processAll, checkBudget, warnIfOverPreferred, findRawWebm, preflightFfmpeg, PREFERRED_BYTES, MAX_CLIP_BYTES, MAX_POSTER_BYTES, OUT_DIR, TOOLS};
+module.exports = {processAll, checkBudget, warnIfOverPreferred, findRawWebm, preflightFfmpeg, PREFERRED_BYTES, MAX_CLIP_BYTES, MAX_POSTER_BYTES, OUT_DIR, RAW_DIR, TOOLS};

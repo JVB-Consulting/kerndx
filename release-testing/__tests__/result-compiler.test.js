@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 jest.mock('fs');
 
 const fs = require('fs');
-const {compile} = require('../runner/result-compiler');
+const {compile, main} = require('../runner/result-compiler');
 
 describe('result-compiler', () =>
 {
@@ -444,5 +444,102 @@ describe('result-compiler', () =>
 
 		expect(outputPath).toContain('1.0.0-53.md');
 		expect(fs.writeFileSync).toHaveBeenCalledWith(expect.stringContaining('1.0.0-53.md'), expect.any(String), 'utf8');
+	});
+
+	it('should print the runner\'s note beside an ESLint count the run could not record', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			phase2: {eslint: {fixtureViolations: null, frameworkViolations: 0, notes: 'Fixture scan failed: bad configuration'}}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.0.0-53');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('**ESLint Fixture Violations:** not recorded (Fixture scan failed: bad configuration)');
+		expect(output).toContain('**ESLint Framework Violations:** 0');
+		expect(output).not.toContain('null');
+	});
+
+	it('should print the runner\'s note on its own line when both ESLint counts were recorded', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			phase2: {eslint: {fixtureViolations: 6, frameworkViolations: 0, notes: 'Allowed to extend LightningElement but no longer reported: oldComponent.'}}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.0.0-53');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('**ESLint Fixture Violations:** 6\n');
+		expect(output).toContain('**ESLint Notes:** Allowed to extend LightningElement but no longer reported: oldComponent.');
+	});
+
+	it('should print the fixture files ESLint could not read apart from the fixture problems', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			phase2: {eslint: {fixtureViolations: 6, fixtureParseFailures: 1, frameworkViolations: 0, notes: ''}}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.0.0-53');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('**ESLint Fixture Violations:** 6\n');
+		expect(output).toContain('**ESLint Fixture Parse Failures:** 1\n');
+		expect(output).not.toContain('**ESLint Notes:**');
+	});
+
+	it('should print the framework files ESLint could not read', () =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({
+			phase2: {eslint: {fixtureViolations: 6, frameworkViolations: 0, frameworkParseFailures: 1, notes: ''}}
+		}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		compile('1.0.0-53');
+
+		const output = fs.writeFileSync.mock.calls[0][1];
+		expect(output).toContain('**ESLint Framework Violations:** 0\n');
+		expect(output).toContain('**ESLint Framework Parse Failures:** 1\n');
+	});
+
+	it.each([
+		[['--version', '1.11.0-1']],
+		[['1.11.0-1']]
+	])('should write 1.11.0-1.md with that title from the command line %j', (commandLine) =>
+	{
+		fs.existsSync.mockReturnValue(true);
+		fs.readFileSync.mockReturnValue(JSON.stringify({}));
+		fs.writeFileSync.mockImplementation(() =>
+		{
+		});
+
+		main(commandLine);
+
+		expect(fs.writeFileSync).toHaveBeenCalledWith(expect.stringMatching(/[\\/]1\.11\.0-1\.md$/), expect.any(String), 'utf8');
+		expect(fs.writeFileSync.mock.calls[0][1]).toContain('# KernDX Release Test Results — 1.11.0-1\n');
+	});
+
+	it.each([
+		[[]],
+		[['--version']]
+	])('should print the usage and write nothing when the command line %j names no version', (commandLine) =>
+	{
+		expect(() => main(commandLine)).toThrow('process.exit(1)');
+		expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Usage: node result-compiler.js'));
+		expect(fs.writeFileSync).not.toHaveBeenCalled();
 	});
 });

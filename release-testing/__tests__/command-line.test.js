@@ -1,15 +1,42 @@
-// SPDX-License-Identifier: BUSL-1.1
-const {parseCommandLine} = require('../scripts/consoles-at-volume/command-line');
+// SPDX-License-Identifier: Apache-2.0
+const path = require('path');
+const {parseCommandLine, outputDirectoryFor, VOLUME_OUTPUT_ROOT} = require('../scripts/consoles-at-volume/command-line');
 
 describe('parseCommandLine', () =>
 {
-	it('defaults to staged mode at size one under tmp/consoles-at-volume', () =>
+	it('defaults to staged mode at size one in the org\'s own folder under tmp/consoles-at-volume', () =>
 	{
 		const options = parseCommandLine(['run'], {alias: 'Dev'});
 		expect(options).toMatchObject({command: 'run', mode: 'staged', size: 1, alias: 'Dev', reuse: false});
 		expect(parseCommandLine(['status'], {alias: 'Dev'}).command).toBe('status');
-		expect(options.outputDirectory).toMatch(/tmp[\\/]consoles-at-volume$/);
-		expect(options.manifestPath).toMatch(/manifest\.json$/);
+		expect(options.outputDirectory).toMatch(/tmp[\\/]consoles-at-volume[\\/]Dev$/);
+		expect(options.manifestPath).toBe(path.join(VOLUME_OUTPUT_ROOT, 'Dev', 'manifest.json'));
+	});
+
+	it('gives two orgs two folders and two manifests, so a run against one never reads the other run\'s load', () =>
+	{
+		const first = parseCommandLine(['run'], {alias: 'OrgA'});
+		const second = parseCommandLine(['run'], {alias: 'OrgB'});
+		expect(first.outputDirectory).toBe(path.join(VOLUME_OUTPUT_ROOT, 'OrgA'));
+		expect(second.outputDirectory).toBe(path.join(VOLUME_OUTPUT_ROOT, 'OrgB'));
+		expect(first.manifestPath).not.toBe(second.manifestPath);
+		expect(outputDirectoryFor('OrgA')).toBe(first.outputDirectory);
+	});
+
+	it('names the folder after the org given with --org, and lets --output-directory win over both', () =>
+	{
+		expect(parseCommandLine(['run', '--org', 'Sub'], {alias: 'Dev'}).outputDirectory).toBe(path.join(VOLUME_OUTPUT_ROOT, 'Sub'));
+		const given = parseCommandLine(['run', '--output-directory', 'out', '--org', 'Sub'], {alias: 'Dev'});
+		expect(given.outputDirectory).toBe(path.resolve('out'));
+		expect(given.manifestPath).toBe(path.join(path.resolve('out'), 'manifest.json'));
+	});
+
+	it('replaces path separators and spaces in the alias, so an alias can never name a folder outside the output root', () =>
+	{
+		const {outputDirectory} = parseCommandLine(['run'], {alias: '../outside/my org'});
+		expect(path.dirname(outputDirectory)).toBe(VOLUME_OUTPUT_ROOT);
+		expect(path.basename(outputDirectory)).toBe('.._outside_my_org');
+		expect(() => parseCommandLine(['run'], {alias: '..'})).toThrow('cannot name a folder');
 	});
 
 	it('reads every option', () =>

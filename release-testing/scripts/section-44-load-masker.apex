@@ -6,11 +6,10 @@
  *
  * SPEC vs ACTUAL — target/rule counts:
  *   Spec expected: 5 MaskingTarget__mdt records for ApiCall__c × 10 active MaskingRule__mdt
- *   Actual deployed framework: 3 wildcard targets ship for ApiCall__c (ApiCall_All_Card →
- *   MaskCreditCard, ApiCall_All_PaymentCard → MaskPaymentCard, ApiCall_All_Secret →
- *   MaskSecretKeys) × 3 active framework rules — but the Card target defers to the
- *   PaymentCard successor at shipped values, so 2 targets evaluate per record
- *   (PaymentCard + Secret); effective density is unchanged. Plus subscriber-side
+ *   Actual deployed framework: 4 wildcard targets ship for ApiCall__c (ApiCall_All_PaymentCard →
+ *   MaskPaymentCard, ApiCall_All_Secret → MaskSecretKeys, ApiCall_All_Jwt → MaskJwt, all active;
+ *   ApiCall_All_Card → MaskCreditCard, shipped inactive with its rule). 3 active framework rules
+ *   (MaskPaymentCard, MaskSecretKeys, MaskJwt), so 3 targets evaluate per record. Plus subscriber-side
  *   test fixtures from earlier sections may add ~1 additional active rule + 1 single-field
  *   target on Url. Realistic eval count: ~1000 per trigger fire (lower bound 800 framework-only,
  *   not the spec's ~10,000). Sections 45-51 will establish the Tier-1 load-test pattern regardless.
@@ -26,7 +25,7 @@
  * PERF METRICS (soft gate, harvested by Phase 2.6):
  *   wallMs, cpuMs, soqlCount, dmlCount, heapBytesPeak — emitted as PERF_ROW: lines
  *
- * Pre-seeded baseline (conservative; calibrated for 5×10 density; actual 2×2 will be faster):
+ * Pre-seeded baseline (conservative; calibrated for 5×10 density; actual 3×3 will be faster):
  *   wallMs: 4500, cpuMs: 9000
  *
  * Run-isolation: self-contained. All 200 inserted rows are deleted in the cleanup block.
@@ -34,9 +33,10 @@
  * Prerequisites:
  *   - subscriber scratch org with kern managed package installed
  *   - MaskingFramework_Enabled feature flag ON (default)
- *   - kern__MaskingTarget__mdt: ApiCall_All_PaymentCard + ApiCall_All_Secret active
- *     (ApiCall_All_Card also ships active but defers to the PaymentCard successor)
- *   - kern__MaskingRule__mdt: MaskPaymentCard + MaskSecretKeys (+ legacy MaskCreditCard) active
+ *   - kern__MaskingTarget__mdt: ApiCall_All_PaymentCard + ApiCall_All_Secret + ApiCall_All_Jwt active
+ *     (ApiCall_All_Card ships inactive)
+ *   - kern__MaskingRule__mdt: MaskPaymentCard + MaskSecretKeys + MaskJwt active
+ *     (MaskCreditCard ships inactive; MaskPaymentCard replaces it)
  *   - TriggerSetting.ApiCall has ApplyMasking__c = true (shipped default)
  *
  * Run (in isolation):
@@ -69,9 +69,9 @@ final String SENSITIVE_URL = 'https://admin:hunter2@api.example.com/bulk-load-44
 // a plain string and cannot be reliably filtered or compared in subscriber anon Apex. Report
 // total active counts; masking fires correctly via the framework's internal resolution path
 // (confirmed: 50/50 sampled records show CARD_REDACTED after insert).
-// Source truth: 3 ApiCall__c targets ship (ApiCall_All_Card, ApiCall_All_PaymentCard,
-// ApiCall_All_Secret); the Card target defers to the PaymentCard successor, so 2 evaluate.
-// Spec expected 5 ApiCall__c targets × 10 active rules = 50 target-rule pairs. Effective: 2 × 2 = 4.
+// Source truth: 4 ApiCall__c targets ship (ApiCall_All_PaymentCard, ApiCall_All_Secret,
+// ApiCall_All_Jwt active; ApiCall_All_Card inactive, as is its rule MaskCreditCard), so 3 evaluate.
+// Spec expected 5 ApiCall__c targets × 10 active rules = 50 target-rule pairs. Effective: 3 × 3 = 9.
 Integer activeTotalTargets =
 [
 		SELECT COUNT()
@@ -86,10 +86,11 @@ Integer activeRuleCount =
 ];
 System.debug(LoggingLevel.INFO,
 		'Pre-flight: ' + activeTotalTargets + ' total active MaskingTarget(s) (all SObjects) × '
-		+ activeRuleCount + ' active rule(s). Known ApiCall__c targets: 3 shipped, 2 effective '
-		+ '(ApiCall_All_PaymentCard + ApiCall_All_Secret; ApiCall_All_Card defers to the successor). '
-		+ 'Known active rules: 3 (MaskPaymentCard, MaskSecretKeys, legacy MaskCreditCard). Spec 5×10; effective 2×2=4 pairs. '
-		+ 'Actual regex pressure ≈ ' + (BATCH_SIZE * 2 * 2) + ' evaluations per trigger fire (field wildcard).');
+		+ activeRuleCount + ' active rule(s). Known ApiCall__c targets: 4 shipped, 3 active '
+		+ '(ApiCall_All_PaymentCard + ApiCall_All_Secret + ApiCall_All_Jwt; ApiCall_All_Card ships inactive). '
+		+ 'Known active rules: 3 (MaskPaymentCard, MaskSecretKeys, MaskJwt); MaskCreditCard ships inactive. '
+		+ 'Spec 5×10; effective 3×3=9 pairs. '
+		+ 'Actual regex pressure ≈ ' + (BATCH_SIZE * 3 * 3) + ' evaluations per trigger fire (field wildcard).');
 
 // Capture pre-run governor baselines
 Long startWallMs = System.currentTimeMillis();
@@ -197,7 +198,8 @@ try
 			'44 PASS: ' + BATCH_SIZE + ' records inserted + persisted. '
 			+ 'Sample of ' + sample.size() + ': ' + maskedCount + ' show CARD_REDACTED, '
 			+ '0 raw card retained, 0 MASKING_FAILURE sentinels. '
-			+ 'Deployed: 3 ApiCall targets (2 effective) × 3 active rules (MaskPaymentCard + MaskSecretKeys + legacy MaskCreditCard). '
+			+ 'Deployed: 4 ApiCall targets (3 active) × 3 active rules (MaskPaymentCard + MaskSecretKeys + MaskJwt; '
+			+ 'MaskCreditCard ships inactive). '
 			+ 'wall=' + wallMs + 'ms cpu=' + cpuMs + 'ms soql=' + soqlCount + ' dml=' + dmlCount
 			+ ' heap=' + heapBytesPeak + ' bytes');
 	pass++;

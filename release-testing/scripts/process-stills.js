@@ -1,10 +1,11 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Turns the raw full-viewport PNG screenshots from the `stills` Playwright project into committed
 // guide stills under docs-site/assets/stills/: 1280-wide JPEGs, each kept under the 200 KB budget by
 // stepping the JPEG quality down until it fits. ffmpeg is a SYSTEM CLI (not an npm dep) — preflighted.
 const {execFileSync} = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const {testResultsDirectoryFor} = require('../e2e/helpers/auth-paths');
 
 const MAX_STILL_BYTES = 200 * 1024; // 200 KB per still (mirrors the poster ceiling)
 
@@ -19,7 +20,7 @@ const STILLS = [
 ];
 
 const ROOT = path.join(__dirname, '..', '..');
-const RAW_DIR = path.join(ROOT, 'release-testing', 'test-results', 'stills');
+const RAW_DIR = path.join(testResultsDirectoryFor(), 'stills');
 const OUT_DIR = path.join(ROOT, 'docs-site', 'assets', 'stills');
 
 function preflightFfmpeg()
@@ -85,4 +86,4 @@ if(require.main === module)
 	processAll(process.argv.slice(2));
 }
 
-module.exports = {processAll, encodeStill, preflightFfmpeg, MAX_STILL_BYTES, OUT_DIR, STILLS};
+module.exports = {processAll, encodeStill, preflightFfmpeg, MAX_STILL_BYTES, OUT_DIR, RAW_DIR, STILLS};

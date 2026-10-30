@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 jest.mock('child_process', () => ({
 	exec: jest.fn(), execSync: jest.fn()
 }));
@@ -32,6 +32,8 @@ jest.mock('../../release-testing/runner/cmdt-deployer', () =>
 jest.mock('../e2e/helpers/sf-namespace', () => ({namespacePrefix: jest.fn()}));
 
 const fs = require('fs');
+const path = require('path');
+const {authFolderName} = require('../e2e/helpers/auth-paths');
 const {exec, execSync} = require('child_process');
 const {deployMetadataDir, deployCmdtState, deleteCmdtRecords, NamedOrgNotFoundError} = require('../runner/cmdt-deployer');
 const {namespacePrefix} = require('../e2e/helpers/sf-namespace');
@@ -44,6 +46,7 @@ const {
 	BACKGROUND_WORK_WAIT_MILLISECONDS,
 	runScript,
 	runBatch,
+	runSection27,
 	runSection31,
 	runSection55,
 	runSection60,
@@ -648,6 +651,76 @@ describe('MockAllAPIs-window sections (31, 55, 60, 63)', () =>
 	});
 });
 
+describe('mock selection section (27)', () =>
+{
+	// Section 27 turns API mocking on for its script and must turn it off again, or every later section on the org
+	// gets canned answers. The script call is mocked: N PASS lines, or a throw. A failed `sf apex run` does not throw
+	// (the run is read from its output); only a command that cannot start does.
+	beforeEach(() =>
+	{
+		jest.clearAllMocks();
+	});
+
+	it('turns mocking on, runs its script, turns mocking off and passes', async() =>
+	{
+		mockPassCounts([8], 's');
+
+		const results = await runSection27();
+
+		expect(results['section-27'].result).toBe('PASS');
+		expect(results['section-27'].score).toBe('8/8');
+		expect(deployCmdtState).toHaveBeenCalledTimes(2);
+		expect(deployCmdtState).toHaveBeenNthCalledWith(1, 'section27-mock-enabled');
+		expect(deployCmdtState).toHaveBeenNthCalledWith(2, 'section27-mock-disabled');
+	});
+
+	it('turns mocking off and passes the error on when the script throws', async() =>
+	{
+		exec.mockImplementation(() =>
+		{
+			throw new Error('sf apex run failed');
+		});
+
+		await expect(runSection27()).rejects.toThrow('sf apex run failed');
+		expect(deployCmdtState).toHaveBeenCalledTimes(2);
+		expect(deployCmdtState).toHaveBeenLastCalledWith('section27-mock-disabled');
+	});
+
+	it('logs a failed switch-off and keeps the script error when both fail', async() =>
+	{
+		const errorOutput = jest.spyOn(console, 'error').mockImplementation(() => {});
+		exec.mockImplementation(() =>
+		{
+			throw new Error('sf apex run failed');
+		});
+		deployCmdtState.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('switch-off refused'));
+
+		await expect(runSection27()).rejects.toThrow('sf apex run failed');
+		expect(errorOutput).toHaveBeenCalledWith(expect.stringContaining('switch-off refused'));
+		errorOutput.mockRestore();
+	});
+
+	it('fails the section when only the switch-off fails', async() =>
+	{
+		const errorOutput = jest.spyOn(console, 'error').mockImplementation(() => {});
+		mockPassCounts([8], 's');
+		deployCmdtState.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('switch-off refused'));
+
+		await expect(runSection27()).rejects.toThrow('switch-off refused');
+		expect(errorOutput).toHaveBeenCalledWith(expect.stringContaining('cmdt-states/section27-mock-disabled'));
+		errorOutput.mockRestore();
+	});
+
+	it('still turns mocking off when the switch-on fails part way', async() =>
+	{
+		deployCmdtState.mockRejectedValueOnce(new Error('switch-on half applied'));
+
+		await expect(runSection27()).rejects.toThrow('switch-on half applied');
+		expect(deployCmdtState).toHaveBeenCalledTimes(2);
+		expect(deployCmdtState).toHaveBeenLastCalledWith('section27-mock-disabled');
+	});
+});
+
 describe('CDC change-event sections (71-72)', () =>
 {
 	// Each handler is a launch + verify section gated behind a CMDT fixture: deploy the fixture,
@@ -1153,7 +1226,7 @@ describe('runBatch serial retry of concurrent-batch failures', () =>
 	// Concurrency flakes (sections 54 and 65 both hit them) fail inside the parallel
 	// worker pool but pass in isolation. After the pool drains, runBatch retries each
 	// failed section ONCE, serially, and captures the raw sf output of every failed
-	// attempt under release-testing/test-results/phase2-failures/ for diagnosis —
+	// attempt under release-testing/test-results/phase2-failures/<org alias>/ for diagnosis —
 	// the pre-retry runner discarded the raw output, leaving 0/N scores unexplainable.
 	let writeSpy;
 	let mkdirSpy;
@@ -1231,8 +1304,9 @@ describe('runBatch serial retry of concurrent-batch failures', () =>
 		await runBatch(scripts, 1);
 
 		const writtenPaths = writeSpy.mock.calls.map(call => call[0]);
-		expect(writtenPaths.some(p => p.includes('phase2-failures') && p.endsWith('section-1.log'))).toBe(true);
-		expect(writtenPaths.some(p => p.includes('phase2-failures') && p.endsWith('section-1-retry.log'))).toBe(true);
+		const failureFolder = path.join('test-results', 'phase2-failures', authFolderName(getSubscriberOrgAlias()));
+		expect(writtenPaths.some(p => p.includes(failureFolder) && p.endsWith('section-1.log'))).toBe(true);
+		expect(writtenPaths.some(p => p.includes(failureFolder) && p.endsWith('section-1-retry.log'))).toBe(true);
 		const firstAttemptWrite = writeSpy.mock.calls.find(call => String(call[0]).endsWith('section-1.log'));
 		expect(firstAttemptWrite[1]).toContain('broken on attempt one');
 	});
@@ -1522,6 +1596,38 @@ describe('runScanner', () =>
 
 		expect(eslint.frameworkViolations).toBe(0);
 		expect(eslint.notes).toContain(movedComponent);
+	});
+
+	it('counts a fixture file ESLint could not read as a parse failure, not as a fixture problem', async() =>
+	{
+		const unreadableFile = {filePath: '/lwc/broken/broken.js', messages: [{ruleId: null, fatal: true, severity: 2, message: 'Parsing error: Unexpected token'}]};
+		const fixtureReport = JSON.stringify([...JSON.parse(eslintReport(FIXTURE_SCAN_PROBLEMS)), unreadableFile]);
+		mockScans(Object.assign(new Error('Command failed: npx eslint'), {status: 1, stdout: fixtureReport}), frameworkReport());
+
+		const {eslint} = await runScanner();
+
+		expect(eslint.fixtureViolations).toBe(FIXTURE_SCAN_PROBLEMS.length);
+		expect(eslint.fixtureParseFailures).toBe(1);
+	});
+
+	it('counts a framework file ESLint could not read as a parse failure, not as a framework violation', async() =>
+	{
+		const unreadableFile = {filePath: '/lwc/broken/broken.js', messages: [{ruleId: null, fatal: true, severity: 2, message: 'Parsing error: Unexpected token'}]};
+		mockScans(eslintReport([]), frameworkReport(JSON.stringify([unreadableFile])));
+
+		const {eslint} = await runScanner();
+
+		expect(eslint.frameworkViolations).toBe(0);
+		expect(eslint.frameworkParseFailures).toBe(1);
+	});
+
+	it('reads zero framework parse failures when every framework file can be read', async() =>
+	{
+		mockScans(eslintReport([]), frameworkReport());
+
+		const {eslint} = await runScanner();
+
+		expect(eslint.frameworkParseFailures).toBe(0);
 	});
 
 	it('records no count, and says why, when a scan cannot report', async() =>

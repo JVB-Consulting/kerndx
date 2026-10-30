@@ -1,6 +1,6 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Stills capture spec (the `stills` Playwright project). Each test navigates to one admin surface and
-// writes a single full-viewport screenshot to release-testing/test-results/stills/<name>.png. NOT a
+// writes a single full-viewport screenshot to release-testing/test-results/<org alias>/stills/<name>.png. NOT a
 // pass/fail gate — the screenshot is the deliverable; process-stills.js then sizes each into
 // docs-site/assets/stills/. Determinism comes from the demo seeds (capture-seed + capture-stills-seed),
 // the managed subscriber install (kern__ namespace), and direct ?filterName= list-view navigation
@@ -9,9 +9,10 @@ const {test} = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 const {getInstanceUrl} = require('../helpers/sf-auth');
+const {testResultsDirectoryFor} = require('../helpers/auth-paths');
 const {waitForSpinnerGone} = require('../helpers/wait-helpers');
 
-const STILLS_DIR = path.join(__dirname, '..', '..', 'test-results', 'stills');
+const STILLS_DIR = path.join(testResultsDirectoryFor(), 'stills');
 
 async function shot(page, name)
 {

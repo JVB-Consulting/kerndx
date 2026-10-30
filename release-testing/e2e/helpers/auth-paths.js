@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // Where a run keeps its browser session files: the saved sign-in (state.json), the org's address (instance.json) and
 // which kind of org it signed in to (run-target.json). Each org alias gets its own folder under .auth/, so two runs
 // from one checkout against different orgs never read each other's session. With one shared folder, a second run's
@@ -7,6 +7,8 @@ const path = require('path');
 const {getSubscriberOrgAlias} = require('../../runner/subscriber-config');
 
 const AUTH_ROOT = path.join(__dirname, '..', '.auth');
+// Where Playwright keeps each org's screenshots, videos and traces, one folder per org alias.
+const TEST_RESULTS_ROOT = path.join(__dirname, '..', '..', 'test-results');
 // Anything outside these characters becomes an underscore, so an alias can never name a folder outside .auth/.
 const UNSAFE_FOLDER_CHARACTERS = /[^A-Za-z0-9._@-]/g;
 const ONLY_DOTS = /^\.+$/;
@@ -46,4 +48,17 @@ function authPathsFor(orgAlias = getSubscriberOrgAlias())
 	};
 }
 
-module.exports = {AUTH_ROOT, authFolderName, authPathsFor};
+/**
+ * @description The folder Playwright writes one org's screenshots, videos and traces to, so two runs against
+ *              different orgs never write over each other's results.
+ *
+ * @param {string} orgAlias The org alias; the run's own alias (SF_SUBSCRIBER_ORG_ALIAS) when left out.
+ *
+ * @returns {string} The org's folder under release-testing/test-results/.
+ */
+function testResultsDirectoryFor(orgAlias = getSubscriberOrgAlias())
+{
+	return path.join(TEST_RESULTS_ROOT, authFolderName(orgAlias));
+}
+
+module.exports = {AUTH_ROOT, authFolderName, authPathsFor, testResultsDirectoryFor};

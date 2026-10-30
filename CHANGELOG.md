@@ -13,6 +13,56 @@ All notable changes to KernDX are recorded here. The format is based on [Keep a 
 
 ---
 
+## [1.11.0-1] — 2026-10-30
+
+**Subscriber package version id:** `04tfj000000gMFRAA2`
+
+KernDX is now open source under the Apache License 2.0. 1.11 also lets a test turn a feature flag off, lets the pipeline set
+itself up from a file without asking questions, and fixes a few things that went wrong in saves, masking and the admin
+screens. Most of 1.11 needs nothing from you; the box at the top of the
+[1.11 release note](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.11.md#the-headlines)
+lists the few things you may want to do.
+
+### Added
+
+- **`kern.TST_Factory.newDisabledFeatureFlag(String flagName)`** turns a feature flag off for the rest of a test, including a
+  flag your org ships on.
+- **`kerndx init --answers-file <path>`** sets up the pipeline from a JSON file without questions; every answer is checked
+  before anything is written.
+- **`kerndx/no-jest-mock-component-module`**, an ESLint rule that flags `jest.mock('c/...')` and `jest.mock('lightning/...')`
+  in Jest tests, which can silently stop replacing the module; the install guide's ESLint snippet adds it as a warning.
+
+### Changed
+
+- **KernDX is licensed under the Apache License 2.0.** It is approved by the Open Source Initiative and carries a patent grant, and
+  you can use KernDX for anything, including in a product that competes with it. Versions 1.10 and earlier keep the Business Source
+  License 1.1, and each becomes Apache 2.0 no later than four years after it was first published. See `LICENSING.md`.
+- **Plainer wording** in three Health Check messages about API mocking, three query builder messages, and the help text of API
+  Call Status and API Setting Mocking Enabled. If a test of yours checks the exact text of one of these messages, update the
+  text it expects. An upgrade does not change a field's help text, so an upgraded org keeps the earlier text on those two
+  fields unless an administrator edits it in Setup.
+- **A new logo and description for the Kern app, on a new install.** An upgraded org keeps the earlier logo and description.
+- **The query builder's aggregate examples now use `toAggregateList()`.** If you copied one of the old examples, which read
+  totals with `toList()`, change it the same way: in a test that registers aggregate rows, `toList()` throws.
+
+### Fixed
+
+- **`kern.DML_Builder.TransactionResult.getFailureCount()`** no longer ends the transaction for a suppressed save refused by an
+  error from Apex code.
+- **A masking rule in JsonKey mode (one that masks the value under a named JSON key) now finds a key name of up to 512
+  characters** anywhere in a long value. Before, a key name
+  longer than 64 characters could be missed, and the value under it was not masked.
+- **Clearing the create form** also clears the values it would save.
+- **The scheduled job editor window** opens for an admin who cannot read the job runner fields, and keeps their values.
+- **The cron editor** refuses unknown day names and never loads a refused expression into a preset.
+- **The bundled d3 static resource carries its licence notice.** Nothing in KernDX loads it; earlier packages kept only d3's
+  copyright line, and the file now opens with the full ISC notice. The KernDX ESLint plugin now ships its MIT licence text.
+
+Backward-compatible: no global Apex member is removed or changed in signature. Added: `TST_Factory.newDisabledFeatureFlag(String)`.
+Six released labels have new wording, with the same placeholders.
+
+For the full tour and every upgrade note, see [Kern 1.11 Release Notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.11.md).
+
 ## [1.10.0-4] — 2026-10-28
 
 **Subscriber package version id:** `04tfj000000fkuvAAA`
@@ -363,3 +413,4 @@ Initial publicly-tagged release. Every framework module, every Strategic Guide, 
 [1.8.0-11]: https://github.com/JVB-Consulting/kerndx/tree/v1.8.0-11
 [1.9.0-4]: https://github.com/JVB-Consulting/kerndx/tree/v1.9.0-4
 [1.10.0-4]: https://github.com/JVB-Consulting/kerndx/tree/v1.10.0-4
+[1.11.0-1]: https://github.com/JVB-Consulting/kerndx/tree/v1.11.0-1

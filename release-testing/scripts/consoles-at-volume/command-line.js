@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The driver's command line: one subcommand, the mode and size, where the manifest lives, which org.
 const path = require('path');
+const {authFolderName} = require('../../e2e/helpers/auth-paths');
 
 const COMMANDS = [
 	'run',
@@ -16,7 +17,8 @@ const MODES = [
 	'staged',
 	'full'
 ];
-const DEFAULT_OUTPUT_DIRECTORY = path.join(__dirname, '..', '..', '..', 'tmp', 'consoles-at-volume');
+// Each org's load gets its own folder under this one, named after the org alias, so two orgs never share a manifest.
+const VOLUME_OUTPUT_ROOT = path.join(__dirname, '..', '..', '..', 'tmp', 'consoles-at-volume');
 // The id scheme spells ordinals in four letters (1,296 values); a nested import's root ordinal of 1,000 plus the action's runs out above size 1.
 const MAXIMUM_SIZE = 1;
 const USAGE = `Usage: node release-testing/scripts/consoles-at-volume.js <${COMMANDS.join('|')}> [--mode staged|full] [--size <factor>] [--output-directory <dir>] `
@@ -101,6 +103,18 @@ function setReuse(options)
 	options.reuse = true;
 }
 
+/**
+ * @description The folder one org's load keeps its manifest and logs in when no `--output-directory` is given.
+ *
+ * @param {string} alias The org alias the run points at.
+ *
+ * @returns {string} The org's folder under tmp/consoles-at-volume/, named the same safe way as its sign-in folder.
+ */
+function outputDirectoryFor(alias)
+{
+	return path.join(VOLUME_OUTPUT_ROOT, authFolderName(alias));
+}
+
 // Each option that takes a value, and each that stands alone: what it sets on the options.
 const VALUE_OPTIONS = {'--mode': setMode, '--size': setSize, '--output-directory': setOutputDirectory, '--org': setAlias, '--stalled-started': setStalledStarted};
 const FLAG_OPTIONS = {'--reuse': setReuse};
@@ -120,7 +134,7 @@ function parseCommandLine(argv, {alias})
 	{
 		throw new Error(`Unknown command "${command}". ${USAGE}`);
 	}
-	const options = {command, mode: 'staged', size: 1, outputDirectory: DEFAULT_OUTPUT_DIRECTORY, alias, reuse: false, stalledStarted: 0, manifestPath: ''};
+	const options = {command, mode: 'staged', size: 1, outputDirectory: null, alias, reuse: false, stalledStarted: 0, manifestPath: ''};
 	const words = [...rest];
 	while(words.length > 0)
 	{
@@ -138,8 +152,10 @@ function parseCommandLine(argv, {alias})
 			throw new Error(`Unknown argument "${word}". ${USAGE}`);
 		}
 	}
+	// Read after every option, so the folder follows the org `--org` names wherever it stands on the line.
+	options.outputDirectory ??= outputDirectoryFor(options.alias);
 	options.manifestPath = path.join(options.outputDirectory, 'manifest.json');
 	return options;
 }
 
-module.exports = {COMMANDS, MODES, USAGE, DEFAULT_OUTPUT_DIRECTORY, parseCommandLine};
+module.exports = {COMMANDS, MODES, USAGE, VOLUME_OUTPUT_ROOT, outputDirectoryFor, parseCommandLine};

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 // The exploration's constants: the paths it reads and writes, the console's own address keys and
 // defaults, the widths, the generator's numbers, the polling allowances and the column sets built from
 // the shipped labels. Every module of the exploration reads from here; nothing here reads the org.
@@ -7,6 +7,8 @@
 const path = require('path');
 const {readShippedLabelValues} = require('../lib/shipped-labels');
 const {authPathsFor} = require('../helpers/auth-paths');
+const {getSubscriberOrgAlias} = require('../../runner/subscriber-config');
+const {outputDirectoryFor} = require('../../scripts/consoles-at-volume/command-line');
 
 const E2E_DIRECTORY = path.join(__dirname, '..');
 const REPOSITORY_ROOT = path.join(E2E_DIRECTORY, '..', '..');
@@ -85,8 +87,8 @@ const VOLUME_PHASE = 'volume';
 const ALL_PHASES = [...SHAPED_PHASES, VOLUME_PHASE];
 // The Chain Monitor's page size (chainMonitorList.js PAGE_SIZE): its page label names pages, never a run total.
 const MONITOR_PAGE_SIZE = 20;
-// Where a volume walk writes unless told otherwise.
-const VOLUME_OUTPUT_DIRECTORY = path.join(REPOSITORY_ROOT, 'tmp', 'consoles-at-volume', 'exploration');
+// Where a volume walk writes unless told otherwise: the exploration folder inside the load folder of the run's own org.
+const VOLUME_OUTPUT_DIRECTORY = path.join(outputDirectoryFor(getSubscriberOrgAlias()), 'exploration');
 const SESSION_VIEWPORT = {width: 1440, height: VIEWPORT_HEIGHT};
 // The browser context's clock: what the console's presets and custom range are entered in.
 const BROWSER_TIMEZONE = 'America/Los_Angeles';

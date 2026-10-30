@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {exec, execSync} = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -6,6 +6,7 @@ const {getSubscriberOrgAlias} = require('./subscriber-config');
 const {isNamedOrgNotFoundError, NamedOrgNotFoundError} = require('./cmdt-deployer');
 const {RECORDED_RESULTS_PATH, ReleaseTargetError, assertReleaseTarget} = require('./release-target');
 const {namespacePrefix} = require('../e2e/helpers/sf-namespace');
+const {authFolderName} = require('../e2e/helpers/auth-paths');
 
 const ORG_ALIAS = getSubscriberOrgAlias();
 
@@ -189,7 +190,8 @@ function runScript(scriptPath)
 	});
 }
 
-const FAILURE_LOG_DIR = path.join(__dirname, '..', 'test-results', 'phase2-failures');
+// Outside the org's Playwright folder, because Playwright empties that folder at the start of each run.
+const FAILURE_LOG_DIR = path.join(__dirname, '..', 'test-results', 'phase2-failures', authFolderName(ORG_ALIAS));
 
 // Keep the raw sf output of a failed attempt on disk — the score alone (e.g. 0/4)
 // cannot distinguish a genuine regression from a timeout or a row-lock collision.
@@ -482,12 +484,36 @@ async function runSection27()
 	const expected = 8;
 
 	console.log('  Section 27: deploying mock-enabled state...');
-	await deployCmdtState('section27-mock-enabled');
-	const result = await runScript(scriptPath);
-	console.log(`  Section 27: ${result.pass} pass, ${result.fail} fail`);
-
+	let result;
+	let scriptFailure = null;
+	try
+	{
+		await deployCmdtState('section27-mock-enabled');
+		result = await runScript(scriptPath);
+	}
+	catch(failure)
+	{
+		scriptFailure = failure;
+	}
 	console.log('  Section 27: restoring mock-disabled state...');
-	await deployCmdtState('section27-mock-disabled');
+	try
+	{
+		await deployCmdtState('section27-mock-disabled');
+	}
+	catch(restoreFailure)
+	{
+		console.error(`  Section 27: mock selection could not be turned off (${restoreFailure.message}); deploy the `
+				+ 'cmdt-states/section27-mock-disabled fixture by hand before anything else runs on this org.');
+		if(!scriptFailure)
+		{
+			throw restoreFailure;
+		}
+	}
+	if(scriptFailure)
+	{
+		throw scriptFailure;
+	}
+	console.log(`  Section 27: ${result.pass} pass, ${result.fail} fail`);
 
 	return {
 		'section-27': {
@@ -574,10 +600,13 @@ function readEslintReport(command, directory)
 	return JSON.parse(output);
 }
 
-// Counts the problems in an ESLint report.
+// Counts the problems in an ESLint report, apart from the files ESLint could not read: ESLint reports each of those
+// as one message marked fatal, which says nothing about the rules the fixtures test.
 function countEslintProblems(report)
 {
-	return report.flatMap(file => file.messages).length;
+	const messages = report.flatMap(file => file.messages);
+	const parseFailures = messages.filter(message => message.fatal === true).length;
+	return {problems: messages.length - parseFailures, parseFailures};
 }
 
 // The folder name of the component that holds an ESLint report's file.
@@ -612,11 +641,13 @@ function countFrameworkComponentProblems(report)
 // Records both ESLint counts. A scan that cannot report leaves its count empty and says why, never a false zero.
 function runEslintScans()
 {
-	const eslintResult = {fixtureViolations: null, frameworkViolations: null, notes: ''};
+	const eslintResult = {fixtureViolations: null, fixtureParseFailures: null, frameworkViolations: null, frameworkParseFailures: null, notes: ''};
 	const failures = [];
 	try
 	{
-		eslintResult.fixtureViolations = countEslintProblems(readEslintReport(ESLINT_FIXTURES_COMMAND, ESLINT_FIXTURES_DIRECTORY));
+		const {problems, parseFailures} = countEslintProblems(readEslintReport(ESLINT_FIXTURES_COMMAND, ESLINT_FIXTURES_DIRECTORY));
+		eslintResult.fixtureViolations = problems;
+		eslintResult.fixtureParseFailures = parseFailures;
 	}
 	catch(error)
 	{
@@ -627,6 +658,7 @@ function runEslintScans()
 		const frameworkReport = readEslintReport(FRAMEWORK_COMPONENTS_COMMAND, FRAMEWORK_COMPONENTS_DIRECTORY);
 		const {violations, noLongerReported} = countFrameworkComponentProblems(frameworkReport);
 		eslintResult.frameworkViolations = violations;
+		eslintResult.frameworkParseFailures = countEslintProblems(frameworkReport).parseFailures;
 		if(noLongerReported.length > 0)
 		{
 			failures.push('Allowed to extend LightningElement but no longer reported (remove from lightning-element-components.json): '

@@ -76,9 +76,11 @@
  *        OBSERVABLE CONTRACTS asserted here (using only subscriber-accessible APIs):
  *        (a) Shipped rules: MaskPaymentCard active with WriteFailureMarker, MaskCreditCard
  *            dormant, at least one BlockDml rule shipped, none of them active.
- *        (b) Positive insert: Luhn-valid card succeeds, card masked, no exception thrown.
+ *        (b) Positive insert: Luhn-valid card succeeds, no exception thrown, and the stored record holds
+ *            the replacement text read from the shipped MaskPaymentCard record where the card was.
  *        (c) kern.UTIL_Exceptions.MaskingBlockedException is now a global nested type — subscriber Apex can
- *            catch it by name (verified by referencing kern.UTIL_Exceptions.MaskingBlockedException.class).
+ *            catch it by name. Only the type is checked: the message of a blocked save is written by the
+ *            framework when a BlockDml rule fails, which this script cannot cause.
  *        DEFERRED END-TO-END: trigger -> rule-failure -> kern.UTIL_Exceptions.MaskingBlockedException -> DML abort
  *        requires CMDT DML (blocked) or a subscriber-deployed bad-pattern rule. DEFERRED TO:
  *        Subscriber_MaskingEdges_TEST with a subscriber-deployed custom MaskingRule__mdt whose
@@ -437,7 +439,8 @@ catch(Exception scenarioError)
 // These are the values of a fresh install: an org upgraded from 1.8 keeps its own until it takes the release note's step.
 // (a) Shipped rules: MaskPaymentCard active with WriteFailureMarker, MaskCreditCard dormant,
 //     BlockDml rules present but none active.
-// (b) Positive insert: Luhn-valid card succeeds, card masked, no exception thrown.
+// (b) Positive insert: Luhn-valid card succeeds, no exception thrown, and the stored record holds
+//     MaskPaymentCard's replacement text, read from the rule record.
 // (c) kern.UTIL_Exceptions.MaskingBlockedException can be caught by type.
 try
 {
@@ -448,7 +451,8 @@ try
 	[
 			SELECT DeveloperName,
 					kern__FailureAction__c,
-					kern__IsActive__c
+					kern__IsActive__c,
+					kern__Replacement__c
 			FROM kern__MaskingRule__mdt
 			WHERE NamespacePrefix = 'kern'
 	])
@@ -515,18 +519,23 @@ try
 				LIMIT 1
 		];
 
+		// The expected text is the replacement the package's own MaskPaymentCard record names, read back
+		// from the record, so the check compares what the framework wrote with what the rule says to write.
+		String paymentCardReplacement61e = paymentCard61e.kern__Replacement__c;
+		Assert.isFalse(String.isBlank(paymentCardReplacement61e), '61e: MaskPaymentCard must ship with a replacement text');
 		Assert.isFalse(stored61e.kern__Request__c.contains(VISA_CARD),
 				'61e: card must be masked in the stored record. Got: ' + stored61e.kern__Request__c);
-		Assert.isTrue(stored61e.kern__Request__c.containsIgnoreCase(CARD_REDACTED_SENTINEL),
-				'61e: CARD_REDACTED sentinel must appear after successful masking. Got: '
-				+ stored61e.kern__Request__c);
+		Assert.isTrue(stored61e.kern__Request__c.contains('"card":"' + paymentCardReplacement61e + '"'),
+				'61e: the stored record must hold the replacement text of MaskPaymentCard (' + paymentCardReplacement61e
+				+ ') where the card was. Got: ' + stored61e.kern__Request__c);
 	}
 
-	final String BLOCK_DML_MESSAGE = 'Masking rule MaskIban failed and is configured to block DML';
+	// Only the type is checked here: the message a blocked save carries is written by the framework when a
+	// BlockDml rule fails, which this script cannot cause (see the header), so no message is asserted.
 	kern.UTIL_Exceptions.MaskingBlockedException caughtBlocked61e = null;
 	try
 	{
-		throw new kern.UTIL_Exceptions.MaskingBlockedException(BLOCK_DML_MESSAGE);
+		throw new kern.UTIL_Exceptions.MaskingBlockedException('61e catch-by-type probe');
 	}
 	catch(kern.UTIL_Exceptions.MaskingBlockedException blocked61e)
 	{
@@ -534,18 +543,13 @@ try
 	}
 	Assert.isNotNull(caughtBlocked61e,
 			'61e: kern.UTIL_Exceptions.MaskingBlockedException must be catchable by type from subscriber Apex');
-	Assert.isTrue(caughtBlocked61e.getMessage().containsIgnoreCase('block DML'),
-			'61e: framework handleRuleFailure() message contains "block DML". Got: '
-			+ caughtBlocked61e.getMessage());
-	Assert.isTrue(caughtBlocked61e.getMessage().containsIgnoreCase('MaskIban'),
-			'61e: framework handleRuleFailure() message includes the rule DeveloperName. Got: '
-			+ caughtBlocked61e.getMessage());
 
 	System.debug(LoggingLevel.INFO,
 			'61e PASS (end-to-end deferred — see header §6.10 #5): '
 			+ '(a) MaskPaymentCard active with WriteFailureMarker, MaskCreditCard dormant, no active shipped BlockDml '
 			+ 'rule; dormant BlockDml rules: ' + dormantBlockDmlRules61e + '. '
-			+ '(b) Successful Luhn-valid card insert completed without any exception; card masked in stored record. '
+			+ '(b) Successful Luhn-valid card insert completed without any exception; the stored record holds the '
+			+ 'replacement text MaskPaymentCard names. '
 			+ '(c) kern.UTIL_Exceptions.MaskingBlockedException caught by type from subscriber context. '
 			+ 'DEFERRED: trigger -> rule-failure -> exception -> DML abort (CMDT DML blocked in anon Apex). '
 			+ 'Unit path covered in UTIL_FrameworkMasker_TEST.');

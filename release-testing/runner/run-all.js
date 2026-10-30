@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const {execSync} = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -13,18 +13,60 @@ const ORG_ALIAS = getSubscriberOrgAlias();
 // the results file can see at a glance that the version was never established rather than reading a plausible number.
 const FALLBACK_VERSION = '1.0.0-XX';
 
+/**
+ * @description Finds the Kern row in the output of `sf package installed list --json`.
+ *
+ * @param {string} output The command's JSON output.
+ *
+ * @returns {object|undefined} The Kern row, or undefined when the org has no Kern package installed.
+ */
+function findInstalledKern(output)
+{
+	const data = JSON.parse(output);
+	return (data.result || []).find((row) => row.SubscriberPackageName === 'Kern' || row.SubscriberPackageNamespace === 'kern');
+}
+
+/**
+ * @description Writes a Kern row's version number the way release results are filed: 1.10.0.4 becomes 1.10.0-4.
+ *
+ * @param {object} kernRow The Kern row of the installed package list.
+ *
+ * @returns {string} The version.
+ */
+function formatVersion(kernRow)
+{
+	const parts = `${kernRow.SubscriberPackageVersionNumber}`.split('.');
+	return parts.length === 4 ? `${parts[0]}.${parts[1]}.${parts[2]}-${parts[3]}` : parts.join('.');
+}
+
+/**
+ * @description The Kern version installed in an org, read from the output of `sf package installed list --json`.
+ *
+ * @param {string} output The command's JSON output.
+ *
+ * @returns {string|null} The version, for example 1.10.0-4, or null when the org has no Kern package installed.
+ */
+function readInstalledKernVersion(output)
+{
+	const kernRow = findInstalledKern(output);
+	return kernRow ? formatVersion(kernRow) : null;
+}
+
+/**
+ * @description Asks the run's org which Kern version it has installed.
+ *
+ * @returns {{version: string, subscriberPackageVersionId: string}|null} The version and its package version id, or null
+ *          when the org has no Kern package or cannot be asked.
+ */
 function detectInstalledVersion()
 {
 	try
 	{
 		const output = execSync(`sf package installed list -o ${ORG_ALIAS} --json`, {encoding: 'utf8', timeout: 60_000});
-		const data = JSON.parse(output);
-		const kernPkg = (data.result || []).find(p => p.SubscriberPackageName === 'Kern' || p.SubscriberPackageNamespace === 'kern');
-		if(kernPkg)
+		const kernRow = findInstalledKern(output);
+		if(kernRow)
 		{
-			const parts = `${kernPkg.SubscriberPackageVersionNumber}`.split('.');
-			const v = parts.length === 4 ? `${parts[0]}.${parts[1]}.${parts[2]}-${parts[3]}` : parts.join('.');
-			return {version: v, subscriberPackageVersionId: kernPkg.SubscriberPackageVersionId};
+			return {version: formatVersion(kernRow), subscriberPackageVersionId: kernRow.SubscriberPackageVersionId};
 		}
 	}
 	catch(error)
@@ -181,4 +223,4 @@ if(require.main === module)
 	main().catch(reportFailure);
 }
 
-module.exports = {main, reportFailure, resolveVersion};
+module.exports = {main, reportFailure, resolveVersion, readInstalledKernVersion, detectInstalledVersion};

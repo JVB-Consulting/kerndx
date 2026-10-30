@@ -78,12 +78,12 @@ This is the fastest way to start. You install the ready-built package straight i
 
 ### Install the package
 
-**Current SubscriberPackageVersionId (1.10.0-4):** `04tfj000000fkuvAAA`
+**Current SubscriberPackageVersionId (1.11.0-1):** `04tfj000000gMFRAA2`
 
 **One-click install** (in the browser, no CLI needed; Salesforce prompts you to log in on the page):
 
-<a href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000fkuvAAA"><img src="https://img.shields.io/badge/Install-Production-blue.svg?style=for-the-badge" alt="Install in Production" width="187" height="28"></a>
-<a href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000fkuvAAA"><img src="https://img.shields.io/badge/Install-Sandbox-orange.svg?style=for-the-badge" alt="Install in Sandbox" width="163" height="28"></a>
+<a href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000gMFRAA2"><img src="https://img.shields.io/badge/Install-Production-blue.svg?style=for-the-badge" alt="Install in Production" width="187" height="28"></a>
+<a href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000gMFRAA2"><img src="https://img.shields.io/badge/Install-Sandbox-orange.svg?style=for-the-badge" alt="Install in Sandbox" width="163" height="28"></a>
 
 The same buttons appear on every entry of the [Releases page](https://github.com/JVB-Consulting/kerndx/releases), so you can pick the release that matches the version you want to install.
 
@@ -97,7 +97,7 @@ When the install page asks who to install for, choose **Install for Admins Only*
 your sandbox:
 
 ```shell
-sf package install --package 04tfj000000fkuvAAA -o YourOrgAlias --wait 15 --no-prompt
+sf package install --package 04tfj000000gMFRAA2 -o YourOrgAlias --wait 15 --no-prompt
 ```
 
 You should see `Successfully installed package` when the install finishes.
@@ -446,7 +446,7 @@ You should see the same `Swap to 'YourNamespace' complete.` line, with no line a
 
 The script handles every kind of reference. It rewrites every `kern.ClassName` and `kern__Field__c`, the `<kern>` namespace declaration, and the filesystem paths (`kernHome/`, `KernHome.tab-meta.xml`, `KernLogo.asset`). It also produces a finished `sfdx-project.json` from the template in this repo. As proof that the swap completed, it writes `.namespace-origin.json` at the root of your working copy, and it refuses to run a second time on the same tree.
 
-After a successful swap, the script replaces the top-level `README.md` with a short stub that credits KernDX, names your namespace, and points at your renamed `docs/` content. The original KernDX README isn't appropriate for your renamed copy, which is why it's swapped out. If you wrote your own README before the swap and want to keep it, pass `--keep-readme`.
+After a successful swap, the script replaces the top-level `README.md` with a short stub that credits KernDX, names your namespace, and points at your renamed `docs/` content. The original KernDX README isn't appropriate for your renamed copy, which is why it's swapped out. If you wrote your own README before the swap and want to keep it, pass `--keep-readme`. If you share your renamed copy, your README must then say what the stub says: that the code is KernDX, that `bin/swap-namespace.js` renamed its namespace from `kern` to yours, and where to find `LICENSE` and `NOTICES.md` (see [`LICENSING.md`](https://github.com/JVB-Consulting/kerndx/blob/main/LICENSING.md)).
 
 See `bin/README.md` in this repo for the full script details, the `--dry-run` audit format, the `--keep-readme` opt-out, and one step the script can't do for you: replacing the logo image. The file `<TargetPascal>Logo.asset` is renamed correctly, but its image content is still the KernDX logo. Replace it with your own before you ship to your users.
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 const fs = require('fs');
 const path = require('path');
 
@@ -112,8 +112,44 @@ function renderScanner(data)
 	}
 	if(data.phase2?.eslint)
 	{
-		markdown += `- **ESLint Fixture Violations:** ${data.phase2.eslint.fixtureViolations}\n`;
-		markdown += `- **ESLint Framework Violations:** ${data.phase2.eslint.frameworkViolations}\n`;
+		markdown += renderEslint(data.phase2.eslint);
+	}
+	return markdown;
+}
+
+/**
+ * @description The two ESLint counts. A count the run could not record shows the runner's note beside it, which says
+ * why; when both counts were recorded, a note the runner left gets a line of its own. The fixture files ESLint could
+ * not read are shown on their own line, apart from the fixture problems.
+ * @param {object} eslint the ESLint result the runner recorded
+ * @return {string} the markdown
+ */
+function renderEslint(eslint)
+{
+	const notes = eslint.notes || '';
+	const describeCount = (count) =>
+	{
+		if(count !== null && count !== undefined)
+		{
+			return count;
+		}
+		const reason = notes ? ` (${notes})` : '';
+		return `not recorded${reason}`;
+	};
+	let markdown = `- **ESLint Fixture Violations:** ${describeCount(eslint.fixtureViolations)}\n`;
+	if(typeof eslint.fixtureParseFailures === 'number')
+	{
+		markdown += `- **ESLint Fixture Parse Failures:** ${eslint.fixtureParseFailures}\n`;
+	}
+	markdown += `- **ESLint Framework Violations:** ${describeCount(eslint.frameworkViolations)}\n`;
+	if(typeof eslint.frameworkParseFailures === 'number')
+	{
+		markdown += `- **ESLint Framework Parse Failures:** ${eslint.frameworkParseFailures}\n`;
+	}
+	const everyCountRecorded = typeof eslint.fixtureViolations === 'number' && typeof eslint.frameworkViolations === 'number';
+	if(notes && everyCountRecorded)
+	{
+		markdown += `- **ESLint Notes:** ${notes}\n`;
 	}
 	return markdown;
 }
@@ -259,16 +295,28 @@ function compile(version)
 	return outputPath;
 }
 
-if(require.main === module)
+/**
+ * @description Reads the package version from the command line, given either alone or after `--version`, and
+ * compiles the results page for it. With no version it prints how to call it and ends with exit code 1.
+ * @param {string[]} commandLine the words after the script name
+ * @return {string} the path of the page it wrote
+ */
+function main(commandLine)
 {
-	const version = process.argv[2];
+	const versionFlagPosition = commandLine.indexOf('--version');
+	const version = versionFlagPosition === -1 ? commandLine[0] : commandLine[versionFlagPosition + 1];
 	if(!version)
 	{
-		console.error('Usage: node result-compiler.js <version>');
-		console.error('Example: node result-compiler.js 1.0.0-53');
+		console.error('Usage: node result-compiler.js [--version] <version>');
+		console.error('Example: node result-compiler.js --version 1.0.0-53');
 		process.exit(1);
 	}
-	compile(version);
+	return compile(version);
 }
 
-module.exports = {compile};
+if(require.main === module)
+{
+	main(process.argv.slice(2));
+}
+
+module.exports = {compile, main};

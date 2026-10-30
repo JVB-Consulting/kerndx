@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 jest.mock('../e2e/helpers/sf-cli', () => ({soqlQuery: jest.fn(), runApexScript: jest.fn(), executeAnonymousApex: jest.fn()}));
 jest.mock('../e2e/helpers/sf-namespace', () => ({namespacePrefix: () => '', apexNamespacePrefix: () => '', fillNamespaceTokens: (source) => source}));
 const {collectPageKeys, findRepeatsAndLosses, isOrdered, readPageLabel, pageCapFor, restoreViewport} = require('../e2e/explore/coverage');
@@ -50,9 +50,48 @@ describe('resolveOutputDirectory', () =>
 	{
 		expect(resolveOutputDirectory({manifest: 'm.json', namespacePrefix: 'kern__', version: '1.8.0-1'}))
 		.toMatch(/release-testing[\\/]results[\\/]1\.8\.0-1[\\/]consoles-at-volume$/);
-		expect(resolveOutputDirectory({manifest: 'm.json', namespacePrefix: '', version: '1.8.0-1'})).toMatch(/tmp[\\/]consoles-at-volume[\\/]exploration$/);
+		expect(resolveOutputDirectory({manifest: 'm.json', namespacePrefix: '', version: '1.8.0-1'})).toMatch(/tmp[\\/]consoles-at-volume[\\/][^\\/]+[\\/]exploration$/);
 		expect(resolveOutputDirectory({manifest: null, namespacePrefix: '', version: '1.8.0-1'})).toMatch(/tmp[\\/]plan166$/);
 		expect(resolveOutputDirectory({manifest: 'm.json', namespacePrefix: 'kern__', version: '1.8.0-1', outputDirectory: '/given'})).toBe('/given');
+	});
+
+	it('refuses a release run whose installed Kern version could not be read, and still answers a run that does not need the version', () =>
+	{
+		expect(() => resolveOutputDirectory({manifest: 'm.json', namespacePrefix: 'kern__', version: null}))
+		.toThrow('Could not read the Kern version installed in the org; pass --output-directory');
+		expect(resolveOutputDirectory({manifest: 'm.json', namespacePrefix: 'kern__', version: null, outputDirectory: '/given'})).toBe('/given');
+		expect(resolveOutputDirectory({manifest: null, namespacePrefix: 'kern__', version: null})).toMatch(/tmp[\\/]plan166$/);
+	});
+
+	it('sends a development run into the exploration folder of the org the run signed in to', () =>
+	{
+		const aliasBefore = process.env.SF_SUBSCRIBER_ORG_ALIAS;
+		const folderFor = (alias) =>
+		{
+			process.env.SF_SUBSCRIBER_ORG_ALIAS = alias;
+			let folder;
+			jest.isolateModules(() =>
+			{
+				folder = require('../e2e/explore/coverage').resolveOutputDirectory({manifest: 'm.json', namespacePrefix: '', version: null});
+			});
+			return folder;
+		};
+		try
+		{
+			expect(folderFor('OrgA')).toMatch(/tmp[\\/]consoles-at-volume[\\/]OrgA[\\/]exploration$/);
+			expect(folderFor('OrgB')).toMatch(/tmp[\\/]consoles-at-volume[\\/]OrgB[\\/]exploration$/);
+		}
+		finally
+		{
+			if(aliasBefore === undefined)
+			{
+				delete process.env.SF_SUBSCRIBER_ORG_ALIAS;
+			}
+			else
+			{
+				process.env.SF_SUBSCRIBER_ORG_ALIAS = aliasBefore;
+			}
+		}
 	});
 });
 
