@@ -46,7 +46,7 @@
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Shown when a query method gets text that is not a field name; {0} method</shortDescription>
-        <value>{0} accepts only a name, such as Name or Account.Owner.Name, or a form SOQL allows there, such as a date or distance function from QRY_Function. Other text is refused so that it cannot change the query.</value>
+        <value>{0} accepts only a field name, such as Name or Account.Owner.Name, or a date or distance function from QRY_Function. Other text is refused so that it cannot change the query.</value>
     </labels>
     <labels>
         <fullName>QueryBuilder_BypassSharingField_NotReadable</fullName>
@@ -54,7 +54,7 @@
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Shown when bypassSharing would filter or sort on a hidden field; {0} field</shortDescription>
-        <value>The running user cannot read the field {0}, so bypassSharing() cannot filter or sort on it: the result would show its values. Remove the field from the filter or the sort, or add withSystemMode(), which also turns off the object and field permission checks for this read.</value>
+        <value>The running user cannot read the field {0}, so bypassSharing() cannot filter or sort on it: the results could reveal something about its values. Remove the field from the filter or the sort, or add withSystemMode(), which also turns off the object and field permission checks for this read.</value>
     </labels>
     <labels>
         <fullName>QueryBuilder_BypassSharingObject_NotReadable</fullName>
@@ -70,7 +70,7 @@
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Shown when a read cannot run with bypassSharing alone; {0} method</shortDescription>
-        <value>{0} cannot remove the fields the running user cannot read, so it cannot run with bypassSharing() alone. Add withSystemMode() to read without sharing. withSystemMode() also turns off the object and field permission checks for this read. Otherwise remove bypassSharing().</value>
+        <value>{0} cannot remove the fields the running user cannot read, so it cannot run with bypassSharing() alone. Add withSystemMode() as well to read without sharing. withSystemMode() also turns off the object and field permission checks for this read. Otherwise remove bypassSharing().</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_AbortAction</fullName>
@@ -3638,7 +3638,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Ticked settings warn, flag on for the viewer, {0} setting labels</shortDescription>
-        <value>These active API Settings have Mocking Enabled ticked: {0}. The Mock Selected APIs feature flag is on for you, so for you they answer from mock data. Each call checks the flag for the user it runs as: a scheduled flow or a retry for the user who runs it, and an incoming request for the user the caller signs in as.</value>
+        <value>These active API Settings have Mocking Enabled ticked: {0}. The Mock Selected APIs feature flag is on for you, so for you they answer from mock data. Each call checks the flag for the user it runs as. A scheduled flow or a retry runs as the user who starts it. An incoming request runs as the user the caller signs in as.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_SelectedApiMocking_FlagOffForYou</fullName>
@@ -3646,7 +3646,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Ticked settings warn, flag off for the viewer, {0} setting labels</shortDescription>
-        <value>These active API Settings have Mocking Enabled ticked: {0}. The Mock Selected APIs feature flag is off for you, so for you an outgoing service calls the real system and an incoming service runs its own code. Each call checks the flag for the user it runs as: a scheduled flow or a retry for the user who runs it, and an incoming request for the user the caller signs in as.</value>
+        <value>These active API Settings have Mocking Enabled ticked: {0}. The Mock Selected APIs feature flag is off for you, so for you an outgoing service calls the real system and an incoming service runs its own code. Each call checks the flag for the user it runs as. A scheduled flow or a retry runs as the user who starts it. An incoming request runs as the user the caller signs in as.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_SelectedApiMocking_FlagOffForYouWithMockAll</fullName>
@@ -3654,7 +3654,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Ticked settings warn, flag off for viewer, a Mock All flag on</shortDescription>
-        <value>These active API Settings have Mocking Enabled ticked: {0}. The Mock Selected APIs feature flag is off for you, so the box on its own does not mock them for you. Each call checks the flag for the user it runs as: a scheduled flow or a retry for the user who runs it, and an incoming request for the user the caller signs in as.</value>
+        <value>These active API Settings have Mocking Enabled ticked: {0}. The Mock Selected APIs feature flag is off for you, so Mocking Enabled on its own does not mock them for you. Each call checks the flag for the user it runs as. A scheduled flow or a retry runs as the user who starts it. An incoming request runs as the user the caller signs in as.</value>
     </labels>
     <labels>
         <fullName>HealthCheck_SelectedApiMocking_MockAllApisOnForYou</fullName>

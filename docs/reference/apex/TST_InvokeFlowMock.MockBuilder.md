@@ -94,7 +94,7 @@ global TST_InvokeFlowMock.MockBuilder succeed()
 
 Declares this mock returns a successful flow result.
 
-Default state — call is optional but improves readability.
+The default state: the call is optional, but it makes the test easier to read.
 
 **Returns** [TST_InvokeFlowMock.MockBuilder](TST_InvokeFlowMock.MockBuilder.md) — This builder for chaining
 

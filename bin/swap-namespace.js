@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: Apache-2.0
 /**
  * @description Namespace-swap script for KernDX release clones. Rewrites the
  *              working tree from the `kern` namespace to a subscriber-chosen
@@ -204,7 +204,9 @@ See [\`docs/\`](./docs/) for the rebranded framework guides:
 
 ## License
 
-KernDX is BSL 1.1 source-available (four-year clock to Apache 2.0). See [\`LICENSE\`](./LICENSE).
+This code is KernDX, licensed under the Apache License 2.0. \`bin/swap-namespace.js\` renamed its namespace from \`kern\` to \`${namespaceCamel}\`. This README is the notice of that change.
+
+See [\`LICENSE\`](./LICENSE) for the licence text, and [\`NOTICES.md\`](./NOTICES.md) for the files that come from other open-source projects and their own notice requirements.
 `;
 }
 

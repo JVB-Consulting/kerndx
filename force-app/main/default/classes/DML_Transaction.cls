@@ -806,10 +806,9 @@ global virtual inherited sharing class DML_Transaction
 	 * kept in memory for reuse) before its first statement and again when it ends, whatever the outcome. So a read
 	 * after a save never gets rows from before the save, or from a save that was rolled back.
 	 *
-	 * @param enforceSharing If true, the running user's record sharing is enforced. If null, the sharing of the
-	 * calling class applies. If false, record sharing is ignored. In user mode (no access level set while the
-	 * `UserModeDml_Enabled` flag is on, or `setAccessLevel(AccessLevel.USER_MODE)`), false still keeps the running
-	 * user's object and field permissions. A field the user cannot create or edit is left out of the save and logged
+	 * In user mode (no access level set while the `UserModeDml_Enabled` flag is on, or
+	 * `setAccessLevel(AccessLevel.USER_MODE)`), enforceSharing set to false still keeps the running user's object and
+	 * field permissions. A field the user cannot create or edit is left out of the save and logged
 	 * as a warning, with no error. A save the user has no object permission for, an upsert on an external Id field the
 	 * user cannot read or edit, and a save that would leave out the field that links a record to its parent are
 	 * refused as user mode refuses them. A record that names its parent only by an external Id the user cannot read is
@@ -820,6 +819,9 @@ global virtual inherited sharing class DML_Transaction
 	 * the permission set into account when it decides. That save runs in user mode, so it also applies record
 	 * sharing. In system mode, set through `setAccessLevel(AccessLevel.SYSTEM_MODE)` or by turning the flag off, false
 	 * waives those permission checks too.
+	 *
+	 * @param enforceSharing True enforces the running user's record sharing, null uses the calling class's sharing, and
+	 * false ignores record sharing.
 	 *
 	 * @since 1.0
 	 *

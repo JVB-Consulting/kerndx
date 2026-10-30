@@ -142,7 +142,10 @@ private class DML_Transaction_TEST
 	private static final String LOCK_REFUSAL_MESSAGE = DML_ThrowingLockProxy_TEST.LOCK_REFUSAL_MESSAGE;
 
 	/**
-	 * @description A refusal that is not a lock, thrown by the stand-in to prove the loop leaves it alone.
+	 * @description A refusal that is not a lock, thrown by the stand-in to prove the loop leaves it alone. It carries the
+	 * platform's row phrase, so use it only where the error is rethrown: a save that suppressExceptions() turns into a
+	 * failed result asks an exception with that phrase for its rows, and one built in a test has none, which ends the
+	 * transaction.
 	 */
 	private static final String VALIDATION_REFUSAL_MESSAGE = 'Insert failed. First exception on row 0; first error: FIELD_CUSTOM_VALIDATION_EXCEPTION, '
 			+ 'a rule refused the row';
