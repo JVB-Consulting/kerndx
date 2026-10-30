@@ -6,15 +6,34 @@ const {version} = require('../package.json');
 
 const cli = sade('kerndx-pipeline').version(version);
 
+// Returns the path given with --answers-file. Given with no value after it, the option arrives as true instead of a path,
+// and a path made only of digits arrives as a number.
+function getAnswersFilePath(value)
+{
+	if(typeof value === 'boolean' || String(value).trim() === '')
+	{
+		throw new Error('--answers-file needs the path of a JSON file');
+	}
+	return String(value);
+}
+
 cli.command('init')
 .describe('Scaffold workflows + config into the current repo.')
 .option('--check', 'dry-run; do not write files')
+.option('--answers-file <path>', 'answer init from a JSON file instead of questions')
 .action(async(opts) =>
 {
-	const {runInit} = require('../src/commands/init.js');
+	const {runInit, readAnswersFile} = require('../src/commands/init.js');
 	try
 	{
-		await runInit({interactive: true, check: Boolean(opts.check)});
+		if(opts['answers-file'] === undefined)
+		{
+			await runInit({interactive: true, check: Boolean(opts.check)});
+		}
+		else
+		{
+			await runInit({answers: readAnswersFile(getAnswersFilePath(opts['answers-file'])), interactive: false, check: Boolean(opts.check)});
+		}
 		process.exit(0);
 	}
 	catch(e)

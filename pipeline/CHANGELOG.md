@@ -10,13 +10,47 @@ pipeline package adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [v0.6.0] — 2026-10-30
+
+**Distribution:** `KernDX-1.11.0-1-pipeline.zip`. Ships as `pipeline-v0.6.0` with Kern 1.11.0-1. The KernDX ESLint plugin moves to 0.6.0 with it.
+
+This release sets up the pipeline from a file without asking questions, adds an ESLint rule for Jest mocks that can stop
+working, and fixes `init --check` and how Code Analyzer runs get their arguments on Windows. Nothing to do when you
+upgrade: the new ESLint rule is a warning in the snippet the install guide gives you.
+
+### Security
+
+- **A dependency moves past four moderate advisories.** `fast-uri`, which `ajv` uses, moves to 3.1.9 inside `ajv`'s existing
+  range. Versions 3.0.0 to 3.1.8 have four moderate advisories in how they read a web address, and they failed the pipeline's
+  own dependency audit.
+
+### Added
+
+- **`init --answers-file <path>`** scaffolds without questions, from a JSON file with the same answers, for a CI job or a script.
+  `init` now writes nothing unless every file builds, so a bad answer, typed or from the file, leaves your repository as it was.
+- **The ESLint rule `no-jest-mock-component-module`** reports `jest.mock('c/...')` and `jest.mock('lightning/...')` in Jest tests. Such a mock can
+  silently stop replacing the module when another test file in the same Jest worker loads the real one, so the test passes while it checks
+  nothing. The message names the safe patterns: `jest.spyOn` on the real import, checking what the sfdx-lwc-jest stub received, or a `moduleNameMapper` mock file.
+  The ESLint snippet in the generated install guide sets it to `warn`, so existing tests that use the pattern do not fail your lint run. Fix
+  them, then raise the rule to `error` if you want it to fail the run.
 
 ### Changed
 
 - The bundle's files are now in the same order on every machine (sorted by character code, not by the machine's language setting), so
   two builds from the same files give the same SHA-256. A bundle rebuilt from an earlier release's files has a different SHA-256 from the
   one that shipped; the files inside are the same.
+- **The bundle carries both MIT licence texts.** The pipeline and the KernDX ESLint plugin are under the MIT License. The plugin
+  now has its own `LICENSE` file, the bundle includes the licence text of both, and the bundle's README says which licence covers which
+  part.
+
+### Fixed
+
+- **`init --check` writes nothing.** It promised a dry run but wrote the files. It now prints the path of each file `init`
+  would write and leaves your repository as it was.
+- **Code Analyzer runs get their arguments right on Windows.** `sf` is a `.cmd` file there, so Command Prompt reads each
+  argument twice. An argument with a quote before an `&`, a backslash at the end of a quoted value, an empty value or a
+  `%NAME%` could break; each now reaches Code Analyzer as written. A tool path with a space, such as
+  `C:\Program Files\tool.cmd`, also runs.
 
 ## [v0.5.0] — 2026-10-12
 

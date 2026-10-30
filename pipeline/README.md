@@ -54,9 +54,54 @@ npm ci --omit=dev --prefix .kerndx-pipeline/pipeline
 node .kerndx-pipeline/bin/kerndx init
 ```
 
-The `init` command is interactive — it asks for your package directories, whether the repo builds on the KernDX framework (which picks the PMD ruleset your CI scans against), CI tool
-(DevOps Center / Gearset / Copado / AutoRabit / custom), branch-protection preferences, and Slack settings. It generates `.github/workflows/`, `.husky/pre-push`, `code-analyzer.yml`,
+The `init` command is interactive: it asks for your package directories, whether the repo builds on the KernDX framework
+(which picks the PMD ruleset your CI scans against), CI tool (DevOps Center / Gearset / Copado / AutoRabit / custom),
+branch-protection preferences, and Slack settings. It generates `.github/workflows/`, `.husky/pre-push`, `code-analyzer.yml`,
 `.kerndx/config.yml`, `.kerndx/rulesets/`, and `.kerndx/manifest.json`.
+
+To run `init` without questions, for example in a CI job or a script, put the answers in a JSON file and pass it with `--answers-file`. On Windows, in Command Prompt:
+
+```bat
+node .kerndx-pipeline\bin\kerndx init --answers-file kerndx-answers.json
+```
+
+On macOS or Linux:
+
+```bash
+node .kerndx-pipeline/bin/kerndx init --answers-file kerndx-answers.json
+```
+
+A small answers file looks like this. `package_dirs`, `ci_adapter.name` and `branches.main` are required; every other answer is optional.
+
+```json
+{
+  "package_dirs": ["force-app/main/default"],
+  "framework_package": true,
+  "ci_adapter": {"name": "none"},
+  "branches": {"main": "main", "ingress": ["main"], "protected": ["main"], "release": []},
+  "slack": {"enabled": false}
+}
+```
+
+`init` checks every answer before it writes anything, and stops with an error that names the file and the answer when:
+
+- a required answer is missing;
+- an answer has the wrong kind of value, for example text where `true` or `false` belongs;
+- `ci_adapter.name` is not one of `gearset`, `copado`, `autorabit`, `devops-center`, `none` or `custom`;
+- `ci_adapter.name` is `copado` or `autorabit` without `"experimental": true`. These adapters are experimental, and the questions ask you to confirm them;
+- a package folder, `slack.suppress_on_pr_title_prefix` or `codeowners_team_slack_id` holds a quote character (`'` or `"`).
+  The workflows put these values in quotes, so a quote inside one would break the workflow;
+- a package folder or a branch name starts or ends with a space, or holds a comma. The questions trim each answer and split a list on commas, so a file may not give a name they would change;
+- `workflows.runs_on` holds anything but letters, digits, dots, underscores and dashes, such as `ubuntu-latest`. The workflows use it as it is;
+- a text answer (a package folder, a branch name, `workflows.runs_on`, a Slack answer or `codeowners_team_slack_id`) holds a line break.
+
+`init` also builds every file in memory before it writes the first one. If a file cannot be built, for example because a naming answer
+is not valid, `init` stops with the error and leaves your repo as it was.
+
+When you leave out `branches.ingress`, it is the main branch. When you leave out `branches.protected`, it is the main, ingress and release branches together.
+When you leave out `branches.release` but give `branches.protected`, every protected branch that is not an ingress branch gets the release gate.
+When Slack is on and you leave out `slack.webhook_env_var`, the secret name is `SLACK_WEBHOOK_URL`.
+Add `--check` to list the files `init` would write without writing them.
 
 **Step-by-step install guide:** every zip bundle ships an `INSTALL-PIPELINE.md` at the zip root that walks each step in detail (SHA-256 verification, package.json scripts wiring,
 ESLint plugin wire-up, the upgrade flow, troubleshooting). Unzip and open that file once you've grabbed the bundle.
@@ -166,17 +211,17 @@ status that is never posted.)
 
 ## Command reference
 
-| Command         | Purpose                                                                                      |
-|-----------------|----------------------------------------------------------------------------------------------|
-| `init`          | Interactive scaffolder; writes `.github/workflows/`, `.husky/pre-push`, `.kerndx/config.yml` |
-| `scan`          | Run SFCA against changed files                                                               |
-| `secret-scan`   | Flag Salesforce + common secrets in changed files (advisory locally, blocking in CI)         |
-| `naming`        | Validate Flow + Object naming on changed files                                               |
-| `preflight`     | Run scan + secret-scan + naming back-to-back (advisory; used by Husky)                       |
-| `doctor`        | Validate install + detect drift in scaffolded files                                          |
-| `upgrade`       | Back up scaffolded files + refresh from a new bundle                                         |
-| `classify-ref`  | (Internal) Classify a head ref against the configured adapter                                |
-| `slack-payload` | (Internal) Build the Slack payload JSON from CSV + env                                       |
+| Command         | Purpose                                                                                                                                                |
+|-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `init`          | Interactive scaffolder; writes `.github/workflows/`, `.husky/pre-push`, `.kerndx/config.yml`; `--answers-file <path>` answers from a JSON file instead |
+| `scan`          | Run SFCA against changed files                                                                                                                         |
+| `secret-scan`   | Flag Salesforce + common secrets in changed files (advisory locally, blocking in CI)                                                                   |
+| `naming`        | Validate Flow + Object naming on changed files                                                                                                         |
+| `preflight`     | Run scan + secret-scan + naming back-to-back (advisory; used by Husky)                                                                                 |
+| `doctor`        | Validate install + detect drift in scaffolded files                                                                                                    |
+| `upgrade`       | Back up scaffolded files + refresh from a new bundle                                                                                                   |
+| `classify-ref`  | (Internal) Classify a head ref against the configured adapter                                                                                          |
+| `slack-payload` | (Internal) Build the Slack payload JSON from CSV + env                                                                                                 |
 
 ## Architecture (for contributors)
 
@@ -201,12 +246,12 @@ node scripts/build-distribution.js --flavor=pipeline --version=<kern-package-ver
 
 ```bash
 cd pipeline && node --test                          # 325 unit tests
-cd scanner/eslint-plugin-kerndx && node --test      # 7 ESLint rule tests
+cd scanner/eslint-plugin-kerndx && node --test      # 8 ESLint rule tests
 ```
 
 CI runs both suites via `.github/workflows/pipeline-ci.yml` on every push.
 
 ## License
 
-MIT — see `pipeline/LICENSE` for the full text. The top-level `LICENSE` is BUSL-1.1 and excludes this directory in its Licensed Work
-parameter. For licensing inquiries about the broader framework, contact `jason@jvb-consulting.io`.
+MIT — see `pipeline/LICENSE` for the full text. The top-level `LICENSE` is Apache-2.0 and does not apply to this directory, which stays
+MIT. For licensing inquiries about the broader framework, contact `jason@jvb-consulting.io`.
