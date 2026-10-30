@@ -242,12 +242,12 @@ global inherited sharing class UTIL_String
 	 * @description How many characters two pieces of a value have in common when `canHoldMatchingJsonKey` searches it in
 	 * pieces. Each piece starts this many characters before the end of the piece before it. So a key name of up to this
 	 * length that crosses the end of one piece lies whole inside the next piece, and the search finds it there. The longest
-	 * key name the shipped secret-keys rule matches has 13 characters.
+	 * key name the shipped secret-keys rule matches has 13 characters; a rule of your own may name longer keys.
 	 *
 	 * What this does not cover: a key name longer than this that crosses the end of a piece can be missed. The search
 	 * then finds no key name, and the rule skips the value, so the value under that key is not replaced.
 	 */
-	public static final Integer KEY_SEARCH_PIECE_OVERLAP = 64;
+	public static final Integer KEY_SEARCH_PIECE_OVERLAP = 512;
 
 	/**
 	 * @description Finds the parts of a key pattern that make the key name search of `canHoldMatchingJsonKey` unsafe.

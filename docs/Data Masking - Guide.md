@@ -255,6 +255,10 @@ The shipped `MaskSecretKeys` rule is a JSON-key rule, so this is how secrets in 
 and size:
 
 1. **A quick check before reading JSON.** If no key name the rule matches can appear anywhere in a JSON value, the value is left as it is, without reading it.
+   A value longer than 16,384 characters is checked in pieces of that length. Two pieces in a row share 512 characters. So a key name that your rule matches, and
+   that is longer than 512 characters, can be missed where one piece ends and the next begins. The value under that key is then not masked. This cannot happen
+   with the shipped `MaskSecretKeys` rule, whose key names are short. The check is skipped, and the value is always read, when the value holds a backslash, or
+   when your pattern has an open-ended repeat (`*`, `+` or `{n,}`) or a repeat with an upper count of three or more digits.
 2. **Most JSON is read as a whole.** A JSON object or list with up to 500 opening brackets (`{` and `[` counted together) is read whole, and every key is checked
    down to 50 levels deep. A matching key nested deeper than 50 levels in such a value is not masked.
 3. **Large or deeply nested JSON is read one piece at a time.** A JSON value with more than 500 opening brackets is read one name or value at a time, so every key is checked at

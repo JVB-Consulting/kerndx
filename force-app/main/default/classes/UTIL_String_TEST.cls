@@ -518,6 +518,17 @@ private class UTIL_String_TEST
 	private static final String SECRET_PAIR_START = 'abc';
 
 	/**
+	 * @description The length of the longest key name the search finds across a piece end. It is one more than the number of
+	 * characters two pieces share, because the name starts where the next piece starts and ends one character past the first piece.
+	 */
+	private static final Integer LONGEST_KEY_NAME_FOUND_ACROSS_A_PIECE_END = 513;
+
+	/**
+	 * @description The secret value stored under the long key name.
+	 */
+	private static final String LONG_KEY_SECRET = 'hunter2';
+
+	/**
 	 * @description The text written in place of each match of the overlapping and single alternative patterns.
 	 */
 	private static final String PAIR_REPLACEMENT = '[X]';
@@ -2604,6 +2615,29 @@ private class UTIL_String_TEST
 		Assert.isTrue(UTIL_String.canHoldMatchingJsonKey(withSecret, SECRET_KEY_PATTERN), 'Expected the key name across the piece end to be found');
 		Assert.isFalse(result.contains('hunter2'), 'Expected the secret masked');
 		Assert.isFalse(UTIL_String.canHoldMatchingJsonKey(withoutSecret, SECRET_KEY_PATTERN), 'Expected no secret key name to be found');
+	}
+
+	/**
+	 * @description The longest key name the search finds, crossing the end of one piece by one character, is found, because the next
+	 * piece starts `KEY_SEARCH_PIECE_OVERLAP` characters before that end and holds the whole name. So the value under it is masked.
+	 *
+	 * @see UTIL_String.canHoldMatchingJsonKey
+	 */
+	@IsTest
+	private static void shouldFindALongKeyNameThatCrossesTheEndOfASearchPiece()
+	{
+		String keyName = 'x'.repeat(LONGEST_KEY_NAME_FOUND_ACROSS_A_PIECE_END);
+		String keyPattern = '^' + keyName + '$';
+		String head = '{"pad":"';
+		String beforeKey = '","';
+		Integer padding = UTIL_String.KEY_SEARCH_PIECE_LENGTH - keyName.length() + 1 - head.length() - beforeKey.length();
+		String withSecret = head + 'v'.repeat(padding) + beforeKey + keyName + '":"' + LONG_KEY_SECRET + '"}';
+
+		String result = UTIL_String.maskJsonKeys(withSecret, keyPattern, SECRET_REPLACEMENT, false);
+
+		Assert.areEqual(UTIL_String.KEY_SEARCH_PIECE_LENGTH, withSecret.indexOf(keyName) + keyName.length() - 1, 'Expected the key name to end one character past the piece end');
+		Assert.isTrue(UTIL_String.canHoldMatchingJsonKey(withSecret, keyPattern), 'Expected the long key name across the piece end to be found');
+		Assert.isFalse(result.contains(LONG_KEY_SECRET), 'Expected the value under the long key name to be masked');
 	}
 
 	/**
