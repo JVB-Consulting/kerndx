@@ -1384,8 +1384,9 @@ private class LOG_Engine_TEST
 		try
 		{
 			Double badNumber = 1 / 0;
+			Assert.fail('Expected dividing by zero to throw a MathException');
 		}
-		catch(Exception caughtException)
+		catch(MathException caughtException)
 		{
 			exceptionMessage = caughtException.getMessage();
 			LOG_Engine.log(caughtException, FAILURE_SUMMARY, CLASS_METHOD, recordId, LoggingLevel.ERROR);
@@ -2648,7 +2649,8 @@ private class LOG_Engine_TEST
 	}
 
 	/**
-	 * @description Tests that publish failure is handled gracefully without crashing the transaction.
+	 * @description Tests that a failed publish of log entries does not break the transaction that logged. The entry whose
+	 * publish failed is lost, and the next entry in the same transaction is still written.
 	 *
 	 * @see LOG_Engine.safePublish
 	 */
@@ -2662,10 +2664,13 @@ private class LOG_Engine_TEST
 		Test.startTest();
 
 		TST_Factory.publishLogEvents(1);
+		LOG_Engine.simulatePublishFailure = false;
+		TST_Factory.publishLogEvents(1);
 
 		Test.stopTest();
 
-		Assert.isTrue(true, 'Transaction should not crash on publish failure');
+		Assert.areEqual(1, new SEL_LogEntry().findAllByMethod(CLASS_METHOD_PUBLISH).size(),
+				'Expected only the entry published after the failure to be written, and the transaction to go on');
 	}
 
 	/**
