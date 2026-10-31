@@ -1,55 +1,15 @@
 {
 	"description": "Apex tests that fail on aer, the local Apex runtime, and pass in a Salesforce org. scripts/aer-run.js --gate fails on any other failure and on a test that reports no result. Categories: \"runtime gap\" (aer behaves differently from Salesforce, shown), \"profile\" (the copy has no profiles folder) and \"unclassified\" (the cause is not yet known).",
 	"measuredWith": {
-		"aerVersion": "1.4.38",
-		"commit": "02f18b628d63afd4869971db498a8a3a9861c8f0",
+		"aerVersion": "1.4.45",
+		"commit": "3d2bcd95630750acd81b432ff093fdd42308100f",
 		"permissionSet": "Administrator"
 	},
 	"failures": [
 		{
-			"test": "DML_Builder_TEST.bypassSharingAloneRefusesAChildWhoseParentIsFoundByAKeyTheUserCannotRead",
+			"test": "QRY_Condition_TEST.shouldBindIdTextInAnObjectListAsListOfId",
 			"category": "runtime gap",
-			"error": "Passes in a Salesforce org. On aer the save is not refused when the parent is found by a key the user cannot read. First error on aer: AssertException: DML_Builder_TEST.cls:3387: Assertion Failed: Assertion failed: Expected the save to be refused; it went through with a parent found by a key the user cannot read"
-		},
-		{
-			"test": "DML_Builder_TEST.bypassSharingAloneRefusesAnUpsertOnAKeyTheUserCannotRead",
-			"category": "runtime gap",
-			"error": "Passes in a Salesforce org. On aer the refusal is a DmlException about inaccessible fields, where Salesforce throws an SObjectException. First error on aer: AssertException: DML_Builder_TEST.cls:2976: Assertion Failed: The provided object is not an instance of class System.SObjectException: Expected the refusal user mode gives. Actual: System.DmlException: Operation failed due to fields being inaccessible on Sobject Foobar__c, check errors on Exception or Result!"
-		},
-		{
-			"test": "DML_Builder_TEST.bypassSharingAloneWarningNamesAParentFieldUnderTheParentObject",
-			"category": "runtime gap",
-			"error": "Passes in a Salesforce org. On aer the warning does not name the parent field under Account. First error on aer: AssertException: DML_Builder_TEST.cls:3295: Assertion Failed: Expected the warning to name the field under Account: Expected: 1, Actual: 0"
-		},
-		{
-			"test": "DML_Builder_TEST.userModeRefusesAnUpsertByIdFromAUserWhoCannotCreate",
-			"category": "runtime gap",
-			"error": "Passes in a Salesforce org. On aer a user-mode upsert by Id is not refused for a user without the create permission. First error on aer: AssertException: DML_Builder_TEST.cls:3646: Assertion Failed: Assertion failed: Expected user mode to refuse the upsert; it went through without the create permission"
-		},
-		{
-			"test": "DML_Transaction_TEST.commitWorkFalseKeepsTheStripWhenAPartialSaveRetriesALockedRow",
-			"category": "runtime gap",
-			"error": "Passes in a Salesforce org. On aer the retried row fails with INSUFFICIENT_ACCESS_ON_CROSS_REFERENCE_ENTITY. First error on aer: AssertException: DML_Transaction_TEST.cls:1661: Assertion Failed: Expected the locked row to be saved by the second statement. Actual errors: (Database.Error[getFields=();getMessage=insufficient access rights on cross-reference id: a05aer000000001;getStatusCode=INSUFFICIENT_ACCESS_ON_CROSS_REFERENCE_ENTITY;])"
-		},
-		{
-			"test": "QRY_Builder_TEST.aggregateRowConvertsNumbersBetweenTypes",
-			"category": "runtime gap",
-			"error": "Passes in a Salesforce org. On aer getInteger does not refuse a number with a fraction. First error on aer: AssertException: QRY_Builder_TEST.cls:7044: Assertion Failed: Assertion failed: Expected getInteger to refuse a number with a fraction"
-		},
-		{
-			"test": "QRY_Builder_TEST.shouldKeepTheQueryTextForReleasedFieldNameShapes",
-			"category": "runtime gap",
-			"error": "Passes in a Salesforce org. The SQL aer builds for the query has no TOLABEL. First error on aer: QRY_Engine.cls:1717: QRY_Engine.cls:1887: failed to execute SQL: SQL logic error: no such column: TOLABEL (1)"
-		},
-		{
-			"test": "SEL_CustomPermission_TEST.realGroupAssignmentGrantsPermissionHeldByItsPermissionSet",
-			"category": "runtime gap",
-			"error": "Passes in a Salesforce org. On aer the permission set group summary lacks the permission of its permission set. First error on aer: AssertException: SEL_CustomPermission_TEST.cls:808: Assertion Failed: Expected true: the group summary permission set holds the permission of the Administrator permission set"
-		},
-		{
-			"test": "UTIL_ValidationRule_TEST.shouldProcessMergeFieldsWarnsOnceWhenContextCannotBeTurnedIntoJson",
-			"category": "runtime gap",
-			"error": "Passes in a Salesforce org. aer turns into JSON a context that Salesforce cannot. First error on aer: AssertException: UTIL_ValidationRule_TEST.cls:1086: Assertion Failed: Expected empty merge fields when the context cannot be turned into JSON: Expected: [][], Actual: [Test][]"
+			"error": "Passes in a Salesforce org, and passed on aer 1.4.38. On aer 1.4.45 a 15-character Id in a bound list of Ids does not match its record, so the query returns only the record given by its 18-character Id. First error on aer: AssertException: QRY_Condition_TEST.cls:1158: Assertion Failed: Expected the query to find the two records: Expected: {a05aer000000001AAA, a05aer000000002AAA}, Actual: {a05aer000000001AAA}"
 		}
 	]
 }
