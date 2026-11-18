@@ -1,17 +1,62 @@
 {
-	"aerVersion": "1.4.45",
-	"commit": "3d2bcd95630750acd81b432ff093fdd42308100f",
-	"release": "v1.11.0-1",
-	"measuredAt": "2026-10-30T23:07:07.944Z",
+	"aerVersion": "1.6.10",
+	"commit": "37c91a3a594914c1141dbf0c80e3a250a0777911",
+	"release": "v1.12.0-3",
+	"measuredAt": "2026-11-18T00:43:11.238Z",
 	"permissionSet": "Administrator",
-	"total": 5801,
-	"passed": 5800,
+	"total": 6380,
+	"passed": 6370,
 	"failures": [
 		{
-			"test": "QRY_Condition_TEST.shouldBindIdTextInAnObjectListAsListOfId",
-			"error": "AssertException: QRY_Condition_TEST.cls:1158: Assertion Failed: Expected the query to find the two records: Expected: {a05aer000000001AAA, a05aer000000002AAA}, Actual: {a05aer000000001AAA}",
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneChecksATypeofWhoseWhenNamesLocationLikeAnyObject",
+			"error": "System.AssertException: QRY_BuilderBypassSharing_TEST.cls:3120: Assertion Failed: The provided object is not an instance of class System.QueryException: Expected the refusal for the TYPEOF with a Location branch. Actual: System.TypeException: Invalid conversion from runtime type System.Location to SObject",
+			"category": "runtime gap"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneReadsANameRecordFieldThatTheRelatedObjectHides",
+			"error": "System.AssertException: QRY_BuilderBypassSharing_TEST.cls:1497: Assertion Failed: Expected the filter on the phone of the Name record to read the Event, sharing bypassed: true: Expected: 1, Actual: 0",
+			"category": "runtime gap"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneReadsAPathThatCanPointToAnObjectTheUserCannotRead",
+			"error": "System.AssertException: QRY_BuilderBypassSharing_TEST.cls:1664: Assertion Failed: Expected the filter on the last name of the lead to read the Event, sharing bypassed: true: Expected: 1, Actual: 0",
+			"category": "runtime gap"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneReadsTheUserFieldsOfTheNameRecordForAStandardUser",
+			"error": "System.QueryException: No such column 'ProfileId' on entity 'Account'. If you are attempting to use a custom field, be sure to append the '__c' after the custom field name. Please reference your WSDL or the describe call for the appropriate names.",
+			"category": "runtime gap"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesAHiddenFieldOfAParentTheUserCanRead",
+			"error": "System.AssertException: QRY_BuilderBypassSharing_TEST.cls:3353: Assertion Failed: Assertion failed: Expected user mode to refuse the sort on the type of the account; it returned 1 rows",
+			"category": "runtime gap"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesAPathThroughALookupTheUserCannotRead",
+			"error": "System.AssertException: QRY_BuilderBypassSharing_TEST.cls:3353: Assertion Failed: Assertion failed: Expected user mode to refuse the selected toLabel(Lookup__r.Picklist__c) shownLabel; it returned 1 rows",
+			"category": "runtime gap"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesASelectedPathThroughALookupTheUserCannotRead",
+			"error": "System.AssertException: QRY_BuilderBypassSharing_TEST.cls:3353: Assertion Failed: Assertion failed: Expected user mode to refuse the selected Event.What.Name; it returned 1 rows",
+			"category": "runtime gap"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesATypeofWithATypeTheUserCannotRead",
+			"error": "System.AssertException: QRY_BuilderBypassSharing_TEST.cls:3353: Assertion Failed: Assertion failed: Expected user mode to refuse the TYPEOF with an Account branch; it returned 1 rows",
+			"category": "runtime gap"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesTheUserFieldsOfTheNameRecordForAMinimumAccessUser",
+			"error": "System.AssertException: QRY_BuilderBypassSharing_TEST.cls:3120: Assertion Failed: The provided object is not an instance of class UTIL_Exceptions.IllegalStateException: Expected the refusal for the sort on What.RecordTypeId. Actual: System.QueryException: No such column 'RecordTypeId' on entity 'Name'. If you are attempting to use a custom field, be sure to append the '__c' after the custom field name. Please reference your WSDL or the describe call for the appropriate names.",
+			"category": "runtime gap"
+		},
+		{
+			"test": "UTIL_SObjectDescribe_TEST.shouldFindObjectWhoseNameIsAlsoSystemTypeName",
+			"error": "System.TypeException: Invalid conversion from runtime type System.Location to SObject",
 			"category": "runtime gap"
 		}
 	],
-	"durationSeconds": 514
+	"durationSeconds": 281
 }
