@@ -889,6 +889,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>ApiCall__c.TriggeringRecordIndex__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>ApiCall__c.URL__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -965,6 +970,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>ApiIssue__c.TriggeringRecordId__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>ApiIssue__c.TriggeringRecordIndex__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -1060,6 +1070,11 @@
     <fieldPermissions>
         <editable>true</editable>
         <field>AsyncChainExecution__c.SourceExecution__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>AsyncChainExecution__c.StalledAt__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>

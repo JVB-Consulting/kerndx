@@ -9,12 +9,37 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)
 private class UTIL_Date_TEST
 {
+	/**
+	 * @description A time zone west of GMT, where the epoch moment falls on the last day of 1969.
+	 */
+	private static final String WESTERN_TIME_ZONE = 'America/Los_Angeles';
+
+	/**
+	 * @description The year of the epoch date.
+	 */
+	private static final Integer EPOCH_YEAR = 1970;
+
+	/**
+	 * @description The month of the epoch date.
+	 */
+	private static final Integer EPOCH_MONTH = 1;
+
+	/**
+	 * @description The day of the epoch date.
+	 */
+	private static final Integer EPOCH_DAY = 1;
+
+	/**
+	 * @description The epoch date written as ISO 8601 text.
+	 */
+	private static final String EPOCH_DATE_TEXT = '1970-01-01';
+
 	/**
 	 * @description Assertion text for mismatched datetime results.
 	 */
@@ -34,6 +59,88 @@ private class UTIL_Date_TEST
 	 * @description Assertion text for incorrect formatted date string.
 	 */
 	private static final String ASSERT_FORMAT_MATCH = 'Formatted date string should match expected pattern';
+
+	/**
+	 * @description The hour of the sample time used by the tests that cut a time down to whole seconds.
+	 */
+	private static final Integer SAMPLE_HOUR = 9;
+
+	/**
+	 * @description The minute of the sample time used by the tests that cut a time down to whole seconds.
+	 */
+	private static final Integer SAMPLE_MINUTE = 30;
+
+	/**
+	 * @description The second of the sample time used by the tests that cut a time down to whole seconds.
+	 */
+	private static final Integer SAMPLE_SECOND = 45;
+
+	/**
+	 * @description The milliseconds added to the sample time, so there is something to cut away.
+	 */
+	private static final Integer SAMPLE_MILLISECOND = 789;
+
+	/**
+	 * @description The end of an ISO 8601 time that has zero milliseconds.
+	 */
+	private static final String ZERO_MILLISECONDS_ENDING = '.000Z';
+
+	/**
+	 * @description Builds the sample time for today in GMT, with the given milliseconds.
+	 *
+	 * @param millisecond The milliseconds of the sample time.
+	 *
+	 * @return The sample time.
+	 */
+	private static Datetime buildSampleTime(Integer millisecond)
+	{
+		return Datetime.newInstanceGmt(Date.today(), Time.newInstance(SAMPLE_HOUR, SAMPLE_MINUTE, SAMPLE_SECOND, millisecond));
+	}
+
+	/**
+	 * @description A time with milliseconds comes back with zero milliseconds and the same seconds.
+	 */
+	@IsTest
+	private static void shouldDropTheMillisecondsWhenTheTimeHasThem()
+	{
+		Datetime withMilliseconds = buildSampleTime(SAMPLE_MILLISECOND);
+
+		Test.startTest();
+		Datetime result = UTIL_Date.truncateToSeconds(withMilliseconds);
+		Test.stopTest();
+
+		Assert.areEqual(buildSampleTime(0).getTime(), result.getTime(), 'Expected the same moment with the milliseconds set to zero.');
+		Assert.areEqual(withMilliseconds.secondGmt(), result.secondGmt(), 'Expected the seconds to stay the same.');
+		Assert.isTrue(UTIL_Date.toIso8601(result).endsWith(ZERO_MILLISECONDS_ENDING), 'Expected the ISO 8601 text to end in zero milliseconds.');
+	}
+
+	/**
+	 * @description A time already on a whole second comes back unchanged.
+	 */
+	@IsTest
+	private static void shouldKeepATimeThatIsAlreadyOnAWholeSecond()
+	{
+		Datetime wholeSecond = buildSampleTime(0);
+
+		Test.startTest();
+		Datetime result = UTIL_Date.truncateToSeconds(wholeSecond);
+		Test.stopTest();
+
+		Assert.areEqual(wholeSecond.getTime(), result.getTime(), 'Expected a time on a whole second to come back unchanged.');
+	}
+
+	/**
+	 * @description A null time gives null.
+	 */
+	@IsTest
+	private static void shouldReturnNullWhenTheTimeIsNull()
+	{
+		Test.startTest();
+		Datetime result = UTIL_Date.truncateToSeconds(null);
+		Test.stopTest();
+
+		Assert.isNull(result, 'Expected null when the time is null.');
+	}
 
 	/**
 	 * @description Tests that a `Datetime` serializes to an ISO 8601 string correctly.
@@ -97,7 +204,7 @@ private class UTIL_Date_TEST
 		Test.stopTest();
 
 		Date roundTripped = UTIL_Date.dateFromIso8601(isoResult);
-		Assert.areEqual(UTIL_Date.getEpochDate(), roundTripped, ASSERT_DATE_MATCH);
+		Assert.areEqual(Date.newInstance(EPOCH_YEAR, EPOCH_MONTH, EPOCH_DAY), roundTripped, ASSERT_DATE_MATCH);
 	}
 
 	/**
@@ -282,7 +389,34 @@ private class UTIL_Date_TEST
 		Test.stopTest();
 
 		Assert.areEqual(Datetime.newInstance(0), epochDatetime, ASSERT_DATETIME_MATCH);
-		Assert.areEqual(Datetime.newInstance(0).date(), epochDate, ASSERT_DATE_MATCH);
+		Assert.areEqual(Date.newInstance(EPOCH_YEAR, EPOCH_MONTH, EPOCH_DAY), epochDate, ASSERT_DATE_MATCH);
+	}
+
+	/**
+	 * @description Tests that the epoch date is 1970-01-01 for a user whose time zone is west of GMT, and that a null
+	 * `Date` is written as that day.
+	 */
+	@IsTest
+	private static void shouldReturnEpochDateForUserWestOfGmt()
+	{
+		User westernUser = TST_Factory.newUser(SEL_Profile.PROFILE_STANDARD_USER);
+		westernUser.TimeZoneSidKey = WESTERN_TIME_ZONE;
+		TST_Factory.insertUsers(new List<User> {westernUser});
+		Date nullDate = null;
+
+		Date epochDate;
+		String isoText;
+		System.runAs(westernUser)
+		{
+			Assert.areEqual(WESTERN_TIME_ZONE, UserInfo.getTimeZone().getID(), 'Expected the test to run in the western time zone');
+			Test.startTest();
+			epochDate = UTIL_Date.getEpochDate();
+			isoText = UTIL_Date.toIso8601(nullDate);
+			Test.stopTest();
+		}
+
+		Assert.areEqual(Date.newInstance(EPOCH_YEAR, EPOCH_MONTH, EPOCH_DAY), epochDate, 'Expected the epoch date to be 1970-01-01 west of GMT.');
+		Assert.areEqual(EPOCH_DATE_TEXT, isoText, 'Expected a null date to be written as 1970-01-01 west of GMT.');
 	}
 
 	/**

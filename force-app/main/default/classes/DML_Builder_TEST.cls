@@ -8,7 +8,7 @@
  *
  * @group DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssCount,PMD.NcssTypeCount')
 @IsTest(seeAllData=false isParallel=false)
@@ -162,6 +162,18 @@ private class DML_Builder_TEST
 	 * object and field permissions. The object name follows it, for example system-mode:Account.
 	 */
 	private static final String SYSTEM_MODE_AUDIT_TARGET_PREFIX = 'system-mode:';
+
+	/**
+	 * @description The mode part of the target of a bypass audit event for a save in system mode. Every such target
+	 * starts with it: the bare system-mode and system-mode followed by an object name.
+	 */
+	private static final String SYSTEM_MODE_AUDIT_TARGET = 'system-mode';
+
+	/**
+	 * @description The mode part of the target of a bypass audit event for a save that ignores record sharing. Every
+	 * such target starts with it.
+	 */
+	private static final String SHARING_AUDIT_TARGET = 'sharing';
 
 	/**
 	 * @description In the warning about fields left out of a save, the text between an object name and the list of
@@ -794,6 +806,7 @@ private class DML_Builder_TEST
 
 			Assert.isFalse(result.isSuccess(), 'Expected the refused save to report a failure');
 			Assert.areEqual(records.size(), result.getFailureCount(), 'Expected every record in the refused save to count as failed');
+			Assert.areEqual(APEX_BUILT_REFUSAL_MESSAGE, result.getFailureMessage(), 'Expected the message of an exception that holds no rows');
 		}
 	}
 
@@ -1495,10 +1508,11 @@ private class DML_Builder_TEST
 	}
 
 	/**
-	 * @description Tests that execute returns a result reflecting partial failures.
+	 * @description A partial save with one refused row and no exception reports exactly that row, and gives no failure
+	 * message, because the row's own error already gives the reason.
 	 */
 	@IsTest
-	private static void shouldReturnPartialResultWithErrors()
+	private static void shouldReportOnlyTheRefusedRowInAPartialSave()
 	{
 		System.runAs(getTestAdmin())
 		{
@@ -1525,7 +1539,216 @@ private class DML_Builder_TEST
 			Assert.areEqual(1, result.getInsertedIds().size(), 'Should have 1 inserted ID');
 			Assert.areEqual(1, result.getSuccessCount(), 'Should have 1 success');
 			Assert.areEqual(1, result.getFailureCount(), 'Should have 1 failure');
-			Assert.isFalse(result.getErrors().isEmpty(), 'Should have errors');
+			Assert.areEqual(1, result.getErrors().size(), 'Should have one error for the refused row');
+			Assert.areEqual(StatusCode.INVALID_EMAIL_ADDRESS, result.getErrors()[0].getStatusCode(), 'The error should be the refusal of the email address');
+			Assert.isNull(result.getFailureMessage(), 'Expected no failure message when the save threw nothing');
+		}
+	}
+
+	/**
+	 * @description A partial save in which a statement throws reports a failure, gives the reason, and counts the records
+	 * that have no result because the statement threw.
+	 */
+	@IsTest
+	private static void shouldReportFailureWhenPartialSaveThrows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> records = new List<Foobar__c> {TST_Factory.newFoobar(), TST_Factory.newFoobar()};
+			DML_SharingProxy.sharingProxyForTest = new DML_ThrowingLockProxy_TEST(1, APEX_BUILT_REFUSAL_MESSAGE);
+			DML_Builder.TransactionResult result;
+
+			try
+			{
+				Test.startTest();
+				result = DML_Builder.newTransaction().withSystemMode().doInsert(records).allowPartial().execute();
+				Test.stopTest();
+			}
+			finally
+			{
+				DML_SharingProxy.sharingProxyForTest = null;
+			}
+
+			Assert.isFalse(result.isSuccess(), 'Expected the save that threw to report a failure');
+			Assert.areEqual(APEX_BUILT_REFUSAL_MESSAGE, result.getFailureMessage(), 'Expected the message of the exception that was caught');
+			Assert.areEqual(records.size(), result.getFailureCount(), 'Expected every record with no result to count as failed');
+			Assert.areEqual(0, result.getSuccessCount(), 'Expected no record to count as a success');
+			Assert.isTrue(result.getErrors().isEmpty(), 'Expected no row errors, because the statement that threw left no row results');
+		}
+	}
+
+	/**
+	 * @description A partial save does not roll back when a later statement throws: the rows of the earlier statement stay
+	 * saved and still count as successes, and only the record of the statement that threw counts as failed.
+	 */
+	@IsTest
+	private static void shouldKeepEarlierStatementsWhenPartialSaveThrows()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Foobar__c existingRecord = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+			String originalName = ((Foobar__c)new SEL_Foobar().findById(existingRecord.Id)).Name;
+			existingRecord.Name = UTIL_Random.randomName();
+			Foobar__c newRecord = TST_Factory.newFoobar();
+			DML_SharingProxy.sharingProxyForTest = new DML_ThrowingLockProxy_TEST(1, 1, APEX_BUILT_REFUSAL_MESSAGE);
+			DML_Builder.TransactionResult result;
+
+			try
+			{
+				Test.startTest();
+				result = DML_Builder.newTransaction().withSystemMode().doInsert(newRecord).doUpdate(existingRecord).allowPartial().execute();
+				Test.stopTest();
+			}
+			finally
+			{
+				DML_SharingProxy.sharingProxyForTest = null;
+			}
+
+			Assert.isNotNull(new SEL_Foobar().findById(newRecord.Id), 'Expected the row saved before the failure to stand');
+			Assert.areEqual(originalName, ((Foobar__c)new SEL_Foobar().findById(existingRecord.Id)).Name, 'Expected the statement that threw to change nothing');
+			Assert.isFalse(result.isSuccess(), 'Expected the save that threw to report a failure');
+			Assert.areEqual(new List<Id> {newRecord.Id}, result.getInsertedIds(), 'Expected the saved row to be returned as inserted');
+			Assert.areEqual(1, result.getSuccessCount(), 'Expected the saved row to count as a success');
+			Assert.areEqual(1, result.getFailureCount(), 'Expected only the record of the statement that threw to count as failed');
+		}
+	}
+
+	/**
+	 * @description A partial save of two updates, where the second is refused, returns one update result for each
+	 * record, in the order the records were registered: first the accepted record with its Id, then the refused one. A
+	 * caller reads the result at a record's position to learn whether that record was saved.
+	 *
+	 * @see DML_Builder.TransactionResult.getUpdateResults
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	private static void shouldReturnTheUpdateResultsInTheOrderTheRecordsWereRegistered()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> records = TST_Builder.of(Foobar__c.SObjectType).withCount(2).buildList();
+			Foobar__c acceptedRecord = records[0];
+			Foobar__c refusedRecord = records[1];
+			acceptedRecord.Name = UTIL_Random.randomName();
+			refusedRecord.Email__c = INVALID_EMAIL;
+
+			Test.startTest();
+			List<Database.SaveResult> results = DML_Builder.newTransaction()
+					.withSystemMode()
+					.doUpdate(new List<SObject> {acceptedRecord, refusedRecord})
+					.allowPartial()
+					.execute()
+					.getUpdateResults();
+			Test.stopTest();
+
+			Assert.areEqual(2, results.size(), 'Expected one update result for each record, got ' + results);
+			Assert.isTrue(results[0].isSuccess(), 'Expected the first result to be the accepted record, got ' + results[0]);
+			Assert.areEqual(acceptedRecord.Id, results[0].getId(), 'Expected the first result to carry the Id of the first record.');
+			Assert.isFalse(results[1].isSuccess(), 'Expected the second result to be the refused record, got ' + results[1]);
+			Assert.areEqual(StatusCode.INVALID_EMAIL_ADDRESS, results[1].getErrors()[0].getStatusCode(), 'Expected the refusal of the email address.');
+		}
+	}
+
+	/**
+	 * @description A partial save that an exception stops before its update runs returns fewer update results than the
+	 * records registered. getUpdateResults returns that shorter list as it is: it adds no result for a record that has
+	 * none, so a caller must treat a record with no result as not saved.
+	 *
+	 * @see DML_Builder.TransactionResult.getUpdateResults
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	private static void shouldReturnAShorterResultListAsItIs()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<Foobar__c> records = TST_Builder.of(Foobar__c.SObjectType).withCount(2).buildList();
+			DML_SharingProxy.sharingProxyForTest = new DML_ThrowingLockProxy_TEST(1, APEX_BUILT_REFUSAL_MESSAGE);
+			List<Database.SaveResult> results;
+
+			try
+			{
+				Test.startTest();
+				results = DML_Builder.newTransaction().withSystemMode().doUpdate(records).allowPartial().execute().getUpdateResults();
+				Test.stopTest();
+			}
+			finally
+			{
+				DML_SharingProxy.sharingProxyForTest = null;
+			}
+
+			Assert.isTrue(results.size() < records.size(), 'Expected fewer update results than records, got ' + results);
+			Assert.isTrue(results.isEmpty(), 'Expected no update result, because the update statement threw, got ' + results);
+		}
+	}
+
+	/**
+	 * @description An all-or-nothing save refused for a field value, with suppressExceptions(), names the reason
+	 * in the words a person can act on. getErrors() stays empty, because the save has no row results.
+	 */
+	@IsTest
+	private static void shouldNameTheReasonWhenSuppressedSaveFails()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Test.startTest();
+
+			DML_Builder.TransactionResult result = DML_Builder.newTransaction()
+					.withSystemMode()
+					.doInsert(TST_Factory.newFoobarWithEmail(INVALID_EMAIL))
+					.suppressExceptions()
+					.execute();
+
+			Test.stopTest();
+
+			String failureMessage = result.getFailureMessage();
+			Assert.isFalse(result.isSuccess(), 'Expected the refused save to report a failure');
+			Assert.isTrue(failureMessage.contains(INVALID_EMAIL), 'Expected the message to name the refused value. Actual: ' + failureMessage);
+			Assert.isFalse(failureMessage.contains(StatusCode.INVALID_EMAIL_ADDRESS.name()), 'Expected the message without the status code. Actual: ' + failureMessage);
+			Assert.isTrue(result.getErrors().isEmpty(), 'Expected no row errors, because the whole save was refused');
+		}
+	}
+
+	/**
+	 * @description A user-mode save refused for a missing object permission, with suppressExceptions(), gives the reason. This
+	 * refusal is a TypeException, not a DmlException.
+	 */
+	@IsTest
+	private static void shouldNameTheReasonForAMissingObjectPermission()
+	{
+		User restricted = insertRestrictedUser(READ_PERMISSIONS, Foobar__c.Email__c);
+		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
+		TST_Factory.newFeatureFlag(DML_SharingProxy.FLAG_USER_MODE_DML, true);
+		DML_Builder.TransactionResult result;
+
+		System.runAs(restricted)
+		{
+			result = DML_Builder.newTransaction().doInsert(record).suppressExceptions().execute();
+		}
+
+		Assert.isFalse(result.isSuccess(), 'Expected the refused save to report a failure');
+		Assert.isTrue(String.isNotBlank(result.getFailureMessage()), 'Expected the reason for the refusal');
+		Assert.isTrue(result.getErrors().isEmpty(), 'Expected no row errors, because the whole save was refused');
+	}
+
+	/**
+	 * @description A save with no failure, and a save with nothing to do, give no failure message.
+	 */
+	@IsTest
+	private static void shouldGiveNoFailureMessageWhenTheSaveSucceeds()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Test.startTest();
+
+			DML_Builder.TransactionResult result = DML_Builder.newTransaction().withSystemMode().doInsert(TST_Factory.newFoobar()).execute();
+			DML_Builder.TransactionResult emptyResult = DML_Builder.newTransaction().withSystemMode().execute();
+
+			Test.stopTest();
+
+			Assert.isTrue(result.isSuccess(), 'Expected the save to succeed');
+			Assert.isNull(result.getFailureMessage(), 'Expected no failure message from a successful save');
+			Assert.isNull(emptyResult.getFailureMessage(), 'Expected no failure message from a save with nothing to do');
 		}
 	}
 
@@ -2527,8 +2750,10 @@ private class DML_Builder_TEST
 		}
 
 		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType);
-		Assert.areEqual(1, countBypassAuditEntries(SHARING_AUDIT_TARGET_PREFIX + objectName), 'Expected one bypass audit entry for record sharing');
-		Assert.areEqual(0, countBypassAuditEntries(SYSTEM_MODE_AUDIT_TARGET_PREFIX + objectName), 'Expected no bypass audit entry for system mode');
+		Assert.areEqual(1, UTIL_BypassAudit_TEST.countSavedRollupOccurrences(UTIL_BypassAudit.SURFACE_DML,
+				SHARING_AUDIT_TARGET_PREFIX + objectName), 'Expected one bypass audit entry for record sharing');
+		Assert.areEqual(0, UTIL_BypassAudit_TEST.countSavedRollupOccurrences(UTIL_BypassAudit.SURFACE_DML,
+				SYSTEM_MODE_AUDIT_TARGET_PREFIX + objectName), 'Expected no bypass audit entry for system mode');
 	}
 
 	/**
@@ -2552,8 +2777,10 @@ private class DML_Builder_TEST
 		}
 
 		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType);
-		Assert.areEqual(1, countBypassAuditEntries(SHARING_AUDIT_TARGET_PREFIX + objectName), 'Expected one bypass audit entry for record sharing');
-		Assert.areEqual(0, countBypassAuditEntries(SYSTEM_MODE_AUDIT_TARGET_PREFIX + objectName), 'Expected no bypass audit entry for system mode');
+		Assert.areEqual(1, UTIL_BypassAudit_TEST.countSavedRollupOccurrences(UTIL_BypassAudit.SURFACE_DML,
+				SHARING_AUDIT_TARGET_PREFIX + objectName), 'Expected one bypass audit entry for record sharing');
+		Assert.areEqual(0, UTIL_BypassAudit_TEST.countSavedRollupOccurrences(UTIL_BypassAudit.SURFACE_DML,
+				SYSTEM_MODE_AUDIT_TARGET_PREFIX + objectName), 'Expected no bypass audit entry for system mode');
 	}
 
 	/**
@@ -3689,32 +3916,6 @@ private class DML_Builder_TEST
 	}
 
 	/**
-	 * @description Counts the bypass audit events written for a save (the DML surface) whose target matches the given
-	 * value. The log merges events that are the same into one detail row, and keeps how many there were on a rollup
-	 * row. So this method adds up the count on each matching rollup row. Two events that are the same give 2, not 1.
-	 *
-	 * @param target The bypass audit target to count, for example sharing: followed by the object name
-	 *
-	 * @return The number of matching events
-	 */
-	private static Integer countBypassAuditEntries(String target)
-	{
-		String rollupBypassPrefix = TRG_PersistLogEntry.PREFIX_ROLLUP + LOG_Builder.RESERVED_FINGERPRINT_PREFIX;
-		Integer entryCount = 0;
-		for(LogEntry__c entry : new SEL_LogEntry().findAllOrderedByCreatedDateDesc())
-		{
-			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
-			if(entry.Fingerprint__c?.startsWith(rollupBypassPrefix) == true
-					&& target.equals(context?.get(UTIL_BypassAudit.CONTEXT_TARGET))
-					&& UTIL_BypassAudit.SURFACE_DML.equals(context?.get(UTIL_BypassAudit.CONTEXT_SURFACE)))
-			{
-				entryCount += entry.OccurrenceCount__c?.intValue() ?? 0;
-			}
-		}
-		return entryCount;
-	}
-
-	/**
 	 * @description Counts the WARN log events whose text names both the given object and the given field. An event with
 	 * no fingerprint is saved as one plain row, which counts once. A fingerprint is a key that marks events that are the
 	 * same. The log merges those into one detail row and keeps how many there were on a rollup row, so a rollup row adds
@@ -4204,6 +4405,76 @@ private class DML_Builder_TEST
 			}
 			return super.doInsert(records, allOrNothing, accessLevel);
 		}
+	}
+
+	/**
+	 * @description A builder save in system mode writes one bypass entry, when the builder runs. The transaction the
+	 * builder saves through writes none of its own, so the save is not recorded twice.
+	 *
+	 * @see DML_Builder.execute
+	 */
+	@IsTest
+	private static void shouldRecordABuilderSaveInSystemModeOnce()
+	{
+		holdAuditEntriesInMemory();
+
+		Test.startTest();
+		DML_Builder.newTransaction().withSystemMode().doInsert(TST_Factory.newFoobar()).execute();
+		Test.stopTest();
+
+		Integer entries = UTIL_BypassAudit_TEST.countBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SYSTEM_MODE_AUDIT_TARGET);
+		Assert.areEqual(1, entries, 'Expected one system mode entry for the builder save, got ' + entries);
+	}
+
+	/**
+	 * @description A builder save that ignores record sharing writes one sharing entry, when the builder runs. The
+	 * transaction the builder saves through writes none of its own, so the save is not recorded twice.
+	 *
+	 * @see DML_Builder.execute
+	 */
+	@IsTest
+	private static void shouldRecordABuilderSaveThatIgnoresSharingOnce()
+	{
+		holdAuditEntriesInMemory();
+
+		Test.startTest();
+		DML_Builder.newTransaction().bypassSharing().doInsert(TST_Factory.newFoobar()).execute();
+		Test.stopTest();
+
+		Integer entries = UTIL_BypassAudit_TEST.countBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SHARING_AUDIT_TARGET);
+		Assert.areEqual(1, entries, 'Expected one sharing entry for the builder save, got ' + entries);
+	}
+
+	/**
+	 * @description A background builder save in system mode writes one bypass entry, when async() runs. The job it
+	 * queues and the transaction inside the job write none, so the save is not recorded twice.
+	 *
+	 * @see DML_Builder.async
+	 */
+	@IsTest
+	private static void shouldRecordABackgroundBuilderSaveOnce()
+	{
+		holdAuditEntriesInMemory();
+
+		Test.startTest();
+		DML_Builder.newTransaction().withSystemMode().doInsert(TST_Factory.newFoobar()).async().execute();
+		Test.stopTest();
+
+		Integer entries = UTIL_BypassAudit_TEST.countBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SYSTEM_MODE_AUDIT_TARGET);
+		Assert.areEqual(1, entries, 'Expected one system mode entry for the background builder save, got ' + entries);
+		Integer savedRows = new SEL_Foobar().getAll().size();
+		Assert.areEqual(1, savedRows, 'Expected the job to save the row, got ' + savedRows);
+	}
+
+	/**
+	 * @description Turns logging on for the bypass audit tests and keeps the entries in memory instead of saving them,
+	 * so a test can read them from the audit buffer.
+	 */
+	private static void holdAuditEntriesInMemory()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LOG_Builder.suspendSaving();
 	}
 
 	/**

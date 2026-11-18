@@ -12,7 +12,7 @@
  *
  * @group Web Services
  *
- * @date April 2026, October 2026
+ * @date April 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssCount,PMD.NcssTypeCount')
 @IsTest(seeAllData=false isParallel=true)
@@ -78,6 +78,11 @@ public class API_Outbound_TEST
 	private static final Integer ONE_SECOND_TOLERANCE = 1;
 
 	/**
+	 * @description The start of the target of a bypass entry for a system-mode save. The object's name follows it.
+	 */
+	private static final String SYSTEM_MODE_TARGET_PREFIX = 'system-mode:';
+
+	/**
 	 * @description HTTP status code for an unauthorised request (401), a status the default never retries.
 	 */
 	private static final Integer HTTP_UNAUTHORIZED = 401;
@@ -110,6 +115,18 @@ public class API_Outbound_TEST
 	private static final String MESSAGE_MOCKED_TRANSPORT_FAILURE = 'Simulated transport failure';
 
 	/**
+	 * @description The start of an order number from another system, which some test calls carry as their Triggering
+	 * Record ID instead of a record Id.
+	 */
+	private static final String ORDER_NUMBER_PREFIX = 'ORD-';
+
+	/**
+	 * @description How many random letters and digits follow the start of an order number. The whole order number is then
+	 * longer than the 18 characters of a record Id, and shorter than the 80 characters the field holds.
+	 */
+	private static final Integer ORDER_NUMBER_RANDOM_LENGTH = 26;
+
+	/**
 	 * @description How many times the counting handlers entered sendRequest in the running test.
 	 */
 	private static Integer sendCount = 0;
@@ -123,6 +140,16 @@ public class API_Outbound_TEST
 	 * @description How many times the counting handler ran onCommitWorkStarting in the running test.
 	 */
 	private static Integer commitWorkStartingCount = 0;
+
+	/**
+	 * @description How many times the framework asked the request payload of the running test to fill itself.
+	 */
+	private static Integer populateCount = 0;
+
+	/**
+	 * @description The record Id the framework last gave the request payload of the running test to fill itself.
+	 */
+	private static Id populatedRecordId;
 
 	/**
 	 * @description The Idempotency-Key the key-setting handler set on its request in the running test; null when it found a
@@ -153,10 +180,18 @@ public class API_Outbound_TEST
 	private static final String PLATFORM_SUMMARY_PHRASE = 'First exception on row';
 
 	/**
-	 * @description Saves the call rows the saved-row tests dispatch, in their own transaction, so each test's callout
-	 * happens before anything in the test writes: one for the saved-row lock test, one carrying the Idempotency-Key a
-	 * first attempt recorded, for the test that retries it, and one for the lock test of a call that fails. Each row is one the scheduled retry would run again: it has an
-	 * Id, the Retry status and a retry time.
+	 * @description Saves the call rows the saved-row tests dispatch, in their own transaction. Then each test's callout
+	 * happens before anything in the test writes.
+	 *
+	 * It saves one row for the saved-row lock test, and one carrying the Idempotency-Key a first attempt recorded, for the
+	 * test that retries it. It saves one more for the lock test of a call that fails. Each row is one the scheduled retry
+	 * would run again: it has an Id, the Retry status and a retry time.
+	 *
+	 * It also saves two calls with their open issues, for the tests that resolve issues. One call holds an order number.
+	 * The other holds a record Id in its short form of 15 characters.
+	 *
+	 * An issue holds the Triggering Record ID exactly as the failed call held it. So an issue of a 15-character value
+	 * holds the same 15 characters, not the 18-character form of a record Id.
 	 */
 	@TestSetup
 	private static void insertTheSavedCallRowsTheTestsDispatch()
@@ -164,6 +199,42 @@ public class API_Outbound_TEST
 		insertARowTheScheduledRetryRuns(SavedRowOutbound.class.getName(), null);
 		insertARowTheScheduledRetryRuns(SavedKeySettingPostOutbound.class.getName(), UTIL_Random.randomName());
 		insertARowTheScheduledRetryRuns(SavedRowFailingOutbound.class.getName(), null);
+		String orderNumber = newOrderNumber();
+		insertACallWithOpenIssues(OrderNumberResolvingOutbound.class.getName(), orderNumber, new List<Object> {orderNumber, newOrderNumber()});
+		String recordId = UTIL_Random.randomId(Foobar__c.SObjectType);
+		String shortRecordId = recordId.left(SEL_ApiCall.SHORT_RECORD_ID_LENGTH);
+		insertACallWithOpenIssues(ShortRecordIdResolvingOutbound.class.getName(), shortRecordId,
+				new List<Object> {recordId, shortRecordId, shortRecordId.swapCase()});
+	}
+
+	/**
+	 * @description Saves one outbound call row the scheduled retry would run again, with the given Triggering Record ID.
+	 * It also saves one open issue for the same service and request for each of the given values.
+	 *
+	 * @param serviceName The handler class the call and its issues name.
+	 * @param triggeringRecordValue The Triggering Record ID of the call.
+	 * @param issueValues The Triggering Record ID of each open issue, in order.
+	 */
+	private static void insertACallWithOpenIssues(String serviceName, String triggeringRecordValue, List<Object> issueValues)
+	{
+		ApiCall__c savedCall = (ApiCall__c)TST_Builder.of(ApiCall__c.SObjectType).withOverrides(new Map<SObjectField, Object>
+		{
+				ApiCall__c.ServiceName__c => serviceName,
+				ApiCall__c.Direction__c => SEL_ApiCall.TYPE_OUTBOUND,
+				ApiCall__c.TriggeringRecordId__c => triggeringRecordValue,
+				ApiCall__c.Status__c => SEL_ApiCall.STATUS_RETRY,
+				ApiCall__c.NextRetry__c => Datetime.now()
+		}).build();
+		TST_Builder.of(ApiIssue__c.SObjectType)
+				.withCount(issueValues.size())
+				.withOverrides(new Map<SObjectField, Object>
+				{
+						ApiIssue__c.ServiceName__c => serviceName,
+						ApiIssue__c.Status__c => SEL_ApiIssue.STATUS_OPEN,
+						ApiIssue__c.RequestParametersHash__c => API_Outbound.buildRequestParametersHash(savedCall.RequestParameters__c)
+				})
+				.withCycle(ApiIssue__c.TriggeringRecordId__c, issueValues)
+				.buildList();
 	}
 
 	/**
@@ -1508,6 +1579,163 @@ public class API_Outbound_TEST
 	}
 
 	/**
+	 * @description A call whose Triggering Record ID is an order number, not a record Id, is sent when its handler does
+	 * not need a triggering record. The framework builds the request once and gives the request payload no record Id, and
+	 * the call ends Completed.
+	 */
+	@IsTest
+	private static void shouldSendACallWhoseTriggeringRecordIdIsNotARecordId()
+	{
+		sendCount = 0;
+		String serviceName = OrderNumberOutbound.class.getName();
+		registerRetryingSetting(serviceName);
+		API_MockFactory.forService(serviceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_OK).register();
+
+		Test.startTest();
+		API_Dispatcher.execute(newCallWithTriggeringRecordValue(serviceName, newOrderNumber()));
+		Test.stopTest();
+
+		List<ApiCall__c> completed = SEL_ApiCall.assertServiceCompleted(serviceName);
+		Assert.areEqual(1, completed.size(), 'Expected one completed call, got ' + completed.size());
+		Assert.areEqual(1, populateCount, 'Expected the request to be built once, got ' + populateCount);
+		Assert.isNull(populatedRecordId, 'Expected no record Id for the request payload, got ' + populatedRecordId);
+		Assert.areEqual(1, sendCount, 'Expected the request to go out once, got ' + sendCount);
+	}
+
+	/**
+	 * @description A failed call whose Triggering Record ID is an order number longer than the 18 characters of a record
+	 * Id raises one issue, and the issue keeps the whole order number.
+	 */
+	@IsTest
+	private static void shouldRaiseAnIssueThatKeepsATriggeringRecordIdLongerThanEighteenCharacters()
+	{
+		String serviceName = OrderNumberOutbound.class.getName();
+		registerRetryingSetting(serviceName);
+		API_MockFactory.forService(serviceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_BAD_REQUEST).register();
+		String orderNumber = newOrderNumber();
+
+		Test.startTest();
+		API_Dispatcher.execute(newCallWithTriggeringRecordValue(serviceName, orderNumber));
+		Test.stopTest();
+
+		SEL_ApiCall.assertServiceFailed(serviceName);
+		List<ApiIssue__c> issues = new SEL_ApiIssue().findUnresolvedByService(serviceName);
+		Assert.areEqual(1, issues.size(), 'Expected one issue, got ' + issues.size());
+		Assert.areEqual(orderNumber, issues[0].TriggeringRecordId__c, 'Expected the issue to keep the whole order number, got ' + issues[0].TriggeringRecordId__c);
+	}
+
+	/**
+	 * @description A successful call whose Triggering Record ID is an order number resolves the open issue of the same
+	 * request, with Resolve Issues on. The open issue for another order number stays open. The test setup saved the call
+	 * and both issues.
+	 */
+	@IsTest
+	private static void shouldResolveTheOpenIssueOfACallWhoseTriggeringRecordIdIsNotARecordId()
+	{
+		String serviceName = OrderNumberResolvingOutbound.class.getName();
+		TST_Factory.newOutboundApiSetting(serviceName, new Map<SObjectField, Object>
+		{
+				ApiSetting__mdt.LogIssues__c => true,
+				ApiSetting__mdt.ResolveIssues__c => true
+		});
+		API_MockFactory.forService(serviceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_OK).register();
+		ApiCall__c savedCall = new SEL_ApiCall().findByServiceName(serviceName)[0];
+
+		Test.startTest();
+		API_Dispatcher.execute(savedCall);
+		Test.stopTest();
+
+		SEL_ApiCall.assertServiceCompleted(serviceName);
+		List<ApiIssue__c> stillOpen = new SEL_ApiIssue().findUnresolvedByService(serviceName);
+		Assert.areEqual(1, stillOpen.size(), 'Expected one issue to stay open, got ' + stillOpen.size());
+		Assert.areNotEqual(savedCall.TriggeringRecordId__c, stillOpen[0].TriggeringRecordId__c, 'Expected the issue for the other order number to stay open, got '
+				+ stillOpen[0].TriggeringRecordId__c);
+	}
+
+	/**
+	 * @description A successful call whose Triggering Record ID is a short record Id of 15 characters is looked up both as
+	 * a record Id and as text. It resolves the open issue that holds the 18-character form of the same Id. It also
+	 * resolves the open issue that holds the same 15 characters, as a failed call writes it.
+	 *
+	 * It leaves open the issue that holds the same 15 characters with upper and lower case swapped: in a short record Id,
+	 * case makes a different record. The test setup saved the call and the three issues.
+	 */
+	@IsTest
+	private static void shouldResolveByRecordIdWhenTheTriggeringRecordIdIsAShortRecordId()
+	{
+		String serviceName = ShortRecordIdResolvingOutbound.class.getName();
+		TST_Factory.newOutboundApiSetting(serviceName, new Map<SObjectField, Object>
+		{
+				ApiSetting__mdt.LogIssues__c => true,
+				ApiSetting__mdt.ResolveIssues__c => true
+		});
+		API_MockFactory.forService(serviceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_OK).register();
+		ApiCall__c savedCall = new SEL_ApiCall().findByServiceName(serviceName)[0];
+		String fullRecordId = String.valueOf(Id.valueOf(savedCall.TriggeringRecordId__c));
+
+		Test.startTest();
+		API_Dispatcher.execute(savedCall);
+		Test.stopTest();
+
+		SEL_ApiCall.assertServiceCompleted(serviceName);
+		List<ApiIssue__c> stillOpen = new SEL_ApiIssue().findUnresolvedByService(serviceName);
+		Assert.areEqual(1, stillOpen.size(), 'Expected one issue to stay open, got ' + stillOpen.size());
+		Assert.areNotEqual(fullRecordId, stillOpen[0].TriggeringRecordId__c, 'Expected the issue for the full record Id to be resolved, got ' + stillOpen);
+		String swappedCaseRecordId = savedCall.TriggeringRecordId__c.swapCase();
+		Assert.isTrue(swappedCaseRecordId.equals(stillOpen[0].TriggeringRecordId__c), 'Expected the issue whose case differs to stay open, got ' + stillOpen);
+	}
+
+	/**
+	 * @description A failed call whose Triggering Record ID is a record Id in its short form of 15 characters raises one
+	 * issue. The issue keeps the same 15 characters, not the 18-character form of the Id. So a later call for the same
+	 * value must look for the 15 characters too.
+	 */
+	@IsTest
+	private static void shouldRaiseAnIssueThatKeepsAShortRecordIdAsWritten()
+	{
+		String serviceName = OrderNumberOutbound.class.getName();
+		registerRetryingSetting(serviceName);
+		API_MockFactory.forService(serviceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_BAD_REQUEST).register();
+		String shortRecordId = String.valueOf(UTIL_Random.randomId(Foobar__c.SObjectType)).left(SEL_ApiCall.SHORT_RECORD_ID_LENGTH);
+
+		Test.startTest();
+		API_Dispatcher.execute(newCallWithTriggeringRecordValue(serviceName, shortRecordId));
+		Test.stopTest();
+
+		SEL_ApiCall.assertServiceFailed(serviceName);
+		List<ApiIssue__c> issues = new SEL_ApiIssue().findUnresolvedByService(serviceName);
+		Assert.areEqual(1, issues.size(), 'Expected one issue, got ' + issues.size());
+		Assert.isTrue(shortRecordId.equals(issues[0].TriggeringRecordId__c), 'Expected the issue to keep the 15 characters as written, got '
+				+ issues[0].TriggeringRecordId__c);
+	}
+
+	/**
+	 * @description The framework saves the issue of a failed call in system mode. That save is the framework's own, so
+	 * it writes no bypass entry while logging is on. The dispatcher saves the log entries of its calls when it ends, so
+	 * the test reads the saved entries.
+	 *
+	 * @see API_Base.logApiIssues
+	 */
+	@IsTest
+	private static void shouldWriteNoBypassEntryWhenAnIssueIsLogged()
+	{
+		String serviceName = BadRequestOutbound.class.getName();
+		registerRetryingSetting(serviceName);
+		API_MockFactory.forService(serviceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_BAD_REQUEST).register();
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Test.startTest();
+		API_Dispatcher.execute(TST_Factory.newOutboundApiCall(serviceName, UserInfo.getUserId(), UTIL_Random.randomName(), UTIL_Random.randomName()));
+		Test.stopTest();
+
+		Integer issueCount = countIssuesFor(serviceName);
+		Assert.areEqual(1, issueCount, 'Expected one issue, got ' + issueCount);
+		Integer bypassEntries = UTIL_BypassAudit_TEST.countSavedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SYSTEM_MODE_TARGET_PREFIX + String.valueOf(ApiIssue__c.SObjectType));
+		Assert.areEqual(0, bypassEntries, 'Expected no bypass entry for the framework\'s own save of the issue, got ' + bypassEntries);
+	}
+
+	/**
 	 * @description With issue logging off, an outbound call that fails gets no issue, wherever it fails. A handler that
 	 * throws before the send fails inside the dispatcher's error handling, where the issue record is the only place that
 	 * checks the setting. A call the external system refuses with 400 fails in the handler's own save. The refused call is
@@ -2205,8 +2433,9 @@ public class API_Outbound_TEST
 
 	/**
 	 * @description A handler whose createRetryStrategy() throws costs its own call only: that row ends Failed with the
-	 * labelled decision text and one issue, and the second call of the batch completes and is saved. A throw that escaped
-	 * the dispatcher would leave no row of the batch saved.
+	 * labelled decision text and one issue, and the batch's other call completes and is saved. A throw that escaped the
+	 * dispatcher would leave no row of the batch saved. The completing call goes first, so its callout runs before the
+	 * failed call's log rows are saved.
 	 */
 	@IsTest
 	private static void shouldKeepTheBatchWhenOneHandlersRetryStrategyThrows()
@@ -2220,7 +2449,7 @@ public class API_Outbound_TEST
 
 		List<ApiCall__c> apiCalls = new List<ApiCall__c>
 		{
-				TST_Factory.newOutboundApiCall(throwingServiceName, UserInfo.getUserId()), TST_Factory.newOutboundApiCall(completingServiceName, UserInfo.getUserId())
+				TST_Factory.newOutboundApiCall(completingServiceName, UserInfo.getUserId()), TST_Factory.newOutboundApiCall(throwingServiceName, UserInfo.getUserId())
 		};
 
 		Test.startTest();
@@ -2232,7 +2461,11 @@ public class API_Outbound_TEST
 		Assert.isNull(failed.NextRetry__c, 'Expected no next retry time on the throwing call, got ' + failed.NextRetry__c);
 		Integer issueCount = countIssuesFor(throwingServiceName);
 		Assert.areEqual(1, issueCount, 'Expected one issue on the throwing call, got ' + issueCount);
-		ApiCall__c completed = SEL_ApiCall.assertServiceCompleted(completingServiceName)[0];
+		List<ApiCall__c> completingRows = new SEL_ApiCall().findByServiceName(completingServiceName);
+		Assert.areEqual(1, completingRows.size(), 'Expected one saved row for the completing call, got ' + completingRows.size());
+		ApiCall__c completed = completingRows[0];
+		String completedSummary = completed.Status__c + ': ' + completed.ErrorMessages__c;
+		Assert.areEqual(SEL_ApiCall.STATUS_COMPLETED, completed.Status__c, 'Expected the batch\'s other call to complete, got ' + completedSummary);
 		Assert.isNull(completed.NextRetry__c, 'Expected no next retry time on the completed call, got ' + completed.NextRetry__c);
 	}
 
@@ -2621,6 +2854,31 @@ public class API_Outbound_TEST
 	}
 
 	/**
+	 * @description Makes a random order number, the kind of value another system uses instead of a record Id.
+	 *
+	 * @return The order number.
+	 */
+	private static String newOrderNumber()
+	{
+		return ORDER_NUMBER_PREFIX + UTIL_Random.randomAlphanumeric(ORDER_NUMBER_RANDOM_LENGTH);
+	}
+
+	/**
+	 * @description Makes a new outbound call with the given Triggering Record ID.
+	 *
+	 * @param serviceName The handler class the call names.
+	 * @param triggeringRecordValue The Triggering Record ID the call carries: a record Id or text, such as an order number.
+	 *
+	 * @return The call, not yet saved.
+	 */
+	private static ApiCall__c newCallWithTriggeringRecordValue(String serviceName, String triggeringRecordValue)
+	{
+		ApiCall__c apiCall = TST_Factory.newOutboundApiCall(serviceName);
+		apiCall.TriggeringRecordId__c = triggeringRecordValue;
+		return apiCall;
+	}
+
+	/**
 	 * @description Reads a row's retry count as an integer, null counting as zero.
 	 *
 	 * @param item The row.
@@ -2874,6 +3132,67 @@ public class API_Outbound_TEST
 	 */
 	public class BadRequestOutbound extends RetryProbeOutbound
 	{
+	}
+
+	/**
+	 * @description A GET handler for calls whose Triggering Record ID is an order number. Its request payload counts how
+	 * often the framework asks it to fill itself, and the handler counts its sends.
+	 */
+	public class OrderNumberOutbound extends RetryProbeOutbound
+	{
+		/**
+		 * @description Sets the request payload that notes what the framework gives it.
+		 */
+		public override void configure()
+		{
+			super.configure();
+			requestPayload = new RecordNotingPayload();
+		}
+
+		/**
+		 * @description Counts the send, then sends.
+		 *
+		 * @param requestObj The request.
+		 */
+		public override void sendRequest(HttpRequest requestObj)
+		{
+			sendCount++;
+			super.sendRequest(requestObj);
+		}
+	}
+
+	/**
+	 * @description A GET handler for the saved call whose Triggering Record ID is an order number, in the test that
+	 * resolves its open issue.
+	 */
+	public class OrderNumberResolvingOutbound extends RetryProbeOutbound
+	{
+	}
+
+	/**
+	 * @description A GET handler for the saved call whose Triggering Record ID is a record Id in its short form, in the
+	 * test that resolves its open issue.
+	 */
+	public class ShortRecordIdResolvingOutbound extends RetryProbeOutbound
+	{
+	}
+
+	/**
+	 * @description A request payload that notes each time the framework asks it to fill itself, and the record Id it was
+	 * given.
+	 */
+	public class RecordNotingPayload extends DTO_Base
+	{
+		/**
+		 * @description Notes the request to fill the payload and the record Id it came with.
+		 *
+		 * @param recordId The record Id the framework gave, or null when there is none.
+		 */
+		public override void populate(Id recordId)
+		{
+			populateCount++;
+			populatedRecordId = recordId;
+		}
 	}
 
 	/**

@@ -8,9 +8,6 @@
         <locationY>0</locationY>
         <actionName>FLOW_CallApiAsync</actionName>
         <actionType>apex</actionType>
-        <connector>
-            <targetReference>SetStatusToRetrying</targetReference>
-        </connector>
         <flowTransactionModel>CurrentTransaction</flowTransactionModel>
         <inputParameters>
             <name>apiCalls</name>
@@ -23,7 +20,7 @@
     </actionCalls>
     <apiVersion>68.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
-    <description>Retries a failed outbound API call at the scheduled NextRetry date/time, then sets status to Retrying.</description>
+    <description>Sends an outbound API call again at its NextRetry time. The Apex action sets Retrying, or a new NextRetry if the send cannot start.</description>
     <environments>Default</environments>
     <interviewLabel>Retry Outbound Api Call {!$Flow.CurrentDateTime}</interviewLabel>
     <label>Retry Outbound Api Call</label>
@@ -46,20 +43,6 @@
         </value>
     </processMetadataValues>
     <processType>AutoLaunchedFlow</processType>
-    <recordUpdates>
-        <description>Marks the ApiCall as actively retrying to prevent re-triggering.</description>
-        <name>SetStatusToRetrying</name>
-        <label>Set Status to Retrying</label>
-        <locationX>0</locationX>
-        <locationY>0</locationY>
-        <inputAssignments>
-            <field>Status__c</field>
-            <value>
-                <stringValue>Retrying</stringValue>
-            </value>
-        </inputAssignments>
-        <inputReference>$Record</inputReference>
-    </recordUpdates>
     <start>
         <locationX>0</locationX>
         <locationY>0</locationY>

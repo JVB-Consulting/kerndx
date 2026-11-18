@@ -58,7 +58,8 @@ Tracks API calls (inbound and outbound) through their full lifecycle. Each recor
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [StatusCode__c](#statuscode__c) | The HTTP response status code returned by the external service (e.g. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [TotalDurationMs__c](#totaldurationms__c) | Total processing time in milliseconds. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TraceId__c](#traceid__c) | W3C Trace Context trace ID (32 hex characters) for distributed tracing across API calls. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TriggeringRecordId__c](#triggeringrecordid__c) | The Salesforce record Id that initiated this web service call. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TriggeringRecordId__c](#triggeringrecordid__c) | The record that started this web service call: a Salesforce record ID, or other text of up to 80 characters, such as an order number from another system. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TriggeringRecordIndex__c](#triggeringrecordindex__c) | A copy of the Triggering Record ID field, kept so you can find the calls of one record quickly, even with many calls. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TriggeringRecordUrl__c](#triggeringrecordurl__c) | Formula-generated hyperlink to the record that initiated this API call. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [URL__c](#url__c) | The full endpoint URL to which the HTTP request was sent. |
 
@@ -558,7 +559,7 @@ W3C Trace Context trace ID (32 hex characters) for distributed tracing across AP
 global String TriggeringRecordId__c
 ```
 
-The Salesforce record Id that initiated this web service call. Used to link the call back to the originating record (e.g., Account, Case, or custom object).
+The record that started this web service call: a Salesforce record ID, or other text of up to 80 characters, such as an order number from another system. Used to link the call back to where it came from.
 
 **Field Attributes:**
 
@@ -568,6 +569,23 @@ The Salesforce record Id that initiated this web service call. Used to link the 
 | Required | false |
 | Unique | false |
 | External ID | false |
+
+### TriggeringRecordIndex__c
+
+```apex
+global String TriggeringRecordIndex__c
+```
+
+A copy of the Triggering Record ID field, kept so you can find the calls of one record quickly, even with many calls. It is filled on every save with the value exactly as written, a record Id or any other text, and is blank when the source is blank. Calls saved before this field existed may have it blank.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(80) |
+| Required | false |
+| Unique | false |
+| External ID | true |
 
 ### TriggeringRecordUrl__c
 

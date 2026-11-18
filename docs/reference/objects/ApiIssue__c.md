@@ -43,7 +43,8 @@ Tracks API integration issues for troubleshooting, manual resolution, and automa
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [ResolvedDate__c](#resolveddate__c) | The date and time when this failure was resolved, either through replay or manual resolution. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ServiceName__c](#servicename__c) | The fully qualified Apex class name of the API service handler that produced this issue (e.g. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Status__c](#status__c) | Current status: Open (awaiting investigation or resolution) or Resolved (resolved by automatic retry batch job or manual retry via quick action). |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TriggeringRecordId__c](#triggeringrecordid__c) | The 18-character Salesforce record ID that initiated the original API call. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TriggeringRecordId__c](#triggeringrecordid__c) | The Triggering Record ID of the API call that failed, copied whole: a record ID, or other text of up to 80 characters, such as an order number from another system. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [TriggeringRecordIndex__c](#triggeringrecordindex__c) | A copy of the Triggering Record ID field, kept so you can find the issues of one record quickly, even with many issues. |
 
 ### ApiCall__c
 
@@ -300,14 +301,31 @@ Current status: Open (awaiting investigation or resolution) or Resolved (resolve
 global String TriggeringRecordId__c
 ```
 
-The 18-character Salesforce record ID that initiated the original API call. Use this to trace the failure back to its source record.
+The Triggering Record ID of the API call that failed, copied whole: a record ID, or other text of up to 80 characters, such as an order number from another system. Use this to trace the failure back to its source.
 
 **Field Attributes:**
 
 | Attribute | Value |
 |-----------|-------|
-| Data Type | Text(18) |
+| Data Type | Text(80) |
 | Required | false |
 | Unique | false |
 | External ID | false |
+
+### TriggeringRecordIndex__c
+
+```apex
+global String TriggeringRecordIndex__c
+```
+
+A copy of the Triggering Record ID field, kept so you can find the issues of one record quickly, even with many issues. It is filled on every save with the value exactly as written, a record Id or any other text, and is blank when the source is blank. Issues saved before this field existed may have it blank.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Text(80) |
+| Required | false |
+| Unique | false |
+| External ID | true |
 

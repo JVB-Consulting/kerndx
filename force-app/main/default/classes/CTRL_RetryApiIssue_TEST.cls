@@ -9,7 +9,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssCount,PMD.NcssTypeCount')
 @IsTest(seeAllData=false isParallel=false)
@@ -665,6 +665,86 @@ public class CTRL_RetryApiIssue_TEST
 	}
 
 	/**
+	 * @description When the Mock All APIs feature flag is on, a call sent again by the Retry action is answered with mock
+	 * data, not by the other system. The answer looks like a success, but the request was never processed. So Retry
+	 * answers with the labelled message, the issue stays Open and it gets no resolved date.
+	 */
+	@IsTest
+	private static void shouldLeaveTheIssueOpenWhenTheRetriedCallIsAnsweredByAMock()
+	{
+		TST_Factory.newFeatureFlag(API_Base.FLAG_MOCK_ALL_APIS);
+		ApiCall__c apiCall = TST_Factory.newOutboundApiCall(API_PostExample.class.getName(), UserInfo.getUserId(), UTIL_Random.randomName(), UTIL_Random.randomName());
+		ApiIssue__c apiIssue = TST_Factory.insertApiIssue(apiCall, UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c));
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isFalse(dtoResponse.callSuccessful, 'Expected a call answered by a mock not to count as a successful retry');
+		Assert.areEqual(System.Label.RetryApiIssue_AnsweredByMock, dtoResponse.errorMessage, 'Expected the refusal to come from the label');
+		ApiIssue__c retriedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id);
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, retriedIssue.Status__c, 'Expected the issue to stay Open');
+		Assert.isNull(retriedIssue.ResolvedDate__c, 'Expected the issue to get no resolved date');
+	}
+
+	/**
+	 * @description When the Mock All Inbound APIs feature flag is on, a replayed request is answered with mock data, and
+	 * its handler never runs. The answer looks like a success, but the request was never processed. So the replay answers
+	 * with the labelled message, the issue stays Open and it gets no resolved date.
+	 */
+	@IsTest
+	private static void shouldLeaveTheIssueOpenWhenTheReplayIsAnsweredByAMock()
+	{
+		registerInboundSetting(INBOUND_SERVICE_NAME, new Map<SObjectField, Object>());
+		TST_Factory.newFeatureFlag(API_Inbound.FLAG_MOCK_ALL_INBOUND_APIS);
+		ApiIssue__c apiIssue = createInboundIssue();
+		CTRL_RetryApiIssue.DTO_Response dtoResponse;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			dtoResponse = CTRL_RetryApiIssue.retry(apiIssue.Id);
+			Test.stopTest();
+		}
+
+		Assert.isFalse(dtoResponse.callSuccessful, 'Expected a replay answered by a mock not to count as a successful replay');
+		Assert.areEqual(System.Label.RetryApiIssue_ReplayAnsweredByMock, dtoResponse.errorMessage, 'Expected the refusal to come from the label');
+		ApiIssue__c replayedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id);
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, replayedIssue.Status__c, 'Expected the issue to stay Open');
+		Assert.isNull(replayedIssue.ResolvedDate__c, 'Expected the issue to get no resolved date');
+	}
+
+	/**
+	 * @description When the Mock All APIs feature flag is on, the bulk retry job's calls are answered with mock data, not
+	 * by the other system. The job treats such a call as one that did not resolve its issue: the issue stays Open, it
+	 * gets no resolved date, and the job logs at warn how many issues it left open for that reason.
+	 */
+	@IsTest
+	private static void shouldLeaveTheIssueOpenWhenTheBulkRetryIsAnsweredByAMock()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.newFeatureFlag(API_Base.FLAG_MOCK_ALL_APIS);
+		ApiCall__c apiCall = TST_Factory.newOutboundApiCall(API_PostExample.class.getName(), UserInfo.getUserId(), UTIL_Random.randomName(), UTIL_Random.randomName());
+		ApiIssue__c apiIssue = TST_Factory.insertApiIssue(apiCall, UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c));
+		Integer callCountBefore = new SEL_ApiCall().findByServiceName(API_PostExample.class.getName()).size();
+
+		runJobAsUserWithApiIssueResolverPermissionSet(toRequestGroups(new List<Object> {apiIssue}));
+
+		Assert.areEqual(callCountBefore + 1, new SEL_ApiCall().findByServiceName(API_PostExample.class.getName()).size(), 'Expected the job to send the call');
+		ApiIssue__c retriedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id);
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, retriedIssue.Status__c, 'Expected the issue to stay Open');
+		Assert.isNull(retriedIssue.ResolvedDate__c, 'Expected the issue to get no resolved date');
+		LogEntry__c warningLog = new SEL_LogEntry().findByMethod(CTRL_RetryApiIssue.class.getName() + '/FailureReplayProcessor');
+		Assert.isNotNull(warningLog, 'Expected the job to log the issue a mock answered');
+		Assert.isTrue(warningLog.ShortMessage__c.startsWith('1 API issue(s) not resolved: the call was answered with mock data'),
+				'Expected the count of issues a mock answered, got ' + warningLog.ShortMessage__c);
+	}
+
+	/**
 	 * @description Verifies resolveFailure uses fallback message when inbound replay fails with blank error text.
 	 * This occurs when the service the issue names has a setting but no handler class, so no handler runs and none
 	 * reports an error.
@@ -838,7 +918,7 @@ public class CTRL_RetryApiIssue_TEST
 		}
 
 		LogEntry__c warningLog = new SEL_LogEntry().findByMethod(API_Dispatcher.class.getName() + '/execute');
-		Assert.isNotNull(warningLog, 'Warning log should be emitted for deferred failure replays');
+		Assert.isNotNull(warningLog, 'Expected a warning log for the deferred API issues');
 		Assert.isTrue(warningLog.ShortMessage__c.contains('deferred'), 'Warning should mention deferred replays');
 		ApiIssue__c firstIssue = (ApiIssue__c)new SEL_ApiIssue().findById(issue1.Id);
 		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, firstIssue.Status__c, 'Expected the first failure to be retried and resolved');
@@ -1456,7 +1536,7 @@ public class CTRL_RetryApiIssue_TEST
 		Assert.isNotNull(processorLog, 'Expected the processor to log the items it refused');
 		Assert.isTrue
 				(
-						processorLog.ShortMessage__c.startsWith(items.size() + ' failure replay(s) refused'),
+						processorLog.ShortMessage__c.startsWith(items.size() + ' API issue(s) refused'),
 						'Expected the warning to count the refused items, got ' + processorLog.ShortMessage__c
 				);
 	}
@@ -1755,7 +1835,7 @@ public class CTRL_RetryApiIssue_TEST
 		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to stay open');
 		LogEntry__c warningLog = new SEL_LogEntry().findByMethod(CTRL_RetryApiIssue.class.getName() + '/FailureReplayProcessor');
 		Assert.isNotNull(warningLog, 'Expected the job to log the issue it did not run');
-		Assert.isTrue(warningLog.ShortMessage__c.startsWith('1 failure replay(s) skipped: Retry Issues is off'), 'Expected the refused count, got ' + warningLog.ShortMessage__c);
+		Assert.isTrue(warningLog.ShortMessage__c.startsWith('1 API issue(s) skipped: Retry Issues is off'), 'Expected the refused count, got ' + warningLog.ShortMessage__c);
 	}
 
 	/**
@@ -1879,7 +1959,7 @@ public class CTRL_RetryApiIssue_TEST
 		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, ((ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id)).Status__c, 'Expected the issue to stay open');
 		LogEntry__c warningLog = new SEL_LogEntry().findByMethod(CTRL_RetryApiIssue.class.getName() + '/FailureReplayProcessor');
 		Assert.isNotNull(warningLog, 'Expected the job to log the issue it did not run');
-		Assert.isTrue(warningLog.ShortMessage__c.startsWith('1 failure replay(s) skipped: Retry Issues is off'), 'Expected the refused count, got ' + warningLog.ShortMessage__c);
+		Assert.isTrue(warningLog.ShortMessage__c.startsWith('1 API issue(s) skipped: Retry Issues is off'), 'Expected the refused count, got ' + warningLog.ShortMessage__c);
 	}
 
 	/**

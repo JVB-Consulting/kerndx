@@ -8,7 +8,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -90,7 +90,7 @@ global inherited sharing class UTIL_Date
 	}
 
 	/**
-	 * @description Retrieves the Unix epoch as a `Date` value (1970-01-01).
+	 * @description Retrieves the Unix epoch as a `Date` value (1970-01-01). The day is the same in every time zone.
 	 *
 	 * @return The epoch `Date` representing the start of Unix time.
 	 *
@@ -101,7 +101,7 @@ global inherited sharing class UTIL_Date
 	 */
 	public static Date getEpochDate()
 	{
-		return getEpochDateTime().date();
+		return Date.newInstance(1970, 1, 1);
 	}
 
 	/**
@@ -145,6 +145,21 @@ global inherited sharing class UTIL_Date
 	{
 		Date valueToFormat = inputDate != null ? inputDate : getEpochDate();
 		return toDatetimeAtMidnight(valueToFormat).format(ISO_DATE_PATTERN);
+	}
+
+	/**
+	 * @description Cuts a date and time down to whole seconds. It returns the same moment with the milliseconds set to
+	 * zero, the way a Salesforce date and time field keeps it. Returns null when the value is null.
+	 *
+	 * @param value The date and time to cut down.
+	 *
+	 * @return The same moment with zero milliseconds, or null when the value is null.
+	 *
+	 * @since 1.12
+	 */
+	public static Datetime truncateToSeconds(Datetime value)
+	{
+		return value == null ? null : Datetime.newInstance(value.getTime() / MILLISECONDS_PER_SECOND * MILLISECONDS_PER_SECOND);
 	}
 
 	/**

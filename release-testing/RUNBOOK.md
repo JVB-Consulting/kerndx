@@ -84,7 +84,7 @@ release-testing/
     classes/                          # Apex: deliberate violations + compliant class
     lwc/                              # LWC: violation, compliant, suppressed components
   scripts/                            # Anonymous Apex test scripts + Node probes (167 files, 153 of them .apex, and 3 folders)
-  e2e/                                # Playwright visual tests (131 journeys)
+  e2e/                                # Playwright visual tests (132 journeys)
     specs/                            # 12 part specs (part1 through part12) + 2 capture specs + 1 gap-finder spec
     pages/                            # Page objects for Salesforce UI
     helpers/                          # Auth, CLI, navigation, and wait helpers
@@ -477,7 +477,7 @@ Filter output with: `sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f <script> 2>&1 | 
 The **Runner** column says who runs each row. `runner` rows are run by `npm run release:phase2`
 (`release-testing/runner/run-phase2.js`), which scores each section against the count in the Expected column. A
 `by hand` row is never run by the runner: a person runs it with the commands in its note. The by-hand rows are 32, 33,
-40, the load tests 44 to 51, 80 to 84d, 84g to 84j, 86, 87 and the section 83 load, plus the lock-retry, integration callout and
+40, the load tests 44 to 51, 80 to 84d, 84g to 84j, 86, 87, 89, the section 83 load and the 83b watchdog probe, plus the lock-retry, integration callout and
 nested chain launch probes below the table. When a row has two or more counts (`1/1 + 3/3`), they are its scripts'
 counts in the order they run: the launch script first, then its verify script (76c runs twice, so it has two).
 
@@ -556,7 +556,7 @@ counts in the order they run: the launch script first, then its verify script (7
 | 63  | `release-testing/scripts/section-63-edge-resilience-comp.apex`                | Edge cases — `UTIL_CircuitBreaker` + `UTIL_Retry` composition: HALF_OPEN regress, the exception filter, retry exhaustion, LOG_FAILURE, breaker + retry composition, backoff math; cleanup proves by query that no call or issue is left. Runs inside a MockAllAPIs window (fixture `mock-all-apis-enabled`, restored to `mock-all-apis-disabled`; `npm run release:phase2` does both): each scenario registers its answer through `kern.API_MockFactory`, which stands in for the callout outside a unit test only while the flag is on. | runner | 7/7 |
 | 63  | `release-testing/scripts/section-63-edge-resilience-comp-cleanup.apex` | 30 seconds after section 63: deletes the log entries section 63 wrote (the handler's and its S63_ circuit breakers') with any API_EchoSubscriber call and issue of today, and proves by query that none is left. Section 63's header and scenario 63b now prove the exception filter (`UTIL_Retry.dontRetryOnException`) directly | runner | 1/1 |
 | 64  | `release-testing/scripts/section-64-edge-asyncjob-launcher.apex`              | Edge cases — `UTIL_AsynchronousJobLauncher`: max concurrent guard, re-enqueue after failure, job type selection (Launch)                                                                                                                                                                                                                  | runner | 6/6 |
-| 65  | `release-testing/scripts/section-65-bypass-audit-framework-wide.apex`         | Framework-wide bypass audit — bypass events persist to `kern__LogEntry__c` from trigger / query / DML / validation surfaces; query/DML entries carry object-qualified targets (`system-mode:Account` / `sharing:Account`) with `object`/`operation`/`rowCount` context naming the operation that ran under the bypass; `BypassAudit_Enabled` kill-switch is default-on; flood-control detail/rollup shape. Orchestrated: the audit trail persists asynchronously, so a single-transaction script raced platform-event delivery (launch 65 (2) + 30s persistence wait + verify 65b (6)); see "Section 65 notes" | runner | 8/8      |
+| 65  | `release-testing/scripts/section-65-bypass-audit-framework-wide.apex`         | Framework-wide bypass audit — bypass events persist to `kern__LogEntry__c` from trigger / query / DML / validation surfaces; query/DML entries carry object-qualified targets (`system-mode:Account` / `sharing:Account`) with `object`/`operation`/`rowCount` context naming the operation that ran under the bypass; `BypassAudit_Enabled` kill-switch is default-on; flood-control detail/rollup shape; a bypass made while the org's log level is ERROR is still kept (65h); the three lower-level saves (`DML_Transaction.setAccessLevel(AccessLevel.SYSTEM_MODE)`, `DML_Transaction.commitWork(false)`, `PROC_ExecuteDML` built with `AccessLevel.SYSTEM_MODE`) each write an entry whose caller is not the fallback (65i). Orchestrated: the audit trail persists asynchronously, so a single-transaction script raced platform-event delivery (launch 65 (3) + 30s persistence wait + verify 65b (8)); see "Section 65 notes" | runner | 11/11    |
 | 66  | `release-testing/scripts/section-66-log-fingerprint.apex`                     | Log-fingerprint flood control (subscriber API) — `kern.LOG_Builder...withFingerprint(key)` collapses repeated entries into one `detail:` sample row + a per-UTC-day `rollup:` counter (`OccurrenceCount__c`); covers flood economy (5 → 2 rows), distinct keys, oversized-key SHA-256 hashing + `fingerprintSource` breadcrumb, reserved-prefix anti-spoofing, and the plain-entry opt-in regression (launch 66 + verify 66b); see "Section 66 notes"                       | runner | 10/10    |
 | 67  | `release-testing/scripts/section-67-post-trigger-actions.apex`                | Post-trigger actions — core behaviour: fires once per dispatch (not per record), `Order__c` ascending, touched-SObject context, object-scope filter (Foobar dispatch), entry-criteria skip                                                                                                                                                | runner | 6/6      |
 | 68  | `release-testing/scripts/section-68-post-trigger-actions-flag-gate.apex`      | Post-trigger actions — `RequiredFeatureFlag__c` gate: dormant when off (68), fires when on (68b)                                                                                                                                                                                                                                          | runner | 2/2      |
@@ -578,6 +578,7 @@ counts in the order they run: the launch script first, then its verify script (7
 | 81  | `release-testing/scripts/section-81-watchdog-and-recipe-on-runner.apex`       | The watchdog and a subscriber recipe both run from the job runner instead of owning a scheduled job each: the watchdog marks a stuck chain Stalled and the recipe starts its chain, neither holding a scheduled-job slot (seed 81 + verify 81b)                                                                                          | by hand | 4/4 + 3/3|
 | 82  | `release-testing/scripts/section-82-job-runner-at-volume.apex`                | The job runner at volume: with more jobs due than one check may start, the check starts them in run-priority order up to its per-check limit, leaves the rest untouched, warns once, and the next check picks the rest up (seed 82 + verify 82b + catch-up 82c)                                                                          | by hand | 1/1 + 4/4 + 2/2|
 | 83  | `node release-testing/scripts/consoles-at-volume.js run --mode staged`, then `--mode full` (teardown between, see the note) | The consoles at volume: the chain engine loads the org with more than 3,300 runs (one action of 2,028 runs nested three levels deep, 200 small actions, the operator wave pressed through the Chain Monitor, dead-job stalls the scheduled watchdog re-drives when their step is safe to repeat and ends Failed when it is not, and in a release cycle 250 started-step rows it must end Failed); staged mode in about twenty minutes, then full mode in about an hour; verify prints one line per claim and the drain rate; the manifest and logs land in `tmp/consoles-at-volume/<your org alias>/`; see "Section 83 note" | by hand | every claim PASS, both modes |
+| 83b | `node release-testing/scripts/watchdog-automation-probe/probe.js` (the commands and their order are in its header) | The watchdog with your own automation on chain run records. On a separate throwaway scratch org with the candidate installed and no other Stalled runs: for each kind (none, a flow with one Get Records, an Apex trigger with one query) and each path (failed, restart), seed 50 stuck runs and run one watchdog pass (none) or two on the same rows (flow, trigger); record per pass the runs restarted, ended Failed, parked and untouched, the most queries a log entry shows, and the scheduled job's status; then `tidy`. Kern 1.11 measured: no automation and the flow never fail the job (the flow ends a pass early, logged); the trigger on the restart path fails every pass with "Too many SOQL queries: 101" and recovers nothing (`plans/evidence/plan203-automation-proof.md`). On 1.12 the reserve of 4 stops the trigger's restart pass after 19 runs with 2 queries left (measured on 1.12.0-3, 2026-11-17: each pass spends 3 queries outside the runs; 1.13 board row 370). That holds because every probe row takes the same path: with a mix of paths a restart can still start with exactly 4 left and fail, which the 1.13 redesign fixes | by hand | every kind and path: no failed scheduled job, nothing parked for lack of queries, and a pass that stops early leaves at least one query free (most queries 98 of 100 on the restart path with a flow or trigger, 99 on the failed path); a failed job is a regression; record the counts for the maintainer |
 | 84  | `release-testing/scripts/section-84-outbound-retry-live.apex` | Outbound retry classification live: three handlers at a Named Credential that does not exist (GET, unkeyed POST, keyed POST); the GET and keyed POST rest at Retry with a time, the unkeyed POST fails at once with the labelled issue; a callout refused after a save rests at Retry unmarked, with no retry left it ends Failed unmarked; a half-open circuit starts a new round of trials; queues the Queueable and after-a-delete refusals (Launch). None of these Named Credentials may exist on the org: `RetryLiveDoesNotExist`, `RetryLiveNeverSentSave`, `RetryLiveNeverSentNoBudget`, `RetryLiveNeverSentQueueable`, `RetryLiveNeverSentDelete`, `RetryLiveSeparateCounts`. 84 and 86 share the `RetryLive` rows: run one after the other, never interleaved | by hand | 5/5 |
 | 84b | `release-testing/scripts/section-84b-outbound-retry-live-verify.apex` | Verify, at least 90 seconds later: the two scheduled rows ended Failed with one retry spent, the queued refusals rest at Retry unmarked with no breaker failure, nothing rests at Retry without a time, the breaker counted every callout that left the org; 84f-1: two breaker names on one credential keep separate failure counts; 84f-2: an open circuit with retry budget left rests at Retry with the circuit's wait and one retry counted; then resets the breakers, deletes every RetryLive call, issue, log entry and Foobar and proves by query that no call, issue or Foobar is left (prints SECTION84 PENDING and is run again 30 seconds later while a retry or job is still running). 84f-1 and 84f-2 print a PASS line and skip when no org cache is allocated | by hand | 7/7 |
 | 84  | `release-testing/scripts/section-84-outbound-retry-live-log-cleanup.apex` | 30 seconds after 84b (and after 84e on the development org): deletes the RetryLive log entries, which land after each script's transaction ends (a breaker reset writes one), and proves by query that none is left | by hand | 1/1 |
@@ -593,6 +594,10 @@ counts in the order they run: the launch script first, then its verify script (7
 | 86c | `release-testing/scripts/section-86c-bulk-retry-inbound-leg.apex` | After 86b: the inbound issues were replayed and resolved, one Account per replay, and the 240 inbound calls are the 120 seeded calls, still Failed, and one Completed replay call per issue, each linked to a different seeded call (86c-3); then deletes the inbound leg, issues before calls. Precondition for the whole family: an Asynchronous Job Setting record `kern_FLOW_CallApiAsync` with a batch size of 10 on the org before 86 (at the default of 20, twenty inbound replays in one job reach the 150-DML limit: the 1.8 known issue), removed after 86c. Then run `section-84-outbound-retry-live-log-cleanup.apex` for the log entries | by hand | 4/4 |
 | 87  | `release-testing/scripts/section-87-purge-at-volume.apex` | Purge at volume: tops up a seed of 5,000 API calls back-dated more than 365 days (needs the audit-field recipe of Phase 1.4 and Kern Administrator) and, on the run that completes the seed, schedules the purge job. Earlier runs print one `SECTION87 PENDING` line: run it again until the two PASS lines print. **Destructive:** the purge deletes every API call older than 365 days on the org; run it only on a fresh scratch org | by hand | 2/2 |
 | 87b | `release-testing/scripts/section-87b-purge-at-volume-verify.apex` | Verify, at least 4 minutes after the run of 87 that scheduled the job: no API call older than 365 days is left, the purge's batches all Completed, and no "Delete API Records" refusal was logged; prints `SECTION87 PENDING` and deletes nothing until the job has fired and its batches ended (run it again 30 seconds later), for at most about 10 minutes after the job's time; after that it prints its FAIL lines; prints the section 87 `PERF_ROW` lines; then deletes the scheduled job row and any seeded row left | by hand | 4/4 |
+| 88  | `release-testing/scripts/elastic-limits-probe/README.md` | Elastic async limits probe, **on demand only**: run it on a release candidate while Salesforce elastic limits is a beta, and once when it reaches general availability, never in a normal release run. It lowers the org's 24-hour async Apex job limit with the non-production override, drives each Kern async path (outbound send and retry, the job launcher and its delayed dispatch, a chain launch and hop, the watchdog, the job runner's check and Run now) past it with elastic limits off and then on, times bursts of slow plain jobs under the limit and in the elastic band, and ends by putting the settings back (a blank override, not 0) and deleting its classes and rows. Use one org that nothing else uses during the run, and set the override from the executions already used in the rolling window. Record per path and limit state: refused, accepted, run or failed with times; `DailyAsyncApexExecutions`, `DailyAsyncApexElasticExecutions` and `DailyAsyncApexProcessed`; the burst elapsed times; and the restore read-back (maximum back, elastic limits off, no probe classes or rows) | by hand | on demand |
+| 89  | `node release-testing/scripts/section-89-outbound-at-the-daily-limit.js` | The outbound send at the daily limit, on every release leg before promotion (unlike 88, which runs on demand): one driver, about 35 minutes (up to about 100 minutes if every wait runs to its limit), never part of the runner. It lowers the 24-hour async Apex job allowance with the elastic limits probe's override and spends it; a `CHAINABLE` launch whose next job is refused at the limit ends Completed and logs the Accounts it did not reach; one outbound `RetryLiveGet` call saved at Queued waits at Retry with the `OutboundCall_LaunchRefused` text and a retry time 15 minutes out, no issue; with the allowance back, the retry sends it at that time; then one call left at Retrying and one pass of `kern.SCHED_OutboundRetryWatchdog` end it Failed with the `OutboundRetryWatchdog_LostJob` text and an issue marked External System May Have Acted. It always puts the org back (the run's waiting chain job and filler jobs stopped, a blank override, the probe's clean-up, the breaker reset, the section 84 log cleanup, the probe class removed), also after a FAIL or a Ctrl-C; `--restore-only` does only that, after a run that was killed. Needs the Phase 1.4 artifacts, no `RetryLive` rows left from 84 or 86, and nothing else running on the org; a waiting outbound call of anyone else makes it BLOCKED, which is not a pass; see "Section 89 note" | by hand | every step PASS, `SECTION89 RESULT PASS` |
+| 90  | `release-testing/scripts/section-90-framework-object-trigger-events.apex`     | Your trigger action rows on the framework's own objects. The rows hang on your own setting for `kern__ApiIssue__c`, because the framework's settings are protected: an after-insert row runs (90a); its entry formula reads `newRecord.kern__ServiceName__c` with no context class name and lets only the matching issue through (90b); 201 matching issues in one insert call it twice (90c) with 201 records in all (90d); one API issue insert runs the post-trigger action scoped to API issues 2 times (90e); the framework's own before-insert action still fills Triggering Record Index on that insert (90f). Every insert is rolled back. Cannot run before 1.12: on 1.11 the Phase 1.4 deploy refuses the trigger action row (a formula with no context class name) and the script does not compile (the Triggering Record Index field comes in 1.12), so it scores 0/6; see "Section 90 note" | runner | 6/6      |
+| 91  | `release-testing/RUNBOOK.md`, "Section 91 note" (a test class saved to `tmp/section-91/`) | A permission set survives a queued save: on an org with `ApexUserModeWithPermset` (skipped with a note when the org lacks it), a Standard User who cannot edit the Email field of `kern__Foobar__c` queues `kern.PROC_ExecuteDML` and `kern.PROC_UpdateFields` with `AccessLevel.USER_MODE.withPermissionSetId(<set>)`. The control (91a) shows plain user mode saves Text and refuses Email; with the set Email is written on the user's own record (91b, 91c; 91c also reads the row with the set) and not on a record another user owns (sharing applies). The tests roll back their rows; teardown removes the class | by hand | 3/3 |
 
 **Section 65 forensic query** for subscribers grepping the audit channel — `kern__ContextData__c` is a
 Long Text Area, which SOQL `LIKE` cannot filter, so pull a window and match client-side:
@@ -816,6 +821,150 @@ Run 86b again every 30 seconds while it prints `SECTION86 PENDING`, and 86c the 
 `SECTION87 PENDING` (each run tops the seed up); the 4-minute wait starts at the run that prints its two PASS lines.
 87b waits for at most about 10 minutes after the job's time; after that it prints its FAIL lines instead of PENDING.
 Harvest the `PERF_ROW` lines of 86b and 87b with Phase 2.5.
+
+**Section 89 note (the outbound send at the daily limit, run on every release leg before promotion):** it proves
+three things on the installed package, at Salesforce's real 24-hour limit of background Apex jobs. First, when
+Salesforce refuses to start the background send of an outbound call, the save of the call still succeeds, the call
+waits at Retry with a retry time, and the retry sends it once the limit allows it again. Second, when a chain of
+Queueable jobs (a `CHAINABLE` launch of `kern.UTIL_AsynchronousJobLauncher`) reaches the limit, the job that cannot start
+its next job ends Completed and writes one ERROR log entry that names the items it did not reach. Third, the outbound
+retry watchdog (`kern.SCHED_OutboundRetryWatchdog`) marks a call Failed when it was left at Retrying and no job will
+finish it. A call waits to be retried only when its status is Retry **and** its Next Retry is set, so the checks
+read both.
+
+The whole section is one command. It is not part of the runner (`release-testing/runner/run-all.js`): it takes about
+35 minutes, up to about 100 minutes if every wait runs to its limit, and lowers a limit that holds for the whole org.
+The driver prints a line for each step as it goes, so a long quiet stretch is a wait, not a hang.
+
+Before you start:
+
+- The candidate is installed on the org and the Phase 1.4 artifacts are deployed: `API_RetryLiveGet`, the
+  `kern__ApiSetting.RetryLiveGet` record with Log Issues on and one retry, its credential `RetryLiveUnreachable` (it
+  names a Named Credential that does not exist, so no request ever leaves the org), and `AccountArchiveProcessor`.
+- Sections 84, 84b, 86, 86b and 86c have cleaned up: no `RetryLive` call or issue is left.
+- Nothing else runs on the org during the section: no runner, no other section, no Phase 3 journey. The lower limit
+  holds for the whole org, and the watchdog pass looks at every outbound call of the org.
+- `SF_SUBSCRIBER_ORG_ALIAS` names the org (see [Configuration](#configuration)). The driver reads Kern's namespace
+  from the org, so it runs the same on an installed package and on a copy of Kern with no namespace. It needs no hand
+  edits and no steps from the probe's README: it builds its own temporary project for the settings file and the
+  filler job class.
+
+Run it from the repository root:
+
+```bash
+node release-testing/scripts/section-89-outbound-at-the-daily-limit.js
+```
+
+It prints one `SECTION89 <step> PASS|FAIL|BLOCKED|INTERRUPTED <reason>` line per step, a `SECTION89 VALUES <step> ...` line with
+what the step measured, and last `SECTION89 RESULT PASS|FAIL|BLOCKED`. Every script it ran, and every answer from the
+org, is kept in `tmp/section-89/<run start>/`, with `summary.json` (every step, its reason and its values) and
+`transcript.txt`.
+
+| Step | What it does | What PASS proves |
+|------|--------------|------------------|
+| `GUARD` | Reads every outbound call of the org at Queued, Retry or Retrying, before anything changes | No other call waits to be sent; otherwise the run stops at once with `BLOCKED` (see below) |
+| `89a` | The state gate: `read-budget.apex` twice, two minutes apart, for up to 20 minutes | Both reads show the same remaining count and no probe schedule, pending probe call, running probe chain or live job. It records the used count U and the licensed maximum M |
+| `SETUP` | Deploys the probe's filler job class from a temporary project | The class the spend uses is on the org |
+| `89b` | Deploys the probe's settings with the allowance set to U + 10 | The read shows `maximum=` U + 10 |
+| `89c` | `spend-budget.apex` until 1 place is left, then waits for the filler jobs to end. A read taken while filler jobs still wait can show too many places left, so the step spends again only when no job is live and more than 1 place is left | Remaining reads 1 and no job is live |
+| `89c-hop` | Launches 3 Accounts as a `CHAINABLE` chain with a job size of 1 and a one-minute minimum delay on each of its jobs (set through the request's async options, so the job the launch queues is the chain's first job, not a delayed-dispatch handler), and queues no filler job after it: the chain's first job takes the last place. The read straight after the launch measures when Salesforce counts a queued job against the allowance, while that job still waits (Queued, Holding or Preparing) in the same read: 0 places left means as soon as it is queued (`countsWhen=queued`), 1 place left means only once it runs (`countsWhen=run`). If the job has already left the queue by that read, it has been counted either way: the step records `countsWhen=not-measured`, prints a line that says so, and goes on. Any other count means the rolling 24 hours freed a place, or another job took one: the step fails and names the count, nothing more is spent, and the run goes to `89h`, which stops that job if it still waits. A job that already runs (Processing) cannot be stopped: `89h` then fails and names it, and a next job it starts is stopped only while it still waits, by `--restore-only` (it carries the same one-minute minimum delay as the first job, through the async options); once it runs, it ends on its own and `--restore-only` fails naming it until it has ended | The read after the launch shows 0 or 1 places left; the first job was accepted, ran and ended Completed; no second job started; no place is left after it (`remainingAfterHop=0`); exactly one ERROR entry at `UTIL_AdaptiveAsynchronousProcessor/enqueueNextHop` names the first job, lists the second and third Accounts, in order, and has a message that names the 24-hour limit (`AsyncApexExecutions Limit exceeded`), recorded as `refusal`. A FAIL line leaves `countsWhen` out, because a next job that was not refused as planned makes that count unproved |
+| `89d` | Saves one `RetryLiveGet` call at Queued, at the limit. If a place is left first (the rolling 24 hours freed one), it spends that place with one filler job and waits, for up to 10 minutes, until no job is live and no place is left; if that does not happen, the step fails and saves no call | The save succeeds; the call reads Retry, a Next Retry 15 minutes out, 0 retries and the text `Salesforce refused to start the background send, so the request was not sent: <reason>. It will be tried again at <time>. The Next Retry field shows this time in your own time zone.`, where the time is the call's Next Retry as an ISO 8601 time in UTC, in whole seconds (such as `2026-11-08T12:15:42.000Z` or `2026-11-08T12:15:42Z`); no send job and no issue; one WARN entry from `FLOW_CallApiAsync` names the same time |
+| `89e` | Deploys the probe's `settings-restore` (the override left blank, never 0) | The read shows `maximum=` M again, and the call has not been sent early |
+| `89f` | Waits for the call's retry time and follows it for up to 15 minutes | Two send jobs, one per due time (the handler's own one retry is the second), both Completed; the call ends Failed with no Next Retry and 1 retry; at least one issue, every one Open and not marked External System May Have Acted (the count is recorded) |
+| `89g` | Reads the guard again, saves one call at Retrying with a retry time five minutes ago, and schedules one watchdog pass with a stale limit of 1 minute | The call ends Failed with the text `No background job finished sending this request again. ...`; one Open issue marked External System May Have Acted with that text; one WARN entry from the watchdog for the call; the watchdog job Completed; the call from 89d untouched. If the pass also moves a call at Retry, its warning (`The retry of this call was due at <time>, but it did not start. Its retry is now due at <time>.`) names both times as ISO 8601 times |
+| `89h` | Puts the org back (see below) | Every clean-up action read back as expected |
+
+**PASS** means every step above printed PASS, the watchdog step included, and the last line is
+`SECTION89 RESULT PASS` (exit code 0). Any FAIL makes the result FAIL (exit code 1). **BLOCKED** (exit code 3) means
+another outbound call was waiting to be sent: before the start, the run changes nothing and stops; during the run, it
+skips only the watchdog step (`SECTION89 89g BLOCKED <call ids>`), keeps the earlier steps' results and still puts
+the org back. A BLOCKED run does not count as a pass: let those calls finish, or use a fresh org, and run the section
+again.
+
+**Ctrl-C.** On macOS and Linux the driver starts each `sf` command in its own process group, so a Ctrl-C in the
+terminal reaches only the driver: the command running at that moment finishes, the current step stops at its next wait
+or its next command and prints `SECTION89 <step> INTERRUPTED`, and step `89h` runs next. The result is then FAIL, never
+PASS. A Ctrl-C while `89h` runs does not stop it: the driver prints that the clean-up will finish. On Windows the driver
+starts each `sf` command through `cmd.exe` (there `sf` is a `.cmd` file), in the driver's own console, so a Ctrl-C reaches that command too. The
+driver expects such a command to end with exit code 3221225786, or to fail, and handles both: the step prints
+`SECTION89 <step> INTERRUPTED` in the same way, and a clean-up action whose command was stopped that way, or failed
+after a Ctrl-C, runs once more; if it fails again, the step gives that action's own reason, followed by "after a
+Ctrl-C". Also on Windows, the 6-minute time limit of each `sf` command stops `cmd.exe`, not the `node` process behind
+`sf.cmd`, so a stuck command may not return at that limit: a known risk, not yet seen or proved. This Ctrl-C behaviour is proved by hand on
+macOS; on Windows it is covered by the driver's tests only. The driver reports a Ctrl-C only once the command running at that moment ends, which can
+take a few minutes (a deploy can wait up to 5 minutes): wait for the `interrupted` line. If the terminal was closed anyway, run
+the driver again with `--restore-only` to put the org back.
+
+**Putting the org back.** Once anything on the org has changed, step `89h` always runs, also after a FAIL or a Ctrl-C.
+First, once the filler class is on the org, it runs `section-89/abort-probe-jobs.apex`: it stops every job of an
+`ElasticProbe` class (the filler jobs) and, when the run launched the chain, the chain's first job by its id, each
+if it still waits at Queued, Holding or Preparing, so no job runs after the clean-up, against deleted Accounts, with
+the allowance back or while its class is deleted; then it reads the jobs again and checks that each ended (Aborted,
+Completed or Failed). When the launch's answer was lost, so the id is not known, it stops every waiting job of Kern's
+`UTIL_AdaptiveAsynchronousProcessor` instead. A job that already runs (Processing) cannot be stopped: the step fails
+and names it with its id, and a next job a running chain job starts is stopped by `--restore-only` only while it
+still waits (it carries the same one-minute minimum delay as the first job, through the async options); once it runs,
+it ends on its own and `--restore-only` fails naming it until it has ended. Then it puts the allowance back if the run
+had not yet done so, runs the probe's `clean-up.apex` (no call kept) and checks
+that no probe call, issue, schedule or Account is left, stops the watchdog's schedule by its id (when the id was not
+read, or the stop is not confirmed, it stops every `Elastic Probe Outbound Retry Watchdog` schedule by name and reads
+again; one still there fails the step, named with its id), resets the `RetryLiveGet` circuit breaker and reads it back
+as closed, runs `section-84-outbound-retry-live-log-cleanup.apex` 30 seconds later and checks its PASS line, deletes the
+filler class and checks that no `ElasticProbe` class is left, and reads the maximum back as M. That last read also
+fails the step on any job of the probe that has not ended (the chain's first job, or an `ElasticProbe` filler job at
+Queued, Holding, Preparing or Processing), named with its id. So a filler job that a Ctrl-C during `89c` left waiting
+is stopped by the first action, before its class is deleted; one that still waits or runs after the stop fails the
+step, named with its id. The `FLOW_CallApiAsync`,
+watchdog and refused-next-job log entries stay as the run's record.
+
+If the process itself was killed (the terminal closed) before `89h` ended, run the clean-up on its own:
+
+```bash
+node release-testing/scripts/section-89-outbound-at-the-daily-limit.js --restore-only
+```
+
+It needs nothing from the earlier run and reads Kern's namespace from the org. It has no job id from that run, so it
+first stops every job of Kern's own `UTIL_AdaptiveAsynchronousProcessor` class (the class in Kern's namespace, never one
+of the same name outside it) and every job of an `ElasticProbe` class that waits at Queued, Holding or Preparing, and
+reads them again. So the org must run
+nothing else of Kern's adaptive processor while it runs, as the section's precondition already asks. It reads the Apex settings back and,
+when an override or elastic limits are set, deploys the probe's `settings-restore` (a blank override, never 0) and
+reads them back again; then it runs every other action of `89h` above (it skips the breaker on an org without `API_RetryLiveGet`, where no
+breaker of that class can have been used), deletes every `ElasticProbe` class the probe
+holds the source of, and stops every `Elastic Probe Outbound Retry Watchdog` schedule by name. It prints the same
+`SECTION89 89h ...` lines and `SECTION89 RESULT PASS|FAIL`, with exit code 0 only on PASS.
+
+Record in the results file: each step's line, the `SECTION89 VALUES` lines (U, M, when Salesforce counts a queued job
+(`countsWhen` from `89c-hop`, measured by the read straight after the launch, or `not-measured`), the call ids,
+the first job's id, the Accounts its entry lists and its `refusal` message,
+the retry time, the send jobs and the issue count), and the run folder. On the
+first run on an installed package, also record these three proofs, which the development org cannot give: the save
+at the real limit succeeds with the refused-start text (`89d`), so the refusal is a `LaunchRefusedException` that Kern
+catches; the platform still runs the flow's scheduled path for the retry (`89f`); and the watchdog's issue is written
+(`89g`), so `SEL_ApiSetting.findClassNameByServiceName('API_RetryLiveGet')` finds the subscriber's setting. The
+refused next job of `89c-hop` is also a first-run proof: in Apex tests the platform refuses no job a Finalizer starts.
+The step requires the entry's message to contain `AsyncApexExecutions Limit exceeded`, the words of the error the async
+processing guide quotes for a job refused at the limit; nobody has yet seen the message of this entry on an installed
+package, so on the first run record its `refusal` value and confirm the words match.
+
+`--dry-run` is for an org whose limit cannot be lowered, such as the development org: it runs the guard, the state
+gate (one pair of reads), every script with its tokens filled and stopped before its first statement (so it compiles
+and nothing in it runs or is saved; a subscriber class the org lacks gets a stand-in for compiling only), renders the
+two settings files without deploying them, and schedules the watchdog ten minutes out and stops it at once. If it
+cannot read that schedule's id, or cannot confirm the stop, it stops every `Elastic Probe Outbound Retry Watchdog`
+schedule by name and reads again (`SECTION89 SCHEDULE-STOP`); one still there is named with its id and the run ends FAIL.
+
+Last verified 2026-11-08 on the no-namespace development org with `--dry-run` only: `SECTION89 RESULT PASS`. That org has no
+namespace (the driver read it as none and removed `kern.` and `kern__`), lacks `API_RetryLiveGet`,
+`AccountArchiveProcessor` and the filler class (each got a stand-in for compiling), and its allowance cannot be lowered.
+The guard and the state gate passed (`used=0 maximum=250000 remaining=250000`), all 14 scripts compiled with their
+tokens filled and stopped before their first statement, both settings files rendered, and the outbound retry
+watchdog's schedule was made and stopped before it fired. `--restore-only` on the same org: `SECTION89 RESULT PASS`
+(the stop of the probe jobs, of the adaptive processor and of the `ElasticProbe` classes, found no waiting job,
+`stoppedJobs=0`; the override was already blank, so nothing was deployed; the breaker was skipped, as the org has no
+`API_RetryLiveGet`). A Ctrl-C on macOS during the first state-gate read let that `sf` command finish and ended with
+`SECTION89 89a INTERRUPTED` and `SECTION89 RESULT FAIL`. The full run has not yet run on an installed package, so
+`countsWhen` has not yet been measured.
 
 **Owed at 1.8 release testing (recorded 2026-09-19):** sections 80, 81 and 82 and the journeys V138 to V141 were
 written and reviewed before the 1.8 package was built, and have never run against an installed package; so was V155
@@ -1115,6 +1264,332 @@ sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-70b-p
 node release-testing/runner/cmdt-deployer.js postaction-disabled
 ```
 
+**Section 90 note (trigger action rows on the framework's own objects):** A serial CMDT-state-fixture section, like 67.
+Its rows ship behind `RequiredFeatureFlag__c = EnableFrameworkObjectEventsReleaseTest`, which ships off, so they stay
+dormant while the other sections run. Phase 1.4 deploys them with the rest of `release-testing/subscriber/`: your own
+trigger setting for the API Issue object `kern__TriggerSetting.ReleaseTestApiIssue`, the class
+`TRG_RecordApiIssueAfterInsert`, the trigger action `kern__TriggerAction.RecordApiIssueAfterInsert` (after insert on the
+`ReleaseTestApiIssue` setting, entry formula `newRecord.kern__ServiceName__c = 'Section90Match'`, no context class name), the
+post-trigger action `kern__PostTriggerAction.TST_PostActionRecorderApiIssue` (scoped to the same setting, class
+`TST_PostActionRecorder`) and the flag. The rows hang on your own setting and not on the framework's `kern__ApiIssue`
+setting: the framework ships its settings protected, and a subscriber row cannot refer to a protected setting. Your
+setting keeps `kern__ApplyMasking__c` checked, so the framework's masking of API issues stays on. The fixtures only switch
+the flag; the setting and the rows stay on the org from Phase 1.4. The section checks six things, and a failing line says
+which piece did not work: the after-insert event (the action was not called at all), the context (the action was called
+for the issue the formula should leave out, or the insert failed with an error that names the context class), a count,
+or the framework's own action (90f: the framework's before-insert action `SetApiIssueTriggeringIndex_BeforeInsert` did not
+fill Triggering Record Index, so your setting replaced the framework's rows instead of adding to them). The post-trigger count
+of 2 is the count on a framework object, measured here on an installed package; section 67 measures it on Account. On a
+clone renamed by `bin/swap-namespace.js` the rename also rewrites `kern__` and `kern.` in these files, so the commands
+stay the same. `npm run release:phase2` handles the fixture cycle (`runSection90`); manually, the output of the script
+goes to a file so its exit code is kept:
+
+```bash
+# 90: trigger action rows on the API Issue object (after-insert event, context with no class name, 201 records, post-trigger count, framework action)
+mkdir -p tmp
+node release-testing/runner/cmdt-deployer.js framework-object-events-enabled
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-90-framework-object-trigger-events.apex > tmp/section-90.log 2>&1
+node release-testing/runner/cmdt-deployer.js framework-object-events-disabled
+grep USER_DEBUG tmp/section-90.log
+```
+
+**Section 91 note (a permission set survives a queued save):** A by-hand section that needs an org with the scratch org
+feature `ApexUserModeWithPermset`. Both subscriber scratch definitions (`config/project-scratch-def.json` and
+`config/project-scratch-def-preview.json`) carry it since 2026-11-17, so a fresh or upgrade org made from them runs the
+section. Without it, `AccessLevel.USER_MODE.withPermissionSetId(...)` throws a `System.SecurityException` ("Custom
+AccessLevel usage requires ApexUserModeWithPermset enabled in a scratch org"), so nothing here can run: on an org made
+before that date, run the section on a new org from the definition, or write "91 skipped: the org lacks
+ApexUserModeWithPermset" in the results file.
+It proves what no unit test on the development org can show: a level built with a permission set keeps that set when the
+save (`kern.PROC_ExecuteDML`) or the read and the save (`kern.PROC_UpdateFields`) run later in a queued job. Sharing still
+applies in the job, so a record another user owns is not changed. It uses the packaged object `kern__Foobar__c`, which is
+Private on a fresh install, one free Standard User licence seat, and a package installed for administrators only (1.3's
+install command). Installed for all users, the Standard User profile may be able to edit Email, and 91a fails. The test
+class makes everything it needs and Salesforce rolls it all back when each test ends: two permission sets (a base set, assigned to the test user, with Read, Create and Edit
+on Foobar and its Text field and nothing on its Email field; a granting set, assigned to nobody, with Read and Edit on
+Foobar and on its Email field), the test user, a Foobar record the test user owns and a Foobar record the running
+administrator owns. The two records have the same name. The granting set is only named in the access level, never assigned,
+so the Email field is writable only through the level. Three tests, three checks:
+
+- `plainUserModeCannotWriteTheFieldThroughAQueuedSave` (91a, the control): a queued save in plain user mode runs as the
+  test user, saves Text on the owned record and leaves Email empty. This shows the job really runs as the test user and
+  that the user cannot edit Email, so the next two checks prove what the set adds. If it fails, the org is wrong, not the
+  package.
+- `aPermissionSetSurvivesAQueuedSave` (91b): `kern.PROC_ExecuteDML` is built with
+  `AccessLevel.USER_MODE.withPermissionSetId(<granting set>)` and queued with the owned record and the other user's record,
+  with all-or-nothing off. Email is written on the owned record, and it is not written on the other user's record
+  (sharing refuses it).
+- `aPermissionSetSurvivesAQueuedFieldUpdate` (91c): `kern.PROC_UpdateFields` with the same level, started the way
+  `kern.UTIL_BulkUpdates` starts a job: the processor builds its query (`buildQueryable()`), then
+  `kern.UTIL_AsynchronousJobLauncher.process(request, processor)` runs it. The query reads Email, which only the set
+  grants, and finds the owned record; the save writes Email there; the other user's record is not found and not changed.
+
+A failing 91b or 91c with a passing 91a means the permission set was lost between the call and the job: stop the release
+and raise it. If 91a fails, nothing is proven.
+
+```bash
+# 91: a permission set survives a queued save (kern.PROC_ExecuteDML and kern.PROC_UpdateFields)
+mkdir -p tmp/section-91/force-app/main/default/classes
+```
+
+Save the check below as `tmp/section-91/precheck.apex` and run it. It prints `SECTION91 ENABLED` or `SECTION91 SKIPPED ...`;
+on SKIPPED stop here (the section is skipped, see above). On `SECTION91 STOP` the check failed for another reason: read the
+message, fix the cause and run it again; do not count the section as skipped.
+
+The check makes its own permission set and rolls it back: an access level takes only a custom or managed set, and a
+query for any set can return a profile's own set or an internal one, which an org with the feature refuses with "You
+must use a custom or managed permission set with AccessLevel" (2026-11-17, the first org that had the feature).
+
+```apex
+Savepoint beforeProbe = Database.setSavepoint();
+try
+{
+	PermissionSet probeSet = new PermissionSet(Name = 'Section91Precheck', Label = 'Section91Precheck');
+	insert probeSet;
+	AccessLevel.USER_MODE.withPermissionSetId(probeSet.Id);
+	System.debug(LoggingLevel.ERROR, 'SECTION91 ENABLED');
+}
+catch(SecurityException missingFeature)
+{
+	if(missingFeature.getMessage().contains('ApexUserModeWithPermset'))
+	{
+		System.debug(LoggingLevel.ERROR, 'SECTION91 SKIPPED the org lacks ApexUserModeWithPermset');
+	}
+	else
+	{
+		System.debug(LoggingLevel.ERROR, 'SECTION91 STOP unexpected problem: ' + missingFeature.getMessage());
+	}
+}
+catch(Exception otherProblem)
+{
+	System.debug(LoggingLevel.ERROR, 'SECTION91 STOP unexpected problem: ' + otherProblem.getMessage());
+}
+finally
+{
+	Database.rollback(beforeProbe);
+}
+```
+
+Read the result from the `USER_DEBUG` line only: the log also echoes the script's own source, so a plain search for
+`SECTION91 ENABLED` finds it even when the check printed STOP.
+
+```bash
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f tmp/section-91/precheck.apex > tmp/section-91/precheck.log 2>&1
+grep SECTION91 tmp/section-91/precheck.log
+```
+
+Save the test class as `tmp/section-91/QueuedSavePermissionSet_TEST.cls`:
+
+```apex
+@IsTest(seeAllData=false isParallel=false)
+private with sharing class QueuedSavePermissionSet_TEST
+{
+	private static final String GRANTED_EMAIL = 'section91@example.com';
+	private static final String QUEUED_TEXT = 'queued';
+
+	private class Fixture
+	{
+		User testUser;
+		Id grantingSetId;
+		Id ownedId;
+		Id otherId;
+		String recordName;
+	}
+
+	@IsTest
+	private static void plainUserModeCannotWriteTheFieldThroughAQueuedSave()
+	{
+		Fixture fixture = buildFixture();
+
+		System.runAs(fixture.testUser)
+		{
+			Test.startTest();
+			queueSave(fixture, AccessLevel.USER_MODE);
+			kern.UTIL_AsynchronousJobLauncher.process
+			(
+				new List<Object> {new kern__Foobar__c(Id = fixture.ownedId, kern__Text__c = QUEUED_TEXT)},
+				new kern.PROC_ExecuteDML(kern.DML_Builder.DatabaseOperation.DML_UPDATE, false, AccessLevel.USER_MODE)
+			);
+			Test.stopTest();
+		}
+
+		Assert.areEqual(QUEUED_TEXT, readText(fixture.ownedId), 'Expected the queued job to run as the user and save a field the user can edit');
+		Assert.isNull(readEmail(fixture.ownedId), 'Expected plain user mode to refuse Email, which the user cannot edit');
+	}
+
+	@IsTest
+	private static void aPermissionSetSurvivesAQueuedSave()
+	{
+		Fixture fixture = buildFixture();
+
+		System.runAs(fixture.testUser)
+		{
+			Test.startTest();
+			queueSave(fixture, AccessLevel.USER_MODE.withPermissionSetId(fixture.grantingSetId));
+			Test.stopTest();
+		}
+
+		Assert.areEqual(GRANTED_EMAIL, readEmail(fixture.ownedId), 'Expected the set to let the queued save write Email on the owned record');
+		Assert.isNull(readEmail(fixture.otherId), 'Expected sharing to refuse the update of the record another user owns');
+	}
+
+	@IsTest
+	private static void aPermissionSetSurvivesAQueuedFieldUpdate()
+	{
+		Fixture fixture = buildFixture();
+
+		kern.PROC_UpdateFields.DTO_Field field = new kern.PROC_UpdateFields.DTO_Field();
+		field.name = 'kern__Email__c';
+		field.value = GRANTED_EMAIL;
+
+		kern.PROC_UpdateFields.DTO_Parameters parameters = new kern.PROC_UpdateFields.DTO_Parameters();
+		parameters.objectName = 'kern__Foobar__c';
+		parameters.updateFields.add(field);
+		parameters.searchConditions = new kern.QRY_Condition.FieldCondition(kern__Foobar__c.Name, kern.QRY_Condition.Operator.EQUALS, fixture.recordName);
+		parameters.accessLevel = AccessLevel.USER_MODE.withPermissionSetId(fixture.grantingSetId);
+
+		System.runAs(fixture.testUser)
+		{
+			Test.startTest();
+			kern.PROC_UpdateFields processor = new kern.PROC_UpdateFields(parameters);
+			kern.UTIL_AsynchronousJobLauncher.process
+			(
+				new kern.UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(processor.buildQueryable())
+					.withExecutionStrategy(kern.IF_Async.AsynchronousExecutionStrategy.BATCH),
+				processor
+			);
+			Test.stopTest();
+		}
+
+		Assert.areEqual(GRANTED_EMAIL, readEmail(fixture.ownedId), 'Expected the query to find the owned record and the save to write Email');
+		Assert.isNull(readEmail(fixture.otherId), 'Expected sharing to keep the record another user owns out of the query and the save');
+	}
+
+	private static void queueSave(Fixture fixture, AccessLevel level)
+	{
+		kern__Foobar__c owned = new kern__Foobar__c(Id = fixture.ownedId, kern__Email__c = GRANTED_EMAIL);
+		kern__Foobar__c other = new kern__Foobar__c(Id = fixture.otherId, kern__Email__c = GRANTED_EMAIL);
+		kern.UTIL_AsynchronousJobLauncher.process(new List<Object> {owned, other}, new kern.PROC_ExecuteDML(kern.DML_Builder.DatabaseOperation.DML_UPDATE, false, level));
+	}
+
+	private static String readText(Id recordId)
+	{
+		return [SELECT kern__Text__c FROM kern__Foobar__c WHERE Id = :recordId].kern__Text__c;
+	}
+
+	private static String readEmail(Id recordId)
+	{
+		return [SELECT kern__Email__c FROM kern__Foobar__c WHERE Id = :recordId].kern__Email__c;
+	}
+
+	private static Fixture buildFixture()
+	{
+		Fixture fixture = new Fixture();
+		fixture.recordName = 'Section91' + String.valueOf(Crypto.getRandomLong()).replace('-', '');
+		String suffix = String.valueOf(Crypto.getRandomLong()).replace('-', '');
+
+		System.runAs(new User(Id = UserInfo.getUserId()))
+		{
+			PermissionSet baseSet = new PermissionSet(Name = 'Section91Base' + suffix, Label = 'Section91Base' + suffix);
+			PermissionSet grantingSet = new PermissionSet(Name = 'Section91Grant' + suffix, Label = 'Section91Grant' + suffix);
+			insert new List<PermissionSet> {baseSet, grantingSet};
+			fixture.grantingSetId = grantingSet.Id;
+
+			insert new List<ObjectPermissions>
+			{
+				new ObjectPermissions(ParentId = baseSet.Id, SobjectType = 'kern__Foobar__c', PermissionsRead = true, PermissionsCreate = true, PermissionsEdit = true),
+				new ObjectPermissions(ParentId = grantingSet.Id, SobjectType = 'kern__Foobar__c', PermissionsRead = true, PermissionsEdit = true)
+			};
+			insert new List<FieldPermissions>
+			{
+				new FieldPermissions
+				(
+					ParentId = baseSet.Id, SobjectType = 'kern__Foobar__c', Field = 'kern__Foobar__c.kern__Text__c',
+					PermissionsRead = true, PermissionsEdit = true
+				),
+				new FieldPermissions
+				(
+					ParentId = grantingSet.Id, SobjectType = 'kern__Foobar__c', Field = 'kern__Foobar__c.kern__Email__c',
+					PermissionsRead = true, PermissionsEdit = true
+				)
+			};
+
+			fixture.testUser = new User
+			(
+				Username = 'section91' + suffix + '@example.com',
+				Email = 'section91@example.com',
+				LastName = 'Section91',
+				Alias = 's91' + suffix.left(4),
+				ProfileId = [SELECT Id FROM Profile WHERE Name = 'Standard User' LIMIT 1].Id,
+				TimeZoneSidKey = 'GMT',
+				LocaleSidKey = 'en_US',
+				EmailEncodingKey = 'UTF-8',
+				LanguageLocaleKey = 'en_US'
+			);
+			insert fixture.testUser;
+			insert new PermissionSetAssignment(AssigneeId = fixture.testUser.Id, PermissionSetId = baseSet.Id);
+		}
+
+		kern__Foobar__c other = new kern__Foobar__c(Name = fixture.recordName);
+		insert other;
+		fixture.otherId = other.Id;
+
+		System.runAs(fixture.testUser)
+		{
+			kern__Foobar__c owned = new kern__Foobar__c(Name = fixture.recordName);
+			insert owned;
+			fixture.ownedId = owned.Id;
+			Assert.areEqual(1, [SELECT COUNT() FROM kern__Foobar__c WHERE Name = :fixture.recordName], 'Expected sharing to hide the other record');
+		}
+
+		return fixture;
+	}
+}
+```
+
+Add the class's metadata file and a project file of its own, so the deploy touches nothing else in the working tree, then
+deploy, check the deploy, run the tests and read the result. The class is written for an org with the `kern` namespace.
+First put the class in place with one of these two blocks. On the subscriber org, copy it as it is. On a clone renamed by
+`bin/swap-namespace.js` the rename also rewrites `kern__` and `kern.` in this file, so copy it as it is there too.
+
+```bash
+cp tmp/section-91/QueuedSavePermissionSet_TEST.cls tmp/section-91/force-app/main/default/classes/QueuedSavePermissionSet_TEST.cls
+```
+
+Only on an org with no namespace (the development org), use this block instead of the one above: it removes every
+`kern__` and `kern.` from the file.
+
+```bash
+sed 's/kern__//g; s/kern\.//g' tmp/section-91/QueuedSavePermissionSet_TEST.cls > tmp/section-91/force-app/main/default/classes/QueuedSavePermissionSet_TEST.cls
+```
+
+Then deploy and run:
+
+```bash
+META=tmp/section-91/force-app/main/default/classes/QueuedSavePermissionSet_TEST.cls-meta.xml
+printf '<?xml version="1.0" encoding="UTF-8"?>\n<ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">\n' > $META
+printf '    <apiVersion>68.0</apiVersion>\n    <status>Active</status>\n</ApexClass>\n' >> $META
+printf '{"packageDirectories":[{"path":"force-app","default":true}],"sourceApiVersion":"68.0"}' > tmp/section-91/sfdx-project.json
+(cd tmp/section-91 && sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS --source-dir force-app --json > deploy.json 2>&1)
+grep -q '"status": "Succeeded"' tmp/section-91/deploy.json || echo "SECTION91 STOP the deploy did not succeed: read tmp/section-91/deploy.json"
+sf apex run test -o $SF_SUBSCRIBER_ORG_ALIAS -n QueuedSavePermissionSet_TEST --synchronous --result-format json > tmp/section-91/run.json 2>&1
+grep '"MethodName"\|"Outcome"\|"Message"' tmp/section-91/run.json
+```
+
+If the block printed `SECTION91 STOP`, the deploy failed: ignore the test output, fix the deploy and run the block again.
+All three tests must show `"Outcome": "Pass"`. A mutation check (optional, on a clone): in `queueSave` and in the 91c
+parameters, replace the level with plain `AccessLevel.USER_MODE`; 91b and 91c must then fail, which shows they test the set.
+Teardown: the tests leave no rows (Salesforce rolls back each test), so only the class is removed, and the query proves it:
+
+```bash
+sf project delete source -o $SF_SUBSCRIBER_ORG_ALIAS -m ApexClass:QueuedSavePermissionSet_TEST --no-prompt
+sf data query -o $SF_SUBSCRIBER_ORG_ALIAS -q "SELECT COUNT() FROM ApexClass WHERE Name = 'QueuedSavePermissionSet_TEST'"
+sf data query -o $SF_SUBSCRIBER_ORG_ALIAS -q "SELECT COUNT() FROM User WHERE Username LIKE 'section91%'"
+sf data query -o $SF_SUBSCRIBER_ORG_ALIAS -q "SELECT COUNT() FROM PermissionSet WHERE Name LIKE 'Section91%'"
+```
+
+Each count must be 0.
+
 **Section 71-72 notes (CDC change-event header):** Launch + verify sections (model: sections 34/56) gated behind
 `RequiredFeatureFlag__c = EnableCdcHeaderReleaseTest`, which ships OFF so the CDC actions stay dormant during the
 parallel pool. The CDC foundation — the `SubscriberCdcProbe__c` object (selected for Change Data Capture on the standard
@@ -1197,6 +1672,33 @@ bypass fingerprints collide across suite sections: a full-suite run typically yi
 for `dml|system-mode:Account` (section 35g emits the same identity earlier), in which case 65b/65d relax to
 target/object presence — flood-control rollup bumps keep the FIRST occurrence's `operation`/`rowCount`
 context, so those values are only asserted when the window holds a fresh `detail:bypass:` row for the key.
+
+Two more checks, proved by 65b:
+
+- **65i, the three lower-level saves.** The launch calls each one as your own code would:
+  `kern.DML_Transaction.setAccessLevel(AccessLevel.SYSTEM_MODE)` and `commitWork()` on a Contact insert,
+  `kern.DML_Transaction.commitWork(false)` on another Contact insert, and `new kern.PROC_ExecuteDML(DML_INSERT, true,
+  AccessLevel.SYSTEM_MODE)`, which writes its entry when it is built. 65b expects `dml|system-mode:Contact`,
+  `dml|sharing:Contact` and a bare `dml|system-mode` in the window, each with a `kern__ClassMethod__c` that is not the
+  fallback caller. The fallback is built from a class token (`kern.TRG_Base.class.getName()`), never typed. Every package
+  frame carries the namespace, so a fallback caller would mean the script's own frame was missed. A repeat of an earlier
+  run counts on its rollup row, which carries the same caller. 65b prints
+  `PASS: 65i — the three lower-level saves each wrote a bypass entry naming the script, not kern.UTIL_BypassAudit.emit`.
+  On Kern 1.11 it prints `FAIL: 65i — dml|system-mode:Contact missing; …`, because 1.11 writes no entry for them.
+- **65h, a bypass at log level ERROR.** The launch sets the org-wide `kern__LogSetting__c` row's Log Level Threshold to
+  ERROR, the level recommended for production. It then turns a trigger bypass on and off for a new random name
+  (`Section65ErrorLevel<16 hex characters>`), and puts the threshold back in a `finally`. When the org had no org-wide
+  row, the row the launch made is deleted again. The handoff row carries the random name. The threshold applies to
+  application logs only, so 65b expects a new `detail:bypass:` row for that name. The launch prints
+  `PASS: 65h-launch — bypass of Section65ErrorLevel… made at log level ERROR; threshold restored to <starting value>`.
+  It prints a FAIL line when the level in force for the running user is not ERROR (a user or profile row of
+  `kern__LogSetting__c` wins over the org-wide row) or the threshold was not put back.
+  65b prints `PASS: 65h — the bypass made at log level ERROR was kept (detail:bypass: row, target Section65ErrorLevel…)`.
+
+Last verified 2026-11-09 on the subscriber scratch org with Kern 1.11.0-1 installed (the `kern` form; 65h needs 1.12): the
+launch passed every check and put the threshold back to DEBUG. 65b printed PASS for 65a to 65e and 65g, and
+`FAIL: 65h — no detail:bypass: row for the bypass made at log level ERROR (target Section65ErrorLevel0e8225a9ae4a3d9f)`.
+That FAIL is the 1.11 behaviour: 1.11 writes a bypass entry at level WARN, so a log level of ERROR drops it.
 
 `npm run release:phase2` handles the launch + 30s wait + verify (`runSection65`); manually:
 
@@ -1567,6 +2069,182 @@ The package already exists in the Dev Hub. Only a Dev Hub without it first needs
 `sf package create --name "Queued Marker Writer" --package-type Managed --path force-app -v DevHub`, run from the same
 folder. Both commands write their ids into that folder's `sfdx-project.json`.
 
+### Chain save refused by a subscriber validation rule
+
+Proves, in the subscriber org, what the chain engine does when a validation rule of the subscriber's own refuses a
+status change the engine makes. The engine has its own guard on the chain run object (a trigger that refuses a status
+change the engine would not make). When the save fails with that guard's message, the engine logs the refusal and goes
+on. When the save fails with any other validation message, the engine throws the error again. No Apex test can show
+the second case: a test cannot create a validation rule, and no packaged code adds such an error on a status save.
+
+The fixture is in `release-testing/fixtures/chain-validation-refusal/`. It holds one validation rule on
+`kern__AsyncChainExecution__c`, `ChainValidationRefusalProbe`. It refuses the save that moves a run to `Completed`, only
+for the chain `SubscriberValidationRefusalProbe`, with the message "Release testing refuses this chain run moving to
+Completed." That message is not the engine's own ("This chain run cannot move from ... to ..."). The rule matches no
+other chain, so other chains running in the org are not touched.
+
+The script `release-testing/scripts/chain-validation-refusal-probe.apex` starts two two-step chains, both built from
+`SubscriberChainSteps.WriteContextStep` (deployed with the 1.4 artifacts): `SubscriberValidationRefusalProbe`, which the
+rule refuses at the end, and `SubscriberValidationRefusalControl`, the same chain under a name the rule does not match.
+
+```bash
+cd release-testing/fixtures/chain-validation-refusal && sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -d force-app --ignore-conflicts
+cd <repo-root>
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/chain-validation-refusal-probe.apex
+sleep 60
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/chain-validation-refusal-probe-verify.apex > tmp/chain-validation-refusal-verify.log 2>&1
+grep USER_DEBUG tmp/chain-validation-refusal-verify.log
+sf data query -o $SF_SUBSCRIBER_ORG_ALIAS -q "SELECT kern__ChainName__c, kern__Status__c, kern__FailureCategory__c, kern__CompletedSteps__c, kern__CompletedAt__c, kern__ErrorMessage__c FROM kern__AsyncChainExecution__c WHERE kern__ChainName__c IN ('SubscriberValidationRefusalProbe', 'SubscriberValidationRefusalControl') ORDER BY CreatedDate DESC LIMIT 2"
+```
+
+What happens, step by step:
+
+1. The first step runs and its progress is saved: the rule matches only a move to `Completed`.
+2. The second step runs. The engine then saves the run as `Completed`. The rule refuses the save with
+   `FIELD_CUSTOM_VALIDATION_EXCEPTION` and its own message. The message is not the engine's own, so the engine throws
+   the error again. Nothing catches it, so the queueable job of that step fails and all its work is rolled back.
+3. The step's Finalizer (the code the platform runs after the job, in a new transaction) sees the failed job. It ends
+   the run `Failed` and writes one ERROR log for the run. The rule does not refuse this save, because the run moves to
+   `Failed`, not to `Completed`.
+
+Expected: two `chain-validation-refusal-verify PASS` lines.
+
+- `SubscriberValidationRefusalProbe`: `Failed`, category `StepException`, 1 completed step (the second step's save was
+  rolled back), and an end time. `kern__ErrorMessage__c` reads `Queueable crashed (unhandled exception): ` followed by the
+  platform's message, which names `FIELD_CUSTOM_VALIDATION_EXCEPTION` and the rule's message, in this form:
+  `Update failed. First exception on row 0 with id <run id>; first error: FIELD_CUSTOM_VALIDATION_EXCEPTION, Release testing refuses this chain run moving to Completed.: []`.
+  An ERROR Log Entry for the run, from `kern.UTIL_AsyncChain.ChainExecutor.Finalizer`, carries the same message. No
+  completion handler runs, and the run is not left `Running`.
+- `SubscriberValidationRefusalControl`: `Completed` with 2 completed steps.
+
+What a wrong result means:
+
+- A `WAIT` line means a chain has not finished. Wait a minute and run the verify script again.
+- The probe run `Completed`: the rule did not fire. Check in Setup that the rule is on the object and active.
+- A `FAIL` line for the probe run that is still `Running` with 1 completed step, and an ERROR log for the run that
+  starts "Chain run transition refused by the backstop": the engine took the rule's message for its own guard's. It
+  logged the refusal and went on instead of throwing, so the job ended well, the Finalizer did nothing, and the run was
+  never ended. Stop the release and raise it.
+- The probe run `Stalled`: the chain watchdog marked a run that never finished. Look for that same ERROR log first
+  ("Chain run transition refused by the backstop"). If it is there, the cause is the one above.
+- The probe run `Failed` with no crash words in its error: the Finalizer did not see the rule's error. Read the error
+  and the Log Entries for the run, and raise it.
+- The probe run still `Running` after several minutes, with no ERROR log: the error did not reach the Finalizer, or
+  the Finalizer's save failed too. Read the Log Entries for the run and the `AsyncApexJob` of its last step, and raise
+  it.
+- The control run not `Completed`: the steps themselves fail in this org, so the probe proves nothing. Fix that first.
+
+The job that failed may also leave an ERROR Log Entry from `DML_Transaction` for the refused save. Whether it is kept
+depends on whether the log was sent before the job failed, so the verify script does not count it.
+
+Clean-up, after both lines passed:
+
+```bash
+cd release-testing/fixtures/chain-validation-refusal && sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS --manifest clean-up/package.xml --post-destructive-changes clean-up/destructiveChangesPost.xml
+cd <repo-root>
+```
+
+The deploy deletes the rule and leaves the fixture's files in place. The probe leaves its two runs and their log rows
+in the org.
+
+### Labels in a validation error message
+
+Proves, in the subscriber org, which labels a Kern validation rule's error message can name. The message of a
+`kern__ValidationRule__mdt` record can name a custom label as `{!$Label.MyLabel}` or `{!$Label.ns__MyLabel}`. The
+package code reads the label with `System.Label.get(namespace, name)`. A name with no `__` is read with an empty
+namespace, which the Apex reference says means the org's own namespace. So `{!$Label.MyLabel}` must reach a label the
+subscriber created, and `{!$Label.kern__MyLabel}` a label of the package. Only the installed package can show that the
+empty namespace means the subscriber org's namespace and not the namespace of the package code that asks: no Apex
+test and no scratch org with a namespace can tell the two apart.
+
+The fixture is in `release-testing/fixtures/validation-label-merge/`. It holds three components, all release testing
+only:
+
+- the custom label `ValidationLabelMergeProbe`, with the text "Release testing found the subscriber label.";
+- the validation rule group `ValidationLabelMergeProbe`, on the 1.4 `Account` trigger setting, Before Insert;
+- the validation rule `ValidationLabelMergeProbe` in that group. It fails only for an Account named
+  `ValidationLabelMergeProbe`, so it changes no other Account save, and its message names three labels:
+  `Subscriber: {!$Label.ValidationLabelMergeProbe} Package: {!$Label.kern__EventUsageMetrics_Validation_StartAfterEnd} Missing: {!$Label.NoSuchLabelAnywhere}`.
+
+The package label `EventUsageMetrics_Validation_StartAfterEnd` ships in the package. Its
+text is "The start date must be on or before the end date." The label `NoSuchLabelAnywhere` exists nowhere.
+
+The script `release-testing/scripts/validation-label-merge-probe.apex` builds a new Account named
+`ValidationLabelMergeProbe`, without saving it. It asks the global method `kern.UTIL_ValidationRule.validate` for its
+errors, and reads the message of the fixture rule's error. Before that, it deletes the label warnings an earlier
+attempt left, so the verify script counts only this attempt. It also saves one INFO Log Entry that marks the start of
+the attempt. A missing label writes its warning a few seconds later (a Log Entry is saved from a platform event), so a
+second script counts the warnings.
+
+Setup, after 1.3 and the 1.4 artifacts. Run the commands as the administrator, whose language must be English (the
+scratch org default), because the script compares the English text of the labels:
+
+```bash
+cd release-testing/fixtures/validation-label-merge && sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS -d force-app --ignore-conflicts
+cd <repo-root>
+```
+
+Run:
+
+```bash
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/validation-label-merge-probe.apex > tmp/validation-label-merge-probe.log 2>&1
+grep USER_DEBUG tmp/validation-label-merge-probe.log
+sleep 30
+sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/validation-label-merge-probe-verify.apex > tmp/validation-label-merge-verify.log 2>&1
+grep USER_DEBUG tmp/validation-label-merge-verify.log
+```
+
+Expected:
+
+- One line from the probe that starts with `validation-label-merge-probe PASS: subscriber label filled: true; package
+  label filled: true; missing label kept as written: true`. It ends with the message, exactly:
+  `Subscriber: Release testing found the subscriber label. Package: The start date must be on or before the end date. Missing: {!$Label.NoSuchLabelAnywhere}`.
+- One line from the verify script that starts with `validation-label-merge-verify PASS: warnings naming
+  NoSuchLabelAnywhere: 1; naming ValidationLabelMergeProbe: 0; naming kern__EventUsageMetrics_Validation_StartAfterEnd:
+  0`. The one warning is a WARN Log Entry from `kern.UTIL_ValidationRule/processMergeFields`. It reads "A validation
+  error message names the label NoSuchLabelAnywhere, which does not exist or cannot be read, so the merge field is
+  shown as written (", then the platform's error, then "). Check the label name. Write a label from a managed package
+  as {!$Label.namespace__LabelName}."
+
+What a wrong result means:
+
+- A probe `FAIL` with `subscriber label filled: false`, the message showing `{!$Label.ValidationLabelMergeProbe}` as
+  written, and a verify line with 1 warning naming `ValidationLabelMergeProbe`: the empty namespace reached the
+  package's labels, not the org's. So `{!$Label.MyLabel}` cannot name a subscriber label from an installed package.
+  Stop the release and raise it: the feature does not do what its documentation says for subscribers.
+- A probe `FAIL` with `package label filled: false`, and a warning naming
+  `kern__EventUsageMetrics_Validation_StartAfterEnd`: the package code cannot read its own label through the `kern`
+  namespace. Check in Setup, Custom Labels, that the label is in the installed package. If it is, raise it.
+- A probe `FAIL` with `missing label kept as written: false`: the missing label was filled with something, or removed.
+  Read the message on the line and raise it.
+- A probe `FAIL` that says the rule did not fail for the Account: the fixture is not deployed, or the rule's formula
+  threw (look for an ERROR Log Entry from `kern.UTIL_ValidationRule/evaluateRule`). Correct the fixture and run the
+  probe again. This is not a result about labels.
+- A probe `FAIL` with all three parts `true`: the message differs from the expected one in some other way, such as a
+  space. Compare the two messages and raise it.
+- A verify `WAIT`: no warning has been saved yet. Wait 30 seconds and run the verify script again. The probe saves one
+  INFO Log Entry (`validation-label-merge-probe`) that marks its start. The verify script prints `FAIL` instead of `WAIT`
+  when 5 minutes or more have passed since that mark and still no warning exists, or when there is no mark (the probe
+  was not run). On that `FAIL`, look in the Log Entries for any WARN from `kern.UTIL_ValidationRule/processMergeFields`.
+  None at all means the warning was not written, or the org's log settings drop WARN entries or entries from that class.
+  Check the log settings first; if they keep WARN entries, raise it.
+- A verify `FAIL` with 2 or more warnings naming `NoSuchLabelAnywhere`: the probe was run twice without the verify, or
+  the warning is not written once per transaction. Run the probe once more, then the verify. If it still fails, raise
+  it.
+
+The probe saves no Account. To run the check again, run the two scripts again: the probe deletes the warnings of the
+attempt before.
+
+Clean-up, after both lines passed, and after a `FAIL` once the investigation is done:
+
+```bash
+cd release-testing/fixtures/validation-label-merge && sf project deploy start -o $SF_SUBSCRIBER_ORG_ALIAS --manifest clean-up/package.xml --pre-destructive-changes clean-up/destructiveChangesPre.xml --post-destructive-changes clean-up/destructiveChangesPost.xml
+cd <repo-root>
+```
+
+The deploy deletes the rule first, then the group and the label, and leaves the fixture's files in place. The probe
+leaves its one warning in the Log Entries.
+
 ### Custom permission muted in a permission set group
 
 Proves, once per release in the subscriber org, that Kern gives the same answer as Salesforce when you ask whether
@@ -1673,20 +2351,27 @@ sf apex run test -o $SF_SUBSCRIBER_ORG_ALIAS --test-level RunLocalTests --result
 ```
 
 **Expected:** all subscriber test classes pass. Org-wide coverage is not a gate here: in a subscriber org it measures only
-the support classes deployed for release testing, never the package's own code, which the package build measures. `Tests Ran` should read 307 or a little
+the support classes deployed for release testing, never the package's own code, which the package build measures. `Tests Ran` should read 343 or a little
 more: the list below counts test methods in the tree, and the platform also counts setup rows. Earlier this
 cycle: `SubscriberPlatformEventAccessLevel_TEST` — 4 tests covering the v67 SYSTEM_MODE always-emit + USER_MODE
 publish-enforcement platform-event AccessLevel guards (the runtime-enforcement layer the anonymous-Apex sections
 16/65 cannot reach). Kern 1.1 reconciliation: 180 tests / 0 failures / 97% org-wide coverage.
 
-Test classes deployed in `release-testing/subscriber/classes/` (59 classes, 307 test methods, counted from the tree on
-2026-10-29; the number after each name is its test methods):
+Test classes deployed in `release-testing/subscriber/classes/` (63 classes, 346 test methods, counted from the tree on
+2026-11-02; the number after each name is its test methods):
 
 | Area | Classes |
 |---|---|
-| Framework surface | `SubscriberApi18Surface_TEST` 13, `SubscriberApiRecordDeleteGuard_TEST` 3, `SubscriberAsyncDml_TEST` 3, `SubscriberBulkRetry_TEST` 5, `SubscriberChainSteps_TEST` 45, `SubscriberDisabledFeatureFlag_TEST` 1, `SubscriberHttpClient_TEST` 8, `SubscriberInboundIssue_TEST` 2, `SubscriberMockPatterns_TEST` 27, `SubscriberMockSelection_TEST` 2, `SubscriberOutboundRetry_TEST` 20, `SubscriberPlatformEventAccessLevel_TEST` 4, `SubscriberQueryGuideExamples_TEST` 12, `SubscriberResilience_TEST` 8, `SubscriberSecureByDefault_TEST` 8, `SubscriberSelectedMocking_TEST` 4, `SubscriberWhoWroteIt_TEST` 1, `Subscriber_DmlEdges_TEST` 3, `Subscriber_FlowLoggerRecordId_TEST` 2, `Subscriber_QryEdges_TEST` 10, `Subscriber_TriggerActionTiebreak_TEST` 1, `Subscriber_TypeResolver_TEST` 4, `CustomTypeResolver_TEST` 8 |
+| Framework surface | `SubscriberApi112Surface_TEST` 3, `SubscriberApi18Surface_TEST` 13, `SubscriberApiRecordDeleteGuard_TEST` 3, `SubscriberAsyncDml_TEST` 3, `SubscriberBulkRetry_TEST` 5, `SubscriberChainSteps_TEST` 45, `SubscriberDisabledFeatureFlag_TEST` 1, `SubscriberHttpClient_TEST` 8, `SubscriberInboundIssue_TEST` 2, `SubscriberMockPatterns_TEST` 27, `SubscriberMockSelection_TEST` 2, `SubscriberOutboundRetry_TEST` 20, `SubscriberPlatformEventAccessLevel_TEST` 4, `SubscriberQueryGuideExamples_TEST` 12, `SubscriberResilience_TEST` 8, `SubscriberSecureByDefault_TEST` 8, `SubscriberSelectedMocking_TEST` 4, `SubscriberWhoWroteIt_TEST` 1, `Subscriber_DmlEdges_TEST` 3, `Subscriber_FlowLoggerRecordId_TEST` 2, `Subscriber_QryEdges_TEST` 10, `Subscriber_TriggerActionTiebreak_TEST` 1, `Subscriber_TypeResolver_TEST` 4, `CustomTypeResolver_TEST` 8 |
 | Sample application | `AccountArchiveProcessor_TEST` 2, `API_ContactFormSubmit_TEST` 3, `API_GetPost_TEST` 4, `CTRL_SubscriberLwcTest_TEST` 4, `REST_ContactForm_TEST` 1, `SCHED_SubscriberJob_TEST` 4, `SVC_AccountOnboarding_TEST` 3, `SVC_AccountValidator_TEST` 4, `SVC_ContactDirectory_TEST` 3, `SVC_PricingCalculator_TEST` 2, `SVC_ResilientSync_TEST` 2, `TRG_AccountHandlers_TEST` 2, `TRG_InvokeFlow_SUBTEST` 5, `UTIL_AccountClassifier_TEST` 5, `VAL_AccountRules_TEST` 5 |
-| Fast Starts and recipes | `FastStart_AsyncChain_DEMO_TEST` 2, `FastStart_Cache_DEMO_TEST` 4, `FastStart_DML_DEMO_TEST` 3, `FastStart_E2E_DEMO_TEST` 3, `FastStart_FeatureFlag_DEMO_TEST` 2, `FastStart_InboundAPI_DEMO_TEST` 2, `FastStart_Logging_DEMO_TEST` 2, `FastStart_MockException_DEMO_TEST` 5, `FastStart_OutboundAPI_DEMO_TEST` 4, `FastStart_QueryMapTerminals_DEMO_TEST` 4, `FastStart_ScheduledJob_DEMO_TEST` 3, `FastStart_Selectors_DEMO_TEST` 4, `FastStart_TestData_DEMO_TEST` 4, `FastStart_TriggerAction_DEMO_TEST` 2, `FastStart_Validation_DEMO_TEST` 2, `Recipe_ApprovalHandOff_DEMO_TEST` 2, `Recipe_BypassSharingFieldAccess_TEST` 5, `Recipe_CaseDelivery_SERVICE_TEST` 1, `Recipe_ChainCircuitBreaker_DEMO_TEST` 4, `Recipe_CommittedDelivery_DEMO_TEST` 3, `Recipe_ScheduledChain_DEMO_TEST` 3 |
+| Fast Starts and recipes | `FastStart_AsyncChain_DEMO_TEST` 2, `FastStart_Cache_DEMO_TEST` 4, `FastStart_DML_DEMO_TEST` 3, `FastStart_E2E_DEMO_TEST` 3, `FastStart_FeatureFlag_DEMO_TEST` 2, `FastStart_InboundAPI_DEMO_TEST` 2, `FastStart_Logging_DEMO_TEST` 2, `FastStart_MockException_DEMO_TEST` 5, `FastStart_OutboundAPI_DEMO_TEST` 4, `FastStart_QueryMapTerminals_DEMO_TEST` 4, `FastStart_ScheduledJob_DEMO_TEST` 3, `FastStart_Selectors_DEMO_TEST` 4, `FastStart_TestData_DEMO_TEST` 4, `FastStart_TriggerAction_DEMO_TEST` 2, `FastStart_Validation_DEMO_TEST` 2, `Recipe_ApprovalHandOff_DEMO_TEST` 2, `Recipe_BypassSharingFieldAccess_TEST` 5, `Recipe_CaseDelivery_SERVICE_TEST` 1, `Recipe_ChainCircuitBreaker_DEMO_TEST` 4, `Recipe_CommittedDelivery_DEMO_TEST` 3, `Recipe_ScheduledChain_DEMO_TEST` 3, `DocumentationSamples_TEST` 12, `DocumentationSamplesGuides_TEST` 19, `DocumentationSamplesGuideDetails_TEST` 5 |
+
+New in the 1.12 cycle: `SubscriberApi112Surface_TEST` (3: `kern.SEL_ApiCall` and `kern.SEL_ApiIssue` find a call and
+an issue by `findByTriggeringRecordIds` and by `findByTriggeringRecordValues`, and `kern.UTIL_BulkUpdates.copyField`, called
+with the release note's search conditions, fills the blank Triggering Record Index of a call saved under a trigger bypass). It
+runs as a Standard User it creates with the `kern__Administrator` permission set, so it needs one free Salesforce licence seat.
+The release note's script itself is `release-testing/scripts/row222-backfill.apex`; it was run as printed on a namespaced
+scratch org before release.
 
 New in the 1.11 cycle: `SubscriberDisabledFeatureFlag_TEST` (1: `kern.TST_Factory.newDisabledFeatureFlag` turns off
 `EnableSubscriberFlowAction`, a flag this org deploys on). It needs the flag on when the run starts, so run section 2.2
@@ -1711,8 +2396,9 @@ Four preconditions these tests need, all met by the Phase 1 steps as written:
   `SubscriberBulkRetry_TEST` fail; their messages say so.
 - **The user-mode query default on** (`UserModeQueries_Enabled`, on as shipped). With it off, the two cache tests of
   `SubscriberApi18Surface_TEST` fail.
-- **Free licence seats.** `SubscriberApi18Surface_TEST` creates five Standard Users across two tests; an org with no
-  free Salesforce licence seats fails those two tests with the platform's licence error.
+- **Free licence seats.** `SubscriberApi18Surface_TEST` creates five Standard Users across two tests, and
+  `SubscriberApi112Surface_TEST` creates one in its test setup; an org with no free Salesforce licence seats fails those
+  tests with the platform's licence error.
 - **The three mocking flags off** (Mock Selected APIs, Mock All APIs and Mock All Inbound APIs, all off as shipped).
   `SubscriberSelectedMocking_TEST` (4: an outgoing and an incoming service with Mocking Enabled ticked mock nothing
   while Mock Selected APIs is off, and answer from mock data once it is on) reads the org's own Mock Selected APIs
@@ -1767,8 +2453,11 @@ a genuine regression still fails the scoped count because duplicated rows share 
 **Shipped-default caveat (tuned-org pins).** Package tests pin shipped CMDT defaults at two strictness levels:
 
 - The **card-rule pair** (`MaskPaymentCard` / the `MaskCreditCard` it replaces) uses *guarded* pins: strict
-  shipped-value assertions apply only while the live record still matches its shipped fingerprint; in a tuned org
-  those tests assert the cross-generation invariant instead, so they pass in every org state.
+  shipped-value assertions apply only while both rules carry this version's descriptions; otherwise those tests
+  assert the cross-generation invariant instead. The descriptions have not changed since 1.11, so in an org that came
+  through 1.11 the guard does not tell a tuned org apart: a changed `MaskCreditCard` failure action fails
+  `shouldShipBothCardRulesOnWriteFailureMarker` (seen at 1.12.0-3, 1.13 row 383). Treat that failure like the
+  unguarded pins below.
 - The **other 16 masking rules** (and other shipped CMDT defaults) carry *unguarded* strict pins. In an org where
   the subscriber tuned one of those records, the corresponding pins fail **by design** — the failure means "this
   org diverged from shipped defaults", not "the package regressed". Confirm the org's tuning explains the failure
@@ -2041,7 +2730,7 @@ commands.
 
 ## Phase 3 — Visual Tests (Playwright E2E)
 
-Phase 3 is fully automated by Playwright. The 131 visual checks (numbered V1 through V159, with gaps between
+Phase 3 is fully automated by Playwright. The 132 visual checks (numbered V1 through V160, with gaps between
 part groups) run in a headless browser against the subscriber scratch org.
 
 ### Running Phase 3
@@ -2126,14 +2815,14 @@ and V142 (part10) runs but skips its Framework-origin branch there and says so i
 | `part5-streaming-setup.spec.js`    | V19-V24, V104-V105, V114 | Subscribe to LogEntryEvent, CDC, Standard PE, trigger events; Org Limits card grid (worst-first bands, sort + search); native-SVG timeline dots/tooltip/select contract                                                                          |
 | `part6-streaming-advanced.spec.js` | V25-V29, V99-V103 | Generic channel (stale cache), publish, download, cleanup; Event usage metrics (prototype contract, view states, seeded-data roundtrip, Enhanced Usage Metrics toggle, CDC channel-list purity) |
 | `part7-async-chain.spec.js`        | V10-V17           | Async chain execution, polling, record verification, API callout, handler isolation                                                                                                             |
-| `part8-chain-monitor.spec.js`      | V30-V39, V115-V125, V36 extended, V145, V146 | Chain Monitor UI: split panel, columns, detail metadata, step timeline, failed-chain error, filters, sorting, launched-chain and record-page timelines, operator retry, restart, clear-stalled, kill switch and abort, the live activity stream, empty states, status panel legend and two actions, a manually retried step's marker and its step words ("Did not run" before the retry), the Duration sort with a stalled run and a run that ended without storing a duration |
+| `part8-chain-monitor.spec.js`      | V30-V39, V115-V125, V36 extended, V145, V146, V160 | Chain Monitor UI: split panel, columns, detail metadata, step timeline, failed-chain error, filters, sorting, launched-chain and record-page timelines, operator retry, restart, clear-stalled, kill switch and abort, the live activity stream, empty states, status panel legend and two actions, a manually retried step's marker and its step words ("Did not run" before the retry), the Duration sort with a stalled run and a run that ended without storing a duration; on the upgrade leg only, the same list, sort and marker for a user whose Chain Monitor access is a clone made before the upgrade (V160 skips where no user holds `ChainMonitorReadOnlyClone`) |
 | `part9-masking-advisor.spec.js`    | V90-V98           | Data Masking Advisor: landing, add-object flow, rule detail, export, health-check masking posture                                                                                               |
 | `part10-log-console.spec.js`       | V106-V113, V122-V137, V142, V143, V144, V154 | Log Console: launcher tile + namespaced tab, ribbon summary + severity filter, date ranges (needs audit back-dating), endless scroll, sorting, debounced search incl. SOSL body leg, Chain Monitor cross-links, detail drawer + chain-gated timeline, origin badge, exact source pin, Origin filter, Framework attribution in a managed install; the Source column's writer and sort and the detail drawer's icons and copy button names |
 | `part11-job-runner.spec.js`        | V139-V141, V155, V157 | Job runner: Activate every 15 minutes, Deactivate flags a waiting job, Repair; a job on the runner shows its effective cadence, runs at a tick and records the outcome; Run now keeps the cursor and refuses under Skip while the previous run is live; a Standard User holding only the Job Runner Management set creates, schedules and runs a job but cannot delete it or edit its platform job id; the Scheduled Jobs Fast Start's screen steps as written: a record schedules the demo class, it moves onto the runner, Run now succeeds, a failed run's View log, switch off |
 | `part12-consoles-at-volume.spec.js` | V147-V153 | The consoles at volume on the staged load, read from the load folder of the org the journeys signed in to: a page turn loses and repeats no row among chains started in the same second; the scoped list, the banner and the database agree on the 2,000-run action; a run three levels down and a restart clone read correctly; a retry pressed on a real failed run; the console pager past page 7 at page size 100; both deep links |
 
-**Expected:** 131/131 tests passing (the `test(` blocks across the twelve part specs, counted 2026-10-11: part1 15,
-part2 7, part3 4, part4 6, part5 9, part6 10, part7 8, part8 23, part9 9, part10 28, part11 5, part12 7). Part11 needs
+**Expected:** 132/132 tests passing (the `test(` blocks across the twelve part specs, counted 2026-11-17: part1 15,
+part2 7, part3 4, part4 6, part5 9, part6 10, part7 8, part8 24, part9 9, part10 28, part11 5, part12 7). Part11 needs
 `ManageJobRunner` assigned to the e2e admin; the spec assigns and removes it itself.
 
 **V158 toast step (by hand at the pass, until the journey takes it):** V158 proves Retry on an issue of a service that
@@ -2224,19 +2913,23 @@ output with the run's evidence.
    tracks, so read what the related list shows for them. Write what it shows into the run's results: the spec could not verify this on
    the development org.
 4. **The upgrade leg.** **PREREQUISITE, set up BEFORE the upgrade leg:** while the org is still on the released
-   version (between the two installs in 1.3b), clone the **Kern Async Chain Monitor Read Only** permission set and
+   version (between the two installs in 1.3b), clone the **Kern Async Chain Monitor Read Only** permission set as
+   `ChainMonitorReadOnlyClone` (V160 finds its user by that name) and
    give a test user on a profile other than System Administrator that clone as their only Chain Monitor access. The
    installs above use the default AdminsOnly security type, which grants the administrator profile the new fields'
    access at upgrade, so an admin user cannot show what this check is looking for. A clone made after the upgrade
    already carries the new fields and proves nothing, so the leg has to be repeated.
-   First run V145 against the upgraded org (`SF_SUBSCRIBER_ORG_ALIAS=KernUpgradeSubscriber`), so a run retried on the
-   new version exists there; a run retried before the upgrade carries no marker.
-   After the upgrade, sign in as that user, open the Chain Monitor, sort by Duration and open a retried run.
-   Expected: the list sorts and the retry marker appears (the monitor's own reads do not check field access), and the
-   two new fields are absent from the record page. Then, as an admin, grant Read on **Last Manual Retry At** and
-   **Elapsed (ms)** to that cloned permission set, and reload the run's record page as the test user. Expected: both
-   fields now appear, after **Duration (ms)**. The two halves together are the upgrade note in the 1.8 release copy,
-   proven on the real path.
+   First run V145 against the upgraded org (`SF_SUBSCRIBER_ORG_ALIAS=KernUpgradeSubscriber`), so a retried run exists
+   there (on a leg that starts before 1.8, a run retried before the upgrade carries no marker).
+   After the upgrade, run V160 (part8, after V145): it signs in as that user in a browser context of its own, proves
+   the page is that user's, that the user is no administrator and holds no package permission set, sorts by Duration
+   and opens the retried run. Expected: the Duration sort takes and the retry marker appears (the monitor's own reads
+   do not check field access); its notes list the fields the clone reads. By hand, only for a field this release adds
+   to the run's record page layout (a field the layout does not carry, such as 1.12's **Stalled At**, proves nothing;
+   check the layout first): as that user the field is absent from the record page; as an admin, grant Read on it to
+   the cloned permission set and reload the page as the user. Expected: the field now appears. Together these are the
+   upgrade note of the release that added the field, proven on the real path (1.8 added **Last Manual Retry At** and
+   **Elapsed (ms)**; a leg that starts on 1.8 or later finds both already in the clone).
 5. **The package's own screens, on both legs.** 1.8 swaps **Duration (ms)** for **Elapsed (ms)** in three places the
    Chain Monitor does not draw: the **All** list view on the Async Chain Executions tab, the strip at the top of a
    run's record page (the compact layout), and the tab's recent-records list with global search results (the search
@@ -2337,7 +3030,7 @@ After completing all phases, create a result file in `release-testing/results/` 
 | Phase 2 — Automated Tests | PASS/FAIL | XX/XX scripts passed, XXX/XXX test methods passed |
 | Phase 2 — Scanner Ruleset | PASS/FAIL | XX/42 expected violations, 7 package-side rules loaded, 0 production violations |
 | Phase 2 — ESLint LWC Scan | PASS/FAIL | 0 kerndx/use-component-builder violations |
-| Phase 3 — Visual Tests    | PASS/FAIL | XX/131 Playwright tests passed |
+| Phase 3 — Visual Tests    | PASS/FAIL | XX/132 Playwright tests passed |
 | Phase 3 — Exploration at volume | PASS/FAIL | findings ruled: N fixed, N parked, N accepted; drain rate NN jobs per minute, peak active NN; P75 reads NNN ms, opens NNN ms; evidence: engine N runs (genuine Stalled N or none), operator N retries, N restarts, N aborts, N kill-switch aborts, N dead-job re-drives, N dead-job runs ended Failed at the started step, clone N rows, fixture N Stalled rows |
 
 ## Phase 2 — Automated Test Results
@@ -2443,18 +3136,18 @@ cell empty; the cell is cleared whenever the asset is re-captured.
 
 | Asset | What the frame shows | Source paths to diff (under `force-app/main/default/` unless noted) | Reviewed through |
 | --- | --- | --- | --- |
-| `stills/kern-home.jpg` | Kern Home tile page + readiness banner | `lwc/kernHome`, `lwc/healthCheck`, `classes/CTRL_HealthCheck.cls` | `cb68bfcb` |
+| `stills/kern-home.jpg` | Kern Home tile page + readiness banner | `lwc/kernHome`, `lwc/healthCheck`, `classes/CTRL_HealthCheck.cls` | `2a33247e` |
 | `stills/org-limits.jpg` | Org limits panel | `lwc/orgLimits` | `cb68bfcb` |
 | `stills/event-usage.jpg` | Streaming monitor shell, Event Usage panel (the controller's usage methods) | `lwc/streamingUsageMetrics`, `lwc/streamingUsageFilters`, `lwc/streamingMonitor`, `lwc/streamingSidebar`, `lwc/streamingSubscriptions`, `lwc/notice`, `classes/CTRL_EventMonitor.cls` | `cb68bfcb` |
 | `stills/async-timeline.jpg` | `AsyncChainExecution__c` record page (highlights + Step Timeline) | `lwc/chainStepTimeline`, `flexipages/AsyncChainExecution*`, `layouts/AsyncChainExecution*`, `objects/AsyncChainExecution__c/compactLayouts/*` | `cb68bfcb` |
-| `stills/api-calls-picker.jpg`, `stills/api-issues-queue.jpg`, `stills/log-entry.jpg` | Record pages / list views (standard components only; the objects' list views, layouts and flexipages) | `objects/ApiCall__c`, `objects/ApiIssue__c`, `objects/LogEntry__c`, `layouts/ApiCall__c*`, `layouts/ApiIssue__c*`, `layouts/LogEntry__c*`, `flexipages/ApiCall.*`, `flexipages/ApiIssue.*`, `flexipages/LogEntry.*`, `lwc/retryApiIssue` | `a0ac31bf` |
-| `recordings/health-check.*` | Readiness banner, apply-retention flow | `lwc/healthCheck`, `lwc/kernHome`, `lwc/applyRetentionModal`, `lwc/scheduleChainWatchdogModal`, `classes/CTRL_HealthCheck.cls` | `cb68bfcb` |
+| `stills/api-calls-picker.jpg`, `stills/api-issues-queue.jpg`, `stills/log-entry.jpg` | Record pages / list views (standard components only; the objects' list views, layouts and flexipages) | `objects/ApiCall__c`, `objects/ApiIssue__c`, `objects/LogEntry__c`, `layouts/ApiCall__c*`, `layouts/ApiIssue__c*`, `layouts/LogEntry__c*`, `flexipages/ApiCall.*`, `flexipages/ApiIssue.*`, `flexipages/LogEntry.*`, `lwc/retryApiIssue` | `aca08f2f` |
+| `recordings/health-check.*` | Readiness banner, apply-retention flow | `lwc/healthCheck`, `lwc/kernHome`, `lwc/applyRetentionModal`, `lwc/scheduleChainWatchdogModal`, `classes/CTRL_HealthCheck.cls` | `2a33247e` |
 | `recordings/chain-monitor.*` | Chain Monitor, open-a-failed-run flow | `lwc/chainMonitor`, `lwc/chainMonitorDetail`, `lwc/chainMonitorList`, `lwc/chainStepTimeline`, `lwc/chainAbortModal`, `classes/CTRL_ChainMonitor.cls` | `cb68bfcb` |
 | `recordings/streaming-monitor.*` | Subscribe → publish → arrive flow (every streaming bundle) | `lwc/streaming*`, `lwc/utilityStreaming`, `classes/CTRL_EventMonitor.cls` | `cb68bfcb` |
 | `recordings/api-harness.*` | Outbound + inbound harness run | `lwc/apiTestHarnessForm`, `lwc/jsonViewer`, `classes/CTRL_ApiTestHarness.cls` | `cb68bfcb` |
 | `recordings/log-console.*` | Grouped problems → filter → correlation timeline | `lwc/logConsole`, `lwc/logConsoleContext`, `lwc/logConsoleDetail`, `lwc/logConsoleTable`, `lwc/jsonViewer`, `classes/CTRL_LogConsole.cls` | `cb68bfcb` |
-| `recordings/masking-advisor.*` | Scan → drill-into-an-object flow (every masking bundle) | `lwc/dataMaskingAdvisor`, `lwc/masking*`, `classes/CTRL_MaskingAdvisor.cls` | `cb68bfcb` |
-| `recordings/scheduled-jobs.*` | Cron builder flow (plain-English schedule, invalid-time rejection) | `lwc/scheduledJobEditor`, `lwc/scheduledJobEditorModal`, `lwc/scheduledJobDetail`, `lwc/cronExpressionEditor`, `lwc/utilityScheduledJob`, `classes/CTRL_ScheduledJob.cls` | `d917f6ee` |
+| `recordings/masking-advisor.*` | Scan → drill-into-an-object flow (every masking bundle) | `lwc/dataMaskingAdvisor`, `lwc/masking*`, `classes/CTRL_MaskingAdvisor.cls` | `54a56e6a` |
+| `recordings/scheduled-jobs.*` | Cron builder flow (plain-English schedule, invalid-time rejection) | `lwc/scheduledJobEditor`, `lwc/scheduledJobEditorModal`, `lwc/scheduledJobDetail`, `lwc/cronExpressionEditor`, `lwc/utilityScheduledJob`, `classes/CTRL_ScheduledJob.cls` | `c53b7669` |
 | `recordings/class-type-resolver.*` | Setup helper opened from the readiness banner (with its host page) | `lwc/classTypeResolverSetupModal`, `lwc/kernHome`, `lwc/healthCheck` | `cb68bfcb` |
 
 `*-poster.jpg` files are the first frame of their loop — they go stale with the recording and are
@@ -2540,10 +3233,12 @@ The command (`release-testing/runner/load-extended-runner.js`) runs each of the 
 `release-testing/scripts/load-extended/` once, in this order: `sustained-masker-soak.apex` and
 `sustained-logger-pe-flood.apex` through `sf apex run`, then `parallel-callout-burst-100.js` and
 `parallel-cache-contention.js` through `node`. For the two Apex files one `sf apex run` is a single iteration, the
-smoke test, not the soak. The 30-minute soaks are a hand procedure: each Apex file's header ("OPERATIONAL PATTERN") says how
-to schedule its Schedulable once a minute, what to query afterwards and how to stop a job that did not stop itself at
-its thirtieth run. Run both soaks by hand before GA promotion,
-one after the other.
+smoke test, not the soak. The runner runs `parallel-callout-burst-100.js` inside a Mock All APIs window: it deploys
+`mock-all-apis-enabled` before and `mock-all-apis-disabled` after, as `npm run release:phase2` does for sections 31,
+55, 60 and 63, because the burst's outbound calls answer from a canned body only while that flag is on. The 30-minute
+soaks are a hand procedure: each Apex file's header ("OPERATIONAL PATTERN") says how to schedule its Schedulable once a
+minute, what to query afterwards and how to stop a job that did not stop itself at its thirtieth run. Run both soaks by
+hand before GA promotion, one after the other.
 
 **Failure of any extended script blocks GA promotion.**
 
@@ -2601,6 +3296,33 @@ sf apex run -o $SF_SUBSCRIBER_ORG_ALIAS -f release-testing/scripts/section-33-kn
 ```
 
 **Expected:** 5/5 PASS
+
+### Page reads and counts with a data category filter (source run, no namespace)
+
+Section 33 runs against the installed package. This run proves, from source, that a page read's total count, its cursor
+guard count and the query builder's own tests keep a `WITH DATA CATEGORY` filter. It needs a Knowledge org **without** a
+namespace, because the fixture names its data categories as plain text (`ProbeRegion`, `Europe`, `Asia`), which a
+namespaced org would not match. Run it once per release from the commit being built, from the repository root, with
+`tmp/knowledge-run` absent or empty.
+
+```bash
+mkdir -p tmp/knowledge-run
+git archive HEAD force-app sfdx-project.json .forceignore config/km-scratch-def.json | tar -x -C tmp/knowledge-run
+cp -R release-testing/fixtures/knowledge-data-category/force-app/main/default/. tmp/knowledge-run/force-app/main/default/
+cd tmp/knowledge-run
+sf org create scratch -f config/km-scratch-def.json -a KernKnowledgeRun -v DevHub -y 1 --wait 30 --no-namespace
+sf project deploy start -o KernKnowledgeRun -d force-app --wait 60
+sf apex run test -o KernKnowledgeRun -t QRY_BuilderKnowledgePage_TEST -t QRY_Builder_TEST --result-format json --wait 40 > knowledge-run.json
+sf org delete scratch -o KernKnowledgeRun --no-prompt
+cd <repo-root>
+```
+
+Read `knowledge-run.json` before deleting the org.
+
+**Expected:** every test passes, both `QRY_BuilderKnowledgePage_TEST` tests included
+(`getPageTotalCountsOnlyTheArticlesInTheCategory`, `getPageOpensCursorWhenTheCategoryFitsTheRowLimit`). This proves the
+query builder's own counts. It does not prove how the platform counts rows against its own limits for such a query.
+Mind the Dev Hub's active-scratch-org limit.
 
 ## Enhanced Usage Metrics Setup
 

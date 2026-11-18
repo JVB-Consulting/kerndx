@@ -11,7 +11,7 @@
  *
  * @group Controllers
  *
- * @date October 2026
+ * @date October 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs, PMD.CyclomaticComplexity')
 @IsTest(seeAllData=false isParallel=false)
@@ -66,6 +66,41 @@ private class CTRL_RetryApiIssueBulkRetry_TEST
 	 * @description The words the job's warning about an open call starts its reason with.
 	 */
 	private static final String OPEN_CALL_WARNING_PHRASE = 'still in progress';
+
+	/**
+	 * @description The inbound service whose requests the inbound tests replay.
+	 */
+	private static final String INBOUND_SERVICE_NAME = API_Echo.class.getName();
+
+	/**
+	 * @description The path of the inbound requests the inbound tests replay. It matches the route of the inbound setting.
+	 */
+	private static final String INBOUND_REQUEST_PATH = '/echo/test';
+
+	/**
+	 * @description The route the inbound setting of the inbound tests answers to.
+	 */
+	private static final String INBOUND_ROUTE_PATH = '/echo/*';
+
+	/**
+	 * @description The routing priority of the inbound setting of the inbound tests.
+	 */
+	private static final Integer INBOUND_ROUTE_PRIORITY = 100;
+
+	/**
+	 * @description The HTTP method of the inbound requests the inbound tests replay.
+	 */
+	private static final String INBOUND_REQUEST_METHOD = 'POST';
+
+	/**
+	 * @description How many inbound issues the mock answer test replays.
+	 */
+	private static final Integer MOCK_ANSWERED_INBOUND_ISSUE_COUNT = 2;
+
+	/**
+	 * @description The words the job's warning about mock answers follows its count with.
+	 */
+	private static final String MOCK_ANSWERED_WARNING_PHRASE = ' API issue(s) not resolved: the call was answered with mock data';
 
 	/**
 	 * @description Company name of the test user who holds the Kern API Issue Resolver permission set: a Standard User
@@ -590,6 +625,62 @@ private class CTRL_RetryApiIssueBulkRetry_TEST
 	}
 
 	/**
+	 * @description An issue whose Triggering Record ID is an order number, not a record id, is not sent while a retried
+	 * call for the same order number waits at Retry. It stays open and the skip is logged at warn, as for a record id.
+	 * The waiting call is not the issue's own call: an earlier bulk retry made it.
+	 */
+	@IsTest
+	private static void shouldSkipAnIssueWhoseOrderNumberHasARetriedCallWaiting()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		String orderNumber = NON_ID_RECORD_PREFIX + UTIL_Random.randomNumeric(NON_ID_RECORD_DIGITS);
+		ApiCall__c retriedCall = TST_Factory.newOutboundApiCall(SERVICE_NAME);
+		retriedCall.TriggeringRecordId__c = orderNumber;
+		retriedCall.Status__c = SEL_ApiCall.STATUS_RETRY;
+		retriedCall.NextRetry__c = Datetime.now().addHours(1);
+		insertCall(retriedCall);
+		ApiIssue__c issue = newOpenIssue(SERVICE_NAME, null, UTIL_Random.randomName());
+		issue.TriggeringRecordId__c = orderNumber;
+		Set<Id> issueIds = insertIssues(new List<ApiIssue__c> {issue});
+		Integer callCountBefore = countCalls(SERVICE_NAME);
+
+		scheduleAs(getUserWithApiIssueResolverPermissionSet(), issueIds);
+
+		Assert.areEqual(callCountBefore, countCalls(SERVICE_NAME), 'Expected no call while a call for the order number waits at Retry');
+		assertStatus(issueIds, SEL_ApiIssue.STATUS_OPEN);
+		assertOpenCallWarning();
+	}
+
+	/**
+	 * @description An issue whose Triggering Record ID is a record id in its short form of 15 characters is not sent while
+	 * a retried call for the same value waits at Retry. The issue and the call both hold the same 15 characters, as the
+	 * framework copies the value as it is.
+	 *
+	 * The issue stays open and the skip is logged at warn.
+	 */
+	@IsTest
+	private static void shouldSkipAnIssueWhoseShortRecordIdHasARetriedCallWaiting()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		String shortRecordId = String.valueOf(UTIL_Random.randomId(Account.SObjectType)).left(SEL_ApiCall.SHORT_RECORD_ID_LENGTH);
+		ApiCall__c retriedCall = TST_Factory.newOutboundApiCall(SERVICE_NAME);
+		retriedCall.TriggeringRecordId__c = shortRecordId;
+		retriedCall.Status__c = SEL_ApiCall.STATUS_RETRY;
+		retriedCall.NextRetry__c = Datetime.now().addHours(1);
+		insertCall(retriedCall);
+		ApiIssue__c issue = newOpenIssue(SERVICE_NAME, null, UTIL_Random.randomName());
+		issue.TriggeringRecordId__c = shortRecordId;
+		Set<Id> issueIds = insertIssues(new List<ApiIssue__c> {issue});
+		Integer callCountBefore = countCalls(SERVICE_NAME);
+
+		scheduleAs(getUserWithApiIssueResolverPermissionSet(), issueIds);
+
+		Assert.areEqual(callCountBefore, countCalls(SERVICE_NAME), 'Expected no call while a call for the short record id waits at Retry');
+		assertStatus(issueIds, SEL_ApiIssue.STATUS_OPEN);
+		assertOpenCallWarning();
+	}
+
+	/**
 	 * @description An issue with no call record, whose record has no open call, is sent and resolved: the open-call check
 	 * does not hold back an issue it has nothing to check against.
 	 */
@@ -778,6 +869,280 @@ private class CTRL_RetryApiIssueBulkRetry_TEST
 		Assert.areEqual(0, scheduledRetry.queuedCount, 'Expected the issue of a permanent failure not to be queued');
 		Assert.areEqual(callCountBefore, countCalls(SERVICE_NAME), 'Expected no call');
 		assertStatus(issueIds, SEL_ApiIssue.STATUS_OPEN);
+	}
+
+	/**
+	 * @description Saves a failed call for a request, and an open issue on it.
+	 *
+	 * @param parameterValue The value of the request's one parameter
+	 * @param isPermanentFailure Whether the call is marked as a permanent failure
+	 *
+	 * @return The issue, saved
+	 */
+	private static ApiIssue__c insertIssueOnAFailedCall(String parameterValue, Boolean isPermanentFailure)
+	{
+		return insertIssueOnAFailedCall(UserInfo.getUserId(), parameterValue, isPermanentFailure);
+	}
+
+	/**
+	 * @description Saves a failed call for a request on the given triggering record, and an open issue on it.
+	 *
+	 * @param triggeringRecordId The record the request was made for, or null for a request with no record
+	 * @param parameterValue The value of the request's one parameter
+	 * @param isPermanentFailure Whether the call is marked as a permanent failure
+	 *
+	 * @return The issue, saved
+	 */
+	private static ApiIssue__c insertIssueOnAFailedCall(Id triggeringRecordId, String parameterValue, Boolean isPermanentFailure)
+	{
+		ApiCall__c failedCall = TST_Factory.newOutboundApiCall(SERVICE_NAME, triggeringRecordId, PARAMETER_NAME, parameterValue);
+		failedCall.Status__c = SEL_ApiCall.STATUS_FAILED;
+		failedCall.IsPermanentFailure__c = isPermanentFailure;
+		insertCall(failedCall);
+		ApiIssue__c issue = TST_Factory.newApiIssue(failedCall, UTIL_Crypto.generateMD5Hash(failedCall.RequestParameters__c));
+		insertIssues(new List<ApiIssue__c> {issue});
+		return issue;
+	}
+
+	/**
+	 * @description Saves two open issues logged for one request, each on its own failed call: the first on a call marked
+	 * as a permanent failure, the second, the plain issue, on a call that is not. Both have the same service, record and
+	 * parameters, so they share one request key and are duplicates of each other.
+	 *
+	 * @return The two saved issues: first the issue on the permanent call, then the plain issue
+	 */
+	private static List<ApiIssue__c> insertRequestWithAnIssueOnAPermanentCall()
+	{
+		String parameterValue = UTIL_Random.randomName();
+		return new List<ApiIssue__c> {insertIssueOnAFailedCall(parameterValue, true), insertIssueOnAFailedCall(parameterValue, false)};
+	}
+
+	/**
+	 * @description A request with two open issues, one of them on a call that failed permanently, is not queued from its
+	 * duplicate: nothing is queued, no job starts, no call is made and both issues stay open. Sending it from the plain
+	 * issue would send a request the remote system may already have processed.
+	 */
+	@IsTest
+	private static void shouldNotQueueARequestWithADuplicateOnAPermanentCall()
+	{
+		Set<Id> issueIds = UTIL_SObject.extractIds(insertRequestWithAnIssueOnAPermanentCall());
+		Integer callCountBefore = countCalls(SERVICE_NAME);
+
+		CTRL_RetryApiIssue.DTO_ScheduledBulkRetry scheduledRetry = scheduleAs(getUserWithApiIssueResolverPermissionSet(), issueIds);
+
+		Assert.areEqual(issueIds.size(), scheduledRetry.selectedCount, 'Expected both open issues to be counted as selected');
+		Assert.areEqual(0, scheduledRetry.queuedCount, 'Expected no issue of the request to be queued');
+		Assert.isNull(scheduledRetry.jobId, 'Expected no job for a request with an issue on a permanent failure');
+		Assert.areEqual(callCountBefore, countCalls(SERVICE_NAME), 'Expected no call for the request');
+		assertStatus(issueIds, SEL_ApiIssue.STATUS_OPEN);
+	}
+
+	/**
+	 * @description An operator selects only the plain issue of a request whose other open issue is on a call that failed
+	 * permanently. The other issue was not selected, but it still holds the request back: nothing is queued, no job
+	 * starts, no call is made and both issues stay open.
+	 */
+	@IsTest
+	private static void shouldNotQueueARequestWhenOnlyItsPlainIssueIsSelected()
+	{
+		List<ApiIssue__c> requestIssues = insertRequestWithAnIssueOnAPermanentCall();
+		ApiIssue__c plainIssue = requestIssues.get(1);
+		Integer callCountBefore = countCalls(SERVICE_NAME);
+
+		CTRL_RetryApiIssue.DTO_ScheduledBulkRetry scheduledRetry = scheduleAs(getUserWithApiIssueResolverPermissionSet(), new Set<Id> {plainIssue.Id});
+
+		Assert.areEqual(1, scheduledRetry.selectedCount, 'Expected only the plain issue to be counted as selected');
+		Assert.areEqual(0, scheduledRetry.queuedCount, 'Expected the plain issue not to be queued');
+		Assert.isNull(scheduledRetry.jobId, 'Expected no job for a request with an open issue on a permanent failure');
+		Assert.areEqual(callCountBefore, countCalls(SERVICE_NAME), 'Expected no call for the request');
+		assertStatus(UTIL_SObject.extractIds(requestIssues), SEL_ApiIssue.STATUS_OPEN);
+	}
+
+	/**
+	 * @description An operator selects only the plain issue of a request that has no triggering record, and whose other
+	 * open issue is on a call that failed permanently. The other issue was not selected, but it still holds the request
+	 * back: nothing is queued, no job starts, no call is made and both issues stay open.
+	 */
+	@IsTest
+	private static void shouldNotQueueARequestWithoutARecordWhenItsOtherIssueIsOnAPermanentCall()
+	{
+		String parameterValue = UTIL_Random.randomName();
+		ApiIssue__c permanentIssue = insertIssueOnAFailedCall(null, parameterValue, true);
+		ApiIssue__c plainIssue = insertIssueOnAFailedCall(null, parameterValue, false);
+		Integer callCountBefore = countCalls(SERVICE_NAME);
+
+		CTRL_RetryApiIssue.DTO_ScheduledBulkRetry scheduledRetry = scheduleAs(getUserWithApiIssueResolverPermissionSet(), new Set<Id> {plainIssue.Id});
+
+		Assert.areEqual(1, scheduledRetry.selectedCount, 'Expected only the plain issue to be counted as selected');
+		Assert.areEqual(0, scheduledRetry.queuedCount, 'Expected the plain issue not to be queued');
+		Assert.isNull(scheduledRetry.jobId, 'Expected no job for a request with an open issue on a permanent failure');
+		Assert.areEqual(callCountBefore, countCalls(SERVICE_NAME), 'Expected no call for the request');
+		assertStatus(new Set<Id> {permanentIssue.Id, plainIssue.Id}, SEL_ApiIssue.STATUS_OPEN);
+	}
+
+	/**
+	 * @description An operator selects only the plain issue of a request whose other open issue is marked as possibly
+	 * processed by the remote system. The marked issue was not selected, but it still holds the request back: nothing is
+	 * queued, no job starts, no call is made and both issues stay open, so the warning on the marked issue is not hidden.
+	 */
+	@IsTest
+	private static void shouldNotQueueARequestWhenItsFlaggedIssueIsNotSelected()
+	{
+		String parameterValue = UTIL_Random.randomName();
+		ApiIssue__c flaggedIssue = newOpenIssue(SERVICE_NAME, UserInfo.getUserId(), parameterValue);
+		flaggedIssue.ExternalSystemMayHaveActed__c = true;
+		ApiIssue__c plainIssue = newOpenIssue(SERVICE_NAME, UserInfo.getUserId(), parameterValue);
+		Set<Id> issueIds = insertIssues(new List<ApiIssue__c> {flaggedIssue, plainIssue});
+		Integer callCountBefore = countCalls(SERVICE_NAME);
+
+		CTRL_RetryApiIssue.DTO_ScheduledBulkRetry scheduledRetry = scheduleAs(getUserWithApiIssueResolverPermissionSet(), new Set<Id> {plainIssue.Id});
+
+		Assert.areEqual(1, scheduledRetry.selectedCount, 'Expected only the plain issue to be counted as selected');
+		Assert.areEqual(0, scheduledRetry.queuedCount, 'Expected the plain issue not to be queued');
+		Assert.isNull(scheduledRetry.jobId, 'Expected no job for a request with a flagged open issue');
+		Assert.areEqual(callCountBefore, countCalls(SERVICE_NAME), 'Expected no call for the request');
+		assertStatus(issueIds, SEL_ApiIssue.STATUS_OPEN);
+	}
+
+	/**
+	 * @description The retry of every open issue of a service schedules no job when its only request has an open issue on
+	 * a call that failed permanently. Both issues stay open.
+	 */
+	@IsTest
+	private static void shouldNotScheduleAServiceRetryForARequestWithADuplicateOnAPermanentCall()
+	{
+		Set<Id> issueIds = UTIL_SObject.extractIds(insertRequestWithAnIssueOnAPermanentCall());
+		Integer callCountBefore = countCalls(SERVICE_NAME);
+		Id jobId;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			Test.startTest();
+			jobId = CTRL_RetryApiIssue.scheduleBulkRetry(SERVICE_NAME, 0);
+			Test.stopTest();
+		}
+
+		Assert.isNull(jobId, 'Expected no job for a request with an issue on a permanent failure');
+		Assert.areEqual(callCountBefore, countCalls(SERVICE_NAME), 'Expected no call for the request');
+		assertStatus(issueIds, SEL_ApiIssue.STATUS_OPEN);
+	}
+
+	/**
+	 * @description The retry of every open issue of a service also checks the open issues the running user cannot see.
+	 * The request has two open issues, and the one on a call that failed permanently is hidden from the user. The hidden
+	 * issue still holds the request back: no job starts, no call is made and both issues stay open.
+	 *
+	 * TST_Mock.registerNext gives each read of the issues its own answer. The read of the service's issues returns only
+	 * the plain issue. The read of the other open issues of the same request also returns the hidden one.
+	 */
+	@IsTest
+	private static void shouldNotScheduleAServiceRetryWhenAnUnseenDuplicateIsOnAPermanentCall()
+	{
+		List<ApiIssue__c> requestIssues = insertRequestWithAnIssueOnAPermanentCall();
+		ApiIssue__c unseenIssue = requestIssues.get(0);
+		ApiIssue__c plainIssue = requestIssues.get(1);
+		Integer callCountBefore = countCalls(SERVICE_NAME);
+		Id jobId;
+
+		System.runAs(getUserWithApiIssueResolverPermissionSet())
+		{
+			TST_Mock.registerNext(ApiIssue__c.SObjectType, plainIssue);
+			TST_Mock.registerNext(ApiIssue__c.SObjectType, new List<SObject> {plainIssue, unseenIssue});
+			Test.startTest();
+			jobId = CTRL_RetryApiIssue.scheduleBulkRetry(SERVICE_NAME, 0);
+			Test.stopTest();
+		}
+
+		Assert.isNull(jobId, 'Expected no job for a request with an unseen issue on a permanent failure');
+		Assert.areEqual(callCountBefore, countCalls(SERVICE_NAME), 'Expected no call for the request');
+		assertStatus(UTIL_SObject.extractIds(requestIssues), SEL_ApiIssue.STATUS_OPEN);
+	}
+
+	/**
+	 * @description A request with an issue on a call that failed permanently does not hold back a different request in the
+	 * same selection: the other request is queued, sent and resolved, and the refused request's issues stay open.
+	 */
+	@IsTest
+	private static void shouldStillQueueAPlainRequestBesideARefusedOne()
+	{
+		Set<Id> refusedIssueIds = UTIL_SObject.extractIds(insertRequestWithAnIssueOnAPermanentCall());
+		ApiIssue__c plainIssue = newOpenIssue();
+		Set<Id> issueIds = insertIssues(new List<ApiIssue__c> {plainIssue});
+		issueIds.addAll(refusedIssueIds);
+		Integer callCountBefore = countCalls(SERVICE_NAME);
+
+		CTRL_RetryApiIssue.DTO_ScheduledBulkRetry scheduledRetry = scheduleAs(getUserWithApiIssueResolverPermissionSet(), issueIds);
+
+		Assert.areEqual(issueIds.size(), scheduledRetry.selectedCount, 'Expected every open issue to be counted as selected');
+		Assert.areEqual(1, scheduledRetry.queuedCount, 'Expected only the issue of the plain request to be queued');
+		Assert.isNotNull(scheduledRetry.jobId, 'Expected a job for the plain request');
+		Assert.areEqual(callCountBefore + 1, countCalls(SERVICE_NAME), 'Expected one call, for the plain request');
+		assertStatus(plainIssue.Id, SEL_ApiIssue.STATUS_RESOLVED);
+		assertStatus(refusedIssueIds, SEL_ApiIssue.STATUS_OPEN);
+	}
+
+	/**
+	 * @description Saves an open inbound issue made by hand: it links to no call and holds the request in its own fields, so a
+	 * replay runs the request from those fields. Each issue has its own body, so no two issues are the same request.
+	 *
+	 * @return The saved issue
+	 */
+	private static ApiIssue__c newInboundIssue()
+	{
+		return (ApiIssue__c)TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.Direction__c, SEL_ApiIssue.DIRECTION_INBOUND)
+				.withOverride(ApiIssue__c.ServiceName__c, INBOUND_SERVICE_NAME)
+				.withOverride(ApiIssue__c.Status__c, SEL_ApiIssue.STATUS_OPEN)
+				.withOverride(ApiIssue__c.RequestPath__c, INBOUND_REQUEST_PATH)
+				.withOverride(ApiIssue__c.RequestMethod__c, INBOUND_REQUEST_METHOD)
+				.withOverride(ApiIssue__c.RequestBody__c, '{"reference":"' + UTIL_Random.randomName() + '"}')
+				.build();
+	}
+
+	/**
+	 * @description When the Mock All Inbound APIs feature flag is on, the job's replays are answered with mock data and the
+	 * handlers never run. Such an answer resolves nothing. So both issues stay open with no resolved date. The job logs
+	 * one warning that counts both issues and says a mock answered them, as it does for an outbound call.
+	 */
+	@IsTest
+	private static void shouldCountAndLogInboundReplaysAnsweredByAMock()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.newInboundApiSetting
+				(
+						INBOUND_SERVICE_NAME,
+						INBOUND_ROUTE_PATH,
+						INBOUND_ROUTE_PRIORITY,
+						new Map<SObjectField, Object>
+						{
+								ApiSetting__mdt.LogIssues__c => true,
+								ApiSetting__mdt.RetryIssues__c => true,
+								ApiSetting__mdt.ResolveIssues__c => false,
+								ApiSetting__mdt.IdempotencyEnabled__c => false,
+								ApiSetting__mdt.MockingEnabled__c => false
+						}
+				);
+		TST_Factory.newFeatureFlag(API_Inbound.FLAG_MOCK_ALL_INBOUND_APIS);
+		Set<Id> issueIds = new Set<Id>();
+		for(Integer count = 0; count < MOCK_ANSWERED_INBOUND_ISSUE_COUNT; count++)
+		{
+			issueIds.add(newInboundIssue().Id);
+		}
+
+		scheduleAs(getUserWithApiIssueResolverPermissionSet(), issueIds);
+
+		assertStatus(issueIds, SEL_ApiIssue.STATUS_OPEN);
+		for(ApiIssue__c issue : (List<ApiIssue__c>)new SEL_ApiIssue().findById(issueIds))
+		{
+			Assert.isNull(issue.ResolvedDate__c, 'Expected issue ' + issue.Id + ' to get no resolved date');
+		}
+		List<LogEntry__c> warnings = new SEL_LogEntry().findAllByMethod(PROCESSOR_LOG_LOCATION);
+		Assert.areEqual(1, warnings.size(), 'Expected exactly one warning from the job');
+		Assert.isTrue
+				(
+						warnings.get(0).ShortMessage__c.startsWith(MOCK_ANSWERED_INBOUND_ISSUE_COUNT + MOCK_ANSWERED_WARNING_PHRASE),
+						'Expected the count of both issues a mock answered, got ' + warnings.get(0).ShortMessage__c
+				);
 	}
 
 	/**

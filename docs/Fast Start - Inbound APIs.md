@@ -6,59 +6,45 @@ navOrder: 34
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-**What this is:** A way to build a Salesforce REST endpoint that receives data from an outside system (a website form, a partner system, another app), checks the data, saves a record, and returns a clean response. **Why it matters:** Hand-rolled REST endpoints usually scatter logging, validation, and error handling across each one, so they drift apart and break differently. Here those are built in, so every endpoint behaves the same. **Who should follow this:** developers building integrations, and tech leads who want consistent, testable inbound APIs. **When to use it:** any time an external system needs to send data into Salesforce. If you only need a single, one-off endpoint with no logging or validation, a plain `@RestResource` class is simpler; the framework earns its keep once you have several endpoints that should all behave the same way.
+- **What this is:** A way to build a Salesforce REST endpoint that receives data from an outside system (a website form, a partner system, another app), checks the data, saves a record, and returns a clean response.
+- **Why it matters:** Hand-rolled REST endpoints usually scatter logging, validation, and error handling across each one, so they drift apart and break differently. Here those are built in, so every endpoint behaves the same.
+- **Who should follow this:** developers building integrations, and tech leads who want consistent, testable inbound APIs.
+- **When to use it:** any time an external system needs to send data into Salesforce. KernDX expects every endpoint you expose to go through it, a single one-off endpoint too, so every request is logged, checked and masked the same way.
+- **What you'll build:** A REST API endpoint that receives JSON from external systems, validates the data,
+  creates a Salesforce record, and returns a structured response.
+- **Success looks like:** You POST JSON to your endpoint, see a response with the new record ID, and the call
+  is logged in the Kern app's **API Calls** tab, with 100% test coverage.
+- **In one line:** `kern.API_Dispatcher.processInboundService(API_ContactFormSubmit.class.getName());` is the only line in the
+  REST resource; all logic lives in the handler class.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A REST API endpoint that receives JSON from external systems, validates the data,
-creates a Salesforce record, and returns a structured response.
+## Quick Navigation
 
-**Success looks like:** You POST JSON to your endpoint, see a response with the new record ID, and the call
-is logged in the Kern app's **API Calls** tab, with 100% test coverage.
-
-**In one line:** `kern.API_Dispatcher.processInboundService(API_ContactFormSubmit.class.getName());` is the only line in the
-REST resource; all logic lives in the handler class.
+| I need to...                                          | Go to...                                                                          |
+|-------------------------------------------------------|-----------------------------------------------------------------------------------|
+| See an endpoint work with no code                     | [Call the Echo API](#call-the-echo-api)                                           |
+| Understand why an endpoint has two classes            | [How It Works (Two-Class Architecture)](#how-it-works-two-class-architecture)     |
+| Build my own endpoint                                 | [Step 1: Create the REST Routing Class](#step-1-create-the-rest-routing-class)    |
+| Tell the framework which class serves which URL       | [Step 3: Register Metadata](#step-3-register-metadata)                            |
+| Test my endpoint                                      | [Step 5: Write Tests](#step-5-write-tests)                                        |
+| Keep passwords and card numbers out of the call logs  | [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)       |
+| Keep an endpoint switched off until I turn it on      | [Feature Flag Gating](#feature-flag-gating)                                       |
+| Serve several HTTP methods on one URL                 | [Multiple HTTP Methods on One URL](#multiple-http-methods-on-one-url)             |
+| Stop a repeated request creating two records          | [Idempotency](#idempotency)                                                       |
+| Remove the example from my org                        | [Clean up](#clean-up)                                                             |
+| Fix an error from a step                              | [Common Issues](#common-issues)                                                   |
 
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-    - [Call the Echo API](#call-the-echo-api)
-3. [How It Works (Two-Class Architecture)](#how-it-works-two-class-architecture)
-4. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
-    - [Step 1: Create the REST Routing Class](#step-1-create-the-rest-routing-class)
-    - [Step 2: Create the API Handler](#step-2-create-the-api-handler)
-    - [Step 3: Register Metadata](#step-3-register-metadata)
-    - [Step 4: Execute](#step-4-execute)
-    - [Step 5: Write Tests](#step-5-write-tests)
-5. [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)
-6. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
-    - [Feature Flag Gating](#feature-flag-gating)
-    - [Multiple HTTP Methods on One URL](#multiple-http-methods-on-one-url)
-    - [Idempotency](#idempotency)
-    - [Clean up](#clean-up)
-7. [Common Issues](#common-issues)
-    - [Step 4: Execute](#step-4-execute-1)
-    - [Feature Flag Gating](#feature-flag-gating-1)
-8. [What You Now Know](#what-you-now-know)
-9. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
@@ -84,8 +70,7 @@ You should see this reply, whose line reads `"message": "Hello from Salesforce"`
 }
 ```
 
-The Echo endpoint received your JSON, processed it through the framework, and echoed it back. Behind the scenes,
-the framework:
+Behind the scenes, the framework:
 
 - Parsed the request body into a DTO (a small class holding exactly the fields to move in or out, that converts itself to and from JSON)
 - Ran validation (non-blank body required)
@@ -365,9 +350,9 @@ Something went wrong? See [Common Issues](#common-issues).
 
 ### Step 3: Register Metadata
 
-The framework needs to know which handler class serves which URL. You tell it by creating one configuration record
-(an `ApiSetting__mdt`) instead of wiring it in code, so you can add or change endpoints without a redeploy. You
-create the record in Setup, then pull it into your project so it is under source control with your code.
+One configuration record (an `ApiSetting__mdt`) tells the framework which handler class serves which URL. It is a
+record, not code, so you can add or change endpoints without a redeploy. You create the record in Setup, then pull
+it into your project so it is under source control with your code.
 
 **1. In Salesforce**, open Setup, then Custom Metadata Types, then **API Setting**, then **Manage API Settings**, then
 **New**, and save a record with these values:
@@ -417,14 +402,14 @@ You should see a reply like this one, with `"success": true` and your org's own 
 }
 ```
 
-> **See it in the org:** Open **App Launcher > Kern > API Calls** tab and select the **All** list view.
-> You'll see your call logged with the full request/response details, status, and timing.
+> **See it in the org:** your call is on the **API Calls** tab too, in the **All** list view, as in
+> [Tier 1](#call-the-echo-api).
 
 **Why it works, the key patterns:**
 
 - **`configure()`**: always call `super.configure()` first, then set `requestPayload` and `responsePayload`
 - **`getValidationErrors()`**: return error messages; an empty list means validation passed, and the framework aborts the call if the list is non-empty.
-- **`onSuccess()`**: use inherited `doInsert()`/`doUpdate()`/`doDelete()` (NOT direct DML). The framework commits
+- **`onSuccess()`**: use inherited `doInsert()`/`doUpdate()`/`doDelete()`, not direct DML. The framework commits
   all the changes together after processing.
 - **`updateResponseDTO()`**: runs after the database commit, so the new record IDs are available
 - **`@JsonAccess`**: required on all DTOs in a managed package context
@@ -539,7 +524,9 @@ Something went wrong? See [Common Issues](#common-issues).
 
 ## Sensitive data is masked by default
 
-Logging every call is useful, but you don't want a logged audit record to become the place a password or card number leaks. To avoid that, every inbound request and response is captured to `ApiCall__c` for audit, and the request body, response body, URL, and parameters are first run through the data masking framework, which redacts sensitive values before they are saved. Out of the box, three rules fire:
+Every inbound request and response is captured to `ApiCall__c` for audit, and the request body, response body, URL, and parameters are first run through the data masking framework, which redacts sensitive values before they are saved. So a logged audit record never becomes the place a password or card number leaks.
+
+Out of the box, three rules fire:
 
 - **`MaskSecretKeys`**: redacts common secret JSON keys (`password`, `token`, `apiKey`, `authorization`, `bearer`, `client_secret`, `private_key`, `access_token`,
   `refresh_token`).
@@ -554,7 +541,7 @@ Fourteen more rules ship as inactive templates: SSN, IBAN, SWIFT/BIC, MBI, healt
 free text, and international phone. To turn one on, set `kern__MaskingRule__mdt.IsActive__c = true` and add a `kern__MaskingTarget__mdt` record wiring the rule to the field(s)
 that need it.
 
-If a sensitive value still appears raw on `ApiCall__c`, the field is not covered by a masking target, or its rule is
+**A sensitive value still appears raw on `ApiCall__c`?** The field is not covered by a masking target, or its rule is
 inactive. Add a `kern__MaskingTarget__mdt` record with the rule, `kern__SObjectType__c = ApiCall__c`, and a `kern__Field__c`
 (blank for wildcard); see the [Web Services Guide](Web%20Services%20-%20Guide.md).
 
@@ -564,10 +551,10 @@ inactive. Add a `kern__MaskingTarget__mdt` record with the rule, `kern__SObjectT
 
 ### Feature Flag Gating
 
-Sometimes you want an endpoint deployed but switched off until you decide to turn it on, for example during a phased
-rollout. You can do that without touching code: point the Required Feature Flag (`kern__RequiredFeatureFlag__c`) field on
-your `ApiSetting__mdt` record at a [Feature Flag](Fast%20Start%20-%20Feature%20Flags.md). When the flag is not
-enabled, the framework aborts the request automatically.
+Point the Required Feature Flag (`kern__RequiredFeatureFlag__c`) field on your `ApiSetting__mdt` record at a
+[Feature Flag](Fast%20Start%20-%20Feature%20Flags.md). When the flag is not enabled, the framework aborts the request
+automatically. That keeps an endpoint deployed but switched off until you decide to turn it on, for example during a
+phased rollout, without touching code.
 
 #### Deploy a feature-flagged API
 
@@ -627,9 +614,10 @@ JSON array:
 ]
 ```
 
-Enable the flag (check **Is Enabled By Default**, `kern__IsEnabledByDefault__c`, or create a strategy) and the API starts accepting
-requests again. Use **Bypass Feature Flag** (`kern__BypassFeatureFlag__c`) instead for a kill-switch (a master off-switch you can flip in an incident
-without a deployment): the service is bypassed when the flag is **enabled**.
+- **To accept requests again:** enable the flag (check **Is Enabled By Default**, `kern__IsEnabledByDefault__c`, or
+  create a strategy).
+- **For a kill-switch** (a master off-switch you can flip in an incident without a deployment): use **Bypass Feature
+  Flag** (`kern__BypassFeatureFlag__c`) instead. The service is bypassed when the flag is **enabled**.
 
 Something went wrong? See [Common Issues](#feature-flag-gating-1).
 
@@ -664,9 +652,9 @@ global inherited sharing class REST_ContactForm
 
 ### Idempotency
 
-A flaky network or an over-eager retry can send the same request twice and create two records when the caller meant
-one. You switch idempotency on for the endpoint with **Idempotency Enabled** (`kern__IdempotencyEnabled__c`) on its
-`ApiSetting__mdt` record.
+Switch idempotency on for the endpoint with **Idempotency Enabled** (`kern__IdempotencyEnabled__c`) on its
+`ApiSetting__mdt` record. Without it, a flaky network or an over-eager retry can send the same request twice and
+create two records when the caller meant one.
 
 **1. In Salesforce**, open Setup, then Custom Metadata Types, then **API Setting**, then **Manage API Settings**, then
 **Edit** beside `Contact Form Submit`, set this value and save:
@@ -721,17 +709,21 @@ in, the wrong folder)? Those are answered once, in
 
 #### `Duplicate Alert`
 
-The call fails with a reply whose first line of text is `Duplicate Alert`. A Lead with the same name and email
-already exists (for example from an earlier run of this step), and your org's duplicate rule for Leads blocks the new one. Delete
-the earlier Lead from the **Leads** tab, or change the email in the body, and call again.
+The call fails with a reply whose first line of text is `Duplicate Alert`.
+
+- **Cause:** a Lead with the same name and email already exists (for example from an earlier run of this step), and
+  your org's duplicate rule for Leads blocks the new one.
+- **Fix:** delete the earlier Lead from the **Leads** tab, or change the email in the body, and call again.
 
 #### `Unable to resolve type for class "API_ContactFormSubmit"`
 
-The call fails with this message. The handler class is `public`, and the framework cannot see a `public` class in
-your org. Make the class `global` as Step 2 shows, or set up a Type Resolver so the framework knows where to look
-([details](Utilities%20-%20Guide.md#type-resolution-util_typeresolver)). If the message names
-`API_ContactFormSubmit.DTO_Request` and asks for `getObjectType()`, it is the request class inside the handler that is
-`public`: make it `global`.
+The call fails with this message.
+
+- **Cause:** the handler class is `public`, and the framework cannot see a `public` class in your org.
+- **Fix:** make the class `global` as Step 2 shows, or set up a Type Resolver so the framework knows where to look
+  ([details](Utilities%20-%20Guide.md#type-resolution-util_typeresolver)).
+- **The message names `API_ContactFormSubmit.DTO_Request` and asks for `getObjectType()`?** Then it is the request
+  class inside the handler that is `public`: make it `global`.
 
 #### `Type cannot be deserialized`
 
@@ -750,10 +742,13 @@ shows.
 #### The call succeeds while the flag is off
 
 The Verify call creates a Lead instead of being turned away. The framework ran the call with no flag to check, for
-one of two reasons. Either the record's **Class Name** (`kern__ClassName__c`) does not match your simple class name,
-so the framework did not find your `ApiSetting__mdt` record, or the record's **Required Feature Flag** was left empty,
-so there is no flag for it to check. Set the value that is wrong as Step 3 or Feature Flag Gating shows, then call
-again.
+one of two reasons:
+
+- the record's **Class Name** (`kern__ClassName__c`) does not match your simple class name, so the framework did not
+  find your `ApiSetting__mdt` record;
+- the record's **Required Feature Flag** was left empty, so there is no flag for it to check.
+
+Set the value that is wrong as Step 3 or Feature Flag Gating shows, then call again.
 
 Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?template=bug_report.md&title=%5Bdocs%5D%20Inbound%20APIs) which step and what you saw.
 
@@ -768,14 +763,10 @@ After completing this guide, you understand the **inbound API architecture** in 
 | **`ApiSetting__mdt`**      | Registers your handler with the framework (class name, direction, endpoint path) |
 | **`ApiCall__c`**           | Automatic logging of every inbound call with request/response details            |
 
-**Key methods you override:**
+**Key methods you override** (`configure()`, `getValidationErrors()`, `onSuccess()`, `updateResponseDTO()`, and
+`@JsonAccess` on every DTO): see [Why it works](#step-4-execute) in Step 4.
 
-- **`configure()`**: set up DTOs (always call `super.configure()` first)
-- **`getValidationErrors()`**: return error messages; the framework aborts if the list is non-empty
-- **`onSuccess()`**: create or update records using `doInsert()`/`doUpdate()` (NOT direct DML)
-- **`updateResponseDTO()`**: build the response after the database commit
-- **`@JsonAccess`**: required on all DTOs in a managed package context
-- **`API_InboundTestHelper`**: one-line test assertions for success, abort, and failure paths
+**For tests:** `API_InboundTestHelper` gives one-line test assertions for success, abort, and failure paths.
 
 ---
 

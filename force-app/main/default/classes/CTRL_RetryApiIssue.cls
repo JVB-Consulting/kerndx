@@ -9,7 +9,8 @@
  * A resolver sees every issue through the View All Records access of the Kern API Issue Resolver permission set, but
  * holds no edit access to issues. So the one save that marks issues Resolved (markIssuesResolved) ignores record sharing
  * and object access. It runs only after the entry point has checked the Retry API Issue custom permission, and only for
- * issues whose call or replay has just succeeded, or that the user dismissed.
+ * issues whose call or replay has just succeeded, or that the user dismissed. A call or replay answered with mock data
+ * did not reach the other system or the handler, so it does not count as a success, and its issue stays open.
  * The class length warning is turned off on purpose: every way of running an issue again, and the checks they share,
  * belong to this controller, so the code stays here instead of moving to a new class.
  *
@@ -20,7 +21,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity, PMD.CyclomaticComplexity, PMD.ExcessiveClassLength')
 public inherited sharing class CTRL_RetryApiIssue
@@ -116,7 +117,8 @@ public inherited sharing class CTRL_RetryApiIssue
 	 *    They are the same checks Retry Selected and the bulk retry job make, so a request the dispatcher would refuse is
 	 *    not sent only to log a second open issue.
 	 * 4. An inbound issue's request is replayed (see replayInboundCall); an outbound issue's request is sent again (see
-	 *    retryIssue). On success the issue is marked Resolved with the date, even when another user owns it.
+	 *    retryIssue). On success the issue is marked Resolved with the date, even when another user owns it. An answer
+	 *    made of mock data is not a success: the issue stays open.
 	 *
 	 * @param issueId The id of the issue
 	 *
@@ -184,7 +186,8 @@ public inherited sharing class CTRL_RetryApiIssue
 	 * @description Sends an outbound issue's request again, for a user whose permission the caller has checked, after
 	 * the checks made before every run (see RunAgainCheck.findRefusal). The new call links to the issue's call through
 	 * PreviousAttempt__c. When the call succeeds, the issue is marked Resolved with the date; when it fails, the answer
-	 * carries the call's error.
+	 * carries the call's error. A call answered with mock data instead of by the other system did not reach it, so the
+	 * issue stays open and the answer is the labelled line that says so.
 	 *
 	 * @param apiIssue The outbound issue, as the running user can read it
 	 *
@@ -196,6 +199,10 @@ public inherited sharing class CTRL_RetryApiIssue
 		if(!handler.result.isSuccess)
 		{
 			return refuse(handler.errorText);
+		}
+		if(handler.result.isMocked == true)
+		{
+			return refuse(System.Label.RetryApiIssue_AnsweredByMock);
 		}
 
 		markIssuesResolved(new List<ApiIssue__c> {apiIssue});
@@ -261,7 +268,9 @@ public inherited sharing class CTRL_RetryApiIssue
 	 * @description Replays an inbound issue's request using the invoker, after the checks made before every run (see
 	 * RunAgainCheck.findRefusal). Safe Mode is disabled so changes persist on success. On success the issue is marked
 	 * Resolved with the date (markIssuesResolved), even when another user owns it. A failed replay writes no new issue,
-	 * and the issue stays open. Every caller has checked the Retry API Issue custom permission first.
+	 * and the issue stays open. A replay answered with mock data was not processed by the handler. It writes no new issue
+	 * either. The issue stays open, and the answer is the labelled line that says so. Every caller has checked the Retry
+	 * API Issue custom permission first.
 	 *
 	 * @param apiIssue The inbound failure record to replay
 	 * @param request The issue's request, read from its call or, for an issue made by hand, from its own fields
@@ -273,11 +282,14 @@ public inherited sharing class CTRL_RetryApiIssue
 		DTO_Response dtoResponse = new DTO_Response();
 		dtoResponse.callSuccessful = false;
 
-		DTO_InvocationResult invocationResult = API_InboundInvoker.replay(request, false);
+		DTO_InvocationResult invocationResult = replayInboundRequest(apiIssue, request);
 
-		if(invocationResult.success)
+		if(invocationResult.success && invocationResult.isMockedResponse == true)
 		{
-			markIssuesResolved(new List<ApiIssue__c> {apiIssue});
+			dtoResponse.errorMessage = System.Label.RetryApiIssue_ReplayAnsweredByMock;
+		}
+		else if(invocationResult.success)
+		{
 			dtoResponse.callSuccessful = true;
 		}
 		else
@@ -291,11 +303,39 @@ public inherited sharing class CTRL_RetryApiIssue
 	}
 
 	/**
-	 * @description Schedules bulk retry of failures with staggered start using asynchronous processing. An issue the checks
-	 * made before every run refuse (see RunAgainCheck.findRefusal) is not handed to the job and stays open, and neither is
-	 * a request any of whose issues the remote system may already have processed (ExternalSystemMayHaveActed__c). The
-	 * check of an inbound issue reads its call without the body (RequestRead.WITHOUT_BODY), because the service may have
-	 * many open issues; the job reads each request whole and checks it again just before it runs it.
+	 * @description Replays an inbound issue's request using the invoker, and marks the issue Resolved when the handler ran and
+	 * succeeded. A replay answered with mock data resolves nothing. Each caller reads the result to tell the cases apart:
+	 * replayInboundCall turns it into the answer the Retry action shows, and the bulk retry job counts the replays a mock
+	 * answered.
+	 *
+	 * @param apiIssue The inbound failure record to replay
+	 * @param request The issue's request, read from its call or, for an issue made by hand, from its own fields
+	 *
+	 * @return What the replay did, including whether a mock answered it
+	 */
+	private static DTO_InvocationResult replayInboundRequest(ApiIssue__c apiIssue, API_InboundInvoker.InboundRequest request)
+	{
+		DTO_InvocationResult invocationResult = API_InboundInvoker.replay(request, false);
+
+		if(invocationResult.success && invocationResult.isMockedResponse != true)
+		{
+			markIssuesResolved(new List<ApiIssue__c> {apiIssue});
+		}
+
+		return invocationResult;
+	}
+
+	/**
+	 * @description Schedules bulk retry of failures with staggered start using asynchronous processing. The open issues are
+	 * grouped by the request each was logged for, and a request is skipped as a whole when the checks made before every run
+	 * refuse any of its issues (see RunAgainCheck.findRefusal), for example one whose call failed permanently, or when the
+	 * remote system may already have processed any of them (ExternalSystemMayHaveActed__c). These checks cover every open
+	 * issue of each request, including the ones the running user cannot see. A skipped request is not handed to the job,
+	 * and its issues stay open.
+	 *
+	 * The check of an inbound issue reads its call without the body (RequestRead.WITHOUT_BODY), because the service may
+	 * have many open issues; the job reads each request whole and checks it again just before it runs it.
+	 *
 	 * Refuses, with a warn in the log and no job, a user without the Retry API Issue custom permission; the job checks the
 	 * permission again when it runs, as the user who scheduled it.
 	 *
@@ -313,22 +353,35 @@ public inherited sharing class CTRL_RetryApiIssue
 		}
 
 		List<ApiIssue__c> failures = new SEL_ApiIssue().findUnresolvedByService(serviceName);
+		List<ApiIssue__c> unseenIssues = findUnselectedOpenIssuesOfRequests(failures);
+		List<ApiIssue__c> issuesToCheck = new List<ApiIssue__c>(failures);
+		issuesToCheck.addAll(unseenIssues);
 
-		return launchFailureReplay(selectUnflaggedRequests(new RunAgainCheck(failures, RequestRead.WITHOUT_BODY).selectAccepted(failures)), delayMinutes);
+		return launchFailureReplay(selectRequestsToRetry(failures, unseenIssues, new RunAgainCheck(issuesToCheck, RequestRead.WITHOUT_BODY)), delayMinutes);
 	}
 
 	/**
 	 * @description Schedules one background job that sends again the selected issues it can retry, at once. Of the issues
-	 * the ids name, only those still open count as selected. Of those, an issue the checks made before every run refuse
-	 * (see RunAgainCheck.findRefusal: Retry Issues off, the service paused or switched off, the call failed permanently,
-	 * or an inbound issue with no request, or whose call has no hash of a keyed body or a cut address) is not handed to
-	 * the job and stays open. So is any issue of a request one of whose selected issues the remote system may already
-	 * have processed (ExternalSystemMayHaveActed__c). The check of an inbound issue reads its call without the body
-	 * (RequestRead.WITHOUT_BODY), so a large selection does not fill the memory the action may use. So the queued count
-	 * leaves out the issues the job would certainly skip, except an inbound issue whose call no longer holds the body or
-	 * the parameters as they came in: the job reads each request whole just before it runs it, finds that, and skips the
-	 * issue. The job may also skip a few for a call still in progress or a change made in between. Refuses, with a warn
-	 * in the log and no job, a user without the Retry API Issue custom permission.
+	 * the ids name, only those still open count as selected. These are grouped by the request each was logged for. The
+	 * other open issues of the same requests are read too, whoever owns them, even though the operator did not select
+	 * them.
+	 *
+	 * A request is skipped as a whole when the checks made before every run refuse any of its open issues, selected or
+	 * not (see RunAgainCheck.findRefusal: Retry Issues off, the service paused or switched off, the call failed
+	 * permanently, or an inbound issue with no request, or whose call has no hash of a keyed body or a cut address). It
+	 * is also skipped when any of them is marked as possibly processed by the remote system (ExternalSystemMayHaveActed__c).
+	 *
+	 * A skipped request is not handed to the job, its issues stay open and none of them counts as queued. An issue that
+	 * was not selected is never handed to the job and never counted: it can only hold its request back.
+	 *
+	 * The check of an inbound issue reads its call without the body (RequestRead.WITHOUT_BODY), and the other open issues
+	 * of the requests are read with only the fields the checks need, so a large selection does not fill the memory the
+	 * action may use. The queued count leaves out the issues the job would certainly skip, except an inbound issue whose
+	 * call no longer holds the body or the parameters as they came in: the job reads each request whole just before it
+	 * runs it, finds that, and skips the issue. The job may also skip a few for a call still in progress or a change made
+	 * in between.
+	 *
+	 * Refuses, with a warn in the log and no job, a user without the Retry API Issue custom permission.
 	 *
 	 * @param issueIds The ids of the selected issues
 	 *
@@ -356,7 +409,11 @@ public inherited sharing class CTRL_RetryApiIssue
 		}
 		scheduledRetry.selectedCount = openIssues.size();
 
-		List<List<ApiIssue__c>> requestGroups = selectUnflaggedRequests(new RunAgainCheck(openIssues, RequestRead.WITHOUT_BODY).selectAccepted(openIssues));
+		List<ApiIssue__c> unselectedIssues = findUnselectedOpenIssuesOfRequests(openIssues);
+		List<ApiIssue__c> issuesToCheck = new List<ApiIssue__c>(openIssues);
+		issuesToCheck.addAll(unselectedIssues);
+		RunAgainCheck check = new RunAgainCheck(issuesToCheck, RequestRead.WITHOUT_BODY);
+		List<List<ApiIssue__c>> requestGroups = selectRequestsToRetry(openIssues, unselectedIssues, check);
 		for(List<ApiIssue__c> requestIssues : requestGroups)
 		{
 			scheduledRetry.queuedCount += requestIssues.size();
@@ -401,14 +458,50 @@ public inherited sharing class CTRL_RetryApiIssue
 	}
 
 	/**
-	 * @description Groups the issues by the request each was logged for, and keeps the requests none of whose issues the
-	 * remote system may already have processed.
+	 * @description Groups the issues by the request each was logged for, and keeps a request only when the checks accept
+	 * every one of its open issues and none of them is marked as possibly processed by the remote system
+	 * (ExternalSystemMayHaveActed__c).
 	 *
-	 * @param issues The issues to group
+	 * A request is kept or skipped as a whole: if one of its open issues is refused, for example because its call failed
+	 * permanently, no other issue of that request may send it. The job applies the same rule to the issues it was handed when it runs.
+	 *
+	 * The open issues of a request that were not selected are checked too, but they are never handed to the job.
+	 *
+	 * @param issues The issues to group: the issues a kept request hands to the job
+	 * @param unselectedIssues Other open issues of the same requests, checked but never handed to the job
+	 * @param check The checks made before every run, built for both lists
 	 *
 	 * @return The requests a bulk retry may send, one group of issues each
 	 */
-	private static List<List<ApiIssue__c>> selectUnflaggedRequests(List<ApiIssue__c> issues)
+	private static List<List<ApiIssue__c>> selectRequestsToRetry(List<ApiIssue__c> issues, List<ApiIssue__c> unselectedIssues, RunAgainCheck check)
+	{
+		Map<String, List<ApiIssue__c>> issuesByRequestKey = groupByRequestKey(issues);
+		Map<String, List<ApiIssue__c>> unselectedIssuesByRequestKey = groupByRequestKey(unselectedIssues);
+		List<List<ApiIssue__c>> requestGroups = new List<List<ApiIssue__c>>();
+		for(String requestKey : issuesByRequestKey.keySet())
+		{
+			List<ApiIssue__c> requestIssues = issuesByRequestKey.get(requestKey);
+			List<ApiIssue__c> issuesToCheck = new List<ApiIssue__c>(requestIssues);
+			if(unselectedIssuesByRequestKey.containsKey(requestKey))
+			{
+				issuesToCheck.addAll(unselectedIssuesByRequestKey.get(requestKey));
+			}
+			if(!hasAFlaggedIssue(issuesToCheck) && check.selectAccepted(issuesToCheck).size() == issuesToCheck.size())
+			{
+				requestGroups.add(requestIssues);
+			}
+		}
+		return requestGroups;
+	}
+
+	/**
+	 * @description Groups the issues by the request each was logged for (see buildRequestKey), keeping their order.
+	 *
+	 * @param issues The issues to group
+	 *
+	 * @return The issues of each request, by request key
+	 */
+	private static Map<String, List<ApiIssue__c>> groupByRequestKey(List<ApiIssue__c> issues)
 	{
 		Map<String, List<ApiIssue__c>> issuesByRequestKey = new Map<String, List<ApiIssue__c>>();
 		for(ApiIssue__c issue : issues)
@@ -420,15 +513,51 @@ public inherited sharing class CTRL_RetryApiIssue
 			}
 			issuesByRequestKey.get(requestKey).add(issue);
 		}
-		List<List<ApiIssue__c>> requestGroups = new List<List<ApiIssue__c>>();
-		for(List<ApiIssue__c> requestIssues : issuesByRequestKey.values())
+		return issuesByRequestKey;
+	}
+
+	/**
+	 * @description Finds the other open issues of the given issues' requests, whoever owns them
+	 * (SEL_ApiIssue.findOpenOutboundByRequestParametersHashes): the ones the operator did not select, or the running user
+	 * cannot see. Only an outbound issue with a request parameters hash shares its request with other issues (see
+	 * buildRequestKey), so only those are looked up, and nothing is read when there is none.
+	 *
+	 * The read is limited to the given records. A request with no triggering record is found too, as a blank value in the
+	 * list matches an issue with no record. Only the issues whose request key matches are kept.
+	 *
+	 * @param selectedIssues The issues already in hand: the selected open issues, or the unresolved issues of a service
+	 *
+	 * @return The other open issues of the same requests, not one of them in the given list
+	 */
+	private static List<ApiIssue__c> findUnselectedOpenIssuesOfRequests(List<ApiIssue__c> selectedIssues)
+	{
+		Set<String> serviceNames = new Set<String>();
+		Set<String> requestParametersHashes = new Set<String>();
+		Set<String> triggeringRecordValues = new Set<String>();
+		for(ApiIssue__c issue : selectedIssues)
 		{
-			if(!hasAFlaggedIssue(requestIssues))
+			if(issue.Direction__c != SEL_ApiCall.TYPE_INBOUND && String.isNotBlank(issue.RequestParametersHash__c))
 			{
-				requestGroups.add(requestIssues);
+				serviceNames.add(issue.ServiceName__c);
+				requestParametersHashes.add(issue.RequestParametersHash__c);
+				triggeringRecordValues.add(issue.TriggeringRecordId__c);
 			}
 		}
-		return requestGroups;
+		List<ApiIssue__c> unselectedIssues = new List<ApiIssue__c>();
+		if(requestParametersHashes.isEmpty())
+		{
+			return unselectedIssues;
+		}
+		Map<String, List<ApiIssue__c>> selectedIssuesByRequestKey = groupByRequestKey(selectedIssues);
+		Set<Id> selectedIssueIds = UTIL_SObject.extractIds(selectedIssues);
+		for(ApiIssue__c issue : new SEL_ApiIssue().findOpenOutboundByRequestParametersHashes(serviceNames, requestParametersHashes, triggeringRecordValues))
+		{
+			if(!selectedIssueIds.contains(issue.Id) && selectedIssuesByRequestKey.containsKey(buildRequestKey(issue)))
+			{
+				unselectedIssues.add(issue);
+			}
+		}
+		return unselectedIssues;
 	}
 
 	/**
@@ -558,9 +687,9 @@ public inherited sharing class CTRL_RetryApiIssue
 		 */
 		public Id jobId;
 		/**
-		 * @description How many selected issues were handed to the job: each was open, not marked as possibly processed by
-		 * the remote system and, for an outbound issue, of a service that accepts retries, when the selection was read. The
-		 * job checks them again when it runs and may still skip a few.
+		 * @description How many selected issues were handed to the job: the issues of each request kept. A request is kept
+		 * when every open issue of it passed the checks made before every run and none was marked as possibly processed by
+		 * the remote system. The job checks them again when it runs and may still skip a few.
 		 */
 		public Integer queuedCount;
 		/**
@@ -584,22 +713,34 @@ public inherited sharing class CTRL_RetryApiIssue
 		 * @description The warning that follows the count of issues the job skipped because the remote system may already
 		 * have processed their request.
 		 */
-		private final String skippedWarning = ' failure replay(s) skipped: the remote system may already have processed the request; '
+		private final String skippedWarning = ' API issue(s) skipped: the remote system may already have processed the request; '
 				+ 'run them from the API Issue list if you choose to';
 
 		/**
 		 * @description The warning that follows the count of issues the job skipped because a call for the same request or
 		 * record is still in progress.
 		 */
-		private final String openCallWarning = ' failure replay(s) skipped: a call for the same request or record is still in progress; '
+		private final String openCallWarning = ' API issue(s) skipped: a call for the same request or record is still in progress; '
 				+ 'run them again when it has finished';
 
 		/**
 		 * @description The warning that follows the count of issues the job did not run because the checks made before
 		 * every run refused them.
 		 */
-		private final String refusedWarning = ' failure replay(s) skipped: Retry Issues is off, the service is paused, the call failed permanently, '
+		private final String refusedWarning = ' API issue(s) skipped: Retry Issues is off, the service is paused, the call failed permanently, '
 				+ 'or the call no longer holds the request as it was received; open the issue and press Retry to see which';
+
+		/**
+		 * @description The warning that follows the count of issues the job left open because their call was answered with
+		 * mock data instead of by the other system.
+		 */
+		private final String mockAnsweredWarning = ' API issue(s) not resolved: the call was answered with mock data, not by the other system; '
+				+ 'run them again when mock answers are turned off';
+
+		/**
+		 * @description How many issues of the current run stayed open because their call was answered with mock data.
+		 */
+		private Integer mockAnsweredCount = 0;
 
 		/**
 		 * @description How many issues of the current run were no longer open when the job ran.
@@ -644,11 +785,12 @@ public inherited sharing class CTRL_RetryApiIssue
 			if(!hasRetryPermission())
 			{
 				LOG_Builder.build()
-						.warn(issueIds.size() + ' failure replay(s) refused: ' + MISSING_PERMISSION_REASON)
+						.warn(issueIds.size() + ' API issue(s) refused: ' + MISSING_PERMISSION_REASON)
 						.emitAt(logLocation);
 				return;
 			}
 
+			mockAnsweredCount = 0;
 			noLongerOpenCount = 0;
 			skippedCount = 0;
 			refusedCount = 0;
@@ -689,9 +831,9 @@ public inherited sharing class CTRL_RetryApiIssue
 		}
 
 		/**
-		 * @description Logs at warn, one entry per reason, how many issues of the current run were not run: the remote
-		 * system may already have processed the request, the checks made before every run refused it, or the issue was no
-		 * longer open. A reason with no issue logs nothing.
+		 * @description Logs at warn, one entry per reason, how many issues of the current run were not run or not resolved:
+		 * the remote system may already have processed the request, the checks made before every run refused it, the issue
+		 * was no longer open, or the call was answered with mock data. A reason with no issue logs nothing.
 		 */
 		private void logSkippedIssueCounts()
 		{
@@ -705,7 +847,11 @@ public inherited sharing class CTRL_RetryApiIssue
 			}
 			if(noLongerOpenCount > 0)
 			{
-				LOG_Builder.build().warn(noLongerOpenCount + ' failure replay(s) skipped: the issue was no longer open when the job ran').emitAt(logLocation);
+				LOG_Builder.build().warn(noLongerOpenCount + ' API issue(s) skipped: the issue was no longer open when the job ran').emitAt(logLocation);
+			}
+			if(mockAnsweredCount > 0)
+			{
+				LOG_Builder.build().warn(mockAnsweredCount + mockAnsweredWarning).emitAt(logLocation);
 			}
 		}
 
@@ -750,11 +896,12 @@ public inherited sharing class CTRL_RetryApiIssue
 		/**
 		 * @description Sends each outbound request again in one dispatch, one call per request from the first of its issues,
 		 * then marks Resolved with the date (markIssuesResolved), in one update, every issue of each request whose call
-		 * succeeded, whoever owns it; the job has checked the Retry API Issue custom permission and the checks made before
-		 * every run before it gets here. Each new call links to the call of the request's first issue through
-		 * PreviousAttempt__c. A request any of whose issues has its own call, or a call for its record, still in progress or
-		 * waiting to be sent is not sent, its issues stay open and are counted at warn, so the job never sends a request
-		 * that is already on its way.
+		 * succeeded, whoever owns it. A call answered with mock data instead of by the other system does not count as a
+		 * success: its issues stay open and are counted at warn. The job has checked the Retry API Issue custom permission
+		 * and the checks made before every run before it gets here. Each new call links to the call of the request's first
+		 * issue through PreviousAttempt__c. A request any of whose issues has its own call, or a call for its record, still
+		 * in progress or waiting to be sent is not sent, its issues stay open and are counted at warn, so the job never
+		 * sends a request that is already on its way.
 		 *
 		 * @param requestGroups The outbound issues to send again, one group per request
 		 */
@@ -774,7 +921,16 @@ public inherited sharing class CTRL_RetryApiIssue
 			List<ApiIssue__c> resolvedIssues = new List<ApiIssue__c>();
 			for(Integer index = 0; index < retryCalls.size(); index++)
 			{
-				if(isSuccessfulCall(handlers, retryCalls.get(index)))
+				API_Base handler = findHandlerOfCall(handlers, retryCalls.get(index));
+				if(handler?.result?.isSuccess != true)
+				{
+					continue;
+				}
+				if(handler.result.isMocked == true)
+				{
+					mockAnsweredCount += groupsToSend.get(index).size();
+				}
+				else
 				{
 					resolvedIssues.addAll(groupsToSend.get(index));
 				}
@@ -825,9 +981,16 @@ public inherited sharing class CTRL_RetryApiIssue
 
 		/**
 		 * @description Finds the issues that have a call still in progress or waiting to be sent: their own call, or any
-		 * call made for their record, whoever started it. A triggering record id that is not a valid id names no record, so
-		 * only the issue's own call is looked at for it. Each read runs only when there is something to look up. Call ids and
-		 * record ids are held in one set, as no two records share an id.
+		 * call made for their record, whoever started it.
+		 *
+		 * The Triggering Record ID can hold text that is not a record id, such as an order number. Then an open call with the
+		 * same text also holds the issue back. Upper and lower case must be the same.
+		 *
+		 * Some values of exactly 15 letters and digits are also accepted as a record id in its short form. Such a value is
+		 * checked both ways: as a record id, and as the same 15 characters of text.
+		 *
+		 * Each read runs only when there is something to look up. Call ids and record ids are held in one set, as no two
+		 * records share an id.
 		 *
 		 * @param issues The outbound issues the job is about to send
 		 *
@@ -851,10 +1014,12 @@ public inherited sharing class CTRL_RetryApiIssue
 			{
 				idsWithAnOpenCall.addAll(UTIL_SObject.extractIds(new SEL_ApiCall().findOpenByTriggeringRecordIds(recordIds), ApiCall__c.TriggeringRecordId__c));
 			}
+			Set<String> textValuesWithAnOpenCall = findTextValuesWithAnOpenCall(issues);
 			Set<Id> issueIdsWithAnOpenCall = new Set<Id>();
 			for(ApiIssue__c issue : issues)
 			{
-				if(idsWithAnOpenCall.contains(issue.ApiCall__c) || idsWithAnOpenCall.contains(UTIL_SObject.validateId(issue.TriggeringRecordId__c)))
+				if(idsWithAnOpenCall.contains(issue.ApiCall__c) || idsWithAnOpenCall.contains(UTIL_SObject.validateId(issue.TriggeringRecordId__c))
+						|| textValuesWithAnOpenCall.contains(issue.TriggeringRecordId__c))
 				{
 					issueIdsWithAnOpenCall.add(issue.Id);
 				}
@@ -863,30 +1028,65 @@ public inherited sharing class CTRL_RetryApiIssue
 		}
 
 		/**
-		 * @description Checks whether the handler that holds a call record finished it successfully. The dispatcher returns
-		 * no handler for a call it deferred past the callout budget or could not match to a service, so a handler is found
-		 * by the record it holds, never by its position.
+		 * @description Finds which Triggering Record ID texts of the issues have an open call that holds the same text, with
+		 * the same upper and lower case. It looks at the values that are not record ids, and at values of exactly 15 letters
+		 * and digits, which may be record ids or text.
+		 *
+		 * It reads nothing when no issue has such a value.
+		 *
+		 * @param issues The outbound issues the job is about to send
+		 *
+		 * @return The texts that an open call holds
+		 */
+		private Set<String> findTextValuesWithAnOpenCall(List<ApiIssue__c> issues)
+		{
+			Set<String> textValues = new Set<String>();
+			for(ApiIssue__c issue : issues)
+			{
+				String triggeringRecordValue = issue.TriggeringRecordId__c;
+				if(String.isNotBlank(triggeringRecordValue)
+						&& (UTIL_SObject.validateId(triggeringRecordValue) == null || triggeringRecordValue.length() == SEL_ApiCall.SHORT_RECORD_ID_LENGTH))
+				{
+					textValues.add(triggeringRecordValue);
+				}
+			}
+			Set<String> textValuesWithAnOpenCall = new Set<String>();
+			if(!textValues.isEmpty())
+			{
+				for(ApiCall__c openCall : new SEL_ApiCall().findOpenByTriggeringRecordValues(textValues))
+				{
+					textValuesWithAnOpenCall.add(openCall.TriggeringRecordId__c);
+				}
+			}
+			return textValuesWithAnOpenCall;
+		}
+
+		/**
+		 * @description Finds the handler that holds a call record. The dispatcher returns no handler for a call it deferred
+		 * past the callout budget or could not match to a service, so a handler is found by the record it holds, never by
+		 * its position.
 		 *
 		 * @param handlers The handlers the dispatch returned
 		 * @param retryCall The call record sent
 		 *
-		 * @return True when a handler holds the call record and its call succeeded
+		 * @return The handler that holds the call record, or null when no handler holds it
 		 */
-		private Boolean isSuccessfulCall(List<API_Base> handlers, ApiCall__c retryCall)
+		private API_Base findHandlerOfCall(List<API_Base> handlers, ApiCall__c retryCall)
 		{
 			for(API_Base handler : handlers)
 			{
 				if(handler.apiCall === retryCall)
 				{
-					return handler.result?.isSuccess == true;
+					return handler;
 				}
 			}
-			return false;
+			return null;
 		}
 
 		/**
 		 * @description Replays the inbound issues one at a time, deferring the rest when the callout budget is spent. Each
-		 * request was read and checked when the batch started (see RunAgainCheck).
+		 * request was read and checked when the batch started (see RunAgainCheck). A replay answered with mock data resolves
+		 * nothing: the issue stays open and the replay is counted for the warning at the end of the run.
 		 *
 		 * @param issues The inbound issues to replay, each accepted by the checks made before every run
 		 * @param check The checks made for this batch, which hold each issue's request
@@ -899,11 +1099,15 @@ public inherited sharing class CTRL_RetryApiIssue
 				if((hasOutboundWork || index > 0) && API_Dispatcher.isCalloutBudgetExhausted())
 				{
 					LOG_Builder.build()
-							.warn((issues.size() - index) + ' failure replay(s) deferred: callout budget exhausted')
+							.warn((issues.size() - index) + ' API issue(s) deferred: callout budget exhausted')
 							.emitAt(logLocation);
 					break;
 				}
-				replayInboundCall(issues.get(index), check.getStoredRequest(issues.get(index)));
+				DTO_InvocationResult invocationResult = replayInboundRequest(issues.get(index), check.getStoredRequest(issues.get(index)));
+				if(invocationResult.success && invocationResult.isMockedResponse == true)
+				{
+					mockAnsweredCount++;
+				}
 			}
 		}
 	}

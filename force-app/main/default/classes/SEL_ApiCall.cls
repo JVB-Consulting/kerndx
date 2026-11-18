@@ -4,13 +4,14 @@
  * service call management, status tracking, and assertion utilities for test verification.
  *
  * @see SEL_Base
+ * @see SEL_ApiIssue
  * @see SEL_ApiCall_TEST
  *
  * @author Jason van Beukering
  *
  * @group Web Services
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -48,6 +49,11 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	 * @description The maximum number of characters that can be stored in the URL__c field.
 	 */
 	public static final Integer URL_LENGTH = UTIL_SObjectDescribe.getCachedFieldDescribe(ApiCall__c.URL__c).getLength();
+	/**
+	 * @description The length of a record Id in its short form. A Triggering Record ID of this length can be a record Id or
+	 * plain text. When it is accepted as a record Id, it is looked up both as a record Id and as text.
+	 */
+	public static final Integer SHORT_RECORD_ID_LENGTH = 15;
 
 	/**
 	 * @description Status indicating the API call was aborted. Mirrors the `Aborted` value of the
@@ -140,8 +146,50 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	private static final List<String> OPEN_STATUSES = new List<String> {STATUS_BATCHED, STATUS_PROCESSING, STATUS_QUEUED, STATUS_RETRY, STATUS_RETRYING};
 
 	/**
-	 * @description Reads ApiCall__c records: the record kept for each web service call, inbound or outbound. Every query skips the running user's object and field permission
-	 * checks (system mode). Record sharing follows the class that calls the selector, unless a method says otherwise. Creating the selector runs no query.
+	 * @description The message of the error thrown when the set of values to search for is null.
+	 */
+	private static final String ERROR_NULL_SEARCH_VALUES = 'The set of values to search for cannot be null';
+
+	/**
+	 * @description The message of the error thrown when the row limit is null or less than 1.
+	 */
+	private static final String ERROR_ROW_LIMIT_TOO_LOW = 'The row limit must be 1 or more';
+
+	/**
+	 * @description The fields the finders by triggering record return: small fields that say which call it is and how
+	 * it went, and no request or response.
+	 */
+	private static final List<SObjectField> SUMMARY_FIELDS = new List<SObjectField>
+	{
+			ApiCall__c.CreatedDate,
+			ApiCall__c.ServiceName__c,
+			ApiCall__c.Status__c,
+			ApiCall__c.TriggeringRecordIndex__c
+	};
+
+	/**
+	 * @description The fields the reads of the outbound retry watchdog return: the fields the watchdog uses to judge a
+	 * call, change it and raise its API issue. They leave out the request and the response, which can each hold 131,072
+	 * characters. One run reads up to 50 calls of each kind, so with those two fields a run could pass the memory limit
+	 * of a scheduled job.
+	 */
+	private static final List<SObjectField> WATCHDOG_FIELDS = new List<SObjectField>
+	{
+			ApiCall__c.IdempotencyKey__c,
+			ApiCall__c.LastModifiedDate,
+			ApiCall__c.Name,
+			ApiCall__c.NextRetry__c,
+			ApiCall__c.RequestParameters__c,
+			ApiCall__c.ServiceName__c,
+			ApiCall__c.Status__c,
+			ApiCall__c.TriggeringRecordId__c
+	};
+
+	/**
+	 * @description Reads ApiCall__c records: the record kept for each web service call, inbound or outbound. Its queries skip the running user's object and field permission
+	 * checks (system mode), except the two finders by triggering record, findByTriggeringRecordIds and findByTriggeringRecordValues. Those two run in user mode, so they respect
+	 * the running user's object access, field access and record sharing. For the other queries, record sharing follows the class that calls the selector, unless a method says
+	 * otherwise. Creating the selector runs no query.
 	 *
 	 * @since 1.0
 	 *
@@ -203,10 +251,13 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	}
 
 	/**
-	 * @description Framework-owned sObject selector: always runs in `AccessLevel.SYSTEM_MODE`
-	 * regardless of the `UserModeQueries_Enabled` feature flag. Running users typically have no
-	 * CRUD on framework-owned records (the framework owns their lifecycle), so USER_MODE reads
-	 * would return empty and observability would silently break.
+	 * @description Framework-owned sObject selector: its queries run in `AccessLevel.SYSTEM_MODE`
+	 * whatever the `UserModeQueries_Enabled` feature flag says. Running users often have no
+	 * access to framework-owned records (the framework owns their lifecycle), so user mode reads
+	 * would return nothing and the call records would silently disappear from view. The two
+	 * finders by triggering record are the exception: findByTriggeringRecordIds and
+	 * findByTriggeringRecordValues run in user mode, so they respect the running user's object
+	 * access, field access and record sharing.
 	 *
 	 * @return `true`, because this selector requires SYSTEM_MODE.
 	 */
@@ -233,6 +284,199 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	{
 		return query
 				.condition(ApiCall__c.ServiceName__c).equals(serviceName)
+				.toList();
+	}
+
+	/**
+	 * @description Finds the calls made for the given records, newest first, and returns at most rowLimit of them. Calls
+	 * saved at the same moment are ordered by their own Id, newest first, so the order is the same every time.
+	 *
+	 * A call is found by its Triggering Record Index field (TriggeringRecordIndex__c), which holds the record Id exactly
+	 * as it was written on the call. This method finds values stored in the full form of 18 characters, which is the form
+	 * the framework writes. It does not find a value stored in the short form of 15 characters. Code that sets the
+	 * Triggering Record Id field (TriggeringRecordId__c) itself should write the full form, for example
+	 * String.valueOf(recordId).
+	 *
+	 * Each call holds only these fields: Id, ServiceName__c, Status__c, CreatedDate and TriggeringRecordIndex__c. To get
+	 * the request or the response of a call, read that call by its Id.
+	 *
+	 * Triggering Record Index is filled each time a call is saved. A call saved before the field existed has it blank
+	 * until the update script in the release notes is run, and this method does not find it.
+	 *
+	 * The read checks the running user's access. The user needs read access to the API Call object and to each field
+	 * above, and gets only the calls that record sharing lets them see. A user without that object or field access gets
+	 * an error (a QueryException) instead of a result.
+	 *
+	 * In a test, the mocked calls are filtered the way the query filters saved ones: only those whose Triggering
+	 * Record Index holds one of the values come back. A mock is never saved, so Triggering Record Index is not filled
+	 * for it: set it on the mock yourself, because a mock that sets only Triggering Record Id is not found. The match in
+	 * a test is exact, so a value in another case is not found. An answer scripted
+	 * with TST_Mock.registerNext is filtered the same way, so give its mocks the values this method searches for.
+	 *
+	 * @param recordIds The Ids of the records the calls were made for. A null Id in the set is ignored. The set you pass
+	 * is not changed.
+	 * @param rowLimit The most calls to return: 1 or more.
+	 *
+	 * @return The calls found, newest first. An empty list when the set holds no Id; then no query is run.
+	 *
+	 * @throws IllegalArgumentException When recordIds is null, or rowLimit is null or less than 1.
+	 *
+	 * @since 1.12
+	 *
+	 * @example
+	 * ```apex
+	 * List<ApiCall__c> calls = new SEL_ApiCall().findByTriggeringRecordIds(new Set<Id> {accountId}, 10);
+	 * ```
+	 */
+	global List<ApiCall__c> findByTriggeringRecordIds(Set<Id> recordIds, Integer rowLimit)
+	{
+		Set<String> searchValues = getSearchValuesForRecordIds(recordIds, rowLimit);
+		return searchValues.isEmpty() ? new List<ApiCall__c>() : queryByTriggeringRecordIndex(searchValues, rowLimit);
+	}
+
+	/**
+	 * @description Finds the calls with one of the given values in Triggering Record Index (TriggeringRecordIndex__c),
+	 * newest first, and returns at most rowLimit of them. Calls saved at the same moment are ordered by their own Id,
+	 * newest first, so the order is the same every time. Use it when the calls were made for something that is not a
+	 * record in this org, such as an order number from another system; for record Ids, findByTriggeringRecordIds is
+	 * simpler.
+	 *
+	 * Such a value can come from an inbound call, from a call your own code saves, or from an outbound call whose class
+	 * sets requiresTriggeringRecord to false. The call keeps the whole value, up to 80 characters.
+	 *
+	 * Triggering Record Index holds the Triggering Record Id field (TriggeringRecordId__c) exactly as it was written on
+	 * the call. Each value is matched as you write it, but the match ignores upper and lower case: 'ORD-1' also finds a
+	 * call whose Triggering Record Index is 'ord-1'. Do not use this method for record Ids in the short form of 15
+	 * characters: the short forms of two different records can differ only by case, so it could return calls made for
+	 * another record.
+	 *
+	 * Each call holds only these fields: Id, ServiceName__c, Status__c, CreatedDate and TriggeringRecordIndex__c. To get
+	 * the request or the response of a call, read that call by its Id.
+	 *
+	 * Triggering Record Index is filled each time a call is saved. A call saved before the field existed has it blank
+	 * until the update script in the release notes is run, and this method does not find it.
+	 *
+	 * The read checks the running user's access. The user needs read access to the API Call object and to each field
+	 * above, and gets only the calls that record sharing lets them see. A user without that object or field access gets
+	 * an error (a QueryException) instead of a result.
+	 *
+	 * In a test, the mocked calls are filtered the way the query filters saved ones: only those whose Triggering
+	 * Record Index holds one of the values come back. A mock is never saved, so Triggering Record Index is not filled
+	 * for it: set it on the mock yourself, because a mock that sets only Triggering Record Id is not found. The match in
+	 * a test is exact, so a value in another case is not found. An answer scripted
+	 * with TST_Mock.registerNext is filtered the same way, so give its mocks the values this method searches for.
+	 *
+	 * @param values The values to look for. A null or blank value in the set is ignored. The set you pass is not changed.
+	 * @param rowLimit The most calls to return: 1 or more.
+	 *
+	 * @return The calls found, newest first. An empty list when the set holds no value; then no query is run.
+	 *
+	 * @throws IllegalArgumentException When values is null, or rowLimit is null or less than 1.
+	 *
+	 * @since 1.12
+	 *
+	 * @example
+	 * ```apex
+	 * List<ApiCall__c> calls = new SEL_ApiCall().findByTriggeringRecordValues(new Set<String> {'ORD-99182'}, 10);
+	 * ```
+	 */
+	global List<ApiCall__c> findByTriggeringRecordValues(Set<String> values, Integer rowLimit)
+	{
+		Set<String> searchValues = getSearchValuesForTextValues(values, rowLimit);
+		return searchValues.isEmpty() ? new List<ApiCall__c>() : queryByTriggeringRecordIndex(searchValues, rowLimit);
+	}
+
+	/**
+	 * @description Checks the arguments of a finder by record Id and gives the values to search the Triggering Record
+	 * Index field for: the 18-character form of each Id, with null Ids left out, in a new set. The API Issue selector uses
+	 * it too, so both selectors check and search the same way.
+	 *
+	 * @param recordIds The Ids to search for
+	 * @param rowLimit The most rows the finder may return
+	 *
+	 * @return The values to search for; empty when the set holds no Id.
+	 *
+	 * @throws IllegalArgumentException When recordIds is null, or rowLimit is null or less than 1.
+	 */
+	public static Set<String> getSearchValuesForRecordIds(Set<Id> recordIds, Integer rowLimit)
+	{
+		checkSearchArguments(recordIds, rowLimit);
+		Set<String> searchValues = new Set<String>();
+		for(Id recordId : recordIds)
+		{
+			if(recordId != null)
+			{
+				searchValues.add(String.valueOf(recordId));
+			}
+		}
+		return searchValues;
+	}
+
+	/**
+	 * @description Checks the arguments of the finder by values (findByTriggeringRecordValues) and gives the values to search
+	 * the Triggering Record Index field for: each value as written, with null and blank values left out, in a new set. The
+	 * API Issue selector uses it too, so both selectors check and search the same way.
+	 *
+	 * @param values The values to search for
+	 * @param rowLimit The most rows the finder may return
+	 *
+	 * @return The values to search for; empty when the set holds no value.
+	 *
+	 * @throws IllegalArgumentException When values is null, or rowLimit is null or less than 1.
+	 */
+	public static Set<String> getSearchValuesForTextValues(Set<String> values, Integer rowLimit)
+	{
+		checkSearchArguments(values, rowLimit);
+		Set<String> searchValues = new Set<String>();
+		for(String value : values)
+		{
+			if(String.isNotBlank(value))
+			{
+				searchValues.add(value);
+			}
+		}
+		return searchValues;
+	}
+
+	/**
+	 * @description Checks the arguments of the finders by triggering record.
+	 *
+	 * @param searchValues The set of values to search for
+	 * @param rowLimit The most rows to return
+	 *
+	 * @throws IllegalArgumentException When searchValues is null, or rowLimit is null or less than 1.
+	 */
+	private static void checkSearchArguments(Object searchValues, Integer rowLimit)
+	{
+		if(searchValues == null)
+		{
+			throw new IllegalArgumentException(ERROR_NULL_SEARCH_VALUES);
+		}
+		if(rowLimit == null || rowLimit < 1)
+		{
+			throw new IllegalArgumentException(ERROR_ROW_LIMIT_TOO_LOW);
+		}
+	}
+
+	/**
+	 * @description The one query of the finders by triggering record. It runs with the running user's object, field and
+	 * sharing access (user mode), which replaces the system mode this selector uses for its other reads.
+	 *
+	 * @param searchValues The values to look for, none null or blank
+	 * @param rowLimit The most rows to return
+	 *
+	 * @return The calls whose Triggering Record Index matches one of the values, ignoring case, newest first. In a test,
+	 * the mocked calls whose Triggering Record Index matches exactly, cut to the row limit.
+	 */
+	private List<ApiCall__c> queryByTriggeringRecordIndex(Set<String> searchValues, Integer rowLimit)
+	{
+		return query
+				.withUserMode()
+				.onlyFields(SUMMARY_FIELDS)
+				.condition(ApiCall__c.TriggeringRecordIndex__c).isIn(new List<String>(searchValues))
+				.orderBy(ApiCall__c.CreatedDate).descending()
+				.orderBy(ApiCall__c.Id).descending()
+				.withLimit(rowLimit)
 				.toList();
 	}
 
@@ -369,6 +613,43 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 	}
 
 	/**
+	 * @description Finds the open calls whose Triggering Record Id field holds one of the given texts, such as an order
+	 * number from another system. Open means Queued, Processing, Retry, Retrying or Batched. The bulk retry uses it so that
+	 * it does not send a request again while a call for the same text is still on its way.
+	 *
+	 * The match is exact, upper and lower case included: 'AB1' does not find a call for 'ab1'. The database ignores case
+	 * when it compares text, so the method drops the rows that differ only in case after the read.
+	 *
+	 * It reads the Triggering Record Id field itself, not Triggering Record Index. Calls saved before Triggering Record
+	 * Index existed may have that field blank, and a check that missed them would send the request twice.
+	 *
+	 * Bypasses sharing rules for this one read on purpose, as findOpenByTriggeringRecordIds does: the read must see a call
+	 * another user started.
+	 *
+	 * @param triggeringRecordValues The texts to look for, each written exactly as on the call
+	 *
+	 * @return The open calls whose Triggering Record Id field holds one of the texts, with the same case
+	 */
+	public List<ApiCall__c> findOpenByTriggeringRecordValues(Set<String> triggeringRecordValues)
+	{
+		List<ApiCall__c> sameTextCalls = new List<ApiCall__c>();
+		List<ApiCall__c> openCalls = query
+				.bypassSharingInternal()
+				.condition(ApiCall__c.TriggeringRecordId__c).isIn(new List<String>(triggeringRecordValues))
+				.condition(ApiCall__c.Status__c).isIn(OPEN_STATUSES)
+				.withLimit(UTIL_Limits.soqlQueryRows().maximum())
+				.toList();
+		for(ApiCall__c openCall : openCalls)
+		{
+			if(triggeringRecordValues.contains(openCall.TriggeringRecordId__c))
+			{
+				sameTextCalls.add(openCall);
+			}
+		}
+		return sameTextCalls;
+	}
+
+	/**
 	 * @description Finds the calls with the given ids and reads only what each call kept of its request: the address
 	 * with its query string, the HTTP method, the body, the parameters, the Idempotency-Key, the hash of the body as it
 	 * was received, whether the call failed permanently, and the user who sent it (CreatedById), because the request
@@ -452,6 +733,91 @@ global inherited sharing class SEL_ApiCall extends SEL_Base
 				.onlyFields(new List<SObjectField> {ApiCall__c.IsPermanentFailure__c})
 				.condition(ApiCall__c.Id).isIn(new List<Id>(callIds))
 				.withLimit(UTIL_Limits.soqlQueryRows().maximum())
+				.toList();
+	}
+
+	/**
+	 * @description Finds outbound calls at Retry whose NextRetry__c is earlier than the cutoff, oldest retry time first.
+	 * A call at Retry with no NextRetry__c is never found. The outbound retry watchdog reads stale calls through this
+	 * method. Each call has only the fields the watchdog uses (see WATCHDOG_FIELDS), LastModifiedDate among them, because
+	 * the time from the last save to NextRetry__c is the call's last wait. The request and the response are not read.
+	 * Bypasses sharing rules for this one read on purpose: ApiCall__c is Private, and the watchdog must see the calls of
+	 * every user.
+	 *
+	 * @param cutoff Only calls whose retry was due before this time are found.
+	 * @param rowLimit The most calls to return.
+	 *
+	 * @return The calls found.
+	 */
+	public List<ApiCall__c> findOutboundRetryDueBefore(Datetime cutoff, Integer rowLimit)
+	{
+		return findOutboundDueBefore(STATUS_RETRY, cutoff, rowLimit);
+	}
+
+	/**
+	 * @description Finds outbound calls at Retrying whose NextRetry__c is earlier than the cutoff, oldest retry time
+	 * first. A call at Retrying keeps the NextRetry__c of the retry that is sending it, so this finds calls whose retry
+	 * started long ago and has not finished. The outbound retry watchdog reads stale calls through this method. Each
+	 * call has only the fields the watchdog uses (see WATCHDOG_FIELDS): the request and the response are not read.
+	 * Bypasses sharing rules for this one read on purpose: ApiCall__c is Private, and the watchdog must see the calls of
+	 * every user.
+	 *
+	 * @param cutoff Only calls whose retry was due before this time are found.
+	 * @param rowLimit The most calls to return.
+	 *
+	 * @return The calls found.
+	 */
+	public List<ApiCall__c> findOutboundRetryingDueBefore(Datetime cutoff, Integer rowLimit)
+	{
+		return findOutboundDueBefore(STATUS_RETRYING, cutoff, rowLimit);
+	}
+
+	/**
+	 * @description Finds outbound calls at Queued that were last saved before the cutoff, oldest save first. A call
+	 * stays at Queued only until its send starts, so these are calls whose send may never have started. The outbound
+	 * retry watchdog reports them. Each call has only the fields the watchdog uses (see WATCHDOG_FIELDS): the request and
+	 * the response are not read. Bypasses sharing rules for this one read on purpose: ApiCall__c is Private, and the
+	 * watchdog must see the calls of every user.
+	 *
+	 * @param cutoff Only calls last saved before this time are found.
+	 * @param rowLimit The most calls to return.
+	 *
+	 * @return The calls found.
+	 */
+	public List<ApiCall__c> findOutboundQueuedUnchangedSince(Datetime cutoff, Integer rowLimit)
+	{
+		return query
+				.bypassSharingInternal()
+				.onlyFields(WATCHDOG_FIELDS)
+				.condition(ApiCall__c.Direction__c).equals(TYPE_OUTBOUND)
+				.condition(ApiCall__c.Status__c).equals(STATUS_QUEUED)
+				.condition(ApiCall__c.LastModifiedDate).lessThan(cutoff)
+				.orderBy(ApiCall__c.LastModifiedDate).ascending()
+				.withLimit(rowLimit)
+				.toList();
+	}
+
+	/**
+	 * @description Finds outbound calls at the given status whose NextRetry__c is earlier than the cutoff, oldest retry
+	 * time first, with only the fields the watchdog uses (see WATCHDOG_FIELDS). A call with no NextRetry__c never
+	 * matches the comparison, so it is never found.
+	 *
+	 * @param status The status of the calls to find.
+	 * @param cutoff Only calls whose retry was due before this time are found.
+	 * @param rowLimit The most calls to return.
+	 *
+	 * @return The calls found.
+	 */
+	private List<ApiCall__c> findOutboundDueBefore(String status, Datetime cutoff, Integer rowLimit)
+	{
+		return query
+				.bypassSharingInternal()
+				.onlyFields(WATCHDOG_FIELDS)
+				.condition(ApiCall__c.Direction__c).equals(TYPE_OUTBOUND)
+				.condition(ApiCall__c.Status__c).equals(status)
+				.condition(ApiCall__c.NextRetry__c).lessThan(cutoff)
+				.orderBy(ApiCall__c.NextRetry__c).ascending()
+				.withLimit(rowLimit)
 				.toList();
 	}
 

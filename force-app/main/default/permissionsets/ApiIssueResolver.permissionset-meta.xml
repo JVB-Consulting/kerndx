@@ -154,6 +154,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>ApiCall__c.TriggeringRecordIndex__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>ApiCall__c.TriggeringRecordUrl__c</field>
         <readable>true</readable>
     </fieldPermissions>
@@ -230,6 +235,11 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>ApiIssue__c.TriggeringRecordId__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>ApiIssue__c.TriggeringRecordIndex__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <flowAccesses>

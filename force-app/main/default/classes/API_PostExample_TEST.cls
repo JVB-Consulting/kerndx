@@ -8,7 +8,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(seeAllData=false isParallel=false)
@@ -28,6 +28,16 @@ public class API_PostExample_TEST
 	 * @description A stored timestamp keeps whole seconds.
 	 */
 	private static final Integer ONE_SECOND_TOLERANCE = 1;
+
+	/**
+	 * @description The start of the target of a bypass entry for a system-mode save. The object's name follows it.
+	 */
+	private static final String SYSTEM_MODE_TARGET_PREFIX = 'system-mode:';
+
+	/**
+	 * @description The body a registered mock answers with.
+	 */
+	private static final String MOCK_RESPONSE_BODY = '{"factoryMock":true}';
 
 	/**
 	 * @description To setup the List of API Calls
@@ -163,6 +173,30 @@ public class API_PostExample_TEST
 	}
 
 	/**
+	 * @description A successful call resolves the open issue of the same request with a save in system mode. That save
+	 * is the framework's own, so it writes no bypass entry while logging is on. The dispatcher saves the log entries of
+	 * its calls when it ends, so the test reads the saved entries.
+	 *
+	 * @see API_Outbound.resolveApiIssues
+	 */
+	@IsTest
+	private static void shouldWriteNoBypassEntryWhenAnOutboundIssueIsResolved()
+	{
+		List<ApiCall__c> apiCalls = setup();
+		ApiCall__c apiCall = apiCalls.iterator().next();
+		TST_Factory.insertApiIssue(apiCall, UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c));
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		API_OutboundTestHelper.assertCallSuccessful(apiCalls);
+
+		ApiIssue__c apiIssue = new SEL_ApiIssue().getAll().iterator().next();
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, apiIssue.Status__c, 'Expected the open issue to be resolved, got ' + apiIssue.Status__c);
+		Integer bypassEntries = UTIL_BypassAudit_TEST.countSavedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SYSTEM_MODE_TARGET_PREFIX + String.valueOf(ApiIssue__c.SObjectType));
+		Assert.areEqual(0, bypassEntries, 'Expected no bypass entry for the framework\'s own save of the resolved issue, got ' + bypassEntries);
+	}
+
+	/**
 	 * @description A later successful call resolves every user's open issue for the same request. API issues are Private.
 	 * User A owns the issue that A's failed call logged. User B later sends the same request from a class declared with
 	 * sharing, as a Lightning action would, and the call succeeds. B cannot see A's issue, yet the framework resolves it,
@@ -191,6 +225,63 @@ public class API_PostExample_TEST
 		Assert.isTrue(handlers[0].result.isSuccess, 'Expected the later call to succeed');
 		ApiIssue__c resolvedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id);
 		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, resolvedIssue.Status__c, 'Expected the issue another user owns to be resolved');
+	}
+
+	/**
+	 * @description A later call that is answered by mock data resolves nothing. Mocking is turned on for the service, so
+	 * the call never reaches the other system and its success proves nothing about that system. The open issue logged for
+	 * the same request stays Open, with no resolved date.
+	 *
+	 * @see API_Outbound.resolveApiIssues
+	 * @see API_MockFactory.enableMocking
+	 */
+	@IsTest
+	private static void shouldLeaveTheIssueOpenWhenTheLaterCallIsAnsweredByMockData()
+	{
+		ApiCall__c apiCall = setup().iterator().next();
+		ApiIssue__c apiIssue = TST_Factory.insertApiIssue(apiCall, UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c));
+		API_MockFactory.forService(SERVICE_NAME).body(MOCK_RESPONSE_BODY).statusCode(API_Base.HTTP_OK).register();
+		API_MockFactory.enableMocking(SERVICE_NAME);
+
+		Test.startTest();
+
+		API_Base handler = API_Dispatcher.execute(new List<ApiCall__c> {apiCall}).iterator().next();
+
+		Test.stopTest();
+
+		Assert.isTrue(handler.result.isMocked, 'Expected the later call to be answered by mock data');
+		Assert.isTrue(handler.result.isSuccess, 'Expected the later call to succeed');
+		ApiIssue__c openIssue = (ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id);
+		Assert.areEqual(SEL_ApiIssue.STATUS_OPEN, openIssue.Status__c, 'Expected the issue to stay Open, got ' + openIssue.Status__c);
+		Assert.isNull(openIssue.ResolvedDate__c, 'Expected the open issue to have no resolved date, got ' + openIssue.ResolvedDate__c);
+	}
+
+	/**
+	 * @description A unit test that registers a mock for the service, without turning mocking on, still resolves the open
+	 * issue. The registered mock only stands in for the other system's answer in the test: the call itself runs as a real
+	 * call, so it is not marked as answered by mock data.
+	 *
+	 * @see API_Outbound.resolveApiIssues
+	 * @see API_MockFactory.forService
+	 */
+	@IsTest
+	private static void shouldResolveTheIssueWhenAUnitTestRegistersAMockForTheService()
+	{
+		ApiCall__c apiCall = setup().iterator().next();
+		ApiIssue__c apiIssue = TST_Factory.insertApiIssue(apiCall, UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c));
+		API_MockFactory.forService(SERVICE_NAME).body(MOCK_RESPONSE_BODY).statusCode(API_Base.HTTP_OK).register();
+
+		Test.startTest();
+
+		API_Base handler = API_Dispatcher.execute(new List<ApiCall__c> {apiCall}).iterator().next();
+
+		Test.stopTest();
+
+		Assert.isFalse(handler.result.isMocked, 'Expected the later call not to be marked as answered by mock data');
+		Assert.areEqual(MOCK_RESPONSE_BODY, handler.result.responseBody, 'Expected the registered mock to answer the call');
+		ApiIssue__c resolvedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(apiIssue.Id);
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, resolvedIssue.Status__c, 'Expected the issue to be resolved, got ' + resolvedIssue.Status__c);
+		Assert.isNotNull(resolvedIssue.ResolvedDate__c, 'Expected the resolved issue to carry the time it was resolved');
 	}
 
 	/**

@@ -11,7 +11,7 @@
  *
  * @group DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -509,7 +509,10 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
-	 * @description Enables partial success mode. Failed records do not cause the entire transaction to fail.
+	 * @description Enables partial success mode. Failed records do not cause the entire transaction to fail. An
+	 * exception during the save is not thrown either, and nothing is rolled back: the statements already done stay
+	 * saved, and the statements not yet run do not run. The returned TransactionResult then reports a failure, and
+	 * `getFailureMessage()` gives the reason.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -599,7 +602,7 @@ global inherited sharing class DML_Builder
 
 	/**
 	 * @description Sets record sharing explicitly for a save inside an async job. Only the framework calls this.
-	 * When it is set, `execute()` passes this value to `DML_Transaction.commitWork`, instead of choosing inherited
+	 * When it is set, `execute()` passes this value to `DML_Transaction.commitWorkInternal`, instead of choosing inherited
 	 * sharing or no sharing from the bypass flag. Inside an async job, a class with `inherited sharing` takes its
 	 * sharing from the job, which runs `without sharing`. So the builder made inside the job must set ENFORCE or
 	 * BYPASS itself, and must never use INHERITED there. This call writes no bypass audit entry. If the subscriber
@@ -694,9 +697,27 @@ global inherited sharing class DML_Builder
 	}
 
 	/**
-	 * @description Returns the `AccessLevel` that will be applied when `execute()` runs. When
-	 * `.withUserMode()` or `.withSystemMode()` was called, returns that value. Otherwise returns
-	 * the default that the `UserModeDml_Enabled` flag sets. execute() and async() use it to decide record sharing and
+	 * @description Sets the access level of the save to the exact value a framework job carries. Only the framework
+	 * calls this. `PROC_ExecuteDML` calls it so the save receives the access level its caller chose, unchanged. A user mode
+	 * level that names a permission set is not turned into the default that the
+	 * `UserModeDml_Enabled` flag sets. Inside an async job the value is a new object that the platform rebuilt, so
+	 * code that checks its mode uses `DML_SharingProxy.matchesAccessLevel`, never `==`. Like `systemModeInternal()`,
+	 * this call adds no entry to the bypass audit. Null keeps the flag's default.
+	 *
+	 * @param accessLevel The access level to save with, or null for the flag's default.
+	 *
+	 * @return This builder instance for fluent chaining.
+	 */
+	public DML_Builder withAccessLevelInternal(AccessLevel accessLevel)
+	{
+		this.accessLevel = accessLevel;
+		return this;
+	}
+
+	/**
+	 * @description Returns the `AccessLevel` that will be applied when `execute()` runs. When `.withUserMode()`,
+	 * `.withSystemMode()`, `systemModeInternal()` or `withAccessLevelInternal()` set a value, returns that value.
+	 * Otherwise returns the default that the `UserModeDml_Enabled` flag sets. execute() and async() use it to decide record sharing and
 	 * how a refused save is reported, and tests call it to check the choice.
 	 *
 	 * @return The effective `AccessLevel` for this transaction.
@@ -841,7 +862,7 @@ global inherited sharing class DML_Builder
 	 * returned TransactionResult instead of reaching the caller as an exception. The save's single ERROR entry,
 	 * written in DML_Transaction.commitWork, still records it unless suppressLogging() is also set. In user mode, a
 	 * save refused because the running user lacks the object permission it needs also returns a failed result
-	 * instead of throwing.
+	 * instead of throwing. `getFailureMessage()` on the result gives the reason for the failure.
 	 *
 	 * @return This builder instance for fluent chaining.
 	 *
@@ -989,7 +1010,7 @@ global inherited sharing class DML_Builder
 		dmlTransaction.setAllowPartial(isPartial);
 		dmlTransaction.setSuppressLogging(isSuppressLogging);
 		dmlTransaction.setExpectedRefusalStatusCodes(expectedRefusalStatusCodes);
-		dmlTransaction.setAccessLevel(accessLevel);
+		dmlTransaction.setAccessLevelInternal(accessLevel);
 		dmlTransaction.setRetryOnLock(retriesOnLock);
 
 		for(DTO_Operation operation : operations)
@@ -999,7 +1020,7 @@ global inherited sharing class DML_Builder
 
 		try
 		{
-			dmlTransaction.commitWork(resolveSharingForCommit());
+			dmlTransaction.commitWorkInternal(resolveSharingForCommit());
 		}
 		catch(DmlException error)
 		{
@@ -1021,11 +1042,12 @@ global inherited sharing class DML_Builder
 			throw error;
 		}
 
-		return new TransactionResult(dmlTransaction);
+		return new TransactionResult(dmlTransaction, totalRows);
 	}
 
 	/**
-	 * @description Decides the record sharing value passed to DML_Transaction.commitWork:
+	 * @description Decides the record sharing value passed to DML_Transaction.commitWorkInternal, the commit that writes
+	 * no bypass audit entry of its own, because the builder has already written its entries:
 	 * - The value a framework job set with withSharingEnforcement, when it set one.
 	 * - False after bypassSharing(). In user mode, commitWork then ignores record sharing and keeps the running
 	 *   user's object and field permissions.
@@ -1061,7 +1083,20 @@ global inherited sharing class DML_Builder
 	 */
 	private static Integer countFailedRecords(DmlException error, Integer recordsInSave)
 	{
-		return error.getMessage()?.contains(DML_ROW_ERRORS_PHRASE) == true ? error.getNumDml() : recordsInSave;
+		return hasFailedRows(error) ? error.getNumDml() : recordsInSave;
+	}
+
+	/**
+	 * @description Whether a DmlException holds failed rows. An exception the platform raised does; one built in Apex code
+	 * does not, and asking it for its rows would end the transaction.
+	 *
+	 * @param error The exception to check.
+	 *
+	 * @return True when the exception can be asked for its rows.
+	 */
+	private static Boolean hasFailedRows(DmlException error)
+	{
+		return error.getMessage()?.contains(DML_ROW_ERRORS_PHRASE) == true;
 	}
 
 	/**
@@ -1279,7 +1314,7 @@ global inherited sharing class DML_Builder
 			for(DatabaseOperation operationType : recordsByOperation.keySet())
 			{
 				List<SObject> records = recordsByOperation.get(operationType);
-				PROC_ExecuteDML processor = new PROC_ExecuteDML(operationType, allOrNothing, accessLevel);
+				PROC_ExecuteDML processor = new PROC_ExecuteDML(operationType, allOrNothing).withAccessLevelInternal(accessLevel);
 
 				if(isBypassSharing == true)
 				{
@@ -1343,16 +1378,17 @@ global inherited sharing class DML_Builder
 		private final List<Database.UndeleteResult> undeleteResults;
 
 		/**
-		 * @description The exception suppressExceptions() turned into this failed result, or null when the save ran:
-		 * a DmlException, or the TypeException user mode throws for a missing object permission.
+		 * @description The exception the caller did not see thrown, or null when there was none. It is one of two things: the
+		 * exception suppressExceptions() turned into this failed result (a DmlException, or the TypeException user mode throws for
+		 * a missing object permission), or the exception a partial save caught.
 		 */
 		private final Exception suppressedException;
 
 		/**
-		 * @description How many records failed in the save that suppressExceptions() turned into this failed result. The count is
-		 * read when the exception is caught. For a TypeException it is the number of records the running user lacked the object
-		 * permission for. For a DmlException it is the failed rows the platform reported, or every record in the save when the
-		 * exception holds no rows.
+		 * @description How many records failed in the save that ended in suppressedException. The count is read when the exception
+		 * is caught. For a TypeException under suppressExceptions() it is the number of records the running user lacked the object
+		 * permission for. For a DmlException under suppressExceptions() it is the failed rows the platform reported, or every record
+		 * in the save when the exception holds no rows. For a partial save it is the estimate from countFailuresOfInterruptedSave.
 		 */
 		private final Integer suppressedFailureCount;
 
@@ -1371,19 +1407,21 @@ global inherited sharing class DML_Builder
 		}
 
 		/**
-		 * @description Constructs a TransactionResult from a completed DML_Transaction.
+		 * @description Constructs a TransactionResult from a completed DML_Transaction, with the exception it caught in a
+		 * partial save, if any.
 		 *
 		 * @param dmlTransaction The transaction that was committed.
+		 * @param recordsInSave How many records the save held.
 		 */
-		private TransactionResult(DML_Transaction dmlTransaction)
+		private TransactionResult(DML_Transaction dmlTransaction, Integer recordsInSave)
 		{
 			this.insertResults = dmlTransaction.getInsertResults();
 			this.updateResults = dmlTransaction.getUpdateResults();
 			this.upsertResults = dmlTransaction.getUpsertResults();
 			this.deleteResults = dmlTransaction.getDeleteResults();
 			this.undeleteResults = dmlTransaction.getUndeleteResults();
-			suppressedException = null;
-			suppressedFailureCount = 0;
+			suppressedException = dmlTransaction.getPartialCommitFailure();
+			suppressedFailureCount = suppressedException == null ? 0 : countFailuresOfInterruptedSave(recordsInSave);
 		}
 
 		/**
@@ -1521,11 +1559,6 @@ global inherited sharing class DML_Builder
 		 */
 		global Integer getSuccessCount()
 		{
-			if(suppressedException != null)
-			{
-				return 0;
-			}
-
 			Integer count = 0;
 			for(Database.SaveResult result : insertResults)
 			{
@@ -1568,6 +1601,9 @@ global inherited sharing class DML_Builder
 		/**
 		 * @description Returns the count of failed DML operations across all operation types. For a save that
 		 * `suppressExceptions()` turned into a failed result, every record counts as failed when the exception holds no row details.
+		 * For a partial save stopped by an exception, the count is an estimate, and it is at least 1. It adds the failed rows to
+		 * the records with no result. It can be too low when a child has the same object type as its parent, because the save
+		 * then updates that child a second time, and the extra result hides a record that has none.
 		 *
 		 * @return Number of failed operations.
 		 *
@@ -1584,7 +1620,89 @@ global inherited sharing class DML_Builder
 			{
 				return suppressedFailureCount;
 			}
+			return countFailedRows();
+		}
 
+		/**
+		 * @description Returns why a save failed when no exception reached your code. There are two such cases: a failure that
+		 * `suppressExceptions()` caught, and an exception that stopped a partial save. Neither one gives row results, so
+		 * `getErrors()` does not show it. When a partial save only refuses some rows, this returns null: read each row's reason
+		 * from `getErrors()`. When Salesforce refused the save, this returns the message for the first failed row, without the
+		 * status code.
+		 *
+		 * @return The reason, or null when the save has no such failure.
+		 *
+		 * @since 1.12
+		 *
+		 * @example
+		 * ```apex
+		 * DML_Builder.TransactionResult result = DML_Builder.newTransaction()
+		 *     .doInsert(record)
+		 *     .suppressExceptions()
+		 *     .execute();
+		 * String reason = result.getFailureMessage();
+		 * ```
+		 */
+		global String getFailureMessage()
+		{
+			if(suppressedException instanceof DmlException && hasFailedRows((DmlException)suppressedException))
+			{
+				return ((DmlException)suppressedException).getDmlMessage(0);
+			}
+			return suppressedException?.getMessage();
+		}
+
+		/**
+		 * @description Returns the result of each update in the save. When every updated record is of one object and
+		 * each record is registered with doUpdate only once, the results come in the order the records were registered:
+		 * the result at a position belongs to the record at the same position, so a caller can tell which of its records
+		 * the save accepted and which it refused. In other shapes the positions do not match. Records of several objects
+		 * come back grouped by object. A record registered twice gets one result. A child record of the same object as
+		 * its parent, saved in the same transaction, adds an update of its own. A caller that cannot keep to the simple
+		 * shape matches an accepted row to its record by SaveResult.getId(). The list can be shorter than the records
+		 * registered: when an exception stops a partial save, the records after it have no result. A record with no
+		 * result was not saved. The list is empty when the save had no updates, or when suppressExceptions() turned the
+		 * save into a failed result.
+		 *
+		 * @return The update results, one for each updated record that has a result.
+		 *
+		 * @example
+		 * ```apex
+		 * List<Database.SaveResult> results = DML_Builder.newTransaction()
+		 *     .doUpdate(records)
+		 *     .allowPartial()
+		 *     .execute()
+		 *     .getUpdateResults();
+		 * ```
+		 */
+		public List<Database.SaveResult> getUpdateResults()
+		{
+			return updateResults;
+		}
+
+		/**
+		 * @description Estimates how many records failed in a partial save that an exception stopped. It adds the failed rows to
+		 * the records with no result, which are the records the exception kept from being saved. The estimate is at least 1,
+		 * because the save failed even when there are as many results as records. It can be too low when a child has the same
+		 * object type as its parent, because the save then updates that child a second time and gets one extra result.
+		 *
+		 * @param recordsInSave How many records the save held.
+		 *
+		 * @return The number of records that failed.
+		 */
+		private Integer countFailuresOfInterruptedSave(Integer recordsInSave)
+		{
+			Integer recordsWithResult = insertResults.size() + updateResults.size() + upsertResults.size() + deleteResults.size() + undeleteResults.size();
+			return Math.max(1, countFailedRows() + Math.max(0, recordsInSave - recordsWithResult));
+		}
+
+		/**
+		 * @description Counts the failed rows the results report across all operation types.
+		 *
+		 * @return The number of failed rows.
+		 */
+		private Integer countFailedRows()
+		{
 			Integer count = 0;
 			for(Database.SaveResult result : insertResults)
 			{

@@ -11,7 +11,7 @@
  *
  * @group Async
  *
- * @date July 2026, October 2026
+ * @date July 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)
@@ -180,6 +180,110 @@ private class SEL_AsyncApexJob_TEST
 	}
 
 	/**
+	 * @description Tests that the read by id also returns the job's type, its detailed status message and its chunk
+	 * counts: how many chunks failed, how many there are in all and how many have run. The processor reads them when a
+	 * batch ends to decide whether its finish step may run. The test reads a real batch job of one chunk that ran
+	 * without failing, started through UTIL_AsynchronousJobLauncher, so a field the read does not select throws when
+	 * the test reads it.
+	 */
+	@IsTest
+	private static void findByIdsReturnsTheJobTypeStatusAndChunkCounts()
+	{
+		final Integer oneChunk = 1;
+		final Integer noFailedChunks = 0;
+		final String batchJobType = 'BatchApex';
+
+		UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request =
+				new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(TST_Factory.newFoobars(oneChunk))
+						.withBatchSize(oneChunk)
+						.withExecutionStrategy(IF_Async.AsynchronousExecutionStrategy.BATCH);
+
+		Test.startTest();
+		Id finishedJobId = UTIL_AsynchronousJobLauncher.process(request, new NoOperationProcessable());
+		Test.stopTest();
+
+		List<AsyncApexJob> jobs = new SEL_AsyncApexJob().findByIds(new List<Id> {finishedJobId});
+
+		Assert.areEqual(1, jobs.size(), 'Expected the finished batch job to be found by its id.');
+		Assert.areEqual(batchJobType, jobs[0].JobType, 'Expected the job type to be returned.');
+		Assert.isNull(jobs[0].ExtendedStatus, 'Expected no detailed status message for a job that did not fail.');
+		Assert.areEqual(noFailedChunks, jobs[0].NumberOfErrors, 'Expected the number of failed chunks to be returned.');
+		Assert.areEqual(oneChunk, jobs[0].TotalJobItems, 'Expected the number of chunks in all to be returned.');
+		Assert.areEqual(oneChunk, jobs[0].JobItemsProcessed, 'Expected the number of chunks that have run to be returned.');
+	}
+
+	/**
+	 * @description Tests that the read of live jobs of a class created after a time finds one real waiting job of that
+	 * class, with its class and creation time, and finds nothing for a later time, for another class, or once the jobs
+	 * have finished. Two jobs are waiting, and the read returns only one of them, because its caller needs only the
+	 * newest. The jobs are queueables of this test class, so their class is this test class.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.KernNoRawEnqueueJob')
+	private static void findNewestLiveByApexClassIdCreatedAfterFindsOnlyLaterLiveJobsOfTheClass()
+	{
+		final Integer oneHour = 1;
+		Id testClassId = new SEL_ApexClass().findByQualifiedName(SEL_AsyncApexJob_TEST.class.getName()).Id;
+
+		Test.startTest();
+		Set<Id> waitingJobIds = new Set<Id> {System.enqueueJob(new NoOperationQueueable()), System.enqueueJob(new NoOperationQueueable())};
+
+		AsyncApexJob liveJob = new SEL_AsyncApexJob().findNewestLiveByApexClassIdCreatedAfter(testClassId, Datetime.now().addHours(-oneHour));
+
+		Assert.isNotNull(liveJob, 'Expected one of the two waiting jobs of the class.');
+		Assert.isTrue(waitingJobIds.contains(liveJob.Id), 'Expected a job that was queued.');
+		Assert.areEqual(testClassId, liveJob.ApexClassId, 'Expected the job to carry the id of its class.');
+		Assert.isNotNull(liveJob.CreatedDate, 'Expected the job to carry the time it was created.');
+		Assert.isNull
+				(
+						new SEL_AsyncApexJob().findNewestLiveByApexClassIdCreatedAfter(testClassId, Datetime.now().addHours(oneHour)),
+						'Expected no job created after a later time.'
+				);
+		Assert.isNull
+				(
+						new SEL_AsyncApexJob().findNewestLiveByApexClassIdCreatedAfter(UTIL_Random.randomId(ApexClass.SObjectType), Datetime.now().addHours(-oneHour)),
+						'Expected no job for another class.'
+				);
+		Test.stopTest();
+
+		Assert.isNull
+				(
+						new SEL_AsyncApexJob().findNewestLiveByApexClassIdCreatedAfter(testClassId, Datetime.now().addHours(-oneHour)),
+						'Expected no job once the job has finished.'
+				);
+	}
+
+	/**
+	 * @description Tests that the read of live jobs of a class returns the newest job when there are several. Two live
+	 * jobs are scripted answers (TST_Mock), the older one first, because a test cannot queue two real jobs at different
+	 * times. Only the newer job comes back.
+	 */
+	@IsTest
+	private static void findNewestLiveByApexClassIdCreatedAfterReturnsTheNewestJob()
+	{
+		final Integer twoHoursAgo = -2;
+		final Integer oneHourAgo = -1;
+		final Integer threeHoursAgo = -3;
+		Id senderClassId = UTIL_Random.randomId(ApexClass.SObjectType);
+		String liveStatus = SEL_AsyncApexJob.AsyncApexJobStatus.Processing.name();
+		TST_Mock.of(AsyncApexJob.SObjectType)
+				.withOverride(AsyncApexJob.ApexClassId, senderClassId)
+				.withOverride(AsyncApexJob.Status, liveStatus)
+				.withOverride(AsyncApexJob.CreatedDate, Datetime.now().addHours(twoHoursAgo))
+				.build();
+		AsyncApexJob newerJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
+				.withOverride(AsyncApexJob.ApexClassId, senderClassId)
+				.withOverride(AsyncApexJob.Status, liveStatus)
+				.withOverride(AsyncApexJob.CreatedDate, Datetime.now().addHours(oneHourAgo))
+				.build();
+
+		AsyncApexJob newestJob = new SEL_AsyncApexJob().findNewestLiveByApexClassIdCreatedAfter(senderClassId, Datetime.now().addHours(threeHoursAgo));
+
+		Assert.isNotNull(newestJob, 'Expected one job.');
+		Assert.areEqual(newerJob.Id, newestJob.Id, 'Expected the newer of the two live jobs.');
+	}
+
+	/**
 	 * @description Resolves the ApexClass row Id for SCHED_ChainWatchdog through the same selector
 	 * lookup the Health Check's platform probe applies, so the finder is exercised with the real class
 	 * Id in both namespaced and unmanaged deployments.
@@ -206,6 +310,23 @@ private class SEL_AsyncApexJob_TEST
 		public void execute(QueueableContext context)
 		{
 			// The enqueue itself is the fixture: the selector test only needs the AsyncApexJob row.
+		}
+	}
+
+	/**
+	 * @description Work that does nothing with the items it is given. The batch job that runs it is the fixture.
+	 */
+	@SuppressWarnings('PMD.EmptyStatementBlock')
+	private class NoOperationProcessable implements IF_Async.Processable
+	{
+		/**
+		 * @description Performs no work. The chunk running is enough for the counts on the job row.
+		 *
+		 * @param items The items the batch job hands over.
+		 */
+		public void execute(List<Object> items)
+		{
+			// The chunk running is the fixture: the selector test only needs the counts on the AsyncApexJob row.
 		}
 	}
 }

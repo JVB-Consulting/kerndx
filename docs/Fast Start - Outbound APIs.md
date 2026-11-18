@@ -6,75 +6,49 @@ navOrder: 32
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-**What this is:** A way to call an external system (a payment gateway, a shipping API, any REST endpoint) from Salesforce, starting with a single line of Apex and growing into a fully tested, production-ready service. **Why it exists:** Hand-rolled HTTP callouts repeat the same plumbing every time (retries, timeouts, logging, error handling) and break in ways that are hard to trace. KernDX gives you that plumbing once, the same way every time. **Who should follow this:** developers building integrations, and tech leads who want callouts that are logged, tested, and consistent. **When to use it:** any time Salesforce needs to send data to, or fetch data from, another system.
+- **What this is:** A way to call an external system (a payment gateway, a shipping API, any REST endpoint) from Salesforce, starting with a single line of Apex and growing into a fully tested, production-ready service.
+- **Why it exists:** Hand-rolled HTTP callouts repeat the same plumbing every time (retries, timeouts, logging, error handling) and break in ways that are hard to trace. KernDX gives you that plumbing once, the same way every time.
+- **Who should follow this:** developers building integrations, and tech leads who want callouts that are logged, tested, and consistent.
+- **When to use it:** any time Salesforce needs to send data to, or fetch data from, another system. KernDX expects every callout your Apex makes to go through it, a single one-off callout too, so every call is logged, retried and masked the same way.
+- **What you'll build:** A working outbound HTTP call to an external API. You start with a one-liner and
+  finish with a production-ready service that has typed DTOs (small classes that hold exactly the fields you
+  send and receive, and convert themselves to and from JSON), input validation, and automated tests.
+- **Success looks like:** Your API call appears in the Kern app's **API Calls** tab with full request/response
+  logging, and your test class has 100% code coverage.
+- **In one line:** `kern.UTIL_HttpClient.post('PaymentGateway', '/charges').body(request).withRetry(3).send();`
+  That single call comes with automatic retries for the failures that sending it again can safely fix, a circuit
+  breaker you add with `.withCircuitBreaker()` (after repeated failures the framework
+  stops calling a failing system for a cool-off, then resumes), and logging already built in.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A working outbound HTTP call to an external API. You start with a one-liner and
-finish with a production-ready service that has typed DTOs (small classes that hold exactly the fields you
-send and receive, and convert themselves to and from JSON), input validation, and automated tests.
+## Quick Navigation
 
-**Success looks like:** Your API call appears in the Kern app's **API Calls** tab with full request/response
-logging, and your test class has 100% code coverage.
-
-**When the built-in is enough:** for a single, simple callout with no retries, no logging, and no shared
-shape, a plain `Http`/`HttpRequest` callout (or an External Service / Named Credential on its own) does the
-job. Use this when you want retries, request/response logging, validation, and tests in a consistent
-shape across many integrations.
-
-**In one line:** `kern.UTIL_HttpClient.post('PaymentGateway', '/charges').body(request).withRetry(3).send();`
-That single call comes with automatic retries for the failures that sending it again can safely fix, a circuit
-breaker you add with `.withCircuitBreaker()` (after repeated failures the framework
-stops calling a failing system for a cool-off, then resumes), and logging already built in.
+| I need to...                                              | Go to...                                                                        |
+|-----------------------------------------------------------|---------------------------------------------------------------------------------|
+| Make a call with no setup                                 | [Tier 1: See It Work](#tier-1-see-it-work-2-minutes)                            |
+| Check the ready-made connection                           | [Check the Named Credential](#check-the-named-credential)                       |
+| Add headers, query or path parameters, a timeout, retries | [Builder Features](#builder-features)                                           |
+| Build my own API class                                    | [Step 1: Create the API Handler](#step-1-create-the-api-handler)                |
+| Tell the framework how to run my class                    | [Step 2: Register Metadata](#step-2-register-metadata)                          |
+| Test without calling the real API                         | [Step 6: Understanding Mocks](#step-6-understanding-mocks)                      |
+| Stop a bad request before it is sent                      | [Step 5: Add Validation](#step-5-add-validation)                                |
+| Call an API from a Flow                                   | [From a Flow](#from-a-flow)                                                     |
+| Run a call in the background                              | [From Apex (Queue-Based)](#from-apex-queue-based)                               |
+| Keep passwords and card numbers out of the call logs      | [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)     |
+| Remove the example from my org                            | [Clean up](#clean-up)                                                           |
+| Fix an error from a step                                  | [Common Issues](#common-issues)                                                 |
 
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-    - [Check the Named Credential](#check-the-named-credential)
-    - [GET Request](#get-request)
-    - [POST Request](#post-request)
-    - [Builder Features](#builder-features)
-3. [Tier 2: Build Your Own (~15 minutes)](#tier-2-build-your-own-15-minutes)
-    - [Step 1: Create the API Handler](#step-1-create-the-api-handler)
-    - [Step 2: Register Metadata](#step-2-register-metadata)
-        - [Step 2.1: Create the API credential](#step-21-create-the-api-credential)
-        - [Step 2.2: Create the API setting](#step-22-create-the-api-setting)
-    - [Step 3: Execute](#step-3-execute)
-    - [Step 4: Write Tests](#step-4-write-tests)
-    - [Step 5: Add Validation](#step-5-add-validation)
-    - [Step 6: Understanding Mocks](#step-6-understanding-mocks)
-4. [Tier 3: Production Patterns (~10 minutes)](#tier-3-production-patterns-10-minutes)
-    - [From a Flow](#from-a-flow)
-        - [Build a Screen Flow (step-by-step)](#build-a-screen-flow-step-by-step)
-    - [From Apex (Queue-Based)](#from-apex-queue-based)
-    - [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)
-    - [Clean up](#clean-up)
-5. [Common Issues](#common-issues)
-    - [Step 1: Create the API Handler](#step-1-create-the-api-handler-1)
-    - [Step 2: Register Metadata](#step-2-register-metadata-1)
-    - [Step 3: Execute](#step-3-execute-1)
-    - [Step 5: Add Validation](#step-5-add-validation-1)
-    - [Clean up](#clean-up-1)
-6. [What You Now Know](#what-you-now-know)
-7. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
@@ -146,9 +120,9 @@ Body: {"id": 101}
 ### Builder Features
 
 You configure each call with short chained method calls, then one final call (such as `.send()`) runs it
-and returns the result. Here are the common options you can add to any call.
+and returns the result.
 
-**In Salesforce**, in the Execute Anonymous window, try any of these:
+**In Salesforce**, in the Execute Anonymous window, try any of these common options, which you can add to any call:
 
 ```apex
 // Headers
@@ -198,8 +172,8 @@ its key in a header, in an External Credential.
 
 A one-liner is great for trying things out, but a real integration needs structure: known request and
 response shapes, validation, and tests. In this tier you build a reusable API handler class
-(`API_GetPost`) that fetches a post from JSONPlaceholder by ID. It comes with typed DTOs (the request and
-response classes), test coverage, and parameter validation.
+(`API_GetPost`) that fetches a post from JSONPlaceholder by ID, with typed DTOs (the request and response
+classes), test coverage, and parameter validation.
 
 ### Step 1: Create the API Handler
 
@@ -226,6 +200,7 @@ force-app/main/default/classes/API_GetPost.cls
 ```
 
 > **Why `global`?** This lets the managed package find and run your class at runtime without any extra setup.
+>
 > If you prefer `public with sharing`, you instead point the framework at where your classes live (a Type
 > Resolver class: how the framework finds the Apex classes in your namespace, where you tell it where to
 > look). The Kern home page health check generates that code for you, or see
@@ -343,9 +318,8 @@ Something went wrong? See [Common Issues, Step 1](#step-1-create-the-api-handler
 
 ### Step 2: Register Metadata
 
-Your handler class is written, but the framework still needs to know how to run it. You tell it with two
-configuration records: an **API Credential** record (which Named Credential, that is, which connection, to
-use) and an **API Setting** record (how to run your handler). You create each one in Setup, then pull it into your
+The framework still needs to know how to run your handler. You tell it with two configuration records, an **API
+Credential** (Step 2.1) and an **API Setting** (Step 2.2). You create each one in Setup, then pull it into your
 project so it is under source control with your code.
 
 #### Step 2.1: Create the API credential
@@ -396,12 +370,11 @@ then **New**, and save a record with these values:
 | Max Retry Count         | `kern__MaxRetryCount__c`         | `3`                                                           |
 | Retry Backoff (sec)     | `kern__RetryBackoffSeconds__c`   | `5`                                                           |
 
-> **Class Name** (`kern__ClassName__c`) is the simple class name (`API_GetPost`), without a namespace prefix. The
-> framework's type resolver (how it finds your classes) handles the namespace for you.
->
-> **API Credential** (`kern__ApiCredential__c`) is a lookup (a metadata relationship) to `kern__ApiCredential__mdt`.
-> Select the record you created in Step 2.1. The handler in Step 3 names the same Named Credential; the record
-> is what the framework uses when a handler names none.
+> - **Class Name** (`kern__ClassName__c`) is the simple class name (`API_GetPost`), without a namespace prefix. The
+>   framework's type resolver (how it finds your classes) handles the namespace for you.
+> - **API Credential** (`kern__ApiCredential__c`) is a lookup (a metadata relationship) to `kern__ApiCredential__mdt`.
+>   Select the record you created in Step 2.1. The handler in Step 3 names the same Named Credential; the record
+>   is what the framework uses when a handler names none.
 
 > **How the HTTP verb is set for outbound calls:** `getHttpMethod()` in your handler class decides the verb.
 > The framework reads it inside `setHeaders()` and applies it to the request that goes over the wire. The
@@ -446,9 +419,8 @@ Success: true
 Response: {"userId": 1, "id": 1, "title": "sunt aut facere repellat provident...", "body": "quia et suscipit..."}
 ```
 
-> **See it in the org:** Open **App Launcher > Kern > API Calls** tab and select the **All** list view.
-> You'll see your call logged with the full request/response details, status, and timing. This visual
-> confirmation is the real proof it worked.
+> **See it in the org:** your call is on the **API Calls** tab too (**App Launcher > Kern > API Calls**, the **All**
+> list view), logged as in [the POST request in Tier 1](#post-request). Seeing it there is the real proof it worked.
 
 Something went wrong? See [Common Issues, Step 3](#step-3-execute-1).
 
@@ -644,7 +616,7 @@ Something went wrong? See [Common Issues, Step 5](#step-5-add-validation-1).
 ### Step 6: Understanding Mocks
 
 Your tests already passed without calling the real API. That matters because tests must not depend on a
-live external system. Here is why it works, and how to customise it.
+live external system.
 
 **The simple way (`defaultMockBody`):**
 
@@ -765,8 +737,13 @@ kern.DML_Builder.newTransaction().doInsert(queueItem).execute();
 System.debug('Queue item created: ' + queueItem.Id);
 ```
 
-> **Note:** `kern.TST_Factory.newOutboundApiCall()` is a **test-only** utility. In production code, create
-> `kern__ApiCall__c` records directly as shown above.
+> **In production code**, run a call straight away through `kern.UTIL_HttpClient`:
+> `kern.UTIL_HttpClient.useHandler(API_GetPost.class)`, one `.withParameter(name, value)` for each parameter, then
+> `.invoke()`, as in [Step 3](#step-3-execute). To run it in the background, save the record
+> as shown above.
+>
+> A test may build the call itself with `kern.TST_Factory.newOutboundApiCall` and run it, as
+> the [Step 6](#step-6-understanding-mocks) test does with `kern.API_OutboundTestHelper.assertCallFailed`.
 
 **In Salesforce**, check the status after a few seconds using the built-in `SEL_ApiCall` selector:
 
@@ -802,13 +779,14 @@ box, three rules fire:
 
 So if your outbound request body contains a `password` or a card number, the saved `ApiCall__c.Request__c`
 has them redacted. The actual HTTP request going over the wire is unchanged: only the stored copy is masked.
-Fourteen more rules ship as inactive templates (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone,
-AWS access key, URL basic auth, authorization header, private IPv4, postal address, free text, and
-international phone). To switch one on, set `kern__MaskingRule__mdt.IsActive__c = true` and add a
-`kern__MaskingTarget__mdt` record that wires the rule to the field(s) that need it. If a sensitive value still
-shows on a saved `kern__ApiCall__c` record, no active rule recognises it: switch on the rule that matches it and,
-unless a shipped `kern__MaskingTarget__mdt` record already wires that rule to the field, add one that does (see the
-Web Services Guide).
+
+- **Fourteen more rules ship as inactive templates** (SSN, IBAN, SWIFT/BIC, MBI, health keywords, email, US phone,
+  AWS access key, URL basic auth, authorization header, private IPv4, postal address, free text, and
+  international phone). To switch one on, set `kern__MaskingRule__mdt.IsActive__c = true` and add a
+  `kern__MaskingTarget__mdt` record that wires the rule to the field(s) that need it.
+- **A sensitive value still shows on a saved `kern__ApiCall__c` record?** No active rule recognises it: switch on the
+  rule that matches it and, unless a shipped `kern__MaskingTarget__mdt` record already wires that rule to the field,
+  add one that does (see the Web Services Guide).
 
 ### Clean up
 
@@ -856,19 +834,22 @@ the one that holds `sfdx-project.json`, and run the command again.
 
 #### The deploy fails with an Invalid type message naming API_Outbound
 
-The org you deployed to does not have KernDX installed, so it cannot find the framework's base class. The message
-names the class with the package namespace in front (`Invalid type: kern.API_Outbound`). Install KernDX in that org
-first (see the [Installation guide](Installation.md)). If you installed KernDX under your own namespace or without
-one, change the `kern.` prefix in the code as the namespace note at the top of this guide explains.
+Install KernDX in that org first (see the [Installation guide](Installation.md)). The org you deployed to does not have
+KernDX installed, so it cannot find the framework's base class. The message names the class with the package namespace
+in front (`Invalid type: kern.API_Outbound`).
+
+If you installed KernDX under your own namespace or without one, change the `kern.` prefix in the code as the namespace
+note at the top of this guide explains.
 
 ### Step 2: Register Metadata
 
 #### The pull says `Nothing retrieved`
 
+Check the **API Credential Name** or **API Setting Name** you saved matches the table exactly, then run the pull again.
+
 The pull finishes with the warning `Nothing retrieved` and a line saying the record `cannot be found`. The name in
 the pull command does not match a record in your org: either the record was not saved in Step 2.1 or Step 2.2, or
-its name differs. Check the **API Credential Name** or **API Setting Name** you saved matches the table exactly,
-then run the pull again.
+its name differs.
 
 ### Step 3: Execute
 
@@ -934,7 +915,8 @@ After completing this guide, you understand the **three ways** to make outbound 
 - **`getValidationErrors()`**: your own business validation, run before the HTTP call
 - **`getHttpMethod()`**: override this if the verb is not POST (the default)
 - **`getWebServiceEndPoint()`**: build the URL path dynamically
-- **`onSuccess()`**: run DML after the call, using `DML_Builder`
+- **`onSuccess()`**: register DML to run after the call, with the `doInsert()` and `doUpdate()` methods the handler
+  inherits from `DML_Transaction` (the same saves `DML_Builder` offers)
 - **`@JsonAccess`**: required on every DTO in a managed package context
 - **`defaultMockBody`**: the simple mock that lets tests run without real HTTP callouts
 - **`API_MockFactory`**: custom mocks for error paths, edge cases, and fault injection

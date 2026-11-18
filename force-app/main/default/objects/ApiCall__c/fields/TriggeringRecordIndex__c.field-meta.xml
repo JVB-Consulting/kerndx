@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TriggeringRecordIndex__c</fullName>
+    <description>A copy of the Triggering Record ID field, kept so you can find the calls of one record quickly, even with many calls. It is filled on every save with the value exactly as written, a record Id or any other text, and is blank when the source is blank. Calls saved before this field existed may have it blank.</description>
+    <externalId>true</externalId>
+    <inlineHelpText>The record that started this call, kept so the call can be found quickly. Filled on every save from Triggering Record ID. May be blank on calls saved before this field existed.</inlineHelpText>
+    <label>Triggering Record Index</label>
+    <length>80</length>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

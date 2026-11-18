@@ -6,7 +6,7 @@
  * chain's stamped executor job still holds a live platform status, and behind the Health Check's
  * chain-watchdog probe, which decides whether a schedulable class holds a live scheduled job. The job runner reads it to
  * decide whether a job's previous run is still live, and the batch-error listener reads it to name the class of each
- * batch job that failed.
+ * batch job that failed. The outbound retry watchdog reads it to decide whether a job that may still send a call is live.
  *
  * @see SEL_Base
  * @see SEL_AsyncApexJob_TEST
@@ -15,7 +15,7 @@
  *
  * @group Async
  *
- * @date July 2026, October 2026
+ * @date July 2026, November 2026
  */
 public inherited sharing class SEL_AsyncApexJob extends SEL_Base
 {
@@ -155,12 +155,15 @@ public inherited sharing class SEL_AsyncApexJob extends SEL_Base
 
 	/**
 	 * @description Finds the jobs with the given ids, whatever their status, together with the name and namespace of
-	 * the Apex class each one runs. The batch-error listener passes the job ids its events name, so one read gives the
-	 * full class name of every failed job.
+	 * the Apex class each one runs, the job's type, its detailed status message and its chunk counts. The batch-error
+	 * listener passes the job ids its events name, so one read gives the full class name of every failed job. The
+	 * processor reads its own batch job when the batch ends, to see whether any chunk failed before it calls finish.
 	 *
 	 * @param jobIds The AsyncApexJob ids to read; empty reads nothing.
 	 *
-	 * @return The matching rows, each carrying its ApexClassId, ApexClass.Name and ApexClass.NamespacePrefix.
+	 * @return The matching rows, each carrying its ApexClassId, ApexClass.Name, ApexClass.NamespacePrefix, JobType,
+	 * ExtendedStatus, NumberOfErrors (chunks that failed), TotalJobItems (chunks in all) and JobItemsProcessed (chunks
+	 * that have run).
 	 */
 	public List<AsyncApexJob> findByIds(List<Id> jobIds)
 	{
@@ -172,8 +175,37 @@ public inherited sharing class SEL_AsyncApexJob extends SEL_Base
 				.addField(AsyncApexJob.ApexClassId)
 				.addField(FIELD_APEX_CLASS_NAME)
 				.addField(FIELD_APEX_CLASS_NAMESPACE_PREFIX)
+				.addField(AsyncApexJob.JobType)
+				.addField(AsyncApexJob.ExtendedStatus)
+				.addField(AsyncApexJob.NumberOfErrors)
+				.addField(AsyncApexJob.TotalJobItems)
+				.addField(AsyncApexJob.JobItemsProcessed)
 				.condition(AsyncApexJob.Id).isIn(jobIds)
 				.toList();
+	}
+
+	/**
+	 * @description Finds the newest live job (Queued, Holding, Preparing or Processing) of an Apex class among the jobs
+	 * created after the given time, of any job type. The read sorts the jobs newest first and returns only the first
+	 * one, with its ApexClassId and CreatedDate. The outbound retry watchdog reads the jobs of the class that sends
+	 * outbound calls this way: a live job created after a call's retry was due may still send that call, and only the
+	 * newest job matters for that check. An org can have many live jobs of that class, so the read stops at one row.
+	 *
+	 * @param apexClassId The Id of the ApexClass whose jobs to find.
+	 * @param after Only jobs created after this time are found.
+	 *
+	 * @return The newest live job, or null when there is none.
+	 */
+	public AsyncApexJob findNewestLiveByApexClassIdCreatedAfter(Id apexClassId, Datetime after)
+	{
+		return (AsyncApexJob)query
+				.addField(AsyncApexJob.ApexClassId)
+				.addField(AsyncApexJob.CreatedDate)
+				.condition(AsyncApexJob.ApexClassId).equals(apexClassId)
+				.condition(AsyncApexJob.Status).isIn(statusNames(LIVE_STATUSES))
+				.condition(AsyncApexJob.CreatedDate).greaterThan(after)
+				.orderBy(AsyncApexJob.CreatedDate).descending()
+				.getFirst();
 	}
 
 	/**

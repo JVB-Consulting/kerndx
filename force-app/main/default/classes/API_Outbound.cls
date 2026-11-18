@@ -12,7 +12,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -30,7 +30,7 @@
  * }
  * ```
  */
-@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters')
+@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier,PMD.ExcessiveClassLength,PMD.NcssTypeCount,PMD.AvoidBooleanMethodParameters')
 global virtual inherited sharing class API_Outbound extends API_Base
 {
 	/**
@@ -777,6 +777,13 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	/**
 	 * @description Prepares the outbound request by querying Salesforce data and populating the request DTO.
 	 *
+	 * The request DTO gets the call's Triggering Record ID as a record Id. When that value is not a record Id, such as an
+	 * order number from another system, the DTO gets null instead. Your code can read the text itself from
+	 * apiCall.TriggeringRecordId__c.
+	 *
+	 * Some values of exactly 15 letters and digits are accepted as a record Id in its short form, even when they are codes
+	 * from another system. The DTO then gets the value as a record Id.
+	 *
 	 * @since 1.0
 	 *
 	 * @example
@@ -790,7 +797,7 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 */
 	global protected virtual void prepareRequest()
 	{
-		requestPayload.populate(apiCall.TriggeringRecordId__c, inputs);
+		requestPayload.populate(UTIL_SObject.validateId(apiCall.TriggeringRecordId__c), inputs);
 	}
 
 	/**
@@ -888,7 +895,16 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 * @description Resolves the failed API call. When a call succeeds, every open issue logged for the same request (the
 	 * same triggering record, service and request parameters) is marked Resolved, with the time it was resolved, whoever
 	 * made the call that failed. The read and the save both waive record sharing on purpose: the framework is closing its
-	 * own record of a failed request, and API issues are Private.
+	 * own record of a failed request, and API issues are Private. A call answered by mock data resolves nothing: the call
+	 * never reached the other system, so its success does not show that the problem is fixed. A unit test that only
+	 * registers a mock for the service still resolves issues, because that call is not marked as answered by mock data.
+	 *
+	 * The Triggering Record ID can also hold text that is not a record Id, such as an order number. Then the open issues
+	 * whose Triggering Record ID holds the same text, with the same upper and lower case, are resolved.
+	 *
+	 * Some values of exactly 15 letters and digits are accepted as a record Id in its short form. Such a value is checked
+	 * both as a record Id and as text. So the issues that hold its 18-character form and the issues that hold the same 15
+	 * characters are both resolved.
 	 *
 	 * @example
 	 * ```apex
@@ -901,22 +917,36 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 */
 	protected override virtual void resolveApiIssues()
 	{
+		if(result.isMocked == true)
+		{
+			return;
+		}
+
 		String hashParameter = generateApiIssueHash();
 		List<ApiIssue__c> updateApiIssues = new List<ApiIssue__c>();
 
-		List<ApiIssue__c> apiIssues =
-				new SEL_ApiIssue().findByFailedApiCall(apiCall.TriggeringRecordId__c, apiCall.ServiceName__c, hashParameter);
+		String triggeringRecordValue = apiCall.TriggeringRecordId__c;
+		Id triggeringRecordId = UTIL_SObject.validateId(triggeringRecordValue);
+		Map<Id, ApiIssue__c> apiIssues = new Map<Id, ApiIssue__c>();
+		if(triggeringRecordId != null)
+		{
+			apiIssues.putAll(new SEL_ApiIssue().findByFailedApiCall(triggeringRecordId, apiCall.ServiceName__c, hashParameter));
+		}
+		if(triggeringRecordId == null || triggeringRecordValue.length() == SEL_ApiCall.SHORT_RECORD_ID_LENGTH)
+		{
+			apiIssues.putAll(new SEL_ApiIssue().findOpenByTriggeringRecordValue(triggeringRecordValue, apiCall.ServiceName__c, hashParameter));
+		}
 
 		Datetime resolvedDate = Datetime.now();
 
-		for(ApiIssue__c apiIssue : apiIssues)
+		for(ApiIssue__c apiIssue : apiIssues.values())
 		{
 			apiIssue.Status__c = SEL_ApiIssue.STATUS_RESOLVED;
 			apiIssue.ResolvedDate__c = resolvedDate;
 			updateApiIssues.add(apiIssue);
 		}
 
-		DML_Builder.newTransaction().withSystemMode().bypassSharingInternal().doUpdate(updateApiIssues).allowPartial().execute();
+		DML_Builder.newTransaction().systemModeInternal().bypassSharingInternal().doUpdate(updateApiIssues).allowPartial().execute();
 	}
 
 	/**
@@ -1560,7 +1590,27 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 */
 	protected String generateApiIssueHash()
 	{
-		return UTIL_String.abbreviate(UTIL_Crypto.generateMD5Hash(apiCall.RequestParameters__c), SEL_ApiIssue.REQUEST_PARAMETERS_HASH_LENGTH);
+		return buildRequestParametersHash(apiCall.RequestParameters__c);
+	}
+
+	/**
+	 * @description Builds the short hash of a call's request parameters that an API issue stores, so two issues for the
+	 * same request can be found as one. The same text always gives the same hash.
+	 *
+	 * @param requestParameters The request parameters of the call (RequestParameters__c).
+	 *
+	 * @return The hash, cut to the length the API issue field holds.
+	 *
+	 * @since 1.12
+	 *
+	 * @example
+	 * ```apex
+	 * String hash = API_Outbound.buildRequestParametersHash(apiCall.RequestParameters__c);
+	 * ```
+	 */
+	public static String buildRequestParametersHash(String requestParameters)
+	{
+		return UTIL_String.abbreviate(UTIL_Crypto.generateMD5Hash(requestParameters), SEL_ApiIssue.REQUEST_PARAMETERS_HASH_LENGTH);
 	}
 
 	/**
@@ -1591,12 +1641,23 @@ global virtual inherited sharing class API_Outbound extends API_Base
 	 *
 	 * The default strategy reads the service setting: Retry Backoff Seconds is the base wait, and Max Retry Count is the
 	 * number of retries. A call made through UTIL_HttpClient with withRetry or withExponentialBackoff uses the number of
-	 * retries passed there, and the base wait when one was passed, instead of the setting's values, on every run. It waits the base before the first scheduled retry,
-	 * and then the base times the number of retries already made. A call made with withExponentialBackoff gets a
-	 * different wait: the base before the first retry, then twice as long each time, up to 300 seconds. For a base of 30
-	 * seconds that is 30, 60, 120, 240 and then 300 seconds. The retries already made count, including the ones sent
-	 * again at once in the same transaction. This also holds for your handler when it is called through
-	 * UTIL_HttpClient.useHandler, unless your handler overrides this method: then your strategy decides.
+	 * retries passed there, and the base wait when one was passed, instead of the setting's values, on every run.
+	 *
+	 * It waits the base before the first scheduled retry, and then the base times the number of retries already made,
+	 * up to 300 seconds. For a base of 120 seconds that is 120, 120, 240 and then 300 seconds.
+	 *
+	 * A call made with withExponentialBackoff gets a different wait: the base before the first retry, then twice as
+	 * long each time, also up to 300 seconds. For a base of 30 seconds that is 30, 60, 120, 240 and then 300 seconds.
+	 *
+	 * The wait worked out from the base is never longer than 300 seconds, so a Retry Backoff Seconds above 300 has the
+	 * same effect as 300. While the circuit breaker is open, the retry waits for the cool-off when that is longer. The
+	 * retries already made count, including the ones sent again at once in the same transaction. This also holds for
+	 * your handler when it is called through UTIL_HttpClient.useHandler, unless your handler overrides this method:
+	 * then your strategy decides.
+	 *
+	 * To wait longer than 300 seconds, override this method and set the maximum wait yourself with withMaximumBackoff.
+	 * The example below declares the method global override because its class is global. In a public class, declare it
+	 * public override: a global method compiles only inside a global class.
 	 *
 	 * @return Configured instance
 	 *
