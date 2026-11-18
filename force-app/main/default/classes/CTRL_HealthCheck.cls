@@ -15,7 +15,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssCount,PMD.NcssTypeCount')
 public inherited sharing class CTRL_HealthCheck
@@ -508,7 +508,7 @@ public inherited sharing class CTRL_HealthCheck
 			return new List<Id>();
 		}
 
-		return DML_Builder.newTransaction().withSystemMode().doInsert(jobsToInsert).execute().getInsertedIds();
+		return DML_Builder.newTransaction().systemModeInternal().doInsert(jobsToInsert).execute().getInsertedIds();
 	}
 
 	/**
@@ -817,7 +817,8 @@ public inherited sharing class CTRL_HealthCheck
 
 	/**
 	 * @description Checks the org's data-masking posture by reading CTRL_MaskingAdvisor.getOrgPostureSummary().
-	 * Warns when any active masking target masks nothing (its rule is missing or inactive) so the admin can fix
+	 * Warns when any active masking target masks nothing (its rule is missing or inactive, or it names a Caller
+	 * Class on an object other than API Call or API Issue) so the admin can fix
 	 * or remove it, warns when no object carries active masking yet, and otherwise passes with the count of
 	 * masked objects. The Review-masking action deep-links into the Data Masking Advisor.
 	 *
@@ -1119,7 +1120,17 @@ public inherited sharing class CTRL_HealthCheck
 
 		if(!state.isActive())
 		{
-			List<Id> movedWatchdogIds = moveRunnerModeWatchdogsToTheirOwnScheduledJob(new UTIL_ScheduledJobRunner.FrameworkWriter());
+			List<Id> movedWatchdogIds;
+			TRG_ScheduleJob.allowLeavingTheJobRunner = true;
+
+			try
+			{
+				movedWatchdogIds = moveRunnerModeWatchdogsToTheirOwnScheduledJob(new UTIL_ScheduledJobRunner.FrameworkWriter());
+			}
+			finally
+			{
+				TRG_ScheduleJob.allowLeavingTheJobRunner = false;
+			}
 
 			if(!movedWatchdogIds.isEmpty())
 			{
@@ -1133,7 +1144,7 @@ public inherited sharing class CTRL_HealthCheck
 
 		Boolean ridesTheRunner = state.isActive() && UTIL_ScheduledJobRunner.hasManagePermission();
 
-		List<Id> insertedIds = DML_Builder.newTransaction().withSystemMode().doInsert(new List<ScheduledJob__c>
+		List<Id> insertedIds = DML_Builder.newTransaction().systemModeInternal().doInsert(new List<ScheduledJob__c>
 		{
 				new ScheduledJob__c(
 						SchedulerName__c = System.Label.HealthCheck_ChainWatchdog_SchedulerName,
@@ -1550,12 +1561,12 @@ public inherited sharing class CTRL_HealthCheck
 					new List<Object> {expected, checkInterval, state.runnerRecords.size(), state.liveTriggers.size()}));
 		}
 
-		String lastCheck = String.valueOf(state.lastCheckAt ?? state.activatedAt);
+		String lastCheck = (state.lastCheckAt ?? state.activatedAt).format();
 		String stoppedDetail = String.format(System.Label.HealthCheck_JobRunner_Stopped, new List<Object> {lastCheck});
 
 		if(state.lastCheckAt == null || state.activatedAt > state.lastCheckAt)
 		{
-			List<Object> activationArguments = new List<Object> {String.valueOf(state.activatedAt), state.checkIntervalMinutes};
+			List<Object> activationArguments = new List<Object> {state.activatedAt.format(), state.checkIntervalMinutes};
 
 			return state.activatedAt > Datetime.now().addMinutes(-state.checkIntervalMinutes)
 					? pass(result, String.format(System.Label.HealthCheck_JobRunner_AwaitingFirstCheck, activationArguments))
@@ -2182,8 +2193,12 @@ public inherited sharing class CTRL_HealthCheck
 		/**
 		 * @description Date field the recommended purge job evaluates for record age, or null to let
 		 * SCHED_PurgeRecords fall back to its CreatedDate default. The AsyncChainExecution__c entry
-		 * must key on CompletedAt__c: chains that are still running, stalled, or awaiting recovery
-		 * leave that field null, so a purge aged on CompletedAt__c can never delete them.
+		 * must key on CompletedAt__c: a chain that is still running leaves that field null, so a purge
+		 * aged on CompletedAt__c never deletes it. A chain that stays Stalled also has no CompletedAt__c.
+		 * A purge of chain runs by CompletedAt__c (UTIL_PurgeRecords.deleteOlderThanNDays) deletes it too,
+		 * once the time it stalled (StalledAt__c) is older than the same number of days. For that, the
+		 * user the purge job runs as must be able to read both the Status and the Stalled At fields of a
+		 * chain run. Without that access the purge keeps every stalled run and logs one warning.
 		 */
 		public final SObjectField dateField;
 

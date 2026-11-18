@@ -6,7 +6,7 @@
  *
  * @author Jason van Beukering
  *
- * @date October 2026
+ * @date October 2026, November 2026
  */
 /* global __dirname */
 const fs = require('fs');
@@ -147,7 +147,8 @@ export function readBundleTemplate(bundleName)
 /**
  * @description Builds the plain context a prototype method is called on in a headless test: the shared form's state
  *              at its defaults, the shared form's save-path members as the real methods, so a call runs the real
- *              path, and the loaders as stubs the test programs.
+ *              path, and the loaders as stubs the test programs. Whether the form creates a record, and the time zone
+ *              the schedule is read in, are the real getters too, unless the test sets them.
  *
  * @param {Object} prototype The component class prototype whose real members the context borrows.
  * @param {Object} overrides State and stubs the test sets.
@@ -156,7 +157,7 @@ export function readBundleTemplate(bundleName)
  */
 export function createFormContext(prototype, overrides = {})
 {
-	return {
+	const context = {
 		recordId: 'a00000000000001',
 		schedulerName: '',
 		className: '',
@@ -171,6 +172,7 @@ export function createFormContext(prototype, overrides = {})
 		cronIsValid: true,
 		isSaving: false,
 		userTimezone: '',
+		recordTimezone: '',
 		lastLoadedClassName: undefined,
 		parameterRequestNumber: 0,
 		applyRecord: prototype.applyRecord,
@@ -181,4 +183,17 @@ export function createFormContext(prototype, overrides = {})
 		loadSchedulableClasses: jest.fn().mockResolvedValue(),
 		loadUserTimezone: jest.fn().mockResolvedValue(), ...overrides
 	};
+
+	for(const getterName of [
+		'isCreateMode',
+		'scheduleTimezone'
+	])
+	{
+		if(!Object.prototype.hasOwnProperty.call(overrides, getterName))
+		{
+			Object.defineProperty(context, getterName, {get: findPropertyDescriptor(prototype, getterName).get, configurable: true});
+		}
+	}
+
+	return context;
 }

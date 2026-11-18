@@ -33,6 +33,46 @@
         <value>This chain run cannot move from {0} to {1}.</value>
     </labels>
     <labels>
+        <fullName>AsyncChain_StallTimeRequired</fullName>
+        <categories>Async Chain</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when a move into Stalled has no Stalled At; {0} current, {1} requested</shortDescription>
+        <value>This chain run can move from {0} to {1} only when Stalled At is set in the same save.</value>
+    </labels>
+    <labels>
+        <fullName>AsyncLauncher_DelayedDispatchRefused</fullName>
+        <categories>Async Processing</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Delayed job not started; {0} class, {1} items, {2} delay minutes, {3} error</shortDescription>
+        <value>Salesforce refused to start the job for {0} after a delay of {2} minutes, so its items were not processed (items: {1}). Salesforce said: {3}</value>
+    </labels>
+    <labels>
+        <fullName>AsyncProcessor_FinishSkipped</fullName>
+        <categories>Async Processing</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Log warning when finish() is skipped; {0} failed chunks, {1} chunks in all</shortDescription>
+        <value>finish() was not run because {0} of {1} chunks failed. A chunk is one group of items the job handles at a time. Each failed chunk has its own error entry in the log.</value>
+    </labels>
+    <labels>
+        <fullName>AsyncProcessor_ParallelRefusedForFinishable</fullName>
+        <categories>Async Processing</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when a processor with a finish step is forced to run as parallel jobs</shortDescription>
+        <value>A processor that implements IF_Async.Finishable cannot use the PARALLEL_QUEUEABLES strategy, because its finish() would run once for every job. Use AUTO, BATCH or CHAINABLE instead.</value>
+    </labels>
+    <labels>
+        <fullName>BatchJob_FailedBeforeFirstChunk</fullName>
+        <categories>Async Processing</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Log text when a batch failed before it ran; {0} platform reason</shortDescription>
+        <value>This batch failed before its first chunk ran: {0}</value>
+    </labels>
+    <labels>
         <fullName>QueryBuilder_ConditionSeparator_NotAllowed</fullName>
         <categories>Query Builder</categories>
         <language>en_US</language>
@@ -57,6 +97,14 @@
         <value>The running user cannot read the field {0}, so bypassSharing() cannot filter or sort on it: the results could reveal something about its values. Remove the field from the filter or the sort, or add withSystemMode(), which also turns off the object and field permission checks for this read.</value>
     </labels>
     <labels>
+        <fullName>QueryBuilder_BypassSharingLookup_NotReadable</fullName>
+        <categories>Query Builder</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when bypassSharing selects through a hidden lookup; {0} field, {1} path</shortDescription>
+        <value>The running user cannot read the field {0}, so bypassSharing() cannot read {1} through it. Give the user read access to {0} if a permission set can grant it, remove {1} from the read, or add withSystemMode(), which also turns off the object and field permission checks for this read.</value>
+    </labels>
+    <labels>
         <fullName>QueryBuilder_BypassSharingObject_NotReadable</fullName>
         <categories>Query Builder</categories>
         <language>en_US</language>
@@ -71,6 +119,14 @@
         <protected>false</protected>
         <shortDescription>Shown when a read cannot run with bypassSharing alone; {0} method</shortDescription>
         <value>{0} cannot remove the fields the running user cannot read, so it cannot run with bypassSharing() alone. Add withSystemMode() as well to read without sharing. withSystemMode() also turns off the object and field permission checks for this read. Otherwise remove bypassSharing().</value>
+    </labels>
+    <labels>
+        <fullName>QueryBuilder_BypassSharingSelectedText_NotCheckable</fullName>
+        <categories>Query Builder</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Shown when bypassSharing cannot check a selected text; {0} text or relationship</shortDescription>
+        <value>bypassSharing() cannot check the selected text {0} against the permissions of the running user. Each selected field must be a field name or a path such as Account.Name, with or without a function around it. Add a child query with subselect(), not as text, and give it a child relationship the object has. Write each TYPEOF as a field of its own, in the form TYPEOF relationship WHEN object THEN fields ELSE fields END, where the relationship and each object exist. Or add withSystemMode(), which also turns off the object and field permission checks for this read.</value>
     </labels>
     <labels>
         <fullName>ChainMonitor_AbortAction</fullName>
@@ -985,6 +1041,14 @@
         <value>1 active masking target is currently masking nothing.</value>
     </labels>
     <labels>
+        <fullName>DataMaskingAdvisor_DeadConfiguration_CallerClassOnOtherObject</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Dead-config message: Caller Class on a non-API object. {0}=target.</shortDescription>
+        <value>Masking target &quot;{0}&quot; names a Caller Class, but its object is not API Call or API Issue, so it is currently masking nothing. Clear the Caller Class or deactivate this target.</value>
+    </labels>
+    <labels>
         <fullName>DataMaskingAdvisor_DeadConfiguration_InactiveRule</fullName>
         <categories>Data Masking Advisor</categories>
         <language>en_US</language>
@@ -999,6 +1063,14 @@
         <protected>false</protected>
         <shortDescription>Dead-config message: active target points to a missing rule. {0}=target.</shortDescription>
         <value>Masking target &quot;{0}&quot; points to a rule that no longer exists, so it is currently masking nothing. Point it at an active rule or deactivate this target.</value>
+    </labels>
+    <labels>
+        <fullName>DataMaskingAdvisor_Generation_CallerClassOnOtherObject</fullName>
+        <categories>Data Masking Advisor</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Export refused: Caller Class on a non-API target. {0}=target.</shortDescription>
+        <value>Clear the Caller Class on masking target &quot;{0}&quot; before you make it active: Caller Class works only on API Call and API Issue targets.</value>
     </labels>
     <labels>
         <fullName>DataMaskingAdvisor_Readme_Body</fullName>
@@ -6478,7 +6550,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Trigger: error without the permission</shortDescription>
-        <value>Only a user with the Manage Job Runner permission can put a job on the job runner or change the class or parameters of a job that is on it.</value>
+        <value>Only a user with the Manage Job Runner permission can put a job on the job runner, change a job that is on it, or take a job off it.</value>
     </labels>
     <labels>
         <fullName>ScheduledJob_RunnerRecordManagedByHealthCheck</fullName>
@@ -6489,12 +6561,28 @@ Members: {0}</value>
         <value>This record belongs to the job runner. Use Activate, Repair or Deactivate in Health Check to manage the runner.</value>
     </labels>
     <labels>
+        <fullName>ScheduledJob_RestoreNotSwitchedOff</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Trigger: error when a restored job cannot be switched off</shortDescription>
+        <value>This job could not be restored, because it could not be switched off. The log says why.</value>
+    </labels>
+    <labels>
         <fullName>ScheduledJob_CronExpressionInvalid</fullName>
         <categories>Scheduled Jobs</categories>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Evaluator: unreadable expression, {0} token</shortDescription>
         <value>The cron expression could not be read at "{0}".</value>
+    </labels>
+    <labels>
+        <fullName>ScheduledJob_ScheduleCannotKeepTimesAcrossTimeZones</fullName>
+        <categories>Scheduled Jobs</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Save refused: times cannot convert, {0} old zone, {1} new zone</shortDescription>
+        <value>This schedule cannot keep its times when moved from {0} to {1}, because one cron expression cannot hold the converted times. Save it as a user in {0}, or use a simpler schedule.</value>
     </labels>
     <labels>
         <fullName>ScheduledJob_ExpressionCannotFireWithinHorizon</fullName>
@@ -9305,6 +9393,30 @@ Members: {0}</value>
         <value>The retry settings for {0} could not be read: {1}. The call ends Failed and is not retried.</value>
     </labels>
     <labels>
+        <fullName>OutboundCall_LaunchRefused</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status line: Salesforce refused to start the send, so it waits.</shortDescription>
+        <value>Salesforce refused to start the background send, so the request was not sent: {0}. It will be tried again at {1}. The Next Retry field shows this time in your own time zone.</value>
+    </labels>
+    <labels>
+        <fullName>OutboundRetryWatchdog_LostJob</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Status line: no job finished the retry; it may have been sent.</shortDescription>
+        <value>No background job finished sending this request again. Its retry was due {0} hour(s) ago. The request may have been sent, and its result could not be confirmed. Check with the other system before you send it again.</value>
+    </labels>
+    <labels>
+        <fullName>OutboundRetryWatchdog_RetryTimeMoved</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Log line: a retry that did not start gets a new time.</shortDescription>
+        <value>The retry of this call was due at {0}, but it did not start. Its retry is now due at {1}.</value>
+    </labels>
+    <labels>
         <fullName>RetryApiIssue_RetryNotEnabled</fullName>
         <categories>API Issues</categories>
         <language>en_US</language>
@@ -9409,6 +9521,22 @@ Members: {0}</value>
         <value>This call failed in a way that running it again cannot fix, so it was not run again. The issue stays open.</value>
     </labels>
     <labels>
+        <fullName>RetryApiIssue_AnsweredByMock</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the call sent again was answered with mock data.</shortDescription>
+        <value>The call was answered with mock data, not by the other system, so the issue stays open. Turn mocking off and try again.</value>
+    </labels>
+    <labels>
+        <fullName>RetryApiIssue_ReplayAnsweredByMock</fullName>
+        <categories>API Issues</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Refusal: the replayed request was answered with mock data.</shortDescription>
+        <value>The request was answered with mock data and was not processed, so the issue stays open. Turn mocking off and try again.</value>
+    </labels>
+    <labels>
         <fullName>RetryApiIssue_StoredRequestDiffers</fullName>
         <categories>API Issues</categories>
         <language>en_US</language>
@@ -9441,6 +9569,14 @@ Members: {0}</value>
         <value>The purge of API calls did not start, because you can't read API issues. The purge must read API issues and their Status and API Call fields to leave out every call that still has an open issue. The Kern Administrator permission set gives this access.</value>
     </labels>
     <labels>
+        <fullName>PurgeChainRuns_StallTimeReadAccessRequired</fullName>
+        <categories>Async Chain</categories>
+        <language>en_US</language>
+        <protected>false</protected>
+        <shortDescription>Warning: the purge of chain runs kept stalled runs.</shortDescription>
+        <value>The purge of chain runs deleted runs by their end time only. The user it runs as cannot read the Status and Stalled At fields of a chain run, so runs that stay Stalled were kept. Give that user read access to both fields. The Kern Administrator permission set gives this access.</value>
+    </labels>
+    <labels>
         <fullName>RetryApiIssue_Dismissed</fullName>
         <categories>API Issues</categories>
         <language>en_US</language>
@@ -9462,7 +9598,7 @@ Members: {0}</value>
         <language>en_US</language>
         <protected>false</protected>
         <shortDescription>Bulk retry: {0} queued of {1} selected open issues, and why the rest stay open.</shortDescription>
-        <value>{0} of {1} selected API issues were queued. An issue not queued stays open: the external system may have acted on it, or its service is paused or does not allow retries. A few may still be skipped when the job runs. An issue whose call succeeds is marked Resolved; the others stay open.</value>
+        <value>{0} of {1} selected API issues were queued. An issue not queued stays open: the external system may have acted on it, its call, or the call of another open issue of the same request, failed permanently, or its service is paused or does not allow retries. A few may still be skipped when the job runs. An issue whose call succeeds is marked Resolved; the others stay open.</value>
     </labels>
     <labels>
         <fullName>ApiMocking_NoMockResponseConfigured</fullName>

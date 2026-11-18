@@ -13,7 +13,7 @@
  *
  * @group Controllers
  *
- * @date March 2026, October 2026
+ * @date March 2026, November 2026
  */
 public inherited sharing class CTRL_ScheduledJob
 {
@@ -151,6 +151,10 @@ public inherited sharing class CTRL_ScheduledJob
 	 * the execution mode and the overlap policy take their defaults. A new record always gets the defaults for the
 	 * settings the request does not name: its own scheduled job, and overlap policy Skip.
 	 *
+	 * The time zone works the same way. A new record with no time zone in the request gets the time zone of the user who
+	 * saves it. An update with no time zone keeps the one the record has, so an edit never moves a job to the time zone of
+	 * the user who edits it.
+	 *
 	 * @param requestJson JSON-serialized SaveRequest containing the field values.
 	 *
 	 * @return The saved record ID.
@@ -176,9 +180,7 @@ public inherited sharing class CTRL_ScheduledJob
 		record.IsActive__c = request.isActive == true;
 		record.Parameters__c = request.parameters?.isEmpty() == false ? new DTO_NameValues(request.parameters).serialize() : null;
 		record.SchedulerName__c = request.schedulerName;
-		record.Timezone__c = String.isNotBlank(request.timezone)
-				? request.timezone
-				: UserInfo.getTimeZone().getID();
+		setTimezone(record, request.timezone, isNewRecord);
 
 		if(isNewRecord || sentKeysInLowerCase.contains(KEY_EXECUTION_MODE))
 		{
@@ -198,6 +200,27 @@ public inherited sharing class CTRL_ScheduledJob
 		DML_Builder.newTransaction().systemModeInternal().doUpsert(record).execute();
 
 		return record.Id;
+	}
+
+	/**
+	 * @description Sets the time zone a saved record's schedule is read in. A time zone in the request is always saved. With
+	 * none, a new record gets the time zone of the user who saves it, and an existing record keeps the one it has: the field
+	 * is left unset, so the save does not change it.
+	 *
+	 * @param record The record about to be saved.
+	 * @param timezone The time zone the request sends, or blank.
+	 * @param isNewRecord True when the record is about to be inserted.
+	 */
+	private static void setTimezone(ScheduledJob__c record, String timezone, Boolean isNewRecord)
+	{
+		if(String.isNotBlank(timezone))
+		{
+			record.Timezone__c = timezone;
+		}
+		else if(isNewRecord)
+		{
+			record.Timezone__c = UserInfo.getTimeZone().getID();
+		}
 	}
 
 	/**
@@ -361,7 +384,8 @@ public inherited sharing class CTRL_ScheduledJob
 		public Map<String, String> parameters;
 
 		/**
-		 * @description IANA timezone ID of the user creating or editing the cron expression.
+		 * @description IANA time zone ID the cron expression is read in. Blank on a new record means the saving user's time
+		 * zone; blank on an existing record keeps the time zone it has.
 		 */
 		@AuraEnabled
 		public String timezone;

@@ -14,7 +14,7 @@
  *
  * @author Jason van Beukering
  *
- * @date October 2026
+ * @date October 2026, November 2026
  */
 import {api} from 'lwc';
 import {getFieldValue} from 'lightning/uiRecordApi';
@@ -144,6 +144,14 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 	userTimezone = '';
 
 	/**
+	 * @description The time zone the saved record's schedule is read in: null until the record has been read, and empty
+	 *              when the record has none.
+	 *
+	 * @type {?string}
+	 */
+	recordTimezone = null;
+
+	/**
 	 * @description The class whose parameters were last read, so a record delivered again does not read them again.
 	 *
 	 * @type {string}
@@ -178,15 +186,29 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 	}
 
 	/**
+	 * @description The time zone the schedule is read in and saved with. A new job takes the time zone of the user who
+	 *              saves it. A job being edited keeps its own time zone, so an edit never moves the job to another one.
+	 *              A job saved without a time zone, for example by a script, takes the user's time zone on its first
+	 *              edit, as a new job does.
+	 *
+	 * @return {string} The time zone ID, or empty while it is not known yet.
+	 */
+	get scheduleTimezone()
+	{
+		const editTimezone = this.recordTimezone === null ? '' : this.recordTimezone || this.userTimezone;
+		return this.isCreateMode ? this.userTimezone : editTimezone;
+	}
+
+	/**
 	 * @description The heading of the schedule section, naming the time zone the schedule is read in once it is known.
 	 *
 	 * @return {string} The heading to show.
 	 */
 	get scheduleHeading()
 	{
-		if(this.userTimezone)
+		if(this.scheduleTimezone)
 		{
-			return formatTemplateString(SCHEDULE_WITH_TIMEZONE, [getTimezoneDisplayName(this.userTimezone)]);
+			return formatTemplateString(SCHEDULE_WITH_TIMEZONE, [getTimezoneDisplayName(this.scheduleTimezone)]);
 		}
 
 		return SCHEDULE;
@@ -338,6 +360,7 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 		this.isActive = getFieldValue(data, IS_ACTIVE_FIELD) || false;
 		this.description = getFieldValue(data, DESCRIPTION_FIELD) || '';
 		this.parameterValues = {...parseAttributes(getFieldValue(data, PARAMETERS_FIELD) || '')};
+		this.recordTimezone = getFieldValue(data, TIMEZONE_FIELD) || '';
 
 		if(currentClassName && currentClassName !== this.lastLoadedClassName)
 		{
@@ -480,7 +503,7 @@ export const ScheduledJobEditorForm = (baseComponent) => class ScheduledJobEdito
 			isActive: this.isActive === true,
 			description: this.description,
 			parameters,
-			timezone: this.userTimezone
+			timezone: this.scheduleTimezone
 		};
 	}
 

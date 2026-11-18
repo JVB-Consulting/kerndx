@@ -2,12 +2,19 @@
 /**
  * @description Manages scheduling and termination of Apex jobs based on the `ScheduledJob__c` custom object.
  * Handles job creation, updates, and deletion with support for configurable attributes and cron expressions.
- * A record in job-runner mode never gets a platform job: the trigger seeds its next-run cursor and refuses it without
- * the Manage Job Runner permission. Writes of the framework-owned run fields re-enter neither validation nor scheduling.
+ * A record in job-runner mode never gets a platform job: the trigger seeds its next-run cursor instead. Only a user with
+ * the Manage Job Runner permission can put a job on the job runner, change a job that is on it, or take a job off it.
+ * Writes of the framework-owned run fields re-enter neither validation nor scheduling, so they need no permission.
+ * A job restored from the Recycle Bin comes back switched off, so it runs again only after a normal save turns it on.
+ * The action runs on every save of a job, also a save made from inside another trigger action or from a flow that such
+ * an action started: it implements `TRG_Dispatcher.NestedSaveGuard`, so the permission checks, the guard on the job
+ * runner's own records, the cursor seeding and the scheduling all run there too. It does not start again while it is
+ * already running, so a job saved from inside this action itself is not checked.
  *
  * @see ScheduledJob__c
  * @see TRG_ScheduleJob_TEST
  * @see TRG_Base
+ * @see TRG_Dispatcher
  * @see IF_Trigger
  * @see UTIL_ScheduledJobRunner
  *
@@ -15,13 +22,15 @@
  *
  * @group Triggers
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
 				IF_Trigger.BeforeInsert,
 				IF_Trigger.BeforeUpdate,
-				IF_Trigger.BeforeDelete
+				IF_Trigger.BeforeDelete,
+				IF_Trigger.AfterUndelete,
+				TRG_Dispatcher.NestedSaveGuard
 {
 	/**
 	 * @description Set to true by Health Check's Activate, Repair and Deactivate around their writes of the runner's own
@@ -29,6 +38,14 @@ public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
 	 * runner's records decide who every job on the runner runs as.
 	 */
 	public static Boolean allowRunnerRecordManagement = false;
+
+	/**
+	 * @description Set to true by Health Check around its move of a watchdog off a job runner that has stopped, so that the
+	 * move works for a user without the Manage Job Runner permission. It lets a job leave the job runner and nothing else:
+	 * the save must change only the execution mode, from the job runner to a scheduled job of its own. Any other change
+	 * to a job on the job runner still needs the permission while it is set.
+	 */
+	public static Boolean allowLeavingTheJobRunner = false;
 
 	/**
 	 * @description The fields that change what a job runs, when it runs or how it runs. An update that changes none of them
@@ -49,15 +66,6 @@ public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
 	private static final List<SObjectField> CURSOR_FIELDS = new List<SObjectField>
 	{
 			ScheduledJob__c.CronExpression__c, ScheduledJob__c.Timezone__c, ScheduledJob__c.ExecutionMode__c, ScheduledJob__c.IsActive__c
-	};
-
-	/**
-	 * @description The fields whose change makes a job on the runner run different code, so that changing either of them
-	 * needs the same permission as putting the job on the runner in the first place.
-	 */
-	private static final List<SObjectField> DEFINITION_FIELDS = new List<SObjectField>
-	{
-			ScheduledJob__c.ClassName__c, ScheduledJob__c.Parameters__c
 	};
 
 	/**
@@ -90,6 +98,9 @@ public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
 
 	/**
 	 * @description Handles logic before deleting `ScheduledJob__c` records. Stops the associated platform job if there is one.
+	 * Only Health Check may delete one of the job runner's own records, because deleting one stops the runner at that
+	 * minute mark. Deleting a job on the job runner takes it off the runner, so that needs the Manage Job Runner
+	 * permission too.
 	 *
 	 * @param oldRecords The `ScheduledJob__c` records being deleted.
 	 */
@@ -97,16 +108,126 @@ public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
 	{
 		for(SObject record : oldRecords)
 		{
-			stopJob((ScheduledJob__c)record);
+			ScheduledJob__c scheduler = (ScheduledJob__c)record;
+
+			if(UTIL_ScheduledJobRunner.isRunnerRecord(scheduler) && !allowRunnerRecordManagement)
+			{
+				scheduler.addError(System.Label.ScheduledJob_RunnerRecordManagedByHealthCheck);
+				continue;
+			}
+
+			if(UTIL_ScheduledJobRunner.isJobRunnerMode(scheduler) && !UTIL_ScheduledJobRunner.hasManagePermission())
+			{
+				scheduler.addError(System.Label.ScheduledJob_ManageJobRunnerPermissionRequired);
+				continue;
+			}
+
+			stopJob(scheduler);
+		}
+	}
+
+	/**
+	 * @description Handles logic after `ScheduledJob__c` records are restored from the Recycle Bin. Every restored job
+	 * comes back switched off. Deleting the job normally stopped its platform job already. The restore tries to stop it
+	 * once more, in case that stop failed, and then clears the stored id of that platform job.
+	 *
+	 * The restore never schedules a platform job. Someone turns the job back on in the editor, and that save runs every normal check.
+	 *
+	 * One of the job runner's own records cannot be restored from the Recycle Bin. To bring the job runner back, use
+	 * Activate or Repair in Health Check.
+	 *
+	 * The save that switches the jobs off is made from inside this action. The framework does not start an action again
+	 * while it is already running, so this action does not check that save. That is how a user without the Manage Job
+	 * Runner permission can restore a job that was on the job runner: the user changes nothing about the job, the
+	 * framework only switches it off.
+	 *
+	 * For the same reason, this action also does not check any other save of a job that a trigger action or a flow makes
+	 * while the switch-off save runs.
+	 *
+	 * If the switch-off save fails, for example because a validation rule refuses it, the restore is refused too, and
+	 * the error is logged. A restored job must never come back switched on. The jobs are switched off in one save, so if
+	 * it fails, every job in the restore that needed switching off is refused, not only the one that caused the failure.
+	 * Jobs that were already off are still restored.
+	 *
+	 * @param newRecords The restored `ScheduledJob__c` records.
+	 */
+	public void afterUndelete(List<SObject> newRecords)
+	{
+		List<ScheduledJob__c> restoredJobsToSwitchOff = new List<ScheduledJob__c>();
+		List<ScheduledJob__c> jobsToSwitchOff = new List<ScheduledJob__c>();
+
+		for(SObject record : newRecords)
+		{
+			ScheduledJob__c scheduler = (ScheduledJob__c)record;
+
+			if(UTIL_ScheduledJobRunner.isRunnerRecord(scheduler) && !allowRunnerRecordManagement)
+			{
+				scheduler.addError(System.Label.ScheduledJob_RunnerRecordManagedByHealthCheck);
+				continue;
+			}
+
+			if(scheduler.IsActive__c || String.isNotBlank(scheduler.ScheduledJobId__c))
+			{
+				stopPlatformJobLeftRunning(scheduler);
+				restoredJobsToSwitchOff.add(scheduler);
+				jobsToSwitchOff.add(new ScheduledJob__c(Id = scheduler.Id, IsActive__c = false, ScheduledJobId__c = null));
+			}
+		}
+
+		if(jobsToSwitchOff.isEmpty())
+		{
+			return;
+		}
+
+		try
+		{
+			DML_Builder.newTransaction().systemModeInternal().doUpdate(jobsToSwitchOff).execute();
+		}
+		catch(Exception error)
+		{
+			LOG_Builder.build().error(error).at(TRG_ScheduleJob.class.getName() + '/afterUndelete').emit();
+
+			for(ScheduledJob__c restored : restoredJobsToSwitchOff)
+			{
+				restored.addError(System.Label.ScheduledJob_RestoreNotSwitchedOff);
+			}
+		}
+	}
+
+	/**
+	 * @description Stops the platform job a restored job still points at, in case stopping it failed when the job was
+	 * deleted. Usually the delete already stopped it, so the stop fails here, and that failure is expected and ignored.
+	 * When the stop failed at the delete, the delete already logged that failure.
+	 *
+	 * @param scheduler The restored `ScheduledJob__c` record.
+	 */
+	@SuppressWarnings('PMD.EmptyCatchBlock')
+	private static void stopPlatformJobLeftRunning(ScheduledJob__c scheduler)
+	{
+		if(String.isBlank(scheduler.ScheduledJobId__c))
+		{
+			return;
+		}
+
+		try
+		{
+			System.abortJob(scheduler.ScheduledJobId__c);
+		}
+		catch(Exception alreadyStopped)
+		{
+			// The delete already stopped this platform job, which is the usual case.
 		}
 	}
 
 	/**
 	 * @description Routes one record: runner records are Health Check's, framework writes of a job-runner record's run
-	 * fields are ignored, job-runner records are seeded, own-mode records are scheduled or stopped as before. The runner
+	 * fields are ignored, then any other change to a job that is or was on the job runner needs the Manage Job Runner
+	 * permission, job-runner records are seeded, and own-mode records are scheduled or stopped as before. The runner
 	 * guard comes first because the runner's own records receive no framework writes, so nothing may reach them ahead of
 	 * it: the no-op check exists for the run fields of the records the runner checks and for description edits. An edit of
-	 * only a runner record's description is therefore still refused outside Health Check.
+	 * only a runner record's description is therefore still refused outside Health Check. The permission check comes after
+	 * the no-op check, so the job runner can still write a job's run fields when the running user does not hold the permission.
+	 * Health Check's allowance for moving a watchdog off a stopped job runner lets only that move skip the permission.
 	 *
 	 * @param scheduler The record as it is being saved.
 	 * @param previous The record before the save, or null on insert.
@@ -121,6 +242,12 @@ public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
 
 		if(previous != null && !anyChanged(scheduler, previous, JOB_BEHAVIOUR_FIELDS))
 		{
+			return;
+		}
+
+		if(isJobRunnerSave(scheduler, previous) && !isAllowedLeavingOfTheJobRunner(scheduler, previous) && !UTIL_ScheduledJobRunner.hasManagePermission())
+		{
+			scheduler.ExecutionMode__c.addError(System.Label.ScheduledJob_ManageJobRunnerPermissionRequired);
 			return;
 		}
 
@@ -156,24 +283,59 @@ public inherited sharing class TRG_ScheduleJob extends TRG_Base implements
 	}
 
 	/**
-	 * @description Handles a record in job-runner mode: gates entry and definition changes on the permission, aborts any
-	 * platform job left from a mode switch, validates the class and parameters exactly as own mode does, and seeds the
-	 * cursor to the next future window when the expression, time zone, mode or active flag changed.
+	 * @description Whether a save that changes how a job behaves touches the job runner, reading the record both as it is
+	 * being saved and as it was before. A job that is going onto the runner, is on it, or is leaving it counts, so a user
+	 * without the Manage Job Runner permission cannot change a job on the runner by taking it off in the same save.
+	 *
+	 * @param scheduler The record as it is being saved.
+	 * @param previous The record before the save, or null on insert.
+	 *
+	 * @return True when the job is in job-runner mode before the save or after it.
+	 */
+	private static Boolean isJobRunnerSave(ScheduledJob__c scheduler, ScheduledJob__c previous)
+	{
+		return UTIL_ScheduledJobRunner.isJobRunnerMode(scheduler) || (previous != null && UTIL_ScheduledJobRunner.isJobRunnerMode(previous));
+	}
+
+	/**
+	 * @description Whether Health Check's allowance lets this save through without the Manage Job Runner permission. That
+	 * is only so when the allowance is set, the job was on the job runner before the save, the save moves it to a
+	 * scheduled job of its own, and no other field that changes how the job behaves is changed.
+	 *
+	 * @param scheduler The record as it is being saved.
+	 * @param previous The record before the save, or null on insert.
+	 *
+	 * @return True when the save only takes the job off the job runner and the allowance is set.
+	 */
+	private static Boolean isAllowedLeavingOfTheJobRunner(ScheduledJob__c scheduler, ScheduledJob__c previous)
+	{
+		if(!allowLeavingTheJobRunner || previous == null || !UTIL_ScheduledJobRunner.isJobRunnerMode(previous)
+				|| !UTIL_ScheduledJobRunner.EXECUTION_MODE_OWN_SCHEDULED_JOB.equals(scheduler.ExecutionMode__c))
+		{
+			return false;
+		}
+
+		for(SObjectField field : JOB_BEHAVIOUR_FIELDS)
+		{
+			if(field != ScheduledJob__c.ExecutionMode__c && hasChanged(scheduler.get(field), previous.get(field)))
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * @description Handles a record in job-runner mode, after the permission check: aborts any platform job left from a
+	 * mode switch, validates the class and parameters exactly as own mode does, and seeds the cursor to the next future
+	 * window when the expression, time zone, mode or active flag changed.
 	 *
 	 * @param scheduler The record as it is being saved.
 	 * @param previous The record before the save, or null on insert.
 	 */
 	private static void manageJobRunnerRecord(ScheduledJob__c scheduler, ScheduledJob__c previous)
 	{
-		Boolean enteringMode = previous == null || !UTIL_ScheduledJobRunner.isJobRunnerMode(previous);
-		Boolean definitionChanged = previous != null && anyChanged(scheduler, previous, DEFINITION_FIELDS);
-
-		if((enteringMode || definitionChanged) && !UTIL_ScheduledJobRunner.hasManagePermission())
-		{
-			scheduler.ExecutionMode__c.addError(System.Label.ScheduledJob_ManageJobRunnerPermissionRequired);
-			return;
-		}
-
 		stopJob(scheduler);
 
 		if(buildConfiguredJobInstance(scheduler) == null)

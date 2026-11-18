@@ -4,7 +4,7 @@
  *              shared scheduled job form. The form itself is tested through this editor in scheduledJobEditorForm's suite.
  *
  * @author Jason van Beukering
- * @date March 2026, October 2026
+ * @date March 2026, November 2026
  */
 import LOAD_RECORD_FAILED from '@salesforce/label/c.ScheduledJob_LoadRecordFailed';
 import CREATED from '@salesforce/label/c.ScheduledJob_Created';
@@ -468,11 +468,22 @@ describe('c-scheduled-job-editor', () =>
 			it('previews the next run only for a valid expression on the runner', async() =>
 			{
 				previewNextRun.mockResolvedValueOnce('2026-09-11T14:15:00.000Z');
-				let context = createRunnerContext({cronExpression: '0 */15 * * * ?', cronIsValid: true, userTimezone: 'UTC'});
+				let context = createRunnerContext({cronExpression: '0 */15 * * * ?', cronIsValid: true, recordId: undefined, userTimezone: 'UTC'});
 				Object.defineProperty(context, 'isJobRunnerMode', {get: () => true});
 				await prototype.refreshNextRunPreview.call(context);
 				expect(previewNextRun).toHaveBeenCalledWith({cronExpression: '0 */15 * * * ?', timezone: 'UTC'});
 				expect(context.nextRunPreview).toBe('2026-09-11T14:15:00.000Z');
+			});
+
+			it('previews the next run in the job time zone when editing a job', async() =>
+			{
+				previewNextRun.mockResolvedValueOnce('2026-09-11T05:15:00.000Z');
+				let context = createRunnerContext({
+					cronExpression: '0 */15 * * * ?', cronIsValid: true, recordId: 'a0X000000000001AAA', userTimezone: 'UTC', recordTimezone: 'Asia/Tokyo'
+				});
+				Object.defineProperty(context, 'isJobRunnerMode', {get: () => true});
+				await prototype.refreshNextRunPreview.call(context);
+				expect(previewNextRun).toHaveBeenCalledWith({cronExpression: '0 */15 * * * ?', timezone: 'Asia/Tokyo'});
 			});
 
 			it('clears the preview in own mode, for an invalid expression and when the controller fails', async() =>

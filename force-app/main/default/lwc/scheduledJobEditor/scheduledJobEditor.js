@@ -8,7 +8,7 @@
  *
  * @author Jason van Beukering
  *
- * @date March 2026, October 2026
+ * @date March 2026, November 2026
  */
 import {api, wire} from 'lwc';
 import {ComponentBuilder} from 'c/componentBuilder';
@@ -275,7 +275,7 @@ export default class ScheduledJobEditor extends ScheduledJobEditorForm(Component
 
 		try
 		{
-			nextRun = await previewNextRun({cronExpression: this.cronExpression, timezone: this.userTimezone}) || '';
+			nextRun = await previewNextRun({cronExpression: this.cronExpression, timezone: this.scheduleTimezone}) || '';
 		}
 		catch
 		{
@@ -289,7 +289,8 @@ export default class ScheduledJobEditor extends ScheduledJobEditorForm(Component
 	}
 
 	/**
-	 * @description Reads the user's time zone, then previews the next run again in that zone.
+	 * @description Reads the user's time zone, then asks for the next-run preview again. A new job, and a job saved
+	 *              without a time zone, is previewed in that zone.
 	 *
 	 * @return {Promise<void>} Resolves once the zone has been read and the preview refreshed.
 	 */
@@ -297,8 +298,8 @@ export default class ScheduledJobEditor extends ScheduledJobEditorForm(Component
 	{
 		await super.loadUserTimezone();
 
-		// The time zone and the record arrive independently, so a preview taken before the zone was known
-		// was computed in UTC. Ask for it again now that the zone is here.
+		// The time zone and the record arrive independently, so a preview taken before the user's zone was known
+		// may have been computed in UTC. Ask for it again now that the zone is here.
 		await this.refreshNextRunPreview();
 	}
 

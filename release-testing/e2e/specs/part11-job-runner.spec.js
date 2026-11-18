@@ -69,13 +69,47 @@ const seedWaitingProbeRecords = () => executeAnonymousApex('List<kern__Scheduled
 		+ ` kern__Parameters__c = '{"nameValueMap":${JSON.stringify(probeParameters())}}')); } insert waiting;`);
 // Covers both the single V140/V141 probe and V139's twelve, which carry a two-digit suffix.
 const deleteProbeRecords = () => executeAnonymousApex(`delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__SchedulerName__c LIKE '${PROBE_JOB_NAME}%'];`);
-const deleteRunnerRecords = () => executeAnonymousApex(`delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__ClassName__c = '${RUNNER_CLASS_NAME}'];`);
 const fastStartRecords = () => soqlQuery(forOrg('SELECT Id, kern__ScheduledJobId__c, kern__ExecutionMode__c, kern__IsActive__c, kern__LastRunOutcome__c '
 		+ `FROM kern__ScheduledJob__c WHERE kern__SchedulerName__c = '${FAST_START_JOB_NAME}'`));
 const deleteFastStartRecords = () => executeAnonymousApex(`delete [SELECT Id FROM kern__ScheduledJob__c WHERE kern__SchedulerName__c = '${FAST_START_JOB_NAME}'];`);
 
 // One cleanup step, run whatever happened before it; a failure is reported and never hides the journey's own.
 const runCleanupStep = cleanupStepRunner('part11');
+
+// The runner's own records are Health Check's and a direct delete of them is refused, so a runner left by a run that
+// stopped early is removed the way an administrator would remove it: with Deactivate. Health Check offers Deactivate
+// only while one of the records still has a live platform job; records left without one show Activate instead, which
+// replaces them, so the hook activates first and then deactivates.
+async function deactivateLeftoverRunner(browser)
+{
+	if(runnerRecords().length === 0)
+	{
+		return;
+	}
+
+	const page = await browser.newPage();
+
+	try
+	{
+		await navigateToApp(page, 'Kern');
+		const home = new KernHomePage(page);
+		await home.navigate();
+		await expect(home.jobRunnerActivateButton().or(home.jobRunnerDeactivateButton()), 'the job runner card offers Activate or Deactivate').toBeVisible();
+
+		if(await home.jobRunnerActivateButton().isVisible())
+		{
+			await activateRunnerEveryFifteenMinutes(home);
+		}
+
+		await home.jobRunnerDeactivateButton().click();
+		await home.confirmDeactivate();
+		expect(runnerRecords().length, 'Deactivate removes the runner left by an earlier run').toBe(0);
+	}
+	finally
+	{
+		await page.close();
+	}
+}
 
 async function activateRunnerEveryFifteenMinutes(home)
 {
@@ -89,7 +123,7 @@ async function activateRunnerEveryFifteenMinutes(home)
 
 test.describe.serial('Part 11: Job Runner', () =>
 {
-	test.beforeAll(() =>
+	test.beforeAll(async({browser}) =>
 	{
 		// The journeys run as the e2e admin, who must hold ManageJobRunner: Activate, Run now and the check's own
 		// entry refuse without it. The assignment is removed in afterAll so other parts see the shipped baseline.
@@ -99,16 +133,19 @@ test.describe.serial('Part 11: Job Runner', () =>
 				+ ' if(!managing.isEmpty() && [SELECT COUNT() FROM PermissionSetAssignment WHERE AssigneeId = :UserInfo.getUserId() AND PermissionSetId = :managing[0].Id] == 0)'
 				+ ' { insert new PermissionSetAssignment(AssigneeId = UserInfo.getUserId(), PermissionSetId = managing[0].Id); }');
 		deleteProbeRecords();
-		deleteRunnerRecords();
+		await deactivateLeftoverRunner(browser);
 	});
 
-	test.afterAll(() =>
+	test.afterAll(async({browser}) =>
 	{
-		deleteProbeRecords();
-		deleteRunnerRecords();
-		executeAnonymousApex('for(CronTrigger trigger_x : [SELECT Id FROM CronTrigger WHERE CronJobDetail.Name LIKE \'V14% Job Runner%\']) { System.abortJob(trigger_x.Id); }');
-		executeAnonymousApex('delete [SELECT Id FROM PermissionSetAssignment WHERE AssigneeId = :UserInfo.getUserId() AND PermissionSet.Name = \'JobRunnerManagement\''
-				+ ` AND PermissionSet.${namespaceClause()}];`);
+		// Each step runs even when one before it fails, so a runner that cannot be deactivated never leaves the permission
+		// set assigned for the parts after this one.
+		await runCleanupStep(() => deleteProbeRecords());
+		await runCleanupStep(() => deactivateLeftoverRunner(browser));
+		await runCleanupStep(() => executeAnonymousApex('for(CronTrigger trigger_x : [SELECT Id FROM CronTrigger WHERE CronJobDetail.Name LIKE \'V14% Job Runner%\'])'
+				+ ' { System.abortJob(trigger_x.Id); }'));
+		await runCleanupStep(() => executeAnonymousApex('delete [SELECT Id FROM PermissionSetAssignment WHERE AssigneeId = :UserInfo.getUserId()'
+				+ ` AND PermissionSet.Name = 'JobRunnerManagement' AND PermissionSet.${namespaceClause()}];`));
 	});
 
 	test('V139: Job runner — Activate every 15 minutes, Deactivate flags a waiting job, Repair restores the set', async({page}) =>

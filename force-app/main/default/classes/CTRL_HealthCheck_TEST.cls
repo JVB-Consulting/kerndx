@@ -9,7 +9,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.EagerlyLoadedDescribeSObjectResult,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.NcssCount')
 @IsTest(seeAllData=false isParallel=false)
@@ -36,6 +36,12 @@ private class CTRL_HealthCheck_TEST
 	private static final String RECOMMENDED_HOURLY_CRON = '0 0 * * * ?';
 
 	/**
+	 * @description A handler class name that a masking target stores in Caller Class. The test only needs some
+	 * text in the field, so the class does not have to exist.
+	 */
+	private static final String MASKING_CALLER_CLASS_NAME = 'API_SendInvoice';
+
+	/**
 	 * @description The recommended watchdog stale threshold in minutes, serialized as parameter text.
 	 */
 	private static final String RECOMMENDED_STALE_THRESHOLD_MINUTES = '30';
@@ -49,6 +55,11 @@ private class CTRL_HealthCheck_TEST
 	 * @description A deliberately non-default cron proving the chosen cron wins over the hourly default.
 	 */
 	private static final String CUSTOM_WATCHDOG_CRON = '0 0 3 * * ?';
+
+	/**
+	 * @description The start of the target of a bypass entry for a system-mode save. The object's name follows it.
+	 */
+	private static final String SYSTEM_MODE_TARGET_PREFIX = 'system-mode:';
 
 	/**
 	 * @description The AsyncApexJob job type a System.schedule registration creates.
@@ -914,6 +925,41 @@ private class CTRL_HealthCheck_TEST
 	}
 
 	/**
+	 * @description Proves the Data Masking check warns when an active masking target names a Caller Class on an
+	 * object other than API Call or API Issue. Only API calls and API issues know which class made them, so the
+	 * target masks nothing and the admin is pointed at the advisor. A standard object's durable Id is its API name,
+	 * so the Account target resolves through the real object read.
+	 */
+	@IsTest
+	private static void shouldWarnWhenAMaskingTargetNamesACallerClassOnAnotherObject()
+	{
+		MaskingRule__mdt activeRule = maskingRule(true);
+		SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt> {'ActiveRule' => activeRule};
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt>
+		{
+				'AccountWithCallerClass' => TST_Factory.newMaskingTarget(new Map<SObjectField, Object>
+				{
+						MaskingTarget__mdt.DeveloperName => 'AccountWithCallerClass',
+						MaskingTarget__mdt.IsActive__c => true,
+						MaskingTarget__mdt.SObjectType__c => 'Account',
+						MaskingTarget__mdt.CallerClass__c => MASKING_CALLER_CLASS_NAME,
+						MaskingTarget__mdt.Rule__c => activeRule.Id
+				})
+		};
+
+		List<CTRL_HealthCheck.DTO_HealthCheckResult> results = CTRL_HealthCheck.runHealthChecks();
+
+		CTRL_HealthCheck.DTO_HealthCheckResult maskingResult = results[4];
+		Assert.areEqual(CTRL_HealthCheck.CHECK_MASKING_POSTURE, maskingResult.name, 'Expected the fifth result to be Data Masking');
+		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, maskingResult.status, 'Expected a warning for a Caller Class on Account');
+		Assert.areEqual(
+				String.format(CTRL_HealthCheck.DETAIL_MASKING_POSTURE_DEAD, new List<Object> {1}),
+				maskingResult.detail,
+				'Expected the detail to report the one target that masks nothing'
+		);
+	}
+
+	/**
 	 * @description Verifies the Data Masking check warns when the org carries no active masking at all,
 	 * pointing the admin at the advisor to review their objects.
 	 */
@@ -1482,6 +1528,58 @@ private class CTRL_HealthCheck_TEST
 	}
 
 	/**
+	 * @description Applying the retention proposals saves the purge jobs in system mode. That save is the framework's
+	 * own, so it writes no bypass entry. The test turns logging on and holds the entries in memory instead of saving
+	 * them, so it can count them.
+	 *
+	 * @see CTRL_HealthCheck.applyRetentionRecommendations
+	 */
+	@IsTest
+	private static void shouldWriteNoBypassEntryWhenHealthCheckCreatesAPurgeJob()
+	{
+		TRG_Base.bypass(ScheduledJob__c.SObjectType);
+		List<CTRL_HealthCheck.DTO_RetentionProposal> proposals = CTRL_HealthCheck.getRetentionProposals();
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LOG_Builder.suspendSaving();
+
+		Test.startTest();
+		List<Id> insertedIds = CTRL_HealthCheck.applyRetentionRecommendations(proposals);
+		Test.stopTest();
+
+		Assert.areEqual(proposals.size(), insertedIds.size(), 'Expected one purge job for each proposal, got ' + insertedIds.size());
+		Integer bypassEntries = UTIL_BypassAudit_TEST.countBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML,
+				SYSTEM_MODE_TARGET_PREFIX + String.valueOf(ScheduledJob__c.SObjectType));
+		Assert.areEqual(0, bypassEntries, 'Expected no bypass entry for the framework\'s own save of the purge jobs, got ' + bypassEntries);
+	}
+
+	/**
+	 * @description Scheduling the chain watchdog saves its job in system mode. That save is the framework's own, so it
+	 * writes no bypass entry. The test turns logging on and holds the entries in memory instead of saving them, so it
+	 * can count them.
+	 *
+	 * @see CTRL_HealthCheck.scheduleChainWatchdog
+	 */
+	@IsTest
+	private static void shouldWriteNoBypassEntryWhenHealthCheckSchedulesTheChainWatchdog()
+	{
+		TRG_Base.bypass(ScheduledJob__c.SObjectType);
+		TST_Mock.register(AsyncApexJob.SObjectType, new List<AsyncApexJob>());
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LOG_Builder.suspendSaving();
+
+		Test.startTest();
+		Id scheduledJobId = CTRL_HealthCheck.scheduleChainWatchdog(CUSTOM_WATCHDOG_CRON);
+		Test.stopTest();
+
+		Assert.isNotNull(scheduledJobId, 'Expected the watchdog job to be created');
+		Integer bypassEntries = UTIL_BypassAudit_TEST.countBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML,
+				SYSTEM_MODE_TARGET_PREFIX + String.valueOf(ScheduledJob__c.SObjectType));
+		Assert.areEqual(0, bypassEntries, 'Expected no bypass entry for the framework\'s own save of the watchdog job, got ' + bypassEntries);
+	}
+
+	/**
 	 * @description Verifies the retention proposal for AsyncChainExecution__c schedules its purge
 	 * job with CompletedAt__c as the date-field parameter
 	 * (SCHED_PurgeRecords.OPTIONAL_PARAMETER_DATE_FIELD_NAME), while every other proposal omits the
@@ -1925,7 +2023,7 @@ private class CTRL_HealthCheck_TEST
 
 		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, jobRunner.status, 'a complete set that checked five minutes ago at a fifteen-minute interval passes');
 		Assert.areEqual(String.format(System.Label.HealthCheck_JobRunner_Pass,
-				new List<Object> {RECORD_COUNT_AT_FIFTEEN_MINUTES, String.valueOf(lastCheckedAt())}), jobRunner.detail,
+				new List<Object> {RECORD_COUNT_AT_FIFTEEN_MINUTES, lastCheckedAt().format()}), jobRunner.detail,
 				'the detail names the four scheduled jobs and the time of the last check: ' + jobRunner.detail);
 	}
 
@@ -1946,7 +2044,7 @@ private class CTRL_HealthCheck_TEST
 
 		Assert.areEqual(CTRL_HealthCheck.STATUS_WARN, late.status, 'a last check older than one interval warns');
 		Assert.areEqual(String.format(System.Label.HealthCheck_JobRunner_Late,
-				new List<Object> {String.valueOf(lastCheckedAt()), FIFTEEN_MINUTES}), late.detail,
+				new List<Object> {lastCheckedAt().format(), FIFTEEN_MINUTES}), late.detail,
 				'the detail names the late check and the fifteen-minute schedule it is late against: ' + late.detail);
 	}
 
@@ -1966,7 +2064,7 @@ private class CTRL_HealthCheck_TEST
 				System.Label.HealthCheck_JobRunner_CheckName);
 
 		Assert.areEqual(CTRL_HealthCheck.STATUS_FAIL, stopped.status, 'a last check older than two intervals fails');
-		Assert.areEqual(String.format(System.Label.HealthCheck_JobRunner_Stopped, new List<Object> {String.valueOf(lastCheckedAt())}), stopped.detail,
+		Assert.areEqual(String.format(System.Label.HealthCheck_JobRunner_Stopped, new List<Object> {lastCheckedAt().format()}), stopped.detail,
 				'a runner that stopped after a check names the time of that check: ' + stopped.detail);
 	}
 
@@ -2003,7 +2101,7 @@ private class CTRL_HealthCheck_TEST
 				System.Label.HealthCheck_JobRunner_CheckName);
 		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, awaiting.status, 'a runner activated a moment ago is waiting for its first check');
 		Assert.areEqual(String.format(System.Label.HealthCheck_JobRunner_AwaitingFirstCheck,
-				new List<Object> {String.valueOf(newestRunnerRecordCreatedDate()), THIRTY_MINUTES}), awaiting.detail,
+				new List<Object> {newestRunnerRecordCreatedDate().format(), THIRTY_MINUTES}), awaiting.detail,
 				'the detail names when it was activated and when its first check is due: ' + awaiting.detail);
 
 		backdateRunnerRecordsTo(Datetime.now().addHours(-2));
@@ -2012,7 +2110,7 @@ private class CTRL_HealthCheck_TEST
 				System.Label.HealthCheck_JobRunner_CheckName);
 		Assert.areEqual(CTRL_HealthCheck.STATUS_FAIL, overdue.status, 'a runner that has still not checked two hours after it was activated is stopped');
 		Assert.areEqual(String.format(System.Label.HealthCheck_JobRunner_Stopped,
-				new List<Object> {String.valueOf(newestRunnerRecordCreatedDate())}), overdue.detail,
+				new List<Object> {newestRunnerRecordCreatedDate().format()}), overdue.detail,
 				'with no check ever recorded, the detail falls back to the moment it was activated: ' + overdue.detail);
 	}
 
@@ -2312,7 +2410,7 @@ private class CTRL_HealthCheck_TEST
 
 			Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, intact.status, 'the repaired set reads as complete');
 			Assert.areEqual(String.format(System.Label.HealthCheck_JobRunner_AwaitingFirstCheck,
-					new List<Object> {String.valueOf(newestRunnerRecordCreatedDate()), FIFTEEN_MINUTES}), intact.detail,
+					new List<Object> {newestRunnerRecordCreatedDate().format(), FIFTEEN_MINUTES}), intact.detail,
 					'and the restored set is now waiting for its first check, due within the interval it keeps: ' + intact.detail);
 		}
 	}
@@ -2522,6 +2620,35 @@ private class CTRL_HealthCheck_TEST
 	}
 
 	/**
+	 * @description Verifies that an administrator without the Manage Job Runner permission can still use the one-click
+	 * schedule to move a watchdog off a job runner that has stopped. Taking a job off the job runner normally needs that
+	 * permission, so Health Check allows this one change while it moves the watchdog, and takes the allowance back once
+	 * it is done.
+	 */
+	@IsTest
+	private static void schedulingTheWatchdogMovesItOffADeadRunnerForAnAdministratorWithoutThePermission()
+	{
+		TST_Mock.register(AsyncApexJob.SObjectType, new List<AsyncApexJob>());
+		TST_Mock.register(CronTrigger.SObjectType, new List<CronTrigger>());
+		seedWatchdogRidingTheRunner();
+
+		Id scheduledJobId;
+		Test.startTest();
+		System.runAs(getPlainAdmin())
+		{
+			scheduledJobId = CTRL_HealthCheck.scheduleChainWatchdog(RECOMMENDED_HOURLY_CRON);
+		}
+		Test.stopTest();
+
+		List<ScheduledJob__c> watchdogs = new SEL_ScheduledJob().findActiveByClassName(WATCHDOG_CLASS);
+		Assert.areEqual(1, watchdogs.size(), 'Expected the watchdog to be moved, not joined by a second watchdog');
+		Assert.areEqual(watchdogs[0].Id, scheduledJobId, 'Expected the action to answer the record it moved');
+		Assert.isFalse(UTIL_ScheduledJobRunner.isJobRunnerMode(watchdogs[0]), 'Expected the watchdog to run on a scheduled job of its own');
+		Assert.isNotNull(watchdogs[0].ScheduledJobId__c, 'Expected the watchdog to own a scheduled job, so the sweep runs again');
+		Assert.isFalse(TRG_ScheduleJob.allowLeavingTheJobRunner, 'Expected Health Check to take the allowance back once the move is done');
+	}
+
+	/**
 	 * @description Verifies that a runner repaired after it stopped is read as waiting for its first check again, rather
 	 * than as still stopped at the check that came before the repair: with the last check three hours old and the
 	 * records created a moment ago the job runner row passes, and once those records are two hours old it fails again.
@@ -2537,7 +2664,7 @@ private class CTRL_HealthCheck_TEST
 
 		Assert.areEqual(CTRL_HealthCheck.STATUS_PASS, awaiting.status, 'a runner whose records were created after the last check is waiting for its first check again');
 		Assert.areEqual(String.format(System.Label.HealthCheck_JobRunner_AwaitingFirstCheck,
-				new List<Object> {String.valueOf(newestRunnerRecordCreatedDate()), FIFTEEN_MINUTES}), awaiting.detail,
+				new List<Object> {newestRunnerRecordCreatedDate().format(), FIFTEEN_MINUTES}), awaiting.detail,
 				'and the detail names the moment it was activated, not the older check: ' + awaiting.detail);
 
 		backdateRunnerRecordsTo(Datetime.now().addHours(-2));

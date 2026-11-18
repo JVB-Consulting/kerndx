@@ -8,7 +8,7 @@
  *
  * @group Controllers
  *
- * @date March 2026, October 2026
+ * @date March 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)
@@ -35,6 +35,26 @@ private class CTRL_ScheduledJob_TEST
 	 * @description The schedule of the jobs the job runner setting tests save: every day at noon.
 	 */
 	private static final String NOON_EVERY_DAY = '0 0 12 * * ?';
+
+	/**
+	 * @description The time zone the job runner record is stored with, so the test's save request can send it back unchanged.
+	 */
+	private static final String STORED_TIMEZONE = 'UTC';
+
+	/**
+	 * @description A time zone that is not the saving user's, for the jobs that test how an edit treats the stored time zone.
+	 */
+	private static final String OTHER_TIMEZONE = 'Asia/Tokyo';
+
+	/**
+	 * @description The name of the time zone value in the JSON request the editors send.
+	 */
+	private static final String TIMEZONE_KEY = 'timezone';
+
+	/**
+	 * @description The description a user without the job runner permission writes over the stored one.
+	 */
+	private static final String EDITED_DESCRIPTION = 'Description edited by a user without the job runner permission';
 
 	/**
 	 * @description The name of the run priority value in the JSON request the editors send.
@@ -419,6 +439,57 @@ private class CTRL_ScheduledJob_TEST
 	}
 
 	/**
+	 * @description Tests that saving an existing job with no time zone in the request keeps the time zone the job was
+	 * saved with, rather than moving the job to the time zone of the user who saves it.
+	 */
+	@IsTest
+	private static void shouldKeepTheStoredTimezoneWhenAnEditSendsNone()
+	{
+		System.runAs(getManagingAdmin())
+		{
+			Assert.areNotEqual(OTHER_TIMEZONE, UserInfo.getTimeZone().getID(), 'Expected the saving user to be in another time zone than the job');
+			ScheduledJob__c existingRecord = insertJobRunnerRecordInTimezone(OTHER_TIMEZONE);
+			Map<String, Object> request = newRequestWithoutJobRunnerSettings(existingRecord.Id);
+			Assert.isFalse(request.containsKey(TIMEZONE_KEY), 'Expected the request to send no time zone');
+
+			Id savedId = CTRL_ScheduledJob.saveRecord(JSON.serialize(request));
+
+			ScheduledJob__c saved = (ScheduledJob__c)new SEL_ScheduledJob().findById(savedId);
+			Assert.areEqual(OTHER_TIMEZONE, saved.Timezone__c, 'Expected the job to keep the time zone it was saved with');
+		}
+	}
+
+	/**
+	 * @description Tests that a user without the job runner permission, in another time zone than the job, can change only
+	 * the description of a job on the job runner when the request sends no time zone. Changing the time zone of such a job
+	 * needs the permission, so the save must not move the job to the user's time zone.
+	 */
+	@IsTest
+	private static void saveRecordLetsAUserWithoutTheJobRunnerPermissionInAnotherTimezoneChangeOnlyTheDescription()
+	{
+		ScheduledJob__c existingRecord;
+		Id savedId;
+
+		System.runAs(getManagingAdmin())
+		{
+			existingRecord = (ScheduledJob__c)new SEL_ScheduledJob().findById(insertJobRunnerRecordInTimezone(OTHER_TIMEZONE).Id);
+		}
+
+		System.runAs(getUnpermittedUser())
+		{
+			Assert.isFalse(UTIL_ScheduledJobRunner.hasManagePermission(), 'Expected the Standard User to hold no job runner manage permission');
+			Assert.areNotEqual(OTHER_TIMEZONE, UserInfo.getTimeZone().getID(), 'Expected the saving user to be in another time zone than the job');
+			Map<String, Object> request = (Map<String, Object>)JSON.deserializeUntyped(newDescriptionOnlyRequest(existingRecord));
+			request.remove(TIMEZONE_KEY);
+			savedId = CTRL_ScheduledJob.saveRecord(JSON.serialize(request));
+		}
+
+		ScheduledJob__c saved = (ScheduledJob__c)new SEL_ScheduledJob().findById(savedId);
+		Assert.areEqual(EDITED_DESCRIPTION, saved.Description__c, 'Expected the new description to be saved');
+		Assert.areEqual(OTHER_TIMEZONE, saved.Timezone__c, 'Expected the job to keep the time zone it was saved with');
+	}
+
+	/**
 	 * @description Tests that getUserTimezone returns the running user's timezone ID.
 	 */
 	@IsTest
@@ -510,8 +581,9 @@ private class CTRL_ScheduledJob_TEST
 	}
 
 	/**
-	 * @description Tests that a user without the job runner permission can save an existing job runner job with a request
-	 * that names none of the job runner settings, and that the job stays on the job runner with its settings.
+	 * @description Tests that a user without the job runner permission can save a request for an existing job runner job
+	 * that carries the stored name, class, schedule and time zone, a new description and none of the job runner settings.
+	 * The save changes only the description, and the job stays on the job runner with its settings.
 	 */
 	@IsTest
 	private static void saveRecordKeepsTheJobRunnerSettingsForAUserWithoutTheJobRunnerPermission()
@@ -521,7 +593,7 @@ private class CTRL_ScheduledJob_TEST
 
 		System.runAs(getManagingAdmin())
 		{
-			existingRecord = insertJobRunnerRecord();
+			existingRecord = (ScheduledJob__c)new SEL_ScheduledJob().findById(insertJobRunnerRecord().Id);
 		}
 
 		User unpermittedUser = getUnpermittedUser();
@@ -537,10 +609,11 @@ private class CTRL_ScheduledJob_TEST
 		System.runAs(unpermittedUser)
 		{
 			Assert.isFalse(UTIL_ScheduledJobRunner.hasManagePermission(), 'Expected the Standard User to hold no job runner manage permission');
-			savedId = CTRL_ScheduledJob.saveRecord(JSON.serialize(newRequestWithoutJobRunnerSettings(existingRecord.Id)));
+			savedId = CTRL_ScheduledJob.saveRecord(newDescriptionOnlyRequest(existingRecord));
 		}
 
 		ScheduledJob__c saved = (ScheduledJob__c)new SEL_ScheduledJob().findById(savedId);
+		Assert.areEqual(EDITED_DESCRIPTION, saved.Description__c, 'Expected the new description to be saved');
 		Assert.areEqual(UTIL_ScheduledJobRunner.EXECUTION_MODE_JOB_RUNNER, saved.ExecutionMode__c, 'Expected the job to stay on the job runner');
 		Assert.areEqual(STORED_RUN_PRIORITY, saved.RunPriority__c, 'Expected the run priority to stay as it was');
 		Assert.areEqual(UTIL_ScheduledJobRunner.OVERLAP_POLICY_ALLOW, saved.OverlapPolicy__c, 'Expected the overlap policy to stay as it was');
@@ -680,11 +753,25 @@ private class CTRL_ScheduledJob_TEST
 	}
 
 	/**
-	 * @description Inserts an inactive job that runs on the job runner, with run priority 5 and overlap policy Allow.
+	 * @description Inserts an inactive job that runs on the job runner, with run priority 5, overlap policy Allow and
+	 * time zone UTC.
 	 *
 	 * @return The inserted job.
 	 */
 	private static ScheduledJob__c insertJobRunnerRecord()
+	{
+		return insertJobRunnerRecordInTimezone(STORED_TIMEZONE);
+	}
+
+	/**
+	 * @description Inserts an inactive job that runs on the job runner, with run priority 5, overlap policy Allow and the
+	 * given time zone.
+	 *
+	 * @param timezone The time zone the job is saved with.
+	 *
+	 * @return The inserted job.
+	 */
+	private static ScheduledJob__c insertJobRunnerRecordInTimezone(String timezone)
 	{
 		return (ScheduledJob__c)TST_Builder.of(ScheduledJob__c.SObjectType)
 				.withOverride(ScheduledJob__c.SchedulerName__c, UTIL_Random.randomName())
@@ -694,7 +781,30 @@ private class CTRL_ScheduledJob_TEST
 				.withOverride(ScheduledJob__c.ExecutionMode__c, UTIL_ScheduledJobRunner.EXECUTION_MODE_JOB_RUNNER)
 				.withOverride(ScheduledJob__c.RunPriority__c, STORED_RUN_PRIORITY)
 				.withOverride(ScheduledJob__c.OverlapPolicy__c, UTIL_ScheduledJobRunner.OVERLAP_POLICY_ALLOW)
+				.withOverride(ScheduledJob__c.Timezone__c, timezone)
 				.build();
+	}
+
+	/**
+	 * @description Builds a save request that changes only the description of a saved job. The request carries the job's
+	 * stored name, class, schedule, time zone and active flag, and names none of the three job runner settings.
+	 *
+	 * @param storedRecord The job as it is stored.
+	 *
+	 * @return The request as JSON.
+	 */
+	private static String newDescriptionOnlyRequest(ScheduledJob__c storedRecord)
+	{
+		CTRL_ScheduledJob.SaveRequest request = new CTRL_ScheduledJob.SaveRequest();
+		request.recordId = storedRecord.Id;
+		request.schedulerName = storedRecord.SchedulerName__c;
+		request.className = storedRecord.ClassName__c;
+		request.cronExpression = storedRecord.CronExpression__c;
+		request.timezone = storedRecord.Timezone__c;
+		request.isActive = storedRecord.IsActive__c;
+		request.description = EDITED_DESCRIPTION;
+
+		return JSON.serialize(request, true);
 	}
 
 	/**

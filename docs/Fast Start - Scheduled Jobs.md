@@ -6,70 +6,30 @@ navOrder: 40
 
 **Framework:** KernDX | **Total time:** ~25 minutes
 
-**What this is:** A way to run your own Apex class on a schedule (every hour, every night, every Monday) where the schedule is a record you edit, not code you deploy. **Why it exists:** Salesforce's own scheduling is set up in code or in a one-off screen, so changing when a job runs, pausing it, or seeing whether its last run worked usually means a developer and a deployment. With a record, an admin changes the time, switches the job off or reads its last outcome on one page. **Who should follow this:** developers writing background jobs that run on a timer, and the admins who look after them. **When to use it:** any job that must run on a schedule and that you want to change by editing a record, with no deployment. Put it on the job runner when it must run more often than once an hour, or when your org is short of scheduled-job slots (Salesforce allows 100 in total).
-
-What you'll build in one line: a job a record runs every hour, first on a scheduled job of its own, then on the job
-runner, where you run it on demand and read how each run went.
+- **What this is:** A way to run your own Apex class on a schedule (every hour, every night, every Monday) where the schedule is a record you edit, not code you deploy.
+- **Why it exists:** Salesforce's own scheduling is set up in code or in a one-off screen, so changing when a job runs, pausing it, or seeing whether its last run worked usually means a developer and a deployment. With a record, an admin changes the time, switches the job off or reads its last outcome on one page.
+- **Who should follow this:** developers writing background jobs that run on a timer, and the admins who look after them.
+- **When to use it:** any job that must run on a schedule and that you want to change by editing a record, with no deployment. Put it on the job runner when it must run more often than once an hour, or when your org is short of scheduled-job slots (Salesforce allows 100 in total).
+- **What you'll build:** A job class with one switch, Fail on purpose, a Scheduled Job record that runs it every hour,
+  and a paired test class with 100% coverage. Along the way you move the job onto the job runner, run it now, and open
+  the log entry a failed run leaves.
+- **Success looks like:** The record shows Outcome Succeeded after a run, a failed run's View log opens its log entry,
+  and the test class passes.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A job class with one switch, Fail on purpose, a Scheduled Job record that runs it every hour,
-and a paired test class with 100% coverage. Along the way you move the job onto the job runner, run it now, and open
-the log entry a failed run leaves.
-
-**Success looks like:** The record shows Outcome Succeeded after a run, a failed run's View log opens its log entry,
-and the test class passes.
-
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
-Your user also needs access to the Kern app's Scheduled Jobs tab and to Health Check; an administrator has both. Step 3
-gives you the job runner permission set.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [How It Works](#how-it-works)
-3. [Tier 1: See It Work (~10 minutes)](#tier-1-see-it-work-10-minutes)
-    - [Step 1: Create the job class](#step-1-create-the-job-class)
-    - [Step 2: Schedule it with a record](#step-2-schedule-it-with-a-record)
-4. [Tier 2: Move It onto the Job Runner (~10 minutes)](#tier-2-move-it-onto-the-job-runner-10-minutes)
-    - [Step 3: Give yourself the job runner permission set](#step-3-give-yourself-the-job-runner-permission-set)
-    - [Step 4: Activate the job runner](#step-4-activate-the-job-runner)
-    - [Step 5: Put the job on the runner](#step-5-put-the-job-on-the-runner)
-    - [Step 6: Run it now and read the outcome](#step-6-run-it-now-and-read-the-outcome)
-    - [Step 7: See a failed run and its log entry](#step-7-see-a-failed-run-and-its-log-entry)
-    - [Step 8: Write and run the test](#step-8-write-and-run-the-test)
-5. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
-    - [Step 9: Switch the job off](#step-9-switch-the-job-off)
-    - [Clean up](#clean-up)
-6. [Common Issues](#common-issues)
-    - [Step 1: Create the job class](#step-1-create-the-job-class-1)
-    - [Step 2: Schedule it with a record](#step-2-schedule-it-with-a-record-1)
-    - [Step 3: Give yourself the job runner permission set](#step-3-give-yourself-the-job-runner-permission-set-1)
-    - [Step 4: Activate the job runner](#step-4-activate-the-job-runner-1)
-    - [Step 5: Put the job on the runner](#step-5-put-the-job-on-the-runner-1)
-    - [Step 6: Run it now and read the outcome](#step-6-run-it-now-and-read-the-outcome-1)
-    - [Step 7: See a failed run and its log entry](#step-7-see-a-failed-run-and-its-log-entry-1)
-    - [Step 8: Write and run the test](#step-8-write-and-run-the-test-1)
-    - [Step 9: Switch the job off](#step-9-switch-the-job-off-1)
-    - [Clean up](#clean-up-1)
-7. [What You Now Know](#what-you-now-know)
-8. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
+- Your user also needs access to the Kern app's Scheduled Jobs tab and to Health Check; an administrator has both. Step 3
+  gives you the job runner permission set.
 
 ---
 
@@ -82,13 +42,15 @@ does the scheduling whenever you save that record. Here are the pieces you'll wo
 |------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
 | `kern.SCHED_Base`            | The base your class extends: it declares the parameters the job takes, and reads their values with the right type             |
 | `kern__ScheduledJob__c`      | The record: which class runs, when, whether it is switched on, and where it runs                                              |
-| The Scheduled Jobs editor    | New and Edit on the record: suggests your classes and takes a name you type, stamps your time zone, and previews the next run |
+| The Scheduled Jobs editor    | New and Edit on the record: suggests your classes, takes a name you type, keeps a job's time zone, and previews the next run  |
 | The job runner               | A few platform scheduled jobs that start every job set to run on it; you switch it on from the Kern Home tab                  |
 | Kern Job Runner Management   | The permission set that lets you put jobs on the runner and run them now                                                      |
 
-A job runs in one of two places. On a scheduled job of its own, it runs at most once an hour and uses one of the org's
-100 scheduled-job slots. On the job runner, it may run as often as every five minutes and uses no slot of its own: the
-runner's few slots are shared by every job you put on it.
+A job runs in one of two places:
+
+- **On a scheduled job of its own,** it runs at most once an hour and uses one of the org's 100 scheduled-job slots.
+- **On the job runner,** it may run as often as every five minutes and uses no slot of its own: the runner's few slots
+  are shared by every job you put on it.
 
 ---
 
@@ -117,9 +79,10 @@ force-app/main/default/classes/FastStart_ScheduledJob_DEMO.cls
 ```
 
 > **Why `global`?** The framework finds `FastStart_ScheduledJob_DEMO` by name at runtime, and marking it `global` lets
-> it do that with no extra setup. A `public` class works too, once your org registers a Type Resolver class
-> (how the framework finds the Apex classes in your namespace: you tell it where to look). The Kern home page
-> health check provides the code, or see
+> it do that with no extra setup.
+>
+> A `public` class works too, once your org registers a Type Resolver class (how the framework finds the Apex classes
+> in your namespace: you tell it where to look). The Kern home page health check provides the code, or see
 > [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
 
 ```apex
@@ -444,10 +407,12 @@ sf apex run test -o YourOrgAlias -t FastStart_ScheduledJob_DEMO_TEST --code-cove
 You should see 3 tests passing and 100% coverage on `FastStart_ScheduledJob_DEMO`: all three tests show `Pass`, the
 summary line `Outcome` reads `Passed`, and the coverage table shows `FastStart_ScheduledJob_DEMO` at `100%`.
 
-> **Why `Test.startTest() / Test.stopTest()` around the insert?** Saving the record schedules the class, and in a
-> test a scheduled job only runs when `Test.stopTest()` is reached. Wrapping the insert makes the job run once, right
-> there, so the test proves a run with the switch off does not fail. The test class is not parallel
-> (`isParallel=false`) because scheduling a job from a record cannot happen in a parallel test.
+> **Why `Test.startTest() / Test.stopTest()` around the insert?** Wrapping the insert makes the job run once, right
+> there, so the test proves a run with the switch off does not fail. Saving the record schedules the class, and in a
+> test a scheduled job only runs when `Test.stopTest()` is reached.
+>
+> The test class is not parallel (`isParallel=false`) because scheduling a job from a record cannot happen in a
+> parallel test.
 
 Something went wrong? See [Common Issues, Step 8](#step-8-write-and-run-the-test-1).
 
@@ -455,25 +420,29 @@ Something went wrong? See [Common Issues, Step 8](#step-8-write-and-run-the-test
 
 ## Tier 3: Production Patterns (~5 minutes)
 
-**Parameters:** the editor builds the job's form from `getParameterDefinitions()`, one field per parameter, and
-`execute()` reads each value with a typed getter. Add a parameter in code and the form shows it the next time the
-record is edited; nobody has to edit raw text.
+| Topic | What to know |
+|---|---|
+| Parameters | The editor builds the job's form from `getParameterDefinitions()`, one field per parameter, and `execute()` reads each value with a typed getter. Add a parameter in code and the form shows it the next time the record is edited; nobody has to edit raw text. |
+| Run priority | A field a job on the runner adds. It decides which job starts first when several are due at the same check: lower numbers first, blank last. |
+| Overlap policy | A field a job on the runner adds. It decides what happens when a run is due while the previous one is still running: Skip (the default) records the run as Skipped, Allow starts it anyway. |
+| Who the jobs run as | Every job on the runner runs as the user who activated the runner. Run now runs as whoever presses it. Give the activating integration user the access every job on the runner needs. |
+| Time zone | The editor stamps `kern__Timezone__c` with your time zone when you create a job, and keeps the job's time zone when you edit it. A record made any other way, for example by a script or a step after installation, must set `kern__Timezone__c` itself, or on the runner its hours are read as UTC. |
 
-**Run priority and Overlap policy:** two fields a job on the runner adds. Run priority decides which job starts first
-when several are due at the same check: lower numbers first, blank last. Overlap policy decides what happens when a run
-is due while the previous one is still running: Skip (the default) records the run as Skipped, Allow starts it anyway.
+Three Health Check readings watch the runner:
 
-**Who the jobs run as:** every job on the runner runs as the user who activated the runner. Run now runs as whoever
-presses it. Give the activating integration user the access every job on the runner needs.
+- **Job Runner** says whether it has checked for due jobs recently, whether all its scheduled jobs are still there, and
+  whether the user it runs as is still active.
+- **Jobs Waiting for the Job Runner** says whether a job is set to run on a runner that is not there.
+- **Job Runner Capacity** says how many of the org's scheduled-job slots are in use, and whether the last check started
+  every job that was due.
 
-**Health Check:** three readings watch the runner. **Job Runner** says whether it has checked for due jobs recently,
-whether all its scheduled jobs are still there, and whether the user it runs as is still active. **Jobs Waiting for
-the Job Runner** says whether a job is set to run on a runner that is not there. **Job Runner Capacity** says how many
-of the org's scheduled-job slots are in use, and whether the last check started every job that was due.
-
-**Time zone:** the editor stamps `kern__Timezone__c` with your time zone when you save. A record made any other way, for
-example by a script or a step after installation, must set `kern__Timezone__c` itself, or on the runner its hours are
-read as UTC.
+> **When your org has used up its 24-hour limit for asynchronous Apex jobs,** due jobs are not run.
+>
+> - The job runner's check never starts, whether Salesforce's elastic limits (a beta setting) are on or off.
+> - With elastic limits off, Run now shows the platform's error instead of starting the job.
+>
+> See
+> [What happens to your background work at the 24-hour job limit?](Async%20Processing%20-%20Guide.md#what-happens-to-your-background-work-at-the-24-hour-job-limit)
 
 For how runs are timed, missed runs and daylight saving, see
 [Running many jobs on one job runner](Async%20Processing%20-%20Guide.md#running-many-jobs-on-one-job-runner).
@@ -483,7 +452,8 @@ For how runs are timed, missed runs and daylight saving, see
 **In Salesforce**, on the record page, press **Edit**, switch **Active** off, and press **Save**.
 
 You should see the record stay, with nothing scheduled: switching a job off is how you remove it. Deleting the record
-needs the Kern Administrator permission set; you can leave it.
+needs the Kern Administrator permission set; you can leave it. If you delete a job and restore it from the Recycle Bin, it
+comes back switched off: switch Active on to run it again.
 
 Something went wrong? See [Common Issues, Step 9](#step-9-switch-the-job-off-1).
 
@@ -566,10 +536,11 @@ Health Check: activating needs Health Check access, which the permission set doe
 Under it you see `You need the Manage Job Runner permission to put a job on the job runner.` The permission set is
 missing, or the page was open before Step 3 assigned it. Run Step 3, then reload the page.
 
-#### The save is refused: "Only a user with the Manage Job Runner permission can put a job on the job runner..."
+#### The save or delete is refused: "Only a user with the Manage Job Runner permission can put a job on the job runner..."
 
-The full message is `Only a user with the Manage Job Runner permission can put a job on the job runner or change the
-class or parameters of a job that is on it.` You do not hold the permission set: go back to Step 3.
+The full message is `Only a user with the Manage Job Runner permission can put a job on the job runner, change a job
+that is on it, or take a job off it.` Deleting a job that is on the runner gets the same message. You do not hold the
+permission set: go back to Step 3.
 
 ### Step 6: Run it now and read the outcome
 
@@ -581,12 +552,17 @@ then reload the page.
 
 #### Run now answers that the job runner is switched off
 
-Run now answers `The job runner is switched off, so Run now cannot start this job.` This is not about Step 4: the job
-runner has been switched off for the whole org through its feature flag, which stops every job on the runner without
-deleting anything. Activating the runner again does not change it. An administrator turns the flag back on: open Setup,
-then Custom Metadata Types, then **Feature Flag**, then **Manage Feature Flags**, open **Scheduled Job Runner**, check
-that **Is Active** and **Is Enabled By Default** are both checked, and save. See
-[Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) for how flags work.
+Run now answers `The job runner is switched off, so Run now cannot start this job.` An administrator turns the job
+runner's feature flag back on.
+
+This is not about Step 4: the job runner has been switched off for the whole org through its feature flag, which stops
+every job on the runner without deleting anything. Activating the runner again does not change it. To turn the flag
+back on:
+
+1. Open Setup, then Custom Metadata Types, then **Feature Flag**, then **Manage Feature Flags**.
+2. Open **Scheduled Job Runner**, check that **Is Active** and **Is Enabled By Default** are both checked, and save.
+
+See [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) for how flags work.
 
 #### Outcome reads Parked or Skipped
 
@@ -629,8 +605,8 @@ Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?templ
   them with typed getters in `execute()`
 - **A `kern__ScheduledJob__c` record** schedules a class, either on a scheduled job of its own (at most hourly, one
   slot) or on the job runner (as often as every five minutes, no slot of its own)
-- **The Scheduled Jobs editor** suggests your classes, takes a class name you type, and stamps your time zone on the
-  record
+- **The Scheduled Jobs editor** suggests your classes, takes a class name you type, stamps your time zone on a new
+  record, and keeps the record's time zone when you edit it
 - **The job runner** is switched on from the Kern Home tab; putting jobs on it needs the Kern Job Runner Management
   permission set, and in production an integration user activates it
 - **Run now** starts a job on the runner straight away; **Outcome** shows how the last run went, and a failed run's

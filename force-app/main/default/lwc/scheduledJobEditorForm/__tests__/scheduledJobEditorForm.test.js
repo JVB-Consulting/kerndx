@@ -5,7 +5,7 @@
  *              save, the job runner fields) is tested beside that editor.
  *
  * @author Jason van Beukering
- * @date October 2026
+ * @date October 2026, November 2026
  */
 import CREATE_TITLE from '@salesforce/label/c.ScheduledJob_NewTitle';
 import EDIT_TITLE from '@salesforce/label/c.ScheduledJob_EditTitle';
@@ -102,6 +102,7 @@ describe.each(HOSTS)('the scheduled job form through $tagName', (host) =>
 			'isCreateMode',
 			'formTitle',
 			'scheduleHeading',
+			'scheduleTimezone',
 			'isSaveDisabled',
 			'hasBlockingClassNameError',
 			'hasParameterDefinitions',
@@ -534,19 +535,36 @@ describe.each(HOSTS)('the scheduled job form through $tagName', (host) =>
 		{
 			it('returns Schedule with timezone when userTimezone is set', () =>
 			{
-				let result = getGetter('scheduleHeading').call(createMockContext({userTimezone: 'America/New_York'}));
+				let result = getGetter('scheduleHeading').call(createMockContext({recordId: undefined, userTimezone: 'America/New_York'}));
 				expect(result).toContain('Schedule (');
 				expect(result).toContain(')');
 			});
 
 			it('returns plain Schedule when userTimezone is empty', () =>
 			{
-				expect(getGetter('scheduleHeading').call(createMockContext({userTimezone: ''}))).toBe(SCHEDULE);
+				expect(getGetter('scheduleHeading').call(createMockContext({recordId: undefined, userTimezone: ''}))).toBe(SCHEDULE);
 			});
 
 			it('falls back to the raw timezone id when Intl cannot format the zone', () =>
 			{
-				expect(getGetter('scheduleHeading').call(createMockContext({userTimezone: 'Totally/Bogus_Zone'}))).toBe('Schedule (Totally/Bogus_Zone)');
+				expect(getGetter('scheduleHeading').call(createMockContext({recordId: undefined, userTimezone: 'Totally/Bogus_Zone'}))).toBe('Schedule (Totally/Bogus_Zone)');
+			});
+
+			it('names the job time zone, not the user time zone, when editing a job', () =>
+			{
+				let context = createMockContext({userTimezone: 'Totally/Bogus_User_Zone', recordTimezone: 'Totally/Bogus_Job_Zone'});
+				expect(getGetter('scheduleHeading').call(context)).toBe('Schedule (Totally/Bogus_Job_Zone)');
+			});
+
+			it('returns plain Schedule while editing a job whose time zone is not read yet', () =>
+			{
+				expect(getGetter('scheduleHeading').call(createMockContext({userTimezone: 'America/New_York', recordTimezone: null}))).toBe(SCHEDULE);
+			});
+
+			it('names the user time zone when editing a job saved without one', () =>
+			{
+				let context = createMockContext({userTimezone: 'Totally/Bogus_User_Zone', recordTimezone: ''});
+				expect(getGetter('scheduleHeading').call(context)).toBe('Schedule (Totally/Bogus_User_Zone)');
 			});
 		});
 
@@ -626,10 +644,13 @@ describe.each(HOSTS)('the scheduled job form through $tagName', (host) =>
 				.mockReturnValueOnce('0 0 1 * * ?')
 				.mockReturnValueOnce(true)
 				.mockReturnValueOnce('Cleans up old records')
-				.mockReturnValueOnce('{"nameValueMap":{"objectName":"LogEntry__c","minimumNumberOfDays":"30"}}');
+				.mockReturnValueOnce('{"nameValueMap":{"objectName":"LogEntry__c","minimumNumberOfDays":"30"}}')
+				.mockReturnValueOnce('Asia/Tokyo');
 
 				let context = createMockContext();
 				prototype.wiredRecord.call(context, {data: {fields: {}}});
+				expect(getFieldValue.mock.calls.some(([, field]) => JSON.stringify(field).includes('Timezone__c'))).toBe(true);
+				expect(context.recordTimezone).toBe('Asia/Tokyo');
 				expect(context.schedulerName).toBe('Purge Records');
 				expect(context.className).toBe(wiredClassName);
 				expect(context.cronExpression).toBe('0 0 1 * * ?');
@@ -675,6 +696,7 @@ describe.each(HOSTS)('the scheduled job form through $tagName', (host) =>
 				expect(context.isActive).toBe(false);
 				expect(context.description).toBe('');
 				expect(context.parameterValues).toEqual({});
+				expect(context.recordTimezone).toBe('');
 			});
 
 			it('defaults to an empty parameter map when the stored JSON omits nameValueMap', () =>
@@ -886,7 +908,8 @@ describe.each(HOSTS)('the scheduled job form through $tagName', (host) =>
 					cronExpression: '0 0 1 * * ?',
 					isActive: true,
 					description: 'Cleans up',
-					userTimezone: 'Africa/Johannesburg',
+					userTimezone: 'America/New_York',
+					recordTimezone: 'Africa/Johannesburg',
 					parameterDefinitions: [
 						{name: 'objectName', label: 'Object Name', dataType: 'TEXT'},
 						{name: 'batchSize', label: 'Batch Size', dataType: 'NUMERIC'}
@@ -898,9 +921,21 @@ describe.each(HOSTS)('the scheduled job form through $tagName', (host) =>
 				}));
 			});
 
-			it('includes timezone in save payload', async() =>
+			it('sends the stored time zone when editing a job', async() =>
 			{
-				let request = await saveAndReadRequest({userTimezone: 'America/New_York'});
+				let request = await saveAndReadRequest({recordTimezone: 'Asia/Tokyo', userTimezone: 'America/New_York'});
+				expect(request.timezone).toBe('Asia/Tokyo');
+			});
+
+			it('sends the user time zone when editing a job saved without one', async() =>
+			{
+				let request = await saveAndReadRequest({recordTimezone: '', userTimezone: 'America/New_York'});
+				expect(request.timezone).toBe('America/New_York');
+			});
+
+			it('sends the user time zone when creating a job', async() =>
+			{
+				let request = await saveAndReadRequest({recordId: undefined, recordTimezone: '', userTimezone: 'America/New_York'});
 				expect(request.timezone).toBe('America/New_York');
 			});
 
