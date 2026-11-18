@@ -2,8 +2,9 @@
 /**
  * @description Controller for the Data Masking Advisor console. Surfaces problems in the org's
  * data-masking configuration so administrators can correct them before sensitive data is exposed.
- * The first diagnostic flags dead configuration — active `MaskingTarget__mdt` records whose rule is
- * inactive or missing, which silently mask nothing despite appearing configured.
+ * The first diagnostic flags dead configuration: active `MaskingTarget__mdt` records that look set up
+ * but mask nothing, because their rule is inactive or missing, or because they name a Caller Class on an
+ * object other than API Call or API Issue.
  *
  * A masking rule that fails here propagates deliberately: this is the surface where an administrator
  * sees a broken rule. None of the masker call sites below catch the failure, because a preview
@@ -19,7 +20,7 @@
  *
  * @group Controllers
  *
- * @date May 2026, October 2026
+ * @date May 2026, November 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssTypeCount')
 public inherited sharing class CTRL_MaskingAdvisor
@@ -39,6 +40,11 @@ public inherited sharing class CTRL_MaskingAdvisor
 		 * @description An active target references a rule that does not exist (or is null) — it masks nothing.
 		 */
 		MISSING_RULE,
+		/**
+		 * @description An active target names a Caller Class, but its object is not API Call or API Issue. Only API
+		 * calls and API issues know which handler class made them, so the target masks nothing.
+		 */
+		CALLER_CLASS_ON_OTHER_OBJECT,
 		/**
 		 * @description The older card number rule (MaskCreditCard) is on and still runs, because the newer card
 		 * rule does not replace it. On long text with many digits it can use up the time a save is allowed.
@@ -127,18 +133,6 @@ public inherited sharing class CTRL_MaskingAdvisor
 			'cardlast4', 'maskedpan', 'truncatedpan', 'expirydate', 'expirationdate', 'cardexpiry',
 			'cardholder',
 			'taxno', 'idnbr'
-	};
-
-	/**
-	 * @description Field `DisplayType`s a masking rule can sensibly be recommended on — the same
-	 * text-shaped set the masking engine itself recognises (`UTIL_FrameworkMasker.getTextShapedDisplayTypes`).
-	 * The recommendation resolver gates on this so a rule is never recommended on a field the framework
-	 * could not mask anyway (a Boolean, Date, DateTime, Reference, …), keeping recommendations credible.
-	 */
-	private static final Set<DisplayType> RECOMMENDABLE_FIELD_TYPES = new Set<DisplayType>
-	{
-			DisplayType.STRING, DisplayType.TEXTAREA, DisplayType.URL,
-			DisplayType.EMAIL, DisplayType.PHONE, DisplayType.ENCRYPTEDSTRING
 	};
 
 	/**
@@ -316,6 +310,7 @@ public inherited sharing class CTRL_MaskingAdvisor
 	{
 			ConfigurationIssue.INACTIVE_RULE => System.Label.DataMaskingAdvisor_DeadConfiguration_InactiveRule,
 			ConfigurationIssue.MISSING_RULE => System.Label.DataMaskingAdvisor_DeadConfiguration_MissingRule,
+			ConfigurationIssue.CALLER_CLASS_ON_OTHER_OBJECT => System.Label.DataMaskingAdvisor_DeadConfiguration_CallerClassOnOtherObject,
 			ConfigurationIssue.OLDER_CARD_RULE_WOULD_RUN => System.Label.MaskingAdvisorOlderCardRuleWouldRun,
 			ConfigurationIssue.CARD_RULE_BLOCKS_SAVES => System.Label.MaskingAdvisorCardRuleBlocksSaves
 	};
@@ -364,10 +359,23 @@ public inherited sharing class CTRL_MaskingAdvisor
 	private static final String TYPE_STEM_MASKING_RULE = SEL_MaskingRule.OBJECT_NAME.removeEnd(CUSTOM_METADATA_SUFFIX);
 
 	/**
+	 * @description The API names, in lower case, of the objects whose saves know which handler class made the
+	 * record: API Call and API Issue. A masking target that names a Caller Class can mask records of these two
+	 * objects only. The names come from the object tokens, so they carry the package namespace when there is one.
+	 * Where the package has a namespace, an object of your own with the same name but no namespace never matches.
+	 */
+	private static final Set<String> OBJECT_NAMES_THAT_RECORD_THE_CALLER = new Set<String>
+	{
+			UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType).toLowerCase(),
+			UTIL_SObjectDescribe.getObjectNameFromType(ApiIssue__c.SObjectType).toLowerCase()
+	};
+
+	/**
 	 * @description Returns every finding the Advisor has about the org's masking setup: each dead configuration
 	 * (an active masking target that masks nothing) and each card rule finding. It reads all masking targets and
 	 * rules, active and inactive, through SEL_MaskingTarget, so that a rule that is off can be told apart from a
-	 * rule that is missing. It then flags each active target whose rule is off or missing. It also checks the two
+	 * rule that is missing. It then flags each active target whose rule is off or missing, and each active target
+	 * that names a Caller Class on an object other than API Call or API Issue. It also checks the two
 	 * packaged card number rules and adds at most one finding for each (see analyzeCardRules).
 	 *
 	 * @return One finding per dead active target, then the card rule findings (empty when the configuration is healthy)
@@ -486,7 +494,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 	 * cannot be read), a heuristic confidence tier for unclassified fields, and the masking targets already
 	 * applied to each field (active and inactive) so the console can render existing coverage and offer a
 	 * disable / re-enable diff. Output is restricted to fields the framework can actually
-	 * mask: the text-shaped types (`RECOMMENDABLE_FIELD_TYPES`) that are also writable — the type gate plus
+	 * mask: the field types the masking framework treats as text (`UTIL_FrameworkMasker.TEXT_FIELD_TYPES`, so a rule
+	 * is never recommended on a field type the framework does not treat as text) that are also writable. The type gate plus
 	 * a system-managed-field exclusion are applied in `UTIL_SObjectDescribe` so metadata is never built for
 	 * fields that would only be discarded. The type gate alone keeps every Id/audit-stamp/lookup/Boolean/
 	 * Date field out (they are non-text), and the system-managed exclusion additionally drops text-typed
@@ -539,7 +548,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 						applicableRuleNamesByType(recommendationCandidates)
 				);
 
-		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> fieldInformationByName = UTIL_SObjectDescribe.getAllFieldInformation(objectApiName, RECOMMENDABLE_FIELD_TYPES, true);
+		Map<String, UTIL_SObjectDescribe.DTO_FieldInformation> fieldInformationByName = UTIL_SObjectDescribe.getAllFieldInformation(
+				objectApiName, UTIL_FrameworkMasker.TEXT_FIELD_TYPES, true);
 		for(String fieldApiName : fieldInformationByName.keySet())
 		{
 			analysis.fields.add(buildFieldRow(fieldApiName, fieldInformationByName.get(fieldApiName), context));
@@ -733,7 +743,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 	 * covers them, marking each with `maskedToday` — the export is a coverage map across both covered and
 	 * uncovered fields. (A "dead" target — active target, missing or inactive rule — still counts here, as in
 	 * `maskedToday`; the configuration-health surfacing owns that distinction.) Scope mirrors the advisor's
-	 * analysis: the maskable text-shaped field types (`RECOMMENDABLE_FIELD_TYPES`), excluding system-managed
+	 * analysis: the field types the masking framework treats as text (`UTIL_FrameworkMasker.TEXT_FIELD_TYPES`),
+	 * excluding system-managed
 	 * and computed fields (formulas, auto-numbers) the framework cannot mask. Fields the advisor leaves
 	 * `NotSensitive` with no field-level target — including type-reinforcing "likely miss" fields — are not
 	 * inventoried; the console's interactive "Other" section surfaces those. One object per call: the console
@@ -1140,7 +1151,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 
 	/**
 	 * @description Pre-computes, once per analysis, the developer names of every candidate rule whose type
-	 * scope admits each maskable `DisplayType` — the rules the per-field rule picker may offer. Each rule's
+	 * scope admits each field type the masking framework treats as text (`UTIL_FrameworkMasker.TEXT_FIELD_TYPES`).
+	 * These are the rules the per-field rule picker may offer. Each rule's
 	 * `ApplicableFieldTypes__c` scope is parsed a single time (rather than re-split for every field on the
 	 * object), then bucketed under each type it admits, so a field row resolves its applicable rules with a
 	 * single map lookup. A rule with a blank scope is unscoped and admitted by every maskable type. Within
@@ -1153,14 +1165,14 @@ public inherited sharing class CTRL_MaskingAdvisor
 	private static Map<DisplayType, List<String>> applicableRuleNamesByType(List<MaskingRule__mdt> candidates)
 	{
 		Map<DisplayType, List<String>> namesByType = new Map<DisplayType, List<String>>();
-		for(DisplayType maskableType : RECOMMENDABLE_FIELD_TYPES)
+		for(DisplayType maskableType : UTIL_FrameworkMasker.TEXT_FIELD_TYPES)
 		{
 			namesByType.put(maskableType, new List<String>());
 		}
 		for(MaskingRule__mdt candidate : candidates)
 		{
 			Set<String> scopedTypeNames = parseApplicableTypeNames(candidate);
-			for(DisplayType maskableType : RECOMMENDABLE_FIELD_TYPES)
+			for(DisplayType maskableType : UTIL_FrameworkMasker.TEXT_FIELD_TYPES)
 			{
 				if(scopedTypeNames.isEmpty() || scopedTypeNames.contains(maskableType.name()))
 				{
@@ -1364,15 +1376,16 @@ public inherited sharing class CTRL_MaskingAdvisor
 	}
 
 	/**
-	 * @description Resolves the best-match recommended rule for a field by substring-matching the
-	 * field's API name against the candidate rules' stems. A rule is only recommended on a field whose
-	 * `DisplayType` is one the framework can actually mask (text-shaped — see `RECOMMENDABLE_FIELD_TYPES`);
-	 * this gate stops a rule from being recommended on a Boolean/Date/etc. it could never apply to. Active
-	 * rules are preferred over dormant rules so an admin sees a healthy configuration first; among rules
-	 * of the same active state, the longest stem wins (most specific match). When no stem matches, a
-	 * field-name synonym map (`FIELD_NAME_RULE_SYNONYMS`) is consulted as a fallback so common names a
-	 * rule's own stem never reaches (for example `MailingStreet` → `MaskAddress`) still resolve. Returns
-	 * `null` when neither a stem nor a synonym matches, or when the field type is not maskable.
+	 * @description Resolves the best-match recommended rule for a field by looking for each candidate rule's name
+	 * part (the rule name without its Mask prefix, such as Email in MaskEmail) inside the field's API name. A rule is
+	 * only recommended on a field whose `DisplayType` is one the masking framework treats as text
+	 * (`UTIL_FrameworkMasker.TEXT_FIELD_TYPES`), so a rule is never recommended on a field type the framework does not
+	 * treat as text (a Boolean, a Date and so on). Active rules are preferred over dormant rules so an admin sees a
+	 * healthy configuration first; among rules of the same active state, the longest rule name part wins (the most
+	 * specific match). When no rule name part is found, a field-name synonym map (`FIELD_NAME_RULE_SYNONYMS`) is
+	 * consulted as a fallback, so common names a rule's own name part never reaches (for example `MailingStreet` →
+	 * `MaskAddress`) still resolve. Returns `null` when neither a rule name part nor a synonym matches, or when the
+	 * field type is not maskable.
 	 *
 	 * @param fieldApiName The field API name to recommend for.
 	 * @param fieldType The field's `DisplayType`; `null` skips the type gate (matches on name alone).
@@ -1426,7 +1439,7 @@ public inherited sharing class CTRL_MaskingAdvisor
 		{
 			return new List<RuleMatch>();
 		}
-		if(fieldType != null && !RECOMMENDABLE_FIELD_TYPES.contains(fieldType))
+		if(fieldType != null && !UTIL_FrameworkMasker.TEXT_FIELD_TYPES.contains(fieldType))
 		{
 			return new List<RuleMatch>();
 		}
@@ -2186,9 +2199,17 @@ public inherited sharing class CTRL_MaskingAdvisor
 	 * Apex callers. Renders one CustomMetadata file per chosen target, one activation file per dormant rule
 	 * to activate, a `package.xml`, and a `README.md`.
 	 *
+	 * A decision that would make a target active with a Caller Class on an object other than API Call or API
+	 * Issue is refused, because Setup refuses to save such a target and the whole bundle would fail to deploy.
+	 * The Caller Class is never cleared for the admin: a blank Caller Class makes the target mask records from
+	 * every caller, which the admin did not ask for. A decision that switches such a target off is generated.
+	 *
 	 * @param request The administrator's generation request.
 	 *
 	 * @return The deployment-neutral bundle.
+	 *
+	 * @throws AuraHandledException When a decision would make a target active with a Caller Class on an object
+	 * other than API Call or API Issue. The message names the target and says to clear its Caller Class.
 	 */
 	@TestVisible
 	private static DTO_Bundle generateConfiguration(DTO_GenerationRequest request)
@@ -2199,6 +2220,13 @@ public inherited sharing class CTRL_MaskingAdvisor
 
 		for(DTO_TargetDecision decision : request.targets ?? new List<DTO_TargetDecision>())
 		{
+			if(isActiveCallerClassOnOtherObject(decision))
+			{
+				String message = String.format(System.Label.DataMaskingAdvisor_Generation_CallerClassOnOtherObject, new List<Object> {decision.developerName});
+				AuraHandledException error = new AuraHandledException(message);
+				error.setMessage(message);
+				throw error;
+			}
 			String deployName = resolveRuleDeployName(rulesByName.get(decision.ruleDeveloperName), decision.ruleDeveloperName);
 			bundle.files.put('metadata/customMetadata/' + TYPE_STEM_MASKING_TARGET + UTIL_String.DOT + decision.developerName + '.md-meta.xml',
 					renderTargetXml(decision, deployName));
@@ -2218,6 +2246,22 @@ public inherited sharing class CTRL_MaskingAdvisor
 		bundle.files.put('README.md', renderReadme(members));
 		bundle.zipBase64 = encodeBundleAsBase64Zip(bundle.files);
 		return bundle;
+	}
+
+	/**
+	 * @description Checks whether a decision would make a target active with a Caller Class on an object other
+	 * than API Call or API Issue. A null `isActive` counts as active, as it does when the target is rendered (see
+	 * renderTargetXml). The object is compared by its full API name (see isObjectThatRecordsTheCaller).
+	 *
+	 * @param decision The target decision to check.
+	 *
+	 * @return True when the decision is active, names a Caller Class, and its object is not API Call or API Issue.
+	 */
+	private static Boolean isActiveCallerClassOnOtherObject(DTO_TargetDecision decision)
+	{
+		return decision.isActive != false
+				&& String.isNotBlank(decision.callerClass)
+				&& !isObjectThatRecordsTheCaller(decision.sObjectType);
 	}
 
 	/**
@@ -2448,13 +2492,17 @@ public inherited sharing class CTRL_MaskingAdvisor
 	}
 
 	/**
-	 * @description Flags active targets whose referenced rule is inactive or absent. A target whose
-	 * `Rule__c` is null or not present in the map is a `MISSING_RULE`; a target whose rule is present but
-	 * inactive is an `INACTIVE_RULE`. Inactive targets are skipped — they mask nothing by design, which
-	 * is not a misconfiguration.
+	 * @description Flags active targets that mask nothing. Each finding names one issue kind, checked in this
+	 * order:
+	 *
+	 * - `MISSING_RULE`: the target's `Rule__c` is null or not present in the map.
+	 * - `INACTIVE_RULE`: the target's rule is present but inactive.
+	 * - `CALLER_CLASS_ON_OTHER_OBJECT`: the target names a Caller Class, but its object is not API Call or API Issue.
+	 *
+	 * Inactive targets are skipped. They mask nothing by design, which is not a mistake in the setup.
 	 *
 	 * @param targets All masking targets (active and inactive)
-	 * @param rulesById Rules keyed by Id, including inactive rules so the two issue kinds are distinguishable
+	 * @param rulesById Rules keyed by Id, including inactive rules so the issue kinds are distinguishable
 	 *
 	 * @return One finding per dead active target
 	 */
@@ -2462,41 +2510,127 @@ public inherited sharing class CTRL_MaskingAdvisor
 	private static List<DTO_DeadConfiguration> analyzeDeadConfiguration(List<MaskingTarget__mdt> targets, Map<Id, MaskingRule__mdt> rulesById)
 	{
 		List<DTO_DeadConfiguration> findings = new List<DTO_DeadConfiguration>();
+		Map<String, String> objectNameByDurableId = findCallerClassObjectNames(targets);
 
 		for(MaskingTarget__mdt target : targets)
 		{
-			if(!isDeadTarget(target, rulesById))
+			ConfigurationIssue issue = findTargetIssue(target, rulesById, objectNameByDurableId);
+			if(issue != null)
 			{
-				continue;
+				findings.add(buildFinding(target.DeveloperName, issue));
 			}
-			ConfigurationIssue issue = (target.Rule__c == null || !rulesById.containsKey(target.Rule__c))
-					? ConfigurationIssue.MISSING_RULE
-					: ConfigurationIssue.INACTIVE_RULE;
-			findings.add(buildFinding(target.DeveloperName, issue));
 		}
 
 		return findings;
 	}
 
 	/**
-	 * @description Decides whether a masking target is "dead" — active but masking nothing — because its rule
-	 * is missing (no `Rule__c`, or a `Rule__c` not present in the supplied map) or its rule is inactive. An
-	 * inactive target is never dead: it masks nothing by design, which is not a misconfiguration. Shared by
-	 * `analyzeDeadConfiguration` (which additionally reports the issue kind) and the org-wide inventory (which
-	 * counts dead targets per object) so both apply a single definition of "dead".
+	 * @description Decides whether a masking target is "dead": active, but masking nothing. See findTargetIssue for
+	 * the reasons. Shared by summarizePosture (the summary of the whole org) and the org-wide inventory (which
+	 * counts dead targets per object), so the counts and the findings of `analyzeDeadConfiguration` use one
+	 * definition of "dead".
 	 *
 	 * @param target The masking target to test.
 	 * @param rulesById Rules keyed by Id, including inactive rules, so an inactive-rule target is detectable.
+	 * @param objectNameByDurableId Object API name keyed by `SObjectType__c` durable Id, so a Caller Class on the wrong object is detectable.
 	 *
-	 * @return True when the target is active and its rule is missing or inactive.
+	 * @return True when the target is active and masks nothing.
 	 */
-	private static Boolean isDeadTarget(MaskingTarget__mdt target, Map<Id, MaskingRule__mdt> rulesById)
+	private static Boolean isDeadTarget(MaskingTarget__mdt target, Map<Id, MaskingRule__mdt> rulesById, Map<String, String> objectNameByDurableId)
+	{
+		return findTargetIssue(target, rulesById, objectNameByDurableId) != null;
+	}
+
+	/**
+	 * @description Finds why an active masking target masks nothing, or returns null when it can mask. An inactive
+	 * target always returns null: it masks nothing by design. For an active target the checks run in this order:
+	 *
+	 * - The rule is missing: no `Rule__c`, or a `Rule__c` that is not in the supplied map.
+	 * - The rule is inactive.
+	 * - The target names a Caller Class, but its object is not API Call or API Issue (see isCallerClassOnOtherObject).
+	 *
+	 * @param target The masking target to test.
+	 * @param rulesById Rules keyed by Id, including inactive rules, so an inactive-rule target is detectable.
+	 * @param objectNameByDurableId Object API name keyed by `SObjectType__c` durable Id.
+	 *
+	 * @return The issue kind, or null when the target is inactive or can mask.
+	 */
+	private static ConfigurationIssue findTargetIssue(MaskingTarget__mdt target, Map<Id, MaskingRule__mdt> rulesById, Map<String, String> objectNameByDurableId)
 	{
 		if(!target.IsActive__c)
 		{
-			return false;
+			return null;
 		}
-		return target.Rule__c == null || !rulesById.containsKey(target.Rule__c) || rulesById.get(target.Rule__c).IsActive__c != true;
+		if(target.Rule__c == null || !rulesById.containsKey(target.Rule__c))
+		{
+			return ConfigurationIssue.MISSING_RULE;
+		}
+		if(rulesById.get(target.Rule__c).IsActive__c != true)
+		{
+			return ConfigurationIssue.INACTIVE_RULE;
+		}
+		return isCallerClassOnOtherObject(target, objectNameByDurableId) ? ConfigurationIssue.CALLER_CLASS_ON_OTHER_OBJECT : null;
+	}
+
+	/**
+	 * @description Checks whether a target names a Caller Class on an object that cannot use it. Only API Call and
+	 * API Issue records know which handler class made them, so on any other object such a target masks nothing.
+	 * The object's full API name, namespace prefix included, is compared with the names of API Call and API Issue
+	 * (see isObjectThatRecordsTheCaller). So where the package has a namespace, an object of your own that happens
+	 * to be called `ApiCall__c` is still counted. A target whose object cannot be found (for example, an object that has since been deleted) is not
+	 * counted here.
+	 *
+	 * @param target The masking target to test.
+	 * @param objectNameByDurableId Object API name keyed by `SObjectType__c` durable Id.
+	 *
+	 * @return True when the target names a Caller Class and its object is known and is not API Call or API Issue.
+	 */
+	private static Boolean isCallerClassOnOtherObject(MaskingTarget__mdt target, Map<String, String> objectNameByDurableId)
+	{
+		String objectName = objectNameByDurableId.get(target.SObjectType__c);
+		return String.isNotBlank(target.CallerClass__c) && String.isNotBlank(objectName) && !isObjectThatRecordsTheCaller(objectName);
+	}
+
+	/**
+	 * @description Checks whether an object is API Call or API Issue, the two objects whose records know which
+	 * handler class made them. The full API name is compared, namespace prefix included, without regard to upper
+	 * or lower case. A blank name is neither.
+	 *
+	 * @param objectApiName The full API name of the object, for example `Account`.
+	 *
+	 * @return True when the object is API Call or API Issue.
+	 */
+	private static Boolean isObjectThatRecordsTheCaller(String objectApiName)
+	{
+		return OBJECT_NAMES_THAT_RECORD_THE_CALLER.contains(objectApiName?.toLowerCase());
+	}
+
+	/**
+	 * @description Finds the object API name of each active target that names a Caller Class. A target stores its
+	 * object as a durable Id (the key EntityDefinition gives each object), so one EntityDefinition query turns those
+	 * Ids into API names. Runs no query when no active target names a Caller Class.
+	 *
+	 * @param targets All masking targets (active and inactive).
+	 *
+	 * @return Object API name keyed by durable Id, for the objects of active targets that name a Caller Class.
+	 */
+	private static Map<String, String> findCallerClassObjectNames(List<MaskingTarget__mdt> targets)
+	{
+		Set<String> durableIds = new Set<String>();
+		for(MaskingTarget__mdt target : targets)
+		{
+			if(target.IsActive__c == true && String.isNotBlank(target.CallerClass__c) && String.isNotBlank(target.SObjectType__c))
+			{
+				durableIds.add(target.SObjectType__c);
+			}
+		}
+
+		Map<String, String> objectNameByDurableId = new Map<String, String>();
+		for(EntityDefinition entity : new SEL_EntityDefinition().findByDurableIds(durableIds))
+		{
+			objectNameByDurableId.put(entity.DurableId, entity.QualifiedApiName);
+		}
+		return objectNameByDurableId;
 	}
 
 	/**
@@ -2610,9 +2744,10 @@ public inherited sharing class CTRL_MaskingAdvisor
 	 * @description Reduces the org's targets to the four posture counts in a single pass. Active targets are
 	 * partitioned into field-level (a non-blank `Field__c`) and object-wide (a blank `Field__c`); the distinct
 	 * `SObjectType__c` durable Ids among active targets give the object count; inactive targets are ignored. The
-	 * dead-configuration count is tallied via the shared `isDeadTarget` predicate — the same one
-	 * `analyzeDeadConfiguration` applies — so the posture total stays consistent with the per-target findings the
-	 * banner surfaces without allocating the findings list just to count it.
+	 * dead-configuration count uses isDeadTarget, the same definition `analyzeDeadConfiguration` uses, so the
+	 * total matches the findings the banner shows. It counts an active target whose rule is missing or inactive,
+	 * and an active target that names a Caller Class on an object other than API Call or API Issue. To find that
+	 * object, the method runs one EntityDefinition query, and only when an active target names a Caller Class.
 	 *
 	 * @param targets All masking targets (active and inactive).
 	 * @param rulesById Rules keyed by Id, including inactive rules, so dead configurations are detectable.
@@ -2626,6 +2761,7 @@ public inherited sharing class CTRL_MaskingAdvisor
 		Integer activeFieldTargetCount = 0;
 		Integer sObjectWideTargetCount = 0;
 		Integer deadConfigCount = 0;
+		Map<String, String> objectNameByDurableId = findCallerClassObjectNames(targets);
 
 		for(MaskingTarget__mdt target : targets)
 		{
@@ -2642,9 +2778,9 @@ public inherited sharing class CTRL_MaskingAdvisor
 			{
 				activeFieldTargetCount += 1;
 			}
-			// Reached only for active targets; isDeadTarget also short-circuits on inactive, so this tally
-			// matches analyzeDeadConfiguration (which counts active targets whose rule is missing or inactive).
-			if(isDeadTarget(target, rulesById))
+			// Reached only for active targets. isDeadTarget also returns false for an inactive target, so this
+			// tally matches the findings of analyzeDeadConfiguration.
+			if(isDeadTarget(target, rulesById, objectNameByDurableId))
 			{
 				deadConfigCount += 1;
 			}
@@ -2724,7 +2860,7 @@ public inherited sharing class CTRL_MaskingAdvisor
 				ruleLabelsByDurableId.get(durableId).add(rule.MasterLabel);
 			}
 
-			if(isDeadTarget(target, rulesById))
+			if(isDeadTarget(target, rulesById, apiNameByDurableId))
 			{
 				entry.deadCount += 1;
 			}
@@ -2844,7 +2980,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 		public Integer sObjectWideTargetCount;
 
 		/**
-		 * @description Count of active targets that mask nothing because their rule is missing or inactive.
+		 * @description Count of active targets that mask nothing: their rule is missing or inactive, or they name a
+		 * Caller Class on an object other than API Call or API Issue.
 		 */
 		@AuraEnabled
 		public Integer deadConfigCount;
@@ -2888,7 +3025,8 @@ public inherited sharing class CTRL_MaskingAdvisor
 		public Integer fieldTargetCount;
 
 		/**
-		 * @description Count of dead configurations scoped to the object — active targets whose rule is missing or inactive.
+		 * @description Count of dead configurations on the object: active targets whose rule is missing or inactive, or
+		 * that name a Caller Class on an object other than API Call or API Issue.
 		 */
 		@AuraEnabled
 		public Integer deadCount;

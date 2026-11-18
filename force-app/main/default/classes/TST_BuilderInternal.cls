@@ -24,7 +24,7 @@
  *
  * @group Testing
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.AvoidBooleanMethodParameters')
 public inherited sharing class TST_BuilderInternal
@@ -424,7 +424,7 @@ public inherited sharing class TST_BuilderInternal
 			// First, try the input as-is (handles field names like ParentId, AccountId, Custom_Lookup__c)
 			objectField = fieldMap?.get(relationshipName);
 
-			if(objectField != null && objectDescribe.getFieldDescribe(objectField).type == DisplayType.REFERENCE)
+			if(objectField != null && UTIL_SObjectDescribe.isLookupField(objectDescribe.getFieldDescribe(objectField)))
 			{
 				actualFieldName = relationshipName;
 			}
@@ -866,7 +866,7 @@ public inherited sharing class TST_BuilderInternal
 		{
 			super();
 			this.objectDescribe = objectDescribe;
-			setAccessLevel(System.AccessLevel.SYSTEM_MODE);
+			setAccessLevelInternal(System.AccessLevel.SYSTEM_MODE);
 		}
 
 		/**

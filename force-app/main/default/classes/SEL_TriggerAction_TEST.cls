@@ -10,9 +10,9 @@
  *
  * @group Triggers
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
-@IsTest(seeAllData=false)
+@IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 private class SEL_TriggerAction_TEST
 {
@@ -37,6 +37,24 @@ private class SEL_TriggerAction_TEST
 	 * @description The Description__c value the package gives the Foobar__c before insert action.
 	 */
 	private static final String SET_FOOBAR_DEFAULTS_DESCRIPTION = 'Sample Trigger Action for Test class and coverage';
+
+	/**
+	 * @description Name of a made-up feature flag that a trigger setting requires. The masking test leaves it off, so
+	 * the setting runs none of its actions.
+	 */
+	private static final String MASKING_REQUIRED_FLAG = 'TestMaskingSettingRequiredFlag' + UTIL_Random.randomAlphanumeric(6);
+
+	/**
+	 * @description Class name on the one action of the setting that MASKING_REQUIRED_FLAG turns off. The action is never
+	 * run, so the name does not need to match a real class. The masking test checks that this action is not returned.
+	 */
+	private static final String MASKING_FLAG_GATED_ACTION = 'TestMaskingFlagGatedAction' + UTIL_Random.randomAlphanumeric(6);
+
+	/**
+	 * @description Message of the query error the test makes the trigger setting query throw, to stop the build of the
+	 * trigger action maps part way.
+	 */
+	private static final String SETTING_QUERY_FAILURE_MESSAGE = 'Trigger setting query failed ' + UTIL_Random.randomAlphanumeric(6);
 
 	/**
 	 * @description Creates one standard user marked with TEST_FEDERATION_ID. The tests that check which trigger
@@ -152,6 +170,133 @@ private class SEL_TriggerAction_TEST
 
 		Assert.isNotNull(actions, 'Should return a list (not null)');
 		Assert.isTrue(actions.isEmpty(), 'Should return empty list for unknown object');
+	}
+
+	/**
+	 * @description An object can have two trigger settings, for example the package's own and one a customer adds.
+	 * When the setting read first has masking on and the one read second has it off, masking stays on. The second
+	 * setting must not switch masking off for the whole object.
+	 *
+	 * @see SEL_TriggerAction.shouldApplyMaskingFor
+	 */
+	@IsTest
+	private static void shouldKeepMaskingOnWhenASettingReadLaterHasMaskingOff()
+	{
+		registerFoobarSettings(new List<TriggerSetting__mdt> {newFoobarSetting(true), newFoobarSetting(false)});
+
+		Test.startTest();
+		Boolean applyMasking = SEL_TriggerAction.shouldApplyMaskingFor(SEL_Foobar.OBJECT_NAME);
+		Test.stopTest();
+
+		Assert.isTrue(applyMasking, 'Expected masking on when the first of two settings has masking on and the second has it off');
+	}
+
+	/**
+	 * @description When the setting read first has masking off and the one read second has it on, masking is on. The
+	 * answer is the same whichever order the two settings are read in.
+	 *
+	 * @see SEL_TriggerAction.shouldApplyMaskingFor
+	 */
+	@IsTest
+	private static void shouldTurnMaskingOnWhenASettingReadLaterHasMaskingOn()
+	{
+		registerFoobarSettings(new List<TriggerSetting__mdt> {newFoobarSetting(false), newFoobarSetting(true)});
+
+		Test.startTest();
+		Boolean applyMasking = SEL_TriggerAction.shouldApplyMaskingFor(SEL_Foobar.OBJECT_NAME);
+		Test.stopTest();
+
+		Assert.isTrue(applyMasking, 'Expected masking on when the first of two settings has masking off and the second has it on');
+	}
+
+	/**
+	 * @description When both settings for an object have masking off, masking stays off. Two settings never turn
+	 * masking on by themselves.
+	 *
+	 * @see SEL_TriggerAction.shouldApplyMaskingFor
+	 */
+	@IsTest
+	private static void shouldKeepMaskingOffWhenEverySettingHasMaskingOff()
+	{
+		registerFoobarSettings(new List<TriggerSetting__mdt> {newFoobarSetting(false), newFoobarSetting(false)});
+
+		Test.startTest();
+		Boolean applyMasking = SEL_TriggerAction.shouldApplyMaskingFor(SEL_Foobar.OBJECT_NAME);
+		Test.stopTest();
+
+		Assert.isFalse(applyMasking, 'Expected masking off when both settings for the object have masking off');
+	}
+
+	/**
+	 * @description A setting whose required feature flag is off runs none of its actions. When that setting has masking
+	 * off and is read after a setting with masking on, masking for the object stays on, and the setting's action is
+	 * still not returned.
+	 *
+	 * @see SEL_TriggerAction.shouldApplyMaskingFor
+	 * @see SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation
+	 */
+	@IsTest
+	private static void shouldKeepMaskingOnWhenASettingTurnedOffByAFlagHasMaskingOff()
+	{
+		setupDisabledFeatureFlag(MASKING_REQUIRED_FLAG);
+		TriggerSetting__mdt flagGatedSetting = TST_Factory.newTriggerSetting(SEL_Foobar.OBJECT_NAME, null, MASKING_REQUIRED_FLAG);
+		flagGatedSetting.ApplyMasking__c = false;
+		TriggerAction__mdt flagGatedAction =
+				TST_Factory.newTriggerActionForContext(MASKING_FLAG_GATED_ACTION, flagGatedSetting, TriggerOperation.BEFORE_INSERT);
+		registerFoobarSettings
+				(
+						new List<TriggerSetting__mdt>
+						{
+								newFoobarSetting(true),
+								TST_Factory.newTriggerSettingWithActions(flagGatedSetting, new List<TriggerAction__mdt> {flagGatedAction})
+						}
+				);
+
+		Test.startTest();
+		Boolean applyMasking = SEL_TriggerAction.shouldApplyMaskingFor(SEL_Foobar.OBJECT_NAME);
+		List<TriggerAction__mdt> actions =
+				SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation(SEL_Foobar.OBJECT_NAME, TriggerOperation.BEFORE_INSERT);
+		Test.stopTest();
+
+		Set<String> returnedClassNames = new Set<String>();
+		for(TriggerAction__mdt action : actions)
+		{
+			returnedClassNames.add(action.ApexClassName__c);
+		}
+		Assert.isTrue(applyMasking, 'Expected masking on when a setting turned off by its required flag has masking off');
+		Assert.isFalse(returnedClassNames.contains(MASKING_FLAG_GATED_ACTION),
+				'Expected the action of the setting turned off by its required flag not to be returned');
+	}
+
+	/**
+	 * @description When the build of the trigger action maps fails, for example because the trigger setting query fails,
+	 * the next call builds the maps again. Masking for an object with masking on is then still found. Half-filled maps
+	 * must not be kept, or a later save in the same transaction would save the object's records without masking.
+	 *
+	 * @see SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation
+	 * @see SEL_TriggerAction.shouldApplyMaskingFor
+	 */
+	@IsTest
+	private static void shouldBuildTheMapsAgainAfterABuildThatFailed()
+	{
+		TST_Mock.throwsException(TriggerSetting__mdt.SObjectType, SETTING_QUERY_FAILURE_MESSAGE);
+
+		Test.startTest();
+		try
+		{
+			SEL_TriggerAction.findActiveByObjectNameAndTriggerOperation(SEL_Foobar.OBJECT_NAME, TriggerOperation.BEFORE_INSERT);
+			Assert.fail('Expected the failed trigger setting query to stop the build of the trigger action maps');
+		}
+		catch(Exception buildFailure)
+		{
+			Assert.isInstanceOfType(buildFailure, QueryException.class, 'Expected the query error of the failed trigger setting query');
+		}
+		TST_Mock.clear(TriggerSetting__mdt.SObjectType);
+		registerFoobarSettings(new List<TriggerSetting__mdt> {newFoobarSetting(true)});
+		Boolean applyMasking = SEL_TriggerAction.shouldApplyMaskingFor(SEL_Foobar.OBJECT_NAME);
+		Test.stopTest();
+
+		Assert.isTrue(applyMasking, 'Expected masking on after a failed build, because the next call builds the maps again');
 	}
 
 	/**
@@ -297,6 +442,33 @@ private class SEL_TriggerAction_TEST
 	{
 		SEL_FeatureFlag.allDeveloperNames = new Set<String> {flagName};
 		SEL_FeatureFlag.activeFlags = new Map<String, FeatureFlag__mdt>();
+	}
+
+	/**
+	 * @description Builds an in-memory trigger setting for Foobar__c with no actions and the given masking choice.
+	 *
+	 * @param applyMasking The value for ApplyMasking__c.
+	 *
+	 * @return The setting, in the shape a query of the setting with its actions returns.
+	 */
+	private static TriggerSetting__mdt newFoobarSetting(Boolean applyMasking)
+	{
+		TriggerSetting__mdt setting = TST_Factory.newTriggerSetting
+				(
+						SEL_Foobar.OBJECT_NAME,
+						new Map<SObjectField, Object> {TriggerSetting__mdt.ApplyMasking__c => applyMasking}
+				);
+		return TST_Factory.newTriggerSettingWithActions(setting, new List<TriggerAction__mdt>());
+	}
+
+	/**
+	 * @description Makes the trigger setting query return the given settings, in the given order.
+	 *
+	 * @param settings The settings the query returns.
+	 */
+	private static void registerFoobarSettings(List<TriggerSetting__mdt> settings)
+	{
+		TST_Mock.register(TriggerSetting__mdt.SObjectType, settings);
 	}
 
 	/**

@@ -37,9 +37,9 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
 @IsTest(seeAllData=false isParallel=true)
 private class UTIL_SObjectDescribe_TEST
 {
@@ -60,13 +60,25 @@ private class UTIL_SObjectDescribe_TEST
 	 */
 	private static final String MSG_INCORRECT_OBJECT_NAME = 'Incorrect Object Name';
 	/**
+	 * @description The name of the standard object Location, which is also the name of a system Apex type
+	 */
+	private static final String LOCATION_OBJECT_NAME = 'Location';
+	/**
 	 * @description Assertion message for incorrect object type
 	 */
 	private static final String MSG_INCORRECT_OBJECT_TYPE = 'Incorrect Object Type';
 	/**
+	 * @description Assertion message for an org that does not have the standard object Location
+	 */
+	private static final String MSG_LOCATION_OBJECT_MISSING = 'Expected this org to have the Location object';
+	/**
 	 * @description Assertion message for empty field results
 	 */
 	private static final String MSG_NO_FIELDS_RETURNED = 'No fields returned';
+	/**
+	 * @description Assertion message for a name that is not the name of an object
+	 */
+	private static final String MSG_NOT_AN_OBJECT = 'Expected no object for a name that is not an object';
 	/**
 	 * @description Assertion message for non-empty map checks
 	 */
@@ -87,6 +99,10 @@ private class UTIL_SObjectDescribe_TEST
 	 * @description Assertion message for SObject type equality checks
 	 */
 	private static final String MSG_SOBJECT_TYPE = 'SObject type should match expected';
+	/**
+	 * @description The name of a system type that is not an object, and that is also found with "Schema." in front of it
+	 */
+	private static final String SYSTEM_TYPE_NAME_IN_SCHEMA = 'SObjectType';
 	/**
 	 * @description Developer name of the master record type, which is available to every user on every
 	 * object in any org — the one record type a managed-package test can assert availability of without
@@ -112,6 +128,10 @@ private class UTIL_SObjectDescribe_TEST
 			ObjectPermissions.PermissionsEdit,
 			ObjectPermissions.PermissionsDelete
 	};
+	/**
+	 * @description True once the constructor of the test class ConstructorRecorder has run in this transaction.
+	 */
+	private static Boolean hasRecorderConstructorRun = false;
 	/**
 	 * @description Tests various ways of getting a Foobar__c describe
 	 *
@@ -231,6 +251,164 @@ private class UTIL_SObjectDescribe_TEST
 		Assert.isNull(UTIL_SObjectDescribe.getDescribe(nullSObjectType), MSG_NULL_RESULT);
 		Assert.isNull(UTIL_SObjectDescribe.getDescribe(nullDescribeResult), MSG_NULL_RESULT);
 		Assert.isNull(UTIL_SObjectDescribe.getDescribe(nullSObjectRecord), MSG_NULL_RESULT);
+	}
+
+	/**
+	 * @description Tests that a platform event and a custom metadata type are found by name, in any letter case. The
+	 * stored describes are cleared after each name is taken, so each lookup finds the object from its name alone.
+	 *
+	 * @see UTIL_SObjectDescribe.getDescribe
+	 * @see UTIL_SObjectDescribe.getSObjectTypeByName
+	 */
+	@IsTest
+	private static void shouldFindPlatformEventAndCustomMetadataTypeByName()
+	{
+		List<SObjectType> objectTypes = new List<SObjectType> {LogEntryEvent__e.SObjectType, FeatureFlag__mdt.SObjectType};
+
+		for(SObjectType objectType : objectTypes)
+		{
+			String objectName = UTIL_SObjectDescribe.getObjectNameFromType(objectType);
+			UTIL_SObjectDescribe.flushCache();
+			Assert.areEqual(objectType, UTIL_SObjectDescribe.getDescribe(objectName)?.getSObjectType(), 'Expected the describe of ' + objectName);
+			UTIL_SObjectDescribe.flushCache();
+			Assert.areEqual(objectType, UTIL_SObjectDescribe.getSObjectTypeByName(objectName.toUpperCase()), 'Expected ' + objectName + ' in capital letters');
+		}
+	}
+
+	/**
+	 * @description Tests that the standard object Location is found by its name. Location is also the name of a system
+	 * Apex type, so the lookup must still find the object. The test takes the object from the list of all objects while
+	 * it runs, so that the package does not depend on an object that some orgs may not have. The stored describes are
+	 * cleared after the name is taken, so each lookup finds the object from its name alone.
+	 *
+	 * @see UTIL_SObjectDescribe.getDescribe
+	 * @see UTIL_SObjectDescribe.getSObjectTypeByName
+	 */
+	@IsTest
+	private static void shouldFindObjectWhoseNameIsAlsoSystemTypeName()
+	{
+		SObjectType locationType = Schema.getGlobalDescribe().get(LOCATION_OBJECT_NAME);
+		Assert.isNotNull(locationType, MSG_LOCATION_OBJECT_MISSING);
+		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(locationType);
+
+		UTIL_SObjectDescribe.flushCache();
+		UTIL_SObjectDescribe describeResult = UTIL_SObjectDescribe.getDescribe(objectName);
+		UTIL_SObjectDescribe.flushCache();
+		SObjectType typeResult = UTIL_SObjectDescribe.getSObjectTypeByName(objectName);
+
+		Assert.areEqual(locationType, describeResult?.getSObjectType(), 'Expected the describe of the Location object');
+		Assert.areEqual(locationType, typeResult, 'Expected the Location object to be found by its name');
+	}
+
+	/**
+	 * @description Tests that the name of an Apex class that can be created without arguments finds no object.
+	 *
+	 * @see UTIL_SObjectDescribe.getDescribe
+	 * @see UTIL_SObjectDescribe.getSObjectTypeByName
+	 */
+	@IsTest
+	private static void shouldReturnNullForNameOfClassWithConstructorWithoutArguments()
+	{
+		String className = UTIL_String.class.getName();
+
+		Assert.isNull(UTIL_SObjectDescribe.getDescribe(className), MSG_NOT_AN_OBJECT);
+		Assert.isNull(UTIL_SObjectDescribe.getSObjectTypeByName(className), MSG_NOT_AN_OBJECT);
+	}
+
+	/**
+	 * @description Tests that a lookup by the name of an Apex class does not create an instance of that class: the
+	 * constructor of the test class below records each time it runs.
+	 *
+	 * @see UTIL_SObjectDescribe.getDescribe
+	 */
+	@IsTest
+	private static void shouldNotCreateClassWhenLookingUpItsName()
+	{
+		String className = ConstructorRecorder.class.getName();
+		Assert.isNotNull(Type.forName(className), 'Expected the type lookup to find the test class ' + className);
+
+		UTIL_SObjectDescribe result = UTIL_SObjectDescribe.getDescribe(className);
+
+		Assert.isNull(result, MSG_NOT_AN_OBJECT);
+		Assert.isFalse(hasRecorderConstructorRun, 'Expected the lookup not to create an instance of the class');
+	}
+
+	/**
+	 * @description Tests that the name of an Apex class that cannot be created without arguments finds no object.
+	 *
+	 * @see UTIL_SObjectDescribe.getDescribe
+	 * @see UTIL_SObjectDescribe.getSObjectTypeByName
+	 */
+	@IsTest
+	private static void shouldReturnNullForNameOfClassThatNeedsConstructorArguments()
+	{
+		String className = UTIL_FormulaFilter.class.getName();
+
+		Assert.isNull(UTIL_SObjectDescribe.getDescribe(className), MSG_NOT_AN_OBJECT);
+		Assert.isNull(UTIL_SObjectDescribe.getSObjectTypeByName(className), MSG_NOT_AN_OBJECT);
+	}
+
+	/**
+	 * @description Tests that the name of a system type that is not an object, such as String, finds no object.
+	 *
+	 * @see UTIL_SObjectDescribe.getDescribe
+	 * @see UTIL_SObjectDescribe.getSObjectTypeByName
+	 */
+	@IsTest
+	private static void shouldReturnNullForNameOfSystemTypeThatIsNotAnObject()
+	{
+		String typeName = String.class.getName();
+
+		Assert.isNull(UTIL_SObjectDescribe.getDescribe(typeName), MSG_NOT_AN_OBJECT);
+		Assert.isNull(UTIL_SObjectDescribe.getSObjectTypeByName(typeName), MSG_NOT_AN_OBJECT);
+	}
+
+	/**
+	 * @description Tests that the name SObjectType finds no object. The name finds a system type that is not an object,
+	 * and the same name with "Schema." in front also finds a type that is not an object. The second type must be checked
+	 * too, so the answer is still no object.
+	 *
+	 * @see UTIL_SObjectDescribe.getDescribe
+	 * @see UTIL_SObjectDescribe.getSObjectTypeByName
+	 */
+	@IsTest
+	private static void shouldReturnNullWhenNameWithSchemaInFrontIsNotAnObject()
+	{
+		Assert.isNull(UTIL_SObjectDescribe.getDescribe(SYSTEM_TYPE_NAME_IN_SCHEMA), MSG_NOT_AN_OBJECT);
+		Assert.isNull(UTIL_SObjectDescribe.getSObjectTypeByName(SYSTEM_TYPE_NAME_IN_SCHEMA), MSG_NOT_AN_OBJECT);
+	}
+
+	/**
+	 * @description Tests that the name SObject finds no object. SObject is the type that every record shares. It is not
+	 * an object itself.
+	 *
+	 * @see UTIL_SObjectDescribe.getDescribe
+	 * @see UTIL_SObjectDescribe.getSObjectTypeByName
+	 */
+	@IsTest
+	private static void shouldReturnNullForSObjectTypeName()
+	{
+		String typeName = SObject.class.getName();
+
+		Assert.isNull(UTIL_SObjectDescribe.getDescribe(typeName), MSG_NOT_AN_OBJECT);
+		Assert.isNull(UTIL_SObjectDescribe.getSObjectTypeByName(typeName), MSG_NOT_AN_OBJECT);
+	}
+
+	/**
+	 * @description Tests that the name AggregateResult, the type of a row from a query that groups records, is found.
+	 *
+	 * @see UTIL_SObjectDescribe.getDescribe
+	 * @see UTIL_SObjectDescribe.getSObjectTypeByName
+	 */
+	@IsTest
+	private static void shouldFindAggregateResultByName()
+	{
+		String typeName = AggregateResult.class.getName();
+
+		SObjectType result = UTIL_SObjectDescribe.getSObjectTypeByName(typeName);
+
+		Assert.isNotNull(result, 'Expected AggregateResult to be found');
+		Assert.areEqual(typeName, UTIL_SObjectDescribe.getObjectNameFromType(result), 'Expected the type found to be AggregateResult');
 	}
 
 	/**
@@ -1503,6 +1681,34 @@ private class UTIL_SObjectDescribe_TEST
 	}
 
 	/**
+	 * @description Tests that isLookupField is true for a lookup field and false for a text field and for a null
+	 * describe result.
+	 *
+	 * @see UTIL_SObjectDescribe.isLookupField
+	 */
+	@IsTest
+	private static void isLookupFieldAnswersTrueOnlyForALookupField()
+	{
+		Assert.isTrue(UTIL_SObjectDescribe.isLookupField(UTIL_SObjectDescribe.getCachedFieldDescribe(Foobar__c.Lookup__c)), 'A lookup field is a lookup field');
+		Assert.isFalse(UTIL_SObjectDescribe.isLookupField(UTIL_SObjectDescribe.getCachedFieldDescribe(Foobar__c.Email__c)), 'A text field is not a lookup field');
+		Assert.isFalse(UTIL_SObjectDescribe.isLookupField(null), 'A null describe result is not a lookup field');
+	}
+
+	/**
+	 * @description Tests that isLookupFieldType is true for the lookup field type only, and false for a text type and
+	 * for a null type.
+	 *
+	 * @see UTIL_SObjectDescribe.isLookupFieldType
+	 */
+	@IsTest
+	private static void isLookupFieldTypeAnswersTrueOnlyForTheLookupType()
+	{
+		Assert.isTrue(UTIL_SObjectDescribe.isLookupFieldType(DisplayType.REFERENCE), 'The lookup type is the lookup type');
+		Assert.isFalse(UTIL_SObjectDescribe.isLookupFieldType(DisplayType.STRING), 'A text type is not the lookup type');
+		Assert.isFalse(UTIL_SObjectDescribe.isLookupFieldType(null), 'A null type is not the lookup type');
+	}
+
+	/**
 	 * @description Tests that the type-filtered getFieldInformation overload builds metadata only for
 	 * fields whose DisplayType is in the allowed set, skipping the rest before any DTO is constructed.
 	 *
@@ -1717,6 +1923,169 @@ private class UTIL_SObjectDescribe_TEST
 	}
 
 	/**
+	 * @description Tests that isFieldUpdateable answers for the user the code runs as. An administrator can change
+	 * Foobar__c.Email__c. A user who may edit Foobar__c records, but whose permission set leaves that one field out,
+	 * cannot change it, but can still change Text__c, a field the permission set grants. No user can change a formula
+	 * field.
+	 *
+	 * The administrator is asked before and after that user, so the test shows the answer is not kept from one user to
+	 * the next. A null field gives false instead of an error.
+	 *
+	 * @see UTIL_SObjectDescribe.isFieldUpdateable
+	 */
+	@IsTest
+	private static void shouldAnswerFieldEditAccessForTheRunningUser()
+	{
+		User administrator = TST_Factory.newUserWithPermissionSet
+				(
+						SEL_Profile.PROFILE_SYSTEM_ADMIN,
+						UTIL_Random.randomName(),
+						SEL_PermissionSet.ADMIN_PERMISSION_SET_API_NAME
+				);
+		User hiddenFieldUser = insertFoobarUser(FULL_PERMISSIONS);
+
+		System.runAs(administrator)
+		{
+			Assert.isTrue(UTIL_SObjectDescribe.isFieldUpdateable(Foobar__c.Email__c), 'Expected an administrator to change the field');
+		}
+		System.runAs(hiddenFieldUser)
+		{
+			Assert.isFalse(UTIL_SObjectDescribe.isFieldUpdateable(Foobar__c.Email__c), 'Expected false for the field the permission set leaves out');
+			Assert.isTrue(UTIL_SObjectDescribe.isFieldUpdateable(Foobar__c.Text__c), 'Expected true for a field the permission set grants');
+			Assert.isFalse(UTIL_SObjectDescribe.isFieldUpdateable(Foobar__c.Formula__c), 'Expected false for a formula field');
+		}
+		System.runAs(administrator)
+		{
+			Assert.isTrue(UTIL_SObjectDescribe.isFieldUpdateable(Foobar__c.Email__c), 'Expected the administrator to still change the field after the other user');
+		}
+		Assert.isFalse(UTIL_SObjectDescribe.isFieldUpdateable(null), 'Expected false for a null field');
+	}
+
+	/**
+	 * @description Tests that a field the running user cannot read is not marked as safe to put in a query. The user's
+	 * permission set leaves Foobar__c.Email__c out but grants Text__c, so Email__c is not selectable and Text__c is.
+	 * Both answers are checked together in one assertion.
+	 *
+	 * @see UTIL_SObjectDescribe.getFieldMetadata
+	 */
+	@IsTest
+	private static void shouldNotBeSelectableWhenTheUserCannotReadTheField()
+	{
+		System.runAs(insertFoobarUser(READ_ONLY_PERMISSIONS))
+		{
+			Assert.areEqual
+					(
+							new List<Boolean> {false, true},
+							new List<Boolean>
+							{
+									UTIL_SObjectDescribe.getDescribe(Foobar__c.SObjectType)
+											.getFieldMetadata(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Email__c)).isSelectableInQuery,
+									UTIL_SObjectDescribe.getDescribe(Foobar__c.SObjectType)
+											.getFieldMetadata(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c)).isSelectableInQuery
+							},
+							'Expected Email__c, which the user cannot read, not to be selectable, and Text__c, which the user can read, to be selectable'
+					);
+		}
+	}
+
+	/**
+	 * @description A text field can be copied into another text field, such as an email field.
+	 *
+	 * @see UTIL_SObjectDescribe.canCopyValue
+	 */
+	@IsTest
+	private static void shouldAllowTextIntoText()
+	{
+		Assert.isTrue(UTIL_SObjectDescribe.canCopyValue(Foobar__c.Text__c, Foobar__c.Email__c), 'Expected text to be copied into an email field');
+	}
+
+	/**
+	 * @description A record Id can be copied into a text field.
+	 *
+	 * @see UTIL_SObjectDescribe.canCopyValue
+	 */
+	@IsTest
+	private static void shouldAllowAnIdIntoText()
+	{
+		Assert.isTrue(UTIL_SObjectDescribe.canCopyValue(Foobar__c.Id, Foobar__c.Text__c), 'Expected a record Id to be copied into a text field');
+	}
+
+	/**
+	 * @description A whole number can be copied into a field that takes decimal numbers, such as a currency field.
+	 *
+	 * @see UTIL_SObjectDescribe.canCopyValue
+	 */
+	@IsTest
+	private static void shouldAllowAWholeNumberIntoADecimalNumber()
+	{
+		Assert.isTrue(UTIL_SObjectDescribe.canCopyValue(Account.NumberOfEmployees, Account.AnnualRevenue), 'Expected a whole number to be copied into a currency field');
+	}
+
+	/**
+	 * @description A decimal number cannot be copied into a whole number field, because Salesforce will not put it there.
+	 * Custom number fields are described as decimal numbers, so the whole number field here is a standard one.
+	 *
+	 * @see UTIL_SObjectDescribe.canCopyValue
+	 */
+	@IsTest
+	private static void shouldRefuseADecimalNumberIntoAWholeNumber()
+	{
+		Assert.areEqual(DisplayType.INTEGER, UTIL_SObjectDescribe.getCachedFieldDescribe(Account.NumberOfEmployees).getType(), 'Expected a whole number field');
+		Assert.isFalse(UTIL_SObjectDescribe.canCopyValue(Account.AnnualRevenue, Account.NumberOfEmployees), 'Expected a currency field not to be copied into a whole number');
+	}
+
+	/**
+	 * @description A text field can be copied into a lookup field. A text value that is not a valid record Id fails
+	 * only its own row when the row is saved.
+	 *
+	 * @see UTIL_SObjectDescribe.canCopyValue
+	 */
+	@IsTest
+	private static void shouldAllowTextIntoALookup()
+	{
+		Assert.isTrue(UTIL_SObjectDescribe.canCopyValue(Foobar__c.Text__c, Foobar__c.Lookup__c), 'Expected text to be copied into a lookup field');
+	}
+
+	/**
+	 * @description A lookup field can be copied into another lookup field.
+	 *
+	 * @see UTIL_SObjectDescribe.canCopyValue
+	 */
+	@IsTest
+	private static void shouldAllowALookupIntoALookup()
+	{
+		Assert.isTrue(UTIL_SObjectDescribe.canCopyValue(Foobar__c.OwnerId, Foobar__c.Lookup__c), 'Expected a lookup to be copied into a lookup field');
+	}
+
+	/**
+	 * @description A date cannot be copied into a date and time field: each takes only its own type.
+	 *
+	 * @see UTIL_SObjectDescribe.canCopyValue
+	 */
+	@IsTest
+	private static void shouldRefuseADateIntoADateAndTime()
+	{
+		Assert.isFalse(UTIL_SObjectDescribe.canCopyValue(Foobar__c.Date__c, Foobar__c.Datetime__c), 'Expected a date not to be copied into a date and time field');
+	}
+
+	/**
+	 * @description A field type that the copy rules do not list, such as a multi-select picklist, cannot take a copied
+	 * value, even from a field of the same type. A null field gives false instead of an error.
+	 *
+	 * @see UTIL_SObjectDescribe.canCopyValue
+	 */
+	@IsTest
+	private static void shouldRefuseATypeThatIsNotListed()
+	{
+		Assert.isFalse
+				(
+						UTIL_SObjectDescribe.canCopyValue(Foobar__c.PicklistMultiSelect__c, Foobar__c.PicklistMultiSelect__c),
+						'Expected a multi-select picklist not to take a copied value'
+				);
+		Assert.isFalse(UTIL_SObjectDescribe.canCopyValue(null, Foobar__c.Text__c), 'Expected false for a null source field');
+	}
+
+	/**
 	 * @description Saves a Standard User who has the given object permissions on Foobar__c and can read and edit every
 	 * field of it except Email__c.
 	 *
@@ -1733,5 +2102,20 @@ private class UTIL_SObjectDescribe_TEST
 						permissionFields,
 						Foobar__c.Email__c
 				);
+	}
+
+	/**
+	 * @description A class used only by these tests. Its constructor takes no arguments and records that it ran, so a
+	 * test can check that looking up its name did not create an instance of it.
+	 */
+	public class ConstructorRecorder
+	{
+		/**
+		 * @description Records that the constructor ran.
+		 */
+		public ConstructorRecorder()
+		{
+			hasRecorderConstructorRun = true;
+		}
 	}
 }

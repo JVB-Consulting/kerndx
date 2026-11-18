@@ -8,7 +8,7 @@
  *
  * @group Data Masking
  *
- * @date April 2026, October 2026
+ * @date April 2026, November 2026
  */
 @IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ExcessiveParameterList,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -243,6 +243,49 @@ private class UTIL_FrameworkMasker_TEST
 	private static final String PASSWORD_REPLACEMENT = '***';
 
 	/**
+	 * @description The start of a JSON object with a password key, up to the quote that opens the password.
+	 */
+	private static final String PASSWORD_OBJECT_START = '{"password":"';
+
+	/**
+	 * @description A short JSON list followed by a space, written in front of a JSON object to make two JSON values in one value.
+	 */
+	private static final String JSON_LIST_PREFIX = '[1,2] ';
+
+	/**
+	 * @description The end of a broken JSON object: the quote that closes the password, then text that is not valid JSON.
+	 */
+	private static final String BROKEN_OBJECT_END = '", broken}';
+
+	/**
+	 * @description The password as it reads after the password key rule replaced it in a JSON text.
+	 */
+	private static final String MASKED_PASSWORD_PAIR = buildPasswordObject(PASSWORD_REPLACEMENT);
+
+	/**
+	 * @description The length of a random secret value in the tests of values that hold two JSON values one after the
+	 * other.
+	 */
+	private static final Integer SECRET_VALUE_LENGTH = 12;
+
+	/**
+	 * @description A minimum input length longer than every short value in the tests of a JsonKey rule with a minimum
+	 * input length.
+	 */
+	private static final Integer MINIMUM_LENGTH_ABOVE_THE_SHORT_VALUES = 100;
+
+	/**
+	 * @description A minimum input length longer than the broken JSON value with more opening brackets than
+	 * `UTIL_String.JSON_STRUCTURE_LINE` in the test of a JsonKey rule with a minimum input length.
+	 */
+	private static final Integer MINIMUM_LENGTH_ABOVE_THE_LONG_BROKEN_VALUE = 9999;
+
+	/**
+	 * @description A JSON object without a secret key, used as one of two JSON values written one after the other.
+	 */
+	private static final String OBJECT_WITHOUT_A_SECRET = '{"user":"a"}';
+
+	/**
 	 * @description A pattern that matches any text, so a rule with it replaces the whole value.
 	 */
 	private static final String WHOLE_VALUE_PATTERN = '(?s).+';
@@ -251,6 +294,44 @@ private class UTIL_FrameworkMasker_TEST
 	 * @description What the rule with the whole value pattern puts in place of the value.
 	 */
 	private static final String WHOLE_VALUE_REPLACEMENT = '[TEXT_REDACTED]';
+
+	/**
+	 * @description A pattern that matches the whole value, from its start (`^`) to its end (`$`), line ends included.
+	 */
+	private static final String WHOLE_VALUE_ANCHORED_PATTERN = '(?s)^.+$';
+
+	/**
+	 * @description What the rule with the anchored whole value pattern puts in place of the value.
+	 */
+	private static final String ANCHORED_RULE_REPLACEMENT = 'X';
+
+	/**
+	 * @description The name of a rule with the anchored whole value pattern.
+	 */
+	private static final String ANCHORED_RULE_NAME = 'AnchoredRule';
+
+	/**
+	 * @description What a rule that runs after the anchored rule puts in place of the value.
+	 */
+	private static final String LATER_RULE_REPLACEMENT = 'LATER';
+
+	/**
+	 * @description The letter that fills a long value in the tests of rules that look for the start or the end of the
+	 * value.
+	 */
+	private static final String ANCHOR_TEST_LETTER = 'a';
+
+	/**
+	 * @description How many letters come before `ANCHOR_TEST_PAIR` in a long value in the tests of rules that look for the
+	 * start or the end of the value.
+	 */
+	private static final Integer LETTERS_BEFORE_THE_ANCHOR_TEST_PAIR = 100;
+
+	/**
+	 * @description A secret written as a pair, in a long value in the tests of rules that look for the start or the end of
+	 * the value. The space ends the pair.
+	 */
+	private static final String ANCHOR_TEST_PAIR = 'token=secret ';
 
 	/**
 	 * @description The name of the target that names one field and is built the way a deployed target is read.
@@ -2091,6 +2172,62 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
+	 * @description A rule that looks for the start and the end of the value meets a value longer than
+	 * `UTIL_String.PATTERN_SEARCH_PIECE_LENGTH`, with the failure action Log and Continue. The rule is not run, and the
+	 * value becomes the failure marker as an ordinary match: nothing is thrown and no error is recorded.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldSaveTheFailureMarkerForAnAnchoredRuleOnALongValueUnderLogAndContinue()
+	{
+		assertAnchoredRuleMarksALongValue(SEL_MaskingRule.FAILURE_LOG_AND_CONTINUE);
+	}
+
+	/**
+	 * @description A rule that looks for the start and the end of the value meets a value longer than
+	 * `UTIL_String.PATTERN_SEARCH_PIECE_LENGTH`, with the failure action Write Failure Marker. The rule is not run, and the
+	 * value becomes the failure marker as an ordinary match: nothing is thrown and no error is recorded.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldSaveTheFailureMarkerForAnAnchoredRuleOnALongValueUnderWriteFailureMarker()
+	{
+		assertAnchoredRuleMarksALongValue(SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER);
+	}
+
+	/**
+	 * @description A rule that looks for the start and the end of the value meets a value longer than
+	 * `UTIL_String.PATTERN_SEARCH_PIECE_LENGTH`, with the failure action Block DML. The rule is not run, and the value
+	 * becomes the failure marker as an ordinary match: nothing is thrown, so the save is not refused.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts')
+	private static void shouldSaveTheFailureMarkerForAnAnchoredRuleOnALongValueUnderBlockDml()
+	{
+		assertAnchoredRuleMarksALongValue(SEL_MaskingRule.FAILURE_BLOCK_DML);
+	}
+
+	/**
+	 * @description Once a rule that looks for the start and the end of the value has put the failure marker in place of a
+	 * long value, a later rule on the same field does not run on it.
+	 */
+	@IsTest
+	private static void shouldNotRunALaterRuleOnceAnAnchoredRuleMarkedALongValue()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_REGEX, WHOLE_VALUE_ANCHORED_PATTERN, ANCHORED_RULE_REPLACEMENT, null, ANCHORED_RULE_NAME, FIRST_RULE_ORDER);
+			mockTargetForFoobarText(SEL_MaskingRule.MODE_REGEX, WHOLE_VALUE_PATTERN, LATER_RULE_REPLACEMENT, null, LATER_RULE_NAME, SECOND_RULE_ORDER);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.Text__c)
+					.maskAndReturnWholeText(buildAnchorTestValue(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH + 1));
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the failure marker, got ' + result.maskedValue?.left(MESSAGE_WINDOW_LENGTH));
+			Assert.areEqual(new List<String> {ANCHORED_RULE_NAME}, result.matchedRuleDeveloperNames, 'Expected only the anchored rule to match');
+		}
+	}
+
+	/**
 	 * @description Text that does not start and end like a JSON object or list goes to the text search for
 	 * `"key":"value"` pairs, and the masking finishes. The full-length token list cut inside its last value is such a
 	 * text: every complete token value in it is replaced, and the masked text is cut to the field length. A short cut list
@@ -3553,6 +3690,258 @@ private class UTIL_FrameworkMasker_TEST
 	}
 
 	/**
+	 * @description A field value can hold two JSON objects one after the other. The JSON reader reads only the first
+	 * one, so the value is not one JSON value, and the JsonKey rule reads it with the text search. The secret in the
+	 * second object is not stored.
+	 */
+	@IsTest
+	private static void shouldStoreNoSecretFromTheSecondOfTwoObjects()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextArea(SEL_MaskingRule.MODE_JSON_KEY, PASSWORD_KEY_PATTERN, PASSWORD_REPLACEMENT, null);
+			String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.TextArea__c, OBJECT_WITHOUT_A_SECRET + ' ' + buildPasswordObject(secret))
+					.withoutInsertion()
+					.build();
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forRecord(record).apply();
+
+			Assert.isFalse(record.TextArea__c.contains(secret), 'Expected no secret stored on the record');
+			Assert.areEqual(OBJECT_WITHOUT_A_SECRET + ' ' + MASKED_PASSWORD_PAIR, record.TextArea__c, 'Expected both objects kept and the secret replaced');
+			Assert.areEqual(1, result.rulesMatched, 'Expected the JsonKey rule to count as matched');
+		}
+	}
+
+	/**
+	 * @description When the first of two objects on two lines holds the secret, the JsonKey rule replaces it and keeps
+	 * the second object. Nothing of the value is dropped.
+	 */
+	@IsTest
+	private static void shouldKeepTheSecondObjectWhenTheFirstHoldsASecret()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextArea(SEL_MaskingRule.MODE_JSON_KEY, PASSWORD_KEY_PATTERN, PASSWORD_REPLACEMENT, null);
+			String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c).mask(buildPasswordObject(secret) + '\n' + OBJECT_WITHOUT_A_SECRET);
+
+			Assert.areEqual(MASKED_PASSWORD_PAIR + '\n' + OBJECT_WITHOUT_A_SECRET, result.maskedValue, 'Expected the secret replaced and the second object kept');
+		}
+	}
+
+	/**
+	 * @description A JSON list followed by an object, or by a second list, is not one JSON value. The JsonKey rule
+	 * replaces the secret after the first list.
+	 */
+	@IsTest
+	private static void shouldStoreNoSecretFromAValueAfterAList()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextArea(SEL_MaskingRule.MODE_JSON_KEY, PASSWORD_KEY_PATTERN, PASSWORD_REPLACEMENT, null);
+			String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+			UTIL_FrameworkMasker.FieldMasker masker = UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c);
+
+			UTIL_FrameworkMasker.MaskingResult objectAfterList = masker.mask(JSON_LIST_PREFIX + buildPasswordObject(secret));
+			UTIL_FrameworkMasker.MaskingResult listAfterList = masker.mask('[1,2] [' + buildPasswordObject(secret) + ']');
+
+			Assert.areEqual(JSON_LIST_PREFIX + MASKED_PASSWORD_PAIR, objectAfterList.maskedValue, 'Expected the list kept and the secret in the object replaced');
+			Assert.areEqual('[1,2] [' + MASKED_PASSWORD_PAIR + ']', listAfterList.maskedValue, 'Expected the first list kept and the secret in the second list replaced');
+		}
+	}
+
+	/**
+	 * @description A value with more opening brackets than `UTIL_String.JSON_STRUCTURE_LINE` is read one token at a time.
+	 * When a second object follows it, the JsonKey rule reads that object too, and its secret is not stored.
+	 */
+	@IsTest
+	private static void shouldStoreNoSecretFromAnObjectAfterAValueAboveTheStructureLine()
+	{
+		System.runAs(getTestAdmin())
+		{
+			registerMockJsonKeyRuleOnApiCallRequest(TEST_RULE_NAME, PASSWORD_KEY_PATTERN, PASSWORD_REPLACEMENT, FIRST_RULE_ORDER, null);
+			String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c)
+					.mask(buildAboveTheStructureLine('{}') + ' ' + buildPasswordObject(secret));
+
+			Assert.isFalse(result.maskedValue.contains(secret), 'Expected no secret stored');
+			Assert.isTrue(result.maskedValue.endsWith(MASKED_PASSWORD_PAIR), 'Expected the secret in the second object replaced');
+		}
+	}
+
+	/**
+	 * @description Two JSON objects can follow each other with nothing between them. The value is still not one JSON
+	 * value, and the secret in the second object is not stored.
+	 */
+	@IsTest
+	private static void shouldStoreNoSecretFromTwoObjectsWithNothingBetweenThem()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextArea(SEL_MaskingRule.MODE_JSON_KEY, PASSWORD_KEY_PATTERN, PASSWORD_REPLACEMENT, null);
+			String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c).mask(OBJECT_WITHOUT_A_SECRET + buildPasswordObject(secret));
+
+			Assert.areEqual(OBJECT_WITHOUT_A_SECRET + MASKED_PASSWORD_PAIR, result.maskedValue, 'Expected both objects kept and the secret replaced');
+		}
+	}
+
+	/**
+	 * @description When the secret key in the second of two objects holds an object, the text search cannot hide it
+	 * safely. The whole value is saved as the failure marker, so no secret is stored.
+	 */
+	@IsTest
+	private static void shouldMarkTwoObjectsWhenTheSecondHoldsAnObjectUnderTheSecretKey()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextArea(SEL_MaskingRule.MODE_JSON_KEY, PASSWORD_KEY_PATTERN, PASSWORD_REPLACEMENT, null);
+			String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c)
+					.mask(OBJECT_WITHOUT_A_SECRET + ' ' + buildPasswordObjectHoldingAnObject(secret));
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the failure marker in place of the whole value');
+		}
+	}
+
+	/**
+	 * @description When the text search of the first JsonKey rule puts the failure marker in place of a value of two
+	 * objects, the later rules do not run on the marker. The later rule here cannot compile its pattern, so it would
+	 * name itself as failed if it ran. It learns that its pattern is broken on a first value in the Text__c field, where
+	 * it is the only rule.
+	 */
+	@IsTest
+	private static void shouldNotRunALaterRuleOnTheMarkerOfTwoObjects()
+	{
+		System.runAs(getTestAdmin())
+		{
+			String textAreaField = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.TextArea__c);
+			mockTargetForFoobarTextArea(SEL_MaskingRule.MODE_JSON_KEY, PASSWORD_KEY_PATTERN, PASSWORD_REPLACEMENT, null, MARKER_RULE_NAME, FIRST_RULE_ORDER);
+
+			MaskingRule__mdt laterRule = (MaskingRule__mdt)mockRuleBuilder(LATER_RULE_NAME, SEL_MaskingRule.MODE_JSON_KEY, BROKEN_PATTERN, UNUSED_REPLACEMENT, SECOND_RULE_ORDER)
+					.withOverride(MaskingRule__mdt.FailureAction__c, SEL_MaskingRule.FAILURE_WRITE_FAILURE_MARKER)
+					.withoutInsertion(true)
+					.build();
+			registerMockTarget(laterRule, textAreaField, null);
+			registerMockTarget(laterRule, UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Text__c), null);
+			UTIL_FrameworkMasker.forField(Foobar__c.Text__c).mask(PASSWORD_JSON);
+			String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c)
+					.mask(OBJECT_WITHOUT_A_SECRET + ' ' + buildPasswordObjectHoldingAnObject(secret));
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the failure marker in place of the whole value');
+			Assert.isFalse(result.failedRuleDeveloperNames.contains(LATER_RULE_NAME), 'Expected the later rule not to run on the marker');
+		}
+	}
+
+	/**
+	 * @description A JsonKey rule with a minimum input length still masks a short value that holds two JSON objects.
+	 * The rule does not read its minimum when it reads JSON, so it does not read it either when the value goes to the
+	 * text search because it is not one JSON value. The secret is not stored.
+	 */
+	@IsTest
+	private static void shouldStoreNoSecretFromTwoShortObjectsWhenTheRuleHasAMinimumLength()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockJsonKeyTargetForFoobarTextAreaWithMinimumLength(MINIMUM_LENGTH_ABOVE_THE_SHORT_VALUES);
+			String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+			String value = OBJECT_WITHOUT_A_SECRET + ' ' + buildPasswordObject(secret);
+			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.TextArea__c, value)
+					.withoutInsertion()
+					.build();
+
+			UTIL_FrameworkMasker.forRecord(record).apply();
+
+			Assert.isTrue(value.length() < MINIMUM_LENGTH_ABOVE_THE_SHORT_VALUES, 'Expected the value to be shorter than the minimum length');
+			Assert.isFalse(record.TextArea__c.contains(secret), 'Expected no secret stored on the record');
+			Assert.areEqual(OBJECT_WITHOUT_A_SECRET + ' ' + MASKED_PASSWORD_PAIR, record.TextArea__c, 'Expected both objects kept and the secret replaced');
+		}
+	}
+
+	/**
+	 * @description A JsonKey rule with a minimum input length still masks short broken JSON. The JSON reader refuses
+	 * the value, so it goes to the text search, which does not read the minimum either. The secret is followed by a
+	 * comma, so the text search finds where it ends and replaces it in place.
+	 */
+	@IsTest
+	private static void shouldMaskShortBrokenJsonWhenTheRuleHasAMinimumLength()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockJsonKeyTargetForFoobarTextAreaWithMinimumLength(MINIMUM_LENGTH_ABOVE_THE_SHORT_VALUES);
+			String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+			String value = PASSWORD_OBJECT_START + secret + BROKEN_OBJECT_END;
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.TextArea__c).mask(value);
+
+			Assert.isTrue(value.length() < MINIMUM_LENGTH_ABOVE_THE_SHORT_VALUES, 'Expected the value to be shorter than the minimum length');
+			Assert.areEqual(PASSWORD_OBJECT_START + PASSWORD_REPLACEMENT + BROKEN_OBJECT_END, result.maskedValue, 'Expected the secret replaced in place');
+		}
+	}
+
+	/**
+	 * @description A JsonKey rule never reads its minimum input length. A short value that starts with a list and ends
+	 * with an object does not have the outline of one JSON value, so it goes straight to the text search. The text
+	 * search still masks it, and the secret is not stored.
+	 */
+	@IsTest
+	private static void shouldStoreNoSecretFromAShortValueWithoutAJsonOutlineWhenTheRuleHasAMinimumLength()
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockJsonKeyTargetForFoobarTextAreaWithMinimumLength(MINIMUM_LENGTH_ABOVE_THE_SHORT_VALUES);
+			String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+			String value = JSON_LIST_PREFIX + buildPasswordObject(secret);
+			Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.TextArea__c, value)
+					.withoutInsertion()
+					.build();
+
+			UTIL_FrameworkMasker.forRecord(record).apply();
+
+			Assert.isTrue(value.length() < MINIMUM_LENGTH_ABOVE_THE_SHORT_VALUES, 'Expected the value to be shorter than the minimum length');
+			Assert.isFalse(record.TextArea__c.contains(secret), 'Expected no secret stored on the record');
+			Assert.areEqual(JSON_LIST_PREFIX + MASKED_PASSWORD_PAIR, record.TextArea__c, 'Expected the list kept and the secret replaced');
+		}
+	}
+
+	/**
+	 * @description A value with more opening brackets than `UTIL_String.JSON_STRUCTURE_LINE` is read one token at a time.
+	 * When that value is broken JSON, it goes to the text search, which does not read the rule's minimum input length.
+	 * So a broken value shorter than the minimum is still masked, and the secret is not stored.
+	 */
+	@IsTest
+	private static void shouldMaskBrokenJsonAboveTheStructureLineWhenTheRuleHasAMinimumLength()
+	{
+		System.runAs(getTestAdmin())
+		{
+			MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder(TEST_RULE_NAME, SEL_MaskingRule.MODE_JSON_KEY, PASSWORD_KEY_PATTERN, PASSWORD_REPLACEMENT, FIRST_RULE_ORDER)
+					.withOverride(MaskingRule__mdt.MinInputLength__c, MINIMUM_LENGTH_ABOVE_THE_LONG_BROKEN_VALUE)
+					.withoutInsertion(true)
+					.build();
+			registerMockTargetOn(ApiCall__c.SObjectType, rule, UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.Request__c), null);
+			String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+			String value = buildAboveTheStructureLine(PASSWORD_OBJECT_START + secret + BROKEN_OBJECT_END);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(ApiCall__c.Request__c).mask(value);
+
+			Assert.isTrue(value.length() < MINIMUM_LENGTH_ABOVE_THE_LONG_BROKEN_VALUE, 'Expected the value to be shorter than the minimum length');
+			Assert.isFalse(result.maskedValue.contains(secret), 'Expected no secret stored');
+			Assert.areEqual(buildAboveTheStructureLine(PASSWORD_OBJECT_START + PASSWORD_REPLACEMENT + BROKEN_OBJECT_END),
+					result.maskedValue, 'Expected the secret replaced in place');
+		}
+	}
+
+	/**
 	 * @description Tests that duplicate target configurations are deduped so the same rule only
 	 * fires (and appears in the audit list) once.
 	 */
@@ -3832,6 +4221,20 @@ private class UTIL_FrameworkMasker_TEST
 			Assert.isTrue(UTIL_FrameworkMasker.isCoveredByWildcard(Foobar__c.Text__c), 'Expected an ordinary text field to be covered');
 			Assert.isFalse(UTIL_FrameworkMasker.isCoveredByWildcard(Foobar__c.ExternalId__c), 'Expected an external id not to be covered');
 			Assert.isFalse(UTIL_FrameworkMasker.isCoveredByWildcard(null), 'Expected a field that cannot be found not to be covered');
+		}
+	}
+
+	/**
+	 * @description Tests that a wildcard target covers an Encrypted Text field, which holds the most sensitive values,
+	 * and does not cover a picklist field, because a mask is not one of the allowed values of a picklist.
+	 */
+	@IsTest
+	private static void shouldCoverEncryptedTextFieldAndSkipPicklistFieldForWildcard()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Assert.isTrue(UTIL_FrameworkMasker.isCoveredByWildcard(Foobar__c.TextAreaEncrypted__c), 'an Encrypted Text field is covered by a wildcard target');
+			Assert.isFalse(UTIL_FrameworkMasker.isCoveredByWildcard(Foobar__c.Picklist__c), 'a picklist field is not covered by a wildcard target');
 		}
 	}
 
@@ -4252,6 +4655,47 @@ private class UTIL_FrameworkMasker_TEST
 		Assert.areEqual(2, first.size(), 'Two known tokens must resolve to two DisplayType enum values');
 		Assert.isTrue(first.contains(DisplayType.STRING), 'STRING token must resolve to DisplayType.STRING');
 		Assert.isTrue(first.contains(DisplayType.TEXTAREA), 'TEXTAREA token must resolve to DisplayType.TEXTAREA');
+	}
+
+	/**
+	 * @description Builds a long value for the tests of rules that look for the start or the end of the value: 100
+	 * letters, then `ANCHOR_TEST_PAIR`, then letters up to the length asked for. There is no space after the pair and no
+	 * line end.
+	 *
+	 * @param valueLength How long the value is
+	 *
+	 * @return The value
+	 */
+	private static String buildAnchorTestValue(Integer valueLength)
+	{
+		String start = ANCHOR_TEST_LETTER.repeat(LETTERS_BEFORE_THE_ANCHOR_TEST_PAIR) + ANCHOR_TEST_PAIR;
+		return start + ANCHOR_TEST_LETTER.repeat(valueLength - start.length());
+	}
+
+	/**
+	 * @description Registers a rule with the anchored whole value pattern and the given failure action on
+	 * Foobar__c.Text__c, masks a value one character longer than `UTIL_String.PATTERN_SEARCH_PIECE_LENGTH`, and asserts
+	 * that the value became the failure marker as an ordinary match: nothing is thrown, no error is recorded, and there is
+	 * no whole text to keep, because the marker fits the field.
+	 *
+	 * @param failureAction The MaskingRule__mdt.FailureAction__c value of the rule
+	 */
+	private static void assertAnchoredRuleMarksALongValue(String failureAction)
+	{
+		System.runAs(getTestAdmin())
+		{
+			mockTargetForFoobarTextWithFailureAction(SEL_MaskingRule.MODE_REGEX, WHOLE_VALUE_ANCHORED_PATTERN, ANCHORED_RULE_REPLACEMENT, null, failureAction);
+
+			UTIL_FrameworkMasker.MaskingResult result = UTIL_FrameworkMasker.forField(Foobar__c.Text__c)
+					.maskAndReturnWholeText(buildAnchorTestValue(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH + 1));
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result.maskedValue, 'Expected the failure marker under ' + failureAction + ', got '
+					+ result.maskedValue?.left(MESSAGE_WINDOW_LENGTH));
+			Assert.areEqual(1, result.rulesMatched, 'Expected the rule to count as matched under ' + failureAction);
+			Assert.isFalse(result.hadErrors, 'Expected no error under ' + failureAction);
+			Assert.isTrue(result.failedRuleDeveloperNames.isEmpty(), 'Expected no failed rule under ' + failureAction + ', got ' + result.failedRuleDeveloperNames);
+			Assert.isNull(result.uncutMaskedValue, 'Expected no whole text to keep under ' + failureAction);
+		}
 	}
 
 	/**
@@ -5310,6 +5754,44 @@ private class UTIL_FrameworkMasker_TEST
 	private static String buildAboveTheStructureLine(String jsonValue)
 	{
 		return '[' + EMPTY_OBJECT_IN_A_LIST.repeat(EMPTY_OBJECTS_ABOVE_THE_STRUCTURE_LINE) + jsonValue + ']';
+	}
+
+	/**
+	 * @description Builds a JSON object with one password key that holds the given text.
+	 *
+	 * @param password The text to put under the password key
+	 *
+	 * @return The object as JSON text
+	 */
+	private static String buildPasswordObject(String password)
+	{
+		return PASSWORD_OBJECT_START + password + '"}';
+	}
+
+	/**
+	 * @description Builds a JSON object whose password key holds an object, and that object holds the given text.
+	 *
+	 * @param password The text to put in the object under the password key
+	 *
+	 * @return The object as JSON text
+	 */
+	private static String buildPasswordObjectHoldingAnObject(String password)
+	{
+		return '{"password":{"value":"' + password + '"}}';
+	}
+
+	/**
+	 * @description Registers a JsonKey rule for the password key on Foobar__c.TextArea__c with a minimum input length.
+	 *
+	 * @param minimumLength The rule's `MinInputLength__c`
+	 */
+	private static void mockJsonKeyTargetForFoobarTextAreaWithMinimumLength(Integer minimumLength)
+	{
+		MaskingRule__mdt rule = (MaskingRule__mdt)mockRuleBuilder(TEST_RULE_NAME, SEL_MaskingRule.MODE_JSON_KEY, PASSWORD_KEY_PATTERN, PASSWORD_REPLACEMENT, FIRST_RULE_ORDER)
+				.withOverride(MaskingRule__mdt.MinInputLength__c, minimumLength)
+				.withoutInsertion(true)
+				.build();
+		registerMockTarget(rule, UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.TextArea__c), null);
 	}
 
 	/**

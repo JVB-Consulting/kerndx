@@ -13,7 +13,7 @@
  *
  * @group Controllers
  *
- * @date May 2026, October 2026
+ * @date May 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ExcessiveParameterList,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.CognitiveComplexity')
 @IsTest(seeAllData=false isParallel=true)
@@ -66,6 +66,33 @@ private class CTRL_MaskingAdvisor_TEST
 	 * details cannot be read.
 	 */
 	private static final String PHONE_TARGET_NAME = 'MaskAccountPhoneByName';
+
+	/**
+	 * @description A handler class name that a target stores in Caller Class. The tests only need some text in
+	 * the field, so the class does not have to exist.
+	 */
+	private static final String CALLER_CLASS_NAME = 'API_SendInvoice';
+
+	/**
+	 * @description The made-up durable Id the Caller Class tests give the Foobar__c object. A durable Id is the key
+	 * EntityDefinition gives each object, and a target stores its object that way.
+	 */
+	private static final String FOOBAR_DURABLE_ID = 'FoobarDurable';
+
+	/**
+	 * @description The made-up durable Id the Caller Class tests give the API Call object.
+	 */
+	private static final String API_CALL_DURABLE_ID = 'ApiCallDurable';
+
+	/**
+	 * @description The made-up durable Id the Caller Class tests give the API Issue object.
+	 */
+	private static final String API_ISSUE_DURABLE_ID = 'ApiIssueDurable';
+
+	/**
+	 * @description A made-up durable Id that matches no object, like the Id of an object that has since been deleted.
+	 */
+	private static final String UNKNOWN_DURABLE_ID = 'DeletedObjectDurable';
 
 	/**
 	 * @description Verifies that an active target bound to an inactive rule is flagged as an inactive-rule issue.
@@ -402,6 +429,113 @@ private class CTRL_MaskingAdvisor_TEST
 		Test.stopTest();
 
 		Assert.isNotNull(summary, 'the org-wide entry point returns a summary, never null');
+	}
+
+	/**
+	 * @description Proves that summarizePosture, the summary of the org's masking setup, counts an active target that names a Caller Class on an object
+	 * other than API Call or API Issue as a target that masks nothing. Only API calls and API issues know which
+	 * class made them, so such a target can never mask. The same Caller Class on API Call or API Issue is not
+	 * counted, nor is a blank Caller Class, an inactive target, or a target whose object cannot be found.
+	 */
+	@IsTest
+	private static void summarizePostureCountsCallerClassOnAnotherObjectAsDead()
+	{
+		registerCallerClassObjects();
+		MaskingRule__mdt activeRule = rule(true);
+		Map<Id, MaskingRule__mdt> rulesById = new Map<Id, MaskingRule__mdt> {activeRule.Id => activeRule};
+		List<MaskingTarget__mdt> targets = new List<MaskingTarget__mdt>
+		{
+				callerClassTarget('FoobarWithCallerClass', FOOBAR_DURABLE_ID, CALLER_CLASS_NAME, true, activeRule.Id),
+				callerClassTarget('ApiCallWithCallerClass', API_CALL_DURABLE_ID, CALLER_CLASS_NAME, true, activeRule.Id),
+				callerClassTarget('ApiIssueWithCallerClass', API_ISSUE_DURABLE_ID, CALLER_CLASS_NAME, true, activeRule.Id),
+				callerClassTarget('FoobarWithoutCallerClass', FOOBAR_DURABLE_ID, null, true, activeRule.Id),
+				callerClassTarget('InactiveFoobarWithCallerClass', FOOBAR_DURABLE_ID, CALLER_CLASS_NAME, false, activeRule.Id),
+				callerClassTarget('UnknownObjectWithCallerClass', UNKNOWN_DURABLE_ID, CALLER_CLASS_NAME, true, activeRule.Id)
+		};
+
+		CTRL_MaskingAdvisor.DTO_OrgPostureSummary summary = CTRL_MaskingAdvisor.summarizePosture(targets, rulesById);
+
+		Assert.areEqual(1, summary.deadConfigCount, 'Expected only the active Foobar target with a Caller Class to count as masking nothing');
+	}
+
+	/**
+	 * @description Proves that the Advisor's findings name an active target with a Caller Class on an object other
+	 * than API Call or API Issue, with its own issue kind and a message that names the target. A rule problem on
+	 * the same kind of target is reported as the rule problem, so a target never gets two findings.
+	 */
+	@IsTest
+	private static void analyzeFlagsCallerClassOnAnotherObject()
+	{
+		registerCallerClassObjects();
+		MaskingRule__mdt activeRule = rule(true);
+		Map<Id, MaskingRule__mdt> rulesById = new Map<Id, MaskingRule__mdt> {activeRule.Id => activeRule};
+		List<MaskingTarget__mdt> targets = new List<MaskingTarget__mdt>
+		{
+				callerClassTarget('FoobarWithCallerClass', FOOBAR_DURABLE_ID, CALLER_CLASS_NAME, true, activeRule.Id),
+				callerClassTarget('ApiCallWithCallerClass', API_CALL_DURABLE_ID, CALLER_CLASS_NAME, true, activeRule.Id),
+				callerClassTarget('FoobarWithCallerClassAndNoRule', FOOBAR_DURABLE_ID, CALLER_CLASS_NAME, true, null)
+		};
+
+		List<CTRL_MaskingAdvisor.DTO_DeadConfiguration> findings = CTRL_MaskingAdvisor.analyzeDeadConfiguration(targets, rulesById);
+
+		Assert.areEqual(2, findings.size(), 'Expected one finding for each Foobar target and none for the API Call target');
+		Assert.areEqual('FoobarWithCallerClass', findings[0].targetDeveloperName, 'Expected the first finding to name the Foobar target with a Caller Class');
+		Assert.areEqual(
+				CTRL_MaskingAdvisor.ConfigurationIssue.CALLER_CLASS_ON_OTHER_OBJECT.name(),
+				findings[0].issueCode,
+				'Expected a Caller Class on another object to have its own issue kind'
+		);
+		Assert.isTrue(findings[0].message.contains('FoobarWithCallerClass'), 'Expected the message to name the target');
+		Assert.areEqual(CTRL_MaskingAdvisor.ConfigurationIssue.MISSING_RULE.name(), findings[1].issueCode, 'Expected the missing rule to be reported first');
+	}
+
+	/**
+	 * @description Proves that the per-object inventory counts a Caller Class on an object other than API Call or
+	 * API Issue as a dead configuration on that object, and does not count the same Caller Class on API Call.
+	 */
+	@IsTest
+	private static void summarizeInventoryCountsCallerClassOnAnotherObjectAsDead()
+	{
+		MaskingRule__mdt activeRule = labeledRule('MaskEmail', 'Mask Email', true);
+		Map<Id, MaskingRule__mdt> rulesById = new Map<Id, MaskingRule__mdt> {activeRule.Id => activeRule};
+		List<MaskingTarget__mdt> targets = new List<MaskingTarget__mdt>
+		{
+				callerClassTarget('FoobarWithCallerClass', FOOBAR_DURABLE_ID, CALLER_CLASS_NAME, true, activeRule.Id),
+				callerClassTarget('ApiCallWithCallerClass', API_CALL_DURABLE_ID, CALLER_CLASS_NAME, true, activeRule.Id)
+		};
+		final String foobarObjectName = UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType);
+		final String apiCallObjectName = UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType);
+		Map<String, String> apiNameByDurableId = new Map<String, String> {FOOBAR_DURABLE_ID => foobarObjectName, API_CALL_DURABLE_ID => apiCallObjectName};
+		Map<String, String> labelByDurableId = new Map<String, String> {FOOBAR_DURABLE_ID => 'Foobar', API_CALL_DURABLE_ID => 'API Call'};
+
+		List<CTRL_MaskingAdvisor.DTO_ObjectMaskingInventory> inventory = CTRL_MaskingAdvisor.summarizeInventory(targets, rulesById, apiNameByDurableId, labelByDurableId);
+
+		Assert.areEqual(2, inventory.size(), 'Expected one row for API Call and one for Foobar');
+		Assert.areEqual(apiCallObjectName, inventory[0].objectApiName, 'Expected API Call to sort before Foobar');
+		Assert.areEqual(0, inventory[0].deadCount, 'Expected a Caller Class on API Call not to count as dead');
+		Assert.areEqual(foobarObjectName, inventory[1].objectApiName, 'Expected Foobar to sort after API Call');
+		Assert.areEqual(1, inventory[1].deadCount, 'Expected a Caller Class on Foobar to count as dead');
+	}
+
+	/**
+	 * @description Proves that getOrgPostureSummary, the summary of the org's masking setup, finds the object of a Caller Class target through the
+	 * real EntityDefinition read. A standard object's durable Id is its API name, so a target on Account resolves
+	 * without a mock and counts as masking nothing.
+	 */
+	@IsTest
+	private static void getOrgPostureSummaryCountsCallerClassOnAStandardObject()
+	{
+		final String accountDurableId = 'Account';
+		MaskingRule__mdt activeRule = rule(true);
+		SEL_MaskingTarget.allRulesOverrideForTest = new Map<String, MaskingRule__mdt> {'ActiveRule' => activeRule};
+		SEL_MaskingTarget.allTargetsOverrideForTest = new Map<String, MaskingTarget__mdt>
+		{
+				'AccountWithCallerClass' => callerClassTarget('AccountWithCallerClass', accountDurableId, CALLER_CLASS_NAME, true, activeRule.Id)
+		};
+
+		CTRL_MaskingAdvisor.DTO_OrgPostureSummary summary = CTRL_MaskingAdvisor.getOrgPostureSummary();
+
+		Assert.areEqual(1, summary.deadConfigCount, 'Expected an Account target with a Caller Class to count as masking nothing');
 	}
 
 	/**
@@ -1966,7 +2100,7 @@ private class CTRL_MaskingAdvisor_TEST
 		Assert.isNull
 				(
 						CTRL_MaskingAdvisor.resolveRecommendedRule('EmailBouncedDate', DisplayType.DATETIME, candidates),
-						'a DateTime field gets no recommendation even when its name substring-matches a rule stem'
+						'Expected no recommendation for a DateTime field, even when its name contains a rule name part'
 				);
 	}
 
@@ -1983,6 +2117,37 @@ private class CTRL_MaskingAdvisor_TEST
 
 		Assert.isNotNull(recommended, 'an Email-type field matching the email rule stem is recommended');
 		Assert.areEqual(SEL_MaskingRule.RULE_MASK_EMAIL, recommended.DeveloperName, 'the email rule is the recommendation on an Email field');
+	}
+
+	/**
+	 * @description Verifies the resolver recommends a rule on an Encrypted Text field, which holds the most sensitive
+	 * values, so a change to the list of types it accepts fails here. The rule name part is the part of a rule name
+	 * that is matched against field names.
+	 */
+	@IsTest
+	private static void resolveRecommendedRuleRecommendsOnEncryptedTextFieldType()
+	{
+		List<MaskingRule__mdt> candidates = new List<MaskingRule__mdt> {ruleWithName(SEL_MaskingRule.RULE_MASK_EMAIL, false)};
+
+		MaskingRule__mdt recommended = CTRL_MaskingAdvisor.resolveRecommendedRule('Email', DisplayType.ENCRYPTEDSTRING, candidates);
+
+		Assert.isNotNull(recommended, 'an Encrypted Text field whose name contains the email rule name part is recommended');
+	}
+
+	/**
+	 * @description Verifies the resolver does not recommend a rule on a picklist field. A mask is not one of the
+	 * allowed values of a picklist, and a picklist holds a fixed set of choices, not free text.
+	 */
+	@IsTest
+	private static void resolveRecommendedRuleSkipsPicklistFieldType()
+	{
+		List<MaskingRule__mdt> candidates = new List<MaskingRule__mdt> {ruleWithName(SEL_MaskingRule.RULE_MASK_EMAIL, false)};
+
+		Assert.isNull
+				(
+						CTRL_MaskingAdvisor.resolveRecommendedRule('EmailPreference', DisplayType.PICKLIST, candidates),
+						'a picklist field gets no recommendation even when its name contains the rule name part'
+				);
 	}
 
 	/**
@@ -3162,6 +3327,83 @@ private class CTRL_MaskingAdvisor_TEST
 	}
 
 	/**
+	 * @description Proves that generation refuses to turn on a target that names a Caller Class on an object other
+	 * than API Call or API Issue. Setup refuses to save such an active target, so the whole bundle would fail to
+	 * deploy. The Caller Class is never cleared without asking, because a blank Caller Class would make the target
+	 * mask records from every caller. The admin gets a message that names the target and says what to do.
+	 */
+	@IsTest
+	private static void generateConfigurationRefusesActiveCallerClassOnAnotherObject()
+	{
+		final String developerName = 'MaskAccountPhoneForInvoices';
+		CTRL_MaskingAdvisor.DTO_TargetDecision decision = targetDecision(developerName, 'Account Phone For Invoices', 'MaskPhone', 'Account', 'Phone', CALLER_CLASS_NAME);
+
+		try
+		{
+			CTRL_MaskingAdvisor.generateConfiguration(requestWith(decision, new List<String>()));
+			Assert.fail('Expected generation to refuse an active Caller Class target on Account');
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, AuraHandledException.class, 'Expected a client error the console can show');
+			Assert.areEqual(
+					String.format(System.Label.DataMaskingAdvisor_Generation_CallerClassOnOtherObject, new List<Object> {developerName}),
+					error.getMessage(),
+					'Expected the message to name the target and say how to fix it'
+			);
+		}
+	}
+
+	/**
+	 * @description Proves that generation still switches off a target that names a Caller Class on an object other
+	 * than API Call or API Issue. Setup accepts such a target while it is inactive, so the disable half of the
+	 * bundle deploys, and the Caller Class is kept as it was.
+	 */
+	@IsTest
+	private static void generateConfigurationDisablesCallerClassTargetOnAnotherObject()
+	{
+		final String developerName = 'MaskAccountPhoneForInvoices';
+		CTRL_MaskingAdvisor.DTO_TargetDecision decision = targetDecision(developerName, 'Account Phone For Invoices', 'MaskPhone', 'Account', 'Phone', CALLER_CLASS_NAME);
+		decision.isActive = false;
+
+		CTRL_MaskingAdvisor.DTO_Bundle bundle = CTRL_MaskingAdvisor.generateConfiguration(requestWith(decision, new List<String>()));
+
+		String targetFile = bundle.files.get(targetBundlePath(developerName));
+		Assert.isNotNull(targetFile, 'Expected the disabled target file to be generated');
+		Assert.isTrue(targetFile.contains('xsi:type="xsd:boolean">false</value>'), 'Expected the target to be rendered inactive');
+		Assert.isTrue(targetFile.contains('>' + CALLER_CLASS_NAME + '</value>'), 'Expected the Caller Class to be kept as it was');
+	}
+
+	/**
+	 * @description Proves that generation turns on a target that names a Caller Class on API Call and on API Issue,
+	 * the two objects whose records know which class made them. The object names come from the object tokens, so
+	 * they carry the package namespace when there is one.
+	 */
+	@IsTest
+	private static void generateConfigurationKeepsActiveCallerClassOnApiObjects()
+	{
+		final String apiCallTargetName = 'MaskApiCallForInvoices';
+		final String apiIssueTargetName = 'MaskApiIssueForInvoices';
+		CTRL_MaskingAdvisor.DTO_GenerationRequest request = new CTRL_MaskingAdvisor.DTO_GenerationRequest();
+		request.targets = new List<CTRL_MaskingAdvisor.DTO_TargetDecision>
+		{
+				targetDecision(apiCallTargetName, 'API Call For Invoices', 'MaskAll', UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType), '', CALLER_CLASS_NAME),
+				targetDecision(apiIssueTargetName, 'API Issue For Invoices', 'MaskAll', UTIL_SObjectDescribe.getObjectNameFromType(ApiIssue__c.SObjectType), '', CALLER_CLASS_NAME)
+		};
+		request.rulesToActivate = new List<String>();
+
+		CTRL_MaskingAdvisor.DTO_Bundle bundle = CTRL_MaskingAdvisor.generateConfiguration(request);
+
+		for(String developerName : new List<String> {apiCallTargetName, apiIssueTargetName})
+		{
+			String targetFile = bundle.files.get(targetBundlePath(developerName));
+			Assert.isNotNull(targetFile, 'Expected an active Caller Class target to be generated for ' + developerName);
+			Assert.isTrue(targetFile.contains('xsi:type="xsd:boolean">true</value>'), 'Expected ' + developerName + ' to be rendered active');
+			Assert.isTrue(targetFile.contains('>' + CALLER_CLASS_NAME + '</value>'), 'Expected ' + developerName + ' to keep its Caller Class');
+		}
+	}
+
+	/**
 	 * @description Builds a named in-memory `MaskingRule__mdt` via TST_Factory so resolver tests can
 	 * exercise the substring-matching contract without seeding shipped configuration. The fixture is
 	 * stamped with the running package namespace so the package-ownership gate
@@ -3535,6 +3777,68 @@ private class CTRL_MaskingAdvisor_TEST
 			overrides.put(MaskingTarget__mdt.Rule__c, ruleId);
 		}
 		return TST_Factory.newMaskingTarget(overrides);
+	}
+
+	/**
+	 * @description Builds an in-memory object-wide MaskingTarget__mdt (mock Id) for the Caller Class tests.
+	 *
+	 * @param developerName The target developer name.
+	 * @param sObjectDurableId The `SObjectType__c` durable Id the target applies to.
+	 * @param callerClass The Caller Class the target names, or null for every caller.
+	 * @param active Whether the target is active.
+	 * @param ruleId The referenced rule Id, or null for no rule reference.
+	 *
+	 * @return The in-memory target with a mock Id.
+	 */
+	private static MaskingTarget__mdt callerClassTarget(String developerName, String sObjectDurableId, String callerClass, Boolean active, Id ruleId)
+	{
+		Map<SObjectField, Object> overrides = new Map<SObjectField, Object>
+		{
+				MaskingTarget__mdt.DeveloperName => developerName,
+				MaskingTarget__mdt.IsActive__c => active,
+				MaskingTarget__mdt.SObjectType__c => sObjectDurableId
+		};
+		if(callerClass != null)
+		{
+			overrides.put(MaskingTarget__mdt.CallerClass__c, callerClass);
+		}
+		if(ruleId != null)
+		{
+			overrides.put(MaskingTarget__mdt.Rule__c, ruleId);
+		}
+		return TST_Factory.newMaskingTarget(overrides);
+	}
+
+	/**
+	 * @description Registers EntityDefinition rows that turn the made-up durable Ids of the Caller Class tests into
+	 * the Foobar__c, API Call and API Issue objects. The API names come from the SObjectType tokens, so they carry
+	 * the package namespace when there is one.
+	 */
+	private static void registerCallerClassObjects()
+	{
+		TST_Mock.register(EntityDefinition.SObjectType, new List<EntityDefinition>
+		{
+				entityRowWithDurableId(FOOBAR_DURABLE_ID, UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType)),
+				entityRowWithDurableId(API_CALL_DURABLE_ID, UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType)),
+				entityRowWithDurableId(API_ISSUE_DURABLE_ID, UTIL_SObjectDescribe.getObjectNameFromType(ApiIssue__c.SObjectType))
+		});
+	}
+
+	/**
+	 * @description Builds an in-memory EntityDefinition row with a durable Id and an object API name.
+	 *
+	 * @param durableId The durable Id a masking target stores for the object.
+	 * @param qualifiedApiName The object API name.
+	 *
+	 * @return The in-memory EntityDefinition row.
+	 */
+	private static EntityDefinition entityRowWithDurableId(String durableId, String qualifiedApiName)
+	{
+		return (EntityDefinition)TST_Builder.of(EntityDefinition.SObjectType)
+				.withOverride(EntityDefinition.DurableId, durableId)
+				.withOverride(EntityDefinition.QualifiedApiName, qualifiedApiName)
+				.withoutInsertion()
+				.build();
 	}
 
 	/**

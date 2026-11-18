@@ -26,7 +26,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -321,7 +321,7 @@ global inherited sharing class TRG_Dispatcher
 	/**
 	 * @description Runs the data masking framework against `Trigger.new` when all three
 	 * gates pass: the operation is before-insert or before-update, the `MaskingFramework_Enabled`
-	 * feature flag is on, and the object's `TriggerSetting__mdt.ApplyMasking__c` is checked.
+	 * feature flag is on, and at least one of the object's `TriggerSetting__mdt` records has `ApplyMasking__c` checked.
 	 * Masking runs first, before any configured `TriggerAction__mdt` handlers run,
 	 * so the actions after it see the redacted records. A `UTIL_MaskerPerformanceTimer` times
 	 * the run and auto-emits a single aggregate log entry when `LogSetting__c.EnableMaskerPerformanceLogging__c`
@@ -400,7 +400,7 @@ global inherited sharing class TRG_Dispatcher
 		for(TriggerAction__mdt triggerMetadata : getActionMetadata(context))
 		{
 			String className = resolveClassName(triggerMetadata);
-			if(TRG_Base.isActionBypassed(className) || TRG_Base.isBypassed(sObjectName))
+			if(TRG_Base.isRegisteredActionBypassed(className) || TRG_Base.isBypassed(sObjectName))
 			{
 				continue;
 			}
@@ -473,7 +473,7 @@ global inherited sharing class TRG_Dispatcher
 		{
 			if(canExecuteAction(actionType, fingerprint, triggerMetadata))
 			{
-				dispatchUnderTimer(context, triggerAction, triggerMetadata, className, newRecords, oldRecords);
+				dispatchUnderTimer(new ActionDispatch(context, triggerAction, triggerMetadata, className), newRecords, oldRecords);
 			}
 		}
 		finally
@@ -483,7 +483,14 @@ global inherited sharing class TRG_Dispatcher
 	}
 
 	/**
-	 * @description Combines the recursion-shield and self-initiated guards that gate dispatch.
+	 * @description Decides whether an action may start. Two rules must both pass.
+	 *
+	 * First, the action may start again while it is already running only when its row allows recursion
+	 * (`AllowRecursion__c`).
+	 *
+	 * Second, the action may run on this save. It may when any one of three conditions holds: its row allows a save
+	 * started by another action (`AllowNonSelfInitiated__c`); the first action that is running in this transaction is
+	 * this same action, so the save came from the action itself; or the action implements `NestedSaveGuard`.
 	 *
 	 * @param actionType The action's resolved Apex Type.
 	 * @param fingerprint The recursion fingerprint (DeveloperName for Configurable actions, null otherwise).
@@ -494,47 +501,39 @@ global inherited sharing class TRG_Dispatcher
 	private static Boolean canExecuteAction(Type actionType, String fingerprint, TriggerAction__mdt triggerMetadata)
 	{
 		Boolean recursionAllowed = triggerMetadata.AllowRecursion__c || !inRecursion(actionType, fingerprint);
-		Boolean cascadeAllowed = triggerMetadata.AllowNonSelfInitiated__c || selfInitiated(actionType);
+		Boolean cascadeAllowed = triggerMetadata.AllowNonSelfInitiated__c || selfInitiated(actionType) || NestedSaveGuard.class.isAssignableFrom(actionType);
 		return recursionAllowed && cascadeAllowed;
 	}
 
 	/**
-	 * @description Wraps the entry-criteria filter and performance timer around the dispatch call.
+	 * @description Wraps the entry-criteria filter and performance timer around the dispatch call. The timer takes the
+	 * action row's performance settings and the threshold of the trigger setting the row belongs to, read from the same
+	 * row. A row with no trigger setting gives no threshold.
 	 *
-	 * @param context The current trigger operation.
-	 * @param triggerAction The instantiated trigger action.
-	 * @param triggerMetadata The active TriggerAction__mdt row.
-	 * @param className The action's class name.
+	 * @param dispatch The action to run: the trigger operation, the action object, its TriggerAction__mdt row and its
+	 * class name.
 	 * @param newRecords The list of new or updated records.
 	 * @param oldRecords The list of previous or deleted records.
 	 */
-	@SuppressWarnings('PMD.ExcessiveParameterList')
-	private void dispatchUnderTimer
-			(
-					TriggerOperation context,
-					Object triggerAction,
-					TriggerAction__mdt triggerMetadata,
-					String className,
-					List<SObject> newRecords,
-					List<SObject> oldRecords
-			)
+	private void dispatchUnderTimer(ActionDispatch dispatch, List<SObject> newRecords, List<SObject> oldRecords)
 	{
+		TriggerAction__mdt triggerMetadata = dispatch.triggerMetadata;
 		String contextClassName = UTIL_FormulaFilter.resolveContextClass(sObjectName, triggerMetadata.EntryCriteriaContextClassName__c);
-		UTIL_FormulaFilter formulaFilter = new UTIL_FormulaFilter(className, contextClassName, triggerMetadata.EntryCriteriaFormula__c);
+		UTIL_FormulaFilter formulaFilter = new UTIL_FormulaFilter(dispatch.className, contextClassName, triggerMetadata.EntryCriteriaFormula__c);
 		UTIL_FormulaFilter.DTO_FilterResults filterResults = formulaFilter.filter(oldRecords, newRecords);
 
 		Integer recordCount = filterResults.newRecords?.size() ?? filterResults.oldRecords?.size() ?? 0;
-		UTIL_TriggerPerformanceTimer timer = new UTIL_TriggerPerformanceTimer(className, context.name(), sObjectName, recordCount);
-		timer.withActionSettings(triggerMetadata);
+		UTIL_TriggerPerformanceTimer timer = new UTIL_TriggerPerformanceTimer(dispatch.className, dispatch.context.name(), sObjectName, recordCount);
+		timer.withActionSettings(triggerMetadata).withTriggerSettingThreshold(triggerMetadata.TriggerSetting__r?.PerformanceThresholdMs__c);
 
 		timer.start();
 		try
 		{
-			dispatchAction(context, triggerAction, filterResults.newRecords, filterResults.oldRecords);
+			dispatchAction(dispatch.context, dispatch.triggerAction, filterResults.newRecords, filterResults.oldRecords);
 		}
 		catch(Exception caught)
 		{
-			handleActionFailure(caught, triggerMetadata, className, context);
+			handleActionFailure(caught, triggerMetadata, dispatch.className, dispatch.context);
 		}
 		finally
 		{
@@ -769,6 +768,18 @@ global inherited sharing class TRG_Dispatcher
 	}
 
 	/**
+	 * @description Marks a trigger action that must run on every save of its object, also a save made from inside another
+	 * trigger action or from a flow that such an action started. An action implements it when it holds a permission
+	 * check or a guard that a save must not get past. Such an action runs even when its row has
+	 * `AllowNonSelfInitiated__c` false. The code decides this, not the row, because an upgrade does not change the value
+	 * of that field in an org that already has the package. The interface has no methods. The rule that stops an action
+	 * from starting itself again (`AllowRecursion__c`) still applies.
+	 */
+	public interface NestedSaveGuard
+	{
+	}
+
+	/**
 	 * @description Represents a single frame on the trigger action execution stack,
 	 * capturing the resolved type of the action being processed plus an optional
 	 * fingerprint that discriminates between multiple `TriggerAction__mdt` rows that
@@ -800,6 +811,47 @@ global inherited sharing class TRG_Dispatcher
 		{
 			this.actionType = actionType;
 			this.fingerprint = fingerprint;
+		}
+	}
+
+	/**
+	 * @description The action that dispatchUnderTimer runs: the trigger operation, the action object, its
+	 * TriggerAction__mdt row and its class name, held in one object that dispatchUnderTimer takes as a single parameter.
+	 */
+	private inherited sharing class ActionDispatch
+	{
+		/**
+		 * @description The current trigger operation.
+		 */
+		private final TriggerOperation context;
+		/**
+		 * @description The trigger action object that the dispatcher created from its class name.
+		 */
+		private final Object triggerAction;
+		/**
+		 * @description The active TriggerAction__mdt row of the action.
+		 */
+		private final TriggerAction__mdt triggerMetadata;
+		/**
+		 * @description The Apex class name of the action.
+		 */
+		private final String className;
+
+		/**
+		 * @description Made once for each action that passes the checks that decide whether it runs.
+		 *
+		 * @param context The current trigger operation.
+		 * @param triggerAction The trigger action object.
+		 * @param triggerMetadata The active TriggerAction__mdt row of the action.
+		 * @param className The Apex class name of the action.
+		 */
+		@SuppressWarnings('PMD.ExcessiveParameterList')
+		private ActionDispatch(TriggerOperation context, Object triggerAction, TriggerAction__mdt triggerMetadata, String className)
+		{
+			this.context = context;
+			this.triggerAction = triggerAction;
+			this.triggerMetadata = triggerMetadata;
+			this.className = className;
 		}
 	}
 }

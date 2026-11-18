@@ -8,7 +8,7 @@
  *
  * @group Controllers
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.ExcessivePublicCount,PMD.AvoidBooleanMethodParameters')
 public inherited sharing class CTRL_FieldSet implements IF_Search
@@ -394,7 +394,7 @@ public inherited sharing class CTRL_FieldSet implements IF_Search
 		for(FieldSetMember member : members)
 		{
 			fieldNames.add(member.fieldPath);
-			if(member.type == DisplayType.REFERENCE)
+			if(UTIL_SObjectDescribe.isLookupFieldType(member.type))
 			{
 				fieldNames.add(UTIL_SObjectDescribe.getCachedFieldDescribe(member.SObjectField).relationshipName + UTIL_String.DOT + 'Name');
 			}

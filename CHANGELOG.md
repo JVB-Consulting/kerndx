@@ -13,6 +13,311 @@ All notable changes to KernDX are recorded here. The format is based on [Keep a 
 
 ---
 
+## [1.12.0-3] — 2026-11-17
+
+**Subscriber package version id:** `04tfj000000lFlBAAU`
+
+1.12 closes gaps in sharing checks, data masking and job runner permissions, so some code and settings that worked in
+1.11 are now refused. It also lets your own trigger actions run on every event of KernDX's own objects, adds a fast way to
+find the API calls and issues of one record, keeps an outbound call waiting at Retry when Salesforce refuses to start its
+send, and adds a watchdog for outbound calls that are never sent again. Most of 1.12 needs nothing from you, but read the
+box at the top of the
+[1.12 release note](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.12.md#the-headlines)
+before you install: some of its checks must be done before the upgrade.
+
+### Added
+
+- **All seven trigger events on the package's own objects.** The triggers on API Call, API Issue, Scheduled Job and Async Chain
+  Execution now run before insert, before update, before delete, after insert, after update, after delete and after undelete.
+  - Your own trigger action rows run on any of them. Put them on a trigger setting of your own for the object.
+  - Never write a trigger of your own on one of these objects. If you already have one, delete it when you upgrade and move
+    its logic to trigger action rows. Otherwise its after-event actions run twice.
+- **`kern.UTIL_FormulaContext.ApiCallContext` and `kern.UTIL_FormulaContext.ApiIssueContext`**, built-in formula contexts for API
+  Call and API Issue, so an entry formula on these objects works with the context class name left blank.
+- **Find the API calls and issues of one record.**
+  - A new field, Triggering Record Index, on API Call and on API Issue holds a copy of Triggering Record ID, and Salesforce
+    keeps an index on it.
+  - `findByTriggeringRecordIds(Set<Id>, Integer)` and `findByTriggeringRecordValues(Set<String>, Integer)` on
+    `kern.SEL_ApiCall` and on `kern.SEL_ApiIssue` read one record's rows through it, newest first, with summary fields only.
+  - An optional script in the release note fills the field on rows saved before the upgrade.
+- **`kern.UTIL_BulkUpdates.copyField`** copies one field into another on every matching row, in a background job. Before any job
+  starts, it refuses a target field the running user cannot change, and a source field the running user cannot read,
+  whatever the package's feature settings say.
+- **`kern.DML_Builder.TransactionResult.getFailureMessage()`** gives the reason a save failed when no error reached your code: a
+  failure that `suppressExceptions()` turned into a failed result, or an error that stopped a save made with `allowPartial()`.
+- **The Outbound Retry Watchdog (`kern.SCHED_OutboundRetryWatchdog`)**, a scheduled job you turn on yourself. It gives a stale
+  call at Retry a new Next Retry time, sets a call stuck at Retrying to Failed, and names calls that stay
+  Queued. It never sends a request, and it changes the calls of every user.
+  - Before you schedule it, look at the calls at Retry whose Next Retry time is older than its threshold (60 minutes by
+    default): its first runs give each of them a new time, at most 50 a run by default, however old the call is, and the Retry Outbound Api Call flow
+    then sends it.
+- **Custom labels in a validation error message.** A KernDX validation rule's error message now fills `{!$Label.MyLabel}`
+  (or `{!$Label.ns__MyLabel}` for a label from a managed package) with the label, in the saving user's language. A label
+  that does not exist stays in the message as written. Until now the merge field came back blank, so update a test that
+  checks such a message's text. The Error Message field's description and help text say this on new installs.
+- **The Kern Log Console Read Only permission set** lets someone read every log entry in the Log Console without being able to
+  change any Kern setting. It ships assigned to nobody.
+- **The docs site is easier to find things in.**
+  - Search finds a method by name and a feature from the words you already use.
+  - Each docs area has its own menu, and nine reference pages group their methods by task.
+  - Every page has a plain Markdown copy for AI tools.
+  - The Why KernDX front page covers every feature, and a new page maps plain Apex to KernDX.
+  - Several guides now answer common questions, such as the query limit error in a trigger, the mixed DML error in a test,
+    and why a setting did not change after an upgrade.
+
+### Changed
+
+- **Post-trigger actions run after each pass, so twice in one save.** One save of an API call, API issue, scheduled job or chain
+  run now runs each post-trigger action 2 times, where it ran once. Check that each one is safe to run more than once.
+- **Triggering Record ID can hold text that is not a record Id,** such as an order number, of up to 80 characters. On API Issue
+  it held 18. An outbound call whose class needs a triggering record is still stopped when the value is not a record Id.
+- **Mocked API calls and API issues are filtered like saved ones.** In a test, a read with conditions now returns only the
+  `kern.TST_Mock` mocks that match, an answer scripted with `registerNext` included. Set Triggering Record Index, and every other
+  value the read searches for, on each mock.
+- **`finish()` runs only when every chunk succeeded.**
+  - Under `BATCH`, the `finish` of a `kern.IF_Async.Finishable` processor runs once, only when every chunk ran without
+    throwing, and sees the values `execute` set.
+  - The processor's fields keep their values from one chunk to the next. Salesforce saves them after every chunk, so a
+    field that holds a value Salesforce cannot save, such as a compiled `Pattern`, can make the batch fail: build such a
+    value inside `execute`, or mark the field `transient`.
+  - The daily login job (`kern.SCHED_ProcessLoginHistory`) goes on after a chunk fails with an error Apex can catch, and
+    writes an ERROR log entry.
+- **A `kern.IF_Async.Finishable` processor cannot be forced to run as parallel jobs.** A request that forces
+  `PARALLEL_QUEUEABLES` for one throws an `IllegalArgumentException` and starts no job; `AUTO` picks `CHAINABLE` instead.
+- **A job Salesforce refuses to start arrives as a KernDX exception.** When `kern.UTIL_AsynchronousJobLauncher.process` starts
+  queueable jobs or a launch with a delay, Salesforce's error is now the cause of a KernDX exception.
+  - A refused launch with a delay writes one error entry, in a new place, where it wrote two.
+  - A batch that fails before its first chunk is logged with Salesforce's reason.
+  - A refused next job of a `CHAINABLE` launch writes one error entry that lists the items not processed, and `finish` is
+    not called.
+- **The chain watchdog keeps a query in hand.** When it runs low on queries, the chains it did not reach keep their status and
+  their place in the queue, and no chain run gets the text `Parked: no query budget`.
+- **The `KernNoInlineSOQL` rule's message tells you to read through a selector.** Only the text changes: the rule flags what it
+  flagged before.
+- **Every guide is shorter, opens with the task you came for, and teaches that every read goes through a selector.**
+  Seventeen guides open with a sample you can copy and run.
+  - Several corrections: the formula examples wrap a picklist in `TEXT()`, the DTO samples override `getObjectType()` as
+    `public`, the Async Processing Fast Start's casts no longer throw, and the selector samples declare `with sharing`.
+  - If you copied one of these samples, change it the same way.
+- **The guides say what `commitWork(false)` does with a permission set.** Nothing changes in what your org does.
+  - The 1.10 release note and the reference said that KernDX checks such a save first, and then sends it to Salesforce
+    again with the set. That never ran.
+  - A save whose access level names a permission set goes to Salesforce as it is, and Salesforce applies record sharing,
+    so `commitWork(false)` does not ignore record sharing for that save.
+  - The DML and Security guides now say so.
+- **The field help and the guides say what KernDX does with two API setting fields.** A blank Circuit Breaker Failure
+  Threshold means 5, not 10, and a Retry Backoff (sec) above 300 works as 300 unless your handler overrides
+  `createRetryStrategy()`. Nothing changes in how your calls run. An upgrade keeps the old help text in your org.
+
+### Fixed
+
+**Security and access**
+
+- **A queued save keeps an access level that names a permission set.** `kern.PROC_ExecuteDML` and `kern.PROC_UpdateFields` built
+  with such an access level now use it as it is. Until now they used the default of the `UserModeDml_Enabled` flag (and, for
+  the query of `kern.PROC_UpdateFields`, of the `UserModeQueries_Enabled` flag), which could be more access than you asked for.
+- **`bypassSharing()` checks fields inside functions and through parents.** A read with `bypassSharing()` and no
+  `withSystemMode()` now refuses a filter or sort on a field the user cannot read inside a function or reached through a parent.
+- **`bypassSharing()` refuses a read through a lookup or parent the user cannot read.** A read with `bypassSharing()` and no
+  `withSystemMode()` that selects a path through a lookup field or parent object the user cannot read, a `TYPEOF` on one, or
+  a `subselect()` child query through one, is now refused before any query runs, as a user-mode query refuses it. Selected
+  text KernDX cannot check, such as a child query written as text, is refused for every user: add child queries with
+  `subselect()`.
+- **Bypass entries at every log level.** A bypass entry, the record of who turned a safety check off, is now saved at every
+  log level while logging is on (Is Enabled on Log Setting) and the `BypassAudit_Enabled` feature flag is on.
+  - Until now an org whose Log Level Threshold was ERROR saved none.
+  - Each entry publishes one `LogEntryEvent__e`; repeats are still combined into one row and a daily count.
+  - The framework's own saves of API issues and of the Health Check's scheduled jobs no longer write a bypass entry.
+- **Bypass entries from the three lower-level saves.** `kern.DML_Transaction.setAccessLevel(AccessLevel.SYSTEM_MODE)`,
+  `kern.DML_Transaction.commitWork(false)` and `kern.PROC_ExecuteDML` built with `AccessLevel.SYSTEM_MODE` now write a bypass
+  entry, as the builders do.
+  - A commit writes one entry for each object it saves (`system-mode:Account`, `sharing:Account`), once for each
+    `commitWork` call and only when it saves records.
+  - `kern.PROC_ExecuteDML` writes one entry when it is built, with the operation and no object.
+  - A save through `kern.DML_Builder` still writes one entry, and the framework's own saves through these classes write
+    none.
+  - A test that sets `kern.LOG_Builder.ignoreTestMode = true` and counts warning log rows after one of these saves finds
+    more rows: to keep the old count, call `kern.TST_Factory.newDisabledFeatureFlag('BypassAudit_Enabled')` first in that
+    test.
+  - When a service class that extends `kern.API_Inbound` or `kern.API_Outbound` calls `setAccessLevel`, the framework
+    commits its save later, so the entry does not name the service class.
+- **The Public Group strategy finds a group by its API name** (Group Name in Setup), not its label.
+  - Two groups with the same label, or a queue, can no longer turn a flag on for the wrong people.
+  - A label still works when exactly one public group has it, and the log shows a warning that asks for the API name.
+  - A Target that is the API name of one public group and the label of another now follows the group with that API name,
+    with no warning: check your strategy targets before you upgrade.
+- **A masking target with a Caller Class is refused where it can never apply.** An active target that names a Caller Class on
+  an object other than API Call or API Issue masked nothing, and is now refused when you save it.
+  - The Data Masking Advisor and Health Check count such a target, saved before the check, as one that masks nothing.
+- **An anchored pattern no longer leaves a long API body unmasked.**
+  - A pattern (`Regex`) rule whose pattern holds `^`, `$`, `\A`, `\Z`, `\z` or `\G` does not run on a value longer than
+    131,072 characters: the whole field is saved as `[MASKING_FAILURE]`.
+  - Until now such a rule could leave part or all of the body unmasked, or stop the save.
+  - To mask a whole value, write `(?s).+`.
+- **Masking with more than one trigger setting.** Masking now runs on an object when any of its trigger settings has Apply Masking
+  ticked. Until now, the setting read last decided, so the result could depend on the order the settings were read.
+- **A JsonKey rule masks a value that holds two JSON values one after the other**, such as one object per line in a field or
+  an API body. Until now only the first object was read: a secret in a later object was saved as it came, and when the first
+  object held a secret, the objects after it were dropped. Now every plain value under a matching key is masked and every
+  object is kept. When a matching key holds an object or a list, or the rule's key pattern is one the text search cannot
+  run safely, the whole field is saved as `[MASKING_FAILURE]`.
+- **A JsonKey rule never reads Min Input Length**, as the field's description says, now on every value. Until now a value
+  that was not read as JSON (two JSON values, broken JSON, or plain text with `"key":"value"` pairs) was saved as it came
+  when it was shorter than the minimum.
+
+**Trigger actions and validation**
+
+- **A bypass by the bare class name reaches a packaged trigger action.** `kern.TRG_Base.bypassAction`, `isActionBypassed` and
+  `clearActionBypass` now find an action the package ships by its bare class name in an installed org. Your own action with
+  exactly that name still wins. For up to five minutes after an upgrade adds a packaged action, bypass it by its full name,
+  `kern.` followed by the class name.
+- **Post-trigger actions scoped to a custom object or a change event.**
+  - A `PostTriggerAction__mdt` row whose Trigger Setting is for a custom object, or for a change event with no SObject
+    Type, never ran. It now runs when that object's records are saved, or its change events arrive.
+  - A post-trigger action on a change-event setting whose SObject Type holds a standard object now runs after the change
+    event, as the setting's trigger actions do, and no longer after saves of that object.
+- **A trigger setting's performance threshold works, and Suppress beats Force.**
+  - A trigger setting's Performance Threshold (ms) now applies to the trigger actions and post-trigger actions registered
+    under it. An action's own threshold wins over it.
+  - A threshold set on an action or a trigger setting logs even when Enable Trigger Performance Logging in Log Setting is
+    off. To stop every slow-action entry, turn off Is Enabled in Log Setting (this stops all logging except errors) or set its
+    Log Level Threshold above DEBUG (this also stops your other DEBUG entries).
+  - An action with both Suppress and Force Performance Logging ticked no longer logs.
+  - The trigger setting's Enable Performance Logging checkbox never had an effect, and is now labelled deprecated.
+- **The context class rule on trigger action rows.** A row with an entry formula and a blank context class name on API Call or
+  API Issue was refused, though these objects have built-in contexts. It is now accepted. Other custom objects still need a
+  context class name.
+- **A validation rule with no context class on API Call or API Issue now runs.** Check such rules before you upgrade.
+  - A KernDX validation rule on one of these objects that names no context class, on the rule or on its group, was
+    skipped, and the log got an error entry.
+  - It now runs with the built-in context, so an Error rule whose formula is true stops the save.
+
+**Scheduled jobs**
+
+- **Every change to a job on the job runner needs Manage Job Runner,** and so does deleting a job that is on it. The checks
+  also run when a trigger action, or a flow that one started, saves the job, and such a save now schedules a job with its own
+  schedule, where it was skipped.
+- **A scheduled job moved between time zones keeps its times, or is refused.**
+  - A schedule that one cron expression cannot hold in the new time zone is refused, with a message that names both time
+    zones.
+  - The fix applies when a job is saved. A job with its own schedule (not on the job runner) that was saved from another
+    time zone before the upgrade keeps its old times until you save it again with a change, for example switch Active off
+    and then on.
+- **A job restored from the Recycle Bin comes back switched off,** with no platform job. Switch Active on in the editor to run
+  it again.
+- **Editing a scheduled job keeps its time zone.** The editor no longer moves a job to your own time zone, and shows the job's
+  time zone in the schedule heading and the next-run preview.
+- **Health Check's job runner check shows its times in your own locale and time zone,** not in UTC with no time zone.
+
+**Outbound calls and API issues**
+
+- **An outbound send refused at the daily background-job limit waits at Retry.** The save that queued the call no longer
+  fails: the call is saved at Retry with a Next Retry time and the reason, and is sent once Salesforce starts jobs again.
+  `kern.FLOW_CallApiAsync.invokeApiCallAsynchronously` now saves each call it gets at Retry as Retrying before the send starts.
+  - When Salesforce refuses to start the send, the action saves a call that was not saved yet as a new call at Retry.
+  - The action's saves ignore record sharing, so they work whoever the flow runs as. A call whose save as Retrying is
+    refused is not sent, and one warning names it. After a refused start, the warning counts only the calls whose save
+    at Retry worked.
+- **The batched-call job moves every Batched call.** The save of `kern.SCHED_PerformBatchedCallouts` applied record sharing
+  for the user who scheduled it, so a Batched call that user could not edit stayed at Batched. It now ignores record
+  sharing, saves only the status of each call, and writes one warning that counts the calls whose save was refused.
+- **Bulk retry skips a request with an issue that failed permanently.**
+  - Retry Selected and the Retry API Issues action (`kern.FLOW_RetryApiIssues.retryApiIssues`) no longer send a request
+    again when any of its open issues, selected or not, is on a call that failed permanently or has External System May
+    Have Acted ticked.
+  - `queuedCount` leaves those issues out.
+  - When no request is left to send, `success` is false and `jobId` is empty.
+- **Retry leaves an API issue open when mock data answers the call.** Retry tells you why.
+  - A bulk retry counts such issues, outbound and inbound, in a new log warning.
+  - The warnings a bulk retry writes to the log now start "N API issue(s)", where they started "N failure replay(s)".
+  - A successful outbound call answered by mock data no longer resolves earlier open issues for the same request.
+
+**Saves, queries and object lookups**
+
+- **A partial save stopped by an error reports a failure.** When an error stops a save made with `allowPartial()`, `isSuccess()`
+  is now `false` and `getFailureCount()` is at least 1.
+- **Field updates save only the fields they set.** `kern.PROC_UpdateFields`, which the `kern.UTIL_BulkUpdates` methods use,
+  now saves only each record's Id and the fields in its list of updates. A direct caller of `execute` that set other fields
+  on the records no longer has them saved.
+- **Saves are faster in an org with many objects.** The first trigger action and the first validation rule check of a
+  transaction no longer read the list of every object in the org, and neither does `kern.TST_Builder` when it fills a
+  lookup field with a default record.
+- **`kern.UTIL_SObjectDescribe.getDescribe(name)` and `getSObjectTypeByName(name)` return null for a name that is not an
+  object,** as documented. Until now the name of an Apex class, of a system type such as `String`, or `SObject` failed with a
+  `System.TypeException`. An object whose name is also a system type, such as `Location`, is now found, where it failed.
+  `kern.TST_Builder.of(name)` follows: it throws an `IllegalArgumentException` for the name of an Apex class or a system
+  type.
+- **Counts keep the data category filter.** On a read with `withDataCategory`, `count()`, `exists()`, the total of a
+  `getPage()` read that cannot use a cursor, and the count `getRandomItems` starts from counted every article that met the
+  other conditions. They now count the same articles the read returns.
+
+**Utilities**
+
+- **`kern.UTIL_List.partition` returns every item.** For some list sizes, such as 201 items in parts of 200, it left out the
+  last items, and so did a launch of parallel queueable jobs (`PARALLEL_QUEUEABLES`) that split its items with it
+  ([kerndx#75](https://github.com/JVB-Consulting/kerndx/issues/75)). A null list still gives no parts, an empty list one
+  empty part, and a size of zero or less one part that holds the whole list.
+- **The epoch date is 1970-01-01 in every time zone.** `kern.UTIL_Date.toIso8601(Date)` given null returns `1970-01-01`, and
+  `kern.UTIL_Random.randomDate()` and `randomDateTime()` pick from a range that starts on that day. Until now a user west of
+  GMT got `1969-12-31`.
+
+**Async chains**
+
+- **A chain run that stays Stalled is purged.** A purge of chain runs by Completed At now also deletes a run that has stayed
+  Stalled for longer than the same number of days. A new field, Stalled At, records when the run last became Stalled, and a save
+  that moves a run into Stalled without it is refused.
+  - The Kern Administrator permission set can set Stalled At. Any other user the save runs as needs edit access to it from a
+    permission set of your own, or the save must run in system mode.
+  - A purge whose user cannot read Status and Stalled At deletes by end time only, as before, and logs a warning.
+- **A chain run's performance entry follows Log Setting.** The entry for a whole async chain run was written whatever
+  the performance settings said. It now follows Enable Performance Logging and Performance Threshold (ms) while
+  the new field Async Chain Performance Threshold (ms) is blank. A number there logs a run that took that long or longer,
+  even with Enable Performance Logging off; set 0 to log every such run again. A run that stops because a step failed now gets
+  the entry too.
+
+**Testing**
+
+- **Mocked reads in a test match more conditions.** On an object with a formula context:
+  - a long IN or NOT IN list is now filtered up to a size, where before every mock came back;
+  - a condition on a picklist field is checked, where before every mock came back;
+  - a searched value with a backslash is matched;
+  - a `_` or `%` inside a `contains()` value is matched as that character;
+  - a condition on a date-and-time field is checked, where before every mock came back, and compared at whole seconds, as
+    the database does;
+  - a mocked `count()` or `exists()` counts only the mocks that match the query's conditions, an answer scripted with
+    `registerNext` included, where it counted every mock.
+
+**Pipeline**
+
+- **The pipeline's ingress-bypass alert fires only when a required check did not pass.** It fired on every merge. The
+  reviewers-file check now runs `ajv-cli` at exactly version 5.0.0. If you turned either on, run `kerndx upgrade` with the
+  pipeline bundle that ships with 1.12.
+
+Backward-compatible: no global Apex member is removed or changed in signature. Added:
+
+- `kern.DML_Builder.TransactionResult.getFailureMessage()`;
+- `findByTriggeringRecordIds` and `findByTriggeringRecordValues` on `kern.SEL_ApiCall` and `kern.SEL_ApiIssue`;
+- `kern.UTIL_BulkUpdates.copyField`;
+- the `COPY_FROM_FIELD` value of `kern.PROC_UpdateFields.FieldUpdateMethod`;
+- `kern.SCHED_OutboundRetryWatchdog`;
+- `kern.UTIL_FormulaContext.ApiCallContext` and `kern.UTIL_FormulaContext.ApiIssueContext`.
+
+Two released labels have new wording, with the same placeholders: `ScheduledJob_ManageJobRunnerPermissionRequired` and
+`RetryApiIssues_Queued`. If you translated one, your translation keeps the earlier words. Seventeen new labels carry the new
+messages.
+
+An upgrade does not add the new fields, Triggering Record Index and Stalled At, to your profiles or to your own permission sets.
+Only the Kern permission sets named in the release note grant them.
+
+**Known issue, tracked on the public repository.** Retry Selected on more than 10 inbound issues at once can fail some of
+its jobs, and outbound calls already sent in a failed job can be sent again by a later retry; create an Asynchronous Job
+Setting record named `kern_FLOW_CallApiAsync` with a Batch Size of 10 or less, or select 10 or fewer inbound issues per
+retry ([#39](https://github.com/JVB-Consulting/kerndx/issues/39)).
+
+For the full tour and every upgrade note, see [Kern 1.12 Release Notes](https://github.com/JVB-Consulting/kerndx/blob/main/release-notes/Release%20Notes%20-%20Kern%201.12.md).
+
+---
+
 ## [1.11.0-1] — 2026-10-30
 
 **Subscriber package version id:** `04tfj000000gMFRAA2`
@@ -414,3 +719,6 @@ Initial publicly-tagged release. Every framework module, every Strategic Guide, 
 [1.9.0-4]: https://github.com/JVB-Consulting/kerndx/tree/v1.9.0-4
 [1.10.0-4]: https://github.com/JVB-Consulting/kerndx/tree/v1.10.0-4
 [1.11.0-1]: https://github.com/JVB-Consulting/kerndx/tree/v1.11.0-1
+[1.12.0-1]: https://github.com/JVB-Consulting/kerndx/tree/v1.12.0-1
+[1.12.0-2]: https://github.com/JVB-Consulting/kerndx/tree/v1.12.0-2
+[1.12.0-3]: https://github.com/JVB-Consulting/kerndx/tree/v1.12.0-3

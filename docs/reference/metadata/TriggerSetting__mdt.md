@@ -28,13 +28,13 @@ Parent configuration for all trigger actions on a single object. Links to an Ent
 
 | Field | Description |
 |-------|-------------|
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ApplyMasking__c](#applymasking__c) | When checked, the trigger dispatcher calls the data masking framework on every before-insert and before-update for this object before any configured TriggerAction handlers run. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ApplyMasking__c](#applymasking__c) | When checked, data masking runs on each insert and update of this object, before its trigger actions. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [BypassExecution__c](#bypassexecution__c) | When checked, ALL trigger actions for this object are completely skipped. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [BypassFeatureFlag__c](#bypassfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [BypassFeatureFlag__r](#bypassfeatureflag__r) | Optional. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [EnablePerformanceLogging__c](#enableperformancelogging__c) | Master switch for performance logging on this object. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [EnablePerformanceLogging__c](#enableperformancelogging__c) | Deprecated. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ObjectApiNameOverride__c](#objectapinameoverride__c) | Optional text override for the Object Type relationship above. |
-| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Object-level performance threshold in milliseconds. |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Performance threshold in milliseconds for the trigger actions and post-trigger actions registered under this trigger setting. |
 | global [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[PostTriggerAction__mdt](../metadata/PostTriggerAction__mdt.md)> [PostTriggerActions__r](#posttriggeractions__r) | Reciprocal relationship for PostTriggerAction__mdt.TriggerSetting__c. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [RequiredFeatureFlag__c](#requiredfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [RequiredFeatureFlag__r](#requiredfeatureflag__r) | Optional. |
@@ -49,7 +49,7 @@ Parent configuration for all trigger actions on a single object. Links to an Ent
 global Boolean ApplyMasking__c
 ```
 
-When checked, the trigger dispatcher calls the data masking framework on every before-insert and before-update for this object before any configured TriggerAction handlers run. Only fires when the MaskingFramework_Enabled feature flag is on. Defaults to true so objects with a TriggerSetting are masked automatically; uncheck to opt this one object out.
+When checked, data masking runs on each insert and update of this object, before its trigger actions. Needs the MaskingFramework_Enabled flag. Checked by default. With two or more settings for one object, masking is skipped only if all are unchecked.
 
 **Field Attributes:**
 
@@ -111,7 +111,7 @@ Optional. ALL trigger actions for this object are SKIPPED when the Feature Flag 
 global Boolean EnablePerformanceLogging__c
 ```
 
-Master switch for performance logging on this object. When enabled, execution times are tracked for all child trigger actions and logged when they exceed the threshold. Individual actions can override via Suppress Performance Logging or Force Performance Logging.
+Deprecated. This checkbox has no effect. To control slow-action logging for the actions registered under this trigger setting, use Performance Threshold (ms) on this trigger setting. Leave it blank to follow Log Setting. Set a number to log every run that takes that many milliseconds or longer, even when Enable Trigger Performance Logging is off in Log Setting. Set a very high number to stop those entries.
 
 **Field Attributes:**
 
@@ -143,7 +143,7 @@ Optional text override for the Object Type relationship above. When populated, t
 global Decimal PerformanceThresholdMs__c
 ```
 
-Object-level performance threshold in milliseconds. Actions on this object are logged when their execution time exceeds this value. Overrides the global threshold. Individual actions can further override with their own threshold. Leave blank to use the global default.
+Performance threshold in milliseconds for the trigger actions and post-trigger actions registered under this trigger setting. Blank: those actions follow Log Setting (Enable Trigger Performance Logging and Trigger Performance Threshold (ms)). A number: a run that takes that long or longer is logged, even when Enable Trigger Performance Logging is off in Log Setting. 0 logs every run. A very high number stops those entries. An action's own threshold, Force Performance Logging and Suppress Performance Logging win over this value. It applies only to the actions registered under this trigger setting, not to other trigger settings for the same object.
 
 **Field Attributes:**
 

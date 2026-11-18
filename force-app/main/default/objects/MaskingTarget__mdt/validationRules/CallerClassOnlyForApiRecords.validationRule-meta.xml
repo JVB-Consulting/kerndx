@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CallerClassOnlyForApiRecords</fullName>
+    <active>true</active>
+    <description>Refuses an active target with a Caller Class on an object other than API Call or API Issue. Only those records know which class made them, so elsewhere the target masks nothing. An inactive target is accepted, so you can switch it off.</description>
+    <errorConditionFormula>AND(
+    IsActive__c,
+    NOT(ISBLANK(CallerClass__c)),
+    NOT(
+        OR(
+            SObjectType__r.DeveloperName = &quot;ApiCall&quot;,
+            SObjectType__r.DeveloperName = &quot;ApiIssue&quot;
+        )
+    )
+)</errorConditionFormula>
+    <errorDisplayField>CallerClass__c</errorDisplayField>
+    <errorMessage>Caller Class works only on API Call and API Issue targets. Leave it blank on any other object, or make the target inactive.</errorMessage>
+</ValidationRule>

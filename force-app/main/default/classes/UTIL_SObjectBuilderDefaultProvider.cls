@@ -24,7 +24,7 @@
  *
  * @group Testing
  *
- * @date November 2025, October 2026
+ * @date November 2025, November 2026
  *
  * @since 1.0
  *
@@ -983,7 +983,7 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	 *
 	 * @return A set of lowercase field names to process.
 	 */
-	@SuppressWarnings('PMD.ExcessiveParameterList')
+	@SuppressWarnings('PMD.ExcessiveParameterList,PMD.PrivateMethodParameterCap')
 	private static Set<String> buildFieldsToProcess
 			(
 					SObjectType objectType,
@@ -1170,7 +1170,7 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 	 * @param definedRequiredFields A set of field names explicitly defined as required by the factory.
 	 * @param relationshipKeySet A set of relationship names that are part of the current override keyset.
 	 */
-	@SuppressWarnings('PMD.ExcessiveParameterList')
+	@SuppressWarnings('PMD.ExcessiveParameterList,PMD.PrivateMethodParameterCap')
 	private void handleUnoverriddenField
 			(
 					Map<String, TST_Builder.DefaultFieldValueProvider> mapOfValues,
@@ -1289,7 +1289,7 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 		mapOfValues.put(fullyQualifiedRelationshipName + UTIL_String.DOT + 'id', new FieldDefaultValue(null));
 
 		// Convert object name to SObjectType for recursion
-		SObjectType referencedType = UTIL_SObjectDescribe.getGlobalDescribe().get(metadata.referenceToObjectNames.get(0));
+		SObjectType referencedType = UTIL_SObjectDescribe.getSObjectTypeByName(metadata.referenceToObjectNames.get(0));
 		generateDefaultMapOfValues(referencedType, mapOfValues, fullyQualifiedRelationshipName + UTIL_String.DOT);
 	}
 
@@ -1626,7 +1626,7 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 				{
 					DescribeFieldResult fieldDescribe = describe.getFieldDescribe(field);
 
-					if(fieldDescribe.type == DisplayType.REFERENCE && !fieldDescribe.referenceTo.isEmpty())
+					if(UTIL_SObjectDescribe.isLookupField(fieldDescribe) && !fieldDescribe.referenceTo.isEmpty())
 					{
 						nextSObjectType = fieldDescribe.referenceTo.iterator().next();
 					}
@@ -1662,7 +1662,7 @@ global virtual inherited sharing class UTIL_SObjectBuilderDefaultProvider extend
 					}
 
 					// If it IS a field, and it IS a reference, it is an indexed lookup.
-					if(field != null && describe.getFieldDescribe(field).type == DisplayType.REFERENCE)
+					if(field != null && UTIL_SObjectDescribe.isLookupField(describe.getFieldDescribe(field)))
 					{
 						isIndexedLookup = true;
 					}

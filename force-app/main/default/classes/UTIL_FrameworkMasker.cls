@@ -29,7 +29,7 @@
  *
  * @group Data Masking
  *
- * @date April 2026, October 2026
+ * @date April 2026, November 2026
  *
  * @example
  * ```apex
@@ -106,10 +106,15 @@ public inherited sharing class UTIL_FrameworkMasker
 	private static final Set<SObjectField> FRAMEWORK_INTEGRITY_FIELDS = new Set<SObjectField> {AsyncChainExecution__c.RunKey__c, AsyncChainExecution__c.CurrentJobId__c};
 
 	/**
-	 * @description The field types a wildcard target can cover, because they hold text: Text, Text Area, Long Text
-	 * Area, URL, Email, Phone and Encrypted Text.
+	 * @description The field types the masking framework treats as text: Text, Text Area, Long Text Area, URL, Email,
+	 * Phone and Encrypted Text. A wildcard target covers every field of these types, a rule's list of field types may
+	 * name only these, and the masking advisor recommends rules only on fields of these types. Encrypted Text is in
+	 * because it holds the most sensitive values. Picklist is out. A mask is not one of the allowed values of a
+	 * picklist, so a restricted picklist would refuse the save, and a picklist holds a fixed set of choices, not free
+	 * text. This list answers a different question from the copy list in UTIL_SObjectDescribe, so the two are kept
+	 * apart.
 	 */
-	private static final Set<DisplayType> WILDCARD_TEXT_TYPES = new Set<DisplayType>
+	public static final Set<DisplayType> TEXT_FIELD_TYPES = new Set<DisplayType>
 	{
 			DisplayType.STRING,
 			DisplayType.TEXTAREA,
@@ -178,8 +183,8 @@ public inherited sharing class UTIL_FrameworkMasker
 	 * @description DeveloperNames of the Write Failure Marker rules whose pattern cannot compile, found
 	 * in this transaction. Such a rule can never mask anything. Every later value it covers gets
 	 * `FAILURE_MARKER` without running the rule, so the cost is one set lookup per value. A blank value
-	 * stays as it is, and so does a value the rule would not look at when it works (on the plain-text
-	 * path, a value shorter than the rule's `MinInputLength__c`). A Write Failure Marker rule
+	 * stays as it is, and so does a value the rule would not look at when it works (for a rule that is not
+	 * a JsonKey rule, a value shorter than the rule's `MinInputLength__c`). A Write Failure Marker rule
 	 * whose pattern compiles but fails on one value never joins this set: only that value gets the
 	 * marker, and the rule keeps running on the other values. Statics reset between transactions.
 	 */
@@ -599,7 +604,7 @@ public inherited sharing class UTIL_FrameworkMasker
 	/**
 	 * @description Whether a wildcard target (one with a blank `Field__c`) covers the field. All four must be true:
 	 *
-	 * 1. The field holds text: its type is in `WILDCARD_TEXT_TYPES`.
+	 * 1. The field holds text: its type is in `TEXT_FIELD_TYPES`.
 	 * 2. The field is not a formula, a roll-up or an auto-number. The platform works out those values, and no one
 	 *    writes them.
 	 * 3. `isExcludedFromWildcard` does not skip it. Unique keys, external ids and the fields the framework needs to
@@ -631,7 +636,7 @@ public inherited sharing class UTIL_FrameworkMasker
 
 		DescribeFieldResult describe = UTIL_SObjectDescribe.getCachedFieldDescribe(field);
 
-		return WILDCARD_TEXT_TYPES.contains(describe.getType())
+		return TEXT_FIELD_TYPES.contains(describe.getType())
 				&& !describe.isCalculated()
 				&& !describe.isAutoNumber()
 				&& !isExcludedFromWildcard(field)
@@ -946,7 +951,7 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Returns the six text DisplayTypes keyed by their upper-case name. Built on the first
+	 * @description Returns `TEXT_FIELD_TYPES` keyed by upper-case name. Built on the first
 	 * call and cached for the rest of the transaction. Used by `parseApplicableFieldTypes` to turn each
 	 * value in the list into a `DisplayType` enum value, so `ruleAppliesToFieldType` can compare enums
 	 * instead of strings.
@@ -957,15 +962,11 @@ public inherited sharing class UTIL_FrameworkMasker
 	{
 		if(textShapedDisplayTypesByName == null)
 		{
-			textShapedDisplayTypesByName = new Map<String, DisplayType>
+			textShapedDisplayTypesByName = new Map<String, DisplayType>();
+			for(DisplayType textType : TEXT_FIELD_TYPES)
 			{
-					DisplayType.STRING.name() => DisplayType.STRING,
-					DisplayType.TEXTAREA.name() => DisplayType.TEXTAREA,
-					DisplayType.URL.name() => DisplayType.URL,
-					DisplayType.EMAIL.name() => DisplayType.EMAIL,
-					DisplayType.PHONE.name() => DisplayType.PHONE,
-					DisplayType.ENCRYPTEDSTRING.name() => DisplayType.ENCRYPTEDSTRING
-			};
+				textShapedDisplayTypesByName.put(textType.name(), textType);
+			}
 		}
 		return textShapedDisplayTypesByName;
 	}
@@ -1270,10 +1271,14 @@ public inherited sharing class UTIL_FrameworkMasker
 	 * @description Puts `FAILURE_MARKER` in place of the value for a Write Failure Marker rule whose
 	 * pattern cannot compile, without running the rule and without warning again. The result records the
 	 * error the same way the first failure did. A blank value stays as it is, because there is nothing in
-	 * it to hide. An earlier rule on the same value can leave it blank. The caller decides which values
-	 * the rule covers, exactly as when the rule works: `applySingleTargetStatic` leaves a value shorter
-	 * than the rule's `MinInputLength__c` alone before it gets here, and the JSON path, which does not
-	 * read that minimum when a rule works, does not read it here either.
+	 * it to hide. An earlier rule on the same value can leave it blank.
+	 *
+	 * The caller decides which values the rule covers, exactly as when the rule works: for a rule that is
+	 * not a JsonKey rule, `applyTargetsUntilValueIsMarked` leaves a value shorter than the rule's
+	 * `MinInputLength__c` alone before it gets here.
+	 *
+	 * A JsonKey rule never reads that minimum when it works, on any route (see `applyJsonKeyBatchStatic`), so it does
+	 * not read it here either.
 	 *
 	 * @param rule The rule whose pattern cannot compile
 	 * @param result The MaskingResult being built
@@ -1908,9 +1913,15 @@ public inherited sharing class UTIL_FrameworkMasker
 	 *   `applyJsonKeyRulesToTree`).
 	 *
 	 * On both JSON paths a rule skips the value when no key name it matches can be in the text (see
-	 * `UTIL_String.canHoldMatchingJsonKey`). A Write Failure Marker rule whose pattern cannot compile does not run: the
-	 * value gets `FAILURE_MARKER` instead (see `markValueOfBrokenPatternRule`). Once the value holds the marker, the later
-	 * rules do not run and no masked JSON is written over the marker.
+	 * `UTIL_String.canHoldMatchingJsonKey`).
+	 *
+	 * A JsonKey rule never reads its `MinInputLength__c`. The two JSON paths do not check it. The first two cases above go
+	 * through `applyJsonKeyTargetsAsTextAtAnyLength`, which does not check it either. A value that looks like JSON but is
+	 * broken, or that holds two JSON values, goes there too. So a short value is masked or marked, never left as it came.
+	 *
+	 * A Write Failure Marker rule whose pattern cannot compile does not run: the value gets `FAILURE_MARKER` instead (see
+	 * `markValueOfBrokenPatternRule`). Once the value holds the marker, the later rules do not run and no masked JSON is
+	 * written over the marker.
 	 *
 	 * @param jsonKeyTargets Targets in rule order whose mode is JsonKey
 	 * @param result The MaskingResult being built (changed as rules run)
@@ -1924,7 +1935,7 @@ public inherited sharing class UTIL_FrameworkMasker
 
 		if(!UTIL_String.hasJsonObjectOrArrayShape(result.maskedValue) || shouldTakeJsonTextPass(result.maskedValue))
 		{
-			applyTargetsUntilValueIsMarked(jsonKeyTargets, result);
+			applyJsonKeyTargetsAsTextAtAnyLength(jsonKeyTargets, result);
 			return;
 		}
 
@@ -1965,12 +1976,18 @@ public inherited sharing class UTIL_FrameworkMasker
 	}
 
 	/**
-	 * @description Applies the JsonKey rules to a value with at most `UTIL_String.JSON_STRUCTURE_LINE` opening brackets,
-	 * with one parse and one serialize. The value is read as a tree only when the first rule that can match needs it,
-	 * so a value in which no rule can match is not read at all. Every rule then walks the same tree, in rule order. The
-	 * walk stops 50 levels deep. The `mutated` flag and `replacementCount` on `UTIL_String.JsonKeyMaskResult` show each
-	 * rule's changes, and the tree is written back to text once, at the end, only when a rule changed it. When the JSON
-	 * reader refuses the value, the rules go one at a time through the text search instead.
+	 * @description Applies the JsonKey rules to a value with at most `UTIL_String.JSON_STRUCTURE_LINE` opening brackets.
+	 * The value is read as a tree once, and written back to text at most once. The value is read only when the first
+	 * rule that can match needs it, so a value in which no rule can match is not read at all. Reading it first checks
+	 * it with the token reader and then builds the tree (see `UTIL_String.deserializeWholeJsonValue`).
+	 *
+	 * Every rule then walks the same tree, in rule order. The walk stops 50 levels deep. The `mutated` flag and `replacementCount` on
+	 * `UTIL_String.JsonKeyMaskResult` show each rule's changes, and the tree is written back to text once, at the end,
+	 * only when a rule changed it.
+	 *
+	 * When the JSON reader refuses the value, or more text follows its first JSON value (two objects one after the
+	 * other), the rules go one at a time through the text search instead, whatever the value's length (see
+	 * `applyJsonKeyTargetsAsTextAtAnyLength`).
 	 *
 	 * @param jsonKeyTargets Targets in rule order whose mode is JsonKey
 	 * @param result The MaskingResult being built (changed as rules run)
@@ -1995,12 +2012,12 @@ public inherited sharing class UTIL_FrameworkMasker
 			{
 				try
 				{
-					parsed = JSON.deserializeUntyped(originalValue);
+					parsed = UTIL_String.deserializeWholeJsonValue(originalValue);
 					isParsed = true;
 				}
 				catch(System.JSONException parseError)
 				{
-					applyTargetsUntilValueIsMarked(jsonKeyTargets, result);
+					applyJsonKeyTargetsAsTextAtAnyLength(jsonKeyTargets, result);
 					return;
 				}
 			}
@@ -2036,10 +2053,15 @@ public inherited sharing class UTIL_FrameworkMasker
 	 * brackets. Such a value is never read as a whole tree: a deep one would end the transaction. Each rule reads it
 	 * one token at a time with `UTIL_String.maskJsonKeysStreaming`, in rule order, each on the output of the rule before,
 	 * so a later rule sees the replacements of an earlier one. Each rule's own number of replacements is counted. One
-	 * pass with all patterns together would not show which rule matched a key that two patterns match. When the JSON
-	 * reader refuses the value, the rules go one at a time through the text search instead. This can only happen at the
+	 * pass with all patterns together would not show which rule matched a key that two patterns match.
+	 *
+	 * When the JSON reader refuses the value, the rules go one at a time through the text search instead, whatever the value's length
+	 * (see `applyJsonKeyTargetsAsTextAtAnyLength`). This can only happen at the
 	 * first rule that reads the value, because a rule that reads it to the end has proved the value is valid JSON, so no
 	 * rule has changed the value yet.
+	 *
+	 * A second JSON value after the first, such as one object per line, is read and masked too (see
+	 * `UTIL_String.maskJsonKeysStreaming`).
 	 *
 	 * @param jsonKeyTargets Targets in rule order whose mode is JsonKey
 	 * @param result The MaskingResult being built (changed as rules run)
@@ -2070,7 +2092,7 @@ public inherited sharing class UTIL_FrameworkMasker
 			}
 			catch(System.JSONException parseError)
 			{
-				applyTargetsUntilValueIsMarked(jsonKeyTargets, result);
+				applyJsonKeyTargetsAsTextAtAnyLength(jsonKeyTargets, result);
 				return;
 			}
 			catch(Exception ruleError)
@@ -2139,7 +2161,11 @@ public inherited sharing class UTIL_FrameworkMasker
 
 	/**
 	 * @description Applies the targets one after another, in the order given, and stops as soon as the value holds
-	 * `FAILURE_MARKER` (see `hasFailureMarker`). The rules still to run are not run on the marker.
+	 * `FAILURE_MARKER` (see `hasFailureMarker`). The rules still to run are not run on the marker. A rule leaves a value
+	 * shorter than its `MinInputLength__c` alone.
+	 *
+	 * Only the rules that are not JsonKey rules come here. The JsonKey rules go through `applyJsonKeyBatchStatic`, which
+	 * never reads that minimum.
 	 *
 	 * @param targets The targets to apply, in rule order
 	 * @param result The MaskingResult being built (changed as rules run)
@@ -2152,15 +2178,51 @@ public inherited sharing class UTIL_FrameworkMasker
 			{
 				return;
 			}
+
+			if(!isShorterThanMinimumInputLength(ruleFor(target), result.maskedValue))
+			{
+				applySingleTargetStatic(target, result);
+			}
+		}
+	}
+
+	/**
+	 * @description Applies the JsonKey targets one after another, each in its own mode (see `applySingleTargetStatic`),
+	 * for a value that is not read as JSON here. Stops as soon as the value holds `FAILURE_MARKER`, as
+	 * `applyTargetsUntilValueIsMarked` does.
+	 *
+	 * Such a value has no outline of a JSON object or list, or is long and the transaction is synchronous (see
+	 * `shouldTakeJsonTextPass`), or looked like JSON but is not one JSON value: the JSON reader refused it, or more text
+	 * follows its first JSON value.
+	 *
+	 * Unlike `applyTargetsUntilValueIsMarked`, this method does not read the rule's `MinInputLength__c`. A JsonKey rule
+	 * never reads that minimum, so a short value is masked or marked here, never left as it came. The Regex, ExactMatch
+	 * and CreditCard rules do not come here: they keep their minimum.
+	 *
+	 * @param jsonKeyTargets Targets in rule order whose mode is JsonKey
+	 * @param result The MaskingResult being built (changed as rules run)
+	 */
+	private static void applyJsonKeyTargetsAsTextAtAnyLength(List<MaskingTarget__mdt> jsonKeyTargets, MaskingResult result)
+	{
+		for(MaskingTarget__mdt target : jsonKeyTargets)
+		{
+			if(hasFailureMarker(result))
+			{
+				return;
+			}
+
 			applySingleTargetStatic(target, result);
 		}
 	}
 
 	/**
-	 * @description Applies one target that is not JsonKey (Regex or ExactMatch) to the result being
-	 * built. Catches rule exceptions and records them in `hadErrors` and `failedRuleDeveloperNames`. A
-	 * Write Failure Marker rule whose pattern cannot compile does not run: the value gets
-	 * `FAILURE_MARKER` instead (see `markValueOfBrokenPatternRule`).
+	 * @description Applies one target to the result being built, in the rule's own mode (see `applyTargetToValue`; a
+	 * JsonKey rule runs `UTIL_String.maskJsonKeys`). Catches rule exceptions and records them in `hadErrors` and
+	 * `failedRuleDeveloperNames`.
+	 *
+	 * A Write Failure Marker rule whose pattern cannot compile does not run: the value gets
+	 * `FAILURE_MARKER` instead (see `markValueOfBrokenPatternRule`). This method does not read the rule's
+	 * `MinInputLength__c`: the caller decides that (see `applyTargetsUntilValueIsMarked`).
 	 *
 	 * @param target The target to apply
 	 * @param result The MaskingResult being built (changed as rules run)
@@ -2169,11 +2231,6 @@ public inherited sharing class UTIL_FrameworkMasker
 	{
 		MaskingRule__mdt rule = ruleFor(target);
 		if(invalidatedRuleDeveloperNames.contains(rule.DeveloperName))
-		{
-			return;
-		}
-
-		if(isShorterThanMinimumInputLength(rule, result.maskedValue))
 		{
 			return;
 		}

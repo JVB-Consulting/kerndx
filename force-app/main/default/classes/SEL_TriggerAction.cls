@@ -10,7 +10,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 public inherited sharing class SEL_TriggerAction
 {
@@ -121,8 +121,11 @@ public inherited sharing class SEL_TriggerAction
 	/**
 	 * @description Cache lifetime for the unfiltered trigger-action registration query behind
 	 * `isRegisteredActionClassName`. Registration rows change only on metadata deploys, so a
-	 * short-lived shared cache avoids re-querying; staleness affects only the advisory
-	 * unmatched-target audit annotation, never dispatch.
+	 * short-lived shared cache avoids re-querying. For up to five minutes after a deploy or an
+	 * upgrade adds a packaged trigger action, the cache may not list that action yet. In that time,
+	 * a bypass of the action by its bare class name is stored under the bare name and does not stop it,
+	 * so bypass it by its full name (the package namespace and a dot in front). The bypass audit may
+	 * also mark that full-name bypass as matching no action until the cache refreshes.
 	 */
 	private static final Integer REGISTRATION_CACHE_TTL_SECONDS = 300;
 
@@ -142,7 +145,8 @@ public inherited sharing class SEL_TriggerAction
 
 	/**
 	 * @description Map of object API name to the resolved `TriggerSetting__mdt.ApplyMasking__c`
-	 * flag for that object. Populated during `buildTriggerActionMap` so TRG_Dispatcher can
+	 * flag for that object (true when any of the object's settings has it
+	 * checked). Populated during `buildTriggerActionMap` so TRG_Dispatcher can
 	 * decide whether to run the masking pre-step on before-insert/before-update without a
 	 * second CMDT query per transaction.
 	 */
@@ -168,6 +172,14 @@ public inherited sharing class SEL_TriggerAction
 	 */
 	private static final String PATH_TA_REQUIRED_FEATURE_FLAG_DEVELOPER_NAME =
 			UTIL_SObjectDescribe.getCachedFieldDescribe(TriggerAction__mdt.RequiredFeatureFlag__c).getRelationshipName() + '.DeveloperName';
+	/**
+	 * @description Relationship path from a trigger action to its trigger setting's PerformanceThresholdMs__c
+	 * (namespace-safe). The action rows are read as child rows of their trigger setting, and this path puts the setting's
+	 * threshold on each action row in the same query. The dispatcher hands it to the performance timer.
+	 */
+	private static final String PATH_TA_TRIGGER_SETTING_PERFORMANCE_THRESHOLD =
+			UTIL_SObjectDescribe.getCachedFieldDescribe(TriggerAction__mdt.TriggerSetting__c).getRelationshipName() + '.'
+			+ UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.PerformanceThresholdMs__c);
 	/**
 	 * @description Relationship path for TriggerSetting BypassFeatureFlag__r.DeveloperName (namespace-safe).
 	 */
@@ -209,7 +221,8 @@ public inherited sharing class SEL_TriggerAction
 				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.PerformanceThresholdMs__c),
 				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.RequiredFeatureFlag__c),
 				PATH_TA_REQUIRED_FEATURE_FLAG_DEVELOPER_NAME,
-				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.SuppressPerformanceLogging__c)
+				UTIL_SObjectDescribe.getCachedFieldName(TriggerAction__mdt.SuppressPerformanceLogging__c),
+				PATH_TA_TRIGGER_SETTING_PERFORMANCE_THRESHOLD
 		};
 	}
 
@@ -230,8 +243,6 @@ public inherited sharing class SEL_TriggerAction
 				FIELD_TS_REQUIRED_FEATURE_FLAG,
 				PATH_TS_REQUIRED_FEATURE_FLAG_DEVELOPER_NAME,
 				UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.ApplyMasking__c),
-				UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.EnablePerformanceLogging__c),
-				UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.PerformanceThresholdMs__c),
 				UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.SObjectType__c),
 				UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.ObjectApiNameOverride__c),
 				PATH_SOBJECT_TYPE_QUALIFIED_API_NAME
@@ -239,21 +250,19 @@ public inherited sharing class SEL_TriggerAction
 	}
 
 	/**
-	 * @description Reports whether the `ApplyMasking__c` checkbox on the TriggerSetting for
-	 * the given SObject API name is true. Lazy-builds the trigger-action map on first read and
-	 * returns false for any object without a TriggerSetting.
+	 * @description Reports whether data masking runs for the given SObject API name. It is true when at least one
+	 * TriggerSetting for the object has the `ApplyMasking__c` checkbox checked. Lazy-builds the trigger-action map on
+	 * first read and returns false for any object without a TriggerSetting.
 	 *
 	 * @param objectName The SObject API name (e.g. `ApiCall__c`)
 	 *
-	 * @return True when the object's TriggerSetting opts into data masking
+	 * @return True when at least one of the object's TriggerSettings opts into data masking
 	 */
 	public static Boolean shouldApplyMaskingFor(String objectName)
 	{
 		if(applyMaskingByObjectNameMap == null)
 		{
-			triggerActionByObjectNameAndOperationMap = new Map<String, Map<String, List<TriggerAction__mdt>>>();
-			applyMaskingByObjectNameMap = new Map<String, Boolean>();
-			buildTriggerActionMap();
+			loadTriggerActionMaps();
 		}
 		return applyMaskingByObjectNameMap.get(objectName) == true;
 	}
@@ -270,9 +279,7 @@ public inherited sharing class SEL_TriggerAction
 	{
 		if(triggerActionByObjectNameAndOperationMap == null)
 		{
-			triggerActionByObjectNameAndOperationMap = new Map<String, Map<String, List<TriggerAction__mdt>>>();
-			applyMaskingByObjectNameMap = new Map<String, Boolean>();
-			buildTriggerActionMap();
+			loadTriggerActionMaps();
 		}
 
 		return triggerActionByObjectNameAndOperationMap.get(objectName)?.get(operation.name()) ?? new List<TriggerAction__mdt>();
@@ -335,6 +342,29 @@ public inherited sharing class SEL_TriggerAction
 	}
 
 	/**
+	 * @description Starts both maps empty and fills them from the trigger settings. When the build fails part way, for
+	 * example because the settings query fails, both maps are set back to null before the error goes on. Otherwise a
+	 * caller that catches the error, such as a save that allows some records to fail, would leave half-filled maps
+	 * behind. A later save in the same transaction would then find no entry for an object that was not read yet, and
+	 * its records would be saved without masking. With both maps null, the next call builds them again.
+	 */
+	private static void loadTriggerActionMaps()
+	{
+		triggerActionByObjectNameAndOperationMap = new Map<String, Map<String, List<TriggerAction__mdt>>>();
+		applyMaskingByObjectNameMap = new Map<String, Boolean>();
+		try
+		{
+			buildTriggerActionMap();
+		}
+		catch(Exception buildFailure)
+		{
+			triggerActionByObjectNameAndOperationMap = null;
+			applyMaskingByObjectNameMap = null;
+			throw buildFailure;
+		}
+	}
+
+	/**
 	 * @description Queries all active trigger settings and their child actions, then indexes them
 	 * by object name and trigger operation for efficient lookup.
 	 * Child subselect intentionally omits ORDER BY due to Salesforce Known Issue W-8877088
@@ -364,6 +394,9 @@ public inherited sharing class SEL_TriggerAction
 	 * @description Indexes all executable child actions of a single trigger setting into the
 	 * triggerActionByObjectNameAndOperationMap, grouped by object name and trigger operation.
 	 * Actions are sorted by Order__c before indexing to guarantee deterministic execution order.
+	 * An object can have more than one trigger setting, for example the package's own setting and one a customer adds.
+	 * Masking is then on for the object when at least one of its settings has ApplyMasking__c checked. A setting read
+	 * later never turns masking off again, so the result does not depend on the order the settings are read in.
 	 *
 	 * @param foundSetting The trigger setting whose child actions should be indexed
 	 */
@@ -376,7 +409,7 @@ public inherited sharing class SEL_TriggerAction
 			triggerActionByObjectNameAndOperationMap.put(keyName, new Map<String, List<TriggerAction__mdt>>());
 		}
 
-		applyMaskingByObjectNameMap.put(keyName, foundSetting.ApplyMasking__c == true);
+		applyMaskingByObjectNameMap.put(keyName, applyMaskingByObjectNameMap.get(keyName) == true || foundSetting.ApplyMasking__c == true);
 
 		Map<String, List<TriggerAction__mdt>> actionByOperationMap = triggerActionByObjectNameAndOperationMap.get(keyName);
 

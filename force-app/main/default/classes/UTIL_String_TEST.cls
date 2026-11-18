@@ -12,7 +12,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -311,6 +311,17 @@ private class UTIL_String_TEST
 	private static final String ORDINARY_PAIR = '"a":"b",';
 
 	/**
+	 * @description The length of a random secret value in the tests of values that hold two JSON values one after the
+	 * other.
+	 */
+	private static final Integer SECRET_VALUE_LENGTH = 12;
+
+	/**
+	 * @description A JSON object without a secret key, used as one of two JSON values written one after the other.
+	 */
+	private static final String OBJECT_WITHOUT_A_SECRET = '{"user":"a"}';
+
+	/**
 	 * @description A key pattern with a repeat that has no upper limit on both sides of the key name.
 	 */
 	private static final String UNLIMITED_REPEAT_KEY_PATTERN = '.*secret.*';
@@ -581,6 +592,47 @@ private class UTIL_String_TEST
 	 * the text search finds nothing in it.
 	 */
 	private static final String FILLER_LETTER = 'n';
+
+	/**
+	 * @description The letter that fills a long value in the tests of patterns that look for the start or the end of the
+	 * value.
+	 */
+	private static final String ANCHOR_TEST_LETTER = 'a';
+
+	/**
+	 * @description How many letters come before `ANCHOR_TEST_PAIR` in a long value in the tests of patterns that look for
+	 * the start or the end of the value.
+	 */
+	private static final Integer LETTERS_BEFORE_THE_ANCHOR_TEST_PAIR = 100;
+
+	/**
+	 * @description A secret written as a pair, in a long value in the tests of patterns that look for the start or the end
+	 * of the value. The space ends the pair.
+	 */
+	private static final String ANCHOR_TEST_PAIR = 'token=secret ';
+
+	/**
+	 * @description The text that replaces a match in the tests of patterns that look for the start or the end of the
+	 * value.
+	 */
+	private static final String ANCHOR_TEST_REPLACEMENT = 'X';
+
+	/**
+	 * @description A pattern that matches the whole value, from its start to its end, line ends included.
+	 */
+	private static final String WHOLE_VALUE_ANCHORED_PATTERN = '(?s)^.+$';
+
+	/**
+	 * @description A pattern in comments mode whose `[` sits in a `#` comment. It holds no `^` or `$`, but the check reads
+	 * the `[` as a set of characters still open at the end of the pattern, so it answers yes.
+	 */
+	private static final String SET_OF_CHARACTERS_STILL_OPEN_AT_THE_END_PATTERN = '(?x)a#[';
+
+	/**
+	 * @description A pattern that does not compile, because a group and a set of characters are not closed. It also holds
+	 * a `$`, the sign for the end of the value.
+	 */
+	private static final String BROKEN_ANCHORED_PATTERN = '([bad$';
 
 	/**
 	 * @description Verifies that abbreviate with two arguments truncates strings correctly.
@@ -1887,6 +1939,290 @@ private class UTIL_String_TEST
 		String result = maskWithShippedRule(SEL_MaskingRule.RULE_MASK_FREE_TEXT, DIGIT_AND_SPACE.repeat(THREE_PIECE_VALUE_LENGTH / DIGIT_AND_SPACE.length()));
 
 		Assert.areEqual(replacement, result, 'Expected the whole value replaced once');
+	}
+
+	/**
+	 * @description A pattern with `^` (the start of the value) or `$` (the end of the value) is not run on a value longer
+	 * than `UTIL_String.PATTERN_SEARCH_PIECE_LENGTH`. Such a value is searched in pieces, and a piece does not hold the
+	 * start and the end of the value, so the pattern would leave part of the value in clear. The result is
+	 * `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole value. This holds for a value just over one piece, for a
+	 * value of three pieces, for the longest value the masking reads, and when case does not matter.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldGiveTheFailureMarkerForAnAnchoredPatternOnALongValue()
+	{
+		String overOnePiece = buildAnchorTestValue(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH + 1);
+		String threePieces = buildAnchorTestValue(THREE_PIECE_VALUE_LENGTH);
+		List<String> wrongResults = new List<String>();
+
+		for(String regex : new List<String> {WHOLE_VALUE_ANCHORED_PATTERN, '^[\\s\\S]*$'})
+		{
+			recordWhenNotMarked(wrongResults, regex, UTIL_String.maskWithRegex(overOnePiece, regex, ANCHOR_TEST_REPLACEMENT, true));
+		}
+		recordWhenNotMarked(wrongResults, 'token=.+$', UTIL_String.maskWithRegex(threePieces, 'token=.+$', ANCHOR_TEST_REPLACEMENT, true));
+		recordWhenNotMarked(wrongResults, '(?s)^.+', UTIL_String.maskWithRegex(overOnePiece, '(?s)^.+', ANCHOR_TEST_REPLACEMENT, true));
+		recordWhenNotMarked(wrongResults, '^a+token=\\S+', UTIL_String.maskWithRegex(threePieces, '^a+token=\\S+', ANCHOR_TEST_REPLACEMENT, true));
+		recordWhenNotMarked(wrongResults, 'TOKEN=.+$', UTIL_String.maskWithRegex(threePieces, 'TOKEN=.+$', ANCHOR_TEST_REPLACEMENT, false));
+		overOnePiece = null;
+		threePieces = null;
+		String longestValue = buildAnchorTestValue(LONGEST_VALUE_LENGTH);
+		recordWhenNotMarked(wrongResults, WHOLE_VALUE_ANCHORED_PATTERN, UTIL_String.maskWithRegex(longestValue, WHOLE_VALUE_ANCHORED_PATTERN, ANCHOR_TEST_REPLACEMENT, true));
+		longestValue = null;
+
+		Assert.isTrue(wrongResults.isEmpty(), 'Expected the failure marker for every anchored pattern on a long value, got ' + wrongResults);
+	}
+
+	/**
+	 * @description A pattern that ends with `$` and can match a very long run of text would take too many steps on a long
+	 * value. The platform then ends the transaction with an error that no code can catch. The pattern is not run, and the
+	 * result is `UTIL_FrameworkMasker.FAILURE_MARKER`.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldGiveTheFailureMarkerWhereTheSearchWouldEndTheTransaction()
+	{
+		String value = buildAnchorTestValue(THREE_PIECE_VALUE_LENGTH);
+
+		for(String regex : new List<String> {'(?s).+$', '.*$', '\\S+$'})
+		{
+			String result = UTIL_String.maskWithRegex(value, regex, ANCHOR_TEST_REPLACEMENT, true);
+
+			Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result, 'Expected the failure marker for ' + regex + ', got ' + result.left(MESSAGE_WINDOW_LENGTH));
+		}
+	}
+
+	/**
+	 * @description The anchors written with a backslash also look for the start or the end of the value: `\A` (the
+	 * start), `\z` and `\Z` (the end) and `\G` (where the last match ended, at first the start). A pattern with one of
+	 * them is not run on a long value, and the result is `UTIL_FrameworkMasker.FAILURE_MARKER`.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldGiveTheFailureMarkerForABackslashAnchorOnALongValue()
+	{
+		String value = buildAnchorTestValue(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH + 1);
+		List<String> wrongResults = new List<String>();
+
+		for(String regex : new List<String> {'\\Atoken=\\S+', 'secret\\z', 'secret\\Z', '\\Gtoken='})
+		{
+			recordWhenNotMarked(wrongResults, regex, UTIL_String.maskWithRegex(value, regex, ANCHOR_TEST_REPLACEMENT, true));
+		}
+
+		Assert.isTrue(wrongResults.isEmpty(), 'Expected the failure marker for every backslash anchor on a long value, got ' + wrongResults);
+	}
+
+	/**
+	 * @description Line mode, `(?m)`, makes `^` and `$` match at each line end too, but a pattern with them still looks for
+	 * the start or the end of the value, so it is not run on a long value. Comments mode, turned on by an `x` in a flag
+	 * group, lets a `#` start a comment, so a pattern in comments mode that holds a `^` or `$` anywhere is not run on a
+	 * long value either. Each way to turn comments mode on is tried, also an `x` written inside a `\Q...\E` quote, such as
+	 * `(?\Qx\E)`: the platform removes the quote before it reads the flags. A set of characters still open at the end
+	 * of the pattern counts too: in `(?x)a#[` the `[` sits in a `#` comment, but the check reads it as a set that is never
+	 * closed, and when in doubt the answer is yes. The result is `UTIL_FrameworkMasker.FAILURE_MARKER`.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldGiveTheFailureMarkerForAnAnchorInLineModeOrCommentsMode()
+	{
+		String value = buildAnchorTestValue(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH + 1);
+		List<String> wrongResults = new List<String>();
+		List<String> patterns = new List<String>
+		{
+				'(?m)^token=.*$', '(?x)[$]\\d+', '(?ix)[$]\\d+', '(?x:[$]\\d+)', '(?\\Qx\\E)#[\ntoken=.+$#]', '(?\\Q\\Ex)#[\ntoken=.+$#]',
+				'(?x )#[\ntoken=.+$#]', '(?x#c\n)#[\ntoken=.+$#]', SET_OF_CHARACTERS_STILL_OPEN_AT_THE_END_PATTERN
+		};
+
+		for(String regex : patterns)
+		{
+			recordWhenNotMarked(wrongResults, regex, UTIL_String.maskWithRegex(value, regex, ANCHOR_TEST_REPLACEMENT, true));
+		}
+
+		Assert.isTrue(wrongResults.isEmpty(), 'Expected the failure marker in line mode and in comments mode on a long value, got ' + wrongResults);
+	}
+
+	/**
+	 * @description A backslash makes the character after it plain text, but some of them leave the next `$` an anchor: an
+	 * escaped backslash, an escaped bracket that does not open a set of characters, a control character such as `\c[`,
+	 * and a bracket inside a `\Q...\E` quote. A `\c` followed by a backslash counts too, because the platform can read a
+	 * quote there. A plain `]` with no open set, as in `\[.+]$` or `a]$`, does not hide the `$` either. A pattern with
+	 * such a `$` or `^` is not run on a long value, and the result is `UTIL_FrameworkMasker.FAILURE_MARKER`.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldGiveTheFailureMarkerWhenAnEscapeLeavesTheAnchorStanding()
+	{
+		String value = buildAnchorTestValue(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH + 1);
+		List<String> wrongResults = new List<String>();
+		List<String> patterns = new List<String>
+		{
+				'\\\\$', '\\[$]', '\\c[$]', '\\Q[\\E$]', '(?:\\c\\Qa[\\E)?(?s)^.+]?', '\\c\\Q\\$', '\\[.+]$', 'a]$'
+		};
+
+		for(String regex : patterns)
+		{
+			recordWhenNotMarked(wrongResults, regex, UTIL_String.maskWithRegex(value, regex, ANCHOR_TEST_REPLACEMENT, true));
+		}
+
+		Assert.isTrue(wrongResults.isEmpty(), 'Expected the failure marker when an escape leaves the anchor standing, got ' + wrongResults);
+	}
+
+	/**
+	 * @description A value of exactly `UTIL_String.PATTERN_SEARCH_PIECE_LENGTH` characters is searched in one go, so a
+	 * pattern that looks for the start and the end of the value still runs on it and replaces the whole value.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldSearchAnAnchoredPatternInOneGoAtThePieceLength()
+	{
+		String value = buildAnchorTestValue(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH);
+
+		String result = UTIL_String.maskWithRegex(value, WHOLE_VALUE_ANCHORED_PATTERN, ANCHOR_TEST_REPLACEMENT, true);
+
+		Assert.areEqual(ANCHOR_TEST_REPLACEMENT, result, 'Expected the whole value replaced, got ' + result.left(MESSAGE_WINDOW_LENGTH));
+	}
+
+	/**
+	 * @description A `^` or `$` that is plain text in the pattern does not stop the search of a long value in pieces. It is
+	 * plain text inside a set of characters (`[$]`, a set inside a set included), after a backslash (`\$`), and inside a
+	 * `\Q...\E` quote, also a quote with no `\E` that runs to the end of the pattern. Each pattern runs on a long value
+	 * with a match at its start and at its end, and the result is the
+	 * text one `replaceAll` gives for each match, with the spaces between them kept.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldSearchALongValueInPiecesWhenTheAnchorCharacterIsPlainText()
+	{
+		String filler = UTIL_String.SPACE.repeat(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH);
+		List<List<String>> patternsAndTexts = new List<List<String>>
+		{
+				new List<String> {'[$]\\d+', 'cost $100 '},
+				new List<String> {'[a-z^]+=\\d+', 'key^name=42 '},
+				new List<String> {'[a[b]$]+!', 'ab$! '},
+				new List<String> {'\\$\\d+', 'cost $100 '},
+				new List<String> {'\\^\\d+', 'x^2 '},
+				new List<String> {'\\[\\d+\\]', '[42] '},
+				new List<String> {'\\\\[$]\\d+', '\\$5 '},
+				new List<String> {'\\Q$^\\E\\d+', '$^7 '},
+				new List<String> {'[\\Q]\\E$]\\d+', ']5 '},
+				new List<String> {'\\Q$', '$ '}
+		};
+		List<String> wrongResults = new List<String>();
+
+		for(List<String> patternAndText : patternsAndTexts)
+		{
+			String regex = patternAndText.get(0);
+			String text = patternAndText.get(1);
+			String masked = Pattern.compile(regex).matcher(text).replaceAll(ANCHOR_TEST_REPLACEMENT);
+
+			String result = UTIL_String.maskWithRegex(text + filler + text, regex, ANCHOR_TEST_REPLACEMENT, true);
+
+			if(masked.equals(text) || !result.equals(masked + filler + masked))
+			{
+				wrongResults.add(regex + ' on ' + text + ' gave ' + result.left(MESSAGE_WINDOW_LENGTH) + ' and replaceAll gave ' + masked);
+			}
+		}
+
+		Assert.isTrue(wrongResults.isEmpty(), 'Expected each match replaced in a long value searched in pieces, got ' + wrongResults);
+	}
+
+	/**
+	 * @description A blank pattern on a rule that is not case sensitive holds no start or end anchor. A long value is then
+	 * searched in pieces like any other long value, and the call neither throws nor gives
+	 * `UTIL_FrameworkMasker.FAILURE_MARKER`.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldSearchABlankPatternInPiecesOnALongValue()
+	{
+		String value = buildAnchorTestValue(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH + 1);
+
+		String result = UTIL_String.maskWithRegex(value, null, ANCHOR_TEST_REPLACEMENT, false);
+
+		Assert.areNotEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result, 'Expected a blank pattern to be searched in pieces, got the failure marker');
+	}
+
+	/**
+	 * @description Every shipped rule that uses a pattern is still run on a long value. None of them looks for the start
+	 * or the end of the value, so none of them gives `UTIL_FrameworkMasker.FAILURE_MARKER`.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldSearchEveryShippedRegexRuleInPieces()
+	{
+		String value = UTIL_String.SPACE.repeat(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH + 1);
+		List<String> shippedRuleNames = new List<String>
+		{
+				SEL_MaskingRule.RULE_MASK_ADDRESS,
+				SEL_MaskingRule.RULE_MASK_AUTH_HEADER,
+				SEL_MaskingRule.RULE_MASK_AWS_ACCESS_KEY,
+				SEL_MaskingRule.RULE_MASK_CREDIT_CARD,
+				SEL_MaskingRule.RULE_MASK_EMAIL,
+				SEL_MaskingRule.RULE_MASK_FREE_TEXT,
+				SEL_MaskingRule.RULE_MASK_HEALTH_KEYWORDS,
+				SEL_MaskingRule.RULE_MASK_IBAN,
+				SEL_MaskingRule.RULE_MASK_IPV4_PRIVATE,
+				SEL_MaskingRule.RULE_MASK_JWT,
+				SEL_MaskingRule.RULE_MASK_MEDICARE_BENEFICIARY_ID,
+				SEL_MaskingRule.RULE_MASK_PAYMENT_CARD,
+				SEL_MaskingRule.RULE_MASK_PHONE_INTERNATIONAL,
+				SEL_MaskingRule.RULE_MASK_PHONE_US,
+				SEL_MaskingRule.RULE_MASK_SECRET_KEYS,
+				SEL_MaskingRule.RULE_MASK_SSN,
+				SEL_MaskingRule.RULE_MASK_SWIFT_BIC,
+				SEL_MaskingRule.RULE_MASK_URL_BASIC_AUTH
+		};
+		List<String> rulesRun = new List<String>();
+		List<String> markedRules = new List<String>();
+
+		for(String ruleName : shippedRuleNames)
+		{
+			if(MaskingRule__mdt.getInstance(ruleName).Mode__c == SEL_MaskingRule.MODE_REGEX)
+			{
+				rulesRun.add(ruleName);
+				String result = maskWithShippedRule(ruleName, value);
+				if(UTIL_FrameworkMasker.FAILURE_MARKER.equals(result))
+				{
+					markedRules.add(ruleName);
+				}
+			}
+		}
+
+		Assert.isFalse(rulesRun.isEmpty(), 'Expected at least one shipped rule that uses a pattern');
+		Assert.areEqual(new List<String>(), markedRules, 'Expected no shipped rule to give the failure marker on a long value, out of ' + rulesRun);
+	}
+
+	/**
+	 * @description A pattern that does not compile is refused before the check for an anchor, so it fails on a long value
+	 * in the same way as on a short one, with a `StringException`. The rule then keeps its own failure action.
+	 *
+	 * @see UTIL_String.maskWithRegex
+	 */
+	@IsTest
+	private static void shouldRefuseABrokenPatternOnALongValueBeforeLookingForAnAnchor()
+	{
+		for(String value : new List<String> {ANCHOR_TEST_LETTER, buildAnchorTestValue(UTIL_String.PATTERN_SEARCH_PIECE_LENGTH + 1)})
+		{
+			try
+			{
+				UTIL_String.maskWithRegex(value, BROKEN_ANCHORED_PATTERN, ANCHOR_TEST_REPLACEMENT, true);
+				Assert.fail('Expected a StringException for a pattern that does not compile, on a value of ' + value.length() + ' characters');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, StringException.class, 'Expected the exception a pattern that does not compile throws, on a value of ' + value.length()
+						+ ' characters');
+			}
+		}
 	}
 
 	/**
@@ -3302,6 +3638,144 @@ private class UTIL_String_TEST
 	}
 
 	/**
+	 * @description Some values hold one JSON object per line, or two objects with a space between them. The JSON reader
+	 * reads only the first object of such a value. So the value is not one JSON value, and it goes to the text search.
+	 * The secret in the second object is replaced.
+	 *
+	 * @see UTIL_String.maskJsonKeys
+	 * @see UTIL_String.deserializeWholeJsonValue
+	 */
+	@IsTest
+	private static void shouldMaskASecretInTheSecondOfTwoObjects()
+	{
+		String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+		String result = UTIL_String.maskJsonKeys(OBJECT_WITHOUT_A_SECRET + ' ' + buildPasswordObject(secret), SECRET_KEY_PATTERN, SECRET_REPLACEMENT);
+
+		Assert.isFalse(result.contains(secret), 'Expected no secret left in the value');
+		Assert.areEqual(OBJECT_WITHOUT_A_SECRET + ' ' + buildPasswordObject(SECRET_REPLACEMENT), result, 'Expected both objects kept and the secret replaced');
+	}
+
+	/**
+	 * @description Two JSON objects can follow each other with nothing between them. The value is still not one JSON
+	 * value, and the secret in the second object is replaced.
+	 *
+	 * @see UTIL_String.maskJsonKeys
+	 */
+	@IsTest
+	private static void shouldMaskASecretInTwoObjectsWithNothingBetweenThem()
+	{
+		String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+		String result = UTIL_String.maskJsonKeys(OBJECT_WITHOUT_A_SECRET + buildPasswordObject(secret), SECRET_KEY_PATTERN, SECRET_REPLACEMENT);
+
+		Assert.areEqual(OBJECT_WITHOUT_A_SECRET + buildPasswordObject(SECRET_REPLACEMENT), result, 'Expected both objects kept and the secret replaced');
+	}
+
+	/**
+	 * @description When the secret key in the second of two objects holds an object, the text search cannot hide it
+	 * safely. The whole value is replaced by the failure marker, so no secret is left.
+	 *
+	 * @see UTIL_String.maskJsonKeys
+	 */
+	@IsTest
+	private static void shouldMarkTwoObjectsWhenTheSecondHoldsAnObjectUnderTheSecretKey()
+	{
+		String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+		String result = UTIL_String.maskJsonKeys(OBJECT_WITHOUT_A_SECRET + ' ' + buildPasswordObjectHoldingAnObject(secret), SECRET_KEY_PATTERN, SECRET_REPLACEMENT);
+
+		Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, result, 'Expected the failure marker in place of the whole value');
+	}
+
+	/**
+	 * @description When the first of two objects on two lines holds the secret, the secret is replaced and the second
+	 * object is kept. Nothing of the value is dropped.
+	 *
+	 * @see UTIL_String.maskJsonKeys
+	 */
+	@IsTest
+	private static void shouldKeepTheSecondObjectWhenTheFirstHoldsASecret()
+	{
+		String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+		String result = UTIL_String.maskJsonKeys(buildPasswordObject(secret) + '\n' + OBJECT_WITHOUT_A_SECRET, SECRET_KEY_PATTERN, SECRET_REPLACEMENT);
+
+		Assert.areEqual(buildPasswordObject(SECRET_REPLACEMENT) + '\n' + OBJECT_WITHOUT_A_SECRET, result, 'Expected the secret replaced and the second object kept');
+	}
+
+	/**
+	 * @description A JSON list followed by an object, or by a second list, is not one JSON value either. The secret
+	 * after the first list is replaced.
+	 *
+	 * A list followed by an object does not end like a list, so it goes to the text search at once. A list followed by
+	 * a list does end like a list, so it is only caught when the JSON reader stops before the end of the value.
+	 *
+	 * @see UTIL_String.maskJsonKeys
+	 */
+	@IsTest
+	private static void shouldMaskASecretInAValueAfterAList()
+	{
+		String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+		String objectAfterList = UTIL_String.maskJsonKeys('[1,2] ' + buildPasswordObject(secret), SECRET_KEY_PATTERN, SECRET_REPLACEMENT);
+		String listAfterList = UTIL_String.maskJsonKeys('[1,2] [' + buildPasswordObject(secret) + ']', SECRET_KEY_PATTERN, SECRET_REPLACEMENT);
+
+		Assert.areEqual('[1,2] ' + buildPasswordObject(SECRET_REPLACEMENT), objectAfterList, 'Expected the list kept and the secret in the object replaced');
+		Assert.areEqual('[1,2] [' + buildPasswordObject(SECRET_REPLACEMENT) + ']', listAfterList, 'Expected the first list kept and the secret in the second list replaced');
+	}
+
+	/**
+	 * @description A value can start with a whole JSON object and go on with more pairs after a comma, such as
+	 * `{"user":"a"}, "password":"x"}`. It still starts and ends with a brace. The JSON reader refuses the text after the
+	 * first object, so the value goes to the text search, and the secret after the comma is replaced.
+	 *
+	 * @see UTIL_String.maskJsonKeys
+	 */
+	@IsTest
+	private static void shouldMaskASecretInPairsAfterTheFirstObject()
+	{
+		String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+		String result = UTIL_String.maskJsonKeys(OBJECT_WITHOUT_A_SECRET + ', "password":"' + secret + '"}', SECRET_KEY_PATTERN, SECRET_REPLACEMENT);
+
+		Assert.areEqual(OBJECT_WITHOUT_A_SECRET + ', "password":' + MASKED + '}', result, 'Expected the secret after the comma replaced');
+	}
+
+	/**
+	 * @description Spaces and line breaks after a JSON object are not more text. The value is still read as one JSON
+	 * value, and the masked value is written back as JSON.
+	 *
+	 * @see UTIL_String.maskJsonKeys
+	 */
+	@IsTest
+	private static void shouldReadAnObjectFollowedBySpacesAsJson()
+	{
+		String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+		String result = UTIL_String.maskJsonKeys(buildPasswordObject(secret) + ' \n ', SECRET_KEY_PATTERN, SECRET_REPLACEMENT);
+
+		Assert.areEqual(buildPasswordObject(SECRET_REPLACEMENT), result, 'Expected the value read as JSON and written back without the spaces');
+	}
+
+	/**
+	 * @description A value with more opening brackets than `UTIL_String.JSON_STRUCTURE_LINE` is read one token at a time.
+	 * When a second object follows it, the token reader reads that object too, and its secret is replaced.
+	 *
+	 * @see UTIL_String.maskJsonKeys
+	 */
+	@IsTest
+	private static void shouldMaskASecretInAnObjectAfterAValueAboveTheStructureLine()
+	{
+		String secret = UTIL_Random.randomAlphabetic(SECRET_VALUE_LENGTH);
+
+		String result = UTIL_String.maskJsonKeys(buildAboveTheStructureLine('{}') + ' ' + buildPasswordObject(secret), SECRET_KEY_PATTERN, SECRET_REPLACEMENT);
+
+		Assert.isFalse(result.contains(secret), 'Expected no secret left in the value');
+		Assert.isTrue(result.endsWith(buildPasswordObject(SECRET_REPLACEMENT)), 'Expected the secret in the second object replaced');
+	}
+
+	/**
 	 * @description A key pattern with a repeat that has no upper limit, such as `.*secret.*`, would end the transaction
 	 * on a long text full of quotes. The text search does not run with it: a full-length one-line value gets the failure
 	 * marker, and the masking finishes.
@@ -3995,6 +4469,37 @@ private class UTIL_String_TEST
 	}
 
 	/**
+	 * @description Builds the long value of the tests of patterns that look for the start or the end of the value: 100
+	 * letters, then `ANCHOR_TEST_PAIR`, then letters up to the length asked for. There is no space after the pair and no
+	 * line end.
+	 *
+	 * @param valueLength How long the value is
+	 *
+	 * @return The value
+	 */
+	private static String buildAnchorTestValue(Integer valueLength)
+	{
+		String start = ANCHOR_TEST_LETTER.repeat(LETTERS_BEFORE_THE_ANCHOR_TEST_PAIR) + ANCHOR_TEST_PAIR;
+		return start + ANCHOR_TEST_LETTER.repeat(valueLength - start.length());
+	}
+
+	/**
+	 * @description Adds a line to a list when a result is not `UTIL_FrameworkMasker.FAILURE_MARKER`. The line names the
+	 * pattern and shows the start of the result, so one failed test shows what every pattern gave.
+	 *
+	 * @param wrongResults The list of results that were not the marker
+	 * @param regex The pattern that gave the result
+	 * @param result The result of `maskWithRegex`
+	 */
+	private static void recordWhenNotMarked(List<String> wrongResults, String regex, String result)
+	{
+		if(!UTIL_FrameworkMasker.FAILURE_MARKER.equals(result))
+		{
+			wrongResults.add(regex + ' gave ' + result?.left(MESSAGE_WINDOW_LENGTH));
+		}
+	}
+
+	/**
 	 * @description Masks a value with one `replaceAll` over the whole value, with `OVERLAPPING_ALTERNATIVES_PATTERN` and
 	 * `PAIR_REPLACEMENT`. The tests compare `maskWithRegex` with this result.
 	 *
@@ -4087,5 +4592,29 @@ private class UTIL_String_TEST
 	private static String buildAboveTheStructureLine(String jsonValue)
 	{
 		return '[' + EMPTY_OBJECT_IN_A_LIST.repeat(UTIL_String.JSON_STRUCTURE_LINE + 1) + jsonValue + ']';
+	}
+
+	/**
+	 * @description Builds a JSON object with one password key that holds the given text.
+	 *
+	 * @param password The text to put under the password key
+	 *
+	 * @return The object as JSON text
+	 */
+	private static String buildPasswordObject(String password)
+	{
+		return '{"password":"' + password + '"}';
+	}
+
+	/**
+	 * @description Builds a JSON object whose password key holds an object, and that object holds the given text.
+	 *
+	 * @param password The text to put in the object under the password key
+	 *
+	 * @return The object as JSON text
+	 */
+	private static String buildPasswordObjectHoldingAnObject(String password)
+	{
+		return '{"password":{"value":"' + password + '"}}';
 	}
 }

@@ -6,70 +6,51 @@ navOrder: 64
 
 **Framework:** KernDX | **Total time:** ~20 minutes
 
-**What this is:** A way to redact card numbers, secrets, and personal data on a record *before it is ever saved*, using configuration records instead of Apex code. **Why it matters:** Sensitive values that slip into a free-text note or an integration payload are a compliance and breach risk; here the readable value never reaches the database. **Who should follow it:** developers and admins protecting regulated data, and tech leads who want data-protection rules that are version-controlled and reviewable. **When to use it:** any time a field could capture data you don't want stored in the clear.
+- **What this is:** A way to redact card numbers, secrets, and personal data on a record *before it is ever saved*, using configuration records instead of Apex code.
+- **Why it matters:** Sensitive values that slip into a free-text note or an integration payload are a compliance and breach risk; here the readable value never reaches the database.
+- **Who should follow it:** developers and admins protecting regulated data, and tech leads who want data-protection rules that are version-controlled and reviewable.
+- **When to use it:** any time a field could capture data you don't want stored in the clear.
+- **What you'll build:** You will watch the framework redact a card number and a secret with zero setup, then
+  configure masking on a field of **your own** object and verify the value is redacted before it is saved.
+- **Success looks like:** A `Contact` you insert with `Description` = `"Note — SSN 123-45-6789"` reads back as
+  `"Note — SSN XXX-XX-XXXX"`. The sensitive value never reached the database.
+- **In one line:** masking is **configuration, not code**. Wire a `kern__MaskingTarget__mdt` at a field and the
+  sensitive value is redacted on `before insert` / `before update`, before it is ever stored.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** You will watch the framework redact a card number and a secret with zero setup, then
-configure masking on a field of **your own** object and verify the value is redacted before it is saved.
+## Quick Navigation
 
-**Success looks like:** A `Contact` you insert with `Description` = `"Note — SSN 123-45-6789"` reads back as
-`"Note — SSN XXX-XX-XXXX"`. The sensitive value never reached the database.
-
-**In one line:** masking is **configuration, not code**. Wire a `kern__MaskingTarget__mdt` at a field and the
-sensitive value is redacted on `before insert` / `before update`, before it is ever stored.
+| I need to...                                         | Go to...                                                                                  |
+|------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| See masking work with no setup                       | [Tier 1: See It Work](#tier-1-see-it-work-2-minutes)                                      |
+| Check that masking is switched on                    | [Confirm masking is on](#confirm-masking-is-on)                                           |
+| Mask a field on my own object                        | [Tier 2: Mask a Field on Your Own Object](#tier-2-mask-a-field-on-your-own-object-12-minutes) |
+| Find out why a field is not masked                   | [The three gates](#the-three-gates)                                                       |
+| Make the configuration by hand instead of exporting  | [Step 3.1: The two records by hand](#step-31-the-two-records-by-hand)                     |
+| Choose what happens when a rule fails                | [Failure actions](#failure-actions)                                                       |
+| Test masking in an Apex test                         | [Testing your masking](#testing-your-masking)                                             |
+| Remove the example from my org                       | [Clean up](#clean-up)                                                                     |
+| Fix an error from a step                             | [Common Issues](#common-issues)                                                           |
+| Know what masking does not do                        | [What Masking Is Not](#what-masking-is-not)                                               |
 
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-    - [Watch a record get redacted on save](#watch-a-record-get-redacted-on-save)
-    - [Confirm masking is on](#confirm-masking-is-on)
-3. [Tier 2: Mask a Field on Your Own Object (~12 minutes)](#tier-2-mask-a-field-on-your-own-object-12-minutes)
-    - [The three gates](#the-three-gates)
-    - [Step 1: Put the object on the trigger framework](#step-1-put-the-object-on-the-trigger-framework)
-    - [Step 2: Assign a rule and export the configuration](#step-2-assign-a-rule-and-export-the-configuration)
-    - [Step 3: Deploy](#step-3-deploy)
-    - [Step 4: Verify the redaction](#step-4-verify-the-redaction)
-4. [Tier 3: Production Patterns (~6 minutes)](#tier-3-production-patterns-6-minutes)
-    - [Rule modes](#rule-modes)
-    - [Failure actions](#failure-actions)
-    - [The Data Masking Advisor](#the-data-masking-advisor)
-    - [Testing your masking](#testing-your-masking)
-    - [Clean up](#clean-up)
-5. [Common Issues](#common-issues)
-    - [Tier 1: See It Work](#tier-1-see-it-work)
-    - [Step 1: Put the object on the trigger framework](#step-1-put-the-object-on-the-trigger-framework-1)
-    - [Step 3: Deploy](#step-3-deploy-1)
-    - [Step 4: Verify the redaction](#step-4-verify-the-redaction-1)
-    - [Tier 3: Production Patterns](#tier-3-production-patterns)
-6. [What Masking Is Not](#what-masking-is-not)
-7. [What You Now Know](#what-you-now-know)
-8. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
 ## Tier 1: See It Work (~2 minutes)
 
-You can see masking work before you configure anything. KernDX already has it switched on for one of its own
-records, the API-audit object `ApiCall__c`, so the redaction happens with no setup from you.
+You can see masking work before you configure anything. KernDX already has it switched on for its own
+objects, among them the API-audit object `ApiCall__c`, so the redaction happens with no setup from you.
 
 ### Watch a record get redacted on save
 
@@ -99,8 +80,9 @@ The card number was caught by the `MaskPaymentCard` rule (a Luhn-checked match).
 key was caught by the `MaskSecretKeys` rule. Both fired on the `before insert` pass, so the readable values never
 reached the database.
 
-> **Why `ApiCall__c`?** It is the one object that ships with masking already configured. Your own objects are
-> **not** masked until you configure them, which is Tier 2.
+> **Why `ApiCall__c`?** It is one of the four framework objects that ship with masking already configured
+> (the others are `ApiIssue__c`, `AsyncChainExecution__c` and the `LogEntryEvent__e` log event), and the easiest one
+> to save and read back here. Your own objects are **not** masked until you configure them, which is Tier 2.
 
 ### Confirm masking is on
 
@@ -137,7 +119,7 @@ Masking fires for a record only when **all three** of these conditions hold, and
 or `before update`:
 
 1. The `MaskingFramework_Enabled` feature flag is on (it is, by default).
-2. The object's `kern__TriggerSetting__mdt` has `kern__ApplyMasking__c` checked.
+2. At least one of the object's `kern__TriggerSetting__mdt` records has `kern__ApplyMasking__c` checked.
 3. At least one **active** masking target resolves a field on that object.
 
 ### Step 1: Put the object on the trigger framework
@@ -247,11 +229,15 @@ Something went wrong? See [Common Issues, Step 3](#step-3-deploy-1).
 #### Step 3.1: The two records by hand
 
 If you would rather make the configuration yourself instead of deploying the export, the by-hand path needs **two**
-records: the **Trigger Setting** you made in [Step 1.2](#step-12-create-the-trigger-setting), which turns masking on
-for the object (Gate 2), and the **masking target** the Advisor would otherwise bundle, which wires a rule to the
-field (Gate 3). Make the masking target now: a `kern__MaskingTarget__mdt` record wiring the SSN rule to `Contact`.
-Because the type is the **packaged** `kern__MaskingTarget__mdt`, its field names carry the `kern__` prefix and the
-packaged rule is referenced as `kern__MaskSsn`.
+records:
+
+- the **Trigger Setting** you made in [Step 1.2](#step-12-create-the-trigger-setting), which turns masking on for the
+  object (Gate 2);
+- the **masking target** the Advisor would otherwise bundle, which wires a rule to the field (Gate 3).
+
+Make the masking target now: a `kern__MaskingTarget__mdt` record wiring the SSN rule to `Contact`. Because the type is
+the **packaged** `kern__MaskingTarget__mdt`, its field names carry the `kern__` prefix and the packaged rule is
+referenced as `kern__MaskSsn`.
 
 **1. In Salesforce**, open Setup, then Custom Metadata Types, then **Masking Target**, then **Manage Masking
 Targets**, then **New**, and save a record with these values:
@@ -276,16 +262,21 @@ You should see one file created under `force-app/main/default/customMetadata`, n
 
 A blank `kern__Field__c` is an **object-wide wildcard**: the SSN rule scans every text field on `Contact` (Text, Text Area, Long Text
 Area, Rich Text Area, URL, Email, Phone and Encrypted Text), whoever saves the record, so the note's SSN is caught wherever it lands in ordinary text.
-A unique field or an external id is never touched by a wildcard, because rewriting a key breaks it, and neither is a formula, roll-up
-summary or auto-number field, because the platform works out those values and there is nothing to rewrite. If you do want a rule on
-a key field, name that field explicitly in `kern__Field__c`: an explicit target is treated as your deliberate choice
-and is honoured. To narrow the target to a single field, let the Advisor build the field reference for you, because
-getting the namespaced field path right by hand is the fiddly part the export removes.
+
+- A unique field or an external id is never touched by a wildcard, because rewriting a key breaks it.
+- Neither is a formula, roll-up summary or auto-number field, because the platform works out those values and there
+  is nothing to rewrite.
+- If you do want a rule on a key field, name that field explicitly in `kern__Field__c`: an explicit target is treated
+  as your deliberate choice and is honoured.
+- To narrow the target to a single field, let the Advisor build the field reference for you, because getting the
+  namespaced field path right by hand is the fiddly part the export removes.
 
 > **Activating the packaged `MaskSsn` rule.** The target points at a rule that must be **active**, and `MaskSsn`
 > ships as a dormant template. **Active** (`kern__IsActive__c`) is a field your org controls on a packaged rule, so a
 > deploy that carries only the **Active** value activates it: that is what the **Data Masking Advisor** export's
-> activation file does. By hand, open Setup, then Custom Metadata Types, then **Masking Rule**, then **Manage Masking
+> activation file does.
+>
+> By hand, open Setup, then Custom Metadata Types, then **Masking Rule**, then **Manage Masking
 > Rules**, then **Mask US Social Security Numbers** (the `MaskSsn` record), then **Edit**; check **Active** and save.
 
 Something went wrong? See [Common Issues, Step 3](#step-3-deploy-1).
@@ -370,21 +361,26 @@ kern.TST_Mock.register(
 ```
 
 This lets a test run a rule against a **framework object** that already ships with a trigger and a Trigger
-Setting with **Apply Masking** ticked, such as `ApiCall__c`. Insert the record and the mocked target fires. It does **not** unlock *your own* object. A mock target satisfies one gate, but the masking pass also needs
-the object to have a real trigger and a Trigger Setting, and neither can be conjured in a test. So for masking on
-your own object the trustworthy proof is the **deploy-and-verify of Step 4 against a sandbox**. Treat that as the
-gate before you promote the configuration.
+Setting with **Apply Masking** ticked, such as `ApiCall__c`. Insert the record and the mocked target fires.
+
+It does **not** unlock *your own* object. A mock target satisfies one gate, but the masking pass also needs the object
+to have a real trigger and a Trigger Setting, and neither can be conjured in a test.
+
+So for masking on your own object the trustworthy proof is the **deploy-and-verify of Step 4 against a sandbox**.
+Treat that as the gate before you promote the configuration.
 
 ### Clean up
 
-If you built this example only to try the framework, run these two commands when you have finished the guide. If
-`Contact` was already on the trigger framework before this guide, leave its trigger out of the first command and
-skip the second, so you keep its trigger and trigger setting. If you deployed the Advisor's export instead of making
-the masking target in Step 3.1, the export named the target itself: leave `Mask_Contact_Ssn` out of the first
-command and delete that target in Setup instead (its name starts with `Mask_Contact_`). Some things the commands do
-not delete: the `Masking Demo` contact from Step 4 and the `Masking Demo` API call record from Tier 1 (delete them in
-the app, or leave them), and the `MaskSsn` rule's **Active** box (clear it in Setup if you activated the rule only for
-this guide).
+If you built this example only to try the framework, run these two commands when you have finished the guide. Before you run them:
+
+- **`Contact` was already on the trigger framework** before this guide: leave its trigger out of the first command and
+  skip the second, so you keep its trigger and trigger setting.
+- **You deployed the Advisor's export** instead of making the masking target in Step 3.1: the export named the target
+  itself. Leave `Mask_Contact_Ssn` out of the first command and delete that target in Setup instead (its name starts
+  with `Mask_Contact_`).
+- **The commands do not delete** the `Masking Demo` contact from Step 4 and the `Masking Demo` API call record from
+  Tier 1 (delete them in the app, or leave them).
+- **The `MaskSsn` rule's Active box** is not cleared by the commands: clear it in Setup if you activated the rule only for this guide.
 
 **1. In the terminal**, delete the trigger and the masking target:
 

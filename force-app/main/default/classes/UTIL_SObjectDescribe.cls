@@ -39,7 +39,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -50,7 +50,10 @@
  * String fieldName = UTIL_SObjectDescribe.getCachedFieldName(Account.Industry);
  * ```
  */
-@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssTypeCount,PMD.AvoidBooleanMethodParameters')
+@SuppressWarnings
+(
+		'PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.NcssTypeCount,PMD.AvoidBooleanMethodParameters'
+)
 global inherited sharing class UTIL_SObjectDescribe
 {
 	/**
@@ -64,6 +67,12 @@ global inherited sharing class UTIL_SObjectDescribe
 	 */
 	@TestVisible
 	private static final String FIELD_IS_PERSON_ACCOUNT = 'isPersonAccount';
+
+	/**
+	 * @description The text put in front of a name so that a type lookup looks in Schema, where the objects are, such as
+	 * Schema.Location.
+	 */
+	private static final String SCHEMA_PREFIX = 'Schema.';
 
 	/**
 	 * @description Suffix for custom fields (e.g., `MyField__c`).
@@ -110,6 +119,41 @@ global inherited sharing class UTIL_SObjectDescribe
 	 * @description Maximum batch size for DML operations (2000 records).
 	 */
 	public static final Integer MAXIMUM_BATCH_SIZE = 2000;
+
+	/**
+	 * @description The field types that can give or take copied text: text, long text, email, web address, phone and
+	 * picklist fields. A picklist stores text, so text can be copied into a picklist field and out of it. Encrypted text
+	 * is left out on purpose. Kern's describe marks an encrypted field as not selectable in a query (isSelectableInQuery
+	 * is false), and a user without the View Encrypted Data permission reads a masked value, so a copy would write the
+	 * mask into the target field.
+	 * This list answers a different question from the masking list in UTIL_FrameworkMasker, so the two are kept apart.
+	 */
+	private static final Set<DisplayType> COPYABLE_TEXT_TYPES = new Set<DisplayType>
+	{
+			DisplayType.STRING, DisplayType.TEXTAREA, DisplayType.EMAIL, DisplayType.URL, DisplayType.PHONE, DisplayType.PICKLIST
+	};
+
+	/**
+	 * @description The field types that hold a record Id: the Id field of a record and lookup fields.
+	 */
+	private static final Set<DisplayType> RECORD_ID_TYPES = new Set<DisplayType> {DisplayType.ID, DisplayType.REFERENCE};
+
+	/**
+	 * @description The field types that hold a whole number, with no decimal part.
+	 */
+	private static final Set<DisplayType> WHOLE_NUMBER_TYPES = new Set<DisplayType> {DisplayType.INTEGER, DisplayType.LONG};
+
+	/**
+	 * @description The field types that hold a number that may have a decimal part: number, currency and percent fields.
+	 */
+	private static final Set<DisplayType> DECIMAL_NUMBER_TYPES = new Set<DisplayType> {DisplayType.DOUBLE, DisplayType.CURRENCY, DisplayType.PERCENT};
+
+	/**
+	 * @description For each field type a value can be copied into, the field types it can be copied from. A field type
+	 * that is not a key here cannot take a copied value. Salesforce refuses to put some values into some fields, for
+	 * example a decimal number into a whole number field, and that error would fail the save of every row in the chunk.
+	 */
+	private static final Map<DisplayType, Set<DisplayType>> SOURCE_TYPES_BY_TARGET_TYPE = buildSourceTypesByTargetType();
 
 	/**
 	 * @description Cached name field for this SObject, lazily populated by getNameField().
@@ -848,7 +892,7 @@ global inherited sharing class UTIL_SObjectDescribe
 			DTO_FieldInformation field = new DTO_FieldInformation();
 			field.fieldLabel = fieldDescribe.label;
 			field.fieldType = fieldDescribe.type.name();
-			field.lookupObjectApiName = fieldDescribe.type == DisplayType.REFERENCE ? fieldDescribe.referenceTo.iterator().next().getDescribe().name : null;
+			field.lookupObjectApiName = isLookupField(fieldDescribe) ? fieldDescribe.referenceTo.iterator().next().getDescribe().name : null;
 
 			result.put(fieldDescribe.name, field);
 		}
@@ -1041,13 +1085,47 @@ global inherited sharing class UTIL_SObjectDescribe
 
 			if(objectDescribe == null)
 			{
-				Type objectType = Type.forName(sObjectName);
-				SObjectType sObjectType = ((SObject)objectType?.newInstance())?.getSObjectType();
+				SObjectType sObjectType = findObjectTypeByName(sObjectName);
 				objectDescribe = sObjectType == null ? null : new UTIL_SObjectDescribe(sObjectType);
 			}
 		}
 
 		return objectDescribe;
+	}
+
+	/**
+	 * @description Finds the object that a name belongs to. Some standard objects, such as Location, share their name
+	 * with a system Apex type. When the name first finds a type that is not an object, the name is looked up once more
+	 * with "Schema." in front of it, because Schema is where the objects are. That second type is checked in the same
+	 * way. No instance is created of a type that is not an object.
+	 *
+	 * @param sObjectName The API name of the object; it must not be blank.
+	 *
+	 * @return The object, or null when the name does not find an object.
+	 */
+	private static SObjectType findObjectTypeByName(String sObjectName)
+	{
+		Type objectType = Type.forName(sObjectName);
+
+		if(objectType != null && !isObjectType(objectType))
+		{
+			objectType = Type.forName(SCHEMA_PREFIX + sObjectName);
+		}
+
+		return isObjectType(objectType) ? ((SObject)objectType.newInstance()).getSObjectType() : null;
+	}
+
+	/**
+	 * @description Checks whether a type is an object that records can be created from. The general type SObject is
+	 * not one: every record shares it, but it is not an object itself.
+	 *
+	 * @param objectType The type to check; it may be null.
+	 *
+	 * @return True when the type is an object.
+	 */
+	private static Boolean isObjectType(Type objectType)
+	{
+		return objectType != null && objectType != SObject.class && SObject.class.isAssignableFrom(objectType);
 	}
 
 	/**
@@ -1195,6 +1273,134 @@ global inherited sharing class UTIL_SObjectDescribe
 	public static Boolean isFieldAccessible(SObjectField field)
 	{
 		return field?.getDescribe().isAccessible() ?? false;
+	}
+
+	/**
+	 * @description Whether the user the code runs as may change the value of the given field. It asks the platform
+	 * again on every call.
+	 *
+	 * The stored field describes of this class (getCachedFieldDescribe and the rest) answer for the user who first
+	 * described the object, so they can give the wrong answer inside System.runAs. Use this method when the answer
+	 * decides what a user may change.
+	 *
+	 * @param field The field to check.
+	 *
+	 * @return True when the running user may change the field; false for a null field.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean canChange = UTIL_SObjectDescribe.isFieldUpdateable(Account.Phone);
+	 * ```
+	 */
+	public static Boolean isFieldUpdateable(SObjectField field)
+	{
+		return field?.getDescribe().isUpdateable() ?? false;
+	}
+
+	/**
+	 * @description Whether a field is a lookup field, one that holds the Id of another record.
+	 *
+	 * @param fieldDescribe The describe result of the field to check.
+	 *
+	 * @return True when the field is a lookup field; false for any other field, or a null describe result.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean isLookup = UTIL_SObjectDescribe.isLookupField(UTIL_SObjectDescribe.getCachedFieldDescribe(Contact.AccountId));
+	 * ```
+	 */
+	public static Boolean isLookupField(DescribeFieldResult fieldDescribe)
+	{
+		return isLookupFieldType(fieldDescribe?.getType());
+	}
+
+	/**
+	 * @description Whether a field type is the lookup field type. Use this when you hold only the type of a field,
+	 * for example from a field set member, and do not want to describe the field again.
+	 *
+	 * @param fieldType The type of the field to check.
+	 *
+	 * @return True when the type is the lookup field type; false for any other type, or a null type.
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean isLookup = UTIL_SObjectDescribe.isLookupFieldType(DisplayType.REFERENCE);
+	 * ```
+	 */
+	public static Boolean isLookupFieldType(DisplayType fieldType)
+	{
+		return fieldType == DisplayType.REFERENCE;
+	}
+
+	/**
+	 * @description Whether the value of one field can be copied into another field. A text field or a lookup field
+	 * takes text or a record Id. A decimal number field (number, currency or percent) takes any number. A whole number
+	 * field takes only a whole number, because Salesforce will not put a decimal number into it, and that error would
+	 * fail the save of every row read with it. A date, a date and time, or a checkbox field takes only its own type.
+	 * Every other pair is refused. Field lengths are not compared, and a text value that is not a valid record Id is
+	 * not checked: like a value that is too long, it fails only its own row when the row is saved.
+	 *
+	 * @param sourceField The field to copy from.
+	 * @param targetField The field to copy into.
+	 *
+	 * @return True when the target field can take a value of the source field's type; false for any other pair, or a
+	 * null field.
+	 *
+	 * @since 1.12
+	 *
+	 * @example
+	 * ```apex
+	 * Boolean canCopy = UTIL_SObjectDescribe.canCopyValue(Account.NumberOfEmployees, Account.AnnualRevenue);
+	 * // canCopy is true: a whole number fits in a currency field
+	 * ```
+	 */
+	public static Boolean canCopyValue(SObjectField sourceField, SObjectField targetField)
+	{
+		Set<DisplayType> sourceTypes = SOURCE_TYPES_BY_TARGET_TYPE.get(getCachedFieldDescribe(targetField)?.getType());
+		return sourceTypes?.contains(getCachedFieldDescribe(sourceField)?.getType()) ?? false;
+	}
+
+	/**
+	 * @description Builds the field types each field type can take a copied value from.
+	 *
+	 * @return For each field type that can take a copied value, the field types it takes.
+	 */
+	private static Map<DisplayType, Set<DisplayType>> buildSourceTypesByTargetType()
+	{
+		Set<DisplayType> textSourceTypes = new Set<DisplayType>(COPYABLE_TEXT_TYPES);
+		textSourceTypes.addAll(RECORD_ID_TYPES);
+
+		Set<DisplayType> numberSourceTypes = new Set<DisplayType>(DECIMAL_NUMBER_TYPES);
+		numberSourceTypes.addAll(WHOLE_NUMBER_TYPES);
+
+		Map<DisplayType, Set<DisplayType>> sourceTypesByTargetType = new Map<DisplayType, Set<DisplayType>>
+		{
+				DisplayType.REFERENCE => textSourceTypes,
+				DisplayType.DATE => new Set<DisplayType> {DisplayType.DATE},
+				DisplayType.DATETIME => new Set<DisplayType> {DisplayType.DATETIME},
+				DisplayType.BOOLEAN => new Set<DisplayType> {DisplayType.BOOLEAN}
+		};
+
+		addSourceTypes(sourceTypesByTargetType, COPYABLE_TEXT_TYPES, textSourceTypes);
+		addSourceTypes(sourceTypesByTargetType, DECIMAL_NUMBER_TYPES, numberSourceTypes);
+		addSourceTypes(sourceTypesByTargetType, WHOLE_NUMBER_TYPES, WHOLE_NUMBER_TYPES);
+
+		return sourceTypesByTargetType;
+	}
+
+	/**
+	 * @description Records that each of the given field types takes a copied value from the given source types.
+	 *
+	 * @param sourceTypesByTargetType The map to add to.
+	 * @param targetTypes The field types that take the copied value.
+	 * @param sourceTypes The field types they take it from.
+	 */
+	private static void addSourceTypes(Map<DisplayType, Set<DisplayType>> sourceTypesByTargetType, Set<DisplayType> targetTypes, Set<DisplayType> sourceTypes)
+	{
+		for(DisplayType targetType : targetTypes)
+		{
+			sourceTypesByTargetType.put(targetType, sourceTypes);
+		}
 	}
 
 	/**
@@ -2886,7 +3092,7 @@ global inherited sharing class UTIL_SObjectDescribe
 		 */
 		private Boolean computeIsTraversableReference(DescribeFieldResult fieldDescribe, String fieldNameLower)
 		{
-			if(fieldDescribe.type != DisplayType.REFERENCE)
+			if(!isLookupField(fieldDescribe))
 			{
 				return false;
 			}

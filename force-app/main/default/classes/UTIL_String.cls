@@ -12,7 +12,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -176,7 +176,8 @@ global inherited sharing class UTIL_String
 	 * a pattern search that takes too many steps, and ends the transaction with an error that no code can catch. The
 	 * shipped rule that hides JSON Web Tokens reaches that limit in one search over 400,000 to 490,000 characters of
 	 * ordinary text. The limit counts each search on its own, so fifteen searches of this length in one transaction
-	 * finish in about 60 milliseconds. A value at or under this length is searched in one go.
+	 * finish in about 60 milliseconds. A value at or under this length is searched in one go. A pattern that looks for
+	 * the start or the end of the value is not run on a longer value, because no piece holds both (see `maskWithRegex`).
 	 */
 	public static final Integer PATTERN_SEARCH_PIECE_LENGTH = 131072;
 
@@ -201,6 +202,82 @@ global inherited sharing class UTIL_String
 	private static final String REPLACEMENT_GROUP_START = '$';
 
 	/**
+	 * @description The backslash that, in a pattern, makes the character after it plain text, or starts a sign such as
+	 * `\A` or `\Q`.
+	 */
+	private static final String PATTERN_ESCAPE_START = '\\';
+
+	/**
+	 * @description The letters that, after a backslash in a pattern, look for the start or the end of the value: `\A` (the
+	 * start), `\Z` and `\z` (the end), and `\G` (where the last match ended, at first the start).
+	 */
+	private static final String ESCAPED_ANCHOR_LETTERS = 'AZzG';
+
+	/**
+	 * @description The two signs that, in a pattern, look for the start (`^`) or the end (`$`) of the value.
+	 */
+	private static final String START_OR_END_ANCHORS = '^$';
+
+	/**
+	 * @description The letter that, after a backslash in a pattern, starts a quote: everything up to `\E` is plain text.
+	 */
+	private static final String QUOTE_START_LETTER = 'Q';
+
+	/**
+	 * @description The backslash and letter that start a quote in a pattern.
+	 */
+	private static final String QUOTE_START = '\\Q';
+
+	/**
+	 * @description The backslash and letter that end a quote in a pattern.
+	 */
+	private static final String QUOTE_END = '\\E';
+
+	/**
+	 * @description The letter that, after a backslash in a pattern, makes the next character a control character. `\c[`
+	 * is one control character, not the start of a set of characters.
+	 */
+	private static final String CONTROL_CHARACTER_LETTER = 'c';
+
+	/**
+	 * @description How many characters a backslash and the character after it take in a pattern.
+	 */
+	private static final Integer ESCAPE_LENGTH = 2;
+
+	/**
+	 * @description How many characters a control character, such as `\c[`, takes in a pattern.
+	 */
+	private static final Integer CONTROL_CHARACTER_ESCAPE_LENGTH = 3;
+
+	/**
+	 * @description The bracket that opens a set of characters in a pattern, such as `[$]`.
+	 */
+	private static final String CHARACTER_SET_START = '[';
+
+	/**
+	 * @description The bracket that closes a set of characters in a pattern.
+	 */
+	private static final String CHARACTER_SET_END = ']';
+
+	/**
+	 * @description Finds a flag group that turns on comments mode in a pattern: an `x` among the flags, as in `(?x)`,
+	 * `(?ix)` or `(?x:`. In comments mode a `#` starts a comment that can hold any character. Only the start of the group
+	 * is looked for, up to the `x`. After the `x` the platform skips spaces, line ends and `#` comments inside the group,
+	 * so `(?x )` and `(?x#note` followed by a line end and `)` turn comments mode on too. It is used on the pattern with
+	 * every `\Q` and `\E` taken out, so it also finds a flag written inside a quote, such as `(?\Qx\E)`. It can also find
+	 * `(?` followed by letters and an `x` that is not a flag group, such as `\(?ext` (an escaped bracket made optional,
+	 * then a word). Such a pattern then counts as having an anchor if it holds one of the anchor characters, which is the
+	 * safe side.
+	 */
+	private static final Pattern COMMENTS_MODE_FLAG_GROUP = Pattern.compile('\\(\\?[a-zA-Z-]*x');
+
+	/**
+	 * @description Finds any sign in a pattern that can look for the start or the end of the value: `^`, `$`, `\A`, `\Z`,
+	 * `\z` or `\G`. It does not look at what comes before the sign.
+	 */
+	private static final Pattern ANY_START_OR_END_ANCHOR = Pattern.compile('[\\^$]|\\\\[AZzG]');
+
+	/**
 	 * @description The ten digits. A character is a digit when this text holds it.
 	 */
 	private static final String DIGITS = '0123456789';
@@ -217,6 +294,12 @@ global inherited sharing class UTIL_String
 	 * @description Maximum recursion depth while walking a deserialized JSON tree.
 	 */
 	private static final Integer JSON_WALK_MAX_DEPTH = 50;
+
+	/**
+	 * @description The message of the error `deserializeWholeJsonValue` throws when more text follows the first JSON
+	 * value. The callers catch the error and read the value with the text search, so no user sees it.
+	 */
+	private static final String TEXT_AFTER_JSON_VALUE_MESSAGE = 'More text follows the first JSON value';
 
 	/**
 	 * @description The most opening brackets (`{` and `[` added together) a JSON value can hold and still be read as a
@@ -1512,12 +1595,18 @@ global inherited sharing class UTIL_String
 	 * piece, and a match that runs to the end of a piece is joined with a match that starts right where it ends, so a
 	 * pattern such as `(?s).+` replaces the whole value once.
 	 *
+	 * A pattern that looks for the start or the end of the value, such as `^` or `$` (see `containsStartOrEndAnchor`), is
+	 * not run on a longer value, because no piece holds both the start and the end. The result is then
+	 * `UTIL_FrameworkMasker.FAILURE_MARKER` in place of the whole value. A pattern that does not compile still throws
+	 * first, on a value of any length.
+	 *
 	 * @param input The value to mask
 	 * @param regex The regex pattern to match
 	 * @param replacement The replacement string; `$1`, `$2` etc. reference capture groups
 	 * @param caseSensitive When false, the regex is wrapped with `(?i)` for case-insensitive matching
 	 *
-	 * @return The input with every match replaced, or the input unchanged if no match
+	 * @return The input with every match replaced, the input unchanged if no match, or the failure marker for a pattern
+	 * that looks for the start or the end of a long value
 	 *
 	 * @example
 	 * ```apex
@@ -1539,9 +1628,127 @@ global inherited sharing class UTIL_String
 			return compiledPattern.matcher(input).replaceAll(replacement);
 		}
 
+		if(String.isNotBlank(regex) && containsStartOrEndAnchor(regex))
+		{
+			return UTIL_FrameworkMasker.FAILURE_MARKER;
+		}
+
 		PatternSearch search = new PatternSearch(input, compiledPattern, replacement);
 		search.searchWholeValue();
 		return search.buildMaskedValue();
+	}
+
+	/**
+	 * @description Answers whether a pattern holds an anchor: a part of the pattern that matches only at the start or the
+	 * end of the value. Such a pattern cannot be searched in pieces: no piece holds both the start and the end of a long
+	 * value, so the pattern would leave text in clear. The check reads the pattern as it was written:
+	 * - A `^` or `$` counts. It does not count after a backslash (`\$`), inside a set of characters such as `[$]` (a set
+	 *   inside a set too), or inside a `\Q...\E` quote, where every character is plain text.
+	 * - `\A`, `\Z`, `\z` and `\G` count, unless they are inside a `\Q...\E` quote.
+	 * - A backslash makes the character after it plain text: `\[` does not open a set, and `\\` is one plain backslash,
+	 *   so the `$` in `\\$` counts. `\c` takes one more character: `\c[` is one control character, not a set.
+	 * - A `\c` followed by a backslash counts. The platform takes out quotes before it reads anything else, so it can see
+	 *   a quote start in `\c\Q`, and the check cannot follow that.
+	 * - Line mode, `(?m)`, changes nothing: a `^` or `$` counts in it as it does outside it.
+	 * - In comments mode (an `x` in a flag group, such as `(?x)`, `(?ix)` or `(?x:`), a `#` starts a comment that can
+	 *   hold a bracket. So a pattern in comments mode counts when it holds a `^`, `$`, `\A`, `\Z`, `\z` or `\G` anywhere.
+	 *   The flag group is looked for with every `\Q` and `\E` taken out, because the platform takes out quotes first: in
+	 *   `(?\Qx\E)` the `x` turns comments mode on.
+	 * - A set of characters still open at the end of the pattern counts.
+	 * When the check is in doubt, the answer is yes. It closes a set at its first `]`, which can be earlier than the
+	 * platform closes it (in `[]$]`), never later. A look-behind or a look-ahead that does the work of an anchor, such as
+	 * `(?<![\s\S])`, is not read and does not count.
+	 *
+	 * @param regex The pattern as it was written, before the flag that ignores case is added
+	 *
+	 * @return True when the pattern holds an anchor, or when the check cannot tell
+	 */
+	private static Boolean containsStartOrEndAnchor(String regex)
+	{
+		String regexWithoutQuoteSigns = regex.replace(QUOTE_START, EMPTY).replace(QUOTE_END, EMPTY);
+
+		if(COMMENTS_MODE_FLAG_GROUP.matcher(regexWithoutQuoteSigns).find() && ANY_START_OR_END_ANCHOR.matcher(regex).find())
+		{
+			return true;
+		}
+
+		Integer setDepth = 0;
+		Integer index = 0;
+		Integer regexLength = regex.length();
+
+		while(index < regexLength)
+		{
+			String character = regex.substring(index, index + 1);
+
+			if(character.equals(PATTERN_ESCAPE_START))
+			{
+				String escapedCharacter = regex.mid(index + 1, 1);
+				Boolean isControlLetterBeforeBackslash = escapedCharacter.equals(CONTROL_CHARACTER_LETTER)
+						&& regex.mid(index + ESCAPE_LENGTH, 1).equals(PATTERN_ESCAPE_START);
+
+				if(isControlLetterBeforeBackslash || ESCAPED_ANCHOR_LETTERS.contains(escapedCharacter))
+				{
+					return true;
+				}
+
+				index = findEscapeEnd(regex, index, escapedCharacter);
+			}
+			else
+			{
+				if(setDepth == 0 && START_OR_END_ANCHORS.contains(character))
+				{
+					return true;
+				}
+
+				setDepth = findSetDepthAfter(character, setDepth);
+				index++;
+			}
+		}
+
+		return setDepth > 0;
+	}
+
+	/**
+	 * @description Finds the end of an escape: a backslash and the characters that belong to it. A quote, `\Q`, runs to
+	 * its `\E`, or to the end of the pattern when there is no `\E`. A control character, such as `\c[`, takes three
+	 * characters. A `\c` followed by a backslash never comes here: the check answers "anchor" for it first. Any other
+	 * backslash takes itself and the character after it.
+	 *
+	 * @param regex The pattern
+	 * @param escapeStart Where the backslash is in the pattern
+	 * @param escapedCharacter The character after the backslash
+	 *
+	 * @return Where the next character to read is in the pattern
+	 */
+	private static Integer findEscapeEnd(String regex, Integer escapeStart, String escapedCharacter)
+	{
+		if(escapedCharacter.equals(QUOTE_START_LETTER))
+		{
+			Integer quoteEnd = regex.indexOf(QUOTE_END, escapeStart + ESCAPE_LENGTH);
+			return quoteEnd < 0 ? regex.length() : quoteEnd + QUOTE_END.length();
+		}
+
+		return escapeStart + (escapedCharacter.equals(CONTROL_CHARACTER_LETTER) ? CONTROL_CHARACTER_ESCAPE_LENGTH : ESCAPE_LENGTH);
+	}
+
+	/**
+	 * @description Counts how many sets of characters are open after one more character of the pattern is read, outside
+	 * a quote and not after a backslash. A `[` opens a set, also inside a set. A `]` closes the last set opened, and is
+	 * plain text when no set is open.
+	 *
+	 * @param character The character just read
+	 * @param setDepth How many sets were open before it
+	 *
+	 * @return How many sets are open after it
+	 */
+	private static Integer findSetDepthAfter(String character, Integer setDepth)
+	{
+		if(character.equals(CHARACTER_SET_START))
+		{
+			return setDepth + 1;
+		}
+
+		return character.equals(CHARACTER_SET_END) ? Math.max(0, setDepth - 1) : setDepth;
 	}
 
 	/**
@@ -1553,8 +1760,8 @@ global inherited sharing class UTIL_String
 	 * `PATTERN_SEARCH_PIECE_OVERLAP` characters before the end of the piece before it, and the last piece ends at the end
 	 * of the value. Each piece gets a matcher of its own, because the platform adds up the steps of every search made with
 	 * one matcher. The matcher reads the whole value but looks for matches only inside its piece (a region). A look-behind
-	 * or a look-ahead in the pattern still sees the characters just outside the piece, and `^` and `$` match only at the
-	 * real start and end of the value, not at the ends of a piece.
+	 * or a look-ahead in the pattern still sees the characters just outside the piece. A pattern that looks for the start
+	 * or the end of the value never reaches this search (see `containsStartOrEndAnchor`).
 	 */
 	private inherited sharing class PatternSearch
 	{
@@ -2309,6 +2516,8 @@ global inherited sharing class UTIL_String
 	 * - A value with more opening brackets is read one token at a time (see `maskJsonKeysStreaming`), at any
 	 *   depth.
 	 * - A value that the JSON reader refuses goes to the text search.
+	 * - A value read as a whole tree that holds more text after its first JSON value, such as two objects one after
+	 *   the other, goes to the text search too (see `deserializeWholeJsonValue`).
 	 * When no key matched, the method returns the input string itself, byte for byte. The text search replaces every
 	 * plain value under a matching key: a text, a number, `true`, `false` or `null`. When a matching key holds a value
 	 * it cannot hide safely, such as an object or a text with no closing quote, the method returns
@@ -2351,7 +2560,7 @@ global inherited sharing class UTIL_String
 				return maskJsonKeysStreaming(input, keyRegex, replacement, caseSensitive).maskedText;
 			}
 
-			JsonKeyMaskResult masked = applyJsonKeyRuleToTreeWithCount(JSON.deserializeUntyped(input), keyRegex, replacement, caseSensitive);
+			JsonKeyMaskResult masked = applyJsonKeyRuleToTreeWithCount(deserializeWholeJsonValue(input), keyRegex, replacement, caseSensitive);
 			return masked.mutated ? JSON.serialize(masked.tree) : input;
 		}
 		catch(System.JSONException parseError)
@@ -2369,6 +2578,9 @@ global inherited sharing class UTIL_String
 	 * search keeps it safe: it masks every plain value under a secret key, and puts the failure marker in place of the
 	 * whole value when an object or list follows a secret key.
 	 *
+	 * A value with the outline can still hold two JSON values one after the other, such as `{"user":"a"} {"token":"b"}`.
+	 * Reading it as a tree finds that and sends it to the text search too (see `deserializeWholeJsonValue`).
+	 *
 	 * @param input The value to check
 	 *
 	 * @return True when the value starts and ends like a JSON object or a JSON list
@@ -2377,6 +2589,40 @@ global inherited sharing class UTIL_String
 	{
 		String trimmed = input?.trim() ?? EMPTY;
 		return (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'));
+	}
+
+	/**
+	 * @description Reads a JSON text as a tree, as `JSON.deserializeUntyped` does, but only when the text holds one JSON
+	 * value and nothing more.
+	 *
+	 * `JSON.deserializeUntyped` reads the first JSON value of a text and quietly ignores the rest. For
+	 * `{"user":"a"} {"password":"x"}` it gives only the first object. A JsonKey rule that walked that tree would never
+	 * see the second object, and its secret would be stored as it came.
+	 *
+	 * So this method first reads the text with the JSON token reader: it skips the first value and checks that no token
+	 * follows it. Spaces and line breaks after the value are not tokens.
+	 *
+	 * The token reader reads a second JSON value after the first one, and refuses any other text there, such as a comma
+	 * or a word. Both cases end in the exception below.
+	 *
+	 * @param input The JSON text to read
+	 *
+	 * @return The JSON value as a tree of maps, lists, texts, numbers, true, false and null
+	 *
+	 * @throws System.JSONException When the text is not valid JSON, or when more text follows its first JSON value
+	 */
+	public static Object deserializeWholeJsonValue(String input)
+	{
+		JSONParser parser = JSON.createParser(input);
+		parser.nextToken();
+		parser.skipChildren();
+
+		if(parser.nextToken() != null)
+		{
+			throw new System.JSONException(TEXT_AFTER_JSON_VALUE_MESSAGE);
+		}
+
+		return JSON.deserializeUntyped(input);
 	}
 
 	/**
@@ -2485,6 +2731,7 @@ global inherited sharing class UTIL_String
 	 * - Keys keep their order, and a key written twice stays twice; each copy is checked.
 	 * - Numbers are written again from their value: `1.00` stays `1.00`, but `1e5` is written as `1E+5`, the same
 	 *   number.
+	 * - A second JSON value after the first, such as one object per line, is read and checked too.
 	 * When no key matched, `maskedText` is the input string itself, byte for byte. To apply several rules to one value,
 	 * call this once per rule, in rule order, each time on the output of the call before.
 	 *

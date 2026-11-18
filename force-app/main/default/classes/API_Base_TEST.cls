@@ -10,7 +10,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.NcssCount')
 @IsTest(seeAllData=false isParallel=true)
@@ -20,6 +20,12 @@ private class API_Base_TEST
 	 * @description Error message expected when status text is incorrect.
 	 */
 	private static final String MSG_WRONG_STATUS = 'Incorrect status text';
+
+	/**
+	 * @description The start of the target of a bypass entry for a save that ignores record sharing. The object's name
+	 * follows it.
+	 */
+	private static final String SHARING_TARGET_PREFIX = 'sharing:';
 
 	/**
 	 * @description The bearer credential the Authorization probe header carries; random so no fixed value can pass by
@@ -133,6 +139,16 @@ private class API_Base_TEST
 	private static final String SECRET_PATTERN = 'secret-[A-Za-z0-9]+';
 
 	/**
+	 * @description The name of a rule whose pattern looks for the start and the end of the whole value.
+	 */
+	private static final String ANCHORED_RULE_NAME = 'AnchoredWholeRequestRule';
+
+	/**
+	 * @description A pattern that matches a whole value from its start to its end, line ends included.
+	 */
+	private static final String ANCHORED_WHOLE_VALUE_PATTERN = '(?s)^.+$';
+
+	/**
 	 * @description A secret that SECRET_PATTERN finds. Its last part is random, so no fixed text can pass by chance.
 	 */
 	private static final String SECRET = 'secret-' + UTIL_Random.randomAlphanumeric(12);
@@ -183,7 +199,7 @@ private class API_Base_TEST
 	 * raw payload has no such dots, so a rule with this pattern changes a text only when a second pass runs over the cut
 	 * text.
 	 */
-	private static final String CUT_MARKER_PATTERN = '\\.\\.\\.$';
+	private static final String CUT_MARKER_PATTERN = '\\.\\.\\.';
 
 	/**
 	 * @description The text the rule with CUT_MARKER_PATTERN writes in place of the three dots. It is shorter than the
@@ -980,6 +996,44 @@ private class API_Base_TEST
 	}
 
 	/**
+	 * @description A service whose commit ignores record sharing writes one sharing bypass entry for each object it
+	 * saves. The service's own method is named as the caller, not the framework class it extends.
+	 *
+	 * @see API_Base.commitWork
+	 */
+	@IsTest
+	private static void shouldRecordAServiceThatIgnoresSharingWhenItCommits()
+	{
+		SharingIgnoringHandler handler = new SharingIgnoringHandler();
+		handler.assignApiCallWhenMissing((ApiCall__c)TST_Builder.of(ApiCall__c.SObjectType)
+				.withOverride(ApiCall__c.ServiceName__c, SharingIgnoringHandler.class.getName())
+				.withoutInsertion()
+				.build());
+		handler.doInsert(TST_Factory.newFoobar());
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LOG_Builder.suspendSaving();
+
+		Test.startTest();
+		handler.commitIgnoringSharing();
+		Test.stopTest();
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML,
+				SHARING_TARGET_PREFIX + String.valueOf(Foobar__c.SObjectType));
+		Assert.areEqual(1, entries.size(), 'Expected one sharing entry for the saved object, got ' + entries);
+		String caller = (String)entries[0].get(UTIL_BypassAudit.CONTEXT_CALLER);
+		if(String.isBlank(UTIL_System.getManagedPackageNamespace()))
+		{
+			String expectedStart = SharingIgnoringHandler.class.getName() + '.commitIgnoringSharing';
+			Assert.isTrue(caller?.startsWith(expectedStart) == true, 'Expected the caller to start with ' + expectedStart + ', got ' + caller);
+		}
+		else
+		{
+			Assert.areEqual(UTIL_BypassAudit.class.getName() + '.emit', caller, 'Expected the fallback caller in a namespaced org, got ' + caller);
+		}
+	}
+
+	/**
 	 * @description Dispatches one inbound call while a stand-in refuses the first statement of the handler's commit with
 	 * a lock refusal, and takes the stand-in away again whatever happens. The stand-in is set after the test has started,
 	 * so it refuses only the commit's statements.
@@ -1378,6 +1432,32 @@ private class API_Base_TEST
 		Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, stored.Request__c, 'Expected the failure marker in the request field, got ' + stored.Request__c?.left(40));
 		Map<String, String> filesByTitle = readFilesByTitle(stored.Id);
 		Assert.isFalse(filesByTitle.containsKey(REQUEST_FILE_TITLE), 'Expected no request file when the field holds the failure marker');
+	}
+
+	/**
+	 * @description Tests that a rule that looks for the start and the end of the value, met by a request longer than its
+	 * field, stores the failure marker in the field and makes no request file. The rule is set to log and continue, so a
+	 * rule that failed would store the request in clear. The secret is in no field and in no file.
+	 *
+	 * @see API_Base.setApiCallDetails
+	 */
+	@IsTest
+	private static void shouldStoreTheMarkerAndNoFileWhenAnAnchoredRuleMeetsARequestLongerThanItsField()
+	{
+		registerTarget(ApiCall__c.SObjectType, ApiCall__c.Request__c,
+				newRegexRule(ANCHORED_RULE_NAME, ANCHORED_WHOLE_VALUE_PATTERN, HIDDEN_TOKEN, SEL_MaskingRule.FAILURE_LOG_AND_CONTINUE), null);
+		String requestBody = SECRET + ' ' + 'v'.repeat(OVERSIZED_PAYLOAD_LENGTH);
+
+		ApiCall__c stored = dispatchMaskingTestCall(MaskingTestOutbound.class.getName(), requestBody, SUCCESS_RESPONSE_BODY, null);
+
+		Assert.isTrue(requestBody.length() > UTIL_String.PATTERN_SEARCH_PIECE_LENGTH, 'Expected the request to be longer than one search piece');
+		Assert.areEqual(UTIL_FrameworkMasker.FAILURE_MARKER, stored.Request__c, 'Expected the failure marker in the request field, got ' + stored.Request__c?.left(40));
+		Map<String, String> filesByTitle = readFilesByTitle(stored.Id);
+		Assert.isFalse(filesByTitle.containsKey(REQUEST_FILE_TITLE), 'Expected no request file when the field holds the failure marker');
+		for(String title : filesByTitle.keySet())
+		{
+			Assert.isFalse(filesByTitle.get(title).contains(SECRET), 'Expected the secret in no file, found it in ' + title);
+		}
 	}
 
 	/**
@@ -2195,6 +2275,32 @@ private class API_Base_TEST
 				throw new UTIL_Exceptions.IllegalStateException(MESSAGE_THROWN_AFTER_COMMIT);
 			}
 			super.onCommitWorkFinished(wasSuccessful);
+		}
+	}
+
+	/**
+	 * @description A handler built straight on the base class whose commit ignores record sharing, as a service in your
+	 * org might do.
+	 */
+	public class SharingIgnoringHandler extends API_Base
+	{
+		/**
+		 * @description Gives the content type of the handler's calls.
+		 *
+		 * @return The JSON content type.
+		 */
+		public override String getEncoding()
+		{
+			return API_Base.HTTP_ENCODING_JSON;
+		}
+
+		/**
+		 * @description Commits the handler's records without record sharing. It is a method of its own, because the
+		 * commitWork method with no parameter cannot be overridden in a service.
+		 */
+		public void commitIgnoringSharing()
+		{
+			commitWork(false);
 		}
 	}
 
